@@ -1,0 +1,61 @@
+-- Illustrates the problem of reproving subnode invariants discovered
+-- by invariant generation at the top level.
+
+-- The top node calls the subnode through a condact the activation
+-- condition of which is an input.  Invariant lifting is emulated by
+-- having the subnode output everything needed to re-contsruct the
+-- invariant at top level.
+-- Namely, the subnode invariant is
+-- ok  = (x -y <= nX - nY) ;
+-- The subnode is called as follows.
+-- x, y, nX, nY = condact(clock, counters(a,b,c), (0,0,5,3)) ;
+-- And the subnode invariant is reconstructed at top level as
+-- ok = clock => (x - y <= nX - nY) ;
+-- which is how Kind 2 would lift it in modular invariant generation.
+
+-- File [coudact-invariant-lifting-aux.lus] only contains the subnode,
+-- and Kind 2 confirms [ok] is actually an invariant.  When running
+-- Kind 2 on this file however, where the proof objective is the
+-- aforementioned lifted invariant, k-induction loops forever.
+
+-- What happens is that the activation condition is an input, it
+-- therefore never needs to tick.  In a trace where the clock never
+-- ticks, incrementing the [k] does not constrain the trace further:
+-- the 0-induction counterexample is just passed around [k+1] times
+-- until the falsification happens at [k+2].
+
+node counters (a,b,c: bool) returns(x, y, nX, nY: int);
+var
+  pre_x,pre_y: int;
+  ok: bool;
+let
+
+  -- Ranges over the state variables, can be found easily
+  -- by AI or template-based techniques.
+  assert (0 <= x) and (x <= nX) and (0 <= y) and (y <= nY);
+
+  nX=5;
+  nY=3;
+  pre_x = 0-> pre(x);
+  pre_y = 0-> pre(y);
+
+  x = if (b or c) then 0
+      else (if (a and pre_x < nX) then pre_x + 1 else pre_x);
+
+  y = if (c) then 0 
+      else (if (a and pre_y < nY) then pre_y + 1 else pre_y);
+
+  ok = (x - y <= nX - nY) ;
+
+--%PROPERTY ok;
+tel
+
+node top (clock, a, b, c: bool) returns (ok: bool);
+var
+  x, y, nX, nY: int;
+let
+  x, y, nX, nY = condact (clock, counters(a,b,c), (0,0,5,3)) ;
+  ok = clock => (x - y <= nX - nY) ;
+  --%PROPERTY ok ;
+  --%MAIN ;
+tel

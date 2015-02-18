@@ -20,14 +20,6 @@
 open Lib
 
 
-(* Use configured SMT solver *)
-module Solver = SMTSolver.Make (SMTLIBSolver)
-
-
-(* High-level methods for solver *)
-module S = SolverMethods.Make (Solver)
-
-
 (* Solver instance if created *)
 let ref_solver = ref None
 
@@ -39,7 +31,7 @@ let on_exit _ =
   (try 
      match !ref_solver with 
        | Some solver -> 
-         S.delete_solver solver;  
+         SMTSolver.delete_instance solver;  
          ref_solver := None
        | None -> ()
    with 
@@ -58,7 +50,7 @@ let rec assert_trans solver t i =
     (
 
       (* Assert transition relation from [i-1] to [i] *)
-      S.assert_term solver (TransSys.trans_of_bound t i);
+      SMTSolver.assert_term solver (TransSys.trans_of_bound t i);
                             
       (* Continue with for [i-2] and [i-1] *)
       assert_trans solver t Numeral.(i - one)
@@ -70,6 +62,8 @@ let rec assert_trans solver t i =
 let main input_file trans_sys =
 
   Event.set_module `Interpreter;
+
+  let input_scope = TransSys.get_scope trans_sys in
 
   if input_file = "" then 
 
@@ -95,7 +89,7 @@ let main input_file trans_sys =
 
       try
 
-        InputParser.read_file input_file 
+        InputParser.read_file input_scope input_file 
 
       with Sys_error e -> 
 
@@ -168,29 +162,26 @@ let main input_file trans_sys =
 
     (* Create solver instance *)
     let solver = 
-      S.new_solver ~produce_assignments:true logic
+      SMTSolver.create_instance ~produce_assignments:true logic (Flags.smtsolver ())
     in
 
     (* Create a reference for the solver. Only used in on_exit. *)
     ref_solver := Some solver;
-
-    (* Declare uninterpreted function symbols *)
-    TransSys.iter_state_var_declarations
+    
+    (* Defining uf's and declaring variables. *)
+    TransSys.init_define_fun_declare_vars_of_bounds
       trans_sys
-      (S.declare_fun solver);
-
-    (* Define functions *)
-    TransSys.iter_uf_definitions
-      trans_sys
-      (S.define_fun solver);
+      (SMTSolver.define_fun solver)
+      (SMTSolver.declare_fun solver)
+      Numeral.(~- one) Numeral.(of_int steps) ;
 
     (* Assert initial state constraint *)
-    S.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
+    SMTSolver.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
 
     (* Assert transition relation up to number of steps *)
     assert_trans solver trans_sys (Numeral.of_int steps);
 
-    (* Assert equation of state varariable and its value at each
+    (* Assert equation of state variable and its value at each
        instant *)
     List.iter
 
@@ -217,7 +208,7 @@ let main input_file trans_sys =
                   in
 
                   (* Assert equation *)
-                  S.assert_term solver equation))
+                  SMTSolver.assert_term solver equation))
 
            values)
 
@@ -229,22 +220,22 @@ let main input_file trans_sys =
       (Flags.input_file ()); 
 
     (* Run the system *)
-    if (S.check_sat solver) then
+    if (SMTSolver.check_sat solver) then
 
       (
 
         (* Extract execution path from model *)
         let path = 
-          TransSys.path_from_model 
-            trans_sys
-            (S.get_model solver)
+          Model.path_from_model 
+            (TransSys.state_vars trans_sys)
+            (SMTSolver.get_model solver)
             Numeral.(pred (of_int steps))
         in
 
         (* Output execution path *)
         Event.execution_path
           trans_sys 
-          path
+          (Model.path_to_list path)
 
       )
 

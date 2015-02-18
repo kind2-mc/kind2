@@ -16,10 +16,24 @@
 
 *)
 
-type invariants = Term.t list
-type model = (Var.t * Term.t) list
-type path = (StateVar.t * Term.t list) list
-type property = (string * Term.t)
-type properties = property list
-type cex = (property list * path)
-type cexs = cex list
+include GenericSMTLIBDriver
+
+(* Configuration for Z3 *)
+let cmd_line () = 
+
+  (* Path and name of Z3 executable *)
+  let z3_bin = Flags.z3_bin () in
+  [| z3_bin; "-smt2"; "-in" |]
+
+
+(* Command to limit check-sat in Z3 to run for the given numer of ms
+   at most *)
+let check_sat_limited_cmd ms = 
+  Format.sprintf "(check-sat-using (try-for smt %d))" ms
+
+
+let check_sat_assuming_supported () = true
+
+let check_sat_assuming_cmd () = "check-sat"
+
+let headers () = [ "(set-option :interactive-mode true)" ]

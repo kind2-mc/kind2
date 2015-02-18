@@ -25,7 +25,7 @@ let
 
   time_is_positive = time >= 0;
   time_is_less_than_three = time < 3;
-  --%PROPERTY time_is_positive;
+  -- --%PROPERTY time_is_positive;
   --%PROPERTY time_is_less_than_three;
 
   --%MAIN

@@ -16,13 +16,19 @@
 
 *)
 
-open Lib
+(** An interface to the Yices SMT solver in native format.
 
-type invariants = Term.t list
-type model = (Var.t * Term.t) list
-type path = (StateVar.t * Term.t list) list
-type property = (string * Term.t)
-type properties = property list
-type cex = (property list * path)
-type cexs = cex list
+    Use this module as input to the {!SMTSolver.Make} functor 
+ *)
 
+
+include SolverSig.S
+
+
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   indent-tabs-mode: nil
+   End: 
+*)

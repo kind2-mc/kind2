@@ -17,6 +17,19 @@
 *)
 
 (* ********************************************************************** *)
+(* Helper functions                                                       *)
+(* ********************************************************************** *)
+
+(* Identity function. *)
+let identity anything = anything
+
+(* Returns true when given unit. *)
+let true_of_unit () = true
+
+(* Returns false when given unit. *)
+let false_of_unit () = false
+
+(* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
 
@@ -345,8 +358,15 @@ let list_join equal l1 l2 =
              
   in
 
-  (* Call recursive function with initial accumulator *)
-  list_join' equal [] l1 l2
+  (* Second list is empty? *)
+  match l2 with 
+
+    (* Initialize with singleton elements from first list *)
+    | [] -> List.map (fun (k, v) -> (k, [v])) l1
+
+    (* Call recursive function with initial accumulator *)
+    | _ -> list_join' equal [] l1 l2
+
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)
@@ -406,7 +426,7 @@ let pp_print_paren_list ppf list =
   Format.pp_print_string ppf "(";
   
   (* Output elements of list *)
-  pp_print_list Format.pp_print_string " " ppf list;
+  pp_print_list Format.pp_print_string "@ " ppf list;
 
   (* End expression with closing parenthesis *)
   Format.pp_print_string ppf ")"
@@ -506,16 +526,14 @@ let rec pp_print_bitvector_b' ppf = function
   | false :: tl -> Format.pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
 
 
-(* Pretty-print a bitvector in binary format *)
-let pp_print_bitvector_b ppf b = 
+(* Pretty-print a bitvector in SMTLIB binary format *)
+let pp_smtlib_print_bitvector_b ppf b = 
   Format.fprintf ppf "#b%a" pp_print_bitvector_b' b
 
 
-(* Pretty-print a bitvector in binary format without #b prefix *)
-let rec pp_print_bitvector_b' ppf = function 
-  | [] -> ()
-  | true :: tl -> Format.pp_print_int ppf 1; pp_print_bitvector_b' ppf tl
-  | false :: tl -> Format.pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
+(* Pretty-print a bitvector in Yices' binary format *)
+let pp_yices_print_bitvector_b ppf b = 
+  Format.fprintf ppf "0b%a" pp_print_bitvector_b' b
 
 
 (* Association list of bitvectors to hexadecimal digits *)
@@ -717,7 +735,7 @@ let bitvector_of_string s =
   with 
       
     (* Convert from a binary string *)
-    | "#b" -> bitvector_of_string_b [] ((String.length s) - 1) s
+    | "#b" | "0b" -> bitvector_of_string_b [] ((String.length s) - 1) s
 
     (* Convert from a hexadecimal string *)
     | "#x" -> bitvector_of_string_x [] ((String.length s) - 1) s
@@ -900,6 +918,7 @@ type kind_module =
   | `BMC 
   | `IND
   | `INVGEN
+  | `INVGENOS
   | `INVMAN
   | `Interpreter
   | `Parser ]
@@ -907,10 +926,11 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `PDR -> Format.fprintf ppf "PDR"
-  | `BMC -> Format.fprintf ppf "BMC"
+  | `PDR -> Format.fprintf ppf "property directed reachability"
+  | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
-  | `INVGEN -> Format.fprintf ppf "invariant generator"
+  | `INVGEN -> Format.fprintf ppf "two state invariant generator"
+  | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Parser -> Format.fprintf ppf "parser"
@@ -926,6 +946,7 @@ let suffix_of_kind_module = function
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `INVGEN -> "inv"
+ | `INVGENOS -> "invos"
  | `INVMAN -> "man"
  | `Interpreter -> "interp"
  | `Parser -> "parse"
@@ -937,6 +958,7 @@ let kind_module_of_string = function
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
+  | "INVGENOS" -> `INVGENOS
   | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
@@ -1093,7 +1115,95 @@ let find_on_path exec =
 
     (* Return full path if file exists, fail otherwise *)
     if Sys.file_exists exec_path then exec_path else raise Not_found
- 
+
+(* ********************************************************************** *)
+(* Parser and lexer functions                                             *)
+(* ********************************************************************** *)
+
+
+(* A position in a file
+
+   The column is the actual colum number, not an offset from the
+   beginning of the file as in Lexing.position *)
+type position =
+  { pos_fname : string; pos_lnum: int; pos_cnum: int }
+
+
+(* Comparision on positions *)
+let compare_pos 
+    { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }  
+    { pos_fname = p2; pos_lnum = l2; pos_cnum = c2 } =
+
+  compare_pairs 
+    String.compare
+    (compare_pairs Pervasives.compare Pervasives.compare)
+    (p1, (l1, c1)) 
+    (p2, (l2, c2)) 
+
+
+(* A dummy position, different from any valid position *)
+let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
+
+
+(* A dummy position in the specified file *)
+let dummy_pos_in_file fname = 
+  { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
+
+
+(* Pretty-print a position *)
+let pp_print_position 
+    ppf 
+    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
+
+  if pos = dummy_pos then 
+
+    Format.fprintf ppf "(unknown)"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    Format.fprintf ppf "%s" pos_fname
+
+  else
+
+    Format.fprintf 
+      ppf
+      "@[<hv>%tline %d@ col. %d@]"
+      (function ppf -> 
+        if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+      pos_lnum
+      pos_cnum
+
+
+(* Convert a position from Lexing to a position *)
+let position_of_lexing 
+    { Lexing.pos_fname;
+      Lexing.pos_lnum;
+      Lexing.pos_bol;
+      Lexing.pos_cnum } = 
+
+  (* Colum number is relative to the beginning of the file *)
+  { pos_fname = pos_fname; 
+    pos_lnum = pos_lnum; 
+    pos_cnum = pos_cnum - pos_bol } 
+
+
+(* Return true if position is a dummy position *)
+let is_dummy_pos = function 
+  | { pos_cnum = -1 } -> true 
+  | _ -> false
+
+
+(* Return the file, line and column of a position; fail if the
+   position is a dummy position *)
+let file_row_col_of_pos = function 
+
+  (* Fail if position is a dummy position *)
+  | p when is_dummy_pos p -> raise (Invalid_argument "file_row_col_of_pos")
+
+  (* Return tuple of filename, line and column *)
+  | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
+
+
 
 (* 
    Local Variables:

@@ -51,7 +51,9 @@ sig
 
   val get_values : t -> Term.t list -> (Term.t * Term.t) list
 
-  val get_unsat_core : t -> Term.t list
+  val get_unsat_core_of_names : t -> Term.t list
+
+  val get_unsat_core_lits : t -> Term.t list
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
@@ -71,6 +73,8 @@ sig
   val check_entailment_cex : ?timeout:int -> t -> Term.t list -> Term.t -> bool * (Var.t * Term.t) list 
 
   val term_of_model : (Var.t * Term.t) list -> Term.t
+
+  val trace_comment : t -> string -> unit
 
 end
 
@@ -141,6 +145,10 @@ struct
 
     (* Delete solver instance *)
     S.delete_instance solver 
+
+
+  (* Output a comment into the trace *)
+  let trace_comment solver comment = S.trace_comment solver comment
 
 
   (* ******************************************************************** *)
@@ -228,7 +236,10 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_var vars) 
+        S.get_value solver
+          (List.map
+             SMTExpr.smtexpr_of_var
+             vars)
           
       with 
 
@@ -288,7 +299,8 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_term terms) 
+        S.get_value solver
+          (List.map SMTExpr.smtexpr_of_term terms)
           
       with 
 
@@ -340,8 +352,8 @@ struct
 
 
   (* Get model of the current context *)
-  let get_unsat_core solver =  
-
+  let get_unsat_core_of_names solver =  
+    
     match 
 
       (* Get values of SMT expressions in current context *)
@@ -389,6 +401,46 @@ struct
             raise (Failure "Invalid string in reply from SMT solver")
 
           
+  let get_unsat_core_lits solver = 
+
+    match 
+
+      (* Get values of SMT expressions in current context *)
+      S.get_unsat_core solver
+
+    with 
+
+      | SMTExpr.Error e, _ -> 
+
+        raise 
+          (Failure ("SMT solver failed: " ^ e))
+
+      | SMTExpr.Unsupported, _ -> 
+        raise 
+          (Failure 
+             ("SMT solver reported not implemented"))
+
+      | SMTExpr.NoResponse, _ ->
+        raise 
+          (Failure 
+             ("SMT solver did not produce a reply"))
+
+      | SMTExpr.Success, c -> 
+
+        (* Convert strings t<int> to integer *)
+        List.fold_left  
+          (fun a s -> 
+             try 
+               (Term.mk_uf 
+                  (UfSymbol.uf_symbol_of_string s)
+                  []) :: a
+             with Not_found -> assert false)
+          []
+          c
+              
+
+
+
 
   (* ******************************************************************** *)
   (* Higher level functions                                               *)
@@ -414,6 +466,7 @@ struct
   (* Checks satisfiability of some literals, runs if_sat if sat and
      if_unsat if unsat. *)
   let check_sat_assuming solver if_sat if_unsat literals =
+
     if SMTLIBSolver.check_sat_assuming_supported ()
 
     then

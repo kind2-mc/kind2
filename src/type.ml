@@ -18,7 +18,7 @@
 
 open Lib
 
-(* We need to hashcons types, since the type occurs in a hoasTerm,
+(* We need to hashcons types, since the type occurs in a term,
    which is hashconsed. We need to make sure that equality of all
    subterms in a hashconsed type is physical. *)
 
@@ -33,7 +33,9 @@ type kindtype =
   | Int
   | IntRange of Numeral.t * Numeral.t
   | Real
+(*
   | BV of int
+*)
   | Array of t * t
   | Scalar of string * string list 
 
@@ -82,8 +84,10 @@ module Kindtype_node = struct
     | IntRange _, _ -> false
     | Real, Real -> true
     | Real, _ -> false
+(*
     | BV i, BV j -> i = j
     | BV i, _ -> false
+*)
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
     | Array (i1, t1), _ -> false
     | Scalar (s1, l1), Scalar (s2, l2) -> 
@@ -170,7 +174,6 @@ module TypeMap = Map.Make (OrderedType)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
-
 (* Pretty-print a type *)
 let rec pp_print_type_node ppf = function 
 
@@ -187,18 +190,18 @@ let rec pp_print_type_node ppf = function
       Numeral.pp_print_numeral j
 
   | Real -> Format.pp_print_string ppf "Real"
-
+(*
   | BV i -> 
 
     Format.fprintf
       ppf 
       "BitVec %d" 
       i 
-
+*)
   | Array (s, t) -> 
     Format.fprintf
       ppf 
-      "Array %a %a" 
+      "Array (%a) (%a)" 
       pp_print_type s 
       pp_print_type t
 
@@ -213,6 +216,7 @@ let rec pp_print_type_node ppf = function
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
 
+let print_type = pp_print_type Format.std_formatter
 
 (* Return a string representation of a type *)
 let string_of_type t = string_of_t pp_print_type t
@@ -233,9 +237,9 @@ let mk_int () = Hkindtype.hashcons ht Int ()
 let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
-
+(*
 let mk_bv w = Hkindtype.hashcons ht (BV w) ()
-
+*)
 let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
 let mk_scalar s l = Hkindtype.hashcons ht (Scalar (s, l)) ()
@@ -248,8 +252,9 @@ let rec import { Hashcons.node = n } = match n with
   | Bool
   | Int
   | IntRange _
-  | Real
-  | BV _ as t -> mk_type t
+(*  | BV _ *)
+  | Real as t -> mk_type t
+
 
   (* Import index and value types of array type *)
   | Array (i, t) -> mk_array (import i) (import t)
@@ -267,42 +272,44 @@ let t_real = mk_real ()
 (* ********************************************************************* *)
 
 
-let is_int { Hashcons.node = t } = match t with
+let rec is_int { Hashcons.node = t } = match t with
   | Int -> true 
+  | Array (_, t) -> is_int t
+      
   | IntRange _
   | Bool 
   | Real
-  | BV _
-  | Array _ 
+(*  | BV _ *)
   | Scalar _ -> false
 
-let is_int_range { Hashcons.node = t } = match t with
+let rec is_int_range { Hashcons.node = t } = match t with
   | IntRange _ -> true 
+  | Array (_, t) -> is_int_range t
   | Int
   | Bool 
   | Real
-  | BV _
-  | Array _ 
+(* | BV _ *)
   | Scalar _ -> false
 
-let is_bool { Hashcons.node = t } = match t with
+let rec is_bool { Hashcons.node = t } = match t with
   | Bool -> true
+  | Array (_, t) -> is_bool t
   | Int
   | IntRange _
   | Real
-  | BV _
-  | Array _ 
+(*  | BV _ *)
   | Scalar _ -> false
 
-let is_real { Hashcons.node = t } = match t with
+let rec is_real { Hashcons.node = t } = match t with
   | Real -> true
-  | BV _
-  | Array _
+  | Array (_, t) -> is_real t
+(*   | BV _ *)
   | Bool
   | Int
   | IntRange _ 
   | Scalar _ -> false
 
+(*
 let is_bv { Hashcons.node = t } = match t with
   | BV _ -> true
   | Bool
@@ -311,6 +318,7 @@ let is_bv { Hashcons.node = t } = match t with
   | Real
   | Array _ 
   | Scalar _ -> false
+*)
 
 let is_array { Hashcons.node = t } = match t with
   | Array _ -> true
@@ -318,17 +326,17 @@ let is_array { Hashcons.node = t } = match t with
   | Int
   | IntRange _
   | Real
-  | BV _ 
+(*  | BV _ *)
   | Scalar _ -> false
 
-let is_scalar { Hashcons.node = t } = match t with
+let rec is_scalar { Hashcons.node = t } = match t with
   | Scalar _ -> true
+  | Array (_, t) -> is_scalar t
   | Bool
   | Int
   | IntRange _
-  | Real
-  | BV _ 
-  | Array _ -> false
+  | Real -> false
+(*  | BV _ *)
 
 
 (* Return bounds of an integer range type *)

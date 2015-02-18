@@ -21,7 +21,7 @@
     @author Baoluo Meng, Christoph Sticksel *)
 
 (** Parse a CSV input file *)
-val read_file: string -> (StateVar.t * (Term.t list)) list
+val read_file: string list -> string -> (StateVar.t * (Term.t list)) list
 
 
 (* 

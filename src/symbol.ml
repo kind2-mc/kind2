@@ -50,8 +50,9 @@ type interpreted_symbol =
   | `NUMERAL of Numeral.t   (* Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t 
                        (* Infinite precision floating-point decimal (nullary) *)
+(*
   | `BV of bitvector      (* Constant bitvector *)
-
+*)
   | `MINUS                (* Difference or unary negation (left-associative) *)
   | `PLUS                 (* Sum (left-associative) *)
   | `TIMES                (* Product (left-associative) *)
@@ -69,7 +70,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t 
                           (* Divisible by [n] (unary) *)
-
+(*
   | `CONCAT               (* Concatenation of bitvectors (binary) *)
   | `EXTRACT of Numeral.t * Numeral.t 
                           (* Extract subsequence from bitvector (unary) *)
@@ -84,10 +85,12 @@ type interpreted_symbol =
   | `BVSHL                (* Logical shift left (unary) *)
   | `BVLSHR               (* Logical shift right (unary) *)
   | `BVULT                (* Arithmetic comparision (binary) *)
+*)
 
   | `SELECT               (* Selection from array (binary) *)
+(*
   | `STORE                (* Update of an array (ternary) *)
-
+*)
   ]
 
 
@@ -138,16 +141,20 @@ module Symbol_node = struct
     | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
+(*
     | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
     | `BV i, `BV j -> i = j
+*)
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
 
     | `NUMERAL _, _
     | `DECIMAL _, _
     | `DIVISIBLE _, _
+(*
     | `EXTRACT _, _
     | `BV _, _
-    | `UF _, _ -> false
+*)
+    | `UF _, _  -> false
 
     (* Non-parametric symbols *)
     | `TRUE, `TRUE
@@ -174,6 +181,12 @@ module Symbol_node = struct
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
     | `IS_INT, `IS_INT
+    | `SELECT, `SELECT -> true
+(*
+    | `STORE, `STORE -> true
+*)
+
+(*
     | `CONCAT, `CONCAT
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
@@ -186,8 +199,7 @@ module Symbol_node = struct
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
     | `BVULT, `BVULT
-    | `SELECT, `SELECT
-    | `STORE, `STORE -> true
+*)
 
     | `TRUE, _
     | `FALSE, _
@@ -213,6 +225,12 @@ module Symbol_node = struct
     | `TO_REAL, _
     | `TO_INT, _
     | `IS_INT, _
+    | `SELECT, _ -> false
+
+(*
+    | `STORE, _ -> false
+*)
+(*
     | `CONCAT, _
     | `BVNOT, _ 
     | `BVNEG, _
@@ -225,9 +243,7 @@ module Symbol_node = struct
     | `BVSHL, _
     | `BVLSHR, _
     | `BVULT, _
-    | `SELECT, _
-    | `STORE, _ -> false
-
+*)
 
 
   (* Return hash of a symbol *)
@@ -314,6 +330,7 @@ module SymbolMap = Map.Make (OrderedSymbol)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
+(* Print in SMTlib syntax by default *)
 
 (* Pretty-print a symbol *)
 let rec pp_print_symbol_node ppf = function 
@@ -332,7 +349,7 @@ let rec pp_print_symbol_node ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
-  | `BV b -> pp_print_bitvector_b ppf b
+  | `BV b -> pp_smtlib_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"
@@ -355,8 +372,8 @@ let rec pp_print_symbol_node ppf = function
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-
-  | `CONCAT -> Format.pp_print_string ppf "to_real"
+(*
+  | `CONCAT -> Format.pp_print_string ppf "concat"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
       ppf 
@@ -375,10 +392,12 @@ let rec pp_print_symbol_node ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
+*)
 
   | `SELECT -> Format.pp_print_string ppf "select"
+(*
   | `STORE -> Format.pp_print_string ppf "store"
-
+*)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 (* Pretty-print a hashconsed symbol *)
@@ -393,6 +412,8 @@ let string_of_symbol s = string_of_t pp_print_symbol s
 (* Return a string representation of a symbol *)
 let string_of_symbol_node s = string_of_t pp_print_symbol_node s
 
+
+
 (* Return true if the symbol is a numeral *)
 let is_numeral = function 
   | { Hashcons.node = `NUMERAL _ } -> true 
@@ -402,12 +423,12 @@ let is_numeral = function
 let is_decimal = function 
   | { Hashcons.node = `DECIMAL _ } -> true 
   | _ -> false
-
+(*
 (* Return true if the symbol is a bitvector *)
 let is_bitvector = function 
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
-
+*)
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
 let is_bool = function 
   | { Hashcons.node = `TRUE } 
@@ -423,12 +444,12 @@ let numeral_of_symbol = function
 let decimal_of_symbol = function 
   | { Hashcons.node = `DECIMAL n } -> n 
   | _ -> raise (Invalid_argument "decimal_of_symbol")
-
+(*
 (* Return the bitvector in a `BV symbol  *)
 let bitvector_of_symbol = function 
   | { Hashcons.node = `BV n } -> n 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
-
+*)
 (* Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 let bool_of_symbol = function 
@@ -484,6 +505,18 @@ let s_implies = mk_symbol `IMPLIES
 (* Constant conjunction symbol *)
 let s_eq = mk_symbol `EQ
 
+(* Constant conjunction symbol *)
+let s_geq = mk_symbol `GEQ
+
+(* Constant conjunction symbol *)
+let s_leq = mk_symbol `LEQ
+
+(* Constant conjunction symbol *)
+let s_gt = mk_symbol `GEQ
+
+(* Constant conjunction symbol *)
+let s_lt = mk_symbol `LEQ
+
 (* Constant modulus operator symbol *)
 let s_mod = mk_symbol `MOD
 
@@ -492,6 +525,9 @@ let s_minus = mk_symbol `MINUS
 
 (* Constant division operator *)
 let s_div = mk_symbol `DIV
+
+(* Array read operator *)
+let s_select = mk_symbol `SELECT
 
 
 

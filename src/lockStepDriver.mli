@@ -17,40 +17,37 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
 
 (** Type of a lock step kind context. *)
 type t
 
-(** Creates a lock step driver based on a transition system. *)
-val create: TransSys.t -> t
+(** Creates a lock step driver based on a transition system. The first
+    boolean parameter indicates whether the lsd should be two states
+    or not, while the second one indicated top only mode.. *)
+val create: bool -> bool -> TransSys.t -> t
 
 (** Deletes a lock step driver. *)
 val delete: t -> unit
 
 (** The k of the lock step driver. *)
-val get_k: t -> Numeral.t
-
-(** Increments the k of a lock step driver. Basically asserts the
-   transition relation and unrolls the invariants one step further. *)
-val increment: t -> unit
+val get_k: t -> TransSys.t -> Numeral.t
 
 (** Adds new invariants to a lock step driver. *)
-val new_invariants: t -> Term.t list -> unit
+val add_invariants: t -> TransSys.t -> Term.t list -> unit
 
 (** Checks if some of the input terms are falsifiable k steps from the
     initial states. Returns Some of a model at 0 if some are, None
     otherwise. *)
-val query_base: t -> Term.t list -> ((Var.t * Term.t) list) option
+val query_base:
+  t -> TransSys.t -> Term.t list -> Model.t option
 
-(** Checks if some of the input terms are k-inductive. Returns a pair
-    composed of the falsifiable terms and the unfalsifiable ones. *)
-val query_step: t -> Term.t list -> Term.t list * Term.t list
-
-(** Checks the lock step driver on the system below its implementation
-    in the ml file. *)
-val test: TransSys.t -> unit
+(** Increments the lsd and checks if some of the input terms are
+    k-inductive. Returns the terms unfalsifiable in the next state and
+    the trivial terms pruned from the input list. *)
+val increment_and_query_step:
+  t -> TransSys.t -> Term.t list -> Term.t list * Term.t list
 
 (* 
    Local Variables:

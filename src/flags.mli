@@ -37,6 +37,7 @@ type smtsolver =
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
   | `Yices_SMTLIB
+  | `Yices_native
   | `detect ]
 
 (** Return SMT solver *)
@@ -45,8 +46,14 @@ val smtsolver : unit -> smtsolver
 (** Set SMT solver and executable *)
 val set_smtsolver : smtsolver -> string -> unit
 
+(* (\** Return SMT solver to use with PDR *\) *)
+(* val pdr_smtsolver : unit -> smtsolver  *)
+
+(* (\** Return SMT solver to use with Quantifier Elimination *\) *)
+(* val qe_smtsolver : unit -> smtsolver  *)
+
 (** SMT Logic to use *)
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
@@ -64,6 +71,14 @@ val mathsat5_bin : unit -> mathsat5_bin
 (** Executable of Yices solver *)
 type yices_bin = string
 val yices_bin : unit -> yices_bin
+
+(** Executable of Yices solver *)
+type yices_arith_only = bool
+val yices_arith_only : unit -> yices_arith_only
+
+(** Executable of Yices2 SMT2 solver *)
+type yices2smt2_bin = string
+val yices2smt2_bin : unit -> yices2smt2_bin
 
 (** Write all SMT commands to files *)
 type smt_trace = bool
@@ -102,6 +117,10 @@ val ind_compress_same_succ : unit -> ind_compress_same_succ
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
 
+(** Lazy assertion of invariants. *)
+type ind_lazy_invariants = bool
+val ind_lazy_invariants : unit -> ind_lazy_invariants
+
 (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool
 val ind_print_inductive_cex : unit -> ind_print_inductive_cex
@@ -139,6 +158,10 @@ val pdr_print_to_file : unit -> pdr_print_to_file
 type pdr_tighten_to_unsat_core = bool
 val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
 
+(** Tighten blocking clauses to an unsatisfiable core *)
+type pdr_inductively_generalize = int
+val pdr_inductively_generalize : unit -> pdr_inductively_generalize
+
 (** Block counterexample in future frames *)
 type pdr_block_in_future = bool
 val pdr_block_in_future : unit -> pdr_block_in_future
@@ -170,6 +193,24 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 (** Choose lower bounds containing variables **)
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
+
+(** InvGen will remove trivial invariants, i.e. invariants implied by
+    the transition relation.. **)
+type invgengraph_prune_trivial = bool
+val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
+type invgengraph_max_succ = int
+val invgengraph_max_succ : unit -> invgengraph_max_succ
+(** InvGen will lift candidate terms from subsystems.. **)
+type invgengraph_lift_candidates = bool
+val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will look for candidate terms in the transition
+    predicate. *)
+type invgengraph_mine_trans = bool
+val invgengraph_mine_trans : unit -> invgengraph_mine_trans
+
+(** Renice invariant generation process *)
+type invgengraph_renice = int
+val invgengraph_renice : unit -> invgengraph_renice
 
 (** Read input from file **)
 type interpreter_input_file = string

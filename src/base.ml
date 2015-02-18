@@ -17,10 +17,8 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
-
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
 let solver_ref = ref None
 
@@ -47,12 +45,12 @@ let on_exit _ =
       match !solver_ref with
       | None -> ()
       | Some solver ->
-         Solver.delete_solver solver |> ignore ;
+         SMTSolver.delete_instance solver |> ignore ;
          solver_ref := None
     with
     | e -> 
        Event.log L_error
-                 "Error deleting solver_init: %s" 
+                 "BMC @[<v>Error deleting solver_init:@ %s@]" 
                  (Printexc.to_string e))
 
 (* Returns true if the property is not falsified or valid. *)
@@ -67,14 +65,14 @@ let split trans solver k falsifiable to_split actlits =
 
   (* Function to run if sat. *)
   let if_sat () =
-    (* Get-model function. *)
-    let get_model = Solver.get_model solver in
-    (* Getting the model. *)
-    let model = TransSys.vars_of_bounds trans k k
-                |> get_model in
-    (* Extracting the counterexample. *)
+
+    (* Get the full model *)
+    let model = SMTSolver.get_model solver in
+
+    (* Extract counterexample from model *)
     let cex =
-      TransSys.path_from_model trans get_model k in
+      Model.path_from_model (TransSys.state_vars trans) model k in
+
     (* Evaluation function. *)
     let eval term =
       Eval.eval_term (TransSys.uf_defs trans) model term
@@ -95,7 +93,7 @@ let split trans solver k falsifiable to_split actlits =
   in
 
   (* Check sat assuming with actlits. *)
-  Solver.check_sat_assuming solver if_sat if_unsat actlits
+  SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
 
 (* Splits its input list of properties between those that can be
    falsified and those that cannot after asserting the actlit
@@ -111,11 +109,11 @@ let split_closure trans solver k actlits to_split =
     (* Getting actlit for it. *)
     let actlit = generate_actlit term in
     (* Declaring actlit. *)
-    actlit |> Solver.declare_fun solver ;
+    actlit |> SMTSolver.declare_fun solver ;
     (* Asserting implication. *)
     Term.mk_implies
         [ actlit |> term_of_actlit ; term ]
-    |> Solver.assert_term solver ;
+    |> SMTSolver.assert_term solver ;
     (* All actlits. *)
     let all_actlits = (term_of_actlit actlit) ::  actlits in
     (* Splitting. *)
@@ -147,19 +145,17 @@ let split_closure trans solver k actlits to_split =
 let rec next (trans, solver, k, invariants, unknowns) =
 
   (* Asserts terms from 0 to k. *)
-  let assert_new_invariants terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_and_apply_k
-         (Solver.assert_term solver) k
+  let assert_new_invariants =
+    List.iter
+      (Term.bump_and_apply_k
+         (SMTSolver.assert_term solver) k)
   in
 
   (* Asserts terms at k. *)
-  let assert_old_invariants terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_state k
-    |> Solver.assert_term solver
+  let assert_old_invariants =
+    List.iter
+      (fun term -> Term.bump_state k term
+                   |> SMTSolver.assert_term solver)
   in
 
   (* Getting new invariants and updating transition system. *)
@@ -181,11 +177,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
           match status with
           | TransSys.PropInvariant cert ->
              (* Memorizing new invariant property. *)
-             ( TransSys.prop_of_name trans name )
+             ( TransSys.named_term_of_prop_name trans name )
              :: list
           | _ -> list )
          (* New invariant properties are added to new invariants. *)
-         ( List.map snd new_invs )
+         new_invs
            
   in
 
@@ -206,7 +202,8 @@ let rec next (trans, solver, k, invariants, unknowns) =
      (* Output current progress. *)
      Event.log
        L_info
-       "BMC loop at k = %d\nBMC unknowns:   %d"
+       "BMC @[<v>at k = %i@,\
+                 %i unfalsifiable properties.@]"
        (Numeral.to_int k) (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)
@@ -250,7 +247,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
      if Numeral.(k > zero) then
        implications
        |> Term.mk_and
-       |> Solver.assert_term solver ;
+       |> SMTSolver.assert_term solver ;
 
      (* Splitting. *)
      let unfalsifiable, falsifiable =
@@ -273,19 +270,24 @@ let rec next (trans, solver, k, invariants, unknowns) =
             List.iter
               ( fun (s,_) ->
                 Event.prop_status
-                  (TransSys.PropFalse cex) trans s )
+                  (TransSys.PropFalse (Model.path_to_list cex)) trans s )
               p ) ;
-
-     (* Asserting transition relation for next iteration. *)
-     TransSys.trans_of_bound trans Numeral.(k + one)
-     |> Solver.assert_term solver
-     |> ignore ;
-
-     (* Output statistics *)
-     if output_on_level L_info then print_stats ();
 
      (* K plus one. *)
      let k_p_1 = Numeral.succ k in
+     
+     (* Declaring unrolled vars at k+1. *)
+     TransSys.declare_vars_of_bounds
+       trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
+     
+     (* Asserting transition relation for next iteration. *)
+     TransSys.trans_of_bound trans k_p_1
+     |> SMTSolver.assert_term solver
+     |> ignore ;
+
+     (* Output statistics *)
+     print_stats ();
+
      (* Int k plus one. *)
      let k_p_1_int = Numeral.to_int k_p_1 in
 
@@ -293,7 +295,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
      if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
        Event.log
          L_info
-         "BMC reached maximal number of iterations."
+         "BMC @[<v>reached maximal number of iterations.@]"
      else
        (* Looping. *)
        next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
@@ -310,36 +312,38 @@ let init trans =
 
   (* Creating solver. *)
   let solver =
-    TransSys.get_logic trans
-    |> Solver.new_solver ~produce_assignments:true
+    SMTSolver.create_instance ~produce_assignments:true
+      (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
 
-  (* Declaring uninterpreted function symbols. *)
-  TransSys.iter_state_var_declarations
-    trans
-    (Solver.declare_fun solver) ;
-
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
      generate_actlit prop
-     |> Solver.declare_fun solver)
+     |> SMTSolver.declare_fun solver)
     unknowns ;
 
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans
-    (Solver.define_fun solver) ;
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
-  |> Solver.assert_term solver
+  |> SMTSolver.assert_term solver
   |> ignore ;
 
-  (trans, solver, Numeral.zero, [], unknowns)
+  (* Invariants if the system at 0. *)
+  let invariants =
+    TransSys.invars_of_bound trans Numeral.zero
+  in
+
+  (trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
 let main trans =

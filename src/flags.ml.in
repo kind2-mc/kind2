@@ -153,42 +153,50 @@ let timeout_virtual_default = 0.
 
 (* ********** *) 
 
-type smtsolver = [ `Z3_SMTLIB | `CVC4_SMTLIB | `MathSat5_SMTLIB | `Yices_SMTLIB | `detect ]
+type smtsolver = [ `Z3_SMTLIB | `CVC4_SMTLIB | `MathSat5_SMTLIB | `Yices_SMTLIB | `Yices_native | `detect ]
     
 let smtsolver_of_string = function
   | "Z3" -> `Z3_SMTLIB
   | "CVC4" -> `CVC4_SMTLIB
   | "MathSat5" -> `MathSat5_SMTLIB
-  | "Yices" -> `Yices_SMTLIB
+  | "Yices2" -> `Yices_SMTLIB
+  | "Yices" -> `Yices_native
   | _ -> raise (Arg.Bad "Bad value for --smtsolver")
 
 let string_of_smtsolver = function 
   | `Z3_SMTLIB -> "Z3"
   | `CVC4_SMTLIB -> "CVC4"
-  | `Yices_SMTLIB -> "Yices"
+  | `Yices_SMTLIB -> "Yices2"
+  | `Yices_native -> "Yices"
   | `MathSat5_SMTLIB -> "MathSat5"
   | `detect -> "detect"
 
-let smtsolver_values = "Z3, CVC4, MathSat5, yices"
+let smtsolver_values = "Z3, CVC4, MathSat5, Yices, Yices2"
 
 let smtsolver_default = `detect
 
 (* ********** *) 
 
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
     
 let smtlogic_of_string = function
-  | "LIA" -> `QF_UFLIA
-  | "LRA" -> `QF_UFLRA
+  | "UFLIA" -> `QF_UFLIA
+  | "UFLRA" -> `QF_UFLRA
+  | "LIA" -> `QF_LIA
+  | "LRA" -> `QF_LRA
+  | "LIRA" -> `QF_LIRA
   | "detect" -> `detect
   | _ -> raise (Arg.Bad "Bad value for --smtlogic")
 
 let string_of_smtlogic = function 
-  | `QF_UFLIA -> "LIA"
-  | `QF_UFLRA -> "LRA"
+  | `QF_UFLIA -> "UFLIA"
+  | `QF_UFLRA -> "UFLRA"
+  | `QF_LIA -> "LIA"
+  | `QF_LRA -> "LRA"
+  | `QF_LIRA -> "LIRA"
   | `detect -> "detect"
 
-let smtlogic_values = "LIA, LRA, detect"
+let smtlogic_values = "UFLIA, UFLRA, LIA, LRA, LIRA, detect"
 
 let smtlogic_default = `detect
 
@@ -230,7 +238,27 @@ let yices_bin_of_string s = s
 
 let string_of_yices_bin s = s 
 
-let yices_bin_default = "yices-smt2"
+let yices_bin_default = "yices"
+
+(* ********** *) 
+
+type yices_arith_only = bool
+
+let yices_arith_only_of_bool b = b
+
+let bool_of_yices_arith_only s = s 
+
+let yices_arith_only_default = false
+
+(* ********** *) 
+
+type yices2smt2_bin = string 
+
+let yices2smt2_bin_of_string s = s
+
+let string_of_yices2smt2_bin s = s 
+
+let yices2smt2_bin_default = "yices-smt2"
 
 (* ********** *) 
 
@@ -255,6 +283,7 @@ let kind_module_of_string = function
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
+  | "INVGENOS" -> `INVGENOS
   | "interpreter" -> `Interpreter
   | _ -> raise (Arg.Bad "Bad value for --enable")
 
@@ -263,6 +292,7 @@ let string_of_kind_module = function
   | `BMC -> "BMC"
   | `IND -> "IND"
   | `INVGEN -> "INVGEN"
+  | `INVGENOS -> "INVGENOS"
   | `Interpreter -> "interpreter"
 
 let rec string_of_enable' accum = function 
@@ -273,13 +303,22 @@ let rec string_of_enable' accum = function
           (if not (tl = []) then ", " else ""))
       tl
 
-let string_of_enable = string_of_enable' ""
+(* let string_of_enable = string_of_enable' "" *)
 
-let enable_values = "PDR, BMC, IND, INVGEN, interpreter"
+let string_of_enable = function
+  | head :: tail ->
+    ( List.fold_left
+        ( fun s m -> s ^ ", " ^ (string_of_kind_module m) )
+        ("[" ^ (string_of_kind_module head))
+        tail )
+    ^ "]"
+  | [] -> "[]"
+
+let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR; `BMC; `IND]
+let enable_default_after = [`BMC; `IND; `PDR; `INVGEN; `INVGENOS]
 
 (* ********** *) 
 
@@ -297,7 +336,7 @@ let bmc_max_default = 0
 
 type ind_compress = bool
     
-let ind_compress_default = true
+let ind_compress_default = false
 
 (* ********** *) 
 
@@ -316,6 +355,12 @@ let ind_compress_same_succ_default = false
 type ind_compress_same_pred = bool
     
 let ind_compress_same_pred_default = false
+
+(* ********** *) 
+
+type ind_lazy_invariants = bool
+    
+let ind_lazy_invariants_default = false
 
 (* ********** *) 
 
@@ -367,6 +412,14 @@ type pdr_tighten_to_unsat_core = bool
 let string_of_pdr_tighten_to_unsat_core = string_of_bool
 
 let pdr_tighten_to_unsat_core_default = true
+
+(* ********** *) 
+
+type pdr_inductively_generalize = int
+    
+let string_of_pdr_inductively_generalize = string_of_int
+
+let pdr_inductively_generalize_default = 1
 
 (* ********** *) 
 
@@ -446,6 +499,31 @@ let cooper_general_lbound_values = "true, false"
  
 let cooper_general_lbound_default = false
 
+
+(* ********** *)
+
+(* INVGEN things. *)
+
+type invgengraph_prune_trivial = bool
+
+let invgengraph_prune_trivial_default = true
+
+type invgengraph_max_succ = int
+
+let invgengraph_max_succ_default = 1
+
+type invgengraph_lift_candidates = bool
+
+let invgengraph_lift_candidates_default = false
+
+type invgengraph_mine_trans = bool
+
+let invgengraph_mine_trans_default = false
+
+type invgengraph_renice = int
+
+let invgengraph_renice_default = 0
+
 (* ********** *) 
 
 type interpreter_input_file = string 
@@ -519,6 +597,8 @@ type flags =
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
       mutable yices_bin : yices_bin;
+      mutable yices_arith_only : yices_arith_only;
+      mutable yices2smt2_bin : yices2smt2_bin;
       mutable smt_trace : smt_trace;
       mutable smt_trace_dir : smt_trace_dir;
       mutable enable : enable;
@@ -528,6 +608,7 @@ type flags =
       mutable ind_compress_equal : ind_compress_equal;
       mutable ind_compress_same_succ : ind_compress_same_succ;
       mutable ind_compress_same_pred : ind_compress_same_pred;
+      mutable ind_lazy_invariants : ind_lazy_invariants;
       mutable ind_print_inductive_cex : ind_print_inductive_cex;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
@@ -537,11 +618,17 @@ type flags =
       mutable pdr_print_blocking_clauses : pdr_print_blocking_clauses;
       mutable pdr_print_to_file : pdr_print_to_file;
       mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
+      mutable pdr_inductively_generalize : pdr_inductively_generalize;
       mutable pdr_block_in_future : pdr_block_in_future;
       mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
       mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
+      mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
+      mutable invgengraph_max_succ : invgengraph_max_succ;
+      mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
+      mutable invgengraph_mine_trans : invgengraph_mine_trans;
+      mutable invgengraph_renice : invgengraph_renice;
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -562,6 +649,8 @@ let flags =
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
+    yices_arith_only = yices_arith_only_default;
+    yices2smt2_bin = yices2smt2_bin_default;
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
     enable = enable_default_init;
@@ -571,6 +660,7 @@ let flags =
     ind_compress_equal = ind_compress_equal_default;
     ind_compress_same_succ = ind_compress_same_succ_default;
     ind_compress_same_pred = ind_compress_same_pred_default;
+    ind_lazy_invariants = ind_lazy_invariants_default;
     ind_print_inductive_cex = ind_print_inductive_cex_default;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
@@ -580,11 +670,17 @@ let flags =
     pdr_print_blocking_clauses = pdr_print_blocking_clauses_default;
     pdr_print_to_file = pdr_print_to_file_default;
     pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
+    pdr_inductively_generalize = pdr_inductively_generalize_default;
     pdr_block_in_future = pdr_block_in_future_default;
     pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
     pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
+    invgengraph_prune_trivial = invgengraph_prune_trivial_default;
+    invgengraph_max_succ = invgengraph_max_succ_default;
+    invgengraph_lift_candidates = invgengraph_lift_candidates_default;
+    invgengraph_mine_trans = invgengraph_mine_trans_default;
+    invgengraph_renice = invgengraph_renice_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -620,7 +716,8 @@ let smtsolver_action o = flags.smtsolver <- (smtsolver_of_string o)
 let smtsolver_spec = 
   ("--smtsolver", 
    Arg.String smtsolver_action, 
-   Format.sprintf "choose SMT solver (available: %s, default: %s)" smtsolver_values (string_of_smtsolver smtsolver_default))
+   Format.sprintf "choose SMT solver (available: %s, default: %s)"
+                  smtsolver_values (string_of_smtsolver smtsolver_default))
 
 (* ********** *) 
 
@@ -629,7 +726,8 @@ let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
 let smtlogic_spec = 
   ("--smtlogic", 
    Arg.String smtlogic_action, 
-   Format.sprintf "choose SMT logic (available: %s, default: %s)" smtlogic_values (string_of_smtlogic smtlogic_default))
+   Format.sprintf "choose SMT logic (available: %s, default: %s)"
+                  smtlogic_values (string_of_smtlogic smtlogic_default))
 
 (* ********** *) 
 
@@ -638,7 +736,8 @@ let z3_bin_action o = flags.z3_bin <- (z3_bin_of_string o)
 let z3_bin_spec = 
   ("--z3_bin", 
    Arg.String z3_bin_action, 
-   Format.sprintf "executable of Z3 solver (default: %s)" (string_of_z3_bin z3_bin_default))
+   Format.sprintf "executable of Z3 solver (default: %s)"
+                  (string_of_z3_bin z3_bin_default))
 
 (* ********** *) 
 
@@ -647,7 +746,8 @@ let cvc4_bin_action o = flags.cvc4_bin <- (cvc4_bin_of_string o)
 let cvc4_bin_spec = 
   ("--cvc4_bin", 
    Arg.String cvc4_bin_action, 
-   Format.sprintf "executable of CVC4 solver (default: %s)" (string_of_cvc4_bin cvc4_bin_default))
+   Format.sprintf "executable of CVC4 solver (default: %s)"
+                  (string_of_cvc4_bin cvc4_bin_default))
 
 (* ********** *) 
 
@@ -656,7 +756,8 @@ let mathsat5_bin_action o = flags.mathsat5_bin <- (mathsat5_bin_of_string o)
 let mathsat5_bin_spec = 
   ("--mathsat5_bin", 
    Arg.String mathsat5_bin_action, 
-   Format.sprintf "executable of MathSAT5 solver (default: %s)" (string_of_mathsat5_bin mathsat5_bin_default))
+   Format.sprintf "executable of MathSAT5 solver (default: %s)"
+                  (string_of_mathsat5_bin mathsat5_bin_default))
 
 (* ********** *) 
 
@@ -665,7 +766,30 @@ let yices_bin_action o = flags.yices_bin <- (yices_bin_of_string o)
 let yices_bin_spec = 
   ("--yices_bin", 
    Arg.String yices_bin_action, 
-   Format.sprintf "executable of Yices solver (default: %s)" (string_of_yices_bin yices_bin_default))
+   Format.sprintf "executable of Yices solver (default: %s)"
+                  (string_of_yices_bin yices_bin_default))
+
+(* ********** *) 
+
+let yices_arith_only_action o =
+  flags.yices_arith_only <- true
+  
+let yices_arith_only_spec = 
+  ("--yices_arith_only", 
+   Arg.Unit yices_arith_only_action, 
+   "Tell Yices to deactivate all theories excepted SAT and linear arithmetic. \
+    Will fail if this is not possible.")
+
+(* ********** *) 
+
+let yices2smt2_bin_action o =
+  flags.yices2smt2_bin <- (yices2smt2_bin_of_string o)
+  
+let yices2smt2_bin_spec = 
+  ("--yices2_bin", 
+   Arg.String yices2smt2_bin_action, 
+   Format.sprintf "executable of Yices2 SMT2 solver (default: %s)"
+                  (string_of_yices2smt2_bin yices2smt2_bin_default))
 
 (* ********** *) 
 
@@ -683,7 +807,8 @@ let smt_trace_dir_action o = flags.smt_trace_dir <- o
 let smt_trace_dir_spec = 
   ("--smt_trace_dir", 
    Arg.String smt_trace_dir_action, 
-   Format.sprintf "Directory for trace logs of SMT commands (default: %s)" smt_trace_dir_default)
+   Format.sprintf "Directory for trace logs of SMT commands (default: %s)"
+                  smt_trace_dir_default)
 
 (* ********** *) 
 
@@ -696,7 +821,8 @@ let enable_action o =
 let enable_spec = 
   ("--enable", 
    Arg.String enable_action, 
-   Format.sprintf "enable Kind module (available: %s, default: %s)" enable_values (string_of_enable enable_default_after))
+   Format.sprintf "enable Kind module (available: %s, default: %s)"
+                  enable_values (string_of_enable enable_default_after))
 
 (* ********** *) 
 
@@ -714,7 +840,7 @@ let bmc_max_action o = flags.bmc_max <- o
 let bmc_max_spec = 
   ("--bmc_max", 
    Arg.Int bmc_max_action, 
-   Format.sprintf "(BMC) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
+   Format.sprintf "(BMC, IND) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
 
 (* ********** *) 
 
@@ -723,7 +849,8 @@ let ind_compress_action o = flags.ind_compress <- o
 let ind_compress_spec = 
   ("--ind_compress", 
    Arg.Bool ind_compress_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples (default: %B)" ind_compress_default)
+   Format.sprintf "(IND) Compress inductive counterexamples (default: %B)"
+                  ind_compress_default)
 
 (* ********** *) 
 
@@ -732,7 +859,8 @@ let ind_compress_equal_action o = flags.ind_compress_equal <- o
 let ind_compress_equal_spec = 
   ("--ind_compress_equal", 
    Arg.Bool ind_compress_equal_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states equal modulo inputs (default: %B)" ind_compress_equal_default)
+   Format.sprintf "(IND) Compress inductive counterexamples for states equal \
+                   modulo inputs (default: %B)" ind_compress_equal_default)
 
 (* ********** *) 
 
@@ -741,7 +869,9 @@ let ind_compress_same_succ_action o = flags.ind_compress_same_succ <- o
 let ind_compress_same_succ_spec = 
   ("--ind_compress_same_succ", 
    Arg.Bool ind_compress_same_succ_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states with same successors (default: %B)" ind_compress_same_succ_default)
+   Format.sprintf "(IND) Compress inductive counterexamples for states \
+                   with same successors (default: %B)"
+                  ind_compress_same_succ_default)
 
 (* ********** *) 
 
@@ -750,7 +880,18 @@ let ind_compress_same_pred_action o = flags.ind_compress_same_pred <- o
 let ind_compress_same_pred_spec = 
   ("--ind_compress_same_pred", 
    Arg.Bool ind_compress_same_pred_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states with same predecessors (default: %B)" ind_compress_same_pred_default)
+   Format.sprintf "(IND) Compress inductive counterexamples for states \
+                   with same predecessors (default: %B)"
+                  ind_compress_same_pred_default)
+
+(* ********** *) 
+
+let ind_lazy_invariants_action o = flags.ind_lazy_invariants <- o
+  
+let ind_lazy_invariants_spec = 
+  ("--ind_lazy_invariants", 
+   Arg.Bool ind_lazy_invariants_action, 
+   Format.sprintf "(IND) Asserts invariants lazily (default: %B)" ind_lazy_invariants_default)
 
 (* ********** *) 
 
@@ -759,7 +900,8 @@ let ind_print_inductive_cex_action o = flags.ind_print_inductive_cex <- o
 let ind_print_inductive_cex_spec = 
   ("--ind_print_inductive_cex", 
    Arg.Bool ind_print_inductive_cex_action, 
-   Format.sprintf "(IND) Print inductive counterexamples (default: %B)" ind_print_inductive_cex_default)
+   Format.sprintf "(IND) Print inductive counterexamples (default: %B)"
+                  ind_print_inductive_cex_default)
 
 (* ********** *) 
 
@@ -768,7 +910,9 @@ let pdr_qe_action o = flags.pdr_qe <- (pdr_qe_of_string o)
 let pdr_qe_spec = 
   ("--pdr_qe", 
    Arg.String pdr_qe_action, 
-   Format.sprintf "(PDR) choose quantifier elimination algorithm (available: %s, default: %s)" pdr_qe_values (string_of_pdr_qe pdr_qe_default))
+   Format.sprintf "(PDR) choose quantifier elimination algorithm \
+                   (available: %s, default: %s)"
+                  pdr_qe_values (string_of_pdr_qe pdr_qe_default))
 
 (* ********** *) 
 
@@ -777,7 +921,10 @@ let pdr_extract_action o = flags.pdr_extract <- (pdr_extract_of_string o)
 let pdr_extract_spec = 
   ("--pdr_extract", 
    Arg.String pdr_extract_action, 
-   Format.sprintf "(PDR) Heuristics for extraction of implicant (available: %s, default: %s)" pdr_extract_values (string_of_pdr_extract pdr_extract_default))
+   Format.sprintf "(PDR) Heuristics for extraction of implicant \
+                   (available: %s, default: %s)"
+                  pdr_extract_values
+                  (string_of_pdr_extract pdr_extract_default))
 
 (* ********** *) 
 
@@ -786,7 +933,8 @@ let pdr_check_inductive_action o = flags.pdr_check_inductive <- o
 let pdr_check_inductive_spec = 
   ("--pdr_check_inductive", 
    Arg.Bool pdr_check_inductive_action, 
-   Format.sprintf "(PDR) Check inductiveness of blocking clauses (default: %s)" (string_of_pdr_check_inductive pdr_check_inductive_default))
+   Format.sprintf "(PDR) Check inductiveness of blocking clauses (default: %s)"
+                  (string_of_pdr_check_inductive pdr_check_inductive_default))
 
 (* ********** *) 
 
@@ -795,7 +943,9 @@ let pdr_fwd_prop_check_multi_action o = flags.pdr_fwd_prop_check_multi <- o
 let pdr_fwd_prop_check_multi_spec = 
   ("--pdr_fwd_prop_check_multi", 
    Arg.Bool pdr_fwd_prop_check_multi_action, 
-   Format.sprintf "(PDR) Simultaneous check for forward propagation (default: %s)" (string_of_pdr_fwd_prop_check_multi pdr_fwd_prop_check_multi_default))
+   Format.sprintf
+     "(PDR) Simultaneous check for forward propagation (default: %s)"
+     (string_of_pdr_fwd_prop_check_multi pdr_fwd_prop_check_multi_default))
 
 (* ********** *) 
 
@@ -805,7 +955,9 @@ let pdr_print_inductive_assertions_action o =
 let pdr_print_inductive_assertions_spec = 
   ("--pdr_print_inductive_assertions", 
    Arg.Bool pdr_print_inductive_assertions_action, 
-   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)" (string_of_pdr_print_inductive_assertions pdr_print_inductive_assertions_default))
+   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)"
+                  (string_of_pdr_print_inductive_assertions
+                     pdr_print_inductive_assertions_default))
 
 (* ********** *) 
 
@@ -815,7 +967,9 @@ let pdr_print_blocking_clauses_action o =
 let pdr_print_blocking_clauses_spec = 
   ("--pdr_print_blocking_clauses", 
    Arg.Bool pdr_print_blocking_clauses_action, 
-   Format.sprintf "(PDR) Output all blocking clauses (default: %s)" (string_of_pdr_print_blocking_clauses pdr_print_blocking_clauses_default))
+   Format.sprintf "(PDR) Output all blocking clauses (default: %s)"
+                  (string_of_pdr_print_blocking_clauses
+                     pdr_print_blocking_clauses_default))
 
 (* ********** *) 
 
@@ -834,7 +988,18 @@ let pdr_tighten_to_unsat_core_action o = flags.pdr_tighten_to_unsat_core <- o
 let pdr_tighten_to_unsat_core_spec = 
   ("--pdr_tighten_to_unsat_core", 
    Arg.Bool pdr_tighten_to_unsat_core_action, 
-   Format.sprintf "(PDR) Tighten blocking clauses to an unsatisfiable core (default: %s)" (string_of_pdr_tighten_to_unsat_core pdr_tighten_to_unsat_core_default))
+   Format.sprintf
+     "(PDR) Tighten blocking clauses to an unsatisfiable core (default: %s)"
+     (string_of_pdr_tighten_to_unsat_core pdr_tighten_to_unsat_core_default))
+
+(* ********** *) 
+
+let pdr_inductively_generalize_action o = flags.pdr_inductively_generalize <- o
+  
+let pdr_inductively_generalize_spec = 
+  ("--pdr_inductively_generalize", 
+   Arg.Int pdr_inductively_generalize_action, 
+   Format.sprintf "(PDR) Inductively generalize blocking clauses before forward propagation (0 = none, 1 = normal IG, 2 = IG with ordering) (default: %s)" (string_of_pdr_inductively_generalize pdr_inductively_generalize_default))
 
 (* ********** *) 
 
@@ -843,25 +1008,32 @@ let pdr_block_in_future_action o = flags.pdr_block_in_future <- o
 let pdr_block_in_future_spec = 
   ("--pdr_block_in_future", 
    Arg.Bool pdr_block_in_future_action, 
-   Format.sprintf "(PDR) Block counterexample in future frames (default: %s)" (string_of_pdr_block_in_future pdr_block_in_future_default))
+   Format.sprintf "(PDR) Block counterexample in future frames (default: %s)"
+                  (string_of_pdr_block_in_future pdr_block_in_future_default))
 
 (* ********** *) 
  
-let pdr_print_inductive_invariant_action o = flags.pdr_print_inductive_invariant <- o
+let pdr_print_inductive_invariant_action o =
+  flags.pdr_print_inductive_invariant <- o
   
 let pdr_print_inductive_invariant_spec = 
   ("--pdr_print_inductive_invariant", 
    Arg.Bool pdr_print_inductive_invariant_action, 
-   Format.sprintf "(PDR) Print inductive invariant if property proved (default: %s)" (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
+   Format.sprintf
+     "(PDR) Print inductive invariant if property proved (default: %s)"
+     (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
 
 (* ********** *) 
 
-let pdr_check_inductive_invariant_action o = flags.pdr_check_inductive_invariant <- o
+let pdr_check_inductive_invariant_action o =
+  flags.pdr_check_inductive_invariant <- o
   
 let pdr_check_inductive_invariant_spec = 
   ("--pdr_check_inductive_invariant", 
    Arg.Bool pdr_check_inductive_invariant_action, 
-   Format.sprintf "(PDR) Check inductive invariant if property proved (default: %s)" (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
+   Format.sprintf
+     "(PDR) Check inductive invariant if property proved (default: %s)"
+     (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
 
 (* ********** *) 
 
@@ -870,7 +1042,10 @@ let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
 let cooper_order_var_by_elim_spec = 
   ("--cooper_order_var_by_elim", 
    Arg.Bool cooper_order_var_by_elim_action, 
-   Format.sprintf "(Cooper QE) Order variables in polynomials by order of elimination (available: %s, default: %B)" cooper_order_var_by_elim_values cooper_order_var_by_elim_default)
+   Format.sprintf "(Cooper QE) Order variables in polynomials by order of \
+                   elimination (available: %s, default: %B)"
+                  cooper_order_var_by_elim_values
+                  cooper_order_var_by_elim_default)
   
 (* ********** *) 
   
@@ -880,7 +1055,52 @@ let cooper_general_lbound_spec =
   ("--cooper_general_lbound", 
    Arg.Bool cooper_general_lbound_action, 
    Format.sprintf "(Cooper QE) Choose lower bounds containing variables (available: %s, default: %B)" cooper_general_lbound_values cooper_general_lbound_default)
+  
+(* ********** *) 
+  
+let invgengraph_prune_trivial_action o = flags.invgengraph_prune_trivial <- o
+                                       
+let invgengraph_prune_trivial_spec = 
+  ("--invgen_prune_trivial", 
+   Arg.Bool invgengraph_prune_trivial_action,
+   Format.sprintf
+     "Invariant generation will only look for top node invariants (default: %B)."
+     invgengraph_prune_trivial_default)
+  
+let invgengraph_max_succ_action o = flags.invgengraph_max_succ <- o
+                                       
+let invgengraph_max_succ_spec = 
+  ("--invgen_max_succ", 
+   Arg.Int invgengraph_max_succ_action,
+   Format.sprintf
+     "Maximal number of successive iterations for subsystems (default: %d)."
+     invgengraph_max_succ_default)
+  
+let invgengraph_lift_candidates_action o = flags.invgengraph_lift_candidates <- o
+                                       
+let invgengraph_lift_candidates_spec = 
+  ("--invgen_lift_candidates", 
+   Arg.Bool invgengraph_lift_candidates_action,
+   Format.sprintf
+     "Invariant generation will only look for top node invariants (default: %B)."
+     invgengraph_lift_candidates_default)
+  
+let invgengraph_mine_trans_action o = flags.invgengraph_mine_trans <- o
+                                       
+let invgengraph_mine_trans_spec = 
+  ("--invgen_mine_trans", 
+   Arg.Bool invgengraph_mine_trans_action,
+   Format.sprintf
+     "Invariant generation will extract candidate terms from the transition predicate (default: %B)."
+     invgengraph_mine_trans_default)
 
+let invgengraph_renice_action o = flags.invgengraph_renice <- o
+                                       
+let invgengraph_renice_spec = 
+  ("--invgen_renice", 
+   Arg.Int invgengraph_renice_action,
+   "Renice invariant generation process. Give a positive argument to lower priority.")
+  
 (* ********** *) 
 
 let interpreter_input_file_action o = flags.interpreter_input_file <- o
@@ -897,7 +1117,8 @@ let interpreter_steps_action o = flags.interpreter_steps <- o
 let interpreter_steps_spec = 
   ("--interpreter_steps", 
    Arg.Int interpreter_steps_action, 
-   Format.sprintf "(Interpreter) Run number of steps, override the number of steps given in the input file")
+   Format.sprintf "(Interpreter) Run number of steps, override the number of \
+                   steps given in the input file")
 
 (* ********** *) 
 
@@ -906,7 +1127,8 @@ let lustre_main_action o = flags.lustre_main <- Some o
 let lustre_main_spec = 
   ("--lustre-main", 
    Arg.String lustre_main_action, 
-   Format.sprintf "Use the given node as top node in Lustre input (default: --%%MAIN annotation)")
+   Format.sprintf "Use the given node as top node in Lustre input \
+                   (default: --%%MAIN annotation)")
 
 (* ********** *) 
 
@@ -915,7 +1137,8 @@ let debug_action o = flags.debug <- o :: flags.debug
 let debug_spec = 
   ("--debug", 
    Arg.String debug_action, 
-   Format.sprintf "enable debug output for a section, give one --debug option for each section to be enabled")
+   Format.sprintf "enable debug output for a section, give one --debug option \
+                   for each section to be enabled")
 
 (* ********** *) 
 
@@ -976,7 +1199,9 @@ let input_format_action o = flags.input_format <- (input_format_of_string o)
 let input_format_spec = 
   ("--input-format", 
    Arg.String input_format_action, 
-   Format.sprintf "Format of input file (available: %s, default: %s)" input_format_values (string_of_input_format input_format_default))
+   Format.sprintf "Format of input file (available: %s, default: %s)"
+                  input_format_values
+                  (string_of_input_format input_format_default))
 
 
 (* ********************************************************************** *)
@@ -1004,6 +1229,10 @@ let mathsat5_bin () = flags.mathsat5_bin
 
 let yices_bin () = flags.yices_bin
 
+let yices_arith_only () = flags.yices_arith_only
+
+let yices2smt2_bin () = flags.yices_bin
+
 let smt_trace () = flags.smt_trace
 
 let smt_trace_dir () = flags.smt_trace_dir
@@ -1022,6 +1251,8 @@ let ind_compress_same_succ () = flags.ind_compress_same_succ
 
 let ind_compress_same_pred () = flags.ind_compress_same_pred 
 
+let ind_lazy_invariants () = flags.ind_lazy_invariants
+
 let ind_print_inductive_cex () = flags.ind_print_inductive_cex 
 
 let pdr_qe () = flags.pdr_qe 
@@ -1031,6 +1262,8 @@ let set_pdr_qe f = flags.pdr_qe <- f
 let pdr_extract () = flags.pdr_extract 
 
 let pdr_check_inductive () = flags.pdr_check_inductive 
+
+let pdr_inductively_generalize () = true
 
 let pdr_fwd_prop_check_multi () = flags.pdr_fwd_prop_check_multi 
 
@@ -1042,6 +1275,8 @@ let pdr_print_to_file () = flags.pdr_print_to_file
 
 let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core 
 
+let pdr_inductively_generalize () = flags.pdr_inductively_generalize
+
 let pdr_block_in_future () = flags.pdr_block_in_future 
 
 let pdr_print_inductive_invariant () = flags.pdr_print_inductive_invariant 
@@ -1051,6 +1286,16 @@ let pdr_check_inductive_invariant () = flags.pdr_check_inductive_invariant
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
+
+let invgengraph_prune_trivial () = flags.invgengraph_prune_trivial
+
+let invgengraph_max_succ () = flags.invgengraph_max_succ
+
+let invgengraph_lift_candidates () = flags.invgengraph_lift_candidates
+
+let invgengraph_mine_trans () = flags.invgengraph_mine_trans
+
+let invgengraph_renice () = flags.invgengraph_renice
 
 let interpreter_input_file () = flags.interpreter_input_file
 
@@ -1111,6 +1356,12 @@ and speclist =
     (* Set executable for Yices solver *)
     yices_bin_spec;
 
+    (* Set arith only option of yices *)
+    yices_arith_only_spec;
+
+    (* Set executable for Yices2 SMT2 solver *)
+    yices2smt2_bin_spec;
+
     (* Write all SMT commands to files *)
     smt_trace_spec;
 
@@ -1139,6 +1390,9 @@ and speclist =
     (* Compress inductive counterexamples when states have same predecessors *)
     ind_compress_same_pred_spec;
 
+    (* Compress inductive counterexamples when states have same predecessors *)
+    ind_lazy_invariants_spec;
+
     (* Compress inductive counterexamples *)
     ind_print_inductive_cex_spec;
 
@@ -1166,6 +1420,9 @@ and speclist =
     (* Tighten blocking clauses to an unsatisfiable core *)
     pdr_tighten_to_unsat_core_spec;
 
+    (* Inductively generalize the blocking clause before forward propagating *)
+    pdr_inductively_generalize_spec;
+
     (* Block counterexample in future frames *)
     pdr_block_in_future_spec;
 
@@ -1178,6 +1435,13 @@ and speclist =
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;
     cooper_general_lbound_spec;
+
+    (* Set invgen options. *)
+    invgengraph_prune_trivial_spec;
+    invgengraph_max_succ_spec;
+    invgengraph_lift_candidates_spec;
+    invgengraph_mine_trans_spec;
+    invgengraph_renice_spec;
 
     (* Read input from file *)
     interpreter_input_file_spec;
@@ -1247,11 +1511,17 @@ let set_smtsolver = function
       flags.smtsolver <- smtsolver; 
       flags.mathsat5_bin <- mathsat5_bin)
 
-  | `Yices_SMTLIB as smtsolver -> 
+  | `Yices_native as smtsolver -> 
 
     (function yices_bin -> 
       flags.smtsolver <- smtsolver; 
       flags.yices_bin <- yices_bin)
+
+  | `Yices_SMTLIB as smtsolver -> 
+
+    (function yices2smt2_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.yices2smt2_bin <- yices2smt2_bin)
 
   | `detect -> (function _ -> ())
 

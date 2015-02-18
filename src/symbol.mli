@@ -110,8 +110,9 @@ type interpreted_symbol =
 
   | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
+(*
   | `BV of Lib.bitvector    (** Constant bitvector *)
-
+*)
   | `MINUS                (** Difference or unary negation (left-associative) *)
   | `PLUS                 (** Sum (left-associative) *)
   | `TIMES                (** Product (left-associative) *)
@@ -129,7 +130,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
-
+(*
   | `CONCAT               (** Concatenation of bitvectors (binary) *)
   | `EXTRACT of Numeral.t * Numeral.t 
                           (** Extract subsequence from bitvector (unary) *)
@@ -144,9 +145,12 @@ type interpreted_symbol =
   | `BVSHL                (** Logical shift left (unary) *)
   | `BVLSHR               (** Logical shift right (unary) *)
   | `BVULT                (** Arithmetic comparision (binary) *)
+*)
 
   | `SELECT               (** Selection from array (binary) *)
+(*
   | `STORE                (** Update of an array (ternary) *)
+*)
   ]
 
 (** Adding uninterpreted function symbols separately for conversions
@@ -211,6 +215,18 @@ val s_implies : t
 (** Constant equality symbol *)
 val s_eq : t
 
+(** Constant greater than or equal symbol *)
+val s_geq : t
+
+(** Constant less than or equal symbol *)
+val s_leq : t
+
+(** Constant greater than symbol *)
+val s_gt : t
+
+(** Constant less than symbol *)
+val s_lt : t
+
 (** Constant modulus operator symbol *)
 val s_mod : t
 
@@ -219,6 +235,9 @@ val s_minus : t
 
 (** Constant division operator symbol *)
 val s_div : t
+
+(** Array read operator *)
+val s_select : t
 
 
 
@@ -232,10 +251,10 @@ val is_numeral : t -> bool
 
 (** Return true if the symbol is a decimal *)
 val is_decimal : t -> bool
-
+(*
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
-
+*)
 (** Return true if the symbol is [`TRUE] or [`FALSE] *)
 val is_bool : t -> bool
 
@@ -244,10 +263,10 @@ val numeral_of_symbol : t -> Numeral.t
 
 (** Return the decimal in a [`DECIMAL _] symbol *)
 val decimal_of_symbol : t -> Decimal.t 
-
+(*
 (** Return the bitvector in a [`BV _] symbol *)
 val bitvector_of_symbol : t -> Lib.bitvector 
-
+*)
 (** Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 val bool_of_symbol : t -> bool 

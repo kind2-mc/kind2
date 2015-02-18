@@ -196,6 +196,8 @@ let extract uf_defs env term =
 
   in
 
+  let visited = Term.TermHashtbl.create 7 in
+
   (* Extract active path from a term *)
   let rec extract_term ((bool, int) as accum) = function 
 
@@ -205,19 +207,33 @@ let extract uf_defs env term =
     (* Extract from top element on stack *)
     | (term, env, polarity) :: tl ->
 
-      debug extract 
-          "@[<v>extract_term:@ %a@ with polarity %B@]" 
-          Term.pp_print_term term
-          polarity
+      (* Get polarities visited for term *)
+      let polarities_visited =
+        try Term.TermHashtbl.find visited term with Not_found -> []
       in
+      
+      (* Have we seen the term with this polarity? *)
+      if List.mem polarity polarities_visited then 
 
-      (* Obtain new accumulator and new terms to extract *)
-      let accum', stack' = 
-        extract_term_flat accum polarity env (Term.T.destruct term) 
-      in
+        (* Terms to extract are in accumulator, skip *)
+        extract_term accum tl
 
-      (* Continue extracting with changed accumulator *)
-      extract_term accum' (List.rev_append stack' tl)
+      else
+
+        (* Obtain new accumulator and new terms to extract *)
+        let accum', stack' = 
+          extract_term_flat accum polarity env (Term.T.destruct term) 
+        in
+
+        (* Mark polarity of term as visited *)
+        Term.TermHashtbl.add 
+          visited 
+          term
+          (polarity :: polarities_visited);
+          
+        (* Continue extracting with changed accumulator *)
+        extract_term accum' (List.rev_append stack' tl)
+
 
   and extract_term_flat ((bool, int) as accum) polarity env = function 
 

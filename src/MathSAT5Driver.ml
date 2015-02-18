@@ -16,23 +16,26 @@
 
 *)
 
-(** Dummy invariant generator
+include GenericSMTLIBDriver
 
-    Periodically sends a tautological invariant.
-
-    @author Christoph Sticksel *)
-
-(** Entry point *)
-val main : TransSys.t -> unit
-
-(** Cleanup before exit *)
-val on_exit : TransSys.t option -> unit
-
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)
+(* Configuration for MathSAT5 *)
+let cmd_line () = 
   
+  (* Path and name of MathSAT5 executable *)
+  let mathsat5_bin = Flags.mathsat5_bin () in
+  [| mathsat5_bin; "-input=smt2" |]
+
+
+let check_sat_limited_cmd _ = 
+  failwith "check-sat with timeout not implemented for MathSAT5"
+
+
+let check_sat_assuming_cmd () = "check-sat-assumptions"
+  
+
+let check_sat_assuming_supported () = false
+
+
+let check_sat_assumptions_cmd () = "(check-sat-assumptions (%a))"
+
+

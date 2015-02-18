@@ -28,8 +28,8 @@ end
 *)
 
 module BMC = Base
-module IND = Step
-module InvGen = InvGenDummy
+module InvGenTS = InvGenGraph.TwoState
+module InvGenOS = InvGenGraph.OneState
 
 (* module PDR = Dummy *)
 
@@ -50,8 +50,51 @@ let trans_sys = ref None
 let main_of_process = function 
   | `PDR -> PDR.main
   | `BMC -> BMC.main 
-  | `IND -> IND.main 
-  | `INVGEN -> InvGen.main 
+  | `IND -> Step.main
+
+  | `INVGEN -> 
+
+    let nice =  (Flags.invgengraph_renice ()) in
+
+    (if nice < 0 then 
+
+       Event.log
+         L_info 
+         "Ignoring negative niceness value for invariant generation."
+
+     else
+
+       let nice' = Unix.nice nice in
+
+       Event.log
+         L_info 
+         "Renicing invariant generation to %d"
+         nice');
+
+    InvGenTS.main
+
+
+  | `INVGENOS -> 
+
+    let nice =  (Flags.invgengraph_renice ()) in
+
+    (if nice < 0 then 
+
+       Event.log
+         L_info 
+         "Ignoring negative niceness value for invariant generation."
+
+     else
+
+       let nice' = Unix.nice (Flags.invgengraph_renice ()) in
+
+       Event.log
+         L_info 
+         "Renicing invariant generation to %d"
+         nice');
+
+    InvGenOS.main
+
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
   | `Parser -> ignore
@@ -61,8 +104,9 @@ let main_of_process = function
 let on_exit_of_process = function 
   | `PDR -> PDR.on_exit
   | `BMC -> BMC.on_exit 
-  | `IND -> IND.on_exit 
-  | `INVGEN -> InvGen.on_exit  
+  | `IND -> Step.on_exit
+  | `INVGEN -> InvGenTS.on_exit  
+  | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
   | `Parser -> ignore
@@ -82,7 +126,8 @@ let debug_ext_of_process = function
   | `PDR -> "pdr"
   | `BMC -> "bmc"
   | `IND -> "ind"
-  | `INVGEN -> "invgen"
+  | `INVGEN -> "invgenTS"
+  | `INVGENOS -> "invgenOS"
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
@@ -184,6 +229,43 @@ let status_of_exn process = function
 (* Clean up before exit *)
 let on_exit process exn = 
 
+(*
+  let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
+
+    Format.fprintf
+      ppf
+      "Number of buckets: %d@,\
+       Number of entries in table: %d@,\
+       Sum of sizes of buckets: %d@,\
+       Size of smallest bucket: %d@,\
+       Median bucket size: %d@,\
+       Size of greatest bucket: %d@,"
+      l
+      c
+      t
+      s
+      m
+      g
+
+  in
+
+  Event.log L_info
+    "@[<hv>Hashconsing for state variables:@,%a@]"
+    pp_print_hashcons_stat (StateVar.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for variables:@,%a@]"
+    pp_print_hashcons_stat (Var.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for terms:@,%a@]"
+    pp_print_hashcons_stat (Term.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for symbols:@,%a@]"
+    pp_print_hashcons_stat (Symbol.stats ());
+*)
+
   let clean_exit status =
 
     (* Log termination status *)
@@ -217,7 +299,7 @@ let on_exit process exn =
 
   (* Clean exit from invariant manager *)
   InvarManager.on_exit !trans_sys;
-
+  
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
@@ -532,8 +614,8 @@ let check_smtsolver () =
         mathsat5_exec
 
 
-    (* User chose MathSat5 *)
-    | `Yices_SMTLIB -> 
+    (* User chose Yices *)
+    | `Yices_native -> 
 
       let yices_exec = 
 
@@ -555,6 +637,32 @@ let check_smtsolver () =
       Event.log
         L_info
         "Using Yices executable %s." 
+        yices_exec
+
+
+    (* User chose Yices2 *)
+    | `Yices_SMTLIB -> 
+
+      let yices_exec = 
+
+        (* Check if MathSat5 is on the path *)
+        try find_on_path (Flags.yices2smt2_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              L_fatal
+              "Yices2 SMT2 executable %s not found."
+              (Flags.yices2smt2_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        L_info
+        "Using Yices2 SMT2 executable %s." 
         yices_exec
 
 
@@ -765,7 +873,17 @@ let main () =
             
         | `Native -> 
           
-          Some (NativeInput.of_file (Flags.input_file ()))
+          (
+
+          (* Some (NativeInput.of_file (Flags.input_file ())) *)
+
+            Event.log
+              L_fatal
+              "Native input deactivated while refactoring transition system.";
+          
+            assert false
+
+          )
 
         | `Horn -> 
           
@@ -845,6 +963,7 @@ let main () =
           
           Event.log L_trace "Starting invariant manager";
 
+          
           (* Initialize messaging for invariant manager, obtain a background
              thread *)
           let _ = 

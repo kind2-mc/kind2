@@ -147,6 +147,12 @@ val ind_compress_same_predecessors : int_item
 val ind_restarts : int_item 
 
 (** Total time in BMC *)
+val ind_lazy_invariants_count : int_item
+
+(** Total time in BMC *)
+val ind_lazy_invariants_time : float_item
+
+(** Total time in BMC *)
 val ind_total_time : float_item
 
 (** Stop and record all timers *)
@@ -181,6 +187,9 @@ val pdr_fwd_fixpoint : int_item
 (** Blocking clauses proved inductive *)
 val pdr_inductive_blocking_clauses : int_item
 
+(** Number of literals removed by inductive generalization *)
+val pdr_literals_removed : int_item
+
 (** Number of counterexamples per frame *)
 val pdr_counterexamples : int_list_item 
 
@@ -202,6 +211,9 @@ val pdr_strengthen_time : float_item
 (** Time spent searching counterexamples *)
 val pdr_find_cex_time : float_item
 
+(** Time spent inductively generalizing counterexample *)
+val pdr_ind_gen_time : float_item
+
 (** Time spent generalizing *)
 val pdr_generalize_time : float_item
 
@@ -217,6 +229,9 @@ val pdr_tightened_blocking_clauses : int_item
 (** Number of tightened clauses in forward propagation *)
 val pdr_tightened_propagated_clauses : int_item
 
+(** Number of activation literals *)
+val pdr_activation_literals : int_item
+  
 (** Stop and record all timers *)
 val pdr_stop_timers : unit -> unit 
 
@@ -227,7 +242,76 @@ val pdr_stats_title : string
 val pdr_stats : stat_item list
 
 (** Print statistics for PDR *)
-val pp_print_pdr_stats : Format.formatter -> unit 
+val pp_print_pdr_stats : Format.formatter -> unit
+
+(** {2 INVGENOS} *)
+
+(** Hightest k reached. *)
+val invgengraph_os_k : int_item
+
+(** Total number of candidate terms. *)
+val invgengraph_os_candidate_term_count : int_item
+
+(** Total number of invariants discovered by invariant generation for
+    all systems. *)
+val invgengraph_os_invariant_count : int_item
+
+(** Total number of invariants discovered by invariant generation
+    which were implications. *)
+val invgengraph_os_implication_count : int_item
+
+(** Time spent rewriting graphs. *)
+val invgengraph_os_graph_rewriting_time : float_item
+
+(** Time spent rewriting graphs. *)
+val invgengraph_os_total_time : float_item
+
+(** Title for INVGENOS statistics *)
+val invgengraph_os_stats_title : string
+
+(** All INVGENOS statistics *)
+val invgengraph_os_stats : stat_item list
+
+(** Stop and record all timers *)
+val invgengraph_os_stop_timers : unit -> unit
+
+(** Pretty-print INVGENOS statistics items *)
+val pp_print_invgengraph_os_stats : Format.formatter -> unit
+
+
+(** {2 INVGENTS} *)
+
+(** Hightest k reached. *)
+val invgengraph_ts_k : int_item
+
+(** Total number of candidate terms. *)
+val invgengraph_ts_candidate_term_count : int_item
+
+(** Total number of invariants discovered by invariant generation for
+    all systems. *)
+val invgengraph_ts_invariant_count : int_item
+
+(** Total number of invariants discovered by invariant generation
+    which were implications. *)
+val invgengraph_ts_implication_count : int_item
+
+(** Time spent rewriting graphs. *)
+val invgengraph_ts_graph_rewriting_time : float_item
+
+(** Time spent rewriting graphs. *)
+val invgengraph_ts_total_time : float_item
+
+(** Title for INVGENTS statistics *)
+val invgengraph_ts_stats_title : string
+
+(** All INVGENTS statistics *)
+val invgengraph_ts_stats : stat_item list
+
+(** Stop and record all timers *)
+val invgengraph_ts_stop_timers : unit -> unit
+
+(** Pretty-print INVGENTS statistics items *)
+val pp_print_invgengraph_ts_stats : Format.formatter -> unit
 
 (** {2 SMT} *)
 
@@ -236,6 +320,9 @@ val smt_check_sat_time : float_item
 
 (** Time in get-value calls *)
 val smt_get_value_time : float_item 
+
+(** Time in get-unsat-core calls *)
+val smt_get_unsat_core_time : float_item 
 
 (** Stop and record all timers *)
 val smt_stop_timers : unit -> unit 
