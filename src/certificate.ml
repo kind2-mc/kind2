@@ -17,8 +17,30 @@
 *)
 
 
-
 type t = int * Term.t
 
 
   
+let merge certs =
+  let km, l =
+    List.fold_left (fun (km, l) (k, phi) ->
+        max k km, phi :: l
+      ) (0, []) certs in
+  km, Term.mk_and l
+
+
+
+(*
+let generate_certificate certs sys =
+
+  let k, phi = merge certs in
+
+  let prop_p = UfSymbol.mk_uf_symbol "__P__" [Type.t_int] Type.t_bool in
+  let init_p = UfSymbol.mk_uf_symbol "__I__" [Type.t_int] Type.t_bool in
+  let trans_p =
+    UfSymbol.mk_uf_symbol "__T__" [Type.t_int; Type.t_int] Type.t_bool in
+
+  let phi_p = UfSymbol.mk_uf_symbol "__PHI__" [Type.t_int] Type.t_bool in
+
+  assert false
+  *)

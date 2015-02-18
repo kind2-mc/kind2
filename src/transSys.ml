@@ -427,7 +427,7 @@ let set_prop_false t prop cex =
             | PropKTrue _ -> (n, PropFalse cex)
 
             (* Keep if property was l-false for l <= k *)
-            | PropFalse cex' when (length_of_cex cex') <= (length_of_cex cex) -> 
+            | PropFalse cex' when (length_of_cex cex') <= (length_of_cex cex) ->
               (n, s)
 
             (* Mark property as k-false *)

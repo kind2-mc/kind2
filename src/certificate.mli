@@ -22,3 +22,5 @@ type t = int * Term.t
 
 
 
+val merge : t list -> t
+
