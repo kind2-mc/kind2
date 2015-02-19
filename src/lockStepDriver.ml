@@ -582,9 +582,16 @@ let rec split_closure
        (* Deactivating actlit. *)
        Term.mk_not actlit
        |> SMTSolver.assert_term solver ;
+
+       (* adding certificates for k-induction *)
+       let unfalsifiable_certs =
+         List.map (fun t ->
+             let cert = Numeral.to_int k, t in
+             t, cert)
+           terms_to_check in
        
        (* Returning result. *)
-       falsifiable, terms_to_check
+       falsifiable, unfalsifiable_certs
      in
 
      (* Checking if we should terminate before doing anything. *)

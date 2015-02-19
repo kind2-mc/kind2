@@ -119,15 +119,15 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
 
 (* Messages to be relayed between processes *)
-type event = 
-  | Invariant of string list * Term.t 
+type event =
+  | Invariant of string list * Term.t * Certificate.t 
   | PropStatus of string * TransSys.prop_status
 
 
 (* Pretty-print an event *)
 let pp_print_event ppf = function 
 
-  | Invariant (s, t) -> 
+  | Invariant (s, t, _) -> 
     Format.fprintf ppf "@[<hv>Invariant for %a@ %a@]" 
       (pp_print_list Format.pp_print_string ".") s
       Term.pp_print_term t
@@ -171,7 +171,15 @@ struct
 
       let l = (Marshal.from_string f 0 : string list) in 
 
-      Invariant (l, t)
+      let f = pop () in
+
+      let phi = Term.import (Marshal.from_string f 0 : Term.t) in 
+
+      let k = try int_of_string (pop ()) with 
+        | Failure _ -> raise Messaging.BadMessage 
+      in 
+
+      Invariant (l, t, (k, phi))
 
     | "PROP_UNKNOWN" -> 
 
@@ -235,15 +243,18 @@ struct
   (* Convert a message to strings *)
   let strings_of_message = function 
 
-    | Invariant (s, t) -> 
+    | Invariant (s, t, (k, phi)) -> 
 
       (* Serialize term to string *)
       let term_string = Marshal.to_string t [Marshal.No_sharing] in
+
+      (* Serialize term to string *)
+      let phi_string = Marshal.to_string phi [Marshal.No_sharing] in
       
       (* Serialize scope to string *)
       let scope_string = Marshal.to_string s [Marshal.No_sharing] in
       
-      [scope_string; term_string; "INVAR"]
+      [string_of_int k; phi_string; scope_string; term_string; "INVAR"]
 
     | PropStatus (p, TransSys.PropUnknown) -> 
 
@@ -583,7 +594,7 @@ let prop_status_pt level prop_status =
                  Format.fprintf ppf "true up to %d steps" k
 
                | TransSys.PropInvariant (k, _) -> 
-                 Format.fprintf ppf "valid (%d-inductive)" k
+                 Format.fprintf ppf "valid (at %d)" k
 
                | TransSys.PropFalse [] -> 
                  Format.fprintf ppf "invalid"
@@ -1020,12 +1031,12 @@ let terminate_log () =
 
 
 (* Broadcast a scoped invariant *)
-let invariant scope term = 
+let invariant scope term cert = 
   
   try
     
     (* Send invariant message *)
-    EventMessaging.send_relay_message (Invariant (scope, term))
+    EventMessaging.send_relay_message (Invariant (scope, term, cert))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -1257,7 +1268,7 @@ let update_trans_sys_sub trans_sys events =
     | [] -> (invars, prop_status)
 
     (* Invariant discovered *)
-    | (m, Invariant (s, t)) :: tl -> 
+    | (m, Invariant (s, t, cert)) :: tl -> 
 
       (* Property status if received invariant is a property *)
       let tl' =
@@ -1269,7 +1280,7 @@ let update_trans_sys_sub trans_sys events =
              if Term.equal t t' then
 
                (* Inject property status event *)
-               ((m, PropStatus (p, TransSys.PropInvariant (assert false (* TODO certificates *)))) :: accum)
+               ((m, PropStatus (p, TransSys.PropInvariant cert)) :: accum)
 
              else
 
@@ -1281,12 +1292,12 @@ let update_trans_sys_sub trans_sys events =
       in
       
       (* Add invariant to transtion system *)
-      TransSys.add_scoped_invariant trans_sys s t ;
+      TransSys.add_scoped_invariant trans_sys s t cert;
 
       (* Continue with invariant added to accumulator *)
       update_trans_sys'
         trans_sys
-        ((m, (s, t)) :: invars)
+        ((m, (s, t, cert)) :: invars)
         prop_status
         tl'
 
@@ -1324,6 +1335,7 @@ let update_trans_sys_sub trans_sys events =
         TransSys.add_invariant 
           trans_sys
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
+          cert
           
        (* Skip if named property not found *)
        with Not_found -> ());
@@ -1364,7 +1376,7 @@ let top_invariants_of_invariants sys invariants =
 
   (* Only keep invariants with empty scope *)
   (List.fold_left
-     (fun accum (_, (scope, t)) ->
+     (fun accum (_, (scope, t, _)) ->
       if scope = top then t :: accum else accum)
      []
      invariants)
@@ -1377,7 +1389,7 @@ let update_trans_sys trans_sys events =
     (* Calling the scoped update function. *)
     update_trans_sys_sub trans_sys events
   with
-  | invs,valids ->
+  | invs, valids ->
     (* Filtering top level invariants. *)
     top_invariants_of_invariants trans_sys invs, valids
 

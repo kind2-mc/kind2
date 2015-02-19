@@ -153,7 +153,7 @@ type t = {
   source: source ;
 
   (* Invariants *)
-  mutable invars: Term.t list;
+  mutable invars: (Term.t * Certificate.t) list;
 
   (* Systems instantiating this system, and for each instantiation a
      map from state variables of this system to the state variables of
@@ -202,7 +202,7 @@ let add_caller callee caller c =
 
 (* Instantiates a term for all systems instantiating the input
    system. *)
-let instantiate_term { callers } term =
+let instantiate_term_cert { callers } (term, cert) =
 
   (* Gets the term corresponding to 'var' in 'map' and bumps it if
      'var' is not a constant. Raises Not_found if 'var' is not defined
@@ -272,27 +272,35 @@ let instantiate_term { callers } term =
                             (String.concat "/" sys.scope) ;
               Printf.printf "  > %s\n\n" (string_of_map map) )
          in
+
+         (* inscantiate both term and certificate *)
+         let subst_term_cert term (k, phi) (map, f)=
+           let inst t = Term.map (substitute_fun_of_map map) t |> f in
+           let term' = inst term in
+           (* use the same thing the certificate is itself *)
+           if Term.equal term phi then term', (k, term')
+           (* otherwise instantiate the k-inductive invariant in 
+              the certificate *)
+           else term', (k, inst phi)
+         in
+         
          
          (* Building one new term per instantiation mapping for
             sys. *)
-         let terms =
+         let terms_and_certs =
            maps
            |> List.map
-               (* For each map of this over-system, substitute the
-                  variables of term according to map. *)
-               ( fun (map,f) ->
-                 Term.map
-                   (substitute_fun_of_map map)
-                   term
-                 |> f )
+             (* For each map of this over-system, substitute the variables of
+                term and certificate according to map. *)
+             (subst_term_cert term cert)
          in
 
-         sys, terms )
+         sys, terms_and_certs )
 
 (* Inserts a system / terms pair in an associative list from systems
    to terms.  Updates the biding by the old terms and the new ones if
    it's already there, adds a new biding otherwise. *)
-let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
+let insert_in_sys_term_map assoc_list ((sys, terms) as pair) =
 
   let rec loop prefix = function
       
@@ -322,22 +330,23 @@ let is_top { callers } = callers = []
    intermediary systems and terms. Note that the input system term of
    the function will be in the result, either as intermediary or top
    level. *)
-let instantiate_term_all_levels t term =
+let instantiate_term_cert_all_levels t term_cert =
 
   let rec loop at_top intermediary = function
-    | (sys, ((term :: term_tail) as list)) :: tail ->
+    | (sys, ((term_cert :: term_tail) as list)) :: tail ->
 
       debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
 
        (* Instantiating this term upward. *)
        let at_top', intermediary', recursive' =
-         instantiate_term sys term
+         instantiate_term_cert sys term_cert
          |> List.fold_left
               ( fun (at_top'', intermediary'', recursive'')
-                    ((sys',_) as pair) ->
+                    ((sys', _) as pair) ->
 
-                      debug transSys "[loop] inst sys: %s" (sys'.scope |> String.concat "/") in
-
+                debug transSys "[loop] inst sys: %s"
+                  (sys'.scope |> String.concat "/") in
+  
                 if is_top sys' then
                   (* Top system, no need to recurse on these terms. *)
                   insert_in_sys_term_map at_top'' pair,
@@ -350,7 +359,7 @@ let instantiate_term_all_levels t term =
                   insert_in_sys_term_map intermediary'' pair,
                   insert_in_sys_term_map recursive'' pair )
 
-              (at_top, intermediary, ((sys,term_tail) :: tail))
+              (at_top, intermediary, ((sys, term_tail) :: tail))
        in
 
        (* Making sure there at most one top system. *)
@@ -377,23 +386,33 @@ let instantiate_term_all_levels t term =
     debug transSys "Instantiate: system is already top." in
     (* If the system is already the top one, there is no instantiating
        to do. *)
-    (t, [term]), []
+    (t, [term_cert]), []
   ) else (
     debug transSys "Instantiate: system is not top." in
-    loop [] [t, [term]] [t, [term]]
+    loop [] [t, [term_cert]] [t, [term_cert]]
 )
+
+(* Same as above wihtout certificates *)
+let instantiate_term_all_levels t term =
+  let dummy_cert = -1, term in
+  let (sys_top, t_top), inter_c =
+    instantiate_term_cert_all_levels t (term, dummy_cert) in
+  (sys_top, List.map fst t_top),
+  List.map (fun (subsys, t_subs) ->
+      subsys, List.map fst t_subs) inter_c
+  
 
 
 (* Instantiates a term for the top system by going up the system
    hierarchy, for all instantiations of the input system. *)
-let instantiate_term_top t term =
+let instantiate_term_cert_top t term_cert =
 
   let rec loop at_top = function
       
-    | (sys, ((term :: term_tail) as list)) :: tail ->
+    | (sys, ((term_cert :: term_tail) as list)) :: tail ->
        
        (* Instantiating this term upward. *)
-       ( match instantiate_term sys term with
+       ( match instantiate_term_cert sys term_cert with
            
          | [] ->
             (* Nothing, so sys is the top node. *)
@@ -416,11 +435,11 @@ let instantiate_term_top t term =
     | [] ->
        ( match at_top with
          (* If at_top is empty, 't' is already the top system. *)
-         | [] -> [term]
+         | [] -> [term_cert]
          | list -> list )
   in
 
-  loop [] (instantiate_term t term)
+  loop [] (instantiate_term_cert t term_cert)
 
 (* Number of times this system is instantiated in other systems. *)
 let instantiation_count { callers } =
@@ -564,7 +583,8 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
                   Term.mk_var
                     (Var.mk_state_var_instance state_var Numeral.zero); 
                   Term.mk_num u] in
-              eq :: accum
+             (* certif o inductive *)
+             (eq, (0, eq)) :: accum
            | _ -> accum)
       []
       state_vars
@@ -764,15 +784,14 @@ let trans_fun_of { uf_defs } k k' =
 let invars_of_bound ?(one_state_only = false) t i = 
 
   (* Create conjunction of property terms *)
-  let invars_0 = 
-    Term.mk_and 
+  let invars = 
 
       (* Only one-state invariants? *)
       (if one_state_only then
 
          (* Filter for invariants at zero *)
          List.filter
-           (fun t -> match Term.var_offsets_of_term t with 
+           (fun (t, _) -> match Term.var_offsets_of_term t with 
               | Some l, Some u when 
                   Numeral.(equal l zero) && Numeral.(equal u zero) -> 
                 true
@@ -786,12 +805,14 @@ let invars_of_bound ?(one_state_only = false) t i =
 
   in 
 
+  let invars_0 = Term.mk_and (List.map fst invars) in
+  
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0
   else Term.bump_state i invars_0
 
 
-let get_invars { invars } = invars
+let get_invars { invars } = List.map fst invars
 
 
 (* Instantiate terms in association list to the bound *)
@@ -866,14 +887,14 @@ let subsystem_of_scope t scope =
   loop [] t
 
 (* Add an invariant to the transition system *)
-let add_scoped_invariant t scope invar =
+let add_scoped_invariant t scope invar certif =
   (* Finding the right system. *)
   let sys = subsystem_of_scope t scope in
   (* Adding invariant to the right system. *)
-  sys.invars <- invar :: sys.invars
+  sys.invars <- (invar, certif) :: sys.invars
 
 (* Add an invariant to the transition system *)
-let add_invariant t invar = add_scoped_invariant t t.scope invar
+let add_invariant t invar certif = add_scoped_invariant t t.scope invar certif
 
 (* Return current status of all properties *)
 let get_prop_status_all t = 
@@ -1100,7 +1121,7 @@ let pp_print_trans_sys
     Term.pp_print_term (init_term trans_sys)
     Term.pp_print_term (trans_term trans_sys)
     (pp_print_list pp_print_property "@ ") properties
-    (pp_print_list Term.pp_print_term "@ ") invars
+    (pp_print_list Term.pp_print_term "@ ") (List.map fst invars)
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
     (pp_print_list pp_print_callers "@,") callers
       

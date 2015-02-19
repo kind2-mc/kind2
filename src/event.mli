@@ -81,8 +81,8 @@ val terminate_log : unit -> unit
 (** {1 Events} *)
 
 (** Events exposed to callers *)
-type event = 
-  | Invariant of string list * Term.t 
+type event =
+  | Invariant of string list * Term.t * Certificate.t 
   | PropStatus of string * TransSys.prop_status
 
 (** Pretty-print an event *)
@@ -103,7 +103,7 @@ val stat : (string * Stat.stat_item list) list -> unit
 val progress : int -> unit
 
 (** Broadcast a discovered top level invariant *)
-val invariant : string list -> Term.t -> unit
+val invariant : string list -> Term.t -> Certificate.t -> unit
 
 (** Broadcast a property status *)
 val prop_status : TransSys.prop_status -> TransSys.t -> string -> unit
@@ -125,7 +125,7 @@ val check_termination: unit -> unit
     (top) scope *)
 val top_invariants_of_invariants :
   TransSys.t ->
-  (Lib.kind_module * (string list * Term.t)) list ->
+  (Lib.kind_module * (string list * Term.t * Certificate.t)) list ->
   Term.t list
 
 (** Update transition system from events and return new invariants
@@ -143,7 +143,7 @@ val top_invariants_of_invariants :
 val update_trans_sys_sub :
   TransSys.t ->
   (Lib.kind_module * event) list ->
-  (Lib.kind_module * (string list * Term.t)) list *
+  (Lib.kind_module * (string list * Term.t * Certificate.t)) list *
   (Lib.kind_module * (string * TransSys.prop_status)) list
 
 (** Update transition system from events and return new top level

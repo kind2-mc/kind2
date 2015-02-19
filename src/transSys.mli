@@ -95,22 +95,19 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> Term.logic
                        
-(** Instantiates a term for all (over)systems instantiating, possibly
-    more than once, the input system. *)
-val instantiate_term: t -> Term.t -> (t * Term.t list) list
-                                                       
 (** Instantiates a term for the top system by going up the system
    hierarchy, for all instantiations of the input system. Returns the
    top system and the corresponding instantiated terms, paired with
    the intermediary systems and term instantiations. Note that the
    input system/term of the function will be in the result, either as
    intermediary or top level. *)
-val instantiate_term_all_levels:
-  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+val instantiate_term_all_levels: t -> Term.t ->
+  (t * Term.t list) * (t * Term.t list) list
 
-(** Instantiates a term for the top system by going up the system
-    hierarchy, for all instantiations of the input system. *)
-val instantiate_term_top: t -> Term.t -> Term.t list
+(** Same as above but with certificates *)
+val instantiate_term_cert_all_levels: t -> Term.t * Certificate.t ->
+  (t * (Term.t * Certificate.t) list) *
+  (t * (Term.t * Certificate.t) list) list
 
 (** Number of times this system is instantiated in other systems. *)
 val instantiation_count: t -> int
@@ -226,10 +223,10 @@ val is_trans_uf_def : t -> UfSymbol.t -> bool
 val is_init_uf_def : t -> UfSymbol.t -> bool
 
 (** Add an invariant to the transition system *)
-val add_invariant : t -> Term.t -> unit
+val add_invariant : t -> Term.t -> Certificate.t -> unit
 
 (** Add an invariant to the transition system *)
-val add_scoped_invariant : t -> string list -> Term.t -> unit
+val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
 
 (** Return current status of all properties *)
 val get_prop_status_all : t -> (string * prop_status) list

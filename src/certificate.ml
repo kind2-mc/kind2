@@ -26,7 +26,7 @@ let merge certs =
     List.fold_left (fun (km, l) (k, phi) ->
         max k km, phi :: l
       ) (0, []) certs in
-  km, Term.mk_and l
+  km, Term.mk_and (List.rev l)
 
 
 

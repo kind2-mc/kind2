@@ -1286,8 +1286,10 @@ let fwd_propagate solver trans_sys prop_set frames =
                 in
 
                 (* Broadcast inductive clauses as invariants *)
-                List.iter 
-                  (Event.invariant (TransSys.get_scope trans_sys))
+                List.iter (fun i ->
+                    (* Certificate 0 inductive *)
+                    let cert = (0, i) in
+                    Event.invariant (TransSys.get_scope trans_sys) i cert)
                   inductive_terms;
 
                 (* Increment statistics *)
@@ -1296,7 +1298,11 @@ let fwd_propagate solver trans_sys prop_set frames =
                   Stat.pdr_inductive_blocking_clauses;
 
                 (* Add inductive blocking clauses as invariants *)
-                List.iter (TransSys.add_invariant trans_sys) inductive_terms;
+                List.iter (fun i ->
+                    (* Certificate 0 inductive *)
+                    let cert = (0, i) in
+                    TransSys.add_invariant trans_sys i cert)
+                  inductive_terms;
 
                 SMTSolver.trace_comment
                   solver

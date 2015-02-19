@@ -47,7 +47,7 @@ val query_base:
     k-inductive. Returns the terms unfalsifiable in the next state and
     the trivial terms pruned from the input list. *)
 val increment_and_query_step:
-  t -> TransSys.t -> Term.t list -> Term.t list * Term.t list
+  t -> TransSys.t -> Term.t list -> (Term.t * Certificate.t) list * Term.t list
 
 (* 
    Local Variables:

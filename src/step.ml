@@ -487,17 +487,25 @@ let rec next trans solver k unfalsifiables unknowns =
     clean_properties trans unknowns unfalsifiables
   in
 
+  (* Adding certificates to confirmed properties *)
+  let confirmed_cert =
+    confirmed
+    |> List.map
+      (fun (s, phi) ->
+         (* certificate for k-induction *)
+         let cert = k_int, phi in 
+         s, phi, cert)
+  in
+  
   (* Communicating confirmed properties. *)
-  confirmed
+  confirmed_cert
   |> List.iter
-    ( fun (s, phi) ->
-       (* certificate for k-induction *)
-       let cert = k_int, phi in 
+    ( fun (s, phi, cert) ->
        Event.prop_status (TransSys.PropInvariant cert) trans s ) ;
-
+  
   (* Adding confirmed properties to the system. *)
-  confirmed |> List.iter
-      (fun (_,term) -> TransSys.add_invariant trans term) ;
+  confirmed_cert |> List.iter
+    (fun (_, term, cert) -> TransSys.add_invariant trans term cert) ;
 
   (* Adding confirmed properties to new invariants. *)
   let new_invariants' =

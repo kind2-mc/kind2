@@ -209,11 +209,18 @@ module Make (InModule : In) : Out = struct
 
   (* Guards a term with init if in two state mode. *)
   let sanitize_term =
-    if two_state then
-      ( fun term ->
+    if two_state then fun term ->
         Term.mk_or
           [ TransSys.init_flag_var Numeral.zero |> Term.mk_var ;
-            term ] )
+            term ]
+    else identity
+
+  (* Guards a term and certificate with init if in two state mode. *)
+  let sanitize_term_cert =
+    if two_state then fun (term, (k, phi)) ->
+      let term' = sanitize_term term in
+      if Term.equal term phi then term', (k, term')
+      else term', (k, sanitize_term phi)
     else identity
 
   (* Lazy function deciding if a term should be kept or not depending
@@ -564,50 +571,56 @@ module Make (InModule : In) : Out = struct
     loop 1 graph
 
 
+  let mk_and_invar_certs invariants_certs =
+    let invs, certs = List.split invariants_certs in
+    Term.mk_and invs, Certificate.merge certs
+  
   (* Lifts [invariants] for all the systems calling [sys] and
      communicates them to the framework. *)
   let communicate_invariants top_sys lsd sys = function
     | [] ->
        0
-    | invariants ->
+    | invariants_certs ->
        
        (* All intermediary invariants and top level ones. *)
        let ((_, top_invariants), intermediary_invariants) =
          if top_sys == sys then
-           (top_sys, List.map sanitize_term invariants), []
+           (top_sys, List.map sanitize_term_cert invariants_certs), []
          else
-           Term.mk_and invariants
+           mk_and_invar_certs invariants_certs
            (* Guarding with init if needed. *)
-           |> sanitize_term
+           |> sanitize_term_cert
            (* Instantiating at all levels. *)
-           |> TransSys.instantiate_term_all_levels sys
+           |> TransSys.instantiate_term_cert_all_levels sys
        in
 
        intermediary_invariants
        |> List.iter
-            ( fun (sub_sys, terms') ->
-              (* Adding invariants to the lsd. *)
-              LSD.add_invariants lsd sub_sys terms' ;
-              (* Adding invariants to the transition system. *)
-              terms'
-              |> List.map
-                   (TransSys.add_invariant sub_sys) ;
-              (* Broadcasting invariants. *)
-              terms'
-              |> List.iter
-                   (TransSys.get_scope sub_sys
-                    |> Event.invariant) ) ;
+         ( fun (sub_sys, termsc') ->
+            (* Drop certificates *)
+            let invs = List.map fst termsc' in
+            (* Adding invariants to the lsd. *)
+            LSD.add_invariants lsd sub_sys invs ;
+            (* Adding invariants w/ certificates to the transition system. *)
+            termsc'
+            |> List.map
+              (fun (i,c) -> TransSys.add_invariant sub_sys i c) ;
+            (* Broadcasting invariants with certificates. *)
+            termsc'
+            |> List.iter (fun (i, c) ->
+                Event.invariant (TransSys.get_scope sub_sys) i c)
+         ) ;
 
        let top_scope = TransSys.get_scope top_sys in
 
        top_invariants
        |> List.iter
-            (fun inv ->
+            (fun (inv, cert) ->
              (* Adding top level invariants to transition system. *)
-             TransSys.add_invariant top_sys inv ;
+             TransSys.add_invariant top_sys inv cert ;
              (* Adding top level invariants to LSD. *)
              LSD.add_invariants lsd top_sys [ inv ] ;
-             Event.invariant top_scope inv ) ;
+             Event.invariant top_scope inv cert) ;
 
        List.length top_invariants
 
@@ -673,8 +686,8 @@ module Make (InModule : In) : Out = struct
     (* Updating the set of invariants. *)
     let invariants' =
       List.fold_left
-        ( fun inv_set new_invariant ->
-          TSet.add new_invariant inv_set )
+        ( fun inv_set (new_inv, cert) ->
+          TSet.add new_inv inv_set )
         invariants
         new_invariants
     in
@@ -722,12 +735,12 @@ module Make (InModule : In) : Out = struct
     |> Event.update_trans_sys_sub top_sys
 
     (* Handling new invariants and property statuses. *)
-    |> ( fun (invariants, properties) ->
+    |> ( fun (invariants_certs, properties) ->
 
          (* Adding new invariants to lsd. *)
-         invariants
+         invariants_certs
          |> List.iter
-              ( fun (_, (scope,inv)) ->
+              ( fun (_, (scope, inv, _)) ->
                 LSD.add_invariants
                   lsd
                   (TransSys.subsystem_of_scope top_sys scope)
