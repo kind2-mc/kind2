@@ -556,7 +556,9 @@ let wait_for_kids t =
       rm_kids t [child_pid] ;
 
       (* Check if more child processes have died. *)
-      loop true
+      on_exit t Exit ;
+
+      exit status_error
 
     )
 
@@ -844,7 +846,9 @@ let run sys log msg_setup = function
                    Unix.it_value = 0. }
              in
 
-             () )
+             Event.log L_warn "exiting." ;
+
+             status_of_exn e |> exit )
 
 (* 
    Local Variables:
