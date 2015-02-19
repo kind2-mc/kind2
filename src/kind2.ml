@@ -501,52 +501,57 @@ let launch_modular systems log msg_setup =
   in
 
   (* Running on systems. *)
-  loop systems ;
-
-
-  (* Printing analysis breakdown. *)
-  dbl_sep_line_warn () ;
-
-  Event.log L_warn "Analysis breakdown:" ;
-
-  Event.log
-    L_warn
-    "%a"
-    Log.pp_print_log log
+  loop systems
 
 
 
 (* Launches the top level (potentially modular) analysis. *)
 let launch sys msg_setup =
 
-  if Flags.modular () then (
+  (* Launching analysis, getting log back. *)
+  let log, status =
+    if Flags.modular () then (
 
-    (* Getting all systems bottom up. *)
-    let all_sys =
+      (* Getting all systems bottom up. *)
+      let all_sys =
         TransSys.get_all_subsystems sys
-    in
-    (* Creating log. *)
-    let log = Log.mk_log all_sys in
+      in
+      (* Creating log. *)
+      let log = Log.mk_log all_sys in
 
-    (* Launching modular mode. *)
-    launch_modular all_sys log msg_setup ;
+      (* Launching modular mode. *)
+      launch_modular all_sys log msg_setup ;
 
-    Analysis.status_of_exn Exit
-    |> exit_of_status
+      log, Analysis.status_of_exn Exit
 
-  ) else (
+    ) else (
 
-    (* Creating log. *)
-    let log = Log.mk_log [sys] in
+      (* Creating log. *)
+      let log = Log.mk_log [sys] in
 
-    (* Launching normal mode. *)
-    choose_compositional sys log msg_setup ;
+      (* Launching normal mode. *)
+      choose_compositional sys log msg_setup ;
 
-    Analysis.status_of_exn Exit
-    |> exit_of_status
+      log, Analysis.status_of_exn Exit
+    )
+  in
 
-  )
-      
+  (* Printing final things. *)
+  dbl_sep_line_warn () ;
+
+  ( if Flags.modular () || Flags.compositional () then (
+      Event.log L_warn "Analysis breakdown:" ;
+
+      Event.log
+        L_warn
+        "%a"
+        Log.pp_print_log log
+    ) else 
+      print_final_statistics sys ) ;
+
+  (* print_hashcons_stats () ; *)
+
+  exit_of_status status
 
 
 (* Sets everything up before launching top level analysis. *)

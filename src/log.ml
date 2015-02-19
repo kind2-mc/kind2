@@ -316,21 +316,23 @@ let pp_print_prop_info ppf = function
        pp_print_kind_module modul
 
 (* Pretty prints an abstraction key. *)
-let pp_print_abstraction_key ppf key =
-  Format.fprintf
-    ppf
-    "@[<hv>%a@]"
-    (pp_print_list
+let pp_print_abstraction_key ppf = function
+  | [] -> Format.fprintf ppf "-"
+  | key ->
+     Format.fprintf
+       ppf
+       "@[<hv>%a@]"
        (pp_print_list
-          Format.pp_print_string ".")
-       ",@ ")
-    key
+          (pp_print_list
+             Format.pp_print_string ".")
+          ",@ ")
+       key
 
 (* Pretty prints a [abstraction_sublog]. *)
 let pp_print_abstraction_sublog ppf { abstraction ; prop_infos } =
   Format.fprintf
     ppf "@[<hv 2>\
-         abstraction: [%a]@ \
+         by abstracting: [%a]@ \
          %a\
          @]"
     pp_print_abstraction_key abstraction
@@ -396,7 +398,7 @@ let pp_print_log ppf { sys ; sys_sublogs } =
 let pp_print_log_shy ppf { sys ; sys_sublogs } =
   Format.fprintf
     ppf "@[<v>%a@]"
-    (pp_print_list pp_print_sys_sublog_shy "@ ") sys_sublogs
+    (pp_print_list pp_print_sys_sublog_shy "@ ") (List.rev sys_sublogs)
 
 (* 
    Local Variables:
