@@ -183,11 +183,11 @@ val pp_print_abstraction_sublog:
 val pp_print_sys_sublog:
   Format.formatter -> sys_sublog -> unit
 
-(** Pretty prints a [t] log. *)
+(** Pretty prints a log. *)
 val pp_print_log:
   Format.formatter -> t -> unit
 
-(** Pretty prints a [t] log. *)
+(** Pretty prints a log. *)
 val pp_print_log_shy:
   Format.formatter -> t -> unit
 

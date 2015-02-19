@@ -159,15 +159,13 @@ type t = {
             (t
              * ( ( (StateVar.t * StateVar.t) list
                    * (Term.t -> Term.t)
-                 ) list
-               )
-            ) list;
+                 ) list )
+            ) list ;
 
   (* Abstraction of the transition system. Contains the scopes of the
      systems to abstract. Mutable, because it is changed by
      compositional analysis. *)
   mutable abstraction: string list list ;
-  
 
 }
 
@@ -319,7 +317,9 @@ let instantiate_term_all_levels t term =
               ( fun (at_top'', intermediary'', recursive'')
                     ((sys',_) as pair) ->
 
-                      debug transSys "[loop] inst sys: %s" (sys'.scope |> String.concat "/") in
+                debug transSys
+                      "[loop] inst sys: %s"
+                      (sys'.scope |> String.concat "/") in
 
                 if is_top sys' then
                   (* Top system, no need to recurse on these terms. *)
@@ -439,35 +439,6 @@ let get_contracts = function
      |> List.map
           ( fun { name ; source ; requires ; ensures } ->
             name, source, requires, ensures )
-
-(* (\* For a system, returns [Some true] if all contracts are invariants, *)
-(*    [Some false] if at least one of the contracts is falsified, and *)
-(*    [None] otherwise. *\) *)
-(* let verifies_contracts { properties } = *)
-(*   contracts *)
-(*   |> List.fold_left *)
-(*        ( fun bool_opt -> *)
-(*          function *)
-(*          | { source = TermLib.Contract _ ; status } -> *)
-(*             ( match status with *)
-(*               | PropInvariant -> bool_opt *)
-(*               |  *)
-(*          | { status = PropFalse(_) } -> Some false *)
-(*          | _ -> None ) *)
-(*        (Some true) *)
-
-(* (\* Returns the contracts of a system as a list of implications. *\) *)
-(* let get_contracts_implications { contracts } = *)
-(*   contracts *)
-(*   |> List.map *)
-(*        ( fun { name ; requires ; ensures } -> *)
-(*          (name, *)
-(*           (\* Building the implication between the requires and the *)
-(*              ensures. *\) *)
-(*           Term.mk_implies *)
-(*             [ Term.mk_and requires ; *)
-(*               Term.mk_and ensures ]) ) *)
-
 
 (* Returns the subsystems of a system. *)
 let get_subsystems { subsystems } = subsystems
@@ -1184,6 +1155,8 @@ let contract_of_name ({ contracts } as sys) to_find =
        to_find
      |> failwith
 
+(* Returns [true] iff all subrequirement properties of the system are
+   invariants. *)
 let subrequirements_valid { properties } =
   let rec loop = function
     | { prop_status = status ;
@@ -1196,6 +1169,8 @@ let subrequirements_valid { properties } =
   in
   loop properties
 
+(* Returns true iff all subrequirements related to a scope are
+   invariants. *)
 let proved_requirements_of { properties } scope =
   let rec loop = function
 
@@ -1221,6 +1196,8 @@ let proved_requirements_of { properties } scope =
 
   loop properties
 
+(* Returns true if the contract of the input system is an
+   invariant. @raise Not_found if the system has no contracts. *)
 let is_contract_proved = function
   | { contracts = None } -> raise Not_found
   | { contracts = Some (_, contracts) } ->
@@ -1548,12 +1525,6 @@ let iter_uf_definitions t f =
   |> List.iter 
        (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt)
 
-(* Builds an abstraction. *)
-let mk_abstraction = identity
-
-(* An empty abstraction. *)
-let empty_abstraction = []
-
 (* Defines abstraction literals for a transition system base on some
    abstraction. *)
 let define_abstraction_actlits
@@ -1717,13 +1688,6 @@ let exists_eval_on_path uf_defs pred term path =
   Model.exists_on_path
     (fun model -> pred (Eval.eval_term uf_defs model term))
     path
-
-(*
-  exists_eval_on_path' uf_defs pred term Numeral.zero path
-*)
-
-
-  
 
 
 (* 

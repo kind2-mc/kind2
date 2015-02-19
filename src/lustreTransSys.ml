@@ -2463,9 +2463,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
 let trans_sys_of_nodes nodes = trans_sys_of_nodes' [] [] nodes
 
+
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)

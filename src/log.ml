@@ -388,13 +388,13 @@ let pp_print_sys_sublog_shy ppf {sys ; abstraction_sublogs} =
     (pp_print_list pp_print_abstraction_sublog_shy "@ ")
     (List.rev abstraction_sublogs)
 
-(* Pretty prints a [t] log. *)
+(* Pretty prints a log. *)
 let pp_print_log ppf { sys ; sys_sublogs } =
   Format.fprintf
     ppf "@[<v>%a@]"
     (pp_print_list pp_print_sys_sublog "@ ") (List.rev sys_sublogs)
 
-(* Pretty prints a [t] log. *)
+(* Pretty prints a log. *)
 let pp_print_log_shy ppf { sys ; sys_sublogs } =
   Format.fprintf
     ppf "@[<v>%a@]"

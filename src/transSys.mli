@@ -331,10 +331,16 @@ val reset_invariants : t -> unit
     be lifted. *)
 val lift_valid_properties : t -> unit
 
+(** Returns true iff all subrequirement properties of the system are
+    invariants. *)
 val subrequirements_valid : t -> bool
 
+(** Returns true iff all subrequirements related to a scope are
+    invariants. *)
 val proved_requirements_of : t -> string list -> bool
 
+(** Returns true if the contract of the input system is an
+    invariant. @raise Not_found if the system has no contracts. *)
 val is_contract_proved : t -> bool
 
 (** Return true if the property is proved invariant *)
@@ -353,8 +359,11 @@ val all_props_actually_proved : t -> bool
     system *)
 val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
 
-
-val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> Model.path -> bool
+val exists_eval_on_path :
+  pred_def list ->
+  (Eval.value -> bool) ->
+  Term.t ->
+  Model.path -> bool
 
 
 
@@ -366,12 +375,6 @@ type abstraction = string list list
 (** Pretty prints an abstraction. *)
 val pp_print_trans_sys_abstraction:
   Format.formatter -> t -> unit
-
-(** Builds an abstraction from the scopes of the system to analyze. *)
-val mk_abstraction: string list list -> abstraction
-
-(** Creates an empty abstraction.. *)
-val empty_abstraction: abstraction
 
 (** Initializes the solver for a system and an abstraction. *)
 val init_solver:
