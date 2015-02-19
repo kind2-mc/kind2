@@ -49,7 +49,7 @@ let on_exit trans_opt =
          solver_ref := None
     with
     | e -> 
-       Event.log L_error
+       Event.log L_debug
                  "BMC @[<v>Error deleting solver_init:@ %s@]" 
                  (Printexc.to_string e))
 

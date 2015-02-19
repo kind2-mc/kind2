@@ -34,8 +34,19 @@ val concretes_of_forced_abstraction:
 val pp_print_abstraction:
   Format.formatter -> abstraction -> unit
 
+(** Pretty prints the abstracted subsystems of a system. *)
+val pp_print_abstracted:
+  Format.formatter -> TransSys.t -> unit
+
+(** Pretty prints the concrete subsystems of a system. *)
+val pp_print_concrete:
+  Format.formatter -> TransSys.t -> unit
+
 (** The first abstraction to start with. *)
-val first_abstraction: TransSys.t -> abstraction
+val set_first_abstraction: TransSys.t -> unit
+
+(** Sets the system's abstraction to abstract nothing. *)
+val set_no_abstraction: TransSys.t -> unit
 
 (** Looks for a system to refine. *)
 val refine: TransSys.t -> abstraction option

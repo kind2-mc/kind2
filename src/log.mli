@@ -145,7 +145,7 @@ val sys_abstraction_sublog:
     @raise Illegal_argument if the abstraction sublog already exists.
     @return The abstraction key to the sublog created. *)
 val add_abstraction_sublog:
-      t -> TransSys.t -> abstraction_key
+      t -> TransSys.t -> unit
 
 (** Adds a property info to an abstraction sublog of a sys sublog of a
     log. *)

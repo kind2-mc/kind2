@@ -40,7 +40,6 @@ let concretes_of_abstraction sys =
   concretes_of_forced_abstraction
     sys (TransSys.get_abstraction sys)
 
-(* Pretty prints an abstraction. *)
 let pp_print_abstraction ppf =
   Format.fprintf
     ppf
@@ -49,13 +48,29 @@ let pp_print_abstraction ppf =
        (pp_print_list Format.pp_print_string ".")
        ",@ ")
 
-let first_abstraction sys =
+(* Pretty prints an abstraction. *)
+let pp_print_abstracted ppf sys =
+  pp_print_abstraction
+    ppf
+    (TransSys.get_abstraction sys)
+
+(* Pretty prints an abstraction. *)
+let pp_print_concrete ppf sys =
+  pp_print_abstraction
+    ppf
+    (concretes_of_abstraction sys)
+
+let set_no_abstraction sys =
+  TransSys.set_abstraction sys []
+
+let set_first_abstraction sys =
   TransSys.get_all_subsystems sys
   |> List.filter
        (fun s ->
         sys != s
         && (TransSys.get_contracts s <> []))
   |> List.map TransSys.get_scope
+  |> TransSys.set_abstraction sys
 
 (* Looks for a system to refine. *)
 let refine sys =

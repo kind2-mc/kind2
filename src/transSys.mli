@@ -126,6 +126,9 @@ val pp_print_uf_def : Format.formatter -> pred_def -> unit
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
+(** Pretty-print the name of a transition system *)
+val pp_print_trans_sys_name : Format.formatter -> t -> unit
+
 (** Pretty-print a transition system *)
 val pp_print_trans_sys_contract_view : Format.formatter -> t -> unit
 

@@ -215,9 +215,7 @@ let add_abstraction_sublog log sys =
          (* No sublog for this key, adding it. *)
          sys_sublog.abstraction_sublogs <-
            { abstraction = abstraction ; prop_infos = [] }
-           :: abstraction_sublogs ) ;
-  (* Returning abstraction key. *)
-  abstraction
+           :: abstraction_sublogs )
 
 (* Adds a property info to an abstraction sublog of a sys sublog of a
    log. *)
