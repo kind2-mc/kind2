@@ -1782,8 +1782,9 @@ let rec restart_loop trans_sys solver props =
 
           (
 
-            (* Certificate = 0-inductive invariant *)
-            let cert = 0, ind_inv in
+            (* Certificate = 0-inductive invariant in conjunction of the
+               properties *)
+            let cert = 0, Term.mk_and (ind_inv :: List.map snd props) in
             
             (* Send out valid properties *)
             List.iter
