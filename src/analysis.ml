@@ -492,7 +492,9 @@ let on_exit_kid t messaging_thread process exn =
 let on_exit_exn t exn =
   match Event.get_module () with
   (* We are the supervisor, clean exit. *)
-  | `Supervisor -> on_exit t exn
+  | `Supervisor ->
+     minisleep 0.1 ;
+     on_exit t exn
   (* We are a child process, calling [on_exit] and exiting. *)
   | mdl -> on_exit_kid t None mdl exn
 
@@ -802,28 +804,14 @@ let run sys log msg_setup = function
        ()
 
      with
-     | TimeoutWall ->
-
-        Event.log
-          L_error
-          "%s Timeout for %s."
-          timeout_tag
-          (TransSys.get_name sys) ;
-
-        (* Whatever happens, kill all remaining kids. *)
-        on_exit_exn context TimeoutWall ;
-
-        (* Reset timeout timer. *)
-        let _ =
-          Unix.setitimer
-            Unix.ITIMER_REAL
-            { Unix.it_interval = 0. ;
-              Unix.it_value = 0. }
-        in
-
-        ()
-
      | e ->
+
+        if e = TimeoutWall then
+          Event.log
+            L_error
+            "%s Timeout for %s."
+            timeout_tag
+            (TransSys.get_name sys) ;
 
         (* Whatever happens, kill all remaining kids. *)
         on_exit_exn context e ;
@@ -838,8 +826,6 @@ let run sys log msg_setup = function
             { Unix.it_interval = 0. ;
               Unix.it_value = 0. }
         in
-
-        Event.log L_warn "exiting." ;
 
         status_of_exn e |> exit
 
