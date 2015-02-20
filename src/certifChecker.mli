@@ -17,4 +17,6 @@
 *)
 
 
+(** Generate a certificate with an SMT2 script to check the validity of the
+    certificate. *)
 val generate_certificate : TransSys.t -> unit
