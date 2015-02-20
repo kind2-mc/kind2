@@ -694,6 +694,14 @@ let declare_vars_of_bounds t declare lbound ubound =
   vars_of_bounds t lbound ubound |> Var.declare_vars declare
 
 
+
+(* Declares constants of the transition *)
+let declare_consts t declare =
+  vars_of_bounds t Numeral.zero Numeral.zero
+  |> Var.declare_constant_vars declare
+
+
+
 (* Instantiate the initial state constraint to the bound *)
 let init_of_bound t i = 
 
@@ -895,6 +903,13 @@ let add_scoped_invariant t scope invar certif =
 
 (* Add an invariant to the transition system *)
 let add_invariant t invar certif = add_scoped_invariant t t.scope invar certif
+
+
+let get_properties t =
+  List.map (fun {prop_term; prop_status} -> prop_term, prop_status)
+    t.properties
+
+let get_invariants t = t.invars
 
 (* Return current status of all properties *)
 let get_prop_status_all t = 
@@ -1164,10 +1179,8 @@ let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
        iter_uf_definitions t define ;
     | _ -> () ) ;
 
-  let l_vars = vars_of_bounds t lbound lbound in
-
   (* Declaring constant variables. *)
-  Var.declare_constant_vars declare l_vars ;
+  declare_consts t declare ;
 
   (* Declaring other variables. *)
   declare_vars_of_bounds t declare lbound ubound

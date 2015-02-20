@@ -173,6 +173,9 @@ val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
 (** Declares variables of the transition system between two offsets. *)
 val declare_vars_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
+(** Declares constants of the transition system. *)
+val declare_consts : t -> (UfSymbol.t -> unit) -> unit
+
 (** Declares variables of the transition system between two offsets. *)
 val declare_vars_of_bounds_no_init :
   t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
@@ -227,6 +230,12 @@ val add_invariant : t -> Term.t -> Certificate.t -> unit
 
 (** Add an invariant to the transition system *)
 val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
+
+(** Return properties with their statuses *)
+val get_properties : t -> (Term.t * prop_status) list
+
+(** Return invariants with their certificates *)
+val get_invariants : t -> (Term.t * Certificate.t) list
 
 (** Return current status of all properties *)
 val get_prop_status_all : t -> (string * prop_status) list
