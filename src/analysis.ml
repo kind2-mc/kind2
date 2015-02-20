@@ -789,7 +789,7 @@ let run sys log msg_setup = function
 
 
        (* Clean everything and exit analysis. *)
-       clean_exit context ;
+       on_exit_exn context Exit ;
        (* There should be no kid left alive. *)
        assert (context.kids = []) ;
 
