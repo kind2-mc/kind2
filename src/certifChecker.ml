@@ -135,7 +135,7 @@ let add_header fmt sys k =
 
 let generate_certificate sys =
 
-  let dirname = "." in
+  let dirname = Flags.certif_dir () in
 
   create_dir dirname;
 
@@ -255,7 +255,7 @@ let generate_certificate sys =
 
   (* Checking base case *)
   add_section fmt "Base case";
-  echo fmt "Checking base case:";
+  echo fmt "Checking base case";
   push fmt;
   let dnf = ref [] in
 
@@ -286,7 +286,7 @@ let generate_certificate sys =
 
   (* Checking base case *)
   add_section fmt (sprintf "%d-Inductiveness" k);
-  echo fmt (sprintf "Checking %d-inductive case:" k);
+  echo fmt (sprintf "Checking %d-inductive case" k);
   push fmt;
   (* unroll k times*)
   let l = ref [] in

@@ -221,6 +221,14 @@ val interpreter_input_file : unit -> interpreter_input_file
 type interpreter_steps = int
 val interpreter_steps : unit -> interpreter_steps
 
+(** Produce certificates *)
+type certif = bool
+val certif : unit -> certif
+
+(** Directory for certificates *)
+type certif_dir = string 
+val certif_dir : unit -> certif_dir
+
 (** Format of input file *)
 type input_format = [ `Lustre | `Horn | `Native ]
 val input_format : unit -> input_format 
