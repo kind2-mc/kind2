@@ -24,17 +24,45 @@ module TS = TransSys
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
 
+(* Assert the expression *)
+let assert_expr fmt expr = 
+  fprintf fmt
+    "@[<hv 1>(assert@ @[<hv>%s@])@]@." 
+    (SMT.string_of_expr expr)
+
+
 (* Declare a new function symbol *)
 let declare_fun fmt uf =
   let fun_symbol = UfSymbol.name_of_uf_symbol uf in
-  let arg_sorts = UfSymbol. arg_type_of_uf_symbol uf in
+  let arg_sorts = UfSymbol.arg_type_of_uf_symbol uf in
   let res_sort = UfSymbol.res_type_of_uf_symbol uf in
-    fprintf fmt
-      "@[<hv 1>(declare-fun@ %s@ @[<hv 1>%s@]@ %s)@]@." 
-      fun_symbol
-      (paren_string_of_string_list (List.map SMT.string_of_sort arg_sorts))
-      (SMT.string_of_sort res_sort)
+  fprintf fmt
+    "@[<hv 1>(declare-fun@ %s@ @[<hv 1>%s@]@ %s)@]@." 
+    fun_symbol
+    (paren_string_of_string_list (List.map SMT.string_of_sort arg_sorts))
+    (SMT.string_of_sort res_sort);
 
+  if Type.is_int_range res_sort then
+    (* Add typing constraints *)
+
+    (* Get lower and upper bounds *)
+    let l, u = Type.bounds_of_int_range res_sort in
+
+    let args = List.map Var.mk_fresh_var arg_sorts in
+    let ufa = Term.mk_uf uf (List.map Term.mk_var args) in
+
+    (* create constraint *)
+    let constr = Term.mk_leq [Term.mk_num l; ufa; Term.mk_num u] in
+
+    (* quantify over arguments *)
+    let qconstr = match args with
+      | [] -> constr
+      | _ -> Term.mk_forall args constr in
+
+    (* assert constraint *)
+    assert_expr fmt qconstr
+    
+    
 
 (* Define a new function symbol as an abbreviation for an expression *)
 let define_fun fmt fun_symbol arg_vars res_sort defn = 
@@ -50,13 +78,6 @@ let define_fun fmt fun_symbol arg_vars res_sort defn =
   arg_vars
   (SMT.string_of_sort res_sort)
   SMT.pp_print_expr defn
-
-
-(* Assert the expression *)
-let assert_expr fmt expr = 
-  fprintf fmt
-    "@[<hv 1>(assert@ @[<hv>%s@])@]@." 
-    (SMT.string_of_expr expr)
 
 
 let push fmt = fprintf fmt "@[<hv 1>\n(push 1)@]@." 
