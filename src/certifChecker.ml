@@ -82,8 +82,10 @@ let global_certificate sys =
         acc
     ) ([], []) (TS.get_properties sys) in
 
-  let certs = List.fold_left (fun c_acc (_, c) ->
-      c :: c_acc) certs (TS.get_invariants sys) in
+  let certs = List.fold_left (fun c_acc (i, c) ->
+      if List.exists (Term.equal i) props then c_acc
+      else c :: c_acc
+    ) certs (TS.get_invariants sys) in
 
   Term.mk_and props, Certificate.merge certs
 
