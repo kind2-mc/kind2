@@ -187,20 +187,6 @@ let main_of_process = function
        pp_print_kind_module mdl
      |> failwith
 
-(* Cleanup function of a process. *)
-let on_exit_of_process = function
-  | `BMC -> BMC.on_exit
-  | `IND -> IND.on_exit
-  | `PDR -> PDR.on_exit
-  | `INVGEN -> InvGenTS.on_exit
-  | `INVGENOS -> InvGenOS.on_exit
-  | `Interpreter -> Interpreter.on_exit
-  | mdl ->
-     Format.asprintf
-       "module %a is not a legal analysis module"
-       pp_print_kind_module mdl
-     |> failwith
-
 
 
 (* Exit status if child terminated normally. *)
@@ -278,6 +264,20 @@ let status_of_exn = function
          L_debug "Backtrace:@\n%s" backtrace ;
      (* Return exit status for error. *)
      status_error
+
+(* Cleanup function of a process. *)
+let on_exit_of_process t = function
+  | `BMC -> BMC.on_exit (Some t.sys)
+  | `IND -> IND.on_exit (Some t.sys)
+  | `PDR -> PDR.on_exit (Some t.sys)
+  | `INVGEN -> InvGenTS.on_exit (Some t.sys)
+  | `INVGENOS -> InvGenOS.on_exit (Some t.sys)
+  | mdl ->
+     Format.asprintf
+       "module %a is not a legal analysis module"
+       pp_print_kind_module mdl
+     |> failwith
+
 
 (* Clean exit depending on a status. *)
 let clean_exit t =
@@ -362,8 +362,7 @@ let on_exit t exn =
   (* Kill all child processes. *)
   t.kids
   |> List.iter 
-       (function pid, _ ->
-                      Unix.kill pid Sys.sigterm) ;
+       (function pid, _ -> Unix.kill pid Sys.sigterm) ;
 
   Event.log
     L_debug
@@ -425,7 +424,7 @@ let on_exit t exn =
      in
 
      Event.log
-       L_info 
+       L_info
        "All child processes terminated.";
 
      clean_exit t
@@ -460,7 +459,6 @@ let on_exit t exn =
 
      clean_exit t
 
-
 (* Call cleanup function of process and exit. 
 
    Give the exception [exn] that was raised or [Exit] on normal
@@ -471,7 +469,7 @@ let on_exit_kid t messaging_thread process exn =
   let status = status_of_exn exn in
 
   (* Call cleanup of process. *)
-  (on_exit_of_process process) (Some t.sys) ;
+  (on_exit_of_process t process) ;
 
   (* logging termination event. *)
   Unix.getpid ()
@@ -488,6 +486,15 @@ let on_exit_kid t messaging_thread process exn =
 
   (* Exit process with status. *)
   exit status
+
+
+(* Clean exit from a context and an optional exception. *)
+let on_exit_exn t exn =
+  match Event.get_module () with
+  (* We are the supervisor, clean exit. *)
+  | `Supervisor -> on_exit t exn
+  (* We are a child process, calling [on_exit] and exiting. *)
+  | mdl -> on_exit_kid t None mdl exn
 
 
 (* Checks if some kids have terminated. Returns true if the analysis is
@@ -518,24 +525,16 @@ let wait_for_kids t =
     (* Child process exited normally. *)
     | child_pid, (Unix.WEXITED 0 as status) -> (
 
-      ( if List.mem_assoc child_pid t.kids then (
+      Event.log
+        L_warn
+        "Child process %a (%d) terminated (%a)."
+        pp_print_kind_module (module_of_pid t child_pid)
+        child_pid
+        pp_print_process_status status ;
 
-          Event.log
-            L_warn
-            "Child process %a (%d) terminated (%a)."
-            pp_print_kind_module (module_of_pid t child_pid)
-            child_pid
-            pp_print_process_status status ;
-
+      ( if List.mem_assoc child_pid t.kids then
           (* Remove child process from list *)
-          rm_kids t [child_pid]
-        ) else
-
-          Event.log
-            L_warn
-            "Child process (%d) terminated (%a)."
-            child_pid
-            pp_print_process_status status ) ;
+          rm_kids t [child_pid] ) ;
 
       (* Check if more child processes have died *)
       loop result
@@ -547,7 +546,7 @@ let wait_for_kids t =
 
       Event.log
         L_error
-        "Child process %a (%d) terminated (%a)" 
+        "Child process %a (%d) terminated (%a)"
         pp_print_kind_module (module_of_pid t child_pid)
         child_pid
         pp_print_process_status status;
@@ -757,11 +756,11 @@ let run sys log msg_setup = function
        
   | modules ->
 
-     try
+     (* Create an analysis context. *)
+     let context = mk_context sys log in
+     context_ref := Some context ;
 
-       (* Create an analysis context. *)
-       let context = mk_context sys log in
-       context_ref := Some context ;
+     try
 
        (* Launching all processes. *)
        modules
@@ -811,44 +810,38 @@ let run sys log msg_setup = function
           timeout_tag
           (TransSys.get_name sys) ;
 
-        ( match !context_ref with
-          | None -> ()
-          | Some context ->
-             (* Cleaning things and exiting. *)
-             on_exit context TimeoutWall ;
+        (* Whatever happens, kill all remaining kids. *)
+        on_exit_exn context TimeoutWall ;
 
-             (* Reset timeout timer. *)
-             let _ =
-               Unix.setitimer
-                 Unix.ITIMER_REAL
-                 { Unix.it_interval = 0. ;
-                   Unix.it_value = 0. }
-             in
+        (* Reset timeout timer. *)
+        let _ =
+          Unix.setitimer
+            Unix.ITIMER_REAL
+            { Unix.it_interval = 0. ;
+              Unix.it_value = 0. }
+        in
 
-             () )
+        ()
 
      | e ->
 
-        ( match !context_ref with
-          | None -> ()
-          | Some context ->
-             (* Whatever happens, kill all remaining kids. *)
-             on_exit context e ;
+        (* Whatever happens, kill all remaining kids. *)
+        on_exit_exn context e ;
 
-             (* There should be no kid left alive. *)
-             assert (context.kids = []) ;
+        (* There should be no kid left alive. *)
+        assert (context.kids = []) ;
 
-             (* Reset timeout timer. *)
-             let _ =
-               Unix.setitimer
-                 Unix.ITIMER_REAL
-                 { Unix.it_interval = 0. ;
-                   Unix.it_value = 0. }
-             in
+        (* Reset timeout timer. *)
+        let _ =
+          Unix.setitimer
+            Unix.ITIMER_REAL
+            { Unix.it_interval = 0. ;
+              Unix.it_value = 0. }
+        in
 
-             Event.log L_warn "exiting." ;
+        Event.log L_warn "exiting." ;
 
-             status_of_exn e |> exit )
+        status_of_exn e |> exit
 
 (* 
    Local Variables:
