@@ -605,7 +605,7 @@ let setup_and_run sys =
           exit_interpreter Exit
         with
         | e ->
-           exit_interpreter e ;
+           exit_interpreter e |> ignore ;
            raise e )
 
     (* Run some modules in parallel. *)
@@ -813,7 +813,8 @@ let main () =
      (* There should not be anything left to clean it this level. *)
      Event.log
        L_error
-       "%s Exception caught at top level." ;
+       "%s Exception caught at top level."
+       error_tag;
 
      exit (Analysis.status_of_exn e)
 
