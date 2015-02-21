@@ -806,13 +806,6 @@ let run sys log msg_setup = function
      with
      | e ->
 
-        if e = TimeoutWall then
-          Event.log
-            L_error
-            "%s Timeout for %s."
-            timeout_tag
-            (TransSys.get_name sys) ;
-
         (* Whatever happens, kill all remaining kids. *)
         on_exit_exn context e ;
 
@@ -827,7 +820,7 @@ let run sys log msg_setup = function
               Unix.it_value = 0. }
         in
 
-        status_of_exn e |> exit
+        ()
 
 (* 
    Local Variables:
