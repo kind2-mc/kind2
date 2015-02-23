@@ -53,6 +53,9 @@ type state_var_source =
   (* Local defined stream *)
   | Local
 
+  (* Local, ghost defined stream *)
+  | Ghost
+
   (* Local abstracted stream *)
   | Abstract
 

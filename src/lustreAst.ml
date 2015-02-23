@@ -217,13 +217,14 @@ let mk_ensure pos e = pos, e
 
 (* A contract clause *)
 type contract =
-    TermLib.contract_source * string * require list * ensure list
-
-(* Creates a contract from a name, a list of requires and a list of
-   ensures. *)
-let mk_contract pos lustre_ident requires ensures =
-  let name = LustreIdent.string_of_ident true lustre_ident in
-  TermLib.ContractAnnot (name, pos), name, requires, ensures
+  | InlinedContract of
+      position
+      * ident
+      * require list
+      * ensure list
+  | ContractCall of
+      position
+      * ident
 
 (* A node declaration *)
 type node_decl =
@@ -234,7 +235,17 @@ type node_decl =
     * node_local_decl list
     * node_equation list
     * contract list
-  
+
+(* A contract declaration. *)
+type contract_decl =
+  ident
+  * node_param list
+  * const_clocked_typed_decl list
+  * clocked_typed_decl list
+  * node_local_decl list
+  * node_equation list
+  * require list
+  * ensure list
 
 (* A function declaration *)
 type func_decl =
@@ -252,6 +263,7 @@ type declaration =
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
   | NodeDecl of position * node_decl
+  | ContractDecl of position * contract_decl
   | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
@@ -715,22 +727,28 @@ let pp_print_node_equation ppf = function
 
 (* Pretty-print a require of a contract. *)
 let pp_print_require ppf (pos,e) =
-  Format.fprintf ppf "--%@requires %a;" pp_print_expr e
+  Format.fprintf ppf "--%@require %a;" pp_print_expr e
 
 (* Pretty-print a require of a contract. *)
 let pp_print_ensure ppf (pos,e) =
-  Format.fprintf ppf "--%@ensures %a;" pp_print_expr e
+  Format.fprintf ppf "--%@ensure %a;" pp_print_expr e
 
 
 (* Pretty-print a node contract *)
-let pp_print_contract ppf (pos, name, requires, ensures) = 
+let pp_print_contract ppf = function
+  | InlinedContract (_, ident, requires, ensures) ->
 
-  Format.fprintf
-    ppf
-    "--%@contract: %s@   @[<v>%a@,%a@]"
-    name
-    (pp_print_list pp_print_require "@,") requires
-    (pp_print_list pp_print_ensure "@,") ensures
+     Format.fprintf
+       ppf
+       "--@contract: %a;@   @[<v>%a@,%a@]@ "
+       (I.pp_print_ident false) ident
+       (pp_print_list pp_print_require "@,") requires
+       (pp_print_list pp_print_ensure "@,") ensures
+
+  | ContractCall (_,ident) ->
+     Format.fprintf
+       ppf
+       "--@contract %a ;@ " (I.pp_print_ident false) ident
   
 
 (* Pretty-print a declaration *)
@@ -757,9 +775,29 @@ let pp_print_declaration ppf = function
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      (pp_print_list pp_print_contract ";@ ") contracts
+      (pp_print_list pp_print_contract "") contracts
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e 
+
+  | ContractDecl (pos, (n, p, i, o, l, e, req, ens)) -> 
+
+    Format.fprintf ppf
+      "@[<hv>@[<hv 2>contract %a%t@ \
+       @[<hv 1>(%a)@]@;<1 -2>\
+       returns@ @[<hv 1>(%a)@];@]@ \
+       %a\
+       @[<hv 2>let@ \
+       %a\
+       %a@ %a@;<1 -2>\
+       tel;@]@]" 
+      (I.pp_print_ident false) n 
+      (function ppf -> pp_print_node_param_list ppf p)
+      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+      pp_print_node_local_decl l
+      (pp_print_list pp_print_node_equation "@ ") e
+      (pp_print_list pp_print_require "@ ") req
+      (pp_print_list pp_print_ensure "@ ") ens
 
   | FuncDecl (pos, (n, i, o)) -> 
 

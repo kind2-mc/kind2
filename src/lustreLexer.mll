@@ -226,6 +226,7 @@ let keyword_table =
       
       (* Node declaration *)
       ("node", NODE);
+      ("contract", CONTRACTNODE);
       ("function", FUNCTION);
       ("returns", RETURNS);
       ("var", VAR);

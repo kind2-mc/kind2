@@ -183,16 +183,9 @@ val mk_ensure : Lib.position -> expr -> ensure
 
 (** A contract clause *)
 type contract =
-    TermLib.contract_source * string * require list * ensure list
-
-(** Creates a contract from a name, a list of requires and a list of
-    ensures. *)
-val mk_contract :
-  Lib.position ->
-  LustreIdent.t ->
-  require list ->
-  ensure list ->
-  contract
+  | InlinedContract of
+      Lib.position * ident * require list * ensure list
+  | ContractCall of Lib.position * ident
 
 (** Declaration of a node as a tuple of 
 
@@ -212,6 +205,26 @@ type node_decl =
     * node_local_decl list
     * node_equation list
     * contract list
+
+(** Declaration of a contract as a tuple of 
+
+    - its identifier, 
+    - its type parameters, 
+    - the list of its inputs,
+    - the list of its outputs,
+    - the list of its local constant and variable declarations,
+    - its equations, assertions and annotations, and
+    - the contract itself.
+*)
+type contract_decl =
+    ident
+    * node_param list
+    * const_clocked_typed_decl list
+    * clocked_typed_decl list
+    * node_local_decl list
+    * node_equation list
+    * require list
+    * ensure list
 
 (** Declaration of a function as a tuple of 
 
@@ -233,6 +246,7 @@ type declaration =
   | TypeDecl of Lib.position * type_decl
   | ConstDecl of Lib.position * const_decl
   | NodeDecl of Lib.position * node_decl
+  | ContractDecl of Lib.position * contract_decl
   | FuncDecl of Lib.position * func_decl
   | NodeParamInst of Lib.position * node_param_inst
 

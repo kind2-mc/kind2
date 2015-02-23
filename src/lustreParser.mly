@@ -89,6 +89,7 @@ let mk_pos = Lib.position_of_lexing
     
 (* Tokens for node declarations *)
 %token NODE
+%token CONTRACTNODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
 %token FUNCTION
@@ -185,6 +186,7 @@ decl:
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
   | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
+  | d = contract_decl { [A.ContractDecl (mk_pos $startpos, d)] }
   | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
@@ -342,9 +344,36 @@ node_decl:
        p,
        List.flatten i, 
        List.flatten o, 
-       (List.flatten l), 
+       (List.flatten l),
        e,
        r)  }
+
+
+(* A contract declaration *)
+contract_decl:
+  | CONTRACTNODE; 
+    n = ident; 
+    p = loption(static_params);
+    i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
+    RETURNS; 
+    o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
+    SEMICOLON;
+    l = list(node_local_decl);
+    LET;
+    e = list(node_equation);
+    req = list(require) ;
+    ens = list(ensure) ;
+    TEL
+    option(node_sep) 
+
+    { (n,
+       p,
+       List.flatten i, 
+       List.flatten o, 
+       (List.flatten l), 
+       e,
+       req,
+       ens) }
 
 
 (* A node declaration as an instance of a paramterized node *)
@@ -366,13 +395,17 @@ node_sep: DOT | SEMICOLON { }
 (* A list of contract clauses *)
 contract:
   | CONTRACT;
+    n = ident;
+    SEMICOLON; { A.ContractCall ( (mk_pos $startpos), n ) }
+  | CONTRACT;
     COLON;
     n = ident;
     SEMICOLON;
     reqs = list(require);
-    ens = list(ensure); { A.mk_contract
-                            (mk_pos $startpos)
-                            n reqs ens }
+    ens = list(ensure); {
+      A.InlinedContract
+        ( (mk_pos $startpos), n, reqs, ens )
+    }
 
 (* A require for a contract. *)
 require:

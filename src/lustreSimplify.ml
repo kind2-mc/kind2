@@ -4046,6 +4046,34 @@ let parse_node
   node'
 
 
+let translate_contracts =
+  let rec loop aux = function
+
+    (* Should never happen, removed by preprocessing. *)
+    | A.ContractCall (pos,id) :: _ ->
+       Format.asprintf
+         "unexpected contract call to %a at %a in lustre node"
+         pp_print_position pos
+         (I.pp_print_ident false) id
+       |> failwith
+
+    | A.InlinedContract (pos,id,req,ens) :: tail ->
+       let name = I.string_of_ident true id in
+
+       loop
+         ( ( TermLib.ContractAnnot(name, pos),
+             name,
+             req,
+             ens )
+           :: aux )
+         tail
+
+    | [] -> aux
+  in
+
+  loop []
+
+
 (* ******************************************************************** *)
 (* Main                                                                 *)
 (* ******************************************************************** *)
@@ -4161,7 +4189,7 @@ let rec declarations_to_nodes'
            equations, 
            contracts))) :: decls ->
 
-      (try 
+       (try
 
         (* Add node declaration to global context *)
         let node_context = 
@@ -4172,7 +4200,7 @@ let rec declarations_to_nodes'
             outputs
             locals
             equations 
-            contracts
+            (translate_contracts contracts)
         in
         
         (* Recurse for next declarations *)
@@ -4223,12 +4251,148 @@ let rec declarations_to_nodes'
       fail_at_position pos "Parametric nodes not supported" 
 
 
+(* Inlines contract calls to contract nodes in node declarations. *)
+let preprocess_contracts decls =
+
+  (* Separates contracts declaratations from the rest. *)
+  let rec split contracts others = function
+    | ((A.ContractDecl _) as contract) :: tail ->
+       split (contract :: contracts) others tail
+    | other :: tail ->
+       split contracts (other :: others) tail
+    | [] -> List.rev contracts, List.rev others
+  in
+
+  let
+    (* Contract node declarations. *)
+    contracts,
+    (* Other, normal declarations. *)
+    decls =
+
+    split [] [] decls
+  in
+
+  let find_contract_decl name =
+    contracts
+    |> List.find
+         (function
+           | A.ContractDecl
+             (_, (name',_,_,_,_,_,_,_)) ->
+              name = name'
+           | _ -> false)
+  in
+
+  let rec inline_contracts contracts = function
+    | ident,
+      node_params,
+      const_clocked_typed_decls,
+      clocked_typed_decls,
+      node_local_decls,
+      node_equations,
+      (A.ContractCall (pos, ident')) :: tail ->
+
+       ( try
+           match find_contract_decl ident' with
+           | A.ContractDecl
+             (pos', (ident',
+                     node_params',
+                     const_clocked_typed_decls',
+                     clocked_typed_decls',
+                     node_local_decls',
+                     node_equations',
+                     reqs,
+                     ens)) ->
+              inline_contracts
+                ((A.InlinedContract (pos', ident', reqs, ens)
+                  :: contracts))
+                (ident,
+                 (* node_params' @ *) node_params,
+                 const_clocked_typed_decls,
+                 clocked_typed_decls,
+                 (* node_local_decls'
+                 @ *) node_local_decls,
+                 (* node_equations'
+                 @ *) node_equations,
+                 tail)
+         with
+         | Not_found ->
+            Format.asprintf
+              "contract call to unknown contract node \"%a\"."
+              (I.pp_print_ident false) ident'
+            |> fail_at_position pos )
+    | name,
+      node_params,
+      const_clocked_typed_decls,
+      clocked_typed_decls,
+      node_local_decls,
+      node_equations,
+      ( contract :: tail ) ->
+
+       inline_contracts
+         ( contract :: contracts )
+         (name,
+          node_params,
+          const_clocked_typed_decls,
+          clocked_typed_decls,
+          node_local_decls,
+          node_equations,
+          tail)
+
+    | name,
+      node_params,
+      const_clocked_typed_decls,
+      clocked_typed_decls,
+      node_local_decls,
+      node_equations,
+      [] ->
+       (name,
+        node_params,
+        const_clocked_typed_decls,
+        clocked_typed_decls,
+        node_local_decls,
+        node_equations,
+        List.rev contracts)
+  in
+
+  (* Inlines contract declarations in nodes. *)
+  let rec loop decls' = function
+
+    | A.NodeDecl (pos, node_decl) :: tail ->
+       let inlined =
+         A.NodeDecl
+           (pos, (inline_contracts [] node_decl))
+       in
+       loop
+         ( inlined  :: decls' )
+         tail
+
+    | decl :: tail ->
+       loop (decl :: decls') tail
+
+    | [] -> List.rev decls'
+  in
+
+  loop [] decls
+
+
 (* Iterate over the declarations and return the nodes *)
-let declarations_to_nodes decls = 
+let declarations_to_nodes decls =
+
+  debug lustreSimplify
+        "decls:@ %a"
+        (pp_print_list A.pp_print_declaration "@ @ ")
+        decls in
+
+  let clean_decls = preprocess_contracts decls in
+
+  debug lustreSimplify
+        "clean decls:@ %a"
+        (pp_print_list A.pp_print_declaration "@ @ ")
+        clean_decls in
 
   (* Extract nodes from produced global context *)
-  let { nodes } as global_context = 
-    declarations_to_nodes' init_lustre_context decls 
+  let { nodes } as global_context =
+    declarations_to_nodes' init_lustre_context clean_decls
   in
 
   (* Return nodes *)
