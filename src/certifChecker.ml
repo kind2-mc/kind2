@@ -160,8 +160,9 @@ let create_dir dir =
 
 let global_certificate sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
-      | _ -> Event.log L_warn "Some properties are not valid";
+      | _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
+      | p_name, _, _ ->
+        Event.log L_fatal "[Warning] Property %s is not valid" p_name;
         acc
     ) ([], []) (TS.get_properties sys) in
 
@@ -335,6 +336,9 @@ let generate_certificate sys =
       (* Incorrect base case checking *)
       
       let l = ref [] in
+
+      Event.log L_fatal
+        "[Warning] Using potentially incorrect check for base case";
 
       for i = k - 1 downto 0 do
         l := trans_t i (i+1) :: !l;

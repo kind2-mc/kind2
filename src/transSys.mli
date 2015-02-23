@@ -232,7 +232,7 @@ val add_invariant : t -> Term.t -> Certificate.t -> unit
 val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
 
 (** Return properties with their statuses *)
-val get_properties : t -> (Term.t * prop_status) list
+val get_properties : t -> (string * Term.t * prop_status) list
 
 (** Return invariants with their certificates *)
 val get_invariants : t -> (Term.t * Certificate.t) list

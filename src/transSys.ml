@@ -906,7 +906,8 @@ let add_invariant t invar certif = add_scoped_invariant t t.scope invar certif
 
 
 let get_properties t =
-  List.map (fun {prop_term; prop_status} -> prop_term, prop_status)
+  List.map (fun {prop_name; prop_term; prop_status} ->
+      prop_name, prop_term, prop_status)
     t.properties
 
 let get_invariants t = t.invars
