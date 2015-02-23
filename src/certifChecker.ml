@@ -26,6 +26,8 @@ module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
 let file_width = 220
 let quant_free = true
+let monolithic_base = true
+let simple_base = false
 
 (* Transform unrolled state variables back to functions *)
 let roll sigma t =
@@ -327,38 +329,77 @@ let generate_certificate sys =
   add_section fmt "Base case";
   echo fmt "Checking base case";
   push fmt;
-  let dnf = ref [] in
 
-  for i = k downto 0 do
+  if monolithic_base then
+    if simple_base then
+      (* Incorrect base case checking *)
+      
+      let l = ref [] in
 
-    let phi_i = phi_t i in
+      for i = k - 1 downto 0 do
+        l := trans_t i (i+1) :: !l;
+      done;
 
-    let l = ref [Term.mk_not phi_i] in
+      let conj = Term.mk_and (init_t0 :: !l) in
+      assert_expr fmt conj;
 
-    for j = i - 1 downto 0 do
-      l := trans_t j (j+1) :: !l;
+      let g = ref [] in
+      for i = k downto 0 do
+        g := phi_t i :: !g;
+      done;
+      let goal = Term.mk_and !g in
+      assert_expr fmt (Term.mk_not goal);
+      check_sat fmt;
+
+    else
+      (* Monolithic base case *)
+
+      let dnf = ref [] in
+
+      for i = k downto 0 do
+
+        let l = ref [Term.mk_not (phi_t i)] in
+        for j = i - 1 downto 0 do
+          l := trans_t j (j+1) :: !l;
+        done;
+
+        let conj = Term.mk_and (init_t0 :: !l) in
+        dnf := conj :: !dnf
+
+      done;
+
+      assert_expr fmt (Term.mk_or !dnf);
+      check_sat fmt;
+
+  else begin
+    (* Incremental base case *)
+    
+    assert_expr fmt init_t0;
+    
+    for i = 0 to k do
+      echo fmt (string_of_int i);
+
+      if i > 0 then assert_expr fmt (trans_t (i-1) i);
+
+      push fmt;
+      assert_expr fmt (Term.mk_not (phi_t i));
+      check_sat fmt;
+      pop fmt;
+
+      assert_expr fmt (phi_t i);
+
     done;
 
-    l := init_t0 :: !l;
-    
-
-    let conj = Term.mk_and !l in
-
-    dnf := conj :: !dnf
-
-  done;
-
-  let d = Term.mk_or !dnf in
-  assert_expr fmt d;
-  check_sat fmt;
+  end;
   pop fmt;
-
+    
   
 
-  (* Checking base case *)
+  (* Checking inductive case *)
   add_section fmt (sprintf "%d-Inductiveness" k);
   echo fmt (sprintf "Checking %d-inductive case" k);
   push fmt;
+
   (* unroll k times*)
   let l = ref [] in
   for i = k downto 0 do
