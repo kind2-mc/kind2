@@ -280,6 +280,12 @@ let certif_default = false
 
 (* ********** *) 
 
+type certif_min = bool
+
+let certif_min_default = false
+
+(* ********** *) 
+
 type certif_dir = string
 
 let certif_dir_default = Sys.getcwd ()
@@ -649,6 +655,7 @@ type flags =
       mutable log_level : log_level;
       mutable log_format_xml : bool;
       mutable certif : certif;
+      mutable certif_min : certif_min;
       mutable certif_dir : certif_dir;
       mutable input_format : input_format;
       mutable input_file : string option }
@@ -703,6 +710,7 @@ let flags =
     log_level = log_level_default;
     log_format_xml = log_format_xml_default;
     certif = certif_default;
+    certif_min = certif_min_default;
     certif_dir = certif_dir_default;
     input_format = input_format_default;
     input_file = None } 
@@ -834,6 +842,15 @@ let certif_spec =
   ("--certif", 
    Arg.Unit certif_action, 
    Format.sprintf "Produce certificate")
+
+(* ********** *) 
+
+let certif_min_action o = flags.certif_min <- true
+  
+let certif_min_spec = 
+  ("--certif_min", 
+   Arg.Unit certif_min_action, 
+   Format.sprintf "Minimize certificate")
 
 (* ********** *) 
 
@@ -1274,6 +1291,8 @@ let smt_trace_dir () = flags.smt_trace_dir
 
 let certif () = flags.certif
 
+let certif_min () = flags.certif_min
+
 let certif_dir () = flags.certif_dir
 
 let enable () = flags.enable 
@@ -1409,6 +1428,9 @@ and speclist =
 
     (* Produce certificates *)
     certif_spec;
+
+    (* Minimize certificates *)
+    certif_min_spec;
 
     (* Directory for certificates *)
     certif_dir_spec;

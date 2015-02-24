@@ -225,6 +225,10 @@ val interpreter_steps : unit -> interpreter_steps
 type certif = bool
 val certif : unit -> certif
 
+(** Produce certificates *)
+type certif_min = bool
+val certif_min : unit -> certif_min
+
 (** Directory for certificates *)
 type certif_dir = string 
 val certif_dir : unit -> certif_dir

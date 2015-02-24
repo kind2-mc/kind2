@@ -18,9 +18,11 @@
 
 open Format
 open Lib
+open Actlit
 
 module TS = TransSys
 module TM = Term.TermMap
+module TH = Term.TermHashtbl
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
 
@@ -28,6 +30,20 @@ let file_width = 220
 let quant_free = true
 let monolithic_base = true
 let simple_base = false
+
+
+let hactlits = TH.create 2001
+
+let actlitify solver t =
+  let a = generate_actlit t in
+  let ta = term_of_actlit a in
+  if not (TH.mem hactlits ta) then begin
+    TH.add hactlits ta ();
+    SMTSolver.declare_fun solver a;
+    Term.mk_eq [ta; t] |> SMTSolver.assert_term solver;
+  end;
+  ta
+
 
 (* Transform unrolled state variables back to functions *)
 let roll sigma t =
@@ -60,7 +76,8 @@ let assert_expr fmt expr =
     "@[<hv 1>(assert@ @[<hov>%a@])@]@." 
     SMT.pp_print_expr expr
 
-let add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort =
+
+let create_typing_constraint ?instantiate_constr uf arg_sorts res_sort =
 
   if Type.is_int_range res_sort then
     (* Add typing constraints for subranges *)
@@ -75,23 +92,30 @@ let add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort =
     let constr = Term.mk_leq [Term.mk_num l; ufa; Term.mk_num u] in
 
     (* quantify over arguments *)
-    let qconstr = match args, instantiate_constr with
-      | [], _ -> constr
-      | _, None -> Term.mk_forall args constr
-      | [_], Some (a, b) ->
-        let rec inst acc i =
-          if i < a then acc
-          else
-            let ufa = Term.mk_uf uf [Term.mk_num_of_int i] in
-            let acc = Term.mk_leq [Term.mk_num l; ufa; Term.mk_num u] :: acc in
-            inst acc (i-1)
-        in
-        let l = inst [] b in
-        Term.mk_and l
-      | _ -> assert false
-    in
-    (* assert constraint *)
-    assert_expr fmt qconstr
+    match args, instantiate_constr with
+    | [], _ -> constr
+    | _, None -> Term.mk_forall args constr
+    | [_], Some (a, b) ->
+      let rec inst acc i =
+        if i < a then acc
+        else
+          let ufa = Term.mk_uf uf [Term.mk_num_of_int i] in
+          let acc = Term.mk_leq [Term.mk_num l; ufa; Term.mk_num u] :: acc in
+          inst acc (i-1)
+      in
+      let l = inst [] b in
+      Term.mk_and l
+    | _ -> assert false
+      
+  else Term.t_true
+
+
+let add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort =
+  let qconstr =
+    create_typing_constraint ?instantiate_constr uf arg_sorts res_sort in
+  (* assert constraint *)
+  assert_expr fmt qconstr
+
 
 
 (* Declare a new function symbol *)
@@ -151,14 +175,12 @@ let check_sat fmt = fprintf fmt "@[<hv 1>(check-sat)@]@."
 let sexit fmt = fprintf fmt "@[<hv 1>(exit)@]@." 
 
 
-
 let create_dir dir =
   try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
   with Sys_error _ -> Unix.mkdir dir 0o755
 
 
-
-let global_certificate sys =
+let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
       | _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
       | p_name, _, _ ->
@@ -171,7 +193,226 @@ let global_certificate sys =
       else c :: c_acc
     ) certs (TS.get_invariants sys) in
 
+  List.rev props, certs
+
+
+let s_and = Symbol.mk_symbol `AND
+let s_or = Symbol.mk_symbol `OR
+let s_not = Symbol.mk_symbol `NOT
+
+
+let rec split_inv inv =
+  match Term.destruct inv with
+  | Term.T.App (s, l) when s == s_and ->
+    List.flatten (List.map split_inv l)
+  | _ -> [inv]
+
+let split_certs certs =
+  List.fold_left (fun acc (k, c) ->
+      let cs = List.map (fun c' -> k, c') (split_inv c) in
+      List.rev_append cs acc
+    ) [] certs
+
+
+
+let global_certificate sys =
+  let props, certs = extract_props_certs sys in
   Term.mk_and props, Certificate.merge certs
+
+
+
+let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
+
+  let if_sat () =
+    raise Exit
+    
+  in
+  
+  let if_unsat () =
+    
+    (* Activation literals in unsat core *)
+    let uc = SMTSolver.get_unsat_core_lits solver in
+
+    let uinvs_acts =
+      List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
+
+    let uinvs, uinvs' = List.split uinvs_acts in
+
+    let new_prop = Term.mk_and (prev_props_act :: uinvs) in
+    let new_prop_act = actlitify solver new_prop in
+    let new_prop_acts = prev_props_act :: uinvs in
+
+    let new_prop' = Term.mk_and (prop'act :: uinvs') in
+    let new_prop'act = actlitify solver new_prop' in
+    
+    let neg_new_prop' = Term.mk_not new_prop' in
+    let neg_new_prop'act = actlitify solver neg_new_prop' in
+
+    let acc = (uinvs' @ acc) in
+    
+    SMTSolver.check_sat_assuming solver
+      
+      (fun () ->
+         (* SAT try to find what invariants are missing *)
+         fixpoint acc solver
+           invs_acts new_prop_act new_prop'act neg_new_prop'act)
+      
+      (fun () ->
+         (* UNSAT: return accumulated invariants *)
+         (debug certif "OK (%a)@."
+           (pp_print_list Term.pp_print_term "@ ") acc in ());
+  
+         acc)
+
+      (new_prop_acts @ [neg_new_prop'act])
+    
+  in
+
+  let invs = List.map fst invs_acts in
+
+  SMTSolver.trace_comment solver "fixpoint cs;";
+  
+  SMTSolver.check_sat_assuming solver if_sat if_unsat
+    (neg_prop'act :: prev_props_act :: invs)
+
+
+let rec find_bound_w_invs sys solver k kmax invs prop =
+
+  if k > kmax+1 then failwith
+      (sprintf "[Certification] simplification of inductive invariant \
+                went over bound %d" kmax);
+  
+  (* Asserting transition relation. *)
+  TransSys.trans_of_bound sys (Numeral.of_int k)
+  |> SMTSolver.assert_term solver;
+  
+  (* let invs_and_acts = *)
+  (*   List.map (fun (i, a) -> *)
+  (*       let i' = Term.bump_state Numeral.one i in *)
+  (*       let a' = actlitify solver i' in *)
+  (*       (i', a'), (a, a') *)
+  (*     ) invs in *)
+
+  (* let invs', invs_acts = List.split invs_and_acts in *)
+
+  let prev_props_l = ref [prop] in
+  for i = 1 to k - 1 do
+    prev_props_l := Term.bump_state (Numeral.of_int i) prop :: !prev_props_l;
+  done;
+
+  let prev_props_act =
+    actlitify solver (Term.mk_and (List.rev !prev_props_l)) in
+
+  let invs_acts = List.map (fun inv ->
+      let l = ref [inv] in
+      for i = 1 to k - 1 do
+        l := Term.bump_state (Numeral.of_int i) inv :: !l;
+      done;
+      let prev_invs_act = actlitify solver (Term.mk_and (List.rev !l)) in
+      let pa1 = Term.bump_state (Numeral.of_int k) inv |> actlitify solver in
+      prev_invs_act, pa1
+    ) invs in
+
+  let prop' = Term.bump_state (Numeral.of_int k) prop in
+  let prop'act = actlitify solver prop' in
+
+  let neg_prop' = Term.mk_not prop' in
+  let neg_prop'act = actlitify solver neg_prop' in
+
+
+  try
+    let useful_acts =
+      fixpoint [] solver invs_acts prev_props_act prop'act neg_prop'act in
+
+    let uinvs =
+      List.fold_left (fun acc i ->
+          let a = Term.bump_state (Numeral.of_int k) i
+                  |> generate_actlit |> term_of_actlit in
+          if List.exists (Term.equal a) useful_acts &&
+             not (List.exists (Term.equal i) acc) then
+            i :: acc
+          else acc
+        ) [] invs in
+
+    k, uinvs
+
+  with Exit ->
+    (* Not k-inductive *)
+    find_bound_w_invs sys solver (k+1) kmax invs prop
+
+
+
+
+let typing_constr svuf =
+  create_typing_constraint
+    svuf
+    (UfSymbol.arg_type_of_uf_symbol svuf)
+    (UfSymbol.res_type_of_uf_symbol svuf)
+
+
+let simplify_certificate sys =
+  printf "Certificate minimization@.";
+
+  Event.set_module `Certif;
+  
+  let props, certs = extract_props_certs sys in
+  let certs = split_certs certs in
+  let k, invs = List.fold_left (fun (m, invs) (k, i) ->
+      max m k,
+      if List.exists (Term.equal i) props then invs
+      else i :: invs) (0, []) certs in
+
+  let k_orig, nb_invs = k, List.length invs in
+  
+  (debug certif "Trying to simplify up to k = %d\ninvs = %a\n@."
+    k_orig Term.pp_print_term (Term.mk_and invs) in ());
+  
+  
+  (* Creating solver. *)
+  let solver =
+    SMTSolver.create_instance ~produce_cores:true
+      (TransSys.get_logic sys) (Flags.smtsolver ())
+  in
+
+  let decl_w_constr f =
+    SMTSolver.declare_fun solver f;
+    SMTSolver.assert_term solver (typing_constr f)
+  in
+  
+    
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    sys
+    (SMTSolver.define_fun solver)
+    decl_w_constr
+    Numeral.(~- one) (Numeral.of_int (k+1));
+
+  let prop = Term.mk_and props in
+
+  let kmin, uinvs = find_bound_w_invs sys solver 1 k invs prop in
+
+  SMTSolver.delete_instance solver;
+  
+  (debug certif "Simplification found for k = %d\ninv = %a\n@."
+     kmin Term.pp_print_term (Term.mk_and uinvs) in ());
+
+  printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
+    (List.length uinvs) nb_invs kmin k_orig;
+
+  kmin, uinvs
+  
+
+
+
+
+
+
+
+
+
+
+
 
 
 let linestr = String.make 79 '-'
@@ -240,9 +481,22 @@ let generate_certificate sys =
 
   (* Set line width *)
   Format.pp_set_margin fmt file_width;
+
+
   
   let prop, (k, phi) = global_certificate sys in
 
+  let k , phi =
+    if not (Flags.certif_min ()) then k, phi
+                                      
+    else begin
+      (* Simplify certificate *)
+      let k, uinvs = simplify_certificate sys in
+      k, Term.mk_and (prop :: uinvs)
+    end
+    
+  in
+  
 
   (* Names of predicates *)
   let init_n = "__I__" in

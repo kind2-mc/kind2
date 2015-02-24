@@ -921,7 +921,8 @@ type kind_module =
   | `INVGENOS
   | `INVMAN
   | `Interpreter
-  | `Parser ]
+  | `Parser
+  | `Certif]
 
 
 (* Pretty-print the type of the process *)
@@ -934,7 +935,7 @@ let pp_print_kind_module ppf = function
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Parser -> Format.fprintf ppf "parser"
-
+  | `Certif -> Format.fprintf ppf "certif"
 
 (* String representation of a process type *)
 let string_of_kind_module = string_of_t pp_print_kind_module 
@@ -950,6 +951,7 @@ let suffix_of_kind_module = function
  | `INVMAN -> "man"
  | `Interpreter -> "interp"
  | `Parser -> "parse"
+ | `Certif -> "certif"
                 
 
 (* Process type of a string *)

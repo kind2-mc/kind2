@@ -261,15 +261,16 @@ val pp_print_version : Format.formatter -> unit
 
 
 (** Kind modules *)
-type kind_module =
-  [ `PDR
-  | `BMC
+type kind_module = 
+  [ `PDR 
+  | `BMC 
   | `IND
   | `INVGEN
   | `INVGENOS
   | `INVMAN
   | `Interpreter
-  | `Parser ]
+  | `Parser
+  | `Certif]
 
 
 (** Wallclock timeout *)

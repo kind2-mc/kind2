@@ -344,6 +344,7 @@ module MdlMap =
     (struct 
       type t = kind_module 
       let int_of_kind_module = function
+        | `Certif -> -4
         | `Parser -> -3
         | `Interpreter -> -2
         | `INVMAN -> -1
@@ -400,6 +401,7 @@ let pt_string_of_kind_module = function
   | `INVMAN -> "invariant manager"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
+  | `Certif -> "certification"
 
 
 (* Pretty-print kind module  for plain text output *)
@@ -639,6 +641,7 @@ let xml_src_of_kind_module = function
   | `INVMAN -> "invman"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
+  | `Certif -> "certif"
 
 
 (* Pretty-print kind module as source attribute of log tag *)

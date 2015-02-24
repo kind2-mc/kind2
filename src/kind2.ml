@@ -97,7 +97,7 @@ let main_of_process = function
 
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
-  | `Parser -> ignore
+  | `Parser | `Certif -> ignore
                        
 
 (* Cleanup function of the process *)
@@ -109,7 +109,7 @@ let on_exit_of_process = function
   | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
-  | `Parser -> ignore
+  | `Parser | `Certif -> ignore
 
 (*
 (* Messaging type of the process *)
@@ -131,6 +131,7 @@ let debug_ext_of_process = function
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
+  | `Certif -> "certif"
 
 (* Exit status if child terminated normally *)
 let status_ok = 0
