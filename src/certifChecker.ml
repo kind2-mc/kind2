@@ -465,6 +465,9 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
 
 let generate_certificate sys =
 
+  (* Time statistics *)
+  Stat.start_timer Stat.certif_gen_time;
+  
   let dirname = Flags.certif_dir () in
 
   create_dir dirname;
@@ -488,6 +491,9 @@ let generate_certificate sys =
   
   let prop, (k, phi) = global_certificate sys in
 
+
+  Stat.start_timer Stat.certif_min_time;
+  
   let k , phi =
     if not (Flags.certif_min ()) then k, phi
                                       
@@ -498,8 +504,15 @@ let generate_certificate sys =
     end
     
   in
-  
 
+  Stat.record_time Stat.certif_min_time;  
+
+  Stat.set k Stat.certif_k;
+
+  Stat.set (List.length (split_inv phi)) Stat.certif_size;
+
+  
+  
   (* Names of predicates *)
   let init_n = "__I__" in
   let prop_n = "__P__" in
@@ -696,4 +709,9 @@ let generate_certificate sys =
   (* Close file *)
   close_out certif_oc;
 
+  (* Time statistics *)
+  Stat.record_time Stat.certif_gen_time;
+
+  Event.stat [Stat.certif_stats_title, Stat.certif_stats];
+  
   printf "Certificate was written in %s@." certificate_filename

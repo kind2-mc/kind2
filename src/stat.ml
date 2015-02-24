@@ -533,6 +533,43 @@ let pp_print_smt_stats ppf =
     pp_print_stats smt_stats
 
 
+
+(* ********** Certificate statistics ********** *)
+
+let certif_gen_time = 
+  empty_item "generation time" 0.
+
+let certif_min_time = 
+  empty_item "minimization time" 0.
+
+let certif_k = 
+  empty_item "k" (-1)
+
+let certif_size = 
+  empty_item "size" 0
+
+(* Title for Certificate statistics *)
+let certif_stats_title = "Certificate"
+
+(* All SMT statistics *)
+let certif_stats = 
+  [ F certif_gen_time;
+    F certif_min_time;
+    I certif_k;
+    I certif_size ] 
+
+(* Stop and record all times *)
+let certif_stop_timers () = stop_all_timers certif_stats
+
+(* Pretty-print SMT statistics items *)
+let pp_print_certif_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    certif_stats_title
+    pp_print_stats certif_stats
+
+
+
 (* ********** Misc statistics ********** *)
 
 let total_time = 
