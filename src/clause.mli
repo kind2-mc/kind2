@@ -23,6 +23,11 @@
 (** Clause *)
 type t
 
+
+(** A trie of literals *)
+module ClauseTrie : Trie.S with type key = Term.t list 
+
+  
 (** Set of properties *)
 type prop_set
 
@@ -72,6 +77,9 @@ val create_and_assert_fresh_actlit : SMTSolver.t -> string -> Term.t -> actlit_t
     
 *)
 val clause_of_literals : SMTSolver.t -> t option -> Term.t list -> t
+
+(** Return the clause this clause was generalized from *)
+val parent_of_clause : t -> t
 
 (** Return the number of literals in the clause 
 

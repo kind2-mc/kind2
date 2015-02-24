@@ -123,7 +123,7 @@ module type S = sig
   val max_binding: 'a t -> (key * 'a)
 
   (* val choose: 'a t -> (key * 'a) *)
-  (* val split: key -> 'a t -> 'a t * 'a option * 'a t *)
+  val split: key -> 'a t -> 'a t * 'a option * 'a t
 
   (** Return the value for the key in the trie *)
   val find : key -> 'a t -> 'a
@@ -174,8 +174,25 @@ module type S = sig
       pair of values in of [t1] and [t2] that have identical keys. The
       keys are presented in lexicographic order. Raise exception
       [Invalid_argument "Trie.iter2"] if the sets of keys the trie are
-      not equal *)
+      not equal. *)
   val iter2 : (key -> 'a -> 'b -> unit) -> 'a t -> 'b t -> unit
+
+  (** Check if all pairs of bindings in the trie satisfy the predicate 
+
+      [for_all2 p t1 t2] returns true if [p] evaluates to true for all
+      pairs of bindings in t1 and t2 with identical keys. Raise
+      exception [Invalid_argument "Trie.for_all2"] if the sets of keys
+      the trie are not equal. *)
+  val for_all2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
+
+  (** Check if there is a binding in the trie that satisfies the
+      predicate
+
+      [exists2 p t1 t2] returns true if [p] evaluates to true for at
+      least one pair of bindings with identical keys in [t1]
+      and[t2]. Raise exception [Invalid_argument "Trie.exists2"] if
+      the sets of keys the trie are not equal. *)
+  val exists2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
 
   (** Return a new trie containing only entries with keys that are not
       subsets of the given key
@@ -185,6 +202,13 @@ module type S = sig
       trie with all entries for keys that are subsets of [k]
       removed. *)
   val subsume : 'a t -> key -> 'a t
+
+  (** Return [true] if there is a key in the trie such that all
+      elements of that key are in the given key. 
+  
+      [is_subsumed t k] assumes that all keys in the trie [t], and the key
+      [k] are sorted and do not contain duplicates.*)
+  val is_subsumed : 'a t -> key -> bool
     
 end
 

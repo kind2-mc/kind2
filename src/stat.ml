@@ -378,6 +378,9 @@ let pdr_tightened_propagated_clauses =
 let pdr_activation_literals =
   empty_item "Activation literals" 0
 
+let pdr_stale_activation_literals =
+  empty_item "Stale activation literals" 0
+
 (* Title for PDR statistics *)
 let pdr_stats_title = "PDR"
 
@@ -395,6 +398,7 @@ let pdr_stats =
     L pdr_counterexamples; 
     I pdr_counterexamples_total;
     I pdr_activation_literals;
+    I pdr_stale_activation_literals;
     F pdr_total_time;
     F pdr_fwd_prop_time;
     F pdr_block_propagated_cex_time;

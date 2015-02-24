@@ -232,6 +232,9 @@ val pdr_tightened_propagated_clauses : int_item
 (** Number of activation literals *)
 val pdr_activation_literals : int_item
   
+(** Number of permanently false activation literals *)
+val pdr_stale_activation_literals : int_item
+  
 (** Stop and record all timers *)
 val pdr_stop_timers : unit -> unit 
 

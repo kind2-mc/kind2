@@ -45,7 +45,23 @@ type t =
       
   } 
 
+
+(* Compare clauses by their lexicographically comparing their (sorted
+   and duplicate-free lists of) literals *)
+let compare { literals = l1 } { literals = l2 } =
+  compare_lists Term.compare l1 l2
+
     
+(* Clauses are equal if their (sorted and duplicate-free lists of)
+   literals are equal *)
+let equal { literals = l1 } { literals = l2 } =
+  List.length l1 = List.length l2 && List.for_all2 Term.equal l1 l2
+
+
+(* A trie of clauses *)
+module ClauseTrie = Trie.Make (Term.TermMap)
+  
+  
 (* Set of properties *)
 type prop_set =
 
@@ -207,6 +223,9 @@ let actlit_symbol_of_frame k = actlit_and_symbol_of_frame k |> fst
 (* Create three fresh activation literals for a list of literals and
    declare in the given solver instance *)
 let clause_of_literals solver parent literals =
+
+  (* Sort and eliminate duplicates *)
+  let literals = Term.TermSet.(of_list literals |> elements) in
   
   (* Disjunction of literals *)
   let term = Term.mk_or literals in
