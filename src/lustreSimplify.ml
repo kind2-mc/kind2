@@ -4379,14 +4379,15 @@ let preprocess_contracts decls =
 let declarations_to_nodes decls =
 
   debug lustreSimplify
-        "decls:@ %a"
+        "Before contract calls inlining:@ %a"
         (pp_print_list A.pp_print_declaration "@ @ ")
         decls in
 
+  (* Removing contract nodes. *)
   let clean_decls = preprocess_contracts decls in
 
   debug lustreSimplify
-        "clean decls:@ %a"
+        "Aftercontract calls inlining:@ %a"
         (pp_print_list A.pp_print_declaration "@ @ ")
         clean_decls in
 

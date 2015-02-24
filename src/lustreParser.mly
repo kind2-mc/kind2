@@ -349,7 +349,7 @@ node_decl:
        r)  }
 
 
-(* A contract declaration *)
+(* A contract node declaration *)
 contract_decl:
   | CONTRACTNODE; 
     n = ident; 

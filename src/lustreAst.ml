@@ -215,7 +215,8 @@ type ensure =
 (* Constructs an ensure for a contract. *)
 let mk_ensure pos e = pos, e
 
-(* A contract clause *)
+(* A contract clause is either an inline contract inside the node, or
+   a call to a contract node. *)
 type contract =
   | InlinedContract of
       position
@@ -236,7 +237,7 @@ type node_decl =
     * node_equation list
     * contract list
 
-(* A contract declaration. *)
+(* A contract node declaration. *)
 type contract_decl =
   ident
   * node_param list
