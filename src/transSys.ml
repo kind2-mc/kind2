@@ -583,8 +583,8 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
                   Term.mk_var
                     (Var.mk_state_var_instance state_var Numeral.zero); 
                   Term.mk_num u] in
-             (* certif o inductive *)
-             (eq, (0, eq)) :: accum
+             (* certif 1 inductive *)
+             (eq, (1, eq)) :: accum
            | _ -> accum)
       []
       state_vars

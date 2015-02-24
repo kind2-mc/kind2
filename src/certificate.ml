@@ -24,7 +24,7 @@ type t = int * Term.t
 let merge certs =
   let km, l =
     List.fold_left (fun (km, l) (k, phi) ->
-        max k km, phi :: l
+        max k km, if List.exists (Term.equal phi) l then l else phi :: l
       ) (0, []) certs in
   km, Term.mk_and (List.rev l)
 

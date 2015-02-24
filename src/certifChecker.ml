@@ -278,7 +278,7 @@ let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
 
 let rec find_bound_w_invs sys solver k kmax invs prop =
 
-  if k > kmax+1 then failwith
+  if k > kmax then failwith
       (sprintf "[Certification] simplification of inductive invariant \
                 went over bound %d" kmax);
   
@@ -359,7 +359,9 @@ let simplify_certificate sys =
   let certs = split_certs certs in
   let k, invs = List.fold_left (fun (m, invs) (k, i) ->
       max m k,
-      if List.exists (Term.equal i) props then invs
+      if List.exists (Term.equal i) props ||
+         List.exists (Term.equal i) invs
+      then invs
       else i :: invs) (0, []) certs in
 
   let k_orig, nb_invs = k, List.length invs in
@@ -594,7 +596,7 @@ let generate_certificate sys =
       Event.log L_fatal
         "[Warning] Using potentially incorrect check for base case";
 
-      for i = k - 1 downto 0 do
+      for i = k - 2 downto 0 do
         l := trans_t i (i+1) :: !l;
       done;
 
@@ -614,7 +616,7 @@ let generate_certificate sys =
 
       let dnf = ref [] in
 
-      for i = k downto 0 do
+      for i = k - 1 downto 0 do
 
         let l = ref [Term.mk_not (phi_t i)] in
         for j = i - 1 downto 0 do
@@ -634,7 +636,7 @@ let generate_certificate sys =
     
     assert_expr fmt init_t0;
     
-    for i = 0 to k do
+    for i = 0 to k - 1 do
       echo fmt (string_of_int i);
 
       if i > 0 then assert_expr fmt (trans_t (i-1) i);
@@ -660,12 +662,12 @@ let generate_certificate sys =
 
   (* unroll k times*)
   let l = ref [] in
-  for i = k downto 0 do
+  for i = k - 1 downto 0 do
     l := (phi_t i) :: (trans_t i (i+1)) :: !l
   done;
   
   assert_expr fmt (Term.mk_and !l);
-  assert_expr fmt (Term.mk_not (phi_t (k+1)));
+  assert_expr fmt (Term.mk_not (phi_t k));
   check_sat fmt;
   pop fmt;
 

@@ -1287,8 +1287,8 @@ let fwd_propagate solver trans_sys prop_set frames =
 
                 (* Broadcast inductive clauses as invariants *)
                 List.iter (fun i ->
-                    (* Certificate 0 inductive *)
-                    let cert = (0, i) in
+                    (* Certificate 1 inductive *)
+                    let cert = (1, i) in
                     Event.invariant (TransSys.get_scope trans_sys) i cert)
                   inductive_terms;
 
@@ -1299,8 +1299,8 @@ let fwd_propagate solver trans_sys prop_set frames =
 
                 (* Add inductive blocking clauses as invariants *)
                 List.iter (fun i ->
-                    (* Certificate 0 inductive *)
-                    let cert = (0, i) in
+                    (* Certificate 1 inductive *)
+                    let cert = (1, i) in
                     TransSys.add_invariant trans_sys i cert)
                   inductive_terms;
 
@@ -1782,9 +1782,9 @@ let rec restart_loop trans_sys solver props =
 
           (
 
-            (* Certificate = 0-inductive invariant in conjunction of the
+            (* Certificate = 1-inductive invariant in conjunction of the
                properties *)
-            let cert = 0, Term.mk_and (ind_inv :: List.map snd props) in
+            let cert = 1, Term.mk_and (ind_inv :: List.map snd props) in
             
             (* Send out valid properties *)
             List.iter
