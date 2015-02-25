@@ -935,7 +935,7 @@ let pp_print_kind_module ppf = function
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Parser -> Format.fprintf ppf "parser"
-  | `Certif -> Format.fprintf ppf "certif"
+  | `Certif -> Format.fprintf ppf "certificate"
 
 (* String representation of a process type *)
 let string_of_kind_module = string_of_t pp_print_kind_module 

@@ -234,6 +234,7 @@ let global_certificate sys =
 let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
 
   let if_sat () =
+    (debug certif "[Fixpoint] fail@." in ());
     raise Exit
     
   in
@@ -246,6 +247,9 @@ let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
     let uinvs_acts =
       List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
 
+    (debug certif "[Fixpoint] extracted %d useful invariants@."
+      (List.length uinvs_acts)in ());
+  
     let uinvs, uinvs' = List.split uinvs_acts in
 
     let new_prop = Term.mk_and (prev_props_act :: uinvs) in
@@ -264,13 +268,15 @@ let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
       
       (fun () ->
          (* SAT try to find what invariants are missing *)
+         (debug certif "[Fixpoint] could not verify inductiveness@." in ());
+
          fixpoint acc solver
            invs_acts new_prop_act new_prop'act neg_new_prop'act)
       
       (fun () ->
          (* UNSAT: return accumulated invariants *)
-         (debug certif "OK (%a)@."
-           (pp_print_list Term.pp_print_term "@ ") acc in ());
+         (debug certif "[Fixpoint] OK@."
+           (* (pp_print_list Term.pp_print_term "@ ") acc *) in ());
   
          acc)
 
@@ -281,27 +287,16 @@ let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
   let invs = List.map fst invs_acts in
 
   SMTSolver.trace_comment solver "fixpoint cs;";
-  
+
   SMTSolver.check_sat_assuming solver if_sat if_unsat
     (neg_prop'act :: prev_props_act :: invs)
 
 
-let rec find_bound_w_invs sys solver k kmax invs prop =
 
-  if k > kmax then failwith
-      (sprintf "[Certification] simplification of inductive invariant \
-                went over bound %d" kmax);
+
+let try_at_bound sys solver k invs prop =
   
-  (* Asserting transition relation. *)
-  TransSys.trans_of_bound sys (Numeral.of_int k)
-  |> SMTSolver.assert_term solver;
-  
-  (* let invs_and_acts = *)
-  (*   List.map (fun (i, a) -> *)
-  (*       let i' = Term.bump_state Numeral.one i in *)
-  (*       let a' = actlitify solver i' in *)
-  (*       (i', a'), (a, a') *)
-  (*     ) invs in *)
+  (debug certif "Try bound %d@." k in ());
 
   (* let invs', invs_acts = List.split invs_and_acts in *)
 
@@ -329,29 +324,110 @@ let rec find_bound_w_invs sys solver k kmax invs prop =
   let neg_prop' = Term.mk_not prop' in
   let neg_prop'act = actlitify solver neg_prop' in
 
+  (* Can fail and raise Exit *)
+  let useful_acts =
+    fixpoint [] solver invs_acts prev_props_act prop'act neg_prop'act in
 
-  try
-    let useful_acts =
-      fixpoint [] solver invs_acts prev_props_act prop'act neg_prop'act in
+  let uinvs =
+    List.fold_left (fun acc i ->
+        let a = Term.bump_state (Numeral.of_int k) i
+                |> generate_actlit |> term_of_actlit in
+        if List.exists (Term.equal a) useful_acts &&
+           not (List.exists (Term.equal i) acc) then
+          i :: acc
+        else acc
+      ) [] invs in
 
-    let uinvs =
-      List.fold_left (fun acc i ->
-          let a = Term.bump_state (Numeral.of_int k) i
-                  |> generate_actlit |> term_of_actlit in
-          if List.exists (Term.equal a) useful_acts &&
-             not (List.exists (Term.equal i) acc) then
-            i :: acc
-          else acc
-        ) [] invs in
+  uinvs
 
-    k, uinvs
+(* Find the minimum bound by increasing k *)
+let rec find_bound sys solver k kmax invs prop =
 
+  if k > kmax then failwith
+      (sprintf "[Certification] simplification of inductive invariant \
+                went over bound %d" kmax);
+
+  
+  (* Asserting transition relation. *)
+  TransSys.trans_of_bound sys (Numeral.of_int k)
+  |> SMTSolver.assert_term solver;
+
+  try k, try_at_bound sys solver k invs prop
   with Exit ->
     (* Not k-inductive *)
-    find_bound_w_invs sys solver (k+1) kmax invs prop
+    find_bound sys solver (k+1) kmax invs prop
 
 
+(* Find the minimum bound starting from kmax and going backwards *)
+let find_bound_back sys solver kmax invs prop =
 
+  for i = 1 to kmax do
+    (* Asserting transition relation. *)
+    TransSys.trans_of_bound sys (Numeral.of_int i)
+    |> SMTSolver.assert_term solver
+  done;
+  
+  let rec loop acc k =
+
+    try
+      (* Reached min k, check if the previous were inductive *)
+      if k = 0 then raise Exit;
+
+      let uinvs = try_at_bound sys solver k invs prop in
+      let acc = Some (k, uinvs) in
+      loop acc (k - 1)
+
+    with Exit ->
+
+      match acc with
+      | None ->
+        (* Not k-inductive *)
+        failwith
+          (sprintf
+             "[Certification] Could not verify %d-inductiveness of invariant" k);
+
+      | Some (k, uinvs) ->
+        (* The last one was inductive *)
+        k, uinvs
+  in
+
+  loop None kmax
+
+
+(* Find the minimum bound by dichotomy between k_l and k_u *)
+let rec find_bound_dicho sys solver kmax invs prop =
+
+  for i = 1 to kmax do
+    (* Asserting transition relation. *)
+    TransSys.trans_of_bound sys (Numeral.of_int i)
+    |> SMTSolver.assert_term solver
+  done;
+    
+  let rec loop_dicho acc k_l k_u =
+
+    if k_l > k_u then
+      match acc with
+      | Some (k, uinvs) -> k, uinvs
+      | None ->
+        failwith "[Certification] Could not verify inductiveness of invariant"
+
+    else
+
+      let k_mid = (k_l + k_u) / 2 in
+      try
+
+        let uinvs = try_at_bound sys solver k_mid invs prop in
+        let acc = Some (k_mid, uinvs) in
+        loop_dicho acc k_l (k_mid - 1)
+
+      with Exit ->
+        loop_dicho acc (k_mid + 1) k_u
+  in
+
+  loop_dicho None 1 kmax
+  
+
+  
 
 let typing_constr svuf =
   create_typing_constraint
@@ -402,7 +478,11 @@ let simplify_certificate sys =
 
   let prop = Term.mk_and props in
 
-  let kmin, uinvs = find_bound_w_invs sys solver 1 k invs prop in
+  let kmin, uinvs = match Flags.certif_min () with
+    | `Fwd -> find_bound sys solver 1 k invs prop
+    | `Bwd -> find_bound_back sys solver k invs prop
+    | `Dicho -> find_bound_dicho sys solver k invs prop
+  in
 
   SMTSolver.delete_instance solver;
   
@@ -504,14 +584,12 @@ let generate_certificate sys =
 
   Stat.start_timer Stat.certif_min_time;
   
-  let k , phi =
-    if not (Flags.certif_min ()) then k, phi
-                                      
-    else begin
+  let k , phi = match Flags.certif_min () with
+    | `No -> k, phi
+    | _ ->
       (* Simplify certificate *)
       let k, uinvs = simplify_certificate sys in
       k, Term.mk_and (prop :: uinvs)
-    end
     
   in
 
@@ -573,7 +651,7 @@ let generate_certificate sys =
   let prop_s = UfSymbol.mk_uf_symbol prop_n [Type.t_int] Type.t_bool in
   let prop_def = roll sigma_0i prop in
   define_fun fmt prop_s [fvi] Type.t_bool prop_def;
-  let prop_t i = Term.mk_uf prop_s [Term.mk_num_of_int i] in
+  (* let prop_t i = Term.mk_uf prop_s [Term.mk_num_of_int i] in *)
   let prop_v v = Term.mk_uf prop_s [Term.mk_var v] in
   let prop_u u l = Term.mk_uf prop_s [Term.mk_uf u l] in
 

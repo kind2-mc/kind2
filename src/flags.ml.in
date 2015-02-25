@@ -280,9 +280,24 @@ let certif_default = false
 
 (* ********** *) 
 
-type certif_min = bool
+type certif_min = [ `No | `Fwd | `Bwd | `Dicho ]
 
-let certif_min_default = false
+let certif_min_of_string = function
+  | "no" -> `No
+  | "fwd" -> `Fwd
+  | "bwd" -> `Bwd
+  | "dicho" -> `Dicho
+  | _ -> raise (Arg.Bad "Bad value for --certif_min")
+
+let string_of_certif_min = function
+  | `No -> "no"
+  | `Fwd -> "fwd"
+  | `Bwd -> "bwd"
+  | `Dicho -> "dicho"
+
+let certif_min_values = "fwd, bwd, dicho"
+  
+let certif_min_default = `No
 
 (* ********** *) 
 
@@ -845,12 +860,12 @@ let certif_spec =
 
 (* ********** *) 
 
-let certif_min_action o = flags.certif_min <- true
+let certif_min_action o = flags.certif_min <- (certif_min_of_string o)
   
 let certif_min_spec = 
   ("--certif_min", 
-   Arg.Unit certif_min_action, 
-   Format.sprintf "Minimize certificate")
+   Arg.String certif_min_action, 
+   Format.sprintf "Minimize certificate with strategies %d" certif_min_values)
 
 (* ********** *) 
 

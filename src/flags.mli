@@ -226,7 +226,7 @@ type certif = bool
 val certif : unit -> certif
 
 (** Produce certificates *)
-type certif_min = bool
+type certif_min = [ `No | `Fwd | `Bwd | `Dicho ]
 val certif_min : unit -> certif_min
 
 (** Directory for certificates *)
