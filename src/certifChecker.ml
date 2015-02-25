@@ -32,6 +32,9 @@ let monolithic_base = true
 let simple_base = false
 
 
+let t0 = Term.mk_num_of_int 0
+let t1 = Term.mk_num_of_int 1
+
 let hactlits = TH.create 2001
 
 let actlitify solver t =
@@ -60,7 +63,14 @@ let roll sigma t =
 
         let vf = StateVar.uf_symbol_of_state_var sv in
         let i = Term.mk_num off in
-        let arg = try TM.find i sigma with Not_found -> i in
+        let arg =
+          try TM.find i sigma
+          with Not_found ->
+            (* find variable v to replace for 0 *)
+            let v_at_0 = TM.find t0 sigma in
+            (* and return v+i *)
+            Term.mk_plus [v_at_0; i]
+        in
         Term.mk_uf vf [arg]
 
       else term
@@ -548,9 +558,6 @@ let generate_certificate sys =
   let fvi = Var.mk_free_var (HString.mk_hstring "i") Type.t_int in
   let fvj = Var.mk_free_var (HString.mk_hstring "j") Type.t_int in
 
-  let t0 = Term.mk_num_of_int 0 in
-  let t1 = Term.mk_num_of_int 1 in
-  
   let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
   let sigma_0i1j = TM.add t1 (Term.mk_var fvj) sigma_0i in
   
@@ -564,7 +571,7 @@ let generate_certificate sys =
   (* Declaring property *)
   add_section fmt "Original property";
   let prop_s = UfSymbol.mk_uf_symbol prop_n [Type.t_int] Type.t_bool in
-  let prop_def = roll sigma_0i1j prop in
+  let prop_def = roll sigma_0i prop in
   define_fun fmt prop_s [fvi] Type.t_bool prop_def;
   let prop_t i = Term.mk_uf prop_s [Term.mk_num_of_int i] in
   let prop_v v = Term.mk_uf prop_s [Term.mk_var v] in
@@ -585,7 +592,7 @@ let generate_certificate sys =
   (* Declaring k-inductive invariant *)
   add_section fmt (sprintf "%d-Inductive invariant" k);
   let phi_s = UfSymbol.mk_uf_symbol phi_n [Type.t_int] Type.t_bool in
-  let phi_def = roll sigma_0i1j phi in
+  let phi_def = roll sigma_0i phi in
   define_fun fmt phi_s [fvi] Type.t_bool phi_def;
   let phi_t i = Term.mk_uf phi_s [Term.mk_num_of_int i] in
   let phi_v v = Term.mk_uf phi_s [Term.mk_var v] in
