@@ -865,7 +865,7 @@ let certif_min_action o = flags.certif_min <- (certif_min_of_string o)
 let certif_min_spec = 
   ("--certif_min", 
    Arg.String certif_min_action, 
-   Format.sprintf "Minimize certificate with strategies %d" certif_min_values)
+   Format.sprintf "Minimize certificate with strategies %s" certif_min_values)
 
 (* ********** *) 
 
