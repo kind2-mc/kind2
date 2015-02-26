@@ -84,7 +84,7 @@ type t =
     (* Yices identifier that was last asserted. Remember to reset this to 0
        when restarting the solver or deleting the instance. *)
 
-    solver_id_names : (YicesResponse.yices_id, int) Hashtbl.t;
+    solver_id_names : (YicesResponse.yices_id, string) Hashtbl.t;
     (* Associates yices assertion ids to smtlib names of named formulas *)
 
     solver_push_stack : YicesResponse.yices_id Stack.t;
@@ -127,8 +127,7 @@ let next_id solver =
 
 
 let name_of_yices_id solver id =
-  let n = Hashtbl.find solver.solver_id_names id in
-  "t"^(string_of_int n)
+  Hashtbl.find solver.solver_id_names id
        
     
 
@@ -605,9 +604,9 @@ let assert_expr solver expr =
     if Term.is_named t then
       (* Open the named term and forget the name *)
       begin
-        let name = Term.name_of_named t in
+        let name = "t"^(string_of_int (Term.name_of_named t)) in
         Term.term_of_named t,
-        Format.asprintf "[name removed: t%d]" name
+        Format.asprintf "[name removed: %s]" name
       end
     else t, "" in
   let expr = Conv.smtexpr_of_term t' in
@@ -631,22 +630,22 @@ let assert_expr solver expr =
 
 
 (* Assert a removable expression, costly *)
-let assert_removable_expr solver expr = 
+let assert_removable_expr ?id solver expr = 
 
   fail_when_arith expr;
   
-  (* Take the next id *)
-  let id = next_id solver in
+  (* Take the next id if none is given *)
+  let id = match id with None -> next_id solver | Some id -> id in
   
   let t = expr in (* Conv.term_of_smtexpr expr in *)
   let t', name_info =
     if Term.is_named t then
       (* Open the named term and map the yices id to the name *)
       begin
-        let name = Term.name_of_named t in
+        let name = "t"^(string_of_int (Term.name_of_named t)) in
         Hashtbl.add solver.solver_id_names id name; 
         Term.term_of_named t,
-        Format.asprintf "[id: %a, name: t%d]"
+        Format.asprintf "[id: %a, name: %s]"
                        YicesResponse.pp_print_yices_id id name
       end
     else t, Format.asprintf "[id: %a]" YicesResponse.pp_print_yices_id id in
@@ -790,9 +789,19 @@ let check_sat_assuming solver exprs =
 
   (* We use retract feature of Yices to keep internal context *)
   fast_push solver 1;
-  let res =
-    List.fold_left
-      (fun acc expr -> assert_removable_expr solver expr) `NoResponse exprs
+  let res = List.fold_left (fun acc expr ->
+      match Term.destruct expr with
+        | Term.T.App (s, []) | Term.T.Const s when Symbol.is_uf s ->
+          (* Register name of litterals for unsat core *)
+          let name = 
+            s |> Symbol.uf_of_symbol |> UfSymbol.string_of_uf_symbol in
+          let id = next_id solver in
+          Hashtbl.add solver.solver_id_names id name; 
+          assert_removable_expr ~id solver expr
+
+        | _ -> assert_removable_expr solver expr
+
+    ) `NoResponse exprs
   in
   (match res with
    | `Error _  | `Unsupported ->
@@ -801,24 +810,6 @@ let check_sat_assuming solver exprs =
   let res = check_sat ~timeout:0 solver in
   (* Remove assumed expressions from context while keeping state *)
   fast_pop solver 1;
-  res
-
-
-(* Check satisfiability of the asserted expressions *)
-let naive_check_sat_assuming solver exprs =
-
-  ignore (push solver 1);
-  let res =
-    List.fold_left
-      (fun acc expr -> assert_expr solver expr) `NoResponse exprs
-  in
-  (match res with
-   | `Error _  | `Unsupported ->
-     failwith "Yices: check-sat assumed failed while assuming"
-   | _ -> ());
-  let res = check_sat ~timeout:0 solver in
-  (* Remove assumed expressions from context while keeping state *)
-  ignore (pop solver 1);
   res
 
 
