@@ -124,7 +124,7 @@ let add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort =
   let qconstr =
     create_typing_constraint ?instantiate_constr uf arg_sorts res_sort in
   (* assert constraint *)
-  assert_expr fmt qconstr
+  if not (Term.equal qconstr Term.t_true) then assert_expr fmt qconstr
 
 
 
@@ -464,7 +464,9 @@ let simplify_certificate sys =
 
   let decl_w_constr f =
     SMTSolver.declare_fun solver f;
-    SMTSolver.assert_term solver (typing_constr f)
+    let qconstr = typing_constr f in
+    if not (Term.equal qconstr Term.t_true) then 
+      SMTSolver.assert_term solver qconstr
   in
   
     
