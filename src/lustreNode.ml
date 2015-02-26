@@ -1170,8 +1170,6 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   | (state_var :: svtl, sv_visited, ({ name = node_name } as node_orig), node_coi) :: ntl 
        when List.mem state_var sv_visited ->
 
-     Format.printf "[1] State var: %a@." StateVar.pp_print_state_var state_var ;
-
     (* Continue with next state variable of node *)
     reduce_to_coi' 
       nodes 
@@ -1184,8 +1182,6 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
      sv_visited, 
      ({ name = node_name } as node_orig), 
      node_coi) :: ntl as nl -> 
-
-     Format.printf "[2] State var: %a@." StateVar.pp_print_state_var state_var ;
 
     try 
 
