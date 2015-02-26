@@ -1070,6 +1070,25 @@ let state_vars_of_node (node : t) =
     ret
     (node.oracles @ node.observers)
 
+(* Adds the state vars appearing in a list of contracts to a set of
+   state variables. *)
+let rec add_state_vars_of_contracts svars = function
+  | (_,_,req,ens) :: tail ->
+     let svars' =
+       req @ ens
+       |> List.fold_left
+            ( fun svars'' expr ->
+              SVS.union
+                (E.state_vars_of_expr expr)
+                svars'' )
+            svars
+     in
+     add_state_vars_of_contracts svars' tail
+  | [] -> SVS.elements svars
+
+(* Returns the list of state vars appearing in a contract. *)
+let state_vars_of_contracts = add_state_vars_of_contracts SVS.empty
+
 
 (* Execption for reduce_to_coi: need to reduce node first *)
 exception Push_node of I.t
@@ -1149,7 +1168,9 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   (* Head of state variable list has been visited, its dependent state
      variables are either in [state_var] or [sv_visited] *)
   | (state_var :: svtl, sv_visited, ({ name = node_name } as node_orig), node_coi) :: ntl 
-    when List.mem state_var sv_visited -> 
+       when List.mem state_var sv_visited ->
+
+     Format.printf "[1] State var: %a@." StateVar.pp_print_state_var state_var ;
 
     (* Continue with next state variable of node *)
     reduce_to_coi' 
@@ -1163,6 +1184,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
      sv_visited, 
      ({ name = node_name } as node_orig), 
      node_coi) :: ntl as nl -> 
+
+     Format.printf "[2] State var: %a@." StateVar.pp_print_state_var state_var ;
 
     try 
 
@@ -1264,7 +1287,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       in
 
       (* Copy equation from original node to reduced node and add
-           variables to stack *)
+         variables to stack *)
       let equations_coi', svtl, sv_visited' = 
 
         try 
@@ -1313,7 +1336,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       
       (* Outputs and observers of node *)
       let { outputs = push_node_outputs; 
-            observers = push_node_observers } as push_node = 
+            observers = push_node_observers;
+            contracts = push_node_contracts; } as push_node = 
 
         try 
 
@@ -1328,9 +1352,10 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        (((List.map fst push_node_outputs) @ 
-          push_node_observers @
-          (state_vars_in_asserts push_node), 
+        (((List.map fst push_node_outputs)
+          @ (state_vars_of_contracts push_node_contracts)
+          @ push_node_observers
+          @ (state_vars_in_asserts push_node),
           [], 
           push_node,
           (empty_node push_name)) :: nl)
@@ -1466,8 +1491,7 @@ let reduce_to_props_coi nodes main_name =
     node_of_name main_name nodes 
   in
 
-  match 
-
+  let prop_statevars =
     List.fold_left
       (fun accum (state_var, prop_source) ->
        match prop_source with 
@@ -1482,15 +1506,14 @@ let reduce_to_props_coi nodes main_name =
        (* Properties instantiated from subnodes are not *)
        | TermLib.Instantiated _-> accum) 
       []
-      props 
+      props
+  in
 
+  match
+    add_state_vars_of_contracts (SVS.of_list prop_statevars) contracts
   with
-    
-    (* No properties, don't reduce *)
-    | [] -> reduce_wo_coi nodes main_name
-              
-    (* Reduce to cone of influence of all properties *)
-    | props' -> 
+  | [] -> reduce_wo_coi nodes main_name
+  | svars -> reduce_to_coi nodes main_name svars
 (*      
       let props' = 
       SVS.elements 
@@ -1498,8 +1521,7 @@ let reduce_to_props_coi nodes main_name =
            (svs_of_list (List.map fst props))
            (svs_of_list observers))
       in
-  *)    
-      reduce_to_coi nodes main_name props'
+  *)
         
       
 (* 
