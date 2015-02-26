@@ -464,9 +464,14 @@ let simplify_certificate sys =
 
   let decl_w_constr f =
     SMTSolver.declare_fun solver f;
-    let qconstr = typing_constr f in
-    if not (Term.equal qconstr Term.t_true) then 
-      SMTSolver.assert_term solver qconstr
+    match SMTSolver.kind solver with
+    | `Yices_native ->
+      (* Don't declare subranges constraints for yices 1 *)
+      ()
+    | _ ->
+      let qconstr = typing_constr f in
+      if not (Term.equal qconstr Term.t_true) then 
+        SMTSolver.assert_term solver qconstr
   in
   
     
@@ -704,7 +709,7 @@ let generate_certificate sys =
       assert_expr fmt conj;
 
       let g = ref [] in
-      for i = k downto 0 do
+      for i = k - 1 downto 0 do
         g := phi_t i :: !g;
       done;
       let goal = Term.mk_and !g in
