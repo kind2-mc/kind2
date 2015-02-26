@@ -250,6 +250,7 @@ type state_var_source =
   | Output (** Output stream *)
   | Observer (** Observer output stream *)
   | Local (** Local defined stream *)
+  | Ghost (** Local ghost defined stream *)
   | Abstract (** Local abstracted stream *)
 
 

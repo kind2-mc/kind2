@@ -162,15 +162,21 @@ let main input_file trans_sys =
 
     (* Create solver instance *)
     let solver = 
-      SMTSolver.create_instance ~produce_assignments:true logic (Flags.smtsolver ())
+      SMTSolver.create_instance
+        ~produce_assignments:true
+        (TransSys.get_scope trans_sys)
+        logic
+        (TransSys.get_abstraction trans_sys)
+        (Flags.smtsolver ())
     in
 
     (* Create a reference for the solver. Only used in on_exit. *)
     ref_solver := Some solver;
     
     (* Defining uf's and declaring variables. *)
-    TransSys.init_define_fun_declare_vars_of_bounds
+    TransSys.init_solver
       trans_sys
+      (SMTSolver.trace_comment solver)
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
       Numeral.(~- one) Numeral.(of_int steps) ;

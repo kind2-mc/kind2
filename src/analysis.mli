@@ -16,16 +16,22 @@
 
 *)
 
-(** Invariant manager
+open Lib
 
-    @author Christoph Sticksel *)
+(** Runs an analysis on a transition system with a list of modules to
+    run. Handles spawning and destruction of the kid processes. *)
+val run :
+  TransSys.t ->
+  Log.t ->
+  Event.messaging_setup ->
+  kind_module list -> unit
 
-(** Entry point *)
-val main : (int * Lib.kind_module) list ref -> TransSys.t -> unit
+(** Panic exit callable from the outside.  As of today only the
+    background thread and the Kind 2 top module should use this. *)
+val panic_exit : exn -> unit
 
-(** Cleanup before exit *)
-val on_exit : TransSys.t option -> unit
-
+(** Returns the exit code from an exception. *)
+val status_of_exn : exn -> int
 
 (* 
    Local Variables:
@@ -34,3 +40,4 @@ val on_exit : TransSys.t option -> unit
    indent-tabs-mode: nil
    End: 
 *)
+  

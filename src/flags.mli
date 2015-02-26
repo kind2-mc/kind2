@@ -92,6 +92,22 @@ val smt_trace_dir : unit -> smt_trace_dir
 type enable = Lib.kind_module list
 val enable : unit -> enable 
 
+(** Modular analysis *)
+type modular = bool
+val modular : unit -> modular
+
+(** Modular: timeout per analysis. *)
+type modular_timeout = float
+val modular_timeout : unit -> modular_timeout
+
+(** Activates contract abstraction. *)
+type compositional = bool
+val compositional : unit -> compositional
+
+(** Verification of subnodes requirements. *)
+type contracts_subreqs = bool
+val contracts_subreqs : unit -> contracts_subreqs
+
 (** Maximal number of iterations in BMC *)
 type bmc_max = int
 val bmc_max : unit -> bmc_max
@@ -116,10 +132,6 @@ val ind_compress_same_succ : unit -> ind_compress_same_succ
 (** Compresss inductive counterexample when states have same predecessors *)
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
-
-(** Lazy assertion of invariants. *)
-type ind_lazy_invariants = bool
-val ind_lazy_invariants : unit -> ind_lazy_invariants
 
 (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool

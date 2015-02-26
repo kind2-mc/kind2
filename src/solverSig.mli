@@ -27,6 +27,12 @@ module type Params = sig
 
   val produce_proofs : bool
 
+  (* The scope of the (sub)system under analysis. *)
+  val scope : string list
+
+  (* The current abstraction. *)
+  val abstraction : string list list
+
   val logic : Term.logic
 
   val id : int

@@ -123,11 +123,11 @@ type t =
     (** Proof obligations for node *)
     props : (StateVar.t * TermLib.prop_source) list;
 
-    (** Contract for node, assumptions *)
-    requires : LustreExpr.t list;
-
-    (** Contract for node, guarantees *)
-    ensures : LustreExpr.t list;
+    (** Contracts for node. *)
+    contracts: (string
+                * TermLib.contract_source
+                * LustreExpr.t list
+                * LustreExpr.t list) list;
 
     (** Node is annotated as main node *)
     is_main : bool;

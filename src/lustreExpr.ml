@@ -53,6 +53,9 @@ type state_var_source =
   (* Local defined stream *)
   | Local
 
+  (* Local, ghost defined stream *)
+  | Ghost
+
   (* Local abstracted stream *)
   | Abstract
 
@@ -73,7 +76,8 @@ let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t =
 
 (* Map from state variables to identical state variables in other
    scopes *)
-let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t = 
+let state_var_instance_map :
+      state_var_instance list StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 
@@ -265,7 +269,8 @@ let state_var_is_visible state_var =
 
     (* Oracle inputs and abstraced streams are invisible *)
     | Oracle
-    | Abstract -> false
+    | Abstract
+    | Observer -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input
@@ -302,6 +307,8 @@ let state_var_is_local state_var =
     
 (* Pretty-print the source of a state variable *)
 let rec pp_print_state_var_source ppf = function
+
+  | Observer -> Format.fprintf ppf "observer"
   
   | Input -> Format.fprintf ppf "input"
 

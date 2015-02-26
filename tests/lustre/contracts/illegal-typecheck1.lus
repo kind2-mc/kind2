@@ -1,0 +1,11 @@
+contract c1 (in: int) returns (out: int);
+let
+  --@require in  > 0 ;
+  --@ensure  out > 0 ;
+tel
+
+node bla (in: real) returns (out: int);
+--@contract c1 ;
+let
+  out = 5 ;
+tel

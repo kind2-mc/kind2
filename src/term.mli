@@ -464,6 +464,10 @@ val eval_lambda : lambda -> t list -> t
     indexes can be adjusted in the subterm if necessary. *)
 val map : (int -> T.t -> T.t) -> t -> t
 
+(** Substitutes the free variables appearing in a term according to a
+    state var mapping. *)
+val substitute_variables : (StateVar.t * StateVar.t) list -> t -> t
+
 (** Convert [(= 0 (mod t n))] to [(divisble n t)]
 
     The term [n] must be an integer numeral. *)

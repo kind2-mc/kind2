@@ -87,6 +87,10 @@
     node calls. Equational definitions of not stateful variable are
     substituted by binding the variable to a [let] definition.
 
+    Predicates are thus defined as
+    {[     (depth_input < max_depth_input) => contract and (props = true) ]}
+    {[ not (depth_input < max_depth_input) => concrete_predicate ]}
+
 
     {1 Condact Encoding}
 
@@ -157,6 +161,20 @@ first_tick true  true  true false false false ... ]}
       condition is true and the [first_tick] flag is false in the next
       step.
       {[(clock' and not first_tick') => trans(first_tick',args',first_tick,args)]}
+
+   {1 Contracts}
+
+   A node with a contract conceptually has two predicates for init and
+   trans: a concrete and an abstract one. A dedicated boolean literal
+   activates one or the other:
+   {[(lit => abstract) and (not lit => concrete)]}
+   Actually, the literal also forces all non-contract properties to
+   be true. Indeed, since the outputs corresponding to these
+   properties are not constrained we would get bogus counterexamples
+   for systems calling abstracted subsystems.
+   Last, the concrete predicate is augmented with the requirements of
+   the contracts as assertions. So the final version is:
+   {[(lit => (abstract and properties)) and (not lit => (concrete and requirements))]}
 
     @author Christoph Sticksel
     @author Adrien Champion *)

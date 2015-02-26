@@ -2095,7 +2095,9 @@ let main trans_sys =
     SMTSolver.create_instance
       ~produce_assignments:true
       ~produce_cores:produce_cores
+      (TransSys.get_scope trans_sys)
       logic
+      (TransSys.get_abstraction trans_sys)
       (Flags.smtsolver ())
   in
 
@@ -2103,28 +2105,26 @@ let main trans_sys =
   ref_solver := Some solver;
 
   (* Declare uninterpreted function symbols *)
-  SMTSolver.trace_comment 
-    solver
-    "main: Declare state variables and define predicates";
-
-  (* Declare uninterpreted function symbols *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.init_solver
     trans_sys
+    (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
-    Numeral.(~- one) Numeral.one;
+    Numeral.(~- one) Numeral.one ;
 
   (* Get invariants of transition system *)
   let invars_1 = 
-    TransSys.invars_of_bound trans_sys Numeral.one 
+    TransSys.invars_of_bound
+      trans_sys
+      Numeral.one
   in
 
   (* Get invariants for current state *)
   let invars_0 = 
     TransSys.invars_of_bound
       trans_sys
-       ~one_state_only:true 
-       Numeral.zero 
+      ~one_state_only:true 
+      Numeral.zero 
   in
 
   (* Assert invariants for current state if not empty *)
@@ -2137,7 +2137,7 @@ let main trans_sys =
   (* Create activation literal for frame R_0 *)
   let actconst_r0, actlit_r0 =
     C.actlit_symbol_of_frame 0, C.actlit_of_frame 0
-  in 
+  in
 
   (* Declare symbol in solver *)
   SMTSolver.declare_fun solver actconst_r0;
@@ -2183,7 +2183,7 @@ let main trans_sys =
 
   (* Properties to prove from the transition system *)
   let trans_sys_props = 
-    TransSys.props_list_of_bound trans_sys Numeral.zero 
+    TransSys.props_list_of_bound_not_valid trans_sys Numeral.zero 
   in
 
   (* Check for zero and one step counterexamples and continue with

@@ -89,6 +89,7 @@ let mk_pos = Lib.position_of_lexing
     
 (* Tokens for node declarations *)
 %token NODE
+%token CONTRACTNODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
 %token FUNCTION
@@ -102,6 +103,7 @@ let mk_pos = Lib.position_of_lexing
 %token MAIN
 %token REQUIRES
 %token ENSURES
+%token CONTRACT
 
 (* Token for assertions *)
 %token ASSERT
@@ -184,6 +186,7 @@ decl:
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
   | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
+  | d = contract_decl { [A.ContractDecl (mk_pos $startpos, d)] }
   | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
@@ -330,7 +333,7 @@ node_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    r = contract;
+    r = list(contract);
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
@@ -341,9 +344,36 @@ node_decl:
        p,
        List.flatten i, 
        List.flatten o, 
-       (List.flatten l), 
+       (List.flatten l),
        e,
        r)  }
+
+
+(* A contract node declaration *)
+contract_decl:
+  | CONTRACTNODE; 
+    n = ident; 
+    p = loption(static_params);
+    i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
+    RETURNS; 
+    o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
+    SEMICOLON;
+    l = list(node_local_decl);
+    LET;
+    e = list(node_equation);
+    req = list(require) ;
+    ens = list(ensure) ;
+    TEL
+    option(node_sep) 
+
+    { (n,
+       p,
+       List.flatten i, 
+       List.flatten o, 
+       (List.flatten l), 
+       e,
+       req,
+       ens) }
 
 
 (* A node declaration as an instance of a paramterized node *)
@@ -364,13 +394,26 @@ node_sep: DOT | SEMICOLON { }
 
 (* A list of contract clauses *)
 contract:
-  | l = list(contract_clause) { l }
+  | CONTRACT;
+    n = ident;
+    SEMICOLON; { A.ContractCall ( (mk_pos $startpos), n ) }
+  | CONTRACT;
+    COLON;
+    n = ident;
+    SEMICOLON;
+    reqs = list(require);
+    ens = list(ensure); {
+      A.InlinedContract
+        ( (mk_pos $startpos), n, reqs, ens )
+    }
 
+(* A require for a contract. *)
+require:
+  | REQUIRES; e = expr; SEMICOLON { A.mk_require (mk_pos $startpos) e }
 
-(* A requires or ensures annotation *)
-contract_clause:
-  | REQUIRES; e = expr; SEMICOLON { A.Requires (mk_pos $startpos, e) }
-  | ENSURES; e = expr; SEMICOLON { A.Ensures (mk_pos $startpos, e) }
+(* A ensure for a contract. *)
+ensure:
+  | ENSURES; e = expr; SEMICOLON { A.mk_ensure (mk_pos $startpos) e }
 
 
 (* A static parameter is a type *)

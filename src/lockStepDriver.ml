@@ -108,30 +108,33 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
-let common_setup (solver,sys,actlit) =
+let common_setup solver sys =
 
   name sys
   |> Printf.sprintf
        "Setting up system [%s]."
   |> SMTSolver.trace_comment solver ;
-
-  
-  SMTSolver.declare_fun solver actlit ;
   
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.init_solver
+    ~declare_top_vars_only:false
     sys
+    (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
-    Numeral.zero Numeral.(~- one) ;
+    Numeral.(~- one) Numeral.zero
+
+  (* SMTSolver.trace_comment solver "Done defining, declaring now." ; *)
 
   (* Declaring unrolled vars at [-1] and [0]. *)
-  TransSys.declare_vars_of_bounds_no_init
-    sys
-    (SMTSolver.declare_fun solver)
-    Numeral.(~- one) Numeral.zero ;
+  (* TransSys.declare_vars_of_bounds *)
+  (*   sys *)
+  (*   (SMTSolver.declare_fun solver) *)
+  (*   Numeral.(~- one) Numeral.zero ; *)
 
-  solver, sys, Actlit.term_of_actlit actlit
+  (* let actlit_term = Actlit.term_of_actlit actlit in *)
+
+  (* solver, sys, actlit_term *)
 
 let base_setup (solver,sys,actlit) =
 
@@ -157,7 +160,7 @@ let step_setup (solver, sys, actlit) =
   |> SMTSolver.assert_term solver ;
 
   (* Declaring unrolled vars at [1]. *)
-  TransSys.declare_vars_of_bounds_no_init
+  TransSys.declare_vars_of_bounds
     sys
     (SMTSolver.declare_fun solver)
     Numeral.one Numeral.one ;
@@ -183,7 +186,7 @@ let unroll_solver solver sys actlit k =
   |> SMTSolver.trace_comment solver ;
 
   (* Declaring unrolled vars at [k+1]. *)
-  TransSys.declare_vars_of_bounds_no_init
+  TransSys.declare_vars_of_bounds
     sys (SMTSolver.declare_fun solver) k k ;
 
   (* Conditionally asserting transition predicate at [k]. *)
@@ -290,14 +293,6 @@ let unroll_sys
           (* Getting the next [k]. *)
           let kp1 = Numeral.succ k in
 
-          if Numeral.(kp1 > last_k) then (
-            TransSys.init_flag_uf kp1
-            |> SMTSolver.declare_fun base_solver ;
-            TransSys.init_flag_uf Numeral.(succ kp1)
-            |> SMTSolver.declare_fun step_solver ;
-            lsd.last_k <- kp1
-          ) ;
-
           (* Unrolling base solver at [k+1]. *)
           unroll_solver base_solver system actlit kp1 ;
           (* Unrolling step solver at [k+2]. *)
@@ -315,8 +310,12 @@ let unroll_sys
 let create two_state top_only sys =
 
   let new_inst_sys () =
-    SMTSolver.create_instance ~produce_assignments: true
-      (TransSys.get_logic sys) (Flags.smtsolver ())
+    SMTSolver.create_instance
+      ~produce_assignments: true
+      (TransSys.get_scope sys)
+      (TransSys.get_logic sys)
+      (TransSys.get_abstraction sys)
+      (Flags.smtsolver ())
   in
 
   (* Solvers. *)
@@ -324,24 +323,18 @@ let create two_state top_only sys =
     new_inst_sys (), new_inst_sys (), new_inst_sys ()
   in
 
-  let init_solver solver =
-    TransSys.init_flag_uf Numeral.(~- one)
-    |> SMTSolver.declare_fun solver ;
-    TransSys.init_flag_uf Numeral.zero
-    |> SMTSolver.declare_fun solver ;
-  in
+  (* let init_solver solver = *)
+  (*   TransSys.declare_vars_global_const *)
+  (*     (SMTSolver.declare_fun solver) *)
+  (* in *)
 
-  init_solver base_solver ;
-  init_solver step_solver ;
-  TransSys.init_flag_uf Numeral.one
-  |> SMTSolver.declare_fun step_solver ;
-  init_solver pruning_solver ;
-  TransSys.init_flag_uf Numeral.one
-  |> SMTSolver.declare_fun pruning_solver ;
+  (* init_solver base_solver ; *)
+  (* init_solver step_solver ; *)
+  (* init_solver pruning_solver ; *)
 
-  (* declare_init_flag base_solver minus_one Numeral.zero ; *)
-  (* declare_init_flag step_solver minus_one Numeral.one ; *)
-  (* declare_init_flag pruning_solver minus_one Numeral.one ; *)
+  common_setup base_solver sys ;
+  common_setup step_solver sys ;
+  common_setup pruning_solver sys ;
 
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)
@@ -362,19 +355,20 @@ let create two_state top_only sys =
            (* Getting a fresh actlit for [sys]. *)
            let actlit = Actlit.fresh_actlit () in
 
-           (* Setting up base. *)
-           (base_solver, sys, actlit)
-           |> common_setup |> base_setup ;
-
-           (* Setting up step. *)
-           (step_solver, sys, actlit)
-           |> common_setup |> step_setup ;
-
-           (* Setting up pruning. *)
-           (pruning_solver, sys, actlit)
-           |> common_setup |> pruning_setup ;
+           SMTSolver.declare_fun base_solver actlit ;
+           SMTSolver.declare_fun step_solver actlit ;
+           SMTSolver.declare_fun pruning_solver actlit ;
 
            let actlit_term = Actlit.term_of_actlit actlit in
+
+           (* Setting up base. *)
+           (base_solver, sys, actlit_term) |> base_setup ;
+
+           (* Setting up step. *)
+           (step_solver, sys, actlit_term) |> step_setup ;
+
+           (* Setting up pruning. *)
+           (pruning_solver, sys, actlit_term) |> pruning_setup ;
 
            (* Updating the map of all systems. *)
            let all_sys' =

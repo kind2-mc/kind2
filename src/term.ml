@@ -1482,6 +1482,58 @@ end
 
 
 
+(* Gets the term corresponding to [var] in [map] and bumps it if [var]
+   is not a constant. Raises [Not_found] if [var] is not defined in
+   [map]. *)
+let term_of_var map var =
+  
+  (* Getting the state variable. *)
+  let sv = Var.state_var_of_state_var_instance var in
+  (* Getting corresponding state variable. *)
+  let sv' = List.assq sv map in
+  
+  if StateVar.is_const sv
+  then
+    (* Original state var is a constant, new one should be to. *)
+    Var.mk_const_state_var sv'
+    |> mk_var
+  else if StateVar.is_const sv' then
+    (* New state var is a constant. *)
+    Var.mk_const_state_var sv'
+    |> mk_var
+  else
+    (* None of the state variables is constant. *)
+    Var.mk_state_var_instance
+      sv'
+      (Var.offset_of_state_var_instance var)
+    |> mk_var
+
+
+(* Substitute state variables according a mapping. *)
+let substitute_vars map =
+  ( fun _ term ->
+
+    (* Is the term a free variable? *)
+    if is_free_var term then
+      try
+        (* Extracting state variable. *)
+        free_var_of_term term
+        (* Getting corresponding variable as a term, bumping if
+           necessary. *)
+        |> term_of_var map
+      with
+        (* Variable is not in map, nothing to do. *)
+        Not_found -> term
+
+    else
+      (* Term is not a var, nothing to do. *)
+      term )
+
+(* Substitutes the free variables appearing in a term according to a
+   state var mapping. *)
+let substitute_variables mapping =
+  substitute_vars mapping |> map
+
 
 
 (* 

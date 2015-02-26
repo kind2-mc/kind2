@@ -37,12 +37,15 @@ let get_solver_instance trans_sys =
 
     (* Need to create a new instance *)
     | None -> 
- 
-      (* Create solver instance : only Z3 for the moment *)
-      let solver = SMTSolver.create_instance
-          ~produce_assignments:true
-          (TransSys.get_logic trans_sys)
-          `Z3_SMTLIB
+
+       (* Create solver instance : only Z3 for the moment *)
+       let solver =
+         SMTSolver.create_instance
+           ~produce_assignments:true
+           (TransSys.get_scope trans_sys)
+           (TransSys.get_logic trans_sys)
+           (TransSys.get_abstraction trans_sys)
+           `Z3_SMTLIB
       in
 
       SMTSolver.trace_comment 
@@ -54,8 +57,9 @@ let get_solver_instance trans_sys =
               (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
       
       (* Defining uf's and declaring variables. *)
-      TransSys.init_define_fun_declare_vars_of_bounds
+      TransSys.init_solver
         trans_sys
+        (SMTSolver.trace_comment solver)
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         Numeral.(~- one) Numeral.zero;
@@ -106,7 +110,9 @@ let get_checking_solver_instance trans_sys =
       let solver =     
         SMTSolver.create_instance 
           ~produce_assignments:true
+          (TransSys.get_scope trans_sys)
           `UFLIA
+          (TransSys.get_abstraction trans_sys)
           (Flags.smtsolver ())
       in
 (*
@@ -123,8 +129,9 @@ let get_checking_solver_instance trans_sys =
         (SMTSolver.define_fun solver); 
 *)
   (* Defining uf's and declaring variables. *)
-      TransSys.init_define_fun_declare_vars_of_bounds
+      TransSys.init_solver
         trans_sys
+        (SMTSolver.trace_comment solver)
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         Numeral.(~- one) Numeral.zero;
