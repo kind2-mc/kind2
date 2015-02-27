@@ -225,15 +225,6 @@ let string_of_yices_bin s = s
 
 let yices_bin_default = "yices"
 
-(* ********** *) 
-
-type yices_arith_only = bool
-
-let yices_arith_only_of_bool b = b
-
-let bool_of_yices_arith_only s = s 
-
-let yices_arith_only_default = false
 
 (* ********** *) 
 
@@ -582,7 +573,6 @@ type flags =
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
       mutable yices_bin : yices_bin;
-      mutable yices_arith_only : yices_arith_only;
       mutable yices2smt2_bin : yices2smt2_bin;
       mutable smt_trace : smt_trace;
       mutable smt_trace_dir : smt_trace_dir;
@@ -634,7 +624,6 @@ let flags =
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
-    yices_arith_only = yices_arith_only_default;
     yices2smt2_bin = yices2smt2_bin_default;
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
@@ -752,17 +741,6 @@ let yices_bin_spec =
    Arg.String yices_bin_action, 
    Format.sprintf "executable of Yices solver (default: %s)"
                   (string_of_yices_bin yices_bin_default))
-
-(* ********** *) 
-
-let yices_arith_only_action o =
-  flags.yices_arith_only <- true
-  
-let yices_arith_only_spec = 
-  ("--yices_arith_only", 
-   Arg.Unit yices_arith_only_action, 
-   "Tell Yices to deactivate all theories excepted SAT and linear arithmetic. \
-    Will fail if this is not possible.")
 
 (* ********** *) 
 
@@ -1213,8 +1191,6 @@ let mathsat5_bin () = flags.mathsat5_bin
 
 let yices_bin () = flags.yices_bin
 
-let yices_arith_only () = flags.yices_arith_only
-
 let yices2smt2_bin () = flags.yices_bin
 
 let smt_trace () = flags.smt_trace
@@ -1339,9 +1315,6 @@ and speclist =
 
     (* Set executable for Yices solver *)
     yices_bin_spec;
-
-    (* Set arith only option of yices *)
-    yices_arith_only_spec;
 
     (* Set executable for Yices2 SMT2 solver *)
     yices2smt2_bin_spec;
