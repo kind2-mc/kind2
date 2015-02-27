@@ -514,7 +514,8 @@ let ensure_symbol_qf_lira s =
 (*  | `STORE *)
     ->
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
-                              symbol %s is out of the supported theories."
+                              symbol %s is not interpreted correctly in this \
+                              mode. Run Kind 2 with --no_detect_logic instead."
         (Symbol.string_of_symbol s)
     in
     Event.log L_error "%s" msg;
