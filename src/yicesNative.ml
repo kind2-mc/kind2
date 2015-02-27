@@ -1195,9 +1195,12 @@ let create_instance
     (match produce_assignments with Some o -> o | None -> false)
   in
 
-  let header_logic = function
-    | `LIA | `LRA | `QF_LIA | `QF_LRA | `QF_LIRA -> ["(set-arith-only! true)"]
-    | _ -> []
+  let header_logic logic =
+    let open TermLib in
+    let open TermLib.FeatureSet in
+    if Flags.smtlogic () && subset logic (of_list [IA; RA; LA]) then
+      ["(set-arith-only! true)"]
+    else []
   in
     
   

@@ -91,3 +91,10 @@ val sup_logics : logic list -> logic
 
 (** Returns the logic fragment used by a term *)
 val logic_of_term : Term.t -> logic
+
+(** Print a logic *)
+val pp_print_logic : Format.formatter -> logic -> unit
+
+(** String correspinding to a logic *)
+val string_of_logic : logic -> string
+

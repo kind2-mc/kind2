@@ -17,7 +17,8 @@
 *)
 
 open Lib
-
+open Format
+  
 (*
 
 type invariants = Term.t list
@@ -180,11 +181,11 @@ let logic_of_flat t acc =
   | App (s, l) when s == Symbol.s_times && at_most_one_non_num l ->
     add LA (sup_logics acc)
 
-  | App (s, [n; d]) when s == Symbol.s_div &&
+  | App (s, [n; d]) when Symbol.(s == s_div || s == s_intdiv) &&
     (Term.is_numeral d || Term.is_decimal d) ->
     add LA (sup_logics acc)
 
-  | App (s, _) when Symbol.(s == s_div || s == s_times || s == s_abs
+  | App (s, l) when Symbol.(s == s_div || s == s_times || s == s_abs
                             || s == s_intdiv || s == s_mod) ->
     add NA (sup_logics acc)
 
@@ -199,3 +200,20 @@ let logic_of_term t =
   |> Term.map (fun _ -> remove_top_level_quantifier removed_q)
   |> Term.eval_t logic_of_flat
   |> (if !removed_q then FeatureSet.add Q else Lib.identity)
+
+
+module L = FeatureSet
+
+
+let pp_print_logic fmt l =
+  if not (L.mem Q l) then fprintf fmt "QF_";
+  if L.is_empty l then fprintf fmt "SAT";
+  if L.mem UF l then fprintf fmt "UF";
+  if L.mem NA l then fprintf fmt "N"
+  else if L.mem LA l then fprintf fmt "L";
+  if L.mem IA l then fprintf fmt "I";
+  if L.mem RA l then fprintf fmt "R"; 
+  if L.mem IA l || L.mem RA l then fprintf fmt "A"
+
+
+let string_of_logic l = asprintf "%a" pp_print_logic l

@@ -177,28 +177,13 @@ let smtsolver_default = `detect
 
 (* ********** *) 
 
-type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
-    
-let smtlogic_of_string = function
-  | "UFLIA" -> `QF_UFLIA
-  | "UFLRA" -> `QF_UFLRA
-  | "LIA" -> `QF_LIA
-  | "LRA" -> `QF_LRA
-  | "LIRA" -> `QF_LIRA
-  | "detect" -> `detect
-  | _ -> raise (Arg.Bad "Bad value for --smtlogic")
+type smtlogic = bool
 
-let string_of_smtlogic = function 
-  | `QF_UFLIA -> "UFLIA"
-  | `QF_UFLRA -> "UFLRA"
-  | `QF_LIA -> "LIA"
-  | `QF_LRA -> "LRA"
-  | `QF_LIRA -> "LIRA"
-  | `detect -> "detect"
+let smtlogic_of_bool b = b
 
-let smtlogic_values = "UFLIA, UFLRA, LIA, LRA, LIRA, detect"
+let bool_of_smtlogic b = b
 
-let smtlogic_default = `detect
+let smtlogic_default = true
 
 (* ********** *) 
 
@@ -721,13 +706,12 @@ let smtsolver_spec =
 
 (* ********** *) 
 
-let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
+let smtlogic_action o = flags.smtlogic <- false
   
 let smtlogic_spec = 
-  ("--smtlogic", 
-   Arg.String smtlogic_action, 
-   Format.sprintf "choose SMT logic (available: %s, default: %s)"
-                  smtlogic_values (string_of_smtlogic smtlogic_default))
+  ("--no_detect_smtlogic", 
+   Arg.Unit smtlogic_action, 
+   "disable detection of logic for SMT solvers")
 
 (* ********** *) 
 

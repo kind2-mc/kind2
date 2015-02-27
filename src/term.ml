@@ -18,36 +18,6 @@
 
 open Lib
 
-type logic = 
-  [ `detect
-  | `AUFLIA
-  | `AUFLIRA
-  | `AUFNIRA
-  | `LRA 
-  | `LIA
-  | `QF_ABV
-  | `QF_AUFBV
-  | `QF_AUFLIA
-  | `QF_AX
-  | `QF_BV
-  | `QF_IDL
-  | `QF_LIA
-  | `QF_LRA
-  | `QF_LIRA
-  | `QF_NIA
-  | `QF_NRA
-  | `QF_RDL
-  | `QF_UF
-  | `QF_UFBV
-  | `QF_UFIDL
-  | `QF_UFLIA
-  | `QF_UFLRA
-  | `QF_UFNRA
-  | `UFLIA
-  | `UFLRA
-  | `UFNIA
-  ]
-
 (* We have three hashconsed types: uninterpreted function symbols,
    symbols and terms. Hashconsing has been extended to store a record
    of properties with each value, here we store mainly type

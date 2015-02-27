@@ -808,20 +808,21 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         solver_trace_coms = ftrace_coms; }
     in
 
-    let header_logic = function
-      | `detect -> []
-      | _ -> [Format.sprintf "(set-logic %s)" (string_of_logic logic)]
-    in
+    let header_logic =
+      if Flags.smtlogic () then
+        [Format.sprintf "(set-logic %s)" (string_of_logic logic)]
+      else [] in
     
     let headers =
       "(set-option :print-success true)" ::
       (headers ()) @
       [ 
         (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
-        Format.sprintf "(set-option :produce-assignments %B)" produce_assignments;
+        Format.sprintf
+          "(set-option :produce-assignments %B)" produce_assignments;
         Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores
       ] @
-      (header_logic logic)
+      header_logic
     in
 
     (* Print specific headers specifications *)

@@ -52,8 +52,8 @@ val set_smtsolver : smtsolver -> string -> unit
 (* (\** Return SMT solver to use with Quantifier Elimination *\) *)
 (* val qe_smtsolver : unit -> smtsolver  *)
 
-(** SMT Logic to use *)
-type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
+(** detect logic to send SMT solver *)
+type smtlogic = bool
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)

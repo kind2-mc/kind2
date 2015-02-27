@@ -37,3 +37,16 @@ let check_sat_assuming_supported () = true
 let check_sat_assuming_cmd () = "check-sat"
 
 let headers () = [ "(set-option :interactive-mode true)" ]
+
+
+let string_of_logic l =
+  let open TermLib in
+  let open TermLib.FeatureSet in
+  if is_empty l then "QF_UF"
+  else
+    if mem IA l && mem RA l then
+      if mem Q l then "AUFLIRA" 
+      else "QF_AUFLIRA"
+    else GenericSMTLIBDriver.string_of_logic l
+
+let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)
