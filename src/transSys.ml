@@ -1093,6 +1093,7 @@ let pp_print_trans_sys
        properties;
        invars;
        source;
+       logic;
        callers } as trans_sys) = 
 
   Format.fprintf 
@@ -1104,6 +1105,7 @@ let pp_print_trans_sys
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(logic %a)@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
@@ -1112,6 +1114,7 @@ let pp_print_trans_sys
     (pp_print_list pp_print_property "@ ") properties
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    TermLib.pp_print_logic logic
     (pp_print_list pp_print_callers "@,") callers
       
  
