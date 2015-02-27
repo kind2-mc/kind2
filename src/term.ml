@@ -138,7 +138,7 @@ type lambda = T.lambda
 
 let stats = T.stats
 
-(* Return the type of a term *)
+(* Return the node of the hashconsed term *)
 let node_of_term = T.node_of_t
 
 
