@@ -152,6 +152,9 @@ type t = {
   (* The source which produced this system. *)
   source: source ;
 
+  (* The logic fragment in which is expressed the system and its properties. *)
+  logic: TermLib.logic;
+  
   (* Invariants *)
   mutable invars: Term.t list;
 
@@ -615,6 +618,17 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     | _ -> None
   in
 
+  (* find the logic of the transition system by goint through its terms and its
+     subsystems *)
+  let logic =
+    List.fold_left (fun acc (_, _, p) -> TermLib.logic_of_term p :: acc)
+      ((init  |> snd |> snd |> TermLib.logic_of_term) ::
+       (trans |> snd |> snd |> TermLib.logic_of_term) ::
+       List.map (fun sys -> sys.logic) subsystems)
+      props
+    |> TermLib.sup_logics
+  in
+  
   let system =
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
@@ -632,6 +646,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
                prop_status = PropUnknown })
           props ;
       subsystems = subsystems ;
+      logic = logic;
       source = source ;
       invars = invars_of_types ;
       callers = []; }

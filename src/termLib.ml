@@ -114,7 +114,7 @@ let remove_top_level_quantifier removed t =
       |> Term.T.instantiate lam
     in
     removed := true;
-    t
+    t'
   | _ -> t
 
 (* find the smallest encompassing logic of a sort *)
@@ -150,7 +150,7 @@ let at_most_one_non_num l =
   try aux false l with Exit -> false
       
 (* perform union of a list of logics *)
-let lunion =
+let sup_logics =
   let open FeatureSet in
   List.fold_left union empty
 
@@ -160,35 +160,35 @@ let logic_of_flat t acc =
   let open FeatureSet in
   match t with
 
-  | Attr _ -> lunion acc
+  | Attr _ -> sup_logics acc
   
-  | Var v -> Var.type_of_var v |> logic_of_sort |> union @@ lunion acc
+  | Var v -> Var.type_of_var v |> logic_of_sort |> union @@ sup_logics acc
 
   | Const s | App (s, []) ->
     if Symbol.is_uf s then
       Symbol.uf_of_symbol s
       |> UfSymbol.res_type_of_uf_symbol
       |> logic_of_sort
-      |> union @@ lunion acc
-    else if Symbol.is_numeral s then add IA (lunion acc)
-    else if Symbol.is_decimal s then add RA (lunion acc)
-    else lunion acc
+      |> union @@ sup_logics acc
+    else if Symbol.is_numeral s then add IA (sup_logics acc)
+    else if Symbol.is_decimal s then add RA (sup_logics acc)
+    else sup_logics acc
 
   | App (s, _) when Symbol.(s == s_plus || s == s_minus) ->
-    add LA (lunion acc)
+    add LA (sup_logics acc)
 
   | App (s, l) when s == Symbol.s_times && at_most_one_non_num l ->
-    add LA (lunion acc)
+    add LA (sup_logics acc)
 
   | App (s, [n; d]) when s == Symbol.s_div &&
     (Term.is_numeral d || Term.is_decimal d) ->
-    add LA (lunion acc)
+    add LA (sup_logics acc)
 
   | App (s, _) when Symbol.(s == s_div || s == s_times || s == s_abs
                             || s == s_intdiv || s == s_mod) ->
-    add NA (lunion acc)
+    add NA (sup_logics acc)
 
-  | App _ -> lunion acc
+  | App _ -> sup_logics acc
 
   
 

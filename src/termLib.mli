@@ -86,7 +86,8 @@ module FeatureSet : Set.S with type elt = feature
 (** Logic fragments for terms *)
 type logic = FeatureSet.t
 
+(** Returns the sup of the logics given as arguments *)
+val sup_logics : logic list -> logic
 
 (** Returns the logic fragment used by a term *)
 val logic_of_term : Term.t -> logic
-
