@@ -101,7 +101,7 @@ module FeatureSet = Set.Make (struct
 
 
 (* Logic fragments for terms *)
-type logic = FeatureSet.t
+type features = FeatureSet.t
 
 (* Try to remove top level quantifief by instantiating with fresh symbols *)
 let remove_top_level_quantifier removed t =
@@ -206,10 +206,11 @@ let logic_of_term t =
   |> (if !removed_q then FeatureSet.add Q else Lib.identity)
 
 
+
 module L = FeatureSet
 
 
-let pp_print_logic fmt l =
+let pp_print_features fmt l =
   if not (L.mem Q l) then fprintf fmt "QF_";
   if L.is_empty l then fprintf fmt "SAT";
   if L.mem UF l then fprintf fmt "UF";
@@ -220,4 +221,20 @@ let pp_print_logic fmt l =
   if L.mem IA l || L.mem RA l then fprintf fmt "A"
 
 
-let string_of_logic l = asprintf "%a" pp_print_logic l
+let string_of_features l = asprintf "%a" pp_print_features l
+
+
+type logic = [ `None | `Inferred of features | `SMTLogic of string ]
+
+let pp_print_logic fmt = function
+  | `None -> ()
+  | `Inferred l -> pp_print_features fmt l
+  | `SMTLogic s -> pp_print_string fmt s
+
+
+let string_of_logic = function
+  | `None -> ""
+  | `Inferred l -> string_of_features l
+  | `SMTLogic s -> s
+  
+

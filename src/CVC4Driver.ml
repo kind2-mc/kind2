@@ -151,7 +151,8 @@ let string_of_logic l =
   let open TermLib in
   let open TermLib.FeatureSet in
   (* CVC4 fails to give model when given a non linear arithmetic logic *)
-  if mem NA l then "ALL_SUPPORTED"
-  else GenericSMTLIBDriver.string_of_logic l
+  match l with
+  | `Inferred l when mem NA l -> "ALL_SUPPORTED"
+  | _ -> GenericSMTLIBDriver.string_of_logic l
 
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

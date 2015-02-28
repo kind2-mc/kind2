@@ -617,13 +617,19 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
 
   (* find the logic of the transition system by goint through its terms and its
      subsystems *)
-  let logic =
-    List.fold_left (fun acc (_, _, p) -> TermLib.logic_of_term p :: acc)
-      ((init  |> snd |> snd |> TermLib.logic_of_term) ::
-       (trans |> snd |> snd |> TermLib.logic_of_term) ::
-       List.map (fun sys -> sys.logic) subsystems)
-      props
-    |> TermLib.sup_logics
+  let logic = match Flags.smtlogic () with
+    | `None -> `None
+    | `Logic s -> `SMTLogic s
+    | `detect ->
+      `Inferred
+        (List.fold_left (fun acc (_, _, p) -> TermLib.logic_of_term p :: acc)
+           ((init  |> snd |> snd |> TermLib.logic_of_term) ::
+            (trans |> snd |> snd |> TermLib.logic_of_term) ::
+            List.map (fun sys -> match sys.logic with
+                | `Inferred l -> l
+                | _ -> assert false) subsystems)
+           props
+         |> TermLib.sup_logics)
   in
   
   let system =

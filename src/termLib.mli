@@ -84,13 +84,16 @@ type feature =
 module FeatureSet : Set.S with type elt = feature
 
 (** Logic fragments for terms *)
-type logic = FeatureSet.t
+type features = FeatureSet.t
 
 (** Returns the sup of the logics given as arguments *)
-val sup_logics : logic list -> logic
+val sup_logics : features list -> features
 
 (** Returns the logic fragment used by a term *)
-val logic_of_term : Term.t -> logic
+val logic_of_term : Term.t -> features
+
+(** Logic fragments for terms *)
+type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
 (** Print a logic *)
 val pp_print_logic : Format.formatter -> logic -> unit

@@ -53,7 +53,7 @@ val set_smtsolver : smtsolver -> string -> unit
 (* val qe_smtsolver : unit -> smtsolver  *)
 
 (** detect logic to send SMT solver *)
-type smtlogic = bool
+type smtlogic = [ `None | `detect | `Logic of string ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)

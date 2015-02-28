@@ -177,13 +177,19 @@ let smtsolver_default = `detect
 
 (* ********** *) 
 
-type smtlogic = bool
+type smtlogic = [ `None | `detect | `Logic of string ]
 
-let smtlogic_of_bool b = b
+let smtlogic_of_string = function
+  | "none" | "None" -> `None
+  | "detect" | "Detect" -> `detect
+  | s -> `Logic s
 
-let bool_of_smtlogic b = b
+let string_of_smtlogic = function
+  | `None -> "none"
+  | `detect -> "detect"
+  | `Logic s -> s
 
-let smtlogic_default = true
+let smtlogic_default = `None
 
 (* ********** *) 
 
@@ -695,12 +701,14 @@ let smtsolver_spec =
 
 (* ********** *) 
 
-let smtlogic_action o = flags.smtlogic <- false
+let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
   
 let smtlogic_spec = 
-  ("--no_detect_smtlogic", 
-   Arg.Unit smtlogic_action, 
-   "disable detection of logic for SMT solvers")
+  ("--smtlogic", 
+   Arg.String smtlogic_action, 
+   "select logic for SMT solvers (\"none\" for no logic (default), and \
+    \"detect\" to detect with the input system, other SMTLIB logics will be \
+    passed to the solver)")
 
 (* ********** *) 
 

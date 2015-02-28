@@ -1115,7 +1115,10 @@ let create_instance
   let arith_only =
     let open TermLib in
     let open TermLib.FeatureSet in
-    Flags.smtlogic () && subset logic (of_list [IA; RA; LA])
+    match logic with
+    | `Inferred l -> subset l (of_list [IA; RA; LA])
+    | `SMTLogic ("QF_LIA" | "QF_LRA" | "QF_LIRA") -> true
+    | _ -> false
   in
   
   

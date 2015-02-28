@@ -803,9 +803,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     in
 
     let header_logic =
-      if Flags.smtlogic () then
-        [Format.sprintf "(set-logic %s)" (string_of_logic logic)]
-      else [] in
+      let s = string_of_logic logic in
+      if s = "" then []
+      else [Format.sprintf "(set-logic %s)" s] in
     
     let headers =
       "(set-option :print-success true)" ::
