@@ -189,6 +189,10 @@ let logic_of_flat t acc =
                             || s == s_intdiv || s == s_mod) ->
     add NA (sup_logics acc)
 
+  | App (s, l) when Symbol.(s == s_lt || s == s_gt ||
+                            s == s_leq || s == s_geq) ->
+    add LA (sup_logics acc)
+
   | App _ -> sup_logics acc
 
   
