@@ -56,6 +56,9 @@ type node_call =
     (** Variables capturing the observer streams *)
     call_observers : StateVar.t list;
 
+    (** Variables capturing the contract observer streams. *)
+    call_contract_observers: StateVar.t list;
+
     (** Boolean activation condition *)
     call_clock : StateVar.t option;
 
@@ -72,6 +75,27 @@ type node_call =
     call_defaults : LustreExpr.t list;
 
   }
+
+(** A contract is a name, a position, a list of requirements and a
+    list of ensures. *)
+type contract =
+  { name : LustreIdent.t ;
+    pos : Lib.position ;
+    svar : StateVar.t ;
+    reqs : LustreExpr.t list ;
+    enss : LustreExpr.t list }
+
+(** A contract specification for a node (if it has one) is either a
+    list of modes or a global contract and a list of modes. *)
+type contract_spec =
+  (StateVar.t * LustreExpr.t)
+  (** Requirement of the contract spec. *)
+  * (StateVar.t * LustreExpr.t) list
+  (** Modes of the contract spec. *)
+  * contract option
+  (** Optional global contract. *)
+  * contract list
+  (** Mode contracts. *)
 
 (** A Lustre node *)
 type t = 
@@ -123,11 +147,8 @@ type t =
     (** Proof obligations for node *)
     props : (StateVar.t * TermLib.prop_source) list;
 
-    (** Contracts for node. *)
-    contracts: (string
-                * TermLib.contract_source
-                * LustreExpr.t list
-                * LustreExpr.t list) list;
+    (** Contract specification for node. *)
+    contract_spec : contract_spec option ;
 
     (** Node is annotated as main node *)
     is_main : bool;

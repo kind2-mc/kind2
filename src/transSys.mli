@@ -64,6 +64,14 @@ val trans_base : Numeral.t
 (** Offset of primed state variables in properties and invariants *)
 val prop_base : Numeral.t
 
+type contract
+
+val mk_global_contract :
+  Lib.position -> StateVar.t -> string -> contract
+
+val mk_mode_contract :
+  Lib.position -> StateVar.t -> string -> contract
+
 (** The transition system 
 
     Constructed with the function {!mk_trans_sys} *)
@@ -103,11 +111,8 @@ val mk_trans_sys :
   (string * TermLib.prop_source * Term.t) list ->
   (** Properties. *)
 
-  (StateVar.t
-   * ( string * TermLib.contract_source
-       * Term.t list * Term.t list      ) list) option ->
-  (** Contracts option of [actlit] * ([name], [source], [requires],
-      [ensures]) list. *)
+  (StateVar.t * contract list) option ->
+  (** Contracts. *)
 
   source ->
   (** Source of the system. *)
@@ -184,11 +189,7 @@ val set_abstraction : t -> string list list -> unit
 
 (** The contracts of a system. *)
 val get_contracts :
-  t ->
-  (string
-   * TermLib.contract_source
-   * Term.t list
-   * Term.t list) list
+  t -> (Lib.position * StateVar.t * string) list
 
 (** For a system, returns [Some true] if all contracts are invariants,
     [Some false] if at least one of the contracts is falsified, and

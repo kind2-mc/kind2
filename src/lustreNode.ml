@@ -76,6 +76,9 @@ type node_call =
     (* Variables capturing the outputs *)
     call_observers : StateVar.t list;
 
+    (* Variables capturing the contract observer streams. *)
+    call_contract_observers: StateVar.t list;
+
     (* Boolean activation condition *)
     call_clock : StateVar.t option;
 
@@ -95,8 +98,28 @@ type node_call =
 
 (*
   { call_returns; call_clock; call_node_name; call_pos; call_inputs; call_defaults }
-*)
+ *)
 
+(* A contract is a name, a position, a list of requirements and a list
+   of ensures. *)
+type contract =
+  { name : I.t ;
+    pos: position ;
+    svar: StateVar.t ;
+    reqs : E.t list ;
+    enss : E.t list }
+
+(* A contract specification for a node (if it has one) is either a
+   list of modes or a global contract and a list of modes. *)
+type contract_spec =
+  (* Requirement of the contract spec. *)
+  (StateVar.t * E.t)
+  (* Modes of the contract spec. *)
+  * (StateVar.t * E.t) list
+  (* Optional global contract. *)
+  * contract option
+  (* Mode contracts. *)
+  * contract list
 
 
 (* A Lustre node *)
@@ -148,12 +171,8 @@ type t =
     (* Proof obligations for node *)
     props : (StateVar.t * TermLib.prop_source) list;
 
-    (* The contracts of the node. *)
-    contracts :
-      (string
-       * TermLib.contract_source
-       * LustreExpr.t list
-       * LustreExpr.t list) list;
+    (* Contract specification for node. *)
+    contract_spec : contract_spec option ;
 
     (* Node is annotated as main node *)
     is_main : bool;
@@ -188,7 +207,7 @@ let empty_node name =
     calls = [];
     asserts = [];
     props = [];
-    contracts = [];
+    contract_spec = None;
     is_main = false;
     output_input_dep = [];
     fresh_state_var_index = ref Numeral.(- one);
@@ -196,6 +215,11 @@ let empty_node name =
     state_var_oracle_map = StateVar.StateVarHashtbl.create 7;
     expr_state_var_map = E.ExprHashtbl.create 7 }
 
+
+(* Output a space if list is not empty *)
+let space_if_nonempty = function
+  | [] -> (fun _ -> ())
+  | _ -> (fun ppf -> Format.fprintf ppf "@ ")
 
 
 (* Pretty-print a node input *)
@@ -241,6 +265,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_returns = out_vars; 
+      call_contract_observers = contract_out_vars;
       call_observers = observer_vars; 
       call_clock = None; 
       call_node_name = node; 
@@ -251,12 +276,13 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (out_vars @ observer_vars)
+      (out_vars @ contract_out_vars @ observer_vars)
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
 
   (* Node call not on the base clock is a condact *)
-  |  { call_returns = out_vars; 
+  |  { call_returns = out_vars;
+       call_contract_observers = contract_out_vars;
        call_observers = observer_vars; 
        call_clock = Some act_var;
        call_node_name = node; 
@@ -268,7 +294,7 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (out_vars @ observer_vars)
+      (out_vars @ contract_out_vars @ observer_vars)
       (E.pp_print_lustre_var safe) act_var
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
@@ -290,36 +316,63 @@ let pp_print_prop safe ppf var =
   Format.fprintf ppf
     "@[<hv 2>--%%PROPERTY@ @[<h>%a@];@]"
     (E.pp_print_lustre_var safe) var
-    
 
-(* Pretty-print an assumption *)
+(* Pretty-prints a requirement. *)
 let pp_print_require safe ppf expr = 
-
   Format.fprintf ppf
     "@[<hv 2>--@@requires@ @[<h>%a@];@]"
     (E.pp_print_lustre_expr safe) expr
 
 
-(* Pretty-print a guarantee *)
+(* Pretty-prints an ensure. *)
 let pp_print_ensure safe ppf expr = 
-
   Format.fprintf ppf
     "@[<hv 2>--@@ensures @[<h>%a@];@]"
     (E.pp_print_lustre_expr safe) expr
 
-(* Pretty-print a contract. *)
-let pp_print_contract safe ppf (name, _, requires, ensures) =
+let pp_print_contract safe global ppf { name ; reqs ; enss } =
   Format.fprintf
     ppf
-    "@[<hv 2>--@@contract : %s ;@ @[<v>%a@ %a@]@]"
-    name
-    (pp_print_list (pp_print_require safe) "@ ") requires
-    (pp_print_list (pp_print_ensure safe) "@ ") ensures
+    "@[<v 3>--%scontract %a;%t%a%t%a@]"
+    (if global then "@global_" else "@")
+    (I.pp_print_ident safe) name
+    (space_if_nonempty reqs)
+    (pp_print_list (pp_print_require safe) "@ ") reqs
+    (space_if_nonempty enss)
+    (pp_print_list (pp_print_ensure safe) "@ ") enss
+
+let rec pp_print_contract_spec_option safe ppf = function
+  | None -> ()
+  | Some ((req,_),enss,global,modes) ->
+     Format.fprintf
+       ppf
+       "@[<v>--@require %a;%a@]@ "
+       (E.pp_print_lustre_var safe) req
+       (pp_print_list
+          (fun ppf (ens,_) ->
+           Format.fprintf
+             ppf
+             "@ --@ensure %a;"
+             (E.pp_print_lustre_var safe) ens)
+          "")
+       enss
+     (* Format.fprintf *)
+     (*   ppf *)
+     (*   "@[<v>%a%t%a@]" *)
+     (*   (fun fmt -> function *)
+     (*              | None -> *)
+     (*                 () *)
+     (*              | Some global -> *)
+     (*                 (pp_print_contract safe true) ppf global) *)
+     (*   global *)
+     (*   (space_if_nonempty modes) *)
+     (*   (pp_print_list (pp_print_contract safe false) "@ ") modes *)
+
 
 (* Pretty-print a node *)
 let pp_print_node 
     safe
-    ppf 
+    ppf
     { name;
       inputs; 
       oracles; 
@@ -330,17 +383,12 @@ let pp_print_node
       calls; 
       asserts; 
       props;
-      contracts;
+      contract_spec;
       output_input_dep;
-      is_main } = 
+      is_main } =
 
-  (* Output a space if list is not empty *)
-  let space_if_nonempty = function
-    | [] -> (function _ -> ())
-    | _ -> (function ppf -> Format.fprintf ppf "@ ")
-  in
-
-  Format.fprintf ppf 
+  Format.fprintf
+    ppf
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
      @[<v>%a@]%t\
@@ -350,9 +398,9 @@ let pp_print_node
      %a%t\
      %a%t\
      %t\
-     %a%t\
+     %a\
      %a@;<1 -2>\
-     tel;@]@]"  
+     tel;@]@]"
     (I.pp_print_ident safe) name
     (pp_print_list (pp_print_input safe) ";@ ") 
     (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
@@ -379,9 +427,8 @@ let pp_print_node
     (pp_print_list (pp_print_assert safe) "@ ") asserts
     (space_if_nonempty asserts)
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
-    (pp_print_list (pp_print_contract safe) "@ ") contracts
-    (space_if_nonempty contracts)
-    (pp_print_list (pp_print_prop safe) "@ ") ((List.map fst props) @ observers)
+    (pp_print_contract_spec_option safe) contract_spec
+    (pp_print_list (pp_print_prop safe) "@ ") ((List.map fst props))
     
 
 
@@ -896,8 +943,13 @@ let solve_eqs_node_calls node =
   { node with calls = calls'; locals = locals'; equations = equations' }
 
 
+(* Returns all expressions of a contract spec. *)
+let exprs_of_contract_spec_option = function
+  | None -> []
+  | Some (req,modes,_,_) -> (snd req) :: (modes |> List.map snd)
+
 (* Return all expressions of a node *)
-let exprs_of_node { equations; calls; asserts; props; contracts } =
+let exprs_of_node { equations; calls; asserts; props; contract_spec } =
 
   (* Start with expressions in equations *)
   let exprs_equations = 
@@ -912,7 +964,7 @@ let exprs_of_node { equations; calls; asserts; props; contracts } =
     List.fold_left
       (fun
         accum
-        { call_clock = act_cond; call_inputs = args; call_defaults = inits } ->
+        { call_clock = act_cond; call_inputs = args; call_defaults = inits } -> 
 
 (*
         (List.map (E.cur_expr_of_state_var E.cur_offset) args) @
@@ -936,12 +988,12 @@ let exprs_of_node { equations; calls; asserts; props; contracts } =
   (* Add expressions in assertions *)
   let exprs_asserts = asserts @ exprs_calls in
 
-  (* Add all the expressions appearing in the contract. *)
-  contracts
-  |> List.fold_left
-       ( fun list (_, _, reqs, ens) ->
-         reqs @ ens @ list )
-       exprs_asserts
+  let exprs_contracts =
+    (exprs_of_contract_spec_option contract_spec) @ exprs_asserts
+  in
+
+  (* Return collected expressions *)
+  exprs_contracts
 
 
 (* Return all stateful variables from expressions in a node *)
@@ -1070,25 +1122,6 @@ let state_vars_of_node (node : t) =
     ret
     (node.oracles @ node.observers)
 
-(* Adds the state vars appearing in a list of contracts to a set of
-   state variables. *)
-let rec add_state_vars_of_contracts svars = function
-  | (_,_,req,ens) :: tail ->
-     let svars' =
-       req @ ens
-       |> List.fold_left
-            ( fun svars'' expr ->
-              SVS.union
-                (E.state_vars_of_expr expr)
-                svars'' )
-            svars
-     in
-     add_state_vars_of_contracts svars' tail
-  | [] -> SVS.elements svars
-
-(* Returns the list of state vars appearing in a contract. *)
-let state_vars_of_contracts = add_state_vars_of_contracts SVS.empty
-
 
 (* Execption for reduce_to_coi: need to reduce node first *)
 exception Push_node of I.t
@@ -1118,8 +1151,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         locals; 
         equations;
         asserts; 
-        props;
-        contracts;
+        props; 
+        contract_spec;
         is_main; 
         output_input_dep;
         fresh_state_var_index } as node_orig), 
@@ -1152,8 +1185,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           (* Keep only property variables with definitions *)
           props = props;
 
-          contracts = contracts;
-          
+          contract_spec = contract_spec;
           is_main = is_main;
           fresh_state_var_index = fresh_state_var_index }
 
@@ -1168,7 +1200,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   (* Head of state variable list has been visited, its dependent state
      variables are either in [state_var] or [sv_visited] *)
   | (state_var :: svtl, sv_visited, ({ name = node_name } as node_orig), node_coi) :: ntl 
-       when List.mem state_var sv_visited ->
+    when List.mem state_var sv_visited -> 
 
     (* Continue with next state variable of node *)
     reduce_to_coi' 
@@ -1283,7 +1315,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       in
 
       (* Copy equation from original node to reduced node and add
-         variables to stack *)
+           variables to stack *)
       let equations_coi', svtl, sv_visited' = 
 
         try 
@@ -1332,8 +1364,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       
       (* Outputs and observers of node *)
       let { outputs = push_node_outputs; 
-            observers = push_node_observers;
-            contracts = push_node_contracts; } as push_node = 
+            observers = push_node_observers } as push_node = 
 
         try 
 
@@ -1348,10 +1379,9 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        (((List.map fst push_node_outputs)
-          @ (state_vars_of_contracts push_node_contracts)
-          @ push_node_observers
-          @ (state_vars_in_asserts push_node),
+        (((List.map fst push_node_outputs) @ 
+          push_node_observers @
+          (state_vars_in_asserts push_node), 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
@@ -1483,33 +1513,33 @@ let reduce_wo_coi nodes main_name =
 let reduce_to_props_coi nodes main_name = 
 
   (* Get properties of main node *)
-  let { props; contracts; observers; inputs; outputs; locals } as main_node = 
+  let { props; observers; inputs; outputs; locals } as main_node = 
     node_of_name main_name nodes 
   in
 
-  let prop_statevars =
+  match 
+
     List.fold_left
-      (fun accum (state_var, prop_source) ->
-       match prop_source with 
+      (fun accum (state_var, prop_source) -> match prop_source with 
 
-       (* Property annotations, contracts and generated constraints
+         (* Property annotations, contracts and generated constraints
             are in the cone of influence *)
-       | TermLib.PropAnnot _ 
-       | TermLib.SubRequirement _
-       | TermLib.Contract _
-       | TermLib.Generated _ -> state_var :: accum
+         | TermLib.PropAnnot _ 
+         | TermLib.Contract _ 
+         | TermLib.Generated _ -> state_var :: accum
 
-       (* Properties instantiated from subnodes are not *)
-       | TermLib.Instantiated _-> accum) 
+         (* Properties instantiated from subnodes are not *)
+         | TermLib.Instantiated _-> accum) 
       []
-      props
-  in
+      props 
 
-  match
-    add_state_vars_of_contracts (SVS.of_list prop_statevars) contracts
   with
-  | [] -> reduce_wo_coi nodes main_name
-  | svars -> reduce_to_coi nodes main_name svars
+    
+    (* No properties, don't reduce *)
+    | [] -> reduce_wo_coi nodes main_name
+              
+    (* Reduce to cone of influence of all properties *)
+    | props' -> 
 (*      
       let props' = 
       SVS.elements 
@@ -1517,7 +1547,8 @@ let reduce_to_props_coi nodes main_name =
            (svs_of_list (List.map fst props))
            (svs_of_list observers))
       in
-  *)
+  *)    
+      reduce_to_coi nodes main_name props'
         
       
 (* 

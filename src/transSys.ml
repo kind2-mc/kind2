@@ -62,17 +62,33 @@ type property =
 
 (* A contract of a transition system. *)
 type contract =
-    { (* Name of the contract. *)
-      name : string ;
-      (* Source of the contract. *)
-      source : TermLib.contract_source ;
-      (* Requirements of the contract. *)
-      requires : Term.t list ;
-      (* Ensures of the contract. *)
-      ensures: Term.t list ;
+  | Global of position * StateVar.t * string
+  | Mode of position * StateVar.t * string
+    (* { (\* Name of the contract. *\) *)
+    (*   name : string ; *)
+    (*   (\* Source of the contract. *\) *)
+    (*   source : TermLib.contract_source ; *)
+    (*   (\* Requirements of the contract. *\) *)
+    (*   requires : Term.t list ; *)
+    (*   (\* Ensures of the contract. *\) *)
+    (*   ensures: Term.t list ; *)
 
-      (* Status of the contract. *)
-      mutable status: prop_status }
+    (*   (\* Status of the contract. *\) *)
+(*   mutable status: prop_status } *)
+
+let mk_global_contract pos svar name =
+  Global (pos, svar, name)
+
+let mk_mode_contract pos svar name =
+  Mode (pos, svar, name)
+
+let info_of_contract = function
+  | Global (pos,svar,name) -> pos,svar,name
+  | Mode (pos,svar,name) -> pos,svar,name
+
+let name_of_contract c =
+  let _,_,name = info_of_contract c in
+  name
 
 
 (* Return the length of the counterexample *)
@@ -435,10 +451,7 @@ let set_abstraction sys abstraction =
 let get_contracts = function
   | { contracts = None } -> []
   | { contracts = Some(_,list) } ->
-     list
-     |> List.map
-          ( fun { name ; source ; requires ; ensures } ->
-            name, source, requires, ensures )
+     list |> List.map info_of_contract
 
 (* Returns the subsystems of a system. *)
 let get_subsystems { subsystems } = subsystems
@@ -561,12 +574,9 @@ let pp_print_uf_defs
 let pp_print_prop_source ppf = function 
   | TermLib.PropAnnot _ -> Format.fprintf ppf ":user"
   | TermLib.Contract _ -> Format.fprintf ppf ":contract"
-  | TermLib.SubRequirement _ -> Format.fprintf ppf ":requirement"
+  | TermLib.Requirement _ -> Format.fprintf ppf ":requirement"
   | TermLib.Generated p -> Format.fprintf ppf ":generated"
   | TermLib.Instantiated _ -> Format.fprintf ppf ":subsystem"
-
-let pp_print_contract_source ppf = function 
-  | TermLib.ContractAnnot _ -> Format.fprintf ppf ":user"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 
@@ -601,21 +611,17 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list Format.pp_print_string ".") t.scope
     (pp_print_list pp_print_caller "@ ") c
 
-let pp_print_contract
-      ppf { name ; source ; requires ; ensures ; status } =
+let pp_print_contract ppf contract =
+  let name, desc = match contract with
+    | Global (_,_,n) -> n,"global"
+    | Mode (_,_,n) -> n,"mode"
+  in
+    
   Format.fprintf
     ppf
-    "@[<hv 2>\
-     %s %a@ \
-     status:   %a@ \
-     @[<v>\
-     requires: @[<hv>%a@]@ \
-     ensures:  @[<hv>%a@]@]@]"
+    "%s contract %s"
+    desc
     name
-    pp_print_contract_source source
-    pp_print_prop_status_pt status
-    (pp_print_list Term.pp_print_term "@ ") requires
-    (pp_print_list Term.pp_print_term "@ ") ensures
 
 let pp_print_contracts ppf = function
   | None -> Format.fprintf ppf "None"
@@ -750,25 +756,6 @@ let mk_trans_sys
   (*        name *)
   (*      |> failwith *)
   (* in *)
-           
-
-  let contracts =
-    match contracts_option with
-    | None -> None
-    | Some(actlit,list) ->
-       Some
-         ( actlit,
-           list
-           |> List.map
-                ( fun (name, source, requires, ensures) ->
-                  { name ;
-                    (* Retrieving property from contract name. *)
-                    (* prop = contract_prop name ; *)
-                    source ;
-                    requires ;
-                    ensures ;
-                    status = PropUnknown } ) )
-  in
 
   (* Making sure all properties have different terms. The contracts
      should also be properties at this point, so this detects contract
@@ -786,8 +773,7 @@ let mk_trans_sys
          let pos, name =
            match prop_source with
            | TermLib.PropAnnot pos -> pos, None
-           | TermLib.Contract
-               TermLib.ContractAnnot (name, pos) ->
+           | TermLib.Contract (pos, name) ->
               pos, Some(name)
            | _ ->
               (* Should never happen. *)
@@ -836,7 +822,7 @@ let mk_trans_sys
       init = init ;
       trans = trans ;
       properties = properties ;
-      contracts = contracts ;
+      contracts = contracts_option ;
       subsystems = subsystems ;
       source = source ;
       invars = [] ;
@@ -1146,7 +1132,8 @@ let contract_of_name ({ contracts } as sys) to_find =
        |> failwith
     | Some (_, contracts) ->
        List.find
-         (fun { name } -> to_find = name)
+         (fun contract ->
+          to_find = name_of_contract contract)
          contracts
   with
   | Not_found ->
@@ -1160,7 +1147,7 @@ let contract_of_name ({ contracts } as sys) to_find =
 let subrequirements_valid { properties } =
   let rec loop = function
     | { prop_status = status ;
-        prop_source = TermLib.SubRequirement (_,_,_) }
+        prop_source = TermLib.Requirement (_,_,_) }
       :: tail ->
        if status = PropInvariant then loop tail
        else false
@@ -1177,7 +1164,7 @@ let proved_requirements_of { properties } scope =
     (* Requirement for [scope]. *)
     | { prop_status = status ;
         prop_source =
-          TermLib.SubRequirement (_, scope', _) }
+          TermLib.Requirement (_, scope', _) }
       :: tail when scope = scope' ->
        
        ( match status with
@@ -1200,10 +1187,16 @@ let proved_requirements_of { properties } scope =
    invariant. @raise Not_found if the system has no contracts. *)
 let is_contract_proved = function
   | { contracts = None } -> raise Not_found
-  | { contracts = Some (_, contracts) } ->
-     contracts
+  | { properties } ->
+     properties
      |> List.for_all
-          ( fun { status } -> status = PropInvariant )
+          (function
+            | { prop_source = TermLib.Contract(_);
+                prop_status } ->
+               ( match prop_status with
+                 | PropInvariant -> true
+                 | _ -> false )
+            | _ -> true)
 
 (* Mark property as invariant *)
 let set_prop_invariant t prop =
@@ -1224,15 +1217,7 @@ let set_prop_invariant t prop =
       | PropInvariant -> PropInvariant
 
       (* Fail if property was false or k-false *)
-      | PropFalse _ -> raise (Failure "prop_invariant") ) ;
-
-  match p.prop_source with
-  | TermLib.Contract (TermLib.ContractAnnot(name,_)) ->
-     (* Property is a contract, updating. *)
-     let contract = contract_of_name t name in
-     contract.status <- PropInvariant
-          
-  | _ -> ()
+      | PropFalse _ -> raise (Failure "prop_invariant") )
 
 (* Changes the status of k-true properties as unknown. Used for
    contract-based analysis when lowering the abstraction depth. Since

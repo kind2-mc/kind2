@@ -226,7 +226,6 @@ let keyword_table =
       
       (* Node declaration *)
       ("node", NODE);
-      ("contract", CONTRACTNODE);
       ("function", FUNCTION);
       ("returns", RETURNS);
       ("var", VAR);
@@ -235,6 +234,11 @@ let keyword_table =
       
       (* Assertion *)
       ("assert", ASSERT);
+
+      (* Contract related things. *)
+      ("contract", CONTRACT);
+      ("require", REQUIRE);
+      ("ensure", ENSURE);
       
       (* Boolean operators *)
       ("true", TRUE);
@@ -462,19 +466,23 @@ and comment = parse
 
   (* Contract *)
   | "@" (id as p) 
-        { match p with
+      { match p with
 
-          | "contract" -> CONTRACT
+        (* Return token, continue with rest of line. *)
+        | "contract" -> COMMENTCONTRACT
 
-          (* Return token, continue with rest of line *)
-          | "require" -> REQUIRES
+        (* Return token, continue with rest of line. *)
+        | "global_contract" -> COMMENTGLOBALCONTRACT
 
-          (* Return token, continue with rest of line *)
-          | "ensure" -> ENSURES
+        (* Return token, continue with rest of line *)
+        | "require" -> COMMENTREQUIRE
 
-          (* Warn and ignore rest of line *)
-          | _ -> (Format.printf "Warning: unknown contract %s skipped@." p; 
-                  skip_to_eol lexbuf ) }
+        (* Return token, continue with rest of line *)
+        | "ensure" -> COMMENTENSURE
+
+        (* Warn and ignore rest of line *)
+        | _ -> (Format.printf "Warning: unknown contract %s skipped@." p; 
+                skip_to_eol lexbuf ) }
 
   (* Count new line and resume *)
   | newline { Lexing.new_line lexbuf; token lexbuf } 

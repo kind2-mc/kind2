@@ -1831,6 +1831,7 @@ and eval_node_call
       N.oracles = node_oracles;
       N.outputs = node_outputs; 
       N.observers = node_observers;
+      N.contract_spec = node_contract_spec;
       N.props = node_props } = 
 
     try 
@@ -1845,6 +1846,11 @@ and eval_node_call
       (* Node may be forward referenced *)
       raise (Node_not_found (ident, pos))
 
+  in
+
+  let contract_observers = match node_contract_spec with
+    | None -> []
+    | Some (sv,svs,_,_) -> (fst sv) :: (svs |> List.map fst)
   in
 
   debug lustreSimplify
@@ -1903,7 +1909,7 @@ and eval_node_call
   in
 
   (* Type check and flatten indexed expressions for input into list
-         without indexes *)
+     without indexes *)
   let node_input_state_vars, abstractions' =
     node_inputs_of_exprs node_inputs abstractions' pos expr_list'
   in
@@ -2030,9 +2036,27 @@ and eval_node_call
            in
            E.set_state_var_instance sv pos ident node_sv;
            sv)
-        node_observers
+        ( node_observers
+          |> List.filter
+               ( fun sv ->
+                 contract_observers
+                 |> List.exists (fun sv' -> sv = sv')
+                 |> not) )
     in
 
+    (* Fresh (local) state variables for contract observer of called
+       node. *)
+    let contract_local_state_vars =
+      contract_observers
+      |> List.map
+           ( fun node_sv ->
+             let sv =
+               mk_new_state_var
+                 false (StateVar.type_of_state_var node_sv)
+             in
+             E.set_state_var_instance sv pos ident node_sv ;
+             sv, E.mk_var node_sv E.base_clock)
+    in
 
     let result', output_vars = 
       List.fold_left
@@ -2054,8 +2078,11 @@ and eval_node_call
     eval_ast_expr' 
       context 
       { abstractions' 
-        with new_calls = { N.call_returns = (List.rev output_vars);
+        with new_calls = { N.call_returns = List.rev output_vars;
                            N.call_observers = observer_state_vars;
+                           N.call_contract_observers =
+                             (contract_local_state_vars
+                              |> List.map fst);
                            N.call_clock = cond_state_var;
                            N.call_node_name = ident;
                            N.call_pos = pos;
@@ -2063,8 +2090,12 @@ and eval_node_call
                              node_input_state_vars @ oracle_state_vars;
                            N.call_defaults = List.map snd defaults } 
                          :: abstractions'.new_calls;
-             new_oracles = abstractions'.new_oracles @ oracle_state_vars;
-             new_observers = abstractions'.new_observers @ observer_state_vars }
+             new_vars = abstractions'.new_vars
+                        @ contract_local_state_vars;
+             new_oracles = abstractions'.new_oracles
+                           @ oracle_state_vars;
+             new_observers = abstractions'.new_observers
+                             @ observer_state_vars }
       result' 
       tl
 
@@ -3263,21 +3294,193 @@ let rec property_to_node
      abstractions')
 
 
+(* Adds a contract spec to a node.
+
+   * [req] is the requirement of the contract,
+   * [mode_impls] are the implications for the mode contracts,
+   * [global] is the optional global ensure of the contract spec.
+
+ *)
+and contract_spec_to_node 
+    context
+    node
+    ({ mk_state_var_for_expr; new_vars } as abstractions)
+    pos
+    req
+    modes
+    global_contract
+    mode_contracts =
+
+  (* Handling the requirement [req] first. *)
+  let to_state_variable context node abstractions expr =
+    
+    (* Is the expression a state variable at current offset? *)
+    if E.is_var expr
+    then
+      (* State variable of the expression. *)
+      E.state_var_of_expr expr,
+      (* No abstraction necessary. *)
+      context, node, abstractions
+    else
+      (* State variable of abstraction variable. *)
+      let state_var, new_vars =
+        mk_state_var_for_expr false new_vars expr
+      in
+      (* State variable is a locally abstracted variable. *)
+      E.set_state_var_source state_var E.Abstract ;
+      (* Add definition of abstraction variable to node. *)
+      let context, node, abstraction =
+        equation_to_node
+          context node abstractions pos (state_var, expr)
+      in
+      (* Returning state variable and updated things. *)
+      state_var, context, node, { abstraction with new_vars = new_vars }
+
+  in
+
+  (* Making sure the node has no contract spec. *)
+  match node.N.contract_spec with
+
+  (* Contract spec already present, crashing. *)
+  | Some _ ->
+     Format.asprintf
+       "cannot add contract spec to node %a, contract spec already \
+        present."
+       (I.pp_print_ident false) node.N.name
+     |> failwith
+
+  (* No contract spec, adding this one. *)
+  | None ->
+
+  (* Handling requirement first. *)
+  let req_svar, context, node, abstraction =
+    to_state_variable context node abstractions req
+  in
+
+  (* Requirement is an assertion of the node. *)
+  let context, node, abstraction =
+    assertion_to_node
+      context node abstractions
+      pos
+      req
+  in
+
+  (* Building lustre node requirement. *)
+  let req = req_svar, req in
+
+  (* Building lustre node modes. *)
+  let modes, context, node, abstraction =
+    modes
+    |> List.fold_left
+         ( fun (modes, context, node, abstraction) ->
+           function
+           | (mode,A.InlinedContract(p,i,r,e)) ->
+              (* Getting a state variable for the mode. *)
+              let svar, context, node, abstraction =
+                to_state_variable context node abstractions mode
+              in
+              (svar, mode, i) :: modes, context, node, abstraction
+           | _ -> assert false )
+         ([], context, node, abstraction)
+  in
+
+  let svar_of_ident ident =
+    let rec loop = function
+      | (svar,_,ident') :: tail ->
+         if ident = ident' then svar else loop tail
+      | [] -> raise Not_found
+    in
+    loop modes
+  in
+
+  let modes' = modes |> List.map (fun (sv,m,_) -> (sv,m)) in
+
+  (* Add declaration of every state variable to observers if not
+       already an output *)
+  let node_observers =
+    req :: modes'
+    |> List.fold_left
+         ( fun observers (svar,_) ->
+           (* Is the state variable already an output? *)
+           if node.N.outputs
+              |> List.exists
+                   ( fun (sv, _) ->
+                     StateVar.equal_state_vars sv svar )
+           then
+             (* State variable is already an output. *)
+             observers
+           else
+             (* Adding state variable to observers. *)
+             svar :: observers )
+         (* Starting with reversed observers to keep order. *)
+         (List.rev node.N.observers)
+    (* Restoring order. *)
+    |> List.rev
+  in
+
+  (* Remove declaration of state variables from locals *)
+  let node_locals =
+    node.N.locals
+    |> List.filter
+         ( fun (sv, _) ->
+           req :: modes'
+           |> List.exists
+                ( fun (svar,_) -> svar = sv )
+           |> not )
+  in
+
+  (* Building lustre node global contract. *)
+  let global_contract =
+    match global_contract with
+    | None -> None
+    | Some (position, ident, reqs, enss) ->
+       Some { N.name = ident ;
+              N.pos = position ;
+              N.svar = svar_of_ident ident ;
+              N.reqs = reqs ;
+              N.enss = enss }
+  in
+
+  (* Building lustre node mode contracts. *)
+  let mode_contracts =
+    mode_contracts
+    |> List.map
+         ( fun (pos,id,reqs,enss) ->
+           { N.name = id ;
+             N.pos = pos ;
+             N.svar = svar_of_ident id ;
+             N.reqs = reqs ;
+             N.enss = enss } )
+  in
+
+  (* Building the final lustre node contract spec. *)
+  let contract_spec =
+    (* Requirement. *)
+    req,
+    (* Modes. *)
+    modes',
+    (* Optional global contract. *)
+    global_contract,
+    (* Mode contracts. *)
+    mode_contracts
+  in
+  
+
+  (* Add contract spec to node. *)
+  (context, 
+   { node with
+     N.contract_spec = Some contract_spec ;
+     N.observers = node_observers ;
+     N.locals = node_locals ; },
+   abstractions)
+
+
 (* Add an expression as an assertion *)
 and assertion_to_node context node abstractions pos expr = 
 
   let node' = { node with N.asserts = expr :: node.N.asserts } in
 
   (context, node', abstractions)
-
-(* Add a contract to a node. *)
-and contract_to_node context node abstractions contract =
-
-  let node' =
-    { node with N.contracts = contract :: node.N.contracts }
-  in
-
-  context, node', abstractions
 
 
 (* Add equational definition of a variable *)
@@ -3456,7 +3659,7 @@ let abstractions_to_context_and_node
       (fun 
         accum
         ({ N.call_returns = outputs;
-           N.call_observers = observers;
+           N.call_contract_observers = contract_outputs;
            N.call_node_name = node_call_ident } as call) ->
 
          let context', node', abstractions' = 
@@ -3475,13 +3678,13 @@ let abstractions_to_context_and_node
 
                     (* Variable is already declared as output or
                        local? *)
-                    (List.exists 
-                       (fun (sv, _) -> 
+                    (List.exists
+                       (fun (sv, _) ->
                           StateVar.equal_state_vars sv state_var)
                        node.N.outputs)
 
-                    || (List.exists 
-                          (fun (sv, _) -> 
+                    || (List.exists
+                          (fun (sv, _) ->
                              StateVar.equal_state_vars sv state_var)
                           node.N.locals)
 
@@ -3517,7 +3720,7 @@ let abstractions_to_context_and_node
   in
 
   (* Add declaration of observer outputs to context *)
-  let context', node', abstractions' = 
+  let context', node', abstractions' =
 
     List.fold_left 
       (fun (context, node, abstractions) (state_var) -> 
@@ -3527,7 +3730,11 @@ let abstractions_to_context_and_node
            I.split_ident (fst (E.ident_of_state_var state_var))
          in
 
-         (* Add variable declaration to context and oracle input to node *)
+         (* Does the observer belong to a contract? *)
+         (* if *)
+
+         (* Add variable declaration to context and observer to
+            node *)
          let context', node' = 
            add_node_observer_decl 
              base_ident
@@ -3788,83 +3995,149 @@ let rec parse_node_equations
         tl
 
 
-(* Parse a contract annotation of a node *)
-let rec parse_node_contracts
-    context 
-    abstractions
-    ({ N.name = node_ident } as node) = function
+(* Parses the contract specification of a node. *)
+let parse_node_contract_spec
+    context
+    empty_abstractions
+    node_pos
+    ({ N.name = node_ident } as node) =
 
-  (* No more contract clauses *)
-  | [] -> (abstractions, context, node)
+  let list_to_conj abstraction = function
+    | [] -> ([], E.t_true, abstraction)
+    | (pos,expr) :: tail ->
+       let expr, abstraction =
+         bool_expr_of_ast_expr
+           context abstraction pos expr
+         |> close_ast_expr pos
+       in
 
-
-  (* Assumption *)
-  | (source, name, requires, ensures) :: tail ->
-
-     let requires', abstractions' =
-       requires
-       |> List.fold_left
-            ( fun (list,abs) (pos, req) ->
-
-              (* Evaluate Boolean expression and guard all pre
-                 operators *)
-              let expr', abs' = 
-                close_ast_expr
-                  pos
-                  (bool_expr_of_ast_expr 
-                     context 
-                     abs
-                     pos
-                     req)
-              in
-
-              expr' :: list, abs' )
-            ([], abstractions)
-     in
-
-     let ensures', abstractions' =
-       ensures
-       |> List.fold_left
-            ( fun (list,abs) (pos, ens) ->
-
-              (* Evaluate Boolean expression and guard all pre
-                 operators *)
-              let expr', abs' = 
-                close_ast_expr
-                  pos
-                  (bool_expr_of_ast_expr 
-                     context 
-                     abs
-                     pos
-                     ens)
-              in
-
-              expr' :: list, abs' )
-            ([], abstractions')
-     in
-
-     (* Add contract to node *)
-     let context', node', abstractions' = 
-       contract_to_node context node abstractions' (name, source, requires', ensures')
-     in
-
-     (* Continue with next contract clauses *)
-     parse_node_contracts
-       context' 
-       abstractions'
-       node'
        tail
+       |> List.fold_left
+            ( fun (exprs, conj, abs)
+                  (pos,expr) ->
+              let expr, abs' =
+                bool_expr_of_ast_expr
+                  context abs pos expr
+                |> close_ast_expr pos
+              in
+              (expr :: exprs, E.mk_and expr conj, abs') )
+            ([expr], expr, abstraction)
+  in
+
+  let rec formulas_of_modes
+            abstractions modes reqs impls = function
+    | (A.InlinedContract (pos,ident,reqs',enss') as contract)
+      :: tail ->
+
+       let req_exprs, req, abstractions =
+         list_to_conj abstractions reqs'
+       in
+
+       let ens_exprs, ens, abstractions =
+         list_to_conj abstractions enss'
+       in
+
+       formulas_of_modes
+         abstractions
+         ( (pos,ident,req_exprs,ens_exprs) :: modes )
+         ( req :: reqs )
+         ( (E.mk_impl req ens, contract)
+           :: impls )
+         tail
+
+    | A.ContractCall (pos,ident) :: _ ->
+       Format.asprintf
+         "Unexpected contract call %a (%a) in parse_node."
+         (I.pp_print_ident false) ident
+         pp_print_position pos
+       |> failwith
+
+    | [] ->
+       modes,
+       reqs
+       |> (function
+            | [] -> E.t_true
+            | req :: tail ->
+               List.fold_left
+                 ( fun disj req -> E.mk_or req disj )
+                 req
+                 tail),
+       impls,
+       abstractions
+  in
+
+  function
+
+  (* No contract spec. *)
+  | None ->
+     context, node, empty_abstractions
+
+  (* Only modes. *)
+  | Some (A.Modes modes) ->
+     let modes, req, impls, abstractions =
+       formulas_of_modes
+         empty_abstractions [] [] [] modes
+     in
+
+     (* Updating node with contract spec. *)
+     contract_spec_to_node
+       context
+       node
+       abstractions
+       node_pos
+       req
+       impls
+       None
+       modes
+
+  (* Global contract + modes. *)
+  | Some (A.GlobalAndModes
+            ((A.InlinedContract(pos,id,reqs,enss) as global),
+             modes)) ->
+     let modes, mode_req, mode_impls, abstractions =
+       formulas_of_modes
+         empty_abstractions [] [] [] modes
+     in
+
+     let global_req_exprs, global_req, abstractions =
+       list_to_conj abstractions reqs
+     in
+
+     let global_ens_exprs, global_ens, abstractions =
+       list_to_conj abstractions enss
+     in
+
+     (* Building requirement and contract mode implications. *)
+     let req, impls =
+       E.mk_and global_req mode_req,
+       ( global_ens, global )
+       :: mode_impls
+     in
+
+     let global = (pos,id,global_req_exprs,global_ens_exprs) in
+
+     (* Updating node with contract spec. *)
+     contract_spec_to_node
+       context
+       node
+       abstractions
+       node_pos
+       req
+       impls
+       (Some global)
+       modes
 
 
 (* Return a LustreNode.t from a node LustreAst.node_decl *)
-let parse_node  
-    node_ident
-    global_context
-    inputs 
-    outputs 
-    locals 
-    equations 
-    contracts =
+let parse_node
+      node_pos
+      node_ident
+      global_context
+      inputs 
+      outputs 
+      locals 
+      equations 
+      contract =
 
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
@@ -4013,12 +4286,13 @@ let parse_node
 
      Must check before adding local variable to context, may not use
      local variables *)
-  let abstractions, local_context, node = 
-    parse_node_contracts
-      local_context 
+  let local_context, node, abstractions = 
+    parse_node_contract_spec
+      local_context
       empty_abstractions
-      node 
-      contracts
+      node_pos
+      node
+      contract
   in
 
   (* Parse local declarations, add to local context and node context *)
@@ -4044,314 +4318,6 @@ let parse_node
   (* Simplify by substituting variables that are aliases *)
   (* N.solve_eqs_node_calls node' *)
   node'
-
-
-let translate_contracts =
-  let rec loop aux = function
-
-    (* Should never happen, removed by preprocessing. *)
-    | A.ContractCall (pos,id) :: _ ->
-       Format.asprintf
-         "unexpected contract call to %a at %a in lustre node"
-         pp_print_position pos
-         (I.pp_print_ident false) id
-       |> failwith
-
-    | A.InlinedContract (pos,id,req,ens) :: tail ->
-       let name = I.string_of_ident true id in
-
-       loop
-         ( ( TermLib.ContractAnnot(name, pos),
-             name,
-             req,
-             ens )
-           :: aux )
-         tail
-
-    | [] -> aux
-  in
-
-  loop []
-
-
-module ContractPreprocess: sig
-    val inline: A.declaration list -> A.declaration list
-end =
-
-struct
-
-    (* Returns true iff [ty] is a subtype of [ty']. *)
-    let rec is_lustre_subtype_of ty ty' = match ty, ty' with
-      | A.Bool _, A.Bool _ -> true
-      | A.Int _, A.Int _ -> true
-      (* [IntRange] is a subtype of [Int]. *)
-      | A.IntRange _, A.Int _ -> true
-      | A.Real _, A.Real _ -> true
-      | A.UserType (_,id), A.UserType (_,id') -> id = id'
-      | A.TupleType (_, ty_list), A.TupleType(_, ty_list') ->
-         List.for_all2
-           ( fun ty ty' -> is_lustre_subtype_of ty ty' )
-           ty_list
-           ty_list'
-      | A.RecordType (_, ty_id_list), A.RecordType (_, ty_id_list') ->
-         List.for_all2
-           ( fun (id,ty) (id',ty') ->
-             (id = id') && (is_lustre_subtype_of ty ty') )
-           ty_id_list
-           ty_id_list'
-      | A.EnumType (_, id_list), A.EnumType (_, id_list') ->
-         List.for_all2
-           ( fun id id' -> id = id' )
-           id_list
-           id_list'
-      | _ -> false
-
-    (* Inlines contract calls to contract nodes in node declarations. *)
-    let inline decls =
-
-      (* Separates contracts declaratations from the rest. *)
-      let rec split contracts others = function
-        | ((A.ContractDecl _) as contract) :: tail ->
-           split (contract :: contracts) others tail
-        | other :: tail ->
-           split contracts (other :: others) tail
-        | [] -> List.rev contracts, List.rev others
-      in
-
-      let
-        (* Contract node declarations. *)
-        contracts,
-        (* Other, normal declarations. *)
-        decls =
-
-        split [] [] decls
-      in
-
-      let find_contract_decl name =
-        contracts
-        |> List.find
-             (function
-               | A.ContractDecl
-                 (_, (name',_,_,_,_,_,_,_)) ->
-                  name = name'
-               | _ -> false)
-      in
-
-      let rec list_contains compare e l =
-        match l with
-        | h :: t ->
-           if compare e h
-           then true
-           else list_contains compare e t
-        | [] -> false
-      in
-
-      (* Tests if [l] is a sublist of [l']. Returns [None] if that's the
-     case, [Some(e)] otherwise where [e] is the first element of [l]
-     not in [l']. *)
-      let rec is_sublist compare l l' =
-        match l with
-        | h :: t ->
-           if list_contains compare h l'
-           then is_sublist compare t l'
-           else Some(h)
-        | [] -> None
-      in
-
-      let check_signatures_consistency
-            pos
-            contract_inputs contract_outputs contract_id contract_pos
-            node_inputs     node_outputs     node_id     node_pos     =
-
-        (* Only compares identifiers, type checking happens later. *)
-        let compare in_or_out get_info e e' =
-          let
-            (id, ty), (id', ty') = get_info e, get_info e'
-          in
-          if id <> id' then false
-          else
-            ( match ty with
-              | A.IntRange _
-              | A.ArrayType _ ->
-                 Format.asprintf
-                   "illegal dependent type \"%a\" in contract node %a."
-                   A.pp_print_lustre_type ty
-                   (I.pp_print_ident false) contract_id
-                 |> fail_at_position
-                      (* Failing at contract node position. *)
-                      contract_pos
-              | _ ->
-                 if is_lustre_subtype_of ty' ty
-                 then true
-                 else
-                   Format.asprintf
-                     "type mismatch: %s \"%a\" of contract node %a (%a) \
-                      is incompatible with \"%a\" in node %a (%a)."
-                     in_or_out
-                     A.pp_print_typed_ident (id, ty)
-                     (I.pp_print_ident false) contract_id
-                     pp_print_position contract_pos
-                     A.pp_print_typed_ident (id',ty')
-                     (I.pp_print_ident false) node_id
-                     pp_print_position node_pos
-                   |> fail_at_position
-                        (* Failing at contract call position. *)
-                        pos )
-        in
-
-        match
-          is_sublist
-            (compare "input" (fun (_,i,t,_,_) -> i,t))
-            contract_inputs node_inputs
-        with
-        | Some (_,i,_,_,_) ->
-           Format.asprintf
-             "signature mismatch in contract call: \
-              input \"%a\" in contract node %a has no \
-              counterpart in node %a."
-             (I.pp_print_ident false) i
-             (I.pp_print_ident false) contract_id
-             (I.pp_print_ident false) node_id
-           |> fail_at_position pos
-        | None ->
-           ( match
-               is_sublist
-                 (compare "output" (fun (_,i,t,_) -> i,t))
-                 contract_outputs node_outputs
-             with
-             | Some (_,i,_,_) ->
-                Format.asprintf
-                  "signature mismatch in contract call: \
-                   output \"%a\" in contract node %a has no \
-                   counterpart in node %a."
-                  (I.pp_print_ident false) i
-                  (I.pp_print_ident false) contract_id
-                  (I.pp_print_ident false) node_id
-                |> fail_at_position pos
-             | None -> () )
-      in
-
-      let rec inline_contracts contracts = function
-        | ident,
-          node_params,
-          const_clocked_typed_decls,
-          clocked_typed_decls,
-          node_local_decls,
-          node_equations,
-          (A.ContractCall (pos, ident')) :: tail ->
-
-           ( try
-               match find_contract_decl ident' with
-               | A.ContractDecl
-                 (pos', (ident',
-                         node_params',
-                         const_clocked_typed_decls',
-                         clocked_typed_decls',
-                         node_local_decls',
-                         node_equations',
-                         reqs,
-                         ens)) ->
-
-                  ( match node_local_decls' with
-                    | [] -> ()
-                    | _ ->
-                       Format.asprintf
-                         "(%a) contract node local variables disabled \
-                          during lustre frontend rewriting."
-                         (I.pp_print_ident false) ident'
-                       |> fail_at_position pos' ) ;
-
-                  check_signatures_consistency
-                    pos
-                    (* Contract inputs. *)
-                    const_clocked_typed_decls'
-                    (* Contract outputs. *)
-                    clocked_typed_decls'
-                    (* Contract id. *)
-                    ident'
-                    (* Contract pos. *)
-                    pos'
-                    (* Node inputs. *)
-                    const_clocked_typed_decls
-                    (* Node outputs. *)
-                    clocked_typed_decls
-                    (* Node id. *)
-                    ident
-                    (* Node position. *)
-                    pos ;
-
-                  inline_contracts
-                    ((A.InlinedContract (pos', ident', reqs, ens)
-                      :: contracts))
-                    (ident,
-                     (* node_params' @ *) node_params,
-                     const_clocked_typed_decls,
-                     clocked_typed_decls,
-                     (* node_local_decls'
-                 @ *) node_local_decls,
-                     (* node_equations'
-                 @ *) node_equations,
-                     tail)
-             with
-             | Not_found ->
-                Format.asprintf
-                  "contract call to unknown contract node \"%a\"."
-                  (I.pp_print_ident false) ident'
-                |> fail_at_position pos )
-        | name,
-          node_params,
-          const_clocked_typed_decls,
-          clocked_typed_decls,
-          node_local_decls,
-          node_equations,
-          ( contract :: tail ) ->
-
-           inline_contracts
-             ( contract :: contracts )
-             (name,
-              node_params,
-              const_clocked_typed_decls,
-              clocked_typed_decls,
-              node_local_decls,
-              node_equations,
-              tail)
-
-        | name,
-          node_params,
-          const_clocked_typed_decls,
-          clocked_typed_decls,
-          node_local_decls,
-          node_equations,
-          [] ->
-           (name,
-            node_params,
-            const_clocked_typed_decls,
-            clocked_typed_decls,
-            node_local_decls,
-            node_equations,
-            List.rev contracts)
-      in
-
-      (* Inlines contract declarations in nodes. *)
-      let rec loop decls' = function
-
-        | A.NodeDecl (pos, node_decl) :: tail ->
-           let inlined =
-             A.NodeDecl
-               (pos, (inline_contracts [] node_decl))
-           in
-           loop
-             ( inlined  :: decls' )
-             tail
-
-        | decl :: tail ->
-           loop (decl :: decls') tail
-
-        | [] -> List.rev decls'
-      in
-
-      loop [] decls
-end
 
 
 (* ******************************************************************** *)
@@ -4467,20 +4433,21 @@ let rec declarations_to_nodes'
            outputs, 
            locals, 
            equations, 
-           contracts))) :: decls ->
+           contract))) :: decls ->
 
-       (try
+      (try 
 
         (* Add node declaration to global context *)
         let node_context = 
           parse_node
+            pos
             node_ident
             global_context 
             inputs 
             outputs
             locals
             equations 
-            (translate_contracts contracts)
+            contract
         in
         
         (* Recurse for next declarations *)
@@ -4528,29 +4495,306 @@ let rec declarations_to_nodes'
     | (A.NodeParamInst (pos, _)) :: _
     | (A.NodeDecl (pos, _)) :: _ ->
 
-      fail_at_position pos "Parametric nodes not supported" 
+       fail_at_position pos "Parametric nodes not supported"
 
+    | (A.ContractNodeDecl (pos,(ident,_,_,_,_,_))) :: _ ->
+
+       Format.asprintf
+         "Unexpected contract call %a (%a) in parse_node."
+         (I.pp_print_ident false) ident
+         pp_print_position pos
+       |> failwith
+
+
+
+(* Gathers the contract inlining functions. *)
+module ContractInlining : sig
+  val inline : LustreAst.declaration list -> LustreAst.declaration list
+end = struct
+
+  (* Splits a list of declaration in a list of the contract node
+     declarations and the rest. *)
+  let rec split decls contract_nodes = function
+
+    | (A.ContractNodeDecl(pos,(ident,_,_,_,_,_))
+       as contract_node)
+      :: tail ->
+
+       (* Making sure there is no collision in contract node
+          idents. *)
+       contract_nodes
+       |> List.iter
+            ( function
+              | A.ContractNodeDecl(pos',(ident',_,_,_,_,_)) ->
+                 if ident = ident' then
+                   Format.asprintf
+                     "duplicate contract node named %a (%a)."
+                     (I.pp_print_ident false) ident
+                     pp_print_position pos'
+                   |> fail_at_position pos
+              | _ -> () ) ;
+
+       split decls (contract_node :: contract_nodes) tail
+
+    | decl :: tail ->
+       split (decl :: decls) contract_nodes tail
+
+    | [] -> decls, contract_nodes
+
+  (* Looks for a contract identifier in a list of contract
+     nodes. Raises [Not_found]. *)
+  let rec find_contract id = function
+    | (A.ContractNodeDecl(_,(ident,_,_,_,_,_)) as contract)
+      :: tail ->
+       if id = ident then contract else find_contract id tail
+    | _ :: tail -> assert false
+    | [] -> raise Not_found
+
+  (* Returns true iff [ty] is a subtype of [ty']. *)
+  let rec is_lustre_subtype_of ty ty' = match ty, ty' with
+    | A.Bool _, A.Bool _ -> true
+    | A.Int _, A.Int _ -> true
+    (* [IntRange] is a subtype of [Int]. *)
+    | A.IntRange _, A.Int _ -> true
+    | A.Real _, A.Real _ -> true
+    | A.UserType (_,id), A.UserType (_,id') -> id = id'
+    | A.TupleType (_, ty_list), A.TupleType(_, ty_list') ->
+       List.for_all2
+         ( fun ty ty' -> is_lustre_subtype_of ty ty' )
+         ty_list
+         ty_list'
+    | A.RecordType (_, ty_id_list), A.RecordType (_, ty_id_list') ->
+       List.for_all2
+         ( fun (id,ty) (id',ty') ->
+           (id = id') && (is_lustre_subtype_of ty ty') )
+         ty_id_list
+         ty_id_list'
+    | A.EnumType (_, id_list), A.EnumType (_, id_list') ->
+       List.for_all2
+         ( fun id id' -> id = id' )
+         id_list
+         id_list'
+    | _ -> false
+
+  (* Makes sure a contract call is legal. *)
+  let contract_call_type_check
+        (* Node things. *)
+        node_ident node_pos node_inputs node_outputs
+        (* Contract call position. *)
+        call_pos
+        (* Contract node things. *)
+        (pos,ident,inputs,outputs) =
+    inputs
+    |> List.for_all
+         ( fun (pos,id,ty,_,_) ->
+           node_inputs
+           |> List.exists
+                ( fun (pos',id',ty',_,_) ->
+                  if id <> id'
+                  then false
+                  else if is_lustre_subtype_of ty' ty
+                  then true
+                  else
+                    Format.asprintf
+                      "illegal contract call: input %a in node %a \
+                       is incompatible with %a in contract node \
+                       %a (%a)."
+                      A.pp_print_typed_ident (id',ty')
+                      (I.pp_print_ident false) node_ident
+                      A.pp_print_typed_ident (id,ty)
+                      (I.pp_print_ident false) ident
+                      pp_print_position pos
+                      
+                    |> fail_at_position call_pos ) )
+    &&
+    outputs
+    |> List.for_all
+         ( fun (pos,id,ty,_) ->
+           node_outputs
+           |> List.exists
+                ( fun (pos',id',ty',_) ->
+                  if id <> id'
+                  then false
+                  else if is_lustre_subtype_of ty' ty
+                  then true
+                  else
+                    Format.asprintf
+                      "illegal contract call: output %a in node %a \
+                       is incompatible with %a in contract node \
+                       %a (%a)."
+                      A.pp_print_typed_ident (id',ty')
+                      (I.pp_print_ident false) node_ident
+                      A.pp_print_typed_ident (id,ty)
+                      (I.pp_print_ident false) ident
+                      pp_print_position pos
+                      
+                    |> fail_at_position call_pos ) )
+
+  let contract_node_equations_to_inline
+        call_pos contract_ident equations =
+    let rec loop reqs enss = function
+      | A.Require req :: tail -> loop (req :: reqs) enss tail
+      | A.Ensure  ens :: tail -> loop reqs (ens :: enss) tail
+      | _ :: tail -> loop reqs enss tail
+      | [] -> reqs, enss
+    in
+
+    let reqs, enss =
+      loop [] [] equations
+    in
+
+    A.InlinedContract (call_pos, contract_ident, reqs, enss)
+       
+
+  (* Inlines a contract from a list of contract nodes if necessary. *)
+  let inline_contract
+        (* Node things. *)
+        node_pos
+        ((node_ident,
+          node_params,
+          node_inputs,
+          node_outputs,
+          node_locals,
+          node_equations) as node)
+        (* Contract nodes. *)
+        contract_nodes = function
+    (* Contract call, need to inline. *)
+    | (A.ContractCall (call_pos, call_ident) as contract_call) ->
+
+       ( try
+           ( match
+               find_contract call_ident contract_nodes
+             with
+             | A.ContractNodeDecl
+               (pos, (ident,_,inputs,outputs,locals,equations)) ->
+
+                (* Making sure contract node and specified node have
+                   consistent signatures. *)
+                contract_call_type_check
+                  node_ident node_pos node_inputs node_outputs
+                  call_pos
+                  (pos,ident,inputs,outputs)
+                |> ignore ;
+
+
+                ( match locals with
+                  (* No locals, returning node unchanged. *)
+                  | [] -> node
+                  (* Not allowing locals in contract node for now. *)
+                  | _ ->
+                     fail_at_position
+                       pos
+                       "local variables in contract nodes are \
+                        currently illegal." ),
+
+                (* Generating inlined version of the call. *)
+                contract_node_equations_to_inline
+                  call_pos call_ident equations
+
+             | _ -> assert false )
+           
+         with
+         | Not_found ->
+            Format.asprintf
+              "contract call to unknown contract node %a."
+              (I.pp_print_ident false) call_ident
+            |> fail_at_position call_pos )
+
+    (* Already inlined. *)
+    | contract -> node, contract
+
+  (* Inlines contract node calls. *)
+  let inline decls =
+
+    (* Reversed list of declarations and contract nodes. *)
+    let decls, contract_nodes = split [] [] decls in
+
+    let rec loop decls = function
+
+      (* Node declaration with only mode contracts. *)
+      | ( A.NodeDecl
+           (pos, (id,p,i,o,l,e, Some (A.Modes modes))) )
+        :: tail ->
+         let (id,p,i,o,l,e), modes =
+           modes
+           |> List.fold_left
+                ( fun (node, modes) mode ->
+                  let node, mode =
+                    inline_contract
+                      pos
+                      node
+                      contract_nodes
+                      mode
+                  in
+                  node, mode :: modes )
+                ((id,p,i,o,l,e), [])
+         in
+         let decl =
+           A.NodeDecl
+             (pos, (id,p,i,o,l,e, Some (A.Modes modes)))
+         in
+         loop (decl :: decls) tail
+
+      (* Node declaration with global and mode contracts. *)
+      | ( A.NodeDecl
+           (pos, (id,p,i,o,l,e, Some (A.GlobalAndModes (global,modes)))) )
+        :: tail ->
+         let node, modes =
+           modes
+           |> List.fold_left
+                ( fun (node, modes) mode ->
+                  let node, mode =
+                    inline_contract
+                      pos
+                      node
+                      contract_nodes
+                      mode
+                  in
+                  node, mode :: modes )
+                ((id,p,i,o,l,e), [])
+         in
+         let (id,p,i,o,l,e), global =
+           inline_contract pos node contract_nodes global
+         in
+         let decl =
+           A.NodeDecl
+             (pos, (id,p,i,o,l,e, Some (A.GlobalAndModes (global,modes))))
+         in
+         loop (decl :: decls) tail
+
+      (* No contract to inline. *)
+      | decl :: tail ->
+         loop (decl :: decls) tail
+
+      | [] -> decls
+    in
+
+
+    loop [] decls
+
+end
 
 (* Iterate over the declarations and return the nodes *)
 let declarations_to_nodes decls =
 
-  debug lustreSimplify
-        "Before contract calls inlining:@ @ %a"
-        (pp_print_list A.pp_print_declaration "@ @ ")
-        decls in
+  (* Format.printf *)
+  (*   "@.@.Declarations before inlining:@.%a@.@." *)
+  (*   A.pp_print_program decls ; *)
 
-  (* Removing contract nodes. *)
-  let clean_decls = ContractPreprocess.inline decls in
+  let decls = ContractInlining.inline decls in
 
-  debug lustreSimplify
-        "Aftercontract calls inlining:@ @ %a"
-        (pp_print_list A.pp_print_declaration "@ @ ")
-        clean_decls in
+  (* Format.printf *)
+  (*   "@.@.Declarations after inlining:@.%a@.@." *)
+  (*   A.pp_print_program decls ; *)
 
   (* Extract nodes from produced global context *)
-  let { nodes } as global_context =
-    declarations_to_nodes' init_lustre_context clean_decls
+  let { nodes } as global_context = 
+    declarations_to_nodes' init_lustre_context decls 
   in
+
+  (* Format.printf *)
+  (*   "@.@.Nodes:@.%a@.@." *)
+  (*   (pp_print_list (N.pp_print_node false) "@.") nodes ; *)
 
   (* Return nodes *)
   nodes

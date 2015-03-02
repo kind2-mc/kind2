@@ -89,7 +89,6 @@ let mk_pos = Lib.position_of_lexing
     
 (* Tokens for node declarations *)
 %token NODE
-%token CONTRACTNODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
 %token FUNCTION
@@ -101,9 +100,13 @@ let mk_pos = Lib.position_of_lexing
 (* Tokens for annotations *)
 %token PROPERTY
 %token MAIN
-%token REQUIRES
-%token ENSURES
+%token COMMENTCONTRACT
+%token COMMENTGLOBALCONTRACT
+%token COMMENTREQUIRE
+%token COMMENTENSURE
 %token CONTRACT
+%token REQUIRE
+%token ENSURE
 
 (* Token for assertions *)
 %token ASSERT
@@ -186,7 +189,7 @@ decl:
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
   | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
-  | d = contract_decl { [A.ContractDecl (mk_pos $startpos, d)] }
+  | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
   | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
@@ -333,7 +336,7 @@ node_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    r = list(contract);
+    r = option(contract_spec);
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
@@ -344,14 +347,62 @@ node_decl:
        p,
        List.flatten i, 
        List.flatten o, 
-       (List.flatten l),
+       (List.flatten l), 
        e,
        r)  }
 
+contract_spec:
+  | global = contract_global;
+    modes  = list(contract)
+    { A.GlobalAndModes (global, modes) }
+  | modes  = list(contract)
+    { A.Modes modes }
 
-(* A contract node declaration *)
+contract_global:
+  | COMMENTGLOBALCONTRACT; COLON; n = ident; SEMICOLON
+    reqs = list(comment_contract_require);
+    enss = list(comment_contract_ensure)
+    { A.InlinedContract
+        (mk_pos $startpos, n, reqs, enss) }
+  | COMMENTGLOBALCONTRACT; n = ident; SEMICOLON
+    { A.ContractCall (mk_pos $startpos, n) }
+
+contract:
+  | COMMENTCONTRACT; COLON; n = ident; SEMICOLON
+    reqs = list(comment_contract_require);
+    enss = list(comment_contract_ensure)
+    { (if reqs = [] then Format.printf "empty reqs");
+      A.InlinedContract
+        (mk_pos $startpos, n, reqs, enss) }
+  | COMMENTCONTRACT; n = ident; SEMICOLON
+    { A.ContractCall (mk_pos $startpos, n) }
+
+contract_require:
+  | REQUIRE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+contract_ensure:
+  | ENSURE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+comment_contract_require:
+  | COMMENTREQUIRE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+comment_contract_ensure:
+  | COMMENTENSURE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+(* Equations of a contract node. *)
+contract_equations:
+  | req = contract_require {A.Require req}
+  | ens = contract_ensure {A.Ensure ens}
+  | l = left_side; EQUALS; e = expr; SEMICOLON
+    { A.GhostEquation (mk_pos $startpos, l, e) }
+
+(* A contract node declaration. *)
 contract_decl:
-  | CONTRACTNODE; 
+  | CONTRACT; 
     n = ident; 
     p = loption(static_params);
     i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
@@ -360,20 +411,16 @@ contract_decl:
     SEMICOLON;
     l = list(node_local_decl);
     LET;
-    e = list(node_equation);
-    req = list(require) ;
-    ens = list(ensure) ;
+    e = list(contract_equations);
     TEL
     option(node_sep) 
 
     { (n,
        p,
-       List.flatten i, 
-       List.flatten o, 
-       (List.flatten l), 
-       e,
-       req,
-       ens) }
+       List.flatten i,
+       List.flatten o,
+       (List.flatten l),
+       e) }
 
 
 (* A node declaration as an instance of a paramterized node *)
@@ -390,30 +437,7 @@ node_param_inst:
 
 
 (* A node declaration is optionally terminated by a period or a semicolon *)
-node_sep: DOT | SEMICOLON { } 
-
-(* A list of contract clauses *)
-contract:
-  | CONTRACT;
-    n = ident;
-    SEMICOLON; { A.ContractCall ( (mk_pos $startpos), n ) }
-  | CONTRACT;
-    COLON;
-    n = ident;
-    SEMICOLON;
-    reqs = list(require);
-    ens = list(ensure); {
-      A.InlinedContract
-        ( (mk_pos $startpos), n, reqs, ens )
-    }
-
-(* A require for a contract. *)
-require:
-  | REQUIRES; e = expr; SEMICOLON { A.mk_require (mk_pos $startpos) e }
-
-(* A ensure for a contract. *)
-ensure:
-  | ENSURES; e = expr; SEMICOLON { A.mk_ensure (mk_pos $startpos) e }
+node_sep: DOT | SEMICOLON { }
 
 
 (* A static parameter is a type *)

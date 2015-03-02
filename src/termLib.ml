@@ -29,16 +29,9 @@ type cexs = cex list
 
 *)
 
-
 (* ********************************************************************** *)
 (* Properties of transition systems                                       *)
 (* ********************************************************************** *)
-
-(* Source of a contract. *)
-type contract_source =
-
-  (* Contract is from an annotation. *)
-  | ContractAnnot of string * position
 
 (* Source of a property *)
 type prop_source =
@@ -46,45 +39,50 @@ type prop_source =
   (* Property is from an annotation *)
   | PropAnnot of position
 
-  (* Property is a contract of the system. *)
-  | Contract of contract_source
-
-  (* Property is a requirement for a subsystem: scope of the subsystem
-     and position. *)
-  | SubRequirement of ((string list * Lib.position) list * string list * position)
+  (* Property is part of a contract *)
+  | Contract of position * string
 
   (* Property was generated, for example, from a subrange
      constraint *)
   | Generated of StateVar.t list
 
+  (* Property is a requirement of a subnode. The list of state
+     variables are the guarantees proving the requirement yields. *)
+  | Requirement of position * string list * StateVar.t list
+
+  (* Property is a mode contract implication. *)
+  (* | ModeContract of position * string *)
+
+  (* Property is a global contract. *)
+  (* | GlobalContract of position * string *)
+
   (* Property is an instance of a property in a called node
 
      Reference the instantiated property by the [scope] of the
      subsystem and the name of the property *)
-  | Instantiated of string list * string
+  | Instantiated of string list * string 
 
 
 let pp_print_prop_source ppf = function
   | PropAnnot pos ->
      Format.fprintf
        ppf "%a" pp_print_position pos
-  | Contract (ContractAnnot (name,pos)) ->
+  | Contract (pos, name) ->
      Format.fprintf
-       ppf "contract at %a" pp_print_position pos
-  | SubRequirement (_, scope, position) ->
+       ppf "contract %s at %a" name pp_print_position pos
+  | Requirement (pos, scope, _) ->
      Format.fprintf
        ppf
-       "requirement of %s at %a"
+       "requirement of %s for call at %a"
        (String.concat "." scope)
-       pp_print_position position
+       pp_print_position pos
   | Generated _ ->
      Format.fprintf ppf "subrange constraint"
   | Instantiated (scope,_) ->
      Format.fprintf
        ppf
        "instantiated from %s"
-       (String.concat "." scope)
-
+              (String.concat "." scope)
 
 (* Return the default value of the type *)
 let default_of_type t = 
@@ -108,12 +106,3 @@ let default_of_type t =
     | Type.Array _ -> invalid_arg "default_of_type"
 
 
-
-
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)
