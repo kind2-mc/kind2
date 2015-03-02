@@ -30,7 +30,7 @@ let generalize_after_fwd_prop = false
 
 let subsume_in_block = false
 
-let subsume_in_fwd_prop = false
+let subsume_in_fwd_prop = true
   
 (* ********************************************************************** *)
 (* Solver instances and cleanup                                           *)
@@ -1320,12 +1320,12 @@ let partition_fwd_prop
 
     (* All clause can be forward propagated: return clauses to keep and
        clauses to propagate *)
-    let prop_all () =
+    let prop_all actlit_n1 () =
 
       (* Deactivate activation literal *)
       if deactivate_actlit then 
-        (List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver) actlits_p0;
-         Stat.incr ~by:(List.length actlits_p0) Stat.pdr_stale_activation_literals);
+        (Term.mk_not actlit_n1 |> SMTSolver.assert_term solver;
+         Stat.incr Stat.pdr_stale_activation_literals);
       
       keep, maybe_prop
 
@@ -1333,7 +1333,7 @@ let partition_fwd_prop
 
     (* Some candidate clauses cannot be propagated: filter out the ones
        that could still be *)
-    let keep_some () =
+    let keep_some actlit_n1 () =
 
       (* Get model for failed entailment check *)
       let model =
@@ -1364,8 +1364,8 @@ let partition_fwd_prop
 
       (* Deactivate activation literal *)
       if deactivate_actlit then 
-        (List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver) actlits_p0;
-         Stat.incr ~by:(List.length actlits_p0) Stat.pdr_stale_activation_literals);
+        (Term.mk_not actlit_n1 |> SMTSolver.assert_term solver;
+         Stat.incr Stat.pdr_stale_activation_literals);
         
       (* No clauses can be propagated? *)
       if maybe_prop' = [] then (keep', []) else
@@ -1396,8 +1396,8 @@ let partition_fwd_prop
     *)
     SMTSolver.check_sat_assuming 
       solver
-      keep_some
-      prop_all
+      (keep_some actlit_n1)
+      (prop_all actlit_n1)
       (C.actlit_p0_of_prop_set prop_set :: actlit_n1 :: actlits_p0)
     
   in
@@ -1559,7 +1559,7 @@ let fwd_propagate solver trans_sys prop_set frames =
           List.fold_left (fun a f -> ((F.values f) @ a)) [] frames_tl
         in
 
-        (* Add propagated clause to frame with subsumption *)
+        (* Add propagated clauses to frame with subsumption *)
         let frame' =
           List.fold_left subsume_and_add frame prop
         in
