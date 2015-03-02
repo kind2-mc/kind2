@@ -26,6 +26,9 @@ module TH = Term.TermHashtbl
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
 
+(*************************************************)
+(* Hard coded options for certificate generation *)
+(*************************************************)
 let file_width = 220
 let quant_free = true
 let monolithic_base = true
@@ -194,7 +197,7 @@ let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
       | _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
       | p_name, _, _ ->
-        Event.log L_fatal "[Warning] Property %s is not valid" p_name;
+        Event.log L_fatal "[Warning] Skipping unproved property %s" p_name;
         acc
     ) ([], []) (TS.get_properties sys) in
 
@@ -231,7 +234,12 @@ let global_certificate sys =
 
 
 
-let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
+
+exception Reduce_cont of (unit -> Term.t list)
+
+
+let rec fixpoint ~just_check_ind
+    acc solver invs_acts prev_props_act prop'act neg_prop'act =
 
   let if_sat () =
     (debug certif "[Fixpoint] fail@." in ());
@@ -270,7 +278,7 @@ let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
          (* SAT try to find what invariants are missing *)
          (debug certif "[Fixpoint] could not verify inductiveness@." in ());
 
-         fixpoint acc solver
+         fixpoint ~just_check_ind:false acc solver
            invs_acts new_prop_act new_prop'act neg_new_prop'act)
       
       (fun () ->
@@ -288,13 +296,21 @@ let rec fixpoint acc solver invs_acts prev_props_act prop'act neg_prop'act =
 
   SMTSolver.trace_comment solver "fixpoint cs;";
 
-  SMTSolver.check_sat_assuming solver if_sat if_unsat
+  SMTSolver.check_sat_assuming solver
+    if_sat
+    (fun () ->
+       if just_check_ind then raise (Reduce_cont if_unsat)
+       else if_unsat ())
     (neg_prop'act :: prev_props_act :: invs)
 
 
+type return_of_try =
+  | Not_inductive
+  | Inductive_to_reduce of (unit -> Term.t list)
+  | Inductive of Term.t list
 
 
-let try_at_bound sys solver k invs prop =
+let try_at_bound ?(just_check_ind=false) sys solver k invs prop =
   
   (debug certif "Try bound %d@." k in ());
 
@@ -324,11 +340,7 @@ let try_at_bound sys solver k invs prop =
   let neg_prop' = Term.mk_not prop' in
   let neg_prop'act = actlitify solver neg_prop' in
 
-  (* Can fail and raise Exit *)
-  let useful_acts =
-    fixpoint [] solver invs_acts prev_props_act prop'act neg_prop'act in
-
-  let uinvs =
+  let map_back_to_invs useful_acts =
     List.fold_left (fun acc i ->
         let a = Term.bump_state (Numeral.of_int k) i
                 |> generate_actlit |> term_of_actlit in
@@ -336,9 +348,23 @@ let try_at_bound sys solver k invs prop =
            not (List.exists (Term.equal i) acc) then
           i :: acc
         else acc
-      ) [] invs in
+      ) [] invs
+  in
+  
+  try
+    (* Can fail and raise Exit or Reduce_cont *)
+    let useful_acts =
+      fixpoint ~just_check_ind
+        [] solver invs_acts prev_props_act prop'act neg_prop'act in
 
-  uinvs
+    Inductive (
+      map_back_to_invs useful_acts
+    )
+  with
+  | Exit -> Not_inductive
+  | Reduce_cont f ->
+    Inductive_to_reduce (fun () -> f () |> map_back_to_invs)
+
 
 (* Find the minimum bound by increasing k *)
 let rec find_bound sys solver k kmax invs prop =
@@ -352,10 +378,18 @@ let rec find_bound sys solver k kmax invs prop =
   TransSys.trans_of_bound sys (Numeral.of_int k)
   |> SMTSolver.assert_term solver;
 
-  try k, try_at_bound sys solver k invs prop
-  with Exit ->
+  match try_at_bound sys solver k invs prop with
+  | Not_inductive ->
     (* Not k-inductive *)
     find_bound sys solver (k+1) kmax invs prop
+
+  | Inductive useful ->
+    k, useful
+
+  | Inductive_to_reduce _ ->
+    (* Should not happend, we are not asking for continuations when calling 
+       try_at_bound *)
+    assert false
 
 
 (* Find the minimum bound starting from kmax and going backwards *)
@@ -369,29 +403,42 @@ let find_bound_back sys solver kmax invs prop =
   
   let rec loop acc k =
 
-    try
-      (* Reached min k, check if the previous were inductive *)
-      if k = 0 then raise Exit;
+    (* Reached min k, check if the previous were inductive *)
+    let res =
+      if k = 0 then Not_inductive
+      else try_at_bound ~just_check_ind:false sys solver k invs prop in
 
-      let uinvs = try_at_bound sys solver k invs prop in
-      let acc = Some (k, uinvs) in
-      loop acc (k - 1)
+    match res with
 
-    with Exit ->
+    | Not_inductive ->
+      (* Check if the previous were inductive *)
 
-      match acc with
-      | None ->
-        (* Not k-inductive *)
-        failwith
-          (sprintf
-             "[Certification] Could not verify %d-inductiveness of invariant" k);
+      begin match acc with
+        | _, Not_inductive ->
+          (* Not k-inductive *)
+          failwith
+            (sprintf
+               "[Certification] Could not verify %d-inductiveness \
+                of invariant" k);
 
-      | Some (k, uinvs) ->
-        (* The last one was inductive *)
-        k, uinvs
+        | k, Inductive_to_reduce f ->
+          (* The previous step was inductive, evaluate the continuation to
+             extract useful invariants *)
+          k, f ()
+
+        | k, Inductive useful ->
+          (* The previous step was inductive and we already have the useful
+             invariants *)
+          k, useful
+      end
+
+    | Inductive _ | Inductive_to_reduce _ ->
+      (* Inductive, we register the result and loop *)
+      loop (k, res) (k - 1)
+
   in
 
-  loop None kmax
+  loop (-1, Not_inductive) kmax
 
 
 (* Find the minimum bound by dichotomy between k_l and k_u *)
@@ -402,30 +449,41 @@ let rec find_bound_dicho sys solver kmax invs prop =
     TransSys.trans_of_bound sys (Numeral.of_int i)
     |> SMTSolver.assert_term solver
   done;
-    
+
   let rec loop_dicho acc k_l k_u =
 
     if k_l > k_u then
       match acc with
-      | Some (k, uinvs) -> k, uinvs
-      | None ->
+      | _, Not_inductive ->
+        (* Not k-inductive *)
         failwith "[Certification] Could not verify inductiveness of invariant"
+
+      | k, Inductive_to_reduce f ->
+        (* The previous step was inductive, evaluate the continuation to
+           extract useful invariants *)
+        k, f ()
+
+      | k, Inductive useful ->
+        (* The previous step was inductive and we already have the useful
+           invariants *)
+        k, useful
 
     else
 
       let k_mid = (k_l + k_u) / 2 in
-      try
+      
+      match try_at_bound ~just_check_ind:true sys solver k_mid invs prop with
+        | Not_inductive ->
+          (* Not inductive, look for inductiveness on the right *)
+          loop_dicho acc (k_mid + 1) k_u
 
-        let uinvs = try_at_bound sys solver k_mid invs prop in
-        let acc = Some (k_mid, uinvs) in
-        loop_dicho acc k_l (k_mid - 1)
-
-      with Exit ->
-        loop_dicho acc (k_mid + 1) k_u
+        | res ->
+          (* Inductive, register and Look for non-inductiveness on the left *)
+          loop_dicho (k_mid, res) k_l (k_mid - 1)
   in
 
-  loop_dicho None 1 kmax
-  
+  loop_dicho (-1, Not_inductive) 1 kmax
+
 
   
 
@@ -489,6 +547,7 @@ let simplify_certificate sys =
     | `Fwd -> find_bound sys solver 1 k invs prop
     | `Bwd -> find_bound_back sys solver k invs prop
     | `Dicho -> find_bound_dicho sys solver k invs prop
+    | `No -> assert false
   in
 
   SMTSolver.delete_instance solver;
