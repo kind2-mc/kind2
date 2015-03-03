@@ -428,39 +428,10 @@ let gen_expr_or_lambda_of_string_sexpr conv =
 (* ********************************************************************** *)
 
 (* Convert a logic to a string *)
-let string_of_logic = function
-  | `AUFLIA -> "AUFLIA"
-  | `AUFLIRA -> "AUFLIRA"
-  | `AUFNIRA -> "AUFNIRA"
-  | `LRA -> "LRA"
-  | `LIA -> "LIA"
-  | `QF_ABV -> "QF_ABV"
-  | `QF_AUFBV -> "QF_AUFBV"
-  | `QF_AUFLIA -> "QF_AUFLIA"
-  | `QF_AX -> "QF_AX"
-  | `QF_BV -> "QF_BV"
-  | `QF_IDL -> "QF_IDL"
-  | `QF_LIA -> "QF_LIA"
-  | `QF_LRA -> "QF_LRA"
-  | `QF_NIA -> "QF_NIA"
-  | `QF_NRA -> "QF_NRA"
-  | `QF_RDL -> "QF_RDL"
-  | `QF_UF -> "QF_UF"
-  | `QF_UFBV -> "QF_UFBV"
-  | `QF_UFIDL -> "QF_UFIDL"
-  | `QF_UFLIA -> "QF_UFLIA"
-  | `QF_UFLRA -> "QF_UFLRA"
-  | `QF_UFNRA -> "QF_UFNRA"
-  | `UFLIA -> "UFLIA"
-  | `UFLRA -> "UFLRA"
-  | `UFNIA -> "UFNIA"
-  | _ -> raise (Invalid_argument "Unsupported logic")
-
+let string_of_logic = TermLib.string_of_logic
 
 (* Pretty-print a logic identifier *)
-let pp_print_logic ppf l = 
-  Format.pp_print_string ppf (string_of_logic l) 
-
+let pp_print_logic = TermLib.pp_print_logic
 
 (* Convert type *)
 let interpr_type t = match Type.node_of_type t with

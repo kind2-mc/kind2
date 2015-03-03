@@ -520,8 +520,14 @@ let s_lt = mk_symbol `LEQ
 (* Constant modulus operator symbol *)
 let s_mod = mk_symbol `MOD
 
+(* Constant plus operator *)
+let s_plus = mk_symbol `PLUS
+
 (* Constant minus operator *)
 let s_minus = mk_symbol `MINUS
+
+(* Constant times operator *)
+let s_times = mk_symbol `TIMES
 
 (* Constant division operator *)
 let s_div = mk_symbol `DIV
