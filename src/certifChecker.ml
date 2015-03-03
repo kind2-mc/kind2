@@ -23,6 +23,7 @@ open Actlit
 module TS = TransSys
 module TM = Term.TermMap
 module TH = Term.TermHashtbl
+module IntM = Map.Make (struct type t = int let compare = compare end)
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
 
@@ -40,13 +41,14 @@ let t1 = Term.mk_num_of_int 1
 
 let hactlits = TH.create 2001
 
-let actlitify solver t =
+let actlitify ?(imp=false) solver t =
   let a = generate_actlit t in
   let ta = term_of_actlit a in
   if not (TH.mem hactlits ta) then begin
     TH.add hactlits ta ();
     SMTSolver.declare_fun solver a;
-    Term.mk_eq [ta; t] |> SMTSolver.assert_term solver;
+    (if imp then Term.mk_implies else Term.mk_eq)
+      [ta; t] |> SMTSolver.assert_term solver;
   end;
   ta
 
@@ -239,19 +241,16 @@ exception Reduce_cont of (unit -> Term.t list)
 
 
 let rec fixpoint ~just_check_ind
-    acc solver invs_acts prev_props_act prop'act neg_prop'act =
+    acc solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   let if_sat () =
     (debug certif "[Fixpoint] fail@." in ());
     raise Exit
     
   in
-  
-  let if_unsat () =
-    
-    (* Activation literals in unsat core *)
-    let uc = SMTSolver.get_unsat_core_lits solver in
 
+  let reduce uc =
+    
     let uinvs_acts =
       List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
 
@@ -279,7 +278,7 @@ let rec fixpoint ~just_check_ind
          (debug certif "[Fixpoint] could not verify inductiveness@." in ());
 
          fixpoint ~just_check_ind:false acc solver
-           invs_acts new_prop_act new_prop'act neg_new_prop'act)
+           invs_acts new_prop_act new_prop'act neg_new_prop'act trans_acts)
       
       (fun () ->
          (* UNSAT: return accumulated invariants *)
@@ -288,10 +287,20 @@ let rec fixpoint ~just_check_ind
   
          acc)
 
-      (new_prop_acts @ [neg_new_prop'act])
+      (trans_acts @ new_prop_acts @ [neg_new_prop'act])
     
   in
 
+  
+  let if_unsat () =
+    
+    (* Activation literals in unsat core *)
+    let uc = SMTSolver.get_unsat_core_lits solver in
+    
+    fun () -> reduce uc
+  in
+
+    
   let invs = List.map fst invs_acts in
 
   SMTSolver.trace_comment solver "fixpoint cs;";
@@ -299,9 +308,9 @@ let rec fixpoint ~just_check_ind
   SMTSolver.check_sat_assuming solver
     if_sat
     (fun () ->
-       if just_check_ind then raise (Reduce_cont if_unsat)
-       else if_unsat ())
-    (neg_prop'act :: prev_props_act :: invs)
+       if just_check_ind then raise (Reduce_cont (if_unsat ()))
+       else if_unsat () ())
+    (trans_acts @ (neg_prop'act :: prev_props_act :: invs))
 
 
 type return_of_try =
@@ -310,7 +319,7 @@ type return_of_try =
   | Inductive of Term.t list
 
 
-let try_at_bound ?(just_check_ind=false) sys solver k invs prop =
+let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   
   (debug certif "Try bound %d@." k in ());
 
@@ -355,7 +364,7 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop =
     (* Can fail and raise Exit or Reduce_cont *)
     let useful_acts =
       fixpoint ~just_check_ind
-        [] solver invs_acts prev_props_act prop'act neg_prop'act in
+        [] solver invs_acts prev_props_act prop'act neg_prop'act trans_acts in
 
     Inductive (
       map_back_to_invs useful_acts
@@ -378,7 +387,7 @@ let rec find_bound sys solver k kmax invs prop =
   TransSys.trans_of_bound sys (Numeral.of_int k)
   |> SMTSolver.assert_term solver;
 
-  match try_at_bound sys solver k invs prop with
+  match try_at_bound sys solver k invs prop [] with
   | Not_inductive ->
     (* Not k-inductive *)
     find_bound sys solver (k+1) kmax invs prop
@@ -395,18 +404,27 @@ let rec find_bound sys solver k kmax invs prop =
 (* Find the minimum bound starting from kmax and going backwards *)
 let find_bound_back sys solver kmax invs prop =
 
-  for i = 1 to kmax do
-    (* Asserting transition relation. *)
-    TransSys.trans_of_bound sys (Numeral.of_int i)
-    |> SMTSolver.assert_term solver
-  done;
+  let rec fill acc prev = function
+    | k when k > kmax -> acc
+    | k ->
+      let tk = TransSys.trans_of_bound sys (Numeral.of_int k) in
+      let tuptok = match prev with Some p -> Term.mk_and [p; tk] | _ -> tk in
+      let a = actlitify ~imp:true solver tuptok in
+      fill (IntM.add k a acc) (Some a) (k + 1)
+  in
+  
+  (* Creating activation literals for transition steps *)
+  let trans_acts_map = fill IntM.empty None 1 in
   
   let rec loop acc k =
 
     (* Reached min k, check if the previous were inductive *)
     let res =
       if k = 0 then Not_inductive
-      else try_at_bound ~just_check_ind:false sys solver k invs prop in
+      else
+        let trans_act = IntM.find k trans_acts_map in
+        try_at_bound ~just_check_ind:true sys solver k invs prop [trans_act]
+    in
 
     match res with
 
@@ -444,11 +462,17 @@ let find_bound_back sys solver kmax invs prop =
 (* Find the minimum bound by dichotomy between k_l and k_u *)
 let rec find_bound_dicho sys solver kmax invs prop =
 
-  for i = 1 to kmax do
-    (* Asserting transition relation. *)
-    TransSys.trans_of_bound sys (Numeral.of_int i)
-    |> SMTSolver.assert_term solver
-  done;
+  let rec fill acc prev = function
+    | k when k > kmax -> acc
+    | k ->
+      let tk = TransSys.trans_of_bound sys (Numeral.of_int k) in
+      let tuptok = match prev with Some p -> Term.mk_and [p; tk] | _ -> tk in
+      let a = actlitify ~imp:true solver tuptok in
+      fill (IntM.add k a acc) (Some a) (k + 1)
+  in
+  
+  (* Creating activation literals for transition steps *)
+  let trans_acts_map = fill IntM.empty None 1 in
 
   let rec loop_dicho acc k_l k_u =
 
@@ -471,8 +495,11 @@ let rec find_bound_dicho sys solver kmax invs prop =
     else
 
       let k_mid = (k_l + k_u) / 2 in
+      let trans_act = IntM.find k_mid trans_acts_map in
       
-      match try_at_bound ~just_check_ind:true sys solver k_mid invs prop with
+      match try_at_bound ~just_check_ind:true
+              sys solver k_mid invs prop [trans_act]
+      with
         | Not_inductive ->
           (* Not inductive, look for inductiveness on the right *)
           loop_dicho acc (k_mid + 1) k_u
