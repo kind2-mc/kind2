@@ -54,7 +54,7 @@ type yices_state =
 type config =
     { solver_cmd : string array;    (* Command line arguments for the
                                        solver *)
-      
+      solver_arith_only : bool;
     }
 
 (* Solver instance *)
@@ -513,7 +513,8 @@ let ensure_symbol_qf_lira s =
 (*  | `STORE *)
     ->
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
-                              symbol %s is out of the supported theories."
+                              symbol %s is not interpreted correctly in this \
+                              mode. Run Kind 2 with --no_detect_logic instead."
         (Symbol.string_of_symbol s)
     in
     Event.log L_error "%s" msg;
@@ -540,15 +541,15 @@ and ensure_term_qf_lira t =
   | Exists lam | Forall lam -> ensure_lambda_qf_lira lam
   | Annot (t, _) -> ensure_term_qf_lira t
 
-let fail_when_arith t =
-  if Flags.yices_arith_only () then ensure_term_qf_lira t
+let fail_when_arith solver t =
+  if solver.solver_config.solver_arith_only then ensure_term_qf_lira t
 
 
-let fail_symbol_when_arith s =
-  if Flags.yices_arith_only () then ensure_symbol_qf_lira s    
+let fail_symbol_when_arith solver s =
+  if solver.solver_config.solver_arith_only then ensure_symbol_qf_lira s    
 
-let fail_declare_when_arith f arg_sorts res_sort =
-  if Flags.yices_arith_only () && arg_sorts <> [] then
+let fail_declare_when_arith solver f arg_sorts res_sort =
+    if solver.solver_config.solver_arith_only && arg_sorts <> [] then
     let msg = Format.asprintf "Yices was run with set-arith-only, but the \
                                symbol %s has type %a."
         f pp_print_function_type (arg_sorts, res_sort) in
@@ -564,7 +565,7 @@ let fail_declare_when_arith f arg_sorts res_sort =
 (* Declare a new function symbol *)
 let declare_fun solver fun_symbol arg_sorts res_sort = 
 
-  fail_declare_when_arith fun_symbol arg_sorts res_sort;
+  fail_declare_when_arith solver fun_symbol arg_sorts res_sort;
 
   let cmd = 
     Format.asprintf 
@@ -597,7 +598,7 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
 (* Assert the expression *)
 let assert_expr solver expr = 
 
-  fail_when_arith expr;
+  fail_when_arith solver expr;
   
   let t = expr in
   let t', name_info =
@@ -632,7 +633,7 @@ let assert_expr solver expr =
 (* Assert a removable expression, costly *)
 let assert_removable_expr ?id solver expr = 
 
-  fail_when_arith expr;
+  fail_when_arith solver expr;
   
   (* Take the next id if none is given *)
   let id = match id with None -> next_id solver | Some id -> id in
@@ -1101,9 +1102,20 @@ let create_instance
     logic
     id =
 
+
+  let arith_only =
+    let open TermLib in
+    let open TermLib.FeatureSet in
+    match logic with
+    | `Inferred l -> subset l (of_list [IA; RA; LA])
+    | `SMTLogic ("QF_LIA" | "QF_LRA" | "QF_LIRA") -> true
+    | _ -> false
+  in
+  
+  
   (* Get autoconfigured configuration *)
   let solver_cmd  = YicesDriver.cmd_line () in
-  let config = { solver_cmd = solver_cmd } in
+  let config = { solver_cmd = solver_cmd; solver_arith_only = arith_only } in
   
   (* Name of executable is first argument 
 
@@ -1180,15 +1192,15 @@ let create_instance
     (match produce_assignments with Some o -> o | None -> false)
   in
 
-  let header_logic = function
-    | `LIA | `LRA | `QF_LIA | `QF_LRA | `QF_LIRA -> ["(set-arith-only! true)"]
-    | _ -> []
-  in
+  let header_logic solver =
+    if solver.solver_config.solver_arith_only then
+      ["(set-arith-only! true)"]
+    else [] in
     
   
   let headers =
     (Format.sprintf "(set-evidence! %B)" evidence) ::
-    (header_logic logic) @
+    (header_logic solver) @
     (headers ())
   in
   

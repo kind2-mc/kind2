@@ -93,7 +93,7 @@ val pp_print_uf_def : Format.formatter -> pred_def -> unit
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
 (** Get the required logic for the SMT solver *)
-val get_logic : t -> Term.logic
+val get_logic : t -> TermLib.logic
                        
 (** Instantiates a term for all (over)systems instantiating, possibly
     more than once, the input system. *)

@@ -54,10 +54,10 @@ module type S = sig
   val string_of_sort : Type.t -> string
 
   (** Return an SMTLIB string expression for the logic *)
-  val string_of_logic : Term.logic -> string 
+  val string_of_logic : TermLib.logic -> string 
 
   (** Pretty-print a logic in SMTLIB format *)
-  val pp_print_logic : Format.formatter -> Term.logic -> unit
+  val pp_print_logic : Format.formatter -> TermLib.logic -> unit
 
   (** Pretty-print a symbol *)
   val pp_print_symbol :  ?arity:int -> Format.formatter -> Symbol.t -> unit
