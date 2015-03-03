@@ -3315,10 +3315,18 @@ and contract_spec_to_node
       in
       (* State variable is a locally abstracted variable. *)
       E.set_state_var_source state_var E.Abstract ;
+      Format.printf
+        "equation to node %a %a@."
+        (E.pp_print_lustre_var true) state_var
+        (E.pp_print_lustre_expr true) expr ;
       (* Add definition of abstraction variable to node. *)
       let context, node, abstraction =
         equation_to_node
-          context node abstractions pos (state_var, expr)
+          context
+          node
+          abstractions
+          pos
+          (state_var, expr)
       in
       (* Returning state variable and updated things. *)
       state_var, context, node, { abstraction with new_vars = new_vars }
@@ -3339,131 +3347,146 @@ and contract_spec_to_node
   (* No contract spec, adding this one. *)
   | None ->
 
-  (* Handling requirement first. *)
-  let req_svar, context, node, abstraction =
-    to_state_variable context node abstractions req
-  in
+     (* Handling requirement first. *)
+     let req_svar, context, node, abstraction =
+       to_state_variable context node abstractions req
+     in
 
-  (* Requirement is an assertion of the node. *)
-  (* let context, node, abstraction = *)
-  (*   assertion_to_node *)
-  (*     context node abstractions *)
-  (*     pos *)
-  (*     req *)
-  (* in *)
+     (* Requirement is an assertion of the node. *)
+     (* let context, node, abstraction = *)
+     (*   assertion_to_node *)
+     (*     context node abstractions *)
+     (*     pos *)
+     (*     req *)
+     (* in *)
 
-  (* Building lustre node requirement. *)
-  let req = req_svar, req in
+     (* Building lustre node requirement. *)
+     let req = req_svar, req in
 
-  (* Building lustre node modes. *)
-  let modes, context, node, abstraction =
-    modes
-    |> List.fold_left
-         ( fun (modes, context, node, abstraction) ->
-           function
-           | (mode,A.InlinedContract(p,i,r,e)) ->
-              (* Getting a state variable for the mode. *)
-              let svar, context, node, abstraction =
-                to_state_variable context node abstractions mode
-              in
-              (svar, mode, i) :: modes, context, node, abstraction
-           | _ -> assert false )
-         ([], context, node, abstraction)
-  in
+     (* Building lustre node modes. *)
+     let modes, context, node, abstraction =
+       modes
+       |> List.fold_left
+            ( fun (modes, context, node, abstraction) ->
+              function
+              | (mode,A.InlinedContract(p,i,r,e)) ->
+                 (* Getting a state variable for the mode. *)
+                 let svar, context, node, abstraction =
+                   to_state_variable context node abstractions mode
+                 in
+                 (svar, mode, i) :: modes, context, node, abstraction
+              | _ -> assert false )
+            ([], context, node, abstraction)
+     in
 
-  let svar_of_ident ident =
-    let rec loop = function
-      | (svar,_,ident') :: tail ->
-         if ident = ident' then svar else loop tail
-      | [] -> raise Not_found
-    in
-    loop modes
-  in
+     Format.printf
+       "@[<v 3> node:@ %a@]@."
+       (N.pp_print_node true) node ;
 
-  let modes' =
-    modes
-    |> List.map
-         (fun (sv,m,_) -> (sv,m))
-  in
+     let svar_of_ident ident =
+       let rec loop = function
+         | (svar,_,ident') :: tail ->
+            if ident = ident' then svar else loop tail
+         | [] -> raise Not_found
+       in
+       loop modes
+     in
 
-  (* Add declaration of every state variable to observers if not
-       already an output *)
-  let node_observers =
-    req :: modes'
-    |> List.fold_left
-         ( fun observers (svar,_) ->
-           (* Is the state variable already an output? *)
-           if node.N.outputs
+     let modes' =
+       modes
+       |> List.map
+            (fun (sv,m,_) -> (sv,m))
+     in
+
+     (* Add declaration of every state variable to observers if not
+        already an output *)
+     let node_observers =
+       req :: modes'
+       |> List.fold_left
+            ( fun observers (svar,_) ->
+              (* Is the state variable already an output? *)
+              if node.N.outputs
+                 |> List.exists
+                      ( fun (sv, _) ->
+                        StateVar.equal_state_vars sv svar )
+              then
+                (* State variable is already an output. *)
+                observers
+              else
+                (* Adding state variable to observers. *)
+                svar :: observers )
+            (* Starting with reversed observers to keep order. *)
+            (List.rev node.N.observers)
+       (* Restoring order. *)
+       |> List.rev
+     in
+
+     (* Remove declaration of state variables from locals *)
+     let node_locals =
+       node.N.locals
+       |> List.filter
+            ( fun (sv, _) ->
+              req :: modes'
               |> List.exists
-                   ( fun (sv, _) ->
-                     StateVar.equal_state_vars sv svar )
-           then
-             (* State variable is already an output. *)
-             observers
-           else
-             (* Adding state variable to observers. *)
-             svar :: observers )
-         (* Starting with reversed observers to keep order. *)
-         (List.rev node.N.observers)
-    (* Restoring order. *)
-    |> List.rev
-  in
+                   ( fun (svar,_) -> svar = sv )
+              |> not )
+     in
 
-  (* Remove declaration of state variables from locals *)
-  let node_locals =
-    node.N.locals
-    |> List.filter
-         ( fun (sv, _) ->
-           req :: modes'
-           |> List.exists
-                ( fun (svar,_) -> svar = sv )
-           |> not )
-  in
+     (* Building lustre node global contract. *)
+     let global_contract =
+       match global_contract with
+       | None -> None
+       | Some (position, ident, reqs, enss) ->
+          Some { N.name = ident ;
+                 N.pos = position ;
+                 N.svar = svar_of_ident ident ;
+                 N.reqs = reqs ;
+                 N.enss = enss }
+     in
 
-  (* Building lustre node global contract. *)
-  let global_contract =
-    match global_contract with
-    | None -> None
-    | Some (position, ident, reqs, enss) ->
-       Some { N.name = ident ;
-              N.pos = position ;
-              N.svar = svar_of_ident ident ;
-              N.reqs = reqs ;
-              N.enss = enss }
-  in
+     (* Building lustre node mode contracts. *)
+     let mode_contracts =
+       mode_contracts
+       |> List.map
+            ( fun (pos,id,reqs,enss) ->
+              { N.name = id ;
+                N.pos = pos ;
+                N.svar = svar_of_ident id ;
+                N.reqs = reqs ;
+                N.enss = enss } )
+     in
 
-  (* Building lustre node mode contracts. *)
-  let mode_contracts =
-    mode_contracts
-    |> List.map
-         ( fun (pos,id,reqs,enss) ->
-           { N.name = id ;
-             N.pos = pos ;
-             N.svar = svar_of_ident id ;
-             N.reqs = reqs ;
-             N.enss = enss } )
-  in
+     let proof_objectives =
+       ( match global_contract with
+         | None -> mode_contracts
+         | Some glb -> glb :: mode_contracts )
+       |> List.map
+            ( fun {N.name; N.pos; N.svar} ->
+              let name = I.string_of_ident true name in
+              svar, TermLib.Contract (pos,name) )
+     in
 
-  (* Building the final lustre node contract spec. *)
-  let contract_spec =
-    (* Requirement. *)
-    req,
-    (* Modes. *)
-    modes',
-    (* Optional global contract. *)
-    global_contract,
-    (* Mode contracts. *)
-    mode_contracts
-  in
-  
+     (* Building the final lustre node contract spec. *)
+     let contract_spec =
+       (* Requirement. *)
+       req,
+       (* Modes. *)
+       modes',
+       (* Optional global contract. *)
+       global_contract,
+       (* Mode contracts. *)
+       mode_contracts
+     in
+     
 
-  (* Add contract spec to node. *)
-  (context, 
-   { node with
-     N.contract_spec = Some contract_spec ;
-     N.observers = node_observers ;
-     N.locals = node_locals ;},
-   abstractions)
+     (* Add contract spec to node. *)
+     (context, 
+      { node with
+        N.props = proof_objectives @ node.N.props;
+        N.contract_spec = Some contract_spec ;
+        N.observers = node_observers ;
+        N.locals = node_locals ;},
+      abstractions)
 
 
 (* Add an expression as an assertion *)
@@ -4285,6 +4308,10 @@ let parse_node
       contract
   in
 
+  Format.printf
+    "@[<v 3>Node after parse contract:@ %a@]@."
+    (N.pp_print_node true) node ;
+
   (* Parse local declarations, add to local context and node context *)
   let local_context, node = 
     parse_node_locals local_context node locals
@@ -4296,7 +4323,7 @@ let parse_node
     parse_node_equations
       local_context 
       abstractions
-      node 
+      node
       equations
   in
 
@@ -4304,6 +4331,10 @@ let parse_node
   let _, node', _ = 
     abstractions_to_context_and_node context' node abstractions' dummy_pos
   in
+
+  Format.printf
+    "@[<v 3>Node before return:@ %a@]@."
+    (N.pp_print_node true) node' ;
 
   (* Simplify by substituting variables that are aliases *)
   (* N.solve_eqs_node_calls node' *)

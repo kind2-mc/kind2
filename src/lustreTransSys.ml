@@ -1757,26 +1757,26 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         locals
     in
 
-    let contract_props =
-      let contracts =
-        match node_contract_spec with
-        | None -> []
-        | Some (_, _, Some(global), modes) -> global :: modes
-        | Some (_, _, None, modes) -> modes
-      in
+    (* let contract_props = *)
+    (*   let contracts = *)
+    (*     match node_contract_spec with *)
+    (*     | None -> [] *)
+    (*     | Some (_, _, Some(global), modes) -> global :: modes *)
+    (*     | Some (_, _, None, modes) -> modes *)
+    (*   in *)
 
-      contracts
-      |> List.map
-           ( fun { N.name; N.pos; N.svar } ->
-             let name =
-               I.string_of_ident true name
-             in
+    (*   contracts *)
+    (*   |> List.map *)
+    (*        ( fun { N.name; N.pos; N.svar } -> *)
+    (*          let name = *)
+    (*            I.string_of_ident true name *)
+    (*          in *)
              
-             name,
-             TermLib.Contract (pos, name),
-             Var.mk_state_var_instance svar Numeral.zero
-             |> Term.mk_var )
-    in
+    (*          name, *)
+    (*          TermLib.Contract (pos, name), *)
+    (*          Var.mk_state_var_instance svar Numeral.zero *)
+    (*          |> Term.mk_var ) *)
+    (* in *)
 
     let props = 
       (List.map 
@@ -1793,7 +1793,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
            in
            (prop_name, source, prop_term))
          node_props)
-      @ contract_props
       @ lifted_props
     in
 
@@ -1858,7 +1857,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          let abstract_init, abstract_trans =
            (* - contract requirement and modes are normally
                 defined. *)
-           req :: modes
+           req :: modes @ (modes |> List.map (fun (sv,_) -> sv, E.t_true))
            (* - all non-contract properties are set to true. *)
            @ ( props @ lifted_props
                |> (List.fold_left

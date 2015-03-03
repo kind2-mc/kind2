@@ -531,7 +531,11 @@ let disproved_pt mdl level trans_sys prop cex =
       !log_ppf 
       ("@[<v>%s Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.")
       failure_tag
-      prop
+      (match TransSys.get_prop_source trans_sys prop with
+       | None -> assert false
+       | Some source ->
+          Format.asprintf
+            "%s (%a)" prop TermLib.pp_print_prop_source source)
       pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
