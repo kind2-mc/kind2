@@ -628,17 +628,15 @@ let rec definitions_of_node_calls
         (* Lift the name of a property in a subnode by adding the
            position of the node call *)
         let lift_prop_name node_name pos prop_name =
-
-          string_of_t 
-            ( fun ppf prop_name -> 
-              Format.fprintf
-                ppf
-                "%a%a.%s"
-                (LustreIdent.pp_print_ident true) node_name
-                pp_print_pos pos
-                prop_name )
+          string_of_t
+            (fun ppf prop_name ->
+             Format.fprintf
+               ppf
+               "%a%a.%s"
+               (LustreIdent.pp_print_ident true) node_name
+               pp_print_pos pos
+               prop_name)
             prop_name
-
         in
 
         (* Lift contract requirement, if any, from subnode. *)
@@ -1780,18 +1778,31 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
     let props = 
       (List.map 
-         (function (state_var, source) -> 
+         (fun (state_var, source) ->
 
-           (* Name of state variable is name of property *)
-           let prop_name = StateVar.name_of_state_var state_var in
+          (* Name of state variable is name of property *)
+          let prop_name =
+            let name =
+              StateVar.name_of_state_var state_var
+            in
+            match source with
+            | TermLib.Contract (pos,n) ->
+               let pos_file, pos_lnum, pos_cnum =
+                 file_row_col_of_pos pos
+               in
+               Format.sprintf
+                 "%s.[%sl%dc%d].%s"
+                 name pos_file pos_lnum pos_cnum n
+            | _ -> name
+          in
 
-           (* Term of property *)
-           let prop_term = 
-             E.base_term_of_state_var 
-               TransSys.init_base
-               state_var
-           in
-           (prop_name, source, prop_term))
+          (* Term of property *)
+          let prop_term = 
+            E.base_term_of_state_var 
+              TransSys.init_base
+              state_var
+          in
+          (prop_name, source, prop_term))
          node_props)
       @ lifted_props
     in
@@ -1863,7 +1874,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                |> (List.fold_left
                      (fun list ->
                       function
-                      | (_,TermLib.Contract _,_) -> list
+                      | (_,TermLib.Contract _,_)
+                      | (_,TermLib.Requirement _,_) -> list
                       | (name,_,t) ->
                          if Term.is_free_var t then
                            (* Setting property to true. *)

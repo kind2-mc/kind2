@@ -366,33 +366,37 @@ let pp_print_abstraction_sublog_shy
     prop_infos
 
 (* Pretty prints a [sys_sublog]. *)
-let pp_print_sys_sublog ppf { sys ; abstraction_sublogs } =
-  Format.fprintf
-    ppf "@[<v 2>\
-         system %s {@ \
-         %a@ \
-         @;<0 -2>}
-         @]"
-    (TransSys.get_name sys)
-    (pp_print_list pp_print_abstraction_sublog_shy "@ ")
-    (List.rev abstraction_sublogs)
+let pp_print_sys_sublog ppf = function
+  | { abstraction_sublogs = [] } -> ()
+  | {sys ; abstraction_sublogs} ->
+     Format.fprintf
+       ppf "@[<v 2>\
+            system %s {@ \
+            %a@ \
+            @;<0 -2>}
+            @]@ "
+       (TransSys.get_name sys)
+       (pp_print_list pp_print_abstraction_sublog_shy "@ ")
+       (List.rev abstraction_sublogs)
 
 (* Shy version of the [sys_sublog] pretty printer. *)
-let pp_print_sys_sublog_shy ppf {sys ; abstraction_sublogs} =
-  Format.fprintf
-    ppf "@[<v 2>\
-         system %s@,\
-         %a\
-         @]"
-    (TransSys.get_name sys)
-    (pp_print_list pp_print_abstraction_sublog_shy "@ ")
-    (List.rev abstraction_sublogs)
+let pp_print_sys_sublog_shy ppf = function
+  | { abstraction_sublogs = [] } -> ()
+  | {sys ; abstraction_sublogs} ->
+     Format.fprintf
+       ppf "@[<v 2>\
+            system %s@,\
+            %a\
+            @]@ "
+       (TransSys.get_name sys)
+       (pp_print_list pp_print_abstraction_sublog_shy "@ ")
+       (List.rev abstraction_sublogs)
 
 (* Pretty prints a log. *)
 let pp_print_log ppf { sys ; sys_sublogs } =
   Format.fprintf
     ppf "@[<v>%a@]"
-    (pp_print_list pp_print_sys_sublog "@ ") (List.rev sys_sublogs)
+    (pp_print_list pp_print_sys_sublog "") (List.rev sys_sublogs)
 
 (* Pretty prints a log. *)
 let pp_print_log_shy ppf { sys ; sys_sublogs } =

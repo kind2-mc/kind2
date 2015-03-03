@@ -3315,10 +3315,6 @@ and contract_spec_to_node
       in
       (* State variable is a locally abstracted variable. *)
       E.set_state_var_source state_var E.Abstract ;
-      Format.printf
-        "equation to node %a %a@."
-        (E.pp_print_lustre_var true) state_var
-        (E.pp_print_lustre_expr true) expr ;
       (* Add definition of abstraction variable to node. *)
       let context, node, abstraction =
         equation_to_node
@@ -3378,10 +3374,6 @@ and contract_spec_to_node
               | _ -> assert false )
             ([], context, node, abstraction)
      in
-
-     Format.printf
-       "@[<v 3> node:@ %a@]@."
-       (N.pp_print_node true) node ;
 
      let svar_of_ident ident =
        let rec loop = function
@@ -3462,7 +3454,9 @@ and contract_spec_to_node
          | Some glb -> glb :: mode_contracts )
        |> List.map
             ( fun {N.name; N.pos; N.svar} ->
-              let name = I.string_of_ident true name in
+              let name =
+                I.string_of_ident true name
+              in
               svar, TermLib.Contract (pos,name) )
      in
 
@@ -4308,10 +4302,6 @@ let parse_node
       contract
   in
 
-  Format.printf
-    "@[<v 3>Node after parse contract:@ %a@]@."
-    (N.pp_print_node true) node ;
-
   (* Parse local declarations, add to local context and node context *)
   let local_context, node = 
     parse_node_locals local_context node locals
@@ -4331,10 +4321,6 @@ let parse_node
   let _, node', _ = 
     abstractions_to_context_and_node context' node abstractions' dummy_pos
   in
-
-  Format.printf
-    "@[<v 3>Node before return:@ %a@]@."
-    (N.pp_print_node true) node' ;
 
   (* Simplify by substituting variables that are aliases *)
   (* N.solve_eqs_node_calls node' *)
