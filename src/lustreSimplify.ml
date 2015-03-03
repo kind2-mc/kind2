@@ -1832,7 +1832,7 @@ and eval_node_call
       N.outputs = node_outputs; 
       N.observers = node_observers;
       N.contract_spec = node_contract_spec;
-      N.props = node_props } = 
+      N.props = node_props } =
 
     try 
 
@@ -1854,12 +1854,17 @@ and eval_node_call
   in
 
   debug lustreSimplify
-      "@[<hv>Node call at %a:@ properties @[<hv>%a@]@ observers @[<hv>%a@]@]"
+      "@[<hv>Node call at %a:@ \
+       properties @[<hv>%a@]@ \
+       observers @[<hv>%a@]@ \
+       contract observers @[<hv>%a@]@]"
       pp_print_position pos
       (pp_print_list StateVar.pp_print_state_var ",@ ")
       (List.map fst node_props)
       (pp_print_list StateVar.pp_print_state_var ",@ ")
       node_observers
+      (pp_print_list StateVar.pp_print_state_var ",@ ")
+      contract_observers
   in
 
 
@@ -2036,26 +2041,12 @@ and eval_node_call
            in
            E.set_state_var_instance sv pos ident node_sv;
            sv)
-        ( node_observers
-          |> List.filter
-               ( fun sv ->
-                 contract_observers
-                 |> List.exists (fun sv' -> sv = sv')
-                 |> not) )
-    in
-
-    (* Fresh (local) state variables for contract observer of called
-       node. *)
-    let contract_local_state_vars =
-      contract_observers
-      |> List.map
-           ( fun node_sv ->
-             let sv =
-               mk_new_state_var
-                 false (StateVar.type_of_state_var node_sv)
-             in
-             E.set_state_var_instance sv pos ident node_sv ;
-             sv, E.mk_var node_sv E.base_clock)
+        ( node_observers )
+          (* |> List.filter *)
+          (*      ( fun sv -> *)
+          (*        contract_observers *)
+          (*        |> List.exists (fun sv' -> sv = sv') *)
+          (*        |> not) ) *)
     in
 
     let result', output_vars = 
@@ -2080,9 +2071,6 @@ and eval_node_call
       { abstractions' 
         with new_calls = { N.call_returns = List.rev output_vars;
                            N.call_observers = observer_state_vars;
-                           N.call_contract_observers =
-                             (contract_local_state_vars
-                              |> List.map fst);
                            N.call_clock = cond_state_var;
                            N.call_node_name = ident;
                            N.call_pos = pos;
@@ -2090,8 +2078,7 @@ and eval_node_call
                              node_input_state_vars @ oracle_state_vars;
                            N.call_defaults = List.map snd defaults } 
                          :: abstractions'.new_calls;
-             new_vars = abstractions'.new_vars
-                        @ contract_local_state_vars;
+             new_vars = abstractions'.new_vars;
              new_oracles = abstractions'.new_oracles
                            @ oracle_state_vars;
              new_observers = abstractions'.new_observers
@@ -3288,7 +3275,7 @@ let rec property_to_node
     (* Add property to node *)
     (context', 
      { node' with 
-         N.props = (state_var, source) :: node'.N.props; 
+         N.props = (state_var, source) :: node'.N.props;
          N.observers = node_observers';
          N.locals = node_locals' },
      abstractions')
@@ -3358,12 +3345,12 @@ and contract_spec_to_node
   in
 
   (* Requirement is an assertion of the node. *)
-  let context, node, abstraction =
-    assertion_to_node
-      context node abstractions
-      pos
-      req
-  in
+  (* let context, node, abstraction = *)
+  (*   assertion_to_node *)
+  (*     context node abstractions *)
+  (*     pos *)
+  (*     req *)
+  (* in *)
 
   (* Building lustre node requirement. *)
   let req = req_svar, req in
@@ -3393,7 +3380,11 @@ and contract_spec_to_node
     loop modes
   in
 
-  let modes' = modes |> List.map (fun (sv,m,_) -> (sv,m)) in
+  let modes' =
+    modes
+    |> List.map
+         (fun (sv,m,_) -> (sv,m))
+  in
 
   (* Add declaration of every state variable to observers if not
        already an output *)
@@ -3471,7 +3462,7 @@ and contract_spec_to_node
    { node with
      N.contract_spec = Some contract_spec ;
      N.observers = node_observers ;
-     N.locals = node_locals ; },
+     N.locals = node_locals ;},
    abstractions)
 
 
@@ -3659,7 +3650,6 @@ let abstractions_to_context_and_node
       (fun 
         accum
         ({ N.call_returns = outputs;
-           N.call_contract_observers = contract_outputs;
            N.call_node_name = node_call_ident } as call) ->
 
          let context', node', abstractions' = 
@@ -4303,7 +4293,7 @@ let parse_node
   (* Parse equations and assertions, add to node context, local
      context is not modified *)
   let abstractions', context', node = 
-    parse_node_equations 
+    parse_node_equations
       local_context 
       abstractions
       node 

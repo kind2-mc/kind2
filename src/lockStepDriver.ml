@@ -163,6 +163,7 @@ let step_setup (solver, sys, actlit) =
   TransSys.declare_vars_of_bounds
     sys
     (SMTSolver.declare_fun solver)
+    (SMTSolver.define_fun solver)
     Numeral.one Numeral.one ;
   
   (* Conditionally asserting transition predicate at [1]. *)
@@ -187,7 +188,11 @@ let unroll_solver solver sys actlit k =
 
   (* Declaring unrolled vars at [k+1]. *)
   TransSys.declare_vars_of_bounds
-    sys (SMTSolver.declare_fun solver) k k ;
+    sys
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.define_fun solver)
+    k
+    k ;
 
   (* Conditionally asserting transition predicate at [k]. *)
   Term.mk_implies

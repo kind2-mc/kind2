@@ -76,9 +76,6 @@ type node_call =
     (* Variables capturing the outputs *)
     call_observers : StateVar.t list;
 
-    (* Variables capturing the contract observer streams. *)
-    call_contract_observers: StateVar.t list;
-
     (* Boolean activation condition *)
     call_clock : StateVar.t option;
 
@@ -265,7 +262,6 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_returns = out_vars; 
-      call_contract_observers = contract_out_vars;
       call_observers = observer_vars; 
       call_clock = None; 
       call_node_name = node; 
@@ -276,13 +272,12 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (out_vars @ contract_out_vars @ observer_vars)
+      (out_vars @ observer_vars)
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
 
   (* Node call not on the base clock is a condact *)
   |  { call_returns = out_vars;
-       call_contract_observers = contract_out_vars;
        call_observers = observer_vars; 
        call_clock = Some act_var;
        call_node_name = node; 
@@ -294,7 +289,7 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (out_vars @ contract_out_vars @ observer_vars)
+      (out_vars @ observer_vars)
       (E.pp_print_lustre_var safe) act_var
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars

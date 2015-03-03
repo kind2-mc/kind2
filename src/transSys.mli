@@ -111,7 +111,7 @@ val mk_trans_sys :
   (string * TermLib.prop_source * Term.t) list ->
   (** Properties. *)
 
-  (StateVar.t * contract list) option ->
+  (StateVar.t * StateVar.t * contract list) option ->
   (** Contracts. *)
 
   source ->
@@ -232,6 +232,7 @@ val vars_of_bounds :
     offsets. *)
 val declare_vars_of_bounds :
   t -> (UfSymbol.t -> unit) ->
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
   Numeral.t -> Numeral.t -> unit
 
 (** The init flag of a transition system, as a [Var]. *)
@@ -310,7 +311,7 @@ val get_prop_source : t -> string -> TermLib.prop_source option
 val set_prop_status : t -> string -> prop_status -> unit
 
 (** Mark property as invariant *)
-val set_prop_invariant : t -> string -> unit 
+val set_prop_invariant : t -> string -> Term.t list
 
 (** Mark property as false *)
 val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 

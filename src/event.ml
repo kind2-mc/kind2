@@ -1329,8 +1329,15 @@ let update_trans_sys_sub trans_sys events =
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
           
-      (* Change property status in transition system *)
-      TransSys.set_prop_invariant trans_sys p;
+      (* Change property status in transition system, possibly getting
+         new invariants (in the case of a requirement for instance). *)
+      let invars' =
+        TransSys.set_prop_invariant trans_sys p
+      in
+
+      invars'
+      |> List.iter (fun inv ->
+                    TransSys.add_invariant trans_sys inv) ;
 
       (try 
 
@@ -1339,15 +1346,24 @@ let update_trans_sys_sub trans_sys events =
           trans_sys
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
 
-       (* Skip if named property not found *)
-       with Not_found -> ());
+          (* Skip if named property not found *)
+        with Not_found -> ());
+
+      (* Injecting invariant event. *)
+      let tl' =
+        let scope = TransSys.get_scope trans_sys in
+        invars'
+        |> List.fold_left
+             ( fun tail inv -> (m, Invariant(scope, inv)) :: tail)
+             tl
+      in
 
       (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys 
         invars
         ((m, (p, s)) :: prop_status)
-        tl
+        tl'
 
     (* Property found false *)
     | (m, PropStatus (p, (TransSys.PropFalse cex as s))) :: tl -> 

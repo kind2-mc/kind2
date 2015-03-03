@@ -360,8 +360,6 @@ let rec definitions_of_node_calls
     (* Node call with or without activation condition *)
     | { N.call_returns = output_vars;
         N.call_observers = observer_vars;
-        N.call_contract_observers =
-          contract_observer_vars;
         N.call_clock = act_cond;
         N.call_node_name = node_name;
         N.call_inputs = input_vars;
@@ -376,12 +374,12 @@ let rec definitions_of_node_calls
       let 
 
         (* Get additional information about called node *)
-        { trans_sys;
-          inputs; 
-          outputs;
-          locals;
-          props;
-          contract} = 
+        { trans_sys ;
+          inputs ;
+          outputs ;
+          locals ;
+          props ;
+          contract } = 
 
         (* Find called node by name *)
         try 
@@ -509,43 +507,16 @@ let rec definitions_of_node_calls
           observer_vars
       in
 
-      (* Variables observing contracts in called nodes in the initial
-         state. *)
-      let contract_terms_init =
-        List.map
-          (E.base_term_of_state_var TransSys.init_base)
-          contract_observer_vars
-      in
-
-      (* Variables observing contracts in called nodes in the current
-         state. *)
-      let contract_terms_trans =
-        List.map
-          (E.cur_term_of_state_var TransSys.trans_base)
-          contract_observer_vars
-      in
-
-      (* Variables observing contracts in called nodes in the
-         previous state *)
-      let contract_terms_trans_pre =
-        List.map
-          (E.pre_term_of_state_var TransSys.trans_base)
-          contract_observer_vars
-      in
-
       debug lustreTransSys
           "@[<v>\
            outputs:@,@[<hv>%a@]@,\
            output_vars:@,@[<hv>%a@]@,\
-           contract_observer_vars:@,@[<hv>%a@]@,\
            observer_vars:@,@[<hv>%a@]\
            @]"
           (pp_print_list StateVar.pp_print_state_var ",@ ")
           outputs
           (pp_print_list StateVar.pp_print_state_var ",@ ")
           output_vars
-          (pp_print_list StateVar.pp_print_state_var ",@ ")
-          contract_observer_vars
           (pp_print_list StateVar.pp_print_state_var ",@ ")
           observer_vars
       in
@@ -562,7 +533,6 @@ let rec definitions_of_node_calls
                []
                outputs
                (output_vars
-                @ contract_observer_vars
                 @ observer_vars) )
       in
 
@@ -676,16 +646,19 @@ let rec definitions_of_node_calls
           match contract with
           | None -> []
           | Some(req, enss) ->
-              [ (lift_prop_name
-                   node_name pos "requirement",
-                 TermLib.Requirement
-                   (pos, I.scope_of_ident node_name, enss),
-                 LustreExpr.lift_term
-                   pos
-                   node_name
-                   (Var.mk_state_var_instance
-                      req Numeral.zero
-                    |> Term.mk_var)) ]
+             let sv =
+               LustreExpr.lift_term
+                 pos
+                 node_name
+                 (Var.mk_state_var_instance
+                    req Numeral.zero
+                  |> Term.mk_var)
+             in
+             [ (lift_prop_name
+                  node_name pos "requirement",
+                TermLib.Requirement
+                  (pos, I.scope_of_ident node_name, enss),
+                sv) ]
         in
 
         (* Lift properties in subnode to properties of calling node *)
@@ -795,9 +768,6 @@ let rec definitions_of_node_calls
                 output_terms_init @ 
 
                 (* Current state output variables *)
-                contract_terms_init @ 
-
-                (* Current state output variables *)
                 observer_terms_init @ 
 
                 (* Current state local variables *)
@@ -817,9 +787,6 @@ let rec definitions_of_node_calls
                 output_terms_trans @ 
 
                 (* Current state output variables *)
-                contract_terms_trans @ 
-
-                (* Current state output variables *)
                 observer_terms_trans @ 
 
                 (* Current state local variables *)
@@ -833,9 +800,6 @@ let rec definitions_of_node_calls
 
                 (* Previous state output variables *)
                 output_terms_trans_pre @
-
-                (* Previous state output variables *)
-                contract_terms_trans_pre @
 
                 (* Previous state output variables *)
                 observer_terms_trans_pre @
@@ -1057,9 +1021,6 @@ let rec definitions_of_node_calls
               output_terms_init @ 
 
               (* Current state output variables *)
-              contract_terms_init @ 
-
-              (* Current state output variables *)
               observer_terms_init @ 
 
               (* Current state local variables *)
@@ -1079,9 +1040,6 @@ let rec definitions_of_node_calls
 
               (* Current state output variables *)
               output_terms_trans @ 
-
-              (* Current state output variables *)
-              contract_terms_trans @ 
 
               (* Current state output variables *)
               observer_terms_trans @ 
@@ -1114,9 +1072,6 @@ let rec definitions_of_node_calls
               output_terms_trans @ 
 
               (* Current state output variables *)
-              contract_terms_trans @ 
-
-              (* Current state output variables *)
               observer_terms_trans @ 
 
               (* Current state local variables *)
@@ -1131,9 +1086,6 @@ let rec definitions_of_node_calls
 
               (* Previous state output variables *)
               output_terms_trans_pre @
-
-              (* Previous state output variables *)
-              contract_terms_trans_pre @
 
               (* Previous state output variables *)
               observer_terms_trans_pre @
@@ -1453,14 +1405,13 @@ let rec trans_sys_of_nodes' nodes node_defs = function
        N.asserts = node_asserts; 
        N.props = node_props;  } as node) :: tl ->
 
-     let node_contract_outputs, contract =
+     let contract =
        match node_contract_spec with
-       | None -> [], None
+       | None -> None
        | Some (req,modes,_,_) ->
           let req, modes =
             fst req, (modes |> List.map fst)
           in
-          req :: modes,
           Some (req, modes)
      in
 
@@ -1483,9 +1434,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       || (List.exists
             (StateVar.equal_state_vars sv) 
             node_oracles)
-      || (List.exists
-            (StateVar.equal_state_vars sv) 
-            node_contract_outputs)
       || (List.exists
             (StateVar.equal_state_vars sv) 
             node_observers)
@@ -2151,9 +2099,10 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let contract_spec =
       match node_contract_spec, abstract_svar_opt with
       | None, None -> None
-      | Some (_,_, global, modes), Some abstract_svar ->
+      | Some (req,_, global, modes), Some abstract_svar ->
          Some
            ( abstract_svar,
+             fst req,
              ( match global with
                | None -> []
                | Some { N.name; N.pos; N.svar } ->
@@ -2175,10 +2124,10 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let trans_sys = 
       TransSys.mk_trans_sys 
         (I.scope_of_ident node_name)
-        (inputs
+        ([ init_flag_svar ]
+         @ inputs
          @ oracles
          @ outputs
-         @ node_contract_outputs
          @ observers
          @ locals)
         pred_def_init

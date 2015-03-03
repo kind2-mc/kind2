@@ -464,7 +464,11 @@ let rec next trans solver k unfalsifiables unknowns =
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
-       trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
+       trans
+       (SMTSolver.declare_fun solver)
+       (SMTSolver.define_fun solver)
+       k_p_1
+       k_p_1 ;
 
      (* Asserting transition relation. *)
      (* TransSys.trans_fun_of trans k k_p_1 *)

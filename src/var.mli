@@ -135,6 +135,13 @@ val declare_constant_vars : (UfSymbol.t -> unit) -> t list -> unit
     provided function. *)
 val declare_vars : (UfSymbol.t -> unit) -> t list -> unit
 
+(** Defines non constant variables as constant ufsymbols using the
+    provided function. *)
+val define_vars :
+  (UfSymbol.t -> 'a list -> 'b -> unit) ->
+  (t * 'b) list ->
+  unit
+
 
 (* 
    Local Variables:

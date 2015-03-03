@@ -56,9 +56,6 @@ type node_call =
     (** Variables capturing the observer streams *)
     call_observers : StateVar.t list;
 
-    (** Variables capturing the contract observer streams. *)
-    call_contract_observers: StateVar.t list;
-
     (** Boolean activation condition *)
     call_clock : StateVar.t option;
 
