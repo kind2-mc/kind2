@@ -488,7 +488,7 @@ module CandidateTermGen = struct
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
-                          system term
+                          trans_sys system term
                           |> (function | (top,others) -> top :: others)
                           |> List.fold_left
                               ( fun map (sys,terms) ->

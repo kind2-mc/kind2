@@ -584,7 +584,7 @@ module Make (InModule : In) : Out = struct
            (* Guarding with init if needed. *)
            |> sanitize_term sys
            (* Instantiating at all levels. *)
-           |> TransSys.instantiate_term_all_levels sys
+           |> TransSys.instantiate_term_all_levels top_sys sys
        in
 
        intermediary_invariants

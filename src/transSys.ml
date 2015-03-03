@@ -224,203 +224,6 @@ let add_caller callee caller c =
 
   callee.callers <- add_caller' [] callee.callers
 
-(* Instantiates some terms from a subsystem to a system calling
-   it. System [subsys] is the subsystem [terms] comes from, [sys] is
-   the system [terms] will be instantiated to. *)
-let instantiate_terms_for_sys { callers } terms sys =
-  try
-    (* Looking for [sys] in the callers. *)
-    List.assq sys callers
-    (* Iterating on the list of maps and lift functions. *)
-    |> List.map
-         (fun (map, lift_fun) ->
-          terms
-          (* Applying lift function. *)
-          |> List.map
-               (fun t ->
-                (* Substituting variables. *)
-                Term.substitute_variables map t
-                (* Applying lift function. *)
-                |> lift_fun))
-  with
-  | Not_found -> []
-
-
-(* Instantiates a term for all systems instantiating the input
-   system. *)
-let instantiate_term { callers } term =
-
-  callers
-  |> List.map
-       ( fun (sys, maps) ->
-
-         (* let print_map = *)
-         (*   (\* Turns a map from state vars to terms into a string. *\) *)
-         (*   let string_of_map map = *)
-         (*     map *)
-         (*     |> List.map *)
-         (*          ( fun (v,t) -> *)
-         (*            Printf.sprintf "(%s -> %s)" *)
-         (*                           (StateVar.string_of_state_var v) *)
-         (*                           (StateVar.string_of_state_var t) ) *)
-         (*     |> String.concat ", " *)
-         (*   in *)
-           
-         (*   List.map *)
-         (*     (fun map -> *)
-         (*      Printf.printf "  Mapping to [%s]:\n" *)
-         (*                    (String.concat "/" sys.scope) ; *)
-         (*      Printf.printf "  > %s\n\n" (string_of_map map) ) *)
-         (* in *)
-         
-         (* Building one new term per instantiation mapping for
-            sys. *)
-         let terms =
-           maps
-           |> List.map
-               (* For each map of this over-system, substitute the
-                  variables of term according to map. *)
-               ( fun (map,f) ->
-                 Term.substitute_variables map term |> f )
-         in
-
-         sys, terms )
-
-(* Inserts a system / terms pair in an associative list from systems
-   to terms.  Updates the biding by the old terms and the new ones if
-   it's already there, adds a new biding otherwise. *)
-let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
-
-  let rec loop prefix = function
-      
-    | (sys',terms') :: tail when sys == sys' ->
-       (* Updating the binding and returning. *)
-       List.rev_append
-         prefix
-         ( (sys, List.rev_append terms terms') :: tail )
-
-    (* Looping. *)
-    | head :: tail -> loop (head :: prefix) tail
-
-    (* 'sys' was not there, adding the biding. *)
-    | [] -> pair :: assoc_list
-  in
-
-  loop [] assoc_list
-
-
-(* Returns true iff the input system has no parent systems. *)
-let is_top { callers } = callers = []
-
-
-(* Instantiates a term for the top system by going up the system
-   hierarchy, for all instantiations of the input system. Returns the
-   top system and the corresponding terms, paired with the
-   intermediary systems and terms. Note that the input system term of
-   the function will be in the result, either as intermediary or top
-   level. *)
-let instantiate_term_all_levels t term =
-
-  let rec loop at_top intermediary = function
-    | (sys, (term :: term_tail)) :: tail ->
-
-      debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
-
-       (* Instantiating this term upward. *)
-       let at_top', intermediary', recursive' =
-         instantiate_term sys term
-         |> List.fold_left
-              ( fun (at_top'', intermediary'', recursive'')
-                    ((sys',_) as pair) ->
-
-                debug transSys
-                      "[loop] inst sys: %s"
-                      (sys'.scope |> String.concat "/") in
-
-                if is_top sys' then
-                  (* Top system, no need to recurse on these terms. *)
-                  insert_in_sys_term_map at_top'' pair,
-                  intermediary'',
-                  recursive''
-                else
-                  (* Not the top system, need to memorize the terms
-                     for the result and for recursion. *)
-                  at_top'',
-                  insert_in_sys_term_map intermediary'' pair,
-                  insert_in_sys_term_map recursive'' pair )
-
-              (at_top, intermediary, ((sys,term_tail) :: tail))
-       in
-
-       (* Making sure there at most one top system. *)
-       assert (List.length at_top' <= 1) ;
-
-       loop at_top' intermediary' recursive'
-
-    (* No more terms for this system, looping. *)
-    | (sys, []) :: tail -> loop at_top intermediary tail
-
-    (* No more terms to instantiate. *)
-    | [] ->
-       ( match at_top with
-         (* There should be exactly one top level system. *)
-         | head :: [] ->
-            (head, intermediary)
-         | _ ->
-            assert false )
-  in
-
-
-  if is_top t
-  then (
-    debug transSys "Instantiate: system is already top." in
-    (* If the system is already the top one, there is no instantiating
-       to do. *)
-    (t, [term]), []
-  ) else (
-    debug transSys "Instantiate: system is not top." in
-    loop [] [t, [term]] [t, [term]]
-)
-
-
-(* Instantiates a term for the top system by going up the system
-   hierarchy, for all instantiations of the input system. *)
-let instantiate_term_top t term =
-
-  let rec loop at_top = function
-      
-    | (sys, ((term :: term_tail) as list)) :: tail ->
-       
-       (* Instantiating this term upward. *)
-       ( match instantiate_term sys term with
-           
-         | [] ->
-            (* Nothing, so sys is the top node. *)
-            loop (List.rev_append list at_top)
-                 tail
-
-         | list' ->
-            (* Sys is not the top node. *)
-            loop at_top
-                 (List.rev_append
-                    (* Looping on the new (sys,terms) pairs... *)
-                    list'
-                    (* ...and the (sys,terms) pairs we haven't looked
-                       at yet. *)
-                    ((sys, term_tail)
-                     :: tail)) )
-         
-    | (sys, []) :: tail -> loop at_top tail
-                                
-    | [] ->
-       ( match at_top with
-         (* If at_top is empty, 't' is already the top system. *)
-         | [] -> [term]
-         | list -> list )
-  in
-
-  loop [] (instantiate_term t term)
-
 (* Number of times this system is instantiated in other systems. *)
 let instantiation_count { callers } =
   callers
@@ -1747,6 +1550,239 @@ let exists_eval_on_path uf_defs pred term path =
   Model.exists_on_path
     (fun model -> pred (Eval.eval_term uf_defs model term))
     path
+
+(* Instantiates some terms from a subsystem to a system calling
+   it. System [subsys] is the subsystem [terms] comes from, [sys] is
+   the system [terms] will be instantiated to. *)
+let instantiate_terms_for_sys { callers } terms sys =
+  try
+    (* Looking for [sys] in the callers. *)
+    List.assq sys callers
+    (* Iterating on the list of maps and lift functions. *)
+    |> List.map
+         (fun (map, lift_fun) ->
+          terms
+          (* Applying lift function. *)
+          |> List.map
+               (fun t ->
+                (* Substituting variables. *)
+                Term.substitute_variables map t
+                (* Applying lift function. *)
+                |> lift_fun))
+  with
+  | Not_found -> []
+
+
+(* Instantiates a term for all systems instantiating the input
+   system. *)
+let instantiate_term top { callers } term =
+
+  let legal_systems = get_all_subsystems top in
+
+  Format.printf "[%d] Legal subsystems: %a@."
+                (List.length callers)
+                (pp_print_list pp_print_trans_sys_name ", ")
+                legal_systems ;
+
+  callers
+  |> List.fold_left
+       ( fun list (sys, maps) ->
+
+         (* let print_map = *)
+         (*   (\* Turns a map from state vars to terms into a string. *\) *)
+         (*   let string_of_map map = *)
+         (*     map *)
+         (*     |> List.map *)
+         (*          ( fun (v,t) -> *)
+         (*            Printf.sprintf "(%s -> %s)" *)
+         (*                           (StateVar.string_of_state_var v) *)
+         (*                           (StateVar.string_of_state_var t) ) *)
+         (*     |> String.concat ", " *)
+         (*   in *)
+           
+         (*   List.map *)
+         (*     (fun map -> *)
+         (*      Printf.printf "  Mapping to [%s]:\n" *)
+         (*                    (String.concat "/" sys.scope) ; *)
+         (*      Printf.printf "  > %s\n\n" (string_of_map map) ) *)
+         (* in *)
+
+         Format.printf "Looking at %a@." pp_print_trans_sys_name sys ;
+
+         (* Only lift to legal systems. *)
+         if List.memq sys legal_systems then
+           
+           (* Building one new term per instantiation mapping for
+            sys. *)
+           let terms =
+             maps
+             |> List.map
+                  (* For each map of this over-system, substitute the
+                  variables of term according to map. *)
+                  ( fun (map,f) ->
+                    Term.substitute_variables map term |> f )
+           in
+
+           (sys, terms) :: list
+
+         else list )
+       []
+
+(* Inserts a system / terms pair in an associative list from systems
+   to terms.  Updates the biding by the old terms and the new ones if
+   it's already there, adds a new biding otherwise. *)
+let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
+
+  let rec loop prefix = function
+      
+    | (sys',terms') :: tail when sys == sys' ->
+       (* Updating the binding and returning. *)
+       List.rev_append
+         prefix
+         ( (sys, List.rev_append terms terms') :: tail )
+
+    (* Looping. *)
+    | head :: tail -> loop (head :: prefix) tail
+
+    (* 'sys' was not there, adding the biding. *)
+    | [] -> pair :: assoc_list
+  in
+
+  loop [] assoc_list
+
+
+(* Returns true iff the input system has no parent systems. *)
+let is_top { callers } = callers = []
+
+
+(* Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. Returns the
+   top system and the corresponding terms, paired with the
+   intermediary systems and terms. Note that the input system term of
+   the function will be in the result, either as intermediary or top
+   level. *)
+let instantiate_term_all_levels top_t t term =
+
+  Format.printf
+    "instantiate %s (%s)@."
+    (String.concat "." t.scope)
+    (String.concat "." top_t.scope) ;
+
+  Format.printf
+    "subsystems of %a: %a@."
+    pp_print_trans_sys_name top_t
+    (pp_print_list pp_print_trans_sys_name ", ")
+    (get_all_subsystems top_t) ;
+
+  let is_top sys = sys == top_t || is_top sys in
+
+  let rec loop at_top intermediary = function
+    | (sys, (term :: term_tail)) :: tail ->
+
+      debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
+
+       (* Instantiating this term upward. *)
+       let at_top', intermediary', recursive' =
+         instantiate_term top_t sys term
+         |> List.fold_left
+              ( fun (at_top'', intermediary'', recursive'')
+                    ((sys',_) as pair) ->
+
+                debug transSys
+                      "[loop] inst sys: %s"
+                      (sys'.scope |> String.concat "/") in
+
+                Format.printf "System %a@."
+                              pp_print_trans_sys_name sys' ;
+
+                if is_top sys' then (
+                  Format.printf "Is top.@." ;
+                  (* Top system, no need to recurse on these terms. *)
+                  insert_in_sys_term_map at_top'' pair,
+                  intermediary'',
+                  recursive''
+                ) else (
+                  Format.printf "Is not top.@." ;
+                  (* Not the top system, need to memorize the terms
+                     for the result and for recursion. *)
+                  at_top'',
+                  insert_in_sys_term_map intermediary'' pair,
+                  insert_in_sys_term_map recursive'' pair ))
+
+              (at_top, intermediary, ((sys,term_tail) :: tail))
+       in
+
+       (* Making sure there at most one top system. *)
+       assert (List.length at_top' <= 1) ;
+
+       loop at_top' intermediary' recursive'
+
+    (* No more terms for this system, looping. *)
+    | (sys, []) :: tail -> loop at_top intermediary tail
+
+    (* No more terms to instantiate. *)
+    | [] ->
+       ( match at_top with
+         (* There should be exactly one top level system. *)
+         | head :: [] ->
+            (head, intermediary)
+         | _ ->
+            Format.printf
+              "|===| %a@."
+              (pp_print_list pp_print_trans_sys_name ", ")
+              (List.map fst at_top) ;
+            assert false )
+  in
+
+
+  if is_top t
+  then (
+    debug transSys "Instantiate: system is already top." in
+    (* If the system is already the top one, there is no instantiating
+       to do. *)
+    (t, [term]), []
+  ) else (
+    debug transSys "Instantiate: system is not top." in
+    loop [] [t, [term]] [t, [term]]
+)
+
+
+(* Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. *)
+let instantiate_term_top top_t t term =
+
+  let rec loop at_top = function
+      
+    | (sys, ((term :: term_tail) as list)) :: tail ->
+       
+       (* Instantiating this term upward. *)
+       ( match instantiate_term top_t sys term with
+           
+         | [] ->
+            (* Nothing, so sys is the top node. *)
+            loop (List.rev_append list at_top) tail
+
+         | list' ->
+            (* Sys is not the top node. *)
+            loop at_top
+                 (List.rev_append
+                    (* Looping on the new (sys,terms) pairs... *)
+                    list'
+                    (* ...and the (sys,terms) pairs we haven't looked
+                       at yet. *)
+                    ((sys, term_tail)
+                     :: tail)) )
+         
+    | (sys, []) :: tail -> loop at_top tail
+                                
+    | [] ->
+       ( match at_top with
+         (* If at_top is empty, 't' is already the top system. *)
+         | [] -> [term]
+         | list -> list )
+  in
+
+  loop [] (instantiate_term top_t t term)
 
 
 (* 

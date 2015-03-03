@@ -139,10 +139,6 @@ val pp_print_trans_sys_contract_view : Format.formatter -> t -> unit
 
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> Term.logic
-                       
-(** Instantiates a term for all (over)systems instantiating, possibly
-    more than once, the input system. *)
-val instantiate_term: t -> Term.t -> (t * Term.t list) list
                                                        
 (** Instantiates a term for the top system by going up the system
    hierarchy, for all instantiations of the input system. Returns the
@@ -151,11 +147,11 @@ val instantiate_term: t -> Term.t -> (t * Term.t list) list
    input system/term of the function will be in the result, either as
    intermediary or top level. *)
 val instantiate_term_all_levels:
-  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+  t -> t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
 (** Instantiates a term for the top system by going up the system
     hierarchy, for all instantiations of the input system. *)
-val instantiate_term_top: t -> Term.t -> Term.t list
+val instantiate_term_top: t -> t -> Term.t -> Term.t list
 
 (** Number of times this system is instantiated in other systems. *)
 val instantiation_count: t -> int
