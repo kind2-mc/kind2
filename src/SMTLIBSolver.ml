@@ -19,13 +19,7 @@
 open Lib
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel*)
-module Event = 
-struct
-  let get_module () = `Parser
-  let log _ = Format.printf
-end
-  
+
 (* ********************************************************************* *)
 (* Types                                                                 *)
 (* ********************************************************************* *)
