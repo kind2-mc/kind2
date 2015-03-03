@@ -709,25 +709,25 @@ let mk_trans_sys
       subsystems props contracts_option
       source =
 
-  Format.printf
-    "@[<v 3>State variables for %s:@ %a@]@."
-    (String.concat "." scope)
-    (pp_print_list StateVar.pp_print_state_var "@ ") state_vars ;
+  (* Format.printf *)
+  (*   "@[<v 3>State variables for %s:@ %a@]@." *)
+  (*   (String.concat "." scope) *)
+  (*   (pp_print_list StateVar.pp_print_state_var "@ ") state_vars ; *)
 
-  ( match contracts_option with
-    | Some (_, _, contracts) ->
-       Format.printf
-         "Contracts:@." ;
-       contracts
-       |> List.iter
-            (fun c ->
-             let pos,svar,name = info_of_contract c in
-             Format.printf
-               "   %s (%a): %a@."
-               name
-               pp_print_position pos
-               StateVar.pp_print_state_var svar)
-    | None -> () ) ;
+  (* ( match contracts_option with *)
+  (*   | Some (_, _, contracts) -> *)
+  (*      Format.printf *)
+  (*        "Contracts:@." ; *)
+  (*      contracts *)
+  (*      |> List.iter *)
+  (*           (fun c -> *)
+  (*            let pos,svar,name = info_of_contract c in *)
+  (*            Format.printf *)
+  (*              "   %s (%a): %a@." *)
+  (*              name *)
+  (*              pp_print_position pos *)
+  (*              StateVar.pp_print_state_var svar) *)
+  (*   | None -> () ) ; *)
 
   (* Goes through the subsystems and constructs the list of
      uf_defs. *)
@@ -760,10 +760,6 @@ let mk_trans_sys
             prop_term = t; 
             prop_status = PropUnknown })
   in
-
-  Format.printf
-    "@[<v 3>Properties:@ %a@]@."
-    (pp_print_list pp_print_property "@ ") properties ;
 
   (* let contract_prop name = *)
   (*   try *)
