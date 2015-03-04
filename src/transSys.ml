@@ -709,6 +709,7 @@ let declare_vars_of_bounds'
 let declare_vars_of_bounds t declare assert_term lbound ubound =
   declare_vars_of_bounds' [] t declare lbound ubound ;
 
+  (* Force top level contract requirement. *)
   match t.contracts with
     | Some (_,req,_) ->
        vars_of_bounds' [req] lbound ubound []
