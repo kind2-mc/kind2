@@ -664,7 +664,9 @@ let rec definitions_of_node_calls
         |> List.fold_left
              (fun properties ->
               function
-              | (_, TermLib.Contract(_,_), _) -> properties
+              (* Do not lift or requirements. *)
+              | (_, TermLib.Contract _, _)
+              | (_, TermLib.Requirement _, _)-> properties
               | (n, s, t) -> 
                  (lift_prop_name
                     node_name pos n,
