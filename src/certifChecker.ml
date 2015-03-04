@@ -592,12 +592,12 @@ let rec find_bound_dicho sys solver kmax invs prop =
   loop_dicho (-1, Not_inductive) 1 kmax
 
 
-
-let simplify_certificate sys =
+(* Minimization of certificate: returns the minimum bound for k-induction and a
+   list of useful invariants for this preservation step *)
+let minimize_certificate sys =
   printf "Certificate minimization@.";
 
-  Event.set_module `Certif;
-  
+  (* Extract certificates of top level system *)
   let props, certs = extract_props_certs sys in
   let certs = Certificate.split_certs certs in
   let k, invs = List.fold_left (fun (m, invs) (k, i) ->
@@ -607,18 +607,21 @@ let simplify_certificate sys =
       then invs
       else i :: invs) (0, []) certs in
 
+  (* For stats *)
   let k_orig, nb_invs = k, List.length invs in
   
   (debug certif "Trying to simplify up to k = %d\ninvs = %a\n@."
     k_orig Term.pp_print_term (Term.mk_and invs) in ());
   
   
-  (* Creating solver. *)
+  (* Creating solver that will be used to replay and minimize inductive step *)
   let solver =
     SMTSolver.create_instance ~produce_cores:true
       (TransSys.get_logic sys) (Flags.smtsolver ())
   in
 
+  (* Helper function to declare a symbol and the associated constraints if
+     needed *)
   let decl_w_constr f =
     SMTSolver.declare_fun solver f;
     match SMTSolver.kind solver with
@@ -640,8 +643,12 @@ let simplify_certificate sys =
     decl_w_constr
     Numeral.(~- one) (Numeral.of_int (k+1));
 
+  (* The property we want to re-verify the conjunction of all the properties *)
   let prop = Term.mk_and props in
 
+  (* Depending on the minimizxation strategy, we use different variants to find
+     the minimum bound kmin, and the set of useful invariants for the proof of
+     prop *)
   let kmin, uinvs = match Flags.certif_min () with
     | `Fwd -> find_bound sys solver 1 k invs prop
     | `Bwd -> find_bound_back sys solver k invs prop
@@ -649,6 +656,8 @@ let simplify_certificate sys =
     | `No -> assert false
   in
 
+  (* We are done with this step of minimization and we don't neet the solver
+     anylonger *)
   SMTSolver.delete_instance solver;
   
   (debug certif "Simplification found for k = %d\ninv = %a\n@."
@@ -657,6 +666,7 @@ let simplify_certificate sys =
   printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
     (List.length uinvs) nb_invs kmin k_orig;
 
+  (* Return minimum k found, and the useful invariants *)
   kmin, uinvs
   
 
@@ -748,6 +758,8 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
    default *)
 let generate_certificate sys =
 
+  Event.set_module `Certif;
+
   (* Time statistics *)
   Stat.start_timer Stat.certif_gen_time;
   
@@ -780,7 +792,7 @@ let generate_certificate sys =
     | `No -> k, phi
     | _ ->
       (* Simplify certificate *)
-      let k, uinvs = simplify_certificate sys in
+      let k, uinvs = minimize_certificate sys in
       k, Term.mk_and (prop :: uinvs)
     
   in
