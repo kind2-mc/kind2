@@ -211,14 +211,15 @@ let trans_term { trans = (_, (_, t)) } = t
 
 
 (* Add entry for new system instantiation to the transition system *)
-let add_caller callee caller c = 
+let add_caller callee caller c =
  
   (* Fold over the association list and add to the existing entry, or
      to the end *)
   let rec add_caller' accum = function
     | [] ->  (caller, [c]) :: accum
     | (caller', c') :: tl when 
-        caller'.scope = caller.scope -> (caller', (c :: c')) :: accum
+           caller'.scope = caller.scope ->
+       (caller', (c :: c')) :: accum @ tl
     | h :: tl -> add_caller' (h :: accum) tl 
   in
 
@@ -705,18 +706,15 @@ let declare_vars_of_bounds'
       Var.declare_vars declare vars)
 
 (* Declares variables of the transition system between two offsets. *)
-let declare_vars_of_bounds t declare define lbound ubound =
+let declare_vars_of_bounds t declare assert_term lbound ubound =
+  declare_vars_of_bounds' [] t declare lbound ubound ;
 
-  let req_svar = match t.contracts with
+  match t.contracts with
     | Some (_,req,_) ->
        vars_of_bounds' [req] lbound ubound []
        |> List.iter
-            ( fun var -> [ var, Term.t_true ]
-                         |> Var.define_vars define ) ;
-       [req]
-    | None -> []
-  in
-  declare_vars_of_bounds' req_svar t declare lbound ubound
+            ( fun var -> Term.mk_var var |> assert_term )
+    | None -> ()
 
 
 (* Instantiate the initial state constraint to the bound *)
@@ -1377,8 +1375,8 @@ let iter_uf_definitions t f =
 
 (* Defines abstraction literals for a transition system base on some
    abstraction. *)
-let define_abstraction_actlits
-      systems abstraction define =
+let constrain_abstraction_actlits
+      systems abstraction declare assert_term =
 
   let rec loop = function
 
@@ -1388,15 +1386,16 @@ let define_abstraction_actlits
 
     | { scope ; contracts = Some (actlit, req, _) } :: tail ->
        (* Value the actlit will be defined as. *)
-       let value =
-         if List.mem scope abstraction
-         then Term.t_true else Term.t_false
+       let term =
+         Var.mk_const_state_var actlit
+         |> Term.mk_var
+         |> (if List.mem scope abstraction
+             then identity else Term.mk_not)
        in
-       (* Defining [actlit]. *)
-       define
-         (StateVar.uf_symbol_of_state_var actlit)
-         []
-         value ;
+       (* Declaring [actlit]. *)
+       declare
+         (StateVar.uf_symbol_of_state_var actlit) ;
+       assert_term term ;
        (* Looping. *)
        loop tail
 
@@ -1416,6 +1415,7 @@ let init_solver
       comment
       define
       declare
+      assert_term
       (* Bounds for variable declaration. *)
       lbound
       ubound =
@@ -1429,14 +1429,15 @@ let init_solver
   (* All subsystems of [sys], including [sys]. *)
   let all_systems = get_all_subsystems sys in
   
-  comment "|===| Defining abstraction actlits for all systems." ;
+  comment "|===| Constraining abstraction actlits for all systems." ;
   Format.sprintf
     "|          abstracting [%s]"
     (sys.abstraction
      |> List.map (String.concat ".")
      |> String.concat ", ")
   |> comment ;
-  define_abstraction_actlits all_systems sys.abstraction define ;
+  constrain_abstraction_actlits
+    all_systems sys.abstraction declare assert_term ;
        
   let req_svar = match sys.contracts with
     | Some (_,req,_) -> [ req ]
@@ -1462,8 +1463,8 @@ let init_solver
 
          comment "Non-constant state variables." ;
 
-         (* Declaring other variables, except the requirement svar. *)
-         declare_vars_of_bounds' req_svar sys declare lbound ubound ) ;
+         (* Declaring state variables. *)
+         declare_vars_of_bounds' [] sys declare lbound ubound ) ;
 
   ( match req_svar with
     | [] -> ()
@@ -1471,8 +1472,7 @@ let init_solver
        comment "|===| Forcing contract requirement." ;
        vars_of_bounds' req_svar lbound ubound []
        |> List.iter
-            ( fun var -> [ var, Term.t_true ]
-                         |> Var.define_vars define ) ) ;
+            ( fun var -> var |> Term.mk_var |> assert_term ) );
   
   Format.asprintf
     "|===| Defining init and trans predicates."
@@ -1579,11 +1579,6 @@ let instantiate_term top { callers } term =
 
   let legal_systems = get_all_subsystems top in
 
-  Format.printf "[%d] Legal subsystems: %a@."
-                (List.length callers)
-                (pp_print_list pp_print_trans_sys_name ", ")
-                legal_systems ;
-
   callers
   |> List.fold_left
        ( fun list (sys, maps) ->
@@ -1606,8 +1601,6 @@ let instantiate_term top { callers } term =
          (*                    (String.concat "/" sys.scope) ; *)
          (*      Printf.printf "  > %s\n\n" (string_of_map map) ) *)
          (* in *)
-
-         Format.printf "Looking at %a@." pp_print_trans_sys_name sys ;
 
          (* Only lift to legal systems. *)
          if List.memq sys legal_systems then
@@ -1662,17 +1655,7 @@ let is_top { callers } = callers = []
    the function will be in the result, either as intermediary or top
    level. *)
 let instantiate_term_all_levels top_t t term =
-
-  Format.printf
-    "instantiate %s (%s)@."
-    (String.concat "." t.scope)
-    (String.concat "." top_t.scope) ;
-
-  Format.printf
-    "subsystems of %a: %a@."
-    pp_print_trans_sys_name top_t
-    (pp_print_list pp_print_trans_sys_name ", ")
-    (get_all_subsystems top_t) ;
+    
 
   let is_top sys = sys == top_t || is_top sys in
 
@@ -1692,22 +1675,17 @@ let instantiate_term_all_levels top_t t term =
                       "[loop] inst sys: %s"
                       (sys'.scope |> String.concat "/") in
 
-                Format.printf "System %a@."
-                              pp_print_trans_sys_name sys' ;
-
-                if is_top sys' then (
-                  Format.printf "Is top.@." ;
+                if is_top sys' then
                   (* Top system, no need to recurse on these terms. *)
                   insert_in_sys_term_map at_top'' pair,
                   intermediary'',
                   recursive''
-                ) else (
-                  Format.printf "Is not top.@." ;
+                else
                   (* Not the top system, need to memorize the terms
                      for the result and for recursion. *)
                   at_top'',
                   insert_in_sys_term_map intermediary'' pair,
-                  insert_in_sys_term_map recursive'' pair ))
+                  insert_in_sys_term_map recursive'' pair )
 
               (at_top, intermediary, ((sys,term_tail) :: tail))
        in
@@ -1727,10 +1705,6 @@ let instantiate_term_all_levels top_t t term =
          | head :: [] ->
             (head, intermediary)
          | _ ->
-            Format.printf
-              "|===| %a@."
-              (pp_print_list pp_print_trans_sys_name ", ")
-              (List.map fst at_top) ;
             assert false )
   in
 

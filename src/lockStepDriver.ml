@@ -122,6 +122,7 @@ let common_setup solver sys =
     (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
+    (SMTSolver.assert_term solver)
     Numeral.(~- one) Numeral.zero
 
   (* SMTSolver.trace_comment solver "Done defining, declaring now." ; *)
@@ -163,7 +164,7 @@ let step_setup (solver, sys, actlit) =
   TransSys.declare_vars_of_bounds
     sys
     (SMTSolver.declare_fun solver)
-    (SMTSolver.define_fun solver)
+    (SMTSolver.assert_term solver)
     Numeral.one Numeral.one ;
   
   (* Conditionally asserting transition predicate at [1]. *)
@@ -190,7 +191,7 @@ let unroll_solver solver sys actlit k =
   TransSys.declare_vars_of_bounds
     sys
     (SMTSolver.declare_fun solver)
-    (SMTSolver.define_fun solver)
+    (SMTSolver.assert_term solver)
     k
     k ;
 

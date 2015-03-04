@@ -228,7 +228,7 @@ val vars_of_bounds :
     offsets. *)
 val declare_vars_of_bounds :
   t -> (UfSymbol.t -> unit) ->
-  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (Term.t -> unit) ->
   Numeral.t -> Numeral.t -> unit
 
 (** The init flag of a transition system, as a [Var]. *)
@@ -390,6 +390,9 @@ val init_solver:
 
   (UfSymbol.t -> unit) ->
   (** Declare fun. *)
+
+  (Term.t -> unit) ->
+  (** Assert fun. *)
 
   Numeral.t ->
   (** Var declaration lower bound. *)

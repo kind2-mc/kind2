@@ -285,7 +285,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
      TransSys.declare_vars_of_bounds
        trans
        (SMTSolver.declare_fun solver)
-       (SMTSolver.define_fun solver)
+       (SMTSolver.assert_term solver)
        k_p_1
        k_p_1 ;
      
@@ -338,6 +338,7 @@ let init trans =
     (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
+    (SMTSolver.assert_term solver)
     Numeral.(~- one) Numeral.zero ;
 
   (* Defining uf's and declaring variables. *)

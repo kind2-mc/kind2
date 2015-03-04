@@ -3315,6 +3315,7 @@ and contract_spec_to_node
       in
       (* State variable is a locally abstracted variable. *)
       E.set_state_var_source state_var E.Abstract ;
+
       (* Add definition of abstraction variable to node. *)
       let context, node, abstraction =
         equation_to_node
@@ -3471,16 +3472,18 @@ and contract_spec_to_node
        (* Mode contracts. *)
        mode_contracts
      in
-     
 
-     (* Add contract spec to node. *)
-     (context, 
+     let node =
       { node with
         N.props = proof_objectives @ node.N.props;
         N.contract_spec = Some contract_spec ;
         N.observers = node_observers ;
-        N.locals = node_locals ;},
-      abstractions)
+        N.locals = node_locals ;}
+     in
+     
+
+     (* Add contract spec to node. *)
+     (context, node, abstractions)
 
 
 (* Add an expression as an assertion *)

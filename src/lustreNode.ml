@@ -1508,7 +1508,8 @@ let reduce_wo_coi nodes main_name =
 let reduce_to_props_coi nodes main_name = 
 
   (* Get properties of main node *)
-  let { props; observers; inputs; outputs; locals } as main_node = 
+  let { props; observers; inputs; outputs; locals; contract_spec }
+      as main_node = 
     node_of_name main_name nodes 
   in
 
@@ -1524,9 +1525,12 @@ let reduce_to_props_coi nodes main_name =
          | TermLib.Generated _ -> state_var :: accum
 
          (* Properties instantiated from subnodes are not *)
-         | TermLib.Instantiated _-> accum) 
-      []
-      props 
+         | TermLib.Instantiated _-> accum)
+      (* Contract requirement. *)
+      ( match contract_spec with
+        | None -> []
+        | Some ((req_svar, _), _, _, _) -> [req_svar] )
+      props
 
   with
     

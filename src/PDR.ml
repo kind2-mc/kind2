@@ -2110,6 +2110,7 @@ let main trans_sys =
     (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
+    (SMTSolver.assert_term solver)
     Numeral.zero Numeral.one ;
 
   (* Get invariants of transition system *)
