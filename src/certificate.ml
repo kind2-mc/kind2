@@ -17,10 +17,11 @@
 *)
 
 
+(* The type of certificates *)
 type t = int * Term.t
 
-
-  
+(* Merge certificates into one. The resulting certificate is a certificate for
+   the conjunction of the original invariants. *)
 let merge certs =
   let km, l =
     List.fold_left (fun (km, l) (k, phi) ->
@@ -29,18 +30,26 @@ let merge certs =
   km, Term.mk_and (List.rev l)
 
 
+let s_and = Symbol.mk_symbol `AND
 
-(*
-let generate_certificate certs sys =
+(* Split top level conjunctions in a given invariant. *)
+let rec split_inv inv =
+  match Term.destruct inv with
+  | Term.T.App (s, l) when s == s_and ->
+    List.flatten (List.map split_inv l)
+  | _ -> [inv]
 
-  let k, phi = merge certs in
+(* Split a certificate following the boolean strucutre of its inductive
+   invariant *)
+let split (k, c) = List.map (fun c' -> k, c') (split_inv c)
 
-  let prop_p = UfSymbol.mk_uf_symbol "__P__" [Type.t_int] Type.t_bool in
-  let init_p = UfSymbol.mk_uf_symbol "__I__" [Type.t_int] Type.t_bool in
-  let trans_p =
-    UfSymbol.mk_uf_symbol "__T__" [Type.t_int; Type.t_int] Type.t_bool in
+(* Split a list of certificates *)
+let split_certs certs =
+  List.fold_left (fun acc i ->
+      List.rev_append (split i) acc
+    ) [] certs
 
-  let phi_p = UfSymbol.mk_uf_symbol "__PHI__" [Type.t_int] Type.t_bool in
 
-  assert false
-  *)
+(* Gives a measure to compare the size of the inductive invariants contained in
+    a certificate. *)
+let size (_, inv) = List.length (split_inv inv)

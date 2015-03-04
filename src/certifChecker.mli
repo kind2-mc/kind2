@@ -17,6 +17,8 @@
 *)
 
 
-(** Generate a certificate with an SMT2 script to check the validity of the
-    certificate. *)
+
+(** Generate a certificate from a (possibly) proved system sys. It is written
+    in the file <input_file>.certificate.smt2 placed in the current directory by
+    default. It is bundled with an SMT2 script to check its validity. *)
 val generate_certificate : TransSys.t -> unit

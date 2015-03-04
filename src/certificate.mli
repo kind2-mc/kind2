@@ -17,10 +17,31 @@
 *)
 
 
+(** Certificates for Kind 2. This contains the base type as well as some
+    combinators for certificates.
 
+    @author Alain Mebsout, Christoph Sticksel
+*)
+
+
+(** The type of certificates *)
 type t = int * Term.t
 
 
-
+(** Merge certificates into one. The resulting certificate is a certificate for
+    the conjunction of the original invariants. *)
 val merge : t list -> t
 
+
+(** Split a certificate following the boolean strucutre of its inductive
+    invariant *)
+val split : t -> t list
+
+
+(** Split a list of certificates *)
+val split_certs : t list -> t list
+
+
+(** Gives a measure to compare the size of the inductive invariants contained
+    in a certificate. *)
+val size : t -> int

@@ -36,11 +36,31 @@ let monolithic_base = true
 let simple_base = false
 
 
+
+(****************************)
+(* Global hconsed constants *)
+(****************************)
+let s_and = Symbol.mk_symbol `AND
+let s_or = Symbol.mk_symbol `OR
+let s_not = Symbol.mk_symbol `NOT
+
+
 let t0 = Term.mk_num_of_int 0
 let t1 = Term.mk_num_of_int 1
 
+
+(*********************)
+(* Utility functions *)
+(*********************)
+
+(* Hashtable from activation literal to term *)
 let hactlits = TH.create 2001
 
+
+(* Create an activation literal only if it does not currently exists. In this
+   case declare it in the solver and assert its definition. If it exists simply
+   get the activatition literal corresponding to the term. In all cases, the
+   activation literal is returned at the end. *)
 let actlitify ?(imp=false) solver t =
   let a = generate_actlit t in
   let ta = term_of_actlit a in
@@ -53,7 +73,8 @@ let actlitify ?(imp=false) solver t =
   ta
 
 
-(* Transform unrolled state variables back to functions *)
+(* Transform unrolled state variables back to functions (that take na integer
+   as argument) *)
 let roll sigma t =
 
   Term.map (fun _ term ->
@@ -84,14 +105,26 @@ let roll sigma t =
   ) t
 
 
+(* Create a directory if it does not already exists. *)
+let create_dir dir =
+  try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
+  with Sys_error _ -> Unix.mkdir dir 0o755
 
+
+(*************************************************************************)
+(* Printing functions for the certificate.                               *)
+(* We use the generic SMTLIB pretty printer for that because we want to  *)
+(* create SMT2LIB compliant certificates.                                *)
+(*************************************************************************)
+        
 (* Assert the expression *)
 let assert_expr fmt expr =
   fprintf fmt
     "@[<hv 1>(assert@ @[<hov>%a@])@]@." 
     SMT.pp_print_expr expr
 
-
+(* Returns a typing constraint that reflects types that are not natively
+   supported (only subranges for now). *)
 let create_typing_constraint ?instantiate_constr uf arg_sorts res_sort =
 
   if Type.is_int_range res_sort then
@@ -124,7 +157,17 @@ let create_typing_constraint ?instantiate_constr uf arg_sorts res_sort =
       
   else Term.t_true
 
+  
+(* Create typing constraint for uf symbol *)
+let typing_constr svuf =
+  create_typing_constraint
+    svuf
+    (UfSymbol.arg_type_of_uf_symbol svuf)
+    (UfSymbol.res_type_of_uf_symbol svuf)
 
+
+(* Create a typing constraint from a declaration and add it to the
+   certificate *)
 let add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort =
   let qconstr =
     create_typing_constraint ?instantiate_constr uf arg_sorts res_sort in
@@ -161,8 +204,6 @@ let declare_state_var ?instantiate_constr fmt uf =
   add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort
 
 
-    
-    
 
 (* Define a new function symbol as an abbreviation for an expression *)
 let define_fun fmt fun_symbol arg_vars res_sort defn = 
@@ -179,22 +220,26 @@ let define_fun fmt fun_symbol arg_vars res_sort defn =
   (SMT.string_of_sort res_sort)
   SMT.pp_print_expr defn
 
-
-
+(* Solver stack for certificate checker *)
+  
 let push fmt = fprintf fmt "@[<hv 1>\n(push 1)@]@." 
 
 let pop fmt = fprintf fmt "@[<hv 1>(pop 1)@]\n@." 
 
+(* Satisfiability checking for the certificate checker *)
 let check_sat fmt = fprintf fmt "@[<hv 1>(check-sat)@]@." 
 
 let sexit fmt = fprintf fmt "@[<hv 1>(exit)@]@." 
 
 
-let create_dir dir =
-  try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
-  with Sys_error _ -> Unix.mkdir dir 0o755
 
 
+(***************************)
+(* Certificates extraction *)
+(***************************)
+
+(* Extract properties and invariants together with their certificates from a
+   system. *)
 let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
       | _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
@@ -211,24 +256,6 @@ let extract_props_certs sys =
   List.rev props, certs
 
 
-let s_and = Symbol.mk_symbol `AND
-let s_or = Symbol.mk_symbol `OR
-let s_not = Symbol.mk_symbol `NOT
-
-
-let rec split_inv inv =
-  match Term.destruct inv with
-  | Term.T.App (s, l) when s == s_and ->
-    List.flatten (List.map split_inv l)
-  | _ -> [inv]
-
-let split_certs certs =
-  List.fold_left (fun acc (k, c) ->
-      let cs = List.map (fun c' -> k, c') (split_inv c) in
-      List.rev_append cs acc
-    ) [] certs
-
-
 
 let global_certificate sys =
   let props, certs = extract_props_certs sys in
@@ -237,9 +264,32 @@ let global_certificate sys =
 
 
 
+(**************************************************************************)
+(* Minimization / simplification of certificates.                         *)
+(*                                                                        *)
+(* We use an SMT solver to replay the inductive step in order to identify *)
+(* what is the minimal bound for k-induction and the smallest set of      *)
+(* invariants necessary.                                                  *)
+(**************************************************************************)
+
+(* Exception raised to interrupt the computation. A continuation is given to
+   resume this computation. *)
 exception Reduce_cont of (unit -> Term.t list)
 
 
+
+(* Iterative fixpoint to identify which invariants are usefull. Returns the
+   subset of invs_acts which preserves inductiveness. The paramteer
+   just_check_ind controls if we want to only check the induction step without
+   minimizing the set of invariants.
+
+   - Raises Exit if the invariants with the property are not inductive.
+
+   - Raises Reduce_cont with a continuation (which miminizes the set of
+     invariants) if it was called with ~just_check_ind:true.
+
+   - Returns a subset of invs_acts which preserves inductiveness otherwise.
+*)
 let rec fixpoint ~just_check_ind
     acc solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
@@ -250,15 +300,17 @@ let rec fixpoint ~just_check_ind
   in
 
   let reduce uc =
-    
+
+    (* Identify the useful invariants with the unsat core *)    
     let uinvs_acts =
       List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
 
     (debug certif "[Fixpoint] extracted %d useful invariants@."
       (List.length uinvs_acts)in ());
-  
+
     let uinvs, uinvs' = List.split uinvs_acts in
 
+    (* Create activation literals for inductive check *)
     let new_prop = Term.mk_and (prev_props_act :: uinvs) in
     let new_prop_act = actlitify solver new_prop in
     let new_prop_acts = prev_props_act :: uinvs in
@@ -269,8 +321,11 @@ let rec fixpoint ~just_check_ind
     let neg_new_prop' = Term.mk_not new_prop' in
     let neg_new_prop'act = actlitify solver neg_new_prop' in
 
+    (* Accumulate useful invariants (identified by their activation
+       literals) *)
     let acc = (uinvs' @ acc) in
-    
+
+    (* Check preservation of invariants by k-steps *)
     SMTSolver.check_sat_assuming solver
       
       (fun () ->
@@ -294,17 +349,21 @@ let rec fixpoint ~just_check_ind
   
   let if_unsat () =
     
-    (* Activation literals in unsat core *)
+    (* Activation literals in unsat core, extracted right away in case we
+       modify the solver state before calling the continuation *)
     let uc = SMTSolver.get_unsat_core_lits solver in
-    
+
+    (* return a continuation to minimize the set of invariants *)
     fun () -> reduce uc
   in
 
-    
+  (* Get invariants at k - 1 *)
   let invs = List.map fst invs_acts in
 
   SMTSolver.trace_comment solver "fixpoint cs;";
 
+  (* Check if the property is preserved by k-steps when assuming the
+     invariants *)
   SMTSolver.check_sat_assuming solver
     if_sat
     (fun () ->
@@ -313,26 +372,35 @@ let rec fixpoint ~just_check_ind
     (trans_acts @ (neg_prop'act :: prev_props_act :: invs))
 
 
+(* Return type of the following function try_at_bound *)
 type return_of_try =
   | Not_inductive
+  (* The try failed, it is not inductive*)
   | Inductive_to_reduce of (unit -> Term.t list)
+  (* Inductiveness was verified, but we still need to find the useful
+     invariants. A continuation is attached for this purpose. *)
   | Inductive of Term.t list
+  (* Inductiveness was verified, and we identified the useful invariants which
+     are attached *)
 
-
+(* Verify inductiveness of given property and invariants at k. The argument
+   just_check_ind controls whether we want to also identify the useful
+   invariants *)
 let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   
   (debug certif "Try bound %d@." k in ());
 
-  (* let invs', invs_acts = List.split invs_and_acts in *)
-
+  (* Construct properties from 1 to k-1 *)
   let prev_props_l = ref [prop] in
   for i = 1 to k - 1 do
     prev_props_l := Term.bump_state (Numeral.of_int i) prop :: !prev_props_l;
   done;
 
+  (* Activation literals for properties from 1 to k-1 *)
   let prev_props_act =
     actlitify solver (Term.mk_and (List.rev !prev_props_l)) in
 
+  (* Construct invariants (with activation literals) from 1 to k-1 and for k *)
   let invs_acts = List.map (fun inv ->
       let l = ref [inv] in
       for i = 1 to k - 1 do
@@ -343,12 +411,16 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
       prev_invs_act, pa1
     ) invs in
 
+  (* Construct property at k *)
   let prop' = Term.bump_state (Numeral.of_int k) prop in
   let prop'act = actlitify solver prop' in
 
+  (* Construct negation of property at k *)
   let neg_prop' = Term.mk_not prop' in
   let neg_prop'act = actlitify solver neg_prop' in
 
+  (* This functions maps activation literals (returned by the function
+     fixpoint) back to original invariants *)
   let map_back_to_invs useful_acts =
     List.fold_left (fun acc i ->
         let a = Term.bump_state (Numeral.of_int k) i
@@ -366,12 +438,17 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
       fixpoint ~just_check_ind
         [] solver invs_acts prev_props_act prop'act neg_prop'act trans_acts in
 
+    (* If fixpoint returned a list of useful invariants we just return them *)
     Inductive (
       map_back_to_invs useful_acts
     )
   with
-  | Exit -> Not_inductive
+  | Exit ->
+    (* The first inductive test of fixpoint failed *)
+    Not_inductive
   | Reduce_cont f ->
+    (* fixpoint was interrupted, we return the continuation that will resume
+       the computation of the useful invariants *)
     Inductive_to_reduce (fun () -> f () |> map_back_to_invs)
 
 
@@ -381,7 +458,6 @@ let rec find_bound sys solver k kmax invs prop =
   if k > kmax then failwith
       (sprintf "[Certification] simplification of inductive invariant \
                 went over bound %d" kmax);
-
   
   (* Asserting transition relation. *)
   TransSys.trans_of_bound sys (Numeral.of_int k)
@@ -401,8 +477,10 @@ let rec find_bound sys solver k kmax invs prop =
     assert false
 
 
-(* Find the minimum bound starting from kmax and going backwards *)
-let find_bound_back sys solver kmax invs prop =
+(* Pre-compute activation literal for unrolling of transtion relation between 1
+   and k. We do this because we don't want to assert the whole k unrollings of
+   the the transition relation as this can overwhelm the solver. *)
+let unroll_trans_actlits sys solver kmax =
 
   let rec fill acc prev = function
     | k when k > kmax -> acc
@@ -412,13 +490,19 @@ let find_bound_back sys solver kmax invs prop =
       let a = actlitify ~imp:true solver tuptok in
       fill (IntM.add k a acc) (Some a) (k + 1)
   in
-  
-  (* Creating activation literals for transition steps *)
-  let trans_acts_map = fill IntM.empty None 1 in
+
+  (* Start at 1 *)
+  fill IntM.empty None 1
+
+
+(* Find the minimum bound starting from kmax and going backwards *)
+let find_bound_back sys solver kmax invs prop =
+
+  (* Creating activation literals for transition unrollings *)
+  let trans_acts_map = unroll_trans_actlits sys solver kmax in
   
   let rec loop acc k =
 
-    (* Reached min k, check if the previous were inductive *)
     let res =
       if k = 0 then Not_inductive
       else
@@ -456,24 +540,17 @@ let find_bound_back sys solver kmax invs prop =
 
   in
 
+  (* Start at kmax *)
   loop (-1, Not_inductive) kmax
 
 
-(* Find the minimum bound by dichotomy between k_l and k_u *)
+(* Find the minimum bound by dichotomy between 1 and kmax (binary search) *)
 let rec find_bound_dicho sys solver kmax invs prop =
-
-  let rec fill acc prev = function
-    | k when k > kmax -> acc
-    | k ->
-      let tk = TransSys.trans_of_bound sys (Numeral.of_int k) in
-      let tuptok = match prev with Some p -> Term.mk_and [p; tk] | _ -> tk in
-      let a = actlitify ~imp:true solver tuptok in
-      fill (IntM.add k a acc) (Some a) (k + 1)
-  in
   
-  (* Creating activation literals for transition steps *)
-  let trans_acts_map = fill IntM.empty None 1 in
+  (* Creating activation literals for transition unrollings *)
+  let trans_acts_map = unroll_trans_actlits sys solver kmax in
 
+  (* Recursive binary search between k_l and k_u *)
   let rec loop_dicho acc k_l k_u =
 
     if k_l > k_u then
@@ -494,7 +571,9 @@ let rec find_bound_dicho sys solver kmax invs prop =
 
     else
 
+      (* Middle point *)
       let k_mid = (k_l + k_u) / 2 in
+      (* Activation literals for transition relation from 1 to kmid *)
       let trans_act = IntM.find k_mid trans_acts_map in
       
       match try_at_bound ~just_check_ind:true
@@ -509,16 +588,9 @@ let rec find_bound_dicho sys solver kmax invs prop =
           loop_dicho (k_mid, res) k_l (k_mid - 1)
   in
 
+  (* Start with interval [1; kmax] *)
   loop_dicho (-1, Not_inductive) 1 kmax
 
-
-  
-
-let typing_constr svuf =
-  create_typing_constraint
-    svuf
-    (UfSymbol.arg_type_of_uf_symbol svuf)
-    (UfSymbol.res_type_of_uf_symbol svuf)
 
 
 let simplify_certificate sys =
@@ -527,7 +599,7 @@ let simplify_certificate sys =
   Event.set_module `Certif;
   
   let props, certs = extract_props_certs sys in
-  let certs = split_certs certs in
+  let certs = Certificate.split_certs certs in
   let k, invs = List.fold_left (fun (m, invs) (k, i) ->
       max m k,
       if List.exists (Term.equal i) props ||
@@ -589,16 +661,9 @@ let simplify_certificate sys =
   
 
 
-
-
-
-
-
-
-
-
-
-
+(***********************************************)
+(* Pretty printing sections of the certificate *)
+(***********************************************)
 
 let linestr = String.make 79 '-'
 let doublelinestr = String.make 79 '='
@@ -613,24 +678,26 @@ let add_section ?(double=false) fmt title =
   fprintf fmt "@."
 
 
-
+(* Make the solver display a string on its standard ouptut *)
 let echo fmt s = fprintf fmt "(echo \"%s\")@." (String.escaped s)
 
 
-type s_info = {
-  (* s_prop : Term.t; *)
-  s_trans : Term.t;
-  s_phi : Term.t;
-}
+(******************************************************************************)
+(* Information about certificate are reflected in the header of the SMT2 file *)
+(******************************************************************************)
 
-
+(* Add a set-info header *)
 let set_info fmt tag str =
   fprintf fmt
     "@[<hv 1>(set-info@ :%s@ @[<hv>%s@])@]@." 
     tag str
 
+(* Populate the headers of the certificate *)
 let add_header fmt sys k init_n prop_n trans_n phi_n =
 
+  (* Extract the logic of the system and add uninterpreted functions and
+     integer arithmetic to it (because of implicit unrolling for state
+     variables) *)
   let open TermLib in
   let logic = match TransSys.get_logic sys with
     | `None | `SMTLogic _ -> `None
@@ -641,27 +708,44 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
         |> (if quant_free then Lib.identity else FeatureSet.add Q)
       )
   in
-      
+
+  (* Origin of the certificate: Kind 2 version *)
   set_info fmt "origin"
     (sprintf "\"Certificate generated by %s %s\""
        Version.package_name Version.version);
+
+  (* Original input problem *)
   set_info fmt "input" ("\""^(Flags.input_file ())^"\"");
+
+  (* The certificate should be unsat if it is correct *)
   set_info fmt "status" "unsat";
   fprintf fmt "@.";
+
+  (* Specify symbols for input system / properties *)
   set_info fmt "init " init_n;
   set_info fmt "trans" trans_n;
   set_info fmt "prop " prop_n;
   fprintf fmt "@.";
+
+  (* Specify symbols that constitute certificate *)
   set_info fmt "certif" (sprintf "\"(%d , %s)\"" k phi_n);
   fprintf fmt "@.";
-  
+
+  (* Specify logic to help some solvers check the certificate *)
   match logic with
   | `None -> ()
   | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic 
 
 
 
+(**********************************************)
+(* Creation of certificate and checker script *)
+(**********************************************)
 
+
+(* Generate a certificate from a (possibly) proved system sys. It is written in
+   the file <input_file>.certificate.smt2 placed in the current directory by
+   default *)
 let generate_certificate sys =
 
   (* Time statistics *)
@@ -686,13 +770,12 @@ let generate_certificate sys =
   (* Set line width *)
   Format.pp_set_margin fmt file_width;
 
-
-  
+  (* Extract the global raw certificate of the system *)
   let prop, (k, phi) = global_certificate sys in
 
-
   Stat.start_timer Stat.certif_min_time;
-  
+
+  (* Performed minimization of certificate *)
   let k , phi = match Flags.certif_min () with
     | `No -> k, phi
     | _ ->
@@ -702,12 +785,10 @@ let generate_certificate sys =
     
   in
 
+  (* Record statistics for minimization *)
   Stat.record_time Stat.certif_min_time;  
-
   Stat.set k Stat.certif_k;
-
-  Stat.set (List.length (split_inv phi)) Stat.certif_size;
-
+  Stat.set (Certificate.size (k, phi)) Stat.certif_size;
   
   
   (* Names of predicates *)
@@ -742,20 +823,24 @@ let generate_certificate sys =
   List.iter (fun (f, (a, d)) ->
       define_fun fmt f a Type.t_bool d) (TS.uf_defs sys);
 
+  (* Variables i and j to be used later *)
   let fvi = Var.mk_free_var (HString.mk_hstring "i") Type.t_int in
   let fvj = Var.mk_free_var (HString.mk_hstring "j") Type.t_int in
 
+  (* Substitutions to be used later: *)
+  (* [0 -> i] *)
   let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+  (* [0 -> i; 1 -> j] *)
   let sigma_0i1j = TM.add t1 (Term.mk_var fvj) sigma_0i in
   
-  (* Declaring initial state *)
+  (* Declaring initial state (__I__ i) *)
   add_section fmt "Initial states";
   let init_s = UfSymbol.mk_uf_symbol init_n [Type.t_int] Type.t_bool in
   let init_def = roll sigma_0i (TS.init_term sys) in
   define_fun fmt init_s [fvi] Type.t_bool init_def;
   let init_t0 = Term.mk_uf init_s [t0] in
   
-  (* Declaring property *)
+  (* Declaring property (__P__ i) *)
   add_section fmt "Original property";
   let prop_s = UfSymbol.mk_uf_symbol prop_n [Type.t_int] Type.t_bool in
   let prop_def = roll sigma_0i prop in
@@ -765,7 +850,7 @@ let generate_certificate sys =
   let prop_u u l = Term.mk_uf prop_s [Term.mk_uf u l] in
 
   
-  (* Declaring transition steps *)
+  (* Declaring transition steps (__T__ i j) *)
   add_section fmt "Transition_relation";  
   let trans_s = UfSymbol.mk_uf_symbol trans_n
       [Type.t_int; Type.t_int] Type.t_bool in
@@ -776,7 +861,7 @@ let generate_certificate sys =
       [Term.mk_num_of_int i; Term.mk_num_of_int j] in
 
 
-  (* Declaring k-inductive invariant *)
+  (* Declaring k-inductive invariant (__PHI__ i) *)
   add_section fmt (sprintf "%d-Inductive invariant" k);
   let phi_s = UfSymbol.mk_uf_symbol phi_n [Type.t_int] Type.t_bool in
   let phi_def = roll sigma_0i phi in
@@ -787,7 +872,6 @@ let generate_certificate sys =
 
 
   add_section ~double:true fmt "CERTIFICATE CHECKER";
-
 
   (* Checking base case *)
   add_section fmt "Base case";
@@ -862,7 +946,7 @@ let generate_certificate sys =
     
   
 
-  (* Checking inductive case *)
+  (* Checking k-inductive case *)
   add_section fmt (sprintf "%d-Inductiveness" k);
   echo fmt (sprintf "Checking %d-inductive case" k);
   push fmt;
@@ -879,7 +963,7 @@ let generate_certificate sys =
   pop fmt;
 
   
-  (* Checking implication *)
+  (* Checking implication of indutive invariant to original properties *)
   add_section fmt "Property subsumption";
   echo fmt "Checking property subsumption";
   push fmt;
@@ -906,6 +990,8 @@ let generate_certificate sys =
   (* Time statistics *)
   Stat.record_time Stat.certif_gen_time;
 
+  (* Send statistics *)
   Event.stat [Stat.certif_stats_title, Stat.certif_stats];
-  
+
+  (* Show which file contains the certificate *)
   printf "Certificate was written in %s@." certificate_filename
