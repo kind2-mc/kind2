@@ -754,6 +754,74 @@ let rec definitions_of_node_calls
                   []
               in
 
+            let printf_two_length bla l1 l2 =
+              Format.printf
+                "%15s: %d (%d).@."
+                bla
+                (List.length l1)
+                (List.length l2)
+            in
+
+            let space () = Format.printf "@." in
+
+            space () ;
+
+            let cst_inputs = input_vars
+                             |> List.filter
+                                  ( fun sv -> StateVar.is_const sv ) in
+
+            Format.printf
+              "|===| No condact (%a).@.@.Constant inputs count %d.@."
+              TransSys.pp_print_trans_sys_name trans_sys
+              ( cst_inputs |> List.length ) ;
+
+            Format.printf
+              "@[<v 3>constant inputs:@ %a@]@."
+              (pp_print_list StateVar.pp_print_state_var "@ ")
+              cst_inputs ;
+
+            printf_two_length
+              "input"
+              input_terms_trans
+              input_vars ;
+
+            printf_two_length
+              "output"
+              output_terms_trans
+              output_vars ;
+
+            printf_two_length
+              "observers"
+              observer_terms_trans
+              observer_vars ;
+
+            printf_two_length
+              "locals"
+              call_local_vars_trans
+              locals ;
+
+            printf_two_length
+              "input pre"
+              input_terms_trans_pre
+              input_vars ;
+
+            printf_two_length
+              "output pre"
+              output_terms_trans_pre
+              output_vars ;
+
+            printf_two_length
+              "observers pre"
+              observer_terms_trans_pre
+              observer_vars ;
+
+            printf_two_length
+              "locals pre"
+              call_local_vars_trans_pre
+              locals ;
+
+            space () ;
+
               (* Arguments for node call in initial state *)
               let init_call_args =
                 (* Init flag. *)
@@ -911,9 +979,9 @@ let rec definitions_of_node_calls
                propagate_inputs_init, 
                interpolate_inputs) =
 
-              List.fold_right
+              List.fold_right2
                 (fun
-                  sv
+                  actual_sv formal_sv
                   ((local_vars'',
                     input_shadow_vars,
                     input_shadow_terms_init, 
@@ -921,10 +989,16 @@ let rec definitions_of_node_calls
                     input_shadow_terms_trans_pre, 
                     propagate_inputs, 
                     propagate_inputs_init, 
-                    interpolate_inputs) as accum) -> 
+                    interpolate_inputs) as accum) ->
 
-                  (* Skip over constant inputs *)
-                  if StateVar.is_const sv then
+                  let sv = actual_sv in
+
+                  (* Skip over constant formal inputs *)
+                  if StateVar.is_const formal_sv then (
+
+                    Format.printf
+                      "Skipping constant input %a.@."
+                      StateVar.pp_print_state_var sv ;
 
                     ( local_vars'',
                      
@@ -946,7 +1020,7 @@ let rec definitions_of_node_calls
                       
                       interpolate_inputs )
 
-                  else
+                  ) else
 
                     (* Create fresh shadow variable for input *)
                     let sv' = 
@@ -1001,6 +1075,7 @@ let rec definitions_of_node_calls
                      p_i :: propagate_inputs_init, 
                      i :: interpolate_inputs))
                 input_vars
+                inputs
                 (local_vars', [], [], [], [], [], [], [])
 
             in
@@ -1056,6 +1131,75 @@ let rec definitions_of_node_calls
             let init_call_trans =
               Term.mk_uf init_uf_symbol init_call_trans_args 
             in
+
+            let printf_two_length bla l1 l2 =
+              Format.printf
+                "%15s: %d (%d).@."
+                bla
+                (List.length l1)
+                (List.length l2)
+            in
+
+            let space () = Format.printf "@." in
+
+            space () ;
+
+            let cst_inputs = input_vars
+                             |> List.filter
+                                  ( fun sv -> StateVar.is_const sv ) in
+
+            Format.printf
+              "|===| Condact(%a).@.@.  Constant inputs count %d.@."
+              TransSys.pp_print_trans_sys_name trans_sys
+              ( cst_inputs |> List.length ) ;
+
+            Format.printf
+              "@[<v 3>constant inputs:@ %a@]@."
+              (pp_print_list StateVar.pp_print_state_var "@ ")
+              cst_inputs ;
+
+            printf_two_length
+              "input shdw"
+              input_shadow_terms_trans
+              input_vars ;
+
+            printf_two_length
+              "output"
+              output_terms_trans
+              output_vars ;
+
+            printf_two_length
+              "observers"
+              observer_terms_trans
+              observer_vars ;
+
+            printf_two_length
+              "locals"
+              call_local_vars_trans
+              locals ;
+
+            printf_two_length
+              "input shdw pre"
+              input_shadow_terms_trans_pre
+              input_vars ;
+
+            printf_two_length
+              "output pre"
+              output_terms_trans_pre
+              output_vars ;
+
+            printf_two_length
+              "observers pre"
+              observer_terms_trans_pre
+              observer_vars ;
+
+            printf_two_length
+              "locals pre"
+              call_local_vars_trans_pre
+              locals ;
+
+            space () ;
+            
 
             (* Arguments for node call in transition relation *)
             let trans_call_args =
