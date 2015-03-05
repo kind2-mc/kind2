@@ -104,7 +104,7 @@ type contract =
     pos: position ;
     svar: StateVar.t ;
     reqs : E.t list ;
-    enss : E.t list }
+    enss : E.t list ; }
 
 (* A contract specification for a node (if it has one) is either a
    list of modes or a global contract and a list of modes. *)
@@ -117,6 +117,8 @@ type contract_spec =
   * contract option
   (* Mode contracts. *)
   * contract list
+  (* Equations for contract internal state. *)
+  * (StateVar.t * LustreExpr.t) list
 
 
 (* A Lustre node *)
@@ -338,7 +340,7 @@ let pp_print_contract safe global ppf { name ; reqs ; enss } =
 
 let rec pp_print_contract_spec_option safe ppf = function
   | None -> ()
-  | Some ((req,_),enss,global,modes) ->
+  | Some ((req,_),enss,global,modes,_) ->
      Format.fprintf
        ppf
        "@[<v>--@require %a;%a@]@ "
@@ -941,7 +943,7 @@ let solve_eqs_node_calls node =
 (* Returns all expressions of a contract spec. *)
 let exprs_of_contract_spec_option = function
   | None -> []
-  | Some (req,modes,_,_) -> (snd req) :: (modes |> List.map snd)
+  | Some (req,modes,_,_,_) -> (snd req) :: (modes |> List.map snd)
 
 (* Return all expressions of a node *)
 let exprs_of_node { equations; calls; asserts; props; contract_spec } =
@@ -1118,7 +1120,7 @@ let state_vars_of_node (node : t) =
     (node.oracles @ node.observers)
 
 
-(* Execption for reduce_to_coi: need to reduce node first *)
+(* Exception for reduce_to_coi: need to reduce node first *)
 exception Push_node of I.t
 
 
@@ -1503,8 +1505,8 @@ let reduce_wo_coi nodes main_name =
     main_name
     (SVS.elements (state_vars_of_node main_node))
 
-
-(* Reduce set of nodes to cone of influence of properties of main node *)
+(* Reduce set of nodes to cone of influence of properties of main
+   node *)
 let reduce_to_props_coi nodes main_name = 
 
   (* Get properties of main node *)
@@ -1516,20 +1518,22 @@ let reduce_to_props_coi nodes main_name =
   match 
 
     List.fold_left
-      (fun accum (state_var, prop_source) -> match prop_source with 
+      (fun accum (state_var, prop_source) ->
+       match prop_source with 
 
-         (* Property annotations, contracts and generated constraints
-            are in the cone of influence *)
-         | TermLib.PropAnnot _ 
-         | TermLib.Contract _ 
-         | TermLib.Generated _ -> state_var :: accum
+       (* Property annotations, contracts, requirements and generated
+          constraints are in the cone of influence *)
+       | TermLib.PropAnnot _ 
+       | TermLib.Contract _  
+       | TermLib.Requirement _ 
+       | TermLib.Generated _ -> state_var :: accum
 
-         (* Properties instantiated from subnodes are not *)
-         | TermLib.Instantiated _-> accum)
+       (* Properties instantiated from subnodes are not *)
+       | TermLib.Instantiated _-> accum)
       (* Contract requirement. *)
       ( match contract_spec with
         | None -> []
-        | Some ((req_svar, _), _, _, _) -> [req_svar] )
+        | Some ((req_svar, _), _, _, _, _) -> [req_svar] )
       props
 
   with

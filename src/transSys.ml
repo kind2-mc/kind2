@@ -1064,10 +1064,11 @@ let set_prop_invariant t prop =
           (* Property is a requirement, setting prop_status and
                  returning guarantees. *)
           p.prop_status <- PropInvariant ;
-          guarantees
-          |> List.map ( fun sv ->
-                        Var.mk_state_var_instance sv init_base
-                        |> Term.mk_var )
+          (* guarantees *)
+          (* |> List.map ( fun sv -> *)
+          (*               Var.mk_state_var_instance sv init_base *)
+       (*               |> Term.mk_var ) *)
+          []
        | _ ->
           p.prop_status <- PropInvariant ;
           [] )

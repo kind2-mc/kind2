@@ -1850,7 +1850,7 @@ and eval_node_call
 
   let contract_observers = match node_contract_spec with
     | None -> []
-    | Some (sv,svs,_,_) -> (fst sv) :: (svs |> List.map fst)
+    | Some (sv,svs,_,_,_) -> (fst sv) :: (svs |> List.map fst)
   in
 
   debug lustreSimplify
@@ -3461,6 +3461,66 @@ and contract_spec_to_node
               svar, TermLib.Contract (pos,name) )
      in
 
+     (* Adding new constraints to node. *)
+     let node =
+      { node with
+        N.props = proof_objectives @ node.N.props;
+        N.observers = node_observers ;
+        N.locals = node_locals ;}
+     in
+
+     (* Format.printf "@[<v 3>Node@ %a@]@." (N.pp_print_node true) node ; *)
+
+     (* Format.printf *)
+     (*   "Node: %a@.\ *)
+     (*    @[<v 3>node equations@ %a@]@." *)
+     (*   (I.pp_print_ident false) node.N.name *)
+     (*   (pp_print_list *)
+     (*      (fun ppf (sv,le) -> *)
+     (*       Format.fprintf *)
+     (*         ppf *)
+     (*         "@[<hv 7>%a = %a@]" *)
+     (*         (E.pp_print_lustre_var true) sv *)
+     (*         (E.pp_print_lustre_expr true) le) *)
+     (*      "@ ") node.N.equations ; *)
+
+     (* (\* Getting equations relevant to the contract state. *\) *)
+     (* let ({ N.equations = contract_equations } as contract_node) = *)
+     (*   (\* Slicing current node to contracts. *\) *)
+     (*   N.reduce_to_coi *)
+     (*     ( node :: context.nodes) *)
+     (*     node.N.name *)
+     (*     ( (fst req) :: (modes' |> List.map fst) ) *)
+     (*   (\* Retrieving current node. *\) *)
+     (*   |> N.node_of_name node.N.name *)
+     (* in *)
+
+     (* Format.printf "@[<v 3>Contract node@ %a@]@." (N.pp_print_node true) contract_node ; *)
+
+     (* Format.printf *)
+     (*   "Node: %a@.\ *)
+     (*    @[<v 3>contract equations@ %a@]@." *)
+     (*   (I.pp_print_ident false) node.N.name *)
+     (*   (pp_print_list *)
+     (*      (fun ppf (sv,le) -> *)
+     (*       Format.fprintf *)
+     (*         ppf *)
+     (*         "@[<hv 7>%a = %a@]" *)
+     (*         (E.pp_print_lustre_var true) sv *)
+     (*         (E.pp_print_lustre_expr true) le) *)
+     (*      "@ ") contract_equations ; *)
+
+     (* Format.printf *)
+     (*   "@[<v 3>contract locals@ %a@]@." *)
+     (*   (pp_print_list *)
+     (*      (fun ppf (sv,le) -> *)
+     (*       Format.fprintf *)
+     (*         ppf *)
+     (*         "@[<hv 7>%a = %a@]" *)
+     (*         (E.pp_print_lustre_var true) sv *)
+     (*         (I.pp_print_index true) le) *)
+     (*      "@ ") contract_node.locals ; *)
+
      (* Building the final lustre node contract spec. *)
      let contract_spec =
        (* Requirement. *)
@@ -3470,19 +3530,17 @@ and contract_spec_to_node
        (* Optional global contract. *)
        global_contract,
        (* Mode contracts. *)
-       mode_contracts
+       mode_contracts,
+       (* Contract equations. *)
+       [] (* contract_equations *)
      in
 
+     (* Adding contract specification to node. *)
      let node =
-      { node with
-        N.props = proof_objectives @ node.N.props;
-        N.contract_spec = Some contract_spec ;
-        N.observers = node_observers ;
-        N.locals = node_locals ;}
+      { node with N.contract_spec = Some contract_spec }
      in
-     
 
-     (* Add contract spec to node. *)
+     (* Returning new stuff. *)
      (context, node, abstractions)
 
 
@@ -4137,6 +4195,8 @@ let parse_node_contract_spec
        (Some global)
        modes
 
+  | Some _ -> assert false
+
 
 (* Return a LustreNode.t from a node LustreAst.node_decl *)
 let parse_node
@@ -4669,7 +4729,7 @@ end = struct
         (* Contract nodes. *)
         contract_nodes = function
     (* Contract call, need to inline. *)
-    | (A.ContractCall (call_pos, call_ident) as contract_call) ->
+    | A.ContractCall (call_pos, call_ident) ->
 
        ( try
            ( match
@@ -4784,6 +4844,84 @@ end = struct
 
 end
 
+let generate_abstract_equations nodes node =
+  match node.N.contract_spec with
+  | None -> node
+
+  | Some (req, modes, global, mode_contracts, _) ->
+     (* Format.printf *)
+     (*   "@.Generating abstract equations for %a@." *)
+     (*   (I.pp_print_ident false) node.N.name ; *)
+
+     (* Format.printf *)
+     (*   "@[<v 3>Node:@ %a@]@." *)
+     (*   (N.pp_print_node false) node ; *)
+
+     (* Modes and requirement state variables. *)
+     let contract_svars = (fst req) :: (modes |> List.map fst) in
+
+     (* Slicing. *)
+     let contract_node =
+       N.reduce_to_coi nodes node.N.name contract_svars
+       |> N.node_of_name node.N.name
+     in
+
+     (* Extracting equations the lhs of which is not an output. *)
+     let contract_equations =
+       contract_node.N.equations
+       |> List.filter
+            (fun (lv,le) ->
+             E.state_var_is_output lv |> not)
+     in
+
+     (* Format.printf *)
+     (*   "@[<v 3>Contract node:@ %a@]@." *)
+     (*   (N.pp_print_node false) contract_node ; *)
+
+     (* Format.printf *)
+     (*   "@[<v 3>Contract node equations:@ %a@]@." *)
+     (*   (pp_print_list *)
+     (*      (fun ppf (lv,le) -> *)
+     (*       Format.fprintf *)
+     (*         ppf "@[<hv>%a = %a@]" *)
+     (*         (E.pp_print_lustre_var false) lv *)
+     (*         (E.pp_print_lustre_expr false) le) *)
+     (*      "@ ") *)
+     (*   contract_node.N.equations ; *)
+
+     (* Format.printf *)
+     (*   "@[<v 3>Contract equations:@ %a@]@." *)
+     (*   (pp_print_list *)
+     (*      (fun ppf (lv,le) -> *)
+     (*       Format.fprintf *)
+     (*         ppf "@[<hv>%a = %a@]" *)
+     (*         (E.pp_print_lustre_var false) lv *)
+     (*         (E.pp_print_lustre_expr false) le) *)
+     (*      "@ ") *)
+     (*   contract_equations ; *)
+
+     let nu_node =
+       { node with
+         contract_spec =
+           Some
+             (req, modes,
+              global, mode_contracts,
+              contract_equations) }
+     in
+
+     nu_node
+
+     (* let rec replace prefix = function *)
+     (*   | head :: tail when node.N.name = head.N.name -> *)
+     (*      List.rev_append prefix (nu_node :: tail) *)
+     (*   | head :: tail -> replace (head :: prefix) tail *)
+     (*   | [] -> assert false *)
+     (* in *)
+
+     (* replace [] nodes,  *)
+     
+
+
 (* Iterate over the declarations and return the nodes *)
 let declarations_to_nodes decls =
 
@@ -4802,12 +4940,20 @@ let declarations_to_nodes decls =
     declarations_to_nodes' init_lustre_context decls 
   in
 
+  let rec close_contracts prefix = function
+    | (head :: tail as nodes) ->
+       close_contracts
+         ( (generate_abstract_equations nodes head) :: prefix )
+         tail
+    | [] -> List.rev prefix
+  in
+
   (* Format.printf *)
   (*   "@.@.Nodes:@.%a@.@." *)
   (*   (pp_print_list (N.pp_print_node false) "@.") nodes ; *)
 
   (* Return nodes *)
-  nodes
+  close_contracts [] nodes
 
 
 (* 

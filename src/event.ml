@@ -455,7 +455,7 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
           in
 
           (* Reduce nodes to cone of influence of property *)
-          let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
+          let nodes' = nodes in (*reduce_nodes_to_coi trans_sys nodes prop_name in*)
 
           (* Output counterexample *)
           Format.fprintf ppf 

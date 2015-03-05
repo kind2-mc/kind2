@@ -87,9 +87,10 @@ type node_def =
 (* Fold list of equations to definitions 
 
    [definitions_of_equations s i t e] takes as input the list of free
-   (stateful and signature) state variables [s], two list of terms [i]
-   and [t] to be taken as a conjunction of, respectively, the initial
-   state constraint and the transition relation, and a list [e] of
+   (stateful and signature) state variables [s], two lists of terms
+   [i] and [t] to be taken as a conjunction of, respectively, the
+   initial state constraint and the transition relation, and a list
+   [e] of
 
    If a state variable is in the list of free variables, add an
    equation for its value in the initial state and in the transition
@@ -1412,7 +1413,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
      let contract =
        match node_contract_spec with
        | None -> None
-       | Some (req,modes,_,_) ->
+       | Some (req,modes,_,_,_) ->
           let req, modes =
             fst req, (modes |> List.map fst)
           in
@@ -1868,14 +1869,17 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          |> Term.mk_and,
          (* No absrtaction activation literal. *)
          None
-      | Some (req, modes, _, _) ->
+      | Some (req, modes, _, _, contract_equations) ->
 
-         (* Abstract constraints: *)
+         (* Abstract constraints. *)
          let abstract_init, abstract_trans =
-           (* - contract requirement and modes are normally
-                defined. *)
-           req :: modes @ (modes |> List.map (fun (sv,_) -> sv, E.t_true))
-           (* - all non-contract properties are set to true. *)
+           (* Equations required for the internal state of the
+              contract spec. *)
+           contract_equations
+           (* Forcing modes (implications) to be true. *)
+           @ (modes |> List.map (fun (sv,_) -> sv, E.t_true))
+           (* All non-contract properties are set to true to avoid
+              spurious counterexamples. *)
            @ ( props @ lifted_props
                |> (List.fold_left
                      (fun list ->
@@ -1895,6 +1899,32 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                              name
                            |> failwith) )
                     [])
+           |> (fun eqs ->
+               let state_vars_in_equations =
+                 List.fold_left
+                   (fun accum (_, e) -> SVS.union accum (E.state_vars_of_expr e))
+                   (SVS.of_list
+                      (List.map fst node_props
+                       @ node_observers
+                       @ List.map fst node_outputs))
+                   eqs
+               in
+               let state_vars_in_node =
+                 List.fold_left
+                   (fun a t -> SVS.union a (Term.state_vars_of_term t))
+                   state_vars_in_equations
+                   init_defs_asserts
+               in
+               let state_vars_in_node =
+                 List.fold_left
+                   (fun a t -> SVS.union a (Term.state_vars_of_term t))
+                   state_vars_in_equations
+                   trans_defs_asserts
+               in
+               List.filter
+                 (fun (sv, _) -> SVS.mem sv state_vars_in_node)
+                 eqs)
+           |> List.rev
            |> definitions_of_equations
                 signature_vars_set
                 pre_state_vars
@@ -2116,7 +2146,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let contract_spec =
       match node_contract_spec, abstract_svar_opt with
       | None, None -> None
-      | Some (req,_, global, modes), Some abstract_svar ->
+      | Some (req,_, global, modes, _), Some abstract_svar ->
          Some
            ( abstract_svar,
              fst req,

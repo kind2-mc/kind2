@@ -93,6 +93,9 @@ type contract_spec =
   (** Optional global contract. *)
   * contract list
   (** Mode contracts. *)
+  * (StateVar.t * LustreExpr.t) list
+  (** Equations for contract internal state. Used to construct the
+      abstract init / trans predicates. *)
 
 (** A Lustre node *)
 type t = 
