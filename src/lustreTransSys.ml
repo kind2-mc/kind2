@@ -2145,7 +2145,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
     let contract_spec =
       match node_contract_spec, abstract_svar_opt with
-      | None, None -> None
+      | None, None ->
+         None
       | Some (req,_, global, modes, _), Some abstract_svar ->
          Some
            ( abstract_svar,
@@ -2167,16 +2168,20 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       | _ -> assert false
     in
 
+    let state_vars =
+      [ init_flag_svar ]
+      @ inputs
+      @ oracles
+      @ outputs
+      @ observers
+      @ locals
+    in
+
     (* Create transition system for node *)
     let trans_sys = 
       TransSys.mk_trans_sys 
         (I.scope_of_ident node_name)
-        ([ init_flag_svar ]
-         @ inputs
-         @ oracles
-         @ outputs
-         @ observers
-         @ locals)
+        state_vars
         pred_def_init
         pred_def_trans
         called_trans_sys

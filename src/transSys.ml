@@ -158,7 +158,9 @@ type t = {
   (* Properties of the transition system to prove invariant *)
   properties : property list ;
 
-  (* The contracts of this system. *)
+  (* The contracts of this system. The first state var is the
+     abstraction activation literal, the second one is the requirement
+     observer. *)
   contracts : ( StateVar.t * StateVar.t * contract list) option ;
 
   (* The source which produced this system. *)
@@ -513,26 +515,6 @@ let mk_trans_sys
       subsystems props contracts_option
       source =
 
-  (* Format.printf *)
-  (*   "@[<v 3>State variables for %s:@ %a@]@." *)
-  (*   (String.concat "." scope) *)
-  (*   (pp_print_list StateVar.pp_print_state_var "@ ") state_vars ; *)
-
-  (* ( match contracts_option with *)
-  (*   | Some (_, _, contracts) -> *)
-  (*      Format.printf *)
-  (*        "Contracts:@." ; *)
-  (*      contracts *)
-  (*      |> List.iter *)
-  (*           (fun c -> *)
-  (*            let pos,svar,name = info_of_contract c in *)
-  (*            Format.printf *)
-  (*              "   %s (%a): %a@." *)
-  (*              name *)
-  (*              pp_print_position pos *)
-  (*              StateVar.pp_print_state_var svar) *)
-  (*   | None -> () ) ; *)
-
   (* Goes through the subsystems and constructs the list of
      uf_defs. *)
   let rec get_uf_defs result = function
@@ -640,11 +622,58 @@ let mk_trans_sys
          )
   ) ;
 
+  (* Getting all abstraction activation literals from subsystems. *)
+  let abstraction_state_vars =
+
+    (* Iterates over a list of systems, maintaining the set of the
+       abstraction variables encountered so far as a set. *)
+    let rec loop svars = function
+
+      | sys :: tail ->
+         (* Getting all subsystems of [sys], including [sys]. *)
+         let all_systems = get_all_subsystems sys in
+
+         (* Removing subsystems of [sys] from the tail. *)
+         let tail =
+           tail
+           |> List.filter
+                (fun sys ->
+                 List.exists
+                   (fun sys' -> sys.scope <> sys'.scope)
+                   all_systems)
+         in
+         let svars =
+           (* Retrieving abstraction actlits from all systems. *)
+           all_systems
+           |> List.fold_left
+                (fun set sys ->
+                 match sys.contracts with
+                 | None  -> set
+                 | Some (sv,_,_) ->
+                    StateVar.StateVarSet.add sv set)
+                svars
+         in
+         loop svars tail
+
+      | [] -> StateVar.StateVarSet.elements svars
+    in
+
+    let abs_svars =
+      match contracts_option with
+      | None -> StateVar.StateVarSet.empty
+      | Some (sv,_,_) ->
+         StateVar.StateVarSet.of_list [sv]
+    in
+
+    loop abs_svars subsystems
+  in
+
   let system = 
-    { scope = scope;
+    { scope = scope ;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
       state_vars =
-        state_vars |> List.sort StateVar.compare_state_vars ;
+        (abstraction_state_vars @ state_vars)
+        |> List.sort StateVar.compare_state_vars ;
       init = init ;
       trans = trans ;
       properties = properties ;
@@ -1378,7 +1407,7 @@ let iter_uf_definitions t f =
 (* Defines abstraction literals for a transition system base on some
    abstraction. *)
 let constrain_abstraction_actlits
-      systems abstraction declare assert_term =
+      systems abstraction assert_term =
 
   let rec loop = function
 
@@ -1395,8 +1424,8 @@ let constrain_abstraction_actlits
              then identity else Term.mk_not)
        in
        (* Declaring [actlit]. *)
-       declare
-         (StateVar.uf_symbol_of_state_var actlit) ;
+       (* declare *)
+       (*   (StateVar.uf_symbol_of_state_var actlit) ; *)
        assert_term term ;
        (* Looping. *)
        loop tail
@@ -1430,16 +1459,6 @@ let init_solver
 
   (* All subsystems of [sys], including [sys]. *)
   let all_systems = get_all_subsystems sys in
-  
-  comment "|===| Constraining abstraction actlits for all systems." ;
-  Format.sprintf
-    "|          abstracting [%s]"
-    (sys.abstraction
-     |> List.map (String.concat ".")
-     |> String.concat ", ")
-  |> comment ;
-  constrain_abstraction_actlits
-    all_systems sys.abstraction declare assert_term ;
        
   let req_svar = match sys.contracts with
     | Some (_,req,_) -> [ req ]
@@ -1475,6 +1494,16 @@ let init_solver
        vars_of_bounds' req_svar lbound ubound []
        |> List.iter
             ( fun var -> var |> Term.mk_var |> assert_term ) );
+  
+  comment "|===| Constraining abstraction actlits for all systems." ;
+  Format.sprintf
+    "|          abstracting [%s]"
+    (sys.abstraction
+     |> List.map (String.concat ".")
+     |> String.concat ", ")
+  |> comment ;
+  constrain_abstraction_actlits
+    all_systems sys.abstraction assert_term ;
   
   Format.asprintf
     "|===| Defining init and trans predicates."
