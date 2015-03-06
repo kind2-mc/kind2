@@ -212,9 +212,12 @@ type invgengraph_prune_trivial = bool
 val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
 type invgengraph_max_succ = int
 val invgengraph_max_succ : unit -> invgengraph_max_succ
-(** InvGen will lift candidate terms from subsystems.. **)
+(** InvGen will lift candidate terms from subsystems. **)
 type invgengraph_lift_candidates = bool
 val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will only generate invariants for the top node. **)
+type invgengraph_top_only = bool
+val invgengraph_top_only : unit -> invgengraph_top_only
 (** InvGen will look for candidate terms in the transition
     predicate. *)
 type invgengraph_mine_trans = bool
