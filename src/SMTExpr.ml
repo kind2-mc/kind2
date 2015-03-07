@@ -50,9 +50,9 @@ module type Conv =
 
     val smtexpr_of_var : Var.t -> Term.t list -> t
 
-    val string_of_logic : Term.logic -> string 
+    val string_of_logic : TermLib.logic -> string 
 
-    val pp_print_logic : Format.formatter -> Term.logic -> unit
+    val pp_print_logic : Format.formatter -> TermLib.logic -> unit
 
     val pp_print_sort : Format.formatter -> sort -> unit
 

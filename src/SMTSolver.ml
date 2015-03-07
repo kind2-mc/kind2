@@ -574,7 +574,7 @@ let get_unsat_core_lits s =
 
     (* Convert strings to literals *)
     List.fold_left  
-      (fun a s -> 
+      (fun a s ->
         try 
           (Term.mk_uf 
              (UfSymbol.uf_symbol_of_string s)
@@ -582,8 +582,7 @@ let get_unsat_core_lits s =
         with Not_found -> assert false)
       []
       c
-
-      
+  
 (* ******************************************************************** *)
 (* Higher level functions                                               *)
 (* ******************************************************************** *)

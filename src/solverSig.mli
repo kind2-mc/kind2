@@ -33,7 +33,7 @@ module type Params = sig
   (* The current abstraction. *)
   val abstraction : string list list
 
-  val logic : Term.logic
+  val logic : TermLib.logic
 
   val id : int
 

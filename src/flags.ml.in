@@ -177,28 +177,21 @@ let smtsolver_default = `detect
 
 (* ********** *) 
 
-type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
-    
+type smtlogic = [ `None | `detect | `Logic of string ]
+
+let smtlogic_values = [ `None ; `detect ; `Logic ("\"logic\"") ]
+
 let smtlogic_of_string = function
-  | "UFLIA" -> `QF_UFLIA
-  | "UFLRA" -> `QF_UFLRA
-  | "LIA" -> `QF_LIA
-  | "LRA" -> `QF_LRA
-  | "LIRA" -> `QF_LIRA
-  | "detect" -> `detect
-  | _ -> raise (Arg.Bad "Bad value for --smtlogic")
+  | "none" | "None" -> `None
+  | "detect" | "Detect" -> `detect
+  | s -> `Logic s
 
-let string_of_smtlogic = function 
-  | `QF_UFLIA -> "UFLIA"
-  | `QF_UFLRA -> "UFLRA"
-  | `QF_LIA -> "LIA"
-  | `QF_LRA -> "LRA"
-  | `QF_LIRA -> "LIRA"
+let string_of_smtlogic = function
+  | `None -> "none"
   | `detect -> "detect"
+  | `Logic s -> s
 
-let smtlogic_values = "UFLIA, UFLRA, LIA, LRA, LIRA, detect"
-
-let smtlogic_default = `detect
+let smtlogic_default = `None
 
 (* ********** *) 
 
@@ -240,15 +233,6 @@ let string_of_yices_bin s = s
 
 let yices_bin_default = "yices"
 
-(* ********** *) 
-
-type yices_arith_only = bool
-
-let yices_arith_only_of_bool b = b
-
-let bool_of_yices_arith_only s = s 
-
-let yices_arith_only_default = false
 
 (* ********** *) 
 
@@ -609,7 +593,6 @@ type flags =
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
       mutable yices_bin : yices_bin;
-      mutable yices_arith_only : yices_arith_only;
       mutable yices2smt2_bin : yices2smt2_bin;
       mutable smt_trace : smt_trace;
       mutable smt_trace_dir : smt_trace_dir;
@@ -665,7 +648,6 @@ let flags =
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
-    yices_arith_only = yices_arith_only_default;
     yices2smt2_bin = yices2smt2_bin_default;
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
@@ -758,11 +740,16 @@ let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
   
 let smtlogic_spec = 
   ("--smtlogic", 
-   Arg.String smtlogic_action, 
+   Arg.String smtlogic_action,
    Format.sprintf
      "@[<v 7>@,(available: %s, default: %s)@ \
-      SMT logic used in SMT solver.@]"
-     smtlogic_values
+      select logic for SMT solvers (\"none\" \
+      for no logic (default), and \"detect\"@ \
+      to detect with the input system, other \
+      SMTLIB logics will be passed to the solver).@]"
+     (smtlogic_values
+      |> List.map string_of_smtlogic
+      |> String.concat ", ")
      (string_of_smtlogic smtlogic_default))
 
 (* ********** *) 
@@ -812,19 +799,6 @@ let yices_bin_spec =
      "@[<v 7>@,(default: %s)@ \
       Executable for the Yices solver.@]"
      (string_of_yices_bin yices_bin_default))
-
-(* ********** *) 
-
-let yices_arith_only_action o =
-  flags.yices_arith_only <- true
-  
-let yices_arith_only_spec = 
-  ("--yices_arith_only", 
-   Arg.Unit yices_arith_only_action,
-   Format.sprintf
-     "@[<v 7>@,\
-      Tell Yices to deactivate all theories excepted SAT and linear@ \
-      arithmetic. Will fail if this is not possible.@]")
 
 (* ********** *) 
 
@@ -1408,8 +1382,6 @@ let mathsat5_bin () = flags.mathsat5_bin
 
 let yices_bin () = flags.yices_bin
 
-let yices_arith_only () = flags.yices_arith_only
-
 let yices2smt2_bin () = flags.yices_bin
 
 let smt_trace () = flags.smt_trace
@@ -1542,9 +1514,6 @@ and speclist =
 
     (* Set executable for Yices solver *)
     yices_bin_spec;
-
-    (* Set arith only option of yices *)
-    yices_arith_only_spec;
 
     (* Set executable for Yices2 SMT2 solver *)
     yices2smt2_bin_spec;

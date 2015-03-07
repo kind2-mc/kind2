@@ -33,7 +33,7 @@ val create_instance :
   ?produce_proofs:bool ->
   ?produce_cores:bool ->
   string list ->
-  Term.logic ->
+  TermLib.logic ->
   string list list ->
   Flags.smtsolver ->
   t

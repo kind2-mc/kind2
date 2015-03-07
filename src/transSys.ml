@@ -166,6 +166,9 @@ type t = {
   (* The source which produced this system. *)
   source: source ;
 
+  (* The logic fragment in which is expressed the system and its properties. *)
+  logic: TermLib.logic;
+  
   (* Invariants *)
   mutable invars: Term.t list;
 
@@ -447,6 +450,7 @@ let pp_print_trans_sys
     ppf
     ({ uf_defs;
        state_vars;
+       logic;
        properties;
        contracts;
        invars;
@@ -457,6 +461,7 @@ let pp_print_trans_sys
     ppf
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
           %a@,\
+          @[<hv 2>(logic %a)@]@,\
           @[<hv 2>(init@ (@[<v>%a@]))@]@,\
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
@@ -465,6 +470,7 @@ let pp_print_trans_sys
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
+    TermLib.pp_print_logic logic
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
     Term.pp_print_term (init_term trans_sys)
     Term.pp_print_term (trans_term trans_sys)
@@ -475,11 +481,8 @@ let pp_print_trans_sys
     (pp_print_list pp_print_callers "@,") callers
 
 
-(* Determine the required logic for the SMT solver 
-
-   TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = ((Flags.smtlogic ()) :> Term.logic)
-
+(* Determine the required logic for the SMT solver *)
+let get_logic t = t.logic
 
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
@@ -668,8 +671,25 @@ let mk_trans_sys
     loop abs_svars subsystems
   in
 
-  let system = 
-    { scope = scope ;
+  (* find the logic of the transition system by goint through its terms and its
+     subsystems *)
+  let logic = match Flags.smtlogic () with
+    | `None -> `None
+    | `Logic s -> `SMTLogic s
+    | `detect ->
+      `Inferred
+        (List.fold_left (fun acc (_, _, p) -> TermLib.logic_of_term p :: acc)
+           ((init  |> snd |> snd |> TermLib.logic_of_term) ::
+            (trans |> snd |> snd |> TermLib.logic_of_term) ::
+            List.map (fun sys -> match sys.logic with
+                | `Inferred l -> l
+                | _ -> assert false) subsystems)
+           props
+         |> TermLib.sup_logics)
+  in
+  
+  let system =
+    { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
       state_vars =
         (abstraction_state_vars @ state_vars)
@@ -679,6 +699,7 @@ let mk_trans_sys
       properties = properties ;
       contracts = contracts_option ;
       subsystems = subsystems ;
+      logic = logic;
       source = source ;
       invars = [] ;
       callers = [] ;
@@ -1373,8 +1394,7 @@ let uf_defs { uf_defs } =
    initial state and transition relation definitions sorted by
    topological order. *)
 let uf_defs_pairs { uf_defs } = uf_defs
-      
- 
+
 
 (* Return [true] if the uninterpreted symbol is an initial state constraint *)
 let is_init_uf_def { uf_defs } uf_symbol = 

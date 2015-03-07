@@ -52,8 +52,8 @@ val set_smtsolver : smtsolver -> string -> unit
 (* (\** Return SMT solver to use with Quantifier Elimination *\) *)
 (* val qe_smtsolver : unit -> smtsolver  *)
 
-(** SMT Logic to use *)
-type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
+(** detect logic to send SMT solver *)
+type smtlogic = [ `None | `detect | `Logic of string ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
@@ -71,10 +71,6 @@ val mathsat5_bin : unit -> mathsat5_bin
 (** Executable of Yices solver *)
 type yices_bin = string
 val yices_bin : unit -> yices_bin
-
-(** Executable of Yices solver *)
-type yices_arith_only = bool
-val yices_arith_only : unit -> yices_arith_only
 
 (** Executable of Yices2 SMT2 solver *)
 type yices2smt2_bin = string
