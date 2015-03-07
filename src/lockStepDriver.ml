@@ -125,18 +125,6 @@ let common_setup solver sys =
     (SMTSolver.assert_term solver)
     Numeral.(~- one) Numeral.zero
 
-  (* SMTSolver.trace_comment solver "Done defining, declaring now." ; *)
-
-  (* Declaring unrolled vars at [-1] and [0]. *)
-  (* TransSys.declare_vars_of_bounds *)
-  (*   sys *)
-  (*   (SMTSolver.declare_fun solver) *)
-  (*   Numeral.(~- one) Numeral.zero ; *)
-
-  (* let actlit_term = Actlit.term_of_actlit actlit in *)
-
-  (* solver, sys, actlit_term *)
-
 let base_setup (solver,sys,actlit) =
 
   SMTSolver.trace_comment solver "Base setup." ;

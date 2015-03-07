@@ -1466,26 +1466,35 @@ let init_solver
   in
 
   (if declare_top_vars_only then [ sys ] else all_systems)
-  |> List.iter
-       ( fun sys ->
+  |> List.fold_left
+       ( fun common_svars sys' ->
 
          Format.asprintf
            "|===| Declaring variables of %a for [%a,%a]."
-           pp_print_trans_sys_name sys
+           pp_print_trans_sys_name sys'
            Numeral.pp_print_numeral lbound
            Numeral.pp_print_numeral ubound
          |> comment ;
 
          comment "Constants." ;
 
-         (* Declaring constant variables. *)
-         vars_of_bounds sys lbound lbound
+         (* Declaring constant variables, skipping common ones. *)
+         vars_of_bounds'' common_svars sys' lbound lbound
          |> Var.declare_constant_vars declare ;
 
          comment "Non-constant state variables." ;
 
-         (* Declaring state variables. *)
-         declare_vars_of_bounds' [] sys declare lbound ubound ) ;
+         (* Declaring state variables, skipping common ones. *)
+         declare_vars_of_bounds'
+           common_svars sys' declare lbound ubound ;
+
+         (* A system has all its subsystems abstraction actlits as
+            state variables. We go through all systems in topological
+            order, remembering the abstraction actlits. *)
+         match sys'.contracts with
+         | None -> common_svars
+         | Some (abs_svar,_,_) -> abs_svar :: common_svars )
+       [] ;
 
   ( match req_svar with
     | [] -> ()
