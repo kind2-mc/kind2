@@ -331,9 +331,32 @@ let clean_up_sys sys =
   reset_invariants sys ;
   lift_valids sys
 
-let launch_analysis sys log msg_setup =
+(* Prints final things. *)
+let print_final_things sys log =
+  dbl_sep_line_warn () ;
 
-  Analysis.run sys log msg_setup (Flags.enable ())
+  ( if Flags.modular () || Flags.compositional () then (
+      Event.log L_warn "Analysis breakdown:" ;
+
+      Event.log
+        L_warn
+        "%a"
+        Log.pp_print_log log
+    ) else 
+      print_final_statistics sys )
+
+let launch_analysis sys log msg_setup =
+  match
+    Analysis.run sys log msg_setup (Flags.enable ())
+  with
+  | Analysis.Ok
+  | Analysis.Timeout ->
+     (* No error, we can keep going. *)
+     ()
+  | Analysis.Error ->
+     (* Error, we must stop there. *)
+     print_final_things sys log ;
+     exit Analysis.status_error
 
 let rec launch_compositional sys log msg_setup =
 
@@ -536,18 +559,7 @@ let launch sys msg_setup =
     )
   in
 
-  (* Printing final things. *)
-  dbl_sep_line_warn () ;
-
-  ( if Flags.modular () || Flags.compositional () then (
-      Event.log L_warn "Analysis breakdown:" ;
-
-      Event.log
-        L_warn
-        "%a"
-        Log.pp_print_log log
-    ) else 
-      print_final_statistics sys ) ;
+  print_final_things sys log ;
 
   (* print_hashcons_stats () ; *)
 

@@ -18,13 +18,20 @@
 
 open Lib
 
+(** Result returned by an analysis. *)
+type analysis_result =
+  | Ok | Timeout | Error
+
+(** Exit status for errors. *)
+val status_error : int
+
 (** Runs an analysis on a transition system with a list of modules to
     run. Handles spawning and destruction of the kid processes. *)
 val run :
   TransSys.t ->
   Log.t ->
   Event.messaging_setup ->
-  kind_module list -> unit
+  kind_module list -> analysis_result
 
 (** Panic exit callable from the outside.  As of today only the
     background thread and the Kind 2 top module should use this. *)

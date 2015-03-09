@@ -25,9 +25,12 @@ module PDR = PDR
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 
+(* Result returned by an analysis. *)
+type analysis_result =
+  | Ok | Timeout | Error
+
 (* Debug name of a process. *)
 let debug_ext_of_process = suffix_of_kind_module
-
 
 (* Context of an analysis: a transition system and a list of kids. *)
 type t = {
@@ -801,7 +804,7 @@ let run sys log msg_setup = function
              Unix.it_value = 0. }
        in
 
-       ()
+       Ok
 
      with
      | e ->
@@ -820,7 +823,9 @@ let run sys log msg_setup = function
               Unix.it_value = 0. }
         in
 
-        ()
+        match e with
+        | TimeoutWall | TimeoutVirtual -> Timeout
+        | _ -> Error
 
 (* 
    Local Variables:
