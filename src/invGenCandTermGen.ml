@@ -256,17 +256,17 @@ module CandidateTermGen = struct
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
                     set
-                    (* |> TSet.add (flat_to_term term) *)
+                    |> TSet.add (flat_to_term flat)
                     |> TSet.add (Term.mk_geq kids)
                     |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
 
             | `LEQ -> set
               |> TSet.add (Term.mk_geq kids)
-              |> TSet.add (Term.mk_leq kids)
+              |> TSet.add (flat_to_term flat)
 
             | `GEQ -> set
-              |> TSet.add (Term.mk_geq kids)
+              |> TSet.add (flat_to_term flat)
               |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set
@@ -488,7 +488,7 @@ module CandidateTermGen = struct
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
-                          system term
+                          trans_sys system term
                           |> (function | (top,others) -> top :: others)
                           |> List.fold_left
                               ( fun map (sys,terms) ->
@@ -509,7 +509,7 @@ module CandidateTermGen = struct
 
         let final =
           (* Only getting to system if required. *)
-          ( if false_of_unit ()
+          ( if Flags.invgengraph_top_only()
             then get_last result else result )
           |> (
             (* One state-ing everything if required. *)

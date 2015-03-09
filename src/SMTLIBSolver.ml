@@ -19,7 +19,6 @@
 open Lib
 open SolverResponse
 
-
 (* ********************************************************************* *)
 (* Types                                                                 *)
 (* ********************************************************************* *)
@@ -639,7 +638,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   (* ********************************************************************* *)
 
   (* Formatter writing to SMT trace file *)
-  let create_trace_ppf id = 
+  let create_trace_ppf scope abstraction id = 
 
     (* Tracing of SMT commands enabled? *)
     if Flags.smt_trace () then 
@@ -648,8 +647,15 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       let trace_filename = 
         Filename.concat
           (Flags.smt_trace_dir ())
-          (Format.sprintf "%s.%s.%d.%s" 
+          (Format.asprintf
+             "%s.%s%s%a.%s.%d.%s"
              (Filename.basename (Flags.input_file ()))
+             (String.concat "-" scope)
+             ( if abstraction = [] then "" else "-" )
+             (pp_print_list
+                (pp_print_list Format.pp_print_string ".")
+                "-")
+             abstraction
              (suffix_of_kind_module (Event.get_module ()))
              id
              trace_extension
@@ -661,9 +667,12 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         (* Open file for output, may fail *)
         let trace_oc = open_out trace_filename in
 
+        let mdl = Event.get_module () in
+
         Event.log L_debug
-          "Tracing output of SMT solver instance to %s"
-          trace_filename;
+          "Tracing output of SMT solver instance to %s (%s)@."
+          trace_filename
+          (suffix_of_kind_module mdl) ;
 
         (* Return formatter *)
         Some (Format.formatter_of_out_channel trace_oc)
@@ -743,7 +752,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
+      (* Scope of the (sub)system under analysis. *)
+      scope
       logic
+      abstraction
       id =
 
     (* Get autoconfigured configuration *)
@@ -783,7 +795,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
 
     (* Create trace functions *)
-    let trace_ppf = create_trace_ppf id in
+    let trace_ppf = create_trace_ppf scope abstraction id in
     (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
     let ftrace_cmd = trace_cmd trace_ppf in
     let ftrace_res = trace_res trace_ppf in
@@ -895,7 +907,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         ~produce_assignments:P.produce_assignments
         ~produce_cores:P.produce_cores
         ~produce_proofs:P.produce_proofs
-        P.logic P.id
+        P.scope
+        P.logic
+        P.abstraction
+        P.id
 
     let delete_instance () = delete_instance solver
 

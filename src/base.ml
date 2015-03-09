@@ -31,7 +31,7 @@ let print_stats () =
      Stat.smt_stats_title, Stat.smt_stats]
 
 (* Clean up before exit *)
-let on_exit _ =
+let on_exit trans_opt =
 
   (* Stop all timers. *)
   Stat.bmc_stop_timers ();
@@ -49,7 +49,7 @@ let on_exit _ =
          solver_ref := None
     with
     | e -> 
-       Event.log L_error
+       Event.log L_debug
                  "BMC @[<v>Error deleting solver_init:@ %s@]" 
                  (Printexc.to_string e))
 
@@ -105,9 +105,10 @@ let split_closure trans solver k actlits to_split =
     let term =
       list
       |> List.map snd
-      |> Term.mk_and |> Term.mk_not |> Term.bump_state k in
+      |> Term.mk_and |> Term.mk_not |> Term.bump_state k
+    in
     (* Getting actlit for it. *)
-    let actlit = generate_actlit term in
+    let actlit = fresh_actlit () in
     (* Declaring actlit. *)
     actlit |> SMTSolver.declare_fun solver ;
     (* Asserting implication. *)
@@ -118,6 +119,7 @@ let split_closure trans solver k actlits to_split =
     let all_actlits = (term_of_actlit actlit) ::  actlits in
     (* Splitting. *)
     match split trans solver k falsifiable list all_actlits with
+    (* bla *)
     | None -> list, falsifiable
     | Some ([], new_falsifiable) ->
        [], new_falsifiable :: falsifiable
@@ -203,9 +205,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
      (* Output current progress. *)
      Event.log
        L_info
-       "BMC @[<v>at k = %i@,\
-                 %i unfalsifiable properties.@]"
-       (Numeral.to_int k) (List.length nu_unknowns);
+       "BMC @[<v>at k = %i for [%s]@,\
+        %i unfalsifiable properties.@]"
+       (Numeral.to_int k)
+       (TransSys.get_name trans)
+       (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)
      let nu_invariants =
@@ -279,7 +283,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
-       trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
+       trans
+       (SMTSolver.declare_fun solver)
+       (SMTSolver.assert_term solver)
+       k_p_1
+       k_p_1 ;
      
      (* Asserting transition relation for next iteration. *)
      TransSys.trans_of_bound trans k_p_1
@@ -303,6 +311,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
 
 (* Initializes the solver for the first check. *)
 let init trans =
+
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
@@ -313,12 +322,31 @@ let init trans =
 
   (* Creating solver. *)
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
-      (TransSys.get_logic trans) (Flags.smtsolver ())
+    SMTSolver.create_instance
+      ~produce_assignments:true
+      (TransSys.get_scope trans)
+      (TransSys.get_logic trans)
+      (TransSys.get_abstraction trans)
+      (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
+
+  TransSys.init_solver
+    trans
+    (SMTSolver.trace_comment solver)
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.assert_term solver)
+    Numeral.(~- one) Numeral.zero ;
+
+  (* Defining uf's and declaring variables. *)
+  (* TransSys.init_define_fun_declare_vars_of_bounds *)
+  (*   trans *)
+  (*   (SMTSolver.define_fun solver) *)
+  (*   (SMTSolver.declare_fun solver) *)
+  (*   Numeral.(~- one) Numeral.zero ; *)
 
   (* Declaring positive actlits. *)
   List.iter
@@ -326,13 +354,6 @@ let init trans =
      generate_actlit prop
      |> SMTSolver.declare_fun solver)
     unknowns ;
-
-  (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
-    trans
-    (SMTSolver.define_fun solver)
-    (SMTSolver.declare_fun solver)
-    Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
@@ -344,14 +365,15 @@ let init trans =
     TransSys.invars_of_bound trans Numeral.zero
   in
 
+  Event.log
+    L_info
+    "BMC Going to next at 0." ;
+
   (trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
 let main trans =
   init trans |> next
-
-
-
 
 
 (* 

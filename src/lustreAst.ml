@@ -201,31 +201,68 @@ type node_equation =
   | AnnotMain
   | AnnotProperty of position * expr
 
-(* A contract clause *)
-type contract_clause =
-  | Requires of position * expr
-  | Ensures of position * expr
+(* A contract requirement. *)
+type contract_require = position * expr
 
-(* A contract as a list of clauses *)
-type contract = contract_clause list 
+(* A contract ensure. *)
+type contract_ensure = position * expr
+
+(* Equations that can appear in a contract node. *)
+type contract_node_equation =
+  | GhostEquation of position * struct_item list * expr
+  | Require of contract_require
+  | Ensure of contract_ensure
+
+(* A contract for a node is either an inlined contract (defined in the
+   node itself), or a contract node call. *)
+type contract =
+  | InlinedContract of position
+                       * ident
+                       * contract_require list
+                       * contract_ensure list
+  | ContractCall of position * ident
+
+(* A contract specification for a node (if it has one) is either a
+   list of modes or a global contract and a list of modes. *)
+type contract_spec =
+  (* Only mode contracts. *)
+  | Modes of contract list
+  (* A global contract and some mode contracts. *)
+  | GlobalAndModes of contract * contract list
 
 (* A node declaration *)
-type node_decl = ident * node_param list * const_clocked_typed_decl list * clocked_typed_decl list * node_local_decl list * node_equation list * contract 
-  
+type node_decl =
+  ident
+  * node_param list
+  * const_clocked_typed_decl list
+  * clocked_typed_decl list
+  * node_local_decl list
+  * node_equation list
+  * contract_spec option
+
+(* A contract node declaration. Almost the same as a [node_decl] but
+   with a different type for equations, and no contract
+   specification. *)
+type contract_node_decl =
+  ident
+  * node_param list
+  * const_clocked_typed_decl list
+  * clocked_typed_decl list
+  * node_local_decl list
+  * contract_node_equation list
 
 (* A function declaration *)
 type func_decl = ident * (ident * lustre_type) list * (ident * lustre_type) list
 
-
 (* An instance of a parameterized node *)
 type node_param_inst = ident * ident * lustre_type list
   
-
 (* A declaration as parsed *)
 type declaration = 
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
   | NodeDecl of position * node_decl
+  | ContractNodeDecl of position * contract_node_decl
   | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
@@ -684,29 +721,82 @@ let pp_print_node_equation ppf = function
 
   | AnnotMain -> Format.fprintf ppf "--%%MAIN;"
 
-  | AnnotProperty (pos, e) -> Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
+  | AnnotProperty (pos, e) ->
+     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e
 
+let pp_print_contract_require commented ppf (pos,e) =
+  Format.fprintf
+    ppf
+    "@[<hv 3>%srequire@ %a;@]"
+    (if commented then "--@" else "")
+    pp_print_expr e
 
-(* Pretty-print a contract clause *)
-let pp_print_contract_clause ppf = function 
-
-  | Requires (pos, e) -> 
-
-    Format.fprintf ppf "--%@requires %a;" pp_print_expr e
-
-  | Ensures (pos, e) -> 
-
-    Format.fprintf ppf "--%@ensures %a;" pp_print_expr e
+let pp_print_contract_ensure commented ppf (pos,e) =
+  Format.fprintf
+    ppf
+    "@[<hv 3>%sensure@ %a;@]"
+    (if commented then "--@" else "")
+    pp_print_expr e
 
 
 (* Pretty-print a node contract *)
-let pp_print_contract ppf c = 
+let pp_print_contract global ppf = function
 
-  if c = [] then () else
+  | InlinedContract (pos,id,req,ens) ->
+     Format.fprintf
+       ppf
+       "@[<v 2>--@%s : %a;@ %a@ %a@]"
+       (if global then "global_contract" else "contract")
+       (I.pp_print_ident false) id
+       (pp_print_list
+          (pp_print_contract_require true)
+          "@ ")
+       req
+       (pp_print_list
+          (pp_print_contract_ensure true)
+          "@ ")
+       ens
 
-    Format.fprintf ppf 
-      "@[<v>%a@,@]" 
-      (pp_print_list pp_print_contract_clause "@,") c
+  | ContractCall (pos, id) ->
+     Format.fprintf
+       ppf
+       "--@%s %a;"
+       (if global then "global_contract" else "contract")
+       (I.pp_print_ident false) id
+
+let pp_print_contract_spec_option ppf = function
+
+  | None -> ()
+
+  | Some (Modes modes) ->
+     Format.fprintf
+       ppf
+       "@[<v>%a@]"
+       (pp_print_list (pp_print_contract false) "@ ") modes
+
+  | Some (GlobalAndModes (global, modes)) ->
+     Format.fprintf
+       ppf
+       "@[<v>%a@ %a@]"
+       (pp_print_contract true) global
+       (pp_print_list (pp_print_contract false) "@ ") modes
+     
+
+(* Pretty-prints a contract node equation. *)
+let pp_print_contract_node_equation ppf = function
+
+  | GhostEquation (pos, l, e) ->
+     Format.fprintf
+       ppf
+       "@[<hv 2>@[<hv 1>(%a)@] =@ %a;@]"
+       (pp_print_list pp_print_struct_item ",@ ") l
+       pp_print_expr e
+
+  | Require req ->
+     pp_print_contract_require false ppf req
+
+  | Ensure ens ->
+     pp_print_contract_ensure false ppf ens
   
 
 (* Pretty-print a declaration *)
@@ -733,9 +823,27 @@ let pp_print_declaration ppf = function
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract r
+      pp_print_contract_spec_option r
       pp_print_node_local_decl l
-      (pp_print_list pp_print_node_equation "@ ") e 
+      (pp_print_list pp_print_node_equation "@ ") e
+
+  | ContractNodeDecl (pos, (n,p,i,o,l,e)) ->
+
+     Format.fprintf
+       ppf
+       "@[<hv>@[<hv 2>contract %a%t@ \
+        @[<hv 1>(%a)@]@;<1 -2>\
+        returns@ @[<hv 1>(%a)@];@]@ \
+        %a\
+        @[<hv 2>let@ \
+        %a@;<1 -2>\
+        tel;@]@]"
+       (I.pp_print_ident false) n
+       (function ppf -> pp_print_node_param_list ppf p)
+       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+       pp_print_node_local_decl l
+       (pp_print_list pp_print_contract_node_equation "@ ") e
 
   | FuncDecl (pos, (n, i, o)) -> 
 
