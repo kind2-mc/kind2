@@ -3288,7 +3288,7 @@ let rec property_to_node
    * [global] is the optional global ensure of the contract spec.
 
  *)
-and contract_spec_to_node 
+and contract_spec_to_node
     context
     node
     ({ mk_state_var_for_expr; new_vars } as abstractions)
@@ -3297,6 +3297,9 @@ and contract_spec_to_node
     modes
     global_contract
     mode_contracts =
+
+  let original_node = node in
+  let original_abstractions = abstractions in
 
   (* Handling the requirement [req] first. *)
   let to_state_variable context node abstractions expr =
@@ -3326,9 +3329,32 @@ and contract_spec_to_node
           (state_var, expr)
       in
       (* Returning state variable and updated things. *)
-      state_var, context, node, { abstraction with new_vars = new_vars }
+      state_var, context, node, {
+          abstraction with new_vars = new_vars
+      }
 
   in
+
+  (* Fail if abstractions contain a node call to a node with a
+     contract spec. *)
+  ( abstractions.new_calls
+    |> List.iter
+         (fun call ->
+          match
+            (N.node_of_name
+               call.N.call_node_name
+               context.nodes).N.contract_spec
+          with
+          | None ->
+             (* Node called has no contract spec, fine. *)
+             ()
+          | Some (_) ->
+             (* Node called has a contract spec, failing. *)
+             Format.asprintf
+               "node \"%a\" has a contract \
+                specification and cannot be called in a contract."
+               (I.pp_print_ident false) call.N.call_node_name
+             |> fail_at_position call.N.call_pos) ) ;
 
   (* Making sure the node has no contract spec. *)
   match node.N.contract_spec with
@@ -3463,63 +3489,11 @@ and contract_spec_to_node
 
      (* Adding new constraints to node. *)
      let node =
-      { node with
-        N.props = proof_objectives @ node.N.props;
-        N.observers = node_observers ;
-        N.locals = node_locals ;}
+       { node with
+         N.props = proof_objectives @ node.N.props;
+         N.observers = node_observers ;
+         N.locals = node_locals ;}
      in
-
-     (* Format.printf "@[<v 3>Node@ %a@]@." (N.pp_print_node true) node ; *)
-
-     (* Format.printf *)
-     (*   "Node: %a@.\ *)
-     (*    @[<v 3>node equations@ %a@]@." *)
-     (*   (I.pp_print_ident false) node.N.name *)
-     (*   (pp_print_list *)
-     (*      (fun ppf (sv,le) -> *)
-     (*       Format.fprintf *)
-     (*         ppf *)
-     (*         "@[<hv 7>%a = %a@]" *)
-     (*         (E.pp_print_lustre_var true) sv *)
-     (*         (E.pp_print_lustre_expr true) le) *)
-     (*      "@ ") node.N.equations ; *)
-
-     (* (\* Getting equations relevant to the contract state. *\) *)
-     (* let ({ N.equations = contract_equations } as contract_node) = *)
-     (*   (\* Slicing current node to contracts. *\) *)
-     (*   N.reduce_to_coi *)
-     (*     ( node :: context.nodes) *)
-     (*     node.N.name *)
-     (*     ( (fst req) :: (modes' |> List.map fst) ) *)
-     (*   (\* Retrieving current node. *\) *)
-     (*   |> N.node_of_name node.N.name *)
-     (* in *)
-
-     (* Format.printf "@[<v 3>Contract node@ %a@]@." (N.pp_print_node true) contract_node ; *)
-
-     (* Format.printf *)
-     (*   "Node: %a@.\ *)
-     (*    @[<v 3>contract equations@ %a@]@." *)
-     (*   (I.pp_print_ident false) node.N.name *)
-     (*   (pp_print_list *)
-     (*      (fun ppf (sv,le) -> *)
-     (*       Format.fprintf *)
-     (*         ppf *)
-     (*         "@[<hv 7>%a = %a@]" *)
-     (*         (E.pp_print_lustre_var true) sv *)
-     (*         (E.pp_print_lustre_expr true) le) *)
-     (*      "@ ") contract_equations ; *)
-
-     (* Format.printf *)
-     (*   "@[<v 3>contract locals@ %a@]@." *)
-     (*   (pp_print_list *)
-     (*      (fun ppf (sv,le) -> *)
-     (*       Format.fprintf *)
-     (*         ppf *)
-     (*         "@[<hv 7>%a = %a@]" *)
-     (*         (E.pp_print_lustre_var true) sv *)
-     (*         (I.pp_print_index true) le) *)
-     (*      "@ ") contract_node.locals ; *)
 
      (* Building the final lustre node contract spec. *)
      let contract_spec =
@@ -3537,7 +3511,7 @@ and contract_spec_to_node
 
      (* Adding contract specification to node. *)
      let node =
-      { node with N.contract_spec = Some contract_spec }
+       { node with N.contract_spec = Some contract_spec }
      in
 
      (* Returning new stuff. *)
@@ -4070,14 +4044,40 @@ let parse_node_contract_spec
     node_pos
     ({ N.name = node_ident } as node) =
 
-  let list_to_conj abstraction = function
+  let list_to_conj
+        is_requirement
+        abstraction = function
     | [] -> ([], E.t_true, abstraction)
     | (pos,expr) :: tail ->
+
+       let check_expr =
+         if is_requirement then
+           (fun (pos,expr) ->
+            E.current_vars_of_expr expr
+            |> StateVar.StateVarSet.filter
+                 E.state_var_is_output
+            |> StateVar.StateVarSet.elements
+            |> (function
+                 | [] -> expr
+                 | out_svars ->
+                    Format.asprintf
+                      "requirement constrains current state \
+                       outputs [%a]."
+                      (pp_print_list
+                         (E.pp_print_lustre_var false)
+                         ", ")
+                      out_svars
+                    |> fail_at_position pos))
+         else (fun (pos,expr) -> expr)
+       in
+
        let expr, abstraction =
          bool_expr_of_ast_expr
            context abstraction pos expr
          |> close_ast_expr pos
        in
+
+       let expr = check_expr (pos,expr) in
 
        tail
        |> List.fold_left
@@ -4088,6 +4088,7 @@ let parse_node_contract_spec
                   context abs pos expr
                 |> close_ast_expr pos
               in
+              let expr = check_expr (pos,expr) in
               (expr :: exprs, E.mk_and expr conj, abs') )
             ([expr], expr, abstraction)
   in
@@ -4098,11 +4099,11 @@ let parse_node_contract_spec
       :: tail ->
 
        let req_exprs, req, abstractions =
-         list_to_conj abstractions reqs'
+         list_to_conj true abstractions reqs'
        in
 
        let ens_exprs, ens, abstractions =
-         list_to_conj abstractions enss'
+         list_to_conj false abstractions enss'
        in
 
        formulas_of_modes
@@ -4168,11 +4169,11 @@ let parse_node_contract_spec
      in
 
      let global_req_exprs, global_req, abstractions =
-       list_to_conj abstractions reqs
+       list_to_conj true abstractions reqs
      in
 
      let global_ens_exprs, global_ens, abstractions =
-       list_to_conj abstractions enss
+       list_to_conj false abstractions enss
      in
 
      (* Building requirement and contract mode implications. *)
@@ -4849,13 +4850,6 @@ let generate_abstract_equations nodes node =
   | None -> node
 
   | Some (req, modes, global, mode_contracts, _) ->
-     (* Format.printf *)
-     (*   "@.Generating abstract equations for %a@." *)
-     (*   (I.pp_print_ident false) node.N.name ; *)
-
-     (* Format.printf *)
-     (*   "@[<v 3>Node:@ %a@]@." *)
-     (*   (N.pp_print_node false) node ; *)
 
      (* Modes and requirement state variables. *)
      let contract_svars = (fst req) :: (modes |> List.map fst) in

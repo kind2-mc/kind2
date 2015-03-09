@@ -1,7 +1,7 @@
 contract c1 (in: int) returns (out: int);
 let
-  --@require in  > 0 ;
-  --@ensure  out > 0 ;
+  require in  > 0 ;
+  ensure  out > 0 ;
 tel
 
 node bla (in: real) returns (out: int);

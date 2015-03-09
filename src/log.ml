@@ -295,13 +295,12 @@ let pp_print_prop_info ppf = function
      Format.fprintf
        ppf "@[<hv 4>\
             PropsValid @[<v>%a@]@ \
-            %a\
             @]"
        (pp_print_list
           (fun ppf s -> Format.fprintf ppf "%s" s)
           ",@ ")
        props
-       pp_print_valid_props_info valid_props_info
+  (* pp_print_valid_props_info valid_props_info *)
   | PropKTrue (prop, k) ->
      Format.fprintf
        ppf "@[<v 4>PropKTrue [%s]@ at %a@]"
@@ -351,16 +350,31 @@ let pp_print_abstraction_sublog_shy
     (pp_print_list
        ( fun ppf ->
          function
-         | PropsValid (props,_) ->
+         | PropsValid
+           (props, { modul ; valid_props ; invars}) ->
             Format.fprintf
-              ppf "@[<hv 7>Valid: %a@]"
+              ppf
+              "@[<v 2>\
+               Valid: %a@]"
+              (* "@[<v 2>\ *)
+              (*  Valid by %a: %a@ \ *)
+              (*  with properties @[<v>%a@]@ \ *)
+              (*  with invariants @[<v>%a@]@]" *)
+              (* pp_print_kind_module modul *)
               (pp_print_list
                  Format.pp_print_string
                  ",@ ")
               props
-         | PropFalse (prop,_,_,_) ->
+              (* (pp_print_list Format.pp_print_string ",@ ") *)
+              (* valid_props *)
+              (* (pp_print_list Term.pp_print_term ",@ ") *)
+              (* invars *)
+         | PropFalse (prop,mdl,_,_) ->
             Format.fprintf
-              ppf "False: %s" prop
+              ppf
+              "False by %a: %s"
+              pp_print_kind_module mdl
+              prop
          | _ -> () )
        "@ ")
     prop_infos

@@ -2248,6 +2248,19 @@ let stateful_vars_of_expr { expr_step } =
     
     expr_step
 
+(* Return state variables that occur as current state variables *)
+let current_vars_of_expr { expr_init ; expr_step } =
+  (* Current state variables in init term. *)
+  let cur_state_vars_init =
+    Term.state_vars_at_offset_of_term base_offset expr_init
+  in
+  (* Current state variables in step term. *)
+  let cur_state_vars_step =
+    Term.state_vars_at_offset_of_term cur_offset expr_step
+  in
+  (* Join sets of state variables. *)
+  SVS.union cur_state_vars_init cur_state_vars_step
+
 
 (* Return all state variables *)
 let state_vars_of_expr { expr_init; expr_step } = 
