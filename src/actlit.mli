@@ -18,8 +18,11 @@
 
 open Lib
 
+(** Name of the activation literal for contracts. *)
+val contract_actlit_name: string
+
 (** Returns an actlit built from a string. Beware of name
-   collisions. *)
+    collisions. *)
 val actlit_of_string: string -> UfSymbol.t
 
 (** Creates a positive actlit as a bool UF constant. *)

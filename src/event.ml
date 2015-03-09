@@ -56,12 +56,23 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
             StateVar.pp_print_state_var sv'
         in
         sv'
-      | _ -> 
-        debug event
-            "State variable %a has more than one instance" 
-        StateVar.pp_print_state_var sv
-        in
-        assert false
+      | list ->
+         if sv == StateVar.mk_init_flag (TransSys.get_scope trans_sys)
+         then (
+           failwith "redundant init flag mapping error, solve problem with condacts first"
+         ) else (
+
+           debug event
+                 "State variable %a has more than one instance" 
+                 StateVar.pp_print_state_var sv
+           in
+           debug event
+                 "  %a"
+                 (pp_print_list StateVar.pp_print_state_var ", ")
+                 (List.map (fun (_,_,sv) -> sv) list)
+           in
+           assert false
+         )
   in
 
   (* Get state variable in scope of main node *)
@@ -274,7 +285,7 @@ module EventMessaging = Messaging.Make (EventMessage)
 let this_module = ref `Parser
 
 (* Set module currently running *)
-let set_module mdl = this_module := mdl 
+let set_module mdl = this_module := mdl
 
 (* Get module currently running *)
 let get_module () = !this_module
@@ -324,7 +335,7 @@ module MdlMap =
       let int_of_kind_module = function
         | `Parser -> -3
         | `Interpreter -> -2
-        | `INVMAN -> -1
+        | `Supervisor -> -1
         | `BMC -> 1
         | `IND -> 2
         | `PDR -> 3
@@ -375,7 +386,7 @@ let pt_string_of_kind_module = function
   | `IND -> "inductive step"
   | `INVGEN -> "two state invariant generator"
   | `INVGENOS -> "one state invariant generator"
-  | `INVMAN -> "invariant manager"
+  | `Supervisor -> "supervisor"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
 
@@ -407,9 +418,16 @@ let proved_pt mdl level trans_sys k prop =
   then 
 
     (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
-      prop
+      !log_ppf
+      ("@[<hov>%s Property %s is valid %tby %a after %.3fs.@.@.")
+      success_tag
+      (* Term.pp_print_term *)
+      (* (TransSys.named_term_of_prop_name trans_sys prop) *)
+      (match TransSys.get_prop_source trans_sys prop with
+       | None -> assert false
+       | Some source ->
+          Format.asprintf
+            "%s (%a)" prop TermLib.pp_print_prop_source source)
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
@@ -437,7 +455,7 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
           in
 
           (* Reduce nodes to cone of influence of property *)
-          let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
+          let nodes' = nodes in (*reduce_nodes_to_coi trans_sys nodes prop_name in*)
 
           (* Output counterexample *)
           Format.fprintf ppf 
@@ -511,8 +529,13 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
-      prop
+      ("@[<v>%s Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.")
+      failure_tag
+      (match TransSys.get_prop_source trans_sys prop with
+       | None -> assert false
+       | Some source ->
+          Format.asprintf
+            "%s (%a)" prop TermLib.pp_print_prop_source source)
       pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
@@ -614,7 +637,7 @@ let xml_src_of_kind_module = function
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
   | `INVGENOS -> "invgenos"
-  | `INVMAN -> "invman"
+  | `Supervisor -> "supervisor"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
 
@@ -1158,7 +1181,6 @@ let terminate () =
 (* Receiving events                                                       *)
 (* ********************************************************************** *)
 
-
 (* Receive all queued messages *)
 let recv () = 
 
@@ -1183,7 +1205,7 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log (log_level_of_int lvl) "%s" msg; 
+                log (log_level_of_int lvl) "%s" msg ;
 
                (* No relay message *)
                accum
@@ -1232,6 +1254,15 @@ let recv () =
 let check_termination () =
   if EventMessaging.check_termination ()
   then raise Terminate else ()
+
+(* Notifies the background thread o a new list of child
+   processes. Used by the supervisor in a modular analysis when
+   restarting. *)
+let update_child_processes_list new_process_list =
+  try
+    EventMessaging.update_child_processes_list
+      new_process_list
+  with Messaging.NotInitialized -> ()
 
 
 (* Update transition system from event list *)
@@ -1302,8 +1333,15 @@ let update_trans_sys_sub trans_sys events =
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
           
-      (* Change property status in transition system *)
-      TransSys.set_prop_invariant trans_sys p;
+      (* Change property status in transition system, possibly getting
+         new invariants (in the case of a requirement for instance). *)
+      let invars' =
+        TransSys.set_prop_invariant trans_sys p
+      in
+
+      invars'
+      |> List.iter (fun inv ->
+                    TransSys.add_invariant trans_sys inv) ;
 
       (try 
 
@@ -1312,15 +1350,24 @@ let update_trans_sys_sub trans_sys events =
           trans_sys
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
 
-       (* Skip if named property not found *)
-       with Not_found -> ());
+          (* Skip if named property not found *)
+        with Not_found -> ());
+
+      (* Injecting invariant event. *)
+      let tl' =
+        let scope = TransSys.get_scope trans_sys in
+        invars'
+        |> List.fold_left
+             ( fun tail inv -> (m, Invariant(scope, inv)) :: tail)
+             tl
+      in
 
       (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys 
         invars
         ((m, (p, s)) :: prop_status)
-        tl
+        tl'
 
     (* Property found false *)
     | (m, PropStatus (p, (TransSys.PropFalse cex as s))) :: tl -> 

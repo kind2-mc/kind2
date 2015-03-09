@@ -30,7 +30,6 @@ type cexs = cex list
 
 *)
 
-
 (* ********************************************************************** *)
 (* Properties of transition systems                                       *)
 (* ********************************************************************** *)
@@ -42,11 +41,21 @@ type prop_source =
   | PropAnnot of position
 
   (* Property is part of a contract *)
-  | Contract of position
+  | Contract of position * string
 
   (* Property was generated, for example, from a subrange
      constraint *)
   | Generated of StateVar.t list
+
+  (* Property is a requirement of a subnode. The list of state
+     variables are the guarantees proving the requirement yields. *)
+  | Requirement of position * string list * StateVar.t list
+
+  (* Property is a mode contract implication. *)
+  (* | ModeContract of position * string *)
+
+  (* Property is a global contract. *)
+  (* | GlobalContract of position * string *)
 
   (* Property is an instance of a property in a called node
 
@@ -54,6 +63,27 @@ type prop_source =
      subsystem and the name of the property *)
   | Instantiated of string list * string 
 
+
+let pp_print_prop_source ppf = function
+  | PropAnnot pos ->
+     Format.fprintf
+       ppf "%a" pp_print_position pos
+  | Contract (pos, name) ->
+     Format.fprintf
+       ppf "contract %s at %a" name pp_print_position pos
+  | Requirement (pos, scope, _) ->
+     Format.fprintf
+       ppf
+       "requirement of %s for call at %a"
+       (String.concat "." scope)
+       pp_print_position pos
+  | Generated _ ->
+     Format.fprintf ppf "subrange constraint"
+  | Instantiated (scope,_) ->
+     Format.fprintf
+       ppf
+       "instantiated from %s"
+              (String.concat "." scope)
 
 (* Return the default value of the type *)
 let default_of_type t = 

@@ -53,6 +53,9 @@ type state_var_source =
   (* Local defined stream *)
   | Local
 
+  (* Local, ghost defined stream *)
+  | Ghost
+
   (* Local abstracted stream *)
   | Abstract
 
@@ -73,7 +76,8 @@ let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t =
 
 (* Map from state variables to identical state variables in other
    scopes *)
-let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t = 
+let state_var_instance_map :
+      state_var_instance list StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 
@@ -265,7 +269,8 @@ let state_var_is_visible state_var =
 
     (* Oracle inputs and abstraced streams are invisible *)
     | Oracle
-    | Abstract -> false
+    | Abstract
+    | Observer -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input
@@ -302,6 +307,8 @@ let state_var_is_local state_var =
     
 (* Pretty-print the source of a state variable *)
 let rec pp_print_state_var_source ppf = function
+
+  | Observer -> Format.fprintf ppf "observer"
   
   | Input -> Format.fprintf ppf "input"
 
@@ -2240,6 +2247,19 @@ let stateful_vars_of_expr { expr_step } =
         (function | [s] -> s | _ -> assert false))
     
     expr_step
+
+(* Return state variables that occur as current state variables *)
+let current_vars_of_expr { expr_init ; expr_step } =
+  (* Current state variables in init term. *)
+  let cur_state_vars_init =
+    Term.state_vars_at_offset_of_term base_offset expr_init
+  in
+  (* Current state variables in step term. *)
+  let cur_state_vars_step =
+    Term.state_vars_at_offset_of_term cur_offset expr_step
+  in
+  (* Join sets of state variables. *)
+  SVS.union cur_state_vars_init cur_state_vars_step
 
 
 (* Return all state variables *)

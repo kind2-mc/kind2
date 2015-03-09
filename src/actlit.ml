@@ -18,37 +18,50 @@
 
 open Lib
 
+(* Prefix of activation literals. *)
+let actlit_string = "__actlit"
+
+(* Name of the activation literal for contracts. *)
+let contract_actlit_name = "__abstract_actlit"
+
 (* Translates the hash of a term into a string .*)
 let string_of_term term = string_of_int (Term.tag term)
 
 (* Returns an actlit built from a string. Beware of name
    collisions. *)
 let actlit_of_string string =
-  UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
+  Type.mk_bool ()
+  |> UfSymbol.mk_uf_symbol
+       (Format.sprintf
+          "%s_%s" actlit_string string)
+       []
 
 (* Creates a positive actlit as a UF. *)
 let generate_actlit term =
-  String.concat "" [ "actlit_" ; string_of_term term ]
+  string_of_term term
   |> actlit_of_string
 
 (* Creates a negative actlit as a UF. *)
 let generate_negative_actlit term =
-  String.concat "" [ "actlit_negative_" ; string_of_term term ]
+  String.concat
+    "" [ "negative_" ; string_of_term term ]
   |> actlit_of_string
 
+(* Fresh actlit counter. *)
 let i = ref 0
 
 (* Creates a fresh actlit as a bool UF constant. *)
 let fresh_actlit () =
   let string =
     String.concat
-      "_" [ "fresh" ; "actlit" ; string_of_int !i ]
+      "_" [ "fresh" ; string_of_int !i ]
   in
   i := !i + 1 ;
   actlit_of_string string
 
 (* Returns the term corresponding to the input actlit. *)
-let term_of_actlit actlit = Term.mk_uf actlit []
+let term_of_actlit actlit =
+  Term.mk_uf actlit []
 
 (* 
    Local Variables:
