@@ -151,7 +151,6 @@ returns
 
 --@contract : inhibited_R2_R3 ;
 --@require true -> not pre PFS ;
--- --@require cyclesElapsedGT(inhibit_count_max) ;
 --@require true -> pre hasHappenedSince(valueChange(PFS), inhibit_count_max) ;
 --@ensure  true -> PFS = pre PFS ;
 
@@ -163,7 +162,6 @@ returns
 --@contract : active_change_R3 ;
 --@require riseOSPF ;
 --@require false -> pre PFS ;
--- --@require false -> pre hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  not PFS ;
 
 --@contract : not_active_change_R3 ;
@@ -175,7 +173,6 @@ returns
 
 --@contract : active_dual_R5 ;
 --@require true -> ((not pre PFS) and not riseTS) or ((pre PFS) and not riseOSPF) ;
--- --@require hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  true -> pre PFS = PFS ;
 
 var
@@ -339,7 +336,6 @@ returns
 --@contract : active_change_R3 ;
 --@require Rise(OSPF) ;
 --@require false -> (pre PFS) ;
--- --@require false -> pre hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  not PFS ;
 
 --@contract : not_active_change_R3 ;
@@ -351,7 +347,6 @@ returns
 
 --@contract : active_dual_R5 ;
 --@require true -> ((not pre PFS) and not Rise(TS)) or ((pre PFS) and not Rise(OSPF)) ;
--- --@require hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  true -> (pre PFS = PFS) ;
 
 var

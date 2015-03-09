@@ -150,7 +150,6 @@ returns
 
 --@contract : inhibited_R2_R3 ;
 --@require true -> not pre PFS ;
--- --@require cyclesElapsedGT(inhibit_count_max) ;
 --@require true -> pre hasHappenedSince(valueChange(PFS), inhibit_count_max) ;
 --@ensure  true -> PFS = pre PFS ;
 
@@ -162,7 +161,6 @@ returns
 --@contract : active_change_R3 ;
 --@require riseOSPF ;
 --@require false -> pre PFS ;
---@require false -> pre hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  not PFS ;
 
 --@contract : not_active_change_R3 ;
@@ -174,7 +172,6 @@ returns
 
 --@contract : active_dual_R5 ;
 --@require true -> ((not pre PFS) and not riseTS) or ((pre PFS) and not riseOSPF) ;
--- --@require hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  true -> pre PFS = PFS ;
 
 var
@@ -338,7 +335,6 @@ returns
 --@contract : active_change_R3 ;
 --@require Rise(OSPF) ;
 --@require false -> (pre PFS) ;
---@require false -> pre hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  not PFS ;
 
 --@contract : not_active_change_R3 ;
@@ -350,7 +346,6 @@ returns
 
 --@contract : active_dual_R5 ;
 --@require true -> ((not pre PFS) and not Rise(TS)) or ((pre PFS) and not Rise(OSPF)) ;
--- --@require hasNotHappenedFor(valueChange(PFS), inhibit_count_max) ;
 --@ensure  true -> (pre PFS = PFS) ;
 
 var
@@ -437,13 +432,128 @@ let
   
 tel;
 
+
+
+-- |=================================================================|
+--
+--                   Top level environment nodes.
+--
+-- |=================================================================|
+
+
+node PRESSED (p : bool) returns (b : bool);
+let
+  b = false -> (not pre p and p);
+tel;
+
+node PRESSED_SEEN (p, c : bool) returns (b : bool);
+let
+  b = false -> (not pre p and pre c) and (p and c);
+tel;
+
+node CHANGED (p : bool) returns (b : bool);
+let
+  b = false ->  not (p = pre p);
+tel;
+  
+node false_longer_than (p: bool; const n: int) returns (ok: bool);
+
+var
+  c: int;
+
+let
+
+  c = if p then 0 else (1 -> pre c + 1);
+  
+  ok = c > n;
+
+tel;
+
+node quiescent
+  (TS, CLK1, CLK3, CLK2, CLK4 : bool)
+returns
+  (out : bool) ;
+let
+  out =
+    false_longer_than(PRESSED(TS), 46) and
+    false_longer_than(PRESSED(TS), 46) and
+    false_longer_than(PRESSED(TS), 46) and
+    false_longer_than(PRESSED(TS), 46) ;
+tel
+
+
+
+-- |=================================================================|
+--
+--                       Top level contracts.
+--
+-- |=================================================================|
+
+
+
+contract PFS_global_spec_R1_R4
+  (TS, CLK1, CLK3, CLK2, CLK4 : bool)
+returns
+  (LPFS, RPFS : bool) ;
+let
+
+  -- |===| Ensures.
+
+  -- At least one side is flying.
+  ensure LPFS or RPFS ;
+  -- Left side is flying at init.
+  ensure LPFS -> true ;
+tel
+
+contract PFS_contract_R2
+  (TS, CLK1, CLK3, CLK2, CLK4 : bool)
+returns
+  (LPFS, RPFS : bool) ;
+let
+  require quiescent(TS, CLK1, CLK2, CLK3, CLK4) ;
+  ensure  LPFS = not RPFS ;
+tel
+
+contract PFS_contract_R3
+  (TS, CLK1, CLK3, CLK2, CLK4 : bool)
+returns
+  (LPFS, RPFS : bool) ;
+let
+  require true -> pre quiescent(TS, CLK1, CLK2, CLK3, CLK4) ;
+  ensure  true -> (
+    (not pre LPFS and PRESSED_SEEN(TS, CLK1) => LPFS) and
+    (not pre RPFS and PRESSED_SEEN(TS, CLK3) => RPFS)
+  ) ;
+tel
+
+contract PFS_contract_R5
+  (TS, CLK1, CLK3, CLK2, CLK4 : bool)
+returns
+  (LPFS, RPFS : bool) ;
+let
+  require quiescent(TS, CLK1, CLK2, CLK3, CLK4) ;
+  ensure  not (CHANGED(RPFS) or CHANGED(LPFS)) ;
+tel
+
+
+
+-- |=================================================================|
+--
+--                           Top level node.
+--
+-- |=================================================================|
+
+
+
 node PFS
   (TS, CLK1, CLK3, CLK2, CLK4 : bool) 
 returns 
   (LPFS, RPFS : bool) ;
 
---@contract : flying_R1 ;
---@ensure LPFS or RPFS ;
+--@global_contract PFS_global_spec_R1_R4 ;
+--@contract PFS_contract_R2 ;
+--@contract PFS_contract_R3 ;
+--@contract PFS_contract_R5 ;
 
 var
   RL_O : bool;
@@ -452,8 +562,6 @@ var
   LS_PFS : bool;
 
 let
-
-  assert CLK1 and CLK2 and CLK3 and CLK4 ;
 
   --%MAIN;
 
@@ -478,4 +586,3 @@ let
   RPFS = RS_PFS;
   
 tel;
-
