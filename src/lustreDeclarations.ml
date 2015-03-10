@@ -1056,8 +1056,10 @@ let eval_node_decl
      to outputs *)
   let ctx = eval_node_outputs ~is_single:(List.length outputs = 1) ctx outputs in
 
- (* Parse contracts and add to context in contracts *)
+(*
+  (* Parse contracts and add to context in contracts *)
   let ctx = eval_node_contracts ctx contracts in
+*)
 
   (* Add locals to context: as state variable to ident_expr_map, and
      to inputs *)
@@ -1178,7 +1180,9 @@ let rec declarations_to_context ctx = function
 
     C.fail_at_position pos "Parametric nodes not supported" 
 
+  | A.ContractNodeDecl (pos, _) :: _ -> 
 
+    C.fail_at_position pos "Contract nodes not supported" 
 
 
 (*
