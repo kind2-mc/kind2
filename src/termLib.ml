@@ -54,6 +54,39 @@ type prop_source =
      subsystem and the name of the property *)
   | Instantiated of string list * string
 
+
+let pp_print_prop_source ppf = function 
+
+  | PropAnnot _ -> 
+
+    Format.fprintf ppf "Annotation"
+
+  | SubRequirement (scope, _) -> 
+
+    Format.fprintf 
+      ppf
+      "Subreq %a"
+      (pp_print_list Format.pp_print_string ".") 
+      scope
+
+  | Generated l -> 
+
+    Format.fprintf
+      ppf
+      "Generated %a"
+      (pp_print_list StateVar.pp_print_state_var ", ") 
+      l
+
+  | Instantiated (scope, p) -> 
+
+    Format.fprintf 
+      ppf
+      "Instantiated %a.%s"
+      (pp_print_list Format.pp_print_string ".") 
+      scope
+      p
+
+
 (* Source of a contract. *)
 type contract_source =
 

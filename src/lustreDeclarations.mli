@@ -16,18 +16,11 @@
 
 *)
 
-(** Simplify a Lustre AST to normalized Lustre nodes 
+(** Convert a Lustre abstract syntax tree to an intermediate Lustre model
 
-    
+    @author Christoph Sticksel *)
 
-    @author Christoph Sticksel
-*)
-
-val eval_ast_expr : LustreContext.t -> LustreAst.expr -> LustreExpr.t LustreIndex.t * LustreContext.t
-
-val eval_ast_type : LustreContext.t -> LustreAst.lustre_type -> Type.t LustreIndex.t
-
-val eval_bool_ast_expr : LustreContext.t -> Lib.position -> LustreAst.expr -> LustreExpr.t * LustreContext.t
+val declarations_to_nodes : LustreAst.t -> LustreNode.t list
 
 (* 
    Local Variables:

@@ -36,6 +36,7 @@ type kindtype =
 (*
   | BV of int
 *)
+  (* First is element type, second is index type *)
   | Array of t * t
   | Scalar of string * string list 
 
@@ -349,6 +350,17 @@ let elements_of_scalar = function
   | { Hashcons.node = Scalar (_, e) } -> e
   | _ -> raise (Invalid_argument "elements_of_scalar")
 
+(* Return type of array index *)
+let index_type_of_array = function 
+  | { Hashcons.node = Array (_, i) } -> i
+  | _ -> raise (Invalid_argument "index_type_of_array")
+
+(* Return type of array elements *)
+let elem_type_of_array = function 
+  | { Hashcons.node = Array (e, _) } -> e
+  | _ -> raise (Invalid_argument "elem_type_of_array")
+
+
 (* ********************************************************************* *)
 (* Type checking                                                         *)
 (* ********************************************************************* *)
@@ -368,8 +380,8 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | IntRange _, Int -> true
 
     (* IntRange is subtype of IntRange if the interval is a subset *)
-    | IntRange (l1, u1), IntRange (l2, u2) 
-      when Numeral.(l1 >= l2) && Numeral.(u1 <= u2) -> true
+    | IntRange (l1, u1), IntRange (l2, u2) ->
+      Numeral.(l1 >= l2) && Numeral.(u1 <= u2)
 
     (* Enum types are subtypes if the sets of elements are subsets *)
     | Scalar (_, l1), Scalar (_, l2) -> 
@@ -377,6 +389,11 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
       List.for_all
         (function e -> List.mem e l2)
         l1
+
+    (* Array is a subtype of array if both index type and element type
+       are subtype *)
+    | Array (i1, t1), Array (i2, t2) ->
+      (check_type i1 i2) && (check_type t1 t2)
 
     (* No other subtype relationships *)
     | _ -> false

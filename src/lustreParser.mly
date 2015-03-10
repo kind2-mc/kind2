@@ -29,10 +29,11 @@
 
 %{
 
-module I = LustreIdent
+open Lib
+
 module A = LustreAst
 
-let mk_pos = Lib.position_of_lexing 
+let mk_pos = position_of_lexing 
 
 %}
 
@@ -51,6 +52,7 @@ let mk_pos = Lib.position_of_lexing
 %token RSQBRACKET 
 %token LPAREN 
 %token RPAREN 
+%token PERCENT
 
 (* Tokens for enumerated types *)
 %token ENUM
@@ -80,8 +82,6 @@ let mk_pos = Lib.position_of_lexing
 (* %token ARRAY *)
 %token CARET
 %token DOTDOT
-(* %token LARRAYBRACKET *)
-(* %token RARRAYBRACKET *)
 %token PIPE
 
 (* Token for constant declarations *)
@@ -104,7 +104,7 @@ let mk_pos = Lib.position_of_lexing
 %token ENSURES
 %token CONTRACT
 
-(* Token for assertions *)
+(* Token for assertion *)
 %token ASSERT
     
 (* Tokens for Boolean operations *)
@@ -159,17 +159,20 @@ let mk_pos = Lib.position_of_lexing
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
-%nonassoc WHEN
-%nonassoc NOT 
-%nonassoc CURRENT 
 %nonassoc PRE 
-%left CARET 
 %nonassoc INT REAL 
+%nonassoc WHEN CURRENT 
+%nonassoc NOT 
+%left CARET 
+%left LSQBRACKET DOT
 
 (* Start token *)
 %start <LustreAst.t> main
+%start <LustreAst.expr> one_expr
 
 %%
+
+one_expr: e = expr EOF { e }
 
 
 (* A Lustre program is a list of declarations *)
@@ -436,14 +439,18 @@ node_equation:
 
 left_side:
 
+  (* Recursive array definition *)
+  | s = ident; l = nonempty_list(index_var)
+     { A.ArrayDef (mk_pos $startpos, s, l)}
+
   (* List without parentheses *)
-  | l = struct_item_list { l }
+  | l = struct_item_list { A.StructDef (mk_pos $startpos, l) }
 
   (* Parenthesized list *)
-  | LPAREN; l = struct_item_list; RPAREN { l }
+  | LPAREN; l = struct_item_list; RPAREN { A.StructDef (mk_pos $startpos, l) }
 
   (* Empty list *)
-  | LPAREN; RPAREN { [] }
+  | LPAREN; RPAREN { A.StructDef (mk_pos $startpos, []) }
 
 
 (* Item in a structured equation *)
@@ -452,9 +459,6 @@ struct_item:
   (* Single identifier *)
   | s = ident
      { A.SingleIdent (mk_pos $startpos, s) }
-
-  | s = ident; l = nonempty_list(one_index)
-     { A.IndexedIdent (mk_pos $startpos, s, l)}
 
 (*
   (* Filter array values *)
@@ -477,6 +481,9 @@ struct_item:
 struct_item_list:
  | l = separated_nonempty_list(COMMA, struct_item) { l }
 
+(* Running variable for index *)
+index_var:
+  | LSQBRACKET; s = ident; RSQBRACKET { s }
 
 (* ********************************************************************** *)
 
@@ -508,29 +515,31 @@ expr:
     { A.ExprList (mk_pos $startpos, h :: l) } 
 
   (* A tuple expression *)
-  | LSQBRACKET; l = expr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) }
+  (* | LSQBRACKET; l = expr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
+  | LCURLYBRACKET; l = expr_list; RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
+
+  (* An array expression *)
+  | LSQBRACKET; l = expr_list; RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
 
   (* An array constructor *)
   | e1 = expr; CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  (* A tuple projection 
-
-     TODO: allow multiple projections, return a list: a[0][0][0] *)
-  | e = ident; LSQBRACKET; i = expr ; RSQBRACKET
+  (* An array slice or tuple projection *)
+  | e = expr; DOT; PERCENT; i = expr 
     { A.TupleProject (mk_pos $startpos, e, i) }
 
-  (* A multidimensional array slice *)
-  | e = ident; LSQBRACKET; l = array_slice_list; RSQBRACKET
-    { A.ArraySlice (mk_pos $startpos, e, l) }
+  (* An array slice *)
+  | e = expr; LSQBRACKET; s = array_slice; RSQBRACKET
+    { A.ArraySlice (mk_pos $startpos, e, s) }
 
   (* A record field projection *)
-  | s = ident; DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos, s, I.index_of_ident t) }
+  | s = expr; DOT; t = ident 
+    { A.RecordProject (mk_pos $startpos, s, t) }
 
   (* A record *)
   | t = ident; 
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
-    { A.RecordConstruct (mk_pos $startpos, t, f) }
+    { A.RecordExpr (mk_pos $startpos, t, f) }
 
   (* An array concatenation *)
   | e1 = expr; PIPE; e2 = expr { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
@@ -618,10 +627,9 @@ expr_list: l = separated_nonempty_list(COMMA, expr) { l }
 
 
 (* An array slice *)
-array_slice: il = expr; DOTDOT; iu = expr { il, iu }
-
-(* A list of array slices *)
-array_slice_list: l = separated_nonempty_list(COMMA, array_slice) { l }
+array_slice: 
+   | il = expr; DOTDOT; iu = expr { il, iu }
+   | i = expr { i, i }
 
 
 (* An assignment to a record field *)
@@ -642,7 +650,7 @@ clock_expr:
 
 
 (* An identifier *)
-ident: s = SYM { I.mk_string_ident s }
+ident: s = SYM { s }
 
 
 (* An identifier with a type *)
@@ -783,6 +791,8 @@ tlist(opening, separator, closing, X):
 
 (* ********************************************************************** *)
 
+(*
+
 (* An index *)
 one_index: 
 
@@ -798,7 +808,7 @@ one_index:
   | LSQBRACKET; s = NUMERAL; RSQBRACKET 
      { A.NumIndex (mk_pos $startpos, int_of_string s) }
 
-
+*)
 
 
 (* 

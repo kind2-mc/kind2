@@ -35,8 +35,11 @@ let
 tel
 
 node U(i: subrange [1, 2] of int) returns (o: subrange [1, 2] of int);
+var l, k: int;
 let 
   o = 0 -> i;
+  l = 0 -> 2;
+  k = 0 -> pre l;
 tel
 
 node Z1(i: subrange[0, 2] of int; j: subrange [-3, -2] of int) returns ();

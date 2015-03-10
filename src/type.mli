@@ -136,6 +136,13 @@ val bounds_of_int_range : t -> (Numeral.t * Numeral.t)
     "elements_of_scalar"] if the type is not a scalar type. *)
 val elements_of_scalar : t -> string list 
 
+(** Return type of array index *)
+val index_type_of_array : t -> t 
+
+(** Return type of array elements *)
+val elem_type_of_array : t -> t
+
+
 (** {1 Pretty-printing} *)
 
 (** Pretty-print a type *)

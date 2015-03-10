@@ -40,16 +40,21 @@ exception Type_mismatch
 (** Clocks of expressions are not compatible *)
 exception Clock_mismatch
 
+(** {1 Types} *)
+
 (** A {!Term.t} representing a Lustre expression, state variable
     offsets refer to the current and the previous instant. 
 
     Cannot be constructed outside this module to enforce invariants
-    about allowed offsets of state variable instants. *)
+    about allowed offsets of state variable instants, see the
+    constructors below. *)
 type expr = private Term.t
 
 (** A clock
 
-    Cannot be constructed outside this module to enforce invariants *)
+    Cannot be constructed outside this module to enforce
+    invariants. Clocks are currently not supported, hence the type is
+    just the unit type. *)
 type clock = private unit
 
 (** A Lustre expression
@@ -70,10 +75,20 @@ type t = private
     
   }
 
-module ExprHashtbl : Hashtbl.S with type key = t
+(** Hash table over Lustre expressions *)
+module LustreExprHashtbl : Hashtbl.S with type key = t
+
+(** Total order on expressions *)
+val compare : t -> t -> int
 
 (** Equality of expressions *)
-val equal_expr : t -> t -> bool
+val equal : t -> t -> bool
+
+(** Equality of expressions *)
+val hash : t -> int
+
+(** Return the type of the expression *)
+val type_of_lustre_expr : t -> Type.t
 
 (** Pretty-print a Lustre type *)
 val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
@@ -87,6 +102,23 @@ val pp_print_lustre_var_typed : bool -> Format.formatter -> StateVar.t -> unit
 (** Pretty-print a Lustre expression *)
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
 
+(** Pretty-print a Lustre expression *)
+val pp_print_expr : bool -> Format.formatter -> expr -> unit 
+
+(** {1 Predicates} *)
+
+(** Return true if the expression contains a previous state variable *)
+val has_pre_var : Numeral.t -> t -> bool
+
+(** Return true if expression is a current state variable *)
+val is_var : t -> bool
+
+(** Return true if expression is a previous state variable *)
+val is_pre_var : t -> bool
+
+(** Return [true] if there is an unguarded [pre] operator in the
+    expression. *)
+val pre_is_unguarded : t -> bool
 
 (** {1 Constants} *)
 
@@ -98,100 +130,6 @@ val t_true : t
 
 (** The propositional constant false *)
 val t_false : t
-
-(** {1 Constructors} *)
-
-(** Return an expression of an integer numeral *)
-val mk_int : Numeral.t -> t
-
-(** Return an expression of a floating point decimal *)
-val mk_real : Decimal.t -> t
-
-(** Return an expression of a variable *)
-val mk_var : StateVar.t -> clock -> t
-
-(** Return a conversion to an integer numeral *)
-val mk_to_int : t -> t
-
-(** Return a conversion to a floating-point decimal *)
-val mk_to_real : t -> t
-
-(** Return an if-then-else expression *)
-val mk_ite : t -> t -> t -> t
-
-(** Return the Boolean negation of the expression *)
-val mk_not : t -> t
-
-(** Return the unary minus of the expression *)
-val mk_uminus : t -> t
-
-(** Return the Boolean conjunction of the two expressions *)
-val mk_and : t -> t -> t 
-
-(** Return the Boolean disjunction of the two expressions *)
-val mk_or : t -> t -> t 
-
-(** Return the Boolean exclusive disjunction of the two expressions *)
-val mk_xor : t -> t -> t 
-
-(** Return the Boolean implication of the two expressions *)
-val mk_impl : t -> t -> t 
-
-(** Return the integer modulus of the two expressions *)
-val mk_mod : t -> t -> t 
-
-(** Return the difference of the two expressions *)
-val mk_minus : t -> t -> t 
-
-(** Return the sum of the two expressions *)
-val mk_plus : t -> t -> t 
-
-(** Return the quotient of the two expressions *)
-val mk_div : t -> t -> t 
-
-(** Return the product of the two expressions *)
-val mk_times : t -> t -> t 
-
-(** Return the integer quotient of the two expressions *)
-val mk_intdiv : t -> t -> t 
-
-(** Return the equality relation on the two expressions *)
-val mk_eq : t -> t -> t 
-
-(** Return the disequality relation on the two expressions *)
-val mk_neq : t -> t -> t 
-
-(** Return the less-than-or-equal relation on the two expressions *)
-val mk_lte : t -> t -> t 
-
-(** Return the less-than relation on the two expressions *)
-val mk_lt : t -> t -> t 
-
-(** Return the greater-than-or-equal relation on the two expressions *)
-val mk_gte : t -> t -> t 
-
-(** Return the greater-than relation on the two expressions *)
-val mk_gt : t -> t -> t 
-
-(** Apply the followed by operator [->] to the two expressions *)
-val mk_arrow : t -> t -> t
-
-(** Apply the [pre] operator to the expression, abstract the
-    expression to a fresh variable if it is not a variable at the
-    current state
-
-    [mk_pre f d e] returns the expression [e] and list [d] unchanged
-    if it is a constant, and the previous state variable if the
-    expression is a current state variable, again together [d]
-    unchanged.
-
-    Otherwise the expression [e] is abstracted to a fresh variable
-    obtained by calling the function [f], the association between the
-    fresh variable and the expression is added to [d] and it is
-    returned along with an expression of the fresh variable at the
-    previous state. *)
-val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
-
 
 (** {1 Conversions to terms} *)
 
@@ -241,91 +179,13 @@ val cur_term_of_expr : Numeral.t -> expr -> Term.t
 (** Term at previous instant with the given offset as zero *)
 val pre_term_of_expr : Numeral.t -> expr -> Term.t
 
-(** {1 State variables} *)
+(** Return the state variable of a variable 
 
-(** Source of state variable *)
-type state_var_source =
-  | Input (** Input stream *)
-  | Oracle (** Oracle input stream *)
-  | Output (** Output stream *)
-  | Observer (** Observer output stream *)
-  | Local (** Local defined stream *)
-  | Abstract (** Local abstracted stream *)
-
-
-(** Stream from node call at position *)
-type state_var_instance =  Lib.position * LustreIdent.t * StateVar.t
-
-
-(** Pretty-print a source of a state variable *)
-val pp_print_state_var_source : Format.formatter -> state_var_source -> unit 
-
-
-(** Create a state variable of identifier and add it to a map to be
-    retrieved with {!state_var_of_ident} 
-
-    [mk_state_var_of_ident i c s v t] creates a state variable through
-    {!StateVar.mk_state_var} and marks it as input if [i] is true, as
-    constant if [c] is true. The name of the state variable is [v],
-    its scope is [s], and its type [t]. 
-
-    The association of the variable to the identifier it was created
-    of is memoized in a hash table, so that the identifier can be
-    retrieved via {!ident_of_state_var}. *)
-val mk_state_var_of_ident : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
-
-val mk_fresh_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Numeral.t ref -> StateVar.t
-
-(** Set source of state variable *)
-val set_state_var_source : StateVar.t -> state_var_source -> unit
-
-(** Get source of state variable *)
-val get_state_var_source : StateVar.t -> state_var_source
-
-(** State variable is identical to a state variable in a node instance *)
-val set_state_var_instance : StateVar.t -> Lib.position -> LustreIdent.t -> StateVar.t -> unit
-
-
-val lift_term :  Lib.position -> LustreIdent.t -> Term.t -> Term.t
-
-(** Return identical state variable in a node instance if any *)
-val get_state_var_instances : StateVar.t -> state_var_instance list
-
-(** Return true if the state variable should be visible to the user,
-    false if it was created internally *)
-val state_var_is_visible : StateVar.t -> bool
-
-(** Return true if the state variable is an input *)
-val state_var_is_input : StateVar.t -> bool
-
-(** Return true if the state variable is an output *)
-val state_var_is_output : StateVar.t -> bool
-
-(** Return true if the state variable is a local variable *)
-val state_var_is_local : StateVar.t -> bool
-
-(** Return previously created state variable of the same identifier
-
-    Raise [Not_found] if there is no state variable of the given
-    identifier. *)
-val state_var_of_ident : LustreIdent.index -> LustreIdent.t -> StateVar.t
-
-(** Return the identifier of a state variable
-
-    The state variable must have been created through
-    {!state_var_of_ident} to obtain the same identifier. Raise
-    [Not_found] if the state variable does not have an identifier
-    associated. *)
-val ident_of_state_var : StateVar.t -> LustreIdent.t * LustreIdent.index
-
-(** Return the state variable of a variable if the variable is a
-    variable at the current or previous state *)
+    Fail with [Invalid_argument "state_var_of_expr"] if the expression
+    is not a variable at the current or previous offset. *)
 val state_var_of_expr : t -> StateVar.t
 
-(** Return state variables that occur as previous state variables *)
-val stateful_vars_of_expr : t -> StateVar.StateVarSet.t
-
-(** Return all state variables that occur in the expression *)
+(** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
 (** Split a list of Lustre expressions into a list of pairs of
@@ -333,32 +193,118 @@ val state_vars_of_expr : t -> StateVar.StateVarSet.t
     respectively *)
 val split_expr_list : t list -> expr list * expr list 
 
-(** Return [true] if there is an unguarded [pre] operator in the
-    expression. *)
-val pre_is_unguarded : t -> bool
 
-(** Guard unguarded pre expression with a fresh oracle constant
+(** {1 Constructors} *)
 
-    [oracles_for_unguarded_pres f o e] obtains a fresh constant state
-    variable from [f] for each unguarded pre operator and replaces the
-    expression with the fresh variable and adds the fresh variable to
-    the list [o].
+(** The constructors do some easy simplifcations, such as arithmetic
+    and Boolean operations on constants. If the types of the arguments
+    are do not match the signature of the symbol, the
+    {!Type_mismatch} exception is raised. *)
 
-    An unguarded pre is a previous state variable occuring in the
-    initial state expression, since the arrow operator has been lifted
-    to the top of the expression. *)
-val oracles_for_unguarded_pres : Lib.position -> (StateVar.t -> StateVar.t) -> (Lib.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
+(** Return an expression of an integer numeral. *)
+val mk_int : Numeral.t -> t
 
-(** {1 Predicates} *)
+(** Return an expression of a floating point decimal. *)
+val mk_real : Decimal.t -> t
 
-(** Return true if the expression contains a previous state variable *)
-val has_pre_var : Numeral.t -> t -> bool
+(** Return an expression of a variable. *)
+val mk_var : StateVar.t -> clock -> t
 
-(** Return true if expression is a current state variable *)
-val is_var : t -> bool
+(** Return an expression for the i-th index variable. *)
+val mk_index_var : int -> t
 
-(** Return true if expression is a previous state variable *)
-val is_pre_var : t -> bool
+(** Return a conversion to an integer numeral. *)
+val mk_to_int : t -> t
+
+(** Return a conversion to a floating-point decimal. *)
+val mk_to_real : t -> t
+
+(** Return an if-then-else expression. *)
+val mk_ite : t -> t -> t -> t
+
+(** Return the Boolean negation of the expression. *)
+val mk_not : t -> t
+
+(** Return the unary minus of the expression. *)
+val mk_uminus : t -> t
+
+(** Return the Boolean conjunction of the two expressions. *)
+val mk_and : t -> t -> t 
+
+(** Return the Boolean disjunction of the two expressions. *)
+val mk_or : t -> t -> t 
+
+(** Return the Boolean exclusive disjunction of the two expressions. *)
+val mk_xor : t -> t -> t 
+
+(** Return the Boolean implication of the two expressions. *)
+val mk_impl : t -> t -> t 
+
+(** Return the integer modulus of the two expressions. *)
+val mk_mod : t -> t -> t 
+
+(** Return the difference of the two expressions. *)
+val mk_minus : t -> t -> t 
+
+(** Return the sum of the two expressions. *)
+val mk_plus : t -> t -> t 
+
+(** Return the quotient of the two expressions. *)
+val mk_div : t -> t -> t 
+
+(** Return the product of the two expressions. *)
+val mk_times : t -> t -> t 
+
+(** Return the integer quotient of the two expressions. *)
+val mk_intdiv : t -> t -> t 
+
+(** Return the equality relation on the two expressions. *)
+val mk_eq : t -> t -> t 
+
+(** Return the disequality relation on the two expressions. *)
+val mk_neq : t -> t -> t 
+
+(** Return the less-than-or-equal relation on the two expressions. *)
+val mk_lte : t -> t -> t 
+
+(** Return the less-than relation on the two expressions. *)
+val mk_lt : t -> t -> t 
+
+(** Return the greater-than-or-equal relation on the two expressions. *)
+val mk_gte : t -> t -> t 
+
+(** Return the greater-than relation on the two expressions. *)
+val mk_gt : t -> t -> t 
+
+(** Apply the followed by operator [->] to the two expressions. *)
+val mk_arrow : t -> t -> t
+
+(** Apply the [pre] operator to the expression, abstract the
+    expression to a fresh variable if it is not a variable at the
+    current state.
+
+    [mk_pre f d e] returns the expression [e] and list [d] unchanged
+    if it is a constant, and the previous state variable if the
+    expression is a current state variable, again together [d]
+    unchanged.
+
+    Otherwise the expression [e] is abstracted to a fresh variable
+    obtained by calling the function [f], the association between the
+    fresh variable and the expression is added to [d] and it is
+    returned along with an expression of the fresh variable at the
+    previous state. *)
+val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
+
+(** Select from an array *)
+val mk_select : t -> t -> t
+
+(** Let bind variables to terms *)
+val mk_let : (Var.t * t) list -> t -> t
+
+(** Return an expression of a numeral *)
+val mk_int_expr : Numeral.t -> expr
+
+val mk_of_expr : expr -> t 
 
 (* 
    Local Variables:

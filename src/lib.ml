@@ -419,6 +419,32 @@ let rec pp_print_list pp sep ppf = function
     pp_print_list pp sep ppf tl
 
 
+  
+(* Pretty-print a list with a counter of its elements *)
+let rec pp_print_listi' pp sep ppf = function 
+
+  (* Output nothing for the empty list *) 
+  | (_, []) -> ()
+
+  (* Output a single element in the list  *) 
+  | (i, e :: []) -> pp ppf i e
+
+  (* Output a single element and a space *) 
+  | (i, e :: tl) -> 
+
+    (* Output one element *)
+    pp ppf i e;
+
+    (* Output separator *)
+    Format.fprintf ppf sep; 
+
+    (* Output the rest of the list *)
+    pp_print_listi' pp sep ppf (succ i, tl)
+
+
+(* Pretty-print a list with a counter of its elements *)
+let pp_print_listi pp sep ppf l = pp_print_listi' pp sep ppf (0, l)
+
 (* Pretty-print a list wrapped in parentheses *)
 let pp_print_paren_list ppf list = 
       

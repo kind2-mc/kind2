@@ -16,22 +16,14 @@
 
 *)
 
-(** Simplify a Lustre AST to normalized Lustre nodes 
+open Lib
 
-    
 
-    @author Christoph Sticksel
-*)
 
-val eval_ast_expr : LustreContext.t -> LustreAst.expr -> LustreExpr.t LustreIndex.t * LustreContext.t
-
-val eval_ast_type : LustreContext.t -> LustreAst.lustre_type -> Type.t LustreIndex.t
-
-val eval_bool_ast_expr : LustreContext.t -> Lib.position -> LustreAst.expr -> LustreExpr.t * LustreContext.t
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -k -C .. lustre2kind"
    indent-tabs-mode: nil
    End: 
 *)

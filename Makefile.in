@@ -45,10 +45,10 @@ ocamlczmq:
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/@PACKAGE_NAME@-terms.top $(LOCAL_BINDIR)/$@
 
-lustre-checker: 
+lustre2kind: 
 	make -C src $@
 	mkdir -p $(LOCAL_BINDIR)
-	cp -f src/_build/lustreChecker.native $(LOCAL_BINDIR)/$@
+	cp -f src/_build/lustre2kind.native $(LOCAL_BINDIR)/$@
 
 @PACKAGE_NAME@-doc: 
 	make -C src $@

@@ -104,7 +104,7 @@ let of_channel keep_all_coi in_ch =
   in
 
   let trans_sys = 
-  (* Create Kind transition system *)
+ (* Create Kind transition system *)
     TransSys.mk_trans_sys 
       (List.combine fun_defs_init fun_defs_trans)
       state_vars

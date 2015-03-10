@@ -56,6 +56,8 @@ type prop_source =
   | Instantiated of string list * string 
 
 
+val pp_print_prop_source : Format.formatter -> prop_source -> unit 
+
 (** Source of a contract. *)
 type contract_source =
 

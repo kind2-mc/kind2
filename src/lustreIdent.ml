@@ -19,6 +19,245 @@
 open Lib
 
 (* ********************************************************************** *)
+(* Types and pretty-printers                                              *)
+(* ********************************************************************** *)
+
+
+(* An identifier is a string with integer indexes *)
+type t = string * int list 
+
+
+(* Use polymorphic hash function *)
+let hash = Hashtbl.hash
+             
+(* Use polymorphic equality *)
+let equal = (=)
+
+(* Use polymorphic copmarison *)
+let compare = Pervasives.compare            
+
+
+(* Hash table over identifiers *)
+module LustreIdentHashtbl = 
+  Hashtbl.Make
+    (struct
+
+      (* Avoid cyclic type abbreviation *)
+      type z = t
+      type t = z
+
+      let equal = equal
+      let hash = hash
+    end)
+
+
+(* Pretty-print a list of indexes *)
+let rec pp_print_index safe ppf = function 
+
+  | [] -> ()
+
+  | h :: tl -> 
+
+    (* Pretty-print valid Lustre identifiers? *)
+    if safe then 
+
+      (* Use underscore *)
+      Format.fprintf ppf "_%d" h
+
+    else
+      
+      (* Use square brackets around index *)
+      Format.fprintf ppf "[%d]" h; 
+
+    (* Pretty-print rest of indexes *)
+    pp_print_index safe ppf tl
+
+
+(* Pretty-print an identifier *)
+let pp_print_ident safe ppf (s, i) = 
+
+  Format.fprintf ppf "%s%a" s (pp_print_index safe) i
+
+
+(* Return a string representation of an identifier *)
+let string_of_ident safe = string_of_t (pp_print_ident safe)
+
+
+let ident_of_state_var sv = (StateVar.string_of_state_var sv, [])
+
+(* ********************************************************************** *)
+(* Constructors                                                           *)
+(* ********************************************************************** *)
+
+
+(* Construct an identifier of a string *)
+let mk_string_ident string = (string, [])
+
+
+(* Append an index to the identifier *)
+let push_index (base, index) int = (base, int :: index)
+
+
+(* ********************************************************************** *)
+(* Reserved identifiers                                                   *)
+(* ********************************************************************** *)
+
+
+(* Reserved identifiers *)
+let abs_ident_string =  "__abs" 
+let oracle_ident_string =  "__nondet" 
+let observer_ident_string =  "__observer" 
+let first_tick_ident_string =  "__first_tick"
+let init_uf_string = "__node_init"
+let trans_uf_string = "__node_trans"
+let index_ident_string =  "__index" 
+
+let reserved_strings =
+  [ abs_ident_string;
+    oracle_ident_string;
+    observer_ident_string;
+    first_tick_ident_string;
+    init_uf_string;
+    trans_uf_string;
+    index_ident_string ]
+  @ StateVar.reserved_strings
+
+(* Identifier for new variables from abstrations *)
+let abs_ident = mk_string_ident abs_ident_string
+
+(* Identifier for new oracle input *)
+let oracle_ident = mk_string_ident oracle_ident_string
+
+(* Identifier for new oracle input *)
+let observer_ident = mk_string_ident observer_ident_string
+
+(* Identifier for new clock initialization flag *)
+let first_tick_ident = mk_string_ident first_tick_ident_string
+
+(* Identifier for new clock initialization flag *)
+let index_ident = mk_string_ident index_ident_string
+
+(* Return true if the identifier clashes with internal identifier names *)
+let ident_is_reserved ident = 
+
+  (* Get string part of identifier *)
+  let ident_string, _ = ident in
+
+  reserved_strings
+  |> List.exists
+       (string_starts_with ident_string)
+  
+
+(*
+
+(* ********************************************************************** *)
+(* State variables and identifiers                                        *)
+(* ********************************************************************** *)
+
+(* Map from state variables to indexed identifiers *)
+let state_var_ident_map : (string * string list) StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 7
+
+
+(* Create state variable of identifier *)
+let mk_state_var_of_ident 
+    ?is_input
+    ?is_const
+    ?for_inv_gen
+    scope
+    ident
+    state_var_type =
+  
+  (* Convert identifier to a string *)
+  let ident_string = I.string_of_ident true ident in 
+
+  (* Create state variable *)
+  let state_var = 
+    StateVar.mk_state_var 
+      ?is_input:is_input
+      ?is_const:is_const
+      ?for_inv_gen:for_inv_gen
+      ident_string
+      scope
+      state_var_type
+  in
+  
+  (* Add to hashtable, don't create duplicates if state variable was
+     already defined *)
+  StateVar.StateVarHashtbl.replace
+    state_var_ident_map 
+    state_var
+    (ident, scope);
+
+  (* Return state variable *)
+  state_var 
+
+
+(* Create state variable of identifier *)
+let mk_fresh_state_var 
+    ?is_input
+    ?is_const
+    ?for_inv_gen
+    scope
+    ident
+    state_var_type
+    index_ref =
+  
+  Numeral.incr index_ref; 
+
+  mk_state_var_of_ident
+    ?is_input:is_input
+    ?is_const:is_const
+    ?for_inv_gen:for_inv_gen
+    scope
+    (I.push_int_index !index_ref ident)
+    state_var_type
+
+
+(* Return existing state variable of identifier *)
+let state_var_of_ident scope_index ident = 
+
+  (* Convert index to a scope *)
+  let scope = I.scope_of_index scope_index in
+
+  (* Convert identifier to a string *)
+  let ident_string = I.string_of_ident true ident in 
+
+  try
+
+    (* Return state variable of string *)
+    StateVar.state_var_of_string (ident_string, scope)
+      
+  with Not_found -> 
+
+    raise Not_found
+
+
+
+
+
+
+*)
+
+
+
+(* ********************************************************************** *)
+(* End of module, everyhting commented and moved to other modules below   *)
+(* ********************************************************************** *)
+
+
+
+
+(*
+(* Scope for top-level variables *)
+let top_scope_index = smk_string_index top_scope_string
+*)
+
+
+(*
+
+
+(* ********************************************************************** *)
 (* Types                                                                  *)
 (* ********************************************************************** *)
 
@@ -36,6 +275,9 @@ type one_index =
   (* Integer as index *)
   | IntIndex of int
 
+  (* Variable as index *)
+  | VarIndex 
+
 
 (* A list of indexes *)
 type index = one_index list
@@ -49,7 +291,7 @@ let empty_index = []
 type t = string * index
 
 
-(* Comparision of indexes *)
+(* Comparision of indexes: *)
 let compare_one_index a b = match a, b with 
 
   (* Compare strings *)
@@ -58,11 +300,28 @@ let compare_one_index a b = match a, b with
   (* Compare integers *)
   | IntIndex a, IntIndex b -> compare a b
 
+  (* Compare variables
+
+     Do implicit alpha conversion, two variables are equal *)
+  | VarIndex, VarIndex -> 0
+
   (* String indexes are greater than integer indexes *)
   | StringIndex _, IntIndex _ -> 1 
 
+  (* String indexes are greater than variable indexes *)
+  | StringIndex _, VarIndex -> 1 
+
+  (* Integer indexes are greater than variable indexes *)
+  | IntIndex _, VarIndex -> 1 
+
   (* Integer indexes are smaller than string indexes *)
-  | IntIndex _, StringIndex _ -> 1 
+  | IntIndex _, StringIndex _ -> -1 
+
+  (* Variable  indexes are smaller than string indexes *)
+  | VarIndex, StringIndex _ -> -1 
+
+  (* Variable indexes are smaller than integer indexes *)
+  | VarIndex, IntIndex _ -> -1 
 
 
 (* Lexicographic comparison of lists of indexes *)
@@ -85,6 +344,157 @@ let rec compare_index a b = match a, b with
              
     (* Return comparison of head elements *)
     | c -> c 
+
+
+(* Set of identifiers *)  
+module LustreIndexSet = Set.Make 
+    (struct 
+      type t = index
+      let compare = compare_index
+    end)
+
+
+(* Map of indexes *)  
+module LustreIndexMap = Map.Make 
+    (struct 
+      type t = index
+      let compare = compare_index
+    end)
+
+
+(* Map of single indexes *)  
+module LustreOneIndexMap = Map.Make 
+    (struct 
+      type t = one_index
+      let compare = compare_one_index
+    end)
+
+
+(* Trie of idexes *)  
+module LustreIndexTrie = Trie.Make (LustreOneIndexMap)
+
+
+(* Trie of indexed indentifiers *)
+module LustreIdentTrie = struct
+
+  (* Convert identifier to index by using name as first index *)
+  let index_of_ident (s, i) = StringIndex s :: i
+
+  (* Convert index to identifier by taking first index as name *)
+  let ident_of_index = function 
+    | StringIndex s :: i -> (s, i) 
+    | _ -> assert false
+
+  (* A key is an indexed identifier *)
+  type key = t
+
+  (* The trie is actually a trie over indexes *)
+  type 'a t = 'a LustreIndexTrie.t
+
+  (* Delegate to trie module *)
+  let empty = LustreIndexTrie.empty
+
+  (* Delegate to trie module *)
+  let is_empty = LustreIndexTrie.is_empty
+
+  (* Convert identifier to indexes before querying *)
+  let mem k = LustreIndexTrie.mem (index_of_ident k)
+
+  (* Convert identifier to indexes before adding *)
+  let add k = LustreIndexTrie.add (index_of_ident k)
+
+  (* Convert identifier to indexes before removing *)
+  let remove k = LustreIndexTrie.remove (index_of_ident k)
+
+  (* Delegate to trie module *)
+  let compare = LustreIndexTrie.compare
+
+  (* Delegate to trie module *)
+  let equal = LustreIndexTrie.equal
+
+  (* Convert indexes to identifier before evaluating function *)
+  let iter f = LustreIndexTrie.iter (function k -> f (ident_of_index k))
+
+  (* Convert indexes to identifier before evaluating function *)
+  let fold f = LustreIndexTrie.fold (function k -> f (ident_of_index k))
+
+  (* Convert indexes to identifier before evaluating function *)
+  let for_all p = LustreIndexTrie.for_all (function k -> p (ident_of_index k))
+
+  (* Convert indexes to identifier before evaluating function *)
+  let exists p = LustreIndexTrie.exists (function k -> p (ident_of_index k))
+
+  (* Return trie with only bindings that satisfy the predicate *)
+  let filter p = LustreIndexTrie.filter (function k -> p (ident_of_index k))
+
+  (* Convert indexes to identifier before returning *)
+  let bindings t = 
+    LustreIndexTrie.fold 
+      (fun k v a -> ((ident_of_index k), v) :: a)
+      t
+      []
+
+  let max_binding t = 
+    let k, v = LustreIndexTrie.max_binding t in
+    (ident_of_index k, v)
+
+  let min_binding t = 
+    let k, v = LustreIndexTrie.min_binding t in
+    (ident_of_index k, v)
+
+  let split _ = assert false 
+
+  let cardinal = LustreIndexTrie.cardinal
+
+  (* Convert identifier to indexes before querying *)
+  let find k = LustreIndexTrie.find (index_of_ident k)
+
+  (* Convert identifier to indexes before querying *)
+  (* Delegate to trie module *)
+  let map = LustreIndexTrie.map
+
+  (* Convert indexes to identifier before evaluating function *)
+  let mapi f = LustreIndexTrie.mapi (function k -> f (ident_of_index k))
+
+  let find_prefix k = LustreIndexTrie.find_prefix  (index_of_ident k)
+
+  (* Convert a subtrie of a trie of identifiers to a map of its indexes *)
+  let to_map t  = 
+    LustreIndexTrie.fold LustreIndexMap.add t LustreIndexMap.empty 
+
+  let iter2 f = 
+    LustreIndexTrie.iter2 (fun k v1 v2 -> f (ident_of_index k) v1 v2)
+
+  let map2 f = 
+    LustreIndexTrie.map2 
+       (fun k v1 v2 -> f (ident_of_index k) v1 v2)
+
+  let fold2 f = 
+    LustreIndexTrie.fold2 
+       (fun k v1 v2 a -> f (ident_of_index k) v1 v2 a)
+
+  let for_all2 f = 
+    LustreIndexTrie.for_all2 
+       (fun k v1 v2 -> f (ident_of_index k) v1 v2)
+
+  let exists2 f = 
+    LustreIndexTrie.exists2 
+       (fun k v1 v2 -> f (ident_of_index k) v1 v2)
+
+  let values = LustreIndexTrie.values
+
+  let keys t = 
+    LustreIndexTrie.fold 
+      (fun k _ a -> (ident_of_index k) :: a)
+      t
+      []
+
+  let subsume t k = 
+    LustreIndexTrie.subsume t (index_of_ident k)
+
+end
+
+
 
 
 (* Compare indexed identifiers *)
@@ -112,6 +522,14 @@ module LustreIdentSet = Set.Make
       let compare = compare
     end)
 
+(* Map of identifiers *)  
+module LustreIdentMap = Map.Make 
+    (struct 
+      type z = t
+      type t = z
+      let compare = compare
+    end)
+
 
 (* ********************************************************************** *)
 (* Pretty-printers                                                        *)
@@ -119,25 +537,35 @@ module LustreIdentSet = Set.Make
 
 
 (* Pretty-print an index *)
-let pp_print_one_index = function 
+let pp_print_one_index' db = function 
   
   | false -> 
     
     (function ppf -> function 
        | StringIndex i -> Format.fprintf ppf ".%s" i
-       | IntIndex i -> Format.fprintf ppf "[%d]" i)
+       | IntIndex i -> Format.fprintf ppf "[%d]" i
+       | VarIndex -> Format.fprintf ppf "X%d" db)
 
   | true -> 
     
     (function ppf -> function 
        | StringIndex i -> Format.fprintf ppf "_%s" i
-       | IntIndex i -> Format.fprintf ppf "_%d" i)
+       | IntIndex i -> Format.fprintf ppf "_%d" i
+       | VarIndex -> Format.fprintf ppf "_x%d" db)
 
+(* Pretty-print an index with variable at index 0 *)
+let pp_print_one_index safe ppf index = 
+  pp_print_one_index' 0 safe ppf index
 
 (* Pretty-print a list of indexes *)
-let pp_print_index safe ppf index = 
-  List.iter (pp_print_one_index safe ppf) index
+let rec pp_print_index' db safe ppf = function 
+  | [] -> ()
+  | h :: tl -> 
+    pp_print_one_index' db safe ppf h; 
+    pp_print_index' (succ db) safe ppf tl
 
+(* Pretty-print a list of indexes with variable index at starting 0 *)
+let pp_print_index safe ppf index = pp_print_index' 0 safe ppf index
 
 (* Pretty-print an identifier *)
 let rec pp_print_ident safe ppf (s, i) = 
@@ -145,6 +573,7 @@ let rec pp_print_ident safe ppf (s, i) =
   Format.fprintf ppf "%s%a" s (pp_print_index safe) i
 
 
+(* Return a string representation of an identifier *)
 let string_of_ident safe = string_of_t (pp_print_ident safe)
 
 
@@ -153,11 +582,19 @@ let mk_string_ident string = (string, empty_index)
 
 
 (* Construct an identifier of a string *)
-let mk_string_index string = [StringIndex string]
+let mk_string_one_index string = StringIndex string
 
 
 (* Construct an identifier of a string *)
-let mk_int_index num = [IntIndex (Numeral.to_int num)]
+let mk_string_index string = [mk_string_one_index string]
+
+
+(* Construct an identifier of a string *)
+let mk_int_one_index num = IntIndex (Numeral.to_int num)
+
+
+(* Construct an identifier of a string *)
+let mk_int_index num = [mk_int_one_index num]
 
 
 
@@ -249,6 +686,11 @@ let index_of_one_index_list one_index_list = one_index_list
 
 
 (* Construct an index of an identifier *)
+let one_index_of_ident = function 
+  | (s, []) -> StringIndex s
+  | _ -> raise (Invalid_argument "one_index_of_ident")
+
+(* Construct an index of an identifier *)
 let index_of_ident (s, i) = StringIndex s :: i
 
 
@@ -279,51 +721,24 @@ let add_int_to_index i j = i @ [IntIndex j]
 (* Utility functions                                                      *)
 (* ********************************************************************** *)
 
-(* Remove i as prefix from j and return remainder of j *)
-let rec get_index_suffix i j = match i, j with 
-
-  (* All of i consumed, return j *)
-  | [], j -> j
-
-  (* i is not a prefix of j *)
-  | _, [] -> raise Not_found
-
-  (* First element is identical *)
-  | StringIndex i :: itl, StringIndex j :: jtl when i = j -> 
-
-    get_index_suffix itl jtl
-
-  (* First element is identical *)
-  | IntIndex i :: itl, IntIndex j :: jtl when i = j -> 
-
-    get_index_suffix itl jtl
-
-  (* First element is different, no common prefix *)
-  | StringIndex _ :: _, StringIndex _ :: _
-  | IntIndex _ :: _, IntIndex _ :: _
-  | IntIndex _ :: _, StringIndex _ :: _
-  | StringIndex _ :: _, IntIndex _ :: _ -> raise Not_found
-
-
-(* [i] is a prefix of [j], return the indexes of [j] with the common
-   prefix removed *)
-let get_suffix (i, li) (j, lj) = 
-
-  if i = j then get_index_suffix li lj else raise Not_found
-
 
 (* Return a list of strings for index *)
 let scope_of_index index =
 
   List.map 
-    (function StringIndex i -> i | IntIndex i -> string_of_int i)
+    (function 
+      | StringIndex i -> i
+      | IntIndex i -> string_of_int i
+      | VarIndex -> raise (Invalid_argument "scope_of_index"))
     index
 
 (* Return a list of strings for indexed identifier *)
 let scope_of_ident (ident, index) = ident :: (scope_of_index index)
 
 
-(* Reserved identifiers for abstrations *)
+(* Reserved identifiers *)
+let index_ident_string =  "__index" 
+
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
 let observer_ident_string =  "__observer" 
@@ -343,38 +758,11 @@ let reserved_strings =
 (* let top_scope_string = "__top" *)
 
 
-(* Return true if the identifier clashes with internal identifier names *)
-let ident_is_reserved ident = 
-
-  (* Get string part of identifier *)
-  let ident_string, _ : t :> string * _ = ident in
-
-  reserved_strings
-  |> List.exists
-       (string_starts_with ident_string)
-  
-
-(* Identifier for new variables from abstrations *)
-let abs_ident = mk_string_ident abs_ident_string
-
-(* Identifier for new oracle input *)
-let oracle_ident = mk_string_ident oracle_ident_string
-
-(* Identifier for new oracle input *)
-let observer_ident = mk_string_ident observer_ident_string
-
-(* Identifier for new clock initialization flag *)
-let first_tick_ident = mk_string_ident first_tick_ident_string
-
-(*
-(* Scope for top-level variables *)
-let top_scope_index = smk_string_index top_scope_string
 *)
-
 
 (* 
    Local Variables:
-   compile-command: "make -k"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)

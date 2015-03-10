@@ -161,7 +161,7 @@ sig
   val print_term : ?db:int -> t -> unit
 
   val pp_print_lambda : ?db:int -> Format.formatter -> lambda -> unit
-
+    
   val print_lambda : ?db:int -> lambda -> unit
 
   val stats : unit -> int * int * int * int * int * int
@@ -633,11 +633,12 @@ struct
   
   let pp_print_term = pp_print_term_w (fun ?arity -> T.pp_print_symbol)
 
-  let pp_print_lambda = pp_print_lambda_w (fun ?arity -> T.pp_print_symbol)
-
   let print_term ?db = pp_print_term ?db Format.std_formatter
 
+  let pp_print_lambda = pp_print_lambda_w (fun ?arity -> T.pp_print_symbol)
+
   let print_lambda ?db = pp_print_lambda ?db Format.std_formatter
+
 
   (* Pretty-print a flattened term *)
   let rec pp_print_flat pp_symbol ppf = function 

@@ -38,7 +38,7 @@ module type M = sig
   val add : key -> 'a -> 'a t -> 'a t
   (* val singleton: key -> 'a -> 'a t *)
   val remove : key -> 'a t -> 'a t
-  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
+  val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
   val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
   val iter : (key -> 'a -> unit) -> 'a t -> unit
@@ -51,7 +51,7 @@ module type M = sig
   val bindings : 'a t -> (key * 'a) list
   val min_binding: 'a t -> (key * 'a)
   val max_binding: 'a t -> (key * 'a)
-  (* val choose: 'a t -> (key * 'a) *)
+  val choose: 'a t -> (key * 'a)
   val split: key -> 'a t -> 'a t * 'a option * 'a t
   val find : key -> 'a t -> 'a 
   val map : ('a -> 'b) -> 'a t -> 'b t
@@ -91,7 +91,7 @@ module type S = sig
       Do not fail if key does not exist. *)
   val remove : key -> 'a t -> 'a t
 
-  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
+  val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
 
   (** Comparision function on tries *)
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
@@ -122,8 +122,9 @@ module type S = sig
   val min_binding: 'a t -> (key * 'a)
   val max_binding: 'a t -> (key * 'a)
 
-  (* val choose: 'a t -> (key * 'a) *)
-  (* val split: key -> 'a t -> 'a t * 'a option * 'a t *)
+  val choose: 'a t -> (key * 'a)
+
+  val split: key -> 'a t -> 'a t * 'a option * 'a t
 
   (** Return the value for the key in the trie *)
   val find : key -> 'a t -> 'a
@@ -149,8 +150,6 @@ module type S = sig
       The values are returned in reverse lexicographic order. *)
   val values : 'a t -> 'a list
 
-  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
-
   (** Fold over two tries with identical keys
 
       [fold2 f t1 t2 a] applies [f] to each pair of values in of [t1]
@@ -174,8 +173,25 @@ module type S = sig
       pair of values in of [t1] and [t2] that have identical keys. The
       keys are presented in lexicographic order. Raise exception
       [Invalid_argument "Trie.iter2"] if the sets of keys the trie are
-      not equal *)
+      not equal. *)
   val iter2 : (key -> 'a -> 'b -> unit) -> 'a t -> 'b t -> unit
+
+  (** Check if all pairs of bindings in the trie satisfy the predicate 
+
+      [for_all2 p t1 t2] returns true if [p] evaluates to true for all
+      pairs of bindings in t1 and t2 with identical keys. Raise
+      exception [Invalid_argument "Trie.for_all2"] if the sets of keys
+      the trie are not equal. *)
+  val for_all2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
+
+  (** Check if there is a binding in the trie that satisfies the
+      predicate
+
+      [exists2 p t1 t2] returns true if [p] evaluates to true for at
+      least one pair of bindings with identical keys in [t1]
+      and[t2]. Raise exception [Invalid_argument "Trie.exists2"] if
+      the sets of keys the trie are not equal. *)
+  val exists2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
 
   (** Return a new trie containing only entries with keys that are not
       subsets of the given key

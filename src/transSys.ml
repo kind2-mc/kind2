@@ -594,8 +594,14 @@ let get_name t = t.scope |> String.concat "/"
 
 (* Create a transition system *)
 let mk_trans_sys
-      scope state_vars init trans
-      subsystems props contracts source =
+    scope
+    state_vars
+    init
+    trans
+    subsystems
+    props
+    contracts
+    source =
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 

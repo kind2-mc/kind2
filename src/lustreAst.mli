@@ -45,22 +45,16 @@ exception Parser_error
 (** {1 Supporting Types} *)
 
 (** An identifier *)
-type ident = LustreIdent.t
+type ident = string
 
-(** An index *)
-type index = LustreIdent.index
-
-(** An index expression *)
-type one_index = 
-  | FieldIndex of Lib.position * ident 
-  | NumIndex of Lib.position * int
-  | VarIndex of Lib.position * ident
+(** A single index *)
+type index = string
 
 (** An expression *)
 type expr =
     Ident of Lib.position * ident
-  | RecordProject of Lib.position * ident * index
-  | TupleProject of Lib.position * ident * expr
+  | RecordProject of Lib.position * expr * index
+  | TupleProject of Lib.position * expr * expr
   | True of Lib.position
   | False of Lib.position
   | Num of Lib.position * string
@@ -69,10 +63,11 @@ type expr =
   | ToReal of Lib.position * expr
   | ExprList of Lib.position * expr list
   | TupleExpr of Lib.position * expr list
-  | ArrayConstr of Lib.position * expr * expr
-  | ArraySlice of Lib.position * ident * (expr * expr) list
+  | ArrayExpr of Lib.position * expr list
+  | ArrayConstr of Lib.position * expr * expr 
+  | ArraySlice of Lib.position * expr * (expr * expr) 
   | ArrayConcat of Lib.position * expr * expr
-  | RecordConstruct of Lib.position * ident * (ident * expr) list
+  | RecordExpr of Lib.position * ident * (ident * expr) list
   | Not of Lib.position * expr
   | And of Lib.position * expr * expr
   | Or of Lib.position * expr * expr
@@ -150,20 +145,23 @@ type node_local_decl =
   | NodeConstDecl of Lib.position * const_decl 
   | NodeVarDecl of Lib.position * clocked_typed_decl
 
-(** The left-hand side of an equation *)
+(** Structural assignment in left-hand side of equation *)
 type struct_item =
   | SingleIdent of Lib.position * ident
-  | IndexedIdent of Lib.position * ident * one_index list
-
   | TupleStructItem of Lib.position * struct_item list
   | TupleSelection of Lib.position * ident * expr
   | FieldSelection of Lib.position * ident * ident
   | ArraySliceStructItem of Lib.position * ident * (expr * expr) list
 
+(** The left-hand side of an equation *)
+type eq_lhs = 
+  | ArrayDef of Lib.position * ident * ident list
+  | StructDef of Lib.position * struct_item list
+
 (** An Equation, assertion or annotation in the body of a node *)
 type node_equation =
   | Assert of Lib.position * expr
-  | Equation of Lib.position * struct_item list * expr
+  | Equation of Lib.position * eq_lhs * expr
   | AnnotMain 
   | AnnotProperty of Lib.position * expr
 
@@ -189,7 +187,7 @@ type contract =
     ensures. *)
 val mk_contract :
   TermLib.contract_source ->
-  LustreIdent.t ->
+  ident ->
   require list ->
   ensure list ->
   contract
@@ -242,6 +240,7 @@ type t = declaration list
 (** {1 Helpers} *)
 
 (** Pretty-printers *)
+val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_expr : Format.formatter -> expr -> unit
 val pp_print_array_slice : Format.formatter -> expr * expr -> unit
 val pp_print_field_assign : Format.formatter -> ident * expr -> unit

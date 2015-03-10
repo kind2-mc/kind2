@@ -39,15 +39,72 @@
     @author Christoph Sticksel *)
 
 
+(** An identifier is a string with integer indexes *)
+type t = private string * int list 
+
+val equal : t -> t -> bool
+
+val hash : t -> int
+
+val compare : t -> t -> int
+
+(** Hash table over identifiers *)
+module LustreIdentHashtbl : Hashtbl.S with type key = t
+
+(** Return [true] if identifier is reserved for internal use *)
+val ident_is_reserved : t -> bool
+
+(** Identifier for abstracted variables *)
+val abs_ident : t
+
+(** Identifier for oracle inputs *)
+val oracle_ident : t
+
+(** Identifier for observer outputs *)
+val observer_ident : t
+
+(** Identifier for clock initialization flag *)
+val first_tick_ident : t
+
+(** Identifier for index variables in arrays *)
+val index_ident : t
+
+(** Identifier of uninterpreted symbol for initial state constraint *)
+val init_uf_string : string 
+
+(** Identifier of uninterpreted symbol for transition relation *)
+val trans_uf_string : string 
+
+val string_of_ident : bool -> t -> string
+
+val ident_of_state_var : StateVar.t -> t
+
+val push_index : t -> int -> t 
+
+(** Construct an identifier of a string *)
+val mk_string_ident : string -> t
+
+(** Pretty-print an identifier *)
+val pp_print_ident : bool -> Format.formatter -> t -> unit 
+
+
+
+
+(*
+
+
+
 (** An index element *)
 type one_index = private
 
-  (* String as index *)
+  (** String as index *)
   | StringIndex of string
 
-  (* Integer as index *)
+  (** Integer as index *)
   | IntIndex of int
 
+  (** Variable as index *)
+  | VarIndex 
 
 (** An index *)
 type index = private one_index list 
@@ -57,6 +114,37 @@ type t = private string * index
 
 (** A set of identifiers *)
 module LustreIdentSet : Set.S with type elt = t
+
+(** A map of identifiers *)
+module LustreIdentMap : Map.S with type key = t
+
+(** A set of indexes *)
+module LustreIndexSet : Set.S with type elt = index
+
+(** A map of indexes *)
+module LustreIndexMap : Map.S with type key = index
+
+(** A trie of indexes *)
+module LustreIndexTrie : Trie.S with type key = index
+
+(** A trie of identifiers *)
+module LustreIdentTrie : 
+  (* Cannot use Trie.S, because find_prefix and to_map return tries
+     and maps of indexes *)
+  (sig
+    include Trie.M with type key = t 
+    val find_prefix : key -> 'a t -> 'a LustreIndexTrie.t
+    val to_map : 'a t -> 'a LustreIndexMap.t
+    val keys : 'a t -> key list
+    val values : 'a t -> 'a list
+    val fold2 : (key-> 'a -> 'b -> 'c -> 'c) -> 'a t -> 'b t -> 'c -> 'c
+    val map2 : (key -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
+    val iter2 : (key -> 'a -> 'b -> unit) -> 'a t -> 'b t -> unit
+    val for_all2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
+    val exists2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
+    val subsume : 'a t -> key -> 'a t
+  end)
+
 
 (** Pretty-print an identifier *)
 val pp_print_ident : bool -> Format.formatter -> t -> unit 
@@ -86,23 +174,29 @@ val compare : t -> t -> int
 val equal : t -> t -> bool
 
 
-(** Construct an identifier with empty index of a string *)
+(** Construct a single index of a string *)
+val mk_string_one_index : string -> one_index
+
+(** Construct an index of a string *)
 val mk_string_index : string -> index
 
+(** Construct a single index of an integer *)
+val mk_int_one_index : Numeral.t -> one_index
 
-(** Construct a singleton index of an integer *)
+(** Construct an index of an integer *)
 val mk_int_index : Numeral.t -> index
-
 
 (** Construct a singleton index of a string *)
 val mk_string_ident : string -> t
-
 
 (** An empty index *)
 val empty_index : index
 
 (** Construct an index of an identifier *)
 val index_of_ident : t -> index 
+
+(** Construct a single index of an identifier *)
+val one_index_of_ident : t -> one_index 
 
 
 val push_string_index : string -> t -> t 
@@ -165,41 +259,16 @@ val get_index_suffix : index -> index -> index
 *)
 
 
-(** [get_suffix i j] assumes that [i] and [j] index the same
-    identifier and the indexes of [i] are a prefix of the indexes of
-    [j]. Return the suffix of [j] with the common prefix with [i]
-    removed, raise [Not_found] otherwise. *)
-val get_suffix : t -> t -> index
-
-(** Return [true] if identifier is reserved for itnernal use *)
-val ident_is_reserved : t -> bool
-
-(** Identifier for abstracted variable *)
-val abs_ident : t
-
-(** Identifier for oracle input *)
-val oracle_ident : t
-
-(** Identifier for observer output *)
-val observer_ident : t
-
-(** Identifier for clock initialization flag *)
-val first_tick_ident : t
-
-(** Identifier of uninterpreted symbol for initial state constraint *)
-val init_uf_string : string 
-
-(** Identifier of uninterpreted symbol for transition relation *)
-val trans_uf_string : string 
-
 (*
 (** Scope for top-level variables *)
 val top_scope_index : index
 *)
 
+*)
+
 (* 
    Local Variables:
-   compile-command: "make -k"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)

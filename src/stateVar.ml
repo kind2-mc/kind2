@@ -177,26 +177,9 @@ let string_of_state_var_name (n, s) =
 let pp_print_state_var_node ppf (n, s) = 
   pp_print_state_var_name ppf (n, s)
 
-(*
-(* Pretty-print a state variable as it occurred in the original input *)
-let pp_print_state_var_node_original ppf s = 
-  Format.pp_print_string ppf (Kind1.Tables.internal_name_to_original_name s)
-*)
-
 (* Pretty-print a hashconsed state variable *)
 let pp_print_state_var ppf { Hashcons.node = (n, s) } =
   pp_print_state_var_node ppf (n, s)
-
-(*
-(* Pretty-print a hashconsed state variable as it occurred in the
-   original input *)
-let pp_print_state_var_original ppf = function 
-
-  | { Hashcons.node = (n, s) } -> pp_print_state_var_node_original ppf n
-
-  (* Cannot have scopes in old parser *)
-  | _ -> invalid_arg "pp_print_state_var_original"
-*)
 
 (* Return a string representation of a hashconsed state variable *)
 let string_of_state_var s = string_of_t pp_print_state_var s
@@ -263,7 +246,7 @@ let mk_state_var
     if 
 
       (* Given type is a subtype of declared type? *)
-      Type.check_type state_var_type (type_of_state_var v)  
+      (Type.check_type state_var_type (type_of_state_var v)) 
 
     then
 

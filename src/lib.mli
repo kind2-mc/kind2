@@ -181,6 +181,14 @@ val pp_print_arrayi : (Format.formatter -> int -> 'a -> unit) -> (unit, Format.f
 *)
 val pp_print_list : (Format.formatter -> 'a -> unit) -> ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
+(** Pretty-print a list with given separator and maintain a counter of elements 
+
+    See {!pp_print_list}, except that the pretty-printer is passes an
+    zero-based counter for the list's elements as the argument
+    preceding the list element.
+*)
+val pp_print_listi : (Format.formatter -> int -> 'a -> unit) -> ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
+
 (** Pretty-print an option type *)
 val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a option -> unit
 
