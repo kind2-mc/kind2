@@ -621,23 +621,13 @@ let run_process t messaging_setup process =
      (* We are the child process *)
      ( try
 
-         (* Install generic signal handler for SIGTERM. *)
-         Sys.set_signal
-           Sys.sigterm
-           (Sys.Signal_handle exception_on_signal) ;
-
-         (* Install generic signal handler for SIGINT. *)
-         (* Sys.set_signal *)
-         (*   Sys.sigint *)
-         (*   (Sys.Signal_handle exception_on_signal) ; *)
+         (* Ignore SIGALRM in child process. *)
+         Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
 
          (* Make the process leader of a new session. *)
          Unix.setsid () |> ignore ;
 
          let pid = Unix.getpid () in
-
-         (* Ignore SIGALRM in child process. *)
-         Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
          (* Initialize messaging system for process. *)
          let messaging_thread =
