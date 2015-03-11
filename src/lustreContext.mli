@@ -68,7 +68,14 @@ val remove_expr_for_ident : t -> LustreIdent.t -> t
 (** Add a binding of an identifier to a type to context *)
 val add_type_for_ident : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
+(** Return the nodes in the context *)
 val get_nodes : t -> LustreNode.t list
+
+(** Add a contract node to the context for inlining later *)
+val add_contract_node_decl_to_context : t -> Lib.position * LustreAst.contract_node_decl -> t
+(** Return a contract node by its identifier *)
+val contract_node_decl_of_context : t -> LustreAst.ident -> Lib.position * LustreAst.contract_node_decl
+
 
 (** Return a context that raises an error when defining an
     expression.

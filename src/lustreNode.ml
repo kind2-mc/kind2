@@ -61,6 +61,12 @@ let add_to_svs set list =
   List.fold_left (fun a e -> SVS.add e a) set list 
   
 
+(* Bound for index variable, or fixed value for index variable *)
+type 'a bound_or_fixed = 
+  | Bound of 'a  (* Upper bound for index variable *)
+  | Fixed of 'a  (* Fixed value for index variable *)
+
+
 (* A call of a node *)
 type node_call = 
 
@@ -93,14 +99,13 @@ type node_call =
   }
 
 
-(* A contract as at tuple of identifier, source, requires and ensures *)
-type contract = (string * TermLib.contract_source * E.t list * E.t list) 
-
-
-(* Bound for index variable, or fixed value for index variable *)
-type 'a bound_or_fixed = 
-  | Bound of 'a  (* Upper bound for index variable *)
-  | Fixed of 'a  (* Fixed value for index variable *)
+(* A contract is a name, a position, a list of observers for the
+   requirements, and an observer for the implication between its
+   requirements and ensures. *)
+type contract =
+  { contract_pos: position;
+    contract_reqs : StateVar.t list;
+    contract_impl : StateVar.t }
 
 
 (* A Lustre node *)
@@ -146,8 +151,9 @@ type t =
     (* Proof obligations for node *)
     props : (StateVar.t * TermLib.prop_source) list;
 
-    (* The contracts of the node. *)
-    contracts : contract list;
+    (* The contracts of the node: an optional global contract and a
+       list of named mode contracts *)
+    contracts : contract option * (I.t * contract) list;
 
     (* Node is annotated as main node *)
     is_main : bool;
@@ -167,7 +173,7 @@ let empty_node name =
     calls = [];
     asserts = [];
     props = [];
-    contracts = [];
+    contracts = None, [];
     is_main = false }
 
 (* Pretty-print array bounds of index *)
@@ -346,14 +352,18 @@ let pp_print_ensure safe ppf expr =
     (E.pp_print_lustre_expr safe) expr
 
 
+(* TODO: print contract with reconstructing the ensures 
+
 (* Pretty-print a contract. *)
-let pp_print_contract safe ppf (name, _, requires, ensures) =
+let pp_print_mode_contract safe ppf (name, { contract_reqs; }) =
   Format.fprintf
     ppf
     "@[<hv 2>--@@contract : %s ;@ @[<v>%a@ %a@]@]"
     name
     (pp_print_list (pp_print_require safe) "@ ") requires
     (pp_print_list (pp_print_ensure safe) "@ ") ensures
+
+*)
 
 (* Pretty-print a node *)
 let pp_print_node 
@@ -387,9 +397,22 @@ let pp_print_node
      %a%t\
      %a%t\
      %t\
+     %a@;<1 -2>\
+     tel;@]@]"  
+
+(*
+    "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
+     returns@ @[<hv 1>(%a)@];@]@ \
+     @[<v>%t@]\
+     @[<hv 2>let@ \
+     %a%t\
+     %a%t\
+     %a%t\
+     %t\
      %a%t\
      %a@;<1 -2>\
      tel;@]@]"  
+  *)
 
     (* %a *)
     (I.pp_print_ident safe) name
@@ -432,9 +455,11 @@ let pp_print_node
 
     (* %t *)
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
+(*
     (pp_print_list (pp_print_contract safe) "@ ") contracts
     (space_if_nonempty contracts)
-    (pp_print_list (pp_print_prop safe) "@ ") (List.map fst props)
+  *)
+  (pp_print_list (pp_print_prop safe) "@ ") (List.map fst props)
     
 
 
@@ -517,8 +542,20 @@ let pp_print_node_debug
                        calls =     [@[<hv>%a@]];@ \
                        asserts =   [@[<hv>%a@]];@ \
                        props =     [@[<hv>%a@]];@ \
+                       is_main =   @[<hv>%B@]; }@]"
+(*
+    "node %a @[<hv 2>{ inputs =    [@[<hv>%a@]];@ \
+                       oracles =   [@[<hv>%a@]];@ \
+                       outputs =   [@[<hv>%a@]];@ \
+                       observers = [@[<hv>%a@]];@ \
+                       locals =    [@[<hv>%a@]];@ \
+                       equations = [@[<hv>%a@]];@ \
+                       calls =     [@[<hv>%a@]];@ \
+                       asserts =   [@[<hv>%a@]];@ \
+                       props =     [@[<hv>%a@]];@ \
                        contracts = [@[<hv>%a@]];@ \
                        is_main =   @[<hv>%B@]; }@]"
+*)
     (I.pp_print_ident false) name
     pp_print_state_var_trie inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") oracles
@@ -529,7 +566,7 @@ let pp_print_node_debug
     (pp_print_list pp_print_node_call_debug ";@ ") calls
     (pp_print_list (E.pp_print_lustre_expr false) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
-    (pp_print_list pp_print_contracts ";@ ") contracts
+(*    (pp_print_list pp_print_contracts ";@ ") contracts *)
     is_main
 
 
@@ -674,7 +711,7 @@ let stateful_vars_of_node
 
   (* Add property variables *)
   let stateful_vars = add_to_svs stateful_vars (List.map fst props) in
-
+(*
   (* Add stateful variables from contracts *)
   let stateful_vars = 
     List.fold_left 
@@ -695,7 +732,7 @@ let stateful_vars_of_node
       stateful_vars
       contracts
   in
-
+*)
   (* Add stateful variables from assertions *)
   let stateful_vars = 
     List.fold_left 

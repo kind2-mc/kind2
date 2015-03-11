@@ -61,6 +61,9 @@ type t =
     (* Visible nodes *)
     nodes : N.t list;
 
+    (* Visible contract nodes *)
+    contract_nodes : (position * A.contract_node_decl) list;
+
     (* Type identifiers and their types and bounds of their indexes *)
     ident_type_map : (Type.t D.t) IT.t;
 
@@ -112,6 +115,7 @@ let mk_empty_context () =
   { scope = [];
     node = None;
     nodes = [];
+    contract_nodes = [];
     ident_type_map = IT.create 7;
     ident_expr_map = IT.create 7;
     expr_state_var_map = ET.create 7;
@@ -272,6 +276,45 @@ let add_type_for_ident ({ ident_type_map } as ctx) ident l_type =
 
 (* Return nodes defined in context *)
 let get_nodes { nodes } = nodes 
+
+
+(* Return a contract node by its identifier *)
+let contract_node_decl_of_context { contract_nodes } ident = 
+
+  try 
+    
+    (* Return contract node by name *)
+    List.find
+      (function (_, (i, _, _, _, _, _)) -> i = ident)
+      contract_nodes
+
+  (* Raise error again for more precise backtrace *)
+  with Not_found -> raise Not_found
+
+
+(* Add a contract node to the context for inlining later *)
+let add_contract_node_decl_to_context
+    ({ contract_nodes } as ctx)
+    (pos, ((ident, _, _, _, _, _) as contract_node_decl)) =
+
+  if 
+
+    (* Check if contract of with the same identifier exists *)
+    List.exists
+      (function (_, (i, _, _, _, _, _)) -> i = ident)
+      contract_nodes
+
+  then
+
+    fail_at_position
+      pos
+      "Contract node already defined"
+      
+  else
+
+    (* Add contract node to context *)
+    { ctx with contract_nodes = (pos, contract_node_decl) :: contract_nodes }
+
 
 
 (* Create a state variable for from an indexed state variable in a
