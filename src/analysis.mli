@@ -20,7 +20,7 @@ open Lib
 
 (** Result returned by an analysis. *)
 type analysis_result =
-  | Ok | Timeout | Error
+  | Ok | Timeout | Error of int
 
 (** Exit status for errors. *)
 val status_error : int

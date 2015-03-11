@@ -353,10 +353,11 @@ let launch_analysis sys log msg_setup =
   | Analysis.Timeout ->
      (* No error, we can keep going. *)
      ()
-  | Analysis.Error ->
+  | Analysis.Error(status) ->
      (* Error, we must stop there. *)
      print_final_things sys log ;
-     exit Analysis.status_error
+     (* Exiting with corresponding status. *)
+     exit status
 
 let rec launch_compositional sys log msg_setup =
 

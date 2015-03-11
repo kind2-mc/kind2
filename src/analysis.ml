@@ -27,7 +27,7 @@ module InvGenOS = InvGenGraph.OneState
 
 (* Result returned by an analysis. *)
 type analysis_result =
-  | Ok | Timeout | Error
+  | Ok | Timeout | Error of int
 
 (* Debug name of a process. *)
 let debug_ext_of_process = suffix_of_kind_module
@@ -61,7 +61,7 @@ let pp_print_context ppf { sys ; kids } =
     kids
 
 (* Creates a new analysis context. *)
-let mk_context sys log =
+let empty_context sys log =
   { sys = sys ; log = log ; kids = [] }
 
 (* Removes some kid pids from the context. *)
@@ -146,10 +146,9 @@ let handle_events t silent =
 
   (* Update transition system from events. *)
   Event.update_trans_sys t.sys events |> ignore ;
+
   (* Update log from events. *)
   Log.update_of_events t.log t.sys events
-
-
 
 
 
@@ -166,6 +165,8 @@ let renice_process mdl nice =
     (* Renicing and logging. *)
     Unix.nice nice
     |> Event.log L_info "Renicing %s to %d." mdl
+
+
 
 (* Returns the main function of a kind module. *)
 let main_of_process = function
@@ -204,10 +205,7 @@ let status_error = 2
 
 (* Exit status if timed out. *)
 let status_timeout = 3
-
-
-
-                       
+         
 
 (* Returns the status corresponding to an exception, possibly
    notifying the user in the process. *)
@@ -268,6 +266,14 @@ let status_of_exn = function
      (* Return exit status for error. *)
      status_error
 
+
+let result_of_exn = function
+  | Exit
+  | Event.Terminate -> Ok
+  | TimeoutWall
+  | TimeoutVirtual -> Timeout
+  | exn -> Error (status_of_exn exn)
+
 (* Cleanup function of a process. *)
 let on_exit_of_process t = function
   | `BMC -> BMC.on_exit (Some t.sys)
@@ -281,186 +287,173 @@ let on_exit_of_process t = function
        pp_print_kind_module mdl
      |> failwith
 
+let ignore_sig s =
+  Sys.set_signal s Sys.Signal_ignore
 
-(* Clean exit depending on a status. *)
-let clean_exit t =
+let ignore_sigalrm  () = ignore_sig Sys.sigalrm
+let ignore_sigint   () = ignore_sig Sys.sigint
+let ignore_sigterm  () = ignore_sig Sys.sigterm
+let ignore_all_sigs () =
+  ignore_sigalrm () ; ignore_sigint  () ; ignore_sigterm ()
 
-  (* Log termination status. *)
-  if has_kids t then
+let set_sig s f =
+  Sys.set_signal s ( Sys.Signal_handle f )
+
+let set_sigalrm () =
+  set_sig Sys.sigalrm exception_on_signal
+let set_sigint  () =
+  set_sig Sys.sigint  exception_on_signal
+let set_sigterm () =
+  set_sig Sys.sigterm exception_on_signal
+
+let set_timeout ?(interval = 0.) value =
+  Unix.setitimer
+    Unix.ITIMER_REAL
+    { Unix.it_interval = interval ;
+      Unix.it_value = value }
+  |> ignore
+
+let unset_timeout () = set_timeout 0.0
+
+(* Kills all kids. First attempts to sigterm them with a timeout. If
+   some kids are still alive after that, sigkills them with no
+   timeout. *)
+let kill_all_kids t =
+
+  (* Ignore all signals while terminating kids. *)
+  ignore_all_sigs () ;
+
+  Event.log
+    L_debug
+    "Terminating all remaining child processes." ;
+
+  (* Kid killing loop. *)
+  let rec termination_loop () =
+
+    (* Waiting for child process to terminate. *)
+    let pid, status = Unix.wait () in
+
+    (* Killing processes left in process group of child process. *)
+    ( try Unix.kill (- pid) Sys.sigkill with _ -> () ) ;
+
+    (* Logging termination status. *)
     Event.log
       L_info
-      "Processe(s) %a did not exit, killing them."
-      (pp_print_list 
-         ( fun ppf (pid, mdl) ->
-           Format.fprintf
-             ppf "%a (%a)"
-             pp_print_kind_module mdl
-             Format.pp_print_int pid ) ",@ ") 
-      t.kids ;
+      "Process %a (%d, %a)."
+      pp_print_process_status status
+      pid
+      pp_print_kind_module (List.assoc pid t.kids) ;
 
-  (* Kill all remaining processes in the process groups of child
-     processes. *)
-  t.kids
-  |> List.iter
-       ( fun (pid, _) ->
-         try Unix.kill (- pid) Sys.sigkill
-         with _ -> () ) ;
+    (* Removing dead kid from context. *)
+    rm_kids t [ pid ] ;
 
-  t.kids <- [] ;
+    termination_loop ()
 
-  (* Minisleep to ensure messages sent right before killing
-     kids arrive. *)
-  minisleep 0.03 ;
+  in
 
-  (* Receiving last messages in silent mode. *)
-  handle_events t true ;
+  (* |===| First, we send sigterm to all kids and wait one second for
+           them to terminate. If some kids are still alive after this,
+           we send sigkill and wait for termination. *)
 
-  (* Discarding context. *)
-  context_ref := None ;
-
-  (* Restore signal handlers. *)
-
-  (* Install generic signal handler for SIGINT. *)
-  Sys.set_signal
-    Sys.sigint
-    (Sys.Signal_handle exception_on_signal) ;
-
-  (* Install generic signal handler for SIGTERM. *)
-  Sys.set_signal
-    Sys.sigterm
-    (Sys.Signal_handle exception_on_signal) ;
-
-  (* Install generic signal handler for SIGQUIT. *)
-  Sys.set_signal
-    Sys.sigquit
-    (Sys.Signal_handle exception_on_signal)
-
-(* Panic exit, called by the background thread. *)
-let panic_exit exn =
-  match !context_ref with
-  | None ->
-     failwith
-       "panic exit with no kids to kill"
-  | Some t ->
-     clean_exit t
-
-
-(* Clean up before exit. *)
-let on_exit t exn =
-
-  (* print_hashcons_stats () ; *)
-
-  (* Ignore SIGALRM from now on. *)
-  Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
-  (* Ignore SIGINT from now on. *)
-  Sys.set_signal Sys.sigint Sys.Signal_ignore;
-  (* Ignore SIGTERM from now on. *)
-  Sys.set_signal Sys.sigterm Sys.Signal_ignore;
-
-  (* Exit status of process depends on exception. *)
-  let status = status_of_exn exn in
-  
-  Event.log L_debug "Terminating all remaining child processes." ;
-
-  (* Kill all child processes. *)
-  t.kids
-  |> List.iter 
-       (function pid, _ -> Unix.kill pid Sys.sigterm) ;
+  (* Sending sigterm to all kids. *)
+  t.kids |> List.iter ( fun (pid, _) -> Unix.kill pid Sys.sigterm ) ;
 
   Event.log
     L_debug
     "Waiting for remaining child processes to terminate." ;
 
-  try
+  (* Don't wait for termination from sigkill for more than one
+       second. *)
+  set_timeout 1.0 ;
 
-    (* Install signal handler for SIGALRM after wallclock timeout. *)
-    Sys.set_signal
-      Sys.sigalrm
-      ( Sys.Signal_handle
-          (fun _ -> raise TimeoutWall) ) ;
+  ( try
+      (* Waiting for kids to react to sigkill. *)
+      termination_loop ()
+    with
 
-    (* Set interval timer for wallclock timeout. *)
-    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-      Unix.setitimer
-        Unix.ITIMER_REAL 
-        { Unix.it_interval = 0. ; Unix.it_value = 1. }
+    (* Whatever happened, deactivate timeout. *)
+    | _ ->
+       (* Deactivating timeout. *)
+       unset_timeout () ) ;
+
+  (* Are some kids still alive? *)
+  if has_kids t |> not
+
+  then (
+    (* No notifying user. *)
+    Event.log
+      L_info
+      "All child processes terminated." ;
+    (* All kids are dead, everything is fine. *)
+    Ok
+
+  ) else (
+    (* Some kids are not dead, sending sigkill and waiting for
+       termination. *)
+    t.kids |> List.iter ( fun (pid, _) -> Unix.kill pid Sys.sigterm ) ;
+
+    Event.log
+      L_info
+      "Some child processes are still alive, sig-killing them." ;
+
+    let status =
+      try
+        (* Restore sigint handler. *)
+        set_sigint () ;
+        (* Going to termination loop with no timeout. *)
+        termination_loop ()
+      with
+      (* No more child processes, this is the normal exit. *)
+      | Unix.Unix_error (Unix.ECHILD, _, _) ->
+         ignore_sigint () ;
+         status_ok
+      (* Unix wait was interrupted. *)
+      | Unix.Unix_error (Unix.EINTR, _, _) ->
+         ignore_sigint () ;
+         status_of_exn (Signal 0)
+      (* Exception in unix wait loop. *)
+      | e ->
+         ignore_sigint () ;
+         status_of_exn e
     in
 
-    ( try
+    (* Are there any kids still alive? *)
+    if has_kids t |> not
 
-        while true do
+    then (
+      (* No, notifying user. *)
+      Event.log
+        L_info
+        "All child processes terminated." ;
+      (* The status from the previous termination loop should be
+         ok. *)
+      assert ( status = status_ok ) ;
+      (* All kids are dead, everything is fine. *)
+      Ok
 
-          (* Wait for child process to terminate. *)
-          let pid, status = Unix.wait () in
+    ) else (
+      (* Some kids are still alive, can't do much more. *)
+      Event.log
+        L_info
+        "Some child processes are still alive after sigkill, \
+         consider killing them manually." ;
+      (* The status from the previous termination loop should NOT be
+         ok. *)
+      assert ( status <> status_ok ) ;
+      Error status
+    )
 
-          (* Kill processes left in process group of child process. *)
-          ( try Unix.kill (- pid) Sys.sigkill
-            with _ -> () );
+  )
 
-          (* Log termination status. *)
-          Event.log
-            L_info
-            "Process %a (%d, %a)."
-            pp_print_process_status status
-            pid
-            pp_print_kind_module (List.assoc pid t.kids) ;
 
-          (* Remove killed process from list. *)
-          rm_kids t [pid]
 
-        done
-
-      with TimeoutWall -> () ) ;
-
-    clean_exit t
-
-  with
-
-  (* No more child processes, this is the normal exit. *)
-  | Unix.Unix_error (Unix.ECHILD, _, _) ->
-
-     (* Deactivate timer. *)
-     let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-       Unix.setitimer
-         Unix.ITIMER_REAL 
-         { Unix.it_interval = 0. ; Unix.it_value = 0. }
-     in
-
-     Event.log
-       L_info
-       "All child processes terminated.";
-
-     clean_exit t
-
-  (* Unix.wait was interrupted. *)
-  | Unix.Unix_error (Unix.EINTR, _, _) ->
-
-     (* Deactivate timer. *)
-     let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-       Unix.setitimer
-         Unix.ITIMER_REAL 
-         { Unix.it_interval = 0. ; Unix.it_value = 0. }
-     in
-
-     (* Get new exit status. *)
-     let status' = status_of_exn (Signal 0) in
-
-     clean_exit t
-
-  (* Exception in Unix.wait loop. *)
-  | e ->
-
-     (* Deactivate timer. *)
-     let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-       Unix.setitimer
-         Unix.ITIMER_REAL 
-         { Unix.it_interval = 0. ; Unix.it_value = 0. }
-     in
-
-     (* Get new exit status. *)
-     let status' = status_of_exn e in
-
-     clean_exit t
+(* Panic exit, called by the background thread. *)
+let panic_exit exn =
+  match !context_ref with
+  | Some t when has_kids t ->
+     kill_all_kids t |> ignore
+  | _ ->
+     failwith "panic exit with no kids to kill"
 
 (* Call cleanup function of process and exit. 
 
@@ -491,84 +484,92 @@ let on_exit_kid t messaging_thread process exn =
   exit status
 
 
-(* Clean exit from a context and an optional exception. *)
+(* Clean exit from a context and the outcome of the analysis. *)
+let on_exit t outcome =
+  let slaughter_outcome = kill_all_kids t in
+  ( match slaughter_outcome, outcome with
+    (* Kid slaughter went ok. *)
+    | Ok, res -> res
+    (* Kid slaughter failed, analysis was ok. *)
+    | res, Ok | res, Timeout -> res
+    (* Both went wrong, this is bad. *)
+    | _ ->
+       failwith
+         "[Panic] Analysis and child process termination \
+          went wrong." )
+
+(* Clean exit from a context and an exception. *)
 let on_exit_exn t exn =
   match Event.get_module () with
-  (* We are the supervisor, clean exit. *)
+
+  (* We are the supervisor, killing kids. *)
   | `Supervisor ->
-     minisleep 0.1 ;
-     on_exit t exn
-  (* We are a child process, calling [on_exit] and exiting. *)
-  | mdl -> on_exit_kid t None mdl exn
+     on_exit t (Error( status_of_exn exn ))
+
+  (* We are a child process, exiting. *)
+  | mdl ->
+     on_exit_kid t None mdl exn
 
 
 (* Checks if some kids have terminated. Returns true if the analysis is
    over: either all kids are done or one of them exited with an error
    status. *)
-let wait_for_kids t =
+let rec wait_for_kids t =
 
-  let rec loop result =
+  match 
+    
+    ( try
+        (* Check if any kid process has died, return immediately. *)
+        Unix.waitpid [Unix.WNOHANG] (- 1) 
 
-    match 
-      
-      ( try
-          (* Check if any kid process has died, return immediately. *)
-          Unix.waitpid [Unix.WNOHANG] (- 1) 
+      with
+        (* Catch error if there is no child process. *)
+        Unix.Unix_error (Unix.ECHILD, _, _) -> 0, Unix.WEXITED 0 )
 
-        with
-          (* Catch error if there is no child process. *)
-          Unix.Unix_error (Unix.ECHILD, _, _) -> 0, Unix.WEXITED 0 )
+  with
 
-    with
+  (* No child process died. *)
+  | 0, _ -> 
 
-    (* No child process died. *)
-    | 0, _ -> 
+     (* Terminate if the last child process has died. *)
+     if has_kids t then Some(Ok) else None
 
-       (* Terminate if the last child process has died. *)
-       has_kids t |> not || result
+  (* Child process exited normally. *)
+  | child_pid, (Unix.WEXITED 0 as status) -> (
 
-    (* Child process exited normally. *)
-    | child_pid, (Unix.WEXITED 0 as status) -> (
+    Event.log
+      L_warn
+      "Child process %a (%d) terminated (%a)."
+      pp_print_kind_module (module_of_pid t child_pid)
+      child_pid
+      pp_print_process_status status ;
 
-      Event.log
-        L_warn
-        "Child process %a (%d) terminated (%a)."
-        pp_print_kind_module (module_of_pid t child_pid)
-        child_pid
-        pp_print_process_status status ;
+    ( if List.mem_assoc child_pid t.kids then
+        (* Remove child process from list *)
+        rm_kids t [child_pid] ) ;
 
-      ( if List.mem_assoc child_pid t.kids then
-          (* Remove child process from list *)
-          rm_kids t [child_pid] ) ;
+    (* Check if more child processes have died *)
+    wait_for_kids t
 
-      (* Check if more child processes have died *)
-      loop result
+  )
 
-    )
+  (* Child process dies with non-zero exit status or was killed. *)
+  | child_pid, status -> (
 
-    (* Child process dies with non-zero exit status or was killed. *)
-    | child_pid, status -> (
+    Event.log
+      L_error
+      "Child process %a (%d) terminated (%a)"
+      pp_print_kind_module (module_of_pid t child_pid)
+      child_pid
+      pp_print_process_status status;
 
-      Event.log
-        L_error
-        "Child process %a (%d) terminated (%a)"
-        pp_print_kind_module (module_of_pid t child_pid)
-        child_pid
-        pp_print_process_status status;
+    (* Remove child process from list. *)
+    rm_kids t [child_pid] ;
 
-      (* Remove child process from list. *)
-      rm_kids t [child_pid] ;
+    (* Kill kids. *)
+    Some( Error(status_error) )
 
-      (* Check if more child processes have died. *)
-      on_exit t Exit ;
-
-      exit status_error
-
-    )
-
-  in
-
-  loop false
+  )
 
 
 
@@ -582,30 +583,23 @@ let rec polling_loop t =
   if
     (* Check if the analysis is over. *)
     TransSys.all_props_proved t.sys
-  then
-    ( Event.log
-        L_warn
-        "%s All properties proved or disproved in %.3fs."
-        done_tag
-        (Stat.get_float Stat.total_time) ;
-      
-      on_exit t Exit )
+  then (
+    Event.log
+      L_warn
+      "%s All properties proved or disproved in %.3fs."
+      done_tag
+      (Stat.get_float Stat.total_time) ;
 
-  else if
+    Ok
+
+  ) else
     (* Check if all child processes have died or if one of them
        terminated abnormaly, and exit if necessary *)
-    wait_for_kids t
-  then (
-    on_exit t Exit
-
-  ) else (
-    (* Otherwise, sleep for a little while and loop. *)
-    minisleep 0.03 ;
-
-    (* Continue polling loop. *)
-    polling_loop t
-
-  )
+    ( match wait_for_kids t with
+      (* No result status, looping. *)
+      | None -> minisleep 0.03 ; polling_loop t
+      (* Terminating. *)
+      | Some(status) -> status )
 
 
 
@@ -621,23 +615,38 @@ let run_process t messaging_setup process =
      (* We are the child process *)
      ( try
 
-         (* Install generic signal handler for SIGTERM. *)
-         Sys.set_signal
-           Sys.sigterm
-           (Sys.Signal_handle exception_on_signal) ;
+         (* All log messages are sent to the invariant manager
+            now. *)
+         Event.set_relay_log ();
 
-         (* Install generic signal handler for SIGINT. *)
-         (* Sys.set_signal *)
-         (*   Sys.sigint *)
-         (*   (Sys.Signal_handle exception_on_signal) ; *)
+         (* Set module currently running. *)
+         Event.set_module process;
+
+         Format.printf
+           "[%a] Setting sigterm.@."
+           pp_print_kind_module (Event.get_module ()) ;
+
+         (* Install generic signal handler for sigterm. *)
+         set_sigterm () ;
+
+         Format.printf
+           "[%a] Setting sigint.@."
+           pp_print_kind_module (Event.get_module ()) ;
+
+         (* Ignore sigalrm in child process. *)
+         ignore_sigalrm () ;
+
+         (* Install generic signal handler for sigint. *)
+         set_sigint () ;
 
          (* Make the process leader of a new session. *)
          Unix.setsid () |> ignore ;
 
          let pid = Unix.getpid () in
 
-         (* Ignore SIGALRM in child process. *)
-         Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
+         Format.printf
+           "[%a] Setting up messaging.@."
+           pp_print_kind_module (Event.get_module ()) ;
 
          (* Initialize messaging system for process. *)
          let messaging_thread =
@@ -646,13 +655,6 @@ let run_process t messaging_setup process =
              messaging_setup
              (on_exit_kid t None process)
          in
-
-         (* All log messages are sent to the invariant manager
-              now. *)
-         Event.set_relay_log ();
-
-         (* Set module currently running. *)
-         Event.set_module process;
 
          (* Record backtraces on log levels debug and higher. *)
          if output_on_level L_debug then
@@ -705,8 +707,16 @@ let run_process t messaging_setup process =
               (* Ignore and keep previous file on error. *)
               | Sys_error _ -> () );
 
+         Format.printf
+           "[%a] Launching main.@."
+           pp_print_kind_module (Event.get_module ()) ;
+
          (* Run main function of process. *)
          main_of_process process t.sys ;
+
+         Format.printf
+           "[%a] Done, on_exit_kid.@."
+           pp_print_kind_module (Event.get_module ()) ;
 
          (* Cleanup and exit. *)
          on_exit_kid
@@ -719,8 +729,12 @@ let run_process t messaging_setup process =
           on_exit_kid t None process e
 
        (* Propagating signal exceptions. *)
-       | Signal s ->
-          exception_on_signal s
+       | Signal s as e ->
+          Format.printf
+            "[%a] Not propagating signal as exception.@."
+            pp_print_kind_module (Event.get_module ()) ;
+          on_exit_kid t None process e
+          (* exception_on_signal s *)
 
        (* Catch all other exceptions. *)
        | e -> 
@@ -762,70 +776,66 @@ let run sys log msg_setup = function
   | modules ->
 
      (* Create an analysis context. *)
-     let context = mk_context sys log in
+     let context = empty_context sys log in
      context_ref := Some context ;
 
-     try
+     ( try
 
-       (* Launching all processes. *)
-       modules
-       |> List.iter
-            ( fun modul ->
-              run_process context msg_setup modul ) ;
+         Format.printf
+           "Launching kids.@." ;
 
-       (* Updating background thread with the list of kids. *)
-       Event.update_child_processes_list context.kids ;
+         (* Launching all processes. *)
+         modules
+         |> List.iter
+              ( fun modul ->
+                run_process context msg_setup modul ) ;
 
-       (* Going to message reception / termination checks. *)
-       polling_loop context ;
+         (* Updating background thread with the list of kids. *)
+         Event.update_child_processes_list context.kids ;
 
-       (* Setting timeout if needed. *)
-       if Flags.timeout_wall () > 0. then (
-         let _ =
-           (* Set interval timer for wallclock timeout. *)
-           Unix.setitimer 
-             Unix.ITIMER_REAL 
-             { Unix.it_interval = 0. ;
-               Unix.it_value = Flags.timeout_wall () }
-         in ()
-       ) ;
+         (* Setting timeout if needed. *)
+         if Flags.timeout_wall () > 0.
+         then Flags.timeout_wall () |> set_timeout ;
+
+         (* Going to message reception / termination checks. *)
+         let outcome = polling_loop context in
+
+         (* Deactivating timeout. *)
+         unset_timeout () ;
 
 
-       (* Clean everything and exit analysis. *)
-       on_exit_exn context Exit ;
-       (* There should be no kid left alive. *)
-       assert (context.kids = []) ;
+         (* Clean everything and exit analysis. *)
+         let outcome = on_exit context outcome in
 
-       (* Reset timeout counter. *)
-       let _ =
-         Unix.setitimer
-           Unix.ITIMER_REAL
-           { Unix.it_interval = 0. ;
-             Unix.it_value = 0. }
-       in
+         (* There should be no kid left alive. *)
+         assert (context.kids = []) ;
 
-       Ok
+         (* Reset timeout counter. *)
+         unset_timeout () ;
 
-     with
-     | e ->
+         outcome
 
-        (* Whatever happens, kill all remaining kids. *)
-        on_exit_exn context e ;
+       with
+       | e ->
 
-        (* There should be no kid left alive. *)
-        assert (context.kids = []) ;
+          Format.printf
+            "[%a] Exception caught at analysis top level.@."
+            pp_print_kind_module (Event.get_module ()) ;
 
-        (* Reset timeout timer. *)
-        let _ =
-          Unix.setitimer
-            Unix.ITIMER_REAL
-            { Unix.it_interval = 0. ;
-              Unix.it_value = 0. }
-        in
+          (* Reset timeout. *)
+          unset_timeout () ;
 
-        match e with
-        | TimeoutWall | TimeoutVirtual -> Timeout
-        | _ -> Error
+          (* Clean exit, killing everyone if we are the supervisor. *)
+          let outcome = on_exit_exn context e in
+
+          (* If we are a kid, the previous line killed the
+             process. The following only applies to the supervisor. *)
+
+          (* There should be no kid left alive. *)
+          assert (context.kids = []) ;
+
+          (* Returning result status. *)
+          outcome )
 
 (* 
    Local Variables:
