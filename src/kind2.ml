@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open TermLib.Signals
 
 module Refiner = Refiner
 module Log = Log
@@ -52,7 +53,7 @@ let print_final_statistics sys =
          Event.log_stat mdl L_info stat ) ;
 
   (* Printing result for the properties of the top level. *)
-  TransSys.get_prop_status_all_unknown sys
+  TransSys.get_prop_status_all sys
   |> Event.log_prop_status L_fatal
 
 
@@ -333,17 +334,19 @@ let clean_up_sys sys =
 
 (* Prints final things. *)
 let print_final_things sys log =
-  dbl_sep_line_warn () ;
 
-  ( if Flags.modular () || Flags.compositional () then (
-      Event.log L_warn "Analysis breakdown:" ;
+  if Flags.modular () || Flags.compositional () then (
+    dbl_sep_line_warn () ;
+    Event.log L_warn "Analysis breakdown:" ;
 
-      Event.log
-        L_warn
-        "%a"
-        Log.pp_print_log log
-    ) else 
-      print_final_statistics sys )
+    Event.log
+      L_warn
+      "%a"
+      Log.pp_print_log log
+  ) else (
+    sgl_sep_line_warn () ;
+    print_final_statistics sys
+  )
 
 let launch_analysis sys log msg_setup =
   match
@@ -353,10 +356,11 @@ let launch_analysis sys log msg_setup =
   | Analysis.Timeout ->
      (* No error, we can keep going. *)
      ()
-  | Analysis.Error ->
+  | Analysis.Error(status) ->
      (* Error, we must stop there. *)
      print_final_things sys log ;
-     exit Analysis.status_error
+     (* Exiting with corresponding status. *)
+     exit status
 
 let rec launch_compositional sys log msg_setup =
 
@@ -596,8 +600,7 @@ let setup_and_run sys =
 
       let exit_interpreter exn =
         (* Ignore SIGALRM from now on *)
-        Sys.set_signal
-          Sys.sigalrm Sys.Signal_ignore ;
+        ignore_sigalrm () ;
 
         (* Cleanup before exiting. *)
         Interpreter.on_exit (Some sys) ;
@@ -708,54 +711,27 @@ let main () =
   (* Check and set SMT solver. *)
   check_smtsolver () ;
 
-  (* Wallclock timeout? *)
-  if Flags.timeout_wall () > 0. then (
-
-    (* Install signal handler for SIGALRM after wallclock timeout. *)
-    Sys.set_signal 
-      Sys.sigalrm 
-      ( Sys.Signal_handle
-          (fun _ -> raise TimeoutWall) );
-
-    (* Set interval timer for wallclock timeout. *)
-    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-      Unix.setitimer 
-        Unix.ITIMER_REAL 
-        { Unix.it_interval = 0. ;
-          Unix.it_value = Flags.timeout_wall () } 
-    in
-
-    ()
-
-  ) else (
-
-      (* Install generic signal handler for SIGALRM. *)
-      Sys.set_signal 
-        Sys.sigalrm 
-        (Sys.Signal_handle exception_on_signal);
-
-  );
-
   (* Must not use vtalrm signal, this is used internally by the OCaml
      Threads module. *)
 
+  (* Set sigalrm to [exception_on_signal] or raise [TimeoutWall]
+     depending on the flags. *)
+  set_sigalrm () ;
+
   (* Raise exception on CTRL+C. *)
-  Sys.catch_break true ;
+  catch_break true ;
 
   (* Install generic signal handler for SIGINT. *)
-  Sys.set_signal
-    Sys.sigint
-    (Sys.Signal_handle exception_on_signal) ;
+  set_sigint () ;
 
   (* Install generic signal handler for SIGTERM. *)
-  Sys.set_signal
-    Sys.sigterm
-    (Sys.Signal_handle exception_on_signal) ;
+  set_sigterm () ;
 
   (* Install generic signal handler for SIGQUIT. *)
-  Sys.set_signal
-    Sys.sigquit
-    (Sys.Signal_handle exception_on_signal) ;
+  set_sigquit () ;
+
+  (* Set timeout from timeout flag. *)
+  set_timeout_from_flag () ;
 
   Stat.start_timer Stat.total_time ;
 
@@ -833,6 +809,9 @@ let main () =
 ;;
 
 main ()
+
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
