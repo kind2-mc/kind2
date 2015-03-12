@@ -34,11 +34,6 @@ let on_exit trans_sys =
     Event.log_prop_status 
       L_fatal
       (TransSys.get_prop_status_all trans_sys);
-
-    if Flags.certif () then
-      (* Create certificate *)
-      CertifChecker.generate_certificate trans_sys;
-
   );
     
   try 

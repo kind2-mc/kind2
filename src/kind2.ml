@@ -300,6 +300,13 @@ let on_exit process exn =
 
   (* Clean exit from invariant manager *)
   InvarManager.on_exit !trans_sys;
+
+  if Flags.certif () &&
+     (status = status_ok || status = status_signal )then
+    (* Create certificate *)
+    (match !trans_sys with | None -> () | Some trans_sys ->
+      CertifChecker.generate_certificate trans_sys
+    );
   
   Event.log L_info "Killing all remaining child processes";
 
@@ -646,7 +653,7 @@ let check_smtsolver () =
 
       let yices_exec = 
 
-        (* Check if MathSat5 is on the path *)
+        (* Check if yices 2 is on the path *)
         try find_on_path (Flags.yices2smt2_bin ()) with 
 
           | Not_found -> 
