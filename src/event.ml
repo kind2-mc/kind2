@@ -425,9 +425,13 @@ let proved_pt mdl level trans_sys k prop =
       (* (TransSys.named_term_of_prop_name trans_sys prop) *)
       (match TransSys.get_prop_source trans_sys prop with
        | None -> assert false
-       | Some source ->
+       | Some (TermLib.PropAnnot _ as source)
+       | Some (TermLib.Generated _ as source)
+       | Some (TermLib.Instantiated _ as source) ->
           Format.asprintf
-            "%s (%a)" prop TermLib.pp_print_prop_source source)
+            "%s (%a)" prop TermLib.pp_print_prop_source source
+       | _ -> prop)
+      
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
@@ -994,11 +998,13 @@ let log_execution_path mdl level trans_sys path =
 
 
 (* Output summary of status of properties *)
-let log_prop_status level prop_status =
-  match !log_format with 
-    | F_pt -> prop_status_pt level prop_status
-    | F_xml -> prop_status_xml level prop_status
-    | F_relay -> ()
+let log_prop_status level = function
+  | [] -> ()
+  | prop_status ->
+     match !log_format with 
+     | F_pt -> prop_status_pt level prop_status
+     | F_xml -> prop_status_xml level prop_status
+     | F_relay -> ()
 
 
 (* Output statistics of a section of a source *)
