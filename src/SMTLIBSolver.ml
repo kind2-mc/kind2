@@ -809,12 +809,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let headers =
       "(set-option :print-success true)" ::
       (headers ()) @
-      [ 
-        (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
-        Format.sprintf
-          "(set-option :produce-assignments %B)" produce_assignments;
-        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores
-      ] @
+      (if produce_assignments then
+         ["(set-option :produce-assignments true)"] else []) @
+      (if produce_cores then
+         ["(set-option :produce-unsat-cores true)"] else []) @
       header_logic
     in
 
@@ -825,6 +823,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         with 
         | `Success -> () 
         | _ -> raise (Failure ("Failed to add header: "^cmd))
+        | exception _ -> raise (Failure ("Failed to add header: "^cmd))
     ) headers;
 
 

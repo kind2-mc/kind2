@@ -1266,7 +1266,7 @@ let mathsat5_bin () = flags.mathsat5_bin
 
 let yices_bin () = flags.yices_bin
 
-let yices2smt2_bin () = flags.yices_bin
+let yices2smt2_bin () = flags.yices2smt2_bin
 
 let smt_trace () = flags.smt_trace
 
