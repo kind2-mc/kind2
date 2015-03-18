@@ -84,6 +84,14 @@ val smt_trace : unit -> smt_trace
 type smt_trace_dir = string 
 val smt_trace_dir : unit -> smt_trace_dir
 
+(** Dumping to native format *)
+type dump_native = bool
+val dump_native : unit -> dump_native
+
+(** Directory for dumping files *)
+type dump_dir = string 
+val dump_dir : unit -> dump_dir
+
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list
 val enable : unit -> enable 

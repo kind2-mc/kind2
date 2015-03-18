@@ -808,6 +808,8 @@ let invars_of_bound ?(one_state_only = false) t i =
 
 let get_invars { invars } = invars
 
+let get_callers { callers } = callers
+
 
 (* Instantiate terms in association list to the bound *)
 let named_terms_list_of_bound l i = 
@@ -889,6 +891,12 @@ let add_scoped_invariant t scope invar =
 
 (* Add an invariant to the transition system *)
 let add_invariant t invar = add_scoped_invariant t t.scope invar
+
+(* Return all properties *)
+let get_properties t =
+  List.map (fun {prop_name; prop_source; prop_term} ->
+      (prop_name, prop_source, prop_term))
+    t.properties
 
 (* Return current status of all properties *)
 let get_prop_status_all t = 

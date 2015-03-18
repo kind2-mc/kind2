@@ -35,17 +35,22 @@ let s_define_node = HString.mk_hstring "define-node"
 let s_init = HString.mk_hstring "init"
 let s_trans = HString.mk_hstring "trans"
 let s_callers = HString.mk_hstring "callers"
-let s_fun = HString.mk_hstring "fun"
+let s_lambda = HString.mk_hstring "lambda"
 let s_opt_const = HString.mk_hstring ":const"
 let s_opt_input = HString.mk_hstring ":input"
 let s_opt_for_inv_gen = HString.mk_hstring ":for-inv-gen"
-let s_annot = HString.mk_hstring ":annot"
+let s_annot = HString.mk_hstring ":user"
 let s_contract = HString.mk_hstring ":contract"
-let s_gen = HString.mk_hstring ":gen"
-let s_inst = HString.mk_hstring ":inst"
+let s_gen = HString.mk_hstring ":generated"
+let s_inst = HString.mk_hstring ":subsystem"
 let s_props = HString.mk_hstring "props"
 let s_intrange = HString.mk_hstring "IntRange"
 
+
+
+(*********************************************)
+(* Parsing of systems in native input format *)
+(*********************************************)
 
 (* Return the name of the initial state constraint predicate *)
 let init_pred_hname pred =
@@ -178,15 +183,16 @@ let caller_of_sexpr = function
   | HS.List 
       [HS.Atom c;
        HS.List m;
-       HS.List [HS.Atom f; HS.Atom v; g]] 
-    when f == s_fun ->
+       HS.List [HS.Atom f; HS.List [HS.Atom v; ty]; g]] 
+    when f == s_lambda ->
     (* Get name of caller *)
     let name = c in
     (* Get variable map *)
     let map = List.map sbind_of_sexpr m in
     (* Get guard of boolean function *)
     (* Get list of variables of fun *)
-    let vars = [Var.mk_free_var v Type.t_bool] in
+    let tyv = type_of_sexpr ty in
+    let vars = [Var.mk_free_var v tyv] in
     let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in
     let guard_lambda = Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in
     let guard_fun = (fun t -> Term.eval_lambda guard_lambda [t]) in
@@ -449,13 +455,110 @@ let of_file filename =
 
 
 
-
-(* ************************************************************ *)
-(* Counterexample output in plain text                          *)
-(* ************************************************************ *)
-
+(************************************************************************)
+(* Printing of transition systems to the compatible native input format *)
+(************************************************************************)
 
 
+let pp_print_state_var ppf state_var = 
+  Format.fprintf ppf
+    "@[<hv 1>(%a@ %a%t%t%t)@]" 
+    StateVar.pp_print_state_var state_var
+    Type.pp_print_type (StateVar.type_of_state_var state_var)
+    (fun ppf -> 
+       if StateVar.is_const state_var
+       then Format.fprintf ppf "@ :const")
+    (fun ppf -> 
+       if StateVar.is_input state_var
+       then Format.fprintf ppf "@ :input")
+    (fun ppf -> 
+       if StateVar.for_inv_gen state_var
+       then Format.fprintf ppf "@ :for-inv-gen")
+
+let pp_pos ppf pos =
+  let f,r,c = file_row_col_of_pos pos in
+  Format.fprintf ppf "%s:%d-%d" f r c
+  
+
+let pp_print_prop_source ppf = function 
+  | TermLib.PropAnnot pos -> Format.fprintf ppf ":user@ %a" pp_pos pos
+  | TermLib.Contract pos -> Format.fprintf ppf ":contract@ %a" pp_pos pos
+  | TermLib.Generated state_vars ->
+    Format.fprintf ppf ":generated@ (@[<v>%a@])"
+    (pp_print_list pp_print_state_var "@ ") state_vars  
+  | TermLib.Instantiated (scope, name) ->
+    Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
+
+
+let pp_print_property ppf (prop_name, prop_source, prop_term) = 
+  Format.fprintf 
+    ppf
+    "@[<hv 1>(%s@ %a@ %a)@]"
+    prop_name
+    Term.pp_print_term prop_term
+    pp_print_prop_source prop_source
+
+
+let pp_print_caller ppf (m, ft) =
+  Format.fprintf ppf 
+    "@[<hv 1>(%a)@,@[<v>%a@]@]"
+    (pp_print_list 
+       (fun ppf (s, t) ->
+          Format.fprintf ppf
+            "@[<hv 1>(@[<hv>%a@]@ @[<hv>%a@])@]"
+            StateVar.pp_print_state_var s
+            StateVar.pp_print_state_var t)
+       "@ ")
+    m
+    Term.pp_print_lambda
+    (let v = Var.mk_fresh_var Type.t_bool in
+     let tv = Term.mk_var v in
+     Term.mk_lambda [v] (ft tv))
+
+
+let pp_print_callers ppf (t, c) = 
+  Format.fprintf ppf
+    "@[<hv 1>(%a@ %a)@]"
+    (pp_print_list Format.pp_print_string ".") (TransSys.get_scope t)
+    (pp_print_list pp_print_caller "@ ") c
+
+
+let rec pp_print_native ppf sys = 
+
+  List.iter (Format.fprintf ppf "%a\n@." pp_print_native)
+    (TransSys.get_subsystems sys);
+  
+  Format.fprintf 
+    ppf
+    "@[<v>@[<hv 2>(@[<v>%a@])@]\n@,\
+          @[<hv 2>(init@ @[<v>%a@])@]\n@,\
+          @[<hv 2>(trans@ @[<v>%a@])@]\n@,\
+          @[<hv 2>(props@ (@[<v>%a@]))@]\n@,\
+          @[<hv 2>(callers@ (@[<v>%a@]))@]\n@,\
+     @]@."
+    (pp_print_list pp_print_state_var "@ ") (TransSys.state_vars sys)
+    Term.pp_print_term (TransSys.init_term sys)
+    Term.pp_print_term (TransSys.trans_term sys)
+    (pp_print_list pp_print_property "@ ") (TransSys.get_properties sys)
+    (pp_print_list pp_print_callers "@,") (TransSys.get_callers sys)
+
+
+
+let dump_native sys =
+  let dirname = Flags.dump_dir () in
+  create_dir dirname;
+  let filename = 
+    Filename.concat
+      dirname
+      (Format.sprintf "%s.kind2" 
+         (Filename.basename (Flags.input_file ()))
+      )
+  in
+  let dump_oc = open_out filename in
+  let fmt = Format.formatter_of_out_channel dump_oc in
+  pp_print_native fmt sys
+
+  
 (* ************************************************************ *)
 (* Counterexample output in plain text                          *)
 (* ************************************************************ *)

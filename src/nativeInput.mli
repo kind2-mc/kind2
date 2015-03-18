@@ -21,12 +21,26 @@
     @author Christoph Sticksel, Alain Mebsout
 *)
 
+
+(** {2 Printing from native input format } *)
+  
 (** Parse from the channel *)
 val of_channel : in_channel -> TransSys.t
 
 (** Parse from the file *)
 val of_file : string -> TransSys.t
 
+
+(** {2 Printing to native format } *)
+  
+(** Print a transition system in native format *)
+val pp_print_native : Format.formatter -> TransSys.t -> unit
+
+(** Dump a transition system to a file in native format *)
+val dump_native : TransSys.t -> unit
+
+(** {2 Pretty printing of counter-examples} *)
+  
 val pp_print_path_pt :
   Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
 

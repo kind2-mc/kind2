@@ -873,7 +873,10 @@ let main () =
             
         | `Native -> 
 
-          Some (NativeInput.of_file (Flags.input_file ()))
+          let sys = NativeInput.of_file (Flags.input_file ()) in
+          if Flags.dump_native () then NativeInput.dump_native sys;
+          
+          Some sys
 
         | `Horn -> 
           
@@ -883,7 +886,7 @@ let main () =
     (* Output the transition system *)
     (debug parse
         "%a"
-        TransSys.pp_print_trans_sys
+        NativeInput.pp_print_native
         (get !trans_sys)
      end);
 

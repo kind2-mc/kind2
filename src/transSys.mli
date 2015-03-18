@@ -207,6 +207,10 @@ val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t
 (** The list of invariants and valid properties at zero. *)
 val get_invars : t -> Term.t list
 
+(** The list of callers of this system *)
+val get_callers : t ->
+  (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t)) list)) list
+
 (** Return uninterpreted function symbols to be declared in the SMT
     solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
@@ -231,6 +235,9 @@ val add_invariant : t -> Term.t -> unit
 
 (** Add an invariant to the transition system *)
 val add_scoped_invariant : t -> string list -> Term.t -> unit
+
+(** Return current status of all properties *)
+val get_properties : t -> (string * TermLib.prop_source * Term.t) list
 
 (** Return current status of all properties *)
 val get_prop_status_all : t -> (string * prop_status) list
