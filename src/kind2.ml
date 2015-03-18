@@ -872,18 +872,8 @@ let main () =
                (Flags.input_file ()))
             
         | `Native -> 
-          
-          (
 
-          (* Some (NativeInput.of_file (Flags.input_file ())) *)
-
-            Event.log
-              L_fatal
-              "Native input deactivated while refactoring transition system.";
-          
-            assert false
-
-          )
+          Some (NativeInput.of_file (Flags.input_file ()))
 
         | `Horn -> 
           

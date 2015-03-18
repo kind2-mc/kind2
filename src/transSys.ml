@@ -1092,9 +1092,9 @@ let uf_defs_pairs { uf_defs } = uf_defs
   
 
 
-let pp_print_trans_sys 
+let rec pp_print_trans_sys 
     ppf
-    ({ uf_defs;
+    ({ subsystems;
        state_vars;
        properties;
        invars;
@@ -1102,10 +1102,11 @@ let pp_print_trans_sys
        logic;
        callers } as trans_sys) = 
 
+  List.iter (Format.fprintf ppf "%a@." pp_print_trans_sys) subsystems;
+  
   Format.fprintf 
     ppf
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-          %a@,\
           @[<hv 2>(init@ (@[<v>%a@]))@]@,\
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
@@ -1114,7 +1115,6 @@ let pp_print_trans_sys
           @[<hv 2>(logic %a)@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
-    (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
     Term.pp_print_term (init_term trans_sys)
     Term.pp_print_term (trans_term trans_sys)
     (pp_print_list pp_print_property "@ ") properties

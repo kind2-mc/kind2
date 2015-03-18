@@ -355,27 +355,12 @@ let state_var_of_string (state_var_name, state_var_scope) =
   Hstate_var.find ht (state_var_name, state_var_scope)
 
 
-(* Split a string at its first dot. Raises {Not_found} if there are not dots *)
-let split_dot s =
-  let open String in
-  let n = (index s '.') in
-  sub s 0 n, sub s (n+1) (length s - n - 1)
-
-
 (* Return a previously declared state variable from a string consisting of the
    concatenation of all scopes and the state variable. Raises {Not_found} if it
    was not previously declared. *)
 let state_var_of_long_string s =
-
-  let rec loop s scope =
-    try state_var_of_string (s, scope)
-    with Not_found ->
-      let s', next_scope = split_dot s in
-      loop s' (scope @ [next_scope])
-  in
-
-  loop s []
-
+  state_var_of_string (Lib.extract_scope_name s)
+    
 
 (* ********************************************************************* *)
 (* Folding and utility functions on state variables                      *)
