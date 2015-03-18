@@ -340,7 +340,10 @@ val position_of_lexing : Lexing.position -> position
 
 (** Extract scope from a concatenated name *)
 val extract_scope_name : string -> string * string list
- 
+
+(* Create a directory if it does not already exists. *)
+val create_dir : string -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

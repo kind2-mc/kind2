@@ -1227,6 +1227,13 @@ let extract_scope_name name =
   loop name []
 
 
+
+(* Create a directory if it does not already exists. *)
+let create_dir dir =
+  try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
+  with Sys_error _ -> Unix.mkdir dir 0o755
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
