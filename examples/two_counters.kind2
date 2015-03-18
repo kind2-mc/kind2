@@ -1,73 +1,148 @@
-(define-pred greycounter
-
-  ((reset Bool)
-   (out Bool)
-   (a Bool)
-   (b Bool))
+(define-node intcounter
   
-  (init 
-   (and
-    (= b false)
-    (= a false)
-    (= out (and a b))))
-  
-  (trans
-   (and	
-    (= (prime b) (and (not (prime reset)) a))
-    (= (prime a) (and (not (prime reset)) (not b)))
-    (= (prime out) (and (prime a) (prime b))))))
-
-(define-pred intcounter
-  
-  ((reset Bool)
-   (max Int :const)
-   (out Bool)
-   (t Int))
+  ((transSys.x_is_init_x Bool)
+   (intcounter.reset Bool :input :for-inv-gen)
+   (intcounter.max Int :const :input :for-inv-gen)
+   (intcounter.out Bool :for-inv-gen)
+   (intcounter.t Int :for-inv-gen))
 
   (init
    (and
-    (= t 0)
-    (= out (= t 2))))
-  
+    transSys.x_is_init_x
+    (= intcounter.t 0)
+    (= intcounter.out (= intcounter.t 2))))
+
   (trans
    (and
-    (= (prime t) (ite (or (prime reset) (= t max)) 0 (+ t 1)))
-    (= (prime out) (= (prime t) 2)))))
+    (not (prime transSys.x_is_init_x))
+    (=
+     (prime intcounter.t)
+     (ite
+      (or (prime intcounter.reset) (= intcounter.t intcounter.max))
+      0
+      (+ intcounter.t 1)))
+    (= (prime intcounter.out) (= (prime intcounter.t) 2))))
 
-(define-pred top
-  ((reset Bool)
-   (OK Bool)
-   (b Bool)
-   (d Bool)
-   (g.a Bool)
-   (g.b Bool)
-   (i.t Int))
+  (callers
+   ((top
+     ((transSys.x_is_init_x transSys.x_is_init_x)
+      (intcounter.max top.__abs_2)
+      (intcounter.reset top.__abs_0)
+      (intcounter.t top.__abs_4)
+      (intcounter.out top.__abs_3))
+     (fun t t))))
+  )
+
+
+(define-node greycounter
+
+  ((transSys.x_is_init_x Bool)
+   (greycounter.reset Bool :input :for-inv-gen)
+   (greycounter.out Bool :for-inv-gen)
+   (greycounter.a Bool :for-inv-gen)
+   (greycounter.b Bool :for-inv-gen))
 
   (init
    (and
-    (= OK (= b d))
-    (greycounter.init reset b g.a g.b)
-    (intcounter.init reset 3 d i.t)))
+    transSys.x_is_init_x
+    (= greycounter.b false)
+    (= greycounter.a false)
+    (= greycounter.out (and greycounter.a greycounter.b))))
 
   (trans
    (and
-    (= (prime OK) (= (prime b) (prime d)))
-    (greycounter.trans 
-     reset
-     b
-     g.a
-     g.b
-     (prime reset)
-     (prime b)
-     (prime g.a)
-     (prime g.b))
-    (intcounter.trans
-     reset
-     3
-     d
-     i.t
-     (prime reset)
-     (prime d)
-     (prime i.t)))))
+    (not (prime transSys.x_is_init_x))
+    (= (prime greycounter.b) (and (not (prime greycounter.reset)) greycounter.a))
+    (= (prime greycounter.a) (and (not (prime greycounter.reset)) (not greycounter.b)))
+    (= (prime greycounter.out) (and (prime greycounter.a) (prime greycounter.b)))))
 
-(check-prop ((OK OK)))
+  (callers
+   ((top
+     ((transSys.x_is_init_x transSys.x_is_init_x)
+      (greycounter.reset top.__abs_0)
+      (greycounter.a top.__abs_6)
+      (greycounter.b top.__abs_5)
+      (greycounter.out top.__abs_1))
+     (fun t t))))
+  )
+
+
+(define-node top
+
+  ((transSys.x_is_init_x Bool)
+   (top.reset Bool :input :for-inv-gen)
+   (top.OK Bool :for-inv-gen)
+   (top.OK2 Bool :for-inv-gen)
+   (top.__abs_0 Bool :for-inv-gen)
+   (top.__abs_1 Bool :for-inv-gen)
+   (top.__abs_2 (IntRange 3 3) :const :for-inv-gen)
+   (top.__abs_3 Bool :for-inv-gen)
+   (top.__abs_4 Int :for-inv-gen)
+   (top.__abs_5 Bool :for-inv-gen)
+   (top.__abs_6 Bool :for-inv-gen))
+
+  (init
+   (and
+    transSys.x_is_init_x
+    (= top.__abs_0 top.reset)
+    (let
+        ((X1 top.__abs_3))
+      (and
+       (= top.OK2 (not X1))
+       (let
+           ((X2 top.__abs_1))
+         (and
+          (= top.OK (= X2 X1))
+          (= top.__abs_2 3)
+          (__node_init_greycounter
+           transSys.x_is_init_x
+           top.__abs_0
+           top.__abs_1
+           top.__abs_6
+           top.__abs_5)
+          (__node_init_intcounter
+           transSys.x_is_init_x
+           top.__abs_0
+           top.__abs_2
+           top.__abs_3
+           top.__abs_4)))))))
+  (trans
+   (and
+    (not (prime transSys.x_is_init_x))
+    (= (prime top.__abs_0) (prime top.reset))
+    (let
+        ((X1 (prime top.__abs_3)))
+      (and
+       (= (prime top.OK2) (not X1))
+       (let
+           ((X2 (prime top.__abs_1)))
+         (and
+          (= (prime top.OK) (= X2 X1))
+          (= top.__abs_2 3)
+          (__node_trans_greycounter
+           (prime transSys.x_is_init_x)
+           (prime top.__abs_0)
+           (prime top.__abs_1)
+           (prime top.__abs_6)
+           (prime top.__abs_5)
+           transSys.x_is_init_x
+           top.__abs_0
+           top.__abs_1
+           top.__abs_6
+           top.__abs_5)
+          (__node_trans_intcounter
+           (prime transSys.x_is_init_x)
+           (prime top.__abs_0)
+           top.__abs_2
+           (prime top.__abs_3)
+           (prime top.__abs_4)
+           transSys.x_is_init_x
+           top.__abs_0
+           top.__abs_3
+           top.__abs_4)))))))
+  
+
+  (props ((OK2 top.OK2)
+          (OK top.OK)))
+
+  )
