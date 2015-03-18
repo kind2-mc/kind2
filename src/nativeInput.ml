@@ -28,7 +28,7 @@ module Conv = SMTExpr.Converter(D)
 let conv = { D.smtlib_string_sexpr_conv with
              D.prime_symbol = Some s_prime }
 let conv_type_of_sexpr = conv.D.type_of_sexpr
-let conv_term_of_sexpr = D.gen_expr_of_string_sexpr conv
+let conv_term_of_sexpr = conv.D.expr_of_string_sexpr conv
 
   
 let s_define_node = HString.mk_hstring "define-node"
@@ -131,7 +131,10 @@ let state_var_of_sexpr = function
 
 
 (* Convert an s-expression to a term *)
-let term_of_sexpr s = conv_term_of_sexpr s
+let term_of_sexpr s = conv_term_of_sexpr [] s
+
+(* Convert an s-expression to a term with bound free varaibles *)
+let term_of_sexpr_bound_vars bvars s = conv_term_of_sexpr bvars s
 
 
 
@@ -150,44 +153,55 @@ let trans_args_of_state_vars state_vars =
 
 
 
-let state_var_map_of_sexpr = function
-  | HS.List [HS.Atom v1; HS.Atom v2] ->
-    (try
-       StateVar.state_var_of_long_string (HString.string_of_hstring v1),
-       StateVar.state_var_of_long_string (HString.string_of_hstring v2)
-     with Not_found -> failwith "Invalid state variable map in caller")
-  | _ -> failwith "Invalid state variable map in caller"
+let sbind_of_sexpr = function
+  | HS.List [HS.Atom v1; HS.Atom v2] as s->
+    HString.string_of_hstring v1, HString.string_of_hstring v2
+  | s ->
+    Format.eprintf "CALL MAP %a@." HS.pp_print_sexpr s;
+    failwith "Invalid state variable map in caller"
+
+let state_var_map_of_smap =
+  List.map (fun (v1, v2) ->
+      try
+        StateVar.state_var_of_long_string v1,
+        StateVar.state_var_of_long_string v2
+      with Not_found -> failwith "Invalid state variable map in caller"
+    )
+
+
+let state_var_of_atom = function
+  | HS.Atom v ->
+    StateVar.state_var_of_long_string (HString.string_of_hstring v)
+  | _ -> failwith "Not a state var"
 
 let caller_of_sexpr = function
   | HS.List 
       [HS.Atom c;
        HS.List m;
-       HS.List [HS.Atom f; HS.List v; g]] 
+       HS.List [HS.Atom f; HS.Atom v; g]] 
     when f == s_fun ->
     (* Get name of caller *)
     let name = c in
     (* Get variable map *)
-    let map = List.map state_var_map_of_sexpr m in
+    let map = List.map sbind_of_sexpr m in
     (* Get guard of boolean function *)
     (* Get list of variables of fun *)
-    let vars = D.gen_bound_vars_of_string_sexpr conv [] [] v in
-    let guard_lambda = Term.mk_lambda vars (term_of_sexpr g) in
+    let vars = [Var.mk_free_var v Type.t_bool] in
+    let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in
+    let guard_lambda = Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in
     let guard_fun = (fun t -> Term.eval_lambda guard_lambda [t]) in
     (* Assemble caller *)
     name, map, guard_fun
 
-  | _ -> failwith "Invalid caller description"
+  | s ->
+    Format.eprintf "CALLER %a@." HS.pp_print_sexpr s;
+    failwith "Invalid caller description"
     
 
 
 
 let file_row_col_of_string s =
   Scanf.sscanf s "%s@:%d-%d" (fun x1 x2 x3-> x1, x2, x3)
-
-let state_var_of_atom = function
-  | HS.Atom v ->
-    StateVar.state_var_of_long_string (HString.string_of_hstring v)
-  | _ -> failwith "Not a state var"
 
 let prop_source_of_sexpr = function
   | [] -> TermLib.PropAnnot Lib.dummy_pos
@@ -326,7 +340,6 @@ let of_channel in_ch =
 
   (* Callers mapping to transition system *)
   let calling_table = HH.create (List.length sexps) in
-  let callers_table = HH.create (List.length sexps) in
 
   (* Parse sexps and register callers *)
   let sys_and_calls =
@@ -341,16 +354,18 @@ let of_channel in_ch =
             Lib.extract_scope_name (HString.string_of_hstring node_name) in
           s @ [n] in
 
-        (* find who calls me *)
-        let my_callers =
-          HH.find calling_table node_name
-          |> snd
-          |> List.map (fun (a,_,_) -> a)
+        (* find who I call *)
+        let i_call =
+          try
+            HH.find calling_table node_name
+            |> snd
+            |> List.map (fun (a,_,_) -> a)
+          with Not_found -> []
         in
 
         (* Create transition system *)
         let sys = TransSys.mk_trans_sys
-            node_scope state_vars init_pred trans_pred my_callers props
+            node_scope state_vars init_pred trans_pred i_call props
             TransSys.Native in
 
         (* Add calling information *)
@@ -362,11 +377,35 @@ let of_channel in_ch =
             HH.replace calling_table c (n, (sys, m, g) :: calling_c);
           ) callers;
 
+        (* Register new system *)
+        let calling_me =
+          try snd (HH.find calling_table node_name)
+          with Not_found -> [] in
+        HH.replace calling_table node_name (Some sys, calling_me);        
+        
         (* Return constructed system and callers *)
         sys, callers
+
       ) sexps
   in
 
+
+  (* Format.eprintf "CALLING TABLE:@."; *)
+  (* HH.iter (fun c (n, calls) -> *)
+  (*     Format.eprintf "%s " (HString.string_of_hstring c); *)
+  (*     (match n with *)
+  (*      | None -> Format.eprintf "(None)" *)
+  (*      | Some s -> Format.eprintf "(%s)" *)
+  (*                    (String.concat "." (TransSys.get_scope s))); *)
+  (*     Format.eprintf  " -> ["; *)
+  (*     List.iter (fun (sys, _, _) -> *)
+  (*         Format.eprintf "%s," *)
+  (*           (String.concat "." (TransSys.get_scope sys)) *)
+  (*       ) calls; *)
+  (*     Format.eprintf  "]@."; *)
+  (*   ) calling_table; *)
+
+  
   (* Add callers *)
   let all_sys =
     List.fold_left (fun acc (sys, callers) ->
@@ -375,7 +414,10 @@ let of_channel in_ch =
             let c_sys = match fst (HH.find calling_table c) with
               | None -> assert false
               | Some s -> s in
-            TransSys.add_caller sys c_sys (m, g)
+
+            let map = state_var_map_of_smap m in
+            
+            TransSys.add_caller sys c_sys (map, g)
           ) callers;
         sys :: acc
       ) [] sys_and_calls
@@ -413,6 +455,16 @@ let of_file filename =
 (* ************************************************************ *)
 
 
+
+(* ************************************************************ *)
+(* Counterexample output in plain text                          *)
+(* ************************************************************ *)
+
+
+let print_term_or_lambda fmt = function
+  | Model.Term t -> Term.pp_print_term fmt t
+  | Model.Lambda l -> Term.pp_print_lambda fmt l
+
 (* Return width of widest identifier and widest value *)
 let rec widths_of_model max_ident_width max_val_width = function 
   
@@ -435,7 +487,7 @@ let rec widths_of_model max_ident_width max_val_width = function
            max
              m
              (String.length
-                (string_of_t Term.pp_print_term v)))
+                (string_of_t print_term_or_lambda v)))
         max_val_width
         values
     in
@@ -450,7 +502,7 @@ let pp_print_value_pt val_width ppf value =
     ppf
     "%-*s"
     val_width
-    (string_of_t Term.pp_print_term value)
+    (string_of_t print_term_or_lambda value)
 
 (* Pretty-print a state variable and its values *)
 let pp_print_state_var_pt state_var_width val_width ppf (state_var, values) =
@@ -465,9 +517,10 @@ let pp_print_state_var_pt state_var_width val_width ppf (state_var, values) =
        " ")
     values
 
-(* Pretty-print a model *)
+(* Pretty-print a model without the values for the Skolem variables. Because
+   they are not original state variables, their values are generally not
+   useful. *)
 let pp_print_path_pt ppf model = 
-
   let state_var_width, val_width = widths_of_model 0 0 model in
 
   Format.fprintf
@@ -482,7 +535,7 @@ let pp_print_path_pt ppf model =
 (* Counterexample output in XML                                 *)
 (* ************************************************************ *)
 
-let pp_print_path_xml ppf model = ()
+let pp_print_path_xml ppf model = () (* TODO *)
 
 (* 
    Local Variables:
