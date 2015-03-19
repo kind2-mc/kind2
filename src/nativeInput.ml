@@ -159,7 +159,7 @@ let trans_args_of_state_vars state_vars =
 
 
 let sbind_of_sexpr = function
-  | HS.List [HS.Atom v1; HS.Atom v2] as s->
+  | HS.List [HS.Atom v1; HS.Atom v2] ->
     HString.string_of_hstring v1, HString.string_of_hstring v2
   | s ->
     Format.eprintf "CALL MAP %a@." HS.pp_print_sexpr s;
@@ -183,7 +183,9 @@ let caller_of_sexpr = function
   | HS.List 
       [HS.Atom c;
        HS.List m;
-       HS.List [HS.Atom f; HS.List [HS.Atom v; ty]; g]] 
+       HS.List [HS.Atom f;
+                HS.List [HS.List [HS.Atom v; ty]];
+                g]] 
     when f == s_lambda ->
     (* Get name of caller *)
     let name = c in
@@ -460,6 +462,30 @@ let of_file filename =
 (************************************************************************)
 
 
+let pp_print_var ppf v =
+  if Var.is_state_var_instance v then
+    let sv = Var.state_var_of_state_var_instance v in
+    let n = Var.offset_of_state_var_instance v |> Numeral.to_int in
+
+    let rec add_primes ppf = function
+      | 0 -> StateVar.pp_print_state_var ppf sv
+      | n when n > 0 ->
+        Format.fprintf ppf "(prime %a)" add_primes (n-1)
+      | _ -> assert false
+    in
+
+    add_primes ppf n
+  else Var.pp_print_var ppf v
+
+let pp_print_term ppf =
+  Term.T.pp_print_term_w (fun ?arity -> Symbol.pp_print_symbol)
+    pp_print_var ppf
+
+let pp_print_lambda ppf =
+  Term.T.pp_print_lambda_w (fun ?arity -> Symbol.pp_print_symbol)
+    pp_print_var ppf
+
+
 let pp_print_state_var ppf state_var = 
   Format.fprintf ppf
     "@[<hv 1>(%a@ %a%t%t%t)@]" 
@@ -495,7 +521,7 @@ let pp_print_property ppf (prop_name, prop_source, prop_term) =
     ppf
     "@[<hv 1>(%s@ %a@ %a)@]"
     prop_name
-    Term.pp_print_term prop_term
+    pp_print_term prop_term
     pp_print_prop_source prop_source
 
 
@@ -510,7 +536,7 @@ let pp_print_caller ppf (m, ft) =
             StateVar.pp_print_state_var t)
        "@ ")
     m
-    Term.pp_print_lambda
+    pp_print_lambda
     (let v = Var.mk_fresh_var Type.t_bool in
      let tv = Term.mk_var v in
      Term.mk_lambda [v] (ft tv))
@@ -523,6 +549,22 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list pp_print_caller "@ ") c
 
 
+let pp_print_props ppf sys =
+  let props = TransSys.get_properties sys in
+  if props <> [] then
+  Format.fprintf ppf
+     "@[<hv 2>(props@ (@[<v>%a@]))@]\n@,"
+     (pp_print_list pp_print_property "@ ") props
+     
+
+let pp_print_callers ppf sys =
+  let callers = TransSys.get_callers sys in
+  if callers <> [] then
+  Format.fprintf ppf
+     "@[<hv 2>(callers@ (@[<v>%a@]))@]\n@,"
+     (pp_print_list pp_print_callers "@ ") callers
+     
+
 let rec pp_print_native ppf sys = 
 
   List.iter (Format.fprintf ppf "%a\n@." pp_print_native)
@@ -530,24 +572,28 @@ let rec pp_print_native ppf sys =
   
   Format.fprintf 
     ppf
-    "@[<v>@[<hv 2>(@[<v>%a@])@]\n@,\
-          @[<hv 2>(init@ @[<v>%a@])@]\n@,\
-          @[<hv 2>(trans@ @[<v>%a@])@]\n@,\
-          @[<hv 2>(props@ (@[<v>%a@]))@]\n@,\
-          @[<hv 2>(callers@ (@[<v>%a@]))@]\n@,\
-     @]@."
+    "@[<v>(define-node %s@,\
+     @[<v 2>@[<hv 2>(@[<v>%a@])@]\n@,\
+     @[<hv 2>(init@ @[<v>%a@])@]\n@,\
+     @[<hv 2>(trans@ @[<v>%a@])@]\n@,\
+     %a\
+     %a\
+     @]\
+     )@]\
+     @."
+    (String.concat "." (TransSys.get_scope sys))
     (pp_print_list pp_print_state_var "@ ") (TransSys.state_vars sys)
-    Term.pp_print_term (TransSys.init_term sys)
-    Term.pp_print_term (TransSys.trans_term sys)
-    (pp_print_list pp_print_property "@ ") (TransSys.get_properties sys)
-    (pp_print_list pp_print_callers "@,") (TransSys.get_callers sys)
+    pp_print_term (TransSys.init_term sys)
+    pp_print_term (TransSys.trans_term sys)
+    pp_print_callers sys
+    pp_print_props sys
 
 
 
 let dump_native sys =
   let dirname = Flags.dump_dir () in
   create_dir dirname;
-  let filename = 
+  let filename =
     Filename.concat
       dirname
       (Format.sprintf "%s.kind2" 

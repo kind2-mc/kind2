@@ -873,16 +873,17 @@ let main () =
             
         | `Native -> 
 
-          let sys = NativeInput.of_file (Flags.input_file ()) in
-          if Flags.dump_native () then NativeInput.dump_native sys;
-          
-          Some sys
+          Some (NativeInput.of_file (Flags.input_file ()))
 
         | `Horn -> 
           
           (* Horn.of_file (Flags.input_file ()) *)
           assert false);
 
+
+    (* Dump transition system *)
+    if Flags.dump_native () then NativeInput.dump_native (get !trans_sys);
+    
     (* Output the transition system *)
     (debug parse
         "%a"
