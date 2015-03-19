@@ -244,7 +244,7 @@ let prop_of_sexpr = function
 
 let rec optional_fields_of_sexprs (callers, props) = function
   (* Callers *)
-  | HS.List [HS.Atom ca; HS.List ca_l] :: rs
+  | HS.List (HS.Atom ca :: ca_l) :: rs
     when ca = s_callers ->
     let callers = List.map caller_of_sexpr ca_l in
     optional_fields_of_sexprs (callers, props) rs
@@ -266,7 +266,7 @@ let rec optional_fields_of_sexprs (callers, props) = function
 let node_def_of_sexpr = function
 
   (* (define-node NAME (VARS) (init INIT) (trans TRANS) (callers CALLERS))?
-     (props PROPS)? (invars INVS)? *)
+     (props PROPS)? *)
   | HS.List 
       (HS.Atom c :: 
        HS.Atom n ::
@@ -525,9 +525,10 @@ let pp_print_property ppf (prop_name, prop_source, prop_term) =
     pp_print_prop_source prop_source
 
 
-let pp_print_caller ppf (m, ft) =
+let pp_print_caller name_c ppf (m, ft) =
   Format.fprintf ppf 
-    "@[<hv 1>(%a)@,@[<v>%a@]@]"
+    "(%s@ @[<hv 1>(%a)@,@[<v>%a@]@])"
+    name_c
     (pp_print_list 
        (fun ppf (s, t) ->
           Format.fprintf ppf
@@ -542,11 +543,11 @@ let pp_print_caller ppf (m, ft) =
      Term.mk_lambda [v] (ft tv))
 
 
-let pp_print_callers ppf (t, c) = 
+let pp_print_callers ppf (t, c) =
+  let name_c = String.concat "." (TransSys.get_scope t) in
   Format.fprintf ppf
-    "@[<hv 1>(%a@ %a)@]"
-    (pp_print_list Format.pp_print_string ".") (TransSys.get_scope t)
-    (pp_print_list pp_print_caller "@ ") c
+    "@[<hv 1>%a@]"
+    (pp_print_list (pp_print_caller name_c) "@ ") c
 
 
 let pp_print_props ppf sys =
@@ -561,7 +562,7 @@ let pp_print_callers ppf sys =
   let callers = TransSys.get_callers sys in
   if callers <> [] then
   Format.fprintf ppf
-     "@[<hv 2>(callers@ (@[<v>%a@]))@]\n@,"
+     "@[<hv 2>(callers@ @[<v>%a@])@]\n@,"
      (pp_print_list pp_print_callers "@ ") callers
      
 
