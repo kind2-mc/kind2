@@ -21,6 +21,7 @@
 
     @author Christoph Sticksel *)
 
+open Lib
 
 (** Context *)
 type t
@@ -34,8 +35,14 @@ exception Node_not_found of LustreIdent.t * Lib.position
 (** Create an initial empty context. *)
 val mk_empty_context : unit -> t
 
-(** Return a copy of the context with the given scope *)
-val set_scope : t -> string list -> t
+(** Add scope to context
+
+    The scopes are added to the name of the node to create scope for
+    variables *)
+val push_scope : t -> string -> t
+
+(** Remove topmost scope from context *)
+val pop_scope : t -> t
 
 (** Return a copy of the context with an empty node of the given name
     in the context. *)
@@ -73,8 +80,9 @@ val get_nodes : t -> LustreNode.t list
 
 (** Add a contract node to the context for inlining later *)
 val add_contract_node_decl_to_context : t -> Lib.position * LustreAst.contract_node_decl -> t
+
 (** Return a contract node by its identifier *)
-val contract_node_decl_of_context : t -> LustreAst.ident -> Lib.position * LustreAst.contract_node_decl
+val contract_node_decl_of_ident : t -> string -> Lib.position * LustreAst.contract_node_decl
 
 
 (** Return a context that raises an error when defining an
@@ -131,6 +139,8 @@ val mk_fresh_oracle_for_state_var : t -> StateVar.t -> StateVar.t * t
 (** Create a fresh observer state variable in the context. *)
 val mk_fresh_observer : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
 
+val observer_of_state_var : t -> StateVar.t -> t
+
 (** Return the node of the given name from the context*)
 val node_of_name : t -> LustreIdent.t -> LustreNode.t
 
@@ -150,19 +160,27 @@ val call_outputs_of_node_call : t -> LustreIdent.t -> StateVar.t option -> State
 val add_node_input : ?is_const:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
 (** Add node output to context *)
-val add_node_output : ?is_single: bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+val add_node_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
 (** Add node local to context *)
-val add_node_local : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+val add_node_local : ?ghost:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
-(** Add node call to context *)
-val add_node_contract : t -> LustreNode.contract -> t
+(** Add global contract to node
+
+    The node must not have a global contract defined, otherwise a
+    parse error will be raised. *)
+val add_node_global_contract : t -> position -> LustreNode.contract -> t
+
+(** Add mode contract to node *)
+val add_node_mode_contract : t -> position -> string -> LustreNode.contract -> t
 
 (** Add assertion to context *)
 val add_node_assert : t -> LustreExpr.t -> t
 
 (** Add property to context *)
 val add_node_property : t -> TermLib.prop_source -> LustreExpr.t -> t
+
+val lift_if_property : Lib.position -> t -> StateVar.t -> (t * StateVar.t)
 
 (** Add equation to context *)
 val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> LustreExpr.t -> t

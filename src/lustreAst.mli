@@ -167,6 +167,12 @@ type node_equation =
   | AnnotMain 
   | AnnotProperty of position * expr
 
+(** A contract ghost constant. *)
+type contract_ghost_const = const_decl
+
+(** A contract ghost variable. *)
+type contract_ghost_var = const_decl
+
 (** A contract requirement. *)
 type contract_require = position * expr
 
@@ -175,7 +181,7 @@ type contract_ensure = position * expr
 
 (** Equations that can appear in a contract node. *)
 type contract_node_equation =
-  | GhostEquation of position * eq_lhs * expr
+  | GhostEquation of position * ident * expr
   | Require of contract_require
   | Ensure of contract_ensure
 
@@ -191,10 +197,10 @@ type contract =
 (** A contract specification for a node (if it has one) is either a
     list of modes or a global contract and a list of modes. *)
 type contract_spec =
-  | Modes of contract list
-  (** Only mode contracts. *)
-  | GlobalAndModes of contract * contract list
-  (** A global contract and some mode contracts. *)
+  contract_ghost_const list
+  * contract_ghost_var list
+  * contract option
+  * contract list
 
 (** Declaration of a node as a tuple of
 
@@ -212,7 +218,7 @@ type node_decl =
   * clocked_typed_decl list
   * node_local_decl list
   * node_equation list
-  * contract_spec option
+  * contract_spec 
 
 (** A contract node declaration. Almost the same as a [node_decl] but
     with a different type for equations, and no contract

@@ -41,29 +41,29 @@ type prop_source =
   (** Property is from an annotation *)
   | PropAnnot of Lib.position
 
-  (** Property is a requirement for a subsystem: scope of the
-      subsystem and position. *)
-  | SubRequirement of (string list * Lib.position)
+  (** Property is part of a contract *)
+  | Contract of Lib.position * string
 
   (** Property was generated, for example, from a subrange
       constraint *)
   | Generated of StateVar.t list
 
+  (** Property is a requirement of a subnode. *)
+  | Requirement of Lib.position * string list * StateVar.t list
+
   (** Property is an instance of a property in a called node
 
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
-  | Instantiated of string list * string 
+  | Instantiated of string list * string * Lib.position
+
+val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
 
-val pp_print_prop_source : Format.formatter -> prop_source -> unit 
+(** {1 Utilities functions on terms } *)
 
-(** Source of a contract. *)
-type contract_source =
 
-  (** Contract is from an annotation. *)
-  | ContractAnnot of Lib.position
-
+(** {2 Default values } *)
 
 (** Return the default value of the type: 
 

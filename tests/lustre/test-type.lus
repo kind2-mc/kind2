@@ -106,3 +106,16 @@ let
   -- zu, zv = X(t);
   uu, uv = W(W(X(t)));
 tel
+
+
+node A1() returns (out: int);
+const c: int = 1;
+let
+  out = c;
+tel
+
+node A2() returns (out: int);
+const c: int = 1;
+let
+  out = c;
+tel

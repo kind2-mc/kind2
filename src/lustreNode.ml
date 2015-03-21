@@ -103,9 +103,16 @@ type node_call =
    requirements, and an observer for the implication between its
    requirements and ensures. *)
 type contract =
-  { contract_pos: position;
+  { 
+
+    (* Position of the contract in the input *)
+    contract_pos: position;
+
+    (* One observer for each requirement *)
     contract_reqs : StateVar.t list;
-    contract_impl : StateVar.t }
+
+    (* One observer for each ensures *)
+    contract_enss : StateVar.t list }
 
 
 (* A Lustre node *)
@@ -153,7 +160,7 @@ type t =
 
     (* The contracts of the node: an optional global contract and a
        list of named mode contracts *)
-    contracts : contract option * (I.t * contract) list;
+    contracts : contract option * (string * contract) list;
 
     (* Node is annotated as main node *)
     is_main : bool;
@@ -164,7 +171,7 @@ type t =
 (* An empty node *)
 let empty_node name = 
   { name = name;
-    inputs =  D.empty;
+    inputs = D.empty;
     oracles = [];
     outputs = D.empty;
     observers = [];
@@ -175,6 +182,7 @@ let empty_node name =
     props = [];
     contracts = None, [];
     is_main = false }
+
 
 (* Pretty-print array bounds of index *)
 let pp_print_array_dims safe ppf idx = 
@@ -191,22 +199,6 @@ let pp_print_array_dims safe ppf idx =
         "^%a"
         (pp_print_list (E.pp_print_expr safe) "^")
         bounds
-
-
-(* Pretty-print array bounds of index *)
-let rec pp_print_array_vars safe ppf = function
-
-  | 0 -> ()
-
-  | i ->       
-
-    Format.fprintf 
-      ppf
-      "[%a]"
-      (I.pp_print_ident safe)
-      (I.push_index I.index_ident i);
-
-    pp_print_array_vars safe ppf (pred i)
 
 
 (* Pretty-print a node input *)
@@ -339,31 +331,54 @@ let pp_print_prop safe ppf var =
     
 
 (* Pretty-print an assumption *)
-let pp_print_require safe ppf expr =
+let pp_print_require safe ppf sv =
   Format.fprintf ppf
-    "@[<hv 2>--@@requires@ @[<h>%a@];@]"
-    (E.pp_print_lustre_expr safe) expr
+    "@[<hv 2>--@@require@ @[<h>%a@];@]"
+    (E.pp_print_lustre_var safe) sv
 
 
 (* Pretty-print a guarantee *)
-let pp_print_ensure safe ppf expr =
+let pp_print_ensure safe ppf sv =
   Format.fprintf ppf
-    "@[<hv 2>--@@ensures @[<h>%a@];@]"
-    (E.pp_print_lustre_expr safe) expr
+    "@[<hv 2>--@@ensure @[<h>%a@];@]"
+    (E.pp_print_lustre_var safe) sv
 
 
-(* TODO: print contract with reconstructing the ensures 
-
-(* Pretty-print a contract. *)
-let pp_print_mode_contract safe ppf (name, { contract_reqs; }) =
+(* Pretty-print a named mode contract. *)
+let pp_print_mode_contract safe ppf (name, { contract_reqs; contract_enss }) =
   Format.fprintf
     ppf
-    "@[<hv 2>--@@contract : %s ;@ @[<v>%a@ %a@]@]"
+    "@[<v>--@@contract %s ;@,%a@,%a@]"
     name
-    (pp_print_list (pp_print_require safe) "@ ") requires
-    (pp_print_list (pp_print_ensure safe) "@ ") ensures
+    (pp_print_list (pp_print_require safe) "@ ") contract_reqs
+    (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
 
-*)
+
+(* Pretty-print an anonymous global contract. *)
+let pp_print_global_contract safe ppf = function
+
+  (* No global contract *)
+  | None -> ()
+
+  (* Global contract *)
+  | Some { contract_reqs; contract_enss } ->
+
+    Format.fprintf
+      ppf
+      "@[<v>%a@,%a@]"
+      (pp_print_list (pp_print_require safe) "@ ") contract_reqs
+      (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
+
+
+(* Pretty-print the contracts. *)
+let pp_print_contracts safe ppf (global_contract, mode_contracts) = 
+  Format.fprintf
+    ppf
+    "@[<v>%a%t%a@]"
+    (pp_print_global_contract safe) global_contract
+    (fun ppf -> if global_contract <> None then Format.fprintf ppf "@,")
+    (pp_print_list (pp_print_mode_contract safe) "@,") mode_contracts
+    
 
 (* Pretty-print a node *)
 let pp_print_node 
@@ -391,6 +406,7 @@ let pp_print_node
   Format.fprintf ppf 
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
+     %a%t\
      @[<v>%t@]\
      @[<hv 2>let@ \
      %a%t\
@@ -399,20 +415,6 @@ let pp_print_node
      %t\
      %a@;<1 -2>\
      tel;@]@]"  
-
-(*
-    "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
-     returns@ @[<hv 1>(%a)@];@]@ \
-     @[<v>%t@]\
-     @[<hv 2>let@ \
-     %a%t\
-     %a%t\
-     %a%t\
-     %t\
-     %a%t\
-     %a@;<1 -2>\
-     tel;@]@]"  
-  *)
 
     (* %a *)
     (I.pp_print_ident safe) name
@@ -432,6 +434,12 @@ let pp_print_node
        (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
        (D.bindings outputs) @
      (List.map (fun sv -> (D.empty_index, sv)) observers))
+
+    (pp_print_contracts safe) contracts
+    (space_if_nonempty
+       (match fst contracts with 
+         | None -> snd contracts
+         | Some c -> ("", c) :: snd contracts))
 
     (* %t *)
     (function ppf -> 
@@ -455,11 +463,8 @@ let pp_print_node
 
     (* %t *)
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
-(*
-    (pp_print_list (pp_print_contract safe) "@ ") contracts
-    (space_if_nonempty contracts)
-  *)
-  (pp_print_list (pp_print_prop safe) "@ ") (List.map fst props)
+
+    (pp_print_list (pp_print_prop safe) "@ ") (List.map fst props)
     
 
 
@@ -468,13 +473,13 @@ let pp_print_state_var_trie ppf t =
   pp_print_list
     (fun ppf (i, sv) -> 
        if i = D.empty_index then 
-         StateVar.pp_print_state_var ppf sv
+         (E.pp_print_lustre_var false) ppf sv
        else
          Format.fprintf 
            ppf
            "%a: %a"
            (D.pp_print_index false) i
-           StateVar.pp_print_state_var sv)
+           (E.pp_print_lustre_var false) sv)
     ";@ "
     ppf
 
@@ -495,11 +500,11 @@ let pp_print_node_call_debug
                      outputs  = [@[<hv>%a@]];@ \
                      observers = [@[<hv>%a@]]; }@]"
     (I.pp_print_ident false) call_node_name
-    (pp_print_option StateVar.pp_print_state_var) call_clock
+    (pp_print_option (E.pp_print_lustre_var false)) call_clock
     pp_print_state_var_trie call_inputs
-    (pp_print_list StateVar.pp_print_state_var ";@ ") call_oracles
+    (pp_print_list (E.pp_print_lustre_var false) ";@ ") call_oracles
     pp_print_state_var_trie call_outputs
-    (pp_print_list StateVar.pp_print_state_var ";@ ") call_observers
+    (pp_print_list (E.pp_print_lustre_var false) ";@ ") call_observers
 
 
 let pp_print_node_debug
@@ -524,12 +529,46 @@ let pp_print_node_debug
     Format.fprintf
       ppf
       "%a (%a)"
-      StateVar.pp_print_state_var state_var
+      (E.pp_print_lustre_var false) state_var
       TermLib.pp_print_prop_source source
 
   in
 
-  let pp_print_contracts ppf _ = () in
+  let pp_print_contract ppf { contract_reqs; contract_enss } =
+    Format.fprintf 
+      ppf
+      "@[<v>requires = @[<hv>%a@]@,\
+            ensures  = @[<hv>%a@]@]"
+      (pp_print_list (E.pp_print_lustre_var false) ",@ ") contract_reqs
+      (pp_print_list (E.pp_print_lustre_var false) ",@ ") contract_enss
+  in
+
+  let pp_print_contracts ppf (global_contract, mode_contracts) = 
+    Format.fprintf 
+      ppf
+      "@[<v>%t%t@]"
+      (fun ppf -> match global_contract with
+         | None -> ()
+         | Some c -> Format.fprintf ppf "global = %a"pp_print_contract c)
+      (fun ppf -> match mode_contracts with 
+         | [] -> ()
+         | _ -> 
+           Format.fprintf 
+             ppf
+             "%t%a"
+             (fun ppf -> match global_contract with 
+                | None -> () 
+                | Some _ -> Format.fprintf ppf "@,")
+             (pp_print_list
+                (fun ppf (n, c) -> 
+                   Format.fprintf 
+                     ppf
+                     "@[<v 2>%s:@,%a@]" 
+                     n
+                     pp_print_contract c)
+                "@,") 
+             mode_contracts)
+  in
 
   Format.fprintf 
     ppf
@@ -542,31 +581,20 @@ let pp_print_node_debug
                        calls =     [@[<hv>%a@]];@ \
                        asserts =   [@[<hv>%a@]];@ \
                        props =     [@[<hv>%a@]];@ \
-                       is_main =   @[<hv>%B@]; }@]"
-(*
-    "node %a @[<hv 2>{ inputs =    [@[<hv>%a@]];@ \
-                       oracles =   [@[<hv>%a@]];@ \
-                       outputs =   [@[<hv>%a@]];@ \
-                       observers = [@[<hv>%a@]];@ \
-                       locals =    [@[<hv>%a@]];@ \
-                       equations = [@[<hv>%a@]];@ \
-                       calls =     [@[<hv>%a@]];@ \
-                       asserts =   [@[<hv>%a@]];@ \
-                       props =     [@[<hv>%a@]];@ \
                        contracts = [@[<hv>%a@]];@ \
                        is_main =   @[<hv>%B@]; }@]"
-*)
+
     (I.pp_print_ident false) name
     pp_print_state_var_trie inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") oracles
     pp_print_state_var_trie outputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") observers
     (pp_print_list pp_print_state_var_trie ";@ ") locals
-    (pp_print_list pp_print_equation ";@ ") equations
+    (pp_print_list pp_print_equation "@ ") equations
     (pp_print_list pp_print_node_call_debug ";@ ") calls
     (pp_print_list (E.pp_print_lustre_expr false) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
-(*    (pp_print_list pp_print_contracts ";@ ") contracts *)
+    pp_print_contracts contracts
     is_main
 
 
@@ -798,6 +826,9 @@ type state_var_source =
   (* Local defined stream *)
   | Local
 
+  (* Local ghost stream *)
+  | Ghost
+
   (* Local abstracted stream *)
   | Abstract
 
@@ -820,6 +851,8 @@ let rec pp_print_state_var_source ppf = function
   | Observer -> Format.fprintf ppf "observer"
 
   | Local -> Format.fprintf ppf "local"
+
+  | Ghost -> Format.fprintf ppf "ghost"
 
   | Abstract -> Format.fprintf ppf "abstract"
 
@@ -854,6 +887,7 @@ let state_var_is_visible state_var =
   match get_state_var_source state_var with
 
     (* Oracle inputs and abstraced streams are invisible *)
+    | Ghost
     | Observer 
     | Oracle
     | Abstract -> false

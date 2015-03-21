@@ -73,7 +73,7 @@ type t =
        stream, and a term of an expression if the identifier denotes a
        constant. Equational definitions are not stored here, this is
        for constant propagation only. *)
-    ident_expr_map : (E.t D.t) IT.t;
+    ident_expr_map : (E.t D.t) IT.t list;
 
     (* Map from expressions to state variables abstracting them
 
@@ -117,7 +117,7 @@ let mk_empty_context () =
     nodes = [];
     contract_nodes = [];
     ident_type_map = IT.create 7;
-    ident_expr_map = IT.create 7;
+    ident_expr_map = [IT.create 7];
     expr_state_var_map = ET.create 7;
     state_var_oracle_map = SVT.create 7;
     fresh_local_index = 0;
@@ -158,17 +158,47 @@ let fail_on_new_definition ctx pos msg =
 
 
 (* Return the scope of the current context *)
-let scope_of_context = function 
+let scope_of_node = function 
 
   (* Within a node: add node name to scope *)
-  | { scope; node = Some { N.name } } -> scope @ [I.string_of_ident false name]
+  | { node = Some { N.name } } -> [I.string_of_ident false name]
 
-  (* Outside a node: return scope *)
-  | { scope } -> scope
+  (* Outside a node: return empty scope *)
+  | { node = None } -> []
 
 
-(* Set scope of context *)
-let set_scope ctx scope = { ctx with scope }
+(* Return the scope of the current context *)
+let scope_of_context ({ scope } as ctx) = 
+
+  (* Start with scope of node *)
+  scope_of_node ctx @ List.rev scope
+
+
+(* Add scope to context *)
+let push_scope 
+    ({ scope; 
+       ident_expr_map;
+       fresh_local_index;
+       fresh_oracle_index;
+       fresh_observer_index } as ctx) 
+    ident = 
+
+  { ctx with 
+      scope = ident :: scope;
+      ident_expr_map = IT.create 7 :: ident_expr_map; }
+
+
+(* Remove scope from context *)
+let pop_scope = function
+
+  (* fail if at top scope *)
+  | { scope = [] } 
+  | { ident_expr_map = [] } -> raise (Invalid_argument "pop_scope")
+
+  (* Return context with first scope removed *)
+  | { scope = _ :: scope; ident_expr_map = _ :: ident_expr_map } as ctx -> 
+
+    { ctx with scope; ident_expr_map }
 
 
 (* Create an empty node in the context *)
@@ -190,7 +220,7 @@ let create_node = function
 
           (* Make deep copies of hash tables *)
           ident_type_map = IT.copy ident_type_map;
-          ident_expr_map = IT.copy ident_expr_map;
+          ident_expr_map = List.map IT.copy ident_expr_map;
           expr_state_var_map = ET.copy expr_state_var_map;
           node = Some (N.empty_node ident) } )
 
@@ -198,46 +228,87 @@ let create_node = function
 (* Add a binding of an identifier to an expression to context *)
 let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr = 
 
-  (* Ensure the hash table does not already contain the expression *)
-  if (not shadow) && IT.mem ident_expr_map ident then 
+  (* Must have at least a map for the top level *)
+  assert (ident_expr_map <> []);
 
-    raise (Invalid_argument "add_expr_for_ident")
+  (* Fail if hash table for the current scope already contains a
+     binding to the identifier, and if the binding should not shadow,
+     then also if some of the lower scopes contains a binding to the
+     identifier. *)
+  if 
+    
+    (IT.mem (List.hd ident_expr_map) ident)
+    || 
+    (not shadow 
+     && 
+     (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map)))
+
+  then
+
+    raise (Invalid_argument "add_expr_for_ident")    
 
   else
+    
+    (* Modify hash table in place *)
+    IT.add (List.hd ident_expr_map) ident expr; 
   
-    (
-
-      (* Modify hash table in place *)
-      IT.add ident_expr_map ident expr; 
-      
-      (* Return context *)
-      ctx
-
-    )
+  (* Return context *)
+  ctx
 
 
 (* Add a binding of an identifier to an expression to context *)
-let add_expr_for_indexed_ident ({ ident_expr_map } as ctx) ident index expr = 
+let add_expr_for_indexed_ident
+    ?(shadow = false)
+    ({ ident_expr_map } as ctx) 
+    ident 
+    index 
+    expr = 
 
   try 
-    
+
+    (* Must have at least a map for the top level *)
+    assert (ident_expr_map <> []);
+
     (* Get trie for expression *)
-    let t = IT.find ident_expr_map ident in
+    let t = IT.find (List.hd ident_expr_map) ident in
 
-    (* Add expression for index to trie *)
-    let t' = D.add index expr t in
+    if 
 
-    (* Add modified trie in-place to the hash table *)
-    IT.add ident_expr_map ident t';
+      (* Fail if trie for the idnetifier in the current scope already
+         contains a binding to the index, and if the binding should
+         not shadow, then also if some of the lower scopes contains a
+         binding to the index in the trie for the identifier. *)
+      (D.mem index t)
+      || 
+      (not shadow
+       &&
+       (List.exists 
+          (fun m -> 
+             try IT.find m ident |> D.mem index with Not_found -> false)
+          (List.tl ident_expr_map)))
 
-    (* Return context *)
-    ctx
+    then
+
+      raise (Invalid_argument "add_expr_for_ident")    
+
+    else
+
+
+
+      (* Add expression for index to trie *)
+      let t' = D.add index expr t in
+
+      (* Add modified trie in-place to the hash table *)
+      IT.add (List.hd ident_expr_map) ident t';
+
+      (* Return context *)
+      ctx
 
   with Not_found -> 
 
     (* Add expression with index to empty trie and add to hash table
        in-place *)
-    IT.add ident_expr_map ident (D.singleton index expr);
+    IT.add (List.hd ident_expr_map) ident (D.singleton index expr);
 
     (* Return context *)
     ctx
@@ -247,7 +318,7 @@ let add_expr_for_indexed_ident ({ ident_expr_map } as ctx) ident index expr =
 let remove_expr_for_ident ({ ident_expr_map } as ctx) ident = 
 
   (* Ensure the hash table does not already contain the expression *)
-  if not (IT.mem ident_expr_map ident) then 
+  if not (List.exists (fun m -> IT.mem m ident) ident_expr_map) then 
 
     raise (Invalid_argument "remove_expr_for_ident")
 
@@ -255,8 +326,11 @@ let remove_expr_for_ident ({ ident_expr_map } as ctx) ident =
   
     (
 
+      (* Must have at least a map for the top level *)
+      assert (ident_expr_map <> []);
+
       (* Modify hash table in place *)
-      IT.remove ident_expr_map ident; 
+      IT.remove (List.hd ident_expr_map) ident; 
       
       (* Return context *)
       ctx
@@ -279,7 +353,7 @@ let get_nodes { nodes } = nodes
 
 
 (* Return a contract node by its identifier *)
-let contract_node_decl_of_context { contract_nodes } ident = 
+let contract_node_decl_of_ident { contract_nodes } ident = 
 
   try 
     
@@ -316,14 +390,15 @@ let add_contract_node_decl_to_context
     { ctx with contract_nodes = (pos, contract_node_decl) :: contract_nodes }
 
 
-
 (* Create a state variable for from an indexed state variable in a
    scope *)
 let mk_state_var
     ?is_input
     ?is_const
     ?for_inv_gen 
+    ?(shadow = false)
     ctx
+    scope
     ident 
     index 
     state_var_type
@@ -343,7 +418,7 @@ let mk_state_var
       ?is_const
       ?for_inv_gen 
       state_var_name
-      (scope_of_context ctx)
+      scope
       state_var_type 
   in
 
@@ -358,21 +433,33 @@ let mk_state_var
 
        (* Create singleton trie for identifier *)
        D.singleton D.empty_index expr
-       |> add_expr_for_ident ctx ident 
+       |> add_expr_for_ident ~shadow ctx ident 
 
      else
 
        (* Add to exisiting trie or create new trie for identifier*)
-       add_expr_for_indexed_ident ctx ident index expr)
-
+       add_expr_for_indexed_ident ~shadow ctx ident index expr)
+    
   in
 
   (* Return state variable and changed context *)
   state_var, ctx
 
 
+
+(* Resolve an indentifier to an expression in all scopes *)
+let rec expr_of_ident' ident = function 
+
+  | [] -> raise Not_found
+
+  | m :: tl ->
+
+    try IT.find m ident with Not_found -> expr_of_ident' ident tl
+
+
 (* Resolve an indentifier to an expression *)
-let expr_of_ident { ident_expr_map } ident = IT.find ident_expr_map ident 
+let expr_of_ident { ident_expr_map } ident = 
+  expr_of_ident' ident ident_expr_map
 
 
 (* Return true if the identifier denotes an output or local variable *)
@@ -464,7 +551,7 @@ let expr_in_context { ident_expr_map } ident =
   else
 
     (* Return if identifier is in context *)
-    (IT.mem ident_expr_map ident) 
+    (List.exists (fun m -> IT.mem m ident) ident_expr_map) 
 
 
 (* Return true if identifier has been declared, raise an exception if
@@ -511,7 +598,7 @@ let mk_fresh_oracle
     ?is_input
     ?is_const
     ?for_inv_gen
-    ({ scope; node; fresh_oracle_index } as ctx) 
+    ({ node; fresh_oracle_index } as ctx) 
     state_var_type =
 
   (* Are we in a node? *)
@@ -530,6 +617,7 @@ let mk_fresh_oracle
           ?is_const:is_const
           ?for_inv_gen:for_inv_gen
           ctx
+          (scope_of_node ctx)
           (I.push_index I.oracle_ident fresh_oracle_index)
           D.empty_index
           state_var_type
@@ -550,7 +638,7 @@ let mk_fresh_oracle
 
 (* Create a fresh state variable as an oracle input for the state variable *)
 let mk_fresh_oracle_for_state_var 
-    ({ scope; state_var_oracle_map; fresh_oracle_index } as ctx) 
+    ({ state_var_oracle_map; fresh_oracle_index } as ctx) 
     state_var =
 
   try 
@@ -643,8 +731,7 @@ let mk_state_var_for_expr
     ?(is_input = false)
     ?(is_const = false)
     ?(for_inv_gen = true)
-    ({ scope;
-       expr_state_var_map; 
+    ({ expr_state_var_map; 
        fresh_local_index;
        definitions_allowed } as ctx)
     after_mk
@@ -693,6 +780,7 @@ let mk_state_var_for_expr
             ~is_const:is_const
             ~for_inv_gen:for_inv_gen
             ctx
+            (scope_of_node ctx)
             (I.push_index I.abs_ident fresh_local_index)
             D.empty_index
             expr_type
@@ -766,7 +854,7 @@ let mk_fresh_local
     ?is_input
     ?is_const
     ?for_inv_gen
-    ({ scope; node; fresh_local_index } as ctx) 
+    ({ node; fresh_local_index } as ctx) 
     state_var_type =
 
   (* Are we in a node? *)
@@ -785,6 +873,7 @@ let mk_fresh_local
           ?is_const:is_const
           ?for_inv_gen:for_inv_gen
           ctx
+          (scope_of_node ctx)
           (I.push_index I.abs_ident fresh_local_index)
           D.empty_index
           state_var_type
@@ -809,7 +898,7 @@ let mk_fresh_observer
     ?is_input
     ?is_const
     ?for_inv_gen
-    ({ scope; node; fresh_observer_index } as ctx) 
+    ({ node; fresh_observer_index } as ctx) 
     state_var_type =
 
   (* Are we in a node? *)
@@ -828,6 +917,7 @@ let mk_fresh_observer
           ?is_const:is_const
           ?for_inv_gen:for_inv_gen
           ctx
+          (scope_of_node ctx)
           (I.push_index I.observer_ident fresh_observer_index)
           D.empty_index
           state_var_type
@@ -844,6 +934,87 @@ let mk_fresh_observer
 
       (* Return variable and changed context *)
       (state_var, ctx')
+
+
+let observer_of_state_var ({ node } as ctx) state_var = 
+
+  (* Are we in a node? *)
+  match node with 
+
+    (* Fail if not inside a node *)
+    | None -> raise (Invalid_argument "observer_of_state_var")
+
+    (* Add to observers *)
+    | Some ({ N.inputs; N.oracles; N.outputs; N.observers; N.locals } as node) ->
+
+      if 
+
+        (* Is state variable an input or an oracle? *)
+        D.exists
+          (fun _ sv -> StateVar.equal_state_vars state_var sv) 
+          inputs 
+        || 
+        List.exists
+          (StateVar.equal_state_vars state_var)
+          oracles
+
+      then 
+
+        (* Don't make inputs observers *)
+        raise (Invalid_argument "observer_of_state_var")
+
+      else if 
+
+        (* Is state variable an output or an observer? *)
+        D.exists
+          (fun _ sv -> StateVar.equal_state_vars state_var sv) 
+          outputs 
+        || 
+        List.exists
+          (StateVar.equal_state_vars state_var)
+          observers
+
+
+      then
+
+        (* Keep state variable as output or observer *)
+        ctx
+
+      else
+
+        (* Filter out state variable from definitions of local variables *)
+        let locals' = 
+          List.filter
+            (fun l -> 
+               let i1, sv1 = D.min_binding l in
+               let i2, sv2 = D.max_binding l in 
+
+               not 
+
+                 (* Smallest key is empty index *)
+                 (i1 = D.empty_index && 
+
+                  (* Smallest key is equal to greatest key *)
+                  i1 = i2  && 
+
+                  (* Smallest state variable is our property 
+
+                     sv1 sv2 must be equal, because there is only
+                     one entry in the trie *)
+                  StateVar.equal_state_vars state_var sv1))
+            locals
+        in
+
+        (* Move declaration of state variable from locals to observers *)
+        let ctx = 
+          { ctx with 
+              node = Some { node with 
+                              N.locals = locals';
+                              N.observers = state_var :: observers } }
+        in
+
+        (* Return changed context *)
+        ctx
 
 
 (* Return the node of the given name from the context*)
@@ -945,6 +1116,7 @@ let add_node_input ?is_const ctx ident index_types =
                  ~is_input:true
                  ?is_const
                  ctx
+                 (scope_of_node ctx)
                  ident
                  index
                  index_type
@@ -983,6 +1155,7 @@ let add_node_output ?(is_single = false) ctx ident index_types =
                mk_state_var
                  ~is_input:false
                  ctx
+                 (scope_of_node ctx)
                  ident
                  index
                  index_type
@@ -1005,7 +1178,7 @@ let add_node_output ?(is_single = false) ctx ident index_types =
 
 
 (* Add node local to context *)
-let add_node_local ctx ident index_types = 
+let add_node_local ?(ghost = false) ctx ident index_types = 
 
   match ctx with 
 
@@ -1022,11 +1195,13 @@ let add_node_local ctx ident index_types =
              let state_var, ctx = 
                mk_state_var
                  ~is_input:false
+                 ~shadow:ghost
                  ctx
+                 (scope_of_context ctx)
                  ident
                  index
                  index_type
-                 N.Local
+                 (if ghost then N.Ghost else N.Local)
              in
              
              (* Add expression to trie of identifier *)
@@ -1041,16 +1216,45 @@ let add_node_local ctx ident index_types =
 
 
 (* Add node contract to context *)
-let add_node_contract ctx contract = 
+let add_node_global_contract ctx pos contract = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_contract")
 
-    | { node = Some ({ N.contracts } as node) } -> 
+    | { node = Some ({ N.contracts = (Some _, _) } ) } -> 
+
+      fail_at_position
+        pos
+        "Global contract for node already defined"
+      
+    | { node = Some ({ N.contracts = (None, mode_contracts) } as node) } -> 
 
       (* Return node with contract added *)
-      { ctx with node = Some { node with N.contracts = contract :: contracts } }
+      { ctx with 
+          node = 
+            Some
+              { node with 
+                  N.contracts = 
+                    (Some contract, mode_contracts) } }
+
+
+(* Add node contract to context *)
+let add_node_mode_contract ctx pos contract_name contract = 
+
+  match ctx with 
+
+    | { node = None } -> raise (Invalid_argument "add_node_contract")
+
+    | { node = Some ({ N.contracts = (global_contract, mode_contracts) } as node) } -> 
+
+      (* Return node with contract added *)
+      { ctx with 
+          node = 
+            Some
+              { node with 
+                  N.contracts = 
+                    (global_contract, (contract_name, contract) :: mode_contracts) } }
 
 
 (* Add node assert to context *)
@@ -1073,7 +1277,7 @@ let add_node_property ctx source expr =
 
     | { node = None } -> raise (Invalid_argument "add_node_property")
 
-    | { node = Some ({ N.props; N.outputs; N.observers; N.locals } as node) } -> 
+    | { node = Some { N.props; N.outputs; N.observers; N.locals } } -> 
 
       (* State variable for property and changed environment *)
       let state_var, ctx =
@@ -1088,54 +1292,10 @@ let add_node_property ctx source expr =
           (* State variable of expression *)
           let state_var = E.state_var_of_expr expr in
 
-          if 
+          (* Make state variable an observer *)
+          let ctx = observer_of_state_var ctx state_var in
 
-            (* Is property an output? *)
-            D.exists
-              (fun _ sv -> StateVar.equal_state_vars sv state_var)
-              outputs
-
-          then
-
-            (* Return context unchanged and state variable of
-               expression *)
-            (state_var, ctx)
-
-          else
-
-            (* Filter out property from definitions of local
-               variables *)
-            let locals' = 
-              List.filter
-                (fun l -> 
-                   let i1, sv1 = D.min_binding l in
-                   let i2, sv2 = D.max_binding l in 
-
-                   not 
-
-                     (* Smallest key is empty index *)
-                     (i1 = D.empty_index && 
-
-                      (* Smallest key is equal to greatest key *)
-                      i1 = i2  && 
-
-                      (* Smallest state variable is our property 
-
-                         sv1 sv2 must be equal, because there is only
-                         one entry in the trie *)
-                      StateVar.equal_state_vars state_var sv1))
-                locals
-            in
-
-            (* Move declaration of property from locals to observers *)
-            let ctx = 
-              { ctx with 
-                  node = Some { node with 
-                                  N.locals = locals';
-                                  N.observers = state_var :: observers } }
-            in
-
-            (* Return changed context and state variable of
+          (* Return changed context and state variable of
                expression *)
             (state_var, ctx)
 
@@ -1165,6 +1325,80 @@ let add_node_property ctx source expr =
           { ctx with 
               node = Some { n with
                               N.props = (state_var, source) :: props } }
+
+
+(* Add state var as observer if it has to be lifted as a property,
+   otherwise as a local variable *)
+let lift_if_property pos ctx state_var = 
+
+  match ctx with 
+
+    | { node = None } -> raise (Invalid_argument "lift_if_property")
+
+    | { node = Some ({ N.name; N.props } as node) } -> 
+
+
+      try 
+
+        (* Find source of property *)
+        (match List.assq state_var props with
+
+          (* Properties to lift to the calling node *)
+          | TermLib.Generated _
+          | TermLib.Instantiated _
+          | TermLib.PropAnnot _ -> 
+
+            (* Fresh observer for the property *)
+            let sv', ctx = 
+              mk_fresh_observer
+                ctx
+                (StateVar.type_of_state_var state_var) 
+            in
+
+            (* Mark relatation between state variable and instance *)
+            N.set_state_var_instance sv' pos name state_var;
+
+            (* Source for instantiated property *)
+            let prop_source = 
+              TermLib.Instantiated
+                ([(I.string_of_ident false) name], 
+                 StateVar.name_of_state_var state_var,
+                 pos)
+            in
+
+            (* Add as property to node *)
+            let ctx = 
+              { ctx with 
+                  node = Some { node 
+                                with N.props = 
+                                       (state_var, prop_source) :: props } }
+            in
+
+            (* Return modified context and lifted state variable *)
+            (ctx, sv')
+
+          (* Don't lift other properties *)
+          | _ -> raise Not_found)
+
+      (* Not a property *)
+      with Not_found ->
+
+        Format.printf 
+          "No source for %a@."
+          StateVar.pp_print_state_var state_var;
+
+        (* Fresh local variable, not lifted as observer *)
+        let sv', ctx = 
+          mk_fresh_local
+            ctx
+            (StateVar.type_of_state_var state_var) 
+        in
+
+        (* Mark relatation between state variable and instance *)
+        N.set_state_var_instance sv' pos name state_var;
+
+        (* Return modified context and lifted state variable *)
+        (ctx, sv')
 
 
 (* Add node assert to context *)
@@ -1262,33 +1496,18 @@ let add_node_equation ctx pos state_var bounds expr =
 
 
 (* Add node call to context *)
-let add_node_call 
-    ctx
-    ({ N.call_observers; N.call_node_name; N.call_pos } as node_call) =
+let add_node_call ctx node_call =
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_call")
 
-    | { node = Some ({ N.calls; N.props } as node) } -> 
-
-      (* Add all observers as properties *)
-      let props' =
-        List.fold_left
-          (fun a o -> 
-             (o, 
-              TermLib.SubRequirement
-                ([(I.string_of_ident false) call_node_name], 
-                 call_pos)) :: a)
-          props
-          call_observers
-      in
+    | { node = Some ({ N.calls } as node) } -> 
 
       (* Add node call to context *)
       { ctx with 
           node = Some { node with 
-                          N.calls = node_call :: calls;
-                          N.props = props' } }
+                          N.calls = node_call :: calls } }
 
 
 
@@ -1318,6 +1537,7 @@ let node_of_context = function
 
     (* Return node with equations from definitions added *)
     node
+
 
 (* Add node from second context to nodes of first *)
 let add_node_to_context ctx node_ctx = 

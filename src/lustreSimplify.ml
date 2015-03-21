@@ -577,7 +577,7 @@ let rec eval_ast_expr ctx =
 
         (* Projection from an array indexed by variable *)
         | D.ArrayVarIndex _ :: _, _ ->
-          
+
           (* Remove top index from all elements in trie *)
           let expr' = 
             D.fold
@@ -587,7 +587,7 @@ let rec eval_ast_expr ctx =
               expr'
               D.empty
           in
-                  
+
           (* Select from array in all elements *)
           (D.map (fun e -> E.mk_select e index) expr', ctx)
 
@@ -909,23 +909,25 @@ and eval_node_call ctx pos ident cond args defaults =
       (* Evaluate input value *)
       let expr', ctx = 
 
+        (* Evaluate inputs as list *)
         let expr', ctx = 
           eval_ast_expr ctx (A.ExprList (dummy_pos, expr)) 
         in
 
         if 
 
-          try 
-            D.iter2 (fun _ _ _ -> ()) expr' node_inputs; true 
-          with 
-            | Invalid_argument _ -> false 
+          (* Do actual and formal parameters have the same indexes? *)
+          D.keys expr' = D.keys node_inputs 
 
         then
 
+          (* Return actual parameters and changed context *)
           expr', ctx
 
         else
 
+
+          (* Remove list index if expression is a singleton list *)
           (D.fold
              (function 
                | D.ListIndex 0 :: tl -> D.add tl
@@ -1055,7 +1057,8 @@ and eval_node_call ctx pos ident cond args defaults =
   let
 
     (* Get definition of called node *)
-    { N.inputs = node_inputs; 
+    { N.name = node_name;
+      N.inputs = node_inputs; 
       N.oracles = node_oracles;
       N.outputs = node_outputs; 
       N.observers = node_observers;
@@ -1129,31 +1132,21 @@ and eval_node_call ctx pos ident cond args defaults =
           node_oracles 
       in
 
-      (* Fresh state variables for observer outputs of called node *)
+      (* Fresh state variables to observe lifted properties of called node *)
       let ctx, observer_state_vars = 
         List.fold_left
           (fun (ctx, accum) sv -> 
-             let sv', ctx = 
-               C.mk_fresh_observer
-                 ctx
-                 (StateVar.type_of_state_var sv) 
-             in
-             N.set_state_var_instance sv' pos ident sv;
+             let ctx, sv' = C.lift_if_property pos ctx sv in
              (ctx, sv' :: accum))
           (ctx, [])
-          node_observers
+         node_observers
       in
 
       (* Create fresh state variable for each output *)
       let ctx, output_state_vars = 
         D.fold
           (fun i sv (ctx, accum) -> 
-             let sv', ctx = 
-               C.mk_fresh_local
-                 ctx
-                 (StateVar.type_of_state_var sv)
-             in
-             N.set_state_var_instance sv' pos ident sv;
+             let ctx, sv' = C.lift_if_property pos ctx sv in
              (ctx, D.add i sv' accum))
           node_outputs
           (ctx, D.empty)

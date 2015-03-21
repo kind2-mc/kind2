@@ -1,0 +1,21 @@
+node X (in: int) returns (OK: bool);
+--@require in <= 0;
+--@ensure OK;
+var
+  in1: subrange [0, 1] of int;
+let
+  in1 = in + 1;
+  OK = in > 0;
+  --%PROPERTY OK;
+tel;
+
+
+node Y(in: int) returns (OK: bool);
+let
+  OK = X(in);
+tel;
+
+node Z(in: int) returns (OK: bool);
+let
+  OK = Y(in) and Y(in + 1);
+tel

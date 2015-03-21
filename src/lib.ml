@@ -464,6 +464,11 @@ let pp_print_option pp ppf = function
   | Some s -> Format.fprintf ppf "@[<hv>Some@ %a@]" pp s
 
 
+(* Print if list is not empty *)
+let pp_print_if_not_empty s ppf = function 
+  | [] -> ()
+  | _ -> Format.fprintf ppf s
+
 (* Pretty-print into a string *)
 let string_of_t pp t = 
 

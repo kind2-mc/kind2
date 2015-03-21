@@ -100,10 +100,15 @@ let mk_pos = position_of_lexing
 (* Tokens for annotations *)
 %token PROPERTY
 %token MAIN
+
+%token COMMENTGHOSTVAR
+%token COMMENTGHOSTCONST
+%token COMMENTIMPORT
+%token COMMENTIMPORTMODE
 %token COMMENTCONTRACT
-%token COMMENTGLOBALCONTRACT
 %token COMMENTREQUIRE
 %token COMMENTENSURE
+
 %token CONTRACT
 %token REQUIRE
 %token ENSURE
@@ -339,7 +344,7 @@ node_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    r = option(contract_spec);
+    r = contract_spec;
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
@@ -355,29 +360,44 @@ node_decl:
        r)  }
 
 contract_spec:
-  | global = contract_global;
+  | ghost_consts = list(comment_contract_ghost_const);
+    ghost_vars = list(comment_contract_ghost_var);
+    global = option(contract_global);
     modes  = list(contract)
-    { A.GlobalAndModes (global, modes) }
-  | modes  = nonempty_list(contract)
-    { A.Modes modes }
+    { ghost_consts, ghost_vars, global, modes }
 
+(* Need three production with not empty lists to forbid a contract
+   without requires and ensures. This causes a conflict, because an
+   empty contract looks like no contracts. *)
 contract_global:
-  | COMMENTGLOBALCONTRACT; COLON; n = ident; SEMICOLON
-    reqs = list(comment_contract_require);
-    enss = list(comment_contract_ensure)
+  | reqs = nonempty_list(comment_contract_require);
+    enss = nonempty_list(comment_contract_ensure)
     { A.InlinedContract
-        (mk_pos $startpos, n, reqs, enss) }
-  | COMMENTGLOBALCONTRACT; n = ident; SEMICOLON
+        (mk_pos $startpos, "__global", reqs, enss) }
+  | reqs = nonempty_list(comment_contract_require);
+    { A.InlinedContract
+        (mk_pos $startpos, "__global", reqs, []) }
+  | enss = nonempty_list(comment_contract_ensure)
+    { A.InlinedContract
+        (mk_pos $startpos, "__global", [], enss) }
+  | COMMENTIMPORT; n = ident; SEMICOLON
     { A.ContractCall (mk_pos $startpos, n) }
 
+(* Need three production with not empty lists to forbid a contract
+   without requires and ensures. This causes a conflict, because an
+   empty contract looks like no contracts. *)
 contract:
-  | COMMENTCONTRACT; COLON; n = ident; SEMICOLON
-    reqs = list(comment_contract_require);
-    enss = list(comment_contract_ensure)
-    { (if reqs = [] then Format.printf "empty reqs");
-      A.InlinedContract
-        (mk_pos $startpos, n, reqs, enss) }
   | COMMENTCONTRACT; n = ident; SEMICOLON
+    reqs = nonempty_list(comment_contract_require);
+    enss = nonempty_list(comment_contract_ensure)
+    { A.InlinedContract (mk_pos $startpos, n, reqs, enss) }
+  | COMMENTCONTRACT; n = ident; SEMICOLON
+    reqs = nonempty_list(comment_contract_require);
+    { A.InlinedContract (mk_pos $startpos, n, reqs, []) }
+  | COMMENTCONTRACT; n = ident; SEMICOLON
+    enss = nonempty_list(comment_contract_ensure)
+    { A.InlinedContract (mk_pos $startpos, n, [], enss) }
+  | COMMENTIMPORTMODE; n = ident; SEMICOLON
     { A.ContractCall (mk_pos $startpos, n) }
 
 contract_require:
@@ -396,12 +416,24 @@ comment_contract_ensure:
   | COMMENTENSURE; e = expr; SEMICOLON
     { mk_pos $startpos, e }
 
+comment_contract_ghost_var:
+  | COMMENTGHOSTVAR; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
+    { A.TypedConst (mk_pos $startpos, i, e, t) }
+  | COMMENTGHOSTVAR; i = ident; EQUALS; e = expr; SEMICOLON 
+    { A.UntypedConst (mk_pos $startpos, i, e) }
+
+comment_contract_ghost_const:
+  | COMMENTGHOSTCONST; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
+    { A.TypedConst (mk_pos $startpos, i, e, t) }
+  | COMMENTGHOSTCONST; i = ident; EQUALS; e = expr; SEMICOLON 
+    { A.UntypedConst (mk_pos $startpos, i, e) }
+
 (* Equations of a contract node. *)
 contract_equations:
   | req = contract_require {A.Require req}
   | ens = contract_ensure {A.Ensure ens}
-  | l = left_side; EQUALS; e = expr; SEMICOLON
-    { A.GhostEquation (mk_pos $startpos, l, e) }
+  | i = ident; EQUALS; e = expr; SEMICOLON
+    { A.GhostEquation (mk_pos $startpos, i, e) }
 
 (* A contract node declaration. *)
 contract_decl:

@@ -57,7 +57,7 @@ let pp_print_trie pp_i pp_e ppf t =
 (* ********************************************************************** *)
 
 (* Add declaration of constant to context *)
-let eval_const_decl ctx = function
+let eval_const_decl ?(ghost = false) ctx = function
 
   (* Declaration of a free constant *)
   | A.FreeConst (pos, _, _) ->
@@ -72,11 +72,12 @@ let eval_const_decl ctx = function
     let ident = I.mk_string_ident i in
 
     if
-
+      
       (try 
 
-         (* Identifier must not be declared *)
-         C.expr_in_context ctx ident 
+         (* Identifier must not be declared, unless it is a ghost
+            constant which shadows declared constants *)
+         not ghost && C.expr_in_context ctx ident 
 
        (* Fail if reserved identifier used *)
        with Invalid_argument e -> C.fail_at_position pos e)
@@ -131,7 +132,7 @@ let eval_const_decl ctx = function
 
 
     (* Return context with new mapping of identifier to expression *)
-    C.add_expr_for_ident ctx ident res
+    C.add_expr_for_ident ~shadow:ghost ctx ident res
 
 
 (* ********************************************************************** *)
@@ -227,7 +228,7 @@ let rec eval_node_outputs ?is_single ctx = function
 
 
 (* Add all node local declarations to contexts *)
-let rec eval_node_locals ctx = function
+let rec eval_node_locals ?(ghost = false) ctx = function
 
   (* All local declarations parsed *)
   | [] -> ctx
@@ -239,18 +240,20 @@ let rec eval_node_locals ctx = function
   | A.NodeConstDecl (pos, A.UntypedConst (_, i, _)) :: _
   | A.NodeConstDecl (pos, A.TypedConst (_, i, _, _)) :: _ when 
 
-      (
-
-        (* Identifier of AST identifier *)
-        let ident = I.mk_string_ident i in
-
-        try 
-          C.expr_in_context ctx ident 
-        with Invalid_argument e -> 
-          C.fail_at_position pos e
-
-      ) -> 
-
+      (* Ghost variables shadow already declared variables *)
+      (not ghost &&
+       (
+         
+         (* Identifier of AST identifier *)
+         let ident = I.mk_string_ident i in
+         
+         try 
+           C.expr_in_context ctx ident 
+         with Invalid_argument e -> 
+           C.fail_at_position pos e
+             
+       )) -> 
+    
     C.fail_at_position 
       pos
       (Format.asprintf 
@@ -268,10 +271,10 @@ let rec eval_node_locals ctx = function
     let index_types = S.eval_ast_type ctx var_type in
 
     (* Add declaration of possibly indexed type to contexts *)
-    let ctx = C.add_node_local ctx ident index_types in
+    let ctx = C.add_node_local ~ghost ctx ident index_types in
 
     (* Continue with following outputs *)
-    eval_node_locals ctx tl
+    eval_node_locals ~ghost ctx tl
 
   (* Local variable not on the base clock *)
   |  A.NodeVarDecl (pos, (_, i, _, _)) :: _ -> 
@@ -286,58 +289,10 @@ let rec eval_node_locals ctx = function
   | A.NodeConstDecl (pos, const_decl) :: tl -> 
 
     (* Add mapping of identifier to value to context *)
-    let ctx = eval_const_decl ctx const_decl in
+    let ctx = eval_const_decl ~ghost ctx const_decl in
 
     (* Continue with following outputs *)
-    eval_node_locals ctx tl
-
-
-(* ********************************************************************** *)
-(* Parse contracts                                                        *)
-(* ********************************************************************** *)
-
-(* Add all node contracts to contexts *)
-let rec eval_node_contracts ctx = function
-
-  (* No more contract clauses *)
-  | [] -> ctx
-
-  (* Contract *)
-  | (source, name, requires, ensures) :: tl ->
-
-    (* Evaluate Boolean expression and guard all pre operators *)
-    let aux (accum, ctx) (pos, expr) =
-
-      (* Evaluate expression to a Boolean expression, may change
-         context *)
-      let expr', ctx = 
-        S.eval_bool_ast_expr ctx pos expr
-        |> C.close_expr pos
-      in
-
-      (* Add expression to accumulator, continue with possibly
-         modified context *)
-      expr' :: accum, ctx
-
-    in
-
-    (* Evaluate requirements *)
-    let requires', ctx =
-      List.fold_left aux ([], ctx) requires
-    in
-
-    (* Evaluate ensures *)
-    let ensures', ctx =
-      List.fold_left aux ([], ctx) ensures
-    in
-
-    (* Add contract to node *)
-    let ctx = 
-      C.add_node_contract ctx (name, source, requires', ensures')
-    in
-
-    (* Continue with next contract clauses *)
-    eval_node_contracts ctx tl
+    eval_node_locals ~ghost ctx tl
 
 
 (* ********************************************************************** *)
@@ -808,6 +763,541 @@ let rec eval_node_equations ctx = function
     eval_node_equations ctx tl
 
 
+(* ********************************************************************** *)
+(* Parse contracts                                                        *)
+(* ********************************************************************** *)
+
+
+(* Add ghost declaration and definition to context *)
+let eval_ghost_var ctx = function
+
+  (* Declaration of a free variable *)
+  | A.FreeConst (pos, _, _) ->
+
+    C.fail_at_position pos "Free ghost variables not supported"
+
+  (* Declaration of a typed or untyped variable *)
+  | A.UntypedConst (pos, i, expr) 
+  | A.TypedConst (pos, i, expr, _) as const_decl ->
+
+
+    (* Identifier of AST identifier *)
+    let ident = I.mk_string_ident i in
+
+    if
+
+      (try 
+
+         (* Identifier must not be declared *)
+         C.expr_in_context ctx ident 
+
+       (* Fail if reserved identifier used *)
+       with Invalid_argument e -> C.fail_at_position pos e)
+
+    then
+
+      (* Fail if identifier already declared *)
+      C.fail_at_position 
+        pos 
+        (Format.asprintf 
+           "Identifier %a is redeclared as ghost" 
+           (I.pp_print_ident false) ident);
+
+    (* Evaluate ghost expression *)
+    let expr', ctx = S.eval_ast_expr ctx expr in
+
+    let type_expr' = 
+
+      (* Distinguish typed and untyped constant here *)
+      (match const_decl with 
+
+        (* Need to type check constant against given type *)
+        | A.TypedConst (_, _, _, type_expr) -> 
+
+          (try 
+
+             (* Evaluate type expression *)
+             let type_expr' = S.eval_ast_type ctx type_expr in 
+
+             (* Check if type of expression is a subtype of the defined
+                type at each index *)
+             D.iter2
+               (fun _ def_type { E.expr_type } ->
+                  if not (Type.check_type expr_type def_type) then
+                    raise E.Type_mismatch)
+               type_expr'
+               expr';
+
+             type_expr'
+
+           with Invalid_argument _ | E.Type_mismatch -> 
+
+             (C.fail_at_position
+                pos
+                "Type mismatch in ghost variable declaration"))
+
+        (* No type check for untyped or free constant *)
+        | _ -> D.map (fun { E.expr_type } -> expr_type) expr')
+
+    in
+
+    (* Add local declaration for ghost stream *)
+    let ctx = C.add_node_local ~ghost:true ctx ident type_expr' in
+
+    (* Add equation for ghost stream *)
+    eval_node_equations 
+      ctx
+      [A.Equation (pos, (A.StructDef (pos, [A.SingleIdent (pos, i)])), expr)]
+  
+
+(* Add definition of requires or ensures expression to context and
+   return state variable *)
+let eval_req_or_ens (accum, ctx) (pos, expr) = 
+
+  (* Evaluate expression to a Boolean expression, may change
+         context *)
+  let expr', ctx = 
+    S.eval_bool_ast_expr ctx pos expr
+    |> C.close_expr pos
+  in
+
+  (* Define expression with a state variable *)
+  let state_var, ctx = 
+    C.mk_local_for_expr pos ctx expr' 
+  in
+
+  (* Add state variable to accumulator, continue with possibly
+     modified context *)
+  state_var :: accum, ctx
+
+
+(* Declare and define ghost streams, requires and ensures expressions
+   and return contract *)
+let eval_contract ctx pos reqs enss =
+
+  (* Evaluate requirements *)
+  let reqs', ctx = List.fold_left eval_req_or_ens ([], ctx) reqs in
+
+  (* Evaluate ensures *)
+  let ens', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
+
+  (* Convert all requirements to observers *)
+  let ctx = List.fold_left C.observer_of_state_var ctx reqs' in
+
+  let impl_sv, ctx = C.mk_fresh_observer ctx Type.t_bool in
+
+  let ctx = 
+    C.add_node_equation
+      ctx
+      dummy_pos
+      impl_sv
+      []
+      (E.mk_impl
+         (List.fold_left 
+            (fun a sv -> E.mk_var sv E.base_clock |> E.mk_and a)
+            E.t_true
+            reqs')
+         (List.fold_left 
+            (fun a sv -> E.mk_var sv E.base_clock |> E.mk_and a)
+            E.t_true
+            ens'))
+  in
+
+  (* Evaluate ensures *)
+  let enss', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
+
+  (* Return a contract *)
+  ({ N.contract_pos = pos; 
+     N.contract_reqs = reqs'; 
+     N.contract_enss = enss' },
+   ctx)
+
+
+(* Fail if a contract node input is incompatible with a node input *)
+let rec check_node_and_contract_inputs call_pos ctx node_inputs = function 
+
+  (* All contract inputs are consistent with node inputs *)
+  | [] -> ()
+
+  (* Input to contract, must not have a clock *)
+  | (pos, 
+     ident, 
+     contract_input_lustre_type, 
+     A.ClockTrue, 
+     contract_input_const) :: tl -> 
+
+    let 
+
+      (* Node input corresponding to contract input *)
+      (_, 
+       _, 
+       node_input_lustre_type, 
+       node_input_clock, 
+       node_input_const) = 
+
+      try 
+
+        (* Find node input with the same identifier *)
+        List.find
+          (fun (_, i, _, _, _) -> i = ident)
+          node_inputs
+
+      with Not_found -> 
+
+        C.fail_at_position 
+          call_pos 
+          "Illegal contract call: node does not have input"
+
+    in
+
+    (* Input must not have a clock *)
+    (match node_input_clock with 
+      | A.ClockTrue -> ()
+      | _ -> 
+        C.fail_at_position 
+          pos 
+          "Clocked inputs not supported");
+
+    (* Node input must be constant iff contract input is *)
+    if contract_input_const <> node_input_const then 
+
+      C.fail_at_position 
+        pos 
+        "Illegal contract call: node does not have input";
+
+    (try 
+
+       (* Evaluate defined types of contract and node, and fail if not
+          compatible *)
+       D.iter2
+         (fun _ t s -> 
+            if not (Type.check_type s t) then raise E.Type_mismatch)
+         (S.eval_ast_type ctx contract_input_lustre_type)
+         (S.eval_ast_type ctx node_input_lustre_type)
+
+     with Invalid_argument _ | E.Type_mismatch -> 
+
+       (C.fail_at_position
+          pos
+          "Type mismatch in constant declaration"));
+
+    (* Continue with remaining inputs *)
+    check_node_and_contract_inputs call_pos ctx node_inputs tl
+
+  | (pos, _, _, _, _) :: tl -> 
+
+    C.fail_at_position 
+      pos 
+      "Clocked inputs not supported"
+
+
+(* Fail if a contract node output is incompatible with a node output *)
+let rec check_node_and_contract_outputs call_pos ctx node_outputs = function 
+
+  (* All contract outputs are consistent with node outputs *)
+  | [] -> ()
+
+  (* Output of contract, must not have a clock *)
+  | (pos, 
+     ident, 
+     contract_output_lustre_type, 
+     A.ClockTrue) :: tl -> 
+
+    let 
+
+      (* Node output corresponding to contract output *)
+      (_, 
+       _,
+       node_output_lustre_type, 
+       node_output_clock) = 
+
+      try 
+
+        (* Find node output with the same identifier *)
+        List.find
+          (fun (_, i, _, _) -> i = ident)
+          node_outputs
+
+      with Not_found -> 
+
+        C.fail_at_position 
+          call_pos 
+          "Illegal contract call: node does not have output"
+
+    in
+
+    (* Output must not have a clock *)
+    (match node_output_clock with 
+      | A.ClockTrue -> ()
+      | _ -> 
+        C.fail_at_position 
+          pos 
+          "Clocked outputs not supported");
+
+    (try 
+
+       (* Evaluate defined types of contract and node, and fail if not
+          compatible *)
+       D.iter2
+         (fun _ t s -> if not (Type.check_type s t) then raise E.Type_mismatch)
+         (S.eval_ast_type ctx contract_output_lustre_type)
+         (S.eval_ast_type ctx node_output_lustre_type)
+
+     with Invalid_argument _ | E.Type_mismatch -> 
+
+       (C.fail_at_position
+          pos
+          "Type mismatch in constant declaration"));
+
+    (* Continue with remaining inputs *)
+    check_node_and_contract_outputs call_pos ctx node_outputs tl
+
+  | (pos, _, _, _) :: tl -> 
+
+    C.fail_at_position 
+      pos 
+      "Clocked outputs not supported"
+
+
+let rec inline_contract_of_contract_node
+    ctx
+    (contract_pos, 
+     contract_ident, 
+     contract_reqs, 
+     contract_enss)
+    contract_locals = 
+
+  function 
+
+    (* No more contract equations, return inline contract *)
+    | [] -> 
+
+      (ctx,
+       contract_pos, 
+       contract_ident, 
+       contract_reqs, 
+       contract_enss)
+
+    (* Ghost equation *)
+    | A.GhostEquation (eq_pos, ident, expr) :: tl -> 
+
+      (try 
+
+         (match 
+
+            (* Find declaration of ghost variable *)
+            List.find
+              (function 
+                | A.NodeConstDecl _ -> false
+                | A.NodeVarDecl (_, (_, i, _, _)) -> i = ident)
+              contract_locals
+
+          with 
+
+            (* Constant declarations have been filtered out *)
+            | A.NodeConstDecl (pos, _) -> assert false
+
+            (* Ghost variable on the base clock *)
+            | A.NodeVarDecl (_, (_, _, lustre_type, A.ClockTrue)) -> ()
+
+            (* Ghost variable not on the base clock *)
+            | A.NodeVarDecl (_, (_, _, _, _)) -> 
+
+              C.fail_at_position 
+                contract_pos 
+                "Clocked ghost variables not supported")
+
+       (* Ghost variable undeclared *)
+       with Not_found ->           
+
+         C.fail_at_position 
+           contract_pos 
+           "Assignment to undeclared ghost variable");
+
+      (* Add equation for ghost stream *)
+      let ctx = 
+        eval_node_equations 
+          ctx
+          [A.Equation
+             (eq_pos,
+              (A.StructDef
+                 (eq_pos, [A.SingleIdent (eq_pos, ident)])), expr)]
+      in
+
+
+      inline_contract_of_contract_node
+        ctx
+        (contract_pos, 
+         contract_ident, 
+         contract_reqs, 
+         contract_enss)
+        contract_locals
+        tl
+
+    (* Requires clause *)
+    | A.Require req :: tl ->
+
+      inline_contract_of_contract_node
+        ctx
+        (contract_pos, 
+         contract_ident, 
+         req :: contract_reqs, 
+         contract_enss)
+        contract_locals
+        tl
+
+    (* Ensures clause *)
+    | A.Ensure ens :: tl -> 
+
+      inline_contract_of_contract_node
+        ctx
+        (contract_pos, 
+         contract_ident, 
+         contract_reqs, 
+         ens :: contract_enss)
+        contract_locals
+        tl
+    
+
+(* Lookup definition of contract from contract node, or return inline contract *)
+let resolve_contract ctx node_inputs node_outputs = function 
+
+  (* Inline contract *)
+  | A.InlinedContract (pos, ident, reqs, enss) -> 
+
+    (ctx, pos, ident, reqs, enss)
+
+  (* Contract from a spec node *)
+  | A.ContractCall (call_pos, ident) -> 
+
+    (* Lookup contract node spec from context *)
+    let pos, 
+        (_, 
+         contract_node_params, 
+         contract_inputs, 
+         contract_outputs, 
+         contract_locals, 
+         contract_equations) = 
+      C.contract_node_decl_of_ident ctx ident 
+    in
+
+    (* We do not support parametric nodes *)
+    assert (contract_node_params = []);
+
+    (* Fail if node inputs are incompatible with contract inputs *)
+    check_node_and_contract_inputs call_pos ctx node_inputs contract_inputs;
+
+    (* Fail if node outputs are incompatible with contract outputs *)
+    check_node_and_contract_outputs call_pos ctx node_outputs contract_outputs;
+
+    (* Declare and define all ghost constants *)
+    let ctx = eval_node_locals ~ghost:true ctx contract_locals in 
+
+    (* Inline definitions of ghost variables *)
+    inline_contract_of_contract_node
+      ctx
+      (pos, ident, [], []) 
+      contract_locals 
+      contract_equations
+
+
+(* Add mode contracts from list to context *)
+let rec eval_mode_contracts ctx node_inputs node_outputs = function 
+
+  (* No more mode contracts, return *)
+  | [] -> ctx
+
+  (* Take the first contract *)
+  | mode_contract :: tl -> 
+
+    (* Peek at contract to get identifier for scoping *)
+    let ident = match mode_contract with
+      | A.InlinedContract (_, ident, _, _) 
+      | A.ContractCall (_, ident) -> ident
+    in
+
+    (* New scope for local declarations *)
+    let ctx = C.push_scope ctx ident in
+
+    (* Inline if necessary *)
+    let (ctx, pos, ident, reqs, enss) = 
+      resolve_contract ctx node_inputs node_outputs mode_contract 
+    in
+
+    (* Evaluate *)
+    let (contract, ctx) = 
+      eval_contract
+        ctx
+        pos
+        reqs
+        enss 
+    in
+
+    (* Add to context *)
+    let ctx = 
+      C.add_node_mode_contract ctx pos ident contract
+    in
+
+    (* Remove scope for local declarations *)
+    let ctx = C.pop_scope ctx in
+
+    (* Continue with next contracts *)
+    eval_mode_contracts ctx node_inputs node_outputs tl 
+
+
+(* Add all node contracts to contexts *)
+let eval_node_contract_spec 
+    ctx
+    node_inputs
+    node_outputs
+    (ghost_consts,
+     ghost_vars,
+     global_contract,
+     mode_contracts) =
+
+  (* Add constants to context *)
+  let ctx = List.fold_left eval_const_decl ctx ghost_consts in
+
+  (* Add ghost variables to context *)
+  let ctx = List.fold_left eval_ghost_var ctx ghost_vars in
+
+  (* Add global contract to context *)
+
+  let ctx = match global_contract with
+    
+    (* No global contract for nodex *)
+    | None -> ctx
+
+    (* Global contract for node *)
+    | Some c -> 
+      
+      (* New scope for local declarations in contract *)
+      let ctx = C.push_scope ctx "__global" in
+      
+      (* Inline if necessary *)
+      let (ctx, pos, ident, reqs, enss) = 
+        resolve_contract ctx node_inputs node_outputs c
+      in
+      
+      (* Evaluate *)
+      let (contract, ctx) = 
+        eval_contract ctx pos reqs enss 
+      in
+      
+      (* Add to context *)
+      let ctx = 
+        C.add_node_global_contract ctx pos contract
+      in
+      
+      (* Remove scope for local declarations in contract *)
+      C.pop_scope ctx
+      
+  in
+  
+  (* Continue with mode contracts *)
+  eval_mode_contracts ctx node_inputs node_outputs mode_contracts
+
+
 (* Add declarations of node to context *)
 let eval_node_decl
     ctx
@@ -815,7 +1305,7 @@ let eval_node_decl
     outputs
     locals
     equations
-    contracts = 
+    contract_spec = 
 
   (* Add inputs to context: as state variable to ident_expr_map, and
      to inputs *)
@@ -825,10 +1315,21 @@ let eval_node_decl
      to outputs *)
   let ctx = eval_node_outputs ~is_single:(List.length outputs = 1) ctx outputs in
 
-(*
+  (* New scope for local declarations in contracts *)
+  let ctx = C.push_scope ctx "contract" in
+
   (* Parse contracts and add to context in contracts *)
-  let ctx = eval_node_contracts ctx contracts in
-*)
+  let ctx = eval_node_contract_spec ctx inputs outputs contract_spec in
+
+  (* Remove scope for local declarations in implementation *)
+  let ctx = C.pop_scope ctx in
+
+  Format.printf
+    "%a@."
+    N.pp_print_node_debug (C.node_of_context ctx);
+
+  (* New scope for local declarations in implementation *)
+  let ctx = C.push_scope ctx "impl" in
 
   (* Add locals to context: as state variable to ident_expr_map, and
      to inputs *)
@@ -836,6 +1337,9 @@ let eval_node_decl
 
   (* Parse equations, assertions, properties *)
   let ctx = eval_node_equations ctx equations in
+
+  (* Remove scope for local declarations in implementation *)
+  let ctx = C.pop_scope ctx in
 
   Format.printf
     "%a@."
@@ -938,7 +1442,7 @@ let rec declarations_to_context ctx = function
 
   (* Declaration of a contract node *)
   | A.ContractNodeDecl (pos, node_decl) :: decls -> 
-
+    
     (* Add to context for later inlining *)
     let ctx = C.add_contract_node_decl_to_context ctx (pos, node_decl) in
 

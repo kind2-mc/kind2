@@ -467,11 +467,20 @@ and comment = parse
   | "@" (id as p) 
       { match p with
 
-        (* Return token, continue with rest of line. *)
-        | "contract" -> COMMENTCONTRACT
+        (* Return token, continue with rest of line *)
+        | "var" -> COMMENTGHOSTVAR
+
+        (* Return token, continue with rest of line *)
+        | "const" -> COMMENTGHOSTCONST
 
         (* Return token, continue with rest of line. *)
-        | "global_contract" -> COMMENTGLOBALCONTRACT
+        | "import" -> COMMENTIMPORT
+
+        (* Return token, continue with rest of line. *)
+        | "import_mode" -> COMMENTIMPORTMODE
+
+        (* Return token, continue with rest of line. *)
+        | "contract" -> COMMENTCONTRACT
 
         (* Return token, continue with rest of line *)
         | "require" -> COMMENTREQUIRE

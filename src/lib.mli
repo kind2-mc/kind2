@@ -192,6 +192,9 @@ val pp_print_listi : (Format.formatter -> int -> 'a -> unit) -> ('b, Format.form
 (** Pretty-print an option type *)
 val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a option -> unit
 
+(** Pretty-print if list is not empty *)
+val pp_print_if_not_empty : (unit, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
+
 (** Output a horizonal dasehd line *)
 val pp_print_hline : Format.formatter -> unit -> unit 
 

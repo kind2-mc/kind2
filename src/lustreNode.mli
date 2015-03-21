@@ -44,6 +44,7 @@
     @author Christoph Sticksel
 *)
 
+open Lib
 
 (** A call of a node *)
 type node_call = 
@@ -51,7 +52,7 @@ type node_call =
   { 
 
     (** Position of node call in input file *)
-    call_pos : Lib.position;
+    call_pos : position;
 
     (** Name of called node *)
     call_node_name : LustreIdent.t;
@@ -77,9 +78,20 @@ type node_call =
   }
 
 
-(** A contract as at tuple of identifier, source, requires and ensures *)
-type contract = 
-  (string * TermLib.contract_source * LustreExpr.t list * LustreExpr.t list) 
+(** A contract is a position, a list of observers for the
+    requirements, a list of observers for the ensures, and an observer
+    for the implication between its requirements and ensures. *)
+type contract =
+  { 
+
+    (* Position of the contract in the input *)
+    contract_pos: position;
+
+    (* One observer for each requirement *)
+    contract_reqs : StateVar.t list;
+
+    (* One observer for each ensures *)
+    contract_enss : StateVar.t list }
 
 
 (** Bound for index variable, or fixed value for index variable *)
@@ -143,11 +155,9 @@ type t =
     (** Proof obligations for the node *)
     props : (StateVar.t * TermLib.prop_source) list;
 
-    (** Contracts for the node *)
-    contracts: (string
-                * TermLib.contract_source
-                * LustreExpr.t list
-                * LustreExpr.t list) list;
+    (** The contracts of the node: an optional global contract and a
+        list of named mode contracts *)
+    contracts : contract option * (string * contract) list;
 
     (** Flag node as the top node *)
     is_main : bool;
@@ -208,7 +218,7 @@ val ident_of_top : t list -> LustreIdent.t
     eliminated. *)
 
 (** Named stream at a position *)
-type state_var_instance = Lib.position * LustreIdent.t * StateVar.t
+type state_var_instance = position * LustreIdent.t * StateVar.t
 
 
 (** Return state variables that values of this state variable should
@@ -222,7 +232,7 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
     [sv1] to be an instance of [sv2], where the latter occurs at
     position [pos] in node [n]. Usually [sv1] is in the caller and
     [sv2] is in the callee. *)
-val set_state_var_instance : StateVar.t -> Lib.position ->LustreIdent.t -> StateVar.t -> unit
+val set_state_var_instance : StateVar.t -> position -> LustreIdent.t -> StateVar.t -> unit
 
 (** {2 Sources} *)
 
@@ -248,9 +258,11 @@ type state_var_source =
   | Input
   | Output
   | Local
+  | Ghost
   | Abstract
   | Oracle
   | Observer
+
 
 (** Pretty-print a source of a state variable *)
 val pp_print_state_var_source : Format.formatter -> state_var_source -> unit 
