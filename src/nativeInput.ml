@@ -185,7 +185,7 @@ let caller_of_sexpr = function
        HS.List m;
        HS.List [HS.Atom f;
                 HS.List [HS.List [HS.Atom v; ty]];
-                g]] 
+                HS.List [g]]] 
     when f == s_lambda ->
     (* Get name of caller *)
     let name = c in
@@ -195,11 +195,8 @@ let caller_of_sexpr = function
     (* Get list of variables of fun *)
     let tyv = type_of_sexpr ty in
     let vars = [Var.mk_free_var v tyv] in
-    let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in
-    let guard_lambda = Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in
-    let guard_fun = (fun t -> Term.eval_lambda guard_lambda [t]) in
     (* Assemble caller *)
-    name, map, guard_fun
+    name, map, (vars, g)
 
   | s ->
     Format.eprintf "CALLER %a@." HS.pp_print_sexpr s;
@@ -418,14 +415,21 @@ let of_channel in_ch =
   let all_sys =
     List.fold_left (fun acc (sys, callers) ->
         (* Add callers *)
-        List.iter (fun (c, m, g) ->
+        List.iter (fun (c, m, (vars, g)) ->
             let c_sys = match fst (HH.find calling_table c) with
               | None -> assert false
               | Some s -> s in
 
+            (* Construct state var map *)
             let map = state_var_map_of_smap m in
-            
-            TransSys.add_caller sys c_sys (map, g)
+
+            (* Construct lambda for guard now that all symbols are declared *)
+            let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in
+            let guard_lambda =
+              Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in
+            let guard_fun = (fun t -> Term.eval_lambda guard_lambda [t]) in
+
+            TransSys.add_caller sys c_sys (map, guard_fun)
           ) callers;
         sys :: acc
       ) [] sys_and_calls
