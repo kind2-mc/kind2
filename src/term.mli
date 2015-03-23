@@ -87,6 +87,9 @@ val import : t -> t
 (** Import a term from a different instance into this hashcons table *)
 val import_lambda : lambda -> lambda
 
+(** Returns true if the lamda expression is the identity, i.e. lambda x.x *)
+val is_lambda_identity : lambda -> bool
+
 (** Create the propositional constant [true] *)
 val mk_true : unit -> t
 

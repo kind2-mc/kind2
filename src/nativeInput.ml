@@ -47,7 +47,6 @@ let s_props = HString.mk_hstring "props"
 let s_intrange = HString.mk_hstring "IntRange"
 
 
-
 (*********************************************)
 (* Parsing of systems in native input format *)
 (*********************************************)
@@ -427,7 +426,13 @@ let of_channel in_ch =
             let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in
             let guard_lambda =
               Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in
-            let guard_fun = (fun t -> Term.eval_lambda guard_lambda [t]) in
+            let guard_fun =
+              if Term.is_lambda_identity guard_lambda then
+                (* Simply return the identity (on terms) function if the guard
+                   is lambda x.x *)
+                (fun t -> t)
+              else (fun t -> Term.eval_lambda guard_lambda [t])
+            in
 
             TransSys.add_caller sys c_sys (map, guard_fun)
           ) callers;
