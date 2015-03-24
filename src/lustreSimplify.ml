@@ -3182,6 +3182,7 @@ let rec property_to_node
 
       && 
 
+      (* Expression is a state variable *)
       let state_var = E.state_var_of_expr expr in
       
       (* State variable is an input? *)
@@ -3267,7 +3268,10 @@ let rec property_to_node
     (* Add property to node *)
     (context', 
      { node' with 
-         N.props = (state_var, source) :: node'.N.props; 
+         N.props = 
+           ((if E.is_var expr then 
+               E.state_var_of_expr expr 
+             else state_var), source) :: node'.N.props; 
          N.observers = node_observers';
          N.locals = node_locals' },
      abstractions')
