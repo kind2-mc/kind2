@@ -655,14 +655,6 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
    trie of expressions *)
 let expand_tuple pos lhs rhs = 
   
-  Format.printf
-    "@[<v>lhs:@ %a@,rhs:@ %a@]@."
-    (pp_print_trie (D.pp_print_index false) StateVar.pp_print_state_var) lhs
-    (pp_print_trie 
-       (D.pp_print_index false) 
-       (E.pp_print_lustre_expr false)) 
-    rhs;
-
   expand_tuple' 
     pos
     []
@@ -882,10 +874,20 @@ let eval_contract ctx pos reqs enss =
   let ens', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
 
   (* Convert all requirements to observers *)
-  let ctx = List.fold_left C.observer_of_state_var ctx reqs' in
+  let reqs', ctx = 
+    List.fold_left
+      (fun (a, ctx) sv -> 
+         let sv', ctx = C.observer_of_state_var ctx sv in
+         sv' :: a, ctx)
+      ([], ctx)
+      reqs' 
+  in
 
+  (* State variable to observer implication between requirements and
+     ensures *)
   let impl_sv, ctx = C.mk_fresh_observer ctx Type.t_bool in
 
+  (* Add equation to define implication *)
   let ctx = 
     C.add_node_equation
       ctx
@@ -893,10 +895,14 @@ let eval_contract ctx pos reqs enss =
       impl_sv
       []
       (E.mk_impl
+
+         (* Conjunction of requirements *)
          (List.fold_left 
             (fun a sv -> E.mk_var sv E.base_clock |> E.mk_and a)
             E.t_true
             reqs')
+
+         (* Conjunction of ensures *)
          (List.fold_left 
             (fun a sv -> E.mk_var sv E.base_clock |> E.mk_and a)
             E.t_true
@@ -909,6 +915,7 @@ let eval_contract ctx pos reqs enss =
   (* Return a contract *)
   ({ N.contract_pos = pos; 
      N.contract_reqs = reqs'; 
+     N.contract_impl = impl_sv;
      N.contract_enss = enss' },
    ctx)
 
@@ -1323,10 +1330,6 @@ let eval_node_decl
 
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in
-
-  Format.printf
-    "%a@."
-    N.pp_print_node_debug (C.node_of_context ctx);
 
   (* New scope for local declarations in implementation *)
   let ctx = C.push_scope ctx "impl" in

@@ -19,8 +19,336 @@
 
 (* Abbreviations *)
 module I = LustreIdent
+module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
+
+module SVS = StateVar.StateVarSet 
+
+
+(* Initially empty node for slicing *)
+let slice_all_of_node 
+    { N.name; 
+      N.inputs; 
+      N.oracles; 
+      N.outputs; 
+      N.observers; 
+      N.props; 
+      N.contracts; 
+      N.is_main } = 
+
+  (* Copy of the node with the same signature, but without local
+     variables, equations, assertions and node calls. Keep signature,
+     properties, contracts and main annotation *)
+  { N.name; 
+    N.inputs;
+    N.oracles; 
+    N.outputs; 
+    N.observers; 
+    N.locals = [];
+    N.equations = [];
+    N.calls = [];
+    N.asserts = [];
+    N.props;
+    N.contracts;
+    N.is_main }
+
+
+(* Reduce nodes to cone of influence
+
+   [roots] are state variables at the root of a cone of influence,
+   [leaves] are state variables not to be explored, because their
+   dependents are either not relevant, or already visited *)
+let rec slice_nodes init_slicing_of_node nodes accum = function 
+
+  (* All nodes are sliced and in the accumulator *)
+  | [] -> accum
+
+  (* Node is sliced to all equations *)
+  | ([], leaves, node_sliced, node_unsliced) :: ntl -> node_sliced :: accum
+
+
+  (* Root is a leaf, that is no dependencies have to be added *)
+  | (state_var :: roots_tl, leaves, node_sliced, node_unsliced) :: tl 
+    when List.mem state_var leaves -> 
+
+    slice_nodes
+      init_slicing_of_node
+      nodes
+      accum
+      ((roots_tl, leaves, node_sliced, node_unsliced) :: tl)
+
+  (* Root is not a leaf, need to add all dependencies *)
+  | (state_var :: roots', 
+     leaves, 
+     ({ N.equations = equations';
+        N.asserts = asserts';
+        N.calls = calls';
+        N.locals = locals' } as node_sliced),
+     ({ N.equations; 
+        N.asserts;
+        N.calls;
+        N.locals } as node_unsliced)) :: tl as l -> 
+
+    try 
+
+      (* State variable is an output or an observer of a called node
+         that is not already sliced? *)
+      let { N.call_node_name } =
+        List.find
+          (function { N.call_node_name; N.call_outputs; N.call_observers } ->
+
+            (* Called node is not already sliced? *)
+            (not (N.exists_node_of_name call_node_name accum)
+
+             &&
+
+             (* State variable is an output of the called node? *)
+             (LustreIndex.exists
+                (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                call_outputs
+
+              || 
+
+              (* State variable is an observer of the called node? *)
+              List.exists 
+                (StateVar.equal_state_vars state_var)
+                call_observers)))
+          calls
+      in
+
+      (* Get called node by name *)
+      let node = N.node_of_name call_node_name nodes in
+
+      (* Slice called node first, then return to this node *)
+      slice_nodes
+        init_slicing_of_node
+        nodes
+        accum
+        (init_slicing_of_node node :: l)
+
+    (* State variable is not defined by a node call *)
+    with Not_found -> 
+
+      (* Equations with defintion of variable added, and new roots
+         from dependencies of equation *)
+      let equations', roots' = 
+
+        try 
+
+          (* Get equation defining variable *)
+          let (_, _, expr) as eq = 
+            List.find 
+              (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+              equations
+          in
+
+          (* Add state variables occurring in equation as roots *)
+          let roots' = 
+            (E.state_vars_of_expr expr |> SVS.elements) @ roots'
+          in
+
+          (* Add equation to sliced node *)
+          let equations' = eq :: equations' in 
+
+          (* Continue with modified equations and roots *)
+          equations', roots'
+
+        (* State variable is not defined in an equation *)
+        with Not_found -> equations', roots'
+
+      in
+
+      (* Node calls with call returning state variable added, and new
+         roots from dependencies of node call *)
+      let calls', roots' = 
+
+        try
+
+          (* Get node call defining state variable *)
+          let 
+
+            { N.call_clock; 
+              N.call_inputs; 
+              N.call_oracles; 
+              N.call_defaults } as node_call =
+
+            List.find
+
+              (function { N.call_node_name; N.call_outputs; N.call_observers } ->
+
+                (* State variable is an output of the called node *)
+                (LustreIndex.exists
+                   (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                   call_outputs
+                 || 
+
+                 (* State variable is an observer of the called node *)
+                 List.exists 
+                   (StateVar.equal_state_vars state_var)
+                   call_observers))
+              calls
+          in
+
+          (* Add node call to sliced node *)
+          let calls' = node_call :: calls' in
+
+          (* Add dependencies from defaults as roots *)
+          let roots' =
+            D.fold
+              (fun _ e a -> 
+                 (E.state_vars_of_expr e |> SVS.elements) @ a) 
+              call_defaults
+              roots'
+          in
+
+          (* Add inputs, oracles and clock as roots *)
+          let roots' = 
+
+            (* Need dependecies of inputs to node call *)
+            D.values call_inputs @ 
+
+            (* Need dependencies of oracles *)
+            call_oracles @ 
+
+            (* Need dependencies of clock if condact *)
+            (match call_clock with
+              | None -> roots'
+              | Some c -> c :: roots')
+
+          in
+
+          (* Continue with modified calls and roots *)
+          calls', roots' 
+
+        with Not_found -> calls', roots' 
+
+      in
+
+      (* Add all assertions containing the state variable to sliced
+         node, and all state variables in those assertion as roots *)
+      let asserts', roots' = 
+
+        List.fold_left
+
+          (fun (a, r) e -> 
+
+             (* Get state variables in assertion *)
+             let s = E.state_vars_of_expr e in
+
+             (* Assertion contains state variable? *)
+             if SVS.mem state_var s then
+
+               (* Add expression to assertions and state variable in
+                  expression to roots *)
+               (e :: a, SVS.elements s @ r)
+
+             else
+
+               (* Skip assertion and keep roots *)
+               (a, r))
+
+          (asserts', roots')
+
+          asserts
+      in
+
+      let locals' = 
+
+        if 
+
+          (* State variable is already a local variable of the sliced node? *)
+          List.exists
+            (D.exists (fun _ sv -> StateVar.equal_state_vars sv state_var))
+            locals
+
+        then
+          
+          (* Do not add twice as local variable *)
+          locals'
+            
+        else
+
+          try 
+
+            (* State variable is a local variable in the unsliced node? *)
+            let l = 
+              List.find 
+                (D.exists (fun _ sv -> StateVar.equal_state_vars sv state_var))
+                locals
+            in
+
+            (* Add all state variables related by an index to this state
+               variable as local variables, but do not add them as
+               roots *)
+            l :: locals'
+
+          (* State variable must be an input, oracle, output or
+             observer, which are preserved in the sliced node. It is
+             already declared there. *)
+          with Not_found -> locals' 
+
+      in
+
+      (* Modify slicecd node *)
+      let node_sliced' =
+        { node_sliced with
+            N.locals = locals';
+            N.equations = equations';
+            N.asserts = asserts';
+            N.calls = calls' } 
+      in
+
+      (* Continue with modified sliced node and roots *)
+      slice_nodes
+        init_slicing_of_node
+        nodes
+        accum
+        ((roots', leaves, node_sliced', node_unsliced) :: tl)
+
+
+
+(* TODO: Slicing to contract version need to look at one node at a
+   time only, calls of the node are not relevant. *)
+
+
+let slice_to_contract =   
+
+  let init_slicing_of_node
+      ({ N.inputs; 
+         N.oracles; 
+         N.outputs; 
+         N.observers; 
+         N.contracts; 
+         N.props } as node) = 
+
+    (* Slice everything from node *)
+    let node_sliced = slice_all_of_node node in
+    
+    (* Get roots and leaves of called node *)
+    let node_roots, node_leaves = roots_and_leaves_of_node node_unsliced in
+    
+    ()
+
+  in
+
+  
+  (node_roots, node_leaves, node_sliced, node_unsliced) 
+
+  slice_nodes
+    init_slicing_of_node
+    nodes
+    []
+    
+
+
+
+(*
+
+
+
+
+
 
 (* Calculate dependencies of variables *)
 let rec node_var_dependencies nodes node accum = 
@@ -1007,7 +1335,7 @@ let reduce_to_props_coi nodes main_name =
   *)    
       reduce_to_coi nodes main_name props'
         
-
+*)
 
 (* 
    Local Variables:

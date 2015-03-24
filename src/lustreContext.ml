@@ -961,7 +961,14 @@ let observer_of_state_var ({ node } as ctx) state_var =
       then 
 
         (* Don't make inputs observers *)
-        raise (Invalid_argument "observer_of_state_var")
+        let state_var', ctx = 
+          mk_state_var_for_expr 
+            ctx 
+            add_state_var_to_observers
+            (E.mk_var state_var E.base_clock)
+        in
+
+        (state_var', ctx)
 
       else if 
 
@@ -978,7 +985,7 @@ let observer_of_state_var ({ node } as ctx) state_var =
       then
 
         (* Keep state variable as output or observer *)
-        ctx
+        (state_var, ctx)
 
       else
 
@@ -1014,7 +1021,7 @@ let observer_of_state_var ({ node } as ctx) state_var =
         in
 
         (* Return changed context *)
-        ctx
+        (state_var, ctx)
 
 
 (* Return the node of the given name from the context*)
@@ -1293,11 +1300,11 @@ let add_node_property ctx source expr =
           let state_var = E.state_var_of_expr expr in
 
           (* Make state variable an observer *)
-          let ctx = observer_of_state_var ctx state_var in
+          let (state_var', ctx) = observer_of_state_var ctx state_var in
 
           (* Return changed context and state variable of
                expression *)
-            (state_var, ctx)
+            (state_var', ctx)
 
         else
 
@@ -1329,19 +1336,19 @@ let add_node_property ctx source expr =
 
 (* Add state var as observer if it has to be lifted as a property,
    otherwise as a local variable *)
-let lift_if_property pos ctx state_var = 
+let lift_if_property pos ctx node_props state_var = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "lift_if_property")
 
-    | { node = Some ({ N.name; N.props } as node) } -> 
+    | { node = Some { N.name } } -> 
 
 
       try 
 
         (* Find source of property *)
-        (match List.assq state_var props with
+        (match List.assq state_var node_props with
 
           (* Properties to lift to the calling node *)
           | TermLib.Generated _
@@ -1349,33 +1356,38 @@ let lift_if_property pos ctx state_var =
           | TermLib.PropAnnot _ -> 
 
             (* Fresh observer for the property *)
-            let sv', ctx = 
+            let state_var', ctx = 
               mk_fresh_observer
                 ctx
                 (StateVar.type_of_state_var state_var) 
             in
 
+            Format.printf
+              "Lifting %a as %a@."
+              StateVar.pp_print_state_var state_var
+              StateVar.pp_print_state_var state_var';
+
             (* Mark relatation between state variable and instance *)
-            N.set_state_var_instance sv' pos name state_var;
+            N.set_state_var_instance state_var' pos name state_var;
 
             (* Source for instantiated property *)
             let prop_source = 
               TermLib.Instantiated
                 ([(I.string_of_ident false) name], 
-                 StateVar.name_of_state_var state_var,
+                 StateVar.name_of_state_var state_var',
                  pos)
             in
 
             (* Add as property to node *)
             let ctx = 
-              { ctx with 
-                  node = Some { node 
-                                with N.props = 
-                                       (state_var, prop_source) :: props } }
+              add_node_property 
+                ctx 
+                prop_source 
+                (E.mk_var state_var' E.base_clock)
             in
 
             (* Return modified context and lifted state variable *)
-            (ctx, sv')
+            (ctx, state_var')
 
           (* Don't lift other properties *)
           | _ -> raise Not_found)
@@ -1388,17 +1400,22 @@ let lift_if_property pos ctx state_var =
           StateVar.pp_print_state_var state_var;
 
         (* Fresh local variable, not lifted as observer *)
-        let sv', ctx = 
+        let state_var', ctx = 
           mk_fresh_local
             ctx
             (StateVar.type_of_state_var state_var) 
         in
 
+        Format.printf
+          "Lifting %a as %a@."
+          StateVar.pp_print_state_var state_var
+          StateVar.pp_print_state_var state_var';
+
         (* Mark relatation between state variable and instance *)
-        N.set_state_var_instance sv' pos name state_var;
+        N.set_state_var_instance state_var' pos name state_var;
 
         (* Return modified context and lifted state variable *)
-        (ctx, sv')
+        (ctx, state_var')
 
 
 (* Add node assert to context *)
@@ -1508,7 +1525,6 @@ let add_node_call ctx node_call =
       { ctx with 
           node = Some { node with 
                           N.calls = node_call :: calls } }
-
 
 
 (* Create a node from the context *)

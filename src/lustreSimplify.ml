@@ -726,6 +726,7 @@ and eval_bool_ast_expr ctx pos expr =
 
       C.fail_at_position pos "Expression is not of Boolean type")
 
+
 (* Evaluate expression to an integer expression, which is not
    necessarily an integer literal. *)
 and static_int_of_ast_expr ctx pos expr = 
@@ -763,6 +764,7 @@ and static_int_of_ast_expr ctx pos expr =
 
       C.fail_at_position pos "Expression must be constant"
 
+
 (* Return the trie for the identifier *)
 and eval_ident ctx pos ident = 
 
@@ -791,6 +793,7 @@ and eval_nullary_expr ctx pos expr =
   (* Return expression with empty bounds and unchanged context *)
   (res, ctx)
 
+
 (* Evaluate the argument of a unary expression and construct a unary
    expression of the result with the given constructor *)
 and eval_unary_ast_expr ctx pos mk expr = 
@@ -811,6 +814,7 @@ and eval_unary_ast_expr ctx pos mk expr =
       C.fail_at_position
         pos
         "Type mismatch for expression"
+
 
 (* Evaluate the argument of a unary expression and construct a unary
    expression of the result with the given constructor *)
@@ -864,6 +868,7 @@ and eval_binary_ast_expr ctx pos mk expr1 expr2 =
 
   (res, ctx)
 
+
 (* Return the trie starting at the given index *)
 and eval_ast_projection ctx pos expr = function
 
@@ -896,6 +901,7 @@ and eval_ast_projection ctx pos expr = function
      operator *)
   | D.ListIndex _
   | D.ArrayVarIndex _ -> raise (Invalid_argument "eval_ast_projection")
+
 
 (* Return a trie with the outputs of a node call *)
 and eval_node_call ctx pos ident cond args defaults = 
@@ -1136,7 +1142,7 @@ and eval_node_call ctx pos ident cond args defaults =
       let ctx, observer_state_vars = 
         List.fold_left
           (fun (ctx, accum) sv -> 
-             let ctx, sv' = C.lift_if_property pos ctx sv in
+             let ctx, sv' = C.lift_if_property pos ctx node_props sv in
              (ctx, sv' :: accum))
           (ctx, [])
          node_observers
@@ -1146,7 +1152,7 @@ and eval_node_call ctx pos ident cond args defaults =
       let ctx, output_state_vars = 
         D.fold
           (fun i sv (ctx, accum) -> 
-             let ctx, sv' = C.lift_if_property pos ctx sv in
+             let ctx, sv' = C.lift_if_property pos ctx node_props sv in
              (ctx, D.add i sv' accum))
           node_outputs
           (ctx, D.empty)
@@ -1167,7 +1173,7 @@ and eval_node_call ctx pos ident cond args defaults =
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;
           N.call_outputs = output_state_vars;
-          N.call_observers = observer_state_vars;
+          N.call_observers = List.rev observer_state_vars;
           N.call_defaults = defaults } 
       in
 
@@ -1176,7 +1182,6 @@ and eval_node_call ctx pos ident cond args defaults =
 
       (* Return expression and changed context *)
       (res, ctx)
-
 
 
 (* ******************************************************************** *)

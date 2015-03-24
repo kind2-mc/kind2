@@ -112,7 +112,10 @@ type contract =
     contract_reqs : StateVar.t list;
 
     (* One observer for each ensures *)
-    contract_enss : StateVar.t list }
+    contract_enss : StateVar.t list;
+
+    (* One observer for the implication between requirements and ensures *)
+    contract_impl : StateVar.t }
 
 
 (* A Lustre node *)

@@ -139,7 +139,7 @@ val mk_fresh_oracle_for_state_var : t -> StateVar.t -> StateVar.t * t
 (** Create a fresh observer state variable in the context. *)
 val mk_fresh_observer : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
 
-val observer_of_state_var : t -> StateVar.t -> t
+val observer_of_state_var : t -> StateVar.t -> StateVar.t * t 
 
 (** Return the node of the given name from the context*)
 val node_of_name : t -> LustreIdent.t -> LustreNode.t
@@ -180,7 +180,7 @@ val add_node_assert : t -> LustreExpr.t -> t
 (** Add property to context *)
 val add_node_property : t -> TermLib.prop_source -> LustreExpr.t -> t
 
-val lift_if_property : Lib.position -> t -> StateVar.t -> (t * StateVar.t)
+val lift_if_property : Lib.position -> t -> (StateVar.t * TermLib.prop_source) list -> StateVar.t -> (t * StateVar.t)
 
 (** Add equation to context *)
 val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> LustreExpr.t -> t

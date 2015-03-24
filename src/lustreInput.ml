@@ -19,7 +19,15 @@
 open Lib
 
 module A = LustreAst
+
 module I = LustreIdent
+
+module N = LustreNode
+
+module C = LustreContext
+
+module D = LustreDeclarations
+
 
 (* Parse from input channel *)
 let of_channel keep_all_coi in_ch = 
@@ -53,7 +61,7 @@ let of_channel keep_all_coi in_ch =
   in
 
   (* Simplify declarations to a list of nodes *)
-  let nodes = LustreSimplify.declarations_to_nodes declarations in
+  let nodes = D.declarations_to_nodes declarations in
   
   (* Find main node by annotation *)
   let main_node = 
