@@ -3173,7 +3173,7 @@ let rec property_to_node
     expr =
 
   (* State variable for property and changed environment *)
-  let state_var, context', node', ({ new_vars } as abstractions') =
+  let state_var, context', node', abstractions' =
 
     if 
 
