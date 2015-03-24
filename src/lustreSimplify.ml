@@ -3180,6 +3180,16 @@ let rec property_to_node
       (* Property is a state variable at current offset? *)
       E.is_var expr
 
+      && 
+
+      let state_var = E.state_var_of_expr expr in
+      
+      (* State variable is an input? *)
+      not 
+        (List.exists
+           (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+           (node.N.inputs))
+
     then 
 
       (* State variable of expression *)
