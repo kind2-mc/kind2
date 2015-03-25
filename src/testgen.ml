@@ -16,23 +16,16 @@
 
 *)
 
-(** Conversion of a counterexample to a Lustre model 
+open Lib
 
-    @author Kevin Clancy, Christoph Sticksel *)
+module Strats = TestgenStrategies
 
-(** Output a counterexample as a Lustre execution in XML format *)
-val pp_print_path_xml :
-  LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
+(* let cex_to_inputs_csv nodes cex =
+   Format.printf
+      "@,cex:@,%a@,"
+      (LustrePath.pp_print_path_inputs_csv nodes true)
+      (Model.path_of_list cex) *)
 
-(** Output a counterexample as a Lustre execution as plain text with
-    pre-processing reverted *)
-val pp_print_path_pt :
-  LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
-
-(** Pretty-print the inputs of a path in csv:
-    <ident>,<type>,<value0>,<value1>,... *)
-val pp_print_path_inputs_csv :
-  LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
 
 (* 
    Local Variables:
