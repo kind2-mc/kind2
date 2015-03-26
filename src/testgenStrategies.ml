@@ -22,7 +22,7 @@ module Svar = StateVar
 type svar = Svar.t
 type actlit = svar
 type term = Term.t
-type model = Var.t * term
+type model = Model.t
 type k = Numeral.t
 
 
@@ -31,10 +31,10 @@ type k = Numeral.t
 (* Gathers the contracts, the actions a strategy can perform on the
    underlying smt solver used for test generation, and some data a
    strategy generates tests from. *)
-type data context = {
+type 'data context = {
 
-  (* Contracts of the system we are generating tests for. *)
-  contracts : (svar * string) list ;
+  (* System we are generating tests for. *)
+  sys : TransSys.t ;
 
   (* Asserts implications between some state variables --actlits--
      and some terms. Typically:
@@ -53,9 +53,19 @@ type data context = {
   trace_comment : string -> unit ;
 
   (* Strategy specific data. *)
-  data : data ;
+  data : 'data ;
 
 }
+
+(* Construction helper for [context]. *)
+let mk_context
+  data
+  sys actlit_implications checksat_getmodel trace_comment =
+{ sys = sys;
+  actlit_implications = actlit_implications ;
+  checksat_getmodel = checksat_getmodel ;
+  trace_comment = trace_comment ;
+  data = data ; }
 
 
 
@@ -77,6 +87,20 @@ let comment { trace_comment } = trace_comment
 
 
 
+(* |===| Counterexample to inputs csv. *)
+
+let cex_to_inputs_csv sys cex k = match TransSys.get_source sys with
+  | TransSys.Lustre nodes ->
+    let path =
+      Model.path_from_model (TransSys.state_vars sys) cex k
+    in
+    Format.printf
+      "  @[<v>%a@]@."
+      (LustrePath.pp_print_path_inputs_csv nodes true) path
+  (* Not supporting non lustre sources. *)
+  | _ -> assert false
+
+
 (* Signature for test generation strategies.
    The idea is let the strategy work on the solver ([work] function)
    using the actions on the solver given by an [actions] record.
@@ -92,10 +116,13 @@ module type Sig = sig
      test-case filename collisions. *)
   val prefix : string
 
+  (* The name of the strategy, used for logging. *)
+  val name : string
+
   (* Creates a context for this strategy. *)
   val mk_context :
-    (* Contracts. *)
-    (svar * string) list ->
+    (* Transition system. *)
+    TransSys.t ->
     (* Asserts actlit implications function. *)
     ( (actlit * term) list -> unit ) ->
     (* Checksat and get-model function. *)
@@ -116,6 +143,47 @@ module type Sig = sig
   val work : data context -> k -> bool
 
 end
+
+
+(* Dummy strategy module. *)
+module Dummy : Sig = struct
+
+  let prefix = "dummy"
+  let name = "dummy"
+
+  (* No data. *)
+  type data = unit
+
+  (* We'll just do nothing for 5 steps. *)
+  let five = Numeral.of_int(5)
+
+  (* Passing stuff to the context constructor helper. *)
+  let mk_context = mk_context ()
+
+  (* Stuttering's fine. *)
+  let no_stuttering = false
+
+  (* Dummy work function. *)
+  let work context k =
+
+    if Numeral.( k >= five )
+
+    then (
+      ( match model context [] with
+        | Some cex ->
+          Format.printf "@.Test case \\(^o^)/@." ;
+          cex_to_inputs_csv context.sys cex k
+        | None ->
+          Format.printf "No test case /(T_T)\\@." ) ;
+      true
+    )
+
+    else false
+
+end
+
+(* First class dummy strategy module. *)
+let dummy = (module Dummy : Sig)
 
 
 (* 

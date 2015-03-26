@@ -865,6 +865,7 @@ let pp_print_path_inputs_csv nodes start_at_init ppf model =
   let reconstructed =
     reduced_tree_path_of_model start_at_init nodes model
   in
+
   let N (_, _, stream_map, _) = reconstructed in
 
   (* Get all streams in the node. *)

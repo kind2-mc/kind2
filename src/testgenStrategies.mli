@@ -18,20 +18,13 @@
 
 open Lib
 
-module Svar = StateVar
-type StateVar.t = Svar.t
-type actlit = svar
-type term = Term.t
-type model = Var.t * term
-type k = Numeral.t
-
 
 
 
 (** Gathers the contracts, the actions a strategy can perform on the
     underlying smt solver used for test generation, and some data a
     strategy generates tests from. *)
-type data context
+type 'data context
 
 
 
@@ -51,14 +44,17 @@ module type Sig = sig
       test-case filename collisions. *)
   val prefix : string
 
+  (** Name of the strategy, for logging. *)
+  val name : string
+
   (** Creates a context for this strategy. *)
   val mk_context :
-    (** Contracts. *)
-    (StateVar.t * string) list ->
+    (** Transition system we are generating tests for. *)
+    TransSys.t ->
     (** Asserts actlit implications function. *)
-    ( (actlit * term) list -> unit ) ->
+    ( (StateVar.t * Term.t) list -> unit ) ->
     (** Checksat and get-model function. *)
-    ( actlit list -> model option ) ->
+    ( StateVar.t list -> Model.t option ) ->
     (** Trace comment function. *)
     ( string -> unit ) ->
     (** Result is a strategy-specific context. *)
@@ -72,9 +68,15 @@ module type Sig = sig
   (** Works on the k^th unrolling of the system. Returns [false] if
       the strategy is not done, i.e. its handler should unroll the
       system further and call this function again. *)
-  val work : data context -> k -> bool
+  val work : data context -> Numeral.t -> bool
 
 end
+
+
+(* |===| First class strategy modules. *)
+
+(** First class dummy strategy module. *)
+val dummy : (module Sig)
 
 
 (* 
