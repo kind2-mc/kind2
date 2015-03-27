@@ -863,27 +863,37 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     let _ = execute_command_no_response solver "(exit)" 0 in
 
-    (* Wait for process to terminate *)
-    let _, process_status = Unix.waitpid [] solver_pid in
+    ( try
 
-    (
+        (* Wait for process to terminate *)
+        let _, process_status = Unix.waitpid [] solver_pid in
 
-      (* Check termination status of solver *)
-      match process_status with
+        (
 
-      (* Exit with code *)
-      | Unix.WEXITED c -> 
-        (debug smt "Solver exited with code %d" c end)
+          (* Check termination status of solver *)
+          match process_status with
 
-      (* Killed by signal *)
-      | Unix.WSIGNALED s -> 
-        (debug smt "Solver killed with signal %d" s end)
+          (* Exit with code *)
+          | Unix.WEXITED c -> 
+            (debug smt "Solver exited with code %d" c end)
 
-      (* Stopped by signal *)
-      | Unix.WSTOPPED s -> 
-        (debug smt "Solver stopped by signal %d" s end)
+          (* Killed by signal *)
+          | Unix.WSIGNALED s -> 
+            (debug smt "Solver killed with signal %d" s end)
 
-    );
+          (* Stopped by signal *)
+          | Unix.WSTOPPED s -> 
+            (debug smt "Solver stopped by signal %d" s end)
+
+        )
+
+      with Unix.Unix_error(Unix.EINTR, _, _) ->
+        Event.log L_debug
+          "Solver did not exit, sigkilling it (%d)."
+          solver_pid ;
+        Unix.kill solver_pid Sys.sigkill ;
+        Unix.waitpid [] solver_pid |> ignore
+    ) ;
 
     (* Close file descriptors of solver *)
     Unix.close solver_stdin;
