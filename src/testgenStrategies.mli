@@ -47,28 +47,39 @@ module type Sig = sig
   (** Name of the strategy, for logging. *)
   val name : string
 
+  (** Returns true if the strategy requires succeeding input tuples
+      to be different. *)
+  val no_stuttering : bool
+
+  (** Returns true if the strategy requires subsystems to be abstracted. *)
+  val abstract_subsystems : bool
+
+
   (** Creates a context for this strategy. *)
   val mk_context :
     (** Transition system we are generating tests for. *)
     TransSys.t ->
+    (** Declares a UF. *)
+    ( UfSymbol.t -> unit ) ->
     (** Asserts actlit implications function. *)
-    ( (StateVar.t * Term.t) list -> unit ) ->
-    (** Checksat and get-model function. *)
-    ( StateVar.t list -> Model.t option ) ->
+    ( (UfSymbol.t * Term.t) list -> unit ) ->
+    (** Checksat and get-values function. *)
+    ( UfSymbol.t list -> Term.t list -> ((Term.t * Term.t) list) option ) ->
     (** Trace comment function. *)
     ( string -> unit ) ->
     (** Result is a strategy-specific context. *)
     data context
 
 
-  (** Returns true if the strategy requires succeeding input tuples
-      to be different. *)
-  val no_stuttering : bool
-
   (** Works on the k^th unrolling of the system. Returns [false] if
       the strategy is not done, i.e. its handler should unroll the
       system further and call this function again. *)
   val work : data context -> Numeral.t -> bool
+
+  (* Generates test cases using a get_model function. *)
+  val testcase_gen : data context -> (
+    UfSymbol.t list -> Model.t option
+  ) -> unit
 
 end
 

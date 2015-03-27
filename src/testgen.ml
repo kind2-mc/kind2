@@ -24,29 +24,39 @@ module Strats = TestgenStrategies
 (* Reference to the solver instance. *)
 let solver_ref = ref None
 
+(* Turns an actlit uf in a term. *)
+let term_of = Actlit.term_of_actlit
+
 
 
 (* |===| Functions for the context of the strategy. *)
+
+(* Declares a UF. *)
+let declare solver = S.declare_fun solver
 
 (* Builds actlit implications and asserts them. *)
 let actlit_implications solver = function
   | [] -> ()
   | impls -> impls |> List.map (
-      fun (sv, term) -> Term.mk_implies [
-        Var.mk_const_state_var sv |> Term.mk_var ; term
-      ]
+      fun (uf, term) -> Term.mk_implies [ term_of uf ; term ]
     ) |> List.iter (S.assert_term solver)
 
-(* Checksats and returns [Some] of the model if sat, [None]
+(* Checksats and returns [Some] of the values of [terms] if sat, [None]
    otherwise. *)
+let checksat_getvalues solver actlits terms =
+  S.check_sat_assuming
+    solver
+    ( fun () -> Some (S.get_term_values solver terms) )
+    ( fun () -> None )
+    ( actlits |> List.map ( fun uf -> term_of uf ) )
+
+(* Checksats and returns [Some] of the model if sat, [None] otherwise. *)
 let checksat_getmodel solver actlits =
   S.check_sat_assuming
     solver
     ( fun () -> Some (S.get_model solver) )
     ( fun () -> None )
-    ( actlits |> List.map (
-      fun sv -> Var.mk_const_state_var sv |> Term.mk_var
-    ) )
+    ( actlits |> List.map ( fun uf -> term_of uf ) )
 
 (* Prints a comment in the solver trace. *)
 let comment solver = S.trace_comment solver
@@ -106,8 +116,9 @@ let run_strategy sys strategy =
   let context =
     Strat.mk_context
       sys
+      (declare solver)
       (actlit_implications solver)
-      (checksat_getmodel solver)
+      (checksat_getvalues solver)
       (comment solver)
   in
 
@@ -150,6 +161,9 @@ let run_strategy sys strategy =
 
   (* Going to loop, starting at zero. *)
   let final_k = loop_strategy Numeral.zero in
+
+  (* Generating testcases. *)
+  checksat_getmodel solver |> Strat.testcase_gen context ;
 
   (* Deleting solver, resetting solver reference. *)
   delete_solver () ;
