@@ -494,6 +494,8 @@ let
       else if q then
         (if (0 -> pre r) > 0 then -1 else ((0 -> pre r)) - 1)
       else (0 -> pre r);
+      
+  --%PROPERTY (-2 <= r) and (r <= 2) ;
 
 tel;
 
@@ -612,12 +614,13 @@ let
   req_glb_R1_R4 =
     calendar(CLK1, CLK3, CLK2, CLK4) and
     (CLK1 or CLK2 or CLK3 or CLK4) ;
+  assert req_glb_R1_R4 ;
+  
   req_R2_R5 =
     quiescent(TS,CLK1,CLK2,CLK3,CLK4) ;
   req_R3 =
     true -> pre quiescent(TS,CLK1,CLK2,CLK3,CLK4) ;
   req =
-    req_glb_R1_R4 and
     ( req_R2_R5 or req_R3 ) ;
 
   ens_glb_R1_R4 =
