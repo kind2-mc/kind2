@@ -561,16 +561,26 @@ let
   ensure  LPFS = not RPFS ;
 tel
 
-contract PFS_contract_R3
+contract PFS_contract_R3_Left
   (TS, CLK1, CLK3, CLK2, CLK4 : bool)
 returns
   (LPFS, RPFS : bool) ;
 let
   require true -> pre quiescent(TS, CLK1, CLK2, CLK3, CLK4) ;
-  ensure  true -> (
-    (not pre LPFS and PRESSED_SEEN(TS, CLK1) => LPFS) and
-    (not pre RPFS and PRESSED_SEEN(TS, CLK3) => RPFS)
-  ) ;
+  require false -> not pre LPFS ;
+  require PRESSED_SEEN(TS, CLK1) ;
+  ensure LPFS ;
+tel
+
+contract PFS_contract_R3_Right
+  (TS, CLK1, CLK3, CLK2, CLK4 : bool)
+returns
+  (LPFS, RPFS : bool) ;
+let
+  require true -> pre quiescent(TS, CLK1, CLK2, CLK3, CLK4) ;
+  require false -> not pre RPFS ;
+  require PRESSED_SEEN(TS, CLK3) ;
+  ensure RPFS ;
 tel
 
 contract PFS_contract_R5
@@ -599,7 +609,8 @@ returns
 
 --@global_contract PFS_global_spec_R1_R4 ;
 --@contract PFS_contract_R2 ;
---@contract PFS_contract_R3 ;
+--@contract PFS_contract_R3_Left ;
+--@contract PFS_contract_R3_Right ;
 --@contract PFS_contract_R5 ;
 
 var
