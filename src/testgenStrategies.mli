@@ -89,6 +89,9 @@ end
 (** First class dummy strategy module. *)
 val dummy : (module Sig)
 
+(** First class unit mode switch module. *)
+val unit_mode_switch : (module Sig)
+
 
 (* 
    Local Variables:

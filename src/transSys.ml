@@ -63,7 +63,8 @@ type property =
 (* A contract of a transition system. *)
 type contract =
   | Global of position * StateVar.t * string
-  | Mode of position * StateVar.t * string
+  (* Last svar is for the requirement. *)
+  | Mode of position * StateVar.t * string * StateVar.t
     (* { (\* Name of the contract. *\) *)
     (*   name : string ; *)
     (*   (\* Source of the contract. *\) *)
@@ -79,12 +80,12 @@ type contract =
 let mk_global_contract pos svar name =
   Global (pos, svar, name)
 
-let mk_mode_contract pos svar name =
-  Mode (pos, svar, name)
+let mk_mode_contract pos svar name svar =
+  Mode (pos, svar, name, svar)
 
 let info_of_contract = function
   | Global (pos,svar,name) -> pos,svar,name
-  | Mode (pos,svar,name) -> pos,svar,name
+  | Mode (pos,svar,name,_) -> pos,svar,name
 
 let name_of_contract c =
   let _,_,name = info_of_contract c in
@@ -189,6 +190,27 @@ type t = {
   mutable abstraction: string list list ;
 
 }
+
+let mode_req_svars = function
+| { contracts = None } -> None
+| { contracts = Some (_,_,contracts) } ->
+  Some (contracts |> List.fold_left (fun l -> function
+    | Global _ -> l
+    | Mode (_,_,_,req_svar) -> req_svar :: l
+  ) [])
+
+let mode_names_of_req_svar = function
+| { contracts = None } -> (fun _ -> None)
+| { contracts = Some (_,_,contracts) } -> (fun svar ->
+  Some (
+    contracts |> List.fold_left (fun l -> function
+      | Global _ -> l
+      | Mode (_,_,name,sv) ->
+        if StateVar.equal_state_vars svar sv
+        then name :: l else l
+    ) []
+  )
+)
 
 (* The init flag of a system. *)
 let init_flag_of_trans_sys { scope } =
@@ -423,7 +445,7 @@ let pp_print_callers ppf (t, c) =
 let pp_print_contract ppf contract =
   let name, desc = match contract with
     | Global (_,_,n) -> n,"global"
-    | Mode (_,_,n) -> n,"mode"
+    | Mode (_,_,n,_) -> n,"mode"
   in
     
   Format.fprintf

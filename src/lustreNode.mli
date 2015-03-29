@@ -79,6 +79,7 @@ type contract =
   { name : LustreIdent.t ;
     pos : Lib.position ;
     svar : StateVar.t ;
+    req_svar : StateVar.t ;
     reqs : LustreExpr.t list ;
     enss : LustreExpr.t list }
 

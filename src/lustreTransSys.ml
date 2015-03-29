@@ -2160,11 +2160,12 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                       (I.string_of_ident true name) ] )
              @ ( modes
                  |> List.map
-                      (fun { N.name; N.pos; N.svar } ->
+                      (fun { N.name; N.pos; N.svar; N.req_svar } ->
                        TransSys.mk_mode_contract
                          pos
                          svar
-                         (I.string_of_ident true name) ) ) )
+                         (I.string_of_ident true name)
+                         req_svar ) ) )
       | _ -> assert false
     in
 

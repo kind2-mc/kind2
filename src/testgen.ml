@@ -83,6 +83,15 @@ let run_strategy sys strategy =
   (* Retrieving the strategy module. *)
   let module Strat = (val strategy : TestgenStrategies.Sig) in
 
+  let req_svars = match TransSys.mode_req_svars sys with
+    | None -> assert false
+    | Some svars -> svars
+  in
+
+  Format.printf
+    "Mode req svars: @[<v>%a@]@.@."
+    (pp_print_list StateVar.pp_print_state_var "@,") req_svars ;
+
   Format.printf
     "Starting run for strategy %s.@."
     Strat.name ;
@@ -176,7 +185,11 @@ let run_strategy sys strategy =
 
 let main sys =
 
-  run_strategy sys Strats.dummy ;
+  ( try
+      run_strategy sys Strats.unit_mode_switch
+    with e ->
+      delete_solver () ;
+      raise e ) ;
 
   Format.printf "@."
 

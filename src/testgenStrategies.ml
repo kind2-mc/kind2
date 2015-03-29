@@ -76,7 +76,7 @@ type 'data context = {
   trace_comment : string -> unit ;
 
   (* Strategy specific data. *)
-  data : 'data ;
+  mutable data : 'data ;
 
 }
 
@@ -239,10 +239,121 @@ let dummy = (module Dummy : Sig)
    - two succeeding pairs (k2, contracts2) and (k1, contracts1) represent
      the fact that contracts1 hold from k1 to k2 (exclusive), at which point
      contracts2 hold. *)
-type contract_testcase = (k * contract list) list
+type contract_testcase = (k * StateVar.t list) list
 
 (* A map from actlits to contract test cases. *)
-type contract_testcases = (actlit * contract_testcase) list
+type contract_testcases = (actlit * k * contract_testcase) list
+
+let pp_print_contract_testcase fmt testcase =
+  Format.fprintf
+    fmt
+    "@[<v>%a@]"
+    (pp_print_list
+      ( fun fmt (k,svar_list) ->
+        Format.fprintf
+          fmt "%a | %a"
+          Numeral.pp_print_numeral k
+          (pp_print_list StateVar.pp_print_state_var ", ")
+          svar_list )
+      "@,")
+    testcase
+
+let pp_print_contract_testcase_named sys fmt testcase =
+  Format.fprintf
+    fmt
+    "@[<v>%a@]"
+    (pp_print_list
+      (fun fmt (k,svars) ->
+        let names =
+          svars |> List.fold_left (fun l svar ->
+            match TransSys.mode_names_of_req_svar sys svar with
+            | None -> assert false
+            | Some l' -> l' @ l
+          ) []
+        in
+        Format.fprintf
+          fmt "%a | %a"
+          Numeral.pp_print_numeral k
+          (pp_print_list Format.pp_print_string ", ")
+          names)
+      "@,")
+    testcase
+
+let pp_print_contract_testcases fmt testcases =
+  Format.fprintf
+    fmt
+    "%a"
+    (pp_print_list
+      (fun fmt (actlit, k, testcase) ->
+        Format.fprintf
+          fmt "(%a) %a | @[<v>%a@]"
+          Numeral.pp_print_numeral k
+          UfSymbol.pp_print_uf_symbol actlit
+          pp_print_contract_testcase testcase)
+      "@,")
+    testcases
+
+let pp_print_contract_testcases_named sys fmt testcases =
+  Format.fprintf
+    fmt
+    "%a"
+    (pp_print_list
+      (fun fmt (actlit, k, testcase) ->
+        Format.fprintf
+          fmt "length: %a | @[<v>%a@]"
+          Numeral.pp_print_numeral k
+          (pp_print_contract_testcase_named sys) testcase)
+      "@,")
+    testcases
+
+
+let description_of_contract_testcase sys (_, k, trace) =
+  let names_of = List.fold_left
+    ( fun l svar -> match
+        TransSys.mode_names_of_req_svar sys svar
+      with
+      | None -> assert false
+      | Some names -> names @ l )
+    []
+  in
+  let pp_names fmt svars =
+    Format.fprintf
+      fmt "%a"
+      (pp_print_list Format.pp_print_string ", ")
+      (names_of svars)
+  in
+  let rec testcase_tail_to_strings res last_k = function
+    | [ (k,svars) ] when Numeral.(k = last_k) ->
+      ( ( Format.asprintf
+            "and at last step (%a), activates %a"
+            Numeral.pp_print_numeral k
+            pp_names svars )
+        :: res )
+      |> List.rev
+    | (k,svars) :: tail ->
+      testcase_tail_to_strings
+        ( ( Format.asprintf
+              "then at step %a, activates %a"
+              Numeral.pp_print_numeral k
+              pp_names svars )
+          :: res )
+        last_k
+        tail
+    | [] ->
+      ( ( Format.asprintf
+          "until the last step (%a)" 
+          Numeral.pp_print_numeral last_k )
+        :: res ) |> List.rev
+  in
+
+  match trace |> List.rev with
+  | [] -> assert false
+  | (head_k, head_svars) :: tail ->
+    assert Numeral.(head_k = zero) ;
+    ( Format.asprintf
+        "initial state: activates %a" pp_names head_svars ) ::
+    testcase_tail_to_strings [] k tail
+
 
 
 
@@ -255,9 +366,27 @@ let extend_contract_testcases ( {sys ; data} as context ) k =
   in
 
   (* Retrieving the contracts. *)
-  let contracts = [] in
+  let contracts = match TransSys.mode_req_svars sys with
+    | None -> assert false
+    | Some l -> l |> List.fold_left
+      ( fun l svar ->
+          if l |> List.exists ( fun (sv,_,_) -> StateVar.equal_state_vars svar sv )
+          then l
+          else
+            let term0 =
+              Var.mk_state_var_instance svar Numeral.zero |> Term.mk_var
+            in
+            let termk = term0 |> Term.bump_state k in
+            ( svar, term0, termk ) :: l )
+      []
+  in
+  let contracts_k = contracts |> List.map (fun (_,_,termk) -> termk) in
 
-  let contracts_k = [] in
+  let conj_of_contracts l =
+    l |> List.map (fun svar ->
+      Var.mk_state_var_instance svar k |> Term.mk_var
+    ) |> Term.mk_and
+  in
 
   (* Splits [branches] in the list of pairwise distince conjunctions of terms
      activable at the same time as [path_actlit].
@@ -266,14 +395,18 @@ let extend_contract_testcases ( {sys ; data} as context ) k =
      ([k]), and [path_actlit] activates a trace of contracts from [0] to [k-1].
      The function then returns the lists of branches that can be activated
      simultaneously from that trace at [k]. *)
-  let split path_actlit branches =
+  let split path_actlit =
 
-    (* Fresh actlit to activate the disjunction of the branches. *)
+    (* Fresh actlit to activate the disjunction of the contracts. *)
     let split_actlit = Actlit.fresh_actlit () in
+    Format.asprintf
+      "Declaring and constraining split actlit at %a."
+      Numeral.pp_print_numeral k
+    |> comment ;
     (* Declaring it. *)
     declare split_actlit ;
     (* Constraining it. *)
-    activate [ (split_actlit, Term.mk_or branches) ] ;
+    activate [ (split_actlit, Term.mk_or contracts_k) ] ;
 
     (* Extracts all the conjunction of branches it is possible to go to from
        [path_actlit]. *)
@@ -287,26 +420,28 @@ let extend_contract_testcases ( {sys ; data} as context ) k =
       (* Can split. *)
       | Some(values) ->
 
-        (* Filtering branches evaluating to true. *)
-        let active_branches = branches |> List.filter
-          ( fun branche ->
-            (* Bump at k. *)
-            let branche_k = Term.bump_state k branche in
-            (* Check the value. *)
-            List.assq branche_k values == Term.t_true )
+        (* Filtering contracts evaluating to true. *)
+        let active_contracts_svars, active_contracts_terms =
+          contracts |> List.fold_left
+            ( fun (l_svar, l_k) (svar,term0,termk) ->
+              (* Check the value. *)
+              if List.assq termk values == Term.t_true
+              then svar :: l_svar, termk :: l_k
+              else l_svar, l_k )
+            ( [], [] )
         in
 
         (* Should not be empty. *)
-        assert (active_branches <> []) ;
+        assert (active_contracts_svars <> []) ;
 
         (* Forbidding this conjunction of branches. *)
         activate [(
           split_actlit,
-          Term.mk_and active_branches |> Term.mk_not |> Term.bump_state k
+          Term.mk_and active_contracts_terms |> Term.mk_not
         )] ;
 
         (* Looping. *)
-        active_branches :: paths |> split_branches
+        active_contracts_svars :: paths |> split_branches
 
     in
 
@@ -315,35 +450,56 @@ let extend_contract_testcases ( {sys ; data} as context ) k =
   in
 
   (* Test case level version of [split]. *)
-  let split_testcase (actlit, path) =
+  let split_testcase (actlit, old_k, path) =
+
+    assert Numeral.( old_k + one = k ) ;
 
     (* Getting the new branches activable from this path. *)
-    let branches = split actlit contracts in
+    let branches = split actlit in
 
     (* Creating new test case(s). *)
     match path, branches with
 
     (* The branch is the one this testcase is already in. *)
     | (_, contracts) :: _, [ contracts' ]
-      when list_eq contracts contracts' ->
-      (* Not changing anything. *)
-      [ actlit, path ]
+      when list_eq contracts contracts' -> 
+      (* No need to constrain the actlit at this step, only one branch is
+         possible anyway. *)
+      [ actlit, k, path ]
 
     (* Only one branch, but the contracts are different. *)
     | _, [ contracts' ] ->
-      (* Recycling actlit and extending path. *)
-      [ actlit, (k, contracts') :: path ]
+      (* Keeping actlit and extending path. Only one branch is possible so no
+         need to constrain the actlit. *)
+      [ actlit, k, (k, contracts') :: path ]
 
     (* More than one branch. *)
-    | _, _ ->
-      branches
-      |> List.map (fun contracts ->
+    | path, _ ->
+      (* Need to create one new actlit per branch, activating the same path
+         than [actlit] and its own branch. *)
+      branches |> List.map (fun contracts ->
         (* Getting a fresh actlit for this branch. *)
         let actlit' = Actlit.fresh_actlit () in
+        comment "Declaring branch actlit." ;
+        (* Declaring it. *)
+        declare actlit' ;
+        Format.asprintf
+          "Activates the same path as %a."
+          UfSymbol.pp_print_uf_symbol actlit
+        |> comment ;
         (* It should activate the path so far. *)
         activate [ (actlit', term_of actlit) ] ;
-        (* New actlit and path pair. *)
-        actlit', (k, contracts) :: path
+        comment "Plus the following contract(s)." ;
+        (* And the contracts it corresponds to at this step. *)
+        activate [ (actlit', conj_of_contracts contracts) ] ;
+
+        match path with
+        | (_, contracts') :: _ when list_eq contracts' contracts ->
+          (* We are actually continuing the same path. *)
+          actlit', k, path
+        | _ ->
+          (* We are activating a new contract. *)
+          actlit', k, (k, contracts) :: path
       )
   in
 
@@ -352,7 +508,7 @@ let extend_contract_testcases ( {sys ; data} as context ) k =
       List.rev_append
         (split_testcase testcase)
         nu_data )
-    data
+    []
 
 
 (* Generates test cases activating different contracts of a system. *)
@@ -366,18 +522,49 @@ module Unit_ModeSwitch : Sig = struct
 
   type data = contract_testcases
 
-  let mk_context =
+  let mk_context sys declare activate get_values comment =
     (* We start with a fresh actlit for the empty path. *)
-    mk_context [ (Actlit.fresh_actlit (), []) ]
+    let empty_path_actlit = Actlit.fresh_actlit () in
+    (* Declaring it. *)
+    comment "Declaring first actlit for empty path." ;
+    declare empty_path_actlit ;
 
-  let max_k = Numeral.of_int 10
+    mk_context
+      [ (empty_path_actlit, Numeral.(~- one), []) ]
+      sys declare activate get_values comment
 
-
+  let max_k = Numeral.of_int 5
 
   let work context k =
+
+    let extended_data = extend_contract_testcases context k in
+    context.data <- extended_data ;
+
+    Format.printf
+      "Testcase(s) at %a:@.  @[<v>%a@]@.@."
+      Numeral.pp_print_numeral k
+      (pp_print_contract_testcases_named context.sys) extended_data ;
+
     Numeral.( k >= max_k )
 
-  let testcase_gen _ _ = ()
+  let testcase_gen context get_model =
+    context.data |> List.iter (fun ( (actlit,k,testcase) as tc) ->
+      match get_model [ actlit ] with
+      | None -> assert false
+      | Some model ->
+        (* Format.printf
+          "Test case of length %a activating@. @[<v>%a@]@."
+          Numeral.pp_print_numeral k
+          (pp_print_contract_testcase_named context.sys) testcase ;
+        Format.printf "is@." ; *)
+        Format.printf "Test case description:@." ;
+        description_of_contract_testcase context.sys tc
+        |> List.iter (Format.printf "  %a@." Format.pp_print_string) ;
+        Format.printf "Inputs:@." ;
+        cex_to_inputs_csv context.sys model k ;
+        Format.printf "@." ;
+    )
+
 
 end
 

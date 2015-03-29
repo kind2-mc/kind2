@@ -70,7 +70,7 @@ val mk_global_contract :
   Lib.position -> StateVar.t -> string -> contract
 
 val mk_mode_contract :
-  Lib.position -> StateVar.t -> string -> contract
+  Lib.position -> StateVar.t -> string -> StateVar.t -> contract
 
 (** The transition system 
 
@@ -233,6 +233,9 @@ val declare_vars_of_bounds :
 
 (** The init flag of a transition system, as a [Var]. *)
 val init_flag_of_trans_sys : t -> Numeral.t -> Var.t
+
+val mode_req_svars : t -> StateVar.t list option
+val mode_names_of_req_svar : t -> StateVar.t -> string list option
 
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : t -> Numeral.t -> Term.t

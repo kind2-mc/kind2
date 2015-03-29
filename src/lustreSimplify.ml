@@ -3417,17 +3417,28 @@ and contract_spec_to_node
             (fun (sv,m,_) -> (sv,m))
      in
 
+     Format.printf "Node: @[<v>%a@]@." (N.pp_print_node true) node ;
+
+       Format.printf
+        "Abstractions': %a@."
+        pp_print_abstraction_context abstractions ;
+
      (* Add declaration of every state variable to observers if not
-        already an output *)
+        already an output or an observer. *)
      let node_observers =
        req :: modes'
        |> List.fold_left
             ( fun observers (svar,_) ->
               (* Is the state variable already an output? *)
-              if node.N.outputs
-                 |> List.exists
+              if ( node.N.outputs
+                   |> List.exists
                       ( fun (sv, _) ->
                         StateVar.equal_state_vars sv svar )
+                 ) || (
+                  node.N.observers |> List.exists (
+                    fun sv -> StateVar.equal_state_vars sv svar
+                  )
+                 )
               then
                 (* State variable is already an output. *)
                 observers
@@ -3459,6 +3470,7 @@ and contract_spec_to_node
           Some { N.name = ident ;
                  N.pos = position ;
                  N.svar = svar_of_ident ident ;
+                 N.req_svar = svar_of_ident ident ;
                  N.reqs = reqs ;
                  N.enss = enss }
      in
@@ -3467,10 +3479,11 @@ and contract_spec_to_node
      let mode_contracts =
        mode_contracts
        |> List.map
-            ( fun (pos,id,reqs,enss) ->
+            ( fun (pos,id,reqs,enss,req_svar) ->
               { N.name = id ;
                 N.pos = pos ;
                 N.svar = svar_of_ident id ;
+                N.req_svar = req_svar ;
                 N.reqs = reqs ;
                 N.enss = enss } )
      in
@@ -3513,6 +3526,10 @@ and contract_spec_to_node
      let node =
        { node with N.contract_spec = Some contract_spec }
      in
+
+       Format.printf
+        "Abstractions'': %a@."
+        pp_print_abstraction_context abstractions ;
 
      (* Returning new stuff. *)
      (context, node, abstractions)
@@ -4093,8 +4110,43 @@ let parse_node_contract_spec
             ([expr], expr, abstraction)
   in
 
+  (* Handling the requirement [req] first. *)
+  let to_state_variable
+    context node ( {mk_state_var_for_expr ; new_vars} as abstractions ) expr =
+    
+    (* Is the expression a state variable at current offset? *)
+    if E.is_var expr
+    then
+      (* State variable of the expression. *)
+      E.state_var_of_expr expr,
+      (* No abstraction necessary. *)
+      context, node, abstractions
+    else
+      (* State variable of abstraction variable. *)
+      let state_var, new_vars =
+        mk_state_var_for_expr false new_vars expr
+      in
+      (* State variable is a locally abstracted variable. *)
+      E.set_state_var_source state_var E.Abstract ;
+
+      (* Add definition of abstraction variable to node. *)
+      let context, node, abstraction =
+        equation_to_node
+          context
+          node
+          abstractions
+          node_pos
+          (state_var, expr)
+      in
+      (* Returning state variable and updated things. *)
+      state_var, context, node, {
+          abstraction with new_vars = new_vars
+      }
+
+  in
+
   let rec formulas_of_modes
-            abstractions modes reqs impls = function
+            context abstractions node modes reqs impls = function
     | (A.InlinedContract (pos,ident,reqs',enss') as contract)
       :: tail ->
 
@@ -4106,9 +4158,38 @@ let parse_node_contract_spec
          list_to_conj false abstractions enss'
        in
 
+       let req_svar, context, node, abstractions =
+        to_state_variable context node abstractions req
+       in
+
+       let req = E.mk_var req_svar E.base_clock in
+
+       Format.printf
+        "Abstractions: %a@."
+        pp_print_abstraction_context abstractions ;
+
+       (* Add declaration to observers if not already an output. *)
+       let observers =
+        if ( node.N.outputs
+            |> List.exists (fun (sv,_) ->
+              StateVar.equal_state_vars sv req_svar
+          )) || (
+                  node.N.observers |> List.exists (
+                    fun sv -> StateVar.equal_state_vars sv req_svar
+                  ))
+        then node.N.observers
+        else req_svar :: (List.rev node.N.observers) |> List.rev
+       in
+       (* Remove declarations from locals. *)
+       let locals = node.N.locals |> List.filter
+        ( fun (sv,_) -> StateVar.equal_state_vars sv req_svar |> not )
+       in
+
        formulas_of_modes
+        context
          abstractions
-         ( (pos,ident,req_exprs,ens_exprs) :: modes )
+         { node with N.observers = observers ; N.locals = locals }
+         ( (pos,ident,req_exprs,ens_exprs,req_svar) :: modes )
          ( req :: reqs )
          ( (E.mk_impl req ens, contract)
            :: impls )
@@ -4132,7 +4213,7 @@ let parse_node_contract_spec
                  req
                  tail),
        impls,
-       abstractions
+       context, abstractions, node
   in
 
   function
@@ -4143,9 +4224,9 @@ let parse_node_contract_spec
 
   (* Only modes. *)
   | Some (A.Modes modes) ->
-     let modes, req, impls, abstractions =
+     let modes, req, impls, context, abstractions, node =
        formulas_of_modes
-         empty_abstractions [] [] [] modes
+         context empty_abstractions node [] [] [] modes
      in
 
      (* Updating node with contract spec. *)
@@ -4163,9 +4244,9 @@ let parse_node_contract_spec
   | Some (A.GlobalAndModes
             ((A.InlinedContract(pos,id,reqs,enss) as global),
              modes)) ->
-     let modes, mode_req, mode_impls, abstractions =
+     let modes, mode_req, mode_impls, context, abstractions, node =
        formulas_of_modes
-         empty_abstractions [] [] [] modes
+         context empty_abstractions node [] [] [] modes
      in
 
      let global_req_exprs, global_req, abstractions =
@@ -4365,6 +4446,9 @@ let parse_node
       node
       contract
   in
+
+  Format.printf
+    "Node out: @[<v>%a@]@." (N.pp_print_node true) node ;
 
   (* Parse local declarations, add to local context and node context *)
   let local_context, node = 

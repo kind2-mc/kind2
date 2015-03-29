@@ -103,6 +103,7 @@ type contract =
   { name : I.t ;
     pos: position ;
     svar: StateVar.t ;
+    req_svar: StateVar.t ;
     reqs : E.t list ;
     enss : E.t list ; }
 
