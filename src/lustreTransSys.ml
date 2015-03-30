@@ -1865,7 +1865,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let trans_sys = 
       TransSys.mk_trans_sys 
         (I.scope_of_ident node_name)
-        (inputs @ oracles @ outputs @ observers @ locals)
+        (TransSys.init_flag_svar ::
+         inputs @ oracles @ outputs @ observers @ locals)
         pred_def_init
         pred_def_trans
         called_trans_sys

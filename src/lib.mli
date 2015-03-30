@@ -333,9 +333,18 @@ val pp_print_position : Format.formatter -> position -> unit
     position *)
 val file_row_col_of_pos : position -> string * int * int
 
+(** Inverse of {!file_row_col_of_pos} *)
+val pos_of_file_row_col : string * int * int -> position
+
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
- 
+
+(** Extract scope from a concatenated name *)
+val extract_scope_name : string -> string * string list
+
+(* Create a directory if it does not already exists. *)
+val create_dir : string -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

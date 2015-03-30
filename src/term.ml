@@ -768,6 +768,17 @@ let import = T.import
 (* Import a term from a different instance into this hashcons table *)
 let import_lambda = T.import_lambda 
 
+
+(* Returns true if the lamda expression is the identity, i.e. lambda x.x *)
+let is_lambda_identity l =
+  try
+    let v = Var.mk_fresh_var Type.t_bool in
+    let tv = mk_var v in
+    let lv = eval_lambda l [tv] in
+    equal tv lv
+  with Invalid_argument _ -> false
+
+
 (* Flatten top node of term *)
 let construct = T.construct
 

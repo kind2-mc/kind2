@@ -293,7 +293,7 @@ let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
 
 
 let pp_print_term ppf t =
-  Term.T.pp_print_term_w pp_print_symbol ppf t
+  Term.T.pp_print_term_w pp_print_symbol Var.pp_print_var ppf t
         
     
 (* Pretty-print an expression *)

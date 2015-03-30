@@ -1206,6 +1206,35 @@ let file_row_col_of_pos = function
   | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
 
 
+let pos_of_file_row_col (pos_fname, pos_lnum, pos_cnum) =
+  { pos_fname; pos_lnum; pos_cnum }
+
+
+(* Split a string at its first dot. Raises {Not_found} if there are not dots *)
+let split_dot s =
+  let open String in
+  let n = (index s '.') in
+  sub s 0 n, sub s (n+1) (length s - n - 1)
+
+
+(* Extract scope from a concatenated name *)
+let extract_scope_name name =
+
+  let rec loop s scope =
+    try
+      let next_scope, s' = split_dot s in
+      loop s' (next_scope :: scope)
+    with Not_found -> s, List.rev scope
+  in
+  loop name []
+
+
+
+(* Create a directory if it does not already exists. *)
+let create_dir dir =
+  try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
+  with Sys_error _ -> Unix.mkdir dir 0o755
+
 
 (* 
    Local Variables:

@@ -84,7 +84,8 @@ val mk_trans_sys :
   t
 
 (** Add entry for new system instantiation to the transition system *)
-val add_caller : t -> t -> (StateVar.t * StateVar.t) list * (Term.t -> Term.t) -> unit
+val add_caller : t -> t ->
+  (StateVar.t * StateVar.t) list * (Term.t -> Term.t) -> unit
 
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
@@ -206,6 +207,10 @@ val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t
 (** The list of invariants and valid properties at zero. *)
 val get_invars : t -> Term.t list
 
+(** The list of callers of this system *)
+val get_callers : t ->
+  (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t)) list)) list
+
 (** Return uninterpreted function symbols to be declared in the SMT
     solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
@@ -236,6 +241,9 @@ val get_properties : t -> (string * Term.t * prop_status) list
 
 (** Return invariants with their certificates *)
 val get_invariants : t -> (Term.t * Certificate.t) list
+
+(** Return current status of all properties *)
+val get_properties : t -> (string * TermLib.prop_source * Term.t) list
 
 (** Return current status of all properties *)
 val get_prop_status_all : t -> (string * prop_status) list
