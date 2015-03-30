@@ -525,7 +525,7 @@ let pp_print_prop_source ppf = function
     Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
 
 
-let pp_print_property ppf (prop_name, prop_source, prop_term) = 
+let pp_print_property ppf (prop_name, prop_source, prop_term, _) = 
   Format.fprintf 
     ppf
     "@[<hv 1>(%s@ %a@ %a)@]"

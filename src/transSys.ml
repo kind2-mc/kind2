@@ -922,18 +922,12 @@ let add_scoped_invariant t scope invar certif =
 (* Add an invariant to the transition system *)
 let add_invariant t invar certif = add_scoped_invariant t t.scope invar certif
 
-
-let get_properties t =
-  List.map (fun {prop_name; prop_term; prop_status} ->
-      prop_name, prop_term, prop_status)
-    t.properties
-
 let get_invariants t = t.invars
 
 (* Return all properties *)
 let get_properties t =
-  List.map (fun {prop_name; prop_source; prop_term} ->
-      (prop_name, prop_source, prop_term))
+  List.map (fun {prop_name; prop_source; prop_term; prop_status} ->
+      (prop_name, prop_source, prop_term, prop_status))
     t.properties
 
 (* Return current status of all properties *)

@@ -242,8 +242,8 @@ let sexit fmt = fprintf fmt "@[<hv 1>(exit)@]@."
    system. *)
 let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
-      | p_name, _, _ ->
+      | _, _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
+      | p_name, _, _, _ ->
         Event.log L_fatal "[Warning] Skipping unproved property %s" p_name;
         acc
     ) ([], []) (TS.get_properties sys) in
