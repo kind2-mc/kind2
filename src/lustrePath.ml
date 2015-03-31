@@ -859,6 +859,61 @@ let pp_print_path_pt nodes start_at_init ppf model =
   pp_print_tree_path_pt ident_width val_width [] ppf reconstructed
 
 
+
+let add_call_number =
+  let h = Hashtbl.create 13 in
+  fun node_ident node_pos parents ->
+    let nb =
+      try Hashtbl.find h (node_ident, parents) + 1
+      with Not_found -> 0 in
+    Hashtbl.replace h (node_ident, parents) nb;
+    parents @ [node_ident, nb]
+  
+
+let rec reconstruct_lustre_streams_path parents nodes tree_path acc =
+
+  let N (node_ident, node_pos, stream_map, call_map) = tree_path in
+
+  let sv_parents = add_call_number node_ident node_pos parents in
+  
+  let acc =
+    SVMap.fold (fun sv a acc ->
+        match a.(0) with
+        | Model.Term t
+          when Term.is_free_var t ->
+          let v = Term.free_var_of_term t in
+          if Var.is_state_var_instance v then
+            let original_sv = Var.state_var_of_state_var_instance v in
+            let origs = try SVMap.find original_sv acc with Not_found -> [] in
+            SVMap.add original_sv ((sv, sv_parents) :: origs) acc
+          else acc
+        | _ -> acc
+        | exception Invalid_argument _ -> acc
+      ) stream_map acc
+  in
+
+  CallMap.fold (fun _ ->
+      reconstruct_lustre_streams_path sv_parents nodes) call_map acc
+
+
+    
+let reconstruct_lustre_streams nodes state_vars =
+
+  let model =
+    List.map (fun sv ->
+        let tv = Term.mk_var (Var.mk_state_var_instance sv Numeral.zero) in
+        sv, [tv]
+      ) state_vars
+    |> Model.path_of_term_list
+  in
+
+  let tree_path = reduced_tree_path_of_model false nodes model in
+  
+  reconstruct_lustre_streams_path [] nodes tree_path SVMap.empty
+
+  
+  
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

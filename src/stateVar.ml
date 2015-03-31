@@ -163,11 +163,13 @@ let uf_symbols_map = UfSymbol.UfSymbolHashtbl.create 41
 
 
 (* Pretty-print a scoped name of a state variable *)
-let pp_print_state_var_name ppf (n, s) = 
-  Format.fprintf ppf 
-    "%a.%s" 
-    (pp_print_list Format.pp_print_string ".") s
-    n
+let pp_print_state_var_name ppf (n, s) =
+  if s = [] then Format.fprintf ppf "%s" n
+  else
+    Format.fprintf ppf 
+      "%a.%s" 
+      (pp_print_list Format.pp_print_string ".") s
+      n
 
 (* Return a string representation of the name of a state variable *)
 let string_of_state_var_name (n, s) = 

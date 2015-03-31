@@ -73,7 +73,7 @@ let actlitify ?(imp=false) solver t =
   ta
 
 
-(* Transform unrolled state variables back to functions (that take na integer
+(* Transform unrolled state variables back to functions (that take an integer
    as argument) *)
 let roll sigma t =
 
@@ -1006,4 +1006,7 @@ let generate_certificate sys =
   Event.stat [Stat.certif_stats_title, Stat.certif_stats];
 
   (* Show which file contains the certificate *)
-  printf "Certificate was written in %s@." certificate_filename
+  printf "Certificate was written in %s@." certificate_filename;
+
+  (* Experimental stuffs *)
+  JkindParser.state_vars_path sys 

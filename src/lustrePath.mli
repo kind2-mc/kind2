@@ -20,12 +20,19 @@
 
     @author Kevin Clancy, Christoph Sticksel *)
 
+
 (** Output a counterexample as a Lustre execution in XML format *)
-val pp_print_path_xml : LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_xml :
+  LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a counterexample as a Lustre execution as plain text with
     pre-processing reverted *)
-val pp_print_path_pt : LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_pt :
+  LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
+
+val reconstruct_lustre_streams :
+  LustreNode.t list -> StateVar.t list ->
+  (StateVar.t * (LustreIdent.t * int) list) list StateVar.StateVarMap.t
 
 (* 
    Local Variables:
