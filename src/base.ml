@@ -98,8 +98,9 @@ let split trans solver k falsifiable to_split actlits =
     if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn
-        "BMC @[<v>Unrolling of the system is unsat at %a, \
+        "%s BMC @[<v>Unrolling of the system is unsat at %a, \
         the system has no more reachable states.@]"
+        warning_tag
         Numeral.pp_print_numeral k ;
       raise UnsatInitExc
     )
@@ -330,7 +331,7 @@ let init trans =
 
   (* Getting properties. *)
   let unknowns =
-    (TransSys.props_list_of_bound trans Numeral.zero)
+    TransSys.props_list_of_bound_unknown trans Numeral.zero
   in
 
   (* Creating solver. *)
@@ -377,8 +378,9 @@ let init trans =
     if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn
-        "BMC @[<v>Initial state is unsat, the system has no \
-         reachable states.@]" ;
+        "%s BMC @[<v>Initial state is unsat, the system has no \
+         reachable states.@]"
+         warning_tag ;
       raise UnsatInitExc
     )
   ) ;
@@ -398,7 +400,10 @@ let init trans =
 let main trans =
   try
     init trans |> next
-  with UnsatInitExc -> ()
+  with UnsatInitExc ->
+    TransSys.get_prop_status_all_unknown trans
+    |> List.iter
+      (fun (s,_) -> Event.prop_status TransSys.PropInvariant trans s)
 
 
 (* 

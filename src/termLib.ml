@@ -284,9 +284,10 @@ module Signals: sig
   (** Sets the handler for sigterm to ignore. *)
   val ignore_sigterm: unit -> unit
 
-  (** Sets the handler for sigalrm to [exception_on_signal] or raise
-      [TimeoutWall] depending on the flags. *)
-  val set_sigalrm: unit -> unit
+  (** Sets a timeout handler for sigalrm. *)
+  val set_sigalrm_timeout: unit -> unit
+  (** Sets an exception handler for sigalarm. *)
+  val set_sigalrm_exn: unit -> unit
   (** Sets an exception handler for sigint. *)
   val set_sigint: unit -> unit
   (** Sets an exception handler for sigquit. *)
@@ -420,51 +421,35 @@ end = struct
 
 
   (* Sets a handler for sigalrm. *)
-  let set_sigalrm () =
-    (* If there is a timeout, then raise [TimeoutWall]. Otherwise use
-       usual exeption thing. *)
-    let behavior, handler =
-      if Flags.timeout_wall () >  0. then
-	      (fun _ -> raise TimeoutWall), Timeout
-      else
-	      exception_on_signal, Exn
-    in
+  let set_sigalrm_timeout () =
+    signals.sigalrm <- Timeout ;
+    set_sig Sys.sigalrm (fun _ -> raise TimeoutWall)
 
-    (* Only changing if necessary. *)
-    if signals.sigalrm = handler then ()
-    else (
-      signals.sigalrm <- handler ;
-      set_sig Sys.sigalrm behavior
-    )
+
+  (* Sets a handler for sigalrm. *)
+  let set_sigalrm_exn () =
+    signals.sigalrm <- Exn ;
+    set_sig Sys.sigalrm exception_on_signal
 
   (* Sets a handler for sigint. *)
   let set_sigint () =
-    if signals.sigint = Exn then ()
-    else (
-      signals.sigint <- Exn ;
-      set_sig Sys.sigint exception_on_signal
-    )
+    signals.sigint <- Exn ;
+    set_sig Sys.sigint exception_on_signal
 
   (* Sets a handler for sigquit. *)
   let set_sigquit () =
-    if signals.sigquit = Exn then ()
-    else (
-      signals.sigquit <- Exn ;
-      set_sig Sys.sigquit exception_on_signal
-    )
+    signals.sigquit <- Exn ;
+    set_sig Sys.sigquit exception_on_signal
 
   (* Sets a handler for sigterm. *)
   let set_sigterm () =
-    if signals.sigterm = Exn then ()
-    else (
-      signals.sigterm <- Exn ;
-      set_sig Sys.sigterm exception_on_signal
-    )
+    signals.sigterm <- Exn ;
+    set_sig Sys.sigterm exception_on_signal
 
 
   (* Sets a timeout. *)
   let set_timeout_value ?(interval = 0.) value =
-    set_sigalrm () ;
+    set_sigalrm_timeout () ;
     (* Set timer. *)
     Unix.setitimer
       Unix.ITIMER_REAL
@@ -485,11 +470,9 @@ end = struct
 
   (* Deactivates timeout. *)
   let unset_timeout () =
-    if signals.timeout = None then ()
-    else (
-      signals.timeout <- None ;
-      set_timeout_value 0.
-    )
+    set_sigalrm_exn () ;
+    signals.timeout <- None ;
+    set_timeout_value 0.
 
   end
 

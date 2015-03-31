@@ -411,7 +411,7 @@ tel;
 node PFS
   (TS, LS_CLK, RS_CLK, LR_CLK, RL_CLK : bool) 
 returns 
-  (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
+  (LPFS, RPFS : bool) ;
 
 --@global_contract : global_R1_R4 ;
 --@require True_At_Least(TS, 7);
@@ -436,6 +436,8 @@ returns
 --@require Duration(not Initializing(LS_CLK, RS_CLK, LR_CLK, RL_CLK) and not Rise(TS)) > 25;
 --@ensure (not (Changed(RPFS) or Changed(LPFS)));
 
+var
+  LS_PFS, RS_PFS, RL_O, LR_O : bool ;
 let
 
   LS_PFS = 

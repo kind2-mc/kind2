@@ -42,6 +42,8 @@ val success_tag : string
 val failure_tag : string
 (** Error tag. *)
 val error_tag : string
+(** Warning tag. *)
+val warning_tag : string
 (** Interruption tag. *)
 val interruption_tag : string
 (** Done tag. *)

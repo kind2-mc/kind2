@@ -914,6 +914,17 @@ let props_list_of_bound_not_valid t i =
                        | _ -> true) )
     i
 
+(* Instantiate all properties to the bound *)
+let props_list_of_bound_unknown t i = 
+  named_terms_list_of_bound
+    ( t.properties
+      |> List.filter (function
+         | { prop_status = PropInvariant } -> false
+         | { prop_status = PropFalse _ } -> false
+         | _ -> true
+      ) )
+    i
+
 
 (* Instantiate all properties to the bound *)
 let props_of_bound t i = 
@@ -1279,10 +1290,19 @@ let set_prop_ktrue t k prop =
     with
     | Not_found ->
        Format.printf
-         "Trying to set [%s] true at %d on system [%s].@ "
+         "Trying to set [%s] true at %d on system [%s].@.  @[<v>%a@]@."
          prop
          k
-         (get_name t) ;
+         (get_name t)
+         (pp_print_list (fun ppf { prop_name ; prop_status } ->
+           Format.fprintf
+            ppf
+            "%s %a"
+            prop_name
+            pp_print_prop_status_pt
+            prop_status
+         ) "@," )
+         t.properties ;
        raise Not_found
   in
 

@@ -257,6 +257,9 @@ val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list
 (** Instantiate all not valid properties to the bound *)
 val props_list_of_bound_not_valid : t -> Numeral.t -> (string * Term.t) list 
 
+(** Instantiate all unknown properties to the bound *)
+val props_list_of_bound_unknown : t -> Numeral.t -> (string * Term.t) list 
+
 (** Get property by name *)
 val named_term_of_prop_name : t -> string -> Term.t
                                                
