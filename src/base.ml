@@ -22,6 +22,8 @@ open Actlit
 
 let solver_ref = ref None
 
+exception UnsatInitExc
+
 (* Output statistics *)
 let print_stats () = 
 
@@ -92,6 +94,17 @@ let split trans solver k falsifiable to_split actlits =
     None
   in
 
+  if Flags.bmc_check () then (
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "BMC @[<v>Unrolling of the system is unsat at %a, \
+        the system has no more reachable states.@]"
+        Numeral.pp_print_numeral k ;
+      raise UnsatInitExc
+    )
+  ) ;
+  
   (* Check sat assuming with actlits. *)
   SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
 
@@ -360,6 +373,16 @@ let init trans =
   |> SMTSolver.assert_term solver
   |> ignore ;
 
+  if Flags.bmc_check () then (
+    if SMTSolver.check_sat solver then (
+      Event.log
+        L_warn
+        "BMC @[<v>Initial state is unsat, the system has no \
+         reachable states.@]" ;
+      raise UnsatInitExc
+    )
+  ) ;
+
   (* Invariants if the system at 0. *)
   let invariants =
     TransSys.invars_of_bound trans Numeral.zero
@@ -373,7 +396,9 @@ let init trans =
 
 (* Runs the base instance. *)
 let main trans =
-  init trans |> next
+  try
+    init trans |> next
+  with UnsatInitExc -> ()
 
 
 (* 

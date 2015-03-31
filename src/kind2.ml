@@ -329,8 +329,8 @@ let lift_valids sys =
 
 let clean_up_sys sys =
   reset_props sys ;
-  reset_invariants sys ;
-  lift_valids sys
+  reset_invariants sys
+  (* lift_valids sys *)
 
 (* Prints final things. *)
 let print_final_things sys log =
