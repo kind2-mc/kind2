@@ -192,8 +192,6 @@ var
   bla: int ;
 let
 
-  -- MAIN ;
-
   assert (PFS = Primary_Side) -> true ;
 
   -- initial and reachable states
@@ -311,14 +309,6 @@ var
   
 let
 
---  assert TS ;
---  assert (not OSPF) ;
---  assert Primary_Side ;
-
---  --%PROPERTY PFS ;
-
-  --%MAIN ;
-
   PFSL_PFS =
     PFS_Logic(riseTS_O, riseOSPF_O, Primary_Side);
   
@@ -355,8 +345,6 @@ var
   stop_unreachable : bool;
 
 let
-
-  -- MAIN ;
 
   -- initial and reachable states
   assert (state = St_Start) -> true;
@@ -449,8 +437,6 @@ returns
 --@ensure (not (Changed(RPFS) or Changed(LPFS)));
 
 let
-
-  -- MAIN;
 
   LS_PFS = 
     condact(LS_CLK, PFS_Side(TS, RL_O, true), true);
