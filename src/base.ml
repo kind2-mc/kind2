@@ -374,7 +374,7 @@ let init trans =
   |> ignore ;
 
   if Flags.bmc_check () then (
-    if SMTSolver.check_sat solver then (
+    if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn
         "BMC @[<v>Initial state is unsat, the system has no \
