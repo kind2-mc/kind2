@@ -349,6 +349,8 @@ let print_final_things sys log =
   )
 
 let launch_analysis sys log msg_setup =
+  (* Set timeout if necessary. *)
+  set_timeout_from_flag () ;
   match
     Analysis.run sys log msg_setup (Flags.enable ())
   with

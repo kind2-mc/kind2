@@ -749,6 +749,9 @@ let run sys log msg_setup = function
          (* Going to message reception / termination checks. *)
          let outcome = polling_loop context in
 
+         (* Update log with remaining unknown / k-true props. *)
+         Log.close_log log sys ;
+
          (* Clean everything and exit analysis. *)
          let outcome = on_exit context outcome in
 
@@ -762,6 +765,9 @@ let run sys log msg_setup = function
 
        with
        | e ->
+
+          (* Update log with remaining unknown / k-true props. *)
+          Log.close_log log sys ;
 
           (* Reset timeout. *)
           unset_timeout () ;

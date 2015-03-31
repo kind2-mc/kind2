@@ -425,9 +425,9 @@ end = struct
        usual exeption thing. *)
     let behavior, handler =
       if Flags.timeout_wall () >  0. then
-	(fun _ -> raise TimeoutWall), Timeout
+	      (fun _ -> raise TimeoutWall), Timeout
       else
-	exception_on_signal, Exn
+	      exception_on_signal, Exn
     in
 
     (* Only changing if necessary. *)
@@ -464,6 +464,8 @@ end = struct
 
   (* Sets a timeout. *)
   let set_timeout_value ?(interval = 0.) value =
+    set_sigalrm () ;
+    (* Set timer. *)
     Unix.setitimer
       Unix.ITIMER_REAL
       { Unix.it_interval = interval ;
@@ -478,7 +480,10 @@ end = struct
   (* Sets a timeout based on the flag value. *)
   let set_timeout_from_flag () =
     if Flags.timeout_wall () > 0.
-    then Flags.timeout_wall () |> set_timeout else ()
+    then (
+      Format.printf "Setting timeout (%f).@.@." (Flags.timeout_wall ()) ;
+      Flags.timeout_wall () |> set_timeout
+    ) else ()
 
   (* Deactivates timeout. *)
   let unset_timeout () =

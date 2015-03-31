@@ -66,11 +66,13 @@ type prop_info =
   | PropsValid of (string list) * valid_props_info
   (** List of mutually valid properties. *)
 
-  | PropKTrue  of  string       * Numeral.t
+  | PropKTrue  of  string       * int
   (** A ktrue property. *)
 
   | PropFalse  of  string       * kind_module * Numeral.t
                                 * (StateVar.t * Model.term_or_lambda list) list
+
+  | PropUnknown of string
   (** A falsified property. *)
 
 (** Sublog on an abstraction for a system. *)
@@ -151,6 +153,9 @@ val add_abstraction_sublog:
     log. *)
 val add_prop_info:
   t -> TransSys.t -> prop_info -> unit
+
+(** Adds all unknown / k-true properties to the log. *)
+val close_log: t -> TransSys.t -> unit
 
 (** Updates a log from a list of events. *)
 val update_of_events:
