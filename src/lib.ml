@@ -44,7 +44,9 @@ let success_tag = tagify "Success"
 let failure_tag = tagify "Failure"
 (* Error tag. *)
 let error_tag = tagify "Error"
-(* Error tag. *)
+(* Warning tag. *)
+let warning_tag = tagify "Warning"
+(* Interruption tag. *)
 let interruption_tag = tagify "Interruption"
 (* Done tag. *)
 let done_tag = tagify "Done"

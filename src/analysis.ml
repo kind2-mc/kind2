@@ -360,6 +360,7 @@ let kill_all_kids t =
 
   (* Don't wait for termination from sigterm for more than one
      second. *)
+  set_sigalrm_timeout () ;
   set_timeout 0.3 ;
 
   ( try
@@ -367,7 +368,6 @@ let kill_all_kids t =
       termination_loop ()
     with
     (* Whatever happened, deactivate timeout. *)
-    | TimeoutWall -> ()
     | _ -> unset_timeout () ) ;
 
   (* Are some kids still alive? *)
@@ -448,7 +448,7 @@ let kill_all_kids t =
 let panic_exit exn =
   match !context_ref with
   | Some t when has_kids t ->
-     kill_all_kids t |> ignore
+     kill_all_kids t |> ignore ;
   | _ ->
      failwith "panic exit with no kids to kill"
 
@@ -762,6 +762,9 @@ let run sys log msg_setup = function
          (* Going to message reception / termination checks. *)
          let outcome = polling_loop context in
 
+         (* Reset timeout counter. *)
+         unset_timeout () ;
+
          (* Update log with remaining unknown / k-true props. *)
          Log.close_log log sys ;
 
@@ -773,6 +776,11 @@ let run sys log msg_setup = function
 
          (* Reset timeout counter. *)
          unset_timeout () ;
+
+         minisleep 0.3 ;
+
+         (* Consume all remaining messages silently. *)
+         handle_events context true ;
 
          outcome
 
@@ -788,11 +796,19 @@ let run sys log msg_setup = function
           (* Clean exit, killing everyone if we are the supervisor. *)
           let outcome = on_exit_exn context e in
 
+          (* Reset timeout. *)
+          unset_timeout () ;
+
+          minisleep 0.3 ;
+
           (* If we are a kid, the previous line killed the
              process. The following only applies to the supervisor. *)
 
           (* There should be no kid left alive. *)
           assert (context.kids = []) ;
+
+          (* Consume all remaining messages silently. *)
+          handle_events context true ;
 
           (* Returning result status. *)
           outcome )

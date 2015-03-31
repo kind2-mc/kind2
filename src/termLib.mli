@@ -121,8 +121,10 @@ module Signals: sig
   (** Sets the handler for sigterm to ignore. *)
   val ignore_sigterm: unit -> unit
 
-  (** Sets a handler for sigalrm. *)
-  val set_sigalrm: unit -> unit
+  (** Sets a timeout handler for sigalrm. *)
+  val set_sigalrm_timeout: unit -> unit
+  (** Sets an exception handler for sigalarm. *)
+  val set_sigalrm_exn: unit -> unit
   (** Sets a handler for sigint. *)
   val set_sigint: unit -> unit
   (** Sets a handler for sigquit. *)

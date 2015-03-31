@@ -390,6 +390,8 @@ let rec launch_compositional sys log msg_setup =
   (* Launching. *)
   launch_analysis sys log msg_setup ;
 
+  minisleep 0.3 ;
+
   sgl_sep_line_warn () ;
 
   (* Looking at analysis outcome, deciding what to do next. *)
@@ -720,9 +722,8 @@ let main () =
   (* Must not use vtalrm signal, this is used internally by the OCaml
      Threads module. *)
 
-  (* Set sigalrm to [exception_on_signal] or raise [TimeoutWall]
-     depending on the flags. *)
-  set_sigalrm () ;
+  (* Set sigalrm to raise an exception by default. *)
+  set_sigalrm_exn () ;
 
   (* Raise exception on CTRL+C. *)
   catch_break true ;

@@ -595,7 +595,7 @@ let launch trans =
 
   (* Getting properties. *)
   let unknowns =
-    (TransSys.props_list_of_bound trans Numeral.zero)
+    (TransSys.props_list_of_bound_unknown trans Numeral.zero)
   in
 
   (* Creating solver. *)
