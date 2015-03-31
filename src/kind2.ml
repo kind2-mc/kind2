@@ -356,8 +356,8 @@ let launch_analysis sys log msg_setup =
   with
   | Analysis.Ok
   | Analysis.Timeout ->
-     (* No error, we can keep going. *)
-     ()
+    (* No error, we can keep going. *)
+    ()
   | Analysis.Error(status) ->
      (* Error, we must stop there. *)
      print_final_things sys log ;
@@ -441,8 +441,12 @@ let rec launch_compositional sys log msg_setup =
 
     (* Yes we can. *)
     | Some nu_abs ->
+       let invars_count = TransSys.get_invars sys |> List.length in
        (* Notifying user. *)
-       Event.log L_warn "Refining abstraction." ;
+       Event.log
+        L_warn
+        "Refining abstraction (keeping %d invariants)."
+        invars_count ;
        (* Looping. *)
        launch_compositional sys log msg_setup
 

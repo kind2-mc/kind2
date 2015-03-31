@@ -394,6 +394,12 @@ let create two_state top_only sys =
       two_state }
   in
 
+  (* Adding all invariants. *)
+  lsd.systems
+  |> List.iter
+    ( fun (sys, _) ->
+      TransSys.get_invars sys |> add_invariants lsd sys ) ;
+
   if two_state then
     (* Unrolling all systems once in two-state mode. *)
     List.iter (fun (sys,_) -> unroll_sys lsd sys) systems ;

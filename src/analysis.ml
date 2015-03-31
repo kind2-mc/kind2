@@ -36,6 +36,13 @@ let print_signal_info () =
 type analysis_result =
   | Ok | Timeout | Error of int
 
+let pp_print_outcome fmt oc =
+  Format.fprintf fmt "%s" (match oc with
+    | Ok -> "ok"
+    | Timeout -> "timeout"
+    | Error i -> Format.sprintf "%d" i
+  )
+
 (* Debug name of a process. *)
 let debug_ext_of_process = suffix_of_kind_module
 
@@ -279,8 +286,14 @@ let status_of_exn = function
 let result_of_exn = function
   | Exit
   | Event.Terminate -> Ok
-  | TimeoutWall
-  | TimeoutVirtual -> Timeout
+  | TimeoutWall ->
+    Event.log
+      L_error "%s Wallclock timeout." timeout_tag ;
+    Timeout
+  | TimeoutVirtual ->
+    Event.log
+      L_error "%s CPU timeout." timeout_tag ;
+    Timeout
   | exn -> Error (status_of_exn exn)
 
 (* Cleanup function of a process. *)
@@ -363,14 +376,14 @@ let kill_all_kids t =
   then (
     (* No, notifying user. *)
     Event.log
-      L_fatal
+      L_warn
       "All child processes terminated." ;
     (* All kids are dead, everything is fine. *)
     Ok
 
   ) else (
     Event.log
-      L_fatal
+      L_info
       "Some child processes are still alive, sig-killing them." ;
 
     (* Some kids are not dead, sending sigkill and waiting for
@@ -400,7 +413,7 @@ let kill_all_kids t =
       then (
         (* No, notifying user. *)
         Event.log
-          L_fatal
+          L_warn
           "All child processes terminated." ;
         (* The status from the previous termination loop should be
          ok. *)
@@ -411,7 +424,7 @@ let kill_all_kids t =
       ) else (
         (* Some kids are still alive, can't do much more. *)
         Event.log
-          L_fatal
+          L_warn
           "Some child processes are still alive after sigkill, \
            consider killing them manually." ;
         (* The status from the previous termination loop should NOT be
@@ -488,7 +501,7 @@ let on_exit_exn t exn =
 
   (* We are the supervisor, killing kids. *)
   | `Supervisor ->
-     on_exit t (Error( status_of_exn exn ))
+     result_of_exn exn |> on_exit t
 
   (* We are a child process, exiting. *)
   | mdl ->

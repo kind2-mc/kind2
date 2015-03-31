@@ -480,10 +480,8 @@ end = struct
   (* Sets a timeout based on the flag value. *)
   let set_timeout_from_flag () =
     if Flags.timeout_wall () > 0.
-    then (
-      Format.printf "Setting timeout (%f).@.@." (Flags.timeout_wall ()) ;
-      Flags.timeout_wall () |> set_timeout
-    ) else ()
+    then Flags.timeout_wall () |> set_timeout
+    else ()
 
   (* Deactivates timeout. *)
   let unset_timeout () =
