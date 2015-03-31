@@ -103,7 +103,7 @@ let length_of_cex = function
 
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
-  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
+  | PropKTrue k -> Format.fprintf ppf "true-for %d steps" k
   | PropInvariant -> Format.fprintf ppf "invariant"
   | PropFalse [] -> Format.fprintf ppf "false"
   | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)

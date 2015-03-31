@@ -104,6 +104,10 @@ val compositional : unit -> compositional
 type contracts_subreqs = bool
 val contracts_subreqs : unit -> contracts_subreqs
 
+(** Check that the unrolling is sat in BMC *)
+type bmc_check = bool
+val bmc_check : unit -> bmc_check
+
 (** Maximal number of iterations in BMC *)
 type bmc_max = int
 val bmc_max : unit -> bmc_max

@@ -424,6 +424,8 @@ module CandidateTermGen = struct
       | _ :: t -> get_last t
     in
 
+    let abstraction = TransSys.get_abstraction trans_sys in
+
     (* Creates an associative list between systems and their
        implication graph. Even when running in top system only, we
        need to look at the subsystems and instantiate their candidate
@@ -434,12 +436,15 @@ module CandidateTermGen = struct
          (* Getting the scope of the system. *)
          let scope = TransSys.get_scope system in
 
-         (* Do we know that system already?. *)
-         if List.exists
-              ( fun (sys,_) ->
-                TransSys.get_scope sys = scope )
-              result
-              
+         if
+            (* Do we know that system already?. *)
+            ( List.exists
+                ( fun (sys,_) ->
+                  TransSys.get_scope sys = scope )
+                result )
+            (* Or is this system abstracted? *)
+            or ( List.mem scope abstraction )
+
          then
            (* We do, discarding it. *)
            sys_graphs_map result tail
