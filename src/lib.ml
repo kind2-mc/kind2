@@ -1235,6 +1235,24 @@ let create_dir dir =
   try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
   with Sys_error _ -> Unix.mkdir dir 0o755
 
+(* Copy file.
+
+   Implementation adapted from "Unix system programming in OCaml" by Xavier
+   Leroy and Didier Remy*)
+let file_copy input_name output_name =
+  let open Unix in
+  let buffer_size = 8192 in
+  let buffer = String.create buffer_size in
+  let fd_in = openfile input_name [O_RDONLY] 0 in
+  let fd_out = openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666 in
+  let rec copy_loop () = match read fd_in buffer 0 buffer_size with
+    |  0 -> ()
+    | r -> ignore (write fd_out buffer 0 r); copy_loop ()
+  in
+  copy_loop ();
+  close fd_in;
+  close fd_out
+
 
 (* 
    Local Variables:

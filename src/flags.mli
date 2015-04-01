@@ -237,6 +237,10 @@ val certif_min : unit -> certif_min
 type certif_dir = string 
 val certif_dir : unit -> certif_dir
 
+(** Executable of jKind *)
+type jkind_bin = string
+val jkind_bin : unit -> jkind_bin
+
 (** Format of input file *)
 type input_format = [ `Lustre | `Horn | `Native ]
 val input_format : unit -> input_format 

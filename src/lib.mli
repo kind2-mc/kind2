@@ -342,8 +342,12 @@ val position_of_lexing : Lexing.position -> position
 (** Extract scope from a concatenated name *)
 val extract_scope_name : string -> string * string list
 
-(* Create a directory if it does not already exists. *)
+(** Create a directory if it does not already exists. *)
 val create_dir : string -> unit
+
+(** Copying file: [file_copy from to] copies file [from] to file [to] *)
+val file_copy : string -> string -> unit
+
 
 (* 
    Local Variables:

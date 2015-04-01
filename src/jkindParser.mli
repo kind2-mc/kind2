@@ -24,3 +24,10 @@
 (* val state_var_to_jkind : StateVar.t -> string *)
 
 val state_vars_path : TransSys.t -> unit
+
+
+val jkind_vars_of_kind2_statevar :
+  (StateVar.t * (LustreIdent.t * int) list) list StateVar.StateVarMap.t
+  -> StateVar.t -> StateVar.t list
+
+val get_jkind_transsys : string -> TransSys.t

@@ -262,6 +262,16 @@ let certif_default = false
 
 (* ********** *) 
 
+type jkind_bin = string 
+
+let jkind_bin_of_string s = s
+
+let string_of_jkind_bin s = s 
+
+let jkind_bin_default = "jkind"
+
+(* ********** *) 
+
 type certif_min = [ `No | `Fwd | `Bwd | `Dicho ]
 
 let certif_min_of_string = function
@@ -627,6 +637,7 @@ type flags =
       mutable yices2smt2_bin : yices2smt2_bin;
       mutable smt_trace : smt_trace;
       mutable smt_trace_dir : smt_trace_dir;
+      mutable jkind_bin : jkind_bin;
       mutable dump_native : dump_native;
       mutable dump_dir : dump_dir;
       mutable enable : enable;
@@ -683,6 +694,7 @@ let flags =
     yices2smt2_bin = yices2smt2_bin_default;
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
+    jkind_bin = jkind_bin_default;
     dump_native = dump_native_default;
     dump_dir = dump_dir_default;
     enable = enable_default_init;
@@ -880,6 +892,17 @@ let certif_dir_spec =
    Arg.String certif_dir_action, 
    Format.sprintf "Directory for certificates (default: %s)"
                   certif_dir_default)
+
+(* ********** *) 
+
+let jkind_bin_action o =
+  flags.jkind_bin <- (jkind_bin_of_string o)
+  
+let jkind_bin_spec = 
+  ("--jkind_bin", 
+   Arg.String jkind_bin_action, 
+   Format.sprintf "executable of jKind (default: %s)"
+                  (string_of_jkind_bin jkind_bin_default))
 
 (* ********** *) 
 
@@ -1312,6 +1335,8 @@ let certif_min () = flags.certif_min
 
 let certif_dir () = flags.certif_dir
 
+let jkind_bin () = flags.jkind_bin
+
 let dump_native () = flags.dump_native
 
 let dump_dir () = flags.dump_dir
@@ -1470,6 +1495,9 @@ and speclist =
 
     (* Directory for certificates *)
     certif_dir_spec;
+
+    (* Set executable for jKind *)
+    jkind_bin_spec;
 
     (* Dump to native format *)
     dump_native_spec;

@@ -1009,4 +1009,5 @@ let generate_certificate sys =
   printf "Certificate was written in %s@." certificate_filename;
 
   (* Experimental stuffs *)
-  JkindParser.state_vars_path sys 
+  NativeInput.dump_native
+    (JkindParser.get_jkind_transsys (Flags.input_file ()))
