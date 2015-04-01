@@ -53,7 +53,7 @@ let jkind_options = [
 
 let jkind_command_line file =
   let jkind = Flags.jkind_bin () in
-  String.concat " " (jkind :: jkind_options @ [file])
+  String.concat " " (jkind :: jkind_options @ [file; "&> /dev/null"])
 
 (* Remove let bindings by propagating the values *)
 let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
