@@ -72,6 +72,8 @@ let set_first_abstraction sys =
   |> List.map TransSys.get_scope
   |> TransSys.set_abstraction sys
 
+let scope_of = TransSys.get_scope
+
 (* Looks for a system to refine. *)
 let refine sys =
 
@@ -86,6 +88,11 @@ let refine sys =
        TransSys.get_all_subsystems sys
        (* Reversing to start from top level. *)
        |> List.rev
+     in
+
+     let rm_subs_of sys =
+      let subs = TransSys.get_all_subsystems sys |> List.map scope_of in
+      List.filter (fun sys -> List.mem (scope_of sys) subs |> not)
      in
 
      (* Loops over the subsystem, looks for a refinable subsystem. *)
@@ -121,8 +128,9 @@ let refine sys =
 
             else (
 
-              (* Condition for refinement not satisfied. Looping. *)
-              loop tail
+              (* Condition for refinement not satisfied. *)
+              (* Remove all subsystems of [subsys] and loop. *)
+              rm_subs_of subsys tail |> loop
             )
 
           ) else
