@@ -125,6 +125,8 @@ val add_caller :
   (StateVar.t * StateVar.t) list * (Term.t -> Term.t) ->
   unit
 
+val get_callers : t -> t list
+
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
 

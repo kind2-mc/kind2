@@ -230,6 +230,8 @@ let add_caller callee caller c =
 
   callee.callers <- add_caller' [] callee.callers
 
+let get_callers { callers } = List.map fst callers
+
 (* Number of times this system is instantiated in other systems. *)
 let instantiation_count { callers } =
   callers
