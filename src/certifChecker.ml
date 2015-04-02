@@ -1002,9 +1002,6 @@ let generate_certificate sys =
   (* Time statistics *)
   Stat.record_time Stat.certif_gen_time;
 
-  (* Send statistics *)
-  Event.stat [Stat.certif_stats_title, Stat.certif_stats];
-
   (* Show which file contains the certificate *)
   printf "Certificate was written in %s@." certificate_filename
 
@@ -1164,6 +1161,9 @@ let generate_frontend_certificate kind2_sys =
   match TS.get_source kind2_sys with
   | TS.Lustre nodes ->
 
+    (* Time statistics *)
+    Stat.start_timer Stat.certif_frontend_time;
+
     printf "Generating frontend certificate with jKind ...@.";
 
     let jkind_sys = JkindParser.get_jkind_transsys (Flags.input_file ()) in
@@ -1186,7 +1186,10 @@ let generate_frontend_certificate kind2_sys =
 
     (* Output certificate in native format *)
     NativeInput.dump_native_to obs_sys filename;
-    
+
+    (* Time statistics *)
+    Stat.record_time Stat.certif_gen_time;
+
     (* Show which file contains the certificate *)
     printf "Frontend certificate was written in %s@." filename;
 
@@ -1203,6 +1206,10 @@ let generate_all_certificates sys =
 
   generate_certificate sys;
 
-  match TS.get_source sys with
+  begin match TS.get_source sys with
   | TS.Lustre _ -> generate_frontend_certificate sys
   | _ -> printf "No certificate for frontend."
+  end;
+
+  (* Send statistics *)
+  Event.stat [Stat.certif_stats_title, Stat.certif_stats]

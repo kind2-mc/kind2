@@ -340,6 +340,7 @@ val pp_print_smt_stats : Format.formatter -> unit
 
 val certif_gen_time : float_item 
 val certif_min_time : float_item 
+val certif_frontend_time : float_item 
 val certif_k : int_item 
 val certif_size : int_item 
 

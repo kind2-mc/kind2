@@ -542,6 +542,9 @@ let certif_gen_time =
 let certif_min_time = 
   empty_item "minimization time" 0.
 
+let certif_frontend_time = 
+  empty_item "frontend time" 0.
+
 let certif_k = 
   empty_item "k" (-1)
 
@@ -555,6 +558,7 @@ let certif_stats_title = "Certificate"
 let certif_stats = 
   [ F certif_gen_time;
     F certif_min_time;
+    F certif_frontend_time;
     I certif_k;
     I certif_size ] 
 
