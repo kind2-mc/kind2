@@ -306,7 +306,7 @@ let rec fixpoint ~just_check_ind
       List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
 
     (debug certif "[Fixpoint] extracted %d useful invariants@."
-      (List.length uinvs_acts)in ());
+      (List.length uinvs_acts) in ());
 
     let uinvs, uinvs' = List.split uinvs_acts in
 

@@ -95,7 +95,15 @@ let jkind_var_of_lustre kind_sv (li, parents) =
 (* Returns all jKind variables corresponding to a Kind2 variable *)
 let jkind_vars_of_kind2_statevar lustre_vars sv =
   let lus_vs = SVMap.find sv lustre_vars in
-  List.map (jkind_var_of_lustre sv) lus_vs
+  let jkvars = List.map (jkind_var_of_lustre sv) lus_vs in
+  
+  (debug certif "(Kind2->jKind): %a -> %a@."
+     StateVar.pp_print_state_var sv
+     (pp_print_list StateVar.pp_print_state_var ", ") jkvars
+  in ());
+
+  jkvars
+    
 
 
 (*******************************)
@@ -256,11 +264,8 @@ let of_channel in_ch =
       Type.t_bool 
   in
 
-  (* Format.eprintf "LAMBDA:\n%a@." Term.pp_print_lambda jk_trans_lambda; *)
-
-  (* List.iter (fun t -> *)
-  (*     Format.eprintf "  >> %a@." Term.pp_print_term t) *)
-  (*   (Term.t_true :: t_statevars0 @ t_statevars0); *)
+  (debug certif "jKind Lambda:\n%a@." Term.pp_print_lambda jk_trans_lambda
+   in ());
 
   (* Term for initial states. We do a simplification by removing let bindings
      originating from the lambda application. *)
@@ -299,14 +304,21 @@ let get_jkind_transsys file =
   let tmp = Filename.temp_file base ".lus" in
   file_copy file tmp;
 
-  Format.eprintf "TMEP %s @." tmp;
+  (debug certif "Temporary file %s@." tmp in ());
   
   (* Run jKind on temporary copy *)
-  if Sys.command (jkind_command_line tmp) <> 0 then
+  let cmd = jkind_command_line tmp in
+
+  (debug certif "jKind command line: %s@." cmd in ());
+
+  if Sys.command cmd <> 0 then
     failwith "jKind execution failed";
 
   (* open dump file and parse *)
   let dump_file = tmp ^ ".bmc.smt2" in
+
+  (debug certif "Parsing from jKind dump file: %s@." dump_file in ());
+
   let in_ch = open_in dump_file in
   let sys = of_channel in_ch in
 
