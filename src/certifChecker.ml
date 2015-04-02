@@ -1011,10 +1011,11 @@ let generate_certificate sys =
 (* Certificates for frontend translation *)
 (*****************************************)
 
-
+(* Name of the system observing the jKind and Kind2 systems and comparing
+   values of their states *)
 let obs_name = "OBS"
 
-
+(* Add an additional scope to a state variable *)
 let add_scope_state_var scope sv =
   if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv
   else
@@ -1026,6 +1027,7 @@ let add_scope_state_var scope sv =
       (scope @ StateVar.scope_of_state_var sv)
       (StateVar.type_of_state_var sv)
 
+(* Add an additional scope to a variable *)
 let add_scope_var scope v =
   if Var.is_state_var_instance v then
     Var.mk_state_var_instance
@@ -1039,26 +1041,38 @@ let add_scope_var scope v =
     v
 
 
+(* Helper function for creating an initial term with scoping information *)
 let mk_init_term scope sys =
   Term.mk_uf (TS.init_uf_symbol sys)
     (List.map (fun v -> Term.mk_var (add_scope_var scope v))
        (TS.init_vars sys))
-    
+
+
+(* Helper function for creating a transition term with scoping information *)
 let mk_trans_term scope sys =
   Term.mk_uf (TS.trans_uf_symbol sys)
     (List.map (fun v -> Term.mk_var (add_scope_var scope v))
        (TS.trans_vars sys))
 
+
+(* Helper function for creating terms of state variables at offset 0 with an
+   extra scope *)
 let term_state_var0 scope sv =
   Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.zero
   |> Term.mk_var
 
+
+(* Helper function for creating terms of state variables at offset 1 with an
+   extra scope *)
 let term_state_var1 scope sv =
   Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.one
   |> Term.mk_var
 
 
-
+(* Create a term for the observational equivalence of the original state
+   variables of Kind2 ([orig_kind2_vars]) and their computed jKind
+   counterparts. The optional parameter [prime] controls if the resulting
+   eqaulities should be on primed varaibles. *)
 let mk_prop_obs ?(prime=false) lustre_vars orig_kind2_vars =
 
   let term_state_var =
@@ -1081,17 +1095,23 @@ let mk_prop_obs ?(prime=false) lustre_vars orig_kind2_vars =
   Term.mk_and eqs
 
 
-
+(* Create additional constraints that force the input state varaibles to be the
+   same in Kind2 and jKind. *)
 let same_inputs ?(prime=false) lustre_vars orig_kind2_vars =
   mk_prop_obs ~prime
     lustre_vars (List.filter StateVar.is_input orig_kind2_vars)
 
 
-
+(* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
+   [jkind_sys] in parallel and observes the values of their state
+   variables. All variables are put under a new scope. *)
 let merge_systems lustre_vars kind2_sys jkind_sys =
 
+  (* Remember the original state variables*)
   let orig_kind2_vars = TS.state_vars kind2_sys in
   let orig_jkind_vars = TS.state_vars jkind_sys in
+
+  (* Create versions of variables with the new scope *)
   let kind2_vars = List.map (add_scope_state_var [obs_name]) orig_kind2_vars in
   let jkind_vars = List.map (add_scope_state_var [obs_name]) orig_jkind_vars in
   let state_vars = kind2_vars @ jkind_vars in
@@ -1105,6 +1125,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       Var.mk_state_var_instance sv Numeral.one)
       state_vars in
 
+  (* Symbol for initial predicate of new system *)
   let init_uf =
     UfSymbol.mk_uf_symbol
       (LustreIdent.init_uf_string ^"_"^ obs_name) 
@@ -1112,6 +1133,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       Type.t_bool 
   in
 
+  (* Symbol for transition relation of new system *)
   let trans_uf =
     UfSymbol.mk_uf_symbol
       (LustreIdent.trans_uf_string ^"_"^ obs_name) 
@@ -1119,12 +1141,18 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       Type.t_bool 
   in
 
+  (* Term describing the initial states: [inputs1 = inputs2 /\ I1(X1) /\
+     I2(X2)]. Here [inputs1] is the subset of [X1] which are input
+     varaibles. *)
   let init_term =
     Term.mk_and [
       same_inputs lustre_vars orig_kind2_vars;
       mk_init_term [obs_name] kind2_sys;
       mk_init_term [obs_name] jkind_sys] in
 
+  (* Term describing the transition relation: [inputs1' = inputs2' /\
+     T1(X1,X1') /\ T2(X2,X2')]. Here [inputs1'] is the subset of [X1'] which
+     are input varaibles. *)
   let trans_term =
     Term.mk_and [
       same_inputs ~prime:true lustre_vars orig_kind2_vars;
@@ -1139,7 +1167,8 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
     ("Observational_Equivalence",
      TermLib.Generated [],
      mk_prop_obs lustre_vars orig_kind2_vars) in
-  
+
+  (* Create observer system *)
   let obs_sys =
     TS.mk_trans_sys [obs_name]
       state_vars init trans [kind2_sys; jkind_sys] [prop] TS.Native
@@ -1152,13 +1181,18 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   TS.add_caller jkind_sys
     obs_sys ((List.combine orig_jkind_vars jkind_vars), (fun t -> t));
 
+  (* Return the observer system *)
   obs_sys
   
 
-      
+(* Generate a certificate for the frontend translation / simplification phases
+   as a system in native input. To be verified, this certificate is expected to
+   be fed back to Kind 2. *)
 let generate_frontend_certificate kind2_sys =
-
   match TS.get_source kind2_sys with
+
+  (* Only generate the frontend certificate if the system comes from a Lustre
+     file *)
   | TS.Lustre nodes ->
 
     (* Time statistics *)
@@ -1166,13 +1200,21 @@ let generate_frontend_certificate kind2_sys =
 
     printf "Generating frontend certificate with jKind ...@.";
 
+    (* Call jKind and get back its internal transition system for the same
+       file *)
     let jkind_sys = JkindParser.get_jkind_transsys (Flags.input_file ()) in
 
+    (* Find original Lustre names (with callsite info) for the state variables
+       in the Kind2 system. *)
     let lustre_vars =
       LustrePath.reconstruct_lustre_streams nodes (TS.state_vars kind2_sys) in
 
+    (* Create the observer system with the property of observational
+       equivalence. *)
     let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
 
+    (* Dump the observer system as in native format in the same directory as
+       the certificate. *)
     let dirname = Flags.certif_dir () in
     create_dir dirname;
 
@@ -1201,7 +1243,7 @@ let generate_frontend_certificate kind2_sys =
 (* Creation of all certificates *)
 (********************************)
 
-
+(* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
 let generate_all_certificates sys =
 
   generate_certificate sys;

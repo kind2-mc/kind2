@@ -30,6 +30,10 @@ let conv_type_of_sexpr = conv.D.type_of_sexpr
 let conv_term_of_sexpr = conv.D.expr_of_string_sexpr conv
 
 
+(************************)
+(* Useful hconsed names *)
+(************************)
+
 let s_define_fun = HString.mk_hstring "define-fun"
 let s_declare_fun = HString.mk_hstring "declare-fun"
 let s_set_option = HString.mk_hstring "set-option"
@@ -39,8 +43,19 @@ let s_assert = HString.mk_hstring "assert"
 let s_leq = HString.mk_hstring "<="
 let s_and = HString.mk_hstring "and"
 
+
+(**************************************)
+(* General settings for jKind parsing *)
+(**************************************)
+
+(* New scope for the jKind system *)
 let jkind_scope = ["jKind"]
 
+
+(* Options used to run jKind. We make it dump its smt2 files that contain the
+   transition relation. Everything is disabled so that jKind only produces one
+   file [<file.lus>.bmc.smt2] containing one instance of the transition
+   relation and the state variables. *)
 let jkind_options = [
   "-scratch";
   "-no_inv_gen";
@@ -48,60 +63,22 @@ let jkind_options = [
   "-pdr_max 0";
   "-n 0";
   "-scratch";
-  "-solver z3"
+  "-solver z3" (* We use z3 here but any SMT2lib solver would work *)
 ]
 
+
+(* Create command line to call jKind *)
 let jkind_command_line file =
   let jkind = Flags.jkind_bin () in
   String.concat " " (jkind :: jkind_options @ [file; "&> /dev/null"])
 
-(* Remove let bindings by propagating the values *)
-let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
 
+(******************************************)
+(* jKind state varaibles from Lustre name *)
+(******************************************)
 
-let print_vars_path sys =
-  match TS.get_source sys with
-  | TS.Lustre nodes ->
-
-    let model_path = Model.path_of_term_list (List.map (fun sv ->
-        let tv = Term.mk_var (Var.mk_state_var_instance sv Numeral.zero) in
-        sv, [tv;tv;tv;tv]
-      ) (TS.state_vars sys)) in
-
-
-    let fmt = !log_ppf in    
-    Format.fprintf fmt "STATE VARS MAPBACK:@.%a"
-      (LustrePath.pp_print_path_pt nodes false) model_path;
-    Format.fprintf fmt "@.";
-    Format.fprintf fmt "END@.";
-    
-  | _ -> assert false
-
-let print_vars_path sys =
-  match TS.get_source sys with
-  | TS.Lustre nodes ->
-
-    let lustre_vars =
-      LustrePath.reconstruct_lustre_streams nodes (TS.state_vars sys) in
-    
-    Format.eprintf "STATE VARS MAPBACK:@.";
-    SVMap.iter (fun sv lusv ->
-        Format.eprintf "%a ->@." StateVar.pp_print_state_var sv;
-
-        List.iter (fun (svlu, parents) ->
-            List.iter (fun (svp, n) ->
-                Format.eprintf " %a~%d" (LustreIdent.pp_print_ident true) svp n)
-              parents;
-            Format.eprintf " . %a@." StateVar.pp_print_state_var svlu
-          ) lusv
-      ) lustre_vars;
-    
-    Format.eprintf "@.";
-    Format.eprintf "END@.";
-    
-  | _ -> assert false
-
-
+(* Returns a state variable of jKind form a state variable of Kind 2 and a
+   callsite information *)
 let jkind_var_of_lustre kind_sv (li, parents) =
   let base_li = StateVar.name_of_state_var li in
   (* Ignore main top level node for jkind *)
@@ -111,60 +88,38 @@ let jkind_var_of_lustre kind_sv (li, parents) =
       (bni^"~"^(string_of_int n)) :: acc
     ) [base_li] (List.rev parents_wo_main) in
   let str = Format.sprintf "$%s$" (String.concat "." strs) in
-
   (* get previously constructed jkind variable *)
   StateVar.state_var_of_string (str, jkind_scope)
-  
-  (* StateVar.mk_state_var *)
-  (*   ~is_input:(StateVar.is_input kind_sv) *)
-  (*   ~is_const:(StateVar.is_const kind_sv) *)
-  (*   ~for_inv_gen:(StateVar.for_inv_gen kind_sv) *)
-  (*   str [] (StateVar.type_of_state_var kind_sv) *)
 
 
+(* Returns all jKind variables corresponding to a Kind2 variable *)
 let jkind_vars_of_kind2_statevar lustre_vars sv =
   let lus_vs = SVMap.find sv lustre_vars in
   List.map (jkind_var_of_lustre sv) lus_vs
 
 
+(*******************************)
+(* Parsing of jKind dump files *)
+(*******************************)
 
-
-
-let state_vars_path sys =
-  match TS.get_source sys with
-  | TS.Lustre nodes ->
-
-    let lustre_vars =
-      LustrePath.reconstruct_lustre_streams nodes (TS.state_vars sys) in
-
-    Format.eprintf "STATE VARS MAPBACK:";
-    List.iter (fun sv ->
-        Format.eprintf "\n%a -> " StateVar.pp_print_state_var sv;
-        try
-          List.iter (fun sv_jk ->
-            Format.eprintf "%a , " StateVar.pp_print_state_var sv_jk;
-            ) (jkind_vars_of_kind2_statevar lustre_vars sv)
-        with Not_found -> Format.eprintf "(ignored)"
-      ) (TS.state_vars sys);
-    
-    Format.eprintf "@.";
-    Format.eprintf "END@.";
-    
-  | _ -> assert false
-
-
-
+(* The type of raw systems extracted from jKind dump file. It only contains the
+   state variables and a lambda expression for the transition relation. (Note:
+   jKind uses the same term for [init] and [trans]. [init] is the partial
+   application [jk_trans_lambda true] and [trans] is the partial application
+   [jk_trans_lambda false].)*)
 type jkind_raw = {
   jk_statevars : StateVar.t list;
-  jk_trans : Term.lambda option;
+  jk_trans_lambda : Term.lambda option;
 }
 
+
+(* An empty raw system to start with*)
 let jkind_empty = {
   jk_statevars = [];
-  jk_trans = None;
+  jk_trans_lambda = None;
 }
 
-
+(* Create free variables from an sexp of arguments *)
 let rec vars_of_args acc = function
   | [] -> List.rev acc
   | HS.List [HS.Atom v; ty] :: args ->
@@ -174,11 +129,18 @@ let rec vars_of_args acc = function
   | _ -> failwith "Not a variable"
 
 
+(* Get the state varaible name from a jKind name (remove instance info) *)
 let state_var_name_of_jkdecl h =
   let s = HString.string_of_hstring h in
   try Scanf.sscanf s "$%s@$~1" (fun x -> "$"^x^"$")
   with End_of_file | Scanf.Scan_failure _ -> s
 
+
+(* Remove let bindings by propagating the values *)
+let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
+
+
+(* Parse a list of s-expressions and return a raw jKind system *)
 let rec parse acc = function
 
   (* Ignore set-option *)
@@ -196,7 +158,7 @@ let rec parse acc = function
     let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) argsv in
     let lamb = Term.mk_lambda argsv (conv_term_of_sexpr bvars hdef) in
     
-    parse { acc with jk_trans = Some lamb } r
+    parse { acc with jk_trans_lambda = Some lamb } r
 
   (* Ignore %init state variable *)
   | HS.List (HS.Atom s :: HS.Atom i :: HS.List [] :: ty :: []) :: r
@@ -214,7 +176,7 @@ let rec parse acc = function
 
     parse { acc with jk_statevars = sv :: acc.jk_statevars } r
 
-  (* Range constraints *)
+  (* Range constraints from asserts *)
   | HS.List [HS.Atom ass;
              HS.List [HS.Atom conj;
                       HS.List [HS.Atom leq1; HS.Atom l; HS.Atom t1];
@@ -237,7 +199,13 @@ let rec parse acc = function
     parse acc r
 
   (* Finished parsing *)
-  | [] -> acc
+  | [] ->
+
+    { acc with
+      (* Right order for state variables *)
+      jk_statevars = List.rev acc.jk_statevars
+    }
+
 
   (* Unsupported *)
   | _ -> failwith "Unsupported sexp in jKind output"
@@ -249,15 +217,17 @@ let of_channel in_ch =
   let lexbuf = Lexing.from_channel in_ch in
   let sexps = SExprParser.sexps SExprLexer.main lexbuf in
 
-  let jk_statevars, jk_trans =
+  let statevars, jk_trans_lambda =
     match parse jkind_empty sexps with
-    | { jk_statevars; jk_trans = Some jk_trans } -> jk_statevars, jk_trans
+    | { jk_statevars; jk_trans_lambda = Some jk_trans_lambda } ->
+      jk_statevars, jk_trans_lambda
     | _ -> assert false
   in
 
-  let statevars = List.rev jk_statevars in
-  
+  (* Get types of state variables*)
   let vars_types = List.map StateVar.type_of_state_var statevars in
+
+  (* Usefull instances of state variables *)
   
   let statevars0 = List.map (fun sv ->
       Var.mk_state_var_instance sv Numeral.zero)
@@ -286,25 +256,32 @@ let of_channel in_ch =
       Type.t_bool 
   in
 
-  (* Format.eprintf "LAMBDA:\n%a@." Term.pp_print_lambda jk_trans; *)
+  (* Format.eprintf "LAMBDA:\n%a@." Term.pp_print_lambda jk_trans_lambda; *)
 
   (* List.iter (fun t -> *)
   (*     Format.eprintf "  >> %a@." Term.pp_print_term t) *)
   (*   (Term.t_true :: t_statevars0 @ t_statevars0); *)
-  
+
+  (* Term for initial states. We do a simplification by removing let bindings
+     originating from the lambda application. *)
   let init_term =
-    Term.eval_lambda jk_trans (Term.t_true :: t_statevars0 @ t_statevars0)
+    Term.eval_lambda jk_trans_lambda
+      (Term.t_true :: t_statevars0 @ t_statevars0)
     |> unlet_term
   in
 
+  (* Term for transition relation. We do a simplification by removing let
+     bindings originating from the lambda application. *)
   let trans_term =
-    Term.eval_lambda jk_trans (Term.t_false :: t_statevars0 @ t_statevars1)
+    Term.eval_lambda jk_trans_lambda
+      (Term.t_false :: t_statevars0 @ t_statevars1)
     |> unlet_term
   in
   
   let init = init_uf_symbol, (statevars0, init_term) in
   let trans = trans_uf_symbol, (statevars1 @ statevars0, trans_term) in
 
+  (* Creation of transition system *)
   TransSys.mk_trans_sys
     jkind_scope
     statevars
@@ -314,7 +291,7 @@ let of_channel in_ch =
     TransSys.Native
 
 
-
+(* Return a transition system extracted from a call to jKind. *)
 let get_jkind_transsys file =
 
   (* Make temporary copy of input file *)
@@ -337,8 +314,6 @@ let get_jkind_transsys file =
   close_in in_ch;
 
   sys
-
-
 
 
 (* 

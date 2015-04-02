@@ -31,6 +31,5 @@ val generate_frontend_certificate : TransSys.t -> unit
 
 
 
-(** Generate all certificates in the directory given by {!
-    Flags.certif_dir}. *)
+(** Generate all certificates in the directory given by {!Flags.certif_dir}. *)
 val generate_all_certificates : TransSys.t -> unit
