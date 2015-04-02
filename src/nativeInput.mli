@@ -36,6 +36,9 @@ val of_file : string -> TransSys.t
 (** Print a transition system in native format *)
 val pp_print_native : Format.formatter -> TransSys.t -> unit
 
+(** Dump a transition system to a given file in native format *)
+val dump_native_to : TransSys.t -> string -> unit
+
 (** Dump a transition system to a file in native format *)
 val dump_native : TransSys.t -> unit
 

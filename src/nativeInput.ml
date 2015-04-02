@@ -600,6 +600,13 @@ let rec pp_print_native ppf sys =
 
 
 
+let dump_native_to sys filename =
+  let dump_oc = open_out filename in
+  let fmt = Format.formatter_of_out_channel dump_oc in
+  pp_print_native fmt sys
+
+  
+
 let dump_native sys =
   let dirname = Flags.dump_dir () in
   create_dir dirname;
@@ -610,9 +617,7 @@ let dump_native sys =
          (Filename.basename (Flags.input_file ()))
       )
   in
-  let dump_oc = open_out filename in
-  let fmt = Format.formatter_of_out_channel dump_oc in
-  pp_print_native fmt sys
+  dump_native_to sys filename
 
   
 (* ************************************************************ *)

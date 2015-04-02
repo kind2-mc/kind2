@@ -1006,8 +1006,203 @@ let generate_certificate sys =
   Event.stat [Stat.certif_stats_title, Stat.certif_stats];
 
   (* Show which file contains the certificate *)
-  printf "Certificate was written in %s@." certificate_filename;
+  printf "Certificate was written in %s@." certificate_filename
 
-  (* Experimental stuffs *)
-  NativeInput.dump_native
-    (JkindParser.get_jkind_transsys (Flags.input_file ()))
+
+
+(*****************************************)
+(* Certificates for frontend translation *)
+(*****************************************)
+
+
+let obs_name = "OBS"
+
+
+let add_scope_state_var scope sv =
+  if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv
+  else
+    StateVar.mk_state_var
+      ~is_input:(StateVar.is_input sv)
+      ~is_const:(StateVar.is_const sv)
+      ~for_inv_gen:(StateVar.for_inv_gen sv)
+      (StateVar.name_of_state_var sv)
+      (scope @ StateVar.scope_of_state_var sv)
+      (StateVar.type_of_state_var sv)
+
+let add_scope_var scope v =
+  if Var.is_state_var_instance v then
+    Var.mk_state_var_instance
+      (Var.state_var_of_state_var_instance v |> add_scope_state_var scope)
+      (Var.offset_of_state_var_instance v)
+  else 
+  if Var.is_const_state_var v then
+    Var.mk_const_state_var
+      (Var.state_var_of_state_var_instance v |> add_scope_state_var scope)
+  else
+    v
+
+
+let mk_init_term scope sys =
+  Term.mk_uf (TS.init_uf_symbol sys)
+    (List.map (fun v -> Term.mk_var (add_scope_var scope v))
+       (TS.init_vars sys))
+    
+let mk_trans_term scope sys =
+  Term.mk_uf (TS.trans_uf_symbol sys)
+    (List.map (fun v -> Term.mk_var (add_scope_var scope v))
+       (TS.trans_vars sys))
+
+let term_state_var0 scope sv =
+  Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.zero
+  |> Term.mk_var
+
+let term_state_var1 scope sv =
+  Var.mk_state_var_instance (add_scope_state_var scope sv) Numeral.one
+  |> Term.mk_var
+
+
+
+let mk_prop_obs ?(prime=false) lustre_vars orig_kind2_vars =
+
+  let term_state_var =
+    if prime then term_state_var1 [obs_name]
+    else term_state_var0 [obs_name] in
+  
+  let eqs =
+    List.fold_left (fun acc sv ->
+        try
+          List.fold_left (fun acc jv ->
+              Term.mk_eq [term_state_var sv; term_state_var jv] :: acc
+            ) acc (JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv)
+
+        (* Ignore this variable if it does not have a jKind counterpart *)
+        with Not_found -> acc
+      ) [] orig_kind2_vars
+  in
+
+  (* Conjunction of equalities between state varaibles *)
+  Term.mk_and eqs
+
+
+
+let same_inputs ?(prime=false) lustre_vars orig_kind2_vars =
+  mk_prop_obs ~prime
+    lustre_vars (List.filter StateVar.is_input orig_kind2_vars)
+
+
+
+let merge_systems lustre_vars kind2_sys jkind_sys =
+
+  let orig_kind2_vars = TS.state_vars kind2_sys in
+  let orig_jkind_vars = TS.state_vars jkind_sys in
+  let kind2_vars = List.map (add_scope_state_var [obs_name]) orig_kind2_vars in
+  let jkind_vars = List.map (add_scope_state_var [obs_name]) orig_jkind_vars in
+  let state_vars = kind2_vars @ jkind_vars in
+  let vars_types = List.map StateVar.type_of_state_var state_vars in
+
+  let state_vars0 = List.map (fun sv ->
+      Var.mk_state_var_instance sv Numeral.zero)
+      state_vars in
+
+  let state_vars1 = List.map (fun sv ->
+      Var.mk_state_var_instance sv Numeral.one)
+      state_vars in
+
+  let init_uf =
+    UfSymbol.mk_uf_symbol
+      (LustreIdent.init_uf_string ^"_"^ obs_name) 
+      vars_types
+      Type.t_bool 
+  in
+
+  let trans_uf =
+    UfSymbol.mk_uf_symbol
+      (LustreIdent.trans_uf_string ^"_"^ obs_name) 
+      (vars_types @ vars_types)
+      Type.t_bool 
+  in
+
+  let init_term =
+    Term.mk_and [
+      same_inputs lustre_vars orig_kind2_vars;
+      mk_init_term [obs_name] kind2_sys;
+      mk_init_term [obs_name] jkind_sys] in
+
+  let trans_term =
+    Term.mk_and [
+      same_inputs ~prime:true lustre_vars orig_kind2_vars;
+      mk_trans_term [obs_name] kind2_sys;
+      mk_trans_term [obs_name] jkind_sys] in
+
+  let init = init_uf, (state_vars0, init_term) in
+  let trans = trans_uf, (state_vars1 @ state_vars0, trans_term) in
+
+  (* Create property *)
+  let prop =
+    ("Observational_Equivalence",
+     TermLib.Generated [],
+     mk_prop_obs lustre_vars orig_kind2_vars) in
+  
+  let obs_sys =
+    TS.mk_trans_sys [obs_name]
+      state_vars init trans [kind2_sys; jkind_sys] [prop] TS.Native
+  in
+
+  (* Add caller info to subnodes *)
+  TS.add_caller kind2_sys
+    obs_sys ((List.combine orig_kind2_vars kind2_vars), (fun t -> t));
+
+  TS.add_caller jkind_sys
+    obs_sys ((List.combine orig_jkind_vars jkind_vars), (fun t -> t));
+
+  obs_sys
+  
+
+      
+let generate_frontend_certificate kind2_sys =
+
+  match TS.get_source kind2_sys with
+  | TS.Lustre nodes ->
+
+    printf "Generating frontend certificate with jKind ...@.";
+
+    let jkind_sys = JkindParser.get_jkind_transsys (Flags.input_file ()) in
+
+    let lustre_vars =
+      LustrePath.reconstruct_lustre_streams nodes (TS.state_vars kind2_sys) in
+
+    let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
+
+    let dirname = Flags.certif_dir () in
+    create_dir dirname;
+
+    let filename =
+      Filename.concat
+        dirname
+        (Format.sprintf "%s.frontend_certificate.kind2" 
+           (Filename.basename (Flags.input_file ()))
+        )
+    in
+
+    (* Output certificate in native format *)
+    NativeInput.dump_native_to obs_sys filename;
+    
+    (* Show which file contains the certificate *)
+    printf "Frontend certificate was written in %s@." filename;
+
+  | _ -> assert false
+
+
+
+(********************************)
+(* Creation of all certificates *)
+(********************************)
+
+
+let generate_all_certificates sys =
+
+  generate_certificate sys;
+
+  match TS.get_source sys with
+  | TS.Lustre _ -> generate_frontend_certificate sys
+  | _ -> printf "No certificate for frontend."

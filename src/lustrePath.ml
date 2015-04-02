@@ -426,7 +426,7 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
         expr.E.expr_step 
 
     in
-
+    
     let value = Eval.eval_term [] substitutions (src_expr :> Term.t) in
 
     (Model.Term (Eval.term_of_value value)) :: var_model
@@ -901,7 +901,11 @@ let reconstruct_lustre_streams nodes state_vars =
 
   let model =
     List.map (fun sv ->
-        let tv = Term.mk_var (Var.mk_state_var_instance sv Numeral.zero) in
+        let tv =
+          if StateVar.is_const sv then
+            Term.mk_var (Var.mk_const_state_var sv)
+          else
+            Term.mk_var (Var.mk_state_var_instance sv Numeral.zero) in
         sv, [tv]
       ) state_vars
     |> Model.path_of_term_list

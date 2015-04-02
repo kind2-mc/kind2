@@ -111,11 +111,15 @@ let jkind_var_of_lustre kind_sv (li, parents) =
       (bni^"~"^(string_of_int n)) :: acc
     ) [base_li] (List.rev parents_wo_main) in
   let str = Format.sprintf "$%s$" (String.concat "." strs) in
-  StateVar.mk_state_var
-    ~is_input:(StateVar.is_input kind_sv)
-    ~is_const:(StateVar.is_const kind_sv)
-    ~for_inv_gen:(StateVar.for_inv_gen kind_sv)
-    str [] (StateVar.type_of_state_var kind_sv)
+
+  (* get previously constructed jkind variable *)
+  StateVar.state_var_of_string (str, jkind_scope)
+  
+  (* StateVar.mk_state_var *)
+  (*   ~is_input:(StateVar.is_input kind_sv) *)
+  (*   ~is_const:(StateVar.is_const kind_sv) *)
+  (*   ~for_inv_gen:(StateVar.for_inv_gen kind_sv) *)
+  (*   str [] (StateVar.type_of_state_var kind_sv) *)
 
 
 let jkind_vars_of_kind2_statevar lustre_vars sv =
@@ -269,7 +273,7 @@ let of_channel in_ch =
   (* Predicate symbol for initial state predicate *)
   let init_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.init_uf_string ^ "jKind") 
+      (LustreIdent.init_uf_string ^ "_jKind") 
       vars_types
       Type.t_bool 
   in
@@ -277,7 +281,7 @@ let of_channel in_ch =
   (* Predicate symbol for transition relation predicate *)
   let trans_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.trans_uf_string ^ "jKind") 
+      (LustreIdent.trans_uf_string ^ "_jKind") 
       (vars_types @ vars_types)
       Type.t_bool 
   in
@@ -318,7 +322,7 @@ let get_jkind_transsys file =
   let tmp = Filename.temp_file base ".lus" in
   file_copy file tmp;
 
-  (* Format.eprintf "TMEP %s @." tmp; *)
+  Format.eprintf "TMEP %s @." tmp;
   
   (* Run jKind on temporary copy *)
   if Sys.command (jkind_command_line tmp) <> 0 then

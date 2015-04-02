@@ -305,7 +305,7 @@ let on_exit process exn =
      (status = status_ok || status = status_signal )then
     (* Create certificate *)
     (match !trans_sys with | None -> () | Some trans_sys ->
-      CertifChecker.generate_certificate trans_sys
+      CertifChecker.generate_all_certificates trans_sys
     );
   
   Event.log L_info "Killing all remaining child processes";

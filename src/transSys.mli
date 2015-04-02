@@ -83,7 +83,8 @@ val mk_trans_sys :
   source ->
   t
 
-(** Add entry for new system instantiation to the transition system *)
+(** Add entry for new system instantiation to the transition
+    system. [add_caller callee caller var_map guard] *)
 val add_caller : t -> t ->
   (StateVar.t * StateVar.t) list * (Term.t -> Term.t) -> unit
 
@@ -290,7 +291,8 @@ val init_define_fun_declare_vars_of_bounds :
       unit
 
 
-val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> Model.path -> bool
+val exists_eval_on_path :
+  pred_def list -> (Eval.value -> bool) -> Term.t -> Model.path -> bool
 
 
 (* 
