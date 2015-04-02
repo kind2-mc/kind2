@@ -294,7 +294,7 @@ let rec fixpoint ~just_check_ind
     acc solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   let if_sat () =
-    (debug certif "[Fixpoint] fail@." in ());
+    (debug certif "[Fixpoint] fail" end);
     raise Exit
     
   in
@@ -305,8 +305,8 @@ let rec fixpoint ~just_check_ind
     let uinvs_acts =
       List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
 
-    (debug certif "[Fixpoint] extracted %d useful invariants@."
-      (List.length uinvs_acts) in ());
+    (debug certif "[Fixpoint] extracted %d useful invariants"
+      (List.length uinvs_acts) end);
 
     let uinvs, uinvs' = List.split uinvs_acts in
 
@@ -330,15 +330,15 @@ let rec fixpoint ~just_check_ind
       
       (fun () ->
          (* SAT try to find what invariants are missing *)
-         (debug certif "[Fixpoint] could not verify inductiveness@." in ());
+         (debug certif "[Fixpoint] could not verify inductiveness" end);
 
          fixpoint ~just_check_ind:false acc solver
            invs_acts new_prop_act new_prop'act neg_new_prop'act trans_acts)
       
       (fun () ->
          (* UNSAT: return accumulated invariants *)
-         (debug certif "[Fixpoint] OK@."
-           (* (pp_print_list Term.pp_print_term "@ ") acc *) in ());
+         (debug certif "[Fixpoint] OK"
+           (* (pp_print_list Term.pp_print_term "@ ") acc *) end);
   
          acc)
 
@@ -388,7 +388,7 @@ type return_of_try =
    invariants *)
 let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   
-  (debug certif "Try bound %d@." k in ());
+  (debug certif "Try bound %d" k end);
 
   (* Construct properties from 1 to k-1 *)
   let prev_props_l = ref [prop] in
@@ -610,8 +610,8 @@ let minimize_certificate sys =
   (* For stats *)
   let k_orig, nb_invs = k, List.length invs in
   
-  (debug certif "Trying to simplify up to k = %d\ninvs = %a\n@."
-    k_orig Term.pp_print_term (Term.mk_and invs) in ());
+  (debug certif "Trying to simplify up to k = %d\ninvs = %a\n"
+    k_orig Term.pp_print_term (Term.mk_and invs) end);
   
   
   (* Creating solver that will be used to replay and minimize inductive step *)
@@ -660,8 +660,8 @@ let minimize_certificate sys =
      anylonger *)
   SMTSolver.delete_instance solver;
   
-  (debug certif "Simplification found for k = %d\ninv = %a\n@."
-     kmin Term.pp_print_term (Term.mk_and uinvs) in ());
+  (debug certif "Simplification found for k = %d\ninv = %a\n"
+     kmin Term.pp_print_term (Term.mk_and uinvs) end);
 
   printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
     (List.length uinvs) nb_invs kmin k_orig;

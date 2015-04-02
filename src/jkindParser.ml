@@ -70,11 +70,14 @@ let jkind_options = [
 (* Create command line to call jKind *)
 let jkind_command_line file =
   let jkind = Flags.jkind_bin () in
-  String.concat " " (jkind :: jkind_options @ [file; "&> /dev/null"])
+  let file_red =
+    if Debug.mode "certif" then [file]
+    else [file; "&> /dev/null"] in
+  String.concat " " (jkind :: jkind_options @ file_red)
 
 
 (******************************************)
-(* jKind state varaibles from Lustre name *)
+(* jKind state variables from Lustre name *)
 (******************************************)
 
 (* Returns a state variable of jKind form a state variable of Kind 2 and a
@@ -97,10 +100,10 @@ let jkind_vars_of_kind2_statevar lustre_vars sv =
   let lus_vs = SVMap.find sv lustre_vars in
   let jkvars = List.map (jkind_var_of_lustre sv) lus_vs in
   
-  (debug certif "(Kind2->jKind): %a -> %a@."
+  (debug certif "(Kind2->jKind): %a -> %a"
      StateVar.pp_print_state_var sv
      (pp_print_list StateVar.pp_print_state_var ", ") jkvars
-  in ());
+  end);
 
   jkvars
     
@@ -264,8 +267,8 @@ let of_channel in_ch =
       Type.t_bool 
   in
 
-  (debug certif "jKind Lambda:\n%a@." Term.pp_print_lambda jk_trans_lambda
-   in ());
+  (debug certif "jKind Lambda:\n%a" Term.pp_print_lambda jk_trans_lambda
+   end);
 
   (* Term for initial states. We do a simplification by removing let bindings
      originating from the lambda application. *)
@@ -304,12 +307,12 @@ let get_jkind_transsys file =
   let tmp = Filename.temp_file base ".lus" in
   file_copy file tmp;
 
-  (debug certif "Temporary file %s@." tmp in ());
+  (debug certif "Temporary file %s" tmp end);
   
   (* Run jKind on temporary copy *)
   let cmd = jkind_command_line tmp in
 
-  (debug certif "jKind command line: %s@." cmd in ());
+  (debug certif "jKind command line: %s" cmd end);
 
   if Sys.command cmd <> 0 then
     failwith "jKind execution failed";
@@ -317,7 +320,7 @@ let get_jkind_transsys file =
   (* open dump file and parse *)
   let dump_file = tmp ^ ".bmc.smt2" in
 
-  (debug certif "Parsing from jKind dump file: %s@." dump_file in ());
+  (debug certif "Parsing from jKind dump file: %s" dump_file end);
 
   let in_ch = open_in dump_file in
   let sys = of_channel in_ch in
