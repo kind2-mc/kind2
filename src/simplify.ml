@@ -1931,6 +1931,14 @@ let simplify_term_model ?default_of_var uf_defs model term =
     model
   in
 
+  Var.VarHashtbl.iter (fun v -> function
+      | Model.Term t when Term.is_free_var t ->
+        let v' = Term.free_var_of_term t in
+        if Var.equal_vars v v' then
+          Var.VarHashtbl.remove model v
+      | _ -> ()
+    ) model;
+  
   (* Convert returned default value to a polynomial *)
   let default_of_var' = match default_of_var with
 
