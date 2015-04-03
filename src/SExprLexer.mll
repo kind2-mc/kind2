@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -89,12 +89,12 @@ let lf = '\010'
 let lf_cr = ['\010' '\013']
 let dos_newline = "\013\010"
 let blank = [' ' '\009' '\012']
-let unquoted = [^ ';' '(' ')' '"'] # blank # lf_cr
+let unquoted = [^ ';' '(' ')' '"' '|'] # blank # lf_cr
 let digit = ['0'-'9']
 let hexdigit = digit | ['a'-'f' 'A'-'F']
 
 let unquoted_start =
-  unquoted # ['#' '|'] | '#' unquoted # ['|'] | '|' unquoted # ['#']
+  unquoted # ['#'] | '#' unquoted 
 
 rule main buf = parse
   | lf | dos_newline { found_newline lexbuf 0; main buf lexbuf }
@@ -115,9 +115,18 @@ rule main buf = parse
         main buf lexbuf
       }
   | "|#" { main_failure lexbuf "illegal end of comment" }
+  | '|'
+    {
+      scan_quoted buf (lexeme_start_p lexbuf) lexbuf;
+      let str = Buffer.contents buf in
+      Buffer.clear buf;
+      STRING (HString.mk_hstring ("|"^ str ^"|"))
+    }
+
   | unquoted_start unquoted* ("#|" | "|#") unquoted*
       { main_failure lexbuf "comment tokens in unquoted atom" }
   | "#" | unquoted_start unquoted* as str { STRING (HString.mk_hstring str) }
+  (* | '|' (unquoted* as str) '|' { STRING (HString.mk_hstring str) } *)
   | eof { EOF }
 
 and scan_string buf start = parse
@@ -172,9 +181,7 @@ and scan_string buf start = parse
       }
   | ([^ '\\' '"'] # lf)+
       {
-        let ofs = lexeme_start lexbuf in
-        let len = lexeme_end lexbuf - ofs in
-        Buffer.add_substring buf lexbuf.lex_buffer ofs len;
+        Buffer.add_string buf (lexeme lexbuf);
         scan_string buf start lexbuf
       }
   | eof
@@ -182,6 +189,71 @@ and scan_string buf start = parse
         let msg =
           sprintf
             "Sexplib.Lexer.scan_string: unterminated string at line %d char %d"
+            start.pos_lnum (start.pos_cnum - start.pos_bol)
+        in
+        failwith msg
+      }
+
+and scan_quoted buf start = parse
+  | '|' { () }
+  | '\\' lf [' ' '\t']*
+      {
+        found_newline lexbuf (lexeme_len lexbuf - 2);
+        scan_quoted buf start lexbuf
+      }
+  | '\\' dos_newline [' ' '\t']*
+      {
+        found_newline lexbuf (lexeme_len lexbuf - 3);
+        scan_quoted buf start lexbuf
+      }
+  | '\\' (['\\' '\'' '"' 'n' 't' 'b' 'r' ' ' '|'] as c)
+      {
+        Buffer.add_char buf (char_for_backslash c);
+        scan_quoted buf start lexbuf
+      }
+  | '\\' (digit as c1) (digit as c2) (digit as c3)
+      {
+        let v = dec_code c1 c2 c3 in
+        if v > 255 then (
+          let { pos_lnum; pos_bol; pos_cnum; _ } = lexeme_end_p lexbuf in
+          let msg =
+            sprintf
+              "Sexplib.Lexer.scan_quoted: \
+               illegal escape at line %d char %d: `\\%c%c%c'"
+              pos_lnum (pos_cnum - pos_bol - 3)
+              c1 c2 c3 in
+          failwith msg);
+        Buffer.add_char buf (Char.chr v);
+        scan_quoted buf start lexbuf
+      }
+  | '\\' 'x' (hexdigit as c1) (hexdigit as c2)
+      {
+        let v = hex_code c1 c2 in
+        Buffer.add_char buf (Char.chr v);
+        scan_quoted buf start lexbuf
+      }
+  | '\\' (_ as c)
+      {
+        Buffer.add_char buf '\\';
+        Buffer.add_char buf c;
+        scan_quoted buf start lexbuf
+      }
+  | lf
+      {
+        found_newline lexbuf 0;
+        Buffer.add_char buf lf;
+        scan_quoted buf start lexbuf
+      }
+  | ([^ '\\' '|'] # lf)+
+      {
+        Buffer.add_string buf (lexeme lexbuf);
+        scan_quoted buf start lexbuf
+      }
+  | eof
+      {
+        let msg =
+          sprintf
+            "Sexplib.Lexer.scan_quoted: unterminated ident at line %d char %d"
             start.pos_lnum (start.pos_cnum - start.pos_bol)
         in
         failwith msg
