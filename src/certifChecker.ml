@@ -1230,7 +1230,7 @@ let generate_frontend_certificate kind2_sys =
     NativeInput.dump_native_to obs_sys filename;
 
     (* Time statistics *)
-    Stat.record_time Stat.certif_gen_time;
+    Stat.record_time Stat.certif_frontend_time;
 
     (* Show which file contains the certificate *)
     printf "Frontend certificate was written in %s@." filename;
