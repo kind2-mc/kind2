@@ -1146,6 +1146,8 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
      varaibles. *)
   let init_term =
     Term.mk_and [
+      (* init flag *)
+      TransSys.init_flag_var TransSys.init_base |> Term.mk_var;
       same_inputs lustre_vars orig_kind2_vars;
       mk_init_term [obs_name] kind2_sys;
       mk_init_term [obs_name] jkind_sys] in
@@ -1155,6 +1157,8 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
      are input varaibles. *)
   let trans_term =
     Term.mk_and [
+      (* init flag *)
+      TransSys.init_flag_var TransSys.trans_base |> Term.mk_var |> Term.mk_not;
       same_inputs ~prime:true lustre_vars orig_kind2_vars;
       mk_trans_term [obs_name] kind2_sys;
       mk_trans_term [obs_name] jkind_sys] in
