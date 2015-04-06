@@ -72,7 +72,7 @@ let jkind_command_line file =
   let jkind = Flags.jkind_bin () in
   let file_red =
     if Debug.mode "certif" then [file]
-    else [file; "&> /dev/null"] in
+    else [file; ">/dev/null"] in
   String.concat " " (jkind :: jkind_options @ file_red)
 
 
