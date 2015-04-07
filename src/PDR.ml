@@ -367,6 +367,36 @@ let incr_binding term term_tbl =
 
   Term.TermHashtbl.add term_tbl term (v+1)
 
+
+let count_subsumed solver (c, f) =
+
+  let num = List.length c in
+
+  SMTSolver.trace_comment
+    solver
+    (Format.sprintf
+       "@[<v>Backward subsumed %d clauses in R_k@]" num);
+  
+  Stat.incr ~by:num Stat.pdr_back_subsumed;
+  (c, f)
+                        
+                    
+    
+(* Deactivate activation literals of subsumed clauses *)
+let deactivate_subsumed solver (subsumed, frame') =
+
+  if deactivate_actlit then 
+    (List.iter
+       (fun (l, c) ->
+         C.actlit_p0_of_clause c |> Term.mk_not |> SMTSolver.assert_term solver;
+         C.actlit_p1_of_clause c |> Term.mk_not |> SMTSolver.assert_term solver;
+         C.actlits_n0_of_clause c |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
+         C.actlits_n1_of_clause c |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
+         Stat.incr ~by:(2 + 2 * (List.length l)) Stat.pdr_stale_activation_literals)
+       subsumed);
+  frame'
+
+    
 (* Inductively generalize [clause] relative to [frame]
 
    Assuming that [clause] is relatively inductive to [frame] and
@@ -1015,7 +1045,9 @@ let rec block solver trans_sys prop_set term_tbl =
 
               then
 
-                (SMTSolver.trace_comment
+                (Stat.incr Stat.pdr_back_subsumed;
+
+                  SMTSolver.trace_comment
                    solver
                    (Format.asprintf
                       "@[<v>Clause@ @[<hv>{%a@}@] is subsumed in frame@ @[<hv>%a@]@]"
@@ -1041,10 +1073,23 @@ let rec block solver trans_sys prop_set term_tbl =
                  
                  (* Subsume in frame and add clauses *)
                  F.subsume r_i block_clause_gen_literals
-                 |> F.add block_clause_gen_literals block_clause_gen,
+
+                    (* Count number of subsumed clauses *)
+                    |> count_subsumed solver
+
+                    (* Deactivate activation literals of subsumed clauses *)
+                    |> deactivate_subsumed solver
+                        
+                    (* Add clause to frame after subsumption *)
+                    |> F.add block_clause_gen_literals block_clause_gen,
                  
                  (* Subsume in preceding frames *)
-                 List.map (fun f -> F.subsume f block_clause_gen_literals) frames)
+                 List.map
+                   (fun f ->
+                     F.subsume f block_clause_gen_literals
+                       |> count_subsumed solver
+                       |> deactivate_subsumed solver)
+                   frames)
 
             else
               
@@ -1079,6 +1124,14 @@ let rec block solver trans_sys prop_set term_tbl =
                    
                   (* Subsume in this frame and add *)
                   F.subsume r_i block_clause_gen_literals
+
+                     (* Count number of subsumed clauses *)
+                     |> count_subsumed solver
+                         
+                     (* Deactivate activation literals of subsumed clauses *)
+                     |> deactivate_subsumed solver
+                         
+                     (* Add clause to frame after subsumption *)
                      |> F.add block_clause_gen_literals block_clause_gen)),
               
               frames
@@ -1433,8 +1486,13 @@ let fwd_propagate solver trans_sys prop_set frames =
     
     if subsume_in_fwd_prop then
       
-      if F.is_subsumed a l then a else
-        F.subsume a l |> F.add l c
+      if F.is_subsumed a l then
+        (Stat.incr Stat.pdr_fwd_subsumed; a)
+      else
+        F.subsume a l
+        |> count_subsumed solver
+        |> deactivate_subsumed solver
+        |> F.add l c
 
     else
 
@@ -1442,8 +1500,13 @@ let fwd_propagate solver trans_sys prop_set frames =
          trie, or if a clause in the trie is a prefix of this
          clause *)
       try F.add l c a with Invalid_argument _ ->
-        if F.is_subsumed a l then a else
-          F.subsume a l |> F.add l c
+        if F.is_subsumed a l then
+          (Stat.incr Stat.pdr_fwd_subsumed; a)
+        else
+          F.subsume a l
+          |> count_subsumed solver
+          |> deactivate_subsumed solver
+          |> F.add l c
 
   in
 

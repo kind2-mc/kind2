@@ -327,6 +327,12 @@ let pdr_frame_sizes =
 let pdr_fwd_propagated = 
   empty_item "Forward propagations" 0
 
+let pdr_fwd_subsumed = 
+  empty_item "Forward subsumed clauses" 0
+
+let pdr_back_subsumed = 
+  empty_item "Backward subsumed clauses" 0
+
 let pdr_inductive_blocking_clauses = 
   empty_item "Inductive blocking clauses" 0
 
@@ -390,6 +396,8 @@ let pdr_stats =
     I pdr_restarts;
     L pdr_frame_sizes; 
     I pdr_fwd_propagated; 
+    I pdr_fwd_subsumed; 
+    I pdr_back_subsumed; 
     I pdr_fwd_fixpoint; 
     I pdr_inductive_blocking_clauses; 
     I pdr_literals_removed;

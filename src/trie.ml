@@ -26,7 +26,10 @@
    to the path from the root, if any. Therefore, a trie can be defined
    as soon as a map over the elements of the list is given. *)
 
-(* Input signature of a map *)
+(* Input signature of a map
+
+   TODO: implement the remaining functions, becuase a trie extends
+   this signature *)
 module type M = sig
   type key
   type +'a t
@@ -68,7 +71,7 @@ module type S = sig
   val iter2 : (key -> 'a -> 'b -> unit) -> 'a t -> 'b t -> unit
   val for_all2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
   val exists2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
-  val subsume : 'a t -> key -> 'a t
+  val subsume : 'a t -> key -> (key * 'a) list * 'a t
   val is_subsumed : 'a t -> key -> bool
 end
 
@@ -76,7 +79,6 @@ module Make (M : M) = struct
 
   (* The keys in the trie are lists of keys of the input map module *)
   type key = M.key list
-
 
   (* This trie stores information at the leaves only. An inner node
      stores the subtries for each key in a map. An empty trie does
@@ -87,12 +89,12 @@ module Make (M : M) = struct
     | Leaf of 'a
     | Empty 
 
-        
+
   (* An empty tree is an inner node with no children *)
   let empty = Empty
 
 
-  (* Return true if a trie is empty *)
+  (* Return true if the trie is empty *)
   let is_empty = function
     | Empty -> true
     | Node m -> M.is_empty m
@@ -168,7 +170,6 @@ module Make (M : M) = struct
       (* Add sub-trie to this trie *)
       Node (M.add h t M.empty)
           
-      
     (* Insert into the sub-trie of the head of the key list *)
     | h :: tl, Node m ->
 
@@ -345,6 +346,8 @@ module Make (M : M) = struct
 
   let cardinal t = fold (fun k v a -> succ a) t 0
 
+  (* Return [true] if there is a key value pair in the trie for which
+      the given predicate evaluates to [true] *)
   let exists p t =
 
     let rec exists' k p = function
@@ -357,6 +360,8 @@ module Make (M : M) = struct
     exists' [] p t
 
       
+  (* Return [true] if the given predicate evaluates to [true] for all
+      key value pairs in the trie *)
   let for_all p t =
 
     let rec for_all' k p = function
@@ -574,66 +579,85 @@ module Make (M : M) = struct
 
     exists2' [] p t1 t2 
 
-
   (* Subset subsumption: remove all entries that have the given key as
      a subset. Keys must be sorted *)
-  let rec subsume t = function
-  
-    (* The empty key subsumes all subtries *)
-    | [] -> Empty
+  let subsume t k = 
 
-    | h :: tl as s ->
+    let rec subsume' accum revp t = function
+    
+      (* The empty key subsumes all subtries *)
+      | [] ->
 
-      (match t with
+	(* Add all removed bindings to accumulator *)
+	let accum' =
+	  fold
+	    (fun k v a -> ((List.rev_append revp k, v) :: a))
+	    t
+	    accum
+	in
+	
+	(accum', Empty)
 
-        (* Nothing to subsume *)
-        | Empty -> Empty
+      | h :: tl as s ->
 
-        (* Key to subsume is longer than subtrie *)
-        | Leaf v -> Leaf v
+	(match t with
 
-        (* Subsume a node *)
-        | Node m ->
+          (* Nothing to subsume *)
+          | Empty -> (accum, Empty)
 
-          (* Left subtries may be subsumed by the whole key [s],
-             skipping over the smaller elements in the key of
-             potentially subsumed entries. The subtries below [h] may
-             be subsumed by [tl], and right subtries are never
-             subsumed. *)
-          let ml, mc, mr = M.split h m in
+          (* Key to subsume is longer than subtrie *)
+          | Leaf v -> (accum, Leaf v)
 
-          (* Subsume in center subtries and add to kept right
-             subtries *)
-          let mr' = match mc with
-            | None -> mr
-            | Some t -> M.add h (subsume t tl) mr
-          in
+          (* Subsume a node *)
+          | Node m ->
 
-          (* Subsume in left subtries and add to center and right subtries *)
-          let m' =
-            
-            M.fold
+            (* Left subtries may be subsumed by the whole key [s],
+               skipping over the smaller elements in the key of
+               potentially subsumed entries. The subtries below [h] may
+               be subsumed by [tl], and right subtries are never
+               subsumed. *)
+            let ml, mc, mr = M.split h m in
 
-              (fun k t a ->
+            (* Subsume in center subtries and add to kept right
+               subtries *)
+            let accum', mr' = match mc with
+              | None -> (accum, mr)
+              | Some t ->
+		let a', t' = subsume' accum (h :: revp) t tl in
+		(a', M.add h t' mr)
+            in
 
-                (* Subsume in subtrie with key *)
-                match subsume t s with
-
-                  (* Don't add to map if subtrie is empty *)
-                  | Empty -> a
-                    
-                  | t' -> M.add k t' a)
-
-              (* Subsume in left subtries *)
-              ml
-
-              (* Add to already filtered tries *)
-              mr'
+            (* Subsume in left subtries and add to center and right subtries *)
+            let accum', m' =
               
-          in
+              M.fold
 
-          (* Return empty if all subsumed *)
-          if M.is_empty m' then Empty else Node m')
+		(fun k t (a', t') ->
+
+                  (* Subsume in subtrie with key *)
+		  let a'', t'' = subsume' a' (k :: revp) t s in
+
+                  match t'' with
+
+                    (* Don't add to map if subtrie is empty *)
+                    | Empty -> (a'', t')
+                      
+                    | _ -> (a'', M.add k t'' t'))
+
+		(* Subsume in left subtries *)
+		ml
+
+		(* Add to already filtered tries *)
+		(accum', mr')
+		
+            in
+
+            (* Return empty if all subsumed *)
+            if M.is_empty m' then (accum', Empty) else (accum', Node m'))
+
+    in
+
+    subsume' [] [] t k
 
 	
   (* Subset subsumption: return true if there is a key in the trie that is a
@@ -684,9 +708,7 @@ end
 
 
 
-
 (*
-
 
 (* Test code *)
 module CharMap = Map.Make(Char);;
@@ -886,23 +908,24 @@ T.bindings (T.filter (fun k v -> k = ['a']) a1b2);;
 T.bindings (T.filter (fun k v -> k = ['b']) a1b2);;
 T.bindings (T.filter (fun k v -> not (k = ['a'] || k = ['c';'e'])) a1b2cd3ce4);;
 T.bindings (T.filter (fun k v -> k = ['a'] || k = ['c';'e']) a1b2cd3ce4);;
-*)  
-(*
-  Format.printf "Testing subsumption";;
+
+Format.printf "Testing subsumption";;
 
 let t =
   List.fold_left
     (fun m (k, v) -> T.add k v m)
     T.empty
-    [(['a';'b';'c'], "abc");
-     (['a';'b';'d'], "abd");
-     (['a';'c';'d'], "acd")];;
+    [(['b';'c';'d'], "bcd");
+     (['b';'c';'e'], "bce");
+     (['b';'d';'e'], "bde");
+     (['a';'b';'c'], "abc");
+     (['c'], "c")];;
 
 T.bindings t;;
 
-T.bindings (T.subsume t ['a';'b']);;
-T.bindings (T.subsume t ['b';'c']);;
-T.bindings (T.subsume t ['a';'c']);;
+T.subsume t ['b';'c'] |> (fun (s, t) -> (s, T.bindings t));;
+T.subsume t ['c';'d'] |> (fun (s, t) -> (s, T.bindings t));;
+T.subsume t ['b';'d'] |> (fun (s, t) -> (s, T.bindings t));;
 
 T.is_subsumed t ['a'];;
 T.is_subsumed t ['x'];;

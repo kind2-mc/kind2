@@ -181,6 +181,12 @@ val pdr_frame_sizes : int_list_item
 (** Number of forward propagations *)
 val pdr_fwd_propagated : int_item
 
+(** Number of forward subsumed clauses *)
+val pdr_fwd_subsumed : int_item
+
+(** Number of backward subsumed clauses *)
+val pdr_back_subsumed : int_item
+
 (** Fixpoint in forward propagation *)
 val pdr_fwd_fixpoint : int_item
 
