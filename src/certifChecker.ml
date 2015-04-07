@@ -1069,37 +1069,59 @@ let term_state_var1 scope sv =
   |> Term.mk_var
 
 
+
+
+let mk_obs_eqs ?(prime=false) lustre_vars orig_kind2_vars =
+  let term_state_var =
+    if prime then term_state_var1 [obs_name]
+    else term_state_var0 [obs_name] in
+
+  List.fold_left (fun acc sv ->
+      try
+        List.fold_left (fun acc jv ->
+            Term.mk_eq [term_state_var sv; term_state_var jv] :: acc
+          ) acc (JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv)
+
+      (* Ignore this variable if it does not have a jKind counterpart *)
+      with Not_found -> acc
+    ) [] orig_kind2_vars
+  |> List.rev
+
+
 (* Create a term for the observational equivalence of the original state
    variables of Kind2 ([orig_kind2_vars]) and their computed jKind
    counterparts. The optional parameter [prime] controls if the resulting
    eqaulities should be on primed varaibles. *)
 let mk_prop_obs ?(prime=false) lustre_vars orig_kind2_vars =
-
-  let term_state_var =
-    if prime then term_state_var1 [obs_name]
-    else term_state_var0 [obs_name] in
+  let eqs = mk_obs_eqs ~prime lustre_vars
+      (List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars) in
   
-  let eqs =
-    List.fold_left (fun acc sv ->
-        try
-          List.fold_left (fun acc jv ->
-              Term.mk_eq [term_state_var sv; term_state_var jv] :: acc
-            ) acc (JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv)
-
-        (* Ignore this variable if it does not have a jKind counterpart *)
-        with Not_found -> acc
-      ) [] orig_kind2_vars
-  in
-
   (* Conjunction of equalities between state varaibles *)
-  Term.mk_and eqs
+  ["Observational_Equivalence",
+   TermLib.Generated [],
+   Term.mk_and eqs]
+
+
+let mk_multiprop_obs ?(prime=false) lustre_vars orig_kind2_vars =
+  let eqs = mk_obs_eqs ~prime lustre_vars
+      (List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars) in
+
+  let cpt = ref 0 in
+  List.map (fun eq ->
+      incr cpt;
+      "Observational_Equivalence_" ^(string_of_int !cpt),
+      TermLib.Generated [],
+      Term.mk_and [eq])
+    eqs
+
 
 
 (* Create additional constraints that force the input state varaibles to be the
    same in Kind2 and jKind. *)
 let same_inputs ?(prime=false) lustre_vars orig_kind2_vars =
-  mk_prop_obs ~prime
+  mk_obs_eqs ~prime
     lustre_vars (List.filter StateVar.is_input orig_kind2_vars)
+  |> Term.mk_and
 
 
 (* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
@@ -1166,16 +1188,13 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let init = init_uf, (state_vars0, init_term) in
   let trans = trans_uf, (state_vars1 @ state_vars0, trans_term) in
 
-  (* Create property *)
-  let prop =
-    ("Observational_Equivalence",
-     TermLib.Generated [],
-     mk_prop_obs lustre_vars orig_kind2_vars) in
-
+  (* Create properties *)
+  let props = mk_multiprop_obs lustre_vars orig_kind2_vars in
+  
   (* Create observer system *)
   let obs_sys =
     TS.mk_trans_sys [obs_name]
-      state_vars init trans [kind2_sys; jkind_sys] [prop] TS.Native
+      state_vars init trans [kind2_sys; jkind_sys] props TS.Native
   in
 
   (* Add caller info to subnodes *)
@@ -1213,6 +1232,23 @@ let generate_frontend_certificate kind2_sys =
     let lustre_vars =
       LustrePath.reconstruct_lustre_streams nodes (TS.state_vars kind2_sys) in
 
+    (* (debug certif "Lustre vars:@, %a" *)
+    (*    (fun fmt -> *)
+    (*       StateVar.StateVarMap.iter (fun sv l -> *)
+    (*           List.iter (fun (sv', l') -> *)
+    (*               Format.fprintf fmt "%a -> %a : %a@," *)
+    (*                 StateVar.pp_print_state_var sv *)
+    (*                 StateVar.pp_print_state_var sv' *)
+    (*                 (pp_print_list *)
+    (*                    (fun fmt (lid, n) -> *)
+    (*                       Format.fprintf fmt "%a [%d]" *)
+    (*                         (LustreIdent.pp_print_ident true) lid n) *)
+    (*                    " , ") l' *)
+    (*             ) l *)
+    (*       )) *)
+    (*    lustre_vars *)
+    (* end); *)
+    
     (* Create the observer system with the property of observational
        equivalence. *)
     let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
