@@ -734,6 +734,27 @@ let state_vars_of_expr { expr_init; expr_step } =
   SVS.union state_vars_init state_vars_step
 
 
+(* Return all state variables at the current instant *)
+let cur_state_vars_of_expr { expr_init; expr_step } = 
+
+  (* State variables in initial state expression *)
+  let state_vars_init =
+    Term.state_vars_at_offset_of_term
+      base_offset
+      (base_term_of_expr base_offset expr_init)
+  in
+
+  (* State variables in step state expression *)
+  let state_vars_step = 
+    Term.state_vars_at_offset_of_term
+      cur_offset
+      (cur_term_of_expr cur_offset expr_step)
+  in
+
+  (* Join sets of state variables *)
+  SVS.union state_vars_init state_vars_step
+
+
 (* Split a list of Lustre expressions into a list of pairs of
    expressions for the initial step and the transition steps,
    respectively *)

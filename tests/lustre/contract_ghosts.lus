@@ -25,4 +25,5 @@ const g1 = 1.0;
 var g : int; 
 let
   out = in;
+  -- assert a > 0;
 tel;

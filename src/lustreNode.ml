@@ -168,6 +168,10 @@ type t =
     (* Node is annotated as main node *)
     is_main : bool;
 
+    (* Input state variables an each output depends on to detect
+       cyclic definitions through node calls *)
+    output_input_dep : D.index list D.t;
+
   }
 
 
@@ -184,7 +188,8 @@ let empty_node name =
     asserts = [];
     props = [];
     contracts = None, [];
-    is_main = false }
+    is_main = false;
+    output_input_dep = D.empty }
 
 
 (* Pretty-print array bounds of index *)

@@ -19,13 +19,9 @@
 open Lib
 
 module A = LustreAst
-
 module I = LustreIdent
-
 module N = LustreNode
-
 module C = LustreContext
-
 module D = LustreDeclarations
 
 
@@ -36,7 +32,10 @@ let of_channel keep_all_coi in_ch =
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
 
   (* Initialize lexing buffer with channel *)
-  LustreLexer.lexbuf_init in_ch (Filename.dirname (Flags.input_file ()));
+  LustreLexer.lexbuf_init 
+    in_ch
+    (try Filename.dirname (Flags.input_file ())
+     with Failure _ -> Sys.getcwd ());
 
   (* Lustre file is a list of declarations *)
   let declarations = 
@@ -54,7 +53,7 @@ let of_channel keep_all_coi in_ch =
           Lexing.lexeme_start_p lexbuf 
         in
 
-        LustreSimplify.fail_at_position
+        C.fail_at_position
           (position_of_lexing lexer_pos)
           "Syntax error"
 
@@ -82,15 +81,28 @@ let of_channel keep_all_coi in_ch =
 
   in
 
-  debug lustreInput
-    "@[<v>Before slicing@,%a@]"
-    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes
-  in
+  Format.printf 
+    "@[<v>Before slicing@,%a@]@."
+    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes;
+
+  let nodes_impl = LustreSlicing.slice_to_impl nodes in
+
+  Format.printf 
+    "@[<v>After slicing to implementation@,%a@]@."
+    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_impl;
+
+  let nodes_contract = LustreSlicing.slice_to_contract nodes in
+
+  Format.printf 
+    "@[<v>After slicing to contract@,%a@]@."
+    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_contract
+
+(*
 
   (* Consider only nodes called by main node *)
   let nodes_coi = 
     if keep_all_coi then 
-      LustreNode.reduce_wo_coi (List.rev nodes) main_node
+      LustreSlicing.reduce_wo_coi (List.rev nodes) main_node
     else
       LustreNode.reduce_to_props_coi (List.rev nodes) main_node
   in
@@ -99,7 +111,7 @@ let of_channel keep_all_coi in_ch =
     "@[<v>After slicing@,%a@]"
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi
   in
-
+*)
 (*
   (* Create transition system of Lustre nodes *)
   let fun_defs_init, fun_defs_trans, state_vars, init, trans, props = 
@@ -122,7 +134,7 @@ let of_channel keep_all_coi in_ch =
       (TransSys.Lustre nodes_coi)
   in
   *)
-
+(*
   let trans_sys =
     LustreTransSys.trans_sys_of_nodes nodes_coi
   in
@@ -136,7 +148,7 @@ let of_channel keep_all_coi in_ch =
      L_info
      "Lustre main node is %a"
      (I.pp_print_ident false) main_node;
-
+*)
 (*
   Format.printf 
     "%a@."
@@ -148,9 +160,9 @@ let of_channel keep_all_coi in_ch =
             (LustreExpr.get_state_var_source state_var))
        ",@ ")
     state_vars);
-*)
   trans_sys)
 
+*)
 
 (* Open and parse from file *)
 let of_file keep_all_coi filename = 
@@ -160,6 +172,10 @@ let of_file keep_all_coi filename =
     let in_ch = use_file in
 
     of_channel keep_all_coi in_ch
+
+;;
+
+of_file false Sys.argv.(1)
 
 
 

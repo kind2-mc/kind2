@@ -1362,11 +1362,6 @@ let lift_if_property pos ctx node_props state_var =
                 (StateVar.type_of_state_var state_var) 
             in
 
-            Format.printf
-              "Lifting %a as %a@."
-              StateVar.pp_print_state_var state_var
-              StateVar.pp_print_state_var state_var';
-
             (* Mark relatation between state variable and instance *)
             N.set_state_var_instance state_var' pos name state_var;
 
@@ -1395,21 +1390,12 @@ let lift_if_property pos ctx node_props state_var =
       (* Not a property *)
       with Not_found ->
 
-        Format.printf 
-          "No source for %a@."
-          StateVar.pp_print_state_var state_var;
-
         (* Fresh local variable, not lifted as observer *)
         let state_var', ctx = 
           mk_fresh_local
             ctx
             (StateVar.type_of_state_var state_var) 
         in
-
-        Format.printf
-          "Lifting %a as %a@."
-          StateVar.pp_print_state_var state_var
-          StateVar.pp_print_state_var state_var';
 
         (* Mark relatation between state variable and instance *)
         N.set_state_var_instance state_var' pos name state_var;

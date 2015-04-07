@@ -164,6 +164,10 @@ type t =
     (** Flag node as the top node *)
     is_main : bool;
 
+    (** Indexes of input state variables an each output depends on to
+        detect cyclic definitions through node calls *)
+    output_input_dep : LustreIndex.index list LustreIndex.t;
+
   }
 
 (** The empty node *)
