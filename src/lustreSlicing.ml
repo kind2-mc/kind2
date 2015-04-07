@@ -263,18 +263,18 @@ let rec order_state_vars accum = function
 let output_input_dep_of_dependencies dependencies inputs outputs = 
 
   (* Map trie of output state variables to trie of indexes *)
-  D.map
+  D.mapi
 
-    (fun sv -> 
+    (fun j output -> 
 
        (* State variables this state variables depends on *)
-       let sv_dep = 
+       let output_dep = 
 
          try
 
            (* Get state variables the state variable depends on *)
            List.find 
-             (fun (sv', _) -> StateVar.equal_state_vars sv sv')
+             (fun (sv', _) -> StateVar.equal_state_vars output sv')
              dependencies
 
            |> snd 
@@ -308,7 +308,7 @@ let output_input_dep_of_dependencies dependencies inputs outputs =
               (* State variable occurs in input twice *)
               | _ -> assert false)
 
-         sv_dep
+         output_dep
          [])
 
     outputs
@@ -317,7 +317,7 @@ let output_input_dep_of_dependencies dependencies inputs outputs =
 (* Order equations of node topologically by their dependencies to have
    leaf equations first, and set the map of outputs to the inputs they
    depend on *)
-let order_equations nodes ({ N.equations; N.calls } as node) = 
+let order_equations nodes ({ N.inputs; N.outputs; N.equations; N.calls } as node) = 
 
   (* Compute dependencies for state variables on the left-hand side of
      definitions, that is, in equations and node calls *)
@@ -326,6 +326,10 @@ let order_equations nodes ({ N.equations; N.calls } as node) =
     (* State variables on the left-hand side of equations *)
     (List.map (fun (sv, _, _) -> (sv, [])) equations
        
+    |> D.fold
+         (fun _ sv a -> (sv, []) :: a)
+         outputs
+
      (* Add state variables capturing outputs of node calls *)
      |> (fun accum -> 
          List.fold_left
@@ -375,7 +379,9 @@ let order_equations nodes ({ N.equations; N.calls } as node) =
   in 
 
   (* Dependency of output variables on input variables *)
-  let output_input_dep = D.empty in
+  let output_input_dep = 
+    output_input_dep_of_dependencies dependencies inputs outputs
+  in
 
   (* Return node with equations ordered by dependency *)
   { node with 
@@ -506,11 +512,15 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
   (* Node is sliced to all equations *)
   | ([], leaves, node_sliced, node_unsliced) :: tl -> 
 
-    (* Sort equations of sliced node by dependencies, and continue *)
+    (* Sort equations of sliced node by dependencies, and continue
+
+       We must pass [accum] instead of [nodes] to order_equations,
+       because we need the output input dependencies of called nodes
+       that are only set when adding a node to [accum]. *)
     slice_nodes
       init_slicing_of_node
       nodes
-      ((order_equations nodes node_sliced) :: accum)
+      ((order_equations accum node_sliced) :: accum)
       tl
 
   (* State variable is a leaf, that is no dependencies have to be
