@@ -502,6 +502,9 @@ let s_or = mk_symbol `OR
 (* Constant conjunction symbol *)
 let s_implies = mk_symbol `IMPLIES
 
+(* Constant ite symbol *)
+let s_ite = mk_symbol `ITE
+
 (* Constant conjunction symbol *)
 let s_eq = mk_symbol `EQ
 

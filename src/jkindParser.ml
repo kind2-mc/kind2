@@ -23,6 +23,7 @@ module HS = HStringSExpr
 module D = GenericSMTLIBDriver
 module TS = TransSys
 module SVMap = StateVar.StateVarMap
+module SVH = StateVar.StateVarHashtbl
 
 module Conv = SMTExpr.Converter(D)
 let conv = D.smtlib_string_sexpr_conv
@@ -222,6 +223,51 @@ let rec parse acc = function
   | _ -> failwith "Unsupported sexp in jKind output"
 
 
+
+let minus_one_to_const e =
+  let hc = SVH.create 13 in
+  let e =
+    Term.map (fun _ t ->
+        if Term.is_free_var t then
+          let v = Term.free_var_of_term t in
+          if Var.is_state_var_instance v &&
+             Var.offset_of_state_var_instance v |> Numeral.(equal (neg one))
+          then
+            let sv = Var.state_var_of_state_var_instance v in
+            try fst (SVH.find hc sv)
+            with Not_found ->
+              let svc = StateVar.mk_state_var
+                  ~is_const:true
+                  ~is_input:true
+                  ~for_inv_gen:true
+                  ((StateVar.name_of_state_var sv) ^"~1")
+                  (StateVar.scope_of_state_var sv)
+                  (StateVar.type_of_state_var sv)
+              in
+              let tc = svc
+                       |> Var.mk_const_state_var
+                       |> Term.mk_var in
+              SVH.add hc sv (tc, svc);
+              tc
+          else t
+        else t
+      ) e in
+  let new_consts = SVH.fold (fun _ (_, svc) acc -> svc :: acc) hc [] in
+  e, new_consts
+
+
+let simplify_trivial_ites =
+  Term.map (fun _ t ->
+      let open Term.T in
+      match node_of_t t with
+      | Node (s_ite, [cond; t_then; t_else])
+        when s_ite == Symbol.s_ite ->
+        if Term.equal cond Term.t_true then t_then
+        else if Term.equal cond Term.t_false then t_else
+        else t
+      | _ -> t
+    )
+
 (* Parse from input channel *)
 let of_channel in_ch =
 
@@ -248,8 +294,13 @@ let of_channel in_ch =
       Var.mk_state_var_instance sv Numeral.one)
       statevars in
 
+  let statevars_m1 = List.map (fun sv ->
+      Var.mk_state_var_instance sv Numeral.(neg one))
+      statevars in
+
   let t_statevars0 = List.map Term.mk_var statevars0 in
   let t_statevars1 = List.map Term.mk_var statevars1 in
+  let t_statevars_m1 = List.map Term.mk_var statevars_m1 in
   
   (* Predicate symbol for initial state predicate *)
   let init_uf_symbol = 
@@ -270,29 +321,35 @@ let of_channel in_ch =
   (debug certif "jKind Lambda:\n%a" Term.pp_print_lambda jk_trans_lambda
    end);
 
-  (* Term for initial states. We do a simplification by removing let bindings
-     originating from the lambda application. *)
-  let init_term =
+(* Term for initial states and new constant oracles. We do a simplification
+   by removing let bindings originating from the lambda application. *)
+  let init_term, consts =
     Term.eval_lambda jk_trans_lambda
-      (Term.t_true :: t_statevars0 @ t_statevars0)
+      (Term.t_true :: t_statevars_m1 @ t_statevars0)
     |> unlet_term
+    |> simplify_trivial_ites
+    |> minus_one_to_const 
   in
-
+  
   (* Term for transition relation. We do a simplification by removing let
      bindings originating from the lambda application. *)
   let trans_term =
     Term.eval_lambda jk_trans_lambda
       (Term.t_false :: t_statevars0 @ t_statevars1)
     |> unlet_term
+    |> simplify_trivial_ites
   in
-  
-  let init = init_uf_symbol, (statevars0, init_term) in
-  let trans = trans_uf_symbol, (statevars1 @ statevars0, trans_term) in
 
+  let vconsts = List.map Var.mk_const_state_var consts in
+  let init = init_uf_symbol, (vconsts @ statevars0, init_term) in
+  let trans = trans_uf_symbol, (vconsts @ statevars1 @ statevars0, trans_term) in
+
+  let allstatevars = consts @ statevars in
+  
   (* Creation of transition system *)
   TransSys.mk_trans_sys
     jkind_scope
-    statevars
+    allstatevars
     init trans
     (* No subsystems, no properties *)
     [] []
