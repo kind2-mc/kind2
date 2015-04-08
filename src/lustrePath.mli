@@ -30,6 +30,7 @@ val pp_print_path_xml :
 val pp_print_path_pt :
   LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
 
+(** Reconstruct Lustre streams from state variables *)
 val reconstruct_lustre_streams :
   LustreNode.t list -> StateVar.t list ->
   (StateVar.t * (LustreIdent.t * int) list) list StateVar.StateVarMap.t

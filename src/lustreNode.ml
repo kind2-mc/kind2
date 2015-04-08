@@ -1102,6 +1102,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         ensures; 
         is_main; 
         output_input_dep;
+        state_var_oracle_map;
         fresh_state_var_index } as node_orig), 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
@@ -1135,6 +1136,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           requires = requires;
           ensures = ensures;
           is_main = is_main;
+          state_var_oracle_map = state_var_oracle_map;
           fresh_state_var_index = fresh_state_var_index }
 
     in

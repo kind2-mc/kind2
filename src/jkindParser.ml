@@ -85,13 +85,13 @@ let jkind_command_line file =
    callsite information *)
 let jkind_var_of_lustre kind_sv (li, parents) =
   let base_li = StateVar.name_of_state_var li in
-  (* Ignore main top level node for jkind *)
-  let parents_wo_main = List.tl parents in
   let strs = List.fold_left (fun acc (ni, n) ->
       let bni = List.hd (LustreIdent.scope_of_ident ni) in
       (bni^"~"^(string_of_int n)) :: acc
-    ) [base_li] (List.rev parents_wo_main) in
+    ) [base_li] (List.rev parents) in
   let str = Format.sprintf "$%s$" (String.concat "." strs) in
+  (* add -1 for constants *)
+  let str = if StateVar.is_const kind_sv then str ^"~1" else str in
   (* get previously constructed jkind variable *)
   StateVar.state_var_of_string (str, jkind_scope)
 

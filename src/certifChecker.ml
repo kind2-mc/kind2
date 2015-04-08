@@ -1092,9 +1092,12 @@ let mk_obs_eqs ?(prime=false) lustre_vars orig_kind2_vars =
    variables of Kind2 ([orig_kind2_vars]) and their computed jKind
    counterparts. The optional parameter [prime] controls if the resulting
    eqaulities should be on primed varaibles. *)
-let mk_prop_obs ?(prime=false) lustre_vars orig_kind2_vars =
-  let eqs = mk_obs_eqs ~prime lustre_vars
-      (List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars) in
+let mk_prop_obs ~only_out lustre_vars orig_kind2_vars =
+  let vars =
+    if only_out then
+      List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars
+    else orig_kind2_vars in      
+  let eqs = mk_obs_eqs ~prime:false lustre_vars vars in
   
   (* Conjunction of equalities between state varaibles *)
   ["Observational_Equivalence",
@@ -1102,9 +1105,12 @@ let mk_prop_obs ?(prime=false) lustre_vars orig_kind2_vars =
    Term.mk_and eqs]
 
 
-let mk_multiprop_obs ?(prime=false) lustre_vars orig_kind2_vars =
-  let eqs = mk_obs_eqs ~prime lustre_vars
-      (List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars) in
+let mk_multiprop_obs ~only_out lustre_vars orig_kind2_vars =
+  let vars =
+    if only_out then
+      List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars
+    else orig_kind2_vars in      
+  let eqs = mk_obs_eqs ~prime:false lustre_vars vars in
 
   let cpt = ref 0 in
   List.map (fun eq ->
@@ -1189,7 +1195,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let trans = trans_uf, (state_vars1 @ state_vars0, trans_term) in
 
   (* Create properties *)
-  let props = mk_multiprop_obs lustre_vars orig_kind2_vars in
+  let props = mk_multiprop_obs ~only_out:false lustre_vars orig_kind2_vars in
   
   (* Create observer system *)
   let obs_sys =
