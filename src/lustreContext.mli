@@ -186,7 +186,7 @@ val lift_if_property : Lib.position -> t -> (StateVar.t * TermLib.prop_source) l
 val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> LustreExpr.t -> t
 
 (** Add node call to context *)
-val add_node_call : t -> LustreNode.node_call -> t
+val add_node_call : t -> Lib.position -> LustreNode.node_call -> t
 
 (** Mark node as main *)
 val set_node_main : t -> t

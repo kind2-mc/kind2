@@ -199,7 +199,7 @@ let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s)
 
 (* Pretty-print a variable *)
 let pp_print_lustre_var _ ppf state_var = 
-  Format.fprintf ppf "%a" StateVar.pp_print_state_var state_var
+  Format.fprintf ppf "%s" (StateVar.name_of_state_var state_var)
 
 
 (* Pretty-printa variable with its type *)

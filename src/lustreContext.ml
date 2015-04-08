@@ -1411,8 +1411,34 @@ let add_node_equation ctx pos state_var bounds expr =
 
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
-    | { node = Some { N.equations } } -> 
+    | { node = Some { N.equations; N.calls } } -> 
 
+
+      if 
+        
+        (* State variable already defined by equation? *)
+        List.exists
+          (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+          equations
+
+        ||
+
+        (* State variable defined by a node call? *)
+        List.exists
+          (fun { N.call_outputs } -> 
+             D.exists 
+               (fun _ sv -> StateVar.equal_state_vars state_var sv)
+               call_outputs)
+          calls
+
+      then
+
+        fail_at_position
+          pos
+          (Format.asprintf 
+             "Duplicate definition for %a"
+             (E.pp_print_lustre_var false) state_var);
+      
       (* Type of state variable *)
       let state_var_type = StateVar.type_of_state_var state_var in
 
@@ -1499,14 +1525,42 @@ let add_node_equation ctx pos state_var bounds expr =
 
 
 (* Add node call to context *)
-let add_node_call ctx node_call =
+let add_node_call ctx pos ({ N.call_outputs } as node_call) =
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_call")
 
-    | { node = Some ({ N.calls } as node) } -> 
+    | { node = Some ({ N.equations; N.calls } as node) } -> 
 
+      if 
+
+        D.exists 
+          (fun _ state_var -> 
+
+             (* State variable already defined by equation? *)
+             List.exists
+               (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+               equations
+               
+             ||
+             
+             (* State variable defined by a node call? *)
+             List.exists
+               (fun { N.call_outputs } -> 
+                  D.exists 
+                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                    call_outputs)
+               calls)
+
+          call_outputs
+
+      then
+
+        fail_at_position
+          pos
+          "Duplicate definition for output of node call";
+                
       (* Add node call to context *)
       { ctx with 
           node = Some { node with 

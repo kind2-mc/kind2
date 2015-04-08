@@ -1178,7 +1178,7 @@ and eval_node_call ctx pos ident cond args defaults =
       in
 
       (* Add node call to context *)
-      let ctx = C.add_node_call ctx node_call in
+      let ctx = C.add_node_call ctx pos node_call in
 
       (* Return expression and changed context *)
       (res, ctx)
