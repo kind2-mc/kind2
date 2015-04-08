@@ -893,6 +893,11 @@ let register_callpos_for_nb hc lid pos =
 let rec pos_to_numbers hc nodes =
   List.iter (fun node ->
       List.iter (fun call ->
+          
+      (* Format.eprintf "register : %a at %a@." *)
+      (*   (LustreIdent.pp_print_ident false) call.LustreNode.call_node_name  *)
+      (*   Lib.pp_print_position call.LustreNode.call_pos; *)
+
           register_callpos_for_nb hc
             call.LustreNode.call_node_name call.LustreNode.call_pos
         ) node.LustreNode.calls
@@ -900,7 +905,12 @@ let rec pos_to_numbers hc nodes =
 
 
 let get_pos_number hc lid pos =
+  (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
+  (* Lib.pp_print_position pos; *)
   let l = Hashtbl.find hc lid in
+  (* Format.eprintf "[ "; *)
+  (* List.iter (fun (p, _) -> Format.eprintf "%a " Lib.pp_print_position p) l; *)
+  (* Format.eprintf "]@."; *)
   List.find (fun (p, _) -> Lib.compare_pos p pos = 0) l |> snd
 
 
@@ -909,8 +919,12 @@ let rec get_instances acc hc parents sv =
   | [] -> (sv, List.rev parents) :: acc
   | insts ->
     List.fold_left (fun acc (pos, lid, lsv) ->
-        let nb = get_pos_number hc lid pos in
-        get_instances acc hc ((lid, nb) :: parents) lsv
+        try
+          let nb = get_pos_number hc lid pos in
+          get_instances acc hc ((lid, nb) :: parents) lsv
+        with Not_found ->
+          (* was removed by slicin, ingore this instance *)
+          acc
       ) acc insts
 
 
