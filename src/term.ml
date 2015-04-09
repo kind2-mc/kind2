@@ -777,7 +777,7 @@ let is_lambda_identity l =
     let v = Var.mk_fresh_var Type.t_bool in
     let tv = mk_var v in
     let lv = eval_lambda l [tv]
-             |> eval_t (fun t _ -> t)
+             |> destruct
              |> construct
     in
     equal tv lv
