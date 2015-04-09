@@ -575,10 +575,24 @@ let pp_print_callers ppf sys =
      (pp_print_list pp_print_callers "@ ") callers
      
 
-let rec pp_print_native ppf sys = 
+let eq_sys s1 s2 =
+  TransSys.get_name s1 = TransSys.get_name s2 &&
+  TransSys.get_scope s1 = TransSys.get_scope s2 &&
+  List.for_all2 StateVar.equal_state_vars
+    (TransSys.state_vars s1) (TransSys.state_vars s2) &&
+  Term.equal (TransSys.init_term s1) (TransSys.init_term s2) &&
+  Term.equal (TransSys.trans_term s1) (TransSys.trans_term s2)
 
-  List.iter (Format.fprintf ppf "%a\n@." pp_print_native)
-    (TransSys.get_subsystems sys);
+let all_systems sys =
+  let rec all_systems_rec acc sys =
+    let acc = List.fold_left all_systems_rec acc (TransSys.get_subsystems sys) in
+    let acc = if List.exists (eq_sys sys) acc then acc
+      else sys :: acc in
+    acc
+  in
+  all_systems_rec [] sys |> List.rev
+
+let pp_print_one_native ppf sys = 
   
   Format.fprintf 
     ppf
@@ -590,7 +604,7 @@ let rec pp_print_native ppf sys =
      %a\
      @]\
      )@]\
-     @."
+     \n@."
     (String.concat "." (TransSys.get_scope sys))
     (pp_print_list pp_print_state_var "@ ") (TransSys.state_vars sys)
     pp_print_term (TransSys.init_term sys)
@@ -599,6 +613,8 @@ let rec pp_print_native ppf sys =
     pp_print_props sys
 
 
+let pp_print_native ppf sys = 
+  List.iter (pp_print_one_native ppf) (all_systems sys)
 
 let dump_native_to sys filename =
   let dump_oc = open_out filename in
