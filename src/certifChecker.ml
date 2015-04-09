@@ -1238,7 +1238,7 @@ let generate_frontend_certificate kind2_sys =
     let lustre_vars =
       LustrePath.reconstruct_lustre_streams nodes (TS.state_vars kind2_sys) in
 
-    (debug certif "Lustre vars:@, %a"
+    (debug certif "Lustre vars:@,%a"
        (fun fmt ->
           StateVar.StateVarMap.iter (fun sv l ->
               List.iter (fun (sv', l') ->
@@ -1250,8 +1250,8 @@ let generate_frontend_certificate kind2_sys =
                           Format.fprintf fmt "%a [%d] %s"
                             (LustreIdent.pp_print_ident true) lid n
                             (match clock with
-                             |  None -> ""
-                             | Some c -> StateVar.string_of_state_var c)
+                             | None -> ""
+                             | Some c -> "ON "^ (StateVar.string_of_state_var c))
                        )
                        " , ") l'
                 ) l

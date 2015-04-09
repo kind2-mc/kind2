@@ -864,7 +864,6 @@ let pp_print_path_pt nodes start_at_init ppf model =
 (* Reconstruct Lustre streams from state variables *)
 (***************************************************)
 
-
 let rec add_to_callpos acc pos clock calls =
   match calls with
   | ((pos', nb', clock') as x) :: r ->
@@ -885,10 +884,11 @@ let rec add_to_callpos acc pos clock calls =
 
 
 let register_callpos_for_nb hc lid pos clock =
-  let calls = try Hashtbl.find hc lid with Not_found -> [] in
+  let is_condact = clock <> None in
+  let calls = try Hashtbl.find hc (lid, is_condact) with Not_found -> [] in
   try
     let new_calls = add_to_callpos [] pos clock calls in
-    Hashtbl.replace hc lid new_calls
+    Hashtbl.replace hc (lid, is_condact) new_calls
   with Exit -> () (* already in there *)
 
   
@@ -898,8 +898,11 @@ let rec pos_to_numbers hc nodes =
         (fun { LustreNode.call_node_name = lid;
                call_pos = pos; call_clock = clock } -> 
 
-          Format.eprintf "register : %a at %a@."
-            (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos;
+          (* Format.eprintf "register : %a at %a %s@." *)
+          (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
+          (*   (match clock with *)
+          (*    | None -> "" *)
+          (*    | Some c -> "ON "^ (StateVar.string_of_state_var c));           *)
 
           register_callpos_for_nb hc lid pos clock
             
@@ -910,7 +913,11 @@ let rec pos_to_numbers hc nodes =
 let get_pos_number hc lid pos =
   (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
   (* Lib.pp_print_position pos; *)
-  let l = Hashtbl.find hc lid in
+  let l =
+    (* look for both condact and non condact calls *)
+    (try Hashtbl.find hc (lid, false) with Not_found -> [])
+    @ (try Hashtbl.find hc (lid, true) with Not_found -> [])
+  in
   (* Format.eprintf "[ "; *)
   (* List.iter (fun (p, _) -> Format.eprintf "%a " Lib.pp_print_position p) l; *)
   (* Format.eprintf "]@."; *)
