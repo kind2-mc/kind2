@@ -865,41 +865,44 @@ let pp_print_path_pt nodes start_at_init ppf model =
 (***************************************************)
 
 
-let rec add_to_callpos acc pos calls =
+let rec add_to_callpos acc pos clock calls =
   match calls with
-  | ((pos', nb') as x) :: r ->
+  | ((pos', nb', clock') as x) :: r ->
     let c = Lib.compare_pos pos pos' in
     if c = 0 then raise Exit; (* already in there, abort *)
     if c > 0 then
       (* continue to look *)
-      add_to_callpos (x :: acc) pos r
+      add_to_callpos (x :: acc) pos clock r
     else (* c < 0 *)
       (* insert in between and shift the ones on the right *)
       List.rev_append acc
-        ((pos, nb') :: (List.map (fun (p, n) -> (p, n+1)) calls))
+        ((pos, nb', clock) :: (List.map (fun (p, n, c) -> (p, n+1, c)) calls))
   | [] ->
     (* last one or only one *)
-    let nb = match acc with [] -> 0 | (_, n) :: _ -> n+1 in
-    List.rev ((pos, nb) :: acc)
+    let nb = match acc with [] -> 0 | (_, n, _) :: _ -> n+1 in
+    List.rev ((pos, nb, clock) :: acc)
 
-let register_callpos_for_nb hc lid pos =
+
+
+let register_callpos_for_nb hc lid pos clock =
   let calls = try Hashtbl.find hc lid with Not_found -> [] in
   try
-    let new_calls = add_to_callpos [] pos calls in
+    let new_calls = add_to_callpos [] pos clock calls in
     Hashtbl.replace hc lid new_calls
   with Exit -> () (* already in there *)
 
   
 let rec pos_to_numbers hc nodes =
   List.iter (fun node ->
-      List.iter (fun call ->
-          
-      (* Format.eprintf "register : %a at %a@." *)
-      (*   (LustreIdent.pp_print_ident false) call.LustreNode.call_node_name  *)
-      (*   Lib.pp_print_position call.LustreNode.call_pos; *)
+      List.iter
+        (fun { LustreNode.call_node_name = lid;
+               call_pos = pos; call_clock = clock } -> 
 
-          register_callpos_for_nb hc
-            call.LustreNode.call_node_name call.LustreNode.call_pos
+          Format.eprintf "register : %a at %a@."
+            (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos;
+
+          register_callpos_for_nb hc lid pos clock
+            
         ) node.LustreNode.calls
     ) nodes
 
@@ -911,7 +914,8 @@ let get_pos_number hc lid pos =
   (* Format.eprintf "[ "; *)
   (* List.iter (fun (p, _) -> Format.eprintf "%a " Lib.pp_print_position p) l; *)
   (* Format.eprintf "]@."; *)
-  List.find (fun (p, _) -> Lib.compare_pos p pos = 0) l |> snd
+  let _, n, c = List.find (fun (p, _, _) -> Lib.compare_pos p pos = 0) l in
+  n, c
 
 
 let rec get_instances acc hc parents sv =
@@ -920,8 +924,8 @@ let rec get_instances acc hc parents sv =
   | insts ->
     List.fold_left (fun acc (pos, lid, lsv) ->
         try
-          let nb = get_pos_number hc lid pos in
-          get_instances acc hc ((lid, nb) :: parents) lsv
+          let nb, clock = get_pos_number hc lid pos in
+          get_instances acc hc ((lid, nb, clock) :: parents) lsv
         with Not_found ->
           (* was removed by slicin, ingore this instance *)
           acc

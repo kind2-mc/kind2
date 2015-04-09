@@ -76,6 +76,16 @@ val scope_of_index : index -> string list
 (** Return a list of strings for identifier *)
 val scope_of_ident : t -> string list
 
+
+(** Reserved identifiers for abstrations *)
+val abs_ident_string : string
+val oracle_ident_string : string
+val observer_ident_string : string
+val first_tick_ident_string : string
+val init_uf_string : string
+val trans_uf_string : string
+
+
 (** Total order on indexes *)
 val compare_index : index -> index -> int
 

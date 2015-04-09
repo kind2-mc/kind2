@@ -1238,22 +1238,26 @@ let generate_frontend_certificate kind2_sys =
     let lustre_vars =
       LustrePath.reconstruct_lustre_streams nodes (TS.state_vars kind2_sys) in
 
-    (* (debug certif "Lustre vars:@, %a" *)
-    (*    (fun fmt -> *)
-    (*       StateVar.StateVarMap.iter (fun sv l -> *)
-    (*           List.iter (fun (sv', l') -> *)
-    (*               Format.fprintf fmt "%a -> %a : %a@," *)
-    (*                 StateVar.pp_print_state_var sv *)
-    (*                 StateVar.pp_print_state_var sv' *)
-    (*                 (pp_print_list *)
-    (*                    (fun fmt (lid, n) -> *)
-    (*                       Format.fprintf fmt "%a [%d]" *)
-    (*                         (LustreIdent.pp_print_ident true) lid n) *)
-    (*                    " , ") l' *)
-    (*             ) l *)
-    (*       )) *)
-    (*    lustre_vars *)
-    (* end); *)
+    (debug certif "Lustre vars:@, %a"
+       (fun fmt ->
+          StateVar.StateVarMap.iter (fun sv l ->
+              List.iter (fun (sv', l') ->
+                  Format.fprintf fmt "%a -> %a : %a@,"
+                    StateVar.pp_print_state_var sv
+                    StateVar.pp_print_state_var sv'
+                    (pp_print_list
+                       (fun fmt (lid, n, clock) ->
+                          Format.fprintf fmt "%a [%d] %s"
+                            (LustreIdent.pp_print_ident true) lid n
+                            (match clock with
+                             |  None -> ""
+                             | Some c -> StateVar.string_of_state_var c)
+                       )
+                       " , ") l'
+                ) l
+          ))
+       lustre_vars
+    end);
     
     (* Create the observer system with the property of observational
        equivalence. *)

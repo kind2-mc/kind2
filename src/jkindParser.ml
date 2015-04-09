@@ -81,14 +81,45 @@ let jkind_command_line file =
 (* jKind state variables from Lustre name *)
 (******************************************)
 
+(* Simple heuristic to see if a state variable is an observer (which are named
+   differently in jKind when they appear under a condact) *)
+let is_observer sv =
+  Lib.string_starts_with (StateVar.name_of_state_var sv)
+    LustreIdent.observer_ident_string
+
 (* Returns a state variable of jKind form a state variable of Kind 2 and a
    callsite information *)
 let jkind_var_of_lustre kind_sv (li, parents) =
-  let base_li = StateVar.name_of_state_var li in
-  let strs = List.fold_left (fun acc (ni, n) ->
+
+  let base_li = match List.rev parents with
+    | (_, _, Some clock) :: _ when StateVar.equal_state_vars li clock ->
+      (* the var is the clock, always named ~clock in jKind *)
+      "~clock"
+        
+    | (_, _, Some _) :: _
+      when not (StateVar.is_input li) && is_observer kind_sv ->
+      (* clocked property variable *)
+      (StateVar.name_of_state_var li) ^"~clocked_property"
+
+    | (_, _, Some _) :: _ when not (StateVar.is_input li) ->
+      (* other clocked variable *)
+      (StateVar.name_of_state_var li) ^"~clocked"
+      
+    | _ -> StateVar.name_of_state_var li
+  in
+  
+  let strs = List.fold_left (fun acc (ni, n, clock) ->
+
       let bni = List.hd (LustreIdent.scope_of_ident ni) in
-      (bni^"~"^(string_of_int n)) :: acc
+
+      let jcall_name = match clock with
+        | None -> bni ^"~"^ (string_of_int n)
+        | Some _ -> bni ^"~condact~"^ (string_of_int n)
+      in
+      
+      jcall_name :: acc
     ) [base_li] (List.rev parents) in
+  
   let str = Format.sprintf "$%s$" (String.concat "." strs) in
   (* add -1 for constants *)
   let str = if StateVar.is_const kind_sv then str ^"~1" else str in

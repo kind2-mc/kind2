@@ -33,7 +33,8 @@ val pp_print_path_pt :
 (** Reconstruct Lustre streams from state variables *)
 val reconstruct_lustre_streams :
   LustreNode.t list -> StateVar.t list ->
-  (StateVar.t * (LustreIdent.t * int) list) list StateVar.StateVarMap.t
+  (StateVar.t * (LustreIdent.t * int * StateVar.t option) list) list
+    StateVar.StateVarMap.t
 
 (* 
    Local Variables:
