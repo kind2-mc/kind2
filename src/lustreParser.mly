@@ -101,6 +101,7 @@ let mk_pos = Lib.position_of_lexing
 %token PROPERTY
 %token MAIN
 %token COMMENTCONTRACT
+%token ANNOTATIONCONTRACT
 %token COMMENTGLOBALCONTRACT
 %token COMMENTREQUIRE
 %token COMMENTENSURE
@@ -375,6 +376,8 @@ contract:
       A.InlinedContract
         (mk_pos $startpos, n, reqs, enss) }
   | COMMENTCONTRACT; n = ident; SEMICOLON
+    { A.ContractCall (mk_pos $startpos, n) }
+  | ANNOTATIONCONTRACT; COLON; n = ident; SEMICOLON
     { A.ContractCall (mk_pos $startpos, n) }
 
 contract_require:
