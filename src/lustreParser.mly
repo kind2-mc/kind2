@@ -99,9 +99,11 @@ let mk_pos = Lib.position_of_lexing
     
 (* Tokens for annotations *)
 %token PROPERTY
+%token BANGPROPERTY
 %token MAIN
+%token BANGMAIN
 %token COMMENTCONTRACT
-%token ANNOTATIONCONTRACT
+%token BANGCONTRACT
 %token COMMENTGLOBALCONTRACT
 %token COMMENTREQUIRE
 %token COMMENTENSURE
@@ -377,7 +379,7 @@ contract:
         (mk_pos $startpos, n, reqs, enss) }
   | COMMENTCONTRACT; n = ident; SEMICOLON
     { A.ContractCall (mk_pos $startpos, n) }
-  | ANNOTATIONCONTRACT; COLON; n = ident; SEMICOLON
+  | BANGCONTRACT; COLON; n = ident; SEMICOLON
     { A.ContractCall (mk_pos $startpos, n) }
 
 contract_require:
@@ -488,10 +490,15 @@ node_equation:
     { A.Equation (mk_pos $startpos, l, e) }
 
   (* Node annotation *)
-  | MAIN { A.AnnotMain }
+  | MAIN { A.AnnotMain true }
+  | BANGMAIN; COLON; TRUE ; SEMICOLON { A.AnnotMain true }
+  | BANGMAIN; COLON; FALSE ; SEMICOLON { A.AnnotMain false }
 
   (* Property annotation *)
   | PROPERTY; e = expr; SEMICOLON { A.AnnotProperty (mk_pos $startpos, e) }
+  | BANGPROPERTY; COLON; e = expr; SEMICOLON {
+    A.AnnotProperty (mk_pos $startpos, e)
+  }
 
 
 left_side:

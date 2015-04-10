@@ -4028,12 +4028,12 @@ let rec parse_node_equations
 
 
     (* Annotation for main node *)
-    | A.AnnotMain :: tl -> 
+    | (A.AnnotMain b) :: tl -> 
 
       parse_node_equations 
         context 
         abstractions
-        { node with N.is_main = true }
+        { node with N.is_main = b }
         tl
 
 
