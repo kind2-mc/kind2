@@ -198,7 +198,7 @@ type struct_item =
 type node_equation =
   | Assert of position * expr
   | Equation of position * struct_item list * expr 
-  | AnnotMain
+  | AnnotMain of bool
   | AnnotProperty of position * expr
 
 (* A contract requirement. *)
@@ -719,7 +719,8 @@ let pp_print_node_equation ppf = function
       (pp_print_list pp_print_struct_item ",@ ") l
       pp_print_expr e
 
-  | AnnotMain -> Format.fprintf ppf "--%%MAIN;"
+  | AnnotMain(b) ->
+    if b then Format.fprintf ppf "--%%MAIN;" else ()
 
   | AnnotProperty (pos, e) ->
      Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e

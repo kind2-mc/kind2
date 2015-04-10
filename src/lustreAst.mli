@@ -166,7 +166,7 @@ type struct_item =
 type node_equation =
   | Assert of position * expr
   | Equation of position * struct_item list * expr
-  | AnnotMain 
+  | AnnotMain of bool
   | AnnotProperty of position * expr
 
 (** A contract requirement. *)
