@@ -102,6 +102,7 @@ let smtlib_string_sexpr_conv =
        s_exists = HString.mk_hstring "exists";
        s_div = HString.mk_hstring "/";
        s_minus = HString.mk_hstring "-";
+       prime_symbol = None;
        s_define_fun = HString.mk_hstring "define-fun";
        const_of_atom = GenericSMTLIBDriver.const_of_smtlib_atom;
        symbol_of_atom = GenericSMTLIBDriver.symbol_of_smtlib_atom;

@@ -872,28 +872,22 @@ let main () =
                (Flags.input_file ()))
             
         | `Native -> 
-          
-          (
 
-          (* Some (NativeInput.of_file (Flags.input_file ())) *)
-
-            Event.log
-              L_fatal
-              "Native input deactivated while refactoring transition system.";
-          
-            assert false
-
-          )
+          Some (NativeInput.of_file (Flags.input_file ()))
 
         | `Horn -> 
           
           (* Horn.of_file (Flags.input_file ()) *)
           assert false);
 
+
+    (* Dump transition system *)
+    if Flags.dump_native () then NativeInput.dump_native (get !trans_sys);
+    
     (* Output the transition system *)
     (debug parse
         "%a"
-        TransSys.pp_print_trans_sys
+        NativeInput.pp_print_native
         (get !trans_sys)
      end);
 

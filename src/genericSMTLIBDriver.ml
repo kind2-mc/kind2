@@ -71,6 +71,9 @@ type expr_of_string_sexpr_conv =
     (* String constant for unary minus operator *) 
     s_minus : HString.t;
 
+    (* String constant for prime symbol if there is one *) 
+    prime_symbol : HString.t option;
+
     (* String constant for define-fun keyword *) 
     s_define_fun : HString.t;
 
@@ -173,12 +176,13 @@ let gen_expr_of_string_sexpr'
        s_forall; 
        s_exists; 
        s_div; 
-       s_minus; 
+       s_minus;
+       prime_symbol;
        const_of_atom; 
        symbol_of_atom;
        expr_of_string_sexpr;
        expr_or_lambda_of_string_sexpr } as conv)
-    bound_vars = 
+    bound_vars =
 
   function 
 
@@ -301,11 +305,19 @@ let gen_expr_of_string_sexpr'
           (HString.string_of_hstring d |> of_string))
 
 
-    (* Atom or singleton list *)
+    (* Atom *)
     | HStringSExpr.Atom s ->
 
       (* Leaf in the symbol tree *)
       (const_of_atom bound_vars s)
+
+    (* Prime symbol if it exists *)
+    | HStringSExpr.List [HStringSExpr.Atom s; e]
+      when (match prime_symbol with
+          | None -> false
+          | Some s' -> s == s') -> 
+
+      expr_of_string_sexpr conv bound_vars e |> Term.bump_state Numeral.one
 
     (*  A list with more than one element *)
     | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
@@ -414,8 +426,8 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
     | _ -> invalid_arg "gen_expr_of_lambda_string_sexpr"
 
 
-(* Call function with an empty list of bound variables *)      
-let gen_expr_of_string_sexpr conv = 
+(* Call function with an empty list of bound variables and no prime symbol *)
+let gen_expr_of_string_sexpr conv =
   gen_expr_of_string_sexpr' conv [] 
 
 (* Call function with an empty list of bound variables *)      
@@ -594,7 +606,7 @@ let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
 
 
 let pp_print_term ppf t =
-  Term.T.pp_print_term_w pp_print_symbol ppf t
+  Term.T.pp_print_term_w pp_print_symbol Var.pp_print_var ppf t
         
     
 (* Pretty-print an expression *)
@@ -703,6 +715,25 @@ let const_of_smtlib_atom b t =
 
                   try 
 
+                    (* Name of state variable *)
+                    let state_var_name = HString.string_of_hstring t in
+
+                    (* State variable of name and given scope *)
+                    let state_var = 
+                      StateVar.state_var_of_long_string state_var_name in
+
+                    (* State variable at instant zero *)
+                    let var = 
+                      Var.mk_state_var_instance state_var Numeral.zero in
+
+                    (* Return term *)
+                    Term.mk_var var
+
+                (* String is not a state variable *)
+                with Not_found -> 
+
+                  try 
+
                     (* Return uninterpreted constant *)
                     Term.mk_uf 
                       (UfSymbol.uf_symbol_of_string
@@ -766,6 +797,7 @@ let smtlib_string_sexpr_conv =
     s_div = HString.mk_hstring "/";
     s_minus = HString.mk_hstring "-";
     s_define_fun = HString.mk_hstring "define-fun";
+    prime_symbol = None;
     const_of_atom = const_of_smtlib_atom;
     symbol_of_atom = symbol_of_smtlib_atom;
     type_of_sexpr = type_of_smtlib_sexpr;

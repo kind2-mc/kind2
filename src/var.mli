@@ -90,7 +90,7 @@ val hstring_of_free_var : t -> HString.t
 (** Return true if the variable is an instance of a state variable *)
 val is_state_var_instance : t -> bool
 
-(** Return true if the variable is an instance of a state variable *)
+(** Return true if the variable is a constant state variable *)
 val is_const_state_var : t -> bool
 
 (** Return true if the variable is a free variable *)

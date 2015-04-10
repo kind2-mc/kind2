@@ -539,7 +539,19 @@ let string_of_input_format = function
 
 let input_format_values = "lustre, native"
 
-let input_format_default = `Lustre
+let input_format_default = `Default
+
+(* ********** *) 
+
+type dump_native = bool
+
+let dump_native_default = false
+
+(* ********** *) 
+
+type dump_dir = string
+
+let dump_dir_default = Sys.getcwd ()
 
 (* ********** *) 
 
@@ -582,6 +594,8 @@ type flags =
       mutable yices2smt2_bin : yices2smt2_bin;
       mutable smt_trace : smt_trace;
       mutable smt_trace_dir : smt_trace_dir;
+      mutable dump_native : dump_native;
+      mutable dump_dir : dump_dir;
       mutable enable : enable;
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
@@ -617,7 +631,7 @@ type flags =
       mutable debug_log : string option;
       mutable log_level : log_level;
       mutable log_format_xml : bool;
-      mutable input_format : input_format;
+      mutable input_format : [`Default | input_format];
       mutable input_file : string option }
     
 (* Defaults for all flags *)
@@ -633,6 +647,8 @@ let flags =
     yices2smt2_bin = yices2smt2_bin_default;
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
+    dump_native = dump_native_default;
+    dump_dir = dump_dir_default;
     enable = enable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
@@ -779,6 +795,24 @@ let smt_trace_dir_spec =
    Arg.String smt_trace_dir_action, 
    Format.sprintf "Directory for trace logs of SMT commands (default: %s)"
                   smt_trace_dir_default)
+(* ********** *) 
+
+let dump_native_action o = flags.dump_native <- true
+  
+let dump_native_spec = 
+  ("--dump_native", 
+   Arg.Unit dump_native_action, 
+   Format.sprintf "Dump transition system in native format")
+
+(* ********** *) 
+
+let dump_dir_action o = flags.dump_dir <- o
+  
+let dump_dir_spec = 
+  ("--dump_dir", 
+   Arg.String dump_dir_action, 
+   Format.sprintf "Directory for dumping files (default: %s)"
+                  dump_dir_default)
 
 (* ********** *) 
 
@@ -1171,7 +1205,7 @@ let input_format_spec =
    Arg.String input_format_action, 
    Format.sprintf "Format of input file (available: %s, default: %s)"
                   input_format_values
-                  (string_of_input_format input_format_default))
+                  (string_of_input_format `Lustre))
 
 
 (* ********************************************************************** *)
@@ -1204,6 +1238,10 @@ let yices2smt2_bin () = flags.yices_bin
 let smt_trace () = flags.smt_trace
 
 let smt_trace_dir () = flags.smt_trace_dir
+
+let dump_native () = flags.dump_native
+
+let dump_dir () = flags.dump_dir
 
 let enable () = flags.enable 
 
@@ -1279,11 +1317,29 @@ let log_level () = flags.log_level
 
 let log_format_xml () = flags.log_format_xml
 
-let input_format () = flags.input_format 
-
 let input_file () = match flags.input_file with 
   | Some f -> f 
   | None -> failwith "No input file given"
+
+let input_format () =
+  match flags.input_format with
+
+  (* If the input format has been specified, use it independently of the file
+     extension *)
+  | `Lustre | `Native | `Horn as f -> f
+
+  (* If the input format has not been specified infer it with the file
+     extension *)
+  | `Default ->
+    try
+      let f = input_file () in
+      if Filename.check_suffix f "lus"
+      || Filename.check_suffix f "ec" then `Lustre
+      else if Filename.check_suffix f "smt2" then `Horn
+      else if Filename.check_suffix f "kind2"
+           || Filename.check_suffix f "k2" then `Native
+      else `Lustre
+    with Failure _ -> `Lustre
 
 
 (* ********************************************************************** *)
@@ -1332,6 +1388,12 @@ and speclist =
 
     (* Directory for  trace logs of SMT commands *)
     smt_trace_dir_spec;
+
+    (* Dump to native format *)
+    dump_native_spec;
+
+    (* Dump directory *)
+    dump_dir_spec;
 
     (* Set enabled modules *)
     enable_spec;
