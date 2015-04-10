@@ -30,7 +30,7 @@ let generalize_after_fwd_prop = false
 
 let subsume_in_block = false
 
-let subsume_in_fwd_prop = true
+let subsume_in_fwd_prop = false
   
 (* ********************************************************************** *)
 (* Solver instances and cleanup                                           *)
@@ -112,8 +112,6 @@ let handle_events
     trans_sys
     props =
 
-  if true then () else
-  
   (* Receive queued messages 
 
      Side effect: Terminate when ControlMessage TERM is received.*)
@@ -128,25 +126,49 @@ let handle_events
      instances *)
   let add_invariant inv = 
 
-    SMTSolver.trace_comment 
-      solver
-      "handle_event: Asserting one-state invariants at zero";
+    match Term.var_offsets_of_term inv with
+        
+      (* Skip invariants without variables *)
+      | None, None ->
 
-    (* Assert one-state invariants only at offsets zero *)
-    SMTSolver.assert_term 
-      solver 
-      (TransSys.invars_of_bound 
-         ~one_state_only:true
-         trans_sys
-         Numeral.zero);
-    
-    (* Assert all invariants at offset one *)
-    SMTSolver.assert_term 
-      solver 
-      (TransSys.invars_of_bound 
-         trans_sys
-         Numeral.one)
+        SMTSolver.trace_comment 
+          solver
+          "handle_event: Skipping constant invariant"
 
+      (* One-state invariants *)
+      | Some i, Some j when Numeral.equal i j ->
+
+        SMTSolver.trace_comment 
+          solver
+          "handle_event: Asserting one-state invariant at zero and one";
+
+        (* Assert at offset zero *)
+        Term.bump_state Numeral.(- i) inv
+        |> SMTSolver.assert_term solver;
+        
+        (* Assert at offset one *)
+        Term.bump_state Numeral.(- i + one) inv
+        |> SMTSolver.assert_term solver
+
+      (* Two-state invariant *)
+      | Some i, Some j when Numeral.(j - i = one) ->
+
+        SMTSolver.trace_comment 
+          solver
+          "handle_event: Asserting two-state invariant at one";
+
+        (* Assert at offset one *)
+        Term.bump_state Numeral.(- i) inv |> SMTSolver.assert_term solver
+
+      (* Invariant over more than two states *)
+      | _ ->
+
+        SMTSolver.trace_comment 
+          solver
+          "handle_event: Invariant is over more than two states";
+        
+        assert false
+        
   in
 
   (* Assert all received invariants *)
@@ -185,7 +207,8 @@ let frame_sizes frames =
   aux [] frames
 
 
-(* Compute the frame sizes of a delta-encoded list of frames *)
+(* Compute the frame sizes of a delta-encoded list of frames in a
+   blocking trace *)
 let frame_sizes_block frames trace = 
 
   (* Frames with frames from trace *)
@@ -193,6 +216,10 @@ let frame_sizes_block frames trace =
 
   frame_sizes frames'
 
+    
+(* ************************************************************************ *)
+(* Soundness check                                                          *)
+(* ************************************************************************ *)
 
 (* Check if for two successive frames R_i-1 & T |= R_i *)
 let rec check_frames' solver prop_set accum = function
@@ -368,34 +395,85 @@ let incr_binding term term_tbl =
   Term.TermHashtbl.add term_tbl term (v+1)
 
 
+(* ************************************************************************ *)
+(* Utility functions for subsumption                                        *)
+(* ************************************************************************ *)
+
+(* Return the number of subsumed clauses and increment statistics 
+
+   Pipe the result of Trie.S.subsume through this function. *)
 let count_subsumed solver (c, f) =
 
+  (* Number of subsumed clauses *)
   let num = List.length c in
+
+  (* Only if at least one clause subsumed *)
+  if num > 0 then
+  
+    (SMTSolver.trace_comment
+       solver
+       (Format.sprintf
+          "@[<v>Backward subsumed %d clauses in R_k@]" num);
+
+     (* Increment statistics *)
+     Stat.incr ~by:num Stat.pdr_back_subsumed);
+
+  (* Return result unchanged *)
+  (c, f)
+    
+    
+(* Deactivate activation literals of a subsumed clause *)
+let deactivate_clause solver clause = 
 
   SMTSolver.trace_comment
     solver
-    (Format.sprintf
-       "@[<v>Backward subsumed %d clauses in R_k@]" num);
+    "Deactivating activation literals for clause";
+      
+  (* Assert negation of activation literal for positive unprimed
+     clause *)
+  C.actlit_p0_of_clause clause
+  |> Term.mk_not
+  |> SMTSolver.assert_term solver;
   
-  Stat.incr ~by:num Stat.pdr_back_subsumed;
-  (c, f)
-                        
-                    
+  (* Assert negation of activation literal for positive primed
+     clause *)
+  C.actlit_p1_of_clause clause
+  |> Term.mk_not
+  |> SMTSolver.assert_term solver;
+  
+  (* Assert negation of activation literals for negated unprimed
+     clause literals *)
+  C.actlits_n0_of_clause clause
+  |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
+
+  (* Assert negation of activation literals for negated primed
+     clause literals *)
+  C.actlits_n1_of_clause clause
+  |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
+
+  (* Increment statistics for activation literals *)
+  Stat.incr
+    ~by:(2 + 2 * (List.length (C.literals_of_clause clause)))
+    Stat.pdr_stale_activation_literals
+
     
 (* Deactivate activation literals of subsumed clauses *)
 let deactivate_subsumed solver (subsumed, frame') =
 
-  if deactivate_actlit then 
-    (List.iter
-       (fun (l, c) ->
-         C.actlit_p0_of_clause c |> Term.mk_not |> SMTSolver.assert_term solver;
-         C.actlit_p1_of_clause c |> Term.mk_not |> SMTSolver.assert_term solver;
-         C.actlits_n0_of_clause c |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
-         C.actlits_n1_of_clause c |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
-         Stat.incr ~by:(2 + 2 * (List.length l)) Stat.pdr_stale_activation_literals)
-       subsumed);
-  frame'
+  (* Check flag *)
+  if deactivate_actlit then
 
+    (* Deactivate activation literals for each subsumed clause *)
+    (List.iter
+       (fun (_, c) -> deactivate_clause solver c)
+       subsumed);
+  
+  (subsumed, frame')
+
+
+(* ************************************************************************ *)
+(* Inductive generalization                                                 *)
+(* ************************************************************************ *)
     
 (* Inductively generalize [clause] relative to [frame]
 
@@ -638,6 +716,10 @@ let ind_generalize solver prop_set frame clause literals =
 *)
 
 
+(* ************************************************************************ *)
+(* Extrapolation from a two-state counterexample                            *)
+(* ************************************************************************ *)
+
 (* Given a model and two formulas f and g return a conjunction of
    literals such that 
 
@@ -683,6 +765,9 @@ let extrapolate trans_sys state f g =
   gen_term
 
 
+(* ************************************************************************ *)
+(* Block unreachable generalized counterexamples to induction               *)
+(* ************************************************************************ *)
 
 (* Add cube to block in future frames *)
 let add_to_block_tl block_clause block_trace = function
@@ -1045,7 +1130,9 @@ let rec block solver trans_sys prop_set term_tbl =
 
               then
 
-                (Stat.incr Stat.pdr_back_subsumed;
+                (deactivate_clause solver block_clause_gen;
+
+                  Stat.incr Stat.pdr_back_subsumed;
 
                   SMTSolver.trace_comment
                    solver
@@ -1079,6 +1166,8 @@ let rec block solver trans_sys prop_set term_tbl =
 
                     (* Deactivate activation literals of subsumed clauses *)
                     |> deactivate_subsumed solver
+
+                    |> snd
                         
                     (* Add clause to frame after subsumption *)
                     |> F.add block_clause_gen_literals block_clause_gen,
@@ -1088,7 +1177,8 @@ let rec block solver trans_sys prop_set term_tbl =
                    (fun f ->
                      F.subsume f block_clause_gen_literals
                        |> count_subsumed solver
-                       |> deactivate_subsumed solver)
+                       |> deactivate_subsumed solver
+                       |> snd)
                    frames)
 
             else
@@ -1130,6 +1220,8 @@ let rec block solver trans_sys prop_set term_tbl =
                          
                      (* Deactivate activation literals of subsumed clauses *)
                      |> deactivate_subsumed solver
+
+                     |> snd
                          
                      (* Add clause to frame after subsumption *)
                      |> F.add block_clause_gen_literals block_clause_gen)),
@@ -1254,7 +1346,12 @@ let rec block solver trans_sys prop_set term_tbl =
       )
 
 
-(* *)
+(* ************************************************************************ *)
+(* Forward propagation                                                      *)
+(* ************************************************************************ *)
+
+(* Split list of clauses into those that are inductive and those that
+   are not *)
 let rec partition_rel_inductive
     solver
     trans_sys
@@ -1352,7 +1449,8 @@ let rec partition_rel_inductive
     
 
 
-(* *)
+(* Split list of clauses into clauses that can be propagated relative
+   to the frame and those that cannot be *)
 let partition_fwd_prop
     solver
     trans_sys
@@ -1458,13 +1556,18 @@ let partition_fwd_prop
   (* Check if all clauses can be propagated *)
   partition_fwd_prop' [] clauses
 
-
+    
+(* Forward propagate clauses in all frames *)
 let fwd_propagate solver trans_sys prop_set frames = 
 
   let subsume_and_add a c =
 
+    (* Forward propagated clause to add to frame *)
     let c' =
 
+      (* Inductive generalization after forward propagation?
+
+         TODO: Make this compatible with subsumption *)
       if generalize_after_fwd_prop then
         
         (Stat.time_fun Stat.pdr_ind_gen_time
@@ -1477,36 +1580,74 @@ let fwd_propagate solver trans_sys prop_set frames =
                (C.literals_of_clause c)))
           
       else
-        
+
+        (* Propagate clause as it is *)
         c
           
     in
 
+    (* Literals of clause as key for trie *)
     let l = C.literals_of_clause c' in
-    
+
+    (* Subsumption after forward propagation? *)
     if subsume_in_fwd_prop then
-      
+
+      (* Is clause subsumed in frame? *)
       if F.is_subsumed a l then
-        (Stat.incr Stat.pdr_fwd_subsumed; a)
+        
+        (
+
+          SMTSolver.trace_comment
+            solver
+            (Format.asprintf
+               "@[<v>Clause is subsumed in frame@,%a@]"
+               (pp_print_list Term.pp_print_term "@,")
+               (F.values a |> List.map C.actlit_p0_of_clause));
+               
+          (* Deactivate activation literals of subsumed clause *)
+          deactivate_clause solver c';
+
+          (* Increment statistics *)
+          Stat.incr Stat.pdr_fwd_subsumed;
+
+          (* Drop clause from frame *)
+          a)
+          
       else
+
+        (* Subsume in frame with clause *)
         F.subsume a l
+
+        (* Increment statistics *)
         |> count_subsumed solver
+
+        (* Deactivate activation literals of subsumed clauses *)
         |> deactivate_subsumed solver
-        |> F.add l c
+
+        (* Continue with frame after subsumption *)
+        |> snd
+            
+        (* Add clause to frame  *)
+        |> F.add l c'
 
     else
 
       (* Adding a clause may fail if it a prefix of a clause in the
          trie, or if a clause in the trie is a prefix of this
          clause *)
-      try F.add l c a with Invalid_argument _ ->
+      try F.add l c' a with Invalid_argument _ ->
+
+        (* Is clause subsumed in frame? *)
         if F.is_subsumed a l then
-          (Stat.incr Stat.pdr_fwd_subsumed; a)
+          (deactivate_clause solver c';
+           Stat.incr Stat.pdr_fwd_subsumed;
+           a)
         else
           F.subsume a l
           |> count_subsumed solver
           |> deactivate_subsumed solver
-          |> F.add l c
+          |> snd
+          |> F.add l c'
 
   in
 
@@ -1530,8 +1671,8 @@ let fwd_propagate solver trans_sys prop_set frames =
               "fwd_propagate: Checking for inductiveness of clauses \
                in last frame.";
 
-            (* Find which clauses are inductive relative to the empty
-               frame *)
+            (* Split clauses to be propagated into the new frame into
+               inductive and non-inductive clauses *)
             let non_inductive_clauses, inductive_clauses =
               partition_rel_inductive
                 solver
@@ -1541,7 +1682,8 @@ let fwd_propagate solver trans_sys prop_set frames =
                 prop
             in
 
-            if not (inductive_clauses = []) then 
+            (* Some clauses found inductive *)
+            if inductive_clauses <> [] then 
 
               (
 
@@ -1576,9 +1718,17 @@ let fwd_propagate solver trans_sys prop_set frames =
 
               );
 
+
+            SMTSolver.trace_comment
+              solver
+              (Format.sprintf "subsume_and_add from %s" __LOC__);
+            
             (* Add a new frame with the non-inductive clauses *)
             let frames' =
-              (List.fold_left subsume_and_add F.empty non_inductive_clauses)
+              (List.fold_left
+                 subsume_and_add
+                 F.empty
+                 non_inductive_clauses)
               :: frames
             in
 
@@ -1591,17 +1741,23 @@ let fwd_propagate solver trans_sys prop_set frames =
 
         else
 
+          (SMTSolver.trace_comment
+            solver
+            (Format.sprintf "subsume_and_add from %s" __LOC__);
+            
           (* Add a new frame with clauses to propagate *)
           let frames' =
-            (List.fold_left subsume_and_add F.empty prop)
+            (List.fold_left
+               subsume_and_add
+               F.empty
+               prop)
             :: frames
           in
 
           (* DEBUG only *)
           assert (check_frames solver prop_set [] frames');
 
-          frames'
-
+          frames')
 
       (* Frames in ascending order *)
       | frame :: frames_tl -> 
@@ -1622,6 +1778,10 @@ let fwd_propagate solver trans_sys prop_set frames =
           List.fold_left (fun a f -> ((F.values f) @ a)) [] frames_tl
         in
 
+        SMTSolver.trace_comment
+          solver
+          (Format.sprintf "subsume_and_add from %s" __LOC__);
+          
         (* Add propagated clauses to frame with subsumption *)
         let frame' =
           List.fold_left subsume_and_add frame prop
@@ -1663,13 +1823,17 @@ let fwd_propagate solver trans_sys prop_set frames =
           ~by:(List.length fwd) 
           Stat.pdr_fwd_propagated;
 
+        SMTSolver.trace_comment
+          solver
+          (Format.sprintf "subsume_and_add from %s" __LOC__);
+        
         (* DEBUG only *)
         assert
           (check_frames'
              solver
              prop_set
              (frames_tl_full @ fwd)
-             ((List.fold_left subsume_and_add frame' keep) :: frames));
+             ((List.fold_left (fun a c -> F.add (C.literals_of_clause c) c a) frame' keep) :: frames));
 
         (* All clauses propagate? *)
         if keep = [] then 
@@ -1719,6 +1883,10 @@ let fwd_propagate solver trans_sys prop_set frames =
         else
 
           (
+
+            SMTSolver.trace_comment
+              solver
+              (Format.sprintf "subsume_and_add from %s" __LOC__);
 
             (* Propagate clauses in next frame *)
             fwd_propagate' 

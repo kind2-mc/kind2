@@ -954,4 +954,6 @@ T.bindings t2;;
 
 T.is_subsumed t2 ['a'];;
 
+T.is_subsumed T.empty ['a'];;
+
 *)
