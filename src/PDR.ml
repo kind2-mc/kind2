@@ -26,11 +26,11 @@ module F = Clause.ClauseTrie
 
 let deactivate_actlit = true
 
-let generalize_after_fwd_prop = false
+let generalize_after_fwd_prop = true
 
 let subsume_in_block = false
 
-let subsume_in_fwd_prop = false
+let subsume_in_fwd_prop = true
   
 (* ********************************************************************** *)
 (* Solver instances and cleanup                                           *)
@@ -1718,11 +1718,6 @@ let fwd_propagate solver trans_sys prop_set frames =
 
               );
 
-
-            SMTSolver.trace_comment
-              solver
-              (Format.sprintf "subsume_and_add from %s" __LOC__);
-            
             (* Add a new frame with the non-inductive clauses *)
             let frames' =
               (List.fold_left
@@ -1741,23 +1736,21 @@ let fwd_propagate solver trans_sys prop_set frames =
 
         else
 
-          (SMTSolver.trace_comment
-            solver
-            (Format.sprintf "subsume_and_add from %s" __LOC__);
+          (
+
+            (* Add a new frame with clauses to propagate *)
+            let frames' =
+              (List.fold_left
+                 subsume_and_add
+                 F.empty
+                 prop)
+              :: frames
+            in
             
-          (* Add a new frame with clauses to propagate *)
-          let frames' =
-            (List.fold_left
-               subsume_and_add
-               F.empty
-               prop)
-            :: frames
-          in
-
-          (* DEBUG only *)
-          assert (check_frames solver prop_set [] frames');
-
-          frames')
+            (* DEBUG only *)
+            assert (check_frames solver prop_set [] frames');
+            
+            frames')
 
       (* Frames in ascending order *)
       | frame :: frames_tl -> 
@@ -1778,10 +1771,6 @@ let fwd_propagate solver trans_sys prop_set frames =
           List.fold_left (fun a f -> ((F.values f) @ a)) [] frames_tl
         in
 
-        SMTSolver.trace_comment
-          solver
-          (Format.sprintf "subsume_and_add from %s" __LOC__);
-          
         (* Add propagated clauses to frame with subsumption *)
         let frame' =
           List.fold_left subsume_and_add frame prop
@@ -1803,43 +1792,30 @@ let fwd_propagate solver trans_sys prop_set frames =
             trans_sys
             prop_set
             frames_tl_full
-            (if generalize_after_fwd_prop then
-                List.map C.parent_of_clause (F.values frame')
-             else
-                F.values frame')
+            (F.values frame')
         in
 
-        (* If we have propagated the un-generalized clauses, keep the
-           propagated clauses in this frame and subsume later *)
-        let keep' =
-          if generalize_after_fwd_prop then
-            keep @ (F.values frame')
-          else
-            keep
-        in
-        
         (* Update statistics *)
         Stat.incr 
           ~by:(List.length fwd) 
           Stat.pdr_fwd_propagated;
 
-        SMTSolver.trace_comment
-          solver
-          (Format.sprintf "subsume_and_add from %s" __LOC__);
-        
         (* DEBUG only *)
         assert
           (check_frames'
              solver
              prop_set
              (frames_tl_full @ fwd)
-             ((List.fold_left (fun a c -> F.add (C.literals_of_clause c) c a) frame' keep) :: frames));
+             ((List.fold_left
+                 (fun a c -> 
+                    F.add (C.literals_of_clause c) c a) frame' keep) :: frames));
 
         (* All clauses propagate? *)
         if keep = [] then 
 
           (
 
+            (* Extract inductive invariant *)
             let ind_inv = 
               (List.fold_left 
                  (fun a c -> List.map C.term_of_clause (F.values c) @ a) 
@@ -1848,6 +1824,7 @@ let fwd_propagate solver trans_sys prop_set frames =
               |> Term.mk_and
             in
 
+            (* Activation literals for inductive invariant *)
             let ind_inv_p0, ind_inv_n0, ind_inv_n1 = 
 
               let mk = 
@@ -1861,6 +1838,9 @@ let fwd_propagate solver trans_sys prop_set frames =
 
             in
 
+            (* DEBUG only
+
+               Check if inductive invariant is initial *)
             assert
               (SMTSolver.check_sat_assuming
                  solver
@@ -1868,6 +1848,9 @@ let fwd_propagate solver trans_sys prop_set frames =
                  (function _ -> true)
                  [C.actlit_of_frame 0; ind_inv_n0]); 
 
+            (* DEBUG only
+
+               Check if inductive invariant is inductive *)
             assert
               (SMTSolver.check_sat_assuming
                  solver
@@ -1884,15 +1867,41 @@ let fwd_propagate solver trans_sys prop_set frames =
 
           (
 
-            SMTSolver.trace_comment
-              solver
-              (Format.sprintf "subsume_and_add from %s" __LOC__);
+            let keep', fwd' = 
+
+              (* Try propagating clauses before generalization? *)
+              if generalize_after_fwd_prop then
+
+                (* Take parent clauses of not propagating clauses and
+                   try to propagate *)
+                let _, fwd' = 
+                  partition_fwd_prop
+                    solver
+                    trans_sys
+                    prop_set
+                    frames_tl_full
+                    (List.map C.parent_of_clause keep)
+                in
+                
+                (* Update statistics *)
+                Stat.incr ~by:(List.length fwd') Stat.pdr_fwd_gen_propagated;
+
+                (* Keep clauses as before, in addition propagate
+                   non-generalized clauses *)
+                keep, (fwd @ fwd')
+
+              else
+                
+                (* Propagate clauses as before *)
+                keep, fwd 
+                
+            in
 
             (* Propagate clauses in next frame *)
             fwd_propagate' 
               solver
               trans_sys
-              fwd
+              fwd'
               ((List.fold_left subsume_and_add F.empty keep')
                :: frames)
               frames_tl

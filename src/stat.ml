@@ -327,6 +327,9 @@ let pdr_frame_sizes =
 let pdr_fwd_propagated = 
   empty_item "Forward propagations" 0
 
+let pdr_fwd_gen_propagated = 
+  empty_item "Forward propagations before generalization" 0
+
 let pdr_fwd_subsumed = 
   empty_item "Forward subsumed clauses" 0
 
@@ -396,6 +399,7 @@ let pdr_stats =
     I pdr_restarts;
     L pdr_frame_sizes; 
     I pdr_fwd_propagated; 
+    I pdr_fwd_gen_propagated; 
     I pdr_fwd_subsumed; 
     I pdr_back_subsumed; 
     I pdr_fwd_fixpoint; 

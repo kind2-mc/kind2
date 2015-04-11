@@ -181,6 +181,9 @@ val pdr_frame_sizes : int_list_item
 (** Number of forward propagations *)
 val pdr_fwd_propagated : int_item
 
+(** Number of forward propagations without generalization *)
+val pdr_fwd_gen_propagated : int_item
+
 (** Number of forward subsumed clauses *)
 val pdr_fwd_subsumed : int_item
 
