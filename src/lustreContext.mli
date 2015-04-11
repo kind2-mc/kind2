@@ -211,6 +211,12 @@ val fail_at_position : Lib.position -> string -> 'a
 (** Output a warning at position *)
 val warn_at_position : Lib.position -> string -> unit 
 
+(** Output a fatal error without reporting a position and raise an error *)
+val fail_no_position : string -> 'a
+
+(** Output a warning without a position *)
+val warn_no_position : string -> unit 
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

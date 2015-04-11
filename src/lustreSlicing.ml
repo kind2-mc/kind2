@@ -23,24 +23,51 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
+module C = LustreContext
 
 module SVS = StateVar.StateVarSet 
 
 
 (* ********************************************************************** *)
-(* Dependency order of definitions                                        *)
+(* Dependency order of definitions and cycle detection                    *)
 (* ********************************************************************** *)
 
 (* For each state variable return the list of state variables in the
    current instant that are used in its definition, and transitively
-   in their definitions, and fail if the definitions contain a cycle
+   in their definitions, and fail if the definitions contain a
+   cycle. 
 
    We don't need to consider assertions and node calls here, since we
-   only need the ordering only to sort equations and detect cycles. *)
+   only need the ordering only to sort equations and detect cycles.
+
+   We could find potential cycles when a node does not have an
+   implementation, but this is more trouble than it's worth. We need
+   to distinguish between strong and weak dependencies. If variable is
+   undefined, it weakly depends on all inputs. Then we can find weak
+   dependencies through nodes where an input is
+   underspecified. However, we then need to eliminate that cycle by
+   backtracking over the children we explored and that's where the
+   troubles start. *)
 let rec node_state_var_dependencies' 
     nodes
-    ({ N.equations; N.calls } as node)
+    ({ N.inputs; N.equations; N.calls } as node)
     accum = 
+
+  (* Return true if the state variable occurs on a path of
+     dependencies in its parents *)
+  let rec has_cycle state_var = function 
+
+    (* First dependency *)
+    | sv :: tl -> 
+
+      (* State variable occurs as its parent? *)
+      StateVar.equal_state_vars sv state_var || 
+      has_cycle state_var tl
+
+    (* No more dependencies *)
+    | [] -> false
+
+  in
 
   function 
 
@@ -51,160 +78,187 @@ let rec node_state_var_dependencies'
        variables in [parents] depend on *)
     | (state_var, parents) :: tl -> 
 
-      (* Add all state variables at the current instant in the
-         equation defining the state variable *)
-      let children = 
-        List.fold_left
-          (fun children (sv, _, expr) -> 
-             if StateVar.equal_state_vars sv state_var then
-               (let c = 
-                 E.cur_state_vars_of_expr expr |> SVS.elements
-                in 
-                c @ children)
-             else
-               children)
-          []
-          equations
-      in
-
-      (* Add all state variables from node calls *)
-      let children = 
-
-        List.fold_left
-
-          (fun 
-            children
-            { N.call_node_name; 
-              N.call_inputs; 
-              N.call_oracles; 
-              N.call_outputs; 
-              N.call_observers } -> 
-
-            try 
-
-              (* Get computed dependencies of outputs on inputs for
-                 called node *)
-              let { N.output_input_dep } =
-                N.node_of_name call_node_name nodes
-              in
-
-              D.fold
-                (fun i sv children -> 
-
-                   (* State variable is output? *)
-                   if StateVar.equal_state_vars sv state_var then
-
-                     try 
-
-                       (* Get indexes of inputs the output depends on *)
-                       (D.find i output_input_dep)
-
-                       (* Add actual inputs the output depends on to
-                          children *)
-                       |> List.fold_left
-                         (fun children j -> 
-
-                            (* Get actual input by index *)
-                            try D.find j call_inputs :: children 
-
-                            (* Invalid map *)
-                            with Not_found -> assert false)
-
-                         (* Add to children *)
-                         children
-
-                     (* Do not fail if output not found, but
-                        conservatively assume output depends on all
-                        inputs *)
-                     with Not_found -> 
-
-                       D.values call_inputs @ 
-                       call_oracles @ 
-                       children
-
-                   else
-
-                     (* Keep children *)
-                     children)
-
-                (* Iterate over all outputs *)
-                call_outputs 
-
-                (* Add to children *)
-                children
-
-
-            (* Do not fail if node not found, but conservatively assume
-               output depends on all inputs *)
-            with Not_found -> D.values call_inputs @ call_oracles @ children)
-
-          (* Add to list of children *)
-          children
-
-          (* Iterate over all calls *)
-          calls
-
-      in
-
-      (* Some variables have had their dependencies calculated already *)
-      let children_visited, children_not_visited =
-        List.partition
-          (fun sv -> 
-             List.exists
-               (fun (sv', _) -> StateVar.equal_state_vars sv sv') 
-               accum)
-          children
-      in
-
-      (* All children visited? *)
-      if children_not_visited = [] then 
-
-        (* Dependencies of this variable is set of dependencies of
-           its variables *)
-        let children = 
-          List.fold_left
-            (fun a i -> 
-               SVS.union a (List.assq i accum))
-            (List.fold_left (fun a v -> SVS.add v a) SVS.empty children_visited)
-            children_visited
-        in
-
-        (* Add variable and its dependencies to accumulator *)
-        node_state_var_dependencies' 
-          nodes
-          node 
-          ((state_var, children) :: accum)
-          tl
-
-      else
-
       if 
 
-        (* Circular dependency: a variable that this variable
-           depends on occurs as a dependency *)
-        List.exists
-          (fun v -> List.memq v parents)
-          (state_var :: children_not_visited)
+        (* Is there a strong dependency cycle with the state
+           variable? *)
+        has_cycle state_var parents
 
       then
 
-        (* TODO: Output variables in circular dependency *)
-        failwith 
-          (Format.asprintf 
-             "Circular dependency involving %a"
-             StateVar.pp_print_state_var state_var)
+        (* Output variables in circular dependency, drop variables
+           that are not visible in the origial source *)
+          C.fail_no_position 
+            (Format.asprintf
+               "Circular dependency: %a@."
+               (pp_print_list
+                  (E.pp_print_lustre_var false) 
+                  " -> ")
+               (List.filter N.state_var_is_visible  (state_var :: parents)))
 
       else
 
-        (* First get dependencies of all dependent variables *)
-        node_state_var_dependencies' 
-          nodes 
-          node
-          accum 
-          ((List.map 
-              (fun v -> (v, state_var :: parents)) 
-              children_not_visited) @ 
-           ((state_var, parents) :: tl))
+        (* All state variables at the current instant in the equation
+           or node call defining the state variable *)
+        let children = 
+
+          try 
+
+            (* State variable is defined in an equation? *)
+            List.find
+              (fun (sv, _, _) -> 
+                 StateVar.equal_state_vars sv state_var)
+              equations
+
+            |> 
+
+            (* State variable depends on state variables in equation *)
+            (function (sv, _, expr) ->
+              E.cur_state_vars_of_expr expr
+              |> SVS.elements)
+
+          (* State variable is not constrained by an equation *)
+          with Not_found -> 
+
+            try 
+
+              (* State variable is defined by a node call? *)
+              List.find
+                (fun { N.call_outputs } -> 
+                   D.exists 
+                     (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                     call_outputs)
+                calls
+
+              |>
+
+              (function
+                  { N.call_node_name; 
+                    N.call_inputs; 
+                    N.call_oracles; 
+                    N.call_outputs; 
+                    N.call_observers } -> 
+
+                  (* Index of state variable in outputs *)
+                  let output_index = 
+
+                    try
+
+                      (* Find state variable in outputs and return its
+                         index *)
+                      D.bindings call_outputs 
+                      |> List.find
+                        (fun (_, sv) -> 
+                           StateVar.equal_state_vars state_var sv)
+                      |> fst
+
+                    (* State variable is an output, has been found before *)
+                    with Not_found -> assert false 
+
+                  in
+
+                  (* Get computed dependencies of outputs on inputs
+                     for called node *)
+                  let output_input_dep =
+
+                    try 
+
+                      (N.node_of_name call_node_name nodes).N.output_input_dep
+
+                    (* Node of name not found *)
+                    with Not_found -> D.empty
+
+                  in
+
+                  (* Get indexes of inputs the output depends on *)
+                  (try 
+
+                     D.find output_index output_input_dep
+
+                   (* All outputs must have dependencies computed *)
+                   with Not_found -> assert false)
+
+                  |> 
+
+                  (List.fold_left
+                     (fun accum i -> 
+
+                        (* Get actual input by index, and add as
+                           dependency *)
+                        try D.find i call_inputs :: accum 
+
+                        (* Invalid map *)
+                        with Not_found -> assert false)
+                     []))
+
+            (* State variable is neither defined by an equation nor by a
+               node call *)
+            with Not_found -> []
+
+        in
+
+        (* Some variables have had their dependencies calculated
+           already *)
+        let children_visited, children_not_visited =
+          List.partition
+            (fun sv -> 
+               List.exists
+                 (fun (sv', _) -> StateVar.equal_state_vars sv sv')
+                 accum)
+            children
+        in
+
+        (* All children visited? *)
+        if children_not_visited = [] then 
+
+          (* Dependencies of this variable is set of dependencies of its
+             variables *)
+          let children = 
+
+            List.fold_left
+
+              (fun a sv -> 
+
+                 try 
+
+                   (* Add child as strong dependency to accumulator *)
+                   SVS.union
+                     a
+                     (SVS.singleton sv)
+
+                   |>
+
+                   (* Add grandchildren as strong or weak dependencies *)
+                   SVS.union
+                     (List.find 
+                        (fun (sv', _) -> StateVar.equal_state_vars sv sv')
+                        accum |> snd)
+
+                 with Not_found -> assert false)
+
+              SVS.empty
+              children_visited
+
+          in
+
+          (* Add variable and its dependencies to accumulator *)
+          node_state_var_dependencies' 
+            nodes
+            node 
+            ((state_var, children) :: accum)
+            tl
+
+        else
+
+          (* First get dependencies of all dependent variables *)
+          node_state_var_dependencies' 
+            nodes 
+            node
+            accum 
+            ((List.map 
+                (fun sv -> (sv, state_var :: parents)) 
+                children_not_visited) @ 
+             ((state_var, parents) :: tl))
 
 
 (* Given an association list of state variables to the set of the
@@ -278,12 +332,12 @@ let output_input_dep_of_dependencies dependencies inputs outputs =
              dependencies
 
            |> snd 
-         
+
          (* All dependencies must have been computed *)
          with Not_found -> assert false
 
        in
-       
+
        (* Get indexes of all state variables that are inputs *)
        SVS.fold
          (fun sv a -> 

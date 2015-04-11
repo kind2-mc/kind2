@@ -102,7 +102,11 @@ type 'a bound_or_fixed =
   | Fixed of 'a  (* Fixed value for index variable *)
 
 
-(** A Lustre node *)
+(** A Lustre node
+
+    Every state variable occurs exactly once in [inputs], [outputs],
+    [oracles], and [observers], and at most once on the left-hand side
+    of [equations] and [calls]. *)
 type t = 
 
   { 

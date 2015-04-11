@@ -905,35 +905,37 @@ let state_var_is_visible state_var =
     | Output
     | Local -> true
 
+    (* Invisible if no source set *)
+    | exception Not_found -> false
+
 
 (* Return true if the state variable is an input *)
 let state_var_is_input state_var = 
-  try
+
     match get_state_var_source state_var with
       | Input -> true
       | _ -> false
-  with Not_found -> false
+      | exception Not_found -> false
 
 
 (* Return true if the state variable is an output *)
 let state_var_is_output state_var = 
-  try
+
     match get_state_var_source state_var with
       | Output -> true
       | _ -> false
-  with Not_found -> false
+      | exception Not_found -> false
 
 
 (* Return true if the state variable is a local variable *)
 let state_var_is_local state_var = 
-  try
+
     match get_state_var_source state_var with
       | Local -> true
       | _ -> false
-  with Not_found -> false
+      | exception Not_found -> false
 
     
-
 
 (* ********************************************************************** *)
 (* State variable maps                                                    *)

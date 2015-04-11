@@ -148,6 +148,26 @@ let warn_at_position pos msg =
     msg
 
 
+(* Raise parsing exception *)
+let fail_no_position msg = 
+
+  Event.log
+    L_warn
+    "Parser error: %s"
+    msg;
+
+  raise A.Parser_error
+  
+
+(* Raise parsing exception *)
+let warn_no_position msg = 
+
+  Event.log
+    L_warn
+    "Parser warning: %s"
+    msg
+
+
 (* ********************************************************************** *)
 (*                                                                        *)
 (* ********************************************************************** *)
@@ -421,6 +441,10 @@ let mk_state_var
       scope
       state_var_type 
   in
+
+  (* Set source of state variable *)
+  N.set_state_var_source state_var state_var_source;
+
 
   (* Create expression from state variable *)
   let expr = E.mk_var state_var E.base_clock in
