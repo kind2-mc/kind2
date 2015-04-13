@@ -59,7 +59,8 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
       | list ->
          if sv == StateVar.mk_init_flag (TransSys.get_scope trans_sys)
          then (
-           failwith "redundant init flag mapping error, solve problem with condacts first"
+           failwith "redundant init flag mapping error, solve problem \
+                     with condacts first"
          ) else (
 
            debug event
@@ -686,21 +687,103 @@ let proved_xml mdl level trans_sys k prop =
 
     not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then (
+
+    let rec is_generated sys prop =
+      match TransSys.get_prop_source sys prop with
+      | Some (TermLib.Generated _) -> dummy_pos, true
+      | Some (TermLib.Instantiated (subsys, subprop)) ->
+        is_generated (TransSys.subsystem_of_scope sys subsys) subprop
+      | Some (TermLib.PropAnnot pos) -> pos, false
+      | Some s ->
+        Format.asprintf
+          "unexpected prop_source [%a] should not be instantiated"
+          TermLib.pp_print_prop_source s
+        |> failwith
+      | None ->
+        Format.sprintf
+          "unknown property %s for system %s"
+          prop (TransSys.get_name sys)
+        |> failwith
+    in
+
+    let tag, name, pos, lifted, generated, global =
+      match TransSys.get_prop_source trans_sys prop with
+      | Some (TermLib.PropAnnot pos) ->
+        "Property",
+        prop,
+        pos,
+        " lifted=\"false\"",
+        " generated=\"false\"",
+        ""
+      | Some (TermLib.Generated _) ->
+        "Property",
+        prop,
+        dummy_pos,
+        " lifted=\"false\"",
+        " generated=\"true\"",
+        ""
+      | Some (TermLib.Instantiated (subsys,subprop)) ->
+        let pos, generated =
+          is_generated
+            (TransSys.subsystem_of_scope trans_sys subsys)
+            subprop
+        in
+        "Property",
+        prop,
+        pos,
+        " lifted=\"true\"",
+        ( if generated then " generated=\"true\""
+          else " generated=\"false\"" ),
+        ""
+      | Some (TermLib.Requirement (pos, subsys, _)) ->
+        "Requirement",
+        TransSys.subsystem_of_scope trans_sys subsys
+        |> TransSys.get_source_name,
+        pos,
+        "",
+        "",
+        ""
+      | Some (TermLib.Contract (pos,name)) ->
+        "Contract",
+        name,
+        pos,
+        "",
+        "",
+        match TransSys.contract_is_global trans_sys name with
+        | Some true -> " global=\"true\""
+        | Some false -> " global=\"false\""
+        | None -> failwith "unknown"
+      | None ->
+        Format.sprintf "unknown property %s" prop |> failwith
+    in
+
+    let _,row,col =
+      if is_dummy_pos pos then "",-1,-1 else file_row_col_of_pos pos
+    in
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hv 2><Property name=\"%s\">@,\
+      ("@[<hv 2><%s name=\"%s\"%s%s%s>@,\
+        <Position>\"%d,%d\"</Position>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
         <Answer source=\"%a\">valid</Answer>@;<0 -2>\
-        </Property>@]@.") 
-      prop
+        </%s>@]@.")
+      tag
+      name
+      lifted
+      generated
+      global
+      row col
       (Stat.get_float Stat.total_time)
       (function ppf -> match k with 
          | None -> () 
          | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
       pp_print_kind_module_xml_src mdl
+      tag
+
+  )
 
 
 (* Pretty-print a counterexample *)
