@@ -23,6 +23,7 @@ module C = Clause
 (* Frame is a trie of clauses *)
 module F = Clause.ClauseTrie
 
+let debug_assert = true
 
 let deactivate_actlit = true
 
@@ -509,6 +510,10 @@ let ind_generalize solver prop_set frame clause literals =
                "ind_generalize: Dropped %d literals from clause."
                (C.length_of_clause clause - List.length kept));
 
+          (* Deactivate activation literal of parent clause *)
+          if deactivate_actlit then
+            deactivate_clause solver clause;
+            
           (* New clause with generalized clause as parent *)
           C.clause_of_literals solver (Some clause) kept
 
@@ -1077,29 +1082,14 @@ let rec block solver trans_sys prop_set term_tbl =
           
           (* Inductively generalize clause *)
           let block_clause_gen =
-
-            (* Skip unsat core and inductive generalization? *)
-            if false then block_clause else
-
-              (* Skip inductive generaliztion? *)
-              if false then
-
-                C.clause_of_literals 
+            Stat.time_fun Stat.pdr_ind_gen_time
+              (fun () -> 
+                ind_generalize 
                   solver
-                  (Some block_clause)
-                  block_clause_literals_core
-
-              else
-
-                (Stat.time_fun Stat.pdr_ind_gen_time
-                   (fun () -> 
-                     ind_generalize 
-                       solver
-                       prop_set
-                       actlits_p0_r_pred_i
-                       block_clause
-                       block_clause_literals_core))
-
+                  prop_set
+                  actlits_p0_r_pred_i
+                  block_clause
+                  block_clause_literals_core)
           in
 
           SMTSolver.trace_comment
@@ -1230,10 +1220,11 @@ let rec block solver trans_sys prop_set term_tbl =
                 
           in
 
-          (* DEBUG only *)
-          assert
-            (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames'));
-
+          (* DEBUG *)
+          if debug_assert then
+            assert
+              (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames'));
+                    
           (* Add cube to block to next higher frame if flag is set *)
           let block_tl' = 
 
@@ -1243,7 +1234,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
             then
 
-              add_to_block_tl block_clause block_trace block_tl
+              add_to_block_tl block_clause_gen block_trace block_tl
 
             else
 
@@ -1727,8 +1718,9 @@ let fwd_propagate solver trans_sys prop_set frames =
               :: frames
             in
 
-            (* DEBUG only *)
-            assert (check_frames solver prop_set [] frames');
+            (* DEBUG *)
+            if debug_assert then
+              assert (check_frames solver prop_set [] frames');
 
             frames'
 
@@ -1747,8 +1739,9 @@ let fwd_propagate solver trans_sys prop_set frames =
               :: frames
             in
             
-            (* DEBUG only *)
-            assert (check_frames solver prop_set [] frames');
+            (* DEBUG *)
+            if debug_assert then
+              assert (check_frames solver prop_set [] frames');
             
             frames')
 
@@ -1776,14 +1769,15 @@ let fwd_propagate solver trans_sys prop_set frames =
           List.fold_left subsume_and_add frame prop
         in
         
-        (* DEBUG only *)
-        assert
-          (check_frames'
-             solver
-             prop_set
-             frames_tl_full
-             (frame' :: frames));
-
+        (* DEBUG *)
+        if debug_assert then
+          assert
+            (check_frames'
+               solver
+               prop_set
+               frames_tl_full
+               (frame' :: frames));
+        
         (* Separate clauses that propagate from clauses to keep in
            this frame *)
         let keep, fwd = 
@@ -1800,15 +1794,16 @@ let fwd_propagate solver trans_sys prop_set frames =
           ~by:(List.length fwd) 
           Stat.pdr_fwd_propagated;
 
-        (* DEBUG only *)
-        assert
-          (check_frames'
-             solver
-             prop_set
-             (frames_tl_full @ fwd)
-             ((List.fold_left
-                 (fun a c -> 
-                   F.add (C.literals_of_clause c) c a) frame' keep) :: frames));
+        (* DEBUG *)
+        if debug_assert then
+          assert
+            (check_frames'
+               solver
+               prop_set
+               (frames_tl_full @ fwd)
+               ((List.fold_left
+                   (fun a c -> 
+                     F.add (C.literals_of_clause c) c a) frame' keep) :: frames));
 
         (* All clauses propagate? *)
         if keep = [] then 
@@ -1838,25 +1833,27 @@ let fwd_propagate solver trans_sys prop_set frames =
 
             in
 
-            (* DEBUG only
+            (* DEBUG
 
                Check if inductive invariant is initial *)
-            assert
-              (SMTSolver.check_sat_assuming
-                 solver
-                 (function _ -> false)
-                 (function _ -> true)
-                 [C.actlit_of_frame 0; ind_inv_n0]); 
+            if debug_assert then
+              assert
+                (SMTSolver.check_sat_assuming
+                   solver
+                   (function _ -> false)
+                   (function _ -> true)
+                   [C.actlit_of_frame 0; ind_inv_n0]); 
 
-            (* DEBUG only
+            (* DEBUG
 
                Check if inductive invariant is inductive *)
-            assert
-              (SMTSolver.check_sat_assuming
-                 solver
-                 (function _ -> false)
-                 (function _ -> true)
-                 [C.actlit_p0_of_prop_set prop_set; ind_inv_p0; ind_inv_n1]); 
+            if debug_assert then
+              assert
+                (SMTSolver.check_sat_assuming
+                   solver
+                   (function _ -> false)
+                   (function _ -> true)
+                   [C.actlit_p0_of_prop_set prop_set; ind_inv_p0; ind_inv_n1]); 
 
             (* Fixpoint found, this frame is equal to the next *)
             raise (Success (List.length frames))
