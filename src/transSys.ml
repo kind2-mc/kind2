@@ -287,9 +287,16 @@ let get_scope t = t.scope
 let get_name t = t.scope |> String.concat "/"
 
 (* Source name of the system. *)
-let get_source_name t = match t.source with
-| Lustre (node :: _) -> node.name |> LustreIdent.string_of_ident false
-| Native -> get_name t
+let get_source_name t =
+  let rec loop = function
+    | [ last ] -> last.LustreNode.name |> LustreIdent.string_of_ident false
+    | _ :: tail -> loop tail
+    | [] -> get_name t
+  in
+
+  match t.source with
+  | Lustre list -> loop list
+  | Native -> get_name t
 
 (* Returns all the subsystems of a transition system, including that
    system, by reverse topological order. *)

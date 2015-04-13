@@ -406,6 +406,27 @@ let printf_pt mdl level fmt =
     ("@[<hov>" ^^ fmt ^^ "@]@.@.") 
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
+
+let printf_analysis_briefing_pt level trans_sys =
+  let compositional = Flags.compositional () in
+  let modular = Flags.modular () in
+  let mode = match compositional, modular with
+    | true, true -> " in modular / compositional mode systems"
+    | true, _ -> " in compositional mode system"
+    | _, true -> " in modular mode systems"
+    | _ -> " system"
+  in
+  let systems =
+    (if modular then TransSys.get_all_subsystems trans_sys else [ trans_sys ])
+    |> List.map TransSys.get_source_name
+  in
+
+  (ignore_or_fprintf level)
+    !log_ppf 
+    "@[<hv 2>Analyzing%s@ @[<hov>%a@]@]@."
+    mode
+    (pp_print_list Format.pp_print_string "@ ")
+    systems
     
 
 (* Output proved property as plain text *)
@@ -677,6 +698,28 @@ let printf_xml mdl level fmt =
        "@]@;<0 -2></Log>@]@.") 
     pp_print_level_xml_cls level
     pp_print_kind_module_xml_src mdl
+
+(* Output message as XML *)
+let printf_analysis_briefing_xml _ trans_sys =
+  let compositional = Flags.compositional () in
+  let modular = Flags.modular () in
+  let systems =
+    (if modular then TransSys.get_all_subsystems trans_sys else [ trans_sys ])
+    |> List.map TransSys.get_source_name
+  in
+
+  Format.fprintf
+    !log_ppf 
+    "@[<hv 2><Analysis>@,@[<hv>\
+     <Compositional>%b</Compositional>@,\
+     <Modular>%b</Modular>@,\
+     %a@]@;<0 -2></Analysis>@]@."
+    compositional
+    modular
+    (pp_print_list
+      (fun fmt name -> Format.fprintf fmt "<System>%s</System>" name)
+      "@,")
+    systems
 
 
 (* Output proved property as XML *)
@@ -1053,6 +1096,13 @@ let log level fmt =
     | F_pt -> printf_pt mdl level fmt
     | F_xml -> printf_xml mdl level fmt
     | F_relay -> printf_relay mdl level fmt
+
+
+let log_analysis_briefing level trans_sys =
+  match !log_format with
+  | F_pt -> printf_analysis_briefing_pt level trans_sys
+  | F_xml -> printf_analysis_briefing_xml level trans_sys
+  | F_relay -> ()
 
 
 (* Log a message with source and log level *)

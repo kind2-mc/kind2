@@ -96,6 +96,10 @@ val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) 
     ...] *)
 val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
 
+(** Outputs the analysis header. *)
+val log_analysis_briefing :
+  Lib.log_level -> TransSys.t -> unit
+
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit
 

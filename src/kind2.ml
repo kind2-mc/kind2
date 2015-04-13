@@ -29,12 +29,12 @@ module InvGenOS = InvGenGraph.OneState
 
 let dbl_sep_line_warn () =
   Event.log
-    L_warn
+    L_info
     "|========================================|"
 
 let sgl_sep_line_warn () =
   Event.log
-    L_warn
+    L_info
     "   -----------------------------------   "
 
 (* Prints the final statistics of the analysis. *)
@@ -480,15 +480,6 @@ let choose_compositional sys log msg_setup =
 
 let launch_modular systems log msg_setup =
 
-  sgl_sep_line_warn () ;
-
-  Event.log
-    L_warn
-    "Analyzing modularily systems @[<hv>%a@]"
-    ( pp_print_list
-        TransSys.pp_print_trans_sys_name ",@ " )
-    systems ;
-
   (* Loops over the systems to analyze. *)
   let rec loop = function
 
@@ -542,6 +533,9 @@ let launch_modular systems log msg_setup =
 
 (* Launches the top level (potentially modular) analysis. *)
 let launch sys msg_setup =
+
+  sgl_sep_line_warn () ;
+  Event.log_analysis_briefing L_warn sys ;
 
   (* Launching analysis, getting log back. *)
   let log, status =

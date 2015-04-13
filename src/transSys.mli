@@ -206,7 +206,7 @@ val get_contracts :
 val get_subsystems : t -> t list
 
 (** Returns all the subsystems of a system in reverse topological
-    order. *)
+    order, INCLUDING that system. *)
 val get_all_subsystems : t -> t list
 
 (** The state variables of a transition system. *)
