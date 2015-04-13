@@ -1603,7 +1603,7 @@ let fwd_propagate solver trans_sys prop_set frames =
                "@[<v>Clause is subsumed in frame@,%a@]"
                (pp_print_list Term.pp_print_term "@,")
                (F.values a |> List.map C.actlit_p0_of_clause));
-               
+          
           (* Deactivate activation literals of subsumed clause *)
           deactivate_clause solver c';
 
@@ -1618,17 +1618,17 @@ let fwd_propagate solver trans_sys prop_set frames =
         (* Subsume in frame with clause *)
         F.subsume a l
 
-        (* Increment statistics *)
-        |> count_subsumed solver
+    (* Increment statistics *)
+    |> count_subsumed solver
 
-        (* Deactivate activation literals of subsumed clauses *)
-        |> deactivate_subsumed solver
+    (* Deactivate activation literals of subsumed clauses *)
+    |> deactivate_subsumed solver
 
-        (* Continue with frame after subsumption *)
-        |> snd
-            
-        (* Add clause to frame  *)
-        |> F.add l c'
+    (* Continue with frame after subsumption *)
+    |> snd
+        
+    (* Add clause to frame  *)
+    |> F.add l c'
 
     else
 
@@ -1644,10 +1644,10 @@ let fwd_propagate solver trans_sys prop_set frames =
            a)
         else
           F.subsume a l
-          |> count_subsumed solver
-          |> deactivate_subsumed solver
-          |> snd
-          |> F.add l c'
+        |> count_subsumed solver
+        |> deactivate_subsumed solver
+        |> snd
+        |> F.add l c'
 
   in
 
@@ -1808,7 +1808,7 @@ let fwd_propagate solver trans_sys prop_set frames =
              (frames_tl_full @ fwd)
              ((List.fold_left
                  (fun a c -> 
-                    F.add (C.literals_of_clause c) c a) frame' keep) :: frames));
+                   F.add (C.literals_of_clause c) c a) frame' keep) :: frames));
 
         (* All clauses propagate? *)
         if keep = [] then 
@@ -1872,29 +1872,44 @@ let fwd_propagate solver trans_sys prop_set frames =
               (* Try propagating clauses before generalization? *)
               if generalize_after_fwd_prop then
 
-                (* Take parent clauses of not propagating clauses and
-                   try to propagate *)
-                let _, fwd' = 
-                  partition_fwd_prop
+                (
+                  
+                  SMTSolver.trace_comment
                     solver
-                    trans_sys
-                    prop_set
-                    frames_tl_full
-                    (List.map C.parent_of_clause keep)
-                in
-                
-                (* Update statistics *)
-                Stat.incr ~by:(List.length fwd') Stat.pdr_fwd_gen_propagated;
+                    (Format.sprintf 
+                       "fwd_propagate: Checking forward propagation of clauses \
+                      before generalization in frame %d."
+                       (succ (List.length frames)));
 
-                (* Keep clauses as before, in addition propagate
-                   non-generalized clauses *)
-                keep, (fwd @ fwd')
+                  let copy_parent c =
+                    C.literals_of_clause c |> C.clause_of_literals solver None
+                  in
+                  
+                  (* Take parent clauses of not propagating clauses and
+                     try to propagate *)
+                  let _, fwd' = 
+                    partition_fwd_prop
+                      solver
+                      trans_sys
+                      prop_set
+                      frames_tl_full
+                      (List.map copy_parent keep)
+                  in
+                  
+                  (* Update statistics *)
+                  Stat.incr ~by:(List.length fwd') Stat.pdr_fwd_gen_propagated;
 
+                  (* Keep clauses as before, in addition propagate
+                     non-generalized clauses *)
+                  keep, (fwd @ fwd')
+
+                )
+                  
               else
                 
                 (* Propagate clauses as before *)
                 keep, fwd 
-                
+                  
             in
 
             (* Propagate clauses in next frame *)
