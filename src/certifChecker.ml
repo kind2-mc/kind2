@@ -23,6 +23,7 @@ open Actlit
 module TS = TransSys
 module TM = Term.TermMap
 module TH = Term.TermHashtbl
+module SVS = StateVar.StateVarSet
 module IntM = Map.Make (struct type t = int let compare = compare end)
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
@@ -30,7 +31,7 @@ module SMT  : SolverDriver.S = GenericSMTLIBDriver
 (*************************************************)
 (* Hard coded options for certificate generation *)
 (*************************************************)
-let file_width = 220
+let file_width = 120
 let quant_free = true
 let monolithic_base = true
 let simple_base = false
@@ -1071,19 +1072,31 @@ let term_state_var1 scope sv =
 
 
 
-let mk_obs_eqs ?(prime=false) lustre_vars orig_kind2_vars =
+let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
+
   let term_state_var =
     if prime then term_state_var1 [obs_name]
     else term_state_var0 [obs_name] in
 
   List.fold_left (fun acc sv ->
-      try
-        List.fold_left (fun acc jv ->
-            Term.mk_eq [term_state_var sv; term_state_var jv] :: acc
-          ) acc (JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv)
 
-      (* Ignore this variable if it does not have a jKind counterpart *)
-      with Not_found -> acc
+      let jkind_vars =
+        try JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv
+        with Not_found ->
+          (* Ignore if this variable does not have a Lustre counterpart *)
+          []
+      in
+
+      (* Fail if variables of properties do not have a jKind equivalent *)
+      if jkind_vars = [] then
+        Event.log L_fatal
+          "Could not find a match for the property variable %a."
+          StateVar.pp_print_state_var sv;
+
+      List.fold_left (fun acc jv ->
+          Term.mk_eq [term_state_var sv; term_state_var jv] :: acc
+        ) acc jkind_vars
+
     ) [] orig_kind2_vars
   |> List.rev
 
@@ -1105,20 +1118,45 @@ let mk_prop_obs ~only_out lustre_vars orig_kind2_vars =
    Term.mk_and eqs]
 
 
-let mk_multiprop_obs ~only_out lustre_vars orig_kind2_vars =
-  let vars =
-    if only_out then
-      List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars
-    else orig_kind2_vars in      
-  let eqs = mk_obs_eqs ~prime:false lustre_vars vars in
+let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
+ 
+  let orig_kind2_vars = TS.state_vars kind2_sys in
+  
+  let prop_vs =
+    List.fold_left (fun acc (_,_,p,_) ->
+        Term.state_vars_of_term p |> SVS.union acc
+      ) SVS.empty (TS.get_properties kind2_sys)
+  in
+  
+  let other_vars =
+    List.filter (fun sv -> not (SVS.mem sv prop_vs) &&
+                           (not only_out || not (StateVar.is_input sv))
+                ) orig_kind2_vars in
+
+  let prop_vars = SVS.elements prop_vs in
+  
+  let props_eqs = mk_obs_eqs ~prime:false ~prop:true lustre_vars prop_vars in
+  let others_eqs = mk_obs_eqs ~prime:false ~prop:false lustre_vars other_vars in
 
   let cpt = ref 0 in
-  List.map (fun eq ->
-      incr cpt;
-      "Observational_Equivalence_" ^(string_of_int !cpt),
-      TermLib.Generated [],
-      Term.mk_and [eq])
-    eqs
+  let props_obs =
+    List.map (fun eq ->
+        incr cpt;
+        "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt),
+        TermLib.Generated [],
+        Term.mk_and [eq])
+      props_eqs in
+
+  let others_obs =
+    List.map (fun eq ->
+        incr cpt;
+        "OTHER_Observational_Equivalence_" ^(string_of_int !cpt),
+        TermLib.Generated [],
+        Term.mk_and [eq])
+      others_eqs in
+
+  props_obs @ others_obs
+  
 
 
 
@@ -1195,7 +1233,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let trans = trans_uf, (state_vars1 @ state_vars0, trans_term) in
 
   (* Create properties *)
-  let props = mk_multiprop_obs ~only_out:false lustre_vars orig_kind2_vars in
+  let props = mk_multiprop_obs ~only_out:false lustre_vars kind2_sys in
   
   (* Create observer system *)
   let obs_sys =
