@@ -45,21 +45,12 @@ let check_sat_assuming_cmd _ =
 
 let headers () =
 
-  let missing = 
+  [
 
-    [
-      
-      (* Define functions for int / real conversions *)
-      "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
-      "(define to_real::(-> x::int (subtype (y::real) (= y x))))";
-    ] 
-
-  in
-  
-  if Flags.yices_arith_only () then
-    "(set-arith-only! true)" :: missing
-  else 
-    missing
+    (* Define functions for int / real conversions *)
+    "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
+    "(define to_real::(-> x::int (subtype (y::real) (= y x))))";
+  ] 
 
 
 let trace_extension = "ys"

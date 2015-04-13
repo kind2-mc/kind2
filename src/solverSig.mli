@@ -27,7 +27,7 @@ module type Params = sig
 
   val produce_proofs : bool
 
-  val logic : Term.logic
+  val logic : TermLib.logic
 
   val id : int
 

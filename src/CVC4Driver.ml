@@ -145,3 +145,14 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
 
 let lambda_of_string_sexpr = 
   gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
+
+
+let string_of_logic l =
+  let open TermLib in
+  let open TermLib.FeatureSet in
+  (* CVC4 fails to give model when given a non linear arithmetic logic *)
+  match l with
+  | `Inferred l when mem NA l -> "ALL_SUPPORTED"
+  | _ -> GenericSMTLIBDriver.string_of_logic l
+
+let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

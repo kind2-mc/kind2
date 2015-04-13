@@ -152,6 +152,9 @@ type t = {
   (* The source which produced this system. *)
   source: source ;
 
+  (* The logic fragment in which is expressed the system and its properties. *)
+  logic: TermLib.logic;
+  
   (* Invariants *)
   mutable invars: Term.t list;
 
@@ -193,7 +196,8 @@ let add_caller callee caller c =
   let rec add_caller' accum = function
     | [] ->  (caller, [c]) :: accum
     | (caller', c') :: tl when 
-        caller'.scope = caller.scope -> (caller', (c :: c')) :: accum
+        caller'.scope = caller.scope ->
+      ((caller', (c :: c')) :: accum) @ tl
     | h :: tl -> add_caller' (h :: accum) tl 
   in
 
@@ -521,11 +525,8 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list pp_print_caller "@ ") c
 
 
-(* Determine the required logic for the SMT solver 
-
-   TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = ((Flags.smtlogic ()) :> Term.logic)
-
+(* Determine the required logic for the SMT solver *)
+let get_logic t = t.logic
 
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
@@ -615,6 +616,23 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     | _ -> None
   in
 
+  (* find the logic of the transition system by goint through its terms and its
+     subsystems *)
+  let logic = match Flags.smtlogic () with
+    | `None -> `None
+    | `Logic s -> `SMTLogic s
+    | `detect ->
+      `Inferred
+        (List.fold_left (fun acc (_, _, p) -> TermLib.logic_of_term p :: acc)
+           ((init  |> snd |> snd |> TermLib.logic_of_term) ::
+            (trans |> snd |> snd |> TermLib.logic_of_term) ::
+            List.map (fun sys -> match sys.logic with
+                | `Inferred l -> l
+                | _ -> assert false) subsystems)
+           props
+         |> TermLib.sup_logics)
+  in
+  
   let system =
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
@@ -632,6 +650,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
                prop_status = PropUnknown })
           props ;
       subsystems = subsystems ;
+      logic = logic;
       source = source ;
       invars = invars_of_types ;
       callers = []; }
@@ -1081,6 +1100,7 @@ let pp_print_trans_sys
        properties;
        invars;
        source;
+       logic;
        callers } as trans_sys) = 
 
   Format.fprintf 
@@ -1092,6 +1112,7 @@ let pp_print_trans_sys
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(logic %a)@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
@@ -1100,6 +1121,7 @@ let pp_print_trans_sys
     (pp_print_list pp_print_property "@ ") properties
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    TermLib.pp_print_logic logic
     (pp_print_list pp_print_callers "@,") callers
       
  

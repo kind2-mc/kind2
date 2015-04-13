@@ -55,6 +55,11 @@ type prop_source =
   | Instantiated of string list * string 
 
 
+(** {1 Utilities functions on terms } *)
+
+
+(** {2 Default values } *)
+
 (** Return the default value of the type: 
 
     By default, a Boolean value is false, integer and real values are
@@ -62,3 +67,37 @@ type prop_source =
     range. Array scalar types do not have defaults. The function fails
     with [Invalid_argument] in this case. *)
 val default_of_type : Type.t -> Term.t
+
+
+(** {2 Logic fragments } *)
+
+(** A feature of a logic fragment for terms *)
+type feature =
+  | Q  (** Quantifiers *)
+  | UF (** Equality over uninterpreted functions *)
+  | IA (** Integer arithmetic *)
+  | RA (** Real arithmetic *)
+  | LA (** Linear arithmetic *)
+  | NA (** Non-linear arithmetic *)
+
+(** Set of features *)
+module FeatureSet : Set.S with type elt = feature
+
+(** Logic fragments for terms *)
+type features = FeatureSet.t
+
+(** Returns the sup of the logics given as arguments *)
+val sup_logics : features list -> features
+
+(** Returns the logic fragment used by a term *)
+val logic_of_term : Term.t -> features
+
+(** Logic fragments for terms *)
+type logic = [ `None | `Inferred of features | `SMTLogic of string ]
+
+(** Print a logic *)
+val pp_print_logic : Format.formatter -> logic -> unit
+
+(** String correspinding to a logic *)
+val string_of_logic : logic -> string
+

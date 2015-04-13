@@ -29,6 +29,19 @@ let solver_qe = ref None
 (* The current solver instance in use *)
 let solver_check = ref None
 
+(* Add quantifiers to logic *)
+let add_quantifiers = function
+  | `None -> `None
+  | `Inferred l -> `Inferred (TermLib.FeatureSet.add TermLib.Q l)
+  | `SMTLogic s as l ->
+    try
+      let s =
+        if String.sub s 0 3 = "QF_" then
+          String.sub s 3 (String.length s - 3)
+        else s in
+      `SMTLogic s
+    with Invalid_argument _ -> l
+
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
 
@@ -41,7 +54,7 @@ let get_solver_instance trans_sys =
       (* Create solver instance : only Z3 for the moment *)
       let solver = SMTSolver.create_instance
           ~produce_assignments:true
-          (TransSys.get_logic trans_sys)
+          (add_quantifiers (TransSys.get_logic trans_sys))
           `Z3_SMTLIB
       in
 
@@ -102,11 +115,12 @@ let get_checking_solver_instance trans_sys =
     (* Need to create a new instance *)
     | None -> 
 
-      (* Create solver instance *)
+      (* Create solver instance with support for quantifiers *)
       let solver =     
         SMTSolver.create_instance 
           ~produce_assignments:true
-          `UFLIA
+          (* add quantifiers to system logic *)
+          (add_quantifiers (TransSys.get_logic trans_sys))
           (Flags.smtsolver ())
       in
 (*
