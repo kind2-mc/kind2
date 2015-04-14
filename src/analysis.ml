@@ -581,10 +581,9 @@ let rec polling_loop t =
     (* Check if the analysis is over. *)
     TransSys.all_props_proved t.sys
   then (
-    Event.log
+    Event.log_done
       L_warn
-      "%s All properties proved or disproved in %.3fs."
-      done_tag
+      "All properties proved or disproved in %.3fs."
       (Stat.get_float Stat.total_time) ;
 
     Ok

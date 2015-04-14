@@ -355,6 +355,21 @@ let get_all_subsystems sys =
  
   iterate_over_subsystems sys [] []
 
+(* Returns a triplet of the concrete subsystems, the refined ones, and the
+   abstracted ones. Does not contain the input system. *)
+let get_abstraction_split ({ abstraction } as sys) =
+  let rec loop c r a = function
+    | [ top ] -> assert ( top.scope = sys.scope ) ; c, r, a
+    | subsys :: tail ->
+      if List.mem subsys.scope abstraction then loop c r (subsys::a) tail
+      else ( match subsys.contracts with
+        | None -> loop (subsys::c) r a tail
+        | Some _ -> loop c (subsys::r) a tail
+      )
+    | [] -> c, r, a
+  in
+  get_all_subsystems sys |> loop [] [] [] 
+
 let pp_print_trans_sys_name ppf { scope } =
   Format.fprintf
     ppf "%a"

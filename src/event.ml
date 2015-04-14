@@ -398,23 +398,32 @@ let pp_print_kind_module_pt ppf m =
 
 
 (* Output message as plain text *)
-let printf_pt mdl level fmt = 
-
+let printf_pt mdl level fmt =
+  let pref = if level = L_error then error_tag else "" in
   (ignore_or_fprintf level)
     !log_ppf 
     (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("@[<hov>" ^^ fmt ^^ "@]@.@.") 
+    ("@[<hov>%s" ^^ fmt ^^ "@]@.@.") pref
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
 
-let printf_analysis_briefing_pt level trans_sys =
+(* Output message as plain text *)
+let printf_done_pt mdl level fmt =
+  (ignore_or_fprintf level)
+    !log_ppf 
+    (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
+    ("@[<hov>%s" ^^ fmt ^^ "@]@.@.") done_tag
+    (* pp_print_level_pt level *)
+    (* pp_print_kind_module_pt mdl *)
+
+let analysis_briefing_pt level trans_sys =
   let compositional = Flags.compositional () in
   let modular = Flags.modular () in
   let mode = match compositional, modular with
-    | true, true -> " in modular / compositional mode systems"
-    | true, _ -> " in compositional mode system"
-    | _, true -> " in modular mode systems"
-    | _ -> " system"
+    | true, true -> "in modular / compositional mode systems"
+    | true, _ -> "in compositional mode system"
+    | _, true -> "in modular mode systems"
+    | _ -> "system"
   in
   let systems =
     (if modular then TransSys.get_all_subsystems trans_sys else [ trans_sys ])
@@ -423,10 +432,66 @@ let printf_analysis_briefing_pt level trans_sys =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    "@[<hv 2>Analyzing%s@ @[<hov>%a@]@]@."
+    "@[<hv 2>Analyzing %s@ @[<hov>%a@]@]@.@."
     mode
-    (pp_print_list Format.pp_print_string "@ ")
+    (pp_print_list Format.pp_print_string ",@ ")
     systems
+
+let system_start_pt level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then
+    (ignore_or_fprintf level)
+      !log_ppf
+      "|========================================|@.@." ;
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<hv 2>Starting analysis for system %s.@]@.@."
+      (TransSys.get_source_name trans_sys)
+
+
+let system_stop_pt level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then (
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<hv 2>Done with system %s.@]@.@."
+      (TransSys.get_source_name trans_sys) ;
+    if TransSys.get_callers trans_sys = [] then
+      (ignore_or_fprintf level)
+        !log_ppf
+        "|========================================|@.@." ;
+  )
+
+let run_start_pt level trans_sys =
+  (* Only printing if in compositional mode. *)
+  if Flags.compositional () then (
+    let concrete, refined, abstract =
+      let c,r,a =
+        TransSys.get_abstraction_split trans_sys
+      in
+      c |> List.map TransSys.get_source_name,
+      r |> List.map TransSys.get_source_name,
+      a |> List.map TransSys.get_source_name
+    in
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<v 2>Starting run for system %s with@,\
+       concrete: [@[<hv>%a@]]@,\
+       refined:  [@[<hv>%a@]]@,\
+       abstract: [@[<hv>%a@]]@]@.@."
+      (TransSys.get_source_name trans_sys)
+      (pp_print_list Format.pp_print_string ",@ ") concrete
+      (pp_print_list Format.pp_print_string ",@ ") refined
+      (pp_print_list Format.pp_print_string ",@ ") abstract
+  )
+
+let run_stop_pt level trans_sys =
+  (* Only printing if in compositional mode. *)
+  if Flags.compositional () then
+    (ignore_or_fprintf level)
+      !log_ppf
+      "   -----------------------------------   @.@."
+
     
 
 (* Output proved property as plain text *)
@@ -441,7 +506,7 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf
-      ("@[<hov>%s Property %s is valid %tby %a after %.3fs.@.@.")
+      ("@[<hov>%sProperty %s is valid %tby %a after %.3fs.@.@.")
       success_tag
       (* Term.pp_print_term *)
       (* (TransSys.named_term_of_prop_name trans_sys prop) *)
@@ -555,7 +620,7 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v>%s Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.")
+      ("@[<v>%sProperty %s is invalid by %a %tafter %.3fs.@,@,%a@]@.")
       failure_tag
       (match TransSys.get_prop_source trans_sys prop with
        | None -> assert false
@@ -693,14 +758,12 @@ let printf_xml mdl level fmt =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ 
-       fmt ^^ 
-       "@]@;<0 -2></Log>@]@.") 
+    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ fmt ^^ "@]@;<0 -2></Log>@]@.") 
     pp_print_level_xml_cls level
     pp_print_kind_module_xml_src mdl
 
 (* Output message as XML *)
-let printf_analysis_briefing_xml _ trans_sys =
+let analysis_briefing_xml _ trans_sys =
   let compositional = Flags.compositional () in
   let modular = Flags.modular () in
   let systems =
@@ -713,7 +776,7 @@ let printf_analysis_briefing_xml _ trans_sys =
     "@[<hv 2><Analysis>@,@[<hv>\
      <Compositional>%b</Compositional>@,\
      <Modular>%b</Modular>@,\
-     %a@]@;<0 -2></Analysis>@]@."
+     %a@]@;<0 -2></Analysis>@]@.@."
     compositional
     modular
     (pp_print_list
@@ -721,111 +784,176 @@ let printf_analysis_briefing_xml _ trans_sys =
       "@,")
     systems
 
+let system_start_xml level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then
+    (ignore_or_fprintf level)
+      !log_ppf
+      "<System name=\"%s\" top=\"%b\">@."
+      (TransSys.get_source_name trans_sys)
+      (if TransSys.get_callers trans_sys = [] then true else false)
+
+
+let system_stop_xml level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then
+    (ignore_or_fprintf level) !log_ppf "</System>@.@."
+
+let run_start_xml level trans_sys =
+  (* Only printing if in compositional mode. *)
+  if Flags.compositional () then (
+    let concrete, refined, abstract =
+      let c,r,a =
+        TransSys.get_abstraction_split trans_sys
+      in
+      c |> List.map TransSys.get_source_name,
+      r |> List.map TransSys.get_source_name,
+      a |> List.map TransSys.get_source_name
+    in
+    (ignore_or_fprintf level)
+      !log_ppf
+      "%s@[<v 2><Run>@,\
+       <Concrete>%a</Concrete>@,\
+       <Refined>%a</Refined>@,\
+       <Abstract>%a</Abstract>@]@."
+      ( if Flags.modular() then "  " else "" )
+      (pp_print_list Format.pp_print_string "</Concrete>@,<Concrete>") concrete
+      (pp_print_list Format.pp_print_string "</Refined>@,<Refined>") refined
+      (pp_print_list Format.pp_print_string "</Abstract>@,<Abstract>") abstract
+  )
+
+let run_stop_xml level trans_sys =
+  if Flags.compositional () then
+    (ignore_or_fprintf level)
+      !log_ppf "%s</Run>@.@."
+      ( if Flags.modular() then "  " else "" )
+
+
+let info_of_prop_xml level trans_sys prop =
+
+  let rec is_generated sys prop =
+    match TransSys.get_prop_source sys prop with
+    | Some (TermLib.Generated _) -> dummy_pos, true
+    | Some (TermLib.Instantiated (subsys, subprop)) ->
+      is_generated (TransSys.subsystem_of_scope sys subsys) subprop
+    | Some (TermLib.PropAnnot pos) -> pos, false
+    | Some s ->
+      Format.asprintf
+        "unexpected prop_source [%a] should not be instantiated"
+        TermLib.pp_print_prop_source s
+      |> failwith
+    | None ->
+      Format.sprintf
+        "unknown property %s for system %s"
+        prop (TransSys.get_name sys)
+      |> failwith
+  in
+
+  let tag, name, pos, lifted, generated, global =
+    match TransSys.get_prop_source trans_sys prop with
+    | Some (TermLib.PropAnnot pos) ->
+      "Property",
+      prop,
+      pos,
+      " lifted=\"false\"",
+      " generated=\"false\"",
+      ""
+    | Some (TermLib.Generated _) ->
+      "Property",
+      prop,
+      dummy_pos,
+      " lifted=\"false\"",
+      " generated=\"true\"",
+      ""
+    | Some (TermLib.Instantiated (subsys,subprop)) ->
+      let pos, generated =
+        is_generated
+          (TransSys.subsystem_of_scope trans_sys subsys)
+          subprop
+      in
+      "Property",
+      prop,
+      pos,
+      " lifted=\"true\"",
+      ( if generated then " generated=\"true\""
+        else " generated=\"false\"" ),
+      ""
+    | Some (TermLib.Requirement (pos, subsys, _)) ->
+      "Requirement",
+      TransSys.subsystem_of_scope trans_sys subsys
+      |> TransSys.get_source_name,
+      pos,
+      "",
+      "",
+      ""
+    | Some (TermLib.Contract (pos,name)) ->
+      "Contract",
+      name,
+      pos,
+      "",
+      "",
+      ( match TransSys.contract_is_global trans_sys name with
+        | Some true -> " global=\"true\""
+        | Some false -> " global=\"false\""
+        | None -> failwith "unknown" )
+    | None ->
+      Format.sprintf "unknown property %s" prop |> failwith
+  in
+
+  let file,row,col =
+    if is_dummy_pos pos then "unknown",-1,-1
+    else file_row_col_of_pos pos
+  in
+
+  let prefix = match Flags.compositional(), Flags.modular() with
+    | true,true -> "    "
+    | false,false -> ""
+    | _ -> "  "
+  in
+
+  (ignore_or_fprintf level)
+    !log_ppf 
+    ("%s@[<hv 2><%s name=\"%s\"%s%s%s>@,\
+      @[<v 2><Position>@,\
+      @[<hv><File>%s</File>@,\
+      <Row>%d</Row>@,\
+      <Col>%d</Col>@]\
+      @;<0 -2></Position>@]@,\
+      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,")
+    prefix
+    tag
+    name
+    lifted
+    generated
+    global
+    file
+    row
+    col
+    (Stat.get_float Stat.total_time) ;
+
+  tag
 
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
 
   (* Only ouptut if status was unknown *)
-  if 
+  if
 
     not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then (
 
-    let rec is_generated sys prop =
-      match TransSys.get_prop_source sys prop with
-      | Some (TermLib.Generated _) -> dummy_pos, true
-      | Some (TermLib.Instantiated (subsys, subprop)) ->
-        is_generated (TransSys.subsystem_of_scope sys subsys) subprop
-      | Some (TermLib.PropAnnot pos) -> pos, false
-      | Some s ->
-        Format.asprintf
-          "unexpected prop_source [%a] should not be instantiated"
-          TermLib.pp_print_prop_source s
-        |> failwith
-      | None ->
-        Format.sprintf
-          "unknown property %s for system %s"
-          prop (TransSys.get_name sys)
-        |> failwith
-    in
-
-    let tag, name, pos, lifted, generated, global =
-      match TransSys.get_prop_source trans_sys prop with
-      | Some (TermLib.PropAnnot pos) ->
-        "Property",
-        prop,
-        pos,
-        " lifted=\"false\"",
-        " generated=\"false\"",
-        ""
-      | Some (TermLib.Generated _) ->
-        "Property",
-        prop,
-        dummy_pos,
-        " lifted=\"false\"",
-        " generated=\"true\"",
-        ""
-      | Some (TermLib.Instantiated (subsys,subprop)) ->
-        let pos, generated =
-          is_generated
-            (TransSys.subsystem_of_scope trans_sys subsys)
-            subprop
-        in
-        "Property",
-        prop,
-        pos,
-        " lifted=\"true\"",
-        ( if generated then " generated=\"true\""
-          else " generated=\"false\"" ),
-        ""
-      | Some (TermLib.Requirement (pos, subsys, _)) ->
-        "Requirement",
-        TransSys.subsystem_of_scope trans_sys subsys
-        |> TransSys.get_source_name,
-        pos,
-        "",
-        "",
-        ""
-      | Some (TermLib.Contract (pos,name)) ->
-        "Contract",
-        name,
-        pos,
-        "",
-        "",
-        match TransSys.contract_is_global trans_sys name with
-        | Some true -> " global=\"true\""
-        | Some false -> " global=\"false\""
-        | None -> failwith "unknown"
-      | None ->
-        Format.sprintf "unknown property %s" prop |> failwith
-    in
-
-    let _,row,col =
-      if is_dummy_pos pos then "",-1,-1 else file_row_col_of_pos pos
-    in
+    let tag = info_of_prop_xml level trans_sys prop in
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hv 2><%s name=\"%s\"%s%s%s>@,\
-        <Position>\"%d,%d\"</Position>@,\
-        <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-        %t\
-        <Answer source=\"%a\">valid</Answer>@;<0 -2>\
-        </%s>@]@.")
-      tag
-      name
-      lifted
-      generated
-      global
-      row col
-      (Stat.get_float Stat.total_time)
+      "%t<Answer source=\"%a\">valid</Answer>@;<0 -2>\
+      </%s>@]@."
       (function ppf -> match k with 
          | None -> () 
          | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
       pp_print_kind_module_xml_src mdl
       tag
-
   )
 
 
@@ -914,24 +1042,22 @@ let disproved_xml mdl level trans_sys prop (cex : (StateVar.t * Model.term_or_la
 
     not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then
+
+    let tag = info_of_prop_xml level trans_sys prop in
 
     (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<hv 2><Property name=\"%s\">@,\
-        <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-        %t\
-        <Answer source=\"%a\">falsifiable</Answer>@,\
-        %a@;<0 -2>\
-        </Property>@]@.") 
-      prop
-      (Stat.get_float Stat.total_time)
+      !log_ppf
+      "%t<Answer source=\"%a\">falsifiable</Answer>@,\
+      %a@;<0 -2>\
+      </%s>@]@."
       (function ppf -> match cex with 
          | [] -> () 
          | cex -> Format.fprintf ppf "<K>%d</K>@," (TransSys.length_of_cex cex))
       pp_print_kind_module_xml_src mdl
       (pp_print_counterexample_xml trans_sys prop) 
       cex
+      tag
   
 
 (* Output statistics section as XML *)
@@ -1097,11 +1223,47 @@ let log level fmt =
     | F_xml -> printf_xml mdl level fmt
     | F_relay -> printf_relay mdl level fmt
 
+let log_done level fmt = 
+
+  let mdl = get_module () in
+
+  match !log_format with 
+    | F_pt -> printf_done_pt mdl level fmt
+    | F_xml -> printf_xml mdl level fmt
+    | F_relay -> printf_relay mdl level fmt
+
 
 let log_analysis_briefing level trans_sys =
   match !log_format with
-  | F_pt -> printf_analysis_briefing_pt level trans_sys
-  | F_xml -> printf_analysis_briefing_xml level trans_sys
+  | F_pt -> analysis_briefing_pt level trans_sys
+  | F_xml -> analysis_briefing_xml level trans_sys
+  | F_relay -> ()
+
+
+let log_system_start level trans_sys =
+  match !log_format with
+  | F_pt -> system_start_pt level trans_sys
+  | F_xml -> system_start_xml level trans_sys
+  | F_relay -> ()
+
+let log_system_stop level trans_sys =
+  match !log_format with
+  | F_pt -> system_stop_pt level trans_sys
+  | F_xml -> system_stop_xml level trans_sys
+  | F_relay -> ()
+
+
+
+let log_run_start level trans_sys =
+  match !log_format with
+  | F_pt -> run_start_pt level trans_sys
+  | F_xml -> run_start_xml level trans_sys
+  | F_relay -> ()
+
+let log_run_stop level trans_sys =
+  match !log_format with
+  | F_pt -> run_stop_pt level trans_sys
+  | F_xml -> run_stop_xml level trans_sys
   | F_relay -> ()
 
 

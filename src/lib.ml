@@ -34,7 +34,7 @@ let false_of_unit () = false
 (* ********************************************************************** *)
 
 (* Formats a string to construct a tag. *)
-let tagify = Format.sprintf "<%s>"
+let tagify = Format.sprintf "<%s> "
 
 (* Timeout tag. *)
 let timeout_tag = tagify "Timeout"

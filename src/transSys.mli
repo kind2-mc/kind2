@@ -193,6 +193,11 @@ val contract_is_global : t -> string -> bool option
 val get_contracts :
   t -> (Lib.position * StateVar.t * string) list
 
+
+(** Returns a triplet of the concrete subsystems, the refined ones, and the
+    abstracted ones. Does not contain the input system. *)
+val get_abstraction_split : t -> (t list) * (t list) * (t list)
+
 (** For a system, returns [Some true] if all contracts are invariants,
     [Some false] if at least one of the contracts is falsified, and
     [None] otherwise --i.e. some contracts are unknown / k-true. *)

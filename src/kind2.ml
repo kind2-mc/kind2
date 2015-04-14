@@ -368,15 +368,7 @@ let rec launch_compositional sys log msg_setup =
 
   sgl_sep_line_warn () ;
 
-  Event.log
-    L_warn
-    "@[<v 3>\
-     Analyzing system %a:@ \
-     abstracted subsystem(s): [%a]@ \
-     concrete   subsystem(s): [%a]@]"
-    TransSys.pp_print_trans_sys_name sys
-    Refiner.pp_print_abstracted sys
-    Refiner.pp_print_concrete sys ;
+  Event.log_run_start L_warn sys ;
 
   (* Registering abstraction sublog in log. *)
   Log.add_abstraction_sublog log sys ;
@@ -389,6 +381,8 @@ let rec launch_compositional sys log msg_setup =
 
   (* Launching. *)
   launch_analysis sys log msg_setup ;
+
+  Event.log_run_stop L_warn sys ;
 
   minisleep 0.3 ;
 
@@ -436,19 +430,17 @@ let rec launch_compositional sys log msg_setup =
 
     (* No. *)
     | None ->
-       Event.log
-         L_warn
-         "Can't refine %a further, done."
-         TransSys.pp_print_trans_sys_name sys
+      Event.log
+        L_warn
+        "Can't refine %a further, done."
+        TransSys.pp_print_trans_sys_name sys ;
 
     (* Yes we can. *)
     | Some nu_abs ->
-       let invars_count = TransSys.get_invars sys |> List.length in
        (* Notifying user. *)
        Event.log
         L_warn
-        "Refining abstraction (keeping %d invariants)."
-        invars_count ;
+        "Refining abstraction." ;
        (* Looping. *)
        launch_compositional sys log msg_setup
 
@@ -468,11 +460,11 @@ let choose_compositional sys log msg_setup =
     (* Registering empty abstraction. *)
     Log.add_abstraction_sublog log sys ;
     (* Notifying user. *)
-    sgl_sep_line_warn () ;
+    (* sgl_sep_line_warn () ;
     Event.log
       L_warn
       "Analyzing system %a."
-      TransSys.pp_print_trans_sys_name sys ;
+      TransSys.pp_print_trans_sys_name sys ; *)
     (* Launching normal analysis. *)
     launch_analysis sys log msg_setup
   )
@@ -489,41 +481,37 @@ let launch_modular systems log msg_setup =
     (* Let's do this. *)
     | sys :: sys_tail ->
 
+        Event.log_system_start L_warn sys ;
+
        (* Resetting
           - non valid properties to unknown
           - invariants of the system to empty list
           and lifting valid properties from subsystems. *)
        clean_up_sys sys ;
 
-       if TransSys.get_prop_status_all sys = [] then (
+       ( if TransSys.get_prop_status_all sys = [] then
          (* Nothing to prove, skipping. *)
          Event.log
            L_warn
            "No property to prove for system %a."
-           TransSys.pp_print_trans_sys_name sys ;
+           TransSys.pp_print_trans_sys_name sys
 
-         (* Looping. *)
-         loop sys_tail
+         else if TransSys.all_props_actually_proved sys then
+           (* Everything is already proved, skipping. *)
+           Event.log
+             L_warn
+             "All properties of system %a are already valid."
+             TransSys.pp_print_trans_sys_name sys
 
-       ) else if TransSys.all_props_actually_proved sys then (
-         (* Everything is already proved, skipping. *)
-         Event.log
-           L_warn
-           "All properties of system %a are already valid."
-           TransSys.pp_print_trans_sys_name sys ;
+         else
+           (* Launching compositional or not. *)
+           choose_compositional sys log msg_setup
+       ) ;
 
-         (* Looping. *)
-         loop sys_tail
+       Event.log_system_stop L_warn sys ;
 
-       ) else (
-
-         (* Launching compositional or not. *)
-         choose_compositional sys log msg_setup ;
-
-         (* Looping. *)
-         loop sys_tail
-
-       )
+       (* Looping. *)
+       loop sys_tail
   in
 
   (* Running on systems. *)
@@ -802,8 +790,7 @@ let main () =
      (* There should not be anything left to clean it this level. *)
      Event.log
        L_error
-       "%s Exception caught at top level."
-       error_tag;
+       "Exception caught at top level." ;
 
      exit (Analysis.status_of_exn e)
 
