@@ -49,7 +49,8 @@ module SVS = StateVar.StateVarSet
    backtracking over the children we explored and that's where the
    troubles start. *)
 let rec node_state_var_dependencies' 
-    nodes
+    init
+    output_input_deps
     ({ N.inputs; N.equations; N.calls } as node)
     accum = 
 
@@ -88,13 +89,13 @@ let rec node_state_var_dependencies'
 
         (* Output variables in circular dependency, drop variables
            that are not visible in the origial source *)
-          C.fail_no_position 
-            (Format.asprintf
-               "Circular dependency: %a@."
-               (pp_print_list
-                  (E.pp_print_lustre_var false) 
-                  " -> ")
-               (List.filter N.state_var_is_visible  (state_var :: parents)))
+        C.fail_no_position 
+          (Format.asprintf
+             "Circular dependency: %a@."
+             (pp_print_list
+                (E.pp_print_lustre_var false) 
+                " -> ")
+             (List.filter N.state_var_is_visible  (state_var :: parents)))
 
       else
 
@@ -114,7 +115,11 @@ let rec node_state_var_dependencies'
 
             (* State variable depends on state variables in equation *)
             (function (sv, _, expr) ->
-              E.cur_state_vars_of_expr expr
+              (if init then 
+                 E.base_state_vars_of_init_expr 
+               else
+                 E.cur_state_vars_of_step_expr)
+                expr
               |> SVS.elements)
 
           (* State variable is not constrained by an equation *)
@@ -137,7 +142,9 @@ let rec node_state_var_dependencies'
                     N.call_inputs; 
                     N.call_oracles; 
                     N.call_outputs; 
-                    N.call_observers } -> 
+                    N.call_observers;
+                    N.call_defaults;
+                    N.call_clock } -> 
 
                   (* Index of state variable in outputs *)
                   let output_index = 
@@ -163,7 +170,9 @@ let rec node_state_var_dependencies'
 
                     try 
 
-                      (N.node_of_name call_node_name nodes).N.output_input_dep
+                      List.assoc call_node_name output_input_deps
+
+                      |> if init then fst else snd
 
                     (* Node of name not found *)
                     with Not_found -> D.empty
@@ -185,11 +194,48 @@ let rec node_state_var_dependencies'
 
                         (* Get actual input by index, and add as
                            dependency *)
-                        try D.find i call_inputs :: accum 
+                        try SVS.add (D.find i call_inputs) accum 
 
                         (* Invalid map *)
                         with Not_found -> assert false)
-                     []))
+                     SVS.empty)
+
+                  |> 
+
+                  (* Defaults of a condact are children *)
+                  (function children ->
+
+                    (* Only if computing dependencies in the initial
+                       state *)
+                    if init then 
+
+                      (* Add state variables at the initial state from
+                         the default expressions *)
+                      D.fold
+                        (fun _ default accum -> 
+                           E.base_state_vars_of_init_expr default
+                           |> SVS.union accum)
+                        call_defaults
+                        children
+
+                    else
+
+                      (* Default expressions are only evaluated at the
+                         initial state *)
+                      children)
+
+                  |> 
+
+                  (* Clock of condact is a child *)
+                  (function children -> 
+                    match call_clock with 
+                      | None -> children
+                      | Some clk -> SVS.add clk children)
+
+                  |>
+
+                  (* Return list of elements of a set *)
+                  SVS.elements)
 
             (* State variable is neither defined by an equation nor by a
                node call *)
@@ -243,7 +289,8 @@ let rec node_state_var_dependencies'
 
           (* Add variable and its dependencies to accumulator *)
           node_state_var_dependencies' 
-            nodes
+            init
+            output_input_deps
             node 
             ((state_var, children) :: accum)
             tl
@@ -252,7 +299,8 @@ let rec node_state_var_dependencies'
 
           (* First get dependencies of all dependent variables *)
           node_state_var_dependencies' 
-            nodes 
+            init
+            output_input_deps
             node
             accum 
             ((List.map 
@@ -371,7 +419,10 @@ let output_input_dep_of_dependencies dependencies inputs outputs =
 (* Order equations of node topologically by their dependencies to have
    leaf equations first, and set the map of outputs to the inputs they
    depend on *)
-let order_equations nodes ({ N.inputs; N.outputs; N.equations; N.calls } as node) = 
+let order_equations 
+    init
+    output_input_deps
+    ({ N.inputs; N.outputs; N.equations; N.calls } as node) = 
 
   (* Compute dependencies for state variables on the left-hand side of
      definitions, that is, in equations and node calls *)
@@ -400,7 +451,8 @@ let order_equations nodes ({ N.inputs; N.outputs; N.equations; N.calls } as node
   (* Compute dependencies of state variable *)
   let dependencies = 
     node_state_var_dependencies'
-      nodes
+      init
+      output_input_deps
       node
       []
       state_vars
@@ -437,10 +489,7 @@ let order_equations nodes ({ N.inputs; N.outputs; N.equations; N.calls } as node
     output_input_dep_of_dependencies dependencies inputs outputs
   in
 
-  (* Return node with equations ordered by dependency *)
-  { node with 
-      N.equations = equations';
-      N.output_input_dep = output_input_dep }
+  equations', output_input_dep
 
           
 (* ********************************************************************** *)
@@ -457,8 +506,7 @@ let slice_all_of_node
       N.observers; 
       N.props; 
       N.contracts; 
-      N.is_main;
-      N.output_input_dep } = 
+      N.is_main } = 
 
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
@@ -474,8 +522,7 @@ let slice_all_of_node
     N.asserts = [];
     N.props;
     N.contracts;
-    N.is_main;
-    N.output_input_dep }
+    N.is_main }
 
 
 (* Add roots of cone of influence from node call to roots *)
@@ -564,7 +611,7 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
   | [] -> accum
 
   (* Node is sliced to all equations *)
-  | ([], leaves, node_sliced, node_unsliced) :: tl -> 
+  | ([], leaves, ({ N.name } as node_sliced), node_unsliced) :: tl -> 
 
     (* Sort equations of sliced node by dependencies, and continue
 
@@ -574,7 +621,7 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
     slice_nodes
       init_slicing_of_node
       nodes
-      ((order_equations accum node_sliced) :: accum)
+      (node_sliced :: accum)
       tl
 
   (* State variable is a leaf, that is no dependencies have to be
@@ -632,7 +679,8 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 
       (* Slice called node first, then return to this node
 
-         TODO: detect cycles here *)
+         TODO: Detect cycles in node calls here, but that should not
+         be possible with the current format. *)
       slice_nodes
         init_slicing_of_node
         nodes

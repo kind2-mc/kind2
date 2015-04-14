@@ -1350,12 +1350,48 @@ let add_node_property ctx source expr =
 
       match ctx with 
         | { node = None } -> assert false
-        | { node = Some n } -> 
+        | { node = Some ({ N.equations; N.props } as n) } -> 
 
-          (* Return node with property added *)
+          (* May need to add an alias for the property if it already
+             exists *)
+          let equations', prop', ctx = 
+
+            if 
+
+              (* A property with the same state variables exists? *)
+              List.exists 
+                (fun (sv, _) -> StateVar.equal_state_vars state_var sv)
+                props
+                
+            then
+
+              (* Create a fresh local variable as an alias *)
+              let state_var', ctx = 
+                mk_fresh_local ctx Type.t_bool
+              in
+
+              (* Add an equation for the alias *)
+              (state_var', [], E.mk_var state_var E.base_clock) :: equations, 
+
+              (* Use alias as property *)
+              (state_var', source), 
+
+              (* Context with new declaration *)
+              ctx
+
+            else
+
+              (* Change nothing *)
+              equations, (state_var, source), ctx
+
+          in
+          
+          (* Return node with property and possibly alias equation
+             added *)
           { ctx with 
               node = Some { n with
-                              N.props = (state_var, source) :: props } }
+                              N.equations = equations';
+                              N.props = prop' :: props } }
 
 
 (* Add state var as observer if it has to be lifted as a property,

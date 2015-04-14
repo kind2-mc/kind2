@@ -168,10 +168,6 @@ type t =
     (* Node is annotated as main node *)
     is_main : bool;
 
-    (* Input state variables an each output depends on to detect
-       cyclic definitions through node calls *)
-    output_input_dep : D.index list D.t;
-
   }
 
 
@@ -188,8 +184,7 @@ let empty_node name =
     asserts = [];
     props = [];
     contracts = None, [];
-    is_main = false;
-    output_input_dep = D.empty }
+    is_main = false }
 
 
 (* Pretty-print array bounds of index *)
@@ -302,7 +297,7 @@ let pp_print_call safe ppf = function
        call_defaults } ->
      
     Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>condact(@,%a,@,%a(%a),@,%a);@]@]"
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>condact(@,%a,@,%a(%a)%t);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
@@ -317,9 +312,18 @@ let pp_print_call safe ppf = function
          (fun (_, sv) -> sv)
          (D.bindings call_inputs) @ 
        call_oracles)
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
-      (List.rev_map snd (D.bindings call_defaults)
-       @ (List.map (fun _ -> E.t_true) call_observers))
+      (fun ppf -> 
+         match 
+           List.rev_map snd (D.bindings call_defaults)
+           @ (List.map (fun _ -> E.t_true) call_observers)
+         with 
+           | [] -> ()
+           | l -> 
+             Format.fprintf 
+               ppf 
+               ",@,%a"
+               (pp_print_list (E.pp_print_lustre_expr safe) ",@ ")
+               l)
           
 
 (* Pretty-print an assertion *)

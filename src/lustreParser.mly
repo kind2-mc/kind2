@@ -679,6 +679,15 @@ expr:
     RPAREN
     { A.Condact (mk_pos $startpos, e1, s, a, v) } 
 
+  (* Condact without return values and therefore without defaults *)
+  | CONDACT 
+    LPAREN; 
+    e1 = expr; 
+    COMMA; 
+    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    RPAREN
+    { A.Condact (mk_pos $startpos, e1, s, a, []) } 
+
   (* A temporal operation *)
   | PRE; e = expr { A.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN

@@ -188,9 +188,13 @@ val state_var_of_expr : t -> StateVar.t
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
-(** Return all state variables at the current instant occurring in the
-    expression in a set *)
-val cur_state_vars_of_expr : t -> StateVar.StateVarSet.t
+(** Return all state variables of the initial state expression at the
+    base instant *)
+val base_state_vars_of_init_expr : t -> StateVar.StateVarSet.t
+
+(** Return all state variables of the step expression at the current
+    instant *)
+val cur_state_vars_of_step_expr : t -> StateVar.StateVarSet.t
 
 (** Split a list of Lustre expressions into a list of pairs of
     expressions for the initial step and the transition steps,
