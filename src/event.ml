@@ -432,8 +432,10 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
-      prop
+      ("@[<hov><Success> %s %tby %a after %.3fs.@.@.")
+      (if TransSys.is_candidate trans_sys prop then
+         Format.sprintf "Candidate %s is invariant" prop
+      else Format.sprintf "Property %s is valid" prop)
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
@@ -529,16 +531,31 @@ let disproved_pt mdl level trans_sys prop cex =
 
   then 
 
-    (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
-      prop
-      pp_print_kind_module_pt mdl
-      (function ppf -> match cex with
-         | [] -> ()
-         | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
-      (Stat.get_float Stat.total_time)
-      (pp_print_counterexample_pt level trans_sys prop) cex
+    (* Don't show counterexamples for candidates *)
+    if TransSys.is_candidate trans_sys prop then
+
+      (ignore_or_fprintf level)
+        !log_ppf 
+        ("@[<v>Candidate %s disproved by %a %tafter %.3fs.@]@.") 
+        prop
+        pp_print_kind_module_pt mdl
+        (function ppf -> match cex with
+           | [] -> ()
+           | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
+        (Stat.get_float Stat.total_time)
+
+    else
+
+      (ignore_or_fprintf level)
+        !log_ppf 
+        ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.")
+        prop
+        pp_print_kind_module_pt mdl
+        (function ppf -> match cex with
+           | [] -> ()
+           | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
+        (Stat.get_float Stat.total_time)
+        (pp_print_counterexample_pt level trans_sys prop) cex
 
   else
 

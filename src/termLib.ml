@@ -52,7 +52,11 @@ type prop_source =
 
      Reference the instantiated property by the [scope] of the
      subsystem and the name of the property *)
-  | Instantiated of string list * string 
+  | Instantiated of string list * string
+
+  (* Property is only a candidate invariant here to help prove other
+     properties *)
+  | Candidate
 
 
 (* Return the default value of the type *)

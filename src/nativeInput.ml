@@ -43,6 +43,7 @@ let s_annot = HString.mk_hstring ":user"
 let s_contract = HString.mk_hstring ":contract"
 let s_gen = HString.mk_hstring ":generated"
 let s_inst = HString.mk_hstring ":subsystem"
+let s_cand = HString.mk_hstring ":candidate"
 let s_props = HString.mk_hstring "props"
 let s_intrange = HString.mk_hstring "IntRange"
 
@@ -226,6 +227,8 @@ let prop_source_of_sexpr = function
     let p, scope =
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
     TermLib.Instantiated (scope, p)
+
+  | [HS.Atom c] when c == s_cand -> TermLib.Candidate
 
   | _ -> failwith "Invalid property source"
 
@@ -523,6 +526,8 @@ let pp_print_prop_source ppf = function
     (pp_print_list pp_print_state_var "@ ") state_vars  
   | TermLib.Instantiated (scope, name) ->
     Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
+  | TermLib.Candidate ->
+    Format.fprintf ppf ":candidate"
 
 
 let pp_print_property ppf (prop_name, prop_source, prop_term, _) = 

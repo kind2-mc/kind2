@@ -1814,6 +1814,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                     Format.fprintf ppf "generated for %a" 
                       (pp_print_list StateVar.pp_print_state_var ",@ ") l
 
+                  | TermLib.Candidate -> 
+                    Format.fprintf ppf "candidate invariant"
+
                   | TermLib.Instantiated (s, n) -> 
                     Format.fprintf ppf
                       "instantiated from %s in %a" 

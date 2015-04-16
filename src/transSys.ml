@@ -509,6 +509,7 @@ let pp_print_prop_source ppf = function
   | TermLib.Contract _ -> Format.fprintf ppf ":contract"
   | TermLib.Generated p -> Format.fprintf ppf ":generated"
   | TermLib.Instantiated _ -> Format.fprintf ppf ":subsystem"
+  | TermLib.Candidate -> Format.fprintf ppf ":candidate"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 
@@ -934,9 +935,14 @@ let get_properties t =
 (* Return current status of all properties *)
 let get_prop_status_all t = 
   
-  List.map 
-    (fun { prop_name; prop_status } -> (prop_name, prop_status))
-    t.properties
+  List.fold_left 
+    (fun acc -> function
+      | { prop_name; prop_status; prop_source }
+        when prop_source <> TermLib.Candidate ->
+        (prop_name, prop_status) :: acc
+      | _ -> acc)
+    [] t.properties
+  |> List.rev 
 
 (* Return current status of all properties *)
 let get_prop_status_all_unknown t = 
@@ -944,8 +950,9 @@ let get_prop_status_all_unknown t =
   List.fold_left 
     (function accum -> function 
 
-       | { prop_name; prop_status } 
-         when not (prop_status_known prop_status) -> 
+       | { prop_name; prop_status; prop_source } 
+         when prop_source <> TermLib.Candidate &&
+              not (prop_status_known prop_status) -> 
 
          (prop_name, prop_status) :: accum 
 
@@ -1093,13 +1100,20 @@ let is_disproved t prop =
     Not_found -> false
 
 
+(* Return true if the property is a candidate invariant *)
+let is_candidate t prop =
+  (property_of_name t prop).prop_source = TermLib.Candidate
+
 
 (* Return true if all properties are either valid or invalid *)
 let all_props_proved t =
 
   List.for_all
     (fun p -> 
-       try 
+       try
+         (* Ignore candidates *)
+         p.prop_source = TermLib.Candidate
+         ||
          (match p.prop_status with
            | PropUnknown
            | PropKTrue _ -> false

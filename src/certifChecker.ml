@@ -243,6 +243,9 @@ let sexit fmt = fprintf fmt "@[<hv 1>(exit)@]@."
    system. *)
 let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
+      | _, TermLib.Candidate, _, _ ->
+        (* Put valid candidates in invariants *)
+        acc
       | _, _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
       | p_name, _, _, _ ->
         Event.log L_fatal "[Warning] Skipping unproved property %s" p_name;
@@ -1105,7 +1108,10 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
    variables of Kind2 ([orig_kind2_vars]) and their computed jKind
    counterparts. The optional parameter [prime] controls if the resulting
    eqaulities should be on primed varaibles. *)
-let mk_prop_obs ~only_out lustre_vars orig_kind2_vars =
+let mk_prop_obs ~only_out lustre_vars kind2_sys =
+  
+  let orig_kind2_vars = TS.state_vars kind2_sys in
+
   let vars =
     if only_out then
       List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars
@@ -1144,15 +1150,15 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
         incr cpt;
         "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt),
         TermLib.Generated [],
-        Term.mk_and [eq])
+        eq)
       props_eqs in
 
   let others_obs =
     List.map (fun eq ->
         incr cpt;
         "OTHER_Observational_Equivalence_" ^(string_of_int !cpt),
-        TermLib.Generated [],
-        Term.mk_and [eq])
+        TermLib.Candidate,
+        eq)
       others_eqs in
 
   props_obs @ others_obs

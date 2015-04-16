@@ -1479,7 +1479,7 @@ let reduce_to_props_coi nodes main_name =
          | TermLib.Generated _ -> state_var :: accum
 
          (* Properties instantiated from subnodes are not *)
-         | TermLib.Instantiated _-> accum) 
+         | TermLib.Instantiated _ | TermLib.Candidate -> accum) 
       []
       props 
 

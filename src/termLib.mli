@@ -54,6 +54,10 @@ type prop_source =
       subsystem and the name of the property *)
   | Instantiated of string list * string 
 
+  (** Property is only a candidate invariant here to help prove other
+      properties *)
+  | Candidate
+
 
 (** {1 Utilities functions on terms } *)
 

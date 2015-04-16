@@ -271,6 +271,9 @@ val is_proved : t -> string -> bool
 (** Return true if the property is proved not invariant *)
 val is_disproved : t -> string -> bool 
 
+(** Return true if the property is a candidate invariant *)
+val is_candidate : t -> string -> bool 
+
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool
 
