@@ -97,9 +97,6 @@ type t =
     (* Index to use for next fresh oracle state variable *)
     fresh_oracle_index : int;
 
-    (* Index to use for next fresh observer state variable *)
-    fresh_observer_index : int;
-
     (* [None] if definitions are allowed, otherwise a pair of a
        message and a position to raise an error with. *)
     definitions_allowed : (Lib.position * string) option;
@@ -122,7 +119,6 @@ let mk_empty_context () =
     state_var_oracle_map = SVT.create 7;
     fresh_local_index = 0;
     fresh_oracle_index = 0;
-    fresh_observer_index = 0;
     definitions_allowed = None }
 
 
@@ -199,8 +195,7 @@ let push_scope
     ({ scope; 
        ident_expr_map;
        fresh_local_index;
-       fresh_oracle_index;
-       fresh_observer_index } as ctx) 
+       fresh_oracle_index } as ctx) 
     ident = 
 
   { ctx with 
@@ -410,6 +405,27 @@ let add_contract_node_decl_to_context
     { ctx with contract_nodes = (pos, contract_node_decl) :: contract_nodes }
 
 
+(* Set source of state variable in a context *)
+let set_state_var_source = function 
+
+  (* Must be in a node *)
+  | { node = Some n } as ctx -> 
+
+    (fun state_var state_var_source -> 
+
+       (* Update sources of state variables in node *)
+       let n' = N.set_state_var_source n state_var state_var_source in
+
+       (* Return modified context *)
+       { ctx with node = Some n'})
+        
+  (* Fil if not in a node *)
+  | { node = None } -> 
+
+    function _ -> function _ -> 
+      raise (Invalid_argument "set_state_var_source")
+
+
 (* Create a state variable for from an indexed state variable in a
    scope *)
 let mk_state_var
@@ -443,8 +459,7 @@ let mk_state_var
   in
 
   (* Set source of state variable *)
-  N.set_state_var_source state_var state_var_source;
-
+  let ctx = set_state_var_source ctx state_var state_var_source in
 
   (* Create expression from state variable *)
   let expr = E.mk_var state_var E.base_clock in
@@ -605,18 +620,6 @@ let add_state_var_to_locals = function
                           N.locals = 
                             D.singleton D.empty_index state_var :: locals} })
 
-
-(* Add declaration of state variable to observers *)
-let add_state_var_to_observers = function 
-  | { node = None } -> (function _ -> assert false)
-  | { node = Some ({ N.observers } as node) } as ctx ->
-    
-    (function state_var -> 
-      
-      { ctx with 
-          node = Some { node with N.observers = state_var :: observers } })
-
-
 (* Create a fresh state variable as an oracle input *)
 let mk_fresh_oracle 
     ?is_input
@@ -632,7 +635,7 @@ let mk_fresh_oracle
     | None -> raise (Invalid_argument "mk_fresh_oracle")
 
     (* Add to oracles *)
-    | Some ({ N.oracles } as node) ->
+    | Some { N.oracles } ->
 
       (* Create state variable for abstraction *)
       let state_var, ctx = 
@@ -650,10 +653,13 @@ let mk_fresh_oracle
 
       (* Increment index of fresh oracle *)
       let ctx = 
-        { ctx with 
-            node = Some { node with 
-                            N.oracles = state_var :: oracles}; 
-            fresh_oracle_index = succ fresh_oracle_index }
+        match ctx with
+          | { node = None } -> assert false
+          | { node = Some node } ->
+            { ctx with 
+                node = Some { node with 
+                                N.oracles = state_var :: oracles}; 
+                fresh_oracle_index = succ fresh_oracle_index }
       in
 
       (* Return variable and changed context *)
@@ -888,7 +894,7 @@ let mk_fresh_local
     | None -> raise (Invalid_argument "mk_fresh_local")
 
     (* Add to locals *)
-    | Some ({ N.locals } as node) ->
+    | Some { N.locals } ->
 
       (* Create state variable for abstraction *)
       let state_var, ctx = 
@@ -906,147 +912,18 @@ let mk_fresh_local
 
       (* Increment index of fresh oracle *)
       let ctx = 
-        { ctx with 
-            node = Some { node with 
-                            N.locals = 
-                              D.singleton D.empty_index state_var :: locals };
-            fresh_local_index = succ fresh_local_index }
+        match ctx with
+          | { node = None } -> assert false
+          | { node = Some node } ->
+            { ctx with 
+                node = Some { node with 
+                                N.locals = 
+                                  D.singleton D.empty_index state_var :: locals };
+                fresh_local_index = succ fresh_local_index }
       in
 
       (* Return variable and changed context *)
       (state_var, ctx)
-
-
-(* Create a fresh state variable as an oracle input *)
-let mk_fresh_observer
-    ?is_input
-    ?is_const
-    ?for_inv_gen
-    ({ node; fresh_observer_index } as ctx) 
-    state_var_type =
-
-  (* Are we in a node? *)
-  match node with 
-
-    (* Fail if not inside a node *)
-    | None -> raise (Invalid_argument "mk_fresh_observer")
-
-    (* Add to observers *)
-    | Some ({ N.observers } as node) ->
-
-      (* Create state variable for abstraction *)
-      let state_var, ctx = 
-        mk_state_var 
-          ?is_input:is_input
-          ?is_const:is_const
-          ?for_inv_gen:for_inv_gen
-          ctx
-          (scope_of_node ctx)
-          (I.push_index I.observer_ident fresh_observer_index)
-          D.empty_index
-          state_var_type
-          N.Observer
-      in
-
-      (* Increment index of fresh observer *)
-      let ctx' = 
-        { ctx with 
-            node = Some { node with 
-                            N.observers = state_var :: observers}; 
-            fresh_observer_index = succ fresh_observer_index }
-      in
-
-      (* Return variable and changed context *)
-      (state_var, ctx')
-
-
-let observer_of_state_var ({ node } as ctx) state_var = 
-
-  (* Are we in a node? *)
-  match node with 
-
-    (* Fail if not inside a node *)
-    | None -> raise (Invalid_argument "observer_of_state_var")
-
-    (* Add to observers *)
-    | Some ({ N.inputs; N.oracles; N.outputs; N.observers; N.locals } as node) ->
-
-      if 
-
-        (* Is state variable an input or an oracle? *)
-        D.exists
-          (fun _ sv -> StateVar.equal_state_vars state_var sv) 
-          inputs 
-        || 
-        List.exists
-          (StateVar.equal_state_vars state_var)
-          oracles
-
-      then 
-
-        (* Don't make inputs observers *)
-        let state_var', ctx = 
-          mk_state_var_for_expr 
-            ctx 
-            add_state_var_to_observers
-            (E.mk_var state_var E.base_clock)
-        in
-
-        (state_var', ctx)
-
-      else if 
-
-        (* Is state variable an output or an observer? *)
-        D.exists
-          (fun _ sv -> StateVar.equal_state_vars state_var sv) 
-          outputs 
-        || 
-        List.exists
-          (StateVar.equal_state_vars state_var)
-          observers
-
-
-      then
-
-        (* Keep state variable as output or observer *)
-        (state_var, ctx)
-
-      else
-
-        (* Filter out state variable from definitions of local variables *)
-        let locals' = 
-          List.filter
-            (fun l -> 
-               let i1, sv1 = D.min_binding l in
-               let i2, sv2 = D.max_binding l in 
-
-               not 
-
-                 (* Smallest key is empty index *)
-                 (i1 = D.empty_index && 
-
-                  (* Smallest key is equal to greatest key *)
-                  i1 = i2  && 
-
-                  (* Smallest state variable is our property 
-
-                     sv1 sv2 must be equal, because there is only
-                     one entry in the trie *)
-                  StateVar.equal_state_vars state_var sv1))
-            locals
-        in
-
-        (* Move declaration of state variable from locals to observers *)
-        let ctx = 
-          { ctx with 
-              node = Some { node with 
-                              N.locals = locals';
-                              N.observers = state_var :: observers } }
-        in
-
-        (* Return changed context *)
-        (state_var, ctx)
-
 
 (* Return the node of the given name from the context*)
 let node_of_name { nodes } ident = N.node_of_name ident nodes
@@ -1131,7 +1008,7 @@ let add_node_input ?is_const ctx ident index_types =
 
     | { node = None } -> raise (Invalid_argument "add_node_input")
 
-    | { node = Some ({ N.inputs } as node) } -> 
+    | { node = Some { N.inputs } } -> 
 
       (* Get next index at root of trie *)
       let next_top_idx = D.top_max_index inputs |> succ in
@@ -1162,7 +1039,10 @@ let add_node_input ?is_const ctx ident index_types =
       in
 
       (* Return node with input added *)
-      { ctx with node = Some { node with N.inputs = inputs' } }
+      match ctx with
+        | { node = None } -> assert false
+        | { node = Some node } ->
+          { ctx with node = Some { node with N.inputs = inputs' } }
 
 
 (* Add node output to context *)
@@ -1172,7 +1052,7 @@ let add_node_output ?(is_single = false) ctx ident index_types =
 
     | { node = None } -> raise (Invalid_argument "add_node_output")
 
-    | { node = Some ({ N.outputs } as node) } -> 
+    | { node = Some { N.outputs } } -> 
 
       (* Get next index at root of trie *)
       let next_top_idx = D.top_max_index outputs |> succ in
@@ -1205,7 +1085,10 @@ let add_node_output ?(is_single = false) ctx ident index_types =
       in
 
       (* Return node with outputs added *)
-      { ctx with node = Some { node with N.outputs = outputs' } }
+      match ctx with
+        | { node = None } -> assert false
+        | { node = Some node } ->
+          { ctx with node = Some { node with N.outputs = outputs' } }
 
 
 (* Add node local to context *)
@@ -1215,7 +1098,7 @@ let add_node_local ?(ghost = false) ctx ident index_types =
 
     | { node = None } -> raise (Invalid_argument "add_node_local")
 
-    | { node = Some ({ N.locals } as node) } -> 
+    | { node = Some { N.locals } } -> 
 
       (* Create state variable for each stream *)
       let local, ctx = 
@@ -1243,7 +1126,10 @@ let add_node_local ?(ghost = false) ctx ident index_types =
       in
 
       (* Return node with local variable added *)
-      { ctx with node = Some { node with N.locals = local :: locals } }
+      match ctx with
+        | { node = None } -> assert false
+        | { node = Some node } ->
+          { ctx with node = Some { node with N.locals = local :: locals } }
 
 
 (* Add node contract to context *)
@@ -1308,7 +1194,7 @@ let add_node_property ctx source expr =
 
     | { node = None } -> raise (Invalid_argument "add_node_property")
 
-    | { node = Some { N.props; N.outputs; N.observers; N.locals } } -> 
+    | { node = Some _ } -> 
 
       (* State variable for property and changed environment *)
       let state_var, ctx =
@@ -1323,12 +1209,7 @@ let add_node_property ctx source expr =
           (* State variable of expression *)
           let state_var = E.state_var_of_expr expr in
 
-          (* Make state variable an observer *)
-          let (state_var', ctx) = observer_of_state_var ctx state_var in
-
-          (* Return changed context and state variable of
-               expression *)
-            (state_var', ctx)
+          (state_var, ctx)
 
         else
 
@@ -1336,12 +1217,9 @@ let add_node_property ctx source expr =
           let state_var, ctx = 
             mk_state_var_for_expr
               ctx
-              add_state_var_to_observers
+              add_state_var_to_locals
               expr 
           in
-
-          (* State variable is a locally abstracted variable *)
-          N.set_state_var_source state_var N.Abstract;
 
           (* Return changed context and new state variable *)
           (state_var, ctx)
@@ -1392,75 +1270,6 @@ let add_node_property ctx source expr =
               node = Some { n with
                               N.equations = equations';
                               N.props = prop' :: props } }
-
-
-(* Add state var as observer if it has to be lifted as a property,
-   otherwise as a local variable *)
-let lift_if_property pos ctx node_props state_var = 
-
-  match ctx with 
-
-    | { node = None } -> raise (Invalid_argument "lift_if_property")
-
-    | { node = Some { N.name } } -> 
-
-
-      try 
-
-        (* Find source of property *)
-        (match List.assq state_var node_props with
-
-          (* Properties to lift to the calling node *)
-          | TermLib.Generated _
-          | TermLib.Instantiated _
-          | TermLib.PropAnnot _ -> 
-
-            (* Fresh observer for the property *)
-            let state_var', ctx = 
-              mk_fresh_observer
-                ctx
-                (StateVar.type_of_state_var state_var) 
-            in
-
-            (* Mark relatation between state variable and instance *)
-            N.set_state_var_instance state_var' pos name state_var;
-
-            (* Source for instantiated property *)
-            let prop_source = 
-              TermLib.Instantiated
-                ([(I.string_of_ident false) name], 
-                 StateVar.name_of_state_var state_var')
-            in
-
-            (* Add as property to node *)
-            let ctx = 
-              add_node_property 
-                ctx 
-                prop_source 
-                (E.mk_var state_var' E.base_clock)
-            in
-
-            (* Return modified context and lifted state variable *)
-            (ctx, state_var')
-
-          (* Don't lift other properties *)
-          | _ -> raise Not_found)
-
-      (* Not a property *)
-      with Not_found ->
-
-        (* Fresh local variable, not lifted as observer *)
-        let state_var', ctx = 
-          mk_fresh_local
-            ctx
-            (StateVar.type_of_state_var state_var) 
-        in
-
-        (* Mark relatation between state variable and instance *)
-        N.set_state_var_instance state_var' pos name state_var;
-
-        (* Return modified context and lifted state variable *)
-        (ctx, state_var')
 
 
 (* Add node assert to context *)

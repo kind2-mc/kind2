@@ -46,6 +46,16 @@
 
 open Lib
 
+(** Source of a state variable *)
+type state_var_source =
+  | Input
+  | Output
+  | Local
+  | Ghost
+  | Abstract
+  | Oracle
+
+
 (** A call of a node *)
 type node_call = 
 
@@ -68,9 +78,6 @@ type node_call =
 
     (** Variables providing non-deterministic inputs *)
     call_outputs : StateVar.t LustreIndex.t;
-
-    (** Variables capturing the observer streams *)
-    call_observers : StateVar.t list;
 
     (** Expression for initial return values *)
     call_defaults : LustreExpr.t LustreIndex.t;
@@ -105,8 +112,8 @@ type 'a bound_or_fixed =
 (** A Lustre node
 
     Every state variable occurs exactly once in [inputs], [outputs],
-    [oracles], and [observers], and at most once on the left-hand side
-    of [equations] and [calls]. *)
+    and [oracles], and at most once on the left-hand side of
+    [equations] and [calls]. *)
 type t = 
 
   { 
@@ -149,12 +156,6 @@ type t =
         has only one output, the index of the output is empty. *)
     outputs : StateVar.t LustreIndex.t;
 
-    (** Observer outputs added to the node outputs
-
-        The order of the list is irrelevant, we are doing dependency
-        analysis and cone of influence reduction later. *)
-    observers : StateVar.t list;
-
     (** Local variables of node
 
         The order of the list is irrelevant, we are doing dependency
@@ -179,6 +180,9 @@ type t =
 
     (** Flag node as the top node *)
     is_main : bool;
+
+    (** Map from a state variable to its source *)
+    state_var_source_map : state_var_source StateVar.StateVarMap.t 
 
   }
 
@@ -215,6 +219,7 @@ val ident_of_top : t list -> LustreIdent.t
 
 (** {2 State Variable Instances} *)
 
+(*
 (** We keep a map of the variables of a node to variables in called
     nodes to propagate values of a model to the called nodes. A
     variable in a called node gets its value from an state variable in
@@ -251,6 +256,7 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
     position [pos] in node [n]. Usually [sv1] is in the caller and
     [sv2] is in the callee. *)
 val set_state_var_instance : StateVar.t -> position -> LustreIdent.t -> StateVar.t -> unit
+*)
 
 (** {2 Sources} *)
 
@@ -266,46 +272,33 @@ val set_state_var_instance : StateVar.t -> position -> LustreIdent.t -> StateVar
     - [Oracle] state variables are additional input variables
      introduced to non-deterministivcally give a value to unguarded
      [pre] expressions, or to unconstrained streams
-
-    - [Observer] state variables are additional output variables that
-     lift the values of properties to the calling node. *)
-
-
-(** Source of a state variable *)
-type state_var_source =
-  | Input
-  | Output
-  | Local
-  | Ghost
-  | Abstract
-  | Oracle
-  | Observer
+*)
 
 
 (** Pretty-print a source of a state variable *)
 val pp_print_state_var_source : Format.formatter -> state_var_source -> unit 
 
 (** Set source of state variable *)
-val set_state_var_source : StateVar.t -> state_var_source -> unit
+val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 
 (** Get source of state variable *)
-val get_state_var_source : StateVar.t -> state_var_source
+val get_state_var_source : t -> StateVar.t -> state_var_source
 
 (** Return true if the state variable should be visible to the user,
     false if it was created internally
 
     Return [true] if the source of the state variable is either
     [Input], [Output], or [Local], and [false] otherwise. *)
-val state_var_is_visible : StateVar.t -> bool
+val state_var_is_visible : t -> StateVar.t -> bool
 
 (** Return true if the state variable is an input *)
-val state_var_is_input : StateVar.t -> bool
+val state_var_is_input : t -> StateVar.t -> bool
 
 (** Return true if the state variable is an output *)
-val state_var_is_output : StateVar.t -> bool
+val state_var_is_output : t -> StateVar.t -> bool
 
 (** Return true if the state variable is a local variable *)
-val state_var_is_local : StateVar.t -> bool
+val state_var_is_local : t -> StateVar.t -> bool
 
 (** Return all stateful variables from expressions in a node *)
 val stateful_vars_of_node : t -> StateVar.StateVarSet.t

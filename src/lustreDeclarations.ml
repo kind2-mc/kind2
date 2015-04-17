@@ -873,19 +873,9 @@ let eval_contract ctx pos reqs enss =
   (* Evaluate ensures *)
   let ens', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
 
-  (* Convert all requirements to observers *)
-  let reqs', ctx = 
-    List.fold_left
-      (fun (a, ctx) sv -> 
-         let sv', ctx = C.observer_of_state_var ctx sv in
-         sv' :: a, ctx)
-      ([], ctx)
-      reqs' 
-  in
-
   (* State variable to observer implication between requirements and
      ensures *)
-  let impl_sv, ctx = C.mk_fresh_observer ctx Type.t_bool in
+  let impl_sv, ctx = C.mk_fresh_local ctx Type.t_bool in
 
   (* Add equation to define implication *)
   let ctx = 

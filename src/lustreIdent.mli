@@ -60,9 +60,6 @@ val abs_ident : t
 (** Identifier for oracle inputs *)
 val oracle_ident : t
 
-(** Identifier for observer outputs *)
-val observer_ident : t
-
 (** Identifier for unique identifier for node instance *)
 val instance_ident : t
 

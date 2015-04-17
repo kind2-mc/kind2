@@ -969,13 +969,13 @@ and eval_node_call ctx pos ident cond args defaults =
                 ctx
                 expr
             in
-
+(*
             (* Created variable is an instance of the input in the
                callee *)
             N.set_state_var_instance state_var' pos ident state_var;
-
+*)
             (* Create variable is an abstraction *)
-            N.set_state_var_source state_var' N.Abstract;
+            let ctx = C.set_state_var_source ctx state_var' N.Abstract in
 
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)
@@ -1050,9 +1050,6 @@ and eval_node_call ctx pos ident cond args defaults =
         (* New variable for activation condition *)
         let state_var, ctx = C.mk_local_for_expr pos ctx cond' in
 
-        (* Created variable is an abstraction *)
-        N.set_state_var_source state_var N.Abstract ;
-
         (* Return state variable and changed context *)
         Some state_var, defaults', ctx
 
@@ -1067,7 +1064,6 @@ and eval_node_call ctx pos ident cond args defaults =
       N.inputs = node_inputs; 
       N.oracles = node_oracles;
       N.outputs = node_outputs; 
-      N.observers = node_observers;
       N.props = node_props } = 
 
     try 
@@ -1132,30 +1128,24 @@ and eval_node_call ctx pos ident cond args defaults =
                  ctx
                  (StateVar.type_of_state_var sv) 
              in
-             N.set_state_var_instance sv' pos ident sv;
+             (* N.set_state_var_instance ctx sv' pos ident sv; *)
              (ctx, sv' :: accum))
           (ctx, [])
           node_oracles 
       in
 
-      (* Fresh state variables to observe lifted properties of called node *)
-      let ctx, observer_state_vars = 
-        List.fold_left
-          (fun (ctx, accum) sv -> 
-             let ctx, sv' = C.lift_if_property pos ctx node_props sv in
-             (ctx, sv' :: accum))
-          (ctx, [])
-         node_observers
-      in
-
       (* Create fresh state variable for each output *)
-      let ctx, output_state_vars = 
+      let output_state_vars, ctx = 
         D.fold
-          (fun i sv (ctx, accum) -> 
-             let ctx, sv' = C.lift_if_property pos ctx node_props sv in
-             (ctx, D.add i sv' accum))
+          (fun i sv (accum, ctx) -> 
+             let sv', ctx = 
+               C.mk_fresh_local
+                 ctx
+                 (StateVar.type_of_state_var sv)
+             in
+             (D.add i sv' accum, ctx))
           node_outputs
-          (ctx, D.empty)
+          (D.empty, ctx)
       in
 
       (* Return tuple of state variables capturing outputs *)
@@ -1173,7 +1163,6 @@ and eval_node_call ctx pos ident cond args defaults =
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;
           N.call_outputs = output_state_vars;
-          N.call_observers = List.rev observer_state_vars;
           N.call_defaults = defaults } 
       in
 

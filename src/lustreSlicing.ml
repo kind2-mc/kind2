@@ -26,6 +26,7 @@ module N = LustreNode
 module C = LustreContext
 
 module SVS = StateVar.StateVarSet 
+module SVM = StateVar.StateVarMap 
 
 
 (* ********************************************************************** *)
@@ -95,7 +96,7 @@ let rec node_state_var_dependencies'
              (pp_print_list
                 (E.pp_print_lustre_var false) 
                 " -> ")
-             (List.filter N.state_var_is_visible  (state_var :: parents)))
+             (List.filter (N.state_var_is_visible node) (state_var :: parents)))
 
       else
 
@@ -142,7 +143,6 @@ let rec node_state_var_dependencies'
                     N.call_inputs; 
                     N.call_oracles; 
                     N.call_outputs; 
-                    N.call_observers;
                     N.call_defaults;
                     N.call_clock } -> 
 
@@ -506,10 +506,10 @@ let slice_all_of_node
       N.inputs; 
       N.oracles; 
       N.outputs; 
-      N.observers; 
       N.props; 
       N.contracts; 
-      N.is_main } = 
+      N.is_main;
+      N.state_var_source_map } = 
 
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
@@ -521,14 +521,14 @@ let slice_all_of_node
     N.inputs;
     N.oracles; 
     N.outputs; 
-    N.observers; 
     N.locals = [];
     N.equations = [];
     N.calls = [];
     N.asserts = [];
     N.props;
     N.contracts;
-    N.is_main }
+    N.is_main;
+    N.state_var_source_map = SVM.empty }
 
 
 (* Add roots of cone of influence from node call to roots *)
@@ -617,13 +617,33 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
   | [] -> accum
 
   (* Node is sliced to all equations *)
-  | ([], leaves, ({ N.name } as node_sliced), node_unsliced) :: tl -> 
+  | ([], 
+     leaves, 
+     ({ N.name; N.inputs; N.oracles; N.outputs; N.locals; N.state_var_source_map } as node_sliced), 
+     node_unsliced) :: tl -> 
 
     (* Sort equations of sliced node by dependencies, and continue
 
        We must pass [accum] instead of [nodes] to order_equations,
        because we need the output input dependencies of called nodes
        that are only set when adding a node to [accum]. *)
+
+    let node_sliced' = 
+      { node_sliced with
+          N.state_var_source_map = 
+            SVM.filter
+              (fun sv _ -> 
+                 D.exists (fun _ sv' -> StateVar.equal_state_vars sv sv') inputs || 
+                 List.exists
+                   (StateVar.equal_state_vars sv)
+                   oracles ||
+                 D.exists (fun _ sv' -> StateVar.equal_state_vars sv sv') outputs ||
+                 List.exists
+                   (D.exists (fun _ sv' -> StateVar.equal_state_vars sv sv'))
+                   locals)
+              state_var_source_map }
+    in
+                   
     slice_nodes
       init_slicing_of_node
       nodes
@@ -655,11 +675,11 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 
     try 
 
-      (* State variable is an output or an observer of a called node
-         that is not already sliced? *)
+      (* State variable is an output of a called node that is not
+         already sliced? *)
       let { N.call_node_name } =
         List.find
-          (function { N.call_node_name; N.call_outputs; N.call_observers } ->
+          (function { N.call_node_name; N.call_outputs } ->
 
             (* Called node is not already sliced? *)
             (not (N.exists_node_of_name call_node_name accum)
@@ -667,16 +687,9 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
              &&
 
              (* State variable is an output of the called node? *)
-             (D.exists
-                (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                call_outputs
-
-              || 
-
-              (* State variable is an observer of the called node? *)
-              List.exists 
-                (StateVar.equal_state_vars state_var)
-                call_observers)))
+             D.exists
+               (fun _ sv -> StateVar.equal_state_vars state_var sv)
+               call_outputs))
           calls_not_in_coi
       in
 
@@ -743,21 +756,15 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
           (fun
             (calls_in_coi, calls_not_in_coi, roots')
             ({ N.call_node_name; 
-               N.call_outputs; 
-               N.call_observers } as node_call) ->
+               N.call_outputs } as node_call) ->
 
             if
               
-                (* State variable is an output of the called node? *)
-                (LustreIndex.exists
-                   (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                   call_outputs
-                 || 
-
-                 (* State variable is an observer of the called node? *)
-                 List.exists 
-                   (StateVar.equal_state_vars state_var)
-                   call_observers)
+              (* State variable is an output of the called node? *)
+              LustreIndex.exists
+                (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                call_outputs
+                
 
             then
               
@@ -829,8 +836,8 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 
          We move definitions of all local variables related by an
          index together. *)
-      let locals_in_coi', locals_not_in_coi' = 
-
+      let locals_in_coi', locals_not_in_coi' =
+        
         List.fold_left
 
           (fun (locals_in_coi, locals_not_in_coi) l -> 
@@ -877,7 +884,7 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
             N.equations = equations_not_in_coi';
             N.asserts = asserts_not_in_coi';
             N.calls = calls_not_in_coi';
-            N.locals = locals_not_in_coi'}
+            N.locals = locals_not_in_coi' }
       in
 
       (* Continue with modified sliced node and roots *)
@@ -900,7 +907,6 @@ let slice_to_contract =
       ({ N.inputs; 
          N.oracles; 
          N.outputs; 
-         N.observers; 
          N.contracts; 
          N.props } as node) = 
 
@@ -945,7 +951,6 @@ let root_and_leaves_of_props_node
    contracts and properties *)
 let root_and_leaves_of_impl  
     ({ N.outputs; 
-       N.observers; 
        N.contracts; 
        N.props } as node) =
 
@@ -955,7 +960,6 @@ let root_and_leaves_of_impl
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
     D.values outputs @ 
-    observers @ 
     roots_of_props props @ 
     roots_of_contracts contracts 
   in
@@ -970,7 +974,6 @@ let root_and_leaves_of_impl
    outputs *)
 let root_and_leaves_of_contracts
     ({ N.outputs; 
-       N.observers; 
        N.contracts; 
        N.props } as node) =
 

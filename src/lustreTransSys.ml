@@ -174,8 +174,7 @@ let rec definitions_of_node_calls'
         N.call_clock = None; 
         N.call_inputs; 
         N.call_oracles; 
-        N.call_outputs; 
-        N.call_observers } :: tl -> 
+        N.call_outputs } :: tl -> 
 
       (try 
 
@@ -255,7 +254,6 @@ let rec definitions_of_node_calls'
         N.call_inputs; 
         N.call_oracles; 
         N.call_outputs; 
-        N.call_observers; 
         N.call_defaults  } :: tl -> 
 
       definitions_of_node_calls' 
@@ -451,7 +449,6 @@ let rec trans_sys_of_node'
               N.inputs; 
               N.oracles; 
               N.outputs; 
-              N.observers;
               N.locals; 
               N.equations; 
               N.calls; 
@@ -488,11 +485,11 @@ let rec trans_sys_of_node'
         (* Return true if state variable is local to the node *)
         let is_node_local_state_var sv =
 
-          (* State variable is not an oracle or observer *)
+          (* State variable is not an oracle *)
           not 
             (List.exists
                (StateVar.equal_state_vars sv)
-               (oracles @ observers)) &&
+               oracles &&
 
           (* State variable is not an input *)
           not 
@@ -531,9 +528,6 @@ let rec trans_sys_of_node'
               [(I.string_of_ident false) node_name]
               state_var_type
           in
-
-          (* Mark state variable as abstract *)
-          N.set_state_var_source state_var N.Abstract;
 
           (* Refernce state variable from the state variable it
              instantiates *)
@@ -624,8 +618,7 @@ let rec trans_sys_of_node'
               running ::
               (D.values inputs) @ 
               oracles @
-              (D.values outputs) @
-              observers
+              (D.values outputs) 
             in
             
             (* Constraints from assertions

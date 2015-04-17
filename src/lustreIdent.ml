@@ -106,7 +106,6 @@ let push_index (base, index) int = (base, int :: index)
 (* Reserved identifiers *)
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
-let observer_ident_string =  "__observer" 
 let instance_ident_string =  "__instance"
 let running_ident_string =  "__running"
 let first_tick_ident_string =  "__first_tick"
@@ -118,7 +117,6 @@ let index_ident_string =  "__index"
 let reserved_strings =
   [ abs_ident_string;
     oracle_ident_string;
-    observer_ident_string;
     instance_ident_string;
     running_ident_string;
     first_tick_ident_string;
@@ -133,9 +131,6 @@ let abs_ident = mk_string_ident abs_ident_string
 
 (* Identifier for new oracle input *)
 let oracle_ident = mk_string_ident oracle_ident_string
-
-(* Identifier for new oracle input *)
-let observer_ident = mk_string_ident observer_ident_string
 
 (* Identifier for unique identifier for node instance *)
 let instance_ident = mk_string_ident instance_ident_string

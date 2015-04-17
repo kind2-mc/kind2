@@ -30,9 +30,6 @@
    formal input parameters for each unguarded [pre] operator or oracle
    input of a called node.
 
-   The node outpus are extended with observers for each property that
-   is not an output, and each observer of a called node.
-
    Local constants are propagated and do not need to be stored. The
    inputs of a node can be extended by constant state variables in
    [node_oracles] for the initial value of unguarded pre operations.
@@ -53,7 +50,7 @@ module D = LustreIndex
 module E = LustreExpr
 
 module SVS = StateVar.StateVarSet
-module SVMap = StateVar.StateVarMap
+module SVM = StateVar.StateVarMap
 
 
 (* Add a list of state variables to a set *)
@@ -65,6 +62,27 @@ let add_to_svs set list =
 type 'a bound_or_fixed = 
   | Bound of 'a  (* Upper bound for index variable *)
   | Fixed of 'a  (* Fixed value for index variable *)
+
+(* Source of a state variable *)
+type state_var_source =
+
+  (* Input stream *)
+  | Input
+
+  (* Output stream *)
+  | Output
+
+  (* Local defined stream *)
+  | Local
+
+  (* Local ghost stream *)
+  | Ghost
+
+  (* Local abstracted stream *)
+  | Abstract
+
+  (* Oracle input stream *)
+  | Oracle
 
 
 (* A call of a node *)
@@ -89,9 +107,6 @@ type node_call =
 
     (* Variables capturing the outputs *)
     call_outputs : StateVar.t D.t;
-
-    (* Variables capturing the the observer streams *)
-    call_observers : StateVar.t list;
 
     (* Expression for initial return values *)
     call_defaults : E.t D.t;
@@ -150,9 +165,6 @@ type t =
        of each array dimension *)
     outputs : StateVar.t D.t;
 
-    (* Observer outputs *)
-    observers : StateVar.t list;
-
     (* Local variables of node and a list of expressions for the upper
        bounds of each array dimension *)
     locals : StateVar.t D.t list;
@@ -179,6 +191,9 @@ type t =
     (* Node is annotated as main node *)
     is_main : bool;
 
+    (* Map from a state variable to its source *)
+    state_var_source_map : state_var_source SVM.t 
+
   }
 
 
@@ -204,14 +219,14 @@ let empty_node name =
     inputs = D.empty;
     oracles = [];
     outputs = D.empty;
-    observers = [];
     locals = [];
     equations = [];
     calls = [];
     asserts = [];
     props = [];
     contracts = None, [];
-    is_main = false }
+    is_main = false;
+    state_var_source_map = SVM.empty }
 
 
 (* Pretty-print array bounds of index *)
@@ -295,24 +310,18 @@ let pp_print_call safe ppf = function
       call_clock = None; 
       call_inputs; 
       call_oracles; 
-      call_outputs; 
-      call_observers } ->
+      call_outputs } ->
 
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>%a@,(%a);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (List.rev_map 
-         (fun (_, sv) -> sv)
-         (D.bindings call_outputs) @ 
-       call_observers)
+      (D.values call_outputs)
       (I.pp_print_ident safe) call_node_name
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
-      (List.rev_map 
-         (fun (_, sv) -> sv)
-         (D.bindings call_inputs) @ 
-      call_oracles)
+      (D.values call_inputs @ 
+       call_oracles)
 
   (* Node call not on the base clock is a condact *)
   |  { call_node_name; 
@@ -320,7 +329,6 @@ let pp_print_call safe ppf = function
        call_inputs; 
        call_oracles; 
        call_outputs; 
-       call_observers; 
        call_defaults } ->
      
     Format.fprintf ppf
@@ -328,10 +336,7 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (List.rev_map 
-         (fun (_, sv) -> sv)
-         (D.bindings call_outputs) @ 
-       call_observers)
+      (D.values call_outputs) 
       (E.pp_print_lustre_var safe) call_clock_var
       (I.pp_print_ident safe) call_node_name
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
@@ -341,8 +346,7 @@ let pp_print_call safe ppf = function
        call_oracles)
       (fun ppf -> 
          match 
-           List.rev_map snd (D.bindings call_defaults)
-           @ (List.map (fun _ -> E.t_true) call_observers)
+           D.values call_defaults
          with 
            | [] -> ()
            | l -> 
@@ -427,7 +431,6 @@ let pp_print_node
       inputs; 
       oracles; 
       outputs; 
-      observers; 
       locals; 
       equations; 
       calls; 
@@ -471,8 +474,7 @@ let pp_print_node
     (List.rev_map
        (* Remove first index of output argument for printing *)
        (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
-       (D.bindings outputs) @
-     (List.map (fun sv -> (D.empty_index, sv)) observers))
+       (D.bindings outputs))
 
     (pp_print_contracts safe) contracts
     (space_if_nonempty
@@ -507,18 +509,18 @@ let pp_print_node
     
 
 
-let pp_print_state_var_trie ppf t = 
+let pp_print_state_var_trie_debug ppf t = 
   D.bindings t |> 
   pp_print_list
     (fun ppf (i, sv) -> 
        if i = D.empty_index then 
-         (E.pp_print_lustre_var false) ppf sv
+         StateVar.pp_print_state_var ppf sv
        else
          Format.fprintf 
            ppf
            "%a: %a"
            (D.pp_print_index false) i
-           (E.pp_print_lustre_var false) sv)
+           StateVar.pp_print_state_var sv)
     ";@ "
     ppf
 
@@ -528,22 +530,19 @@ let pp_print_node_call_debug
       call_clock; 
       call_inputs; 
       call_oracles; 
-      call_outputs; 
-      call_observers } =
+      call_outputs } =
 
   Format.fprintf
     ppf
     "call %a { @[<hv>clock    = %a;@ \
                      inputs   = [@[<hv>%a@]];@ \
                      oracles  = [@[<hv>%a@]];@ \
-                     outputs  = [@[<hv>%a@]];@ \
-                     observers = [@[<hv>%a@]]; }@]"
+                     outputs  = [@[<hv>%a@]]; }@]"
     (I.pp_print_ident false) call_node_name
-    (pp_print_option (E.pp_print_lustre_var false)) call_clock
-    pp_print_state_var_trie call_inputs
-    (pp_print_list (E.pp_print_lustre_var false) ";@ ") call_oracles
-    pp_print_state_var_trie call_outputs
-    (pp_print_list (E.pp_print_lustre_var false) ";@ ") call_observers
+    (pp_print_option StateVar.pp_print_state_var) call_clock
+    pp_print_state_var_trie_debug call_inputs
+    (pp_print_list StateVar.pp_print_state_var ";@ ") call_oracles
+    pp_print_state_var_trie_debug call_outputs
 
 
 let pp_print_node_debug
@@ -552,14 +551,14 @@ let pp_print_node_debug
       inputs; 
       oracles; 
       outputs; 
-      observers; 
       locals; 
       equations; 
       calls; 
       asserts; 
       props;
       contracts;
-      is_main } = 
+      is_main;
+      state_var_source_map } = 
 
   let pp_print_equation = pp_print_node_equation false in
 
@@ -568,7 +567,7 @@ let pp_print_node_debug
     Format.fprintf
       ppf
       "%a (%a)"
-      (E.pp_print_lustre_var false) state_var
+      StateVar.pp_print_state_var state_var
       TermLib.pp_print_prop_source source
 
   in
@@ -577,9 +576,9 @@ let pp_print_node_debug
     Format.fprintf 
       ppf
       "@[<v>requires = @[<hv>%a@]@,\
-            ensures  = @[<hv>%a@]@]"
-      (pp_print_list (E.pp_print_lustre_var false) ",@ ") contract_reqs
-      (pp_print_list (E.pp_print_lustre_var false) ",@ ") contract_enss
+       ensures  = @[<hv>%a@]@]"
+      (pp_print_list StateVar.pp_print_state_var ",@ ") contract_reqs
+      (pp_print_list StateVar.pp_print_state_var ",@ ") contract_enss
   in
 
   let pp_print_contracts ppf (global_contract, mode_contracts) = 
@@ -609,32 +608,45 @@ let pp_print_node_debug
              mode_contracts)
   in
 
+  let pp_print_state_var_source ppf = 
+    let p sv src = Format.fprintf ppf "%a:%s" StateVar.pp_print_state_var sv src in
+    function 
+      | (sv, Input) -> p sv "in"
+      | (sv, Output) -> p sv "out"
+      | (sv, Local) -> p sv "loc" 
+      | (sv, Ghost) -> p sv "gh" 
+      | (sv, Abstract) -> p sv "abs" 
+      | (sv, Oracle) -> p sv "or" 
+
+  in
+
   Format.fprintf 
     ppf
-    "node %a @[<hv 2>{ inputs =    [@[<hv>%a@]];@ \
-                       oracles =   [@[<hv>%a@]];@ \
-                       outputs =   [@[<hv>%a@]];@ \
-                       observers = [@[<hv>%a@]];@ \
-                       locals =    [@[<hv>%a@]];@ \
-                       equations = [@[<hv>%a@]];@ \
-                       calls =     [@[<hv>%a@]];@ \
-                       asserts =   [@[<hv>%a@]];@ \
-                       props =     [@[<hv>%a@]];@ \
-                       contracts = [@[<hv>%a@]];@ \
-                       is_main =   @[<hv>%B@]; }@]"
+    "node %a @[<hv 2>{ inputs =     [@[<hv>%a@]];@ \
+     oracles =    [@[<hv>%a@]];@ \
+     outputs =    [@[<hv>%a@]];@ \
+     locals =     [@[<hv>%a@]];@ \
+     equations =  [@[<hv>%a@]];@ \
+     calls =      [@[<hv>%a@]];@ \
+     asserts =    [@[<hv>%a@]];@ \
+     props =      [@[<hv>%a@]];@ \
+     contracts =  [@[<hv>%a@]];@ \
+     is_main =    @[<hv>%B@];@ \
+     source_map = [@[<hv>%a@]];  }@]"
 
     (I.pp_print_ident false) name
-    pp_print_state_var_trie inputs
+    pp_print_state_var_trie_debug inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") oracles
-    pp_print_state_var_trie outputs
-    (pp_print_list StateVar.pp_print_state_var ";@ ") observers
-    (pp_print_list pp_print_state_var_trie ";@ ") locals
+    pp_print_state_var_trie_debug outputs
+    (pp_print_list pp_print_state_var_trie_debug ";@ ") locals
     (pp_print_list pp_print_equation "@ ") equations
     (pp_print_list pp_print_node_call_debug ";@ ") calls
     (pp_print_list (E.pp_print_lustre_expr false) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
     pp_print_contracts contracts
     is_main
+    (pp_print_list pp_print_state_var_source ";@ ") 
+    (SVM.bindings state_var_source_map)
 
 
 (* ********************************************************************** *)
@@ -750,24 +762,22 @@ let stateful_vars_of_node
     { inputs; 
       oracles; 
       outputs; 
-      observers; 
       equations; 
       calls; 
       asserts; 
       props; 
       contracts } =
 
-  (* Input, oracle, output and observer variables are always stateful
+  (* Input, oracle, and output variables are always stateful
 
-     This includes state variables from requires, ensuresn and
+     This includes state variables from requires, ensures and
      implications in contracts, because they all become observers. *)
   let stateful_vars =
     add_to_svs
       SVS.empty
       ((D.values inputs)
        @ (D.values outputs)
-       @ oracles 
-       @ observers)
+       @ oracles)
   in
 
   (* Add stateful variables from equations *)
@@ -800,7 +810,6 @@ let stateful_vars_of_node
           call_inputs; 
           call_oracles;
           call_outputs; 
-          call_observers; 
           call_defaults } -> 
 
         (SVS.union 
@@ -823,7 +832,6 @@ let stateful_vars_of_node
               (* Input and output variables are always stateful *)
               ((D.values call_inputs) @ 
                call_oracles @
-               call_observers @ 
                (D.values call_outputs)))))
       stateful_vars
       calls
@@ -835,81 +843,45 @@ let stateful_vars_of_node
 (* State variable sources                                                 *)
 (* ********************************************************************** *)
 
-(* Source of a state variable *)
-type state_var_source =
-
-  (* Input stream *)
-  | Input
-
-  (* Output stream *)
-  | Output
-
-  (* Local defined stream *)
-  | Local
-
-  (* Local ghost stream *)
-  | Ghost
-
-  (* Local abstracted stream *)
-  | Abstract
-
-  (* Oracle input stream *)
-  | Oracle
-
-  (* Observer output stream *)
-  | Observer
-
-
 (* Pretty-print the source of a state variable *)
 let rec pp_print_state_var_source ppf = function
-  
   | Input -> Format.fprintf ppf "input"
-
   | Oracle -> Format.fprintf ppf "oracle"
-
   | Output -> Format.fprintf ppf "output"
-
-  | Observer -> Format.fprintf ppf "observer"
-
   | Local -> Format.fprintf ppf "local"
-
   | Ghost -> Format.fprintf ppf "ghost"
-
   | Abstract -> Format.fprintf ppf "abstract"
 
 
-(* Map from a state variable to its source *)
-let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t = 
-  StateVar.StateVarHashtbl.create 7
-
-
 (* Set source of state variable *)
-let set_state_var_source state_var source = 
+let set_state_var_source ({ state_var_source_map } as node) state_var source = 
 
   (* Overwrite previous source *)
-  StateVar.StateVarHashtbl.replace
-    state_var_source_map 
-    state_var
-    source
+  let state_var_source_map' =
+    SVM.add 
+      state_var
+      source
+      state_var_source_map 
+  in
 
+  { node with state_var_source_map = state_var_source_map' }
 
 (* Get source of state variable *)
-let get_state_var_source state_var = 
+let get_state_var_source { state_var_source_map } state_var = 
 
-  StateVar.StateVarHashtbl.find
-    state_var_source_map 
+  SVM.find
     state_var
+    state_var_source_map 
 
 
 (* Return true if the state variable should be visible to the user,
     false if it was created internally *)
-let state_var_is_visible state_var = 
+let state_var_is_visible node state_var = 
 
-  match get_state_var_source state_var with
+  match get_state_var_source node state_var with
 
     (* Oracle inputs and abstraced streams are invisible *)
     | Ghost
-    | Observer 
     | Oracle
     | Abstract -> false
 
@@ -923,27 +895,27 @@ let state_var_is_visible state_var =
 
 
 (* Return true if the state variable is an input *)
-let state_var_is_input state_var = 
+let state_var_is_input node state_var = 
 
-    match get_state_var_source state_var with
+    match get_state_var_source node state_var with
       | Input -> true
       | _ -> false
       | exception Not_found -> false
 
 
 (* Return true if the state variable is an output *)
-let state_var_is_output state_var = 
+let state_var_is_output node state_var = 
 
-    match get_state_var_source state_var with
+    match get_state_var_source node state_var with
       | Output -> true
       | _ -> false
       | exception Not_found -> false
 
 
 (* Return true if the state variable is a local variable *)
-let state_var_is_local state_var = 
+let state_var_is_local node state_var = 
 
-    match get_state_var_source state_var with
+    match get_state_var_source node state_var with
       | Local -> true
       | _ -> false
       | exception Not_found -> false
