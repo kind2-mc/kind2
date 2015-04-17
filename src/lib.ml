@@ -30,6 +30,28 @@ let true_of_unit () = true
 let false_of_unit () = false
 
 (* ********************************************************************** *)
+(* Event tags used when outputting info.                                  *)
+(* ********************************************************************** *)
+
+(* Formats a string to construct a tag. *)
+let tagify = Format.sprintf "<%s>"
+
+(* Timeout tag. *)
+let timeout_tag = tagify "Timeout"
+(* Success tag. *)
+let success_tag = tagify "Success"
+(* Failure tag. *)
+let failure_tag = tagify "Failure"
+(* Error tag. *)
+let error_tag = tagify "Error"
+(* Warning tag. *)
+let warning_tag = tagify "Warning"
+(* Interruption tag. *)
+let interruption_tag = tagify "Interruption"
+(* Done tag. *)
+let done_tag = tagify "Done"
+
+(* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
 
@@ -950,8 +972,8 @@ type kind_module =
   | `IND
   | `INVGEN
   | `INVGENOS
-  | `INVMAN
   | `Interpreter
+  | `Supervisor
   | `Parser ]
 
 
@@ -962,8 +984,8 @@ let pp_print_kind_module ppf = function
   | `IND -> Format.fprintf ppf "inductive step"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
-  | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
+  | `Supervisor -> Format.fprintf ppf "supervisor"
   | `Parser -> Format.fprintf ppf "parser"
 
 
@@ -976,10 +998,10 @@ let suffix_of_kind_module = function
  | `PDR -> "pdr"
  | `BMC -> "bmc"
  | `IND -> "ind"
- | `INVGEN -> "inv"
- | `INVGENOS -> "invos"
- | `INVMAN -> "man"
+ | `INVGEN -> "invgents"
+ | `INVGENOS -> "invgenos"
  | `Interpreter -> "interp"
+ | `Supervisor -> "supervisor"
  | `Parser -> "parse"
                 
 
@@ -990,7 +1012,6 @@ let kind_module_of_string = function
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
-  | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
 

@@ -55,7 +55,7 @@ type prop_source =
 
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
-  | Instantiated of string list * string * Lib.position
+  | Instantiated of string list * string
 
 val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
@@ -72,4 +72,83 @@ val pp_print_prop_source : Format.formatter -> prop_source -> unit
     range. Array scalar types do not have defaults. The function fails
     with [Invalid_argument] in this case. *)
 val default_of_type : Type.t -> Term.t
+
+
+(** {2 Logic fragments } *)
+
+(** A feature of a logic fragment for terms *)
+type feature =
+  | Q  (** Quantifiers *)
+  | UF (** Equality over uninterpreted functions *)
+  | IA (** Integer arithmetic *)
+  | RA (** Real arithmetic *)
+  | LA (** Linear arithmetic *)
+  | NA (** Non-linear arithmetic *)
+
+(** Set of features *)
+module FeatureSet : Set.S with type elt = feature
+
+(** Logic fragments for terms *)
+type features = FeatureSet.t
+
+(** Returns the sup of the logics given as arguments *)
+val sup_logics : features list -> features
+
+(** Returns the logic fragment used by a term *)
+val logic_of_term : Term.t -> features
+
+(** Logic fragments for terms *)
+type logic = [ `None | `Inferred of features | `SMTLogic of string ]
+
+(** Print a logic *)
+val pp_print_logic : Format.formatter -> logic -> unit
+
+(** String correspinding to a logic *)
+val string_of_logic : logic -> string
+
+(** Gathers signal related stuff. *)
+module Signals: sig
+
+  (** Pretty printer for signal info. *)
+  val pp_print_signals: Format.formatter -> unit -> unit
+
+  (** Sets the handler for sigalrm to ignore. *)
+  val ignore_sigalrm: unit -> unit
+  (** Sets the handler for sigint to ignore. *)
+  val ignore_sigint: unit -> unit
+  (** Sets the handler for sigquit to ignore. *)
+  val ignore_sigquit: unit -> unit
+  (** Sets the handler for sigterm to ignore. *)
+  val ignore_sigterm: unit -> unit
+
+  (** Sets a timeout handler for sigalrm. *)
+  val set_sigalrm_timeout: unit -> unit
+  (** Sets an exception handler for sigalarm. *)
+  val set_sigalrm_exn: unit -> unit
+  (** Sets a handler for sigint. *)
+  val set_sigint: unit -> unit
+  (** Sets a handler for sigquit. *)
+  val set_sigquit: unit -> unit
+  (** Sets a handler for sigterm. *)
+  val set_sigterm: unit -> unit
+
+  (** Sets a timeout. *)
+  val set_timeout: float -> unit
+  (** Sets a timeout based on the timeout flag. *)
+  val set_timeout_from_flag: unit -> unit
+  (** Deactivates timeout. *)
+  val unset_timeout: unit -> unit
+
+  (** Raise exception on ctrl+c if true. *)
+  val catch_break: bool -> unit
+
+end
+ 
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   indent-tabs-mode: nil
+   End: 
+*)
 

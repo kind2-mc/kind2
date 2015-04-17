@@ -114,6 +114,18 @@ type t =
     (** Name of the node *)
     name : LustreIdent.t;
 
+    (** Distinguished constant state variable uniquely identifying the
+        node instance *)
+    instance : StateVar.t;
+
+    (** Distinguished state variable to become true in the first
+        instant, and to remain true forever *)
+    running : StateVar.t;
+
+    (** Distinguished state variable to become true in the first
+       instant only *)
+    first_tick : StateVar.t;
+
     (** Input streams defined in the node
 
         Each input is indexed with an integer correpsonding to its
@@ -295,6 +307,8 @@ val state_var_is_output : StateVar.t -> bool
 (** Return true if the state variable is a local variable *)
 val state_var_is_local : StateVar.t -> bool
 
+(** Return all stateful variables from expressions in a node *)
+val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 
 
 
@@ -318,8 +332,6 @@ val equations_order_by_dep : t list -> t -> t
     definition of [x] if it is local. *)
 val solve_eqs_node_calls : t -> t
 
-(** Return all stateful variables from expressions in a node *)
-val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 *)
 
 (*

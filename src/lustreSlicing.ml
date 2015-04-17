@@ -500,6 +500,9 @@ let order_equations
 (* Initially empty node for slicing *)
 let slice_all_of_node 
     { N.name; 
+      N.instance;
+      N.running;
+      N.first_tick;
       N.inputs; 
       N.oracles; 
       N.outputs; 
@@ -512,6 +515,9 @@ let slice_all_of_node
      variables, equations, assertions and node calls. Keep signature,
      properties, contracts and main annotation *)
   { N.name; 
+    N.instance;
+    N.running;
+    N.first_tick;
     N.inputs;
     N.oracles; 
     N.outputs; 

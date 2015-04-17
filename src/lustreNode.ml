@@ -126,6 +126,17 @@ type t =
     (* Name of node *)
     name : I.t;
 
+    (* Constant state variable uniquely identifying the node instance *)
+    instance : StateVar.t;
+
+    (* Distinguished state variable to become true in the first
+       instant, and to remain true forever *)
+    running : StateVar.t;
+
+    (* Distinguished state variable to become true in the first
+       instant only *)
+    first_tick : StateVar.t;
+
     (* Input variables of node together with their index in the
        original model and a list of expressions for the upper bounds
        of each array dimension *)
@@ -174,6 +185,22 @@ type t =
 (* An empty node *)
 let empty_node name = 
   { name = name;
+    instance = 
+      StateVar.mk_state_var
+        ~is_const:true
+        (I.instance_ident |> I.string_of_ident false)
+        [I.string_of_ident false name]
+        Type.t_int;
+    running = 
+      StateVar.mk_state_var
+        (I.running_ident |> I.string_of_ident false)
+        [I.string_of_ident false name]
+        Type.t_bool;
+    first_tick = 
+      StateVar.mk_state_var
+        (I.first_tick_ident |> I.string_of_ident false)
+        [I.string_of_ident false name]
+        Type.t_bool;
     inputs = D.empty;
     oracles = [];
     outputs = D.empty;
@@ -730,7 +757,10 @@ let stateful_vars_of_node
       props; 
       contracts } =
 
-  (* Input, oracle, output and observer variables are always stateful *)
+  (* Input, oracle, output and observer variables are always stateful
+
+     This includes state variables from requires, ensuresn and
+     implications in contracts, because they all become observers. *)
   let stateful_vars =
     add_to_svs
       SVS.empty
@@ -751,28 +781,7 @@ let stateful_vars_of_node
 
   (* Add property variables *)
   let stateful_vars = add_to_svs stateful_vars (List.map fst props) in
-(*
-  (* Add stateful variables from contracts *)
-  let stateful_vars = 
-    List.fold_left 
-      (fun accum (_, _, requires, ensures) -> 
-         
-         (* Add stateful variables to accumulator *)
-         let aux expr_list accum = 
-           List.fold_left 
-             (fun accum expr ->
-                SVS.union accum (stateful_vars_of_expr expr))
-             accum
-             expr_list
-         in
-         
-         (* Add stateful variables from requires and ensures clauses *)
-         aux requires accum |> aux ensures)
 
-      stateful_vars
-      contracts
-  in
-*)
   (* Add stateful variables from assertions *)
   let stateful_vars = 
     List.fold_left 

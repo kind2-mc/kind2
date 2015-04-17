@@ -107,7 +107,10 @@ let push_index (base, index) int = (base, int :: index)
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
 let observer_ident_string =  "__observer" 
+let instance_ident_string =  "__instance"
+let running_ident_string =  "__running"
 let first_tick_ident_string =  "__first_tick"
+let inst_ident_string =  "__inst" 
 let init_uf_string = "__node_init"
 let trans_uf_string = "__node_trans"
 let index_ident_string =  "__index" 
@@ -116,7 +119,10 @@ let reserved_strings =
   [ abs_ident_string;
     oracle_ident_string;
     observer_ident_string;
+    instance_ident_string;
+    running_ident_string;
     first_tick_ident_string;
+    inst_ident_string;
     init_uf_string;
     trans_uf_string;
     index_ident_string ]
@@ -131,8 +137,17 @@ let oracle_ident = mk_string_ident oracle_ident_string
 (* Identifier for new oracle input *)
 let observer_ident = mk_string_ident observer_ident_string
 
-(* Identifier for new clock initialization flag *)
+(* Identifier for unique identifier for node instance *)
+let instance_ident = mk_string_ident instance_ident_string
+
+(* Identifier for running flag *)
+let running_ident = mk_string_ident running_ident_string
+
+(* Identifier for first instant flag *)
 let first_tick_ident = mk_string_ident first_tick_ident_string
+
+(* Identifier for new variables from node instances *)
+let inst_ident = mk_string_ident inst_ident_string
 
 (* Identifier for new clock initialization flag *)
 let index_ident = mk_string_ident index_ident_string

@@ -1429,8 +1429,7 @@ let lift_if_property pos ctx node_props state_var =
             let prop_source = 
               TermLib.Instantiated
                 ([(I.string_of_ident false) name], 
-                 StateVar.name_of_state_var state_var',
-                 pos)
+                 StateVar.name_of_state_var state_var')
             in
 
             (* Add as property to node *)

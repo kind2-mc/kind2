@@ -95,7 +95,11 @@ let of_channel keep_all_coi in_ch =
 
   Format.printf 
     "@[<v>After slicing to contract@,%a@]@."
-    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_contract
+    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_contract;
+
+  (* LustreTransSys.trans_sys_of_nodes nodes_contract nodes_impl *)
+  ()
+
 
 (*
 

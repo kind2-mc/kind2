@@ -1521,6 +1521,8 @@ let declarations_to_nodes decls =
            (I.pp_print_ident false) ident)
 
 
+(*
+
 (* ********************************************************************** *)
 (* Testing functions                                                      *)
 (* ********************************************************************** *)
@@ -1554,8 +1556,6 @@ let main () =
     "@[<v>*** After LustreDeclarations:@,%a@]"
     (pp_print_list (N.pp_print_node false) "@,")
     nodes
-
-(*
 
 ;;
 

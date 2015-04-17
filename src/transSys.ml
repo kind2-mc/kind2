@@ -62,16 +62,33 @@ type property =
 
 (* A contract of a transition system. *)
 type contract =
-    { (* Name of the contract. *)
-      name : string ;
-      (* Source of the contract. *)
-      source : TermLib.contract_source ;
-      (* Requirements of the contract. *)
-      requires : Term.t list ;
-      (* Ensures of the contract. *)
-      ensures: Term.t list ;
-      (* Current status. *)
-      mutable status : prop_status }
+  | Global of position * StateVar.t * string
+  | Mode of position * StateVar.t * string
+    (* { (\* Name of the contract. *\) *)
+    (*   name : string ; *)
+    (*   (\* Source of the contract. *\) *)
+    (*   source : TermLib.contract_source ; *)
+    (*   (\* Requirements of the contract. *\) *)
+    (*   requires : Term.t list ; *)
+    (*   (\* Ensures of the contract. *\) *)
+    (*   ensures: Term.t list ; *)
+
+    (*   (\* Status of the contract. *\) *)
+(*   mutable status: prop_status } *)
+
+let mk_global_contract pos svar name =
+  Global (pos, svar, name)
+
+let mk_mode_contract pos svar name =
+  Mode (pos, svar, name)
+
+let info_of_contract = function
+  | Global (pos,svar,name) -> pos,svar,name
+  | Mode (pos,svar,name) -> pos,svar,name
+
+let name_of_contract c =
+  let _,_,name = info_of_contract c in
+  name
 
 
 (* Return the length of the counterexample *)
@@ -86,7 +103,7 @@ let length_of_cex = function
 
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
-  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
+  | PropKTrue k -> Format.fprintf ppf "true-for %d steps" k
   | PropInvariant -> Format.fprintf ppf "invariant"
   | PropFalse [] -> Format.fprintf ppf "false"
   | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)
@@ -113,6 +130,9 @@ let trans_base = Numeral.one
 (* Offset of primed state variables in properties and invariants *)
 let prop_base = Numeral.zero
 
+(* Stores a list of systems to abstract, by scope. *)
+type abstraction = string list list
+
 
 type t = {
   
@@ -132,22 +152,23 @@ type t = {
   (* Transition predicate of the system. *)
   trans: pred_def ;
 
-  (* The subsystems of this system. *)
+  (* The direct subsystems of this system. *)
   subsystems: t list ;
 
-  (* The length of the longest branch of the call graph underneath
-     this system. *)
-  max_depth : Numeral.t ;
-
   (* Properties of the transition system to prove invariant *)
-  properties : property list;
+  properties : property list ;
 
-  (* The contracts of this system. *)
-  contracts : contract list ;
+  (* The contracts of this system. The first state var is the
+     abstraction activation literal, the second one is the requirement
+     observer. *)
+  contracts : ( StateVar.t * StateVar.t * contract list) option ;
 
   (* The source which produced this system. *)
   source: source ;
 
+  (* The logic fragment in which is expressed the system and its properties. *)
+  logic: TermLib.logic;
+  
   (* Invariants *)
   mutable invars: Term.t list;
 
@@ -156,7 +177,16 @@ type t = {
      the instantiating system as well as a function to guard Boolean
      terms. *)
   mutable callers : 
-    (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t)) list)) list;
+            (t
+             * ( ( (StateVar.t * StateVar.t) list
+                   * (Term.t -> Term.t)
+                 ) list )
+            ) list ;
+
+  (* Abstraction of the transition system. Contains the scopes of the
+     systems to abstract. Mutable, because it is changed by
+     compositional analysis. *)
+  mutable abstraction: string list list ;
 
 }
 
@@ -164,16 +194,6 @@ type t = {
 let init_flag_of_trans_sys { scope } =
   StateVar.mk_init_flag scope
   |> Var.mk_state_var_instance
-
-(* The depth input of a system. *)
-let depth_input_of_trans_sys { scope } =
-  StateVar.mk_depth_input scope
-  |> Var.mk_const_state_var
-
-(* The max depth input of a system. *)
-let max_depth_input_of_trans_sys { scope } =
-  StateVar.mk_max_depth_input scope
-  |> Var.mk_const_state_var
            
 
 (* Return the predicate for the initial state constraint *)
@@ -196,213 +216,21 @@ let trans_term { trans = (_, (_, t)) } = t
 
 
 (* Add entry for new system instantiation to the transition system *)
-let add_caller callee caller c = 
+let add_caller callee caller c =
  
   (* Fold over the association list and add to the existing entry, or
      to the end *)
   let rec add_caller' accum = function
     | [] ->  (caller, [c]) :: accum
     | (caller', c') :: tl when 
-        caller'.scope = caller.scope -> (caller', (c :: c')) :: accum
+           caller'.scope = caller.scope ->
+       (caller', (c :: c')) :: accum @ tl
     | h :: tl -> add_caller' (h :: accum) tl 
   in
 
   callee.callers <- add_caller' [] callee.callers
 
-(* Instantiates some terms from a subsystem to a system calling
-   it. System [subsys] is the subsystem [terms] comes from, [sys] is
-   the system [terms] will be instantiated to. *)
-let instantiate_terms_for_sys ({ callers } as subsys) terms sys =
-  try
-    (* Looking for [sys] in the callers. *)
-    List.assq sys callers
-    (* Iterating on the list of maps and lift functions. *)
-    |> List.map
-         (fun (map, lift_fun) ->
-          terms
-          (* Applying lift function. *)
-          |> List.map
-               (fun t ->
-                (* Substituting variables. *)
-                Term.substitute_variables map t
-                (* Applying lift function. *)
-                |> lift_fun))
-  with
-  | Not_found -> []
-
-
-(* Instantiates a term for all systems instantiating the input
-   system. *)
-let instantiate_term { callers } term =
-
-  callers
-  |> List.map
-       ( fun (sys, maps) ->
-
-         let print_map =
-           (* Turns a map from state vars to terms into a string. *)
-           let string_of_map map =
-             map
-             |> List.map
-                  ( fun (v,t) ->
-                    Printf.sprintf "(%s -> %s)"
-                                   (StateVar.string_of_state_var v)
-                                   (StateVar.string_of_state_var t) )
-             |> String.concat ", "
-           in
-           
-           List.map
-             (fun map ->
-              Printf.printf "  Mapping to [%s]:\n"
-                            (String.concat "/" sys.scope) ;
-              Printf.printf "  > %s\n\n" (string_of_map map) )
-         in
-         
-         (* Building one new term per instantiation mapping for
-            sys. *)
-         let terms =
-           maps
-           |> List.map
-               (* For each map of this over-system, substitute the
-                  variables of term according to map. *)
-               ( fun (map,f) ->
-                 Term.substitute_variables map term |> f )
-         in
-
-         sys, terms )
-
-(* Inserts a system / terms pair in an associative list from systems
-   to terms.  Updates the biding by the old terms and the new ones if
-   it's already there, adds a new biding otherwise. *)
-let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
-
-  let rec loop prefix = function
-      
-    | (sys',terms') :: tail when sys == sys' ->
-       (* Updating the binding and returning. *)
-       List.rev_append
-         prefix
-         ( (sys, List.rev_append terms terms') :: tail )
-
-    (* Looping. *)
-    | head :: tail -> loop (head :: prefix) tail
-
-    (* 'sys' was not there, adding the biding. *)
-    | [] -> pair :: assoc_list
-  in
-
-  loop [] assoc_list
-
-
-(* Returns true iff the input system has no parent systems. *)
-let is_top { callers } = callers = []
-
-
-(* Instantiates a term for the top system by going up the system
-   hierarchy, for all instantiations of the input system. Returns the
-   top system and the corresponding terms, paired with the
-   intermediary systems and terms. Note that the input system term of
-   the function will be in the result, either as intermediary or top
-   level. *)
-let instantiate_term_all_levels t term =
-
-  let rec loop at_top intermediary = function
-    | (sys, ((term :: term_tail) as list)) :: tail ->
-
-      debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
-
-       (* Instantiating this term upward. *)
-       let at_top', intermediary', recursive' =
-         instantiate_term sys term
-         |> List.fold_left
-              ( fun (at_top'', intermediary'', recursive'')
-                    ((sys',_) as pair) ->
-
-                      debug transSys "[loop] inst sys: %s" (sys'.scope |> String.concat "/") in
-
-                if is_top sys' then
-                  (* Top system, no need to recurse on these terms. *)
-                  insert_in_sys_term_map at_top'' pair,
-                  intermediary'',
-                  recursive''
-                else
-                  (* Not the top system, need to memorize the terms
-                     for the result and for recursion. *)
-                  at_top'',
-                  insert_in_sys_term_map intermediary'' pair,
-                  insert_in_sys_term_map recursive'' pair )
-
-              (at_top, intermediary, ((sys,term_tail) :: tail))
-       in
-
-       (* Making sure there at most one top system. *)
-       assert (List.length at_top' <= 1) ;
-
-       loop at_top' intermediary' recursive'
-
-    (* No more terms for this system, looping. *)
-    | (sys, []) :: tail -> loop at_top intermediary tail
-
-    (* No more terms to instantiate. *)
-    | [] ->
-       ( match at_top with
-         (* There should be exactly one top level system. *)
-         | head :: [] ->
-            (head, intermediary)
-         | _ ->
-            assert false )
-  in
-
-
-  if is_top t
-  then (
-    debug transSys "Instantiate: system is already top." in
-    (* If the system is already the top one, there is no instantiating
-       to do. *)
-    (t, [term]), []
-  ) else (
-    debug transSys "Instantiate: system is not top." in
-    loop [] [t, [term]] [t, [term]]
-)
-
-
-(* Instantiates a term for the top system by going up the system
-   hierarchy, for all instantiations of the input system. *)
-let instantiate_term_top t term =
-
-  let rec loop at_top = function
-      
-    | (sys, ((term :: term_tail) as list)) :: tail ->
-       
-       (* Instantiating this term upward. *)
-       ( match instantiate_term sys term with
-           
-         | [] ->
-            (* Nothing, so sys is the top node. *)
-            loop (List.rev_append list at_top)
-                 tail
-
-         | list' ->
-            (* Sys is not the top node. *)
-            loop at_top
-                 (List.rev_append
-                    (* Looping on the new (sys,terms) pairs... *)
-                    list'
-                    (* ...and the (sys,terms) pairs we haven't looked
-                       at yet. *)
-                    ((sys, term_tail)
-                     :: tail)) )
-         
-    | (sys, []) :: tail -> loop at_top tail
-                                
-    | [] ->
-       ( match at_top with
-         (* If at_top is empty, 't' is already the top system. *)
-         | [] -> [term]
-         | list -> list )
-  in
-
-  loop [] (instantiate_term t term)
+let get_callers { callers } = List.map fst callers
 
 (* Number of times this system is instantiated in other systems. *)
 let instantiation_count { callers } =
@@ -412,29 +240,101 @@ let instantiation_count { callers } =
          sum + (List.length maps) )
        0
 
+(* Pretty prints an abstraction. *)
+let pp_print_trans_sys_abstraction ppf { abstraction } =
+  Format.fprintf
+    ppf
+    "@[<v>%a@]"
+    (pp_print_list
+       (pp_print_list Format.pp_print_string ".")
+       ",@,")
+    abstraction
+
+(* The abstraction of the system. *)
+let get_abstraction { abstraction } = abstraction
+
+(* Sets the abstraction for a system. *)
+let set_abstraction sys abstraction =
+  sys.abstraction <- abstraction
+
 
 (* Returns the contracts of a system. *)
-let get_contracts { contracts } =
-  contracts
-  |> List.map
-       ( fun { name ; source ; requires ; ensures ; status } ->
-         name, source, requires, ensures, status )
-
-(* Returns the contracts of a system as a list of implications. *)
-let get_contracts_implications { contracts } =
-  contracts
-  |> List.map
-       ( fun { name ; requires ; ensures } ->
-         (name,
-          (* Building the implication between the requires and the
-             ensures. *)
-          Term.mk_implies
-            [ Term.mk_and requires ;
-              Term.mk_and ensures ]) )
+let get_contracts = function
+  | { contracts = None } -> []
+  | { contracts = Some(_,_,list) } ->
+     list |> List.map info_of_contract
 
 (* Returns the subsystems of a system. *)
 let get_subsystems { subsystems } = subsystems
 
+(* Return the input used to create the transition system *)
+let get_scope t = t.scope
+
+(* Name of the system. *)
+let get_name t = t.scope |> String.concat "/"
+
+(* Returns all the subsystems of a transition system, including that
+   system, by reverse topological order. *)
+let get_all_subsystems sys =
+
+  let insert_subsystem ({ subsystems } as sys) list =
+    let rec loop rev_prefix = function
+      | sys' :: _
+           when sys == sys' ->
+         (* [sys] is already in the list, nothing to do. *)
+         list
+      | ({ subsystems = subsystems' } as sys') :: tail ->
+         if List.memq sys subsystems' then
+           (* [sys] is a subsystem of [sys'], inserting here. *)
+           sys :: sys' :: tail |> List.rev_append rev_prefix
+         else
+           (* No relation between [sys] and [sys'], looping. *)
+           loop (sys' :: rev_prefix) tail
+      | [] -> sys :: rev_prefix |> List.rev
+    in
+    loop [] list
+  in
+
+  let rec iterate_over_subsystems ({subsystems} as sys) continuation result =
+    insert_subsystem sys result
+    |> continue subsystems continuation
+
+  and continue subsystems continuation result =
+
+    match subsystems with
+    | [] ->
+
+       (* No subsystems, let's look at the continuation. *)
+       ( match continuation with
+         | [] ->
+            (* Nothing to continue with, returning result. *)
+            result
+
+         | [] :: continuation_tail ->
+            (* Head of the continuation is empty, looping on its
+               tail. *)
+            continue
+              [] continuation_tail result
+
+         | (sys :: continuation_head) :: continuation_tail ->
+            (* Found one system to insert in the result. *)
+            iterate_over_subsystems
+              sys (continuation_head :: continuation_tail) result )
+
+    | sub_sys :: sub_sys_tail ->
+       (* There are some subsystems to insert, looping on the head and
+          adding the rest to the continuation. *)
+       iterate_over_subsystems
+         sub_sys (sub_sys_tail :: continuation) result
+  in
+ 
+  iterate_over_subsystems sys [] []
+
+let pp_print_trans_sys_name ppf { scope } =
+  Format.fprintf
+    ppf "%a"
+    (pp_print_list Format.pp_print_string ".")
+    scope
 
 let pp_print_state_var ppf state_var = 
 
@@ -484,12 +384,10 @@ let pp_print_uf_defs
 
 let pp_print_prop_source ppf = function 
   | TermLib.PropAnnot _ -> Format.fprintf ppf ":user"
-  | TermLib.SubRequirement _ -> Format.fprintf ppf ":requirement"
+  | TermLib.Contract _ -> Format.fprintf ppf ":contract"
+  | TermLib.Requirement _ -> Format.fprintf ppf ":requirement"
   | TermLib.Generated p -> Format.fprintf ppf ":generated"
   | TermLib.Instantiated _ -> Format.fprintf ppf ":subsystem"
-
-let pp_print_contract_source ppf = function 
-  | TermLib.ContractAnnot _ -> Format.fprintf ppf ":user"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 
@@ -524,58 +422,69 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list Format.pp_print_string ".") t.scope
     (pp_print_list pp_print_caller "@ ") c
 
-let pp_print_contract
-      ppf { name ; source ; requires ; ensures ; status } =
+let pp_print_contract ppf contract =
+  let name, desc = match contract with
+    | Global (_,_,n) -> n,"global"
+    | Mode (_,_,n) -> n,"mode"
+  in
+    
   Format.fprintf
     ppf
-    "@[<hv 2>%s %a (%a)@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<v>%a@]@]@]"
+    "%s contract %s"
+    desc
     name
-    pp_print_contract_source source
-    pp_print_prop_status_pt status
-    (pp_print_list Term.pp_print_term "@ ") requires
-    (pp_print_list Term.pp_print_term "@ ") ensures
+
+let pp_print_contracts ppf = function
+  | None -> Format.fprintf ppf "None"
+  | Some (actlit,req,contracts) ->
+     Format.fprintf
+       ppf
+       "@[<hv>\
+        Actlit: %a@ \
+        Requirement: %a@ \
+        @[<v 2>Contracts:@ %a@]"
+       StateVar.pp_print_state_var actlit
+       StateVar.pp_print_state_var req
+       (pp_print_list pp_print_contract "@ ") contracts
 
 
 let pp_print_trans_sys 
     ppf
     ({ uf_defs;
        state_vars;
+       logic;
        properties;
        contracts;
        invars;
        source;
-       max_depth;
        callers } as trans_sys) = 
 
   Format.fprintf 
     ppf
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
           %a@,\
+          @[<hv 2>(logic %a)@]@,\
           @[<hv 2>(init@ (@[<v>%a@]))@]@,\
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(contracts@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(max depth@ %a)@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
+    TermLib.pp_print_logic logic
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
     Term.pp_print_term (init_term trans_sys)
     Term.pp_print_term (trans_term trans_sys)
     (pp_print_list pp_print_property "@ ") properties
-    (pp_print_list pp_print_contract "@ ") contracts
+    pp_print_contracts contracts
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
-    Numeral.pp_print_numeral max_depth
     (pp_print_list pp_print_callers "@,") callers
 
 
-(* Determine the required logic for the SMT solver 
-
-   TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = ((Flags.smtlogic ()) :> Term.logic)
-
+(* Determine the required logic for the SMT solver *)
+let get_logic t = t.logic
 
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
@@ -583,52 +492,33 @@ let state_vars t = t.state_vars
 (* Return the input used to create the transition system *)
 let get_source t = t.source
 
-(* Returns the max depth of a transition system. *)
-let get_max_depth t = t.max_depth
-
-(* Return the input used to create the transition system *)
-let get_scope t = t.scope
-
-(* Name of the system. *)
-let get_name t = t.scope |> String.concat "/"
+(* Returns [Some (e,e')] iff [list] contains two elements [e] and [e']
+   such that [f(e) == f(e')]. Not that this uses PHYSICAL
+   comparison. *)
+let find_element_clash f list =
+  let rec loop = function
+    | [] ->
+       (* No clash. *)
+       None
+    | e :: tail ->
+       ( match tail
+               (* Looking for an element in [tail]... *)
+               |> List.find
+                    (* ...which clashes with [e] modulo [f]. *)
+                    (fun e' -> f e == f e')
+         with
+         (* Clash detected. *)
+         | e' -> Some (e,e')
+         (* No clash, looping. *)
+         | exception Not_found -> loop tail )
+  in
+  loop list
 
 (* Create a transition system *)
 let mk_trans_sys
-    scope
-    state_vars
-    init
-    trans
-    subsystems
-    props
-    contracts
-    source =
-
-  (* Create constraints for integer ranges *)
-  let invars_of_types = 
-
-    List.fold_left 
-      (fun accum state_var -> 
-
-         (* Type of state variable *)
-         match StateVar.type_of_state_var state_var with
-           
-           (* Type is a bounded integer *)
-           | sv_type when Type.is_int_range sv_type -> 
-             
-             (* Get lower and upper bounds *)
-             let l, u = Type.bounds_of_int_range sv_type in
-
-             (* Add equation l <= v[0] <= u to invariants *)
-             Term.mk_leq 
-               [Term.mk_num l; 
-                Term.mk_var
-                  (Var.mk_state_var_instance state_var Numeral.zero); 
-                Term.mk_num u] :: 
-             accum
-           | _ -> accum)
-      []
-      state_vars
-  in
+      scope state_vars init trans
+      subsystems props contracts_option
+      source =
 
   (* Goes through the subsystems and constructs the list of
      uf_defs. *)
@@ -652,76 +542,170 @@ let mk_trans_sys
     | [] -> result
   in
 
-  (* Looks in the subsystems for one such that 'f' applied to the
-     subsys is uf. *)
-  let find_subsystem f uf =
-    List.find (fun subsys -> uf == f subsys) subsystems
-  in
-
-  (* Checks if a flat term is an application of a uf such that 'f' on
-     a subsystem. Returns Some of the subsystem if yes, None
-     otherwise. *)
-  let is_flat_uf_such_that f = function
-      
-    | Term.T.App (sym,params) when Symbol.is_uf sym ->
-       ( try Some (Symbol.uf_of_symbol sym |> find_subsystem f,
-                   params)
-         with Not_found -> None )
-         
-    | Term.T.Const sym when Symbol.is_uf sym ->
-       ( try Some (Symbol.uf_of_symbol sym |> find_subsystem f,
-                   [])
-         with Not_found -> None )
-
-    | _ -> None
-  in
-
-  let name = String.concat "/" scope in
-
-  let max_depth =
-    let rec loop max_so_far = function
-      | [] ->
-         (* No more subsystems, returning max depth. *)
-         max_so_far
-      | { max_depth } :: tail ->
-         (* Keeping the max of the max_depth, looping. *)
-         loop Numeral.(max (succ max_depth) max_so_far) tail
-    in
-    loop Numeral.zero subsystems
-  in
-
-  let contracts =
-    contracts
+  let properties =
+    props
     |> List.map
-         (fun (name, source, reqs, ens) ->
-          { name = name ;
-            source = source ;
-            requires = reqs ;
-            ensures = ens ;
-            status = PropUnknown })
+         (fun (n, s, t) -> 
+          { prop_name = n;
+            prop_source = s; 
+            prop_term = t; 
+            prop_status = PropUnknown })
   in
 
-  let system = 
+  (* let contract_prop name = *)
+  (*   try *)
+  (*     List.find *)
+  (*       ( function *)
+  (*         | { prop_source = *)
+  (*               TermLib.Contract *)
+  (*                 TermLib.ContractAnnot (name',_) } -> *)
+  (*            name = name' *)
+  (*         | _ -> false ) *)
+  (*       properties *)
+  (*   with *)
+  (*   | Not_found -> *)
+  (*      Format.sprintf *)
+  (*        "Could not locate property for contract %s." *)
+  (*        name *)
+  (*      |> failwith *)
+  (* in *)
+
+  (* Making sure all properties have different terms. The contracts
+     should also be properties at this point, so this detects contract
+     clashes as well. *)
+  ( match
+      properties
+      |> find_element_clash
+           (fun { prop_term } -> prop_term)
+    with
+    (* No clash detected. *)
+    | None -> ()
+    (* Clash between [p] and [p']. *)
+    | Some(p,p') ->
+       let pp_print_prop_err ppf { prop_source ; prop_term } =
+         let pos, name =
+           match prop_source with
+           | TermLib.PropAnnot pos -> pos, None
+           | TermLib.Contract (pos, name) ->
+              pos, Some(name)
+           | _ ->
+              (* Should never happen. *)
+              assert false
+         in
+         Format.fprintf
+           ppf
+           "@[<hv 1>property%a@ at %a@]"
+           ( fun ppf opt ->
+             match opt with
+             | None -> Format.fprintf ppf ""
+             | Some n ->
+                Format.fprintf
+                  ppf
+                  " generated from contract %s" n )
+           name
+           pp_print_position pos
+       in
+       let name = scope |> String.concat "/" in
+       (* Crashing with info. *)
+       Format.printf
+         "@[<hv 4>%s Property term clash detected for system [%s]:@ \
+          %a@;<0 -2>\
+          and@ \
+          %a@;<0 -2>\
+          correspond to the same term@ \
+          %a\
+          @]\n\n"
+         error_tag
+         name
+         pp_print_prop_err p
+         pp_print_prop_err p'
+         Term.pp_print_term p.prop_term ;
+       failwith(
+           Format.sprintf
+             "Redundant property terms in system [%s]."
+             name
+         )
+  ) ;
+
+  (* Getting all abstraction activation literals from subsystems. *)
+  let abstraction_state_vars =
+
+    (* Iterates over a list of systems, maintaining the set of the
+       abstraction variables encountered so far as a set. *)
+    let rec loop svars = function
+
+      | sys :: tail ->
+         (* Getting all subsystems of [sys], including [sys]. *)
+         let all_systems = get_all_subsystems sys in
+
+         (* Removing subsystems of [sys] from the tail. *)
+         let tail =
+           tail
+           |> List.filter
+                (fun sys ->
+                 List.exists
+                   (fun sys' -> sys.scope <> sys'.scope)
+                   all_systems)
+         in
+         let svars =
+           (* Retrieving abstraction actlits from all systems. *)
+           all_systems
+           |> List.fold_left
+                (fun set sys ->
+                 match sys.contracts with
+                 | None  -> set
+                 | Some (sv,_,_) ->
+                    StateVar.StateVarSet.add sv set)
+                svars
+         in
+         loop svars tail
+
+      | [] -> StateVar.StateVarSet.elements svars
+    in
+
+    let abs_svars =
+      match contracts_option with
+      | None -> StateVar.StateVarSet.empty
+      | Some (sv,_,_) ->
+         StateVar.StateVarSet.of_list [sv]
+    in
+
+    loop abs_svars subsystems
+  in
+
+  (* find the logic of the transition system by goint through its terms and its
+     subsystems *)
+  let logic = match Flags.smtlogic () with
+    | `None -> `None
+    | `Logic s -> `SMTLogic s
+    | `detect ->
+      `Inferred
+        (List.fold_left (fun acc (_, _, p) -> TermLib.logic_of_term p :: acc)
+           ((init  |> snd |> snd |> TermLib.logic_of_term) ::
+            (trans |> snd |> snd |> TermLib.logic_of_term) ::
+            List.map (fun sys -> match sys.logic with
+                | `Inferred l -> l
+                | _ -> assert false) subsystems)
+           props
+         |> TermLib.sup_logics)
+  in
+  
+  let system =
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
       state_vars =
-        state_vars |> List.sort StateVar.compare_state_vars ;
+        (abstraction_state_vars @ state_vars)
+        |> List.sort StateVar.compare_state_vars ;
       init = init ;
       trans = trans ;
-      properties =
-        props
-        |> List.map
-             (fun (n, s, t) -> 
-              { prop_name = n;
-                prop_source = s; 
-                prop_term = t; 
-                prop_status = PropUnknown }) ;
-      contracts = contracts ;
+      properties = properties ;
+      contracts = contracts_option ;
       subsystems = subsystems ;
-      max_depth = max_depth ;
+      logic = logic;
       source = source ;
-      invars = invars_of_types ;
-      callers = []; }
+      invars = [] ;
+      callers = [] ;
+      abstraction = [] }
   in
 
   debug transSys "Done creating system:@ " in
@@ -750,17 +734,40 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
 
 (* Returns the variables of the transition system between two
    bounds. *)
-let vars_of_bounds
-      trans_sys lbound ubound =
-  vars_of_bounds' trans_sys.state_vars lbound ubound []
+let vars_of_bounds'' skip trans_sys lbound ubound =
+  vars_of_bounds'
+    ( trans_sys.state_vars
+      |> List.filter
+           ( fun sv -> List.memq sv skip
+                       |> not ) )
+    lbound
+    ubound
+    []
+
+(* Returns the variables of the transition system between two
+   bounds. *)
+let vars_of_bounds t lb ub = vars_of_bounds'' [] t lb ub
 
 
 (* Declares variables of the transition system between two offsets. *)
-let declare_vars_of_bounds
-      t declare lbound ubound =
+let declare_vars_of_bounds'
+      skip t declare lbound ubound =
   (* Declaring non-constant variables. *)
-  vars_of_bounds t lbound ubound
-  |> Var.declare_vars declare
+  vars_of_bounds'' skip t lbound ubound
+  |> (fun vars ->
+      Var.declare_vars declare vars)
+
+(* Declares variables of the transition system between two offsets. *)
+let declare_vars_of_bounds t declare assert_term lbound ubound =
+  declare_vars_of_bounds' [] t declare lbound ubound ;
+
+  (* Force top level contract requirement. *)
+  match t.contracts with
+    | Some (_,req,_) ->
+       vars_of_bounds' [req] lbound ubound []
+       |> List.iter
+            ( fun var -> Term.mk_var var |> assert_term )
+    | None -> ()
 
 
 (* Instantiate the initial state constraint to the bound *)
@@ -874,44 +881,6 @@ let invars_of_bound ?(one_state_only = false) t i =
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
 
-(* Constrains the top level depth and max depth inputs. *)
-let depth_inputs_constraint sys max_depth =
-
-  (* Building the constraint on the depth input and the max depth
-     input for input system. *)
-  Term.mk_and
-
-    [ (* Depth input constraint. *)
-      Term.mk_eq
-        [ (* Getting depth input var. *)
-          depth_input_of_trans_sys sys
-          (* Creating corresponding term. *)
-          |> Term.mk_var ;
-
-          (* Value for depth input is always zero. *)
-          Numeral.zero |> Term.mk_num ] ;
-
-      (* Max depth input constraint. *)
-      Term.mk_eq
-        [ (* Getting max depth input var. *)
-          max_depth_input_of_trans_sys sys
-          (* Creating corresponding term. *)
-          |> Term.mk_var ;
-          
-          let _ =
-            (* Making sure value for max depth input is legal. *)
-            assert Numeral.(max_depth <= sys.max_depth)
-          in
-          (* Using specified value. *)
-          max_depth |> Term.mk_num ] ]
-
-(* Creates the constraints setting the depth input constant to a
-   value. *)
-let abstraction_depth_input_constraint sys value =
-  Term.mk_eq
-    [ depth_input_of_trans_sys sys |> Term.mk_var ;
-      Term.mk_num value ]
-
 (* The invariants of a transition system. *)
 let get_invars { invars } = invars
 
@@ -938,9 +907,33 @@ let named_terms_list_of_bound l i =
 let props_list_of_bound t i = 
   named_terms_list_of_bound t.properties i
 
+(* Instantiate all properties to the bound *)
+let props_list_of_bound_not_valid t i = 
+  named_terms_list_of_bound
+    ( t.properties
+      |> List.filter (function
+                       | { prop_status = PropInvariant } -> false
+                       | _ -> true) )
+    i
+
+(* Instantiate all properties to the bound *)
+let props_list_of_bound_unknown t i = 
+  named_terms_list_of_bound
+    ( t.properties
+      |> List.filter (function
+         | { prop_status = PropInvariant } -> false
+         | { prop_status = PropFalse _ } -> false
+         | _ -> true
+      ) )
+    i
+
 
 (* Instantiate all properties to the bound *)
 let props_of_bound t i = 
+  Term.mk_and (List.map snd (props_list_of_bound t i))
+
+(* Instantiate all properties to the bound *)
+let props_of_bound_not_valid t i = 
   Term.mk_and (List.map snd (props_list_of_bound t i))
 
 (* Get property by name *)
@@ -1020,6 +1013,17 @@ let get_prop_status_all_unknown t =
     t.properties
 
 
+(* Returns the source of a property. *)
+let get_prop_source { properties } name =
+  match
+    properties
+    |> List.find
+         ( fun { prop_name } -> prop_name = name )
+  with
+  | { prop_source } -> Some prop_source
+  | exception Not_found -> None
+
+
 (* Return current status of property *)
 let get_prop_status trans_sys p = 
 
@@ -1029,6 +1033,81 @@ let get_prop_status trans_sys p =
 
   with Not_found -> PropUnknown
 
+let contract_of_name ({ contracts } as sys) to_find =
+  try
+    match contracts with
+    | None ->
+       Format.asprintf
+         "System %a has no contracts."
+         pp_print_trans_sys_name sys
+       |> failwith
+    | Some (_, _, contracts) ->
+       List.find
+         (fun contract ->
+          to_find = name_of_contract contract)
+         contracts
+  with
+  | Not_found ->
+     Format.sprintf
+       "Cannot locate contract %s."
+       to_find
+     |> failwith
+
+(* Returns [true] iff all subrequirement properties of the system are
+   invariants. *)
+let subrequirements_valid { properties } =
+  let rec loop = function
+    | { prop_status = status ;
+        prop_source = TermLib.Requirement (_,_,_) }
+      :: tail ->
+       if status = PropInvariant then loop tail
+       else false
+    | _ :: tail -> loop tail
+    | [] -> true
+  in
+  loop properties
+
+(* Returns true iff all subrequirements related to a scope are
+   invariants. *)
+let proved_requirements_of { properties } scope =
+  let rec loop = function
+
+    (* Requirement for [scope]. *)
+    | { prop_status = status ;
+        prop_source =
+          TermLib.Requirement (_, scope', _) }
+      :: tail when scope = scope' ->
+       
+       ( match status with
+         (* Right system and subreq holds, looping. *)
+         | PropInvariant -> loop tail
+         (* Otherwise subreqirement is not known to hold, returning
+            false. *)
+         | _ -> false )
+
+    (* Not a subrequirement, skipping. *)
+    | _ :: tail -> loop tail
+
+    (* Did not exit early, so proved sub requirements. *)
+    | [] -> true
+  in
+
+  loop properties
+
+(* Returns true if the contract of the input system is an
+   invariant. @raise Not_found if the system has no contracts. *)
+let is_contract_proved = function
+  | { contracts = None } -> raise Not_found
+  | { properties } ->
+     properties
+     |> List.for_all
+          (function
+            | { prop_source = TermLib.Contract(_);
+                prop_status } ->
+               ( match prop_status with
+                 | PropInvariant -> true
+                 | _ -> false )
+            | _ -> true)
 
 (* Mark property as invariant *)
 let set_prop_invariant t prop =
@@ -1036,21 +1115,132 @@ let set_prop_invariant t prop =
   (* Get property by name *)
   let p = property_of_name t prop in
 
-  (* Modify status *)
-  p.prop_status <- 
+  (* Check current status *)
+  match p.prop_status with
 
-    (* Check current status *)
-    match p.prop_status with
+  | PropUnknown
+  | PropKTrue _ ->
+     (* Property was not known to be invariant. *)
+     
+     ( match p.prop_source with
+       | TermLib.Requirement (_,_,guarantees) ->
+          (* Property is a requirement, setting prop_status and
+                 returning guarantees. *)
+          p.prop_status <- PropInvariant ;
+          (* guarantees *)
+          (* |> List.map ( fun sv -> *)
+          (*               Var.mk_state_var_instance sv init_base *)
+       (*               |> Term.mk_var ) *)
+          []
+       | _ ->
+          p.prop_status <- PropInvariant ;
+          [] )
 
-      (* Mark property as invariant if it was unknown, k-true or
-         invariant *)
-      | PropUnknown
-      | PropKTrue _
-      | PropInvariant -> PropInvariant
+  | PropInvariant ->
+     p.prop_status <- PropInvariant ;
+     []
 
-      (* Fail if property was false or k-false *)
-      | PropFalse _ -> raise (Failure "prop_invariant") 
+  (* Fail if property was false or k-false *)
+  | PropFalse _ -> raise (Failure "prop_invariant")
 
+(* Changes the status of k-true properties as unknown. Used for
+   contract-based analysis when lowering the abstraction depth. Since
+   the predicates have changed they might not be k-true anymore. *)
+let reset_non_valid_props_to_unknown t =
+  t.properties
+  |> List.iter
+       ( function
+         | { prop_status = PropInvariant } -> ()
+         | prop ->
+            prop.prop_status <- PropUnknown )
+
+(* Resets the list of invariants of the system. *)
+let reset_invariants t =
+  t.invars <- [] ;
+  t.properties
+  |> List.iter
+       ( function
+         | { prop_term = term ; prop_status = PropInvariant } ->
+            t.invars <- term :: t.invars
+         | _ -> () )
+
+(* Lifts valid properties of the system. ONLY lifts properties from
+   annotations or generated ones. *)
+let lift_valid_properties =
+  let rec lift_props
+            to_update
+            { scope ; properties ; callers } =
+    match
+      properties
+      |> List.filter
+           ( function
+             | { prop_source = TermLib.PropAnnot _ ;
+                 prop_status = PropInvariant }
+             | { prop_source = TermLib.Instantiated _ ;
+                 prop_status = PropInvariant }
+             | { prop_source = TermLib.Generated _ ;
+                 prop_status = PropInvariant } -> true
+             | _ -> false )
+
+    with
+
+    (* Nothing to lift, continuing. *)
+    | [] -> continue to_update
+
+    | props ->
+       
+       props
+       |> List.iter
+            ( fun { prop_name } ->
+
+              (* Iterate on all callers. *)
+              callers
+              |> List.iter
+                   ( fun (caller, _) ->
+
+                     (* Iterate on all properties of the caller. *)
+                     caller.properties
+                     |> List.iter
+                          ( function
+
+                            (* Find the correct instantiated property. *)
+                            | ({ prop_source =
+                                   TermLib.Instantiated (scope',name')
+                               } as prop) ->
+
+                               if scope = scope' && prop_name = name'
+                               then
+                                 (* Update its status. *)
+                                 prop.prop_status <- PropInvariant
+
+                            | prop -> () ) ) ) ;
+
+       ( callers
+         |> List.map (fun (caller,_) -> caller) )
+       @ to_update
+       |> continue
+
+  and continue = function
+    | [] -> ()
+    | head :: tail ->
+       lift_props
+         (* Removing redundant systems in continuation. *)
+         ( tail |> List.filter (fun sys -> sys.scope != head.scope) )
+         head
+  in
+
+  lift_props []
+       
+
+let rec pp_print_trans_sys_contract_view ppf sys =
+  Format.fprintf
+    ppf
+    "@[<hv 2>sys %s@ @[<v>@[<hv 2>contracts:@ %a@]@,@[<hv 2>properties:@ %a@]@,\
+     @[<hv 2>subsystems:@ %a@]@]@]"
+    (get_name sys)
+    pp_print_contracts sys.contracts
+    (pp_print_list pp_print_property "@ ") sys.properties
+    (pp_print_list pp_print_trans_sys_contract_view "@ ") sys.subsystems
 
 (* Mark property as k-false *)
 let set_prop_false t prop cex =
@@ -1096,7 +1286,27 @@ let set_prop_false t prop cex =
 let set_prop_ktrue t k prop =
 
   (* Get property by name *)
-  let p = property_of_name t prop in
+  let p =
+    try
+      property_of_name t prop
+    with
+    | Not_found ->
+       Format.printf
+         "Trying to set [%s] true at %d on system [%s].@.  @[<v>%a@]@."
+         prop
+         k
+         (get_name t)
+         (pp_print_list (fun ppf { prop_name ; prop_status } ->
+           Format.fprintf
+            ppf
+            "%s %a"
+            prop_name
+            pp_print_prop_status_pt
+            prop_status
+         ) "@," )
+         t.properties ;
+       raise Not_found
+  in
 
   (* Modify status *)
   p.prop_status <- 
@@ -1131,7 +1341,11 @@ let set_prop_status t p = function
 
   | PropKTrue k -> set_prop_ktrue t k p
 
-  | PropInvariant -> set_prop_invariant t p
+  | PropInvariant ->
+     let invars =
+       set_prop_invariant t p
+     in
+     t.invars <- invars @ t.invars
 
   | PropFalse c -> set_prop_false t p c
 
@@ -1174,6 +1388,14 @@ let all_props_proved t =
        with Not_found -> false)
     t.properties
 
+let all_props_actually_proved { properties } =
+
+  List.for_all
+    (function
+      | { prop_status = PropInvariant } -> true
+      | _ -> false)
+    properties
+
 (* Return declarations for uninterpreted symbols *)
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
@@ -1194,8 +1416,7 @@ let uf_defs { uf_defs } =
    initial state and transition relation definitions sorted by
    topological order. *)
 let uf_defs_pairs { uf_defs } = uf_defs
-      
- 
+
 
 (* Return [true] if the uninterpreted symbol is an initial state constraint *)
 let is_init_uf_def { uf_defs } uf_symbol = 
@@ -1225,23 +1446,125 @@ let iter_uf_definitions t f =
   |> List.iter 
        (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt)
 
-(* Define uf definitions, declare constant state variables and declare
-   variables from [lbound] to [upbound]. *)
-let init_define_fun_declare_vars_of_bounds
-      t define declare lbound ubound =
-  ( match t.callers with
-    | [] ->
-       (* Define ufs. *)
-       iter_uf_definitions t define ;
-    | _ -> () ) ;
+(* Defines abstraction literals for a transition system base on some
+   abstraction. *)
+let constrain_abstraction_actlits
+      systems abstraction assert_term =
 
-  let l_vars = vars_of_bounds t lbound lbound in
+  let rec loop = function
 
-  (* Declaring constant variables. *)
-  Var.declare_constant_vars declare l_vars ;
+    | { scope ; contracts = None } :: tail ->
+       (* System cannot be abstracted, skipping. *)
+       loop tail
 
-  (* Declaring other variables. *)
-  declare_vars_of_bounds t declare lbound ubound
+    | { scope ; contracts = Some (actlit, req, _) } :: tail ->
+       (* Value the actlit will be defined as. *)
+       let term =
+         Var.mk_const_state_var actlit
+         |> Term.mk_var
+         |> (if List.mem scope abstraction
+             then identity else Term.mk_not)
+       in
+       (* Declaring [actlit]. *)
+       (* declare *)
+       (*   (StateVar.uf_symbol_of_state_var actlit) ; *)
+       assert_term term ;
+       (* Looping. *)
+       loop tail
+
+    | _ -> ()
+  in
+
+  (* Defining actlits for all subsystems of [sys]. *)
+  loop systems
+
+(* Initializes the solver for a system and an abstraction. *)
+let init_solver
+      (* Only declare top level variables. *)
+      ?(declare_top_vars_only = true)
+      (* System and abstraction. *)
+      sys
+      (* Solver related functions. *)
+      comment
+      define
+      declare
+      assert_term
+      (* Bounds for variable declaration. *)
+      lbound
+      ubound =
+
+  Format.asprintf
+    "|=====| Setting up solver for system %a."
+    pp_print_trans_sys_name sys
+  |> comment ;
+
+
+  (* All subsystems of [sys], including [sys]. *)
+  let all_systems = get_all_subsystems sys in
+       
+  let req_svar = match sys.contracts with
+    | Some (_,req,_) -> [ req ]
+    | None -> []
+  in
+
+  (if declare_top_vars_only then [ sys ] else all_systems)
+  |> List.fold_left
+       ( fun common_svars sys' ->
+
+         Format.asprintf
+           "|===| Declaring variables of %a for [%a,%a]."
+           pp_print_trans_sys_name sys'
+           Numeral.pp_print_numeral lbound
+           Numeral.pp_print_numeral ubound
+         |> comment ;
+
+         comment "Constants." ;
+
+         (* Declaring constant variables, skipping common ones. *)
+         vars_of_bounds'' common_svars sys' lbound lbound
+         |> Var.declare_constant_vars declare ;
+
+         comment "Non-constant state variables." ;
+
+         (* Declaring state variables, skipping common ones. *)
+         declare_vars_of_bounds'
+           common_svars sys' declare lbound ubound ;
+
+         (* A system has all its subsystems abstraction actlits as
+            state variables. We go through all systems in topological
+            order, remembering the abstraction actlits. *)
+         match sys'.contracts with
+         | None -> common_svars
+         | Some (abs_svar,_,_) -> abs_svar :: common_svars )
+       [] ;
+
+  ( match req_svar with
+    | [] -> ()
+    | _ ->
+       comment "|===| Forcing contract requirement." ;
+       vars_of_bounds' req_svar lbound ubound []
+       |> List.iter
+            ( fun var -> var |> Term.mk_var |> assert_term ) );
+  
+  comment "|===| Constraining abstraction actlits for all systems." ;
+  Format.sprintf
+    "|          abstracting [%s]"
+    (sys.abstraction
+     |> List.map (String.concat ".")
+     |> String.concat ", ")
+  |> comment ;
+  constrain_abstraction_actlits
+    all_systems sys.abstraction assert_term ;
+  
+  Format.asprintf
+    "|===| Defining init and trans predicates."
+  |> comment ;
+
+  iter_uf_definitions sys define ;
+
+
+  comment "|===| Done with initialization." ;
+  comment ""
   
 (*
   
@@ -1310,10 +1633,212 @@ let exists_eval_on_path uf_defs pred term path =
     (fun model -> pred (Eval.eval_term uf_defs model term))
     path
 
-(*
-  exists_eval_on_path' uf_defs pred term Numeral.zero path
-*)
+(* Instantiates some terms from a subsystem to a system calling
+   it. System [subsys] is the subsystem [terms] comes from, [sys] is
+   the system [terms] will be instantiated to. *)
+let instantiate_terms_for_sys { callers } terms sys =
+  try
+    (* Looking for [sys] in the callers. *)
+    List.assq sys callers
+    (* Iterating on the list of maps and lift functions. *)
+    |> List.map
+         (fun (map, lift_fun) ->
+          terms
+          (* Applying lift function. *)
+          |> List.map
+               (fun t ->
+                (* Substituting variables. *)
+                Term.substitute_variables map t
+                (* Applying lift function. *)
+                |> lift_fun))
+  with
+  | Not_found -> []
 
+
+(* Instantiates a term for all systems instantiating the input
+   system. *)
+let instantiate_term top { callers } term =
+
+  let legal_systems = get_all_subsystems top in
+
+  callers
+  |> List.fold_left
+       ( fun list (sys, maps) ->
+
+         (* let print_map = *)
+         (*   (\* Turns a map from state vars to terms into a string. *\) *)
+         (*   let string_of_map map = *)
+         (*     map *)
+         (*     |> List.map *)
+         (*          ( fun (v,t) -> *)
+         (*            Printf.sprintf "(%s -> %s)" *)
+         (*                           (StateVar.string_of_state_var v) *)
+         (*                           (StateVar.string_of_state_var t) ) *)
+         (*     |> String.concat ", " *)
+         (*   in *)
+           
+         (*   List.map *)
+         (*     (fun map -> *)
+         (*      Printf.printf "  Mapping to [%s]:\n" *)
+         (*                    (String.concat "/" sys.scope) ; *)
+         (*      Printf.printf "  > %s\n\n" (string_of_map map) ) *)
+         (* in *)
+
+         (* Only lift to legal systems. *)
+         if List.memq sys legal_systems then
+           
+           (* Building one new term per instantiation mapping for
+            sys. *)
+           let terms =
+             maps
+             |> List.map
+                  (* For each map of this over-system, substitute the
+                  variables of term according to map. *)
+                  ( fun (map,f) ->
+                    Term.substitute_variables map term |> f )
+           in
+
+           (sys, terms) :: list
+
+         else list )
+       []
+
+(* Inserts a system / terms pair in an associative list from systems
+   to terms.  Updates the biding by the old terms and the new ones if
+   it's already there, adds a new biding otherwise. *)
+let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
+
+  let rec loop prefix = function
+      
+    | (sys',terms') :: tail when sys == sys' ->
+       (* Updating the binding and returning. *)
+       List.rev_append
+         prefix
+         ( (sys, List.rev_append terms terms') :: tail )
+
+    (* Looping. *)
+    | head :: tail -> loop (head :: prefix) tail
+
+    (* 'sys' was not there, adding the biding. *)
+    | [] -> pair :: assoc_list
+  in
+
+  loop [] assoc_list
+
+
+(* Returns true iff the input system has no parent systems. *)
+let is_top { callers } = callers = []
+
+
+(* Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. Returns the
+   top system and the corresponding terms, paired with the
+   intermediary systems and terms. Note that the input system term of
+   the function will be in the result, either as intermediary or top
+   level. *)
+let instantiate_term_all_levels top_t t term =
+    
+
+  let is_top sys = sys == top_t || is_top sys in
+
+  let rec loop at_top intermediary = function
+    | (sys, (term :: term_tail)) :: tail ->
+
+      debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
+
+       (* Instantiating this term upward. *)
+       let at_top', intermediary', recursive' =
+         instantiate_term top_t sys term
+         |> List.fold_left
+              ( fun (at_top'', intermediary'', recursive'')
+                    ((sys',_) as pair) ->
+
+                debug transSys
+                      "[loop] inst sys: %s"
+                      (sys'.scope |> String.concat "/") in
+
+                if is_top sys' then
+                  (* Top system, no need to recurse on these terms. *)
+                  insert_in_sys_term_map at_top'' pair,
+                  intermediary'',
+                  recursive''
+                else
+                  (* Not the top system, need to memorize the terms
+                     for the result and for recursion. *)
+                  at_top'',
+                  insert_in_sys_term_map intermediary'' pair,
+                  insert_in_sys_term_map recursive'' pair )
+
+              (at_top, intermediary, ((sys,term_tail) :: tail))
+       in
+
+       (* Making sure there at most one top system. *)
+       assert (List.length at_top' <= 1) ;
+
+       loop at_top' intermediary' recursive'
+
+    (* No more terms for this system, looping. *)
+    | (sys, []) :: tail -> loop at_top intermediary tail
+
+    (* No more terms to instantiate. *)
+    | [] ->
+       ( match at_top with
+         (* There should be exactly one top level system. *)
+         | head :: [] ->
+            (head, intermediary)
+         | _ ->
+            assert false )
+  in
+
+
+  if is_top t
+  then (
+    debug transSys "Instantiate: system is already top." in
+    (* If the system is already the top one, there is no instantiating
+       to do. *)
+    (t, [term]), []
+  ) else (
+    debug transSys "Instantiate: system is not top." in
+    loop [] [t, [term]] [t, [term]]
+)
+
+
+(* Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. *)
+let instantiate_term_top top_t t term =
+
+  let rec loop at_top = function
+      
+    | (sys, ((term :: term_tail) as list)) :: tail ->
+       
+       (* Instantiating this term upward. *)
+       ( match instantiate_term top_t sys term with
+           
+         | [] ->
+            (* Nothing, so sys is the top node. *)
+            loop (List.rev_append list at_top) tail
+
+         | list' ->
+            (* Sys is not the top node. *)
+            loop at_top
+                 (List.rev_append
+                    (* Looping on the new (sys,terms) pairs... *)
+                    list'
+                    (* ...and the (sys,terms) pairs we haven't looked
+                       at yet. *)
+                    ((sys, term_tail)
+                     :: tail)) )
+         
+    | (sys, []) :: tail -> loop at_top tail
+                                
+    | [] ->
+       ( match at_top with
+         (* If at_top is empty, 't' is already the top system. *)
+         | [] -> [term]
+         | list -> list )
+  in
+
+  loop [] (instantiate_term top_t t term)
 
 
 (* 

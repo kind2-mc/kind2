@@ -63,8 +63,17 @@ val oracle_ident : t
 (** Identifier for observer outputs *)
 val observer_ident : t
 
-(** Identifier for clock initialization flag *)
+(** Identifier for unique identifier for node instance *)
+val instance_ident : t
+
+(** Identifier for running flag *)
+val running_ident : t
+
+(** Identifier for first instant flag *)
 val first_tick_ident : t
+
+(** Identifier for instantiated variables in node calls *)
+val inst_ident : t
 
 (** Identifier for index variables in arrays *)
 val index_ident : t

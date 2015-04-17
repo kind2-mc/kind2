@@ -64,28 +64,68 @@ val trans_base : Numeral.t
 (** Offset of primed state variables in properties and invariants *)
 val prop_base : Numeral.t
 
+type contract
+
+val mk_global_contract :
+  Lib.position -> StateVar.t -> string -> contract
+
+val mk_mode_contract :
+  Lib.position -> StateVar.t -> string -> contract
+
 (** The transition system 
 
     Constructed with the function {!mk_trans_sys} *)
 type t
 
-(** Create a transition system
+(** Create a transition system. Arguments
+
+    - [scope]
+    - [state_variables]
+    - [init_pred_def]
+    - [trans_pred_def]
+    - [subsystems]
+    - [properties]
+    - [contracts]
+    - [abstraction_actlit_option]
+    - [source]
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
 val mk_trans_sys :
+
   string list ->
+  (** Scope. *)
+
   StateVar.t list ->
+  (** State variables. *)
+
   UfSymbol.t * (Var.t list * Term.t) ->
+  (** Init predicate definition. *)
+
   UfSymbol.t * (Var.t list * Term.t) ->
+  (** Trans predicate definition. *)
+
   t list ->
+  (** Subsystems. *)
+
   (string * TermLib.prop_source * Term.t) list ->
-  (string * TermLib.contract_source * Term.t list * Term.t list) list ->
+  (** Properties. *)
+
+  (StateVar.t * StateVar.t * contract list) option ->
+  (** Contracts. *)
+
   source ->
+  (** Source of the system. *)
+
   t
 
 (** Add entry for new system instantiation to the transition system *)
-val add_caller : t -> t -> (StateVar.t * StateVar.t) list * (Term.t -> Term.t) -> unit
+val add_caller :
+  t -> t ->
+  (StateVar.t * StateVar.t) list * (Term.t -> Term.t) ->
+  unit
+
+val get_callers : t -> t list
 
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
@@ -93,12 +133,14 @@ val pp_print_uf_def : Format.formatter -> pred_def -> unit
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
+(** Pretty-print the name of a transition system *)
+val pp_print_trans_sys_name : Format.formatter -> t -> unit
+
+(** Pretty-print a transition system *)
+val pp_print_trans_sys_contract_view : Format.formatter -> t -> unit
+
 (** Get the required logic for the SMT solver *)
-val get_logic : t -> Term.logic
-                       
-(** Instantiates a term for all (over)systems instantiating, possibly
-    more than once, the input system. *)
-val instantiate_term: t -> Term.t -> (t * Term.t list) list
+val get_logic : t -> TermLib.logic
                                                        
 (** Instantiates a term for the top system by going up the system
    hierarchy, for all instantiations of the input system. Returns the
@@ -107,11 +149,11 @@ val instantiate_term: t -> Term.t -> (t * Term.t list) list
    input system/term of the function will be in the result, either as
    intermediary or top level. *)
 val instantiate_term_all_levels:
-  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+  t -> t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
 (** Instantiates a term for the top system by going up the system
     hierarchy, for all instantiations of the input system. *)
-val instantiate_term_top: t -> Term.t -> Term.t list
+val instantiate_term_top: t -> t -> Term.t -> Term.t list
 
 (** Number of times this system is instantiated in other systems. *)
 val instantiation_count: t -> int
@@ -137,30 +179,37 @@ val init_term : t -> Term.t
 (** Definition of the transition relation *)
 val trans_term : t -> Term.t
 
+(** The abstraction of the system. *)
+val get_abstraction : t -> string list list
+
+(** Sets the abstraction for a system. *)
+val set_abstraction : t -> string list list -> unit
+
 (** The contracts of a system. *)
 val get_contracts :
-  t ->
-  (string
-   * TermLib.contract_source
-   * Term.t list
-   * Term.t list
-   * prop_status) list
+  t -> (Lib.position * StateVar.t * string) list
+
+(** For a system, returns [Some true] if all contracts are invariants,
+    [Some false] if at least one of the contracts is falsified, and
+    [None] otherwise --i.e. some contracts are unknown / k-true. *)
+(* val verifies_contracts : t -> bool option *)
 
 (** The contracts of a system, as a list of implications. *)
-val get_contracts_implications : t -> (string * Term.t) list
+(* val get_contracts_implications : t -> (string * Term.t) list *)
 
 
 (** The subsystems of a system. *)
 val get_subsystems : t -> t list
+
+(** Returns all the subsystems of a system in reverse topological
+    order. *)
+val get_all_subsystems : t -> t list
 
 (** The state variables of a transition system. *)
 val state_vars : t -> StateVar.t list
 
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
-
-(** Returns the max depth of a transition system. *)
-val get_max_depth : t -> Numeral.t
 
 (** Return the scope of the transition system *)
 val get_scope : t -> string list
@@ -181,20 +230,11 @@ val vars_of_bounds :
     offsets. *)
 val declare_vars_of_bounds :
   t -> (UfSymbol.t -> unit) ->
+  (Term.t -> unit) ->
   Numeral.t -> Numeral.t -> unit
 
 (** The init flag of a transition system, as a [Var]. *)
 val init_flag_of_trans_sys : t -> Numeral.t -> Var.t
-
-(** The depth input of a transition system, as a [Var]. *)
-val depth_input_of_trans_sys : t -> Var.t
-
-(** The max depth input of a transition system, as a [Var]. *)
-val max_depth_input_of_trans_sys : t -> Var.t
-
-(** Constrains the top level depth and max depth inputs. The second
-    argument is the value to constrain the max depth input to. *)
-val depth_inputs_constraint : t -> Numeral.t -> Term.t
 
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : t -> Numeral.t -> Term.t
@@ -210,8 +250,17 @@ val trans_fun_of : t -> Numeral.t -> Numeral.t -> Term.t
 (** Instantiate all properties to the bound *)
 val props_of_bound : t -> Numeral.t -> Term.t
 
+(** Instantiate all not valid properties to the bound *)
+val props_of_bound_not_valid : t -> Numeral.t -> Term.t
+
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
+
+(** Instantiate all not valid properties to the bound *)
+val props_list_of_bound_not_valid : t -> Numeral.t -> (string * Term.t) list 
+
+(** Instantiate all unknown properties to the bound *)
+val props_list_of_bound_unknown : t -> Numeral.t -> (string * Term.t) list 
 
 (** Get property by name *)
 val named_term_of_prop_name : t -> string -> Term.t
@@ -254,19 +303,48 @@ val get_prop_status_all : t -> (string * prop_status) list
 val get_prop_status_all_unknown : t -> (string * prop_status) list
 
 (** Return current status of property *)
-val get_prop_status : t -> string -> prop_status 
+val get_prop_status : t -> string -> prop_status
+
+(** Returns the source of a property. *)
+val get_prop_source : t -> string -> TermLib.prop_source option
 
 (** Mark current status of property *)
 val set_prop_status : t -> string -> prop_status -> unit
 
 (** Mark property as invariant *)
-val set_prop_invariant : t -> string -> unit 
+val set_prop_invariant : t -> string -> Term.t list
 
 (** Mark property as false *)
 val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
 
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
+
+(** Resets properties with a status different from [PropValid] to
+    [PropUnknown]. This is used in compositional and modular analysis
+    when restarting. *)
+val reset_non_valid_props_to_unknown : t -> unit
+
+(** Resets the list of invariants of a system to only the terms of the
+    valid properties. *)
+val reset_invariants : t -> unit
+
+(** Propagates the validity of the properties of a system to its
+    callers. Only properties from annotations and generated ones will
+    be lifted. *)
+val lift_valid_properties : t -> unit
+
+(** Returns true iff all subrequirement properties of the system are
+    invariants. *)
+val subrequirements_valid : t -> bool
+
+(** Returns true iff all subrequirements related to a scope are
+    invariants. *)
+val proved_requirements_of : t -> string list -> bool
+
+(** Returns true if the contract of the input system is an
+    invariant. @raise Not_found if the system has no contracts. *)
+val is_contract_proved : t -> bool
 
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 
@@ -277,24 +355,57 @@ val is_disproved : t -> string -> bool
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool
 
+(** Return true if all properties are valid *)
+val all_props_actually_proved : t -> bool
+
 (** Apply [f] to all uninterpreted function symbols of the transition
     system *)
 val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
-  
-(* (\** Apply [f] to all function definitions of the transition system *\) *)
-(* val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit *)
-                                                                 
-(** Define uf definitions, declare constant state variables and declare
-    variables from [lbound] to [upbound]. *)
-val init_define_fun_declare_vars_of_bounds :
+
+val exists_eval_on_path :
+  pred_def list ->
+  (Eval.value -> bool) ->
+  Term.t ->
+  Model.path -> bool
+
+
+
+(** {1 Abstraction} *)
+
+(** Describes an abstraction of a system. *)
+type abstraction = string list list
+
+(** Pretty prints an abstraction. *)
+val pp_print_trans_sys_abstraction:
+  Format.formatter -> t -> unit
+
+(** Initializes the solver for a system and an abstraction. *)
+val init_solver:
+  ?declare_top_vars_only:bool ->
+  (** Only declare top level variables. *)
+
   t ->
+  (** Transition system. *)
+
+  (string -> unit) ->
+  (** Trace comment. *)
+
   (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (** Define fun. *)
+
   (UfSymbol.t -> unit) ->
-  Numeral.t -> Numeral.t ->
+  (** Declare fun. *)
+
+  (Term.t -> unit) ->
+  (** Assert fun. *)
+
+  Numeral.t ->
+  (** Var declaration lower bound. *)
+
+  Numeral.t ->
+  (** Var declaration upper bound. *)
+
   unit
-
-
-val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> Model.path -> bool
 
 
 (* 
