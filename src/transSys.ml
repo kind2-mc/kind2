@@ -257,6 +257,19 @@ let get_abstraction { abstraction } = abstraction
 let set_abstraction sys abstraction =
   sys.abstraction <- abstraction
 
+(* Returns [Some(true)] if the contract is global, [Some(false)] if it's not,
+   and [None] if the system has no contracts. *)
+let contract_is_global t contract_name =
+  let rec loop = function
+    | Global (_,_,n) :: tail ->
+      if n = contract_name then Some true else loop tail
+    | Mode (_,_,n) :: tail ->
+      if n = contract_name then Some false else loop tail
+    | [] -> None
+  in
+  match t.contracts with
+  | None -> None
+  | Some (_,_,contracts) -> loop contracts
 
 (* Returns the contracts of a system. *)
 let get_contracts = function
@@ -272,6 +285,18 @@ let get_scope t = t.scope
 
 (* Name of the system. *)
 let get_name t = t.scope |> String.concat "/"
+
+(* Source name of the system. *)
+let get_source_name t =
+  let rec loop = function
+    | [ last ] -> last.LustreNode.name |> LustreIdent.string_of_ident false
+    | _ :: tail -> loop tail
+    | [] -> get_name t
+  in
+
+  match t.source with
+  | Lustre list -> loop list
+  | Native -> get_name t
 
 (* Returns all the subsystems of a transition system, including that
    system, by reverse topological order. *)
@@ -329,6 +354,21 @@ let get_all_subsystems sys =
   in
  
   iterate_over_subsystems sys [] []
+
+(* Returns a triplet of the concrete subsystems, the refined ones, and the
+   abstracted ones. Does not contain the input system. *)
+let get_abstraction_split ({ abstraction } as sys) =
+  let rec loop c r a = function
+    | [ top ] -> assert ( top.scope = sys.scope ) ; c, r, a
+    | subsys :: tail ->
+      if List.mem subsys.scope abstraction then loop c r (subsys::a) tail
+      else ( match subsys.contracts with
+        | None -> loop (subsys::c) r a tail
+        | Some _ -> loop c (subsys::r) a tail
+      )
+    | [] -> c, r, a
+  in
+  get_all_subsystems sys |> loop [] [] [] 
 
 let pp_print_trans_sys_name ppf { scope } =
   Format.fprintf

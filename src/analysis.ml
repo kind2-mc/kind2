@@ -332,7 +332,7 @@ let kill_all_kids t =
 
     (* Logging termination status. *)
     Event.log
-      L_fatal
+      L_info
       "Process %a (%d, %a)."
       pp_print_process_status status
       pid
@@ -355,7 +355,7 @@ let kill_all_kids t =
        ( fun (pid, _) -> Unix.kill pid Sys.sigterm ) ;
 
   Event.log
-    L_fatal
+    L_info
     "Waiting for remaining child processes to terminate." ;
 
   (* Don't wait for termination from sigterm for more than one
@@ -376,7 +376,7 @@ let kill_all_kids t =
   then (
     (* No, notifying user. *)
     Event.log
-      L_warn
+      L_info
       "All child processes terminated." ;
     (* All kids are dead, everything is fine. *)
     Ok
@@ -413,7 +413,7 @@ let kill_all_kids t =
       then (
         (* No, notifying user. *)
         Event.log
-          L_warn
+          L_info
           "All child processes terminated." ;
         (* The status from the previous termination loop should be
          ok. *)
@@ -424,7 +424,7 @@ let kill_all_kids t =
       ) else (
         (* Some kids are still alive, can't do much more. *)
         Event.log
-          L_warn
+          L_fatal
           "Some child processes are still alive after sigkill, \
            consider killing them manually." ;
         (* The status from the previous termination loop should NOT be
@@ -581,10 +581,9 @@ let rec polling_loop t =
     (* Check if the analysis is over. *)
     TransSys.all_props_proved t.sys
   then (
-    Event.log
+    Event.log_done
       L_warn
-      "%s All properties proved or disproved in %.3fs."
-      done_tag
+      "All properties proved or disproved in %.3fs."
       (Stat.get_float Stat.total_time) ;
 
     Ok
