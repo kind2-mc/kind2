@@ -864,30 +864,45 @@ let pp_print_path_pt nodes start_at_init ppf model =
 (* Reconstruct Lustre streams from state variables *)
 (***************************************************)
 
-let rec add_to_callpos acc pos clock calls =
+let same_args (inputs, defs) (inputs', defs') =
+  List.for_all2 StateVar.equal_state_vars inputs inputs'(*  && *)
+  (* List.for_all2 LustreExpr.equal_expr defs defs' *)
+
+
+let rec add_to_callpos acc pos clock args calls =
   match calls with
-  | ((pos', nb', clock') as x) :: r ->
-    let c = Lib.compare_pos pos pos' in
-    if c = 0 then raise Exit; (* already in there, abort *)
-    if c > 0 then
+  | ((pos', nb', clock', args') as x) :: r ->
+    let c_pos = Lib.compare_pos pos pos' in
+
+    if c_pos = 0 then raise Exit; (* already in there, abort *)
+
+    if same_args args args' then
+      (* calls with same arguments but at different positions *)
+      (* insert in between with the same number, don't shift anything *)
+      List.rev_append acc ((pos, nb', clock, args) :: calls)
+      
+    else if c_pos > 0 then
       (* continue to look *)
-      add_to_callpos (x :: acc) pos clock r
-    else (* c < 0 *)
+      add_to_callpos (x :: acc) pos clock args r
+
+    else (* c_pos < 0 *)
       (* insert in between and shift the ones on the right *)
       List.rev_append acc
-        ((pos, nb', clock) :: (List.map (fun (p, n, c) -> (p, n+1, c)) calls))
+        ((pos, nb', clock, args) ::
+         (List.map (fun (p, n, c, a) -> (p, n+1, c, a)) calls))
+
   | [] ->
     (* last one or only one *)
-    let nb = match acc with [] -> 0 | (_, n, _) :: _ -> n+1 in
-    List.rev ((pos, nb, clock) :: acc)
+    let nb = match acc with [] -> 0 | (_, n, _, _) :: _ -> n+1 in
+    List.rev ((pos, nb, clock, args) :: acc)
 
 
 
-let register_callpos_for_nb hc lid pos clock =
+let register_callpos_for_nb hc lid pos clock args =
   let is_condact = clock <> None in
   let calls = try Hashtbl.find hc (lid, is_condact) with Not_found -> [] in
   try
-    let new_calls = add_to_callpos [] pos clock calls in
+    let new_calls = add_to_callpos [] pos clock args calls in
     Hashtbl.replace hc (lid, is_condact) new_calls
   with Exit -> () (* already in there *)
 
@@ -896,16 +911,17 @@ let rec pos_to_numbers hc nodes =
   List.iter (fun node ->
       List.iter
         (fun { LustreNode.call_node_name = lid;
-               call_pos = pos; call_clock = clock } -> 
+               call_pos = pos; call_clock = clock;
+               call_inputs = inputs; call_defaults = defs } -> 
 
           (* Format.eprintf "register : %a at %a %s@." *)
           (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
           (*   (match clock with *)
           (*    | None -> "" *)
-          (*    | Some c -> "ON "^ (StateVar.string_of_state_var c));           *)
+          (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)); *)
 
-          register_callpos_for_nb hc lid pos clock
-            
+          register_callpos_for_nb hc lid pos clock (inputs, defs)
+
         ) node.LustreNode.calls
     ) nodes
 
@@ -915,13 +931,14 @@ let get_pos_number hc lid pos =
   (* Lib.pp_print_position pos; *)
   let l =
     (* look for both condact and non condact calls *)
-    (try Hashtbl.find hc (lid, false) with Not_found -> [])
-    @ (try Hashtbl.find hc (lid, true) with Not_found -> [])
+    (try Hashtbl.find hc (lid, false) with Not_found -> []) @
+    (try Hashtbl.find hc (lid, true) with Not_found -> [])
   in
   (* Format.eprintf "[ "; *)
   (* List.iter (fun (p, _) -> Format.eprintf "%a " Lib.pp_print_position p) l; *)
   (* Format.eprintf "]@."; *)
-  let _, n, c = List.find (fun (p, _, _) -> Lib.compare_pos p pos = 0) l in
+  let _, n, c, _ =
+    List.find (fun (p, _, _, _) -> Lib.compare_pos p pos = 0) l in
   n, c
 
 
@@ -934,7 +951,7 @@ let rec get_instances acc hc parents sv =
           let nb, clock = get_pos_number hc lid pos in
           get_instances acc hc ((lid, nb, clock) :: parents) lsv
         with Not_found ->
-          (* was removed by slicin, ingore this instance *)
+          (* was removed by slicing, ingore this instance *)
           acc
       ) acc insts
 

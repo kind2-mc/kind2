@@ -1090,6 +1090,11 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
           []
       in
 
+      (debug certif "(Kind2->JKind): %a -> [ %a ]"
+         StateVar.pp_print_state_var sv
+         (pp_print_list StateVar.pp_print_state_var ", ") jkind_vars
+      end);
+
       (* Fail if variables of properties do not have a jKind equivalent *)
       if prop && jkind_vars = [] then begin
 
@@ -1271,8 +1276,10 @@ let generate_frontend_certificate kind2_sys =
 
   (* Only generate the frontend certificate if the system comes from a Lustre
      file *)
-  | TS.Lustre nodes ->
+  | TS.Lustre _ ->
 
+    let nodes = TS.get_original_lustre_nodes kind2_sys in
+    
     (* Time statistics *)
     Stat.start_timer Stat.certif_frontend_time;
 

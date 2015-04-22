@@ -46,15 +46,15 @@ let s_and = HString.mk_hstring "and"
 
 
 (**************************************)
-(* General settings for jKind parsing *)
+(* General settings for JKind parsing *)
 (**************************************)
 
-(* New scope for the jKind system *)
-let jkind_scope = ["jKind"]
+(* New scope for the JKind system *)
+let jkind_scope = ["JKind"]
 
 
-(* Options used to run jKind. We make it dump its smt2 files that contain the
-   transition relation. Everything is disabled so that jKind only produces one
+(* Options used to run JKind. We make it dump its smt2 files that contain the
+   transition relation. Everything is disabled so that JKind only produces one
    file [<file.lus>.bmc.smt2] containing one instance of the transition
    relation and the state variables. *)
 let jkind_options = [
@@ -68,7 +68,7 @@ let jkind_options = [
 ]
 
 
-(* Create command line to call jKind *)
+(* Create command line to call JKind *)
 let jkind_command_line file =
   let jkind = Flags.jkind_bin () in
   let file_red =
@@ -78,22 +78,22 @@ let jkind_command_line file =
 
 
 (******************************************)
-(* jKind state variables from Lustre name *)
+(* JKind state variables from Lustre name *)
 (******************************************)
 
 (* Simple heuristic to see if a state variable is an observer (which are named
-   differently in jKind when they appear under a condact) *)
+   differently in JKind when they appear under a condact) *)
 let is_observer sv =
   Lib.string_starts_with (StateVar.name_of_state_var sv)
     LustreIdent.observer_ident_string
 
-(* Returns a state variable of jKind form a state variable of Kind 2 and a
+(* Returns a state variable of JKind form a state variable of Kind 2 and a
    callsite information *)
 let jkind_var_of_lustre kind_sv (li, parents) =
 
   let base_li = match List.rev parents with
     | (_, _, Some clock) :: _ when StateVar.equal_state_vars li clock ->
-      (* the var is the clock, always named ~clock in jKind *)
+      (* the var is the clock, always named ~clock in JKind *)
       "~clock"
         
     | (_, _, Some _) :: _
@@ -123,31 +123,26 @@ let jkind_var_of_lustre kind_sv (li, parents) =
   let str = Format.sprintf "$%s$" (String.concat "." strs) in
   (* add -1 for constants *)
   let str = if StateVar.is_const kind_sv then str ^"~1" else str in
+  
+  (* Format.eprintf "kindsv:%a -> jkind? %s@." StateVar.pp_print_state_var kind_sv str; *)
+  
   (* get previously constructed jkind variable *)
   StateVar.state_var_of_string (str, jkind_scope)
 
 
-(* Returns all jKind variables corresponding to a Kind2 variable *)
+(* Returns all JKind variables corresponding to a Kind2 variable *)
 let jkind_vars_of_kind2_statevar lustre_vars sv =
   let lus_vs = SVMap.find sv lustre_vars in
-  let jkvars = List.map (jkind_var_of_lustre sv) lus_vs in
-  
-  (debug certif "(Kind2->jKind): %a -> %a"
-     StateVar.pp_print_state_var sv
-     (pp_print_list StateVar.pp_print_state_var ", ") jkvars
-  end);
-
-  jkvars
-    
+  List.map (jkind_var_of_lustre sv) lus_vs    
 
 
 (*******************************)
-(* Parsing of jKind dump files *)
+(* Parsing of JKind dump files *)
 (*******************************)
 
-(* The type of raw systems extracted from jKind dump file. It only contains the
+(* The type of raw systems extracted from JKind dump file. It only contains the
    state variables and a lambda expression for the transition relation. (Note:
-   jKind uses the same term for [init] and [trans]. [init] is the partial
+   JKind uses the same term for [init] and [trans]. [init] is the partial
    application [jk_trans_lambda true] and [trans] is the partial application
    [jk_trans_lambda false].)*)
 type jkind_raw = {
@@ -172,7 +167,7 @@ let rec vars_of_args acc = function
   | _ -> failwith "Not a variable"
 
 
-(* Get the state varaible name from a jKind name (remove instance info) *)
+(* Get the state varaible name from a JKind name (remove instance info) *)
 let state_var_name_of_jkdecl h =
   let s = HString.string_of_hstring h in
   try Scanf.sscanf s "$%s@$~1" (fun x -> "$"^x^"$")
@@ -183,7 +178,7 @@ let state_var_name_of_jkdecl h =
 let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
 
 
-(* Parse a list of s-expressions and return a raw jKind system *)
+(* Parse a list of s-expressions and return a raw JKind system *)
 let rec parse acc = function
 
   (* Ignore set-option *)
@@ -251,7 +246,7 @@ let rec parse acc = function
 
 
   (* Unsupported *)
-  | _ -> failwith "Unsupported sexp in jKind output"
+  | _ -> failwith "Unsupported sexp in JKind output"
 
 
 
@@ -336,7 +331,7 @@ let of_channel in_ch =
   (* Predicate symbol for initial state predicate *)
   let init_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.init_uf_string ^ "_jKind") 
+      (LustreIdent.init_uf_string ^ "_JKind") 
       vars_types
       Type.t_bool 
   in
@@ -344,12 +339,12 @@ let of_channel in_ch =
   (* Predicate symbol for transition relation predicate *)
   let trans_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.trans_uf_string ^ "_jKind") 
+      (LustreIdent.trans_uf_string ^ "_JKind") 
       (vars_types @ vars_types)
       Type.t_bool 
   in
 
-  (debug certif "jKind Lambda:\n%a" Term.pp_print_lambda jk_trans_lambda
+  (debug certif "JKind Lambda:\n%a" Term.pp_print_lambda jk_trans_lambda
    end);
 
 (* Term for initial states and new constant oracles. We do a simplification
@@ -387,7 +382,7 @@ let of_channel in_ch =
     TransSys.Native
 
 
-(* Return a transition system extracted from a call to jKind. *)
+(* Return a transition system extracted from a call to JKind. *)
 let get_jkind_transsys file =
 
   (* Make temporary copy of input file *)
@@ -397,18 +392,18 @@ let get_jkind_transsys file =
 
   (debug certif "Temporary file %s" tmp end);
   
-  (* Run jKind on temporary copy *)
+  (* Run JKind on temporary copy *)
   let cmd = jkind_command_line tmp in
 
-  (debug certif "jKind command line: %s" cmd end);
+  (debug certif "JKind command line: %s" cmd end);
 
   if Sys.command cmd <> 0 then
-    failwith "jKind execution failed";
+    failwith "JKind execution failed";
 
   (* open dump file and parse *)
   let dump_file = tmp ^ ".bmc.smt2" in
 
-  (debug certif "Parsing from jKind dump file: %s" dump_file end);
+  (debug certif "Parsing from JKind dump file: %s" dump_file end);
 
   let in_ch = open_in dump_file in
   let sys = of_channel in_ch in

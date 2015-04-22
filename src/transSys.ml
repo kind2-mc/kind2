@@ -154,6 +154,9 @@ type t = {
 
   (* The logic fragment in which is expressed the system and its properties. *)
   logic: TermLib.logic;
+
+  (* The lustre nodes before slicing *)
+  mutable original_lustre_nodes : LustreNode.t list;
   
   (* Invariants *)
   mutable invars: (Term.t * Certificate.t) list;
@@ -554,6 +557,12 @@ let state_vars t = t.state_vars
 (* Return the input used to create the transition system *)
 let get_source t = t.source
 
+(* Return the Luste nodes before slicing *)
+let get_original_lustre_nodes t = t.original_lustre_nodes
+
+(* Register the Luste nodes before slicing *)
+let set_original_lustre_nodes t nodes = t.original_lustre_nodes <- nodes
+
 (* Return the input used to create the transition system *)
 let get_scope t = t.scope
 
@@ -672,6 +681,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
       subsystems = subsystems ;
       logic = logic;
       source = source ;
+      original_lustre_nodes = [];
       invars = invars_of_types ;
       callers = []; }
   in

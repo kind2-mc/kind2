@@ -119,6 +119,9 @@ let of_channel keep_all_coi in_ch =
     LustreTransSys.trans_sys_of_nodes nodes_coi
   in
 
+  (* Remember nodes before slicing *)
+  TransSys.set_original_lustre_nodes trans_sys nodes;
+  
   (debug lustreInput 
       "%a"
       TransSys.pp_print_trans_sys trans_sys

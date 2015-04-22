@@ -159,6 +159,12 @@ val state_vars : t -> StateVar.t list
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
 
+(** Return the Luste nodes before slicing *)
+val get_original_lustre_nodes : t -> LustreNode.t list
+
+(** Register the Luste nodes before slicing *)
+val set_original_lustre_nodes : t -> LustreNode.t list -> unit
+
 (** Return the scope of the transition system *)
 val get_scope : t -> string list
 
