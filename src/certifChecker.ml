@@ -1084,11 +1084,7 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
   List.fold_left (fun acc sv ->
 
       let jkind_vars =
-        try JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv
-        with Not_found ->
-          (* Ignore if this variable does not have a Lustre counterpart *)
-          []
-      in
+        JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv in
 
       (debug certif "(Kind2->JKind): %a -> [ %a ]"
          StateVar.pp_print_state_var sv

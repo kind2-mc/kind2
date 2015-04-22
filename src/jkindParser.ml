@@ -133,7 +133,11 @@ let jkind_var_of_lustre kind_sv (li, parents) =
 (* Returns all JKind variables corresponding to a Kind2 variable *)
 let jkind_vars_of_kind2_statevar lustre_vars sv =
   let lus_vs = SVMap.find sv lustre_vars in
-  List.map (jkind_var_of_lustre sv) lus_vs    
+  List.fold_left (fun acc lv ->
+      try jkind_var_of_lustre sv lv :: acc
+      with Not_found -> acc
+    ) [] lus_vs
+  |> List.rev
 
 
 (*******************************)
