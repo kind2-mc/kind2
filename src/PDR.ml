@@ -30,7 +30,9 @@ let deactivate_actlit = true
 let dead_actlits = ref []
 
 let debug_check_sat_assuming s fu fs l =
-  assert (not (List.exists (fun a1 -> List.exists (fun a2 -> Term.equal a1 a2) !dead_actlits) l));
+  if debug_assert then
+    assert (not (List.exists (fun a1 -> List.exists (fun a2 -> Term.equal a1 a2) !dead_actlits) l));
+  
   SMTSolver.check_sat_assuming s fu fs l
       
 let generalize_after_fwd_prop = true
@@ -1660,21 +1662,21 @@ let fwd_propagate solver trans_sys prop_set frames =
 
       (* Inductive generalization after forward propagation? *)
       if generalize_after_fwd_prop then
-        
+
         (Stat.time_fun Stat.pdr_ind_gen_time
            (fun () -> 
-             ind_generalize 
-               solver
-               prop_set
-               (F.values a |> List.map C.actlit_p0_of_clause)
-               c
-               (C.literals_of_clause c)))
-          
+              ind_generalize 
+                solver
+                prop_set
+                (F.values a |> List.map C.actlit_p0_of_clause)
+                c
+                (C.literals_of_clause c)))
+
       else
 
         (* Propagate clause as it is *)
         c
-          
+
     in
 
     (* Literals of clause as key for trie *)
@@ -1685,7 +1687,7 @@ let fwd_propagate solver trans_sys prop_set frames =
 
       (* Is clause subsumed in frame? *)
       if F.is_subsumed a l then
-        
+
         (
 
           SMTSolver.trace_comment
@@ -1694,7 +1696,7 @@ let fwd_propagate solver trans_sys prop_set frames =
                "@[<v>Clause is subsumed in frame@,%a@]"
                (pp_print_list Term.pp_print_term "@,")
                (F.values a |> List.map C.actlit_p0_of_clause));
-          
+
           (* Deactivate activation literals of subsumed clause *)
           deactivate_clause solver c';
 
@@ -1703,23 +1705,23 @@ let fwd_propagate solver trans_sys prop_set frames =
 
           (* Drop clause from frame *)
           a)
-          
+
       else
 
         (* Subsume in frame with clause *)
         F.subsume a l
 
-    (* Increment statistics *)
-    |> count_subsumed solver
+        (* Increment statistics *)
+        |> count_subsumed solver
 
-    (* Deactivate activation literals of subsumed clauses *)
-    |> deactivate_subsumed solver
+        (* Deactivate activation literals of subsumed clauses *)
+        |> deactivate_subsumed solver
 
-    (* Continue with frame after subsumption *)
-    |> snd
-        
-    (* Add clause to frame  *)
-    |> F.add l c'
+        (* Continue with frame after subsumption *)
+        |> snd
+
+        (* Add clause to frame  *)
+        |> F.add l c'
 
     else
 
@@ -1735,10 +1737,10 @@ let fwd_propagate solver trans_sys prop_set frames =
            a)
         else
           F.subsume a l
-        |> count_subsumed solver
-        |> deactivate_subsumed solver
-        |> snd
-        |> F.add l c'
+          |> count_subsumed solver
+          |> deactivate_subsumed solver
+          |> snd
+          |> F.add l c'
 
   in
 
@@ -1778,9 +1780,25 @@ let fwd_propagate solver trans_sys prop_set frames =
 
               (
 
+                let empty_prop_set = C.prop_set_of_props solver [] in
+
+                let inductive_clauses_gen = 
+                  List.map
+                    (fun c ->
+                       (Stat.time_fun Stat.pdr_ind_gen_time
+                          (fun () -> 
+                             ind_generalize 
+                               solver
+                               empty_prop_set
+                               []
+                               c
+                               (C.literals_of_clause c))))
+                    inductive_clauses
+                in
+
                 (* Convert clauses to terms *)
                 let inductive_terms =
-                  List.map C.term_of_clause inductive_clauses 
+                  List.map C.term_of_clause inductive_clauses_gen 
                 in
 
                 (* Broadcast inductive clauses as invariants *)
