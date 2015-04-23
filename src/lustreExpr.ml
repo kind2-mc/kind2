@@ -2058,7 +2058,7 @@ let mk_pre
         t == Term.t_true || 
         t == Term.t_false || 
         (Term.is_free_var t && 
-        Term.free_var_of_term t |> Var.is_const_state_var) ||
+         Term.free_var_of_term t |> Var.is_const_state_var) ||
         (match Term.destruct t with 
           | Term.T.Const c1 when 
               Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
@@ -2182,6 +2182,22 @@ let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 (* Return true if expression is a previous state variable *)
 let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
 
+
+(* Return true if the expression is constant *)
+let is_const { expr_init; expr_step } = 
+
+  (* Are all variables in the expression constant? *)
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr_init)
+    
+  &&
+
+  (* Are all variables in the expression constant? *)
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr_step)
+    
 
 (* Return the state variable of a variable *)
 let state_var_of_expr ({ expr_init; expr_step } as expr) = 
