@@ -650,14 +650,23 @@ let minimize_certificate sys =
   (* The property we want to re-verify the conjunction of all the properties *)
   let prop = Term.mk_and props in
 
-  (* Depending on the minimizxation strategy, we use different variants to find
+  let min_strategy = match Flags.certif_min () with
+    | `No -> assert false
+    | (`Fwd | `Bwd | `Dicho) as s -> s
+    | `Auto ->
+      (* Heuristic to find best strategy *)
+      if k <= 3 then `Fwd
+      else if k <= 20 then `Dicho
+      else `Bwd
+  in
+      
+  (* Depending on the minimization strategy, we use different variants to find
      the minimum bound kmin, and the set of useful invariants for the proof of
      prop *)
-  let kmin, uinvs = match Flags.certif_min () with
+  let kmin, uinvs = match min_strategy with
     | `Fwd -> find_bound sys solver 1 k invs prop
     | `Bwd -> find_bound_back sys solver k invs prop
     | `Dicho -> find_bound_dicho sys solver k invs prop
-    | `No -> assert false
   in
 
   (* We are done with this step of minimization and we don't neet the solver
