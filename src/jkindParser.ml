@@ -87,48 +87,74 @@ let is_observer sv =
   Lib.string_starts_with (StateVar.name_of_state_var sv)
     LustreIdent.observer_ident_string
 
-(* Returns a state variable of JKind form a state variable of Kind 2 and a
-   callsite information *)
-let jkind_var_of_lustre kind_sv (li, parents) =
-
-  let base_li = match List.rev parents with
-    | (_, _, Some clock) :: _ when StateVar.equal_state_vars li clock ->
-      (* the var is the clock, always named ~clock in JKind *)
-      "~clock"
-        
-    | (_, _, Some _) :: _
-      when not (StateVar.is_input li) && is_observer kind_sv ->
-      (* clocked property variable *)
-      (StateVar.name_of_state_var li) ^"~clocked_property"
-
-    | (_, _, Some _) :: _ when not (StateVar.is_input li) ->
-      (* other clocked variable *)
-      (StateVar.name_of_state_var li) ^"~clocked"
-      
-    | _ -> StateVar.name_of_state_var li
-  in
+let build_call_base kind_sv base_li parents =
   
-  let strs = List.fold_left (fun acc (ni, n, clock) ->
+  let strs, _ = List.fold_left (fun (acc, prev_clocked) (ni, n, clock) ->
 
       let bni = List.hd (LustreIdent.scope_of_ident ni) in
 
-      let jcall_name = match clock with
-        | None -> bni ^"~"^ (string_of_int n)
-        | Some _ -> bni ^"~condact~"^ (string_of_int n)
+      let jcall_name = match clock, prev_clocked with
+        | None, false -> bni ^"~"^ (string_of_int n)
+        | None, true -> bni ^"~clocked~"^ (string_of_int n)
+        | Some _, _ -> bni ^"~condact~"^ (string_of_int n)
       in
-      
-      jcall_name :: acc
-    ) [base_li] (List.rev parents) in
+
+      jcall_name :: acc, (clock <> None)
+    ) ([], false) parents
+  in
+
+  let strs = List.rev (base_li :: strs) in
   
   let str = Format.sprintf "$%s$" (String.concat "." strs) in
   (* add -1 for constants *)
   let str = if StateVar.is_const kind_sv then str ^"~1" else str in
   
-  (* Format.eprintf "kindsv:%a -> jkind? %s@." StateVar.pp_print_state_var kind_sv str; *)
+  Format.eprintf "kindsv:%a -> jkind? %s@." StateVar.pp_print_state_var kind_sv str;
   
   (* get previously constructed jkind variable *)
   StateVar.state_var_of_string (str, jkind_scope)
 
+
+(* Returns a state variable of JKind form a state variable of Kind 2 and a
+   callsite information *)
+let jkind_var_of_lustre kind_sv (li, parents) =
+
+  let base_li = match parents, List.rev parents with
+    | _, (_, _, Some clock) :: _ when StateVar.equal_state_vars li clock ->
+      (* the var is the clock, always named ~clock in JKind *)
+      "~clock"
+        
+    | (_, _, Some _) :: _, _
+      when not (StateVar.is_input li) && is_observer kind_sv ->
+      (* clocked property variable *)
+      (StateVar.name_of_state_var li) ^"~clocked_property"
+
+    | (_, _, Some _) :: _, _ when not (StateVar.is_input li) ->
+      (* other clocked variable *)
+      (StateVar.name_of_state_var li) ^"~clocked"
+      
+    | _ -> StateVar.name_of_state_var li
+  in
+
+  build_call_base kind_sv base_li parents
+
+
+let match_condact_clock lustre_vars sv =
+  let clocks_calls =
+    SVMap.fold (fun _ l acc ->
+        List.fold_left (fun acc (_, call_chain) ->
+            match List.rev call_chain with
+            | (_, _, Some clock) :: _ when StateVar.equal_state_vars sv clock ->
+              let cl = (sv, "~clock", call_chain) in
+              if List.mem cl acc then acc else cl :: acc
+            | _ -> acc
+          ) acc l
+      ) lustre_vars []
+  in
+
+  List.map (fun (sv, base_li, parents) -> build_call_base sv base_li parents)
+    clocks_calls
+  
 
 (* Returns all JKind variables corresponding to a Kind2 variable *)
 let jkind_vars_of_kind2_statevar lustre_vars sv =
@@ -137,7 +163,8 @@ let jkind_vars_of_kind2_statevar lustre_vars sv =
       try jkind_var_of_lustre sv lv :: acc
       with Not_found -> acc
     ) [] lus_vs
-  |> List.rev
+  |> List.rev_append (match_condact_clock lustre_vars sv)
+       
 
 
 (*******************************)

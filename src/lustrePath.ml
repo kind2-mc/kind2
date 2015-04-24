@@ -864,26 +864,37 @@ let pp_print_path_pt nodes start_at_init ppf model =
 (* Reconstruct Lustre streams from state variables *)
 (***************************************************)
 
-let same_args (inputs, defs) (inputs', defs') =
-  List.for_all2 StateVar.equal_state_vars inputs inputs'(*  && *)
-  (* List.for_all2 LustreExpr.equal_expr defs defs' *)
+let same_args abstr_map (inputs, defs) (inputs', defs') =
+  List.for_all2 (fun a1 a2 ->
+      StateVar.equal_state_vars a1 a2 ||
+      (* can be abstractions *)
+      try
+        let e1 = SVMap.find a1 abstr_map in
+        let e2 = SVMap.find a2 abstr_map in
+        LustreExpr.equal_expr e1 e2
+      with Not_found -> false)
+    inputs inputs' &&
+  List.for_all2 LustreExpr.equal_expr defs defs'
 
 
-let rec add_to_callpos acc pos clock args calls =
+let rec add_to_callpos abstr_map acc pos clock args calls =
   match calls with
   | ((pos', nb', clock', args') as x) :: r ->
     let c_pos = Lib.compare_pos pos pos' in
 
     if c_pos = 0 then raise Exit; (* already in there, abort *)
-
-    if same_args args args' then
+    
+    if same_args abstr_map args args' then let _ =() in Format.eprintf "\nICI\n@.";
       (* calls with same arguments but at different positions *)
       (* insert in between with the same number, don't shift anything *)
-      List.rev_append acc ((pos, nb', clock, args) :: calls)
-      
+      if c_pos > 0 then
+        List.rev_append acc (x :: (pos, nb', clock, args) :: r)
+      else
+        List.rev_append acc ((pos, nb', clock, args) :: calls)
+          
     else if c_pos > 0 then
       (* continue to look *)
-      add_to_callpos (x :: acc) pos clock args r
+      add_to_callpos abstr_map (x :: acc) pos clock args r
 
     else (* c_pos < 0 *)
       (* insert in between and shift the ones on the right *)
@@ -898,48 +909,76 @@ let rec add_to_callpos acc pos clock args calls =
 
 
 
-let register_callpos_for_nb hc lid pos clock args =
+let register_callpos_for_nb abstr_map hc lid parents pos clock args =
   let is_condact = clock <> None in
-  let calls = try Hashtbl.find hc (lid, is_condact) with Not_found -> [] in
+  let cat =
+    try Hashtbl.find hc (lid, is_condact)
+    with Not_found ->
+      let c = Hashtbl.create 7 in
+      Hashtbl.add hc (lid, is_condact) c;
+      c
+  in
+  let calls = try Hashtbl.find cat parents with Not_found -> [] in
   try
-    let new_calls = add_to_callpos [] pos clock args calls in
-    Hashtbl.replace hc (lid, is_condact) new_calls
+    let new_calls = add_to_callpos abstr_map [] pos clock args calls in
+    Hashtbl.replace cat parents new_calls
   with Exit -> () (* already in there *)
 
   
-let rec pos_to_numbers hc nodes =
-  List.iter (fun node ->
-      List.iter
-        (fun { LustreNode.call_node_name = lid;
-               call_pos = pos; call_clock = clock;
-               call_inputs = inputs; call_defaults = defs } -> 
+let pos_to_numbers abstr_map nodes =
+  let hc = Hashtbl.create 43 in
 
-          (* Format.eprintf "register : %a at %a %s@." *)
-          (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
-          (*   (match clock with *)
-          (*    | None -> "" *)
-          (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)); *)
+  (* let main_node = List.find (fun n -> n.LustreNode.is_main) nodes in *)
+  let main_node = List.hd nodes in
 
-          register_callpos_for_nb hc lid pos clock (inputs, defs)
+  let node_by_lid lid =
+    List.find (fun n -> LustreIdent.equal n.LustreNode.name lid) nodes in
 
-        ) node.LustreNode.calls
-    ) nodes
+  let rec fold parents node =
 
+    List.iter
+      (fun ({ LustreNode.call_node_name = lid;
+             call_pos = pos; call_clock = clock;
+             call_inputs = inputs; call_defaults = defs } as call) -> 
+
+        Format.eprintf "register : %a at %a %s@."
+          (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos
+          (match clock with
+           | None -> ""
+           | Some c -> "ON "^ (StateVar.string_of_state_var c));
+
+        register_callpos_for_nb
+          abstr_map hc lid parents pos clock (inputs, defs);
+
+        fold (call :: parents) (node_by_lid lid)
+
+      ) node.LustreNode.calls
+  in
+
+  fold [] main_node;
+  
+  hc
+
+exception Found of int * StateVar.t option
 
 let get_pos_number hc lid pos =
   (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
   (* Lib.pp_print_position pos; *)
-  let l =
-    (* look for both condact and non condact calls *)
-    (try Hashtbl.find hc (lid, false) with Not_found -> []) @
-    (try Hashtbl.find hc (lid, true) with Not_found -> [])
+
+  let find_in_cat cat =
+    Hashtbl.iter (fun _ l ->
+        List.iter (fun (p, n, c, _) ->
+            if Lib.compare_pos p pos = 0 then raise (Found (n, c)))
+          l
+      ) cat;
+    raise Not_found
   in
-  (* Format.eprintf "[ "; *)
-  (* List.iter (fun (p, _) -> Format.eprintf "%a " Lib.pp_print_position p) l; *)
-  (* Format.eprintf "]@."; *)
-  let _, n, c, _ =
-    List.find (fun (p, _, _, _) -> Lib.compare_pos p pos = 0) l in
-  n, c
+
+  (* look for both condact and non condact calls *)
+  try
+    (try Hashtbl.find hc (lid, false) |> find_in_cat
+     with Not_found -> Hashtbl.find hc (lid, true)  |> find_in_cat);
+  with Found (n,c) -> n, c
 
 
 let rec get_instances acc hc parents sv =
@@ -967,12 +1006,24 @@ let inverse_oracle_map nodes =
         ) node.LustreNode.state_var_oracle_map acc
     ) SVMap.empty nodes
 
+let inverse_expr_map nodes =
+  List.fold_left (fun acc node ->
+      LustreExpr.ExprHashtbl.fold (fun e sv acc ->
+        (debug certif
+           "inverse expr: %a ->>> %a" StateVar.pp_print_state_var sv
+           (LustreExpr.pp_print_lustre_expr false) e
+         end);
+          SVMap.add sv e acc
+        ) node.LustreNode.expr_state_var_map acc
+    ) SVMap.empty nodes
 
 let reconstruct_lustre_streams nodes state_vars =
-  let hc = Hashtbl.create 43 in
+  
+  (* mapback from abstract state variables to expressions *)
+  let abstr_map = inverse_expr_map nodes in
 
   (* convert position to call numbers *)
-  pos_to_numbers hc nodes;
+  let hc = pos_to_numbers abstr_map nodes in
 
   (* mapback from oracles to state vars *)
   let oracle_map = inverse_oracle_map nodes in
