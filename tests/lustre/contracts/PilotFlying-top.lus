@@ -390,33 +390,6 @@ node PFS
 returns 
   (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
 
-
-
---@contract : change_R3_Rise;
-
--- TS rised less_eq than all_ticked_max (7) steps ago.
---@require Since(Rise(TS) and (false -> not (pre RPFS and pre LPFS))) = all_ticked_max ;
-
--- The last fall of a PFS had enough time to leave its inhibited state before
--- the rise, or did not happen.
---@require SinceGTOrZero(Fall(false -> pre RPFS) or Fall(true -> pre LPFS), 
-side_stabilization_max + all_ticked_max + 1) ;
-
--- As soon as the rise has had enough time to be taken into account, there
--- should have been one and exactly one rise during that time.
---@ensure  OnceWithin(Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)), all_ticked_max) ;
-
-
-
---@contract : change_R3_Fall;
-
--- One side rised.
---@require Since(Rise(true -> pre LPFS) or Rise(false -> pre RPFS)) = side_comm_stabilization_max  ;
-
--- If enough time after this event has passed, then there should have been one
--- and only one fall during that event
---@ensure OnceWithin(Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)), side_comm_stabilization_max) ;
-
 var
   global_ens,
   stable_req, stable_ens,
