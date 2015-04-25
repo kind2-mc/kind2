@@ -40,6 +40,8 @@ let generalize_after_fwd_prop = true
 let subsume_in_block = false
 
 let subsume_in_fwd_prop = true
+
+let add_to_r0 = false
   
 (* ********************************************************************** *)
 (* Solver instances and cleanup                                           *)
@@ -999,15 +1001,21 @@ let rec block solver trans_sys prop_set term_tbl =
             trace
         in
 
-(*
+        (* Combine clauses from higher frames to get the actual
+           clauses of the delta-encoded frame R_i-1
+
+           Get clauses in R_i..R_k from [trace], R_i-1 is first frame
+           in [frames]. *)
         let clauses_r_pred_i, actlits_p0_r_pred_i = 
 
-          List.fold_left
-
+          if add_to_r0 then
+          
+            List.fold_left
+              
             (* Join lists of clauses *)
-            (fun (ac, al) (_, r) ->
-              (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
-
+              (fun (ac, al) (_, r) ->
+                (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
+              
             (* May be empty *)
             ((match frames with 
               (* Special case: R_0 = I *)
@@ -1019,16 +1027,8 @@ let rec block solver trans_sys prop_set term_tbl =
             
             trace
 
-        in
-*)
-
-        (* Combine clauses from higher frames to get the actual
-           clauses of the delta-encoded frame R_i-1
-
-           Get clauses in R_i..R_k from [trace], R_i-1 is first frame
-           in [frames]. *)
-        let clauses_r_pred_i, actlits_p0_r_pred_i = 
-
+          else
+            
           (* May be empty *)
           match frames with
               
@@ -1434,13 +1434,13 @@ let rec partition_rel_inductive
     not_inductive
     maybe_inductive = 
   
+  (* Use activation literals of clauses on lhs *)
+  let actlits_p0 = 
+    List.map C.actlit_p0_of_clause (frame @ maybe_inductive) 
+  in
+
   (* Conjunction of clauses *)
   let clauses = Term.mk_and (List.map C.term_of_clause maybe_inductive) in
-
-  (* Assert p0 => C_1 & ... & C_n *)
-  let actlit_p0 = 
-    C.create_and_assert_fresh_actlit solver "rel_ind" clauses C.Actlit_p0
-  in
 
   (* Assert p0 => ~(C_1' & ... & C_n') *)
   let actlit_n1 = 
@@ -1453,15 +1453,15 @@ let rec partition_rel_inductive
 
     (* Deactivate activation literal *)
     if deactivate_actlit then 
-      (Term.mk_not actlit_p0 |> SMTSolver.assert_term solver;
-       Term.mk_not actlit_n1 |> SMTSolver.assert_term solver;
+      (Term.mk_not actlit_n1 |> SMTSolver.assert_term solver;
 
-       dead_actlits :=
-         actlit_p0 :: actlit_n1 :: !dead_actlits;
+       dead_actlits := actlit_n1 :: !dead_actlits;
        
-       Stat.incr ~by:2 Stat.pdr_stale_activation_literals);
+       Stat.incr Stat.pdr_stale_activation_literals);
         
-    not_inductive, maybe_inductive in
+    not_inductive, maybe_inductive
+
+  in
 
   (* Some candidate clauses are not inductive: filter out the ones
      that could still be *)
@@ -1469,7 +1469,6 @@ let rec partition_rel_inductive
     
     (* Get model for failed entailment check *)
     let model =
-      (* SMTSolver.get_model solver *)
       SMTSolver.get_var_values
         solver
         (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
@@ -1495,13 +1494,11 @@ let rec partition_rel_inductive
     
     (* Deactivate activation literal *)
     if deactivate_actlit then 
-      (Term.mk_not actlit_p0 |> SMTSolver.assert_term solver;
-       Term.mk_not actlit_n1 |> SMTSolver.assert_term solver;
+      (Term.mk_not actlit_n1 |> SMTSolver.assert_term solver;
 
-       dead_actlits :=
-         actlit_p0 :: actlit_n1 :: !dead_actlits;
+       dead_actlits := actlit_n1 :: !dead_actlits;
        
-       Stat.incr ~by:2 Stat.pdr_stale_activation_literals);
+       Stat.incr Stat.pdr_stale_activation_literals);
         
     (* No clauses are inductive? *)
     if maybe_inductive = [] then (not_inductive', []) else
@@ -1528,7 +1525,7 @@ let rec partition_rel_inductive
     solver
     some_clauses_not_inductive 
     all_clauses_inductive
-    (actlit_p0 :: actlit_n1 :: List.map C.actlit_p0_of_clause frame)
+    (actlit_n1 :: actlits_p0)
     
 
 
@@ -1541,9 +1538,7 @@ let partition_fwd_prop
     frame
     clauses = 
 
-  (* Assert p0 => C_1 & ... & C_n
-
-     Use the same activation literal on lhs for all checks *)
+  (* Use activation literals of clauses on lhs *)
   let actlits_p0 =
     List.map C.actlit_p0_of_clause (frame @ clauses) 
   in
@@ -1574,7 +1569,6 @@ let partition_fwd_prop
 
       (* Get model for failed entailment check *)
       let model =
-        (* SMTSolver.get_model solver *)
         SMTSolver.get_var_values
           solver
           (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
