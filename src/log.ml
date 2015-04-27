@@ -57,10 +57,11 @@ type prop_info =
   (* Mutually valid properties with info. *)
   | PropsValid of (string list) * valid_props_info
   (* Ktrue property with info. *)
-  | PropKTrue  of  string       * Numeral.t
+  | PropKTrue  of  string       * int
   (* Falsified property with info. *)
   | PropFalse  of  string       * kind_module * Numeral.t
                                 * (StateVar.t * Model.term_or_lambda list) list
+  | PropUnknown of string
 
 (* Type for identifying abstraction sublogs. Hidden to the user so
    that the order does not change. Upon creation of an asbtraction
@@ -224,6 +225,15 @@ let add_prop_info log sys prop_info =
   |> ( fun ({ prop_infos } as sublog) ->
        sublog.prop_infos <- prop_info :: prop_infos )
 
+(* Adds all unknown / k-true properties to the log. *)
+let close_log log sys =
+  TransSys.get_prop_status_all_unknown sys
+  |> List.iter (function
+    | (s, TransSys.PropKTrue k) -> PropKTrue (s,k) |> add_prop_info log sys
+    | (s, TransSys.PropUnknown) -> PropUnknown s |> add_prop_info log sys
+    | _ -> assert false
+  )
+
 (* Updates a log from a list of events. *)
 let rec update_of_events log sys = function
   | (modul, Event.PropStatus (prop, TransSys.PropInvariant))
@@ -303,9 +313,9 @@ let pp_print_prop_info ppf = function
   (* pp_print_valid_props_info valid_props_info *)
   | PropKTrue (prop, k) ->
      Format.fprintf
-       ppf "@[<v 4>PropKTrue [%s]@ at %a@]"
+       ppf "@[<v 4>PropKTrue [%s]@ at %d@]"
        prop
-       Numeral.pp_print_numeral k
+       k
   | PropFalse (prop, modul, k, _) ->
      Format.fprintf
        ppf "@[<v 4>PropFalse [%s]@ at %a@ \
@@ -375,7 +385,16 @@ let pp_print_abstraction_sublog_shy
               "False by %a: %s"
               pp_print_kind_module mdl
               prop
-         | _ -> () )
+         | PropKTrue (prop,k) ->
+            Format.fprintf
+              ppf
+              "True up to %d: %s"
+              k prop
+         | PropUnknown prop ->
+            Format.fprintf
+              ppf
+              "Unknown: %s"
+              prop )
        "@ ")
     prop_infos
 

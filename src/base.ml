@@ -22,6 +22,8 @@ open Actlit
 
 let solver_ref = ref None
 
+exception UnsatInitExc
+
 (* Output statistics *)
 let print_stats () = 
 
@@ -92,6 +94,18 @@ let split trans solver k falsifiable to_split actlits =
     None
   in
 
+  if Flags.bmc_check () then (
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Unrolling of the system is unsat at %a, \
+        the system has no more reachable states.@]"
+        warning_tag
+        Numeral.pp_print_numeral k ;
+      raise UnsatInitExc
+    )
+  ) ;
+  
   (* Check sat assuming with actlits. *)
   SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
 
@@ -317,7 +331,7 @@ let init trans =
 
   (* Getting properties. *)
   let unknowns =
-    (TransSys.props_list_of_bound trans Numeral.zero)
+    TransSys.props_list_of_bound_unknown trans Numeral.zero
   in
 
   (* Creating solver. *)
@@ -360,6 +374,17 @@ let init trans =
   |> SMTSolver.assert_term solver
   |> ignore ;
 
+  if Flags.bmc_check () then (
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Initial state is unsat, the system has no \
+         reachable states.@]"
+         warning_tag ;
+      raise UnsatInitExc
+    )
+  ) ;
+
   (* Invariants if the system at 0. *)
   let invariants =
     TransSys.invars_of_bound trans Numeral.zero
@@ -373,7 +398,12 @@ let init trans =
 
 (* Runs the base instance. *)
 let main trans =
-  init trans |> next
+  try
+    init trans |> next
+  with UnsatInitExc ->
+    TransSys.get_prop_status_all_unknown trans
+    |> List.iter
+      (fun (s,_) -> Event.prop_status TransSys.PropInvariant trans s)
 
 
 (* 

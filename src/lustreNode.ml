@@ -1069,7 +1069,7 @@ let find_main nodes =
            if a = None then Some name else 
              raise
                (Failure 
-                  "find_main: More than one --%MAIN annotation")
+                  "find_main: More than one MAIN node")
          else
            a)
       None

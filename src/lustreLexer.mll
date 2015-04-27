@@ -465,6 +465,23 @@ and comment = parse
                 skip_to_eol lexbuf ) }
 
   (* Contract *)
+  | "!" (id as p) 
+      { match p with
+
+        (* Return token, continue with rest of line. *)
+        | "contract" -> BANGCONTRACT
+
+        (* Return token, continue with rest of line. *)
+        | "PROPERTY" -> BANGPROPERTY
+
+        (* Return token, continue with rest of line. *)
+        | "MAIN" -> BANGMAIN
+
+        (* Warn and ignore rest of line *)
+        | _ -> (Format.printf "Warning: unknown annotation %s skipped@." p; 
+                skip_to_eol lexbuf ) }
+
+  (* Contract *)
   | "@" (id as p) 
       { match p with
 

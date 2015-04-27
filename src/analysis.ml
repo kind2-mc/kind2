@@ -36,6 +36,13 @@ let print_signal_info () =
 type analysis_result =
   | Ok | Timeout | Error of int
 
+let pp_print_outcome fmt oc =
+  Format.fprintf fmt "%s" (match oc with
+    | Ok -> "ok"
+    | Timeout -> "timeout"
+    | Error i -> Format.sprintf "%d" i
+  )
+
 (* Debug name of a process. *)
 let debug_ext_of_process = suffix_of_kind_module
 
@@ -279,8 +286,14 @@ let status_of_exn = function
 let result_of_exn = function
   | Exit
   | Event.Terminate -> Ok
-  | TimeoutWall
-  | TimeoutVirtual -> Timeout
+  | TimeoutWall ->
+    Event.log
+      L_error "%s Wallclock timeout." timeout_tag ;
+    Timeout
+  | TimeoutVirtual ->
+    Event.log
+      L_error "%s CPU timeout." timeout_tag ;
+    Timeout
   | exn -> Error (status_of_exn exn)
 
 (* Cleanup function of a process. *)
@@ -319,7 +332,7 @@ let kill_all_kids t =
 
     (* Logging termination status. *)
     Event.log
-      L_fatal
+      L_info
       "Process %a (%d, %a)."
       pp_print_process_status status
       pid
@@ -342,11 +355,12 @@ let kill_all_kids t =
        ( fun (pid, _) -> Unix.kill pid Sys.sigterm ) ;
 
   Event.log
-    L_fatal
+    L_info
     "Waiting for remaining child processes to terminate." ;
 
   (* Don't wait for termination from sigterm for more than one
      second. *)
+  set_sigalrm_timeout () ;
   set_timeout 0.3 ;
 
   ( try
@@ -354,7 +368,6 @@ let kill_all_kids t =
       termination_loop ()
     with
     (* Whatever happened, deactivate timeout. *)
-    | TimeoutWall -> ()
     | _ -> unset_timeout () ) ;
 
   (* Are some kids still alive? *)
@@ -363,14 +376,14 @@ let kill_all_kids t =
   then (
     (* No, notifying user. *)
     Event.log
-      L_fatal
+      L_info
       "All child processes terminated." ;
     (* All kids are dead, everything is fine. *)
     Ok
 
   ) else (
     Event.log
-      L_fatal
+      L_info
       "Some child processes are still alive, sig-killing them." ;
 
     (* Some kids are not dead, sending sigkill and waiting for
@@ -400,7 +413,7 @@ let kill_all_kids t =
       then (
         (* No, notifying user. *)
         Event.log
-          L_fatal
+          L_info
           "All child processes terminated." ;
         (* The status from the previous termination loop should be
          ok. *)
@@ -435,7 +448,7 @@ let kill_all_kids t =
 let panic_exit exn =
   match !context_ref with
   | Some t when has_kids t ->
-     kill_all_kids t |> ignore
+     kill_all_kids t |> ignore ;
   | _ ->
      failwith "panic exit with no kids to kill"
 
@@ -488,7 +501,7 @@ let on_exit_exn t exn =
 
   (* We are the supervisor, killing kids. *)
   | `Supervisor ->
-     on_exit t (Error( status_of_exn exn ))
+     result_of_exn exn |> on_exit t
 
   (* We are a child process, exiting. *)
   | mdl ->
@@ -568,10 +581,9 @@ let rec polling_loop t =
     (* Check if the analysis is over. *)
     TransSys.all_props_proved t.sys
   then (
-    Event.log
+    Event.log_done
       L_warn
-      "%s All properties proved or disproved in %.3fs."
-      done_tag
+      "All properties proved or disproved in %.3fs."
       (Stat.get_float Stat.total_time) ;
 
     Ok
@@ -749,6 +761,12 @@ let run sys log msg_setup = function
          (* Going to message reception / termination checks. *)
          let outcome = polling_loop context in
 
+         (* Reset timeout counter. *)
+         unset_timeout () ;
+
+         (* Update log with remaining unknown / k-true props. *)
+         Log.close_log log sys ;
+
          (* Clean everything and exit analysis. *)
          let outcome = on_exit context outcome in
 
@@ -758,10 +776,18 @@ let run sys log msg_setup = function
          (* Reset timeout counter. *)
          unset_timeout () ;
 
+         minisleep 0.3 ;
+
+         (* Consume all remaining messages silently. *)
+         handle_events context true ;
+
          outcome
 
        with
        | e ->
+
+          (* Update log with remaining unknown / k-true props. *)
+          Log.close_log log sys ;
 
           (* Reset timeout. *)
           unset_timeout () ;
@@ -769,11 +795,19 @@ let run sys log msg_setup = function
           (* Clean exit, killing everyone if we are the supervisor. *)
           let outcome = on_exit_exn context e in
 
+          (* Reset timeout. *)
+          unset_timeout () ;
+
+          minisleep 0.3 ;
+
           (* If we are a kid, the previous line killed the
              process. The following only applies to the supervisor. *)
 
           (* There should be no kid left alive. *)
           assert (context.kids = []) ;
+
+          (* Consume all remaining messages silently. *)
+          handle_events context true ;
 
           (* Returning result status. *)
           outcome )

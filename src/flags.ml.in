@@ -326,6 +326,12 @@ let check_version_default = false
 
 (* ********** *) 
 
+type bmc_check = bool
+    
+let bmc_check_default = true
+
+(* ********** *) 
+
 type bmc_max = int
     
 let bmc_max_default = 0
@@ -602,6 +608,7 @@ type flags =
       mutable compositional : compositional;
       mutable contracts_subreqs : contracts_subreqs;
       mutable check_version : check_version;
+      mutable bmc_check : bmc_check;
       mutable bmc_max : bmc_max;
       mutable ind_compress : ind_compress;
       mutable ind_compress_equal : ind_compress_equal;
@@ -657,6 +664,7 @@ let flags =
     compositional = compositional_default;
     contracts_subreqs = contracts_subreqs_default;
     check_version = check_version_default;
+    bmc_check = bmc_check_default;
     bmc_max = bmc_max_default;
     ind_compress = ind_compress_default;
     ind_compress_equal = ind_compress_equal_default;
@@ -913,6 +921,20 @@ let check_version_spec =
    Format.sprintf
      "@[<v 7>@,\
       Output version information and exit.@]")
+
+(* ********** *) 
+
+let bmc_check_action o = flags.bmc_check <- o
+  
+let bmc_check_spec = 
+  ("--bmc_check", 
+   Arg.Bool bmc_check_action, 
+   Format.sprintf
+     "@[<v 7>@,(BMC, default: %b)@ \
+      BMC will check at each k that the system has@ \
+      reachable states.@]"
+     bmc_check_default)
+
 
 (* ********** *) 
 
@@ -1400,6 +1422,8 @@ let contracts_subreqs () = flags.contracts_subreqs
 
 let check_version () = flags.check_version 
 
+let bmc_check () = flags.bmc_check 
+
 let bmc_max () = flags.bmc_max 
 
 let ind_compress () = flags.ind_compress 
@@ -1542,7 +1566,10 @@ and speclist =
     (* Output version information and exit *)
     check_version_spec;
 
-    (* Maximal number of iterations in BMC *)
+    (* Check that the unrolling is sat in BMC *)
+    bmc_check_spec;
+
+    (* Maximal number of iterations in BMC and IND *)
     bmc_max_spec;
 
     (* Compress inductive counterexamples *)

@@ -104,7 +104,7 @@ let length_of_cex = function
 
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
-  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
+  | PropKTrue k -> Format.fprintf ppf "true-for %d steps" k
   | PropInvariant -> Format.fprintf ppf "invariant"
   | PropFalse [] -> Format.fprintf ppf "false"
   | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)
@@ -252,6 +252,8 @@ let add_caller callee caller c =
 
   callee.callers <- add_caller' [] callee.callers
 
+let get_callers { callers } = List.map fst callers
+
 (* Number of times this system is instantiated in other systems. *)
 let instantiation_count { callers } =
   callers
@@ -277,6 +279,19 @@ let get_abstraction { abstraction } = abstraction
 let set_abstraction sys abstraction =
   sys.abstraction <- abstraction
 
+(* Returns [Some(true)] if the contract is global, [Some(false)] if it's not,
+   and [None] if the system has no contracts. *)
+let contract_is_global t contract_name =
+  let rec loop = function
+    | Global (_,_,n) :: tail ->
+      if n = contract_name then Some true else loop tail
+    | Mode (_,_,n) :: tail ->
+      if n = contract_name then Some false else loop tail
+    | [] -> None
+  in
+  match t.contracts with
+  | None -> None
+  | Some (_,_,contracts) -> loop contracts
 
 (* Returns the contracts of a system. *)
 let get_contracts = function
@@ -292,6 +307,18 @@ let get_scope t = t.scope
 
 (* Name of the system. *)
 let get_name t = t.scope |> String.concat "/"
+
+(* Source name of the system. *)
+let get_source_name t =
+  let rec loop = function
+    | [ last ] -> last.LustreNode.name |> LustreIdent.string_of_ident false
+    | _ :: tail -> loop tail
+    | [] -> get_name t
+  in
+
+  match t.source with
+  | Lustre list -> loop list
+  | Native -> get_name t
 
 (* Returns all the subsystems of a transition system, including that
    system, by reverse topological order. *)
@@ -349,6 +376,21 @@ let get_all_subsystems sys =
   in
  
   iterate_over_subsystems sys [] []
+
+(* Returns a triplet of the concrete subsystems, the refined ones, and the
+   abstracted ones. Does not contain the input system. *)
+let get_abstraction_split ({ abstraction } as sys) =
+  let rec loop c r a = function
+    | [ top ] -> assert ( top.scope = sys.scope ) ; c, r, a
+    | subsys :: tail ->
+      if List.mem subsys.scope abstraction then loop c r (subsys::a) tail
+      else ( match subsys.contracts with
+        | None -> loop (subsys::c) r a tail
+        | Some _ -> loop c (subsys::r) a tail
+      )
+    | [] -> c, r, a
+  in
+  get_all_subsystems sys |> loop [] [] [] 
 
 let pp_print_trans_sys_name ppf { scope } =
   Format.fprintf
@@ -936,6 +978,17 @@ let props_list_of_bound_not_valid t i =
                        | _ -> true) )
     i
 
+(* Instantiate all properties to the bound *)
+let props_list_of_bound_unknown t i = 
+  named_terms_list_of_bound
+    ( t.properties
+      |> List.filter (function
+         | { prop_status = PropInvariant } -> false
+         | { prop_status = PropFalse _ } -> false
+         | _ -> true
+      ) )
+    i
+
 
 (* Instantiate all properties to the bound *)
 let props_of_bound t i = 
@@ -1301,10 +1354,19 @@ let set_prop_ktrue t k prop =
     with
     | Not_found ->
        Format.printf
-         "Trying to set [%s] true at %d on system [%s].@ "
+         "Trying to set [%s] true at %d on system [%s].@.  @[<v>%a@]@."
          prop
          k
-         (get_name t) ;
+         (get_name t)
+         (pp_print_list (fun ppf { prop_name ; prop_status } ->
+           Format.fprintf
+            ppf
+            "%s %a"
+            prop_name
+            pp_print_prop_status_pt
+            prop_status
+         ) "@," )
+         t.properties ;
        raise Not_found
   in
 

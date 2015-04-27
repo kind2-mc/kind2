@@ -30,12 +30,12 @@ module TestGen = Testgen
 
 let dbl_sep_line_warn () =
   Event.log
-    L_warn
+    L_info
     "|========================================|"
 
 let sgl_sep_line_warn () =
   Event.log
-    L_warn
+    L_info
     "   -----------------------------------   "
 
 (* Prints the final statistics of the analysis. *)
@@ -330,8 +330,8 @@ let lift_valids sys =
 
 let clean_up_sys sys =
   reset_props sys ;
-  reset_invariants sys ;
-  lift_valids sys
+  reset_invariants sys
+  (* lift_valids sys *)
 
 (* Prints final things. *)
 let print_final_things sys log =
@@ -350,13 +350,15 @@ let print_final_things sys log =
   )
 
 let launch_analysis sys log msg_setup =
+  (* Set timeout if necessary. *)
+  set_timeout_from_flag () ;
   match
     Analysis.run sys log msg_setup (Flags.enable ())
   with
   | Analysis.Ok
   | Analysis.Timeout ->
-     (* No error, we can keep going. *)
-     ()
+    (* No error, we can keep going. *)
+    ()
   | Analysis.Error(status) ->
      (* Error, we must stop there. *)
      print_final_things sys log ;
@@ -367,15 +369,7 @@ let rec launch_compositional sys log msg_setup =
 
   sgl_sep_line_warn () ;
 
-  Event.log
-    L_warn
-    "@[<v 3>\
-     Analyzing system %a:@ \
-     abstracted subsystem(s): [%a]@ \
-     concrete   subsystem(s): [%a]@]"
-    TransSys.pp_print_trans_sys_name sys
-    Refiner.pp_print_abstracted sys
-    Refiner.pp_print_concrete sys ;
+  Event.log_run_start L_warn sys ;
 
   (* Registering abstraction sublog in log. *)
   Log.add_abstraction_sublog log sys ;
@@ -388,6 +382,10 @@ let rec launch_compositional sys log msg_setup =
 
   (* Launching. *)
   launch_analysis sys log msg_setup ;
+
+  Event.log_run_stop L_warn sys ;
+
+  minisleep 0.3 ;
 
   sgl_sep_line_warn () ;
 
@@ -433,15 +431,17 @@ let rec launch_compositional sys log msg_setup =
 
     (* No. *)
     | None ->
-       Event.log
-         L_warn
-         "Can't refine %a further, done."
-         TransSys.pp_print_trans_sys_name sys
+      Event.log
+        L_warn
+        "Can't refine %a further, done."
+        TransSys.pp_print_trans_sys_name sys ;
 
     (* Yes we can. *)
     | Some nu_abs ->
        (* Notifying user. *)
-       Event.log L_warn "Refining abstraction." ;
+       Event.log
+        L_warn
+        "Refining abstraction." ;
        (* Looping. *)
        launch_compositional sys log msg_setup
 
@@ -461,26 +461,17 @@ let choose_compositional sys log msg_setup =
     (* Registering empty abstraction. *)
     Log.add_abstraction_sublog log sys ;
     (* Notifying user. *)
-    sgl_sep_line_warn () ;
+    (* sgl_sep_line_warn () ;
     Event.log
       L_warn
       "Analyzing system %a."
-      TransSys.pp_print_trans_sys_name sys ;
+      TransSys.pp_print_trans_sys_name sys ; *)
     (* Launching normal analysis. *)
     launch_analysis sys log msg_setup
   )
     
 
 let launch_modular systems log msg_setup =
-
-  sgl_sep_line_warn () ;
-
-  Event.log
-    L_warn
-    "Analyzing modularily systems @[<hv>%a@]"
-    ( pp_print_list
-        TransSys.pp_print_trans_sys_name ",@ " )
-    systems ;
 
   (* Loops over the systems to analyze. *)
   let rec loop = function
@@ -491,41 +482,37 @@ let launch_modular systems log msg_setup =
     (* Let's do this. *)
     | sys :: sys_tail ->
 
+        Event.log_system_start L_warn sys ;
+
        (* Resetting
           - non valid properties to unknown
           - invariants of the system to empty list
           and lifting valid properties from subsystems. *)
        clean_up_sys sys ;
 
-       if TransSys.get_prop_status_all sys = [] then (
+       ( if TransSys.get_prop_status_all sys = [] then
          (* Nothing to prove, skipping. *)
          Event.log
            L_warn
            "No property to prove for system %a."
-           TransSys.pp_print_trans_sys_name sys ;
+           TransSys.pp_print_trans_sys_name sys
 
-         (* Looping. *)
-         loop sys_tail
+         else if TransSys.all_props_actually_proved sys then
+           (* Everything is already proved, skipping. *)
+           Event.log
+             L_warn
+             "All properties of system %a are already valid."
+             TransSys.pp_print_trans_sys_name sys
 
-       ) else if TransSys.all_props_actually_proved sys then (
-         (* Everything is already proved, skipping. *)
-         Event.log
-           L_warn
-           "All properties of system %a are already valid."
-           TransSys.pp_print_trans_sys_name sys ;
+         else
+           (* Launching compositional or not. *)
+           choose_compositional sys log msg_setup
+       ) ;
 
-         (* Looping. *)
-         loop sys_tail
+       Event.log_system_stop L_warn sys ;
 
-       ) else (
-
-         (* Launching compositional or not. *)
-         choose_compositional sys log msg_setup ;
-
-         (* Looping. *)
-         loop sys_tail
-
-       )
+       (* Looping. *)
+       loop sys_tail
   in
 
   (* Running on systems. *)
@@ -535,6 +522,9 @@ let launch_modular systems log msg_setup =
 
 (* Launches the top level (potentially modular) analysis. *)
 let launch sys msg_setup =
+
+  sgl_sep_line_warn () ;
+  Event.log_analysis_briefing L_warn sys ;
 
   (* Launching analysis, getting log back. *)
   let log, status =
@@ -715,9 +705,8 @@ let main () =
   (* Must not use vtalrm signal, this is used internally by the OCaml
      Threads module. *)
 
-  (* Set sigalrm to [exception_on_signal] or raise [TimeoutWall]
-     depending on the flags. *)
-  set_sigalrm () ;
+  (* Set sigalrm to raise an exception by default. *)
+  set_sigalrm_exn () ;
 
   (* Raise exception on CTRL+C. *)
   catch_break true ;
@@ -804,8 +793,7 @@ let main () =
      (* There should not be anything left to clean it this level. *)
      Event.log
        L_error
-       "%s Exception caught at top level."
-       error_tag;
+       "Exception caught at top level." ;
 
      exit (Analysis.status_of_exn e)
 

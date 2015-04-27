@@ -1788,7 +1788,11 @@ and eval_node_call
             (* Expression must be of a subtype of input type *)
             Type.check_type 
               expr_type
-              (StateVar.type_of_state_var in_var) 
+              (StateVar.type_of_state_var in_var) &&
+
+            (* Expression must be constant if input is *)
+            (not (StateVar.is_const in_var) || 
+             E.is_const expr)
 
           then 
 
@@ -4045,12 +4049,12 @@ let rec parse_node_equations
 
 
     (* Annotation for main node *)
-    | A.AnnotMain :: tl -> 
+    | (A.AnnotMain b) :: tl -> 
 
       parse_node_equations 
         context 
         abstractions
-        { node with N.is_main = true }
+        { node with N.is_main = b }
         tl
 
 

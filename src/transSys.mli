@@ -125,6 +125,8 @@ val add_caller :
   (StateVar.t * StateVar.t) list * (Term.t -> Term.t) ->
   unit
 
+val get_callers : t -> t list
+
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
 
@@ -183,9 +185,18 @@ val get_abstraction : t -> string list list
 (** Sets the abstraction for a system. *)
 val set_abstraction : t -> string list list -> unit
 
+(** Returns [Some(true)] if the contract is global, [Some(false)] if it's not,
+   and [None] if the system has no contracts. *)
+val contract_is_global : t -> string -> bool option
+
 (** The contracts of a system. *)
 val get_contracts :
   t -> (Lib.position * StateVar.t * string) list
+
+
+(** Returns a triplet of the concrete subsystems, the refined ones, and the
+    abstracted ones. Does not contain the input system. *)
+val get_abstraction_split : t -> (t list) * (t list) * (t list)
 
 (** For a system, returns [Some true] if all contracts are invariants,
     [Some false] if at least one of the contracts is falsified, and
@@ -200,7 +211,7 @@ val get_contracts :
 val get_subsystems : t -> t list
 
 (** Returns all the subsystems of a system in reverse topological
-    order. *)
+    order, INCLUDING that system. *)
 val get_all_subsystems : t -> t list
 
 (** The state variables of a transition system. *)
@@ -217,6 +228,9 @@ val subsystem_of_scope : t -> string list -> t
 
 (** Return the name of the transition system *)
 val get_name : t -> string
+
+(** Returns the source name of the transition system. *)
+val get_source_name : t -> string
 
 (** Returns the variables of the transition system between two
     bounds. *)
@@ -259,6 +273,9 @@ val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list
 
 (** Instantiate all not valid properties to the bound *)
 val props_list_of_bound_not_valid : t -> Numeral.t -> (string * Term.t) list 
+
+(** Instantiate all unknown properties to the bound *)
+val props_list_of_bound_unknown : t -> Numeral.t -> (string * Term.t) list 
 
 (** Get property by name *)
 val named_term_of_prop_name : t -> string -> Term.t

@@ -2184,7 +2184,7 @@ let main trans_sys =
 
   (* Properties to prove from the transition system *)
   let trans_sys_props = 
-    TransSys.props_list_of_bound_not_valid trans_sys Numeral.zero 
+    TransSys.props_list_of_bound_unknown trans_sys Numeral.zero 
   in
 
   (* Check for zero and one step counterexamples and continue with
