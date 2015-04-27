@@ -33,6 +33,8 @@ val pp_print_path_pt :
     <ident>,<type>,<value0>,<value1>,... *)
 val pp_print_path_inputs_csv :
   LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_outputs_csv :
+  LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
 
 (* 
    Local Variables:

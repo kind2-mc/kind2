@@ -62,7 +62,7 @@ module type Sig = sig
     (** Declares a UF. *)
     ( UfSymbol.t -> unit ) ->
     (** Asserts actlit implications function. *)
-    ( (UfSymbol.t * Term.t) list -> unit ) ->
+    ( ?eq:bool -> (UfSymbol.t * Term.t) list -> unit ) ->
     (** Checksat and get-values function. *)
     ( UfSymbol.t list -> Term.t list -> ((Term.t * Term.t) list) option ) ->
     (** Trace comment function. *)

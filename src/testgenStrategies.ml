@@ -66,7 +66,7 @@ type 'data context = {
          map(l, (fun (sv,t) -> implies(sv,t)))
        )
      ) *)
-  actlit_implications : (actlit * term) list -> unit ;
+  actlit_implications : ?eq:bool -> (actlit * term) list -> unit ;
 
   (* Checksats assuming some activation literals. Returns Some of the
      values of the input terms if sat and None otherwise. *)
@@ -131,6 +131,17 @@ let cex_to_inputs_csv sys cex k = match TransSys.get_source sys with
   (* Not supporting non lustre sources. *)
   | _ -> assert false
 
+let cex_to_outputs_csv sys cex k = match TransSys.get_source sys with
+  | TransSys.Lustre nodes ->
+    let path =
+      Model.path_from_model (TransSys.state_vars sys) cex k
+    in
+    Format.printf
+      "  @[<v>%a@]@."
+      (LustrePath.pp_print_path_outputs_csv nodes true) path
+  (* Not supporting non lustre sources. *)
+  | _ -> assert false
+
 
 (* Signature for test generation strategies.
    The idea is let the strategy work on the solver ([work] function)
@@ -165,7 +176,7 @@ module type Sig = sig
     (* Declares a UF. *)
     ( actlit -> unit ) ->
     (* Asserts actlit implications function. *)
-    ( (actlit * term) list -> unit ) ->
+    ( ?eq:bool -> (actlit * term) list -> unit ) ->
     (* Checksat and get-values function. *)
     ( actlit list -> term list -> values option ) ->
     (* Trace comment function. *)
@@ -251,7 +262,7 @@ let pp_print_contract_testcase fmt testcase =
     (pp_print_list
       ( fun fmt (k,svar_list) ->
         Format.fprintf
-          fmt "%a | %a"
+          fmt "%3a | %a"
           Numeral.pp_print_numeral k
           (pp_print_list StateVar.pp_print_state_var ", ")
           svar_list )
@@ -272,7 +283,7 @@ let pp_print_contract_testcase_named sys fmt testcase =
           ) []
         in
         Format.fprintf
-          fmt "%a | %a"
+          fmt "%3a | %a"
           Numeral.pp_print_numeral k
           (pp_print_list Format.pp_print_string ", ")
           names)
@@ -354,7 +365,117 @@ let description_of_contract_testcase sys (_, k, trace) =
         "initial state: activates %a" pp_names head_svars ) ::
     testcase_tail_to_strings [] k tail
 
+type tree =
+  | Branch of (string list * tree) list
+  | Leaf of string list list
 
+let rec pp_print_tree_pair ppf = function
+  | (key, Leaf []) ->
+    Format.fprintf ppf "[%a]" (pp_print_list Format.pp_print_string ", ") key
+  | (key, (Branch [ _ ] as value)) ->
+    Format.fprintf
+      ppf "[%a], %a"
+      (pp_print_list Format.pp_print_string ",") key
+      pp_print_tree value
+  | (key, value) ->
+    Format.fprintf
+      ppf "@[<v 3>[%a],@,%a@]"
+      (pp_print_list Format.pp_print_string ",") key
+      pp_print_tree value
+and pp_print_tree ppf = function
+| Branch map ->
+  Format.fprintf
+    ppf "%a"
+    (pp_print_list pp_print_tree_pair "@,") map
+| Leaf [] -> ()
+| Leaf l ->
+  Format.fprintf
+    ppf "%a"
+    (pp_print_list
+      ( fun ppf l ->
+          Format.fprintf
+            ppf "[%a]" (pp_print_list Format.pp_print_string ",") l )
+      ", ")
+    l
+
+let testcases_to_tree sys testcases =
+
+  let names_of = List.fold_left
+    ( fun l svar -> match
+        TransSys.mode_names_of_req_svar sys svar
+      with
+      | None -> assert false
+      | Some names -> names @ l )
+    []
+  in
+
+  let rec list_unord_eq l1 l2 = match l1,l2 with
+    | h1::t1, _::_ ->
+      if l2 |> List.mem h1
+      then l2 |> List.filter (fun s -> s <> h1) |> list_unord_eq t1
+      else false
+    | [], [] -> true
+    | _ -> false
+  in
+
+  let rec update_assoc pref key value = function
+    | (key',_) :: tail when list_unord_eq key key' ->
+      ( key, value ) :: tail
+      |> List.rev_append pref
+    | head :: tail -> update_assoc (head :: pref) key value tail
+    | [] -> (key, value) :: pref |> List.rev
+  in
+
+  let rec insert todo t l = match t,l with
+
+    | Branch map, h::tail ->
+      ( try
+          let sub_t = map |> List.assoc h in
+          insert ( (h, map) :: todo ) sub_t tail
+        with Not_found ->
+          Branch (update_assoc [] h (Leaf tail) map) |> zip_up todo )
+
+    | Leaf (h1::t1), h2::t2 ->
+      if list_unord_eq h1 h2 then
+        insert ( (h1, []) :: todo ) (Leaf t1) t2
+      else
+        Branch [ (h1, Leaf t1) ; (h2, Leaf t2) ] |> zip_up todo
+
+    | Leaf [], _ -> Leaf l
+
+    | _ ->
+      Format.printf "List length is %d, tree:@.%a@."
+        (List.length l) pp_print_tree t ;
+      assert false
+
+  and zip_up todo tree = match todo with
+    | [] -> tree
+    | (key, map) :: tail ->
+      Branch (update_assoc [] key tree map) |> zip_up tail
+  in
+
+  testcases
+  |> List.fold_left (fun tree (_,_,tc) ->
+      (* Format.printf "Inserting@.  %a@.in@.  %a@."
+        (pp_print_contract_testcase_named sys) tc
+        pp_print_tree tree ;
+      let tree = *)
+        tc |> List.map (fun (k,svars) -> names_of svars ) |> insert [] tree
+      (* in
+      Format.printf "Result:@.  %a@." pp_print_tree tree ;
+      tree *)
+    )
+    (Leaf [])
+
+
+let rec unroll_test_case pref prev = function
+  | ((k,svars) :: tail) as l ->
+    if Numeral.(k = prev - one) then
+      unroll_test_case ((k,svars) :: pref) k tail
+    else (
+      let prev = Numeral.(prev - one) in
+      unroll_test_case ((prev, svars) :: pref) prev l )
+  | [] -> List.rev pref
 
 
 (* *)
@@ -462,13 +583,15 @@ let extend_contract_testcases ( {sys ; data} as context ) k =
 
     (* The branch is the one this testcase is already in. *)
     | (_, contracts) :: _, [ contracts' ]
-      when list_eq contracts contracts' -> 
+      when list_eq contracts contracts' ->
+      comment "Staying in the same contract." ;
       (* No need to constrain the actlit at this step, only one branch is
          possible anyway. *)
       [ actlit, k, path ]
 
     (* Only one branch, but the contracts are different. *)
     | _, [ contracts' ] ->
+      comment "Only one contract can be activated." ;
       (* Keeping actlit and extending path. Only one branch is possible so no
          need to constrain the actlit. *)
       [ actlit, k, (k, contracts') :: path ]
@@ -533,7 +656,7 @@ module Unit_ModeSwitch : Sig = struct
       [ (empty_path_actlit, Numeral.(~- one), []) ]
       sys declare activate get_values comment
 
-  let max_k = Numeral.of_int 5
+  let max_k () = Flags.testgen_len () |> Numeral.of_int
 
   let work context k =
 
@@ -545,10 +668,31 @@ module Unit_ModeSwitch : Sig = struct
       Numeral.pp_print_numeral k
       (pp_print_contract_testcases_named context.sys) extended_data ;
 
-    Numeral.( k >= max_k )
+    Numeral.( k >= max_k () )
 
   let testcase_gen context get_model =
+
+    let testcase_tree =
+      context.data |> List.map (fun (act,k,tc) ->
+        act, k, (
+          unroll_test_case [] Numeral.(k + one) tc |> List.rev
+        )
+      ) |> testcases_to_tree context.sys
+    in
+
+    let stdfmt = Format.formatter_of_out_channel stdout in
+    Format.pp_set_margin stdfmt 1000000000 ;
+    Format.pp_set_max_indent stdfmt 100000000000 ;
+
+    Format.fprintf
+      stdfmt "Reachable contracts:@,@[<v>%a@]@.@."
+      pp_print_tree testcase_tree ;
+
     context.data |> List.iter (fun ( (actlit,k,testcase) as tc) ->
+      Format.printf "Test case description:@." ;
+      description_of_contract_testcase context.sys tc
+      |> List.iter (Format.printf "  %a@." Format.pp_print_string) ;
+
       match get_model [ actlit ] with
       | None -> assert false
       | Some model ->
@@ -557,13 +701,28 @@ module Unit_ModeSwitch : Sig = struct
           Numeral.pp_print_numeral k
           (pp_print_contract_testcase_named context.sys) testcase ;
         Format.printf "is@." ; *)
-        Format.printf "Test case description:@." ;
-        description_of_contract_testcase context.sys tc
-        |> List.iter (Format.printf "  %a@." Format.pp_print_string) ;
         Format.printf "Inputs:@." ;
         cex_to_inputs_csv context.sys model k ;
+        Format.printf "Outputs:@." ;
+        cex_to_outputs_csv context.sys model k ;
         Format.printf "@." ;
-    )
+    ) ;
+
+    let testcase_tree =
+      context.data |> List.map (fun (act,k,tc) ->
+        act, k, (
+          unroll_test_case [] Numeral.(k + one) tc |> List.rev
+        )
+      ) |> testcases_to_tree context.sys
+    in
+
+    let stdfmt = Format.formatter_of_out_channel stdout in
+    Format.pp_set_margin stdfmt 1000000000 ;
+    Format.pp_set_max_indent stdfmt 100000000000 ;
+
+    Format.fprintf
+      stdfmt "Reachable contracts:@,@[<v>%a@]@.@."
+      pp_print_tree testcase_tree
 
 
 end

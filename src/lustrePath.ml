@@ -901,6 +901,48 @@ let pp_print_path_inputs_csv nodes start_at_init ppf model =
             | Model.Lambda _ -> assert false)
           ",") values )
 
+(* Pretty-print the inputs of a path in csv:
+   <ident>,<type>,<value0>,<value1>,... *)
+let pp_print_path_outputs_csv nodes start_at_init ppf model =
+  let reconstructed =
+    reduced_tree_path_of_model start_at_init nodes model
+  in
+
+  let N (_, _, stream_map, _) = reconstructed in
+
+  (* Get all streams in the node. *)
+  let streams = SVMap.bindings stream_map in
+
+  (* Get inputs. *)
+  let outputs =
+    List.filter (fun (sv, _) -> E.state_var_is_output sv) streams
+  in
+
+  (* Pretty-print output streams if any *)
+  outputs
+  |> List.iter
+    ( fun (sv, values) ->
+
+      (* Getting the ident of the state variable. *)
+      let ident, _ = LustreExpr.ident_of_state_var sv in
+      (* Getting its type. *)
+      let typ3 = StateVar.type_of_state_var sv in
+
+      Format.printf
+        "%a,%a,%a@,"
+        (LustreIdent.pp_print_ident false) ident
+        (E.pp_print_lustre_type false) typ3
+        (pp_print_arrayi
+          (fun ppf _ ->
+            function
+            | Model.Term t ->
+              Format.fprintf
+                ppf
+                "%s"
+                (string_of_t pp_print_value t)
+            | Model.Lambda _ -> assert false)
+          ",") values )
+
 
 (* 
    Local Variables:

@@ -35,10 +35,12 @@ let term_of = Actlit.term_of_actlit
 let declare solver = S.declare_fun solver
 
 (* Builds actlit implications and asserts them. *)
-let actlit_implications solver = function
+let actlit_implications solver ?(eq = false) = function
   | [] -> ()
   | impls -> impls |> List.map (
-      fun (uf, term) -> Term.mk_implies [ term_of uf ; term ]
+      fun (uf, term) ->
+        ( if eq then Term.mk_eq
+          else Term.mk_implies ) [ term_of uf ; term ]
     ) |> List.iter (S.assert_term solver)
 
 (* Checksats and returns [Some] of the values of [terms] if sat, [None]
@@ -121,6 +123,11 @@ let run_strategy sys strategy =
     (S.assert_term solver)
     Numeral.zero Numeral.zero ;
 
+  (* Asserting initial constraint. *)
+  TransSys.init_of_bound sys Numeral.zero
+  |> SMTSolver.assert_term solver
+  |> ignore ;
+
   (* Creating a context for the strategy. *)
   let context =
     Strat.mk_context
@@ -135,10 +142,10 @@ let run_strategy sys strategy =
      if the strategy is not done. *)
   let rec loop_strategy k =
 
-    Format.printf
+    (* Format.printf
       "At iteration %a on strategy %s.@."
       Numeral.pp_print_numeral k
-      Strat.name ;
+      Strat.name ; *)
 
     (* Letting strategy work at [k]. *)
     let is_done = Strat.work context k in

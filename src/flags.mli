@@ -206,6 +206,10 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
 
+(** Length of the test case generated. *)
+type testgen_len = int
+val testgen_len : unit -> testgen_len
+
 (** InvGen will remove trivial invariants, i.e. invariants implied by
     the transition relation.. **)
 type invgengraph_prune_trivial = bool
