@@ -285,7 +285,7 @@ let contract_is_global t contract_name =
   let rec loop = function
     | Global (_,_,n) :: tail ->
       if n = contract_name then Some true else loop tail
-    | Mode (_,_,n) :: tail ->
+    | Mode (_,_,n,_) :: tail ->
       if n = contract_name then Some false else loop tail
     | [] -> None
   in
