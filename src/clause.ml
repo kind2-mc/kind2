@@ -18,8 +18,15 @@
 
 open Lib
 
+
+type source =
+  | PropSet (* Pseudo clause for property set *)
+  | BlockFrontier (* Reaches an error state in one step *)
+  | BlockRec of int (* Reaches an error state in n steps *)
+  | IndGen of t (* Inductive generalization of clause *)
+
 (* Clause *)
-type t = 
+and t = 
 
   {
     
@@ -40,8 +47,8 @@ type t =
     (* Literals in clause, to be treated as disjunction *)
     literals: Term.t list;
 
-    (* Clause before inductive generalization *)
-    parent: t option;
+    (* Source of clause *)
+    source: source;
       
   } 
 
@@ -73,7 +80,50 @@ type prop_set =
     (* Named properties *)
     props : (string * Term.t) list
     
-  } 
+  }
+
+
+        
+(* Add parent of clause if any to accumulator *)
+let rec parents_of_clause' accum = function
+
+  (* Blocking clauses do not have parents, return in original order *)
+  | { source = PropSet }
+  | { source = BlockFrontier }
+  | { source = BlockRec _ } -> List.rev accum 
+
+  (* Add clause before generalization and recurse for its parents *)
+  | { source = IndGen c } -> parents_of_clause' (c :: accum) c
+
+(* Return list of parent clauses *)
+let parents_of_clause clause = parents_of_clause' [] clause
+        
+(* Return disjunction of literals from a clause *)
+let term_of_clause { literals } = Term.mk_or literals
+
+(* Return literals from a clause *)
+let literals_of_clause { literals } = literals
+
+(* Activation literal for positve, unprimed clause *)
+let actlit_p0_of_clause { actlit_p0 } = actlit_p0
+
+(* Activation literal for positve, unprimed clause *)
+let actlit_p1_of_clause { actlit_p1 } = actlit_p1
+
+(* Activation literal for negative, unprimed clause *)
+let actlits_n0_of_clause { actlits_n0 } = actlits_n0
+
+(* Activation literal for negative, primed clause *)
+let actlits_n1_of_clause { actlits_n1 } = actlits_n1
+
+let length_of_clause { literals } = List.length literals
+
+let pp_print_source ppf = function
+  | PropSet -> Format.fprintf ppf "PropSet"
+  | BlockFrontier -> Format.fprintf ppf "BlockFrontier"
+  | BlockRec n -> Format.fprintf ppf "BlockRec %d" n
+  | IndGen c -> Format.fprintf ppf "IndGen %a" Term.pp_print_term (actlit_p0_of_clause c)
+
 
 (* ********************************************************************** *)
 (* Activation literals                                                    *)
@@ -222,7 +272,7 @@ let actlit_symbol_of_frame k = actlit_and_symbol_of_frame k |> fst
     
 (* Create three fresh activation literals for a list of literals and
    declare in the given solver instance *)
-let clause_of_literals solver parent literals =
+let mk_clause_of_literals solver source literals =
 
   (* Sort and eliminate duplicates *)
   let literals = Term.TermSet.(of_list literals |> elements) in
@@ -236,6 +286,15 @@ let clause_of_literals solver parent literals =
     mk Actlit_p0, mk Actlit_p1
   in
 
+  SMTSolver.trace_comment
+    solver
+    (Format.asprintf
+       "@[<hv>mk_clause_of_literals %a@ %a@ @[<hv 1>{%a}@]@]"
+       Term.pp_print_term actlit_p0
+       pp_print_source source
+       (pp_print_list Term.pp_print_term ";@ ")
+       literals);
+  
   (* Create activation literals for negated literals in clause *)
   let actlits_n0, actlits_n1 =
     let mk t = 
@@ -248,34 +307,33 @@ let clause_of_literals solver parent literals =
   in
 
   (* Return clause with activation literals *)
-  { actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; parent }
+  { actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; source }
 
+    
+(* Copy clause and all its parents with fresh activation literal *)
+let rec copy_clause solver = function
 
-(* Return disjunction of literals from a clause *)
-let term_of_clause { literals } = Term.mk_or literals
+  (* Clause without parent *)
+  | { source = BlockFrontier as source; literals; actlit_p0 }
+  | { source = BlockRec _ as source; literals; actlit_p0 }
+  | { source = PropSet as source; literals; actlit_p0 } ->
 
-(* Return literals from a clause *)
-let literals_of_clause { literals } = literals
+    SMTSolver.trace_comment
+      solver
+      (Format.asprintf
+         "Copying clause %a"
+         Term.pp_print_term actlit_p0);
+    
+    (* Copy clause with no parents *)
+    mk_clause_of_literals solver source literals 
+    
+  | { source = IndGen p; literals } ->
 
-(* Activation literal for positve, unprimed clause *)
-let actlit_p0_of_clause { actlit_p0 } = actlit_p0
+    (* Copy parent clauses first *)
+    let p' = copy_clause solver p in
 
-(* Activation literal for positve, unprimed clause *)
-let actlit_p1_of_clause { actlit_p1 } = actlit_p1
-
-(* Activation literal for negative, unprimed clause *)
-let actlits_n0_of_clause { actlits_n0 } = actlits_n0
-
-(* Activation literal for negative, primed clause *)
-let actlits_n1_of_clause { actlits_n1 } = actlits_n1
-
-(* Get parent of clause *)
-let rec parent_of_clause = function 
-  | { parent = None } as clause -> clause 
-  | { parent = Some c } -> parent_of_clause c
-
-let length_of_clause { literals } = List.length literals
-
+    (* Copy clause with copied parent *)
+    mk_clause_of_literals solver (IndGen p') literals 
   
 (* ********************************************************************** *)
 (* Property sets                                                          *)    
@@ -313,7 +371,7 @@ let prop_set_of_props solver props =
         actlit_p1; 
         actlits_n1 = [actlit_n1]; 
         literals; 
-        parent = None } ;
+        source = PropSet } ;
     props }
 
 (* Return conjunction of properties *)

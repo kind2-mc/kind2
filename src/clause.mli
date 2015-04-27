@@ -20,8 +20,15 @@
 
     @author Christoph Sticksel *)
 
+(** Origin of clause *)
+type source =
+  | PropSet (** Pseudo clause for property set *)
+  | BlockFrontier (** Reaches an error state in one step *)
+  | BlockRec of int (** Reaches an error state in n steps *)
+  | IndGen of t (** Inductive generalization of clause *)
+
 (** Clause *)
-type t
+and t
 
 
 (** A trie of literals *)
@@ -76,10 +83,16 @@ val create_and_assert_fresh_actlit : SMTSolver.t -> string -> Term.t -> actlit_t
     respectively, at the next instant.
     
 *)
-val clause_of_literals : SMTSolver.t -> t option -> Term.t list -> t
+val mk_clause_of_literals : SMTSolver.t -> source -> Term.t list -> t
 
-(** Return the clause this clause was generalized from *)
-val parent_of_clause : t -> t
+(** Return a copy of the clause with a fresh activation literal and
+    copy all its parents with fresh activation literals. *)
+val copy_clause : SMTSolver.t -> t -> t
+  
+(** Return the clauses this clause was obtained from
+
+    The list may be empty *)
+val parents_of_clause : t -> t list
 
 (** Return the number of literals in the clause 
 

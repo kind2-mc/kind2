@@ -494,7 +494,6 @@ let deactivate_subsumed solver (subsumed, frame') =
   
   (subsumed, frame')
 
-
 (* ************************************************************************ *)
 (* Inductive generalization                                                 *)
 (* ************************************************************************ *)
@@ -538,7 +537,7 @@ let ind_generalize solver prop_set frame clause literals =
             deactivate_clause solver clause;
             
           (* New clause with generalized clause as parent *)
-          C.clause_of_literals solver (Some clause) kept
+          C.mk_clause_of_literals solver (C.IndGen clause) kept
 
         )
 
@@ -818,27 +817,8 @@ let add_to_block_tl solver block_clause block_trace = function
   (* Add cube as proof obligation in next frame *)
   | (block_clauses, r_succ_i) :: block_clauses_tl -> 
 
-    (* Copy clause with a new activation literal *)
-    let copy_clause c =
-
-      (* Get parent of clause *)
-      let p = C.parent_of_clause c in
-
-      (* Return no parent if clause is its own parent *)
-      let c_p =
-        if Term.equal (C.actlit_p0_of_clause p) (C.actlit_p0_of_clause c) then
-          None
-        else
-          (Some p)
-      in
-
-      (* Create a new clause with the same literals *)
-      C.literals_of_clause c |> C.clause_of_literals solver c_p
-          
-    in
-    
-(*    (block_clauses @ [copy_clause block_clause, block_trace], r_succ_i) :: block_clauses_tl *)
-    ((copy_clause block_clause, block_trace) :: block_clauses, r_succ_i) :: block_clauses_tl
+    (block_clauses @ [C.copy_clause solver block_clause, block_trace], r_succ_i) :: block_clauses_tl
+(* ((copy_clause block_clause, block_trace) :: block_clauses, r_succ_i) :: block_clauses_tl *)
 
 
 (* Block sets of bad states in frames
@@ -917,7 +897,7 @@ let rec block solver trans_sys prop_set term_tbl =
             (* Create a clause with activation literals from generalized
                counterexample *)
             let clause = 
-              C.clause_of_literals solver None (List.map Term.negate cti_gen) 
+              C.mk_clause_of_literals solver C.BlockFrontier (List.map Term.negate cti_gen) 
             in
 
             (* Recursively block cube by showing that clause is
@@ -1009,45 +989,45 @@ let rec block solver trans_sys prop_set term_tbl =
         let clauses_r_pred_i, actlits_p0_r_pred_i = 
 
           if add_to_r0 then
-          
+            
             List.fold_left
               
-            (* Join lists of clauses *)
+              (* Join lists of clauses *)
               (fun (ac, al) (_, r) ->
                 (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
               
-            (* May be empty *)
-            ((match frames with 
-              (* Special case: R_0 = I *)
-              | [] -> ([], [C.actlit_of_frame 0])
-              | r_pred_i :: _ -> 
-                (C.clause_of_prop_set prop_set :: (F.values r_pred_i), 
-                 C.actlit_p0_of_prop_set prop_set :: 
-                   List.map C.actlit_p0_of_clause (F.values r_pred_i))))
-            
-            trace
+              (* May be empty *)
+              ((match frames with 
+                (* Special case: R_0 = I *)
+                | [] -> ([], [C.actlit_of_frame 0])
+                | r_pred_i :: _ -> 
+                  (C.clause_of_prop_set prop_set :: (F.values r_pred_i), 
+                   C.actlit_p0_of_prop_set prop_set :: 
+                     List.map C.actlit_p0_of_clause (F.values r_pred_i))))
+              
+              trace
 
           else
             
-          (* May be empty *)
-          match frames with
-              
-            (* Special case: R_0 = I *)
-            | [] -> ([], [C.actlit_of_frame 0])
+            (* May be empty *)
+            match frames with
+                
+              (* Special case: R_0 = I *)
+              | [] -> ([], [C.actlit_of_frame 0])
 
-            | r_pred_i :: _ -> 
-              
-              List.fold_left
+              | r_pred_i :: _ -> 
                 
-                (* Join lists of clauses *)
-                (fun (ac, al) (_, r) ->
-                  (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
-                
-                (C.clause_of_prop_set prop_set :: (F.values r_pred_i), 
-                 C.actlit_p0_of_prop_set prop_set :: 
-                   List.map C.actlit_p0_of_clause (F.values r_pred_i))
-            
-                trace
+                List.fold_left
+                  
+                  (* Join lists of clauses *)
+                  (fun (ac, al) (_, r) ->
+                    (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
+                  
+                  (C.clause_of_prop_set prop_set :: (F.values r_pred_i), 
+                   C.actlit_p0_of_prop_set prop_set :: 
+                     List.map C.actlit_p0_of_clause (F.values r_pred_i))
+                  
+                  trace
 
         in
         
@@ -1206,9 +1186,9 @@ let rec block solver trans_sys prop_set term_tbl =
 
                 (deactivate_clause solver block_clause_gen;
 
-                  Stat.incr Stat.pdr_back_subsumed;
+                 Stat.incr Stat.pdr_back_subsumed;
 
-                  SMTSolver.trace_comment
+                 SMTSolver.trace_comment
                    solver
                    (Format.asprintf
                       "@[<v>Clause@ @[<hv>{%a@}@] is subsumed in frame@ @[<hv>%a@]@]"
@@ -1300,7 +1280,7 @@ let rec block solver trans_sys prop_set term_tbl =
                   (* The new blocking clause is not subsumed, because
                      otherwise we would not get the counterexample *)
                   (* if F.is_subsumed r_i block_clause_gen_literals then r_i else *)
-                   
+                  
                   (* Subsume in this frame and add *)
                   F.subsume r_i block_clause_gen_literals
 
@@ -1317,15 +1297,26 @@ let rec block solver trans_sys prop_set term_tbl =
               
               frames,
 
-              block_tl
+              (* Add cube to block to next higher frame if flag is set *)
+              if 
                 
+                Flags.pdr_block_in_future ()
+                  
+              then
+                
+                add_to_block_tl solver block_clause_gen block_trace block_tl
+                  
+              else
+                
+                block_tl
+
           in
 
           (* DEBUG *)
           if debug_assert then
             assert
               (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames'));
-                    
+          
           (* Update frame size statistics *)
           Stat.set_int_list
             (frame_sizes_block frames' trace) 
@@ -1380,7 +1371,10 @@ let rec block solver trans_sys prop_set term_tbl =
               (* Create a clause with activation literals from generalized
                  counterexample *)
               let block_clause' = 
-                C.clause_of_literals solver None (List.map Term.negate cti_gen) 
+                C.mk_clause_of_literals
+                  solver
+                  (C.BlockRec (List.length block_tl |> succ))
+                  (List.map Term.negate cti_gen) 
               in
               
               block 
@@ -1427,7 +1421,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
 (* Split list of clauses into those that are inductive and those that
    are not *)
-let rec partition_rel_inductive
+let rec partition_inductive
     solver
     trans_sys
     frame
@@ -1444,7 +1438,7 @@ let rec partition_rel_inductive
 
   (* Assert p0 => ~(C_1' & ... & C_n') *)
   let actlit_n1 = 
-    C.create_and_assert_fresh_actlit solver "rel_ind" clauses C.Actlit_n1
+    C.create_and_assert_fresh_actlit solver "is_ind" clauses C.Actlit_n1
   in
 
   (* All candidate clause are inductive: return clauses show not to be
@@ -1504,7 +1498,7 @@ let rec partition_rel_inductive
     if maybe_inductive = [] then (not_inductive', []) else
 
       (* Continue checking if remaining clauses are inductive *)
-      partition_rel_inductive 
+      partition_inductive 
         solver
         trans_sys 
         frame
@@ -1749,7 +1743,7 @@ let fwd_propagate solver trans_sys prop_set frames =
         handle_events solver trans_sys (C.props_of_prop_set prop_set);
 
         (* Check inductiveness of blocking clauses? *)
-        if Flags.pdr_check_inductive () then 
+        if Flags.pdr_check_inductive () && prop <> [] then 
 
           (
 
@@ -1761,7 +1755,7 @@ let fwd_propagate solver trans_sys prop_set frames =
             (* Split clauses to be propagated into the new frame into
                inductive and non-inductive clauses *)
             let non_inductive_clauses, inductive_clauses =
-              partition_rel_inductive
+              partition_inductive
                 solver
                 trans_sys
                 []
@@ -1992,10 +1986,14 @@ let fwd_propagate solver trans_sys prop_set frames =
                       before generalization in frame %d."
                        (succ (List.length frames)));
 
-                  let copy_parent c =
-                    C.parent_of_clause c
-                    |> C.literals_of_clause
-                    |> C.clause_of_literals solver None
+                  let keep_before_gen =
+                    List.fold_left
+                      (fun a c ->
+                        match C.parents_of_clause c with
+                          | [] -> a
+                          | p :: _ -> C.copy_clause solver p :: a)
+                      []
+                      keep
                   in
                   
                   (* Take parent clauses of not propagating clauses and
@@ -2006,7 +2004,7 @@ let fwd_propagate solver trans_sys prop_set frames =
                       trans_sys
                       prop_set
                       frames_tl_full
-                      (List.map copy_parent keep)
+                      keep_before_gen
                   in
                   
                   (* Update statistics *)
