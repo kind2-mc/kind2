@@ -76,7 +76,7 @@ node Since(p: bool) returns (r: int);
 var
   value_posnat, zero_till_true: bool;
 let
-  r = b2i(p) ->  if p then 1 else  if pre(r) = 0 then 0 else pre(r) + 1;
+  r = b2i(p) -> if p then 1 else  if pre(r) = 0 then 0 else pre(r) + 1;
   
   value_posnat = r >= 0;
   -- PROPERTY value_posnat;
@@ -162,83 +162,45 @@ returns
 
 const St_Inhibited : int = 1 ;
 const St_Listening : int = 2 ;
-const St_Pilot_Flying : int = 3 ;
-const St_Start : int = 4 ;
-const St_Stop : int = 5 ;
+const St_Flying : int = 3 ;
 
 var
-  state : subrange [1, 5] of int;
-  T4, T5, T6, T3, T1,  T2: bool;
+  state : subrange [1, 3] of int;
+  fly_to_inh, inh_to_lis, lis_to_fly: bool;
   inhibit_count: int;
-  stop_unreachable, inhibit_count_bounded, PFS_state_consistency: bool;
-  bla: int ;
 let
 
-  assert (PFS = Primary_Side) -> true ;
-
-  -- initial and reachable states
-  assert (state = St_Start) -> true;
-  assert
-    (state = St_Start) or
-    (state = St_Inhibited) or
-    (state = St_Listening) or
-    (state = St_Pilot_Flying) or
-    (state = St_Stop);
-
-  -- St_Start -> St_Pilot_Flying
-  T1 = (false -> (pre(state) = St_Start) and Primary_Side);
-
-  assert T1 => (state = St_Pilot_Flying);
-  assert T1 => (PFS = true);
-
-  -- St_Start -> St_Inhibited
-  T2 = (false -> (pre(state) = St_Start) and not Primary_Side);
-
-  assert T2 => (state = St_Inhibited);
-  assert T2 => (PFS = false);
-  assert T2 => (inhibit_count = 0);
-  
-  -- St_Pilot_Flying -> St_Inhibited
-  T3 = (false -> (pre(state) = St_Pilot_Flying) and riseOSPF);
-
-  assert T3 => (state = St_Inhibited);
-  assert T3 => (PFS = false);
-  assert T3 => (inhibit_count = 0);
-
+  -- St_Flying -> St_Inhibited
+  fly_to_inh = false -> (pre(state) = St_Flying) and riseOSPF ;
   -- St_Inhibited -> St_Listening
-  T4 = 
-    (false -> (pre(state) = St_Inhibited) and 
-     pre(inhibit_count) >= inhibit_count_max);
+  inh_to_lis = false ->
+    (pre(state) = St_Inhibited) and pre(inhibit_count) >= inhibit_count_max ;
+  -- T6: St_Listening -> St_Flying
+  lis_to_fly = (false -> (pre(state) = St_Listening) and riseTS) ;
 
-  assert T4 => (state = St_Listening);
+  state = (
+    if Primary_Side then St_Flying else St_Inhibited
+  ) -> (
+    if fly_to_inh then St_Inhibited else
+    if inh_to_lis then St_Listening else
+    if lis_to_fly then St_Flying else
+    pre state
+  ) ;
 
-  -- St_Inhibited -> St_Inhibited
-  T5 = (false -> (pre(state) = St_Inhibited and not (T4)));
-  assert T5 => (state = St_Inhibited);
-  assert T5 => (inhibit_count = pre(inhibit_count) + 1);
+  --%PROPERTY (state = St_Flying) or (state = St_Inhibited) or (state = St_Listening) ;
 
-  -- St_Listening -> St_Pilot_Flying
-  T6 = (false -> (pre(state) = St_Listening) and riseTS);
-  assert T6 => (state = St_Pilot_Flying);
-  assert T6 => (PFS = true);
+  PFS = Primary_Side -> (
+    if state = St_Inhibited then false else
+    if state = St_Listening then false else
+    if state = St_Flying then true else
+    -- Unreachable.
+    pre PFS
+  ) ;
 
-  -- hold values outside transitions
-  assert true -> (not (T1 or T2 or T3 or T6) => (PFS = pre(PFS)));
-  assert true -> (not (T1 or T2 or T3 or T4 or T5 or T6) => (state = pre(state)));
-  assert true -> (not (T2 or T3 or T5) => (inhibit_count = pre(inhibit_count)));
-
-  stop_unreachable = (state <> St_Stop);
-  -- PROPERTY stop_unreachable;
- 
-  inhibit_count_bounded = 
-    (state = St_Inhibited => 
-     (inhibit_count >= 0 and inhibit_count <= inhibit_count_max));
-  -- PROPERTY inhibit_count_bounded;
-
-  PFS_state_consistency = 
-    (not (state = St_Start) => (PFS = (state = St_Pilot_Flying)));
-  
-  -- PROPERTY PFS_state_consistency;
+  inhibit_count = 0 -> (
+    if state = St_Inhibited then pre inhibit_count + 1 else 0
+  ) ;
+  --%PROPERTY inhibit_count <= inhibit_count_max ;
 
 tel;
 
@@ -276,50 +238,8 @@ node Cross_Channel_Bus
 returns
   (O : bool);
 
---@global_contract : property ;
---@ensure (O = Init_Bool) or (false -> (O = pre I)) ;
-
-const St_Step : int = 1;
-const St_Start : int = 2;
-const St_Stop : int = 3;
-
-var
-  prev_I : bool;
-
-  T1, T2: bool;
-
-  state : subrange [1,3] of int;
-
-  stop_unreachable : bool;
-
 let
-
-  -- initial and reachable states
-  assert (state = St_Start) -> true;
-  assert (state = St_Start) => (O = Init_Bool);
-  assert (state = St_Start) or (state = St_Step) or (state = St_Stop);
-
-  -- St_Start -> St_Step
-  T1 = (false -> (pre(state) = St_Start));
-
-  assert T1 => (state = St_Step);
-  assert T1 => (O = Init_Bool);
-  assert T1 => (prev_I = I);
-
-  -- St_Step -> St_Step
-  T2 = (false -> (pre(state) = St_Step));
-
-  assert T2 => (state = St_Step);
-  assert T2 => (O = pre(prev_I));
-  assert T2 => (prev_I = I);
-
-  -- hold values outside transitions
-  assert true -> (not (T1 or T2) => (prev_I = pre(prev_I)));
-  assert true -> (not (T1 or T2) => (state = pre(state)));
-  assert true -> (not (T1 or T2) => (O = pre(O)));
-  
-  stop_unreachable = (state <> St_Stop);
-  -- PROPERTY stop_unreachable;
+  O = Init_Bool -> pre I ;
 tel;
 
 node qs_dfa (p, q : bool) returns (ok : bool);
@@ -389,7 +309,6 @@ node PFS
   (TS, LS_CLK, RS_CLK, LR_CLK, RL_CLK : bool) 
 returns 
   (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
-
 var
   global_ens,
   stable_req, stable_ens,
