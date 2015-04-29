@@ -195,30 +195,16 @@ const St_Listening : int = 2 ;
 const St_Flying : int = 3 ;
 
 var
-  state : subrange [1, 5] of int;
+  state : subrange [1, 3] of int;
   fly_to_inh, inh_to_lis, lis_to_fly: bool;
   inhibit_count: int;
-  stop_unreachable, inhibit_count_bounded, PFS_state_consistency: bool;
 let
-
-  -- assert (PFS = Primary_Side) -> true ;
-
-  -- initial and reachable states
-  -- assert (state = St_Start) -> true;
-
-  -- St_Start -> St_Flying
-  -- T1 = Primary_Side -> (pre(state) = St_Start) ;
-  -- St_Start -> St_Inhibited
-  -- T2 = not Primary_Side -> (pre(state) = St_Start) ;
-
-  -- T3: St_Flying -> St_Inhibited
+  -- St_Flying -> St_Inhibited
   fly_to_inh = false -> (pre(state) = St_Flying) and riseOSPF ;
-  -- T4: St_Inhibited -> St_Listening
+  -- St_Inhibited -> St_Listening
   inh_to_lis = false ->
     (pre(state) = St_Inhibited) and pre(inhibit_count) >= inhibit_count_max ;
-  -- T5: St_Inhibited -> St_Inhibited
-  -- T5 = (false -> (pre(state) = St_Inhibited and not (T4))) ;
-  -- T6: St_Listening -> St_Flying
+  -- St_Listening -> St_Flying
   lis_to_fly = (false -> (pre(state) = St_Listening) and riseTS) ;
 
   state = (
