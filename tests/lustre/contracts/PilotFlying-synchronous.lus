@@ -76,7 +76,7 @@ node Since(p: bool) returns (r: int);
 var
   value_posnat, zero_till_true: bool;
 let
-  r = b2i(p) ->  if p then 1 else  if pre(r) = 0 then 0 else pre(r) + 1;
+  r = b2i(p) -> if p then 1 else  if pre(r) = 0 then 0 else pre(r) + 1;
   
   value_posnat = r >= 0;
   -- PROPERTY value_posnat;
@@ -160,85 +160,90 @@ node PFS_Logic
 returns 
   (PFS : bool);
 
+--@global_contract : init_R1 ;
+--@require true -> (pre not PFS) => (not riseOSPF) ;
+--@ensure  (PFS = Primary_Side) -> true ;
+
+--@contract : active_change_R3 ;
+--@require riseOSPF ;
+--@require false -> pre PFS ;
+--@ensure  not PFS ;
+
+--@contract : inactive_change_R3 ;
+--@require riseTS ;
+--@require false -> not pre PFS ;
+--@require Duration(true) > inhibit_count_max + 2 ;
+--@require (Since(riseOSPF) > inhibit_count_max + 2) or (Since(riseOSPF) = 0) ;
+--@ensure  PFS ;
+
+--@contract : inhibited_R2_R3 ;
+--@require false -> not pre PFS ;
+--@require Since(riseOSPF) <= inhibit_count_max ;
+--@require Since(riseOSPF) > 0 ;
+--@ensure  not PFS ;
+
+--@contract : active_no_switch_R5 ;
+--@require Primary_Side -> ((pre PFS) and not riseOSPF) ;
+--@ensure  true -> PFS ;
+
+--@contract : inactive_no_switch_R5 ;
+--@require (not Primary_Side) -> ((not pre PFS) and not riseTS) ;
+--@ensure  true -> not PFS ;
+
 const St_Inhibited : int = 1 ;
 const St_Listening : int = 2 ;
-const St_Pilot_Flying : int = 3 ;
-const St_Start : int = 4 ;
-const St_Stop : int = 5 ;
+const St_Flying : int = 3 ;
 
 var
   state : subrange [1, 5] of int;
-  T4, T5, T6, T3, T1,  T2: bool;
+  fly_to_inh, inh_to_lis, lis_to_fly: bool;
   inhibit_count: int;
   stop_unreachable, inhibit_count_bounded, PFS_state_consistency: bool;
-  bla: int ;
 let
 
-  assert (PFS = Primary_Side) -> true ;
+  -- assert (PFS = Primary_Side) -> true ;
 
   -- initial and reachable states
-  assert (state = St_Start) -> true;
-  assert
-    (state = St_Start) or
-    (state = St_Inhibited) or
-    (state = St_Listening) or
-    (state = St_Pilot_Flying) or
-    (state = St_Stop);
+  -- assert (state = St_Start) -> true;
 
-  -- St_Start -> St_Pilot_Flying
-  T1 = (false -> (pre(state) = St_Start) and Primary_Side);
-
-  assert T1 => (state = St_Pilot_Flying);
-  assert T1 => (PFS = true);
-
+  -- St_Start -> St_Flying
+  -- T1 = Primary_Side -> (pre(state) = St_Start) ;
   -- St_Start -> St_Inhibited
-  T2 = (false -> (pre(state) = St_Start) and not Primary_Side);
+  -- T2 = not Primary_Side -> (pre(state) = St_Start) ;
 
-  assert T2 => (state = St_Inhibited);
-  assert T2 => (PFS = false);
-  assert T2 => (inhibit_count = 0);
-  
-  -- St_Pilot_Flying -> St_Inhibited
-  T3 = (false -> (pre(state) = St_Pilot_Flying) and riseOSPF);
+  -- T3: St_Flying -> St_Inhibited
+  fly_to_inh = false -> (pre(state) = St_Flying) and riseOSPF ;
+  -- T4: St_Inhibited -> St_Listening
+  inh_to_lis = false ->
+    (pre(state) = St_Inhibited) and pre(inhibit_count) >= inhibit_count_max ;
+  -- T5: St_Inhibited -> St_Inhibited
+  -- T5 = (false -> (pre(state) = St_Inhibited and not (T4))) ;
+  -- T6: St_Listening -> St_Flying
+  lis_to_fly = (false -> (pre(state) = St_Listening) and riseTS) ;
 
-  assert T3 => (state = St_Inhibited);
-  assert T3 => (PFS = false);
-  assert T3 => (inhibit_count = 0);
+  state = (
+    if Primary_Side then St_Flying else St_Inhibited
+  ) -> (
+    if fly_to_inh then St_Inhibited else
+    if inh_to_lis then St_Listening else
+    if lis_to_fly then St_Flying else
+    pre state
+  ) ;
 
-  -- St_Inhibited -> St_Listening
-  T4 = 
-    (false -> (pre(state) = St_Inhibited) and 
-     pre(inhibit_count) >= inhibit_count_max);
+  --%PROPERTY (state = St_Flying) or (state = St_Inhibited) or (state = St_Listening) ;
 
-  assert T4 => (state = St_Listening);
+  PFS = Primary_Side -> (
+    if state = St_Inhibited then false else
+    if state = St_Listening then false else
+    if state = St_Flying then true else
+    -- Unreachable.
+    pre PFS
+  ) ;
 
-  -- St_Inhibited -> St_Inhibited
-  T5 = (false -> (pre(state) = St_Inhibited and not (T4)));
-  assert T5 => (state = St_Inhibited);
-  assert T5 => (inhibit_count = pre(inhibit_count) + 1);
-
-  -- St_Listening -> St_Pilot_Flying
-  T6 = (false -> (pre(state) = St_Listening) and riseTS);
-  assert T6 => (state = St_Pilot_Flying);
-  assert T6 => (PFS = true);
-
-  -- hold values outside transitions
-  assert true -> (not (T1 or T2 or T3 or T6) => (PFS = pre(PFS)));
-  assert true -> (not (T1 or T2 or T3 or T4 or T5 or T6) => (state = pre(state)));
-  assert true -> (not (T2 or T3 or T5) => (inhibit_count = pre(inhibit_count)));
-
-  stop_unreachable = (state <> St_Stop);
-  -- PROPERTY stop_unreachable;
- 
-  inhibit_count_bounded = 
-    (state = St_Inhibited => 
-     (inhibit_count >= 0 and inhibit_count <= inhibit_count_max));
-  -- PROPERTY inhibit_count_bounded;
-
-  PFS_state_consistency = 
-    (not (state = St_Start) => (PFS = (state = St_Pilot_Flying)));
-  
-  -- PROPERTY PFS_state_consistency;
+  inhibit_count = 0 -> (
+    if state = St_Inhibited then pre inhibit_count + 1 else 0
+  ) ;
+  --%PROPERTY inhibit_count <= inhibit_count_max ;
 
 tel;
 
@@ -249,6 +254,37 @@ node PFS_Side
 
 returns 
   (PFS : bool);
+
+--@global_contract : init_R1 ;
+--@require true -> (pre not PFS) => (not Rise(OSPF)) ;
+--@require (Primary_Side => not OSPF) -> true ;
+--@ensure  (PFS = Primary_Side) -> true ;
+
+--@contract : active_change_R3 ;
+--@require Rise(OSPF) ;
+--@require false -> pre PFS ;
+--@ensure  not PFS ;
+
+--@contract : inactive_change_R3 ;
+--@require Rise(TS) ;
+--@require false -> not pre PFS ;
+--@require Duration(true) > inhibit_count_max + 2 ;
+--@require (Since(Rise(OSPF)) > inhibit_count_max + 2) or (Since(Rise(OSPF)) = 0) ;
+--@ensure  PFS ;
+
+--@contract : inhibited_R2_R3 ;
+--@require false -> not pre PFS ;
+--@require Since(Rise(OSPF)) <= inhibit_count_max ;
+--@require Since(Rise(OSPF)) > 0 ;
+--@ensure  not PFS ;
+
+--@contract : active_no_switch_R5 ;
+--@require Primary_Side -> ((pre PFS) and not Rise(OSPF)) ;
+--@ensure  PFS ;
+
+--@contract : inactive_no_switch_R5 ;
+--@require (not Primary_Side) -> ((not pre PFS) and not Rise(TS)) ;
+--@ensure  not PFS ;
 
 var
   PFSL_PFS : bool;
@@ -390,12 +426,46 @@ node PFS
 returns 
   (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
 
-var
-  global_ens,
-  stable_req, stable_ens,
-  change_R3_rise_req, change_R3_rise_ens,
-  change_R3_fall_req, change_R3_fall_ens,
-  assume, guarantee: bool ;
+--@global_contract : global ;
+--@ensure (LPFS and (not RPFS)) -> true ;
+--@ensure  LPFS or RPFS ;
+
+--@contract : unchanged_R5 ;
+--@require true -> SinceGTOrZero(Rise(TS), both_stabilization_max) ;
+--@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
+
+--@contract : only_one_active_R2;
+--@require SinceGTOrZero(Rise(TS), both_stabilization_max) ;
+--@ensure  LPFS = not RPFS;
+
+
+
+--@contract : change_R3_Rise;
+
+-- TS rised less_eq than all_ticked_max (7) steps ago.
+--@require Since(Rise(TS) and (false -> not (pre RPFS and pre LPFS))) = all_ticked_max ;
+
+-- The last fall of a PFS had enough time to leave its inhibited state before
+-- the rise, or did not happen.
+--@require SinceGTOrZero(Fall(false -> pre RPFS) or Fall(true -> pre LPFS), 
+side_stabilization_max + all_ticked_max + 1) ;
+
+-- As soon as the rise has had enough time to be taken into account, there
+-- should have been one and exactly one rise during that time.
+--@ensure  OnceWithin(Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)), all_ticked_max) ;
+
+
+
+--@contract : change_R3_Fall;
+
+-- One side rised.
+--@require Since(Rise(true -> pre LPFS) or Rise(false -> pre RPFS)) = side_comm_stabilization_max  ;
+
+-- If enough time after this event has passed, then there should have been one
+-- and only one fall during that event
+--@ensure OnceWithin(Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)), side_comm_stabilization_max) ;
+
+
 let
 
   LS_PFS =
@@ -413,44 +483,7 @@ let
   LPFS = LS_PFS ;
   RPFS = RS_PFS ;
 
-  global_ens = ( (LPFS and (not RPFS)) -> true ) and (LPFS or RPFS) ;
-
-  stable_req = true -> SinceGTOrZero( Rise(TS), both_stabilization_max ) ;
-  stable_ens = (not (Changed(RPFS) or Changed(LPFS))) and LPFS = not RPFS ;
-
-  change_R3_rise_req = (
-    Since(
-      Rise(TS) and (false -> not (pre RPFS and pre LPFS))
-    ) = all_ticked_max
-  ) and (
-    SinceGTOrZero(
-      Fall(false -> pre RPFS) or Fall(true -> pre LPFS),
-      side_stabilization_max + all_ticked_max + 1
-    )
-  ) ;
-  change_R3_rise_ens = OnceWithin(
-    Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)),
-    all_ticked_max
-  ) ;
-
-  change_R3_fall_req = Since(
-    Rise(true -> pre LPFS) or Rise(false -> pre RPFS)
-  ) = side_comm_stabilization_max ;
-  change_R3_fall_ens = OnceWithin(
-    Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)),
-    side_comm_stabilization_max
-  ) ;
-
-  assume = stable_req or change_R3_rise_req or change_R3_fall_req ;
-
-  guarantee = global_ens and (
-    (stable_req => stable_ens) and
-    (change_R3_rise_req => change_R3_rise_ens) and
-    (change_R3_fall_req => change_R3_fall_ens)
-  ) ;
-
-
-  --%PROPERTY ( Duration(assume) = Duration(true) ) => guarantee ;
+  -- PROPERTY LPFS or RPFS ;
   
 tel;
 
