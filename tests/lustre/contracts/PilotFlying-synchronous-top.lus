@@ -251,47 +251,8 @@ node Cross_Channel_Bus
 returns
   (O : bool);
 
-const St_Step : int = 1;
-const St_Start : int = 2;
-const St_Stop : int = 3;
-
-var
-  prev_I : bool;
-
-  T1, T2: bool;
-
-  state : subrange [1,3] of int;
-
-  stop_unreachable : bool;
-
 let
-
-  -- initial and reachable states
-  assert (state = St_Start) -> true;
-  assert (state = St_Start) => (O = Init_Bool);
-  assert (state = St_Start) or (state = St_Step) or (state = St_Stop);
-
-  -- St_Start -> St_Step
-  T1 = (false -> (pre(state) = St_Start));
-
-  assert T1 => (state = St_Step);
-  assert T1 => (O = Init_Bool);
-  assert T1 => (prev_I = I);
-
-  -- St_Step -> St_Step
-  T2 = (false -> (pre(state) = St_Step));
-
-  assert T2 => (state = St_Step);
-  assert T2 => (O = pre(prev_I));
-  assert T2 => (prev_I = I);
-
-  -- hold values outside transitions
-  assert true -> (not (T1 or T2) => (prev_I = pre(prev_I)));
-  assert true -> (not (T1 or T2) => (state = pre(state)));
-  assert true -> (not (T1 or T2) => (O = pre(O)));
-  
-  stop_unreachable = (state <> St_Stop);
-  -- PROPERTY stop_unreachable;
+  O = Init_Bool -> pre I ;
 tel;
 
 node qs_dfa (p, q : bool) returns (ok : bool);
