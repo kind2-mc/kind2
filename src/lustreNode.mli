@@ -174,8 +174,12 @@ type t =
 (** The empty node *)
 val empty_node : LustreIdent.t -> t
 
-(** Pretty-print a node *)
-val pp_print_node : bool -> Format.formatter -> t -> unit 
+(** Pretty-print a contract *)
+val pp_print_contract_light : Format.formatter -> contract -> unit 
+
+(** Pretty-print a node. If [no_subrange] is true then subranges will
+    be printed as [int] (default false). *)
+val pp_print_node : ?no_subrange:bool -> bool -> Format.formatter -> t -> unit 
 
 (** Pretty-print a node call *)
 val pp_print_call : bool -> Format.formatter -> node_call -> unit 

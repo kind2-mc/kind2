@@ -221,34 +221,56 @@ let space_if_nonempty = function
   | [] -> (fun _ -> ())
   | _ -> (fun ppf -> Format.fprintf ppf "@ ")
 
+(* Output a space if list is not empty *)
+let force_space_if_nonempty = function
+  | [] -> (fun _ -> ())
+  | _ -> (fun ppf -> Format.fprintf ppf "@,")
+
+(* Pretty-print a contract. *)
+let pp_print_contract_light ppf { name ; pos ; reqs ; enss } =
+  Format.fprintf ppf
+    "@[<v 2>%a[%a]:@,req: @[<v>%a@]@,ens: @[<v>%a@]@]"
+    (LustreIdent.pp_print_ident false) name
+    pp_print_position pos
+    (pp_print_list (LustreExpr.pp_print_lustre_expr false) "@,") reqs
+    (pp_print_list (LustreExpr.pp_print_lustre_expr false) "@,") enss
+
 
 (* Pretty-print a node input *)
-let pp_print_input safe ppf (var, _) =
+let pp_print_input ?(no_subrange = false) safe ppf (var, _) =
 
   Format.fprintf ppf
     "%t%a: %a"
     (function ppf -> 
       if StateVar.is_const var then Format.fprintf ppf "const ")
     (E.pp_print_lustre_var safe) var
-    (E.pp_print_lustre_type safe) (StateVar.type_of_state_var var)
+    (E.pp_print_lustre_type
+      ~no_subrange:no_subrange
+      safe)
+    (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node output *)
-let pp_print_output safe ppf (var, _) =
+let pp_print_output ?(no_subrange = false) safe ppf (var, _) =
 
   Format.fprintf ppf
     "%a: %a"
     (E.pp_print_lustre_var safe) var
-    (E.pp_print_lustre_type safe) (StateVar.type_of_state_var var)
+    (E.pp_print_lustre_type
+      ~no_subrange:no_subrange
+      safe)
+    (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node local variable *)
-let pp_print_local safe ppf (var, _) =
+let pp_print_local ?(no_subrange = false) safe ppf (var, _) =
 
   Format.fprintf ppf
     "%a: %a"
     (E.pp_print_lustre_var safe) var
-    (E.pp_print_lustre_type safe) (StateVar.type_of_state_var var)
+    (E.pp_print_lustre_type
+      ~no_subrange:no_subrange
+      safe) (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node equation *)
@@ -368,7 +390,8 @@ let rec pp_print_contract_spec_option safe ppf = function
 
 
 (* Pretty-print a node *)
-let pp_print_node 
+let pp_print_node
+    ?(no_subrange = false)
     safe
     ppf
     { name;
@@ -387,9 +410,9 @@ let pp_print_node
 
   Format.fprintf
     ppf
-    "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
-     returns@ @[<hv 1>(%a)@];@]@ \
-     @[<v>%a@]%t\
+    "@[<hv>@[<v>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
+     returns@ @[<hv 1>(%a)@];@]\
+     %t@[<v>%a@]%t@]\
      %t%t\
      @[<hv 2>let@ \
      %a%t\
@@ -400,10 +423,11 @@ let pp_print_node
      %a@;<1 -2>\
      tel;@]@]"
     (I.pp_print_ident safe) name
-    (pp_print_list (pp_print_input safe) ";@ ") 
+    (pp_print_list (pp_print_input ~no_subrange:no_subrange safe) ";@ ") 
     (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
-    (pp_print_list (pp_print_output safe) ";@ ") 
+    (pp_print_list (pp_print_output ~no_subrange:no_subrange safe) ";@ ") 
     (outputs @ (List.map (fun sv -> (sv, I.empty_index)) observers))
+    (force_space_if_nonempty output_input_dep)
     (pp_print_list  
        (fun ppf l -> 
           Format.fprintf ppf "@[<h>-- %a@]"
@@ -411,12 +435,15 @@ let pp_print_node
             l)
        "@,")
     output_input_dep
-    (space_if_nonempty output_input_dep)
+    (force_space_if_nonempty output_input_dep)
     (function ppf -> 
       if locals = [] then () else 
         Format.fprintf ppf 
           "@[<hv 2>var@ %a;@]" 
-          (pp_print_list (pp_print_local safe) ";@ ") locals)
+          (pp_print_list
+            (pp_print_local ~no_subrange:no_subrange safe)
+            ";@ ")
+          locals)
     (space_if_nonempty locals)
     (pp_print_list (pp_print_call safe) "@ ") calls
     (space_if_nonempty calls)

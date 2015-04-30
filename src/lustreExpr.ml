@@ -390,7 +390,8 @@ module ExprHashtbl = Hashtbl.Make
 (* ********************************************************************** *)
 
 (* Pretty-print a type as a Lustre type *)
-let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
+let pp_print_lustre_type ?(no_subrange = false) _ ppf t =
+  match Type.node_of_type t with
 
   | Type.Bool -> Format.pp_print_string ppf "bool"
 
@@ -398,11 +399,13 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
 
   | Type.IntRange (i, j) -> 
 
-    Format.fprintf
-      ppf 
-      "subrange [%a, %a] of int" 
-      Numeral.pp_print_numeral i 
-      Numeral.pp_print_numeral j
+    if no_subrange then Format.pp_print_string ppf "int"
+    else
+      Format.fprintf
+        ppf 
+        "subrange [%a, %a] of int" 
+        Numeral.pp_print_numeral i 
+        Numeral.pp_print_numeral j
 
   | Type.Real -> Format.pp_print_string ppf "real"
 

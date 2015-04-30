@@ -75,8 +75,10 @@ module ExprHashtbl : Hashtbl.S with type key = t
 (** Equality of expressions *)
 val equal_expr : t -> t -> bool
 
-(** Pretty-print a Lustre type *)
-val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
+(** Pretty-print a Lustre type. If [no_subrange] is true then subranges will
+    be printed as [int] (default false). *)
+val pp_print_lustre_type :
+  ?no_subrange:bool -> bool -> Format.formatter -> Type.t -> unit
 
 (** Pretty-print a Lustre variable *)
 val pp_print_lustre_var : bool -> Format.formatter -> StateVar.t -> unit 

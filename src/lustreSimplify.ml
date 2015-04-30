@@ -3420,12 +3420,12 @@ and contract_spec_to_node
        |> List.map
             (fun (sv,m,_) -> (sv,m))
      in
-
+(* 
      Format.printf "Node: @[<v>%a@]@." (N.pp_print_node true) node ;
 
        Format.printf
         "Abstractions': %a@."
-        pp_print_abstraction_context abstractions ;
+        pp_print_abstraction_context abstractions ; *)
 
      (* Add declaration of every state variable to observers if not
         already an output or an observer. *)
@@ -3531,9 +3531,9 @@ and contract_spec_to_node
        { node with N.contract_spec = Some contract_spec }
      in
 
-       Format.printf
+       (* Format.printf
         "Abstractions'': %a@."
-        pp_print_abstraction_context abstractions ;
+        pp_print_abstraction_context abstractions ; *)
 
      (* Returning new stuff. *)
      (context, node, abstractions)
@@ -4168,9 +4168,9 @@ let parse_node_contract_spec
 
        let req = E.mk_var req_svar E.base_clock in
 
-       Format.printf
+       (* Format.printf
         "Abstractions: %a@."
-        pp_print_abstraction_context abstractions ;
+        pp_print_abstraction_context abstractions ; *)
 
        (* Add declaration to observers if not already an output. *)
        let observers =
@@ -4451,8 +4451,8 @@ let parse_node
       contract
   in
 
-  Format.printf
-    "Node out: @[<v>%a@]@." (N.pp_print_node true) node ;
+  (* Format.printf
+    "Node out: @[<v>%a@]@." (N.pp_print_node true) node ; *)
 
   (* Parse local declarations, add to local context and node context *)
   let local_context, node = 

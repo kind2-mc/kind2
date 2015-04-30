@@ -46,8 +46,6 @@ let rec list_eq l1 l2 = match l1, l2 with
 
 
 
-
-
 (* Gathers the contracts, the actions a strategy can perform on the
    underlying smt solver used for test generation, and some data a
    strategy generates tests from. *)
@@ -120,24 +118,24 @@ let comment { trace_comment } = trace_comment
 
 (* |===| Counterexample to inputs csv. *)
 
-let cex_to_inputs_csv sys cex k = match TransSys.get_source sys with
+let cex_to_inputs_csv fmt sys cex k = match TransSys.get_source sys with
   | TransSys.Lustre nodes ->
     let path =
       Model.path_from_model (TransSys.state_vars sys) cex k
     in
-    Format.printf
-      "  @[<v>%a@]@."
+    Format.fprintf fmt
+      "@[<v>%a@]"
       (LustrePath.pp_print_path_inputs_csv nodes true) path
   (* Not supporting non lustre sources. *)
   | _ -> assert false
 
-let cex_to_outputs_csv sys cex k = match TransSys.get_source sys with
+let cex_to_outputs_csv fmt sys cex k = match TransSys.get_source sys with
   | TransSys.Lustre nodes ->
     let path =
       Model.path_from_model (TransSys.state_vars sys) cex k
     in
-    Format.printf
-      "  @[<v>%a@]@."
+    Format.fprintf fmt
+      "@[<v>%a@]@."
       (LustrePath.pp_print_path_outputs_csv nodes true) path
   (* Not supporting non lustre sources. *)
   | _ -> assert false
@@ -160,6 +158,9 @@ module type Sig = sig
 
   (* The name of the strategy, used for logging. *)
   val name : string
+
+  (* The directory that will contain the test cases. *)
+  val out_dir : string
 
   (* Returns true if the strategy requires succeeding input tuples
      to be different. *)
@@ -191,7 +192,9 @@ module type Sig = sig
   val work : data context -> k -> bool
 
   (* Generates test cases using a get_model function. *)
-  val testcase_gen : data context -> (
+  val testcase_gen : string -> (
+    string -> string -> string -> string list -> unit
+  ) -> data context -> (
     actlit list -> model option
   ) -> unit
 
@@ -203,6 +206,7 @@ module Dummy : Sig = struct
 
   let prefix = "dummy"
   let name = "dummy"
+  let out_dir = "dummy"
   let no_stuttering = false
   let abstract_subsystems = false
 
@@ -222,14 +226,14 @@ module Dummy : Sig = struct
     last_k := k ;
     Numeral.( k >= five )
 
-  let testcase_gen context get_model =
+  let testcase_gen _ _ context get_model =
     match get_model [] with
     | None ->
       Format.printf "No test case generated.@."
     | Some(model) ->
       Format.printf
-        "Test case:@." ;
-      cex_to_inputs_csv context.sys model !last_k
+        "Logging test cases.@." ;
+      cex_to_inputs_csv Format.std_formatter context.sys model !last_k
 
 
 end
@@ -639,6 +643,7 @@ module Unit_ModeSwitch : Sig = struct
 
   let prefix = "unit_mode_switch"
   let name = "[unit] mode switch"
+  let out_dir = "unit"
 
   let no_stuttering = false
   let abstract_subsystems = false
@@ -663,16 +668,16 @@ module Unit_ModeSwitch : Sig = struct
     let extended_data = extend_contract_testcases context k in
     context.data <- extended_data ;
 
-    Format.printf
+    (* Format.printf
       "Testcase(s) at %a:@.  @[<v>%a@]@.@."
       Numeral.pp_print_numeral k
-      (pp_print_contract_testcases_named context.sys) extended_data ;
+      (pp_print_contract_testcases_named context.sys) extended_data ; *)
 
     Numeral.( k >= max_k () )
 
-  let testcase_gen context get_model =
+  let testcase_gen dir pp_testcase context get_model =
 
-    let testcase_tree =
+(*     let testcase_tree =
       context.data |> List.map (fun (act,k,tc) ->
         act, k, (
           unroll_test_case [] Numeral.(k + one) tc |> List.rev
@@ -686,29 +691,48 @@ module Unit_ModeSwitch : Sig = struct
 
     Format.fprintf
       stdfmt "Reachable contracts:@,@[<v>%a@]@.@."
-      pp_print_tree testcase_tree ;
+      pp_print_tree testcase_tree ; *)
 
-    context.data |> List.iter (fun ( (actlit,k,testcase) as tc) ->
-      Format.printf "Test case description:@." ;
+    context.data |> List.fold_left (fun cpt ( (actlit,k,testcase) as tc) ->
+      (* Format.printf "Test case number %d:@." cpt ; *)
+
+      let name = Format.sprintf "test_case_%d" cpt in
+
+      let out_file = Format.sprintf "%s/%s.csv" dir name in
+
       description_of_contract_testcase context.sys tc
-      |> List.iter (Format.printf "  %a@." Format.pp_print_string) ;
+      |> pp_testcase out_file name "csv" ;
 
-      match get_model [ actlit ] with
-      | None -> assert false
-      | Some model ->
-        (* Format.printf
-          "Test case of length %a activating@. @[<v>%a@]@."
-          Numeral.pp_print_numeral k
-          (pp_print_contract_testcase_named context.sys) testcase ;
-        Format.printf "is@." ; *)
-        Format.printf "Inputs:@." ;
-        cex_to_inputs_csv context.sys model k ;
-        Format.printf "Outputs:@." ;
-        cex_to_outputs_csv context.sys model k ;
-        Format.printf "@." ;
-    ) ;
+      let file =
+        Unix.openfile
+          out_file [ Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT ] 0o640
+      in
 
-    let testcase_tree =
+      let out_fmt =
+        Unix.out_channel_of_descr file |> Format.formatter_of_out_channel
+      in
+
+      ( match get_model [ actlit ] with
+        | None -> assert false
+        | Some model ->
+          (* Format.printf
+            "Test case of length %a activating@. @[<v>%a@]@."
+            Numeral.pp_print_numeral k
+            (pp_print_contract_testcase_named context.sys) testcase ;
+          Format.printf "is@." ; *)
+          (* Format.printf "Inputs:@." ; *)
+          cex_to_inputs_csv out_fmt context.sys model k
+          (* Format.printf "Outputs:@." ; *)
+          (* cex_to_outputs_csv context.sys model k ; *)
+          (* Format.printf "@." ; *) ) ;
+
+      Format.fprintf out_fmt "@?" ;
+      Unix.close file ;
+
+      cpt + 1
+    ) 0 |> ignore ;
+
+(*     let testcase_tree =
       context.data |> List.map (fun (act,k,tc) ->
         act, k, (
           unroll_test_case [] Numeral.(k + one) tc |> List.rev
@@ -722,7 +746,9 @@ module Unit_ModeSwitch : Sig = struct
 
     Format.fprintf
       stdfmt "Reachable contracts:@,@[<v>%a@]@.@."
-      pp_print_tree testcase_tree
+      pp_print_tree testcase_tree ; *)
+
+    ()
 
 
 end

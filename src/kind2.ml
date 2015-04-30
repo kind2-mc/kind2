@@ -772,20 +772,15 @@ let main () =
     (* Set module to supervisor. *)
     Event.set_module `Supervisor ;
 
-    (* setup_and_run trans_sys *)
-
-    Testgen.main trans_sys
-
-    (* if Flags.modular () then ( *)
-    (*   let all_systems = *)
-    (*     TransSys.get_all_subsystems (get !trans_sys) *)
-    (*   in *)
-    (*   log_ref := Some (Log.mk_log all_systems) ; *)
-    (*   launch_modular_analysis (get !trans_sys) *)
-    (* ) else ( *)
-    (*   log_ref := Some (Log.mk_log [get !trans_sys]) ; *)
-    (*   launch_analysis true (get !trans_sys) *)
-    (* ) *)
+    (* Running test generation if asked. *)
+    if Flags.testgen_active () then (
+      Event.log
+        L_info "Launching test generation on %a."
+        TransSys.pp_print_trans_sys_name trans_sys ;
+      Testgen.main trans_sys
+    ) else
+      (* Analyzing system. *)
+      setup_and_run trans_sys
 
   with
 

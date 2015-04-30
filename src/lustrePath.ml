@@ -886,7 +886,8 @@ let pp_print_path_inputs_csv nodes start_at_init ppf model =
       (* Getting its type. *)
       let typ3 = StateVar.type_of_state_var sv in
 
-      Format.printf
+      Format.fprintf
+        ppf
         "%a,%a,%a@,"
         (LustreIdent.pp_print_ident false) ident
         (E.pp_print_lustre_type false) typ3
@@ -928,7 +929,8 @@ let pp_print_path_outputs_csv nodes start_at_init ppf model =
       (* Getting its type. *)
       let typ3 = StateVar.type_of_state_var sv in
 
-      Format.printf
+      Format.fprintf
+        ppf
         "%a,%a,%a@,"
         (LustreIdent.pp_print_ident false) ident
         (E.pp_print_lustre_type false) typ3

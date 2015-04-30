@@ -47,6 +47,9 @@ module type Sig = sig
   (** Name of the strategy, for logging. *)
   val name : string
 
+  (* The directory that will contain the test cases. *)
+  val out_dir : string
+
   (** Returns true if the strategy requires succeeding input tuples
       to be different. *)
   val no_stuttering : bool
@@ -77,7 +80,9 @@ module type Sig = sig
   val work : data context -> Numeral.t -> bool
 
   (* Generates test cases using a get_model function. *)
-  val testcase_gen : data context -> (
+  val testcase_gen : string -> (
+    string -> string -> string -> string list -> unit
+  ) -> data context -> (
     UfSymbol.t list -> Model.t option
   ) -> unit
 

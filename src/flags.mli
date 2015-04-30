@@ -206,6 +206,18 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
 
+(** Activates test generation. *)
+type testgen_active = bool
+val testgen_active : unit -> testgen_active
+
+(** Command for lustrec. *)
+type testgen_lustrec = string option
+val testgen_lustrec : unit -> testgen_lustrec
+
+(** Output directory for test generation. *)
+type testgen_out_dir = string
+val testgen_out_dir : unit -> testgen_out_dir
+
 (** Length of the test case generated. *)
 type testgen_len = int
 val testgen_len : unit -> testgen_len
