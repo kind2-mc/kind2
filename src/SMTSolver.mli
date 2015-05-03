@@ -39,6 +39,9 @@ val create_instance :
 (** Delete an instance of an SMT solver *)
 val delete_instance : t -> unit
 
+(** Return the unique identifier of the solver instance *)
+val id_of_instance : t -> int
+  
 (** {1 Declarations} *)
 
 (** Define uninterpreted symbol *)

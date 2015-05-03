@@ -132,6 +132,9 @@ let delete_instance s =
   S.delete_instance ()
 
 
+(* Return the unique identifier of the solver instance *)
+let id_of_instance { id } = id
+
 (* ******************************************************************** *)
 (* Declarations                                                         *)
 (* ******************************************************************** *)
