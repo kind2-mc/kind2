@@ -22,10 +22,12 @@
 
 (** Origin of clause *)
 type source =
-  | PropSet (** Pseudo clause for property set *)
-  | BlockFrontier (** Reaches an error state in one step *)
-  | BlockRec of int (** Reaches an error state in n steps *)
-  | IndGen of t (** Inductive generalization of clause *)
+  | PropSet (** Clause is a pseudo clause for property set *)
+  | BlockFrontier (** Negation of clause reaches a state outside the property in one step *)
+  | BlockRec of t (** Negtion of clause reaches a state outside the
+                      negation of the clause to block *)
+  | IndGen of t (** Clause is an inductive generalization of the clause *)
+  | CopyOf of t (** Clause is a copy of the clause *)
 
 (** Clause *)
 and t
@@ -89,10 +91,12 @@ val mk_clause_of_literals : SMTSolver.t -> source -> Term.t list -> t
     copy all its parents with fresh activation literals. *)
 val copy_clause : SMTSolver.t -> t -> t
   
-(** Return the clauses this clause was obtained from
+(** If the clause is an inductive generalization, return the clause
+    before generalization
 
-    The list may be empty *)
-val parents_of_clause : t -> t list
+    Only return one step of inductive generalization, repeat to obtain
+    possible chains of generalizations. *)
+val undo_ind_gen : t -> t option
 
 (** Return the number of literals in the clause 
 

@@ -18,39 +18,52 @@
 
 open Lib
 
+  
+(* Generate next unique identifier for clause *)
+let next_clause_id =
+  let r = ref 0 in
+  fun () -> incr r; !r
 
+    
+(* Source of a clause *)
 type source =
-  | PropSet (* Pseudo clause for property set *)
-  | BlockFrontier (* Reaches an error state in one step *)
-  | BlockRec of int (* Reaches an error state in n steps *)
-  | IndGen of t (* Inductive generalization of clause *)
+  | PropSet (* Clause is a pseudo clause for property set *)
+  | BlockFrontier (* Negation of clause reaches a state outside the property in one step *)
+  | BlockRec of t (* Negtion of clause reaches a state outside the
+                     negation of the clause to block *)
+  | IndGen of t (* Clause is an inductive generalization of the clause *)
+  | CopyOf of t (* Clause is a copy of the clause *)
 
+      
 (* Clause *)
 and t = 
 
-  {
-    
-    (* One activation literal for the positive, unprimed clause *)
-    actlit_p0 : Term.t;
+    {
 
-    (* One activation literal for the positive, primed clause  *)
-    actlit_p1 : Term.t;
-
-    (* One activation literal for each negated unprimed literal in
-       clause *)
-    actlits_n0 : Term.t list;
-    
-    (* One activation literal for each negated primed literal in
-       clause *)
-    actlits_n1 : Term.t list;
-
-    (* Literals in clause, to be treated as disjunction *)
-    literals: Term.t list;
-
-    (* Source of clause *)
-    source: source;
+      (* Unique identifier for clause *)
+      clause_id : int;
       
-  } 
+      (* One activation literal for the positive, unprimed clause *)
+      actlit_p0 : Term.t;
+
+      (* One activation literal for the positive, primed clause  *)
+      actlit_p1 : Term.t;
+
+      (* One activation literal for each negated unprimed literal in
+         clause *)
+      actlits_n0 : Term.t list;
+      
+      (* One activation literal for each negated primed literal in
+         clause *)
+      actlits_n1 : Term.t list;
+
+      (* Literals in clause, to be treated as disjunction *)
+      literals: Term.t list;
+
+      (* Source of clause *)
+      source: source;
+      
+    } 
 
 
 (* Compare clauses by their lexicographically comparing their (sorted
@@ -81,22 +94,21 @@ type prop_set =
     props : (string * Term.t) list
     
   }
+  
+(* Return clause before inductive generalization *)
+let rec undo_ind_gen = function
 
-
-        
-(* Add parent of clause if any to accumulator *)
-let rec parents_of_clause' accum = function
-
-  (* Blocking clauses do not have parents, return in original order *)
-  | { source = PropSet }
+  (* Clause is not an inductive generalization *)
+  | { source = PropSet } 
   | { source = BlockFrontier }
-  | { source = BlockRec _ } -> List.rev accum 
+  | { source = BlockRec _ } -> None
 
-  (* Add clause before generalization and recurse for its parents *)
-  | { source = IndGen c } -> parents_of_clause' (c :: accum) c
+  (* Return inductive generalization of original clause *)
+  | { source = IndGen c } -> Some c
 
-(* Return list of parent clauses *)
-let parents_of_clause clause = parents_of_clause' [] clause
+  (* Return clause before inductive generalization *)
+  | { source = CopyOf c } -> undo_ind_gen c
+
         
 (* Return disjunction of literals from a clause *)
 let term_of_clause { literals } = Term.mk_or literals
@@ -104,30 +116,233 @@ let term_of_clause { literals } = Term.mk_or literals
 (* Return literals from a clause *)
 let literals_of_clause { literals } = literals
 
-(* Activation literal for positve, unprimed clause *)
-let actlit_p0_of_clause { actlit_p0 } = actlit_p0
 
+(* Keep track of the status of each activation literal per solver instance
+
+*)
+  
+(* For each solver instance a set of clause identifiers whose p0, p1,
+   n0 and n1 activation literals have been declared and *)
+let solver_actlit_status = IntegerHashtbl.create 7
+
+  
+(* Initial value for activation literal status *)
+let actlit_status_default = 0
+
+  
+(* Initial size of activation literal status array *)
+let actlit_array_size = 256 
+
+  
+(* Bit values for flags in activation literal status *)
+let actlit_p0_bit = 1
+let actlit_p1_bit = 2
+let actlit_n0_bit = 4
+let actlit_n1_bit = 8
+let actlit_dead_bit = 16
+
+
+  
+(* Return the status of the activation literals of the clause in the
+   solver instance 
+
+   Add a new array for the solver instance on the first call, and
+   epxand the array if it does not contain the clause. *)
+let get_actlit_status_array solver clause_id =
+
+  (* Identifier of solver instance *)
+  let solver_id = SMTSolver.id_of_instance solver in
+  
+  try
+
+    (* Get array of activation literal status from hash table for
+       solver instance *)
+    let actlit_status =
+      IntegerHashtbl.find solver_actlit_status solver_id
+    in
+
+    (* Does array contain an entry for the clause? *)
+    if Array.length actlit_status >= clause_id then
+
+      (* Return activation literal status array *)
+      actlit_status
+
+    else
+
+      (* Double array size *)
+      let actlit_status' =
+        Array.make
+          (Array.length actlit_status * 2)
+          actlit_status_default
+      in
+
+      (* Copy entries from previous array *)
+      Array.blit
+        actlit_status
+        0
+        actlit_status'
+        0
+        (Array.length actlit_status);
+
+      (* Replace previous array with grown array *)
+      IntegerHashtbl.replace
+        solver_actlit_status
+        solver_id
+        actlit_status';
+
+      (* Return activation literal status array *)
+      actlit_status'
+
+  (* Activation literal status array not created for solver instance *)
+  with Not_found ->
+
+    (* Initialize activation literal array of minimum size, or larger
+       to accommodate clause *)
+    let actlit_status =
+      Array.make (min clause_id actlit_array_size) actlit_status_default
+    in
+    
+    (* Add activation literal array for solver instance *)
+    IntegerHashtbl.add
+      solver_actlit_status
+      solver_id
+      actlit_status;
+
+    (* Return activation literal status array *)
+    actlit_status
+
+      
+(* Return status of activation literals of clause *)
+let get_actlit_status_of_clause solver { clause_id } =
+  (get_actlit_status_array solver clause_id).(clause_id)
+
+
+(* Set status bit in of activation literal status of clause *)
+let set_actlit_status_of_clause solver { clause_id } bit =
+
+  (* Get activation literal status array *)
+  let actlit_status_array =
+    get_actlit_status_array solver clause_id
+  in
+
+  (* Set bit in value of array, and set array element to new value *)
+  actlit_status_array.(clause_id)
+    |> (lor) bit
+    |> Array.set actlit_status_array clause_id
+
+  
+(* Activation literal for positve, unprimed clause *)
+let actlit_p0_of_clause solver ({ actlit_p0; literals } as clause) =
+
+  (* Get status of activation literals of clause *)
+  let actlit_status = get_actlit_status_of_clause solver clause in
+
+  (* Activation literals of clause set to false? *)
+  if actlit_status land actlit_dead_bit <> 0 then
+
+    raise (Invalid_argument "actlit_of_clause: Clause is dead");
+    
+  (* Activation literal not defined *)
+  if actlit_status land actlit_p0_bit = 0 then
+             
+    (
+
+      (* Get uninterpreted function symbol from term *)
+      let uf_symbol =
+        Term.node_symbol_of_term actlit_p0
+        |> Symbol.uf_of_symbol
+      in
+      
+      (* Declare symbol in solver *)
+      SMTSolver.declare_fun solver uf_symbol;
+      
+      Stat.incr Stat.pdr_activation_literals;
+
+      (* Assert implication from activation literal *)
+      SMTSolver.assert_term
+        solver
+        (Term.mk_implies [actlit_p0; Term.mk_or literals]);
+
+      (* Mark activation literal as defined *)
+      set_actlit_status_of_clause solver clause actlit_p0_bit;
+      
+    );
+
+  (* Return activation literal *)
+  actlit_p0
+
+    
 (* Activation literal for positve, unprimed clause *)
 let actlit_p1_of_clause { actlit_p1 } = actlit_p1
 
 (* Activation literal for negative, unprimed clause *)
-let actlits_n0_of_clause { actlits_n0 } = actlits_n0
+let actlits_n0_of_clause solver ({ actlits_n0; literals } as clause) =
+
+  (* Get status of activation literals of clause *)
+  let actlit_status = get_actlit_status_of_clause solver clause in
+
+  (* Activation literals of clause set to false? *)
+  if actlit_status land actlit_dead_bit <> 0 then
+
+    raise (Invalid_argument "actlit_of_clause: Clause is dead");
+    
+  (* Activation literal not defined *)
+  if actlit_status land actlit_n0_bit = 0 then
+             
+    (
+
+      List.iter2
+        (fun t l -> 
+      
+          (* Get uninterpreted function symbol from term *)
+          let uf_symbol =
+            Term.node_symbol_of_term t
+            |> Symbol.uf_of_symbol
+          in
+      
+          (* Declare symbol in solver *)
+          SMTSolver.declare_fun solver uf_symbol;
+          
+          Stat.incr Stat.pdr_activation_literals;
+
+          (* Assert implication from activation literal *)
+          SMTSolver.assert_term
+            solver
+            (Term.mk_implies [t; Term.mk_not l]))
+
+        actlits_n0
+        literals;
+
+      (* Mark activation literal as defined *)
+      set_actlit_status_of_clause solver clause actlit_n0_bit;
+      
+    );
+
+  (* Return activation literal *)
+  actlits_n0
+  
+
+  
 
 (* Activation literal for negative, primed clause *)
 let actlits_n1_of_clause { actlits_n1 } = actlits_n1
 
+(* Return number of literals in clause *)
 let length_of_clause { literals } = List.length literals
 
+(* Pretty-print the source of a clause *)
 let pp_print_source ppf = function
   | PropSet -> Format.fprintf ppf "PropSet"
   | BlockFrontier -> Format.fprintf ppf "BlockFrontier"
-  | BlockRec n -> Format.fprintf ppf "BlockRec %d" n
+  | BlockRec c -> Format.fprintf ppf "BlockRec %a" Term.pp_print_term (actlit_p0_of_clause c)
   | IndGen c -> Format.fprintf ppf "IndGen %a" Term.pp_print_term (actlit_p0_of_clause c)
+  | CopyOf c -> Format.fprintf ppf "CopyOf %a" Term.pp_print_term (actlit_p0_of_clause c)
 
-
+    
 (* ********************************************************************** *)
 (* Activation literals                                                    *)
 (* ********************************************************************** *)
+
     
 (* Type of activation literal *)
 type actlit_type = 
@@ -144,6 +359,7 @@ let tag_of_actlit_type = function
   | Actlit_p1 -> "p1"
   | Actlit_n1 -> "n1"
 
+    
 (* Counters for activation literal groups *)
 let actlit_counts = ref []
   
@@ -272,44 +488,62 @@ let actlit_symbol_of_frame k = actlit_and_symbol_of_frame k |> fst
     
 (* Create three fresh activation literals for a list of literals and
    declare in the given solver instance *)
-let mk_clause_of_literals solver source literals =
+let mk_clause_of_literals source literals =
 
   (* Sort and eliminate duplicates *)
   let literals = Term.TermSet.(of_list literals |> elements) in
   
-  (* Disjunction of literals *)
-  let term = Term.mk_or literals in
+  (* Next unique identifier for clause *)
+  let clause_id = next_clause_id () in
 
-  (* Create activation literals for positive clause *)
-  let (actlit_p0, actlit_p1) =
-    let mk = create_and_assert_fresh_actlit solver "clause" term in
-    mk Actlit_p0, mk Actlit_p1
+  (* Create uninterpreted function symbol *)
+  let mk_uf_symbol tag =
+
+    (* Name of uninterpreted function symbol *)
+    let uf_symbol_name = 
+      Format.asprintf "%s_%d_%s" 
+        "__pdr_clause"
+        clause_id
+        tag
+    in
+
+    (* Create uninterpreted function symbol *)
+    UfSymbol.mk_uf_symbol uf_symbol_name [] Type.t_bool
+      
   in
 
-  SMTSolver.trace_comment
-    solver
-    (Format.asprintf
-       "@[<hv>mk_clause_of_literals %a@ %a@ @[<hv 1>{%a}@]@]"
-       Term.pp_print_term actlit_p0
-       pp_print_source source
-       (pp_print_list Term.pp_print_term ";@ ")
-       literals);
+  (* Create activation literal for positive unprimed clause *)
+  let actlit_p0 = mk_uf_symbol "p0" |> (fun uf -> Term.mk_uf uf []) in
+
+  (* Create activation literal for positive primed clause *)
+  let actlit_p1 = mk_uf_symbol "p1" |> (fun uf -> Term.mk_uf uf []) in
   
-  (* Create activation literals for negated literals in clause *)
-  let actlits_n0, actlits_n1 =
-    let mk t = 
-      List.map 
-        (fun l -> 
-           create_and_assert_fresh_actlit solver "clause_lit" l t)
-        literals
-    in
-    mk Actlit_n0, mk Actlit_n1
+  (* Create activation literals for negated unprimed literal *)
+  let actlits_n0 =
+    List.mapi
+      (fun i _ ->
+        mk_uf_symbol
+          (Format.asprintf "n0_%d" i)
+          |> (fun uf -> Term.mk_uf uf []))
+      literals
+  in
+
+  (* Create activation literals for negated primed literal *)
+  let actlits_n1 =
+    List.mapi
+      (fun i _ ->
+        mk_uf_symbol
+          (Format.asprintf "n1_%d" i)
+          |> (fun uf -> Term.mk_uf uf []))
+      literals
   in
 
   (* Return clause with activation literals *)
-  { actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; source }
+  { clause_id; actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; source }
 
-    
+
+(* 
+
 (* Copy clause and all its parents with fresh activation literal *)
 let rec copy_clause solver = function
 
@@ -327,13 +561,26 @@ let rec copy_clause solver = function
     (* Copy clause with no parents *)
     mk_clause_of_literals solver source literals 
     
-  | { source = IndGen p; literals } ->
+  | { source = CopyOf p; literals; actlit_p0 } 
+  | { source = IndGen p; literals; actlit_p0 } ->
 
+    SMTSolver.trace_comment
+      solver
+      (Format.asprintf
+         "Copying clause %a"
+         Term.pp_print_term actlit_p0);
+    
     (* Copy parent clauses first *)
     let p' = copy_clause solver p in
 
     (* Copy clause with copied parent *)
     mk_clause_of_literals solver (IndGen p') literals 
+
+*)
+
+let rec copy_clause solver ({ literals; actlit_p0 } as c) =
+  mk_clause_of_literals (CopyOf c) literals 
+      
   
 (* ********************************************************************** *)
 (* Property sets                                                          *)    
@@ -341,16 +588,10 @@ let rec copy_clause solver = function
 
 (* Create three fresh activation literals for a set of properties and
    declare in the given solver instance *)
-let prop_set_of_props solver props = 
+let prop_set_of_props props = 
 
-  (* Increment refercent for property set *)
+  (* Increment reference for property set *)
   incr prop_set_count;
-
-  SMTSolver.trace_comment 
-    solver
-    (Format.sprintf
-       "actlits_of_propset: Assert activation literals for property set %d"
-       !prop_set_count);
 
   (* Conjunction of property terms *)
   let term = List.map snd props |> Term.mk_and in
@@ -358,22 +599,13 @@ let prop_set_of_props solver props =
   (* Unit clause of term *)
   let literals = [term] in
 
-  (* Create activation literals for terms *)
-  let (actlit_p0, actlit_n0, actlit_p1, actlit_n1) =
-    let mk = create_and_assert_fresh_actlit solver "prop" term in
-    (mk Actlit_p0, mk Actlit_n0, mk Actlit_p1, mk Actlit_n1)
-  in
-
+  (* Create pseudo clause for propert set *)
+  let clause = mk_clause_of_literals PropSet literals in
+  
   (* Return together with clause with activation literals *)
-  { clause = 
-      { actlit_p0; 
-        actlits_n0 = [actlit_n0]; 
-        actlit_p1; 
-        actlits_n1 = [actlit_n1]; 
-        literals; 
-        source = PropSet } ;
-    props }
+  { clause; props }
 
+    
 (* Return conjunction of properties *)
 let term_of_prop_set { clause } = term_of_clause clause
 

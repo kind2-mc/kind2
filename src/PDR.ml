@@ -37,6 +37,8 @@ let debug_check_sat_assuming s fu fs l =
       
 let generalize_after_fwd_prop = true
 
+let generalize_after_block_in_future = false
+
 let subsume_in_block = false
 
 let subsume_in_fwd_prop = true
@@ -817,8 +819,8 @@ let add_to_block_tl solver block_clause block_trace = function
   (* Add cube as proof obligation in next frame *)
   | (block_clauses, r_succ_i) :: block_clauses_tl -> 
 
-    (block_clauses @ [C.copy_clause solver block_clause, block_trace], r_succ_i) :: block_clauses_tl
-(* ((copy_clause block_clause, block_trace) :: block_clauses, r_succ_i) :: block_clauses_tl *)
+    (* (block_clauses @ [C.copy_clause solver block_clause, block_trace], r_succ_i) :: block_clauses_tl *)
+    ((C.copy_clause solver block_clause, block_trace) :: block_clauses, r_succ_i) :: block_clauses_tl 
 
 
 (* Block sets of bad states in frames
@@ -1244,7 +1246,7 @@ let rec block solver trans_sys prop_set term_tbl =
                    
                    add_to_block_tl
                      solver
-                     (if generalize_after_fwd_prop then block_clause else block_clause_gen)
+                     (if generalize_after_block_in_future then block_clause else block_clause_gen)
                      block_trace
                      block_tl
                      
@@ -1310,7 +1312,7 @@ let rec block solver trans_sys prop_set term_tbl =
                 
                 add_to_block_tl
                   solver 
-                  (if generalize_after_fwd_prop then block_clause else block_clause_gen)
+                  (if generalize_after_block_in_future then block_clause else block_clause_gen)
                   block_trace
                   block_tl
                   
@@ -1350,7 +1352,21 @@ let rec block solver trans_sys prop_set term_tbl =
               
             (* Bad state is reachable from R_0, we have found a
                counterexample path *)
-            | [] -> raise (Counterexample (block_clause :: block_trace))
+            | [] ->
+
+              SMTSolver.trace_comment
+                solver
+                (Format.asprintf
+                   "@[<hv>~P reachable from I:@ @[<hv>%a@]@]"
+                   (pp_print_list
+                      (fun ppf c ->
+                        Format.fprintf ppf
+                          "%a"
+                          Term.pp_print_term (C.actlit_p0_of_clause c))
+                      ",@ ")
+                   (block_clause :: block_trace));
+                   
+              raise (Counterexample (block_clause :: block_trace))
               
             (* i > 1 and bad state is reachable from R_i-1 *)
             | r_pred_i :: frames_tl -> 
@@ -1381,7 +1397,7 @@ let rec block solver trans_sys prop_set term_tbl =
               let block_clause' = 
                 C.mk_clause_of_literals
                   solver
-                  (C.BlockRec (List.length block_tl |> succ))
+                  (C.BlockRec block_clause)
                   (List.map Term.negate cti_gen) 
               in
               
@@ -1997,23 +2013,28 @@ let fwd_propagate solver trans_sys prop_set frames =
                   let keep_before_gen =
                     List.fold_left
                       (fun a c ->
-                        match C.parents_of_clause c with
-                          | [] -> a
-                          | p :: _ -> C.copy_clause solver p :: a)
+                        match C.undo_ind_gen c with
+                          | None -> a
+                          | Some p -> C.copy_clause solver p :: a)
                       []
                       keep
                   in
                   
                   (* Take parent clauses of not propagating clauses and
                      try to propagate *)
-                  let _, fwd' = 
+                  let keep', fwd' = 
                     partition_fwd_prop
                       solver
                       trans_sys
                       prop_set
-                      frames_tl_full
+                      (frames_tl_full @ keep @ fwd)
                       keep_before_gen
                   in
+
+                  (* Deactivate activation literals of not prpagating
+                     clauses *)
+                  if deactivate_actlit then
+                    (List.iter (deactivate_clause solver) keep');
                   
                   (* Update statistics *)
                   Stat.incr ~by:(List.length fwd') Stat.pdr_fwd_gen_propagated;

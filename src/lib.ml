@@ -380,6 +380,30 @@ let array_max a =
   !max_val
 
 (* ********************************************************************** *)
+(* Set functions                                                          *)
+(* ********************************************************************** *)
+
+(* Set of integers *)
+module IntegerSet = 
+  Set.Make
+  (struct
+    type t = int
+    let compare = Pervasives.compare
+    let equal = (=)
+   end)
+  
+  
+(* Hashtable of integers *)
+module IntegerHashtbl =
+  Hashtbl.Make
+    (struct
+      type t = int
+      let hash i = i
+      let equal = (=)
+     end)
+
+    
+(* ********************************************************************** *)
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
 

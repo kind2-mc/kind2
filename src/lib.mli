@@ -151,6 +151,14 @@ val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int
 (** Returns the maximum element of a non-empty array *)
 val array_max : 'a array -> 'a
 
+(** {1 Set functions} *)
+
+(** Sets of integers *)
+module IntegerSet : Set.S with type elt = int
+
+(** Hashtable of integers *)
+module IntegerHashtbl : Hashtbl.S with type key = int
+  
 (** {1 Pretty-printing helpers} *)
 
 (** Pretty-print an array with given separator
