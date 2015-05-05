@@ -19,6 +19,10 @@
 open Lib
 
   
+(* Prefix for name of activation literals to avoid name clashes *)
+let actlit_prefix = "__pdr"
+
+  
 (* Generate next unique identifier for clause *)
 let next_clause_id =
   let r = ref 0 in
@@ -82,44 +86,57 @@ let equal { literals = l1 } { literals = l2 } =
 module ClauseTrie = Trie.Make (Term.TermMap)
   
   
-(* Set of properties *)
-type prop_set =
-
-  {
-
-    (* Clause of property set *)
-    clause: t;
-
-    (* Named properties *)
-    props : (string * Term.t) list
-    
-  }
-  
-(* Return clause before inductive generalization *)
-let rec undo_ind_gen = function
-
-  (* Clause is not an inductive generalization *)
-  | { source = PropSet } 
-  | { source = BlockFrontier }
-  | { source = BlockRec _ } -> None
-
-  (* Return inductive generalization of original clause *)
-  | { source = IndGen c } -> Some c
-
-  (* Return clause before inductive generalization *)
-  | { source = CopyOf c } -> undo_ind_gen c
-
-        
 (* Return disjunction of literals from a clause *)
 let term_of_clause { literals } = Term.mk_or literals
 
 (* Return literals from a clause *)
 let literals_of_clause { literals } = literals
 
+(* Return unique identifier of clause *)
+let id_of_clause { clause_id } = clause_id
+  
+(* Return number of literals in clause *)
+let length_of_clause { literals } = List.length literals
 
-(* Keep track of the status of each activation literal per solver instance
+(* Return source of clause *)
+let source_of_clause { source } = source
+  
+(* Pretty-print the source of a clause *)
+let pp_print_source ppf = function
 
-*)
+  | PropSet -> Format.fprintf ppf "PropSet"
+
+  | BlockFrontier -> Format.fprintf ppf "BlockFrontier"
+
+  | BlockRec { clause_id } -> Format.fprintf ppf "BlockRec %d" clause_id
+
+  | IndGen { clause_id } -> Format.fprintf ppf "IndGen %d" clause_id
+      
+  | CopyOf { clause_id } -> Format.fprintf ppf "CopyOf %d" clause_id
+
+    
+(* ********************************************************************** *)
+(* Activation literals                                                    *)
+(* ********************************************************************** *)
+
+(* Keep track of the status of clauses per solver instance. The clause
+   identifier is an index into an array of integers, which is
+   interpreted bit-wise as flags for the respective clause:
+
+   bit 0: activation literal p0 defined and asserted
+   bit 1: activation literal p1 defined and asserted
+   bit 2: activation literal n0 defined and asserted
+   bit 3: activation literal n1 defined and asserted
+   bit 4: clause deactivated
+
+   The array is dynamically grown to accommodate all
+   clauses. Activation literals are declared and asserted lazily, that
+   is, only the first time the respective activation literal is
+   accessed.
+
+   If we create a new solver instance, all flags are reset for that
+   instance, and the activation literals will be declared on access. *)
+
   
 (* For each solver instance a set of clause identifiers whose p0, p1,
    n0 and n1 activation literals have been declared and *)
@@ -142,7 +159,6 @@ let actlit_n1_bit = 8
 let actlit_dead_bit = 16
 
 
-  
 (* Return the status of the activation literals of the clause in the
    solver instance 
 
@@ -162,7 +178,7 @@ let get_actlit_status_array solver clause_id =
     in
 
     (* Does array contain an entry for the clause? *)
-    if Array.length actlit_status >= clause_id then
+    if Array.length actlit_status > clause_id then
 
       (* Return activation literal status array *)
       actlit_status
@@ -199,7 +215,7 @@ let get_actlit_status_array solver clause_id =
     (* Initialize activation literal array of minimum size, or larger
        to accommodate clause *)
     let actlit_status =
-      Array.make (min clause_id actlit_array_size) actlit_status_default
+      Array.make (min (clause_id + 1) actlit_array_size) actlit_status_default
     in
     
     (* Add activation literal array for solver instance *)
@@ -213,12 +229,12 @@ let get_actlit_status_array solver clause_id =
 
       
 (* Return status of activation literals of clause *)
-let get_actlit_status_of_clause solver { clause_id } =
+let get_actlit_status_of_clause solver clause_id =
   (get_actlit_status_array solver clause_id).(clause_id)
 
 
 (* Set status bit in of activation literal status of clause *)
-let set_actlit_status_of_clause solver { clause_id } bit =
+let set_actlit_status_of_clause solver actlit_bit clause_id =
 
   (* Get activation literal status array *)
   let actlit_status_array =
@@ -227,45 +243,89 @@ let set_actlit_status_of_clause solver { clause_id } bit =
 
   (* Set bit in value of array, and set array element to new value *)
   actlit_status_array.(clause_id)
-    |> (lor) bit
+    |> (lor) actlit_bit
     |> Array.set actlit_status_array clause_id
 
-  
-(* Activation literal for positve, unprimed clause *)
-let actlit_p0_of_clause solver ({ actlit_p0; literals } as clause) =
+
+(* Return true if the activation literal is undefined in the solver
+   instance *)
+let actlit_undefined solver actlit_bit clause_id =
 
   (* Get status of activation literals of clause *)
-  let actlit_status = get_actlit_status_of_clause solver clause in
+  let actlit_status = get_actlit_status_of_clause solver clause_id in
 
   (* Activation literals of clause set to false? *)
   if actlit_status land actlit_dead_bit <> 0 then
 
-    raise (Invalid_argument "actlit_of_clause: Clause is dead");
+    (* Fail instead of returning a deactivated activation literal *)
+    raise
+      (Invalid_argument "actlit_of_clause: Clause is dead");
+  
+  (* Activation literal is not defined if bit is zero *)
+  (actlit_status land actlit_bit) = 0
     
-  (* Activation literal not defined *)
-  if actlit_status land actlit_p0_bit = 0 then
-             
-    (
+        
+(* Assert impliation between activation literals and respective terms *)
+let assert_actlits solver actlits terms =
 
+  (* List of activation literals and list of terms must have the same
+     length *)
+  assert (List.length actlits = List.length terms);
+
+  (* Iterate over activation literals and terms *)
+  List.iter2
+
+    (fun t l -> 
+      
       (* Get uninterpreted function symbol from term *)
       let uf_symbol =
-        Term.node_symbol_of_term actlit_p0
-        |> Symbol.uf_of_symbol
+
+        (* Term must be a constant *)
+        assert (Term.is_leaf t);
+
+        (* Get symbol of constant *)
+        Term.leaf_of_term t
+
+        |> (fun s ->
+
+          (* Symbol must be an uninterpreted symbol *)
+          assert (Symbol.is_uf s);
+
+          (* Return uninterpreted constant symbol *)
+          Symbol.uf_of_symbol s)
+            
       in
-      
+           
       (* Declare symbol in solver *)
       SMTSolver.declare_fun solver uf_symbol;
-      
+
+      (* Increment counter for activation literals *)
       Stat.incr Stat.pdr_activation_literals;
 
       (* Assert implication from activation literal *)
       SMTSolver.assert_term
         solver
-        (Term.mk_implies [actlit_p0; Term.mk_or literals]);
+        (Term.mk_implies [t; l]))
 
-      (* Mark activation literal as defined *)
-      set_actlit_status_of_clause solver clause actlit_p0_bit;
+    actlits
+    terms
+
+  
+(* Activation literal for positve, unprimed clause *)
+let actlit_p0_of_clause solver { clause_id; actlit_p0; literals } =
+
+  (* Declare symbol and assert implication now if it has not been
+     declared yet *)
+  if actlit_undefined solver actlit_p0_bit clause_id then
+
+    (
+
+      (* Assert activation literal for positive unprimed clause *)
+      assert_actlits solver [actlit_p0] [Term.mk_or literals];
       
+      (* Mark activation literal as defined *)
+      set_actlit_status_of_clause solver actlit_p0_bit clause_id 
+
     );
 
   (* Return activation literal *)
@@ -273,70 +333,304 @@ let actlit_p0_of_clause solver ({ actlit_p0; literals } as clause) =
 
     
 (* Activation literal for positve, unprimed clause *)
-let actlit_p1_of_clause { actlit_p1 } = actlit_p1
+let actlit_p1_of_clause solver { clause_id; actlit_p1; literals } = 
 
-(* Activation literal for negative, unprimed clause *)
-let actlits_n0_of_clause solver ({ actlits_n0; literals } as clause) =
+  (* Declare symbol now and assert implication if it has not been
+     declared yet *)
+  if actlit_undefined solver actlit_p1_bit clause_id then
 
-  (* Get status of activation literals of clause *)
-  let actlit_status = get_actlit_status_of_clause solver clause in
-
-  (* Activation literals of clause set to false? *)
-  if actlit_status land actlit_dead_bit <> 0 then
-
-    raise (Invalid_argument "actlit_of_clause: Clause is dead");
-    
-  (* Activation literal not defined *)
-  if actlit_status land actlit_n0_bit = 0 then
-             
     (
 
-      List.iter2
-        (fun t l -> 
+      (* Assert activation literal for positive primed clause *)
+      assert_actlits
+        solver
+        [actlit_p1]
+        [Term.mk_or literals |> Term.bump_state Numeral.one];
       
-          (* Get uninterpreted function symbol from term *)
-          let uf_symbol =
-            Term.node_symbol_of_term t
-            |> Symbol.uf_of_symbol
-          in
-      
-          (* Declare symbol in solver *)
-          SMTSolver.declare_fun solver uf_symbol;
-          
-          Stat.incr Stat.pdr_activation_literals;
-
-          (* Assert implication from activation literal *)
-          SMTSolver.assert_term
-            solver
-            (Term.mk_implies [t; Term.mk_not l]))
-
-        actlits_n0
-        literals;
-
       (* Mark activation literal as defined *)
-      set_actlit_status_of_clause solver clause actlit_n0_bit;
-      
+      set_actlit_status_of_clause solver actlit_p1_bit clause_id
+
     );
 
   (* Return activation literal *)
+  actlit_p1
+    
+
+(* Activation literal for negative, unprimed clause *)
+let actlits_n0_of_clause solver { clause_id; actlits_n0; literals } =
+
+  (* Declare symbols and assert implications now if it has not been
+     declared yet *)
+  if actlit_undefined solver actlit_n0_bit clause_id then
+
+    (
+
+      (* Assert activation literal for negative unprimed clause
+         literal *)
+      assert_actlits
+        solver
+        actlits_n0
+        (List.map Term.negate literals);
+      
+      (* Mark activation literal as defined *)
+      set_actlit_status_of_clause solver actlit_n0_bit clause_id
+
+    );
+
+  (* Return activation literals *)
   actlits_n0
+
+    
+(* Activation literal for negative, unprimed clause *)
+let actlits_n1_of_clause solver { clause_id; actlits_n1; literals } =
+
+  (* Declare symbols and assert implications now if it has not been
+     declared yet *)
+  if actlit_undefined solver actlit_n1_bit clause_id then
+
+    (
+
+      (* Assert activation literal for negative primed clause
+         literal *)
+      assert_actlits
+        solver
+        actlits_n1
+        (List.map
+           (fun t ->
+             Term.negate t |> Term.bump_state Numeral.one)
+           literals);
+      
+      (* Mark activation literal as defined *)
+      set_actlit_status_of_clause solver actlit_n1_bit clause_id
+
+    );
+
+  (* Return activation literals *)
+  actlits_n1
+
+    
+(* ********************************************************************** *)
+(* Clauses                                                                *)
+(* ********************************************************************** *)    
+    
+(* Create a clause of literals *)
+let mk_clause_of_literals source literals =
+
+  (* Sort and eliminate duplicate literals *)
+  let literals = Term.TermSet.(of_list literals |> elements) in
   
+  (* Next unique identifier for clause *)
+  let clause_id = next_clause_id () in
+
+  (* Create uninterpreted function symbol *)
+  let mk_uf_symbol tag =
+
+    (* Name of uninterpreted function symbol *)
+    let uf_symbol_name = 
+      Format.asprintf "%s%s_%d_%s"
+        actlit_prefix
+        "_clause"
+        clause_id
+        tag
+    in
+
+    (* Create uninterpreted function symbol *)
+    UfSymbol.mk_uf_symbol uf_symbol_name [] Type.t_bool
+      
+  in
+
+  (* Create activation literal for positive unprimed clause *)
+  let actlit_p0 = mk_uf_symbol "p0" |> (fun uf -> Term.mk_uf uf []) in
+
+  (* Create activation literal for positive primed clause *)
+  let actlit_p1 = mk_uf_symbol "p1" |> (fun uf -> Term.mk_uf uf []) in
+  
+  (* Create activation literals for negated unprimed literal *)
+  let actlits_n0 =
+    List.mapi
+      (fun i _ ->
+        mk_uf_symbol
+          (Format.asprintf "n0_%d" i)
+          |> (fun uf -> Term.mk_uf uf []))
+      literals
+  in
+
+  (* Create activation literals for negated primed literal *)
+  let actlits_n1 =
+    List.mapi
+      (fun i _ ->
+        mk_uf_symbol
+          (Format.asprintf "n1_%d" i)
+          |> (fun uf -> Term.mk_uf uf []))
+      literals
+  in
+
+  (* Return clause with activation literals *)
+  { clause_id; actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; source }
+
+
+(* Copy clause with a fresh activation literal *)
+let rec copy_clause solver ({ literals } as clause) =
+  mk_clause_of_literals (CopyOf clause) literals 
+
+
+(* Deactivate activation literals of a subsumed clause *)
+let deactivate_clause
+    solver
+    { clause_id; literals; actlit_p0; actlit_p1; actlits_n0; actlits_n1 } = 
+
+  SMTSolver.trace_comment
+    solver
+    "Deactivating activation literals for clause";
+  
+  (* Activation literal for positive unprimed clause used? *)
+  if not (actlit_undefined solver actlit_p0_bit clause_id) then
+    
+    (* Assert negation of activation literal *)
+    (Term.mk_not actlit_p0
+     |> SMTSolver.assert_term solver);
+
+  (* Activation literal for positive primed clause used? *)
+  if not (actlit_undefined solver actlit_p1_bit clause_id) then
+    
+    (* Assert negation of activation literal *)
+    (Term.mk_not actlit_p1
+     |> SMTSolver.assert_term solver);
+
+  (* Activation literals for negative unprimed clause literals
+     used? *)
+  if not (actlit_undefined solver actlit_n0_bit clause_id) then
+    
+    (* Assert negation of activation literals *)
+    (List.iter
+       (fun t -> Term.mk_not t |> SMTSolver.assert_term solver)
+       actlits_n0);
+  
+  (* Activation literals for negative unprimed clause literals
+     used? *)
+  if not (actlit_undefined solver actlit_n1_bit clause_id) then
+    
+    (* Assert negation of activation literals *)
+    (List.iter
+       (fun t -> Term.mk_not t |> SMTSolver.assert_term solver)
+       actlits_n1);
+  
+  (* Mark clause as deactivated *)
+  set_actlit_status_of_clause solver actlit_dead_bit clause_id;
+  
+  (* Increment statistics for activation literals *)
+  Stat.incr
+    ~by:(2 + 2 * (List.length literals))
+    Stat.pdr_stale_activation_literals
+    
+
+(* Return clause before inductive generalization *)
+let rec undo_ind_gen = function
+
+  (* Clause is not an inductive generalization *)
+  | { source = PropSet } 
+  | { source = BlockFrontier }
+  | { source = BlockRec _ } -> None
+
+  (* Return inductive generalization of original clause *)
+  | { source = IndGen c } -> Some c
+
+  (* Return clause before inductive generalization *)
+  | { source = CopyOf c } -> undo_ind_gen c
 
   
+(* ********************************************************************** *)
+(* Property sets                                                          *)    
+(* ********************************************************************** *)
 
-(* Activation literal for negative, primed clause *)
-let actlits_n1_of_clause { actlits_n1 } = actlits_n1
+(* Set of properties *)
+type prop_set =
 
-(* Return number of literals in clause *)
-let length_of_clause { literals } = List.length literals
+  {
 
-(* Pretty-print the source of a clause *)
-let pp_print_source ppf = function
-  | PropSet -> Format.fprintf ppf "PropSet"
-  | BlockFrontier -> Format.fprintf ppf "BlockFrontier"
-  | BlockRec c -> Format.fprintf ppf "BlockRec %a" Term.pp_print_term (actlit_p0_of_clause c)
-  | IndGen c -> Format.fprintf ppf "IndGen %a" Term.pp_print_term (actlit_p0_of_clause c)
-  | CopyOf c -> Format.fprintf ppf "CopyOf %a" Term.pp_print_term (actlit_p0_of_clause c)
+    (* Clause of property set *)
+    clause: t;
+
+    (* Named properties *)
+    props : (string * Term.t) list
+    
+  }
+
+
+(* Create a pseudo unit clause for the property set *)
+let prop_set_of_props props = 
+
+  (* Conjunction of property terms *)
+  let term = List.map snd props |> Term.mk_and in
+
+  (* Unit clause of term *)
+  let literals = [term] in
+
+  (* Create pseudo clause for propert set *)
+  let clause = mk_clause_of_literals PropSet literals in
+  
+  (* Return together with clause with activation literals *)
+  { clause; props }
+
+    
+(* Return conjunction of properties *)
+let term_of_prop_set { clause } = term_of_clause clause
+
+  
+(* Return clause for property set *)
+let clause_of_prop_set { clause } = clause
+
+  
+(* Return properties in set *)
+let props_of_prop_set { props } = props
+
+  
+(* Return activation literal for property, and lazily assert in solver
+   instance *)
+let actlit_p0_of_prop_set solver { clause } =
+  actlit_p0_of_clause solver clause
+  
+(* Return activation literal for property, and lazily assert in solver
+   instance *)
+let actlit_p1_of_prop_set solver { clause } =
+  actlit_p1_of_clause solver clause
+
+(* Return activation literal for property, and lazily assert in solver
+   instance *)
+let actlits_n0_of_prop_set solver { clause } =
+  actlits_n0_of_clause solver clause
+
+(* Return activation literal for property, and lazily assert in solver
+   instance *)
+let actlits_n1_of_prop_set solver { clause } =
+  actlits_n1_of_clause solver clause
+
+(* ********************************************************************** *)
+(* Frames                                                                 *)
+(* ********************************************************************** *)
+        
+(* Create or return activation literal for frame [k] *)
+let actlit_and_symbol_of_frame k = 
+
+  (* Name of uninterpreted function symbol *)
+  let uf_symbol_name = 
+    Format.asprintf "%s_frame_%d" actlit_prefix k
+  in
+
+  (* Create or retrieve uninterpreted constant *)
+  let uf_symbol = 
+    UfSymbol.mk_uf_symbol uf_symbol_name [] Type.t_bool
+  in
+
+  (* Return term of uninterpreted constant *)
+  let actlit = Term.mk_uf uf_symbol [] in
+    
+  (* Return uninterpreted constant and term *)
+  (uf_symbol, actlit)
+
+let actlit_of_frame k = actlit_and_symbol_of_frame k |> snd
+
+let actlit_symbol_of_frame k = actlit_and_symbol_of_frame k |> fst
 
     
 (* ********************************************************************** *)
@@ -368,9 +662,6 @@ let actlit_counts = ref []
 let prop_set_count = ref (- 1)
 
   
-(* Prefix for name of activation literals to avoid name clashes *)
-let actlit_prefix = "__pdr"
-
 
 (* Process term for type of type of activation literal *)
 let term_for_actlit_type term = function
@@ -456,93 +747,7 @@ let create_and_assert_fresh_actlit solver tag term actlit_type =
   (* Return activation literal *)
   actlit 
 
-
-(* Create or return activation literal for frame [k] *)
-let actlit_and_symbol_of_frame k = 
-
-  (* Name of uninterpreted function symbol *)
-  let uf_symbol_name = 
-    Format.asprintf "%s_frame_%d" actlit_prefix k
-  in
-
-  (* Create or retrieve uninterpreted constant *)
-  let uf_symbol = 
-    UfSymbol.mk_uf_symbol uf_symbol_name [] Type.t_bool
-  in
-
-  (* Return term of uninterpreted constant *)
-  let actlit = Term.mk_uf uf_symbol [] in
-    
-  (* Return uninterpreted constant and term *)
-  (uf_symbol, actlit)
-
-let actlit_of_frame k = actlit_and_symbol_of_frame k |> snd
-
-let actlit_symbol_of_frame k = actlit_and_symbol_of_frame k |> fst
-        
-    
-(* ********************************************************************** *)
-(* Clauses                                                                *)
-(* ********************************************************************** *)
-    
-    
-(* Create three fresh activation literals for a list of literals and
-   declare in the given solver instance *)
-let mk_clause_of_literals source literals =
-
-  (* Sort and eliminate duplicates *)
-  let literals = Term.TermSet.(of_list literals |> elements) in
-  
-  (* Next unique identifier for clause *)
-  let clause_id = next_clause_id () in
-
-  (* Create uninterpreted function symbol *)
-  let mk_uf_symbol tag =
-
-    (* Name of uninterpreted function symbol *)
-    let uf_symbol_name = 
-      Format.asprintf "%s_%d_%s" 
-        "__pdr_clause"
-        clause_id
-        tag
-    in
-
-    (* Create uninterpreted function symbol *)
-    UfSymbol.mk_uf_symbol uf_symbol_name [] Type.t_bool
-      
-  in
-
-  (* Create activation literal for positive unprimed clause *)
-  let actlit_p0 = mk_uf_symbol "p0" |> (fun uf -> Term.mk_uf uf []) in
-
-  (* Create activation literal for positive primed clause *)
-  let actlit_p1 = mk_uf_symbol "p1" |> (fun uf -> Term.mk_uf uf []) in
-  
-  (* Create activation literals for negated unprimed literal *)
-  let actlits_n0 =
-    List.mapi
-      (fun i _ ->
-        mk_uf_symbol
-          (Format.asprintf "n0_%d" i)
-          |> (fun uf -> Term.mk_uf uf []))
-      literals
-  in
-
-  (* Create activation literals for negated primed literal *)
-  let actlits_n1 =
-    List.mapi
-      (fun i _ ->
-        mk_uf_symbol
-          (Format.asprintf "n1_%d" i)
-          |> (fun uf -> Term.mk_uf uf []))
-      literals
-  in
-
-  (* Return clause with activation literals *)
-  { clause_id; actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; source }
-
-
-(* 
+(*
 
 (* Copy clause and all its parents with fresh activation literal *)
 let rec copy_clause solver = function
@@ -578,50 +783,8 @@ let rec copy_clause solver = function
 
 *)
 
-let rec copy_clause solver ({ literals; actlit_p0 } as c) =
-  mk_clause_of_literals (CopyOf c) literals 
-      
+
   
-(* ********************************************************************** *)
-(* Property sets                                                          *)    
-(* ********************************************************************** *)
-
-(* Create three fresh activation literals for a set of properties and
-   declare in the given solver instance *)
-let prop_set_of_props props = 
-
-  (* Increment reference for property set *)
-  incr prop_set_count;
-
-  (* Conjunction of property terms *)
-  let term = List.map snd props |> Term.mk_and in
-
-  (* Unit clause of term *)
-  let literals = [term] in
-
-  (* Create pseudo clause for propert set *)
-  let clause = mk_clause_of_literals PropSet literals in
-  
-  (* Return together with clause with activation literals *)
-  { clause; props }
-
-    
-(* Return conjunction of properties *)
-let term_of_prop_set { clause } = term_of_clause clause
-
-(* Return clause for property set *)
-let clause_of_prop_set { clause } = clause
-
-let props_of_prop_set { props } = props
-  
-let actlit_p0_of_prop_set { clause = { actlit_p0 } } = actlit_p0
-  
-let actlit_p1_of_prop_set { clause = { actlit_p1 } } = actlit_p1
-
-let actlits_n0_of_prop_set { clause = { actlits_n0 } } = actlits_n0
-
-let actlits_n1_of_prop_set { clause = { actlits_n1 } } = actlits_n1
-    
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

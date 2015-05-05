@@ -288,15 +288,15 @@ let rec check_frames' solver prop_set accum = function
             (* Preceding frame is not R_0 *)
             | r_pred_i :: _ -> 
 
-              C.actlit_p0_of_prop_set prop_set :: 
+              C.actlit_p0_of_prop_set solver prop_set :: 
               
-              List.map C.actlit_p0_of_clause accum @ 
+              List.map (C.actlit_p0_of_clause solver) accum @ 
 
               (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
-              List.map C.actlit_p0_of_clause (F.values r_i) @ 
+              List.map (C.actlit_p0_of_clause solver) (F.values r_i) @ 
 
               (* Assert clauses of R_i-1 on lhs of entailment *)
-              List.map C.actlit_p0_of_clause (F.values r_pred_i)
+              List.map (C.actlit_p0_of_clause solver) (F.values r_pred_i)
 
             (* Preceding frame is R_0, assert initial state only *)
             | [] -> [C.actlit_of_frame 0]))
@@ -326,7 +326,7 @@ let rec check_frames' solver prop_set accum = function
           (fun () -> is_initial ctl)
 
           (* Check I |= C *)
-          ((C.actlit_of_frame 0) :: C.actlits_n0_of_clause c)
+          ((C.actlit_of_frame 0) :: C.actlits_n0_of_clause solver c)
 
       (* All clauses are initial, now check if frame successors of
          frame are in the next frame *)
@@ -351,8 +351,8 @@ let rec check_frames' solver prop_set accum = function
       (fun () -> is_initial (F.values r_i))
 
       (* Check R_i |= P *)
-      (C.actlits_n0_of_prop_set prop_set @
-         List.map C.actlit_p0_of_clause ((F.values r_i) @ accum))
+      (C.actlits_n0_of_prop_set solver prop_set @
+         List.map (C.actlit_p0_of_clause solver) ((F.values r_i) @ accum))
 
 
 let check_frames solver prop_set clauses frames =
@@ -368,8 +368,8 @@ let check_frames solver prop_set clauses frames =
               (pp_print_list
                  (fun ppf c ->
                    Format.fprintf ppf
-                     "%a"
-                     Term.pp_print_term (C.actlit_p0_of_clause c))
+                     "%d"
+                     (C.id_of_clause c))
                  "@,")
               (F.values r_i))
           "@,")
@@ -436,53 +436,7 @@ let count_subsumed solver (c, f) =
   (c, f)
     
     
-(* Deactivate activation literals of a subsumed clause *)
-let deactivate_clause solver clause = 
 
-  SMTSolver.trace_comment
-    solver
-    "Deactivating activation literals for clause";
-      
-  (* Assert negation of activation literal for positive unprimed
-     clause *)
-  C.actlit_p0_of_clause clause
-  |> Term.mk_not
-  |> SMTSolver.assert_term solver;
-
-  dead_actlits := C.actlit_p0_of_clause clause :: !dead_actlits;
-  
-  (* Assert negation of activation literal for positive primed
-     clause *)
-  C.actlit_p1_of_clause clause
-  |> Term.mk_not
-  |> SMTSolver.assert_term solver;
-  
-  dead_actlits := C.actlit_p0_of_clause clause :: !dead_actlits;
-
-  (* Assert negation of activation literals for negated unprimed
-     clause literals *)
-  C.actlits_n0_of_clause clause
-  |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
-
-  List.iter
-    (fun l -> dead_actlits := l :: !dead_actlits)
-    (C.actlits_n0_of_clause clause);
-
-  (* Assert negation of activation literals for negated primed
-     clause literals *)
-  C.actlits_n1_of_clause clause
-  |> List.iter (fun t -> Term.mk_not t |> SMTSolver.assert_term solver);
-
-  List.iter
-    (fun l -> dead_actlits := l :: !dead_actlits)
-    (C.actlits_n1_of_clause clause);
-
-  (* Increment statistics for activation literals *)
-  Stat.incr
-    ~by:(2 + 2 * (List.length (C.literals_of_clause clause)))
-    Stat.pdr_stale_activation_literals
-
-    
 (* Deactivate activation literals of subsumed clauses *)
 let deactivate_subsumed solver (subsumed, frame') =
 
@@ -491,7 +445,7 @@ let deactivate_subsumed solver (subsumed, frame') =
 
     (* Deactivate activation literals for each subsumed clause *)
     (List.iter
-       (fun (_, c) -> deactivate_clause solver c)
+       (fun (_, c) -> C.deactivate_clause solver c)
        subsumed);
   
   (subsumed, frame')
@@ -536,10 +490,10 @@ let ind_generalize solver prop_set frame clause literals =
 
           (* Deactivate activation literal of parent clause *)
           if deactivate_actlit then
-            deactivate_clause solver clause;
+            C.deactivate_clause solver clause;
             
           (* New clause with generalized clause as parent *)
-          C.mk_clause_of_literals solver (C.IndGen clause) kept
+          C.mk_clause_of_literals (C.IndGen clause) kept
 
         )
 
@@ -611,7 +565,7 @@ let ind_generalize solver prop_set frame clause literals =
           drop_literal
 
           (* Check P[x] & R[x] & C[x] & T[x,x'] |= C[x'] *)
-          (C.actlit_p0_of_prop_set prop_set ::
+          (C.actlit_p0_of_prop_set solver prop_set ::
              clause'_actlit_p0 ::
              clause'_actlit_n1 ::
              frame)
@@ -899,7 +853,7 @@ let rec block solver trans_sys prop_set term_tbl =
             (* Create a clause with activation literals from generalized
                counterexample *)
             let clause = 
-              C.mk_clause_of_literals solver C.BlockFrontier (List.map Term.negate cti_gen) 
+              C.mk_clause_of_literals C.BlockFrontier (List.map Term.negate cti_gen) 
             in
 
             (* Recursively block cube by showing that clause is
@@ -937,9 +891,9 @@ let rec block solver trans_sys prop_set term_tbl =
             (* Check P[x] & R_k[x] & T[x,x'] |= P[x']
 
                R_k does not imply P[x] yet *)
-            (C.actlit_p0_of_prop_set prop_set :: 
-               C.actlits_n1_of_prop_set prop_set @
-               List.map C.actlit_p0_of_clause (F.values r_k))
+            (C.actlit_p0_of_prop_set solver prop_set :: 
+               C.actlits_n1_of_prop_set solver prop_set @
+               List.map (C.actlit_p0_of_clause solver) (F.values r_k))
 
       )
 
@@ -978,7 +932,8 @@ let rec block solver trans_sys prop_set term_tbl =
         let clauses_r_succ_i, actlits_p0_r_succ_i = 
           List.fold_left
             (fun (ac, al) (_, r) ->
-              (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
+              (F.values r) @ ac,
+              List.map (C.actlit_p0_of_clause solver) (F.values r) @ al)
             ([], [])
             trace
         in
@@ -996,7 +951,8 @@ let rec block solver trans_sys prop_set term_tbl =
               
               (* Join lists of clauses *)
               (fun (ac, al) (_, r) ->
-                (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
+                (F.values r) @ ac,
+                List.map (C.actlit_p0_of_clause solver) (F.values r) @ al)
               
               (* May be empty *)
               ((match frames with 
@@ -1004,8 +960,8 @@ let rec block solver trans_sys prop_set term_tbl =
                 | [] -> ([], [C.actlit_of_frame 0])
                 | r_pred_i :: _ -> 
                   (C.clause_of_prop_set prop_set :: (F.values r_pred_i), 
-                   C.actlit_p0_of_prop_set prop_set :: 
-                     List.map C.actlit_p0_of_clause (F.values r_pred_i))))
+                   C.actlit_p0_of_prop_set solver prop_set :: 
+                     List.map (C.actlit_p0_of_clause solver) (F.values r_pred_i))))
               
               trace
 
@@ -1023,11 +979,12 @@ let rec block solver trans_sys prop_set term_tbl =
                   
                   (* Join lists of clauses *)
                   (fun (ac, al) (_, r) ->
-                    (F.values r) @ ac, List.map C.actlit_p0_of_clause (F.values r) @ al)
+                    (F.values r) @ ac,
+                    List.map (C.actlit_p0_of_clause solver) (F.values r) @ al)
                   
                   (C.clause_of_prop_set prop_set :: (F.values r_pred_i), 
-                   C.actlit_p0_of_prop_set prop_set :: 
-                     List.map C.actlit_p0_of_clause (F.values r_pred_i))
+                   C.actlit_p0_of_prop_set solver prop_set :: 
+                     List.map (C.actlit_p0_of_clause solver) (F.values r_pred_i))
                   
                   trace
 
@@ -1073,7 +1030,7 @@ let rec block solver trans_sys prop_set term_tbl =
               (fun () -> SMTSolver.get_unsat_core_lits solver)
               
               (* Check I |= C *)
-              ((C.actlit_of_frame 0) :: C.actlits_n0_of_clause block_clause)
+              ((C.actlit_of_frame 0) :: C.actlits_n0_of_clause solver block_clause)
               
           in
           
@@ -1102,7 +1059,7 @@ let rec block solver trans_sys prop_set term_tbl =
               []
 
               (* Fold over clause literals and their activation literals *)
-              (C.actlits_n1_of_clause block_clause)
+              (C.actlits_n1_of_clause solver block_clause)
               (C.literals_of_clause block_clause)
 
           in
@@ -1134,7 +1091,7 @@ let rec block solver trans_sys prop_set term_tbl =
               block_clause_literals_core_n1
 
               (* Fold over clause literals and their activation literals *)
-              (C.actlits_n0_of_clause block_clause)
+              (C.actlits_n0_of_clause solver block_clause)
               (C.literals_of_clause block_clause)
 
           in
@@ -1186,7 +1143,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
               then
 
-                (deactivate_clause solver block_clause_gen;
+                (C.deactivate_clause solver block_clause_gen;
 
                  Stat.incr Stat.pdr_back_subsumed;
 
@@ -1361,8 +1318,8 @@ let rec block solver trans_sys prop_set term_tbl =
                    (pp_print_list
                       (fun ppf c ->
                         Format.fprintf ppf
-                          "%a"
-                          Term.pp_print_term (C.actlit_p0_of_clause c))
+                          "%d"
+                          (C.id_of_clause c))
                       ",@ ")
                    (block_clause :: block_trace));
                    
@@ -1396,7 +1353,6 @@ let rec block solver trans_sys prop_set term_tbl =
                  counterexample *)
               let block_clause' = 
                 C.mk_clause_of_literals
-                  solver
                   (C.BlockRec block_clause)
                   (List.map Term.negate cti_gen) 
               in
@@ -1432,8 +1388,8 @@ let rec block solver trans_sys prop_set term_tbl =
           is_rel_inductive
 
           (* Check P[x] & R_i-1[x] & C[x] & T[x,x'] |= C[x'] *)
-          (C.actlit_p0_of_clause block_clause :: 
-             C.actlits_n1_of_clause block_clause @
+          (C.actlit_p0_of_clause solver block_clause :: 
+             C.actlits_n1_of_clause solver block_clause @
              actlits_p0_r_pred_i)
 
       )
@@ -1454,7 +1410,7 @@ let rec partition_inductive
   
   (* Use activation literals of clauses on lhs *)
   let actlits_p0 = 
-    List.map C.actlit_p0_of_clause (frame @ maybe_inductive) 
+    List.map (C.actlit_p0_of_clause solver) (frame @ maybe_inductive) 
   in
 
   (* Conjunction of clauses *)
@@ -1558,7 +1514,7 @@ let partition_fwd_prop
 
   (* Use activation literals of clauses on lhs *)
   let actlits_p0 =
-    List.map C.actlit_p0_of_clause (frame @ clauses) 
+    List.map (C.actlit_p0_of_clause solver) (frame @ clauses) 
   in
 
   (* Check until we find a set of clauses that can be propagated
@@ -1650,7 +1606,7 @@ let partition_fwd_prop
       solver
       (keep_some actlit_n1)
       (prop_all actlit_n1)
-      (C.actlit_p0_of_prop_set prop_set :: actlit_n1 :: actlits_p0)
+      (C.actlit_p0_of_prop_set solver prop_set :: actlit_n1 :: actlits_p0)
     
   in
 
@@ -1666,8 +1622,8 @@ let fwd_propagate solver trans_sys prop_set frames =
     SMTSolver.trace_comment
       solver
       (Format.asprintf
-         "@[<v>subsume_and_add: clause %a@]"
-         Term.pp_print_term (C.actlit_p0_of_clause c));
+         "@[<v>subsume_and_add: clause %d@]"
+         (C.id_of_clause c));
 
     (* Forward propagated clause to add to frame *)
     let c' =
@@ -1680,7 +1636,7 @@ let fwd_propagate solver trans_sys prop_set frames =
               ind_generalize 
                 solver
                 prop_set
-                (F.values a |> List.map C.actlit_p0_of_clause)
+                (F.values a |> List.map (C.actlit_p0_of_clause solver))
                 c
                 (C.literals_of_clause c)))
 
@@ -1707,10 +1663,10 @@ let fwd_propagate solver trans_sys prop_set frames =
             (Format.asprintf
                "@[<v>Clause is subsumed in frame@,%a@]"
                (pp_print_list Term.pp_print_term "@,")
-               (F.values a |> List.map C.actlit_p0_of_clause));
+               (F.values a |> List.map (C.actlit_p0_of_clause solver)));
 
           (* Deactivate activation literals of subsumed clause *)
-          deactivate_clause solver c';
+          C.deactivate_clause solver c';
 
           (* Increment statistics *)
           Stat.incr Stat.pdr_fwd_subsumed;
@@ -1744,7 +1700,7 @@ let fwd_propagate solver trans_sys prop_set frames =
 
         (* Is clause subsumed in frame? *)
         if F.is_subsumed a l then
-          (deactivate_clause solver c';
+          (C.deactivate_clause solver c';
            Stat.incr Stat.pdr_fwd_subsumed;
            a)
         else
@@ -1792,7 +1748,7 @@ let fwd_propagate solver trans_sys prop_set frames =
 
               (
 
-                let empty_prop_set = C.prop_set_of_props solver [] in
+                let empty_prop_set = C.prop_set_of_props [] in
 
                 let inductive_clauses_gen = 
                   List.map
@@ -1985,7 +1941,7 @@ let fwd_propagate solver trans_sys prop_set frames =
                    solver
                    (function _ -> false)
                    (function _ -> true)
-                   [C.actlit_p0_of_prop_set prop_set; ind_inv_p0; ind_inv_n1]); 
+                   [C.actlit_p0_of_prop_set solver prop_set; ind_inv_p0; ind_inv_n1]); 
 
             (* Fixpoint found, this frame is equal to the next *)
             raise (Success (List.length frames))
@@ -2034,7 +1990,7 @@ let fwd_propagate solver trans_sys prop_set frames =
                   (* Deactivate activation literals of not prpagating
                      clauses *)
                   if deactivate_actlit then
-                    (List.iter (deactivate_clause solver) keep');
+                    (List.iter (C.deactivate_clause solver) keep');
                   
                   (* Update statistics *)
                   Stat.incr ~by:(List.length fwd') Stat.pdr_fwd_gen_propagated;
@@ -2308,7 +2264,7 @@ let extract_cex_path solver trans_sys trace =
         (fun _ -> assert false)
         
         (* Assume previous state and blocking clause *)
-        (pre_state :: C.actlits_n1_of_clause r_i)
+        (pre_state :: C.actlits_n1_of_clause solver r_i)
         
   in
 
@@ -2343,7 +2299,7 @@ let extract_cex_path solver trans_sys trace =
 
           (* Assume initial state and blocking clause *)
           ((C.actlit_of_frame 0) ::
-           C.actlits_n1_of_clause r_1)
+           C.actlits_n1_of_clause solver r_1)
 
   in
 
@@ -2386,7 +2342,7 @@ let rec restart_loop trans_sys solver props =
 
         (* Get activation literals for current property set *)
         let prop_set =
-          C.prop_set_of_props solver props
+          C.prop_set_of_props props
         in
         
         (* Run PDR procedure *)
@@ -2630,7 +2586,7 @@ let rec bmc_checks solver trans_sys props =
       (* Create activation literals and assert formulas for property
          set *)
       let prop_set =
-        C.prop_set_of_props solver props
+        C.prop_set_of_props props
       in 
 
       (* Check satsifiability of I & ~P for all not falsified
@@ -2651,10 +2607,10 @@ let rec bmc_checks solver trans_sys props =
           (all_entailed props)
           (if check_primed then
              (actlit_R0 :: 
-                (C.actlit_p0_of_prop_set prop_set :: 
-                   C.actlits_n1_of_prop_set prop_set))
+                (C.actlit_p0_of_prop_set solver prop_set :: 
+                   C.actlits_n1_of_prop_set solver prop_set))
            else
-             (actlit_R0 :: C.actlits_n0_of_prop_set prop_set))
+             (actlit_R0 :: C.actlits_n0_of_prop_set solver prop_set))
       in
 
       (* Some properties falsified? *)
@@ -2674,7 +2630,7 @@ let rec bmc_checks solver trans_sys props =
           
           SMTSolver.assert_term
             solver
-            (Term.mk_not (C.actlit_p0_of_prop_set prop_set));
+            (Term.mk_not (C.actlit_p0_of_prop_set solver prop_set));
             
           (* Check remaining properties *)
           bmc_check check_primed props'
