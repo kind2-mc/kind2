@@ -17,7 +17,7 @@
 *)
 
 open Lib
-
+open TestgenLib
 
 
 
@@ -61,13 +61,13 @@ module type Sig = sig
   (** Creates a context for this strategy. *)
   val mk_context :
     (** Transition system we are generating tests for. *)
-    TransSys.t ->
+    sys ->
     (** Declares a UF. *)
-    ( UfSymbol.t -> unit ) ->
+    ( actlit -> unit ) ->
     (** Asserts actlit implications function. *)
-    ( ?eq:bool -> (UfSymbol.t * Term.t) list -> unit ) ->
+    ( ?eq:bool -> (actlit * term) list -> unit ) ->
     (** Checksat and get-values function. *)
-    ( UfSymbol.t list -> Term.t list -> ((Term.t * Term.t) list) option ) ->
+    ( actlit list -> term list -> values option ) ->
     (** Trace comment function. *)
     ( string -> unit ) ->
     (** Result is a strategy-specific context. *)
@@ -77,13 +77,13 @@ module type Sig = sig
   (** Works on the k^th unrolling of the system. Returns [false] if
       the strategy is not done, i.e. its handler should unroll the
       system further and call this function again. *)
-  val work : data context -> Numeral.t -> bool
+  val work : data context -> k -> bool
 
-  (* Generates test cases using a get_model function. *)
+  (** Generates test cases using a get_model function. *)
   val testcase_gen : string -> (
     string -> string -> string -> string list -> unit
   ) -> data context -> (
-    UfSymbol.t list -> Model.t option
+    actlit list -> model option
   ) -> unit
 
 end

@@ -19,15 +19,6 @@
 open Lib
 open TestgenLib
 
-module Svar = StateVar
-type svar = Svar.t
-type actlit = UfSymbol.t
-type term = Term.t
-type model = Model.t
-type values = (Term.t * Term.t) list
-type k = Numeral.t
-type contract = term
-
 
 (* Lifting the context type from TestgenLib. *)
 type 'data context = 'data TestgenLib.context
@@ -83,14 +74,16 @@ module type Sig = sig
      system further and call this function again. *)
   val work : data context -> k -> bool
 
-  (* Generates test cases using a get_model function. *)
+  (** Generates test cases using a get_model function. *)
   val testcase_gen : string -> (
     string -> string -> string -> string list -> unit
   ) -> data context -> (
-    actlit list -> model option
+    UfSymbol.t list -> model option
   ) -> unit
 
 end
+
+
 
 
 (* Dummy strategy module. *)
@@ -176,145 +169,9 @@ module Unit_ModeSwitch : Sig = struct
 
     Numeral.( k >= max_k () )
 
-  let testcase_gen dir pp_testcase context get_model =
 
-(*     let testcase_tree =
-      context.data |> List.map (fun (act,k,tc) ->
-        act, k, (
-          unroll_test_case [] Numeral.(k + one) tc |> List.rev
-        )
-      ) |> testcases_to_tree context.sys
-    in
-
-    let stdfmt = Format.formatter_of_out_channel stdout in
-    Format.pp_set_margin stdfmt 1000000000 ;
-    Format.pp_set_max_indent stdfmt 100000000000 ;
-
-    Format.fprintf
-      stdfmt "Reachable contracts:@,@[<v>%a@]@.@."
-      pp_print_tree testcase_tree ; *)
-
-    let gv_file = "./graph.dot" in
-    let gv_file =
-      Unix.openfile
-        gv_file [ Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT ] 0o640
-    in
-    let gv_fmt =
-      Unix.out_channel_of_descr gv_file |> Format.formatter_of_out_channel
-    in
-
-    Format.fprintf gv_fmt
-      "digraph mode_graph {@.  \
-       @[<v>" ;
-
-    let names_of = List.fold_left
-      ( fun l svar -> match
-          TransSys.mode_names_of_req_svar context.sys svar
-        with
-        | None -> assert false
-        | Some names -> names @ l )
-      []
-    in
-
-    context.data |> List.fold_left (fun cpt ( (actlit,k,testcase) as tc) ->
-      (* Format.printf "Test case number %d:@." cpt ; *)
-
-      let to_graph testcase =
-        let rec loop (kay, svars) = function
-        | ((kay', svars') as pair) :: tail ->
-          let name = names_of svars |> String.concat "__" in
-          if Numeral.(kay = pred kay') then (
-            let name' = names_of svars' |> String.concat "__" in
-            Format.fprintf gv_fmt
-              "  %s__%a -> %s__%a [label = \"%d\"];@,"
-              name Numeral.pp_print_numeral kay
-              name' Numeral.pp_print_numeral kay' cpt ;
-            loop pair tail
-          ) else (
-            let kay' = Numeral.succ kay in
-            Format.fprintf gv_fmt
-              "  %s__%a -> %s__%a [label = \"%d\"];@,"
-              name Numeral.pp_print_numeral kay
-              name Numeral.pp_print_numeral kay' cpt ;
-            loop (kay', svars) (pair :: tail)
-          )
-        | [] ->
-          if Numeral.(kay = k) then () else (
-            let kay' = Numeral.succ kay in
-            let name = names_of svars |> String.concat "__" in
-            Format.fprintf gv_fmt
-              "  %s__%a -> %s__%a [label = \"%d\"];@,"
-              name Numeral.pp_print_numeral kay
-              name Numeral.pp_print_numeral kay' cpt ;
-            loop (kay', svars) []
-          )
-        in
-
-        match List.rev testcase with
-        | [] -> failwith "empty testcase"
-        | head :: tail -> loop head tail
-      in
-
-      Format.printf "to graph (%a)@." Numeral.pp_print_numeral k;
-      to_graph testcase ;
-      Format.printf "done@." ;
-
-      let name = Format.sprintf "test_case_%d" cpt in
-
-      let out_file = Format.sprintf "%s/%s.csv" dir name in
-
-      description_of_contract_testcase context.sys tc
-      |> pp_testcase out_file name "csv" ;
-
-      let file =
-        Unix.openfile
-          out_file [ Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT ] 0o640
-      in
-
-      let out_fmt =
-        Unix.out_channel_of_descr file |> Format.formatter_of_out_channel
-      in
-
-      ( match get_model [ actlit ] with
-        | None -> assert false
-        | Some model ->
-          (* Format.printf
-            "Test case of length %a activating@. @[<v>%a@]@."
-            Numeral.pp_print_numeral k
-            (pp_print_contract_testcase_named context.sys) testcase ;
-          Format.printf "is@." ; *)
-          (* Format.printf "Inputs:@." ; *)
-          cex_to_inputs_csv out_fmt context.sys model k
-          (* Format.printf "Outputs:@." ; *)
-          (* cex_to_outputs_csv context.sys model k ; *)
-          (* Format.printf "@." ; *) ) ;
-
-      Format.fprintf out_fmt "@?" ;
-      Unix.close file ;
-
-      cpt + 1
-    ) 0 |> ignore ;
-
-    Format.fprintf gv_fmt "@]@.}@.@.@?" ;
-
-(*     let testcase_tree =
-      context.data |> List.map (fun (act,k,tc) ->
-        act, k, (
-          unroll_test_case [] Numeral.(k + one) tc |> List.rev
-        )
-      ) |> testcases_to_tree context.sys
-    in
-
-    let stdfmt = Format.formatter_of_out_channel stdout in
-    Format.pp_set_margin stdfmt 1000000000 ;
-    Format.pp_set_max_indent stdfmt 100000000000 ;
-
-    Format.fprintf
-      stdfmt "Reachable contracts:@,@[<v>%a@]@.@."
-      pp_print_tree testcase_tree ; *)
-
-    ()
-
+  (* Generates test cases using a get_model function. *)
+  let testcase_gen = TestgenLib.testcase_gen
 
 end
 

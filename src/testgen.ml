@@ -152,11 +152,11 @@ let run_strategy out_dir sys strategy =
 
   (* Retrieving the strategy module. *)
   let module Strat = (val strategy : TestgenStrategies.Sig) in
-
+(* 
   let req_svars = match TransSys.mode_req_svars sys with
     | None -> assert false
     | Some svars -> svars
-  in
+  in *)
 
   (* Format.printf
     "Mode req svars: @[<v>%a@]@.@."
