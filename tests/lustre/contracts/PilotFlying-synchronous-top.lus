@@ -187,7 +187,7 @@ let
     pre state
   ) ;
 
-  --%PROPERTY (state = St_Flying) or (state = St_Inhibited) or (state = St_Listening) ;
+  -- PROPERTY (state = St_Flying) or (state = St_Inhibited) or (state = St_Listening) ;
 
   PFS = Primary_Side -> (
     if state = St_Inhibited then false else
@@ -200,7 +200,7 @@ let
   inhibit_count = 0 -> (
     if state = St_Inhibited then pre inhibit_count + 1 else 0
   ) ;
-  --%PROPERTY inhibit_count <= inhibit_count_max ;
+  -- PROPERTY inhibit_count <= inhibit_count_max ;
 
 tel;
 
@@ -341,16 +341,16 @@ let
   ) ;
 
   inhibited_R2_R3_req = false ->
-    SinceLENotZero(Fall(pre LPFS) or Fall(pre RPFS), inhibit_count_max) ;
+    SinceLENotZero(Fall(true -> pre LPFS) or Fall(false -> pre RPFS), inhibit_count_max) ;
   inhibited_R2_R3_ens = not (Changed(RPFS) or Changed(LPFS)) ;
 
-  unchanged_nop_R5_req = SinceGTOrZero(Rise(TS), inhibit_count_max + 1) ;
+  unchanged_nop_R5_req = SinceGTOrZero(Rise(TS), 2) ;
   unchanged_nop_R5_ens = not (Changed(RPFS) or Changed(LPFS)) ;
 
   change_R3_rise_req = Rise(TS) and (
     SinceGTOrZero(
-      Fall(false -> pre RPFS) or Fall(true -> pre LPFS),
-      inhibit_count_max + 2
+      Fall(true -> pre RPFS) or Fall(false -> pre LPFS),
+      inhibit_count_max
     )
   ) ;
   change_R3_rise_ens =

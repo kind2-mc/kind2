@@ -386,7 +386,6 @@ returns
 --@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
 --@contract : unchanged_nop_R5 ;
---@require not Rise(TS) ;
 --@require SinceGTOrZero(Rise(TS), 2) ;
 --@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
