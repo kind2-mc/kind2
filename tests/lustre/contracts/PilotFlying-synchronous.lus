@@ -85,6 +85,19 @@ let
   -- PROPERTY zero_till_true;
   
 tel;
+
+
+
+
+node SinceGTOrZero(in: bool ; min: int) returns (out: bool) ;
+let
+  out = (Since(in) > min) or (Since(in) = 0) ;
+tel
+
+node SinceLENotZero(in: bool ; max: int) returns (out: bool) ;
+let
+  out = (Since(in) <= max) and (Since(in) > 0) ;
+tel
        
 ------------------------------------------------------------------------------
 -- Returns whether P has been true within the last n steps
@@ -173,13 +186,12 @@ returns
 --@require riseTS ;
 --@require false -> not pre PFS ;
 --@require Duration(true) > inhibit_count_max + 2 ;
---@require (Since(riseOSPF) > inhibit_count_max + 2) or (Since(riseOSPF) = 0) ;
+--@require SinceGTOrZero(riseOSPF, inhibit_count_max + 1) ;
 --@ensure  PFS ;
 
 --@contract : inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
---@require Since(riseOSPF) <= inhibit_count_max + 1 ;
---@require Since(riseOSPF) > 0 ;
+--@require SinceLENotZero(riseOSPF, inhibit_count_max + 1) ;
 --@ensure  not PFS ;
 
 --@contract : active_no_switch_R5 ;
@@ -255,13 +267,12 @@ returns
 --@require Rise(TS) ;
 --@require false -> not pre PFS ;
 --@require Duration(true) > inhibit_count_max + 2 ;
---@require (Since(Rise(OSPF)) > inhibit_count_max + 2) or (Since(Rise(OSPF)) = 0) ;
+--@require SinceGTOrZero(Rise(OSPF), inhibit_count_max + 1) ;
 --@ensure  PFS ;
 
 --@contract : inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
---@require Since(Rise(OSPF)) <= inhibit_count_max + 1 ;
---@require Since(Rise(OSPF)) > 0 ;
+--@require SinceLENotZero(Rise(OSPF), inhibit_count_max + 1) ;
 --@ensure  not PFS ;
 
 --@contract : active_no_switch_R5 ;
@@ -346,19 +357,6 @@ tel;
 
 
 
-
-node SinceGTOrZero(in: bool ; min: int) returns (out: bool) ;
-let
-  out = (Since(in) > min) or (Since(in) = 0) ;
-tel
-
-node SinceLENotZero(in: bool ; max: int) returns (out: bool) ;
-let
-  out = (Since(in) <= max) and (Since(in) > 0) ;
-tel
-
-
-
 const all_ticked_max = 7 ;
 const both_stabilization_max =
   (inhibit_count_max + 2) * (all_ticked_max + 1) + all_ticked_max ;
@@ -384,11 +382,12 @@ returns
 --@ensure SinceGTOrZero(Rise(TS), 1) => LPFS = not RPFS;
 
 --@contract : inhibited_R2_R3 ;
---@require false -> SinceLENotZero(Fall(pre LPFS) or Fall(pre RPFS), inhibit_count_max) ;
+--@require false -> SinceLENotZero(Fall(true -> pre LPFS) or Fall(false -> pre RPFS), inhibit_count_max) ;
 --@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
 --@contract : unchanged_nop_R5 ;
---@require SinceGTOrZero(Rise(TS), inhibit_count_max + 1) ;
+--@require not Rise(TS) ;
+--@require SinceGTOrZero(Rise(TS), 2) ;
 --@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
 
@@ -399,8 +398,8 @@ returns
 
 -- The last fall of a PFS had enough time to leave its inhibited state before
 -- the rise, or did not happen.
---@require SinceGTOrZero(Fall(false -> pre RPFS) or Fall(true -> pre LPFS), 
-inhibit_count_max + 2) ;
+--@require SinceGTOrZero(Fall(true -> pre RPFS) or Fall(false -> pre LPFS), 
+inhibit_count_max) ;
 
 -- As soon as the rise has had enough time to be taken into account, there
 -- should have been one and exactly one rise during that time.
