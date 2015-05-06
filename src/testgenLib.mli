@@ -198,7 +198,7 @@ val extend_contract_testcases:
 
 (** Generates the actual test cases in csv using a [get-model] function.
     Arguments:
-    - the directory to write the files in,
+    - the directory to write the test case in,
     - a formatter to the xml file aggregating the test cases,
     - the context of the test generation strategy,
     - the [get-model] function. *)

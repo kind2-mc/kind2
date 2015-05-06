@@ -79,6 +79,12 @@ module type Sig = sig
       system further and call this function again. *)
   val work : data context -> k -> bool
 
+(** Generates the actual test cases in csv using a [get-model] function.
+    Arguments:
+    - the directory to write the test case in,
+    - a formatter to the xml file aggregating the test cases,
+    - the context of the test generation strategy,
+    - the [get-model] function. *)
   (** Generates test cases using a get_model function. *)
   val testcase_gen : string -> (
     string -> string -> string -> string list -> unit

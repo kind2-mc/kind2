@@ -631,9 +631,9 @@ let testcase_gen dir pp_testcase context get_model =
       | head :: tail -> loop head tail
     in
 
-    Format.printf "to graph (%a)@." Numeral.pp_print_numeral k;
+(*     Format.printf "to graph (%a)@." Numeral.pp_print_numeral k;
     to_graph testcase ;
-    Format.printf "done@." ;
+    Format.printf "done@." ; *)
 
     let name = Format.sprintf "test_case_%d" cpt in
 
