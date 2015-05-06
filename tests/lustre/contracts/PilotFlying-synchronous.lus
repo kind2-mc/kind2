@@ -85,6 +85,19 @@ let
   -- PROPERTY zero_till_true;
   
 tel;
+
+
+
+
+node SinceGTOrZero(in: bool ; min: int) returns (out: bool) ;
+let
+  out = (Since(in) > min) or (Since(in) = 0) ;
+tel
+
+node SinceLENotZero(in: bool ; max: int) returns (out: bool) ;
+let
+  out = (Since(in) <= max) and (Since(in) > 0) ;
+tel
        
 ------------------------------------------------------------------------------
 -- Returns whether P has been true within the last n steps
@@ -173,13 +186,12 @@ returns
 --@require riseTS ;
 --@require false -> not pre PFS ;
 --@require Duration(true) > inhibit_count_max + 2 ;
---@require (Since(riseOSPF) > inhibit_count_max + 2) or (Since(riseOSPF) = 0) ;
+--@require SinceGTOrZero(riseOSPF, inhibit_count_max + 1) ;
 --@ensure  PFS ;
 
 --@contract : inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
---@require Since(riseOSPF) <= inhibit_count_max ;
---@require Since(riseOSPF) > 0 ;
+--@require SinceLENotZero(riseOSPF, inhibit_count_max + 1) ;
 --@ensure  not PFS ;
 
 --@contract : active_no_switch_R5 ;
@@ -255,13 +267,12 @@ returns
 --@require Rise(TS) ;
 --@require false -> not pre PFS ;
 --@require Duration(true) > inhibit_count_max + 2 ;
---@require (Since(Rise(OSPF)) > inhibit_count_max + 2) or (Since(Rise(OSPF)) = 0) ;
+--@require SinceGTOrZero(Rise(OSPF), inhibit_count_max + 1) ;
 --@ensure  PFS ;
 
 --@contract : inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
---@require Since(Rise(OSPF)) <= inhibit_count_max ;
---@require Since(Rise(OSPF)) > 0 ;
+--@require SinceLENotZero(Rise(OSPF), inhibit_count_max + 1) ;
 --@ensure  not PFS ;
 
 --@contract : active_no_switch_R5 ;
@@ -299,7 +310,7 @@ returns
   (O : bool);
 
 --@global_contract : property ;
---@ensure (O = Init_Bool) or (false -> (O = pre I)) ;
+--@ensure (O = Init_Bool) -> (O = pre I) ;
 
 const St_Step : int = 1;
 const St_Start : int = 2;
@@ -346,19 +357,6 @@ tel;
 
 
 
-
-node SinceGTOrZero(in: bool ; min: int) returns (out: bool) ;
-let
-  out = (Since(in) > min) or (Since(in) = 0) ;
-tel
-
-node SinceLENotZero(in: bool ; max: int) returns (out: bool) ;
-let
-  out = (Since(in) <= max) and (Since(in) > 0) ;
-tel
-
-
-
 const all_ticked_max = 7 ;
 const both_stabilization_max =
   (inhibit_count_max + 2) * (all_ticked_max + 1) + all_ticked_max ;
@@ -378,43 +376,44 @@ returns
   (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
 
 --@global_contract : global ;
+--@require Duration(true) <= inhibit_count_max + 2 => not Rise(TS) ;
 --@ensure (LPFS and (not RPFS)) -> true ;
 --@ensure  LPFS or RPFS ;
+--@ensure SinceGTOrZero(Rise(TS), 1) => LPFS = not RPFS;
 
---@contract : unchanged_R5 ;
---@require true -> SinceGTOrZero(Rise(TS), both_stabilization_max) ;
+--@contract : inhibited_R2_R3 ;
+--@require false -> SinceLENotZero(Fall(true -> pre LPFS) or Fall(false -> pre RPFS), inhibit_count_max) ;
 --@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
---@contract : only_one_active_R2;
---@require SinceGTOrZero(Rise(TS), both_stabilization_max) ;
---@ensure  LPFS = not RPFS;
-
+--@contract : unchanged_nop_R5 ;
+--@require SinceGTOrZero(Rise(TS), 2) ;
+--@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
 
 --@contract : change_R3_Rise;
 
 -- TS rised less_eq than all_ticked_max (7) steps ago.
---@require Since(Rise(TS) and (false -> not (pre RPFS and pre LPFS))) = all_ticked_max ;
+--@require Rise(TS) ;
 
 -- The last fall of a PFS had enough time to leave its inhibited state before
 -- the rise, or did not happen.
---@require SinceGTOrZero(Fall(false -> pre RPFS) or Fall(true -> pre LPFS), 
-side_stabilization_max + all_ticked_max + 1) ;
+--@require SinceGTOrZero(Fall(true -> pre RPFS) or Fall(false -> pre LPFS), 
+inhibit_count_max) ;
 
 -- As soon as the rise has had enough time to be taken into account, there
 -- should have been one and exactly one rise during that time.
---@ensure  OnceWithin(Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)), all_ticked_max) ;
+--@ensure  Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)) ;
 
 
 
 --@contract : change_R3_Fall;
 
 -- One side rised.
---@require Since(Rise(true -> pre LPFS) or Rise(false -> pre RPFS)) = side_comm_stabilization_max  ;
+--@require Since(Rise(true -> pre LPFS) or Rise(false -> pre RPFS)) = 1 ;
 
 -- If enough time after this event has passed, then there should have been one
 -- and only one fall during that event
---@ensure OnceWithin(Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)), side_comm_stabilization_max) ;
+--@ensure Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)) ;
 
 
 let
@@ -432,10 +431,7 @@ let
     Cross_Channel_Bus (RS_PFS, false);
 
   LPFS = LS_PFS ;
-  RPFS = RS_PFS ;
-
-  -- PROPERTY LPFS or RPFS ;
-  
+  RPFS = RS_PFS ;  
 tel;
 
 

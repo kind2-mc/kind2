@@ -187,7 +187,7 @@ let
     pre state
   ) ;
 
-  --%PROPERTY (state = St_Flying) or (state = St_Inhibited) or (state = St_Listening) ;
+  -- PROPERTY (state = St_Flying) or (state = St_Inhibited) or (state = St_Listening) ;
 
   PFS = Primary_Side -> (
     if state = St_Inhibited then false else
@@ -200,7 +200,7 @@ let
   inhibit_count = 0 -> (
     if state = St_Inhibited then pre inhibit_count + 1 else 0
   ) ;
-  --%PROPERTY inhibit_count <= inhibit_count_max ;
+  -- PROPERTY inhibit_count <= inhibit_count_max ;
 
 tel;
 
@@ -310,8 +310,9 @@ node PFS
 returns 
   (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
 var
-  global_ens,
-  stable_req, stable_ens,
+  global_req, global_ens,
+  inhibited_R2_R3_req, inhibited_R2_R3_ens,
+  unchanged_nop_R5_req, unchanged_nop_R5_ens,
   change_R3_rise_req, change_R3_rise_ens,
   change_R3_fall_req, change_R3_fall_ens,
   assume, guarantee: bool ;
@@ -332,38 +333,45 @@ let
   LPFS = LS_PFS ;
   RPFS = RS_PFS ;
 
-  global_ens = ( (LPFS and (not RPFS)) -> true ) and (LPFS or RPFS) ;
+  global_req = Duration(true) <= inhibit_count_max + 2 => not Rise(TS) ;
+  global_ens = (
+    ( (LPFS and (not RPFS)) -> true ) and
+    ( LPFS or RPFS ) and
+    ( SinceGTOrZero(Rise(TS), 1) => LPFS = not RPFS )
+  ) ;
 
-  stable_req = true -> SinceGTOrZero( Rise(TS), both_stabilization_max ) ;
-  stable_ens = (not (Changed(RPFS) or Changed(LPFS))) and LPFS = not RPFS ;
+  inhibited_R2_R3_req = false ->
+    SinceLENotZero(Fall(true -> pre LPFS) or Fall(false -> pre RPFS), inhibit_count_max) ;
+  inhibited_R2_R3_ens = not (Changed(RPFS) or Changed(LPFS)) ;
 
-  change_R3_rise_req = (
-    Since(
-      Rise(TS) and (false -> not (pre RPFS and pre LPFS))
-    ) = all_ticked_max
-  ) and (
+  unchanged_nop_R5_req = SinceGTOrZero(Rise(TS), 2) ;
+  unchanged_nop_R5_ens = not (Changed(RPFS) or Changed(LPFS)) ;
+
+  change_R3_rise_req = Rise(TS) and (
     SinceGTOrZero(
-      Fall(false -> pre RPFS) or Fall(true -> pre LPFS),
-      side_stabilization_max + all_ticked_max + 1
+      Fall(true -> pre RPFS) or Fall(false -> pre LPFS),
+      inhibit_count_max
     )
   ) ;
-  change_R3_rise_ens = OnceWithin(
-    Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)),
-    all_ticked_max
-  ) ;
+  change_R3_rise_ens =
+    Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)) ;
 
   change_R3_fall_req = Since(
     Rise(true -> pre LPFS) or Rise(false -> pre RPFS)
-  ) = side_comm_stabilization_max ;
-  change_R3_fall_ens = OnceWithin(
-    Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)),
-    side_comm_stabilization_max
+  ) = 1 ;
+  change_R3_fall_ens =
+    Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)) ;
+
+  assume = global_req and (
+    inhibited_R2_R3_req or
+    unchanged_nop_R5_req or
+    change_R3_rise_req or
+    change_R3_fall_req
   ) ;
 
-  assume = stable_req or change_R3_rise_req or change_R3_fall_req ;
-
   guarantee = global_ens and (
-    (stable_req => stable_ens) and
+    (inhibited_R2_R3_req => inhibited_R2_R3_ens) and
+    (unchanged_nop_R5_req => unchanged_nop_R5_ens) and
     (change_R3_rise_req => change_R3_rise_ens) and
     (change_R3_fall_req => change_R3_fall_ens)
   ) ;
