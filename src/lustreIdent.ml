@@ -112,6 +112,14 @@ module LustreIdentSet = Set.Make
       let compare = compare
     end)
 
+(* Maps of identifiers *)  
+module LustreIdentMap = Map.Make 
+    (struct 
+      type z = t
+      type t = z
+      let compare = compare
+    end)
+
 
 (* ********************************************************************** *)
 (* Pretty-printers                                                        *)

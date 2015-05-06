@@ -135,7 +135,9 @@ type lustre_context =
     
     (* Nodes *)
     nodes : LustreNode.t list;
-    
+
+    (* Dependencies between noes *)
+    deps : I.LustreIdentSet.t I.LustreIdentMap.t; 
   }
   
 
@@ -147,7 +149,9 @@ let init_lustre_context =
     type_ctx = [];
     index_ctx = [];
     consts = [];
-    nodes = [] }
+    nodes = [];
+    deps = I.LustreIdentMap.empty;
+  }
 
 
 (* Pretty-print a type identifier *)
@@ -4075,6 +4079,7 @@ let parse_node
   node'
 
 
+
 (* ******************************************************************** *)
 (* Main                                                                 *)
 (* ******************************************************************** *)
@@ -4087,7 +4092,8 @@ let rec declarations_to_nodes'
        type_ctx; 
        index_ctx; 
        consts; 
-       nodes } as global_context) = 
+       nodes;
+       deps } as global_context) = 
 
   function
 
@@ -4188,7 +4194,7 @@ let rec declarations_to_nodes'
            outputs, 
            locals, 
            equations, 
-           contract))) :: decls ->
+           contract)) as curr_decl) :: decls ->
 
       (try 
 
@@ -4213,24 +4219,57 @@ let rec declarations_to_nodes'
        (* Node may be forward referenced *)
        with Node_not_found (ident, pos) -> 
 
-        if 
-
+         if
           (* Is the referenced node declared later? *)
-          List.exists 
-            (function 
-              | A.NodeDecl (_, (i, _, _, _, _, _, _)) when i = ident -> true 
-              | _ -> false)
-            decls
+           List.exists
+             (function 
+               | A.NodeDecl (_, (i, _, _, _, _, _, _)) when i = ident -> true 
+               | _ -> false)
+             decls
+             
+         then begin
 
-        then
+           (* Check circularity *)
+           (try
+              let dep_ident = I.LustreIdentMap.find ident deps in
+              if I.LustreIdentSet.mem node_ident dep_ident then 
 
-          fail_at_position 
-            pos 
-            (Format.asprintf 
-               "Node %a is forward referenced" 
-               (I.pp_print_ident false) ident)
-      
-        else
+                fail_at_position
+                  pos
+                  (Format.asprintf 
+                     "Circular dependecy between nodes %a and %a" 
+                     (I.pp_print_ident false) ident
+                     (I.pp_print_ident false) node_ident)
+                  
+            with Not_found -> ());
+
+
+           (* Add new dependency *)
+           let deps =
+             let dep_ni =
+               try I.LustreIdentMap.find node_ident deps
+               with Not_found -> I.LustreIdentSet.empty in
+             I.LustreIdentMap.add
+               node_ident (I.LustreIdentSet.add ident dep_ni) deps
+           in
+
+          (* Move declaration to correct position.
+             Inefficient: might be better to do a topological sort beforehand *)
+          let decls =
+            List.fold_left (fun acc d -> match d with 
+                | A.NodeDecl (_, (i, _, _, _, _, _, _)) when i = ident ->
+                  curr_decl :: d :: acc
+                | _ -> d :: acc
+              ) [] decls
+            |> List.rev
+          in
+
+          (* Continue. *)
+          declarations_to_nodes' { global_context with deps = deps } decls
+
+         end
+         
+         else
           
           fail_at_position
             pos
