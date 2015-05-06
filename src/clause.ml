@@ -36,7 +36,8 @@ type source =
   | BlockRec of t (* Negtion of clause reaches a state outside the
                      negation of the clause to block *)
   | IndGen of t (* Clause is an inductive generalization of the clause *)
-  | CopyOf of t (* Clause is a copy of the clause *)
+  | CopyFwdProp of t (* Clause is a copy of the clause from forward propagation *)
+  | CopyBlockProp of t (* Clause is a copy of the clause from blocking in future frames *)
 
       
 (* Clause *)
@@ -112,7 +113,9 @@ let pp_print_source ppf = function
 
   | IndGen { clause_id } -> Format.fprintf ppf "IndGen %d" clause_id
       
-  | CopyOf { clause_id } -> Format.fprintf ppf "CopyOf %d" clause_id
+  | CopyBlockProp { clause_id } -> Format.fprintf ppf "CopyBlockProp %d" clause_id
+
+  | CopyFwdProp { clause_id } -> Format.fprintf ppf "CopyFwdProp %d" clause_id
 
     
 (* ********************************************************************** *)
@@ -470,8 +473,12 @@ let mk_clause_of_literals source literals =
 
 
 (* Copy clause with a fresh activation literal *)
-let rec copy_clause solver ({ literals } as clause) =
-  mk_clause_of_literals (CopyOf clause) literals 
+let rec copy_clause_block_prop ({ literals } as clause) =
+  mk_clause_of_literals (CopyBlockProp clause) literals 
+
+(* Copy clause with a fresh activation literal *)
+let rec copy_clause_fwd_prop ({ literals } as clause) =
+  mk_clause_of_literals (CopyFwdProp clause) literals 
 
 
 (* Deactivate activation literals of a subsumed clause *)
@@ -536,7 +543,8 @@ let rec undo_ind_gen = function
   | { source = IndGen c } -> Some c
 
   (* Return clause before inductive generalization *)
-  | { source = CopyOf c } -> undo_ind_gen c
+  | { source = CopyFwdProp c } 
+  | { source = CopyBlockProp c } -> undo_ind_gen c
 
   
 (* ********************************************************************** *)

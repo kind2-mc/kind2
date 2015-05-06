@@ -493,8 +493,18 @@ let ind_generalize solver prop_set frame clause literals =
             C.deactivate_clause solver clause;
             
           (* New clause with generalized clause as parent *)
-          C.mk_clause_of_literals (C.IndGen clause) kept
-
+          let clause' = C.mk_clause_of_literals (C.IndGen clause) kept in
+            
+          SMTSolver.trace_comment solver
+            (Format.asprintf 
+               "@[<hv>New clause from inductive generalization of #%d:@ #%d @[<hv 1>{%a}@]@]"
+               (C.id_of_clause clause)
+               (C.id_of_clause clause')
+               (pp_print_list Term.pp_print_term ";@ ")
+               (C.literals_of_clause clause'));
+          
+          clause'
+            
         )
 
     (* Do not try to generalize to the empty clause, this should not
@@ -774,7 +784,20 @@ let add_to_block_tl solver block_clause block_trace = function
   | (block_clauses, r_succ_i) :: block_clauses_tl -> 
 
     (* (block_clauses @ [C.copy_clause solver block_clause, block_trace], r_succ_i) :: block_clauses_tl *)
-    ((C.copy_clause solver block_clause, block_trace) :: block_clauses, r_succ_i) :: block_clauses_tl 
+
+    let block_clause' =
+      C.copy_clause_block_prop block_clause
+    in
+
+    SMTSolver.trace_comment solver
+      (Format.asprintf 
+         "@[<hv>Copied clause #%d for blocking in future:@ #%d @[<hv 1>{%a}@]@]"
+         (C.id_of_clause block_clause)
+         (C.id_of_clause block_clause')
+         (pp_print_list Term.pp_print_term ";@ ")
+         (C.literals_of_clause block_clause'));
+          
+    ((block_clause', block_trace) :: block_clauses, r_succ_i) :: block_clauses_tl 
 
 
 (* Block sets of bad states in frames
@@ -855,7 +878,14 @@ let rec block solver trans_sys prop_set term_tbl =
             let clause = 
               C.mk_clause_of_literals C.BlockFrontier (List.map Term.negate cti_gen) 
             in
-
+            
+            SMTSolver.trace_comment solver
+              (Format.asprintf 
+                 "@[<hv>New clause at frontier:@ #%d @[<hv 1>{%a}@]@]"
+                 (C.id_of_clause clause)
+                 (pp_print_list Term.pp_print_term ";@ ")
+                 (C.literals_of_clause clause));
+          
             (* Recursively block cube by showing that clause is
                relatively inductive *)
             block 
@@ -1268,7 +1298,7 @@ let rec block solver trans_sys prop_set term_tbl =
               then
                 
                 add_to_block_tl
-                  solver 
+                  solver
                   (if generalize_after_block_in_future then block_clause else block_clause_gen)
                   block_trace
                   block_tl
@@ -1356,7 +1386,16 @@ let rec block solver trans_sys prop_set term_tbl =
                   (C.BlockRec block_clause)
                   (List.map Term.negate cti_gen) 
               in
-              
+
+              SMTSolver.trace_comment solver
+                (Format.asprintf 
+                   "@[<hv>New clause at depth %d:@ #%d @[<hv 1>{%a}@]@]"
+                   (List.length trace)
+                   (C.id_of_clause block_clause')
+                   (pp_print_list Term.pp_print_term ";@ ")
+                   (C.literals_of_clause block_clause'));
+          
+
               block 
                 solver
                 trans_sys 
@@ -1971,7 +2010,20 @@ let fwd_propagate solver trans_sys prop_set frames =
                       (fun a c ->
                         match C.undo_ind_gen c with
                           | None -> a
-                          | Some p -> C.copy_clause solver p :: a)
+                          | Some p ->
+
+                            let p' = C.copy_clause_fwd_prop p in
+
+                            SMTSolver.trace_comment solver
+                              (Format.asprintf 
+                                 "@[<hv>Copied clause #%d in forward propagation:@ \
+                                        #%d @[<hv 1>{%a}@]@]"
+                                 (C.id_of_clause p)
+                                 (C.id_of_clause p')
+                                 (pp_print_list Term.pp_print_term ";@ ")
+                                 (C.literals_of_clause p'));
+                            
+                            p' :: a)
                       []
                       keep
                   in
