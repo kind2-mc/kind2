@@ -570,10 +570,11 @@ let testcase_gen dir pp_testcase context get_model =
     stdfmt "Reachable contracts:@,@[<v>%a@]@.@."
     pp_print_tree testcase_tree ; *)
 
-  let gv_file = "./graph.dot" in
+  let gv_file_out_name = Format.sprintf "%s/graph.pdf" dir in
+  let gv_file_name = Format.sprintf "%s/graph.dot" dir in
   let gv_file =
     Unix.openfile
-      gv_file [ Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT ] 0o640
+      gv_file_name [ Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT ] 0o640
   in
   let gv_fmt =
     Unix.out_channel_of_descr gv_file |> Format.formatter_of_out_channel
@@ -631,9 +632,9 @@ let testcase_gen dir pp_testcase context get_model =
       | head :: tail -> loop head tail
     in
 
-(*     Format.printf "to graph (%a)@." Numeral.pp_print_numeral k;
+    (* Format.printf "to graph (%a)@." Numeral.pp_print_numeral k; *)
     to_graph testcase ;
-    Format.printf "done@." ; *)
+    (* Format.printf "done@." ; *)
 
     let name = Format.sprintf "test_case_%d" cpt in
 
@@ -672,6 +673,24 @@ let testcase_gen dir pp_testcase context get_model =
   ) 0 |> ignore ;
 
   Format.fprintf gv_fmt "@]@.}@.@.@?" ;
+
+  Unix.close gv_file ;
+
+  (* Creating the graph for the mode tree. *)
+  let cmd =
+    Format.sprintf "dot -Tpdf %s -o %s" gv_file_name gv_file_out_name
+  in
+
+  Format.printf "  Generating graph:@,  > %s@." cmd ;
+  ( match Unix.system cmd with
+    | Unix.WEXITED 0 ->
+      Format.printf "  > done.@."
+    | Unix.WEXITED n ->
+      Format.printf "  > error (%d).@." n
+    | Unix.WSIGNALED n ->
+      Format.printf "  > /!\\ killed by signal %d.@." n
+    | Unix.WSTOPPED n ->
+      Format.printf "  > /!\\ stopped by signal %d.@." n ) ;
 
 (*     let testcase_tree =
     context.data |> List.map (fun (act,k,tc) ->

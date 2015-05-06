@@ -491,7 +491,7 @@ let oracle_of_nodes out_dir nodes =
         | Unix.WEXITED 0 ->
           Format.printf "> done.@."
         | Unix.WEXITED n ->
-          Format.printf "> error (%d), see \"%s\"." n lustrec_out_file
+          Format.printf "> error (%d), see \"%s\".@." n lustrec_out_file
         | Unix.WSIGNALED n ->
           Format.printf "> /!\\ killed by signal %d.@." n
         | Unix.WSTOPPED n ->
