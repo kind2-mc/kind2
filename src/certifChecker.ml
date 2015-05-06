@@ -115,7 +115,7 @@ let create_dir dir =
 (*************************************************************************)
 (* Printing functions for the certificate.                               *)
 (* We use the generic SMTLIB pretty printer for that because we want to  *)
-(* create SMT2LIB compliant certificates.                                *)
+(* create SMTLIB2 compliant certificates.                                *)
 (*************************************************************************)
         
 (* Assert the expression *)
