@@ -89,7 +89,10 @@ let rec parse_term = function
 
   (* predicate application *)
   | HS.List (HS.Atom p_app :: l) when p_app == s_p_app ->
-    HS.List (List.map parse_term l)
+    begin match l with
+      | [t] -> parse_term t
+      | _ -> HS.List (List.map parse_term l)
+    end
 
   (* other *)
   | HS.List l -> HS.List (List.map parse_term l)
