@@ -20,6 +20,7 @@ true: -traverse
 
 # Use Unix, Str, ZMQ and Thread modules  
 <*.native>: use_nums,use_unix,use_str,use_ZMQ,thread
+<*/*.native>: use_nums,use_unix,use_str,use_ZMQ,thread
 <*.byte>: use_nums,use_unix,use_str,use_ZMQ,thread
 <*.top>: debug,use_nums,use_unix,use_str,thread
 

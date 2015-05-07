@@ -88,20 +88,19 @@ let rec parse_term = function
   | HS.Atom t -> HS.Atom (smt2_of_lfsc t)
 
   (* predicate application *)
-  | HS.List (HS.Atom p_app) :: l when p_app == s_p_app ->
+  | HS.List (HS.Atom p_app :: l) when p_app == s_p_app ->
     HS.List (List.map parse_term l)
 
   (* other *)
-  | HS.List l when p_app == s_p_app ->
-    HS.List (List.map parse_term l)
+  | HS.List l -> HS.List (List.map parse_term l)
 
-  | _ -> assert false
 
+type pty = Decl of HS.t | Assu of HS.t
     
 let parse_type = function
 
   | HS.Atom _ as ty -> Decl ty
-  | HS.List [HS.Atom t; HS.Atom _ as ty] when l == s_term -> Decl ty
+  | HS.List [HS.Atom t; HS.Atom _ as ty] when t == s_term -> Decl ty
 
   | HS.List [HS.Atom h; t] when h == s_th_holds || h == s_holds ->
 
@@ -138,7 +137,7 @@ let rec parse_file acc = function
   (* Only look at check *)
   | HS.List [HS.Atom ch; proof] :: r when ch == s_check ->
 
-    parse_file (parse_proof proof :: acc) r
+    parse_file (parse_proof ([], []) proof :: acc) r
     
   (* Ignore others *)
   | _ :: r -> parse_file acc r
@@ -172,3 +171,9 @@ let () =
   close_in in_ch
 
   
+(* 
+   Local Variables:
+   compile-command: "make -C .. lfsc-extractor"
+   indent-tabs-mode: nil
+   End: 
+*)
