@@ -61,6 +61,7 @@ let s_eq = HString.mk_hstring "="
 
 let s_Bool = HString.mk_hstring "Bool"
 let s_p_app = HString.mk_hstring "p_app"
+let s_apply = HString.mk_hstring "apply"
 let s_cln = HString.mk_hstring "cln"
 
 let s_check = HString.mk_hstring "check"
@@ -83,17 +84,36 @@ let smt2_of_lfsc t =
   with Exit -> t
 
 
+let rec uncurry = function
+  | HS.List (HS.List f :: args) ->
+    HS.List (List.map uncurry (f @ args))
+  | e -> e
+
+
 let rec parse_term = function
   
   | HS.Atom t -> HS.Atom (smt2_of_lfsc t)
 
+  (* remove type argument of equality *)
+  | HS.List (HS.Atom eq :: _ :: l) when eq == s_eq ->
+    HS.List (HS.Atom eq :: List.map parse_term l)
+  
   (* predicate application *)
   | HS.List (HS.Atom p_app :: l) when p_app == s_p_app ->
     begin match l with
       | [t] -> parse_term t
       | _ -> HS.List (List.map parse_term l)
     end
+    |> uncurry
 
+  (* function application *)
+  | HS.List (HS.Atom apply :: _ :: _ :: l) when apply == s_apply ->
+    begin match l with
+      | [t] -> parse_term t
+      | _ -> HS.List (List.map parse_term l)
+    end
+    |> uncurry
+    
   (* other *)
   | HS.List l -> HS.List (List.map parse_term l)
 
@@ -103,13 +123,19 @@ type pty = Decl of HS.t | Assu of HS.t
 let parse_type = function
 
   | HS.Atom _ as ty -> Decl ty
-  | HS.List [HS.Atom t; HS.Atom _ as ty] when t == s_term -> Decl ty
+  | HS.List (HS.Atom t :: ty) when t == s_term ->
+    begin match ty with
+      | [HS.Atom _ as ty] -> Decl ty
+      | _ -> Decl (HS.List ty)
+    end
 
   | HS.List [HS.Atom h; t] when h == s_th_holds || h == s_holds ->
 
     Assu (parse_term t)
 
-  | _ -> assert false
+  | e ->
+    Format.eprintf "Failed on %a@." HS.pp_print_sexpr e;
+    assert false
 
 
 
@@ -127,7 +153,7 @@ let rec parse_proof (symbols, assump) = function
   | HS.List [HS.Atom p; HS.List [HS.Atom holds; HS.Atom cln] ; _]
     when p == s_proof && holds == s_holds && cln == s_cln ->
 
-    symbols, assump
+    List.rev symbols, List.rev assump
     
   | _ -> assert false
 
@@ -155,7 +181,11 @@ let extract in_ch =
 
   List.iter (fun (_, assumptions) ->
 
-      let formula = HS.List (HS.Atom s_and :: assumptions) in
+      let formula = match assumptions with
+        | [] -> HS.Atom s_true
+        | [a] -> a
+        | _ -> HS.List (HS.Atom s_and :: assumptions)
+      in
 
       Format.printf "%a@." HS.pp_print_sexpr formula
 
@@ -167,6 +197,9 @@ let () =
 
   (* open file given as argument or read from stdin *)
   let in_ch = try open_in Sys.argv.(1) with Invalid_argument _ -> stdin in
+
+  (* Set line width *)
+  Format.pp_set_margin Format.std_formatter max_int;
 
   extract in_ch;
 
