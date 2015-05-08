@@ -1,5 +1,5 @@
 (* This file is part of the Kind 2 model checker.
-
+   
    Copyright (c) 2014 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
@@ -495,14 +495,20 @@ let deactivate_clause
     
     (* Assert negation of activation literal *)
     (Term.mk_not actlit_p0
-     |> SMTSolver.assert_term solver);
+     |> SMTSolver.assert_term solver;
+
+     (* Increment statistics for activation literals *)
+     Stat.incr Stat.pdr_stale_activation_literals);
 
   (* Activation literal for positive primed clause used? *)
   if not (actlit_undefined solver actlit_p1_bit clause_id) then
     
     (* Assert negation of activation literal *)
     (Term.mk_not actlit_p1
-     |> SMTSolver.assert_term solver);
+     |> SMTSolver.assert_term solver;
+
+     (* Increment statistics for activation literals *)
+     Stat.incr Stat.pdr_stale_activation_literals);
 
   (* Activation literals for negative unprimed clause literals
      used? *)
@@ -511,7 +517,12 @@ let deactivate_clause
     (* Assert negation of activation literals *)
     (List.iter
        (fun t -> Term.mk_not t |> SMTSolver.assert_term solver)
-       actlits_n0);
+       actlits_n0;
+
+     (* Increment statistics for activation literals *)
+     Stat.incr
+       ~by:(List.length literals)
+       Stat.pdr_stale_activation_literals);
   
   (* Activation literals for negative unprimed clause literals
      used? *)
@@ -520,15 +531,17 @@ let deactivate_clause
     (* Assert negation of activation literals *)
     (List.iter
        (fun t -> Term.mk_not t |> SMTSolver.assert_term solver)
-       actlits_n1);
+       actlits_n1;
+
+     (* Increment statistics for activation literals *)
+     Stat.incr
+       ~by:(List.length literals)
+       Stat.pdr_stale_activation_literals);
   
   (* Mark clause as deactivated *)
-  set_actlit_status_of_clause solver actlit_dead_bit clause_id;
+  set_actlit_status_of_clause solver actlit_dead_bit clause_id
   
-  (* Increment statistics for activation literals *)
-  Stat.incr
-    ~by:(2 + 2 * (List.length literals))
-    Stat.pdr_stale_activation_literals
+  
     
 
 (* Return clause before inductive generalization *)
