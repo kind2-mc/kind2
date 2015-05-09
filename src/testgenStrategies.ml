@@ -171,7 +171,7 @@ module Unit_ModeSwitch : Sig = struct
 
 
   (* Generates test cases using a get_model function. *)
-  let testcase_gen = TestgenLib.testcase_gen
+  let testcase_gen = TestgenLib.testcase_gen out_dir
 
 end
 

@@ -32,7 +32,7 @@ let term_of = Actlit.term_of_actlit
 let mk_dir dir =
   try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
 
-let oracle_dir dir = dir ^ "/oracle"
+let oracle_dir = "oracle"
 let oracle_name sys =
   Format.asprintf "%a_oracle" (LustreIdent.pp_print_ident false) sys.N.name
 let oracle_path dir sys =
@@ -43,7 +43,7 @@ let oracle_path dir sys =
     |> List.rev
     |> List.hd
     |> oracle_name
-    |> Format.sprintf "%s/%s" (oracle_dir dir)
+    |> Format.sprintf "%s/%s" oracle_dir
 
 module Xml = struct
 
@@ -249,11 +249,12 @@ let run_strategy out_dir sys strategy =
   let final_k = loop_strategy Numeral.zero in
 
   Format.printf
-    "Strategy %s is done at %a.@."
+    "Strategy %s is done at %a.@.@."
     Strat.name
     Numeral.pp_print_numeral final_k ;
 
-  let xml_file_name = out_dir ^ "/" ^ Strat.out_dir ^ "-tests.xml" in
+  let xml_short_file_name = Strat.out_dir ^ "-tests.xml" in
+  let xml_file_name = out_dir ^ "/" ^ xml_short_file_name in
   Format.printf "Creating xml file@." ;
   Format.printf "  %s@." xml_file_name ;
   let xml_file =
@@ -290,7 +291,7 @@ let run_strategy out_dir sys strategy =
   (* Deleting solver, resetting solver reference. *)
   delete_solver () ;
 
-  xml_file_name
+  xml_short_file_name
 
 
 (* Generates the oracle for a list of lustre nodes in topological order. *)
@@ -325,20 +326,32 @@ let oracle_of_nodes out_dir nodes =
     LustreIdent.mk_string_ident
       ("output_" ^ ( (LustreIdent.string_of_ident false) id ))
   in
+  let mk_out_ident_req id =
+    LustreIdent.mk_string_ident
+      ("output_" ^ ( (LustreIdent.string_of_ident false) id ) ^ "_req")
+  in
 
   let contracts = match top.N.contract_spec with
     | None ->
       assert false
     | Some (_, _, globl, modes, _) ->
       modes
-      |> List.map
-        ( fun (m: N.contract) ->
-          m,
-          mk_out_ident m.N.name,
-          mk_impl (mk_and m.N.reqs) (mk_and m.N.enss) )
+      |> List.fold_left
+        ( fun l (m: N.contract) -> (
+            m,
+            mk_out_ident_req m.N.name,
+            mk_and m.N.reqs
+          ) :: (
+            m,
+            mk_out_ident m.N.name,
+            mk_impl (mk_and m.N.reqs) (mk_and m.N.enss)
+          ) :: l )
+        []
       |> (fun l -> match globl with
         | None -> l
-        | Some c -> (c, mk_out_ident c.N.name, mk_and c.N.enss) :: l
+        | Some c ->
+          (c, mk_out_ident_req c.N.name, mk_and c.N.reqs) ::
+          (c, mk_out_ident c.N.name, mk_and c.N.enss) :: l
       )
   in
 
@@ -479,7 +492,7 @@ let oracle_of_nodes out_dir nodes =
       let lustrec_out_file = out_file ^ ".lustrec.out" in
       let cmd =
         Format.asprintf
-          "%s -d %s -node %a %s &> %s"
+          "%s -d %s -node %a -local -quiet_io %s &> %s"
           lustrec
           out_dir
           (LustreIdent.pp_print_ident false) oracle_ident
@@ -495,9 +508,34 @@ let oracle_of_nodes out_dir nodes =
         | Unix.WSIGNALED n ->
           Format.printf "> /!\\ killed by signal %d.@." n
         | Unix.WSTOPPED n ->
+          Format.printf "> /!\\ stopped by signal %d.@." n ) ;
+
+      Format.printf "Compiling C code.@." ;
+      let cmd =
+        (* (String.length out_file) - 3
+        |> String.sub out_file 0 (String.length out_dir) *)
+        Format.asprintf "\
+          cd %s ; \
+          make -f %a.makefile &> /dev/null ; \
+          mv %a_%a %a"
+          out_dir
+          (LustreIdent.pp_print_ident false) oracle_ident
+          (LustreIdent.pp_print_ident false) oracle_ident
+          (LustreIdent.pp_print_ident false) oracle_ident
+          (LustreIdent.pp_print_ident false) oracle_ident
+      in
+      Format.printf "> %s@." cmd ;
+      ( match Unix.system cmd with
+        | Unix.WEXITED 0 ->
+          Format.printf "> done.@."
+        | Unix.WEXITED n ->
+          Format.printf "> error (%d).@." n
+        | Unix.WSIGNALED n ->
+          Format.printf "> /!\\ killed by signal %d.@." n
+        | Unix.WSTOPPED n ->
           Format.printf "> /!\\ stopped by signal %d.@." n ) ) ;
 
-  Format.printf "Done.@.@." ;
+  Format.printf "@." ;
 
   ()
 
@@ -505,7 +543,7 @@ let oracle_of_nodes out_dir nodes =
 let generate_oracle out_dir sys =
   match TransSys.get_source sys with
   | TransSys.Lustre nodes ->
-    let out_dir = oracle_dir out_dir in
+    let out_dir = out_dir ^ "/" ^ oracle_dir in
     mk_dir out_dir ;
     oracle_of_nodes out_dir nodes
   | TransSys.Native ->

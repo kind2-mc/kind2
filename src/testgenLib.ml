@@ -552,7 +552,7 @@ let extend_contract_testcases ( {sys ; data} as context ) k =
 
 (* Generates the actual test cases in csv. Also produces a graph of the tree of
    modes. *)
-let testcase_gen dir pp_testcase context get_model =
+let testcase_gen strat_out_dir dir pp_testcase context get_model =
 
 (*     let testcase_tree =
     context.data |> List.map (fun (act,k,tc) ->
@@ -641,7 +641,7 @@ let testcase_gen dir pp_testcase context get_model =
     let out_file = Format.sprintf "%s/%s.csv" dir name in
 
     description_of_contract_testcase context.sys tc
-    |> pp_testcase out_file name "csv" ;
+    |> pp_testcase (strat_out_dir ^ "/" ^ name ^ ".csv") name "csv" ;
 
     let file =
       Unix.openfile

@@ -202,7 +202,7 @@ val extend_contract_testcases:
     - a formatter to the xml file aggregating the test cases,
     - the context of the test generation strategy,
     - the [get-model] function. *)
-val testcase_gen : string -> (
+val testcase_gen : string -> string -> (
   string -> string -> string -> string list -> 'a
 ) -> contract_testcases context -> (
   actlit list -> model option
