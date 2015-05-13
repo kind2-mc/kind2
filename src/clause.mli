@@ -29,6 +29,7 @@ type source =
   | IndGen of t (** Clause is an inductive generalization of the clause *)
   | CopyFwdProp of t  (** Clause is a copy of the clause from forward propagation *)
   | CopyBlockProp of t (** Clause is a copy of the clause from blocking in future frames *)
+  | Copy of t (** Clause is a copy of the clause for another reason *)
 
 (** Clause *)
 and t
@@ -73,6 +74,8 @@ val mk_clause_of_literals : source -> Term.t list -> t
 (** Return a copy of the clause with fresh activation literal *)
 val copy_clause_block_prop : t -> t
 val copy_clause_fwd_prop : t -> t
+val copy_clause : t -> t
+
 
 (** Return unique identifier of clause *)
 val id_of_clause : t -> int

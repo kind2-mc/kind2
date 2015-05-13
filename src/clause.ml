@@ -38,6 +38,7 @@ type source =
   | IndGen of t (* Clause is an inductive generalization of the clause *)
   | CopyFwdProp of t (* Clause is a copy of the clause from forward propagation *)
   | CopyBlockProp of t (* Clause is a copy of the clause from blocking in future frames *)
+  | Copy of t (* Clause is a copy of the clause for another reason *)
 
       
 (* Clause *)
@@ -479,6 +480,9 @@ let rec copy_clause_block_prop ({ literals } as clause) =
 (* Copy clause with a fresh activation literal *)
 let rec copy_clause_fwd_prop ({ literals } as clause) =
   mk_clause_of_literals (CopyFwdProp clause) literals 
+
+let rec copy_clause ({ literals } as clause) =
+  mk_clause_of_literals (Copy clause) literals 
 
 
 (* Deactivate activation literals of a subsumed clause *)
