@@ -3705,7 +3705,15 @@ let rec parse_node_equations
                   in
 
                   (* Identifier not found in outputs *)
-                  if accum' = accum then
+                  if 
+
+                    try
+
+                      List.for_all2 StateVar.equal_state_vars accum' accum 
+
+                    with Invalid_argument _ -> false
+
+                  then
 
                     (* Find identifier of left-hand side in local variables *)
                     let accum'' = 
@@ -3727,8 +3735,16 @@ let rec parse_node_equations
                     in
 
                     (* Identifier not found in outputs and local variables *)
-                    if accum'' = accum' then 
-                      
+                    if  
+
+                      try
+                        
+                        List.for_all2 StateVar.equal_state_vars accum'' accum' 
+                          
+                      with Invalid_argument _ -> false
+                        
+                    then
+
                       fail_at_position 
                         pos 
                         "Assignment to neither output nor local variable" 
