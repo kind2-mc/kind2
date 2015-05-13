@@ -37,10 +37,6 @@ let debug_check_sat_assuming s fu fs l =
       
 let generalize_after_fwd_prop = true
 
-(* It is unsound to propagate an inductively generalized blocking
-   clause, must remain true *)
-let generalize_after_block_in_future = true
-
 let subsume_in_block = false
 
 let subsume_in_fwd_prop = true
@@ -953,7 +949,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
 
     (* Take the first cube to be blocked in current frame *)
-    | (((block_clause, block_trace) :: block_clauses_tl), r_i) 
+    | (((block_clause_orig, block_trace) :: block_clauses_tl), r_i) 
       :: block_tl as trace -> 
 
       (function frames -> 
@@ -1012,26 +1008,31 @@ let rec block solver trans_sys prop_set term_tbl =
 
         (* Inductively generalize clauses propagated for blocking to
            this frame *)
-        let block_clause, trace = match C.source_of_clause block_clause with 
+        let block_clause, trace = match C.source_of_clause block_clause_orig with 
 
           (* Clause was propagates for blocking *)
           | C.CopyBlockProp _ -> 
 
-            Stat.time_fun Stat.pdr_ind_gen_time
-              (fun () -> 
-                 ind_generalize 
-                   solver
-                   prop_set
-                   actlits_p0_r_pred_i
-                   block_clause
-                   (C.literals_of_clause block_clause)),
+            let block_clause = 
 
+              Stat.time_fun Stat.pdr_ind_gen_time
+                (fun () -> 
+                   ind_generalize 
+                     solver
+                     prop_set
+                     actlits_p0_r_pred_i
+                     block_clause_orig
+                     (C.literals_of_clause block_clause_orig))
+            in
+
+            block_clause, 
+            
             (* Need to modify trace to add generalized clause *)
             (((block_clause, block_trace) :: block_clauses_tl), r_i) 
             :: block_tl
               
           (* Clause is an actual blocking clause *)
-          | _ -> block_clause, trace
+          | _ -> block_clause_orig, trace
 
         in
 
@@ -1248,13 +1249,7 @@ let rec block solver trans_sys prop_set term_tbl =
                    
                    add_to_block_tl
                      solver
-
-                     (* It is unsound to propagate an inductively
-                        generalized blocking clause *)
-                     (if generalize_after_block_in_future then
-                        block_clause 
-                      else
-                        block_clause_gen)
+                     block_clause_orig 
                      block_trace
                      block_tl
                      
@@ -1320,7 +1315,7 @@ let rec block solver trans_sys prop_set term_tbl =
                 
                 add_to_block_tl
                   solver
-                  (if generalize_after_block_in_future then block_clause else block_clause_gen)
+                  block_clause_orig
                   block_trace
                   block_tl
                   
@@ -2316,6 +2311,7 @@ let extract_cex_path solver trans_sys trace =
     solver
     "extract_cex_path: extracting concrete counterexample trace.";
 
+  (* Need to copy clauses, may have been subsumed meanwhile *)
   let trace = List.map C.copy_clause trace in
 
   (* Find a state in the head of the sequence of blocking clauses and
