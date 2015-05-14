@@ -791,8 +791,9 @@ let add_to_block_tl solver block_clause block_trace = function
 
     SMTSolver.trace_comment solver
       (Format.asprintf 
-         "@[<hv>Copied clause #%d for blocking in future:@ #%d @[<hv 1>{%a}@]@]"
+         "@[<hv>Copied clause #%d for blocking at depth %d:@ #%d @[<hv 1>{%a}@]@]"
          (C.id_of_clause block_clause)
+         (List.length block_clauses_tl)
          (C.id_of_clause block_clause')
          (pp_print_list Term.pp_print_term ";@ ")
          (C.literals_of_clause block_clause'));
@@ -1389,8 +1390,9 @@ let rec block solver trans_sys prop_set term_tbl =
 
               SMTSolver.trace_comment solver
                 (Format.asprintf 
-                   "@[<hv>New clause at depth %d:@ #%d @[<hv 1>{%a}@]@]"
+                   "@[<hv>New clause at depth %d to block #%d:@ #%d @[<hv 1>{%a}@]@]"
                    (List.length trace)
+                   (C.id_of_clause block_clause)
                    (C.id_of_clause block_clause')
                    (pp_print_list Term.pp_print_term ";@ ")
                    (C.literals_of_clause block_clause'));
