@@ -34,9 +34,6 @@ let conv_term_of_sexpr = conv.D.expr_of_string_sexpr conv
 (* Useful hconsed names *)
 (************************)
 
-let s_assert = HString.mk_hstring "assert"
-let s_leq = HString.mk_hstring "<="
-
 (* LFSC symbols *)
 
 let s_and = HString.mk_hstring "and"
@@ -70,6 +67,16 @@ let s_PI = HString.mk_hstring "!"
 let s_lambda = HString.mk_hstring "%"
 (* let s_lambda = HString.mk_hstring "\\" *)
 
+
+(* SMTLIB2 symbols *)
+
+let s_assert = HString.mk_hstring "assert"
+let s_push = HString.mk_hstring "push"
+let s_pop = HString.mk_hstring "pop"
+let s_setinfo = HString.mk_hstring "set-info"
+let s_checksat = HString.mk_hstring "check-sat"
+let s_exit = HString.mk_hstring "exit"
+let s_leq = HString.mk_hstring "<="
 
 
 let smt2_of_lfsc t =
@@ -171,40 +178,121 @@ let rec parse_file acc = function
   (* Ignore others *)
   | _ :: r -> parse_file acc r
 
-  | [] -> acc
+  (* stop on end of file *)
+  | [] -> List.rev acc
 
 
-let extract in_ch =
+let extract_from_proof in_ch =
 
   let lexbuf = Lexing.from_channel in_ch in
   let sexps = SExprParser.sexps SExprLexer.main lexbuf in
 
-  List.iter (fun (_, assumptions) ->
+  List.map (fun (_, assumptions) ->
 
-      let formula = match assumptions with
+      match assumptions with
         | [] -> HS.Atom s_true
         | [a] -> a
         | _ -> HS.List (HS.Atom s_and :: assumptions)
-      in
-
-      Format.printf "%a@." HS.pp_print_sexpr formula
 
     ) (parse_file [] sexps)
 
 
 
+let rec parse_smt2 acc (others, asserts) = function
+
+  (* Fail on push / pop *)
+  | HS.List (HS.Atom p :: _) :: _
+    when p == s_push || p == s_pop  ->
+    failwith ((HString.string_of_hstring p)^" not supported for cvc4 proofs")
+
+  (* stop on exit or end of file *)
+  | [] ->
+    List.rev others, List.rev acc
+
+  | HS.List (HS.Atom p :: _) :: _ when p == s_exit  ->
+    List.rev others, List.rev acc
+
+  | [] -> failwith "No check-sat in original file"
+
+  (* ignore meta-information *)
+  | HS.List (HS.Atom i :: _) :: r when i == s_setinfo ->
+    parse_smt2 acc (others, asserts) r
+      
+  (* save assertion stack on check-sat *)
+  | HS.List (HS.Atom c :: _) :: r when c == s_checksat ->
+    parse_smt2 (List.rev asserts :: acc) (others, asserts) r
+
+  (* identify asserts ... *)
+  | HS.List [HS.Atom a; f] :: r when a == s_assert ->
+    parse_smt2 acc (others, f :: asserts) r
+    
+  (* ... from the rest *)
+  | se :: r ->
+    parse_smt2 acc (se :: others, asserts) r
+
+  | _ -> assert false
+
+
+let extract_from_smt2 in_ch =
+
+  let lexbuf = Lexing.from_channel in_ch in
+  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
+
+  let others, assert_st = parse_smt2 [] ([],[]) sexps in
+
+  let formulas =
+    List.map (fun asserts ->
+
+      match asserts with
+        | [] -> HS.Atom s_true
+        | [a] -> a
+        | _ -> HS.List (HS.Atom s_and :: asserts)
+
+      ) assert_st in
+
+  others, formulas
+
+  
+  
+
 let () =
 
   (* open file given as argument or read from stdin *)
-  let in_ch = try open_in Sys.argv.(1) with Invalid_argument _ -> stdin in
+  let in_ch_smt2 = try open_in Sys.argv.(1) with Invalid_argument _ ->
+    Format.eprintf "Usage: %s file.smt2 proof.lfsc@." Sys.argv.(0);
+    failwith "Give the original smt2 file as first argument"
+  in
+
+  (* open file given as argument or read from stdin *)
+  let in_ch_lfsc = try open_in Sys.argv.(2) with Invalid_argument _ -> stdin in
 
   (* Set line width *)
   Format.pp_set_margin Format.std_formatter max_int;
 
-  extract in_ch;
+  let context, formulas = extract_from_smt2 in_ch_smt2 in
+  let proofs = extract_from_proof in_ch_lfsc in
 
-  (* Close channel *)
-  close_in in_ch
+  (* Output context *)
+  List.iter (Format.printf "%a\n" HS.pp_print_sexpr) context;
+  Format.printf "@.";
+
+  (* Output equivalences *)
+  begin try
+      List.iter2 (fun formula proof_of ->
+          let equiv = HS.List [HS.Atom s_not; HS.List [HS.Atom s_eq; formula; proof_of]] in
+          Format.printf "(assert %a)\n\n" HS.pp_print_sexpr equiv;
+          Format.printf "(check-sat)\n@.";
+        ) formulas proofs;
+
+      Format.printf "(exit)@.";
+      
+    with Invalid_argument _ ->
+      failwith "Not the same number of proofs as check-sats."
+  end;
+  
+  (* Close channels *)
+  close_in in_ch_smt2;
+  close_in in_ch_lfsc
 
   
 (* 
