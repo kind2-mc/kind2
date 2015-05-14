@@ -1323,13 +1323,38 @@ struct
     (* Annotated term *)
     | { H.node = Annot (t, a) } -> ht_annot (bump_and_bind b k t) a
 
+  
+  (* Bind a free variable in the term given an association list of
+     variables to be bound and their position in a simultaneous
+     binding
 
-  let bind dbt var term = 
+     We use the map on the term, which gives the number of lambdas the
+     sub-term is under in its first argument. To bind a free variable
+     we look up its relative position in the simultaneous binding, and
+     increment it. *)
+  let bind dbm term = 
 
     map
+
       (function db -> function 
-         | { H.node = FreeVar v } when v == var -> ht_bound_var (succ db + dbt)
+
+         (* Free variable may need to be bound *)
+         | { H.node = FreeVar v } as t ->
+
+           (try 
+
+              (* Get relative index of variable to be bound *)
+              let dbt = List.assq v dbm in
+
+              (* Replace free variable with bound variable *)
+              ht_bound_var (succ db + dbt)
+                
+            (* Variable does not need to be bound *)
+            with Not_found -> t)
+
+         (* Only free variables can be bound *)
          | t -> t)
+
       term
 
 
@@ -1340,34 +1365,14 @@ struct
   (* Constructor for a lambda expression *)
   let mk_lambda x t =
 
-(*
-    (* Association list of variable names to de Bruijn indices *)
-    let x_and_db = List.mapi (fun i x -> (x, succ i)) x in
+    (* Associate each variable with its relative index in the
+       binding *)
+    let dbm = List.mapi (fun i v -> (v, i)) (List.rev x) in
 
-    (* Return existential quantification *)
-    let res = 
-      hl_lambda 
-        (List.map T.sort_of_var x) 
-        (bump_and_bind x_and_db 1 t)
-    in
-
-    debug ltree
-      "mk_lambda@ @[<hv 1>(%a)@]@ @[<hv>%a:@]@ @[<hv>%a@]"
-      (pp_print_list T.pp_print_var "@ ") x
-      (pp_print_term ~db:0) t
-      (pp_print_lambda ~db:0) res
-    in
-
-    res
-*)
-
+    (* Bind free variables in term in a new lambda *)
     hl_lambda
       (List.map T.sort_of_var x) 
-      (List.fold_right 
-         (fun v (i, a) -> (succ i, bind i v a))
-         x
-         (0, t)
-       |> snd)
+      (bind dbm t)
 
 
   (* Beta-evaluate a lambda expression *)

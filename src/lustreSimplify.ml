@@ -1788,7 +1788,11 @@ and eval_node_call
             (* Expression must be of a subtype of input type *)
             Type.check_type 
               expr_type
-              (StateVar.type_of_state_var in_var) 
+              (StateVar.type_of_state_var in_var) &&
+
+            (* Expression must be constant if input is *)
+            (not (StateVar.is_const in_var) || 
+             E.is_const expr)
 
           then 
 
@@ -3701,7 +3705,15 @@ let rec parse_node_equations
                   in
 
                   (* Identifier not found in outputs *)
-                  if accum' = accum then
+                  if 
+
+                    try
+
+                      List.for_all2 StateVar.equal_state_vars accum' accum 
+
+                    with Invalid_argument _ -> false
+
+                  then
 
                     (* Find identifier of left-hand side in local variables *)
                     let accum'' = 
@@ -3723,8 +3735,16 @@ let rec parse_node_equations
                     in
 
                     (* Identifier not found in outputs and local variables *)
-                    if accum'' = accum' then 
-                      
+                    if  
+
+                      try
+                        
+                        List.for_all2 StateVar.equal_state_vars accum'' accum' 
+                          
+                      with Invalid_argument _ -> false
+                        
+                    then
+
                       fail_at_position 
                         pos 
                         "Assignment to neither output nor local variable" 

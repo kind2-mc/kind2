@@ -360,6 +360,10 @@ val is_var : t -> bool
 (** Return true if expression is a previous state variable *)
 val is_pre_var : t -> bool
 
+(** Return true if the expression is constant *)
+val is_const : t -> bool
+
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."
