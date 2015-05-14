@@ -49,13 +49,16 @@ let get_solver_instance trans_sys =
   match !solver_qe with 
 
     (* Need to create a new instance *)
-    | None -> 
- 
-      (* Create solver instance : only Z3 for the moment *)
-      let solver = SMTSolver.create_instance
-          ~produce_assignments:true
-          (add_quantifiers (TransSys.get_logic trans_sys))
-          `Z3_SMTLIB
+    | None ->
+
+       (* Create solver instance : only Z3 for the moment *)
+       let solver =
+         SMTSolver.create_instance
+           ~produce_assignments:true
+           (TransSys.get_scope trans_sys)
+      (add_quantifiers (TransSys.get_logic trans_sys))
+           (TransSys.get_abstraction trans_sys)
+           `Z3_SMTLIB
       in
 
       SMTSolver.trace_comment 
@@ -67,10 +70,12 @@ let get_solver_instance trans_sys =
               (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
       
       (* Defining uf's and declaring variables. *)
-      TransSys.init_define_fun_declare_vars_of_bounds
+      TransSys.init_solver
         trans_sys
+        (SMTSolver.trace_comment solver)
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
+        (SMTSolver.assert_term solver)
         Numeral.(~- one) Numeral.zero;
       
       SMTSolver.trace_comment solver "Defining predicates";
@@ -119,8 +124,10 @@ let get_checking_solver_instance trans_sys =
       let solver =     
         SMTSolver.create_instance 
           ~produce_assignments:true
+          (TransSys.get_scope trans_sys)
           (* add quantifiers to system logic *)
           (add_quantifiers (TransSys.get_logic trans_sys))
+          (TransSys.get_abstraction trans_sys)
           (Flags.smtsolver ())
       in
 (*
@@ -137,10 +144,12 @@ let get_checking_solver_instance trans_sys =
         (SMTSolver.define_fun solver); 
 *)
   (* Defining uf's and declaring variables. *)
-      TransSys.init_define_fun_declare_vars_of_bounds
+      TransSys.init_solver
         trans_sys
+        (SMTSolver.trace_comment solver)
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
+        (SMTSolver.assert_term solver)
         Numeral.(~- one) Numeral.zero;
 
       (* Save instance *)

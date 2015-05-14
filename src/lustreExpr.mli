@@ -75,8 +75,10 @@ module ExprHashtbl : Hashtbl.S with type key = t
 (** Equality of expressions *)
 val equal_expr : t -> t -> bool
 
-(** Pretty-print a Lustre type *)
-val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
+(** Pretty-print a Lustre type. If [no_subrange] is true then subranges will
+    be printed as [int] (default false). *)
+val pp_print_lustre_type :
+  ?no_subrange:bool -> bool -> Format.formatter -> Type.t -> unit
 
 (** Pretty-print a Lustre variable *)
 val pp_print_lustre_var : bool -> Format.formatter -> StateVar.t -> unit 
@@ -250,6 +252,7 @@ type state_var_source =
   | Output (** Output stream *)
   | Observer (** Observer output stream *)
   | Local (** Local defined stream *)
+  | Ghost (** Local ghost defined stream *)
   | Abstract (** Local abstracted stream *)
 
 
@@ -325,6 +328,9 @@ val state_var_of_expr : t -> StateVar.t
 (** Return state variables that occur as previous state variables *)
 val stateful_vars_of_expr : t -> StateVar.StateVarSet.t
 
+(** Return state variables that occur as current state variables *)
+val current_vars_of_expr : t -> StateVar.StateVarSet.t
+
 (** Return all state variables that occur in the expression *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
@@ -362,7 +368,6 @@ val is_pre_var : t -> bool
 
 (** Return true if the expression is constant *)
 val is_const : t -> bool
-
 
 (* 
    Local Variables:

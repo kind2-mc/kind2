@@ -3,6 +3,7 @@ Lib
 Kind2Config
 Flags
 Stat
+Log
 
 Messaging
 Event 
@@ -42,7 +43,6 @@ Type
 TermAttr
 Term
 
-CNF
 Clause
 Literal
 
@@ -68,7 +68,5 @@ Compress
 Step
 
 Interpreter
-
-InvarManager
 
 Kind2

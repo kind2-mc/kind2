@@ -497,6 +497,23 @@ let rec declare_vars declare = function
 
   | [] -> ()
 
+(* Declares non constant variables as constant ufsymbols using the
+    provided function. *)
+let rec define_vars define = function
+
+  | ({ Hashcons.node = StateVarInstance (v, o) } as var, term)
+    :: tail ->
+     
+     (* Declaring the uf. *)
+     define (unrolled_uf_of_state_var_instance var) [] term ;
+
+     (* Looping. *)
+     define_vars define tail
+
+  | _ :: tail -> define_vars define tail
+
+  | [] -> ()
+
 (* Gets the state var instance associated with a unrolled
    symbol. Throws [Not_found] if the sym is unknown. *)
 let state_var_instance_of_symbol sym =

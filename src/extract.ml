@@ -330,11 +330,11 @@ let extract uf_defs env term =
                     p
                 in
 
-                (* Candidiate terms from premise and conclusion *)
+                (* Candidate terms from premise and conclusion *)
                 let cand_terms = 
 
                   (* Check if the conclusion is true *)
-                  if Eval.bool_of_value (eval_term c) then 
+                  if Eval.bool_of_value (eval_term c) then
 
                     (* Conclusion is a candidate term *)
                     c :: cand_terms_prem 
@@ -342,7 +342,7 @@ let extract uf_defs env term =
                   else
 
                     (* Conclusion is not a candidate term *)
-                    cand_terms_prem 
+                    cand_terms_prem
 
                 in
 
@@ -354,7 +354,7 @@ let extract uf_defs env term =
                     (* Use heuristic to choose term from candidates *)
                     choose_term accum cand_terms 
 
-                  with Not_found -> 
+                  with Not_found ->
 
                     (debug extract 
                         "@[<hv 1>%a@]@ to be@ %B" 
@@ -436,7 +436,7 @@ let extract uf_defs env term =
                 (* Use heuristic to choose term from candidates *)
                 choose_term accum cand_terms 
 
-              with Not_found -> 
+              with Not_found ->
 
                 (debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
@@ -469,14 +469,14 @@ let extract uf_defs env term =
             in
 
             (* Choose term to extract from *)
-            let term' = 
+            let term' =
 
               try 
 
                 (* Use heuristic to choose term from candidates *)
                 choose_term accum cand_terms 
 
-              with Not_found -> 
+              with Not_found ->
 
                 (debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 

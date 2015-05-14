@@ -42,17 +42,22 @@ type prop_source =
   | PropAnnot of Lib.position
 
   (** Property is part of a contract *)
-  | Contract of Lib.position
+  | Contract of Lib.position * string
 
   (** Property was generated, for example, from a subrange
       constraint *)
   | Generated of StateVar.t list
 
+  (** Property is a requirement of a subnode. *)
+  | Requirement of Lib.position * string list * StateVar.t list
+
   (** Property is an instance of a property in a called node
 
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
-  | Instantiated of string list * string 
+  | Instantiated of string list * string
+
+val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
 
 (** {1 Utilities functions on terms } *)
@@ -100,4 +105,50 @@ val pp_print_logic : Format.formatter -> logic -> unit
 
 (** String correspinding to a logic *)
 val string_of_logic : logic -> string
+
+(** Gathers signal related stuff. *)
+module Signals: sig
+
+  (** Pretty printer for signal info. *)
+  val pp_print_signals: Format.formatter -> unit -> unit
+
+  (** Sets the handler for sigalrm to ignore. *)
+  val ignore_sigalrm: unit -> unit
+  (** Sets the handler for sigint to ignore. *)
+  val ignore_sigint: unit -> unit
+  (** Sets the handler for sigquit to ignore. *)
+  val ignore_sigquit: unit -> unit
+  (** Sets the handler for sigterm to ignore. *)
+  val ignore_sigterm: unit -> unit
+
+  (** Sets a timeout handler for sigalrm. *)
+  val set_sigalrm_timeout: unit -> unit
+  (** Sets an exception handler for sigalarm. *)
+  val set_sigalrm_exn: unit -> unit
+  (** Sets a handler for sigint. *)
+  val set_sigint: unit -> unit
+  (** Sets a handler for sigquit. *)
+  val set_sigquit: unit -> unit
+  (** Sets a handler for sigterm. *)
+  val set_sigterm: unit -> unit
+
+  (** Sets a timeout. *)
+  val set_timeout: float -> unit
+  (** Sets a timeout based on the timeout flag. *)
+  val set_timeout_from_flag: unit -> unit
+  (** Deactivates timeout. *)
+  val unset_timeout: unit -> unit
+
+  (** Raise exception on ctrl+c if true. *)
+  val catch_break: bool -> unit
+
+end
+ 
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   indent-tabs-mode: nil
+   End: 
+*)
 

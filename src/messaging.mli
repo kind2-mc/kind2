@@ -79,7 +79,7 @@ sig
 
   (** Thread *)
   type thread
-  
+         
   (** Create a messaging context and bind ports for the invariant
       manager. Return a pair of pub socket and pull socket and pair of
       addresses of pub and pull sockets for workers to connect to. 
@@ -89,18 +89,18 @@ sig
       child processes must use the socket addresses in the second
       return argument. *)
   val init_im : unit -> (ctx * socket * socket) * (string * string)
-                      
+                                                    
   (** Create a messaging context and bind given ports for a worker
       process. Return a messaging context and a pair of sub and push
       sockets. *)
   val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket 
-                 
+                                                                            
   (** Start the background thread for the invariant manager, using the
       given context and sockets. The second parameter is a list of
       PIDs and the kind of worker processes to watch, the third
       argument is the function to call to handle exceptions. *)
   val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
-    
+                                                                                           
   (** Start the background thread for a worker process, using the
       given context and sockets. The second parameter is type of
       worker process, the third is the function to call to handle
@@ -109,15 +109,20 @@ sig
 
   (** Broadcast a message to the worker processes *)
   val send_relay_message : relay_message -> unit
-    
+                                              
   (** Send a message to the invariant manager for output to the user *)
   val send_output_message : output_message -> unit
 
   (** Send a termination message to the invariant manager *)
   val send_term_message : unit -> unit
-    
+                                    
   (** Receive messages queued by the background thread *)
   val recv : unit -> (Lib.kind_module * message) list
+
+  (** Notifies the background thread of a new list of child
+      processes. Used by the supervisor in a modular analysis when
+      restarting. *)
+  val update_child_processes_list : (int * Lib.kind_module) list -> unit
 
   (** Returns true if a termination message was received. Does NOT
       modify received message in any way. *)

@@ -611,7 +611,7 @@ and tree_path_of_calls
   N (node_name, node_pos, stream_map', call_map'')
   
 
-(* Return a hierarchical model with exactly the streams that ware
+(* Return a hierarchical model with exactly the streams that were
    defined in the model *)
 let reduced_tree_path_of_model start_at_init nodes model =
   
@@ -857,6 +857,93 @@ let pp_print_path_pt nodes start_at_init ppf model =
   let ident_width, val_width = widths_of_model reconstructed in
 
   pp_print_tree_path_pt ident_width val_width [] ppf reconstructed
+
+
+(* Pretty-print the inputs of a path in csv:
+   <ident>,<type>,<value0>,<value1>,... *)
+let pp_print_path_inputs_csv nodes start_at_init ppf model =
+  let reconstructed =
+    reduced_tree_path_of_model start_at_init nodes model
+  in
+
+  let N (_, _, stream_map, _) = reconstructed in
+
+  (* Get all streams in the node. *)
+  let streams = SVMap.bindings stream_map in
+
+  (* Get inputs. *)
+  let inputs =
+    List.filter (fun (sv, _) -> E.state_var_is_input sv) streams
+  in
+
+  (* Pretty-print input streams if any *)
+  inputs
+  |> List.iter
+    ( fun (sv, values) ->
+
+      (* Getting the ident of the state variable. *)
+      let ident, _ = LustreExpr.ident_of_state_var sv in
+      (* Getting its type. *)
+      let typ3 = StateVar.type_of_state_var sv in
+
+      Format.fprintf
+        ppf
+        "%a,%a,%a@,"
+        (LustreIdent.pp_print_ident false) ident
+        (E.pp_print_lustre_type false) typ3
+        (pp_print_arrayi
+          (fun ppf _ ->
+            function
+            | Model.Term t ->
+              Format.fprintf
+                ppf
+                "%s"
+                (string_of_t pp_print_value t)
+            | Model.Lambda _ -> assert false)
+          ",") values )
+
+(* Pretty-print the inputs of a path in csv:
+   <ident>,<type>,<value0>,<value1>,... *)
+let pp_print_path_outputs_csv nodes start_at_init ppf model =
+  let reconstructed =
+    reduced_tree_path_of_model start_at_init nodes model
+  in
+
+  let N (_, _, stream_map, _) = reconstructed in
+
+  (* Get all streams in the node. *)
+  let streams = SVMap.bindings stream_map in
+
+  (* Get inputs. *)
+  let outputs =
+    List.filter (fun (sv, _) -> E.state_var_is_output sv) streams
+  in
+
+  (* Pretty-print output streams if any *)
+  outputs
+  |> List.iter
+    ( fun (sv, values) ->
+
+      (* Getting the ident of the state variable. *)
+      let ident, _ = LustreExpr.ident_of_state_var sv in
+      (* Getting its type. *)
+      let typ3 = StateVar.type_of_state_var sv in
+
+      Format.fprintf
+        ppf
+        "%a,%a,%a@,"
+        (LustreIdent.pp_print_ident false) ident
+        (E.pp_print_lustre_type false) typ3
+        (pp_print_arrayi
+          (fun ppf _ ->
+            function
+            | Model.Term t ->
+              Format.fprintf
+                ppf
+                "%s"
+                (string_of_t pp_print_value t)
+            | Model.Lambda _ -> assert false)
+          ",") values )
 
 
 (* 

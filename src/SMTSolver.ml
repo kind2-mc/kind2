@@ -50,7 +50,12 @@ type t =
     solver_inst : (module SolverSig.Inst);
     
     (* Hashtable associating generated names to terms *)
-    term_names : (int, expr) Hashtbl.t;
+    term_names : (int, expr) Hashtbl.t ;
+
+    (* Identifier for the compositional / modular analysis. First
+       element is the scope of the system being analyzed, second is
+       the list of abstracted systems. *)
+    analysis_id : string list * string list list ;
 
     (* Unique identifier for solver instance *)
     id : int
@@ -91,7 +96,10 @@ let create_instance
     ?produce_assignments
     ?produce_proofs
     ?produce_cores
+    (* Scope of the (sub)system under analysis. *)
+    scope
     l
+    abstraction
     kind =
 
   (* New identifier for solver instance *)
@@ -103,6 +111,8 @@ let create_instance
     let produce_assignments = bool_of_bool_option produce_assignments
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
+    let scope = scope
+    let abstraction = abstraction
     let logic = l
     let id = id
   end
@@ -120,9 +130,10 @@ let create_instance
   in
 
   (* Return solver instance *)
-  { solver_kind = kind;
-    solver_inst = fomodule;
-    term_names = Hashtbl.create 19;
+  { solver_kind = kind ;
+    solver_inst = fomodule ;
+    term_names = Hashtbl.create 19 ;
+    analysis_id =  scope, abstraction ;
     id = id }
 
 
