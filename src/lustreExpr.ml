@@ -2067,7 +2067,7 @@ let mk_pre
     | t when 
         t == Term.t_true || 
         t == Term.t_false || 
-        (Term.is_free_var t && 
+        (Term.is_free_var t &&
         Term.free_var_of_term t |> Var.is_const_state_var) ||
         (match Term.destruct t with 
           | Term.T.Const c1 when 

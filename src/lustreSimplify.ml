@@ -3202,6 +3202,17 @@ let rec property_to_node
       (* Property is a state variable at current offset? *)
       E.is_var expr
 
+      && 
+
+      (* Expression is a state variable *)
+      let state_var = E.state_var_of_expr expr in
+      
+      (* State variable is an input? *)
+      not 
+        (List.exists
+           (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+           (node.N.inputs))
+
     then 
 
       (* State variable of expression *)
@@ -3278,8 +3289,11 @@ let rec property_to_node
 
     (* Add property to node *)
     (context', 
-     { node' with 
-         N.props = (state_var, source) :: node'.N.props;
+     { node' with
+         N.props = 
+           ((if E.is_var expr then 
+               E.state_var_of_expr expr 
+             else state_var), source) :: node'.N.props;
          N.observers = node_observers';
          N.locals = node_locals' },
      abstractions')
@@ -3950,7 +3964,15 @@ let rec parse_node_equations
                   in
 
                   (* Identifier not found in outputs *)
-                  if accum' = accum then
+                  if 
+
+                    try
+
+                      List.for_all2 StateVar.equal_state_vars accum' accum 
+
+                    with Invalid_argument _ -> false
+
+                  then
 
                     (* Find identifier of left-hand side in local variables *)
                     let accum'' = 
@@ -3972,8 +3994,16 @@ let rec parse_node_equations
                     in
 
                     (* Identifier not found in outputs and local variables *)
-                    if accum'' = accum' then 
-                      
+                    if  
+
+                      try
+                        
+                        List.for_all2 StateVar.equal_state_vars accum'' accum' 
+                          
+                      with Invalid_argument _ -> false
+                        
+                    then
+
                       fail_at_position 
                         pos 
                         "Assignment to neither output nor local variable" 

@@ -244,9 +244,8 @@ let add_caller callee caller c =
      to the end *)
   let rec add_caller' accum = function
     | [] ->  (caller, [c]) :: accum
-    | (caller', c') :: tl when 
-           caller'.scope = caller.scope ->
-       (caller', (c :: c')) :: accum @ tl
+    | (caller', c') :: tl when caller'.scope = caller.scope ->
+      (caller', (c :: c')) :: accum @ tl
     | h :: tl -> add_caller' (h :: accum) tl 
   in
 
