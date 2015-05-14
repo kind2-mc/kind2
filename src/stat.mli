@@ -196,23 +196,11 @@ val pdr_fwd_fixpoint : int_item
 (** Blocking clauses proved inductive *)
 val pdr_inductive_blocking_clauses : int_item
 
-(** Number of literals removed by inductive generalization *)
-val pdr_literals_removed : int_item
-
-(** Number of counterexamples per frame *)
-val pdr_counterexamples : int_list_item 
-
-(** Total number of counterexamples *)
-val pdr_counterexamples_total : int_item 
-
 (** Total time in PDR *)
 val pdr_total_time : float_item
 
 (** Time spent forward propagating *)
 val pdr_fwd_prop_time : float_item
-
-(** Time spent blocking counterexamples propagated from earlier frames *)
-val pdr_block_propagated_cex_time : float_item
 
 (** Time spent strengthening *)
 val pdr_strengthen_time : float_item
@@ -228,15 +216,6 @@ val pdr_generalize_time : float_item
 
 (** Time checking inductiveness of blocking clauses *)
 val pdr_inductive_check_time : float_item
-
-(** Time tightening blocking clauses to subset *)
-val pdr_tighten_to_subset_time : float_item
-
-(** Number of tightened blocking clauses *)
-val pdr_tightened_blocking_clauses : int_item
-
-(** Number of tightened clauses in forward propagation *)
-val pdr_tightened_propagated_clauses : int_item
 
 (** Number of activation literals *)
 val pdr_activation_literals : int_item
@@ -358,9 +337,6 @@ val clause_of_term_time : float_item
 val smtexpr_of_term_time : float_item
 
 val term_of_smtexpr_time : float_item
-
-(** Time in check-sat calls *)
-val cnf_subsume_time : float_item 
 
 (** Stop and record all timers *)
 val misc_stop_timers : unit -> unit 

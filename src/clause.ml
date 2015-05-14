@@ -118,6 +118,8 @@ let pp_print_source ppf = function
 
   | CopyFwdProp { clause_id } -> Format.fprintf ppf "CopyFwdProp %d" clause_id
 
+  | Copy { clause_id } -> Format.fprintf ppf "Copy %d" clause_id
+
     
 (* ********************************************************************** *)
 (* Activation literals                                                    *)
@@ -561,7 +563,8 @@ let rec undo_ind_gen = function
 
   (* Return clause before inductive generalization *)
   | { source = CopyFwdProp c } 
-  | { source = CopyBlockProp c } -> undo_ind_gen c
+  | { source = CopyBlockProp c } 
+  | { source = Copy c } -> undo_ind_gen c
 
   
 (* ********************************************************************** *)
