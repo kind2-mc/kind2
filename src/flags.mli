@@ -145,10 +145,18 @@ val pdr_inductively_generalize : unit -> pdr_inductively_generalize
 (** Block counterexample in future frames *)
 type pdr_block_in_future = bool
 val pdr_block_in_future : unit -> pdr_block_in_future
+  
+(** Block counterexample in future frames first before returning to frame *)
+type pdr_block_in_future_first = bool
+val pdr_block_in_future_first : unit -> pdr_block_in_future_first  
 
 (** Also propagate clauses before generalization *)
 type pdr_fwd_prop_non_gen = bool
 val pdr_fwd_prop_non_gen : unit -> pdr_fwd_prop_non_gen
+
+(** Inductively generalize all clauses after forward propagation *)
+type pdr_fwd_prop_ind_gen = bool
+val pdr_fwd_prop_ind_gen : unit -> pdr_fwd_prop_ind_gen
 
 (** Subsumption in forward propagation *)
 type pdr_fwd_prop_subsume = bool

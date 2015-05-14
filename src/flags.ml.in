@@ -382,11 +382,27 @@ let pdr_block_in_future_default = true
 
 (* ********** *) 
 
+type pdr_block_in_future_first = bool
+    
+let string_of_pdr_block_in_future_first = string_of_bool
+
+let pdr_block_in_future_first_default = true
+
+(* ********** *) 
+
 type pdr_fwd_prop_non_gen = bool
     
 let string_of_pdr_fwd_prop_non_gen = string_of_bool
 
 let pdr_fwd_prop_non_gen_default = true
+
+(* ********** *) 
+
+type pdr_fwd_prop_ind_gen = bool
+    
+let string_of_pdr_fwd_prop_ind_gen = string_of_bool
+
+let pdr_fwd_prop_ind_gen_default = true
 
 (* ********** *) 
 type pdr_fwd_prop_subsume = bool
@@ -565,7 +581,9 @@ type flags =
       mutable pdr_print_to_file : pdr_print_to_file;
       mutable pdr_inductively_generalize : pdr_inductively_generalize;
       mutable pdr_block_in_future : pdr_block_in_future;
+      mutable pdr_block_in_future_first : pdr_block_in_future_first;
       mutable pdr_fwd_prop_non_gen : pdr_fwd_prop_non_gen;
+      mutable pdr_fwd_prop_ind_gen : pdr_fwd_prop_ind_gen;
       mutable pdr_fwd_prop_subsume : pdr_fwd_prop_subsume;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
@@ -612,7 +630,9 @@ let flags =
     pdr_print_to_file = pdr_print_to_file_default;
     pdr_inductively_generalize = pdr_inductively_generalize_default;
     pdr_fwd_prop_non_gen = pdr_fwd_prop_non_gen_default;
+    pdr_fwd_prop_ind_gen = pdr_fwd_prop_ind_gen_default;
     pdr_block_in_future = pdr_block_in_future_default;
+    pdr_block_in_future_first = pdr_block_in_future_first_default;
     pdr_fwd_prop_subsume = pdr_fwd_prop_subsume_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
@@ -897,6 +917,16 @@ let pdr_block_in_future_spec =
 
 (* ********** *) 
  
+let pdr_block_in_future_first_action o = flags.pdr_block_in_future_first <- o
+  
+let pdr_block_in_future_first_spec = 
+  ("--pdr_block_in_future_first", 
+   Arg.Bool pdr_block_in_future_first_action, 
+   Format.sprintf "(PDR) Block counterexample in future frames first before returning to frame (default: %s)"
+                  (string_of_pdr_block_in_future_first pdr_block_in_future_first_default))
+
+(* ********** *) 
+ 
 let pdr_fwd_prop_non_gen_action o = flags.pdr_fwd_prop_non_gen <- o
   
 let pdr_fwd_prop_non_gen_spec = 
@@ -904,6 +934,16 @@ let pdr_fwd_prop_non_gen_spec =
    Arg.Bool pdr_fwd_prop_non_gen_action, 
    Format.sprintf "(PDR) Also propagate clauses before generalization (default: %s)"
                   (string_of_pdr_fwd_prop_non_gen pdr_fwd_prop_non_gen_default))
+
+(* ********** *) 
+ 
+let pdr_fwd_prop_ind_gen_action o = flags.pdr_fwd_prop_ind_gen <- o
+  
+let pdr_fwd_prop_ind_gen_spec = 
+  ("--pdr_fwd_prop_ind_gen", 
+   Arg.Bool pdr_fwd_prop_ind_gen_action, 
+   Format.sprintf "(PDR) Inductively generalize all clauses after forward propagation (default: %s)"
+                  (string_of_pdr_fwd_prop_ind_gen pdr_fwd_prop_ind_gen_default))
 
 (* ********** *) 
  
@@ -1149,7 +1189,11 @@ let pdr_inductively_generalize () = flags.pdr_inductively_generalize
 
 let pdr_block_in_future () = flags.pdr_block_in_future 
 
+let pdr_block_in_future_first () = flags.pdr_block_in_future_first 
+
 let pdr_fwd_prop_non_gen () = flags.pdr_fwd_prop_non_gen 
+
+let pdr_fwd_prop_ind_gen () = flags.pdr_fwd_prop_ind_gen 
 
 let pdr_fwd_prop_subsume () = flags.pdr_fwd_prop_subsume 
 
@@ -1281,8 +1325,14 @@ and speclist =
     (* Block counterexample in future frames *)
     pdr_block_in_future_spec;
 
+    (* Block counterexample in future frames first before returning to frame *)
+    pdr_block_in_future_first_spec;
+
     (* Also propagate clauses before generalization *)
     pdr_fwd_prop_non_gen_spec;
+
+    (* Inductively generalize all clauses after forward propagation *)
+    pdr_fwd_prop_ind_gen_spec;
 
     (* Subsumption in forward propagation *)
     pdr_fwd_prop_subsume_spec;

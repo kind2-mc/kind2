@@ -1215,7 +1215,27 @@ let rec block solver trans_sys prop_set term_tbl =
             trans_sys 
             prop_set
             term_tbl
-            ((block_clauses_tl, r_i') :: block_tl') 
+            (if
+
+                (* Block in higher frames first? *)
+                true &&
+
+                  (* Only if not in the highest frame *)
+                  (match block_tl' with
+                    | [] -> false
+                    | _ -> true) 
+                  
+             then
+
+                (* Remove all clauses to block and go to the next
+                   higher frame *)
+                (([], r_i') :: block_tl')
+                
+             else
+
+                (* Block clauses in this frame first *)
+                ((block_clauses_tl, r_i') :: block_tl'))
+            
             frames'
 
         in
@@ -1541,9 +1561,20 @@ let fwd_propagate solver trans_sys prop_set frames =
     (* Forward propagated clause to add to frame *)
     let c' =
 
-      (* Inductive generalization after forward propagation? *)
-      if Flags.pdr_fwd_prop_non_gen () then
+      if 
+        
+        (* Inductive generalization after forward propagation? *)
+        Flags.pdr_fwd_prop_ind_gen () ||
 
+          (* Inductively generalize forward propagated clause that was
+             not generalized *)
+          (match C.source_of_clause c with
+            | C.CopyFwdProp _ -> true
+            | _ -> false)
+          
+      then
+
+        
         (Stat.time_fun Stat.pdr_ind_gen_time
            (fun () -> 
               ind_generalize 
