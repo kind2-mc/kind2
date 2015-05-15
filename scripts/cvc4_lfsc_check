@@ -1,0 +1,47 @@
+#!/bin/sh
+
+CVC4="$HOME/trucs/CVC4/builds/x86_64-apple-darwin13.4.0/production-proof/bin/cvc4 --proof --check-proofs --dump-proof"
+Z3="z3"
+
+lfsc_tmp="$TMPDIR/$(basename $1).lfsc"
+
+LFSCEX="$HOME/dev/kind2/bin/lfsc-extractor"
+
+smt2_eq="$TMPDIR/$(basename $1).lfsc_eq.smt2"
+
+RET=127
+
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+NC='\033[0m' # No Color
+
+echo "Running cvc4 with proofs on $1"
+$CVC4 $1 > $lfsc_tmp
+RET=$?
+
+if [ "$RET" = 0 ]; then
+    echo "Proof written in $lfsc_tmp"
+
+    echo "Extracting forumla from lfsc proof"
+    $LFSCEX $1 $lfsc_tmp > $smt2_eq
+    RET=$?
+
+    if [ "$RET" = 0 ]; then
+
+        echo "Equivalence goal written in $smt2_eq"
+
+        echo "Checking equivalence with z3"
+        $Z3 $smt2_eq | tee /dev/stderr | grep -q "^unsat"
+        RET=$?
+
+    fi
+fi
+
+if [ "$RET" -ne 0 ]; then
+    echo "${RED}[FAIL]${NC}"
+else
+    echo "${GREEN}[OK]${NC}"
+fi
+
+exit $RET
+
