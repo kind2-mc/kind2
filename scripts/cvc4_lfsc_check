@@ -1,5 +1,30 @@
 #!/bin/sh
 
+#########################################################################
+# This file is part of the Kind 2 model checker.                        #
+#                                                                       #
+# Copyright (c) 2014 by the Board of Trustees of the University of Iowa #
+#                                                                       #
+# Licensed under the Apache License, Version 2.0 (the "License"); you   #
+# may not use this file except in compliance with the License.  You     #
+# may obtain a copy of the License at                                   #
+#                                                                       #
+# http://www.apache.org/licenses/LICENSE-2.0                            #
+#                                                                       #
+# Unless required by applicable law or agreed to in writing, software   #
+# distributed under the License is distributed on an "AS IS" BASIS,     #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or       #
+# implied. See the License for the specific language governing          #
+# permissions and limitations under the License.                        #
+#########################################################################
+
+
+# Small script to run CVC4 with proof production, extract the goal from the
+# proof tree and check the equivalence with the original smt2 file using Z3.
+#
+# run it like this: cvc4_lfsc_check file.smt2
+# change the paths CVC4, Z3, LFSCEX to the correct ones
+
 CVC4="$HOME/trucs/CVC4/builds/x86_64-apple-darwin13.4.0/production-proof/bin/cvc4 --proof --check-proofs --dump-proof"
 Z3="z3"
 
