@@ -42,7 +42,7 @@ Type
 TermAttr
 Term
 
-CNF
+# CNF
 Clause
 Literal
 
@@ -71,4 +71,6 @@ Interpreter
 
 InvarManager
 
-Kind2
+# Kind2
+
+Doc_LustreFrontEnd

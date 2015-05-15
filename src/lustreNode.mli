@@ -52,7 +52,6 @@ type state_var_source =
   | Output
   | Local
   | Ghost
-  | Abstract
   | Oracle
 
 
@@ -91,17 +90,16 @@ type node_call =
 type contract =
   { 
 
-    (* Position of the contract in the input *)
+    (** Position of the contract in the input *)
     contract_pos: position;
 
-    (* One observer for each requirement *)
+    (** One observer for each requirement *)
     contract_reqs : StateVar.t list;
 
-    (* One observer for each ensures *)
-    contract_enss : StateVar.t list;
+    (** One observer for each ensures *)
+    contract_enss : StateVar.t list
 
-    (* One observer for the implication between requirements and ensures *)
-    contract_impl : StateVar.t }
+  }
 
 (** Bound for index variable, or fixed value for index variable *)
 type 'a bound_or_fixed = 
@@ -132,6 +130,18 @@ type t =
     (** Distinguished state variable to become true in the first
        instant only *)
     first_tick : StateVar.t;
+
+    (** One observer for conjunction of the global requirements and
+        the disjunction of the mode requirements
+
+        Any caller has to make this observer true *)
+    contract_all_req : StateVar.t;
+
+    (** One observer for the conjunction of the global enusres and the
+        mode implications
+
+        This is asserted about the node when abstract *)
+    contract_all_ens : StateVar.t;
 
     (** Input streams defined in the node
 
@@ -172,7 +182,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (** Proof obligations for the node *)
-    props : (StateVar.t * TermLib.prop_source) list;
+    props : (StateVar.t * string * TermLib.prop_source) list;
 
     (** The contracts of the node: an optional global contract and a
         list of named mode contracts *)
@@ -216,6 +226,10 @@ val find_main : t list -> LustreIdent.t
 
     Fail with [Invalid_argument "ident_of_top"] if list of nodes is empty *)
 val ident_of_top : t list -> LustreIdent.t 
+
+(** Return true if the node has a global or at least one mode
+    contract *)
+val has_contract : t -> bool
 
 (** {2 State Variable Instances} *)
 

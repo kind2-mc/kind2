@@ -16,24 +16,35 @@
 
 *)
 
-(** Cone of influence reduction and dependency ordering of equations for Lustre nodes 
+module A = Analysis
+module S = SubSystem
 
-    @author Christoph Sticksel *)
+let next_analysis ({ S.scope } as system) = function 
 
-val order_equations : bool ->
-(LustreIdent.t * (LustreIndex.key list LustreIndex.t * LustreIndex.key list LustreIndex.t)) list ->
-LustreNode.t ->
-(StateVar.t * LustreExpr.expr LustreNode.bound_or_fixed list * LustreExpr.t) list *
-LustreIndex.index list LustreIndex.t
+  (* First analysis *)
+  | [] -> 
 
-val slice_to_impl : LustreNode.t list -> LustreNode.t list
+    (* Continue analysis *)
+    Some
 
-val slice_to_contract : LustreNode.t list -> LustreNode.t list
+      { (* Analyze top system *) 
+        A.top = scope; 
+        
+        (* Implementations for all systems *)
+        A.abstraction_map = 
+          [S.all_subsystems system
+           |> List.map (fun { scope } -> (scope, false))];
+
+        (* No assumptions *)
+        A.assumptions = [] }
+
+  (* One analysis only, terminate after first analysis *)
+  | _ -> None
 
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -C .. -k"
    indent-tabs-mode: nil
    End: 
 *)

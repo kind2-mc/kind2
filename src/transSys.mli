@@ -18,17 +18,116 @@
 
 (** Representation of a transition system 
 
-    @author Christoph Sticksel, Adrien Champion
+    A transition system is uniquely identified by its scope. A
+    transition system can contain subsystems. For each subsystem there
+    is a map of all state variables of the subsystem to some state
+    variable in this transition system, and a function to guard term
+    in the scope of the subsystem to make them valid in this
+    transition system. There must be no cycles in the subsystem
+    relation, that is, a transition system cannot have itself as a
+    subsystem.
+
+    A transition system constrains values of the set of state
+    variables of a scope that make up the state of the transition
+    system. The state variables in [state_vars] are assumed to be of
+    the same scope [scope]. The initial state constraint [init] is a
+    term over these state variables at offset [init_base], the
+    transition relation [trans] is a term over state variables at
+    offsets [trans_base] and [trans_base - 1].
+
+    To model arrays we use an additional set of global state variables
+    outside the scope of the transition system in
+    [global_state_vars]. These state variables have an additional
+    index that is set to a unique term for the instance of the
+    transition system the array occurs in.
+
+    @author Christoph Sticksel
+    @author Adrien Champion
 *)
 
-(** Source format *)
-type source = 
-  | Lustre of LustreNode.t list  (** Lustre with given nodes *)
-  | Native                       (** Native format *)
+
+(** Offset of the current state variables in initial state
+    constraint *)
+val init_base : Numeral.t
+
+(** Offset of current state variables in transition relation, subtract
+    one for the offset of the previous state variables *)
+val trans_base : Numeral.t
+
+(** Offset of current state variables in properties and invariants,
+    subtract one for the offset of the previous state variables *)
+val prop_base : Numeral.t
+
+(** The transition system 
+
+    Constructed with the function {!mk_trans_sys} *)
+type t
+
+(** {1 Accessors} *)
+
+(** Close the initial state constraint by binding all instance
+    identifiers, and bump the state variable offsets to be at the given
+    bound *)
+val init_of_bound : t -> Numeral.t -> Term.t
+
+(** Close the initial state constraint by binding all instance
+    identifiers, and bump the state variable offsets to be at the given
+    bound *)
+val trans_of_bound : t -> Numeral.t -> Term.t 
+
+(** Return the instance variables of this transition system, the
+    initial state constraint at [init_base] and the transition relation
+    at [trans_base] with the instance variables free. *)
+val init_trans_open : t -> StateVar.t * Term.t * Term.t
+
+(*
+
+(** {1 Constructor} *)
+
+(** Create a transition system. Arguments
+
+    - [scope]
+    - [state_variables]
+    - [init_pred_def]
+    - [trans_pred_def]
+    - [subsystems]
+    - [properties]
+    - [contracts]
+    - [abstraction_actlit_option]
+    - [source]
+
+    For each state variable of a bounded integer type, add a
+    constraint to the invariants. *)
+val mk_trans_sys :
+
+  string list ->
+  (** Scope. *)
+
+  StateVar.t list ->
+  (** State variables. *)
+
+  UfSymbol.t * (Var.t list * Term.t) ->
+  (** Init predicate definition. *)
+
+  UfSymbol.t * (Var.t list * Term.t) ->
+  (** Trans predicate definition. *)
+
+  t list ->
+  (** Subsystems. *)
+
+  (string * TermLib.prop_source * Term.t) list ->
+  (** Properties. *)
+
+  (StateVar.t * StateVar.t * contract list) option ->
+  (** Contracts. *)
+
+  source ->
+  (** Source of the system. *)
+
+  t
 
 
-(** A definition of an uninterpreted predicate *)
-type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
+(** {1 Properties} *)
 
 (** Status of a property *)
 type prop_status =
@@ -45,6 +144,121 @@ type prop_status =
   (** Property is false at some step *)
   | PropFalse of (StateVar.t * Model.term_or_lambda list) list
 
+(** Return current status of all properties *)
+val get_prop_status_all_unknown : t -> (string * prop_status) list
+
+(** Return current status of property *)
+val get_prop_status : t -> string -> prop_status
+
+(** Instantiate all unknown properties to the bound *)
+val props_list_of_bound_unknown : t -> Numeral.t -> (string * Term.t) list 
+
+(** Return true if all properties are either valid or invalid *)
+val all_props_proved : t -> bool
+
+(** Get property by name *)
+val named_term_of_prop_name : t -> string -> Term.t
+                                               
+
+(** {1 Maintain State} *)
+
+(** Add an invariant to the transition system *)
+val add_invariant : t -> Term.t -> unit
+
+(** Add an invariant to the transition system *)
+val add_scoped_invariant : t -> string list -> Term.t -> unit
+
+
+(** {1 Solver initialization} *)
+
+(** Return the scope of the transition system *)
+val get_scope : t -> string list
+
+(** Return the name of the transition system *)
+val get_name : t -> string
+
+(** Get the required logic for the SMT solver *)
+val get_logic : t -> TermLib.logic
+                                                       
+(** Initializes the solver for a system and an abstraction. *)
+val init_solver:
+  ?declare_top_vars_only:bool ->
+  (** Only declare top level variables. *)
+
+  t ->
+  (** Transition system. *)
+
+  (string -> unit) ->
+  (** Trace comment. *)
+
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (** Define fun. *)
+
+  (UfSymbol.t -> unit) ->
+  (** Declare fun. *)
+
+  (Term.t -> unit) ->
+  (** Assert fun. *)
+
+  Numeral.t ->
+  (** Var declaration lower bound. *)
+
+  Numeral.t ->
+  (** Var declaration upper bound. *)
+
+  unit
+
+(** Declares variables of the transition system between two
+    offsets. *)
+val declare_vars_of_bounds :
+  t -> (UfSymbol.t -> unit) ->
+  (Term.t -> unit) ->
+  Numeral.t -> Numeral.t -> unit
+
+
+(** {1 Accessors for Elements of Transition System *)
+
+(** Instantiate the initial state constraint to the bound *)
+val init_of_bound : t -> Numeral.t -> Term.t
+
+(** Instantiate the transition relation constraint to the bound.  The
+    bound given is the bound of the state after the transition *)
+val trans_of_bound : t -> Numeral.t -> Term.t
+  
+(** Instantiate invariants and valid properties to the bound *)
+val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t
+
+(** The state variables of a transition system. *)
+val state_vars : t -> StateVar.t list
+
+(** Return uninterpreted function symbol definitions in topological
+    order. *)
+val uf_defs : t -> pred_def list
+
+(** The subsystems of a system. *)
+val get_subsystems : t -> t list
+
+
+(** {1 Instantiation from subsystems} *)
+
+(** Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. Returns the
+   top system and the corresponding instantiated terms, paired with
+   the intermediary systems and term instantiations. Note that the
+   input system/term of the function will be in the result, either as
+   intermediary or top level. *)
+val instantiate_term_all_levels:
+  t -> t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+
+
+(**/**)
+
+(** {1 Possibly obsolete} *)
+
+
+(** A definition of an uninterpreted predicate *)
+type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
+
 (** Pretty-print a property status *)
 val pp_print_prop_status_pt : Format.formatter -> prop_status -> unit
 
@@ -54,15 +268,6 @@ val prop_status_known : prop_status -> bool
 
 (** Return the length of the counterexample *)
 val length_of_cex : (StateVar.t * 'a list) list -> int
-
-(** Offset of state variables in initial state constraint *)
-val init_base : Numeral.t
-
-(** Offset of primed state variables in transition relation *)
-val trans_base : Numeral.t
-
-(** Offset of primed state variables in properties and invariants *)
-val prop_base : Numeral.t
 
 type contract
 
@@ -139,18 +344,6 @@ val pp_print_trans_sys_name : Format.formatter -> t -> unit
 (** Pretty-print a transition system *)
 val pp_print_trans_sys_contract_view : Format.formatter -> t -> unit
 
-(** Get the required logic for the SMT solver *)
-val get_logic : t -> TermLib.logic
-                                                       
-(** Instantiates a term for the top system by going up the system
-   hierarchy, for all instantiations of the input system. Returns the
-   top system and the corresponding instantiated terms, paired with
-   the intermediary systems and term instantiations. Note that the
-   input system/term of the function will be in the result, either as
-   intermediary or top level. *)
-val instantiate_term_all_levels:
-  t -> t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
-
 (** Instantiates a term for the top system by going up the system
     hierarchy, for all instantiations of the input system. *)
 val instantiate_term_top: t -> t -> Term.t -> Term.t list
@@ -179,15 +372,18 @@ val init_term : t -> Term.t
 (** Definition of the transition relation *)
 val trans_term : t -> Term.t
 
-(** The abstraction of the system. *)
-val get_abstraction : t -> string list list
-
-(** Sets the abstraction for a system. *)
-val set_abstraction : t -> string list list -> unit
+(** Returns [Some(true)] if the contract is global, [Some(false)] if it's not,
+   and [None] if the system has no contracts. *)
+val contract_is_global : t -> string -> bool option
 
 (** The contracts of a system. *)
 val get_contracts :
   t -> (Lib.position * StateVar.t * string) list
+
+
+(** Returns a triplet of the concrete subsystems, the refined ones, and the
+    abstracted ones. Does not contain the input system. *)
+val get_abstraction_split : t -> (t list) * (t list) * (t list)
 
 (** For a system, returns [Some true] if all contracts are invariants,
     [Some false] if at least one of the contracts is falsified, and
@@ -198,27 +394,18 @@ val get_contracts :
 (* val get_contracts_implications : t -> (string * Term.t) list *)
 
 
-(** The subsystems of a system. *)
-val get_subsystems : t -> t list
-
 (** Returns all the subsystems of a system in reverse topological
-    order. *)
+    order, INCLUDING that system. *)
 val get_all_subsystems : t -> t list
-
-(** The state variables of a transition system. *)
-val state_vars : t -> StateVar.t list
 
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
 
-(** Return the scope of the transition system *)
-val get_scope : t -> string list
-
 (** Finds the subsystem of [t] corresponding to [scope]. *)
 val subsystem_of_scope : t -> string list -> t
 
-(** Return the name of the transition system *)
-val get_name : t -> string
+(** Returns the source name of the transition system. *)
+val get_source_name : t -> string
 
 (** Returns the variables of the transition system between two
     bounds. *)
@@ -226,23 +413,10 @@ val vars_of_bounds :
   t -> Numeral.t -> Numeral.t ->
   Var.t list
 
-(** Declares variables of the transition system between two
-    offsets. *)
-val declare_vars_of_bounds :
-  t -> (UfSymbol.t -> unit) ->
-  (Term.t -> unit) ->
-  Numeral.t -> Numeral.t -> unit
-
+(* Base *)
 (** The init flag of a transition system, as a [Var]. *)
 val init_flag_of_trans_sys : t -> Numeral.t -> Var.t
 
-(** Instantiate the initial state constraint to the bound *)
-val init_of_bound : t -> Numeral.t -> Term.t
-
-(** Instantiate the transition relation constraint to the bound.  The
-    bound given is the bound of the state after the transition *)
-val trans_of_bound : t -> Numeral.t -> Term.t
-  
 (** Builds a call to the transition relation function linking state
     [k] and [k']. *)
 val trans_fun_of : t -> Numeral.t -> Numeral.t -> Term.t
@@ -259,25 +433,12 @@ val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list
 (** Instantiate all not valid properties to the bound *)
 val props_list_of_bound_not_valid : t -> Numeral.t -> (string * Term.t) list 
 
-(** Instantiate all unknown properties to the bound *)
-val props_list_of_bound_unknown : t -> Numeral.t -> (string * Term.t) list 
-
-(** Get property by name *)
-val named_term_of_prop_name : t -> string -> Term.t
-                                               
-(** Instantiate invariants and valid properties to the bound *)
-val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t
-
 (** The list of invariants and valid properties at zero. *)
 val get_invars : t -> Term.t list
 
 (** Return uninterpreted function symbols to be declared in the SMT
     solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
-
-(** Return uninterpreted function symbol definitions in topological
-    order. *)
-val uf_defs : t -> pred_def list
 
 (** Return uninterpreted function symbol definitions as pairs of
     initial state and transition relation definitions, in topological
@@ -290,20 +451,8 @@ val is_trans_uf_def : t -> UfSymbol.t -> bool
 (** Return [true] if the uninterpreted symbol is an initial state constraint *)
 val is_init_uf_def : t -> UfSymbol.t -> bool
 
-(** Add an invariant to the transition system *)
-val add_invariant : t -> Term.t -> unit
-
-(** Add an invariant to the transition system *)
-val add_scoped_invariant : t -> string list -> Term.t -> unit
-
 (** Return current status of all properties *)
 val get_prop_status_all : t -> (string * prop_status) list
-
-(** Return current status of all properties *)
-val get_prop_status_all_unknown : t -> (string * prop_status) list
-
-(** Return current status of property *)
-val get_prop_status : t -> string -> prop_status
 
 (** Returns the source of a property. *)
 val get_prop_source : t -> string -> TermLib.prop_source option
@@ -352,9 +501,6 @@ val is_proved : t -> string -> bool
 (** Return true if the property is proved not invariant *)
 val is_disproved : t -> string -> bool 
 
-(** Return true if all properties are either valid or invalid *)
-val all_props_proved : t -> bool
-
 (** Return true if all properties are valid *)
 val all_props_actually_proved : t -> bool
 
@@ -379,33 +525,207 @@ type abstraction = string list list
 val pp_print_trans_sys_abstraction:
   Format.formatter -> t -> unit
 
-(** Initializes the solver for a system and an abstraction. *)
-val init_solver:
-  ?declare_top_vars_only:bool ->
-  (** Only declare top level variables. *)
+(*
 
-  t ->
-  (** Transition system. *)
+-- src/analysis.ml
+TransSys.all_props_proved
+TransSys.pp_print_trans_sys_name
+TransSys.t
 
-  (string -> unit) ->
-  (** Trace comment. *)
+-- src/base.ml
+TransSys.declare_vars_of_bounds
+- TransSys.get_abstraction
+TransSys.get_logic
+TransSys.get_name
+TransSys.get_prop_status
+TransSys.get_prop_status_all_unknown
+TransSys.get_scope
+TransSys.init_of_bound
+TransSys.init_solver
+TransSys.invars_of_bound
+TransSys.named_term_of_prop_name
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound_unknown
+TransSys.state_vars
+TransSys.trans_of_bound
+TransSys.uf_defs
 
-  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
-  (** Define fun. *)
+-- src/compress.ml
+TransSys.state_vars
+TransSys.trans_of_bound
+TransSys.uf_defs
 
-  (UfSymbol.t -> unit) ->
-  (** Declare fun. *)
+-- src/event.ml
+TransSys.add_invariant
+TransSys.add_scoped_invariant
+- TransSys.contract_is_global
+- TransSys.get_abstraction_split
+- TransSys.get_all_subsystems
+- TransSys.get_callers
+- TransSys.get_name
+TransSys.get_prop_source
+TransSys.get_prop_status
+TransSys.get_scope
+TransSys.get_source
+TransSys.get_source_name
+TransSys.get_source_name,
+TransSys.length_of_cex
+TransSys.Lustre
+TransSys.named_term_of_prop_name
+TransSys.Native
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound
+TransSys.prop_status
+TransSys.prop_status_known
+TransSys.PropUnknown
+TransSys.set_prop_false
+TransSys.set_prop_invariant
+TransSys.set_prop_ktrue
+TransSys.set_prop_status
+TransSys.subsystem_of_scope
 
-  (Term.t -> unit) ->
-  (** Assert fun. *)
+-- src/interpreter.ml
+TransSys.get_abstraction
+TransSys.get_logic
+TransSys.get_scope
+TransSys.init_of_bound
+TransSys.init_solver
+TransSys.state_vars
+TransSys.trans_of_bound
 
-  Numeral.t ->
-  (** Var declaration lower bound. *)
+-- src/invGenCandTermGen.ml
+TransSys.get_abstraction
+TransSys.get_scope
+TransSys.get_subsystems
+TransSys.init_of_bound
+TransSys.instantiate_term_all_levels
+TransSys.state_vars
+TransSys.trans_of_bound
 
-  Numeral.t ->
-  (** Var declaration upper bound. *)
+-- src/invGenGraph.ml
+TransSys.add_invariant
+TransSys.get_name
+TransSys.get_scope
+TransSys.init_flag_of_trans_sys
+TransSys.instantiate_term_all_levels
+TransSys.named_term_of_prop_name
+TransSys.PropInvariant
+TransSys.subsystem_of_scope
+TransSys.t
+TransSys.uf_defs
 
-  unit
+-- src/kind2.ml
+TransSys.all_props_actually_proved
+TransSys.get_all_subsystems
+TransSys.get_prop_status_all
+TransSys.lift_valid_properties
+TransSys.pp_print_prop_status_pt
+TransSys.pp_print_trans_sys
+TransSys.pp_print_trans_sys_name
+TransSys.PropInvariant
+TransSys.props_list_of_bound
+TransSys.reset_invariants
+TransSys.reset_non_valid_props_to_unknown
+
+-- src/lockStepDriver.ml
+TransSys.declare_vars_global_const
+TransSys.declare_vars_of_bounds
+TransSys.get_abstraction
+TransSys.get_invars
+TransSys.get_logic
+TransSys.get_name
+TransSys.get_scope
+TransSys.get_subsystems
+TransSys.init_of_bound
+TransSys.init_solver
+TransSys.invars_of_bound
+TransSys.t
+TransSys.trans_of_bound
+TransSys.vars_of_bounds
+
+-- src/log.ml
+TransSys.get_abstraction
+TransSys.get_all_subsystems
+TransSys.get_invars
+TransSys.get_name
+TransSys.get_prop_status_all
+TransSys.get_prop_status_all_unknown
+TransSys.is_top
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.PropUnknown
+TransSys.t
+
+-- src/PDR.ml
+TransSys.add_invariant
+TransSys.exists_eval_on_path
+TransSys.get_abstraction
+TransSys.get_logic
+TransSys.get_prop_status
+TransSys.get_scope
+TransSys.init_of_bound
+TransSys.init_solver
+TransSys.invars_of_bound
+TransSys.is_disproved
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound_unknown
+TransSys.state_vars
+TransSys.trans_of_bound
+TransSys.uf_defs
+TransSys.vars_of_bounds
+
+-- src/QE.ml
+TransSys.declare_vars_of_bounds
+TransSys.get_abstraction
+TransSys.get_logic
+TransSys.get_scope
+TransSys.init_solver
+TransSys.iter_uf_definitions
+TransSys.vars_of_bounds
+
+-- src/refiner.ml
+TransSys.get_abstraction
+TransSys.get_all_subsystems
+TransSys.get_contracts
+TransSys.get_scope
+TransSys.is_contract_proved
+TransSys.proved_requirements_of
+TransSys.set_abstraction
+TransSys.subrequirements_valid
+
+-- src/step.ml
+TransSys.add_invariant
+TransSys.declare_vars_of_bounds
+TransSys.get_abstraction
+TransSys.get_logic
+TransSys.get_name
+TransSys.get_prop_status
+TransSys.get_scope
+TransSys.init_define_fun_declare_vars_of_bounds
+TransSys.init_solver
+TransSys.invars_of_bound
+TransSys.iter_state_var_declarations
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound_unknown
+TransSys.state_vars
+TransSys.trans_fun_of
+TransSys.trans_of_bound
+TransSys.uf_defs
+TransSys.vars_of_bounds
+
+
+*)
+
+*)
 
 
 (* 

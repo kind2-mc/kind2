@@ -7,6 +7,9 @@ open Ocamlbuild_pack;;
 let glib_lib = "@GLIB_CONF_LIBS@"
 let glib_include = "@GLIB_CONF_CFLAGS@";; 
 *)
+let ocamldoc_opts = S [A"-intro"; A"doc_Intro.indexdoc"; 
+                       A"-hide"; A"doc_LustreFrontEnd";
+                       A"-hide"; A"doc_Intro.ml"]
 
 let ocamlfind_query pkg =
   let cmd = Printf.sprintf "ocamlfind query %s" (Filename.quote pkg) in
@@ -18,6 +21,9 @@ dispatch begin function
 
   | After_rules ->
     ocaml_lib ~extern:true ~dir:"../../ocamlczmq/lib" "ZMQ";
+
+     pflag_and_dep ["doc"] "with_intro" (fun f -> S [A "-intro"; P f]);
+    flag ["ocaml"; "doc"] ocamldoc_opts;
          
 (*
 

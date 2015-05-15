@@ -78,9 +78,6 @@ type state_var_source =
   (* Local ghost stream *)
   | Ghost
 
-  (* Local abstracted stream *)
-  | Abstract
-
   (* Oracle input stream *)
   | Oracle
 
@@ -129,9 +126,7 @@ type contract =
     (* One observer for each ensures *)
     contract_enss : StateVar.t list;
 
-    (* One observer for the implication between requirements and ensures *)
-    contract_impl : StateVar.t }
-
+  }
 
 (* A Lustre node *)
 type t = 
@@ -151,6 +146,18 @@ type t =
     (* Distinguished state variable to become true in the first
        instant only *)
     first_tick : StateVar.t;
+
+    (* One observer for conjunction of the global requirements and the
+       disjunction of the mode requirements 
+
+       Any caller has to make this observer true *)
+    contract_all_req : StateVar.t;
+
+    (* One observer for the conjunction of the global enusres and
+       the mode implications 
+
+       This is asserted about the node when abstract *)
+    contract_all_ens : StateVar.t;
 
     (* Input variables of node together with their index in the
        original model and a list of expressions for the upper bounds
@@ -182,7 +189,7 @@ type t =
     asserts : E.t list;
 
     (* Proof obligations for node *)
-    props : (StateVar.t * TermLib.prop_source) list;
+    props : (StateVar.t * string * TermLib.prop_source) list;
 
     (* The contracts of the node: an optional global contract and a
        list of named mode contracts *)
@@ -214,6 +221,16 @@ let empty_node name =
     first_tick = 
       StateVar.mk_state_var
         (I.first_tick_ident |> I.string_of_ident false)
+        [I.string_of_ident false name]
+        Type.t_bool;
+    contract_all_req = 
+      StateVar.mk_state_var
+        (I.all_req_ident |> I.string_of_ident false)
+        [I.string_of_ident false name]
+        Type.t_bool;
+    contract_all_ens = 
+      StateVar.mk_state_var
+        (I.all_ens_ident |> I.string_of_ident false)
         [I.string_of_ident false name]
         Type.t_bool;
     inputs = D.empty;
@@ -366,12 +383,18 @@ let pp_print_assert safe ppf expr =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf var = 
+let pp_print_prop safe ppf (sv, n, _) = 
+  
+  let sv_string = 
+    Format.asprintf "%a" (E.pp_print_lustre_var safe) sv 
+  in
 
   Format.fprintf ppf
-    "@[<hv 2>--%%PROPERTY@ @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) var
-    
+    "@[<hv 2>--%%PROPERTY %s;%t@]"
+    sv_string
+    (fun ppf -> 
+       if sv_string <> n then
+         Format.fprintf ppf " -- was: %s" n)
 
 (* Pretty-print an assumption *)
 let pp_print_require safe ppf sv =
@@ -391,7 +414,7 @@ let pp_print_ensure safe ppf sv =
 let pp_print_mode_contract safe ppf (name, { contract_reqs; contract_enss }) =
   Format.fprintf
     ppf
-    "@[<v>--@@contract %s ;@,%a@,%a@]"
+    "@[<v>--@@contract %s;@,%a@,%a@]"
     name
     (pp_print_list (pp_print_require safe) "@ ") contract_reqs
     (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
@@ -419,7 +442,8 @@ let pp_print_contracts safe ppf (global_contract, mode_contracts) =
     ppf
     "@[<v>%a%t%a@]"
     (pp_print_global_contract safe) global_contract
-    (fun ppf -> if global_contract <> None then Format.fprintf ppf "@,")
+    (fun ppf -> if global_contract <> None && mode_contracts <> [] then 
+        Format.fprintf ppf "@,")
     (pp_print_list (pp_print_mode_contract safe) "@,") mode_contracts
     
 
@@ -492,7 +516,7 @@ let pp_print_node
 
     (* %a%t *)
     (pp_print_list (pp_print_call safe) "@ ") calls
-    (space_if_nonempty equations)
+    (space_if_nonempty calls)
 
     (* %a%t *)
     (pp_print_list (pp_print_node_equation safe) "@ ") equations
@@ -505,7 +529,7 @@ let pp_print_node
     (* %t *)
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
 
-    (pp_print_list (pp_print_prop safe) "@ ") (List.map fst props)
+    (pp_print_list (pp_print_prop safe) "@ ") props
     
 
 
@@ -562,21 +586,26 @@ let pp_print_node_debug
 
   let pp_print_equation = pp_print_node_equation false in
 
-  let pp_print_prop ppf (state_var, source) = 
+  let pp_print_prop ppf (state_var, name, source) = 
 
     Format.fprintf
       ppf
-      "%a (%a)"
+      "%a (%s, %a)"
       StateVar.pp_print_state_var state_var
+      name
       TermLib.pp_print_prop_source source
 
   in
 
-  let pp_print_contract ppf { contract_reqs; contract_enss } =
+  let pp_print_contract
+      ppf
+      { contract_reqs;
+        contract_enss } =
+
     Format.fprintf 
       ppf
       "@[<v>requires = @[<hv>%a@]@,\
-       ensures  = @[<hv>%a@]@]"
+            ensures =  @[<hv>%a@]@]"
       (pp_print_list StateVar.pp_print_state_var ",@ ") contract_reqs
       (pp_print_list StateVar.pp_print_state_var ",@ ") contract_enss
   in
@@ -587,7 +616,7 @@ let pp_print_node_debug
       "@[<v>%t%t@]"
       (fun ppf -> match global_contract with
          | None -> ()
-         | Some c -> Format.fprintf ppf "global = %a"pp_print_contract c)
+         | Some c -> Format.fprintf ppf "@[<v 2>global:@,%a@]"pp_print_contract c)
       (fun ppf -> match mode_contracts with 
          | [] -> ()
          | _ -> 
@@ -615,7 +644,6 @@ let pp_print_node_debug
       | (sv, Output) -> p sv "out"
       | (sv, Local) -> p sv "loc" 
       | (sv, Ghost) -> p sv "gh" 
-      | (sv, Abstract) -> p sv "abs" 
       | (sv, Oracle) -> p sv "or" 
 
   in
@@ -714,6 +742,12 @@ let rec ident_of_top = function
 
   | h :: tl -> ident_of_top tl
 
+
+(* Node has a contract if it has a global or at least one mode
+   contract *)
+let has_contract { contracts = (g, cl) } = not (g = None && cl = [])
+  
+
 (* ********************************************************************** *)
 (* Stateful variables                                                     *)
 (* ********************************************************************** *)
@@ -790,7 +824,11 @@ let stateful_vars_of_node
   in
 
   (* Add property variables *)
-  let stateful_vars = add_to_svs stateful_vars (List.map fst props) in
+  let stateful_vars = 
+    add_to_svs
+      stateful_vars
+      (List.map (fun (sv, _, _) -> sv) props) 
+  in
 
   (* Add stateful variables from assertions *)
   let stateful_vars = 
@@ -850,7 +888,6 @@ let rec pp_print_state_var_source ppf = function
   | Output -> Format.fprintf ppf "output"
   | Local -> Format.fprintf ppf "local"
   | Ghost -> Format.fprintf ppf "ghost"
-  | Abstract -> Format.fprintf ppf "abstract"
 
 
 (* Set source of state variable *)
@@ -882,8 +919,7 @@ let state_var_is_visible node state_var =
 
     (* Oracle inputs and abstraced streams are invisible *)
     | Ghost
-    | Oracle
-    | Abstract -> false
+    | Oracle -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input
@@ -978,65 +1014,6 @@ let set_state_var_instance state_var pos node state_var' =
     state_var_instance_map 
     state_var
     instances'
-
-
-
-(*
-
-(* Return all expressions of a node *)
-let exprs_of_node { equations; calls; asserts; props; contracts } =
-
-  (* Start with expressions in equations *)
-  let exprs_equations = 
-    List.fold_left 
-      (fun accum (_, (_, expr)) -> expr :: accum)
-      []
-      equations
-  in
-
-  (* Add expressions in calls *)
-  let exprs_calls = 
-    List.fold_left
-      (fun
-        accum
-        { call_clock = act_cond; call_inputs = args; call_defaults = inits } ->
-
-(*
-        (List.map (E.cur_expr_of_state_var E.cur_offset) args) @
-        (List.map (E.pre_term_of_state_var E.cur_offset) args) @
-         (* Add previous state expression of arguments *)
-         List.map 
-           (fun e -> 
-              (fst 
-                 ((E.mk_pre
-
-                     (* Immediately fail if expression under pre needs
-                        to be abstracted *)
-                     (fun _ -> assert false) [] e)))) 
-           args @ *)
-        (IdxTrie.values inits) @ 
-         accum)
-      exprs_equations
-      calls
-  in
-
-  (* Add expressions in assertions *)
-  let exprs_asserts = asserts @ exprs_calls in
-
-  (* Add all the expressions appearing in the contract. *)
-  contracts
-  |> List.fold_left
-       ( fun list (_, _, reqs, ens) ->
-         reqs @ ens @ list )
-       exprs_asserts
-
-*)
-
-
-
-    
-
-
 
       
 (* 

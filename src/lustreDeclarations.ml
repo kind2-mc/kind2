@@ -513,9 +513,10 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
     C.fail_at_position pos "Type mismatch in equation: indexes not of equal length"
 
   (* All indexes consumed *)
-  | ([], state_var) :: lhs_tl, ([], expr) :: rhs_tl -> 
+  | ([], state_var) :: lhs_tl, 
+    ([], expr) :: rhs_tl -> 
 
-    expand_tuple' 
+    expand_tuple'
       pos
       ((state_var, bounds, expr) :: accum)
       []
@@ -523,9 +524,10 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
       rhs_tl
 
   (* Only array indexes may be left at head of indexes *)
-  | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl, ([], expr) :: rhs_tl ->
+  | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
+    ([], expr) :: rhs_tl ->
 
-    expand_tuple'
+    expand_tuple' 
       pos
       accum
       (N.Bound b :: bounds)
@@ -533,50 +535,41 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
       (([], expr) :: rhs_tl)
 
   (* Array variable on left-hand side, fixed index on right-hand side *)
-  | ((D.ArrayVarIndex b :: lhs_index_tl as lhs_index), state_var) :: lhs_tl,
+  | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (D.ArrayIntIndex i :: rhs_index_tl, expr) :: rhs_tl -> 
 
-    (* TODO: Check if the bounds are equal. Not as easy as it sounds
-       like, because the bounds may be computed. *)
-    expand_tuple'
-      pos
-      accum
-      (N.Fixed (E.mk_int_expr (Numeral.of_int i)) :: bounds)
-      ((lhs_index_tl, state_var) :: 
+    (* Recurse to produce equations with this index *)
+    let accum' = 
+      expand_tuple' 
+        pos
+        accum
+        (N.Fixed (E.mk_int_expr (Numeral.of_int i)) :: bounds)
+        [(lhs_index_tl, state_var)]
+        [(rhs_index_tl, expr)]
+    in
 
-       (* Replicate array index until all indexes on right-hand side
-          covered *)
-       (match rhs_tl with 
-         | [] -> lhs_tl
-         | _ -> (lhs_index, state_var) :: lhs_tl))
+    (* Return of no fixed indexes on right-hand side left *)
+    if rhs_tl = [] then accum' else
 
-      ((rhs_index_tl, expr) :: rhs_tl)
+      (* Continue with next fixed index on right-hand side and
+         variable index on left-hand side *)
+      expand_tuple'
+        pos
+        accum'
+        bounds
+        lhs
+        rhs_tl
 
   (* Array index on left-hand and right-hand side *)
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (D.ArrayVarIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
 
-    (* TODO: Check if the bounds are equal. Not as easy as it sounds
-       like, because the bounds may be computed. *)
-    let i = 
-      List.filter
-        (function D.ArrayVarIndex _ -> true | _ -> false) 
-        rhs_index_tl
-      |> List.length
-    in
-
-    let expr' =
-      E.mk_select
-        expr
-        (E.mk_index_var i)
-    in
-
-    expand_tuple'
+    expand_tuple' 
       pos
       accum
-      ((N.Bound b) :: bounds) 
+      (N.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
-      ((rhs_index_tl, expr') :: rhs_tl)
+      ((rhs_index_tl, expr) :: rhs_tl)
 
   (* Tuple index on left-hand and right-hand side *)
   | ((D.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
@@ -650,11 +643,31 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     C.fail_at_position pos "Type mismatch in equation: head indexes do not match"
 
-    
+
 (* Return a list of equations from a trie of state variables and a
    trie of expressions *)
 let expand_tuple pos lhs rhs = 
-  
+
+  Format.printf
+    "@[<v>expand_tuple lhs:@,%a@]@."
+    (pp_print_list
+       (fun ppf (i, sv) -> 
+          Format.fprintf ppf "%a: %a "
+            (D.pp_print_index false) i
+            StateVar.pp_print_state_var sv)
+       "@,")
+    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs));
+
+  Format.printf
+    "@[<v>expand_tuple rhs:@,%a@]@."
+    (pp_print_list
+       (fun ppf (i, e) -> 
+          Format.fprintf ppf "%a: %a "
+            (D.pp_print_index false) i
+            (E.pp_print_lustre_expr false) e)
+       "@,")
+    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs));
+    
   expand_tuple' 
     pos
     []
@@ -693,8 +706,14 @@ let rec eval_node_equations ctx = function
       |> C.close_expr pos
     in
 
+    let name = 
+      Format.asprintf
+        "@[<h>%a@]"
+        A.pp_print_expr ast_expr
+    in
+    
     (* Add property to node *)
-    let ctx = C.add_node_property ctx (TermLib.PropAnnot pos) expr in
+    let ctx = C.add_node_property ctx (TermLib.PropAnnot pos) name expr in
 
     (* Continue with next node statements *)
     eval_node_equations ctx tl
@@ -740,7 +759,7 @@ let rec eval_node_equations ctx = function
        definitions from the right-hand side, but remove the local
        definitions that we made before. *)
     let ctx = uneval_eq_lhs ctx lhs in
-
+    
     let equations = expand_tuple pos eq_lhs eq_rhs in
 
     (* Add equations for each index *)
@@ -873,39 +892,12 @@ let eval_contract ctx pos reqs enss =
   (* Evaluate ensures *)
   let ens', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
 
-  (* State variable to observer implication between requirements and
-     ensures *)
-  let impl_sv, ctx = C.mk_fresh_local ctx Type.t_bool in
-
-  (* Add equation to define implication *)
-  let ctx = 
-    C.add_node_equation
-      ctx
-      dummy_pos
-      impl_sv
-      []
-      (E.mk_impl
-
-         (* Conjunction of requirements *)
-         (List.fold_left 
-            (fun a sv -> E.mk_var sv E.base_clock |> E.mk_and a)
-            E.t_true
-            reqs')
-
-         (* Conjunction of ensures *)
-         (List.fold_left 
-            (fun a sv -> E.mk_var sv E.base_clock |> E.mk_and a)
-            E.t_true
-            ens'))
-  in
-
   (* Evaluate ensures *)
   let enss', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
 
   (* Return a contract *)
   ({ N.contract_pos = pos; 
      N.contract_reqs = reqs'; 
-     N.contract_impl = impl_sv;
      N.contract_enss = enss' },
    ctx)
 

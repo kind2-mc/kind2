@@ -181,10 +181,9 @@ first_tick true  true  true false false false ... ]}
     @author Christoph Sticksel
     @author Adrien Champion *)
 
-(*
-(** *)
-val trans_sys_of_node : LustreNode.t list -> LustreNode.t list -> LustreIdent.t -> (LustreIdent.t * bool) list -> TransSys.t
-*)
+
+val trans_sys_of_nodes : LustreNode.t SubSystem.t -> Analysis.param -> TransSys.t
+
 
 (* 
    Local Variables:

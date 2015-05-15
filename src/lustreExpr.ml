@@ -107,6 +107,10 @@ module LustreExprHashtbl = Hashtbl.Make
     end)
 
 
+(* Equality on expressions *)
+let equal_expr = Term.equal
+
+
 (* These offsets are different from the offsets in the transition system,
    because here we want to know if the initial and the step
    expressions are equal without bumping offsets. *)
@@ -631,6 +635,22 @@ let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 (* Return true if expression is a previous state variable *)
 let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
 
+
+(* Return true if the expression is constant *)
+let is_const { expr_init; expr_step } = 
+
+  (* Are all variables in the expression constant? *)
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr_init)
+    
+  &&
+
+  (* Are all variables in the expression constant? *)
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr_step)
+    
 
 (* ********************************************************************** *)
 (* Conversion to terms                                                    *)
@@ -1170,6 +1190,12 @@ let type_of_and = type_of_bool_bool_bool
 (* Boolean conjunction *)
 let mk_and expr1 expr2 = mk_binary eval_and type_of_and expr1 expr2 
 
+(* n-ary Boolean conjunction *)
+let mk_and_n = function
+  | [] -> t_true
+  | h :: [] -> h
+  | h :: tl -> List.fold_left mk_and h tl
+                 
 
 (* ********************************************************************** *)
 
@@ -1199,6 +1225,12 @@ let type_of_or = type_of_bool_bool_bool
 (* Boolean disjunction *)
 let mk_or expr1 expr2 = mk_binary eval_or type_of_or expr1 expr2 
 
+(* n-ary Boolean disjunction *)
+let mk_or_n = function
+  | [] -> t_true
+  | h :: [] -> h
+  | h :: tl -> List.fold_left mk_or h tl
+                 
 
 (* ********************************************************************** *)
 
@@ -1881,6 +1913,17 @@ let mk_pre
   (* Apply pre to initial state expression *)
   let expr_init', ctx' = match expr_init with 
 
+    (* Expression is a constant *)
+    | t when 
+        t == Term.t_true || 
+        t == Term.t_false || 
+        (Term.is_free_var t && 
+         Term.free_var_of_term t |> Var.is_const_state_var) ||
+        (match Term.destruct t with 
+          | Term.T.Const c1 when 
+              Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+          | _ -> false) -> (expr_init, ctx)
+
     (* Expression is a variable at the current instant *)
     | t when 
         Term.is_free_var t && 
@@ -1888,15 +1931,6 @@ let mk_pre
                  base_offset)  -> 
       
       (Term.bump_state Numeral.(- one) t, ctx)
-
-    (* Expression is a constant *)
-    | t when 
-        t == Term.t_true || 
-        t == Term.t_false || 
-        (match Term.destruct t with 
-          | Term.T.Const c1 when 
-              Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
-          | _ -> false) -> (expr_init, ctx)
 
     (* Expression is not constant and not a variable at the current
        instant *)

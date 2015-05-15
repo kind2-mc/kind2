@@ -69,6 +69,12 @@ val running_ident : t
 (** Identifier for first instant flag *)
 val first_tick_ident : t
 
+(** Identifier for observer of contract requirements *)
+val all_req_ident : t
+
+(** Identifier for observer of contract ensures *)
+val all_ens_ident : t
+
 (** Identifier for instantiated variables in node calls *)
 val inst_ident : t
 

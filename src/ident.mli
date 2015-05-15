@@ -16,25 +16,31 @@
 
 *)
 
-(** Cone of influence reduction and dependency ordering of equations for Lustre nodes 
+(** Managing of identifier to avoid clashes
 
     @author Christoph Sticksel *)
 
-val order_equations : bool ->
-(LustreIdent.t * (LustreIndex.key list LustreIndex.t * LustreIndex.key list LustreIndex.t)) list ->
-LustreNode.t ->
-(StateVar.t * LustreExpr.expr LustreNode.bound_or_fixed list * LustreExpr.t) list *
-LustreIndex.index list LustreIndex.t
+(** Identifier 
 
-val slice_to_impl : LustreNode.t list -> LustreNode.t list
+    This type will become private later *)
+type t = string
 
-val slice_to_contract : LustreNode.t list -> LustreNode.t list
+(** Equality of identifiers *)
+val equal : t -> t -> bool
+
+(** Total order of identifiers *)
+val compare : t -> t -> int
+
+(** Set of identifiers *)
+module IdentSet : Set.S with type elt = t
+
+(** Map of identifiers *)
+module IdentMap : Map.S with type key = t
 
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -C .. -k"
    indent-tabs-mode: nil
    End: 
 *)
-  

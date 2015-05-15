@@ -499,10 +499,14 @@ let order_equations
 
 (* Initially empty node for slicing *)
 let slice_all_of_node 
+    ?(keep_props = true)
+    ?(keep_contracts = true)
     { N.name; 
       N.instance;
       N.running;
       N.first_tick;
+      N.contract_all_req;
+      N.contract_all_ens;
       N.inputs; 
       N.oracles; 
       N.outputs; 
@@ -518,6 +522,8 @@ let slice_all_of_node
     N.instance;
     N.running;
     N.first_tick;
+    N.contract_all_req;
+    N.contract_all_ens;
     N.inputs;
     N.oracles; 
     N.outputs; 
@@ -525,8 +531,8 @@ let slice_all_of_node
     N.equations = [];
     N.calls = [];
     N.asserts = [];
-    N.props;
-    N.contracts;
+    N.props = if keep_props then props else [];
+    N.contracts = if keep_contracts then contracts else (None, []);
     N.is_main;
     N.state_var_source_map = SVM.empty }
 
@@ -574,7 +580,7 @@ let add_roots_of_equation roots (_, _, expr) =
 
 
 (* Return state variables from properties *)
-let roots_of_props = List.map fst
+let roots_of_props = List.map (fun (sv, _, _) -> sv)
 
 
 (* Return state variables from contracts *)
@@ -622,12 +628,13 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
      ({ N.name; N.inputs; N.oracles; N.outputs; N.locals; N.state_var_source_map } as node_sliced), 
      node_unsliced) :: tl -> 
 
+(*  Sort when creating transition system
+
     (* Sort equations of sliced node by dependencies, and continue
 
        We must pass [accum] instead of [nodes] to order_equations,
        because we need the output input dependencies of called nodes
        that are only set when adding a node to [accum]. *)
-
     let node_sliced' = 
       { node_sliced with
           N.state_var_source_map = 
@@ -643,7 +650,8 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
                    locals)
               state_var_source_map }
     in
-                   
+  *)
+                 
     slice_nodes
       init_slicing_of_node
       nodes
@@ -928,40 +936,54 @@ let slice_to_contract =
     nodes
     []
     
-*)
-
 (* Slice a node as a top node, starting from its properties and contracts *)
 let root_and_leaves_of_props_node 
     ({ N.contracts; 
        N.props } as node) =
 
   (* Slice everything from node *)
-  let node_sliced = slice_all_of_node node in
+  let node_sliced = 
+    slice_all_of_node
+      ~keep_props:true
+      ~keep_contracts:false
+      node
+  in
     
   (* Slice starting with contracts and properties *)
-  let node_roots = roots_of_props props @ roots_of_contracts contracts in
+  let node_roots = roots_of_props props in
 
   (* Consider all streams *)
   let node_leaves = [] in
 
   (node_roots, node_leaves, node_sliced, node)
   
+*)
+
 
 (* Slice a node to its implementation, starting from the outputs,
    contracts and properties *)
 let root_and_leaves_of_impl  
-    ({ N.outputs; 
+    ({ N.contract_all_req; 
+       N.contract_all_ens; 
+       N.outputs; 
        N.contracts; 
        N.props } as node) =
 
   (* Slice everything from node *)
-  let node_sliced = slice_all_of_node node in
-
+  let node_sliced = 
+    slice_all_of_node
+      ~keep_props:true
+      ~keep_contracts:true
+      node 
+  in
+  
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
+    contract_all_req :: 
+    contract_all_ens :: 
+    roots_of_contracts contracts @
     D.values outputs @ 
-    roots_of_props props @ 
-    roots_of_contracts contracts 
+    roots_of_props props
   in
 
   (* Consider all streams *)
@@ -973,15 +995,24 @@ let root_and_leaves_of_impl
 (* Slice a node to its contracts, starting from contracts, stopping at
    outputs *)
 let root_and_leaves_of_contracts
-    ({ N.outputs; 
+    ({ N.contract_all_req; 
+       N.contract_all_ens; 
+       N.outputs; 
        N.contracts; 
        N.props } as node) =
 
   (* Slice everything from node *)
-  let node_sliced = slice_all_of_node node in
+  let node_sliced = 
+    slice_all_of_node 
+      ~keep_props:false
+      ~keep_contracts:true
+      node 
+  in
     
   (* Slice starting with contracts *)
   let node_roots = 
+    contract_all_req :: 
+    contract_all_ens :: 
     roots_of_contracts contracts 
   in
 
@@ -996,7 +1027,12 @@ let root_and_leaves_of_contracts
 let custom_roots roots node = 
 
   (* Slice everything from node *)
-  let node_sliced = slice_all_of_node node in
+  let node_sliced = 
+    slice_all_of_node 
+      ~keep_props:true
+      ~keep_contracts:true
+      node 
+  in
     
   (* Slice starting with given roots *)
   let node_roots = roots in

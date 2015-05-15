@@ -35,30 +35,6 @@ type cexs = cex list
 (** {1 Properties of transition systems} *)
 
 
-(** Source of a property *)
-type prop_source =
-
-  (** Property is from an annotation *)
-  | PropAnnot of Lib.position
-
-  (** Property is part of a contract *)
-  | Contract of Lib.position * string
-
-  (** Property was generated, for example, from a subrange
-      constraint *)
-  | Generated of StateVar.t list
-
-  (** Property is a requirement of a subnode. *)
-  | Requirement of Lib.position * string list * StateVar.t list
-
-  (** Property is an instance of a property in a called node
-
-      Reference the instantiated property by the [scope] of the
-      subsystem and the name of the property *)
-  | Instantiated of string list * string
-
-val pp_print_prop_source : Format.formatter -> prop_source -> unit
-
 
 (** {1 Utilities functions on terms } *)
 

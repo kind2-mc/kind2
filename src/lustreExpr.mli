@@ -50,6 +50,9 @@ exception Clock_mismatch
     constructors below. *)
 type expr = private Term.t
 
+(** Equality of expressions *)
+val equal_expr : expr -> expr -> bool
+
 (** A clock
 
     Cannot be constructed outside this module to enforce
@@ -119,6 +122,9 @@ val is_pre_var : t -> bool
 (** Return [true] if there is an unguarded [pre] operator in the
     expression. *)
 val pre_is_unguarded : t -> bool
+
+(** Return true if the expression is constant *)
+val is_const : t -> bool
 
 (** {1 Constants} *)
 
@@ -239,8 +245,14 @@ val mk_uminus : t -> t
 (** Return the Boolean conjunction of the two expressions. *)
 val mk_and : t -> t -> t 
 
+(** Return the Boolean conjunction of the list of expressions. *)
+val mk_and_n : t list -> t 
+
 (** Return the Boolean disjunction of the two expressions. *)
 val mk_or : t -> t -> t 
+
+(** Return the Boolean disjunction of the list of expressions. *)
+val mk_or_n : t list -> t 
 
 (** Return the Boolean exclusive disjunction of the two expressions. *)
 val mk_xor : t -> t -> t 

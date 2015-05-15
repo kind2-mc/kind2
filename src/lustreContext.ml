@@ -459,7 +459,10 @@ let mk_state_var
   in
 
   (* Set source of state variable *)
-  let ctx = set_state_var_source ctx state_var state_var_source in
+  let ctx = match state_var_source with 
+    | Some s -> set_state_var_source ctx state_var s 
+    | None -> ctx
+  in
 
   (* Create expression from state variable *)
   let expr = E.mk_var state_var E.base_clock in
@@ -648,7 +651,7 @@ let mk_fresh_oracle
           (I.push_index I.oracle_ident fresh_oracle_index)
           D.empty_index
           state_var_type
-          N.Oracle
+          (Some N.Oracle)
       in
 
       (* Increment index of fresh oracle *)
@@ -814,7 +817,7 @@ let mk_state_var_for_expr
             (I.push_index I.abs_ident fresh_local_index)
             D.empty_index
             expr_type
-            N.Abstract
+            None
         in
 
         (* Record mapping of expression to state variable
@@ -907,7 +910,7 @@ let mk_fresh_local
           (I.push_index I.abs_ident fresh_local_index)
           D.empty_index
           state_var_type
-          N.Abstract
+          None
       in
 
       (* Increment index of fresh oracle *)
@@ -1028,7 +1031,7 @@ let add_node_input ?is_const ctx ident index_types =
                  ident
                  index
                  index_type
-                 N.Input
+                 (Some N.Input)
              in
              
              (* Add expression to trie of identifier *)
@@ -1070,7 +1073,7 @@ let add_node_output ?(is_single = false) ctx ident index_types =
                  ident
                  index
                  index_type
-                 N.Output
+                 (Some N.Output)
              in
              
              let index' = 
@@ -1115,7 +1118,7 @@ let add_node_local ?(ghost = false) ctx ident index_types =
                  ident
                  index
                  index_type
-                 (if ghost then N.Ghost else N.Local)
+                 (if ghost then Some N.Ghost else Some N.Local)
              in
              
              (* Add expression to trie of identifier *)
@@ -1188,7 +1191,7 @@ let add_node_assert ctx expr =
 
 
 (* Add node assert to context *)
-let add_node_property ctx source expr = 
+let add_node_property ctx source name expr = 
 
   match ctx with 
 
@@ -1238,7 +1241,7 @@ let add_node_property ctx source expr =
 
               (* A property with the same state variables exists? *)
               List.exists 
-                (fun (sv, _) -> StateVar.equal_state_vars state_var sv)
+                (fun (sv, _ ,_) -> StateVar.equal_state_vars state_var sv)
                 props
                 
             then
@@ -1252,7 +1255,7 @@ let add_node_property ctx source expr =
               (state_var', [], E.mk_var state_var E.base_clock) :: equations, 
 
               (* Use alias as property *)
-              (state_var', source), 
+              (state_var', name, source), 
 
               (* Context with new declaration *)
               ctx
@@ -1260,7 +1263,7 @@ let add_node_property ctx source expr =
             else
 
               (* Change nothing *)
-              equations, (state_var, source), ctx
+              equations, (state_var, name, source), ctx
 
           in
           
@@ -1281,12 +1284,31 @@ let add_node_equation ctx pos state_var bounds expr =
 
     | { node = Some { N.equations; N.calls } } -> 
 
+      Format.printf
+        "%a%a = %a@."
+        StateVar.pp_print_state_var state_var
+        (pp_print_list
+           (function ppf -> function
+              | N.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
+              | N.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
+           "")
+        bounds
+        (E.pp_print_lustre_expr false) expr;
+                  
 
       if 
         
         (* State variable already defined by equation? *)
         List.exists
-          (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+          (fun (sv, b, _) -> 
+             StateVar.equal_state_vars state_var sv &&
+             List.for_all2 
+               (fun b1 b2 -> match b1, b2 with
+                  | N.Fixed e1, N.Fixed e2 -> E.equal_expr e1 e2
+                  | N.Bound _, N.Bound _ -> true
+                  | _ -> false)
+               b 
+               bounds)
           equations
 
         ||
@@ -1307,17 +1329,30 @@ let add_node_equation ctx pos state_var bounds expr =
              "Duplicate definition for %a"
              (E.pp_print_lustre_var false) state_var);
       
-      (* Type of state variable *)
-      let state_var_type = StateVar.type_of_state_var state_var in
-
       (* Wrap type of expression in arrays for the number of not fixed
          bounds *)
-      let expr_type =
+      let expr_type = E.type_of_lustre_expr expr in
+
+      (* Type of state variable *)
+      let state_var_type = 
         List.fold_left
           (fun t -> function
-             | N.Bound _ -> Type.mk_array t Type.t_int
-             | N.Fixed _ -> t )
-          (E.type_of_lustre_expr expr)
+             | N.Bound _
+             | N.Fixed _ -> 
+
+               if Type.is_array t then
+
+                 Type.elem_type_of_array t
+                   
+               else
+
+                 fail_at_position
+                   pos
+                   (Format.asprintf 
+                      "Type mismatch in equation: %a and %a"
+                      Type.pp_print_type t
+                      Type.pp_print_type expr_type))
+          (StateVar.type_of_state_var state_var )
           bounds
       in
 
@@ -1368,7 +1403,14 @@ let add_node_equation ctx pos state_var bounds expr =
               StateVar.change_type_of_state_var state_var (Type.mk_int ());
 
               (* Add property to node *)
-              add_node_property ctx (TermLib.Generated [state_var]) range_expr
+              add_node_property
+                ctx
+                (TermLib.Generated [state_var]) 
+                (Format.asprintf
+                   "%a.bound" 
+                   (E.pp_print_lustre_var false) 
+                   state_var)
+                range_expr
 
             | t, s -> 
 
@@ -1443,17 +1485,135 @@ let node_of_context = function
     raise (Invalid_argument "node_of_context")
 
   (* Add abstractions to node and return *)
-  | { expr_state_var_map; node = Some { N.equations } } as ctx -> 
+  | { expr_state_var_map; 
+      node = 
+        Some
+          ({ N.contract_all_req; 
+             N.contract_all_ens; 
+             N.contracts = (global_contract, mode_contracts) } as node) } as ctx -> 
 
-    (* Add equations from definitions to equations *)
     let node =
 
       match 
+
+        (* Add equations from definitions to equations *)
         ET.fold
           (fun e sv ctx -> 
              add_node_equation ctx dummy_pos sv [] e)
           expr_state_var_map
           ctx
+
+        (* Add equations for observer of requirement and ensures *)
+        |> (fun ctx -> 
+
+            if N.has_contract node then 
+
+              (* Conjunction of expressions from state variables *)
+              let mk_sv_conj l =
+                List.map (fun sv -> E.mk_var sv E.base_clock) l 
+                |> E.mk_and_n 
+              in
+
+              (* Return conjunction of requirements, and conjunction of
+                 ensures *)
+              let req_ens_of_contract
+                  { N.contract_reqs; N.contract_enss } =
+
+                (* Conjunction of all requirements *)
+                let req = mk_sv_conj contract_reqs in
+
+                (* Conjunction of all ensures *)
+                let ens = mk_sv_conj contract_enss in
+
+                (* Return conjunction and implication *)
+                req, ens
+
+              in
+
+              (* Observers for mode requirements and mode ensures *)
+              let mode_req, mode_impl =
+
+                List.fold_left 
+
+                  (fun (mode_req, mode_impl) (_, c) ->
+
+                     (* Get conjunction of requirements and conjunction
+                        of ensures *)
+                     let req, ens = req_ens_of_contract c in
+
+                     (* Implication between conjunction of requirements
+                        and conjunction of ensures *)
+                     let impl = E.mk_impl req ens in
+
+                     (* Add expressions to accumulator *)
+                     (req :: mode_req, impl :: mode_impl))
+
+                  ([], [])
+                  mode_contracts 
+
+              in
+
+              (* Disjunction of all mode requirements *)
+              let all_mode_req = E.mk_or_n mode_req in
+
+              (* Conjunction of all mode implications *)
+              let all_mode_impl = E.mk_and_n mode_impl in
+
+              (* Join global requirement with mode requirements and
+                 global ensures with mode ensures *)
+              let all_req, all_ens = match global_contract with
+
+                (* No global contracts, just mode contracts *)
+                | None -> all_mode_req, all_mode_impl
+
+                (* Mode contract *)
+                | Some c -> 
+
+                  (* Get conjunction of requirements, and implication
+                     from conjunctions of requirements to conjunction of
+                     ensures *)
+                  let req, ens = req_ens_of_contract c in
+
+                  (* Conjunction of global requirement and mode
+                     requirements *)
+                  E.mk_and req all_mode_req, 
+
+                  (* Conjunction of global ensures and mode
+                     implications *)
+                  E.mk_and ens all_mode_impl
+
+              in
+
+              (* Add definition of observer for ensures *)
+              let ctx =
+                add_node_equation ctx dummy_pos contract_all_ens [] all_ens 
+              in
+
+              (* Add definition of observer for requirement *)
+              let ctx =
+                add_node_equation ctx dummy_pos contract_all_req [] all_req 
+              in
+
+              match ctx with 
+                | { node = Some ({ N.locals } as node) } -> 
+
+                  (* Return context with equations added *)
+                  { ctx with 
+                      node = 
+                        Some
+                          { node with 
+                              N.locals = 
+                                D.singleton D.empty_index contract_all_req :: 
+                                D.singleton D.empty_index contract_all_ens :: 
+                                locals } }
+
+
+                | _ -> assert false
+
+            else
+
+              ctx)
+
       with
         | { node = Some n } -> n
         | _ -> assert false
@@ -1479,121 +1639,6 @@ let set_node_main ctx =
     | { node = Some node } -> 
 
       { ctx with node = Some { node with N.is_main = true } }
-
-
-
-
-
-(*
-
-(* Add declaration of an identifier to trie and to context 
-
-   Helper function for add_node_input_decl, add_node_output_decl *)
-let add_to_trie
-    ?is_const
-    ?is_input
-    ctx
-    state_var_trie
-    ident
-    ident_types 
-  state_var_source =
-
-  (* Get next index at root of trie *)
-  let next_top_idx = D.top_max_index state_var_trie |> succ in
-
-  (* Create state variable, add as expression with index to map of
-     identifiers and as state variable to node inputs *)
-  let expr_of_ident', state_var_trie' = 
-
-    D.fold
-
-      (fun index t (expr_of_ident, state_var_trie) ->
-
-
-         (* Create state variable as input and contant *)
-         let state_var = 
-           mk_state_var
-             ?is_input
-             ?is_const
-             ctx
-             ident
-             index
-             t
-         in
-
-         (* State variable is an input *)
-         E.set_state_var_source state_var state_var_source;
-
-         (* Add expression to trie of identifier *)
-         (ITrie.add ident' (E.mk_var state_var E.base_clock) expr_of_ident,
-
-          (* Add state variable to trie of inputs *)
-          IdxTrie.add index' state_var state_var_trie))
-
-      ident_types
-      (expr_of_ident, state_var_trie)
-
-  in
-
-  ({ context with expr_of_ident = expr_of_ident' }, 
-   state_var_trie')
-
-
-(* Add declaration of an identifier to list and to context
-
-   Helper function for add_node_var_decl, add_node_oracle_decl *)
-let add_node_decl_to_list
-    ({ expr_of_ident } as context)
-    state_var_list
-    state_var_source
-    scope
-    ident
-    ?is_const
-    ?is_input
-    ident_types =
-
-  (* Create state variable, add as expression with index to map of
-     identifiers and as state variable to node inputs *)
-  let expr_of_ident', state_var_list' = 
-
-    IdxTrie.fold
-
-      (fun index t (expr_of_ident, state_var_list) ->
-
-         (* Add index to identifier *)
-         let ident' = I.push_back_index index ident in
-
-         (* Create state variable as input and contant *)
-         let state_var = 
-           E.mk_state_var_of_ident
-             ?is_input
-             ?is_const
-             scope
-             ident' 
-             t
-         in
-
-         (* State variable is an input *)
-         E.set_state_var_source state_var state_var_source;
-
-         (* Add expression to trie of identifier *)
-         (ITrie.add ident' (E.mk_var state_var E.base_clock) expr_of_ident,
-
-          (* Add state variable to list *)
-          state_var :: state_var_list))
-
-      ident_types
-      (expr_of_ident, state_var_list)
-
-  in
-
-  ({ context with expr_of_ident = expr_of_ident' }, 
-   state_var_list')
-
-
-
-*)
-
 
 
 

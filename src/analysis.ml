@@ -16,19 +16,6 @@
 
 *)
 
-(** Cone of influence reduction and dependency ordering of equations for Lustre nodes 
-
-    @author Christoph Sticksel *)
-
-val order_equations : bool ->
-(LustreIdent.t * (LustreIndex.key list LustreIndex.t * LustreIndex.key list LustreIndex.t)) list ->
-LustreNode.t ->
-(StateVar.t * LustreExpr.expr LustreNode.bound_or_fixed list * LustreExpr.t) list *
-LustreIndex.index list LustreIndex.t
-
-val slice_to_impl : LustreNode.t list -> LustreNode.t list
-
-val slice_to_contract : LustreNode.t list -> LustreNode.t list
 
 
 (* 
@@ -38,3 +25,4 @@ val slice_to_contract : LustreNode.t list -> LustreNode.t list
    End: 
 *)
   
+

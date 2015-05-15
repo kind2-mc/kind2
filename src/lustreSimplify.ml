@@ -957,7 +957,11 @@ and eval_node_call ctx pos ident cond args defaults =
             (* Expression must be of a subtype of input type *)
             Type.check_type 
               expr_type
-              (StateVar.type_of_state_var state_var)
+              (StateVar.type_of_state_var state_var) &&
+
+            (* Expression must be constant if input is *)
+            (not (StateVar.is_const state_var) || 
+             E.is_const expr)
 
           then 
 
@@ -969,13 +973,6 @@ and eval_node_call ctx pos ident cond args defaults =
                 ctx
                 expr
             in
-(*
-            (* Created variable is an instance of the input in the
-               callee *)
-            N.set_state_var_instance state_var' pos ident state_var;
-*)
-            (* Create variable is an abstraction *)
-            let ctx = C.set_state_var_source ctx state_var' N.Abstract in
 
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)

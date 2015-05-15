@@ -16,24 +16,19 @@
 
 *)
 
-(** Cone of influence reduction and dependency ordering of equations for Lustre nodes 
+(** Monolithic analysis strategy 
+
+    Run one analysis only, with the top system and all subsystems
+    concretized to their implementations.
 
     @author Christoph Sticksel *)
 
-val order_equations : bool ->
-(LustreIdent.t * (LustreIndex.key list LustreIndex.t * LustreIndex.key list LustreIndex.t)) list ->
-LustreNode.t ->
-(StateVar.t * LustreExpr.expr LustreNode.bound_or_fixed list * LustreExpr.t) list *
-LustreIndex.index list LustreIndex.t
-
-val slice_to_impl : LustreNode.t list -> LustreNode.t list
-
-val slice_to_contract : LustreNode.t list -> LustreNode.t list
+val next_analysis : 'a SubSystem.t -> Analysis.result list -> Analysis.t option
 
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -C .. -k"
    indent-tabs-mode: nil
    End: 
 *)

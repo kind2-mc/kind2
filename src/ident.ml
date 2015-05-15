@@ -16,25 +16,46 @@
 
 *)
 
-(** Cone of influence reduction and dependency ordering of equations for Lustre nodes 
+open Lib
 
-    @author Christoph Sticksel *)
 
-val order_equations : bool ->
-(LustreIdent.t * (LustreIndex.key list LustreIndex.t * LustreIndex.key list LustreIndex.t)) list ->
-LustreNode.t ->
-(StateVar.t * LustreExpr.expr LustreNode.bound_or_fixed list * LustreExpr.t) list *
-LustreIndex.index list LustreIndex.t
+(* TODO: 
 
-val slice_to_impl : LustreNode.t list -> LustreNode.t list
+   - Hashccons identifiers and use for StateVar, UfSymbol etc. 
 
-val slice_to_contract : LustreNode.t list -> LustreNode.t list
+   - Hide implementation and provide smart constructors that fail if
+     identifier was previously defined
+
+   - Allow several namespaces to avoid spurious name clashes
+
+*)
+
+
+module Ident = struct
+
+  (* Identifier *)
+  type t = string
+    
+  (* Equality on identifiers *)
+  let equal = (=)
+              
+  (* Total order on identifiers *)
+  let compare = Pervasives.compare 
+
+end
+
+include Ident
+
+module IdentSet = Set.Make (Ident)
+
+module IdentMap = Map.Make (Ident)
+
+
 
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -C .. -k"
    indent-tabs-mode: nil
    End: 
 *)
-  

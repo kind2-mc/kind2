@@ -23,6 +23,114 @@ module I = LustreIdent
 module N = LustreNode
 module C = LustreContext
 module D = LustreDeclarations
+module S = SubSystem
+
+
+let rec input_system_of_declarations' accum nodes = function 
+
+  | [] -> 
+
+    (* Return system at the head of the accumulator *)
+    (match accum with | [] -> assert false | (_, s) :: _ -> s)
+
+
+  | node_name :: tl -> 
+
+    (try 
+
+       (* System for node has been created and added to accumulator
+          meanwhile? *)
+       let input_sys = List.assoc node_name accum in
+
+       (* Continue with next node *)
+       input_system_of_declarations' accum nodes tl
+
+     (* System for node has not been created *)
+     with Not_found -> 
+
+       try 
+
+         (* Get node of name *)
+         let { N.calls } as node = 
+           N.node_of_name node_name nodes 
+         in
+
+         (* Subnodes for which we have not created a system *)
+         let tl' = 
+
+           List.fold_left 
+             (fun a { N.call_node_name } -> 
+
+                if 
+
+                  (* Transition system for node created? *)
+                  List.mem_assoc call_node_name accum || 
+
+                  (* Node already pushed to stack? *)
+                  List.mem call_node_name a
+
+                then 
+
+                  (* Continue with stack unchanged *)
+                  a
+
+                else
+
+                  (* Push node to top of stack *)
+                  call_node_name :: a)
+
+             []
+             calls
+
+         in
+
+         (* Are there subnodes for which a transition system needs to be
+            created first? *)
+         match tl' with
+
+           (* Some transitions systems of called nodes have not been
+              created *)
+           | _ :: _ -> 
+
+             (* TODO: Check here that the call graph does not have
+                cycles *)
+
+             (* Recurse to create transition system for subnode, then
+                return to this node *)
+             input_system_of_declarations'
+               accum
+               nodes
+               (tl' @ node_name :: tl)
+
+           (* All transitions systems of called nodes have been
+              created *)
+           | [] ->
+
+             let input_system = 
+               { S.scope = [node_name];
+                 S.source = S.LustreModel node;
+                 S.has_contract = N.has_contract node;
+                 S.has_impl = N.has_impl node;
+                 S.subsystems = 
+                   List.map 
+                     (fun { N.call_node_name } ->
+                        try List.assoc call_node_name accum 
+                        with Not_found -> assert false)
+                     calls }
+             in
+
+             (* Recurse to create transition system for subnode, then
+                return to this node *)
+             input_system_of_declarations'
+               (input_system :: accum)
+               nodes
+               tl
+
+       (* All subnodes must be on the list, otherwise parsing has
+          already failed *)
+       with Not_found -> assert false)
+
+
 
 
 (* Parse from input channel *)
@@ -81,6 +189,13 @@ let of_channel keep_all_coi in_ch =
 
   in
 
+  input_system_of_declarations' [] nodes [main_node]
+  
+(*
+
+
+
+
   Format.printf 
     "@[<v>Before slicing@,%a@]@."
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes;
@@ -97,8 +212,9 @@ let of_channel keep_all_coi in_ch =
     "@[<v>After slicing to contract@,%a@]@."
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_contract;
 
-  (* LustreTransSys.trans_sys_of_nodes nodes_contract nodes_impl *)
+  LustreTransSys.trans_sys_of_nodes nodes_contract nodes_impl;
   ()
+*)
 
 
 (*

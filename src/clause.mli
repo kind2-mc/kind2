@@ -57,7 +57,7 @@ val create_and_assert_fresh_actlit : SMTSolver.t -> string -> Term.t -> actlit_t
     literals [n0i] and [n1i] per literal Li. The following terms are
     then asserted:
 
-    {{ 
+    {[
     p0 => C
     p1 => C'
     n01 => ~L1
@@ -65,7 +65,7 @@ val create_and_assert_fresh_actlit : SMTSolver.t -> string -> Term.t -> actlit_t
     ...
     n0n => ~Ln
     n1n => ~Ln'
-    }}
+    ]}
 
     where the C' and Li' are the clause and the literals,
     respectively, at the next instant.

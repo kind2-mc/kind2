@@ -174,7 +174,7 @@ val add_node_mode_contract : t -> position -> string -> LustreNode.contract -> t
 val add_node_assert : t -> LustreExpr.t -> t
 
 (** Add property to context *)
-val add_node_property : t -> TermLib.prop_source -> LustreExpr.t -> t
+val add_node_property : t -> TermLib.prop_source -> string -> LustreExpr.t -> t
 
 (** Add equation to context *)
 val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> LustreExpr.t -> t
