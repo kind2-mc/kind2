@@ -38,6 +38,7 @@ LFSCEX="$HOME/dev/kind2/bin/lfsc-extractor"
 
 lfsc_tmp="$TMPDIR/$(basename $1).lfsc"
 smt2_eq="$TMPDIR/$(basename $1).lfsc_eq.smt2"
+eq_res="$TMPDIR/$(basename $1).eq_check"
 
 RET=127
 
@@ -89,14 +90,16 @@ fi
 echo "Equivalence goal written in $smt2_eq"
 
 echo "Checking equivalence with z3"
-$TIMEOUT $Z3 $smt2_eq | tee /dev/stderr | grep -q "^unsat"
+$TIMEOUT $Z3 $smt2_eq &> $eq_res
 RET=$?
-
 
 if [ $RET = $TOCODE ]; then
     echo "${YELLOW}[EQ_TIMEOUT]${NC}"
     exit $RET
 fi
+
+grep -q "^unsat" $eq_res
+RET=$?
 if [ $RET -ne 0 ]; then
     echo "${RED}[EQ_FAILED]${NC}"
     exit $RET
