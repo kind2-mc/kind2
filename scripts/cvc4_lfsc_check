@@ -130,7 +130,7 @@ fi
 
 echo "Equivalence goal written in $smt2_eq"
 
-echo "Checking equivalence with z3"
+echo "Checking equivalence with $(basename $Z3)"
 $TIMEOUT $Z3 $smt2_eq &> $eq_res
 RET=$?
 
@@ -139,6 +139,7 @@ if [ $RET = $TOCODE ]; then
     exit $RET
 fi
 
+cat $eq_res
 grep -q "^unsat" $eq_res
 RET=$?
 if [ $RET -ne 0 ]; then
