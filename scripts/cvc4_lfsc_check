@@ -1,5 +1,5 @@
 #!/bin/bash
-# set -x
+#set -x
 #########################################################################
 # This file is part of the Kind 2 model checker.                        #
 #                                                                       #
@@ -89,66 +89,98 @@ BLUE='\033[1;34m'
 NC='\033[0m' # No Color
 
 
+function print_end () {
+    text=$2
+    color=$1
+    tput cuu1
+    tput cuf $(tput cols)
+    length=${#text}
+    tput cub $(($length+1))
+    echo -e "${!color}[$text]${NC}"
+}
+
 echo "Running cvc4 with proofs on $1"
 $TIMEOUT $CVC4 --proof --check-proofs --dump-proof $1 > $lfsc_tmp
 RET=$?
 
-if [ $RET = $TOCODE ]; then
-    echo -e "${YELLOW}[CVC4_TIMEOUT]${NC}"
-    exit $RET
-fi
-if [ $RET -ne 0 ]; then
-    echo -e "${RED}[LFSC_FAILED]${NC}"
-    exit $RET
-fi
-
-
 SAT=$(grep -q "^sat" $lfsc_tmp; echo $?)
 
 if [ $SAT = 0 ]; then
-    echo -e "${BLUE}[SAT]${NC}"
+    print_end BLUE SAT
     exit $RET
 fi
 
+case $RET in
+    0)
+        print_end GREEN OK
+        ;;
+    $TOCODE)
+        print_end YELLOW CVC4_TIMEOUT
+        exit $RET
+        ;;
+    *)
+        print_end RED LFSC_FAILED
+        exit $RET
+        ;;
+esac
+
+
 echo "Proof written in $lfsc_tmp"
+echo
 
 echo "Extracting forumla from lfsc proof"
 $TIMEOUT $LFSCEX $1 $lfsc_tmp > $smt2_eq
 RET=$?
 
 
-if [ $RET = $TOCODE ]; then
-    echo -e "${YELLOW}[LFSCEX_TIMEOUT]${NC}"
-    exit $RET
-fi
-if [ $RET -ne 0 ]; then
-    echo -e "${RED}[LFSCEX_FAILED]${NC}"
-    exit $RET
-fi
-
+case $RET in
+    0)
+        print_end GREEN OK
+        ;;
+    $TOCODE)
+        print_end YELLOW LFSCEX_TIMEOUT
+        exit $RET
+        ;;
+    *)
+        print_end RED LFSCEX_FAILED
+        exit $RET
+        ;;
+esac
 
 
 echo "Equivalence goal written in $smt2_eq"
+echo
+
 
 echo "Checking equivalence with $(basename $Z3)"
 $TIMEOUT $Z3 $smt2_eq &> $eq_res
 RET=$?
 
-if [ $RET = $TOCODE ]; then
-    echo -e "${YELLOW}[EQ_TIMEOUT]${NC}"
-    exit $RET
+if [ $RET -ne $TOCODE ]; then
+    cat $eq_res
+    grep -q "^unsat" $eq_res
+    RET=$?
+    
 fi
 
-cat $eq_res
-grep -q "^unsat" $eq_res
-RET=$?
-if [ $RET -ne 0 ]; then
-    echo -e "${RED}[EQ_FAILED]${NC}"
-    exit $RET
-fi
+case $RET in
+    0)
+        print_end GREEN OK
+        ;;
+    $TOCODE)
+        print_end YELLOW EQ_TIMEOUT
+        exit $RET
+        ;;
+    *)
+        print_end RED EQ_FAILED
+        exit $RET
+        ;;
+esac
 
 
-echo -e "${GREEN}[OK]${NC}"
+echo
+echo "Verified"
+
 
 exit $RET
 
