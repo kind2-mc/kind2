@@ -1,5 +1,5 @@
-#!/bin/sh
-
+#!/bin/bash
+# set -x
 #########################################################################
 # This file is part of the Kind 2 model checker.                        #
 #                                                                       #
@@ -25,39 +25,80 @@
 # run it like this: cvc4_lfsc_check file.smt2
 # change the paths CVC4, Z3, LFSCEX to the correct ones
 
+# default values
+
 if [ -z $TMPDIR ]; then
     TMPDIR="/tmp"
 fi
 
-TIMEOUT="timeout 600"
-TOCODE=124
+TIMEOUT=""
+TOCODE=@TOCODE@
 
-CVC4="$HOME/trucs/CVC4/builds/x86_64-apple-darwin13.4.0/production-proof/bin/cvc4"
+# binaries
+CVC4="cvc4"
 Z3="z3"
-LFSCEX="$HOME/dev/kind2/bin/lfsc-extractor"
+LFSCEX="lfsc-extractor"
 
+# default return code (to be overwritten)
+RET=127
+
+
+# parsing command line arguments
+while [[ $# > 1 ]]
+do
+    key="$1"
+
+    case $key in
+        -t|--timeout)
+            TIMEOUT="timeout $2"
+            shift
+            ;;
+        -cvc4|--cvc4)
+            CVC4="$2"
+            shift
+            ;;
+        -s|--solver)
+            Z3="$2"
+            shift
+            ;;
+        -l|--lfscex)
+            LFSCEX="$2"
+            shift
+            ;;
+        *)
+            echo "Unknown option $1"
+            echo "Usage $(basename $0) [-t <timeout>] [-cvc4 <cvc4_binary>] [-solver <solver_binary>] [-l <lfsc-extractor>] file.smt2"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+
+# temporary files
 lfsc_tmp="$TMPDIR/$(basename $1).lfsc"
 smt2_eq="$TMPDIR/$(basename $1).lfsc_eq.smt2"
 eq_res="$TMPDIR/$(basename $1).eq_check"
 
-RET=127
 
+# colors
 RED='\033[1;31m'
 GREEN='\033[1;32m'
-WELLOW='\033[1;33m'
+YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
 NC='\033[0m' # No Color
+
 
 echo "Running cvc4 with proofs on $1"
 $TIMEOUT $CVC4 --proof --check-proofs --dump-proof $1 > $lfsc_tmp
 RET=$?
 
 if [ $RET = $TOCODE ]; then
-    echo "${YELLOW}[CVC4_TIMEOUT]${NC}"
+    echo -e "${YELLOW}[CVC4_TIMEOUT]${NC}"
     exit $RET
 fi
 if [ $RET -ne 0 ]; then
-    echo "${RED}[LFSC_FAILED]${NC}"
+    echo -e "${RED}[LFSC_FAILED]${NC}"
     exit $RET
 fi
 
@@ -65,7 +106,7 @@ fi
 SAT=$(grep -q "^sat" $lfsc_tmp; echo $?)
 
 if [ $SAT = 0 ]; then
-    echo "${BLUE}[SAT]${NC}"
+    echo -e "${BLUE}[SAT]${NC}"
     exit $RET
 fi
 
@@ -77,11 +118,11 @@ RET=$?
 
 
 if [ $RET = $TOCODE ]; then
-    echo "${YELLOW}[LFSCEX_TIMEOUT]${NC}"
+    echo -e "${YELLOW}[LFSCEX_TIMEOUT]${NC}"
     exit $RET
 fi
 if [ $RET -ne 0 ]; then
-    echo "${RED}[LFSCEX_FAILED]${NC}"
+    echo -e "${RED}[LFSCEX_FAILED]${NC}"
     exit $RET
 fi
 
@@ -94,19 +135,19 @@ $TIMEOUT $Z3 $smt2_eq &> $eq_res
 RET=$?
 
 if [ $RET = $TOCODE ]; then
-    echo "${YELLOW}[EQ_TIMEOUT]${NC}"
+    echo -e "${YELLOW}[EQ_TIMEOUT]${NC}"
     exit $RET
 fi
 
 grep -q "^unsat" $eq_res
 RET=$?
 if [ $RET -ne 0 ]; then
-    echo "${RED}[EQ_FAILED]${NC}"
+    echo -e "${RED}[EQ_FAILED]${NC}"
     exit $RET
 fi
 
 
-echo "${GREEN}[OK]${NC}"
+echo -e "${GREEN}[OK]${NC}"
 
 exit $RET
 

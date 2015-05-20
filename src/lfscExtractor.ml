@@ -212,8 +212,6 @@ let rec parse_smt2 acc (others, asserts) = function
   | HS.List (HS.Atom p :: _) :: _ when p == s_exit  ->
     List.rev others, List.rev acc
 
-  | [] -> failwith "No check-sat in original file"
-
   (* ignore meta-information *)
   | HS.List (HS.Atom i :: _) :: r when i == s_setinfo ->
     parse_smt2 acc (others, asserts) r
@@ -229,8 +227,6 @@ let rec parse_smt2 acc (others, asserts) = function
   (* ... from the rest *)
   | se :: r ->
     parse_smt2 acc (se :: others, asserts) r
-
-  | _ -> assert false
 
 
 let extract_from_smt2 in_ch =
@@ -278,8 +274,9 @@ let () =
 
   (* Output equivalences *)
   begin try
-      List.iter2 (fun formula proof_of ->
-          let equiv = HS.List [HS.Atom s_not; HS.List [HS.Atom s_eq; formula; proof_of]] in
+      List.iter2 (fun formula proven ->
+          let equiv = HS.List [HS.Atom s_not;
+                               HS.List [HS.Atom s_eq; formula; proven]] in
           Format.printf "(assert %a)\n\n" HS.pp_print_sexpr equiv;
           Format.printf "(check-sat)\n@.";
         ) formulas proofs;

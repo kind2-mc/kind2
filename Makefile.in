@@ -16,7 +16,7 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 bin_suffix=@bin_suffix@
 
-install_files=@PACKAGE_NAME@
+install_files=@PACKAGE_NAME@ lfsc-extractor cvc4_lfsc_check
 
 all: @PACKAGE_NAME@
 
@@ -50,7 +50,11 @@ lustre-checker:
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/lustreChecker.native $(LOCAL_BINDIR)/$@
 
-lfsc-extractor: 
+bin/cvc4_lfsc_check:
+	timeout 1 sleep 2; sed "s/@TOCODE@/"$$?"/g" scripts/cvc4_lfsc_check > $@
+	chmod +x $@
+
+lfsc-extractor: bin/cvc4_lfsc_check 
 	make -C src $@
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/lfscExtractor.native $(LOCAL_BINDIR)/$@
