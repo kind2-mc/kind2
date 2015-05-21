@@ -32,7 +32,7 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let check_sat_assuming_supported () = true
+let check_sat_assuming_supported () = Flags.z3_check_sat_assume ()
 
 let check_sat_assuming_cmd () = "check-sat"
 
