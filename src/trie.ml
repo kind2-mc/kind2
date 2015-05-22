@@ -336,11 +336,11 @@ module Make (M : M) = struct
     | Empty, Empty -> true
 
   
-  let keys t = fold (fun k _ a -> k :: a) t []
+  let keys t = fold (fun k _ a -> k :: a) t [] |> List.rev
 
-  let values t = fold (fun _ v a -> v :: a) t []
+  let values t = fold (fun _ v a -> v :: a) t [] |> List.rev
 
-  let bindings t = fold (fun k v a -> (k, v) :: a) t []
+  let bindings t = fold (fun k v a -> (k, v) :: a) t [] |> List.rev
 
   let cardinal t = fold (fun k v a -> succ a) t 0
 
@@ -672,7 +672,6 @@ end
 
 (*
 
-
 (* Test code *)
 module CharMap = Map.Make(Char);;
 
@@ -888,7 +887,5 @@ T.bindings t;;
 T.bindings (T.subsume t ['a';'b']);;
 T.bindings (T.subsume t ['b';'c']);;
 T.bindings (T.subsume t ['a';'c']);;
-
-
 
 *)

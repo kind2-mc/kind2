@@ -116,7 +116,7 @@ module type S = sig
 
   (** Return an association list of key to bindings in the trie
 
-      The keys are returned in reverse lexicographic order. *)
+      The keys are returned in lexicographic order. *)
   val bindings : 'a t -> (key * 'a) list
 
   val min_binding: 'a t -> (key * 'a)
@@ -142,12 +142,12 @@ module type S = sig
 
   (** Return the keys in the trie
 
-      The keys are returned in reverse lexicographic order. *)
+      The keys are returned in lexicographic order. *)
   val keys : 'a t -> key list
 
   (** Return the values in the trie
 
-      The values are returned in reverse lexicographic order. *)
+      The values are returned in lexicographic order. *)
   val values : 'a t -> 'a list
 
   (** Fold over two tries with identical keys
