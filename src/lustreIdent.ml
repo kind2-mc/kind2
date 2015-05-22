@@ -23,32 +23,32 @@ open Lib
 (* ********************************************************************** *)
 
 
-(* An identifier is a string with integer indexes *)
-type t = string * int list 
+module LustreIdent = struct 
 
+  (* An identifier is a string with integer indexes *)
+  type t = string * int list 
 
-(* Use polymorphic hash function *)
-let hash = Hashtbl.hash
+  (* Use polymorphic hash function *)
+  let hash = Hashtbl.hash
              
-(* Use polymorphic equality *)
-let equal = (=)
+  (* Use polymorphic equality *)
+  let equal = (=)
 
-(* Use polymorphic copmarison *)
-let compare = Pervasives.compare            
+  (* Use polymorphic copmarison *)
+  let compare = Pervasives.compare            
 
+end
+
+include LustreIdent 
 
 (* Hash table over identifiers *)
-module LustreIdentHashtbl = 
-  Hashtbl.Make
-    (struct
+module Hashtbl = Hashtbl.Make (LustreIdent)
 
-      (* Avoid cyclic type abbreviation *)
-      type z = t
-      type t = z
+(* Set over identifiers *)
+module Set = Set.Make (LustreIdent)
 
-      let equal = equal
-      let hash = hash
-    end)
+(* Map over identifiers *)
+module Map = Map.Make (LustreIdent)
 
 
 (* Pretty-print a list of indexes *)

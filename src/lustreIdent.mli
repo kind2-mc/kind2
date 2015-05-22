@@ -49,7 +49,13 @@ val hash : t -> int
 val compare : t -> t -> int
 
 (** Hash table over identifiers *)
-module LustreIdentHashtbl : Hashtbl.S with type key = t
+module Hashtbl : Hashtbl.S with type key = t
+
+(** Hash table over identifiers *)
+module Set : Set.S with type elt = t
+
+(** Hash table over identifiers *)
+module Map : Map.S with type key = t
 
 (** Return [true] if identifier is reserved for internal use *)
 val ident_is_reserved : t -> bool
