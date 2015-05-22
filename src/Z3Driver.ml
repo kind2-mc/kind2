@@ -36,7 +36,12 @@ let check_sat_assuming_supported () = Flags.z3_check_sat_assume ()
 
 let check_sat_assuming_cmd () = "check-sat"
 
-let headers () = [ "(set-option :interactive-mode true)" ]
+let headers () = 
+  "(set-option :interactive-mode true)" :: 
+  (if Flags.z3_check_sat_assume () then
+     [] 
+   else
+     ["(set-option :global-decls true)"])
 
 
 let string_of_logic l =
