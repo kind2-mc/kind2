@@ -21,7 +21,7 @@ open Lib
 module A = LustreAst
 
 module I = LustreIdent
-module IT = LustreIdent.LustreIdentHashtbl
+module IT = LustreIdent.Hashtbl
 
 module D = LustreIndex
 
@@ -648,6 +648,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
    trie of expressions *)
 let expand_tuple pos lhs rhs = 
 
+(*
   Format.printf
     "@[<v>expand_tuple lhs:@,%a@]@."
     (pp_print_list
@@ -667,7 +668,8 @@ let expand_tuple pos lhs rhs =
             (E.pp_print_lustre_expr false) e)
        "@,")
     (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs));
-    
+  *)
+  
   expand_tuple' 
     pos
     []
@@ -713,7 +715,7 @@ let rec eval_node_equations ctx = function
     in
     
     (* Add property to node *)
-    let ctx = C.add_node_property ctx (TermLib.PropAnnot pos) name expr in
+    let ctx = C.add_node_property ctx (Property.PropAnnot pos) name expr in
 
     (* Continue with next node statements *)
     eval_node_equations ctx tl
@@ -735,19 +737,23 @@ let rec eval_node_equations ctx = function
        for right-hand side *)
     let eq_lhs, ctx = eval_eq_lhs ctx pos lhs in
 
-    (* Evaluate Boolean expression and guard all pre operators *)
+    (* Evaluate Boolean expression *)
     let eq_rhs, ctx = 
 
       (* Evaluate in extended context *)
       S.eval_ast_expr ctx ast_expr 
 
-      (* Close each expression separately *)
-      |> D.fold 
+    in
+
+    (* Close each expression by guarding all pre operators separately *)
+    let eq_rhs, ctx = 
+      D.fold 
         (fun i e (t, c) -> 
            let e', c = C.close_expr pos (e, c) in 
            let t' = D.add i e' t in
            (t', c))
-        D.empty
+        eq_rhs
+        (D.empty, ctx)
 
     in 
 
@@ -1325,10 +1331,6 @@ let eval_node_decl
 
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in
-
-  Format.printf
-    "%a@."
-    N.pp_print_node_debug (C.node_of_context ctx);
 
   (* Create node from current context and return *)
   ctx 
