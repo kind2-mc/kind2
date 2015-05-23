@@ -218,43 +218,63 @@ module IO = struct
           lines ; *)
         List.map (split '#') lines)
 
-  let rewrite_links dirname line =
+  let sanitize str =
+    let rec loop index str =
+      if index >= String.length str then str else (
+        (* printf "str: %s@." str ;
+        printf "index: %d@." index ;
+        printf "char: %c@." (String.get str index) ; *)
+        match String.get str index with
+        | '`' | '"' ->
+          let prefix = String.sub str 0 index in
+          let suffix =
+            (String.length str) - (String.length prefix)
+            |> String.sub str index
+          in
+          prefix ^ "\\" ^ suffix
+          |> loop (index + 2) 
+        | _ -> loop (index+1) str
+      )
+    in
+    loop 0 str
+
+  let echo_pipe cmds line =
+    let sanitized = sanitize line in
+    Format.asprintf "\
+      echo \"%s\" | %a | tr -d '\\n'\
+    " sanitized (pp_print_list Format.pp_print_string " | ") cmds
+    |> run
+    |> fun line' ->
+      if line <> line' then
+        printf "Rewriting:@.> %s@.> %s@.@." line line' ;
+      line'
+
+
+  let rewrite_links dirname =
     Format.sprintf "\
-      echo \"%s\" | \
       %s -e \"s:\
         \\(.*\\)](\\./\\([^)]*\\)#\\([^)]*\\))\\(.*\\):\
         ls -i %s/\\2 | \
         sed -e \\\"s/ .*$//\\\" | \
         xargs printf \\\"\\1](#n%%s-\\3)\\4\\\"\
-      :eg\" | \
-      tr -d '\\n'\
-    " line sed_cmd dirname
-    (* |> fun cmd -> printf "> %s@." cmd ; cmd *)
-    |> run 
+      :eg\"\
+    " sed_cmd dirname
 
-  let rewrite_local_links prefix line =
+  let rewrite_local_links prefix =
     Format.sprintf "\
-      echo \"%s\" | \
       sed -e 's:\
         \\(.*\\)](#\\([^)]*\\))\\(.*\\):\
         \\1](#%s-\\2)\\3\
-      :g' | \
-      tr -d '\\n'\
-    " line prefix
-    |> fun cmd -> printf "> %s@." cmd ; cmd
-    |> run
+      :g'\
+    " prefix
 
-  let rewrite_pics dirname line =
+  let rewrite_pics dirname =
     Format.sprintf "\
-      echo \"%s\" | \
       sed -e 's:\
         \\(.*\\)](\\./\\([^)]*\\)\\.\\(jpg\\|png\\))\\(.*\\):\
         \\1](%s/\\2\\.\\3)\\4\
-      :g' | \
-      tr -d '\\n'\
-    " line dirname
-    (* |> fun cmd -> printf "> %s@." cmd ; cmd *)
-    |> run 
+      :g'\
+    " dirname
 
   let rewrite_label prefix line =
     if String.length line < 1 then line
@@ -320,14 +340,19 @@ module IO = struct
         ( try
             while true do
               input_line src_chan
-              |> fun smthng -> printf "line is: %s@." smthng ; smthng
+              |> echo_pipe [
+                rewrite_local_links prefix ;
+                rewrite_links dirname ;
+                rewrite_pics dirname ;
+              ]
+              (* |> fun smthng -> printf "line is: %s@." smthng ; smthng
               |> fun smthng -> printf "rewrite local links@." ; smthng
               |> rewrite_local_links prefix
               |> fun smthng -> printf "rewrite links@." ; smthng
               |> rewrite_links dirname
               |> fun smthng -> printf "rewrite pics@." ; smthng
               |> rewrite_pics dirname
-              |> fun smthng -> printf "rewrite labels@." ; smthng
+              |> fun smthng -> printf "rewrite labels@." ; smthng *)
               |> rewrite_label prefix
               |> output_string tgt_chan ;
               output_string tgt_chan "\n"
@@ -335,7 +360,7 @@ module IO = struct
           with
           | End_of_file -> close_in src_chan
           | e -> close_in src_chan ; raise e ) ;
-        output_string tgt_chan "\n\n" ;
+        output_string tgt_chan "\n\n\\newpage\n\n" ;
         flush tgt_chan ;
         loop tail
       | [] -> ()
@@ -372,9 +397,9 @@ module Context = struct
       (pp_print_list
         (fun fmt (file,labels) ->
           Format.fprintf
-            fmt "%s -> %a"
+            fmt "%s -> @[<hv>%a@]"
             file
-            (pp_print_list Format.pp_print_string ", ")
+            (pp_print_list Format.pp_print_string ",@ ")
             labels)
         "@,")
       file2labels
@@ -516,8 +541,8 @@ let _ =
 
   printf
     "Target: %s@.\
-     Input:  %a@.@."
-    target (pp_print_list Format.pp_print_string ", ") files ;
+     Input:  @[<v>%a@]@.@."
+    target (pp_print_list Format.pp_print_string "@ ") files ;
 
   (* let node = IO.node_of_file target in
   printf "node of \"%s\" is %s@." target node ; *)
