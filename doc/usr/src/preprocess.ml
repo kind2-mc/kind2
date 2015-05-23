@@ -79,7 +79,7 @@ let link_error errors =
       | DeadFileLink (file, label) ->
         printf "link to inexistent file \"%s\" (label is \"%s\")@," file label
       | DirectLink file ->
-        printf "direct link to file %s" file
+        printf "direct link to file %s@," file
       | _ -> failwith "unexpected exception"
     ) ;
     printf "@]@,"

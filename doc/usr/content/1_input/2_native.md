@@ -1,4 +1,6 @@
-# Concrete Syntax of The Kind 2 Native Format
+# Native Format
+
+## Concrete Syntax of The Kind 2 Native Format
 
 The input format for Kind 2 is closely related to the [SMTLIB Format](http://smt-lib.org). The input consists of S-expressions, comments are delimited with `;;`. 
 
