@@ -467,6 +467,12 @@ and comment = parse
   | "@" (id as p) 
       { match p with
 
+        (* Ignore rest of line and return token *)
+        | "main" -> return_at_eol MAIN lexbuf
+
+        (* Return token, continue with rest of line *)
+        | "property" -> PROPERTY
+
         (* Return token, continue with rest of line *)
         | "var" -> COMMENTGHOSTVAR
 
@@ -491,7 +497,10 @@ and comment = parse
         (* Warn and ignore rest of line *)
         | _ -> (Format.printf "Warning: unknown contract %s skipped@." p; 
                 skip_to_eol lexbuf ) }
-
+(*
+  (* Bang annotation *)
+  | "!" (id as p) { BANGCOMMENT p }
+*)
   (* Count new line and resume *)
   | newline { Lexing.new_line lexbuf; token lexbuf } 
 

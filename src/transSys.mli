@@ -63,6 +63,15 @@ val prop_base : Numeral.t
     Constructed with the function {!mk_trans_sys} *)
 type t
 
+(** Return [true] if scopes of transition systems are equal *)
+val equal_scope : t -> t -> bool
+
+(** Compare transition systems by their scope *)
+val compare_scope : t -> t -> int
+
+(** Pretty-print a transition system *)
+val pp_print_trans_sys : Format.formatter -> t -> unit
+
 (** {1 Accessors} *)
 
 (** Close the initial state constraint by binding all instance
@@ -78,7 +87,46 @@ val trans_of_bound : t -> Numeral.t -> Term.t
 (** Return the instance variables of this transition system, the
     initial state constraint at [init_base] and the transition relation
     at [trans_base] with the instance variables free. *)
-val init_trans_open : t -> StateVar.t * Term.t * Term.t
+val init_trans_open : t -> StateVar.t list * Term.t * Term.t
+
+val mk_trans_sys : 
+
+  (** Start value for fresh instance identifiers *)
+  ?instance_var_id_start:int ->
+  
+  (** Name of the transition system *)
+  Scope.t ->
+
+  (** State variable for instance identifier *)
+  StateVar.t option ->
+
+  (** Global state variables *)
+  StateVar.t list ->
+
+  (** All state variables including globals and instance identifier *)
+  StateVar.t list ->
+
+  (** Initial state constraint *)
+  Term.t ->
+
+  (** Transition relation *)
+  Term.t ->
+
+  (** Subsystems and their instances *)
+  (t * (StateVar.t StateVar.StateVarMap.t * (Term.t -> Term.t)) list) list ->
+
+  (** Properties *)
+  Property.t list -> 
+
+  (** One-state invariants *)
+  Term.t list -> 
+
+  (** Two-state invariants *)
+  Term.t list -> 
+
+  (** Created transition system and next starting value for fresh
+      instance identifiers *)
+  t * int
 
 (*
 

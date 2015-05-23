@@ -182,7 +182,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (** Proof obligations for the node *)
-    props : (StateVar.t * string * TermLib.prop_source) list;
+    props : (StateVar.t * string * Property.prop_source) list;
 
     (** The contracts of the node: an optional global contract and a
         list of named mode contracts *)
@@ -198,6 +198,8 @@ type t =
 
 (** The empty node *)
 val empty_node : LustreIdent.t -> t
+
+val pp_print_node_equation : bool -> Format.formatter -> StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t -> unit
 
 (** Pretty-print a node *)
 val pp_print_node : bool -> Format.formatter -> t -> unit 
@@ -230,6 +232,18 @@ val ident_of_top : t list -> LustreIdent.t
 (** Return true if the node has a global or at least one mode
     contract *)
 val has_contract : t -> bool
+
+(** Return false if the body of the node is empty, that is, all
+    equations are ghost and there are no assertions *)
+val has_impl : t -> bool
+
+(** Return a tree-like subsystem from a flat list of nodes, where the
+    top node is at the head of the list. *)
+val subsystem_of_nodes : t list -> t SubSystem.t
+
+(** Return list of topologically ordered list of nodes from subsystem.
+    The top node is a the head of the list. *)
+val nodes_of_subsystem : t SubSystem.t -> t list
 
 (** {2 State Variable Instances} *)
 

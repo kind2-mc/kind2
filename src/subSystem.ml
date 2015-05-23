@@ -18,14 +18,12 @@
 
 open Lib
 
-type scope = Identifier.scope
-
 type 'a t = 
 
   { 
 
     (* Name of the system as a scope *)
-    scope: string list;
+    scope: Scope.t;
 
     (* Original input *)
     source : 'a;
@@ -36,7 +34,7 @@ type 'a t =
     (* System can be refined to its implementation *)
     has_impl : bool;
 
-    (* Sub-systems *)
+    (* Direct sub-systems *)
     subsystems : 'a t list;
 
   }
@@ -124,7 +122,7 @@ let rec find_subsystem' scope visited = function
 (* Return the subsystem of the given scope 
 
    Raise [Not_found] if there is no subsystem of that scope *)
-let find_subsystem scope subsystem = find_subsystem' scope [] [subsystem]
+let find_subsystem subsystem scope = find_subsystem' scope [] [subsystem]
 
 (* 
    Local Variables:

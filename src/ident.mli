@@ -37,6 +37,8 @@ module IdentSet : Set.S with type elt = t
 (** Map of identifiers *)
 module IdentMap : Map.S with type key = t
 
+(** Pretty-print an identifier *)
+val pp_print_ident : Format.formatter -> t -> unit
 
 (* 
    Local Variables:

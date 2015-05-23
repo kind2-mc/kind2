@@ -189,7 +189,7 @@ type t =
     asserts : E.t list;
 
     (* Proof obligations for node *)
-    props : (StateVar.t * string * TermLib.prop_source) list;
+    props : (StateVar.t * string * Property.prop_source) list;
 
     (* The contracts of the node: an optional global contract and a
        list of named mode contracts *)
@@ -357,7 +357,7 @@ let pp_print_call safe ppf = function
       (E.pp_print_lustre_var safe) call_clock_var
       (I.pp_print_ident safe) call_node_name
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
-      (List.rev_map  
+      (List.map  
          (fun (_, sv) -> sv)
          (D.bindings call_inputs) @ 
        call_oracles)
@@ -487,7 +487,7 @@ let pp_print_node
 
     (* %a *)
     (pp_print_list (pp_print_input safe) ";@ ") 
-    (List.rev_map
+    (List.map
        (* Remove first index of input argument for printing *)
        (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
        (D.bindings inputs) @
@@ -495,7 +495,7 @@ let pp_print_node
 
     (* %a *)
     (pp_print_list (pp_print_output safe) ";@ ") 
-    (List.rev_map
+    (List.map
        (* Remove first index of output argument for printing *)
        (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
        (D.bindings outputs))
@@ -593,7 +593,7 @@ let pp_print_node_debug
       "%a (%s, %a)"
       StateVar.pp_print_state_var state_var
       name
-      TermLib.pp_print_prop_source source
+      Property.pp_print_prop_source source
 
   in
 
@@ -746,7 +746,199 @@ let rec ident_of_top = function
 (* Node has a contract if it has a global or at least one mode
    contract *)
 let has_contract { contracts = (g, cl) } = not (g = None && cl = [])
+
+
+(* Node always has an implementation *)
+let has_impl = function 
+
+  (* Only equations without assertions can be implementation-free
+
+     Don't consider node calls here, because the outputs of node calls
+     are assigned to state variables in an equation, and we just check
+     those equations. *)
+  | { equations; asserts = []; state_var_source_map } -> 
+
+    (* Return true if there is an equation of a non-ghost variable *)
+    List.exists
+      (fun (sv, _, _) -> 
+         match SVM.find sv state_var_source_map with
+           | Ghost -> false
+           | _ -> true
+           | exception Not_found -> true)
+      equations
+
+  (* Node with an assertion does have an implementation *)
+  | _ -> false
+
+
+
+(* Return a subsystem from a list of nodes where the top node is at
+   the head of the list. *)
+let rec subsystem_of_nodes' nodes accum = function
+
+  (* Return subsystems for all nodes *)
+  | [] -> accum
+
+  (* Create subsystem for node *)
+  | top :: tl -> 
+
+    if
+
+      (* Subsystem for node already created? *)
+      List.exists
+        (fun (n, _) -> n = top)
+        accum
+
+    then
+
+      (* Don't add to accumulator again *)
+      subsystem_of_nodes' nodes accum tl
+
+    else
+
+      (* Nodes called by this node *)
+      let { calls } as node =
+
+        try 
+
+          (* Get node by name *)
+          node_of_name top nodes 
+
+        (* Node must be in the list of nodes *)
+        with Not_found -> 
+
+          raise
+            (Invalid_argument 
+               (Format.asprintf
+                  "subsystem_of_nodes: node %a not found"
+                  (I.pp_print_ident false) top))
+
+      in
+
+      (* For all called nodes, either add the already created
+         subsystem to the [subsystems], or add the name of the called
+         node to [tl']. *)
+      let subsystems, tl' = 
+
+        List.fold_left 
+          (fun (a, tl) { call_node_name } -> 
+
+             try 
+
+               (* Find subsystem for callee *)
+               let callee_subsystem = 
+
+                 List.find
+                   (fun (n, _) -> n = call_node_name)
+                   accum
+
+                 |> snd 
+
+               in
+
+               if 
+
+                 (* Callee already seen as a subsystem of this
+                    node? *)
+                 List.exists 
+                   (fun { SubSystem.scope } -> 
+                      scope = [I.string_of_ident false call_node_name])
+                   a
+
+               then
+
+                 (* Add node as subsystem only once, not for each
+                    call *)
+                 (a, tl)
+
+               else
+
+                 (callee_subsystem :: a, tl)
+
+             (* Subsystem for callee not created yet *)
+             with Not_found -> 
+
+               (* Must visit callee first *)
+               (a, call_node_name :: tl))
+
+
+          ([], [])
+          calls
+
+      in
+
+      (* Subsystem for some callees not created? *)
+      if tl' <> [] then 
+        
+        (* Recurse to create subsystem of callees first *)
+        subsystem_of_nodes' nodes accum (tl' @ top :: tl)
+          
+      else
+
+        (* Scope of the system from node name *)
+        let scope = [I.string_of_ident false top] in
+
+        (* Does node have contracts? *)
+        let has_contract = has_contract node in 
+
+        (* Does node have an implementation? *)
+        let has_impl = has_impl node in
+
+        (* Construct subsystem of node *)
+        let subsystem = 
+
+          { SubSystem.scope;
+            SubSystem.source = node;
+            SubSystem.has_contract;
+            SubSystem.has_impl;
+            SubSystem.subsystems  }
+
+        in
+
+        (* Add subsystem of node to accumulator and continue *)
+        subsystem_of_nodes' 
+          nodes 
+          ((top, subsystem) :: accum)
+          tl
+
+
+(* Return a subsystem from a list of nodes where the top node is at
+   the head of the list. *)
+let subsystem_of_nodes = function
+
+  (* Head of list is top system *)
+  | { name } :: _ as nodes -> 
+
+    (* Create subsystems for all nodes *)
+    let all_subsystems = subsystem_of_nodes' nodes [] [name] in
+
+    (try 
+
+       (* Find subsystem of top node *)
+       List.find 
+         (fun (n, _) -> n = name)
+         all_subsystems 
+
+       |> snd
+
+     (* Subsystem for node must have been created *)
+     with Not_found -> assert false)
+
+  (* Cannot have an empty list of nodes *)
+  | [] ->
+
+    raise
+      (Invalid_argument 
+         "subsystem_of_nodes: List of nodes is empty")
+          
+
+(* Return list of topologically ordered list of nodes from subsystem.
+   The top node is a the head of the list. *)
+let nodes_of_subsystem subsystem = 
   
+  SubSystem.all_subsystems subsystem
+  |> List.map (function { SubSystem.source } -> source) 
+
 
 (* ********************************************************************** *)
 (* Stateful variables                                                     *)
@@ -763,7 +955,7 @@ let stateful_vars_of_expr { E.expr_step } =
       | Term.T.Var v when 
           Var.is_state_var_instance v && 
           Numeral.(Var.offset_of_state_var_instance v < E.cur_offset) -> 
-        
+
         (function 
           | [] -> 
             SVS.singleton 
@@ -787,7 +979,7 @@ let stateful_vars_of_expr { E.expr_step } =
 
       | Term.T.Attr _ ->
         (function | [s] -> s | _ -> assert false))
-    
+
     (expr_step :> Term.t)
 
 

@@ -359,9 +359,9 @@ let rec order_state_vars accum = function
       
 (* Compute dependencies of outputs on inputs 
 
-   Return a trie maps each index of a state variable in the outputs to
-   the list of indexes of input state variables the output depends
-   on. *)
+   Return a trie that maps each index of a state variable in the
+   outputs to the list of indexes of input state variables the output
+   depends on. *)
 let output_input_dep_of_dependencies dependencies inputs outputs = 
 
   (* Map trie of output state variables to trie of indexes *)
@@ -1043,7 +1043,7 @@ let custom_roots roots node =
   (node_roots, node_leaves, node_sliced, node)
 
 
-
+(*
 let slice_to_impl nodes = 
 
   slice_nodes
@@ -1060,7 +1060,50 @@ let slice_to_contract nodes =
     nodes
     []
     [(root_and_leaves_of_contracts (List.hd nodes))]
+*)
 
+
+(* Return roots for slicing to contracts or implementation as
+   indicated by [abstraction_map]. Use the implementation if a node is
+   not in the map. *)
+let root_and_leaves_of_abstraction_map abstraction_map ({ N.name } as node) = 
+
+  match 
+
+    (* Find node in abstraction map by name *)
+    List.find
+      (fun (n, _) -> n = [I.string_of_ident false name])
+      abstraction_map 
+
+  with
+    
+    (* Node is to be abstract *)
+    | (_, true) -> root_and_leaves_of_contracts node 
+
+    (* Node is to be concrete *)
+    | (_, false) -> root_and_leaves_of_impl node
+
+    (* Assume node to be concrete if not in map *)
+    | exception Not_found -> root_and_leaves_of_impl node
+
+
+(* Slice nodes to abstraction or implementation as indicated in
+   [abstraction_map] *)
+let slice_to_abstraction abstraction_map subsystem = 
+
+  (* Get list of nodes from subsystem in toplogical order with the top
+     node at the head of the list *)
+  let nodes = N.nodes_of_subsystem subsystem in 
+  
+  (* Slice all nodes to either abstraction or implementation *)
+  slice_nodes
+    (root_and_leaves_of_abstraction_map abstraction_map)
+    nodes
+    []
+    [root_and_leaves_of_abstraction_map abstraction_map (List.hd nodes)]
+
+  (* Create subsystem from list of nodes *)
+  |> N.subsystem_of_nodes 
 
 
 (* 

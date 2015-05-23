@@ -24,7 +24,7 @@ module Event = struct let log _ fmt = Format.printf (fmt ^^ "@.") end
 module A = LustreAst
 
 module I = LustreIdent
-module IT = LustreIdent.LustreIdentHashtbl
+module IT = LustreIdent.Hashtbl
 
 module D = LustreIndex
 
@@ -1283,7 +1283,7 @@ let add_node_equation ctx pos state_var bounds expr =
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
     | { node = Some { N.equations; N.calls } } -> 
-
+(*
       Format.printf
         "%a%a = %a@."
         StateVar.pp_print_state_var state_var
@@ -1294,7 +1294,7 @@ let add_node_equation ctx pos state_var bounds expr =
            "")
         bounds
         (E.pp_print_lustre_expr false) expr;
-                  
+  *)                
 
       if 
         
@@ -1405,7 +1405,7 @@ let add_node_equation ctx pos state_var bounds expr =
               (* Add property to node *)
               add_node_property
                 ctx
-                (TermLib.Generated [state_var]) 
+                (Property.Generated [state_var]) 
                 (Format.asprintf
                    "%a.bound" 
                    (E.pp_print_lustre_var false) 

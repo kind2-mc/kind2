@@ -23,9 +23,10 @@ module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
 module S = LustreSlicing
-module A = Analyis
+module A = Analysis
 
 module SVS = StateVar.StateVarSet
+module SVM = StateVar.StateVarMap
 
 
 (* Transition system and information needed when calling it *)
@@ -42,15 +43,17 @@ type node_def =
     (* Transition relation predicate *)
     trans_uf_symbol : UfSymbol.t;
 
+    trans_sys : TransSys.t;
+
     (* Stateful local variables to be instantiated by the caller 
 
        Local variables of the callees of the node *)
-    lifted_locals : StateVar.t list;
+    stateful_vars : StateVar.t list;
 
     (* Properties to be instantiated by the caller 
 
        Properties of the callees of the node *)
-    lifted_props : (StateVar.t * TermLib.prop_source) list;
+    lifted_props : (StateVar.t * string * Property.prop_source) list;
 
   }
 
@@ -61,11 +64,7 @@ let lift_state_var state_var_map state_var =
   try 
 
     (* Find state variable in map *)
-    List.find
-      (fun (sv, _) -> 
-         StateVar.equal_state_vars state_var sv) 
-      state_var_map
-    |> snd 
+    SVM.find state_var state_var_map
 
   (* Fail, because we don't want a term with state
      variables of mixed scopes *)
@@ -177,6 +176,7 @@ let call_terms_of_node_call
     { init_uf_symbol;
       trans_uf_symbol;
       node = { N.first_tick;
+               N.instance;
                N.contract_all_req; 
                N.contract_all_ens; 
                N.inputs;
@@ -184,7 +184,7 @@ let call_terms_of_node_call
                N.outputs;
                N.locals; 
                N.props } as node;
-      lifted_locals; 
+      stateful_vars; 
       lifted_props } =
 
   (* Initialize map of state variable in callee to instantiated state
@@ -194,29 +194,29 @@ let call_terms_of_node_call
     (* Inputs *)
     D.fold2
       (fun _ state_var inst_state_var state_var_map -> 
-         (state_var, inst_state_var) :: state_var_map)
+         SVM.add state_var inst_state_var state_var_map)
       inputs
       call_inputs
-      []
+      SVM.empty
 
     |> 
 
     (* Outputs *)
     D.fold2
       (fun _ state_var inst_state_var state_var_map -> 
-         (state_var, inst_state_var) :: state_var_map)
+         SVM.add state_var inst_state_var state_var_map)
       outputs
       call_outputs
 
-  |> (fun state_var_map ->
-       
-       (* Oracles *)
-       List.fold_left2 
-         (fun state_var_map state_var inst_state_var -> 
-            (state_var, inst_state_var) :: state_var_map)
-         state_var_map
-         oracles
-         call_oracles)
+    |> (fun state_var_map ->
+        
+        (* Oracles *)
+        List.fold_left2 
+          (fun state_var_map state_var inst_state_var -> 
+             SVM.add state_var inst_state_var state_var_map)
+          state_var_map
+          oracles
+          call_oracles)
 
   in
 
@@ -238,18 +238,15 @@ let call_terms_of_node_call
              (StateVar.type_of_state_var state_var)
          in
 
-         (* Add fresh state variable to state variables of this
-            node, to actual input parameters of node call and to
-            map of state variable instances *)
+         (* Add fresh state variable to state variables of this node,
+            to actual input parameters of node call and to map of
+            state variable instances *)
          (inst_state_var :: locals,
           inst_state_var :: call_locals,
-          (state_var, inst_state_var) :: state_var_map))
+          SVM.add state_var inst_state_var state_var_map))
 
-      (node_locals, [], [])
-      (List.fold_left
-         (fun a e -> D.values e @ a) 
-         (first_tick :: lifted_locals)
-         locals)
+      (node_locals, [], state_var_map)
+      (first_tick :: instance :: stateful_vars)
 
   in
 
@@ -259,16 +256,16 @@ let call_terms_of_node_call
       (fun a (sv, n, src) -> 
 
          ((* Lift state variable 
-             
+
              Property is a local variable, thus it has been
              instantiated and is in the map *)
            lift_state_var state_var_map sv,
-             
+
            (* Lift name of property *)
            lift_prop_name call_node_name call_pos n,
-           
+
            (* Property is instantiated *)
-           TermLib.Instantiated
+           Property.Instantiated
              ([I.string_of_ident false call_node_name], n)) :: a)
 
       node_props
@@ -281,7 +278,7 @@ let call_terms_of_node_call
 
       (lift_state_var state_var_map contract_all_req,
        lift_prop_name call_node_name call_pos "requirement",
-       TermLib.Requirement
+       Property.Requirement
          (call_pos, [I.string_of_ident false call_node_name], []))
       :: node_props
 
@@ -290,39 +287,43 @@ let call_terms_of_node_call
       node_props
 
   in
-
-  let init_call_of_bound term_of_state_var =
+  
+  let init_params_of_bound term_of_state_var =
     List.map 
       term_of_state_var
-      (lift_state_var state_var_map first_tick :: 
-       (D.values call_inputs) @ 
+      ((D.values call_inputs) @ 
        (D.values call_outputs) @
        call_locals)
-
-    |> Term.mk_uf init_uf_symbol
-
   in
-    
+
+  let trans_params_of_bound term_of_state_var pre_term_of_state_var =
+    init_params_of_bound term_of_state_var @
+    List.map 
+      pre_term_of_state_var
+      ((List.filter 
+          (fun sv -> StateVar.is_const sv |> not) 
+          ((D.values call_inputs) @ 
+           D.values call_outputs @
+           call_locals)))
+  in
+
 
   let init_call_term =
-    init_call_of_bound
+    init_params_of_bound
       (E.base_term_of_state_var TransSys.init_base)
+    |> Term.mk_uf init_uf_symbol
   in
 
   let init_call_term_trans = 
-    init_call_of_bound
+    init_params_of_bound
       (E.cur_term_of_state_var TransSys.trans_base)
+    |> Term.mk_uf init_uf_symbol
   in
-        
+
   let trans_call_term =
-    List.map 
+    trans_params_of_bound
       (E.cur_term_of_state_var TransSys.trans_base)
-      (lift_state_var state_var_map first_tick :: 
-       (List.filter 
-          (fun sv -> StateVar.is_const sv |> not) 
-          (D.values call_inputs)) @ 
-       D.values call_outputs @
-       call_locals)
+      (E.pre_term_of_state_var TransSys.trans_base)
 
     |> Term.mk_uf trans_uf_symbol
 
@@ -332,23 +333,49 @@ let call_terms_of_node_call
   node_locals, 
   node_props, 
   call_locals,
-  init_call_term_trans, 
   init_call_term, 
+  init_call_term_trans, 
   trans_call_term
   
+
+let rec add_subsystem' trans_sys state_var_map guard_fun accum = function 
+
+  | [] -> (trans_sys, [(state_var_map, guard_fun)]) :: accum
+
+  | (trans_sys', inst) as h :: tl -> 
+
+    if TransSys.equal_scope trans_sys trans_sys' then 
+      
+      List.rev_append
+        ((trans_sys, ((state_var_map, guard_fun) :: inst)) :: accum)
+        tl
+        
+    else
+
+      add_subsystem' 
+        trans_sys
+        state_var_map
+        guard_fun
+        (h :: accum)
+        tl
+      
+let add_subsystem trans_sys state_var_map guard_fun subsystems =
+  add_subsystem' trans_sys state_var_map guard_fun [] subsystems
+
 
 let rec definitions_of_node_calls 
     mk_fresh_state_var
     trans_sys_defs
     node_locals
     node_props 
+    subsystems
     init_terms
     trans_terms = 
 
   function
 
     (* Definitions for all node calls created, return *)
-    | [] -> (node_locals, node_props, init_terms, trans_terms)
+    | [] -> (subsystems, node_locals, node_props, init_terms, trans_terms)
 
     (* Node call without an activation condition *)
     | { N.call_node_name; N.call_clock = None } as node_call :: tl -> 
@@ -357,17 +384,34 @@ let rec definitions_of_node_calls
 
          (* Get additional information about transition system of a
             callee *)
-         let node_trans_sys =
-           List.assoc call_node_name trans_sys_defs 
+         let { trans_sys } as node_def =
+           I.Map.find call_node_name trans_sys_defs 
          in
 
-         let state_var_map, node_locals, node_props, _, init_term, _, trans_term =
+         let 
+
+           state_var_map, 
+           node_locals, 
+           node_props, 
+           _, 
+           init_term, 
+           _, 
+           trans_term =
+
            call_terms_of_node_call
              mk_fresh_state_var
              node_call
              node_locals
              node_props
-             node_trans_sys
+             node_def
+         in
+
+         let subsystems =
+           add_subsystem
+             trans_sys
+             state_var_map
+             (fun t -> t)
+             subsystems
          in
 
          definitions_of_node_calls 
@@ -375,6 +419,7 @@ let rec definitions_of_node_calls
            trans_sys_defs
            node_locals
            node_props
+           subsystems
            (init_term :: init_terms)
            (trans_term :: trans_terms)
            tl
@@ -393,8 +438,8 @@ let rec definitions_of_node_calls
 
          (* Get additional information about transition system of a
             callee *)
-         let { node = { N.first_tick; N.inputs }} as node_trans_sys =
-           List.assoc call_node_name trans_sys_defs 
+         let { node = { N.first_tick; N.inputs }; trans_sys } as node_def =
+           I.Map.find call_node_name trans_sys_defs 
          in
 
          (* Create shadow variable for each non-constant input *)
@@ -403,17 +448,17 @@ let rec definitions_of_node_calls
            (* Add shadow state variable to local variables, return
               term at previous instant, equation with corresponding
               inputs, and equation with previous state value *)
-           (local_vars,
+           (shadow_inputs,
             propagate_inputs_init, 
             propagate_inputs_trans, 
             interpolate_inputs) =
 
            D.fold2
              (fun
-               _ 
+               formal_idx 
                formal_sv 
                actual_sv
-               (local_vars, 
+               (shadow_inputs, 
                 propagate_inputs_init, 
                 propagate_inputs_trans, 
                 interpolate_inputs) ->
@@ -421,7 +466,7 @@ let rec definitions_of_node_calls
                (* Skip over constant formal inputs *)
                if StateVar.is_const formal_sv then 
 
-                 (local_vars, 
+                 (D.add formal_idx formal_sv shadow_inputs, 
                   propagate_inputs_init, 
                   propagate_inputs_trans, 
                   interpolate_inputs )
@@ -435,6 +480,11 @@ let rec definitions_of_node_calls
                      ?for_inv_gen:(Some false)
                      (StateVar.type_of_state_var formal_sv) 
                  in
+
+                 Format.printf
+                   "%a is shadow for %a@."
+                   StateVar.pp_print_state_var shadow_sv
+                   StateVar.pp_print_state_var formal_sv;
 
                  (* Shadow variable takes value of input *)
                  let p_i = 
@@ -458,7 +508,7 @@ let rec definitions_of_node_calls
                  in
 
                  (* Add shadow variable and equations to accumulator *)
-                 (shadow_sv :: local_vars,
+                 (D.add formal_idx shadow_sv shadow_inputs,
                   p_i :: propagate_inputs_init, 
                   p_t :: propagate_inputs_trans, 
                   i :: interpolate_inputs))
@@ -466,10 +516,9 @@ let rec definitions_of_node_calls
              inputs
              call_inputs
 
-             (node_locals, [], [], [])
+             (D.empty, [], [], [])
 
          in
-
 
          let 
 
@@ -483,23 +532,45 @@ let rec definitions_of_node_calls
 
            call_terms_of_node_call
              mk_fresh_state_var
-             { node_call with N.call_inputs = call_inputs }
+
+             (* Modify node call to use shadow inputs *)
+             { node_call with N.call_inputs = shadow_inputs }
+
              node_locals
              node_props
-             node_trans_sys
+             node_def
          in
+
 
          let clock_init = 
            E.base_term_of_state_var TransSys.init_base clock 
          in
 
          let clock_trans = 
-           E.cur_term_of_state_var TransSys.init_base clock 
+           E.cur_term_of_state_var TransSys.trans_base clock 
          in
 
-         let first_tick_trans = 
-           lift_state_var state_var_map first_tick
-           |> E.cur_term_of_state_var TransSys.init_base 
+         let clock_trans_pre = 
+           E.pre_term_of_state_var TransSys.trans_base clock 
+         in
+
+         let has_ticked =
+           mk_fresh_state_var
+             ?is_const:None
+             ?for_inv_gen:(Some false)
+             Type.t_bool
+         in
+
+         let has_ticked_init = 
+           E.base_term_of_state_var TransSys.init_base has_ticked
+         in
+
+         let has_ticked_trans = 
+           E.cur_term_of_state_var TransSys.trans_base has_ticked
+         in
+
+         let has_ticked_trans_pre = 
+           E.pre_term_of_state_var TransSys.trans_base has_ticked
          in
 
          let init_term = 
@@ -507,6 +578,11 @@ let rec definitions_of_node_calls
            Term.mk_and 
 
              [
+
+
+               (* [has_ticked] is false in the first instant, because
+                  it becomes true only after the first clock tick. *)
+               Term.negate has_ticked_init;
 
                (* Propagate input values to shadow variables on clock
                   tick *)
@@ -539,6 +615,14 @@ let rec definitions_of_node_calls
            Term.mk_and
              [
 
+               (* has_ticked flag becomes true in the instant after
+                  the first clock tick and stays true *)
+               Term.mk_eq 
+                 [has_ticked_trans;
+                  Term.mk_or
+                    [has_ticked_trans_pre; 
+                     clock_trans_pre]];
+
                (* Propagate input values to shadow variables on clock
                   tick *)
                Term.mk_implies 
@@ -548,20 +632,21 @@ let rec definitions_of_node_calls
                (* Interpolate input values in shadow variable between
                   clock ticks *)
                Term.mk_implies 
-                 [Term.mk_not clock_trans; Term.mk_and interpolate_inputs];
+                 [Term.mk_not clock_trans; 
+                  Term.mk_and interpolate_inputs];
 
                (* Transition relation with true activation condition
                     on the first clock tick *)
                Term.mk_implies
                  [Term.mk_and 
-                    [clock_trans; first_tick_trans];
+                    [clock_trans; Term.negate has_ticked_trans];
                   init_term_trans];
 
                (* Transition relation with true activation condition
                   on following clock ticks *)
                Term.mk_implies
                  [Term.mk_and
-                    [clock_trans; Term.mk_not first_tick_trans];
+                    [clock_trans; has_ticked_trans];
                   trans_term];
 
                (* Transition relation with false activation
@@ -582,19 +667,27 @@ let rec definitions_of_node_calls
                        []
                        call_locals
                      |> D.fold
-                          (fun _ state_var accum -> 
-                           Term.mk_eq 
-                             [E.cur_term_of_state_var
-                                TransSys.trans_base 
-                                state_var; 
-                              E.pre_term_of_state_var
-                                TransSys.trans_base
-                                state_var] :: 
-                           accum)
-                          call_outputs) ]
+                       (fun _ state_var accum -> 
+                          Term.mk_eq 
+                            [E.cur_term_of_state_var
+                               TransSys.trans_base 
+                               state_var; 
+                             E.pre_term_of_state_var
+                               TransSys.trans_base
+                               state_var] :: 
+                          accum)
+                       call_outputs) ]
 
              ]
 
+         in
+
+         let subsystems =
+           add_subsystem
+             trans_sys
+             state_var_map
+             (fun t ->  Term.mk_implies [clock_trans; t])
+             subsystems
          in
 
          definitions_of_node_calls
@@ -602,6 +695,7 @@ let rec definitions_of_node_calls
            trans_sys_defs
            node_locals
            node_props
+           subsystems
            (init_term :: init_terms)
            (trans_term :: trans_terms)
            tl
@@ -620,7 +714,7 @@ let rec definitions_of_asserts
     | [] -> (init_terms, trans_terms)
             
     (* Assertion with term for initial state and term for transitions *)
-    | { E.expr_init; E.expr_step } as expr :: tl ->
+    | { E.expr_init; E.expr_step } :: tl ->
 
        (* Term for assertion in initial state *)
        let init_term =
@@ -697,7 +791,7 @@ let rec definitions_of_equations
 
 
     (* Can define state variable with a let binding *)
-    | (state_var, [], ({ E.expr_init; E.expr_step } as expr)) :: tl ->
+    | (state_var, [], { E.expr_init; E.expr_step }) :: tl ->
 
       (* Let binding for stateless variable *)
       let def =
@@ -939,45 +1033,405 @@ let mk_trans_def
   (uf_symbol, (trans_signature_vars, trans_term))
 *)
 
-let rec trans_sys_of_node'
-    trans_sys_defs
-    output_input_dep_init
-    output_input_dep_trans
-    nodes_abst
-    node_impl
-    abst_impl_map =
+let rec trans_sys_of_node' 
+    (trans_sys_defs : node_def I.Map.t)
+    output_input_dep
+    nodes =
 
   function
 
     (* Transition system for all nodes created *)
-    | [] -> 
-
-      (* Return transition system of top node *)
-      (match trans_sys_defs with
-        | [] -> assert false
-        | (_, trans_sys) :: _ -> trans_sys)
+    | [] -> trans_sys_defs
 
     (* Create transition system for top node *)
     | node_name :: tl -> 
 
-      try 
-
-        (* Transition system for node has been created and added to
+      (* Transition system for node has been created and added to
            accumulator meanwhile? *)
-        let trans_sys = List.assoc node_name trans_sys_defs in
+      if I.Map.mem node_name trans_sys_defs then
 
         (* Continue with next transition systems *)
-        trans_sys_of_node'
-          trans_sys_defs
-          output_input_dep_init
-          output_input_dep_trans
-          nodes_abst
-          node_impl
-          abst_impl_map 
+        trans_sys_of_node' 
+          trans_sys_defs 
+          output_input_dep
+          nodes 
           tl
 
       (* Transition system has not been created *)
-      with Not_found -> 
+      else
+
+        (* Node to create a transition system for *)
+        let { N.instance;
+              N.first_tick; 
+              N.inputs; 
+              N.oracles; 
+              N.outputs; 
+              N.locals; 
+              N.equations; 
+              N.calls; 
+              N.asserts; 
+              N.props;
+              N.contracts } as node = 
+
+          try 
+
+            (* Find node in abstract or implementation nodes by name *)
+            N.node_of_name node_name nodes
+
+          with Not_found -> 
+
+            (* Node must be in the list of nodes *)
+            raise
+              (Invalid_argument
+                 (Format.asprintf 
+                    "trans_sys_of_node: node %a not found"
+                    (I.pp_print_ident false) node_name))
+
+        in
+
+        (* Index for fresh state variables *)
+        let index_ref = ref 0 in
+
+        (* Create a fresh state variable *)
+        let mk_fresh_state_var
+            ?is_const
+            ?for_inv_gen
+            state_var_type =
+
+          (* Increment counter for fresh state variables *)
+          incr index_ref; 
+
+          (* Create state variable *)
+          StateVar.mk_state_var
+            ~is_input:false
+            ?is_const:is_const
+            ?for_inv_gen:for_inv_gen
+            ((I.push_index I.inst_ident !index_ref) 
+             |> I.string_of_ident false)
+            [(I.string_of_ident false) node_name]
+            state_var_type
+
+        in
+
+        (* Subnodes for which we have not created a transition
+           system *)
+        let tl' = 
+
+          List.fold_left 
+            (fun accum { N.call_node_name } -> 
+               if 
+
+                 (* Transition system for node created? *)
+                 I.Map.mem call_node_name trans_sys_defs || 
+
+                 (* Node already pushed to stack? *)
+                 List.exists (I.equal call_node_name) accum
+
+               then 
+
+                 (* Continue with stack unchanged *)
+                 accum
+
+               else
+
+                 (* Push node to top of stack *)
+                 call_node_name :: accum)
+
+            []
+            calls
+
+        in
+
+        (* Are there subnodes for which a transition system needs to be
+           created first? *)
+        match tl' with
+
+          (* Some transitions systems of called nodes have not been
+             created *)
+          | _ :: _ -> 
+
+            (* We could check here that the call graph does not have
+               cycles, although that should not be allowed in
+               the Lustre currently accepted. *)
+
+            (* Recurse to create transition system for called nodes,
+               then return to this node *)
+            trans_sys_of_node'
+              trans_sys_defs
+              output_input_dep
+              nodes
+              (tl' @ node_name :: tl)
+
+          (* All transitions systems of called nodes have been
+             created *)
+          | [] ->
+
+            (* Initial state constraint: init flag is true on first
+               tick of node *)
+            let init_terms = 
+              [E.base_term_of_state_var TransSys.init_base first_tick] 
+            in
+
+            (* Transition relation: init flag becomes and stays false
+               at the second tick *)
+            let trans_terms = 
+              [E.cur_term_of_state_var TransSys.trans_base first_tick
+               |> Term.negate] 
+            in
+
+            (* Instantiated state variables and constraints from node
+               calls *)
+            let 
+
+              subsystems, 
+              lifted_locals, 
+              lifted_props, 
+              init_terms, 
+              trans_terms = 
+
+              definitions_of_node_calls
+                mk_fresh_state_var
+                trans_sys_defs
+                []  (* No lifted locals *)
+                []  (* No lifted properties *)
+                []  (* No subsystems *)
+                init_terms
+                trans_terms
+                calls 
+            in
+
+            (* Stateful state variables in node, including state
+               variables for node instance, first tick flag, and state
+               variables capturing outputs of node calls *)
+            let stateful_vars = 
+              first_tick ::
+              (N.stateful_vars_of_node node 
+               |> SVS.elements)
+              @ lifted_locals
+            in
+
+            (* State variables in the signature of the predicate in
+               the correct order *)
+            let signature_state_vars = 
+              first_tick ::
+              (D.values inputs) @ 
+              oracles @
+              (D.values outputs) 
+            in
+
+            (* Append local stateful variables *)
+            let signature_state_vars = 
+              signature_state_vars @
+              List.filter
+                (fun sv -> 
+                   not
+                     (List.exists
+                        (fun sv' -> StateVar.equal_state_vars sv sv')
+                        signature_state_vars))
+                stateful_vars
+            in
+
+            (* Constraints from assertions
+
+               Must add assertions and contract first so that local variables
+               can be let bound in definitions_of_equations *)
+            let init_terms, trans_terms = 
+              definitions_of_asserts  
+                init_terms
+                trans_terms
+                asserts
+            in
+
+            (* Order initial state equations by dependency and
+               generate terms *)
+            let init_terms, node_output_input_dep_init =
+
+              S.order_equations true output_input_dep node
+
+              |>
+
+              (fun (e, d) -> 
+                 definitions_of_equations
+                   true
+                   stateful_vars
+                   instance
+                   init_terms
+                   (List.rev e),
+
+                 d)
+            in
+
+            (* Order transition relation equations by dependency and
+               generate terms *)
+            let trans_terms, node_output_input_dep_trans =
+
+              S.order_equations false output_input_dep node
+
+              |>
+
+              (fun (e, d) -> 
+                 definitions_of_equations
+                   false
+                   stateful_vars
+                   instance
+                   trans_terms
+                   (List.rev e),
+
+                 d)
+            in
+
+            (* Arrays become global state variables and are removed
+               from signature *)
+            let global_state_vars, signature_state_vars = 
+              List.partition
+                (fun sv -> StateVar.type_of_state_var sv |> Type.is_array)
+                signature_state_vars 
+            in
+
+            (* Need to add an instance variable when we have arrays *)
+            let signature_state_vars, instance_state_var =
+              if global_state_vars = [] then 
+                signature_state_vars, None 
+              else 
+                instance :: signature_state_vars, Some instance 
+            in
+
+
+            (* Create transition system *)
+            let trans_sys, _ = 
+              TransSys.mk_trans_sys 
+                [I.string_of_ident false node_name]
+                instance_state_var
+                global_state_vars
+                (signature_state_vars @ global_state_vars)
+                (Term.mk_and init_terms)
+                (Term.mk_and trans_terms)
+                subsystems
+                []
+                []
+                []
+            in                
+
+            Format.printf 
+              "%a@."
+              TransSys.pp_print_trans_sys trans_sys;
+
+            (* Create instances of state variables in signature *)
+            let init_signature_vars = 
+              List.map 
+                (fun sv ->
+                   Var.mk_state_var_instance sv TransSys.init_base)
+                signature_state_vars
+            in
+
+            (* Create uninterpreted symbol for initial state
+               predicate *)
+            let init_uf_symbol = 
+              UfSymbol.mk_uf_symbol
+                (Format.asprintf
+                   "%s_%a"
+                   I.init_uf_string
+                   (LustreIdent.pp_print_ident false) node_name)
+                (List.map Var.type_of_var init_signature_vars)
+                Type.t_bool
+            in
+
+            (* Create instances of state variables in signature *)
+            let trans_signature_vars = 
+
+              (* All state variables at the current instant *)
+              List.map 
+                (fun sv ->
+                   Var.mk_state_var_instance sv TransSys.trans_base)
+                signature_state_vars @
+
+              (* Not constant state variables at the previous
+                 instant *)
+              List.map 
+                (fun sv -> 
+                   Var.mk_state_var_instance 
+                     sv
+                     (TransSys.trans_base |> Numeral.pred))
+                (List.filter
+                   (fun sv -> not (StateVar.is_const sv)) 
+                   signature_state_vars)
+            in
+
+            (* Create uninterpreted symbol for transition relation
+               predicate *)
+            let trans_uf_symbol = 
+              UfSymbol.mk_uf_symbol
+                (Format.asprintf
+                   "%s_%a"
+                   I.trans_uf_string
+                   (LustreIdent.pp_print_ident false) node_name)
+                (List.map Var.type_of_var trans_signature_vars)
+                Type.t_bool
+            in
+
+            trans_sys_of_node'
+              (I.Map.add 
+                 node_name
+                 { node;
+                   trans_sys;
+                   init_uf_symbol;
+                   trans_uf_symbol;
+                   stateful_vars;
+                   lifted_props }
+                 trans_sys_defs)
+              ((node_name, 
+                (node_output_input_dep_init, node_output_input_dep_trans))
+               :: output_input_dep)
+              nodes
+              tl
+          
+
+let trans_sys_of_nodes nodes top = 
+  try 
+
+    trans_sys_of_node' I.Map.empty [] nodes [top] 
+    |> I.Map.find top
+
+  with Not_found -> assert false
+
+
+let test () = 
+
+  let lustre_input = LustreInput.of_file Sys.argv.(1) in
+
+  let { SubSystem.source = { N.name = top_name } as node } as subsystem = 
+    LustreSlicing.slice_to_abstraction [] lustre_input 
+  in
+
+  let nodes = N.nodes_of_subsystem subsystem in 
+
+  Format.printf
+    "@[<v>%a@]@."
+    (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
+
+  let { trans_sys } = trans_sys_of_nodes nodes top_name in
+  
+  Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
+
+;;
+
+test ()
+
+
+
+
+
+(*
+
+let trans_sys_of_nodes nodes { A.top; A.abstraction_map; A.assumptions } = 
+
+  (* Find top node in LustreNode.t SubSystem.t, then slice to
+     abstraction map *)
+
+
+
+
+
 
         (* Is node abstract? *)
         let is_abstr = 
@@ -1033,236 +1487,10 @@ let rec trans_sys_of_node'
 
         in
 
-        (* Return true if state variable is local to the node *)
-        let is_node_local_state_var sv =
 
-          (* State variable is not an oracle *)
-          not 
-            (List.exists
-               (StateVar.equal_state_vars sv)
-               oracles) &&
-
-          (* State variable is not an input *)
-          not 
-            (D.exists
-               (fun _ -> StateVar.equal_state_vars sv)
-               inputs) &&
-
-          (* State variable is not an output *)
-          not 
-            (D.exists
-               (fun _ -> StateVar.equal_state_vars sv)
-               outputs)
-
-        in
-
-        (* Index for fresh state variables *)
-        let index_ref = ref 0 in
-
-        (* Create a fresh state variable *)
-        let mk_fresh_state_var
-            ?is_const
-            ?for_inv_gen
-            state_var_type =
-
-          (* Increment counter for fresh state variables *)
-          incr index_ref; 
-
-          (* Create state variable *)
-          StateVar.mk_state_var
-            ~is_input:false
-            ?is_const:is_const
-            ?for_inv_gen:for_inv_gen
-            ((I.push_index I.inst_ident !index_ref) 
-             |> I.string_of_ident false)
-            [(I.string_of_ident false) node_name]
-            state_var_type
-
-        in
-
-        (* Subnodes for which we have not created a transition system *)
-        let tl' = 
-
-          List.fold_left 
-            (fun accum { N.call_node_name } -> 
-               if 
-
-                 (* Transition system for node created? *)
-                 List.mem_assoc call_node_name trans_sys_defs || 
-
-                 (* Node already pushed to stack? *)
-                 List.mem call_node_name accum
-
-               then 
-
-                 (* Continue with stack unchanged *)
-                 accum
-
-               else
-
-                 (* Push node to top of stack *)
-                 call_node_name :: accum)
-
-            []
-            calls
-
-        in
-
-        (* Are there subnodes for which a transition system needs to be
-           created first? *)
-        match tl' with
-
-          (* Some transitions systems of called nodes have not been
-             created *)
-          | _ :: _ -> 
-
-            (* TODO: Check here that the call graph does not have
-               cycles *)
-
-            (* Recurse to create transition system for subnode, then
-               return to this node *)
-            trans_sys_of_node'
-              trans_sys_defs
-              output_input_dep_init
-              output_input_dep_trans
-                  nodes_abst
-              node_impl
-              abst_impl_map 
-              (tl' @ node_name :: tl)
-
-          (* All transitions systems of called nodes have been
-             created *)
-          | [] ->
-
-            (* Instantiated state variables and constraints from node
-               calls *)
-            let locals', props', init_terms, trans_terms = 
-              definitions_of_node_calls
-                mk_fresh_state_var
-                trans_sys_defs
-                (List.fold_left (fun a c -> D.values c @ a) [] locals)
-                props
-                []
-                []
-                calls 
-            in
-
-            (* Stateful state variables in node, including state
-               variables for node instance, first tick and running
-               flags, and state variables capturing outputs of node
-               calls *)
-            let stateful_vars = 
-              (N.stateful_vars_of_node node 
-               |> SVS.elements
-               |> List.filter is_node_local_state_var) @ 
-              locals' 
-            in
-
-            (* State variables in the signature of the predicate in
-               the correct order *)
-            let signature_vars = 
-              instance ::
-              first_tick ::
-              (D.values inputs) @ 
-              oracles @
-              (D.values outputs) 
-            in
-
-            (* Constraints from assertions
-
-               Must add assertions and contract first so that local variables
-               can be let bound in definitions_of_equations *)
-            let init_terms, trans_terms = 
-              definitions_of_asserts  
-                init_terms
-                trans_terms
-                asserts
-            in
-
-            (* Order initial state equations by dependency and
-               generate terms *)
-            let equations_init, node_output_input_dep_init =
-
-              S.order_equations true output_input_dep_init node
-
-              |>
-              
-              (fun (e, d) -> 
-                 definitions_of_equations
-                   true
-                   stateful_vars
-                   instance
-                   init_terms
-                   e,
-                 
-                 d)
-            in
-
-            (* Order transition relation equations by dependency and
-               generate terms *)
-            let equations_init, node_output_input_dep_trans =
-
-              S.order_equations false output_input_dep_trans node
-
-              |>
-              
-              (fun (e, d) -> 
-                 definitions_of_equations
-                   false
-                   stateful_vars
-                   instance
-                   trans_terms
-                   e,
-                 
-                 d)
-            in
-
-(*
-            (* Definition of initial state predicate *)
-            let init_def = 
-              mk_init_def node signature_vars init_terms
-            in
-
-            (* Definition of transition relation predicate *)
-            let trans_def = 
-              mk_trans_def node signature_vars trans_terms
-            in
-
-            let trans_sys = 
-              TransSys.mk_trans_sys 
-                [I.string_of_ident false node_name]
-                []
-                init_def
-                trans_def
-                []
-                []
-                None
-                (TransSys.Lustre [])
-            in
-*)
-
-            (* Create transition relation *)
-            trans_sys_of_node'
-              ((node_name,
-               { node;
-                 init_uf_symbol;
-                 trans_uf_symbol;
-                 lifted_locals;
-                 lifted_props })
-               :: trans_sys_defs)
-              ((node_name, node_output_input_dep_init) :: 
-               output_input_dep_init)
-              ((node_name, node_output_input_dep_trans) :: 
-               output_input_dep_trans)
-              nodes_abst
-              node_impl
-              abst_impl_map 
-              tl
-          
-
-let trans_sys_of_nodes nodes = 
   trans_sys_of_node' [] [] [] [] nodes [] [List.hd nodes |> fun { N.name } -> name]
 
+*)
 
 
 (* 

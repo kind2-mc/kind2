@@ -45,16 +45,16 @@ type param =
   { 
     
     (** The top system for the analysis run *)
-    top : SubSystem.scope;
+    top : Scope.t;
     
     
     (** Systems flagged [true] are to be represented abstractly, those
         flagged [false] are to be represented by their
         implementation. *)
-    abstraction_map : (SubSystem.scope * bool) list;
+    abstraction_map : (Scope.t * bool) list;
 
     (** Named properties that can be assumed invariant in subsystems *)
-    assumptions : (SubSystem.scope * string) list;
+    assumptions : (Scope.t * string) list;
 
   }
 

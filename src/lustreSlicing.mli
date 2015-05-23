@@ -26,10 +26,7 @@ LustreNode.t ->
 (StateVar.t * LustreExpr.expr LustreNode.bound_or_fixed list * LustreExpr.t) list *
 LustreIndex.index list LustreIndex.t
 
-val slice_to_impl : LustreNode.t list -> LustreNode.t list
-
-val slice_to_contract : LustreNode.t list -> LustreNode.t list
-
+val slice_to_abstraction : (Scope.t * bool) list -> LustreNode.t SubSystem.t -> LustreNode.t SubSystem.t
 
 (* 
    Local Variables:

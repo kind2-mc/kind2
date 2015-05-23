@@ -16,6 +16,53 @@
 
 *)
 
+(** Parameters for the creation of a transition system *)
+type param = 
+
+  { 
+    
+    (** The top system for the analysis run *)
+    top : Scope.t;
+    
+    
+    (** Systems flagged [true] are to be represented abstractly, those
+        flagged [false] are to be represented by their
+        implementation. *)
+    abstraction_map : (Scope.t * bool) list;
+
+    (** Named properties that can be assumed invariant in subsystems *)
+    assumptions : (Scope.t * string) list;
+
+  }
+
+
+(** Result of analysing a transistion system *)
+type result = 
+
+  { 
+    
+    (** System analyzed (see [top] field of record) and parameters of
+        the analysis *)
+    param : param;
+
+    (** All contracts of the system are valid *)
+    contract_valid : bool;     
+
+    (** Contract preconditions of all subsystems are valid *)
+    sub_contracts_valid : bool;
+
+    (** Additional properties proved invariant *)
+    properties : string list;
+
+  }
+
+
+(** An analysis consists of a set of transition systems and a set of properties *)
+type t = TransSys.t list * Property.t list
+
+
+(** Run one analysis *)
+let run _ = assert false
 
 
 (* 

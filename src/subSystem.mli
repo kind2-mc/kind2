@@ -29,9 +29,6 @@
 
     @author Christoph Sticksel *)
 
-(** Scope of a system *)
-type scope = string list 
-
 (** A system parameterized by its actual source *)
 type 'a t = 
 
@@ -61,7 +58,7 @@ val all_subsystems : 'a t -> 'a t list
 (** Return the subsystem of the given scope 
 
    Raise [Not_found] if there is no subsystem of that scope *)
-val find_subsystem : 'a t -> scope -> 'a t
+val find_subsystem : 'a t -> Scope.t -> 'a t
 
 (* 
    Local Variables:

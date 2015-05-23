@@ -98,6 +98,10 @@ let mk_pos = position_of_lexing
 %token TEL
     
 (* Tokens for annotations *)
+(*
+%token <string>BANGCOMMENT
+*)
+
 %token PROPERTY
 %token MAIN
 
@@ -524,6 +528,7 @@ node_equation:
 
   (* Property annotation *)
   | PROPERTY; e = expr; SEMICOLON { A.AnnotProperty (mk_pos $startpos, e) }
+
 
 
 left_side:

@@ -38,6 +38,9 @@ module Set : Set.S with type elt = t
 (** Map of scopes *)
 module Map : Map.S with type key = t
 
+(** Pretty-print a scope *)
+val pp_print_scope : Format.formatter -> t -> unit
+
 
 (* 
    Local Variables:

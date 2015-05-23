@@ -16,11 +16,42 @@
 
 *)
 
-(** Parse a Lustre file into a transition system
+(** Parse Lustre input into the intermediate Lustre format 
 
     An OCamllex lexer in {!LustreLexer} and a Menhir parser in
-    {!LustreParser} take the input and produce a {!LustreAst.t} value,
-    which is a minimally processed representation of a Lustre AST. 
+    {!LustreParser} take the input and produce a sinlge {!LustreAst.t}
+    value, which is a minimally processed representation of a Lustre
+    AST.
+
+    This AST is then translated into a simplified Lustre, see
+    {!LustreNode}, and {!LustreDeclarations} for the translation.
+
+    The main function {!of_file} of this module returns a system for
+    the analysis strategies that can be turned into an internal
+    transition system {!TransSys} by using functions in
+    {!LustreTransSys} with relevant parameters.
+
+    The whole input file is parsed and type checked first, then one
+    node is designated as the main node. The returned {!Subsystem.t}
+    has this main node at the top, and all called nodes as
+    children. Nodes that are in the input file, but not called by the
+    main node are discarded.
+
+    The main node is, in order of precedence:
+
+    - the node with the name given by the [--lustre_main] command-line
+      option,
+    - the node with the annotation [--%MAIN], or
+    - the last node in the input.
+
+    An exception [Invalid_argument] is raised if the node given by
+    [--lustre_main] is not found, there are two nodes with a [--%MAIN]
+    annotation, or the input contains no nodes.
+
+
+
+
+
 
     In particular, the output of the entry point {!LustreParser.main}
     returns a Lustre file as a list of declarations of
@@ -83,7 +114,7 @@
 *)
 
 (** Parse from the file, return an input system for further slicing
-    and refinement *)
+    and refinement from analysis strategies. *)
 val of_file : string -> LustreNode.t SubSystem.t
 
 (* 

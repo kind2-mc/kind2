@@ -58,7 +58,14 @@ module Set = Set.Make (Scope)
 
 module Map = Map.Make (Scope)
 
+(* Pretty-print a scope *)
+let pp_print_scope ppf s = 
 
+  Format.fprintf 
+    ppf
+    "%a"
+    (pp_print_list Ident.pp_print_ident ".")
+    s
 
 
 (* 

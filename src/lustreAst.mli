@@ -44,7 +44,7 @@ open Lib
 (** Error while parsing *)
 exception Parser_error
 
-(** {1 Supporting Types} *)
+(** {1 Types} *)
 
 (** An identifier *)
 type ident = string
@@ -258,9 +258,7 @@ type declaration =
 (** A Lustre program as a list of declarations *) 
 type t = declaration list
 
-(** {1 Helpers} *)
-
-(** Pretty-printers *)
+(** {1 Pretty-printers} *)
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_expr : Format.formatter -> expr -> unit
 val pp_print_array_slice : Format.formatter -> expr * expr -> unit

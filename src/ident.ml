@@ -28,12 +28,27 @@ open Lib
 
    - Allow several namespaces to avoid spurious name clashes
 
+   - List reserved identifiers per namespace and fail if reserved
+     identifier is created
+
+   - Use tag of identifier as short name instead of full string when
+     passing to SMT solver etc.
+
 *)
 
+(* Namespace to avoid clashes between reserved and user identifiers *)
+type namespace =
+
+  (* Reserved identifier *)
+  | ReservedIdentifier
+
+  (* Identifier in user input *)
+  | UserIdentifier
 
 module Ident = struct
 
-  (* Identifier *)
+  (* Identifier with namespace *)
+  (* type t = namespace * string *)
   type t = string
     
   (* Equality on identifiers *)
@@ -51,7 +66,7 @@ module IdentSet = Set.Make (Ident)
 module IdentMap = Map.Make (Ident)
 
 
-
+let pp_print_ident ppf i = Format.fprintf ppf "%s" i
 
 (* 
    Local Variables:

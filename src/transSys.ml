@@ -34,19 +34,26 @@ type t =
   { 
 
     (* Scope of transition system *)
-    scope: Scope.t; (* Identifier.scope; *)
+    scope: Scope.t;
+
+    (* State variable to be bound to a unique term for each
+       instance of the transition system *)
+    instance_state_var : StateVar.t option;
+
+    (* Assignments of unique terms to the instance variables of this
+       transition system and its subsystems *)
+    instance_var_bindings : (Var.t * Term.t) list;
 
     (* State variables of global scope (used for arrays). Will become
        uninterpreted function symbols with the instance identifier of
        this transition system as the first argument. *)
     global_state_vars : StateVar.t list;
 
-    (* State variables in the scope of this transition system *)
-    state_vars : StateVar.t list;
+    (* State variables in the scope of this transition system 
 
-    (* Assignments of unique terms to the instance variables of this
-       transition system and its subsystems *)
-    instances : (Var.t * Term.t) list;
+       Also contains [instance_state_var] unless it is None, and
+       state variables in [global_state_vars]. *)
+    state_vars : StateVar.t list;
 
     (* Transition systems called by this system
 
@@ -81,8 +88,78 @@ type t =
 
 
 (* ********************************************************************** *)
+(* Pretty-printing                                                        *)
+(* ********************************************************************** *)
+
+
+let pp_print_state_var ppf state_var = 
+
+  Format.fprintf ppf
+    "@[<hv 1>(%a@ %a%t%t%t)@]" 
+    StateVar.pp_print_state_var state_var
+    Type.pp_print_type (StateVar.type_of_state_var state_var)
+    (function ppf -> 
+      if StateVar.is_const state_var then Format.fprintf ppf "@ :const")
+    (function ppf -> 
+      if StateVar.is_input state_var then Format.fprintf ppf "@ :input")
+    (function ppf -> 
+      if StateVar.for_inv_gen state_var then Format.fprintf ppf "@ :for-inv-gen")
+  
+
+let pp_print_trans_sys 
+    ppf
+    { scope;
+      instance_state_var;
+      instance_var_bindings;
+      global_state_vars;
+      state_vars;
+      init;
+      trans;
+      properties;
+      invariants_one_state;
+      invariants_two_state } = 
+
+  Format.fprintf 
+    ppf
+    "@[<v 1>(trans-sys %a@,\
+     @[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(init@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
+            )@]"
+
+    Scope.pp_print_scope scope
+    (pp_print_list pp_print_state_var "@ ") state_vars
+    Term.pp_print_term init
+    Term.pp_print_term trans
+
+(*
+    "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
+          %a@,\
+          @[<hv 2>(logic %a)@]@,\
+          @[<hv 2>(init@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(props@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(contracts@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(source@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(callers@ (@[<v>%a@]))@]@."
+    TermLib.pp_print_logic logic
+    (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
+    Term.pp_print_term (init_term trans_sys)
+    Term.pp_print_term (trans_term trans_sys)
+    (pp_print_list pp_print_property "@ ") properties
+    pp_print_contracts contracts
+    (pp_print_list Term.pp_print_term "@ ") invars
+    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    (pp_print_list pp_print_callers "@,") callers
+*)
+
+
+(* ********************************************************************** *)
 (* Construct a transition system                                          *)
 (* ********************************************************************** *)
+
+(*
 
 (* For each key append the list of the second map to the list of the
    first map, and assume the empty list for keys that are in one but not
@@ -100,18 +177,15 @@ let join_list_scope_maps m1 m2 =
 
 (* Return an assoociation list of scopes of all subsystems, including
    the top system, to the list of instance variables of each
-   instance lifted to the scope of the top system.
-
-
-*)
+   instance lifted to the scope of the top system. *)
 let rec collect_instances' accum = function 
 
-  (* Stack is empty, instance variables are in accumulator *)
+  (* Stack is empty, instance variables of top system are in accumulator *)
   | [] -> accum
 
   (* Add instance variables of system at the top of the stack to
      accumulator *)
-  | { scope; subsystems } :: tl as l -> 
+  | { scope; instance_state_var; subsystems } :: tl as l -> 
 
     if
 
@@ -125,9 +199,8 @@ let rec collect_instances' accum = function
 
     else
 
+      (* Add all subsystems not yet seen to the top of the stack *)
       let l' = 
-
-        (* Add all subsystems not yet seen to the top of the stack *)
         List.fold_left
 
           (* Add transition system to stack if not in accumulator *)
@@ -145,7 +218,11 @@ let rec collect_instances' accum = function
 
              else
 
-               (* Need to get instances of subsystem first *)
+               (* Need to get instances of subsystem first
+
+                  Add to the stack even if it is already there,
+                  because the subsystem needs to be visited before the
+                  system at the top of the stack. *)
                (t :: l))
 
           l
@@ -155,10 +232,10 @@ let rec collect_instances' accum = function
 
       (* Need to visit more subsystems? 
 
-         We only add to the stack, that is, [l'] constructed by pushing
-         transition systems to the head of [l], and therefore we can
-         simply compare lengths to check if [l'] is different from
-         [l]. *)
+         We only add to the stack, that is, [l'] is constructed by
+         pushing transition systems at the head of [l], and therefore
+         we can simply compare lengths to check if [l'] is different
+         from [l]. *)
       if List.length l' > List.length l then 
 
         (* Collect instance variables from subsystems first *)
@@ -167,24 +244,25 @@ let rec collect_instances' accum = function
       (* All subsystems are in [accum] *)
       else
 
+        (* Instance state variables in this transition system *)
         let scope_instance_state_vars =
 
           (* Iterate over all subsystems and lift instance variables
              to this transition system *)
           List.fold_left 
 
-            (fun m ({ scope = s }, instances) ->
+            (fun m ({ scope = subsystem_scope }, instances) ->
 
                (* Instance variables of the subsystem *)
-               let instance_state_vars = 
+               let subsystem_instance_state_vars = 
 
                  try 
 
                    (* Find instance variables of the subsystem as
                       previously collected *)
-                   Scope.Map.find s accum
+                   Scope.Map.find subsystem_scope accum
 
-                 (* System must be in the accumulator *)
+                 (* All subsystems are in the accumulator *)
                  with Not_found -> assert false
 
                in
@@ -195,34 +273,45 @@ let rec collect_instances' accum = function
 
                  (fun m (lift_map, _) ->
 
-
+                    (* Add lifted state variables of this instance to
+                       the map *)
                     join_list_scope_maps
                       m
 
-                      (* Lift all state variables of the subsystem *)
+                      (* Lift all state variables of the subsystem
+                         with the state variable map of the
+                         instance *)
                       (Scope.Map.map
                          (fun l -> 
 
                             List.map
                               (fun sv -> 
                                  try 
-                                   
-                                   (* Get state variable in this transition
-                                      system instantiating the state
-                                      variable in the subsystem *)
+
+                                   (* Get state variable in this
+                                      transition system instantiating
+                                      the state variable in the
+                                      subsystem *)
                                    (SVM.find sv lift_map)
-                                   
-                                 (* Every state variable must be in the map *)
+
+                                 (* Every state variable must be in
+                                    the map *)
                                  with Not_found -> assert false)
                               l)
-                            instance_state_vars))
+                         subsystem_instance_state_vars))
 
-                      m
-                      instances)
+                 m
+                 instances)
 
-            (* Initial map contains only instance variable for this
-               transition system *)
-            (Scope.Map.singleton scope [StateVar.mk_init_flag scope])
+            (* The initial map contains only a singleton list with the
+               instance state variable for this transition system, or
+               the empty list if the transition system does not have
+               an instance variable. *)
+            (Scope.Map.singleton 
+               scope 
+               (match instance_state_var with
+                 | None -> []
+                 | Some sv ->  [sv]))
 
             subsystems
 
@@ -240,58 +329,94 @@ let rec collect_instances' accum = function
         collect_instances' accum' tl
 
 
+(* Return the list of instance state variables of all subsystems in
+   the scope of the top system *)
 let collect_instances ({ scope } as trans_sys) = 
   collect_instances' Scope.Map.empty [trans_sys] 
   |> Scope.Map.find scope
+*)
 
 
 let mk_trans_sys 
-  scope
-  global_state_vars
-  state_vars
-  instances
-  init
-  trans
-  subsystems
-  properties
-  invariants_one_state 
-  invariants_two_state = 
+    ?(instance_var_id_start = 0)
+    scope
+    instance_state_var
+    global_state_vars
+    state_vars
+    init
+    trans
+    subsystems
+    properties
+    invariants_one_state 
+    invariants_two_state = 
 
-  (* Transition system containing only the subsystems *)
-  let dummy_trans_sys = 
-    { scope;
-      global_state_vars = [];
-      state_vars = [];
-      instances = [];
-      subsystems;
-      init = Term.t_true;
-      trans = Term.t_true;
-      properties = [];
-      invariants_one_state = [];
-      invariants_two_state = [] }
+  (* Map instance variables of this system and all subsystems to a
+     unique term *)
+  let instance_var_bindings = 
+
+    (* Collect all instance state variables from subsystems *)
+    List.fold_left
+      (fun accum ({ instance_var_bindings }, instances) -> 
+
+         (* Get state variables from bindings in subsystem *)
+         let instance_state_vars = 
+           List.map 
+             (fun (v, _) -> Var.state_var_of_state_var_instance v)
+             instance_var_bindings
+         in
+
+         (* Lift instance variables of all instances of the subsystem
+            to this transition system *)
+         List.fold_left
+           (fun a (lift_map, _) -> 
+              List.map
+                (fun sv -> 
+                   try 
+
+                     (* Get state variable in this transition system
+                        instantiating the state variable in the
+                        subsystem *)
+                     (SVM.find sv lift_map)
+
+                   (* Every state variable must be in the map *)
+                   with Not_found -> assert false)
+                instance_state_vars
+              @ a)
+           accum
+           instances)
+
+      (* Start with instance state variable of this system if any *)
+      (match instance_state_var with
+        | None -> []
+        | Some sv -> [sv])
+
+      subsystems
+
+    |> 
+
+    (* Create unique term for each instance variable *)
+    List.mapi
+      (fun i sv -> 
+         (Var.mk_const_state_var sv,
+
+          (* Add start value of fresh instance identifiers *)
+          Term.mk_num_of_int (i + instance_var_id_start)))
+
   in
 
-  (* Create unique term for each instance variable of the same
-     scope *)
-  let instances = 
-    Scope.Map.fold
-      (fun _ l a -> 
-         (List.mapi
-           (fun i sv -> 
-             (Var.mk_const_state_var sv,
-              Term.mk_num_of_int i))
-           l)
-         @ a)
-      (collect_instances dummy_trans_sys)
-      []
+  (* Increment start value of fresh instance identifier for next
+     transition system *)
+  let instance_var_id_start' = 
+    instance_var_id_start + List.length instance_var_bindings
   in
 
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
+      instance_state_var;
+      instance_var_bindings;
       global_state_vars;
       state_vars;
-      instances;
       subsystems;
       init;
       trans;
@@ -300,7 +425,7 @@ let mk_trans_sys
       invariants_two_state }
   in
 
-  ()
+  trans_sys, instance_var_id_start'
   
 
 
@@ -326,32 +451,38 @@ let bump_relative base i term =
 (* Close the initial state constraint by binding all instance
    identifiers, and bump the state variable offsets to be at the given
    bound *)
-let init_of_bound { instances; init } i = 
+let init_of_bound { instance_var_bindings; init } i = 
 
-  close_term instances init
+  close_term instance_var_bindings init
   |> bump_relative init_base i 
   
 
 (* Close the initial state constraint by binding all instance
    identifiers, and bump the state variable offsets to be at the given
    bound *)
-let trans_of_bound { instances; trans } i = 
+let trans_of_bound { instance_var_bindings; trans } i = 
 
-  close_term instances trans
+  close_term instance_var_bindings trans
   |> bump_relative trans_base i 
   
 
 (* Return the instance variables of this transition system, the
    initial state constraint at [init_base] and the transition relation
    at [trans_base] with the instance variables free. *)
-let init_trans_open { instances; init; trans } = 
+let init_trans_open { instance_var_bindings; init; trans } = 
 
   (List.map 
      (fun (v, _) -> Var.state_var_of_state_var_instance v)
-     instances, 
+     instance_var_bindings, 
    init,
    trans)
 
+
+(* Return true if scopes of transition systems are equal *)
+let equal_scope { scope = s1 } { scope = s2 } = Scope.equal s1 s2
+
+(* Compare transition systems by their scope *)
+let compare_scope { scope = s1 } { scope = s2 } = Scope.compare s1 s2
 
 
 

@@ -26,6 +26,110 @@ module D = LustreDeclarations
 module S = SubSystem
 
 
+
+(* Parse from input channel *)
+let of_channel in_ch = 
+
+  (* Create lexing buffer *)
+  let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
+
+  (* Initialize lexing buffer with channel *)
+  LustreLexer.lexbuf_init 
+    in_ch
+    (try Filename.dirname (Flags.input_file ())
+     with Failure _ -> Sys.getcwd ());
+
+  (* Lustre file is a list of declarations *)
+  let declarations = 
+
+    try 
+
+      (* Parse file to list of declarations *)
+      LustreParser.main LustreLexer.token lexbuf 
+
+    with 
+
+      | LustreParser.Error ->
+
+        let lexer_pos = 
+          Lexing.lexeme_start_p lexbuf 
+        in
+
+        C.fail_at_position
+          (position_of_lexing lexer_pos)
+          "Syntax error"
+
+  in
+
+  (* Simplify declarations to a list of nodes *)
+  let nodes = D.declarations_to_nodes declarations in
+
+  (* Name of main node *)
+  let main_node = 
+
+    (* Command-line flag for main node given? *)
+    match Flags.lustre_main () with 
+      
+      (* Use given identifier to choose main node *)
+      | Some s -> LustreIdent.mk_string_ident s
+                    
+      (* No main node name given on command-line *)
+      | None -> 
+
+        (try 
+
+           (* Find main node by annotation, or take last node as
+              main *)
+           LustreNode.find_main nodes 
+             
+         (* No main node found
+
+            This only happens when there are no nodes in the input. *)
+         with Not_found -> 
+
+           raise (Invalid_argument "No main node defined in input"))
+
+  in
+
+  (* Put main node at the head of the list of nodes *)
+  let nodes' = 
+
+    try 
+
+      (* Get main node by name and copy it at the head of the list of
+         nodes *)
+      N.node_of_name main_node nodes :: nodes
+
+    with Not_found -> 
+
+      (* Node with name of main not found 
+
+         This can only happens when the name is passed as command-line
+         argument *)
+      raise (Invalid_argument "Main node not found")
+
+  in
+
+  (* Return a subsystem tree from the list of nodes *)
+  N.subsystem_of_nodes nodes'
+  
+
+(* Open and parse from file *)
+let of_file filename = 
+
+    (* Open the given file for reading *)
+    let use_file = open_in filename in
+    let in_ch = use_file in
+
+    of_channel in_ch
+
+;;
+
+of_file Sys.argv.(1)
+
+
+
+(*
 let rec input_system_of_declarations' accum nodes = function 
 
   | [] -> 
@@ -107,8 +211,8 @@ let rec input_system_of_declarations' accum nodes = function
            | [] ->
 
              let input_system = 
-               { S.scope = [node_name];
-                 S.source = S.LustreModel node;
+               { S.scope = [I.string_of_ident false node_name];
+                 S.source = node; 
                  S.has_contract = N.has_contract node;
                  S.has_impl = N.has_impl node;
                  S.subsystems = 
@@ -122,7 +226,7 @@ let rec input_system_of_declarations' accum nodes = function
              (* Recurse to create transition system for subnode, then
                 return to this node *)
              input_system_of_declarations'
-               (input_system :: accum)
+               ((node_name, input_system) :: accum)
                nodes
                tl
 
@@ -132,66 +236,6 @@ let rec input_system_of_declarations' accum nodes = function
 
 
 
-
-(* Parse from input channel *)
-let of_channel keep_all_coi in_ch = 
-
-  (* Create lexing buffer *)
-  let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
-
-  (* Initialize lexing buffer with channel *)
-  LustreLexer.lexbuf_init 
-    in_ch
-    (try Filename.dirname (Flags.input_file ())
-     with Failure _ -> Sys.getcwd ());
-
-  (* Lustre file is a list of declarations *)
-  let declarations = 
-
-    try 
-
-      (* Parse file to list of declarations *)
-      LustreParser.main LustreLexer.token lexbuf 
-
-    with 
-
-      | LustreParser.Error ->
-
-        let lexer_pos = 
-          Lexing.lexeme_start_p lexbuf 
-        in
-
-        C.fail_at_position
-          (position_of_lexing lexer_pos)
-          "Syntax error"
-
-  in
-
-  (* Simplify declarations to a list of nodes *)
-  let nodes = D.declarations_to_nodes declarations in
-  
-  (* Find main node by annotation *)
-  let main_node = 
-
-    match Flags.lustre_main () with 
-
-      | None -> 
-
-        (try 
-          
-          LustreNode.find_main nodes 
-            
-        with Not_found -> 
-          
-          raise (Invalid_argument "No main node defined in input"))
-
-      | Some s -> LustreIdent.mk_string_ident s
-
-  in
-
-  input_system_of_declarations' [] nodes [main_node]
-  
-(*
 
 
 
@@ -283,20 +327,6 @@ let of_channel keep_all_coi in_ch =
   trans_sys)
 
 *)
-
-(* Open and parse from file *)
-let of_file keep_all_coi filename = 
-
-    (* Open the given file for reading *)
-    let use_file = open_in filename in
-    let in_ch = use_file in
-
-    of_channel keep_all_coi in_ch
-
-;;
-
-of_file false Sys.argv.(1)
-
 
 
 (* 
