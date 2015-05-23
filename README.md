@@ -38,7 +38,7 @@ Requirements
 ============
 
 - Linux or Mac OS X,
-- OCaml 4.01 or later,
+- OCaml 4.02 or later,
 - Camlp4 
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
@@ -57,7 +57,11 @@ By default, `kind2` will be installed into `/usr/local/bin`, an operation for wh
 
     ./build.sh --prefix=PATH
     
-to install the Kind 2 binary into `PATH/bin`. You can omit the option to accept the default path of `/usr/local/bin`. This command will configure and build ZeroMQ, CZMQ, the OCaml bindings and Kind 2. If it has been successful, call 
+to install the Kind 2 binary into `PATH/bin`. You can omit the option to accept the default path of `/usr/local/bin`. 
+
+The ZeroMQ and CZMQ libraries, and OCaml bindings to CZMQ are distributed with Kind 2. The build script will compile and link to those, ignoring any versions that are installed on your system. 
+
+If it has been successful, call 
 
     make install
 
