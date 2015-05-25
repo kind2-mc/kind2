@@ -1,6 +1,6 @@
 # Kind 2
 
-A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. [License information](./9_other/license.md#apache-license).
+A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. [License information](./9_other/license.md#apache-license). Testing local link [to requirements](#requirements).
 
 Kind 2 takes as input a Lustre file annotated with properties to prove
 invariant (see [Lustre syntax](./1_input/1_lustre.md#lustre)), and outputs
@@ -70,3 +70,11 @@ If it has been successful, call
 to install the Kind 2 binary into the chosen location. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the `build.sh` call. Use `./configure --help` after `autogen.sh` to see all available options.
 
 You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running `kind2`. 
+
+
+## Da Boss
+
+This is Da Boss:
+
+![Da Boss in da place](./ct.jpg)
+

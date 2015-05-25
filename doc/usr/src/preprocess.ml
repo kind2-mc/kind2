@@ -202,7 +202,7 @@ module IO = struct
     let cmd =
       Format.sprintf "\
         grep -e \"](\\./.*\\.md[^)]*)\" %s | \
-        sed -e 's:.*](\\([^)]*\\)).*:\\1:'\
+        sed -e 's:.*](\\(\\./[^)]*\\)).*:\\1:'\
       " file
     in
     (* printf "internal_links_of %s@." file ;
@@ -246,7 +246,7 @@ module IO = struct
     |> run
     |> fun line' ->
       if line <> line' then
-        printf "Rewriting:@.> %s@.> %s@.@." line line' ;
+        printf "Rewriting:@.  @[<v>%s@,%s@,@]@." line line' ;
       line'
 
 
@@ -270,11 +270,11 @@ module IO = struct
 
   let rewrite_pics dirname =
     Format.sprintf "\
-      sed -e 's:\
+      %s -e 's:\
         \\(.*\\)](\\./\\([^)]*\\)\\.\\(jpg\\|png\\))\\(.*\\):\
         \\1](%s/\\2\\.\\3)\\4\
       :g'\
-    " dirname
+    " sed_cmd dirname
 
   let rewrite_label prefix line =
     if String.length line < 1 then line
