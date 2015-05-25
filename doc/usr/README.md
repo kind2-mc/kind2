@@ -7,6 +7,27 @@ Simply run `make` to generate the user documentation. This will create
 `doc.pdf` and `target.md`. The first is the actual pdf documentation while the
 latter is the markdown file passed to `pandoc`.
 
+## Important files
+
+Folder `rsc/` contains
+
+* `template.latex`, the template used to generate the pdf, and
+* `options`, the options passed to pandoc.
+
+The latex template should be straightforwad to edit after taking a look at the
+pandoc documentation. File `options` stores the pandoc *variables* and their
+value. See [the pandoc readme](http://pandoc.org/README.html#templates) for
+more details. Variables and their values can span over several lines, the
+restriction is that any line starting with an `[a-z]` character must be
+indented, except for the first one. For instance,
+
+```
+abstract:"
+  This is an abstract
+  spanning over several lines.
+"
+```
+
 ## Features
 
 The preprocessor written in ocaml (`src/preprocess.ml`) performs some sanity checks. It
