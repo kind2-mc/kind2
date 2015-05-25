@@ -1,7 +1,11 @@
 # Guidelines for user documentation
 
-To generate the user documentation you will need `pandoc`, `pdflatex`, ocaml
-and a GNU version of `sed` (`gsed` for OSX).
+To generate the user documentation you will need
+
+* `pandoc`,
+* `pdflatex`,
+* ocaml and
+* a GNU version of `sed` (`gsed` for OSX).
 
 Simply run `make` to generate the user documentation. This will create
 `doc.pdf` and `target.md`. The first is the actual pdf documentation while the
