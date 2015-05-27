@@ -68,6 +68,8 @@ module IdentMap = Map.Make (Ident)
 
 let pp_print_ident ppf i = Format.fprintf ppf "%s" i
 
+let to_string = string_of_t pp_print_ident 
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -102,6 +102,9 @@ val push_index : t -> int -> t
 (** Construct an identifier of a string *)
 val mk_string_ident : string -> t
 
+(** Construct an identifier of a scope *)
+val of_scope : Scope.t -> t
+
 (** Pretty-print an identifier *)
 val pp_print_ident : bool -> Format.formatter -> t -> unit 
 

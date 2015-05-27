@@ -1034,7 +1034,7 @@ let mk_trans_def
 *)
 
 let rec trans_sys_of_node' 
-    (trans_sys_defs : node_def I.Map.t)
+    trans_sys_defs
     output_input_dep
     nodes =
 
@@ -1047,7 +1047,7 @@ let rec trans_sys_of_node'
     | node_name :: tl -> 
 
       (* Transition system for node has been created and added to
-           accumulator meanwhile? *)
+         accumulator meanwhile? *)
       if I.Map.mem node_name trans_sys_defs then
 
         (* Continue with next transition systems *)
@@ -1386,21 +1386,10 @@ let rec trans_sys_of_node'
               tl
           
 
-let trans_sys_of_nodes nodes top = 
-  try 
-
-    trans_sys_of_node' I.Map.empty [] nodes [top] 
-    |> I.Map.find top
-
-  with Not_found -> assert false
-
-
-let test () = 
-
-  let lustre_input = LustreInput.of_file Sys.argv.(1) in
+let trans_sys_of_nodes subsystem { A.top; A.abstraction_map; A.assumptions } = 
 
   let { SubSystem.source = { N.name = top_name } as node } as subsystem = 
-    LustreSlicing.slice_to_abstraction [] lustre_input 
+    LustreSlicing.slice_to_abstraction abstraction_map subsystem 
   in
 
   let nodes = N.nodes_of_subsystem subsystem in 
@@ -1409,9 +1398,42 @@ let test () =
     "@[<v>%a@]@."
     (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
 
-  let { trans_sys } = trans_sys_of_nodes nodes top_name in
-  
+  let { trans_sys } =   
+
+    try 
+
+      (* Create a transition system for each node *)
+      trans_sys_of_node' I.Map.empty [] nodes [top_name]
+
+      (* Return the transition system of the top node *)
+      |> I.Map.find top_name
+
+    (* Transition system must have been created *)
+    with Not_found -> assert false
+
+  in
+
   Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
+
+  trans_sys
+
+
+
+let test () = 
+
+  let  { SubSystem.source = { N.name = top_name } as node } as lustre_subsystem = 
+    LustreInput.of_file Sys.argv.(1) 
+  in
+
+  let analysis = 
+    { A.top = [I.string_of_ident false top_name]; 
+      A.abstraction_map = []; 
+      A.assumptions = [] }
+  in
+
+  trans_sys_of_nodes lustre_subsystem analysis
+
+
 
 ;;
 

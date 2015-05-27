@@ -1,0 +1,34 @@
+{1 Developers' Documentation}
+
+{2 Lustre}
+
+Source files live in the subdirectory [lustre]
+
+Dependecy graph of modules {%html: <img src="lustre-frontend.png"> %}
+
+{!modules:
+  LustreLexer
+  LustreAst
+  LustreIdent
+  LustreIndex
+  LustreExpr
+  LustreNode
+  LustreContext
+  LustreDeclarations
+  LustreSimplify
+  LustreSlicing
+  LustreTransSys
+  LustreInput
+  LustrePath }
+
+
+{2 Howto}
+
+{3 Add a new subdirectory}
+
+To add a new subdirectory [feature] edit the [_tags] file to include the line {[<feature>: include]}.
+
+
+{2 Indexes}
+
+{!indexlist}

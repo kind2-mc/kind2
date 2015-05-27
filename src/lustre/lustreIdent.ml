@@ -93,6 +93,15 @@ let ident_of_state_var sv = (StateVar.string_of_state_var sv, [])
 (* Construct an identifier of a string *)
 let mk_string_ident string = (string, [])
 
+(* Construct an identifier of a scope *)
+let of_scope = function 
+
+  (* Only allow flat scopes for now *)
+  | [i] -> Ident.to_string i |> mk_string_ident
+
+  (* Fail on empty scope, or nested scope  *)
+  | _ -> raise (Invalid_argument "to_scope")
+
 
 (* Append an index to the identifier *)
 let push_index (base, index) int = (base, int :: index)
