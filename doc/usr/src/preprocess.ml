@@ -64,7 +64,7 @@ let usage_error lines =
   printf "@." ;
   error lines
 
-
+(* Prints a list of link exceptions as errors, and exits with code [-1]. *)
 let link_error errors =
   printf "\027[31mError:\027[0m@.  @[<v>" ;
   errors |> List.iter (
@@ -87,13 +87,15 @@ let link_error errors =
   printf "@]@." ;
   -1 |> exit
 
+(* Prints an error for not finding the sed command and exits with [-1]. *)
 let sed_error () =
   error [
     "cannot find GNU \"sed\" command:" ;
     "if you use OSX, please install \"gsed\""
   ]
 
-
+(* Tests [sed] to see if it has the GNU extension. If that fails, checks for
+   [gsed]. If that fails, calls [sed_error]. *)
 let sed_cmd =
   try
     let test =
@@ -104,6 +106,7 @@ let sed_cmd =
       | Unix.WEXITED 0 -> "sed"
       | _ -> Unix.Unix_error (Unix.EINVAL, "sed", "") |> raise )
   with Unix.Unix_error _ ->
+    (* [sed] is not GNU sed, trying [gsed]. *)
     ( try
         let test =
           "echo \"test\" | gsed -e \"s:.*:echo \\\"test\\\":e\" &> /dev/null"
@@ -163,6 +166,7 @@ module IO = struct
     let _ = Unix.close_process (ic, oc) in
     Buffer.contents buf
 
+  (* Returns the inode index of a file. *)
   let node_of_file file =
     match
       "ls -i " ^ file ^ " | sed -e 's:^\\([0-9]*\\).*$:\\1:'"
@@ -171,6 +175,7 @@ module IO = struct
     | node :: [] -> node
     | _ -> failwith "unexpected result for \"ls -i\""
 
+  (* Returns the file path from an inode index. *)
   let file_of_node node =
     match
       Format.sprintf "find . -inum %s -print" node
@@ -179,8 +184,9 @@ module IO = struct
     | file :: [] -> file
     | _ -> failwith "unexpected result for \"find . -inum\""
 
-  let transitive_path from t0 =
-    (Filename.dirname from) ^ "/" ^ t0
+  (* Rewrites a path w.r.t. another path. *)
+  let transitive_path from path =
+    (Filename.dirname from) ^ "/" ^ path
 
   (* Returns the list of labels for the sections of a file. *)
   let labels_of file =
@@ -218,6 +224,7 @@ module IO = struct
           lines ; *)
         List.map (split '#') lines)
 
+  (* Escapes [`] and double quotes characters. *)
   let sanitize str =
     let rec loop index str =
       if index >= String.length str then str else (
@@ -238,6 +245,8 @@ module IO = struct
     in
     loop 0 str
 
+  (* Echoes a line after sanitizing it, pipes it to some commands, and
+     removes newlines. *)
   let echo_pipe cmds line =
     let sanitized = sanitize line in
     Format.asprintf "\
@@ -246,10 +255,10 @@ module IO = struct
     |> run
     |> fun line' ->
       if line <> line' then
-        printf "Rewriting:@.  @[<v>%s@,%s@,@]@." line line' ;
+        printf "> @[<v>%s@,%s@,@]@." line line' ;
       line'
 
-
+  (* Command rewriting the internal links between files. *)
   let rewrite_links dirname =
     Format.sprintf "\
       %s -e \"s:\
@@ -260,6 +269,7 @@ module IO = struct
       :eg\"\
     " sed_cmd dirname
 
+  (* Command rewriting the links local to a file. *)
   let rewrite_local_links prefix =
     Format.sprintf "\
       sed -e 's:\
@@ -268,6 +278,7 @@ module IO = struct
       :g'\
     " prefix
 
+  (* Rewrites links to pictures on the repo. *)
   let rewrite_pics dirname =
     Format.sprintf "\
       %s -e 's:\
@@ -276,6 +287,7 @@ module IO = struct
       :g'\
     " sed_cmd dirname
 
+  (* Rewrites the labels of sections. *)
   let rewrite_label prefix line =
     if String.length line < 1 then line
     else if String.get line 0 = '#' then (
@@ -319,14 +331,9 @@ module IO = struct
 
     ) else line
 
-  let file_name_to_label name =
-    assert (String.length name > 2) ;
-    ( if String.get name 0 = '.' then
-        String.length name - 2 |> String.sub name 2
-      else name )
-    |> String.map ( function | '/' -> '-' | c -> c )
-
-  let rewrite_labels_to target files =
+  (* Rewrites the labels and the links of some files to a target for
+     pandoc. *)
+  let rewrite_to target files =
     (* Cleaning target file. *)
     Format.sprintf "rm -f %s ; touch %s" target target |> run |> ignore ;
 
@@ -372,8 +379,10 @@ module IO = struct
 end
 
 
-(* Aggregates the structure and the functions for the context.
-   A context stores a map from files to the labels defined in the files. *)
+(* Aggregates the structure and the functions for the context. A context
+   stores
+   * a map from files to the labels as defined in the files,
+   * a map from files to overloaded labels. *)
 module Context = struct
 
   (* Stores the map described at module level. *)
@@ -477,6 +486,7 @@ module Context = struct
     in
     loop (mk ())
 
+  (* Returns true if [label] is overloaded in [file]. *)
   let is_link_clash { file2clashes } file label =
     let node = IO.node_of_file file in
     try
@@ -484,13 +494,15 @@ module Context = struct
       |> List.mem label
     with Not_found -> false
 
-  let check_local_link t file label =
+  (* Checks that a label is defined for a file. *)
+  let check_local_link { file2labels } file label =
     let node = IO.node_of_file file in
     (* Retrieving labels for this file. *)
-    List.assoc node t.file2labels
+    List.assoc node file2labels
     (* Checking if label's in there. *)
     |> List.mem label
 
+  (* Checks that all the local links of a file are well-defined. *)
   let check_local_links context file =
     IO.internal_links_of file
     |> List.fold_left
@@ -523,8 +535,9 @@ module Context = struct
 end
 
 
-
+(* Running. *)
 let _ =
+
   printf "@.@." ;
 
   (* Extracting target file in input files, failing if arguments are
@@ -578,10 +591,11 @@ let _ =
         lines
         |> warning ) ;
 
-  printf "context: @[<v>%a@]@." Context.pp_print context ;
+  printf "context:@.  @[<v>%a@]@." Context.pp_print context ;
 
   printf "@.@." ;
 
+  (* Issueing error in case of link to overloaded label. *)
   ( match
       files
       |> List.fold_left
@@ -594,8 +608,8 @@ let _ =
     | [] -> ()
     | l -> link_error l ) ;
 
-  IO.rewrite_labels_to target files ;
-  (* IO.rewrite_links_to target ; *)
+  (* Rewriting labels and links. *)
+  IO.rewrite_to target files ;
 
   printf "@.@." ;
 
