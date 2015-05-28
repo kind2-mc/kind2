@@ -128,6 +128,10 @@ type contract =
 
   }
 
+(* An equation *)
+type equation = (StateVar.t * E.expr bound_or_fixed list * E.t) 
+
+
 (* A Lustre node *)
 type t = 
 
@@ -177,7 +181,7 @@ type t =
     locals : StateVar.t D.t list;
 
     (* Equations for local and output variables *)
-    equations : (StateVar.t * E.expr bound_or_fixed list * E.t) list;
+    equations : equation list;
 
     (* Node calls with activation condition: variables capturing the
        outputs, the Boolean activation condition, the name of the

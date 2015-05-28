@@ -18,13 +18,14 @@
 
 (** A Lustre node
 
-    Nodes are normalized for easy translation into a transition system,
-    mainly by introducing new variables. A LustreExpr.t does not
-    contain node calls, temporal operators or expressions under a pre
-    operator. Node equations become a map of identifiers to expressions
-    in [node_eqs], all node calls are in [node_calls] as a list of tuples
-    containing fresh variables the node output is assigned to and the
-    expressions for the node input.
+    Nodes are normalized for easy translation into a transition
+    system, mainly by introducing new variables. A {LustreExpr.t} does
+    not contain node calls, temporal operators or expressions under a
+    [pre] operator. 
+
+    The node equations taken together become a map of state variables
+    to expressions. All node calls are factored out with fresh state
+    variables as inputs and outputs.
 
     The node signature as input and output variables as well as its
     local variables is in [node_inputs], [node_outputs] and
@@ -84,19 +85,33 @@ type node_call =
   }
 
 
-(** A contract is a position, a list of observers for the
-    requirements, a list of observers for the ensures, and an observer
-    for the implication between its requirements and ensures. *)
+(** A contract has an identifier and a position in the input, a state
+    variable that is the conjunction of its requirements, and one
+    state variable for each ensures. If the contract is global, the
+    state variable is just the ensures clause. In a mode contract the
+    state variable is guarded by the mode requirement. 
+
+    The requirement of a global contract may be assumed
+    invariant. Each ensures of a global or mode contract is a separate
+    proof obligation for the node. 
+
+    The conjunction of the requirements of all global contracts, and
+    the disjunction of the requirements of all mode contracts is a
+    proof obligation for all calling nodes.
+*)
 type contract =
   { 
+
+    (** Identifier of contract *)
+    contract_name : LustreIdent.t;
 
     (** Position of the contract in the input *)
     contract_pos: position;
 
-    (** One observer for each requirement *)
-    contract_reqs : StateVar.t list;
+    (** Invariant from requirements of contract *)
+    contract_reqs : LustreExpr.t list;
 
-    (** One observer for each ensures *)
+    (** Invariants from ensures of contract *)
     contract_enss : StateVar.t list
 
   }
@@ -106,6 +121,11 @@ type 'a bound_or_fixed =
   | Bound of 'a  (* Upper bound for index variable *)
   | Fixed of 'a  (* Fixed value for index variable *)
 
+(** An equation is a triple [(state_var, bounds, expr)] of the
+    expression [expr] that defines the state variable [state_var],
+    and a list [bounds] of indexes *)
+type equation = 
+  (StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t)
 
 (** A Lustre node
 
@@ -134,14 +154,17 @@ type t =
     (** One observer for conjunction of the global requirements and
         the disjunction of the mode requirements
 
-        Any caller has to make this observer true *)
+        Any caller has to make this observer true. This observer is
+        asserted for the node. *)
     contract_all_req : StateVar.t;
 
-    (** One observer for the conjunction of the global enusres and the
-        mode implications
+    (** One observer for each global enusres and one observer for each
+        mode implication
 
-        This is asserted about the node when abstract *)
-    contract_all_ens : StateVar.t;
+        The conjunction of the observers is asserted in the caller
+        when the node is abstract. Each observer is a proof obligation
+        for the node, and an invariant. *)
+    contract_all_ens : StateVar.t list;
 
     (** Input streams defined in the node
 
@@ -173,7 +196,7 @@ type t =
     locals : StateVar.t LustreIndex.t list;
 
     (** Equations for local and output variables *)
-    equations : (StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t) list;
+    equations : equation list;
 
     (** Node calls inside the node *)
     calls : node_call list;
@@ -184,9 +207,11 @@ type t =
     (** Proof obligations for the node *)
     props : (StateVar.t * string * Property.prop_source) list;
 
-    (** The contracts of the node: an optional global contract and a
-        list of named mode contracts *)
-    contracts : contract option * (string * contract) list;
+    (** Global contracts *)
+    global_contracts : contract list;
+
+    (** Mode contracts *)
+    mode_contracts :  contract list;
 
     (** Flag node as the top node *)
     is_main : bool;
@@ -293,9 +318,6 @@ val set_state_var_instance : StateVar.t -> position -> LustreIdent.t -> StateVar
 
     - [Input], [Output] or [Local] state variables correspond to input,
     output and local streams defined in a node, respectively. 
-
-    - [Abstract] state variables were introduced as definitions during
-    pre-processing 
 
     - [Oracle] state variables are additional input variables
      introduced to non-deterministivcally give a value to unguarded

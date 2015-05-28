@@ -35,9 +35,11 @@
     node is designated as the main node. The returned {!Subsystem.t}
     has this main node at the top, and all called nodes as
     children. Nodes that are in the input file, but not called by the
-    main node are discarded.
+    main node are discarded. No further cone of influence reduction is
+    peformed yet, this happens only in {!LustreTransSys} when the
+    parameters of the analysis are known.
 
-    The main node is, in order of precedence:
+    The main node is chosen to be, in order of precedence:
 
     - the node with the name given by the [--lustre_main] command-line
       option,

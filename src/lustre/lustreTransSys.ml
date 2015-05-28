@@ -23,7 +23,9 @@ module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
 module S = LustreSlicing
+
 module A = Analysis
+module P = Property
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
@@ -1071,7 +1073,8 @@ let rec trans_sys_of_node'
               N.calls; 
               N.asserts; 
               N.props;
-              N.contracts } as node = 
+              N.global_contracts;
+              N.mode_contracts } as node = 
 
           try 
 
@@ -1166,17 +1169,46 @@ let rec trans_sys_of_node'
              created *)
           | [] ->
 
-            (* Initial state constraint: init flag is true on first
-               tick of node *)
+            (* Assumptions from contracts *)
+            let contract_assumptions = 
+
+              (* Disjunction of assumptions from mode contracts *)
+              Term.mk_or
+                (List.map
+                   (fun { N.contract_req } -> contract_req)
+                   mode_contracts) ::
+              
+              (* Assumptions from global contracts *)
+              List.map
+                (fun { N.contract_req } -> contract_req)
+                global_contracts
+
+            in
+
+            (* Initial state constraint *)
             let init_terms = 
-              [E.base_term_of_state_var TransSys.init_base first_tick] 
+
+              (* Init flag is true on first tick of node *)
+              E.base_term_of_state_var TransSys.init_base first_tick ::
+
+              (* Assumptions from contracts *)
+              List.map
+                (E.base_term_of_expr TransSys.init_base)
+                contract_assumptions
+
             in
 
             (* Transition relation: init flag becomes and stays false
                at the second tick *)
             let trans_terms = 
-              [E.cur_term_of_state_var TransSys.trans_base first_tick
-               |> Term.negate] 
+              (E.cur_term_of_state_var TransSys.trans_base first_tick
+               |> Term.negate) ::
+
+              (* Assumptions from contracts *)
+              List.map
+                (E.cur_term_of_expr TransSys.trans_base)
+                contract_assumptions
+
             in
 
             (* Instantiated state variables and constraints from node
@@ -1296,6 +1328,39 @@ let rec trans_sys_of_node'
                 instance :: signature_state_vars, Some instance 
             in
 
+            (* All property annotations and lifted properties from
+               subnodes *)
+            let props_annot = 
+              List.map
+                (fun (state_var, prop_name, prop_source) -> 
+                   { P.prop_name; 
+                     P.prop_source; 
+                     P.prop_term = 
+                       E.cur_term_of_state_var
+                         TransSys.trans_base
+                         state_var;
+                     P.prop_status = P.Unknown })
+                props @ lifted_props
+            in
+
+            (* Properties from global and mode contracts *)
+            let props_contracts = 
+              List.fold_left
+                (fun accum { contract_name; contract_pos; contract_enss } ->
+                   List.mapi 
+                     (fun i state_var -> 
+                        { P.prop_name = 
+                            Format.sprintf "%s_%d" contract_name i; 
+                          P.prop_source = 
+                            Contract (contract_pos, contract_name); 
+                          P.prop_term = 
+                            E.cur_term_of_state_var
+                              TransSys.trans_base
+                              state_var;
+                          P.prop_status = P.Unknown }) @ accum)
+                []
+                global_contracts @ mode_contracts
+            in
 
             (* Create transition system *)
             let trans_sys, _ = 
@@ -1307,9 +1372,9 @@ let rec trans_sys_of_node'
                 (Term.mk_and init_terms)
                 (Term.mk_and trans_terms)
                 subsystems
-                []
-                []
-                []
+                (props_annot @ props_contracts)
+                [] (* One-state invariants *)
+                [] (* Two-state invariants *)
             in                
 
             Format.printf 
@@ -1387,6 +1452,20 @@ let rec trans_sys_of_node'
           
 
 let trans_sys_of_nodes subsystem { A.top; A.abstraction_map; A.assumptions } = 
+  
+  (* Make sure top level system is not abstract
+
+     Contracts would be trivially satisfied otherwise *)
+  match List.find (fun (s, _) -> Scope.equal top s) abstraction_map with
+    | (_, true) -> 
+      raise
+        (Invalid_argument
+           "trans_sys_of_nodes: Top-level system must not be abstract")
+    | (_, false) -> ()
+    | exception Not_found -> ();
+
+  (* TODO: Find top subsystem by name *)
+  let subsystem' = subsystem in
 
   let { SubSystem.source = { N.name = top_name } as node } as subsystem = 
     LustreSlicing.slice_to_abstraction abstraction_map subsystem 
