@@ -29,3 +29,6 @@ true: -traverse
 
 # Use menhir instead of ocamlyacc
 true: use_menhir
+
+# Use custom intro page if building documentation
+<kind2.docdir/index.html>: with_intro(doc/doc_intro.txt)

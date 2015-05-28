@@ -54,6 +54,8 @@ lustre2kind:
 	make -C src $@
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/@PACKAGE_NAME@.docdir/* $(LOCAL_DOCDIR)
+	mkdir -p $(LOCAL_DOCDIR)/include
+	cp -Rf src/doc/include/* $(LOCAL_DOCDIR)/include
 
 .PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean 
 
