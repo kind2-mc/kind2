@@ -72,9 +72,3 @@ to install the Kind 2 binary into the chosen location. If you need to pass optio
 You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running `kind2`. 
 
 
-## Da Boss
-
-This is Da Boss:
-
-![Da Boss in da place](./ct.jpg)
-
