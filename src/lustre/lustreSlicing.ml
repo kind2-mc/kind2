@@ -71,6 +71,64 @@ let rec node_state_var_dependencies'
 
   in
 
+  (* Return a chain of variable names and node names that describe the
+     cycle, in reverse order *)
+  let rec describe_cycle accum = function
+    
+    | state_var :: tl ->
+
+      (* Output state variable if visible, or node call *)
+      (match N.get_state_var_source node state_var with
+        
+        (* Output state variable if visible *)
+        | N.Input 
+        | N.Output
+        | N.Local
+        | N.Ghost -> 
+          
+          describe_cycle 
+            ((Format.asprintf
+                "%a"
+                (E.pp_print_lustre_var false) 
+                state_var) :: 
+             accum)
+            tl
+                         
+          (* Skip oracles *)
+          | N.Oracle -> describe_cycle accum tl
+                        
+          (* State variable from abstraction *)
+          | exception Not_found -> 
+            
+          try 
+            
+            (* Find node call with state variable as output *)
+            let { N.call_node_name } =
+              List.find
+                (fun { N.call_outputs } -> 
+                   D.exists
+                     (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                     call_outputs)
+                node.N.calls 
+            in
+
+            (* Output name of called node *)
+            describe_cycle
+              ((Format.asprintf 
+                  "<call to %a>"
+                  (I.pp_print_ident false)
+                  call_node_name)
+               :: accum)
+              tl
+
+          (* Skip abstracted state variable *)
+          with Not_found -> describe_cycle accum tl)
+
+    (* Return in reverse order at end of cycle *)
+    | [] -> accum
+
+  in
+
   function 
 
     (* Return all calculated dependencies *)
@@ -92,11 +150,12 @@ let rec node_state_var_dependencies'
            that are not visible in the origial source *)
         C.fail_no_position 
           (Format.asprintf
-             "Circular dependency: %a@."
+             "Circular dependency in %a: %a@."
+             (I.pp_print_ident false) node.N.name
              (pp_print_list
-                (E.pp_print_lustre_var false) 
-                " -> ")
-             (List.filter (N.state_var_is_visible node) (state_var :: parents)))
+               Format.pp_print_string
+               " ->@ ")
+             (describe_cycle [] (state_var :: parents)))
 
       else
 
@@ -510,6 +569,7 @@ let slice_all_of_node
       N.inputs; 
       N.oracles; 
       N.outputs; 
+      N.asserts;
       N.props; 
       N.contracts; 
       N.is_main;
@@ -517,7 +577,7 @@ let slice_all_of_node
 
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
-     properties, contracts and main annotation *)
+     properties, assertions, contracts and main annotation *)
   { N.name; 
     N.instance;
     N.running;
@@ -530,11 +590,11 @@ let slice_all_of_node
     N.locals = [];
     N.equations = [];
     N.calls = [];
-    N.asserts = [];
+    N.asserts;
     N.props = if keep_props then props else [];
     N.contracts = if keep_contracts then contracts else (None, []);
     N.is_main;
-    N.state_var_source_map = SVM.empty }
+    N.state_var_source_map = state_var_source_map }
 
 
 (* Add roots of cone of influence from node call to roots *)
@@ -601,15 +661,22 @@ let roots_of_contracts (global_contract, mode_contracts) =
     mode_contracts
 
 
+(* Add state variables in assertion *)
+let add_roots_of_asserts asserts roots = 
+  List.fold_left 
+    (fun accum expr -> E.state_vars_of_expr expr |> SVS.union accum)
+    roots
+    asserts
+
 (* Reduce nodes to cone of influence
 
    The last argument is a stack of quadruples [(roots, leaves, sliced,
    unsliced)]. For each state variable in [roots], all [equations],
-   [asserts], [calls] and [locals] that mention the state variable are
-   to be moved from the node [unsliced] to the node [sliced]. If the
-   state variable is in [leaves], either the state variables mentioned
-   in equations, asserts or node calls are already in [roots], or the
-   definitions of the state variable should not be expanded. 
+   [calls] and [locals] that mention the state variable are to be
+   moved from the node [unsliced] to the node [sliced]. If the state
+   variable is in [leaves], either the state variables mentioned in
+   equations, asserts or node calls are already in [roots], or the
+   definitions of the state variable should not be expanded.
 
    If a state variable in [roots] is defined by a node call, find the
    called node in [nodes], obtain an initial quadruple for the stack
@@ -628,30 +695,9 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
      ({ N.name; N.inputs; N.oracles; N.outputs; N.locals; N.state_var_source_map } as node_sliced), 
      node_unsliced) :: tl -> 
 
-(*  Sort when creating transition system
+    (* TODO: Now slice assertions *)
 
-    (* Sort equations of sliced node by dependencies, and continue
-
-       We must pass [accum] instead of [nodes] to order_equations,
-       because we need the output input dependencies of called nodes
-       that are only set when adding a node to [accum]. *)
-    let node_sliced' = 
-      { node_sliced with
-          N.state_var_source_map = 
-            SVM.filter
-              (fun sv _ -> 
-                 D.exists (fun _ sv' -> StateVar.equal_state_vars sv sv') inputs || 
-                 List.exists
-                   (StateVar.equal_state_vars sv)
-                   oracles ||
-                 D.exists (fun _ sv' -> StateVar.equal_state_vars sv sv') outputs ||
-                 List.exists
-                   (D.exists (fun _ sv' -> StateVar.equal_state_vars sv sv'))
-                   locals)
-              state_var_source_map }
-    in
-  *)
-                 
+    (* Continue with next nodes *)
     slice_nodes
       init_slicing_of_node
       nodes
@@ -673,11 +719,9 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
   | (state_var :: roots', 
      leaves, 
      ({ N.equations = equations_in_coi;
-        N.asserts = asserts_in_coi;
         N.calls = calls_in_coi;
         N.locals = locals_in_coi } as node_sliced),
      ({ N.equations = equations_not_in_coi; 
-        N.asserts = asserts_not_in_coi;
         N.calls = calls_not_in_coi;
         N.locals = locals_not_in_coi } as node_unsliced)) :: tl as l -> 
 
@@ -802,43 +846,6 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 
       in
   
-      (* Add all assertions containing the state variable to sliced
-         node, and all state variables in those assertion as roots *)
-      let asserts_in_coi', asserts_not_in_coi', roots' = 
-
-        List.fold_left
-
-          (fun (asserts_in_coi, asserts_not_in_coi, roots) expr -> 
-
-             (* State variables in assertion *)
-             let s = E.state_vars_of_expr expr in
-
-             (* Assertion contains state variable? *)
-             if SVS.mem state_var s then
-
-               (* Add assertion to sliced node *)
-               (expr :: asserts_in_coi, 
-
-                (* Remove assertion from unsliced node *)
-                asserts_not_in_coi,
-
-                (* Add variables in assertion as roots *)
-                SVS.elements s @ roots)
-
-             else
-
-               (* Do not add assertions to sliced node, keep in
-                  unsliced node, and no new roots *)
-               (asserts_in_coi, expr :: asserts_not_in_coi, roots))
-
-          (* Modify assertions in sliced and unsliced node, and roots *)
-          (asserts_in_coi, [], roots')
-
-          (* Iterate over all assertions in unsliced node *)
-          asserts_not_in_coi
-
-      in
-
       (* Move definitions containing the state variable from the
          unsliced to sliced node
 
@@ -882,7 +889,6 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
         { node_sliced with
             N.locals = locals_in_coi';
             N.equations = equations_in_coi';
-            N.asserts = asserts_in_coi';
             N.calls = calls_in_coi' } 
       in
 
@@ -890,7 +896,6 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
       let node_unsliced' =
         { node_unsliced with
             N.equations = equations_not_in_coi';
-            N.asserts = asserts_not_in_coi';
             N.calls = calls_not_in_coi';
             N.locals = locals_not_in_coi' }
       in
@@ -903,63 +908,6 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
         ((roots', (state_var :: leaves), node_sliced', node_unsliced') :: tl)
 
 
-
-(* TODO: Slicing to contract version need to look at one node at a
-   time only, calls of the node are not relevant. *)
-
-(*
-
-let slice_to_contract =   
-
-  let init_slicing_of_node
-      ({ N.inputs; 
-         N.oracles; 
-         N.outputs; 
-         N.contracts; 
-         N.props } as node) = 
-
-    (* Slice everything from node *)
-    let node_sliced = slice_all_of_node node in
-    
-    (* Get roots and leaves of called node *)
-    let node_roots, node_leaves = roots_and_leaves_of_node node_unsliced in
-    
-    ()
-
-  in
-
-  
-  (node_roots, node_leaves, node_sliced, node_unsliced) 
-
-  slice_nodes
-    init_slicing_of_node
-    nodes
-    []
-    
-(* Slice a node as a top node, starting from its properties and contracts *)
-let root_and_leaves_of_props_node 
-    ({ N.contracts; 
-       N.props } as node) =
-
-  (* Slice everything from node *)
-  let node_sliced = 
-    slice_all_of_node
-      ~keep_props:true
-      ~keep_contracts:false
-      node
-  in
-    
-  (* Slice starting with contracts and properties *)
-  let node_roots = roots_of_props props in
-
-  (* Consider all streams *)
-  let node_leaves = [] in
-
-  (node_roots, node_leaves, node_sliced, node)
-  
-*)
-
-
 (* Slice a node to its implementation, starting from the outputs,
    contracts and properties *)
 let root_and_leaves_of_impl  
@@ -967,7 +915,8 @@ let root_and_leaves_of_impl
        N.contract_all_ens; 
        N.outputs; 
        N.contracts; 
-       N.props } as node) =
+       N.props;
+       N.asserts } as node) =
 
   (* Slice everything from node *)
   let node_sliced = 
@@ -979,11 +928,13 @@ let root_and_leaves_of_impl
   
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
-    contract_all_req :: 
-    contract_all_ens :: 
-    roots_of_contracts contracts @
-    D.values outputs @ 
-    roots_of_props props
+    SVS.singleton contract_all_req
+    |> SVS.add contract_all_ens
+    |> SVS.union (roots_of_contracts contracts |> SVS.of_list)
+    |> SVS.union (D.values outputs |> SVS.of_list) 
+    |> SVS.union (roots_of_props props |> SVS.of_list)
+    |> add_roots_of_asserts asserts
+    |> SVS.elements
   in
 
   (* Consider all streams *)
@@ -1041,26 +992,6 @@ let custom_roots roots node =
   let node_leaves = [] in
 
   (node_roots, node_leaves, node_sliced, node)
-
-
-(*
-let slice_to_impl nodes = 
-
-  slice_nodes
-    root_and_leaves_of_impl
-    nodes
-    []
-    [(root_and_leaves_of_impl (List.hd nodes))]
-
-
-let slice_to_contract nodes = 
-
-  slice_nodes
-    root_and_leaves_of_contracts
-    nodes
-    []
-    [(root_and_leaves_of_contracts (List.hd nodes))]
-*)
 
 
 (* Return roots for slicing to contracts or implementation as
