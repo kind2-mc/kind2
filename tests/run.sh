@@ -1,25 +1,5 @@
 #!/bin/bash
 
-test_dir=`echo "$1" | sed 's:/$::'`
-contract_dir="${test_dir}/contracts"
-
-shift
-k2_args="$@"
-
-basic_k2_cmd="$k2_args"
-contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
-
-success_code="20"
-falsifiable_code="10"
-timeout_code="0"
-error_code="2"
-
-success_dir="success"
-falsifiable_dir="falsifiable"
-error_dir="error"
-
-tests_ok="true"
-
 # Prints usage.
 function print_usage {
   cat <<EOF
@@ -39,6 +19,40 @@ structured as follows. Directory
                   described above.
 EOF
 }
+
+# Print usage if asked.
+for arg in "$@"; do
+  if [[ "$arg" = "-h" || "$arg" = "--help" ]]; then
+    print_usage
+    exit 0
+  fi
+done
+
+test_dir=`echo "$1" | sed 's:/$::'`
+
+# Make sure folder exists.
+if [ ! -d "$test_dir" ]; then
+  print_error "directory \"$test_dir\" does not exist"
+fi
+
+contract_dir="${test_dir}/contracts"
+
+shift
+k2_args="$@"
+
+basic_k2_cmd="$k2_args"
+contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
+
+success_code="20"
+falsifiable_code="10"
+timeout_code="0"
+error_code="2"
+
+success_dir="success"
+falsifiable_dir="falsifiable"
+error_dir="error"
+
+tests_ok="true"
 
 # Prints an error taking the lines as argument.
 # Exit with exit code 2.
@@ -159,18 +173,6 @@ function run_all {
 
 
 
-
-# Print usage if asked.
-for arg in "$@"; do
-  if [[ "$arg" = "-h" || "$arg" = "--help" ]]; then
-    print_usage
-  fi
-done
-
-# Make sure folder exists.
-if [ ! -d "$test_dir" ]; then
-  print_error "directory \"$test_dir\" does not exist"
-fi
 
 # Running tests.
 run_all
