@@ -404,6 +404,34 @@ let pp_print_pdr_stats ppf =
     pp_print_stats pdr_stats
 
 
+let pdria_refinements =
+  empty_item "Refinements per index" []
+
+let pdria_refinements_end =
+  empty_item "Refinenements per index relative to end" []
+             
+let pdria_num_simulations =
+  empty_item "Number of concrete simulations" 0
+
+let pdria_interpolation_time =
+  empty_item "Total time for interpolation" 0.
+
+let pdria_stats_title = "PDRIA"
+
+  
+let pdria_stats =
+  [ L pdria_refinements;
+    L pdria_refinements_end;
+    I pdria_num_simulations;
+    F pdria_interpolation_time;
+  ]
+
+let pp_print_pdria_stats ppf =
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+                 pdria_stats_title
+                 pp_print_stats pdria_stats
+
 (* ********** INVGENOS statistics ********** *)
 
 let invgengraph_os_k = 
