@@ -103,6 +103,39 @@ let exit_of_status status =
   (* Exit with status. *)
   exit status
 
+(* Exit code if some properties are still unknown at the end of the
+   analysis. *)
+let timeout_exit_code = 0
+(* Exit code if no properties are unknown, some are falsified. *)
+let failure_exit_code = 10
+(* Exit code if all properties are invariants. *)
+let success_exit_code = 20
+
+(* Decides what the return code is by looking at a transition system. *)
+let exit_of_trans_sys sys =
+  (* Checking if some properties are unknown of falsifiable. *)
+  let unknown, falsifiable =
+    TransSys.get_prop_status_all sys
+    |> List.fold_left
+      ( fun (u,f) -> function
+        | (_, TransSys.PropUnknown)
+        | (_, TransSys.PropKTrue _) -> u+1,f
+        | (_, TransSys.PropFalse _) -> u,f+1
+        | _ -> u,f )
+      (0,0)
+    |> fun (u,f) -> u > 0, f > 0
+  in
+  (* Getting relevant exit code. *)
+  let exit_code =
+    if unknown then timeout_exit_code
+    else
+      if falsifiable then failure_exit_code
+      else success_exit_code
+  in
+  Format.printf "Exiting with exit code %d.@." exit_code ;
+  (* Exiting. *)
+  exit exit_code
+
 
 (* Check which SMT solver is available. *)
 let check_smtsolver () =
@@ -539,7 +572,7 @@ let launch sys msg_setup =
       (* Launching modular mode. *)
       launch_modular all_sys log msg_setup ;
 
-      log, Analysis.status_of_exn Exit
+      log, Exit
 
     ) else (
 
@@ -549,7 +582,7 @@ let launch sys msg_setup =
       (* Launching normal mode. *)
       choose_compositional sys log msg_setup ;
 
-      log, Analysis.status_of_exn Exit
+      log, Exit
     )
   in
 
@@ -557,7 +590,9 @@ let launch sys msg_setup =
 
   (* print_hashcons_stats () ; *)
 
-  exit_of_status status
+  match status with
+  | Exit -> exit_of_trans_sys sys
+  | _ -> Analysis.status_of_exn status |> exit_of_status
 
 
 (* Sets everything up before launching top level analysis. *)
