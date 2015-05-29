@@ -143,14 +143,14 @@ function run_all {
 
   echo
   echo "|===| Running normal tests."
-  echo "| > $basic_k2_cmd"
+  echo -e "| > \033[1m$basic_k2_cmd\033[0m"
   echo "|"
   run_in "$test_dir" "$basic_k2_cmd"
   echo "|===| Done."
   echo
 
   echo "|===| Running contract tests."
-  echo "| > $contract_k2_cmd"
+  echo -e "| > \033[1m$contract_k2_cmd\033[0m"
   echo "|"
   run_in "$contract_dir" "$contract_k2_cmd"
   echo "|===| Done."
