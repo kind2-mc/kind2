@@ -88,6 +88,26 @@ val smt_trace_dir : unit -> smt_trace_dir
 type enable = Lib.kind_module list
 val enable : unit -> enable 
 
+(** Modular analysis *)
+type modular = bool
+val modular : unit -> modular
+
+(** Modular: timeout per analysis. *)
+type modular_timeout = float
+val modular_timeout : unit -> modular_timeout
+
+(** Activates contract abstraction. *)
+type compositional = bool
+val compositional : unit -> compositional
+
+(** Verification of subnodes requirements. *)
+type contracts_subreqs = bool
+val contracts_subreqs : unit -> contracts_subreqs
+
+(** Check that the unrolling is sat in BMC *)
+type bmc_check = bool
+val bmc_check : unit -> bmc_check
+
 (** Maximal number of iterations in BMC *)
 type bmc_max = int
 val bmc_max : unit -> bmc_max
@@ -112,10 +132,6 @@ val ind_compress_same_succ : unit -> ind_compress_same_succ
 (** Compresss inductive counterexample when states have same predecessors *)
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
-
-(** Lazy assertion of invariants. *)
-type ind_lazy_invariants = bool
-val ind_lazy_invariants : unit -> ind_lazy_invariants
 
 (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool
@@ -196,9 +212,12 @@ type invgengraph_prune_trivial = bool
 val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
 type invgengraph_max_succ = int
 val invgengraph_max_succ : unit -> invgengraph_max_succ
-(** InvGen will lift candidate terms from subsystems.. **)
+(** InvGen will lift candidate terms from subsystems. **)
 type invgengraph_lift_candidates = bool
 val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will only generate invariants for the top node. **)
+type invgengraph_top_only = bool
+val invgengraph_top_only : unit -> invgengraph_top_only
 (** InvGen will look for candidate terms in the transition
     predicate. *)
 type invgengraph_mine_trans = bool

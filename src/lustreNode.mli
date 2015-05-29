@@ -73,6 +73,30 @@ type node_call =
 
   }
 
+(** A contract is a name, a position, a list of requirements and a
+    list of ensures. *)
+type contract =
+  { name : LustreIdent.t ;
+    pos : Lib.position ;
+    svar : StateVar.t ;
+    reqs : LustreExpr.t list ;
+    enss : LustreExpr.t list }
+
+(** A contract specification for a node (if it has one) is either a
+    list of modes or a global contract and a list of modes. *)
+type contract_spec =
+  (StateVar.t * LustreExpr.t)
+  (** Requirement of the contract spec. *)
+  * (StateVar.t * LustreExpr.t) list
+  (** Modes of the contract spec. *)
+  * contract option
+  (** Optional global contract. *)
+  * contract list
+  (** Mode contracts. *)
+  * (StateVar.t * LustreExpr.t) list
+  (** Equations for contract internal state. Used to construct the
+      abstract init / trans predicates. *)
+
 (** A Lustre node *)
 type t = 
 
@@ -123,11 +147,8 @@ type t =
     (** Proof obligations for node *)
     props : (StateVar.t * TermLib.prop_source) list;
 
-    (** Contract for node, assumptions *)
-    requires : LustreExpr.t list;
-
-    (** Contract for node, guarantees *)
-    ensures : LustreExpr.t list;
+    (** Contract specification for node. *)
+    contract_spec : contract_spec option ;
 
     (** Node is annotated as main node *)
     is_main : bool;

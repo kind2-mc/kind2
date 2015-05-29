@@ -72,6 +72,9 @@ clean-ocamlczmq:
 
 clean: clean-@PACKAGE_NAME@ clean-ocamlczmq
 
+test: all
+	./tests/run.sh tests/regression/ $(LOCAL_BINDIR)/kind2
+
 
 # Remake this Makefile if configuration has changed 
 Makefile: Makefile.in ./config.status

@@ -1,0 +1,25 @@
+node sub (in: int) returns (out: int);
+--@contract : contract_sub ;
+--@require in > 0 ;
+--@ensure out >= 0 ;
+--@contract : contract_sub2 ;
+--@require in > 0 ;
+--@ensure out >= 0 ;
+--@ensure out >= 0 ;
+--@ensure out >= 0 ;
+let
+  out = 0 -> in + pre out ;
+  -- Does not hold
+  --%PROPERTY out >= 0 ;
+tel
+
+node top (in: int; clk: bool) returns (out: int);
+--@contract : contract_top ;
+--@require in >= -10 ;
+--@ensure true -> out >= 0 ;
+var mem: int ;
+let
+  mem = 1 -> in + pre mem ;
+  out = sub(mem) ;
+  --%PROPERTY true -> out > pre out ;
+tel

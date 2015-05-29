@@ -81,7 +81,7 @@ let of_channel keep_all_coi in_ch =
 
   (* Consider only nodes called by main node *)
   let nodes_coi = 
-    if keep_all_coi then 
+    if keep_all_coi then
       LustreNode.reduce_wo_coi (List.rev nodes) main_node
     else
       LustreNode.reduce_to_props_coi (List.rev nodes) main_node

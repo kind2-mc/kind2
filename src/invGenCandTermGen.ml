@@ -256,17 +256,17 @@ module CandidateTermGen = struct
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
                     set
-                    (* |> TSet.add (flat_to_term term) *)
+                    |> TSet.add (flat_to_term flat)
                     |> TSet.add (Term.mk_geq kids)
                     |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
 
             | `LEQ -> set
               |> TSet.add (Term.mk_geq kids)
-              |> TSet.add (Term.mk_leq kids)
+              |> TSet.add (flat_to_term flat)
 
             | `GEQ -> set
-              |> TSet.add (Term.mk_geq kids)
+              |> TSet.add (flat_to_term flat)
               |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set
@@ -424,6 +424,8 @@ module CandidateTermGen = struct
       | _ :: t -> get_last t
     in
 
+    let abstraction = TransSys.get_abstraction trans_sys in
+
     (* Creates an associative list between systems and their
        implication graph. Even when running in top system only, we
        need to look at the subsystems and instantiate their candidate
@@ -434,12 +436,15 @@ module CandidateTermGen = struct
          (* Getting the scope of the system. *)
          let scope = TransSys.get_scope system in
 
-         (* Do we know that system already?. *)
-         if List.exists
-              ( fun (sys,_) ->
-                TransSys.get_scope sys = scope )
-              result
-              
+         if
+            (* Do we know that system already?. *)
+            ( List.exists
+                ( fun (sys,_) ->
+                  TransSys.get_scope sys = scope )
+                result )
+            (* Or is this system abstracted? *)
+            or ( List.mem scope abstraction )
+
          then
            (* We do, discarding it. *)
            sys_graphs_map result tail
@@ -488,7 +493,7 @@ module CandidateTermGen = struct
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
-                          system term
+                          trans_sys system term
                           |> (function | (top,others) -> top :: others)
                           |> List.fold_left
                               ( fun map (sys,terms) ->
@@ -509,7 +514,7 @@ module CandidateTermGen = struct
 
         let final =
           (* Only getting to system if required. *)
-          ( if false_of_unit ()
+          ( if Flags.invgengraph_top_only()
             then get_last result else result )
           |> (
             (* One state-ing everything if required. *)

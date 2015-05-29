@@ -56,12 +56,24 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
             StateVar.pp_print_state_var sv'
         in
         sv'
-      | _ -> 
-        debug event
-            "State variable %a has more than one instance" 
-        StateVar.pp_print_state_var sv
-        in
-        assert false
+      | list ->
+         if sv == StateVar.mk_init_flag (TransSys.get_scope trans_sys)
+         then (
+           failwith "redundant init flag mapping error, solve problem \
+                     with condacts first"
+         ) else (
+
+           debug event
+                 "State variable %a has more than one instance" 
+                 StateVar.pp_print_state_var sv
+           in
+           debug event
+                 "  %a"
+                 (pp_print_list StateVar.pp_print_state_var ", ")
+                 (List.map (fun (_,_,sv) -> sv) list)
+           in
+           assert false
+         )
   in
 
   (* Get state variable in scope of main node *)
@@ -274,7 +286,7 @@ module EventMessaging = Messaging.Make (EventMessage)
 let this_module = ref `Parser
 
 (* Set module currently running *)
-let set_module mdl = this_module := mdl 
+let set_module mdl = this_module := mdl
 
 (* Get module currently running *)
 let get_module () = !this_module
@@ -324,7 +336,7 @@ module MdlMap =
       let int_of_kind_module = function
         | `Parser -> -3
         | `Interpreter -> -2
-        | `INVMAN -> -1
+        | `Supervisor -> -1
         | `BMC -> 1
         | `IND -> 2
         | `PDR -> 3
@@ -375,7 +387,7 @@ let pt_string_of_kind_module = function
   | `IND -> "inductive step"
   | `INVGEN -> "two state invariant generator"
   | `INVGENOS -> "one state invariant generator"
-  | `INVMAN -> "invariant manager"
+  | `Supervisor -> "supervisor"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
 
@@ -386,14 +398,100 @@ let pp_print_kind_module_pt ppf m =
 
 
 (* Output message as plain text *)
-let printf_pt mdl level fmt = 
-
+let printf_pt mdl level fmt =
+  let pref = if level = L_error then error_tag else "" in
   (ignore_or_fprintf level)
     !log_ppf 
     (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("@[<hov>" ^^ fmt ^^ "@]@.@.") 
+    ("@[<hov>%s" ^^ fmt ^^ "@]@.@.") pref
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
+
+(* Output message as plain text *)
+let printf_done_pt mdl level fmt =
+  (ignore_or_fprintf level)
+    !log_ppf 
+    (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
+    ("@[<hov>%s" ^^ fmt ^^ "@]@.@.") done_tag
+    (* pp_print_level_pt level *)
+    (* pp_print_kind_module_pt mdl *)
+
+let analysis_briefing_pt level trans_sys =
+  let compositional = Flags.compositional () in
+  let modular = Flags.modular () in
+  let mode = match compositional, modular with
+    | true, true -> "in modular / compositional mode systems"
+    | true, _ -> "in compositional mode system"
+    | _, true -> "in modular mode systems"
+    | _ -> "system"
+  in
+  let systems =
+    (if modular then TransSys.get_all_subsystems trans_sys else [ trans_sys ])
+    |> List.map TransSys.get_source_name
+  in
+
+  (ignore_or_fprintf level)
+    !log_ppf 
+    "@[<hv 2>Analyzing %s@ @[<hov>%a@]@]@.@."
+    mode
+    (pp_print_list Format.pp_print_string ",@ ")
+    systems
+
+let system_start_pt level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then
+    (ignore_or_fprintf level)
+      !log_ppf
+      "|========================================|@.@." ;
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<hv 2>Starting analysis for system %s.@]@.@."
+      (TransSys.get_source_name trans_sys)
+
+
+let system_stop_pt level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then (
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<hv 2>Done with system %s.@]@.@."
+      (TransSys.get_source_name trans_sys) ;
+    if TransSys.get_callers trans_sys = [] then
+      (ignore_or_fprintf level)
+        !log_ppf
+        "|========================================|@.@." ;
+  )
+
+let run_start_pt level trans_sys =
+  (* Only printing if in compositional mode. *)
+  if Flags.compositional () then (
+    let concrete, refined, abstract =
+      let c,r,a =
+        TransSys.get_abstraction_split trans_sys
+      in
+      c |> List.map TransSys.get_source_name,
+      r |> List.map TransSys.get_source_name,
+      a |> List.map TransSys.get_source_name
+    in
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<v 2>Starting run for system %s with@,\
+       concrete: [@[<hv>%a@]]@,\
+       refined:  [@[<hv>%a@]]@,\
+       abstract: [@[<hv>%a@]]@]@.@."
+      (TransSys.get_source_name trans_sys)
+      (pp_print_list Format.pp_print_string ",@ ") concrete
+      (pp_print_list Format.pp_print_string ",@ ") refined
+      (pp_print_list Format.pp_print_string ",@ ") abstract
+  )
+
+let run_stop_pt level trans_sys =
+  (* Only printing if in compositional mode. *)
+  if Flags.compositional () then
+    (ignore_or_fprintf level)
+      !log_ppf
+      "   -----------------------------------   @.@."
+
     
 
 (* Output proved property as plain text *)
@@ -407,9 +505,20 @@ let proved_pt mdl level trans_sys k prop =
   then 
 
     (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
-      prop
+      !log_ppf
+      ("@[<hov>%sProperty %s is valid %tby %a after %.3fs.@.@.")
+      success_tag
+      (* Term.pp_print_term *)
+      (* (TransSys.named_term_of_prop_name trans_sys prop) *)
+      (match TransSys.get_prop_source trans_sys prop with
+       | None -> assert false
+       | Some (TermLib.PropAnnot _ as source)
+       | Some (TermLib.Generated _ as source)
+       | Some (TermLib.Instantiated _ as source) ->
+          Format.asprintf
+            "%s (%a)" prop TermLib.pp_print_prop_source source
+       | _ -> prop)
+      
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
@@ -437,7 +546,7 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
           in
 
           (* Reduce nodes to cone of influence of property *)
-          let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
+          let nodes' = nodes in (*reduce_nodes_to_coi trans_sys nodes prop_name in*)
 
           (* Output counterexample *)
           Format.fprintf ppf 
@@ -511,8 +620,13 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
-      prop
+      ("@[<v>%sProperty %s is invalid by %a %tafter %.3fs.@,@,%a@]@.")
+      failure_tag
+      (match TransSys.get_prop_source trans_sys prop with
+       | None -> assert false
+       | Some source ->
+          Format.asprintf
+            "%s (%a)" prop TermLib.pp_print_prop_source source)
       pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
@@ -614,7 +728,7 @@ let xml_src_of_kind_module = function
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
   | `INVGENOS -> "invgenos"
-  | `INVMAN -> "invman"
+  | `Supervisor -> "supervisor"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
 
@@ -644,36 +758,203 @@ let printf_xml mdl level fmt =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ 
-       fmt ^^ 
-       "@]@;<0 -2></Log>@]@.") 
+    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ fmt ^^ "@]@;<0 -2></Log>@]@.") 
     pp_print_level_xml_cls level
     pp_print_kind_module_xml_src mdl
 
+(* Output message as XML *)
+let analysis_briefing_xml _ trans_sys =
+  let compositional = Flags.compositional () in
+  let modular = Flags.modular () in
+  let systems =
+    (if modular then TransSys.get_all_subsystems trans_sys else [ trans_sys ])
+    |> List.map TransSys.get_source_name
+  in
+
+  Format.fprintf
+    !log_ppf 
+    "@[<hv 2><Analysis>@,@[<hv>\
+     <Compositional>%b</Compositional>@,\
+     <Modular>%b</Modular>@,\
+     %a@]@;<0 -2></Analysis>@]@.@."
+    compositional
+    modular
+    (pp_print_list
+      (fun fmt name -> Format.fprintf fmt "<System>%s</System>" name)
+      "@,")
+    systems
+
+let system_start_xml level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then
+    (ignore_or_fprintf level)
+      !log_ppf
+      "<System name=\"%s\" top=\"%b\">@."
+      (TransSys.get_source_name trans_sys)
+      (if TransSys.get_callers trans_sys = [] then true else false)
+
+
+let system_stop_xml level trans_sys =
+  (* Only printing if in modular mode. *)
+  if Flags.modular () then
+    (ignore_or_fprintf level) !log_ppf "</System>@.@."
+
+let run_start_xml level trans_sys =
+  (* Only printing if in compositional mode. *)
+  if Flags.compositional () then (
+    let concrete, refined, abstract =
+      let c,r,a =
+        TransSys.get_abstraction_split trans_sys
+      in
+      c |> List.map TransSys.get_source_name,
+      r |> List.map TransSys.get_source_name,
+      a |> List.map TransSys.get_source_name
+    in
+    (ignore_or_fprintf level)
+      !log_ppf
+      "%s@[<v 2><Run>@,\
+       <Concrete>%a</Concrete>@,\
+       <Refined>%a</Refined>@,\
+       <Abstract>%a</Abstract>@]@."
+      ( if Flags.modular() then "  " else "" )
+      (pp_print_list Format.pp_print_string "</Concrete>@,<Concrete>") concrete
+      (pp_print_list Format.pp_print_string "</Refined>@,<Refined>") refined
+      (pp_print_list Format.pp_print_string "</Abstract>@,<Abstract>") abstract
+  )
+
+let run_stop_xml level trans_sys =
+  if Flags.compositional () then
+    (ignore_or_fprintf level)
+      !log_ppf "%s</Run>@.@."
+      ( if Flags.modular() then "  " else "" )
+
+
+let info_of_prop_xml level trans_sys prop =
+
+  let rec is_generated sys prop =
+    match TransSys.get_prop_source sys prop with
+    | Some (TermLib.Generated _) -> dummy_pos, true
+    | Some (TermLib.Instantiated (subsys, subprop)) ->
+      is_generated (TransSys.subsystem_of_scope sys subsys) subprop
+    | Some (TermLib.PropAnnot pos) -> pos, false
+    | Some s ->
+      Format.asprintf
+        "unexpected prop_source [%a] should not be instantiated"
+        TermLib.pp_print_prop_source s
+      |> failwith
+    | None ->
+      Format.sprintf
+        "unknown property %s for system %s"
+        prop (TransSys.get_name sys)
+      |> failwith
+  in
+
+  let tag, name, pos, lifted, generated, global =
+    match TransSys.get_prop_source trans_sys prop with
+    | Some (TermLib.PropAnnot pos) ->
+      "Property",
+      prop,
+      pos,
+      " lifted=\"false\"",
+      " generated=\"false\"",
+      ""
+    | Some (TermLib.Generated _) ->
+      "Property",
+      prop,
+      dummy_pos,
+      " lifted=\"false\"",
+      " generated=\"true\"",
+      ""
+    | Some (TermLib.Instantiated (subsys,subprop)) ->
+      let pos, generated =
+        is_generated
+          (TransSys.subsystem_of_scope trans_sys subsys)
+          subprop
+      in
+      "Property",
+      prop,
+      pos,
+      " lifted=\"true\"",
+      ( if generated then " generated=\"true\""
+        else " generated=\"false\"" ),
+      ""
+    | Some (TermLib.Requirement (pos, subsys, _)) ->
+      "Requirement",
+      TransSys.subsystem_of_scope trans_sys subsys
+      |> TransSys.get_source_name,
+      pos,
+      "",
+      "",
+      ""
+    | Some (TermLib.Contract (pos,name)) ->
+      "Contract",
+      name,
+      pos,
+      "",
+      "",
+      ( match TransSys.contract_is_global trans_sys name with
+        | Some true -> " global=\"true\""
+        | Some false -> " global=\"false\""
+        | None -> failwith "unknown" )
+    | None ->
+      Format.sprintf "unknown property %s" prop |> failwith
+  in
+
+  let file,row,col =
+    if is_dummy_pos pos then "unknown",-1,-1
+    else file_row_col_of_pos pos
+  in
+
+  let prefix = match Flags.compositional(), Flags.modular() with
+    | true,true -> "    "
+    | false,false -> ""
+    | _ -> "  "
+  in
+
+  (ignore_or_fprintf level)
+    !log_ppf 
+    ("%s@[<hv 2><%s name=\"%s\"%s%s%s>@,\
+      @[<v 2><Position>@,\
+      @[<hv><File>%s</File>@,\
+      <Row>%d</Row>@,\
+      <Col>%d</Col>@]\
+      @;<0 -2></Position>@]@,\
+      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,")
+    prefix
+    tag
+    name
+    lifted
+    generated
+    global
+    file
+    row
+    col
+    (Stat.get_float Stat.total_time) ;
+
+  tag
 
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
 
   (* Only ouptut if status was unknown *)
-  if 
+  if
 
     not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then (
+
+    let tag = info_of_prop_xml level trans_sys prop in
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hv 2><Property name=\"%s\">@,\
-        <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-        %t\
-        <Answer source=\"%a\">valid</Answer>@;<0 -2>\
-        </Property>@]@.") 
-      prop
-      (Stat.get_float Stat.total_time)
+      "%t<Answer source=\"%a\">valid</Answer>@;<0 -2>\
+      </%s>@]@."
       (function ppf -> match k with 
          | None -> () 
          | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
       pp_print_kind_module_xml_src mdl
+      tag
+  )
 
 
 (* Pretty-print a counterexample *)
@@ -761,24 +1042,22 @@ let disproved_xml mdl level trans_sys prop (cex : (StateVar.t * Model.term_or_la
 
     not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then
+
+    let tag = info_of_prop_xml level trans_sys prop in
 
     (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<hv 2><Property name=\"%s\">@,\
-        <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-        %t\
-        <Answer source=\"%a\">falsifiable</Answer>@,\
-        %a@;<0 -2>\
-        </Property>@]@.") 
-      prop
-      (Stat.get_float Stat.total_time)
+      !log_ppf
+      "%t<Answer source=\"%a\">falsifiable</Answer>@,\
+      %a@;<0 -2>\
+      </%s>@]@."
       (function ppf -> match cex with 
          | [] -> () 
          | cex -> Format.fprintf ppf "<K>%d</K>@," (TransSys.length_of_cex cex))
       pp_print_kind_module_xml_src mdl
       (pp_print_counterexample_xml trans_sys prop) 
       cex
+      tag
   
 
 (* Output statistics section as XML *)
@@ -944,6 +1223,49 @@ let log level fmt =
     | F_xml -> printf_xml mdl level fmt
     | F_relay -> printf_relay mdl level fmt
 
+let log_done level fmt = 
+
+  let mdl = get_module () in
+
+  match !log_format with 
+    | F_pt -> printf_done_pt mdl level fmt
+    | F_xml -> printf_xml mdl level fmt
+    | F_relay -> printf_relay mdl level fmt
+
+
+let log_analysis_briefing level trans_sys =
+  match !log_format with
+  | F_pt -> analysis_briefing_pt level trans_sys
+  | F_xml -> analysis_briefing_xml level trans_sys
+  | F_relay -> ()
+
+
+let log_system_start level trans_sys =
+  match !log_format with
+  | F_pt -> system_start_pt level trans_sys
+  | F_xml -> system_start_xml level trans_sys
+  | F_relay -> ()
+
+let log_system_stop level trans_sys =
+  match !log_format with
+  | F_pt -> system_stop_pt level trans_sys
+  | F_xml -> system_stop_xml level trans_sys
+  | F_relay -> ()
+
+
+
+let log_run_start level trans_sys =
+  match !log_format with
+  | F_pt -> run_start_pt level trans_sys
+  | F_xml -> run_start_xml level trans_sys
+  | F_relay -> ()
+
+let log_run_stop level trans_sys =
+  match !log_format with
+  | F_pt -> run_stop_pt level trans_sys
+  | F_xml -> run_stop_xml level trans_sys
+  | F_relay -> ()
+
 
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
@@ -971,11 +1293,13 @@ let log_execution_path mdl level trans_sys path =
 
 
 (* Output summary of status of properties *)
-let log_prop_status level prop_status =
-  match !log_format with 
-    | F_pt -> prop_status_pt level prop_status
-    | F_xml -> prop_status_xml level prop_status
-    | F_relay -> ()
+let log_prop_status level = function
+  | [] -> ()
+  | prop_status ->
+     match !log_format with 
+     | F_pt -> prop_status_pt level prop_status
+     | F_xml -> prop_status_xml level prop_status
+     | F_relay -> ()
 
 
 (* Output statistics of a section of a source *)
@@ -1158,7 +1482,6 @@ let terminate () =
 (* Receiving events                                                       *)
 (* ********************************************************************** *)
 
-
 (* Receive all queued messages *)
 let recv () = 
 
@@ -1183,7 +1506,7 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log (log_level_of_int lvl) "%s" msg; 
+                log (log_level_of_int lvl) "%s" msg ;
 
                (* No relay message *)
                accum
@@ -1232,6 +1555,15 @@ let recv () =
 let check_termination () =
   if EventMessaging.check_termination ()
   then raise Terminate else ()
+
+(* Notifies the background thread o a new list of child
+   processes. Used by the supervisor in a modular analysis when
+   restarting. *)
+let update_child_processes_list new_process_list =
+  try
+    EventMessaging.update_child_processes_list
+      new_process_list
+  with Messaging.NotInitialized -> ()
 
 
 (* Update transition system from event list *)
@@ -1302,8 +1634,15 @@ let update_trans_sys_sub trans_sys events =
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
           
-      (* Change property status in transition system *)
-      TransSys.set_prop_invariant trans_sys p;
+      (* Change property status in transition system, possibly getting
+         new invariants (in the case of a requirement for instance). *)
+      let invars' =
+        TransSys.set_prop_invariant trans_sys p
+      in
+
+      invars'
+      |> List.iter (fun inv ->
+                    TransSys.add_invariant trans_sys inv) ;
 
       (try 
 
@@ -1312,15 +1651,24 @@ let update_trans_sys_sub trans_sys events =
           trans_sys
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
 
-       (* Skip if named property not found *)
-       with Not_found -> ());
+          (* Skip if named property not found *)
+        with Not_found -> ());
+
+      (* Injecting invariant event. *)
+      let tl' =
+        let scope = TransSys.get_scope trans_sys in
+        invars'
+        |> List.fold_left
+             ( fun tail inv -> (m, Invariant(scope, inv)) :: tail)
+             tl
+      in
 
       (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys 
         invars
         ((m, (p, s)) :: prop_status)
-        tl
+        tl'
 
     (* Property found false *)
     | (m, PropStatus (p, (TransSys.PropFalse cex as s))) :: tl -> 

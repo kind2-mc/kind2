@@ -95,6 +95,23 @@ val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) 
     formatted with the parameterized string [f] and the values [v
     ...] *)
 val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
+(** Same as [log] but prefixes with the [done_tag] from [Lib]. *)
+val log_done : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
+
+(** Outputs the analysis header. *)
+val log_analysis_briefing : Lib.log_level -> TransSys.t -> unit
+
+(** Outputs the info for the start of the analysis of a system. *)
+val log_system_start : Lib.log_level -> TransSys.t -> unit
+
+(** Outputs the info for the end of the analysis of a system. *)
+val log_system_stop : Lib.log_level -> TransSys.t -> unit
+
+(** Outputs the info for the start of a run on a system. *)
+val log_run_start : Lib.log_level -> TransSys.t -> unit
+
+(** Outputs the info for the end of a run on a system. *)
+val log_run_stop : Lib.log_level -> TransSys.t -> unit
 
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit
@@ -120,6 +137,11 @@ val recv : unit -> (Lib.kind_module * event) list
 (** Terminates if a termination message was received. Does NOT modified
     received messages. *)
 val check_termination: unit -> unit
+
+(** Notifies the background thread o a new list of child
+    processes. Used by the supervisor in a modular analysis when
+    restarting. *)
+val update_child_processes_list: (int * Lib.kind_module) list -> unit
 
 (** Filter list of invariants with their scope for invariants of empty
     (top) scope *)
