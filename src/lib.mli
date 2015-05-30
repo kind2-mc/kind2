@@ -103,6 +103,18 @@ val safe_hash_interleave : int -> int -> int -> int
 
 (** {1 List functions} *)
 
+(** Add element to the head of the list if the option value is not [None].
+
+    The function symbol is right-associative and infix:
+
+    {[ Some 1 @:: None @:: Some 2 @:: [3;4] ]}
+
+    returns
+
+    {[ \[1;2;3;4\] ]}
+*)
+val ( @:: ) : 'a option -> 'a list -> 'a list 
+
 (** Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 val list_init : (int -> 'a) -> int -> 'a list
 

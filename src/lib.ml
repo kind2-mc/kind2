@@ -63,6 +63,13 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 (* List functions                                                         *)
 (* ********************************************************************** *)
 
+(* Add element to the head of the list if the option value is not [None] *)
+let ( @:: ) = 
+    function
+    | None -> (function l -> l)
+    | Some e -> (function l -> e :: l)
+
+
 (* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 let list_init f n =
   if n = 0 then [] else

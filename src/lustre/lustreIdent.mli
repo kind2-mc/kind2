@@ -69,11 +69,8 @@ val oracle_ident : t
 (** Identifier for unique identifier for node instance *)
 val instance_ident : t
 
-(** Identifier for running flag *)
-val running_ident : t
-
 (** Identifier for first instant flag *)
-val first_tick_ident : t
+val init_flag_ident : t
 
 (** Identifier for observer of contract requirements *)
 val all_req_ident : t

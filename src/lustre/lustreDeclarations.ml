@@ -867,12 +867,11 @@ let eval_ghost_var ctx = function
       [A.Equation (pos, (A.StructDef (pos, [A.SingleIdent (pos, i)])), expr)]
   
 
-(* Add definition of requires or ensures expression to context and
-   return state variable *)
-let eval_req_or_ens (accum, ctx) (pos, expr) = 
+(* Introduce fresh state variable for each ensures expression *)
+let eval_ens (accum, ctx) (pos, expr) = 
 
   (* Evaluate expression to a Boolean expression, may change
-         context *)
+     context *)
   let expr', ctx = 
     S.eval_bool_ast_expr ctx pos expr
     |> C.close_expr pos
@@ -888,23 +887,42 @@ let eval_req_or_ens (accum, ctx) (pos, expr) =
   state_var :: accum, ctx
 
 
+(* Form conjunction of requires expressions *)
+let eval_req (accum, ctx) (pos, expr) =
+
+  (* Evaluate expression to a Boolean expression, may change
+     context *)
+  let expr', ctx = 
+    S.eval_bool_ast_expr ctx pos expr 
+    |> C.close_expr pos
+  in
+
+  (* Add to conjunction of requirements *)
+  (E.mk_and accum expr' , ctx)
+
+
 (* Declare and define ghost streams, requires and ensures expressions
    and return contract *)
-let eval_contract ctx pos reqs enss =
+let eval_contract ctx contract_pos contract_name reqs enss =
 
-  (* Evaluate requirements *)
-  let reqs', ctx = List.fold_left eval_req_or_ens ([], ctx) reqs in
+  (* Evaluate require clauses to a conjunction *)
+  let reqs', ctx =
+    List.fold_left eval_req (E.t_true, ctx) reqs 
+  in
 
-  (* Evaluate ensures *)
-  let ens', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
-
-  (* Evaluate ensures *)
-  let enss', ctx = List.fold_left eval_req_or_ens ([], ctx) enss in
+  (* Introduce state variable for conjunction of requirements *)
+  let contract_req, ctx = 
+    C.mk_local_for_expr contract_pos ctx reqs'
+  in
+  
+  (* Evaluate ensure clauses separately *)
+  let contract_enss, ctx = List.fold_left eval_ens ([], ctx) enss in
 
   (* Return a contract *)
-  ({ N.contract_pos = pos; 
-     N.contract_reqs = reqs'; 
-     N.contract_enss = enss' },
+  ({ N.contract_name;
+     N.contract_pos; 
+     N.contract_req; 
+     N.contract_enss },
    ctx)
 
 
@@ -1224,6 +1242,7 @@ let rec eval_mode_contracts ctx node_inputs node_outputs = function
       eval_contract
         ctx
         pos
+        (I.mk_string_ident ident)
         reqs
         enss 
     in
@@ -1276,7 +1295,12 @@ let eval_node_contract_spec
       
       (* Evaluate *)
       let (contract, ctx) = 
-        eval_contract ctx pos reqs enss 
+        eval_contract 
+          ctx
+          pos
+          (I.mk_string_ident ident)
+          reqs
+          enss 
       in
       
       (* Add to context *)

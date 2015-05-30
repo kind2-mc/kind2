@@ -116,8 +116,7 @@ let push_index (base, index) int = (base, int :: index)
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
 let instance_ident_string =  "__instance"
-let running_ident_string =  "__running"
-let first_tick_ident_string =  "__first_tick"
+let init_flag_ident_string =  "__init_flag"
 let all_req_ident_string =  "__all_req"
 let all_ens_ident_string =  "__all_ens"
 let inst_ident_string =  "__inst" 
@@ -129,8 +128,7 @@ let reserved_strings =
   [ abs_ident_string;
     oracle_ident_string;
     instance_ident_string;
-    running_ident_string;
-    first_tick_ident_string;
+    init_flag_ident_string;
     all_req_ident_string;
     all_ens_ident_string;
     inst_ident_string;
@@ -148,11 +146,8 @@ let oracle_ident = mk_string_ident oracle_ident_string
 (* Identifier for unique identifier for node instance *)
 let instance_ident = mk_string_ident instance_ident_string
 
-(* Identifier for running flag *)
-let running_ident = mk_string_ident running_ident_string
-
 (* Identifier for first instant flag *)
-let first_tick_ident = mk_string_ident first_tick_ident_string
+let init_flag_ident = mk_string_ident init_flag_ident_string
 
 (* Identifier for observer of contract requirements *)
 let all_req_ident = mk_string_ident all_req_ident_string

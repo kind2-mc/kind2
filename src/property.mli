@@ -50,6 +50,11 @@ type prop_source =
   (** Property is a requirement of a subnode. *)
   | Requirement of Lib.position * string list * StateVar.t list
 
+  | ContractCallRequire of Lib.position * string list * StateVar.t list
+
+  | ContractGlobalEnsures of Lib.position * string list
+  | ContractModeEnsures of Lib.position * string list
+
   (** Property is an instance of a property in a called node
 
       Reference the instantiated property by the [scope] of the

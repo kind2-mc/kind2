@@ -562,16 +562,15 @@ let slice_all_of_node
     ?(keep_contracts = true)
     { N.name; 
       N.instance;
-      N.running;
-      N.first_tick;
+      N.init_flag;
       N.contract_all_req;
-      N.contract_all_ens;
       N.inputs; 
       N.oracles; 
       N.outputs; 
       N.asserts;
       N.props; 
-      N.contracts; 
+      N.global_contracts; 
+      N.mode_contracts; 
       N.is_main;
       N.state_var_source_map } = 
 
@@ -580,10 +579,8 @@ let slice_all_of_node
      properties, assertions, contracts and main annotation *)
   { N.name; 
     N.instance;
-    N.running;
-    N.first_tick;
+    N.init_flag;
     N.contract_all_req;
-    N.contract_all_ens;
     N.inputs;
     N.oracles; 
     N.outputs; 
@@ -592,7 +589,8 @@ let slice_all_of_node
     N.calls = [];
     N.asserts;
     N.props = if keep_props then props else [];
-    N.contracts = if keep_contracts then contracts else (None, []);
+    N.global_contracts = if keep_contracts then global_contracts else [];
+    N.mode_contracts = if keep_contracts then mode_contracts else [];
     N.is_main;
     N.state_var_source_map = state_var_source_map }
 
@@ -644,22 +642,19 @@ let roots_of_props = List.map (fun (sv, _, _) -> sv)
 
 
 (* Return state variables from contracts *)
-let roots_of_contracts (global_contract, mode_contracts) = 
+let roots_of_contracts contract = 
 
   (* State variables in a contract are requirements and ensures *)
-  let roots_of_contract 
-    { N.contract_reqs; N.contract_enss } = contract_reqs @ contract_enss
+  let roots_of_contract { N.contract_req; N.contract_enss } = 
+    contract_req :: contract_enss
   in
 
   (* Combine state variables from global contract and mode
      contracts *)
   List.fold_left 
-    (fun a (_, c) -> roots_of_contract c @ a)
-    (match global_contract with
-      | None -> []
-      | Some c -> roots_of_contract c)
-    mode_contracts
-
+    (fun a c -> roots_of_contract c @ a)
+    []
+    contract
 
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
@@ -911,10 +906,9 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 (* Slice a node to its implementation, starting from the outputs,
    contracts and properties *)
 let root_and_leaves_of_impl  
-    ({ N.contract_all_req; 
-       N.contract_all_ens; 
-       N.outputs; 
-       N.contracts; 
+    ({ N.outputs; 
+       N.global_contracts; 
+       N.mode_contracts; 
        N.props;
        N.asserts } as node) =
 
@@ -928,9 +922,8 @@ let root_and_leaves_of_impl
   
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
-    SVS.singleton contract_all_req
-    |> SVS.add contract_all_ens
-    |> SVS.union (roots_of_contracts contracts |> SVS.of_list)
+    (roots_of_contracts global_contracts |> SVS.of_list)
+    |> SVS.union (roots_of_contracts mode_contracts |> SVS.of_list)
     |> SVS.union (D.values outputs |> SVS.of_list) 
     |> SVS.union (roots_of_props props |> SVS.of_list)
     |> add_roots_of_asserts asserts
@@ -946,10 +939,9 @@ let root_and_leaves_of_impl
 (* Slice a node to its contracts, starting from contracts, stopping at
    outputs *)
 let root_and_leaves_of_contracts
-    ({ N.contract_all_req; 
-       N.contract_all_ens; 
-       N.outputs; 
-       N.contracts; 
+    ({ N.outputs; 
+       N.global_contracts; 
+       N.mode_contracts; 
        N.props } as node) =
 
   (* Slice everything from node *)
@@ -962,9 +954,8 @@ let root_and_leaves_of_contracts
     
   (* Slice starting with contracts *)
   let node_roots = 
-    contract_all_req :: 
-    contract_all_ens :: 
-    roots_of_contracts contracts 
+    roots_of_contracts global_contracts @
+    roots_of_contracts mode_contracts 
   in
 
   (* Do not consider anything below outputs *)

@@ -52,6 +52,13 @@ type prop_source =
      variables are the guarantees proving the requirement yields. *)
   | Requirement of position * string list * StateVar.t list
 
+  (* Property is a requirement of a subnode. The list of state
+     variables are the guarantees proving the requirement yields. *)
+  | ContractCallRequire of position * string list * StateVar.t list
+
+  | ContractGlobalEnsures of Lib.position * string list
+  | ContractModeEnsures of Lib.position * string list
+
   (* Property is a mode contract implication. *)
   (* | ModeContract of position * string *)
 

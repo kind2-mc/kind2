@@ -87,9 +87,7 @@ type node_call =
 
 (** A contract has an identifier and a position in the input, a state
     variable that is the conjunction of its requirements, and one
-    state variable for each ensures. If the contract is global, the
-    state variable is just the ensures clause. In a mode contract the
-    state variable is guarded by the mode requirement. 
+    state variable for each ensures. 
 
     The requirement of a global contract may be assumed
     invariant. Each ensures of a global or mode contract is a separate
@@ -109,7 +107,7 @@ type contract =
     contract_pos: position;
 
     (** Invariant from requirements of contract *)
-    contract_reqs : LustreExpr.t list;
+    contract_req : StateVar.t;
 
     (** Invariants from ensures of contract *)
     contract_enss : StateVar.t list
@@ -144,12 +142,8 @@ type t =
     instance : StateVar.t;
 
     (** Distinguished state variable to become true in the first
-        instant, and to remain true forever *)
-    running : StateVar.t;
-
-    (** Distinguished state variable to become true in the first
        instant only *)
-    first_tick : StateVar.t;
+    init_flag : StateVar.t;
 
     (** One observer for conjunction of the global requirements and
         the disjunction of the mode requirements
@@ -157,14 +151,6 @@ type t =
         Any caller has to make this observer true. This observer is
         asserted for the node. *)
     contract_all_req : StateVar.t;
-
-    (** One observer for each global enusres and one observer for each
-        mode implication
-
-        The conjunction of the observers is asserted in the caller
-        when the node is abstract. Each observer is a proof obligation
-        for the node, and an invariant. *)
-    contract_all_ens : StateVar.t list;
 
     (** Input streams defined in the node
 

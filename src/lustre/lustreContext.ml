@@ -1140,23 +1140,17 @@ let add_node_global_contract ctx pos contract =
 
   match ctx with 
 
-    | { node = None } -> raise (Invalid_argument "add_node_contract")
+    | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
-    | { node = Some ({ N.contracts = (Some _, _) } ) } -> 
-
-      fail_at_position
-        pos
-        "Global contract for node already defined"
-      
-    | { node = Some ({ N.contracts = (None, mode_contracts) } as node) } -> 
+    | { node = Some ({ N.global_contracts } as node) } -> 
 
       (* Return node with contract added *)
       { ctx with 
           node = 
             Some
               { node with 
-                  N.contracts = 
-                    (Some contract, mode_contracts) } }
+                  N.global_contracts = 
+                    contract :: global_contracts } }
 
 
 (* Add node contract to context *)
@@ -1164,17 +1158,17 @@ let add_node_mode_contract ctx pos contract_name contract =
 
   match ctx with 
 
-    | { node = None } -> raise (Invalid_argument "add_node_contract")
+    | { node = None } -> raise (Invalid_argument "add_node_mode_contract")
 
-    | { node = Some ({ N.contracts = (global_contract, mode_contracts) } as node) } -> 
+    | { node = Some ({ N.mode_contracts } as node) } -> 
 
       (* Return node with contract added *)
       { ctx with 
           node = 
             Some
               { node with 
-                  N.contracts = 
-                    (global_contract, (contract_name, contract) :: mode_contracts) } }
+                  N.mode_contracts = 
+                    contract :: mode_contracts } }
 
 
 (* Add node assert to context *)
@@ -1486,11 +1480,7 @@ let node_of_context = function
 
   (* Add abstractions to node and return *)
   | { expr_state_var_map; 
-      node = 
-        Some
-          ({ N.contract_all_req; 
-             N.contract_all_ens; 
-             N.contracts = (global_contract, mode_contracts) } as node) } as ctx -> 
+      node = Some node } as ctx -> 
 
     let node =
 
@@ -1502,117 +1492,6 @@ let node_of_context = function
              add_node_equation ctx dummy_pos sv [] e)
           expr_state_var_map
           ctx
-
-        (* Add equations for observer of requirement and ensures *)
-        |> (fun ctx -> 
-
-            if N.has_contract node then 
-
-              (* Conjunction of expressions from state variables *)
-              let mk_sv_conj l =
-                List.map (fun sv -> E.mk_var sv E.base_clock) l 
-                |> E.mk_and_n 
-              in
-
-              (* Return conjunction of requirements, and conjunction of
-                 ensures *)
-              let req_ens_of_contract
-                  { N.contract_reqs; N.contract_enss } =
-
-                (* Conjunction of all requirements *)
-                let req = mk_sv_conj contract_reqs in
-
-                (* Conjunction of all ensures *)
-                let ens = mk_sv_conj contract_enss in
-
-                (* Return conjunction and implication *)
-                req, ens
-
-              in
-
-              (* Observers for mode requirements and mode ensures *)
-              let mode_req, mode_impl =
-
-                List.fold_left 
-
-                  (fun (mode_req, mode_impl) (_, c) ->
-
-                     (* Get conjunction of requirements and conjunction
-                        of ensures *)
-                     let req, ens = req_ens_of_contract c in
-
-                     (* Implication between conjunction of requirements
-                        and conjunction of ensures *)
-                     let impl = E.mk_impl req ens in
-
-                     (* Add expressions to accumulator *)
-                     (req :: mode_req, impl :: mode_impl))
-
-                  ([], [])
-                  mode_contracts 
-
-              in
-
-              (* Disjunction of all mode requirements *)
-              let all_mode_req = E.mk_or_n mode_req in
-
-              (* Conjunction of all mode implications *)
-              let all_mode_impl = E.mk_and_n mode_impl in
-
-              (* Join global requirement with mode requirements and
-                 global ensures with mode ensures *)
-              let all_req, all_ens = match global_contract with
-
-                (* No global contracts, just mode contracts *)
-                | None -> all_mode_req, all_mode_impl
-
-                (* Mode contract *)
-                | Some c -> 
-
-                  (* Get conjunction of requirements, and implication
-                     from conjunctions of requirements to conjunction of
-                     ensures *)
-                  let req, ens = req_ens_of_contract c in
-
-                  (* Conjunction of global requirement and mode
-                     requirements *)
-                  E.mk_and req all_mode_req, 
-
-                  (* Conjunction of global ensures and mode
-                     implications *)
-                  E.mk_and ens all_mode_impl
-
-              in
-
-              (* Add definition of observer for ensures *)
-              let ctx =
-                add_node_equation ctx dummy_pos contract_all_ens [] all_ens 
-              in
-
-              (* Add definition of observer for requirement *)
-              let ctx =
-                add_node_equation ctx dummy_pos contract_all_req [] all_req 
-              in
-
-              match ctx with 
-                | { node = Some ({ N.locals } as node) } -> 
-
-                  (* Return context with equations added *)
-                  { ctx with 
-                      node = 
-                        Some
-                          { node with 
-                              N.locals = 
-                                D.singleton D.empty_index contract_all_req :: 
-                                D.singleton D.empty_index contract_all_ens :: 
-                                locals } }
-
-
-                | _ -> assert false
-
-            else
-
-              ctx)
 
       with
         | { node = Some n } -> n
