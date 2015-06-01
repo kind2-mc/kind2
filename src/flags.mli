@@ -162,6 +162,10 @@ val pdr_fwd_prop_ind_gen : unit -> pdr_fwd_prop_ind_gen
 type pdr_fwd_prop_subsume = bool
 val pdr_fwd_prop_subsume : unit -> pdr_fwd_prop_subsume
 
+(** Abstraction mechanism to use in PDR *)
+type pdr_abstr = [ `None | `IA ]
+val pdr_abstr : unit -> pdr_abstr
+
 (** Debug sections to enable *)
 val debug : unit -> string list
 

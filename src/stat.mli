@@ -235,6 +235,27 @@ val pdr_stats : stat_item list
 (** Print statistics for PDR *)
 val pp_print_pdr_stats : Format.formatter -> unit
 
+(** Indices of discoveredi interpolants relative to end of frame *)
+val pdria_refinements : int_list_item
+
+(** Indices of discoveredi interpolants relative to end of frame *)
+val pdria_refinements_end : int_list_item
+                              
+(** Number of abstraction refinements *)
+val pdria_num_simulations : int_item
+
+(** Total time for interpolation *)
+val pdria_interpolation_time : float_item
+
+(** Title for PDRIA statistics *)
+val pdria_stats_title : string
+                    
+(** PDRIA statistics *)
+val pdria_stats : stat_item list
+
+(** Print statistics for PDRIA *)
+val pp_print_pdria_stats : Format.formatter -> unit
+
 (** {2 INVGENOS} *)
 
 (** Hightest k reached. *)
