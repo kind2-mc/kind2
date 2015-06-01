@@ -47,9 +47,13 @@ let ppf_inductive_assertions = ref Format.std_formatter
 let print_stats () = 
 
   Event.stat
-    [Stat.misc_stats_title, Stat.misc_stats;
-     Stat.pdr_stats_title, Stat.pdr_stats;
-     Stat.smt_stats_title, Stat.smt_stats]
+    ([Stat.misc_stats_title, Stat.misc_stats] @
+     (if Flags.pdr_abstr () = `IA then 
+        [Stat.pdr_stats_title, Stat.pdr_stats;
+         Stat.pdria_stats_title, Stat.pdria_stats]
+      else 
+        [Stat.pdr_stats_title, Stat.pdr_stats]) @
+     [Stat.smt_stats_title, Stat.smt_stats])
 
 
 (* Cleanup before exit *)
@@ -800,6 +804,7 @@ let abstr_simulate trace trans_sys raise_cex =
 
         let solver = 
           SMTSolver.create_instance
+            ~produce_interpolants:true
             (TransSys.get_logic trans_sys)
             `Z3_SMTLIB
         in   

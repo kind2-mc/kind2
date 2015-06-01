@@ -416,7 +416,7 @@ let pdria_num_simulations =
 let pdria_interpolation_time =
   empty_item "Total time for interpolation" 0.
 
-let pdria_stats_title = "PDRIA"
+let pdria_stats_title = "PDR+IA"
 
   
 let pdria_stats =

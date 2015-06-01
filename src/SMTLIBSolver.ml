@@ -798,6 +798,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
+      ?(produce_interpolants=false)
       logic
       id =
 
@@ -869,7 +870,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
         Format.sprintf
           "(set-option :produce-assignments %B)" produce_assignments;
-        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores
+        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores;
+        Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants
       ] @
       header_logic
     in
