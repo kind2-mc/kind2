@@ -463,7 +463,7 @@ let string_of_pdr_abstr = function
 | `IA -> "IA"
 | `None -> "None"
 
-let pdr_abstr_value = "IA, None"
+let pdr_abstr_values = "IA, None"
 
 let pdr_abstr_default = `None
 
