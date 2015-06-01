@@ -329,7 +329,7 @@ let _ =
   (* Register interpreter service handler *)
    Eliom_registration.String.register
      ~service:purge_jobs_service
-     purge_jobs_service_handler
+     purge_jobs_service_handler;
 
   (* Register pull request service handler *)
    Eliom_registration.String.register
