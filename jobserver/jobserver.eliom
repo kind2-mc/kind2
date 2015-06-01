@@ -129,6 +129,22 @@ let purge_jobs_service_handler () () =
   Lwt.return (msg, "text/plain")
 
 
+
+let send_success () =
+  Eliom_registration.String.send ~code:200 ("", "")
+
+
+let pullrequest_test_service_handler payload () =
+
+  let testf = Filename.temp_file "test_github_webhook" ".txt" in
+  let test_oc = open_out testf in
+  let fmt = Format.formatter_of_out_channel test_oc in
+
+  Format.fprintf fmt "recieved:\n\n%s@." payload;
+  
+  send_success ()
+
+
 (* ********************************************************************** *)
 (* Creation of GET Services                                               *)
 (* ********************************************************************** *)
@@ -197,6 +213,12 @@ let purge_jobs_service =
     ~get_params:Eliom_parameter.unit 
     ()
 
+(* Fallback service for pullrequest_test when called with no parameters *)
+let pullrequest_main_service = 
+  Eliom_service.Http.service 
+    ~path:["pullrequest_test"] 
+    ~get_params:Eliom_parameter.unit
+    ()
 
 (* ********************************************************************** *)
 (* Creation of POST Services                                              *)
@@ -233,6 +255,11 @@ let interpreter_input_service =
                        file "inputFile")
     ()
 
+
+let pullrequest_test_service =
+  Eliom_service.Http.post_service
+    ~fallback: pullrequest_main_service
+    ~post_params: Eliom_parameter.raw_post_data ()
 
 (* ********************************************************************** *)
 (* Main entry point: Register service handlers                            *)
@@ -303,4 +330,9 @@ let _ =
    Eliom_registration.String.register
      ~service:purge_jobs_service
      purge_jobs_service_handler
+
+  (* Register pull request service handler *)
+   Eliom_registration.String.register
+     ~service:pullrequest_test_service
+     pullrequest_test_service_handler
 
