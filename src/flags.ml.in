@@ -1371,6 +1371,9 @@ and speclist =
     (* Subsumption in forward propagation *)
     pdr_fwd_prop_subsume_spec;
 
+    (* Abstraction in PDR *)
+    pdr_abstr_spec;
+
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;
     cooper_general_lbound_spec;
