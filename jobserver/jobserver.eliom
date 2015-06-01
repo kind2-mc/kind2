@@ -21,6 +21,7 @@
     @author Mingyu Ma, Christoph Sticksel **)
 
 open Lib
+open Lwt
 
 (* ********************************************************************** *)
 (* Service handlers                                                       *)
@@ -130,19 +131,33 @@ let purge_jobs_service_handler () () =
 
 
 
+let send_error ~code error_message =
+  Eliom_registration.String.send ~code (error_message, "text/plain")
+
 let send_success () =
   Eliom_registration.String.send ~code:200 ("", "")
 
+let read_raw_content ?(length = 4096) raw_content =
+  let content_stream = Ocsigen_stream.get raw_content in
+  Ocsigen_stream.string_of_stream length content_stream
 
-let pullrequest_test_service_handler payload () =
+let pullrequest_test_service_handler () (content_type, raw_content_opt) =
 
-  let testf = Filename.temp_file "test_github_webhook" ".txt" in
-  let test_oc = open_out testf in
-  let fmt = Format.formatter_of_out_channel test_oc in
+  match raw_content_opt with
+  | None -> 
+    send_error ~code:400 "Body content is missing"
+      
+  | Some raw_content ->
 
-  Format.fprintf fmt "recieved:\n\n%s@." payload;
-  
-  send_success ()
+    read_raw_content raw_content >>= fun payload ->
+
+    let testf = Filename.temp_file "test_github_webhook" ".txt" in
+    let test_oc = open_out testf in
+    let fmt = Format.formatter_of_out_channel test_oc in
+
+    Format.fprintf fmt "recieved:\n\n%s@." payload;
+
+    send_success ()
 
 
 (* ********************************************************************** *)
@@ -332,7 +347,7 @@ let _ =
      purge_jobs_service_handler;
 
   (* Register pull request service handler *)
-   Eliom_registration.String.register
-     ~service:pullrequest_test_service
+   Eliom_registration.Any.register
+     pullrequest_test_service
      pullrequest_test_service_handler
 
