@@ -64,7 +64,7 @@ val log_counterexample : Lib.kind_module -> Lib.log_level -> string list -> Tran
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_prop_status : Lib.log_level -> (string * TransSys.prop_status) list -> unit 
+val log_prop_status : Lib.log_level -> (string * Property.prop_status) list -> unit 
 
 (** Log statistics
 
@@ -83,7 +83,7 @@ val terminate_log : unit -> unit
 (** Events exposed to callers *)
 type event = 
   | Invariant of string list * Term.t 
-  | PropStatus of string * TransSys.prop_status
+  | PropStatus of string * Property.prop_status
 
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
@@ -106,7 +106,7 @@ val progress : int -> unit
 val invariant : string list -> Term.t -> unit
 
 (** Broadcast a property status *)
-val prop_status : TransSys.prop_status -> TransSys.t -> string -> unit
+val prop_status : Property.prop_status -> TransSys.t -> string -> unit
 
 (** Broadcast an execution path *)
 val execution_path : TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> unit
@@ -144,7 +144,7 @@ val update_trans_sys_sub :
   TransSys.t ->
   (Lib.kind_module * event) list ->
   (Lib.kind_module * (string list * Term.t)) list *
-  (Lib.kind_module * (string * TransSys.prop_status)) list
+  (Lib.kind_module * (string * Property.prop_status)) list
 
 (** Update transition system from events and return new top level
     invariants and properties with changed status.
@@ -161,7 +161,7 @@ val update_trans_sys :
   TransSys.t ->
   (Lib.kind_module * event) list ->
   Term.t list * 
-  (Lib.kind_module * (string * TransSys.prop_status)) list
+  (Lib.kind_module * (string * Property.prop_status)) list
 
 
 (** {1 Messaging} *)

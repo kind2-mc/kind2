@@ -866,13 +866,14 @@ let main () =
     (* Parse file into two-state transition system *)
     trans_sys := (match (Flags.input_format ()) with 
 
-        | `Lustre -> 
-          
+        | `Lustre -> assert false
+
+(*          
           Some
             (LustreInput.of_file
                (Flags.enable () = [`Interpreter])
                (Flags.input_file ()))
-            
+  *)          
         | `Native -> 
           
           (
