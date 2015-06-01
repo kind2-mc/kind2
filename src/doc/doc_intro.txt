@@ -1,8 +1,92 @@
 {1 Developers' Documentation}
 
-{2 Lustre}
+Overall system architecture
 
-Source files live in the subdirectory [lustre]
+{2 Analysis and Strategies}
+
+{!modules:
+  Analysis
+  Event
+  Flags
+  InvarManager
+  Kind2
+  MonolithicStrategy
+  Refiner
+}
+
+{2 Terms}
+
+{!modules: 
+  Eval          
+  Ident  
+  Ltree
+  Model
+  Scope
+  Simplify
+  StateVar
+  Symbol
+  TermAttr
+  Term
+  Type
+  UfSymbol
+  Var
+}  
+
+{2 Transition System}
+
+{!modules:
+  InputSystem
+  Property
+  SubSystem
+  TransSys
+}
+
+{2 Verification Engines}
+
+{3 k-induction}
+{!modules:
+  Actlit
+  Base
+  Compress
+  Step
+}
+
+{3 IC3}
+
+{!modules:
+  Clause
+  CooperQE
+  Extract
+  Literal
+  PDR
+  Poly
+  Presburger
+  QE
+}
+
+{3 Invariant Generators}
+
+{4 Implication Graph-based Invariant Generation}
+
+{!modules:
+  ImplicationGraph
+  InvGenCandTermGen
+  InvGenGraph
+  LockStepDriver
+}
+
+{3 Interpreter}
+
+{!modules:
+  InputParser
+  Interpreter
+}
+
+{2 Input Modules}
+
+{3 Lustre}
+
+Source files live in the subdirectory [lustreInput]
 
 Dependecy graph of modules {%html: <img src="lustre-frontend.png"> %}
 
@@ -19,16 +103,91 @@ Dependecy graph of modules {%html: <img src="lustre-frontend.png"> %}
   LustreSlicing
   LustreTransSys
   LustreInput
-  LustrePath }
+  LustrePath 
+}
 
+{3 Native}
 
-{2 Howto}
+Source files live in subdirectory [nativeInput]
 
-{3 Add a new subdirectory}
+{!modules:
+  NativeInput
+}
+
+{3 Horn}
+
+Source files live in subdirectory [hornInput]
+
+{!modules:
+  Horn
+}
+
+{2 SMT Solver Interface}
+
+Source files live in subdirectory [SMTSolver]
+
+{!modules:
+  SMTExpr
+  SMTLIBSolver
+  SMTSolver
+  SolverDriver
+  SolverMethods
+  SolverResponse
+  SolverSig
+}
+
+{3 SMTLIB Interface}
+ 
+{!modules:
+  CVC4Driver
+  GenericSMTLIBDriver
+  MathSAT5Driver
+  Z3Driver
+}
+
+{3 Yices Interface}
+
+{!modules:
+  Yices2SMTDriver  
+  YicesDriver
+  YicesLexer
+  YicesNative
+  YicesResponse 
+}
+  
+{2 Utilities}
+
+{!modules:
+  Debug
+  Decimal
+  Hashcons
+  HString
+  HStringSExpr
+  Kind2Config
+  Lib
+  Messaging
+  Numeral
+  SExprBase
+  SExprLexer
+  SExpr
+  Stat
+  TermLib
+  Trie
+  Version
+}
+
+{1 Howto}
+
+{2 Documentation}
+
+Add module to one section above, and add to [kind2.odocl].
+
+{2 Add a new subdirectory}
 
 To add a new subdirectory [feature] edit the [_tags] file to include the line {[<feature>: include]}.
 
 
-{2 Indexes}
+{1 Indexes}
 
 {!indexlist}
+
