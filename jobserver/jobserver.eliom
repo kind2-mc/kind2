@@ -137,6 +137,9 @@ let send_error ~code error_message =
 let send_success () =
   Eliom_registration.String.send ~code:200 ("", "")
 
+let send_success_str str =
+  Eliom_registration.String.send ~code:200 (str, "text/plain")
+
 let read_raw_content ?(length = 4096) raw_content =
   let content_stream = Ocsigen_stream.get raw_content in
   Ocsigen_stream.string_of_stream length content_stream
@@ -151,13 +154,16 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
 
     read_raw_content raw_content >>= fun payload ->
 
-    let testf = Filename.temp_file "test_github_webhook" ".txt" in
-    let test_oc = open_out testf in
-    let fmt = Format.formatter_of_out_channel test_oc in
 
-    Format.fprintf fmt "recieved:\n\n%s@." payload;
+    (* let testf = Filename.temp_file "test_github_webhook" ".txt" in *)
+    (* let test_oc = open_out testf in *)
+    (* let fmt = Format.formatter_of_out_channel test_oc in *)
 
-    send_success ()
+    let res = Format.sprintf "recieved:\n\n%s@." payload in
+
+    (* Lwt.return (res, "text/plain"); *)
+    
+    send_success_str res
 
 
 (* ********************************************************************** *)
