@@ -24,7 +24,7 @@ module C = Clause
 module F = Clause.ClauseTrie
 
 (* Check to make sure invariants of PDR hold *)
-let debug_assert = true
+let debug_assert = false
 
 (* ********************************************************************** *)
 (* Solver instances and cleanup                                           *)
@@ -3060,7 +3060,7 @@ let main trans_sys =
   let props' =
 
     (* Is BMC running in parallel? *)
-    if List.mem `BMC (Flags.enable ()) then 
+    if List.mem `BMC (Flags.enable ()) && not debug_assert then 
 
       (Event.log L_info
          "Delegating check for zero and one step counterexamples \
