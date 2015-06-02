@@ -26,6 +26,7 @@ module PDR = PDR
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 
+
 let print_signal_info () =
   Format.printf
     "[%a] %a@."

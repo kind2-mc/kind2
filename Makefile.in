@@ -55,7 +55,7 @@ lustre-checker:
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/@PACKAGE_NAME@.docdir/* $(LOCAL_DOCDIR)
 
-.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean 
+.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test
 
 install: 
 	mkdir -p ${bindir}
@@ -71,6 +71,9 @@ clean-ocamlczmq:
 	make -C ocamlczmq clean
 
 clean: clean-@PACKAGE_NAME@ clean-ocamlczmq
+
+test: all
+	./tests/run.sh tests/regression/ $(LOCAL_BINDIR)/kind2
 
 
 # Remake this Makefile if configuration has changed 
