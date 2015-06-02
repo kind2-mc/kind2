@@ -3713,7 +3713,8 @@ let --%MAIN
    --Line 170
 --%PROPERTY sequence3; 
 
-assert (true => (Chart_main_simp_rlt_node_state221_rlt_chart_data_states_Chart_MissionPhaseStates_CaptureApproach_OrbitalState_Active_InertialNavigation + 0 >= 0));
+-- This expression contains an undefined stream
+-- assert (true => (Chart_main_simp_rlt_node_state221_rlt_chart_data_states_Chart_MissionPhaseStates_CaptureApproach_OrbitalState_Active_InertialNavigation + 0 >= 0));
 tel;
 
 
