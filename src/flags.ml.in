@@ -203,6 +203,16 @@ let z3_bin_default = "z3"
 
 (* ********** *) 
 
+type z3_check_sat_assume = bool
+
+let z3_check_sat_assume_of_string s = s
+
+let string_of_z3_check_sat_assume s = s 
+
+let z3_check_sat_assume_default = true
+
+(* ********** *) 
+
 type cvc4_bin = string 
 
 let cvc4_bin_of_string s = s
@@ -578,6 +588,7 @@ type flags =
     mutable smtsolver : smtsolver;
     mutable smtlogic : smtlogic;
     mutable z3_bin : z3_bin;
+    mutable z3_check_sat_assume : z3_check_sat_assume;
     mutable cvc4_bin : cvc4_bin;
     mutable mathsat5_bin : mathsat5_bin;
     mutable yices_bin : yices_bin;
@@ -628,6 +639,7 @@ let flags =
     smtsolver = smtsolver_default;
     smtlogic = smtlogic_default;
     z3_bin = z3_bin_default;
+    z3_check_sat_assume = z3_check_sat_assume_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
@@ -719,6 +731,15 @@ let z3_bin_spec =
    Arg.String z3_bin_action, 
    Format.sprintf "executable of Z3 solver (default: %s)"
                   (string_of_z3_bin z3_bin_default))
+
+(* ********** *) 
+
+let z3_check_sat_assume_action o = flags.z3_check_sat_assume <- o
+  
+let z3_check_sat_assume_spec = 
+  ("--z3_check_sat_assume", 
+   Arg.Bool z3_check_sat_assume_action, 
+   Format.sprintf "use check-sat with assumptions in Z3 (default: %B)" z3_check_sat_assume_default)
 
 (* ********** *) 
 
@@ -1173,6 +1194,8 @@ let smtlogic () = flags.smtlogic
 
 let z3_bin () = flags.z3_bin
 
+let z3_check_sat_assume () = flags.z3_check_sat_assume
+
 let cvc4_bin () = flags.cvc4_bin
 
 let mathsat5_bin () = flags.mathsat5_bin
@@ -1294,6 +1317,9 @@ and speclist =
 
     (* Set executable for Z3 solver *)
     z3_bin_spec;
+
+    (* Use check-sat with assumptions in Z3 *)
+    z3_check_sat_assume_spec;
 
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;

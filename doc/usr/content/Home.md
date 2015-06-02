@@ -1,9 +1,13 @@
-Kind 2
-======
+# Kind 2
 
-A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. 
+A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
-Kind 2 takes as input a Lustre file annotated with properties to prove invariant (see [Lustre syntax](doc/Lustre.md)), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind 2 can output its results in [XML format](doc/XML.md).
+Kind 2 takes as input a Lustre file annotated with properties to prove
+invariant (see [Lustre syntax](./1_input/1_lustre.md#lustre)), and outputs
+which of the properties are true for all inputs, as well as an input sequence
+for those properties that are falsified. To ease processing by front-end tools,
+Kind 2 can output its results in [XML format](./2_output/2_xml.md#xml).
+Input can also be given in the [native format](./1_input/2_native.md#native-format).
 
 Kind 2 runs a process for bounded model checking (BMC), a process for k-induction, and a process for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.
 
@@ -34,20 +38,18 @@ The default is ```Z3```, but see options of the ```./build.sh``` script to overr
 ```-xml``` Output in XML format
 
 
-Requirements
-============
+## Requirements
 
 - Linux or Mac OS X,
 - OCaml 4.02 or later,
 - Camlp4 
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
- - [Z3](http://z3.codeplex.com) (presently recommended), 
- - [CVC4](http://cvc4.cs.nyu.edu), (must use ```--pdr_tighten_to_unsat_core false```) or
- - [MathSat5](http://mathsat.fbk.eu/)
+    - [Z3](http://z3.codeplex.com) (presently recommended), 
+    - [CVC4](http://cvc4.cs.nyu.edu), (must use ```--pdr_tighten_to_unsat_core false```) or
+    - [MathSat5](http://mathsat.fbk.eu/)
 
-Building and installing
-=======================
+## Building and installing
 
 If you got the sources from the Github repository, you need to run first
 
@@ -68,3 +70,5 @@ If it has been successful, call
 to install the Kind 2 binary into the chosen location. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the `build.sh` call. Use `./configure --help` after `autogen.sh` to see all available options.
 
 You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running `kind2`. 
+
+

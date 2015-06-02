@@ -453,7 +453,8 @@ let run_process messaging_setup process =
             Printexc.record_backtrace true;
 
           Event.log L_info 
-            "Starting new process with PID %d" 
+            "Starting new process %a with PID %d" 
+            pp_print_kind_module process
             pid;
 
           (
