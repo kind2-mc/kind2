@@ -55,7 +55,7 @@ lustre-checker:
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/@PACKAGE_NAME@.docdir/* $(LOCAL_DOCDIR)
 
-.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean 
+.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test
 
 install: 
 	mkdir -p ${bindir}
