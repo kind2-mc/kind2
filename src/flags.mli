@@ -138,25 +138,9 @@ val pdr_extract : unit -> pdr_extract
 type pdr_check_inductive = bool
 val pdr_check_inductive : unit -> pdr_check_inductive
 
-(** Simultaneous check for propagation *)
-type pdr_fwd_prop_check_multi = bool
-val pdr_fwd_prop_check_multi : unit -> pdr_fwd_prop_check_multi
-
-(** Output inductive blocking clauses *)
-type pdr_print_inductive_assertions = bool
-val pdr_print_inductive_assertions : unit -> pdr_print_inductive_assertions
-
-(** Output all blocking clauses *)
-type pdr_print_blocking_clauses = bool
-val pdr_print_blocking_clauses : unit -> pdr_print_blocking_clauses
-
 (** File for inductive blocking clauses *)
 type pdr_print_to_file = string option 
 val pdr_print_to_file : unit -> pdr_print_to_file
-
-(** Tighten blocking clauses to an unsatisfiable core *)
-type pdr_tighten_to_unsat_core = bool
-val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
 
 (** Tighten blocking clauses to an unsatisfiable core *)
 type pdr_inductively_generalize = int
@@ -165,14 +149,26 @@ val pdr_inductively_generalize : unit -> pdr_inductively_generalize
 (** Block counterexample in future frames *)
 type pdr_block_in_future = bool
 val pdr_block_in_future : unit -> pdr_block_in_future
+  
+(** Block counterexample in future frames first before returning to frame *)
+type pdr_block_in_future_first = bool
+val pdr_block_in_future_first : unit -> pdr_block_in_future_first  
 
-(** Print inductive invariant if property proved *)
-type pdr_print_inductive_invariant = bool
-val pdr_print_inductive_invariant : unit -> pdr_print_inductive_invariant
+(** Also propagate clauses before generalization *)
+type pdr_fwd_prop_non_gen = bool
+val pdr_fwd_prop_non_gen : unit -> pdr_fwd_prop_non_gen
 
-(** Check inductive invariant if property proved *)
-type pdr_check_inductive_invariant = bool
-val pdr_check_inductive_invariant : unit -> pdr_check_inductive_invariant
+(** Inductively generalize all clauses after forward propagation *)
+type pdr_fwd_prop_ind_gen = bool
+val pdr_fwd_prop_ind_gen : unit -> pdr_fwd_prop_ind_gen
+
+(** Subsumption in forward propagation *)
+type pdr_fwd_prop_subsume = bool
+val pdr_fwd_prop_subsume : unit -> pdr_fwd_prop_subsume
+
+(** Abstraction mechanism to use in PDR *)
+type pdr_abstr = [ `None | `IA ]
+val pdr_abstr : unit -> pdr_abstr
 
 (** Debug sections to enable *)
 val debug : unit -> string list

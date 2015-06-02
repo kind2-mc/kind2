@@ -361,6 +361,7 @@ type ind_print_inductive_cex = bool
 let ind_print_inductive_cex_default = true
 
 (* ********** *) 
+
 type pdr_check_inductive = bool
     
 let string_of_pdr_check_inductive = string_of_bool
@@ -369,41 +370,9 @@ let pdr_check_inductive_default = true
 
 (* ********** *) 
 
-type pdr_fwd_prop_check_multi = bool
-    
-let string_of_pdr_fwd_prop_check_multi = string_of_bool
-
-let pdr_fwd_prop_check_multi_default = false
-
-(* ********** *) 
-
-type pdr_print_inductive_assertions = bool
-    
-let string_of_pdr_print_inductive_assertions = string_of_bool
-
-let pdr_print_inductive_assertions_default = false
-
-(* ********** *) 
-
-type pdr_print_blocking_clauses = bool
-    
-let string_of_pdr_print_blocking_clauses = string_of_bool
-
-let pdr_print_blocking_clauses_default = false
-
-(* ********** *) 
-
 type pdr_print_to_file = string option
     
 let pdr_print_to_file_default = None
-
-(* ********** *) 
-
-type pdr_tighten_to_unsat_core = bool
-    
-let string_of_pdr_tighten_to_unsat_core = string_of_bool
-
-let pdr_tighten_to_unsat_core_default = true
 
 (* ********** *) 
 
@@ -423,19 +392,34 @@ let pdr_block_in_future_default = true
 
 (* ********** *) 
 
-type pdr_print_inductive_invariant = bool
+type pdr_block_in_future_first = bool
     
-let string_of_pdr_print_inductive_invariant = string_of_bool
+let string_of_pdr_block_in_future_first = string_of_bool
 
-let pdr_print_inductive_invariant_default = false
+let pdr_block_in_future_first_default = true
 
 (* ********** *) 
 
-type pdr_check_inductive_invariant = bool
+type pdr_fwd_prop_non_gen = bool
     
-let string_of_pdr_check_inductive_invariant = string_of_bool
+let string_of_pdr_fwd_prop_non_gen = string_of_bool
 
-let pdr_check_inductive_invariant_default = false
+let pdr_fwd_prop_non_gen_default = true
+
+(* ********** *) 
+
+type pdr_fwd_prop_ind_gen = bool
+    
+let string_of_pdr_fwd_prop_ind_gen = string_of_bool
+
+let pdr_fwd_prop_ind_gen_default = true
+
+(* ********** *) 
+type pdr_fwd_prop_subsume = bool
+    
+let string_of_pdr_fwd_prop_subsume = string_of_bool
+
+let pdr_fwd_prop_subsume_default = true
 
 (* ********** *) 
 
@@ -474,6 +458,24 @@ let string_of_pdr_extract = function
 let pdr_extract_values = "first, vars"
 
 let pdr_extract_default = `First
+
+
+(* ********** *) 
+
+type pdr_abstr = [ `None | `IA ] 
+
+let pdr_abstr_of_string = function
+| "None" -> `None
+| "IA" -> `IA
+| _ -> raise (Arg.Bad "Bad value for --pdr_abstr")
+
+let string_of_pdr_abstr = function
+| `IA -> "IA"
+| `None -> "None"
+
+let pdr_abstr_values = "IA, None"
+
+let pdr_abstr_default = `None
 
 (* ********** *) 
  
@@ -581,55 +583,54 @@ let log_format_xml_default = false
 
 (* All flags *)
 type flags = 
-    { mutable timeout_wall : float;
-      mutable timeout_virtual : float;
-      mutable smtsolver : smtsolver;
-      mutable smtlogic : smtlogic;
-      mutable z3_bin : z3_bin;
-      mutable z3_check_sat_assume : z3_check_sat_assume;
-      mutable cvc4_bin : cvc4_bin;
-      mutable mathsat5_bin : mathsat5_bin;
-      mutable yices_bin : yices_bin;
-      mutable yices2smt2_bin : yices2smt2_bin;
-      mutable smt_trace : smt_trace;
-      mutable smt_trace_dir : smt_trace_dir;
-      mutable enable : enable;
-      mutable check_version : check_version;
-      mutable bmc_max : bmc_max;
-      mutable ind_compress : ind_compress;
-      mutable ind_compress_equal : ind_compress_equal;
-      mutable ind_compress_same_succ : ind_compress_same_succ;
-      mutable ind_compress_same_pred : ind_compress_same_pred;
-      mutable ind_lazy_invariants : ind_lazy_invariants;
-      mutable ind_print_inductive_cex : ind_print_inductive_cex;
-      mutable pdr_qe : pdr_qe;
-      mutable pdr_extract : pdr_extract;
-      mutable pdr_check_inductive : pdr_check_inductive;
-      mutable pdr_fwd_prop_check_multi : pdr_fwd_prop_check_multi;
-      mutable pdr_print_inductive_assertions : pdr_print_inductive_assertions;
-      mutable pdr_print_blocking_clauses : pdr_print_blocking_clauses;
-      mutable pdr_print_to_file : pdr_print_to_file;
-      mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
-      mutable pdr_inductively_generalize : pdr_inductively_generalize;
-      mutable pdr_block_in_future : pdr_block_in_future;
-      mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
-      mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
-      mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
-      mutable cooper_general_lbound : cooper_general_lbound;
-      mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
-      mutable invgengraph_max_succ : invgengraph_max_succ;
-      mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
-      mutable invgengraph_mine_trans : invgengraph_mine_trans;
-      mutable invgengraph_renice : invgengraph_renice;
-      mutable interpreter_input_file : interpreter_input_file;
-      mutable interpreter_steps : interpreter_steps;
-      mutable lustre_main : lustre_main;
-      mutable debug : string list;
-      mutable debug_log : string option;
-      mutable log_level : log_level;
-      mutable log_format_xml : bool;
-      mutable input_format : input_format;
-      mutable input_file : string option }
+  { mutable timeout_wall : float;
+    mutable timeout_virtual : float;
+    mutable smtsolver : smtsolver;
+    mutable smtlogic : smtlogic;
+    mutable z3_bin : z3_bin;
+    mutable z3_check_sat_assume : z3_check_sat_assume;
+    mutable cvc4_bin : cvc4_bin;
+    mutable mathsat5_bin : mathsat5_bin;
+    mutable yices_bin : yices_bin;
+    mutable yices2smt2_bin : yices2smt2_bin;
+    mutable smt_trace : smt_trace;
+    mutable smt_trace_dir : smt_trace_dir;
+    mutable enable : enable;
+    mutable check_version : check_version;
+    mutable bmc_max : bmc_max;
+    mutable ind_compress : ind_compress;
+    mutable ind_compress_equal : ind_compress_equal;
+    mutable ind_compress_same_succ : ind_compress_same_succ;
+    mutable ind_compress_same_pred : ind_compress_same_pred;
+    mutable ind_lazy_invariants : ind_lazy_invariants;
+    mutable ind_print_inductive_cex : ind_print_inductive_cex;
+    mutable pdr_qe : pdr_qe;
+    mutable pdr_extract : pdr_extract;
+    mutable pdr_check_inductive : pdr_check_inductive;
+    mutable pdr_print_to_file : pdr_print_to_file;
+    mutable pdr_inductively_generalize : pdr_inductively_generalize;
+    mutable pdr_block_in_future : pdr_block_in_future;
+    mutable pdr_block_in_future_first : pdr_block_in_future_first;
+    mutable pdr_fwd_prop_non_gen : pdr_fwd_prop_non_gen;
+    mutable pdr_fwd_prop_ind_gen : pdr_fwd_prop_ind_gen;
+    mutable pdr_fwd_prop_subsume : pdr_fwd_prop_subsume;
+    mutable pdr_abstr : pdr_abstr;
+    mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
+    mutable cooper_general_lbound : cooper_general_lbound;
+    mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
+    mutable invgengraph_max_succ : invgengraph_max_succ;
+    mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
+    mutable invgengraph_mine_trans : invgengraph_mine_trans;
+    mutable invgengraph_renice : invgengraph_renice;
+    mutable interpreter_input_file : interpreter_input_file;
+    mutable interpreter_steps : interpreter_steps;
+    mutable lustre_main : lustre_main;
+    mutable debug : string list;
+    mutable debug_log : string option;
+    mutable log_level : log_level;
+    mutable log_format_xml : bool;
+    mutable input_format : input_format;
+    mutable input_file : string option }
     
 (* Defaults for all flags *)
 let flags = 
@@ -657,15 +658,14 @@ let flags =
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
     pdr_check_inductive = pdr_check_inductive_default;
-    pdr_fwd_prop_check_multi = pdr_fwd_prop_check_multi_default;
-    pdr_print_inductive_assertions = pdr_print_inductive_assertions_default;
-    pdr_print_blocking_clauses = pdr_print_blocking_clauses_default;
     pdr_print_to_file = pdr_print_to_file_default;
-    pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
     pdr_inductively_generalize = pdr_inductively_generalize_default;
+    pdr_fwd_prop_non_gen = pdr_fwd_prop_non_gen_default;
+    pdr_fwd_prop_ind_gen = pdr_fwd_prop_ind_gen_default;
     pdr_block_in_future = pdr_block_in_future_default;
-    pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
-    pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
+    pdr_block_in_future_first = pdr_block_in_future_first_default;
+    pdr_fwd_prop_subsume = pdr_fwd_prop_subsume_default;
+    pdr_abstr = pdr_abstr_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
     invgengraph_prune_trivial = invgengraph_prune_trivial_default;
@@ -929,41 +929,6 @@ let pdr_check_inductive_spec =
 
 (* ********** *) 
 
-let pdr_fwd_prop_check_multi_action o = flags.pdr_fwd_prop_check_multi <- o
-  
-let pdr_fwd_prop_check_multi_spec = 
-  ("--pdr_fwd_prop_check_multi", 
-   Arg.Bool pdr_fwd_prop_check_multi_action, 
-   Format.sprintf
-     "(PDR) Simultaneous check for forward propagation (default: %s)"
-     (string_of_pdr_fwd_prop_check_multi pdr_fwd_prop_check_multi_default))
-
-(* ********** *) 
-
-let pdr_print_inductive_assertions_action o = 
-  flags.pdr_print_inductive_assertions <- o
-  
-let pdr_print_inductive_assertions_spec = 
-  ("--pdr_print_inductive_assertions", 
-   Arg.Bool pdr_print_inductive_assertions_action, 
-   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)"
-                  (string_of_pdr_print_inductive_assertions
-                     pdr_print_inductive_assertions_default))
-
-(* ********** *) 
-
-let pdr_print_blocking_clauses_action o = 
-  flags.pdr_print_blocking_clauses <- o
-  
-let pdr_print_blocking_clauses_spec = 
-  ("--pdr_print_blocking_clauses", 
-   Arg.Bool pdr_print_blocking_clauses_action, 
-   Format.sprintf "(PDR) Output all blocking clauses (default: %s)"
-                  (string_of_pdr_print_blocking_clauses
-                     pdr_print_blocking_clauses_default))
-
-(* ********** *) 
-
 let pdr_print_to_file_action o = 
   flags.pdr_print_to_file <- Some o
   
@@ -971,17 +936,6 @@ let pdr_print_to_file_spec =
   ("--pdr_print_to_file", 
    Arg.String pdr_print_to_file_action, 
    Format.sprintf "(PDR) Output file for blocking clauses (default: stdout)")
-
-(* ********** *) 
-
-let pdr_tighten_to_unsat_core_action o = flags.pdr_tighten_to_unsat_core <- o
-  
-let pdr_tighten_to_unsat_core_spec = 
-  ("--pdr_tighten_to_unsat_core", 
-   Arg.Bool pdr_tighten_to_unsat_core_action, 
-   Format.sprintf
-     "(PDR) Tighten blocking clauses to an unsatisfiable core (default: %s)"
-     (string_of_pdr_tighten_to_unsat_core pdr_tighten_to_unsat_core_default))
 
 (* ********** *) 
 
@@ -1004,30 +958,56 @@ let pdr_block_in_future_spec =
 
 (* ********** *) 
  
-let pdr_print_inductive_invariant_action o =
-  flags.pdr_print_inductive_invariant <- o
+let pdr_block_in_future_first_action o = flags.pdr_block_in_future_first <- o
   
-let pdr_print_inductive_invariant_spec = 
-  ("--pdr_print_inductive_invariant", 
-   Arg.Bool pdr_print_inductive_invariant_action, 
-   Format.sprintf
-     "(PDR) Print inductive invariant if property proved (default: %s)"
-     (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
+let pdr_block_in_future_first_spec = 
+  ("--pdr_block_in_future_first", 
+   Arg.Bool pdr_block_in_future_first_action, 
+   Format.sprintf "(PDR) Block counterexample in future frames first before returning to frame (default: %s)"
+                  (string_of_pdr_block_in_future_first pdr_block_in_future_first_default))
+
+(* ********** *) 
+ 
+let pdr_fwd_prop_non_gen_action o = flags.pdr_fwd_prop_non_gen <- o
+  
+let pdr_fwd_prop_non_gen_spec = 
+  ("--pdr_fwd_prop_non_gen", 
+   Arg.Bool pdr_fwd_prop_non_gen_action, 
+   Format.sprintf "(PDR) Also propagate clauses before generalization (default: %s)"
+                  (string_of_pdr_fwd_prop_non_gen pdr_fwd_prop_non_gen_default))
+
+(* ********** *) 
+ 
+let pdr_fwd_prop_ind_gen_action o = flags.pdr_fwd_prop_ind_gen <- o
+  
+let pdr_fwd_prop_ind_gen_spec = 
+  ("--pdr_fwd_prop_ind_gen", 
+   Arg.Bool pdr_fwd_prop_ind_gen_action, 
+   Format.sprintf "(PDR) Inductively generalize all clauses after forward propagation (default: %s)"
+                  (string_of_pdr_fwd_prop_ind_gen pdr_fwd_prop_ind_gen_default))
+
+(* ********** *) 
+ 
+let pdr_fwd_prop_subsume_action o = flags.pdr_fwd_prop_subsume <- o
+  
+let pdr_fwd_prop_subsume_spec = 
+  ("--pdr_fwd_prop_subsume", 
+   Arg.Bool pdr_fwd_prop_subsume_action, 
+   Format.sprintf "(PDR) Subsumption in forward propagation (default: %s)"
+                  (string_of_pdr_fwd_prop_subsume pdr_fwd_prop_subsume_default))
 
 (* ********** *) 
 
-let pdr_check_inductive_invariant_action o =
-  flags.pdr_check_inductive_invariant <- o
+let pdr_abstr_action o = flags.pdr_abstr <- (pdr_abstr_of_string o)
   
-let pdr_check_inductive_invariant_spec = 
-  ("--pdr_check_inductive_invariant", 
-   Arg.Bool pdr_check_inductive_invariant_action, 
-   Format.sprintf
-     "(PDR) Check inductive invariant if property proved (default: %s)"
-     (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
-
+let pdr_abstr_spec = 
+  ("--pdr_abstr", 
+   Arg.String pdr_abstr_action, 
+   Format.sprintf "(PDR) choose method of abstraction in PDR \"
+                   (available: %s, default: %s)"
+                  pdr_abstr_values (string_of_pdr_abstr pdr_abstr_default))
 (* ********** *) 
-
+ 
 let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
                                           
 let cooper_order_var_by_elim_spec = 
@@ -1256,23 +1236,23 @@ let pdr_check_inductive () = flags.pdr_check_inductive
 
 let pdr_inductively_generalize () = true
 
-let pdr_fwd_prop_check_multi () = flags.pdr_fwd_prop_check_multi 
-
-let pdr_print_inductive_assertions () = flags.pdr_print_inductive_assertions
-
-let pdr_print_blocking_clauses () = flags.pdr_print_blocking_clauses
-
 let pdr_print_to_file () = flags.pdr_print_to_file
-
-let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core 
 
 let pdr_inductively_generalize () = flags.pdr_inductively_generalize
 
 let pdr_block_in_future () = flags.pdr_block_in_future 
 
-let pdr_print_inductive_invariant () = flags.pdr_print_inductive_invariant 
+let pdr_block_in_future_first () = flags.pdr_block_in_future_first 
 
-let pdr_check_inductive_invariant () = flags.pdr_check_inductive_invariant 
+let pdr_fwd_prop_non_gen () = flags.pdr_fwd_prop_non_gen 
+
+let pdr_fwd_prop_ind_gen () = flags.pdr_fwd_prop_ind_gen 
+
+let pdr_fwd_prop_subsume () = flags.pdr_fwd_prop_subsume 
+
+let pdr_abstr () = flags.pdr_abstr
+
+let set_pdr_abstr f = flags.pdr_abstr <- f
 
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
@@ -1396,20 +1376,8 @@ and speclist =
     (* Check inductiveness of blocking clauses *)
     pdr_check_inductive_spec;
 
-    (* Simultaneous check for propagation *)
-    pdr_fwd_prop_check_multi_spec;
-
-    (* Output inductive of blocking clauses *)
-    pdr_print_inductive_assertions_spec;
-
-    (* Output all blocking clauses *)
-    pdr_print_blocking_clauses_spec;
-
     (* File for inductive of blocking clauses *)
     pdr_print_to_file_spec;
-
-    (* Tighten blocking clauses to an unsatisfiable core *)
-    pdr_tighten_to_unsat_core_spec;
 
     (* Inductively generalize the blocking clause before forward propagating *)
     pdr_inductively_generalize_spec;
@@ -1417,11 +1385,20 @@ and speclist =
     (* Block counterexample in future frames *)
     pdr_block_in_future_spec;
 
-    (* Print inductive invariant if property proved *)
-    pdr_print_inductive_invariant_spec;
+    (* Block counterexample in future frames first before returning to frame *)
+    pdr_block_in_future_first_spec;
 
-    (* Print inductive invariant if property proved *)
-    pdr_check_inductive_invariant_spec;
+    (* Also propagate clauses before generalization *)
+    pdr_fwd_prop_non_gen_spec;
+
+    (* Inductively generalize all clauses after forward propagation *)
+    pdr_fwd_prop_ind_gen_spec;
+
+    (* Subsumption in forward propagation *)
+    pdr_fwd_prop_subsume_spec;
+
+    (* Abstraction in PDR *)
+    pdr_abstr_spec;
 
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;

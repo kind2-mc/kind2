@@ -32,6 +32,7 @@ val create_instance :
   ?produce_assignments:bool ->
   ?produce_proofs:bool ->
   ?produce_cores:bool ->
+  ?produce_interpolants:bool ->
   TermLib.logic ->
   Flags.smtsolver ->
   t
@@ -39,6 +40,9 @@ val create_instance :
 (** Delete an instance of an SMT solver *)
 val delete_instance : t -> unit
 
+(** Return the unique identifier of the solver instance *)
+val id_of_instance : t -> int
+  
 (** {1 Declarations} *)
 
 (** Define uninterpreted symbol *)
@@ -58,6 +62,9 @@ val assert_term : t -> Term.t -> unit
 
 (** Name a term, convert a term to an SMT expression and assert *)
 val assert_named_term : t -> SMTExpr.t -> unit
+
+(** Name a term, convert a term to an SMT expression and assert, and return the name *)
+val assert_named_term_wr : t -> SMTExpr.t -> string
 
 (** Push a new scope to the context stack *)
 val push : ?n:int -> t -> unit
@@ -141,6 +148,7 @@ val kind : t -> Flags.smtsolver
 (** Output a comment into the trace *)
 val trace_comment : t -> string -> unit
 
+val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.t list
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

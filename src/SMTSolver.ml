@@ -91,6 +91,7 @@ let create_instance
     ?produce_assignments
     ?produce_proofs
     ?produce_cores
+    ?produce_interpolants
     l
     kind =
 
@@ -103,6 +104,7 @@ let create_instance
     let produce_assignments = bool_of_bool_option produce_assignments
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
+    let produce_interpolants = bool_of_bool_option produce_interpolants
     let logic = l
     let id = id
   end
@@ -131,6 +133,9 @@ let delete_instance s =
   let module S = (val s.solver_inst) in
   S.delete_instance ()
 
+
+(* Return the unique identifier of the solver instance *)
+let id_of_instance { id } = id
 
 (* ******************************************************************** *)
 (* Declarations                                                         *)
@@ -191,6 +196,18 @@ let assert_named_term s term =
   Hashtbl.add s.term_names term_name term;
 
   assert_term s term'
+
+
+let assert_named_term_wr s term =
+  
+  let term_name, term' = Term.mk_named term in
+  
+  Hashtbl.add s.term_names term_name term;
+  
+  assert_term s term';
+  
+  "t" ^ (string_of_int term_name)
+
 
 
 (* Push a new scope to the context and fail on error *)
@@ -660,6 +677,18 @@ let trace_comment s c =
   let module S = (val s.solver_inst) in
   S.trace_comment c
 
+let get_interpolants solver args =
+  let module S = (val solver.solver_inst) in
+  
+  match execute_custom_command solver "compute-interpolant" args (List.length args) with
+  | `Custom i ->
+     List.map
+       (fun sexpr ->
+        (S.Conv.term_of_smtexpr
+           (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
+       (List.tl i)
+
+  | error_response -> []
 
 (* 
    Local Variables:

@@ -327,29 +327,26 @@ let pdr_frame_sizes =
 let pdr_fwd_propagated = 
   empty_item "Forward propagations" 0
 
+let pdr_fwd_gen_propagated = 
+  empty_item "Forward propagations before generalization" 0
+
+let pdr_fwd_subsumed = 
+  empty_item "Forward subsumed clauses" 0
+
+let pdr_back_subsumed = 
+  empty_item "Backward subsumed clauses" 0
+
 let pdr_inductive_blocking_clauses = 
   empty_item "Inductive blocking clauses" 0
 
-let pdr_literals_removed =
-  empty_item "Literals removed" 0
-
 let pdr_fwd_fixpoint = 
   empty_item "Fixpoint at" 0
-
-let pdr_counterexamples = 
-  empty_item "Counterexamples per frame" []
-
-let pdr_counterexamples_total = 
-  empty_item "Counterexamples total" 0
 
 let pdr_total_time = 
   empty_item "Total time" 0.
 
 let pdr_fwd_prop_time = 
   empty_item "Forward propagation time" 0.
-
-let pdr_block_propagated_cex_time = 
-  empty_item "Block propagated counterexample time" 0.
 
 let pdr_strengthen_time = 
   empty_item "Frame strengthening time" 0.
@@ -366,17 +363,11 @@ let pdr_ind_gen_time =
 let pdr_inductive_check_time = 
   empty_item "Inductiveness check time" 0.
 
-let pdr_tighten_to_subset_time = 
-  empty_item "Tightening to subset time" 0.
-
-let pdr_tightened_blocking_clauses =
-  empty_item "Tightened blocking clauses" 0
-
-let pdr_tightened_propagated_clauses =
-  empty_item "Tightened forward propagated clauses" 0
-
 let pdr_activation_literals =
   empty_item "Activation literals" 0
+
+let pdr_stale_activation_literals =
+  empty_item "Stale activation literals" 0
 
 (* Title for PDR statistics *)
 let pdr_stats_title = "PDR"
@@ -387,23 +378,20 @@ let pdr_stats =
     I pdr_restarts;
     L pdr_frame_sizes; 
     I pdr_fwd_propagated; 
+    I pdr_fwd_gen_propagated; 
+    I pdr_fwd_subsumed; 
+    I pdr_back_subsumed; 
     I pdr_fwd_fixpoint; 
     I pdr_inductive_blocking_clauses; 
-    I pdr_literals_removed;
-    I pdr_tightened_blocking_clauses;
-    I pdr_tightened_propagated_clauses;
-    L pdr_counterexamples; 
-    I pdr_counterexamples_total;
     I pdr_activation_literals;
+    I pdr_stale_activation_literals;
     F pdr_total_time;
     F pdr_fwd_prop_time;
-    F pdr_block_propagated_cex_time;
     F pdr_strengthen_time;
     F pdr_generalize_time; 
     F pdr_find_cex_time; 
     F pdr_ind_gen_time; 
-    F pdr_inductive_check_time; 
-    F pdr_tighten_to_subset_time ] 
+    F pdr_inductive_check_time ] 
 
 (* Stop and record all timers *)
 let pdr_stop_timers () = stop_all_timers pdr_stats
@@ -415,6 +403,34 @@ let pp_print_pdr_stats ppf =
     pdr_stats_title
     pp_print_stats pdr_stats
 
+
+let pdria_refinements =
+  empty_item "Refinements per index" []
+
+let pdria_refinements_end =
+  empty_item "Refinenements per index relative to end" []
+             
+let pdria_num_simulations =
+  empty_item "Number of concrete simulations" 0
+
+let pdria_interpolation_time =
+  empty_item "Total time for interpolation" 0.
+
+let pdria_stats_title = "PDR+IA"
+
+  
+let pdria_stats =
+  [ L pdria_refinements;
+    L pdria_refinements_end;
+    I pdria_num_simulations;
+    F pdria_interpolation_time;
+  ]
+
+let pp_print_pdria_stats ppf =
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+                 pdria_stats_title
+                 pp_print_stats pdria_stats
 
 (* ********** INVGENOS statistics ********** *)
 
@@ -547,15 +563,11 @@ let smtexpr_of_term_time =
 let term_of_smtexpr_time =
   empty_item "term_of_smtexpr time" 0.
 
-let cnf_subsume_time = 
-  empty_item "CNF subsumption check time" 0.
-
 let misc_stats_title = "General"
 
 let misc_stats = 
   [ F total_time;
     F clause_of_term_time;
-    F cnf_subsume_time;
     F smtexpr_of_term_time; 
     F term_of_smtexpr_time ]
 

@@ -26,7 +26,8 @@ let cmd_line () =
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.cvc4_bin () in
 
-  if Flags.pdr_tighten_to_unsat_core () then 
+  (* Use unsat cores *)
+  if true then 
 
     (* Use unsat core option *)
     [| cvc4_bin; 
