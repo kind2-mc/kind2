@@ -875,11 +875,20 @@ let abstr_simulate trace trans_sys raise_cex =
       | [] , ys -> ys
     in
     let refinements = Stat.get_int_list (Stat.pdria_refinements) in
-    let refinement_indexes = List.map
-        (fun i -> if i = Term.mk_false () then 0 else 1)
-        interpolants in
+    let refinements_end = Stat.get_int_list (Stat.pdria_refinements_end) in
+    let refinement_indexes = 
+      List.map
+        (fun i -> if Term.equal i Term.t_false then 0 else 1)
+        interpolants 
+    in
 
-    Stat.set_int_list (add (refinements, refinement_indexes)) Stat.pdria_refinements;
+    Stat.set_int_list
+      (add (refinements, refinement_indexes))
+      Stat.pdria_refinements;
+
+    Stat.set_int_list
+      ((add (List.rev refinements_end, refinement_indexes)) |> List.rev)
+      Stat.pdria_refinements_end;
 
 
     let interpolants =
@@ -889,7 +898,7 @@ let abstr_simulate trace trans_sys raise_cex =
 
       |> 
       List.filter
-        (fun t -> t <> Term.t_false)
+        (fun t -> not (Term.equal t Term.t_false))
     in
 
     interpolants
@@ -2875,6 +2884,31 @@ let rec bmc_checks solver trans_sys props =
 
 *)
 let main trans_sys =
+
+  (match Flags.smtsolver () with 
+
+    (* CVC4 does not support check-sat-assume *)
+    | `CVC4_SMTLIB
+
+    (* Yices with SMTLIB input does not work *)
+    | `Yices_SMTLIB -> 
+
+      Event.log L_error
+        "Cannot use this solver in PDR.";
+
+      assert false
+       
+    (* Must use check-sat assume for now *)
+    | `Z3_SMTLIB when not (Flags.z3_check_sat_assume ()) -> 
+
+      Event.log L_error
+        "Cannot use Z3 without check-sat-assume in PDR.";
+
+      assert false
+       
+    (* Else is fine or will break without unsound results *)
+    | _ -> ());
+
 
   (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
