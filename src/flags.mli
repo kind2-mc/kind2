@@ -60,6 +60,10 @@ val smtlogic : unit -> smtlogic
 type z3_bin = string
 val z3_bin : unit -> z3_bin
 
+(** Use check-sat with assumptions in Z3 *)
+type z3_check_sat_assume = bool
+val z3_check_sat_assume : unit -> z3_check_sat_assume
+
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
 val cvc4_bin : unit -> cvc4_bin
