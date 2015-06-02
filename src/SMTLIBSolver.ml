@@ -871,9 +871,18 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         Format.sprintf
           "(set-option :produce-assignments %B)" produce_assignments;
         Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores;
-        Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants
       ] @
       header_logic
+    in
+
+    (* Add interpolation option only if true *)
+    let headers = 
+      if produce_interpolants then
+        headers @ 
+        [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
+      else
+        
+        headers 
     in
 
     (* Print specific headers specifications *)
