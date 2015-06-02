@@ -11,6 +11,23 @@ Simply run `make` to generate the user documentation. This will create
 `doc.pdf` and `target.md`. The first is the actual pdf documentation while the
 latter is the markdown file passed to `pandoc`.
 
+## Pandoc specificities
+
+### Embedded lists
+
+Pandoc requires a difference in indentation of 4 spaces or more to consider a list embedded in another.
+
+```markdown
+* a normal (top list) item
+* another normal item with an embedded list (4 spaces):
+    * embedded item 1
+    * embedded item 2
+* back to a top item
+* following items are still part of the TOP list (not 4 spaces):
+  * another top item
+   * yet another one (only 3 spaces).
+```
+
 ## Important files
 
 Folder `rsc/` contains
