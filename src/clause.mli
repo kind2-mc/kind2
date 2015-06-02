@@ -47,7 +47,7 @@ module ClauseTrie : Trie.S with type key = Term.t list
     literals [n0_i] and [n1_i] per literal Li. The following terms are
     then lazily asserted on the first access of the actiation:
 
-    {{ 
+    {[
     p0 => C
     p1 => C'
     n01 => ~L1
@@ -55,7 +55,7 @@ module ClauseTrie : Trie.S with type key = Term.t list
     ...
     n0n => ~Ln
     n1n => ~Ln'
-    }}
+    ]}
 
     where the C' and Li' are the clause and the literals,
     respectively, at the next instant.
