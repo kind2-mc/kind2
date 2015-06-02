@@ -156,7 +156,25 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
 
     read_raw_content raw_content >>= fun payload ->
 
-    let res = Format.sprintf "recieved:\n\n%s@." payload in
+    let json = Yojson.Basic.from_string payload in
+    let open Yojson.Basic.Util in
+
+    let action = json |> member "action" |> to_string in
+    let pr = json |> member "pull_request" in
+
+    let pr_nb = pr |> member "number" |> to_int in
+    let pr_user = pr |> member "user" |> member "login" |> to_string in
+
+    let base_ref = pr |> member "base" |> member "ref" |> to_string in
+    
+    let res = Format.sprintf "recieved:\n\n\
+                              action: %s\n\
+                              number: %d\n\
+                              user: %s\n\
+                              base_ref: %s\n\
+                              @."
+        action pr_nb pr_user base_ref
+    in
     
     send_success_str res
 
