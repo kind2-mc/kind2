@@ -3082,10 +3082,10 @@ let main trans_sys =
   restart_loop trans_sys solver props' predicates
 
 
-               (* 
+(* 
    Local Variables:
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End:
-                *)
+*)
