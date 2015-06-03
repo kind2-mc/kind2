@@ -289,14 +289,22 @@ module IO = struct
         printf "index: %d@." index ;
         printf "char: %c@." (String.get str index) ; *)
         match String.get str index with
-        | '`' | '"' ->
+        | '`' | '\'' ->
           let prefix = String.sub str 0 index in
           let suffix =
             (String.length str) - (String.length prefix)
             |> String.sub str index
           in
           prefix ^ "\\" ^ suffix
-          |> loop (index + 2) 
+          |> loop (index + 2)
+        | '"' ->
+          let prefix = String.sub str 0 index in
+          let suffix =
+            (String.length str) - (String.length prefix)
+            |> String.sub str index
+          in
+          prefix ^ "\\\\\\" ^ suffix
+          |> loop (index + 4)
         | _ -> loop (index+1) str
       )
     in
@@ -306,32 +314,39 @@ module IO = struct
      removes newlines. *)
   let echo_pipe cmds line =
     let sanitized = sanitize line in
-    Format.asprintf "\
-      echo \"%s\" | %a | tr -d '\\n'\
-    " sanitized (pp_print_list Format.pp_print_string " | ") cmds
-    |> run
+    let cmd =
+      Format.asprintf "\
+        echo \"%s\" | %a | tr -d '\\n'\
+      " sanitized (pp_print_list Format.pp_print_string " | ") cmds
+    in
+    run cmd
     |> fun line' ->
       if line <> line' then
-        printf "> @[<v>%s@,%s@,@]@." line line' ;
+        printf "> @[<v>[%s]@,[%s]@,@]@." line line' ;
       line'
 
   (* Command rewriting the internal links between files. *)
   let rewrite_links dirname =
     Format.sprintf "\
-      %s -e \"s:\
-        \\(.*\\)](\\./\\([^)]*\\)#\\([^)]*\\))\\(.*\\):\
-        ls -i %s/\\2 | \
-        sed -e \\\"s/ .*$//\\\" | \
-        xargs printf \\\"\\1](#n%%s-\\3)\\4\\\"\
-      :eg\"\
-    " sed_cmd dirname
+      sed -e 's:\
+        ](\\./\\([^)]*\\)#\\([^)]*\\)):$(\
+          ls -i %s/\\1 | \
+          sed -e \"s/ .*$//\" | \
+          xargs printf \"](#n%%s-\\2)\"\
+        )\
+      :g' | \
+      sed -e 's:^\\(.*\\)$:echo \"\\1\":' | \
+      sed -e 's:`:\\\\`:g' | \
+      sh | \
+      tr -d '\n'\
+    " dirname
 
   (* Command rewriting the links local to a file. *)
   let rewrite_local_links prefix =
     Format.sprintf "\
       sed -e 's:\
-        \\(.*\\)](#\\([^)]*\\))\\(.*\\):\
-        \\1](#%s-\\2)\\3\
+        ](#\\([^)]*\\)):\
+        ](#%s-\\1)\
       :g'\
     " prefix
 
@@ -339,37 +354,8 @@ module IO = struct
   let rewrite_pics dirname =
     Format.sprintf "\
       %s -e 's:\
-        \\(.*\\)](\\./\\([^)]*\\)\\.\\(jpg\\|png\\))\\(.*\\):\
-        \\1](%s/\\2\\.\\3)\\4\
-      :g'\
-    " sed_cmd dirname
-
-  (* Command rewriting the internal links between files. *)
-  let rewrite_links dirname =
-    Format.sprintf "\
-      %s -e \"s:\
-        \\(.*\\)](\\./\\([^)]*\\)#\\([^)]*\\))\\(.*\\):\
-        ls -i %s/\\2 | \
-        sed -e \\\"s/ .*$//\\\" | \
-        xargs printf \\\"\\1](#n%%s-\\3)\\4\\\"\
-      :eg\"\
-    " sed_cmd dirname
-
-  (* Command rewriting the links local to a file. *)
-  let rewrite_local_links prefix =
-    Format.sprintf "\
-      sed -e 's:\
-        \\(.*\\)](#\\([^)]*\\))\\(.*\\):\
-        \\1](#%s-\\2)\\3\
-      :g'\
-    " prefix
-
-  (* Rewrites links to pictures on the repo. *)
-  let rewrite_pics dirname =
-    Format.sprintf "\
-      %s -e 's:\
-        \\(.*\\)](\\./\\([^)]*\\)\\.\\(jpg\\|png\\))\\(.*\\):\
-        \\1](%s/\\2\\.\\3)\\4\
+        ](\\./\\([^)]*\\)\\.\\(jpg\\|png\\)):\
+        ](%s/\\1\\.\\2)\
       :g'\
     " sed_cmd dirname
 
@@ -434,9 +420,9 @@ module IO = struct
             while true do
               input_line src_chan
               |> echo_pipe [
-                rewrite_local_links prefix ;
+                (* rewrite_local_links prefix ; *)
                 rewrite_links dirname ;
-                rewrite_pics dirname ;
+                (* rewrite_pics dirname ; *)
               ]
               (* |> fun smthng -> printf "line is: %s@." smthng ; smthng
               |> fun smthng -> printf "rewrite local links@." ; smthng
