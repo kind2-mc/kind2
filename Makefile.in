@@ -55,7 +55,7 @@ lustre-checker:
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/@PACKAGE_NAME@.docdir/* $(LOCAL_DOCDIR)
 
-.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean 
+.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test
 
 install: 
 	mkdir -p ${bindir}
@@ -63,6 +63,9 @@ install:
 		install -m 0755 $(addprefix $(LOCAL_BINDIR)/,$$i) $(addsuffix ${bin_suffix},$(addprefix ${bindir}/,$$i)); \
 	 done
 	if [ -n ${bin_suffix} ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
+
+test: all
+	./tests/run.sh tests/regression/ $(LOCAL_BINDIR)/kind2 "${ARGS}"
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
