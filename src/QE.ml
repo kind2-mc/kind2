@@ -656,7 +656,7 @@ let generalize trans_sys uf_defs model elim term =
      Term.pp_print_term 
      (Term.mk_and term'_bool) end);
 
-  let term' = let pdr_qe = Flags.pdr_qe () in match pdr_qe with 
+  let term' = let ic3_qe = Flags.ic3_qe () in match ic3_qe with 
     
     | `Z3
     | `Z3_impl
@@ -667,7 +667,7 @@ let generalize trans_sys uf_defs model elim term =
         (* Substitute fresh variables for terms to be eliminated and
            existentially quantify formula *)
         let qe_term = 
-          match pdr_qe with 
+          match ic3_qe with 
             | `Cooper -> assert false
             | `Z3 -> 
               Conv.quantified_smtexpr_of_term true elim term
@@ -745,7 +745,7 @@ let generalize trans_sys uf_defs model elim term =
           (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
 *)
         (* Return quantifier eliminated term *)
-        (match pdr_qe with 
+        (match ic3_qe with 
           | `Cooper -> assert false
           | `Z3 
           | `Z3_impl -> term'_bool @ term'_int

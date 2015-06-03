@@ -31,7 +31,7 @@ module BMC = Base
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 
-(* module PDR = Dummy *)
+(* module IC3 = Dummy *)
 
 let children_pgid = ref 0
   
@@ -48,7 +48,7 @@ let trans_sys = ref None
 
 (* Main function of the process *)
 let main_of_process = function 
-  | `PDR -> PDR.main
+  | `IC3 -> IC3.main
   | `BMC -> BMC.main 
   | `IND -> Step.main
 
@@ -102,7 +102,7 @@ let main_of_process = function
 
 (* Cleanup function of the process *)
 let on_exit_of_process = function 
-  | `PDR -> PDR.on_exit
+  | `IC3 -> IC3.on_exit
   | `BMC -> BMC.on_exit 
   | `IND -> Step.on_exit
   | `INVGEN -> InvGenTS.on_exit  
@@ -114,7 +114,7 @@ let on_exit_of_process = function
 (*
 (* Messaging type of the process *)
 let init_messaging_of_process = function 
-  | `PDR -> Kind2Message.init_pdr
+  | `IC3 -> Kind2Message.init_ic3
   | `BMC -> Kind2Message.init_bmc
   | `IND -> Kind2Message.init_indStep
   | `INVGEN -> Kind2Message.init_invarGen 
@@ -123,7 +123,7 @@ let init_messaging_of_process = function
 
 
 let debug_ext_of_process = function 
-  | `PDR -> "pdr"
+  | `IC3 -> "ic3"
   | `BMC -> "bmc"
   | `IND -> "ind"
   | `INVGEN -> "invgenTS"
@@ -333,11 +333,11 @@ let on_exit process sys exn =
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process (Some sys) exn in
+  let status = status_of_exn process sys exn in
 
   (* Clean exit from invariant manager *)
-  InvarManager.on_exit !trans_sys;
-  
+  InvarManager.on_exit sys;
+
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
@@ -404,7 +404,7 @@ let on_exit process sys exn =
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
 
       (* Get new exit status *)
-      let status' = status_of_exn process (Some sys) (Signal 0) in
+      let status' = status_of_exn process sys (Signal 0) in
 
       clean_exit status'
 
@@ -412,7 +412,7 @@ let on_exit process sys exn =
     | e -> 
 
       (* Get new exit status *)
-      let status' = status_of_exn process (Some sys) e in
+      let status' = status_of_exn process sys e in
 
       clean_exit status'
 
@@ -1009,14 +1009,14 @@ let main () =
             Event.run_im
               messaging_setup
               !child_pids
-              (on_exit `INVMAN (get !trans_sys))
+              (on_exit `INVMAN !trans_sys)
           in
 
           (* Run invariant manager *)
           InvarManager.main child_pids (get !trans_sys);
           
           (* Exit without error *)
-          on_exit `INVMAN (get !trans_sys) Exit
+          on_exit `INVMAN !trans_sys Exit
         
         );
 
@@ -1038,13 +1038,13 @@ let main () =
         | [p] -> 
           
           (* Cleanup before exiting process *)
-          on_exit_child None p (Some (get !trans_sys)) e
+          on_exit_child None p !trans_sys e
             
        
         (* Run some modules in parallel *)
         | _ -> 
         
-          on_exit `INVMAN (get !trans_sys) e
+          on_exit `INVMAN !trans_sys e
             
       )
 

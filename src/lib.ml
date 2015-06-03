@@ -938,7 +938,7 @@ let pp_print_version ppf = pp_print_banner ppf ()
 
 (* Kind modules *)
 type kind_module = 
-  [ `PDR 
+  [ `IC3 
   | `BMC 
   | `IND
   | `INVGEN
@@ -950,7 +950,7 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `PDR -> Format.fprintf ppf "property directed reachability"
+  | `IC3 -> Format.fprintf ppf "property directed reachability"
   | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
@@ -966,7 +966,7 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 (* Return a short representation of kind module *)
 let suffix_of_kind_module = function
- | `PDR -> "pdr"
+ | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `INVGEN -> "inv"
@@ -978,7 +978,7 @@ let suffix_of_kind_module = function
 
 (* Process type of a string *)
 let kind_module_of_string = function 
-  | "PDR" -> `PDR
+  | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN

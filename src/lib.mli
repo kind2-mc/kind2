@@ -270,7 +270,7 @@ val pp_print_version : Format.formatter -> unit
 
 (** Kind modules *)
 type kind_module =
-  [ `PDR
+  [ `IC3
   | `BMC
   | `IND
   | `INVGEN
