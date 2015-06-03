@@ -65,7 +65,7 @@ install:
 	if [ -n ${bin_suffix} ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
 
 test: all
-	./tests/run.sh tests/regression/ $(LOCAL_BINDIR)/kind2 "${*:2}"
+	./tests/run.sh tests/regression/ $(LOCAL_BINDIR)/kind2 "${ARGS}"
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
