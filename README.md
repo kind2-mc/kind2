@@ -1,5 +1,4 @@
-Kind 2
-======
+# Kind 2
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. 
 
@@ -34,8 +33,7 @@ The default is ```Z3```, but see options of the ```./build.sh``` script to overr
 ```-xml``` Output in XML format
 
 
-Requirements
-============
+## Requirements
 
 - Linux or Mac OS X,
 - OCaml 4.02 or later,
@@ -46,8 +44,7 @@ Requirements
  - [CVC4](http://cvc4.cs.nyu.edu), (must use ```--pdr_tighten_to_unsat_core false```) or
  - [MathSat5](http://mathsat.fbk.eu/)
 
-Building and installing
-=======================
+## Building and installing
 
 If you got the sources from the Github repository, you need to run first
 
