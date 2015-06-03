@@ -23,13 +23,11 @@ By default, all three model checking engines are run in parallel. Give any combi
 
 `--timeout_virtual SECS` Run for `SECS` of CPU time
  
-`--smtsolver {CVC4|MathSat5|Yices|Z3} ` Select SMT solver
+`--smtsolver {CVC4|Yices|Z3} ` Select SMT solver
 
 The default is `Z3`, but see options of the `./build.sh` script to override at compile time
   
 `--cvc4_bin PROGRAM` Executable for CVC4
-
-`--mathsat5_bin PROGRAM` Executable for MathSat5
 
 `--yices_bin PROGRAM` Executable for Yices
 
@@ -48,7 +46,6 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
     - [CVC4](http://cvc4.cs.nyu.edu),
-    - [MathSat5](http://mathsat.fbk.eu/),
     - [Yices 2](http://yices.csl.sri.com/), or
     - [Yices 1](http://yices.csl.sri.com/old/download-yices1-full.shtml)
     - [Z3](http://z3.codeplex.com) (presently recommended), 
