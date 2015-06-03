@@ -23,9 +23,9 @@ K-induction can be tweaked with the following options.
 
 `--ind_compress <bool>` (default `false`) -- activates path compression in step, **i.e.** counterexamples with a loop will be dismissed. You can activate several path compression strategies:
 
-* `--ind_compress_equal <bool>` -- **todo**
-* `--ind_compress_same_succ <bool>` -- **todo**
-* `--ind_compress_same_pred <bool>` -- **todo**
+* `--ind_compress_equal <bool>` -- compresses states if they are equal modulo inputs
+* `--ind_compress_same_succ <bool>` -- compresses states if they have the same successors (experimental)
+* `--ind_compress_same_pred <bool>` -- compresses states if they have the same predecessors (experimental)
 
 `--ind_lazy_invariants <bool>` (default `false`) -- deactivates eager use of invariants in step. Instead, when a step counterexample is found each invariant is evaluated on the model until one blocks it. The invariant is then asserted to block the counterexample, and step starts a new check-sat.
 
