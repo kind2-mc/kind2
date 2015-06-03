@@ -265,7 +265,7 @@ let status_of_exn process trans_sys_opt =
 
 
 (* Clean up before exit *)
-let on_exit process (sys : TransSys.t option) exn = 
+let on_exit process sys exn = 
 
 (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
