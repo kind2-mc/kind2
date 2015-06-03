@@ -178,13 +178,17 @@ let status_error = 2
 
 
 (* Return the status code from an exception *)
-let status_of_exn process trans_sys_opt = function
+let status_of_exn process trans_sys_opt =
+
+  let status_of_sys () = match trans_sys_opt with
+    | None -> status_timeout
+    | Some sys -> status_of_trans_sys sys
+  in
+
+  function
   
   (* Normal termination *)
-  | Exit ->
-    ( match trans_sys_opt with
-      | None -> status_timeout
-      | Some sys -> status_of_trans_sys sys )
+  | Exit -> status_of_sys ()
 
   (* Termination message *)
   | Event.Terminate ->
@@ -194,7 +198,7 @@ let status_of_exn process trans_sys_opt = function
       Event.log L_info
         "Received termination message";
 
-      status_timeout
+      status_of_sys ()
 
     ) 
 
@@ -206,7 +210,7 @@ let status_of_exn process trans_sys_opt = function
       Event.log L_error 
         "<Timeout> Wallclock timeout";
 
-      status_timeout
+      status_of_sys ()
 
     ) 
 
@@ -218,7 +222,7 @@ let status_of_exn process trans_sys_opt = function
       Event.log L_error
         "<Timeout> CPU timeout"; 
 
-      status_timeout
+      status_of_sys ()
 
     ) 
     
