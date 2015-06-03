@@ -11,6 +11,11 @@ pandoc:
 	xargs \
 		pandoc --template=./rsc/template ./target.md -s -o doc.pdf
 
+readme_update:
+	cat content/Home.md | \
+	sed -e 's:](\./\([^)]*\)):](doc/usr/content/\1):g' > \
+	../../README.md
+
 clean:
 	rm -f src/*.cmi src/*.cmo src/*.cmx src/*.o
 	rm -f preprocess

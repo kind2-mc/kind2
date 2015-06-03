@@ -7,7 +7,6 @@ invariant (see [Lustre syntax](./1_input/1_lustre.md#lustre)), and outputs
 which of the properties are true for all inputs, as well as an input sequence
 for those properties that are falsified. To ease processing by front-end tools,
 Kind 2 can output its results in [XML format](./2_output/2_xml.md#xml).
-Input can also be given in the [native format](./1_input/2_native.md#native-format).
 
 Kind 2 runs a process for bounded model checking (BMC), a process for k-induction, and a process for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.
 
@@ -46,8 +45,10 @@ The default is ```Z3```, but see options of the ```./build.sh``` script to overr
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
     - [Z3](http://z3.codeplex.com) (presently recommended), 
-    - [CVC4](http://cvc4.cs.nyu.edu), (must use ```--pdr_tighten_to_unsat_core false```) or
-    - [MathSat5](http://mathsat.fbk.eu/)
+    - [CVC4](http://cvc4.cs.nyu.edu) (must use ```--pdr_tighten_to_unsat_core false```),
+    - [MathSat5](http://mathsat.fbk.eu/),
+    - [Yices 2](http://yices.csl.sri.com/), or
+    - [Yices 1](http://yices.csl.sri.com/old/download-yices1-full.shtml)
 
 ## Building and installing
 
@@ -69,6 +70,15 @@ If it has been successful, call
 
 to install the Kind 2 binary into the chosen location. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the `build.sh` call. Use `./configure --help` after `autogen.sh` to see all available options.
 
-You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running `kind2`. 
+You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running `kind2`.
+
+
+You can run tests to see if Kind 2 has been built correctly. To do so run
+
+    make test
+
+You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
+
+    make ARGS="--enable PDR" test
 
 
