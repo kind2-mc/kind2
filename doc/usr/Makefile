@@ -11,7 +11,7 @@ pandoc:
 	xargs \
 		pandoc --template=./rsc/template ./target.md -s -o doc.pdf
 
-readme_update:
+readme-update:
 	rm -f ../../README.md
 	echo "<!-- DO NOT EDIT, see ./doc/usr/README.md -->\n\n" > ../../README.md
 	cat content/Home.md | \

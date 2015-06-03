@@ -1,4 +1,4 @@
-<!-- do not edit, see doc/usr/README.md -->
+<!-- DO NOT EDIT, see ./doc/usr/README.md -->
 
 
 # Kind 2
