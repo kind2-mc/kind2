@@ -1,0 +1,60 @@
+/Users/uchuu/Documents/github/kind2/bin/kind2: unknown option '--modular'.
+Usage: kind2 [options] FILE
+Prove properties in Lustre program FILE
+
+  --timeout_wall wallclock timeout (default: 0)
+  --timeout_virtual CPU timeout (default: 0)
+  --smtsolver choose SMT solver (available: Z3, CVC4, MathSat5, Yices, Yices2, default: detect)
+  --smtlogic select logic for SMT solvers ("none" for no logic (default), and "detect" to detect with the input system, other SMTLIB logics will be passed to the solver)
+  --z3_bin executable of Z3 solver (default: z3)
+  --z3_check_sat_assume use check-sat with assumptions in Z3 (default: true)
+  --cvc4_bin executable of CVC4 solver (default: cvc4)
+  --mathsat5_bin executable of MathSAT5 solver (default: mathsat)
+  --yices_bin executable of Yices solver (default: yices)
+  --yices2_bin executable of Yices2 SMT2 solver (default: yices-smt2)
+  --smt_trace Write all SMT commands to files
+  --smt_trace_dir Directory for trace logs of SMT commands (default: /Users/uchuu/Documents/github/kind2)
+  --enable enable Kind module (available: PDR, BMC, IND, INVGEN, INVGENOS, interpreter, default: [BMC, IND, PDR, INVGEN, INVGENOS])
+  --version Output version information and exit
+  --bmc_max (BMC, IND) Maximal number of iterations (default: 0, unlimited: 0)
+  --ind_compress (IND) Compress inductive counterexamples (default: false)
+  --ind_compress_equal (IND) Compress inductive counterexamples for states equal modulo inputs (default: true)
+  --ind_compress_same_succ (IND) Compress inductive counterexamples for states with same successors (default: false)
+  --ind_compress_same_pred (IND) Compress inductive counterexamples for states with same predecessors (default: false)
+  --ind_lazy_invariants (IND) Asserts invariants lazily (default: false)
+  --ind_print_inductive_cex (IND) Print inductive counterexamples (default: true)
+  --pdr_qe (PDR) choose quantifier elimination algorithm (available: Z3, Z3-impl, Z3-impl-2, cooper, default: cooper)
+  --pdr_extract (PDR) Heuristics for extraction of implicant (available: first, vars, default: first)
+  --pdr_check_inductive (PDR) Check inductiveness of blocking clauses (default: true)
+  --pdr_print_to_file (PDR) Output file for blocking clauses (default: stdout)
+  --pdr_inductively_generalize (PDR) Inductively generalize blocking clauses before forward propagation (0 = none, 1 = normal IG, 2 = IG with ordering) (default: 1)
+  --pdr_block_in_future (PDR) Block counterexample in future frames (default: true)
+  --pdr_block_in_future_first (PDR) Block counterexample in future frames first before returning to frame (default: true)
+  --pdr_fwd_prop_non_gen (PDR) Also propagate clauses before generalization (default: true)
+  --pdr_fwd_prop_ind_gen (PDR) Inductively generalize all clauses after forward propagation (default: true)
+  --pdr_fwd_prop_subsume (PDR) Subsumption in forward propagation (default: true)
+  --pdr_abstr (PDR) choose method of abstraction in PDR "
+                   (available: IA, None, default: None)
+  --cooper_order_var_by_elim (Cooper QE) Order variables in polynomials by order of elimination (available: true, false, default: false)
+  --cooper_general_lbound (Cooper QE) Choose lower bounds containing variables (available: true, false, default: false)
+  --invgen_prune_trivial Invariant generation will only look for top node invariants (default: true).
+  --invgen_max_succ Maximal number of successive iterations for subsystems (default: 1).
+  --invgen_lift_candidates Invariant generation will only look for top node invariants (default: false).
+  --invgen_mine_trans Invariant generation will extract candidate terms from the transition predicate (default: false).
+  --invgen_renice Renice invariant generation process. Give a positive argument to lower priority.
+  --interpreter_input_file (Interpreter) Read input from file
+  --interpreter_steps (Interpreter) Run number of steps, override the number of steps given in the input file
+  --lustre-main Use the given node as top node in Lustre input (default: --%MAIN annotation)
+  --debug enable debug output for a section, give one --debug option for each section to be enabled
+  --debug-log output debug messages to file (default: stdout)
+  -s Silence output, errors only
+  -q Disable output, fatal errors only
+  -qq Disable output completely
+  -v Output informational messages
+  -vv Output informational and debug messages
+  -vvv Output informational, debug and trace messages
+  -xml Output in XML format
+  --input-format Format of input file (available: lustre, native, default: lustre)
+  -help  Display this list of options
+  --help Display this list of options
+  -h     Display this list of options

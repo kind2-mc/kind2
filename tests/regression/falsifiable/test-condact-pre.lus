@@ -1,0 +1,29 @@
+node sub(in, in2 : bool) returns (out, out2 : bool);
+var
+  loc: int;
+let
+  loc = 0 -> pre loc + 1;
+  out = true -> pre in;
+  out2 = pre in2;
+  --%PROPERTY out = in;
+  --%PROPERTY loc >= 0;
+tel;
+
+node main(clk : bool; a, b : bool) returns ();
+var
+  counter : int;
+  ok, ok2, ok3, ok4 : bool;
+let
+  ok, ok2 = condact(clk, sub(a, b), true, true);
+
+  ok3, ok4 = condact(not clk, sub(b, a), false, false);
+
+  counter = 0 -> 1 + pre counter;
+
+  assert (counter = 0) => a and clk;
+  assert (counter = 1) => (not a) and (not clk);
+  assert (counter = 2) => a and clk;
+
+  --%PROPERTY ok;
+  --%PROPERTY ok3;
+tel;
