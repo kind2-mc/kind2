@@ -20,7 +20,7 @@ open Lib
 
   
 (* Prefix for name of activation literals to avoid name clashes *)
-let actlit_prefix = "__pdr"
+let actlit_prefix = "__ic3"
 
   
 (* Generate next unique identifier for clause *)
@@ -306,7 +306,7 @@ let assert_actlits solver actlits terms =
       SMTSolver.declare_fun solver uf_symbol;
 
       (* Increment counter for activation literals *)
-      Stat.incr Stat.pdr_activation_literals;
+      Stat.incr Stat.ic3_activation_literals;
 
       (* Assert implication from activation literal *)
       SMTSolver.assert_term
@@ -504,7 +504,7 @@ let deactivate_clause
      |> SMTSolver.assert_term solver;
 
      (* Increment statistics for activation literals *)
-     Stat.incr Stat.pdr_stale_activation_literals);
+     Stat.incr Stat.ic3_stale_activation_literals);
 
   (* Activation literal for positive primed clause used? *)
   if not (actlit_undefined solver actlit_p1_bit clause_id) then
@@ -514,7 +514,7 @@ let deactivate_clause
      |> SMTSolver.assert_term solver;
 
      (* Increment statistics for activation literals *)
-     Stat.incr Stat.pdr_stale_activation_literals);
+     Stat.incr Stat.ic3_stale_activation_literals);
 
   (* Activation literals for negative unprimed clause literals
      used? *)
@@ -528,7 +528,7 @@ let deactivate_clause
      (* Increment statistics for activation literals *)
      Stat.incr
        ~by:(List.length literals)
-       Stat.pdr_stale_activation_literals);
+       Stat.ic3_stale_activation_literals);
   
   (* Activation literals for negative unprimed clause literals
      used? *)
@@ -542,7 +542,7 @@ let deactivate_clause
      (* Increment statistics for activation literals *)
      Stat.incr
        ~by:(List.length literals)
-       Stat.pdr_stale_activation_literals);
+       Stat.ic3_stale_activation_literals);
   
   (* Mark clause as deactivated *)
   set_actlit_status_of_clause solver actlit_dead_bit clause_id
@@ -762,7 +762,7 @@ let create_and_assert_fresh_actlit solver tag term actlit_type =
   (* Declare symbols in solver *)
   SMTSolver.declare_fun solver uf_symbol;
 
-  Stat.incr Stat.pdr_activation_literals;
+  Stat.incr Stat.ic3_activation_literals;
   
   (* Prepare term for activation literal type *)
   let term' = term_for_actlit_type term actlit_type in

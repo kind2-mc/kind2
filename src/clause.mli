@@ -16,7 +16,7 @@
 
 *)
 
-(** Clause, properties and activation literals for PDR
+(** Clause, properties and activation literals for IC3
 
     @author Christoph Sticksel *)
 

@@ -46,8 +46,8 @@ val smtsolver : unit -> smtsolver
 (** Set SMT solver and executable *)
 val set_smtsolver : smtsolver -> string -> unit
 
-(* (\** Return SMT solver to use with PDR *\) *)
-(* val pdr_smtsolver : unit -> smtsolver  *)
+(* (\** Return SMT solver to use with IC3 *\) *)
+(* val ic3_smtsolver : unit -> smtsolver  *)
 
 (* (\** Return SMT solver to use with Quantifier Elimination *\) *)
 (* val qe_smtsolver : unit -> smtsolver  *)
@@ -125,50 +125,50 @@ val ind_lazy_invariants : unit -> ind_lazy_invariants
 type ind_print_inductive_cex = bool
 val ind_print_inductive_cex : unit -> ind_print_inductive_cex
 
-(** Algorithm for quantifier elimination in PDR *)
-type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
-val pdr_qe : unit -> pdr_qe
-val set_pdr_qe : pdr_qe -> unit
+(** Algorithm for quantifier elimination in IC3 *)
+type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
+val ic3_qe : unit -> ic3_qe
+val set_ic3_qe : ic3_qe -> unit
 
 (** Heuristics for extraction of implicant *)
-type pdr_extract = [ `First | `Vars ]
-val pdr_extract : unit -> pdr_extract
+type ic3_extract = [ `First | `Vars ]
+val ic3_extract : unit -> ic3_extract
 
 (** Check inductiveness of blocking clauses *)
-type pdr_check_inductive = bool
-val pdr_check_inductive : unit -> pdr_check_inductive
+type ic3_check_inductive = bool
+val ic3_check_inductive : unit -> ic3_check_inductive
 
 (** File for inductive blocking clauses *)
-type pdr_print_to_file = string option 
-val pdr_print_to_file : unit -> pdr_print_to_file
+type ic3_print_to_file = string option 
+val ic3_print_to_file : unit -> ic3_print_to_file
 
 (** Tighten blocking clauses to an unsatisfiable core *)
-type pdr_inductively_generalize = int
-val pdr_inductively_generalize : unit -> pdr_inductively_generalize
+type ic3_inductively_generalize = int
+val ic3_inductively_generalize : unit -> ic3_inductively_generalize
 
 (** Block counterexample in future frames *)
-type pdr_block_in_future = bool
-val pdr_block_in_future : unit -> pdr_block_in_future
+type ic3_block_in_future = bool
+val ic3_block_in_future : unit -> ic3_block_in_future
   
 (** Block counterexample in future frames first before returning to frame *)
-type pdr_block_in_future_first = bool
-val pdr_block_in_future_first : unit -> pdr_block_in_future_first  
+type ic3_block_in_future_first = bool
+val ic3_block_in_future_first : unit -> ic3_block_in_future_first  
 
 (** Also propagate clauses before generalization *)
-type pdr_fwd_prop_non_gen = bool
-val pdr_fwd_prop_non_gen : unit -> pdr_fwd_prop_non_gen
+type ic3_fwd_prop_non_gen = bool
+val ic3_fwd_prop_non_gen : unit -> ic3_fwd_prop_non_gen
 
 (** Inductively generalize all clauses after forward propagation *)
-type pdr_fwd_prop_ind_gen = bool
-val pdr_fwd_prop_ind_gen : unit -> pdr_fwd_prop_ind_gen
+type ic3_fwd_prop_ind_gen = bool
+val ic3_fwd_prop_ind_gen : unit -> ic3_fwd_prop_ind_gen
 
 (** Subsumption in forward propagation *)
-type pdr_fwd_prop_subsume = bool
-val pdr_fwd_prop_subsume : unit -> pdr_fwd_prop_subsume
+type ic3_fwd_prop_subsume = bool
+val ic3_fwd_prop_subsume : unit -> ic3_fwd_prop_subsume
 
-(** Abstraction mechanism to use in PDR *)
-type pdr_abstr = [ `None | `IA ]
-val pdr_abstr : unit -> pdr_abstr
+(** Abstraction mechanism to use in IC3 *)
+type ic3_abstr = [ `None | `IA ]
+val ic3_abstr : unit -> ic3_abstr
 
 (** Debug sections to enable *)
 val debug : unit -> string list
