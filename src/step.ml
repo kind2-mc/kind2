@@ -528,8 +528,11 @@ let rec next trans solver k unfalsifiables unknowns =
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
 
+     (* FIXME: Why is this unused?
+
      Printf.sprintf
        "Unrolling step at %i." Numeral.(to_int k_p_1) ;
+     *)
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds

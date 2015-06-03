@@ -520,13 +520,13 @@ let get = function None -> raise (Invalid_argument "get") | Some x -> x
 let string_starts_with s1 s2 = 
 
   (* First string is shorter than second? *)
-  if String.length s1 < String.length s2 then false else
+  if Bytes.length s1 < Bytes.length s2 then false else
 
     (* Create string of length of [s2] *)
-    let s1' = String.create (String.length s2) in
+    let s1' = Bytes.create (Bytes.length s2) in
 
     (* Copy characters from [s1] *)
-    String.blit s1 0 s1' 0 (String.length s2);
+    Bytes.blit s1 0 s1' 0 (Bytes.length s2);
 
     (* Return true if strings are identical *)
     s1' = s2

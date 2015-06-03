@@ -660,6 +660,8 @@ let rec pp_print_struct_item ppf = function
       (I.pp_print_ident false) e
       (pp_print_list pp_print_array_slice ",@ ") i
 
+  (* Not fully implemented *)
+  | IndexedIdent _ -> assert false
 
 (* Pretty-print a node equation *)
 let pp_print_node_equation ppf = function

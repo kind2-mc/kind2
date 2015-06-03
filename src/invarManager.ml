@@ -121,7 +121,7 @@ let handle_events trans_sys =
     events;
 
   (* Update transition system from events *)
-  let _, prop_status =
+  let _ =
     Event.update_trans_sys trans_sys events
   in
 

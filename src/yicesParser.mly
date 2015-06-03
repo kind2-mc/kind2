@@ -31,14 +31,14 @@
 
 %}
 
-%token SAT UNSAT UNKNOWN ERROR
+%token SAT UNSAT UNKNOWN // ERROR
 %token ID CORE IDS // UNSATISFIED ASSERTION
 %token LEFTPAR RIGHTPAR COLON EQ
 %token <string> IDENT
 // %token <string> LINE
 %token <int> INT
 %token <Decimal.t> DECIMAL
-%token SUCCESS CUSTOM
+%token SUCCESS // CUSTOM
 %token <string> ERROR_MSG
 %token <string> CUSTOM_RESP
 %token EOF

@@ -167,7 +167,7 @@ let lift_state_var pos node state_var =
            try 
              
              (* Find state variable to lift to in instances *)
-             let (_, node, state_var_callee) =
+             let (_, _, _) =
 
                List.find
 
@@ -264,6 +264,7 @@ let state_var_is_visible state_var =
   match get_state_var_source state_var with
 
     (* Oracle inputs and abstraced streams are invisible *)
+    | Observer
     | Oracle
     | Abstract -> false
 
@@ -308,6 +309,8 @@ let rec pp_print_state_var_source ppf = function
   | Oracle -> Format.fprintf ppf "oracle"
 
   | Output -> Format.fprintf ppf "output"
+
+  | Observer -> Format.fprintf ppf "observer"
 
   | Local -> Format.fprintf ppf "local"
 

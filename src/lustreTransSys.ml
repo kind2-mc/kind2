@@ -360,7 +360,7 @@ let rec definitions_of_node_calls
         N.call_node_name = node_name;
         N.call_inputs = input_vars;
         N.call_defaults = init_exprs;
-        N.call_pos = pos } as call :: tl -> 
+        N.call_pos = pos } :: tl -> 
 (*
       debug lustreTransSys
           "definitions_of_node_calls: %a"
@@ -520,9 +520,6 @@ let rec definitions_of_node_calls
              (* Type of state variable *)
              let var_type = StateVar.type_of_state_var state_var in
 
-             (* Name of state variable *)
-             let var_name = StateVar.string_of_state_var state_var in
-
              (* New state variable for node call *)
              let local_state_var = 
                mk_new_state_var 
@@ -657,7 +654,7 @@ let rec definitions_of_node_calls
                 TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
                 |>  Term.mk_var
               in
-
+(*
               (* Initial state values of default values *)
               let init_terms_init = 
                 List.map 
@@ -665,7 +662,7 @@ let rec definitions_of_node_calls
                     E.base_term_of_expr TransSys.init_base expr_init) 
                   init_exprs
               in
-
+*)
               (* Input for node call in initial state *)
               let input_terms_init =
                 List.map
@@ -844,14 +841,14 @@ let rec definitions_of_node_calls
               List.fold_right
                 (fun
                   sv
-                  ((local_vars'',
-                    input_shadow_vars,
-                    input_shadow_terms_init, 
-                    input_shadow_terms_trans,
-                    input_shadow_terms_trans_pre, 
-                    propagate_inputs, 
-                    propagate_inputs_init, 
-                    interpolate_inputs) as accum) -> 
+                  (local_vars'',
+                   input_shadow_vars,
+                   input_shadow_terms_init, 
+                   input_shadow_terms_trans,
+                   input_shadow_terms_trans_pre, 
+                   propagate_inputs, 
+                   propagate_inputs_init, 
+                   interpolate_inputs) -> 
 
                   (* Skip over constant inputs *)
                   if StateVar.is_const sv then
@@ -1190,7 +1187,7 @@ let rec definitions_of_exprs init trans =
     | [] -> (init, trans)
 
     (* Assertion with term for initial state and term for transitions *)
-    | { E.expr_init; E.expr_step } as expr :: tl ->
+    | { E.expr_init; E.expr_step } :: tl ->
 
       (* Term for assertion in initial state *)
       let term_init = E.base_term_of_expr TransSys.init_base expr_init in 

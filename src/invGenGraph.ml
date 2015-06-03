@@ -235,6 +235,8 @@ module Make (InModule : In) : Out = struct
   (* Filters candidate invariants from a set of term for step. *)
   let filter_step_candidates invariants ignore =
 
+    (* FIXME: Why is this unused?
+
     (* Tests if [rhs] is an [or] containing [lhs], or a negated and
        containing the complement of [lhs]. *)
     let trivial_rhs_or lhs rhs =
@@ -280,6 +282,10 @@ module Make (InModule : In) : Out = struct
       else false
 
     in
+
+    *)
+    
+    (* FIXME: Why is this unused?
 
     (* Tests if [lhs] is an [and] containing [rhs], or a negated or
        containing the complement of [rhs]. *)
@@ -327,6 +333,10 @@ module Make (InModule : In) : Out = struct
       else false
 
     in
+    
+    *)
+
+    (* FIXME: Why is this unused?
 
     (* Tests if [lhs] and [rhs] are arithmetic operators that
        trivially imply each other, such as [x<=2] and [x<=0]. *)
@@ -442,6 +452,8 @@ module Make (InModule : In) : Out = struct
 
     in
 
+    *)
+
     (* Function returning false for the candidate invariants to prune
        out. *)
     let filter_candidates term =
@@ -457,7 +469,9 @@ module Make (InModule : In) : Out = struct
         let offset_filter =
           (Lazy.force lazy_offset_criterion) term
         in
-
+        
+        (* FIXME: Why is this unused?
+        
         let structural_criterion () =
           if Term.node_symbol_of_term term == Symbol.s_implies then
               (* Term is indeed an implication. *)
@@ -481,6 +495,7 @@ module Make (InModule : In) : Out = struct
             (* Node is not an implication. *)
             true
         in
+        *)
 
         offset_filter
       )
@@ -591,7 +606,8 @@ module Make (InModule : In) : Out = struct
               (* Adding invariants to the transition system. *)
               terms'
               |> List.map
-                   (TransSys.add_invariant sub_sys) ;
+                   (TransSys.add_invariant sub_sys)
+              |> ignore ;
               (* Broadcasting invariants. *)
               terms'
               |> List.iter
@@ -783,9 +799,14 @@ module Make (InModule : In) : Out = struct
      instance is unsat on the first check or the upper bound given by
      the flags has been reached. *)
   let iterate_on_binding top_sys lsd (binding, cand_count) =
+
+    (* FIXME: Why is this unused?
+
     let max_successive = Lazy.force lazy_max_successive in
+    *)
 
     let rec loop count ((sys,_,invs,_) as binding) =
+      (*
       let k = LSD.get_k lsd sys in
       debug
         invGen
@@ -797,11 +818,14 @@ module Make (InModule : In) : Out = struct
         (k |> Numeral.to_int)
         (TSet.cardinal invs)
         cand_count in
+      *)
       (* Getting new binding and base flag. *)
       let binding', base_unsat_on_first_check =
         rewrite_graph_find_invariants top_sys lsd binding
       in
-      let k' = LSD.get_k lsd sys in
+
+      (* let k' = LSD.get_k lsd sys in *)
+
       if
         base_unsat_on_first_check
         || Flags.invgengraph_max_succ () <= count

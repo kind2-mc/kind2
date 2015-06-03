@@ -238,7 +238,7 @@ let extract uf_defs env term =
   and extract_term_flat ((bool, int) as accum) polarity env = function 
 
     (* Constant *)
-    | Term.T.Const s as term -> 
+    | Term.T.Const s -> 
 
       (match Symbol.node_of_symbol s with
 

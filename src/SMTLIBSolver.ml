@@ -186,15 +186,6 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
        (* Continue with next model assignment *)
        get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl)
 
-    | e :: _ -> 
-
-      (debug smtexpr
-          "get_model_response_of_sexpr: %a"
-          HStringSExpr.pp_print_sexpr e
-       in
-
-       invalid_arg "get_model_response_of_sexpr")
-
 
   (* Return a solver response to a get-value command as expression pairs *)
   let get_value_response_of_sexpr = function 
