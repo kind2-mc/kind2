@@ -5,6 +5,9 @@
 
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
+LOCAL_REGRESSIONDIR=$(CURDIR)/tests/regression
+LOCAL_ALLDOCDIR=$(CURDIR)/doc
+LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
 
 package=@PACKAGE_NAME@
 version=@PACKAGE_VERSION@
@@ -55,7 +58,7 @@ lustre-checker:
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/@PACKAGE_NAME@.docdir/* $(LOCAL_DOCDIR)
 
-.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test
+.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test doc
 
 install: 
 	mkdir -p ${bindir}
@@ -65,7 +68,11 @@ install:
 	if [ -n ${bin_suffix} ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
 
 test: all
-	./tests/run.sh tests/regression/ $(LOCAL_BINDIR)/kind2 "${ARGS}"
+	./tests/run.sh $(LOCAL_REGRESSIONDIR) $(LOCAL_BINDIR)/kind2 "${ARGS}"
+
+doc:
+	make -C $(LOCAL_USRDOCDIR)
+	cp $(LOCAL_USRDOCDIR)/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
