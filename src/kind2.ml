@@ -31,7 +31,7 @@ module BMC = Base
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 
-(* module PDR = Dummy *)
+(* module IC3 = Dummy *)
 
 let children_pgid = ref 0
   
@@ -48,7 +48,7 @@ let trans_sys = ref None
 
 (* Main function of the process *)
 let main_of_process = function 
-  | `PDR -> PDR.main
+  | `IC3 -> IC3.main
   | `BMC -> BMC.main 
   | `IND -> Step.main
 
@@ -102,7 +102,7 @@ let main_of_process = function
 
 (* Cleanup function of the process *)
 let on_exit_of_process = function 
-  | `PDR -> PDR.on_exit
+  | `IC3 -> IC3.on_exit
   | `BMC -> BMC.on_exit 
   | `IND -> Step.on_exit
   | `INVGEN -> InvGenTS.on_exit  
@@ -114,7 +114,7 @@ let on_exit_of_process = function
 (*
 (* Messaging type of the process *)
 let init_messaging_of_process = function 
-  | `PDR -> Kind2Message.init_pdr
+  | `IC3 -> Kind2Message.init_ic3
   | `BMC -> Kind2Message.init_bmc
   | `IND -> Kind2Message.init_indStep
   | `INVGEN -> Kind2Message.init_invarGen 
@@ -123,7 +123,7 @@ let init_messaging_of_process = function
 
 
 let debug_ext_of_process = function 
-  | `PDR -> "pdr"
+  | `IC3 -> "ic3"
   | `BMC -> "bmc"
   | `IND -> "ind"
   | `INVGEN -> "invgenTS"
