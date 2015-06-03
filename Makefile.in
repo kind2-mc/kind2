@@ -77,13 +77,17 @@ doc:
 doc-sync:
 	make -C $(LOCAL_USRDOCDIR) update
 
+doc-clean:
+	make -C $(LOCAL_USRDOCDIR) clean
+
 clean-@PACKAGE_NAME@:
 	make -C src clean
 
 clean-ocamlczmq:
 	make -C ocamlczmq clean
+	rm -f $(LOCAL_ALLDOCDIR)/*.pdf
 
-clean: clean-@PACKAGE_NAME@ clean-ocamlczmq
+clean: clean-@PACKAGE_NAME@ clean-ocamlczmq doc-clean
 
 
 # Remake this Makefile if configuration has changed 
