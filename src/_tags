@@ -15,7 +15,7 @@ true: -traverse
 <kind1/*.cmx>: for-pack(Kind1)
 
 # Compile everything with debug symbols and .annot file for type information
-<*.ml>: debug,annot,bin-annot
+<*.ml>: debug,annot,bin_annot
 <kind1/*.ml>: debug,annot
 
 # Use Unix, Str, ZMQ and Thread modules  
