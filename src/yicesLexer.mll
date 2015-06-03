@@ -33,10 +33,10 @@
         "ids:", IDS;
 	(* "unsatisfied", UNSATISFIED; *)
         (* "assertion", ASSERTION; *)
-        "Error", ERROR;
-        "error", ERROR;
+        (* "Error", ERROR; *)
+        (* "error", ERROR; *)
         YicesResponse.success, SUCCESS;
-        YicesResponse.custom, CUSTOM;
+        (* YicesResponse.custom, CUSTOM; *)
       ]
 
   let string_buf = Buffer.create 1024
@@ -73,7 +73,7 @@ rule token = parse
       { try
           let k = Hashtbl.find keywords id in
           match k with
-          | CUSTOM -> Buffer.clear string_buf; custom lexbuf
+            (* | CUSTOM -> Buffer.clear string_buf; custom lexbuf *)
           | _ -> k
 	with Not_found -> IDENT id
       }

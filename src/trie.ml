@@ -679,7 +679,7 @@ module Make (M : M) = struct
       | (Node _, []) :: tl -> is_subsumed' tl
 	
       (* Non-empty key is *)
-      | (Node m, ((h :: ktl) as k)) :: tl ->
+      | (Node m, (h :: ktl)) :: tl ->
 
 	(* *)
 	let _, mc, mr = M.split h m in

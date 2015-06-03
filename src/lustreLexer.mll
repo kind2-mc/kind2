@@ -141,7 +141,7 @@ let lexbuf_switch_to_channel lexbuf channel curdir =
     (channel, 
      curdir, 
      { lexbuf with 
-         Lexing.lex_buffer = String.copy lexbuf.Lexing.lex_buffer}) :: 
+         Lexing.lex_buffer = Bytes.copy lexbuf.Lexing.lex_buffer}) :: 
       !lexbuf_stack;
   
   (* Flush lexing buffer *)

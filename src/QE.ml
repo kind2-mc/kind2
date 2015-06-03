@@ -436,9 +436,10 @@ let rec collect_eqs vars (eqs, terms) = function
   (* Head element of list *)
   | term :: tl -> match Term.destruct term with
 
-    (* Term is an equation with a variable in [vars] on either side *)
-    | Term.T.App (s, [v; e]) 
-    | Term.T.App (s, [e; v]) when
+    (* FIXME: Do this on both sides, and be careful to not produce cycles *)
+
+    (* Term is an equation with a variable in [vars] on left-hand side *)
+    | Term.T.App (s, [v; e]) when
         (Symbol.equal_symbols s Symbol.s_eq)
         && (Term.is_free_var v)
         && (List.exists (Var.equal_vars (Term.free_var_of_term v)) vars) -> 
@@ -667,6 +668,7 @@ let generalize trans_sys uf_defs model elim term =
            existentially quantify formula *)
         let qe_term = 
           match pdr_qe with 
+            | `Cooper -> assert false
             | `Z3 -> 
               Conv.quantified_smtexpr_of_term true elim term
             | `Z3_impl
@@ -712,13 +714,13 @@ let generalize trans_sys uf_defs model elim term =
               raise 
                 (Failure ("SMT solver failed: " ^ e))
 
-            (* (\* Catch unsupported command *\) *)
+            (* (* Catch unsupported command *) *)
             (* | `Unsupported ->  *)
             (*   raise  *)
             (*     (Failure  *)
             (*        ("SMT solver reported not implemented")) *)
                 
-            (* (\* Catch silence *\) *)
+            (* (* Catch silence *) *)
             (* | `NoResponse -> *)
             (*   raise  *)
             (*     (Failure  *)
@@ -744,6 +746,7 @@ let generalize trans_sys uf_defs model elim term =
 *)
         (* Return quantifier eliminated term *)
         (match pdr_qe with 
+          | `Cooper -> assert false
           | `Z3 
           | `Z3_impl -> term'_bool @ term'_int
           | `Z3_impl2 -> 
