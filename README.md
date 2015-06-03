@@ -1,3 +1,6 @@
+<!-- do not edit, see doc/usr/README.md -->
+
+
 # Kind 2
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.

@@ -11,6 +11,16 @@ Simply run `make` to generate the user documentation. This will create
 `doc.pdf` and `target.md`. The first is the actual pdf documentation while the
 latter is the markdown file passed to `pandoc`.
 
+## Home and README sync
+
+Ideally `README.md` and `doc/usr/content/Home.md` should be pretty much the same. The only difference is the path to link to other files. To maintain them in sync, run
+
+```
+make readme_update
+```
+
+in `doc/usr/`. This copies replaces `README.md` by `Home.md` after updating all internal links with the relevant path.
+
 ## Pandoc specificities
 
 ### Embedded lists
