@@ -16,10 +16,10 @@ latter is the markdown file passed to `pandoc`.
 Ideally `README.md` and `doc/usr/content/Home.md` should be pretty much the same. The only difference is the path to link to other files. To maintain them in sync, run
 
 ```
-make readme-update
+make update
 ```
 
-in `doc/usr/`. This copies replaces `README.md` by `Home.md` after updating all internal links with the relevant path.
+in `doc/usr/`. This copies replaces `README.md` by `Home.md` after updating all internal links with the relevant path. This also updates the license file.
 
 ## Pandoc specificities
 

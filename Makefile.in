@@ -75,7 +75,7 @@ doc:
 	cp $(LOCAL_USRDOCDIR)/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
 
 doc-update:
-	make -C $(LOCAL_USRDOCDIR) readme-update
+	make -C $(LOCAL_USRDOCDIR) update
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
