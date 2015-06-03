@@ -74,7 +74,7 @@ doc:
 	make -C $(LOCAL_USRDOCDIR)
 	cp $(LOCAL_USRDOCDIR)/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
 
-doc-update:
+doc-sync:
 	make -C $(LOCAL_USRDOCDIR) update
 
 clean-@PACKAGE_NAME@:

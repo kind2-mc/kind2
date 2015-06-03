@@ -21,6 +21,12 @@ make update
 
 in `doc/usr/`. This copies replaces `README.md` by `Home.md` after updating all internal links with the relevant path. This also updates the license file.
 
+Alternatively, you can also run it at the repo's top level with
+
+```
+make doc-sync
+```
+
 ## Pandoc specificities
 
 ### Embedded lists

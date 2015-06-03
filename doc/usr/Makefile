@@ -13,7 +13,8 @@ pandoc:
 
 update:
 	rm -f ../../README.md
-	echo "<!-- DO NOT EDIT, see ./doc/usr/README.md -->\n\n" > ../../README.md
+	echo "\n\n<!-- DO NOT EDIT, see ./doc/usr/README.md -->\n\n" > \
+		../../README.md
 	cat content/Home.md | \
 		sed -e 's:](\./\([^)]*\)):](doc/usr/content/\1):g' >> \
 		../../README.md
