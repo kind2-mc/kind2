@@ -18,8 +18,7 @@ for k-induction, two processes for invariant generation, and a process for IC3
 in parallel on all properties simultaneously. It incrementally outputs
 counterexamples to properties as well as properties proved invariant.
 
-The following command-line options control its operation (run `kind2 --help` for a full list).
-See also [the description of the techniques](doc/usr/content/1_techniques/1_techniques.md#techniques) for configuration examples and more details on each technique.
+The following command-line options control its operation (run `kind2 --help` for a full list). See also [the description of the techniques](doc/usr/content/1_techniques/1_techniques.md#techniques) for configuration examples and more details on each technique.
 
 `--enable {BMC|IND|INVGEN|INVGENOS|PDR}` Select model checking engines
    
