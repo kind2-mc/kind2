@@ -265,7 +265,7 @@ let status_of_exn process trans_sys_opt =
 
 
 (* Clean up before exit *)
-let on_exit process sys exn = 
+let on_exit process (sys : TransSys.t option) exn = 
 
 (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
@@ -333,11 +333,11 @@ let on_exit process sys exn =
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process (Some sys) exn in
+  let status = status_of_exn process sys exn in
 
   (* Clean exit from invariant manager *)
-  InvarManager.on_exit !trans_sys;
-  
+  InvarManager.on_exit sys;
+
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
@@ -404,7 +404,7 @@ let on_exit process sys exn =
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
 
       (* Get new exit status *)
-      let status' = status_of_exn process (Some sys) (Signal 0) in
+      let status' = status_of_exn process sys (Signal 0) in
 
       clean_exit status'
 
@@ -412,7 +412,7 @@ let on_exit process sys exn =
     | e -> 
 
       (* Get new exit status *)
-      let status' = status_of_exn process (Some sys) e in
+      let status' = status_of_exn process sys e in
 
       clean_exit status'
 
@@ -1009,14 +1009,14 @@ let main () =
             Event.run_im
               messaging_setup
               !child_pids
-              (on_exit `INVMAN (get !trans_sys))
+              (on_exit `INVMAN !trans_sys)
           in
 
           (* Run invariant manager *)
           InvarManager.main child_pids (get !trans_sys);
           
           (* Exit without error *)
-          on_exit `INVMAN (get !trans_sys) Exit
+          on_exit `INVMAN !trans_sys Exit
         
         );
 
@@ -1038,13 +1038,13 @@ let main () =
         | [p] -> 
           
           (* Cleanup before exiting process *)
-          on_exit_child None p (Some (get !trans_sys)) e
+          on_exit_child None p !trans_sys e
             
        
         (* Run some modules in parallel *)
         | _ -> 
         
-          on_exit `INVMAN (get !trans_sys) e
+          on_exit `INVMAN !trans_sys e
             
       )
 
