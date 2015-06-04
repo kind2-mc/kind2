@@ -308,12 +308,13 @@ else
             name=$(echo $line | cut -d' ' -f 1)
             res_dev=$(echo $line | cut -d' ' -f 5)
             res_pr=$(echo $line | cut -d' ' -f 2)
-            if [ "$res_dev" == "Valid" ] && [ "$res_pr" != "Valid" ]; then
+            
+            if [ "$res_dev" == "Valid" ] && [ "$res_pr" != "Valid" ] && [ "$res_pr" != "Timeout" ] ; then
                 # echo -e "$res_dev \t $res_pr"
                 echo "$name ($res_dev->$res_pr)">> $failed
                 if [ "$OK" != "2" ]; then OK=1; fi
             fi;
-            if [ "$res_dev" == "Invalid" ] && [ "$res_pr" != "Invalid" ]; then
+            if [ "$res_dev" == "Invalid" ] && [ "$res_pr" != "Invalid" ] && [ "$res_pr" != "Timeout" ]; then
                 # echo -e "$res_dev \t $res_pr"
                 echo "$name ($res_dev->$res_pr)">> $failed
                 if [ "$OK" != "2" ]; then OK=1; fi
