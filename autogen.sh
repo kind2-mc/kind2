@@ -7,5 +7,5 @@ aclocal -I m4
 pushd ocamlczmq && ./autogen.sh && popd
 
 # Generate our configuration
-autoreconf -v
+autoreconf -vfi
 
