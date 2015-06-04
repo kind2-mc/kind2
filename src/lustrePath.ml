@@ -630,7 +630,7 @@ let reduced_tree_path_of_model start_at_init nodes model =
   in
 *)
 
-  let main_node = List.hd nodes in
+  let main_node = List.hd (List.rev nodes) in
 
   let node_name = main_node.N.name in
 

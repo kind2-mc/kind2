@@ -1,6 +1,11 @@
-node X() returns (o: int);
+node X1() returns (o: int);
 let
   o = 1;
+tel
+
+node X() returns (o: int);
+let
+  o = X1();
 tel
 
 node incr(x: int) returns (y: int);
