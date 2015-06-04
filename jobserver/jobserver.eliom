@@ -175,6 +175,8 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
        is not the github web page *)
     | ("opened" | "reopened" | "synchronize") when base_ref <> "gh_pages" ->
 
+      let clone_url = json |> member "repository"
+                      |> member "clone_url" |> to_string in
       let pr_nb = pr |> member "number" |> to_int in
       let statuses_url = pr |> member "statuses_url" |> to_string in
       let html_url = pr |> member "html_url" |> to_string in
@@ -186,8 +188,8 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
       let cmd = Format.sprintf
           "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_restricted \
            amebsout@@cvc.cs.uiowa.edu \
-           \"%d %s %s %s\" &"
-          pr_nb base_ref statuses_url html_url
+           \"%d %s %s %s %s\" &"
+          pr_nb base_ref statuses_url html_url clone_url
       in
       
       if Sys.command cmd = 0 then

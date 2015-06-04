@@ -33,9 +33,9 @@
 #   menhir)
 # - a fake pax binary (exit 1) in the calling user's path to prevent czmq
 #   configure from stopping
-# - a cloned version of kind 2 repo in $HOME/kind_test_pullrequests
 # - TreeLimitedRun, run-benchmark.sh, benchmark-stat, scatterplot-stat binaries
-#   in the user's path
+#   in the user's ~/bin
+# - the default solver used by Kind 2 in ~/bin
 # - and ssh key in ~/.ssh/id_rsa_copy_report that is authorized to copy files in
 #   the particular directory of the remote web server
 #     (we use the prefix from="cvc.cs.uiowa.edu",no-port-forwarding,
@@ -53,6 +53,7 @@ pr_nb=$1
 base=$2
 statuses_url=$3
 pr_url=$4
+clone_url=$5
 
 # unique sha for the pull request's head
 sha=$(echo ${statuses_url##*/})
@@ -92,9 +93,14 @@ curl -H "Authorization: token $token" -H "Content-Type: application/json"\
 
 
 # directory for checking out sources
-kind_dir="$HOME/kind_test_pullrequests"
+kind_dir="$workdir/kind_test_pullrequests"
 mkdir -p $kind_dir
 cd $kind_dir
+
+
+echo " * Cloning $clone_url"
+
+git clone $clone_url .
 
 echo " * Fetching pull request #$pr_nb"
 
@@ -207,7 +213,7 @@ else
         percentage=0
         done_new=0
         done_dev=0
-        nb_benchs=$(for i in $jobs; do echo $i; done | wc -l)
+        nb_benchs=$(echo "$jobs" | wc -l)
         
         # wait for job arrays to finish
         while true; do
@@ -227,8 +233,8 @@ else
             dev_finished=$?
 
             # get number of completed jobs for each job array (hackish using qstas output)
-            tmp_done_new=$(echo $qs_new | grep "^usage" | tail -n 1 | awk '{print $2}' | sed -s 's/://g')
-            tmp_done_dev=$(echo $qs_dev | grep "^usage" | tail -n 1 | awk '{print $2}' | sed -s 's/://g')
+            tmp_done_new=$(echo "$qs_new" | grep "^usage" | tail -n 1 | awk '{print $2}' | sed -s 's/://g')
+            tmp_done_dev=$(echo "$qs_dev" | grep "^usage" | tail -n 1 | awk '{print $2}' | sed -s 's/://g')
             
             if [ -z "$tmp_done_new" ]; then tmp_done_new=0; fi
             if [ -z "$tmp_done_dev" ]; then tmp_done_dev=0; fi
@@ -629,5 +635,9 @@ echo "send status_data= $status_data"
 curl -H "Authorization: token $token" -H "Content-Type: application/json"\
      -X POST --data "$status_data" $statuses_url
 
+
+# clean everything
+cd
+rm -rf "$workdir" 
 
 exit 0
