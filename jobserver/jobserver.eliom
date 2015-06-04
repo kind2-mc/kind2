@@ -21,6 +21,7 @@
     @author Mingyu Ma, Christoph Sticksel **)
 
 open Lib
+open Lwt
 
 (* ********************************************************************** *)
 (* Service handlers                                                       *)
@@ -197,7 +198,6 @@ let purge_jobs_service =
     ~get_params:Eliom_parameter.unit 
     ()
 
-
 (* ********************************************************************** *)
 (* Creation of POST Services                                              *)
 (* ********************************************************************** *)
@@ -303,4 +303,3 @@ let _ =
    Eliom_registration.String.register
      ~service:purge_jobs_service
      purge_jobs_service_handler
-
