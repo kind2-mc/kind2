@@ -133,19 +133,24 @@ let purge_jobs_service_handler () () =
 
 
 
+(* helper function to respond with error codes *)
 let send_error ~code error_message =
   Eliom_registration.String.send ~code (error_message, "text/plain")
 
+(* helper functions to respond with success code *)
+    
 let send_success () =
   Eliom_registration.String.send ~code:200 ("", "")
 
 let send_success_str str =
   Eliom_registration.String.send ~code:200 (str, "text/plain")
 
+(* helper function to read data sent to the server *)
 let read_raw_content ?(length = 1048576) raw_content =
   let content_stream = Ocsigen_stream.get raw_content in
   Ocsigen_stream.string_of_stream length content_stream
 
+(* function that handles requests for pull requests hooks *)
 let pullrequest_test_service_handler () (content_type, raw_content_opt) =
 
   match raw_content_opt with
@@ -156,27 +161,42 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
 
     read_raw_content raw_content >>= fun payload ->
 
+    (* Parse message *)
     let json = Yojson.Basic.from_string payload in
     let open Yojson.Basic.Util in
 
     let action = json |> member "action" |> to_string in
     let pr = json |> member "pull_request" in
 
-    let pr_nb = pr |> member "number" |> to_int in
-    let pr_user = pr |> member "user" |> member "login" |> to_string in
-
     let base_ref = pr |> member "base" |> member "ref" |> to_string in
-    
-    let res = Format.sprintf "recieved:\n\n\
-                              action: %s\n\
-                              number: %d\n\
-                              user: %s\n\
-                              base_ref: %s\n\
-                              @."
-        action pr_nb pr_user base_ref
-    in
-    
-    send_success_str res
+
+    match action with
+    (* only run tests if a pull request is opened or updated and the base branch
+       is not the github web page *)
+    | ("opened" | "reopened" | "synchronize") when base_ref <> "gh_pages" ->
+
+      let pr_nb = pr |> member "number" |> to_int in
+      let statuses_url = pr |> member "statuses_url" |> to_string in
+      let html_url = pr |> member "html_url" |> to_string in
+      let pr_user = pr |> member "user" |> member "login" |> to_string in
+
+      (* Execute command on cvc cluster through ssh.
+         The user ocsigen must have an ssh key that is only allowed to run 
+         the neessary command, here we just pass the arguments. *)
+      let cmd = Format.sprintf
+          "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_restricted \
+           amebsout@@cvc.cs.uiowa.edu \
+           \"%d %s %s %s\" &"
+          pr_nb base_ref statuses_url html_url
+      in
+      
+      if Sys.command cmd = 0 then
+        send_success ()
+      else
+        send_error ~code:400 "Could not contact CVC cluster"
+
+
+    | _ -> send_success_str "Hook ignores pull request"
 
 
 (* ********************************************************************** *)
