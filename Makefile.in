@@ -96,7 +96,6 @@ clean: clean-@PACKAGE_NAME@ clean-ocamlczmq doc-clean
 # Files produced by autogen.sh that are needed by build.sh
 AUTOGEN_FILES=configure \
 	      ocamlczmq/configure \
-	      ocamlczmq/czmq/aclocal.m4		\
 	      ocamlczmq/czmq/Makefile.in		\
 	      ocamlczmq/czmq/config/compile				\
 	      ocamlczmq/czmq/config/config.guess			\
@@ -112,7 +111,6 @@ AUTOGEN_FILES=configure \
 	      ocamlczmq/czmq/src/libczmq.pc.in                          \
 	      ocamlczmq/czmq/src/Makefile.in				\
 	      ocamlczmq/czmq/src/platform.h.in                          \
-	      ocamlczmq/zeromq/aclocal.m4		\
 	      ocamlczmq/zeromq/Makefile.in				\
 	      ocamlczmq/zeromq/builds/msvc/Makefile.in			\
 	      ocamlczmq/zeromq/config/compile				\
