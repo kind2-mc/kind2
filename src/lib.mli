@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -151,6 +151,14 @@ val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int
 (** Returns the maximum element of a non-empty array *)
 val array_max : 'a array -> 'a
 
+(** {1 Set functions} *)
+
+(** Sets of integers *)
+module IntegerSet : Set.S with type elt = int
+
+(** Hashtable of integers *)
+module IntegerHashtbl : Hashtbl.S with type key = int
+  
 (** {1 Pretty-printing helpers} *)
 
 (** Pretty-print an array with given separator
@@ -262,7 +270,7 @@ val pp_print_version : Format.formatter -> unit
 
 (** Kind modules *)
 type kind_module =
-  [ `PDR
+  [ `IC3
   | `BMC
   | `IND
   | `INVGEN

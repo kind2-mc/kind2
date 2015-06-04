@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -258,25 +258,6 @@ let instantiate_term { callers } term =
   |> List.map
        ( fun (sys, maps) ->
 
-         let print_map =
-           (* Turns a map from state vars to terms into a string. *)
-           let string_of_map map =
-             map
-             |> List.map
-                  ( fun (v,t) ->
-                    Printf.sprintf "(%s -> %s)"
-                                   (StateVar.string_of_state_var v)
-                                   (StateVar.string_of_state_var t) )
-             |> String.concat ", "
-           in
-           
-           List.map
-             (fun map ->
-              Printf.printf "  Mapping to [%s]:\n"
-                            (String.concat "/" sys.scope) ;
-              Printf.printf "  > %s\n\n" (string_of_map map) )
-         in
-         
          (* Building one new term per instantiation mapping for
             sys. *)
          let terms =
@@ -329,7 +310,7 @@ let is_top { callers } = callers = []
 let instantiate_term_all_levels t term =
 
   let rec loop at_top intermediary = function
-    | (sys, ((term :: term_tail) as list)) :: tail ->
+    | (sys, (term :: term_tail)) :: tail ->
 
       debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
 
@@ -592,11 +573,16 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     | [] -> result
   in
 
+(* FIXME: Why is this unused?
+
   (* Looks in the subsystems for one such that 'f' applied to the
      subsys is uf. *)
   let find_subsystem f uf =
     List.find (fun subsys -> uf == f subsys) subsystems
   in
+*)
+
+(* FIXME: Why is this unused?
 
   (* Checks if a flat term is an application of a uf such that 'f' on
      a subsystem. Returns Some of the subsystem if yes, None
@@ -615,6 +601,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
 
     | _ -> None
   in
+*)
 
   (* find the logic of the transition system by goint through its terms and its
      subsystems *)

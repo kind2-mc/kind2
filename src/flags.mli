@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -46,8 +46,8 @@ val smtsolver : unit -> smtsolver
 (** Set SMT solver and executable *)
 val set_smtsolver : smtsolver -> string -> unit
 
-(* (\** Return SMT solver to use with PDR *\) *)
-(* val pdr_smtsolver : unit -> smtsolver  *)
+(* (\** Return SMT solver to use with IC3 *\) *)
+(* val ic3_smtsolver : unit -> smtsolver  *)
 
 (* (\** Return SMT solver to use with Quantifier Elimination *\) *)
 (* val qe_smtsolver : unit -> smtsolver  *)
@@ -59,6 +59,10 @@ val smtlogic : unit -> smtlogic
 (** Executable of Z3 solver *)
 type z3_bin = string
 val z3_bin : unit -> z3_bin
+
+(** Use check-sat with assumptions in Z3 *)
+type z3_check_sat_assume = bool
+val z3_check_sat_assume : unit -> z3_check_sat_assume
 
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
@@ -117,58 +121,54 @@ val ind_compress_same_pred : unit -> ind_compress_same_pred
 type ind_lazy_invariants = bool
 val ind_lazy_invariants : unit -> ind_lazy_invariants
 
-(** Output inductive counterexample *)
+(* (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool
-val ind_print_inductive_cex : unit -> ind_print_inductive_cex
+val ind_print_inductive_cex : unit -> ind_print_inductive_cex *)
 
-(** Algorithm for quantifier elimination in PDR *)
-type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
-val pdr_qe : unit -> pdr_qe
-val set_pdr_qe : pdr_qe -> unit
+(** Algorithm for quantifier elimination in IC3 *)
+type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
+val ic3_qe : unit -> ic3_qe
+val set_ic3_qe : ic3_qe -> unit
 
 (** Heuristics for extraction of implicant *)
-type pdr_extract = [ `First | `Vars ]
-val pdr_extract : unit -> pdr_extract
+type ic3_extract = [ `First | `Vars ]
+val ic3_extract : unit -> ic3_extract
 
 (** Check inductiveness of blocking clauses *)
-type pdr_check_inductive = bool
-val pdr_check_inductive : unit -> pdr_check_inductive
-
-(** Simultaneous check for propagation *)
-type pdr_fwd_prop_check_multi = bool
-val pdr_fwd_prop_check_multi : unit -> pdr_fwd_prop_check_multi
-
-(** Output inductive blocking clauses *)
-type pdr_print_inductive_assertions = bool
-val pdr_print_inductive_assertions : unit -> pdr_print_inductive_assertions
-
-(** Output all blocking clauses *)
-type pdr_print_blocking_clauses = bool
-val pdr_print_blocking_clauses : unit -> pdr_print_blocking_clauses
+type ic3_check_inductive = bool
+val ic3_check_inductive : unit -> ic3_check_inductive
 
 (** File for inductive blocking clauses *)
-type pdr_print_to_file = string option 
-val pdr_print_to_file : unit -> pdr_print_to_file
+type ic3_print_to_file = string option 
+val ic3_print_to_file : unit -> ic3_print_to_file
 
 (** Tighten blocking clauses to an unsatisfiable core *)
-type pdr_tighten_to_unsat_core = bool
-val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
-
-(** Tighten blocking clauses to an unsatisfiable core *)
-type pdr_inductively_generalize = int
-val pdr_inductively_generalize : unit -> pdr_inductively_generalize
+type ic3_inductively_generalize = int
+val ic3_inductively_generalize : unit -> ic3_inductively_generalize
 
 (** Block counterexample in future frames *)
-type pdr_block_in_future = bool
-val pdr_block_in_future : unit -> pdr_block_in_future
+type ic3_block_in_future = bool
+val ic3_block_in_future : unit -> ic3_block_in_future
+  
+(** Block counterexample in future frames first before returning to frame *)
+type ic3_block_in_future_first = bool
+val ic3_block_in_future_first : unit -> ic3_block_in_future_first  
 
-(** Print inductive invariant if property proved *)
-type pdr_print_inductive_invariant = bool
-val pdr_print_inductive_invariant : unit -> pdr_print_inductive_invariant
+(** Also propagate clauses before generalization *)
+type ic3_fwd_prop_non_gen = bool
+val ic3_fwd_prop_non_gen : unit -> ic3_fwd_prop_non_gen
 
-(** Check inductive invariant if property proved *)
-type pdr_check_inductive_invariant = bool
-val pdr_check_inductive_invariant : unit -> pdr_check_inductive_invariant
+(** Inductively generalize all clauses after forward propagation *)
+type ic3_fwd_prop_ind_gen = bool
+val ic3_fwd_prop_ind_gen : unit -> ic3_fwd_prop_ind_gen
+
+(** Subsumption in forward propagation *)
+type ic3_fwd_prop_subsume = bool
+val ic3_fwd_prop_subsume : unit -> ic3_fwd_prop_subsume
+
+(** Abstraction mechanism to use in IC3 *)
+type ic3_abstr = [ `None | `IA ]
+val ic3_abstr : unit -> ic3_abstr
 
 (** Debug sections to enable *)
 val debug : unit -> string list

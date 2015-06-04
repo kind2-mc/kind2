@@ -1,3 +1,60 @@
+(* This markdown preprocessor aims at performing basic safety checks regarding
+   the links in markdown document spread over several files, and prepare a
+   single file to give to pandoc.
+
+   In the following we say
+
+   * **internal link** for a link to file `B` in file `A` with `A!=B`
+   * **local link** for a link in file `A` to a section of file `A`
+
+   # Assumptions
+
+   Links between files
+   
+   * all start with `./`,
+   * and point to a section, not to a file.
+
+   Typically `[bla](./path/to/file#section-label)` is ok. But none of the
+   following is:
+
+   * `[bla](path/to/file#section-label)`
+   * `[bla](./path/to/file)`
+   * `[bla](file#section-label)`
+
+   /!\ File-to-file links not following the conventions will not be checked,
+   and will not be formatted for pandoc. This means they will result in dead
+   links that pandoc will remove. /!\
+
+   Local links are as usual: `[bla](#section-in-same-file)`.
+
+   # Safety checks
+
+   * links between files are well defined:
+     the file and section pointed at exist,
+   * links between files are unambiguous:
+     there is only one section in the file pointed at with this label.
+
+   Also, warning are issued if some sections in a file have the same name,
+   since in markdown this means they have the same label. This is not an error
+   unless the ambiguous label of this file is pointed at.
+
+   # Encoding for pandoc
+
+   The trick is to rewrite the internal and local links so that they are
+   well-defined and unambiguous when inlining everything.
+   We use the `Unix` module to get the **inode id** of the different files, and
+   will use that as an identifier.
+
+   So say file `bla.md` has an inode `42`. Then a local link like
+   `[bla](#some-section)` will be rewritten as `[bla](#42-some-section)`. If a
+   different files points to `bla.md`, **e.g.** `[bla](./bla.md#some-section)`,
+   it will be rewritten the same way: `[bla](#42-some-section)` here.
+
+   Naturally, the labels of the section in `bla.md` are also redefined to be
+   consistent with this. So section headers `## Some section` in `bla.md`
+   become `## Some section {#42-some-section}`. *)
+
+
 (* Exception raised if a label is defined two times in the same file, and is
    pointed at somewhere. Contains
    * the name of the file the dead link points to,
@@ -232,14 +289,22 @@ module IO = struct
         printf "index: %d@." index ;
         printf "char: %c@." (String.get str index) ; *)
         match String.get str index with
-        | '`' | '"' ->
+        | '`' | '\'' ->
           let prefix = String.sub str 0 index in
           let suffix =
             (String.length str) - (String.length prefix)
             |> String.sub str index
           in
           prefix ^ "\\" ^ suffix
-          |> loop (index + 2) 
+          |> loop (index + 2)
+        | '"' ->
+          let prefix = String.sub str 0 index in
+          let suffix =
+            (String.length str) - (String.length prefix)
+            |> String.sub str index
+          in
+          prefix ^ "\\\\\\" ^ suffix
+          |> loop (index + 4)
         | _ -> loop (index+1) str
       )
     in
@@ -249,32 +314,39 @@ module IO = struct
      removes newlines. *)
   let echo_pipe cmds line =
     let sanitized = sanitize line in
-    Format.asprintf "\
-      echo \"%s\" | %a | tr -d '\\n'\
-    " sanitized (pp_print_list Format.pp_print_string " | ") cmds
-    |> run
+    let cmd =
+      Format.asprintf "\
+        echo \"%s\" | %a | tr -d '\\n'\
+      " sanitized (pp_print_list Format.pp_print_string " | ") cmds
+    in
+    run cmd
     |> fun line' ->
       if line <> line' then
-        printf "> @[<v>%s@,%s@,@]@." line line' ;
+        printf "> @[<v>[%s]@,[%s]@,@]@." line line' ;
       line'
 
   (* Command rewriting the internal links between files. *)
   let rewrite_links dirname =
     Format.sprintf "\
-      %s -e \"s:\
-        \\(.*\\)](\\./\\([^)]*\\)#\\([^)]*\\))\\(.*\\):\
-        ls -i %s/\\2 | \
-        sed -e \\\"s/ .*$//\\\" | \
-        xargs printf \\\"\\1](#n%%s-\\3)\\4\\\"\
-      :eg\"\
-    " sed_cmd dirname
+      sed -e 's:\
+        ](\\./\\([^)]*\\)#\\([^)]*\\)):$(\
+          ls -i %s/\\1 | \
+          sed -e \"s/ .*$//\" | \
+          xargs printf \"](#n%%s-\\2)\"\
+        )\
+      :g' | \
+      sed -e 's:^\\(.*\\)$:echo \"\\1\":' | \
+      sed -e 's:`:\\\\`:g' | \
+      sh | \
+      tr -d '\n'\
+    " dirname
 
   (* Command rewriting the links local to a file. *)
   let rewrite_local_links prefix =
     Format.sprintf "\
       sed -e 's:\
-        \\(.*\\)](#\\([^)]*\\))\\(.*\\):\
-        \\1](#%s-\\2)\\3\
+        ](#\\([^)]*\\)):\
+        ](#%s-\\1)\
       :g'\
     " prefix
 
@@ -282,8 +354,8 @@ module IO = struct
   let rewrite_pics dirname =
     Format.sprintf "\
       %s -e 's:\
-        \\(.*\\)](\\./\\([^)]*\\)\\.\\(jpg\\|png\\))\\(.*\\):\
-        \\1](%s/\\2\\.\\3)\\4\
+        ](\\./\\([^)]*\\)\\.\\(jpg\\|png\\)):\
+        ](%s/\\1\\.\\2)\
       :g'\
     " sed_cmd dirname
 
@@ -348,9 +420,9 @@ module IO = struct
             while true do
               input_line src_chan
               |> echo_pipe [
-                rewrite_local_links prefix ;
+                (* rewrite_local_links prefix ; *)
                 rewrite_links dirname ;
-                rewrite_pics dirname ;
+                (* rewrite_pics dirname ; *)
               ]
               (* |> fun smthng -> printf "line is: %s@." smthng ; smthng
               |> fun smthng -> printf "rewrite local links@." ; smthng

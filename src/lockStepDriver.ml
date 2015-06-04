@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -324,18 +324,19 @@ let create two_state top_only sys =
     new_inst_sys (), new_inst_sys (), new_inst_sys ()
   in
 
-  let init_solver solver =
+  let init_solver solver title =
+    SMTSolver.trace_comment solver title ;
     TransSys.init_flag_uf Numeral.(~- one)
     |> SMTSolver.declare_fun solver ;
     TransSys.init_flag_uf Numeral.zero
     |> SMTSolver.declare_fun solver ;
   in
 
-  init_solver base_solver ;
-  init_solver step_solver ;
+  init_solver base_solver "|===| Base solver" ;
+  init_solver step_solver "|===| Step solver" ;
   TransSys.init_flag_uf Numeral.one
   |> SMTSolver.declare_fun step_solver ;
-  init_solver pruning_solver ;
+  init_solver pruning_solver "|===| Pruning solver" ; ;
   TransSys.init_flag_uf Numeral.one
   |> SMTSolver.declare_fun pruning_solver ;
 
@@ -489,6 +490,11 @@ let query_base
   (* Returning result. *)
   result
 
+(* Wraps the result of a call to [split_closure]. *)
+type 'a solver_res =
+  | Continuation of (unit -> 'a solver_res)
+  | Result of 'a
+
 (* Splits its input list of terms between the falsifiable and the
    unfalsifiable ones at [k+1]. The terms are asserted from 0 (1 if
    [two_state] is true) up to [k]. *)
@@ -567,35 +573,34 @@ let rec split_closure
               (falsifiable, [])
        in
 
-       (* Deactivating actlit. *)
-       Term.mk_not actlit
-       |> SMTSolver.assert_term solver ;
-
        (* Looping. *)
-       split_closure
-        solver two_state trans_actlit k falsifiable' unknown
+       Some (
+        fun () ->
+          split_closure
+            solver two_state trans_actlit k falsifiable' unknown
+       )
                      
      in
 
      (* Function to run if unsat. *)
-     let if_unsat () =
-       (* Deactivating actlit. *)
-       Term.mk_not actlit
-       |> SMTSolver.assert_term solver ;
-       
-       (* Returning result. *)
-       falsifiable, terms_to_check
-     in
+     let if_unsat () = None in
 
      (* Checking if we should terminate before doing anything. *)
      Event.check_termination () ;
 
-     (* Checksat-ing. *)
-     SMTSolver.check_sat_assuming
-       solver
-       if_sat
-       if_unsat
-       [ actlit ; trans_actlit ]
+     (* Checking. *)
+     let check =
+        SMTSolver.check_sat_assuming
+          solver if_sat if_unsat [ actlit ; trans_actlit ]
+     in
+
+     (* Deactivating actlit. *)
+     Term.mk_not actlit
+     |> SMTSolver.assert_term solver ;
+
+     match check with
+     | Some continue -> continue ()
+     | None -> falsifiable, terms_to_check
 
 
 
@@ -655,8 +660,9 @@ let rec prune_trivial
 
      let if_unsat () = None in
 
-     match SMTSolver.check_sat_assuming
-       solver if_sat if_unsat [actlit ; trivial_actlit]
+     match
+      SMTSolver.check_sat_assuming
+        solver if_sat if_unsat [actlit ; trivial_actlit]
      with
        | None ->
           (* Deactivating actlit. *)

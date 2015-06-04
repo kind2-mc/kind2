@@ -12,10 +12,12 @@ Numeral
 
 Hashcons
 Ltree
+Trie
 
 LustreLexer
 LustreParser
 LustreAst
+LustreIdent
 LustreExpr
 LustreNode
 LustreSimplify
@@ -31,6 +33,9 @@ SExprLexer
 
 SMTExpr
 SMTLIBSolver
+SolverSig
+SolverDriver
+SolverResponse
 SMTSolver
 
 UfSymbol
@@ -41,14 +46,14 @@ Type
 
 TermAttr
 Term
+TermLib
 
-CNF
 Clause
-Literal
 
 TransSys
 
 Simplify
+Model
 Eval
 Extract
 
@@ -57,16 +62,20 @@ Presburger
 CooperQE
 QE
 
-PDR
+IC3
 
+Actlit
 Base
 
-InvGenCandTermGen
+ImplicationGraph
 InvGenGraph
+InvGenCandTermGen
+LockStepDriver
 
 Compress
 Step
 
+InputParser
 Interpreter
 
 InvarManager

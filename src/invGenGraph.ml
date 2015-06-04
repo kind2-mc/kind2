@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -22,6 +22,241 @@ module TSet = Term.TermSet
 module Graph = ImplicationGraph
 module CandTerm = InvGenCandTermGen
 module LSD = LockStepDriver
+
+
+(* Module gathering pruning algorithms. *)
+module Pruning = struct
+
+  (* Tests if [rhs] is an [or] containing [lhs], or a negated and
+     containing the complement of [lhs]. *)
+  let trivial_rhs_or lhs rhs =
+
+    (* Returns true if [negated] is an or containing the complement
+       of [lhs]. Used if [rhs] is a not. *)
+    let negated_and negated =
+      if Term.is_node negated
+      then
+      
+        if Term.node_symbol_of_term negated == Symbol.s_and
+        then
+          (* Term is an and. *)
+          Term.node_args_of_term negated
+          |> List.mem (Term.negate lhs)
+
+        else false
+      else false
+    in
+  
+    (* Is rhs an application? *)
+    if Term.is_node rhs
+    then
+
+      ( if Term.node_symbol_of_term rhs == Symbol.s_or
+        then
+          (* Rhs is an or. *)
+          Term.node_args_of_term rhs |> List.mem lhs
+
+        else if Term.node_symbol_of_term rhs == Symbol.s_not
+        then
+          (* Rhs is a not, need to check if there is an and
+             below. *)
+          ( match Term.node_args_of_term rhs with
+
+            (* Well founded not. *)
+            | [ negated ] -> negated_and negated
+
+            (* Dunno what that is. *)
+            | _ -> false )
+
+        else false )
+    else false
+
+
+  (* Tests if [lhs] is an [and] containing [rhs], or a negated or
+     containing the complement of [rhs]. *)
+  let trivial_lhs_and lhs rhs =
+
+    (* Returns true if [negated] is an and containing the complement
+       of [rhs]. Used if [lhs] is a not. *)
+    let negated_or negated =
+      if Term.is_node negated
+      then
+
+        if Term.node_symbol_of_term negated == Symbol.s_or
+        then
+          (* Term is an or. *)
+          Term.node_args_of_term negated
+          |> List.mem (Term.negate rhs)
+
+        else false
+      else false
+    in
+
+    (* Is rhs an application? *)
+    if Term.is_node lhs
+    then
+
+      ( if Term.node_symbol_of_term lhs == Symbol.s_and
+        then
+          (* Lhs is an and. *)
+          Term.node_args_of_term lhs |> List.mem rhs
+
+
+        else if Term.node_symbol_of_term lhs == Symbol.s_not
+        then
+          (* Lhs is a not, need to check if there is an or below. *)
+          ( match Term.node_args_of_term lhs with
+
+            (* Well founded not. *)
+            | [ negated ] -> negated_or negated
+
+            (* Dunno what that is. *)
+            | _ -> false )
+
+        else false )
+
+    else false
+    
+   
+
+
+  (* Tests if [lhs] and [rhs] are arithmetic operators that
+     trivially imply each other, such as [x<=2] and [x<=0]. *)
+  let trivial_impl_arith lhs rhs =
+
+    (* Returns true if the two input terms are arith constants and
+       the first one is greater than or equal to the second one. *)
+    let term_geq t1 t2 =
+      if (Term.is_numeral t1) && (Term.is_numeral t2)
+      then
+        (* Comparing numerals. *)
+        Numeral.(
+          (Term.numeral_of_term t1) >= (Term.numeral_of_term t2)
+        )
+
+      else if (Term.is_decimal t1) && (Term.is_decimal t2)
+      then
+        (* Comparing decimals. *)
+        Decimal.(
+          (Term.decimal_of_term t1) >= (Term.decimal_of_term t2)
+        )
+
+      else
+        (* Uncomparable terms. *)
+        false
+    in
+
+    (* Are lhs and rhs applications? *)
+    if (Term.is_node lhs) && (Term.is_node rhs)
+    then
+
+      (* Are rhs and lhs similar applications? *)
+      if
+        (Term.node_symbol_of_term lhs)
+        == (Term.node_symbol_of_term rhs)
+      then (
+
+        match
+          (Term.node_args_of_term lhs),
+          (Term.node_args_of_term rhs)
+        with
+
+          | [kid1 ; kid2], [kid1' ; kid2'] ->
+
+            (* If lhs and rhs are applications of [symbol], and if
+               [kid1] and [kid1'] are the same variables then return
+               [operator kid2 kid2']. Else, if [kid2] and [kid2']
+               are the same variables then return [operator kid1'
+               kid1]. Otherwise return false. *)
+            let compare symbol operator =
+
+              if (Term.node_symbol_of_term lhs) == symbol
+              then
+
+                ( if
+                    (Term.is_free_var kid1)
+                    && (Term.is_free_var kid1')
+                  then
+
+                    ( (Term.free_var_of_term kid1) ==
+                        (Term.free_var_of_term kid1') )
+                    && ( operator kid2 kid2' )
+
+                  else if
+                      (Term.is_free_var kid2)
+                      && (Term.is_free_var kid2')
+                  then
+
+                    ( (Term.free_var_of_term kid2)
+                      == (Term.free_var_of_term kid2') )
+                    && ( operator kid1' kid1 )
+
+                  else false )
+                  
+              else false
+
+            in
+
+
+            (* Returns true if
+               [x>=n  x>=n' and n  >= n']
+               [n>=x n'>=x  and n' >= n] *)
+            (compare Symbol.s_geq term_geq)
+
+            (* Returns true if
+               [x>n  x>n'   and n  >= n']
+               [n>x n'>x    and n' >= n] *)
+            || (compare Symbol.s_gt term_geq)
+
+            (* Returns true if
+               [x<=n  x<=n' and n  <= n']
+               [n<=x n'<=x  and n' <= n] *)
+            || (compare
+                    Symbol.s_leq (fun t1 t2 -> term_geq t2 t1))
+
+            (* Returns true if
+               [x<n  x<n'   and n  <= n']
+               [n<x n'<x    and n' <= n] *)
+            || (compare
+                  Symbol.s_lt (fun t1 t2 -> term_geq t2 t1))
+
+
+          (* Kid count does not fit the template, returning
+             false. *)
+          | _ -> false
+
+      (* [rhs] and [lhs] are not similar applications, returning
+         false. *)
+      ) else false
+
+    (* [rhs] and [lhs] are not applications, returning false. *)
+    else false
+
+ 
+  
+  let structural_criterion term =
+    if Term.node_symbol_of_term term == Symbol.s_implies then
+        (* Term is indeed an implication. *)
+        ( match Term.node_args_of_term term with
+
+          (* Term is a well founded implication. *)
+          | [ lhs ; rhs ] ->
+             (* Checking if rhs is an and containing lhs, or a
+                negated or containing the negation of lhs. *)
+             (trivial_rhs_or lhs rhs)
+             (* Checking if lhs is an or containing lhs, or a
+                negated or containing the negation of lhs. *)
+             || (trivial_lhs_and lhs rhs)
+             (* Checking if lhs and rhs are arith operator and lhs
+                trivially implies rhs. *)
+             || (trivial_impl_arith lhs rhs)
+
+          (* Implication is not well-founded, crashing. *)
+          | _ -> assert false )
+    else
+      (* Node is not an implication. *)
+      true
+end
 
 
 (* Input signature of a graph-based invariant generation technique. *)
@@ -235,213 +470,6 @@ module Make (InModule : In) : Out = struct
   (* Filters candidate invariants from a set of term for step. *)
   let filter_step_candidates invariants ignore =
 
-    (* Tests if [rhs] is an [or] containing [lhs], or a negated and
-       containing the complement of [lhs]. *)
-    let trivial_rhs_or lhs rhs =
-
-      (* Returns true if [negated] is an or containing the complement
-         of [lhs]. Used if [rhs] is a not. *)
-      let negated_and negated =
-        if Term.is_node negated
-        then
-        
-          if Term.node_symbol_of_term negated == Symbol.s_and
-          then
-            (* Term is an and. *)
-            Term.node_args_of_term negated
-            |> List.mem (Term.negate lhs)
-
-          else false
-        else false
-      in
-    
-      (* Is rhs an application? *)
-      if Term.is_node rhs
-      then
-
-        ( if Term.node_symbol_of_term rhs == Symbol.s_or
-          then
-            (* Rhs is an or. *)
-            Term.node_args_of_term rhs |> List.mem lhs
-
-          else if Term.node_symbol_of_term rhs == Symbol.s_not
-          then
-            (* Rhs is a not, need to check if there is an and
-               below. *)
-            ( match Term.node_args_of_term rhs with
-
-              (* Well founded not. *)
-              | [ negated ] -> negated_and negated
-
-              (* Dunno what that is. *)
-              | _ -> false )
-
-          else false )
-      else false
-
-    in
-
-    (* Tests if [lhs] is an [and] containing [rhs], or a negated or
-       containing the complement of [rhs]. *)
-    let trivial_lhs_and lhs rhs =
-
-      (* Returns true if [negated] is an and containing the complement
-         of [rhs]. Used if [lhs] is a not. *)
-      let negated_or negated =
-        if Term.is_node negated
-        then
-
-          if Term.node_symbol_of_term negated == Symbol.s_or
-          then
-            (* Term is an or. *)
-            Term.node_args_of_term negated
-            |> List.mem (Term.negate rhs)
-
-          else false
-        else false
-      in
-
-      (* Is rhs an application? *)
-      if Term.is_node lhs
-      then
-
-        ( if Term.node_symbol_of_term lhs == Symbol.s_and
-          then
-            (* Lhs is an and. *)
-            Term.node_args_of_term lhs |> List.mem rhs
-
-
-          else if Term.node_symbol_of_term lhs == Symbol.s_not
-          then
-            (* Lhs is a not, need to check if there is an or below. *)
-            ( match Term.node_args_of_term lhs with
-
-              (* Well founded not. *)
-              | [ negated ] -> negated_or negated
-
-              (* Dunno what that is. *)
-              | _ -> false )
-
-          else false )
-
-      else false
-
-    in
-
-    (* Tests if [lhs] and [rhs] are arithmetic operators that
-       trivially imply each other, such as [x<=2] and [x<=0]. *)
-    let trivial_impl_arith lhs rhs =
-
-      (* Returns true if the two input terms are arith constants and
-         the first one is greater than or equal to the second one. *)
-      let term_geq t1 t2 =
-        if (Term.is_numeral t1) && (Term.is_numeral t2)
-        then
-          (* Comparing numerals. *)
-          Numeral.(
-            (Term.numeral_of_term t1) >= (Term.numeral_of_term t2)
-          )
-
-        else if (Term.is_decimal t1) && (Term.is_decimal t2)
-        then
-          (* Comparing decimals. *)
-          Decimal.(
-            (Term.decimal_of_term t1) >= (Term.decimal_of_term t2)
-          )
-
-        else
-          (* Uncomparable terms. *)
-          false
-      in
-
-      (* Are lhs and rhs applications? *)
-      if (Term.is_node lhs) && (Term.is_node rhs)
-      then
-
-        (* Are rhs and lhs similar applications? *)
-        if
-          (Term.node_symbol_of_term lhs)
-          == (Term.node_symbol_of_term rhs)
-        then (
-
-          match
-            (Term.node_args_of_term lhs),
-            (Term.node_args_of_term rhs)
-          with
-
-            | [kid1 ; kid2], [kid1' ; kid2'] ->
-
-              (* If lhs and rhs are applications of [symbol], and if
-                 [kid1] and [kid1'] are the same variables then return
-                 [operator kid2 kid2']. Else, if [kid2] and [kid2']
-                 are the same variables then return [operator kid1'
-                 kid1]. Otherwise return false. *)
-              let compare symbol operator =
-
-                if (Term.node_symbol_of_term lhs) == symbol
-                then
-
-                  ( if
-                      (Term.is_free_var kid1)
-                      && (Term.is_free_var kid1')
-                    then
-
-                      ( (Term.free_var_of_term kid1) ==
-                          (Term.free_var_of_term kid1') )
-                      && ( operator kid2 kid2' )
-
-                    else if
-                        (Term.is_free_var kid2)
-                        && (Term.is_free_var kid2')
-                    then
-
-                      ( (Term.free_var_of_term kid2)
-                        == (Term.free_var_of_term kid2') )
-                      && ( operator kid1' kid1 )
-
-                    else false )
-                    
-                else false
-
-              in
-
-
-              (* Returns true if
-                 [x>=n  x>=n' and n  >= n']
-                 [n>=x n'>=x  and n' >= n] *)
-              (compare Symbol.s_geq term_geq)
-
-              (* Returns true if
-                 [x>n  x>n'   and n  >= n']
-                 [n>x n'>x    and n' >= n] *)
-              || (compare Symbol.s_gt term_geq)
-
-              (* Returns true if
-                 [x<=n  x<=n' and n  <= n']
-                 [n<=x n'<=x  and n' <= n] *)
-              || (compare
-                      Symbol.s_leq (fun t1 t2 -> term_geq t2 t1))
-
-              (* Returns true if
-                 [x<n  x<n'   and n  <= n']
-                 [n<x n'<x    and n' <= n] *)
-              || (compare
-                    Symbol.s_lt (fun t1 t2 -> term_geq t2 t1))
-
-
-            (* Kid count does not fit the template, returning
-               false. *)
-            | _ -> false
-
-        (* [rhs] and [lhs] are not similar applications, returning
-           false. *)
-        ) else false
-
-      (* [rhs] and [lhs] are not applications, returning false. *)
-      else false
-
-    in
-
     (* Function returning false for the candidate invariants to prune
        out. *)
     let filter_candidates term =
@@ -456,30 +484,6 @@ module Make (InModule : In) : Out = struct
         (* Applying offset criterion. *)
         let offset_filter =
           (Lazy.force lazy_offset_criterion) term
-        in
-
-        let structural_criterion () =
-          if Term.node_symbol_of_term term == Symbol.s_implies then
-              (* Term is indeed an implication. *)
-              ( match Term.node_args_of_term term with
-
-                (* Term is a well founded implication. *)
-                | [ lhs ; rhs ] ->
-                   (* Checking if rhs is an and containing lhs, or a
-                      negated or containing the negation of lhs. *)
-                   (trivial_rhs_or lhs rhs)
-                   (* Checking if lhs is an or containing lhs, or a
-                      negated or containing the negation of lhs. *)
-                   || (trivial_lhs_and lhs rhs)
-                   (* Checking if lhs and rhs are arith operator and lhs
-                      trivially implies rhs. *)
-                   || (trivial_impl_arith lhs rhs)
-
-                (* Implication is not well-founded, crashing. *)
-                | _ -> assert false )
-          else
-            (* Node is not an implication. *)
-            true
         in
 
         offset_filter
@@ -591,7 +595,8 @@ module Make (InModule : In) : Out = struct
               (* Adding invariants to the transition system. *)
               terms'
               |> List.map
-                   (TransSys.add_invariant sub_sys) ;
+                   (TransSys.add_invariant sub_sys)
+              |> ignore ;
               (* Broadcasting invariants. *)
               terms'
               |> List.iter
@@ -769,23 +774,13 @@ module Make (InModule : In) : Out = struct
     (* Returning new binding and base instance flag. *)
     (sys, graph', invariants', ignore'), unsat_on_first_check
 
-  let lazy_max_successive =
-    lazy
-      ( (* match *)
-        (*   Flags.invgengraph_max_successive () *)
-        (* with *)
-        (* | n when n > 0 -> *)
-        (*    (fun count -> count > n) *)
-        (* | _ -> *)
-           (fun count -> false) )
-
   (* Iterates on a [sys], [graph], [invariants] until the base
      instance is unsat on the first check or the upper bound given by
      the flags has been reached. *)
   let iterate_on_binding top_sys lsd (binding, cand_count) =
-    let max_successive = Lazy.force lazy_max_successive in
 
     let rec loop count ((sys,_,invs,_) as binding) =
+      (*
       let k = LSD.get_k lsd sys in
       debug
         invGen
@@ -797,11 +792,12 @@ module Make (InModule : In) : Out = struct
         (k |> Numeral.to_int)
         (TSet.cardinal invs)
         cand_count in
+      *)
       (* Getting new binding and base flag. *)
       let binding', base_unsat_on_first_check =
         rewrite_graph_find_invariants top_sys lsd binding
       in
-      let k' = LSD.get_k lsd sys in
+
       if
         base_unsat_on_first_check
         || Flags.invgengraph_max_succ () <= count

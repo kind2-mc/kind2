@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -122,7 +122,7 @@ let choose_term (bool_terms, int_terms) =
     | h :: tl as terms -> 
 
       (* Heuristic to choose terms *)
-      match Flags.pdr_extract () with 
+      match Flags.ic3_extract () with 
 
         (* Always pick the first term *)
         | `First -> List.hd terms 
@@ -238,7 +238,7 @@ let extract uf_defs env term =
   and extract_term_flat ((bool, int) as accum) polarity env = function 
 
     (* Constant *)
-    | Term.T.Const s as term -> 
+    | Term.T.Const s -> 
 
       (match Symbol.node_of_symbol s with
 

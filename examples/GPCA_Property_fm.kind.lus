@@ -4238,9 +4238,11 @@ var
    GPCA_Property_fm_Assertion_1_4_10_2_step_Tolerance_Integer_Delay1_0: bool; 
    GPCA_Property_fm_Assertion_1_10_5_Implication_Logical_Operator1: bool; 
    GPCA_Property_fm_Assertion_1_10_5_2_step_Tolerance_Integer_Delay1_0: bool; 
-   GPCA_Property_fm_Assertion_3_4_6_Compare_To_Constant1_rlt_MWI_FcnRoundNearest_Out131: real; 
-   GPCA_Property_fm_Assertion_1_10_5_Compare_To_Constant_rlt_MWI_FcnRoundNearest_Out131: real; 
-   GPCA_Property_fm_Assertion_3_4_1_Compare_To_Constant_rlt_MWI_FcnRoundNearest_Out131: real; 
+
+  -- these were of type real, turned into int to type check
+   GPCA_Property_fm_Assertion_3_4_6_Compare_To_Constant1_rlt_MWI_FcnRoundNearest_Out131:int; 
+   GPCA_Property_fm_Assertion_1_10_5_Compare_To_Constant_rlt_MWI_FcnRoundNearest_Out131: int; 
+  GPCA_Property_fm_Assertion_3_4_1_Compare_To_Constant_rlt_MWI_FcnRoundNearest_Out131: int; 
    all_asserts_ok: bool;
 
 
