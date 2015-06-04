@@ -121,9 +121,9 @@ val ind_compress_same_pred : unit -> ind_compress_same_pred
 type ind_lazy_invariants = bool
 val ind_lazy_invariants : unit -> ind_lazy_invariants
 
-(** Output inductive counterexample *)
+(* (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool
-val ind_print_inductive_cex : unit -> ind_print_inductive_cex
+val ind_print_inductive_cex : unit -> ind_print_inductive_cex *)
 
 (** Algorithm for quantifier elimination in IC3 *)
 type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]

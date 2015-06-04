@@ -356,9 +356,9 @@ let ind_lazy_invariants_default = false
 
 (* ********** *) 
 
-type ind_print_inductive_cex = bool
+(* type ind_print_inductive_cex = bool
     
-let ind_print_inductive_cex_default = true
+let ind_print_inductive_cex_default = true *)
 
 (* ********** *) 
 
@@ -603,7 +603,7 @@ type flags =
     mutable ind_compress_same_succ : ind_compress_same_succ;
     mutable ind_compress_same_pred : ind_compress_same_pred;
     mutable ind_lazy_invariants : ind_lazy_invariants;
-    mutable ind_print_inductive_cex : ind_print_inductive_cex;
+    (* mutable ind_print_inductive_cex : ind_print_inductive_cex; *)
     mutable ic3_qe : ic3_qe;
     mutable ic3_extract : ic3_extract;
     mutable ic3_check_inductive : ic3_check_inductive;
@@ -654,7 +654,7 @@ let flags =
     ind_compress_same_succ = ind_compress_same_succ_default;
     ind_compress_same_pred = ind_compress_same_pred_default;
     ind_lazy_invariants = ind_lazy_invariants_default;
-    ind_print_inductive_cex = ind_print_inductive_cex_default;
+    (* ind_print_inductive_cex = ind_print_inductive_cex_default; *)
     ic3_qe = ic3_qe_default;
     ic3_extract = ic3_extract_default;
     ic3_check_inductive = ic3_check_inductive_default;
@@ -885,14 +885,14 @@ let ind_lazy_invariants_spec =
    Format.sprintf "(IND) Asserts invariants lazily (default: %B)" ind_lazy_invariants_default)
 
 (* ********** *) 
-
+(* 
 let ind_print_inductive_cex_action o = flags.ind_print_inductive_cex <- o
   
 let ind_print_inductive_cex_spec = 
   ("--ind_print_inductive_cex", 
    Arg.Bool ind_print_inductive_cex_action, 
    Format.sprintf "(IND) Print inductive counterexamples (default: %B)"
-                  ind_print_inductive_cex_default)
+                  ind_print_inductive_cex_default) *)
 
 (* ********** *) 
 
@@ -1224,7 +1224,7 @@ let ind_compress_same_pred () = flags.ind_compress_same_pred
 
 let ind_lazy_invariants () = flags.ind_lazy_invariants
 
-let ind_print_inductive_cex () = flags.ind_print_inductive_cex 
+(* let ind_print_inductive_cex () = flags.ind_print_inductive_cex  *)
 
 let ic3_qe () = flags.ic3_qe 
 
@@ -1364,8 +1364,8 @@ and speclist =
     (* Compress inductive counterexamples when states have same predecessors *)
     ind_lazy_invariants_spec;
 
-    (* Compress inductive counterexamples *)
-    ind_print_inductive_cex_spec;
+    (* Print inductive counterexamples *)
+    (* ind_print_inductive_cex_spec; *)
 
     (* Set QE in IC3 *)
     ic3_qe_spec;
