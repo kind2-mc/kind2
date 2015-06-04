@@ -115,7 +115,6 @@ AUTOGEN_FILES=configure \
 	      ocamlczmq/zeromq/builds/msvc/Makefile.in			\
 	      ocamlczmq/zeromq/config/compile				\
 	      ocamlczmq/zeromq/config/config.guess			\
-	      ocamlczmq/zeromq/config/config.sub			\
 	      ocamlczmq/zeromq/config/depcomp				\
 	      ocamlczmq/zeromq/config/install-sh			\
 	      ocamlczmq/zeromq/config/ltmain.sh				\
