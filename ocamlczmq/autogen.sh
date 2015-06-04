@@ -10,5 +10,5 @@ pushd zeromq && sh autogen.sh && popd
 pushd czmq && sh autogen.sh && popd
 
 # Generate our configure 
-autoreconf -vfi
+autoreconf -v
 
