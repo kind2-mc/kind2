@@ -258,28 +258,6 @@ let instantiate_term { callers } term =
   |> List.map
        ( fun (sys, maps) ->
 
-        (* FIXME: why is this unused?
-
-         let print_map =
-           (* Turns a map from state vars to terms into a string. *)
-           let string_of_map map =
-             map
-             |> List.map
-                  ( fun (v,t) ->
-                    Printf.sprintf "(%s -> %s)"
-                                   (StateVar.string_of_state_var v)
-                                   (StateVar.string_of_state_var t) )
-             |> String.concat ", "
-           in
-           
-           List.map
-             (fun map ->
-              Printf.printf "  Mapping to [%s]:\n"
-                            (String.concat "/" sys.scope) ;
-              Printf.printf "  > %s\n\n" (string_of_map map) )
-         in
-         *)
-
          (* Building one new term per instantiation mapping for
             sys. *)
          let terms =
