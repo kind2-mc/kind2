@@ -1,17 +1,17 @@
 
 #----------------------------------------------------------------------
-#           SETTINGS FOR THE ELIOM PROJECT jobserver
+#           SETTINGS FOR THE ELIOM PROJECT pullrequest_server
 #----------------------------------------------------------------------
 
-PROJECT_NAME := jobserver
+PROJECT_NAME := pullrequest_server
 
 # Source files for the server
-SERVER_FILES :=   lib.mli lib.ml jobs.mli jobs.ml $(wildcard *.eliomi *.eliom)
+SERVER_FILES := $(wildcard *.eliomi *.eliom)
 # Source files for the client
 CLIENT_FILES := $(wildcard *.eliomi *.eliom)
 
 # OCamlfind packages for the server
-SERVER_PACKAGES :=
+SERVER_PACKAGES := yojson
 # OCamlfind packages for the client
 CLIENT_PACKAGES :=
 

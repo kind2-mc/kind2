@@ -45,8 +45,8 @@
 
 
 
-# timeout set to 5 minutes for now
-TIMEOUT="300"
+# timeout set to 2 minutes for now
+TIMEOUT="120"
 
 # command line arguments
 pr_nb=$1
