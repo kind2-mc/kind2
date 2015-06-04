@@ -130,7 +130,8 @@ let choose_term (bool_terms, int_terms) =
         (* Pick the term with the fewest new integer variables *)
         | `Vars -> 
 
-          (debug extract
+          (
+           debug extract
               "choose_term candidates:@ @[<hv 1>[%a]@]"
               (pp_print_list Term.pp_print_term ";@ ") terms
            in
@@ -173,11 +174,13 @@ let choose_term (bool_terms, int_terms) =
               tl
           in
 
-          (debug extract
+          (
+
+           debug extract
               "choose_term picked@ %a"
               Term.pp_print_term term
            in
-           
+
            term))
 
 
@@ -252,9 +255,11 @@ let extract uf_defs env term =
         (* Propositional constant true to be false *)
         | `TRUE -> 
 
-          (debug extract 
+          (
+
+           debug extract 
               "@[<hv 1>%a@]@ to be@ %B" 
-              Term.pp_print_term (Term.T.construct term)
+              Term.pp_print_term (Term.mk_const s)
               polarity
            in
 
@@ -265,9 +270,11 @@ let extract uf_defs env term =
         (* Propositional constant false to be true *)
         | `FALSE when polarity -> 
 
-          (debug extract 
+          (
+
+           debug extract 
               "@[<hv 1>%a@]@ to be@ %B" 
-              Term.pp_print_term (Term.T.construct term)
+              Term.pp_print_term (Term.mk_const s)
               polarity
            in
 
@@ -356,7 +363,9 @@ let extract uf_defs env term =
 
                   with Not_found -> 
 
-                    (debug extract 
+                    (
+
+                     debug extract 
                         "@[<hv 1>%a@]@ to be@ %B" 
                         Term.pp_print_term (Term.T.construct term)
                         polarity
@@ -438,7 +447,9 @@ let extract uf_defs env term =
 
               with Not_found -> 
 
-                (debug extract 
+                (
+
+                  debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
                     polarity
@@ -478,7 +489,9 @@ let extract uf_defs env term =
 
               with Not_found -> 
 
-                (debug extract 
+                (
+
+                 debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
                     polarity
@@ -565,7 +578,9 @@ let extract uf_defs env term =
         (* Equality *)
         | `EQ as s -> 
 
-          (debug extract 
+          (
+
+           debug extract 
               "@[<hv 1>%a@]@ %a to be@ %B" 
               Term.pp_print_term (Term.T.construct term)
               Type.pp_print_type (Term.type_of_term (Term.T.construct term))
@@ -841,7 +856,7 @@ let extract uf_defs env term =
                         Term.pp_print_term p
                         Term.pp_print_term (Term.construct fterm)
                     in
-                    
+
                     assert false
 
                 then 

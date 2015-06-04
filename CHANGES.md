@@ -3,11 +3,13 @@
 - Optimize IC3/PDR engine 
 - Add experimental IC3 with implicit abstraction 
 - Support Yices 1 and 2 as SMT solvers 
-- Add graph-based invariant generation
+- Add two modular versions of the [graph-based invariant generation from PKind](http://link.springer.com/chapter/10.1007%2F978-3-642-20398-5_15).
 - Optimize Lustre translation and internal term data structures
 - Add path compression in k-induction
 - Optimize queries to SMT solvers with check-sat with assumption instead of push/pop
 - Return Lustre counterexamples faithful to input by undoing optimizations in translation
 - Improve output and logging
 - Web service to accept jobs from remote clients
-- many bug and performance fixes
+- Many bug and performance fixes
+
+Refer to the [user documentation](https://github.com/kind2-mc/kind2/blob/develop/doc/usr/content/Home.md#kind-2) for more details.
