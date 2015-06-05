@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -78,7 +78,7 @@ let smtsolver_flag =
 
 
 let kind_module_of_string = function
-  | "PDR" -> `PDR
+  | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
@@ -89,7 +89,7 @@ let kind_module_of_string = function
 let pp_print_kind_module ppf = 
   let p = Format.fprintf ppf in 
   function
-    | `PDR -> p "PDR"
+    | `IC3 -> p "IC3"
     | `BMC -> p "BMC"
     | `IND -> p "IND"
     | `INVGEN -> p "INVGEN"
@@ -203,6 +203,16 @@ let z3_bin_default = "z3"
 
 (* ********** *) 
 
+type z3_check_sat_assume = bool
+
+let z3_check_sat_assume_of_string s = s
+
+let string_of_z3_check_sat_assume s = s 
+
+let z3_check_sat_assume_default = true
+
+(* ********** *) 
+
 type cvc4_bin = string 
 
 let cvc4_bin_of_string s = s
@@ -301,12 +311,12 @@ let certif_dir_default = Sys.getcwd ()
 
 (* ********** *) 
 
-(* type kind_module = [ `PDR | `BMC | `IND | `INVGEN ] *)
+(* type kind_module = [ `IC3 | `BMC | `IND | `INVGEN ] *)
 
 type enable = kind_module list 
 
 let kind_module_of_string = function
-  | "PDR" -> `PDR
+  | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
@@ -315,7 +325,7 @@ let kind_module_of_string = function
   | _ -> raise (Arg.Bad "Bad value for --enable")
 
 let string_of_kind_module = function
-  | `PDR -> "PDR"
+  | `IC3 -> "IC3"
   | `BMC -> "BMC"
   | `IND -> "IND"
   | `INVGEN -> "INVGEN"
@@ -341,11 +351,11 @@ let string_of_enable = function
     ^ "]"
   | [] -> "[]"
 
-let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
+let enable_values = "IC3, BMC, IND, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`BMC; `IND; `PDR; `INVGEN; `INVGENOS]
+let enable_default_after = [`BMC; `IND; `IC3; `INVGEN; `INVGENOS]
 
 (* ********** *) 
 
@@ -391,124 +401,126 @@ let ind_lazy_invariants_default = false
 
 (* ********** *) 
 
-type ind_print_inductive_cex = bool
+(* type ind_print_inductive_cex = bool
     
-let ind_print_inductive_cex_default = true
-
-(* ********** *) 
-type pdr_check_inductive = bool
-    
-let string_of_pdr_check_inductive = string_of_bool
-
-let pdr_check_inductive_default = true
+let ind_print_inductive_cex_default = true *)
 
 (* ********** *) 
 
-type pdr_fwd_prop_check_multi = bool
+type ic3_check_inductive = bool
     
-let string_of_pdr_fwd_prop_check_multi = string_of_bool
+let string_of_ic3_check_inductive = string_of_bool
 
-let pdr_fwd_prop_check_multi_default = false
+let ic3_check_inductive_default = true
 
 (* ********** *) 
 
-type pdr_print_inductive_assertions = bool
+type ic3_print_to_file = string option
     
-let string_of_pdr_print_inductive_assertions = string_of_bool
-
-let pdr_print_inductive_assertions_default = false
+let ic3_print_to_file_default = None
 
 (* ********** *) 
 
-type pdr_print_blocking_clauses = bool
+type ic3_inductively_generalize = int
     
-let string_of_pdr_print_blocking_clauses = string_of_bool
+let string_of_ic3_inductively_generalize = string_of_int
 
-let pdr_print_blocking_clauses_default = false
+let ic3_inductively_generalize_default = 1
 
 (* ********** *) 
 
-type pdr_print_to_file = string option
+type ic3_block_in_future = bool
     
-let pdr_print_to_file_default = None
+let string_of_ic3_block_in_future = string_of_bool
+
+let ic3_block_in_future_default = true
 
 (* ********** *) 
 
-type pdr_tighten_to_unsat_core = bool
+type ic3_block_in_future_first = bool
     
-let string_of_pdr_tighten_to_unsat_core = string_of_bool
+let string_of_ic3_block_in_future_first = string_of_bool
 
-let pdr_tighten_to_unsat_core_default = true
+let ic3_block_in_future_first_default = true
 
 (* ********** *) 
 
-type pdr_inductively_generalize = int
+type ic3_fwd_prop_non_gen = bool
     
-let string_of_pdr_inductively_generalize = string_of_int
+let string_of_ic3_fwd_prop_non_gen = string_of_bool
 
-let pdr_inductively_generalize_default = 1
+let ic3_fwd_prop_non_gen_default = true
 
 (* ********** *) 
 
-type pdr_block_in_future = bool
+type ic3_fwd_prop_ind_gen = bool
     
-let string_of_pdr_block_in_future = string_of_bool
+let string_of_ic3_fwd_prop_ind_gen = string_of_bool
 
-let pdr_block_in_future_default = true
+let ic3_fwd_prop_ind_gen_default = true
+
+(* ********** *) 
+type ic3_fwd_prop_subsume = bool
+    
+let string_of_ic3_fwd_prop_subsume = string_of_bool
+
+let ic3_fwd_prop_subsume_default = true
 
 (* ********** *) 
 
-type pdr_print_inductive_invariant = bool
+type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
     
-let string_of_pdr_print_inductive_invariant = string_of_bool
-
-let pdr_print_inductive_invariant_default = false
-
-(* ********** *) 
-
-type pdr_check_inductive_invariant = bool
-    
-let string_of_pdr_check_inductive_invariant = string_of_bool
-
-let pdr_check_inductive_invariant_default = false
-
-(* ********** *) 
-
-type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
-    
-let pdr_qe_of_string = function
+let ic3_qe_of_string = function
   | "Z3" -> `Z3
   | "Z3-impl" -> `Z3_impl
   | "Z3-impl2" -> `Z3_impl2
   | "cooper" -> `Cooper
-  | _ -> raise (Arg.Bad "Bad value for --pdr_qe")
+  | _ -> raise (Arg.Bad "Bad value for --ic3_qe")
 
-let string_of_pdr_qe = function 
+let string_of_ic3_qe = function 
   | `Z3 -> "Z3"
   |  `Z3_impl -> "Z3-impl"
   |  `Z3_impl2 -> "Z3-impl2"
   | `Cooper -> "cooper"
 
-let pdr_qe_values = "Z3, Z3-impl, Z3-impl-2, cooper"
+let ic3_qe_values = "Z3, Z3-impl, Z3-impl-2, cooper"
 
-let pdr_qe_default = `Cooper
+let ic3_qe_default = `Cooper
 
 (* ********** *) 
 
-type pdr_extract = [ `First | `Vars ]
+type ic3_extract = [ `First | `Vars ]
     
-let pdr_extract_of_string = function
+let ic3_extract_of_string = function
   | "first" -> `First
   | "vars" -> `Vars
-  | _ -> raise (Arg.Bad "Bad value for --pdr_extract")
+  | _ -> raise (Arg.Bad "Bad value for --ic3_extract")
 
-let string_of_pdr_extract = function 
+let string_of_ic3_extract = function 
   | `First -> "first"
   | `Vars -> "vars"
 
-let pdr_extract_values = "first, vars"
+let ic3_extract_values = "first, vars"
 
-let pdr_extract_default = `First
+let ic3_extract_default = `First
+
+
+(* ********** *) 
+
+type ic3_abstr = [ `None | `IA ] 
+
+let ic3_abstr_of_string = function
+| "None" -> `None
+| "IA" -> `IA
+| _ -> raise (Arg.Bad "Bad value for --ic3_abstr")
+
+let string_of_ic3_abstr = function
+| `IA -> "IA"
+| `None -> "None"
+
+let ic3_abstr_values = "IA, None"
+
+let ic3_abstr_default = `None
 
 (* ********** *) 
  
@@ -627,61 +639,61 @@ let log_format_xml_default = false
 (* ********** *) 
 
 (* All flags *)
-type flags = 
-    { mutable timeout_wall : float;
-      mutable timeout_virtual : float;
-      mutable smtsolver : smtsolver;
-      mutable smtlogic : smtlogic;
-      mutable z3_bin : z3_bin;
-      mutable cvc4_bin : cvc4_bin;
-      mutable mathsat5_bin : mathsat5_bin;
-      mutable yices_bin : yices_bin;
-      mutable yices2smt2_bin : yices2smt2_bin;
-      mutable smt_trace : smt_trace;
-      mutable smt_trace_dir : smt_trace_dir;
-      mutable jkind_bin : jkind_bin;
-      mutable dump_native : dump_native;
-      mutable dump_dir : dump_dir;
-      mutable enable : enable;
-      mutable check_version : check_version;
-      mutable bmc_max : bmc_max;
-      mutable ind_compress : ind_compress;
-      mutable ind_compress_equal : ind_compress_equal;
-      mutable ind_compress_same_succ : ind_compress_same_succ;
-      mutable ind_compress_same_pred : ind_compress_same_pred;
-      mutable ind_lazy_invariants : ind_lazy_invariants;
-      mutable ind_print_inductive_cex : ind_print_inductive_cex;
-      mutable pdr_qe : pdr_qe;
-      mutable pdr_extract : pdr_extract;
-      mutable pdr_check_inductive : pdr_check_inductive;
-      mutable pdr_fwd_prop_check_multi : pdr_fwd_prop_check_multi;
-      mutable pdr_print_inductive_assertions : pdr_print_inductive_assertions;
-      mutable pdr_print_blocking_clauses : pdr_print_blocking_clauses;
-      mutable pdr_print_to_file : pdr_print_to_file;
-      mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
-      mutable pdr_inductively_generalize : pdr_inductively_generalize;
-      mutable pdr_block_in_future : pdr_block_in_future;
-      mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
-      mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
-      mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
-      mutable cooper_general_lbound : cooper_general_lbound;
-      mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
-      mutable invgengraph_max_succ : invgengraph_max_succ;
-      mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
-      mutable invgengraph_mine_trans : invgengraph_mine_trans;
-      mutable invgengraph_renice : invgengraph_renice;
-      mutable interpreter_input_file : interpreter_input_file;
-      mutable interpreter_steps : interpreter_steps;
-      mutable lustre_main : lustre_main;
-      mutable debug : string list;
-      mutable debug_log : string option;
-      mutable log_level : log_level;
-      mutable log_format_xml : bool;
-      mutable certif : certif;
-      mutable certif_min : certif_min;
-      mutable certif_dir : certif_dir;
-      mutable input_format : [`Default | input_format];
-      mutable input_file : string option }
+type flags =
+  { mutable timeout_wall : float;
+    mutable timeout_virtual : float;
+    mutable smtsolver : smtsolver;
+    mutable smtlogic : smtlogic;
+    mutable z3_bin : z3_bin;
+    mutable z3_check_sat_assume : z3_check_sat_assume;
+    mutable cvc4_bin : cvc4_bin;
+    mutable mathsat5_bin : mathsat5_bin;
+    mutable yices_bin : yices_bin;
+    mutable yices2smt2_bin : yices2smt2_bin;
+    mutable smt_trace : smt_trace;
+    mutable smt_trace_dir : smt_trace_dir;
+    mutable jkind_bin : jkind_bin;
+    mutable dump_native : dump_native;
+    mutable dump_dir : dump_dir;
+    mutable enable : enable;
+    mutable check_version : check_version;
+    mutable bmc_max : bmc_max;
+    mutable ind_compress : ind_compress;
+    mutable ind_compress_equal : ind_compress_equal;
+    mutable ind_compress_same_succ : ind_compress_same_succ;
+    mutable ind_compress_same_pred : ind_compress_same_pred;
+    mutable ind_lazy_invariants : ind_lazy_invariants;
+    (* mutable ind_print_inductive_cex : ind_print_inductive_cex; *)
+    mutable ic3_qe : ic3_qe;
+    mutable ic3_extract : ic3_extract;
+    mutable ic3_check_inductive : ic3_check_inductive;
+    mutable ic3_print_to_file : ic3_print_to_file;
+    mutable ic3_inductively_generalize : ic3_inductively_generalize;
+    mutable ic3_block_in_future : ic3_block_in_future;
+    mutable ic3_block_in_future_first : ic3_block_in_future_first;
+    mutable ic3_fwd_prop_non_gen : ic3_fwd_prop_non_gen;
+    mutable ic3_fwd_prop_ind_gen : ic3_fwd_prop_ind_gen;
+    mutable ic3_fwd_prop_subsume : ic3_fwd_prop_subsume;
+    mutable ic3_abstr : ic3_abstr;
+    mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
+    mutable cooper_general_lbound : cooper_general_lbound;
+    mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
+    mutable invgengraph_max_succ : invgengraph_max_succ;
+    mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
+    mutable invgengraph_mine_trans : invgengraph_mine_trans;
+    mutable invgengraph_renice : invgengraph_renice;
+    mutable interpreter_input_file : interpreter_input_file;
+    mutable interpreter_steps : interpreter_steps;
+    mutable lustre_main : lustre_main;
+    mutable debug : string list;
+    mutable debug_log : string option;
+    mutable log_level : log_level;
+    mutable log_format_xml : bool;
+    mutable certif : certif;
+    mutable certif_min : certif_min;
+    mutable certif_dir : certif_dir;
+    mutable input_format : [`Default | input_format];
+    mutable input_file : string option }
     
 (* Defaults for all flags *)
 let flags = 
@@ -690,6 +702,7 @@ let flags =
     smtsolver = smtsolver_default;
     smtlogic = smtlogic_default;
     z3_bin = z3_bin_default;
+    z3_check_sat_assume = z3_check_sat_assume_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
@@ -707,19 +720,18 @@ let flags =
     ind_compress_same_succ = ind_compress_same_succ_default;
     ind_compress_same_pred = ind_compress_same_pred_default;
     ind_lazy_invariants = ind_lazy_invariants_default;
-    ind_print_inductive_cex = ind_print_inductive_cex_default;
-    pdr_qe = pdr_qe_default;
-    pdr_extract = pdr_extract_default;
-    pdr_check_inductive = pdr_check_inductive_default;
-    pdr_fwd_prop_check_multi = pdr_fwd_prop_check_multi_default;
-    pdr_print_inductive_assertions = pdr_print_inductive_assertions_default;
-    pdr_print_blocking_clauses = pdr_print_blocking_clauses_default;
-    pdr_print_to_file = pdr_print_to_file_default;
-    pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
-    pdr_inductively_generalize = pdr_inductively_generalize_default;
-    pdr_block_in_future = pdr_block_in_future_default;
-    pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
-    pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
+    (* ind_print_inductive_cex = ind_print_inductive_cex_default; *)
+    ic3_qe = ic3_qe_default;
+    ic3_extract = ic3_extract_default;
+    ic3_check_inductive = ic3_check_inductive_default;
+    ic3_print_to_file = ic3_print_to_file_default;
+    ic3_inductively_generalize = ic3_inductively_generalize_default;
+    ic3_fwd_prop_non_gen = ic3_fwd_prop_non_gen_default;
+    ic3_fwd_prop_ind_gen = ic3_fwd_prop_ind_gen_default;
+    ic3_block_in_future = ic3_block_in_future_default;
+    ic3_block_in_future_first = ic3_block_in_future_first_default;
+    ic3_fwd_prop_subsume = ic3_fwd_prop_subsume_default;
+    ic3_abstr = ic3_abstr_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
     invgengraph_prune_trivial = invgengraph_prune_trivial_default;
@@ -788,6 +800,15 @@ let z3_bin_spec =
    Arg.String z3_bin_action, 
    Format.sprintf "executable of Z3 solver (default: %s)"
                   (string_of_z3_bin z3_bin_default))
+
+(* ********** *) 
+
+let z3_check_sat_assume_action o = flags.z3_check_sat_assume <- o
+  
+let z3_check_sat_assume_spec = 
+  ("--z3_check_sat_assume", 
+   Arg.Bool z3_check_sat_assume_action, 
+   Format.sprintf "use check-sat with assumptions in Z3 (default: %B)" z3_check_sat_assume_default)
 
 (* ********** *) 
 
@@ -990,149 +1011,129 @@ let ind_lazy_invariants_spec =
    Format.sprintf "(IND) Asserts invariants lazily (default: %B)" ind_lazy_invariants_default)
 
 (* ********** *) 
-
+(* 
 let ind_print_inductive_cex_action o = flags.ind_print_inductive_cex <- o
   
 let ind_print_inductive_cex_spec = 
   ("--ind_print_inductive_cex", 
    Arg.Bool ind_print_inductive_cex_action, 
    Format.sprintf "(IND) Print inductive counterexamples (default: %B)"
-                  ind_print_inductive_cex_default)
+                  ind_print_inductive_cex_default) *)
 
 (* ********** *) 
 
-let pdr_qe_action o = flags.pdr_qe <- (pdr_qe_of_string o)
+let ic3_qe_action o = flags.ic3_qe <- (ic3_qe_of_string o)
   
-let pdr_qe_spec = 
-  ("--pdr_qe", 
-   Arg.String pdr_qe_action, 
-   Format.sprintf "(PDR) choose quantifier elimination algorithm \
+let ic3_qe_spec = 
+  ("--ic3_qe", 
+   Arg.String ic3_qe_action, 
+   Format.sprintf "(IC3) choose quantifier elimination algorithm \
                    (available: %s, default: %s)"
-                  pdr_qe_values (string_of_pdr_qe pdr_qe_default))
+                  ic3_qe_values (string_of_ic3_qe ic3_qe_default))
 
 (* ********** *) 
 
-let pdr_extract_action o = flags.pdr_extract <- (pdr_extract_of_string o)
+let ic3_extract_action o = flags.ic3_extract <- (ic3_extract_of_string o)
   
-let pdr_extract_spec = 
-  ("--pdr_extract", 
-   Arg.String pdr_extract_action, 
-   Format.sprintf "(PDR) Heuristics for extraction of implicant \
+let ic3_extract_spec = 
+  ("--ic3_extract", 
+   Arg.String ic3_extract_action, 
+   Format.sprintf "(IC3) Heuristics for extraction of implicant \
                    (available: %s, default: %s)"
-                  pdr_extract_values
-                  (string_of_pdr_extract pdr_extract_default))
+                  ic3_extract_values
+                  (string_of_ic3_extract ic3_extract_default))
 
 (* ********** *) 
 
-let pdr_check_inductive_action o = flags.pdr_check_inductive <- o
+let ic3_check_inductive_action o = flags.ic3_check_inductive <- o
   
-let pdr_check_inductive_spec = 
-  ("--pdr_check_inductive", 
-   Arg.Bool pdr_check_inductive_action, 
-   Format.sprintf "(PDR) Check inductiveness of blocking clauses (default: %s)"
-                  (string_of_pdr_check_inductive pdr_check_inductive_default))
+let ic3_check_inductive_spec = 
+  ("--ic3_check_inductive", 
+   Arg.Bool ic3_check_inductive_action, 
+   Format.sprintf "(IC3) Check inductiveness of blocking clauses (default: %s)"
+                  (string_of_ic3_check_inductive ic3_check_inductive_default))
 
 (* ********** *) 
 
-let pdr_fwd_prop_check_multi_action o = flags.pdr_fwd_prop_check_multi <- o
+let ic3_print_to_file_action o = 
+  flags.ic3_print_to_file <- Some o
   
-let pdr_fwd_prop_check_multi_spec = 
-  ("--pdr_fwd_prop_check_multi", 
-   Arg.Bool pdr_fwd_prop_check_multi_action, 
-   Format.sprintf
-     "(PDR) Simultaneous check for forward propagation (default: %s)"
-     (string_of_pdr_fwd_prop_check_multi pdr_fwd_prop_check_multi_default))
+let ic3_print_to_file_spec = 
+  ("--ic3_print_to_file", 
+   Arg.String ic3_print_to_file_action, 
+   Format.sprintf "(IC3) Output file for blocking clauses (default: stdout)")
 
 (* ********** *) 
 
-let pdr_print_inductive_assertions_action o = 
-  flags.pdr_print_inductive_assertions <- o
+let ic3_inductively_generalize_action o = flags.ic3_inductively_generalize <- o
   
-let pdr_print_inductive_assertions_spec = 
-  ("--pdr_print_inductive_assertions", 
-   Arg.Bool pdr_print_inductive_assertions_action, 
-   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)"
-                  (string_of_pdr_print_inductive_assertions
-                     pdr_print_inductive_assertions_default))
+let ic3_inductively_generalize_spec = 
+  ("--ic3_inductively_generalize", 
+   Arg.Int ic3_inductively_generalize_action, 
+   Format.sprintf "(IC3) Inductively generalize blocking clauses before forward propagation (0 = none, 1 = normal IG, 2 = IG with ordering) (default: %s)" (string_of_ic3_inductively_generalize ic3_inductively_generalize_default))
 
 (* ********** *) 
 
-let pdr_print_blocking_clauses_action o = 
-  flags.pdr_print_blocking_clauses <- o
+let ic3_block_in_future_action o = flags.ic3_block_in_future <- o
   
-let pdr_print_blocking_clauses_spec = 
-  ("--pdr_print_blocking_clauses", 
-   Arg.Bool pdr_print_blocking_clauses_action, 
-   Format.sprintf "(PDR) Output all blocking clauses (default: %s)"
-                  (string_of_pdr_print_blocking_clauses
-                     pdr_print_blocking_clauses_default))
-
-(* ********** *) 
-
-let pdr_print_to_file_action o = 
-  flags.pdr_print_to_file <- Some o
-  
-let pdr_print_to_file_spec = 
-  ("--pdr_print_to_file", 
-   Arg.String pdr_print_to_file_action, 
-   Format.sprintf "(PDR) Output file for blocking clauses (default: stdout)")
-
-(* ********** *) 
-
-let pdr_tighten_to_unsat_core_action o = flags.pdr_tighten_to_unsat_core <- o
-  
-let pdr_tighten_to_unsat_core_spec = 
-  ("--pdr_tighten_to_unsat_core", 
-   Arg.Bool pdr_tighten_to_unsat_core_action, 
-   Format.sprintf
-     "(PDR) Tighten blocking clauses to an unsatisfiable core (default: %s)"
-     (string_of_pdr_tighten_to_unsat_core pdr_tighten_to_unsat_core_default))
-
-(* ********** *) 
-
-let pdr_inductively_generalize_action o = flags.pdr_inductively_generalize <- o
-  
-let pdr_inductively_generalize_spec = 
-  ("--pdr_inductively_generalize", 
-   Arg.Int pdr_inductively_generalize_action, 
-   Format.sprintf "(PDR) Inductively generalize blocking clauses before forward propagation (0 = none, 1 = normal IG, 2 = IG with ordering) (default: %s)" (string_of_pdr_inductively_generalize pdr_inductively_generalize_default))
-
-(* ********** *) 
-
-let pdr_block_in_future_action o = flags.pdr_block_in_future <- o
-  
-let pdr_block_in_future_spec = 
-  ("--pdr_block_in_future", 
-   Arg.Bool pdr_block_in_future_action, 
-   Format.sprintf "(PDR) Block counterexample in future frames (default: %s)"
-                  (string_of_pdr_block_in_future pdr_block_in_future_default))
+let ic3_block_in_future_spec = 
+  ("--ic3_block_in_future", 
+   Arg.Bool ic3_block_in_future_action, 
+   Format.sprintf "(IC3) Block counterexample in future frames (default: %s)"
+                  (string_of_ic3_block_in_future ic3_block_in_future_default))
 
 (* ********** *) 
  
-let pdr_print_inductive_invariant_action o =
-  flags.pdr_print_inductive_invariant <- o
+let ic3_block_in_future_first_action o = flags.ic3_block_in_future_first <- o
   
-let pdr_print_inductive_invariant_spec = 
-  ("--pdr_print_inductive_invariant", 
-   Arg.Bool pdr_print_inductive_invariant_action, 
-   Format.sprintf
-     "(PDR) Print inductive invariant if property proved (default: %s)"
-     (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
+let ic3_block_in_future_first_spec = 
+  ("--ic3_block_in_future_first", 
+   Arg.Bool ic3_block_in_future_first_action, 
+   Format.sprintf "(IC3) Block counterexample in future frames first before returning to frame (default: %s)"
+                  (string_of_ic3_block_in_future_first ic3_block_in_future_first_default))
+
+(* ********** *) 
+ 
+let ic3_fwd_prop_non_gen_action o = flags.ic3_fwd_prop_non_gen <- o
+  
+let ic3_fwd_prop_non_gen_spec = 
+  ("--ic3_fwd_prop_non_gen", 
+   Arg.Bool ic3_fwd_prop_non_gen_action, 
+   Format.sprintf "(IC3) Also propagate clauses before generalization (default: %s)"
+                  (string_of_ic3_fwd_prop_non_gen ic3_fwd_prop_non_gen_default))
+
+(* ********** *) 
+ 
+let ic3_fwd_prop_ind_gen_action o = flags.ic3_fwd_prop_ind_gen <- o
+  
+let ic3_fwd_prop_ind_gen_spec = 
+  ("--ic3_fwd_prop_ind_gen", 
+   Arg.Bool ic3_fwd_prop_ind_gen_action, 
+   Format.sprintf "(IC3) Inductively generalize all clauses after forward propagation (default: %s)"
+                  (string_of_ic3_fwd_prop_ind_gen ic3_fwd_prop_ind_gen_default))
+
+(* ********** *) 
+ 
+let ic3_fwd_prop_subsume_action o = flags.ic3_fwd_prop_subsume <- o
+  
+let ic3_fwd_prop_subsume_spec = 
+  ("--ic3_fwd_prop_subsume", 
+   Arg.Bool ic3_fwd_prop_subsume_action, 
+   Format.sprintf "(IC3) Subsumption in forward propagation (default: %s)"
+                  (string_of_ic3_fwd_prop_subsume ic3_fwd_prop_subsume_default))
 
 (* ********** *) 
 
-let pdr_check_inductive_invariant_action o =
-  flags.pdr_check_inductive_invariant <- o
+let ic3_abstr_action o = flags.ic3_abstr <- (ic3_abstr_of_string o)
   
-let pdr_check_inductive_invariant_spec = 
-  ("--pdr_check_inductive_invariant", 
-   Arg.Bool pdr_check_inductive_invariant_action, 
-   Format.sprintf
-     "(PDR) Check inductive invariant if property proved (default: %s)"
-     (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
-
+let ic3_abstr_spec = 
+  ("--ic3_abstr", 
+   Arg.String ic3_abstr_action, 
+   Format.sprintf "(IC3) choose method of abstraction in IC3 \"
+                   (available: %s, default: %s)"
+                  ic3_abstr_values (string_of_ic3_abstr ic3_abstr_default))
 (* ********** *) 
-
+ 
 let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
                                           
 let cooper_order_var_by_elim_spec = 
@@ -1319,6 +1320,8 @@ let smtlogic () = flags.smtlogic
 
 let z3_bin () = flags.z3_bin
 
+let z3_check_sat_assume () = flags.z3_check_sat_assume
+
 let cvc4_bin () = flags.cvc4_bin
 
 let mathsat5_bin () = flags.mathsat5_bin
@@ -1359,35 +1362,35 @@ let ind_compress_same_pred () = flags.ind_compress_same_pred
 
 let ind_lazy_invariants () = flags.ind_lazy_invariants
 
-let ind_print_inductive_cex () = flags.ind_print_inductive_cex 
+(* let ind_print_inductive_cex () = flags.ind_print_inductive_cex  *)
 
-let pdr_qe () = flags.pdr_qe 
+let ic3_qe () = flags.ic3_qe 
 
-let set_pdr_qe f = flags.pdr_qe <- f
+let set_ic3_qe f = flags.ic3_qe <- f
 
-let pdr_extract () = flags.pdr_extract 
+let ic3_extract () = flags.ic3_extract 
 
-let pdr_check_inductive () = flags.pdr_check_inductive 
+let ic3_check_inductive () = flags.ic3_check_inductive 
 
-let pdr_inductively_generalize () = true
+let ic3_inductively_generalize () = true
 
-let pdr_fwd_prop_check_multi () = flags.pdr_fwd_prop_check_multi 
+let ic3_print_to_file () = flags.ic3_print_to_file
 
-let pdr_print_inductive_assertions () = flags.pdr_print_inductive_assertions
+let ic3_inductively_generalize () = flags.ic3_inductively_generalize
 
-let pdr_print_blocking_clauses () = flags.pdr_print_blocking_clauses
+let ic3_block_in_future () = flags.ic3_block_in_future 
 
-let pdr_print_to_file () = flags.pdr_print_to_file
+let ic3_block_in_future_first () = flags.ic3_block_in_future_first 
 
-let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core 
+let ic3_fwd_prop_non_gen () = flags.ic3_fwd_prop_non_gen 
 
-let pdr_inductively_generalize () = flags.pdr_inductively_generalize
+let ic3_fwd_prop_ind_gen () = flags.ic3_fwd_prop_ind_gen 
 
-let pdr_block_in_future () = flags.pdr_block_in_future 
+let ic3_fwd_prop_subsume () = flags.ic3_fwd_prop_subsume 
 
-let pdr_print_inductive_invariant () = flags.pdr_print_inductive_invariant 
+let ic3_abstr () = flags.ic3_abstr
 
-let pdr_check_inductive_invariant () = flags.pdr_check_inductive_invariant 
+let set_ic3_abstr f = flags.ic3_abstr <- f
 
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
@@ -1471,6 +1474,9 @@ and speclist =
     (* Set executable for Z3 solver *)
     z3_bin_spec;
 
+    (* Use check-sat with assumptions in Z3 *)
+    z3_check_sat_assume_spec;
+
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;
 
@@ -1532,44 +1538,41 @@ and speclist =
     (* Compress inductive counterexamples when states have same predecessors *)
     ind_lazy_invariants_spec;
 
-    (* Compress inductive counterexamples *)
-    ind_print_inductive_cex_spec;
+    (* Print inductive counterexamples *)
+    (* ind_print_inductive_cex_spec; *)
 
-    (* Set QE in PDR *)
-    pdr_qe_spec;
+    (* Set QE in IC3 *)
+    ic3_qe_spec;
 
     (* Heuristic for extraction of implicant *)
-    pdr_extract_spec;
+    ic3_extract_spec;
 
     (* Check inductiveness of blocking clauses *)
-    pdr_check_inductive_spec;
-
-    (* Simultaneous check for propagation *)
-    pdr_fwd_prop_check_multi_spec;
-
-    (* Output inductive of blocking clauses *)
-    pdr_print_inductive_assertions_spec;
-
-    (* Output all blocking clauses *)
-    pdr_print_blocking_clauses_spec;
+    ic3_check_inductive_spec;
 
     (* File for inductive of blocking clauses *)
-    pdr_print_to_file_spec;
-
-    (* Tighten blocking clauses to an unsatisfiable core *)
-    pdr_tighten_to_unsat_core_spec;
+    ic3_print_to_file_spec;
 
     (* Inductively generalize the blocking clause before forward propagating *)
-    pdr_inductively_generalize_spec;
+    ic3_inductively_generalize_spec;
 
     (* Block counterexample in future frames *)
-    pdr_block_in_future_spec;
+    ic3_block_in_future_spec;
 
-    (* Print inductive invariant if property proved *)
-    pdr_print_inductive_invariant_spec;
+    (* Block counterexample in future frames first before returning to frame *)
+    ic3_block_in_future_first_spec;
 
-    (* Print inductive invariant if property proved *)
-    pdr_check_inductive_invariant_spec;
+    (* Also propagate clauses before generalization *)
+    ic3_fwd_prop_non_gen_spec;
+
+    (* Inductively generalize all clauses after forward propagation *)
+    ic3_fwd_prop_ind_gen_spec;
+
+    (* Subsumption in forward propagation *)
+    ic3_fwd_prop_subsume_spec;
+
+    (* Abstraction in IC3 *)
+    ic3_abstr_spec;
 
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;

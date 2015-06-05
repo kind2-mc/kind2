@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -784,9 +784,11 @@ let compute_output_input_dep nodes node =
        (List.map (fun (v, _) -> (v, [])) node.outputs))
   in
   
+  (* Unused: need not order variables when computing dependencis only *)
+
   (* Order variables such that variables defined in terms of other
      variables occur first *)
-  let vars_ordered = order_by_dep [] var_dep in
+  (* let vars_ordered = order_by_dep [] var_dep in *)
   
   (* Compute dependencies of output variables on inputs *)
   let output_input_dep = 
@@ -1090,20 +1092,20 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   (* All dependencies for this node processed, add to accumulator *)
   | ([], 
      sv_visited, 
-     ({ outputs; 
-        inputs; 
-        oracles;
-        observers;
-        locals; 
-        equations;
-        asserts; 
-        props; 
-        requires; 
-        ensures; 
-        is_main; 
-        output_input_dep;
-        state_var_oracle_map;
-        fresh_state_var_index } as node_orig), 
+     { outputs; 
+       inputs; 
+       oracles;
+       observers;
+       locals; 
+       equations;
+       asserts; 
+       props; 
+       requires; 
+       ensures; 
+       is_main; 
+       output_input_dep;
+       state_var_oracle_map;
+       fresh_state_var_index }, 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
@@ -1160,7 +1162,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
 
   (* Head of state variable list has not been seen *)
-  | ((state_var :: svtl as svl), 
+  | ((state_var :: svtl), 
      sv_visited, 
      ({ name = node_name } as node_orig), 
      node_coi) :: ntl as nl -> 

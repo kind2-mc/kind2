@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -537,9 +537,6 @@ let rec next trans solver k unfalsifiables unknowns =
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
-
-     Printf.sprintf
-       "Unrolling step at %i." Numeral.(to_int k_p_1) ;
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds

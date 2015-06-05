@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -436,9 +436,10 @@ let rec collect_eqs vars (eqs, terms) = function
   (* Head element of list *)
   | term :: tl -> match Term.destruct term with
 
-    (* Term is an equation with a variable in [vars] on either side *)
-    | Term.T.App (s, [v; e]) 
-    | Term.T.App (s, [e; v]) when
+    (* FIXME: Do this on both sides, and be careful to not produce cycles *)
+
+    (* Term is an equation with a variable in [vars] on left-hand side *)
+    | Term.T.App (s, [v; e]) when
         (Symbol.equal_symbols s Symbol.s_eq)
         && (Term.is_free_var v)
         && (List.exists (Var.equal_vars (Term.free_var_of_term v)) vars) -> 
@@ -655,7 +656,7 @@ let generalize trans_sys uf_defs model elim term =
      Term.pp_print_term 
      (Term.mk_and term'_bool) end);
 
-  let term' = let pdr_qe = Flags.pdr_qe () in match pdr_qe with 
+  let term' = let ic3_qe = Flags.ic3_qe () in match ic3_qe with 
     
     | `Z3
     | `Z3_impl
@@ -666,7 +667,8 @@ let generalize trans_sys uf_defs model elim term =
         (* Substitute fresh variables for terms to be eliminated and
            existentially quantify formula *)
         let qe_term = 
-          match pdr_qe with 
+          match ic3_qe with 
+            | `Cooper -> assert false
             | `Z3 -> 
               Conv.quantified_smtexpr_of_term true elim term
             | `Z3_impl
@@ -712,13 +714,13 @@ let generalize trans_sys uf_defs model elim term =
               raise 
                 (Failure ("SMT solver failed: " ^ e))
 
-            (* (\* Catch unsupported command *\) *)
+            (* (* Catch unsupported command *) *)
             (* | `Unsupported ->  *)
             (*   raise  *)
             (*     (Failure  *)
             (*        ("SMT solver reported not implemented")) *)
                 
-            (* (\* Catch silence *\) *)
+            (* (* Catch silence *) *)
             (* | `NoResponse -> *)
             (*   raise  *)
             (*     (Failure  *)
@@ -743,7 +745,8 @@ let generalize trans_sys uf_defs model elim term =
           (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
 *)
         (* Return quantifier eliminated term *)
-        (match pdr_qe with 
+        (match ic3_qe with 
+          | `Cooper -> assert false
           | `Z3 
           | `Z3_impl -> term'_bool @ term'_int
           | `Z3_impl2 -> 

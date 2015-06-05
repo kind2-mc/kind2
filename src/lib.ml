@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -380,6 +380,30 @@ let array_max a =
   !max_val
 
 (* ********************************************************************** *)
+(* Set functions                                                          *)
+(* ********************************************************************** *)
+
+(* Set of integers *)
+module IntegerSet = 
+  Set.Make
+  (struct
+    type t = int
+    let compare = Pervasives.compare
+    let equal = (=)
+   end)
+  
+  
+(* Hashtable of integers *)
+module IntegerHashtbl =
+  Hashtbl.Make
+    (struct
+      type t = int
+      let hash i = i
+      let equal = (=)
+     end)
+
+    
+(* ********************************************************************** *)
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
 
@@ -496,13 +520,13 @@ let get = function None -> raise (Invalid_argument "get") | Some x -> x
 let string_starts_with s1 s2 = 
 
   (* First string is shorter than second? *)
-  if String.length s1 < String.length s2 then false else
+  if Bytes.length s1 < Bytes.length s2 then false else
 
     (* Create string of length of [s2] *)
-    let s1' = String.create (String.length s2) in
+    let s1' = Bytes.create (Bytes.length s2) in
 
     (* Copy characters from [s1] *)
-    String.blit s1 0 s1' 0 (String.length s2);
+    Bytes.blit s1 0 s1' 0 (Bytes.length s2);
 
     (* Return true if strings are identical *)
     s1' = s2
@@ -914,7 +938,7 @@ let pp_print_version ppf = pp_print_banner ppf ()
 
 (* Kind modules *)
 type kind_module = 
-  [ `PDR 
+  [ `IC3 
   | `BMC 
   | `IND
   | `INVGEN
@@ -927,7 +951,7 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `PDR -> Format.fprintf ppf "property directed reachability"
+  | `IC3 -> Format.fprintf ppf "property directed reachability"
   | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
@@ -943,7 +967,7 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 (* Return a short representation of kind module *)
 let suffix_of_kind_module = function
- | `PDR -> "pdr"
+ | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `INVGEN -> "inv"
@@ -956,7 +980,7 @@ let suffix_of_kind_module = function
 
 (* Process type of a string *)
 let kind_module_of_string = function 
-  | "PDR" -> `PDR
+  | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
@@ -1242,7 +1266,7 @@ let create_dir dir =
 let file_copy input_name output_name =
   let open Unix in
   let buffer_size = 8192 in
-  let buffer = String.create buffer_size in
+  let buffer = Bytes.create buffer_size in
   let fd_in = openfile input_name [O_RDONLY] 0 in
   let fd_out = openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666 in
   let rec copy_loop () = match read fd_in buffer 0 buffer_size with

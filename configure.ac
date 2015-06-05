@@ -1,6 +1,6 @@
 # These lines are required
 AC_PREREQ(2.59)
-AC_INIT([kind2], [v0.7.0], [christoph-sticksel@uiowa.edu])
+AC_INIT([kind2], [v0.8.0], [christoph-sticksel@uiowa.edu])
 
 # This just checks if some source file is present
 AC_CONFIG_SRCDIR([src/kind2.ml])
@@ -15,9 +15,9 @@ if test "x$OCAMLOPT" = "xno"; then
   AC_MSG_ERROR([You must install the OCaml native-code compiler])
 fi
 
-# Check for OCaml 4.01 
-if expr "$OCAMLVERSION" '<' '4.01' > /dev/null ; then
-  AC_MSG_ERROR([OCaml version 4.01 or later required])
+# Check for OCaml 4.02 
+if expr "$OCAMLVERSION" '<' '4.02' > /dev/null ; then
+  AC_MSG_ERROR([OCaml version 4.02 or later required])
 fi
 
 

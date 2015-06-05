@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -211,11 +211,13 @@ let rec pp_print_tree_path_pt
          " / ")
       (List.rev ancestor_idents);
 
-    let children = snd (List.split (CallMap.bindings call_map)) in 
+    (* FIXME: Why is this unused? *)
+    (* let children = snd (List.split (CallMap.bindings call_map)) in *)
 
     let children = CallMap.bindings call_map in 
 
-    let ident_path = (node_ident, node_pos) :: ancestor_idents in
+    (* FIXME: Why is this unused? *)
+    (* let ident_path = (node_ident, node_pos) :: ancestor_idents in *)
 
     let print_child ((_, pos), child) =
       pp_print_tree_path_pt
@@ -393,7 +395,8 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
         let curr_var = Var.mk_state_var_instance sv E.cur_offset in
 
-        let prev_var = Var.mk_state_var_instance sv E.pre_offset in
+        (* FIXME: Why is this unused? *)
+        (* let prev_var = Var.mk_state_var_instance sv E.pre_offset in *)
 
         let stream_terms = stream in
 
@@ -545,8 +548,10 @@ and tree_path_of_streams
         (* Get defining equation for stream *)
         let expr = List.assq state_var equations in
         
+        (* FIXME: Why is this unused? *)
+        
         (* Need to get the source of the variable *)
-        let src = E.get_state_var_source state_var in 
+        (* let src = E.get_state_var_source state_var in *)
         
         debug lustrePath
           "reconstruct_single_var %a with expression %a"
@@ -583,8 +588,8 @@ and tree_path_of_streams
 and tree_path_of_calls
     start_at_init
     nodes
-    ((N (_, _, _, call_map)) as tree_path)
-    ((N (node_name, node_pos, stream_map', call_map')) as tree_path') 
+    (N (_, _, _, call_map))
+    (N (node_name, node_pos, stream_map', call_map'))
     { N.call_node_name; N.call_pos } =
 
   (* Get hierarchical model rooted at the node call *)
@@ -625,7 +630,7 @@ let reduced_tree_path_of_model start_at_init nodes model =
   in
 *)
 
-  let main_node = List.hd nodes in
+  let main_node = List.hd (List.rev nodes) in
 
   let node_name = main_node.N.name in
 

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -350,7 +350,7 @@ module MdlMap =
         | `INVMAN -> -1
         | `BMC -> 1
         | `IND -> 2
-        | `PDR -> 3
+        | `IC3 -> 3
         | `INVGEN -> 4
         | `INVGENOS -> 5
           
@@ -393,7 +393,7 @@ let pp_print_level_pt ppf l = Format.fprintf ppf "%s" (pt_string_of_level l)
 
 (* Kind module as string for plain text output *)
 let pt_string_of_kind_module = function
-  | `PDR -> "PDR"
+  | `IC3 -> "IC3"
   | `BMC -> "BMC"
   | `IND -> "inductive step"
   | `INVGEN -> "two state invariant generator"
@@ -646,7 +646,7 @@ let pp_print_level_xml_cls ppf l =
 
 (* Kind module as source attribute of log tag *)
 let xml_src_of_kind_module = function
-  | `PDR -> "pdr"
+  | `IC3 -> "ic3"
   | `BMC -> "bmc"
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
