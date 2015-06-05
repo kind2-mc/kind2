@@ -20,7 +20,6 @@ if expr "$OCAMLVERSION" '<' '4.02' > /dev/null ; then
   AC_MSG_ERROR([OCaml version 4.02 or later required])
 fi
 
-
 # Check for Camlp4
 AC_PROG_CAMLP4
 if test "x$CAMLP4" = "xno"; then
@@ -31,6 +30,12 @@ fi
 AC_PROG_FINDLIB
 if test "x$OCAMLFIND" = "xno"; then
    AC_MSG_WARN([You must install the OCaml findlib (the ocamlfind command)])
+fi
+
+# Check for menhir
+AC_PROG_MENHIR
+if test "x$MENHIR" = "xno"; then
+   AC_MSG_ERROR([You must install the Menhir parser])
 fi
 
 # Check for C compiler
