@@ -34,11 +34,11 @@
   
   <section id="download">
   <ul>
-    <li><a href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-linux"><strong>Linux</strong>
+    <li><a href="https://github.com/kind2-mc/kind2/releases/download/v0.8.0/kind2-linux-x86_64.tar.gz"><strong>Linux</strong>
     <br />Binary</a></li>
-    <li><a href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-mac"><strong>Mac
+    <li><a href="https://github.com/kind2-mc/kind2/releases/download/v0.8.0/kind2-macosx-x68_64.tar.gz"><strong>Mac
     OS X</strong><br />Binary</a></li>
-    <li><a href="https://github.com/kind2-mc/kind2/archive/v0.7.0.tar.gz"><strong>Sources</strong></a></li>
+    <li><a href="https://github.com/kind2-mc/kind2/archive/v0.8.0.tar.gz"><strong>Sources</strong></a></li>
   </ul>
   </section>
   </header>
@@ -51,49 +51,54 @@
       <h2>
       <a name="about" class="anchor" href="#about"><span class="octicon octicon-link"></span></a>About</h2>
 
-      <p>Kind 2 is the successor of the <a href="http://clc.cs.uiowa.edu/Kind">Kind</a> model checker.
-      It takes as input a Lustre file annotated with properties to prove invariant, 
-      and outputs for each property either a confirmation or a counterexample, 
-      a sequence inputs that falsifies the property.</p>
+      <p>Kind 2 is an open-source, multi-engine, SMT-based automatic model checker for
+safety properties of Lustre programs. It takes as input a Lustre file annotated with properties to prove invariant, and outputs for each property either a confirmation or a counterexample, a sequence inputs that falsifies the property.</p>
+
+      <p>Kind 2 is a from-scratch reimplementation of the <a href="http://clc.cs.uiowa.edu/Kind">Kind</a> model checker.</p>
 
       <p>Main features:
       <ul>
 	<li>Bounded Model Checking (BMC)</li>
 	<li><em>k</em>-induction with lazy path compression</li>
 	<li>IC3 aka PDR</li>
-	<li>Message-passing based parallel composition of model
-	checking engines</li>
+        <li>Invariant discovery from templates for a syntactic analysis of the system</li>
+	<li>Message-passing based parallel composition of model checking engines</li>
 	<li>Sharing of discovered invariants between all engines</li>
-	<li>Input in Lustre V4 and parts of V6 translated to a modular
-	transition system</li>
-	<li>Use of either of the SMT solvers Z3, CVC4 and MathSat5</li>
+	<li>Input in Lustre V4 and parts of V6 translated to a modular transition system</li>
+	<li>Use of either of the SMT solvers Z3, CVC4 and Yices</li>
       </ul>
       </p>
 
-      <h2> <a name="news" class="anchor" href="#news"><span class="octicon octicon-link"></span></a>News</h2>
+      <h2> <a name="groups" class="anchor" href="#groups"><span class="octicon octicon-link"></span></a>Mailing Lists</h2>
 
-      <ul>
-	<li><em>2014/06/14</em>
-	First public release, Kind 2 v0.7.0</li>
-      </ul>
-      
+      <dl>
+        <dt><a href="https://groups.google.com/d/forum/kind2-announce">kind2-announce@googlegroups.com</a></dt>
+        <dd>Release announcements</dd>
+        <dt><a href="https://groups.google.com/d/forum/kind2-users">kind2-users@googlegroups.com</a></dt>
+        <dd>Discussions between users and developers</dd>
+      </dl>
+
       <h2> <a name="download" class="anchor" href="#download"><span class="octicon octicon-link"></span></a>Download</h2>
 
       <ul>
 	<li>
-	<a href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-linux">Download
-	Kind 2 v0.7.0 for Linux</a>
+	<a href="https://github.com/kind2-mc/kind2/releases/download/v0.8.0/kind2-linux-x86_64.tar.gz">Download
+	Kind 2 v0.8.0 for Linux</a>
 	</li>
 	<li>
 	<a
-	href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-mac">Download
-	Kind 2 v0.7.0 for Mac OS X </a>
+	href="https://github.com/kind2-mc/kind2/releases/download/v0.8.0/kind2-macosx-x68_64.tar.gz">Download
+	Kind 2 v0.8.0 for Mac OS X </a>
 	</li>
 	<li>
-	<a href="https://github.com/kind2-mc/kind2/tarball/master">Download Kind 2 v0.7.0 sources</a>
+	<a href="https://github.com/kind2-mc/kind2/archive/v0.8.0.tar.gz">Download Kind 2 v0.8.0 sources</a>
 	</li>
       </ul>
       
+      <h2> <a name="kind2-web" class="anchor" href="#kind2-web"><span class="octicon octicon-link"></span></a>Try Kind 2 Online</h2>
+
+      <p>Visit our <a href="http://kind.cs.uiowa.edu:8080/kind" rel="nofollow"> web interface</a> to try Kind 2 from your browser.</p>
+
       <h2> <a name="contact" class="anchor" href="#contact"><span class="octicon octicon-link"></span></a>Contact</h2>
 
       <p><a href="mailto:christoph-sticksel@uiowa.edu">christoph-sticksel@uiowa.edu</a></p>
@@ -102,13 +107,13 @@
       <ul>
 	<li><a href="http://homepage.divms.uiowa.edu/~tinelli">Cesare Tinelli</a></li>
 	<li><a href="http://homepage.divms.uiowa.edu/~csticksel">Christoph Sticksel</a></li>
-	<li>Adrien Champion</li>
-	<li>Alain Mebsout</li>
-	<li>John Bodeen</li>
+	<li><a href="http://homepage.divms.uiowa.edu/~achampion">Adrien Champion</a></li>
+	<li><a href="http://homepage.divms.uiowa.edu/~amebsout">Alain Mebsout</a></li>
       </ul>
 
       <p>Formerly:
       <ul>
+	<li>John Bodeen</li>
 	<li>Kevin Clancy</li>
 	<li>Mingyu Ma</li>
 	<li>Baoluo Meng</li>
@@ -118,11 +123,6 @@
       </ul>
       </p>
       
-      <!-- <h2> <a name="papers" class="anchor" href="#papers"><span
-      class="octicon octicon-link"></span></a>Publications and
-      Experimental Results</h2> -->
-      
-
       </section>
     </div>
 
