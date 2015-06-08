@@ -19,19 +19,19 @@ The following command-line options control its operation (run `kind2 --help` for
    
 By default, all three model checking engines are run in parallel. Give any combination of `--enable BMC`, `--enable IND` and `--enable IC3` to select which engines to run. The option `--enable BMC` alone will not be able to prove properties valid, choosing `--enable IND` only will not produce any results. Any other combination is sound (properties claimed to be invariant are indeed invariant) and counterexample-complete (a counterexample will be produced for each property that is not invariant, given enough time and resources).
 
-`--timeout_wall SECS` Run for `SECS` seconds of wall clock time
+`--timeout_wall <int>` (default `0` = none) -- Run for the given number of seconds of wall clock time
 
-`--timeout_virtual SECS` Run for `SECS` of CPU time
+`--timeout_virtual <int>` (default `0` = none) -- Run for the given number of seconds of CPU time
  
-`--smtsolver {CVC4|Yices|Z3} ` Select SMT solver
+`--smtsolver {CVC4|Yices|Z3} ` (default `Z3`) -- Select SMT solver
 
 The default is `Z3`, but see options of the `./build.sh` script to override at compile time
   
-`--cvc4_bin PROGRAM` Executable for CVC4
+`--cvc4_bin <file>` -- Executable for CVC4
 
-`--yices_bin PROGRAM` Executable for Yices
+`--yices_bin <file>` -- Executable for Yices
 
-`--z3_bin PROGRAM` Executable for Z3
+`--z3_bin <file>` -- Executable for Z3
 
 `-v` Output informational messages
 
@@ -58,9 +58,9 @@ You need to run first
 
 By default, `kind2` will be installed into `/usr/local/bin`, an operation for which you usually need to be root. Call 
 
-    ./build.sh --prefix=PATH
+    ./build.sh --prefix=<path>
     
-to install the Kind 2 binary into `PATH/bin`. You can omit the option to accept the default path of `/usr/local/bin`. 
+to install the Kind 2 binary into `<path>/bin`. You can omit the option to accept the default path of `/usr/local/bin`. 
 
 The ZeroMQ and CZMQ libraries, and OCaml bindings to CZMQ are distributed with Kind 2. The build script will compile and link to those, ignoring any versions that are installed on your system. 
 
@@ -84,10 +84,10 @@ You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 ## Documentation
 
 You can generate the user documentation by running `make doc`. This will generate a `pdf` document in `doc/` corresponding to the markdown documentation
-available [on the github page](https://github.com/kind2-mc/kind2/blob/develop/doc/usr/content/Home.md#kind-2).
+available [on the GitHub page](https://github.com/kind2-mc/kind2/blob/develop/doc/usr/content/Home.md#kind-2).
 
 To generate the documentation, you need
 
 * a GNU version of `sed` (`gsed` on OSX), and
-* [pandoc](http://pandoc.org/).
+* [Pandoc](http://pandoc.org/).
 
