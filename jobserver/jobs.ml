@@ -152,9 +152,9 @@ let start_job job_cmd job_args input_file after_start =
   if
 
     (* System load above of limit? *)
-    (load1_max > 0. && load1 > load1_max) ||
-    (load5_max > 0. && load5 > load5_max) ||
-    (load15_max > 0. && load15 > load15_max)
+    (!load1_max > 0. && load1 > !load1_max) ||
+    (!load5_max > 0. && load5 > !load5_max) ||
+    (!load15_max > 0. && load15 > !load15_max)
 
   then
 
@@ -518,7 +518,7 @@ let purge_jobs () =
 	  (fun job_id { job_start_timestamp; job_pid } accum ->
 	    
 	    (* Job was started too long ago? *)
-	    if (Unix.gettimeofday ()) -. job_start_timestamp > job_purge_time then
+	    if (Unix.gettimeofday ()) -. job_start_timestamp > !job_purge_time then
 
 	      (
 
@@ -570,7 +570,7 @@ let purge_jobs () =
 	  (fun job_id (job_tm, _)  accum ->
 	    
 	    (* Job was started too long ago? *)
-	    if (Unix.gettimeofday ()) -. job_tm > job_purge_time then
+	    if (Unix.gettimeofday ()) -. job_tm > !job_purge_time then
 
 	      (* Remove job from table *)
 	      job_id :: accum

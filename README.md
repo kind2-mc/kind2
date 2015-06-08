@@ -52,11 +52,9 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 
 ## Building and installing
 
-If you got the sources from our Github repository, you need to run first
+You need to run first
 
     ./autogen.sh
-
-You can omit this step if you have downloaded a released version.
 
 By default, `kind2` will be installed into `/usr/local/bin`, an operation for which you usually need to be root. Call 
 
