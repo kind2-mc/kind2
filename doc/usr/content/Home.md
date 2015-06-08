@@ -2,7 +2,7 @@
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
-Kind 2 takes as input a Lustre file annotated with properties to prove
+Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see [Lustre syntax](./2_input/1_lustre.md#lustre-input)), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by front-
