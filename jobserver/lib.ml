@@ -555,7 +555,7 @@ let read_bytes start filename =
       seek_in ic start;
 
       (* Create string of fixed size *)
-      let s = Bytes.create n in
+      let s = String.create n in
 
       (* Read into string *)
       really_input ic s 0 n;
