@@ -247,6 +247,14 @@ let _ =
       jobs_dir
   in
 
+  let () = 
+    log AccessLog
+      "Configuration is %a"
+      (pp_print_list pp_print_xml "@,") (Eliom_config.get_config ())
+  in
+
+  options_of_xml (Eliom_config.get_config ());
+
   (* Register main service as fallback *)
   Eliom_registration.String.register
     ~service:submitjob_main_service
