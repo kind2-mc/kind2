@@ -21,97 +21,41 @@
     @author Jason Oxley, Christoph Sticksel **)
 
 
-(* ********************************************************************** *)
-(* Static constants and defaults                                          *)
-(* ********************************************************************** *)
-
-(* TODO: Put this in a config file *)
-
-(* Data directory of Ocsigen instance *)
-let data_dir = Ocsigen_config.get_datadir ()
-
-(* Path to generated input and output files *)
-let jobs_dir = Filename.concat data_dir "jobs"
-
-(* Maximum one minute load average *)
-let load1_max = 8.
-
-(* Maximum five minutes load average *)
-let load5_max = 4.
-
-(* Maximum 15 minutes load average *)
-let load15_max = 0.
-
-(* Purge jobs after one day *)
-let job_purge_time =  86400.
-
-(* ********************************************************************** *)
-(* Executables and parameters                                             *)
-(* ********************************************************************** *)
+(* Server logfiles *)
+type server_log = 
+  | AccessLog
+  | ErrorLog
+  | WarningLog
 
 
-(* Map of identifiers to executables *)
-let checkers_and_arguments =
+(* Log a message to the given logfile *)
+let log l fmt =
 
-  [
+  (* Create buffer for output of message *)
+  let b = Buffer.create 80 in
 
-    (* Kind 2 *)
-    ("kind2", 
-     ("/usr/local/bin/kind2", 
-      ["-xml"]));
+  (* Formatter printing into the buffer *)
+  let ppf = Format.formatter_of_buffer b in
 
-    (* PKind *)
-    ("pkind", 
-     ("/usr/local/bin/pkind", 
-      ["-xml"; "-xml-to-stdout"]));
-    
-    (* JKind 
+  (* Continuation after printing to formatter *)
+  let k ppf =
 
-       TODO: JKind does not output to stdout, but into a .xml file *)
-    ("jkind",
-     ("/usr/local/bin/jkind", 
-      ["-xml"]))
-       
-  ]
+    (* Flush the pretty-printer to the buffer *)
+    Format.pp_print_flush ppf ();
 
+    (* Get string contents of buffer *)
+    let s = Buffer.contents b in
 
-(* Map of identifiers to executables *)
-let interpreters_and_arguments =
+    (* Write string as log message to the chosen logfile *)
+    match l with 
+      | AccessLog -> Ocsigen_messages.accesslog s
+      | ErrorLog -> Ocsigen_messages.errlog s
+      | WarningLog -> Ocsigen_messages.warning s
 
-  [
-
-    (* Kind 2 *)
-    ("kind2", 
-     ("/usr/local/bin/kind2", 
-      ["-xml"; "--enable"; "interpreter"]))
-
-  ]
-
-
-(* Return executable and combine arguments with defaults *)
-let cmd_and_args cmd_and_args key args = 
-
-  (* Get executable and default arguments *)
-  let cmd, default_args = 
-    List.assoc key cmd_and_args 
   in
 
-  (* Reverse and filter out empty strings *)
-  let args' = List.filter ((<>) "") (List.rev args) in
-
-  (* Return excutable and arguments *)
-  (cmd, (default_args @ args'))
-
-
-(* Return executable and combine arguments with defaults *)
-let checker_cmd_and_args checker args = 
-  cmd_and_args checkers_and_arguments checker args
-
-
-(* Return executable and combine arguments with defaults *)
-let interpreter_cmd_and_args interpreter args = 
-  cmd_and_args interpreters_and_arguments interpreter args
-
+  (* Print message to log with continuation *)
+  Format.kfprintf k ppf fmt
 
 
 (* ********************************************************************** *)
@@ -224,43 +168,294 @@ let pp_print_process_status ppf = function
   | Unix.WSTOPPED s -> Format.fprintf ppf "stopped with %d" s
 
 
-(* Server logfiles *)
-type server_log = 
-  | AccessLog
-  | ErrorLog
-  | WarningLog
+
+(* ********************************************************************** *)
+(* Static constants and defaults                                          *)
+(* ********************************************************************** *)
+
+(* TODO: Put this in a config file *)
+
+(* Data directory of Ocsigen instance *)
+let data_dir = Ocsigen_config.get_datadir ()
+
+(* Path to generated input and output files *)
+let jobs_dir = Filename.concat data_dir "jobs"
+
+(* Maximum one minute load average *)
+let load1_max = ref 8.
+
+(* Maximum five minutes load average *)
+let load5_max = ref 4.
+
+(* Maximum 15 minutes load average *)
+let load15_max = ref 0.
+
+(* Purge jobs after one day *)
+let job_purge_time = ref 86400.
+
+(* ********************************************************************** *)
+(* Executables and parameters                                             *)
+(* ********************************************************************** *)
 
 
-(* Log a message to the given logfile *)
-let log l fmt =
+(* Map of identifiers to executables *)
+let checkers_and_arguments = ref []
 
-  (* Create buffer for output of message *)
-  let b = Buffer.create 80 in
+(*
+  [
 
-  (* Formatter printing into the buffer *)
-  let ppf = Format.formatter_of_buffer b in
+    (* Kind 2 *)
+    ("kind2", 
+     ("/usr/local/bin/kind2", 
+      ["-xml"]));
 
-  (* Continuation after printing to formatter *)
-  let k ppf =
+    (* PKind *)
+    ("pkind", 
+     ("/usr/local/bin/pkind", 
+      ["-xml"; "-xml-to-stdout"]));
+    
+    (* JKind 
 
-    (* Flush the pretty-printer to the buffer *)
-    Format.pp_print_flush ppf ();
+       TODO: JKind does not output to stdout, but into a .xml file *)
+    ("jkind",
+     ("/usr/local/bin/jkind", 
+      ["-xml"]))
+       
+  ]
+*)
 
-    (* Get string contents of buffer *)
-    let s = Buffer.contents b in
 
-    (* Write string as log message to the chosen logfile *)
-    match l with 
-      | AccessLog -> Ocsigen_messages.accesslog s
-      | ErrorLog -> Ocsigen_messages.errlog s
-      | WarningLog -> Ocsigen_messages.warning s
+(* Map of identifiers to executables *)
+let interpreters_and_arguments = ref []
 
+(*
+  [
+
+    (* Kind 2 *)
+    ("kind2", 
+     ("/usr/local/bin/kind2", 
+      ["-xml"; "--enable"; "interpreter"]))
+
+  ]
+*)
+
+let pp_print_attr ppf (k, v) = 
+  Format.fprintf ppf "%s=\"%s\"" k v
+
+let rec pp_print_xml ppf = function 
+
+  | Simplexmlparser.Element (tag, attrs, xml) -> 
+
+    Format.fprintf ppf 
+      "@[<hv 2>\
+       <%s @[<hv 2>%a@]>\
+       %a\
+       </%s>\
+       @]"
+      tag
+      (pp_print_list pp_print_attr "@ ") attrs
+      (pp_print_list pp_print_xml "@,") xml
+      tag
+
+  | Simplexmlparser.PCData s -> Format.fprintf ppf "%s" s
+                                  
+
+(* Find named tag and apply function *)
+let rec parse_xml accum tag_name f = function
+
+  (* Terminate at end of list *)
+  | [] -> accum
+          
+  (* Found tag *)
+  | Simplexmlparser.Element (tag, attr, xml) :: tl when tag = tag_name -> 
+
+    (* Apply function to tag and continue *)
+    parse_xml (f accum attr xml) tag_name f tl
+
+  (* Skip over other tags *)
+  | _ :: tl -> parse_xml accum tag_name f tl
+
+
+(* Set limit_ref from <limit_str>max</limit_str> tag  *)
+let load_limit_of_xml limit_str limit_ref = 
+  parse_xml
+    ()
+    limit_str
+    (fun _ _ -> function 
+       | [Simplexmlparser.PCData s] -> 
+         (try 
+            limit_ref := float_of_string s;
+            log WarningLog
+              "%s_max set to %s"
+              limit_str 
+              s
+          with _ -> 
+            log WarningLog
+              "<%s> must contain a float: invalid value %s ignored"
+              limit_str
+              s)
+       | _ -> 
+         log WarningLog
+           "<%s> must contain a float: invalid tag ignored"
+           limit_str)
+
+
+(* Set load1_max from <load1>load1_max</load1> tag *)
+let load1_of_xml = load_limit_of_xml "load1" load1_max
+
+(* Set load5_max from <load5>load5_max</load5> tag *)
+let load5_of_xml = load_limit_of_xml "load5" load5_max
+
+(* Set load15_max from <load15>load15_max</load15> tag *)
+let load15_of_xml = load_limit_of_xml "load15" load15_max
+
+(* Set load limit from
+
+   <loadlimits>
+     <limit1>load1_max</limit1>
+     <limit5>load5_max</limit5>
+     <limit15>load15_max</limit15>
+   </loadlimits>
+
+   Any of <load1>, <load5>, and <load15> can be omitted, and defaults
+   of 8., 4. and 0. will be applied. The strings load1_max, load5_max
+   and load15_max must be OCaml float literals. *)
+let load_limits_of_xml = 
+  parse_xml
+    ()
+    "loadlimits" 
+    (fun _ _ -> function xml ->
+       load1_of_xml xml;
+       load5_of_xml xml;
+       load15_of_xml xml)
+
+
+(* Set job_purge_time from
+   <purgetime>job_purge_time</purgetime> tag
+
+   The string job_purge_time must be OCaml an float literals. *)
+let purgetime_of_xml = 
+  parse_xml
+    ()
+    "purgetime" 
+    (fun _ _ -> function 
+       | [Simplexmlparser.PCData s] -> 
+         (try 
+            job_purge_time := float_of_string s;
+            log WarningLog
+              "job_purge_time set to %s"
+              s
+          with _ -> 
+            log WarningLog
+              "<purgetime> must contain a float: invalid value %s ignored"
+              s)
+       | _ -> 
+         log WarningLog
+           "<purgetime> must contain a float: invalid tag ignored")
+
+
+(* Parse a sequence of <arg>x</arg> tags and return strings in
+   original order *)
+let args_of_xml l = 
+  parse_xml
+    []
+    "arg"
+    (fun l _ -> function
+       | [Simplexmlparser.PCData s] -> l @ [s]
+       | _ -> 
+         log WarningLog
+           "Invalid format for <arg> ignored"; l)
+         
+
+(* Parse checker or interpreter from 
+
+   <checker_str>
+     <name>name</name>
+     <command>command</name>
+     <arguments>
+       <arg>arg1</arg>
+       <arg>arg2</arg>
+     </arguments>
+   </checker_str>
+
+   The tags must be in this order, with the <arguments> tag always
+   present, but it may be empty.
+*)
+let checker_of_xml checker_str l = 
+
+  parse_xml
+    l
+    checker_str
+    (fun l _ -> function
+       | [Simplexmlparser.Element ("name", [], [Simplexmlparser.PCData name]);
+          Simplexmlparser.Element ("command", [], [Simplexmlparser.PCData command]);
+          Simplexmlparser.Element ("arguments", [], args)] -> 
+
+         let args' = args_of_xml [] args in
+
+         log WarningLog
+           "@[<hv>Added %s %s@ with command %s@ and args @[<hv>%a@]@]"
+           checker_str
+           name
+           command
+           (pp_print_list Format.pp_print_string "@ ") args';
+
+         (name, (command, args')) :: l
+         
+
+       | xml -> 
+         log WarningLog
+           "Invalid format for %s ignored"
+           checker_str;
+         l)
+
+
+(* Parse a list of checkers or interpreters  *)
+let checkers_of_xml checkers_str checker_str =
+
+    parse_xml
+      []
+      checkers_str
+      (fun l _ -> checker_of_xml checker_str l)
+
+(* Set options from XML input *)
+let options_of_xml xml =
+
+  load_limits_of_xml xml;
+
+  purgetime_of_xml xml;
+
+  checkers_and_arguments := 
+    checkers_of_xml "checkers" "checker" xml;
+
+  interpreters_and_arguments := 
+    checkers_of_xml "interpreters" "interpreter" xml
+
+
+(* Return executable and combine arguments with defaults *)
+let cmd_and_args cmd_and_args key args = 
+
+  (* Get executable and default arguments *)
+  let cmd, default_args = 
+    List.assoc key cmd_and_args 
   in
 
-  (* Print message to log with continuation *)
-  Format.kfprintf k ppf fmt
-    
-       
+  (* Reverse and filter out empty strings *)
+  let args' = List.filter ((<>) "") (List.rev args) in
+
+  (* Return excutable and arguments *)
+  (cmd, (default_args @ args'))
+
+
+(* Return executable and combine arguments with defaults *)
+let checker_cmd_and_args checker args = 
+  cmd_and_args !checkers_and_arguments checker args
+
+
+(* Return executable and combine arguments with defaults *)
+let interpreter_cmd_and_args interpreter args = 
+  cmd_and_args !interpreters_and_arguments interpreter args
+
 
 
 (* ********************************************************************** *)
@@ -360,7 +555,7 @@ let read_bytes start filename =
       seek_in ic start;
 
       (* Create string of fixed size *)
-      let s = String.create n in
+      let s = Bytes.create n in
 
       (* Read into string *)
       really_input ic s 0 n;
