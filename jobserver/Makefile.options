@@ -26,10 +26,8 @@ PERSISTENT_DATA_BACKEND = sqlite
 DEBUG := no
 
 # User to run server with (make run.*)
-# WWWUSER := ocsigen
-# WWWGROUP := ocsigen
-WWWUSER := chris
-WWWGROUP := chris
+WWWUSER := ocsigen
+WWWGROUP := ocsigen
 
 # Port for running the server (make run.*)
 PORT := 8181
@@ -38,8 +36,7 @@ PORT := 8181
 TEST_PORT := 8484
 
 # Root of installation (must end with /)
-# PREFIX := /usr/local/
-PREFIX := /home/chris/.opam/4.02.1/lib/ocsigenserver
+PREFIX := /usr/local/
 
 # Local folder for make test.* (must end with /)
 # Do not add files manually in this directory.
