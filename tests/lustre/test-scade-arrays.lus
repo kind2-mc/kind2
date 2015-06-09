@@ -1,0 +1,31 @@
+node X(s: int) returns ();
+const array_size = 3;
+const array_default = 0;
+var 
+  A1, A2: int^array_size;
+  A3, A4: int^array_size^array_size;
+  i: real;
+  j: bool;
+
+let
+
+  -- These identifiers are hidden in the array definitions
+  i = 0.0;
+  j = true;
+  
+  -- A sliding window over input stream s
+  A2[k] = if k = 0 then s else (k -> pre A[k-1]);
+  
+  -- A pointwise definition of an array
+  A1[i] = array_default;
+
+  -- A multi-dimensional array
+  A3[i][j] = e;
+  
+  -- A multi-dimensional array, the second i masks the first 
+  A4[i][i] = i;
+  
+  -- Structural assignment involving recursive array definition
+  (i, A1[i]) = (0, s);
+
+tel

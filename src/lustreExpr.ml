@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -47,14 +47,18 @@ type state_var_source =
   (* Output stream *)
   | Output
 
+  (* Observer output stream *)
+  | Observer
+
   (* Local defined stream *)
   | Local
 
   (* Local abstracted stream *)
   | Abstract
 
-  (* Stream from node call at position *)
-  | Instance of A.position * I.t * StateVar.t
+
+(* Stream is identical to a stream in a node instance at position *)
+type state_var_instance =  position * I.t * StateVar.t
 
 
 (* Map from state variables to indexed identifiers *)
@@ -62,16 +66,22 @@ let state_var_ident_map : (I.t * I.index) StateVar.StateVarHashtbl.t =
   StateVar.StateVarHashtbl.create 7
 
 
-
-(* Map from state variables to indexed identifiers *)
+(* Map from state variables to its source *)
 let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 7
+
+
+(* Map from state variables to identical state variables in other
+   scopes *)
+let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 
 (* Set source of state variable *)
 let set_state_var_source state_var source = 
 
-  StateVar.StateVarHashtbl.add 
+  (* Overwrite previous source *)
+  StateVar.StateVarHashtbl.replace
     state_var_source_map 
     state_var
     source
@@ -84,6 +94,214 @@ let get_state_var_source state_var =
     state_var_source_map 
     state_var
 
+
+(* State variable is identical to a state variable in a node instance *)
+let set_state_var_instance state_var pos node state_var' = 
+
+  debug lustreExpr
+    "State variable %a is an instance of %a"
+    StateVar.pp_print_state_var state_var
+    StateVar.pp_print_state_var state_var'
+  in
+
+  let instances =
+    try 
+
+      StateVar.StateVarHashtbl.find
+        state_var_instance_map 
+        state_var
+
+    with Not_found -> []
+  in
+
+  let instances' =
+
+    (* Check if instance already known *)
+    if List.mem (pos, node, state_var') instances then 
+
+      (* Do not create duplicates *)
+      instances 
+
+    else 
+
+      (* Add new instance *)
+      (pos, node, state_var') :: instances 
+
+  in
+
+  (* Overwrite previous source *)
+  StateVar.StateVarHashtbl.replace
+    state_var_instance_map 
+    state_var
+    instances'
+
+(* Return identical state variable in a node instance if any *)
+let get_state_var_instances state_var = 
+
+  try 
+
+    StateVar.StateVarHashtbl.find
+      state_var_instance_map 
+      state_var
+
+  with Not_found -> []
+
+
+(* Return instance of state variable from call in given node at given
+   position *)
+let lift_state_var pos node state_var = 
+
+  match 
+
+    (* Iterate over map of state variables to instances *)
+    StateVar.StateVarHashtbl.fold
+
+      (fun state_var_caller instances -> function 
+         
+         (* Return first match *)
+         | Some _ as accum -> accum
+           
+         (* Not found yet *)
+         | None -> 
+           
+           try 
+             
+             (* Find state variable to lift to in instances *)
+             let (_, _, _) =
+
+               List.find
+
+                 (function (pos', node', state_var') -> 
+
+                   (* State variable, position and node must match *)
+                   StateVar.equal_state_vars state_var state_var' &&
+                   pos = pos' &&
+                   node = node')
+                 
+                 instances
+
+             in 
+             
+             (* Return state variable if found *)
+             Some state_var_caller 
+
+           (* State variable is not in instance *)
+           with Not_found -> None)
+      
+      state_var_instance_map
+      None
+      
+  with 
+
+    (* No instance of state variable found *)
+    | None -> 
+      
+      debug lustreExpr 
+        "Cannot lift state variable %a"
+        StateVar.pp_print_state_var state_var 
+      in
+      
+      state_var
+        
+    (* Return instance of state variable *)
+    | Some state_var' -> 
+      
+      debug lustreExpr 
+          "lifted state variable %a to %a"
+          StateVar.pp_print_state_var state_var 
+          StateVar.pp_print_state_var state_var'
+      in
+
+      state_var'
+        
+
+(* Instantiate the variables of the term to the scope of a different
+   node.*)
+let lift_term pos node term = 
+
+  Term.map
+
+    (function _ -> function 
+
+       (* Need to instantiate free variables *)
+       | term when Term.is_free_var term -> 
+         
+         (* Get variable of term, this will not fail *)
+         let var = Term.free_var_of_term term in
+         
+         (* Only if variable is an instance of a state variable *)
+         if Var.is_state_var_instance var then 
+           
+           (* Get state variable of free variable *)
+           let state_var = Var.state_var_of_state_var_instance var in
+           
+           (* Get offset of variable instance *) 
+           let offset = Var.offset_of_state_var_instance var in
+           
+           (* Lift state variable to scope of calling node *)
+           let state_var' = lift_state_var pos node state_var in
+           
+           (* Return state variable instance of the lifted state
+              variable at the same offset *)
+           Term.mk_var (Var.mk_state_var_instance state_var' offset)
+
+         else
+           
+           (* No change if free variable is not an instance of a state
+              variable *)
+           term
+             
+       (* No change term that are not free variables *)
+       | term -> term)
+
+    term
+
+
+(* Return true if the state variable should be visible to the user,
+    false if it was created internally *)
+let state_var_is_visible state_var = 
+
+  match get_state_var_source state_var with
+
+    (* Oracle inputs and abstraced streams are invisible *)
+    | Observer
+    | Oracle
+    | Abstract -> false
+
+    (* Inputs, outputs and defined locals are visible *)
+    | Input
+    | Output
+    | Local -> true
+
+
+(* Return true if the state variable is an input *)
+let state_var_is_input state_var = 
+  try
+    match get_state_var_source state_var with
+      | Input -> true
+      | _ -> false
+  with Not_found -> false
+
+
+(* Return true if the state variable is an output *)
+let state_var_is_output state_var = 
+  try
+    match get_state_var_source state_var with
+      | Output -> true
+      | _ -> false
+  with Not_found -> false
+
+
+(* Return true if the state variable is a local variable *)
+let state_var_is_local state_var = 
+  try
+    match get_state_var_source state_var with
+      | Local -> true
+      | _ -> false
+  with Not_found -> false
+
+    
+(* Pretty-print the source of a state variable *)
 let rec pp_print_state_var_source ppf = function
   
   | Input -> Format.fprintf ppf "input"
@@ -92,17 +310,11 @@ let rec pp_print_state_var_source ppf = function
 
   | Output -> Format.fprintf ppf "output"
 
+  | Observer -> Format.fprintf ppf "observer"
+
   | Local -> Format.fprintf ppf "local"
 
   | Abstract -> Format.fprintf ppf "abstract"
-
-  | Instance (pos, node, state_var) -> 
-    
-    Format.fprintf ppf "instance(%a,%a,%a,%a)"
-      A.pp_print_position pos
-      (I.pp_print_ident false) node
-      StateVar.pp_print_state_var state_var
-      pp_print_state_var_source (get_state_var_source state_var)
 
 
 (* Return the identifier of a state variable *)
@@ -156,6 +368,18 @@ let equal_expr
 
   Term.equal init1 init2 && Term.equal step1 step2 && clock1 = clock2
 
+(* Hashing of expressions *)
+let hash_expr { expr_init; expr_step; expr_clock } =
+  Hashtbl.hash
+    (Term.hash expr_init, Term.hash expr_step (* , Term.hash expr_clock *) )
+
+module ExprHashtbl = Hashtbl.Make
+    (struct
+      type z = t
+      type t = z (* avoid cyclic type abbreviation *)
+      let equal = equal_expr
+      let hash = hash_expr
+    end)
 
 (* ********************************************************************** *)
 (* Pretty-printing                                                        *)
@@ -184,12 +408,12 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
       ppf 
       "enum { %a }" 
       (pp_print_list Format.pp_print_string " ") l
-
+(*
   | Type.BV i -> 
 
     raise 
       (Invalid_argument "pp_print_lustre_type: BV is not a Lustre type")
-
+*)
   | Type.Array (s, t) -> 
 
     raise 
@@ -236,6 +460,18 @@ let pp_print_lustre_var safe ppf state_var =
     
     (* Pretty-print the Lustre identifier of the variable *)
     I.pp_print_ident safe ppf ident
+
+
+(* Pretty-printa variable with its type *)
+let pp_print_lustre_var_typed safe ppf state_var = 
+
+  Format.fprintf ppf
+    "%t%a: %a"
+    (function ppf -> 
+      if StateVar.is_const state_var then Format.fprintf ppf "const ")
+    (pp_print_lustre_var safe) state_var
+    (pp_print_lustre_type safe) (StateVar.type_of_state_var state_var)
+  
 
 
 (* Pretty-print a variable under [depth] pre operators *)
@@ -412,7 +648,7 @@ and pp_print_app safe ppf = function
   | `FALSE
   | `NUMERAL _
   | `DECIMAL _
-  | `BV _ -> (function _ -> assert false)
+  (* | `BV _ *) -> (function _ -> assert false)
 
   (* Unary symbols *) 
   | `NOT
@@ -511,6 +747,7 @@ and pp_print_app safe ppf = function
         
     (* Unsupported functions symbols *)
     | `DISTINCT
+(*
     | `CONCAT
     | `EXTRACT _
     | `BVNOT
@@ -524,8 +761,11 @@ and pp_print_app safe ppf = function
     | `BVSHL
     | `BVLSHR
     | `BVULT
+*)
     | `SELECT
+(*
     | `STORE
+*)
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
       
@@ -716,7 +956,13 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
   
 
 (* Create state variable of identifier *)
-let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
+let mk_state_var_of_ident 
+    ?is_input
+    ?is_const
+    ?for_inv_gen
+    scope_index
+    ident
+    state_var_type =
   
   (* Convert index to a scope *)
   let scope = I.scope_of_index scope_index in
@@ -727,15 +973,17 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
   (* Create state variable *)
   let state_var = 
     StateVar.mk_state_var 
-      ~is_input:is_input
-      ~is_const:is_const
+      ?is_input:is_input
+      ?is_const:is_const
+      ?for_inv_gen:for_inv_gen
       ident_string
       scope
       state_var_type
   in
   
-  (* Add to hashtable *)
-  StateVar.StateVarHashtbl.add 
+  (* Add to hashtable, don't create duplicates if state variable was
+     already defined *)
+  StateVar.StateVarHashtbl.replace
     state_var_ident_map 
     state_var
     (ident, scope_index);
@@ -746,8 +994,9 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
 
 (* Create state variable of identifier *)
 let mk_fresh_state_var 
-    is_input
-    is_const
+    ?is_input
+    ?is_const
+    ?for_inv_gen
     scope_index
     ident
     state_var_type
@@ -756,8 +1005,9 @@ let mk_fresh_state_var
   Numeral.incr index_ref; 
 
   mk_state_var_of_ident
-    is_input
-    is_const
+    ?is_input:is_input
+    ?is_const:is_const
+    ?for_inv_gen:for_inv_gen
     scope_index
     (I.push_int_index !index_ref ident)
     state_var_type
@@ -1203,8 +1453,20 @@ let eval_mod expr1 expr2 =
 
 (* Type of integer modulus 
 
+   If j is bounded by [l, u], then the result of i mod j is bounded by
+   [0, (max(|l|, |u|) - 1)].
+
    mod: int -> int -> int *)
-let type_of_mod = type_of_int_int_int
+let type_of_mod = function 
+
+  | t when Type.is_int t || Type.is_int_range t -> 
+    (function 
+      | t when Type.is_int t -> Type.t_int 
+      | t when Type.is_int_range t -> 
+        let l, u = Type.bounds_of_int_range t in 
+        Type.mk_int_range Numeral.zero Numeral.(pred (max (abs l) (abs u)))
+      | _ -> raise Type_mismatch)
+  | _ -> raise Type_mismatch
 
 (* Integer modulus *)
 let mk_mod expr1 expr2 = mk_binary eval_mod type_of_mod expr1 expr2 
@@ -1236,10 +1498,24 @@ let eval_minus expr1 expr2 =
              
 
 (* Type of subtraction 
-   
+
+   If both arguments are bounded, the difference is bounded by the
+   difference of the lower bound of the first argument and the upper
+   bound of the second argument and the difference of the upper bound
+   of the first argument and the lower bound of the second argument.
+
    -: int -> int -> int
       real -> real -> real *)
-let type_of_minus = type_of_num_num_num 
+let type_of_minus = function 
+  | t when Type.is_int_range t -> 
+    (function 
+      | s when Type.is_int_range s -> 
+        let l1, u1 = Type.bounds_of_int_range t in
+        let l2, u2 = Type.bounds_of_int_range s in
+        Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
+      | s -> type_of_num_num_num t s)
+  | t -> type_of_num_num_num t
+
 
 
 (* Subtraction *)
@@ -1272,10 +1548,21 @@ let eval_plus expr1 expr2 =
 
 
 (* Type of addition 
+   
+   If both summands are bounded, the sum is bounded by the sum of the
+   lower bound and the sum of the upper bounds.
 
    +: int -> int -> int
       real -> real -> real *)
-let type_of_plus = type_of_num_num_num 
+let type_of_plus = function 
+  | t when Type.is_int_range t -> 
+    (function 
+      | s when Type.is_int_range s -> 
+        let l1, u1 = Type.bounds_of_int_range t in
+        let l2, u2 = Type.bounds_of_int_range s in
+        Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
+      | s -> type_of_num_num_num t s)
+  | t -> type_of_num_num_num t
 
 
 (* Addition *)
@@ -1670,6 +1957,10 @@ let eval_ite = function
 
 (* Type of if-then-else
 
+   If both the second and the third argument are bounded, the result
+   is bounded by the smaller of the two lower bound and the greater of
+   the upper bounds.
+
    ite: bool -> 'a -> 'a -> 'a *)
 let type_of_ite = function 
   | t when t = Type.t_bool -> 
@@ -1685,9 +1976,17 @@ let type_of_ite = function
          (* Extend integer ranges if one is not a subtype of the other *)
          (match type2, type3 with 
            | s, t 
-             when (Type.is_int_range s && Type.is_int_range t) ||
-                  (Type.is_int_range s && Type.is_int t) ||
+             when (Type.is_int_range s && Type.is_int t) ||
                   (Type.is_int s && Type.is_int_range t) -> Type.t_int
+
+           | s, t 
+             when (Type.is_int_range s && Type.is_int_range t) -> 
+
+             let l1, u1 = Type.bounds_of_int_range s in
+             let l2, u2 = Type.bounds_of_int_range t in
+             
+             Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+
 
            | _ -> raise Type_mismatch))
 
@@ -1700,6 +1999,27 @@ let mk_ite expr1 expr2 expr3 =
 
 
 (* ********************************************************************** *)
+
+
+(* Type of ->
+
+   If both the arguments are bounded, the result is bounded by the
+   smaller of the two lower bound and the greater of the upper bounds.
+
+   ->: 'a -> 'a -> 'a *)
+let type_of_arrow type1 type2 =
+
+  (* Extend integer ranges if one is not a subtype of the other *)
+  (match type1, type2 with 
+    | s, t 
+      when (Type.is_int_range s && Type.is_int_range t) -> 
+      
+      let l1, u1 = Type.bounds_of_int_range s in
+      let l2, u2 = Type.bounds_of_int_range t in
+      
+      Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+
+    | _ -> type_of_a_a_a type1 type2)
 
 
 (* Followed by expression *)
@@ -1715,7 +2035,7 @@ let mk_arrow expr1 expr2 =
 
   (* Types of expressions must be compatible *)
   let res_type = 
-    type_of_a_a_a expr1.expr_type expr2.expr_type 
+    type_of_arrow expr1.expr_type expr2.expr_type 
   in
 
   { expr_init = expr1.expr_init;
@@ -1729,12 +2049,23 @@ let mk_arrow expr1 expr2 =
 
 (* Pre expression *)
 let mk_pre 
-    mk_new_state_var
+    mk_state_var_for_expr
     new_vars
     ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
 
   (* Apply pre to initial state expression *)
   let expr_init', new_vars' = match expr_init with 
+
+    (* Expression is a constant *)
+    | t when 
+        t == Term.t_true || 
+        t == Term.t_false || 
+        (Term.is_free_var t && 
+         Term.free_var_of_term t |> Var.is_const_state_var) ||
+        (match Term.destruct t with 
+          | Term.T.Const c1 when 
+              Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+          | _ -> false) -> (expr_init, new_vars)
 
     (* Expression is a variable at the current instant *)
     | t when 
@@ -1744,27 +2075,18 @@ let mk_pre
       
       (Term.bump_state Numeral.(- one) t, new_vars)
 
-    (* Expression is a constant *)
-    | t when 
-        t == Term.t_true || 
-        t == Term.t_false || 
-        (match Term.destruct t with 
-          | Term.T.Const c1 when 
-              Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
-          | _ -> false) -> (expr_init, new_vars)
-
     (* Expression is not constant and not a variable at the current
        instant *)
     | _ -> 
       
       (* Fresh state variable for identifier *)
-      let state_var = mk_new_state_var expr_type in 
+      let state_var, new_vars' = mk_state_var_for_expr new_vars expr in 
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var pre_base_offset in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, (state_var, expr) :: new_vars)
+      (Term.mk_var var, new_vars')
       
   in
 
@@ -1789,13 +2111,13 @@ let mk_pre
     | _ -> 
       
       (* Fresh state variable for expression *)
-      let state_var = mk_new_state_var expr_type in
+      let state_var, new_vars' = mk_state_var_for_expr new_vars' expr in
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, (state_var, expr) :: new_vars')
+      (Term.mk_var var, new_vars')
       
   in
 
@@ -1810,11 +2132,11 @@ let mk_pre
 
 
 (* Return true if expression is a previous state variable *)
-let has_pre_var { expr_step } = 
+let has_pre_var zero_offset { expr_step } = 
 
   (* Previous state variables have negative offset *)
   match Term.var_offsets_of_term expr_step with 
-    | Some n, _ when Numeral.(n < cur_offset) -> true
+    | Some n, _ when Numeral.(n <= zero_offset + pre_offset) -> true
     | _ -> false
 
 
@@ -1863,6 +2185,22 @@ let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 (* Return true if expression is a previous state variable *)
 let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
 
+
+(* Return true if the expression is constant *)
+let is_const { expr_init; expr_step } = 
+
+  (* Are all variables in the expression constant? *)
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr_init)
+    
+  &&
+
+  (* Are all variables in the expression constant? *)
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr_step)
+    
 
 (* Return the state variable of a variable *)
 let state_var_of_expr ({ expr_init; expr_step } as expr) = 
@@ -1963,7 +2301,7 @@ let split_expr_list list =
    to the top of the expression. *)
 let oracles_for_unguarded_pres 
     pos
-    mk_new_oracle_state_var
+    mk_new_oracle_for_state_var
     warn_at_position
     oracles
     ({ expr_init } as expr) = 
@@ -1975,8 +2313,8 @@ let oracles_for_unguarded_pres
   let init_pre_vars = 
     VS.filter 
       (fun var -> 
-           Var.is_state_var_instance var &&
-           Numeral.(Var.offset_of_state_var_instance var < base_offset))
+         Var.is_state_var_instance var &&
+         Numeral.(Var.offset_of_state_var_instance var < base_offset))
       init_vars
   in
   
@@ -1993,7 +2331,16 @@ let oracles_for_unguarded_pres
          (fun var (accum, oracles) -> 
             
             (* Identifier for a fresh variable *)
-            let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
+            let state_var = 
+
+              (* We only expect state variable instances *)
+              assert (Var.is_state_var_instance var);
+
+              (* Create a new oracle variable or re-use previously
+                 created oracle *)
+              mk_new_oracle_for_state_var
+                (Var.state_var_of_state_var_instance var) 
+            in
             
             (* Variable at base instant *)
             let oracle_var = 
@@ -2012,10 +2359,6 @@ let oracles_for_unguarded_pres
         expression substituted by fresh constants *)
      ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
       oracles'))
-
-    
-
-     
 
 
 

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -27,80 +27,17 @@ exception Parser_error
 (* ********************************************************************** *)
 
 
-(* A position in a file
-
-   The column is the actual colum number, not an offset from the
-   beginning of the file as in Lexing.position *)
-type position =
-  { pos_fname : string; pos_lnum: int; pos_cnum: int }
-
-
-(* A dummy position, different from any valid position *)
-let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
-
-
-(* A dummy position in the specified file *)
-let dummy_pos_in_file fname = 
-  { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
-
-
-(* Pretty-print a position *)
-let pp_print_position 
-    ppf 
-    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
-
-  if pos = dummy_pos then 
-
-    Format.fprintf ppf "(unknown)"
-
-  else if pos_lnum = 0 && pos_cnum = -1 then
-
-    Format.fprintf ppf "%s" pos_fname
-
-  else
-
-    Format.fprintf 
-      ppf
-      "@[<hv>%tline %d@ col. %d@]"
-      (function ppf -> 
-        if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
-      pos_lnum
-      pos_cnum
-
-
-(* Convert a position from Lexing to a position *)
-let position_of_lexing 
-    { Lexing.pos_fname;
-      Lexing.pos_lnum;
-      Lexing.pos_bol;
-      Lexing.pos_cnum } = 
-
-  (* Colum number is relative to the beginning of the file *)
-  { pos_fname = pos_fname; 
-    pos_lnum = pos_lnum; 
-    pos_cnum = pos_cnum - pos_bol } 
-
-
-(* Return true if position is a dummy position *)
-let is_dummy_pos = function 
-  | { pos_cnum = -1 } -> true 
-  | _ -> false
-
-
-(* Return the file, line and column of a position; fail if the
-   position is a dummy position *)
-let file_row_col_of_pos = function 
-
-  (* Fail if position is a dummy position *)
-  | p when is_dummy_pos p -> raise (Invalid_argument "file_row_col_of_pos")
-
-  (* Return tuple of filename, line and column *)
-  | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
-
 (* An identifier *)
 type ident = LustreIdent.t
 
 type index = LustreIdent.index
+
+(* An index expression *)
+type one_index = 
+  | FieldIndex of position * ident 
+  | NumIndex of position * int
+  | VarIndex of position * ident
+
 
 (* A Lustre expression *)
 type expr =
@@ -248,6 +185,8 @@ type node_local_decl =
 
 type struct_item =
   | SingleIdent of position * ident
+  | IndexedIdent of position * ident * one_index list
+
   | TupleStructItem of position * struct_item list
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
@@ -721,6 +660,8 @@ let rec pp_print_struct_item ppf = function
       (I.pp_print_ident false) e
       (pp_print_list pp_print_array_slice ",@ ") i
 
+  (* Not fully implemented *)
+  | IndexedIdent _ -> assert false
 
 (* Pretty-print a node equation *)
 let pp_print_node_equation ppf = function

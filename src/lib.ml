@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -15,6 +15,19 @@
    permissions and limitations under the License. 
 
 *)
+
+(* ********************************************************************** *)
+(* Helper functions                                                       *)
+(* ********************************************************************** *)
+
+(* Identity function. *)
+let identity anything = anything
+
+(* Returns true when given unit. *)
+let true_of_unit () = true
+
+(* Returns false when given unit. *)
+let false_of_unit () = false
 
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
@@ -291,6 +304,11 @@ let rec list_subset_uniq cmp l1 l2 = match l1, l2 with
   | h1 :: _, h2 :: tl -> list_subset_uniq cmp l1 tl
 
 
+(* Lexicographic comparison of pairs *)
+let compare_pairs cmp_a cmp_b (a1, b1) (a2, b2) =
+  let c_a = cmp_a a1 a2 in if c_a = 0 then cmp_b b1 b2 else c_a
+
+
 (* Lexicographic comparison of lists *)
 let rec compare_lists f l1 l2 = 
 
@@ -340,8 +358,15 @@ let list_join equal l1 l2 =
              
   in
 
-  (* Call recursive function with initial accumulator *)
-  list_join' equal [] l1 l2
+  (* Second list is empty? *)
+  match l2 with 
+
+    (* Initialize with singleton elements from first list *)
+    | [] -> List.map (fun (k, v) -> (k, [v])) l1
+
+    (* Call recursive function with initial accumulator *)
+    | _ -> list_join' equal [] l1 l2
+
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)
@@ -354,6 +379,30 @@ let array_max a =
   Array.iter (fun x -> if x > !max_val then max_val := x else ()) a;
   !max_val
 
+(* ********************************************************************** *)
+(* Set functions                                                          *)
+(* ********************************************************************** *)
+
+(* Set of integers *)
+module IntegerSet = 
+  Set.Make
+  (struct
+    type t = int
+    let compare = Pervasives.compare
+    let equal = (=)
+   end)
+  
+  
+(* Hashtable of integers *)
+module IntegerHashtbl =
+  Hashtbl.Make
+    (struct
+      type t = int
+      let hash i = i
+      let equal = (=)
+     end)
+
+    
 (* ********************************************************************** *)
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
@@ -401,7 +450,7 @@ let pp_print_paren_list ppf list =
   Format.pp_print_string ppf "(";
   
   (* Output elements of list *)
-  pp_print_list Format.pp_print_string " " ppf list;
+  pp_print_list Format.pp_print_string "@ " ppf list;
 
   (* End expression with closing parenthesis *)
   Format.pp_print_string ppf ")"
@@ -437,6 +486,18 @@ let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list
 
 
+(* Output a horizonal dasehd line *)
+let pp_print_hline ppf () = 
+  
+  let width = Format.pp_get_margin ppf () in 
+
+  let hline = String.make width '-' in
+
+  Format.fprintf 
+    ppf 
+    "%s"
+    hline
+
 
 (* ********************************************************************** *)
 (* Option types                                                           *)
@@ -459,13 +520,13 @@ let get = function None -> raise (Invalid_argument "get") | Some x -> x
 let string_starts_with s1 s2 = 
 
   (* First string is shorter than second? *)
-  if String.length s1 < String.length s2 then false else
+  if Bytes.length s1 < Bytes.length s2 then false else
 
     (* Create string of length of [s2] *)
-    let s1' = String.create (String.length s2) in
+    let s1' = Bytes.create (Bytes.length s2) in
 
     (* Copy characters from [s1] *)
-    String.blit s1 0 s1' 0 (String.length s2);
+    Bytes.blit s1 0 s1' 0 (Bytes.length s2);
 
     (* Return true if strings are identical *)
     s1' = s2
@@ -489,16 +550,14 @@ let rec pp_print_bitvector_b' ppf = function
   | false :: tl -> Format.pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
 
 
-(* Pretty-print a bitvector in binary format *)
-let pp_print_bitvector_b ppf b = 
+(* Pretty-print a bitvector in SMTLIB binary format *)
+let pp_smtlib_print_bitvector_b ppf b = 
   Format.fprintf ppf "#b%a" pp_print_bitvector_b' b
 
 
-(* Pretty-print a bitvector in binary format without #b prefix *)
-let rec pp_print_bitvector_b' ppf = function 
-  | [] -> ()
-  | true :: tl -> Format.pp_print_int ppf 1; pp_print_bitvector_b' ppf tl
-  | false :: tl -> Format.pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
+(* Pretty-print a bitvector in Yices' binary format *)
+let pp_yices_print_bitvector_b ppf b = 
+  Format.fprintf ppf "0b%a" pp_print_bitvector_b' b
 
 
 (* Association list of bitvectors to hexadecimal digits *)
@@ -700,7 +759,7 @@ let bitvector_of_string s =
   with 
       
     (* Convert from a binary string *)
-    | "#b" -> bitvector_of_string_b [] ((String.length s) - 1) s
+    | "#b" | "0b" -> bitvector_of_string_b [] ((String.length s) - 1) s
 
     (* Convert from a hexadecimal string *)
     | "#x" -> bitvector_of_string_x [] ((String.length s) - 1) s
@@ -872,17 +931,18 @@ let log_to_stdout () = log_ppf := Format.std_formatter
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    Format.fprintf ppf "%s %s" Config.package_name Version.version
+    Format.fprintf ppf "%s %s" Kind2Config.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   
 
 (* Kind modules *)
 type kind_module = 
-  [ `PDR 
+  [ `IC3 
   | `BMC 
   | `IND
   | `INVGEN
+  | `INVGENOS
   | `INVMAN
   | `Interpreter
   | `Parser ]
@@ -890,10 +950,11 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `PDR -> Format.fprintf ppf "PDR"
-  | `BMC -> Format.fprintf ppf "BMC"
+  | `IC3 -> Format.fprintf ppf "property directed reachability"
+  | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
-  | `INVGEN -> Format.fprintf ppf "invariant generator"
+  | `INVGEN -> Format.fprintf ppf "two state invariant generator"
+  | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Parser -> Format.fprintf ppf "parser"
@@ -905,10 +966,11 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 (* Return a short representation of kind module *)
 let suffix_of_kind_module = function
- | `PDR -> "pdr"
+ | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `INVGEN -> "inv"
+ | `INVGENOS -> "invos"
  | `INVMAN -> "man"
  | `Interpreter -> "interp"
  | `Parser -> "parse"
@@ -916,10 +978,11 @@ let suffix_of_kind_module = function
 
 (* Process type of a string *)
 let kind_module_of_string = function 
-  | "PDR" -> `PDR
+  | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
+  | "INVGENOS" -> `INVGENOS
   | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
@@ -1047,9 +1110,27 @@ let find_on_path exec =
 
   try 
 
-    (* Return filename on path, fail with Not_found if path is empty
-       or [exec] not found on path *)
-    find_on_path' exec (Unix.getenv "PATH")
+    if Filename.is_relative exec then 
+
+      (* Return filename on path, fail with Not_found if path is empty
+         or [exec] not found on path *)
+      find_on_path' exec (Unix.getenv "PATH")
+        
+    else if 
+      
+      (* Check if file exists on path *)
+      Sys.file_exists exec
+        
+    then 
+      
+      (* Return full path to file 
+         
+         TODO: Check if file is executable here? *)
+      exec
+
+    else 
+
+      raise Not_found
 
   with Not_found -> 
 
@@ -1058,7 +1139,95 @@ let find_on_path exec =
 
     (* Return full path if file exists, fail otherwise *)
     if Sys.file_exists exec_path then exec_path else raise Not_found
- 
+
+(* ********************************************************************** *)
+(* Parser and lexer functions                                             *)
+(* ********************************************************************** *)
+
+
+(* A position in a file
+
+   The column is the actual colum number, not an offset from the
+   beginning of the file as in Lexing.position *)
+type position =
+  { pos_fname : string; pos_lnum: int; pos_cnum: int }
+
+
+(* Comparision on positions *)
+let compare_pos 
+    { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }  
+    { pos_fname = p2; pos_lnum = l2; pos_cnum = c2 } =
+
+  compare_pairs 
+    String.compare
+    (compare_pairs Pervasives.compare Pervasives.compare)
+    (p1, (l1, c1)) 
+    (p2, (l2, c2)) 
+
+
+(* A dummy position, different from any valid position *)
+let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
+
+
+(* A dummy position in the specified file *)
+let dummy_pos_in_file fname = 
+  { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
+
+
+(* Pretty-print a position *)
+let pp_print_position 
+    ppf 
+    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
+
+  if pos = dummy_pos then 
+
+    Format.fprintf ppf "(unknown)"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    Format.fprintf ppf "%s" pos_fname
+
+  else
+
+    Format.fprintf 
+      ppf
+      "@[<hv>%tline %d@ col. %d@]"
+      (function ppf -> 
+        if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+      pos_lnum
+      pos_cnum
+
+
+(* Convert a position from Lexing to a position *)
+let position_of_lexing 
+    { Lexing.pos_fname;
+      Lexing.pos_lnum;
+      Lexing.pos_bol;
+      Lexing.pos_cnum } = 
+
+  (* Colum number is relative to the beginning of the file *)
+  { pos_fname = pos_fname; 
+    pos_lnum = pos_lnum; 
+    pos_cnum = pos_cnum - pos_bol } 
+
+
+(* Return true if position is a dummy position *)
+let is_dummy_pos = function 
+  | { pos_cnum = -1 } -> true 
+  | _ -> false
+
+
+(* Return the file, line and column of a position; fail if the
+   position is a dummy position *)
+let file_row_col_of_pos = function 
+
+  (* Fail if position is a dummy position *)
+  | p when is_dummy_pos p -> raise (Invalid_argument "file_row_col_of_pos")
+
+  (* Return tuple of filename, line and column *)
+  | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
+
+
 
 (* 
    Local Variables:

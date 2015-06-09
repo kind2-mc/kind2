@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -17,6 +17,9 @@
 *)
 
 open Poly
+
+(* Formula is not in linear integer arithmetic *)
+exception Not_in_LIA
 
 (* Intermediate formula in the bottom-up conversion from term to
    Presburger atoms*)
@@ -423,8 +426,8 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                  Poly [(i, None)]
 
                (* Fail on not integer numerals *)
-               | `DECIMAL _, _ ->
-                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+               | `DECIMAL _, _ -> raise Not_in_LIA
+                 
 
                (* Unary minus *)
                | `MINUS, [if1] ->
@@ -489,34 +492,29 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                  unchain_GT_to_iformula c ifl
 
                (* Fail on real division *)
-               | `DIV, _ -> failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+               | `DIV, _ -> raise Not_in_LIA
 
                (* Fail on integer division *)
-               | `INTDIV, _ -> failwith "Non-integer terms not supported. Use a different --pdr_qe option." 
+               | `INTDIV, _ -> raise Not_in_LIA
 
                (* Fail on modulus *)
-               | `MOD, _ -> failwith "mod operator not supported."
+               | `MOD, _ -> raise Not_in_LIA
 
                (* Fail on absolute value *)
-               | `ABS, _ -> failwith "abs operator not supported." 
+               | `ABS, _ -> raise Not_in_LIA
 
                (* Fail on conversion to real *)
-               | `TO_REAL, _ -> 
-                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+               | `TO_REAL, _ -> raise Not_in_LIA
 
                (* Fail on conversion to integer *)
-               | `TO_INT, _ -> 
-                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."  
+               | `TO_INT, _ -> raise Not_in_LIA
 
                (* Fail on coincidence with integer predicate *)
-               | `IS_INT, _ -> 
-                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+               | `IS_INT, _ -> raise Not_in_LIA
 
                (* Add uninterpreted function to polynomial as variable with
                   coefficient one *)
-               | `UF s, ags ->
-                 failwith "`Uninterpreted functions not supported."
-
+               | `UF s, ags -> raise Not_in_LIA
 
                (* Turn divisibility predicate into an iformula *)
                | `DIVISIBLE i, [Poly pl] ->
@@ -525,6 +523,7 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `NOT, _
                | `MINUS, _
                | `DIVISIBLE _, _
+(*
                | `BVNEG, _
                | `BVADD, _
                | `BV _, _ 
@@ -537,11 +536,12 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `BVOR, _
                | `BVLSHR, _
                | `BVAND, _
+*)
                | `SELECT, _
+(*
                | `BVULT, _
                | `STORE, _
-               | `EXTRACT _, _ -> 
-                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+               | `EXTRACT _, _  *) -> raise Not_in_LIA
 
              )
       )

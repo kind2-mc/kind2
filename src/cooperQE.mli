@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -25,7 +25,7 @@
 val pp_print_model : Format.formatter -> (Var.t * Term.t) list -> unit
 
 (** Eliminate quantifiers of a list of variables in a formula *)
-val eliminate : (Var.t * Term.t) list -> Var.t list -> Poly.cformula -> Poly.cformula
+val eliminate : Model.t -> Var.t list -> Poly.cformula -> Poly.cformula
 
 (* 
    Local Variables:

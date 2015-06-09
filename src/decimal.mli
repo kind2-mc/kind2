@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -29,21 +29,25 @@ type t
 (** Pretty-print a rational *)
 val pp_print_decimal : Format.formatter -> t -> unit
 
+(** Pretty-print a rational as an S-expression *)
+val pp_print_decimal_sexpr : Format.formatter -> t -> unit
+
 (** Return a string representation of a rational *)
 val string_of_decimal : t -> string
+
+(** Return an S-expression string representation of a rational *)
+val string_of_decimal_sexpr : t -> string
 
 (** {1 Conversions} *)
 
 (** Convert an integer to a rational *)
 val of_int : int -> t
 
-(*
-(** Convert a floating-point number to a rational *)
-val of_float : float -> t
-*)
-
 (** Convert an arbitrary large integer to a rational *)
 val of_big_int : Big_int.big_int -> t
+
+(** Convert an ocaml Num to a rational *)
+val of_num : Num.num -> t
 
 (** Convert a string in floating-point notation [1.2E3] to rational number *)
 val of_string : string -> t
@@ -57,6 +61,10 @@ val to_int : t -> int
 
 (** Convert a rational number to an arbitrary large integer *)
 val to_big_int : t -> Big_int.big_int
+
+(** Return true if decimal coincides with an integer *)
+val is_int : t -> bool
+
 
 (** {1 Constants} *)
 

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -20,6 +20,16 @@
 
     @author Christoph Sticksel
 *)
+
+(** {1 Helper functions} *)
+(** Identity function. *)
+val identity : 'a -> 'a
+
+(** Returns true when given unit. *)
+val true_of_unit : unit -> bool
+
+(** Returns false when given unit. *)
+val false_of_unit : unit -> bool
 
 (** {1 Option types} *)
 
@@ -48,8 +58,11 @@ val bitvector_of_hstring : HString.t -> bitvector
 (** Convert a hashconsed string to a Boolean value *)
 val bool_of_hstring : HString.t -> bool
 
-(** Pretty-print a constant bitvector in binary format *)
-val pp_print_bitvector_b : Format.formatter -> bitvector -> unit
+(** Pretty-print a constant bitvector in SMTLIB binary format *)
+val pp_smtlib_print_bitvector_b : Format.formatter -> bitvector -> unit
+
+(** Pretty-print a constant bitvector in Yices' binary format *)
+val pp_yices_print_bitvector_b : Format.formatter -> bitvector -> unit
 
 (** Pretty-print a constant bitvector in hexadeciaml format *)
 val pp_print_bitvector_x : Format.formatter -> bitvector -> unit
@@ -127,6 +140,9 @@ val list_subset_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> bool
     at each element are equal. *)
 val list_join : ('a -> 'a -> bool) -> ('a * 'b) list -> ('a * 'b list) list -> ('a * 'b list) list
 
+(** Lexicographic comparison of pairs *)
+val compare_pairs : ('a -> 'a -> int) -> ('b -> 'b -> int) -> 'a * 'b -> 'a * 'b -> int 
+
 (** Lexicographic comparison of lists *)
 val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int 
 
@@ -135,6 +151,14 @@ val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int
 (** Returns the maximum element of a non-empty array *)
 val array_max : 'a array -> 'a
 
+(** {1 Set functions} *)
+
+(** Sets of integers *)
+module IntegerSet : Set.S with type elt = int
+
+(** Hashtable of integers *)
+module IntegerHashtbl : Hashtbl.S with type key = int
+  
 (** {1 Pretty-printing helpers} *)
 
 (** Pretty-print an array with given separator
@@ -168,9 +192,11 @@ val pp_print_list : (Format.formatter -> 'a -> unit) -> ('b, Format.formatter, u
 (** Pretty-print an option type *)
 val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a option -> unit
 
+(** Output a horizonal dasehd line *)
+val pp_print_hline : Format.formatter -> unit -> unit 
+
 (** Pretty-print into a string *)
 val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string 
-
 
 (** Return the strings as a parenthesized and space separated list *)
 val paren_string_of_string_list : string list -> string
@@ -244,10 +270,11 @@ val pp_print_version : Format.formatter -> unit
 
 (** Kind modules *)
 type kind_module =
-  [ `PDR
+  [ `IC3
   | `BMC
   | `IND
   | `INVGEN
+  | `INVGENOS
   | `INVMAN
   | `Interpreter
   | `Parser ]
@@ -290,7 +317,32 @@ val minisleep : float -> unit
     and current working directory *)
 val find_on_path : string -> string 
 
+(** {1 Positions in the input} *)
 
+(** A position in the input *)
+type position 
+
+(** Dummy position different from any valid position *)
+val dummy_pos : position
+
+(** Comparision on positions *)
+val compare_pos : position -> position -> int
+
+(** Return [true] if the position is not a valid position in the
+    input *)
+val is_dummy_pos : position -> bool
+
+(** Pretty-print a position *)
+val pp_print_position : Format.formatter -> position -> unit
+
+(** Return the file, line and column of a position; fail with
+    [Invalid_argument "file_row_col_of_pos"] if the position is a dummy
+    position *)
+val file_row_col_of_pos : position -> string * int * int
+
+(** Convert a position of the lexer to a position *)
+val position_of_lexing : Lexing.position -> position
+ 
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

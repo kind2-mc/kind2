@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -77,7 +77,7 @@ let create sz =
   let emptybucket = (0, [| |]) in
   
   (* Create the hashcons table *)
-  { table = Array.create sz emptybucket;
+  { table = Array.make sz emptybucket;
     totsize = 0;
     limit = 3; }
 
@@ -204,7 +204,7 @@ and add t d =
 
       (* Create new bucket, initialize all entries with the new
          value *)
-      let newbucket = Array.create newsz d in
+      let newbucket = Array.make newsz d in
 
       (* Copy entries from the old bucket to the new bucket, the
          appended entries in the new bucket still contain the value to
@@ -398,7 +398,7 @@ struct
     let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
     
     (* Create the hashcons table *)
-    { table = Array.create sz emptybucket;
+    { table = Array.make sz emptybucket;
       totsize = 0;
       limit = 3; }
 
@@ -521,7 +521,7 @@ struct
         
         (* Create new bucket, initialize all entries with the new
            value *)
-        let newbucket = Array.create newsz d in
+        let newbucket = Array.make newsz d in
         
         (* Copy entries from the old bucket to the new bucket, the
            appended entries in the new bucket still contain the value to

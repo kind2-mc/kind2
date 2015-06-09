@@ -1,6 +1,6 @@
 # These lines are required
 AC_PREREQ(2.59)
-AC_INIT([kind2], [0.7.0], [christoph-sticksel@uiowa.edu])
+AC_INIT([kind2], [v0.8.0], [christoph-sticksel@uiowa.edu])
 
 # This just checks if some source file is present
 AC_CONFIG_SRCDIR([src/kind2.ml])
@@ -15,11 +15,10 @@ if test "x$OCAMLOPT" = "xno"; then
   AC_MSG_ERROR([You must install the OCaml native-code compiler])
 fi
 
-# Check for OCaml 4.01 
-if expr "$OCAMLVERSION" '<' '4.01' > /dev/null ; then
-  AC_MSG_ERROR([OCaml version 4.01 or later required])
+# Check for OCaml 4.02 
+if expr "$OCAMLVERSION" '<' '4.02' > /dev/null ; then
+  AC_MSG_ERROR([OCaml version 4.02 or later required])
 fi
-
 
 # Check for Camlp4
 AC_PROG_CAMLP4
@@ -33,12 +32,40 @@ if test "x$OCAMLFIND" = "xno"; then
    AC_MSG_WARN([You must install the OCaml findlib (the ocamlfind command)])
 fi
 
+# Check for menhir
+AC_PROG_MENHIR
+if test "x$MENHIR" = "xno"; then
+   AC_MSG_ERROR([You must install the Menhir parser])
+fi
+
 # Check for C compiler
 AC_PROG_CC
 
 if test "x$CC" = "xno"; then
   AC_MSG_ERROR([You need a C compiler])
 fi
+
+# ######################################################################
+# git version suffix      
+# ######################################################################
+
+AC_ARG_WITH(
+    [version-suffix],
+    AS_HELP_STRING([--with-version-suffix@<:@=VER@:>@], [Append version suffix to binary @<:@default: no, --with-version-suffix adds the git hash, --with-version-suffix=VER adds the suffix VER@:>@]),
+    [],
+    [with_version_suffix=no])
+
+if test "x$with_version_suffix" = "xyes"; then
+   bin_suffix='-`git rev-parse --short HEAD`'
+
+elif test "x$with_version_suffix" = "xno"; then
+   bin_suffix=''
+     
+else
+   bin_suffix=$with_version_suffix
+fi
+
+AC_SUBST(bin_suffix)
 
 # ######################################################################
 # Debug builds            
@@ -344,7 +371,7 @@ AC_SUBST(IZ3_BIN)
 AC_CONFIG_SUBDIRS([ocamlczmq])
 
 # Configuration files
-AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/config.ml src/flags.ml server/Makefile server/myocamlbuild.ml])
+AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/kind2Config.ml src/flags.ml server/Makefile server/myocamlbuild.ml])
 
 # Write configuration files
 AC_OUTPUT

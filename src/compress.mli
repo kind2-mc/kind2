@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -27,10 +27,12 @@
     system. *)
 val init : (UfSymbol.t -> unit) -> TransSys.t -> unit
 
+val incr_k : unit -> unit 
+
 (** Given an inductive counterexample return a list of terms to force
     those states on the path to be different that are equivalent under
     some simulation relations. *)
-val check_and_block : (StateVar.t * Term.t list) list -> Term.t list
+val check_and_block : (UfSymbol.t -> unit) -> TransSys.t -> Model.path -> Term.t list
 
 
 (* 

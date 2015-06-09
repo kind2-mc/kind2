@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -57,6 +57,9 @@ type t = private string * index
 
 (** A set of identifiers *)
 module LustreIdentSet : Set.S with type elt = t
+
+(** Maps of identifiers *)
+module LustreIdentMap : Map.S with type key = t
 
 (** Pretty-print an identifier *)
 val pp_print_ident : bool -> Format.formatter -> t -> unit 
@@ -180,8 +183,11 @@ val abs_ident : t
 (** Identifier for oracle input *)
 val oracle_ident : t
 
+(** Identifier for observer output *)
+val observer_ident : t
+
 (** Identifier for clock initialization flag *)
-val ticked_ident : t 
+val first_tick_ident : t 
 
 (** Identifier of uninterpreted symbol for initial state constraint *)
 val init_uf_string : string 
@@ -189,9 +195,10 @@ val init_uf_string : string
 (** Identifier of uninterpreted symbol for transition relation *)
 val trans_uf_string : string 
 
+(*
 (** Scope for top-level variables *)
 val top_scope_index : index
-
+*)
 
 (* 
    Local Variables:

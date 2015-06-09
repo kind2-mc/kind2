@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -18,6 +18,43 @@
 
 open Lib
 
+
+(* The main function {!declarations_to_nodes} iterates over the list
+   of declarations obtained from parsing Lustre input and returns a
+   list of Lustre nodes.
+
+   All alias types are substituted with basic types, global constants
+   are propagated to expressions, and nodes are rewritten into a
+   normal form, see below.
+
+   {!declarations_to_nodes'} adds to and returns a {!lustre_context}
+   that is a record of 
+
+   - [basic_types]: an association list of indexed identifiers to basic
+     types of {!Type.t},
+
+   - [indexed_types]: an association list of indexed identifiers to an
+     association list of indexes to basic types. The latter maps each
+     suffix of a type identifier to a basic type,
+
+   - [free_types]: currently unused, intended to hold a list of types
+     that are considered uninterpreted,
+
+   - [type_ctx]: an association list of identifiers to basic types,
+
+   - [index_ctx]: an association list of indexed identifiers to their
+     suffixes, implemented as an association list of indexes to units
+     for uniformity with [indexed_types],
+
+   - [consts]: an association list of constant identifiers to expressions, and 
+
+   - [nodes]: the list of parsed nodes. 
+
+
+*)
+
+
+
 (* Abbreviations *)
 module A = LustreAst
 module I = LustreIdent
@@ -31,7 +68,7 @@ module ISet = I.LustreIdentSet
    This is just failing at the moment, we'd need some dependency
    analysis to recognize cycles to fully support forward
    referencing. *)
-exception Node_not_found of I.t * A.position
+exception Node_not_found of I.t * position
 
 
 (* Sort a list of indexed expressions *)
@@ -44,7 +81,7 @@ let fail_at_position pos msg =
   Event.log
     L_warn
     "Parser error in %a: %s"
-    A.pp_print_position pos
+    pp_print_position pos
     msg;
 
   raise A.Parser_error
@@ -56,7 +93,7 @@ let warn_at_position pos msg =
   Event.log
     L_warn
     "Parser warning in %a: %s"
-    A.pp_print_position pos
+    pp_print_position pos
     msg
 
 
@@ -98,7 +135,9 @@ type lustre_context =
     
     (* Nodes *)
     nodes : LustreNode.t list;
-    
+
+    (* Dependencies between noes *)
+    deps : I.LustreIdentSet.t I.LustreIdentMap.t; 
   }
   
 
@@ -110,7 +149,9 @@ let init_lustre_context =
     type_ctx = [];
     index_ctx = [];
     consts = [];
-    nodes = [] }
+    nodes = [];
+    deps = I.LustreIdentMap.empty;
+  }
 
 
 (* Pretty-print a type identifier *)
@@ -202,19 +243,33 @@ type abstraction_context =
     scope : I.index;
 
     (* Create a new identifier for a variable *)
-    mk_new_state_var : Type.t -> StateVar.t;
+    mk_new_state_var : bool -> Type.t -> StateVar.t;
 
-    (* Create a new identifier for an oracle input *)
-    mk_new_oracle_state_var : Type.t -> StateVar.t;
+    (* Define an expression with a state variable or re-use previous
+       definition *)
+    mk_state_var_for_expr : bool -> (StateVar.t * E.t) list -> E.t -> StateVar.t * (StateVar.t * E.t) list;
 
-    (* Added definitions of variables *)
+    (* Create a new oracle input to guard pre operation on state
+       variable *)
+    mk_new_oracle_for_state_var : StateVar.t -> StateVar.t;
+
+    (* Create a new oracle input *)
+    mk_new_oracle : Type.t -> StateVar.t;
+
+    (* Create a new identifier for an observer output *)
+    mk_new_observer_state_var : Type.t -> StateVar.t;
+
+    (* Definitions of new variables to add *)
     new_vars : (StateVar.t * E.t) list;
 
-    (* Added definitions of node calls *)
+    (* Definitions of node calls to add *)
     new_calls : N.node_call list;
 
-    (* Added oracle inputs *)
+    (* Oracle inputs to add to the inputs of the node *)
     new_oracles : StateVar.t list;
+
+    (* Observer oututs to add to the ouptuts of the node *)
+    new_observers : StateVar.t list;
 
   }
 
@@ -226,20 +281,24 @@ let void_abstraction_context pos =
 
   { scope = I.empty_index;
     mk_new_state_var = (fun _ -> fail_at_position pos msg); 
-    mk_new_oracle_state_var = (fun _ -> fail_at_position pos msg);
+    mk_state_var_for_expr = (fun _ -> fail_at_position pos msg); 
+    mk_new_oracle_for_state_var = (fun _ -> fail_at_position pos msg);
+    mk_new_oracle = (fun _ -> fail_at_position pos msg);
+    mk_new_observer_state_var = (fun _ -> fail_at_position pos msg);
     new_vars = []; 
     new_calls = [];
-    new_oracles = [] } 
+    new_oracles = [];
+    new_observers = [] } 
 
 
 (* Pretty-print an environment *)
 let pp_print_abstraction_context 
     ppf
-    { scope; new_vars; new_calls; new_oracles} =
+    { scope; new_vars; new_calls; new_oracles; new_observers } =
 
   Format.fprintf 
     ppf 
-    "@[<v>Abstraction context for scope %a@,@[<hv>new_vars:@ @[<hv>%a@]@]@,@[<hv>new_calls:@ @[<hv>%a@]@]@,@[<hv>new_oracles:@ @[<hv>%a@]@]@]"
+    "@[<v>Abstraction context for scope %a@,@[<hv>new_vars:@ @[<hv>%a@]@]@,@[<hv>new_calls:@ @[<hv>%a@]@]@,@[<hv>new_oracles:@ @[<hv>%a@]@]@,@[<hv>new_observers:@ @[<hv>%a@]@]@]"
     (I.pp_print_index false) scope
     (pp_print_list
        (fun ppf (sv, def) -> 
@@ -251,29 +310,34 @@ let pp_print_abstraction_context
     (pp_print_list
        (fun ppf -> function 
           | { N.call_returns = ret;
-              N.call_clock = clk;
+              N.call_observers = obs;
+              N.call_clock = None;
               N.call_node_name = node;
               N.call_inputs = inp;
-              N.call_defaults = init } when E.equal_expr clk E.t_true -> 
+              N.call_defaults = init } -> 
             Format.fprintf ppf "@[<hv>%a =@ %a(%a)@]"
-              (pp_print_list StateVar.pp_print_state_var ",@,") ret
+              (pp_print_list StateVar.pp_print_state_var ",@,") (ret @ obs)
               (I.pp_print_ident false) node
-              (pp_print_list (E.pp_print_lustre_expr false) ",@,") inp
+              (pp_print_list (E.pp_print_lustre_var false) ",@,") inp
           | { N.call_returns = ret;
-              N.call_clock = clk;
+              N.call_observers = obs;
+              N.call_clock = Some clk;
               N.call_node_name = node;
               N.call_inputs = inp;
               N.call_defaults = init } -> 
             Format.fprintf ppf "@[<hv>%a =@ condact(%a,%a(%a),%a)@]"
-              (pp_print_list StateVar.pp_print_state_var ",@,") ret
-              (E.pp_print_lustre_expr false) clk
+              (pp_print_list StateVar.pp_print_state_var ",@,") (ret @ obs)
+              (E.pp_print_lustre_var false) clk
               (I.pp_print_ident false) node
-              (pp_print_list (E.pp_print_lustre_expr false) ",@,") inp
-              (pp_print_list (E.pp_print_lustre_expr false) ",@,") init)
+              (pp_print_list (E.pp_print_lustre_var false) ",@,") inp
+              (pp_print_list (E.pp_print_lustre_expr false) ",@,") 
+              (init @ (List.map (fun _ -> E.t_true) obs)))
        ",@,")
     new_calls
     (pp_print_list StateVar.pp_print_state_var ",@,") 
     new_oracles
+    (pp_print_list StateVar.pp_print_state_var ",@,") 
+    new_observers
     
     
 
@@ -324,10 +388,14 @@ let rec eval_ast_expr'
        nodes } as context)
     ({ scope;
        mk_new_state_var; 
-       mk_new_oracle_state_var; 
+       mk_state_var_for_expr; 
+       mk_new_oracle_for_state_var; 
+       mk_new_oracle; 
+       mk_new_observer_state_var; 
        new_vars;
        new_calls;
-       new_oracles } as abstractions)
+       new_oracles;
+       new_observers } as abstractions)
     result = 
 
 
@@ -1171,7 +1239,7 @@ let rec eval_ast_expr'
         context
         abstractions
         result
-        (A.Not (A.dummy_pos, A.Eq (pos, expr1, expr2)) :: tl)
+        (A.Not (dummy_pos, A.Eq (pos, expr1, expr2)) :: tl)
 
 
     (* Less than or equal *)
@@ -1247,17 +1315,23 @@ let rec eval_ast_expr'
         if 
 
           (* Input must not contain variable at previous state *)
-          E.has_pre_var cond'
+          E.has_pre_var E.base_offset cond'
 
         then
 
-          (* New variable for abstraction *)
-          let state_var = mk_new_state_var cond'.E.expr_type in
+          (* New variable for abstraction, not a constant *)
+          let state_var, new_vars' = 
+            mk_state_var_for_expr
+              false 
+              abstractions'.new_vars
+              cond'
+          in
+
+          E.set_state_var_source state_var E.Abstract;
 
           (* Add definition of variable *)
           let abstractions'' =
-            { abstractions' with
-                new_vars = (state_var, cond') :: abstractions'.new_vars }
+            { abstractions' with new_vars = new_vars' }
           in
 
           (* Use abstracted variable as input parameter *)
@@ -1483,7 +1557,7 @@ let rec eval_ast_expr'
               (Format.asprintf 
                  "Node %a not defined or forward-referenced in %a" 
                  (I.pp_print_ident false) ident
-                 A.pp_print_position A.dummy_pos)))
+                 A.pp_print_position dummy_pos)))
 
 *)
 
@@ -1505,10 +1579,10 @@ let rec eval_ast_expr'
 
            List.fold_left
              (fun 
-               (accum, ({ mk_new_state_var; new_vars } as abstractions)) 
+               (accum, ({ mk_state_var_for_expr; new_vars } as abstractions)) 
                (index, expr) -> 
                let expr', new_vars' = 
-                 E.mk_pre mk_new_state_var new_vars expr 
+                 E.mk_pre (mk_state_var_for_expr false) new_vars expr 
                in
                (((index, expr') :: accum), 
                 { abstractions with new_vars = new_vars' }))
@@ -1688,7 +1762,10 @@ and eval_ast_expr
 
 and eval_node_call
     ({ nodes } as context)
-    ({ mk_new_state_var; mk_new_oracle_state_var } as abstractions)
+    ({ mk_new_state_var; 
+       mk_state_var_for_expr; 
+       mk_new_oracle; 
+       mk_new_observer_state_var } as abstractions)
     pos
     cond
     ident
@@ -1708,41 +1785,40 @@ and eval_node_call
         (fun 
           (in_var, index)
           (_, ({ E.expr_type } as expr)) 
-          (accum, ({ new_vars; mk_new_state_var } as abstractions)) ->
+          (accum, ({ new_vars; mk_state_var_for_expr } as abstractions)) ->
 
           if
 
             (* Expression must be of a subtype of input type *)
             Type.check_type 
               expr_type
-              (StateVar.type_of_state_var in_var) 
+              (StateVar.type_of_state_var in_var) &&
+
+            (* Expression must be constant if input is *)
+            (not (StateVar.is_const in_var) || 
+             E.is_const expr)
 
           then 
 
-            if 
+            (* New variable for abstraction, is constant if input is *)
+            let state_var, new_vars' = 
+              mk_state_var_for_expr
+                (StateVar.is_const in_var)
+                abstractions.new_vars
+                expr 
+            in
 
-              (* Input must not contain variable at previous state *)
-              E.has_pre_var expr 
+            E.set_state_var_instance state_var pos ident in_var ;
 
-            then
+            E.set_state_var_source state_var E.Abstract ;
 
-              (* New variable for abstraction *)
-              let state_var = mk_new_state_var expr_type in
+            (* Add definition of variable *)
+            let abstractions' =
+              { abstractions with new_vars = new_vars' }
+            in
 
-              (* Add definition of variable *)
-              let abstractions' =
-                { abstractions with
-                    new_vars = (state_var, expr) :: abstractions.new_vars }
-              in
-
-              (* Use abstracted variable as input parameter *)
-              (E.mk_var state_var E.base_clock :: accum, 
-               abstractions')
-
-            else
-
-              (* Add expression as input *)
-              (expr :: accum, abstractions)
+            (* Add expression as input *)
+            (state_var :: accum, abstractions')
 
           else
             raise E.Type_mismatch)
@@ -1757,54 +1833,13 @@ and eval_node_call
 
   in
 
-  (* Type check expressions for node inputs and return sorted list of
-     expressions for node inputs *)
-  let node_init_of_exprs node_outputs pos expr_list =
+  let
 
-    try
-
-      (* Check types and index, keep lists sorted *)
-      List.fold_right2
-        (fun 
-          (out_var, _) 
-          (_, ({ E.expr_type } as expr)) 
-          accum ->
-
-          (* Expression must be of a subtype of input type *)
-          if 
-            Type.check_type 
-              expr_type
-              (StateVar.type_of_state_var out_var)
-          then 
-            expr :: accum
-          else
-            raise E.Type_mismatch) 
-        node_outputs
-        expr_list
-        []
-
-    (* Type checking error or one expression has more indexes *)
-    with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
-
-      fail_at_position pos "Type mismatch for expressions"
-
-  in
-
-  (* Add list of variables capturing the output with indexes to the result *)
-  let output_vars_of_node_output mk_new_state_var node_outputs = 
-
-    List.map
-      (fun (out_var, _) -> 
-         mk_new_state_var (StateVar.type_of_state_var out_var))
-      node_outputs
-
-  in
-
-
-
-  let { N.inputs = node_inputs; 
-        N.outputs = node_outputs; 
-        N.oracles = node_oracles } = 
+    { N.inputs = node_inputs; 
+      N.oracles = node_oracles;
+      N.outputs = node_outputs; 
+      N.observers = node_observers;
+      N.props = node_props } = 
 
     try 
 
@@ -1819,6 +1854,16 @@ and eval_node_call
       raise (Node_not_found (ident, pos))
 
   in
+
+  debug lustreSimplify
+      "@[<hv>Node call at %a:@ properties @[<hv>%a@]@ observers @[<hv>%a@]@]"
+      pp_print_position pos
+      (pp_print_list StateVar.pp_print_state_var ",@ ")
+      (List.map fst node_props)
+      (pp_print_list StateVar.pp_print_state_var ",@ ")
+      node_observers
+  in
+
 
   if
 
@@ -1865,56 +1910,171 @@ and eval_node_call
       (A.ExprList (pos, args))
   in
 
-  (* Fresh state variables for oracle inputs of called node *)
-  let oracle_state_vars = 
-    List.map 
-      (fun sv ->
-         mk_new_oracle_state_var (StateVar.type_of_state_var sv))
-      node_oracles 
-  in
-
-  (* Expressions from state variables for oracle inputs *)
-  let oracle_exprs = 
-    List.map
-      (fun sv -> E.mk_var sv E.base_clock) 
-      oracle_state_vars 
-  in
-
   (* Type check and flatten indexed expressions for input into list
          without indexes *)
-  let node_input_exprs, abstractions' =
+  let node_input_state_vars, abstractions' =
     node_inputs_of_exprs node_inputs abstractions' pos expr_list'
   in
 
-  let result', output_vars = 
-    List.fold_left
-      (fun (result, output_vars) (node_sv, index) -> 
+  (* State variable for activation condition *)
+  let cond_state_var, abstractions' = 
 
-         let sv = 
-           mk_new_state_var (StateVar.type_of_state_var node_sv)
-         in
+    if 
+    
+      (* Node call has activation condition  *)
+      E.equal_expr cond E.t_true
+        
+    then
+      
+      (* No state variable and context is unchanged *)
+      None, abstractions'
 
-         (index, E.mk_var sv E.base_clock) :: result, 
-         sv :: output_vars)
+    else
 
-      (result, [])
-      node_outputs
+      (* New variable for activation condition *)
+      let state_var, new_vars' = 
+        mk_state_var_for_expr
+          false
+          abstractions'.new_vars
+          cond
+      in
+
+      E.set_state_var_source state_var E.Abstract ;
+      
+      (* Add definition of variable *)
+      let abstractions' =
+        { abstractions' with new_vars = new_vars' }
+      in
+
+      (* Return state variable and changed context *)
+      Some state_var, abstractions'
+
   in
 
-  (* Add expression to result *)
-  eval_ast_expr' 
-    context 
-    { abstractions' 
-      with new_calls = { N.call_returns = List.rev output_vars;
-                         N.call_clock = cond;
-                         N.call_node_name = ident;
-                         N.call_pos = pos;
-                         N.call_inputs = node_input_exprs @ oracle_exprs;
-                         N.call_defaults = List.map snd defaults } 
-                       :: abstractions'.new_calls;
-           new_oracles = abstractions'.new_oracles @ oracle_state_vars }
-    result' 
-    tl
+  try 
+
+    (* Find a call to the same node on the same clock with the same
+       inputs in this node *)
+    let node_call = 
+      List.find
+        (fun { N.call_clock = cond';
+               N.call_defaults = defaults';
+               N.call_node_name = ident';
+               N.call_inputs = inputs';
+               N.call_returns = node_outputs } -> 
+
+          (* Call to the same node *)
+          (I.equal ident ident') &&
+
+          (match cond_state_var, cond' with 
+
+            | Some v, Some v' -> 
+
+              (* Same activation condition *)
+              StateVar.equal_state_vars v v' &&
+
+              (* Same defaults *)
+              (List.for_all2
+                 (fun (_, sv1) sv2 -> E.equal_expr sv1 sv2)
+                 defaults 
+                 defaults')
+
+            (* No activation condtion *)
+            | None, None -> true
+
+            | _ -> false) &&
+
+          (* Inputs are the same up to oracles *)
+          (let rec aux = 
+            function 
+              | [] -> (function _ -> true)
+              | h :: tl -> 
+                (function
+                  | [] -> false
+                  | h' :: tl' -> 
+                    if StateVar.equal_state_vars h h' then 
+                      aux tl tl'
+                    else
+                      false)
+           in
+           aux node_input_state_vars inputs'))
+        abstractions'.new_calls
+    in
+
+    let result' = 
+      List.fold_left2
+        (fun result sv (_, index) -> 
+           (index, E.mk_var sv E.base_clock) :: result)
+        result
+        node_call.N.call_returns
+        node_outputs
+    in
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      abstractions' 
+      result' 
+      tl
+
+  with Not_found -> 
+
+    (* Fresh state variables for oracle inputs of called node *)
+    let oracle_state_vars = 
+      List.map 
+        (fun node_sv ->
+           let sv = mk_new_oracle (StateVar.type_of_state_var node_sv) in
+           E.set_state_var_instance sv pos ident node_sv;
+           sv)
+        node_oracles 
+    in
+
+    (* Fresh state variables for observer outputs of called node *)
+    let observer_state_vars = 
+      List.map 
+        (fun node_sv -> 
+           let sv = 
+             mk_new_observer_state_var (StateVar.type_of_state_var node_sv) 
+           in
+           E.set_state_var_instance sv pos ident node_sv;
+           sv)
+        node_observers
+    in
+
+
+    let result', output_vars = 
+      List.fold_left
+        (fun (result, output_vars) (node_sv, index) -> 
+
+           let sv = 
+             mk_new_state_var false (StateVar.type_of_state_var node_sv)
+           in
+
+           E.set_state_var_instance sv pos ident node_sv;
+           (index, E.mk_var sv E.base_clock) :: result, 
+           sv :: output_vars)
+
+        (result, [])
+        node_outputs
+    in
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      { abstractions' 
+        with new_calls = { N.call_returns = (List.rev output_vars);
+                           N.call_observers = observer_state_vars;
+                           N.call_clock = cond_state_var;
+                           N.call_node_name = ident;
+                           N.call_pos = pos;
+                           N.call_inputs = 
+                             node_input_state_vars @ oracle_state_vars;
+                           N.call_defaults = List.map snd defaults } 
+                         :: abstractions'.new_calls;
+             new_oracles = abstractions'.new_oracles @ oracle_state_vars;
+             new_observers = abstractions'.new_observers @ observer_state_vars }
+      result' 
+      tl
 
 
 (* Evaluate expression to an integer constant *)
@@ -1934,19 +2094,24 @@ and int_const_of_ast_expr context pos expr =
        expression without index and without new definitions *)
     | ([ index, { E.expr_init = ei; 
                   E.expr_step = es } ],
-       { new_vars = []; new_calls = []; new_oracles = []}) when 
+       { new_vars = []; 
+         new_calls = []; 
+         new_oracles = []; 
+         new_observers = [] }) when 
         index = I.empty_index && 
         let ei' = (ei :> Term.t) in let es' = (es :> Term.t) in 
         Term.equal ei' es' -> 
 
-      (match Term.destruct (E.base_term_of_expr E.base_offset ei) with 
-        | Term.T.Const c when Symbol.is_numeral c ->
-          Symbol.numeral_of_symbol c
+      (* Get term for initial value of expression, is equal to step *)
+      let ti = E.base_term_of_expr E.base_offset ei in
 
-        (* Expression is not a constant integer *)
-        | _ ->       
+      (if Term.is_numeral ti then
 
-          fail_at_position pos "Expression must be an integer")
+         Term.numeral_of_term ti
+
+       else
+
+         fail_at_position pos "Expression must be an integer")
 
     (* Expression is not a constant integer *)
     | _ ->       
@@ -2006,7 +2171,7 @@ let close_ast_expr pos (expr, abstractions) =
   let expr', oracles' =
     E.oracles_for_unguarded_pres
       pos
-      abstractions.mk_new_oracle_state_var
+      abstractions.mk_new_oracle_for_state_var
       warn_at_position
       abstractions.new_oracles
       expr
@@ -2063,7 +2228,7 @@ let type_in_context { basic_types; indexed_types; free_types } t =
 
 
 (* Return true if identifier [i] has been declared, raise an
-   exceptions if the identifier is reserved. *)
+   exception if the identifier is reserved. *)
 let ident_in_context { type_ctx; index_ctx } i = 
 
   if 
@@ -2483,7 +2648,8 @@ let add_typed_decl
 
   try 
 
-    (* Evaluate expression *)
+    (* Evaluate expression, must not generate new abstractions from
+       node calls *)
     let expr_val, abstractions = 
       eval_ast_expr 
         context 
@@ -2613,8 +2779,8 @@ let add_node_input_decl
   (* Create state variable as input and contant *)
   let state_var = 
     E.mk_state_var_of_ident
-      true
-      is_const
+      ~is_input:true
+      ~is_const:is_const
       scope
       (I.push_back_index index ident) 
       basic_type
@@ -2673,8 +2839,8 @@ let add_node_output_decl
   (* Create state variable as neither constant nor input *)
   let state_var = 
     E.mk_state_var_of_ident
-      false
-      false
+      ~is_input:false
+      ~is_const:false
       scope
       (I.push_back_index index ident)
       basic_type
@@ -2723,8 +2889,8 @@ let add_node_var_decl
   (* Create state variable as neither constant nor input *)
   let state_var = 
     E.mk_state_var_of_ident
-      false
-      false
+      ~is_input:false
+      ~is_const:false
       scope
       (I.push_back_index index ident) 
       basic_type
@@ -2733,7 +2899,7 @@ let add_node_var_decl
   (* State variable is locally defined or abstract variable *)
   E.set_state_var_source 
     state_var 
-    (if A.is_dummy_pos pos then E.Abstract else E.Local);
+    (if is_dummy_pos pos then E.Abstract else E.Local);
 
   (* Add state variable to local variables *)
   let node_locals' = (state_var, index) :: node.N.locals in
@@ -2751,6 +2917,68 @@ let add_node_oracle_decl
     index 
     state_var =
 
+  (* Oracles are re-used, check if declaration already added *)
+  if List.exists (StateVar.equal_state_vars state_var) node_oracles then
+
+    (* Return context and node unchanged *)
+    (context, node)
+
+  else 
+
+    (* Node name is scope for naming of variables *)
+    let scope = I.index_of_ident node_ident in 
+
+    (* Add index to identifier *)
+    let ident' = I.push_index index ident in
+
+    (* Type of state variable *)
+    let basic_type = StateVar.type_of_state_var state_var in
+
+    (* Add to typing context *)
+    let type_ctx' = 
+      (ident', basic_type) :: 
+      (add_enum_to_context type_ctx dummy_pos basic_type) 
+    in
+
+    (* Add indexed identifier to context *)
+    let index_ctx' = add_to_prefix_map index_ctx ident' () in
+
+    (* Create state variable as constant and input *)
+    let state_var =
+      E.mk_state_var_of_ident
+        ~is_input:true
+        ~is_const:true
+        scope
+        (I.push_back_index index ident)
+        basic_type
+    in
+
+    (* State variable is an oracle input variable *)
+    E.set_state_var_source state_var E.Oracle;
+
+    (* Add state variable to oracles *)
+    let node_oracles' = state_var :: node_oracles in
+
+    ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
+     { node with N.oracles = node_oracles' })
+
+
+(* Add declaration of an oracle output to contexts *)
+let add_node_observer_decl
+    ident
+    (({ type_ctx; index_ctx } as context), 
+     ({ N.props = node_props;
+        N.observers = node_observers; 
+        N.name = node_ident } as node))
+    index 
+    state_var =
+
+  debug lustreSimplify
+    "Adding declaration of observer %a to %a"
+    StateVar.pp_print_state_var state_var
+    (I.pp_print_ident false) node_ident
+  in
+
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
@@ -2762,7 +2990,7 @@ let add_node_oracle_decl
   (* Add to typing context *)
   let type_ctx' = 
     (ident', basic_type) :: 
-      (add_enum_to_context type_ctx A.dummy_pos basic_type) 
+      (add_enum_to_context type_ctx dummy_pos basic_type) 
   in
 
   (* Add indexed identifier to context *)
@@ -2771,22 +2999,21 @@ let add_node_oracle_decl
   (* Create state variable as constant and input *)
   let state_var =
     E.mk_state_var_of_ident
-      true
-      true
+      ~is_input:false
+      ~is_const:false
       scope
       (I.push_back_index index ident)
       basic_type
   in
   
   (* State variable is an oracle input variable *)
-  E.set_state_var_source state_var E.Oracle;
+  E.set_state_var_source state_var E.Observer;
 
-  (* Add state variable to oracles *)
-  let node_oracles' = state_var :: node_oracles in
+  (* Add state variable to observers *)
+  let node_observers' = state_var :: node_observers in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
-   { node with N.oracles = node_oracles' })
-
+   { node with N.observers = node_observers' })
 
 
 (* Add all node inputs to contexts *)
@@ -2948,8 +3175,9 @@ let rec parse_node_locals context node = function
 let rec property_to_node 
     context
     node
-    ({ mk_new_state_var } as abstractions)
+    ({ mk_state_var_for_expr; new_vars } as abstractions)
     pos
+    source
     expr =
 
   (* State variable for property and changed environment *)
@@ -2959,6 +3187,17 @@ let rec property_to_node
 
       (* Property is a state variable at current offset? *)
       E.is_var expr
+
+      && 
+
+      (* Expression is a state variable *)
+      let state_var = E.state_var_of_expr expr in
+      
+      (* State variable is an input? *)
+      not 
+        (List.exists
+           (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+           (node.N.inputs))
 
     then 
 
@@ -2971,8 +3210,13 @@ let rec property_to_node
     else
 
       (* State variable of abstraction variable *)
-      let state_var = mk_new_state_var Type.t_bool in
-      
+      let state_var, new_vars' = 
+        mk_state_var_for_expr 
+          false
+          new_vars
+          expr 
+      in
+
       (* State variable is a locally abstracted variable *)
       E.set_state_var_source state_var E.Abstract;
 
@@ -2982,22 +3226,63 @@ let rec property_to_node
           context
           node
           abstractions
-          A.dummy_pos  
+          dummy_pos  
           (state_var, expr)
       in
 
+      (* Property is new state variable *)
       (state_var, 
        context', 
-       { node' with 
-           N.locals = (state_var, I.empty_index) :: node'.N.locals },
-       abstractions')
-      
+       node', 
+       { abstractions' with new_vars = new_vars' })
+
   in
 
-  (* Add property to node *)
-  (context', 
-   { node' with N.props = (state_var :: node.N.props) },
-   abstractions')
+  if 
+
+    (* Skip if property already in node *)
+    List.exists
+      (fun (sv, _) -> StateVar.equal_state_vars state_var sv)
+      node.N.props 
+
+  then
+
+    (* Add property to node *)
+    (context, node, abstractions)
+
+  else
+
+    (* Add declaration of variable to observers if not already an
+       output *)
+    let node_observers' = 
+      node'.N.observers @
+      (if 
+        List.exists
+          (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+          node'.N.outputs
+       then
+         []
+       else
+         [state_var])
+    in
+
+    (* Remove declaration of variable from locals *)
+    let node_locals' = 
+      List.filter
+        (fun (sv, _) -> not (StateVar.equal_state_vars sv state_var))
+        node'.N.locals
+    in
+
+    (* Add property to node *)
+    (context', 
+     { node' with 
+         N.props = 
+           ((if E.is_var expr then 
+               E.state_var_of_expr expr 
+             else state_var), source) :: node'.N.props; 
+         N.observers = node_observers';
+         N.locals = node_locals' },
+     abstractions')
 
 
 (* Add an expression as an assertion *)
@@ -3036,7 +3321,7 @@ and equation_to_node
   let expr', oracles' = 
     E.oracles_for_unguarded_pres
       pos
-      abstractions.mk_new_oracle_state_var
+      abstractions.mk_new_oracle_for_state_var
       warn_at_position
       abstractions.new_oracles
       expr
@@ -3065,7 +3350,8 @@ and equation_to_node
 
         (* Declared type is integer range, expression is of type
            integer *)
-        | t, s when Type.is_int_range t && Type.is_int s -> 
+        | t, s 
+          when Type.is_int_range t && (Type.is_int s || Type.is_int_range s) -> 
 
           let (lbound, ubound) = Type.bounds_of_int_range t in
 
@@ -3077,22 +3363,34 @@ and equation_to_node
                (E.mk_lte expr (E.mk_int ubound)))
           in
 
-          warn_at_position
-            pos
-            "Cannot determine correctness of subrange type, \
-             adding constraint as property.";
+          let msg =
+            Format.sprintf
+              "Cannot determine correctness of subrange type, \
+               adding constraint as property and reverting to type int for
+               variable %s." (StateVar.string_of_state_var state_var) in
 
+          warn_at_position pos msg;
+
+          (* Expanding type of state variable to int *)
+          StateVar.change_type_of_state_var state_var (Type.mk_int ());
+          
           (* Add property to node *)
           property_to_node 
             context 
             node
             abstractions 
-            A.dummy_pos 
+            dummy_pos 
+            (TermLib.Generated [state_var])
             range_expr
 
-        | _ -> 
+        | t, s -> 
 
-          fail_at_position pos "Type mismatch for expressions")
+          fail_at_position
+            pos
+            (Format.asprintf 
+               "Type mismatch between variable of type %a and expression of type %a"
+               (E.pp_print_lustre_type false) state_var_type
+               (E.pp_print_lustre_type false) expr_type))
 
   in
 
@@ -3132,7 +3430,7 @@ let abstractions_to_context_and_node
          let context', node' = 
            add_node_var_decl 
              base_ident
-             A.dummy_pos
+             dummy_pos
              (context, node)
              (I.index_of_one_index_list index)
              (StateVar.type_of_state_var state_var)
@@ -3177,13 +3475,17 @@ let abstractions_to_context_and_node
 
   in
 
-  (* Add declaration of return variables of calls to context *)
-  let context', node', abstractions' = 
+  (* Add declaration of return variables of calls to context
+
+     No need to iterate over observers, they will become observers of
+     the calling node *)
+  let context', node', ({ new_observers } as abstractions') = 
 
     List.fold_left
       (fun 
         accum
         ({ N.call_returns = outputs;
+           N.call_observers = observers;
            N.call_node_name = node_call_ident } as call) ->
 
          let context', node', abstractions' = 
@@ -3222,7 +3524,7 @@ let abstractions_to_context_and_node
                     (* Add new local variable to node *)
                     add_node_var_decl 
                       base_ident
-                      A.dummy_pos
+                      dummy_pos
                       (context, node)
                       (I.index_of_one_index_list index)
                       (StateVar.type_of_state_var state_var)
@@ -3232,7 +3534,7 @@ let abstractions_to_context_and_node
                 context', node', abstractions)
              accum
              outputs
-         in
+         in 
  
          (context', 
           { node' with N.calls = call :: node'.N.calls }, 
@@ -3243,48 +3545,70 @@ let abstractions_to_context_and_node
 
   in
 
+  (* Add declaration of observer outputs to context *)
+  let context', node', abstractions' = 
+
+    List.fold_left 
+      (fun (context, node, abstractions) (state_var) -> 
+
+         (* Split scope from name of variable *)
+         let (base_ident, index) = 
+           I.split_ident (fst (E.ident_of_state_var state_var))
+         in
+
+         (* Add variable declaration to context and oracle input to node *)
+         let context', node' = 
+           add_node_observer_decl 
+             base_ident
+             (context, node)
+             (I.index_of_one_index_list index)
+             state_var
+         in
+
+         (context', node', abstractions))
+
+      (context', node', abstractions')
+      new_observers
+
+  in
+
   context', node', abstractions' 
 
 
 (* Parse a statement (equation, assert or annotation) in a node *)
 let rec parse_node_equations 
     context 
-    empty_abstractions 
+    abstractions 
     ({ N.name = node_ident } as node ) = 
 
   function
 
     (* No more statements *)
-    | [] -> node 
+    | [] -> abstractions, context, node 
 
     (* Assertion *)
     | A.Assert (pos, ast_expr) :: tl -> 
 
       (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
+      let expr', abstractions' = 
         close_ast_expr
           pos
           (bool_expr_of_ast_expr 
              context 
-             empty_abstractions
+             abstractions
              pos
              ast_expr)
       in
       
       (* Add assertion to node *)
       let context', node', abstractions' = 
-        assertion_to_node context node abstractions pos expr'
+        assertion_to_node context node abstractions' pos expr'
       in
       
-      (* Add new definitions to context *)
-      let context', node', abstractions' = 
-        abstractions_to_context_and_node context' node' abstractions' pos
-      in
-
       (* Continue with next node statements *)
       parse_node_equations 
         context'
-        empty_abstractions
+        abstractions'
         node' 
         tl
 
@@ -3292,30 +3616,31 @@ let rec parse_node_equations
     | A.AnnotProperty (pos, ast_expr) :: tl -> 
 
       (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
+      let expr', abstractions' = 
         close_ast_expr
           pos
           (bool_expr_of_ast_expr 
              context 
-             empty_abstractions
+             abstractions
              pos
              ast_expr)
       in
       
       (* Add assertion to node *)
       let context', node', abstractions' = 
-        property_to_node context node abstractions pos expr'
+        property_to_node 
+          context 
+          node
+          abstractions'
+          pos
+          (TermLib.PropAnnot pos) 
+          expr'
       in
       
-      (* Add new definitions to context *)
-      let context', node', abstractions' = 
-        abstractions_to_context_and_node context' node' abstractions' pos
-      in
-
       (* Continue with next node statements *)
       parse_node_equations 
         context'
-        empty_abstractions
+        abstractions'
         node' 
         tl
 
@@ -3326,15 +3651,36 @@ let rec parse_node_equations
        abstracted *)
     | A.Equation (pos, struct_items, ast_expr) :: tl -> 
 
+      debug lustreSimplify
+        "parse_node_equation %a"
+        A.pp_print_node_equation (A.Equation (pos, struct_items, ast_expr))
+      in
+      
       (* Evaluate expression and guard all pre operators *)
       let expr', abstractions = 
         close_indexed_ast_expr
           pos
           (eval_ast_expr 
              context 
-             empty_abstractions
+             abstractions
              ast_expr)
 
+      in
+
+      debug lustreSimplify
+        "@{<hv>expr' is @[<v>%a@]@]"
+        (pp_print_list 
+           (fun ppf (i, e) -> 
+              Format.fprintf ppf "%a: %a" 
+                (I.pp_print_index false) i
+                (E.pp_print_lustre_expr false) e)
+           "@,")
+           expr'
+      in
+      
+      debug lustreSimplify
+        "@[<v>abstractions:@,%a@]"
+        pp_print_abstraction_context abstractions
       in
 
       (* State variables and types of their assigned expressions *)
@@ -3363,7 +3709,15 @@ let rec parse_node_equations
                   in
 
                   (* Identifier not found in outputs *)
-                  if accum' = accum then
+                  if 
+
+                    try
+
+                      List.for_all2 StateVar.equal_state_vars accum' accum 
+
+                    with Invalid_argument _ -> false
+
+                  then
 
                     (* Find identifier of left-hand side in local variables *)
                     let accum'' = 
@@ -3385,8 +3739,16 @@ let rec parse_node_equations
                     in
 
                     (* Identifier not found in outputs and local variables *)
-                    if accum'' = accum' then 
-                      
+                    if  
+
+                      try
+                        
+                        List.for_all2 StateVar.equal_state_vars accum'' accum' 
+                          
+                      with Invalid_argument _ -> false
+                        
+                    then
+
                       fail_at_position 
                         pos 
                         "Assignment to neither output nor local variable" 
@@ -3400,6 +3762,19 @@ let rec parse_node_equations
 
                     (* Return *)
                     accum'
+
+                (* TODO: Recursive assignments to indexed variables 
+
+                   Need to add to scope of expression per definition
+                   from variable on the left-hand side
+
+                   For possibly recursive definitions use define-fun
+                   to either unroll definitions or quantify. *)
+                | A.IndexedIdent (pos, ident, index) -> 
+              
+                  fail_at_position
+                    pos
+                    "Indexed definitions not supported"
 
                 (* TODO: Structural assignments *)
                 | _ -> 
@@ -3440,19 +3815,10 @@ let rec parse_node_equations
 
       in
 
-      (* Add abstractions to context and node *)
-      let context', node', abstractions' =
-        abstractions_to_context_and_node 
-          context' 
-          node' 
-          abstractions' 
-          pos
-      in
-
       (* Continue *)
       parse_node_equations 
         context'
-        empty_abstractions
+        abstractions'
         node'
         tl
 
@@ -3462,7 +3828,7 @@ let rec parse_node_equations
 
       parse_node_equations 
         context 
-        empty_abstractions
+        abstractions
         { node with N.is_main = true }
         tl
 
@@ -3543,7 +3909,7 @@ let rec parse_node_contract
         tl
 
 
-(* Parse node declaration and return *)
+(* Return a LustreNode.t from a node LustreAst.node_decl *)
 let parse_node  
     node_ident
     global_context
@@ -3560,51 +3926,126 @@ let parse_node
   let node = N.empty_node node_ident in
 
   (* Create a new state variable for abstractions *)
-  let mk_new_state_var state_var_type = 
+  let mk_new_state_var is_const state_var_type = 
     E.mk_fresh_state_var
-      false
-      false
+      ~is_input:false
+      ~is_const:is_const
       scope
       I.abs_ident
       state_var_type
       node.N.fresh_state_var_index
   in
 
-(*
   (* Create a new state variable for abstractions *)
-  let mk_new_state_var = 
-    fun state_var_type ->
-      Numeral.incr new_state_var_index; 
-      E.mk_state_var_of_ident
-        false
-        false
-        scope
-        (I.push_int_index !new_state_var_index I.abs_ident)
-        state_var_type
-  in
-*)
+  let mk_state_var_for_expr is_const new_vars ({ E.expr_type } as expr) =
 
-  (* Create a new constant for abstractions *)
-  let mk_new_oracle_state_var = 
+    try
+
+      (* Find previous definition of expression *)
+      let state_var =
+        E.ExprHashtbl.find
+          node.N.expr_state_var_map
+          expr
+      in
+
+      (* Return state variable and no new defintiion *)
+      (state_var, new_vars)
+
+    with Not_found ->
+
+      (* Create a fresh state variable for definition *)
+      let state_var =
+        E.mk_fresh_state_var
+          ~is_input:false
+          ~is_const:is_const
+          scope
+          I.abs_ident
+          expr_type
+          node.N.fresh_state_var_index
+      in
+
+      (* Record definition of expression by state variable *)
+      E.ExprHashtbl.add
+        node.N.expr_state_var_map
+        expr
+        state_var;
+
+      (* Return variable and add definition *)
+      (state_var, ((state_var, expr) :: new_vars))
+
+  in
+
+  (* Create a new constant to guard pre operator on state variable *)
+  let mk_new_oracle_for_state_var state_var = 
+
+    try 
+
+      (* Return oracle previously created *)
+      StateVar.StateVarHashtbl.find  
+        node.N.state_var_oracle_map
+        state_var
+
+    (* No oracle for state variable *)
+    with Not_found -> 
+
+      (* Create a fresh oracle *)
+      let oracle = 
+        E.mk_fresh_state_var
+          ~is_input:true
+          ~is_const:true
+          scope
+          I.oracle_ident
+          (StateVar.type_of_state_var state_var)
+          node.N.fresh_oracle_index
+      in
+
+      (* Map state variable to oracle *)
+      StateVar.StateVarHashtbl.add
+        node.N.state_var_oracle_map
+        state_var
+        oracle;
+
+      (* Return fresh oracle *)
+      oracle
+
+  in
+
+  (* Create a new oracle of type *)
+  let mk_new_oracle oracle_type = 
+    E.mk_fresh_state_var
+      ~is_input:true
+      ~is_const:true
+      scope
+      I.oracle_ident
+      oracle_type
+      node.N.fresh_oracle_index
+  in
+
+  (* Create a new variable observing a property of subnode *)
+  let mk_new_observer_state_var = 
     let r = ref Numeral.(- one) in
-    fun oracle_type ->
+    fun observer_type ->
       Numeral.incr r;
       E.mk_state_var_of_ident
-        true
-        true
+        ~is_input:false
+        ~is_const:false
         scope
-        (I.push_int_index !r I.oracle_ident)
-        oracle_type
+        (I.push_int_index !r I.observer_ident)
+        observer_type
   in
-        
+
   (* Initial, empty abstraction context *)
   let empty_abstractions = 
     { scope;
       mk_new_state_var = mk_new_state_var;
-      mk_new_oracle_state_var = mk_new_oracle_state_var;
+      mk_state_var_for_expr = mk_state_var_for_expr;
+      mk_new_oracle_for_state_var = mk_new_oracle_for_state_var;
+      mk_new_oracle = mk_new_oracle;
+      mk_new_observer_state_var = mk_new_observer_state_var;
       new_vars = [];
       new_calls = [];
-      new_oracles = [] }
+      new_oracles = [];
+      new_observers = [] }
   in
 
   (* Parse inputs, add to global context and node context *)
@@ -3640,7 +4081,7 @@ let parse_node
 
   (* Parse equations and assertions, add to node context, local
      context is not modified *)
-  let node = 
+  let abstractions', context', node = 
     parse_node_equations 
       local_context 
       empty_abstractions
@@ -3648,8 +4089,15 @@ let parse_node
       equations
   in
 
+  (* Add new definitions to context *)
+  let _, node', _ = 
+    abstractions_to_context_and_node context' node abstractions' dummy_pos
+  in
+
   (* Simplify by substituting variables that are aliases *)
-  N.solve_eqs_node_calls node
+  (* N.solve_eqs_node_calls node' *)
+  node'
+
 
 
 (* ******************************************************************** *)
@@ -3664,7 +4112,8 @@ let rec declarations_to_nodes'
        type_ctx; 
        index_ctx; 
        consts; 
-       nodes } as global_context) = 
+       nodes;
+       deps } as global_context) = 
 
   function
 
@@ -3730,7 +4179,6 @@ let rec declarations_to_nodes'
 
       if
 
-
         (try 
 
            (* Identifier must not be declared *)
@@ -3766,7 +4214,7 @@ let rec declarations_to_nodes'
            outputs, 
            locals, 
            equations, 
-           contract))) :: decls ->
+           contract)) as curr_decl) :: decls ->
 
       (try 
 
@@ -3791,31 +4239,63 @@ let rec declarations_to_nodes'
        (* Node may be forward referenced *)
        with Node_not_found (ident, pos) -> 
 
-        if 
-
+         if
           (* Is the referenced node declared later? *)
-          List.exists 
-            (function 
-              | A.NodeDecl (_, (i, _, _, _, _, _, _)) when i = ident -> true 
-              | _ -> false)
-            decls
+           List.exists
+             (function 
+               | A.NodeDecl (_, (i, _, _, _, _, _, _)) when i = ident -> true 
+               | _ -> false)
+             decls
+             
+         then begin
 
-        then
+           (* Check circularity *)
+           (try
+              let dep_ident = I.LustreIdentMap.find ident deps in
+              if I.LustreIdentSet.mem node_ident dep_ident then 
 
-          fail_at_position 
-            pos 
-            (Format.asprintf 
-               "Node %a is forward referenced" 
-               (I.pp_print_ident false) ident)
-      
-        else
+                fail_at_position
+                  pos
+                  (Format.asprintf 
+                     "Circular dependecy between nodes %a and %a" 
+                     (I.pp_print_ident false) ident
+                     (I.pp_print_ident false) node_ident)
+                  
+            with Not_found -> ());
+
+
+           (* Add new dependency *)
+           let deps =
+             let dep_ni =
+               try I.LustreIdentMap.find node_ident deps
+               with Not_found -> I.LustreIdentSet.empty in
+             I.LustreIdentMap.add
+               node_ident (I.LustreIdentSet.add ident dep_ni) deps
+           in
+
+          (* Move declaration to correct position.
+             Inefficient: might be better to do a topological sort beforehand *)
+          let decls =
+            List.fold_left (fun acc d -> match d with 
+                | A.NodeDecl (_, (i, _, _, _, _, _, _)) when i = ident ->
+                  curr_decl :: d :: acc
+                | _ -> d :: acc
+              ) [] decls
+            |> List.rev
+          in
+
+          (* Continue. *)
+          declarations_to_nodes' { global_context with deps = deps } decls
+
+         end
+         
+         else
           
           fail_at_position
             pos
             (Format.asprintf 
                "Node %a is not defined" 
                (I.pp_print_ident false) ident))
-
 
 
     (* Node declaration without parameters *)
@@ -3838,14 +4318,7 @@ let declarations_to_nodes decls =
   let { nodes } as global_context = 
     declarations_to_nodes' init_lustre_context decls 
   in
-(*
-  Format.printf "%a@." (pp_print_lustre_context false) global_context;
 
-  Format.printf 
-    "%a@."
-    (pp_print_list (LustreNode.pp_print_node true) "@,") 
-    (List.rev nodes);
-*)  
   (* Return nodes *)
   nodes
 

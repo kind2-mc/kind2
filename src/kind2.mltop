@@ -1,8 +1,12 @@
 Debug
 Lib
-Config
+Version
+Kind2Config
 Flags
 Stat
+
+Numeral
+Decimal
 
 Hashcons
 Ltree
@@ -15,7 +19,13 @@ Type
 TermAttr
 Term
 
+LustreIdent
+LustreExpr
+LustreAst
 TransSys
+
+Messaging
+Event
 
 HString
 SExprBase
@@ -25,8 +35,8 @@ SExprLexer
 SMTExpr
 SMTSolver
 SMTLIBSolver
-SMTLIB1Solver
-SolverMethods
+YicesNative
+
 
 Literal
 Clause

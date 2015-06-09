@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -20,18 +20,27 @@ open Lib
 
 module VS = Var.VarSet
 
-(* Use configured SMT solver *)
-module ConfiguredSolver = SMTSolver.Make (SMTLIBSolver)
-
-(* Extended functions *)
-module Solver = SolverMethods.Make (ConfiguredSolver)
-
+(* We only use Z3 here, so we read and send SMTLIB2 commands *)
+module Conv = SMTExpr.Converter (Z3Driver)
 
 (* The current solver instance in use *)
 let solver_qe = ref None 
 
 (* The current solver instance in use *)
-let solver_check = ref None 
+let solver_check = ref None
+
+(* Add quantifiers to logic *)
+let add_quantifiers = function
+  | `None -> `None
+  | `Inferred l -> `Inferred (TermLib.FeatureSet.add TermLib.Q l)
+  | `SMTLogic s as l ->
+    try
+      let s =
+        if String.sub s 0 3 = "QF_" then
+          String.sub s 3 (String.length s - 3)
+        else s in
+      `SMTLogic s
+    with Invalid_argument _ -> l
 
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
@@ -42,19 +51,37 @@ let get_solver_instance trans_sys =
     (* Need to create a new instance *)
     | None -> 
  
-      (* Create solver instance *)
-      let solver =     
-        Solver.new_solver 
+      (* Create solver instance : only Z3 for the moment *)
+      let solver = SMTSolver.create_instance
           ~produce_assignments:true
-          `UFLIA
+          (add_quantifiers (TransSys.get_logic trans_sys))
+          `Z3_SMTLIB
       in
-      
-      (* Declare uninterpreted function symbols *)
-      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
-  
-      (* Define functions *)
-      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
 
+      SMTSolver.trace_comment 
+        solver
+        (Format.sprintf 
+           "Declaring state variables: %s"
+           (string_of_t 
+              (pp_print_list Var.pp_print_var ",@ ") 
+              (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
+      
+      (* Defining uf's and declaring variables. *)
+      TransSys.init_define_fun_declare_vars_of_bounds
+        trans_sys
+        (SMTSolver.define_fun solver)
+        (SMTSolver.declare_fun solver)
+        Numeral.(~- one) Numeral.zero;
+      
+      SMTSolver.trace_comment solver "Defining predicates";
+
+      (*
+      (* Define functions *)
+      TransSys.iter_uf_definitions 
+        trans_sys
+        (SMTSolver.define_fun solver); 
+      *)
+      
       (* Save instance *)
       solver_qe := Some solver;
 
@@ -62,7 +89,7 @@ let get_solver_instance trans_sys =
       (* Z3 needs this option, default is 5 and we get let definitions
          for deeper terms *)
       ignore
-        (Solver.T.execute_custom_command 
+        (SMTSolver.T.execute_custom_command 
            solver
            "set-option"
            [SMTExpr.ArgString ":pp.max_depth"; 
@@ -88,18 +115,33 @@ let get_checking_solver_instance trans_sys =
     (* Need to create a new instance *)
     | None -> 
 
-      (* Create solver instance *)
+      (* Create solver instance with support for quantifiers *)
       let solver =     
-        Solver.new_solver 
+        SMTSolver.create_instance 
           ~produce_assignments:true
-          `UFLIA
+          (* add quantifiers to system logic *)
+          (add_quantifiers (TransSys.get_logic trans_sys))
+          (Flags.smtsolver ())
       in
-      
+(*
       (* Declare uninterpreted function symbols *)
-      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
-  
+      TransSys.declare_vars_of_bounds
+        trans_sys
+        (SMTSolver.declare_fun solver)
+        Numeral.zero
+        Numeral.one;
+
       (* Define functions *)
-      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
+      TransSys.iter_uf_definitions 
+        trans_sys
+        (SMTSolver.define_fun solver); 
+*)
+  (* Defining uf's and declaring variables. *)
+      TransSys.init_define_fun_declare_vars_of_bounds
+        trans_sys
+        (SMTSolver.define_fun solver)
+        (SMTSolver.declare_fun solver)
+        Numeral.(~- one) Numeral.zero;
 
       (* Save instance *)
       solver_check := Some solver;
@@ -118,7 +160,7 @@ let on_exit () =
   (try 
      match !solver_qe with 
        | Some s -> 
-         Solver.delete_solver s; 
+         SMTSolver.delete_instance s; 
          solver_qe := None
        | None -> ()
    with 
@@ -132,7 +174,7 @@ let on_exit () =
   (try 
      match !solver_check with 
        | Some s -> 
-         Solver.delete_solver s; 
+         SMTSolver.delete_instance s; 
          solver_check := None
        | None -> ()
    with 
@@ -159,7 +201,7 @@ let rec conj_of_goal accum = function
   | t :: tl -> 
 
      conj_of_goal 
-       (SMTExpr.term_of_smtexpr (SMTExpr.expr_of_string_sexpr t) :: accum)
+       (Conv.term_of_smtexpr (GenericSMTLIBDriver.expr_of_string_sexpr t) :: accum)
        tl
 
 
@@ -239,34 +281,28 @@ let term_of_pformula = function
   | [t] -> term_of_pterm t
   | l -> Term.mk_and (List.map term_of_pterm l)
 
-
+(*
 let check_implication trans_sys prem_str conc_str prem conc = 
 
   (* Get or create a Z3 instance to check the results *)
   let solver_check = get_checking_solver_instance trans_sys in
 
   (* Push context *)
-  Solver.push solver_check;
+  SMTSolver.push solver_check;
 
   (* Assert constraint for premise *)
-  Solver.fail_on_smt_error 
-    (Solver.T.assert_expr 
-       solver_check 
-       prem);
+  SMTSolver.assert_expr solver_check prem;
 
   (* Assert negation of conclusion *)
-  Solver.fail_on_smt_error 
-    (Solver.T.assert_expr 
-       solver_check 
-       (Term.mk_not conc));
+  SMTSolver.assert_expr solver_check (Term.mk_not conc);
 
   (match 
-      Solver.T.execute_custom_check_sat_command 
-        "(check-sat-using (then qe smt))" 
-        solver_check 
+     SMTSolver.execute_custom_check_sat_command 
+       "(check-sat-using (then qe smt))" 
+       solver_check 
    with
-     | SMTExpr.Unsat -> (debug qe "%s implies %s" prem_str conc_str end)
-     | SMTExpr.Sat -> failwith (prem_str ^ " does not imply " ^ conc_str)
+     | `Unsat -> (debug qe "%s implies %s" prem_str conc_str end)
+     | `Sat -> failwith (prem_str ^ " does not imply " ^ conc_str)
      | _ -> failwith "Failed to check implication");
   
   
@@ -279,34 +315,34 @@ let check_implication trans_sys prem_str conc_str prem conc =
 *)
 
   (* Pop context *)
-  Solver.pop solver_check
+  SMTSolver.pop solver_check
   
 (* Check generalization: model must imply quantifier eliminated term
    and quantifier eliminated term must imply the original quantifier
    term *)
-let check_generalize trans_sys model elim term term' = 
+let check_generalize trans_sys model elim term term' =
 
   (* Substitute fresh variables for terms to be eliminated and
      existentially quantify formula *)
   let qe_term = 
-    SMTExpr.quantified_smtexpr_of_term true elim term
+    Conv.quantified_smtexpr_of_term true elim term
   in
 
   check_implication 
     trans_sys
     "model"
     "exact generalization" 
-    (SMTExpr.smtexpr_of_term (formula_of_model model))
-    (SMTExpr.smtexpr_of_term term');
+    (Conv.smtexpr_of_term (formula_of_model model))
+    (Conv.smtexpr_of_term term');
 
   check_implication
     trans_sys
     "exact generalization" 
     "formula"
-    (SMTExpr.smtexpr_of_term term') 
+    (Conv.smtexpr_of_term term')
     qe_term
     
-
+*)
 
 (* From a conjunction of Boolean state variables return a conjunction
    only containing the state variables not to be eliminated *)
@@ -400,9 +436,10 @@ let rec collect_eqs vars (eqs, terms) = function
   (* Head element of list *)
   | term :: tl -> match Term.destruct term with
 
-    (* Term is an equation with a variable in [vars] on either side *)
-    | Term.T.App (s, [v; e]) 
-    | Term.T.App (s, [e; v]) when
+    (* FIXME: Do this on both sides, and be careful to not produce cycles *)
+
+    (* Term is an equation with a variable in [vars] on left-hand side *)
+    | Term.T.App (s, [v; e]) when
         (Symbol.equal_symbols s Symbol.s_eq)
         && (Term.is_free_var v)
         && (List.exists (Var.equal_vars (Term.free_var_of_term v)) vars) -> 
@@ -554,7 +591,7 @@ let solve_eqs vars terms =
 
 
 
-let generalize trans_sys uf_defs model (elim : Var.t list) term =
+let generalize trans_sys uf_defs model elim term =
 
   (debug qe
      "@[<hv>Generalizing@ @[<hv>%a@]@]@ for variables@ @[<hv>%a@]@."
@@ -564,7 +601,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
   (debug qe
      "@[<hv>with the model@ @[<hv>%a@]@]@."
-     Term.pp_print_term (Solver.term_of_model model)
+     Model.pp_print_model model
      end);
   
   (* Extract active path from term and model *)
@@ -619,7 +656,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
      Term.pp_print_term 
      (Term.mk_and term'_bool) end);
 
-  let term' = let pdr_qe = Flags.pdr_qe () in match pdr_qe with 
+  let term' = let ic3_qe = Flags.ic3_qe () in match ic3_qe with 
     
     | `Z3
     | `Z3_impl
@@ -630,12 +667,13 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
         (* Substitute fresh variables for terms to be eliminated and
            existentially quantify formula *)
         let qe_term = 
-          match pdr_qe with 
+          match ic3_qe with 
+            | `Cooper -> assert false
             | `Z3 -> 
-              SMTExpr.quantified_smtexpr_of_term true elim term
+              Conv.quantified_smtexpr_of_term true elim term
             | `Z3_impl
             | `Z3_impl2 -> 
-              SMTExpr.quantified_smtexpr_of_term true elim extract_int
+              Conv.quantified_smtexpr_of_term true elim extract_int
         in
         
         let solver_qe = get_solver_instance trans_sys in
@@ -653,18 +691,17 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
   *)
         
         (* Increment scope level *)
-        Solver.push solver_qe;
+        SMTSolver.push solver_qe;
         
         (* Assert expression to eliminate quantifiers from *)
-        Solver.fail_on_smt_error 
-          (Solver.T.assert_expr solver_qe qe_term);
+        SMTSolver.assert_expr solver_qe qe_term;
         
         (* Eliminate quantifiers *)
         let res = 
           match 
             
             (* Execute custom command (apply qe) *)
-            Solver.T.execute_custom_command 
+            SMTSolver.execute_custom_command 
               solver_qe 
               "apply"
               [SMTExpr.ArgString "qe"]
@@ -673,31 +710,31 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           with
 
             (* Catch error *)
-            | SMTExpr.Error e, _ -> 
+            | `Error e -> 
               raise 
                 (Failure ("SMT solver failed: " ^ e))
 
-            (* Catch unsupported command *)
-            | SMTExpr.Unsupported, _ -> 
-              raise 
-                (Failure 
-                   ("SMT solver reported not implemented"))
+            (* (* Catch unsupported command *) *)
+            (* | `Unsupported ->  *)
+            (*   raise  *)
+            (*     (Failure  *)
+            (*        ("SMT solver reported not implemented")) *)
                 
-            (* Catch silence *)
-            | SMTExpr.NoResponse, _ ->
-              raise 
-                (Failure 
-                   ("SMT solver did not produce a reply"))
+            (* (* Catch silence *) *)
+            (* | `NoResponse -> *)
+            (*   raise  *)
+            (*     (Failure  *)
+            (*        ("SMT solver did not produce a reply")) *)
                 
             (* Return result on success *)
-            | SMTExpr.Success, r -> r
+            | `Custom r -> r
         in
         
         (* Take first goal as quantifier eliminated term *)
         let term'_int = goals_to_terms (List.hd res) in
         
         (* Decrement scope level to remove assertion *)
-        Solver.pop solver_qe;
+        SMTSolver.pop solver_qe;
 (*
         (* Check generalizations *)
         check_generalize 
@@ -708,7 +745,8 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
 *)
         (* Return quantifier eliminated term *)
-        (match pdr_qe with 
+        (match ic3_qe with 
+          | `Cooper -> assert false
           | `Z3 
           | `Z3_impl -> term'_bool @ term'_int
           | `Z3_impl2 -> 

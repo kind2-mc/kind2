@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -18,38 +18,23 @@
         
 open Lib
 
-let pp_print_hline ppf = 
-  
-  Format.fprintf 
-    ppf 
-    "------------------------------------------------------------------------"
-    
-
 let on_exit trans_sys =
   
   Event.log
     L_info
-    "@[<v>%t@,\
+    "@[<v>%a@,\
      Final statistics:@]"
-    pp_print_hline;
+    pp_print_hline ();
   
   List.iter 
     (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
     (Event.all_stats ());
   
-  Event.log
-    L_fatal
-    "@[<v>%t@,\
-     Summary of properties:@]"
-    pp_print_hline;
-  
   (match trans_sys with | None -> () | Some trans_sys ->
-    Event.log_prop_status L_fatal (TransSys.prop_status_all trans_sys));
+    Event.log_prop_status 
+      L_fatal
+      (TransSys.get_prop_status_all trans_sys));
     
-  Event.log
-    L_warn 
-    "";
-  
   try 
     
     (* Send termination message to all worker processes *)
@@ -136,56 +121,83 @@ let handle_events trans_sys =
     events;
 
   (* Update transition system from events *)
-  let _, prop_status =
+  let _ =
     Event.update_trans_sys trans_sys events
   in
 
-  (* Output proved properties *)
-  List.iter
-
-    (function 
-
-      (* No output for unknown or k-true properties *)
-      | (_, (_, TransSys.PropUnknown))
-      | (_, (_, TransSys.PropKTrue _)) -> ()
-
-      | (m, (p, TransSys.PropInvariant)) -> 
-        Event.log_proved m L_warn None p
-
-      | (m, (p, TransSys.PropFalse cex)) -> 
-        Event.log_disproved m L_warn trans_sys p cex)
-
-    prop_status
-
+  ()
 
 (* Polling loop *)
-let rec loop child_pids trans_sys = 
+let rec loop done_at child_pids trans_sys = 
 
   handle_events trans_sys;
 
-  (* All properties proved? *)
-  if TransSys.all_props_proved trans_sys then 
-    
-    ( 
-      
-      Event.log L_info "All properties proved or disproved";
-      
-      Event.terminate ()
-        
-    );
+  let done_at' =
 
+    (* All properties proved? *)
+    if TransSys.all_props_proved trans_sys then 
 
-  (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids then 
+      (
+
+        ( 
+
+          (* Has is_done been true in the last iteration? *)
+          match done_at with
+
+            | None -> 
+
+              (* Message after is_done becomes true first time *)
+              Event.log L_info
+                "<Done> All properties proved or disproved in %.3fs."
+                (Stat.get_float Stat.total_time);
+
+              Event.terminate ();
+
+              Some (Unix.gettimeofday ())
+
+            | Some t ->
+
+              (* Message after if is_done has been true in the last
+                 iteration *)
+              Event.log L_info
+                "All properties proved or disproved,@ \
+                 waiting for children to terminate.";
+
+              Some t
+
+        );
+
+      )
+
+    else 
+
+      None
+
+  in
+
+  if 
+
+    (* Check if child processes have died and exit if necessary *)
+    wait_for_children child_pids
+    ||
+    (match done_at with 
+      | None -> false
+      | Some t -> (Unix.gettimeofday () -. t) > 0.3)
+
+  then 
 
     (
-      
-      (* Get messages after termination of all processes *)
-      handle_events trans_sys
 
-    )
-    
-  else 
+      (* Get messages after termination of all processes *)
+      handle_events trans_sys ;
+
+      (* All properties proved? *)
+      if TransSys.all_props_proved trans_sys then
+        Event.terminate ()
+
+    ) 
+
+  else
 
     (
 
@@ -193,7 +205,7 @@ let rec loop child_pids trans_sys =
       minisleep 0.01;
 
       (* Continue polling loop *)
-      loop child_pids trans_sys
+      loop done_at' child_pids trans_sys
 
     )
   
@@ -202,7 +214,7 @@ let rec loop child_pids trans_sys =
 let main child_pids transSys =
 
   (* Run main loop *)
-  loop child_pids transSys
+  loop None child_pids transSys
 
 (* 
    Local Variables:

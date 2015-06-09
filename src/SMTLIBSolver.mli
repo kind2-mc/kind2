@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -19,97 +19,22 @@
 (** An interface to any SMT solver that accepts the SMTLIB2 command
     language 
 
-    Use this module as input to the {!SMTSolver.Make} functor 
+    @author Alain Mebsout, Christoph Sticksel
 
-    @author Christoph Sticksel
  *)
 
-(** {1 Basic types} *)
+module type SMTLIBSolverDriver = sig
+  include SolverDriver.S
 
-(** A solver instance *)
-type t 
+  val expr_of_string_sexpr : HStringSExpr.t -> Term.t
 
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
 
-(** Configuration *)
-type config = 
-    { solver_cmd : string array;  (** Command line for the solver
-                                      
-                                      The executable must be the first
-                                      element in the array, each
-                                      subsequent string is an argument
-                                      that is passed to
-                                      [Unix.open_process] as is. *)
-
-    }
+end
 
 
-(** {1 Managing solver instances} *)
-
-(** [create_instance c l] creates a new instance of the a generic
-    SMTLIB solver that is executed as [c], initialized to the logic
-    [l] and produces assignments if the optional labelled argument
-    [produce_assignments] is [true], models if [produce_models] is
-    true, proofs if [produce_proofs] is true and unsatisfiable cores
-    if [produce_cores] is true. *)
-val create_instance : 
-  ?produce_assignments:bool -> 
-  ?produce_models:bool -> 
-  ?produce_proofs:bool -> 
-  ?produce_cores:bool -> 
-  SMTExpr.logic -> 
-  t
-
-(** [delete_instance s] deletes the solver instance [s] by sending the
-    exit command and waiting for the solver process to exit *)
-val delete_instance : t -> unit
-
-
-(** {1 Declaring Sorts and Functions} *)
-
-(** Declare a new function symbol *)
-val declare_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
-
-(** Define a new function symbol as an abbreviation for an expression *)
-val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
-
-
-(** {1 Commands} *)
-
-(** Assert the expression *)
-val assert_expr : t -> SMTExpr.t -> SMTExpr.response
-
-(** Push a number of empty assertion sets to the stack *)
-val push : t -> int -> SMTExpr.response 
-
-(** Pop a number of assertion sets from the stack *)
-val pop : t -> int -> SMTExpr.response 
-
-(** Check satisfiability of the asserted expressions
-
-    The optional parameter [timeout] limits the maximum runtime to the
-    given number of milliseconds *)
-val check_sat : ?timeout:int -> t -> SMTExpr.check_sat_response
-
-(** Get the assigned values of expressions in the current model *)
-val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
-
-
-(** Get an unsatisfiable core of named terms *)
-val get_unsat_core : t -> SMTExpr.response * string list
-
-
-(** Execute a custom command and return its result
-
-    [execute_custom_command s c a r] sends a custom command [s] with
-    the arguments [a] to the solver instance [s]. The command
-    expects [r] S-expressions as result in case of success and
-    returns a pair of the success response and a list of
-    S-expressions. *)
-val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
-
-(** Execute a custom check-sat command and return its result *)
-val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
-
+module Make : functor (D : SMTLIBSolverDriver) -> SolverSig.S
+                                            
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,18 +16,16 @@
 
 *)
 
-(** Conversion of a counterexampe to a Lustre model 
+(** Conversion of a counterexample to a Lustre model 
 
-    @author Christoph Sticksel *)
+    @author Kevin Clancy, Christoph Sticksel *)
 
 (** Output a counterexample as a Lustre execution in XML format *)
-val pp_print_path_xml : (* LustreNode.t list -> *) LustreNode.t list -> 
-                        bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+val pp_print_path_xml : LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a counterexample as a Lustre execution as plain text with
     pre-processing reverted *)
-val pp_print_path_pt : (* LustreNode.t list -> *) LustreNode.t list -> 
-                       bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+val pp_print_path_pt : LustreNode.t list -> bool -> Format.formatter -> Model.path -> unit
 
 (* 
    Local Variables:

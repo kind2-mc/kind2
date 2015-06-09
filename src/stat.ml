@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -267,11 +267,23 @@ let pp_print_bmc_stats ppf =
 let ind_k = 
   empty_item "k" 0
 
-let ind_compress_clauses =
-  empty_item "Compressing clauses" 0
+let ind_compress_equal_mod_input =
+  empty_item "Compressed states pairs (equality)" 0
+
+let ind_compress_same_successors =
+  empty_item "Compressed states pairs (same successors)" 0
+
+let ind_compress_same_predecessors =
+  empty_item "Compressed states pairs (same predecessors)" 0
 
 let ind_restarts = 
   empty_item "Restarts" 0
+
+let ind_lazy_invariants_count = 
+  empty_item "Asserted invariants at one state" 0
+
+let ind_lazy_invariants_time = 
+  empty_item "Lazy invariants time" 0.
 
 let ind_total_time = 
   empty_item "Total time" 0.
@@ -282,8 +294,12 @@ let ind_stats_title = "Inductive step"
 (* All inductive step statistics *)
 let ind_stats = 
   [ I ind_k;
-    I ind_compress_clauses;
+    I ind_compress_equal_mod_input;
+    I ind_compress_same_successors;
+    I ind_compress_same_predecessors;
     I ind_restarts;
+    I ind_lazy_invariants_count;
+    F ind_lazy_invariants_time;
     F ind_total_time ] 
 
 (* Stop and record all times *)
@@ -297,95 +313,209 @@ let pp_print_ind_stats ppf =
     pp_print_stats ind_stats
 
 
-(* ********** PDR statistics ********** *)
+(* ********** IC3 statistics ********** *)
 
-let pdr_k = 
+let ic3_k = 
   empty_item "k" 0
 
-let pdr_restarts = 
+let ic3_restarts = 
   empty_item "Restarts" 0
 
-let pdr_frame_sizes = 
+let ic3_frame_sizes = 
   empty_item "Frame sizes" []
 
-let pdr_fwd_propagated = 
+let ic3_fwd_propagated = 
   empty_item "Forward propagations" 0
 
-let pdr_inductive_blocking_clauses = 
+let ic3_fwd_gen_propagated = 
+  empty_item "Forward propagations before generalization" 0
+
+let ic3_fwd_subsumed = 
+  empty_item "Forward subsumed clauses" 0
+
+let ic3_back_subsumed = 
+  empty_item "Backward subsumed clauses" 0
+
+let ic3_inductive_blocking_clauses = 
   empty_item "Inductive blocking clauses" 0
 
-let pdr_fwd_fixpoint = 
+let ic3_fwd_fixpoint = 
   empty_item "Fixpoint at" 0
 
-let pdr_counterexamples = 
-  empty_item "Counterexamples per frame" []
-
-let pdr_counterexamples_total = 
-  empty_item "Counterexamples total" 0
-
-let pdr_total_time = 
+let ic3_total_time = 
   empty_item "Total time" 0.
 
-let pdr_fwd_prop_time = 
+let ic3_fwd_prop_time = 
   empty_item "Forward propagation time" 0.
 
-let pdr_block_propagated_cex_time = 
-  empty_item "Block propagated counterexample time" 0.
-
-let pdr_strengthen_time = 
+let ic3_strengthen_time = 
   empty_item "Frame strengthening time" 0.
 
-let pdr_generalize_time = 
+let ic3_generalize_time = 
   empty_item "Generalization time" 0.
 
-let pdr_find_cex_time = 
+let ic3_find_cex_time = 
   empty_item "Counterexample search time" 0.
 
-let pdr_inductive_check_time = 
+let ic3_ind_gen_time = 
+  empty_item "Inductive generalization time" 0.
+
+let ic3_inductive_check_time = 
   empty_item "Inductiveness check time" 0.
 
-let pdr_tighten_to_subset_time = 
-  empty_item "Tightening to subset time" 0.
+let ic3_activation_literals =
+  empty_item "Activation literals" 0
 
-let pdr_tightened_blocking_clauses =
-  empty_item "Tightened blocking clauses" 0
+let ic3_stale_activation_literals =
+  empty_item "Stale activation literals" 0
 
-let pdr_tightened_propagated_clauses =
-  empty_item "Tightened forward propagated clauses" 0
+(* Title for IC3 statistics *)
+let ic3_stats_title = "IC3"
 
-(* Title for PDR statistics *)
-let pdr_stats_title = "PDR"
-
-(* All PDR statistics *)
-let pdr_stats = 
-  [ I pdr_k; 
-    I pdr_restarts;
-    L pdr_frame_sizes; 
-    I pdr_fwd_propagated; 
-    I pdr_fwd_fixpoint; 
-    I pdr_inductive_blocking_clauses; 
-    I pdr_tightened_blocking_clauses;
-    I pdr_tightened_propagated_clauses;
-    L pdr_counterexamples; 
-    I pdr_counterexamples_total;
-    F pdr_total_time;
-    F pdr_fwd_prop_time;
-    F pdr_block_propagated_cex_time;
-    F pdr_strengthen_time;
-    F pdr_generalize_time; 
-    F pdr_find_cex_time; 
-    F pdr_inductive_check_time; 
-    F pdr_tighten_to_subset_time; ] 
+(* All IC3 statistics *)
+let ic3_stats = 
+  [ I ic3_k; 
+    I ic3_restarts;
+    L ic3_frame_sizes; 
+    I ic3_fwd_propagated; 
+    I ic3_fwd_gen_propagated; 
+    I ic3_fwd_subsumed; 
+    I ic3_back_subsumed; 
+    I ic3_fwd_fixpoint; 
+    I ic3_inductive_blocking_clauses; 
+    I ic3_activation_literals;
+    I ic3_stale_activation_literals;
+    F ic3_total_time;
+    F ic3_fwd_prop_time;
+    F ic3_strengthen_time;
+    F ic3_generalize_time; 
+    F ic3_find_cex_time; 
+    F ic3_ind_gen_time; 
+    F ic3_inductive_check_time ] 
 
 (* Stop and record all timers *)
-let pdr_stop_timers () = stop_all_timers pdr_stats
+let ic3_stop_timers () = stop_all_timers ic3_stats
 
-(* Pretty-print PDR statistics items *)
-let pp_print_pdr_stats ppf = 
+(* Pretty-print IC3 statistics items *)
+let pp_print_ic3_stats ppf = 
 
   Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
-    pdr_stats_title
-    pp_print_stats pdr_stats
+    ic3_stats_title
+    pp_print_stats ic3_stats
+
+
+let ic3ia_refinements =
+  empty_item "Refinements per index" []
+
+let ic3ia_refinements_end =
+  empty_item "Refinenements per index relative to end" []
+             
+let ic3ia_num_simulations =
+  empty_item "Number of concrete simulations" 0
+
+let ic3ia_interpolation_time =
+  empty_item "Total time for interpolation" 0.
+
+let ic3ia_stats_title = "IC3+IA"
+
+  
+let ic3ia_stats =
+  [ L ic3ia_refinements;
+    L ic3ia_refinements_end;
+    I ic3ia_num_simulations;
+    F ic3ia_interpolation_time;
+  ]
+
+let pp_print_ic3ia_stats ppf =
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+                 ic3ia_stats_title
+                 pp_print_stats ic3ia_stats
+
+(* ********** INVGENOS statistics ********** *)
+
+let invgengraph_os_k = 
+  empty_item "k" 0
+
+let invgengraph_os_candidate_term_count = 
+  empty_item "Total number of candidate terms" 0
+
+let invgengraph_os_invariant_count =
+  empty_item "Total number of (sub)invariants discovered" 0
+
+let invgengraph_os_implication_count =
+  empty_item "Number of (sub)invariants which were implications" 0
+
+let invgengraph_os_graph_rewriting_time = 
+  empty_item "Graph rewriting time" 0.
+
+let invgengraph_os_total_time = 
+  empty_item "Total time" 0.
+
+(* Title for INVGENOS statistics *)
+let invgengraph_os_stats_title = "INVGENOS"
+
+(* All INVGENOS statistics *)
+let invgengraph_os_stats = 
+  [ I invgengraph_os_k ;
+    I invgengraph_os_candidate_term_count ;
+    I invgengraph_os_invariant_count ;
+    I invgengraph_os_implication_count ;
+    F invgengraph_os_graph_rewriting_time ;
+    F invgengraph_os_total_time ] 
+
+(* Stop and record all timers *)
+let invgengraph_os_stop_timers () = stop_all_timers invgengraph_os_stats
+
+(* Pretty-print INVGENOS statistics items *)
+let pp_print_invgengraph_os_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    invgengraph_os_stats_title
+    pp_print_stats invgengraph_os_stats
+
+
+(* ********** INVGENTS statistics ********** *)
+
+let invgengraph_ts_k = 
+  empty_item "k" 0
+
+let invgengraph_ts_candidate_term_count = 
+  empty_item "Total number of candidate terms" 0
+
+let invgengraph_ts_invariant_count =
+  empty_item "Total number of (sub)invariants discovered" 0
+
+let invgengraph_ts_implication_count =
+  empty_item "Number of (sub)invariants which were implications" 0
+
+let invgengraph_ts_graph_rewriting_time = 
+  empty_item "Graph rewriting time" 0.
+
+let invgengraph_ts_total_time = 
+  empty_item "Total time" 0.
+
+(* Title for INVGENTS statistics *)
+let invgengraph_ts_stats_title = "INVGENTS"
+
+(* All INVGENTS statistics *)
+let invgengraph_ts_stats = 
+  [ I invgengraph_ts_k ;
+    I invgengraph_ts_candidate_term_count ;
+    I invgengraph_ts_invariant_count ;
+    I invgengraph_ts_implication_count ;
+    F invgengraph_ts_graph_rewriting_time ;
+    F invgengraph_ts_total_time ] 
+
+(* Stop and record all timers *)
+let invgengraph_ts_stop_timers () = stop_all_timers invgengraph_ts_stats
+
+(* Pretty-print INVGENTS statistics items *)
+let pp_print_invgengraph_ts_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    invgengraph_ts_stats_title
+    pp_print_stats invgengraph_ts_stats
 
 
 (* ********** SMT statistics ********** *)
@@ -396,13 +526,17 @@ let smt_check_sat_time =
 let smt_get_value_time = 
   empty_item "get-value time" 0.
 
+let smt_get_unsat_core_time = 
+  empty_item "get-unsat-core time" 0.
+
 (* Title for SMT statistics *)
 let smt_stats_title = "SMT"
 
 (* All SMT statistics *)
 let smt_stats = 
   [ F smt_check_sat_time;
-    F smt_get_value_time ] 
+    F smt_get_value_time;
+    F smt_get_unsat_core_time ] 
 
 (* Stop and record all times *)
 let smt_stop_timers () = stop_all_timers smt_stats
@@ -429,15 +563,11 @@ let smtexpr_of_term_time =
 let term_of_smtexpr_time =
   empty_item "term_of_smtexpr time" 0.
 
-let cnf_subsume_time = 
-  empty_item "CNF subsumption check time" 0.
-
 let misc_stats_title = "General"
 
 let misc_stats = 
   [ F total_time;
     F clause_of_term_time;
-    F cnf_subsume_time;
     F smtexpr_of_term_time; 
     F term_of_smtexpr_time ]
 

@@ -1,26 +1,13 @@
 /*  =========================================================================
     zstr - sending and receiving strings
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -37,41 +24,35 @@
 #include "../include/czmq.h"
 
 static int
-s_send_string (void *zocket, bool more, const char *format, va_list argptr)
+s_send_string (void *socket, bool more, char *string)
 {
-    assert (zocket);
+    assert (socket);
 
-    //  Format string into buffer
-    int size = 255 + 1;
-    char *string = (char *) malloc (size);
-    int required = vsnprintf (string, size, format, argptr);
-    if (required >= size) {
-        size = required + 1;
-        string = (char *) realloc (string, size);
-        vsnprintf (string, size, format, argptr);
-    }
-    //  Now send formatted string
+    int len = strlen (string);
     zmq_msg_t message;
-    zmq_msg_init_size (&message, strlen (string));
-    memcpy (zmq_msg_data (&message), string, strlen (string));
-    int rc = zmq_sendmsg (zocket, &message, more? ZMQ_SNDMORE: 0);
-
-    free (string);
-    return rc == -1? -1: 0;
+    zmq_msg_init_size (&message, len);
+    memcpy (zmq_msg_data (&message), string, len);
+    if (zmq_sendmsg (socket, &message, more? ZMQ_SNDMORE: 0) == -1) {
+        zmq_msg_close (&message);
+        return -1;
+    }
+    else
+        return 0;
 }
 
 
 //  --------------------------------------------------------------------------
-//  Receive C string from socket. Caller must free returned string. Returns
-//  NULL if the context is being terminated or the process was interrupted.
+//  Receive C string from socket. Caller must free returned string using
+//  zstr_free(). Returns NULL if the context is being terminated or the
+//  process was interrupted.
 
 char *
-zstr_recv (void *zocket)
+zstr_recv (void *socket)
 {
-    assert (zocket);
+    assert (socket);
     zmq_msg_t message;
     zmq_msg_init (&message);
-    if (zmq_recvmsg (zocket, &message, 0) < 0)
+    if (zmq_recvmsg (socket, &message, 0) < 0)
         return NULL;
 
     size_t size = zmq_msg_size (&message);
@@ -85,17 +66,17 @@ zstr_recv (void *zocket)
 
 //  --------------------------------------------------------------------------
 //  Receive C string from socket, if socket had input ready. Caller must
-//  free returned string. Returns NULL if there was no input waiting, or if
-//  the context was terminated. Use zctx_interrupted to exit any loop that
-//  relies on this method.
+//  free returned string using zstr_free. Returns NULL if there was no input
+//  waiting, or if the context was terminated. Use zctx_interrupted to exit
+//  any loop that relies on this method.
 
 char *
-zstr_recv_nowait (void *zocket)
+zstr_recv_nowait (void *socket)
 {
-    assert (zocket);
+    assert (socket);
     zmq_msg_t message;
     zmq_msg_init (&message);
-    if (zmq_recvmsg (zocket, &message, ZMQ_DONTWAIT) < 0)
+    if (zmq_recvmsg (socket, &message, ZMQ_DONTWAIT) < 0)
         return NULL;
 
     size_t size = zmq_msg_size (&message);
@@ -108,62 +89,134 @@ zstr_recv_nowait (void *zocket)
 
 
 //  --------------------------------------------------------------------------
-//  Send C string to socket. Returns 0 if successful, -1 if there was an
-//  error.
+//  Send a C string to a socket, as a frame. The string is sent without
+//  trailing null byte; to read this you can use zstr_recv, or a similar
+//  method that adds a null terminator on the received string.
 
 int
-zstr_send (void *zocket, const char *format, ...)
+zstr_send (void *socket, const char *string)
 {
-    assert (zocket);
-    assert (format);
-    va_list argptr;
-    va_start (argptr, format);
-    int rc = s_send_string (zocket, false, format, argptr);
-    va_end (argptr);
-    return rc;
+    assert (socket);
+    assert (string);
+    return s_send_string (socket, false, (char *) string);
 }
 
-//  Deprecated, does exactly the same
+
+//  --------------------------------------------------------------------------
+//  Send a C string to a socket, as zstr_send(), with a MORE flag, so that
+//  you can send further strings in the same multi-part message.
+
 int
-zstr_sendf (void *zocket, const char *format, ...)
+zstr_sendm (void *socket, const char *string)
 {
-    assert (zocket);
+    assert (socket);
+    assert (string);
+    return s_send_string (socket, true, (char *) string);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send a formatted string to a socket. Note that you should NOT use
+//  user-supplied strings in the format (they may contain '%' which
+//  will create security holes).
+
+int
+zstr_sendf (void *socket, const char *format, ...)
+{
+    assert (socket);
     assert (format);
+
     va_list argptr;
     va_start (argptr, format);
-    int rc = s_send_string (zocket, false, format, argptr);
+    char *string = zsys_vprintf (format, argptr);
     va_end (argptr);
+
+    int rc = s_send_string (socket, false, string);
+    free (string);
     return rc;
 }
 
 
 //  --------------------------------------------------------------------------
-//  Send a string to a socket in 0MQ string format, with MORE flag
+//  Send a formatted string to a socket, as for zstr_sendf(), with a
+//  MORE flag, so that you can send further strings in the same multi-part
+//  message.
 
 int
-zstr_sendm (void *zocket, const char *format, ...)
+zstr_sendfm (void *socket, const char *format, ...)
 {
-    assert (zocket);
+    assert (socket);
     assert (format);
+
     va_list argptr;
     va_start (argptr, format);
-    int rc = s_send_string (zocket, true, format, argptr);
+    char *string = zsys_vprintf (format, argptr);
     va_end (argptr);
+
+    int rc = s_send_string (socket, true, string);
+    free (string);
     return rc;
 }
 
-//  Deprecated, does exactly the same
+
+//  --------------------------------------------------------------------------
+//  Send a series of strings (until NULL) as multipart data
+//  Returns 0 if the strings could be sent OK, or -1 on error.
+
 int
-zstr_sendfm (void *zocket, const char *format, ...)
+zstr_sendx (void *socket, const char *string, ...)
 {
-    assert (zocket);
-    assert (format);
-    va_list argptr;
-    va_start (argptr, format);
-    int rc = s_send_string (zocket, true, format, argptr);
-    va_end (argptr);
-    return rc;
+    zmsg_t *msg = zmsg_new ();
+    va_list args;
+    va_start (args, string);
+    while (string) {
+        zmsg_addstr (msg, string);
+        string = va_arg (args, char *);
+    }
+    va_end (args);
+    return zmsg_send (&msg, socket);
 }
+
+
+//  --------------------------------------------------------------------------
+//  Receive a series of strings (until NULL) from multipart data.
+//  Each string is allocated and filled with string data; if there
+//  are not enough frames, unallocated strings are set to NULL.
+//  Returns -1 if the message could not be read, else returns the
+//  number of strings filled, zero or more. Free each returned string
+//  using zstr_free().
+
+int
+zstr_recvx (void *socket, char **string_p, ...)
+{
+    zmsg_t *msg = zmsg_recv (socket);
+    if (!msg)
+        return -1;
+        
+    va_list args;
+    va_start (args, string_p);
+    while (string_p) {
+        *string_p = zmsg_popstr (msg);
+        string_p = va_arg (args, char **);
+    }
+    va_end (args);
+    zmsg_destroy (&msg);
+    return 0;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Free a provided string, and nullify the parent pointer. Safe to call on
+//  a null pointer.
+
+void
+zstr_free (char **string_p)
+{
+    assert (string_p);
+    free (*string_p);
+    *string_p = NULL;
+}
+
 
 //  --------------------------------------------------------------------------
 //  Selftest
@@ -187,20 +240,18 @@ zstr_test (bool verbose)
     //  Send ten strings, five strings with MORE flag and then END
     int string_nbr;
     for (string_nbr = 0; string_nbr < 10; string_nbr++)
-        zstr_send (output, "this is string %d", string_nbr);
-    for (string_nbr = 0; string_nbr < 5; string_nbr++)
-        zstr_sendm (output, "this is string %d", string_nbr);
-    zstr_send (output, "END");
+        zstr_sendf (output, "this is string %d", string_nbr);
+    zstr_sendx (output, "This", "is", "almost", "the", "very", "END", NULL);
 
     //  Read and count until we receive END
     string_nbr = 0;
     for (string_nbr = 0;; string_nbr++) {
         char *string = zstr_recv (input);
         if (streq (string, "END")) {
-            free (string);
+            zstr_free (&string);
             break;
         }
-        free (string);
+        zstr_free (&string);
     }
     assert (string_nbr == 15);
 

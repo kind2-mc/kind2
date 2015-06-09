@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -25,10 +25,10 @@
 
 
 (** Output a fatal error at position and raise an error *)
-val fail_at_position : LustreAst.position -> string -> 'a
+val fail_at_position : Lib.position -> string -> 'a
 
 (** Output a warning at position *)
-val warn_at_position : LustreAst.position -> string -> unit 
+val warn_at_position : Lib.position -> string -> unit 
 
 (** Return a list of nodes from a parsed input file *)
 val declarations_to_nodes : LustreAst.declaration list -> LustreNode.t list

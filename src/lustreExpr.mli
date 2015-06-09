@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -70,6 +70,8 @@ type t = private
     
   }
 
+module ExprHashtbl : Hashtbl.S with type key = t
+
 (** Equality of expressions *)
 val equal_expr : t -> t -> bool
 
@@ -78,6 +80,9 @@ val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit
 
 (** Pretty-print a Lustre variable *)
 val pp_print_lustre_var : bool -> Format.formatter -> StateVar.t -> unit 
+
+(** Pretty-print a Lustre variable with its type *)
+val pp_print_lustre_var_typed : bool -> Format.formatter -> StateVar.t -> unit 
 
 (** Pretty-print a Lustre expression *)
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
@@ -185,7 +190,7 @@ val mk_arrow : t -> t -> t
     fresh variable and the expression is added to [d] and it is
     returned along with an expression of the fresh variable at the
     previous state. *)
-val mk_pre : (Type.t -> StateVar.t) -> (StateVar.t * t) list -> t -> (t * (StateVar.t * t) list)
+val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
 
 
 (** {1 Conversions to terms} *)
@@ -243,9 +248,13 @@ type state_var_source =
   | Input (** Input stream *)
   | Oracle (** Oracle input stream *)
   | Output (** Output stream *)
+  | Observer (** Observer output stream *)
   | Local (** Local defined stream *)
   | Abstract (** Local abstracted stream *)
-  | Instance of LustreAst.position * LustreIdent.t * StateVar.t (** Stream from node call at position *)
+
+
+(** Stream from node call at position *)
+type state_var_instance =  Lib.position * LustreIdent.t * StateVar.t
 
 
 (** Pretty-print a source of a state variable *)
@@ -263,15 +272,37 @@ val pp_print_state_var_source : Format.formatter -> state_var_source -> unit
     The association of the variable to the identifier it was created
     of is memoized in a hash table, so that the identifier can be
     retrieved via {!ident_of_state_var}. *)
-val mk_state_var_of_ident : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
+val mk_state_var_of_ident : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
 
-val mk_fresh_state_var : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Numeral.t ref -> StateVar.t
+val mk_fresh_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Numeral.t ref -> StateVar.t
 
 (** Set source of state variable *)
 val set_state_var_source : StateVar.t -> state_var_source -> unit
 
 (** Get source of state variable *)
 val get_state_var_source : StateVar.t -> state_var_source
+
+(** State variable is identical to a state variable in a node instance *)
+val set_state_var_instance : StateVar.t -> Lib.position -> LustreIdent.t -> StateVar.t -> unit
+
+
+val lift_term :  Lib.position -> LustreIdent.t -> Term.t -> Term.t
+
+(** Return identical state variable in a node instance if any *)
+val get_state_var_instances : StateVar.t -> state_var_instance list
+
+(** Return true if the state variable should be visible to the user,
+    false if it was created internally *)
+val state_var_is_visible : StateVar.t -> bool
+
+(** Return true if the state variable is an input *)
+val state_var_is_input : StateVar.t -> bool
+
+(** Return true if the state variable is an output *)
+val state_var_is_output : StateVar.t -> bool
+
+(** Return true if the state variable is a local variable *)
+val state_var_is_local : StateVar.t -> bool
 
 (** Return previously created state variable of the same identifier
 
@@ -316,18 +347,22 @@ val pre_is_unguarded : t -> bool
     An unguarded pre is a previous state variable occuring in the
     initial state expression, since the arrow operator has been lifted
     to the top of the expression. *)
-val oracles_for_unguarded_pres : LustreAst.position -> (Type.t -> StateVar.t) -> (LustreAst.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : Lib.position -> (StateVar.t -> StateVar.t) -> (Lib.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
 
 (** {1 Predicates} *)
 
 (** Return true if the expression contains a previous state variable *)
-val has_pre_var : t -> bool
+val has_pre_var : Numeral.t -> t -> bool
 
 (** Return true if expression is a current state variable *)
 val is_var : t -> bool
 
 (** Return true if expression is a previous state variable *)
 val is_pre_var : t -> bool
+
+(** Return true if the expression is constant *)
+val is_const : t -> bool
+
 
 (* 
    Local Variables:

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -26,8 +26,11 @@ type t
 
 (** {1 Pretty-printing and String Representation} *)
 
-(** Pretty-print a numeral *)
+(** Pretty-print a numeral, e.g. -1 *)
 val pp_print_numeral : Format.formatter -> t -> unit
+
+(** Pretty-print a numeral in s-expression, e.g. (- 1) *)
+val pp_print_numeral_sexpr : Format.formatter -> t -> unit
 
 (** Return a string representation of a numeral *)
 val string_of_numeral : t -> string

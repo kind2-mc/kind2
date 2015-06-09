@@ -1,26 +1,13 @@
 /*  =========================================================================
     zsocket - working with 0MQ sockets
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -36,6 +23,9 @@ extern "C" {
 //  We use this when choosing a port for dynamic binding.
 #define ZSOCKET_DYNFROM     0xc000
 #define ZSOCKET_DYNTO       0xffff
+
+//  Callback function for zero-copy methods
+typedef void (zsocket_free_fn) (void *data, void *arg);
 
 //  Create a new socket within our CZMQ context, replaces zmq_socket.
 //  Use this to get automatic management of the socket at shutdown.
@@ -56,12 +46,18 @@ CZMQ_EXPORT void
 CZMQ_EXPORT int
     zsocket_bind (void *socket, const char *format, ...);
 
+//  Unbind a socket from a formatted endpoint.
+//  Returns 0 if OK, -1 if the endpoint was invalid or the function
+//  isn't supported.
+CZMQ_EXPORT int
+    zsocket_unbind (void *socket, const char *format, ...);
+
 //  Connect a socket to a formatted endpoint
 //  Returns 0 if OK, -1 if the endpoint was invalid.
 CZMQ_EXPORT int
     zsocket_connect (void *socket, const char *format, ...);
 
-//  Disonnect a socket from a formatted endpoint
+//  Disconnect a socket from a formatted endpoint
 //  Returns 0 if OK, -1 if the endpoint was invalid or the function
 //  isn't supported.
 CZMQ_EXPORT int
@@ -71,15 +67,42 @@ CZMQ_EXPORT int
 //  ready on the socket, else FALSE.
 CZMQ_EXPORT bool
     zsocket_poll (void *socket, int msecs);
-    
+
 //  Returns socket type as printable constant string
-CZMQ_EXPORT char *
+CZMQ_EXPORT const char *
     zsocket_type_str (void *socket);
+
+//  Send data over a socket as a single message frame.
+//  Accepts these flags: ZFRAME_MORE and ZFRAME_DONTWAIT.
+CZMQ_EXPORT int
+    zsocket_sendmem (void *socket, const void *data, size_t size, int flags);
+
+//  Send a signal over a socket. A signal is a zero-byte message.
+//  Signals are used primarily between threads, over pipe sockets.
+//  Returns -1 if there was an error sending the signal.
+CZMQ_EXPORT int
+    zsocket_signal (void *socket);
+
+//  Wait on a signal. Use this to coordinate between threads, over
+//  pipe pairs. Returns -1 on error, 0 on success.
+CZMQ_EXPORT int
+    zsocket_wait (void *socket);
+
+//  Send data over a socket as a single message frame.
+//  Returns -1 on error, 0 on success
+CZMQ_EXPORT int
+    zsocket_sendmem (void *socket, const void *data, size_t size, int flags);
 
 //  Self test of this class
 CZMQ_EXPORT int
     zsocket_test (bool verbose);
 //  @end
+
+//  Compiler hints
+CZMQ_EXPORT int zsocket_bind (void *socket, const char *format, ...) CHECK_PRINTF (2);
+CZMQ_EXPORT int zsocket_unbind (void *socket, const char *format, ...) CHECK_PRINTF (2);
+CZMQ_EXPORT int zsocket_connect (void *socket, const char *format, ...) CHECK_PRINTF (2);
+CZMQ_EXPORT int zsocket_disconnect (void *socket, const char *format, ...) CHECK_PRINTF (2);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,6 @@
 Debug
 Lib
-Config
+Kind2Config
 Flags
 Stat
 
@@ -12,10 +12,12 @@ Numeral
 
 Hashcons
 Ltree
+Trie
 
 LustreLexer
 LustreParser
 LustreAst
+LustreIdent
 LustreExpr
 LustreNode
 LustreSimplify
@@ -31,8 +33,10 @@ SExprLexer
 
 SMTExpr
 SMTLIBSolver
+SolverSig
+SolverDriver
+SolverResponse
 SMTSolver
-SolverMethods
 
 UfSymbol
 Symbol
@@ -42,14 +46,14 @@ Type
 
 TermAttr
 Term
+TermLib
 
-CNF
 Clause
-Literal
 
 TransSys
 
 Simplify
+Model
 Eval
 Extract
 
@@ -58,15 +62,20 @@ Presburger
 CooperQE
 QE
 
-InvGenDummy
+IC3
 
-PDR
+Actlit
+Base
 
-Bmc
+ImplicationGraph
+InvGenGraph
+InvGenCandTermGen
+LockStepDriver
 
 Compress
-IndStep
+Step
 
+InputParser
 Interpreter
 
 InvarManager

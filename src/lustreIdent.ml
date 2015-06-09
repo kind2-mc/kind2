@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -106,6 +106,14 @@ let equal i1 i2 = compare i1 i2 = 0
 
 (* Set of identifiers *)  
 module LustreIdentSet = Set.Make 
+    (struct 
+      type z = t
+      type t = z
+      let compare = compare
+    end)
+
+(* Maps of identifiers *)  
+module LustreIdentMap = Map.Make 
     (struct 
       type z = t
       type t = z
@@ -326,11 +334,12 @@ let scope_of_ident (ident, index) = ident :: (scope_of_index index)
 (* Reserved identifiers for abstrations *)
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
-let ticked_ident_string =  "__ticked" 
+let observer_ident_string =  "__observer" 
+let first_tick_ident_string =  "__first_tick" 
 let init_uf_string = "__node_init"
 let trans_uf_string = "__node_trans"
 
-let top_scope_string = "__top"
+(* let top_scope_string = "__top" *)
 
 
 (* Return true if the identifier clashes with internal identifier names *)
@@ -342,10 +351,11 @@ let ident_is_reserved ident =
   (* Return false if identical to any reserved identifier *)
   string_starts_with ident_string abs_ident_string
   || string_starts_with ident_string oracle_ident_string
-  || string_starts_with ident_string ticked_ident_string
+  || string_starts_with ident_string observer_ident_string
+  || string_starts_with ident_string first_tick_ident_string
   || string_starts_with ident_string init_uf_string
   || string_starts_with ident_string trans_uf_string
-  || string_starts_with ident_string top_scope_string
+(*  || string_starts_with ident_string top_scope_string *)
   
 
 (* Identifier for new variables from abstrations *)
@@ -354,12 +364,16 @@ let abs_ident = mk_string_ident abs_ident_string
 (* Identifier for new oracle input *)
 let oracle_ident = mk_string_ident oracle_ident_string
 
+(* Identifier for new oracle input *)
+let observer_ident = mk_string_ident observer_ident_string
+
 (* Identifier for new clock initialization flag *)
-let ticked_ident = mk_string_ident ticked_ident_string
+let first_tick_ident = mk_string_ident first_tick_ident_string
 
+(*
 (* Scope for top-level variables *)
-let top_scope_index = mk_string_index top_scope_string
-
+let top_scope_index = smk_string_index top_scope_string
+*)
 
 
 (* 

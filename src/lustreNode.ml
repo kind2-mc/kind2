@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -18,28 +18,32 @@
 
 (* A Lustre node
 
-    Nodes are normalized for easy translation into a transition system,
-    mainly by introducing new variables. A LustreExpr.t does not
-    contain node calls, temporal operators or expressions under a pre
-    operator. Node equations become a map of identifiers to expressions
-    in [node_eqs], all node calls are in [node_calls] as a list of tuples
-    containing fresh variables the node output is assigned to and the
-    expressions for the node input.
+   Nodes are normalized for easy translation into a transition system,
+   mainly by introducing new variables. A LustreExpr.t does not
+   contain node calls, temporal operators or expressions under a pre
+   operator. Node equations become a map of identifiers to expressions
+   in [node_eqs], all node calls are in [node_calls] as a list of
+   tuples containing fresh variables the node output is assigned to
+   and the expressions for the node input.
 
-    The node signature as input and output variables as well as its
-    local variables is in [node_inputs], [node_outputs] and
-    [node_vars], respectively. Local constants are propagated and do
-    not need to be stored. The inputs of a node can be extended by
-    constant state variables in [node_oracles] for the initial value
-    of unguarded pre operations.
+   The node inputs are extended with oracles that are appended to the
+   formal input parameters for each unguarded [pre] operator or oracle
+   input of a called node.
 
-    Assertions, properties to prove and contracts as assumptions and
-    guarantees are lists of expressions in [node_asserts], [node_props],
-    [node_requires], and [node_ensures].
+   The node outpus are extended with observers for each property that
+   is not an output, and each observer of a called node.
 
-    The flag [node_is_main] is set if the node has been annotated as
-    main, it is not checked if more than one node or no node at all may
-    have that annotation. *)
+   Local constants are propagated and do not need to be stored. The
+   inputs of a node can be extended by constant state variables in
+   [node_oracles] for the initial value of unguarded pre operations.
+
+   Assertions, properties to prove and contracts as assumptions and
+   guarantees are lists of expressions in [node_asserts],
+   [node_props], [node_requires], and [node_ensures].
+
+   The flag [node_is_main] is set if the node has been annotated as
+   main, it is not checked if more than one node or no node at all may
+   have that annotation. *)
 
 open Lib
 
@@ -69,17 +73,20 @@ type node_call =
     (* Variables capturing the outputs *)
     call_returns : StateVar.t list;
 
+    (* Variables capturing the outputs *)
+    call_observers : StateVar.t list;
+
     (* Boolean activation condition *)
-    call_clock : LustreExpr.t;
+    call_clock : StateVar.t option;
 
     (* Name of called node *)
     call_node_name : LustreIdent.t;
     
     (* Position of node call in input file *)
-    call_pos : LustreAst.position;
+    call_pos : position;
 
     (* Expressions for input parameters *)
-    call_inputs : LustreExpr.t list;
+    call_inputs : StateVar.t list;
 
     (* Expression for initial return values *)
     call_defaults : LustreExpr.t list;
@@ -89,6 +96,8 @@ type node_call =
 (*
   { call_returns; call_clock; call_node_name; call_pos; call_inputs; call_defaults }
 *)
+
+
 
 (* A Lustre node *)
 type t = 
@@ -105,6 +114,9 @@ type t =
        indexes and of the parameters in the declaration. *)
     inputs : (StateVar.t * I.index) list;
 
+    (* Oracle inputs *)
+    oracles : StateVar.t list;
+
     (* Output variables of node together with their index in the
        original model
 
@@ -112,14 +124,14 @@ type t =
        indexes and of the parameters in the declaration. *)
     outputs : (StateVar.t * I.index) list;
 
+    (* Observer outputs *)
+    observers : StateVar.t list;
+
     (* Local variables of node
 
        The order of the list is irrelevant, we are doing dependency
        analysis and cone of influence reduction later. *)
     locals : (StateVar.t * I.index) list; 
-
-    (* Oracle inputs *)
-    oracles : StateVar.t list;
 
     (* Equations for local and output variables *)
     equations : (StateVar.t * LustreExpr.t) list;
@@ -134,7 +146,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (* Proof obligations for node *)
-    props : StateVar.t list;
+    props : (StateVar.t * TermLib.prop_source) list;
 
     (* Contract for node, assumptions *)
     requires : LustreExpr.t list;
@@ -151,6 +163,15 @@ type t =
     (* Index of last abstraction state variable *)
     fresh_state_var_index : Numeral.t ref;
 
+    (* Index of last oracle state variable *)
+    fresh_oracle_index : Numeral.t ref;
+
+    (* Map of state variables to their oracles *)
+    state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
+
+    (* Map of expressions to state variables *)
+    expr_state_var_map : StateVar.t E.ExprHashtbl.t;
+
   }
 
 
@@ -158,9 +179,10 @@ type t =
 let empty_node name = 
   { name = name;
     inputs = [];
-    outputs = [];
-    locals = [];
     oracles = [];
+    outputs = [];
+    observers = [];
+    locals = [];
     equations = [];
     calls = [];
     asserts = [];
@@ -169,7 +191,11 @@ let empty_node name =
     ensures = [];
     is_main = false;
     output_input_dep = [];
-    fresh_state_var_index = ref Numeral.(- one) }
+    fresh_state_var_index = ref Numeral.(- one);
+    fresh_oracle_index = ref Numeral.(- one); 
+    state_var_oracle_map = StateVar.StateVarHashtbl.create 7;
+    expr_state_var_map = E.ExprHashtbl.create 7 }
+
 
 
 (* Pretty-print a node input *)
@@ -215,37 +241,40 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_returns = out_vars; 
-      call_clock = act_expr; 
+      call_observers = observer_vars; 
+      call_clock = None; 
       call_node_name = node; 
-      call_inputs = exprs } when E.equal_expr act_expr E.t_true -> 
+      call_inputs = in_vars } ->
 
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>%a(%a);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      out_vars
+      (out_vars @ observer_vars)
       (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
 
   (* Node call not on the base clock is a condact *)
   |  { call_returns = out_vars; 
-       call_clock = act_expr;
+       call_observers = observer_vars; 
+       call_clock = Some act_var;
        call_node_name = node; 
-       call_inputs = exprs; 
+       call_inputs = in_vars; 
        call_defaults = init_exprs } ->
      
     Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,%a(%a),@ %a);@]@]"
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,@,%a(%a),@,%a);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      out_vars
-      (E.pp_print_lustre_expr safe) act_expr
+      (out_vars @ observer_vars)
+      (E.pp_print_lustre_var safe) act_var
       (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") init_exprs
-
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
+      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
+      (init_exprs @ (List.map (fun _ -> E.t_true) observer_vars))
+          
 
 (* Pretty-print an assertion *)
 let pp_print_assert safe ppf expr = 
@@ -285,9 +314,10 @@ let pp_print_node
     ppf 
     { name;
       inputs; 
-      outputs; 
-      locals; 
       oracles; 
+      outputs; 
+      observers; 
+      locals; 
       equations; 
       calls; 
       asserts; 
@@ -320,7 +350,8 @@ let pp_print_node
     (I.pp_print_ident safe) name
     (pp_print_list (pp_print_input safe) ";@ ") 
     (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
-    (pp_print_list (pp_print_output safe) ";@ ") outputs
+    (pp_print_list (pp_print_output safe) ";@ ") 
+    (outputs @ (List.map (fun sv -> (sv, I.empty_index)) observers))
     (pp_print_list  
        (fun ppf l -> 
           Format.fprintf ppf "@[<h>-- %a@]"
@@ -346,15 +377,45 @@ let pp_print_node
     (space_if_nonempty requires)
     (pp_print_list (pp_print_ensures safe) "@ ") ensures
     (space_if_nonempty ensures)
-    (pp_print_list (pp_print_prop safe) "@ ") props
+    (pp_print_list (pp_print_prop safe) "@ ") ((List.map fst props) @ observers)
     
 
 
 (* Return the node of the given name from a list of nodes *)
-let node_of_name name nodes =
-  List.find
+let exists_node_of_name name nodes =
+
+  List.exists
     (function { name = node_name } -> name = node_name)
     nodes
+
+
+(* Return the node of the given name from a list of nodes *)
+let node_of_name name nodes =
+
+  try 
+
+    List.find
+      (function { name = node_name } -> name = node_name)
+      nodes
+      
+  with Not_found -> 
+
+    debug lustreNode 
+      "@[<v>Node %a not found@,%a@]"
+      (I.pp_print_ident false) name
+      (pp_print_list (pp_print_node false) "@,") nodes
+    in
+    
+    raise Not_found 
+
+
+let rec ident_of_top = function 
+  
+  | [] -> raise (Invalid_argument "ident_of_top")
+
+  | [{ name }] -> name 
+
+  | h :: tl -> ident_of_top tl
 
 
 (* Calculate dependencies of variables *)
@@ -383,10 +444,12 @@ let rec node_var_dependencies nodes node accum =
     | (state_var, dep) :: tl -> 
 
 (*
-      Format.printf 
-        "@[<h>node_var_dependencies %a (%a)@]@."
-        (I.pp_print_ident false) ident
-        (pp_print_list (I.pp_print_ident false) "@ ") dep;
+      debug lustreNode
+        "@[<v>node_var_dependencies %a @[<h>(%a)@]@,%a@]@."
+        StateVar.pp_print_state_var state_var
+        (pp_print_list StateVar.pp_print_state_var "@ ") dep 
+        (pp_print_list (pp_print_node false) "@,") nodes
+      in
 *)
 
       if 
@@ -438,7 +501,7 @@ let rec node_var_dependencies nodes node accum =
                  variables capturing the output *)
               let rec aux ident = function
                 | [] -> raise Not_found
-                | { call_returns = o } as n :: tl -> 
+                | { call_returns = o; call_observers = b } as n :: tl -> 
 
                   (* Iterate over variables capturing the output to
                      find variable and return the node call and the
@@ -451,7 +514,7 @@ let rec node_var_dependencies nodes node accum =
                     | _ :: tl -> aux2 (succ i) tl
                   in
 
-                  try aux2 0 o with Not_found -> aux ident tl
+                  try aux2 0 (o @ b) with Not_found -> aux ident tl
 
               in
 
@@ -476,7 +539,7 @@ let rec node_var_dependencies nodes node accum =
               let { output_input_dep } = 
                 node_of_name node_ident nodes
               in
-
+(*
               debug lustreNode
                 "@[<v>Input output dependencies of node %a:@[<v>%a@]@]"
                 (I.pp_print_ident false) node_ident
@@ -488,7 +551,7 @@ let rec node_var_dependencies nodes node accum =
                   "@,")
                 output_input_dep
               in
-
+*)
               (* Get expressions that output of node depends on *)
               let dep_expr = 
                 List.fold_left
@@ -497,7 +560,7 @@ let rec node_var_dependencies nodes node accum =
                   []
                   (List.nth output_input_dep input_pos)
               in
-
+(*
               (* Get variables in expression *)
               SVS.elements
                 (List.fold_left
@@ -517,6 +580,9 @@ let rec node_var_dependencies nodes node accum =
                         a)
                    SVS.empty
                    dep_expr)
+*)
+              
+              dep_expr
 
             (* Variable is not input or defined in an equation or node
                call, it could be in an assertion *)
@@ -548,6 +614,7 @@ let rec node_var_dependencies nodes node accum =
               vars_visited
           in
 
+(*
           debug lustreNode
             "@[<hv>Dependencies of %a:@ @[<hv>%a@]@]"
             StateVar.pp_print_state_var state_var
@@ -556,6 +623,7 @@ let rec node_var_dependencies nodes node accum =
               ",@ ")
             (SVS.elements dependent_vars)
           in
+*)
 
           (* Add variable and its dependencies to accumulator *)
           node_var_dependencies 
@@ -716,9 +784,11 @@ let compute_output_input_dep nodes node =
        (List.map (fun (v, _) -> (v, [])) node.outputs))
   in
   
+  (* Unused: need not order variables when computing dependencis only *)
+
   (* Order variables such that variables defined in terms of other
      variables occur first *)
-  let vars_ordered = order_by_dep [] var_dep in
+  (* let vars_ordered = order_by_dep [] var_dep in *)
   
   (* Compute dependencies of output variables on inputs *)
   let output_input_dep = 
@@ -773,7 +843,17 @@ let solve_eqs_node_calls node =
                          node.equations)
                   in
 
-                  (v' :: accum_outputs, v :: accum_vars_eliminated)
+                  (debug lustreNode
+                    "Eliminating %a with %a"
+                    StateVar.pp_print_state_var v
+                    StateVar.pp_print_state_var v'
+                  in
+                  
+                  List.iter
+                    (fun (p, n, v'') -> E.set_state_var_instance v' p n v'')
+                    (E.get_state_var_instances v);
+
+                  (v' :: accum_outputs, v :: accum_vars_eliminated))
 
                 (* Variable not found in a variable alias equation *)
                 with Not_found -> 
@@ -832,9 +912,9 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
         accum
         { call_clock = act_cond; call_inputs = args; call_defaults = inits } -> 
 
-        act_cond :: 
-        args @
-         
+(*
+        (List.map (E.cur_expr_of_state_var E.cur_offset) args) @
+        (List.map (E.pre_term_of_state_var E.cur_offset) args) @
          (* Add previous state expression of arguments *)
          List.map 
            (fun e -> 
@@ -844,8 +924,8 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
                      (* Immediately fail if expression under pre needs
                         to be abstracted *)
                      (fun _ -> assert false) [] e)))) 
-           args @
-         inits @ 
+           args @ *)
+        inits @ 
          accum)
       exprs_equations
       calls
@@ -866,7 +946,7 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
-    { inputs; outputs; oracles; equations; calls; asserts; props } =
+    { inputs; outputs; observers; oracles; equations; calls; asserts; props } =
 
   (* Input, output and oracle variables are always stateful *)
   let stateful_vars =
@@ -874,7 +954,8 @@ let stateful_vars_of_node
       SVS.empty
       ((List.map fst inputs)
        @ (List.map fst outputs)
-       @ oracles)
+       @ oracles 
+       @ observers)
   in
 
   (* Add stateful variables from equations *)
@@ -887,13 +968,31 @@ let stateful_vars_of_node
   in
 
   (* Add property variables *)
-  let stateful_vars = add_to_svs stateful_vars props in
+  let stateful_vars = add_to_svs stateful_vars (List.map fst props) in
 
   (* Add stateful variables from assertions *)
   let stateful_vars = 
     List.fold_left 
+      
       (fun accum expr -> 
-         SVS.union accum (E.stateful_vars_of_expr expr))
+         
+         (* Add stateful variables of assertion *)
+         SVS.union accum (E.stateful_vars_of_expr expr) 
+         
+         |> 
+
+         (* Variables in assertion that do not have a definition must
+            be stateful *)
+         SVS.union
+           (E.state_vars_of_expr expr
+            |> 
+            SVS.filter
+              (fun sv -> 
+                 not
+                   (List.exists
+                      (fun (sv', _) -> 
+                         StateVar.equal_state_vars sv sv') 
+                      equations))))
       stateful_vars
       asserts
   in
@@ -904,24 +1003,18 @@ let stateful_vars_of_node
       (fun
         accum
         { call_returns = rets; 
+          call_observers = obs; 
           call_clock = act_cond; 
           call_inputs = args; 
           call_defaults = inits } -> 
-         (add_to_svs
-            
-            (SVS.union
 
-               (* Variables in activation condition area lways stateful *)
-               (E.state_vars_of_expr act_cond)
-               
-               (* Variables in input parameters are always stateful *)
-               (List.fold_left 
-                  SVS.union 
-                  accum
-                  (List.map E.state_vars_of_expr (args))))
-
-            (* Output variables are always stateful *)
-            rets))
+        (SVS.union accum
+           (* Input and output variables are always stateful *)
+           (add_to_svs
+              (match act_cond with
+               | Some var -> SVS.singleton var
+               | None -> SVS.empty)
+              (rets @ obs @ args))))
       stateful_vars
       calls
   in
@@ -974,6 +1067,28 @@ let state_vars_in_asserts { asserts } =
     []
     asserts
 
+
+(* 
+  produces the set of all state variables contained in any of the nodes in the
+  given list 
+*)
+let state_vars_of_node (node : t) =
+  
+  (* the set of all state variables in this nodes locals, outputs, & inputs *)
+  let ret = 
+    List.fold_left 
+      (fun acc (sv,_) -> SVS.add sv acc) 
+      SVS.empty 
+      (node.locals @ node.outputs @ node.inputs)
+  in
+
+  (* ret with oracles added *)
+  List.fold_left
+    (fun acc sv -> SVS.add sv acc)
+    ret
+    (node.oracles @ node.observers)
+
+
 (* Execption for reduce_to_coi: need to reduce node first *)
 exception Push_node of I.t
 
@@ -995,17 +1110,19 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   (* All dependencies for this node processed, add to accumulator *)
   | ([], 
      sv_visited, 
-     ({ outputs; 
-        inputs; 
-        oracles;
-        locals; 
-        asserts; 
-        props; 
-        requires; 
-        ensures; 
-        is_main; 
-        output_input_dep;
-        fresh_state_var_index } as node_orig), 
+     { outputs; 
+       inputs; 
+       oracles;
+       observers;
+       locals; 
+       equations;
+       asserts; 
+       props; 
+       requires; 
+       ensures; 
+       is_main; 
+       output_input_dep;
+       fresh_state_var_index }, 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
@@ -1016,25 +1133,35 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
           (* Keep signature of node even if variables are not
              constrained any more *)
-          outputs = outputs;
-          inputs = inputs;
-          oracles = oracles;
-          output_input_dep = output_input_dep;
+          outputs;
+          inputs;
+          oracles;
+          observers;
+          output_input_dep;
 
-          (* Keep only local variables with definitions *)
+          (* Keep only local variables with definitions, or
+             constrained by an assertion *)
           locals = 
             List.filter
               (fun (sv, _) -> 
-                 List.exists (StateVar.equal_state_vars sv) sv_visited) 
+                 List.exists (StateVar.equal_state_vars sv) sv_visited || 
+                 List.exists
+                   (fun a -> 
+                      E.state_vars_of_expr a
+                      |> SVS.exists (StateVar.equal_state_vars sv))
+                   asserts) 
               locals;
 
           (* Keep assertions, properties and main annotations *)
-          asserts = asserts;
-          props = props;
-          requires = requires;
-          ensures = ensures;
-          is_main = is_main;
-          fresh_state_var_index = fresh_state_var_index }
+          asserts;
+
+          (* Keep only property variables with definitions *)
+          props;
+
+          requires;
+          ensures;
+          is_main;
+          fresh_state_var_index }
 
     in
 
@@ -1057,12 +1184,45 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
 
   (* Head of state variable list has not been seen *)
-  | ((state_var :: svtl as svl), 
+  | ((state_var :: svtl), 
      sv_visited, 
      ({ name = node_name } as node_orig), 
      node_coi) :: ntl as nl -> 
 
     try 
+
+      (* Need to have all nodes with variables this variable
+         instantiates *)
+      List.iter
+        (fun (_, n, sv') -> 
+           
+           (debug lustreNode
+               "State variable %a is an instance of %a"
+               StateVar.pp_print_state_var state_var
+               StateVar.pp_print_state_var sv'
+            in
+            
+            if 
+              
+              (* Called node is sliced already? *)
+              not (exists_node_of_name n accum) &&
+
+                (* Called node is not sliced away *)
+                (exists_node_of_name n accum)
+                
+            then 
+              
+              (debug lustreNode
+                  "State variable %a is an instance of %a, slicing %a first"
+                  StateVar.pp_print_state_var state_var
+                  StateVar.pp_print_state_var sv'
+                  (I.pp_print_ident false) n
+               in
+               
+               (* Slice called node first *)
+               raise (Push_node n))))
+
+        (E.get_state_var_instances state_var);
 
       (* Copy node call from original node to reduced node, do not
          modify original node, because additional variables may be found
@@ -1075,6 +1235,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
             let 
               ({ call_returns = call_outputs;
+                 call_observers = call_observers;
                  call_clock = call_act;
                  call_node_name = call_name;
                  call_inputs = call_inputs;
@@ -1082,10 +1243,10 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
               (* Find variable in result of a node call *)
               List.find 
-                (fun { call_returns = o } -> 
+                (fun { call_returns = o; call_observers = b } -> 
                    List.exists 
                      (fun sv -> StateVar.equal_state_vars state_var sv) 
-                     o)
+                     (o @ b))
                 node_orig.calls
             in
 
@@ -1105,12 +1266,15 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
                   (fun a e -> 
                      (SVS.elements
                         (LustreExpr.state_vars_of_expr e)) @ a)
-                  svtl
-                  (call_act :: call_inputs @ call_defaults)
+                  ((match call_act with Some v -> v :: svtl | _ -> svtl)
+                   @ call_inputs)
+                  call_defaults
               in
 
               (* Add called node to sliced node *)
-              (call_coi :: node_coi.calls), svtl', (call_outputs @ sv_visited)
+              (call_coi :: node_coi.calls), 
+              svtl', 
+              (call_outputs @ call_observers @ sv_visited)
 
             else
 
@@ -1172,47 +1336,31 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
     with Push_node push_name ->
       
-      (* Find called node *)
-      let { outputs = push_node_outputs } as push_node = 
+      (* Outputs and observers of node *)
+      let { outputs = push_node_outputs; 
+            observers = push_node_observers } as push_node = 
+
         try 
+
+          (* Find node by name *)
           node_of_name push_name nodes 
+
         with Not_found -> assert false 
+          
       in 
 
       (* Reduce called node first, then revisit calling node *)
       reduce_to_coi' 
         nodes
         accum
-        (((List.map fst push_node_outputs) @ (state_vars_in_asserts push_node), 
+        (((List.map fst push_node_outputs) @ 
+          push_node_observers @
+          (state_vars_in_asserts push_node), 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
 
-(* 
-  produces the set of all state variables contained in any of the nodes in the
-  given list 
-*)
-let extract_state_vars nodes =
-  let extract_from_single_node (node : t) =
-    (* the set of all state variables in this nodes locals, outputs, & inputs *)
-    let ret = 
-      List.fold_left 
-        (fun acc (sv,_) -> SVS.add sv acc) 
-        SVS.empty 
-        (node.locals @ node.outputs @ node.inputs)
-    in
-
-    (* ret with oracles added *)
-    List.fold_left
-      (fun acc sv -> SVS.add sv acc)
-      ret
-      node.oracles
-  in
-  
-  List.fold_left 
-    (fun acc node -> SVS.union (extract_from_single_node node) acc)
-    SVS.empty
-    nodes
+(*
 
 (* 
 Given that [nodes] is the set of nodes in the lustre program and
@@ -1265,16 +1413,22 @@ let reduce_to_separate_property_cois nodes main_name =
          (Format.asprintf
             "Main node %a not found."
             (I.pp_print_ident false) main_name))
+*)
 
 
 (* Reduce set of nodes to cone of influence of given state variables *)
 let reduce_to_coi nodes main_name state_vars = 
   
+    debug lustreNode
+      "@[<v>reduce_to_coi nodes'@,%a@]"
+      (pp_print_list (pp_print_node false) "@,") nodes
+    in
+    
   (* Compute input output dependencies for all nodes *)
   let nodes' = 
     List.fold_right
       (fun node accum -> compute_output_input_dep accum node :: accum)
-      nodes
+      (List.rev nodes)
       []
   in
 
@@ -1296,10 +1450,15 @@ let reduce_to_coi nodes main_name state_vars =
            []
            [(state_vars', [], main_node, (empty_node main_name))])
     in
+
+    debug lustreNode
+      "@[<v>reduce_to_coi nodes''@,%a@]"
+      (pp_print_list (pp_print_node false) "@,") nodes''
+    in
     
     (* Return node with equations in topological order *)
     List.fold_right
-      (fun node accum -> equations_order_by_dep accum node :: accum)
+      (fun node accum -> equations_order_by_dep nodes'' node :: accum)
       nodes''
       []
     
@@ -1313,14 +1472,59 @@ let reduce_to_coi nodes main_name state_vars =
 
 
 (* Reduce set of nodes to cone of influence of properties of main node *)
+let reduce_wo_coi nodes main_name = 
+
+  (* Get properties of main node *)
+  let main_node = node_of_name main_name nodes in
+
+  reduce_to_coi
+    nodes 
+    main_name
+    (SVS.elements (state_vars_of_node main_node))
+
+
+(* Reduce set of nodes to cone of influence of properties of main node *)
 let reduce_to_props_coi nodes main_name = 
 
-    (* Get properties of main node *)
-    let { props } = node_of_name main_name nodes in
+  (* Get properties of main node *)
+  let { props; observers; inputs; outputs; locals } as main_node = 
+    node_of_name main_name nodes 
+  in
 
+  match 
+
+    List.fold_left
+      (fun accum (state_var, prop_source) -> match prop_source with 
+
+         (* Property annotations, contracts and generated constraints
+            are in the cone of influence *)
+         | TermLib.PropAnnot _ 
+         | TermLib.Contract _ 
+         | TermLib.Generated _ -> state_var :: accum
+
+         (* Properties instantiated from subnodes are not *)
+         | TermLib.Instantiated _-> accum) 
+      []
+      props 
+
+  with
+    
+    (* No properties, don't reduce *)
+    | [] -> reduce_wo_coi nodes main_name
+              
     (* Reduce to cone of influence of all properties *)
-    reduce_to_coi nodes main_name props
-
+    | props' -> 
+(*      
+      let props' = 
+      SVS.elements 
+        (SVS.union
+           (svs_of_list (List.map fst props))
+           (svs_of_list observers))
+      in
+  *)    
+      reduce_to_coi nodes main_name props'
+        
+      
 (* 
    Local Variables:
    compile-command: "make -k -C .."

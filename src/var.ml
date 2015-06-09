@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -35,9 +35,9 @@ type var =
   (* Variable is a constant state variable *)
   | ConstStateVar of StateVar.t
 
-  (* Temporary variable to be bound to in a let expression or by a
+  (* Free variable to be bound to in a let expression or by a
      quantifier *)
-  | TempVar of HString.t * Type.t
+  | FreeVar of HString.t * Type.t
 
 
 (* A private type that cannot be constructed outside this module
@@ -89,8 +89,8 @@ module Var_node = struct
       (* Equal if the state variables are equal *)
       StateVar.equal_state_vars sv1 sv2
 
-    (* Two temporary variables *)
-    | TempVar (s1, t1), TempVar (s2, t2) -> 
+    (* Two free variables *)
+    | FreeVar (s1, t1), FreeVar (s2, t2) -> 
 
       (* Equal if the hashconsed strings are physically equal and the
          type are physically equal *)
@@ -99,7 +99,17 @@ module Var_node = struct
     | _ -> false
 
   (* Return hash of a variable *)
-  let hash = Hashtbl.hash
+  let hash = function
+
+    | StateVarInstance (sv, i) -> 
+      
+      (abs
+         ((StateVar.hash_state_var sv) *
+          (Numeral.(succ i |> succ |> to_int)) mod max_int))
+      
+    | ConstStateVar sv -> StateVar.hash_state_var sv
+
+    | FreeVar (s, _) -> HString.hash s
 
 end
 
@@ -183,22 +193,22 @@ let pp_print_var_node ppf = function
   (* Pretty-print an instance of a state variable *)
   | StateVarInstance (v, o) ->
     Format.fprintf ppf 
-      "%a.%a" 
+      "%a@%a" 
       StateVar.pp_print_state_var v
       Numeral.pp_print_numeral o
-      
+
   (* Pretty-print a constant state variable *)
   | ConstStateVar v ->
     Format.fprintf ppf 
       "%a" 
       StateVar.pp_print_state_var v
       
-  (* Pretty-print a temporary variable *)
-  | TempVar (s, _) -> 
+  (* Pretty-print a free variable *)
+  | FreeVar (s, _) -> 
     Format.fprintf ppf "%a" HString.pp_print_hstring s
 
 (* Pretty-print a variable to the standard formatter *)
-let print_var_node = pp_print_var_node Format.std_formatter 
+let print_var_node = pp_print_var_node Format.std_formatter
 
 (* Pretty-print a hashconsed variable *)
 let pp_print_var ppf { Hashcons.node = v } = pp_print_var_node ppf v
@@ -219,14 +229,14 @@ let string_of_var { Hashcons.node = v } = string_of_t pp_print_var_node v
 let type_of_var = function 
   | { Hashcons.node = StateVarInstance (v, _) } -> StateVar.type_of_state_var v
   | { Hashcons.node = ConstStateVar v } -> StateVar.type_of_state_var v
-  | { Hashcons.node = TempVar (_, t) } -> t
+  | { Hashcons.node = FreeVar (_, t) } -> t
 
 
 (* Return the state variable of a state variable instance *)
 let state_var_of_state_var_instance = function 
   | { Hashcons.node = StateVarInstance (v, _) }-> v
   | { Hashcons.node = ConstStateVar v }-> v
-  | { Hashcons.node = TempVar _ } -> 
+  | { Hashcons.node = FreeVar _ } -> 
     raise (Invalid_argument "state_var_of_state_var_instance")
 
 
@@ -234,19 +244,20 @@ let state_var_of_state_var_instance = function
 let offset_of_state_var_instance = function 
   | { Hashcons.node = StateVarInstance (_, o) } -> o
   | { Hashcons.node = ConstStateVar _ } -> 
-    raise (Invalid_argument "state_var_of_state_var_instance")
-  | { Hashcons.node = TempVar _ } -> 
-    raise (Invalid_argument "state_var_of_state_var_instance")
+    raise (Invalid_argument "offset_of_state_var_instance")
+  | { Hashcons.node = FreeVar _ } -> 
+    raise (Invalid_argument "offset_of_state_var_instance")
 
-let hstring_of_temp_var = function 
+(* Return a string for a free variable *)
+let hstring_of_free_var = function 
 
   | { Hashcons.node = StateVarInstance _ } -> 
-    raise (Invalid_argument "string_of_temp_var")
+    raise (Invalid_argument "hstring_of_free_var")
 
   | { Hashcons.node = ConstStateVar _ } -> 
-    raise (Invalid_argument "string_of_temp_var")
+    raise (Invalid_argument "hstring_of_free_var")
 
-  | { Hashcons.node = TempVar (s, _) } -> s
+  | { Hashcons.node = FreeVar (s, _) } -> s
 
 
 let is_state_var_instance = function 
@@ -259,8 +270,8 @@ let is_const_state_var = function
   | _ -> false
 
 
-let is_temp_var = function 
-  | { Hashcons.node = TempVar _ } -> true
+let is_free_var = function 
+  | { Hashcons.node = FreeVar _ } -> true
   | _ -> false
 
 
@@ -298,11 +309,11 @@ let mk_state_var_instance v o =
     Hvar.hashcons ht (StateVarInstance (v, o)) ()
 
 
-(* Return a hashconsed variable which is a temporary variable *)    
-let mk_temp_var s t = 
+(* Return a hashconsed variable which is a free variable *)    
+let mk_free_var s t = 
 
-  (* Create and hashcons temporary variable *)
-  Hvar.hashcons ht (TempVar (s, t)) ()
+  (* Create and hashcons free variable *)
+  Hvar.hashcons ht (FreeVar (s, t)) ()
 
 
 (* Import a variable from a different instance into this hashcons table *)
@@ -316,9 +327,9 @@ let import = function
     
     mk_const_state_var (StateVar.import v)
 
-  | { Hashcons.node = TempVar (s, t) } ->
+  | { Hashcons.node = FreeVar (s, t) } ->
 
-    mk_temp_var (HString.import s) (Type.import t)
+    mk_free_var (HString.import s) (Type.import t)
 
 
 (* Counter for index of fresh uninterpreted symbols *)
@@ -352,7 +363,7 @@ let rec next_fresh_var_node var_type =
 
   (* Candidate name for next fresh symbol *)
   let v = 
-    TempVar (fresh_var_name, var_type)
+    FreeVar (fresh_var_name, var_type)
   in
 
   try 
@@ -377,7 +388,19 @@ let mk_fresh_var var_type =
   let v = next_fresh_var_node var_type in
 
   (* Create symbol with given signature *)
-  mk_temp_var v var_type 
+  mk_free_var v var_type 
+
+
+(* Return a state variable at the given offset *)
+let set_offset_of_state_var_instance i = function 
+
+  | { Hashcons.node = StateVarInstance (v, o) } -> 
+    mk_state_var_instance v i
+
+  | { Hashcons.node = ConstStateVar _ } as v -> v
+
+  | { Hashcons.node = FreeVar _ } -> 
+    raise (Invalid_argument "bump_offset_of_state_var_instance")
 
 
 (* Add to the offset of a state variable instance
@@ -390,11 +413,104 @@ let bump_offset_of_state_var_instance i = function
 
   | { Hashcons.node = ConstStateVar _ } as v-> v
 
-  | { Hashcons.node = TempVar _ } -> 
+  | { Hashcons.node = FreeVar _ } -> 
     raise (Invalid_argument "bump_offset_of_state_var_instance")
 
 
-(* 
+module StringMap = Map.Make(String)
+
+(* Maps strings to state var instances. *)
+let unrolled_var_map = ref StringMap.empty
+(* Adds a mapping between [string] and [var]. Returns [true] if
+   [string] was already bound in the map. *)
+let update_unrolled_var_map string var =
+  unrolled_var_map := StringMap.add string var !unrolled_var_map
+(* Looks for the value associated to [string]. *)
+let find_unrolled_var_map string =
+  StringMap.find string !unrolled_var_map
+
+let unrolled_uf_of_state_var_instance = function
+  | ({ Hashcons.node = ConstStateVar sv } as var) ->
+
+      (* Getting the uf symbol of the state var. *)
+      let uf = StateVar.uf_symbol_of_state_var sv in
+
+      (* Updating the map. *)
+      update_unrolled_var_map (UfSymbol.name_of_uf_symbol uf) var ;
+
+      uf
+
+  | ({ Hashcons.node = StateVarInstance (v, o) } as var) ->
+
+     (* Getting the uf symbol of the state var. *)
+     let uf = StateVar.uf_symbol_of_state_var v in
+
+     (* Building the string representing the unrolled state var. *)
+     let string =
+       String.concat
+         "@"
+         [ UfSymbol.name_of_uf_symbol uf ;
+           (* String representation of the offset. *)
+           Numeral.string_of_numeral o ]
+     in
+
+     (* Updating the map. *)
+     update_unrolled_var_map string var ;
+     
+     (* Declaring the uf. *)
+     UfSymbol.(
+       mk_uf_symbol
+         string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
+     )
+
+  | _ -> raise (Invalid_argument "unrolled_uf_of_state_var_instance")
+
+(* Declares constant variables as constant ufsymbols using the
+    provided function. *)
+let rec declare_constant_vars declare = function
+  | ({ Hashcons.node = ConstStateVar sv } as var) :: tail ->
+
+      (* Declaring the uf. *)
+      declare (unrolled_uf_of_state_var_instance var) ;
+
+      (* Looping. *)
+      declare_constant_vars declare tail
+
+  | _ :: tail -> declare_constant_vars declare tail
+
+  | [] -> ()
+
+(* Declares non constant variables as constant ufsymbols using the
+    provided function. *)
+let rec declare_vars declare = function
+
+  | ({ Hashcons.node = StateVarInstance (v, o) } as var)
+    :: tail ->
+     
+     (* Declaring the uf. *)
+     declare (unrolled_uf_of_state_var_instance var) ;
+
+     (* Looping. *)
+     declare_vars declare tail
+
+  | _ :: tail -> declare_vars declare tail
+
+  | [] -> ()
+
+(* Gets the state var instance associated with a unrolled
+   symbol. Throws [Not_found] if the sym is unknown. *)
+let state_var_instance_of_symbol sym =
+  Symbol.string_of_symbol sym |> find_unrolled_var_map
+
+(* Gets the state var instance associated with an unrolled
+   uninterpreted symbol. Throws [Not_found] if the sym is unknown. *)
+let state_var_instance_of_uf_symbol uf_sym =
+  UfSymbol.string_of_uf_symbol uf_sym |> find_unrolled_var_map
+
+
+
+
+(*
    Local Variables:
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"

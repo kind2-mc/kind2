@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -54,7 +54,7 @@ val hash_state_var : t -> int
 module StateVarHashtbl : Hashtbl.S with type key = t
 
 (** Set over state variables *)
-module StateVarSet : Set.S with type elt = t
+module StateVarSet : sig include Set.S with type elt = t end
 
 (** Map over state variables *)
 module StateVarMap : Map.S with type key = t
@@ -71,7 +71,7 @@ module StateVarMap : Map.S with type key = t
     harmless and will simply return the previously declared state
     variable. However, re-declaring a state variable with a different
     signature will raise an [Invalid_argument] exception. *)
-val mk_state_var : ?is_input:bool -> ?is_const:bool -> string -> string list -> Type.t -> t
+val mk_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> string -> string list -> Type.t -> t
 
 (** Import a state variable from a different instance into this
    hashcons table *)
@@ -91,6 +91,9 @@ val scope_of_state_var : t -> string list
 (** Return the type of the variable *)
 val type_of_state_var : t -> Type.t
 
+(** Change the type of a state variable *)
+val change_type_of_state_var : t -> Type.t -> unit
+
 (** Return the uninterpreted function symbol of the variable *)
 val uf_symbol_of_state_var : t -> UfSymbol.t
 
@@ -102,6 +105,12 @@ val is_input : t -> bool
 
 (** Return true if the state variable is constant *)
 val is_const : t -> bool
+
+(** Return true if state variable is to be used in invariant generation *)
+val for_inv_gen : t -> bool
+
+(** Set or unset flag to use state variable in invariant generation *)
+val set_for_inv_gen : bool -> t -> unit
 
 (** {1 Iterators over defined state variables} *)
 

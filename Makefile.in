@@ -5,6 +5,9 @@
 
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
+LOCAL_REGRESSIONDIR=$(CURDIR)/tests/regression
+LOCAL_ALLDOCDIR=$(CURDIR)/doc
+LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
 
 package=@PACKAGE_NAME@
 version=@PACKAGE_VERSION@
@@ -14,6 +17,7 @@ distdir=$(tarname)-$(version).`date +%Y.%m.%d`
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
+bin_suffix=@bin_suffix@
 
 install_files=@PACKAGE_NAME@
 
@@ -39,6 +43,11 @@ ocamlczmq:
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/@PACKAGE_NAME@.top $(LOCAL_BINDIR)/$@
 
+@PACKAGE_NAME@-terms-top: 
+	make -C src $@
+	mkdir -p $(LOCAL_BINDIR)
+	cp -f src/_build/@PACKAGE_NAME@-terms.top $(LOCAL_BINDIR)/$@
+
 lustre-checker: 
 	make -C src $@
 	mkdir -p $(LOCAL_BINDIR)
@@ -49,19 +58,36 @@ lustre-checker:
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/@PACKAGE_NAME@.docdir/* $(LOCAL_DOCDIR)
 
-.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean 
+.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test doc
 
 install: 
 	mkdir -p ${bindir}
-	for i in $(addprefix $(LOCAL_BINDIR)/,$(install_files)); do install -m 0755 $$i ${bindir}; done
+	for i in $(install_files); do \
+		install -m 0755 $(addprefix $(LOCAL_BINDIR)/,$$i) $(addsuffix ${bin_suffix},$(addprefix ${bindir}/,$$i)); \
+	 done
+	if [ -n ${bin_suffix} ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
+
+test: all
+	./tests/run.sh $(LOCAL_REGRESSIONDIR) $(LOCAL_BINDIR)/kind2 "${ARGS}"
+
+doc:
+	make -C $(LOCAL_USRDOCDIR)
+	cp $(LOCAL_USRDOCDIR)/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
+
+doc-sync:
+	make -C $(LOCAL_USRDOCDIR) update
+
+doc-clean:
+	make -C $(LOCAL_USRDOCDIR) clean
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
 
 clean-ocamlczmq:
 	make -C ocamlczmq clean
+	rm -f $(LOCAL_ALLDOCDIR)/*.pdf
 
-clean: clean-@PACKAGE_NAME@ clean-ocamlczmq
+clean: clean-@PACKAGE_NAME@ clean-ocamlczmq doc-clean
 
 
 # Remake this Makefile if configuration has changed 

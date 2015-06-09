@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -37,6 +37,7 @@ type smtsolver =
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
   | `Yices_SMTLIB
+  | `Yices_native
   | `detect ]
 
 (** Return SMT solver *)
@@ -45,13 +46,23 @@ val smtsolver : unit -> smtsolver
 (** Set SMT solver and executable *)
 val set_smtsolver : smtsolver -> string -> unit
 
-(** SMT Logic to use *)
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+(* (\** Return SMT solver to use with IC3 *\) *)
+(* val ic3_smtsolver : unit -> smtsolver  *)
+
+(* (\** Return SMT solver to use with Quantifier Elimination *\) *)
+(* val qe_smtsolver : unit -> smtsolver  *)
+
+(** detect logic to send SMT solver *)
+type smtlogic = [ `None | `detect | `Logic of string ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
 type z3_bin = string
 val z3_bin : unit -> z3_bin
+
+(** Use check-sat with assumptions in Z3 *)
+type z3_check_sat_assume = bool
+val z3_check_sat_assume : unit -> z3_check_sat_assume
 
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
@@ -64,6 +75,10 @@ val mathsat5_bin : unit -> mathsat5_bin
 (** Executable of Yices solver *)
 type yices_bin = string
 val yices_bin : unit -> yices_bin
+
+(** Executable of Yices2 SMT2 solver *)
+type yices2smt2_bin = string
+val yices2smt2_bin : unit -> yices2smt2_bin
 
 (** Write all SMT commands to files *)
 type smt_trace = bool
@@ -89,53 +104,71 @@ val check_version : unit -> check_version
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
 
-(** Output inductive counterexample *)
-type ind_print_inductive_cex = bool
-val ind_print_inductive_cex : unit -> ind_print_inductive_cex
+(** Compresss inductive counterexample when states are equal modulo
+    inputs *)
+type ind_compress_equal = bool
+val ind_compress_equal : unit -> ind_compress_equal
 
-(** Algorithm for quantifier elimination in PDR *)
-type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
-val pdr_qe : unit -> pdr_qe
+(** Compresss inductive counterexample when states have same successors *)
+type ind_compress_same_succ = bool
+val ind_compress_same_succ : unit -> ind_compress_same_succ
+
+(** Compresss inductive counterexample when states have same predecessors *)
+type ind_compress_same_pred = bool
+val ind_compress_same_pred : unit -> ind_compress_same_pred
+
+(** Lazy assertion of invariants. *)
+type ind_lazy_invariants = bool
+val ind_lazy_invariants : unit -> ind_lazy_invariants
+
+(* (** Output inductive counterexample *)
+type ind_print_inductive_cex = bool
+val ind_print_inductive_cex : unit -> ind_print_inductive_cex *)
+
+(** Algorithm for quantifier elimination in IC3 *)
+type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
+val ic3_qe : unit -> ic3_qe
+val set_ic3_qe : ic3_qe -> unit
 
 (** Heuristics for extraction of implicant *)
-type pdr_extract = [ `First | `Vars ]
-val pdr_extract : unit -> pdr_extract
+type ic3_extract = [ `First | `Vars ]
+val ic3_extract : unit -> ic3_extract
 
 (** Check inductiveness of blocking clauses *)
-type pdr_check_inductive = bool
-val pdr_check_inductive : unit -> pdr_check_inductive
-
-(** Simultaneous check for propagation *)
-type pdr_fwd_prop_check_multi = bool
-val pdr_fwd_prop_check_multi : unit -> pdr_fwd_prop_check_multi
-
-(** Output inductive blocking clauses *)
-type pdr_print_inductive_assertions = bool
-val pdr_print_inductive_assertions : unit -> pdr_print_inductive_assertions
-
-(** Output all blocking clauses *)
-type pdr_print_blocking_clauses = bool
-val pdr_print_blocking_clauses : unit -> pdr_print_blocking_clauses
+type ic3_check_inductive = bool
+val ic3_check_inductive : unit -> ic3_check_inductive
 
 (** File for inductive blocking clauses *)
-type pdr_print_to_file = string option 
-val pdr_print_to_file : unit -> pdr_print_to_file
+type ic3_print_to_file = string option 
+val ic3_print_to_file : unit -> ic3_print_to_file
 
 (** Tighten blocking clauses to an unsatisfiable core *)
-type pdr_tighten_to_unsat_core = bool
-val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
+type ic3_inductively_generalize = int
+val ic3_inductively_generalize : unit -> ic3_inductively_generalize
 
 (** Block counterexample in future frames *)
-type pdr_block_in_future = bool
-val pdr_block_in_future : unit -> pdr_block_in_future
+type ic3_block_in_future = bool
+val ic3_block_in_future : unit -> ic3_block_in_future
+  
+(** Block counterexample in future frames first before returning to frame *)
+type ic3_block_in_future_first = bool
+val ic3_block_in_future_first : unit -> ic3_block_in_future_first  
 
-(** Print inductive invariant if property proved *)
-type pdr_print_inductive_invariant = bool
-val pdr_print_inductive_invariant : unit -> pdr_print_inductive_invariant
+(** Also propagate clauses before generalization *)
+type ic3_fwd_prop_non_gen = bool
+val ic3_fwd_prop_non_gen : unit -> ic3_fwd_prop_non_gen
 
-(** Check inductive invariant if property proved *)
-type pdr_check_inductive_invariant = bool
-val pdr_check_inductive_invariant : unit -> pdr_check_inductive_invariant
+(** Inductively generalize all clauses after forward propagation *)
+type ic3_fwd_prop_ind_gen = bool
+val ic3_fwd_prop_ind_gen : unit -> ic3_fwd_prop_ind_gen
+
+(** Subsumption in forward propagation *)
+type ic3_fwd_prop_subsume = bool
+val ic3_fwd_prop_subsume : unit -> ic3_fwd_prop_subsume
+
+(** Abstraction mechanism to use in IC3 *)
+type ic3_abstr = [ `None | `IA ]
+val ic3_abstr : unit -> ic3_abstr
 
 (** Debug sections to enable *)
 val debug : unit -> string list
@@ -156,6 +189,24 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 (** Choose lower bounds containing variables **)
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
+
+(** InvGen will remove trivial invariants, i.e. invariants implied by
+    the transition relation.. **)
+type invgengraph_prune_trivial = bool
+val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
+type invgengraph_max_succ = int
+val invgengraph_max_succ : unit -> invgengraph_max_succ
+(** InvGen will lift candidate terms from subsystems.. **)
+type invgengraph_lift_candidates = bool
+val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will look for candidate terms in the transition
+    predicate. *)
+type invgengraph_mine_trans = bool
+val invgengraph_mine_trans : unit -> invgengraph_mine_trans
+
+(** Renice invariant generation process *)
+type invgengraph_renice = int
+val invgengraph_renice : unit -> invgengraph_renice
 
 (** Read input from file **)
 type interpreter_input_file = string

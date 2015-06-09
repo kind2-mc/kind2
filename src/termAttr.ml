@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -146,25 +146,71 @@ module AttrMap = Map.Make (OrderedAttr)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
+module type Printer =
+  sig
+    val pp_print_attr : Format.formatter -> t -> unit
+                                                   
+    val print_attr : t -> unit
+                            
+    val string_of_attr : t -> string 
 
-(* Pretty-print an attribute *)
-let pp_print_attr_node ppf = function 
+  end
 
-  (* Pretty-print a name attribute *)
-  | Named n ->
-    Format.fprintf ppf ":named@ t%d" n
+module SMTLIBPrinter : Printer =
+  struct
 
-(* Pretty-print an attribute to the standard formatter *)
-let print_attr_node = pp_print_attr_node Format.std_formatter 
+    (* Pretty-print an attribute *)
+    let pp_print_attr_node ppf = function 
 
-(* Pretty-print a hashconsed attribute *)
-let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
+      (* Pretty-print a name attribute *)
+      | Named n ->
+         Format.fprintf ppf ":named@ t%d" n
 
-(* Pretty-print a hashconsed attribute to the standard formatter *)
-let print_attr = pp_print_attr Format.std_formatter 
+    (* Pretty-print an attribute to the standard formatter *)
+    let print_attr_node = pp_print_attr_node Format.std_formatter 
 
-(* Return a string representation of a hashconsed attribute *)
-let string_of_attr { Hashcons.node = v } = string_of_t pp_print_attr_node v 
+    (* Pretty-print a hashconsed attribute *)
+    let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
+
+    (* Pretty-print a hashconsed attribute to the standard formatter *)
+    let print_attr = pp_print_attr Format.std_formatter 
+
+    (* Return a string representation of a hashconsed attribute *)
+    let string_of_attr { Hashcons.node = v } = string_of_t pp_print_attr_node v 
+  end
+
+module YicesPrinter : Printer =
+  struct
+
+    (* Pretty-print an attribute *)
+    let pp_print_attr_node ppf = function 
+
+      (* Ignore name attribute for yices *)
+      | Named _ -> ()
+                     
+    (* Pretty-print an attribute to the standard formatter *)
+    let print_attr_node = pp_print_attr_node Format.std_formatter 
+
+    (* Pretty-print a hashconsed attribute *)
+    let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
+
+    (* Pretty-print a hashconsed attribute to the standard formatter *)
+    let print_attr = pp_print_attr Format.std_formatter 
+
+    (* Return a string representation of a hashconsed attribute *)
+    let string_of_attr { Hashcons.node = v } = string_of_t pp_print_attr_node v 
+  end
+        
+
+(* Select apropriate printer based on solver *)
+let select_printer () =
+  match Flags.smtsolver () with
+  | `Yices_native -> (module YicesPrinter : Printer)
+  | _ -> (module SMTLIBPrinter : Printer)
+
+module SelectedPrinter : Printer = (val (select_printer ()))
+  
+include SelectedPrinter
 
 
 (* ********************************************************************* *)

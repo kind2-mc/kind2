@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,166 +16,139 @@
 
 *)
 
+(** High-level methods for an SMT solver 
 
-(** A generic SMT solver
-
-    Use the functor {!Make} to create an SMT solver module
-    instantiated to a concrete solver interface. Currently only a
-    solver that is passed SMTLIB2 commands on standard output is
-    available, see the module {!SMTLIBSolver}.
-
-    The solver does not have explicit constructors for expressions,
-    instead data structure for input and output is {!SMTExpr.t}.
-
-    @author Christoph Sticksel
-*)
-
-(** Input signature to the {!Make} functor *)
-module type Solver = 
-sig 
-
-  (** {1 Types} *)
-
-  (** Solver instance *)
-  type t
-
-  (** {1 Create and delete solver instances} *)
-
-  (** [create_instance l] creates a new instance of the SMT solver,
-      initialized to the logic [l] and produces assignments if the
-      optional labelled argument [produce_assignments] is [true],
-      models if [produce_models] is true, proofs if [produce_proofs]
-      is true and unsatisfiable cores if [produce_cores] is true. *)
-  val create_instance : 
-    ?produce_assignments:bool -> 
-    ?produce_models:bool -> 
-    ?produce_proofs:bool -> 
-    ?produce_cores:bool -> 
-    SMTExpr.logic -> 
-    t
-
-  (** [delete_instance s] deletes the solver instance [s] *)
-  val delete_instance : t -> unit
-
-  (** {1 Declarations} *)
-
-  (** Declare a new function symbol *)
-  val declare_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
-
-  (** Define a new function symbol as an abbreviation for an expression *)
-  val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
-
-  (** {1 Commands} *)
-    
-  (** Assert the expression *)
-  val assert_expr : t -> SMTExpr.t -> SMTExpr.response
-
-  (** Push a number of empty assertion sets to the stack *)
-  val push : t -> int -> SMTExpr.response 
-
-  (** Pop a number of assertion sets from the stack *)
-  val pop : t -> int -> SMTExpr.response 
-
-  (** Check satisfiability of the asserted expressions 
-
-      The optional parameter [timeout] limits the maximum runtime to the
-      given number of milliseconds *)
-  val check_sat : ?timeout:int -> t -> SMTExpr.check_sat_response
-
-  (** Get the assigned values of expressions in the current model *)
-  val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
-
-  (** Get an unsatisfiable core of named expressions *)
-  val get_unsat_core : t -> SMTExpr.response * string list
-
-  (** Execute a custom command and return its result 
-
-      [execute_custom_command s c a r] sends a custom command [s] with
-      the arguments [a] to the solver instance [s]. The command
-      expects [r] S-expressions as result in case of success and
-      returns a pair of the success response and a list of
-      S-expressions. *)
-  val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
-
-  val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
-
-end
-
-val smtsolver_module : unit -> (module Solver)
+    @author Alain Mebsout, Christoph Sticksel *)
 
 
-(** Output signature of the {!Make} functor *)
-module type S =
-sig
+(** Type of a solver instance *)
+type t
 
-  type solver_t 
+(** {1 Creating and finalizing a solver instance} *)
 
-  (** Solver instance *)
-  type t
+(** Create a new instance of an SMT solver of the given kind and with
+    the given flags *)
+val create_instance :
+  ?produce_assignments:bool ->
+  ?produce_proofs:bool ->
+  ?produce_cores:bool ->
+  ?produce_interpolants:bool ->
+  TermLib.logic ->
+  Flags.smtsolver ->
+  t
 
-  (** {1 Create and delete solver instances} *)
+(** Delete an instance of an SMT solver *)
+val delete_instance : t -> unit
 
-  (** [create_instance l] creates a new instance of the SMT solver,
-      initialized to the logic [l] and produces assignments if the
-      optional labelled argument [produce_assignments] is [true],
-      models if [produce_models] is true, proofs if [produce_proofs]
-      is true and unsatisfiable cores if [produce_cores] is true. *)
-  val create_instance : 
-    ?produce_assignments:bool -> 
-    ?produce_models:bool -> 
-    ?produce_proofs:bool -> 
-    ?produce_cores:bool -> 
-    SMTExpr.logic -> 
-    t
+(** Return the unique identifier of the solver instance *)
+val id_of_instance : t -> int
+  
+(** {1 Declarations} *)
 
-  (** [delete_instance s] deletes the solver instance [s] *)
-  val delete_instance : t -> unit
+(** Define uninterpreted symbol *)
+val declare_fun : t -> UfSymbol.t -> unit
 
-  (** {1 Declarations} *)
+(** Define uninterpreted symbol *)
+val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 
-  (** Declare a new function symbol *)
-  val declare_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
 
-  (** Define a new function symbol as an abbreviation for an expression *)
-  val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+(** {1 Primitives} *)
 
-  (** {1 Commands} *)
-    
-  (** Assert the expression *)
-  val assert_expr : t -> SMTExpr.t -> SMTExpr.response
+(** Assert an SMT expression in the current context *)
+val assert_expr : t -> SMTExpr.t -> unit
 
-  (** Push a number of empty assertion sets to the stack *)
-  val push : t -> int -> SMTExpr.response 
+(** Convert a term to an SMT expression and assert *)
+val assert_term : t -> Term.t -> unit
 
-  (** Pop a number of assertion sets from the stack *)
-  val pop : t -> int -> SMTExpr.response 
+(** Name a term, convert a term to an SMT expression and assert *)
+val assert_named_term : t -> SMTExpr.t -> unit
 
-  (** Check satisfiability of the asserted expressions *)
-  val check_sat : ?timeout:int -> t -> SMTExpr.check_sat_response
+(** Name a term, convert a term to an SMT expression and assert, and return the name *)
+val assert_named_term_wr : t -> SMTExpr.t -> string
 
-  (** Get the assigned values of expressions in the current model *)
-  val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+(** Push a new scope to the context stack *)
+val push : ?n:int -> t -> unit
 
-  (** Get an unsatisfiable core of named expressions *)
-  val get_unsat_core : t -> SMTExpr.response * string list
+(** Pop one scope from the context stack *)
+val pop : ?n:int -> t -> unit
 
-  (** Execute a custom command and return its result 
+(** Check satisfiability of the current context 
 
-      [execute_custom_command s c a r] sends a custom command [s] with
-      the arguments [a] to the solver instance [s]. The command
-      expects [r] S-expressions as result in case of success and
-      returns a pair of the success response and a list of
-      S-expressions. *)
-  val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+    The optional parameter [timeout] limits the maximum runtime to
+    the given number of milliseconds. *)
+val check_sat : ?timeout:int -> t -> bool
 
-  (** Execute a custom check-sat command and return its result *)
-  val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
+(** Return a model of the current context if satisfiable *)
+val get_model : t -> Model.t
 
-end
+(** Return a values of the terms in the current context if
+    satisfiable *)
+val get_var_values : t -> Var.t list -> Model.t
 
-(** Functor to create a generic SMT solver *)
-module Make (S : Solver) : S with type solver_t = S.t 
+(** Return a values of the terms in the current context if
+    satisfiable *)
+val get_term_values : t -> Term.t list -> (Term.t * Term.t) list
 
+(** Return an unsatisfiable core of named expressions if the current
+    context is unsatisfiable *)
+val get_unsat_core_of_names : t -> Term.t list
+
+(** Interpret unsatisfiable core as names and return corresponing terms *)
+val get_unsat_core_of_names : t -> Term.t list
+  
+(** Interpret unsatisfiable core as literals and return as terms *)
+val get_unsat_core_lits : t -> Term.t list
+
+
+(** {1 Higher-level functions} *)
+
+(** Checks satisfiability of the current context assuming the given
+    list of literals, and evaluate one of two continuation functions
+    depending on the result
+
+    [check_sat_assuming s t f l] assumes each of the literals in [l]
+    to be true, and checks satisfiablilty of the context of the SMT
+    solver instance [s]. If the solver returns satisfiable, the
+    continuation [t] is evaluated, and if the solver returns
+    unsatisfiable, the continuation [f] is evaluated.
+
+    The list [l] should contain only positive Boolean constants,
+    although this is not enforced. If the solver does not support the
+    [check-sat-assuming] command it is simulated by asserting the
+    literals on a new context. *)
+val check_sat_assuming : t ->
+
+  (* If sat. *)
+  (unit -> 'a) ->
+
+  (* If unsat. *)
+  (unit -> 'a) ->
+
+  (* Literals to assert. *)
+  Term.t list ->
+
+  'a
+
+(** Execute the a custom command with the given arguments, and expect
+    the given number of S-expressions as a result *)
+val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int ->
+  SolverResponse.custom_response
+
+(** Execute the a custom command in place of check-sat *)
+val execute_custom_check_sat_command :
+  string -> t -> SolverResponse.check_sat_response
+
+
+(** {1 Utility functions} *)
+
+val converter : t -> (module SMTExpr.Conv)
+
+val kind : t -> Flags.smtsolver
+
+(** Output a comment into the trace *)
+val trace_comment : t -> string -> unit
+
+val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.t list
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

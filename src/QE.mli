@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -35,7 +35,7 @@
     with [y] being the vector of post-state variables in f.
     
 *)
-val generalize : TransSys.t -> (UfSymbol.t * (Var.t list * Term.t)) list -> (Var.t * Term.t) list -> Var.t list -> Term.t -> Term.t list
+val generalize : TransSys.t -> (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Var.t list -> Term.t -> Term.t list
  
 (** Cleanup before exit *)
 val on_exit : unit -> unit

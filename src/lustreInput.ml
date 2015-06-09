@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -22,7 +22,7 @@ module A = LustreAst
 module I = LustreIdent
 
 (* Parse from input channel *)
-let of_channel in_ch = 
+let of_channel keep_all_coi in_ch = 
 
   (* Create lexing buffer *)
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
@@ -47,7 +47,7 @@ let of_channel in_ch =
         in
 
         LustreSimplify.fail_at_position
-          (A.position_of_lexing lexer_pos)
+          (position_of_lexing lexer_pos)
           "Syntax error"
 
   in
@@ -81,7 +81,10 @@ let of_channel in_ch =
 
   (* Consider only nodes called by main node *)
   let nodes_coi = 
-    LustreNode.reduce_to_props_coi nodes main_node
+    if keep_all_coi then 
+      LustreNode.reduce_wo_coi (List.rev nodes) main_node
+    else
+      LustreNode.reduce_to_props_coi (List.rev nodes) main_node
   in
 
   debug lustreInput
@@ -89,10 +92,9 @@ let of_channel in_ch =
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi
   in
 
-  (* Create transition system of Lustre nodes
-
-     TODO: Split definitions into init and trans part *)
-  let fun_defs_init, fun_defs_trans, state_vars, init, trans = 
+(*
+  (* Create transition system of Lustre nodes *)
+  let fun_defs_init, fun_defs_trans, state_vars, init, trans, props = 
     LustreTransSys.trans_sys_of_nodes main_node nodes_coi
   in
 
@@ -100,7 +102,6 @@ let of_channel in_ch =
   let props = 
     LustreTransSys.props_of_nodes main_node nodes_coi
   in
-  
 
   let trans_sys = 
   (* Create Kind transition system *)
@@ -112,23 +113,15 @@ let of_channel in_ch =
       props
       (TransSys.Lustre nodes_coi)
   in
+  *)
+
+  let trans_sys =
+    LustreTransSys.trans_sys_of_nodes nodes_coi
+  in
 
   (debug lustreInput 
       "%a"
       TransSys.pp_print_trans_sys trans_sys
-   in
-
-   debug lustreInput 
-      "@[<v>%a@]"
-      (pp_print_list
-         (fun ppf sv -> 
-            Format.fprintf ppf
-              "@[<h>%a: %a@]"
-              StateVar.pp_print_state_var sv
-              LustreExpr.pp_print_state_var_source 
-              (LustreExpr.get_state_var_source sv))
-         "@,")
-      state_vars
    in
 
    Event.log
@@ -152,13 +145,13 @@ let of_channel in_ch =
 
 
 (* Open and parse from file *)
-let of_file filename = 
+let of_file keep_all_coi filename = 
 
     (* Open the given file for reading *)
     let use_file = open_in filename in
     let in_ch = use_file in
 
-    of_channel in_ch
+    of_channel keep_all_coi in_ch
 
 
 

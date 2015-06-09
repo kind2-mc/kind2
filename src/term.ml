@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -103,10 +103,12 @@ module T = Ltree.Make (BaseTypes)
 (* Hashconsed term over symbols, variables and sorts *)
 type t = T.t
 
+(* Hashconsed lambda expression *)
+type lambda = T.lambda
 
 let stats = T.stats
 
-(* Return the type of a term *)
+(* Return the node of the hashconsed term *)
 let node_of_term = T.node_of_t
 
 
@@ -180,6 +182,173 @@ let is_forall t = match node_of_term t with
   | _ -> false 
 
 
+(* Return true if the term is a named term *)
+let is_named t =  match node_of_term t with
+  | T.Annot (_, a) when TermAttr.is_named a -> true
+  | _ -> false
+
+
+(* Return the term of a named term *)
+let term_of_named t =  match node_of_term t with
+  | T.Annot (t, a) when TermAttr.is_named a -> t
+  | _ -> invalid_arg "term_of_named"
+
+
+(* Return the name of a named term *)
+let name_of_named t =  match node_of_term t with
+  | T.Annot (t, a) when TermAttr.is_named a -> TermAttr.named_of_attr a
+  | _ -> invalid_arg "term_of_named"
+
+
+(* Return true if the term is an integer constant *)
+let rec is_numeral t = match destruct t with 
+
+  (* Term is a numeral constant *)
+  | T.Const s when Symbol.is_numeral s -> true
+
+  (* Term is a decimal constant coinciding with an integer *)
+  | T.Const s when 
+      Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
+
+    true
+
+  (* Term is a negated numeral constant *)
+  | T.App (s, [a]) when s == Symbol.s_minus && is_numeral a -> true
+
+  | _ -> false
+
+
+(* Return integer constant of a term *)
+let rec numeral_of_term t = match destruct t with 
+
+  (* Term is a numeral constant *)
+  | T.Const s when Symbol.is_numeral s -> Symbol.numeral_of_symbol s
+
+  (* Term is a decimal constant coinciding with an integer *)
+  | T.Const s when 
+      Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
+
+    Numeral.of_big_int (Decimal.to_big_int (Symbol.decimal_of_symbol s))
+
+  (* Term is a negated numeral constant *)
+  | T.App (s, [a]) when s == Symbol.s_minus && is_numeral a -> 
+
+    Numeral.(~- (numeral_of_term a))
+
+  | _ -> invalid_arg "numeral_of_term"
+
+
+(* Return decimal constant of a term *)
+let rec decimal_of_term t = 
+
+  match node_of_term t with 
+
+  (* Term is a decimal constant *)
+  | T.Leaf s when Symbol.is_decimal s -> Symbol.decimal_of_symbol s
+
+  (* Term is a negated decimal constant *)
+  | T.Node (s, [a]) when s == Symbol.s_minus && is_decimal a -> 
+    Decimal.(~- (decimal_of_term a))
+
+  (* Term is an integer division *)
+  | T.Node (s, [n; d]) when 
+      s == Symbol.s_div && is_numeral n && is_numeral d ->
+
+    let n' = 
+      Decimal.of_big_int 
+        (Numeral.to_big_int 
+           (numeral_of_term n))
+    in
+
+    let d' = 
+      Decimal.of_big_int 
+        (Numeral.to_big_int 
+           (numeral_of_term d))
+    in
+
+    Decimal.(n' / d')
+
+  | _ -> invalid_arg "decimal_of_term"
+
+
+(* Return true if the term is a decimal constant *)
+and is_decimal t = match node_of_term t with 
+
+  (* Term is a decimal constant *)
+  | T.Leaf s when Symbol.is_decimal s -> true
+
+  (* Term is a negated decimal constant *)
+  | T.Node (s, [a]) when s == Symbol.s_minus && is_decimal a -> true
+
+  (* Term is an integer division *)
+  | T.Node (s, [n; d]) when 
+      s == Symbol.s_div && 
+      (is_numeral n || is_decimal n && Decimal.is_int (decimal_of_term n)) && 
+      (is_numeral d || is_decimal d && Decimal.is_int (decimal_of_term d)) ->
+    
+    true
+
+  | _ -> false
+
+
+(* Return true if the term is a Boolean constant *)
+let rec is_bool t = match node_of_term t with 
+
+  (* Term is a Boolean constant *)
+  | T.Leaf s when Symbol.is_bool s -> true
+
+  (* Term is a negated Boolean constant *)
+  | T.Node (s, [a]) when s == Symbol.s_not && is_bool a -> true
+
+  | _ -> false
+
+
+(* Return Boolean constant of a term *)
+let rec bool_of_term t = match node_of_term t with 
+
+  (* Term is a Boolean constant *)
+  | T.Leaf s when Symbol.is_bool s -> Symbol.bool_of_symbol s
+
+  (* Term is a negated numeral constant *)
+  | T.Node (s, [a]) when s == Symbol.s_not && is_bool a -> 
+    not (bool_of_term a)
+
+  | _ -> invalid_arg "bool_of_term"
+
+
+(* Return true if the term is an application of the select operator *)
+let is_select t = match node_of_term t with
+
+  (* Top symbol is a select operator *)
+  | T.Node (s, [a; i]) -> s == Symbol.s_select
+                                 
+  | _ -> false
+
+
+(* Return the indexes of the select operator 
+
+   The array argument of a select is either another select operation
+   or a variable. For the expression [(select (select A j) k)] return
+   the pair [A] and [[j; k]]. *)
+let rec indexes_and_var_of_select' accum t = match node_of_term t with 
+
+  | T.FreeVar v -> (v, List.rev accum)
+
+  | T.Node (s, [a; i]) when s == Symbol.s_select -> 
+
+    indexes_and_var_of_select' (i :: accum) a
+
+  | T.Annot (t, _) ->  indexes_and_var_of_select' accum t
+
+  |  _ -> invalid_arg "indexes_of_select"
+
+
+
+(* Return the indexes of the select operator *)
+let indexes_and_var_of_select t = indexes_and_var_of_select' [] t
+
+ 
+
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -196,6 +365,10 @@ let equal = T.equal
 
 (* Hashing function on terms *)
 let hash = T.hash 
+
+
+(* Unique identifier for term *)
+let tag = T.tag
 
 
 (* Hashtable *)
@@ -225,16 +398,15 @@ let print_term t = pp_print_term Format.std_formatter t
 
 (* Return a string representation of a term *)
 let string_of_term t = string_of_t pp_print_term t
-(*
-(* Pretty-print a term in infix notation *)
-let pp_print_term_infix = T.pp_print_term_infix ppf t
-*)
+
+(* Pretty-print a term *)
+let pp_print_lambda ppf t = T.pp_print_lambda ppf t
+
 (* Pretty-print a hashconsed term to the standard formatter *)
-let print_term t = pp_print_term Format.std_formatter t
+let print_lambda t = pp_print_lambda Format.std_formatter t
 
 (* Return a string representation of a term *)
-let string_of_term t = string_of_t pp_print_term t
-
+let string_of_lambda t = string_of_t pp_print_lambda t
 
 (* ********************************************************************* *)
 (* Folding and utility functions on terms                                *)
@@ -248,6 +420,10 @@ let eval = T.eval
 (* Evaluate a term bottom-up right-to-left, given the flattened term
    as argument *)
 let eval_t = T.eval_t 
+
+(* Evaluate a term bottom-up right-to-left, given the flattened term
+   as argument *)
+let eval_lambda = T.eval_lambda
 
 (* Bottom-up right-to-left map of the term 
 
@@ -287,10 +463,10 @@ let rec type_of_term t = match T.destruct t with
 
         (* Real constant *)
         | `DECIMAL _ -> Type.mk_real ()
-
+(*
         (* Bitvector constant *)
         | `BV b -> Type.mk_bv (length_of_bitvector b)
-          
+*)        
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
 
@@ -320,9 +496,10 @@ let rec type_of_term t = match T.destruct t with
         | `LT
         | `GEQ
         | `GT
-        | `DIVISIBLE _
+        | `DIVISIBLE _ -> Type.mk_bool ()
+(*
         | `BVULT -> Type.mk_bool ()
-
+*)
         (* Integer-valued functions *)
         | `TO_INT
         | `MOD
@@ -332,7 +509,7 @@ let rec type_of_term t = match T.destruct t with
         (* Real-valued functions *)
         | `TO_REAL
         | `DIV -> Type.mk_real ()
-          
+(*          
         (* Bitvector-valued function *)
         | `CONCAT -> 
 
@@ -361,7 +538,7 @@ let rec type_of_term t = match T.destruct t with
           (* Compute width of resulting bitvector *)
           Type.mk_bv
             ((Numeral.to_int j) - (Numeral.to_int i) + 1)
-
+*)
             
         (* Array-valued function *)
         | `SELECT -> 
@@ -370,9 +547,9 @@ let rec type_of_term t = match T.destruct t with
 
             (* Select is binary *)
             | [a; _] -> 
-    
+
               (match Type.node_of_type (type_of_term a) with
-                | Type.Array (_, t) -> t
+                | Type.Array (t, _) -> t
                 | _ -> assert false)
 
             | _ -> assert false)
@@ -380,7 +557,15 @@ let rec type_of_term t = match T.destruct t with
         (* Return type of first argument *)
         | `MINUS
         | `PLUS
-        | `TIMES
+        | `TIMES -> 
+
+          (match l with 
+              
+            (* Function must be at least binary *)
+            | a :: _ -> type_of_term a
+            | _ -> assert false)
+
+(*
         | `BVNOT
         | `BVNEG
         | `BVAND
@@ -391,6 +576,8 @@ let rec type_of_term t = match T.destruct t with
         | `BVUREM
         | `BVSHL
         | `BVLSHR
+*)
+(*
         | `STORE -> 
 
           (match l with 
@@ -398,6 +585,8 @@ let rec type_of_term t = match T.destruct t with
             (* Function must be at least binary *)
             | a :: _ -> type_of_term a
             | _ -> assert false)
+*)
+
 
         (* Return type of second argument *)
         | `ITE -> 
@@ -410,14 +599,15 @@ let rec type_of_term t = match T.destruct t with
             
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
-            
+  
         (* Ill-formed terms *)
         | `TRUE
         | `FALSE
         | `NUMERAL _
-        | `DECIMAL _
+        | `DECIMAL _ -> assert false
+(*
         | `BV _ -> assert false
-
+*)
     )
 
   (* Return type of term *)
@@ -542,7 +732,7 @@ let type_check_app s a =
 let mk_const = T.mk_const
 
 
-(* Return a hashconsed variable *)
+(* Return a hashconsed variable with an empty index *)
 let mk_var = T.mk_var
 
 
@@ -554,6 +744,10 @@ let mk_app = T.mk_app
 
 (* Return a hashconsed tree *)
 let mk_term = T.mk_term
+
+
+(* Return a hashconsed tree *)
+let mk_lambda = T.mk_lambda
 
 
 (* Return a hashconsed let binding *)
@@ -570,6 +764,9 @@ let mk_forall = T.mk_forall
 
 (* Import a term from a different instance into this hashcons table *)
 let import = T.import 
+
+(* Import a term from a different instance into this hashcons table *)
+let import_lambda = T.import_lambda 
 
 (* Flatten top node of term *)
 let construct = T.construct
@@ -735,23 +932,36 @@ let mk_minus a = mk_app_of_symbol_node `MINUS a
 
 
 (* Hashcons an integer numeral *)
-let mk_num n = mk_const_of_symbol_node (`NUMERAL n)
+let mk_num n = (* mk_const_of_symbol_node (`NUMERAL n) *)
+                
+  (* Positive numeral or zero *)                
+  if Numeral.(n >= zero) then           
+                
+    mk_const_of_symbol_node (`NUMERAL n)                
+                
+  else          
+                
+    (* Wrap a negative numeral in a unary minus *)              
+    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.(~- n))))]
 
 
 (* Hashcons an integer numeral given an integer *)
-let mk_num_of_int = function
+let mk_num_of_int i = mk_num (Numeral.of_int i)
 
-  (* Positive numeral or zero *)
-  | i when i >= 0 -> 
-    mk_const_of_symbol_node (`NUMERAL (Numeral.of_int i))
-
-  (* Wrap a negative numeral in a unary minus *)
-  | i -> 
-    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.of_int (- i))))]
-      
 
 (* Hashcons a real decimal *)
-let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)
+(* let mk_dec d = mk_const_of_symbol_node (`DECIMAL d) *)
+let mk_dec d =
+
+  (* Positive rational or zero *)               
+  if Decimal.(d >= zero) then           
+                
+    mk_const_of_symbol_node (`DECIMAL d)                
+                
+  else          
+                
+    (* Wrap a negative rational in a unary minus *)             
+    mk_minus [(mk_const_of_symbol_node (`DECIMAL (Decimal.(~- d))))]
 
 (*
 
@@ -767,9 +977,10 @@ let mk_dec_of_float = function
     mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
 *)
 
+(*
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
-
+*)
 
 (* Hashcons an addition *)
 let mk_plus = function
@@ -850,6 +1061,8 @@ let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]
 (* Hashcons a divisibility predicate for the given divisor *)
 let mk_divisible n t = mk_app_of_symbol_node (`DIVISIBLE n) [t]
 
+(* Hashcons an array read *)
+let mk_select a i = mk_app_of_symbol_node `SELECT [a; i]
 
 (* Generate a new tag *)
 let newid =
@@ -901,6 +1114,38 @@ let negate t = match T.destruct t with
      Must hashcons bottom-up since term was destructed and not all
      terms are necessarily in the hashcons table. *)
   | T.App (s, [t]) when s == Symbol.s_not -> t
+
+  (* Top symbol is not a negation, then negate given term *)
+  | _ -> mk_not t
+
+
+
+(* Negates a term by modifying the top node if it is a not, true,
+   false, or an arithmetic inequality. *)
+let negate_simplify t = match T.destruct t with
+
+  | T.Const symb ->
+     ( match Symbol.node_of_symbol symb with
+
+       (* Bool constants. *)
+       | `TRUE -> t_false
+       | `FALSE -> t_true
+                     
+       | _ -> mk_not t )
+
+  | T.App (symb, kids) ->
+     ( match Symbol.node_of_symbol symb, kids with
+
+       (* Top symbol is a negation, removing it. *)
+       | `NOT, [term] -> term
+
+       (* Aritmetic inequalities. *)
+       | `LEQ, kids -> mk_gt kids
+       | `LT, kids -> mk_geq kids
+       | `GT, kids -> mk_leq kids
+       | `GEQ, kids -> mk_lt kids
+
+       | _ -> mk_not t )
 
   (* Top symbol is not a negation, then negate given term *)
   | _ -> mk_not t
@@ -962,7 +1207,7 @@ let mod_to_divisible term =
   | _ -> term
 
 
-(* Convert (= 0 (mod t n)) to (divisble n t) *)
+(* Convert (divisble n t) to (= 0 (mod t n)) *)
 let divisible_to_mod term = 
 
   match T.node_of_t term with
@@ -1013,8 +1258,8 @@ let bump_state i term =
     (function _ -> function 
        | t when is_free_var t -> 
          mk_var 
-           (Var.bump_offset_of_state_var_instance i
-              (free_var_of_term t))
+           (let v = free_var_of_term t in
+            Var.bump_offset_of_state_var_instance i v)
        | _ as t -> t)
     term
 
@@ -1022,18 +1267,17 @@ let bump_state i term =
 (* Apply function to term for instants 0..k *)
 let rec bump_and_apply_k f k term =
 
-  (* Terminate when when at the base instant *)
-  if Numeral.(k < zero) then () else 
-
-    (
-
-      (* Apply to term at instant k *)
-      f (bump_state k term);
-      
-      (* Recurse for instants 0..k-1 *)
-      bump_and_apply_k f (Numeral.pred k) term
-
+  let rec loop lbound ubound =
+    if Numeral.(lbound > ubound) then ()
+    else (
+      bump_state lbound term |> f ;
+      loop Numeral.(succ lbound) ubound
     )
+  in
+
+  if Numeral.(k >= zero)
+  then loop Numeral.zero k
+  else loop k Numeral.zero
 
 
 (* Return all state variables in term *)
@@ -1173,10 +1417,6 @@ module Abbrev =
 struct
 
   let ( ?%@ ) i = mk_num_of_int i
-
-(*
-  let ( ?/@ ) f = mk_dec_of_float f
-*)
 
   let ( !@ ) t = mk_not t
 

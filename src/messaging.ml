@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -122,6 +122,8 @@ sig
   val send_term_message : unit -> unit
     
   val recv : unit -> (Lib.kind_module * message) list
+    
+  val check_termination : unit -> bool
 
   val exit : thread -> unit 
 
@@ -407,6 +409,19 @@ struct
     let res = queue.q in
     
     queue.q <- [];
+    
+    Mutex.unlock queue.lock;
+    
+    res
+    
+  
+  (* Checks if a message in 'queue' is such that f. Does not modify
+     'queue'. *)
+  let queue_exists f queue = 
+    
+    Mutex.lock queue.lock;
+
+    let res = List.exists f queue.q in
     
     Mutex.unlock queue.lock;
     
@@ -1266,6 +1281,19 @@ struct
 
     if !initialized_process = None then raise NotInitialized else
       (empty_list incoming_handled)
+
+
+  let check_termination () =
+
+    if !initialized_process = None
+    then false
+    else
+      queue_exists
+        ( fun msg ->
+          match snd msg with
+          | ControlMessage Terminate -> true
+          | _ -> false )
+        incoming_handled
 
 
   let exit t = 

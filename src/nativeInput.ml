@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -640,6 +640,20 @@ let of_channel in_ch =
           (List.map Term.mk_var trans_vars)
       in
 
+      let init = 
+        (top_init_uf_symbol, 
+         (List.combine 
+            top_init_vars 
+            (List.map Term.mk_var init_vars)))
+      in
+
+      let trans =
+        (top_trans_uf_symbol, 
+         (List.combine 
+            top_trans_vars
+            (List.map Term.mk_var trans_vars)))
+      in
+
       (* Collect all properties to prove *)
       let props = 
         List.fold_left 
@@ -659,7 +673,7 @@ let of_channel in_ch =
       in
 
       (* Return definititons in original order and properties *)
-      List.rev defs, state_vars, init_term, trans_term, props
+      List.rev defs, state_vars, init, trans, props
 
     | [HStringSExpr.List (HStringSExpr.Atom s :: _)] when s == s_check_prop -> 
 
@@ -674,14 +688,14 @@ let of_channel in_ch =
   in
 
   (* Definitions and properties in input *)
-  let defs, state_vars, init_term, trans_term, props = aux [] sexps in
+  let defs, state_vars, init, trans, props = aux [] sexps in
 
   let res = 
     TransSys.mk_trans_sys 
       defs
       state_vars
-      init_term
-      trans_term
+      init
+      trans
       props
       TransSys.Native
   in

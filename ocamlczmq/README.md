@@ -11,7 +11,7 @@ The commands
     ./autogen.sh
     ./build.sh
 
-will build ZeroMQ, CZMQ and the OCaml binding. If you need to pass options to the configure script of any of ZeroMQ, CZMQ or ocamlczmq, add those to the `build.sh` call.
+will configure and build ZeroMQ, CZMQ and the OCaml binding. If you need to pass options to the configure script of any of ZeroMQ, CZMQ or ocamlczmq, add those to the `build.sh` call.
 
 CZMQ and ZeroMQ are included
 ================
@@ -20,7 +20,7 @@ ZeroMQ and the CZMQ high-level C binding for ØMQ are included as subtrees from 
 
 To pull a new release from the repositories do (adjust the tag to the new release)
 
-    git subtree pull --prefix=zeromq --squash https://github.com/zeromq/zeromq3-x tags/v3.2.4
+    git subtree pull --prefix=zeromq --squash https://github.com/zeromq/zeromq3-x tags/v3.2.5
     git subtree pull --prefix=czmq --squash https://github.com/zeromq/czmq tags/v2.2.0
 
 For the record, initially I did 

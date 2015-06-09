@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -39,8 +39,8 @@ let one = Num.num_of_int 1
 (* ********************************************************************** *)
 
 
-(* Pretty-print a numeral *)
-let pp_print_decimal ppf = function
+(* Pretty-print a numeral as an S-expression *)
+let pp_print_positive_decimal_sexpr ppf = function
 
   | Num.Int i -> Format.fprintf ppf "%d.0" i
 
@@ -61,6 +61,42 @@ let pp_print_decimal ppf = function
       (Big_int.string_of_big_int rn)
       (Big_int.string_of_big_int rd)
 
+
+let pp_print_decimal_sexpr ppf d =
+  (* assert (Num.ge_num d zero); *)
+  pp_print_positive_decimal_sexpr ppf d
+
+
+(* Pretty-print a numeral as an S-expression *)
+let pp_print_positive_decimal ppf = function
+
+  | Num.Int i -> Format.fprintf ppf "%d" i
+
+  | Num.Big_int n -> Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
+
+  | Num.Ratio r -> 
+
+    (* Normalize rational number *)
+    let r' = Ratio.normalize_ratio r in
+
+    (* Get numerator and denominator *)
+    let rn = Ratio.numerator_ratio r' in
+    let rd = Ratio.denominator_ratio r' in
+    
+    (* Print with division as prefix operator *)
+    Format.fprintf ppf 
+      "%s/%s" 
+      (Big_int.string_of_big_int rn)
+      (Big_int.string_of_big_int rd)
+
+
+let pp_print_decimal ppf d =
+  (* assert (Num.ge_num d zero); *)
+  pp_print_positive_decimal ppf d
+
+
+(* Return a string representation of a decimal *)
+let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr 
 
 (* Return a string representation of a decimal *)
 let string_of_decimal = string_of_t pp_print_decimal 
@@ -126,7 +162,7 @@ let of_string s =
       match String.get s (start_pos + pos) with
 
         (* Continue parsing exponent part *)
-        | 'E' -> scan_exp (start_pos + (succ pos)) 0
+        | 'E' when pos > 0 -> scan_exp (start_pos + (succ pos)) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
@@ -157,7 +193,7 @@ let of_string s =
         | '.' -> scan_frac (succ pos) 0
 
         (* Continue parsing exponent part *)
-        | 'E' -> scan_exp (succ pos) 0
+        | 'E'  when pos > 0 -> scan_exp (succ pos) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
@@ -251,6 +287,9 @@ let s_unimus = HString.mk_hstring "-"
 (* Convert an arbitrary large integer to a rational number *)
 let of_big_int n = Num.num_of_big_int n
 
+(* Convert an ocaml Num to a rational *)
+let of_num n = n
+
 
 (* Convert a rational number to an integer *)
 let to_int d = 
@@ -267,6 +306,12 @@ let to_int d =
 (* Convert a rational number to an arbitrary large integer *)
 let to_big_int d = Num.big_int_of_num (Num.floor_num d)
 
+
+(* Return true if decimal coincides with an integer *)
+let is_int = function 
+  | Num.Int _ 
+  | Num.Big_int _ -> true
+  | Num.Ratio _ -> false
 
 (* ********************************************************************** *)
 (* Arithmetic operators                                                   *)
