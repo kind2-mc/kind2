@@ -1030,7 +1030,22 @@ let stateful_vars_of_node
   let stateful_vars = 
     List.fold_left 
       (fun accum expr -> 
-         SVS.union accum (stateful_vars_of_expr expr))
+
+         (* Add stateful variables of assertion *)
+         SVS.union accum (stateful_vars_of_expr expr) |> 
+         
+         (* Variables in assertion that do not have a definition must
+            be stateful *)
+         SVS.union
+           (E.state_vars_of_expr expr
+            |> 
+            SVS.filter
+              (fun sv -> 
+                 not
+                   (List.exists
+                      (fun (sv', _, _) -> 
+                         StateVar.equal_state_vars sv sv') 
+                      equations))))
       stateful_vars
       asserts
   in
