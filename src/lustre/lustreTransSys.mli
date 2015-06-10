@@ -19,6 +19,50 @@
 (** Convert a Lustre node to a transition system
 
 
+    {1 Verification of Contracts}
+
+    From a node's contract annotations, it has requirements that can
+    be assumed invariant, and guarantees that have to be shown
+    invariant. Each caller of a node must show it keeps the
+    requirementes of the callee at call site invariant.
+
+    Besides these proof obligations from contracts, a node may be
+    annotated with properties that are to be shown invariant under the
+    assumption of the requirements from its contracts.
+
+    Every proof obligation of a called node is instantiated at call
+    site as a proof obligation of the calling node. An instantiated
+    proof obligation is less general than the one it is generated
+    from, because it is embedded in the context of the caller.
+
+    Only proof obligations of the top node are considered, the proof
+    obligations of sub-nodes are disregarded in the analysis. All
+    proof obligations are considered together, but some verification
+    engines may be able to prove invariance of a subset of the proof
+    obligations before other proof obligations. 
+
+    To generate proof obligations for a transition system, we exploit
+    instantiation of proof obligations, multi-property verification
+    and information from previous analysis runs in the following way.
+
+    For every node with a contract but the top node, add a proof
+    obligation for its requirements. This proof obligation will be not
+    be seen by the analysis, but is instantiated by each caller. The
+    requirements of the top node are assumed to be invariant.
+
+    For every node, unless it is abstracted to its contract, add its
+    guarantee as a proof obligation. If the guarantee has been
+    shown in a previous anaysis run, it becomes an invariant
+    instead. If the guarantee remains a proof obligation, it is
+    instantied in each calling node, and is proved together with all
+    other other proof obligations, thus strengthening the
+    analysis. For every node that is abstracted to its contract, add
+    the guarantee as an invariant, since it can only be proved by
+    providing the implementation.
+
+    This approach works for any combination of modular and
+    compositional analysis. 
+
 
 
     {1 Lustre Expressions}
@@ -125,9 +169,9 @@
     state, the flag is false forever.
     For example:
     {[
-state      0     1     2    3     4     5     ...
-clock      false false true false true  false ...
-init_flag true  true  true false false false ... ]}
+      state      0     1     2    3     4     5     ...
+                                                clock      false false true false true  false ...
+                                                                                          init_flag true  true  true false false false ... ]}
     Thus [clock and init_flag] is true when and only when clock ticks
     for the first time. The [init_flag] flag will be passed down to
     the called node as its init flag. It is mandatory for invariant
@@ -139,17 +183,17 @@ init_flag true  true  true false false false ... ]}
     The initial state constraint of the called node is a conjunction of
     formulas representing the following:
     - the [init_flag] flag is true (see paragraph above):
-      {[init_flag = true]}
+    {[init_flag = true]}
     - the shadow input variables take the values of the actual input
       variables if the activation condition is true:
-      {[clock => shadow_input = actual_input]}
+    {[clock => shadow_input = actual_input]}
     - the initial state predicate of the called node with the
       parameters as above, except for the input variables that are
       replaced by the shadow input variables:
-      {[clock => init(init_flag,args)]}
+    {[clock => init(init_flag,args)]}
     - if the activation condition is false then the outputs are
       constrained to their default values:
-      {[not clock => out = default]}
+    {[not clock => out = default]}
 
     The transition relation of the called node is a conjunction of
     formulas representing the following facts:
@@ -157,29 +201,29 @@ init_flag true  true  true false false false ... ]}
     - the [init_flag] flag is true in the current state iff it was
       true in the previous instant and the activation condition was
       false in the previous instant:
-      {[init_flag' = init_flag and not clock ]}
+    {[init_flag' = init_flag and not clock ]}
 
     - the shadow input variables in the next state take the values of
       the actual input variables if the activation condition is true:
-      {[clock' => shadow_input' = actual_input']}
+    {[clock' => shadow_input' = actual_input']}
       and their previous values if the activation condition is false.
       More generally, all the arguments of the subnode init/trans stay
       the same:
-      {[not clock' => (args' = args)]}
+    {[not clock' => (args' = args)]}
 
     - the initial state predicate of the called node with the
       parameters as above, except for the input variables that are
       replaced by the shadow input variables, if the activation
       condition is true in the next step and the [init_flag] flag is
       true in the next step:
-      {[(clock' and init_flag') => init(init_flag',args')]}
+    {[(clock' and init_flag') => init(init_flag',args')]}
 
     - the transition relation predicate of the called node with the
       parameters as above, except for the input variables that are
       replaced by the shadow input variables, if the activation
       condition is true and the [init_flag] flag is false in the next
       step.
-      {[(clock' and not init_flag') => trans(init_flag',args',init_flag,args)]}
+    {[(clock' and not init_flag') => trans(init_flag',args',init_flag,args)]}
 
     @author Christoph Sticksel
     @author Adrien Champion *)

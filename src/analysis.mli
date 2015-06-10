@@ -51,10 +51,10 @@ type param =
     (** Systems flagged [true] are to be represented abstractly, those
         flagged [false] are to be represented by their
         implementation. *)
-    abstraction_map : (Scope.t * bool) list;
+    abstraction_map : bool Scope.Map.t;
 
     (** Named properties that can be assumed invariant in subsystems *)
-    assumptions : (Scope.t * string) list;
+    assumptions : (Scope.t * Term.t) list;
 
   }
 
@@ -82,6 +82,16 @@ type result =
 
 (** An analysis consists of a set of transition systems and a set of properties *)
 type t = TransSys.t list * Property.t list
+
+
+(** Return [true] if the scope is flagged as abstract in
+    [abstraction_map]. Default to [false] if the scope is not in the
+    map. *)
+val scope_is_abstract : param -> Scope.t -> bool
+
+
+(** Return assumptions of scope *)
+val assumptions_of_scope : param -> Scope.t -> Term.t list  
 
 
 (** Run one analysis *)

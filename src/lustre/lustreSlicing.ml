@@ -985,33 +985,34 @@ let custom_roots roots node =
   (node_roots, node_leaves, node_sliced, node)
 
 
+(* Return [true] if the node is flagged as abstract in
+   [abstraction_map]. Default to [false] if the node is not in the
+   map. *)
+let node_is_abstract analysis_param { N.name } = 
+
+  [I.string_of_ident false name]
+  |> Analysis.scope_is_abstract analysis_param
+
+
 (* Return roots for slicing to contracts or implementation as
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map abstraction_map ({ N.name } as node) = 
 
-  match 
+  if node_is_abstract abstraction_map node then 
 
-    (* Find node in abstraction map by name *)
-    List.find
-      (fun (n, _) -> n = [I.string_of_ident false name])
-      abstraction_map 
-
-  with
-    
     (* Node is to be abstract *)
-    | (_, true) -> root_and_leaves_of_contracts node 
+    root_and_leaves_of_contracts node 
+
+  else
 
     (* Node is to be concrete *)
-    | (_, false) -> root_and_leaves_of_impl node
-
-    (* Assume node to be concrete if not in map *)
-    | exception Not_found -> root_and_leaves_of_impl node
+    root_and_leaves_of_impl node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction abstraction_map subsystem = 
+let slice_to_abstraction analysis_param subsystem = 
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)
@@ -1019,10 +1020,10 @@ let slice_to_abstraction abstraction_map subsystem =
   
   (* Slice all nodes to either abstraction or implementation *)
   slice_nodes
-    (root_and_leaves_of_abstraction_map abstraction_map)
+    (root_and_leaves_of_abstraction_map analysis_param)
     nodes
     []
-    [root_and_leaves_of_abstraction_map abstraction_map (List.hd nodes)]
+    [root_and_leaves_of_abstraction_map analysis_param (List.hd nodes)]
 
   (* Create subsystem from list of nodes *)
   |> N.subsystem_of_nodes 

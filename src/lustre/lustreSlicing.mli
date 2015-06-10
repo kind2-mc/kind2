@@ -66,6 +66,12 @@ LustreIndex.index list LustreIndex.t
 
 (** {1 Cone of influence reduction} *)
 
+
+(** Return [true] if the node is flagged as abstract in
+    [abstraction_map]. Default to [false] if the node is not in the
+    map. *)
+val node_is_abstract : Analysis.param -> LustreNode.t -> bool
+
 (** Return a node hierarchy reduced to the cone of influence of
     properties and contracts, given a list of which nodes should be
     abstracted. 
@@ -96,7 +102,7 @@ LustreIndex.index list LustreIndex.t
     influence together with a state variable not in the cone of
     influence. In this case, both state variables are in the cone of
     influence. We may add a better analysis later. *)
-val slice_to_abstraction : (Scope.t * bool) list -> LustreNode.t SubSystem.t -> LustreNode.t SubSystem.t
+val slice_to_abstraction : Analysis.param -> LustreNode.t SubSystem.t -> LustreNode.t SubSystem.t
 
 (* 
    Local Variables:
