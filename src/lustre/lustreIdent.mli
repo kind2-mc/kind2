@@ -17,24 +17,13 @@
 *)
 
 
-(** Lustre identifiers 
+(** Lustre identifier
 
-    An identifier can be indexed either by a string, which models
-    access of a record field, or by an integer, which models access of
-    tuple or array elements.
+    An identifier is a string with a (possibly empty) list of integer
+    indexes. 
 
-    In Lustre all indexes must be static at compile time, we can
-    flatten all record, tuple and array expressions to expressions
-    over such indexed identifiers.
-
-    An index is a list of strings or integers, the head of the list is
-    the "least significant index", that is, the one that is used first
-    when derefencing an indexed identifier.
-
-    An index is stored in terms of concrete types, not the abstract
-    types of {!Numeral.t} or {!Decimal.t} it is constructed with, so
-    that polymorphic comparison and equality can be used and indexes
-    as well as indentifiers can be stored in association lists etc.
+    This module also provides some pre-defined identifiers that are
+    used in the translation.
 
     @author Christoph Sticksel *)
 
@@ -42,20 +31,55 @@
 (** An identifier is a string with integer indexes *)
 type t = private string * int list 
 
+(** Equality on identifiers *)
 val equal : t -> t -> bool
 
+(** Hash an identifier *)
 val hash : t -> int
 
+(** Total ordering of identifiers *)
 val compare : t -> t -> int
 
 (** Hash table over identifiers *)
 module Hashtbl : Hashtbl.S with type key = t
 
-(** Hash table over identifiers *)
+(** Set of identifiers *)
 module Set : Set.S with type elt = t
 
-(** Hash table over identifiers *)
+(** Map of identifiers *)
 module Map : Map.S with type key = t
+
+(** {1 Constructors and Converters} *)
+
+(** Return a string representation of the identifier 
+
+    [string_of_ident safe ident] returns the identifier with the
+    indexes appended in [\[] and [\]] if [safe] is [false]. Otherwise
+    the indexes are appended separated by [_], which makes the string
+    a valid Lustre identifier. *)
+val string_of_ident : bool -> t -> string
+
+(** Add the given integer as an index to the identifier *)
+val push_index : t -> int -> t 
+
+(** Construct an identifier of a string *)
+val mk_string_ident : string -> t
+
+(** Construct an identifier of a scope *)
+val of_scope : Scope.t -> t
+
+(** Return a scope of an identifier 
+
+    The indexes of the identifier become separate scope levels. *)
+val to_scope : t -> Scope.t
+
+(** Pretty-print an identifier 
+
+    [pp_print_ident safe ident] prints the indexes separated by [_] if
+    [safe] is [true] as in {!string_of_ident}. *)
+val pp_print_ident : bool -> Format.formatter -> t -> unit 
+
+(** {1 Reserved Identifiers} *)
 
 (** Return [true] if identifier is reserved for internal use *)
 val ident_is_reserved : t -> bool
@@ -72,12 +96,6 @@ val instance_ident : t
 (** Identifier for first instant flag *)
 val init_flag_ident : t
 
-(** Identifier for observer of contract requirements *)
-val all_req_ident : t
-
-(** Identifier for observer of contract ensures *)
-val all_ens_ident : t
-
 (** Identifier for instantiated variables in node calls *)
 val inst_ident : t
 
@@ -90,199 +108,6 @@ val init_uf_string : string
 (** Identifier of uninterpreted symbol for transition relation *)
 val trans_uf_string : string 
 
-val string_of_ident : bool -> t -> string
-
-val ident_of_state_var : StateVar.t -> t
-
-val push_index : t -> int -> t 
-
-(** Construct an identifier of a string *)
-val mk_string_ident : string -> t
-
-(** Construct an identifier of a scope *)
-val of_scope : Scope.t -> t
-
-(** Pretty-print an identifier *)
-val pp_print_ident : bool -> Format.formatter -> t -> unit 
-
-
-
-
-(*
-
-
-
-(** An index element *)
-type one_index = private
-
-  (** String as index *)
-  | StringIndex of string
-
-  (** Integer as index *)
-  | IntIndex of int
-
-  (** Variable as index *)
-  | VarIndex 
-
-(** An index *)
-type index = private one_index list 
-
-(** An indexed identifier *)
-type t = private string * index
-
-(** A set of identifiers *)
-module LustreIdentSet : Set.S with type elt = t
-
-(** A map of identifiers *)
-module LustreIdentMap : Map.S with type key = t
-
-(** A set of indexes *)
-module LustreIndexSet : Set.S with type elt = index
-
-(** A map of indexes *)
-module LustreIndexMap : Map.S with type key = index
-
-(** A trie of indexes *)
-module LustreIndexTrie : Trie.S with type key = index
-
-(** A trie of identifiers *)
-module LustreIdentTrie : 
-  (* Cannot use Trie.S, because find_prefix and to_map return tries
-     and maps of indexes *)
-  (sig
-    include Trie.M with type key = t 
-    val find_prefix : key -> 'a t -> 'a LustreIndexTrie.t
-    val to_map : 'a t -> 'a LustreIndexMap.t
-    val keys : 'a t -> key list
-    val values : 'a t -> 'a list
-    val fold2 : (key-> 'a -> 'b -> 'c -> 'c) -> 'a t -> 'b t -> 'c -> 'c
-    val map2 : (key -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
-    val iter2 : (key -> 'a -> 'b -> unit) -> 'a t -> 'b t -> unit
-    val for_all2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
-    val exists2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
-    val subsume : 'a t -> key -> 'a t
-  end)
-
-
-(** Pretty-print an identifier *)
-val pp_print_ident : bool -> Format.formatter -> t -> unit 
-
-(** Pretty-print an index *)
-val pp_print_index : bool -> Format.formatter -> index -> unit 
-
-(** Pretty-print an index element *)
-val pp_print_one_index : bool -> Format.formatter -> one_index -> unit 
-
-(** Return a string representation of an identifier *)
-val string_of_ident : bool -> t -> string 
-
-(** Return a list of strings for index *)
-val scope_of_index : index -> string list
-
-(** Return a list of strings for identifier *)
-val scope_of_ident : t -> string list
-
-(** Total order on indexes *)
-val compare_index : index -> index -> int
-
-(** Total order on indexed identifiers *)
-val compare : t -> t -> int
-
-(** Total order on indexed identifiers *)
-val equal : t -> t -> bool
-
-
-(** Construct a single index of a string *)
-val mk_string_one_index : string -> one_index
-
-(** Construct an index of a string *)
-val mk_string_index : string -> index
-
-(** Construct a single index of an integer *)
-val mk_int_one_index : Numeral.t -> one_index
-
-(** Construct an index of an integer *)
-val mk_int_index : Numeral.t -> index
-
-(** Construct a singleton index of a string *)
-val mk_string_ident : string -> t
-
-(** An empty index *)
-val empty_index : index
-
-(** Construct an index of an identifier *)
-val index_of_ident : t -> index 
-
-(** Construct a single index of an identifier *)
-val one_index_of_ident : t -> one_index 
-
-
-val push_string_index : string -> t -> t 
-val push_back_string_index : string -> t -> t 
-
-val push_int_index : Numeral.t -> t -> t
-val push_back_int_index : Numeral.t -> t -> t
-
-val push_one_index : one_index -> t -> t
-val push_back_one_index : one_index -> t -> t
-
-val push_ident_index : t -> t -> t 
-val push_back_ident_index : t -> t -> t 
-
-val push_index : index -> t -> t 
-val push_back_index : index -> t -> t 
-
-val push_string_index_to_index : string -> index -> index 
-val push_back_string_index_to_index : string -> index -> index 
-
-val push_int_index_to_index : Numeral.t -> index -> index 
-val push_back_int_index_to_index : Numeral.t -> index -> index 
-
-val push_ident_index_to_index : t -> index -> index 
-val push_back_ident_index_to_index : t -> index -> index 
-
-val push_one_index_to_index : one_index -> index -> index 
-val push_back_one_index_to_index : one_index -> index -> index 
-
-val push_index_to_index : index -> index -> index 
-val push_back_index_to_index : index -> index -> index 
-
-val split_ident : t -> t * one_index list
-
-val split_index : index -> one_index list
-
-val index_of_one_index_list : one_index list -> index
-
-(*
-
-(** Construct an index of an integer *)
-val index_of_int : int -> index 
-
-(** Add an index to an identifier *)
-val add_ident_index : t -> t -> t
-
-(** Add an identifier as an index to an identifier *)
-val add_index : t -> index -> t
-
-(** Add a string as an index to an identifier *)
-val add_string_index : t -> string -> t
-
-(** Add an integer as an index to an identifier *)
-val add_int_index : t -> int -> t
-
-val add_int_to_index : index -> int -> index
-
-
-val get_index_suffix : index -> index -> index
-*)
-
-
-(*
-(** Scope for top-level variables *)
-val top_scope_index : index
-*)
-
-*)
 
 (* 
    Local Variables:

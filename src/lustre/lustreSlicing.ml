@@ -180,6 +180,12 @@ let rec node_state_var_dependencies'
                else
                  E.cur_state_vars_of_step_expr)
                 expr
+
+              (* Filter out array typed state variables *)
+              |> SVS.filter 
+                (fun sv -> StateVar.type_of_state_var sv
+                           |> Type.is_array |> not)
+
               |> SVS.elements)
 
           (* State variable is not constrained by an equation *)
@@ -563,7 +569,6 @@ let slice_all_of_node
     { N.name; 
       N.instance;
       N.init_flag;
-      N.contract_all_req;
       N.inputs; 
       N.oracles; 
       N.outputs; 
@@ -580,7 +585,6 @@ let slice_all_of_node
   { N.name; 
     N.instance;
     N.init_flag;
-    N.contract_all_req;
     N.inputs;
     N.oracles; 
     N.outputs; 

@@ -447,6 +447,13 @@ let mk_state_var
       (D.pp_print_index false) index
   in
 
+  Printexc.get_callstack 50 |> Printexc.raw_backtrace_to_string |>
+  Format.printf
+    "mk_state_var %a.%s@\n%s@."
+    (pp_print_list Format.pp_print_string ".") scope
+    state_var_name;
+    
+
   (* Create or retrieve state variable *)
   let state_var =
     StateVar.mk_state_var
@@ -465,7 +472,7 @@ let mk_state_var
   in
 
   (* Create expression from state variable *)
-  let expr = E.mk_var state_var E.base_clock in
+  let expr = E.mk_var E.base_clock state_var in
 
   (* Bind state variable to identifier *)
   let ctx = 
@@ -747,7 +754,7 @@ let close_expr
             in
             
             (* Substitute oracle variable for variable *)
-            ((var, E.mk_var state_var E.base_clock) :: accum, ctx))
+            ((var, E.mk_var E.base_clock state_var) :: accum, ctx))
          
          init_pre_vars
          ([], ctx)
@@ -805,6 +812,11 @@ let mk_state_var_for_expr
 
       (* Expresssion has not been abstracted before *)
       with Not_found ->
+
+        Format.printf
+          "mk_state_var_for_expr: for %a fresh_local_index %d@."
+          (E.pp_print_lustre_expr false) expr
+          fresh_local_index;
 
         (* Create state variable for abstraction *)
         let state_var, ctx = 
@@ -1246,7 +1258,7 @@ let add_node_property ctx source name expr =
               in
 
               (* Add an equation for the alias *)
-              (state_var', [], E.mk_var state_var E.base_clock) :: equations, 
+              (state_var', [], E.mk_var E.base_clock state_var) :: equations, 
 
               (* Use alias as property *)
               (state_var', name, source), 

@@ -106,8 +106,20 @@ val mk_trans_sys :
   (** All state variables including globals and instance identifier *)
   StateVar.t list ->
 
+  (** Predicate symbol for initial state constraint *)
+  UfSymbol.t -> 
+
+  (** Formal parameters of initial state constraint *)
+  Var.t list -> 
+
   (** Initial state constraint *)
   Term.t ->
+
+  (** Predicate symbol for transition relation *)
+  UfSymbol.t -> 
+
+  (** Formal parameters of transition relation *)
+  Var.t list -> 
 
   (** Transition relation *)
   Term.t ->

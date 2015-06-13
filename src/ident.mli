@@ -40,6 +40,9 @@ module IdentMap : Map.S with type key = t
 (** Pretty-print an identifier *)
 val pp_print_ident : Format.formatter -> t -> unit
 
+(** Construct an identifier from a string *)
+val of_string : string -> t
+
 (** Return a string representation of an identifier x*)
 val to_string : t -> string 
 

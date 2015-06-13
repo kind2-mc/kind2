@@ -139,6 +139,9 @@ val elements_of_scalar : t -> string list
 (** Return type of array index *)
 val index_type_of_array : t -> t 
 
+(** Return all array index types of a nested array type *)
+val all_index_types_of_array : t -> t list
+
 (** Return type of array elements *)
 val elem_type_of_array : t -> t
 

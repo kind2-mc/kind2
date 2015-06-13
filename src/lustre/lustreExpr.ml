@@ -116,19 +116,16 @@ let equal_expr = Term.equal
    expressions are equal without bumping offsets. *)
 
 (* Offset of state variable at first instant *)
-let pre_base_offset = Numeral.(- one)
-
-
-(* Offset of state variable at first instant *)
 let base_offset = Numeral.zero
 
+(* Offset of state variable at first instant *)
+let pre_base_offset = Numeral.(pred base_offset)
 
 (* Offset of state variable at current instant *)
 let cur_offset = Numeral.zero
 
-
 (* Offset of state variable at previous instant *)
-let pre_offset = Numeral.(- one)
+let pre_offset = Numeral.(pred base_offset)
 
 
 
@@ -660,28 +657,28 @@ let is_const { expr_init; expr_step } =
 let pre_base_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance 
     state_var
-    Numeral.(zero_offset + pre_base_offset)
+    Numeral.(zero_offset - base_offset |> pred)
 
 
 (* Instance of state variable at instant zero *)
 let base_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance
     state_var
-    Numeral.(zero_offset + base_offset)
+    Numeral.(zero_offset - base_offset)
 
 
 (* Instance of state variable at current instant *)
 let cur_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance
     state_var
-    Numeral.(zero_offset + cur_offset)
+    Numeral.(zero_offset - cur_offset)
 
 
 (* Instance of state variable at previous instant *)
 let pre_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance 
     state_var
-    Numeral.(zero_offset + pre_offset)
+    Numeral.(zero_offset - cur_offset |> pred)
 
     
 (* Term of instance of state variable at previous instant *)
@@ -706,17 +703,33 @@ let pre_term_of_state_var zero_offset state_var =
 
 (* Term at instant zero *)
 let base_term_of_expr zero_offset expr = 
-  Term.bump_state Numeral.(zero_offset + base_offset) expr
+  Term.bump_state Numeral.(zero_offset - base_offset) expr
 
 
 (* Term at current instant *)
 let cur_term_of_expr zero_offset expr =
-  Term.bump_state Numeral.(zero_offset + cur_offset) expr
+  Term.bump_state Numeral.(zero_offset - cur_offset) expr
 
 
 (* Term at previous instant *)
 let pre_term_of_expr zero_offset expr = 
-  Term.bump_state Numeral.(zero_offset + pre_offset) expr
+  Term.bump_state Numeral.(zero_offset - cur_offset |> pred) expr
+
+
+(* Term at instant zero *)
+let base_term_of_t zero_offset { expr_init } = 
+  base_term_of_expr zero_offset expr_init
+
+
+(* Term at current instant *)
+let cur_term_of_t zero_offset { expr_step } =
+  cur_term_of_expr zero_offset expr_step
+
+
+(* Term at previous instant *)
+let pre_term_of_t zero_offset { expr_step } = 
+  pre_term_of_expr zero_offset expr_step
+
 
 (* Return the state variable of a variable *)
 let state_var_of_expr ({ expr_init; expr_step } as expr) = 
@@ -906,7 +919,7 @@ let mk_real f =
 
 
 (* Current state variable of state variable *)
-let mk_var state_var expr_clock = 
+let mk_var expr_clock state_var  = 
 
   { expr_init = base_term_of_state_var base_offset state_var;
     expr_step = cur_term_of_state_var cur_offset state_var;
@@ -927,7 +940,7 @@ let mk_index_var i =
   in
 
   (* Create expression of state variable *)
-  mk_var state_var base_clock
+  mk_var base_clock state_var
 
 
 (* ********************************************************************** *)
@@ -2021,7 +2034,7 @@ let type_of_select = function
 let mk_select expr1 expr2 = 
 
   (* Streams must be on the same clock, pick the first *)
-  let res_clock = 
+  let _res_clock = 
     if clock_check expr1.expr_clock expr2.expr_clock then 
       expr1.expr_clock
     else
@@ -2029,7 +2042,7 @@ let mk_select expr1 expr2 =
   in  
 
   (* Types of expressions must be compatible *)
-  let res_type = 
+  let _res_type = 
     type_of_select expr1.expr_type expr2.expr_type 
   in
 

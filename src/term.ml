@@ -362,7 +362,7 @@ let is_select t = match node_of_term t with
    the pair [A] and [[j; k]]. *)
 let rec indexes_and_var_of_select' accum t = match node_of_term t with 
 
-  | T.FreeVar v -> (v, List.rev accum)
+  | T.FreeVar v -> (v, accum)
 
   | T.Node (s, [a; i]) when s == Symbol.s_select -> 
 

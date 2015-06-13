@@ -68,6 +68,11 @@ module IdentMap = Map.Make (Ident)
 
 let pp_print_ident ppf i = Format.fprintf ppf "%s" i
 
+(* Construct an identifier from a string
+
+   Simply return the string for now, later do some smarter things. *)
+let of_string s = s
+
 let to_string = string_of_t pp_print_ident 
 
 (* 

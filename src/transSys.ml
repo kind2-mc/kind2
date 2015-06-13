@@ -18,6 +18,7 @@
 
 open Lib
 
+module P = Property
 module SVM = StateVar.StateVarMap
 
 (* Offset of state variables in initial state constraint *)
@@ -67,8 +68,20 @@ type t =
                      list))
                     list;
 
+    (* Predicate symbol for initial state constraint *)
+    init_uf_symbol : UfSymbol.t;
+
+    (* Formal parameters of initial state constraint *)
+    init_formals : Var.t list;
+
     (* Initial state constraint *)
     init : Term.t;
+
+    (* Predicate symbol for transition relation *)
+    trans_uf_symbol : UfSymbol.t;
+
+    (* Formal parameters of transition relation *)
+    trans_formals : Var.t list;
 
     (* Transition relation *)
     trans : Term.t;
@@ -105,6 +118,35 @@ let pp_print_state_var ppf state_var =
     (function ppf -> 
       if StateVar.for_inv_gen state_var then Format.fprintf ppf "@ :for-inv-gen")
   
+let pp_print_property_status ppf = function 
+  | P.PropUnknown -> Format.fprintf ppf ":unknown"
+  | P.PropKTrue k -> Format.fprintf ppf ":k-true %d" k
+  | P.PropInvariant -> Format.fprintf ppf ":invariant"
+  | P.PropFalse _ -> Format.fprintf ppf ":false"
+
+
+let pp_print_property_source ppf = function 
+  | P.PropAnnot _ -> Format.fprintf ppf ":annotation"
+  | P.Contract _ -> Format.fprintf ppf ":contract"
+  | P.Generated _ -> Format.fprintf ppf ":generated"
+  | P.ContractGlobalRequire _ -> Format.fprintf ppf ":global-req"
+  | P.ContractModeRequire _ -> Format.fprintf ppf ":mode-req"
+  | P.ContractGlobalEnsure _ -> Format.fprintf ppf ":global-ens"
+  | P.ContractModeEnsure _ -> Format.fprintf ppf ":mode-ens"
+  | P.Instantiated _ -> Format.fprintf ppf ":instantiated"
+
+
+let pp_print_property 
+    ppf
+    { P.prop_name; P.prop_source; P.prop_term; P.prop_status } =
+
+  Format.fprintf ppf
+    "(\"%s\" %a %a %a)" 
+    prop_name
+    Term.pp_print_term prop_term
+    pp_print_property_status prop_status
+    pp_print_property_source prop_source
+
 
 let pp_print_trans_sys 
     ppf
@@ -114,7 +156,9 @@ let pp_print_trans_sys
       global_state_vars;
       state_vars;
       init;
+      init_formals;
       trans;
+      trans_formals;
       properties;
       invariants_one_state;
       invariants_two_state } = 
@@ -123,14 +167,18 @@ let pp_print_trans_sys
     ppf
     "@[<v 1>(trans-sys %a@,\
      @[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-     @[<hv 2>(init@ (@[<v>%a@]))@]@,\
-     @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(init@   @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(trans@  @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(prop@ (@[<v>%a@]))@]@,\
             )@]"
 
     Scope.pp_print_scope scope
     (pp_print_list pp_print_state_var "@ ") state_vars
+    (pp_print_list Var.pp_print_var "@ ") init_formals
     Term.pp_print_term init
+    (pp_print_list Var.pp_print_var "@ ") trans_formals
     Term.pp_print_term trans
+    (pp_print_list pp_print_property "@ ") properties
 
 (*
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
@@ -343,7 +391,11 @@ let mk_trans_sys
     instance_state_var
     global_state_vars
     state_vars
+    init_uf_symbol
+    init_formals
     init
+    trans_uf_symbol
+    trans_formals
     trans
     subsystems
     properties
@@ -418,7 +470,11 @@ let mk_trans_sys
       global_state_vars;
       state_vars;
       subsystems;
+      init_uf_symbol;
+      init_formals;
       init;
+      trans_uf_symbol;
+      trans_formals;
       trans;
       properties;
       invariants_one_state;

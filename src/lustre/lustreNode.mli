@@ -61,26 +61,26 @@ type node_call =
 
   { 
 
-    (** Position of node call in input file *)
     call_pos : position;
+    (** Position of node call in input file *)
 
-    (** Name of called node *)
     call_node_name : LustreIdent.t;
+    (** Name of called node *)
     
-    (** Boolean activation condition *)
     call_clock : StateVar.t option;
+    (** Boolean activation condition *)
 
-    (** Variables for input parameters *)
     call_inputs : StateVar.t LustreIndex.t;
+    (** Variables for input parameters *)
 
-    (** Variables providing non-deterministic inputs *)
     call_oracles : StateVar.t list;
-
     (** Variables providing non-deterministic inputs *)
-    call_outputs : StateVar.t LustreIndex.t;
 
-    (** Expression for initial return values *)
+    call_outputs : StateVar.t LustreIndex.t;
+    (** Variables providing non-deterministic inputs *)
+
     call_defaults : LustreExpr.t LustreIndex.t;
+    (** Expression for initial return values *)
 
   }
 
@@ -100,28 +100,32 @@ type node_call =
 type contract =
   { 
 
-    (** Identifier of contract *)
     contract_name : LustreIdent.t;
+    (** Identifier of contract *)
 
-    (** Position of the contract in the input *)
     contract_pos: position;
+    (** Position of the contract in the input *)
 
-    (** Invariant from requirements of contract *)
     contract_req : StateVar.t;
+    (** Invariant from requirements of contract *)
 
-    (** Invariants from ensures of contract *)
     contract_enss : StateVar.t list
+    (** Invariants from ensures of contract *)
 
   }
 
-(** Bound for index variable, or fixed value for index variable *)
+(**  *)
 type 'a bound_or_fixed = 
-  | Bound of 'a  (* Upper bound for index variable *)
-  | Fixed of 'a  (* Fixed value for index variable *)
+  | Bound of 'a  (** Upper bound for index variable *)
+  | Fixed of 'a  (** Fixed value for index variable *)
 
 (** An equation is a triple [(state_var, bounds, expr)] of the
     expression [expr] that defines the state variable [state_var],
-    and a list [bounds] of indexes *)
+    and a list [bounds] of indexes. 
+
+    An array can be defined either only at a given index, or at all
+    indexes, when the expression on the right-hand side is interpreted
+    as a function of the running variable of the index.  *)
 type equation = 
   (StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t)
 
@@ -134,92 +138,91 @@ type t =
 
   { 
 
-    (** Name of the node *)
     name : LustreIdent.t;
+    (** Name of the node *)
 
+    instance : StateVar.t;
     (** Distinguished constant state variable uniquely identifying the
         node instance *)
-    instance : StateVar.t;
 
-    (** Distinguished state variable to become true in the first
-       instant only *)
     init_flag : StateVar.t;
+    (** Distinguished state variable to be true in the first
+       instant only *)
 
-    (** One observer for conjunction of the global requirements and
-        the disjunction of the mode requirements
-
-        Any caller has to make this observer true. This observer is
-        asserted for the node. *)
-    contract_all_req : StateVar.t;
-
+    inputs : StateVar.t LustreIndex.t;
     (** Input streams defined in the node
 
-        Each input is indexed with an integer correpsonding to its
-        position in the formal parameters. If the stream is indexed
-        the indexes are appended to the position index. *)
-    inputs : StateVar.t LustreIndex.t;
+        The inputs are considered as a list with an integer indexes
+        correpsonding to their position in the formal parameters. *)
 
+    oracles : StateVar.t list;
     (** Oracle inputs added to the node inputs
 
         Input streams added to the node to obtain non-deterministic
-        values for the initial values of unguarded pre operators, and
-        for undefined streams. In the first case, the state variable
-        is constant.  *)
-    oracles : StateVar.t list;
+        values for the initial values of unguarded pre operators. The
+        state variables are constant. *)
 
+    outputs : StateVar.t LustreIndex.t;
     (** Output streams defined in the node
 
-        Each output is indexed with an integer correpsonding to its
-        position in the formal parameters. If the stream is indexed
-        the indexes are appended to the position index. If the node
-        has only one output, the index of the output is empty. *)
-    outputs : StateVar.t LustreIndex.t;
+        The inputs are considered as a list with an integer indexes
+        correpsonding to their position in the formal parameters. *)
 
+    locals : StateVar.t LustreIndex.t list;
     (** Local variables of node
 
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
-    locals : StateVar.t LustreIndex.t list;
 
-    (** Equations for local and output variables *)
     equations : equation list;
+    (** Equations for local and output variables *)
 
-    (** Node calls inside the node *)
     calls : node_call list;
+    (** Node calls inside the node *)
 
-    (** Assertions of node *)
     asserts : LustreExpr.t list;
+    (** Assertions of node *)
 
-    (** Proof obligations for the node *)
     props : (StateVar.t * string * Property.prop_source) list;
+    (** Proof obligations for the node *)
 
-    (** Global contracts *)
     global_contracts : contract list;
+    (** Global contracts *)
 
-    (** Mode contracts *)
     mode_contracts :  contract list;
+    (** Mode contracts *)
 
-    (** Flag node as the top node *)
     is_main : bool;
+    (** Flag node as the top node *)
 
-    (** Map from a state variable to its source *)
     state_var_source_map : state_var_source StateVar.StateVarMap.t 
+    (** Map from a state variable to its source *)
 
   }
 
-(** The empty node *)
+(** Return an empty node of the given name *)
 val empty_node : LustreIdent.t -> t
 
+(** Pretty-print a node equation in Lustre format 
+
+    If the flag in the first argument is [true], print identifiers in
+    Lustre syntax. *)
 val pp_print_node_equation : bool -> Format.formatter -> StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t -> unit
 
-(** Pretty-print a node *)
+(** Pretty-print a node call in Lustre format 
+
+    If the flag in the first argument is [true], print identifiers in
+    Lustre syntax. *)
+val pp_print_call : bool -> Format.formatter -> node_call -> unit 
+
+(** Pretty-print a node in Lustre format 
+
+    If the flag in the first argument is [true], print identifiers in
+    Lustre syntax. *)
 val pp_print_node : bool -> Format.formatter -> t -> unit 
 
-(** Pretty-print a node *)
+(** Pretty-print the node with all information  *)
 val pp_print_node_debug : Format.formatter -> t -> unit 
-
-(** Pretty-print a node call *)
-val pp_print_call : bool -> Format.formatter -> node_call -> unit 
 
 (** {1 Node Lists} *)
 

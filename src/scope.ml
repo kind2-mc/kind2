@@ -67,6 +67,10 @@ let pp_print_scope ppf s =
     (pp_print_list Ident.pp_print_ident ".")
     s
 
+(* Construct a scope from a list of identifiers 
+
+   Simply return the list for now, later do some smarter things. *)
+let mk_scope s = s
 
 (* 
    Local Variables:

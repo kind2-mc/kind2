@@ -83,8 +83,6 @@ let pp_print_ident safe ppf (s, i) =
 let string_of_ident safe = string_of_t (pp_print_ident safe)
 
 
-let ident_of_state_var sv = (StateVar.string_of_state_var sv, [])
-
 (* ********************************************************************** *)
 (* Constructors                                                           *)
 (* ********************************************************************** *)
@@ -101,6 +99,15 @@ let of_scope = function
 
   (* Fail on empty scope, or nested scope  *)
   | _ -> raise (Invalid_argument "to_scope")
+
+
+(* Construct an identifier of a scope *)
+let to_scope (base, index) = 
+  Scope.mk_scope
+    (Ident.of_string base :: 
+     (List.map 
+        (fun i -> string_of_int i |> Ident.of_string)
+        index))
 
 
 (* Append an index to the identifier *)

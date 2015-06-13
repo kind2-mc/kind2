@@ -17,19 +17,43 @@
 *)
 
 
-(** Lustre expressions 
+(** Simplified Lustre expressions 
 
     A {!LustreExpr.t} does not contain node calls, temporal operators
     or expressions under a pre operator.
+
+    There is exactly one [->] operator at the top of the expression,
+    thus an expression can be represented as a pair of expressions
+    [(i, t)] without [->] operators. 
+
+    The argument of a [pre] operator is always a variable, therefore
+    an expression [pre x] operator can be represented by the variable
+    [x] at the previous state. A non-variable expression under a [pre]
+    has to be abstracted to a fresh variable that is defined by this
+    expression.
+
+    There are no node calls in a Lustre expression. They have to be
+    abstracted out and the results are captured in fresh variables.
 
     The offsets of state variable instances are zero for the initial
     state and zero for the current state. These are different from the
     offsets in the transition system, because here we want to know if
     the initial and the step expressions are equal without bumping
-    offsets.
+    offsets. Use the functions {!base_term_of_expr},
+    {!cur_term_of_expr}, and {!pre_term_of_expr} to take the
+    expression on one side of the [->] operator and adjust to the
+    variable offsets to the given base.
+
+    Every Lustre expression has a clock, but for now we consider all
+    expressions to be on the same clock, which is why the clock
+    parameter is a dummy value only. If we have a clock for an
+    expression, all expression constructors would need to check if the
+    arguments are on the same clock.
 
     Expressions can only be constructed with the constructors which do
-    type and clock checking.
+    type checking and some easy simplifications with constants.
+
+
 
     @author Christoph Sticksel *)
 
@@ -185,6 +209,15 @@ val cur_term_of_expr : Numeral.t -> expr -> Term.t
 (** Term at previous instant with the given offset as zero *)
 val pre_term_of_expr : Numeral.t -> expr -> Term.t
 
+(** Term at first instant with the given offset as zero *)
+val base_term_of_t : Numeral.t -> t -> Term.t
+
+(** Term at current instant with the given offset as zero*)
+val cur_term_of_t : Numeral.t -> t -> Term.t
+
+(** Term at previous instant with the given offset as zero *)
+val pre_term_of_t : Numeral.t -> t -> Term.t
+
 (** Return the state variable of a variable 
 
     Fail with [Invalid_argument "state_var_of_expr"] if the expression
@@ -222,7 +255,7 @@ val mk_int : Numeral.t -> t
 val mk_real : Decimal.t -> t
 
 (** Return an expression of a variable. *)
-val mk_var : StateVar.t -> clock -> t
+val mk_var : clock -> StateVar.t -> t
 
 (** Return an expression for the i-th index variable. *)
 val mk_index_var : int -> t
@@ -303,16 +336,15 @@ val mk_arrow : t -> t -> t
     expression to a fresh variable if it is not a variable at the
     current state.
 
-    [mk_pre f d e] returns the expression [e] and list [d] unchanged
+    [mk_pre f c e] returns the expression [e] and context [c] unchanged
     if it is a constant, and the previous state variable if the
-    expression is a current state variable, again together [d]
+    expression is a current state variable, again together with [c]
     unchanged.
 
     Otherwise the expression [e] is abstracted to a fresh variable
-    obtained by calling the function [f], the association between the
-    fresh variable and the expression is added to [d] and it is
-    returned along with an expression of the fresh variable at the
-    previous state. *)
+    obtained by calling the function [f], which returns a fresh state
+    variable and a changed context [c] that records the association
+    between the fresh variable and the expression. Then return an expression of the fresh state variable and the changed context. *)
 val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
 
 (** Select from an array *)
@@ -324,7 +356,9 @@ val mk_let : (Var.t * t) list -> t -> t
 (** Return an expression of a numeral *)
 val mk_int_expr : Numeral.t -> expr
 
+(** Return an expression with the same term on both sides of the [->] *)
 val mk_of_expr : expr -> t 
+
 
 (* 
    Local Variables:

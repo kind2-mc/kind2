@@ -148,12 +148,6 @@ type t =
        instant only *)
     init_flag : StateVar.t;
 
-    (* One observer for conjunction of the global requirements and the
-       disjunction of the mode requirements 
-
-       Any caller has to make this observer true *)
-    contract_all_req : StateVar.t;
-
     (* Input variables of node together with their index in the
        original model and a list of expressions for the upper bounds
        of each array dimension *)
@@ -213,11 +207,6 @@ let empty_node name =
     init_flag = 
       StateVar.mk_state_var
         (I.init_flag_ident |> I.string_of_ident false)
-        [I.string_of_ident false name]
-        Type.t_bool;
-    contract_all_req = 
-      StateVar.mk_state_var
-        (I.all_req_ident |> I.string_of_ident false)
         [I.string_of_ident false name]
         Type.t_bool;
     inputs = D.empty;
@@ -566,7 +555,6 @@ let pp_print_node_debug
     { name;
       instance;
       init_flag;
-      contract_all_req;
       inputs; 
       oracles; 
       outputs; 
@@ -625,7 +613,6 @@ let pp_print_node_debug
     "node %a @[<hv 2>\
        { instance =         %a;@ \
          init_flag =        %a;@ \
-         contract_all_req = %a;@ \
          inputs =           [@[<hv>%a@]];@ \
          oracles =          [@[<hv>%a@]];@ \
          outputs =          [@[<hv>%a@]];@ \
@@ -641,7 +628,6 @@ let pp_print_node_debug
 
     StateVar.pp_print_state_var instance
     StateVar.pp_print_state_var init_flag
-    StateVar.pp_print_state_var contract_all_req
     (I.pp_print_ident false) name
     pp_print_state_var_trie_debug inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") oracles

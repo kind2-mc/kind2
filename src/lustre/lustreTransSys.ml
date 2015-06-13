@@ -45,17 +45,18 @@ type node_def =
     (* Transition relation predicate *)
     trans_uf_symbol : UfSymbol.t;
 
+    (* Transition system for node *)
     trans_sys : TransSys.t;
 
     (* Stateful local variables to be instantiated by the caller 
 
        Local variables of the callees of the node *)
-    stateful_vars : StateVar.t list;
+    stateful_locals : StateVar.t list;
 
     (* Properties to be instantiated by the caller 
 
        Properties of the callees of the node *)
-    lifted_props : P.t list;
+    properties : P.t list;
 
   }
 
@@ -172,47 +173,25 @@ let lift_prop_name node_name pos prop_name =
 
 
 (* ********************************************************************** *)
-(* Properties and invariants                                              *)
-(* ********************************************************************** *)
-
-(* Add each property to the list of invariants if it is in assumptions
-   invariant, and otherwise to properties *)
-let rec add_to_invariants_or_properties assumptions invariants properties = function 
-
-  (* All properties copied *)
-  | [] -> (invariants, properties)
-
-  (* Take property at head of list *)
-  | ({ P.prop_term } as prop) :: tl -> 
-
-    if 
-
-      (* Property is assumed invariant? *)
-      List.exists (Term.equal prop_term) assumptions 
-
-    then
-
-      (* Add term to invariants *)
-      add_to_invariants_or_properties
-        assumptions 
-        (prop_term :: invariants)
-        properties
-        tl
-
-    else
-
-      (* Add property to properties *)
-      add_to_invariants_or_properties
-        assumptions 
-        invariants
-        (prop :: properties)
-        tl
-        
-
-(* ********************************************************************** *)
 (* Properties of contracts                                                *)
 (* ********************************************************************** *)
 
+(* Create a property from Lustre expression *)
+let property_of_expr 
+    prop_name
+    prop_status
+    prop_source
+    { E.expr_step; E.expr_init } =
+
+  (* Terms for initial state and step state must be equal. Otherwise
+     we would need to abstract to a fresh variable. *)
+  assert (E.equal_expr expr_step expr_init);
+
+  (* Term of expresssion *)
+  let prop_term = E.cur_term_of_expr TransSys.prop_base expr_step in
+
+  (* Return property *)
+  { P.prop_name; P.prop_source; P.prop_term; P.prop_status }
 
 
 (* Create terms from global and mode requires and to each apply
@@ -222,8 +201,7 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
   (* One term per global contract *)
   List.map
     (fun { N.contract_req } ->
-       E.cur_term_of_state_var TransSys.trans_base contract_req
-       |> f_global)
+       E.mk_var E.base_clock contract_req |> f_global)
     global_contracts 
 
   @
@@ -234,43 +212,10 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
     (* Disjunction of requirements from all modes *)
     [List.map
        (fun { N.contract_req } -> 
-          E.cur_term_of_state_var TransSys.trans_base contract_req)
+          E.mk_var E.base_clock contract_req)
        mode_contracts
-     |> Term.mk_or     
-    |> f_mode]
-
-
-(* Return properties from contracts of node *)
-let props_of_req scope { N.global_contracts; N.mode_contracts } = 
-
-  (* TODO: Generate identifier for contract to group properties
-     together *)
-  let prop_name = "" in
-
-  (* Property is unknown *)
-  let prop_status = P.PropUnknown in
-       
-  (* Create property from terms of global and mode requires *)
-  contract_req_map 
-    (fun prop_term -> 
-       let prop_source = P.ContractGlobalRequire scope in
-       { P.prop_name; P.prop_source; P.prop_term; P.prop_status })
-    (fun prop_term -> 
-       let prop_source = P.ContractModeRequire scope in
-       { P.prop_name; P.prop_source; P.prop_term; P.prop_status })
-    global_contracts
-    mode_contracts
-
-
-(* Return terms from contracts of node *)
-let terms_of_req scope { N.global_contracts; N.mode_contracts } = 
-
-  (* Return terms of global and mode requires unchanged *)
-  contract_req_map 
-    identity
-    identity
-    global_contracts
-    mode_contracts
+     |> E.mk_or_n
+     |> f_mode]
 
 
 (* Return property terms from guarantees of node *)
@@ -281,7 +226,7 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
     (fun accum { N.contract_enss } -> 
        List.map
          (fun sv_ens -> 
-            E.cur_term_of_state_var TransSys.trans_base sv_ens
+            E.mk_var E.base_clock sv_ens
             |> f_global)
          contract_enss @ accum)
     []
@@ -294,22 +239,48 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
     (fun accum { N.contract_req; N.contract_enss } -> 
     
        (* Guard for property is requirement *)
-       let t_req = 
-         E.cur_term_of_state_var
-           TransSys.trans_base 
-           contract_req 
-       in
+       let t_req = E.mk_var E.base_clock contract_req in
        
        (* Each property in mode contract is implication between
           requirement and ensures *)
        List.map
          (fun sv_ens -> 
-            Term.mk_implies
-              [t_req;
-               E.cur_term_of_state_var TransSys.trans_base sv_ens]
+            E.mk_impl t_req (E.mk_var E.base_clock sv_ens)
             |> f_mode)
          contract_enss @ accum)
     []
+    mode_contracts
+
+
+(* Return properties from contracts of node *)
+let props_of_req scope { N.global_contracts; N.mode_contracts } = 
+
+  (* TODO: Generate identifier for contract to group properties
+     together *)
+  let prop_name = "" in
+
+  (* Property is unknown *)
+  let prop_status = P.PropUnknown in
+
+  (* Create property with fixed name and status *)
+  let property_of_expr' = property_of_expr prop_name prop_status in
+
+  (* Create property from terms of global and mode requires *)
+  contract_req_map 
+    (property_of_expr' (P.ContractGlobalRequire scope))
+    (property_of_expr' (P.ContractModeRequire scope))
+    global_contracts
+    mode_contracts
+
+
+(* Return terms from contracts of node *)
+let expr_of_req scope { N.global_contracts; N.mode_contracts } = 
+
+  (* Return terms of global and mode requires unchanged *)
+  contract_req_map 
+    identity
+    identity
+    global_contracts
     mode_contracts
 
 
@@ -323,20 +294,19 @@ let props_of_ens scope { N.global_contracts; N.mode_contracts } =
   (* Property is unknown *)
   let prop_status = P.PropUnknown in
        
+  (* Create property with fixed name and status *)
+  let property_of_expr' = property_of_expr prop_name prop_status in
+
   (* Create property from terms of global and mode requires *)
-  contract_req_map 
-    (fun prop_term -> 
-       let prop_source = P.ContractGlobalEnsure scope in
-       { P.prop_name; P.prop_source; P.prop_term; P.prop_status })
-    (fun prop_term -> 
-       let prop_source = P.ContractModeEnsure scope in
-       { P.prop_name; P.prop_source; P.prop_term; P.prop_status })
+  contract_ens_map 
+    (property_of_expr' (P.ContractGlobalEnsure scope))
+    (property_of_expr' (P.ContractModeEnsure scope))
     global_contracts
     mode_contracts
 
 
 (* Return terms from contracts of node *)
-let terms_of_ens scope { N.global_contracts; N.mode_contracts } = 
+let expr_of_ens scope { N.global_contracts; N.mode_contracts } = 
 
   (* Return terms of global and mode requires unchanged *)
   contract_ens_map 
@@ -344,6 +314,54 @@ let terms_of_ens scope { N.global_contracts; N.mode_contracts } =
     identity
     global_contracts
     mode_contracts
+
+
+let convert_select instance term = 
+  
+  Term.map
+    
+    (fun _ t ->
+       
+       (* Term is a select operation? *)
+       if Term.is_select t then
+
+         (* Get array variable and indexes of term *)
+         let var, indexes = 
+           Term.indexes_and_var_of_select t
+         in
+
+         (* Get indexes of type of variable *)
+         let index_types = 
+           Var.type_of_var var |> Type.all_index_types_of_array
+         in
+
+         (* Skip if not all indexes of array in term *)
+         if List.length indexes < List.length index_types then t else
+
+           (
+
+             (* Must not have more indexes than defined in type *)
+             assert (List.length indexes = List.length index_types);
+
+             (* Uninterpreted function application for array *)
+             Term.mk_uf
+               (Var.state_var_of_state_var_instance var
+                |> StateVar.uf_symbol_of_state_var)
+               
+               ((* First parameter is node instance *)
+                 (Var.mk_const_state_var instance
+                  |> Term.mk_var) :: 
+                 
+                 (* Following parameters are indexes *)
+                 indexes)
+               
+           )
+
+       else t
+    )
+    term
+
+
 
 
 (* ********************************************************************** *)
@@ -409,11 +427,9 @@ let call_terms_of_node_call
                N.oracles;
                N.outputs;
                N.locals; 
-               N.props;
-               N.global_contracts;
-               N.mode_contracts };
-      stateful_vars; 
-      lifted_props } =
+               N.props };
+      stateful_locals; 
+      properties } =
 
   (* Initialize map of state variable in callee to instantiated state
      variable in caller *)
@@ -477,9 +493,10 @@ let call_terms_of_node_call
          variable map *)
       (node_locals, [], state_var_map)
 
-      (* Take the init flag, the instance identifier and all stateful
-         variables of the callee *)
-      (init_flag :: instance :: stateful_vars)
+      (* All stateful local variables of the called node
+
+         This includes the init flag and the instance variable. *)
+      stateful_locals
 
   in
   
@@ -487,7 +504,7 @@ let call_terms_of_node_call
   let node_props = 
     List.fold_left 
 
-      (fun a (sv, n, src) -> 
+      (fun a { P.prop_name = n; P.prop_term = t } -> 
 
          (* Lift name of property *)
          let prop_name =
@@ -498,14 +515,11 @@ let call_terms_of_node_call
 
             Property is a local variable, thus it has been
             instantiated and is in the map *)
-         let prop_term = 
-           lift_state_var state_var_map sv
-           |> E.cur_term_of_state_var TransSys.trans_base  
-         in
+         let prop_term = lift_term state_var_map t in
 
          (* Property is instantiated *)
          let prop_source = 
-           Property.Instantiated
+           P.Instantiated
              ([I.string_of_ident false call_node_name], n)
          in
 
@@ -519,7 +533,8 @@ let call_terms_of_node_call
            P.prop_status } :: a)
 
       node_props
-      props 
+
+      properties
 
   in
 
@@ -775,13 +790,16 @@ let rec constraints_of_node_calls
           node_def
       in
 
-
       let clock_init = 
         E.base_term_of_state_var TransSys.init_base clock 
       in
 
       let clock_trans = 
         E.cur_term_of_state_var TransSys.trans_base clock 
+      in
+
+      let clock_prop = 
+        E.cur_term_of_state_var TransSys.prop_base clock 
       in
 
       let clock_trans_pre = 
@@ -793,6 +811,10 @@ let rec constraints_of_node_calls
           ?is_const:None
           ?for_inv_gen:(Some false)
           Type.t_bool
+      in
+
+      let node_locals = 
+        has_ticked :: node_locals
       in
 
       let has_ticked_init = 
@@ -916,6 +938,15 @@ let rec constraints_of_node_calls
 
       in
 
+      (* Guard lifted property with activation condition of node *)
+      let node_props = 
+        List.map
+          (fun ({ P.prop_term } as p) -> 
+             { p with P.prop_term = Term.mk_implies [clock_prop; prop_term] })
+          node_props
+      in
+
+      (* Add node instance as subsystem *)
       let subsystems =
         add_subsystem
           trans_sys
@@ -935,7 +966,10 @@ let rec constraints_of_node_calls
         tl
 
 
+(* Add constraints from assertions to initial state constraint and
+   transition relation *)
 let rec constraints_of_asserts
+    instance
     init_terms
     trans_terms = 
 
@@ -951,11 +985,13 @@ let rec constraints_of_asserts
        (* Term for assertion in initial state *)
        let init_term =
          E.base_term_of_expr TransSys.init_base expr_init
+         |> convert_select instance
        in 
 
        (* Term for assertion in step state *)
        let trans_term =
          E.cur_term_of_expr TransSys.trans_base expr_step
+         |> convert_select instance
        in 
 
        (* Add constraint unless it is true *)
@@ -975,7 +1011,7 @@ let rec constraints_of_asserts
        in
 
       (* Continue with next assertions *)
-      constraints_of_asserts init_terms trans_terms tl
+      constraints_of_asserts instance init_terms trans_terms tl
       
 
 (* Add constraints from equations to initial state constraint and
@@ -1011,6 +1047,8 @@ let rec constraints_of_equations
              (* Equation for transition relation on variable *)
              [E.cur_term_of_state_var TransSys.trans_base state_var; 
               E.cur_term_of_expr TransSys.trans_base expr_step])
+
+        |> convert_select instance
 
       in
 
@@ -1053,6 +1091,8 @@ let rec constraints_of_equations
               (E.pre_var_of_state_var TransSys.trans_base state_var, 
                E.pre_term_of_expr TransSys.trans_base expr_step)])
 
+        |> convert_select instance
+
       in
 
       (* Start with singleton lists of let-bound terms *)
@@ -1070,7 +1110,10 @@ let rec constraints_of_equations
       let index_var_of_int i = 
         E.mk_index_var i
         |> E.state_var_of_expr
-        |> Var.mk_const_state_var
+        |> (fun sv ->
+            Var.mk_state_var_instance
+              sv
+              (if init then TransSys.init_base else TransSys.trans_base))
       in
 
       (* Add quantifier or let binding for indexes of variable *)
@@ -1079,7 +1122,7 @@ let rec constraints_of_equations
         (* Fixed index [e] *)
         | N.Fixed e -> 
 
-          (* let bind index variable to value [e] *)
+          (* Let bind index variable to value [e] *)
           fun (a, i) ->
             (Term.mk_let 
                [index_var_of_int i,
@@ -1089,12 +1132,14 @@ let rec constraints_of_equations
 
         (* Variable index of size [e] *)
         | N.Bound e -> 
+
+          (* Quantify over index variable between zero and upper bound *)
           fun (a, i) -> 
 
             (* Index variable *)
             let v = index_var_of_int i in
 
-            (* Qunatify over index variable between 0 and [e] *)
+            (* Quantify over index variable between 0 and [e] *)
             (Term.mk_forall
                [v]
                (Term.mk_implies 
@@ -1117,8 +1162,8 @@ let rec constraints_of_equations
                (fun (a, i) _ -> 
                   (index_var_of_int i
                    |> Term.mk_var) :: a,
-                  succ i)
-               ([], 0)
+                  pred i)
+               ([], List.length bounds |> pred)
                bounds 
              |> fst))
       in
@@ -1147,7 +1192,7 @@ let rec constraints_of_equations
         List.fold_right
           add_bounds
           bounds
-          (eq, List.length bounds)
+          (eq, List.length bounds |> pred)
       in
 
       (* Add definition and continue *)
@@ -1220,7 +1265,10 @@ let rec trans_sys_of_node'
 
         in
 
-        (* Index for fresh state variables *)
+        (* Scope of node name *)
+        let scope = [I.string_of_ident false node_name] in
+
+        (* Index for fresh state variables in this node *)
         let index_ref = ref 0 in
 
         (* Create a fresh state variable *)
@@ -1245,7 +1293,11 @@ let rec trans_sys_of_node'
         in
 
         (* Subnodes for which we have not created a transition
-           system *)
+           system
+
+           Collect only the nodes to add here, thus we can eliminate
+           duplicates from tl'. A node may need to appear in both tl'
+           and tl. *)
         let tl' = 
 
           List.fold_left 
@@ -1255,7 +1307,7 @@ let rec trans_sys_of_node'
                  (* Transition system for node created? *)
                  I.Map.mem call_node_name trans_sys_defs || 
 
-                 (* Node already pushed to stack? *)
+                 (* Node already pushed to stack before this node? *)
                  List.exists (I.equal call_node_name) accum
 
                then 
@@ -1273,8 +1325,8 @@ let rec trans_sys_of_node'
 
         in
 
-        (* Are there subnodes for which a transition system needs to be
-           created first? *)
+        (* Are there subnodes for which a transition system needs to
+           be created first? *)
         match tl' with
 
           (* Some transitions systems of called nodes have not been
@@ -1282,8 +1334,8 @@ let rec trans_sys_of_node'
           | _ :: _ -> 
 
             (* We could check here that the call graph does not have
-               cycles, although that should not be allowed in
-               the Lustre currently accepted. *)
+               cycles, although that should not be allowed as long as
+               we don't accept recursive calls in Lustre. *)
 
             (* Recurse to create transition system for called nodes,
                then return to this node *)
@@ -1299,53 +1351,74 @@ let rec trans_sys_of_node'
              created *)
           | [] ->
 
-            (* Scope of node name *)
-            let scope = [I.string_of_ident false node_name] in
-
             (* Filter assumptions for this node's assumptions *)
             let node_assumptions = 
               A.assumptions_of_scope analysis_param scope
             in
 
-            (* Start without invariants and properties *)
-            let invariants, properties = [], [] in
+            (* Start without properties *)
+            let properties = [] in
+
+
+            (* ****************************************************** *)
+            (* Assertions from contracts and init flag                *)
+
+            (* Start without invariants for contracts *)
+            let contract_asserts = [] in
 
             (* Add requirements to invariants if node is the top node,
                otherwise add requirements as properties *)
-            let invariants, properties = 
-              if node_name = top_name then 
-                terms_of_req scope node @ invariants, properties 
+            let contract_asserts, properties = 
+              if I.equal node_name top_name then 
+                expr_of_req scope node @ contract_asserts, properties 
               else
-                invariants, props_of_req scope node @ properties 
+                contract_asserts, props_of_req scope node @ properties 
             in            
 
             (* Add enusres to invariants if node is abstract,
                otherwise add ensures as properties *)
-            let invariants, properties = 
+            let contract_asserts, properties = 
               if A.scope_is_abstract analysis_param scope then
-                terms_of_ens scope node @ invariants, properties 
+                expr_of_ens scope node @ contract_asserts, properties 
               else
-                invariants, props_of_ens scope node @ properties 
+                contract_asserts, props_of_ens scope node @ properties 
             in            
 
             (* Initial state constraint *)
             let init_terms = 
 
               (* Init flag is true on first tick of node *)
-              E.base_term_of_state_var TransSys.init_base init_flag :: []
+              E.base_term_of_state_var TransSys.init_base init_flag :: 
+
+              (* Add invariants from contracts as assertions *)
+              List.map
+                (E.base_term_of_t TransSys.init_base)
+                contract_asserts
 
             in
 
             (* Transition relation *)
             let trans_terms = 
 
-
               (* Init flag becomes and stays false at the second
                  tick *)
               (E.cur_term_of_state_var TransSys.trans_base init_flag
-               |> Term.negate) :: [] 
+               |> Term.negate) :: 
+
+              (* Add invariants from contracts as assertions *)
+              List.map
+                (E.cur_term_of_t TransSys.trans_base)
+                contract_asserts
 
             in
+
+
+            (* ****************************************************** *)
+            (* Node calls 
+
+               We must add node calls before equations so that local
+               variables can be let bound in
+               {!constraints_of_equations}.                           *)
 
             (* Instantiated state variables and constraints from node
                calls *)
@@ -1368,7 +1441,30 @@ let rec trans_sys_of_node'
                 calls 
             in
 
-            (* Stateful state variables in node, including state
+            (* Add lifted properties *)
+            let properties = properties @ lifted_props in
+
+            (* ****************************************************** *)
+            (* Assertions 
+
+               We must add contracts before equations so that local
+               variables can be let bound in
+               {!constraints_of_equations}.                           *)
+
+            (* Constraints from assertions *)
+            let init_terms, trans_terms = 
+              constraints_of_asserts  
+                instance
+                init_terms
+                trans_terms
+                asserts
+            in
+
+
+            (* ****************************************************** *)
+            (* Equations                                              *)
+
+            (* Stateful variables in node, including state
                variables for node instance, first tick flag, and state
                variables capturing outputs of node calls *)
             let stateful_vars = 
@@ -1376,38 +1472,6 @@ let rec trans_sys_of_node'
               (N.stateful_vars_of_node node 
                |> SVS.elements)
               @ lifted_locals
-            in
-
-            (* State variables in the signature of the predicate in
-               the correct order *)
-            let signature_state_vars = 
-              init_flag ::
-              (D.values inputs) @ 
-              oracles @
-              (D.values outputs) 
-            in
-
-            (* Append local stateful variables *)
-            let signature_state_vars = 
-              signature_state_vars @
-              List.filter
-                (fun sv -> 
-                   not
-                     (List.exists
-                        (fun sv' -> StateVar.equal_state_vars sv sv')
-                        signature_state_vars))
-                stateful_vars
-            in
-
-            (* Constraints from assertions
-
-               Must add assertions and contract first so that local variables
-               can be let bound in constraints_of_equations *)
-            let init_terms, trans_terms = 
-              constraints_of_asserts  
-                init_terms
-                trans_terms
-                asserts
             in
 
             (* Order initial state equations by dependency and
@@ -1427,6 +1491,7 @@ let rec trans_sys_of_node'
                    (List.rev e),
 
                  d)
+
             in
 
             (* Order transition relation equations by dependency and
@@ -1446,6 +1511,126 @@ let rec trans_sys_of_node'
                    (List.rev e),
 
                  d)
+
+            in
+
+
+            (* ****************************************************** *)
+            (* Properties                                         
+
+               We can only add properties after node calls, because
+               properties may have been lifted from calls.            *)
+
+            (* Create properties from annotations *)
+            let properties = 
+
+              (* Property status is unknown *)
+              let prop_status = P.PropUnknown in
+
+              (* Iterate over each property annotation *)
+              List.map
+                (fun (state_var, prop_name, prop_source) -> 
+
+                   (* Property is just the state variable *)
+                   let prop_term =
+                     E.cur_term_of_state_var
+                       TransSys.prop_base
+                       state_var
+                   in
+
+                     { P.prop_name; 
+                       P.prop_source; 
+                       P.prop_term;
+                       P.prop_status })
+
+                props
+                
+              (* Add to existing properties *)
+              @ properties 
+
+            in
+
+            (* ****************************************************** *)
+            (* Turn assumed properties into assertions                *)
+
+            (* Make assumed properties assertions *)
+            let init_terms, trans_terms, properties = 
+
+              (* Iterate over each property annotation *)
+              List.fold_left
+                (fun 
+                  (init_terms, trans_terms, properties)
+                  ({ P.prop_name; 
+                     P.prop_source; 
+                     P.prop_term;
+                     P.prop_status } as p) -> 
+
+                  if 
+
+                    (* Property is assumed invariant? *)
+                    List.exists (Term.equal prop_term) node_assumptions
+
+                  then
+
+                    (* Bump term to offset of initial state constraint *)
+                    let prop_term_init = 
+                      Term.bump_state
+                        Numeral.(TransSys.init_base - TransSys.prop_base)
+                        prop_term
+                    in
+
+                    (* Bump term to offset of transition relation *)
+                    let prop_term_trans = 
+                      Term.bump_state
+                        Numeral.(TransSys.trans_base - TransSys.prop_base)
+                        prop_term
+                    in
+
+                    (* Add property as assertion *)
+                    (prop_term_init :: init_terms,
+                     prop_term_trans :: trans_terms,
+                     properties)
+
+                  else
+
+                    (* Add to properties *)
+                    (init_terms,
+                     trans_terms,
+                     p :: properties))
+
+                (init_terms, trans_terms, [])
+
+                properties
+
+            in
+
+            (* ****************************************************** *)
+            (* Signatures of predicates                               *)
+
+            (* State variables that are inputs, outputs or oracles and
+               thus have instances in each caller *)
+            let signature_state_vars = 
+              (D.values inputs) @ 
+              oracles @
+              (D.values outputs)
+            in
+
+            (* Stateful variables that are not inputs, outputs or
+               oracles, and must be instantiated in each caller *)
+            let stateful_locals =
+              List.filter
+                (fun sv -> 
+                   not
+                     (List.exists
+                        (fun sv' -> StateVar.equal_state_vars sv sv')
+                        signature_state_vars))
+                stateful_vars
+            in
+
+            (* State variables in the signature of the initial state
+               constraint in correct order *)
+            let signature_state_vars = 
+              signature_state_vars @ stateful_locals
             in
 
             (* Arrays become global state variables and are removed
@@ -1464,170 +1649,10 @@ let rec trans_sys_of_node'
                 instance :: signature_state_vars, Some instance 
             in
 
-            (* All property annotations and lifted properties from
-               subnodes *)
-            let props_annot = 
-
-              (* Iterate over each property annotation and lifted
-                 property *)
+            (* Formal parameters of initial state constraint *)
+            let init_formals = 
               List.map
-                (fun (state_var, prop_name, prop_source) -> 
-
-                   (* Property is just the state variable *)
-                   let prop_term =
-                     E.cur_term_of_state_var
-                       TransSys.trans_base
-                       state_var
-                   in
-
-                   (* Property status is unknown *)
-                   let prop_status = P.PropUnknown in
-
-                   { P.prop_name; 
-                     P.prop_source; 
-                     P.prop_term;
-                     P.prop_status })
-
-                props
-
-            in
-(*
-            (* Properties from global contracts *)
-            let props_global_contracts = 
-
-              (* Iterate over each contract *)
-              List.fold_left
-                (fun accum { N.contract_name; N.contract_pos; N.contract_enss } ->
-
-                   (* Iterate over each ensures of the contract *)
-                   List.mapi 
-                     (fun i state_var -> 
-
-                        (* Index name of contract with count of
-                           ensures clause *)
-                        let prop_name  = 
-                          Format.asprintf
-                            "%a_%d" 
-                            (I.pp_print_ident false) contract_name
-                            i
-                        in
-
-                        (* Property is from a global contract *)
-                        let prop_source = 
-                          P.ContractGlobalEnsure
-                            (contract_pos, [I.string_of_ident false contract_name])
-                        in
-
-                        (* Property is just the state variable *)
-                        let prop_term = 
-                          E.cur_term_of_state_var
-                            TransSys.trans_base
-                            state_var
-                        in
-
-                        (* Property status is unknown *)
-                        let prop_status = P.PropUnknown in
-
-                        { P.prop_name; 
-                          P.prop_source;
-                          P.prop_term; 
-                          P.prop_status })
-                     contract_enss
-
-                   @ accum)
-                []
-                global_contracts
-            in
-
-            (* Properties from mode contracts *)
-            let props_mode_contracts = 
-
-              (* Iterate over each contract *)
-              List.fold_left
-                (fun 
-                  accum
-                  { N.contract_name; 
-                    N.contract_pos; 
-                    N.contract_req; 
-                    N.contract_enss } ->
-
-                  (* Iterate over each ensures of the contract *)
-                  List.mapi 
-                    (fun i state_var -> 
-
-                       (* Index name of contract with count of
-                          ensures clause *)
-                       let prop_name =
-                         Format.asprintf "%a_%d" 
-                           (I.pp_print_ident false) contract_name 
-                           i
-                       in
-
-                       (* Property is from a mode contract *)
-                       let prop_source = 
-                         P.ContractModeEnsures
-                           (contract_pos, [I.string_of_ident false contract_name])
-                       in
-
-                       (* Property is implication between conjunction
-                          of requires and state variable of ensures *)
-                       let prop_term = 
-                         Term.mk_implies
-                           [E.cur_term_of_state_var
-                              TransSys.trans_base 
-                              contract_req;
-                            E.cur_term_of_state_var
-                              TransSys.trans_base
-                              state_var]
-                       in
-
-                       (* Property status is unknown *)
-                       let prop_status = P.PropUnknown in
-
-                       { P.prop_name;
-                         P.prop_source;
-                         P.prop_term;
-                         P.prop_status })
-                    contract_enss
-
-                  @ accum)
-
-                []
-                mode_contracts
-            in
-*)
-
-            (* Partition properties from contracts into those to be
-               assumed invariant and those to be proved *)
-            let invariants, properties =
-              props_annot @ lifted_props @ properties
-              |> add_to_invariants_or_properties node_assumptions [] [] 
-            in
-
-
-            (* Create transition system *)
-            let trans_sys, _ = 
-              TransSys.mk_trans_sys 
-                [I.string_of_ident false node_name]
-                instance_state_var
-                global_state_vars
-                (signature_state_vars @ global_state_vars)
-                (Term.mk_and init_terms)
-                (Term.mk_and trans_terms)
-                subsystems
-                properties
-                invariants (* One-state invariants *)
-                [] (* Two-state invariants *)
-            in                
-
-            Format.printf 
-              "%a@."
-              TransSys.pp_print_trans_sys trans_sys;
-
-            (* Create instances of state variables in signature *)
-            let init_signature_vars = 
-              List.map 
-                (fun sv ->
+                (fun sv -> 
                    Var.mk_state_var_instance sv TransSys.init_base)
                 signature_state_vars
             in
@@ -1640,12 +1665,12 @@ let rec trans_sys_of_node'
                    "%s_%a"
                    I.init_uf_string
                    (LustreIdent.pp_print_ident false) node_name)
-                (List.map Var.type_of_var init_signature_vars)
+                (List.map Var.type_of_var init_formals)
                 Type.t_bool
             in
 
             (* Create instances of state variables in signature *)
-            let trans_signature_vars = 
+            let trans_formals = 
 
               (* All state variables at the current instant *)
               List.map 
@@ -1673,9 +1698,31 @@ let rec trans_sys_of_node'
                    "%s_%a"
                    I.trans_uf_string
                    (LustreIdent.pp_print_ident false) node_name)
-                (List.map Var.type_of_var trans_signature_vars)
+                (List.map Var.type_of_var trans_formals)
                 Type.t_bool
             in
+
+            (* ****************************************************** *)
+            (* Create transition system                               *)
+
+            (* Create transition system *)
+            let trans_sys, _ = 
+              TransSys.mk_trans_sys 
+                [I.string_of_ident false node_name]
+                instance_state_var
+                global_state_vars
+                (signature_state_vars @ global_state_vars)
+                init_uf_symbol
+                init_formals
+                (Term.mk_and init_terms)
+                trans_uf_symbol
+                trans_formals
+                (Term.mk_and trans_terms)
+                subsystems
+                properties
+                [] (* One-state invariants *)
+                [] (* Two-state invariants *)
+            in                
 
             trans_sys_of_node'
               top_name
@@ -1686,8 +1733,8 @@ let rec trans_sys_of_node'
                    trans_sys;
                    init_uf_symbol;
                    trans_uf_symbol;
-                   stateful_vars;
-                   lifted_props }
+                   stateful_locals;
+                   properties }
                  trans_sys_defs)
               ((node_name, 
                 (node_output_input_dep_init, node_output_input_dep_trans))
@@ -1769,79 +1816,6 @@ let test () =
 test ()
 
 
-
-
-
-(*
-
-let trans_sys_of_nodes nodes { A.top; A.abstraction_map; A.assumptions } = 
-
-  (* Find top node in LustreNode.t SubSystem.t, then slice to
-     abstraction map *)
-
-
-
-
-
-
-        (* Is node abstract? *)
-        let is_abstr = 
-
-          try 
-
-            (* Find abstraction flag for node in map *)
-            List.assoc node_name abst_impl_map
-
-          (* Default to implementation *)
-          with Not_found -> false
-
-        in
-
-        (* Node to create a transition system for, sliced to
-           abstraction or to implementation *)
-        let { N.instance;
-              N.init_flag; 
-              N.inputs; 
-              N.oracles; 
-              N.outputs; 
-              N.locals; 
-              N.equations; 
-              N.calls; 
-              N.asserts; 
-              N.props;
-              N.contracts } as node = 
-
-          try 
-
-            (* Find node in abstract or implementation nodes by name *)
-            N.node_of_name
-              node_name
-              (if is_abstr then nodes_abst else node_impl)
-
-          (* Fall back to implementation if no abstraction for node
-             exists *)
-          with Not_found -> 
-
-            try 
-
-              (* Find node in implementation nodes by name *)
-              N.node_of_name node_name node_impl
-
-            with Not_found -> 
-
-              (* Must have at least implementation of node *)
-              raise
-                (Invalid_argument
-                   (Format.asprintf 
-                      "trans_sys_of_node: node %a not found"
-                      (I.pp_print_ident false) node_name))
-
-        in
-
-
-  trans_sys_of_node' [] [] [] [] nodes [] [List.hd nodes |> fun { N.name } -> name]
-
-*)
 
 
 (* 

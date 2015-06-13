@@ -1104,7 +1104,7 @@ and eval_node_call ctx pos ident cond args defaults =
       (* Return tuple of state variables capturing outputs *)
       let res = 
         D.map
-          (fun sv -> E.mk_var sv E.base_clock)
+          (E.mk_var E.base_clock)
           call_outputs
       in
 
@@ -1148,7 +1148,7 @@ and eval_node_call ctx pos ident cond args defaults =
       (* Return tuple of state variables capturing outputs *)
       let res = 
         D.map
-          (fun sv -> E.mk_var sv E.base_clock)
+          (E.mk_var E.base_clock)
           output_state_vars
       in
 
@@ -1407,7 +1407,7 @@ let rec eval_ast_type ctx = function
     (* Add array bounds to type *)
     D.fold
       (fun j t a -> 
-         D.add (D.ArrayVarIndex array_size :: j) (Type.mk_array t Type.t_int) a)
+         D.add (j @ [D.ArrayVarIndex array_size]) (Type.mk_array t Type.t_int) a)
       element_type
       D.empty
 

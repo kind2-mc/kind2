@@ -42,13 +42,23 @@
 
     Fail with a parse error if a variable definition is cyclic, that
     is, the variable on the left-hand side of the equation occurs in
-    the definition of a variable on the right-hand side. For the
-    detection of cycles also consider definitions of called nodes by
-    using the map of outputs to their dependent inputs. If in the node
-    {[node N (i: t) returns (o: t)]} the output [o] depends on the
-    input [i], then the node call [N(x)] must not occur in the
+    the definition of a variable on the right-hand side. 
+
+    For the detection of cycles also consider definitions of called nodes
+    by using the map of outputs to their dependent inputs. If in the
+    node {[node N (i: t) returns (o: t)]} the output [o] depends on
+    the input [i], then the node call [N(x)] must not occur in the
     definition of [x]. If the output [o] does not depend on the input
     [i], [N(x)] may occur in the definition of [x].
+
+    Array typed variables are not considered in the cycle detection,
+    and this may lead to actual cycles not rejected. This is
+    difficult, because we would need to consider each occurrence of an
+    array typed variable together with its indexes. Then we would need
+    to compare indexes if a state variable occurs on a path with the
+    same index. A syntactic comparison would again miss some cycles,
+    and we would need to evaluate the indexes for a precise
+    comparison. This is probably too much effort for what it is worth.
 
     In particular, if a node is viewed as its contract only, the
     implemention is omitted and node calls never cause cycles in

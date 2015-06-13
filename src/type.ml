@@ -355,6 +355,13 @@ let index_type_of_array = function
   | { Hashcons.node = Array (_, i) } -> i
   | _ -> raise (Invalid_argument "index_type_of_array")
 
+(* Return all index types of nested array type *)
+let rec all_index_types_of_array' accum = function 
+  | { Hashcons.node = Array (e, i) } -> all_index_types_of_array' (i :: accum) e
+  | _ -> List.rev accum 
+
+let all_index_types_of_array = all_index_types_of_array' []
+
 (* Return type of array elements *)
 let elem_type_of_array = function 
   | { Hashcons.node = Array (e, _) } -> e

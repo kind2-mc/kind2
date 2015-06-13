@@ -16,30 +16,29 @@
 
  *)
 
-open Lib
+(** Minimally simplified Lustre abstract syntax tree
 
+    The types in this module closely represent the abstract syntax of
+    Lustre. No type checking or simplification is performed when
+    constructing the abstract syntax tree, this is done when producing
+    the intermediate Lustre representation in {!LustreDeclarations}. 
 
-(** Minimally simplified Lustre AST
+    Some types are reserved for future use and will cause the
+    translation to intermediate Lustre to fail.
 
-    A Lustre file is parsed into a list of declarations of
+    A Lustre file is parsed into a {!declaration} list, where a
+    declaration is either
 
-    - an alias type [type t = t'],
-    - a global constant [const c = v], or
-    - a node
+    - a type definition [type t = t'],
+    - a constant definition [const c = v], or
+    - a node declaration.
 
-    An alias type refers to a built-in type or to a previously
-    declared type. A constant declaration is typed or untyped. 
-
-    A node declaration consists of the signature of the node (inputs,
-    outputs, local variables and constants) and a list of equations. 
-
-    A node equation is an assignment to a variable, an assertion, a
-    property annotation, or a main annotation.
-
-    Additional types used are [expr] for an expression, [lustre_type]
-    for a type, and [ident = LustreIdent.t] for identifiers. 
+    Almost all types are annotated with the position in the input file
+    for better error reporting in the translation.
 
     @author Christoph Sticksel *)
+
+open Lib
 
 (** Error while parsing *)
 exception Parser_error
@@ -167,26 +166,26 @@ type node_equation =
   | AnnotMain 
   | AnnotProperty of position * expr
 
-(** A contract ghost constant. *)
+(** A contract ghost constant *)
 type contract_ghost_const = const_decl
 
-(** A contract ghost variable. *)
+(** A contract ghost variable *)
 type contract_ghost_var = const_decl
 
-(** A contract requirement. *)
+(** A contract requirement *)
 type contract_require = position * expr
 
-(** A contract ensure. *)
+(** A contract ensure *)
 type contract_ensure = position * expr
 
-(** Equations that can appear in a contract node. *)
+(** Equations that can appear in a contract node *)
 type contract_node_equation =
   | GhostEquation of position * ident * expr
   | Require of contract_require
   | Ensure of contract_ensure
 
 (** A contract for a node is either an inlined contract (defined in
-   the node itself), or a contract node call. *)
+   the node itself), or a contract node call *)
 type contract =
   | InlinedContract of position
                        * ident
@@ -195,7 +194,7 @@ type contract =
   | ContractCall of position * ident
 
 (** A contract specification for a node (if it has one) is either a
-    list of modes or a global contract and a list of modes. *)
+    list of modes or a global contract and a list of modes *)
 type contract_spec =
   contract_ghost_const list
   * contract_ghost_var list
@@ -210,7 +209,7 @@ type contract_spec =
     - the list of its outputs,
     - the list of its local constant and variable declarations,
     - its equations, assertions and annotiations, and
-    - its optional contract specification. *)
+    - its optional contract specification *)
 type node_decl =
   ident
   * node_param list
@@ -220,9 +219,10 @@ type node_decl =
   * node_equation list
   * contract_spec 
 
-(** A contract node declaration. Almost the same as a [node_decl] but
-    with a different type for equations, and no contract
-    specification. *)
+(** A contract node declaration
+
+    Almost the same as a [node_decl] but with a different type for
+    equations, and no contract specification *)
 type contract_node_decl =
   ident
   * node_param list
