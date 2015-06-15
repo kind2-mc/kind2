@@ -64,7 +64,7 @@ let shall_keep trans (s,_) =
 let split trans solver k falsifiable to_split actlits =
 
   (* Function to run if sat. *)
-  let if_sat () =
+  let if_sat _ =
 
     (* Get the full model *)
     let model = SMTSolver.get_model solver in
@@ -88,7 +88,7 @@ let split trans solver k falsifiable to_split actlits =
   in
 
   (* Function to run if unsat. *)
-  let if_unsat () =
+  let if_unsat _ =
     None
   in
 

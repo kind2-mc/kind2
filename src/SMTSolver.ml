@@ -53,8 +53,12 @@ type t =
     term_names : (int, expr) Hashtbl.t;
 
     (* Unique identifier for solver instance *)
-    id : int
+    id : int;
 
+    mutable next_assumption_id : int;
+
+    mutable last_assumptions : Term.t array;
+      
   }
 
 (* Raise an exception on error responses from the SMT solver *)
@@ -76,7 +80,10 @@ let fail_on_smt_error = function
 
   | _ -> () 
 
-
+(* Format for named literals in unsat core for check-sat with
+   assumptions *)
+let unsat_core_namespace = "c"
+    
 (* ******************************************************************** *)
 (* Creating and finalizing a solver instance                            *)
 (* ******************************************************************** *)
@@ -125,7 +132,9 @@ let create_instance
   { solver_kind = kind;
     solver_inst = fomodule;
     term_names = Hashtbl.create 19;
-    id = id }
+    id = id;
+    next_assumption_id = 0;
+    last_assumptions = [| |]; }
 
 
 (* Delete a solver instance *)
@@ -259,6 +268,11 @@ let prof_get_unsat_core s =
   let res = S.get_unsat_core () in
   Stat.record_time Stat.smt_get_unsat_core_time;
   res
+
+let trace_comment s c =
+  let module S = (val s.solver_inst) in
+  S.trace_comment c
+
 
 
 (* Check satisfiability of current context *)
@@ -569,26 +583,57 @@ let get_unsat_core_of_names s =
         
 (* Get unsat core of the current context *)
 let get_unsat_core_lits s =
-
+  let module S = (val s.solver_inst) in
+  
   match prof_get_unsat_core s with 
 
-  | `Error e -> 
-    raise 
-      (Failure ("SMT solver failed: " ^ e))
+    | `Error e -> 
+      raise 
+        (Failure ("SMT solver failed: " ^ e))
 
-  | `Unsat_core c -> 
+    | `Unsat_core c -> 
 
-    (* Convert strings to literals *)
-    List.fold_left  
-      (fun a s ->
-        try 
-          (Term.mk_uf 
-             (UfSymbol.uf_symbol_of_string s)
-             []) :: a
-        with Not_found -> assert false)
-      []
-      c
-  
+      (* If check-sat with assumptions is enabled, the names of core
+         assertions are the names of the assumption
+         literals. Otherwise, we have asserted the assumption literals
+         with names and need to retrieve literals by name. *)
+      if S.check_sat_assuming_supported () then
+        
+        (* Interpret name as atom *)
+        List.fold_left  
+          (fun a s ->
+            try 
+              (Term.mk_uf 
+                 (UfSymbol.uf_symbol_of_string s)
+                 []) :: a
+            with Not_found -> assert false)
+          []
+          c
+
+      else
+
+        (* Look up name assumption literal by name *)
+        List.fold_left
+          (fun a n ->
+            try
+
+              (* Get identifier from name *)
+              let i = Scanf.sscanf n "c%d" identity in
+
+              (* Get term of name 
+
+                 Terms are stored in the array with the highest
+                 identifier at index zero *)
+              let t = (s.last_assumptions).(s.next_assumption_id - i - 1) in
+
+              t :: a
+
+            (* Skip if name is not the name of an assumption literal *)
+            with Failure _ -> a)
+          []
+          c
+      
+      
 (* ******************************************************************** *)
 (* Higher level functions                                               *)
 (* ******************************************************************** *)
@@ -598,7 +643,8 @@ let get_unsat_core_lits s =
 let check_sat_assuming s if_sat if_unsat literals =
 
   let module S = (val s.solver_inst) in
-  
+
+  (* Does the solver suport check-sat with assumptions? *)
   if S.check_sat_assuming_supported () then
 
     (* Solver supports check-sat-assuming, let's do this. *)
@@ -628,7 +674,7 @@ let check_sat_assuming s if_sat if_unsat literals =
     in
     
     (* Executing user-provided functions. *)
-    if sat then if_sat () else if_unsat () 
+    if sat then if_sat s else if_unsat s 
       
   else
     
@@ -637,19 +683,79 @@ let check_sat_assuming s if_sat if_unsat literals =
 
     (* Pushing. *)
     let _ = push s in
+
+    (* Simulate by asserting each literals with a unique name, keep
+       associations from names to literals to return unsat core
+       later. Number each activation literal, keep reference with highest
+       index. To map back, take difference between highest number and
+       literal number as index into array. *)
+
+    (* Create array of assumption literals with the literal the gets
+       the highest indentifier at index zero *)
+    let names_array = List.rev literals |> Array.of_list in
+
+    (* Assert literals with unique name *)
+    let next_assumption_id' =
+      List.fold_left
+        (fun i l ->
+
+          (* Name literal in custom namespace *)
+          let l' =
+            Term.mk_named_unsafe l unsat_core_namespace i 
+          in
+
+          (* Assert named literal *)
+          assert_term s l';
+
+          (* Increment counter of literals *)
+          succ i)
+
+        s.next_assumption_id
+        literals
+
+    in
+
+    (* Update identifier for assumption literals for next check-sat *)
+    s.next_assumption_id <- next_assumption_id';
+
+    (* Save array of assumptions *)
+    s.last_assumptions <- names_array;
     
-    (* Asserting literals. *)
-    literals |> Term.mk_and |> assert_term s ;
-    
-    (* Performing check-sat. *)
+    (* Perform check-sat *)
     let sat = check_sat s in
     
-    (* Executing user-defined functions. *)
-    let res = if sat then if_sat () else if_unsat () in
+    (* Evaluate continuations *)
+    let res = if sat then if_sat s else if_unsat s in
 
+    (* Pop assumption literals from stack *)
     pop s;
-    
+
+    (* Return result of respective continuation *)
     res
+
+
+(* Alternative between type 'a and 'b *)
+type ('a, 'b) sat_or_unsat =
+  | Sat of 'a
+  | Unsat of 'b
+
+(* Check satisfiability under assumptions and return different results
+   in either case *)
+let check_sat_assuming_ab s if_sat if_unsat literals =
+  check_sat_assuming
+    s 
+    (fun s -> Sat (if_sat s))
+    (fun s -> Unsat (if_unsat s))
+    literals
+        
+(* Check satisfiability under assumptions and return [true] or [false] *)
+let check_sat_assuming_tf s literals =
+  check_sat_assuming
+    s
+    (fun _ -> true)
+    (fun _ -> false)
+    literals
+
     
 let execute_custom_command s cmd args num_res =
   let module S = (val s.solver_inst) in
@@ -672,10 +778,6 @@ let converter s =
 
 let kind s = s.solver_kind
 
-
-let trace_comment s c =
-  let module S = (val s.solver_inst) in
-  S.trace_comment c
 
 let get_interpolants solver args =
   let module S = (val solver.solver_inst) in
