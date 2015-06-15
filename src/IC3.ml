@@ -2508,16 +2508,7 @@ let extract_cex_path solver trans_sys trace =
                 Numeral.one
             in
 
-            (* Activation literal for state *)
-            let actlit_p0_state =
-              C.create_and_assert_fresh_actlit
-                solver
-                "cex_path"
-                state
-                C.Actlit_p0
-            in
-            
-            path', actlit_p0_state)
+            path', state)
 
           (fun _ -> ())
 
@@ -2528,7 +2519,16 @@ let extract_cex_path solver trans_sys trace =
           
         (* Recurse to continue path out of succeeding blocking
            clause *)
-        | SMTSolver.Sat (path', actlit_p0_state) -> 
+        | SMTSolver.Sat (path', state) -> 
+          
+            (* Activation literal for state *)
+          let actlit_p0_state =
+            C.create_and_assert_fresh_actlit
+              solver
+              "cex_path"
+              state
+              C.Actlit_p0
+          in
           
           extract_cex_path' path' actlit_p0_state tl
 
@@ -2962,7 +2962,7 @@ let main trans_sys =
   match Flags.smtsolver () with 
 
     (* CVC4 does not support check-sat-assume *)
-    | `CVC4_SMTLIB
+    (* | `CVC4_SMTLIB *)
 
     (* Yices with SMTLIB input does not work *)
     | `Yices_SMTLIB -> 

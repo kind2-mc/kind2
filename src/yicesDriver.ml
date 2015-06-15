@@ -36,7 +36,7 @@ let check_sat_limited_cmd ms =
 
 (* Indicates whether the solver supports the check-sat-assuming
    command. *)
-let check_sat_assuming_supported () = true
+let check_sat_assuming_supported () = Flags.smt_check_sat_assume ()
 
 
 let check_sat_assuming_cmd _ =
