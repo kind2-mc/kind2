@@ -19,7 +19,12 @@
 include GenericSMTLIBDriver
 
 (* Configuration for Z3 *)
-let cmd_line () = 
+let cmd_line 
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants = 
 
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.z3_bin () in

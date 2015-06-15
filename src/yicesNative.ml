@@ -1114,7 +1114,15 @@ let create_instance
   
   
   (* Get autoconfigured configuration *)
-  let solver_cmd  = YicesDriver.cmd_line () in
+  let solver_cmd  = 
+    YicesDriver.cmd_line
+      logic
+      produce_assignments
+      produce_proofs
+      produce_cores
+      false
+  in
+
   let config = { solver_cmd = solver_cmd; solver_arith_only = arith_only } in
   
   (* Name of executable is first argument 
