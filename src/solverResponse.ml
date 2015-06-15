@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -72,13 +72,11 @@ let rec pp_print_values ppf = function
 
   | (e, v) :: [] -> 
 
-    Format.pp_open_hvbox ppf 2;
-    Format.pp_print_string ppf "(";
-    Term.pp_print_term ppf e;
-    Format.pp_print_space ppf ();
-    Term.pp_print_term ppf v;
-    Format.pp_print_string ppf ")";
-    Format.pp_close_box ppf ()
+    Format.fprintf
+      ppf
+      "@[<hv 1>(%a@ %a)@]"
+      Term.pp_print_term e
+      Term.pp_print_term v
 
   | (e, v) :: tl -> 
 
@@ -93,23 +91,19 @@ let rec pp_print_model ppf = function
 
   | (f, Model.Term t) :: [] -> 
 
-    Format.pp_open_hvbox ppf 2;
-    Format.pp_print_string ppf "(";
-    UfSymbol.pp_print_uf_symbol ppf f;
-    Format.pp_print_space ppf ();
-    Term.pp_print_term ppf t;
-    Format.pp_print_string ppf ")";
-    Format.pp_close_box ppf ()
+    Format.fprintf
+      ppf
+      "@[<hv 1>(%a@ %a)@]"
+      UfSymbol.pp_print_uf_symbol f
+      Term.pp_print_term t
 
   | (f, Model.Lambda l) :: [] -> 
 
-    Format.pp_open_hvbox ppf 2;
-    Format.pp_print_string ppf "(";
-    UfSymbol.pp_print_uf_symbol ppf f;
-    Format.pp_print_space ppf ();
-    Term.pp_print_lambda ppf l;
-    Format.pp_print_string ppf ")";
-    Format.pp_close_box ppf ()
+    Format.fprintf
+      ppf
+      "@[<hv 1>(%a@ %a)@]"
+      UfSymbol.pp_print_uf_symbol f
+      Term.pp_print_lambda l
 
   | (e, v) :: tl -> 
 
@@ -138,20 +132,17 @@ let pp_print_response ppf = function
   | `Unknown -> Format.pp_print_string ppf "Unknown"
 
   | `Values v -> 
-    Format.pp_print_space ppf ();
-    Format.pp_open_hvbox ppf 1;
-    Format.pp_print_string ppf "(";
-    pp_print_values ppf v;
-    Format.pp_print_string ppf ")";
-    Format.pp_close_box ppf ()
-
+    Format.fprintf
+      ppf
+      "@[<hv 1>(%a)@]"
+      pp_print_values v
+ 
   | `Model m -> 
-    Format.pp_print_space ppf ();
-    Format.pp_open_hvbox ppf 1;
-    Format.pp_print_string ppf "(";
-    pp_print_model ppf m;
-    Format.pp_print_string ppf ")";
-    Format.pp_close_box ppf ()
+
+    Format.fprintf
+      ppf
+      "@[<hv 1>(%a)@]"
+      pp_print_model m
 
   | `Unsat_core c -> 
     Format.fprintf 

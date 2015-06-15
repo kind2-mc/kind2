@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -398,11 +398,21 @@ val pp_print_uf_def : Format.formatter -> pred_def -> unit
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
-(** Pretty-print the name of a transition system *)
-val pp_print_trans_sys_name : Format.formatter -> t -> unit
-
-(** Pretty-print a transition system *)
-val pp_print_trans_sys_contract_view : Format.formatter -> t -> unit
+(** Get the required logic for the SMT solver *)
+val get_logic : t -> TermLib.logic
+                       
+(** Instantiates a term for all (over)systems instantiating, possibly
+    more than once, the input system. *)
+val instantiate_term: t -> Term.t -> (t * Term.t list) list
+                                                       
+(** Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. Returns the
+   top system and the corresponding instantiated terms, paired with
+   the intermediary systems and term instantiations. Note that the
+   input system/term of the function will be in the result, either as
+   intermediary or top level. *)
+val instantiate_term_all_levels:
+  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
 (** Instantiates a term for the top system by going up the system
     hierarchy, for all instantiations of the input system. *)

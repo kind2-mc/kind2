@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -19,13 +19,7 @@
 open Lib
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel*)
-module Event = 
-struct
-  let get_module () = `Parser
-  let log _ = Format.printf
-end
-  
+
 (* ********************************************************************* *)
 (* Types                                                                 *)
 (* ********************************************************************* *)
@@ -191,15 +185,6 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
        (* Continue with next model assignment *)
        get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl)
-
-    | e :: _ -> 
-
-      (debug smtexpr
-          "get_model_response_of_sexpr: %a"
-          HStringSExpr.pp_print_sexpr e
-       in
-
-       invalid_arg "get_model_response_of_sexpr")
 
 
   (* Return a solver response to a get-value command as expression pairs *)
@@ -696,23 +681,78 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let reset_ppf ppf = 
       Format.fprintf ppf "@?";
       Format.pp_set_formatter_out_functions ppf fmt_out_fun;
-      Format.fprintf ppf "@.";
-      Format.fprintf ppf "@\n"
+      Format.fprintf ppf "@.@.";
     in
 
     let op, cl = comment_delims in
 
+    let out_newline () =
+      fmt_out_fun.Format.out_string " " 0 1;
+      fmt_out_fun.Format.out_string cl 0 (String.length cl);
+      fmt_out_fun.Format.out_string "\n" 0 1;
+      fmt_out_fun.Format.out_string op 0 (String.length op);
+      fmt_out_fun.Format.out_string " " 0 1
+    in
+
+    let out_flush n =
+      fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl); 
+      fmt_out_fun.Format.out_flush n
+    in
+
+
+    (* Apply [f] to each line in [s] starting at postion [p] for [n]
+       characters. Lines can be separated by any of "\n", "\r", "\n\r"
+       or "\r\n" *)
+    let rec iter_line f g s p i n =
+      
+      (* Terminate when no more characters left *)
+      if n = 0 then ()
+
+      (* Apply [f] at the end of the string *)
+      else if i >= n then f s p n else
+
+        (* Check next character, and following only if within range *)
+        match s.[p+i], (if i+1 < n then Some s.[p+i+1] else None) with
+            
+          (* Two character line break *)
+	  | '\n', Some '\r'  
+	  | '\r', Some '\n' ->
+            
+            (* Apply [f] to line, then [g], skip over line break and
+               continue *)
+            f s p i;
+            g ();
+            iter_line f g s (p+i+2) 0 (n-i-2)
+              
+          (* One character line break *)
+	  | '\n', _
+	  | '\r', _ ->
+
+            (* Apply [f] to line, skip over line break and continue *)
+            f s p i;
+            g ();
+            iter_line f g s (p+i+1) 0 (n-i-1)
+
+          (* Not a line break: continue *)
+	  | _, _ -> iter_line f g s p (i+1) n
+    in
+
+    let rec out_string s p n =
+      iter_line
+        fmt_out_fun.Format.out_string
+        out_newline
+        s
+        p
+        0
+        n
+    in
+    
     Format.pp_set_formatter_out_functions 
       ppf 
-      { fmt_out_fun with 
-        Format.out_newline = (fun () ->
-            fmt_out_fun.Format.out_string
-              (" "^cl^"\n"^op^" ")
-              0 (3 + String.length op + String.length cl ));
-        Format.out_flush = (fun n ->
-            fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl);
-            fmt_out_fun.Format.out_flush n
-          );
+      { fmt_out_fun with
+        Format.out_newline = out_newline;
+        Format.out_flush = out_flush;
+        Format.out_string = out_string;
       };
 
     reset_ppf
@@ -749,6 +789,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
+      ?(produce_interpolants=false)
       logic
       id =
 
@@ -808,20 +849,31 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         solver_trace_coms = ftrace_coms; }
     in
 
-    let header_logic = function
-      | `detect -> []
-      | _ -> [Format.sprintf "(set-logic %s)" (string_of_logic logic)]
-    in
+    let header_logic =
+      let s = string_of_logic logic in
+      if s = "" then []
+      else [Format.sprintf "(set-logic %s)" s] in
     
     let headers =
       "(set-option :print-success true)" ::
       (headers ()) @
       [ 
         (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
-        Format.sprintf "(set-option :produce-assignments %B)" produce_assignments;
-        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores
+        Format.sprintf
+          "(set-option :produce-assignments %B)" produce_assignments;
+        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores;
       ] @
-      (header_logic logic)
+      header_logic
+    in
+
+    (* Add interpolation option only if true *)
+    let headers = 
+      if produce_interpolants then
+        headers @ 
+        [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
+      else
+        
+        headers 
     in
 
     (* Print specific headers specifications *)

@@ -1,0 +1,19 @@
+node pass(x : int) returns (y : int);
+let
+  y = 0 -> pre x;
+tel;
+
+node main() returns ();
+var
+  count : int;
+  toggle : bool;
+  ok : bool;
+  slow_count : int;
+let
+  count = 3 -> 1 + pre count;
+  toggle = false -> not pre toggle;
+  slow_count = condact(toggle, pass(count), -1);
+
+  ok = slow_count <= 10;
+  --%PROPERTY ok;
+tel;

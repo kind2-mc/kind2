@@ -5,6 +5,9 @@
 
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
+LOCAL_REGRESSIONDIR=$(CURDIR)/tests/regression
+LOCAL_ALLDOCDIR=$(CURDIR)/doc
+LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
 
 package=@PACKAGE_NAME@
 version=@PACKAGE_VERSION@
@@ -57,7 +60,7 @@ lustre2kind:
 	mkdir -p $(LOCAL_DOCDIR)/include
 	cp -Rf src/doc/include/* $(LOCAL_DOCDIR)/include
 
-.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean 
+.PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test doc
 
 install: 
 	mkdir -p ${bindir}
@@ -66,13 +69,27 @@ install:
 	 done
 	if [ -n ${bin_suffix} ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
 
+test: all
+	./tests/run.sh $(LOCAL_REGRESSIONDIR) $(LOCAL_BINDIR)/kind2 "${ARGS}"
+
+doc:
+	make -C $(LOCAL_USRDOCDIR)
+	cp $(LOCAL_USRDOCDIR)/doc.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
+
+doc-sync:
+	make -C $(LOCAL_USRDOCDIR) update
+
+doc-clean:
+	make -C $(LOCAL_USRDOCDIR) clean
+
 clean-@PACKAGE_NAME@:
 	make -C src clean
 
 clean-ocamlczmq:
 	make -C ocamlczmq clean
+	rm -f $(LOCAL_ALLDOCDIR)/*.pdf
 
-clean: clean-@PACKAGE_NAME@ clean-ocamlczmq
+clean: clean-@PACKAGE_NAME@ clean-ocamlczmq doc-clean
 
 
 # Remake this Makefile if configuration has changed 

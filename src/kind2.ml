@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -31,7 +31,7 @@ module BMC = Base
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 
-(* module PDR = Dummy *)
+(* module IC3 = Dummy *)
 
 let children_pgid = ref 0
   
@@ -48,7 +48,7 @@ let trans_sys = ref None
 
 (* Main function of the process *)
 let main_of_process = function 
-  | `PDR -> PDR.main
+  | `IC3 -> IC3.main
   | `BMC -> BMC.main 
   | `IND -> Step.main
 
@@ -102,7 +102,7 @@ let main_of_process = function
 
 (* Cleanup function of the process *)
 let on_exit_of_process = function 
-  | `PDR -> PDR.on_exit
+  | `IC3 -> IC3.on_exit
   | `BMC -> BMC.on_exit 
   | `IND -> Step.on_exit
   | `INVGEN -> InvGenTS.on_exit  
@@ -115,7 +115,7 @@ let on_exit_of_process = function
 (*
 (* Messaging type of the process *)
 let init_messaging_of_process = function 
-  | `PDR -> Kind2Message.init_pdr
+  | `IC3 -> Kind2Message.init_ic3
   | `BMC -> Kind2Message.init_bmc
   | `IND -> Kind2Message.init_indStep
   | `INVGEN -> Kind2Message.init_invarGen 
@@ -124,7 +124,7 @@ let init_messaging_of_process = function
 
 
 let debug_ext_of_process = function 
-  | `PDR -> "pdr"
+  | `IC3 -> "ic3"
   | `BMC -> "bmc"
   | `IND -> "ind"
   | `INVGEN -> "invgenTS"
@@ -134,8 +134,42 @@ let debug_ext_of_process = function
   | `Parser -> "parser"
   | `Supervisor -> "super"
 
-(* Exit status if child terminated normally *)
-let status_ok = 0
+(* Exit status if timeout *)
+let status_timeout = 0
+(* Exit status if one property is falsifiable. *)
+let status_unsafe = 10
+(* Exit status if all properties are valid. *)
+let status_safe = 20
+
+(* Decides what the exit status is by looking at a transition system.
+
+   The exit status is
+   * 0 if some properties are unknown or k-true (timeout),
+   * 10 if some properties are falsifiable (unsafe),
+   * 20 if all properties are invariants (safe). *)
+let status_of_trans_sys sys =
+  (* Checking if some properties are unknown of falsifiable. *)
+  let unknown, falsifiable =
+    TransSys.get_prop_status_all sys
+    |> List.fold_left
+      ( fun (u,f) -> function
+        | (_, TransSys.PropUnknown)
+        | (_, TransSys.PropKTrue _) -> u+1,f
+        | (_, TransSys.PropFalse _) -> u,f+1
+        | _ -> u,f )
+      (0,0)
+    |> fun (u,f) -> u > 0, f > 0
+  in
+  (* Getting relevant exit code. *)
+  let exit_status =
+    if unknown then status_timeout
+    else
+      if falsifiable then status_unsafe
+      else status_safe
+  in
+  Format.printf "status of trans sys@." ;
+  (* Exit status. *)
+  exit_status
 
 (* Exit status if child caught a signal, the signal number is added to
    the value *)
@@ -144,15 +178,19 @@ let status_signal = 128
 (* Exit status if child raised an exception *)
 let status_error = 2
 
-(* Exit status if timed out *)
-let status_timeout = 3
-
 
 (* Return the status code from an exception *)
-let status_of_exn process = function
+let status_of_exn process trans_sys_opt =
+
+  let status_of_sys () = match trans_sys_opt with
+    | None -> status_timeout
+    | Some sys -> status_of_trans_sys sys
+  in
+
+  function
   
   (* Normal termination *)
-  | Exit -> status_ok
+  | Exit -> status_of_sys ()
 
   (* Termination message *)
   | Event.Terminate ->
@@ -162,7 +200,7 @@ let status_of_exn process = function
       Event.log L_info
         "Received termination message";
 
-      status_ok
+      status_of_sys ()
 
     ) 
 
@@ -174,7 +212,7 @@ let status_of_exn process = function
       Event.log L_error 
         "<Timeout> Wallclock timeout";
 
-      status_timeout
+      status_of_sys ()
 
     ) 
 
@@ -186,7 +224,7 @@ let status_of_exn process = function
       Event.log L_error
         "<Timeout> CPU timeout"; 
 
-      status_timeout
+      status_of_sys ()
 
     ) 
     
@@ -229,7 +267,7 @@ let status_of_exn process = function
 
 
 (* Clean up before exit *)
-let on_exit process exn = 
+let on_exit process sys exn = 
 
 (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
@@ -297,11 +335,11 @@ let on_exit process exn =
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process exn in
+  let status = status_of_exn process sys exn in
 
   (* Clean exit from invariant manager *)
-  InvarManager.on_exit !trans_sys;
-  
+  InvarManager.on_exit sys;
+
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
@@ -368,7 +406,7 @@ let on_exit process exn =
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
 
       (* Get new exit status *)
-      let status' = status_of_exn process (Signal 0) in
+      let status' = status_of_exn process sys (Signal 0) in
 
       clean_exit status'
 
@@ -376,7 +414,7 @@ let on_exit process exn =
     | e -> 
 
       (* Get new exit status *)
-      let status' = status_of_exn process e in
+      let status' = status_of_exn process sys e in
 
       clean_exit status'
 
@@ -385,10 +423,10 @@ let on_exit process exn =
 
    Give the exception [exn] that was raised or [Exit] on normal
    termination *)
-let on_exit_child messaging_thread process exn = 
+let on_exit_child messaging_thread process sys_opt exn = 
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process exn in
+  let status = status_of_exn process sys_opt exn in
 
   (* Call cleanup of process *)
   (on_exit_of_process process) !trans_sys;
@@ -403,13 +441,13 @@ let on_exit_child messaging_thread process exn =
     | Some t -> Event.exit t
     | None -> ());
            
-  (debug kind2 
-    "Process %a terminating"
-    pp_print_kind_module process
-   in
+  ( debug kind2 
+      "Process %a terminating"
+      pp_print_kind_module process
+    in
 
-  (* Exit process with status *)
-  exit status)
+    (* Exit process with status *)
+    exit status )
 
 
 
@@ -441,7 +479,7 @@ let run_process messaging_setup process =
             Event.run_process 
               process
               messaging_setup
-              (on_exit_child None process)
+              (on_exit_child None process None)
           in
 
           (* All log messages are sent to the invariant manager now *)
@@ -455,7 +493,8 @@ let run_process messaging_setup process =
             Printexc.record_backtrace true;
 
           Event.log L_info 
-            "Starting new process with PID %d" 
+            "Starting new process %a with PID %d" 
+            pp_print_kind_module process
             pid;
 
           (
@@ -505,12 +544,12 @@ let run_process messaging_setup process =
           (main_of_process process) (get !trans_sys);
 
           (* Cleanup and exit *)
-          on_exit_child (Some messaging_thread) process Exit
+          on_exit_child (Some messaging_thread) process None Exit
 
         with 
 
           (* Termination message received *)
-          | Event.Terminate as e -> on_exit_child None process e
+          | Event.Terminate as e -> on_exit_child None process None e
 
           (* Catch all other exceptions *)
           | e -> 
@@ -526,7 +565,7 @@ let run_process messaging_setup process =
               Event.log L_debug "Backtrace:@\n%s" backtrace;
 
             (* Cleanup and exit *)
-            on_exit_child None process e
+            on_exit_child None process None e
 
       )
 
@@ -936,7 +975,7 @@ let main () =
           Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
           (* Cleanup before exiting process *)
-          on_exit_child None p Exit
+          on_exit_child None p (Some (get !trans_sys)) Exit
             
         )
         
@@ -973,14 +1012,14 @@ let main () =
             Event.run_im
               messaging_setup
               !child_pids
-              (on_exit `INVMAN)
+              (on_exit `INVMAN !trans_sys)
           in
 
           (* Run invariant manager *)
           InvarManager.main child_pids (get !trans_sys);
           
           (* Exit without error *)
-          on_exit `INVMAN Exit
+          on_exit `INVMAN !trans_sys Exit
         
         );
 
@@ -1002,13 +1041,13 @@ let main () =
         | [p] -> 
           
           (* Cleanup before exiting process *)
-          on_exit_child None p e
+          on_exit_child None p !trans_sys e
             
        
         (* Run some modules in parallel *)
         | _ -> 
         
-          on_exit `INVMAN e
+          on_exit `INVMAN !trans_sys e
             
       )
 

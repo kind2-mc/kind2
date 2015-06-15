@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -161,75 +161,75 @@ let import { Hashcons.node = s } = mk_hstring s
 (* String functions                                                      *)
 (* ********************************************************************* *)
 
-let length { Hashcons.node = n } = String.length n 
+let length { Hashcons.node = n } = Bytes.length n 
 
-let get { Hashcons.node = n } i = String.get n i
+let get { Hashcons.node = n } i = Bytes.get n i
 
 let set { Hashcons.node = n } i c = 
 
   (* Copy to a fresh string *)
-  let n' = String.copy n in 
+  let n' = Bytes.copy n in 
 
-  String.set n' i c;
+  Bytes.set n' i c;
   mk_hstring n' 
 
-let create i = mk_hstring (String.create i)
+let create i = mk_hstring (Bytes.create i)
 
-let make i c = mk_hstring (String.make i c)
+let make i c = mk_hstring (Bytes.make i c)
 
-let sub { Hashcons.node = n } i j = String.sub n i j
+let sub { Hashcons.node = n } i j = Bytes.sub n i j
 
 let fill { Hashcons.node = n } i j c = 
 
   (* Copy to a fresh string *)
-  let n' = String.copy n in 
+  let n' = Bytes.copy n in 
 
-  String.fill n' i j c;
+  Bytes.fill n' i j c;
   mk_hstring n'
 
 let blit { Hashcons.node = n } i { Hashcons.node = m } j k = 
 
   (* Copy to a fresh string *)
-  let n' = String.copy n in 
+  let n' = Bytes.copy n in 
   
-  String.blit n' i m j k;
+  Bytes.blit n' i m j k;
   mk_hstring n'
 
 let concat { Hashcons.node = n } l =
 
-  mk_hstring (String.concat n (List.map string_of_hstring l))
+  mk_hstring (Bytes.concat n (List.map string_of_hstring l))
 
-let iter f { Hashcons.node = n } = String.iter f n
+let iter f { Hashcons.node = n } = Bytes.iter f n
 
-let iteri f { Hashcons.node = n } = String.iteri f n
+let iteri f { Hashcons.node = n } = Bytes.iteri f n
 
-let map f { Hashcons.node = n } = mk_hstring (String.map f n)
+let map f { Hashcons.node = n } = mk_hstring (Bytes.map f n)
 
-let trim { Hashcons.node = n } = mk_hstring (String.trim n)
+let trim { Hashcons.node = n } = mk_hstring (Bytes.trim n)
 
-let escaped { Hashcons.node = n } = mk_hstring (String.escaped n)
+let escaped { Hashcons.node = n } = mk_hstring (Bytes.escaped n)
 
-let index { Hashcons.node = n } c = String.index n c
+let index { Hashcons.node = n } c = Bytes.index n c
 
-let rindex { Hashcons.node = n } c = String.rindex n c
+let rindex { Hashcons.node = n } c = Bytes.rindex n c
 
-let index_from { Hashcons.node = n } i c = String.index_from n i c
+let index_from { Hashcons.node = n } i c = Bytes.index_from n i c
 
-let rindex_from { Hashcons.node = n } i c = String.rindex_from n i c
+let rindex_from { Hashcons.node = n } i c = Bytes.rindex_from n i c
  
-let contains { Hashcons.node = n } c = String.contains n c
+let contains { Hashcons.node = n } c = Bytes.contains n c
 
-let contains_from { Hashcons.node = n } i c = String.contains_from n i c
+let contains_from { Hashcons.node = n } i c = Bytes.contains_from n i c
 
-let rcontains_from { Hashcons.node = n } i c = String.rcontains_from n i c
+let rcontains_from { Hashcons.node = n } i c = Bytes.rcontains_from n i c
 
-let uppercase { Hashcons.node = n } = mk_hstring (String.uppercase n)
+let uppercase { Hashcons.node = n } = mk_hstring (Bytes.uppercase n)
 
-let lowercase { Hashcons.node = n } = mk_hstring (String.lowercase n)
+let lowercase { Hashcons.node = n } = mk_hstring (Bytes.lowercase n)
 
-let capitalize { Hashcons.node = n } = mk_hstring (String.capitalize n)
+let capitalize { Hashcons.node = n } = mk_hstring (Bytes.capitalize n)
 
-let uncapitalize { Hashcons.node = n } = mk_hstring (String.uncapitalize n)
+let uncapitalize { Hashcons.node = n } = mk_hstring (Bytes.uncapitalize n)
 
 
 (* 

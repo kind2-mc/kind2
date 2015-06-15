@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -46,8 +46,10 @@ val simplify_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Term.t -> Term.
 
 (** Simplify a term given an assignment to variables
 
-    
- *)
+    The optional parameter [default_of_var] may be a function that
+    assigns a default value per variable, for example, to smooth a
+    partially defined model. The defaults for variables must not be
+    circular, otherwise the simplification will cycle. *)
 val simplify_term_model : ?default_of_var:(Var.t -> Term.t) -> (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Term.t -> Term.t
 
 (* 

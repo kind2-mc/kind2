@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,7 +16,7 @@
 
 *)
 
-(** Trie over 
+(** Trie over lists of values
 
     Tries in this implementation contain data at the leaves only. An
     inner node contains only the subtries for each key.
@@ -27,8 +27,9 @@
 
     @author Christoph Sticksel*)
 
+(** Input signature of a map 
 
-(** Input signature of a map *)
+    A trie exteds this signature *)
 module type M = sig
   type key
   type +'a t
@@ -62,22 +63,22 @@ end
 (** Output signature is an extended map *)
 module type S = sig
 
-  (** Type of keys in trie *)
+  (** Type of keys in the trie *)
   type key
 
-  (** Type of Trie *)
+  (** Type of the trie *)
   type +'a t
 
-  (** Empty trie *)
+  (** The empty trie *)
   val empty : 'a t
 
-  (** Return [true] if trie is empty *)
+  (** Return [true] if the trie is empty *)
   val is_empty : 'a t -> bool
 
   (** Return [true] if there is a value for the key in the trie *)
   val mem : key -> 'a t -> bool
 
-  (** Insert value for a key into the trie
+  (** Bind a value to the key in the trie
 
       Overwrite if the value if the leaf already exists, fail if the
       sequence of keys is a prefix of a previous sequence, or if a
@@ -105,10 +106,16 @@ module type S = sig
   (** Reduce trie to a value by applying the function to all values *)
   val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
 
+  (** Return [true] if the given predicate evaluates to [true] for all
+      key value pairs in the trie *)
   val for_all : (key -> 'a -> bool) -> 'a t -> bool
 
+  (** Return [true] if there is a key value pair in the trie for which
+      the given predicate evaluates to [true] *)
   val exists : (key -> 'a -> bool) -> 'a t -> bool
 
+  (** Return a trie that only contains the key value pairs that
+      satisfy the predicate *)
   val filter: (key -> 'a -> bool) -> 'a t -> 'a t
 
   (** Return the number of bindings in the trie *)
@@ -134,7 +141,7 @@ module type S = sig
       
   (** Return a new trie with the function applied to the values 
 
-      Give the key as first argument to the function. *)
+      The key is given as the first argument to the function. *)
   val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
 
   (** Return the subtrie starting at the given key prefix *)
@@ -200,7 +207,14 @@ module type S = sig
       [k] are sorted and do not contain duplicates. It returns a new
       trie with all entries for keys that are subsets of [k]
       removed. *)
-  val subsume : 'a t -> key -> 'a t
+  val subsume : 'a t -> key -> (key * 'a) list * 'a t
+
+  (** Return [true] if there is a key in the trie such that all
+      elements of that key are in the given key. 
+  
+      [is_subsumed t k] assumes that all keys in the trie [t], and the key
+      [k] are sorted and do not contain duplicates.*)
+  val is_subsumed : 'a t -> key -> bool
     
 end
 

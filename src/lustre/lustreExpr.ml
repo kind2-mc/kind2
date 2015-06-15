@@ -1,6 +1,6 @@
-(* This file is part of the Kind 2 model checker.
+xk(* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -1944,6 +1944,14 @@ let mk_pre
                  base_offset)  -> 
       
       (Term.bump_state Numeral.(- one) t, ctx)
+
+    (* Expression is a variable at the current instant *)
+    | t when 
+        Term.is_free_var t && 
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
+                 base_offset)  -> 
+      
+      (Term.bump_state Numeral.(- one) t, new_vars)
 
     (* Expression is not constant and not a variable at the current
        instant *)

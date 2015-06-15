@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -1074,10 +1074,20 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
         (* Free variable without assignment in model *)
         | exception Not_found -> 
-        
-          Term.eval_t
-            (simplify_term_node default_of_var uf_defs model)
-            (default_of_var v)
+       
+          (* Term obtained by evaluating variable to itself *)
+          let t = Term.mk_var v in
+
+          (* Term obtained by evaluating variable to its default *)
+          let t' = default_of_var v in
+
+          (* Break cycle if the the variable is its own default *)
+          if Term.equal t t' then atom_of_term t else
+
+            (* Evaluate default value of variable *)
+            Term.eval_t
+              (simplify_term_node default_of_var uf_defs model)
+              t'
 
       )
                    

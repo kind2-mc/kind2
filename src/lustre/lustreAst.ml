@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -709,6 +709,8 @@ let rec pp_print_struct_item ppf = function
       pp_print_ident e
       (pp_print_list pp_print_array_slice ",@ ") i
 
+  (* Not fully implemented *)
+  | IndexedIdent _ -> assert false
 
 let pp_print_array_def_index ppf ident =
 

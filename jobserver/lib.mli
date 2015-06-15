@@ -75,12 +75,16 @@ val generate_uid : unit -> string
    Try [/proc/loadavg] first (Linux), then execute [sysctl -n vm.loadavg] (Mac OS X) *)
 val get_loadavg : unit -> float * float * float 
 
-val load1_max : float
+val load1_max : float ref
 
-val load5_max : float
+val load5_max : float ref
 
-val load15_max : float
+val load15_max : float ref
 
-val job_purge_time : float 
+val job_purge_time : float ref
 
 val jobs_dir : string
+
+val options_of_xml : Simplexmlparser.xml list -> unit
+
+val pp_print_xml : Format.formatter -> Simplexmlparser.xml -> unit

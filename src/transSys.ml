@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -572,6 +572,18 @@ type t = {
   (* Transition predicate of the system. *)
   trans: pred_def ;
 
+  (* The subsystems of this system. *)
+  subsystems: t list ;
+
+  (* Properties of the transition system to prove invariant *)
+  properties : property list; 
+
+  (* The source which produced this system. *)
+  source: source ;
+
+  (* The logic fragment in which is expressed the system and its properties. *)
+  logic: TermLib.logic;
+  
   (* Invariants *)
   mutable invars: Term.t list;
 
@@ -626,8 +638,8 @@ let add_caller callee caller c =
   let rec add_caller' accum = function
     | [] ->  (caller, [c]) :: accum
     | (caller', c') :: tl when 
-           caller'.scope = caller.scope ->
-       (caller', (c :: c')) :: accum @ tl
+        caller'.scope = caller.scope ->
+      ((caller', (c :: c')) :: accum) @ tl
     | h :: tl -> add_caller' (h :: accum) tl 
   in
 
@@ -697,30 +709,44 @@ let get_source_name t =
     | [] -> get_name t
   in
 
-  match t.source with
-  | Lustre list -> loop list
-  | Native -> get_name t
+  callers
+  |> List.map
+       ( fun (sys, maps) ->
 
-(* Returns all the subsystems of a transition system, including that
-   system, by reverse topological order. *)
-let get_all_subsystems sys =
+         (* Building one new term per instantiation mapping for
+            sys. *)
+         let terms =
+           maps
+           |> List.map
+               (* For each map of this over-system, substitute the
+                  variables of term according to map. *)
+               ( fun (map,f) ->
+                 Term.map
+                   (substitute_fun_of_map map)
+                   term
+                 |> f )
+         in
 
-  let insert_subsystem ({ subsystems } as sys) list =
-    let rec loop rev_prefix = function
-      | sys' :: _
-           when sys == sys' ->
-         (* [sys] is already in the list, nothing to do. *)
-         list
-      | ({ subsystems = subsystems' } as sys') :: tail ->
-         if List.memq sys subsystems' then
-           (* [sys] is a subsystem of [sys'], inserting here. *)
-           sys :: sys' :: tail |> List.rev_append rev_prefix
-         else
-           (* No relation between [sys] and [sys'], looping. *)
-           loop (sys' :: rev_prefix) tail
-      | [] -> sys :: rev_prefix |> List.rev
-    in
-    loop [] list
+         sys, terms )
+
+(* Inserts a system / terms pair in an associative list from systems
+   to terms.  Updates the biding by the old terms and the new ones if
+   it's already there, adds a new biding otherwise. *)
+let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
+
+  let rec loop prefix = function
+      
+    | (sys',terms') :: tail when sys == sys' ->
+       (* Updating the binding and returning. *)
+       List.rev_append
+         prefix
+         ( (sys, List.rev_append terms terms') :: tail )
+
+    (* Looping. *)
+    | head :: tail -> loop (head :: prefix) tail
+
+    (* 'sys' was not there, adding the biding. *)
+    | [] -> pair :: assoc_list
   in
 
   let rec iterate_over_subsystems ({subsystems} as sys) continuation result =
@@ -729,7 +755,56 @@ let get_all_subsystems sys =
 
   and continue subsystems continuation result =
 
-    match subsystems with
+(* Returns true iff the input system has no parent systems. *)
+let is_top { callers } = callers = []
+
+
+(* Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. Returns the
+   top system and the corresponding terms, paired with the
+   intermediary systems and terms. Note that the input system term of
+   the function will be in the result, either as intermediary or top
+   level. *)
+let instantiate_term_all_levels t term =
+
+  let rec loop at_top intermediary = function
+    | (sys, (term :: term_tail)) :: tail ->
+
+      debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
+
+       (* Instantiating this term upward. *)
+       let at_top', intermediary', recursive' =
+         instantiate_term sys term
+         |> List.fold_left
+              ( fun (at_top'', intermediary'', recursive'')
+                    ((sys',_) as pair) ->
+
+                      debug transSys "[loop] inst sys: %s" (sys'.scope |> String.concat "/") in
+
+                if is_top sys' then
+                  (* Top system, no need to recurse on these terms. *)
+                  insert_in_sys_term_map at_top'' pair,
+                  intermediary'',
+                  recursive''
+                else
+                  (* Not the top system, need to memorize the terms
+                     for the result and for recursion. *)
+                  at_top'',
+                  insert_in_sys_term_map intermediary'' pair,
+                  insert_in_sys_term_map recursive'' pair )
+
+              (at_top, intermediary, ((sys,term_tail) :: tail))
+       in
+
+       (* Making sure there at most one top system. *)
+       assert (List.length at_top' <= 1) ;
+
+       loop at_top' intermediary' recursive'
+
+    (* No more terms for this system, looping. *)
+    | (sys, []) :: tail -> loop at_top intermediary tail
+
+    (* No more terms to instantiate. *)
     | [] ->
 
        (* No subsystems, let's look at the continuation. *)
@@ -968,15 +1043,16 @@ let mk_trans_sys
     | [] -> result
   in
 
-  let properties =
-    props
-    |> List.map
-         (fun (n, s, t) -> 
-          { prop_name = n;
-            prop_source = s; 
-            prop_term = t; 
-            prop_status = PropUnknown })
+(* FIXME: Why is this unused?
+
+  (* Looks in the subsystems for one such that 'f' applied to the
+     subsys is uf. *)
+  let find_subsystem f uf =
+    List.find (fun subsys -> uf == f subsys) subsystems
   in
+*)
+
+(* FIXME: Why is this unused?
 
   (* let contract_prop name = *)
   (*   try *)
@@ -1098,6 +1174,7 @@ let mk_trans_sys
 
     loop abs_svars subsystems
   in
+*)
 
   (* find the logic of the transition system by goint through its terms and its
      subsystems *)
@@ -1823,7 +1900,42 @@ let uf_defs { uf_defs } =
    initial state and transition relation definitions sorted by
    topological order. *)
 let uf_defs_pairs { uf_defs } = uf_defs
+         
+  
 
+
+let pp_print_trans_sys 
+    ppf
+    ({ uf_defs;
+       state_vars;
+       properties;
+       invars;
+       source;
+       logic;
+       callers } as trans_sys) = 
+
+  Format.fprintf 
+    ppf
+    "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
+          %a@,\
+          @[<hv 2>(init@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(props@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(source@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(logic %a)@]@,\
+          @[<hv 2>(callers@ (@[<v>%a@]))@]@."
+    (pp_print_list pp_print_state_var "@ ") state_vars
+    (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
+    Term.pp_print_term (init_term trans_sys)
+    Term.pp_print_term (trans_term trans_sys)
+    (pp_print_list pp_print_property "@ ") properties
+    (pp_print_list Term.pp_print_term "@ ") invars
+    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    TermLib.pp_print_logic logic
+    (pp_print_list pp_print_callers "@,") callers
+      
+ 
 
 (* Return [true] if the uninterpreted symbol is an initial state constraint *)
 let is_init_uf_def { uf_defs } uf_symbol = 

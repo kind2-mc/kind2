@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -122,7 +122,7 @@ let choose_term (bool_terms, int_terms) =
     | h :: tl as terms -> 
 
       (* Heuristic to choose terms *)
-      match Flags.pdr_extract () with 
+      match Flags.ic3_extract () with 
 
         (* Always pick the first term *)
         | `First -> List.hd terms 
@@ -130,7 +130,8 @@ let choose_term (bool_terms, int_terms) =
         (* Pick the term with the fewest new integer variables *)
         | `Vars -> 
 
-          (debug extract
+          (
+           debug extract
               "choose_term candidates:@ @[<hv 1>[%a]@]"
               (pp_print_list Term.pp_print_term ";@ ") terms
            in
@@ -173,11 +174,13 @@ let choose_term (bool_terms, int_terms) =
               tl
           in
 
-          (debug extract
+          (
+
+           debug extract
               "choose_term picked@ %a"
               Term.pp_print_term term
            in
-           
+
            term))
 
 
@@ -196,6 +199,8 @@ let extract uf_defs env term =
 
   in
 
+  let visited = Term.TermHashtbl.create 7 in
+
   (* Extract active path from a term *)
   let rec extract_term ((bool, int) as accum) = function 
 
@@ -205,24 +210,38 @@ let extract uf_defs env term =
     (* Extract from top element on stack *)
     | (term, env, polarity) :: tl ->
 
-      debug extract 
-          "@[<v>extract_term:@ %a@ with polarity %B@]" 
-          Term.pp_print_term term
-          polarity
+      (* Get polarities visited for term *)
+      let polarities_visited =
+        try Term.TermHashtbl.find visited term with Not_found -> []
       in
+      
+      (* Have we seen the term with this polarity? *)
+      if List.mem polarity polarities_visited then 
 
-      (* Obtain new accumulator and new terms to extract *)
-      let accum', stack' = 
-        extract_term_flat accum polarity env (Term.T.destruct term) 
-      in
+        (* Terms to extract are in accumulator, skip *)
+        extract_term accum tl
 
-      (* Continue extracting with changed accumulator *)
-      extract_term accum' (List.rev_append stack' tl)
+      else
+
+        (* Obtain new accumulator and new terms to extract *)
+        let accum', stack' = 
+          extract_term_flat accum polarity env (Term.T.destruct term) 
+        in
+
+        (* Mark polarity of term as visited *)
+        Term.TermHashtbl.add 
+          visited 
+          term
+          (polarity :: polarities_visited);
+          
+        (* Continue extracting with changed accumulator *)
+        extract_term accum' (List.rev_append stack' tl)
+
 
   and extract_term_flat ((bool, int) as accum) polarity env = function 
 
     (* Constant *)
-    | Term.T.Const s as term -> 
+    | Term.T.Const s -> 
 
       (match Symbol.node_of_symbol s with
 
@@ -236,9 +255,11 @@ let extract uf_defs env term =
         (* Propositional constant true to be false *)
         | `TRUE -> 
 
-          (debug extract 
+          (
+
+           debug extract 
               "@[<hv 1>%a@]@ to be@ %B" 
-              Term.pp_print_term (Term.T.construct term)
+              Term.pp_print_term (Term.mk_const s)
               polarity
            in
 
@@ -249,9 +270,11 @@ let extract uf_defs env term =
         (* Propositional constant false to be true *)
         | `FALSE when polarity -> 
 
-          (debug extract 
+          (
+
+           debug extract 
               "@[<hv 1>%a@]@ to be@ %B" 
-              Term.pp_print_term (Term.T.construct term)
+              Term.pp_print_term (Term.mk_const s)
               polarity
            in
 
@@ -340,7 +363,9 @@ let extract uf_defs env term =
 
                   with Not_found -> 
 
-                    (debug extract 
+                    (
+
+                     debug extract 
                         "@[<hv 1>%a@]@ to be@ %B" 
                         Term.pp_print_term (Term.T.construct term)
                         polarity
@@ -422,7 +447,9 @@ let extract uf_defs env term =
 
               with Not_found -> 
 
-                (debug extract 
+                (
+
+                  debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
                     polarity
@@ -462,7 +489,9 @@ let extract uf_defs env term =
 
               with Not_found -> 
 
-                (debug extract 
+                (
+
+                 debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
                     polarity
@@ -549,7 +578,9 @@ let extract uf_defs env term =
         (* Equality *)
         | `EQ as s -> 
 
-          (debug extract 
+          (
+
+           debug extract 
               "@[<hv 1>%a@]@ %a to be@ %B" 
               Term.pp_print_term (Term.T.construct term)
               Type.pp_print_type (Term.type_of_term (Term.T.construct term))
@@ -825,7 +856,7 @@ let extract uf_defs env term =
                         Term.pp_print_term p
                         Term.pp_print_term (Term.construct fterm)
                     in
-                    
+
                     assert false
 
                 then 

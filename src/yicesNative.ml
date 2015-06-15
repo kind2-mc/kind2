@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -24,12 +24,6 @@ open Conv
 
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel *)
-module Event = 
-struct
-  let get_module () = `Parser
-  let log _ = Format.printf
-end
 
 (* ********************************************************************* *)
 (* Types                                                                 *)
@@ -60,7 +54,7 @@ type yices_state =
 type config =
     { solver_cmd : string array;    (* Command line arguments for the
                                        solver *)
-      
+      solver_arith_only : bool;
     }
 
 (* Solver instance *)
@@ -90,7 +84,7 @@ type t =
     (* Yices identifier that was last asserted. Remember to reset this to 0
        when restarting the solver or deleting the instance. *)
 
-    solver_id_names : (YicesResponse.yices_id, int) Hashtbl.t;
+    solver_id_names : (YicesResponse.yices_id, string) Hashtbl.t;
     (* Associates yices assertion ids to smtlib names of named formulas *)
 
     solver_push_stack : YicesResponse.yices_id Stack.t;
@@ -133,8 +127,7 @@ let next_id solver =
 
 
 let name_of_yices_id solver id =
-  let n = Hashtbl.find solver.solver_id_names id in
-  "t"^(string_of_int n)
+  Hashtbl.find solver.solver_id_names id
        
     
 
@@ -520,7 +513,8 @@ let ensure_symbol_qf_lira s =
 (*  | `STORE *)
     ->
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
-                              symbol %s is out of the supported theories."
+                              symbol %s is not interpreted correctly in this \
+                              mode. Run Kind 2 with --no_detect_logic instead."
         (Symbol.string_of_symbol s)
     in
     Event.log L_error "%s" msg;
@@ -547,15 +541,15 @@ and ensure_term_qf_lira t =
   | Exists lam | Forall lam -> ensure_lambda_qf_lira lam
   | Annot (t, _) -> ensure_term_qf_lira t
 
-let fail_when_arith t =
-  if Flags.yices_arith_only () then ensure_term_qf_lira t
+let fail_when_arith solver t =
+  if solver.solver_config.solver_arith_only then ensure_term_qf_lira t
 
 
-let fail_symbol_when_arith s =
-  if Flags.yices_arith_only () then ensure_symbol_qf_lira s    
+let fail_symbol_when_arith solver s =
+  if solver.solver_config.solver_arith_only then ensure_symbol_qf_lira s    
 
-let fail_declare_when_arith f arg_sorts res_sort =
-  if Flags.yices_arith_only () && arg_sorts <> [] then
+let fail_declare_when_arith solver f arg_sorts res_sort =
+    if solver.solver_config.solver_arith_only && arg_sorts <> [] then
     let msg = Format.asprintf "Yices was run with set-arith-only, but the \
                                symbol %s has type %a."
         f pp_print_function_type (arg_sorts, res_sort) in
@@ -571,7 +565,7 @@ let fail_declare_when_arith f arg_sorts res_sort =
 (* Declare a new function symbol *)
 let declare_fun solver fun_symbol arg_sorts res_sort = 
 
-  fail_declare_when_arith fun_symbol arg_sorts res_sort;
+  fail_declare_when_arith solver fun_symbol arg_sorts res_sort;
 
   let cmd = 
     Format.asprintf 
@@ -604,16 +598,16 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
 (* Assert the expression *)
 let assert_expr solver expr = 
 
-  fail_when_arith expr;
+  fail_when_arith solver expr;
   
   let t = expr in
   let t', name_info =
     if Term.is_named t then
       (* Open the named term and forget the name *)
       begin
-        let name = Term.name_of_named t in
+        let name = "t"^(string_of_int (Term.name_of_named t)) in
         Term.term_of_named t,
-        Format.asprintf "[name removed: t%d]" name
+        Format.asprintf "[name removed: %s]" name
       end
     else t, "" in
   let expr = Conv.smtexpr_of_term t' in
@@ -637,22 +631,22 @@ let assert_expr solver expr =
 
 
 (* Assert a removable expression, costly *)
-let assert_removable_expr solver expr = 
+let assert_removable_expr ?id solver expr = 
 
-  fail_when_arith expr;
+  fail_when_arith solver expr;
   
-  (* Take the next id *)
-  let id = next_id solver in
+  (* Take the next id if none is given *)
+  let id = match id with None -> next_id solver | Some id -> id in
   
   let t = expr in (* Conv.term_of_smtexpr expr in *)
   let t', name_info =
     if Term.is_named t then
       (* Open the named term and map the yices id to the name *)
       begin
-        let name = Term.name_of_named t in
+        let name = "t"^(string_of_int (Term.name_of_named t)) in
         Hashtbl.add solver.solver_id_names id name; 
         Term.term_of_named t,
-        Format.asprintf "[id: %a, name: t%d]"
+        Format.asprintf "[id: %a, name: %s]"
                        YicesResponse.pp_print_yices_id id name
       end
     else t, Format.asprintf "[id: %a]" YicesResponse.pp_print_yices_id id in
@@ -796,9 +790,19 @@ let check_sat_assuming solver exprs =
 
   (* We use retract feature of Yices to keep internal context *)
   fast_push solver 1;
-  let res =
-    List.fold_left
-      (fun acc expr -> assert_removable_expr solver expr) `NoResponse exprs
+  let res = List.fold_left (fun acc expr ->
+      match Term.destruct expr with
+        | Term.T.App (s, []) | Term.T.Const s when Symbol.is_uf s ->
+          (* Register name of litterals for unsat core *)
+          let name = 
+            s |> Symbol.uf_of_symbol |> UfSymbol.string_of_uf_symbol in
+          let id = next_id solver in
+          Hashtbl.add solver.solver_id_names id name; 
+          assert_removable_expr ~id solver expr
+
+        | _ -> assert_removable_expr solver expr
+
+    ) `NoResponse exprs
   in
   (match res with
    | `Error _  | `Unsupported ->
@@ -807,24 +811,6 @@ let check_sat_assuming solver exprs =
   let res = check_sat ~timeout:0 solver in
   (* Remove assumed expressions from context while keeping state *)
   fast_pop solver 1;
-  res
-
-
-(* Check satisfiability of the asserted expressions *)
-let naive_check_sat_assuming solver exprs =
-
-  ignore (push solver 1);
-  let res =
-    List.fold_left
-      (fun acc expr -> assert_expr solver expr) `NoResponse exprs
-  in
-  (match res with
-   | `Error _  | `Unsupported ->
-     failwith "Yices: check-sat assumed failed while assuming"
-   | _ -> ());
-  let res = check_sat ~timeout:0 solver in
-  (* Remove assumed expressions from context while keeping state *)
-  ignore (pop solver 1);
   res
 
 
@@ -1116,9 +1102,20 @@ let create_instance
     logic
     id =
 
+
+  let arith_only =
+    let open TermLib in
+    let open TermLib.FeatureSet in
+    match logic with
+    | `Inferred l -> subset l (of_list [IA; RA; LA])
+    | `SMTLogic ("QF_LIA" | "QF_LRA" | "QF_LIRA") -> true
+    | _ -> false
+  in
+  
+  
   (* Get autoconfigured configuration *)
   let solver_cmd  = YicesDriver.cmd_line () in
-  let config = { solver_cmd = solver_cmd } in
+  let config = { solver_cmd = solver_cmd; solver_arith_only = arith_only } in
   
   (* Name of executable is first argument 
 
@@ -1195,15 +1192,15 @@ let create_instance
     (match produce_assignments with Some o -> o | None -> false)
   in
 
-  let header_logic = function
-    | `LIA | `LRA | `QF_LIA | `QF_LRA | `QF_LIRA -> ["(set-arith-only! true)"]
-    | _ -> []
-  in
+  let header_logic solver =
+    if solver.solver_config.solver_arith_only then
+      ["(set-arith-only! true)"]
+    else [] in
     
   
   let headers =
     (Format.sprintf "(set-evidence! %B)" evidence) ::
-    (header_logic logic) @
+    (header_logic solver) @
     (headers ())
   in
   

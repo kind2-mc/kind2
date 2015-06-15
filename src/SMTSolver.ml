@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -91,6 +91,7 @@ let create_instance
     ?produce_assignments
     ?produce_proofs
     ?produce_cores
+    ?produce_interpolants
     l
     kind =
 
@@ -103,6 +104,7 @@ let create_instance
     let produce_assignments = bool_of_bool_option produce_assignments
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
+    let produce_interpolants = bool_of_bool_option produce_interpolants
     let logic = l
     let id = id
   end
@@ -131,6 +133,9 @@ let delete_instance s =
   let module S = (val s.solver_inst) in
   S.delete_instance ()
 
+
+(* Return the unique identifier of the solver instance *)
+let id_of_instance { id } = id
 
 (* ******************************************************************** *)
 (* Declarations                                                         *)
@@ -193,6 +198,18 @@ let assert_named_term s term =
   assert_term s term'
 
 
+let assert_named_term_wr s term =
+  
+  let term_name, term' = Term.mk_named term in
+  
+  Hashtbl.add s.term_names term_name term;
+  
+  assert_term s term';
+  
+  "t" ^ (string_of_int term_name)
+
+
+
 (* Push a new scope to the context and fail on error *)
 let push ?(n = 1) s =
   let module S = (val s.solver_inst) in
@@ -234,6 +251,13 @@ let prof_get_model s e =
   Stat.start_timer Stat.smt_get_value_time;
   let res = S.get_model e in
   Stat.record_time Stat.smt_get_value_time;
+  res
+
+let prof_get_unsat_core s =
+  let module S = (val s.solver_inst) in
+  Stat.start_timer Stat.smt_get_unsat_core_time;
+  let res = S.get_unsat_core () in
+  Stat.record_time Stat.smt_get_unsat_core_time;
   res
 
 
@@ -511,9 +535,8 @@ let get_model s =
 
 (* Get unsat core of the current context *)
 let get_unsat_core_of_names s =
-  let module S = (val s.solver_inst) in
 
-  match S.get_unsat_core () with 
+  match prof_get_unsat_core s with 
 
   | `Error e -> 
     raise 
@@ -546,9 +569,8 @@ let get_unsat_core_of_names s =
         
 (* Get unsat core of the current context *)
 let get_unsat_core_lits s =
-  let module S = (val s.solver_inst) in
 
-  match S.get_unsat_core () with 
+  match prof_get_unsat_core s with 
 
   | `Error e -> 
     raise 
@@ -558,7 +580,7 @@ let get_unsat_core_lits s =
 
     (* Convert strings to literals *)
     List.fold_left  
-      (fun a s -> 
+      (fun a s ->
         try 
           (Term.mk_uf 
              (UfSymbol.uf_symbol_of_string s)
@@ -566,8 +588,7 @@ let get_unsat_core_lits s =
         with Not_found -> assert false)
       []
       c
-
-      
+  
 (* ******************************************************************** *)
 (* Higher level functions                                               *)
 (* ******************************************************************** *)
@@ -586,7 +607,7 @@ let check_sat_assuming s if_sat if_unsat literals =
       match
 
         (* Performing the check-sat. *)
-        S.check_sat_assuming literals
+        prof_check_sat_assuming s literals
 
       with
 
@@ -656,6 +677,18 @@ let trace_comment s c =
   let module S = (val s.solver_inst) in
   S.trace_comment c
 
+let get_interpolants solver args =
+  let module S = (val solver.solver_inst) in
+  
+  match execute_custom_command solver "compute-interpolant" args (List.length args) with
+  | `Custom i ->
+     List.map
+       (fun sexpr ->
+        (S.Conv.term_of_smtexpr
+           (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
+       (List.tl i)
+
+  | error_response -> []
 
 (* 
    Local Variables:

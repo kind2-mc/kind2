@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -56,10 +56,10 @@ sig
   (** {2 Pretty-printing and String Conversions} *)
 
   (** Return an SMTLIB string expression for the logic *)
-  val string_of_logic : Term.logic -> string 
+  val string_of_logic : TermLib.logic -> string 
 
   (** Pretty-print a logic in SMTLIB format *)
-  val pp_print_logic : Format.formatter -> Term.logic -> unit
+  val pp_print_logic : Format.formatter -> TermLib.logic -> unit
 
   (** Pretty-print a sort in SMTLIB format *)
   val pp_print_sort : Format.formatter -> sort -> unit

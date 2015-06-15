@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -32,8 +32,26 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let check_sat_assuming_supported () = true
+let check_sat_assuming_supported () = Flags.z3_check_sat_assume ()
 
 let check_sat_assuming_cmd () = "check-sat"
 
-let headers () = [ "(set-option :interactive-mode true)" ]
+let headers () = 
+  "(set-option :interactive-mode true)" :: 
+  (if Flags.z3_check_sat_assume () then
+     [] 
+   else
+     ["(set-option :global-decls true)"])
+
+
+let string_of_logic l =
+  let open TermLib in
+  let open TermLib.FeatureSet in
+  match l with
+  | `Inferred l when is_empty l -> "QF_UF"
+  | `Inferred l when mem IA l && mem RA l ->
+    if mem Q l then "AUFLIRA"
+    else "QF_AUFLIRA"
+  | _ -> GenericSMTLIBDriver.string_of_logic l
+    
+let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

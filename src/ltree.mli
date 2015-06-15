@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -156,13 +156,17 @@ sig
     | Annot of t * attr
 
   (** Properties of a term *)
-  and t_prop = private { mutable to_string : string option } 
+  and t_prop = private { bound_vars : int list } 
 
   (** Hashconsed abstract syntax term *)
   and t = private (t_node, t_prop) Hashcons.hash_consed
 
   (** Term over symbols, variables and sort of the types given where
-      the topmost symbol is not a binding *)
+      the topmost symbol is not a binding 
+
+      This type must remain private, because {!construct} does not
+      check the invariants and would be a backdoor to construct unsafe
+      terms. *)
   and flat = private 
     | Var of var
     | Const of symbol 
@@ -201,6 +205,9 @@ sig
 
   (** Constructor for a let binding *)
   val mk_let : (var * t) list -> t -> t
+
+  (** Constructor for a let binding *)
+  val mk_let_elim : (var * t) list -> t -> t
 
   (** Constructor for an existential quantification over an indexed
       free variable *)
