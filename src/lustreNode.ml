@@ -973,8 +973,26 @@ let stateful_vars_of_node
   (* Add stateful variables from assertions *)
   let stateful_vars = 
     List.fold_left 
+      
       (fun accum expr -> 
-         SVS.union accum (E.stateful_vars_of_expr expr))
+         
+         (* Add stateful variables of assertion *)
+         SVS.union accum (E.stateful_vars_of_expr expr) 
+         
+         |> 
+
+         (* Variables in assertion that do not have a definition must
+            be stateful *)
+         SVS.union
+           (E.state_vars_of_expr expr
+            |> 
+            SVS.filter
+              (fun sv -> 
+                 not
+                   (List.exists
+                      (fun (sv', _) -> 
+                         StateVar.equal_state_vars sv sv') 
+                      equations))))
       stateful_vars
       asserts
   in
@@ -1116,30 +1134,36 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
           (* Keep signature of node even if variables are not
              constrained any more *)
-          outputs = outputs;
-          inputs = inputs;
-          oracles = oracles;
-          observers = observers;
-          output_input_dep = output_input_dep;
+          outputs;
+          inputs;
+          oracles;
+          observers;
+          output_input_dep;
 
-          (* Keep only local variables with definitions *)
+          (* Keep only local variables with definitions, or
+             constrained by an assertion *)
           locals = 
             List.filter
               (fun (sv, _) -> 
-                 List.exists (StateVar.equal_state_vars sv) sv_visited) 
+                 List.exists (StateVar.equal_state_vars sv) sv_visited || 
+                 List.exists
+                   (fun a -> 
+                      E.state_vars_of_expr a
+                      |> SVS.exists (StateVar.equal_state_vars sv))
+                   asserts) 
               locals;
 
           (* Keep assertions, properties and main annotations *)
-          asserts = asserts;
+          asserts;
 
           (* Keep only property variables with definitions *)
-          props = props;
+          props;
 
-          requires = requires;
-          ensures = ensures;
-          is_main = is_main;
-          state_var_oracle_map = state_var_oracle_map;
-          fresh_state_var_index = fresh_state_var_index }
+          requires;
+          ensures;
+          is_main;
+          state_var_oracle_map;
+          fresh_state_var_index }
 
     in
 

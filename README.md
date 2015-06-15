@@ -2,7 +2,7 @@
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
-Kind 2 takes as input a Lustre file annotated with properties to prove
+Kind 2 takes as input a Lustre file annotated with properties to be proven
 invariant (see [Lustre syntax](doc/usr/content/2_input/1_lustre.md#lustre-input)), and
 outputs which of the properties are true for all inputs, as well as an input
 sequence for those properties that are falsified. To ease processing by front-
@@ -19,19 +19,19 @@ The following command-line options control its operation (run `kind2 --help` for
    
 By default, all three model checking engines are run in parallel. Give any combination of `--enable BMC`, `--enable IND` and `--enable IC3` to select which engines to run. The option `--enable BMC` alone will not be able to prove properties valid, choosing `--enable IND` only will not produce any results. Any other combination is sound (properties claimed to be invariant are indeed invariant) and counterexample-complete (a counterexample will be produced for each property that is not invariant, given enough time and resources).
 
-`--timeout_wall SECS` Run for `SECS` seconds of wall clock time
+`--timeout_wall <int>` (default `0` = none) -- Run for the given number of seconds of wall clock time
 
-`--timeout_virtual SECS` Run for `SECS` of CPU time
+`--timeout_virtual <int>` (default `0` = none) -- Run for the given number of seconds of CPU time
  
-`--smtsolver {CVC4|Yices|Z3} ` Select SMT solver
+`--smtsolver {CVC4|Yices|Z3} ` (default `Z3`) -- Select SMT solver
 
 The default is `Z3`, but see options of the `./build.sh` script to override at compile time
   
-`--cvc4_bin PROGRAM` Executable for CVC4
+`--cvc4_bin <file>` -- Executable for CVC4
 
-`--yices_bin PROGRAM` Executable for Yices
+`--yices_bin <file>` -- Executable for Yices
 
-`--z3_bin PROGRAM` Executable for Z3
+`--z3_bin <file>` -- Executable for Z3
 
 `-v` Output informational messages
 
@@ -52,17 +52,15 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 
 ## Building and installing
 
-If you got the sources from our Github repository, you need to run first
+You need to run first
 
     ./autogen.sh
 
-You can omit this step if you have downloaded a released version.
-
 By default, `kind2` will be installed into `/usr/local/bin`, an operation for which you usually need to be root. Call 
 
-    ./build.sh --prefix=PATH
+    ./build.sh --prefix=<path>
     
-to install the Kind 2 binary into `PATH/bin`. You can omit the option to accept the default path of `/usr/local/bin`. 
+to install the Kind 2 binary into `<path>/bin`. You can omit the option to accept the default path of `/usr/local/bin`. 
 
 The ZeroMQ and CZMQ libraries, and OCaml bindings to CZMQ are distributed with Kind 2. The build script will compile and link to those, ignoring any versions that are installed on your system. 
 
@@ -86,10 +84,10 @@ You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 ## Documentation
 
 You can generate the user documentation by running `make doc`. This will generate a `pdf` document in `doc/` corresponding to the markdown documentation
-available [on the github page](https://github.com/kind2-mc/kind2/blob/develop/doc/usr/content/Home.md#kind-2).
+available [on the GitHub page](https://github.com/kind2-mc/kind2/blob/develop/doc/usr/content/Home.md#kind-2).
 
 To generate the documentation, you need
 
 * a GNU version of `sed` (`gsed` on OSX), and
-* [pandoc](http://pandoc.org/).
+* [Pandoc](http://pandoc.org/).
 

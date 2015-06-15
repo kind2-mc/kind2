@@ -291,11 +291,11 @@ else
         benchmark-stat -o kind2-$branch.stat -p kind-2 $resultdir_pr
         benchmark-stat -o kind2-$base.stat -p kind-2 $resultdir_dev
 
-        scatterplot-stat png kind2-$branch kind2-develop "Kind 2 PR #$pr_nb" "Kind 2 $base" $TIMEOUT
+        scatterplot-stat png kind2-$branch kind2-$base "Kind 2 PR #$pr_nb" "Kind 2 $base" $TIMEOUT
 
         image="$workdir/kind2-$branch-vs-kind2-$base.png"
 
-        echo "Comparison with develop in $image"
+        echo "Comparison with $base in $image"
 
 
         # Find disrepencies in results and change the value of $OK accordingly

@@ -6,9 +6,9 @@
 PROJECT_NAME := jobserver
 
 # Source files for the server
-SERVER_FILES :=   lib.mli lib.ml jobs.mli jobs.ml $(wildcard *.eliomi *.eliom)
+SERVER_FILES := lib.mli lib.ml jobs.mli jobs.ml $(wildcard *.eliomi *.eliom)
 # Source files for the client
-CLIENT_FILES := $(wildcard *.eliomi *.eliom)
+CLIENT_FILES := # lib.mli lib.ml jobs.mli jobs.ml $(wildcard *.eliomi *.eliom)
 
 # OCamlfind packages for the server
 SERVER_PACKAGES :=
