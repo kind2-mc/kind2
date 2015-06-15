@@ -2961,21 +2961,12 @@ let main trans_sys =
 
   match Flags.smtsolver () with 
 
-    (* CVC4 does not support check-sat-assume *)
-    (* | `CVC4_SMTLIB *)
-
     (* Yices with SMTLIB input does not work *)
     | `Yices_SMTLIB -> 
 
       Event.log L_error
         "Cannot use this solver in IC3."
-(*
-    (* Must use check-sat assume for now *)
-    | `Z3_SMTLIB when not (Flags.z3_check_sat_assume_assume ()) -> 
 
-      Event.log L_error
-        "Cannot use Z3 without check-sat-assume in IC3."
-*)
     (* Else is fine or will break without unsound results *)
     | _ -> 
 
