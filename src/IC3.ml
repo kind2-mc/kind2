@@ -2502,7 +2502,13 @@ let extract_cex_path solver trans_sys trace =
                state *)
             let path', state = 
               add_to_path
-                (SMTSolver.get_model solver)
+                (* SMTSolver.get_model solver *)
+                (SMTSolver.get_var_values
+                   solver
+                   (TransSys.vars_of_bounds
+                      trans_sys
+                      Numeral.zero
+                      Numeral.one))
                 path
                 (TransSys.state_vars trans_sys)
                 Numeral.one
@@ -2560,7 +2566,13 @@ let extract_cex_path solver trans_sys trace =
               (* Add unprimed state to empty path, get equational
                  constraint for state *)
               add_to_path
-                (SMTSolver.get_model solver)
+                (* SMTSolver.get_model solver *)
+                (SMTSolver.get_var_values
+                   solver
+                   (TransSys.vars_of_bounds
+                      trans_sys
+                      Numeral.zero
+                      Numeral.one))
                 []
                 (TransSys.state_vars trans_sys)
                 Numeral.zero)
