@@ -743,6 +743,36 @@ let trans_of_bound t i =
   then trans_term 
   else Term.bump_state (Numeral.(i - one)) trans_term
 
+(* Builds a call to the init function on state [k]. *)
+let init_fun_of { uf_defs } k =
+  match List.rev uf_defs with
+    (* uf_defs are in topological order, so the last one is the top one. *)
+    | ((init_uf, (vars, _)), _) :: _ ->
+
+      let rec bump_as_needed res = function
+        | var :: tail ->
+          let bumped_term =
+            if Var.is_const_state_var var then Term.mk_var var
+            else (
+              let offset = Var.offset_of_state_var_instance var in
+              if Numeral. (offset = init_base ) then
+                (* Primed state variable, bumping to k. *)
+                Var.bump_offset_of_state_var_instance
+                  Numeral.( k - offset ) var
+                  |> Term.mk_var
+              else
+                (* This cannot happen. *)
+                assert false
+            )
+          in
+          bump_as_needed (bumped_term :: res) tail
+        | [] -> List.rev res
+      in
+      
+      Term.mk_uf init_uf (bump_as_needed [] vars)
+        
+    | _ -> assert false
+
 (* Builds a call to the transition relation function linking state [k]
    and [k']. *)
 let trans_fun_of { uf_defs } k k' =

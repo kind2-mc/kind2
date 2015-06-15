@@ -194,6 +194,9 @@ val init_of_bound : t -> Numeral.t -> Term.t
 (** Instantiate the transition relation constraint to the bound.  The
     bound given is the bound of the state after the transition *)
 val trans_of_bound : t -> Numeral.t -> Term.t
+
+(** Builds a call to the initial function on state [k]. *)
+val init_fun_of : t -> Numeral.t -> Term.t
   
 (** Builds a call to the transition relation function linking state
     [k] and [k']. *)

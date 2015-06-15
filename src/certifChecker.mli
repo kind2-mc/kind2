@@ -21,13 +21,13 @@
 (** Generate a certificate from a (possibly) proved system. It is written in
     the file <input_file>.certificate.smt2 placed in the current directory by
     default. It is bundled with an SMT2 script to check its validity. *)
-val generate_certificate : TransSys.t -> unit
+val generate_certificate : TransSys.t -> string -> unit
 
 
 (** Generate a certificate for the frontend translation / simplification phases
     as a system in native input. To be verified, this certificate is expected
     to be fed back to Kind 2. *)
-val generate_frontend_certificate : TransSys.t -> unit
+val generate_frontend_certificate : TransSys.t -> string -> unit
 
 
 (** Generate all certificates in the directory given by {!Flags.certif_dir}. *)
