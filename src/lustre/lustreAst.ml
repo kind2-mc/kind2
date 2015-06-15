@@ -709,8 +709,6 @@ let rec pp_print_struct_item ppf = function
       pp_print_ident e
       (pp_print_list pp_print_array_slice ",@ ") i
 
-  (* Not fully implemented *)
-  | IndexedIdent _ -> assert false
 
 let pp_print_array_def_index ppf ident =
 

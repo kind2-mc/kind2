@@ -732,6 +732,8 @@ module Make (M : M) = struct
     is_subsumed' [(t, k)]
 	  
 
+  let merge _ _ _ = assert false
+
       
 	
 end
