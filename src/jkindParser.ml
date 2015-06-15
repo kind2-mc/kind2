@@ -109,7 +109,7 @@ let build_call_base kind_sv base_li parents =
   (* add -1 for constants *)
   let str = if StateVar.is_const kind_sv then str ^"~1" else str in
   
-  Format.eprintf "kindsv:%a -> jkind? %s@." StateVar.pp_print_state_var kind_sv str;
+  (* Format.eprintf "kindsv:%a -> jkind? %s@." StateVar.pp_print_state_var kind_sv str; *)
   
   (* get previously constructed jkind variable *)
   StateVar.state_var_of_string (str, jkind_scope)

@@ -946,11 +946,11 @@ let pos_to_numbers abstr_map nodes =
              call_pos = pos; call_clock = clock;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
-        Format.eprintf "register : %a at %a %s@."
-          (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos
-          (match clock with
-           | None -> ""
-           | Some c -> "ON "^ (StateVar.string_of_state_var c));
+        (* Format.eprintf "register : %a at %a %s@." *)
+        (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
+        (*   (match clock with *)
+        (*    | None -> "" *)
+        (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)); *)
 
         register_callpos_for_nb
           abstr_map hc lid parents pos clock (inputs, defs);

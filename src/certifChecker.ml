@@ -1146,7 +1146,7 @@ let generate_certificate sys dirname =
   Stat.record_time Stat.certif_gen_time;
 
   (* Show which file contains the certificate *)
-  printf "Certificate was written in %s@." certificate_filename
+  printf "Certificate checker was written in %s@." certificate_filename
 
 
 
@@ -1488,7 +1488,7 @@ let generate_frontend_certificate kind2_sys dirname =
     Stat.record_time Stat.certif_frontend_time;
 
     (* Show which file contains the certificate *)
-    printf "Frontend certificate was written in %s@." filename;
+    printf "Frontend certificate was written in %s, run Kind 2 on it with option --certif@." filename;
 
   | _ -> assert false
 
@@ -1552,7 +1552,7 @@ let generate_all_certificates sys =
 
   begin match TS.get_source sys with
   | TS.Lustre _ -> generate_frontend_certificate sys dirname
-  | _ -> printf "No certificate for frontend."
+  | _ -> printf "No certificate for frontend@."
   end;
 
   
@@ -1569,4 +1569,7 @@ let generate_all_certificates sys =
   close_out csoc;
   
   (* Send statistics *)
-  Event.stat [Stat.certif_stats_title, Stat.certif_stats]
+  Event.stat [Stat.certif_stats_title, Stat.certif_stats];
+
+  (* Show which file contains the certificate *)
+  printf "Certificates were produced in %s@." dirname
