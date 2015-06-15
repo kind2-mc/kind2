@@ -447,13 +447,6 @@ let mk_state_var
       (D.pp_print_index false) index
   in
 
-  Printexc.get_callstack 50 |> Printexc.raw_backtrace_to_string |>
-  Format.printf
-    "mk_state_var %a.%s@\n%s@."
-    (pp_print_list Format.pp_print_string ".") scope
-    state_var_name;
-    
-
   (* Create or retrieve state variable *)
   let state_var =
     StateVar.mk_state_var
@@ -812,11 +805,6 @@ let mk_state_var_for_expr
 
       (* Expresssion has not been abstracted before *)
       with Not_found ->
-
-        Format.printf
-          "mk_state_var_for_expr: for %a fresh_local_index %d@."
-          (E.pp_print_lustre_expr false) expr
-          fresh_local_index;
 
         (* Create state variable for abstraction *)
         let state_var, ctx = 

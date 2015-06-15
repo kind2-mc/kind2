@@ -123,10 +123,6 @@ let of_file filename =
 
     of_channel in_ch
 
-;;
-
-of_file Sys.argv.(1)
-
 
 (* 
    Local Variables:
