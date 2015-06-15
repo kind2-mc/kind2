@@ -2962,7 +2962,7 @@ let main trans_sys =
   match Flags.smtsolver () with 
 
     (* CVC4 does not support check-sat-assume *)
-    | `CVC4_SMTLIB
+    (* | `CVC4_SMTLIB *)
 
     (* Yices with SMTLIB input does not work *)
     | `Yices_SMTLIB -> 
