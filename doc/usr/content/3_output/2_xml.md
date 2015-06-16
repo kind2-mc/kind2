@@ -1,5 +1,5 @@
 # XML Output
 
-Sorry, this is work in progress. We will provide an XML Schema document that fully specifies the output produced by ```kind2 -xml```.
-
-For now, we have an XML schema documenting the execution paths: [xmlschema.xsd](../XMLSchema/xmlschema.xsd)
+The XML output is activated by running Kind 2 with the `-xml` option. It is
+fully specified by file [`xmlschema.xsd`](https://github.com/kind2-mc/kind2/blob/develop/XMLSchema/xmlschema.xsd) located in folder `XMLSchema` on the
+repository.
