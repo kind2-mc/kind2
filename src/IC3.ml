@@ -128,49 +128,51 @@ let handle_events
      instances *)
   let add_invariant inv = 
 
-    match Term.var_offsets_of_term inv with
-        
-      (* Skip invariants without variables *)
-      | None, None ->
+    if Flags.ic3_use_invgen () then 
 
-        SMTSolver.trace_comment 
-          solver
-          "handle_event: Skipping constant invariant"
+      match Term.var_offsets_of_term inv with
 
-      (* One-state invariants *)
-      | Some i, Some j when Numeral.equal i j ->
+        (* Skip invariants without variables *)
+        | None, None ->
 
-        SMTSolver.trace_comment 
-          solver
-          "handle_event: Asserting one-state invariant at zero and one";
+          SMTSolver.trace_comment 
+            solver
+            "handle_event: Skipping constant invariant"
 
-        (* Assert at offset zero *)
-        Term.bump_state Numeral.(- i) inv
-        |> SMTSolver.assert_term solver;
-        
-        (* Assert at offset one *)
-        Term.bump_state Numeral.(- i + one) inv
-        |> SMTSolver.assert_term solver
+        (* One-state invariants *)
+        | Some i, Some j when Numeral.equal i j ->
 
-      (* Two-state invariant *)
-      | Some i, Some j when Numeral.(j - i = one) ->
+          SMTSolver.trace_comment 
+            solver
+            "handle_event: Asserting one-state invariant at zero and one";
 
-        SMTSolver.trace_comment 
-          solver
-          "handle_event: Asserting two-state invariant at one";
+          (* Assert at offset zero *)
+          Term.bump_state Numeral.(- i) inv
+          |> SMTSolver.assert_term solver;
 
-        (* Assert at offset one *)
-        Term.bump_state Numeral.(- i) inv |> SMTSolver.assert_term solver
+          (* Assert at offset one *)
+          Term.bump_state Numeral.(- i + one) inv
+          |> SMTSolver.assert_term solver
 
-      (* Invariant over more than two states *)
-      | _ ->
+        (* Two-state invariant *)
+        | Some i, Some j when Numeral.(j - i = one) ->
 
-        SMTSolver.trace_comment 
-          solver
-          "handle_event: Invariant is over more than two states";
-        
-        assert false
-        
+          SMTSolver.trace_comment 
+            solver
+            "handle_event: Asserting two-state invariant at one";
+
+          (* Assert at offset one *)
+          Term.bump_state Numeral.(- i) inv |> SMTSolver.assert_term solver
+
+        (* Invariant over more than two states *)
+        | _ ->
+
+          SMTSolver.trace_comment 
+            solver
+            "handle_event: Invariant is over more than two states";
+
+          assert false
+
   in
 
   (* Assert all received invariants *)
