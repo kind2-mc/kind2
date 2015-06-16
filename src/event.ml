@@ -1010,6 +1010,9 @@ let terminate_log () =
 
 (* Broadcast a scoped invariant *)
 let invariant scope term = 
+
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time;
   
   try
     
@@ -1022,6 +1025,9 @@ let invariant scope term =
 
 (* Broadcast a property status *)
 let prop_status status trans_sys prop = 
+  
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time;
   
   let mdl = get_module () in
 
@@ -1045,6 +1051,9 @@ let prop_status status trans_sys prop =
 (* Broadcast a counterexample for some properties *)
 let execution_path trans_sys path = 
 
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time;
+  
   let mdl = get_module () in
 
   log_execution_path mdl L_warn trans_sys path
@@ -1053,6 +1062,9 @@ let execution_path trans_sys path =
 (* Send progress indicator *)
 let progress k =
 
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time;
+  
   let mdl = get_module () in
 
   log_progress mdl L_info k;
@@ -1070,6 +1082,8 @@ let progress k =
 (* Send statistics *)
 let stat stats = 
 
+  Stat.update_time Stat.total_time;
+  
   let mdl = get_module () in
 
   log_stat mdl L_info stats;

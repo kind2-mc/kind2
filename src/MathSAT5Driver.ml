@@ -19,7 +19,12 @@
 include GenericSMTLIBDriver
 
 (* Configuration for MathSAT5 *)
-let cmd_line () = 
+let cmd_line 
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants = 
   
   (* Path and name of MathSAT5 executable *)
   let mathsat5_bin = Flags.mathsat5_bin () in

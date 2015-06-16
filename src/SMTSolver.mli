@@ -112,6 +112,15 @@ val get_unsat_core_lits : t -> Term.t list
     continuation [t] is evaluated, and if the solver returns
     unsatisfiable, the continuation [f] is evaluated.
 
+    {b Important:} If a solver does not support check-sat with
+    assumptions, it will be simulated by checking satisfiability on a
+    new context level with the literals asserted. This context is
+    removed after the continuations have been evaluated, hence all
+    operations performed in the continuations affecting the context
+    will be undone upon return from this function. Do not rely on
+    context-modifying operations in the continuations being
+    persistent, and keep the continuations as short as possible.
+
     The list [l] should contain only positive Boolean constants,
     although this is not enforced. If the solver does not support the
     [check-sat-assuming] command it is simulated by asserting the
@@ -119,16 +128,31 @@ val get_unsat_core_lits : t -> Term.t list
 val check_sat_assuming : t ->
 
   (* If sat. *)
-  (unit -> 'a) ->
+  (t -> 'a) ->
 
   (* If unsat. *)
-  (unit -> 'a) ->
+  (t -> 'a) ->
 
   (* Literals to assert. *)
   Term.t list ->
 
   'a
 
+(** Alternative between type 'a and 'b *)
+type ('a, 'b) sat_or_unsat =
+  | Sat of 'a
+  | Unsat of 'b
+
+(** Check satisfiability under assumptions as with
+    {!check_sat_assuming}, but the two continuations can return
+    different values that are wrappen in the {!sat_or_unsat} type *)
+val check_sat_assuming_ab : t -> (t -> 'a) -> (t -> 'b) -> Term.t list -> ('a, 'b) sat_or_unsat
+
+(** Check satisfiability under assumptions as with
+    {!check_sat_assuming}, but return [true] or [false] without
+    continuations as arguments *)
+val check_sat_assuming_tf : t -> Term.t list -> bool
+  
 (** Execute the a custom command with the given arguments, and expect
     the given number of S-expressions as a result *)
 val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int ->

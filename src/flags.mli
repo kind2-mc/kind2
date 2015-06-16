@@ -60,9 +60,9 @@ val smtlogic : unit -> smtlogic
 type z3_bin = string
 val z3_bin : unit -> z3_bin
 
-(** Use check-sat with assumptions in Z3 *)
-type z3_check_sat_assume = bool
-val z3_check_sat_assume : unit -> z3_check_sat_assume
+(** Use check-sat with assumptions, or simulate with push/pop *)
+type smt_check_sat_assume = bool
+val smt_check_sat_assume : unit -> smt_check_sat_assume
 
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
@@ -165,6 +165,10 @@ val ic3_fwd_prop_ind_gen : unit -> ic3_fwd_prop_ind_gen
 (** Subsumption in forward propagation *)
 type ic3_fwd_prop_subsume = bool
 val ic3_fwd_prop_subsume : unit -> ic3_fwd_prop_subsume
+
+(** Use invariants from invariant generators *)
+type ic3_use_invgen = bool
+val ic3_use_invgen : unit -> ic3_use_invgen
 
 (** Abstraction mechanism to use in IC3 *)
 type ic3_abstr = [ `None | `IA ]

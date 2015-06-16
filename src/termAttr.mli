@@ -52,7 +52,7 @@ module AttrMap : Map.S with type key = t
 (** {1 Constructor} *)
 
 (** Return a name attribute *)
-val mk_named : int -> t
+val mk_named : string -> int -> t
 
 (** {1 Accessor functions} *)
 
@@ -61,7 +61,7 @@ val is_named : t -> bool
 
 (** Return the name in a name attribute, raises [Invalid_argument] for
     other attributes *)
-val named_of_attr : t -> int
+val named_of_attr : t -> string * int
 
 (** {1 Pretty-printing} *)
 
