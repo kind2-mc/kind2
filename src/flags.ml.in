@@ -315,6 +315,9 @@ let modular_timeout_default = 0.
 type compositional = bool
 let compositional_default = false
 
+type refine = bool
+let refine_default = true
+
 type contracts_subreqs = bool
 let contracts_subreqs_default = true
 
@@ -606,6 +609,7 @@ type flags =
       mutable modular : modular;
       mutable modular_timeout : modular_timeout;
       mutable compositional : compositional;
+      mutable refine : refine;
       mutable contracts_subreqs : contracts_subreqs;
       mutable check_version : check_version;
       mutable bmc_check : bmc_check;
@@ -662,6 +666,7 @@ let flags =
     modular = modular_default;
     modular_timeout = modular_timeout_default;
     compositional = compositional_default;
+    refine = refine_default;
     contracts_subreqs = contracts_subreqs_default;
     check_version = check_version_default;
     bmc_check = bmc_check_default;
@@ -898,6 +903,18 @@ let compositional_spec =
       anymore but their subnodes are.   Only nodes with a contract@ \
       can/will be abstracted.@]"
      compositional_default)
+
+(* ********** *) 
+
+let refine_action b = flags.refine <- b
+  
+let refine_spec = 
+  ("--refine",
+   Arg.Bool refine_action,
+   Format.sprintf
+     "@[<v 7>@,(contracts, default: %b)@ \
+      Toggles the refinement of abstracted subnodes.@]"
+     refine_default)
 
 (* ********** *) 
 
@@ -1418,6 +1435,8 @@ let modular_timeout () = flags.modular_timeout
 
 let compositional () = flags.compositional
 
+let refine () = flags.refine
+
 let contracts_subreqs () = flags.contracts_subreqs
 
 let check_version () = flags.check_version 
@@ -1557,8 +1576,11 @@ and speclist =
     (* Modular timeout *)
     modular_timeout_spec;
 
-    (* Maximal abstraction depth in contract-based analysis *)
+    (* Compositional mode *)
     compositional_spec;
+
+    (* Toggles refinement *)
+    refine_spec;
 
     (* Verify subnodes requirements *)
     contracts_subreqs_spec;

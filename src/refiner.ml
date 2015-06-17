@@ -75,7 +75,7 @@ let set_first_abstraction sys =
 let scope_of = TransSys.get_scope
 
 (* Looks for a system to refine. *)
-let refine sys =
+let refine sys = if Flags.refine () |> not then None else
 
   match TransSys.get_abstraction sys with
 

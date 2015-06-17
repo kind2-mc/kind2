@@ -100,6 +100,10 @@ val modular_timeout : unit -> modular_timeout
 type compositional = bool
 val compositional : unit -> compositional
 
+(** Activates refinement. *)
+type refine = bool
+val refine : unit -> refine
+
 (** Verification of subnodes requirements. *)
 type contracts_subreqs = bool
 val contracts_subreqs : unit -> contracts_subreqs
