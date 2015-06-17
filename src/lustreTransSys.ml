@@ -1512,16 +1512,55 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       List.fold_left 
         add_to_svs 
         locals_set
-        [outputs; oracles; observers]
+        [inputs; outputs; oracles; observers]
     in
 
     debug lustreTransSys
         "@[<hv>Stateful vars in %a:@ @[<hv>%a@]@]"
         (I.pp_print_ident false) node_name
-        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        (pp_print_list 
+           (fun ppf sv -> 
+              Format.fprintf ppf
+                "%a: %a"
+                StateVar.pp_print_state_var sv
+                Type.pp_print_type (StateVar.type_of_state_var sv))
+           ",@ ")
         (SVS.elements signature_vars_set)
     in
 
+    (* Create constraints for integer ranges *)
+    let init_defs_invars_of_types, trans_defs_invars_of_types = 
+    
+      SVS.fold
+        (fun state_var (i, t) -> 
+           
+           (* Type of state variable *)
+           match StateVar.type_of_state_var state_var with
+             
+             (* Type is a bounded integer *)
+             | sv_type when Type.is_int_range sv_type -> 
+               
+               (* Get lower and upper bounds *)
+               let l, u = Type.bounds_of_int_range sv_type in
+               
+               (* Add equation l <= v[0] <= u to invariants *)
+               let { E.expr_init; E.expr_step } = 
+                 E.mk_and 
+                   (E.mk_lte
+                      (E.mk_int l)
+                      (E.mk_var state_var E.base_clock))
+                   (E.mk_lte
+                      (E.mk_var state_var E.base_clock)
+                      (E.mk_int u))
+               in
+
+               (E.base_term_of_expr TransSys.init_base expr_init :: i,
+                E.cur_term_of_expr TransSys.trans_base expr_step :: t)
+
+             | _ -> (i, t))
+        signature_vars_set
+        (init_defs_calls, trans_defs_calls)
+    in
 
     (* Constraints from assertions
 
@@ -1529,8 +1568,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
        can be let bound in definitions_of_equations *)
     let (init_defs_asserts, trans_defs_asserts) = 
       definitions_of_asserts  
-        init_defs_calls
-        trans_defs_calls
+        init_defs_invars_of_types
+        trans_defs_invars_of_types
         node_asserts
     in
 
