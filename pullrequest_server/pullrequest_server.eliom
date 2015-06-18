@@ -140,6 +140,25 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
       else
         send_error ~code:400 "Could not contact CVC cluster"
 
+    | "closed" when base_ref = "develop" && pr |> member "merged" |> to_bool ->
+
+      (* Execute command on cvc cluster through ssh.
+         The user ocsigen must have an ssh key that is only allowed to run 
+         the neessary command, here we just pass the arguments. *)
+      let cmd =
+        "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_gendoc \
+           amebsout@@cvc.cs.uiowa.edu \"0\" &"
+      in
+
+      log AccessLog
+        "Pullrequest hook on merge: Sending command to generate ocamldoc %s."
+        cmd;
+      
+      if Sys.command cmd = 0 then
+        send_success ()
+      else
+        send_error ~code:400 "Could not contact CVC cluster"
+
 
     | _ -> send_success_str "Hook ignores pull request"
 
