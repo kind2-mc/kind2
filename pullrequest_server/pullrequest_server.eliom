@@ -122,15 +122,16 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
       let pr_user = pr |> member "user" |> member "login" |> to_string in
       let sha = pr |> member "head" |> member "sha" |> to_string in
       let base_sha = pr |> member "base" |> member "sha" |> to_string in
-
+      let body = pr |> member "body" |> to_string in
+      
       (* Execute command on cvc cluster through ssh.
          The user ocsigen must have an ssh key that is only allowed to run 
          the neessary command, here we just pass the arguments. *)
       let cmd = Format.sprintf
           "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_restricted \
            amebsout@@cvc.cs.uiowa.edu \
-           \"%d %s %s %s %s %s %s\" &"
-          pr_nb base_ref statuses_url html_url clone_url sha base_sha
+           \"%d %s %s %s %s %s %s '%s'\" &"
+          pr_nb base_ref statuses_url html_url clone_url sha base_sha body
       in
 
       log AccessLog
