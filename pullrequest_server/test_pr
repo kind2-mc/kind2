@@ -56,15 +56,6 @@ pr_url=$4
 clone_url=$5
 sha=$6
 base_sha=$7
-body=$8
-
-
-
-# Do nothing if the PR body contains %notest
-if echo "$body" | grep -q "%notest"; then
-    exit 0
-fi
-
 
 
 # unique sha for the pull request's head

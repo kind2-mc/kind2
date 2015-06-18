@@ -114,34 +114,51 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
        is not the github web page *)
     | ("opened" | "reopened" | "synchronize") when base_ref <> "gh_pages" ->
 
-      let clone_url = json |> member "repository"
-                      |> member "clone_url" |> to_string in
-      let pr_nb = pr |> member "number" |> to_int in
-      let statuses_url = pr |> member "statuses_url" |> to_string in
-      let html_url = pr |> member "html_url" |> to_string in
-      let pr_user = pr |> member "user" |> member "login" |> to_string in
-      let sha = pr |> member "head" |> member "sha" |> to_string in
-      let base_sha = pr |> member "base" |> member "sha" |> to_string in
-      let body = pr |> member "body" |> to_string |> String.escaped in
       
-      (* Execute command on cvc cluster through ssh.
-         The user ocsigen must have an ssh key that is only allowed to run 
-         the neessary command, here we just pass the arguments. *)
-      let cmd = Format.sprintf
-          "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_restricted \
-           amebsout@@cvc.cs.uiowa.edu \
-           \"%d %s %s %s %s %s %s \\\"%s\\\"\" &"
-          pr_nb base_ref statuses_url html_url clone_url sha base_sha body
-      in
+      let body = pr |> member "body" |> to_string in
 
-      log AccessLog
-        "Pullrequest hook: Sending command %s."
-        cmd;
-      
-      if Sys.command cmd = 0 then
-        send_success ()
-      else
-        send_error ~code:400 "Could not contact CVC cluster"
+      let notest = Str.regexp "%notest" in
+
+      begin
+        try
+
+          ignore(Str.search_forward notest body 0);
+          (* String contains %notest, don't run tests *)
+
+          send_success_str "Pull request specifies to not run tests"
+
+        with Not_found ->
+
+          let clone_url = json |> member "repository"
+                          |> member "clone_url" |> to_string in
+          let pr_nb = pr |> member "number" |> to_int in
+          let statuses_url = pr |> member "statuses_url" |> to_string in
+          let html_url = pr |> member "html_url" |> to_string in
+          (* let pr_user = pr |> member "user" |> member "login" |> to_string in *)
+          let sha = pr |> member "head" |> member "sha" |> to_string in
+          let base_sha = pr |> member "base" |> member "sha" |> to_string in
+
+          (* Execute command on cvc cluster through ssh.
+             The user ocsigen must have an ssh key that is only allowed to run 
+             the neessary command, here we just pass the arguments. *)
+          let cmd = Format.sprintf
+              "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_restricted \
+               amebsout@@cvc.cs.uiowa.edu \
+               \"%d %s %s %s %s %s %s\" &"
+              pr_nb base_ref statuses_url html_url clone_url sha base_sha
+          in
+
+          log AccessLog
+            "Pullrequest hook: Sending command %s."
+            cmd;
+
+          if Sys.command cmd = 0 then
+            send_success ()
+          else
+            send_error ~code:400 "Could not contact CVC cluster"
+
+      end
+
 
     | "closed" when base_ref = "develop" && pr |> member "merged" |> to_bool ->
 
