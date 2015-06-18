@@ -188,6 +188,16 @@ val mk_select : t -> t -> t
     its name *)
 val mk_named : t -> int * t
 
+(** Name term with the given integer in a given namespace
+
+    This is a basic function, the caller has to generate the name, and
+    ensure the name is used only once. Use with caution, or better
+    only use {!mk_named}, which will create a unique name.
+
+    The namespace ["t"] will be rejected, because this is the
+    namespace used by {!mk_named}. *)
+val mk_named_unsafe : t -> string -> int -> t 
+
 (** Create an uninterpreted constant or function *)
 val mk_uf : UfSymbol.t -> t list -> t
     

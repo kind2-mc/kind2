@@ -21,15 +21,20 @@ open Lib
 include GenericSMTLIBDriver
 
 (* Configuration for CVC4 *)
-let cmd_line () = 
-
+let cmd_line
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants =
+  
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.cvc4_bin () in
 
   (* Use unsat cores *)
-  if true then 
+  if produce_cores then 
 
-    (* Use unsat core option *)
+    (* Need to use tear-down incremental mode for unsat cores *)
     [| cvc4_bin; 
        "--lang"; "smt2";
        "--rewrite-divk";
@@ -37,7 +42,7 @@ let cmd_line () =
 
   else
 
-    (* Omit unsat core option for version older than 1.5 *)
+    (* Use normal incremental mode if unsat cores not needed *)
     [| cvc4_bin; 
        "--lang"; "smt2";
        "--rewrite-divk";
