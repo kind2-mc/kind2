@@ -20,7 +20,12 @@ open Lib
 
 
 (* Configuration for Yices *)
-let cmd_line () = 
+let cmd_line 
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants = 
 
   (* Path and name of Yices executable *)
   let yices_bin = Flags.yices_bin () in

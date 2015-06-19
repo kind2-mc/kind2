@@ -19,7 +19,12 @@
 include GenericSMTLIBDriver
 
 (* Configuration for Z3 *)
-let cmd_line () = 
+let cmd_line 
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants = 
 
   (* Path and name of Z3 executable *)
   let z3_bin = Flags.z3_bin () in
@@ -32,17 +37,12 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let check_sat_assuming_supported () = Flags.z3_check_sat_assume ()
+let check_sat_assuming_supported () = Flags.smt_check_sat_assume ()
 
 let check_sat_assuming_cmd () = "check-sat"
 
 let headers () = 
-  "(set-option :interactive-mode true)" :: 
-  (if Flags.z3_check_sat_assume () then
-     [] 
-   else
-     ["(set-option :global-decls true)"])
-
+  ["(set-option :interactive-mode true)"]
 
 let string_of_logic l =
   let open TermLib in

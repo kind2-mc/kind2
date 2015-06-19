@@ -29,6 +29,9 @@ let true_of_unit () = true
 (* Returns false when given unit. *)
 let false_of_unit () = false
 
+(* Returns None when given unit. *)
+let none_of_unit () = None
+
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)

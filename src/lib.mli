@@ -31,6 +31,9 @@ val true_of_unit : unit -> bool
 (** Returns false when given unit. *)
 val false_of_unit : unit -> bool
 
+(** Returns None when given unit. *)
+val none_of_unit : unit -> 'a option
+
 (** {1 Option types} *)
 
 (** Return the value of an option type, raise [Invalid_argument "get"]

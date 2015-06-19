@@ -232,7 +232,7 @@ let eval_terms_assert_first_false trans solver eval k =
 let split trans solver k to_split actlits =
   
   (* Function to run if sat. *)
-  let if_sat () =
+  let if_sat _ =
     
     (* Extract a model *)
     let model = 
@@ -284,7 +284,7 @@ let split trans solver k to_split actlits =
   in
 
   (* Function to run if unsat. *)
-  let if_unsat () = None in
+  let if_unsat _ = None in
 
   (* Appending to the list of actlits. *)
   let all_actlits = path_comp_act_term :: actlits in

@@ -24,7 +24,7 @@ open Lib
 (* ********************************************************************** *)
 
 (* Command line options *)
-let cmd_line () = [| |]
+let cmd_line _ _ _ _ _ = [| |]
 
 (* Dummy implementation *)
 let check_sat_limited_cmd ms = failwith "Not implemented"

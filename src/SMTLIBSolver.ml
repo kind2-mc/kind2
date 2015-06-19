@@ -52,11 +52,11 @@ end
 
 
 module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
-
+  
   open Driver
   module Conv = SMTExpr.Converter(Driver)
   open Conv 
-
+    
   (* Configuration *)
   type config =
     { solver_cmd : string array;    (* Command line arguments for the
@@ -177,14 +177,25 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
        (* Get name of variable and its assignment *)
        let s, t_or_l = expr_or_lambda_of_string_sexpr e in
 
-       (* Get uninterpreted function symbol by name *)
-       let u =
-         UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
-       in
+       try
+         
+         (* Get uninterpreted function symbol by name *)
+         let u =
+           UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
+         in
 
-       (* Continue with next model assignment *)
-       get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl)
+         (* Continue with next model assignment *)
+         get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl
 
+       (* No symbol of that name
+
+          May happen if named terms have been asserted *)
+       with Not_found ->
+
+         (* Continue with next model assignment *)
+         get_model_response_of_sexpr' accum tl)
+                    
+    
 
   (* Return a solver response to a get-value command as expression pairs *)
   let get_value_response_of_sexpr = function 
@@ -714,8 +725,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         match s.[p+i], (if i+1 < n then Some s.[p+i+1] else None) with
             
           (* Two character line break *)
-	  | '\n', Some '\r'  
-	  | '\r', Some '\n' ->
+          | '\n', Some '\r'  
+          | '\r', Some '\n' ->
             
             (* Apply [f] to line, then [g], skip over line break and
                continue *)
@@ -724,8 +735,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
             iter_line f g s (p+i+2) 0 (n-i-2)
               
           (* One character line break *)
-	  | '\n', _
-	  | '\r', _ ->
+          | '\n', _
+          | '\r', _ ->
 
             (* Apply [f] to line, skip over line break and continue *)
             f s p i;
@@ -733,7 +744,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
             iter_line f g s (p+i+1) 0 (n-i-1)
 
           (* Not a line break: continue *)
-	  | _, _ -> iter_line f g s p (i+1) n
+          | _, _ -> iter_line f g s p (i+1) n
     in
 
     let rec out_string s p n =
@@ -791,21 +802,28 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       ?(produce_interpolants=false)
       logic
       id =
-
+    
     (* Get autoconfigured configuration *)
-    let solver_cmd  = Driver.cmd_line () in
+    let solver_cmd  = 
+      Driver.cmd_line 
+        logic
+        produce_assignments
+        produce_proofs
+        produce_cores
+        produce_interpolants
+    in
     let config = { solver_cmd = solver_cmd } in
-
+    
     (* Name of executable is first argument 
-
+       
        TODO: expand ~ *)
     let solver_executable = solver_cmd.(0) in
-
+    
     (* Create pipes for input, output and error output *)
     let solver_stdin_in, solver_stdin_out = Unix.pipe () in
     let solver_stdout_in, solver_stdout_out = Unix.pipe () in 
     let solver_stderr_in, solver_stderr_out = Unix.pipe () in 
-
+    
     (* Create solver process *)
     let solver_pid = 
       Unix.create_process 
@@ -815,26 +833,26 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         solver_stdout_out
         solver_stderr_out
     in
-
+    
     (* Close our end of the pipe which has been duplicated by the
        process *)
     Unix.close solver_stdin_in;
     Unix.close solver_stdout_out; 
     Unix.close solver_stderr_out; 
-
+    
     (* Get an output channel to read from solver's stdout *)
     let solver_stdout_ch = Unix.in_channel_of_descr solver_stdout_in in
-
+    
     (* Create a lexing buffer on solver's stdout *)
     let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
-
+    
     (* Create trace functions *)
     let trace_ppf = create_trace_ppf id in
     (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
     let ftrace_cmd = trace_cmd trace_ppf in
     let ftrace_res = trace_res trace_ppf in
     let ftrace_coms = trace_coms trace_ppf in
-
+    
     (* Create the solver instance *)
     let solver =
       { solver_config = config;
@@ -847,7 +865,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         solver_trace_res = ftrace_res;
         solver_trace_coms = ftrace_coms; }
     in
-
+    
     let header_logic =
       let s = string_of_logic logic in
       if s = "" then []
@@ -862,7 +880,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
          ["(set-option :produce-unsat-cores true)"] else []) @
       header_logic
     in
-
+    
     (* Add interpolation option only if true *)
     let headers = 
       if produce_interpolants then
@@ -872,16 +890,16 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         
         headers 
     in
-
+    
     (* Print specific headers specifications *)
     List.iter (fun cmd ->
-        match (debug smt "%s" cmd in
-               execute_command solver cmd 0)
+        match
+          (debug smt "%s" cmd in
+           execute_command solver cmd 0)
         with 
-        | `Success -> () 
-        | _ -> raise (Failure ("Failed to add header: "^cmd))
-        | exception _ -> raise (Failure ("Failed to add header: "^cmd))
-    ) headers;
+          | `Success -> () 
+          | _ -> raise (Failure ("Failed to add header: "^cmd))
+     ) headers;
 
 
     (* Return solver instance *)

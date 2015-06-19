@@ -20,7 +20,12 @@ include GenericSMTLIBDriver
 
 
 (* Configuration for Yices *)
-let cmd_line () = 
+let cmd_line
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants = 
 
   (* Path and name of Yices executable *)
   let yices2smt2_bin = Flags.yices2smt2_bin () in

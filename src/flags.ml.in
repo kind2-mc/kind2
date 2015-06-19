@@ -203,13 +203,13 @@ let z3_bin_default = "z3"
 
 (* ********** *) 
 
-type z3_check_sat_assume = bool
+type smt_check_sat_assume = bool
 
-let z3_check_sat_assume_of_string s = s
+let smt_check_sat_assume_of_string s = s
 
-let string_of_z3_check_sat_assume s = s 
+let string_of_smt_check_sat_assume s = s 
 
-let z3_check_sat_assume_default = true
+let smt_check_sat_assume_default = true
 
 (* ********** *) 
 
@@ -460,11 +460,20 @@ let string_of_ic3_fwd_prop_ind_gen = string_of_bool
 let ic3_fwd_prop_ind_gen_default = true
 
 (* ********** *) 
+
 type ic3_fwd_prop_subsume = bool
     
 let string_of_ic3_fwd_prop_subsume = string_of_bool
 
 let ic3_fwd_prop_subsume_default = true
+
+(* ********** *) 
+
+type ic3_use_invgen = bool
+    
+let string_of_ic3_use_invgen = string_of_bool
+
+let ic3_use_invgen_default = true
 
 (* ********** *) 
 
@@ -645,7 +654,7 @@ type flags =
     mutable smtsolver : smtsolver;
     mutable smtlogic : smtlogic;
     mutable z3_bin : z3_bin;
-    mutable z3_check_sat_assume : z3_check_sat_assume;
+    mutable smt_check_sat_assume : smt_check_sat_assume;
     mutable cvc4_bin : cvc4_bin;
     mutable mathsat5_bin : mathsat5_bin;
     mutable yices_bin : yices_bin;
@@ -674,6 +683,7 @@ type flags =
     mutable ic3_fwd_prop_non_gen : ic3_fwd_prop_non_gen;
     mutable ic3_fwd_prop_ind_gen : ic3_fwd_prop_ind_gen;
     mutable ic3_fwd_prop_subsume : ic3_fwd_prop_subsume;
+    mutable ic3_use_invgen : ic3_use_invgen;
     mutable ic3_abstr : ic3_abstr;
     mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
     mutable cooper_general_lbound : cooper_general_lbound;
@@ -702,7 +712,7 @@ let flags =
     smtsolver = smtsolver_default;
     smtlogic = smtlogic_default;
     z3_bin = z3_bin_default;
-    z3_check_sat_assume = z3_check_sat_assume_default;
+    smt_check_sat_assume = smt_check_sat_assume_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
@@ -731,6 +741,7 @@ let flags =
     ic3_block_in_future = ic3_block_in_future_default;
     ic3_block_in_future_first = ic3_block_in_future_first_default;
     ic3_fwd_prop_subsume = ic3_fwd_prop_subsume_default;
+    ic3_use_invgen = ic3_use_invgen_default;
     ic3_abstr = ic3_abstr_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
@@ -803,12 +814,15 @@ let z3_bin_spec =
 
 (* ********** *) 
 
-let z3_check_sat_assume_action o = flags.z3_check_sat_assume <- o
+let smt_check_sat_assume_action o = flags.smt_check_sat_assume <- o
   
-let z3_check_sat_assume_spec = 
-  ("--z3_check_sat_assume", 
-   Arg.Bool z3_check_sat_assume_action, 
-   Format.sprintf "use check-sat with assumptions in Z3 (default: %B)" z3_check_sat_assume_default)
+let smt_check_sat_assume_spec = 
+  ("--smt_check_sat_assume", 
+   Arg.Bool smt_check_sat_assume_action, 
+   Format.sprintf
+     "Use check-sat with assumptions, or simulate with push/pop \
+      when false (default: %B)"
+     smt_check_sat_assume_default)
 
 (* ********** *) 
 
@@ -1123,6 +1137,16 @@ let ic3_fwd_prop_subsume_spec =
                   (string_of_ic3_fwd_prop_subsume ic3_fwd_prop_subsume_default))
 
 (* ********** *) 
+ 
+let ic3_use_invgen_action o = flags.ic3_use_invgen <- o
+  
+let ic3_use_invgen_spec = 
+  ("--ic3_use_invgen", 
+   Arg.Bool ic3_use_invgen_action, 
+   Format.sprintf "(IC3) Use invariants from invariant generators (default: %s)"
+                  (string_of_ic3_use_invgen ic3_use_invgen_default))
+
+(* ********** *) 
 
 let ic3_abstr_action o = flags.ic3_abstr <- (ic3_abstr_of_string o)
   
@@ -1320,7 +1344,7 @@ let smtlogic () = flags.smtlogic
 
 let z3_bin () = flags.z3_bin
 
-let z3_check_sat_assume () = flags.z3_check_sat_assume
+let smt_check_sat_assume () = flags.smt_check_sat_assume
 
 let cvc4_bin () = flags.cvc4_bin
 
@@ -1387,6 +1411,8 @@ let ic3_fwd_prop_non_gen () = flags.ic3_fwd_prop_non_gen
 let ic3_fwd_prop_ind_gen () = flags.ic3_fwd_prop_ind_gen 
 
 let ic3_fwd_prop_subsume () = flags.ic3_fwd_prop_subsume 
+
+let ic3_use_invgen () = flags.ic3_use_invgen 
 
 let ic3_abstr () = flags.ic3_abstr
 
@@ -1474,8 +1500,8 @@ and speclist =
     (* Set executable for Z3 solver *)
     z3_bin_spec;
 
-    (* Use check-sat with assumptions in Z3 *)
-    z3_check_sat_assume_spec;
+    (* Use check-sat with assumptions or simulate with push/pop *)
+    smt_check_sat_assume_spec;
 
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;
@@ -1570,6 +1596,9 @@ and speclist =
 
     (* Subsumption in forward propagation *)
     ic3_fwd_prop_subsume_spec;
+
+    (* Use invariants from invariant generators *)
+    ic3_use_invgen_spec;
 
     (* Abstraction in IC3 *)
     ic3_abstr_spec;

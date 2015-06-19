@@ -209,7 +209,7 @@ let status_of_exn process trans_sys_opt =
     (
 
       Event.log L_error 
-        "<Timeout> Wallclock timeout";
+        "[Timeout] Wallclock timeout";
 
       status_of_sys ()
 
@@ -221,7 +221,7 @@ let status_of_exn process trans_sys_opt =
     (
       
       Event.log L_error
-        "<Timeout> CPU timeout"; 
+        "[Timeout] CPU timeout"; 
 
       status_of_sys ()
 
@@ -233,7 +233,7 @@ let status_of_exn process trans_sys_opt =
     (
       
       Event.log L_fatal
-        "<Interruption> Caught signal%t. Terminating." 
+        "[Interruption] Caught signal%t. Terminating." 
         (function ppf -> 
           match s with 
             | 0 -> () 
@@ -253,7 +253,7 @@ let status_of_exn process trans_sys_opt =
       let backtrace = Printexc.get_backtrace () in
 
       Event.log L_fatal
-        "<Error> Runtime error: %s" 
+        "[Error] Runtime error: %s" 
         (Printexc.to_string e);
 
       if Printexc.backtrace_status () then

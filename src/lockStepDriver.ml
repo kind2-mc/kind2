@@ -64,10 +64,10 @@ let check_consistency_sys solver k sys actlit called_by =
 
     SMTSolver.check_sat_assuming
       solver
-      (fun () ->
+      (fun _ ->
        (* Instance is sat for [sys], fine. *)
        ())
-      (fun () ->
+      (fun _ ->
        (* Instance is unsat, let's crash. *)
        Event.log
          L_info
@@ -453,7 +453,7 @@ let query_base
   |> SMTSolver.assert_term base_solver ;
 
   (* Function to run if sat. *)
-  let if_sat () =
+  let if_sat _ =
 
     let minus_k = Numeral.(~- k) in
 
@@ -471,7 +471,7 @@ let query_base
   in
 
   (* Function to run if unsat. *)
-  let if_unsat () = None in
+  let if_unsat _ = None in
 
   (* Checking if we should terminate before doing anything. *)
   Event.check_termination () ;
@@ -546,7 +546,7 @@ let rec split_closure
             |> Term.mk_not ]) ;
 
      (* Function to run if sat. *)
-     let if_sat () =
+     let if_sat _ =
 
        let minus_kp1 = Numeral.(~- kp1) in
        
@@ -583,7 +583,7 @@ let rec split_closure
      in
 
      (* Function to run if unsat. *)
-     let if_unsat () = None in
+     let if_unsat _ = None in
 
      (* Checking if we should terminate before doing anything. *)
      Event.check_termination () ;
@@ -638,7 +638,7 @@ let rec prune_trivial
          Term.mk_and bumped_terms |> Term.mk_not ]
      |> SMTSolver.assert_term solver ;
 
-     let if_sat () =
+     let if_sat _ =
        Some (
          (* Getting the values of terms@1. *)
          SMTSolver.get_term_values
@@ -658,7 +658,7 @@ let rec prune_trivial
        )
      in
 
-     let if_unsat () = None in
+     let if_unsat _ = None in
 
      match
       SMTSolver.check_sat_assuming

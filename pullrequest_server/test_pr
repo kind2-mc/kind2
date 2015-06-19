@@ -54,13 +54,16 @@ base=$2
 statuses_url=$3
 pr_url=$4
 clone_url=$5
+sha=$6
+base_sha=$7
+
 
 # unique sha for the pull request's head
-sha=$(echo ${statuses_url##*/})
-
+#sha=$(echo ${statuses_url##*/})
+uniq="$sha$base_sha"
 
 # everything will be run in $workdir
-workdir="$HOME/$sha"
+workdir="$HOME/$uniq"
 mkdir -p $workdir
 
 # the variable $OK contains the status of the build/tests:
@@ -71,7 +74,7 @@ mkdir -p $workdir
 OK=0
 
 # append both stdout and stderr of this script to $log_file
-log_file=$workdir/$sha.log
+log_file=$workdir/$uniq.log
 echo "" > $log_file
 exec >> $log_file
 exec 2>&1
@@ -86,8 +89,11 @@ token="$(cat .github_token)"
 #==============================================================================
 
 # update status on github
+
+status_data=$(printf '{"state":"pending","description":"Fetching and compiling","context":"%s"}' "$base")
+
 curl -H "Authorization: token $token" -H "Content-Type: application/json"\
-     -X POST --data '{"state":"pending","description":"Fetching and compiling"}' $statuses_url
+     -X POST --data "$status_data" $statuses_url
 
 #==============================================================================
 
@@ -203,8 +209,11 @@ else
 
 
         # update status on github
+
+        status_data=$(printf '{"state":"pending","description":"Queuing tests","context":"%s"}' "$base")
+        
         curl -H "Authorization: token $token" -H "Content-Type: application/json"\
-             -X POST --data '{"state":"pending","description":"Queuing tests"}' $statuses_url
+             -X POST --data "$status_data" $statuses_url
 
 
         cd $workdir
@@ -264,7 +273,7 @@ else
 
                 if [ $percentage != $old_percentage ]; then
 
-                    progress_data=$(printf '{"state":"pending","description":"Running tests: %s %%"}' "$percentage")
+                    progress_data=$(printf '{"state":"pending","description":"Running tests: %s %%","context":"%s"}' "$percentage"  "$base")
 
                     echo "send progress_data= $progress_data"
 
@@ -282,8 +291,10 @@ else
         # At this point, all jobs are finished
         
         # update status on github
+        status_data=$(printf '{"state":"pending","description":"Analyzing tests results","context":"%s"}' "$base")
+
         curl -H "Authorization: token $token" -H "Content-Type: application/json"\
-             -X POST --data '{"state":"pending","description":"Analyzing tests results"}' $statuses_url
+             -X POST --data "$status_data" $statuses_url
 
 
         # Create scatterplot to compare performances
@@ -609,7 +620,7 @@ echo '</html>' >> $html_report
 
 
 # create dir for report export
-export_dir=$sha
+export_dir=$uniq
 mkdir -p $export_dir/
 mv $image $export_dir/
 mv $html_report $export_dir/index.html
@@ -628,7 +639,7 @@ report_url="http://kind.cs.uiowa.edu/kind2_reports/$export_dir"
 
 # Send final status update to github
 
-status_data=$(printf '{"state":"%s","description":"%s","target_url":"%s"}' "$state" "$description" "$report_url")
+status_data=$(printf '{"state":"%s","description":"%s","target_url":"%s","context":"%s"}' "$state" "$description" "$report_url" "$base")
 
 echo "send status_data= $status_data"
 
