@@ -124,58 +124,6 @@ let assert_expr fmt expr =
     "@[<hv 1>(assert@ @[<hov>%a@])@]@." 
     SMT.pp_print_expr expr
 
-(* Returns a typing constraint that reflects types that are not natively
-   supported (only subranges for now). *)
-let create_typing_constraint ?instantiate_constr uf arg_sorts res_sort =
-
-  if Type.is_int_range res_sort then
-    (* Add typing constraints for subranges *)
-
-    (* Get lower and upper bounds *)
-    let l, u = Type.bounds_of_int_range res_sort in
-
-    let args = List.map Var.mk_fresh_var arg_sorts in
-    let ufa = Term.mk_uf uf (List.map Term.mk_var args) in
-
-    (* create constraint *)
-    let constr = Term.mk_leq [Term.mk_num l; ufa; Term.mk_num u] in
-
-    (* quantify over arguments *)
-    match args, instantiate_constr with
-    | [], _ -> constr
-    | _, None -> Term.mk_forall args constr
-    | [_], Some (a, b) ->
-      let rec inst acc i =
-        if i < a then acc
-        else
-          let ufa = Term.mk_uf uf [Term.mk_num_of_int i] in
-          let acc = Term.mk_leq [Term.mk_num l; ufa; Term.mk_num u] :: acc in
-          inst acc (i-1)
-      in
-      let l = inst [] b in
-      Term.mk_and l
-    | _ -> assert false
-      
-  else Term.t_true
-
-  
-(* Create typing constraint for uf symbol *)
-let typing_constr svuf =
-  create_typing_constraint
-    svuf
-    (UfSymbol.arg_type_of_uf_symbol svuf)
-    (UfSymbol.res_type_of_uf_symbol svuf)
-
-
-(* Create a typing constraint from a declaration and add it to the
-   certificate *)
-let add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort =
-  let qconstr =
-    create_typing_constraint ?instantiate_constr uf arg_sorts res_sort in
-  (* assert constraint *)
-  if not (Term.equal qconstr Term.t_true) then assert_expr fmt qconstr
-
-
 
 (* Declare a new function symbol *)
 let declare_fun fmt fun_symbol arg_sorts res_sort =
@@ -191,19 +139,16 @@ let declare_const fmt uf =
   let fun_symbol = UfSymbol.name_of_uf_symbol uf in
   let arg_sorts = UfSymbol.arg_type_of_uf_symbol uf in
   let res_sort = UfSymbol.res_type_of_uf_symbol uf in
-  declare_fun fmt fun_symbol arg_sorts res_sort;
-  add_typing_constraint fmt uf arg_sorts res_sort
+  declare_fun fmt fun_symbol arg_sorts res_sort
 
 
 (* Declare a new state variable from a uf *)
-let declare_state_var ?instantiate_constr fmt uf =
+let declare_state_var fmt uf =
   let fun_symbol = UfSymbol.name_of_uf_symbol uf in
   assert (UfSymbol.arg_type_of_uf_symbol uf = []);
   let arg_sorts = [Type.t_int] in
   let res_sort = UfSymbol.res_type_of_uf_symbol uf in
-  declare_fun fmt fun_symbol arg_sorts res_sort;
-  add_typing_constraint ?instantiate_constr fmt uf arg_sorts res_sort
-
+  declare_fun fmt fun_symbol arg_sorts res_sort
 
 
 (* Define a new function symbol as an abbreviation for an expression *)
@@ -297,7 +242,7 @@ exception Reduce_cont of (unit -> Term.t list)
 let rec fixpoint ~just_check_ind
     acc solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
-  let if_sat () =
+  let if_sat _ =
     (debug certif "[Fixpoint] fail" end);
     raise Exit
     
@@ -332,14 +277,14 @@ let rec fixpoint ~just_check_ind
     (* Check preservation of invariants by k-steps *)
     SMTSolver.check_sat_assuming solver
       
-      (fun () ->
+      (fun _ ->
          (* SAT try to find what invariants are missing *)
          (debug certif "[Fixpoint] could not verify inductiveness" end);
 
          fixpoint ~just_check_ind:false acc solver
            invs_acts new_prop_act new_prop'act neg_new_prop'act trans_acts)
       
-      (fun () ->
+      (fun _ ->
          (* UNSAT: return accumulated invariants *)
          (debug certif "[Fixpoint] OK"
            (* (pp_print_list Term.pp_print_term "@ ") acc *) end);
@@ -370,7 +315,7 @@ let rec fixpoint ~just_check_ind
      invariants *)
   SMTSolver.check_sat_assuming solver
     if_sat
-    (fun () ->
+    (fun _ ->
        if just_check_ind then raise (Reduce_cont (if_unsat ()))
        else if_unsat () ())
     (trans_acts @ (neg_prop'act :: prev_props_act :: invs))
@@ -623,28 +568,12 @@ let minimize_certificate sys =
     SMTSolver.create_instance ~produce_cores:true
       (TransSys.get_logic sys) (Flags.smtsolver ())
   in
-
-  (* Helper function to declare a symbol and the associated constraints if
-     needed *)
-  let decl_w_constr f =
-    SMTSolver.declare_fun solver f;
-    match SMTSolver.kind solver with
-    | `Yices_native ->
-      (* Don't declare subranges constraints for yices 1 *)
-      ()
-    | _ ->
-      let qconstr = typing_constr f in
-      if not (Term.equal qconstr Term.t_true) then 
-        SMTSolver.assert_term solver qconstr
-  in
-  
-    
   
   (* Defining uf's and declaring variables. *)
   TransSys.init_define_fun_declare_vars_of_bounds
     sys
     (SMTSolver.define_fun solver)
-    decl_w_constr
+    (SMTSolver.declare_fun solver)
     Numeral.(~- one) (Numeral.of_int (k+1));
 
   (* The property we want to re-verify the conjunction of all the properties *)
@@ -971,8 +900,7 @@ let generate_certificate sys dirname =
   (* Declaring state variables upto k *)
   add_section fmt "State variables";
   List.iter (fun sv ->
-      declare_state_var ~instantiate_constr:(0, k+1)
-        fmt (StateVar.uf_symbol_of_state_var sv)
+      declare_state_var fmt (StateVar.uf_symbol_of_state_var sv)
     ) svars;
 
   
