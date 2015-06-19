@@ -1431,6 +1431,8 @@ let z3_cmd = "z3 -smt2 -in"
 let cvc4_cmd = "cvc4 --incremental --lang smt2"
 let yices2_cmd = "yices-smt2 --incremental"
 
+let goto_cert_dir="cd $(dirname \"$(which \"$0\")\")\n"
+
 let select_solver_script =
   Format.sprintf
   "case $1 in
@@ -1453,12 +1455,14 @@ let certificate_checker_script =
   "#!/bin/sh\n" ^
   "set -e\n" ^
   select_solver_script ^
+  goto_cert_dir ^
   "cat certificate_prelude.smt2 kind2_defs.smt2 certificate.smt2 | $solver"
 
 let fecc_checker_script =
   "#!/bin/sh\n" ^
   "set -e\n" ^
   select_solver_script ^
+  goto_cert_dir ^
   "cat FECC_prelude.smt2 kind2_defs.smt2 jkind_defs.smt2 observer_defs.smt2 FECC.smt2 | $solver"
 
 
