@@ -36,22 +36,6 @@ module S = LustreSimplify
 
 
 
-let pp_print_trie pp_i pp_e ppf t = 
-  D.bindings t |> 
-  pp_print_list
-    (fun ppf (i, e) -> 
-       if i = D.empty_index then 
-         pp_e ppf e
-       else
-         Format.fprintf 
-           ppf
-           "%a: %a"
-           pp_i i
-           pp_e e)
-    ";@ "
-    ppf
-
-
 (* ********************************************************************** *)
 (* Parse constants                                                        *)
 (* ********************************************************************** *)
@@ -313,16 +297,19 @@ let eval_struct_item ctx pos = function
 
       try
 
+        (* Get trie of local or output state variables *)
         C.assignable_state_var_of_ident ctx ident
-
+          
       with 
         
+        (* Identifier cannot be assigned to *)
         | Invalid_argument _ -> 
           
           C.fail_at_position 
             pos 
             "Assignment to identifier not possible"
 
+        (* Identifier not declared *)
         | Not_found -> 
           
           C.fail_at_position 
@@ -379,7 +366,7 @@ let uneval_eq_lhs ctx = function
 let rec eval_eq_lhs ctx pos = function
 
   (* Empty list for node calls without returns *)
-  | A.StructDef (pos, []) -> (D.empty, ctx)
+  | A.StructDef (pos, []) -> (D.empty, 0, ctx)
 
   (* Single item *)
   | A.StructDef (pos, [e]) -> 
@@ -389,7 +376,7 @@ let rec eval_eq_lhs ctx pos = function
 
     (* Return types of indexes, no array bounds and unchanged
        context *)
-    t, ctx
+    t, 0, ctx
 
   (* List of items *)
   | A.StructDef (pos, l) -> 
@@ -424,7 +411,7 @@ let rec eval_eq_lhs ctx pos = function
 
     (* Return types of indexes, no array bounds and unchanged
        context *)
-    res, ctx
+    res, 0, ctx
 
   (* Recursive array definition *)
   | A.ArrayDef (pos, i, l) -> 
@@ -433,27 +420,29 @@ let rec eval_eq_lhs ctx pos = function
     let ident = I.mk_string_ident i in
 
     (* Get expression of identifier *)
-    let expr = 
-      try 
-
-        C.expr_of_ident ctx ident 
-
-      with Not_found -> 
-
-        C.fail_at_position 
-          pos 
-          "Undeclared identifer on left-hand side"
-
-    in
-
     let res = 
-      D.map
-        (fun e -> 
-           if E.is_var e then E.state_var_of_expr e else
-             C.fail_at_position 
-               pos 
-               "Invalid identifer on left-hand side")
-        expr
+
+      try
+
+        (* Get trie of local or output state variables *)
+        C.assignable_state_var_of_ident ctx ident
+          
+      with 
+        
+        (* Identifier cannot be assigned to *)
+        | Invalid_argument _ -> 
+          
+          C.fail_at_position 
+            pos 
+            "Assignment to identifier not possible"
+
+        (* Identifier not declared *)
+        | Not_found -> 
+          
+          C.fail_at_position 
+            pos 
+            "Assignment to undeclared identifier"
+
     in
 
     (* Fail if the index in the second argument does not start with
@@ -472,7 +461,27 @@ let rec eval_eq_lhs ctx pos = function
 
     (* Check that the variable has at least as many indexes as
        variables given *)
-    List.iter (fun (i, _) -> aux l i) (D.bindings expr);
+    List.iter (aux l) (D.keys res);
+
+    (* Must have at least one element in the trie *)
+    assert 
+      (try D.choose res |> ignore; true with Not_found -> false);
+
+    (* Convert array bounds to indexes for equation *)
+    let rec aux accum = function 
+      | [] -> (function _ -> accum)
+      | h :: tl1 -> 
+        (function 
+          | D.ArrayVarIndex _ :: tl2 -> aux (succ accum) tl1 tl2
+          | _ -> 
+            C.fail_at_position 
+              pos 
+              "Index mismatch for array")
+    in
+
+    let indexes = 
+      (D.keys res |> List.hd) |> aux 0 l
+    in
 
     (* Add bindings for the running variables to the context *)
     let _, ctx = 
@@ -496,7 +505,7 @@ let rec eval_eq_lhs ctx pos = function
         l
     in
 
-    res, ctx
+    res, indexes, ctx
 
 
 (* Match bindings from a trie of state variables and bindings for a
@@ -564,12 +573,41 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (D.ArrayVarIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
 
+    (* We cannot compare expressions for array bounds syntactically,
+       because that may give too many false negatives. Evaluating both
+       bounds to find if they are equal would be too complicated,
+       therefore accept some false positives here. *)
+    
+    (* Count number of variable indexes *)
+    let i = 
+      List.fold_left 
+        (fun a -> function 
+           | D.ArrayVarIndex _ -> succ a
+           | _ -> a)
+        0
+        lhs_index_tl
+    in
+
+    (* Is every variable in the expression necessarily of array type? 
+
+       Need to skip the index expression of a select operator: A[k] *)
+    
+    let expr' =
+      E.map
+        (fun _ e -> 
+           if E.is_var e then 
+             (assert (E.type_of_lustre_expr e |> Type.is_array);
+              E.mk_select e (E.mk_index_var i))
+           else e)
+        expr
+    in
+      
     expand_tuple' 
       pos
       accum
       (N.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
-      ((rhs_index_tl, expr) :: rhs_tl)
+      ((rhs_index_tl, expr') :: rhs_tl)
 
   (* Tuple index on left-hand and right-hand side *)
   | ((D.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
@@ -735,9 +773,9 @@ let rec eval_node_equations ctx = function
 
     (* Trie of state variables on left-hand side and extended context
        for right-hand side *)
-    let eq_lhs, ctx = eval_eq_lhs ctx pos lhs in
+    let eq_lhs, indexes, ctx = eval_eq_lhs ctx pos lhs in
 
-    (* Evaluate Boolean expression *)
+    (* Evaluate expression on right-hand side *)
     let eq_rhs, ctx = 
 
       (* Evaluate in extended context *)
@@ -757,6 +795,17 @@ let rec eval_node_equations ctx = function
 
     in 
 
+    Format.printf
+      "@[<hv>%a@]@."
+      (D.pp_print_trie
+         (fun ppf (i, e) ->
+            Format.fprintf ppf
+              "@[<hv 2>%a:@ %a@]"
+              (D.pp_print_index false) i
+              (E.pp_print_lustre_expr false) e)
+         ";@ ")
+      eq_rhs;
+
     (* Remove local definitions for equation from context
 
        We add local definitions from the left-hand side to the
@@ -771,7 +820,7 @@ let rec eval_node_equations ctx = function
     (* Add equations for each index *)
     let ctx =
       List.fold_left
-        (fun ctx (sv, b, e) -> C.add_node_equation ctx pos sv b e)
+        (fun ctx (sv, b, e) -> C.add_node_equation ctx pos sv b indexes e)
         ctx
         equations
     in

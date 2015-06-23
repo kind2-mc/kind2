@@ -444,7 +444,17 @@ let mk_state_var
   let state_var_name = 
     Format.asprintf "%a%a"
       (I.pp_print_ident false) ident
-      (D.pp_print_index false) index
+      (D.pp_print_index false) 
+
+      (* Filter out array indexes *)
+      (List.filter
+         (function 
+           | D.ArrayVarIndex _ 
+           | D.ArrayIntIndex _ -> false
+           | D.RecordIndex _
+           | D.TupleIndex _
+           | D.ListIndex _ -> true)
+         index)
   in
 
   (* Create or retrieve state variable *)
@@ -465,7 +475,7 @@ let mk_state_var
   in
 
   (* Create expression from state variable *)
-  let expr = E.mk_var E.base_clock state_var in
+  let expr = E.mk_var state_var in
 
   (* Bind state variable to identifier *)
   let ctx = 
@@ -747,7 +757,7 @@ let close_expr
             in
             
             (* Substitute oracle variable for variable *)
-            ((var, E.mk_var E.base_clock state_var) :: accum, ctx))
+            ((var, E.mk_var state_var) :: accum, ctx))
          
          init_pre_vars
          ([], ctx)
@@ -1246,7 +1256,7 @@ let add_node_property ctx source name expr =
               in
 
               (* Add an equation for the alias *)
-              (state_var', [], E.mk_var E.base_clock state_var) :: equations, 
+              (state_var', [], E.mk_var state_var) :: equations, 
 
               (* Use alias as property *)
               (state_var', name, source), 
@@ -1270,16 +1280,16 @@ let add_node_property ctx source name expr =
 
 
 (* Add node assert to context *)
-let add_node_equation ctx pos state_var bounds expr = 
+let add_node_equation ctx pos state_var bounds indexes expr = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
     | { node = Some { N.equations; N.calls } } -> 
-(*
+
       Format.printf
-        "%a%a = %a@."
+        "%a%a = %a (%d)@."
         StateVar.pp_print_state_var state_var
         (pp_print_list
            (function ppf -> function
@@ -1287,8 +1297,8 @@ let add_node_equation ctx pos state_var bounds expr =
               | N.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
            "")
         bounds
-        (E.pp_print_lustre_expr false) expr;
-  *)                
+        (E.pp_print_lustre_expr false) expr
+        indexes;
 
       if 
         
@@ -1322,16 +1332,23 @@ let add_node_equation ctx pos state_var bounds expr =
           (Format.asprintf 
              "Duplicate definition for %a"
              (E.pp_print_lustre_var false) state_var);
+
       
       (* Wrap type of expression in arrays for the number of not fixed
          bounds *)
+      let rec aux accum i = if i <= 0 then accum else
+          aux (Type.mk_array Type.t_int accum) (pred i)
+      in
+
+      (* let expr_type = aux (E.type_of_lustre_expr expr) indexes in *)
+
       let expr_type = E.type_of_lustre_expr expr in
 
       (* Type of state variable *)
       let state_var_type = 
         List.fold_left
           (fun t -> function
-             | N.Bound _
+             | N.Bound _ 
              | N.Fixed _ -> 
 
                if Type.is_array t then
@@ -1349,7 +1366,12 @@ let add_node_equation ctx pos state_var bounds expr =
           (StateVar.type_of_state_var state_var )
           bounds
       in
-
+(*
+      (* Type of state variable *)
+      let state_var_type = 
+        StateVar.type_of_state_var state_var
+      in
+*)
       let ctx = 
 
         if 
@@ -1489,7 +1511,7 @@ let node_of_context = function
         (* Add equations from definitions to equations *)
         ET.fold
           (fun e sv ctx -> 
-             add_node_equation ctx dummy_pos sv [] e)
+             add_node_equation ctx dummy_pos sv [] 0 e)
           expr_state_var_map
           ctx
 

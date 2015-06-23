@@ -27,7 +27,6 @@ module VS = Var.VarSet
 
 (* Exceptions *)
 exception Type_mismatch
-exception Clock_mismatch
 
 (* A Lustre expression is a term *)
 type expr = Term.t
@@ -35,13 +34,7 @@ type expr = Term.t
 (* A Lustre type is a type *)
 type lustre_type = Type.t
 
-(* A Lustre clock 
-
-   We don't do clocks, so this is just a unit value *)
-type clock = unit
-
-
-(* A typed and clocked Lustre expression *)
+(* A typed Lustre expression *)
 type t = { 
   
   (* Lustre expression for the initial state *)
@@ -49,9 +42,6 @@ type t = {
 
   (* Lustre expression after initial state *)
   expr_step: expr;
-  
-  (* Clock of expression *)
-  expr_clock: unit;
   
   (* Type of expression
 
@@ -64,33 +54,121 @@ type t = {
 
 (* Total order on expressions *)
 let compare
-    { expr_init = init1; expr_step = step1; expr_clock = clock1 } 
-    { expr_init = init2; expr_step = step2; expr_clock = clock2 } =
+    { expr_init = init1; expr_step = step1 } 
+    { expr_init = init2; expr_step = step2 } =
 
-  (* Lexicographic comparision of initial value, step value, and clock *)
+  (* Lexicographic comparision of initial value, step value *)
   let c_init = Term.compare init1 init2 in 
   if c_init = 0 then 
-    let c_step = Term.compare step1 step2 in
-    if c_step = 0 then
-      Pervasives.compare clock1 clock2
-    else
-      c_step
+    Term.compare step1 step2 
   else
     c_init
 
 
 (* Equality on expressions *)
 let equal
-    { expr_init = init1; expr_step = step1; expr_clock = clock1 } 
-    { expr_init = init2; expr_step = step2; expr_clock = clock2 } = 
+    { expr_init = init1; expr_step = step1 } 
+    { expr_init = init2; expr_step = step2 } = 
 
-  Term.equal init1 init2 && Term.equal step1 step2 && clock1 = clock2
+  Term.equal init1 init2 && Term.equal step1 step2
 
 
 (* Hashing of expressions *)
-let hash { expr_init; expr_step; expr_clock } =
+let hash { expr_init; expr_step } =
   Hashtbl.hash
-    (Term.hash expr_init, Term.hash expr_step (* , Term.hash expr_clock *) )
+    (Term.hash expr_init, Term.hash expr_step)
+
+
+(* Map on expression
+
+   We want to use the constructors of this module instead of the
+   functions of the term module to get type checking and
+   simplification. Therefore the function [f] gets values of type [t],
+   not of type [expr].
+
+   A Lustre expression of type [t] has the [->] only at the top with
+   the [expr_init] as the left operand and [expr_step] as the
+   right. We apply Term.map separately to [expr_init] and [expr_step],
+   which are of type [expr = Term.t] and construct a new Lustre
+   expression from the result.
+
+   When mapping [expr_init], we know that we are on the left side of a
+   [->] operator. If the result of [f] is [l -> r] we always take [l],
+   because [(l -> r) -> t = (l -> t)]. Same for [expr_step], because
+   [t -> (l -> r) = t -> r].
+*)
+let map f ({ expr_init; expr_step } as expr) = 
+
+  (* Create a Lustre expression from a term and return a term, if
+     [init] is true considering [expr_init] only, otherwise [expr_step]
+     only. *)
+  let f' init i term = 
+
+    (* Construct Lustre expression from term, using the term for both
+       the initial state and the step state *)
+    let expr = 
+      { expr_init = term; 
+        expr_step = term;
+        expr_type = Term.type_of_term term }
+    in
+
+    (* Which of Init or step? *)
+    if init then 
+      
+      (* Return term for initial state *)
+      (f i expr).expr_init
+
+    else
+
+      (* Return term for step state *)
+      (f i expr).expr_step
+
+  in
+
+  (* Apply function separately to init and step expression and
+     rebuild *)
+  { expr with 
+      expr_init = Term.map (f' true) expr_init; 
+      expr_step = Term.map (f' false) expr_step }
+
+
+
+
+let rec map_top' f term = match Term.T.node_of_t term with 
+
+  | Term.T.FreeVar _ -> f term 
+
+  | Term.T.Node (s, _) when Symbol.equal_symbols s Symbol.s_select -> f term
+
+  | Term.T.BoundVar _ -> term 
+
+  | Term.T.Leaf _ -> term 
+
+  | Term.T.Node (s, l) -> Term.T.mk_app s (List.map (map_array_var' f) l)
+
+  | Term.T.Let (l, t)  -> 
+    Term.T.mk_let_of_lambda (map_array_var'' f l) (List.map (map_array_var' f) t)
+
+  | Term.T.Exists l  -> 
+    Term.T.mk_exists_of_lambda (map_array_var'' f l)
+
+  | Term.T.Forall l  -> 
+    Term.T.mk_forall_of_lambda (map_array_var'' f l)
+
+  | Term.T.Annot (t, a) -> Term.T.mk_annot (map_array_var' f t) a
+
+and map_array_var'' f lambda = match Term.T.node_of_lambda lambda with
+
+  | Term.T.L (l, t) -> Term.T.mk_lambda_of_term l (map_array_var' f t)
+
+
+let map_array_var f ({ expr_init; expr_step } as expr) =
+
+  { expr with
+      expr_init = map_array_var' f' expr_init;
+      expr_step = map_array_var' f' expr_step }
+      
+
 
 
 (* Return the type of the expression *)
@@ -542,7 +620,7 @@ let pp_print_expr safe ppf expr =
 let print_expr safe = pp_print_expr safe Format.std_formatter 
 
 
-(* Pretty-print a clocked and typed Lustre expression *)
+(* Pretty-print a typed Lustre expression *)
 let pp_print_lustre_expr safe ppf = function
 
   (* Same expression for initial state and following states *)
@@ -559,18 +637,6 @@ let pp_print_lustre_expr safe ppf = function
       (pp_print_expr safe) expr_init
       (pp_print_expr safe) expr_step
 
-
-(* ********************************************************************** *)
-(* Clocks                                                                 *)
-(* ********************************************************************** *)
-
-
-(* The base clock *)
-let base_clock = ()
-
-
-(* TODO: clock checking *)
-let clock_check _ _ = true
 
 
 (* ********************************************************************** *)
@@ -822,19 +888,11 @@ let mk_unary eval type_of expr =
 
   { expr_init = eval expr.expr_init;
     expr_step = eval expr.expr_step;
-    expr_type = res_type;
-    expr_clock = expr.expr_clock } 
+    expr_type = res_type } 
 
 
 (* Construct a binary expression *)
 let mk_binary eval type_of expr1 expr2 = 
-
-  let res_clock = 
-    if clock_check expr1.expr_clock expr2.expr_clock then 
-      expr1.expr_clock
-    else
-      raise Clock_mismatch
-  in  
 
   let res_type = 
     type_of expr1.expr_type expr2.expr_type 
@@ -842,22 +900,11 @@ let mk_binary eval type_of expr1 expr2 =
 
   { expr_init = eval expr1.expr_init expr2.expr_init;
     expr_step = eval expr1.expr_step expr2.expr_step;
-    expr_type = res_type;
-    expr_clock = res_clock } 
+    expr_type = res_type } 
 
 
 (* Construct a binary expression *)
 let mk_ternary eval type_of expr1 expr2 expr3 = 
-
-  let res_clock = 
-    if 
-      clock_check expr1.expr_clock expr2.expr_clock && 
-      clock_check expr2.expr_clock expr3.expr_clock 
-    then 
-      expr1.expr_clock
-    else
-      raise Clock_mismatch
-  in  
 
   let res_type = 
     type_of expr1.expr_type expr2.expr_type expr3.expr_type 
@@ -865,8 +912,7 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
 
   { expr_init = eval expr1.expr_init expr2.expr_init expr3.expr_init;
     expr_step = eval expr1.expr_step expr2.expr_step expr3.expr_step;
-    expr_type = res_type;
-    expr_clock = res_clock } 
+    expr_type = res_type } 
 
 
 (* ********************************************************************** *)
@@ -874,57 +920,52 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
 (* ********************************************************************** *)
   
 
-(* Boolean constant true on base clock *)
+(* Boolean constant true *)
 let t_true = 
 
   let expr = Term.t_true in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Type.t_bool; 
-    expr_clock = base_clock } 
+    expr_type = Type.t_bool } 
 
 
-(* Boolean constant false on base clock *)
+(* Boolean constant false *)
 let t_false =  
 
   let expr = Term.t_false in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Type.t_bool; 
-    expr_clock = base_clock } 
+    expr_type = Type.t_bool } 
 
 
-(* Integer constant on base clock *)
+(* Integer constant *)
 let mk_int d =  
 
   let expr = Term.mk_num d in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Type.mk_int_range d d; 
-    expr_clock = base_clock } 
+    expr_type = Type.mk_int_range d d } 
 
 
-(* Real constant on base clock *)
+(* Real constant *)
 let mk_real f =  
 
   let expr = Term.mk_dec f in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Type.t_real; 
-    expr_clock = base_clock } 
+    expr_type = Type.t_real } 
 
 
 (* Current state variable of state variable *)
-let mk_var expr_clock state_var  = 
+let mk_var state_var = 
 
   { expr_init = base_term_of_state_var base_offset state_var;
     expr_step = cur_term_of_state_var cur_offset state_var;
-    expr_type = StateVar.type_of_state_var state_var;
-    expr_clock = expr_clock } 
+    expr_type = StateVar.type_of_state_var state_var } 
 
 
 (* i-th index variable *)
@@ -940,7 +981,7 @@ let mk_index_var i =
   in
 
   (* Create expression of state variable *)
-  mk_var base_clock state_var
+  mk_var state_var
 
 
 (* ********************************************************************** *)
@@ -1895,14 +1936,6 @@ let type_of_arrow type1 type2 =
 (* Followed by expression *)
 let mk_arrow expr1 expr2 = 
 
-  (* Streams must be on the same clock, pick the first *)
-  let res_clock = 
-    if clock_check expr1.expr_clock expr2.expr_clock then 
-      expr1.expr_clock
-    else
-      raise Clock_mismatch
-  in  
-
   (* Types of expressions must be compatible *)
   let res_type = 
     type_of_arrow expr1.expr_type expr2.expr_type 
@@ -1910,8 +1943,7 @@ let mk_arrow expr1 expr2 =
 
   { expr_init = expr1.expr_init;
     expr_step = expr2.expr_step;
-    expr_type = res_type;
-    expr_clock = res_clock } 
+    expr_type = res_type } 
   
 
 (* ********************************************************************** *)
@@ -1921,7 +1953,7 @@ let mk_arrow expr1 expr2 =
 let mk_pre 
     mk_state_var_for_expr
     ctx
-    ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
+    ({ expr_init; expr_step; expr_type } as expr) = 
 
   (* Apply pre to initial state expression *)
   let expr_init', ctx' = match expr_init with 
@@ -2033,14 +2065,6 @@ let type_of_select = function
 (* Select from an array *)
 let mk_select expr1 expr2 = 
 
-  (* Streams must be on the same clock, pick the first *)
-  let _res_clock = 
-    if clock_check expr1.expr_clock expr2.expr_clock then 
-      expr1.expr_clock
-    else
-      raise Clock_mismatch
-  in  
-
   (* Types of expressions must be compatible *)
   let _res_type = 
     type_of_select expr1.expr_type expr2.expr_type 
@@ -2081,8 +2105,7 @@ let mk_of_expr expr =
   
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Term.type_of_term expr; 
-    expr_clock = base_clock } 
+   expr_type = Term.type_of_term expr } 
 
 (* 
    Local Variables:

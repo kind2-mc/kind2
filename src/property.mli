@@ -84,7 +84,8 @@ type t =
   }
 
 
-
+(** Return [true] if the status of the property is known *)
+val prop_status_known : prop_status -> bool
 
 
 

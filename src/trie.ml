@@ -73,6 +73,8 @@ module type S = sig
   val exists2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
   val subsume : 'a t -> key -> (key * 'a) list * 'a t
   val is_subsumed : 'a t -> key -> bool
+  val pp_print_trie : (Format.formatter -> key * 'a -> unit) ->
+    ('b, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
 end
 
 module Make (M : M) = struct
@@ -619,19 +621,19 @@ module Make (M : M) = struct
       (* The empty key subsumes all subtries *)
       | [] ->
 
-	(* Add all removed bindings to accumulator *)
-	let accum' =
-	  fold
-	    (fun k v a -> ((List.rev_append revp k, v) :: a))
-	    t
-	    accum
-	in
-	
-	(accum', Empty)
+        (* Add all removed bindings to accumulator *)
+        let accum' =
+          fold
+            (fun k v a -> ((List.rev_append revp k, v) :: a))
+            t
+            accum
+        in
+        
+        (accum', Empty)
 
       | h :: tl as s ->
 
-	(match t with
+        (match t with
 
           (* Nothing to subsume *)
           | Empty -> (accum, Empty)
@@ -654,8 +656,8 @@ module Make (M : M) = struct
             let accum', mr' = match mc with
               | None -> (accum, mr)
               | Some t ->
-		let a', t' = subsume' accum (h :: revp) t tl in
-		(a', M.add h t' mr)
+                let a', t' = subsume' accum (h :: revp) t tl in
+                (a', M.add h t' mr)
             in
 
             (* Subsume in left subtries and add to center and right subtries *)
@@ -663,10 +665,10 @@ module Make (M : M) = struct
               
               M.fold
 
-		(fun k t (a', t') ->
+                (fun k t (a', t') ->
 
                   (* Subsume in subtrie with key *)
-		  let a'', t'' = subsume' a' (k :: revp) t s in
+                  let a'', t'' = subsume' a' (k :: revp) t s in
 
                   match t'' with
 
@@ -675,12 +677,12 @@ module Make (M : M) = struct
                       
                     | _ -> (a'', M.add k t'' t'))
 
-		(* Subsume in left subtries *)
-		ml
+                (* Subsume in left subtries *)
+                ml
 
-		(* Add to already filtered tries *)
-		(accum', mr')
-		
+                (* Add to already filtered tries *)
+                (accum', mr')
+                
             in
 
             (* Return empty if all subsumed *)
@@ -690,11 +692,11 @@ module Make (M : M) = struct
 
     subsume' [] [] t k
 
-	
+        
   (* Subset subsumption: return true if there is a key in the trie that is a
      subset of the given key. Keys must be sorted *)
   let is_subsumed t k = 
-	
+        
     let rec is_subsumed' = function
 
       (* Could not subsume key in any subtrie *)
@@ -702,40 +704,54 @@ module Make (M : M) = struct
 
       (* No keys in trie, nothing subsumed *)
       | (Empty, _) :: tl -> is_subsumed' tl
-	
+        
       (* All keys are emtpty, subsume any key *)
       | (Leaf _, _) :: _ -> true
 
       (* Empty key is not subsumed in non-empty trie *)
       | (Node _, []) :: tl -> is_subsumed' tl
-	
+        
       (* Non-empty key is *)
       | (Node m, (h :: ktl)) :: tl ->
 
-	(* *)
-	let _, mc, mr = M.split h m in
+        (* *)
+        let _, mc, mr = M.split h m in
 
-	let tl' =
-	  tl
+        let tl' =
+          tl
       |> (fun l ->
-	if M.is_empty mr then l else (Node mr, ktl) :: l)
+        if M.is_empty mr then l else (Node mr, ktl) :: l)
       |> (fun l ->
-	match mc with
-	  | None -> l
-	  | Some t -> (t, ktl) :: l)
-	in
+        match mc with
+          | None -> l
+          | Some t -> (t, ktl) :: l)
+        in
 
-	is_subsumed' tl'
+        is_subsumed' tl'
 
     in
 
     is_subsumed' [(t, k)]
-	  
+          
 
   let merge _ _ _ = assert false
 
       
-	
+  let pp_print_trie pp sep ppf t = 
+
+    let rec pp_print_list pp sep ppf = function 
+      | [] -> ()
+      | e :: [] -> pp ppf e
+      | e :: tl -> 
+        pp_print_list pp sep ppf [e]; 
+        Format.fprintf ppf sep; 
+        pp_print_list pp sep ppf tl
+    in
+    
+    bindings t |> 
+    pp_print_list pp sep ppf
+
+        
 end
 
 
@@ -960,8 +976,6 @@ T.subsume t ['b';'c'] |> (fun (s, t) -> (s, T.bindings t));;
 T.subsume t ['c';'d'] |> (fun (s, t) -> (s, T.bindings t));;
 T.subsume t ['b';'d'] |> (fun (s, t) -> (s, T.bindings t));;
 
-<<<<<<< HEAD
-=======
 T.is_subsumed t ['a'];;
 T.is_subsumed t ['x'];;
 T.is_subsumed t ['a';'b'];;
@@ -991,5 +1005,4 @@ T.is_subsumed t2 ['a'];;
 
 T.is_subsumed T.empty ['a'];;
 
->>>>>>> refs/remotes/upstream/develop
 *)

@@ -1103,9 +1103,7 @@ and eval_node_call ctx pos ident cond args defaults =
 
       (* Return tuple of state variables capturing outputs *)
       let res = 
-        D.map
-          (E.mk_var E.base_clock)
-          call_outputs
+        D.map E.mk_var call_outputs
       in
 
       (* Return previously created state variables *)
@@ -1148,7 +1146,7 @@ and eval_node_call ctx pos ident cond args defaults =
       (* Return tuple of state variables capturing outputs *)
       let res = 
         D.map
-          (E.mk_var E.base_clock)
+          E.mk_var
           output_state_vars
       in
 

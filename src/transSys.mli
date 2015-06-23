@@ -89,6 +89,12 @@ val trans_of_bound : t -> Numeral.t -> Term.t
     at [trans_base] with the instance variables free. *)
 val init_trans_open : t -> StateVar.t list * Term.t * Term.t
 
+(** Return the logic fragment needed to express the transition system *)
+val get_logic : t -> TermLib.logic
+
+
+
+
 val mk_trans_sys : 
 
   (** Start value for fresh instance identifiers *)
@@ -99,6 +105,9 @@ val mk_trans_sys :
 
   (** State variable for instance identifier *)
   StateVar.t option ->
+
+  (** State variable for init flag *)
+  StateVar.t ->
 
   (** Global state variables *)
   StateVar.t list ->
@@ -139,6 +148,65 @@ val mk_trans_sys :
   (** Created transition system and next starting value for fresh
       instance identifiers *)
   t * int
+
+
+
+(** {1 State variables} *)
+
+(** Return instances of the state variables of the transition system
+    between given instants
+
+    [vars_of_bounds t l u] returns the list of instances of the state
+    variables of the transition system [t] between and including [l]
+    and [u]. 
+*)
+val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
+
+(** Declare variables of the transition system between given instants
+
+    [declare_vars_of_bounds t f l u] evaluates [f] with the
+    uninterpreted function symbol of each state variable of the
+    transition system [t] at each instant between and including [l]
+    and [u].
+*)
+val declare_vars_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+
+(*
+(** Declare variables of the transition system except the init flag
+    between given instants 
+
+    See {!declare_vars_of_bounds}, but the init flag of the transition
+    system is not declared. *)
+val declare_vars_of_bounds_no_init : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+*)
+
+(** {1 Properties} *)
+
+(** Return current status of the property
+
+    [get_prop_status t n] returns the status saved in the transition
+    system of the first property of name [n]. *)
+val get_prop_status : t -> string -> Property.prop_status 
+
+(** Return current status of all properties
+
+    [get_prop_status t] returns the status saved in the transition
+    system of each property along with the name of the property. *)
+val get_prop_status_all : t -> (string * Property.prop_status) list
+
+(** Return current status of all unknown properties
+
+    [get_prop_status_all_unknown t] returns the status saved in the
+    transition system of each property which is considered to be
+    unknown along with the name of the property.
+
+    According to {!Property.prop_status_known}, a property is known if
+    it is invariant, or has a [k]-step counterexample. *)
+val get_prop_status_all_unknown : t -> (string * Property.prop_status) list
+
+
+
+
 
 (*
 
@@ -595,7 +663,211 @@ type abstraction = string list list
 val pp_print_trans_sys_abstraction:
   Format.formatter -> t -> unit
 
-(*
+(* Call from develop branch
+
+(x) done
+
+-- src/base.ml
+(x) TransSys.declare_vars_of_bounds
+(x) TransSys.get_logic
+(x) TransSys.get_prop_status
+TransSys.init_define_fun_declare_vars_of_bounds
+TransSys.init_of_bound
+TransSys.invars_of_bound
+TransSys.named_term_of_prop_name
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound
+TransSys.state_vars
+TransSys.trans_of_bound
+TransSys.uf_defs
+
+-- src/compress.ml
+TransSys.state_vars
+TransSys.trans_of_bound
+TransSys.uf_defs
+
+-- src/event.ml
+TransSys.add_invariant
+TransSys.add_scoped_invariant
+(x) TransSys.get_prop_status
+TransSys.get_scope
+TransSys.get_source
+TransSys.length_of_cex
+TransSys.Lustre
+TransSys.named_term_of_prop_name
+TransSys.Native
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound
+TransSys.prop_status
+TransSys.prop_status_known
+TransSys.PropUnknown
+TransSys.set_prop_false
+TransSys.set_prop_invariant
+TransSys.set_prop_ktrue
+TransSys.set_prop_status
+
+-- src/horn.ml
+TransSys.constr_constr
+TransSys.empty
+TransSys.init_constr
+TransSys.pp_print_trans_sys
+TransSys.props
+
+-- src/IC3.ml
+TransSys.add_invariant
+TransSys.declare_vars_of_bounds
+TransSys.exists_eval_on_path
+TransSys.get_logic
+(x) TransSys.get_prop_status
+TransSys.get_scope
+TransSys.init_define_fun_declare_vars_of_bounds
+TransSys.init_of_bound
+TransSys.invars_of_bound
+TransSys.is_disproved
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound
+TransSys.state_vars
+TransSys.trans_of_bound
+TransSys.uf_defs
+TransSys.vars_of_bounds
+
+-- src/interpreter.ml
+TransSys.get_logic
+TransSys.get_scope
+TransSys.init_define_fun_declare_vars_of_bounds
+TransSys.init_of_bound
+TransSys.state_vars
+TransSys.trans_of_bound
+
+-- src/invarManager.ml
+TransSys.all_props_proved
+(x) TransSys.get_prop_status_all
+
+-- src/invGenCandTermGen.ml
+TransSys.get_scope
+TransSys.get_subsystems
+TransSys.init_of_bound
+TransSys.instantiate_term_all_levels
+TransSys.state_vars
+TransSys.trans_of_bound
+
+-- src/invGenGraph.ml
+TransSys.add_invariant
+TransSys.get_name
+TransSys.get_scope
+TransSys.init_flag_var
+TransSys.instantiate_term_all_levels
+TransSys.named_term_of_prop_name
+TransSys.PropInvariant
+TransSys.subsystem_of_scope
+TransSys.t
+TransSys.uf_defs
+
+-- src/kind2.ml
+(x) TransSys.get_prop_status_all
+TransSys.pp_print_trans_sys
+TransSys.PropFalse
+TransSys.PropKTrue
+TransSys.props_list_of_bound
+TransSys.PropUnknown
+
+-- src/lockStepDriver.ml
+TransSys.declare_vars_of_bounds_no_init
+TransSys.get_logic
+TransSys.get_name
+TransSys.get_scope
+TransSys.get_subsystems
+TransSys.init_define_fun_declare_vars_of_bounds
+TransSys.init_flag_uf
+TransSys.init_of_bound
+TransSys.invars_of_bound
+TransSys.t
+TransSys.trans_of_bound
+TransSys.vars_of_bounds
+
+-- src/lustreChecker.ml
+TransSys.mk_trans_sys
+TransSys.pp_print_trans_sys
+TransSys.trans_sys_of_nodes
+TransSys.uf_symbols_of_trans_sys
+
+-- src/lustreTransSys.ml
+TransSys.add_caller
+TransSys.get_source
+TransSys.init_base
+TransSys.init_flag_svar
+TransSys.init_flag_var
+TransSys.init_uf_symbol
+TransSys.Lustre
+TransSys.mk_trans_sys
+TransSys.pp_print_trans_sys
+TransSys.pp_print_uf_def
+TransSys.t
+TransSys.trans_base
+TransSys.trans_uf_symbol
+
+-- src/nativeInput.ml
+TransSys.mk_trans_sys
+TransSys.Native
+TransSys.pp_print_trans_sys
+
+-- src/nusmv.ml
+TransSys.constr
+TransSys.init
+TransSys.invars
+TransSys.props
+TransSys.props_invalid
+TransSys.trans
+
+-- src/oldParser.ml
+TransSys.constr_assign
+TransSys.constr_constr
+TransSys.constr_dep
+TransSys.constr_of_def_list
+TransSys.init_assign
+TransSys.init_constr
+TransSys.invars
+TransSys.invars_of_types
+TransSys.props
+TransSys.props_invalid
+TransSys.props_valid
+TransSys.trans
+
+-- src/QE.ml
+TransSys.declare_vars_of_bounds
+TransSys.get_logic
+TransSys.init_define_fun_declare_vars_of_bounds
+TransSys.iter_uf_definitions
+TransSys.vars_of_bounds
+
+-- src/step.ml
+TransSys.add_invariant
+TransSys.declare_vars_of_bounds
+TransSys.get_invars
+TransSys.get_logic
+(x) TransSys.get_prop_status
+TransSys.init_define_fun_declare_vars_of_bounds
+TransSys.invars_of_bound
+TransSys.iter_state_var_declarations
+TransSys.PropFalse
+TransSys.PropInvariant
+TransSys.PropKTrue
+TransSys.props_list_of_bound
+TransSys.state_vars
+TransSys.trans_fun_of
+TransSys.trans_of_bound
+TransSys.uf_defs
+TransSys.vars_of_bounds
+
+*)
+
+(* Calls from contracts branch 
 
 -- src/analysis.ml
 TransSys.all_props_proved
@@ -607,8 +879,8 @@ TransSys.declare_vars_of_bounds
 - TransSys.get_abstraction
 TransSys.get_logic
 TransSys.get_name
-TransSys.get_prop_status
-TransSys.get_prop_status_all_unknown
+(x) TransSys.get_prop_status
+(x) TransSys.get_prop_status_all_unknown
 TransSys.get_scope
 TransSys.init_of_bound
 TransSys.init_solver
@@ -636,7 +908,7 @@ TransSys.add_scoped_invariant
 - TransSys.get_callers
 - TransSys.get_name
 TransSys.get_prop_source
-TransSys.get_prop_status
+(x) TransSys.get_prop_status
 TransSys.get_scope
 TransSys.get_source
 TransSys.get_source_name
@@ -691,7 +963,7 @@ TransSys.uf_defs
 -- src/kind2.ml
 TransSys.all_props_actually_proved
 TransSys.get_all_subsystems
-TransSys.get_prop_status_all
+(x) TransSys.get_prop_status_all
 TransSys.lift_valid_properties
 TransSys.pp_print_prop_status_pt
 TransSys.pp_print_trans_sys
@@ -722,8 +994,8 @@ TransSys.get_abstraction
 TransSys.get_all_subsystems
 TransSys.get_invars
 TransSys.get_name
-TransSys.get_prop_status_all
-TransSys.get_prop_status_all_unknown
+(x) TransSys.get_prop_status_all
+(x) TransSys.get_prop_status_all_unknown
 TransSys.is_top
 TransSys.PropFalse
 TransSys.PropInvariant
@@ -736,7 +1008,7 @@ TransSys.add_invariant
 TransSys.exists_eval_on_path
 TransSys.get_abstraction
 TransSys.get_logic
-TransSys.get_prop_status
+(x) TransSys.get_prop_status
 TransSys.get_scope
 TransSys.init_of_bound
 TransSys.init_solver
@@ -776,7 +1048,7 @@ TransSys.declare_vars_of_bounds
 TransSys.get_abstraction
 TransSys.get_logic
 TransSys.get_name
-TransSys.get_prop_status
+(x) TransSys.get_prop_status
 TransSys.get_scope
 TransSys.init_define_fun_declare_vars_of_bounds
 TransSys.init_solver

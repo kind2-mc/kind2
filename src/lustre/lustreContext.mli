@@ -177,7 +177,7 @@ val add_node_assert : t -> LustreExpr.t -> t
 val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t
 
 (** Add equation to context *)
-val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> LustreExpr.t -> t
+val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> int -> LustreExpr.t -> t
 
 (** Add node call to context *)
 val add_node_call : t -> Lib.position -> LustreNode.node_call -> t

@@ -215,6 +215,16 @@ module type S = sig
       [is_subsumed t k] assumes that all keys in the trie [t], and the key
       [k] are sorted and do not contain duplicates.*)
   val is_subsumed : 'a t -> key -> bool
+
+  (** Pretty-print bindings in the trie with a printer for key and
+      value pairs
+
+      [pp_print_trie f s p t] prints to the formatter [p] all bindings
+      of the trie in lexicographic order of the keys with the printer
+      [f] for key and value pairs. Each binding is separated by the
+      format string [s]. *)
+  val pp_print_trie : (Format.formatter -> key * 'a -> unit) ->
+    ('b, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
     
 end
 

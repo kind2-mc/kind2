@@ -37,6 +37,10 @@ type t =
     (* Scope of transition system *)
     scope: Scope.t;
 
+    (* State variable that becomes true in the first instant and false
+       again in the second and all following instants *)
+    init_flag_state_var : StateVar.t;
+
     (* State variable to be bound to a unique term for each
        instance of the transition system *)
     instance_state_var : StateVar.t option;
@@ -67,6 +71,11 @@ type t =
                     (Term.t -> Term.t)) 
                      list))
                     list;
+
+    (* Logic fragment needed to express the transition system 
+
+       TODO: Should this go somewhere more global? *)
+    logic : TermLib.logic;
 
     (* Predicate symbol for initial state constraint *)
     init_uf_symbol : UfSymbol.t;
@@ -134,7 +143,7 @@ let pp_print_property_source ppf = function
   | P.ContractGlobalEnsure _ -> Format.fprintf ppf ":global-ens"
   | P.ContractModeEnsure _ -> Format.fprintf ppf ":mode-ens"
   | P.Instantiated _ -> Format.fprintf ppf ":instantiated"
-
+  | P.Requirement _ -> Format.fprintf ppf ":requirement"
 
 let pp_print_property 
     ppf
@@ -389,6 +398,7 @@ let mk_trans_sys
     ?(instance_var_id_start = 0)
     scope
     instance_state_var
+    init_flag_state_var
     global_state_vars
     state_vars
     init_uf_symbol
@@ -456,6 +466,57 @@ let mk_trans_sys
 
   in
 
+  (* Logic fragment of transition system  *)
+  let logic = match Flags.smtlogic () with
+
+    (* Logic fragment should not be declared *)
+    | `None -> `None
+
+    (* Logic fragment given by option *)
+    | `Logic s -> `SMTLogic s
+
+    (* Find the logic fragment by going through terms and
+       subsystems of the transition system *)
+    | `detect ->
+
+      `Inferred
+
+        (List.fold_left
+           
+           (* Append logic of property term to list *)
+           (fun acc { P.prop_term }  -> 
+              TermLib.logic_of_term prop_term :: acc)
+           
+           (* Initial list of logics *)
+           (
+
+             (* Logic of initial state constraint *)
+             TermLib.logic_of_term init ::
+
+             (* Logic of transition relation *)
+               TermLib.logic_of_term trans ::
+             
+             (* Logics of subsystems *)
+             List.map
+               (fun (t, _) -> match t.logic with
+                  | `Inferred l -> l
+
+                  (* If the logic for this system is being inferred,
+                     the logics of the subsystems have been
+                     inferred *)
+                  | _ -> assert false) 
+               subsystems
+
+           )
+           
+           (* Add logics of properties *)
+           properties
+           
+         (* Join logics to the logic required for this system *)
+         |> TermLib.sup_logics)
+
+  in
+
   (* Increment start value of fresh instance identifier for next
      transition system *)
   let instance_var_id_start' = 
@@ -466,6 +527,7 @@ let mk_trans_sys
   let trans_sys = 
     { scope;
       instance_state_var;
+      init_flag_state_var;
       instance_var_bindings;
       global_state_vars;
       state_vars;
@@ -477,6 +539,7 @@ let mk_trans_sys
       trans_formals;
       trans;
       properties;
+      logic;
       invariants_one_state;
       invariants_two_state }
   in
@@ -488,7 +551,6 @@ let mk_trans_sys
 (* ********************************************************************** *)
 (* Access the transition system                                           *)
 (* ********************************************************************** *)
-
 
 (* Close term by binding variables to terms with a let binding *)
 let close_term bindings term = Term.mk_let bindings term
@@ -503,6 +565,7 @@ let bump_relative base i term =
     
     (* Bump to offset *)
     Term.bump_state Numeral.(i - base) term
+
 
 (* Close the initial state constraint by binding all instance
    identifiers, and bump the state variable offsets to be at the given
@@ -539,6 +602,186 @@ let equal_scope { scope = s1 } { scope = s2 } = Scope.equal s1 s2
 
 (* Compare transition systems by their scope *)
 let compare_scope { scope = s1 } { scope = s2 } = Scope.compare s1 s2
+
+
+(* Return the logic fragment needed to express the transition system *)
+let get_logic t = t.logic
+
+
+(* **************************************************************** *)
+(* State Variables, Predicates and Declarations                     *)
+(* **************************************************************** *)
+
+(* Add instances of the [state_vars] at [ubound] to [accum] if
+   [ubound] is greater than [lbound]*)
+let rec vars_of_bounds' state_vars lbound ubound accum =
+
+  (* Return when upper bound below lower bound *)
+  if Numeral.(ubound < lbound) then accum
+
+  else
+
+    (* Reverse to add in original order *)
+    List.rev state_vars
+
+    |> 
+
+    (* Add state variables at upper bound instant *)
+    List.fold_left
+      (fun accum sv -> 
+         Var.mk_state_var_instance sv ubound :: accum )
+      accum
+
+    |> 
+
+    (* Recurse to next lower bound *)
+    vars_of_bounds' state_vars lbound Numeral.(pred ubound)
+
+
+(* Return instances of the state variables of the transition system
+   between and including [lbound] and [uboud] *)
+let vars_of_bounds { state_vars } lbound ubound =
+  vars_of_bounds' state_vars lbound ubound []
+    
+
+(* Declare variables of the transition system at instants between and
+   including [lbound] and [ubound] *)
+let declare_vars_of_bounds trans_sys declare lbound ubound =
+
+  (* Instantiate state variables and declare *)
+  vars_of_bounds trans_sys lbound ubound
+  |> Var.declare_vars declare
+
+
+(* Declare constant state variable of the system *)
+let declare_const_vars { state_vars } declare =
+
+  (* Constant state variables of the top system *)
+  List.filter StateVar.is_const state_vars 
+
+  |> 
+
+  (* Create variable of constant state variable *)
+  List.map Var.mk_const_state_var
+
+  |>
+
+  (* Declare variables *)
+  Var.declare_constant_vars declare
+    
+(*
+
+(* Define predicates for the top system and all its subsystems,
+   declare constant state variables of the top system, and, if
+   [declare_sub_vars] is [true], also of all its subsystems *)
+let init_declare_and_define
+    ?(declare_sub_vars=false)
+    trans_sys
+    define
+    declare = 
+
+  (* Declate constant state variables of top system *)
+  declare_const_vars declare trans_sys;
+       
+  (* Iterate over all subsystems *)
+  iter_subsystems 
+    (fun t -> 
+
+       (* Declare constant state variables of subsystem *)
+       if declare_sub_vars then declare_const_vars declare t;
+       
+       
+
+    )
+    trans_sys
+
+
+
+
+(* Declare state variable instances of the top system between and
+   including [lbound] and [ubound]. Also declare state variable
+   instances of all subsystems if [declare_sub_vars] is [true]. *)
+let declare_and_define_of_bounds t define declare lbound ubound = ()
+
+
+
+(* Define uf definitions, declare constant state variables and declare
+   variables from [lbound] to [upbound]. *)
+let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
+
+  (match t.callers with
+    | [] ->
+      (* Define ufs. *)
+      iter_uf_definitions t define ;
+    | _ -> () ) ;
+
+  let l_vars = vars_of_bounds t lbound lbound in
+
+  (* Declaring constant variables. *)
+  Var.declare_constant_vars declare l_vars ;
+
+  (* Declaring other variables. *)
+  declare_vars_of_bounds t declare lbound ubound
+  
+*)
+
+(* **************************************************************** *)
+(* Properties                                                       *)
+(* **************************************************************** *)
+
+(* Get property by name *)
+let property_of_name t name =
+
+  (* Return the first property with the given name *)
+  List.find
+    (fun { P.prop_name } -> prop_name = name )
+    t.properties
+
+
+(* Return current status of property *)
+let get_prop_status trans_sys p = 
+
+  try 
+
+    (property_of_name trans_sys p).P.prop_status
+
+  with Not_found -> P.PropUnknown
+
+
+(* Return current status of all properties *)
+let get_prop_status_all t = 
+  
+  List.map 
+    (fun { P.prop_name; P.prop_status } -> (prop_name, prop_status))
+    t.properties
+
+
+(* Return current status of all properties *)
+let get_prop_status_all_unknown t = 
+
+  List.fold_left 
+    (function accum -> function 
+       
+       | { P.prop_name; P.prop_status } 
+         when not (P.prop_status_known prop_status) -> 
+
+         (prop_name, prop_status) :: accum 
+
+       | _ -> accum)
+    []
+    t.properties
+
+
+(* Return true if all properties are either valid or invalid *)
+let all_props_proved t =
+  
+  List.for_all
+    (fun { P.prop_status } -> match prop_status with
+       | P.PropUnknown
+       | P.PropKTrue _ -> false
+       | P.PropInvariant
+       | P.PropFalse _ -> true)
+    t.properties
 
 
 

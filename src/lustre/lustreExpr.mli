@@ -44,12 +44,6 @@
     expression on one side of the [->] operator and adjust to the
     variable offsets to the given base.
 
-    Every Lustre expression has a clock, but for now we consider all
-    expressions to be on the same clock, which is why the clock
-    parameter is a dummy value only. If we have a clock for an
-    expression, all expression constructors would need to check if the
-    arguments are on the same clock.
-
     Expressions can only be constructed with the constructors which do
     type checking and some easy simplifications with constants.
 
@@ -60,9 +54,6 @@
 
 (** Types of expressions do not match signature of operator *)
 exception Type_mismatch
-
-(** Clocks of expressions are not compatible *)
-exception Clock_mismatch
 
 (** {1 Types} *)
 
@@ -77,13 +68,6 @@ type expr = private Term.t
 (** Equality of expressions *)
 val equal_expr : expr -> expr -> bool
 
-(** A clock
-
-    Cannot be constructed outside this module to enforce
-    invariants. Clocks are currently not supported, hence the type is
-    just the unit type. *)
-type clock = private unit
-
 (** A Lustre expression
 
     The [->] operator is moved to the top of the expression, the
@@ -96,8 +80,6 @@ type t = private
     
     expr_step: expr;     (** Lustre expression after initial state *)
     
-    expr_clock: clock;   (** Clock of expression *)
-  
     expr_type: Type.t;   (** Type of expression *)
     
   }
@@ -113,6 +95,9 @@ val equal : t -> t -> bool
 
 (** Equality of expressions *)
 val hash : t -> int
+
+(** Tail-recursive bottom-up right-to-left map on the expression *)
+val map : (int -> t -> t) -> t -> t
 
 (** Return the type of the expression *)
 val type_of_lustre_expr : t -> Type.t
@@ -151,9 +136,6 @@ val pre_is_unguarded : t -> bool
 val is_const : t -> bool
 
 (** {1 Constants} *)
-
-(** The base clock *)
-val base_clock : clock
 
 (** The propositional constant true *)
 val t_true : t
@@ -255,7 +237,7 @@ val mk_int : Numeral.t -> t
 val mk_real : Decimal.t -> t
 
 (** Return an expression of a variable. *)
-val mk_var : clock -> StateVar.t -> t
+val mk_var : StateVar.t -> t
 
 (** Return an expression for the i-th index variable. *)
 val mk_index_var : int -> t

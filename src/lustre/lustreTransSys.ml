@@ -201,7 +201,7 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
   (* One term per global contract *)
   List.map
     (fun { N.contract_req } ->
-       E.mk_var E.base_clock contract_req |> f_global)
+       E.mk_var contract_req |> f_global)
     global_contracts 
 
   @
@@ -212,7 +212,7 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
     (* Disjunction of requirements from all modes *)
     [List.map
        (fun { N.contract_req } -> 
-          E.mk_var E.base_clock contract_req)
+          E.mk_var contract_req)
        mode_contracts
      |> E.mk_or_n
      |> f_mode]
@@ -226,7 +226,7 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
     (fun accum { N.contract_enss } -> 
        List.map
          (fun sv_ens -> 
-            E.mk_var E.base_clock sv_ens
+            E.mk_var sv_ens
             |> f_global)
          contract_enss @ accum)
     []
@@ -239,13 +239,13 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
     (fun accum { N.contract_req; N.contract_enss } -> 
     
        (* Guard for property is requirement *)
-       let t_req = E.mk_var E.base_clock contract_req in
+       let t_req = E.mk_var contract_req in
        
        (* Each property in mode contract is implication between
           requirement and ensures *)
        List.map
          (fun sv_ens -> 
-            E.mk_impl t_req (E.mk_var E.base_clock sv_ens)
+            E.mk_impl t_req (E.mk_var sv_ens)
             |> f_mode)
          contract_enss @ accum)
     []
@@ -1178,13 +1178,15 @@ let rec constraints_of_equations
            if init then 
              
              (* Expression at base instant *)
-             [E.base_term_of_expr TransSys.init_base expr_init]
+             [E.base_term_of_expr TransSys.init_base expr_init
+              |> convert_select instance]
              
            else
              
              (* Expression at current instant *)
-             [E.cur_term_of_expr TransSys.trans_base expr_step])
-
+             [E.cur_term_of_expr TransSys.trans_base expr_step
+              |> convert_select instance])
+          
       in
 
       (* Wrap equation in let binding and quantifiers for indexes *)
@@ -1710,6 +1712,7 @@ let rec trans_sys_of_node'
               TransSys.mk_trans_sys 
                 [I.string_of_ident false node_name]
                 instance_state_var
+                init_flag
                 global_state_vars
                 (signature_state_vars @ global_state_vars)
                 init_uf_symbol
@@ -1724,6 +1727,8 @@ let rec trans_sys_of_node'
                 [] (* Two-state invariants *)
             in                
 
+            Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
+  
             trans_sys_of_node'
               top_name
               analysis_param
@@ -1788,8 +1793,6 @@ let trans_sys_of_nodes
     with Not_found -> assert false
 
   in
-
-  Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
 
   trans_sys
 
