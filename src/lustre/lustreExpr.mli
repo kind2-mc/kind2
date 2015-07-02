@@ -332,8 +332,11 @@ val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
 (** Select from an array *)
 val mk_select : t -> t -> t
 
-(** Let bind variables to terms *)
-val mk_let : (Var.t * t) list -> t -> t
+(** Substitute state variable at current instant with expression *)
+val mk_let_cur : (StateVar.t * t) list -> t -> t
+
+(** Substitute state variable at previous instant with expression *)
+val mk_let_pre : (StateVar.t * t) list -> t -> t
 
 (** Return an expression of a numeral *)
 val mk_int_expr : Numeral.t -> expr

@@ -199,6 +199,21 @@ let path_from_model state_vars model k =
   path
 
 
+(* Return the length of the paths *)
+let path_length path = 
+
+  (* There is no Hashtbl.S.choose, and no way to get a single key as
+     of now, so we need to iterate over all entries anyways. Then we
+     can just as well check if all lists are of equal length. *)
+  SVT.fold
+    (fun _ l a -> 
+       let r = List.length l in
+       assert (a < 0 || r = a);
+       a)
+    path
+    (- 1)
+
+
 (* Extract value at instant [k] from the path and return a model *)
 let model_at_k_of_path path k = 
 

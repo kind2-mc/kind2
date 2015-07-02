@@ -29,6 +29,12 @@ let true_of_unit () = true
 (* Returns false when given unit. *)
 let false_of_unit () = false
 
+(* Returns true *)
+let true_of_any _ = true
+
+(* Returns false s*)
+let false_of_any _ = false
+
 (* ********************************************************************** *)
 (* Event tags used when outputting info.                                  *)
 (* ********************************************************************** *)

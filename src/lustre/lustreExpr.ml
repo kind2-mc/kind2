@@ -132,7 +132,7 @@ let map f ({ expr_init; expr_step } as expr) =
       expr_step = Term.map (f' false) expr_step }
 
 
-
+(*
 
 let rec map_top' f term = match Term.T.node_of_t term with 
 
@@ -168,7 +168,7 @@ let map_array_var f ({ expr_init; expr_step } as expr) =
       expr_init = map_array_var' f' expr_init;
       expr_step = map_array_var' f' expr_step }
       
-
+*)
 
 
 (* Return the type of the expression *)
@@ -200,10 +200,10 @@ let base_offset = Numeral.zero
 let pre_base_offset = Numeral.(pred base_offset)
 
 (* Offset of state variable at current instant *)
-let cur_offset = Numeral.zero
+let cur_offset = base_offset
 
 (* Offset of state variable at previous instant *)
-let pre_offset = Numeral.(pred base_offset)
+let pre_offset = Numeral.(pred cur_offset)
 
 
 
@@ -2075,15 +2075,40 @@ let mk_select expr1 expr2 =
 
 (* ********************************************************************** *)
 
-(* Apply let binding to expression *)
-let mk_let substs ({ expr_init; expr_step } as expr) = 
+(* Apply let binding for state variable at current instant to
+   expression *)
+let mk_let_cur substs ({ expr_init; expr_step } as expr) = 
 
   (* Split substitutions for initial state and step state *)
   let substs_init, substs_step = 
     let i, s = 
       List.fold_left
-        (fun (substs_init, substs_step) (v, { expr_init; expr_step }) -> 
-           ((v, expr_init) :: substs_init, (v, expr_step) :: substs_step))
+        (fun (substs_init, substs_step) (sv, { expr_init; expr_step }) -> 
+           ((base_var_of_state_var base_offset sv, expr_init) :: substs_init, 
+            (cur_var_of_state_var cur_offset sv, expr_step) :: substs_step))
+        ([], [])
+        substs
+    in
+    List.rev i, List.rev s
+  in
+  
+  (* Apply substitutions separately *)
+  { expr with 
+      expr_init = Term.mk_let substs_init expr_init; 
+      expr_step = Term.mk_let substs_step expr_step }
+
+
+(* Apply let binding for state variable at previous instant to
+   expression *)
+let mk_let_pre substs ({ expr_init; expr_step } as expr) = 
+
+  (* Split substitutions for initial state and step state *)
+  let substs_init, substs_step = 
+    let i, s = 
+      List.fold_left
+        (fun (substs_init, substs_step) (sv, { expr_init; expr_step }) -> 
+           ((pre_base_var_of_state_var base_offset sv, expr_init) :: substs_init, 
+            (pre_var_of_state_var cur_offset sv, expr_step) :: substs_step))
         ([], [])
         substs
     in

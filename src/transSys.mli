@@ -46,6 +46,10 @@
 *)
 
 
+(* Dependencies: initial state predicate may occur in the transition
+   relation in condacts, and if we support reset. *)
+
+
 (** Offset of the current state variables in initial state
     constraint *)
 val init_base : Numeral.t
@@ -62,6 +66,34 @@ val prop_base : Numeral.t
 
     Constructed with the function {!mk_trans_sys} *)
 type t
+
+(** Predicate definition 
+
+    An uninterpreted function symbols and the pair of its formal
+    parameters and its definition, to be used in an association
+    list. *)
+type pred_def = UfSymbol.t * (Var.t list * Term.t)
+
+(** Instance of a subsystem *)
+type instance = 
+  {
+
+    pos : Lib.position;
+    (** Position as a unique identifier of the instance *)
+
+    map_down : StateVar.t StateVar.StateVarMap.t;
+    (** Map from state variables of the called system to the state
+        variables of the this system *)
+
+    map_up : StateVar.t StateVar.StateVarMap.t;
+    (** Map from the state variables of this system to the state
+        variables of the instance *)
+
+    guard_bool : Term.t -> Term.t;
+    (** Function to guard Boolean terms in the called system to be
+        valid in this system *)
+
+  }
 
 (** Return [true] if scopes of transition systems are equal *)
 val equal_scope : t -> t -> bool
@@ -92,7 +124,8 @@ val init_trans_open : t -> StateVar.t list * Term.t * Term.t
 (** Return the logic fragment needed to express the transition system *)
 val get_logic : t -> TermLib.logic
 
-
+(** Return the scope identifying the transition system *)
+val scope_of_trans_sys : t -> Scope.t
 
 
 val mk_trans_sys : 
@@ -110,7 +143,7 @@ val mk_trans_sys :
   StateVar.t ->
 
   (** Global state variables *)
-  StateVar.t list ->
+  (StateVar.t * Term.t list) list ->
 
   (** All state variables including globals and instance identifier *)
   StateVar.t list ->
@@ -134,7 +167,7 @@ val mk_trans_sys :
   Term.t ->
 
   (** Subsystems and their instances *)
-  (t * (StateVar.t StateVar.StateVarMap.t * (Term.t -> Term.t)) list) list ->
+  (t * instance list) list ->
 
   (** Properties *)
   Property.t list -> 
@@ -151,7 +184,62 @@ val mk_trans_sys :
 
 
 
-(** {1 State variables} *)
+(** Iterate bottom-up over subsystems, including the top level system
+    without repeating subsystems already seen 
+
+    [iter_subsystems f t] evaluates [f] for all subsystem of [t]. The
+    subsystems are presented bottom-up such that for each evaluation
+    [f t] the function [f s] has already been evaluated for each
+    subsystem [s] of [t]. If [t] contains a subsystem [s] twice, no
+    matter at which level, [f s] is evaluated only once.
+*)
+val iter_subsystems : (t -> unit) -> t -> unit 
+
+(** Fold bottom-up over subsystems, including the top level system
+    without repeating subsystems already seen
+
+    [fold_subsystems f t] first evaluates [f a s] for some subsystem
+    [s] of [t] that does not have subsystems itself. It then passes
+    the result as first argument to [f] with the second argument being
+    a subsystem for which all subsystems have been evaluated with
+    [f]. If [t] contains a subsystem [s] twice, no matter at which
+    level, [f s] is evaluated only once.
+*)
+val fold_subsystems : ('a -> t -> 'a) -> 'a -> t -> 'a
+
+
+val fold_subsystem_instances : (t -> (t * instance) list -> 'a list -> 'a) -> t -> 'a
+
+val term_map_to_subsystem : t -> Term.t -> t * Term.t
+
+(** {1 State Variables} *)
+
+(** After 
+
+    {| define_and_declare_of_bounds 
+         t
+         (SMTSolver.define_fun s)
+         (SMTSolver.declare_fun t) 
+         l
+         u |}
+
+    with the solver instance [s], initial state constraint and
+    transition relation can be asserted for all offsets between and
+    including [l] and [u]. 
+
+    To extend the range of declared offsets to the range including [l]
+    and [v], use
+
+    {| declare_vars_of_bounds
+         (SMTSolver.declare_fun t) 
+         (Numeral.succ u)
+         v  |}. 
+
+    Evaluating {!define_and_declare_of_bounds} is only needed once per
+    solver instance, and only for the top level transition system. *)
+
+(** Return the state variables of a transition system *)
+val state_vars : t -> StateVar.t list
 
 (** Return instances of the state variables of the transition system
     between given instants
@@ -169,18 +257,51 @@ val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
     transition system [t] at each instant between and including [l]
     and [u].
 *)
-val declare_vars_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+val declare_vars_of_bounds : (UfSymbol.t -> unit) -> t -> Numeral.t -> Numeral.t -> unit
 
-(*
-(** Declare variables of the transition system except the init flag
-    between given instants 
 
-    See {!declare_vars_of_bounds}, but the init flag of the transition
-    system is not declared. *)
-val declare_vars_of_bounds_no_init : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+(** Define predicates and declare constant and global state variables,
+    declare state variables of top system between and including the
+    given offsets
+
+    [define_and_declare_of_bounds t f g l u] first evaluates the
+    function [f] for the definition of the initial state constraint
+    predicate and the transitions relation predicate of the top system
+    in the transition system [t] and all its subsystems. It then
+    evaluates the function [g] with the declarations of all constant
+    and global state variables of the top system, and with the
+    declarations of the remaining state variables of the top system
+    between and including the offsets [l] and [u]. 
+
+    If [l > u], only declarations of constant and global state are
+    passed to [g], and [f] is still evaluated with all definitions.
+
+    If the optional parameter [declare_sub_vars] is [true], it also
+    iterates over all subsystems and evaluates [g] with the
+    declarations of their constants and global state variables, and
+    their state variables between and including [l] and [u]. Thus the
+    subsystems can be run in parallel to the top system.
+
+    The signatures of [f] and [g] are those of {!SMTSolver.define_fun}
+    and {!SMTSolver.declare_fun}, repsectively, partially evaluated
+    with their first argument. *)
+val define_and_declare_of_bounds : ?declare_sub_vars:bool -> t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+
+(** Return predicate definitions of initial state and transition
+    relation of the top system and all its subsystem in reverse
+    topological order
+
+    [uf_defs t] returns a list of predicate definitions of the top
+    system [t] and all its subsystems such that the definitions of a
+    subsystem precede the definitions of all systems containing it. The
+    definition of the initial state predicate precedes the definition
+    of the transition relation predicate.
 *)
+val uf_defs : t -> pred_def list
 
 (** {1 Properties} *)
+
+val property_of_name : t -> string -> Property.t
 
 (** Return current status of the property
 
@@ -671,22 +792,22 @@ val pp_print_trans_sys_abstraction:
 (x) TransSys.declare_vars_of_bounds
 (x) TransSys.get_logic
 (x) TransSys.get_prop_status
-TransSys.init_define_fun_declare_vars_of_bounds
-TransSys.init_of_bound
+(x) TransSys.init_define_fun_declare_vars_of_bounds -> define_and_declare_of_bounds
+(x) TransSys.init_of_bound
 TransSys.invars_of_bound
 TransSys.named_term_of_prop_name
-TransSys.PropFalse
-TransSys.PropInvariant
-TransSys.PropKTrue
+(x) TransSys.PropFalse
+(x) TransSys.PropInvariant
+(x) TransSys.PropKTrue
 TransSys.props_list_of_bound
-TransSys.state_vars
-TransSys.trans_of_bound
-TransSys.uf_defs
+(x) TransSys.state_vars
+(x) TransSys.trans_of_bound
+(x) TransSys.uf_defs
 
 -- src/compress.ml
-TransSys.state_vars
+(x) TransSys.state_vars
 TransSys.trans_of_bound
-TransSys.uf_defs
+(x) TransSys.uf_defs
 
 -- src/event.ml
 TransSys.add_invariant
@@ -732,9 +853,9 @@ TransSys.PropFalse
 TransSys.PropInvariant
 TransSys.PropKTrue
 TransSys.props_list_of_bound
-TransSys.state_vars
+(x) TransSys.state_vars
 TransSys.trans_of_bound
-TransSys.uf_defs
+(x) TransSys.uf_defs
 TransSys.vars_of_bounds
 
 -- src/interpreter.ml
@@ -742,7 +863,7 @@ TransSys.get_logic
 TransSys.get_scope
 TransSys.init_define_fun_declare_vars_of_bounds
 TransSys.init_of_bound
-TransSys.state_vars
+(x) TransSys.state_vars
 TransSys.trans_of_bound
 
 -- src/invarManager.ml
@@ -754,7 +875,7 @@ TransSys.get_scope
 TransSys.get_subsystems
 TransSys.init_of_bound
 TransSys.instantiate_term_all_levels
-TransSys.state_vars
+(x) TransSys.state_vars
 TransSys.trans_of_bound
 
 -- src/invGenGraph.ml
@@ -767,7 +888,7 @@ TransSys.named_term_of_prop_name
 TransSys.PropInvariant
 TransSys.subsystem_of_scope
 TransSys.t
-TransSys.uf_defs
+(x) TransSys.uf_defs
 
 -- src/kind2.ml
 (x) TransSys.get_prop_status_all
@@ -859,10 +980,10 @@ TransSys.PropFalse
 TransSys.PropInvariant
 TransSys.PropKTrue
 TransSys.props_list_of_bound
-TransSys.state_vars
+(x) TransSys.state_vars
 TransSys.trans_fun_of
 TransSys.trans_of_bound
-TransSys.uf_defs
+(x) TransSys.uf_defs
 TransSys.vars_of_bounds
 
 *)

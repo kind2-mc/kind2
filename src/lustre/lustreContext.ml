@@ -742,22 +742,25 @@ let close_expr
        VS.fold
          (fun var (accum, ctx) -> 
             
-            (* Identifier for a fresh variable *)
-            let state_var, ctx = 
-              
-              (* We only expect state variable instances *)
-              assert (Var.is_state_var_instance var);
+            (* We only expect state variable instances *)
+            assert (Var.is_state_var_instance var);
+            
+            (* State variable of state variable instance *)
+            let state_var = Var.state_var_of_state_var_instance var in
 
+            (* Identifier for a fresh variable *)
+            let state_var', ctx = 
+              
               (* Create a new oracle variable or re-use previously
                  created oracle *)
               mk_fresh_oracle_for_state_var
                 ctx
-                (Var.state_var_of_state_var_instance var) 
+                state_var
 
             in
             
             (* Substitute oracle variable for variable *)
-            ((var, E.mk_var state_var) :: accum, ctx))
+            ((state_var, E.mk_var state_var') :: accum, ctx))
          
          init_pre_vars
          ([], ctx)
@@ -765,7 +768,7 @@ let close_expr
      
      (* Return expression with all previous state variables in the init
         expression substituted by fresh constants *)
-     ((E.mk_arrow (E.mk_let oracle_substs expr) expr),
+     ((E.mk_arrow (E.mk_let_pre oracle_substs expr) expr),
       ctx))
 
 

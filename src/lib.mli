@@ -31,6 +31,12 @@ val true_of_unit : unit -> bool
 (** Returns false when given unit. *)
 val false_of_unit : unit -> bool
 
+(** Return true *)
+val true_of_any : 'a -> bool
+
+(** Return false *)
+val false_of_any : 'a -> bool
+
 
 (** {1 Event tags} *)
 

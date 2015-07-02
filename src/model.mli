@@ -64,6 +64,11 @@ val path_of_term_list : (StateVar.t * Term.t list) list -> path
     with {!TermLib.default_of_type}. *)
 val path_from_model : StateVar.t list -> t -> Numeral.t -> path
 
+(** Return the length of the value paths 
+
+    All value paths are of equal lengths. *)
+val path_length : path -> int
+
 (** Extract values at instant [k] from the path and return a model *)
 val model_at_k_of_path : path -> Numeral.t -> t
 

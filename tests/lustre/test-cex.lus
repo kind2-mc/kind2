@@ -1,23 +1,28 @@
-node X1() returns (o: int);
+node X1() returns (o: int; p: bool);
 let
-  o = 1;
+  o, p = (1, false);
 tel
 
 node X() returns (o: int);
+var
+  p: bool;
 let
-  o = X1();
+  o, p = X1();
 tel
 
-node incr(x: int) returns (y: int);
+node incr(x: int; i: int) returns (z: int);
+var y, u: int;
 let
-  y = pre x + 1;
+  y = pre x + i;
+  u = y + x;
+  z = u;
 tel
 
 node Y() returns (OK: bool);
 var l1, l2, l3, l4, l5: int;
 let
   l1 = l3 * 2;
-  l2 = X() + incr(1);
+  l2 = X() + incr(1, 2);
   l3 = l2 + 1;
   OK = l1 < 0;
   l4 = l5 + 1;

@@ -372,38 +372,55 @@ let convert_select instance term =
 
    Group instances of the same node together, each has a different
    state variable map and guarding function. *)
-let rec add_subsystem' trans_sys state_var_map guard_fun accum = function 
+let rec add_subsystem' trans_sys instance accum =
 
-  (* No other instance of this node found: add as a singleton list  *) 
-  | [] -> (trans_sys, [(state_var_map, guard_fun)]) :: accum
+  function 
 
-  (* Check if there is another instance of this node  *)
-  | (trans_sys', inst) as h :: tl -> 
+    (* No other instance of this node found: add as a singleton list  *) 
+    | [] -> 
 
-    (* Compare transition systems by name *)
-    if TransSys.equal_scope trans_sys trans_sys' then 
-      
-      (* Add node instance to previous instances, append remainder of
-         list of subsystems and return *)
-      List.rev_append
-        ((trans_sys, ((state_var_map, guard_fun) :: inst)) :: accum)
-        tl
-        
-    else
+      (trans_sys, [instance]) :: accum
 
-      (* Keep searching for transition system in tail of list *)
-      add_subsystem' 
-        trans_sys
-        state_var_map
-        guard_fun
-        (h :: accum)
-        tl
+    (* Check if there is another instance of this node  *)
+    | (trans_sys', inst) as h :: tl -> 
+
+      (* Compare transition systems by name *)
+      if TransSys.equal_scope trans_sys trans_sys' then 
+
+        (* Add node instance to previous instances, append remainder of
+           list of subsystems and return *)
+        List.rev_append
+          ((trans_sys, (instance :: inst)) :: accum)
+          tl
+
+      else
+
+        (* Keep searching for transition system in tail of list *)
+        add_subsystem' 
+          trans_sys
+          instance
+          (h :: accum)
+          tl
       
 (* Add instance of called node to list of subsystems *)
-let add_subsystem trans_sys state_var_map guard_fun subsystems =
+let add_subsystem
+    trans_sys
+    pos
+    map_up
+    map_down
+    guard_bool
+    subsystems =
+
+  let instance =
+    { TransSys.pos; TransSys.map_up; TransSys.map_down; TransSys.guard_bool }
+  in
 
   (* Use recursive function with empty accumulator *)
-  add_subsystem' trans_sys state_var_map guard_fun [] subsystems
+  add_subsystem'
+    trans_sys
+    instance
+    []
+    subsystems
 
 
 (* Return term and lifted property for node call 
@@ -433,7 +450,43 @@ let call_terms_of_node_call
 
   (* Initialize map of state variable in callee to instantiated state
      variable in caller *)
-  let state_var_map = 
+  let state_var_map_up, state_var_down = 
+
+    (* Map actual to formal inputs *)
+    D.fold2
+      (fun _ state_var inst_state_var (state_var_map_up, state_var_map_down) -> 
+         (SVM.add state_var inst_state_var state_var_map_up,
+          SVM.add inst_state_var state_var state_var_map_down))
+      inputs
+      call_inputs
+      (SVM.empty, SVM.empty)
+
+    |> 
+
+    (* Map actual to formal outputs *)
+    D.fold2
+      (fun _ state_var inst_state_var (state_var_map_up, state_var_map_down) -> 
+         (SVM.add state_var inst_state_var state_var_map_up,
+          SVM.add inst_state_var state_var state_var_map_down))
+      outputs
+      call_outputs
+
+    |> (fun (state_var_map_up, state_var_map_down) ->
+
+        (* Map actual to formal oracles *)
+        List.fold_left2 
+          (fun (state_var_map_up, state_var_map_down) state_var inst_state_var -> 
+             (SVM.add state_var inst_state_var state_var_map_up,
+              SVM.add state_var inst_state_var state_var_map_down))
+          (state_var_map_up, state_var_map_down)
+          oracles
+          call_oracles)
+
+  in
+
+  (* Initialize map of instantiated state variable in caller to state
+     variable in callee *)
+  let state_var_map_down = 
 
     (* Map actual to formal inputs *)
     D.fold2
@@ -467,11 +520,11 @@ let call_terms_of_node_call
   (* Create fresh state variable for each state variable local
      to the called node and add to the respective data
      structures *)
-  let node_locals, call_locals, state_var_map = 
+  let node_locals, call_locals, (state_var_map_up, state_var_map_down) = 
 
     List.fold_left
 
-      (fun (locals, call_locals, state_var_map) state_var -> 
+      (fun (locals, call_locals, (state_var_map_up, state_var_map_down)) state_var -> 
 
          (* Create a fresh state variable in the caller *)
          let inst_state_var = 
@@ -486,12 +539,13 @@ let call_terms_of_node_call
             instances *)
          (inst_state_var :: locals,
           inst_state_var :: call_locals,
-          SVM.add state_var inst_state_var state_var_map))
+          (SVM.add state_var inst_state_var state_var_map_up,
+           SVM.add inst_state_var state_var state_var_map_down)))
 
       (* Add to local variables of the node, start with empty list of
          variables instantiated at the call, and extend the state
          variable map *)
-      (node_locals, [], state_var_map)
+      (node_locals, [], (state_var_map_up, state_var_map_down))
 
       (* All stateful local variables of the called node
 
@@ -515,7 +569,7 @@ let call_terms_of_node_call
 
             Property is a local variable, thus it has been
             instantiated and is in the map *)
-         let prop_term = lift_term state_var_map t in
+         let prop_term = lift_term state_var_map_up t in
 
          (* Property is instantiated *)
          let prop_source = 
@@ -591,7 +645,8 @@ let call_terms_of_node_call
 
   (* Return information to build constraint for node call with or
      without activation condition *)
-  state_var_map, 
+  state_var_map_up, 
+  state_var_map_down, 
   node_locals, 
   node_props, 
   call_locals,
@@ -617,7 +672,7 @@ let rec constraints_of_node_calls
     | [] -> (subsystems, node_locals, node_props, init_terms, trans_terms)
 
     (* Node call without an activation condition *)
-    | { N.call_node_name; N.call_clock = None } as node_call :: tl -> 
+    | { N.call_pos; N.call_node_name; N.call_clock = None } as node_call :: tl -> 
 
 
       (* Get generated transition system of callee *)
@@ -634,7 +689,8 @@ let rec constraints_of_node_calls
 
       let 
 
-        state_var_map, 
+        state_var_map_up, 
+        state_var_map_down, 
         node_locals, 
         node_props, 
         _, 
@@ -655,7 +711,9 @@ let rec constraints_of_node_calls
       let subsystems =
         add_subsystem
           trans_sys
-          state_var_map
+          call_pos
+          state_var_map_up
+          state_var_map_down
 
           (* No guarding necessary when instantiating term, because
              this node instance does not have an activation
@@ -677,7 +735,8 @@ let rec constraints_of_node_calls
         tl
 
     (* Node call with activation condition *)
-    | { N.call_node_name; 
+    | { N.call_pos; 
+        N.call_node_name; 
         N.call_clock = Some clock;
         N.call_inputs;
         N.call_outputs; 
@@ -771,7 +830,8 @@ let rec constraints_of_node_calls
 
       let 
 
-        state_var_map, 
+        state_var_map_up, 
+        state_var_map_down, 
         node_locals, 
         node_props, 
         call_locals,
@@ -950,7 +1010,9 @@ let rec constraints_of_node_calls
       let subsystems =
         add_subsystem
           trans_sys
-          state_var_map
+          call_pos
+          state_var_map_up
+          state_var_map_down
           (fun t ->  Term.mk_implies [clock_trans; t])
           subsystems
       in
@@ -1643,6 +1705,13 @@ let rec trans_sys_of_node'
                 signature_state_vars 
             in
 
+            (* TODO: add actual bound of state variable *)
+            let global_state_vars = 
+              List.map
+                (fun sv -> (sv, []))
+                global_state_vars
+            in
+
             (* Need to add an instance variable when we have arrays *)
             let signature_state_vars, instance_state_var =
               if global_state_vars = [] then 
@@ -1714,7 +1783,7 @@ let rec trans_sys_of_node'
                 instance_state_var
                 init_flag
                 global_state_vars
-                (signature_state_vars @ global_state_vars)
+                (signature_state_vars)
                 init_uf_symbol
                 init_formals
                 (Term.mk_and init_terms)
@@ -1810,9 +1879,63 @@ let test () =
       A.assumptions = [] }
   in
 
-  trans_sys_of_nodes lustre_subsystem analysis
+  let trans_sys = trans_sys_of_nodes lustre_subsystem analysis in
 
+  let define uf_symbol vars term = 
+    Format.printf
+      "@[<hv 1>(define-fun %a@ @[<hv 1>(%a)@]@ @[<hv 1>%a@])@]@."
+      UfSymbol.pp_print_uf_symbol uf_symbol
+      (pp_print_list Var.pp_print_var "@ ") vars
+      Term.pp_print_term term
+  in
 
+  let declare uf_symbol = 
+    Format.printf
+      "(declare-fun %a@)@."
+      UfSymbol.pp_print_uf_symbol uf_symbol
+  in
+
+  TransSys.define_and_declare_of_bounds
+    ~declare_sub_vars:false
+    trans_sys 
+    define
+    declare
+    TransSys.init_base
+    TransSys.trans_base;
+
+  let vars = 
+    TransSys.vars_of_bounds
+      trans_sys
+      TransSys.init_base
+      TransSys.init_base
+  in
+
+  let next_of_value t = match Term.type_of_term t |> Type.node_of_type with
+    | Type.Bool -> Term.negate t 
+    | Type.Int | Type.Real -> Term.mk_succ t |> Simplify.simplify_term []
+    | _ -> t
+  in
+
+  let model = 
+    List.map
+      (fun v -> 
+         let t1 = Var.type_of_var v |> TermLib.default_of_type in
+         let sv = Var.state_var_of_state_var_instance v in
+         let t2 = next_of_value t1 in
+         let t3 = next_of_value t2 in
+         let t4 = next_of_value t3 in
+         (sv, [t4; t3; t2; t1]))
+      vars
+    |> Model.path_of_term_list
+  in
+                
+  Format.printf 
+    "%a@."
+    (LustrePath.pp_print_path_xml trans_sys lustre_subsystem true) model;
+
+  Format.printf 
+    "%a@."
+    (LustrePath.pp_print_path_xml trans_sys lustre_subsystem false) model
 
 ;;
 

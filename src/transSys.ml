@@ -30,6 +30,31 @@ let trans_base = Numeral.one
 (* Offset of primed state variables in properties and invariants *)
 let prop_base = Numeral.zero
 
+(* Predicate definition *)
+type pred_def = UfSymbol.t * (Var.t list * Term.t)
+
+
+(* Instance of a subsystem *)
+type instance = 
+  {
+
+    (* Position as a unique identifier of the instance *)
+    pos : position;
+
+    (* Map from state variables of the called system to the state variables of
+       the this system *)
+    map_down : StateVar.t SVM.t;
+
+    (* Map from the state variables of this system to the state
+       variables of the instance *)
+    map_up : StateVar.t SVM.t;
+
+    (* Function to guard Boolean terms in the called system to be
+       valid in this system *)
+    guard_bool : Term.t -> Term.t;
+
+  }
+
 type t = 
 
   { 
@@ -49,28 +74,26 @@ type t =
        transition system and its subsystems *)
     instance_var_bindings : (Var.t * Term.t) list;
 
-    (* State variables of global scope (used for arrays). Will become
-       uninterpreted function symbols with the instance identifier of
-       this transition system as the first argument. *)
-    global_state_vars : StateVar.t list;
+    (* State variables of global scope, used for arrays. Each state
+       variable has a list of upper bounds for its indexes. 
+
+       To get all defined values, evaluate the instance state
+       variable, and the terms for the index bounds first, then
+       evaluate the uninterpreted function with the value of the
+       instance variable as the first, and all indexes as following
+       parameters. TODO: add this functionality to Eval. *)
+    global_state_vars : (StateVar.t * Term.t list) list;
 
     (* State variables in the scope of this transition system 
 
-       Also contains [instance_state_var] unless it is None, and
+       Also contains [instance_state_var] unless it is None, but not
        state variables in [global_state_vars]. *)
     state_vars : StateVar.t list;
 
-    (* Transition systems called by this system
-
-       For each instance of the called transition system there is a
-       map from state variables of the called system to the state
-       variables of the this system and a function to guard terms in
-       the called system to be valid in this system. *)
-    subsystems : (t * 
-                  ((StateVar.t SVM.t *
-                    (Term.t -> Term.t)) 
-                     list))
-                    list;
+    (* Transition systems called by this system, and for each instance
+       additional information to map between state variables of the
+       different scopes *)
+    subsystems : (t * instance list) list;
 
     (* Logic fragment needed to express the transition system 
 
@@ -156,6 +179,33 @@ let pp_print_property
     pp_print_property_status prop_status
     pp_print_property_source prop_source
 
+let pp_print_state_var_pair ppf (sv1, sv2) = 
+
+  Format.fprintf
+    ppf
+    "@[<hv 1>(%a@ %a)@]"
+    StateVar.pp_print_state_var sv1
+    StateVar.pp_print_state_var sv2
+
+let pp_print_instance ppf { pos; map_down; map_up } =
+
+  Format.fprintf 
+    ppf
+    "@[<hv 1>(%a@ \
+              @[<hv 1>(%a)@]@ \
+              @[<hv 1>(%a)@])@]" 
+    pp_print_position pos
+    (pp_print_list pp_print_state_var_pair "@ ") (SVM.bindings map_down) 
+    (pp_print_list pp_print_state_var_pair "@ ") (SVM.bindings map_up) 
+
+let pp_print_subsystem ppf ({ scope }, instances) = 
+
+  Format.fprintf
+    ppf
+    "@[<hv 1>(%a@ @[<hv 1>(%a)@])@]"
+    Scope.pp_print_scope scope
+    (pp_print_list pp_print_instance "@ ") instances
+
 
 let pp_print_trans_sys 
     ppf
@@ -168,6 +218,7 @@ let pp_print_trans_sys
       init_formals;
       trans;
       trans_formals;
+      subsystems;
       properties;
       invariants_one_state;
       invariants_two_state } = 
@@ -176,10 +227,10 @@ let pp_print_trans_sys
     ppf
     "@[<v 1>(trans-sys %a@,\
      @[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-     @[<hv 2>(init@   @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
-     @[<hv 2>(trans@  @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(init@ @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(trans@ @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
      @[<hv 2>(prop@ (@[<v>%a@]))@]@,\
-            )@]"
+     @[<hv 2>(sub@ @[<hv 1>(%a)@])@])"
 
     Scope.pp_print_scope scope
     (pp_print_list pp_print_state_var "@ ") state_vars
@@ -188,6 +239,7 @@ let pp_print_trans_sys
     (pp_print_list Var.pp_print_var "@ ") trans_formals
     Term.pp_print_term trans
     (pp_print_list pp_print_property "@ ") properties
+    (pp_print_list pp_print_subsystem "@ ") subsystems
 
 (*
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
@@ -212,9 +264,6 @@ let pp_print_trans_sys
 *)
 
 
-(* ********************************************************************** *)
-(* Construct a transition system                                          *)
-(* ********************************************************************** *)
 
 (*
 
@@ -394,6 +443,538 @@ let collect_instances ({ scope } as trans_sys) =
 *)
 
 
+(* ********************************************************************** *)
+(* Access the transition system                                           *)
+(* ********************************************************************** *)
+
+(* Close term by binding variables to terms with a let binding *)
+let close_term bindings term = Term.mk_let bindings term
+
+
+(* Bump the offsets of state variable instances at [base] to [i]
+   and respectively for state variables at different offsets. *)
+let bump_relative base i term = 
+
+  (* Need to bump term to different offset? *)
+  if Numeral.(i = base) then term else
+    
+    (* Bump to offset *)
+    Term.bump_state Numeral.(i - base) term
+
+
+(* Close the initial state constraint by binding all instance
+   identifiers, and bump the state variable offsets to be at the given
+   bound *)
+let init_of_bound { instance_var_bindings; init } i = 
+
+  close_term instance_var_bindings init
+  |> bump_relative init_base i 
+  
+
+(* Close the initial state constraint by binding all instance
+   identifiers, and bump the state variable offsets to be at the given
+   bound *)
+let trans_of_bound { instance_var_bindings; trans } i = 
+
+  close_term instance_var_bindings trans
+  |> bump_relative trans_base i 
+  
+
+(* Return the instance variables of this transition system, the
+   initial state constraint at [init_base] and the transition relation
+   at [trans_base] with the instance variables free. *)
+let init_trans_open { instance_var_bindings; init; trans } = 
+
+  (List.map 
+     (fun (v, _) -> Var.state_var_of_state_var_instance v)
+     instance_var_bindings, 
+   init,
+   trans)
+
+
+(* Return true if scopes of transition systems are equal *)
+let equal_scope { scope = s1 } { scope = s2 } = Scope.equal s1 s2
+
+(* Compare transition systems by their scope *)
+let compare_scope { scope = s1 } { scope = s2 } = Scope.compare s1 s2
+
+
+(* Return the logic fragment needed to express the transition system *)
+let get_logic t = t.logic
+
+
+(* Return the scope identifying the transition system *)
+let scope_of_trans_sys t = t.scope
+
+(* **************************************************************** *)
+(* Iterate and Fold over Subsystems                                 *)
+(* **************************************************************** *)
+
+(* Fold bottom-up over subsystems in list without repeating subsystems
+   already seen *)
+let rec fold_subsystems' f accum visited = function 
+
+  (* All subsystems visited, return *)
+  | [] -> accum
+
+  (* Subsystem already visited? *)
+  | { scope } :: tl when Scope.Set.mem scope visited -> 
+
+    (* Skip and continue *)
+    fold_subsystems' f accum visited tl
+
+  (* Subsystem not visited *)
+  | ({ scope; subsystems } as trans_sys) :: tl -> 
+
+    (* Add all not visisted subsystems before this system *)
+    let tl' = 
+      List.fold_left
+        (fun a ({ scope = s } as t, _) -> 
+           if Scope.Set.mem s visited then a else t :: a)
+        (trans_sys :: tl)
+        subsystems 
+    in
+
+    (* Were subsystems added to the stack? 
+
+       The stack is at least as long as before *)
+    if List.length tl' > (List.length tl + 1) then 
+
+      (
+
+        (* Iterate over not visited subsystems first *)
+        fold_subsystems' f accum visited tl'
+
+      )
+
+    (* All subsystems visited *)
+    else
+
+      (
+
+        (* Remember scope of transition system as visited, add subsystems
+           to stack and continue *)
+        fold_subsystems' 
+          f
+          (f accum trans_sys)
+          (Scope.Set.add scope visited) 
+          tl
+
+      )
+
+
+type fold_stack = 
+  | FDown of t * (t * instance) list
+  | FUp of t * (t * instance) list
+
+
+(* Fold bottom-up over subsystem instances in list *)
+let rec fold_subsystem_instances' 
+    (f : t -> (t * instance) list -> 'a list -> 'a)
+    (accum : 'a list list) = 
+
+  let rec push k t s p = function  
+    | [] -> k 
+    | i :: tl -> push (FDown (s, (t, i) :: p) :: k) t s p tl
+  in
+
+  function 
+
+    (* All systems visited, return result *)
+    | [] -> 
+
+      (match accum with
+        | [[a]] -> a
+        | _ -> assert false)
+
+    (* We need to evaluate the subsystems first *)
+    | FDown ({ subsystems } as t, p) :: tl -> 
+
+      let tl' = 
+        List.fold_left 
+          (fun a (s, i) -> push a t s p i)
+          (FUp (t, p) :: tl)
+          subsystems
+      in
+
+      fold_subsystem_instances' 
+        f 
+        ([] :: accum)
+        tl'
+
+    (* Subsytems are in the accumulator, evaluate this system now *)
+    | FUp (t, i) :: tl -> 
+
+      (match accum with
+        | a :: b :: c ->
+          
+          fold_subsystem_instances' f (((f t i a) :: b) :: c) tl
+            
+        | _ -> assert false)
+
+(* Iterate bottom-up over subsystems, excluding the top level system
+   without repeating subsystems already seen *)
+let iter_subsystems f { subsystems } =
+  fold_subsystems'
+    (fun _ -> f)
+    () 
+    Scope.Set.empty 
+    (List.map fst subsystems)
+    
+
+(* Fold bottom-up over subsystems, excluding the top level system
+   without repeating subsystems already seen *)
+let fold_subsystems f accum { subsystems} = 
+  fold_subsystems' 
+    f
+    accum
+    Scope.Set.empty
+        (List.map fst subsystems)
+
+
+(* TODO: fold over each instance of a subsystem *)
+let fold_subsystem_instances f trans_sys = 
+
+  fold_subsystem_instances'
+    f
+    [[]]
+    [FDown (trans_sys, [])]
+
+  
+
+
+(* TODO: iterate over each instance of a subsystem *)
+let iter_subsystem_instances f trans_sys = assert false
+
+
+(* **************************************************************** *)
+(* State Variables, Predicates and Declarations                     *)
+(* **************************************************************** *)
+
+
+(* Return state variables of the transition system *)
+let state_vars { state_vars } = state_vars
+
+
+(* Return global state variables of the transition system *)
+let global_state_vars { global_state_vars } = global_state_vars
+
+
+(* Add instances of the [state_vars] at [ubound] to [accum] if
+   [ubound] is greater than [lbound]*)
+let rec vars_of_bounds' state_vars lbound ubound accum =
+
+  (* Return when upper bound below lower bound *)
+  if Numeral.(ubound < lbound) then accum
+
+  else
+
+    (* Reverse to add in original order *)
+    List.rev state_vars
+
+    |> 
+
+    (* Add state variables at upper bound instant *)
+    List.fold_left
+      (fun accum sv -> 
+         Var.mk_state_var_instance sv ubound :: accum )
+      accum
+
+    |> 
+
+    (* Recurse to next lower bound *)
+    vars_of_bounds' state_vars lbound Numeral.(pred ubound)
+
+
+(* Return instances of the state variables of the transition system
+   between and including [lbound] and [uboud] *)
+let vars_of_bounds { state_vars } lbound ubound =
+  vars_of_bounds' state_vars lbound ubound []
+    
+
+(* Declare variables of the transition system at instants between and
+   including [lbound] and [ubound] *)
+let declare_vars_of_bounds declare trans_sys lbound ubound =
+
+  (* Instantiate state variables and declare *)
+  vars_of_bounds trans_sys lbound ubound
+  |> Var.declare_vars declare
+
+
+(* Declare constant state variable of the system *)
+let declare_const_vars declare { state_vars } =
+
+  (* Constant state variables of the top system *)
+  List.filter StateVar.is_const state_vars 
+
+  |> 
+
+  (* Create variable of constant state variable *)
+  List.map Var.mk_const_state_var
+
+  |>
+
+  (* Declare variables *)
+  Var.declare_constant_vars declare
+
+
+(* Define initial state predicate *)
+let define_init define { init_uf_symbol; init_formals; init } = 
+  define init_uf_symbol init_formals init
+
+
+(* Define transition relation predicate *)
+let define_trans define { trans_uf_symbol; trans_formals; trans } =
+  define trans_uf_symbol trans_formals trans
+
+
+(* Define predicates, declare constant and global state variables, and
+   declare state variables of the top system between and including the
+   given offsets *)
+let define_and_declare_of_bounds
+    ?(declare_sub_vars=false) 
+    trans_sys
+    define 
+    declare
+    lbound
+    ubound =
+
+  (* Iterate over all subsystems *)
+  iter_subsystems 
+    (fun t -> 
+
+       (* Declare constant state variables of subsystem *)
+       if declare_sub_vars then 
+         (declare_const_vars declare t; 
+          declare_vars_of_bounds declare t lbound ubound);
+       
+       (* Define initial state predicate *)
+       define_init define t;
+
+       (* Define transition relation predicate *)
+       define_trans define t)
+
+    trans_sys;
+  
+  (* Declate constant state variables of top system *)
+  declare_const_vars declare trans_sys;
+       
+  (* Declate constant state variables of top system *)
+  declare_vars_of_bounds declare trans_sys lbound ubound
+       
+
+let init_uf_def { init_uf_symbol; init_formals; init } = 
+  (init_uf_symbol, (init_formals, init))
+
+
+let trans_uf_def { trans_uf_symbol; trans_formals; trans } = 
+  (trans_uf_symbol, (trans_formals, trans))
+
+
+
+(* Return predicate definitions of initial state and transition
+   relation of the top system and all its subsystem in reverse
+   topological order 
+
+   [uf_defs t] returns a list of predicate definitions of the top
+   system [t] and all its subsystems such that the definitions of a
+   subsystem precede the definitions of all systems containing it. The
+   definition of the initial state predicate precedes the definition
+   of the transition relation predicate.
+*)
+let uf_defs trans_sys = 
+
+  (* Collect predicate definitions bottom up *)
+  fold_subsystems
+    (fun a t ->
+
+       (* First transition relation then initial state because the list
+          will be reversed *)
+       trans_uf_def t :: init_uf_def t :: a)
+
+    (* Add definition of the top system *)
+    [ trans_uf_def trans_sys; init_uf_def trans_sys ]
+    trans_sys
+
+  (* Reverse predicate definitions to have predicate definitions of
+     subsystems before *)
+  |> List.rev
+
+
+(* Flatten the list of instances per subsystems ot a list of subsystem
+   and instance pairs *)
+let flatten_instances subsystems =
+
+  List.fold_left 
+    (fun a (t, i) -> 
+       List.fold_left 
+         (fun a i -> (t, i) :: a)
+         a
+         i)
+    []
+    subsystems 
+
+
+(* Return the subsystem that contains all state variables of the term *)
+let rec term_map_to_subsystem' ({ subsystems } as trans_sys) term = function 
+
+  (* No more subsytems to try, this is the lowest system *)
+  | [] -> (trans_sys, term)
+
+  (* Try to map all state variables of the term to the subsystem
+     instance *)
+  | ({ subsystems } as trans_sys', { map_down }) :: tl -> 
+
+    try 
+
+      (* *)
+      let term' = 
+        Term.map
+          (fun _ -> function 
+
+             (* Consider state variable instances *)
+             | t when Term.is_free_var t -> 
+
+               (* Get state variable instance from term *)
+               let v = Term.free_var_of_term t in
+
+               (* Get state variable from instance *)
+               let sv = Var.state_var_of_state_var_instance v in
+
+               (* Get offset from instance *)
+               let o = Var.offset_of_state_var_instance v in
+
+               (* Try to map state variable to state variable in
+                  system instance, fail with [Not_found] if the state
+                  variable is not an instance of the subsystem *)
+               let sv' = SVM.find sv map_down in
+
+               (* Create a state variable instance and a term again *)
+               Var.mk_state_var_instance sv' o |> Term.mk_var
+
+             (* Keep non-variable terms untouched *)
+             | t -> t)
+
+          term
+
+      in
+
+      (* Flatten subsystem instances *)
+      flatten_instances subsystems 
+
+      |> 
+      
+      (* Try to map term to a subsystem instance *)
+      term_map_to_subsystem' 
+        trans_sys' 
+        term'
+        
+    (* Some state variable could not be mapped to the subsystem *)
+    with Not_found -> 
+
+      (* Try remaining subsystems *)
+      term_map_to_subsystem' trans_sys term tl
+
+
+(* *)
+let term_map_to_subsystem ({ subsystems } as trans_sys) term = 
+
+  (* Flatten subsystem instances *)
+  flatten_instances subsystems
+
+  (* Try to map term to a subsystem instance of the top system *)
+  |> term_map_to_subsystem' trans_sys term
+
+
+
+
+
+
+(*
+
+(* Define uf definitions, declare constant state variables and declare
+   variables from [lbound] to [upbound]. *)
+let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
+
+  (match t.callers with
+    | [] ->
+      (* Define ufs. *)
+      iter_uf_definitions t define ;
+    | _ -> () ) ;
+
+  let l_vars = vars_of_bounds t lbound lbound in
+
+  (* Declaring constant variables. *)
+  Var.declare_constant_vars declare l_vars ;
+
+  (* Declaring other variables. *)
+  declare_vars_of_bounds t declare lbound ubound
+  
+*)
+
+(* **************************************************************** *)
+(* Properties                                                       *)
+(* **************************************************************** *)
+
+(* Get property by name *)
+let property_of_name t name =
+
+  (* Return the first property with the given name *)
+  List.find
+    (fun { P.prop_name } -> prop_name = name )
+    t.properties
+
+
+(* Return current status of property *)
+let get_prop_status trans_sys p = 
+
+  try 
+
+    (property_of_name trans_sys p).P.prop_status
+
+  with Not_found -> P.PropUnknown
+
+
+(* Return current status of all properties *)
+let get_prop_status_all t = 
+  
+  List.map 
+    (fun { P.prop_name; P.prop_status } -> (prop_name, prop_status))
+    t.properties
+
+
+(* Return current status of all properties *)
+let get_prop_status_all_unknown t = 
+
+  List.fold_left 
+    (function accum -> function 
+       
+       | { P.prop_name; P.prop_status } 
+         when not (P.prop_status_known prop_status) -> 
+
+         (prop_name, prop_status) :: accum 
+
+       | _ -> accum)
+    []
+    t.properties
+
+
+(* Return true if all properties are either valid or invalid *)
+let all_props_proved t =
+  
+  List.for_all
+    (fun { P.prop_status } -> match prop_status with
+       | P.PropUnknown
+       | P.PropKTrue _ -> false
+       | P.PropInvariant
+       | P.PropFalse _ -> true)
+    t.properties
+
+
+(* ********************************************************************** *)
+(* Construct a transition system                                          *)
+(* ********************************************************************** *)
+
 let mk_trans_sys 
     ?(instance_var_id_start = 0)
     scope
@@ -430,7 +1011,7 @@ let mk_trans_sys
          (* Lift instance variables of all instances of the subsystem
             to this transition system *)
          List.fold_left
-           (fun a (lift_map, _) -> 
+           (fun a { map_up } -> 
               List.map
                 (fun sv -> 
                    try 
@@ -438,7 +1019,7 @@ let mk_trans_sys
                      (* Get state variable in this transition system
                         instantiating the state variable in the
                         subsystem *)
-                     (SVM.find sv lift_map)
+                     (SVM.find sv map_up)
 
                    (* Every state variable must be in the map *)
                    with Not_found -> assert false)
@@ -523,6 +1104,16 @@ let mk_trans_sys
     instance_var_id_start + List.length instance_var_bindings
   in
 
+  (* Make sure name scope is unique in transition system *)
+  List.iter
+    (fun (t, _) ->
+       iter_subsystems 
+         (fun { scope = s } -> 
+            if Scope.equal scope s then
+              raise (Invalid_argument "mk_trans_sys: scope is not unique"))
+         t)
+       subsystems;
+  
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
@@ -546,243 +1137,6 @@ let mk_trans_sys
 
   trans_sys, instance_var_id_start'
   
-
-
-(* ********************************************************************** *)
-(* Access the transition system                                           *)
-(* ********************************************************************** *)
-
-(* Close term by binding variables to terms with a let binding *)
-let close_term bindings term = Term.mk_let bindings term
-
-
-(* Bump the offsets of state variable instances at [base] to [i]
-   and respectively for state variables at different offsets. *)
-let bump_relative base i term = 
-
-  (* Need to bump term to different offset? *)
-  if Numeral.(i = base) then term else
-    
-    (* Bump to offset *)
-    Term.bump_state Numeral.(i - base) term
-
-
-(* Close the initial state constraint by binding all instance
-   identifiers, and bump the state variable offsets to be at the given
-   bound *)
-let init_of_bound { instance_var_bindings; init } i = 
-
-  close_term instance_var_bindings init
-  |> bump_relative init_base i 
-  
-
-(* Close the initial state constraint by binding all instance
-   identifiers, and bump the state variable offsets to be at the given
-   bound *)
-let trans_of_bound { instance_var_bindings; trans } i = 
-
-  close_term instance_var_bindings trans
-  |> bump_relative trans_base i 
-  
-
-(* Return the instance variables of this transition system, the
-   initial state constraint at [init_base] and the transition relation
-   at [trans_base] with the instance variables free. *)
-let init_trans_open { instance_var_bindings; init; trans } = 
-
-  (List.map 
-     (fun (v, _) -> Var.state_var_of_state_var_instance v)
-     instance_var_bindings, 
-   init,
-   trans)
-
-
-(* Return true if scopes of transition systems are equal *)
-let equal_scope { scope = s1 } { scope = s2 } = Scope.equal s1 s2
-
-(* Compare transition systems by their scope *)
-let compare_scope { scope = s1 } { scope = s2 } = Scope.compare s1 s2
-
-
-(* Return the logic fragment needed to express the transition system *)
-let get_logic t = t.logic
-
-
-(* **************************************************************** *)
-(* State Variables, Predicates and Declarations                     *)
-(* **************************************************************** *)
-
-(* Add instances of the [state_vars] at [ubound] to [accum] if
-   [ubound] is greater than [lbound]*)
-let rec vars_of_bounds' state_vars lbound ubound accum =
-
-  (* Return when upper bound below lower bound *)
-  if Numeral.(ubound < lbound) then accum
-
-  else
-
-    (* Reverse to add in original order *)
-    List.rev state_vars
-
-    |> 
-
-    (* Add state variables at upper bound instant *)
-    List.fold_left
-      (fun accum sv -> 
-         Var.mk_state_var_instance sv ubound :: accum )
-      accum
-
-    |> 
-
-    (* Recurse to next lower bound *)
-    vars_of_bounds' state_vars lbound Numeral.(pred ubound)
-
-
-(* Return instances of the state variables of the transition system
-   between and including [lbound] and [uboud] *)
-let vars_of_bounds { state_vars } lbound ubound =
-  vars_of_bounds' state_vars lbound ubound []
-    
-
-(* Declare variables of the transition system at instants between and
-   including [lbound] and [ubound] *)
-let declare_vars_of_bounds trans_sys declare lbound ubound =
-
-  (* Instantiate state variables and declare *)
-  vars_of_bounds trans_sys lbound ubound
-  |> Var.declare_vars declare
-
-
-(* Declare constant state variable of the system *)
-let declare_const_vars { state_vars } declare =
-
-  (* Constant state variables of the top system *)
-  List.filter StateVar.is_const state_vars 
-
-  |> 
-
-  (* Create variable of constant state variable *)
-  List.map Var.mk_const_state_var
-
-  |>
-
-  (* Declare variables *)
-  Var.declare_constant_vars declare
-    
-(*
-
-(* Define predicates for the top system and all its subsystems,
-   declare constant state variables of the top system, and, if
-   [declare_sub_vars] is [true], also of all its subsystems *)
-let init_declare_and_define
-    ?(declare_sub_vars=false)
-    trans_sys
-    define
-    declare = 
-
-  (* Declate constant state variables of top system *)
-  declare_const_vars declare trans_sys;
-       
-  (* Iterate over all subsystems *)
-  iter_subsystems 
-    (fun t -> 
-
-       (* Declare constant state variables of subsystem *)
-       if declare_sub_vars then declare_const_vars declare t;
-       
-       
-
-    )
-    trans_sys
-
-
-
-
-(* Declare state variable instances of the top system between and
-   including [lbound] and [ubound]. Also declare state variable
-   instances of all subsystems if [declare_sub_vars] is [true]. *)
-let declare_and_define_of_bounds t define declare lbound ubound = ()
-
-
-
-(* Define uf definitions, declare constant state variables and declare
-   variables from [lbound] to [upbound]. *)
-let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
-
-  (match t.callers with
-    | [] ->
-      (* Define ufs. *)
-      iter_uf_definitions t define ;
-    | _ -> () ) ;
-
-  let l_vars = vars_of_bounds t lbound lbound in
-
-  (* Declaring constant variables. *)
-  Var.declare_constant_vars declare l_vars ;
-
-  (* Declaring other variables. *)
-  declare_vars_of_bounds t declare lbound ubound
-  
-*)
-
-(* **************************************************************** *)
-(* Properties                                                       *)
-(* **************************************************************** *)
-
-(* Get property by name *)
-let property_of_name t name =
-
-  (* Return the first property with the given name *)
-  List.find
-    (fun { P.prop_name } -> prop_name = name )
-    t.properties
-
-
-(* Return current status of property *)
-let get_prop_status trans_sys p = 
-
-  try 
-
-    (property_of_name trans_sys p).P.prop_status
-
-  with Not_found -> P.PropUnknown
-
-
-(* Return current status of all properties *)
-let get_prop_status_all t = 
-  
-  List.map 
-    (fun { P.prop_name; P.prop_status } -> (prop_name, prop_status))
-    t.properties
-
-
-(* Return current status of all properties *)
-let get_prop_status_all_unknown t = 
-
-  List.fold_left 
-    (function accum -> function 
-       
-       | { P.prop_name; P.prop_status } 
-         when not (P.prop_status_known prop_status) -> 
-
-         (prop_name, prop_status) :: accum 
-
-       | _ -> accum)
-    []
-    t.properties
-
-
-(* Return true if all properties are either valid or invalid *)
-let all_props_proved t =
-  
-  List.for_all
-    (fun { P.prop_status } -> match prop_status with
-       | P.PropUnknown
-       | P.PropKTrue _ -> false
-       | P.PropInvariant
-       | P.PropFalse _ -> true)
-    t.properties
-
 
 
 
