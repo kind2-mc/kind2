@@ -21,58 +21,66 @@ open Lib
 type _ t = 
   | Lustre : LustreNode.t SubSystem.t -> LustreNode.t t
   | Native : unit SubSystem.t -> unit t
-  | Horn : unit -> unit t
+  | Horn : unit SubSystem.t -> unit t
 
 
-let read_input () = 
+let read_input_lustre input_file = Lustre (LustreInput.of_file input_file) 
 
-  let input_file = Flags.input_file () in
+let read_input_native input_file = assert false 
 
-  match Flags.input_format () with 
-
-    | `Lustre -> Lustre (LustreInput.of_file input_file) 
-    | `Native -> assert false
-    | `Horn -> assert false
+let read_input_horn input_file = assert false 
 
 
+
+
+(*
 let next_analyis (type s) : s t -> 'a ->  (SubSystem.scope * (SubSystem.scope * bool) list) option = function
 
   | Lustre subsystem -> Refiner.next_analysis subsystem 
   | Native subsystem -> Refiner.next_analysis subsystem 
   | Horn subsystem -> Refiner.next_analysis subsystem 
-
+*)
 
 (* Return a transition system with [top] as the main system, sliced to
    abstractions and implementations as in [abstraction_map. ]*)
-let trans_sys_of_analysis (type s) : s t -> (SubSystem.scope * (SubSystem.scope * bool) list) -> TransSys.t = function 
+let trans_sys_of_analysis (type s) : s t -> Analysis.param -> TransSys.t = function 
 
-  | Lustre subsystem -> (function (top, abstraction_map) ->
+  | Lustre subsystem -> 
 
-      LustreTransSys.trans_sys_of_nodes subsystem top abstraction_map)
+    (function analysis -> LustreTransSys.trans_sys_of_nodes subsystem analysis)
     
-  | Native _ -> (function _ -> assert false)
+  | Native _ -> assert false
     
-  | Horn _ -> (function _ -> assert false)
+  | Horn _ -> assert false
 
 
 
-let pp_print_path_pt (type s) : s t -> bool -> Format.formatter -> Model.path -> unit = function 
+let pp_print_path_pt (type s) : s t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit = function 
 
-  | Lustre subsystem -> (fun b ppf m -> LustrePath.pp_print_path_pt b ppf m)
+  | Lustre subsystem -> (fun t b ppf m -> LustrePath.pp_print_path_pt t subsystem b ppf m)
 
   | Native _ -> (fun _ _ _ -> assert false)
 
   | Horn _ -> (fun _ _ _ -> assert false)
 
 
-let pp_print_path_xml (type s) : s t -> bool -> Format.formatter -> Model.path -> unit = function 
+let pp_print_path_xml (type s) : s t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit = function 
 
-  | Lustre { source } -> (fun b ppf m -> LustrePath.pp_print_path_xml b ppf m)
+  | Lustre subsystem -> (fun t b ppf m -> LustrePath.pp_print_path_xml t subsystem b ppf m)
 
   | Native _ -> (fun _ _ _ -> assert false)
 
   | Horn _ -> (fun _ _ _ -> assert false)
 
+
+
+let slice_to_term (type s) (subsystem : s t) term : s SubSystem.t = match subsystem with 
+
+  | Lustre subsystem -> subsystem
+
+  | Native subsystem -> subsystem
+
+  | Horn subsystem -> subsystem
 
 
 

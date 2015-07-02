@@ -25,6 +25,9 @@ module E = LustreExpr
 module N = LustreNode
 module C = LustreContext
 
+module A = Analysis
+module S = SubSystem
+
 module SVS = StateVar.StateVarSet 
 module SVM = StateVar.StateVarMap 
 
@@ -696,6 +699,29 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 
     (* TODO: Now slice assertions *)
 
+    (* TODO: if this is the top node, slice away inputs and outputs *)
+    let inputs' = 
+      if tl = [] then 
+        D.filter
+          (fun _ sv -> List.exists (StateVar.equal_state_vars sv) leaves)
+          inputs
+      else
+        inputs
+    in
+
+    let outputs' = 
+      if tl = [] then 
+        D.filter
+          (fun _ sv -> List.exists (StateVar.equal_state_vars sv) leaves)
+          outputs
+      else
+        outputs
+    in
+
+    let node_sliced = 
+      { node_sliced with N.inputs = inputs'; N.outputs = outputs' }
+    in
+
     (* Continue with next nodes *)
     slice_nodes
       init_slicing_of_node
@@ -910,6 +936,7 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 (* Slice a node to its implementation, starting from the outputs,
    contracts and properties *)
 let root_and_leaves_of_impl  
+    is_top
     ({ N.outputs; 
        N.global_contracts; 
        N.mode_contracts; 
@@ -924,13 +951,17 @@ let root_and_leaves_of_impl
       node 
   in
   
+  (* TODO: if this is the top node, don't consider outputs as roots *)
+
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
     (roots_of_contracts global_contracts |> SVS.of_list)
     |> SVS.union (roots_of_contracts mode_contracts |> SVS.of_list)
-    |> SVS.union (D.values outputs |> SVS.of_list) 
     |> SVS.union (roots_of_props props |> SVS.of_list)
     |> add_roots_of_asserts asserts
+
+    (* Consider outputs as roots except at the top node *)
+    |> SVS.union (if is_top then SVS.empty else D.values outputs |> SVS.of_list) 
     |> SVS.elements
   in
 
@@ -943,6 +974,7 @@ let root_and_leaves_of_impl
 (* Slice a node to its contracts, starting from contracts, stopping at
    outputs *)
 let root_and_leaves_of_contracts
+    is_top
     ({ N.outputs; 
        N.global_contracts; 
        N.mode_contracts; 
@@ -992,42 +1024,45 @@ let custom_roots roots node =
 (* Return [true] if the node is flagged as abstract in
    [abstraction_map]. Default to [false] if the node is not in the
    map. *)
-let node_is_abstract analysis_param { N.name } = 
+let node_is_abstract analysis { N.name } = 
 
   [I.string_of_ident false name]
-  |> Analysis.scope_is_abstract analysis_param
+  |> Analysis.scope_is_abstract analysis
 
 
 (* Return roots for slicing to contracts or implementation as
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
-let root_and_leaves_of_abstraction_map abstraction_map ({ N.name } as node) = 
+let root_and_leaves_of_abstraction_map is_top abstraction_map ({ N.name } as node) = 
 
   if node_is_abstract abstraction_map node then 
 
     (* Node is to be abstract *)
-    root_and_leaves_of_contracts node 
+    root_and_leaves_of_contracts is_top node 
 
   else
 
     (* Node is to be concrete *)
-    root_and_leaves_of_impl node
+    root_and_leaves_of_impl is_top node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction analysis_param subsystem = 
+let slice_to_abstraction ({ A.top } as analysis) subsystem = 
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)
-  let nodes = N.nodes_of_subsystem subsystem in 
+  let nodes = 
+    S.find_subsystem subsystem top
+    |> N.nodes_of_subsystem 
+  in 
   
   (* Slice all nodes to either abstraction or implementation *)
   slice_nodes
-    (root_and_leaves_of_abstraction_map analysis_param)
+    (root_and_leaves_of_abstraction_map false analysis)
     nodes
     []
-    [root_and_leaves_of_abstraction_map analysis_param (List.hd nodes)]
+    [root_and_leaves_of_abstraction_map true analysis (List.hd nodes)]
 
   (* Create subsystem from list of nodes *)
   |> N.subsystem_of_nodes 

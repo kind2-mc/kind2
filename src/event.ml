@@ -28,7 +28,38 @@ exception Terminate
 
 
 (* Reduce nodes to cone of influence of property *)
-let reduce_nodes_to_coi trans_sys nodes prop_name =
+let reduce_nodes_to_coi
+    input
+    { Analysis.abstraction_map; 
+      Analysis.assumptions } 
+    trans_sys 
+    nodes 
+    prop_name =
+
+  (* Get property by name *)
+  let { Property.prop_term } =
+    TransSys.property_of_name trans_sys prop_name
+  in
+
+  (* Map property to the lowest subsystem *)
+  let trans_sys', prop_term' =  
+    TransSys.term_map_to_subsystem trans_sys prop_term
+  in
+
+  let analysis' = 
+    { Analysis.top = TransSys.scope_of_trans_sys trans_sys';
+      Analysis.abstraction_map ;
+      Analysis.assumptions } 
+  in
+
+  (* Slice input system to property *)
+  LustreSlicing.slice_to_abstraction
+  
+
+(*
+
+
+
 
   debug event
     "Reducing to coi for %s"
@@ -111,6 +142,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
   (* Return nodes reduced to cone of influence of property *)
   nodes'
+*)
 
 
 (* ********************************************************************** *)

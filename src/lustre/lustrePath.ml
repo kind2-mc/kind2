@@ -910,10 +910,6 @@ let rec pp_print_lustre_path_xml' ppf = function
     pp_print_lustre_path_xml' ppf tl
 
 
-
-
-
-
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
 let pp_print_lustre_path_xml ppf path = 
@@ -930,7 +926,6 @@ let pp_print_path_xml trans_sys subsystems first_is_init ppf model =
 
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf 
-
 
 
 (* 

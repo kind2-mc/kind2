@@ -25,20 +25,26 @@
 
     @author Christoph Sticksel *)
 
-type t
+type _ t
 
 (** Read input from file *)
-val read_input : unit -> t
+val read_input_lustre : string -> LustreNode.t t
 
+(*
 (** Return the next system to analyze and the systems to abstract *)
 val next_analysis_of_strategy : t -> Analysis.result list -> Analysis.param option
+*)
 
 (** Return a transition system for an analysis run *)
-val trans_sys_of_analysis : t -> (SubSystem.scope * (SubSystem.scope * bool) list) -> TransSys.t * Property.t
+val trans_sys_of_analysis : _ t -> Analysis.param -> TransSys.t
 
 (** Output a path in the input system *)
-val pp_print_path : t -> bool -> Format.formatter -> Model.path -> unit 
+val pp_print_path_pt : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit 
 
+(** Output a path in the input system *)
+val pp_print_path_xml : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit 
+
+val slice_to_term : 'a t -> Term.t -> 'a SubSystem.t
 
 (* 
    Local Variables:
