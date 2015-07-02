@@ -1010,7 +1010,7 @@ type kind_module =
   | `INVGEN
   | `INVGENOS
   | `Interpreter
-  | `Supervisor
+  | `INVMAN
   | `Parser ]
 
 
@@ -1022,7 +1022,7 @@ let pp_print_kind_module ppf = function
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
   | `Interpreter -> Format.fprintf ppf "interpreter"
-  | `Supervisor -> Format.fprintf ppf "supervisor"
+  | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Parser -> Format.fprintf ppf "parser"
 
 
@@ -1038,7 +1038,7 @@ let suffix_of_kind_module = function
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
  | `Interpreter -> "interp"
- | `Supervisor -> "supervisor"
+ | `INVMAN -> "invman"
  | `Parser -> "parse"
                 
 

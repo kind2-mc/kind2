@@ -98,7 +98,7 @@ let main_of_process = function
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
   | `Parser -> ignore
-  | `Supervisor -> ignore
+  | `INVMAN -> ignore
 
 (* Cleanup function of the process *)
 let on_exit_of_process = function 
@@ -110,7 +110,7 @@ let on_exit_of_process = function
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
   | `Parser -> ignore
-  | `Supervisor -> assert false
+  | `INVMAN -> assert false
 
 (*
 (* Messaging type of the process *)
@@ -132,7 +132,7 @@ let debug_ext_of_process = function
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
-  | `Supervisor -> "super"
+  | `INVMAN -> "super"
 
 (* Exit status if timeout *)
 let status_timeout = 0
