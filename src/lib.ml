@@ -29,6 +29,9 @@ let true_of_unit () = true
 (* Returns false when given unit. *)
 let false_of_unit () = false
 
+(* Returns None when given unit. *)
+let none_of_unit () = None
+
 (* Returns true *)
 let true_of_any _ = true
 
@@ -56,7 +59,6 @@ let warning_tag = tagify "Warning"
 let interruption_tag = tagify "Interruption"
 (* Done tag. *)
 let done_tag = tagify "Done"
-
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)

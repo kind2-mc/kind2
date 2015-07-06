@@ -1613,10 +1613,7 @@ let find_element_clash f list =
   loop list
 
 (* Create a transition system *)
-let mk_trans_sys
-      scope state_vars init trans
-      subsystems props contracts_option
-      source =
+let mk_trans_sys scope state_vars init trans subsystems props source =
 
   (* Goes through the subsystems and constructs the list of
      uf_defs. *)
@@ -1804,8 +1801,7 @@ let mk_trans_sys
       logic = logic;
       source = source ;
       invars = [] ;
-      callers = [] ;
-      abstraction = [] }
+      callers = []; }
   in
 
   debug transSys "Done creating system:@ " in

@@ -417,11 +417,20 @@ let string_of_ic3_fwd_prop_ind_gen = string_of_bool
 let ic3_fwd_prop_ind_gen_default = true
 
 (* ********** *) 
+
 type ic3_fwd_prop_subsume = bool
     
 let string_of_ic3_fwd_prop_subsume = string_of_bool
 
 let ic3_fwd_prop_subsume_default = true
+
+(* ********** *) 
+
+type ic3_use_invgen = bool
+    
+let string_of_ic3_use_invgen = string_of_bool
+
+let ic3_use_invgen_default = true
 
 (* ********** *) 
 
@@ -616,6 +625,7 @@ type flags =
     mutable ic3_fwd_prop_non_gen : ic3_fwd_prop_non_gen;
     mutable ic3_fwd_prop_ind_gen : ic3_fwd_prop_ind_gen;
     mutable ic3_fwd_prop_subsume : ic3_fwd_prop_subsume;
+    mutable ic3_use_invgen : ic3_use_invgen;
     mutable ic3_abstr : ic3_abstr;
     mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
     mutable cooper_general_lbound : cooper_general_lbound;
@@ -667,6 +677,7 @@ let flags =
     ic3_block_in_future = ic3_block_in_future_default;
     ic3_block_in_future_first = ic3_block_in_future_first_default;
     ic3_fwd_prop_subsume = ic3_fwd_prop_subsume_default;
+    ic3_use_invgen = ic3_use_invgen_default;
     ic3_abstr = ic3_abstr_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
@@ -1002,6 +1013,16 @@ let ic3_fwd_prop_subsume_spec =
                   (string_of_ic3_fwd_prop_subsume ic3_fwd_prop_subsume_default))
 
 (* ********** *) 
+ 
+let ic3_use_invgen_action o = flags.ic3_use_invgen <- o
+  
+let ic3_use_invgen_spec = 
+  ("--ic3_use_invgen", 
+   Arg.Bool ic3_use_invgen_action, 
+   Format.sprintf "(IC3) Use invariants from invariant generators (default: %s)"
+                  (string_of_ic3_use_invgen ic3_use_invgen_default))
+
+(* ********** *) 
 
 let ic3_abstr_action o = flags.ic3_abstr <- (ic3_abstr_of_string o)
   
@@ -1255,6 +1276,8 @@ let ic3_fwd_prop_ind_gen () = flags.ic3_fwd_prop_ind_gen
 
 let ic3_fwd_prop_subsume () = flags.ic3_fwd_prop_subsume 
 
+let ic3_use_invgen () = flags.ic3_use_invgen 
+
 let ic3_abstr () = flags.ic3_abstr
 
 let set_ic3_abstr f = flags.ic3_abstr <- f
@@ -1401,6 +1424,9 @@ and speclist =
 
     (* Subsumption in forward propagation *)
     ic3_fwd_prop_subsume_spec;
+
+    (* Use invariants from invariant generators *)
+    ic3_use_invgen_spec;
 
     (* Abstraction in IC3 *)
     ic3_abstr_spec;

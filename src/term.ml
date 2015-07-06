@@ -196,7 +196,14 @@ let term_of_named t =  match node_of_term t with
 
 (* Return the name of a named term *)
 let name_of_named t =  match node_of_term t with
-  | T.Annot (t, a) when TermAttr.is_named a -> TermAttr.named_of_attr a
+  | T.Annot (t, a) when TermAttr.is_named a ->
+
+    (* Get name of term *)
+    let (s, n) = TermAttr.named_of_attr a in
+
+    (* Fail if not in term namespace, otherwise return integer *)
+    if s <> "t" then invalid_arg "term_of_named" else n
+      
   | _ -> invalid_arg "term_of_named"
 
 
@@ -1079,7 +1086,17 @@ let mk_named t =
   (* Return name and named term
 
      Order pair in this way to put it an association list *)
-  (n, T.mk_annot t (TermAttr.mk_named n))
+  (n, T.mk_annot t (TermAttr.mk_named "t" n))
+
+
+(* Hashcons a named term *)
+let mk_named_unsafe t s n = 
+
+  (* Reject namespace used by mk_named to avoid clashes *)
+  if s = "t" then raise (Invalid_argument "mk_named_unsafe") else
+    
+    (* Return named term *)
+    T.mk_annot t (TermAttr.mk_named s n)
 
 
 (* Hashcons an uninterpreted function or constant *)

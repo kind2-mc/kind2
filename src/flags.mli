@@ -166,6 +166,10 @@ val ic3_fwd_prop_ind_gen : unit -> ic3_fwd_prop_ind_gen
 type ic3_fwd_prop_subsume = bool
 val ic3_fwd_prop_subsume : unit -> ic3_fwd_prop_subsume
 
+(** Use invariants from invariant generators *)
+type ic3_use_invgen = bool
+val ic3_use_invgen : unit -> ic3_use_invgen
+
 (** Abstraction mechanism to use in IC3 *)
 type ic3_abstr = [ `None | `IA ]
 val ic3_abstr : unit -> ic3_abstr

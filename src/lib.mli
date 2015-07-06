@@ -31,6 +31,9 @@ val true_of_unit : unit -> bool
 (** Returns false when given unit. *)
 val false_of_unit : unit -> bool
 
+(** Returns None when given unit. *)
+val none_of_unit : unit -> 'a option
+
 (** Return true *)
 val true_of_any : 'a -> bool
 
@@ -54,7 +57,6 @@ val warning_tag : string
 val interruption_tag : string
 (** Done tag. *)
 val done_tag : string
-
 
 
 

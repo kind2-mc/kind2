@@ -22,7 +22,7 @@ module type S = sig
   (** {2 Solver configuration options} *)
 
   (** Command line options *)
-  val cmd_line : unit -> string array
+  val cmd_line : TermLib.logic -> bool -> bool -> bool -> bool -> string array
 
   (** Internal command for check-sat with timeout in milliseconds*)
   val check_sat_limited_cmd : int -> string
