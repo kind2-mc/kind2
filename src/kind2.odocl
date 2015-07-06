@@ -29,8 +29,8 @@ Step
 Clause
 CooperQE
 Extract
-Literal
-PDR
+# Literal
+IC3
 Poly
 Presburger
 QE

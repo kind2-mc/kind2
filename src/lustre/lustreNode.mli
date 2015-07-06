@@ -19,7 +19,7 @@
 (** A Lustre node
 
     Nodes are normalized for easy translation into a transition
-    system, mainly by introducing new variables. A {LustreExpr.t} does
+    system, mainly by introducing new variables. A [LustreExpr.t] does
     not contain node calls, temporal operators or expressions under a
     [pre] operator. 
 
@@ -28,15 +28,15 @@
     variables as inputs and outputs.
 
     The node signature as input and output variables as well as its
-    local variables is in [node_inputs], [node_outputs] and
-    [node_vars], respectively. Local constants are propagated and do
-    not need to be stored. The inputs of a node can be extended by
-    constant state variables in [node_oracles] for the initial value
-    of unguarded pre operations.
+    local variables is in [inputs], [outputs] and [locals],
+    respectively. Local constants are propagated and do not need to be
+    stored. The inputs of a node can be extended by constant state
+    variables in [oracles] for the initial value of unguarded pre
+    operations.
 
     Assertions, properties to prove and contracts as assumptions and
-    guarantees are lists of expressions in [node_asserts], [node_props],
-    [node_requires], and [node_ensures].
+    guarantees are lists of expressions in [asserts], [props],
+    contracts fo into [global_contracts] and [mode_contracts].
 
     The flag [node_is_main] is set if the node has been annotated as
     main, it is not checked if more than one node or no node at all may
@@ -46,15 +46,6 @@
 *)
 
 open Lib
-
-(** Source of a state variable *)
-type state_var_source =
-  | Input
-  | Output
-  | Local
-  | Ghost
-  | Oracle
-
 
 (** A call of a node *)
 type node_call = 
@@ -83,6 +74,15 @@ type node_call =
     (** Expression for initial return values *)
 
   }
+
+
+(** Source of a state variable *)
+type state_var_source =
+  | Input
+  | Output
+  | Local
+  | Ghost
+  | Oracle
 
 
 (** A contract has an identifier and a position in the input, a state
@@ -251,68 +251,33 @@ val has_contract : t -> bool
     equations are ghost and there are no assertions *)
 val has_impl : t -> bool
 
-(** Return a tree-like subsystem from a flat list of nodes, where the
-    top node is at the head of the list. *)
+(** Return a tree-like subsystem hierarchy from a flat list of nodes,
+    where the top node is at the head of the list. *)
 val subsystem_of_nodes : t list -> t SubSystem.t
 
 (** Return list of topologically ordered list of nodes from subsystem.
     The top node is a the head of the list. *)
 val nodes_of_subsystem : t SubSystem.t -> t list
 
-(** {2 State Variable Instances} *)
+(** Return all stateful variables from expressions in a node *)
+val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 
-(*
-(** We keep a map of the variables of a node to variables in called
-    nodes to propagate values of a model to the called nodes. A
-    variable in a called node gets its value from an state variable in
-    the caller, which is an instance of it. 
-
-    A state variable in a node may be the instance of several state
-    variables, if a state variable serves as input to multiple
-    callees.
-
-    Variables capturing the outputs of a called node are instances of
-    the output variables in the callee; variables providing input to
-    the caller are instances of the input variables of the
-    callee. Stateful local variables of a callee are lifted as state
-    variables of the caller, the latter are then instances of the
-    former. 
-
-    A state variable may also be an instance of a state variable in
-    the same node if an equation between two state variables was
-    eliminated. *)
-
-(** Named stream at a position *)
-type state_var_instance = position * LustreIdent.t * StateVar.t
-
-
-(** Return state variables that values of this state variable should
-    be propagated to  *)
-val get_state_var_instances : StateVar.t -> state_var_instance list
-
-(** Mark state variable as instance of another state variable to
-    be able to propagate values of the first to the second
-
-    [set_state_var_instance sv1 pos n sv2] marks the state variable
-    [sv1] to be an instance of [sv2], where the latter occurs at
-    position [pos] in node [n]. Usually [sv1] is in the caller and
-    [sv2] is in the callee. *)
-val set_state_var_instance : StateVar.t -> position -> LustreIdent.t -> StateVar.t -> unit
-*)
 
 (** {2 Sources} *)
 
 (** Every state variable is either defined in a node, or was
-    introduced in pre-processing.
+    introduced in pre-processing, see {!state_var_source}.
 
     - [Input], [Output] or [Local] state variables correspond to input,
     output and local streams defined in a node, respectively. 
 
     - [Oracle] state variables are additional input variables
      introduced to non-deterministivcally give a value to unguarded
-     [pre] expressions, or to unconstrained streams
-*)
+     [pre] expressions, or to unconstrained streams.
 
+    - A [Ghost] state variables are is a local variable defined in
+      a contract.
+*)
 
 (** Pretty-print a source of a state variable *)
 val pp_print_state_var_source : Format.formatter -> state_var_source -> unit 
@@ -338,65 +303,6 @@ val state_var_is_output : t -> StateVar.t -> bool
 
 (** Return true if the state variable is a local variable *)
 val state_var_is_local : t -> StateVar.t -> bool
-
-(** Return all stateful variables from expressions in a node *)
-val stateful_vars_of_node : t -> StateVar.StateVarSet.t
-
-
-
-
-
-
-
-
-
-
-
-(*
-
-
-(** Order the equations of the node such that an equation defining a
-   variable always occurs before all equations using the variable *)
-val equations_order_by_dep : t list -> t -> t
-
-(** If node contains an equation [x = y], and [y] captures the output
-    of a node, substitute [x] in the node call and the equation and the
-    definition of [x] if it is local. *)
-val solve_eqs_node_calls : t -> t
-
-*)
-
-(*
-(** produces the set of all state variables contained in any of the nodes in the
-    given list 
-*)
-val extract_state_vars : t list -> StateVar.StateVarSet.t
-*)
-(*
-(** Reduce list of nodes to list of nodes called by the node and its
-    subnodes, include the given node. The list of nodes is partially
-    ordered by dependencies, such that called nodes appear before
-    their callers. *)
-val reduce_to_coi : t list -> LustreIdent.t -> StateVar.t list -> t list 
-
-val reduce_wo_coi : t list -> LustreIdent.t -> t list 
-
-val reduce_to_props_coi : t list -> LustreIdent.t -> t list 
-*)
-(*
-
-(** 
-reduce_to_separate_property_cois [nodes] [main_name]
-
-Given that [nodes] is the set of nodes in the lustre program and
-[main_name] is the name of the main node, return a map which
-maps the identifier of each property and assert stream to the
-a list of all nodes in that assert or property's cone of influence. 
-*)
-val reduce_to_separate_property_cois : t list -> LustreIdent.t -> (t list) StateVar.StateVarMap.t 
-
-*)
-
 
 (* 
    Local Variables:

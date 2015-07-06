@@ -1931,12 +1931,15 @@ let test () =
                 
   Format.printf 
     "%a@."
-    (LustrePath.pp_print_path_xml trans_sys lustre_subsystem true) model;
+    (LustrePath.pp_print_path_pt trans_sys lustre_subsystem true) model;
 
+(*
   Format.printf 
     "%a@."
-    (LustrePath.pp_print_path_xml trans_sys lustre_subsystem false) model
+    (LustrePath.pp_print_path_pt trans_sys lustre_subsystem false) model
+*)
 
+   ()
 ;;
 
 test ()

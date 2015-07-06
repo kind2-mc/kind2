@@ -216,12 +216,12 @@ val term_map_to_subsystem : t -> Term.t -> t * Term.t
 
 (** After 
 
-    {| define_and_declare_of_bounds 
+    {[ define_and_declare_of_bounds 
          t
          (SMTSolver.define_fun s)
          (SMTSolver.declare_fun t) 
          l
-         u |}
+         u ]}
 
     with the solver instance [s], initial state constraint and
     transition relation can be asserted for all offsets between and
@@ -230,10 +230,10 @@ val term_map_to_subsystem : t -> Term.t -> t * Term.t
     To extend the range of declared offsets to the range including [l]
     and [v], use
 
-    {| declare_vars_of_bounds
+    {[ declare_vars_of_bounds
          (SMTSolver.declare_fun t) 
          (Numeral.succ u)
-         v  |}. 
+         v  ]}. 
 
     Evaluating {!define_and_declare_of_bounds} is only needed once per
     solver instance, and only for the top level transition system. *)

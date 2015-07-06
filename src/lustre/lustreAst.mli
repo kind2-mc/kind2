@@ -23,7 +23,7 @@
     constructing the abstract syntax tree, this is done when producing
     the intermediate Lustre representation in {!LustreDeclarations}. 
 
-    Some types are reserved for future use and will cause the
+    Some values are reserved for future use and will cause the
     translation to intermediate Lustre to fail.
 
     A Lustre file is parsed into a {!declaration} list, where a
@@ -51,7 +51,7 @@ type ident = string
 (** A single index *)
 type index = string
 
-(** An expression *)
+(** A Lustre expression *)
 type expr =
     Ident of position * ident
   | RecordProject of position * expr * index
@@ -99,7 +99,7 @@ type expr =
   | Call of position * ident * expr list
   | CallParam of position * ident * lustre_type list * expr list
 
-(** A type *)
+(** A Lustre type *)
 and lustre_type =
     Bool of position
   | Int of position
