@@ -1863,7 +1863,7 @@ let trans_sys_of_nodes
 
   in
 
-  trans_sys
+  trans_sys, subsystem'
 
 
 
@@ -1879,7 +1879,7 @@ let test () =
       A.assumptions = [] }
   in
 
-  let trans_sys = trans_sys_of_nodes lustre_subsystem analysis in
+  let trans_sys, lustre_subsystem = trans_sys_of_nodes lustre_subsystem analysis in
 
   let define uf_symbol vars term = 
     Format.printf

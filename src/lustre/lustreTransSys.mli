@@ -229,7 +229,7 @@
     @author Adrien Champion *)
 
 
-val trans_sys_of_nodes : LustreNode.t SubSystem.t -> Analysis.param -> TransSys.t
+val trans_sys_of_nodes : LustreNode.t SubSystem.t -> Analysis.param -> TransSys.t * LustreNode.t SubSystem.t
 
 
 (* 

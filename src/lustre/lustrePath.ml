@@ -136,7 +136,11 @@ let map_top_and_add instances model model' _ state_var =
     |> SVT.add model' state_var
 
   (* Fail if state variable is not in the top node *)
-  with Not_found -> raise Not_found
+  with Not_found ->
+
+    Format.printf "Instance for %a not found@." StateVar.pp_print_state_var state_var;
+      
+    raise Not_found
 
 
 (* Compute substitutions for each state variable in the last arguments
