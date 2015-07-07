@@ -67,6 +67,8 @@ let pp_print_scope ppf s =
     (pp_print_list Ident.pp_print_ident ".")
     s
 
+let to_string s = string_of_t pp_print_scope s
+
 (* Construct a scope from a list of identifiers 
 
    Simply return the list for now, later do some smarter things. *)

@@ -271,7 +271,7 @@ end
 module type Out = sig
 
   (** Invariant generation entry point. *)
-  val main : TransSys.t -> unit
+  val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
@@ -447,8 +447,7 @@ module Make (InModule : In) : Out = struct
     if two_state then
       ( fun term ->
         Term.mk_or
-          [ TransSys.init_flag_of_trans_sys sys Numeral.zero
-            |> Term.mk_var ;
+          [ TransSys.init_flag_of_bound sys Numeral.zero;
             term ] )
     else identity
 
@@ -579,9 +578,7 @@ module Make (InModule : In) : Out = struct
        (* All intermediary invariants and top level ones. *)
        let ((_, top_invariants), intermediary_invariants) =
          if top_sys == sys then
-           (top_sys,
-            List.map (sanitize_term sys) invariants),
-           []
+           (top_sys, List.map (sanitize_term sys) invariants), []
          else
            Term.mk_and invariants
            (* Guarding with init if needed. *)
@@ -603,10 +600,10 @@ module Make (InModule : In) : Out = struct
               (* Broadcasting invariants. *)
               terms'
               |> List.iter
-                   (TransSys.get_scope sub_sys
+                   (TransSys.scope_of_trans_sys sub_sys
                     |> Event.invariant) ) ;
 
-       let top_scope = TransSys.get_scope top_sys in
+       let top_scope = TransSys.scope_of_trans_sys top_sys in
 
        top_invariants
        |> List.iter
@@ -713,7 +710,7 @@ module Make (InModule : In) : Out = struct
            (List.length new_invariants)
            (TSet.cardinal invariants')
            (LSD.get_k lsd sys |> Numeral.pred |> Numeral.to_int)
-           (TransSys.get_scope sys |> String.concat "/")
+           (TransSys.scope_of_trans_sys sys |> String.concat "/")
            top_count ) ;
 
     (* Returning updated invariant set. *)
@@ -721,13 +718,13 @@ module Make (InModule : In) : Out = struct
 
   (* Receives messages, updates transition system, asserts new
      invariants in lsd. *)
-  let recv_update_top_sys_lsd top_sys lsd =
+  let recv_update_top_sys_lsd in_sys aparm top_sys lsd =
 
     (* Receiving messages. *)
     Event.recv ()
 
     (* Updating transition system. *)
-    |> Event.update_trans_sys_sub top_sys
+    |> Event.update_trans_sys_sub in_sys aparm top_sys
 
     (* Handling new invariants and property statuses. *)
     |> ( fun (invariants, properties) ->
@@ -738,7 +735,7 @@ module Make (InModule : In) : Out = struct
               ( fun (_, (scope,inv)) ->
                 LSD.add_invariants
                   lsd
-                  (TransSys.subsystem_of_scope top_sys scope)
+                  (TransSys.find_subsystem_of_scope top_sys scope)
                   [ inv ] ) ;
 
          (* Adding valid properties to lsd. *)
@@ -746,9 +743,9 @@ module Make (InModule : In) : Out = struct
          |> List.iter
               ( function
                 | (_, (name,status))
-                     when status = TransSys.PropInvariant ->
+                     when status = Property.PropInvariant ->
                    (* Getting term from property name. *)
-                   [ TransSys.named_term_of_prop_name top_sys name ]
+                   [ TransSys.get_prop_term top_sys name ]
                    (* Adding it to lsd. *)
                    |> LSD.add_invariants lsd top_sys
                 | _ -> () ) ; )
@@ -757,7 +754,7 @@ module Make (InModule : In) : Out = struct
      extracts invariants from the step instance. Returns the new
      binding, i.e. the updated graph and the new invariants. *)
   let rewrite_graph_find_invariants
-        top_sys lsd (sys, graph, invariants, ignore) =
+        in_sys aparm top_sys lsd (sys, graph, invariants, ignore) =
 
     (* BASE INSTANCE: rewriting the graph until base is unsat. *)
     let graph', unsat_on_first_check =
@@ -765,7 +762,7 @@ module Make (InModule : In) : Out = struct
     in
 
     (* Receiving things. *)
-    recv_update_top_sys_lsd top_sys lsd ;
+    recv_update_top_sys_lsd in_sys aparm top_sys lsd ;
 
     (* STEP INSTANCE: checking which properties are k inductive,
        asserting them in lsd, and broadcast. *)
@@ -780,7 +777,7 @@ module Make (InModule : In) : Out = struct
   (* Iterates on a [sys], [graph], [invariants] until the base
      instance is unsat on the first check or the upper bound given by
      the flags has been reached. *)
-  let iterate_on_binding top_sys lsd (binding, cand_count) =
+  let iterate_on_binding in_sys aparm top_sys lsd (binding, cand_count) =
 
     let rec loop count ((sys,_,invs,_) as binding) =
       (*
@@ -798,7 +795,7 @@ module Make (InModule : In) : Out = struct
       *)
       (* Getting new binding and base flag. *)
       let binding', base_unsat_on_first_check =
-        rewrite_graph_find_invariants top_sys lsd binding
+        rewrite_graph_find_invariants in_sys aparm top_sys lsd binding
       in
 
       if
@@ -815,7 +812,7 @@ module Make (InModule : In) : Out = struct
     loop 1 binding
 
   (* Generates invariants by splitting an implication graph. *)
-  let generate_invariants top_sys lsd =
+  let generate_invariants in_sys aparm top_sys lsd =
 
     (* Generating the candidate terms and building the graphs. Result is a list
        of triplets: system, graph, invariants. *)
@@ -851,7 +848,7 @@ module Make (InModule : In) : Out = struct
       (* Going through the map to generate invariants and generate the
          new map for the next iteration. *)
       let map' =
-        List.map (iterate_on_binding top_sys lsd) map
+        List.map (iterate_on_binding in_sys aparm top_sys lsd) map
       in
 
       (* Recursing with updated invariants and sys/graph mapping. *)
@@ -882,7 +879,7 @@ module Make (InModule : In) : Out = struct
     no_more_lsd ()
 
   (* Module entry point. *)
-  let main trans_sys =
+  let main in_sys aparm trans_sys =
 
     (* Creating lsd instance. *)
     let lsd =
@@ -896,7 +893,7 @@ module Make (InModule : In) : Out = struct
     lsd_ref := Some lsd ;
 
     (* Generating invariants. *)
-    generate_invariants trans_sys lsd
+    generate_invariants in_sys aparm trans_sys lsd
 
 
   (* Launches invariant generation with a max [k] and a set of

@@ -87,7 +87,12 @@ type t =
 (** Return [true] if the status of the property is known *)
 val prop_status_known : prop_status -> bool
 
+val set_prop_status : t -> prop_status -> unit
+val set_prop_invariant : t -> unit
+val set_prop_ktrue : t -> int -> unit
+val set_prop_false : t -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
+val length_of_cex :  (StateVar.t * Model.term_or_lambda list) list -> int
 
 
 (* 

@@ -43,7 +43,12 @@ let children_pgid = ref 0
 let child_pids = ref []
 
 (* Transition system *)
-let trans_sys = ref None
+let input_sys = ref None
+
+let cur_input_sys = ref None
+let cur_aparam = ref None
+let cur_trans_sys = ref None
+
 
 
 (* Main function of the process *)
@@ -96,9 +101,8 @@ let main_of_process = function
     InvGenOS.main
 
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
-  | `INVMAN -> InvarManager.main child_pids
-  | `Parser -> ignore
-  | `INVMAN -> ignore
+  | `Supervisor -> InvarManager.main child_pids
+  | `Parser -> (fun _ _ _ -> ())
 
 (* Cleanup function of the process *)
 let on_exit_of_process = function 
@@ -108,9 +112,8 @@ let on_exit_of_process = function
   | `INVGEN -> InvGenTS.on_exit  
   | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
-  | `INVMAN -> InvarManager.on_exit                       
+  | `Supervisor -> InvarManager.on_exit                       
   | `Parser -> ignore
-  | `INVMAN -> assert false
 
 (*
 (* Messaging type of the process *)
@@ -119,7 +122,7 @@ let init_messaging_of_process = function
   | `BMC -> Kind2Message.init_bmc
   | `IND -> Kind2Message.init_indStep
   | `INVGEN -> Kind2Message.init_invarGen 
-  | `INVMAN -> Kind2Message.init_invarManager (List.map fst !child_pids)
+  | `Supervisor -> Kind2Message.init_invarManager (List.map fst !child_pids)
 *)
 
 
@@ -129,10 +132,9 @@ let debug_ext_of_process = function
   | `IND -> "ind"
   | `INVGEN -> "invgenTS"
   | `INVGENOS -> "invgenOS"
-  | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
-  | `INVMAN -> "super"
+  | `Supervisor -> "super"
 
 (* Exit status if timeout *)
 let status_timeout = 0
@@ -153,9 +155,9 @@ let status_of_trans_sys sys =
     TransSys.get_prop_status_all sys
     |> List.fold_left
       ( fun (u,f) -> function
-        | (_, TransSys.PropUnknown)
-        | (_, TransSys.PropKTrue _) -> u+1,f
-        | (_, TransSys.PropFalse _) -> u,f+1
+        | (_, Property.PropUnknown)
+        | (_, Property.PropKTrue _) -> u+1,f
+        | (_, Property.PropFalse _) -> u,f+1
         | _ -> u,f )
       (0,0)
     |> fun (u,f) -> u > 0, f > 0
@@ -429,7 +431,7 @@ let on_exit_child messaging_thread process sys_opt exn =
   let status = status_of_exn process sys_opt exn in
 
   (* Call cleanup of process *)
-  (on_exit_of_process process) !trans_sys;
+  (on_exit_of_process process) !cur_trans_sys;
   
   Event.log L_info 
     "Process %d terminating"
@@ -541,7 +543,10 @@ let run_process messaging_setup process =
           );
 
           (* Run main function of process *)
-          (main_of_process process) (get !trans_sys);
+          (main_of_process process) 
+            (get !cur_input_sys)
+            (get !cur_aparam)
+            (get !cur_trans_sys);
 
           (* Cleanup and exit *)
           on_exit_child (Some messaging_thread) process None Exit
@@ -903,9 +908,27 @@ let main () =
       "Parsing input file %s" (Flags.input_file ()); 
 
     (* Parse file into two-state transition system *)
-    trans_sys := (match (Flags.input_format ()) with 
+    (match (Flags.input_format ()) with 
+      
+      | `Lustre -> 
+        
+        input_sys := 
+          Some (InputSystem.read_input_lustre (Flags.input_file ()));
 
-        | `Lustre -> assert false
+        let analysis = 
+          match 
+            InputSystem.next_analysis_of_strategy 
+              (get !input_sys)
+              []
+          with 
+            | None -> assert false 
+            | Some a -> a
+        in
+
+        let t, s = InputSystem.trans_sys_of_analysis (get !input_sys) analysis in
+
+        cur_trans_sys := Some t;
+        cur_input_sys := Some s
 
 (*          
           Some
@@ -936,9 +959,10 @@ let main () =
     (debug parse
         "%a"
         TransSys.pp_print_trans_sys
-        (get !trans_sys)
+        (get !cur_trans_sys)
      end);
 
+(* TODO
     if 
 
       (* Warn if list of properties is empty *)
@@ -949,6 +973,7 @@ let main () =
       Event.log
         L_warn
         "No properties to prove";
+*)
 
     (* Which modules are enabled? *)
     (match Flags.enable () with
@@ -969,13 +994,16 @@ let main () =
           Event.set_module p;
 
           (* Run main function of process *)
-          (main_of_process p) (get !trans_sys);
+          (main_of_process p)
+            (get !cur_input_sys)
+            (get !cur_aparam)
+            (get !cur_trans_sys);
           
           (* Ignore SIGALRM from now on *)
           Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
           (* Cleanup before exiting process *)
-          on_exit_child None p (Some (get !trans_sys)) Exit
+          on_exit_child None p (Some (get !cur_trans_sys)) Exit
             
         )
         
@@ -1001,7 +1029,7 @@ let main () =
             ps;
               
           (* Set module currently running *)
-          Event.set_module `INVMAN;
+          Event.set_module `Supervisor;
           
           Event.log L_trace "Starting invariant manager";
 
@@ -1012,14 +1040,17 @@ let main () =
             Event.run_im
               messaging_setup
               !child_pids
-              (on_exit `INVMAN !trans_sys)
+              (on_exit `Supervisor !cur_trans_sys)
           in
 
           (* Run invariant manager *)
-          InvarManager.main child_pids (get !trans_sys);
+          InvarManager.main child_pids 
+            (get !cur_input_sys)
+            (get !cur_aparam)
+            (get !cur_trans_sys);
           
           (* Exit without error *)
-          on_exit `INVMAN !trans_sys Exit
+          on_exit `Supervisor !cur_trans_sys Exit
         
         );
 
@@ -1041,13 +1072,13 @@ let main () =
         | [p] -> 
           
           (* Cleanup before exiting process *)
-          on_exit_child None p !trans_sys e
+          on_exit_child None p !cur_trans_sys e
             
        
         (* Run some modules in parallel *)
         | _ -> 
         
-          on_exit `INVMAN !trans_sys e
+          on_exit `Supervisor !cur_trans_sys e
             
       )
 

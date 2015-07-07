@@ -48,7 +48,7 @@ type t = {
   
 }
 
-let name = TransSys.get_name
+let name trans_sys = TransSys.scope_of_trans_sys trans_sys |> Scope.to_string
 
 let shall_check_consistency = false
 
@@ -75,7 +75,7 @@ let check_consistency_sys solver k sys actlit called_by =
           for system [%s].@ \
           called by [%s].@]"
          (Numeral.to_int k)
-         (TransSys.get_scope sys |> String.concat "/")
+         (TransSys.scope_of_trans_sys sys |> String.concat "/")
          called_by ;
        assert false)
       [ actlit ]
@@ -115,33 +115,24 @@ let common_setup (solver,sys,actlit) =
        "Setting up system [%s]."
   |> SMTSolver.trace_comment solver ;
 
+  
   SMTSolver.declare_fun solver actlit ;
   
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
-    Numeral.zero Numeral.(~- one);
-
-  SMTSolver.trace_comment solver "Done defining, declaring now." ;
+    Numeral.zero Numeral.(~- one) ;
 
   (* Declaring unrolled vars at [-1] and [0]. *)
   TransSys.declare_vars_of_bounds
+    ~declare_init_flag:false
     sys
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
-  let actlit_term = Actlit.term_of_actlit actlit in
-
-  (* Constraining max depth. *)
-  Term.mk_implies
-    [ actlit_term ;
-      TransSys.get_max_depth sys
-      |> TransSys.depth_inputs_constraint sys ]
-  |> SMTSolver.assert_term solver ;
-
-  solver, sys, actlit_term
+  solver, sys, Actlit.term_of_actlit actlit
 
 let base_setup (solver,sys,actlit) =
 
@@ -154,7 +145,7 @@ let base_setup (solver,sys,actlit) =
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and ]
   |> SMTSolver.assert_term solver
 
 let step_setup (solver, sys, actlit) =
@@ -163,11 +154,12 @@ let step_setup (solver, sys, actlit) =
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and  ]
   |> SMTSolver.assert_term solver ;
 
   (* Declaring unrolled vars at [1]. *)
   TransSys.declare_vars_of_bounds
+    ~declare_init_flag:false
     sys
     (SMTSolver.declare_fun solver)
     Numeral.one Numeral.one ;
@@ -179,7 +171,7 @@ let step_setup (solver, sys, actlit) =
 
   (* Conditionally asserting invariants of the system at [1]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.one ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.one |> Term.mk_and  ]
   |> SMTSolver.assert_term solver
 
 let pruning_setup = step_setup
@@ -194,7 +186,11 @@ let unroll_solver solver sys actlit k =
 
   (* Declaring unrolled vars at [k+1]. *)
   TransSys.declare_vars_of_bounds
-    sys (SMTSolver.declare_fun solver) k k ;
+    ~declare_init_flag:false
+      sys
+      (SMTSolver.declare_fun solver) 
+      k
+      k ;
 
   (* Conditionally asserting transition predicate at [k]. *)
   Term.mk_implies
@@ -203,7 +199,7 @@ let unroll_solver solver sys actlit k =
 
   (* Conditionally asserting invariants of the system at [k]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys k ]
+    [ actlit ; TransSys.invars_of_bound sys k |> Term.mk_and  ]
   |> SMTSolver.assert_term solver
 
 let add_invariants_solver solver sys actlit k invariants =
@@ -266,7 +262,7 @@ let swap_system_binding system f =
             (Printf.sprintf
                "swap_system_binding: \
                 unexpected system [%s]."
-               (TransSys.get_scope system
+               (TransSys.scope_of_trans_sys system
                 |> String.concat "/")))
 
     | (system', info) :: tail
@@ -300,6 +296,21 @@ let unroll_sys
           (* Getting the next [k]. *)
           let kp1 = Numeral.succ k in
 
+          if Numeral.(kp1 > last_k) then (
+            TransSys.declare_init_flag_of_bounds
+              system
+              (SMTSolver.declare_fun base_solver)
+              kp1 
+              kp1;
+
+            TransSys.declare_init_flag_of_bounds
+              system
+              (SMTSolver.declare_fun step_solver)
+              Numeral.(succ kp1) 
+              Numeral.(succ kp1);
+            lsd.last_k <- kp1
+          ) ;
+
           (* Unrolling base solver at [k+1]. *)
           unroll_solver base_solver system actlit kp1 ;
           (* Unrolling step solver at [k+2]. *)
@@ -328,19 +339,29 @@ let create two_state top_only sys =
 
   let init_solver solver title =
     SMTSolver.trace_comment solver title ;
-    TransSys.init_flag_uf Numeral.(~- one)
-    |> SMTSolver.declare_fun solver ;
-    TransSys.init_flag_uf Numeral.zero
-    |> SMTSolver.declare_fun solver ;
+    TransSys.declare_init_flag_of_bounds 
+      sys 
+      (SMTSolver.declare_fun solver)
+      Numeral.(~- one)
+      Numeral.zero;
   in
 
   init_solver base_solver "|===| Base solver" ;
   init_solver step_solver "|===| Step solver" ;
-  TransSys.init_flag_uf Numeral.one
-  |> SMTSolver.declare_fun step_solver ;
+
+  TransSys.declare_init_flag_of_bounds 
+    sys 
+    (SMTSolver.declare_fun step_solver)
+    Numeral.one
+    Numeral.one;
+
   init_solver pruning_solver "|===| Pruning solver" ; ;
-  TransSys.init_flag_uf Numeral.one
-  |> SMTSolver.declare_fun pruning_solver ;
+
+  TransSys.declare_init_flag_of_bounds 
+    sys 
+    (SMTSolver.declare_fun pruning_solver)
+    Numeral.one
+    Numeral.one;
 
   (* declare_init_flag base_solver minus_one Numeral.zero ; *)
   (* declare_init_flag step_solver minus_one Numeral.one ; *)
@@ -429,7 +450,7 @@ let query_base
   Printf.sprintf
     "query_base at %i for [%s]."
     (Numeral.to_int k)
-    (TransSys.get_scope system |> String.concat "/")
+    (TransSys.scope_of_trans_sys system |> String.concat "/")
   |> SMTSolver.trace_comment base_solver ;
 
   (* Fresh actlit for the check (as a term). *)

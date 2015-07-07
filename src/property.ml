@@ -133,12 +133,15 @@ let pp_print_prop_source ppf = function
        "instantiated from %s"
               (String.concat "." scope)
 
+  | _ -> assert false
+
 let pp_print_prop_source ppf = function 
   | PropAnnot _ -> Format.fprintf ppf ":user"
   | Contract _ -> Format.fprintf ppf ":contract"
   | Requirement _ -> Format.fprintf ppf ":requirement"
   | Generated p -> Format.fprintf ppf ":generated"
   | Instantiated _ -> Format.fprintf ppf ":subsystem"
+  | _ -> assert false
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 
@@ -160,6 +163,104 @@ let prop_status_known = function
   (* Property is invariant or false *)
   | PropInvariant
   | PropFalse _ -> true
+
+
+(* Mark property as invariant *)
+let set_prop_invariant p =
+
+  (* Modify status *)
+  p.prop_status <- 
+
+    (* Check current status *)
+    match p.prop_status with
+
+      (* Mark as k-true if it was unknown *)
+      | PropKTrue _
+      | PropInvariant
+      | PropUnknown -> PropInvariant
+
+      (* Fail if property was l-false for l <= k *)
+      | PropFalse _ -> 
+        raise (Failure "set_prop_invariant") 
+
+
+(* Mark property as k-false *)
+let set_prop_false p cex =
+
+  (* Modify status *)
+  p.prop_status <- 
+
+    (* Check current status *)
+    match p.prop_status with
+
+      (* Mark property as k-false if it was unknown, l-true for l <
+         k or invariant *)
+      | PropUnknown -> PropFalse cex
+
+      (* Fail if property was invariant *)
+      | PropInvariant -> 
+        raise (Failure "prop_false")
+
+      (* Fail if property was l-true for l >= k *)
+      | PropKTrue l when l > (length_of_cex cex) -> 
+        raise 
+          (Failure
+             (Format.sprintf
+                "set_prop_false: was %d-true before, now cex of length %d"
+                l
+                (length_of_cex cex)))
+
+      (* Mark property as false if it was l-true for l < k *)
+      | PropKTrue _ -> PropFalse cex
+
+      (* Keep if property was l-false for l <= k *)
+      | PropFalse cex' when (length_of_cex cex') <= (length_of_cex cex) -> 
+        p.prop_status
+
+      (* Mark property as k-false *)
+      | PropFalse _ -> PropFalse cex
+
+
+(* Mark property as k-true *)
+let set_prop_ktrue p k =
+
+  (* Modify status *)
+  p.prop_status <- 
+
+    (* Check current status *)
+    match p.prop_status with
+
+      (* Mark as k-true if it was unknown *)
+      | PropUnknown -> PropKTrue k
+
+      (* Keep if it was l-true for l > k *)
+      | PropKTrue l when l > k -> p.prop_status
+
+      (* Mark as k-true if it was l-true for l <= k *)
+      | PropKTrue _ -> PropKTrue k
+
+      (* Keep if it was invariant *)
+      | PropInvariant -> p.prop_status
+
+      (* Keep if property was l-false for l > k *)
+      | PropFalse cex when (length_of_cex cex) > k -> p.prop_status
+
+      (* Fail if property was l-false for l <= k *)
+      | PropFalse _ -> 
+        raise (Failure "set_prop_kfalse") 
+
+
+(* Mark property status *)
+let set_prop_status p = function
+
+  | PropUnknown -> ()
+
+  | PropKTrue k -> set_prop_ktrue p k 
+
+  | PropInvariant -> set_prop_invariant p
+
+  | PropFalse c -> set_prop_false p c
+
 
 
 

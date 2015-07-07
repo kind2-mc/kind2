@@ -328,7 +328,7 @@ type kind_module =
   | `INVGEN
   | `INVGENOS
   | `Interpreter
-  | `INVMAN
+  | `Supervisor
   | `Parser ]
 
 
@@ -355,6 +355,9 @@ val pp_print_kind_module : Format.formatter -> kind_module -> unit
 
 (** String representation of a process type *)
 val string_of_kind_module : kind_module -> string 
+
+(** String representation of a process type *)
+val int_of_kind_module : kind_module -> int
 
 (** Return a short representation of kind module *)
 val suffix_of_kind_module : kind_module -> string

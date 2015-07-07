@@ -1012,7 +1012,7 @@ type kind_module =
   | `INVGEN
   | `INVGENOS
   | `Interpreter
-  | `INVMAN
+  | `Supervisor
   | `Parser ]
 
 
@@ -1024,7 +1024,7 @@ let pp_print_kind_module ppf = function
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
   | `Interpreter -> Format.fprintf ppf "interpreter"
-  | `INVMAN -> Format.fprintf ppf "invariant manager"
+  | `Supervisor -> Format.fprintf ppf "invariant manager"
   | `Parser -> Format.fprintf ppf "parser"
 
 
@@ -1040,7 +1040,7 @@ let suffix_of_kind_module = function
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
  | `Interpreter -> "interp"
- | `INVMAN -> "invman"
+ | `Supervisor -> "invman"
  | `Parser -> "parse"
                 
 
@@ -1052,6 +1052,17 @@ let kind_module_of_string = function
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
   | _ -> raise (Invalid_argument "kind_module_of_string")
+
+
+let int_of_kind_module = function
+  | `Parser -> -3
+  | `Interpreter -> -2
+  | `Supervisor -> -1
+  | `BMC -> 1
+  | `IND -> 2
+  | `IC3 -> 3
+  | `INVGEN -> 4
+  | `INVGENOS -> 5
 
 
 (* Timeouts *)

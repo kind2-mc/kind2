@@ -262,6 +262,11 @@ val nodes_of_subsystem : t SubSystem.t -> t list
 (** Return all stateful variables from expressions in a node *)
 val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 
+(** Return the name of the node *)
+val name_of_node : t -> LustreIdent.t
+
+(** Return the scope of the node *)
+val scope_of_node : t -> Scope.t
 
 (** {2 Sources} *)
 

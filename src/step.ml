@@ -59,8 +59,8 @@ let stop () = ()
    been disproved. *)
 let is_unknown trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropInvariant
-  | TransSys.PropFalse _ -> false
+  | Property.PropInvariant
+  | Property.PropFalse _ -> false
   | _ -> true
 
 (* Removes proved and disproved properties from a list of
@@ -73,11 +73,11 @@ let split_unfalsifiable_rm_proved trans k =
   List.fold_left
     ( fun (dis,true_k,others) ((s,_) as p) ->
       match TransSys.get_prop_status trans s with
-      | TransSys.PropInvariant ->
+      | Property.PropInvariant ->
          (dis, true_k, others)
-      | TransSys.PropFalse _ ->
+      | Property.PropFalse _ ->
          (p :: dis, true_k, others)
-      | TransSys.PropKTrue n when n >= k ->
+      | Property.PropKTrue n when n >= k ->
          (dis, p :: true_k, others)
       | _ ->
          (dis, true_k, p :: others) )
@@ -210,7 +210,7 @@ let eval_terms_assert_first_false trans solver eval k =
     if Numeral.(k' > k) then false
     else (
       (* Attempting to block the model represented by [eval]. *)
-      let blocked = loop_at_k k' (TransSys.get_invars trans) in
+      let blocked = loop_at_k k' (TransSys.invars_of_bound trans Numeral.zero) in
       if blocked
       (* Blocked, returning. *)
       then true
@@ -459,14 +459,14 @@ let split_closure
    List 'unfalsifiables' has type (Numeral.t * properties) list and
    links unfalsifiable properties with the k at which they were found
    to be unfalsifiable.  It should be sorted by decreasing k. *)
-let rec next trans solver k unfalsifiables unknowns =
+let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
     (* Receiving messages. *)
     Event.recv ()
     (* Updating transition system. *)
-    |> Event.update_trans_sys trans
+    |> Event.update_trans_sys input_sys aparam trans
     (* Extracting invariant module/term pairs. *)
     |> fst
   in
@@ -488,7 +488,7 @@ let rec next trans solver k unfalsifiables unknowns =
   confirmed
   |> List.iter
        ( fun (s,_) ->
-         Event.prop_status TransSys.PropInvariant trans s ) ;
+         Event.prop_status Property.PropInvariant input_sys aparam trans s ) ;
 
   (* Adding confirmed properties to the system. *)
   confirmed |> List.iter
@@ -510,7 +510,7 @@ let rec next trans solver k unfalsifiables unknowns =
      (* Need to wait for base confirmation. *)
      minisleep 0.001 ;
      next
-       trans solver k unfalsifiables' unknowns'
+       input_sys aparam trans solver k unfalsifiables' unknowns'
   | _ ->
 
      (* Integer version of k. *)
@@ -550,6 +550,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
        (* Asserts all invariants at k+1. *)
        TransSys.invars_of_bound trans k_p_1
+       |> Term.mk_and
        |> SMTSolver.assert_term solver ;
      ) ;
 
@@ -641,7 +642,7 @@ let rec next trans solver k unfalsifiables unknowns =
      else
        (* Looping. *)
        next
-         trans solver k_p_1
+         input_sys aparam trans solver k_p_1
          (* Adding the new unfalsifiables. *)
          ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
          (* Iterating on the properties left. *)
@@ -650,7 +651,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
 
 (* Initializes the solver for the first check. *)
-let launch trans =
+let launch input_sys aparam trans =
   (* Starting the timer. *)
   Stat.start_timer Stat.ind_total_time;
 
@@ -680,24 +681,16 @@ let launch trans =
     (* Declaring path compression function. *)
     Compress.init (SMTSolver.declare_fun solver) trans ;
 
-  SMTSolver.trace_comment
-    solver
-    "Init define fun." ;
-
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.define_and_declare_of_bounds
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
-  (* Constraining max depth. *)
-  TransSys.get_max_depth trans
-  |> TransSys.depth_inputs_constraint trans
-  |> SMTSolver.assert_term solver ;
-
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound trans Numeral.zero
+  |> Term.mk_and
   |> SMTSolver.assert_term solver ;
 
   (* Declaring positive actlits. *)
@@ -708,10 +701,10 @@ let launch trans =
     unknowns ;
 
   (* Launching step. *)
-  next trans solver Numeral.zero [] unknowns
+  next input_sys aparam trans solver Numeral.zero [] unknowns
 
 (* Runs the step instance. *)
-let main trans = 
+let main input_sys aparam trans = 
 
   if not (List.mem `BMC (Flags.enable ())) then
 
@@ -721,7 +714,7 @@ let main trans =
        disprove any properties.@,\
        Use both options --enable BMC --enable IND together.@]";
       
-  launch trans
+  launch input_sys aparam trans
 
 
 (* 

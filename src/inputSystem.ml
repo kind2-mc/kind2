@@ -33,21 +33,47 @@ let read_input_horn input_file = assert false
 
 
 
-(*
-let next_analyis (type s) : s t -> 'a ->  (SubSystem.scope * (SubSystem.scope * bool) list) option = function
 
-  | Lustre subsystem -> Refiner.next_analysis subsystem 
-  | Native subsystem -> Refiner.next_analysis subsystem 
-  | Horn subsystem -> Refiner.next_analysis subsystem 
-*)
-
-(* Return a transition system with [top] as the main system, sliced to
-   abstractions and implementations as in [abstraction_map. ]*)
-let trans_sys_of_analysis (type s) : s t -> Analysis.param -> TransSys.t = function 
+let next_analysis_of_strategy (type s) : s t -> 'a -> Analysis.param option = function
 
   | Lustre subsystem -> 
 
-    (function analysis -> LustreTransSys.trans_sys_of_nodes subsystem analysis)
+    (function _ -> 
+      
+      let nodes = 
+        LustreNode.nodes_of_subsystem subsystem
+      in
+      
+      assert (nodes <> []);
+      
+      Some
+        { Analysis.top = 
+            List.hd nodes
+            |> LustreNode.scope_of_node;
+          Analysis.abstraction_map = 
+            List.fold_left 
+              (fun m n -> Scope.Map.add (LustreNode.scope_of_node n) true m)
+              Scope.Map.empty nodes;
+          Analysis.assumptions = [] }
+    )
+    
+  | Native subsystem -> (function _ -> assert false)
+  | Horn subsystem -> (function _ -> assert false)
+
+
+(* Return a transition system with [top] as the main system, sliced to
+   abstractions and implementations as in [abstraction_map. ]*)
+let trans_sys_of_analysis (type s) : s t -> Analysis.param -> TransSys.t * s t = function 
+
+  | Lustre subsystem -> 
+
+    (function analysis -> 
+      let t, s = 
+        LustreTransSys.trans_sys_of_nodes subsystem analysis
+      in
+      (t, Lustre s)
+      
+    )
     
   | Native _ -> assert false
     
@@ -74,13 +100,37 @@ let pp_print_path_xml (type s) : s t -> TransSys.t -> bool -> Format.formatter -
 
 
 
-let slice_to_term (type s) (subsystem : s t) term : s SubSystem.t = match subsystem with 
+let slice_to_abstraction_and_term
+    (type s)
+    (input_sys: s t)
+    analysis
+    trans_sys
+    term
+  : s t = 
 
-  | Lustre subsystem -> subsystem
+  (* Map term to the lowest subsystem *)
+  let trans_sys', term' =  
+    TransSys.term_map_to_subsystem trans_sys term
+  in
 
-  | Native subsystem -> subsystem
+  let analysis' = 
+    { analysis with 
+        Analysis.top = TransSys.scope_of_trans_sys trans_sys' }
+  in
 
-  | Horn subsystem -> subsystem
+  match input_sys with 
+    
+    | Lustre subsystem -> 
+
+      Lustre
+        (LustreSlicing.slice_to_abstraction_and_property
+           analysis'
+           term'
+           subsystem)
+                            
+  | Native subsystem -> Native subsystem
+
+  | Horn subsystem -> Horn subsystem
 
 
 

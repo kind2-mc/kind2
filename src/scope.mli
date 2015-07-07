@@ -44,6 +44,7 @@ val mk_scope : Ident.t list -> t
 (** Pretty-print a scope *)
 val pp_print_scope : Format.formatter -> t -> unit
 
+val to_string : t -> string
 
 (* 
    Local Variables:

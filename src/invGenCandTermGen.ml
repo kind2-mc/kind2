@@ -32,7 +32,7 @@ module CandidateTermGen = struct
 
   (* The name of a transition system. *)
   let name_of_sys sys =
-    TransSys.get_scope sys |> String.concat "/"
+    TransSys.scope_of_trans_sys sys |> String.concat "/"
 
 
 
@@ -256,17 +256,17 @@ module CandidateTermGen = struct
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
                     set
-                    |> TSet.add (flat_to_term flat)
+                    (* |> TSet.add (flat_to_term term) *)
                     |> TSet.add (Term.mk_geq kids)
                     |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
 
             | `LEQ -> set
               |> TSet.add (Term.mk_geq kids)
-              |> TSet.add (flat_to_term flat)
+              |> TSet.add (Term.mk_leq kids)
 
             | `GEQ -> set
-              |> TSet.add (flat_to_term flat)
+              |> TSet.add (Term.mk_geq kids)
               |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set
@@ -432,12 +432,12 @@ module CandidateTermGen = struct
 
       | system :: tail ->
          (* Getting the scope of the system. *)
-         let scope = TransSys.get_scope system in
+         let scope = TransSys.scope_of_trans_sys system in
 
          (* Do we know that system already?. *)
          if List.exists
               ( fun (sys,_) ->
-                TransSys.get_scope sys = scope )
+                TransSys.scope_of_trans_sys sys = scope )
               result
               
          then
@@ -447,7 +447,7 @@ module CandidateTermGen = struct
          else (
 
            debug invGenCand "Looking at [%s]."
-                 (TransSys.get_scope system |> String.concat "/") in
+                 (TransSys.scope_of_trans_sys system |> String.concat "/") in
            
            (* We don't, getting init and trans. *)
            let init, trans =

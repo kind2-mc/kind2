@@ -44,7 +44,7 @@ val set_relay_log : unit -> unit
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_disproved : Lib.kind_module -> Lib.log_level -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
+val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
 
 (** Log a proved property
 
@@ -106,10 +106,10 @@ val progress : int -> unit
 val invariant : string list -> Term.t -> unit
 
 (** Broadcast a property status *)
-val prop_status : Property.prop_status -> TransSys.t -> string -> unit
+val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
 
 (** Broadcast an execution path *)
-val execution_path : TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val execution_path : 'a InputSystem.t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
@@ -141,6 +141,8 @@ val top_invariants_of_invariants :
 
     Counterexamples are ignored. *)
 val update_trans_sys_sub :
+  'a InputSystem.t -> 
+  Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
   (Lib.kind_module * (string list * Term.t)) list *
@@ -158,6 +160,8 @@ val update_trans_sys_sub :
 
     Counterexamples are ignored. *)
 val update_trans_sys :
+  'a InputSystem.t -> 
+  Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
   Term.t list * 
@@ -191,7 +195,7 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 val exit : mthread -> unit
 
 
-val pp_print_path_pt : TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val pp_print_path_pt : 'a InputSystem.t -> Analysis.param -> TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (* 
    Local Variables:

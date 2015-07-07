@@ -492,6 +492,19 @@ let init_trans_open { instance_var_bindings; init; trans } =
    trans)
 
 
+
+
+(* Return the state variable for the init flag *)
+let init_flag_state_var { init_flag_state_var } = init_flag_state_var
+
+
+(* Return the init flag at the given bound *)
+let init_flag_of_bound { init_flag_state_var } i = 
+  Var.mk_state_var_instance init_flag_state_var i
+  |> Term.mk_var
+
+  
+
 (* Return true if scopes of transition systems are equal *)
 let equal_scope { scope = s1 } { scope = s2 } = Scope.equal s1 s2
 
@@ -612,6 +625,7 @@ let rec fold_subsystem_instances'
             
         | _ -> assert false)
 
+
 (* Iterate bottom-up over subsystems, excluding the top level system
    without repeating subsystems already seen *)
 let iter_subsystems f { subsystems } =
@@ -624,12 +638,12 @@ let iter_subsystems f { subsystems } =
 
 (* Fold bottom-up over subsystems, excluding the top level system
    without repeating subsystems already seen *)
-let fold_subsystems f accum { subsystems} = 
+let fold_subsystems f accum { subsystems } = 
   fold_subsystems' 
     f
     accum
     Scope.Set.empty
-        (List.map fst subsystems)
+    (List.map fst subsystems)
 
 
 (* TODO: fold over each instance of a subsystem *)
@@ -641,11 +655,40 @@ let fold_subsystem_instances f trans_sys =
     [FDown (trans_sys, [])]
 
   
-
-
 (* TODO: iterate over each instance of a subsystem *)
 let iter_subsystem_instances f trans_sys = assert false
 
+
+(* Returns the subsystems of a system. *)
+let get_subsystems { subsystems } = List.map fst subsystems
+
+
+(* Find the subsystem of the scope *)
+let find_subsystem_of_scope trans_sys scope = 
+
+  match 
+
+    (* Iterate over each subsystem exactly once, add to accumulator if
+       found *)
+    fold_subsystems
+      (fun a ({ scope = s } as t) -> 
+         if Scope.equal scope s then Some t else a)
+      None
+      trans_sys 
+
+  with
+
+    (* No subsystem of scope *)
+    | None -> raise Not_found 
+
+    (* Return the subsystem *)
+    | Some t -> t 
+
+
+let get_max_depth trans_sys = 
+  fold_subsystem_instances
+    (fun _ _ a -> List.fold_left max 0 a |> succ)
+    trans_sys
 
 (* **************************************************************** *)
 (* State Variables, Predicates and Declarations                     *)
@@ -665,10 +708,8 @@ let global_state_vars { global_state_vars } = global_state_vars
 let rec vars_of_bounds' state_vars lbound ubound accum =
 
   (* Return when upper bound below lower bound *)
-  if Numeral.(ubound < lbound) then accum
-
-  else
-
+  if Numeral.(ubound < lbound) then accum else
+    
     (* Reverse to add in original order *)
     List.rev state_vars
 
@@ -688,13 +729,38 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
 
 (* Return instances of the state variables of the transition system
    between and including [lbound] and [uboud] *)
-let vars_of_bounds { state_vars } lbound ubound =
+let vars_of_bounds
+    ?(with_init_flag = true)
+    { init_flag_state_var; state_vars } 
+    lbound
+    ubound =
+
+  (* State variables to instantiate at bounds *)
+  let state_vars = 
+
+    (* All state variables including the init flag *)
+    if with_init_flag then state_vars else
+
+      (* Filter out the init flag state variable *)
+       List.filter
+         (fun sv -> 
+            not
+              (StateVar.equal_state_vars sv init_flag_state_var))
+         state_vars
+  in
+
+  (* Instantiate state variables between bounds *)
   vars_of_bounds' state_vars lbound ubound []
     
 
 (* Declare variables of the transition system at instants between and
    including [lbound] and [ubound] *)
-let declare_vars_of_bounds declare trans_sys lbound ubound =
+let declare_vars_of_bounds
+    ?(declare_init_flag = true)
+    trans_sys 
+    declare
+    lbound
+    ubound =
 
   (* Instantiate state variables and declare *)
   vars_of_bounds trans_sys lbound ubound
@@ -716,6 +782,16 @@ let declare_const_vars declare { state_vars } =
 
   (* Declare variables *)
   Var.declare_constant_vars declare
+
+
+(* Return the init flag at the given bound *)
+let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound = 
+  
+  (* Instantiate the init flag only between the given bounds *)
+  vars_of_bounds' [ init_flag_state_var ] lbound ubound []
+
+  (* Evaluate declaration function *)
+  |> Var.declare_vars declare 
 
 
 (* Define initial state predicate *)
@@ -746,7 +822,7 @@ let define_and_declare_of_bounds
        (* Declare constant state variables of subsystem *)
        if declare_sub_vars then 
          (declare_const_vars declare t; 
-          declare_vars_of_bounds declare t lbound ubound);
+          declare_vars_of_bounds t declare lbound ubound);
        
        (* Define initial state predicate *)
        define_init define t;
@@ -760,7 +836,7 @@ let define_and_declare_of_bounds
   declare_const_vars declare trans_sys;
        
   (* Declate constant state variables of top system *)
-  declare_vars_of_bounds declare trans_sys lbound ubound
+  declare_vars_of_bounds trans_sys declare lbound ubound
        
 
 let init_uf_def { init_uf_symbol; init_formals; init } = 
@@ -925,6 +1001,12 @@ let property_of_name t name =
     t.properties
 
 
+(* Get term of property by name *)
+let get_prop_term t name = 
+
+  (property_of_name t name).P.prop_term
+
+
 (* Return current status of property *)
 let get_prop_status trans_sys p = 
 
@@ -934,6 +1016,67 @@ let get_prop_status trans_sys p =
 
   with Not_found -> P.PropUnknown
 
+
+(* Return true if the property is proved invariant *)
+let is_proved trans_sys prop = 
+
+  try 
+    ( match (property_of_name trans_sys prop).P.prop_status with
+      | P.PropInvariant -> true
+      | _ -> false )
+        
+  with
+    Not_found -> false
+
+
+(* Return true if the property is proved not invariant *)
+let is_disproved trans_sys prop = 
+
+  try 
+    ( match (property_of_name trans_sys prop).P.prop_status with
+      | P.PropFalse _ -> true
+      | _ -> false )
+        
+  with
+    Not_found -> false
+
+
+(* Return current status of property *)
+let set_prop_status trans_sys p s = 
+
+  try 
+    
+    P.set_prop_status (property_of_name trans_sys p) s
+
+  with Not_found -> raise Not_found
+
+
+let set_prop_invariant trans_sys p = 
+
+  try 
+    
+    P.set_prop_invariant (property_of_name trans_sys p)
+
+  with Not_found -> raise Not_found
+  
+
+let set_prop_ktrue trans_sys k p = 
+
+  try 
+    
+    P.set_prop_ktrue (property_of_name trans_sys p) k
+
+  with Not_found -> raise Not_found
+
+
+let set_prop_false trans_sys p c = 
+
+  try 
+   
+    P.set_prop_false (property_of_name trans_sys p) c
+
+  with Not_found -> raise Not_found
+  
 
 (* Return current status of all properties *)
 let get_prop_status_all t = 
@@ -969,6 +1112,81 @@ let all_props_proved t =
        | P.PropInvariant
        | P.PropFalse _ -> true)
     t.properties
+
+
+
+(* Instantiate terms in association list to the bound *)
+let named_terms_list_of_bound l i = 
+
+  (* Bump bound if greater than zero *)
+  if
+    Numeral.(i = zero)
+  then
+    List.map 
+      (fun { Property.prop_name; Property.prop_term } -> 
+         (prop_name, prop_term)) 
+      l
+  else
+    List.map 
+      (fun { Property.prop_name; Property.prop_term } -> 
+         (prop_name, Term.bump_state i prop_term)) 
+      l
+      
+
+(* Instantiate all properties to the bound *)
+let props_list_of_bound t i = 
+  named_terms_list_of_bound t.properties i
+
+
+(* Add an invariant to the transition system *)
+let add_scoped_invariant t scope invar =
+
+  let is_one_state = 
+    match Term.var_offsets_of_term invar with
+      | None, None 
+      | Some _, None 
+      | None, Some _ -> true 
+      | Some l, Some u -> Numeral.(equal l u)
+  in
+
+  iter_subsystems
+    (fun ({ invariants_two_state; invariants_one_state } as t) -> 
+       
+       if is_one_state then 
+         t.invariants_one_state <- invar :: invariants_one_state
+       else
+         t.invariants_two_state <- invar :: invariants_two_state)
+    t
+
+
+(* Add an invariant to the transition system *)
+let add_invariant t invar = add_scoped_invariant t t.scope invar
+
+
+(* Instantiate the initial state constraint to the bound *)
+let invars_of_bound
+    ?(one_state_only = false)
+    { invariants_one_state; invariants_two_state } 
+    i = 
+
+  (* Create conjunction of property terms *)
+  let invars_0 = 
+
+    (* Only one-state invariants? *)
+    (if one_state_only then
+
+       (* Return only one-state invariants *)
+       invariants_one_state
+
+     else
+
+       (* Return all invariants *)
+       invariants_one_state @ invariants_two_state)
+
+  in 
+
+  (* Bump bound if greater than zero *)
+  if Numeral.(i = zero) then invars_0 else List.map (Term.bump_state i) invars_0
 
 
 (* ********************************************************************** *)
@@ -1138,6 +1356,11 @@ let mk_trans_sys
   trans_sys, instance_var_id_start'
   
 
+
+
+
+
+let instantiate_term_all_levels _ _ = assert false
 
 
 (*

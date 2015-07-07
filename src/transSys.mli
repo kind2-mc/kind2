@@ -41,7 +41,7 @@
     index that is set to a unique term for the instance of the
     transition system the array occurs in.
 
-    @author Christoph Sticksel
+    @author Christoph Sticksels
     @author Adrien Champion
 *)
 
@@ -115,6 +115,14 @@ val init_of_bound : t -> Numeral.t -> Term.t
     identifiers, and bump the state variable offsets to be at the given
     bound *)
 val trans_of_bound : t -> Numeral.t -> Term.t 
+
+
+(** Return the state variable for the init flag *)
+val init_flag_state_var : t -> StateVar.t
+
+(** Return the init flag at the given bound *)
+val init_flag_of_bound : t -> Numeral.t -> Term.t
+
 
 (** Return the instance variables of this transition system, the
     initial state constraint at [init_base] and the transition relation
@@ -210,6 +218,23 @@ val fold_subsystems : ('a -> t -> 'a) -> 'a -> t -> 'a
 
 val fold_subsystem_instances : (t -> (t * instance) list -> 'a list -> 'a) -> t -> 'a
 
+(** The direct subsystems of a system *)
+val get_subsystems : t -> t list
+
+(** Find the named subsystem 
+
+    [find_subsystem_of_scope t s] returns the subsystem of [t] identified
+    by the scope [s]. We assume that all subsystems with the same
+    scope are identical. The transition system [t] itself is returned
+    if [s] is its scope.
+
+    Raise [Not_found] if there is no transistion system of scope [s]
+    in the subsystems of [t]. *)
+val find_subsystem_of_scope : t -> Scope.t -> t
+
+
+val get_max_depth : t -> int
+
 val term_map_to_subsystem : t -> Term.t -> t * Term.t
 
 (** {1 State Variables} *)
@@ -246,18 +271,30 @@ val state_vars : t -> StateVar.t list
 
     [vars_of_bounds t l u] returns the list of instances of the state
     variables of the transition system [t] between and including [l]
-    and [u]. 
+    and [u]. Include the state variable for the init flag unless the
+    optional labelled argument [with_init_flag] is set to false.
 *)
-val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
+val vars_of_bounds :  ?with_init_flag:bool -> t -> Numeral.t -> Numeral.t -> Var.t list
 
 (** Declare variables of the transition system between given instants
 
     [declare_vars_of_bounds t f l u] evaluates [f] with the
     uninterpreted function symbol of each state variable of the
     transition system [t] at each instant between and including [l]
-    and [u].
+    and [u]. Include the state variable for the init flag unless the
+    optional labelled argument [declare_init_flag] is set to false.
 *)
-val declare_vars_of_bounds : (UfSymbol.t -> unit) -> t -> Numeral.t -> Numeral.t -> unit
+val declare_vars_of_bounds : ?declare_init_flag:bool -> t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+
+
+(** Declare the init flag of the transition system between given instants
+
+    [declare_init_flag_of_bounds t f l u] evaluates [f] with the
+    uninterpreted function symbol of the state variable for the init
+    flag of the transition system [t] at each instant between and
+    including [l] and [u]. 
+*)
+val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
 
 (** Define predicates and declare constant and global state variables,
@@ -303,11 +340,26 @@ val uf_defs : t -> pred_def list
 
 val property_of_name : t -> string -> Property.t
 
+
+(** Return term of the property
+
+    [get_prop_term t n] returns the term of the first property of name
+    [n] in the transistion system [t]. *)
+val get_prop_term : t -> string -> Term.t
+
+
 (** Return current status of the property
 
     [get_prop_status t n] returns the status saved in the transition
     system of the first property of name [n]. *)
 val get_prop_status : t -> string -> Property.prop_status 
+
+
+(** Return true if the property is proved invariant *)
+val is_proved : t -> string -> bool 
+
+(** Return true if the property is proved not invariant *)
+val is_disproved : t -> string -> bool 
 
 (** Return current status of all properties
 
@@ -326,6 +378,44 @@ val get_prop_status_all : t -> (string * Property.prop_status) list
 val get_prop_status_all_unknown : t -> (string * Property.prop_status) list
 
 
+(** Instantiate all properties to the bound *)
+val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
+
+
+(** Update current status of the property
+
+    [set_prop_status t n s] sets the status saved in the transition
+    system of the first property of name [n] to [s]. *)
+val set_prop_status : t -> string -> Property.prop_status -> unit
+
+(** Mark current status of property *)
+val set_prop_status : t -> string -> Property.prop_status -> unit
+
+(** Mark property as invariant *)
+val set_prop_invariant : t -> string -> unit
+
+(** Mark property as false *)
+val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
+(** Mark property as k-true *)
+val set_prop_ktrue : t -> int -> string -> unit
+
+(** Return true if all properties are either valid or invalid *)
+val all_props_proved : t -> bool
+
+(** Add an invariant to the transition system *)
+val add_invariant : t -> Term.t -> unit
+
+(** Add an invariant to the transition system *)
+val add_scoped_invariant : t -> string list -> Term.t -> unit
+
+(** Instantiate invariants and valid properties to the bound *)
+val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
+
+
+(** Instantiates a term for all (over)systems instantiating, possibly
+    more than once, the input system. *)
+val instantiate_term_all_levels:
+  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
 
 
@@ -795,7 +885,7 @@ val pp_print_trans_sys_abstraction:
 (x) TransSys.init_define_fun_declare_vars_of_bounds -> define_and_declare_of_bounds
 (x) TransSys.init_of_bound
 TransSys.invars_of_bound
-TransSys.named_term_of_prop_name
+TransSys.named_term_of_prop_name -> prop
 (x) TransSys.PropFalse
 (x) TransSys.PropInvariant
 (x) TransSys.PropKTrue

@@ -664,6 +664,13 @@ let node_of_name name nodes =
     (function { name = node_name } -> name = node_name)
     nodes
 
+
+(* Return the name of the node *)
+let name_of_node { name } = name
+
+(* Return the name of the node *)
+let scope_of_node { name } = name |> I.to_scope
+
     
 (* Return name of the first node annotated with --%MAIN.  Raise
    [Not_found] if no node has a --%MAIN annotation or [Failure
