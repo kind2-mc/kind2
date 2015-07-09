@@ -1276,7 +1276,7 @@ let bump_state i term =
        | t when is_free_var t -> 
          mk_var 
            (let v = free_var_of_term t in
-            Var.bump_offset_of_state_var_instance i v)
+            Var.bump_offset_of_state_var_instance v i)
        | _ as t -> t)
     term
 
@@ -1467,7 +1467,7 @@ struct
 
 end
 
-
+(*
 
 (* Gets the term corresponding to [var] in [map] and bumps it if [var]
    is not a constant. Raises [Not_found] if [var] is not defined in
@@ -1520,6 +1520,30 @@ let substitute_vars map =
    state var mapping. *)
 let substitute_variables mapping =
   substitute_vars mapping |> map
+
+*)
+
+
+(* Replace each state variable in the term *)
+let map_state_vars f term = 
+
+  map
+
+    (fun  _ t -> 
+
+       (* Only map free variables *)
+       if is_free_var t then 
+
+         (* Get free variable of term *)
+         let v = free_var_of_term t in
+
+         (* Return term of variable *)
+         Var.map_state_var f v |> mk_var
+
+       (* Return other terms unchanged *)
+       else t)
+
+    term
 
 
 

@@ -359,7 +359,10 @@ let map f_var f_val model =
 
 
 (* Add [k] to offset of all variables in model *)
-let bump_var k model = map (Var.bump_offset_of_state_var_instance k) identity model
+let bump_var k model = 
+  map
+    (fun v -> Var.bump_offset_of_state_var_instance v k) 
+    identity model
 
 
 (* Add [k] to offset of all variables in model *)
@@ -406,7 +409,7 @@ let merge model1 model2 =
     model. *)
 let bump_and_merge k model1 model2 = 
   apply_and_merge 
-    (fun v t_or_l -> Var.bump_offset_of_state_var_instance k v, t_or_l)
+    (fun v t_or_l -> Var.bump_offset_of_state_var_instance v k, t_or_l)
     model1 
     model2
   

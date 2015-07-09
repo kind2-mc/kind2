@@ -416,7 +416,7 @@ module CandidateTermGen = struct
 
   (* Generates sets of candidate terms from a transition system, and
      its subsystems if the flags require it. *)
-  let candidate_terms_of_trans two_state trans_sys =
+  let candidate_terms_of_trans two_state top_sys trans_sys =
     
     let rec get_last = function
       | head :: [] -> [head]
@@ -488,7 +488,7 @@ module CandidateTermGen = struct
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
-                          system term
+                          top_sys TransSys.trans_base scope term
                           |> (function | (top,others) -> top :: others)
                           |> List.fold_left
                               ( fun map (sys,terms) ->
@@ -559,14 +559,14 @@ end
 (* Generates candidate terms for a transition system, and its
    subsystems if the flags require it.
    /!\ The sets do NOT contain true and false /!\ *)
-let generate_candidate_terms two_state trans =
-  CandidateTermGen.candidate_terms_of_trans two_state trans
+let generate_candidate_terms two_state top_sys trans =
+  CandidateTermGen.candidate_terms_of_trans two_state top_sys trans
 
 (* Generates implication graphs for a transition system, and its
    subsystems if the flags require it. *)
-let generate_graphs two_state trans =
+let generate_graphs two_state top_sys trans =
   let candidate_terms, count =
-    generate_candidate_terms two_state trans
+    generate_candidate_terms two_state top_sys trans
   in
   (* Returning implication graphs and candidate term count. *)
   CandidateTermGen.build_graphs candidate_terms, count

@@ -89,9 +89,13 @@ type instance =
     (** Map from the state variables of this system to the state
         variables of the instance *)
 
-    guard_bool : Term.t -> Term.t;
-    (** Function to guard Boolean terms in the called system to be
-        valid in this system *)
+    guard_clock : Numeral.t -> Term.t -> Term.t;
+    (** Add a guard to the Boolean term to make it true whenver the
+        the clock of the subsystem instance is false
+
+        [guard_clock t] assumes that [t] is a Boolean term and returns
+        the term [c => t] where [c] is the clock of the subsystem
+        instance. *)
 
   }
 
@@ -201,7 +205,7 @@ val mk_trans_sys :
     subsystem [s] of [t]. If [t] contains a subsystem [s] twice, no
     matter at which level, [f s] is evaluated only once.
 *)
-val iter_subsystems : (t -> unit) -> t -> unit 
+val iter_subsystems : ?include_top:bool -> (t -> unit) -> t -> unit 
 
 (** Fold bottom-up over subsystems, including the top level system
     without repeating subsystems already seen
@@ -213,7 +217,7 @@ val iter_subsystems : (t -> unit) -> t -> unit
     [f]. If [t] contains a subsystem [s] twice, no matter at which
     level, [f s] is evaluated only once.
 *)
-val fold_subsystems : ('a -> t -> 'a) -> 'a -> t -> 'a
+val fold_subsystems : ?include_top:bool -> ('a -> t -> 'a) -> 'a -> t -> 'a
 
 
 val fold_subsystem_instances : (t -> (t * instance) list -> 'a list -> 'a) -> t -> 'a
@@ -285,6 +289,8 @@ val vars_of_bounds :  ?with_init_flag:bool -> t -> Numeral.t -> Numeral.t -> Var
     optional labelled argument [declare_init_flag] is set to false.
 *)
 val declare_vars_of_bounds : ?declare_init_flag:bool -> t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+
+val declare_const_vars : t -> (UfSymbol.t -> unit) -> unit
 
 
 (** Declare the init flag of the transition system between given instants
@@ -415,7 +421,7 @@ val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 (** Instantiates a term for all (over)systems instantiating, possibly
     more than once, the input system. *)
 val instantiate_term_all_levels:
-  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+  t -> Numeral.t -> Scope.t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
 
 

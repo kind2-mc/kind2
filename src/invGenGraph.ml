@@ -584,7 +584,10 @@ module Make (InModule : In) : Out = struct
            (* Guarding with init if needed. *)
            |> sanitize_term sys
            (* Instantiating at all levels. *)
-           |> TransSys.instantiate_term_all_levels sys
+           |> TransSys.instantiate_term_all_levels 
+             top_sys
+             TransSys.trans_base
+             (TransSys.scope_of_trans_sys sys)
        in
 
        intermediary_invariants
@@ -818,7 +821,7 @@ module Make (InModule : In) : Out = struct
        of triplets: system, graph, invariants. *)
     let sys_graph_map, candidate_term_count =
       top_sys
-      |> CandTerm.generate_graphs two_state
+      |> CandTerm.generate_graphs two_state top_sys
       |> ( fun (list, count) ->
             list
             |> List.map

@@ -22,129 +22,6 @@ open Lib
 (* Termination message received *)
 exception Terminate
 
-(* ********************************************************************** *)
-(* Helper functions                                                       *)
-(* ********************************************************************** *)
-
-(*
-(* Reduce nodes to cone of influence of property *)
-let reduce_subsystem_to_coi
-    input
-    { Analysis.abstraction_map; 
-      Analysis.assumptions } 
-    trans_sys 
-    nodes 
-    prop_name =
-
-  (* Get property by name *)
-  let { Property.prop_term } =
-    TransSys.property_of_name trans_sys prop_name
-  in
-
-  (* Map property to the lowest subsystem *)
-  let trans_sys', prop_term' =  
-    TransSys.term_map_to_subsystem trans_sys prop_term
-  in
-
-  let analysis' = 
-    { Analysis.top = TransSys.scope_of_trans_sys trans_sys';
-      Analysis.abstraction_map ;
-      Analysis.assumptions } 
-  in
-
-  (* Slice input system to property *)
-  InputSystem.slice_to_abstraction_and_property input analysis' prop_term
-  
-*)
-
-(*
-
-
-
-
-  debug event
-    "Reducing to coi for %s"
-    prop_name
-  in
-
-  (* Name of main node *)
-  let main_name = LustreNode.find_main (List.rev nodes) in
-
-  (* Properties are always state variables *) 
-  let prop = 
-    try TransSys.named_term_of_prop_name trans_sys prop_name
-    with Not_found -> assert false
-  in 
-
-  (* Undo instantiation of state variable in calling nodes and return
-     state variable in scope of node defining it *)
-  let instance_of_state_var sv = 
-    match LustreExpr.get_state_var_instances sv with
-      | [] -> sv 
-      | [(_, _, sv')] -> 
-        debug event
-            "State variable %a is an instance of %a" 
-            StateVar.pp_print_state_var sv 
-            StateVar.pp_print_state_var sv'
-        in
-        sv'
-      | _ -> 
-        debug event
-            "State variable %a has more than one instance" 
-        StateVar.pp_print_state_var sv
-        in
-        assert false
-  in
-
-  (* Get state variable in scope of main node *)
-  let prop' = 
-    Term.map
-      (function _ -> function 
-         | t when Term.is_free_var t -> 
-           let v = Term.free_var_of_term t in
-           if 
-             Var.is_state_var_instance v
-           then 
-             let o = Var.offset_of_state_var_instance v in
-             let sv = Var.state_var_of_state_var_instance v in
-             let sv' = instance_of_state_var sv in
-             Term.mk_var
-               (Var.mk_state_var_instance sv' o)
-           else 
-             t
-         | t -> t)
-      prop 
-  in
-
-  debug event
-    "Property %a contains state variables %a"
-    Term.pp_print_term prop'
-    (pp_print_list StateVar.pp_print_state_var ",@ ")
-    (StateVar.StateVarSet.elements (Term.state_vars_of_term prop'))
-  in
-
-  (* Reduce nodes to cone of influence of property *)
-  let nodes' = 
-    LustreNode.reduce_to_coi 
-      nodes
-      main_name
-      (StateVar.StateVarSet.elements (Term.state_vars_of_term prop'))
-  in
-
-  debug event
-      "@[<v>Full input:@,%a@,Reduced input for property %a (%a):@,%a@]"
-      (pp_print_list (LustreNode.pp_print_node false) "@,")
-      nodes
-      Term.pp_print_term prop'
-      (LustreIdent.pp_print_ident false) main_name
-      (pp_print_list (LustreNode.pp_print_node false) "@,")
-      nodes'
-  in
-
-  (* Return nodes reduced to cone of influence of property *)
-  nodes'
-*)
-
 
 (* ********************************************************************** *)
 (* Events passed on to callers                                            *)
@@ -476,43 +353,6 @@ let pp_print_counterexample_pt
         (InputSystem.pp_print_path_pt input_system' trans_sys true) 
         (Model.path_of_list cex)
       
-(*
-
-
-      (* Distinguish between input formats *)
-      match TransSys.get_source trans_sys with
-
-        (* Lustre input *)
-        | TransSys.Lustre nodes ->
-
-          debug event
-              "Nodes in transition system: %a"
-              (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") nodes
-          in
-
-          (* Reduce nodes to cone of influence of property *)
-          let nodes' = reduce_subsystem_to_coi trans_sys nodes prop_name in
-
-          (* Output counterexample *)
-          Format.fprintf ppf 
-            "Counterexample:@,%a"
-            (LustrePath.pp_print_path_pt nodes' true) 
-            (Model.path_of_list cex)
-
-        (* Native input *)
-        | TransSys.Native ->
-
-          assert false
-
-      (*
-          (* Output counterexample *)
-          Format.fprintf ppf 
-            "Counterexample:@,%a"
-            NativeInput.pp_print_path_pt cex
-*)
-
-*)
-
     )
 
 
@@ -525,34 +365,6 @@ let pp_print_path_pt input_sys _ trans_sys init ppf path =
     (InputSystem.pp_print_path_pt input_sys trans_sys true)
     (Model.path_of_list path)
 
-(*
-
-  (* Distinguish between input formats *)
-  match TransSys.get_source trans_sys with
-        
-    (* Lustre input *)
-    | TransSys.Lustre nodes ->
-      
-      (* Output path *)
-      Format.fprintf ppf 
-        "%a"
-        (LustrePath.pp_print_path_pt nodes true) 
-        (Model.path_of_list path)
-          
-    (* Native input *)
-    | TransSys.Native ->
-
-      (*
-      
-      (* Output path *)
-      Format.fprintf ppf 
-        "%a"
-        NativeInput.pp_print_path_pt path
-
-      *)
-
-      assert false
-*)
 
 (* Output execution path as XML *)
 let execution_path_pt level input_sys analysis trans_sys path = 
@@ -775,38 +587,6 @@ let pp_print_counterexample_xml
           "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
           (InputSystem.pp_print_path_xml input_system' trans_sys true) 
           (Model.path_of_list cex)
-
-
-(*
-
-
-      (* Distinguish between input formats *)
-      match TransSys.get_source trans_sys with
-
-        (* Lustre input *)
-        | TransSys.Lustre nodes ->
-
-          (* Reduce noes to cone of influence of property *)
-          let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
-
-          (* Output counterexample *)
-          Format.fprintf ppf 
-            "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
-            (LustrePath.pp_print_path_xml nodes' true) 
-            (Model.path_of_list cex)
-
-        (* Native input *)
-        | TransSys.Native ->
-
-(*
-          (* Output counterexample *)
-          Format.fprintf ppf 
-            "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
-            NativeInput.pp_print_path_xml cex
-*)
-
-          assert false
-*)
 
       )
 
@@ -1178,61 +958,6 @@ let stat stats =
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
   
-
-(*
-
-
-(* Broadcast a disproved property *)
-let disproved mdl k prop = 
-
-  (* Output property as disproved *)
-  log_disproved mdl k prop;
-
-  try
-
-    (* Send invariant message *)
-    EventMessaging.send_relay_message
-      (match k with 
-        | None -> PropStatus (prop, PropFalse) 
-        | Some k -> PropStatus (prop, PropKFalse k))
-
-
-  (* Don't fail if not initialized *) 
-  with Messaging.NotInitialized -> ()
-
-
-(* Broadcast a proved property as an invariant *)
-let proved mdl k (prop, term) = 
-
-  (* Output property as proved *)
-  log_proved mdl k prop;
-
-  try
-
-    (* Send invariant message *)
-    EventMessaging.send_relay_message (PropStatus (prop, PropInvariant))
-
-  (* Don't fail if not initialized *) 
-  with Messaging.NotInitialized -> ()
-
-
-(* Broadcast status of BMC *)
-let bmcstate k props = ()
-
-(*
-  try
-
-    (* Send BMC status message *)
-    Messaging.send 
-      (Messaging.InductionMessage 
-         (Messaging.BMCSTATE (k, props)))
-
-  (* Don't fail if not initialized *) 
-  with Messaging.NotInitialized -> ()
-*)
-
-*)
-
 
 (* Broadcast termination message *)
 let terminate () = 

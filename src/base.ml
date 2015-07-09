@@ -347,7 +347,7 @@ let init input_sys aparam trans =
 
   (* Invariants if the system at 0. *)
   let invariants =
-    TransSys.invars_of_bound trans Numeral.zero  |> Term.mk_and 
+    TransSys.invars_of_bound trans Numeral.zero |> Term.mk_and 
   in
 
   (input_sys, aparam, trans, solver, Numeral.zero, [invariants], unknowns)

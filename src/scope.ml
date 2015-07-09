@@ -50,6 +50,8 @@ module Scope = struct
   (* Total order on scopes *)
   let compare s1 s2 = compare_lists compare s1 s2
 
+  let hash s = Hashtbl.hash s
+
 end
 
 include Scope

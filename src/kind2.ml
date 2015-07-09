@@ -43,7 +43,7 @@ let children_pgid = ref 0
 let child_pids = ref []
 
 (* Transition system *)
-let input_sys = ref None
+(* let input_sys = ref None *)
 
 let cur_input_sys = ref None
 let cur_aparam = ref None
@@ -912,23 +912,27 @@ let main () =
       
       | `Lustre -> 
         
-        input_sys := 
-          Some (InputSystem.read_input_lustre (Flags.input_file ()));
-
-        let analysis = 
+        let input_sys =
+          InputSystem.read_input_lustre (Flags.input_file ())
+        in
+        
+        let aparam = 
           match 
             InputSystem.next_analysis_of_strategy 
-              (get !input_sys)
+              input_sys
               []
           with 
             | None -> assert false 
             | Some a -> a
         in
 
-        let t, s = InputSystem.trans_sys_of_analysis (get !input_sys) analysis in
+        let trans_sys, input_sys_sliced = 
+          InputSystem.trans_sys_of_analysis input_sys aparam 
+        in
 
-        cur_trans_sys := Some t;
-        cur_input_sys := Some s
+        cur_input_sys := Some input_sys_sliced;
+        cur_aparam := Some aparam;
+        cur_trans_sys := Some trans_sys;
 
 (*          
           Some

@@ -2485,7 +2485,7 @@ let add_to_path model path state_vars i =
          ((sv, Model.Term t) :: m), 
          Term.mk_eq 
            [Term.mk_var 
-              (Var.set_offset_of_state_var_instance Numeral.zero v);
+              (Var.set_offset_of_state_var_instance v Numeral.zero);
             t]
          :: eq)
 

@@ -49,9 +49,9 @@ type instance =
        variables of the instance *)
     map_up : StateVar.t SVM.t;
 
-    (* Function to guard Boolean terms in the called system to be
-       valid in this system *)
-    guard_bool : Term.t -> Term.t;
+    (* Add a guard to the Boolean term such that it is true if the
+       clock of the node instance is false *)
+    guard_clock : Numeral.t -> Term.t -> Term.t;
 
   }
 
@@ -448,7 +448,8 @@ let collect_instances ({ scope } as trans_sys) =
 (* ********************************************************************** *)
 
 (* Close term by binding variables to terms with a let binding *)
-let close_term bindings term = Term.mk_let bindings term
+let close_term bindings term = 
+  if bindings = [] then term else Term.mk_let bindings term
 
 
 (* Bump the offsets of state variable instances at [base] to [i]
@@ -576,6 +577,7 @@ let rec fold_subsystems' f accum visited = function
       )
 
 
+(* Stack for zipper in [fold_subsystem_instances'] *)
 type fold_stack = 
   | FDown of t * (t * instance) list
   | FUp of t * (t * instance) list
@@ -626,27 +628,27 @@ let rec fold_subsystem_instances'
         | _ -> assert false)
 
 
-(* Iterate bottom-up over subsystems, excluding the top level system
-   without repeating subsystems already seen *)
-let iter_subsystems f { subsystems } =
+(* Iterate bottom-up over subsystems, including the top level system
+    without repeating subsystems already seen *)
+let iter_subsystems ?(include_top = true) f ({ subsystems } as trans_sys) =
   fold_subsystems'
     (fun _ -> f)
     () 
     Scope.Set.empty 
-    (List.map fst subsystems)
+    (if include_top then [trans_sys] else (List.map fst subsystems))
     
 
-(* Fold bottom-up over subsystems, excluding the top level system
-   without repeating subsystems already seen *)
-let fold_subsystems f accum { subsystems } = 
+(* Fold bottom-up over subsystems, including the top level system
+    without repeating subsystems already seen *)
+let fold_subsystems ?(include_top = true) f accum ({ subsystems } as trans_sys) =
   fold_subsystems' 
     f
     accum
     Scope.Set.empty
-    (List.map fst subsystems)
+    (if include_top then [trans_sys] else List.map fst subsystems)
 
 
-(* TODO: fold over each instance of a subsystem *)
+(* Fold bottom-up over all subsystem instances *)
 let fold_subsystem_instances f trans_sys = 
 
   fold_subsystem_instances'
@@ -689,6 +691,43 @@ let get_max_depth trans_sys =
   fold_subsystem_instances
     (fun _ _ a -> List.fold_left max 0 a |> succ)
     trans_sys
+
+(* **************************************************************** *)
+(* Set, Map, and Hash Table                                         *)
+(* **************************************************************** *)
+
+
+(* Compare and hash transistion systems by their scope *)
+module T =
+struct
+
+  (* Prevent cyclic [type t = t] *)
+  type z = t
+  type t = z 
+
+  (* Total order of transitions systems induced by total order of
+     their scopes *)
+  let compare { scope = s1 } { scope = s2 } = Scope.compare s1 s2
+
+  (* Equality of transitions systems induced by equality of their
+     scopes *)
+  let equal { scope = s1 } { scope = s2 } = Scope.equal s1 s2
+
+  (* Hash of a transition system is the hash of its scope *)
+  let hash { scope } = Scope.hash scope
+
+end
+
+(* Set of transition systems *)
+module Set = Set.Make (T)
+
+(* Map of transition systems *)
+module Map = Map.Make (T)
+
+(* Hash table of transition systems *)
+module Hashbtl = Hashtbl.Make (T)
+
+
 
 (* **************************************************************** *)
 (* State Variables, Predicates and Declarations                     *)
@@ -763,12 +802,12 @@ let declare_vars_of_bounds
     ubound =
 
   (* Instantiate state variables and declare *)
-  vars_of_bounds trans_sys lbound ubound
+  vars_of_bounds ~with_init_flag:declare_init_flag trans_sys lbound ubound
   |> Var.declare_vars declare
 
 
 (* Declare constant state variable of the system *)
-let declare_const_vars declare { state_vars } =
+let declare_const_vars { state_vars } declare =
 
   (* Constant state variables of the top system *)
   List.filter StateVar.is_const state_vars 
@@ -817,11 +856,12 @@ let define_and_declare_of_bounds
 
   (* Iterate over all subsystems *)
   iter_subsystems 
+    ~include_top:false
     (fun t -> 
 
        (* Declare constant state variables of subsystem *)
        if declare_sub_vars then 
-         (declare_const_vars declare t; 
+         (declare_const_vars t declare; 
           declare_vars_of_bounds t declare lbound ubound);
        
        (* Define initial state predicate *)
@@ -832,10 +872,10 @@ let define_and_declare_of_bounds
 
     trans_sys;
   
-  (* Declate constant state variables of top system *)
-  declare_const_vars declare trans_sys;
+  (* Declare constant state variables of top system *)
+  declare_const_vars trans_sys declare;
        
-  (* Declate constant state variables of top system *)
+  (* Declare constant state variables of top system *)
   declare_vars_of_bounds trans_sys declare lbound ubound
        
 
@@ -1150,12 +1190,13 @@ let add_scoped_invariant t scope invar =
   in
 
   iter_subsystems
-    (fun ({ invariants_two_state; invariants_one_state } as t) -> 
+    (fun ({ scope = s; invariants_two_state; invariants_one_state } as t) -> 
        
-       if is_one_state then 
-         t.invariants_one_state <- invar :: invariants_one_state
-       else
-         t.invariants_two_state <- invar :: invariants_two_state)
+       if Scope.equal scope s then
+         if is_one_state then 
+           t.invariants_one_state <- invar :: invariants_one_state
+         else
+           t.invariants_two_state <- invar :: invariants_two_state)
     t
 
 
@@ -1360,8 +1401,107 @@ let mk_trans_sys
 
 
 
-let instantiate_term_all_levels _ _ = assert false
+let instantiate_term_all_levels trans_sys offset scope term = 
 
+  (* Merge two maps of terms sets by forming the union of the two sets
+
+     Use in a [Map.S.merge]. *)
+  let merge_term_set_maps _ v1 v2 = 
+    match v1, v2 with
+      | Some s1, Some s2 -> Some (Term.TermSet.union s1 s2)
+      | Some s1, None -> Some s1
+      | None, Some s2 -> Some s2
+      | None, None -> None
+  in
+
+  (* Instantiate term at all systems, add the instance at the top
+     level to a list, and the instances at the intermediate levels
+     to a map *)
+  let rec instantiate_to_top offset term accum = function 
+
+    (* At the top system *)
+    | [] -> 
+
+      (* Add to the list of terms at the top level only, not to the
+          intermediate terms *)
+      (Term.TermSet.singleton term, accum)
+      
+    (* At a system that is not the top system *)
+    | (trans_sys, { map_up; guard_clock }) :: tl -> 
+
+      (* Instantiate term to this system *)
+      let term' = 
+        Term.map_state_vars
+          (fun sv -> 
+             try SVM.find sv map_up with
+               | Not_found -> 
+                 assert false)
+          term
+        |> guard_clock offset
+      in
+
+      Format.printf
+        "@[<hv>instantiate_to_top:@ @[<hv>%a@] to@ @[<hv>%a@]@." 
+        Term.pp_print_term term
+        Term.pp_print_term term';
+
+      (* Add instaniated term to intermediate systems *)
+      let accum' = 
+        match tl with
+          | [] -> accum
+          | _ -> Map.add trans_sys (Term.TermSet.singleton term') accum 
+      in
+
+      (* Continue instantiating *)
+      instantiate_to_top offset term' accum' tl
+
+  in
+
+
+  let merge_accum (t, i) (t', i') = 
+    (Term.TermSet.union t t', 
+     Map.merge merge_term_set_maps i i')
+  in
+
+  let top_terms, intermediate_terms = 
+    fold_subsystem_instances
+      (fun ({ scope = s } as t) instances accum -> 
+         
+         let res = 
+           
+         (* Subsystem of scope of the term? *)
+         if Scope.equal scope s then 
+           
+           (* Instantate term at all levels up to the top, return
+              singleton lists *)
+           instantiate_to_top 
+             offset
+             term
+             (match instances with
+               | [] -> Map.empty
+               | _ -> Map.singleton t (Term.TermSet.singleton term))
+             instances
+
+       else
+
+         (* Start with empty lists *)
+         (Term.TermSet.empty, Map.empty)
+
+       in
+
+       (* Combine instances from subsystems and instances from this
+          system *)
+         List.fold_left merge_accum res accum
+           
+    )
+    trans_sys
+  in
+
+  let res_set_to_list (t, s) = (t, Term.TermSet.elements s) in
+
+  ((trans_sys, top_terms) |> res_set_to_list, 
+   Map.bindings intermediate_terms
+   |> List.map res_set_to_list)
 
 (*
 

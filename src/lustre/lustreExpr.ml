@@ -723,48 +723,52 @@ let is_const { expr_init; expr_step } =
 let pre_base_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance 
     state_var
-    Numeral.(zero_offset - base_offset |> pred)
+    Numeral.(zero_offset |> pred)
 
 
 (* Instance of state variable at instant zero *)
 let base_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance
     state_var
-    Numeral.(zero_offset - base_offset)
+    zero_offset
 
 
 (* Instance of state variable at current instant *)
 let cur_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance
     state_var
-    Numeral.(zero_offset - cur_offset)
+    zero_offset
 
 
 (* Instance of state variable at previous instant *)
 let pre_var_of_state_var zero_offset state_var = 
   Var.mk_state_var_instance 
     state_var
-    Numeral.(zero_offset - cur_offset |> pred)
+    Numeral.(zero_offset |> pred)
 
     
 (* Term of instance of state variable at previous instant *)
 let pre_base_term_of_state_var zero_offset state_var = 
-  Term.mk_var (pre_base_var_of_state_var zero_offset state_var)
+  pre_base_var_of_state_var zero_offset state_var
+  |> Term.mk_var
 
 
 (* Term of instance of state variable at previous instant *)
 let base_term_of_state_var zero_offset state_var = 
-  Term.mk_var (base_var_of_state_var zero_offset state_var)
+  base_var_of_state_var zero_offset state_var
+  |> Term.mk_var
 
 
 (* Term of instance of state variable at current instant *)
 let cur_term_of_state_var zero_offset state_var = 
-  Term.mk_var (cur_var_of_state_var zero_offset state_var)
+  cur_var_of_state_var zero_offset state_var
+  |> Term.mk_var
 
 
 (* Term of instance of state variable at previous instant *)
 let pre_term_of_state_var zero_offset state_var = 
-  Term.mk_var (pre_var_of_state_var zero_offset state_var)
+  pre_var_of_state_var zero_offset state_var
+  |> Term.mk_var
 
 
 (* Term at instant zero *)

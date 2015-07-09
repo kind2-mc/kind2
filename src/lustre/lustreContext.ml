@@ -443,8 +443,8 @@ let mk_state_var
   (* Concatenate identifier and indexes *)
   let state_var_name = 
     Format.asprintf "%a%a"
-      (I.pp_print_ident false) ident
-      (D.pp_print_index false) 
+      (I.pp_print_ident true) ident
+      (D.pp_print_index true) 
 
       (* Filter out array indexes *)
       (List.filter
@@ -1290,7 +1290,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
     | { node = Some { N.equations; N.calls } } -> 
-
+(*
       Format.printf
         "%a%a = %a (%d)@."
         StateVar.pp_print_state_var state_var
@@ -1302,7 +1302,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
         bounds
         (E.pp_print_lustre_expr false) expr
         indexes;
-
+*)
       if 
         
         (* State variable already defined by equation? *)

@@ -52,7 +52,7 @@ let next_analysis_of_strategy (type s) : s t -> 'a -> Analysis.param option = fu
             |> LustreNode.scope_of_node;
           Analysis.abstraction_map = 
             List.fold_left 
-              (fun m n -> Scope.Map.add (LustreNode.scope_of_node n) true m)
+              (fun m n -> Scope.Map.add (LustreNode.scope_of_node n) false m)
               Scope.Map.empty nodes;
           Analysis.assumptions = [] }
     )

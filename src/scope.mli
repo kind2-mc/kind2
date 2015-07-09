@@ -32,6 +32,9 @@ val equal : t -> t -> bool
 (** Total order of scopes *)
 val compare : t -> t -> int
 
+(** Hash of a scope *)
+val hash : t -> int
+
 (** Set of scopes *)
 module Set : Set.S with type elt = t
 

@@ -794,7 +794,7 @@ let rec eval_node_equations ctx = function
         (D.empty, ctx)
 
     in 
-
+(*
     Format.printf
       "@[<hv>%a@]@."
       (D.pp_print_trie
@@ -805,7 +805,7 @@ let rec eval_node_equations ctx = function
               (E.pp_print_lustre_expr false) e)
          ";@ ")
       eq_rhs;
-
+*)
     (* Remove local definitions for equation from context
 
        We add local definitions from the left-hand side to the

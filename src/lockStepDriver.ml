@@ -108,7 +108,7 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
-let common_setup (solver,sys,actlit) =
+let common_setup (solver,is_top,sys,actlit) =
 
   name sys
   |> Printf.sprintf
@@ -118,16 +118,12 @@ let common_setup (solver,sys,actlit) =
   
   SMTSolver.declare_fun solver actlit ;
   
-  (* Defining uf's and declaring variables. *)
-  TransSys.define_and_declare_of_bounds
-    sys
-    (SMTSolver.define_fun solver)
-    (SMTSolver.declare_fun solver)
-    Numeral.zero Numeral.(~- one) ;
+  if not is_top then
+    TransSys.declare_const_vars sys (SMTSolver.declare_fun solver);
 
   (* Declaring unrolled vars at [-1] and [0]. *)
   TransSys.declare_vars_of_bounds
-    ~declare_init_flag:false
+    (* ~declare_init_flag:false *)
     sys
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
@@ -145,7 +141,7 @@ let base_setup (solver,sys,actlit) =
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and]
   |> SMTSolver.assert_term solver
 
 let step_setup (solver, sys, actlit) =
@@ -154,12 +150,12 @@ let step_setup (solver, sys, actlit) =
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and  ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and ]
   |> SMTSolver.assert_term solver ;
 
   (* Declaring unrolled vars at [1]. *)
   TransSys.declare_vars_of_bounds
-    ~declare_init_flag:false
+    (* ~declare_init_flag:false *)
     sys
     (SMTSolver.declare_fun solver)
     Numeral.one Numeral.one ;
@@ -171,7 +167,7 @@ let step_setup (solver, sys, actlit) =
 
   (* Conditionally asserting invariants of the system at [1]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.one |> Term.mk_and  ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.one |> Term.mk_and ]
   |> SMTSolver.assert_term solver
 
 let pruning_setup = step_setup
@@ -186,7 +182,7 @@ let unroll_solver solver sys actlit k =
 
   (* Declaring unrolled vars at [k+1]. *)
   TransSys.declare_vars_of_bounds
-    ~declare_init_flag:false
+    (* ~declare_init_flag:false *)
       sys
       (SMTSolver.declare_fun solver) 
       k
@@ -199,7 +195,7 @@ let unroll_solver solver sys actlit k =
 
   (* Conditionally asserting invariants of the system at [k]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys k |> Term.mk_and  ]
+    [ actlit ; TransSys.invars_of_bound sys k |> Term.mk_and ]
   |> SMTSolver.assert_term solver
 
 let add_invariants_solver solver sys actlit k invariants =
@@ -297,6 +293,7 @@ let unroll_sys
           let kp1 = Numeral.succ k in
 
           if Numeral.(kp1 > last_k) then (
+(*
             TransSys.declare_init_flag_of_bounds
               system
               (SMTSolver.declare_fun base_solver)
@@ -308,6 +305,7 @@ let unroll_sys
               (SMTSolver.declare_fun step_solver)
               Numeral.(succ kp1) 
               Numeral.(succ kp1);
+*)
             lsd.last_k <- kp1
           ) ;
 
@@ -325,11 +323,11 @@ let unroll_sys
   ()
 
 (* Creates a lsd instance. *)
-let create two_state top_only sys =
+let create two_state top_only top_sys =
 
   let new_inst_sys () =
     SMTSolver.create_instance ~produce_assignments: true
-      (TransSys.get_logic sys) (Flags.smtsolver ())
+      (TransSys.get_logic top_sys) (Flags.smtsolver ())
   in
 
   (* Solvers. *)
@@ -339,30 +337,40 @@ let create two_state top_only sys =
 
   let init_solver solver title =
     SMTSolver.trace_comment solver title ;
+
+    (* Defining uf's and declaring variables. *)
+    TransSys.define_and_declare_of_bounds
+      top_sys
+      (SMTSolver.define_fun solver)
+      (SMTSolver.declare_fun solver)
+      Numeral.zero Numeral.(~- one) ;
+
+(*
     TransSys.declare_init_flag_of_bounds 
       sys 
       (SMTSolver.declare_fun solver)
       Numeral.(~- one)
       Numeral.zero;
+*)
   in
 
   init_solver base_solver "|===| Base solver" ;
   init_solver step_solver "|===| Step solver" ;
-
+(*
   TransSys.declare_init_flag_of_bounds 
     sys 
     (SMTSolver.declare_fun step_solver)
     Numeral.one
     Numeral.one;
-
+*)
   init_solver pruning_solver "|===| Pruning solver" ; ;
-
+(*
   TransSys.declare_init_flag_of_bounds 
     sys 
     (SMTSolver.declare_fun pruning_solver)
     Numeral.one
     Numeral.one;
-
+*)
   (* declare_init_flag base_solver minus_one Numeral.zero ; *)
   (* declare_init_flag step_solver minus_one Numeral.one ; *)
   (* declare_init_flag pruning_solver minus_one Numeral.one ; *)
@@ -370,54 +378,49 @@ let create two_state top_only sys =
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)
   let systems =
-    let rec loop all_sys = function
-        
-      | sys :: tail ->
-         
-         if List.mem_assq sys all_sys then
-           (* We already know [sys], skipping. *)
-           loop all_sys tail
-                
-         else
-           (* First time seeing [sys], adding it to [all_sys], setting
-              everything up in the solver and recursing on its kids
-              and the tail of unvisited sys if not it top mode. *)
 
-           (* Getting a fresh actlit for [sys]. *)
-           let actlit = Actlit.fresh_actlit () in
+    let loop all_sys sys =
 
-           (* Setting up base. *)
-           (base_solver, sys, actlit)
-           |> common_setup |> base_setup ;
+      (* First time seeing [sys], adding it to [all_sys], setting
+         everything up in the solver and recursing on its kids and the tail
+         of unvisited sys if not it top mode. *)
 
-           (* Setting up step. *)
-           (step_solver, sys, actlit)
-           |> common_setup |> step_setup ;
+      (* Getting a fresh actlit for [sys]. *)
+      let actlit = Actlit.fresh_actlit () in
 
-           (* Setting up pruning. *)
-           (pruning_solver, sys, actlit)
-           |> common_setup |> pruning_setup ;
+      let is_top = TransSys.equal_scope top_sys sys in
 
-           let actlit_term = Actlit.term_of_actlit actlit in
+      (* Setting up base. *)
+      (base_solver, is_top, sys, actlit)
+      |> common_setup |> base_setup ;
 
-           (* Updating the map of all systems. *)
-           let all_sys' =
-             (sys, (Numeral.zero, actlit_term)) :: all_sys
-           in
+      (* Setting up step. *)
+      (step_solver, is_top, sys, actlit)
+      |> common_setup |> step_setup ;
 
-           if top_only then
-             (* If top only then stop at the top level. *)
-             all_sys'
-           else
-             (* Otherwise recursing to get subsystems. *)
-             loop
-               all_sys'
-               (List.rev_append (TransSys.get_subsystems sys) tail)
+      (* Setting up pruning. *)
+      (pruning_solver, is_top, sys, actlit)
+      |> common_setup |> pruning_setup ;
 
-      | [] -> all_sys
+      let actlit_term = Actlit.term_of_actlit actlit in
+
+      (* Updating the map of all systems. *)
+      (sys, (Numeral.zero, actlit_term)) :: all_sys
+
     in
 
-    loop [] [sys]
+    if top_only then
+
+      (* If top only then stop at the top level. *)
+      loop [] top_sys
+
+    else
+
+      TransSys.fold_subsystems
+        loop
+        []
+        top_sys
+
   in
 
   (* Constructing the lsd context. *)
@@ -444,7 +447,18 @@ let query_base
 
   (* Getting the system info. *)
   let k, sys_actlit =
-    List.assq system systems
+    try 
+      List.assq system systems
+    with Not_found -> 
+      Format.printf
+        "System %a not found in@ @[<hv>%a@]@."
+        Scope.pp_print_scope (TransSys.scope_of_trans_sys system)
+        (pp_print_list 
+           (fun ppf (t, _) -> 
+              TransSys.scope_of_trans_sys t |> Scope.pp_print_scope ppf)
+          ",@ ")
+        systems; 
+      assert false
   in
 
   Printf.sprintf
