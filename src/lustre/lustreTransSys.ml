@@ -572,6 +572,7 @@ let call_terms_of_node_call
     List.map 
       term_of_state_var
       ((D.values call_inputs) @ 
+       call_oracles @ 
        (D.values call_outputs) @
        call_locals)
   in
@@ -1873,11 +1874,11 @@ let trans_sys_of_nodes
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in 
-(*
+
   Format.printf
     "@[<v>%a@]@."
     (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
-*)
+
   let { trans_sys } =   
 
     try 
