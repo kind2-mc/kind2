@@ -366,6 +366,43 @@ let convert_select instance term =
 
 
 
+(* ********************************************************************** *)
+(* Constraints from types                                                 *)
+(* ********************************************************************** *)
+
+(* Add constraint for subrange if variable is of that type *)
+let add_constraints_of_type init terms state_var = 
+
+  (* Get type of state variable *)
+  let state_var_type = StateVar.type_of_state_var state_var in
+
+  (* Variable is of integer range type? *)
+  if Type.is_int_range state_var_type then 
+
+    (* Get bounds of integer range *)
+    let l, u = Type.bounds_of_int_range state_var_type in
+
+    (* Constrain values of variable between bounds *)
+    Term.mk_leq
+      [ Term.mk_num l; 
+        Var.mk_state_var_instance
+          state_var
+          (if init then 
+             TransSys.init_base 
+           else 
+             TransSys.trans_base)
+        |> Term.mk_var;
+        Term.mk_num u]
+
+    (* Add to terms *)
+    :: terms 
+
+  else
+
+    (* No contraints to add*)
+    terms
+                  
+
 
 (* ********************************************************************** *)
 (* Node calls                                                             *)
@@ -1136,7 +1173,7 @@ let rec constraints_of_equations
       let def =
 
         (* Conjunction of previous terms of definitions *)
-        (Term.mk_and terms) 
+        (Term.mk_and terms)
 
         |>
 
@@ -1512,6 +1549,31 @@ let rec trans_sys_of_node'
 
 
             (* ****************************************************** *)
+            (* Assertions from types                                  *)
+
+            let all_state_vars = 
+              (D.values inputs) @
+              oracles @
+              (D.values outputs) @ 
+              (List.concat (List.map D.values locals))
+            in
+
+            let init_terms = 
+              List.fold_left
+                (add_constraints_of_type true)
+                init_terms
+                all_state_vars
+            in
+
+            let trans_terms = 
+              List.fold_left
+                (add_constraints_of_type false)
+                trans_terms
+                all_state_vars
+            in
+
+
+            (* ****************************************************** *)
             (* Node calls 
 
                We must add node calls before equations so that local
@@ -1832,7 +1894,7 @@ let rec trans_sys_of_node'
                 [] (* Two-state invariants *)
             in                
 
-            (* Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys; *)
+            Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
   
             trans_sys_of_node'
               top_name
