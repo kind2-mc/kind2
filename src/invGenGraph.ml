@@ -586,7 +586,7 @@ module Make (InModule : In) : Out = struct
            (* Instantiating at all levels. *)
            |> TransSys.instantiate_term_all_levels 
              top_sys
-             TransSys.trans_base
+             TransSys.prop_base
              (TransSys.scope_of_trans_sys sys)
        in
 
