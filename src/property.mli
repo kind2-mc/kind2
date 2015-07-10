@@ -34,8 +34,26 @@ type prop_status =
 
 
 
+type t =
+
+  { 
+
+    (* Identifier for the property *)
+    prop_name : string;
+
+    (* Source of the property *)
+    prop_source : prop_source;
+
+    (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
+    prop_term : Term.t;
+
+    mutable prop_status : prop_status
+
+  }
+
+
 (** Source of a property *)
-type prop_source =
+and prop_source =
 
   (** Property is from an annotation *)
   | PropAnnot of Lib.position
@@ -61,27 +79,11 @@ type prop_source =
 
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
-  | Instantiated of string list * string
+  | Instantiated of Scope.t * t
+
 
 (** Pretty-print a property source *)
 val pp_print_prop_source : Format.formatter -> prop_source -> unit
-
-type t =
-
-  { 
-
-    (* Identifier for the property *)
-    prop_name : string;
-
-    (* Source of the property *)
-    prop_source : prop_source;
-
-    (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
-    prop_term : Term.t;
-
-    mutable prop_status : prop_status
-
-  }
 
 
 (** Return [true] if the status of the property is known *)

@@ -100,17 +100,20 @@ let pp_print_path_xml (type s) : s t -> TransSys.t -> bool -> Format.formatter -
 
 
 
-let slice_to_abstraction_and_term
+let slice_to_abstraction_and_property
     (type s)
     (input_sys: s t)
     analysis
     trans_sys
-    term
-  : s t = 
+    cex
+    prop
+  : TransSys.t * (StateVar.t * _) list * Term.t * s t = 
 
-  (* Map term to the lowest subsystem *)
-  let trans_sys', term' =  
-    TransSys.term_map_to_subsystem trans_sys term
+  let trans_sys', instances, cex', { Property.prop_term } =
+    TransSys.map_cex_prop_to_subsystem 
+      trans_sys 
+      cex
+      prop
   in
 
   let analysis' = 
@@ -118,19 +121,23 @@ let slice_to_abstraction_and_term
         Analysis.top = TransSys.scope_of_trans_sys trans_sys' }
   in
 
-  match input_sys with 
-    
-    | Lustre subsystem -> 
+  (trans_sys',
+   cex',
+   prop_term,
 
-      Lustre
-        (LustreSlicing.slice_to_abstraction_and_property
-           analysis'
-           term'
-           subsystem)
-                            
-  | Native subsystem -> Native subsystem
+   (match input_sys with 
 
-  | Horn subsystem -> Horn subsystem
+     | Lustre subsystem -> 
+
+       Lustre
+         (LustreSlicing.slice_to_abstraction_and_property
+            analysis'
+            prop_term
+            subsystem)
+
+     | Native subsystem -> Native subsystem
+
+     | Horn subsystem -> Horn subsystem))
 
 
 

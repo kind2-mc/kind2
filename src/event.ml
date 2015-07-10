@@ -328,32 +328,34 @@ let pp_print_counterexample_pt
 
   function
 
-  | [] -> ()
+    | [] -> ()
 
-  | cex -> 
+    | cex -> 
 
-    (
+      (
 
-      (* Get property by name *)
-      let { Property.prop_term } =
-        TransSys.property_of_name trans_sys prop_name
-      in
+        (* Get property by name *)
+        let prop =
+          TransSys.property_of_name trans_sys prop_name
+        in
 
-      let input_system' =
-        InputSystem.slice_to_abstraction_and_term 
-          input_sys
-          analysis
-          trans_sys
-          prop_term
-      in
+        (* Slice counterexample and transitions system to property *)
+        let trans_sys', cex', prop_term, input_system' =
+          InputSystem.slice_to_abstraction_and_property
+            input_sys
+            analysis
+            trans_sys
+            cex
+            prop
+        in
 
-      (* Output counterexample *)
-      Format.fprintf ppf 
-        "Counterexample:@,%a"
-        (InputSystem.pp_print_path_pt input_system' trans_sys true) 
-        (Model.path_of_list cex)
-      
-    )
+        (* Output counterexample *)
+        Format.fprintf ppf 
+          "Counterexample:@,%a"
+          (InputSystem.pp_print_path_pt input_system' trans_sys' true) 
+          (Model.path_of_list cex')
+
+      )
 
 
 (* Output execution path without slicing *)
@@ -570,23 +572,25 @@ let pp_print_counterexample_xml
       (
 
         (* Get property by name *)
-        let { Property.prop_term } =
+        let prop =
           TransSys.property_of_name trans_sys prop_name
         in
 
-        let input_system' =
-          InputSystem.slice_to_abstraction_and_term 
+        (* Slice counterexample and transitions system to property *)
+        let trans_sys', cex', prop_term, input_system' =
+          InputSystem.slice_to_abstraction_and_property
             input_sys
             analysis
             trans_sys
-            prop_term
+            cex
+            prop
         in
 
         (* Output counterexample *)
         Format.fprintf ppf 
           "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
-          (InputSystem.pp_print_path_xml input_system' trans_sys true) 
-          (Model.path_of_list cex)
+          (InputSystem.pp_print_path_xml input_system' trans_sys' true) 
+          (Model.path_of_list cex')
 
       )
 

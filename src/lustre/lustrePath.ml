@@ -137,7 +137,7 @@ let map_top_and_add instances model model' _ state_var =
 
   (* Fail if state variable is not in the top node *)
   with Not_found ->
-      
+
     raise Not_found
 
 
@@ -157,17 +157,17 @@ let rec substitute_definitions' stateful_vars equations subst = function
         (fun (sv, _) -> 
            StateVar.equal_state_vars sv state_var) 
         subst -> 
-    
+
     (* Skip state variable and continue *)
     substitute_definitions' stateful_vars equations subst tl
 
   (* Variable is stateful? *)
   | state_var :: tl 
-      when
-        List.exists
-          (StateVar.equal_state_vars state_var) 
-          stateful_vars ->
-    
+    when
+      List.exists
+        (StateVar.equal_state_vars state_var) 
+        stateful_vars ->
+
     (* Add substitution for state variable and continue *)
     substitute_definitions'
       stateful_vars 
@@ -180,20 +180,25 @@ let rec substitute_definitions' stateful_vars equations subst = function
 
     (* Find equation for the variable *)
     let expr = 
-      List.find
-        (function 
-          
-          (* Equation is for state variable? *)
-          | (sv, [], def) -> StateVar.equal_state_vars sv state_var
-                               
-          (* Fail if state variable has indexes *)
-          | _ -> assert false)
-        equations
-        
-      (* Return expression on right-hand side of equation *)
-      |> (function (_, _, e) -> e)
+
+      try 
+
+        List.find
+          (function 
+
+            (* Equation is for state variable? *)
+            | (sv, [], def) -> StateVar.equal_state_vars sv state_var
+
+            (* Fail if state variable has indexes *)
+            | _ -> assert false)
+          equations
+
+        (* Return expression on right-hand side of equation *)
+        |> (function (_, _, e) -> e)
+
+      with Not_found -> assert false
     in
-    
+
     (* Add substitution for state variable and continue *)
     substitute_definitions'
       stateful_vars 
@@ -407,12 +412,24 @@ let node_path_of_instance
 (* Return a hierarchical model for the nodes from a flat model by
    mapping the model of the top node to model of the subnoe instances,
    reconstructing the streams in the original input. *)
-let node_path_of_subsystems first_is_init trans_sys model subsystems = 
+let node_path_of_subsystems
+    first_is_init
+    trans_sys
+    model
+    ({ S.scope } as subsystems) = 
+
+  (* Get transition system of top scope of subsystems *)
+  let trans_sys' = 
+    TransSys.find_subsystem_of_scope trans_sys scope 
+  in
 
   (* Create models for all subnodes *)
   TransSys.fold_subsystem_instances 
-    (node_path_of_instance first_is_init model (N.nodes_of_subsystem subsystems))
-    trans_sys
+    (node_path_of_instance
+       first_is_init
+       model
+       (N.nodes_of_subsystem subsystems))
+    trans_sys'
 
 
 (* *************************************************************** *)

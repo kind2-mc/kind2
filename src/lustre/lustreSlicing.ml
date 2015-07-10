@@ -1090,7 +1090,6 @@ let slice_to_abstraction' ({ A.top } as analysis) roots subsystem =
 let slice_to_abstraction analysis subsystem = 
   slice_to_abstraction' analysis None subsystem  
 
-
   
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)

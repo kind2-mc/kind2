@@ -20,6 +20,8 @@ open Lib
 
 module P = Property
 module SVM = StateVar.StateVarMap
+module SVS = StateVar.StateVarSet
+module SVT = StateVar.StateVarHashtbl
 
 (* Offset of state variables in initial state constraint *)
 let init_base = Numeral.zero
@@ -946,31 +948,10 @@ let rec term_map_to_subsystem' ({ subsystems } as trans_sys) term = function
       (* *)
       let term' = 
         Term.map
-          (fun _ -> function 
-
-             (* Consider state variable instances *)
-             | t when Term.is_free_var t -> 
-
-               (* Get state variable instance from term *)
-               let v = Term.free_var_of_term t in
-
-               (* Get state variable from instance *)
-               let sv = Var.state_var_of_state_var_instance v in
-
-               (* Get offset from instance *)
-               let o = Var.offset_of_state_var_instance v in
-
-               (* Try to map state variable to state variable in
-                  system instance, fail with [Not_found] if the state
-                  variable is not an instance of the subsystem *)
-               let sv' = SVM.find sv map_down in
-
-               (* Create a state variable instance and a term again *)
-               Var.mk_state_var_instance sv' o |> Term.mk_var
-
-             (* Keep non-variable terms untouched *)
-             | t -> t)
-
+          (fun _ term ->
+             Term.map_state_vars
+               (fun sv -> SVM.find sv map_down)
+               term)
           term
 
       in
@@ -1004,6 +985,79 @@ let term_map_to_subsystem ({ subsystems } as trans_sys) term =
 
 
 
+let rec map_cex_prop_to_subsystem' ({ subsystems } as trans_sys) instances cex = 
+
+  function 
+
+    | { P.prop_source = P.Instantiated (s, p'); P.prop_term } -> 
+
+      (* Find subsystem the property is lifted from *)
+      let trans_sys', instances = 
+
+        try 
+
+          (* Find subsystem by scope *)
+          List.find
+            (fun ({ scope }, _) -> scope = s)
+            subsystems
+
+        (* System must exist as subsystem *)
+        with Not_found -> assert false 
+
+      in
+
+      (* State variables in property *)
+      let prop_state_vars = 
+        Term.state_vars_of_term prop_term
+      in
+
+      (* Find instance that contains at least one state variable of
+         the property original property *)
+      let { map_down } as instance = 
+        match 
+          List.find_all 
+            (fun { map_down } -> 
+               SVS.exists
+                 (fun sv -> 
+                    SVM.exists
+                      (fun sv' _ -> StateVar.equal_state_vars sv sv')
+                      map_down)
+                 prop_state_vars)
+            instances
+        with
+          | [i] -> i
+          | _ -> assert false
+      in
+
+      (* Map counterexample to instance of subsystem *)
+      let cex' = 
+        List.fold_left
+          (fun cex' (sv, v) -> 
+             try 
+               (SVM.find sv map_down, v) :: cex'
+             with Not_found -> 
+               cex') 
+          []
+          cex
+      in
+
+      assert (cex' <> []);
+
+      (* Continue to map to subsystem *)
+      map_cex_prop_to_subsystem' 
+        trans_sys'
+        (instance :: instances)
+        cex'
+        p'
+
+    (* Property is not instantiated *)
+    | p -> 
+
+      (trans_sys, instances, cex, p)
+
+
+let map_cex_prop_to_subsystem trans_sys cex prop = 
+  map_cex_prop_to_subsystem' trans_sys [] cex prop 
 
 
 (*
@@ -1439,11 +1493,6 @@ let instantiate_term_all_levels trans_sys offset scope term =
           term
         |> guard_clock offset
       in
-
-      Format.printf
-        "@[<hv>instantiate_to_top:@ @[<hv>%a@] to@ @[<hv>%a@]@." 
-        Term.pp_print_term term
-        Term.pp_print_term term';
 
       (* Add instaniated term to intermediate systems *)
       let accum' = 

@@ -44,7 +44,7 @@ val pp_print_path_pt : _ t -> TransSys.t -> bool -> Format.formatter -> Model.pa
 (** Output a path in the input system *)
 val pp_print_path_xml : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit 
 
-val slice_to_abstraction_and_term : 'a t -> Analysis.param -> TransSys.t -> Term.t -> 'a t
+val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> TransSys.t * (StateVar.t * Model.term_or_lambda list) list * Term.t * 'a t
 
 (* 
    Local Variables:

@@ -260,6 +260,8 @@ val get_max_depth : t -> int
 
 val term_map_to_subsystem : t -> Term.t -> t * Term.t
 
+val map_cex_prop_to_subsystem : t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> t * instance list * (StateVar.t * Model.term_or_lambda list) list * Property.t 
+
 (** {1 State Variables} *)
 
 (** After 

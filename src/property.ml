@@ -35,8 +35,27 @@ type prop_status =
   | PropFalse of (StateVar.t * Model.term_or_lambda list) list
 
 
+(* A property of a transition system *)
+type t = 
+
+  { 
+
+    (* Identifier for the property *)
+    prop_name : string;
+
+    (* Source of the property *)
+    prop_source : prop_source;
+
+    (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
+    prop_term : Term.t;
+
+    (* Current status *)
+    mutable prop_status : prop_status 
+
+  }
+
 (* Source of a property *)
-type prop_source =
+and prop_source =
 
   (* Property is from an annotation *)
   | PropAnnot of position
@@ -68,27 +87,8 @@ type prop_source =
 
      Reference the instantiated property by the [scope] of the
      subsystem and the name of the property *)
-  | Instantiated of string list * string 
+  | Instantiated of Scope.t * t
 
-
-(* A property of a transition system *)
-type t = 
-
-  { 
-
-    (* Identifier for the property *)
-    prop_name : string;
-
-    (* Source of the property *)
-    prop_source : prop_source;
-
-    (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
-    prop_term : Term.t;
-
-    (* Current status *)
-    mutable prop_status : prop_status 
-
-  }
 
 
 (* Return the length of the counterexample *)

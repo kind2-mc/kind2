@@ -569,7 +569,7 @@ let call_terms_of_node_call
   let node_props = 
     List.fold_left 
 
-      (fun a { P.prop_name = n; P.prop_term = t } -> 
+      (fun a ({ P.prop_name = n; P.prop_term = t } as p) -> 
 
          (* Lift name of property *)
          let prop_name =
@@ -585,7 +585,7 @@ let call_terms_of_node_call
          (* Property is instantiated *)
          let prop_source = 
            P.Instantiated
-             ([I.string_of_ident false call_node_name], n)
+             (I.to_scope call_node_name, p)
          in
 
          (* Property status is unknown *)
