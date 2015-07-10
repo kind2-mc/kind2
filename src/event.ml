@@ -351,12 +351,6 @@ let pp_print_counterexample_pt
 
         (* Output counterexample *)
         Format.fprintf ppf 
-          "Counterexample (top):@,%a"
-          (InputSystem.pp_print_path_pt input_sys trans_sys instances true) 
-          (Model.path_of_list cex);
-
-        (* Output counterexample *)
-        Format.fprintf ppf 
           "Counterexample:@,%a"
           (InputSystem.pp_print_path_pt input_system' trans_sys' instances true) 
           (Model.path_of_list cex')
