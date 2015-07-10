@@ -207,19 +207,38 @@ val mk_trans_sys :
 *)
 val iter_subsystems : ?include_top:bool -> (t -> unit) -> t -> unit 
 
-(** Fold bottom-up over subsystems, including the top level system
-    without repeating subsystems already seen
+(** Fold bottom-up over subsystems, including or excluding the top
+    level system, without repeating subsystems already seen
 
     [fold_subsystems f t] first evaluates [f a s] for some subsystem
     [s] of [t] that does not have subsystems itself. It then passes
     the result as first argument to [f] with the second argument being
     a subsystem for which all subsystems have been evaluated with
     [f]. If [t] contains a subsystem [s] twice, no matter at which
-    level, [f s] is evaluated only once.
+    level, [f s] is evaluated only once. 
+
+    The systems are passes in topological order such that the each
+    system is presented to [f] only after all its subsystems. The
+    function [f] is evaluated for the top system last, unless the
+    optional labelled parameter [include_top] is set to false.
 *)
 val fold_subsystems : ?include_top:bool -> ('a -> t -> 'a) -> 'a -> t -> 'a
 
+(** Fold bottom-up over subsystem instances 
 
+    [fold_subsystem_instances f t] evaluates [f s i l] for each
+    subsystem instance in the system [t], including [t] itself. The
+    function [f] is evaluated with the subsystem [s], the reverse
+    sequence of instantiations [i] that reach the top system [t], and
+    the evaluations of [f] on the subsystems of [s]. The sequence of
+    instantiations [i] contains at its head a system that has [s] as a
+    direct subsystem, together with the instance parameters. For the
+    top system [i] is the empty list.
+
+    The systems are presented in topological order such that each
+    system is presented to [f] after all its subsystem instances have
+    been presented.
+*)
 val fold_subsystem_instances : (t -> (t * instance) list -> 'a list -> 'a) -> t -> 'a
 
 (** The direct subsystems of a system *)
@@ -418,8 +437,21 @@ val add_scoped_invariant : t -> string list -> Term.t -> unit
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 
 
-(** Instantiates a term for all (over)systems instantiating, possibly
-    more than once, the input system. *)
+(** Instantiate a term of a given scope from all instances of the
+    system of that scope upwards to the top system
+
+    [instantiate_term_all_levels t i s e] instantiates the Boolean
+    term [e] of scope [s] in all systems it is a subsystem of, and
+    further upwards until the top system [t]. The offset [i] is the
+    offset of the current instant in the term [e].
+
+    Return the top system [s] paired with the instances of the term in
+    it, and a list of all systems between the top system [t] andthe
+    system [s], including [s] but excluding [t], each system paired
+    with the instances of [e] in it.
+
+    The offset [i] is needed to properly guard the term [e] for
+    clocked system instances. *)
 val instantiate_term_all_levels:
   t -> Numeral.t -> Scope.t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
