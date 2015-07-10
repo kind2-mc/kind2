@@ -81,22 +81,56 @@ let trans_sys_of_analysis (type s) : s t -> Analysis.param -> TransSys.t * s t =
 
 
 
-let pp_print_path_pt (type s) : s t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit = function 
+let pp_print_path_pt
+    (type s) 
+    (input_system : s t)
+    trans_sys
+    instances
+    first_is_init
+    ppf
+    model =
 
-  | Lustre subsystem -> (fun t b ppf m -> LustrePath.pp_print_path_pt t subsystem b ppf m)
+  match input_system with 
 
-  | Native _ -> (fun _ _ _ -> assert false)
+    | Lustre subsystem -> 
 
-  | Horn _ -> (fun _ _ _ -> assert false)
+      LustrePath.pp_print_path_pt
+        trans_sys
+        instances
+        subsystem
+        first_is_init
+        ppf
+        model
+
+    | Native _ -> assert false
+
+    | Horn _ -> assert false
 
 
-let pp_print_path_xml (type s) : s t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit = function 
+let pp_print_path_xml
+    (type s) 
+    (input_system : s t)
+    trans_sys
+    instances
+    first_is_init
+    ppf
+    model =
 
-  | Lustre subsystem -> (fun t b ppf m -> LustrePath.pp_print_path_xml t subsystem b ppf m)
+  match input_system with 
 
-  | Native _ -> (fun _ _ _ -> assert false)
+    | Lustre subsystem -> 
 
-  | Horn _ -> (fun _ _ _ -> assert false)
+      LustrePath.pp_print_path_xml
+        trans_sys
+        instances
+        subsystem
+        first_is_init
+        ppf
+        model
+
+    | Native _ -> assert false
+
+    | Horn _ -> assert false
 
 
 
@@ -107,26 +141,97 @@ let slice_to_abstraction_and_property
     trans_sys
     cex
     prop
-  : TransSys.t * (StateVar.t * _) list * Term.t * s t = 
+  : TransSys.t * TransSys.instance list * (StateVar.t * _) list * Term.t * s t = 
 
+  (* Filter values at instants of subsystem *)
+  let filter_out_values = match input_sys with 
+
+     | Lustre subsystem -> 
+
+       (fun scope { TransSys.pos } cex v -> 
+          
+          (* Get node cals in subsystem of scope *)
+          let { SubSystem.source = { LustreNode.calls } } = 
+            SubSystem.find_subsystem subsystem scope 
+          in
+        
+          (* Get clock of node call identified by its position *)
+          let { LustreNode.call_clock } = 
+            List.find
+              (fun { LustreNode.call_pos } -> call_pos = pos)
+              calls
+          in
+
+          (* Node call has an activation condition? *)
+          match call_clock with 
+
+            (* Keep all instants for node calls without activation
+               condition *)
+            | None -> v
+
+            (* State variable for activation condition *)
+            | Some clock_state_var -> 
+
+              (* Get values of activation condition from model *)
+              let clock_values = List.assq clock_state_var cex in
+
+              (* Need to preserve order of values *)
+              List.fold_right2
+                (fun cv v a -> match cv with
+
+                   (* Value of clock at this instant *)
+                   | Model.Term t -> 
+
+                     (* Clock is true: keep value at instant *)
+                     if Term.equal t Term.t_true then 
+                       v :: a
+
+                     (* Clock is false: skip instant *)
+                     else if Term.equal t Term.t_false then 
+                       a
+
+                     (* Clock must be Boolean *)
+                     else 
+                       assert false
+
+                   (* TODO: models with arrays *)
+                   | Model.Lambda _ -> assert false)
+                clock_values
+                v
+                [])
+
+     (* Clocked node calls are only in Lustre, no filtering of
+        instants in models for native input *)
+     | Native subsystem -> (fun _ _ _ v -> v)
+
+     (* Clocked node calls are only in Lustre, no filtering of
+        instants in models for Horn input *)
+     | Horn subsystem -> (fun _ _ _ v -> v)
+
+  in  
+
+  (* Map counterexample and property to subsystem *)
   let trans_sys', instances, cex', { Property.prop_term } =
     TransSys.map_cex_prop_to_subsystem 
+      filter_out_values
       trans_sys 
       cex
       prop
   in
 
+  (* Replace top system with subsystem for slicing *)
   let analysis' = 
     { analysis with 
         Analysis.top = TransSys.scope_of_trans_sys trans_sys' }
   in
 
-  (trans_sys',
-   cex',
-   prop_term,
+  (* Return subsystem that contains the property *)
+  (trans_sys', instances, cex', prop_term,
 
+   (* Slicing is input-specific *)
    (match input_sys with 
 
+     (* Slice Lustre subnode to property term *)
      | Lustre subsystem -> 
 
        Lustre
@@ -135,8 +240,10 @@ let slice_to_abstraction_and_property
             prop_term
             subsystem)
 
+     (* No slicing in native input *)
      | Native subsystem -> Native subsystem
 
+     (* No slicing in Horn input *)
      | Horn subsystem -> Horn subsystem))
 
 

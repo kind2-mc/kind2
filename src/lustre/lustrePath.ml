@@ -415,6 +415,7 @@ let node_path_of_instance
 let node_path_of_subsystems
     first_is_init
     trans_sys
+    instances
     model
     ({ S.scope } as subsystems) = 
 
@@ -739,10 +740,10 @@ let pp_print_lustre_path_pt ppf lustre_path =
 
 
 (* Ouptut a hierarchical model as plan text *)
-let pp_print_path_pt trans_sys subsystems first_is_init ppf model = 
+let pp_print_path_pt trans_sys instances subsystems first_is_init ppf model = 
 
   (* Create the hierarchical model *)
-  node_path_of_subsystems first_is_init trans_sys model subsystems
+  node_path_of_subsystems first_is_init trans_sys instances model subsystems
 
   (* Output as plain text *)
   |> pp_print_lustre_path_pt ppf 
@@ -938,10 +939,10 @@ let pp_print_lustre_path_xml ppf path =
 
 
 (* Ouptut a hierarchical model as XML *)
-let pp_print_path_xml trans_sys subsystems first_is_init ppf model = 
+let pp_print_path_xml trans_sys instances subsystems first_is_init ppf model = 
 
   (* Create the hierarchical model *)
-  node_path_of_subsystems first_is_init trans_sys model subsystems
+  node_path_of_subsystems first_is_init trans_sys instances model subsystems
 
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf 

@@ -258,9 +258,7 @@ val find_subsystem_of_scope : t -> Scope.t -> t
 
 val get_max_depth : t -> int
 
-val term_map_to_subsystem : t -> Term.t -> t * Term.t
-
-val map_cex_prop_to_subsystem : t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> t * instance list * (StateVar.t * Model.term_or_lambda list) list * Property.t 
+val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.term_or_lambda list) list ->  Model.term_or_lambda list -> Model.term_or_lambda list) -> t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> t * instance list * (StateVar.t * Model.term_or_lambda list) list * Property.t 
 
 (** {1 State Variables} *)
 

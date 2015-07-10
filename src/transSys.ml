@@ -933,59 +933,12 @@ let flatten_instances subsystems =
     subsystems 
 
 
-(* Return the subsystem that contains all state variables of the term *)
-let rec term_map_to_subsystem' ({ subsystems } as trans_sys) term = function 
 
-  (* No more subsytems to try, this is the lowest system *)
-  | [] -> (trans_sys, term)
-
-  (* Try to map all state variables of the term to the subsystem
-     instance *)
-  | ({ subsystems } as trans_sys', { map_down }) :: tl -> 
-
-    try 
-
-      (* *)
-      let term' = 
-        Term.map
-          (fun _ term ->
-             Term.map_state_vars
-               (fun sv -> SVM.find sv map_down)
-               term)
-          term
-
-      in
-
-      (* Flatten subsystem instances *)
-      flatten_instances subsystems 
-
-      |> 
-      
-      (* Try to map term to a subsystem instance *)
-      term_map_to_subsystem' 
-        trans_sys' 
-        term'
-        
-    (* Some state variable could not be mapped to the subsystem *)
-    with Not_found -> 
-
-      (* Try remaining subsystems *)
-      term_map_to_subsystem' trans_sys term tl
-
-
-(* *)
-let term_map_to_subsystem ({ subsystems } as trans_sys) term = 
-
-  (* Flatten subsystem instances *)
-  flatten_instances subsystems
-
-  (* Try to map term to a subsystem instance of the top system *)
-  |> term_map_to_subsystem' trans_sys term
-
-
-
-
-let rec map_cex_prop_to_subsystem' ({ subsystems } as trans_sys) instances cex = 
+let rec map_cex_prop_to_subsystem' 
+    filter_out_values
+    ({ scope; subsystems } as trans_sys) 
+    instances
+    cex = 
 
   function 
 
@@ -1034,17 +987,18 @@ let rec map_cex_prop_to_subsystem' ({ subsystems } as trans_sys) instances cex =
         List.fold_left
           (fun cex' (sv, v) -> 
              try 
-               (SVM.find sv map_down, v) :: cex'
+               (SVM.find sv map_down, 
+                filter_out_values scope instance cex v) ::
+               cex'
              with Not_found -> 
                cex') 
           []
           cex
       in
 
-      assert (cex' <> []);
-
       (* Continue to map to subsystem *)
       map_cex_prop_to_subsystem' 
+        filter_out_values
         trans_sys'
         (instance :: instances)
         cex'
@@ -1056,8 +1010,8 @@ let rec map_cex_prop_to_subsystem' ({ subsystems } as trans_sys) instances cex =
       (trans_sys, instances, cex, p)
 
 
-let map_cex_prop_to_subsystem trans_sys cex prop = 
-  map_cex_prop_to_subsystem' trans_sys [] cex prop 
+let map_cex_prop_to_subsystem filter_out_values trans_sys cex prop = 
+  map_cex_prop_to_subsystem' filter_out_values trans_sys [] cex prop 
 
 
 (*
