@@ -916,6 +916,95 @@ let nodes_of_subsystem subsystem =
 
 
 (* ********************************************************************** *)
+(* Iterators                                                              *)
+(* ********************************************************************** *)
+
+(* Stack for zipper in [fold_node_calls_with_trans_sys'] *)
+type fold_stack = 
+  | FDown of t * TransSys.t * (TransSys.t * TransSys.instance) list
+  | FUp of t * TransSys.t * (TransSys.t * TransSys.instance) list
+
+let rec fold_node_calls_with_trans_sys' 
+    nodes
+    (f : t -> TransSys.t -> (TransSys.t * TransSys.instance) list -> 'a list -> 'a)
+    accum = 
+
+  function 
+
+    (* All systems visited, return result *)
+    | [] -> 
+
+      (match accum with
+        | [[a]] -> a
+        | _ -> assert false)
+
+    (* We need to evaluate called nodes first *)
+    | FDown (({ calls } as node), trans_sys, instances) :: tl -> 
+      
+      (* Direct subsystems of transition system *)
+      let subsystems = 
+        TransSys.get_subsystem_instances trans_sys 
+      in
+
+      let tl' = 
+        List.fold_left 
+          (fun a { call_pos; call_node_name } ->
+
+             (* Find called node by name *)
+             let node' = node_of_name call_node_name nodes in
+
+             (* Find subsystem of this node by name *)
+             let trans_sys', instances' =
+               List.find 
+                 (fun (t, _) -> 
+                    Scope.equal
+                      (TransSys.scope_of_trans_sys t)
+                      (I.to_scope call_node_name))
+                 subsystems
+             in
+
+             (* Find instance of this node call by position *)
+             let instance = 
+               List.find 
+                 (fun { TransSys.pos } -> 
+                    pos = call_pos)
+                 instances'
+             in
+
+             FDown (node', trans_sys', (trans_sys, instance) :: instances) :: a)
+          (FUp (node, trans_sys, instances) :: tl)
+
+          calls
+      in
+
+      fold_node_calls_with_trans_sys'
+        nodes
+        f 
+        ([] :: accum)
+        tl'
+
+    (* Subsytems are in the accumulator, evaluate this system now *)
+    | FUp (n, t, i) :: tl -> 
+
+      (match accum with
+        | a :: b :: c ->
+          
+          fold_node_calls_with_trans_sys' 
+            nodes
+            f
+            (((f n t i a) :: b) :: c) 
+            tl
+            
+        | _ -> assert false)
+
+
+
+let fold_node_calls_with_trans_sys nodes f node trans_sys =
+
+  fold_node_calls_with_trans_sys' nodes f [[]] [FDown (node, trans_sys, [])]
+
+
+(* ********************************************************************** *)
 (* Stateful variables                                                     *)
 (* ********************************************************************** *)
 

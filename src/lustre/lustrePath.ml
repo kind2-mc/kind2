@@ -333,29 +333,10 @@ let map_top_reconstruct_and_add
 let node_path_of_instance 
     first_is_init
     model_top
-    nodes
+    ({ N.inputs; N.outputs; N.locals; N.equations } as node)
     trans_sys
     instances
     subnodes =
-
-  (* Convert scope of transition system to a node identifier *)
-  let ident = 
-    TransSys.scope_of_trans_sys trans_sys
-    |> LustreIdent.of_scope 
-  in
-
-  (* Source node of transition system *)
-  let { N.inputs; N.outputs; N.locals; N.equations } as node = 
-
-    try 
-
-      (* Get node by name *)
-      N.node_of_name ident nodes 
-
-    (* Node must be in the subsystems *)
-    with Not_found -> assert false
-
-  in
 
   (* Create a path for the state variables of the node *)
   let model = 
@@ -424,12 +405,13 @@ let node_path_of_subsystems
     TransSys.find_subsystem_of_scope trans_sys scope 
   in
 
+  let nodes = N.nodes_of_subsystem subsystems in
+
   (* Create models for all subnodes *)
-  TransSys.fold_subsystem_instances 
-    (node_path_of_instance
-       first_is_init
-       model
-       (N.nodes_of_subsystem subsystems))
+  N.fold_node_calls_with_trans_sys
+    nodes
+    (node_path_of_instance first_is_init model)
+    (N.node_of_name (I.of_scope scope) nodes)
     trans_sys'
 
 
