@@ -1057,6 +1057,7 @@ let stateful_vars_of_node
     { inputs; 
       oracles; 
       outputs; 
+      locals;
       equations; 
       calls; 
       asserts; 
@@ -1099,6 +1100,33 @@ let stateful_vars_of_node
          SVS.union accum (stateful_vars_of_expr expr))
       stateful_vars
       equations
+  in
+
+  (* Unconstrained local state variables must be stateful *)
+  let stateful_vars = 
+    List.fold_left
+      (fun a l -> 
+         D.fold
+           (fun _ sv a -> 
+              if 
+
+                (* Local state variable is defined by an equation? *)
+                List.exists
+                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  equations 
+              then 
+              
+                (* State variable is not necessarily stateful *)
+                a
+
+              else 
+
+                (* State variable without equation must be stateful *)
+                SVS.add sv a)
+           l
+           a)
+      stateful_vars
+      locals
   in
 
   (* Add property variables *)
