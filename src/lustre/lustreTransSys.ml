@@ -1893,9 +1893,9 @@ let rec trans_sys_of_node'
                 [] (* One-state invariants *)
                 [] (* Two-state invariants *)
             in                
-
+(*
             Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
-  
+  *)
             trans_sys_of_node'
               top_name
               analysis_param
@@ -1936,11 +1936,11 @@ let trans_sys_of_nodes
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in 
-
+(*
   Format.printf
     "@[<v>%a@]@."
     (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
-
+*)
   let { trans_sys } =   
 
     try 
