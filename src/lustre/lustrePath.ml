@@ -178,10 +178,10 @@ let rec substitute_definitions' stateful_vars equations subst = function
   (* Get variable in this system to be instantiated *)
   | state_var :: tl -> 
 
-    (* Find equation for the variable *)
-    let expr = 
+    try 
 
-      try 
+      (* Find equation for the variable *)
+      let expr = 
 
         List.find
           (function 
@@ -196,15 +196,27 @@ let rec substitute_definitions' stateful_vars equations subst = function
         (* Return expression on right-hand side of equation *)
         |> (function (_, _, e) -> e)
 
-      with Not_found -> assert false
-    in
+      in
 
-    (* Add substitution for state variable and continue *)
-    substitute_definitions'
-      stateful_vars 
-      equations
-      ((state_var, expr) :: subst)
-      ((E.state_vars_of_expr expr |> SVS.elements) @ tl)
+      (* Add substitution for state variable and continue *)
+      substitute_definitions'
+        stateful_vars 
+        equations
+        ((state_var, expr) :: subst)
+        ((E.state_vars_of_expr expr |> SVS.elements) @ tl)
+
+    (* No equation for state variable 
+
+       This should not happen, but just make sure not to fail. *)
+    with Not_found -> 
+
+      (* Add substitution for state variable and continue *)
+      substitute_definitions'
+        stateful_vars 
+        equations
+        subst
+        tl
+
 
 
 (* Recursively substitute the state variable with either its instance

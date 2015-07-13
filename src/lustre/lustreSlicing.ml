@@ -715,9 +715,41 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
         inputs, outputs
     in
 
+    (* Local variables related by an index have been moved together,
+       now discard not visited indexes *)
+    let locals' = 
+      List.fold_left 
+        (fun a l ->
+           D.fold
+             (fun i sv a -> 
+                if 
+
+                  (* Has state variable been visited ? *)
+                  List.exists (StateVar.equal_state_vars sv) leaves 
+
+                then
+
+                  (* Keep its definition as a local state variable *)
+                  D.add i sv a
+
+                else
+
+                  (* Remvoe definition of not visited state
+                     variable *)
+                  a)
+             l
+             D.empty :: a)
+        []
+        locals 
+    in
+
+
     (* Replace inputs and outputs in sliced node *)
     let node_sliced = 
-      { node_sliced with N.inputs = inputs'; N.outputs = outputs' }
+      { node_sliced with
+          N.inputs = inputs'; 
+          N.outputs = outputs';
+          N.locals = List.rev locals' }
     in
 
     (* Continue with next nodes *)
@@ -873,7 +905,10 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
          unsliced to sliced node
 
          We move definitions of all local variables related by an
-         index together. *)
+         index together and eliminate the not visited ones at the
+         end. If we wanted to move indexed state variables one by one,
+         we would need to have a way to find out which local state
+         variable trie to insert it into.*)
       let locals_in_coi', locals_not_in_coi' =
         
         List.fold_left
@@ -889,8 +924,9 @@ let rec slice_nodes init_slicing_of_node nodes accum = function
 
              then
         
-               (* Add all state variables related by an index to this state
-                  variable as local variables, but do not add them as roots *)
+               (* Add all state variables related by an index to this
+                  state variable as local variables, but do not add
+                  them as roots *)
                (l :: locals_in_coi, locals_not_in_coi)
        
              else
