@@ -202,12 +202,12 @@ let empty_node name =
       StateVar.mk_state_var
         ~is_const:true
         (I.instance_ident |> I.string_of_ident false)
-        [I.string_of_ident false name]
+        (I.to_scope name @ I.reserved_scope)
         Type.t_int;
     init_flag = 
       StateVar.mk_state_var
         (I.init_flag_ident |> I.string_of_ident false)
-        [I.string_of_ident false name]
+        (I.to_scope name @ I.reserved_scope)
         Type.t_bool;
     inputs = D.empty;
     oracles = [];

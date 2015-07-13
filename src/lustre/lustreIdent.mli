@@ -29,7 +29,7 @@
 
 
 (** An identifier is a string with integer indexes *)
-type t = private string * int list 
+type t = private Ident.t * int list 
 
 (** Equality on identifiers *)
 val equal : t -> t -> bool
@@ -81,8 +81,11 @@ val pp_print_ident : bool -> Format.formatter -> t -> unit
 
 (** {1 Reserved Identifiers} *)
 
-(** Return [true] if identifier is reserved for internal use *)
-val ident_is_reserved : t -> bool
+(** Scope for reserved identifiers *)
+val reserved_scope : Scope.t
+
+(** Scope for identifiers in user input *)
+val user_scope : Scope.t
 
 (** Identifier for abstracted variables *)
 val abs_ident : t

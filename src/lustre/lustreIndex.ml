@@ -207,7 +207,7 @@ let array_vars_of_index idx =
            ((List.length a)
             |> I.push_index I.index_ident
             |> I.string_of_ident true)
-           []
+           I.reserved_scope
            (Term.type_of_term (e :> Term.t)) 
          :: a
        | _ -> a)

@@ -1422,7 +1422,7 @@ let rec trans_sys_of_node'
             ?for_inv_gen:for_inv_gen
             ((I.push_index I.inst_ident !index_ref) 
              |> I.string_of_ident true)
-            [(I.string_of_ident true) node_name]
+            (N.scope_of_node node @ I.reserved_scope)
             state_var_type
 
         in

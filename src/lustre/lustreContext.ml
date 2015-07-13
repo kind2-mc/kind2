@@ -177,10 +177,11 @@ let fail_on_new_definition ctx pos msg =
 let scope_of_node = function 
 
   (* Within a node: add node name to scope *)
-  | { node = Some { N.name } } -> [I.string_of_ident false name]
+  | { node = Some node } -> N.scope_of_node node
 
   (* Outside a node: return empty scope *)
   | { node = None } -> []
+
 
 
 (* Return the scope of the current context *)
@@ -457,6 +458,32 @@ let mk_state_var
          index)
   in
 
+  (* For each index add a scope to the identifier to distinguish the
+     flattened indexed identifier from unindexed identifiers
+
+     The scopes indicate the positions from the back of the string in
+     the flattened identifier where a new index begins.
+
+     The following indexed identifiers are all flattened to x_y_z, but
+     we can distinguish them by their scopes:
+
+     x_y_z  [] 
+     x.y.z  [2;2]
+     x.y_z  [4]
+     x_y.z  [2]
+
+  *)
+  let flatten_scopes = 
+    List.rev_map
+      (fun i -> 
+         string_of_t (D.pp_print_one_index true) i
+         |> String.length
+         |> string_of_int
+         |> Ident.of_string)
+      index 
+    |> Scope.mk_scope
+  in
+
   (* Create or retrieve state variable *)
   let state_var =
     StateVar.mk_state_var
@@ -464,7 +491,7 @@ let mk_state_var
       ?is_const
       ?for_inv_gen 
       state_var_name
-      scope
+      (scope @ flatten_scopes)
       state_var_type 
   in
 
@@ -587,23 +614,8 @@ let type_of_ident { ident_type_map } ident = IT.find ident_type_map ident
    the identifier is reserved. *)
 let expr_in_context { ident_expr_map } ident = 
 
-  if 
-
-    (* Identifier must not be reserved *)
-    I.ident_is_reserved ident
-
-  then
-    
-    raise 
-      (Invalid_argument 
-         (Format.asprintf 
-            "Identifier %a is reserved internal use" 
-            (I.pp_print_ident false) ident))
-
-  else
-
-    (* Return if identifier is in context *)
-    (List.exists (fun m -> IT.mem m ident) ident_expr_map) 
+  (* Return if identifier is in context *)
+  (List.exists (fun m -> IT.mem m ident) ident_expr_map) 
 
 
 (* Return true if identifier has been declared, raise an exception if
@@ -657,7 +669,7 @@ let mk_fresh_oracle
           ?is_const:is_const
           ?for_inv_gen:for_inv_gen
           ctx
-          (scope_of_node ctx)
+          (scope_of_node ctx @ I.reserved_scope)
           (I.push_index I.oracle_ident fresh_oracle_index)
           D.empty_index
           state_var_type
@@ -826,7 +838,7 @@ let mk_state_var_for_expr
             ~is_const:is_const
             ~for_inv_gen:for_inv_gen
             ctx
-            (scope_of_node ctx)
+            (scope_of_node ctx @ I.reserved_scope)
             (I.push_index I.abs_ident fresh_local_index)
             D.empty_index
             expr_type
@@ -919,7 +931,7 @@ let mk_fresh_local
           ?is_const:is_const
           ?for_inv_gen:for_inv_gen
           ctx
-          (scope_of_node ctx)
+          (scope_of_node ctx @ I.reserved_scope)
           (I.push_index I.abs_ident fresh_local_index)
           D.empty_index
           state_var_type
@@ -1040,7 +1052,7 @@ let add_node_input ?is_const ctx ident index_types =
                  ~is_input:true
                  ?is_const
                  ctx
-                 (scope_of_node ctx)
+                 (scope_of_node ctx @ I.user_scope)
                  ident
                  index
                  index_type
@@ -1082,7 +1094,7 @@ let add_node_output ?(is_single = false) ctx ident index_types =
                mk_state_var
                  ~is_input:false
                  ctx
-                 (scope_of_node ctx)
+                 (scope_of_node ctx @ I.user_scope)
                  ident
                  index
                  index_type
@@ -1127,7 +1139,7 @@ let add_node_local ?(ghost = false) ctx ident index_types =
                  ~is_input:false
                  ~shadow:ghost
                  ctx
-                 (scope_of_context ctx)
+                 (scope_of_context ctx @ I.user_scope)
                  ident
                  index
                  index_type
