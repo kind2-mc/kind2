@@ -64,6 +64,10 @@ val z3_bin : unit -> z3_bin
 type smt_check_sat_assume = bool
 val smt_check_sat_assume : unit -> smt_check_sat_assume
 
+(** Send short names to SMT solver *)
+type smt_short_names = bool
+val smt_short_names : unit -> smt_short_names
+
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
 val cvc4_bin : unit -> cvc4_bin

@@ -215,6 +215,16 @@ let smt_check_sat_assume_default = true
 
 (* ********** *) 
 
+type smt_short_names = bool
+
+let smt_short_names_of_string s = s
+
+let string_of_smt_short_names s = s 
+
+let smt_short_names_default = true
+
+(* ********** *) 
+
 type cvc4_bin = string 
 
 let cvc4_bin_of_string s = s
@@ -600,6 +610,7 @@ type flags =
     mutable smtlogic : smtlogic;
     mutable z3_bin : z3_bin;
     mutable smt_check_sat_assume : smt_check_sat_assume;
+    mutable smt_short_names : smt_short_names;
     mutable cvc4_bin : cvc4_bin;
     mutable mathsat5_bin : mathsat5_bin;
     mutable yices_bin : yices_bin;
@@ -652,6 +663,7 @@ let flags =
     smtlogic = smtlogic_default;
     z3_bin = z3_bin_default;
     smt_check_sat_assume = smt_check_sat_assume_default;
+    smt_short_names = smt_short_names_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
@@ -756,6 +768,17 @@ let smt_check_sat_assume_spec =
      "Use check-sat with assumptions, or simulate with push/pop \
       when false (default: %B)"
      smt_check_sat_assume_default)
+
+(* ********** *) 
+
+let smt_short_names_action o = flags.smt_short_names <- o
+  
+let smt_short_names_spec = 
+  ("--smt_short_names", 
+   Arg.Bool smt_short_names_action, 
+   Format.sprintf
+     "Send short variables names to SMT solver, send full names if false (default: %B)"
+     smt_short_names_default)
 
 (* ********** *) 
 
@@ -1222,6 +1245,8 @@ let z3_bin () = flags.z3_bin
 
 let smt_check_sat_assume () = flags.smt_check_sat_assume
 
+let smt_short_names () = flags.smt_short_names
+
 let cvc4_bin () = flags.cvc4_bin
 
 let mathsat5_bin () = flags.mathsat5_bin
@@ -1348,6 +1373,9 @@ and speclist =
 
     (* Use check-sat with assumptions or simulate with push/pop *)
     smt_check_sat_assume_spec;
+
+    (* Send short names to SMT solver *)
+    smt_short_names_spec;
 
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;
