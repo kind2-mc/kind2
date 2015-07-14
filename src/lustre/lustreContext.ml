@@ -61,6 +61,9 @@ type t =
     (* Visible nodes *)
     nodes : N.t list;
 
+    (* Node dependencies *)
+    deps : I.Set.t I.Map.t;
+
     (* Visible contract nodes *)
     contract_nodes : (position * A.contract_node_decl) list;
 
@@ -112,6 +115,7 @@ let mk_empty_context () =
   { scope = [];
     node = None;
     nodes = [];
+    deps = I.Map.empty;
     contract_nodes = [];
     ident_type_map = IT.create 7;
     ident_expr_map = [IT.create 7];
@@ -1556,6 +1560,26 @@ let set_node_main ctx =
 
       { ctx with node = Some { node with N.is_main = true } }
 
+
+(* Return forward referenced subnodes of node *)
+let deps_of_node { deps } ident = I.Map.find ident deps
+
+
+(* Add second node as a forward referenced subnode of the first *)
+let add_dep ({ deps } as ctx) ident called_ident = 
+
+  (* Get or initialize set of forward referenced subnodes *)
+  let dep_set = 
+    try 
+      I.Map.find ident deps
+    with Not_found -> I.Set.empty 
+  in
+
+  (* Add forward referenced node as dependency *)
+  let deps = I.Map.add ident (I.Set.add ident dep_set) deps in
+  
+  (* Return changed context *)
+  { ctx with deps }
 
 
 (* 

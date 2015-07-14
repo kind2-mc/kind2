@@ -55,6 +55,12 @@ val add_node_to_context : t -> t -> t
 (** Create a new node from the context *)
 val node_of_context : t -> LustreNode.t 
 
+(** Return forward referenced subnodes of node *)
+val deps_of_node : t -> LustreIdent.t -> LustreIdent.Set.t
+
+(** Add second node as a forward referenced subnode of the first *)
+val add_dep : t -> LustreIdent.t -> LustreIdent.t -> t 
+
 (** Add a binding of an identifier to an expression to context 
 
     If the labeled argument [shadow] is true, allow overwriting a

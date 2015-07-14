@@ -1569,7 +1569,7 @@ let rec declarations_to_context ctx =
                List.fold_left 
                  (fun acc d -> match d with 
                     | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
-                      when i = (I.string_of_ident false) ident ->
+                      when i = (I.string_of_ident false) called_ident ->
                       curr_decl :: d :: acc
                     | _ -> d :: acc)
                  [] 
@@ -1577,7 +1577,7 @@ let rec declarations_to_context ctx =
                |> List.rev
              in
 
-             (* Continue. *)
+             (* Continue *)
              declarations_to_context ctx decls
 
            )
