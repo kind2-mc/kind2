@@ -622,6 +622,10 @@ let rec eval_ast_expr ctx =
             pos
             "Cannot use a constant array in a recursive definition"
 
+        | D.TupleIndex _ :: tl, _ ->
+
+          eval_ast_expr ctx (A.TupleProject (pos, expr, i))
+
         | _ -> C.fail_at_position pos "Selection not from an array")
 
     (* Array slice [A[i..j,k..l]] *)

@@ -633,6 +633,26 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
       C.fail_at_position pos "Type mismatch in equation: indexes do not match"
 
+  (* Tuple index on left-hand and array index on right-hand side *)
+  | ((D.TupleIndex i :: lhs_index_tl, state_var) :: lhs_tl,
+     (D.ArrayIntIndex j :: rhs_index_tl, expr) :: rhs_tl) ->
+
+    (* Indexes are sorted, must match *)
+    if i = j then 
+
+      (* Use tuple index instead of array index on right-hand side *)
+      expand_tuple'
+        pos
+        accum
+        bounds
+        ((lhs_index_tl, state_var) :: lhs_tl)
+        ((lhs_index_tl, expr) :: rhs_tl)
+
+    else
+
+      C.fail_at_position pos "Type mismatch in equation: indexes do not match"
+
+
   (* Record index on left-hand and right-hand side *)
   | (D.RecordIndex i :: lhs_index_tl, state_var) :: lhs_tl,
     (D.RecordIndex j :: rhs_index_tl, expr) :: rhs_tl -> 
@@ -659,7 +679,6 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
   | (D.TupleIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
   | (D.TupleIndex _ :: _, _) :: _, (D.ListIndex _ :: _, _) :: _
-  | (D.TupleIndex _ :: _, _) :: _, (D.ArrayIntIndex _ :: _, _) :: _
   | (D.TupleIndex _ :: _, _) :: _, (D.ArrayVarIndex _ :: _, _) :: _
 
   | (D.ListIndex _ :: _, _) :: _, (D.RecordIndex _ :: _, _) :: _
@@ -1414,120 +1433,192 @@ let eval_node_decl
 (* ********************************************************************** *)
 
 (* Add declarations of program to context *)
-let rec declarations_to_context ctx = function 
+let rec declarations_to_context ctx = 
 
-  (* All declarations processed, return result *)
-  | [] -> ctx
+  function 
 
-  (* Declaration of a type as alias or free *)
-  | (A.TypeDecl (pos, A.AliasType (_, i, type_expr))) :: decls ->
+    (* All declarations processed, return result *)
+    | [] -> ctx
 
-    (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    (* Declaration of a type as alias or free *)
+    | (A.TypeDecl (pos, A.AliasType (_, i, type_expr))) :: decls ->
 
-    if       
+      (* Identifier of AST identifier *)
+      let ident = I.mk_string_ident i in
 
-      (* Type t must not be declared *)
-      C.type_in_context ctx ident
+      if       
 
-    then
+        (* Type t must not be declared *)
+        C.type_in_context ctx ident
 
-      C.fail_at_position 
-        pos
-        (Format.asprintf 
-           "Type %a is redeclared" 
-           (I.pp_print_ident false) ident);
+      then
 
-    (* Add all indexes of type to identifier and add to trie *)
-    let res = S.eval_ast_type ctx type_expr in
+        C.fail_at_position 
+          pos
+          (Format.asprintf 
+             "Type %a is redeclared" 
+             (I.pp_print_ident false) ident);
 
-    (* Return changed context and unchanged declarations *)
-    let ctx = C.add_type_for_ident ctx ident res in
+      (* Add all indexes of type to identifier and add to trie *)
+      let res = S.eval_ast_type ctx type_expr in
 
-    (* Recurse for next declarations *)
-    declarations_to_context ctx decls
+      (* Return changed context and unchanged declarations *)
+      let ctx = C.add_type_for_ident ctx ident res in
 
-  (* Declaration of a typed or untyped constant *)
-  | (A.ConstDecl (_, const_decl)) :: decls ->
+      (* Recurse for next declarations *)
+      declarations_to_context ctx decls
 
-    (* Add mapping of identifier to value to context *)
-    let ctx = eval_const_decl ctx const_decl in
+    (* Declaration of a typed or untyped constant *)
+    | (A.ConstDecl (_, const_decl)) :: decls ->
 
-    (* Recurse for next declarations *)
-    declarations_to_context ctx decls
+      (* Add mapping of identifier to value to context *)
+      let ctx = eval_const_decl ctx const_decl in
 
-  (* Node declaration without parameters *)
-  | (A.NodeDecl 
-       (pos, 
-        (i, 
-         [], 
-         inputs, 
-         outputs, 
-         locals, 
-         equations, 
-         contracts))) :: decls -> 
+      (* Recurse for next declarations *)
+      declarations_to_context ctx decls
 
-    (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
+    (* Node declaration without parameters *)
+    | (A.NodeDecl 
+         (pos, 
+          (i, 
+           [], 
+           inputs, 
+           outputs, 
+           locals, 
+           equations, 
+           contracts))) as curr_decl :: decls -> 
 
-    (* Identifier must not be declared *)
-    if C.node_in_context ctx ident then
+      (* Identifier of AST identifier *)
+      let ident = I.mk_string_ident i in
 
-      (* Fail if identifier already declared *)
-      C.fail_at_position 
-        pos 
-        (Format.asprintf 
-           "Node %a is redeclared" 
-           (I.pp_print_ident false) ident);
+      (* Identifier must not be declared *)
+      if C.node_in_context ctx ident then
 
-    (* Create separate context for node *)
-    let node_ctx = C.create_node ctx ident in
+        (* Fail if identifier already declared *)
+        C.fail_at_position 
+          pos 
+          (Format.asprintf 
+             "Node %a is redeclared" 
+             (I.pp_print_ident false) ident);
 
-    (* Evaluate node declaration in separate context *)
-    let node_ctx = 
-      eval_node_decl
-        node_ctx
-        inputs
-        outputs
-        locals
-        equations
-        contracts
-    in  
+      (try
 
-    (* Add node to context *)
-    let ctx = C.add_node_to_context ctx node_ctx in
+         (* Create separate context for node *)
+         let node_ctx = C.create_node ctx ident in
 
-    (* Recurse for next declarations *)
-    declarations_to_context ctx decls
+         (* Evaluate node declaration in separate context *)
+         let node_ctx = 
+           eval_node_decl
+             node_ctx
+             inputs
+             outputs
+             locals
+             equations
+             contracts
+         in  
 
-  (* Declaration of a contract node *)
-  | A.ContractNodeDecl (pos, node_decl) :: decls -> 
-    
-    (* Add to context for later inlining *)
-    let ctx = C.add_contract_node_decl_to_context ctx (pos, node_decl) in
+         (* Add node to context *)
+         let ctx = C.add_node_to_context ctx node_ctx in
 
-    (* Recurse for next declarations *)
-    declarations_to_context ctx decls
+         (* Recurse for next declarations *)
+         declarations_to_context ctx decls
 
-  (* ******************************************************************** *)
-  (* Unsupported below                                                    *)
-  (* ******************************************************************** *)
+       (* Node may be forward referenced *)
+       with C.Node_not_found (called_ident, pos) -> 
 
-  (* Identifier is a free type *)
-  | (A.TypeDecl (pos, (A.FreeType _))) :: decls -> 
+         if 
 
-    C.fail_at_position pos "Free types not supported"
+           (* Is the referenced node declared later? *)
+           List.exists 
+             (function 
+               | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
+                 when i = (I.string_of_ident false) called_ident -> true 
+               | _ -> false)
+             decls
 
-  (* External function declaration *)
-  | (A.FuncDecl (pos, _)) :: _ ->
+         then
 
-    C.fail_at_position pos "Functions not supported"
+           (
 
-  (* Parametric node declaration *)
-  | (A.NodeParamInst (pos, _)) :: _
-  | (A.NodeDecl (pos, _)) :: _ ->
+             (* Check circularity *)
+             (try
 
-    C.fail_at_position pos "Parametric nodes not supported" 
+                (* Get nodes that this forward references *)
+                let called_deps = C.deps_of_node ctx called_ident in
+
+                (* Is the reference circular? *)
+                if I.Set.mem ident called_deps then 
+
+                  C.fail_at_position
+                    pos
+                    (Format.asprintf 
+                       "Circular dependecy between nodes %a and %a" 
+                       (I.pp_print_ident false) ident
+                       (I.pp_print_ident false) called_ident)
+
+              with Not_found -> ());
+
+             (* Add new dependency *)
+             let ctx = C.add_dep ctx ident called_ident in
+
+             (* Move declaration to correct position.  
+
+                Inefficient: might be better to do a topological sort
+                beforehand *)
+             let decls =
+               List.fold_left 
+                 (fun acc d -> match d with 
+                    | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
+                      when i = (I.string_of_ident false) ident ->
+                      curr_decl :: d :: acc
+                    | _ -> d :: acc)
+                 [] 
+                 decls
+               |> List.rev
+             in
+
+             (* Continue. *)
+             declarations_to_context ctx decls
+
+           )
+
+         else
+
+           C.fail_at_position
+             pos
+             (Format.asprintf 
+                "Node %a is not defined" 
+                (I.pp_print_ident false) ident))
+
+    (* Declaration of a contract node *)
+    | A.ContractNodeDecl (pos, node_decl) :: decls -> 
+
+      (* Add to context for later inlining *)
+      let ctx = C.add_contract_node_decl_to_context ctx (pos, node_decl) in
+
+      (* Recurse for next declarations *)
+      declarations_to_context ctx decls
+
+    (* ******************************************************************** *)
+    (* Unsupported below                                                    *)
+    (* ******************************************************************** *)
+
+    (* Identifier is a free type *)
+    | (A.TypeDecl (pos, (A.FreeType _))) :: decls -> 
+
+      C.fail_at_position pos "Free types not supported"
+
+    (* External function declaration *)
+    | (A.FuncDecl (pos, _)) :: _ ->
+
+      C.fail_at_position pos "Functions not supported"
+
+    (* Parametric node declaration *)
+    | (A.NodeParamInst (pos, _)) :: _
+    | (A.NodeDecl (pos, _)) :: _ ->
+
+      C.fail_at_position pos "Parametric nodes not supported" 
+
 
 
 (* ********************************************************************** *)
@@ -1537,45 +1628,15 @@ let rec declarations_to_context ctx = function
 (* Iterate over the declarations and return the nodes *)
 let declarations_to_nodes decls = 
 
-  try
+  (* Create fresh context with empty scope and no nodes *)
+  let ctx = C.mk_empty_context () in
 
-    (* Create fresh context with empty scope and no nodes *)
-    let ctx = C.mk_empty_context () in
+  (* Add declarations to context *)
+  let ctx = declarations_to_context ctx decls in
 
-    (* Add declarations to context *)
-    let ctx = declarations_to_context ctx decls in
+  (* Return nodes in context *)
+  C.get_nodes ctx
 
-    (* Return nodes in context *)
-    C.get_nodes ctx
-
-  (* Node may be forward referenced *)
-  with C.Node_not_found (ident, pos) -> 
-
-    if 
-
-      (* Is the referenced node declared later? *)
-      List.exists 
-        (function 
-          | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
-            when i = (I.string_of_ident false) ident -> true 
-          | _ -> false)
-        decls
-
-    then
-
-      C.fail_at_position 
-        pos 
-        (Format.asprintf 
-           "Node %a is forward referenced" 
-           (I.pp_print_ident false) ident)
-
-    else
-
-      C.fail_at_position
-        pos
-        (Format.asprintf 
-           "Node %a is not defined" 
-           (I.pp_print_ident false) ident)
 
 
 (*
