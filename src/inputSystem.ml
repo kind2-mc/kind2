@@ -234,11 +234,15 @@ let slice_to_abstraction_and_property
      (* Slice Lustre subnode to property term *)
      | Lustre subsystem -> 
 
-       Lustre
-         (LustreSlicing.slice_to_abstraction_and_property
-            analysis'
-            prop_term
-            subsystem)
+       let subsystem' = 
+         LustreSlicing.slice_to_abstraction_and_property
+           analysis'
+           prop_term
+           subsystem
+       in
+
+       Lustre subsystem'
+         
 
      (* No slicing in native input *)
      | Native subsystem -> Native subsystem

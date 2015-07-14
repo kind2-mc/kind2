@@ -178,10 +178,10 @@ let rec substitute_definitions' stateful_vars equations subst = function
   (* Get variable in this system to be instantiated *)
   | state_var :: tl -> 
 
-    (* Find equation for the variable *)
-    let expr = 
+    try 
 
-      try 
+      (* Find equation for the variable *)
+      let expr = 
 
         List.find
           (function 
@@ -196,15 +196,27 @@ let rec substitute_definitions' stateful_vars equations subst = function
         (* Return expression on right-hand side of equation *)
         |> (function (_, _, e) -> e)
 
-      with Not_found -> assert false
-    in
+      in
 
-    (* Add substitution for state variable and continue *)
-    substitute_definitions'
-      stateful_vars 
-      equations
-      ((state_var, expr) :: subst)
-      ((E.state_vars_of_expr expr |> SVS.elements) @ tl)
+      (* Add substitution for state variable and continue *)
+      substitute_definitions'
+        stateful_vars 
+        equations
+        ((state_var, expr) :: subst)
+        ((E.state_vars_of_expr expr |> SVS.elements) @ tl)
+
+    (* No equation for state variable 
+
+       This should not happen, but just make sure not to fail. *)
+    with Not_found -> 
+
+      (* Add substitution for state variable and continue *)
+      substitute_definitions'
+        stateful_vars 
+        equations
+        subst
+        tl
+
 
 
 (* Recursively substitute the state variable with either its instance
@@ -333,29 +345,10 @@ let map_top_reconstruct_and_add
 let node_path_of_instance 
     first_is_init
     model_top
-    nodes
+    ({ N.inputs; N.outputs; N.locals; N.equations } as node)
     trans_sys
     instances
     subnodes =
-
-  (* Convert scope of transition system to a node identifier *)
-  let ident = 
-    TransSys.scope_of_trans_sys trans_sys
-    |> LustreIdent.of_scope 
-  in
-
-  (* Source node of transition system *)
-  let { N.inputs; N.outputs; N.locals; N.equations } as node = 
-
-    try 
-
-      (* Get node by name *)
-      N.node_of_name ident nodes 
-
-    (* Node must be in the subsystems *)
-    with Not_found -> assert false
-
-  in
 
   (* Create a path for the state variables of the node *)
   let model = 
@@ -424,12 +417,13 @@ let node_path_of_subsystems
     TransSys.find_subsystem_of_scope trans_sys scope 
   in
 
+  let nodes = N.nodes_of_subsystem subsystems in
+
   (* Create models for all subnodes *)
-  TransSys.fold_subsystem_instances 
-    (node_path_of_instance
-       first_is_init
-       model
-       (N.nodes_of_subsystem subsystems))
+  N.fold_node_calls_with_trans_sys
+    nodes
+    (node_path_of_instance first_is_init model)
+    (N.node_of_name (I.of_scope scope) nodes)
     trans_sys'
 
 

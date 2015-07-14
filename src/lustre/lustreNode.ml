@@ -202,12 +202,12 @@ let empty_node name =
       StateVar.mk_state_var
         ~is_const:true
         (I.instance_ident |> I.string_of_ident false)
-        [I.string_of_ident false name]
+        (I.to_scope name @ I.reserved_scope)
         Type.t_int;
     init_flag = 
       StateVar.mk_state_var
         (I.init_flag_ident |> I.string_of_ident false)
-        [I.string_of_ident false name]
+        (I.to_scope name @ I.reserved_scope)
         Type.t_bool;
     inputs = D.empty;
     oracles = [];
@@ -916,6 +916,95 @@ let nodes_of_subsystem subsystem =
 
 
 (* ********************************************************************** *)
+(* Iterators                                                              *)
+(* ********************************************************************** *)
+
+(* Stack for zipper in [fold_node_calls_with_trans_sys'] *)
+type fold_stack = 
+  | FDown of t * TransSys.t * (TransSys.t * TransSys.instance) list
+  | FUp of t * TransSys.t * (TransSys.t * TransSys.instance) list
+
+let rec fold_node_calls_with_trans_sys' 
+    nodes
+    (f : t -> TransSys.t -> (TransSys.t * TransSys.instance) list -> 'a list -> 'a)
+    accum = 
+
+  function 
+
+    (* All systems visited, return result *)
+    | [] -> 
+
+      (match accum with
+        | [[a]] -> a
+        | _ -> assert false)
+
+    (* We need to evaluate called nodes first *)
+    | FDown (({ calls } as node), trans_sys, instances) :: tl -> 
+      
+      (* Direct subsystems of transition system *)
+      let subsystems = 
+        TransSys.get_subsystem_instances trans_sys 
+      in
+
+      let tl' = 
+        List.fold_left 
+          (fun a { call_pos; call_node_name } ->
+
+             (* Find called node by name *)
+             let node' = node_of_name call_node_name nodes in
+
+             (* Find subsystem of this node by name *)
+             let trans_sys', instances' =
+               List.find 
+                 (fun (t, _) -> 
+                    Scope.equal
+                      (TransSys.scope_of_trans_sys t)
+                      (I.to_scope call_node_name))
+                 subsystems
+             in
+
+             (* Find instance of this node call by position *)
+             let instance = 
+               List.find 
+                 (fun { TransSys.pos } -> 
+                    pos = call_pos)
+                 instances'
+             in
+
+             FDown (node', trans_sys', (trans_sys, instance) :: instances) :: a)
+          (FUp (node, trans_sys, instances) :: tl)
+
+          calls
+      in
+
+      fold_node_calls_with_trans_sys'
+        nodes
+        f 
+        ([] :: accum)
+        tl'
+
+    (* Subsytems are in the accumulator, evaluate this system now *)
+    | FUp (n, t, i) :: tl -> 
+
+      (match accum with
+        | a :: b :: c ->
+          
+          fold_node_calls_with_trans_sys' 
+            nodes
+            f
+            (((f n t i a) :: b) :: c) 
+            tl
+            
+        | _ -> assert false)
+
+
+
+let fold_node_calls_with_trans_sys nodes f node trans_sys =
+
+  fold_node_calls_with_trans_sys' nodes f [[]] [FDown (node, trans_sys, [])]
+
+
+(* ********************************************************************** *)
 (* Stateful variables                                                     *)
 (* ********************************************************************** *)
 
@@ -968,6 +1057,7 @@ let stateful_vars_of_node
     { inputs; 
       oracles; 
       outputs; 
+      locals;
       equations; 
       calls; 
       asserts; 
@@ -1010,6 +1100,33 @@ let stateful_vars_of_node
          SVS.union accum (stateful_vars_of_expr expr))
       stateful_vars
       equations
+  in
+
+  (* Unconstrained local state variables must be stateful *)
+  let stateful_vars = 
+    List.fold_left
+      (fun a l -> 
+         D.fold
+           (fun _ sv a -> 
+              if 
+
+                (* Local state variable is defined by an equation? *)
+                List.exists
+                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  equations 
+              then 
+              
+                (* State variable is not necessarily stateful *)
+                a
+
+              else 
+
+                (* State variable without equation must be stateful *)
+                SVS.add sv a)
+           l
+           a)
+      stateful_vars
+      locals
   in
 
   (* Add property variables *)

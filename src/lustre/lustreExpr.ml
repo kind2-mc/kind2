@@ -980,7 +980,7 @@ let mk_index_var i =
     StateVar.mk_state_var
       ((I.push_index I.index_ident i) 
        |> I.string_of_ident false)
-      []
+      I.reserved_scope
       Type.t_int
   in
 

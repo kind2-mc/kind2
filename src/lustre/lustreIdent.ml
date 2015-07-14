@@ -26,7 +26,7 @@ open Lib
 module LustreIdent = struct 
 
   (* An identifier is a string with integer indexes *)
-  type t = string * int list 
+  type t = Ident.t * int list 
 
   (* Use polymorphic hash function *)
   let hash = Hashtbl.hash
@@ -120,13 +120,13 @@ let push_index (base, index) int = (base, int :: index)
 
 
 (* Reserved identifiers *)
-let abs_ident_string =  "__abs" 
-let oracle_ident_string =  "__nondet" 
-let instance_ident_string =  "__instance"
-let init_flag_ident_string =  "__init_flag"
-let all_req_ident_string =  "__all_req"
-let all_ens_ident_string =  "__all_ens"
-let inst_ident_string =  "__inst" 
+let abs_ident_string =  "abs" 
+let oracle_ident_string =  "nondet" 
+let instance_ident_string =  "instance"
+let init_flag_ident_string =  "init_flag"
+let all_req_ident_string =  "all_req"
+let all_ens_ident_string =  "all_ens"
+let inst_ident_string =  "inst" 
 let init_uf_string = "__node_init"
 let trans_uf_string = "__node_trans"
 let index_ident_string =  "__index" 
@@ -168,15 +168,12 @@ let inst_ident = mk_string_ident inst_ident_string
 (* Identifier for new clock initialization flag *)
 let index_ident = mk_string_ident index_ident_string
 
-(* Return true if the identifier clashes with internal identifier names *)
-let ident_is_reserved ident = 
+(* Scope for reserved identifiers *)
+let reserved_scope = Scope.mk_scope [ Ident.of_string "res" ]
 
-  (* Get string part of identifier *)
-  let ident_string, _ = ident in
+(* Scope for identifiers in user input *)
+let user_scope = Scope.mk_scope [ Ident.of_string "usr" ]
 
-  reserved_strings
-  |> List.exists
-       (string_starts_with ident_string)
 
 (* 
    Local Variables:

@@ -607,6 +607,7 @@ let rec fold_subsystem_instances'
     (* We need to evaluate the subsystems first *)
     | FDown ({ subsystems } as t, p) :: tl -> 
 
+      (* Push subsystems to stack, then return to this system *)
       let tl' = 
         List.fold_left 
           (fun a (s, i) -> push a t s p i)
@@ -614,6 +615,8 @@ let rec fold_subsystem_instances'
           subsystems
       in
 
+      (* Continue with subsytems and placeholder for results from
+         subsystems in accumulator *)
       fold_subsystem_instances' 
         f 
         ([] :: accum)
@@ -623,6 +626,10 @@ let rec fold_subsystem_instances'
     | FUp (t, i) :: tl -> 
 
       (match accum with
+
+        (* First element on accumulator is list of results for
+           children, second element is list of results for
+           siblings *)
         | a :: b :: c ->
           
           fold_subsystem_instances' f (((f t i a) :: b) :: c) tl
@@ -663,8 +670,11 @@ let fold_subsystem_instances f trans_sys =
 let iter_subsystem_instances f trans_sys = assert false
 
 
-(* Returns the subsystems of a system. *)
+(* Return the direct subsystems of a system *)
 let get_subsystems { subsystems } = List.map fst subsystems
+
+(* Return direct subsystems of a system and their instances *)
+let get_subsystem_instances { subsystems } = subsystems
 
 
 (* Find the subsystem of the scope *)

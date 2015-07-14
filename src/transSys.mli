@@ -241,8 +241,11 @@ val fold_subsystems : ?include_top:bool -> ('a -> t -> 'a) -> 'a -> t -> 'a
 *)
 val fold_subsystem_instances : (t -> (t * instance) list -> 'a list -> 'a) -> t -> 'a
 
-(** The direct subsystems of a system *)
+(** Return the direct subsystems of a system *)
 val get_subsystems : t -> t list
+
+(** Return the direct subsystems of a system and their instances *)
+val get_subsystem_instances : t -> (t * instance list) list
 
 (** Find the named subsystem 
 

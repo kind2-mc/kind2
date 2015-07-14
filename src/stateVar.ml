@@ -227,6 +227,16 @@ let set_for_inv_gen flag { Hashcons.prop } = prop.for_inv_gen <- flag
 (* ********************************************************************* *)
 
 
+(* Generate a new identifier for an uninterpreted functions symbol *)
+let gen_uf =
+  let r = ref 0 in
+  fun a s -> 
+    incr r; 
+    UfSymbol.mk_uf_symbol 
+      (Format.sprintf "f%d" !r)
+      a
+      s
+
 (* Hashcons a state variable *)
 let mk_state_var 
     ?(is_input:bool = false)
@@ -271,6 +281,8 @@ let mk_state_var
     
     try 
       
+      if Flags.smt_short_names () then raise Not_found;
+
       let _ = 
         UfSymbol.uf_symbol_of_string 
           (string_of_state_var_name (state_var_name, state_var_scope))
@@ -288,9 +300,17 @@ let mk_state_var
 
        (* Create an uninterpreted function symbol for the state variable *)
        let state_var_uf_symbol = 
-         UfSymbol.mk_uf_symbol 
-           (string_of_state_var_name 
-              (state_var_name, state_var_scope))
+
+         (if Flags.smt_short_names () then 
+            
+            gen_uf
+              
+          else
+            
+            (UfSymbol.mk_uf_symbol 
+               (string_of_state_var_name 
+                 (state_var_name, state_var_scope))))
+
            []
            (* (if is_const then [] else [Type.mk_int ()]) *)
            state_var_type 
