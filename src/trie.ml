@@ -64,6 +64,7 @@ end
 module type S = sig
   include M 
   val find_prefix : key -> 'a t -> 'a t
+  val mem_prefix : key -> 'a t -> bool
   val keys : 'a t -> key list
   val values : 'a t -> 'a list
   val fold2 : (key-> 'a -> 'b -> 'c -> 'c) -> 'a t -> 'b t -> 'c -> 'c
@@ -142,11 +143,29 @@ module Make (M : M) = struct
     | _, Empty
     | _ :: _, Leaf _ -> raise Not_found
 
-    (* Return trie if we have a leaf for an empty list of keys *)
+    (* Return trie if we have an empty list of keys *)
     | [], t -> t
 
     (* Recurse to the sub-trie of the head element the keys *)
     | h :: tl, Node m -> find_prefix tl (M.find h m)
+
+
+  (* Return [true] if there is a subtrie for the list of keys *)
+  let rec mem_prefix l t = match (l,t) with
+
+    (* Fail if we have a non-empty list of keys at a leaf *)
+    | _, Empty
+    | _ :: _, Leaf _ -> false
+
+    (* Return success if we have an empty list of keys *)
+    | [], t -> true
+
+    (* Recurse to the sub-trie of the head element the keys *)
+    | h :: tl, Node m -> 
+
+      try
+        mem_prefix tl (M.find h m)
+      with Not_found -> false
 
 
   (* Insert value for a key sequence into the trie. Overwrite if the

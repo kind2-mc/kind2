@@ -534,18 +534,15 @@ let order_equations
     List.fold_left
       (fun a sv ->
 
-         try 
+         (* Find equations of state variable and add to accumulator
 
-           (* Find equation of state variable and add to
-              accumulator *)
-           List.find 
-             (fun (sv', _, _) -> StateVar.equal_state_vars sv sv')
-             equations
-             :: a
-
-         (* State variable may be output of a node call, or
-            unconstrained *)
-         with Not_found -> a)
+            There may be more than one equation per state variable if
+            the state variable is an array. *)
+         List.fold_left 
+           (fun a ((sv', _, _) as e) -> 
+              if StateVar.equal_state_vars sv sv' then e :: a else a)
+           a
+           equations)
 
       []
       state_vars_ordered 

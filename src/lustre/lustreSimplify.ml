@@ -498,6 +498,158 @@ let rec eval_ast_expr ctx =
           pos
           "Type mismatch in record"
 
+    (* Update of a record, tuple or array at one index *)
+    | A.StructUpdate (pos, expr1, index, expr2) -> 
+
+      (* Evaluate expressions *)
+      let expr1', ctx = eval_ast_expr ctx expr1 in
+      let expr2', ctx = eval_ast_expr ctx expr2 in
+
+      (* Convert an ast index to an index *)
+      let rec aux accum = function 
+
+        (* All indexes consumed return in original order *)
+        | [] -> List.rev accum
+
+        (* First index is a record field label *)
+        | A.Label (pos, index) :: tl -> 
+
+          (* Add to accumulator *)
+          let accum' = D.RecordIndex index :: accum in
+
+          (* Does expression to update have the index? *)
+          if D.mem_prefix (List.rev accum') expr1' then 
+
+            (* Continue with remaining indexes *)
+            aux accum' tl
+
+          else
+
+            C.fail_at_position
+              pos
+              (Format.asprintf "Invalid index %s for expression" index)
+
+        (* First index is an integer index *)
+        | A.Index (pos, index_expr) :: tl -> 
+
+          (
+
+            (* Evaluate index expression to a static integer *)
+            let index_expr' = 
+              static_int_of_ast_expr ctx pos index_expr 
+            in 
+
+            (* Expression to update with indexes already seen
+               removed *)
+            let expr1'_sub = 
+
+              (* Get subtrie with index from accumulator *)
+              try D.find_prefix accum expr1' with 
+
+                (* We have checked before that the index in the
+                   accumulator is a prefix of the expression to
+                   update *)
+                | Not_found -> assert false
+            in
+
+            (* All indexes are of the same type *)
+            (match D.choose expr1'_sub with
+
+              (* Expression is indexed with a variable *)
+              | D.ArrayVarIndex _ :: _, _ -> 
+
+                (* Abuse bound for array variable to store index to
+                   update and continue *)
+                aux 
+                  (D.ArrayVarIndex index_expr' :: accum)
+                  tl
+
+              (* Expression is an array indexed with integers *)
+              | D.ArrayIntIndex _ :: _, _ -> 
+
+                (* Cast Lustre expression to a term *)
+                let index_term = (index_expr' :> Term.t) in
+
+                (* Term must be a numeral *)
+                if Term.is_numeral index_term then 
+                  
+                  (* Add array index of integer of numeral to
+                     accumulator and continue *)
+                  aux
+                    (D.ArrayIntIndex
+                       (Term.numeral_of_term index_term 
+                        |> Numeral.to_int) :: accum)
+                    tl
+                    
+                else
+                  
+                  C.fail_at_position
+                    pos
+                    "Invalid index for expression"
+
+              (* Expression is tuple indexed with integers *)
+              | D.TupleIndex _ :: _, _ -> 
+
+                (* Cast Lustre expression to a term *)
+                let index_term = (index_expr' :> Term.t) in
+
+                (* Term must be a numeral *)
+                if Term.is_numeral index_term then 
+                  
+                  (* Add array index of integer of numeral to
+                     accumulator and continue *)
+                  aux
+                    (D.TupleIndex
+                       (Term.numeral_of_term index_term 
+                        |> Numeral.to_int) :: accum)
+                    tl
+                    
+                else
+                  
+                  C.fail_at_position
+                    pos
+                    "Invalid index for expression"
+
+              (* Cannot be record, list or empty index *)
+              | D.RecordIndex _ :: _, _
+              | D.ListIndex _ :: _, _
+              | [], _ ->
+
+                C.fail_at_position
+                  pos
+                  "Invalid index for expression")
+
+          )
+
+      in
+
+      (* Get the index prefix *)
+      let index' = aux D.empty_index index in
+
+      (* Add index prefix to the indexes of the update expression *)
+      let expr2'' = 
+        D.fold
+          (fun i v a -> D.add (index' @ i) v a)
+          expr2'
+          D.empty
+      in
+
+      (* Replace indexes in updated expression *)
+      let expr1'' = 
+        D.fold
+          (fun i v a -> 
+             try 
+               let v' = D.find i expr2'' in
+               D.add i v' a
+             with Not_found -> 
+               D.add i v a)
+          expr1'
+          D.empty
+      in
+
+      expr1'', ctx
+
+
     (* ****************************************************************** *)
     (* Node calls                                                         *)
     (* ****************************************************************** *)
@@ -622,11 +774,16 @@ let rec eval_ast_expr ctx =
             pos
             "Cannot use a constant array in a recursive definition"
 
+        (* Projection from a tuple expression *)
         | D.TupleIndex _ :: tl, _ ->
 
+          (* Try again with the correct expression *)
           eval_ast_expr ctx (A.TupleProject (pos, expr, i))
 
-        | _ -> C.fail_at_position pos "Selection not from an array")
+        (* Other or no index *)
+        | D.RecordIndex _ :: _, _ 
+        | D.ListIndex _ :: _, _ 
+        | [], _ -> C.fail_at_position pos "Selection not from an array")
 
     (* Array slice [A[i..j,k..l]] *)
     | A.ArraySlice (pos, _, _) -> 

@@ -1131,7 +1131,7 @@ let rec constraints_of_equations
     (* Constraints for all equations generated *)
     | [] -> terms 
 
-    (* State variable must have an equational constraint *)
+    (* Stateful variable must have an equational constraint *)
     | (state_var, [], { E.expr_init; E.expr_step }) :: tl 
       when List.exists (StateVar.equal_state_vars state_var) stateful_vars -> 
 
@@ -1895,7 +1895,7 @@ let rec trans_sys_of_node'
             in                
 (*
             Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
-  *)
+*)
             trans_sys_of_node'
               top_name
               analysis_param
@@ -1961,7 +1961,18 @@ let trans_sys_of_nodes
     with Not_found -> assert false
 
   in
+(*
+  let s1, s2, s3, s4, s5, s6 = Term.T.stats () in
 
+  Format.printf 
+    "@[<v>Table length: %d@,\
+          Number of entries: %d@,\
+          Sum of bucket lengths: %d@,\
+          Smallest bucket length: %d@,\
+          Median bucket length: %d@,\
+          Biggest bucket length: %d@]@."
+    s1 s2 s3 s4 s5 s6;
+*)
   trans_sys, subsystem'
 
 (*

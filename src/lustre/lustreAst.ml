@@ -44,6 +44,9 @@ type expr =
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
 
+  (* Update of an indexed expression *)
+  | StructUpdate of position * expr * label_or_index list * expr
+
   (* Values *)
   | True of position
   | False of position
@@ -140,6 +143,11 @@ and lustre_type =
 
 (* A record field *)
 and typed_ident = ident * lustre_type
+
+(* A record field or an array or tuple index *)
+and label_or_index = 
+  | Label of Lib.position * index
+  | Index of Lib.position * expr
 
 (* A declaration of a type *)
 type type_decl = 
@@ -366,6 +374,15 @@ let rec pp_print_expr ppf =
 
     | ArrayExpr (p, l) -> Format.fprintf ppf "%a@[<hv 1>[%a]@]" ppos p pl l
 
+    | StructUpdate (p, e1, i, e2) -> 
+
+      Format.fprintf ppf
+        "@[<hv 1>(%a@ with@ @[<hv>%a@] =@ %a)@]"
+        pp_print_expr e1
+        (pp_print_list pp_print_label_or_index "") i
+        pp_print_expr e1
+
+
     | ArrayConstr (p, e1, e2) -> 
 
       Format.fprintf ppf 
@@ -586,6 +603,11 @@ and pp_print_const_clocked_typed_ident ppf (pos, s, t, c, o) =
     pp_print_lustre_type t 
     pp_print_clock_expr c
 
+
+and pp_print_label_or_index ppf = function 
+
+  | Label (pos, i) -> pp_print_index ppf i
+  | Index (pos, e) -> pp_print_expr ppf e
 
 (* Pretty-print a type declaration *)
 let pp_print_type_decl ppf = function

@@ -272,7 +272,7 @@ let pp_print_local' safe ppf (idx, var) =
     (pp_print_array_dims safe) idx
 
 (* Pretty-print a node local variable *)
-let pp_print_local safe ppf l = pp_print_list (pp_print_local' safe) "@," ppf l
+let pp_print_local safe ppf l = pp_print_list (pp_print_local' safe) ";@ " ppf l
 
 
 (* Pretty-print a node equation *)

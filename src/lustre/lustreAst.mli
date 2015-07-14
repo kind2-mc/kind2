@@ -56,6 +56,7 @@ type expr =
     Ident of position * ident
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
+  | StructUpdate of position * expr * label_or_index list * expr
   | True of position
   | False of position
   | Num of position * string
@@ -115,6 +116,11 @@ and lustre_type =
 
 (** An identifier with a type *)
 and typed_ident = ident * lustre_type
+
+(** A record field or an array or tuple index *)
+and label_or_index = 
+  | Label of position * index
+  | Index of position * expr
 
 (** {1 Declarations} *)
 

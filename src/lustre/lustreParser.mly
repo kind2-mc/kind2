@@ -136,6 +136,8 @@ let mk_pos = position_of_lexing
 %token CURRENT
 %token CONDACT
 %token ACTIVATE
+%token INITIAL
+%token DEFAULT
 %token EVERY
 %token MERGE
     
@@ -623,6 +625,17 @@ expr:
   (* An array concatenation *)
   | e1 = expr; PIPE; e2 = expr { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
 
+  (* with operator for updating fields of a structure *)
+  | LPAREN; 
+    e1 = expr; 
+    WITH; 
+    i = nonempty_list(label_or_index); 
+    EQUALS; 
+    e2 = expr; 
+    RPAREN
+
+    { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
+
   (* An arithmetic operation *)
   | e1 = expr; MINUS; e2 = expr { A.Minus (mk_pos $startpos, e1, e2) }
   | MINUS; e = expr { A.Uminus (mk_pos $startpos, e) } 
@@ -656,35 +669,46 @@ expr:
   | WITH; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
     { A.With (mk_pos $startpos, e1, e2, e3) }
 
-  (* A clock operation *)
+  (* when operator on expression  *)
   | e1 = expr; WHEN; e2 = expr { A.When (mk_pos $startpos, e1, e2) }
 
+  (* current operator on expression *)
   | CURRENT; e = expr { A.Current (mk_pos $startpos, e) }
 
+  (* condact call with defaults *)
   | CONDACT 
     LPAREN; 
     e1 = expr; 
     COMMA; 
     s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
     COMMA; 
-    v = expr_list 
+    d = expr_list 
     RPAREN
-    { A.Condact (mk_pos $startpos, e1, s, a, v) } 
+    { A.Condact (mk_pos $startpos, e1, s, a, d) } 
 
-  (* Condact without return values and therefore without defaults *)
+  (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
     LPAREN; 
-    e1 = expr; 
+    c = expr; 
     COMMA; 
     s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
     RPAREN
-    { A.Condact (mk_pos $startpos, e1, s, a, []) } 
 
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; LPAREN; a = separated_list(COMMA, expr); RPAREN
+    { A.Condact (mk_pos $startpos, c, s, a, []) } 
 
-    { A.Activate (mk_pos $startpos, s, c, a) }
+  (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
+     is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
+    INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { A.Condact (mk_pos $startpos, c, s, a, d) }
     
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; LPAREN; a = separated_list(COMMA, expr); RPAREN
+  (* activate operator without initial defaults
+
+     Only supported inside a merge *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
 
     { A.Activate (mk_pos $startpos, s, c, a) }
     
@@ -896,24 +920,22 @@ tlist(opening, separator, closing, X):
 
 (* ********************************************************************** *)
 
-(*
 
 (* An index *)
-one_index: 
+label_or_index: 
 
   (* An index into a record *)
   | DOT; i = ident
-     { A.FieldIndex (mk_pos $startpos, i) } 
+     { A.Label (mk_pos $startpos, i) } 
 
   (* An index into an array with a variable or constant *)
-  | LSQBRACKET; i = ident; RSQBRACKET
-     { A.VarIndex (mk_pos $startpos, i) }
+  | LSQBRACKET; e = expr; RSQBRACKET
+     { A.Index (mk_pos $startpos, e) }
 
-  (* An index into an array with a numeral *)
-  | LSQBRACKET; s = NUMERAL; RSQBRACKET 
-     { A.NumIndex (mk_pos $startpos, int_of_string s) }
+  (* An index into a tuple with a variable or constant *)
+  | DOTPERCENT; e = expr; 
+     { A.Index (mk_pos $startpos, e) }
 
-*)
 
 
 (* 

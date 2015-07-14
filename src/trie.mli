@@ -147,6 +147,10 @@ module type S = sig
   (** Return the subtrie starting at the given key prefix *)
   val find_prefix : key -> 'a t -> 'a t
 
+  (** Return [true] if there is a subtrie starting at the given key
+      prefix *)
+  val mem_prefix : key -> 'a t -> bool
+
   (** Return the keys in the trie
 
       The keys are returned in lexicographic order. *)
