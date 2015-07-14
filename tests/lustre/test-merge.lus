@@ -1,0 +1,25 @@
+node integr (e: int) returns (s: int);
+let
+  s = e + (0 -> pre s); 
+tel
+
+node id (e: int) returns (s: int);
+let
+  s = e;
+tel
+
+node two_instances (e: int; h: bool) returns (s, t1, t2, t3: int);
+let
+  s = integr (e);
+  -- Need to use activate to clock node calls
+  -- t1 = merge (h; integr (e when h); (0 -> pre t) when not h); 
+  t2 = merge (h; (activate integr every h) (e); 42 when not h);
+  t3 = merge (h; (activate integr every h) (e); (activate id every not h) (e));
+tel
+
+
+
+node X (c: bool; a, b: int) returns (OK: bool);
+let
+  OK = merge(c; a when c; b when not c);
+tel

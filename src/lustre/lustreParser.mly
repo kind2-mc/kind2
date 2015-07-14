@@ -135,6 +135,9 @@ let mk_pos = position_of_lexing
 %token WHEN
 %token CURRENT
 %token CONDACT
+%token ACTIVATE
+%token EVERY
+%token MERGE
     
 (* Tokens for temporal operators *)
 %token PRE
@@ -655,7 +658,9 @@ expr:
 
   (* A clock operation *)
   | e1 = expr; WHEN; e2 = expr { A.When (mk_pos $startpos, e1, e2) }
+
   | CURRENT; e = expr { A.Current (mk_pos $startpos, e) }
+
   | CONDACT 
     LPAREN; 
     e1 = expr; 
@@ -675,6 +680,21 @@ expr:
     RPAREN
     { A.Condact (mk_pos $startpos, e1, s, a, []) } 
 
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { A.Activate (mk_pos $startpos, s, c, a) }
+    
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { A.Activate (mk_pos $startpos, s, c, a) }
+    
+  (* Merge operator *)
+  | MERGE; 
+    LPAREN;
+    c = expr; SEMICOLON;
+    l = separated_nonempty_list(SEMICOLON, expr); RPAREN 
+    { A.Merge (mk_pos $startpos, c, l) }
+    
   (* A temporal operation *)
   | PRE; e = expr { A.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN

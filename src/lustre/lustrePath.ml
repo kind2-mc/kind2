@@ -395,7 +395,7 @@ let node_path_of_instance
           model_top
           model
           equations))
-    locals;
+    ((D.singleton D.empty_index node.N.init_flag) :: locals);
 
   (* Record trace of node calls *)
   let trace = 

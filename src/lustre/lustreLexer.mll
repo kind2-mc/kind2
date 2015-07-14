@@ -258,6 +258,11 @@ let keyword_table =
       ("when", WHEN);
       ("current", CURRENT);
       ("condact", CONDACT);
+      ("activate", ACTIVATE);
+      ("initial", INITIAL);
+      ("default", DEFAULT);
+      ("every", EVERY);
+      ("merge", MERGE);
       
       (* Temporal operators *)
       ("pre", PRE);

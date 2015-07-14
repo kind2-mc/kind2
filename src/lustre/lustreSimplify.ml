@@ -303,6 +303,30 @@ let rec eval_ast_expr ctx =
 
       (res, ctx)
 
+    | A.Merge (pos, expr, [expr_high; expr_low]) ->
+
+      (match expr_high with
+        | A.When (_, expr_high, high_clock) -> ()
+        | A.Activate (_, ident, high_clock, expr_list) -> ()
+        | _ -> 
+          C.fail_at_position 
+            pos
+            "Unsupported argument of merge operator");
+        
+      (match expr_low with
+        | A.When (_, expr_high, low_clock) -> ()
+        | A.Activate (_, ident, low_clock, expr_list) -> ()
+        | _ -> 
+          C.fail_at_position 
+            pos
+            "Unsupported argument of merge operator");
+                  
+      C.fail_at_position 
+        pos
+        "Merge operator not supported yet"
+
+
+        
     (* ****************************************************************** *)
     (* Tuple and record operators                                         *)
     (* ****************************************************************** *)
@@ -644,6 +668,19 @@ let rec eval_ast_expr ctx =
       C.fail_at_position 
         pos
         "Current operator must have a when expression as argument"
+
+    | A.Merge (pos, _, _) ->
+
+      C.fail_at_position 
+        pos
+        "Merge operator only supported for Boolean clocks"
+
+    | A.Activate (pos, _, _, _) -> 
+
+      C.fail_at_position 
+        pos
+        "Activate operator only supported in merge"
+
 
     (* With operator for recursive node calls *)
     | A.With (pos, _, _, _) -> 

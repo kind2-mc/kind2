@@ -340,7 +340,7 @@ let pp_print_counterexample_pt
         in
 
         (* Slice counterexample and transitions system to property *)
-        let trans_sys', instances, cex', prop_term, input_system' =
+        let trans_sys', instances, cex', prop_term, input_sys' =
           InputSystem.slice_to_abstraction_and_property
             input_sys
             analysis
@@ -352,7 +352,13 @@ let pp_print_counterexample_pt
         (* Output counterexample *)
         Format.fprintf ppf 
           "Counterexample:@,%a"
-          (InputSystem.pp_print_path_pt input_system' trans_sys' instances true) 
+          (InputSystem.pp_print_path_pt input_sys trans_sys [] true) 
+          (Model.path_of_list cex);
+
+        (* Output counterexample *)
+        Format.fprintf ppf 
+          "Counterexample:@,%a"
+          (InputSystem.pp_print_path_pt input_sys' trans_sys' instances true) 
           (Model.path_of_list cex')
 
       )

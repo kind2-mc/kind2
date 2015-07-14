@@ -93,6 +93,8 @@ type expr =
   | When of position * expr * expr
   | Current of position * expr
   | Condact of position * expr * ident * expr list * expr list
+  | Activate of position * ident * expr * expr list
+  | Merge of position * expr * expr list
   | Pre of position * expr
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr

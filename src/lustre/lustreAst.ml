@@ -109,8 +109,10 @@ type expr =
   (* Clock operators *)
   | When of position * expr * expr 
   | Current of position * expr
-  | Condact of position * expr * ident * expr list * expr list 
-  
+  | Condact of position * expr * ident * expr list * expr list
+  | Activate of position * ident * expr * expr list
+  | Merge of position * expr * expr list
+      
   (* Temporal operators *)
   | Pre of position * expr 
   | Fby of position * expr * int * expr 
@@ -455,6 +457,21 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
 
+    | Activate (p, i, c, l) ->
+
+      Format.fprintf ppf
+        "(activate %a every %a)(%a)"
+        pp_print_ident i
+        pp_print_expr c
+        (pp_print_list pp_print_expr ",@ ") l 
+        
+    | Merge (p, e, l) ->
+
+      Format.fprintf ppf
+        "merge(%a,@ %a)"
+        pp_print_expr e
+        (pp_print_list pp_print_expr ",@ ") l 
+        
     | Pre (p, e) -> p1 p "pre" e
     | Fby (p, e1, i, e2) -> 
 
