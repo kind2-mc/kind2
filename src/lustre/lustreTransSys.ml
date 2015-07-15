@@ -928,39 +928,51 @@ let rec constraints_of_node_calls
 
         Term.mk_and 
 
-          [
-
-
+          ([
+            
             (* [has_ticked] is false in the first instant, because
                it becomes true only after the first clock tick. *)
             Term.negate has_ticked_init;
-
+            
             (* Propagate input values to shadow variables on clock
                tick *)
             Term.mk_implies 
               [clock_init;
                Term.mk_and propagate_inputs_init];
-
+            
             (* Initial state constraint on clock tick *)
-            Term.mk_implies [clock_init; init_term];
+            Term.mk_implies [clock_init; init_term]
+              
+          ] @
 
-            (* Init flag is true and defaults for outputs no clock
-               tick *)
-            Term.mk_implies 
-              [Term.mk_not clock_init;
-               Term.mk_and
-                 (D.fold2
-                    (fun _ sv { E.expr_init } accum ->
-                       Term.mk_eq 
-                         [E.base_term_of_state_var TransSys.init_base sv;
-                          E.base_term_of_expr TransSys.init_base expr_init] :: 
-                       accum)
-                    call_outputs
-                    call_defaults
-                    init_flags_init)]
+            (match call_defaults with
+              
+              (* No defaults for outputs *)
+              | None -> 
 
-          ]
+                (* Init flags are false if clock is not ticking *)
+                [Term.mk_implies 
+                   [Term.mk_not clock_init;
+                    Term.mk_and init_flags_init]]
 
+              (* Defaults for outputs *)
+              | Some d -> 
+
+                (* Init flags are true and defaults for outputs if no
+                   clock tick *)
+                [Term.mk_implies 
+                   [Term.mk_not clock_init;
+                    Term.mk_and
+                      (D.fold2
+                         (fun _ sv { E.expr_init } accum ->
+                            Term.mk_eq 
+                              [E.base_term_of_state_var TransSys.init_base sv;
+                               E.base_term_of_expr TransSys.init_base expr_init] :: 
+                            accum)
+                         call_outputs
+                         d
+                         init_flags_init)]]))
+            
       in
 
       let trans_term =
