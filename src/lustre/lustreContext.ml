@@ -1385,12 +1385,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
           (StateVar.type_of_state_var state_var )
           bounds
       in
-(*
-      (* Type of state variable *)
-      let state_var_type = 
-        StateVar.type_of_state_var state_var
-      in
-*)
+
       let ctx = 
 
         if 
@@ -1457,6 +1452,38 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                    Type.pp_print_type s)
 
       in
+
+      if 
+
+        (* State variable declared as integer, but type of expression
+           inferred as integer range? *)
+        StateVar.type_of_state_var state_var |> Type.is_int &&
+        Type.is_int_range expr_type 
+
+        ||
+
+        (* State variable declared as integer range, but type of
+           expression inferred as stricter integer range? *)
+        StateVar.type_of_state_var state_var |> Type.is_int_range &&
+        Type.is_int_range expr_type &&
+        (let l1, u1 = 
+           StateVar.type_of_state_var state_var
+           |> Type.bounds_of_int_range 
+         in
+         let l2, u2 = Type.bounds_of_int_range expr_type in
+         Numeral.(l1 < l2) && Numeral.(u1 > u2)) 
+        
+      then
+
+        (* Change type of state variable to the stricter type of the
+           expression to get a constraint on the values later
+
+           This is just a heuristic to make at least some use of the
+           type inference on the expression. In particular, it and
+           will not infer types transitively. For that we would need
+           to re-type all expressions the contain the variable, and
+           then continue recursively. *)
+        StateVar.change_type_of_state_var state_var expr_type;
 
       (* Return node with equation added *)
       match ctx with 

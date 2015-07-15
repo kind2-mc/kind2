@@ -48,3 +48,11 @@ let
   e = Z(i, j);
   --%PROPERTY e > 0;
 tel
+
+node T(in: bool) returns (out1: int; out2: subrange [0, 2] of int);
+let
+  out2 = out1;
+  out1 = if in then 0 else 1;
+  --%MAIN
+  --%PROPERTY out1 >= out2;
+tel
