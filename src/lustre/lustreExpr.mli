@@ -17,37 +17,38 @@
 *)
 
 
-(** Simplified Lustre expressions 
+(** Internal reperesentation of a Lustre expression
 
     A {!LustreExpr.t} does not contain node calls, temporal operators
-    or expressions under a pre operator.
+    or expressions under a [pre] operator.
 
     There is exactly one [->] operator at the top of the expression,
     thus an expression can be represented as a pair of expressions
     [(i, t)] without [->] operators. 
 
     The argument of a [pre] operator is always a variable, therefore
-    an expression [pre x] operator can be represented by the variable
-    [x] at the previous state. A non-variable expression under a [pre]
-    has to be abstracted to a fresh variable that is defined by this
-    expression.
+    an expression [pre x] can be represented by the variable [x] at
+    the previous state.
 
-    There are no node calls in a Lustre expression. They have to be
-    abstracted out and the results are captured in fresh variables.
+    A non-variable expression under a [pre] has to be abstracted to a
+    fresh variable that is defined by this expression. There are no
+    node calls in a Lustre expression. They have to be abstracted out
+    and the results are captured in fresh variables. See
+    {!LustreSimplify} for details about how the input file is
+    translates
 
     The offsets of state variable instances are zero for the initial
-    state and zero for the current state. These are different from the
-    offsets in the transition system, because here we want to know if
-    the initial and the step expressions are equal without bumping
-    offsets. Use the functions {!base_term_of_expr},
+    state and zero for the current state, see the constants
+    {!init_offset} and {!trans_offset} and {!pre_offset}. These are
+    different from the offsets in the transition system, because here
+    we want to know if the initial and the step expressions are equal
+    without bumping offsets. Use the functions {!base_term_of_expr},
     {!cur_term_of_expr}, and {!pre_term_of_expr} to take the
     expression on one side of the [->] operator and adjust to the
     variable offsets to the given base.
 
     Expressions can only be constructed with the constructors which do
     type checking and some easy simplifications with constants.
-
-
 
     @author Christoph Sticksel *)
 
@@ -77,11 +78,11 @@ type t = private
   { 
 
     expr_init: expr;     (** Lustre expression for initial state *)
-    
+
     expr_step: expr;     (** Lustre expression after initial state *)
-    
-    expr_type: Type.t;   (** Type of expression *)
-    
+
+    expr_type: Type.t;   (** Common type of both initial and the step expression *)
+
   }
 
 (** Hash table over Lustre expressions *)
@@ -101,6 +102,15 @@ val map : (int -> t -> t) -> t -> t
 
 (** Return the type of the expression *)
 val type_of_lustre_expr : t -> Type.t
+
+(** {1 Pretty-printers} 
+
+    All pretty-printers take a Boolean flag as first argument,
+    indicating if identifiers should be valid Lustre identifiers. If
+    the flag is [false], indexed identifiers are printed with [\[],
+    [\]] and [.]. These characters are replaced with [_] if the flag
+    is [true].
+*)
 
 (** Pretty-print a Lustre type *)
 val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
@@ -135,19 +145,14 @@ val pre_is_unguarded : t -> bool
 (** Return true if the expression is constant *)
 val is_const : t -> bool
 
-(** {1 Constants} *)
-
-(** The propositional constant true *)
-val t_true : t
-
-(** The propositional constant false *)
-val t_false : t
-
 (** {1 Conversions to terms} *)
 
 (** These offsets are different from the offsets in the transition
     system, because here we want to know if the initial and the step
-    expressions are equal without bumping offsets. *)
+    expressions are equal without bumping offsets. Use the constants
+    {!base_offset}, {!cur_offset} or {!pre_offset} of this module, or
+    the constants {!TransSys.init_base} and {!TransSys.trans_base} for
+    the zero offsets. *)
 
 (** Offset of state variable at first instant *)
 val base_offset : Numeral.t
@@ -221,6 +226,15 @@ val cur_state_vars_of_step_expr : t -> StateVar.StateVarSet.t
     expressions for the initial step and the transition steps,
     respectively *)
 val split_expr_list : t list -> expr list * expr list 
+
+
+(** {1 Constants} *)
+
+(** The propositional constant true *)
+val t_true : t
+
+(** The propositional constant false *)
+val t_false : t
 
 
 (** {1 Constructors} *)

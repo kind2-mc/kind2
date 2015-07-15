@@ -1,8 +1,45 @@
 {1 Developers' Documentation}
 
+{ul  
+  {- {%html: <a href="#devdoc"> %}Developers' Documentation{%html: </a>%}
+     {ul
+       {- {%html: <a href="#strategies">%}Analysis and Strategies {%html: </a>%}}
+       {- {%html: <a href="#terms">%}Terms {%html: </a>%}}
+       {- {%html: <a href="#trans_sys">%}Transition System {%html: </a>%}}
+       {- {%html: <a href="#engines">%}Verification Engines{%html: </a>%}
+          {ul
+            {- {%html: <a href="#induction">%}k-induction{%html: </a>%}}
+            {- {%html: <a href="#ic3">%}IC3{%html: </a>%}}
+            {- {%html: <a href="#invgen">%}Invariant Generators{%html: </a>%}
+               {ul
+                  {- {%html: <a href="#invgen_graph">%}Implication Graph-based Invariant Generation{%html: </a>%}}
+               }}
+            {- {%html: <a href="#interpreter">%}Interpreter{%html: </a>%}}
+       }}
+       {- {%html: <a href="#input">%}Input Modules{%html: </a>%}
+          {ul
+            {- {%html: <a href="#input_lustre">%}Lustre{%html: </a>%}}
+            {- {%html: <a href="#input_native">%}Native{%html: </a>%}}
+            {- {%html: <a href="#input_horn">%}Horn{%html: </a>%}}
+       }}
+       {- {%html: <a href="#smt">%}SMT Sulver Interface{%html: </a>%}
+          {ul
+            {- {%html: <a href="#smtlib">%}SMTLIB Interface{%html: </a>%}}
+            {- {%html: <a href="#yices">%}Yices Interface{%html: </a>%}}
+       }}
+       {- {%html: <a href="#util">%}Utilities{%html: </a>%}}
+  }}   
+  {- {%html: <a href="#howto">%}Howto{%html: </a>%}
+     {ul
+       {- {%html: <a href="#howto_doc">%}Documentation{%html: </a>%}}
+       {- {%html: <a href="#howto_dir">%}Add a new subdirectory{%html: </a>%}}
+  }}
+  {- {%html: <a href="#indexes">%}Indexes{%html: </a>%}}
+}
+
 Overall system architecture
 
-{2 Analysis and Strategies}
+{2:strategies Analysis and Strategies }
 
 {!modules:
   Analysis
@@ -14,7 +51,7 @@ Overall system architecture
   Refiner
 }
 
-{2 Terms}
+{2:terms Terms }
 
 {!modules: 
   Eval          
@@ -32,7 +69,7 @@ Overall system architecture
   Var
 }  
 
-{2 Transition System}
+{2:trans_sys Transition System }
 
 {!modules:
   InputSystem
@@ -41,9 +78,9 @@ Overall system architecture
   TransSys
 }
 
-{2 Verification Engines}
+{2:engines Verification Engines}
 
-{3 k-induction}
+{3:induction k-induction}
 {!modules:
   Actlit
   Base
@@ -51,7 +88,7 @@ Overall system architecture
   Step
 }
 
-{3 IC3}
+{3:ic3 IC3}
 
 {!modules:
   Clause
@@ -64,9 +101,9 @@ Overall system architecture
   QE
 }
 
-{3 Invariant Generators}
+{3:invgen Invariant Generators}
 
-{4 Implication Graph-based Invariant Generation}
+{4:invgen_graph Implication Graph-based Invariant Generation}
 
 {!modules:
   ImplicationGraph
@@ -75,18 +112,18 @@ Overall system architecture
   LockStepDriver
 }
 
-{3 Interpreter}
+{3:interpreter Interpreter}
 
 {!modules:
   InputParser
   Interpreter
 }
 
-{2 Input Modules}
+{2:input Input Modules}
 
-{3 Lustre}
+{3:input_lustre Lustre}
 
-Source files live in the subdirectory [lustreInput]
+Source files live in the subdirectory [lustre]
 
 Dependecy graph of modules {%html: <img src="lustre-frontend.png"> %}
 
@@ -106,7 +143,7 @@ Dependecy graph of modules {%html: <img src="lustre-frontend.png"> %}
   LustrePath 
 }
 
-{3 Native}
+{3:input_native Native}
 
 Source files live in subdirectory [nativeInput]
 
@@ -114,7 +151,7 @@ Source files live in subdirectory [nativeInput]
   NativeInput
 }
 
-{3 Horn}
+{3:input_horn Horn}
 
 Source files live in subdirectory [hornInput]
 
@@ -122,7 +159,7 @@ Source files live in subdirectory [hornInput]
   Horn
 }
 
-{2 SMT Solver Interface}
+{2:smt SMT Solver Interface}
 
 Source files live in subdirectory [SMTSolver]
 
@@ -136,7 +173,7 @@ Source files live in subdirectory [SMTSolver]
   SolverSig
 }
 
-{3 SMTLIB Interface}
+{3:smtlib SMTLIB Interface}
  
 {!modules:
   CVC4Driver
@@ -145,7 +182,7 @@ Source files live in subdirectory [SMTSolver]
   Z3Driver
 }
 
-{3 Yices Interface}
+{3:yices Yices Interface}
 
 {!modules:
   Yices2SMTDriver  
@@ -155,7 +192,7 @@ Source files live in subdirectory [SMTSolver]
   YicesResponse 
 }
   
-{2 Utilities}
+{2:util Utilities}
 
 {!modules:
   Debug
@@ -176,18 +213,18 @@ Source files live in subdirectory [SMTSolver]
   Version
 }
 
-{1 Howto}
+{1:howto Howto}
 
-{2 Documentation}
+{2:howto_doc Documentation}
 
-Add module to one section above, and add to [kind2.odocl].
+Edit this file [doc/doc_into.txt] and add the module to one section above in, then add it to [kind2.odocl].
 
-{2 Add a new subdirectory}
+{2:howto_dir Add a new subdirectory}
 
 To add a new subdirectory [feature] edit the [_tags] file to include the line {[<feature>: include]}.
 
 
-{1 Indexes}
+{1:indexes Indexes}
 
 {!indexlist}
 

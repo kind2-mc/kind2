@@ -16,12 +16,12 @@
 
 *)
 
-(** A Lustre node
+(** Internal representation of a Lustre node
 
     Nodes are normalized for easy translation into a transition
-    system, mainly by introducing new variables. A [LustreExpr.t] does
-    not contain node calls, temporal operators or expressions under a
-    [pre] operator. 
+    system, mainly by introducing new variables. 
+
+    
 
     The node equations taken together become a map of state variables
     to expressions. All node calls are factored out with fresh state
@@ -47,7 +47,13 @@
 
 open Lib
 
-(** A call of a node *)
+(** {1 Types} *)
+
+(** A call to a node 
+
+    Calls are uniquely identified by the position, no two calls may
+    share the same position, therefore the [call_pos] must not be a
+    dummy position. *)
 type node_call = 
 
   { 
@@ -56,43 +62,56 @@ type node_call =
     (** Position of node call in input file *)
 
     call_node_name : LustreIdent.t;
-    (** Name of called node *)
+    (** Identifier of the called node *)
     
     call_clock : StateVar.t option;
-    (** Boolean activation condition *)
+    (** Boolean activation condition if any *)
 
     call_inputs : StateVar.t LustreIndex.t;
-    (** Variables for input parameters *)
+    (** Variables for actual input parameters 
+
+        The keys of the index match those in the {!t.inputs} field of
+        the called node. *)
 
     call_oracles : StateVar.t list;
-    (** Variables providing non-deterministic inputs *)
+    (** Variables providing non-deterministic inputs
+
+        The length of the list is equal to the length of the list in
+        the {!t.oracles} field of the called node. *)
 
     call_outputs : StateVar.t LustreIndex.t;
-    (** Variables providing non-deterministic inputs *)
+    (** Variables capturing the outputs 
+
+        The keys of the index match those in the {!t.outputs} field of the
+        called node. *)
 
     call_defaults : LustreExpr.t LustreIndex.t option;
-    (** Expression for initial return values
+    (** Expressions for initial return values
 
         This value should be [None] for node calls on the base clock,
         and [Some l] for node calls with a clock. A node call with a
         clock may only have [None] here if it occurs directly under a
-        [merge] operator. *)
+        [merge] operator. 
+
+        If the option value is not [None], the keys of the index match
+        those in the {!t.outputs} field of the called node. *)
 
   }
 
 
 (** Source of a state variable *)
 type state_var_source =
-  | Input
-  | Output
-  | Local
-  | Ghost
-  | Oracle
+  | Input   (** Declared input variable *)
+  | Output  (** Declared output variable *)
+  | Local   (** Declared local variable *)
+  | Ghost   (** Declared ghost variable *)
+  | Oracle  (** Generated non-deterministic input *)
 
 
-(** A contract has an identifier and a position in the input, a state
-    variable that is the conjunction of its requirements, and one
-    state variable for each ensures. 
+(** A contract has an identifier and a position in the input. It
+    consists of a state variable stands for the conjunction of its
+    require clauses, and one state variable that stand for each ensure
+    clause.
 
     The requirement of a global contract may be assumed
     invariant. Each ensures of a global or mode contract is a separate
@@ -100,8 +119,7 @@ type state_var_source =
 
     The conjunction of the requirements of all global contracts, and
     the disjunction of the requirements of all mode contracts is a
-    proof obligation for all calling nodes.
-*)
+    proof obligation for all calling nodes. *)
 type contract =
   { 
 
@@ -119,26 +137,35 @@ type contract =
 
   }
 
-(**  *)
+
+(** Type of index in an equation for an array *)
 type 'a bound_or_fixed = 
-  | Bound of 'a  (** Upper bound for index variable *)
+  | Bound of 'a  (** Equation is for each value of the index variable
+                     between zero and the upper bound *)
   | Fixed of 'a  (** Fixed value for index variable *)
+
 
 (** An equation is a triple [(state_var, bounds, expr)] of the
     expression [expr] that defines the state variable [state_var],
     and a list [bounds] of indexes. 
-
+    
     An array can be defined either only at a given index, or at all
     indexes, when the expression on the right-hand side is interpreted
     as a function of the running variable of the index.  *)
 type equation = 
   (StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t)
 
+
 (** A Lustre node
 
-    Every state variable occurs exactly once in [inputs], [outputs],
-    and [oracles], and at most once on the left-hand side of
-    [equations] and [calls]. *)
+    Every state variable occurs exactly once in {!t.inputs},
+    {!t.outputs}, and {!t.oracles}, and at most once on the left-hand
+    side of {!t.calls}. If the state variable is of array type, there
+    may be more than one occurrence of it in {!t.equations}, each
+    defining the index variable at a different value with
+    {!bound_or_fixed.Fixed}. If the state variable is not an array, or
+    all its bounds are {!bound_or_fixed.Bound}, then it occurs at most
+    once on the left-hand side of {!t.equations}. *)
 type t = 
 
   { 
@@ -158,7 +185,10 @@ type t =
     (** Input streams defined in the node
 
         The inputs are considered as a list with an integer indexes
-        correpsonding to their position in the formal parameters. *)
+        correpsonding to their position in the formal parameters if
+        there is more than one input parameter. If there is only one
+        input parameter, the list index is omitted, the index is empty
+        if there are no input parameters. *)
 
     oracles : StateVar.t list;
     (** Oracle inputs added to the node inputs
@@ -201,12 +231,19 @@ type t =
     (** Flag node as the top node *)
 
     state_var_source_map : state_var_source StateVar.StateVarMap.t 
-    (** Map from a state variable to its source *)
+    (** Map from a state variable to its source 
+
+        Variables that were introduced to abstract expressions do not
+        have a source. *)
 
   }
 
-(** Return an empty node of the given name *)
+(** Return a node of the given name without inputs, outputs, oracles,
+    equations, etc. Create a state variable for the {!t.instance} and
+    {!t.init_flag} fields, and set {!t.is_main} to false. *)
 val empty_node : LustreIdent.t -> t
+
+(** {1 Pretty-printers} *)
 
 (** Pretty-print a node equation in Lustre format 
 
@@ -226,7 +263,7 @@ val pp_print_call : bool -> Format.formatter -> node_call -> unit
     Lustre syntax. *)
 val pp_print_node : bool -> Format.formatter -> t -> unit 
 
-(** Pretty-print the node with all information  *)
+(** Pretty-print the node as a record with all information  *)
 val pp_print_node_debug : Format.formatter -> t -> unit 
 
 (** {1 Node Lists} *)
