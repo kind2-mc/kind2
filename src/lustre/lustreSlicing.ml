@@ -279,12 +279,17 @@ let rec node_state_var_dependencies'
 
                       (* Add state variables at the initial state from
                          the default expressions *)
-                      D.fold
-                        (fun _ default accum -> 
-                           E.base_state_vars_of_init_expr default
-                           |> SVS.union accum)
-                        call_defaults
-                        children
+                      (match call_defaults with 
+                        | None -> children
+
+                        | Some d -> 
+
+                          D.fold
+                            (fun _ default accum -> 
+                               E.base_state_vars_of_init_expr default
+                               |> SVS.union accum)
+                            d
+                            children)
 
                     else
 
@@ -609,11 +614,15 @@ let add_roots_of_node_call
 
   (* Add dependencies from defaults as roots *)
   let roots' =
-    D.fold
-      (fun _ e a -> 
-         (E.state_vars_of_expr e |> SVS.elements) @ a) 
-      call_defaults
-      roots
+    match call_defaults with
+      | None -> roots
+      | Some d -> 
+
+        D.fold
+          (fun _ e a -> 
+             (E.state_vars_of_expr e |> SVS.elements) @ a) 
+          d
+          roots
   in
 
   (* Add inputs, oracles and clock as roots *)

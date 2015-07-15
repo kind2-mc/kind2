@@ -70,8 +70,13 @@ type node_call =
     call_outputs : StateVar.t LustreIndex.t;
     (** Variables providing non-deterministic inputs *)
 
-    call_defaults : LustreExpr.t LustreIndex.t;
-    (** Expression for initial return values *)
+    call_defaults : LustreExpr.t LustreIndex.t option;
+    (** Expression for initial return values
+
+        This value should be [None] for node calls on the base clock,
+        and [Some l] for node calls with a clock. A node call with a
+        clock may only have [None] here if it occurs directly under a
+        [merge] operator. *)
 
   }
 

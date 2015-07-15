@@ -150,6 +150,7 @@ let mk_pos = position_of_lexing
 %token EOF
     
 (* Priorities and associativity of operators, lowest first *)
+%nonassoc WHEN CURRENT 
 %left PIPE
 %nonassoc ELSE
 %right ARROW
@@ -161,7 +162,6 @@ let mk_pos = position_of_lexing
 %left MULT INTDIV MOD DIV
 %nonassoc PRE 
 %nonassoc INT REAL 
-%nonassoc WHEN CURRENT 
 %nonassoc NOT 
 %left CARET 
 %left LSQBRACKET DOT DOTPERCENT

@@ -156,7 +156,7 @@ val node_of_name : t -> LustreIdent.t -> LustreNode.t
     to [a], and all default values are identical to [d]. It returns
     [None] if no such call was found, and its output variables
     otherwise. *)
-val call_outputs_of_node_call : t -> LustreIdent.t -> StateVar.t option -> StateVar.t LustreIndex.t -> LustreExpr.t LustreIndex.t -> StateVar.t LustreIndex.t option
+val call_outputs_of_node_call : t -> LustreIdent.t -> StateVar.t option -> StateVar.t LustreIndex.t -> LustreExpr.t LustreIndex.t option -> StateVar.t LustreIndex.t option
 
 (** Add node input to context *)
 val add_node_input : ?is_const:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t

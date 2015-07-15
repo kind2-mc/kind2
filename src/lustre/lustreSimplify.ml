@@ -303,30 +303,174 @@ let rec eval_ast_expr ctx =
 
       (res, ctx)
 
-    | A.Merge (pos, expr, [expr_high; expr_low]) ->
+    (* Merge of complementary flows 
 
-      (match expr_high with
-        | A.When (_, expr_high, high_clock) -> ()
-        | A.Activate (_, ident, high_clock, expr_list) -> ()
-        | _ -> 
+       [merge(h, e1, e2)] where [e1] is either 
+
+       [(expr when h)] or
+       [(activate N every h)(args)]
+
+       and [e2] is either 
+
+       [(expr when not h)] or
+       [(activate N every not h)(args)]
+
+    *)
+    | A.Merge
+        (pos,
+         (A.Ident (clock_pos, clock_ident) as clock_expr),
+         [expr_high; expr_low]) ->
+
+      (* Evaluate expression for clock *)
+      let clock_expr', ctx = 
+        eval_bool_ast_expr ctx clock_pos clock_expr 
+      in
+
+      (* Evaluate expression for high clock *)
+      let expr_high', ctx = match expr_high with
+
+        (* An expression under a [when] *)
+        | A.When (pos, expr, (A.Ident (_, high_clock))) -> 
+
+          (* Compare clocks by name *)
+          if clock_ident = high_clock then 
+
+            (* Evaluate expression under [when] *)
+            eval_ast_expr ctx expr
+
+          else
+
+            (* Clocks must be identical identifiers *)
+            C.fail_at_position 
+              pos
+              "Clock mismatch for argument of merge"
+
+        (* A node call with activation condition and no defaults *)
+        | A.Activate
+            (pos, 
+             ident,
+             (A.Ident (_, high_clock_ident) as high_clock), 
+             args) -> 
+
+          (* Compare clocks by name *)
+          if clock_ident = high_clock_ident then 
+
+            (* Evaluate node call without defaults *)
+            eval_node_call
+              ctx
+              pos
+              (I.mk_string_ident ident)
+              high_clock
+              args
+              None
+
+          else
+
+            (* Clocks must be identical identifiers *)
+            C.fail_at_position 
+              pos
+              "Clock mismatch for argument of merge"
+
+        (* Nothing else is supported *)
+        | _ ->
+
           C.fail_at_position 
             pos
-            "Unsupported argument of merge operator");
-        
-      (match expr_low with
-        | A.When (_, expr_high, low_clock) -> ()
-        | A.Activate (_, ident, low_clock, expr_list) -> ()
-        | _ -> 
+            "Unsupported argument of merge operator"
+
+      in
+
+      (* Evaluate expression for low clock *)
+      let expr_low', ctx = match expr_low with
+
+        (* An expression under a [when] *)
+        | A.When (pos, expr, A.Not (_, (A.Ident (_, low_clock)))) -> 
+
+          (* Compare clocks by name *)
+          if clock_ident = low_clock then 
+
+            (* Evaluate expression under [when] *)
+            eval_ast_expr ctx expr
+
+          else
+
+            (* Clocks must be identical identifiers *)
+            C.fail_at_position 
+              pos
+              "Clock mismatch for argument of merge"
+
+        (* A node call with activation condition and no defaults *)
+        | A.Activate
+            (pos, 
+             ident,
+             (A.Not (_, (A.Ident (_, low_clock_ident))) as low_clock), 
+             args) -> 
+
+          (* Compare clocks by name *)
+          if clock_ident = low_clock_ident then 
+
+            (* Evaluate node call without defaults *)
+            eval_node_call
+              ctx
+              pos
+              (I.mk_string_ident ident)
+              low_clock
+              args
+              None
+
+          else
+
+            (* Clocks must be identical identifiers *)
+            C.fail_at_position 
+              pos
+              "Clock mismatch for argument of merge"
+
+        (* Nothing else is supported *)
+        | _ ->
+
           C.fail_at_position 
             pos
-            "Unsupported argument of merge operator");
-                  
-      C.fail_at_position 
-        pos
-        "Merge operator not supported yet"
+            "Unsupported argument of merge operator"
+
+      in
+
+      (* Apply merge pointwise to expressions *)
+      let res = 
+
+        try 
+
+          (* Fold simultanously over indexes in expressions
+
+             If tries contain the same indexes, the association list
+             returned by bindings contain the same keys in the same
+             order. *)
+          D.map2
+
+            (* Construct expressions independent of index *)
+            (fun _ -> E.mk_ite clock_expr') 
+
+            expr_high' 
+            expr_low'
+
+        with 
+
+          | Invalid_argument _ ->
+
+            C.fail_at_position
+              pos
+              "Index mismatch for expressions in merge" 
+
+          | E.Type_mismatch ->
+
+            C.fail_at_position
+              pos
+              "Type mismatch for expressions in merge" 
+
+      in
+
+      (res, ctx)
 
 
-        
     (* ****************************************************************** *)
     (* Tuple and record operators                                         *)
     (* ****************************************************************** *)
@@ -568,7 +712,7 @@ let rec eval_ast_expr ctx =
               | D.ArrayIntIndex _ :: _, _ -> 
 
                 (* Cast Lustre expression to a term *)
-                let index_term = (index_expr' :> Term.t) in
+                let index_term = (index_expr' : E.expr :> Term.t) in
 
                 (* Term must be a numeral *)
                 if Term.is_numeral index_term then 
@@ -591,7 +735,7 @@ let rec eval_ast_expr ctx =
               | D.TupleIndex _ :: _, _ -> 
 
                 (* Cast Lustre expression to a term *)
-                let index_term = (index_expr' :> Term.t) in
+                let index_term = (index_expr' : E.expr :> Term.t) in
 
                 (* Term must be a numeral *)
                 if Term.is_numeral index_term then 
@@ -665,7 +809,7 @@ let rec eval_ast_expr ctx =
         (I.mk_string_ident ident)
         cond
         args
-        defaults
+        (Some defaults)
 
     (* Node call without activation condition *)
     | A.Call (pos, ident, args) -> 
@@ -676,7 +820,7 @@ let rec eval_ast_expr ctx =
         (I.mk_string_ident ident)
         (A.True dummy_pos)
         args
-        []
+        None
 
     (* ****************************************************************** *)
     (* Array operators                                                    *)
@@ -1205,48 +1349,78 @@ and eval_node_call ctx pos ident cond args defaults =
 
     then
 
-      (* No state variable for activation, and context is
+      (* No state variable for activation, no defaults and context is
          unchanged *)
-      None, D.empty, ctx
+      None, None, ctx
 
     else
 
       (
 
-        (* Evaluate default value *)
-        let defaults', ctx = 
-          match defaults with
-            | [d] -> 
-              eval_ast_expr ctx d 
-            | _ ->
-              eval_ast_expr ctx (A.ExprList (dummy_pos, defaults)) 
-        in
-
-        (* Iterate over state variables in outputs and expressions
-           for their defaults *)
-        D.iter2 
-          (fun i sv { E.expr_type = t } -> 
-
-             if 
-
-               (* Type of default must match type of respective
-                  output *)
-               not (Type.check_type t (StateVar.type_of_state_var sv)) 
-
-             then
-
-               C.fail_at_position 
-                 pos
-                 "Type mismatch between default arguments and outputs")
-
-          node_outputs
-          defaults';
-
         (* New variable for activation condition *)
         let state_var, ctx = C.mk_local_for_expr pos ctx cond' in
 
-        (* Return state variable and changed context *)
-        Some state_var, defaults', ctx
+        (* Evaluate default value *)
+        let defaults', ctx = 
+          match defaults with
+
+            (* Single default, do not wrap in list *)
+            | Some [d] -> 
+
+              let d', ctx = eval_ast_expr ctx d in 
+              Some d', ctx
+
+            (* Not a single default, wrap in list *)
+            | Some d ->
+
+              let d', ctx = 
+                eval_ast_expr ctx (A.ExprList (dummy_pos, d)) 
+              in 
+              Some d', ctx
+
+            (* No defaults, skip *)
+            | None -> None, ctx
+
+        in
+
+        match defaults' with 
+
+          (* No defaults, just return state variable for activation
+             condition *)
+          | None -> Some state_var, None, ctx
+
+          | Some defaults' -> 
+
+            (try 
+
+               (* Iterate over state variables in outputs and expressions
+                  for their defaults *)
+               D.iter2 
+                 (fun i sv { E.expr_type = t } -> 
+
+                    if 
+
+                      (* Type of default must match type of respective
+                         output *)
+                      not (Type.check_type t (StateVar.type_of_state_var sv)) 
+
+                    then
+
+                      C.fail_at_position 
+                        pos
+                        "Type mismatch between default arguments and outputs")
+
+                 node_outputs
+                 defaults'
+
+             with Invalid_argument _ -> 
+
+               C.fail_at_position 
+                 pos
+                 "Number of default arguments must match number of outputs");
+
+            (* Return state variable and changed context *)
+            Some state_var, Some defaults', ctx
 
       )
 

@@ -1004,10 +1004,15 @@ let call_outputs_of_node_call
                   StateVar.equal_state_vars v v' &&
 
                   (* Same defaults *)
-                  (D.for_all2
-                     (fun _ sv1 sv2 -> E.equal sv1 sv2)
-                     defaults 
-                     call_defaults)
+                  (match defaults, call_defaults with
+                    | None, None -> true
+                    | Some d1, Some d2 -> 
+                      D.for_all2
+                        (fun _ sv1 sv2 -> E.equal sv1 sv2)
+                        d1 
+                        d2
+                    | None, Some _ 
+                    | Some _, None -> false)
 
                 (* Both calls without activation condtion *)
                 | None, None -> true

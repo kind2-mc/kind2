@@ -105,8 +105,13 @@ type node_call =
     (* Variables capturing the outputs *)
     call_outputs : StateVar.t D.t;
 
-    (* Expression for initial return values *)
-    call_defaults : E.t D.t;
+    (* Expression for initial return values 
+
+       This value should be [None] for node calls on the base clock,
+        and [Some l] for node calls with a clock. A node call with a
+        clock may only have [None] here if it occurs directly under a
+        [merge] operator.*)
+    call_defaults : E.t D.t option;
 
   }
 
@@ -323,7 +328,7 @@ let pp_print_call safe ppf = function
        call_inputs; 
        call_oracles; 
        call_outputs; 
-       call_defaults } ->
+       call_defaults = Some call_defaults } ->
      
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>condact(@,%a,@,%a(%a)%t);@]@]"
@@ -349,6 +354,28 @@ let pp_print_call safe ppf = function
                ",@,%a"
                (pp_print_list (E.pp_print_lustre_expr safe) ",@ ")
                l)
+          
+  (* Node call not on the base clock without defaults *)
+  |  { call_node_name; 
+       call_clock = Some call_clock_var;
+       call_inputs; 
+       call_oracles; 
+       call_outputs; 
+       call_defaults = None } ->
+     
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>(activate@ %a@ every@ %a)@,(%a);@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs) 
+      (I.pp_print_ident safe) call_node_name
+      (E.pp_print_lustre_var safe) call_clock_var
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
+      (List.map  
+         (fun (_, sv) -> sv)
+         (D.bindings call_inputs) @ 
+       call_oracles)
           
 
 (* Pretty-print an assertion *)
@@ -1174,11 +1201,14 @@ let stateful_vars_of_node
         (SVS.union 
 
            (* Add stateful variables from initial defaults *)
-           (List.fold_left 
-              (fun accum expr -> 
-                 SVS.union accum (stateful_vars_of_expr expr))
-              accum
-              (D.values call_defaults))
+           (match call_defaults with 
+             | None -> accum
+             | Some d ->
+               List.fold_left 
+                 (fun accum expr -> 
+                    SVS.union accum (stateful_vars_of_expr expr))
+                 accum
+                 (D.values d))
               
            (* Input and output variables are always stateful *)
            (add_to_svs
