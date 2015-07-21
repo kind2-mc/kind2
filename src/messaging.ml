@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -36,7 +36,7 @@ exception NotInitialized
 
 (* Return true if the process is the invariant manages *)
 let is_invariant_manager = function 
-  | `INVMAN -> true
+  | `Supervisor -> true
   | _ -> false
 
 
@@ -607,7 +607,7 @@ struct
               | Terminate -> 
 
                 enqueue
-                  (`INVMAN, payload) 
+                  (`Supervisor, payload) 
                   incoming_handled
 
               (* Workers do not resend messages *)
@@ -653,7 +653,7 @@ struct
 
                     (* Accept message *)
                     enqueue 
-                      (`INVMAN, payload) 
+                      (`Supervisor, payload) 
                       incoming_handled;
 
                     (* Store message *)
@@ -718,7 +718,7 @@ struct
               let sender, message = (msg_of_zmsg (zmsg)) in
 
               enqueue
-                (`INVMAN, message) 
+                (`Supervisor, message) 
                 incoming_handled
 
             );
@@ -1231,7 +1231,7 @@ struct
             on_exit 
         in
 
-        initialized_process := Some(`INVMAN);
+        initialized_process := Some(`Supervisor);
 
         ignore(p) (* thread identifier, might come in handy *)
 

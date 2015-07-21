@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -56,25 +56,23 @@ let on_exit _ =
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropInvariant
-  | TransSys.PropFalse _ -> false
+  | Property.PropInvariant
+  | Property.PropFalse _ -> false
   | _ -> true
 
 (* Check-sat and splits properties.. *)
 let split trans solver k falsifiable to_split actlits =
 
   (* Function to run if sat. *)
-  let if_sat () =
-    (* Get-model function. *)
-    let get_model = SMTSolver.get_model solver in
-    (* Getting the model. *)
-    let model =
-      TransSys.vars_of_bounds trans k k
-      |> get_model
-    in
-    (* Extracting the counterexample. *)
+  let if_sat _ =
+
+    (* Get the full model *)
+    let model = SMTSolver.get_model solver in
+
+    (* Extract counterexample from model *)
     let cex =
-      TransSys.path_from_model trans get_model k in
+      Model.path_from_model (TransSys.state_vars trans) model k in
+
     (* Evaluation function. *)
     let eval term =
       Eval.eval_term (TransSys.uf_defs trans) model term
@@ -90,7 +88,7 @@ let split trans solver k falsifiable to_split actlits =
   in
 
   (* Function to run if unsat. *)
-  let if_unsat () =
+  let if_unsat _ =
     None
   in
 
@@ -144,7 +142,7 @@ let split_closure trans solver k actlits to_split =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (trans, solver, k, invariants, unknowns) =
+let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
 
   (* Asserts terms from 0 to k. *)
   let assert_new_invariants =
@@ -168,7 +166,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
       (* Receiving messages. *)
       Event.recv ()
       (* Updating transition system. *)
-      |> Event.update_trans_sys trans
+      |> Event.update_trans_sys input_sys aparam trans
       (* Extracting invariant module/term pairs. *)
     in
 
@@ -176,10 +174,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
     (* Looking for new invariant properties. *)
     |> List.fold_left
          ( fun list (_, (name,status)) ->
-           if status = TransSys.PropInvariant
+           if status = Property.PropInvariant
            then
              (* Memorizing new invariant property. *)
-             ( TransSys.named_term_of_prop_name trans name )
+             ( TransSys.get_prop_term trans name )
              :: list
            else
              list )
@@ -262,7 +260,9 @@ let rec next (trans, solver, k, invariants, unknowns) =
      |> List.iter
           ( fun (s, _) ->
             Event.prop_status
-              (TransSys.PropKTrue (Numeral.to_int k))
+              (Property.PropKTrue (Numeral.to_int k))
+              input_sys
+              aparam
               trans
               s ) ;
 
@@ -273,7 +273,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
             List.iter
               ( fun (s,_) ->
                 Event.prop_status
-                  (TransSys.PropFalse cex) trans s )
+                  (Property.PropFalse (Model.path_to_list cex)) 
+                  input_sys
+                  aparam
+                  trans
+                  s )
               p ) ;
 
      (* K plus one. *)
@@ -301,10 +305,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
          "BMC @[<v>reached maximal number of iterations.@]"
      else
        (* Looping. *)
-       next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
+       next (input_sys, aparam, trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
-let init trans =
+let init input_sys aparam trans =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
@@ -330,16 +334,11 @@ let init trans =
     unknowns ;
 
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.define_and_declare_of_bounds
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
-
-  (* Constraining max depth. *)
-  TransSys.get_max_depth trans
-  |> TransSys.depth_inputs_constraint trans
-  |> SMTSolver.assert_term solver ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
@@ -348,14 +347,14 @@ let init trans =
 
   (* Invariants if the system at 0. *)
   let invariants =
-    TransSys.invars_of_bound trans Numeral.zero
+    TransSys.invars_of_bound trans Numeral.zero |> Term.mk_and 
   in
 
-  (trans, solver, Numeral.zero, [invariants], unknowns)
+  (input_sys, aparam, trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
-let main trans =
-  init trans |> next
+let main input_sys aparam trans =
+  init input_sys aparam trans |> next 
 
 
 

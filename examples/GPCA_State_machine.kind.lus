@@ -15694,7 +15694,7 @@ let --%MAIN
          then StateChanger_main_simp_rlt_node_state1348_rlt_chart_data_states_StateChanger_InfusionStateMachine_InfusionInSession_HISTORY
          else StateChanger_main_simp_rlt_node_state4_rlt_chart_data_states_StateChanger_InfusionStateMachine_InfusionInSession_HISTORY);
 
-   StateChanger_main_simp_StateChanger_calcFlowRate_x1n0 = (StateChanger_main_simp_rlt_node_state4_rlt_chart_data_vars_StateChanger_doseRate / 1); /* Drug_Information_Input_t_3); */
+   StateChanger_main_simp_StateChanger_calcFlowRate_x1n0 = (StateChanger_main_simp_rlt_node_state4_rlt_chart_data_vars_StateChanger_doseRate / 1.0); /* Drug_Information_Input_t_3); */
 
    StateChanger_main_simp_rlt_node_state464_rlt_chart_data_vars_StateChanger_bolusing = 
       (if Alarming_component_events__and_user_actions_t_1
@@ -18800,7 +18800,7 @@ let --%MAIN
          then StateChanger_main_simp_rlt_node_state4_rlt_chart_data_outports_GAlrmMsg
          else StateChanger_main_simp_rlt_node_state1827_rlt_chart_data_outports_GAlrmMsg);
 
-   StateChanger_main_simp_StateChanger_calcFlowRate_x0 = (StateChanger_main_simp_rlt_node_state4_rlt_chart_data_vars_StateChanger_temp / 1); /* Drug_Information_Input_t_3); */
+   StateChanger_main_simp_StateChanger_calcFlowRate_x0 = (StateChanger_main_simp_rlt_node_state4_rlt_chart_data_vars_StateChanger_temp / 1.0); /* Drug_Information_Input_t_3); */
 
    StateChanger_main_simp_rlt_node_state1172_rlt_chart_data_vars_StateChanger_infusing = (( not Alarming_component_events__and_user_actions_t_19) and 
       StateChanger_main_simp_rlt_node_state1171_rlt_chart_data_vars_StateChanger_infusing);

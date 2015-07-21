@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -130,6 +130,43 @@ let exists_pair p l =
   exists_pair' p l l
 
 
+let offset_of_vars m = 
+
+  match 
+
+    Var.VarHashtbl.fold
+      (fun v _ -> function 
+
+         (* Offset not yet determined *)
+         | None -> 
+
+           (* Return offset of state variable instance if it is a
+              non-constant state variable *)
+           if Var.is_state_var_instance v then 
+             Some (Var.offset_of_state_var_instance v)
+           else
+             None
+
+         (* Some variable with offset [o] encountered *)
+         | Some o -> 
+
+           (* Ensure all variable have the same offset *)
+           assert 
+             (if Var.is_state_var_instance v then 
+                Numeral.(equal (Var.offset_of_state_var_instance v) o)
+              else
+                true);
+
+           (* Continue *)
+           Some o)
+      m
+      None
+
+  (* Fail on empty model *)
+  with Some o -> o | None -> assert false 
+
+
+
 (* ********************************************************************** *)
 (* Simulation relation: Equality modulo input variables                   *)
 (* ********************************************************************** *)
@@ -150,7 +187,9 @@ let init_equal_mod_input declare_fun trans_sys =
               StateVar.type_of_state_var sv :: a 
             else a)
          []
-         (TransSys.state_vars trans_sys))
+         (List.sort 
+            StateVar.compare_state_vars
+            (TransSys.state_vars trans_sys)))
       Type.t_int
   in
   
@@ -170,20 +209,27 @@ let equal_mod_input accum s1 s2 =
     (* Check if states are equivalent *)
     List.for_all2
 
-      (fun (v1, t1) (v2, t2) -> 
+      (fun (v1, t_or_l1) (v2, t_or_l2) -> 
 
-         let sv1 = Var.state_var_of_state_var_instance v1 in
+         match t_or_l1, t_or_l2 with 
 
-         (* Make sure we're talking about the same state variable *)
-         assert  
-           (StateVar.equal_state_vars
-              sv1
-              (Var.state_var_of_state_var_instance v2));
-
-         (* States are equivalent if state variable is an input or
-            values are equal *)
-         StateVar.is_input sv1 || Term.equal t1 t2) 
-
+           | Model.Term t1, Model.Term t2 -> 
+             
+             let sv1 = Var.state_var_of_state_var_instance v1 in
+             
+             (* Make sure we're talking about the same state variable *)
+             assert  
+               (StateVar.equal_state_vars
+                  sv1
+                  (Var.state_var_of_state_var_instance v2));
+             
+             (* States are equivalent if state variable is an input or
+                values are equal *)
+             StateVar.is_input sv1 || Term.equal t1 t2
+      
+           (* TODO: Compress with lambda abstractions *)
+           | _ -> assert false) 
+      
       s1 
       s2 
 
@@ -366,32 +412,6 @@ let rec instantiate_trans_succ var_uf_map i term =
 
 let same_successors declare_fun uf_defs trans accum sj si = 
 
-  (* Set offset of variable in first element of pair *)
-  let set_var_offset i (v, t) = 
-    (Var.mk_state_var_instance 
-       (Var.state_var_of_state_var_instance v)
-       i, 
-     t)
-  in
-
-  (* Return the offset of the first state variable instance *)
-  let rec offset_of_vars = function
-
-    (* First variable is a non-constant state variable *)
-    | (v, _) :: _ when Var.is_state_var_instance v -> 
-
-      (* Return offset of state variable instance *)
-      Var.offset_of_state_var_instance v 
-        
-    (* Skip constant state variables *)
-    | _ :: tl -> offset_of_vars tl
-
-    (* Assume list of state variables is not empty *)
-    | [] -> assert false
-
-  in
-
-
   (* Get offset of first state *)
   let i = offset_of_vars si in
 
@@ -421,13 +441,13 @@ let same_successors declare_fun uf_defs trans accum sj si =
   else
 
     (* Map offset of variables for first state to zero *)
-    let si' = List.map (set_var_offset Numeral.zero) si in
+    let si' = Model.set_var_offset Numeral.zero si in
 
     (* Map offset of variables for second state to one *)
-    let sj' = List.map (set_var_offset Numeral.one) sj in
+    let sj' = Model.set_var_offset Numeral.one sj in
 
     (* Evaluate T[i,j+1] *)
-    match Eval.eval_term uf_defs (si' @ sj') trans with 
+    match Eval.eval_term uf_defs (Model.merge si' sj') trans with 
 
       (* j+1 is a successor of i *)
       | Eval.ValBool true -> 
@@ -440,8 +460,8 @@ let same_successors declare_fun uf_defs trans accum sj si =
          (* Create a fresh uninterpreted constant for each state
             variable *)
          let var_uf_map = 
-           List.map
-             (fun (v, _) -> 
+           Var.VarHashtbl.fold
+             (fun v _ accum -> 
 
                 (* State variable *)
                 let sv = Var.state_var_of_state_var_instance v in
@@ -453,8 +473,9 @@ let same_successors declare_fun uf_defs trans accum sj si =
                 declare_fun u;
 
                 (* Return pair of state variable and symbol *)
-                (sv, u))
+                (sv, u) :: accum)
              si
+             []
          in
 
          (* Turn T[0,1] to T[i,x] *)
@@ -579,32 +600,6 @@ let rec instantiate_trans_pred var_uf_map i term =
 
 let same_predecessors declare_fun uf_defs trans accum sj si = 
 
-  (* Set offset of variable in first element of pair *)
-  let set_var_offset i (v, t) = 
-    (Var.mk_state_var_instance 
-       (Var.state_var_of_state_var_instance v)
-       i, 
-     t)
-  in
-
-  (* Return the offset of the first state variable instance *)
-  let rec offset_of_vars = function
-
-    (* First variable is a non-constant state variable *)
-    | (v, _) :: _ when Var.is_state_var_instance v -> 
-
-      (* Return offset of state variable instance *)
-      Var.offset_of_state_var_instance v 
-        
-    (* Skip constant state variables *)
-    | _ :: tl -> offset_of_vars tl
-
-    (* Assume list of state variables is not empty *)
-    | [] -> assert false
-
-  in
-
-
   (* Get offset of first state *)
   let i_minus_one = offset_of_vars si in
 
@@ -634,13 +629,13 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
   else
 
     (* Map offset of variables for first state to zero *)
-    let si' = List.map (set_var_offset Numeral.zero) si in
+    let si' = Model.set_var_offset Numeral.zero si in
 
     (* Map offset of variables for second state to one *)
-    let sj' = List.map (set_var_offset Numeral.one) sj in
+    let sj' = Model.set_var_offset Numeral.one sj in
 
     (* Evaluate T[i-1,j] *)
-    match Eval.eval_term uf_defs (si' @ sj') trans with 
+    match Eval.eval_term uf_defs (Model.merge si' sj') trans with 
 
       (* j+1 is a successor of i *)
       | Eval.ValBool true -> 
@@ -653,8 +648,8 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
          (* Create a fresh uninterpreted constant for each state
             variable *)
          let var_uf_map = 
-           List.map
-             (fun (v, _) -> 
+           Var.VarHashtbl.fold
+             (fun v _ accum -> 
 
                 (* State variable *)
                 let sv = Var.state_var_of_state_var_instance v in
@@ -666,8 +661,9 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
                 declare_fun u;
 
                 (* Return pair of state variable and symbol *)
-                (sv, u))
+                (sv, u) :: accum)
              si
+             []
          in
 
          (* Turn T[0,1] to T[x,i] *)
@@ -724,7 +720,7 @@ let incr_k () =
 
 
 (* Generate blocking terms from all equivalent states *)
-let check_and_block declare_fun trans_sys cex = 
+let check_and_block declare_fun trans_sys path = 
 
   (* Convert counterexample to list of lists of pairs of variable at
      instant and its value *)
@@ -739,7 +735,10 @@ let check_and_block declare_fun trans_sys cex =
                     (Numeral.of_int i),
                   t))
               t)
-         cex)
+         (List.sort 
+            (fun (sv1, p) (sv2, p) ->
+               StateVar.compare_state_vars sv1 sv2)
+            (Model.path_to_list path)))
   in
 
   (* Initialize list of blocking terms *)
@@ -750,7 +749,7 @@ let check_and_block declare_fun trans_sys cex =
 
     if Flags.ind_compress_equal () then 
 
-      fold_pairs equal_mod_input block_terms states 
+      fold_pairs equal_mod_input block_terms states
 
     else 
 
@@ -769,7 +768,7 @@ let check_and_block declare_fun trans_sys cex =
            (TransSys.uf_defs trans_sys)
            (TransSys.trans_of_bound trans_sys Numeral.one))
         block_terms 
-        states 
+        (Model.models_of_path path)
 
     else
 
@@ -788,7 +787,7 @@ let check_and_block declare_fun trans_sys cex =
            (TransSys.uf_defs trans_sys)
            (TransSys.trans_of_bound trans_sys Numeral.one))
         block_terms 
-        states 
+        (Model.models_of_path path)
 
     else 
 

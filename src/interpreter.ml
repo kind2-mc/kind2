@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -59,11 +59,11 @@ let rec assert_trans solver t i =
     
 
 (* Main entry point *)
-let main input_file trans_sys =
+let main input_file input_sys aparam trans_sys =
 
   Event.set_module `Interpreter;
 
-  let input_scope = TransSys.get_scope trans_sys in
+  let input_scope = TransSys.scope_of_trans_sys trans_sys in
 
   if input_file = "" then 
 
@@ -79,6 +79,8 @@ let main input_file trans_sys =
 
     (* Output execution path *)
     Event.execution_path
+      input_sys
+      aparam
       trans_sys 
       v
 
@@ -169,7 +171,7 @@ let main input_file trans_sys =
     ref_solver := Some solver;
     
     (* Defining uf's and declaring variables. *)
-    TransSys.init_define_fun_declare_vars_of_bounds
+    TransSys.define_and_declare_of_bounds
       trans_sys
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
@@ -226,16 +228,18 @@ let main input_file trans_sys =
 
         (* Extract execution path from model *)
         let path = 
-          TransSys.path_from_model 
-            trans_sys
+          Model.path_from_model 
+            (TransSys.state_vars trans_sys)
             (SMTSolver.get_model solver)
             Numeral.(pred (of_int steps))
         in
 
         (* Output execution path *)
         Event.execution_path
+          input_sys
+          aparam
           trans_sys 
-          path
+          (Model.path_to_list path)
 
       )
 

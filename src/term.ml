@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -17,36 +17,6 @@
 *)
 
 open Lib
-
-type logic = 
-  [ `detect
-  | `AUFLIA
-  | `AUFLIRA
-  | `AUFNIRA
-  | `LRA 
-  | `LIA
-  | `QF_ABV
-  | `QF_AUFBV
-  | `QF_AUFLIA
-  | `QF_AX
-  | `QF_BV
-  | `QF_IDL
-  | `QF_LIA
-  | `QF_LRA
-  | `QF_LIRA
-  | `QF_NIA
-  | `QF_NRA
-  | `QF_RDL
-  | `QF_UF
-  | `QF_UFBV
-  | `QF_UFIDL
-  | `QF_UFLIA
-  | `QF_UFLRA
-  | `QF_UFNRA
-  | `UFLIA
-  | `UFLRA
-  | `UFNIA
-  ]
 
 (* We have three hashconsed types: uninterpreted function symbols,
    symbols and terms. Hashconsing has been extended to store a record
@@ -133,10 +103,12 @@ module T = Ltree.Make (BaseTypes)
 (* Hashconsed term over symbols, variables and sorts *)
 type t = T.t
 
+(* Hashconsed lambda expression *)
+type lambda = T.lambda
 
 let stats = T.stats
 
-(* Return the type of a term *)
+(* Return the node of the hashconsed term *)
 let node_of_term = T.node_of_t
 
 
@@ -224,7 +196,14 @@ let term_of_named t =  match node_of_term t with
 
 (* Return the name of a named term *)
 let name_of_named t =  match node_of_term t with
-  | T.Annot (t, a) when TermAttr.is_named a -> TermAttr.named_of_attr a
+  | T.Annot (t, a) when TermAttr.is_named a ->
+
+    (* Get name of term *)
+    let (s, n) = TermAttr.named_of_attr a in
+
+    (* Fail if not in term namespace, otherwise return integer *)
+    if s <> "t" then invalid_arg "term_of_named" else n
+      
   | _ -> invalid_arg "term_of_named"
 
 
@@ -344,6 +323,39 @@ let rec bool_of_term t = match node_of_term t with
   | _ -> invalid_arg "bool_of_term"
 
 
+(* Return true if the term is an application of the select operator *)
+let is_select t = match node_of_term t with
+
+  (* Top symbol is a select operator *)
+  | T.Node (s, [a; i]) -> s == Symbol.s_select
+                                 
+  | _ -> false
+
+
+(* Return the indexes of the select operator 
+
+   The array argument of a select is either another select operation
+   or a variable. For the expression [(select (select A j) k)] return
+   the pair [A] and [[j; k]]. *)
+let rec indexes_and_var_of_select' accum t = match node_of_term t with 
+
+  | T.FreeVar v -> (v, accum)
+
+  | T.Node (s, [a; i]) when s == Symbol.s_select -> 
+
+    indexes_and_var_of_select' (i :: accum) a
+
+  | T.Annot (t, _) ->  indexes_and_var_of_select' accum t
+
+  |  _ -> invalid_arg "indexes_of_select"
+
+
+
+(* Return the indexes of the select operator *)
+let indexes_and_var_of_select t = indexes_and_var_of_select' [] t
+
+ 
+
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -393,16 +405,15 @@ let print_term t = pp_print_term Format.std_formatter t
 
 (* Return a string representation of a term *)
 let string_of_term t = string_of_t pp_print_term t
-(*
-(* Pretty-print a term in infix notation *)
-let pp_print_term_infix = T.pp_print_term_infix ppf t
-*)
+
+(* Pretty-print a term *)
+let pp_print_lambda ppf t = T.pp_print_lambda ppf t
+
 (* Pretty-print a hashconsed term to the standard formatter *)
-let print_term t = pp_print_term Format.std_formatter t
+let print_lambda t = pp_print_lambda Format.std_formatter t
 
 (* Return a string representation of a term *)
-let string_of_term t = string_of_t pp_print_term t
-
+let string_of_lambda t = string_of_t pp_print_lambda t
 
 (* ********************************************************************* *)
 (* Folding and utility functions on terms                                *)
@@ -416,6 +427,10 @@ let eval = T.eval
 (* Evaluate a term bottom-up right-to-left, given the flattened term
    as argument *)
 let eval_t = T.eval_t 
+
+(* Evaluate a term bottom-up right-to-left, given the flattened term
+   as argument *)
+let eval_lambda = T.eval_lambda
 
 (* Bottom-up right-to-left map of the term 
 
@@ -455,10 +470,10 @@ let rec type_of_term t = match T.destruct t with
 
         (* Real constant *)
         | `DECIMAL _ -> Type.mk_real ()
-
+(*
         (* Bitvector constant *)
         | `BV b -> Type.mk_bv (length_of_bitvector b)
-          
+*)        
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
 
@@ -488,9 +503,10 @@ let rec type_of_term t = match T.destruct t with
         | `LT
         | `GEQ
         | `GT
-        | `DIVISIBLE _
+        | `DIVISIBLE _ -> Type.mk_bool ()
+(*
         | `BVULT -> Type.mk_bool ()
-
+*)
         (* Integer-valued functions *)
         | `TO_INT
         | `MOD
@@ -500,7 +516,7 @@ let rec type_of_term t = match T.destruct t with
         (* Real-valued functions *)
         | `TO_REAL
         | `DIV -> Type.mk_real ()
-          
+(*          
         (* Bitvector-valued function *)
         | `CONCAT -> 
 
@@ -529,7 +545,7 @@ let rec type_of_term t = match T.destruct t with
           (* Compute width of resulting bitvector *)
           Type.mk_bv
             ((Numeral.to_int j) - (Numeral.to_int i) + 1)
-
+*)
             
         (* Array-valued function *)
         | `SELECT -> 
@@ -538,9 +554,9 @@ let rec type_of_term t = match T.destruct t with
 
             (* Select is binary *)
             | [a; _] -> 
-    
+
               (match Type.node_of_type (type_of_term a) with
-                | Type.Array (_, t) -> t
+                | Type.Array (t, _) -> t
                 | _ -> assert false)
 
             | _ -> assert false)
@@ -548,7 +564,15 @@ let rec type_of_term t = match T.destruct t with
         (* Return type of first argument *)
         | `MINUS
         | `PLUS
-        | `TIMES
+        | `TIMES -> 
+
+          (match l with 
+              
+            (* Function must be at least binary *)
+            | a :: _ -> type_of_term a
+            | _ -> assert false)
+
+(*
         | `BVNOT
         | `BVNEG
         | `BVAND
@@ -559,6 +583,8 @@ let rec type_of_term t = match T.destruct t with
         | `BVUREM
         | `BVSHL
         | `BVLSHR
+*)
+(*
         | `STORE -> 
 
           (match l with 
@@ -566,6 +592,8 @@ let rec type_of_term t = match T.destruct t with
             (* Function must be at least binary *)
             | a :: _ -> type_of_term a
             | _ -> assert false)
+*)
+
 
         (* Return type of second argument *)
         | `ITE -> 
@@ -578,14 +606,15 @@ let rec type_of_term t = match T.destruct t with
             
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
-            
+  
         (* Ill-formed terms *)
         | `TRUE
         | `FALSE
         | `NUMERAL _
-        | `DECIMAL _
+        | `DECIMAL _ -> assert false
+(*
         | `BV _ -> assert false
-
+*)
     )
 
   (* Return type of term *)
@@ -710,7 +739,7 @@ let type_check_app s a =
 let mk_const = T.mk_const
 
 
-(* Return a hashconsed variable *)
+(* Return a hashconsed variable with an empty index *)
 let mk_var = T.mk_var
 
 
@@ -722,6 +751,10 @@ let mk_app = T.mk_app
 
 (* Return a hashconsed tree *)
 let mk_term = T.mk_term
+
+
+(* Return a hashconsed tree *)
+let mk_lambda = T.mk_lambda
 
 
 (* Return a hashconsed let binding *)
@@ -738,6 +771,9 @@ let mk_forall = T.mk_forall
 
 (* Import a term from a different instance into this hashcons table *)
 let import = T.import 
+
+(* Import a term from a different instance into this hashcons table *)
+let import_lambda = T.import_lambda 
 
 (* Flatten top node of term *)
 let construct = T.construct
@@ -904,15 +940,15 @@ let mk_minus a = mk_app_of_symbol_node `MINUS a
 
 (* Hashcons an integer numeral *)
 let mk_num n = (* mk_const_of_symbol_node (`NUMERAL n) *)
-		
-  (* Positive numeral or zero *)		
-  if Numeral.(n >= zero) then 		
-    		
-    mk_const_of_symbol_node (`NUMERAL n)		
-		
-  else		
-		
-    (* Wrap a negative numeral in a unary minus *)		
+                
+  (* Positive numeral or zero *)                
+  if Numeral.(n >= zero) then           
+                
+    mk_const_of_symbol_node (`NUMERAL n)                
+                
+  else          
+                
+    (* Wrap a negative numeral in a unary minus *)              
     mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.(~- n))))]
 
 
@@ -924,19 +960,34 @@ let mk_num_of_int i = mk_num (Numeral.of_int i)
 (* let mk_dec d = mk_const_of_symbol_node (`DECIMAL d) *)
 let mk_dec d =
 
-  (* Positive rational or zero *)		
-  if Decimal.(d >= zero) then 		
-    		
-    mk_const_of_symbol_node (`DECIMAL d)		
-		
-  else		
-		
-    (* Wrap a negative rational in a unary minus *)		
+  (* Positive rational or zero *)               
+  if Decimal.(d >= zero) then           
+                
+    mk_const_of_symbol_node (`DECIMAL d)                
+                
+  else          
+                
+    (* Wrap a negative rational in a unary minus *)             
     mk_minus [(mk_const_of_symbol_node (`DECIMAL (Decimal.(~- d))))]
 
+(*
+
+(* Hashcons a floating-point decimal given a float *)
+let mk_dec_of_float = function
+
+  (* Positive decimal *)
+  | f when f >= 0. -> 
+    mk_const_of_symbol_node (`DECIMAL (decimal_of_float f))
+
+  (* Negative decimal *)
+  | f -> 
+    mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
+*)
+
+(*
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
-
+*)
 
 (* Hashcons an addition *)
 let mk_plus = function
@@ -1017,6 +1068,8 @@ let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]
 (* Hashcons a divisibility predicate for the given divisor *)
 let mk_divisible n t = mk_app_of_symbol_node (`DIVISIBLE n) [t]
 
+(* Hashcons an array read *)
+let mk_select a i = mk_app_of_symbol_node `SELECT [a; i]
 
 (* Generate a new tag *)
 let newid =
@@ -1033,7 +1086,17 @@ let mk_named t =
   (* Return name and named term
 
      Order pair in this way to put it an association list *)
-  (n, T.mk_annot t (TermAttr.mk_named n))
+  (n, T.mk_annot t (TermAttr.mk_named "t" n))
+
+
+(* Hashcons a named term *)
+let mk_named_unsafe t s n = 
+
+  (* Reject namespace used by mk_named to avoid clashes *)
+  if s = "t" then raise (Invalid_argument "mk_named_unsafe") else
+    
+    (* Return named term *)
+    T.mk_annot t (TermAttr.mk_named s n)
 
 
 (* Hashcons an uninterpreted function or constant *)
@@ -1212,8 +1275,8 @@ let bump_state i term =
     (function _ -> function 
        | t when is_free_var t -> 
          mk_var 
-           (Var.bump_offset_of_state_var_instance i
-              (free_var_of_term t))
+           (let v = free_var_of_term t in
+            Var.bump_offset_of_state_var_instance v i)
        | _ as t -> t)
     term
 
@@ -1404,7 +1467,7 @@ struct
 
 end
 
-
+(*
 
 (* Gets the term corresponding to [var] in [map] and bumps it if [var]
    is not a constant. Raises [Not_found] if [var] is not defined in
@@ -1457,6 +1520,30 @@ let substitute_vars map =
    state var mapping. *)
 let substitute_variables mapping =
   substitute_vars mapping |> map
+
+*)
+
+
+(* Replace each state variable in the term *)
+let map_state_vars f term = 
+
+  map
+
+    (fun  _ t -> 
+
+       (* Only map free variables *)
+       if is_free_var t then 
+
+         (* Get free variable of term *)
+         let v = free_var_of_term t in
+
+         (* Return term of variable *)
+         Var.map_state_var f v |> mk_var
+
+       (* Return other terms unchanged *)
+       else t)
+
+    term
 
 
 

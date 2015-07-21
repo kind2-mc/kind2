@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -41,7 +41,7 @@ val add_invariants: t -> TransSys.t -> Term.t list -> unit
     initial states. Returns Some of a model at 0 if some are, None
     otherwise. *)
 val query_base:
-  t -> TransSys.t -> Term.t list -> ((Var.t * Term.t) list) option
+  t -> TransSys.t -> Term.t list -> Model.t option
 
 (** Increments the lsd and checks if some of the input terms are
     k-inductive. Returns the terms unfalsifiable in the next state and

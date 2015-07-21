@@ -3,6 +3,7 @@ node X(x: int) returns (y: int);
   --@ensures pre(x > 3);
 let
   assert (pre pre (x + 1) > 0);
+  assert pre (x + 1) > 0;
   --%PROPERTY 1 > x;
 tel;
 

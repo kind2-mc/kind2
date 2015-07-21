@@ -51,7 +51,7 @@ tel;
 node U0(x: int) returns (y: int);
 let y = pre x + 1; tel;
 
-node U1(x0: int; y0: real) returns (x1: int; y1:  real);
+node U1(const x0: int; y0: real) returns (x1: int; y1:  real);
 var t: int;
 let 
   x1, y1 = [x0 + t, y0]; 
@@ -59,11 +59,16 @@ let
 tel;
 
 node U2() returns ();
-var x: int; y: real;
+var x, x1, xp: int; y, y1: real;
 let
   -- Node call with tuple input 
   x, y = U1(U1(1, 2.0));
 
+  x1, y1 = U1(pre x, y);
+  xp = pre pre x;
+
   --%MAIN
   --%PROPERTY x > 0; 
 tel;
+
+

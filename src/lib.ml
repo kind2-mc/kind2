@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -29,6 +29,36 @@ let true_of_unit () = true
 (* Returns false when given unit. *)
 let false_of_unit () = false
 
+(* Returns None when given unit. *)
+let none_of_unit () = None
+
+(* Returns true *)
+let true_of_any _ = true
+
+(* Returns false s*)
+let false_of_any _ = false
+
+(* ********************************************************************** *)
+(* Event tags used when outputting info.                                  *)
+(* ********************************************************************** *)
+
+(* Formats a string to construct a tag. *)
+let tagify = Format.sprintf "<%s>"
+
+(* Timeout tag. *)
+let timeout_tag = tagify "Timeout"
+(* Success tag. *)
+let success_tag = tagify "Success"
+(* Failure tag. *)
+let failure_tag = tagify "Failure"
+(* Error tag. *)
+let error_tag = tagify "Error"
+(* Warning tag. *)
+let warning_tag = tagify "Warning"
+(* Interruption tag. *)
+let interruption_tag = tagify "Interruption"
+(* Done tag. *)
+let done_tag = tagify "Done"
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
@@ -40,6 +70,13 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 (* ********************************************************************** *)
 (* List functions                                                         *)
 (* ********************************************************************** *)
+
+(* Add element to the head of the list if the option value is not [None] *)
+let ( @:: ) = 
+    function
+    | None -> (function l -> l)
+    | Some e -> (function l -> e :: l)
+
 
 (* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 let list_init f n =
@@ -358,8 +395,15 @@ let list_join equal l1 l2 =
              
   in
 
-  (* Call recursive function with initial accumulator *)
-  list_join' equal [] l1 l2
+  (* Second list is empty? *)
+  match l2 with 
+
+    (* Initialize with singleton elements from first list *)
+    | [] -> List.map (fun (k, v) -> (k, [v])) l1
+
+    (* Call recursive function with initial accumulator *)
+    | _ -> list_join' equal [] l1 l2
+
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)
@@ -372,6 +416,30 @@ let array_max a =
   Array.iter (fun x -> if x > !max_val then max_val := x else ()) a;
   !max_val
 
+(* ********************************************************************** *)
+(* Set functions                                                          *)
+(* ********************************************************************** *)
+
+(* Set of integers *)
+module IntegerSet = 
+  Set.Make
+  (struct
+    type t = int
+    let compare = Pervasives.compare
+    let equal = (=)
+   end)
+  
+  
+(* Hashtable of integers *)
+module IntegerHashtbl =
+  Hashtbl.Make
+    (struct
+      type t = int
+      let hash i = i
+      let equal = (=)
+     end)
+
+    
 (* ********************************************************************** *)
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
@@ -412,6 +480,32 @@ let rec pp_print_list pp sep ppf = function
     pp_print_list pp sep ppf tl
 
 
+  
+(* Pretty-print a list with a counter of its elements *)
+let rec pp_print_listi' pp sep ppf = function 
+
+  (* Output nothing for the empty list *) 
+  | (_, []) -> ()
+
+  (* Output a single element in the list  *) 
+  | (i, e :: []) -> pp ppf i e
+
+  (* Output a single element and a space *) 
+  | (i, e :: tl) -> 
+
+    (* Output one element *)
+    pp ppf i e;
+
+    (* Output separator *)
+    Format.fprintf ppf sep; 
+
+    (* Output the rest of the list *)
+    pp_print_listi' pp sep ppf (succ i, tl)
+
+
+(* Pretty-print a list with a counter of its elements *)
+let pp_print_listi pp sep ppf l = pp_print_listi' pp sep ppf (0, l)
+
 (* Pretty-print a list wrapped in parentheses *)
 let pp_print_paren_list ppf list = 
       
@@ -430,6 +524,11 @@ let pp_print_option pp ppf = function
   | None -> Format.fprintf ppf "None"
   | Some s -> Format.fprintf ppf "@[<hv>Some@ %a@]" pp s
 
+
+(* Print if list is not empty *)
+let pp_print_if_not_empty s ppf = function 
+  | [] -> ()
+  | _ -> Format.fprintf ppf s
 
 (* Pretty-print into a string *)
 let string_of_t pp t = 
@@ -489,13 +588,13 @@ let get = function None -> raise (Invalid_argument "get") | Some x -> x
 let string_starts_with s1 s2 = 
 
   (* First string is shorter than second? *)
-  if String.length s1 < String.length s2 then false else
+  if Bytes.length s1 < Bytes.length s2 then false else
 
     (* Create string of length of [s2] *)
-    let s1' = String.create (String.length s2) in
+    let s1' = Bytes.create (Bytes.length s2) in
 
     (* Copy characters from [s1] *)
-    String.blit s1 0 s1' 0 (String.length s2);
+    Bytes.blit s1 0 s1' 0 (Bytes.length s2);
 
     (* Return true if strings are identical *)
     s1' = s2
@@ -907,25 +1006,25 @@ let pp_print_version ppf = pp_print_banner ppf ()
 
 (* Kind modules *)
 type kind_module = 
-  [ `PDR 
+  [ `IC3 
   | `BMC 
   | `IND
   | `INVGEN
   | `INVGENOS
-  | `INVMAN
   | `Interpreter
+  | `Supervisor
   | `Parser ]
 
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `PDR -> Format.fprintf ppf "property directed reachability"
+  | `IC3 -> Format.fprintf ppf "property directed reachability"
   | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
-  | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
+  | `Supervisor -> Format.fprintf ppf "invariant manager"
   | `Parser -> Format.fprintf ppf "parser"
 
 
@@ -935,25 +1034,35 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 (* Return a short representation of kind module *)
 let suffix_of_kind_module = function
- | `PDR -> "pdr"
+ | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
- | `INVGEN -> "inv"
- | `INVGENOS -> "invos"
- | `INVMAN -> "man"
+ | `INVGEN -> "invgents"
+ | `INVGENOS -> "invgenos"
  | `Interpreter -> "interp"
+ | `Supervisor -> "invman"
  | `Parser -> "parse"
                 
 
 (* Process type of a string *)
 let kind_module_of_string = function 
-  | "PDR" -> `PDR
+  | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
-  | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
+
+
+let int_of_kind_module = function
+  | `Parser -> -3
+  | `Interpreter -> -2
+  | `Supervisor -> -1
+  | `BMC -> 1
+  | `IND -> 2
+  | `IC3 -> 3
+  | `INVGEN -> 4
+  | `INVGENOS -> 5
 
 
 (* Timeouts *)

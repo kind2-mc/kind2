@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -27,7 +27,7 @@ open Lib
 (* An attribute for a term annotation 
 
    Currently we only have names for terms *)
-type attr = Named of int
+type attr = Named of string * int
 
 
 (* A private type that cannot be constructed outside this module
@@ -67,10 +67,10 @@ module Attr_node = struct
   let equal v1 v2 = match v1, v2 with
 
     (* Two name attributes, use equality on integers *)
-    | Named n1, Named n2 -> n1 = n2
+    | Named (s1, n1), Named (s2, n2) -> s1 = s2 && n1 = n2
 
   (* Return hash of a name attribute *)
-  let hash = function Named n -> n
+  let hash = function Named (s, n) -> Hashtbl.hash (s, n)
 
 end
 
@@ -163,8 +163,8 @@ module SMTLIBPrinter : Printer =
     let pp_print_attr_node ppf = function 
 
       (* Pretty-print a name attribute *)
-      | Named n ->
-         Format.fprintf ppf ":named@ t%d" n
+      | Named (s, n) ->
+         Format.fprintf ppf ":named@ %s%d" s n
 
     (* Pretty-print an attribute to the standard formatter *)
     let print_attr_node = pp_print_attr_node Format.std_formatter 
@@ -221,7 +221,7 @@ include SelectedPrinter
 let is_named = function { Hashcons.node = Named _ } -> true
 
 (* Return the name in a name attribute *)
-let named_of_attr = function { Hashcons.node = Named n } -> n
+let named_of_attr = function { Hashcons.node = Named (s, n) } -> (s, n)
 
 (* ********************************************************************* *)
 (* Constructors                                                          *)
@@ -229,10 +229,10 @@ let named_of_attr = function { Hashcons.node = Named n } -> n
 
 
 (* Return a hashconsed attribute which is a name *)    
-let mk_named n = 
+let mk_named s n = 
   
   (* Create and hashcons name attribute *)
-  Hattr.hashcons ht (Named n) ()
+  Hattr.hashcons ht (Named (s, n)) ()
 
 
 (* 

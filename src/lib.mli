@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -30,6 +30,35 @@ val true_of_unit : unit -> bool
 
 (** Returns false when given unit. *)
 val false_of_unit : unit -> bool
+
+(** Returns None when given unit. *)
+val none_of_unit : unit -> 'a option
+
+(** Return true *)
+val true_of_any : 'a -> bool
+
+(** Return false *)
+val false_of_any : 'a -> bool
+
+
+(** {1 Event tags} *)
+
+(** Timeout tag. *)
+val timeout_tag : string
+(** Success tag. *)
+val success_tag : string
+(** Failure tag. *)
+val failure_tag : string
+(** Error tag. *)
+val error_tag : string
+(** Warning tag. *)
+val warning_tag : string
+(** Interruption tag. *)
+val interruption_tag : string
+(** Done tag. *)
+val done_tag : string
+
+
 
 (** {1 Option types} *)
 
@@ -81,6 +110,18 @@ val string_starts_with : string -> string -> bool
 val safe_hash_interleave : int -> int -> int -> int
 
 (** {1 List functions} *)
+
+(** Add element to the head of the list if the option value is not [None].
+
+    The function symbol is right-associative and infix:
+
+    {[ Some 1 @:: None @:: Some 2 @:: [3;4] ]}
+
+    returns
+
+    {[ \[1;2;3;4\] ]}
+*)
+val ( @:: ) : 'a option -> 'a list -> 'a list 
 
 (** Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 val list_init : (int -> 'a) -> int -> 'a list
@@ -151,6 +192,14 @@ val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int
 (** Returns the maximum element of a non-empty array *)
 val array_max : 'a array -> 'a
 
+(** {1 Set functions} *)
+
+(** Sets of integers *)
+module IntegerSet : Set.S with type elt = int
+
+(** Hashtable of integers *)
+module IntegerHashtbl : Hashtbl.S with type key = int
+  
 (** {1 Pretty-printing helpers} *)
 
 (** Pretty-print an array with given separator
@@ -181,8 +230,19 @@ val pp_print_arrayi : (Format.formatter -> int -> 'a -> unit) -> (unit, Format.f
 *)
 val pp_print_list : (Format.formatter -> 'a -> unit) -> ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
+(** Pretty-print a list with given separator and maintain a counter of elements 
+
+    See {!pp_print_list}, except that the pretty-printer is passes an
+    zero-based counter for the list's elements as the argument
+    preceding the list element.
+*)
+val pp_print_listi : (Format.formatter -> int -> 'a -> unit) -> ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
+
 (** Pretty-print an option type *)
 val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a option -> unit
+
+(** Pretty-print if list is not empty *)
+val pp_print_if_not_empty : (unit, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
 (** Output a horizonal dasehd line *)
 val pp_print_hline : Format.formatter -> unit -> unit 
@@ -262,13 +322,13 @@ val pp_print_version : Format.formatter -> unit
 
 (** Kind modules *)
 type kind_module =
-  [ `PDR
+  [ `IC3
   | `BMC
   | `IND
   | `INVGEN
   | `INVGENOS
-  | `INVMAN
   | `Interpreter
+  | `Supervisor
   | `Parser ]
 
 
@@ -295,6 +355,9 @@ val pp_print_kind_module : Format.formatter -> kind_module -> unit
 
 (** String representation of a process type *)
 val string_of_kind_module : kind_module -> string 
+
+(** String representation of a process type *)
+val int_of_kind_module : kind_module -> int
 
 (** Return a short representation of kind module *)
 val suffix_of_kind_module : kind_module -> string

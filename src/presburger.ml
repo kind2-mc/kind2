@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -523,6 +523,7 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `NOT, _
                | `MINUS, _
                | `DIVISIBLE _, _
+(*
                | `BVNEG, _
                | `BVADD, _
                | `BV _, _ 
@@ -535,10 +536,12 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
                | `BVOR, _
                | `BVLSHR, _
                | `BVAND, _
+*)
                | `SELECT, _
+(*
                | `BVULT, _
                | `STORE, _
-               | `EXTRACT _, _ -> raise Not_in_LIA
+               | `EXTRACT _, _  *) -> raise Not_in_LIA
 
              )
       )

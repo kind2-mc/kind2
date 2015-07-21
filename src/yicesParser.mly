@@ -1,7 +1,7 @@
 %{
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -31,14 +31,14 @@
 
 %}
 
-%token SAT UNSAT UNKNOWN ERROR
+%token SAT UNSAT UNKNOWN // ERROR
 %token ID CORE IDS // UNSATISFIED ASSERTION
 %token LEFTPAR RIGHTPAR COLON EQ
 %token <string> IDENT
 // %token <string> LINE
 %token <int> INT
 %token <Decimal.t> DECIMAL
-%token SUCCESS CUSTOM
+%token SUCCESS // CUSTOM
 %token <string> ERROR_MSG
 %token <string> CUSTOM_RESP
 %token EOF

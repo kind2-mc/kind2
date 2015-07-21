@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -62,10 +62,12 @@ module StateVarMap : Map.S with type key = t
 
 (** {1 Constructor} *)
 
-(** [mk_state_var n s t] declares a state variable of name [n] and
-    type [t] and flag it as a local definition if [s] is [true]. A
-    variable is a local definition if it does not occur under a [pre]
-    operator.
+(** [mk_state_var n s t i] declares a state variable of name [n] with
+    scope [s], and type [t]. The optional labeled
+    arguments [?is_input], [?is_const] and [?for_inv_gen] flag the
+    variable as an input, as constant and as usable as a candidate for
+    invariant generation, respectively. Their defaults are [false],
+    [false] and [true].
 
     Declaring a state variable again with the same signature is
     harmless and will simply return the previously declared state

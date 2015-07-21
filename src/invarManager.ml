@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -33,7 +33,7 @@ let on_exit trans_sys =
   (match trans_sys with | None -> () | Some trans_sys ->
     Event.log_prop_status 
       L_fatal
-      (TransSys.get_prop_status_all_unknown trans_sys));
+      (TransSys.get_prop_status_all trans_sys));
     
   try 
     
@@ -105,7 +105,7 @@ let rec wait_for_children child_pids =
       )
 
 
-let handle_events trans_sys = 
+let handle_events input_sys aparam trans_sys = 
 
   (* Receive queued events *)
   let events = Event.recv () in
@@ -121,63 +121,100 @@ let handle_events trans_sys =
     events;
 
   (* Update transition system from events *)
-  let _, prop_status =
-    Event.update_trans_sys trans_sys events
+  let _ =
+    Event.update_trans_sys input_sys aparam trans_sys events
   in
 
   ()
 
 (* Polling loop *)
-let rec loop is_done child_pids trans_sys = 
+let rec loop done_at child_pids input_sys aparam trans_sys = 
 
-  handle_events trans_sys;
+  handle_events input_sys aparam trans_sys;
 
-  let is_done' =
+  let done_at' =
+
     (* All properties proved? *)
-    if TransSys.all_props_proved trans_sys then (
+    if TransSys.all_props_proved trans_sys then 
 
-      ( if not is_done then
-          Event.log L_info
-            "<Done> All properties proved or disproved in %.3fs."
-            (Stat.get_float Stat.total_time)
-        else
-          Event.log L_info
-            "All properties proved or disproved,@ \
-             waiting for children to terminate." ) ;
-      
-      Event.terminate () ;
+      (
 
-      true
+        ( 
 
-    ) else false
+          (* Has is_done been true in the last iteration? *)
+          match done_at with
+
+            | None -> 
+
+              (* Message after is_done becomes true first time *)
+              Event.log L_info
+                "<Done> All properties proved or disproved in %.3fs."
+                (Stat.get_float Stat.total_time);
+
+              Event.terminate ();
+
+              Some (Unix.gettimeofday ())
+
+            | Some t ->
+
+              (* Message after if is_done has been true in the last
+                 iteration *)
+              Event.log L_info
+                "All properties proved or disproved,@ \
+                 waiting for children to terminate.";
+
+              Some t
+
+        );
+
+      )
+
+    else 
+
+      None
+
   in
 
-  (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids then (
-    
-    (* Get messages after termination of all processes *)
-    handle_events trans_sys ;
+  if 
 
-    (* All properties proved? *)
-    if TransSys.all_props_proved trans_sys then
-      Event.terminate ()
+    (* Check if child processes have died and exit if necessary *)
+    wait_for_children child_pids
+    ||
+    (match done_at with 
+      | None -> false
+      | Some t -> (Unix.gettimeofday () -. t) > 0.3)
 
-  ) else (
+  then 
 
-    (* Sleep *)
-    minisleep 0.01;
+    (
 
-    (* Continue polling loop *)
-    loop is_done' child_pids trans_sys
+      (* Get messages after termination of all processes *)
+      handle_events input_sys aparam trans_sys ;
 
-  )
+      (* All properties proved? *)
+      if TransSys.all_props_proved trans_sys then
+        Event.terminate ()
+
+    ) 
+
+  else
+
+    (
+
+      (* Sleep *)
+      minisleep 0.01;
+
+      (* Continue polling loop *)
+      loop done_at' child_pids input_sys aparam trans_sys
+
+    )
   
 
 (* Entry point *)
-let main child_pids transSys =
+let main child_pids input_sys aparam trans_sys =
 
   (* Run main loop *)
-  loop false child_pids transSys
+  loop None child_pids input_sys aparam trans_sys
 
 (* 
    Local Variables:

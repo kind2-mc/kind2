@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -20,7 +20,12 @@ include GenericSMTLIBDriver
 
 
 (* Configuration for Yices *)
-let cmd_line () = 
+let cmd_line
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants = 
 
   (* Path and name of Yices executable *)
   let yices2smt2_bin = Flags.yices2smt2_bin () in

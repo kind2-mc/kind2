@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -48,7 +48,7 @@ type t = {
   
 }
 
-let name = TransSys.get_name
+let name trans_sys = TransSys.scope_of_trans_sys trans_sys |> Scope.to_string
 
 let shall_check_consistency = false
 
@@ -64,10 +64,10 @@ let check_consistency_sys solver k sys actlit called_by =
 
     SMTSolver.check_sat_assuming
       solver
-      (fun () ->
+      (fun _ ->
        (* Instance is sat for [sys], fine. *)
        ())
-      (fun () ->
+      (fun _ ->
        (* Instance is unsat, let's crash. *)
        Event.log
          L_info
@@ -75,7 +75,7 @@ let check_consistency_sys solver k sys actlit called_by =
           for system [%s].@ \
           called by [%s].@]"
          (Numeral.to_int k)
-         (TransSys.get_scope sys |> String.concat "/")
+         (TransSys.scope_of_trans_sys sys |> String.concat "/")
          called_by ;
        assert false)
       [ actlit ]
@@ -108,40 +108,27 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
-let common_setup (solver,sys,actlit) =
+let common_setup (solver,is_top,sys,actlit) =
 
   name sys
   |> Printf.sprintf
        "Setting up system [%s]."
   |> SMTSolver.trace_comment solver ;
 
+  
   SMTSolver.declare_fun solver actlit ;
   
-  (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
-    sys
-    (SMTSolver.define_fun solver)
-    (SMTSolver.declare_fun solver)
-    Numeral.zero Numeral.(~- one);
-
-  SMTSolver.trace_comment solver "Done defining, declaring now." ;
+  if not is_top then
+    TransSys.declare_const_vars sys (SMTSolver.declare_fun solver);
 
   (* Declaring unrolled vars at [-1] and [0]. *)
   TransSys.declare_vars_of_bounds
+    (* ~declare_init_flag:false *)
     sys
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
-  let actlit_term = Actlit.term_of_actlit actlit in
-
-  (* Constraining max depth. *)
-  Term.mk_implies
-    [ actlit_term ;
-      TransSys.get_max_depth sys
-      |> TransSys.depth_inputs_constraint sys ]
-  |> SMTSolver.assert_term solver ;
-
-  solver, sys, actlit_term
+  solver, sys, Actlit.term_of_actlit actlit
 
 let base_setup (solver,sys,actlit) =
 
@@ -154,7 +141,7 @@ let base_setup (solver,sys,actlit) =
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and]
   |> SMTSolver.assert_term solver
 
 let step_setup (solver, sys, actlit) =
@@ -163,11 +150,12 @@ let step_setup (solver, sys, actlit) =
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and ]
   |> SMTSolver.assert_term solver ;
 
   (* Declaring unrolled vars at [1]. *)
   TransSys.declare_vars_of_bounds
+    (* ~declare_init_flag:false *)
     sys
     (SMTSolver.declare_fun solver)
     Numeral.one Numeral.one ;
@@ -179,7 +167,7 @@ let step_setup (solver, sys, actlit) =
 
   (* Conditionally asserting invariants of the system at [1]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.one ]
+    [ actlit ; TransSys.invars_of_bound sys Numeral.one |> Term.mk_and ]
   |> SMTSolver.assert_term solver
 
 let pruning_setup = step_setup
@@ -194,7 +182,11 @@ let unroll_solver solver sys actlit k =
 
   (* Declaring unrolled vars at [k+1]. *)
   TransSys.declare_vars_of_bounds
-    sys (SMTSolver.declare_fun solver) k k ;
+    (* ~declare_init_flag:false *)
+      sys
+      (SMTSolver.declare_fun solver) 
+      k
+      k ;
 
   (* Conditionally asserting transition predicate at [k]. *)
   Term.mk_implies
@@ -203,7 +195,7 @@ let unroll_solver solver sys actlit k =
 
   (* Conditionally asserting invariants of the system at [k]. *)
   Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys k ]
+    [ actlit ; TransSys.invars_of_bound sys k |> Term.mk_and ]
   |> SMTSolver.assert_term solver
 
 let add_invariants_solver solver sys actlit k invariants =
@@ -266,7 +258,7 @@ let swap_system_binding system f =
             (Printf.sprintf
                "swap_system_binding: \
                 unexpected system [%s]."
-               (TransSys.get_scope system
+               (TransSys.scope_of_trans_sys system
                 |> String.concat "/")))
 
     | (system', info) :: tail
@@ -300,6 +292,23 @@ let unroll_sys
           (* Getting the next [k]. *)
           let kp1 = Numeral.succ k in
 
+          if Numeral.(kp1 > last_k) then (
+(*
+            TransSys.declare_init_flag_of_bounds
+              system
+              (SMTSolver.declare_fun base_solver)
+              kp1 
+              kp1;
+
+            TransSys.declare_init_flag_of_bounds
+              system
+              (SMTSolver.declare_fun step_solver)
+              Numeral.(succ kp1) 
+              Numeral.(succ kp1);
+*)
+            lsd.last_k <- kp1
+          ) ;
+
           (* Unrolling base solver at [k+1]. *)
           unroll_solver base_solver system actlit kp1 ;
           (* Unrolling step solver at [k+2]. *)
@@ -314,11 +323,11 @@ let unroll_sys
   ()
 
 (* Creates a lsd instance. *)
-let create two_state top_only sys =
+let create two_state top_only top_sys =
 
   let new_inst_sys () =
     SMTSolver.create_instance ~produce_assignments: true
-      (TransSys.get_logic sys) (Flags.smtsolver ())
+      (TransSys.get_logic top_sys) (Flags.smtsolver ())
   in
 
   (* Solvers. *)
@@ -326,66 +335,92 @@ let create two_state top_only sys =
     new_inst_sys (), new_inst_sys (), new_inst_sys ()
   in
 
-  (* let init_solver solver = *)
-  (*   TransSys.declare_vars_global_const *)
-  (*     (SMTSolver.declare_fun solver) *)
-  (* in *)
+  let init_solver solver title =
+    SMTSolver.trace_comment solver title ;
 
-  (* init_solver base_solver ; *)
-  (* init_solver step_solver ; *)
-  (* init_solver pruning_solver ; *)
+    (* Defining uf's and declaring variables. *)
+    TransSys.define_and_declare_of_bounds
+      top_sys
+      (SMTSolver.define_fun solver)
+      (SMTSolver.declare_fun solver)
+      Numeral.zero Numeral.(~- one) ;
+
+(*
+    TransSys.declare_init_flag_of_bounds 
+      sys 
+      (SMTSolver.declare_fun solver)
+      Numeral.(~- one)
+      Numeral.zero;
+*)
+  in
+
+  init_solver base_solver "|===| Base solver" ;
+  init_solver step_solver "|===| Step solver" ;
+(*
+  TransSys.declare_init_flag_of_bounds 
+    sys 
+    (SMTSolver.declare_fun step_solver)
+    Numeral.one
+    Numeral.one;
+*)
+  init_solver pruning_solver "|===| Pruning solver" ; ;
+(*
+  TransSys.declare_init_flag_of_bounds 
+    sys 
+    (SMTSolver.declare_fun pruning_solver)
+    Numeral.one
+    Numeral.one;
+*)
+  (* declare_init_flag base_solver minus_one Numeral.zero ; *)
+  (* declare_init_flag step_solver minus_one Numeral.one ; *)
+  (* declare_init_flag pruning_solver minus_one Numeral.one ; *)
 
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)
   let systems =
-    let rec loop all_sys = function
-        
-      | sys :: tail ->
-         
-         if List.mem_assq sys all_sys then
-           (* We already know [sys], skipping. *)
-           loop all_sys tail
-                
-         else
-           (* First time seeing [sys], adding it to [all_sys], setting
-              everything up in the solver and recursing on its kids
-              and the tail of unvisited sys if not it top mode. *)
 
-           (* Getting a fresh actlit for [sys]. *)
-           let actlit = Actlit.fresh_actlit () in
+    let loop all_sys sys =
 
-           (* Setting up base. *)
-           (base_solver, sys, actlit)
-           |> common_setup |> base_setup ;
+      (* First time seeing [sys], adding it to [all_sys], setting
+         everything up in the solver and recursing on its kids and the tail
+         of unvisited sys if not it top mode. *)
 
-           (* Setting up step. *)
-           (step_solver, sys, actlit)
-           |> common_setup |> step_setup ;
+      (* Getting a fresh actlit for [sys]. *)
+      let actlit = Actlit.fresh_actlit () in
 
-           (* Setting up pruning. *)
-           (pruning_solver, sys, actlit)
-           |> common_setup |> pruning_setup ;
+      let is_top = TransSys.equal_scope top_sys sys in
 
-           let actlit_term = Actlit.term_of_actlit actlit in
+      (* Setting up base. *)
+      (base_solver, is_top, sys, actlit)
+      |> common_setup |> base_setup ;
 
-           (* Updating the map of all systems. *)
-           let all_sys' =
-             (sys, (Numeral.zero, actlit_term)) :: all_sys
-           in
+      (* Setting up step. *)
+      (step_solver, is_top, sys, actlit)
+      |> common_setup |> step_setup ;
 
-           if top_only then
-             (* If top only then stop at the top level. *)
-             all_sys'
-           else
-             (* Otherwise recursing to get subsystems. *)
-             loop
-               all_sys'
-               (List.rev_append (TransSys.get_subsystems sys) tail)
+      (* Setting up pruning. *)
+      (pruning_solver, is_top, sys, actlit)
+      |> common_setup |> pruning_setup ;
 
-      | [] -> all_sys
+      let actlit_term = Actlit.term_of_actlit actlit in
+
+      (* Updating the map of all systems. *)
+      (sys, (Numeral.zero, actlit_term)) :: all_sys
+
     in
 
-    loop [] [sys]
+    if top_only then
+
+      (* If top only then stop at the top level. *)
+      loop [] top_sys
+
+    else
+
+      TransSys.fold_subsystems
+        loop
+        []
+        top_sys
+
   in
 
   (* Constructing the lsd context. *)
@@ -412,13 +447,24 @@ let query_base
 
   (* Getting the system info. *)
   let k, sys_actlit =
-    List.assq system systems
+    try 
+      List.assq system systems
+    with Not_found -> 
+      Format.printf
+        "System %a not found in@ @[<hv>%a@]@."
+        Scope.pp_print_scope (TransSys.scope_of_trans_sys system)
+        (pp_print_list 
+           (fun ppf (t, _) -> 
+              TransSys.scope_of_trans_sys t |> Scope.pp_print_scope ppf)
+          ",@ ")
+        systems; 
+      assert false
   in
 
   Printf.sprintf
     "query_base at %i for [%s]."
     (Numeral.to_int k)
-    (TransSys.get_scope system |> String.concat "/")
+    (TransSys.scope_of_trans_sys system |> String.concat "/")
   |> SMTSolver.trace_comment base_solver ;
 
   (* Fresh actlit for the check (as a term). *)
@@ -444,7 +490,7 @@ let query_base
   |> SMTSolver.assert_term base_solver ;
 
   (* Function to run if sat. *)
-  let if_sat () =
+  let if_sat _ =
 
     let minus_k = Numeral.(~- k) in
 
@@ -454,19 +500,15 @@ let query_base
       (if two_state then Numeral.pred k else k)
       k
     (* Getting their value. *)
-    |> SMTSolver.get_model base_solver
+    |> SMTSolver.get_var_values base_solver
     (* Bumping to -k. *)
-    |> List.map
-         ( fun (v,t) ->
-           (Var.bump_offset_of_state_var_instance
-              minus_k v),
-           t )
+    |> Model.bump_var minus_k 
     (* Making an option out of it. *)
     |> (fun model -> Some model)
   in
 
   (* Function to run if unsat. *)
-  let if_unsat () = None in
+  let if_unsat _ = None in
 
   (* Checking if we should terminate before doing anything. *)
   Event.check_termination () ;
@@ -484,6 +526,11 @@ let query_base
 
   (* Returning result. *)
   result
+
+(* Wraps the result of a call to [split_closure]. *)
+type 'a solver_res =
+  | Continuation of (unit -> 'a solver_res)
+  | Result of 'a
 
 (* Splits its input list of terms between the falsifiable and the
    unfalsifiable ones at [k+1]. The terms are asserted from 0 (1 if
@@ -536,7 +583,7 @@ let rec split_closure
             |> Term.mk_not ]) ;
 
      (* Function to run if sat. *)
-     let if_sat () =
+     let if_sat _ =
 
        let minus_kp1 = Numeral.(~- kp1) in
        
@@ -544,7 +591,7 @@ let rec split_closure
          terms_to_check
          (* We want the value of the terms a k+1. *)
          |> List.map (Term.bump_state kp1)
-         |> SMTSolver.get_values solver
+         |> SMTSolver.get_term_values solver
 
          (* Separating falsifiable ones from the rest, bumping back at
             the same time. *)
@@ -563,35 +610,34 @@ let rec split_closure
               (falsifiable, [])
        in
 
-       (* Deactivating actlit. *)
-       Term.mk_not actlit
-       |> SMTSolver.assert_term solver ;
-
        (* Looping. *)
-       split_closure
-        solver two_state trans_actlit k falsifiable' unknown
+       Some (
+        fun () ->
+          split_closure
+            solver two_state trans_actlit k falsifiable' unknown
+       )
                      
      in
 
      (* Function to run if unsat. *)
-     let if_unsat () =
-       (* Deactivating actlit. *)
-       Term.mk_not actlit
-       |> SMTSolver.assert_term solver ;
-       
-       (* Returning result. *)
-       falsifiable, terms_to_check
-     in
+     let if_unsat _ = None in
 
      (* Checking if we should terminate before doing anything. *)
      Event.check_termination () ;
 
-     (* Checksat-ing. *)
-     SMTSolver.check_sat_assuming
-       solver
-       if_sat
-       if_unsat
-       [ actlit ; trans_actlit ]
+     (* Checking. *)
+     let check =
+        SMTSolver.check_sat_assuming
+          solver if_sat if_unsat [ actlit ; trans_actlit ]
+     in
+
+     (* Deactivating actlit. *)
+     Term.mk_not actlit
+     |> SMTSolver.assert_term solver ;
+
+     match check with
+     | Some continue -> continue ()
+     | None -> falsifiable, terms_to_check
 
 
 
@@ -629,10 +675,10 @@ let rec prune_trivial
          Term.mk_and bumped_terms |> Term.mk_not ]
      |> SMTSolver.assert_term solver ;
 
-     let if_sat () =
+     let if_sat _ =
        Some (
          (* Getting the values of terms@1. *)
-         SMTSolver.get_values
+         SMTSolver.get_term_values
            solver bumped_terms
          (* Partitioning the list based on the value of the terms. *)
          |> List.fold_left
@@ -649,10 +695,11 @@ let rec prune_trivial
        )
      in
 
-     let if_unsat () = None in
+     let if_unsat _ = None in
 
-     match SMTSolver.check_sat_assuming
-       solver if_sat if_unsat [actlit ; trivial_actlit]
+     match
+      SMTSolver.check_sat_assuming
+        solver if_sat if_unsat [actlit ; trivial_actlit]
      with
        | None ->
           (* Deactivating actlit. *)

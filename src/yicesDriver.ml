@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -20,17 +20,23 @@ open Lib
 
 
 (* Configuration for Yices *)
-let cmd_line () = 
+let cmd_line 
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants = 
 
   (* Path and name of Yices executable *)
   let yices_bin = Flags.yices_bin () in
+
   [| yices_bin |]
 
 
 
 (* Command to limit check-sat to run for the given numer of ms at most *)
 let check_sat_limited_cmd ms =
-    failwith "Yices.check_sat_limited_cmd"
+  failwith "Yices.check_sat_limited_cmd"
 
 
 (* Indicates whether the solver supports the check-sat-assuming
@@ -43,15 +49,13 @@ let check_sat_assuming_cmd _ =
 
 
 let headers () =
-  let missing = [
+
+  [
+
     (* Define functions for int / real conversions *)
     "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
     "(define to_real::(-> x::int (subtype (y::real) (= y x))))";
-  ] in
-  
-  if Flags.yices_arith_only () then
-    "(set-arith-only! true)" :: missing
-  else missing
+  ] 
 
 
 let trace_extension = "ys"
@@ -62,44 +66,44 @@ let comment_delims = ";;", ""
 
 (* Pretty-print a type *)
 let rec pp_print_type_node ppf =
-  let open Type in
-  function 
 
-  | Bool -> Format.pp_print_string ppf "bool"
+  let open Type in function 
 
-  | Int -> Format.pp_print_string ppf "int"
+    | Bool -> Format.pp_print_string ppf "bool"
 
-  | IntRange (i, j) -> 
+    | Int -> Format.pp_print_string ppf "int"
 
-    Format.fprintf
-      ppf 
-      "(subrange %a %a)" 
-      Numeral.pp_print_numeral i 
-      Numeral.pp_print_numeral j
+    | IntRange (i, j) -> 
 
-  | Real -> Format.pp_print_string ppf "real"
+      Format.fprintf
+        ppf 
+        "(subrange %a %a)" 
+        Numeral.pp_print_numeral i 
+        Numeral.pp_print_numeral j
 
+    | Real -> Format.pp_print_string ppf "real"
+(*
   | BV i -> 
 
     Format.fprintf
       ppf 
       "(bitvector %d)" 
       i 
+*)
+    | Array (s, t) -> 
+      Format.fprintf
+        ppf 
+        "(-> %a %a)" 
+        pp_print_type s 
+        pp_print_type t
 
-  | Array (s, t) -> 
-    Format.fprintf
-      ppf 
-      "(-> %a %a)" 
-      pp_print_type s 
-      pp_print_type t
+    | Scalar (s, l) -> 
 
-  | Scalar (s, l) -> 
-
-    Format.fprintf
-      ppf 
-      "(scalar %s %a)" 
-      s 
-      (pp_print_list Format.pp_print_string " ") l
+      Format.fprintf
+        ppf 
+        "(scalar %s %a)" 
+        s 
+        (pp_print_list Format.pp_print_string " ") l
 
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf t = pp_print_type_node ppf (Type.node_of_type t)
@@ -182,6 +186,7 @@ let string_symbol_list =
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
    (* ("is_int", Symbol.mk_symbol `IS_INT); *)
+(*
    ("bv-concat", Symbol.mk_symbol `CONCAT);
    ("bv-not", Symbol.mk_symbol `BVNOT);
    ("bv-neg", Symbol.mk_symbol `BVNEG);
@@ -194,8 +199,13 @@ let string_symbol_list =
    ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
    ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
    ("bv-lt", Symbol.mk_symbol `BVULT);
+*)
    (* ("select", Symbol.mk_symbol `SELECT); *)
-   ("update", Symbol.mk_symbol `STORE)]
+(*
+   ("update", Symbol.mk_symbol `STORE)
+*)
+
+  ]
 
 (* TODO add support for arrays by keeping info on which function symbols are
    in fact arrays *)
@@ -225,8 +235,9 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal ppf f
+(*
   | `BV b -> pp_yices_print_bitvector_b ppf b
-
+*)
   (* Special case for unary minus : print -a as (- 0 a) *)
   | `MINUS when arity = Some 1 -> Format.pp_print_string ppf "- 0"
 
@@ -249,7 +260,7 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `DIVISIBLE n ->
     failwith "divisible not implemented for yices"
-
+(*
   | `CONCAT -> Format.pp_print_string ppf "bv-concat"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
@@ -269,10 +280,11 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
-
+*)
   | `SELECT -> Format.pp_print_string ppf ""
+(*
   | `STORE -> Format.pp_print_string ppf "update"
-
+*)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 
@@ -283,3 +295,22 @@ and pp_print_symbol ?arity ppf s =
 
 (* Return a string representation of a hashconsed symbol *)
 let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
+
+
+let pp_print_term ppf t =
+  Term.T.pp_print_term_w pp_print_symbol ppf t
+        
+    
+(* Pretty-print an expression *)
+let pp_print_expr = pp_print_term
+
+
+(* Pretty-print an expression to the standard formatter *)
+let print_expr = pp_print_expr Format.std_formatter
+
+
+(* Return a string representation of an expression *)
+let string_of_expr t = string_of_t pp_print_expr t
+
+
+

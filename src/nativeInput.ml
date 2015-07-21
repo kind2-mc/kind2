@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -109,7 +109,7 @@ let state_var_of_sexpr scope = function
     in
 
     (* Create state variable and return *)
-    StateVar.mk_state_var ~is_input ~is_const var_name scope var_type
+    StateVar.mk_state_var ~is_input ~is_const var_name scope var_type []
 
   | _ -> failwith "Invalid state variable declaration"
 
@@ -294,7 +294,7 @@ let rec term_of_sexpr scope bound_vars = function
        variables *)
     let bound_vars' = 
       List.map 
-        (function (v, _) -> (Var.hstring_of_temp_var v, v))
+        (function (v, _) -> (Var.hstring_of_free_var v, v))
         bindings 
     in
 
@@ -466,7 +466,7 @@ and bindings_of_sexpr scope b accum = function
     let term_type = Term.type_of_term term in
 
     (* Create a variable of the identifier and the type of the expression *)
-    let var = Var.mk_temp_var v term_type in
+    let var = Var.mk_free_var v term_type in
 
     (* Add bound expresssion to accumulator *)
     bindings_of_sexpr scope b ((var, term) :: accum) tl
@@ -556,6 +556,7 @@ let state_var_of_top_scope state_var =
     (StateVar.name_of_state_var state_var)
     top_scope
     (StateVar.type_of_state_var state_var)
+    []
 
 
 (* Create a copy of the state variable instance at the top level *)

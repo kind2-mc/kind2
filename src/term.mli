@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -36,40 +36,6 @@
 *)
 
 
-(** {1 Logics} *)
-
-(** The defined logics in SMTLIB *)
-type logic = 
-  [ `detect
-  | `AUFLIA
-  | `AUFLIRA
-  | `AUFNIRA
-  | `LRA 
-  | `LIA
-  | `QF_ABV
-  | `QF_AUFBV
-  | `QF_AUFLIA
-  | `QF_AX
-  | `QF_BV
-  | `QF_IDL
-  | `QF_LIA
-  | `QF_LRA
-  | `QF_LIRA
-  | `QF_NIA
-  | `QF_NRA
-  | `QF_RDL
-  | `QF_UF
-  | `QF_UFBV
-  | `QF_UFIDL
-  | `QF_UFLIA
-  | `QF_UFLRA
-  | `QF_UFNRA
-  | `UFLIA
-  | `UFLRA
-  | `UFNIA
-  ]
-
-
 (** {1 Types and hash-consing} *)
 
 module T : Ltree.S
@@ -80,6 +46,9 @@ module T : Ltree.S
 (** Terms are hashconsed abstract syntax trees *)
 type t = T.t
     
+(** Terms are hashconsed abstract syntax trees *)
+type lambda = T.lambda
+
 (** {1 Hashtables, maps and sets} *)
 
 (** Comparison function on terms *)
@@ -109,8 +78,14 @@ module TermMap : Map.S with type key = t
 (** Create a hashconsed term *)
 val mk_term : T.t_node -> t
 
+(** Create a hashconsed lambda expression *)
+val mk_lambda : Var.t list -> t -> lambda
+
 (** Import a term from a different instance into this hashcons table *)
 val import : t -> t
+
+(** Import a term from a different instance into this hashcons table *)
+val import_lambda : lambda -> lambda
 
 (** Create the propositional constant [true] *)
 val mk_true : unit -> t
@@ -157,10 +132,10 @@ val mk_dec : Decimal.t -> t
 (** Create a floating point decimal *)
 val mk_dec_of_float : float -> t
 *)
-
+(*
 (** Create a constant bitvector *)
 val mk_bv : Lib.bitvector -> t
-
+*)
 (** Create an integer or real difference *)
 val mk_minus : t list -> t
 
@@ -206,9 +181,22 @@ val mk_is_int : t -> t
 (** Create a predicate for divisibility by a constant integer *)
 val mk_divisible : Numeral.t -> t -> t
 
+(** Create a predicate for divisibility by a constant integer *)
+val mk_select : t -> t -> t
+
 (** Uniquely name a term with an integer and return a named term and
     its name *)
 val mk_named : t -> int * t
+
+(** Name term with the given integer in a given namespace
+
+    This is a basic function, the caller has to generate the name, and
+    ensure the name is used only once. Use with caution, or better
+    only use {!mk_named}, which will create a unique name.
+
+    The namespace ["t"] will be rejected, because this is the
+    namespace used by {!mk_named}. *)
+val mk_named_unsafe : t -> string -> int -> t 
 
 (** Create an uninterpreted constant or function *)
 val mk_uf : UfSymbol.t -> t list -> t
@@ -403,6 +391,15 @@ val is_bool : t -> bool
 (** Return Boolean constant of a term *)
 val bool_of_term : t -> bool
 
+(** Return true if the term is an application of the select operator *)
+val is_select : t -> bool
+
+(** Return the indexes and the array variable of the select operator
+
+    The array argument of a select is either another select operation
+    or a variable. For the expression [(select (select A j) k)] return
+    the pair [A] and [[j; k]]. *)
+val indexes_and_var_of_select : t -> Var.t * t list
 
 (** {1 Pretty-printing} *)
 
@@ -412,8 +409,17 @@ val pp_print_term : Format.formatter -> t -> unit
 (** Pretty-print a term to the standard formatter *)
 val print_term : t -> unit
 
-(** Return a string representation of a t *)
+(** Return a string representation of a term *)
 val string_of_term : t -> string 
+
+(** Pretty-print a lambda abstraction *)
+val pp_print_lambda : Format.formatter -> lambda -> unit
+
+(** Pretty-print a lambda abstraction to the standard formatter *)
+val print_lambda : lambda -> unit
+
+(** Return a string representation of a lambda abstraction *)
+val string_of_lambda : lambda -> string 
 
 (** {1 Conversions} *)
 
@@ -423,6 +429,9 @@ val string_of_term : t -> string
     subterms. Let bindings are lazily unfolded. *)
 val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
 
+(** Beta-evaluate a lambda expression *)
+val eval_lambda : lambda -> t list -> t
+
 (** Tail-recursive bottom-up right-to-left map on the term
     
     Not every subterm is a proper term, since the de Bruijn indexes are
@@ -431,9 +440,18 @@ val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
     indexes can be adjusted in the subterm if necessary. *)
 val map : (int -> T.t -> T.t) -> t -> t
 
+(*
 (** Substitutes the free variables appearing in a term according to a
     state var mapping. *)
 val substitute_variables : (StateVar.t * StateVar.t) list -> t -> t
+*)
+
+(** Return a new term with each state variable replaced 
+
+    [map_state_vars t f] returns a new term of [t] with each occurring
+    state variable [s] replaced by the result of the evaluation [f s].
+*)
+val map_state_vars : (StateVar.t -> StateVar.t) -> t -> t
 
 (** Convert [(= 0 (mod t n))] to [(divisble n t)]
 

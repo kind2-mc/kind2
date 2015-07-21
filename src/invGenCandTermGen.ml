@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -32,7 +32,7 @@ module CandidateTermGen = struct
 
   (* The name of a transition system. *)
   let name_of_sys sys =
-    TransSys.get_scope sys |> String.concat "/"
+    TransSys.scope_of_trans_sys sys |> String.concat "/"
 
 
 
@@ -217,7 +217,9 @@ module CandidateTermGen = struct
              | `OR
              | `XOR
              | `DISTINCT
+(*
              | `BVULT
+*)
              | `IS_INT ->
                 TSet.add (flat_to_term flat) set
 
@@ -254,17 +256,17 @@ module CandidateTermGen = struct
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
                     set
-                    |> TSet.add (flat_to_term flat)
+                    (* |> TSet.add (flat_to_term term) *)
                     |> TSet.add (Term.mk_geq kids)
                     |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
 
             | `LEQ -> set
               |> TSet.add (Term.mk_geq kids)
-              |> TSet.add (flat_to_term flat)
+              |> TSet.add (Term.mk_leq kids)
 
             | `GEQ -> set
-              |> TSet.add (flat_to_term flat)
+              |> TSet.add (Term.mk_geq kids)
               |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set
@@ -414,7 +416,7 @@ module CandidateTermGen = struct
 
   (* Generates sets of candidate terms from a transition system, and
      its subsystems if the flags require it. *)
-  let candidate_terms_of_trans two_state trans_sys =
+  let candidate_terms_of_trans two_state top_sys trans_sys =
     
     let rec get_last = function
       | head :: [] -> [head]
@@ -430,12 +432,12 @@ module CandidateTermGen = struct
 
       | system :: tail ->
          (* Getting the scope of the system. *)
-         let scope = TransSys.get_scope system in
+         let scope = TransSys.scope_of_trans_sys system in
 
          (* Do we know that system already?. *)
          if List.exists
               ( fun (sys,_) ->
-                TransSys.get_scope sys = scope )
+                TransSys.scope_of_trans_sys sys = scope )
               result
               
          then
@@ -445,7 +447,7 @@ module CandidateTermGen = struct
          else (
 
            debug invGenCand "Looking at [%s]."
-                 (TransSys.get_scope system |> String.concat "/") in
+                 (TransSys.scope_of_trans_sys system |> String.concat "/") in
            
            (* We don't, getting init and trans. *)
            let init, trans =
@@ -486,7 +488,7 @@ module CandidateTermGen = struct
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
-                          system term
+                          top_sys TransSys.trans_base scope term
                           |> (function | (top,others) -> top :: others)
                           |> List.fold_left
                               ( fun map (sys,terms) ->
@@ -557,14 +559,14 @@ end
 (* Generates candidate terms for a transition system, and its
    subsystems if the flags require it.
    /!\ The sets do NOT contain true and false /!\ *)
-let generate_candidate_terms two_state trans =
-  CandidateTermGen.candidate_terms_of_trans two_state trans
+let generate_candidate_terms two_state top_sys trans =
+  CandidateTermGen.candidate_terms_of_trans two_state top_sys trans
 
 (* Generates implication graphs for a transition system, and its
    subsystems if the flags require it. *)
-let generate_graphs two_state trans =
+let generate_graphs two_state top_sys trans =
   let candidate_terms, count =
-    generate_candidate_terms two_state trans
+    generate_candidate_terms two_state top_sys trans
   in
   (* Returning implication graphs and candidate term count. *)
   CandidateTermGen.build_graphs candidate_terms, count

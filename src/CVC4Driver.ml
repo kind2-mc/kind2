@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,17 +16,25 @@
 
 *)
 
+open Lib
+
 include GenericSMTLIBDriver
 
 (* Configuration for CVC4 *)
-let cmd_line () = 
-
+let cmd_line
+    logic
+    produce_assignments
+    produce_proofs
+    produce_cores
+    produce_interpolants =
+  
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.cvc4_bin () in
 
-  if Flags.pdr_tighten_to_unsat_core () then 
+  (* Use unsat cores *)
+  if produce_cores then 
 
-    (* Use unsat core option *)
+    (* Need to use tear-down incremental mode for unsat cores *)
     [| cvc4_bin; 
        "--lang"; "smt2";
        "--rewrite-divk";
@@ -34,7 +42,7 @@ let cmd_line () =
 
   else
 
-    (* Omit unsat core option for version older than 1.5 *)
+    (* Use normal incremental mode if unsat cores not needed *)
     [| cvc4_bin; 
        "--lang"; "smt2";
        "--rewrite-divk";
@@ -51,3 +59,106 @@ let check_sat_assuming_cmd () =
 
 let check_sat_assuming_supported () = false
 
+
+let s_lambda = HString.mk_hstring "LAMBDA"
+
+let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
+
+  function 
+
+    (* (define-fun c () Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom i; (* identifier *)
+         HStringSExpr.List []; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_define_fun -> 
+
+      Model.Term
+        (gen_expr_of_string_sexpr' conv bound_vars t)
+
+
+    (* (LAMBDA c () Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.List []; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_lambda -> 
+
+      Model.Term
+        (gen_expr_of_string_sexpr' conv bound_vars t)
+
+
+    (* (define-fun A ((x1 Int) (x2 Int)) Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom _; (* identifier *)
+         HStringSExpr.List v; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_define_fun -> 
+
+      (* Get list of variables bound by the quantifier *)
+      let vars = gen_bound_vars_of_string_sexpr conv bound_vars [] v in
+
+      (* Convert bindings to an association list from strings to
+         variables *)
+      let bound_vars' = 
+        List.map 
+          (function v -> (Var.hstring_of_free_var v, v))
+          vars
+      in
+
+      Model.Lambda
+        (Term.mk_lambda
+           vars
+           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
+
+
+    (* (LAMBDA ((_ufmt_1 Int) (_ufmt_2 Int)) (ite (= _ufmt_1 0) (= _ufmt_2 0) false)) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* LAMBDA *)
+         HStringSExpr.List v; (* Parameters *)
+         t (* Expression *)
+        ]
+      when s == s_lambda -> 
+
+      (* Get list of variables bound by the quantifier *)
+      let vars = gen_bound_vars_of_string_sexpr conv bound_vars [] v in
+
+      (* Convert bindings to an association list from strings to
+         variables *)
+      let bound_vars' = 
+        List.map 
+          (function v -> (Var.hstring_of_free_var v, v))
+          vars
+      in
+
+      Model.Lambda
+        (Term.mk_lambda
+           vars
+           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
+
+    (* Interpret as a term *)
+    | _ -> invalid_arg "cvc4_expr_or_lambda_of_string_sexpr"
+
+      
+
+let lambda_of_string_sexpr = 
+  gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
+
+
+let string_of_logic l =
+  let open TermLib in
+  let open TermLib.FeatureSet in
+  (* CVC4 fails to give model when given a non linear arithmetic logic *)
+  match l with
+  | `Inferred l when mem NA l -> "ALL_SUPPORTED"
+  | _ -> GenericSMTLIBDriver.string_of_logic l
+
+let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)

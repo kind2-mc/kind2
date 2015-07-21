@@ -1,0 +1,29 @@
+contract R2 (in: bool) returns (out: bool);
+const g = 1;
+var h : int;
+let
+  h = g + 1;
+  require if in then g > 0 else h > 0;
+  ensure out or in;
+tel
+
+node X (in: bool) returns (out: bool);
+
+--@const a = 1;
+--@const b : int = a;
+--@var g = a -> b + 1;
+--@var h : int = g;
+--@var g1 : bool = true -> false;
+--@require g >= 0;
+--@ensure g = 0;
+--@contract R1;
+--@require in;
+--@ensure true -> not in and g > 0;
+
+--@import_mode R2;
+const g1 = 1.0;
+var g : int; 
+let
+  out = in;
+  -- assert a > 0;
+tel;

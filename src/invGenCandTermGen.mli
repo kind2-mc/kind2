@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -22,14 +22,14 @@
     number of candidate terms generated.
     {b These sets do NOT contain [true] and [false].} *)
 val generate_candidate_terms :
-  bool -> TransSys.t -> (TransSys.t * Term.TermSet.t) list * int
+  bool -> TransSys.t -> TransSys.t -> (TransSys.t * Term.TermSet.t) list * int
 
 (** Generates implication graphs for a transition system, and its
     subsystems if the flags require it. The first parameter is a flag
     for two state candidate terms generation. The result features the
     number of candidate terms generated. *)
 val generate_graphs :
-  bool -> TransSys.t -> (TransSys.t * ImplicationGraph.t * int) list * int
+  bool -> TransSys.t -> TransSys.t -> (TransSys.t * ImplicationGraph.t * int) list * int
   
 (** Creates a graph for a transition system using the specified list
     of invariants. *)

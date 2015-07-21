@@ -1,0 +1,25 @@
+node counters (a,b,c: bool) returns(x, y, nX, nY: int);
+var
+  pre_x,pre_y: int;
+  ok: bool;
+let
+
+  -- Ranges over the state variables, can be found easily
+  -- by AI or template-based techniques.
+  assert (0 <= x) and (x <= nX) and (0 <= y) and (y <= nY);
+
+  nX=5;
+  nY=3;
+  pre_x = 0-> pre(x);
+  pre_y = 0-> pre(y);
+
+  x = if (b or c) then 0
+      else (if (a and pre_x < nX) then pre_x + 1 else pre_x);
+
+  y = if (c) then 0 
+      else (if (a and pre_y < nY) then pre_y + 1 else pre_y);
+
+  ok = (x - y <= nX - nY) ;
+
+--%PROPERTY ok ;
+tel

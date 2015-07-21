@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -19,14 +19,7 @@
 open Lib
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel
-module Event = 
-struct
-  let get_module () = `Parser
-  let log _ = Format.printf
-end
-*)
-  
+
 (* ********************************************************************* *)
 (* Types                                                                 *)
 (* ********************************************************************* *)
@@ -36,6 +29,7 @@ type _ command_type =
   | Cmd : decl_response command_type
   | CheckSatCmd : check_sat_response command_type
   | GetValueCmd : get_value_response command_type
+  | GetModelCmd : get_model_response command_type
   | GetUnsatCoreCmd : get_unsat_core_response command_type
   | CustomCmd : (int -> custom_response command_type) 
 
@@ -46,19 +40,30 @@ let s_error = HString.mk_hstring "error"
 let s_sat = HString.mk_hstring "sat"
 let s_unsat = HString.mk_hstring "unsat"
 let s_unknown = HString.mk_hstring "unknown"
+let s_model = HString.mk_hstring "model"
 
-module Make (Driver : SolverDriver.S) : SolverSig.S = struct
+module type SMTLIBSolverDriver = sig
+  include SolverDriver.S
 
+  val expr_of_string_sexpr : HStringSExpr.t -> Term.t
+
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
+
+end
+
+
+module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
+  
   open Driver
   module Conv = SMTExpr.Converter(Driver)
   open Conv 
-
+    
   (* Configuration *)
   type config =
     { solver_cmd : string array;    (* Command line arguments for the
                                        solver *)
     }
-
+    
 
   (* Solver instance *)
   type t = 
@@ -157,6 +162,42 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
        invalid_arg "get_value_response_of_sexpr")
 
 
+  (* Helper function to return a solver response to a get-model command
+     as expression pairs *)
+  let rec get_model_response_of_sexpr' accum = function 
+
+    | [] -> `Model accum
+
+    | e :: tl -> 
+
+      (debug smtexpr
+          "get_model_response_of_sexpr: %a"
+          HStringSExpr.pp_print_sexpr e
+       in
+
+       (* Get name of variable and its assignment *)
+       let s, t_or_l = expr_or_lambda_of_string_sexpr e in
+
+       try
+         
+         (* Get uninterpreted function symbol by name *)
+         let u =
+           UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
+         in
+
+         (* Continue with next model assignment *)
+         get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl
+
+       (* No symbol of that name
+
+          May happen if named terms have been asserted *)
+       with Not_found ->
+
+         (* Continue with next model assignment *)
+         get_model_response_of_sexpr' accum tl)
+                    
+    
+
   (* Return a solver response to a get-value command as expression pairs *)
   let get_value_response_of_sexpr = function 
 
@@ -171,6 +212,31 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
     (* Solver returned a list not starting with an error atom  *)
     | HStringSExpr.List l -> get_value_response_of_sexpr' [] l
+
+    (* Solver returned other response *)
+    | e -> 
+      raise 
+        (Failure 
+           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+
+
+  (* Return a solver response to a get-value command as expression pairs *)
+  let get_model_response_of_sexpr = function 
+
+    (* Solver returned error message 
+
+       Must match for error first, because we may get (error "xxx") or
+       ((x 1)) which are both lists *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; 
+         HStringSExpr.Atom e ] when s == s_error -> 
+      `Error (HString.string_of_hstring e)
+
+    (* Solver returned a list not starting with an error atom  *)
+    | HStringSExpr.List 
+        (HStringSExpr.Atom s :: l) when s == s_model -> 
+
+      get_model_response_of_sexpr' [] l
 
     (* Solver returned other response *)
     | e -> 
@@ -258,6 +324,13 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     get_value_response_of_sexpr (expr_of_solver_lexbuf solver)
 
 
+  (* Parse the solver response to a get-model command *)
+  let get_get_model_response solver timeout = 
+
+    (* Return response *)
+    get_model_response_of_sexpr (expr_of_solver_lexbuf solver)
+
+
   (* Parse the solver response to a get-unsat-core command *)
   let get_get_unsat_core_response solver timeout = 
 
@@ -322,6 +395,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       | Cmd -> get_command_response solver timeout
       | CheckSatCmd -> get_check_sat_response solver timeout
       | GetValueCmd -> get_get_value_response solver timeout
+      | GetModelCmd -> get_get_model_response solver timeout
       | GetUnsatCoreCmd -> get_get_unsat_core_response solver timeout
       | CustomCmd num_res -> get_custom_command_response num_res solver timeout
 
@@ -353,7 +427,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     (* Return response *)
     res
 
-  (* Samme as above but additionnaly trace the co mmands and responses *)
+  (* Samme as above but additionnaly trace the commands and responses *)
   let send_command_and_trace =
     fun cmd_type solver command timeout -> 
 
@@ -382,6 +456,9 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
   (* Execute a get-value command and return the response *)
   let execute_get_value_command = send_command_and_trace GetValueCmd
+
+  (* Execute a get-model command and return the response *)
+  let execute_get_model_command = send_command_and_trace GetModelCmd
 
   (* Execute a get-unsat-core command and return the response *)
   let execute_get_unsat_core_command = send_command_and_trace GetUnsatCoreCmd
@@ -510,6 +587,16 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     execute_get_value_command solver cmd 0
 
 
+  (* Get values of expressions in the model *)
+  let get_model solver () = 
+
+    (* The command to send to the solver *)
+    let cmd = Format.sprintf "@[<hv 1>(get-model)@]" in
+
+    (* Send command to the solver without timeout *)
+    execute_get_model_command solver cmd 0
+
+
   (* Get an unsatisfiable core *)
   let get_unsat_core solver = 
 
@@ -605,23 +692,78 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     let reset_ppf ppf = 
       Format.fprintf ppf "@?";
       Format.pp_set_formatter_out_functions ppf fmt_out_fun;
-      Format.fprintf ppf "@.";
-      Format.fprintf ppf "@\n"
+      Format.fprintf ppf "@.@.";
     in
 
     let op, cl = comment_delims in
 
+    let out_newline () =
+      fmt_out_fun.Format.out_string " " 0 1;
+      fmt_out_fun.Format.out_string cl 0 (String.length cl);
+      fmt_out_fun.Format.out_string "\n" 0 1;
+      fmt_out_fun.Format.out_string op 0 (String.length op);
+      fmt_out_fun.Format.out_string " " 0 1
+    in
+
+    let out_flush n =
+      fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl); 
+      fmt_out_fun.Format.out_flush n
+    in
+
+
+    (* Apply [f] to each line in [s] starting at postion [p] for [n]
+       characters. Lines can be separated by any of "\n", "\r", "\n\r"
+       or "\r\n" *)
+    let rec iter_line f g s p i n =
+      
+      (* Terminate when no more characters left *)
+      if n = 0 then ()
+
+      (* Apply [f] at the end of the string *)
+      else if i >= n then f s p n else
+
+        (* Check next character, and following only if within range *)
+        match s.[p+i], (if i+1 < n then Some s.[p+i+1] else None) with
+            
+          (* Two character line break *)
+          | '\n', Some '\r'  
+          | '\r', Some '\n' ->
+            
+            (* Apply [f] to line, then [g], skip over line break and
+               continue *)
+            f s p i;
+            g ();
+            iter_line f g s (p+i+2) 0 (n-i-2)
+              
+          (* One character line break *)
+          | '\n', _
+          | '\r', _ ->
+
+            (* Apply [f] to line, skip over line break and continue *)
+            f s p i;
+            g ();
+            iter_line f g s (p+i+1) 0 (n-i-1)
+
+          (* Not a line break: continue *)
+          | _, _ -> iter_line f g s p (i+1) n
+    in
+
+    let rec out_string s p n =
+      iter_line
+        fmt_out_fun.Format.out_string
+        out_newline
+        s
+        p
+        0
+        n
+    in
+    
     Format.pp_set_formatter_out_functions 
       ppf 
-      { fmt_out_fun with 
-        Format.out_newline = (fun () ->
-            fmt_out_fun.Format.out_string
-              (" "^cl^"\n"^op^" ")
-              0 (3 + String.length op + String.length cl ));
-        Format.out_flush = (fun n ->
-            fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl);
-            fmt_out_fun.Format.out_flush n
-          );
+      { fmt_out_fun with
+        Format.out_newline = out_newline;
+        Format.out_flush = out_flush;
+        Format.out_string = out_string;
       };
 
     reset_ppf
@@ -658,23 +800,31 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
+      ?(produce_interpolants=false)
       logic
       id =
-
+    
     (* Get autoconfigured configuration *)
-    let solver_cmd  = Driver.cmd_line () in
+    let solver_cmd  = 
+      Driver.cmd_line 
+        logic
+        produce_assignments
+        produce_proofs
+        produce_cores
+        produce_interpolants
+    in
     let config = { solver_cmd = solver_cmd } in
-
+    
     (* Name of executable is first argument 
-
+       
        TODO: expand ~ *)
     let solver_executable = solver_cmd.(0) in
-
+    
     (* Create pipes for input, output and error output *)
     let solver_stdin_in, solver_stdin_out = Unix.pipe () in
     let solver_stdout_in, solver_stdout_out = Unix.pipe () in 
     let solver_stderr_in, solver_stderr_out = Unix.pipe () in 
-
+    
     (* Create solver process *)
     let solver_pid = 
       Unix.create_process 
@@ -684,26 +834,26 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         solver_stdout_out
         solver_stderr_out
     in
-
+    
     (* Close our end of the pipe which has been duplicated by the
        process *)
     Unix.close solver_stdin_in;
     Unix.close solver_stdout_out; 
     Unix.close solver_stderr_out; 
-
+    
     (* Get an output channel to read from solver's stdout *)
     let solver_stdout_ch = Unix.in_channel_of_descr solver_stdout_in in
-
+    
     (* Create a lexing buffer on solver's stdout *)
     let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
-
+    
     (* Create trace functions *)
     let trace_ppf = create_trace_ppf id in
     (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
     let ftrace_cmd = trace_cmd trace_ppf in
     let ftrace_res = trace_res trace_ppf in
     let ftrace_coms = trace_coms trace_ppf in
-
+    
     (* Create the solver instance *)
     let solver =
       { solver_config = config;
@@ -716,31 +866,43 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         solver_trace_res = ftrace_res;
         solver_trace_coms = ftrace_coms; }
     in
-
-    let header_logic = function
-      | `detect -> []
-      | _ -> [Format.sprintf "(set-logic %s)" (string_of_logic logic)]
-    in
+    
+    let header_logic =
+      let s = string_of_logic logic in
+      if s = "" then []
+      else [Format.sprintf "(set-logic %s)" s] in
     
     let headers =
       "(set-option :print-success true)" ::
       (headers ()) @
       [ 
         (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
-        Format.sprintf "(set-option :produce-assignments %B)" produce_assignments;
-        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores
+        Format.sprintf
+          "(set-option :produce-assignments %B)" produce_assignments;
+        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores;
       ] @
-      (header_logic logic)
+      header_logic
     in
-
+    
+    (* Add interpolation option only if true *)
+    let headers = 
+      if produce_interpolants then
+        headers @ 
+        [Format.sprintf "(set-option :produce-interpolants %B)" produce_interpolants]
+      else
+        
+        headers 
+    in
+    
     (* Print specific headers specifications *)
     List.iter (fun cmd ->
-        match (debug smt "%s" cmd in
-               execute_command solver cmd 0)
+        match
+          (debug smt "%s" cmd in
+           execute_command solver cmd 0)
         with 
-        | `Success -> () 
-        | _ -> raise (Failure ("Failed to add header: "^cmd))
-    ) headers;
+          | `Success -> () 
+          | _ -> raise (Failure ("Failed to add header: "^cmd))
+     ) headers;
 
 
     (* Return solver instance *)
@@ -825,6 +987,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
     let check_sat_assuming_supported = check_sat_assuming_supported
     let get_value = get_value solver
+    let get_model = get_model solver
     let get_unsat_core () = get_unsat_core solver
 
     let execute_custom_command = execute_custom_command solver

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -110,8 +110,9 @@ type interpreted_symbol =
 
   | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
+(*
   | `BV of Lib.bitvector    (** Constant bitvector *)
-
+*)
   | `MINUS                (** Difference or unary negation (left-associative) *)
   | `PLUS                 (** Sum (left-associative) *)
   | `TIMES                (** Product (left-associative) *)
@@ -129,7 +130,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
-
+(*
   | `CONCAT               (** Concatenation of bitvectors (binary) *)
   | `EXTRACT of Numeral.t * Numeral.t 
                           (** Extract subsequence from bitvector (unary) *)
@@ -144,9 +145,12 @@ type interpreted_symbol =
   | `BVSHL                (** Logical shift left (unary) *)
   | `BVLSHR               (** Logical shift right (unary) *)
   | `BVULT                (** Arithmetic comparision (binary) *)
+*)
 
   | `SELECT               (** Selection from array (binary) *)
+(*
   | `STORE                (** Update of an array (ternary) *)
+*)
   ]
 
 (** Adding uninterpreted function symbols separately for conversions
@@ -226,11 +230,20 @@ val s_lt : t
 (** Constant modulus operator symbol *)
 val s_mod : t
 
+(** Constant plus operator symbol *)
+val s_plus : t
+
 (** Constant minus operator symbol *)
 val s_minus : t
 
+(** Constant times operator symbol *)
+val s_times : t
+
 (** Constant division operator symbol *)
 val s_div : t
+
+(** Array read operator *)
+val s_select : t
 
 
 
@@ -244,10 +257,10 @@ val is_numeral : t -> bool
 
 (** Return true if the symbol is a decimal *)
 val is_decimal : t -> bool
-
+(*
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
-
+*)
 (** Return true if the symbol is [`TRUE] or [`FALSE] *)
 val is_bool : t -> bool
 
@@ -256,10 +269,10 @@ val numeral_of_symbol : t -> Numeral.t
 
 (** Return the decimal in a [`DECIMAL _] symbol *)
 val decimal_of_symbol : t -> Decimal.t 
-
+(*
 (** Return the bitvector in a [`BV _] symbol *)
 val bitvector_of_symbol : t -> Lib.bitvector 
-
+*)
 (** Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 val bool_of_symbol : t -> bool 

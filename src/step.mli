@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -20,7 +20,7 @@
 val on_exit: TransSys.t option -> unit
 
 (** Runs the step instance. *)
-val main: TransSys.t -> unit
+val main: 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 
 (* 

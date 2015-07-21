@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -156,15 +156,19 @@ sig
     | Annot of t * attr
 
   (** Properties of a term *)
-  and t_prop = private { mutable to_string : string option } 
+  and t_prop = private { bound_vars : int list } 
 
   (** Hashconsed abstract syntax term *)
   and t = private (t_node, t_prop) Hashcons.hash_consed
 
   (** Term over symbols, variables and sort of the types given where
-      the topmost symbol is not a binding *)
+      the topmost symbol is not a binding 
+
+      This type must remain private, because {!construct} does not
+      check the invariants and would be a backdoor to construct unsafe
+      terms. *)
   and flat = private 
-    | Var of var 
+    | Var of var
     | Const of symbol 
     | App of symbol * t list
     | Attr of t * attr
@@ -181,10 +185,16 @@ sig
   (** Unique identifier for term *)
   val tag : t -> int
 
+  (** Constructor for a lambda expression *)
+  val mk_lambda : var list -> t -> lambda
+
+  (** Beta-evaluate a lambda expression *)
+  val eval_lambda : lambda -> t list -> t
+
   (** Constructor for a term *)
   val mk_term : t_node -> t
 
-  (** Constructor for a free variable *)
+  (** Constructor for a free variable with indexes *)
   val mk_var : var -> t
 
   (** Constructor for a constant *)
@@ -196,13 +206,18 @@ sig
   (** Constructor for a let binding *)
   val mk_let : (var * t) list -> t -> t
 
-  (** Constructor for an existential quantification *)
+  (** Constructor for a let binding *)
+  val mk_let_elim : (var * t) list -> t -> t
+
+  (** Constructor for an existential quantification over an indexed
+      free variable *)
   val mk_exists : var list -> t -> t
 
-  (** Constructor for a universal quantification *)
+  (** Constructor for a universal quantification over an indexed
+      free variable *)
   val mk_forall : var list -> t -> t
 
-  (** Constructor for a universal quantification *)
+  (** Constructor for an annotated term *)
   val mk_annot : t -> attr -> t
 
   (** Return the node of a hashconsed term *)
@@ -239,20 +254,38 @@ sig
 
   val instantiate : lambda -> t list -> t
 
-  (** Convert the flattened representation back into a higher-oder
-      abstract syntax term. *)
+  (** Convert the flattened representation back into a term *)
   val construct : flat -> t
 
   (** Import a term into the hashcons table by rebuilding it bottom
       up *)
   val import : t -> t
 
-  (** Pretty-print a higher-order abstract syntax term *)
+  (** Import a lambda abstraction into the hashcons table by
+      rebuilding it bottom up *)
+  val import_lambda : lambda -> lambda
+
+  (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
+  (** Pretty-print a term *)
+  val pp_print_term : ?db:int -> Format.formatter -> t -> unit
+    
+  val pp_print_lambda_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
+    ?db:int -> Format.formatter -> lambda -> unit
+
   val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
+  (** Pretty-print a term *)
+  val print_term : ?db:int -> t -> unit
+
+  (** Pretty-print a lambda abstraction *)
+  val pp_print_lambda : ?db:int -> Format.formatter -> lambda -> unit
+    
+  (** Pretty-print a lambda abstraction *)
+  val print_lambda : ?db:int -> lambda -> unit
+    
   val stats : unit -> int * int * int * int * int * int
   
 end
