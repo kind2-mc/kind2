@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -1251,6 +1251,10 @@ let rec constraints_of_equations
     (* Array state variable *)
     | (state_var, bounds, { E.expr_init; E.expr_step }) :: tl -> 
 
+      (* TODO: If bounds are not fixed, unroll to fixed bounds and
+         generate equations without quantifiers *)
+
+
       (* Return the i-th index variable *)
       let index_var_of_int i = 
         E.mk_index_var i
@@ -1905,9 +1909,9 @@ let rec trans_sys_of_node'
                 [] (* One-state invariants *)
                 [] (* Two-state invariants *)
             in                
-(*
+
             Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
-*)
+
             trans_sys_of_node'
               top_name
               analysis_param
@@ -1948,11 +1952,11 @@ let trans_sys_of_nodes
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in 
-(*
+
   Format.printf
     "@[<v>%a@]@."
     (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
-*)
+
   let { trans_sys } =   
 
     try 

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -27,8 +27,8 @@ open Lib
 type t
 
 
-(** Node not found, possible forward reference *)
-exception Node_not_found of LustreIdent.t * Lib.position
+(** Node or function not found, possible forward reference *)
+exception Node_or_function_not_found of LustreIdent.t * Lib.position
 
 (** {1 Scopes and Nodes} *)
 
@@ -45,15 +45,21 @@ val push_scope : t -> string -> t
 val pop_scope : t -> t
 
 (** Return a copy of the context with an empty node of the given name
-    in the context. *)
+    in the context *)
 val create_node : t -> LustreIdent.t -> t 
 
+(** Return a copy of the context with an empty function of the given name
+    in the context *)
+val create_function : t -> LustreIdent.t -> t 
+
 (** Return a context that is identical to the first context with the
-    node constructed in the second context added. *)
+    node constructed in the second context added *)
 val add_node_to_context : t -> t -> t
 
-(** Create a new node from the context *)
-val node_of_context : t -> LustreNode.t 
+(** Return a context that is identical to the first context with the
+    function constructed in the second context added *)
+val add_function_to_context : t -> t -> t
+
 
 (** Return forward referenced subnodes of node *)
 val deps_of_node : t -> LustreIdent.t -> LustreIdent.Set.t
@@ -117,7 +123,7 @@ val expr_in_context : t -> LustreIdent.t -> bool
 val type_in_context : t -> LustreIdent.t -> bool
 
 (** Return [true] if the identifier denotes a node in the context *)
-val node_in_context : t -> LustreIdent.t -> bool
+val node_or_function_in_context : t -> LustreIdent.t -> bool
 
 (** Create a fresh local state variable in the context. *)
 val mk_fresh_local : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
@@ -145,6 +151,9 @@ val mk_fresh_oracle_for_state_var : t -> StateVar.t -> StateVar.t * t
 
 (** Return the node of the given name from the context*)
 val node_of_name : t -> LustreIdent.t -> LustreNode.t
+
+(** Return the function of the given name from the context *)
+val function_of_name : t -> LustreIdent.t -> LustreFunction.t
 
 (** Return variables capturing outputs of node call if a node call
     with the same input parameters and activation condition is in the
@@ -201,6 +210,25 @@ val set_node_main : t -> t
     The second argument is a pair so that it can take the output of
     {!LustreSimplify.eval_ast_expr} directly. *)
 val close_expr : Lib.position -> (LustreExpr.t * t) -> (LustreExpr.t * t)
+
+
+(** {1 Functions} *)
+
+(** Add function input to context *)
+val add_function_input : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+
+(** Add function output to context *)
+val add_function_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+
+(** Add global contract to function
+
+    The function must not have a global contract defined, otherwise a
+    parse error will be raised. *)
+val add_function_global_contract : t -> position -> LustreFunction.contract -> t
+
+(** Add mode contract to node *)
+val add_function_mode_contract : t -> position -> string -> LustreFunction.contract -> t
+
 
 
 (** {1 Helpers} *)

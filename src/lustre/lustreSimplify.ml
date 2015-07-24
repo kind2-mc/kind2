@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -356,7 +356,7 @@ let rec eval_ast_expr ctx =
           if clock_ident = high_clock_ident then 
 
             (* Evaluate node call without defaults *)
-            eval_node_call
+            eval_node_or_function_call
               ctx
               pos
               (I.mk_string_ident ident)
@@ -410,7 +410,7 @@ let rec eval_ast_expr ctx =
           if clock_ident = low_clock_ident then 
 
             (* Evaluate node call without defaults *)
-            eval_node_call
+            eval_node_or_function_call
               ctx
               pos
               (I.mk_string_ident ident)
@@ -716,7 +716,7 @@ let rec eval_ast_expr ctx =
 
                 (* Term must be a numeral *)
                 if Term.is_numeral index_term then 
-                  
+
                   (* Add array index of integer of numeral to
                      accumulator and continue *)
                   aux
@@ -724,9 +724,9 @@ let rec eval_ast_expr ctx =
                        (Term.numeral_of_term index_term 
                         |> Numeral.to_int) :: accum)
                     tl
-                    
+
                 else
-                  
+
                   C.fail_at_position
                     pos
                     "Invalid index for expression"
@@ -739,7 +739,7 @@ let rec eval_ast_expr ctx =
 
                 (* Term must be a numeral *)
                 if Term.is_numeral index_term then 
-                  
+
                   (* Add array index of integer of numeral to
                      accumulator and continue *)
                   aux
@@ -747,9 +747,9 @@ let rec eval_ast_expr ctx =
                        (Term.numeral_of_term index_term 
                         |> Numeral.to_int) :: accum)
                     tl
-                    
+
                 else
-                  
+
                   C.fail_at_position
                     pos
                     "Invalid index for expression"
@@ -803,7 +803,7 @@ let rec eval_ast_expr ctx =
        [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
     | A.Condact (pos, cond, ident, args, defaults) ->  
 
-      eval_node_call
+      eval_node_or_function_call
         ctx
         pos
         (I.mk_string_ident ident)
@@ -814,7 +814,7 @@ let rec eval_ast_expr ctx =
     (* Node call without activation condition *)
     | A.Call (pos, ident, args) -> 
 
-      eval_node_call 
+      eval_node_or_function_call 
         ctx
         pos
         (I.mk_string_ident ident)
@@ -1245,8 +1245,79 @@ and eval_ast_projection ctx pos expr = function
   | D.ArrayVarIndex _ -> raise (Invalid_argument "eval_ast_projection")
 
 
+and eval_node_or_function_call ctx pos ident cond args defaults = 
+
+  match 
+
+    try 
+
+      (* Get called node by identifier *)
+      Some (C.node_of_name ctx ident)
+
+    (* No node of that identifier *)
+    with Not_found -> None
+
+  with
+
+    (* Evaluate call to node *)
+    | Some node -> 
+
+      eval_node_call ctx pos ident node cond args defaults 
+        
+    (* Check if we have a function *)
+    | None ->
+
+      match 
+
+        try 
+
+          (* Get called function by identifier *)
+          Some (C.function_of_name ctx ident)
+
+        (* No function of that identifier *)
+        with Not_found -> None
+
+      with 
+
+        (* Evaluate call to function *)
+        | Some func -> 
+          
+          (match cond with 
+
+            (* Can only call functions without activation condition *)
+            | A.True _ -> 
+              
+              eval_function_call ctx pos ident func args 
+                
+            (* Fail if this is a condact call *)
+            | _ -> 
+
+              C.fail_at_position
+                pos
+                "Invalid function call")
+
+        (* Neither node nor function of that name *)
+        | None -> 
+
+          (* Node or function may be forward referenced *)
+          raise (C.Node_or_function_not_found (ident, pos))
+
+
+
+
 (* Return a trie with the outputs of a node call *)
-and eval_node_call ctx pos ident cond args defaults = 
+and eval_node_call
+    ctx
+    pos
+    ident
+    { N.name = node_name;
+      N.inputs = node_inputs; 
+      N.oracles = node_oracles;
+      N.outputs = node_outputs; 
+      N.props = node_props } 
+    cond
+    args
+    defaults = 
 
   (* Type check expressions for node inputs and abstract to fresh
      state variables *)
@@ -1426,27 +1497,6 @@ and eval_node_call ctx pos ident cond args defaults =
 
   in
 
-  let
-
-    (* Get definition of called node *)
-    { N.name = node_name;
-      N.inputs = node_inputs; 
-      N.oracles = node_oracles;
-      N.outputs = node_outputs; 
-      N.props = node_props } = 
-
-    try 
-
-      (* Get called node by identifier *)
-      C.node_of_name ctx ident
-
-    with Not_found -> 
-
-      (* Node may be forward referenced *)
-      raise (C.Node_not_found (ident, pos))
-
-  in
-
   (* Type check and abstract inputs to state variables *)
   let input_state_vars, ctx =
     node_inputs_of_exprs ctx node_inputs pos args
@@ -1538,6 +1588,12 @@ and eval_node_call ctx pos ident cond args defaults =
 
       (* Return expression and changed context *)
       (res, ctx)
+
+
+and eval_function_call ctx pos ident args = 
+
+  
+
 
 
 (* ******************************************************************** *)
@@ -1709,7 +1765,7 @@ let rec eval_ast_type ctx = function
     List.fold_left
 
       (* Each index has a separate type *)
-      (fun a (i, t) -> 
+      (fun a (_, i, t) -> 
 
          (* Take all indexes and their defined types *)
          D.fold

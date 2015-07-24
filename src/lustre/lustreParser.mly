@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -218,7 +218,7 @@ const_decl_body:
 
   (* Defined constant with a type *)
   | c = typed_ident; EQUALS; e = expr; SEMICOLON 
-    { let (s, t) = c in [A.TypedConst (mk_pos $startpos, s, e, t)] }
+    { let (_, s, t) = c in [A.TypedConst (mk_pos $startpos, s, e, t)] }
 
 
 (* ********************************************************************** *)
@@ -322,8 +322,9 @@ func_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
     SEMICOLON;
+    r = contract_spec;
 
-    { (n, List.flatten i, List.flatten o)  }
+    { (n, List.flatten i, List.flatten o, r)  }
 
 
 (* A node declaration *)
@@ -783,7 +784,7 @@ ident: s = SYM { s }
 
 
 (* An identifier with a type *)
-typed_ident: s = ident; COLON; t = lustre_type { (s, t) }
+typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }
 
 
 (* A comma-separated list of identifiers *)
@@ -801,7 +802,7 @@ typed_idents:
   | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
 
     (* Pair each identifier with the type *)
-    { List.map (function e -> (e, t)) l }
+    { List.map (function e -> (mk_pos $startpos, e, t)) l }
 
 (*
 (* A list of lists of typed identifiers *)
@@ -817,7 +818,7 @@ const_typed_idents:
   | o = boption(CONST); l = typed_idents 
 
     (* Pair each typed identifier with a flag *)
-    { List.map (function (e, t) -> (e, t, o)) l }
+    { List.map (function (_, e, t) -> (e, t, o)) l }
 
 (*
 (* A list of lists of typed identifiers that may be constant *)
@@ -835,14 +836,14 @@ clocked_typed_idents:
   | l = typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (e, t) -> (mk_pos $startpos, e, t, A.ClockTrue)) l }
+    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, A.ClockTrue)) l }
 
   (* Clocked typed identifiers *)
   | l = typed_idents; WHEN; c = clock_expr
   | LPAREN; l = typed_idents; RPAREN; WHEN; c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (e, t) -> (mk_pos $startpos, e, t, c)) l }
+    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, c)) l }
 
   (* Separate rule for non-singleton list to avoid shift/reduce conflict *)
   | LPAREN; 
@@ -854,7 +855,7 @@ clocked_typed_idents:
 
     (* Pair each types identifier the given clock *)
     { List.map
-        (function (e, t) -> (mk_pos $startpos, e, t, c)) 
+        (function (_, e, t) -> (mk_pos $startpos, e, t, c)) 
         (h @ (List.flatten l)) }
 
 
