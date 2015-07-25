@@ -1934,6 +1934,7 @@ let rec trans_sys_of_node'
 
 let trans_sys_of_nodes 
     subsystem
+    globals
     ({ A.top; A.abstraction_map; A.assumptions } as  analysis_param) = 
   
   (* Make sure top level system is not abstract
@@ -1947,8 +1948,8 @@ let trans_sys_of_nodes
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
 
-  let { SubSystem.source = { N.name = top_name } as node } as subsystem' = 
-    LustreSlicing.slice_to_abstraction analysis_param subsystem' 
+  let { SubSystem.source = { N.name = top_name } as node } as subsystem', globals' = 
+    LustreSlicing.slice_to_abstraction analysis_param subsystem' globals
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in 
@@ -1989,7 +1990,7 @@ let trans_sys_of_nodes
           Biggest bucket length: %d@]@."
     s1 s2 s3 s4 s5 s6;
 *)
-  trans_sys, subsystem'
+  trans_sys, subsystem', globals'
 
 (*
 

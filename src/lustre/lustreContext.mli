@@ -90,6 +90,9 @@ val add_type_for_ident : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 (** Return the nodes in the context *)
 val get_nodes : t -> LustreNode.t list
 
+(** Return the functions in the context *)
+val get_functions : t -> LustreFunction.t list
+
 (** Add a contract node to the context for inlining later *)
 val add_contract_node_decl_to_context : t -> Lib.position * LustreAst.contract_node_decl -> t
 
@@ -219,6 +222,11 @@ val add_function_input : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
 (** Add function output to context *)
 val add_function_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+
+val call_outputs_of_function_call : t -> LustreIdent.t -> LustreExpr.t LustreIndex.t -> StateVar.t LustreIndex.t option
+
+(** Add function call to context *)
+val add_function_call : t -> Lib.position -> LustreNode.function_call -> t
 
 (** Add global contract to function
 

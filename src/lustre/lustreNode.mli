@@ -99,6 +99,26 @@ type node_call =
   }
 
 
+(** A call of a function *)
+type function_call = 
+
+  { 
+
+    (** Position of function call in input file *)
+    call_pos : position;
+
+    (** Name of called function *)
+    call_function_name : LustreIdent.t;
+    
+    (** Expressions for input parameters *)
+    call_inputs : LustreExpr.t LustreIndex.t;
+
+    (** Variables capturing the outputs *)
+    call_outputs : StateVar.t LustreIndex.t;
+
+  }
+
+
 (** Source of a state variable *)
 type state_var_source =
   | Input   (** Declared input variable *)
@@ -214,6 +234,9 @@ type t =
 
     calls : node_call list;
     (** Node calls inside the node *)
+
+    function_calls : function_call list;
+    (** Function calls in the node *)
 
     asserts : LustreExpr.t list;
     (** Assertions of node *)

@@ -19,7 +19,7 @@
 open Lib
 
 type _ t = 
-  | Lustre : LustreNode.t SubSystem.t -> LustreNode.t t
+  | Lustre : (LustreNode.t SubSystem.t * LustreGlobals.t) -> LustreNode.t t
   | Native : unit SubSystem.t -> unit t
   | Horn : unit SubSystem.t -> unit t
 
@@ -36,7 +36,7 @@ let read_input_horn input_file = assert false
 
 let next_analysis_of_strategy (type s) : s t -> 'a -> Analysis.param option = function
 
-  | Lustre subsystem -> 
+  | Lustre (subsystem, globals) -> 
 
     (function _ -> 
       
@@ -65,13 +65,13 @@ let next_analysis_of_strategy (type s) : s t -> 'a -> Analysis.param option = fu
    abstractions and implementations as in [abstraction_map. ]*)
 let trans_sys_of_analysis (type s) : s t -> Analysis.param -> TransSys.t * s t = function 
 
-  | Lustre subsystem -> 
+  | Lustre (subsystem, globals) -> 
 
     (function analysis -> 
-      let t, s = 
-        LustreTransSys.trans_sys_of_nodes subsystem analysis
+      let t, s, g = 
+        LustreTransSys.trans_sys_of_nodes subsystem globals analysis
       in
-      (t, Lustre s)
+      (t, Lustre (s, g))
       
     )
     
@@ -92,7 +92,7 @@ let pp_print_path_pt
 
   match input_system with 
 
-    | Lustre subsystem -> 
+    | Lustre (subsystem, _) -> 
 
       LustrePath.pp_print_path_pt
         trans_sys
@@ -118,7 +118,7 @@ let pp_print_path_xml
 
   match input_system with 
 
-    | Lustre subsystem -> 
+    | Lustre (subsystem, _) -> 
 
       LustrePath.pp_print_path_xml
         trans_sys
@@ -146,7 +146,7 @@ let slice_to_abstraction_and_property
   (* Filter values at instants of subsystem *)
   let filter_out_values = match input_sys with 
 
-     | Lustre subsystem -> 
+     | Lustre (subsystem, globals) -> 
 
        (fun scope { TransSys.pos } cex v -> 
           
@@ -158,7 +158,8 @@ let slice_to_abstraction_and_property
           (* Get clock of node call identified by its position *)
           let { LustreNode.call_clock } = 
             List.find
-              (fun { LustreNode.call_pos } -> call_pos = pos)
+              (fun { LustreNode.call_node_name; 
+                     LustreNode.call_pos } -> call_pos = pos)
               calls
           in
 
@@ -232,16 +233,17 @@ let slice_to_abstraction_and_property
    (match input_sys with 
 
      (* Slice Lustre subnode to property term *)
-     | Lustre subsystem -> 
+     | Lustre (subsystem, globals) -> 
 
-       let subsystem' = 
+       let subsystem', globals' = 
          LustreSlicing.slice_to_abstraction_and_property
            analysis'
            prop_term
            subsystem
+           globals
        in
 
-       Lustre subsystem'
+       Lustre (subsystem', globals')
          
 
      (* No slicing in native input *)

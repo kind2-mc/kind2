@@ -30,6 +30,7 @@ module ET = E.LustreExprHashtbl
 
 module N = LustreNode
 module F = LustreFunction
+module G = LustreGlobals
 
 module C = LustreContext
 
@@ -2121,7 +2122,7 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  C.get_nodes ctx
+  C.get_nodes ctx, { G.functions = C.get_functions ctx }
 
 
 

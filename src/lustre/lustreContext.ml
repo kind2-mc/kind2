@@ -410,6 +410,10 @@ let add_type_for_ident ({ ident_type_map } as ctx) ident l_type =
 let get_nodes { nodes } = nodes 
 
 
+(* Return functions defined in context *)
+let get_functions { funcs } = funcs 
+
+
 (* Return a contract node by its identifier *)
 let contract_node_decl_of_ident { contract_nodes } ident = 
 
@@ -1036,7 +1040,7 @@ let call_outputs_of_node_call
 
         (* Find a call to the same node on the same clock with the same
            inputs in this node *)
-        let { N.call_outputs } = 
+        let { N.call_node_name; N.call_outputs } = 
 
           List.find
             (fun { N.call_clock = call_cond;
@@ -1363,7 +1367,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
-    | { node = Some { N.equations; N.calls } } -> 
+    | { node = Some { N.equations; N.calls; N.function_calls } } -> 
 (*
       Format.printf
         "%a%a = %a (%d)@."
@@ -1396,11 +1400,21 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
         (* State variable defined by a node call? *)
         List.exists
-          (fun { N.call_outputs } -> 
+          (fun { N.call_node_name; N.call_outputs } -> 
              D.exists 
                (fun _ sv -> StateVar.equal_state_vars state_var sv)
                call_outputs)
           calls
+
+        ||
+
+        (* State variable defined by a function call? *)
+        List.exists
+          (fun { N.call_function_name; N.call_outputs } -> 
+             D.exists 
+               (fun _ sv -> StateVar.equal_state_vars state_var sv)
+               call_outputs)
+          function_calls
 
       then
 
@@ -1555,13 +1569,13 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
 
 (* Add node call to context *)
-let add_node_call ctx pos ({ N.call_outputs } as node_call) =
+let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_call")
 
-    | { node = Some ({ N.equations; N.calls } as node) } -> 
+    | { node = Some ({ N.equations; N.calls; N.function_calls } as node) } -> 
 
       if 
 
@@ -1577,11 +1591,21 @@ let add_node_call ctx pos ({ N.call_outputs } as node_call) =
              
              (* State variable defined by a node call? *)
              List.exists
-               (fun { N.call_outputs } -> 
+               (fun { N.call_node_name; N.call_outputs } -> 
                   D.exists 
                     (fun _ sv -> StateVar.equal_state_vars state_var sv)
                     call_outputs)
-               calls)
+               calls
+
+             ||
+             
+             (* State variable defined by a function call? *)
+             List.exists
+               (fun { N.call_function_name; N.call_outputs } -> 
+                  D.exists 
+                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                    call_outputs)
+               function_calls)
 
           call_outputs
 
@@ -1761,6 +1785,102 @@ let add_function_output ?(is_single = false) ctx ident index_types =
           { ctx with 
               func = 
                 Some { func with F.outputs = outputs' } }
+
+
+(* Return the output variables of function call in the context with
+   the same parameters *)
+let call_outputs_of_function_call { node } ident inputs = 
+
+  (* Are we in a node? *)
+  match node with 
+
+    (* Fail if not inside a node *)
+    | None -> raise (Invalid_argument "call_outputs_of_function_call")
+
+    (* Add to node calls *)
+    | Some { N.function_calls } ->
+
+      try 
+
+        (* Find a call to the same function with the same inputs in
+           this node *)
+        let { N.call_function_name; N.call_outputs } = 
+
+          List.find
+            (fun { N.call_function_name = call_ident;
+                   N.call_inputs } -> 
+
+              (* Call must be to the same node, and ... *)
+              (I.equal ident call_ident) &&
+
+              (* ... inputs must be the same *)
+              D.for_all2 
+                (fun _ e1 e2 -> E.equal e1 e2)
+                inputs
+                call_inputs)
+
+            function_calls
+
+        in
+
+        (* Return output variables from node call to re-use *)
+        Some call_outputs
+
+      (* No node call found *)
+      with Not_found -> None 
+
+
+(* Add function call to context *)
+let add_function_call ctx pos ({ N.call_function_name; N.call_outputs } as func_call) =
+
+  match ctx with 
+
+    | { node = None } -> raise (Invalid_argument "add_function_call")
+
+    | { node = Some ({ N.equations; N.function_calls; N.calls } as node) } -> 
+
+      if 
+
+        D.exists 
+          (fun _ state_var -> 
+
+             (* State variable already defined by equation? *)
+             List.exists
+               (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+               equations
+               
+             ||
+             
+             (* State variable defined by a node call? *)
+             List.exists
+               (fun { N.call_node_name; N.call_outputs } -> 
+                  D.exists 
+                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                    call_outputs)
+               calls
+
+             ||
+        
+             (* State variable defined by a function call? *)
+             List.exists
+               (fun { N.call_function_name; N.call_outputs } -> 
+                  D.exists 
+                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                    call_outputs)
+               function_calls)
+
+          call_outputs
+
+      then
+
+        fail_at_position
+          pos
+          "Duplicate definition for output of function call";
+                
+      (* Add function call to context *)
+      { ctx with 
+          node = Some { node with 
+                          N.function_calls = func_call :: function_calls } }
 
 
 (* Add function contract to context *)

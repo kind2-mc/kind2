@@ -116,6 +116,26 @@ type node_call =
   }
 
 
+(* A call of a function *)
+type function_call = 
+
+  { 
+
+    (* Position of function call in input file *)
+    call_pos : position;
+
+    (* Name of called function *)
+    call_function_name : I.t;
+    
+    (* Expressions for input parameters *)
+    call_inputs : E.t D.t;
+
+    (* Variables capturing the outputs *)
+    call_outputs : StateVar.t D.t;
+
+  }
+
+
 type contract =
   { 
 
@@ -173,11 +193,14 @@ type t =
     (* Equations for local and output variables *)
     equations : equation list;
 
-    (* Node calls with activation condition: variables capturing the
-       outputs, the Boolean activation condition, the name of the
-       called node, expressions for input parameters and expression
-       for initialization *)
+    (* Node calls *)
     calls : node_call list;
+
+    (* Function calls
+
+       Needed to share functions calls with the same input
+       parameters *)
+    function_calls : function_call list;
 
     (* Assertions of node *)
     asserts : E.t list;
@@ -220,6 +243,7 @@ let empty_node name =
     locals = [];
     equations = [];
     calls = [];
+    function_calls = [];
     asserts = [];
     props = [];
     global_contracts = [];

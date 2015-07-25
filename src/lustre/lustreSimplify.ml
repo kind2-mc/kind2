@@ -34,6 +34,7 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
+module F = LustreFunction
 module C = LustreContext
 
 (* FIXME: Remove unless debugging *)
@@ -1263,7 +1264,7 @@ and eval_node_or_function_call ctx pos ident cond args defaults =
     | Some node -> 
 
       eval_node_call ctx pos ident node cond args defaults 
-        
+
     (* Check if we have a function *)
     | None ->
 
@@ -1281,14 +1282,14 @@ and eval_node_or_function_call ctx pos ident cond args defaults =
 
         (* Evaluate call to function *)
         | Some func -> 
-          
+
           (match cond with 
 
             (* Can only call functions without activation condition *)
             | A.True _ -> 
-              
+
               eval_function_call ctx pos ident func args 
-                
+
             (* Fail if this is a condact call *)
             | _ -> 
 
@@ -1590,9 +1591,147 @@ and eval_node_call
       (res, ctx)
 
 
-and eval_function_call ctx pos ident args = 
+and eval_function_call 
+    ctx
+    pos
+    ident
+    { F.name; 
+      F.inputs; 
+      F.outputs; 
+      F.output_ufs; 
+      F.global_contracts; 
+      F.mode_contracts } 
+    args = 
 
-  
+  (* Evaluate inputs *)
+  let args', ctx = 
+
+    try 
+
+      (* Evaluate inputs as list *)
+      let expr', ctx = 
+        eval_ast_expr ctx (A.ExprList (dummy_pos, args)) 
+      in
+
+      (* Remove list index if singleton *)
+      let expr', ctx = 
+
+      if 
+
+        (* Do actual and formal parameters have the same indexes? *)
+        D.keys expr' = D.keys inputs 
+
+      then
+
+        (* Return actual parameters and changed context *)
+        expr', ctx
+
+      else
+
+
+        (* Remove list index if expression is a singleton list *)
+        (D.fold
+           (function 
+             | D.ListIndex 0 :: tl -> D.add tl
+             | _ -> raise E.Type_mismatch) 
+           expr'
+           D.empty,
+         ctx)
+
+      in
+
+      (* Type check actual inputs against formal inputs *)
+      D.iter2
+        (fun _ { E.expr_type } state_var -> 
+           
+           if 
+             
+             (* Expression must be of a subtype of input type *)
+             not
+               (Type.check_type 
+                  expr_type
+                  (StateVar.type_of_state_var state_var))
+
+           then 
+             
+             (* Type check failed, catch exception below *)
+             raise E.Type_mismatch)
+        expr'
+        inputs;
+
+      (* Continue with inputs and context *)
+      expr', ctx
+
+    (* Type checking error or one expression has more indexes *)
+    with Invalid_argument _ | E.Type_mismatch -> 
+
+      C.fail_at_position pos "Type mismatch for input parameters"
+
+  in
+
+  match 
+    
+    (* Find a previously created node call with the same paramters *)
+    C.call_outputs_of_function_call ctx ident args'
+      
+  with 
+
+    (* Re-use variables from previously created node call *)
+    | Some call_outputs -> 
+
+      (* Return tuple of state variables capturing outputs *)
+      let res = 
+        D.map E.mk_var call_outputs
+      in
+      
+      (* Return previously created state variables *)
+      (res, ctx)
+
+    | None -> 
+
+      (* Create fresh state variable for each output *)
+      let output_state_vars, ctx = 
+        D.fold
+          (fun i sv (accum, ctx) -> 
+             let sv', ctx = 
+               C.mk_fresh_local
+                 ctx
+                 (StateVar.type_of_state_var sv)
+             in
+             (D.add i sv' accum, ctx))
+          outputs
+          (D.empty, ctx)
+      in
+
+      (* Return tuple of state variables capturing outputs *)
+      let res = D.map E.mk_var output_state_vars in
+
+      (* Create function call *)
+      let function_call = 
+        { N.call_pos = pos;
+          N.call_function_name = ident;
+          N.call_inputs = args';
+          N.call_outputs = output_state_vars } 
+      in
+
+      (* Add node call to context *)
+      let ctx = C.add_function_call ctx pos function_call in
+
+      (* Return expression and changed context *)
+      (res, ctx)
+      
+
+
+
+  (* Create constraints for outupts: D.fold output_ufs *)
+
+  (* Add constraints from contract ensures *)
+
+  (* Do not add constraint as assertion yet, must be able to slice
+     away function calls *)
+
+  (* Add property for contract requires *)
+
 
 
 
