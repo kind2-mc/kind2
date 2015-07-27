@@ -203,8 +203,9 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
 
   (* One term per global contract *)
   List.map
-    (fun { N.contract_req } ->
-       E.mk_var contract_req |> f_global)
+    ( fun { N.contract_reqs } ->
+        contract_reqs |> List.map (fun pair -> snd pair |> E.mk_var)
+        |> E.mk_and_n |> f_global )
     global_contracts 
 
   @
@@ -214,8 +215,9 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
     
     (* Disjunction of requirements from all modes *)
     [List.map
-       (fun { N.contract_req } -> 
-          E.mk_var contract_req)
+       (fun { N.contract_reqs } -> 
+          contract_reqs |> List.map (fun pair -> snd pair |> E.mk_var)
+          |> E.mk_and_n)
        mode_contracts
      |> E.mk_or_n
      |> f_mode]
@@ -228,9 +230,9 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
   List.fold_left
     (fun accum { N.contract_enss } -> 
        List.map
-         (fun sv_ens -> 
+         (fun (pos, sv_ens) -> 
             E.mk_var sv_ens
-            |> f_global)
+            |> f_global pos)
          contract_enss @ accum)
     []
     global_contracts
@@ -239,17 +241,20 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
 
   (* One property per ensures clause in a mode contract *)
   List.fold_left
-    (fun accum { N.contract_req; N.contract_enss } -> 
+    (fun accum { N.contract_reqs; N.contract_enss } -> 
     
        (* Guard for property is requirement *)
-       let t_req = E.mk_var contract_req in
+       let t_req =
+         contract_reqs |> List.map (fun pair -> snd pair |> E.mk_var)
+         |> E.mk_and_n
+       in
        
        (* Each property in mode contract is implication between
           requirement and ensures *)
        List.map
-         (fun sv_ens -> 
+         (fun (pos, sv_ens) -> 
             E.mk_impl t_req (E.mk_var sv_ens)
-            |> f_mode)
+            |> f_mode pos)
          contract_enss @ accum)
     []
     mode_contracts
@@ -302,8 +307,10 @@ let props_of_ens scope { N.global_contracts; N.mode_contracts } =
 
   (* Create property from terms of global and mode requires *)
   contract_ens_map 
-    (property_of_expr' (P.ContractGlobalEnsure scope))
-    (property_of_expr' (P.ContractModeEnsure scope))
+    ( fun pos ->
+        property_of_expr' (P.ContractGlobalEnsure (pos, scope)) )
+    ( fun pos ->
+        property_of_expr' (P.ContractModeEnsure (pos, scope)) )
     global_contracts
     mode_contracts
 
@@ -313,8 +320,8 @@ let expr_of_ens scope { N.global_contracts; N.mode_contracts } =
 
   (* Return terms of global and mode requires unchanged *)
   contract_ens_map 
-    identity
-    identity
+    (fun pos -> identity)
+    (fun pos -> identity)
     global_contracts
     mode_contracts
 

@@ -74,8 +74,8 @@ and prop_source =
   | ContractGlobalRequire of Scope.t
   | ContractModeRequire of Scope.t
 
-  | ContractGlobalEnsure of Scope.t
-  | ContractModeEnsure of Scope.t
+  | ContractGlobalEnsure of position * Scope.t
+  | ContractModeEnsure of position * Scope.t
 
   (* Property is a mode contract implication. *)
   (* | ModeContract of position * string *)

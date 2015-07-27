@@ -71,8 +71,8 @@ and prop_source =
   | ContractGlobalRequire of Scope.t
   | ContractModeRequire of Scope.t
 
-  | ContractGlobalEnsure of Scope.t
-  | ContractModeEnsure of Scope.t
+  | ContractGlobalEnsure of Lib.position * Scope.t
+  | ContractModeEnsure of Lib.position * Scope.t
 
 
   (** Property is an instance of a property in a called node
