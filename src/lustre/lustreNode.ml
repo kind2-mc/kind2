@@ -402,6 +402,25 @@ let pp_print_call safe ppf = function
        call_oracles)
           
 
+(* Pretty-print a function call *)
+let pp_print_function_call safe ppf = function 
+
+  (* Node call on the base clock *)
+  | { call_function_name; 
+      call_inputs; 
+      call_outputs } ->
+
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>%a@,(%a);@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs)
+      (I.pp_print_ident safe) call_function_name
+      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
+      (D.values call_inputs)
+
+
 (* Pretty-print an assertion *)
 let pp_print_assert safe ppf expr = 
 
@@ -488,6 +507,7 @@ let pp_print_node
       locals; 
       equations; 
       calls; 
+      function_calls; 
       asserts; 
       props;
       global_contracts;
@@ -507,6 +527,7 @@ let pp_print_node
      %a%t\
      @[<v>%t@]\
      @[<hv 2>let@ \
+     %a%t\
      %a%t\
      %a%t\
      %a%t\
@@ -549,6 +570,10 @@ let pp_print_node
     (* %a%t *)
     (pp_print_list (pp_print_call safe) "@ ") calls
     (space_if_nonempty calls)
+
+    (* %a%t *)
+    (pp_print_list (pp_print_function_call safe) "@ ") function_calls
+    (space_if_nonempty function_calls)
 
     (* %a%t *)
     (pp_print_list (pp_print_node_equation safe) "@ ") equations

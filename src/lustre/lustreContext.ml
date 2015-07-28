@@ -1967,10 +1967,6 @@ let add_function_to_context ctx func_ctx =
   
   let func = function_of_context func_ctx in
 
-  Format.printf 
-    "%a@."
-    (F.pp_print_function false) func;
-
   { ctx with funcs = func :: ctx.funcs }
 
 (* 

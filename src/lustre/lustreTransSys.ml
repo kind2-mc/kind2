@@ -22,6 +22,8 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
+module F = LustreFunction
+module G = LustreGlobals
 module S = LustreSlicing
 
 module A = Analysis
@@ -1082,6 +1084,67 @@ let rec constraints_of_node_calls
         tl
 
 
+let rec constraints_of_function_calls functions init_terms trans_terms = function 
+
+  | [] -> (init_terms, trans_terms)
+
+  | { N.call_function_name; N.call_inputs; N.call_outputs } :: tl -> 
+
+    let 
+
+      (* Definition of called function *)
+      { F.inputs; 
+        F.outputs; 
+        F.output_ufs; 
+        F.global_contracts; 
+        F.mode_contracts } = 
+
+      (* Get called function by name *)
+      try F.function_of_name call_function_name functions 
+        
+      with Not_found -> assert false 
+
+    in
+
+    let init_terms, trans_terms = 
+      D.fold2
+        (fun _ uf o (i, t) -> 
+
+           (* Add constraint for output *)
+           let mk_i_or_t f_o f_e = 
+
+             (* Add [o = uf_f(i1, ..., In)] *)
+             Term.mk_eq
+               [Term.mk_uf 
+                  uf
+                  (D.values call_inputs |> List.map f_e); 
+                f_o o]
+           in
+           
+           (* Create constraint in initial state *)
+           mk_i_or_t 
+             (E.base_term_of_state_var TransSys.init_base)
+             (E.base_term_of_t TransSys.init_base)
+           :: i,
+
+           (* Create constraint in step state *)
+           mk_i_or_t 
+             (E.cur_term_of_state_var TransSys.trans_base)
+             (E.cur_term_of_t TransSys.trans_base)
+           :: t)
+        output_ufs
+        call_outputs
+        (init_terms, trans_terms)
+    in
+
+    constraints_of_function_calls
+      functions 
+      init_terms
+      trans_terms 
+      tl
+
+
+
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
 let rec constraints_of_asserts
@@ -1360,7 +1423,8 @@ let rec trans_sys_of_node'
     analysis_param
     trans_sys_defs
     output_input_dep
-    nodes =
+    nodes
+    ({ G.functions } as globals) =
 
   function
 
@@ -1381,6 +1445,7 @@ let rec trans_sys_of_node'
           trans_sys_defs 
           output_input_dep
           nodes 
+          globals
           tl
 
       (* Transition system has not been created *)
@@ -1395,6 +1460,7 @@ let rec trans_sys_of_node'
               N.locals; 
               N.equations; 
               N.calls; 
+              N.function_calls; 
               N.asserts; 
               N.props;
               N.global_contracts;
@@ -1496,6 +1562,7 @@ let rec trans_sys_of_node'
               trans_sys_defs
               output_input_dep
               nodes
+              globals
               (tl' @ node_name :: tl)
 
           (* All transitions systems of called nodes have been
@@ -1617,6 +1684,27 @@ let rec trans_sys_of_node'
                 init_terms
                 trans_terms
                 calls 
+            in
+
+            (* Add lifted properties *)
+            let properties = properties @ lifted_props in
+
+            (* ****************************************************** *)
+            (* Function calls 
+
+               We must add function calls before equations so that local
+               variables can be let bound in
+               {!constraints_of_equations}.                           *)
+
+            (* Instantiated state variables and constraints from node
+               calls *)
+            let init_terms, trans_terms = 
+
+              constraints_of_function_calls
+                functions
+                init_terms
+                trans_terms
+                function_calls 
             in
 
             (* Add lifted properties *)
@@ -1929,6 +2017,7 @@ let rec trans_sys_of_node'
                 (node_output_input_dep_init, node_output_input_dep_trans))
                :: output_input_dep)
               nodes
+              globals
               tl
           
 
@@ -1954,6 +2043,10 @@ let trans_sys_of_nodes
 
   let nodes = N.nodes_of_subsystem subsystem' in 
 
+  Format.printf 
+    "@[<v>%a@]@."
+    (pp_print_list (F.pp_print_function false) "@,") globals'.G.functions;
+
   Format.printf
     "@[<v>%a@]@."
     (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
@@ -1969,6 +2062,7 @@ let trans_sys_of_nodes
         I.Map.empty
         [] 
         nodes
+        globals
         [top_name]
 
       (* Return the transition system of the top node *)

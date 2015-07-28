@@ -648,6 +648,19 @@ let add_roots_of_node_call
   roots'
 
 
+(* Add roots of cone of influence from node call to roots *)
+let add_roots_of_function_call 
+    roots
+    { N.call_inputs } =
+
+  (* Add dependecies of input expressions *)
+  D.fold
+     (fun _ expr accum -> E.state_vars_of_expr expr |> SVS.union accum)
+     call_inputs
+     (SVS.of_list roots)
+
+  |> SVS.elements
+
 (* Add roots of cone of influence from equation to roots *)
 let add_roots_of_equation roots (_, _, expr) = 
   (E.state_vars_of_expr expr |> SVS.elements) @ roots
@@ -845,75 +858,6 @@ let rec slice_nodes
       (* State variable is not defined by a node call *)
       with Not_found -> 
 
-        (* Functions defining variable added, and new roots from
-           dependencies of function inputs *)
-        let functions_in_coi', functions_not_in_coi', roots' = 
-
-          try 
-
-            (* *)
-            let { N.call_function_name } = 
-
-              (* State variable is an output of a function call? *)
-              List.find 
-                (function { N.call_function_name; N.call_outputs } ->
-                  D.exists
-                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                    call_outputs)
-
-                function_calls
-
-            in
-
-            List.fold_left 
-
-              (fun
-                (functions_in_coi, functions_not_in_coi, roots')
-                ({ N.call_function_name = f } as func) -> 
-
-
-                if I.equal call_function_nane f then 
-
-
-                  (* Add equation to sliced node *)
-                  (eq :: equations_in_coi, 
-
-                   (* Remove equation from unsliced node *)
-                   equations_not_in_coi,
-
-                   (* Add variables in equation as roots *)
-                   add_roots_of_function_call roots' func)
-
-                else
-
-                  (* Do not add equation to sliced node, keep in unsliced
-                     node, and no new roots *)
-                  (equations_in_coi, eq :: equations_not_in_coi, roots')
-
-              )
-
-              (* Add to visited functions, keep not visited functions
-                 and add to roots *)
-              (functions_in_coi, [], roots)
-
-              (* Iterate over all not visited functions *)
-              functions_not_in_coi
-
-
-(*
-
-            in
-*)
-
-              functions_in_coi, functions_not_in_coi, roots'
-
-          (* State variable is not defined by a node call *)
-          with Not_found -> 
-
-            functions_in_coi, functions_not_in_coi, roots'
-
-        in
-
         (* Equations with defintion of variable added, and new roots
            from dependencies of equation *)
         let equations_in_coi', equations_not_in_coi', roots' = 
@@ -1001,18 +945,28 @@ let rec slice_nodes
 
         (* Funtion calls with call returning state variable added, and
            new roots from inputs of function call *)
-        let function_calls_in_coi', function_calls_not_in_coi', roots' = 
+        let 
+
+          function_calls_in_coi', 
+          function_calls_not_in_coi', 
+          functions_in_coi', 
+          functions_not_in_coi', 
+          roots' = 
 
           List.fold_left 
 
             (fun
-              (calls_in_coi, calls_not_in_coi, roots')
-              ({ N.call_node_name; 
-                 N.call_outputs } as node_call) ->
+              (function_calls_in_coi, 
+               function_calls_not_in_coi, 
+               functions_in_coi, 
+               functions_not_in_coi, 
+               roots')
+              ({ N.call_function_name; 
+                 N.call_outputs } as function_call) ->
 
               if
 
-                (* State variable is an output of the called node? *)
+                (* State variable is an output of the called function? *)
                 LustreIndex.exists
                   (fun _ sv -> StateVar.equal_state_vars state_var sv)
                   call_outputs
@@ -1021,28 +975,70 @@ let rec slice_nodes
               then
 
                 (* Add equation to sliced node *)
-                (node_call :: calls_in_coi, 
+                (function_call :: function_calls_in_coi, 
 
                  (* Remove equation from unsliced node *)
-                 calls_not_in_coi,
+                 function_calls_not_in_coi,
+
+                 (if 
+                   
+                   (* Called function already in coi? *)
+                   List.exists 
+                     (function { F.name } -> 
+                       LustreIdent.equal name call_function_name)
+                     functions_in_coi
+                     
+                  then 
+                    
+                    (* Do not add again *)
+                    functions_in_coi
+                      
+                  else
+                    
+                    try 
+                      
+                      (* Add called function *)
+                      List.find 
+                        (function { F.name } -> 
+                          LustreIdent.equal name call_function_name)
+                        functions_not_in_coi
+                        
+                      :: functions_in_coi
+                      
+                    (* Called function must be in that list *)
+                    with Not_found -> assert false),
+                     
+                 (* Filter out called function *)
+                 List.filter
+                   (function { F.name } -> 
+                     LustreIdent.equal name call_function_name |> not)
+                   functions_not_in_coi,
 
                  (* Add variables in equation as roots *)
-                 add_roots_of_node_call roots' node_call)
+                 add_roots_of_function_call roots' function_call)
 
 
               else
 
                 (* Do not add node call to sliced node, keep in unsliced
                    node, and no new roots *)
-                (calls_in_coi, node_call :: calls_not_in_coi, roots')
+                (function_calls_in_coi, 
+                 function_call :: function_calls_not_in_coi, 
+                 functions_in_coi, 
+                 functions_not_in_coi, 
+                 roots')
 
             )
 
             (* Modify node calls in sliced and unsliced node, and roots *)
-            (calls_in_coi, [], roots')
+            (function_calls_in_coi,
+             [], 
+             functions_in_coi, 
+             functions_not_in_coi, 
+             roots')
 
             (* Iterate over all node calls in unsliced node *)
-            calls_not_in_coi
+            function_calls_not_in_coi
 
         in
 
@@ -1093,7 +1089,8 @@ let rec slice_nodes
           { node_sliced with
               N.locals = locals_in_coi';
               N.equations = equations_in_coi';
-              N.calls = calls_in_coi' } 
+              N.calls = calls_in_coi';
+              N.function_calls = function_calls_in_coi' } 
         in
 
         (* Modify slicecd node *)
@@ -1101,6 +1098,7 @@ let rec slice_nodes
           { node_unsliced with
               N.equations = equations_not_in_coi';
               N.calls = calls_not_in_coi';
+              N.function_calls = function_calls_not_in_coi';
               N.locals = locals_not_in_coi' }
         in
 
@@ -1108,7 +1106,7 @@ let rec slice_nodes
         slice_nodes
           init_slicing_of_node
           nodes
-          functions_in_coi
+          functions_in_coi'
           functions_not_in_coi'
           accum
           ((roots', (state_var :: leaves), node_sliced', node_unsliced') :: tl)
