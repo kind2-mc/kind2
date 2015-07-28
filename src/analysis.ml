@@ -52,7 +52,7 @@ type result =
     sub_contracts_valid : bool;
 
     (** Additional properties proved invariant *)
-    properties : Property.t list;
+    properties : string list;
 
   }
 
@@ -107,7 +107,11 @@ let result_of (sys_list, props) param =
       match kind_of_prop prop, Property.get_prop_status prop with
 
       | Prop, Property.PropInvariant ->
-        loop contract_valid subreqs_valid (prop :: valid_props) tail
+        loop
+          contract_valid
+          subreqs_valid
+          (prop.Property.prop_name :: valid_props)
+          tail
 
       | Prop, _
       | Contract, Property.PropInvariant

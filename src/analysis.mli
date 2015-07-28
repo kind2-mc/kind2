@@ -74,7 +74,7 @@ type result =
     sub_contracts_valid : bool;
 
     (** Additional properties proved invariant *)
-    properties : Property.t list;
+    properties : string list;
 
   }
 
