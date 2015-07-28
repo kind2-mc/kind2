@@ -96,6 +96,8 @@ val set_prop_false : t -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 val length_of_cex :  (StateVar.t * Model.term_or_lambda list) list -> int
 
+val get_prop_status : t -> prop_status
+
 
 (* 
    Local Variables:

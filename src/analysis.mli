@@ -47,7 +47,6 @@ type param =
     (** The top system for the analysis run *)
     top : Scope.t;
     
-    
     (** Systems flagged [true] are to be represented abstractly, those
         flagged [false] are to be represented by their
         implementation. *)
@@ -75,7 +74,7 @@ type result =
     sub_contracts_valid : bool;
 
     (** Additional properties proved invariant *)
-    properties : string list;
+    properties : Property.t list;
 
   }
 
