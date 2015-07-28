@@ -27,6 +27,6 @@ function sincos(in: real) returns (sin: real; cos: real);
 
 node X (in: real) returns (OK: bool);
 let
-  OK = exp(in, in) > 0 or sincos(in) + sincos(in) = (0.0, 0.0);
+  OK = exp(0.0 -> in, 1.0 -> in) > 0 or sincos(2.0 -> in) + sincos(2.0 -> in) = (0.0, 0.0);
   --%PROPERTY OK;
 tel;

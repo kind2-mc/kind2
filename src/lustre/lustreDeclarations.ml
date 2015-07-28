@@ -1624,7 +1624,7 @@ let eval_func_contract ctx contract_pos contract_name reqs enss =
   in
 
   (* Introduce state variable for conjunction of requirements *)
-  let contract_ens = function_expr_of_expr reqs' in
+  let contract_ens = function_expr_of_expr ens' in
   
   (* Return a contract *)
   ({ F.contract_name;
