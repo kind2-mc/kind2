@@ -106,23 +106,19 @@ let result_of (sys_list, props) param =
     | prop :: tail -> (
       match kind_of_prop prop, Property.get_prop_status prop with
 
-      | Prop, Property.PropInvariant ->
+      | _, Property.PropInvariant ->
         loop
           contract_valid
           subreqs_valid
           (prop.Property.prop_name :: valid_props)
           tail
 
-      | Prop, _
-      | Contract, Property.PropInvariant
-      | Subreq, Property.PropInvariant ->
-        loop contract_valid subreqs_valid valid_props tail
-
-
       | Contract, _ ->
         loop false subreqs_valid valid_props tail
       | Subreq, _ ->
-        loop subreqs_valid false valid_props tail
+        loop contract_valid false valid_props tail
+      | _, _ ->
+        loop contract_valid subreqs_valid valid_props tail
     )
     | [] -> contract_valid, subreqs_valid, valid_props
   in
