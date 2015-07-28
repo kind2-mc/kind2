@@ -57,7 +57,7 @@ module SVM = StateVar.StateVarMap
 let rec node_state_var_dependencies' 
     init
     output_input_deps
-    ({ N.inputs; N.equations; N.calls } as node)
+    ({ N.inputs; N.equations; N.calls; N.function_calls } as node)
     accum = 
 
   (* Return true if the state variable occurs on a path of
@@ -165,163 +165,208 @@ let rec node_state_var_dependencies'
       else
 
         (* All state variables at the current instant in the equation
-           or node call defining the state variable *)
+           defining the state variable *)
         let children = 
 
-          try 
+          (* Find equations defining the state variable 
 
-            (* State variable is defined in an equation? *)
-            List.find
-              (fun (sv, _, _) -> 
-                 StateVar.equal_state_vars sv state_var)
-              equations
-
-            |> 
+             A state variable can be defined in more than one equation
+             if an array is defined pointwise *)
+          List.find_all
+            (fun (sv, _, _) -> 
+               StateVar.equal_state_vars sv state_var)
+            equations
+            
+          |> 
+          
+          List.fold_left
 
             (* State variable depends on state variables in equation *)
-            (function (sv, _, expr) ->
+            (fun accum (sv, _, expr) ->
               (if init then 
                  E.base_state_vars_of_init_expr 
                else
                  E.cur_state_vars_of_step_expr)
                 expr
+                
+              (* Filter out array typed state variables
 
-              (* Filter out array typed state variables *)
+                 Don't consider cycles through arrays. Otherwise,
+                 simple expressions such as [A[k] = 0 -> pre A[k-1]]
+                 would not be possible. Accept some false negatives
+                 here. *)
               |> SVS.filter 
                 (fun sv -> StateVar.type_of_state_var sv
                            |> Type.is_array |> not)
+                
+              |> SVS.union accum)
+            SVS.empty
 
-              |> SVS.elements)
+        in
 
-          (* State variable is not constrained by an equation *)
-          with Not_found -> 
+        (* All state variables at the current instant in the node call
+           defining the state variable *)
+        let children = 
 
-            try 
-
-              (* State variable is defined by a node call? *)
-              List.find
-                (fun { N.call_node_name; N.call_outputs } -> 
-                   D.exists 
-                     (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                     call_outputs)
-                calls
-
-              |>
-
-              (function
-                  { N.call_node_name; 
-                    N.call_inputs; 
-                    N.call_oracles; 
-                    N.call_outputs; 
-                    N.call_defaults;
-                    N.call_clock } -> 
-
-                  (* Index of state variable in outputs *)
-                  let output_index = 
-
-                    try
-
-                      (* Find state variable in outputs and return its
-                         index *)
-                      D.bindings call_outputs 
-                      |> List.find
-                        (fun (_, sv) -> 
-                           StateVar.equal_state_vars state_var sv)
-                      |> fst
-
-                    (* State variable is an output, has been found before *)
-                    with Not_found -> assert false 
-
-                  in
-
-                  (* Get computed dependencies of outputs on inputs
-                     for called node *)
-                  let output_input_dep =
-
-                    try 
-
-                      List.assoc call_node_name output_input_deps
-
-                      |> if init then fst else snd
-
-                    (* Node of name not found *)
-                    with Not_found -> D.empty
-
-                  in
-
-                  (* Get indexes of inputs the output depends on *)
-                  (try 
-
-                     D.find output_index output_input_dep
-
-                   (* All outputs must have dependencies computed *)
-                   with Not_found -> assert false)
-
-                  |> 
-
-                  (List.fold_left
-                     (fun accum i -> 
-
-                        (* Get actual input by index, and add as
-                           dependency *)
-                        try SVS.add (D.find i call_inputs) accum 
-
-                        (* Invalid map *)
-                        with Not_found -> assert false)
-                     SVS.empty)
-
-                  |> 
-
-                  (* Defaults of a condact are children *)
-                  (function children ->
-
-                    (* Only if computing dependencies in the initial
+          (* Find node calls defining the state variable *)
+          List.find_all
+            (fun { N.call_node_name; N.call_outputs } -> 
+               D.exists 
+                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                 call_outputs)
+            calls
+            
+          |>
+          
+          List.fold_left
+            
+            (fun
+              accum
+              { N.call_node_name; 
+                N.call_inputs; 
+                N.call_oracles; 
+                N.call_outputs; 
+                N.call_defaults;
+                N.call_clock } -> 
+              
+              (* Index of state variable in outputs *)
+              let output_index = 
+                
+                try
+                  
+                  (* Find state variable in outputs and return its
+                     index *)
+                  D.bindings call_outputs 
+                  |> List.find
+                    (fun (_, sv) -> 
+                       StateVar.equal_state_vars state_var sv)
+                  |> fst
+                  
+                (* State variable is an output, has been found before *)
+                with Not_found -> assert false 
+                  
+              in
+              
+              (* Get computed dependencies of outputs on inputs for
+                 called node *)
+              let output_input_dep =
+                
+                try 
+                  
+                  List.assoc call_node_name output_input_deps
+                    
+                  |> if init then fst else snd
+                    
+                (* Node of name not found *)
+                with Not_found -> D.empty
+                                    
+              in
+              
+              (* Get indexes of inputs the output depends on *)
+              (try 
+                 
+                 D.find output_index output_input_dep
+                   
+               (* All outputs must have dependencies computed *)
+               with Not_found -> assert false)
+              
+              |> 
+              
+              (List.fold_left
+                 (fun accum i -> 
+                    
+                    (* Get actual input by index, and add as
+                       dependency *)
+                    try SVS.add (D.find i call_inputs) accum 
+                          
+                    (* Invalid map *)
+                    with Not_found -> assert false)
+                 SVS.empty)
+              
+              |> 
+              
+              (* Defaults of a condact are children *)
+              (function children ->
+                
+                (* Only if computing dependencies in the initial
                        state *)
-                    if init then 
-
-                      (* Add state variables at the initial state from
+                if init then 
+                  
+                  (* Add state variables at the initial state from
                          the default expressions *)
-                      (match call_defaults with 
-                        | None -> children
-
-                        | Some d -> 
-
-                          D.fold
-                            (fun _ default accum -> 
-                               E.base_state_vars_of_init_expr default
-                               |> SVS.union accum)
-                            d
-                            children)
-
-                    else
-
-                      (* Default expressions are only evaluated at the
+                  (match call_defaults with 
+                    | None -> children
+                      
+                    | Some d -> 
+                      
+                      D.fold
+                        (fun _ default accum -> 
+                           E.base_state_vars_of_init_expr default
+                           |> SVS.union accum)
+                        d
+                        children)
+                  
+                else
+                  
+                  (* Default expressions are only evaluated at the
                          initial state *)
-                      children)
+                  children)
+              
+              |> 
+              
+              (* Clock of condact is a child *)
+              (function children -> 
+                match call_clock with 
+                  | None -> children
+                  | Some clk -> SVS.add clk children)
+              
+              |>
+              
+              (* Add to set of children from equations *)
+              SVS.union accum)
+            children
+            
+        in
 
-                  |> 
+        (* All state variables at the current instant in the function call
+           defining the state variable *)
+        let children = 
 
-                  (* Clock of condact is a child *)
-                  (function children -> 
-                    match call_clock with 
-                      | None -> children
-                      | Some clk -> SVS.add clk children)
+          (* Find function calls defining the state variable *)
+          List.find_all
+            (fun { N.call_function_name; N.call_outputs } -> 
+               D.exists 
+                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                 call_outputs)
+            function_calls
+            
+          |>
+          
+          List.fold_left
+            
+            (fun
+              accum
+              { N.call_function_name; 
+                N.call_inputs } -> 
 
-                  |>
-
-                  (* Return list of elements of a set *)
-                  SVS.elements)
-
-            (* State variable is neither defined by an equation nor by a
-               node call *)
-            with Not_found -> []
-
+              D.fold
+                (fun _ expr accum ->
+                  (if init then 
+                     E.base_state_vars_of_init_expr 
+                   else
+                     E.cur_state_vars_of_step_expr)
+                  expr 
+                |> SVS.union accum)
+                call_inputs
+                accum)
+            children
+            
         in
 
         (* Some variables have had their dependencies calculated
            already *)
         let children_visited, children_not_visited =
-          List.partition
+          SVS.partition
             (fun sv -> 
                List.exists
                  (fun (sv', _) -> StateVar.equal_state_vars sv sv')
@@ -330,15 +375,15 @@ let rec node_state_var_dependencies'
         in
 
         (* All children visited? *)
-        if children_not_visited = [] then 
+        if SVS.is_empty children_not_visited then 
 
           (* Dependencies of this variable is set of dependencies of its
              variables *)
           let children = 
 
-            List.fold_left
+            SVS.fold
 
-              (fun a sv -> 
+              (fun sv a -> 
 
                  try 
 
@@ -357,8 +402,8 @@ let rec node_state_var_dependencies'
 
                  with Not_found -> assert false)
 
-              SVS.empty
               children_visited
+              SVS.empty
 
           in
 
@@ -378,10 +423,10 @@ let rec node_state_var_dependencies'
             output_input_deps
             node
             accum 
-            ((List.map 
-                (fun sv -> (sv, state_var :: parents)) 
-                children_not_visited) @ 
-             ((state_var, parents) :: tl))
+            (SVS.fold 
+               (fun sv a -> (sv, state_var :: parents) :: a) 
+               children_not_visited
+               ((state_var, parents) :: tl))
 
 
 (* Given an association list of state variables to the set of the
