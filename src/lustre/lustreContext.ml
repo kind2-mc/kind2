@@ -186,6 +186,18 @@ let fail_on_new_definition ctx pos msg =
   { ctx with definitions_allowed = Some (pos, msg) }
 
 
+(* Raise exception if no new definitions allowed *)
+let raise_no_new_definition_exc = function
+
+  (* Raise exception *)
+  | { definitions_allowed = Some (pos, msg) } -> 
+    fail_at_position pos msg
+
+  (* Must not allow new definitions *)
+  | _ -> assert false
+
+  
+
 (* Return the scope of the current context *)
 let scope_of_node_or_func = function 
 
@@ -1797,37 +1809,38 @@ let call_outputs_of_function_call { node } ident inputs =
     (* Fail if not inside a node *)
     | None -> raise (Invalid_argument "call_outputs_of_function_call")
 
-    (* Add to node calls *)
+    (* Add to function calls in node *)
     | Some { N.function_calls } ->
 
-      try 
+      (try 
 
-        (* Find a call to the same function with the same inputs in
-           this node *)
-        let { N.call_function_name; N.call_outputs } = 
+         (* Find a call to the same function with the same inputs in
+            this node *)
+         let { N.call_function_name; N.call_outputs } = 
 
-          List.find
-            (fun { N.call_function_name = call_ident;
-                   N.call_inputs } -> 
+           List.find
+             (fun { N.call_function_name = call_ident;
+                    N.call_inputs } -> 
 
-              (* Call must be to the same node, and ... *)
-              (I.equal ident call_ident) &&
+               (* Call must be to the same node, and ... *)
+               (I.equal ident call_ident) &&
 
-              (* ... inputs must be the same *)
-              D.for_all2 
-                (fun _ e1 e2 -> E.equal e1 e2)
-                inputs
-                call_inputs)
+               (* ... inputs must be the same *)
+               D.for_all2 
+                 (fun _ e1 e2 -> E.equal e1 e2)
+                 inputs
+                 call_inputs)
 
-            function_calls
+             function_calls
 
-        in
+         in
 
-        (* Return output variables from node call to re-use *)
-        Some call_outputs
+         (* Return output variables from node call to re-use *)
+         Some call_outputs
 
-      (* No node call found *)
-      with Not_found -> None 
+       (* No node call found *)
+       with Not_found -> None)
+
 
 
 (* Add function call to context *)

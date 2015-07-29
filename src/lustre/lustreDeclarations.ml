@@ -1914,6 +1914,7 @@ let rec declarations_to_context ctx =
            List.exists 
              (function 
                | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
+               | A.FuncDecl (_, (i, _, _, _)) 
                  when i = (I.string_of_ident false) called_ident -> true 
                | _ -> false)
              decls
@@ -1951,6 +1952,7 @@ let rec declarations_to_context ctx =
                List.fold_left 
                  (fun acc d -> match d with 
                     | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
+                    | A.FuncDecl (_, (i, _, _, _)) 
                       when i = (I.string_of_ident false) called_ident ->
                       curr_decl :: d :: acc
                     | _ -> d :: acc)
@@ -1988,7 +1990,7 @@ let rec declarations_to_context ctx =
           (i, 
            inputs, 
            outputs,
-           contracts))) as curr_decl :: decls ->
+           contracts))) :: decls ->
 
       (* Identifier of AST identifier *)
       let ident = I.mk_string_ident i in
@@ -2023,66 +2025,9 @@ let rec declarations_to_context ctx =
          (* Recurse for next declarations *)
          declarations_to_context ctx decls
 
-       (* Node may be forward referenced *)
+       (* No references in function, since node or function calls not
+          allowed *)
        with C.Node_or_function_not_found (called_ident, pos) -> 
-
-         if 
-
-           (* Is the referenced node declared later? *)
-           List.exists 
-             (function 
-               | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
-                 when i = (I.string_of_ident false) called_ident -> true 
-               | _ -> false)
-             decls
-
-         then
-
-           (
-
-             (* Check circularity *)
-             (try
-
-                (* Get nodes that this forward references *)
-                let called_deps = C.deps_of_node ctx called_ident in
-
-                (* Is the reference circular? *)
-                if I.Set.mem ident called_deps then 
-
-                  C.fail_at_position
-                    pos
-                    (Format.asprintf 
-                       "Circular dependecy between nodes %a and %a" 
-                       (I.pp_print_ident false) ident
-                       (I.pp_print_ident false) called_ident)
-
-              with Not_found -> ());
-
-             (* Add new dependency *)
-             let ctx = C.add_dep ctx ident called_ident in
-
-             (* Move declaration to correct position.  
-
-                Inefficient: might be better to do a topological sort
-                beforehand *)
-             let decls =
-               List.fold_left 
-                 (fun acc d -> match d with 
-                    | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
-                      when i = (I.string_of_ident false) called_ident ->
-                      curr_decl :: d :: acc
-                    | _ -> d :: acc)
-                 [] 
-                 decls
-               |> List.rev
-             in
-
-             (* Continue *)
-             declarations_to_context ctx decls
-
-           )
-
-         else
 
            C.fail_at_position
              pos

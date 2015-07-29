@@ -1,13 +1,3 @@
-node id (in: real) returns (out: int);
-let out = (int in); tel;
-
-/*
-node sin(in: real) returns (out: int);
-let tel;
-*/
-
-function exp (x, y: real) returns (out: int);
-
 
 function sincos(in: real) returns (sin: real; cos: real);
 --@const max = 1.0;
@@ -27,6 +17,16 @@ function sincos(in: real) returns (sin: real; cos: real);
 
 node X (in: real) returns (OK: bool);
 let
-  OK = exp(0.0 -> in, 1.0 -> in) > 0 or sincos(2.0 -> in) + sincos(2.0 -> in) = (0.0, 0.0);
+  OK = exp(0.0 -> in, 1.0 -> in) > 0.0 or sincos(2.0 -> in) + sincos(2.0 -> in) = (0.0, 0.0);
   --%PROPERTY OK;
+  --%MAIN
 tel;
+
+node id (in: real) returns (out: int);
+let out = (int in); tel;
+
+function exp (x, y: real) returns (out: real);
+-- --@ensure out >= id(out);
+-- --@ensure out <= sin(out);
+
+function sin(in: real) returns (out: int);

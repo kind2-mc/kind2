@@ -107,6 +107,15 @@ val contract_node_decl_of_ident : t -> string -> Lib.position * LustreAst.contra
     as arguments *)
 val fail_on_new_definition : t -> Lib.position -> string -> t
 
+(** Raise exception if no new definitions allowed 
+
+    Raise {!A.ParseError} with the message and position set by
+    {!fail_on_new_definition}. Raise an assertion failure if the
+    context does allow new definitions.
+*)
+
+val raise_no_new_definition_exc : t -> 'a
+
 (** Resolve an indentifier to an expression. *)
 val expr_of_ident : t -> LustreIdent.t -> LustreExpr.t LustreIndex.t
 

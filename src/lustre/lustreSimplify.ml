@@ -1720,18 +1720,9 @@ and eval_function_call
       (* Return expression and changed context *)
       (res, ctx)
       
-
-
-
-  (* Create constraints for outupts: D.fold output_ufs *)
-
-  (* Add constraints from contract ensures *)
-
-  (* Do not add constraint as assertion yet, must be able to slice
-     away function calls *)
-
-  (* Add property for contract requires *)
-
+    | exception Invalid_argument _ -> 
+      
+      C.raise_no_new_definition_exc ctx
 
 
 
