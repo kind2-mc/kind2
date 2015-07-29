@@ -327,60 +327,86 @@ let rec eval_ast_expr ctx =
         eval_bool_ast_expr ctx clock_pos clock_expr 
       in
 
-      (* Evaluate expression for high clock *)
-      let expr_high', ctx = match expr_high with
+      let eval_merge_case clock_sign ctx = function
 
         (* An expression under a [when] *)
-        | A.When (pos, expr, (A.Ident (_, high_clock))) -> 
+        | A.When (pos, expr, case_clock) -> 
 
-          (* Compare clocks by name *)
-          if clock_ident = high_clock then 
+          (match case_clock with
 
-            (* Evaluate expression under [when] *)
-            eval_ast_expr ctx expr
-
-          else
-
+            (* Compare high clock with merge clock by name *)
+            | A.Ident (_, high_clock)
+                when clock_sign && high_clock = clock_ident -> ()
+              
+            (* Compare low clock with merge clock by name *)
+            | A.Not (_, A.Ident (_, low_clock))
+                when not clock_sign && low_clock = clock_ident -> ()
+              
             (* Clocks must be identical identifiers *)
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge"
+            | _ ->
+              
+              C.fail_at_position 
+                pos
+                "Clock mismatch for argument of merge");
+
+          (* Evaluate expression under [when] *)
+          eval_ast_expr ctx expr
 
         (* A node call with activation condition and no defaults *)
-        | A.Activate
-            (pos, 
-             ident,
-             (A.Ident (_, high_clock_ident) as high_clock), 
-             args) -> 
+        | A.Activate (pos, ident, case_clock, args) -> 
 
-          (* Compare clocks by name *)
-          if clock_ident = high_clock_ident then 
+          (match case_clock with
 
-            (* Evaluate node call without defaults *)
-            eval_node_or_function_call
-              ctx
-              pos
-              (I.mk_string_ident ident)
-              high_clock
-              args
-              None
+            (* Compare high clock with merge clock by name *)
+            | A.Ident (_, high_clock)
+                when clock_sign && high_clock = clock_ident -> ()
 
-          else
-
+            (* Compare low clock with merge clock by name *)
+            | A.Not (_, A.Ident (_, low_clock))
+                when not clock_sign && low_clock = clock_ident -> ()
+              
             (* Clocks must be identical identifiers *)
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge"
+            | _ -> 
 
-        (* Nothing else is supported *)
-        | _ ->
-
-          C.fail_at_position 
+              C.fail_at_position 
+                pos
+                "Clock mismatch for argument of merge");
+          
+          (* Evaluate node call without defaults *)
+          eval_node_or_function_call
+            ctx
             pos
-            "Unsupported argument of merge operator"
+            (I.mk_string_ident ident)
+            case_clock
+            args
+            None
+
+        (* A node call, we implicitly clock it *)
+        | A.Call (pos, ident, args) -> 
+          
+          (* Evaluate node call without defaults *)
+          eval_node_or_function_call
+            ctx
+            pos
+            (I.mk_string_ident ident)
+            (if clock_sign then clock_expr else A.Not (dummy_pos, clock_expr))
+            args
+            None
+
+        (* An expression not under a [when], we implicitly clock it *)
+        | expr -> 
+
+          (* Evaluate expression under [when] *)
+          eval_ast_expr ctx expr
 
       in
+      
+      
+      (* Evaluate expression for high clock *)
+      let expr_high', ctx = eval_merge_case true ctx expr_high in
 
+      let expr_low', ctx = eval_merge_case false ctx expr_low in
+(*
       (* Evaluate expression for low clock *)
       let expr_low', ctx = match expr_low with
 
@@ -434,6 +460,7 @@ let rec eval_ast_expr ctx =
             "Unsupported argument of merge operator"
 
       in
+*)
 
       (* Apply merge pointwise to expressions *)
       let res = 
@@ -468,7 +495,7 @@ let rec eval_ast_expr ctx =
               "Type mismatch for expressions in merge" 
 
       in
-
+      
       (res, ctx)
 
 
