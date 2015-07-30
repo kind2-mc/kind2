@@ -9,7 +9,7 @@ type x = int;
 type y = x;
 
 -- Not supported: free type
-type z;
+-- type z;
 
 -- Alias definition of record type
 type t = { one: x; two: real };

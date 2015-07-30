@@ -141,8 +141,8 @@ and lustre_type =
   | EnumType of position * ident list
 
 
-(* A record field *)
-and typed_ident = ident * lustre_type
+(* A declaration of an unclocked type *)
+and typed_ident = Lib.position * ident * lustre_type
 
 (* A record field or an array or tuple index *)
 and label_or_index = 
@@ -159,7 +159,6 @@ type clock_expr =
   | ClockPos of ident
   | ClockNeg of ident
   | ClockTrue 
-
 
 (* A declaration of a clocked type *)
 type clocked_typed_decl = 
@@ -272,7 +271,9 @@ type contract_node_decl =
   * contract_node_equation list
 
 (* A function declaration *)
-type func_decl = ident * (ident * lustre_type) list * (ident * lustre_type) list
+type func_decl = 
+  ident * typed_ident list * typed_ident list * contract_spec 
+
 
 (* An instance of a parameterized node *)
 type node_param_inst = ident * ident * lustre_type list
@@ -579,7 +580,15 @@ and pp_print_lustre_type ppf = function
 
 
 (* Pretty-print a typed identifier *)
-and pp_print_typed_ident ppf (s, t) = 
+and pp_print_typed_ident ppf (p, s, t) = 
+  Format.fprintf ppf 
+    "@[<hov 2>%s:@ %a@]" 
+    s 
+    pp_print_lustre_type t
+
+
+(* Pretty-print a typed identifier *)
+and pp_print_typed_decl ppf (p, s, t) = 
   Format.fprintf ppf 
     "@[<hov 2>%s:@ %a@]" 
     s 
@@ -966,15 +975,17 @@ let pp_print_declaration ppf = function
        pp_print_node_local_decl l
        (pp_print_list pp_print_contract_node_equation "@ ") e
 
-  | FuncDecl (pos, (n, i, o)) -> 
+  | FuncDecl (pos, (n, i, o, r)) -> 
 
     Format.fprintf ppf
       "@[<hv 2>function %a@ \
        @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]" 
+       returns@ @[<hv 1>(%a)@];@ \
+       %a@]" 
       pp_print_ident n 
-      (pp_print_list pp_print_typed_ident ";@ ") i
-      (pp_print_list pp_print_typed_ident ";@ ") o
+      (pp_print_list pp_print_typed_decl ";@ ") i
+      (pp_print_list pp_print_typed_decl ";@ ") o
+      pp_print_contract_spec r
 
   | NodeParamInst (pos, (n, s, p)) -> 
 

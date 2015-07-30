@@ -586,6 +586,14 @@ let lustre_main_default = None
 
 (* ********** *) 
 
+type lustre_flatten_arrays = bool
+
+let string_of_lustre_flatten_arrays = string_of_bool
+
+let lustre_flatten_arrays_default = false
+
+(* ********** *) 
+
 let debug_default = []
 
 (* ********** *) 
@@ -648,6 +656,7 @@ type flags =
     mutable interpreter_input_file : interpreter_input_file;
     mutable interpreter_steps : interpreter_steps;
     mutable lustre_main : lustre_main;
+    mutable lustre_flatten_arrays : lustre_flatten_arrays;
     mutable debug : string list;
     mutable debug_log : string option;
     mutable log_level : log_level;
@@ -701,6 +710,7 @@ let flags =
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
+    lustre_flatten_arrays = lustre_flatten_arrays_default;
     debug = debug_default;
     debug_log = debug_log_default;
     log_level = log_level_default;
@@ -1145,10 +1155,22 @@ let interpreter_steps_spec =
 let lustre_main_action o = flags.lustre_main <- Some o
                                        
 let lustre_main_spec = 
-  ("--lustre-main", 
+  ("--lustre_main", 
    Arg.String lustre_main_action, 
    Format.sprintf "Use the given node as top node in Lustre input \
                    (default: --%%MAIN annotation)")
+
+(* ********** *) 
+
+let lustre_flatten_arrays_action o = flags.lustre_flatten_arrays <- o
+                                       
+let lustre_flatten_arrays_spec = 
+  ("--lustre_flatten_arrays", 
+   Arg.Bool lustre_flatten_arrays_action, 
+   Format.sprintf
+     "Flatten arrays to one stream per element. If false, use quantified definitions. \
+      (default: %B)"
+     lustre_flatten_arrays_default)
 
 (* ********** *) 
 
@@ -1327,6 +1349,8 @@ let interpreter_steps () = flags.interpreter_steps
 
 let lustre_main () = flags.lustre_main
 
+let lustre_flatten_arrays () = flags.lustre_flatten_arrays
+
 let debug () = flags.debug
 
 let debug_log () = flags.debug_log
@@ -1479,6 +1503,9 @@ and speclist =
 
     (* Main node in Lustre input *)
     lustre_main_spec;
+
+    (* Flatten arrays to one stream per element *)
+    lustre_flatten_arrays_spec;
 
     (* Enable debug output *)
     debug_spec;

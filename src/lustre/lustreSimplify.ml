@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -34,6 +34,7 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
+module F = LustreFunction
 module C = LustreContext
 
 (* FIXME: Remove unless debugging *)
@@ -326,60 +327,86 @@ let rec eval_ast_expr ctx =
         eval_bool_ast_expr ctx clock_pos clock_expr 
       in
 
-      (* Evaluate expression for high clock *)
-      let expr_high', ctx = match expr_high with
+      let eval_merge_case clock_sign ctx = function
 
         (* An expression under a [when] *)
-        | A.When (pos, expr, (A.Ident (_, high_clock))) -> 
+        | A.When (pos, expr, case_clock) -> 
 
-          (* Compare clocks by name *)
-          if clock_ident = high_clock then 
+          (match case_clock with
 
-            (* Evaluate expression under [when] *)
-            eval_ast_expr ctx expr
-
-          else
-
+            (* Compare high clock with merge clock by name *)
+            | A.Ident (_, high_clock)
+                when clock_sign && high_clock = clock_ident -> ()
+              
+            (* Compare low clock with merge clock by name *)
+            | A.Not (_, A.Ident (_, low_clock))
+                when not clock_sign && low_clock = clock_ident -> ()
+              
             (* Clocks must be identical identifiers *)
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge"
+            | _ ->
+              
+              C.fail_at_position 
+                pos
+                "Clock mismatch for argument of merge");
+
+          (* Evaluate expression under [when] *)
+          eval_ast_expr ctx expr
 
         (* A node call with activation condition and no defaults *)
-        | A.Activate
-            (pos, 
-             ident,
-             (A.Ident (_, high_clock_ident) as high_clock), 
-             args) -> 
+        | A.Activate (pos, ident, case_clock, args) -> 
 
-          (* Compare clocks by name *)
-          if clock_ident = high_clock_ident then 
+          (match case_clock with
 
-            (* Evaluate node call without defaults *)
-            eval_node_call
-              ctx
-              pos
-              (I.mk_string_ident ident)
-              high_clock
-              args
-              None
+            (* Compare high clock with merge clock by name *)
+            | A.Ident (_, high_clock)
+                when clock_sign && high_clock = clock_ident -> ()
 
-          else
-
+            (* Compare low clock with merge clock by name *)
+            | A.Not (_, A.Ident (_, low_clock))
+                when not clock_sign && low_clock = clock_ident -> ()
+              
             (* Clocks must be identical identifiers *)
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge"
+            | _ -> 
 
-        (* Nothing else is supported *)
-        | _ ->
-
-          C.fail_at_position 
+              C.fail_at_position 
+                pos
+                "Clock mismatch for argument of merge");
+          
+          (* Evaluate node call without defaults *)
+          eval_node_or_function_call
+            ctx
             pos
-            "Unsupported argument of merge operator"
+            (I.mk_string_ident ident)
+            case_clock
+            args
+            None
+
+        (* A node call, we implicitly clock it *)
+        | A.Call (pos, ident, args) -> 
+          
+          (* Evaluate node call without defaults *)
+          eval_node_or_function_call
+            ctx
+            pos
+            (I.mk_string_ident ident)
+            (if clock_sign then clock_expr else A.Not (dummy_pos, clock_expr))
+            args
+            None
+
+        (* An expression not under a [when], we implicitly clock it *)
+        | expr -> 
+
+          (* Evaluate expression under [when] *)
+          eval_ast_expr ctx expr
 
       in
+      
+      
+      (* Evaluate expression for high clock *)
+      let expr_high', ctx = eval_merge_case true ctx expr_high in
 
+      let expr_low', ctx = eval_merge_case false ctx expr_low in
+(*
       (* Evaluate expression for low clock *)
       let expr_low', ctx = match expr_low with
 
@@ -410,7 +437,7 @@ let rec eval_ast_expr ctx =
           if clock_ident = low_clock_ident then 
 
             (* Evaluate node call without defaults *)
-            eval_node_call
+            eval_node_or_function_call
               ctx
               pos
               (I.mk_string_ident ident)
@@ -433,6 +460,7 @@ let rec eval_ast_expr ctx =
             "Unsupported argument of merge operator"
 
       in
+*)
 
       (* Apply merge pointwise to expressions *)
       let res = 
@@ -467,7 +495,7 @@ let rec eval_ast_expr ctx =
               "Type mismatch for expressions in merge" 
 
       in
-
+      
       (res, ctx)
 
 
@@ -716,7 +744,7 @@ let rec eval_ast_expr ctx =
 
                 (* Term must be a numeral *)
                 if Term.is_numeral index_term then 
-                  
+
                   (* Add array index of integer of numeral to
                      accumulator and continue *)
                   aux
@@ -724,9 +752,9 @@ let rec eval_ast_expr ctx =
                        (Term.numeral_of_term index_term 
                         |> Numeral.to_int) :: accum)
                     tl
-                    
+
                 else
-                  
+
                   C.fail_at_position
                     pos
                     "Invalid index for expression"
@@ -739,7 +767,7 @@ let rec eval_ast_expr ctx =
 
                 (* Term must be a numeral *)
                 if Term.is_numeral index_term then 
-                  
+
                   (* Add array index of integer of numeral to
                      accumulator and continue *)
                   aux
@@ -747,9 +775,9 @@ let rec eval_ast_expr ctx =
                        (Term.numeral_of_term index_term 
                         |> Numeral.to_int) :: accum)
                     tl
-                    
+
                 else
-                  
+
                   C.fail_at_position
                     pos
                     "Invalid index for expression"
@@ -803,7 +831,7 @@ let rec eval_ast_expr ctx =
        [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
     | A.Condact (pos, cond, ident, args, defaults) ->  
 
-      eval_node_call
+      eval_node_or_function_call
         ctx
         pos
         (I.mk_string_ident ident)
@@ -814,7 +842,7 @@ let rec eval_ast_expr ctx =
     (* Node call without activation condition *)
     | A.Call (pos, ident, args) -> 
 
-      eval_node_call 
+      eval_node_or_function_call 
         ctx
         pos
         (I.mk_string_ident ident)
@@ -1245,8 +1273,79 @@ and eval_ast_projection ctx pos expr = function
   | D.ArrayVarIndex _ -> raise (Invalid_argument "eval_ast_projection")
 
 
+and eval_node_or_function_call ctx pos ident cond args defaults = 
+
+  match 
+
+    try 
+
+      (* Get called node by identifier *)
+      Some (C.node_of_name ctx ident)
+
+    (* No node of that identifier *)
+    with Not_found -> None
+
+  with
+
+    (* Evaluate call to node *)
+    | Some node -> 
+
+      eval_node_call ctx pos ident node cond args defaults 
+
+    (* Check if we have a function *)
+    | None ->
+
+      match 
+
+        try 
+
+          (* Get called function by identifier *)
+          Some (C.function_of_name ctx ident)
+
+        (* No function of that identifier *)
+        with Not_found -> None
+
+      with 
+
+        (* Evaluate call to function *)
+        | Some func -> 
+
+          (match cond with 
+
+            (* Can only call functions without activation condition *)
+            | A.True _ -> 
+
+              eval_function_call ctx pos ident func args 
+
+            (* Fail if this is a condact call *)
+            | _ -> 
+
+              C.fail_at_position
+                pos
+                "Invalid function call")
+
+        (* Neither node nor function of that name *)
+        | None -> 
+
+          (* Node or function may be forward referenced *)
+          raise (C.Node_or_function_not_found (ident, pos))
+
+
+
+
 (* Return a trie with the outputs of a node call *)
-and eval_node_call ctx pos ident cond args defaults = 
+and eval_node_call
+    ctx
+    pos
+    ident
+    { N.name = node_name;
+      N.inputs = node_inputs; 
+      N.oracles = node_oracles;
+      N.outputs = node_outputs; 
+      N.props = node_props } 
+    cond
+    args
+    defaults = 
 
   (* Type check expressions for node inputs and abstract to fresh
      state variables *)
@@ -1426,27 +1525,6 @@ and eval_node_call ctx pos ident cond args defaults =
 
   in
 
-  let
-
-    (* Get definition of called node *)
-    { N.name = node_name;
-      N.inputs = node_inputs; 
-      N.oracles = node_oracles;
-      N.outputs = node_outputs; 
-      N.props = node_props } = 
-
-    try 
-
-      (* Get called node by identifier *)
-      C.node_of_name ctx ident
-
-    with Not_found -> 
-
-      (* Node may be forward referenced *)
-      raise (C.Node_not_found (ident, pos))
-
-  in
-
   (* Type check and abstract inputs to state variables *)
   let input_state_vars, ctx =
     node_inputs_of_exprs ctx node_inputs pos args
@@ -1538,6 +1616,141 @@ and eval_node_call ctx pos ident cond args defaults =
 
       (* Return expression and changed context *)
       (res, ctx)
+
+
+and eval_function_call 
+    ctx
+    pos
+    ident
+    { F.name; 
+      F.inputs; 
+      F.outputs; 
+      F.output_ufs; 
+      F.global_contracts; 
+      F.mode_contracts } 
+    args = 
+
+  (* Evaluate inputs *)
+  let args', ctx = 
+
+    try 
+
+      (* Evaluate inputs as list *)
+      let expr', ctx = 
+        eval_ast_expr ctx (A.ExprList (dummy_pos, args)) 
+      in
+
+      (* Remove list index if singleton *)
+      let expr', ctx = 
+
+      if 
+
+        (* Do actual and formal parameters have the same indexes? *)
+        D.keys expr' = D.keys inputs 
+
+      then
+
+        (* Return actual parameters and changed context *)
+        expr', ctx
+
+      else
+
+
+        (* Remove list index if expression is a singleton list *)
+        (D.fold
+           (function 
+             | D.ListIndex 0 :: tl -> D.add tl
+             | _ -> raise E.Type_mismatch) 
+           expr'
+           D.empty,
+         ctx)
+
+      in
+
+      (* Type check actual inputs against formal inputs *)
+      D.iter2
+        (fun _ { E.expr_type } state_var -> 
+           
+           if 
+             
+             (* Expression must be of a subtype of input type *)
+             not
+               (Type.check_type 
+                  expr_type
+                  (StateVar.type_of_state_var state_var))
+
+           then 
+             
+             (* Type check failed, catch exception below *)
+             raise E.Type_mismatch)
+        expr'
+        inputs;
+
+      (* Continue with inputs and context *)
+      expr', ctx
+
+    (* Type checking error or one expression has more indexes *)
+    with Invalid_argument _ | E.Type_mismatch -> 
+
+      C.fail_at_position pos "Type mismatch for input parameters"
+
+  in
+
+  match 
+    
+    (* Find a previously created node call with the same paramters *)
+    C.call_outputs_of_function_call ctx ident args'
+      
+  with 
+
+    (* Re-use variables from previously created node call *)
+    | Some call_outputs -> 
+
+      (* Return tuple of state variables capturing outputs *)
+      let res = 
+        D.map E.mk_var call_outputs
+      in
+      
+      (* Return previously created state variables *)
+      (res, ctx)
+
+    | None -> 
+
+      (* Create fresh state variable for each output *)
+      let output_state_vars, ctx = 
+        D.fold
+          (fun i sv (accum, ctx) -> 
+             let sv', ctx = 
+               C.mk_fresh_local
+                 ctx
+                 (StateVar.type_of_state_var sv)
+             in
+             (D.add i sv' accum, ctx))
+          outputs
+          (D.empty, ctx)
+      in
+
+      (* Return tuple of state variables capturing outputs *)
+      let res = D.map E.mk_var output_state_vars in
+
+      (* Create function call *)
+      let function_call = 
+        { N.call_pos = pos;
+          N.call_function_name = ident;
+          N.call_inputs = args';
+          N.call_outputs = output_state_vars } 
+      in
+
+      (* Add node call to context *)
+      let ctx = C.add_function_call ctx pos function_call in
+
+      (* Return expression and changed context *)
+      (res, ctx)
+      
+    | exception Invalid_argument _ -> 
+      
+      C.raise_no_new_definition_exc ctx
+
 
 
 (* ******************************************************************** *)
@@ -1709,7 +1922,7 @@ let rec eval_ast_type ctx = function
     List.fold_left
 
       (* Each index has a separate type *)
-      (fun a (i, t) -> 
+      (fun a (_, i, t) -> 
 
          (* Take all indexes and their defined types *)
          D.fold

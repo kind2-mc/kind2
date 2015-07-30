@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -115,7 +115,7 @@ and lustre_type =
   | EnumType of position * ident list
 
 (** An identifier with a type *)
-and typed_ident = ident * lustre_type
+and typed_ident = position * ident * lustre_type
 
 (** A record field or an array or tuple index *)
 and label_or_index = 
@@ -246,7 +246,8 @@ type contract_node_decl =
     - the list of its outputs 
 *)
 type func_decl =
-    ident * (ident * lustre_type) list * (ident * lustre_type) list
+    ident * typed_ident list * typed_ident list  * contract_spec 
+
 
 (** An instance of a parametric node as a tuple of the identifier for
     the instance, the identifier of the parametric node and the list of

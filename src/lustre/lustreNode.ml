@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -116,6 +116,26 @@ type node_call =
   }
 
 
+(* A call of a function *)
+type function_call = 
+
+  { 
+
+    (* Position of function call in input file *)
+    call_pos : position;
+
+    (* Name of called function *)
+    call_function_name : I.t;
+    
+    (* Expressions for input parameters *)
+    call_inputs : E.t D.t;
+
+    (* Variables capturing the outputs *)
+    call_outputs : StateVar.t D.t;
+
+  }
+
+
 type contract =
   { 
 
@@ -173,11 +193,14 @@ type t =
     (* Equations for local and output variables *)
     equations : equation list;
 
-    (* Node calls with activation condition: variables capturing the
-       outputs, the Boolean activation condition, the name of the
-       called node, expressions for input parameters and expression
-       for initialization *)
+    (* Node calls *)
     calls : node_call list;
+
+    (* Function calls
+
+       Needed to share functions calls with the same input
+       parameters *)
+    function_calls : function_call list;
 
     (* Assertions of node *)
     asserts : E.t list;
@@ -220,6 +243,7 @@ let empty_node name =
     locals = [];
     equations = [];
     calls = [];
+    function_calls = [];
     asserts = [];
     props = [];
     global_contracts = [];
@@ -378,6 +402,25 @@ let pp_print_call safe ppf = function
        call_oracles)
           
 
+(* Pretty-print a function call *)
+let pp_print_function_call safe ppf = function 
+
+  (* Node call on the base clock *)
+  | { call_function_name; 
+      call_inputs; 
+      call_outputs } ->
+
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>%a@,(%a);@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs)
+      (I.pp_print_ident safe) call_function_name
+      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
+      (D.values call_inputs)
+
+
 (* Pretty-print an assertion *)
 let pp_print_assert safe ppf expr = 
 
@@ -464,6 +507,7 @@ let pp_print_node
       locals; 
       equations; 
       calls; 
+      function_calls; 
       asserts; 
       props;
       global_contracts;
@@ -483,6 +527,7 @@ let pp_print_node
      %a%t\
      @[<v>%t@]\
      @[<hv 2>let@ \
+     %a%t\
      %a%t\
      %a%t\
      %a%t\
@@ -525,6 +570,10 @@ let pp_print_node
     (* %a%t *)
     (pp_print_list (pp_print_call safe) "@ ") calls
     (space_if_nonempty calls)
+
+    (* %a%t *)
+    (pp_print_list (pp_print_function_call safe) "@ ") function_calls
+    (space_if_nonempty function_calls)
 
     (* %a%t *)
     (pp_print_list (pp_print_node_equation safe) "@ ") equations
@@ -695,7 +744,7 @@ let node_of_name name nodes =
 (* Return the name of the node *)
 let name_of_node { name } = name
 
-(* Return the name of the node *)
+(* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope
 
     

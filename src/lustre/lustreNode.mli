@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -21,7 +21,7 @@
     Nodes are normalized for easy translation into a transition
     system, mainly by introducing new variables. 
 
-    
+
 
     The node equations taken together become a map of state variables
     to expressions. All node calls are factored out with fresh state
@@ -95,6 +95,26 @@ type node_call =
 
         If the option value is not [None], the keys of the index match
         those in the {!t.outputs} field of the called node. *)
+
+  }
+
+
+(** A call of a function *)
+type function_call = 
+
+  { 
+
+    (** Position of function call in input file *)
+    call_pos : position;
+
+    (** Name of called function *)
+    call_function_name : LustreIdent.t;
+    
+    (** Expressions for input parameters *)
+    call_inputs : LustreExpr.t LustreIndex.t;
+
+    (** Variables capturing the outputs *)
+    call_outputs : StateVar.t LustreIndex.t;
 
   }
 
@@ -200,7 +220,7 @@ type t =
     outputs : StateVar.t LustreIndex.t;
     (** Output streams defined in the node
 
-        The inputs are considered as a list with an integer indexes
+        The outputs are considered as a list with an integer indexes
         correpsonding to their position in the formal parameters. *)
 
     locals : StateVar.t LustreIndex.t list;
@@ -215,6 +235,9 @@ type t =
     calls : node_call list;
     (** Node calls inside the node *)
 
+    function_calls : function_call list;
+    (** Function calls in the node *)
+
     asserts : LustreExpr.t list;
     (** Assertions of node *)
 
@@ -224,7 +247,7 @@ type t =
     global_contracts : contract list;
     (** Global contracts *)
 
-    mode_contracts :  contract list;
+    mode_contracts : contract list;
     (** Mode contracts *)
 
     is_main : bool;

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -32,6 +32,7 @@ module E = LustreExpr
 module ET = E.LustreExprHashtbl
 
 module N = LustreNode
+module F = LustreFunction
 
 module SVT = StateVar.StateVarHashtbl
 
@@ -43,7 +44,7 @@ module VS = Var.VarSet
    This is just failing at the moment, we'd need some dependency
    analysis to recognize cycles to fully support forward
    referencing. *)
-exception Node_not_found of I.t * position
+exception Node_or_function_not_found of I.t * position
 
 
 (* Context for typing, flattening of indexed types and constant
@@ -60,6 +61,12 @@ type t =
 
     (* Visible nodes *)
     nodes : N.t list;
+
+    (* Definitions for function so far *)
+    func : F.t option;
+
+    (* Visible function *)
+    funcs : F.t list;
 
     (* Node dependencies *)
     deps : I.Set.t I.Map.t;
@@ -115,6 +122,8 @@ let mk_empty_context () =
   { scope = [];
     node = None;
     nodes = [];
+    func = None;
+    funcs = [];
     deps = I.Map.empty;
     contract_nodes = [];
     ident_type_map = IT.create 7;
@@ -177,11 +186,26 @@ let fail_on_new_definition ctx pos msg =
   { ctx with definitions_allowed = Some (pos, msg) }
 
 
+(* Raise exception if no new definitions allowed *)
+let raise_no_new_definition_exc = function
+
+  (* Raise exception *)
+  | { definitions_allowed = Some (pos, msg) } -> 
+    fail_at_position pos msg
+
+  (* Must not allow new definitions *)
+  | _ -> assert false
+
+  
+
 (* Return the scope of the current context *)
-let scope_of_node = function 
+let scope_of_node_or_func = function 
 
   (* Within a node: add node name to scope *)
   | { node = Some node } -> N.scope_of_node node
+
+  (* Within a function: add function name to scope *)
+  | { func = Some func } -> F.scope_of_function func
 
   (* Outside a node: return empty scope *)
   | { node = None } -> []
@@ -192,7 +216,7 @@ let scope_of_node = function
 let scope_of_context ({ scope } as ctx) = 
 
   (* Start with scope of node *)
-  scope_of_node ctx @ List.rev scope
+  scope_of_node_or_func ctx @ List.rev scope
 
 
 (* Add scope to context *)
@@ -224,14 +248,15 @@ let pop_scope = function
 (* Create an empty node in the context *)
 let create_node = function 
 
-  (* Already in a node *)
-  | { node = Some _ } -> 
+  (* Already in a node or function *)
+  | { node = Some _ } 
+  | { func = Some _ } -> 
 
     (* Fail *)
     (function _ -> raise (Invalid_argument "create_node"))
 
-  (* Not in a node *)
-  | { node = None; ident_type_map; ident_expr_map; expr_state_var_map } as ctx -> 
+  (* Not in a node or function *)
+  | { ident_type_map; ident_expr_map; expr_state_var_map } as ctx -> 
 
     (function ident -> 
 
@@ -243,6 +268,31 @@ let create_node = function
           ident_expr_map = List.map IT.copy ident_expr_map;
           expr_state_var_map = ET.copy expr_state_var_map;
           node = Some (N.empty_node ident) } )
+
+
+(* Create an empty function in the context *)
+let create_function = function 
+
+  (* Already in a node or function *)
+  | { node = Some _ } 
+  | { func = Some _ } -> 
+
+    (* Fail *)
+    (function _ -> raise (Invalid_argument "create_function"))
+
+  (* Not in a node or function *)
+  | { ident_type_map; ident_expr_map; expr_state_var_map } as ctx -> 
+
+    (function ident -> 
+
+      (* Add empty function to context *)
+      { ctx with 
+
+          (* Make deep copies of hash tables *)
+          ident_type_map = IT.copy ident_type_map;
+          ident_expr_map = List.map IT.copy ident_expr_map;
+          expr_state_var_map = ET.copy expr_state_var_map;
+          func = Some (F.empty_function ident) } )
 
 
 (* Add a binding of an identifier to an expression to context *)
@@ -372,6 +422,10 @@ let add_type_for_ident ({ ident_type_map } as ctx) ident l_type =
 let get_nodes { nodes } = nodes 
 
 
+(* Return functions defined in context *)
+let get_functions { funcs } = funcs 
+
+
 (* Return a contract node by its identifier *)
 let contract_node_decl_of_ident { contract_nodes } ident = 
 
@@ -423,8 +477,11 @@ let set_state_var_source = function
 
        (* Return modified context *)
        { ctx with node = Some n'})
+
+  (* No sources in function *)
+  | { func = Some _ } as ctx -> (fun _ _ -> ctx)
         
-  (* Fil if not in a node *)
+  (* Fail if not in a node *)
   | { node = None } -> 
 
     function _ -> function _ -> 
@@ -631,11 +688,12 @@ let type_in_context { ident_type_map } ident =
 
 
 (* Return true if node has been declared in the context *)
-let node_in_context { nodes } ident = 
+let node_or_function_in_context { nodes; funcs } ident = 
   
   (* Return if identifier is in context *)
-  N.exists_node_of_name ident nodes 
-  
+  N.exists_node_of_name ident nodes ||
+  F.exists_function_of_name ident funcs
+    
 
 (* Add newly created variable to locals *)
 let add_state_var_to_locals = function 
@@ -654,45 +712,53 @@ let mk_fresh_oracle
     ?is_input
     ?is_const
     ?for_inv_gen
-    ({ node; fresh_oracle_index } as ctx) 
+    ({ node; definitions_allowed; fresh_oracle_index } as ctx) 
     state_var_type =
 
-  (* Are we in a node? *)
-  match node with 
+  match definitions_allowed with 
 
-    (* Fail if not inside a node *)
-    | None -> raise (Invalid_argument "mk_fresh_oracle")
+    (* Fail with error if no new definitions allowed *)
+    | Some (pos, msg) -> fail_at_position pos msg
 
-    (* Add to oracles *)
-    | Some { N.oracles } ->
+    (* Continue if definitions allowed *)
+    | _ -> 
 
-      (* Create state variable for abstraction *)
-      let state_var, ctx = 
-        mk_state_var 
-          ?is_input:is_input
-          ?is_const:is_const
-          ?for_inv_gen:for_inv_gen
-          ctx
-          (scope_of_node ctx @ I.reserved_scope)
-          (I.push_index I.oracle_ident fresh_oracle_index)
-          D.empty_index
-          state_var_type
-          (Some N.Oracle)
-      in
+      (* Are we in a node? *)
+      match node with 
 
-      (* Increment index of fresh oracle *)
-      let ctx = 
-        match ctx with
-          | { node = None } -> assert false
-          | { node = Some node } ->
-            { ctx with 
-                node = Some { node with 
-                                N.oracles = state_var :: oracles}; 
-                fresh_oracle_index = succ fresh_oracle_index }
-      in
+        (* Fail if not inside a node *)
+        | None -> raise (Invalid_argument "mk_fresh_oracle")
 
-      (* Return variable and changed context *)
-      (state_var, ctx)
+        (* Add to oracles *)
+        | Some { N.oracles } ->
+
+          (* Create state variable for abstraction *)
+          let state_var, ctx = 
+            mk_state_var 
+              ?is_input:is_input
+              ?is_const:is_const
+              ?for_inv_gen:for_inv_gen
+              ctx
+              (scope_of_node_or_func ctx @ I.reserved_scope)
+              (I.push_index I.oracle_ident fresh_oracle_index)
+              D.empty_index
+              state_var_type
+              (Some N.Oracle)
+          in
+
+          (* Increment index of fresh oracle *)
+          let ctx = 
+            match ctx with
+              | { node = None } -> assert false
+              | { node = Some node } ->
+                { ctx with 
+                    node = Some { node with 
+                                    N.oracles = state_var :: oracles}; 
+                    fresh_oracle_index = succ fresh_oracle_index }
+          in
+
+          (* Return variable and changed context *)
+          (state_var, ctx)
 
 
 (* Create a fresh state variable as an oracle input for the state variable *)
@@ -794,9 +860,85 @@ let mk_state_var_for_expr
     ?(is_const = false)
     ?(for_inv_gen = true)
     ({ expr_state_var_map; 
-       fresh_local_index;
-       definitions_allowed } as ctx)
+       fresh_local_index } as ctx)
     after_mk
+    ({ E.expr_type } as expr) = 
+
+  try 
+
+    (* Find previous definition of expression
+
+       Use [find_all] to get all state variables that define the
+       expression. *)
+    let state_var_list =
+      ET.find_all
+        expr_state_var_map
+        expr
+    in
+
+    (* Find state variable with same properties *)
+    let state_var = 
+      List.find
+        (fun sv -> 
+           StateVar.is_input sv = is_input && 
+           StateVar.is_const sv = is_const && 
+           StateVar.for_inv_gen sv = for_inv_gen)
+        state_var_list
+    in
+
+    (* Return state variable used before *)
+    (state_var, ctx)
+
+  (* Expresssion has not been abstracted before *)
+  with Not_found ->
+
+    (* Create state variable for abstraction *)
+    let state_var, ctx = 
+      mk_state_var 
+        ~is_input:is_input
+        ~is_const:is_const
+        ~for_inv_gen:for_inv_gen
+        ctx
+        (scope_of_node_or_func ctx @ I.reserved_scope)
+        (I.push_index I.abs_ident fresh_local_index)
+        D.empty_index
+        expr_type
+        None
+    in
+
+    (* Record mapping of expression to state variable
+
+       This will shadow but not replace a previous definition. Use
+       [find_all] to retrieve the definitions, and the usual
+       [fold] to iterate over all definitions. *)
+    ET.add
+      expr_state_var_map
+      expr
+      state_var;
+
+    (* Evaluate continuation after creating new variable *)
+    let ctx = after_mk ctx state_var in
+
+    (* Hash table is modified in place, increment index of fresh state
+       variable *)
+    let ctx = 
+      { ctx with 
+          fresh_local_index = succ fresh_local_index }
+    in
+
+    (* Return variable and changed context *)
+    (state_var, ctx)
+
+
+(* Define the expression with a state variable *)
+let mk_local_for_expr
+    ?is_input
+    ?is_const
+    ?for_inv_gen
+    pos
+    ({ node; 
+       definitions_allowed;
+       fresh_local_index } as ctx)
     ({ E.expr_type } as expr) = 
 
   match definitions_allowed with 
@@ -807,108 +949,31 @@ let mk_state_var_for_expr
     (* Continue if definitions allowed *)
     | _ -> 
 
-      try 
+      (* Are we in a node? *)
+      match node with 
 
-        (* Find previous definition of expression
+        (* Fail if not inside a node *)
+        | None -> raise (Invalid_argument "mk_local_for_expr")
 
-           Use [find_all] to get all state variables that define the
-           expression. *)
-        let state_var_list =
-          ET.find_all
-            expr_state_var_map
-            expr
-        in
+        (* Add to locals *)
+        | Some _ ->
 
-        (* Find state variable with same properties *)
-        let state_var = 
-          List.find
-            (fun sv -> 
-               StateVar.is_input sv = is_input && 
-               StateVar.is_const sv = is_const && 
-               StateVar.for_inv_gen sv = for_inv_gen)
-            state_var_list
-        in
+          (* Guard unguarded pres before adding definition *)
+          let expr', ctx = close_expr pos (expr, ctx) in
 
-        (* Return state variable used before *)
-        (state_var, ctx)
+          (* Define the expresssion with a fresh state variable *)
+          let state_var, ctx = 
+            mk_state_var_for_expr
+              ?is_input
+              ?is_const
+              ?for_inv_gen
+              ctx
+              add_state_var_to_locals
+              expr'
+          in
 
-      (* Expresssion has not been abstracted before *)
-      with Not_found ->
-
-        (* Create state variable for abstraction *)
-        let state_var, ctx = 
-          mk_state_var 
-            ~is_input:is_input
-            ~is_const:is_const
-            ~for_inv_gen:for_inv_gen
-            ctx
-            (scope_of_node ctx @ I.reserved_scope)
-            (I.push_index I.abs_ident fresh_local_index)
-            D.empty_index
-            expr_type
-            None
-        in
-
-        (* Record mapping of expression to state variable
-
-           This will shadow but not replace a previous definition. Use
-           [find_all] to retrieve the definitions, and the usual
-           [fold] to iterate over all definitions. *)
-        ET.add
-          expr_state_var_map
-          expr
-          state_var;
-
-        (* Evaluate continuation after creating new variable *)
-        let ctx = after_mk ctx state_var in
-
-        (* Hash table is modified in place, increment index of fresh state
-           variable *)
-        let ctx = 
-          { ctx with 
-              fresh_local_index = succ fresh_local_index }
-        in
-
-        (* Return variable and changed context *)
-        (state_var, ctx)
-
-
-(* Define the expression with a state variable *)
-let mk_local_for_expr
-    ?is_input
-    ?is_const
-    ?for_inv_gen
-    pos
-    ({ node;
-       fresh_local_index;
-       definitions_allowed } as ctx)
-    ({ E.expr_type } as expr) = 
-
-  (* Are we in a node? *)
-  match node with 
-
-    (* Fail if not inside a node *)
-    | None -> raise (Invalid_argument "mk_local_for_expr")
-
-    (* Add to locals *)
-    | Some _ ->
-
-      (* Guard unguarded pres before adding definition *)
-      let expr', ctx = close_expr pos (expr, ctx) in
-
-      (* Define the expresssion with a fresh state variable *)
-      let state_var, ctx = 
-        mk_state_var_for_expr
-          ?is_input
-          ?is_const
-          ?for_inv_gen
-          ctx
-          add_state_var_to_locals
-          expr'
-      in
-
-      (* Return variable and changed context *)
-      (state_var, ctx)
+          (* Return variable and changed context *)
+          (state_var, ctx)
 
 
 (* Create a fresh state variable as an oracle input *)
@@ -935,7 +1000,7 @@ let mk_fresh_local
           ?is_const:is_const
           ?for_inv_gen:for_inv_gen
           ctx
-          (scope_of_node ctx @ I.reserved_scope)
+          (scope_of_node_or_func ctx @ I.reserved_scope)
           (I.push_index I.abs_ident fresh_local_index)
           D.empty_index
           state_var_type
@@ -961,6 +1026,10 @@ let mk_fresh_local
 let node_of_name { nodes } ident = N.node_of_name ident nodes
 
 
+(* Return the node of the given name from the context*)
+let function_of_name { funcs } ident = F.function_of_name ident funcs
+
+
 (* Return the output variables of a node call in the context with the
    same parameters *)
 let call_outputs_of_node_call 
@@ -983,7 +1052,7 @@ let call_outputs_of_node_call
 
         (* Find a call to the same node on the same clock with the same
            inputs in this node *)
-        let { N.call_outputs } = 
+        let { N.call_node_name; N.call_outputs } = 
 
           List.find
             (fun { N.call_clock = call_cond;
@@ -1061,7 +1130,7 @@ let add_node_input ?is_const ctx ident index_types =
                  ~is_input:true
                  ?is_const
                  ctx
-                 (scope_of_node ctx @ I.user_scope)
+                 (scope_of_node_or_func ctx @ I.user_scope)
                  ident
                  index
                  index_type
@@ -1103,7 +1172,7 @@ let add_node_output ?(is_single = false) ctx ident index_types =
                mk_state_var
                  ~is_input:false
                  ctx
-                 (scope_of_node ctx @ I.user_scope)
+                 (scope_of_node_or_func ctx @ I.user_scope)
                  ident
                  index
                  index_type
@@ -1310,7 +1379,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
-    | { node = Some { N.equations; N.calls } } -> 
+    | { node = Some { N.equations; N.calls; N.function_calls } } -> 
 (*
       Format.printf
         "%a%a = %a (%d)@."
@@ -1343,11 +1412,21 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
         (* State variable defined by a node call? *)
         List.exists
-          (fun { N.call_outputs } -> 
+          (fun { N.call_node_name; N.call_outputs } -> 
              D.exists 
                (fun _ sv -> StateVar.equal_state_vars state_var sv)
                call_outputs)
           calls
+
+        ||
+
+        (* State variable defined by a function call? *)
+        List.exists
+          (fun { N.call_function_name; N.call_outputs } -> 
+             D.exists 
+               (fun _ sv -> StateVar.equal_state_vars state_var sv)
+               call_outputs)
+          function_calls
 
       then
 
@@ -1502,13 +1581,13 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
 
 (* Add node call to context *)
-let add_node_call ctx pos ({ N.call_outputs } as node_call) =
+let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_call")
 
-    | { node = Some ({ N.equations; N.calls } as node) } -> 
+    | { node = Some ({ N.equations; N.calls; N.function_calls } as node) } -> 
 
       if 
 
@@ -1524,11 +1603,21 @@ let add_node_call ctx pos ({ N.call_outputs } as node_call) =
              
              (* State variable defined by a node call? *)
              List.exists
-               (fun { N.call_outputs } -> 
+               (fun { N.call_node_name; N.call_outputs } -> 
                   D.exists 
                     (fun _ sv -> StateVar.equal_state_vars state_var sv)
                     call_outputs)
-               calls)
+               calls
+
+             ||
+             
+             (* State variable defined by a function call? *)
+             List.exists
+               (fun { N.call_function_name; N.call_outputs } -> 
+                  D.exists 
+                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                    call_outputs)
+               function_calls)
 
           call_outputs
 
@@ -1613,6 +1702,285 @@ let add_dep ({ deps } as ctx) ident called_ident =
   (* Return changed context *)
   { ctx with deps }
 
+
+(* ********************************************************************** *)
+(* Functions                                                              *)
+(* ********************************************************************** *)
+
+(* Add function input to context *)
+let add_function_input ctx ident index_types = 
+
+  match ctx with 
+
+    | { func = None } -> raise (Invalid_argument "add_function_input")
+
+    | { func = Some { F.inputs } } -> 
+
+      (* Get next index at root of trie *)
+      let next_top_idx = D.top_max_index inputs |> succ in
+
+      (* Add state variables for all indexes of input *)
+      let inputs', ctx = 
+        D.fold
+          (fun index index_type (accum, ctx) ->
+         
+             (* Create state variable as input and contant *)
+             let state_var, ctx = 
+               mk_state_var
+                 ~is_input:true
+                 ctx
+                 (scope_of_node_or_func ctx @ I.user_scope)
+                 ident
+                 index
+                 index_type
+                 (Some N.Input)
+             in
+             
+             (* Add expression to trie of identifier *)
+             (D.add (D.ListIndex next_top_idx :: index) state_var accum, ctx))
+             
+          index_types
+          (inputs, ctx)
+      in
+
+      (* Return node with input added *)
+      match ctx with
+        | { func = None } -> assert false
+        | { func = Some func } ->
+          { ctx with func = Some { func with F.inputs = inputs' } }
+
+
+(* Add function output to context *)
+let add_function_output ?(is_single = false) ctx ident index_types = 
+
+  match ctx with 
+
+    | { func = None } -> raise (Invalid_argument "add_function_output")
+
+    | { func = Some { F.outputs } } -> 
+
+      (* Get next index at root of trie *)
+      let next_top_idx = D.top_max_index outputs |> succ in
+
+      let outputs', ctx = 
+        D.fold
+          (fun index index_type (outputs', ctx) ->
+         
+             (* Create state variable as input and contant *)
+             let state_var, ctx = 
+               mk_state_var
+                 ~is_input:false
+                 ctx
+                 (scope_of_node_or_func ctx @ I.user_scope)
+                 ident
+                 index
+                 index_type
+                 (Some N.Output)
+             in
+
+             let index' = 
+               if is_single then index else 
+                 D.ListIndex next_top_idx :: index
+             in
+
+             (* Add expression to trie of identifier *)
+             (D.add index' state_var outputs', ctx))
+             
+          index_types
+          (outputs, ctx)
+      in
+
+      (* Return node with outputs added *)
+      match ctx with
+        | { func = None } -> assert false
+        | { func = Some func } ->
+          { ctx with 
+              func = 
+                Some { func with F.outputs = outputs' } }
+
+
+(* Return the output variables of function call in the context with
+   the same parameters *)
+let call_outputs_of_function_call { node } ident inputs = 
+
+  (* Are we in a node? *)
+  match node with 
+
+    (* Fail if not inside a node *)
+    | None -> raise (Invalid_argument "call_outputs_of_function_call")
+
+    (* Add to function calls in node *)
+    | Some { N.function_calls } ->
+
+      (try 
+
+         (* Find a call to the same function with the same inputs in
+            this node *)
+         let { N.call_function_name; N.call_outputs } = 
+
+           List.find
+             (fun { N.call_function_name = call_ident;
+                    N.call_inputs } -> 
+
+               (* Call must be to the same node, and ... *)
+               (I.equal ident call_ident) &&
+
+               (* ... inputs must be the same *)
+               D.for_all2 
+                 (fun _ e1 e2 -> E.equal e1 e2)
+                 inputs
+                 call_inputs)
+
+             function_calls
+
+         in
+
+         (* Return output variables from node call to re-use *)
+         Some call_outputs
+
+       (* No node call found *)
+       with Not_found -> None)
+
+
+
+(* Add function call to context *)
+let add_function_call ctx pos ({ N.call_function_name; N.call_outputs } as func_call) =
+
+  match ctx with 
+
+    | { node = None } -> raise (Invalid_argument "add_function_call")
+
+    | { node = Some ({ N.equations; N.function_calls; N.calls } as node) } -> 
+
+      if 
+
+        D.exists 
+          (fun _ state_var -> 
+
+             (* State variable already defined by equation? *)
+             List.exists
+               (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
+               equations
+               
+             ||
+             
+             (* State variable defined by a node call? *)
+             List.exists
+               (fun { N.call_node_name; N.call_outputs } -> 
+                  D.exists 
+                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                    call_outputs)
+               calls
+
+             ||
+        
+             (* State variable defined by a function call? *)
+             List.exists
+               (fun { N.call_function_name; N.call_outputs } -> 
+                  D.exists 
+                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                    call_outputs)
+               function_calls)
+
+          call_outputs
+
+      then
+
+        fail_at_position
+          pos
+          "Duplicate definition for output of function call";
+                
+      (* Add function call to context *)
+      { ctx with 
+          node = Some { node with 
+                          N.function_calls = func_call :: function_calls } }
+
+
+(* Add function contract to context *)
+let add_function_global_contract ctx pos contract = 
+
+  match ctx with 
+
+    | { func = None } -> raise (Invalid_argument "add_function_global_contract")
+
+    | { func = Some ({ F.global_contracts } as func) } -> 
+
+      (* Return function with contract added *)
+      { ctx with 
+          func = 
+            Some
+              { func with 
+                  F.global_contracts = 
+                    contract :: global_contracts } }
+
+
+(* Add function contract to context *)
+let add_function_mode_contract ctx pos contract_name contract = 
+
+  match ctx with 
+
+    | { func = None } -> raise (Invalid_argument "add_function_mode_contract")
+
+    | { func = Some ({ F.mode_contracts } as func) } -> 
+
+      (* Return node with contract added *)
+      { ctx with 
+          func = 
+            Some
+              { func with 
+                  F.mode_contracts = 
+                    contract :: mode_contracts } }
+
+
+(* Create a node from the context *)
+let function_of_context = function
+
+  (* Fail if not in a function *)
+  | { func = None } -> 
+
+    raise (Invalid_argument "function_of_context")
+
+  (* Return function 
+
+     We don't need to add abstractions, because they have been
+     inlined, and functions have no body *)
+  | { func = Some ({ F.inputs; F.outputs } as func) } -> 
+
+    let input_types = 
+      D.fold 
+        (fun _ sv a -> StateVar.type_of_state_var sv :: a)
+        inputs
+        []
+    in
+
+    let output_ufs = 
+      D.fold
+        (fun i sv a -> 
+           let u = 
+             (if Flags.smt_short_names () then 
+                UfSymbol.mk_fresh_uf_symbol
+              else
+                UfSymbol.mk_uf_symbol
+                  (Format.asprintf 
+                     "%s.uf"
+                     (StateVar.string_of_state_var sv)))
+               input_types
+               (StateVar.type_of_state_var sv)
+           in
+           D.add i u a)
+        outputs
+        D.empty
+    in
+      
+    { func with F.output_ufs } 
+
+
+(* Add node from second context to nodes of first *)
+let add_function_to_context ctx func_ctx = 
+  
+  let func = function_of_context func_ctx in
+
+  { ctx with funcs = func :: ctx.funcs }
 
 (* 
    Local Variables:

@@ -16,16 +16,22 @@
 
 *)
 
-(** Convert a Lustre abstract syntax tree to an intermediate Lustre model
+open Lib
 
-    @author Christoph Sticksel *)
+(* Abbreviations *)
+module I = LustreIdent
+module D = LustreIndex
+module E = LustreExpr
+module N = LustreNode
+module F = LustreFunction
 
-val declarations_to_nodes : LustreAst.t -> LustreNode.t list * LustreGlobals.t
 
-(* 
-   Local Variables:
-   compile-command: "make -k -C .."
-   indent-tabs-mode: nil
-   End: 
-*)
-  
+type t = 
+
+  { 
+
+    (* Functions *)
+    functions : F.t list;
+
+  }
+

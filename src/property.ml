@@ -247,7 +247,7 @@ let set_prop_ktrue p k =
 
       (* Fail if property was l-false for l <= k *)
       | PropFalse _ -> 
-        raise (Failure "set_prop_kfalse") 
+        raise (Failure "set_prop_ktrue") 
 
 
 (* Mark property status *)

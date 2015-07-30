@@ -160,6 +160,9 @@ val mk_trans_sys :
   (** All state variables including globals and instance identifier *)
   StateVar.t list ->
 
+  (** Declarations of other function symbols *)
+  UfSymbol.t list  -> 
+
   (** Predicate symbol for initial state constraint *)
   UfSymbol.t -> 
 
