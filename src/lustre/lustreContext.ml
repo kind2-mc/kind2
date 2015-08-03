@@ -1437,11 +1437,11 @@ let add_node_equation ctx pos state_var bounds indexes expr =
              (E.pp_print_lustre_var false) state_var);
 
       
-      (* Wrap type of expression in arrays for the number of not fixed
+      (* (* Wrap type of expression in arrays for the number of not fixed
          bounds *)
       let rec aux accum i = if i <= 0 then accum else
           aux (Type.mk_array Type.t_int accum) (pred i)
-      in
+      in *)
 
       (* let expr_type = aux (E.type_of_lustre_expr expr) indexes in *)
 
