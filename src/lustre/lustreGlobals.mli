@@ -16,16 +16,17 @@
 
 *)
 
-(** Convert a Lustre abstract syntax tree to an intermediate Lustre model
+(** Global declarations for Lustre input 
 
     @author Christoph Sticksel *)
 
-val declarations_to_nodes : LustreAst.t -> LustreNode.t list * LustreGlobals.t
+(** *)
+type t = 
 
-(* 
-   Local Variables:
-   compile-command: "make -k -C .."
-   indent-tabs-mode: nil
-   End: 
-*)
-  
+  { 
+
+    (** Functions *)
+    functions : LustreFunction.t list;
+
+  }
+

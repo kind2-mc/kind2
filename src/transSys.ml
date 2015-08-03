@@ -97,6 +97,9 @@ type t =
        different scopes *)
     subsystems : (t * instance list) list;
 
+    (* Other function declarations *)
+    ufs : UfSymbol.t list;
+    
     (* Logic fragment needed to express the transition system 
 
        TODO: Should this go somewhere more global? *)
@@ -175,7 +178,7 @@ let pp_print_property
     { P.prop_name; P.prop_source; P.prop_term; P.prop_status } =
 
   Format.fprintf ppf
-    "(\"%s\" %a %a %a)" 
+    "(\"%s\"@ %a %a %a)" 
     prop_name
     Term.pp_print_term prop_term
     pp_print_property_status prop_status
@@ -209,6 +212,15 @@ let pp_print_subsystem ppf ({ scope }, instances) =
     (pp_print_list pp_print_instance "@ ") instances
 
 
+let pp_print_uf ppf uf =
+  Format.fprintf
+    ppf
+    "@[<hv>%a@ @[<hv 1>(%a)@]@ %a@]"
+    UfSymbol.pp_print_uf_symbol uf
+    (pp_print_list Type.pp_print_type "@ ") (UfSymbol.arg_type_of_uf_symbol uf)
+    Type.pp_print_type (UfSymbol.res_type_of_uf_symbol uf)
+
+    
 let pp_print_trans_sys 
     ppf
     { scope;
@@ -216,6 +228,7 @@ let pp_print_trans_sys
       instance_var_bindings;
       global_state_vars;
       state_vars;
+      ufs;
       init;
       init_formals;
       trans;
@@ -229,6 +242,7 @@ let pp_print_trans_sys
     ppf
     "@[<v 1>(trans-sys %a@,\
      @[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
+     @[<hv 2>(uf@ (@[<v>%a@]))@]@,\
      @[<hv 2>(init@ @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
      @[<hv 2>(trans@ @[<hv 1>(%a)@]@ (@[<v>%a@]))@]@,\
      @[<hv 2>(prop@ (@[<v>%a@]))@]@,\
@@ -236,6 +250,7 @@ let pp_print_trans_sys
 
     Scope.pp_print_scope scope
     (pp_print_list pp_print_state_var "@ ") state_vars
+    (pp_print_list pp_print_uf "@ ") ufs
     (pp_print_list Var.pp_print_var "@ ") init_formals
     Term.pp_print_term init
     (pp_print_list Var.pp_print_var "@ ") trans_formals
@@ -845,6 +860,11 @@ let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound =
   |> Var.declare_vars declare 
 
 
+(* Declare other functions symbols *)
+let declare_ufs { ufs } declare =
+  List.iter declare ufs
+    
+      
 (* Define initial state predicate *)
 let define_init define { init_uf_symbol; init_formals; init } = 
   define init_uf_symbol init_formals init
@@ -884,6 +904,9 @@ let define_and_declare_of_bounds
 
     trans_sys;
   
+  (* Declare other functions of top system *)
+  declare_ufs trans_sys declare;
+       
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
        
@@ -1268,6 +1291,7 @@ let mk_trans_sys
     init_flag_state_var
     global_state_vars
     state_vars
+    ufs
     init_uf_symbol
     init_formals
     init
@@ -1409,6 +1433,7 @@ let mk_trans_sys
       global_state_vars;
       state_vars;
       subsystems;
+      ufs;
       init_uf_symbol;
       init_formals;
       init;

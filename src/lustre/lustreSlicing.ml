@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -23,6 +23,8 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
+module F = LustreFunction
+module G = LustreGlobals
 module C = LustreContext
 
 module A = Analysis
@@ -55,7 +57,7 @@ module SVM = StateVar.StateVarMap
 let rec node_state_var_dependencies' 
     init
     output_input_deps
-    ({ N.inputs; N.equations; N.calls } as node)
+    ({ N.inputs; N.equations; N.calls; N.function_calls } as node)
     accum = 
 
   (* Return true if the state variable occurs on a path of
@@ -108,7 +110,7 @@ let rec node_state_var_dependencies'
             (* Find node call with state variable as output *)
             let { N.call_node_name } =
               List.find
-                (fun { N.call_outputs } -> 
+                (fun { N.call_node_name; N.call_outputs } -> 
                    D.exists
                      (fun _ sv -> StateVar.equal_state_vars state_var sv)
                      call_outputs)
@@ -163,163 +165,208 @@ let rec node_state_var_dependencies'
       else
 
         (* All state variables at the current instant in the equation
-           or node call defining the state variable *)
+           defining the state variable *)
         let children = 
 
-          try 
+          (* Find equations defining the state variable 
 
-            (* State variable is defined in an equation? *)
-            List.find
-              (fun (sv, _, _) -> 
-                 StateVar.equal_state_vars sv state_var)
-              equations
-
-            |> 
+             A state variable can be defined in more than one equation
+             if an array is defined pointwise *)
+          List.find_all
+            (fun (sv, _, _) -> 
+               StateVar.equal_state_vars sv state_var)
+            equations
+            
+          |> 
+          
+          List.fold_left
 
             (* State variable depends on state variables in equation *)
-            (function (sv, _, expr) ->
+            (fun accum (sv, _, expr) ->
               (if init then 
                  E.base_state_vars_of_init_expr 
                else
                  E.cur_state_vars_of_step_expr)
                 expr
+                
+              (* Filter out array typed state variables
 
-              (* Filter out array typed state variables *)
+                 Don't consider cycles through arrays. Otherwise,
+                 simple expressions such as [A[k] = 0 -> pre A[k-1]]
+                 would not be possible. Accept some false negatives
+                 here. *)
               |> SVS.filter 
                 (fun sv -> StateVar.type_of_state_var sv
                            |> Type.is_array |> not)
+                
+              |> SVS.union accum)
+            SVS.empty
 
-              |> SVS.elements)
+        in
 
-          (* State variable is not constrained by an equation *)
-          with Not_found -> 
+        (* All state variables at the current instant in the node call
+           defining the state variable *)
+        let children = 
 
-            try 
-
-              (* State variable is defined by a node call? *)
-              List.find
-                (fun { N.call_outputs } -> 
-                   D.exists 
-                     (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                     call_outputs)
-                calls
-
-              |>
-
-              (function
-                  { N.call_node_name; 
-                    N.call_inputs; 
-                    N.call_oracles; 
-                    N.call_outputs; 
-                    N.call_defaults;
-                    N.call_clock } -> 
-
-                  (* Index of state variable in outputs *)
-                  let output_index = 
-
-                    try
-
-                      (* Find state variable in outputs and return its
-                         index *)
-                      D.bindings call_outputs 
-                      |> List.find
-                        (fun (_, sv) -> 
-                           StateVar.equal_state_vars state_var sv)
-                      |> fst
-
-                    (* State variable is an output, has been found before *)
-                    with Not_found -> assert false 
-
-                  in
-
-                  (* Get computed dependencies of outputs on inputs
-                     for called node *)
-                  let output_input_dep =
-
-                    try 
-
-                      List.assoc call_node_name output_input_deps
-
-                      |> if init then fst else snd
-
-                    (* Node of name not found *)
-                    with Not_found -> D.empty
-
-                  in
-
-                  (* Get indexes of inputs the output depends on *)
-                  (try 
-
-                     D.find output_index output_input_dep
-
-                   (* All outputs must have dependencies computed *)
-                   with Not_found -> assert false)
-
-                  |> 
-
-                  (List.fold_left
-                     (fun accum i -> 
-
-                        (* Get actual input by index, and add as
-                           dependency *)
-                        try SVS.add (D.find i call_inputs) accum 
-
-                        (* Invalid map *)
-                        with Not_found -> assert false)
-                     SVS.empty)
-
-                  |> 
-
-                  (* Defaults of a condact are children *)
-                  (function children ->
-
-                    (* Only if computing dependencies in the initial
+          (* Find node calls defining the state variable *)
+          List.find_all
+            (fun { N.call_node_name; N.call_outputs } -> 
+               D.exists 
+                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                 call_outputs)
+            calls
+            
+          |>
+          
+          List.fold_left
+            
+            (fun
+              accum
+              { N.call_node_name; 
+                N.call_inputs; 
+                N.call_oracles; 
+                N.call_outputs; 
+                N.call_defaults;
+                N.call_clock } -> 
+              
+              (* Index of state variable in outputs *)
+              let output_index = 
+                
+                try
+                  
+                  (* Find state variable in outputs and return its
+                     index *)
+                  D.bindings call_outputs 
+                  |> List.find
+                    (fun (_, sv) -> 
+                       StateVar.equal_state_vars state_var sv)
+                  |> fst
+                  
+                (* State variable is an output, has been found before *)
+                with Not_found -> assert false 
+                  
+              in
+              
+              (* Get computed dependencies of outputs on inputs for
+                 called node *)
+              let output_input_dep =
+                
+                try 
+                  
+                  List.assoc call_node_name output_input_deps
+                    
+                  |> if init then fst else snd
+                    
+                (* Node of name not found *)
+                with Not_found -> D.empty
+                                    
+              in
+              
+              (* Get indexes of inputs the output depends on *)
+              (try 
+                 
+                 D.find output_index output_input_dep
+                   
+               (* All outputs must have dependencies computed *)
+               with Not_found -> assert false)
+              
+              |> 
+              
+              (List.fold_left
+                 (fun accum i -> 
+                    
+                    (* Get actual input by index, and add as
+                       dependency *)
+                    try SVS.add (D.find i call_inputs) accum 
+                          
+                    (* Invalid map *)
+                    with Not_found -> assert false)
+                 SVS.empty)
+              
+              |> 
+              
+              (* Defaults of a condact are children *)
+              (function children ->
+                
+                (* Only if computing dependencies in the initial
                        state *)
-                    if init then 
-
-                      (* Add state variables at the initial state from
+                if init then 
+                  
+                  (* Add state variables at the initial state from
                          the default expressions *)
-                      (match call_defaults with 
-                        | None -> children
-
-                        | Some d -> 
-
-                          D.fold
-                            (fun _ default accum -> 
-                               E.base_state_vars_of_init_expr default
-                               |> SVS.union accum)
-                            d
-                            children)
-
-                    else
-
-                      (* Default expressions are only evaluated at the
+                  (match call_defaults with 
+                    | None -> children
+                      
+                    | Some d -> 
+                      
+                      D.fold
+                        (fun _ default accum -> 
+                           E.base_state_vars_of_init_expr default
+                           |> SVS.union accum)
+                        d
+                        children)
+                  
+                else
+                  
+                  (* Default expressions are only evaluated at the
                          initial state *)
-                      children)
+                  children)
+              
+              |> 
+              
+              (* Clock of condact is a child *)
+              (function children -> 
+                match call_clock with 
+                  | None -> children
+                  | Some clk -> SVS.add clk children)
+              
+              |>
+              
+              (* Add to set of children from equations *)
+              SVS.union accum)
+            children
+            
+        in
 
-                  |> 
+        (* All state variables at the current instant in the function call
+           defining the state variable *)
+        let children = 
 
-                  (* Clock of condact is a child *)
-                  (function children -> 
-                    match call_clock with 
-                      | None -> children
-                      | Some clk -> SVS.add clk children)
+          (* Find function calls defining the state variable *)
+          List.find_all
+            (fun { N.call_function_name; N.call_outputs } -> 
+               D.exists 
+                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                 call_outputs)
+            function_calls
+            
+          |>
+          
+          List.fold_left
+            
+            (fun
+              accum
+              { N.call_function_name; 
+                N.call_inputs } -> 
 
-                  |>
-
-                  (* Return list of elements of a set *)
-                  SVS.elements)
-
-            (* State variable is neither defined by an equation nor by a
-               node call *)
-            with Not_found -> []
-
+              D.fold
+                (fun _ expr accum ->
+                  (if init then 
+                     E.base_state_vars_of_init_expr 
+                   else
+                     E.cur_state_vars_of_step_expr)
+                  expr 
+                |> SVS.union accum)
+                call_inputs
+                accum)
+            children
+            
         in
 
         (* Some variables have had their dependencies calculated
            already *)
         let children_visited, children_not_visited =
-          List.partition
+          SVS.partition
             (fun sv -> 
                List.exists
                  (fun (sv', _) -> StateVar.equal_state_vars sv sv')
@@ -328,15 +375,15 @@ let rec node_state_var_dependencies'
         in
 
         (* All children visited? *)
-        if children_not_visited = [] then 
+        if SVS.is_empty children_not_visited then 
 
           (* Dependencies of this variable is set of dependencies of its
              variables *)
           let children = 
 
-            List.fold_left
+            SVS.fold
 
-              (fun a sv -> 
+              (fun sv a -> 
 
                  try 
 
@@ -355,8 +402,8 @@ let rec node_state_var_dependencies'
 
                  with Not_found -> assert false)
 
-              SVS.empty
               children_visited
+              SVS.empty
 
           in
 
@@ -376,10 +423,10 @@ let rec node_state_var_dependencies'
             output_input_deps
             node
             accum 
-            ((List.map 
-                (fun sv -> (sv, state_var :: parents)) 
-                children_not_visited) @ 
-             ((state_var, parents) :: tl))
+            (SVS.fold 
+               (fun sv a -> (sv, state_var :: parents) :: a) 
+               children_not_visited
+               ((state_var, parents) :: tl))
 
 
 (* Given an association list of state variables to the set of the
@@ -511,7 +558,7 @@ let order_equations
      (* Add state variables capturing outputs of node calls *)
      |> (fun accum -> 
          List.fold_left
-           (fun a { N.call_outputs } -> 
+           (fun a { N.call_node_name; N.call_outputs } -> 
               D.fold 
                 (fun _ sv a -> (sv, []) :: a)
                 call_outputs
@@ -596,6 +643,7 @@ let slice_all_of_node
     N.locals = [];
     N.equations = [];
     N.calls = [];
+    N.function_calls = [];
     N.asserts;
     N.props = if keep_props then props else [];
     N.global_contracts = if keep_contracts then global_contracts else [];
@@ -645,6 +693,19 @@ let add_roots_of_node_call
   roots'
 
 
+(* Add roots of cone of influence from node call to roots *)
+let add_roots_of_function_call 
+    roots
+    { N.call_inputs } =
+
+  (* Add dependecies of input expressions *)
+  D.fold
+     (fun _ expr accum -> E.state_vars_of_expr expr |> SVS.union accum)
+     call_inputs
+     (SVS.of_list roots)
+
+  |> SVS.elements
+
 (* Add roots of cone of influence from equation to roots *)
 let add_roots_of_equation roots (_, _, expr) = 
   (E.state_vars_of_expr expr |> SVS.elements) @ roots
@@ -692,285 +753,408 @@ let add_roots_of_asserts asserts roots =
    that the called node is sliced first. 
 
    Call this function with *)
-let rec slice_nodes init_slicing_of_node nodes accum = function 
+let rec slice_nodes
+    init_slicing_of_node
+    nodes
+    functions_in_coi
+    functions_not_in_coi
+    accum = 
 
-  (* All nodes are sliced and in the accumulator *)
-  | [] -> accum
+  function 
 
-  (* Node is sliced to all equations *)
-  | ([], 
-     leaves, 
-     ({ N.name; N.inputs; N.oracles; N.outputs; N.locals; N.state_var_source_map } as node_sliced), 
-     node_unsliced) :: tl -> 
+    (* All nodes are sliced and in the accumulator *)
+    | [] -> accum, functions_in_coi
 
-    (* If this is the top node, slice away inputs and outputs *)
-    let inputs', outputs' = 
-      if tl = [] then 
-        (
+    (* Node is sliced to all equations *)
+    | ([], 
+       leaves, 
+       ({ N.name; 
+          N.inputs; 
+          N.oracles; 
+          N.outputs; 
+          N.locals; 
+          N.state_var_source_map } as node_sliced), 
+       node_unsliced) :: tl -> 
 
-          (* Only keep inputs that have been visited *)
-          D.filter
-           (fun _ sv -> List.exists (StateVar.equal_state_vars sv) leaves)
-           inputs,
+      (* If this is the top node, slice away inputs and outputs *)
+      let inputs', outputs' = 
+        if tl = [] then 
+          (
 
-          (* Only keep inputs that have been visited *)
-          D.filter
-            (fun _ sv -> List.exists (StateVar.equal_state_vars sv) leaves)
-            outputs)
-      else
-        inputs, outputs
-    in
+            (* Only keep inputs that have been visited *)
+            D.filter
+              (fun _ sv -> List.exists (StateVar.equal_state_vars sv) leaves)
+              inputs,
 
-    (* Local variables related by an index have been moved together,
-       now discard not visited indexes *)
-    let locals' = 
-      List.fold_left 
-        (fun a l ->
-           D.fold
-             (fun i sv a -> 
-                if 
-
-                  (* Has state variable been visited ? *)
-                  List.exists (StateVar.equal_state_vars sv) leaves 
-
-                then
-
-                  (* Keep its definition as a local state variable *)
-                  D.add i sv a
-
-                else
-
-                  (* Remvoe definition of not visited state
-                     variable *)
-                  a)
-             l
-             D.empty :: a)
-        []
-        locals 
-    in
-
-
-    (* Replace inputs and outputs in sliced node *)
-    let node_sliced = 
-      { node_sliced with
-          N.inputs = inputs'; 
-          N.outputs = outputs';
-          N.locals = List.rev locals' }
-    in
-
-    (* Continue with next nodes *)
-    slice_nodes
-      init_slicing_of_node
-      nodes
-      (node_sliced :: accum)
-      tl
-
-  (* State variable is a leaf, that is no dependencies have to be
-     added, because it has been visited, or should not be expanded *)
-  | (state_var :: roots_tl, leaves, node_sliced, node_unsliced) :: tl 
-    when List.exists (StateVar.equal_state_vars state_var) leaves -> 
-
-    slice_nodes
-      init_slicing_of_node
-      nodes
-      accum
-      ((roots_tl, leaves, node_sliced, node_unsliced) :: tl)
-
-  (* State variable is not a leaf, need to add all dependencies *)
-  | (state_var :: roots', 
-     leaves, 
-     ({ N.equations = equations_in_coi;
-        N.calls = calls_in_coi;
-        N.locals = locals_in_coi } as node_sliced),
-     ({ N.equations = equations_not_in_coi; 
-        N.calls = calls_not_in_coi;
-        N.locals = locals_not_in_coi } as node_unsliced)) :: tl as l -> 
-
-    try 
-
-      (* State variable is an output of a called node that is not
-         already sliced? *)
-      let { N.call_node_name } =
-        List.find
-          (function { N.call_node_name; N.call_outputs } ->
-
-            (* Called node is not already sliced? *)
-            (not (N.exists_node_of_name call_node_name accum)
-
-             &&
-
-             (* State variable is an output of the called node? *)
-             D.exists
-               (fun _ sv -> StateVar.equal_state_vars state_var sv)
-               call_outputs))
-          calls_not_in_coi
+            (* Only keep inputs that have been visited *)
+            D.filter
+              (fun _ sv -> List.exists (StateVar.equal_state_vars sv) leaves)
+              outputs)
+        else
+          inputs, outputs
       in
 
-      (* Get called node by name *)
-      let node = N.node_of_name call_node_name nodes in
-
-      (* Slice called node first, then return to this node
-
-         TODO: Detect cycles in node calls here, but that should not
-         be possible with the current format. *)
-      slice_nodes
-        init_slicing_of_node
-        nodes
-        accum
-        (init_slicing_of_node node :: l)
-
-    (* State variable is not defined by a node call *)
-    with Not_found -> 
-
-      (* Equations with defintion of variable added, and new roots
-         from dependencies of equation *)
-      let equations_in_coi', equations_not_in_coi', roots' = 
-
+      (* Local variables related by an index have been moved together,
+         now discard not visited indexes *)
+      let locals' = 
         List.fold_left 
+          (fun a l ->
+             D.fold
+               (fun i sv a -> 
+                  if 
 
-          (fun
-            (equations_in_coi, equations_not_in_coi, roots')
-            ((sv, _, expr) as eq) -> 
+                    (* Has state variable been visited ? *)
+                    List.exists (StateVar.equal_state_vars sv) leaves 
 
-            (* Equation defines variable? *)
-            if StateVar.equal_state_vars state_var sv then
+                  then
 
-              (* Add equation to sliced node *)
-              (eq :: equations_in_coi, 
+                    (* Keep its definition as a local state variable *)
+                    D.add i sv a
 
-               (* Remove equation from unsliced node *)
-               equations_not_in_coi,
+                  else
 
-               (* Add variables in equation as roots *)
-               add_roots_of_equation roots' eq)
-              
-            else
-
-              (* Do not add equation to sliced node, keep in unsliced
-                 node, and no new roots *)
-              (equations_in_coi, eq :: equations_not_in_coi, roots')
-               
-          )
-
-          (* Modify equations in sliced and unsliced node, and roots *)
-          (equations_in_coi, [], roots')
-
-          (* Iterate over all equations in unsliced node *)
-          equations_not_in_coi
-
-      in
-
-      (* Node calls with call returning state variable added, and new
-         roots from dependencies of node call *)
-      let calls_in_coi', calls_not_in_coi', roots' = 
-
-        List.fold_left 
-          
-          (fun
-            (calls_in_coi, calls_not_in_coi, roots')
-            ({ N.call_node_name; 
-               N.call_outputs } as node_call) ->
-
-            if
-              
-              (* State variable is an output of the called node? *)
-              LustreIndex.exists
-                (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                call_outputs
-                
-
-            then
-              
-              (* Add equation to sliced node *)
-              (node_call :: calls_in_coi, 
-
-               (* Remove equation from unsliced node *)
-               calls_not_in_coi,
-
-               (* Add variables in equation as roots *)
-               add_roots_of_node_call roots' node_call)
-              
-
-            else
-
-              (* Do not add node call to sliced node, keep in unsliced
-                 node, and no new roots *)
-              (calls_in_coi, node_call :: calls_not_in_coi, roots')
-
-          )
-
-          (* Modify node calls in sliced and unsliced node, and roots *)
-          (calls_in_coi, [], roots')
-
-          (* Iterate over all node calls in unsliced node *)
-          calls_not_in_coi
-
-      in
-  
-      (* Move definitions containing the state variable from the
-         unsliced to sliced node
-
-         We move definitions of all local variables related by an
-         index together and eliminate the not visited ones at the
-         end. If we wanted to move indexed state variables one by one,
-         we would need to have a way to find out which local state
-         variable trie to insert it into.*)
-      let locals_in_coi', locals_not_in_coi' =
-        
-        List.fold_left
-
-          (fun (locals_in_coi, locals_not_in_coi) l -> 
-             
-             if 
-               
-               (* Local definition contains the state variable? *)
-               (D.exists
-                  (fun _ sv -> StateVar.equal_state_vars sv state_var))
+                    (* Remvoe definition of not visited state
+                       variable *)
+                    a)
                l
-
-             then
-        
-               (* Add all state variables related by an index to this
-                  state variable as local variables, but do not add
-                  them as roots *)
-               (l :: locals_in_coi, locals_not_in_coi)
-       
-             else
-
-               (* Do not add local variable to sliced node, keep in
-                  unsliced node *)
-               (locals_in_coi, l :: locals_not_in_coi))
-
-          (* Modify local variables in sliced and unsliced node *)
-          (locals_in_coi, [])
-
-          (* Iterate over all local variables in unsliced node *)
-          locals_not_in_coi
-
+               D.empty :: a)
+          []
+          locals 
       in
 
-      (* Modify slicecd node *)
-      let node_sliced' =
+
+      (* Replace inputs and outputs in sliced node *)
+      let node_sliced = 
         { node_sliced with
-            N.locals = locals_in_coi';
-            N.equations = equations_in_coi';
-            N.calls = calls_in_coi' } 
+            N.inputs = inputs'; 
+            N.outputs = outputs';
+            N.locals = List.rev locals' }
       in
 
-      (* Modify slicecd node *)
-      let node_unsliced' =
-        { node_unsliced with
-            N.equations = equations_not_in_coi';
-            N.calls = calls_not_in_coi';
-            N.locals = locals_not_in_coi' }
-      in
-
-      (* Continue with modified sliced node and roots *)
+      (* Continue with next nodes *)
       slice_nodes
         init_slicing_of_node
         nodes
+        functions_in_coi
+        functions_not_in_coi
+        (node_sliced :: accum)
+        tl
+
+    (* State variable is a leaf, that is no dependencies have to be
+       added, because it has been visited, or should not be expanded *)
+    | (state_var :: roots_tl, leaves, node_sliced, node_unsliced) :: tl 
+      when List.exists (StateVar.equal_state_vars state_var) leaves -> 
+
+      slice_nodes
+        init_slicing_of_node
+        nodes
+        functions_in_coi
+        functions_not_in_coi
         accum
-        ((roots', (state_var :: leaves), node_sliced', node_unsliced') :: tl)
+        ((roots_tl, leaves, node_sliced, node_unsliced) :: tl)
+
+    (* State variable is not a leaf, need to add all dependencies *)
+    | (state_var :: roots', 
+       leaves, 
+       ({ N.equations = equations_in_coi;
+          N.calls = calls_in_coi;
+          N.function_calls = function_calls_in_coi;
+          N.locals = locals_in_coi } as node_sliced),
+       ({ N.equations = equations_not_in_coi; 
+          N.calls = calls_not_in_coi;
+          N.function_calls = function_calls_not_in_coi;
+          N.locals = locals_not_in_coi } as node_unsliced)) :: tl as l -> 
+
+      try 
+
+        (* State variable is an output of a called node that is not
+           already sliced? *)
+        let { N.call_node_name } =
+          List.find
+            (function { N.call_node_name; N.call_outputs } ->
+
+              (* Called node is not already sliced? *)
+              (not (N.exists_node_of_name call_node_name accum)
+
+               &&
+
+               (* State variable is an output of the called node? *)
+               D.exists
+                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                 call_outputs))
+            calls_not_in_coi
+        in
+
+        (* Get called node by name *)
+        let node = N.node_of_name call_node_name nodes in
+
+        (* Slice called node first, then return to this node
+
+           TODO: Detect cycles in node calls here, but that should not
+           be possible with the current format. *)
+        slice_nodes
+          init_slicing_of_node
+          nodes
+          functions_in_coi
+          functions_not_in_coi
+          accum
+          (init_slicing_of_node node :: l)
+
+      (* State variable is not defined by a node call *)
+      with Not_found -> 
+
+        (* Equations with defintion of variable added, and new roots
+           from dependencies of equation *)
+        let equations_in_coi', equations_not_in_coi', roots' = 
+
+          List.fold_left 
+
+            (fun
+              (equations_in_coi, equations_not_in_coi, roots')
+              ((sv, _, expr) as eq) -> 
+
+              (* Equation defines variable? *)
+              if StateVar.equal_state_vars state_var sv then
+
+                (* Add equation to sliced node *)
+                (eq :: equations_in_coi, 
+
+                 (* Remove equation from unsliced node *)
+                 equations_not_in_coi,
+
+                 (* Add variables in equation as roots *)
+                 add_roots_of_equation roots' eq)
+
+              else
+
+                (* Do not add equation to sliced node, keep in unsliced
+                   node, and no new roots *)
+                (equations_in_coi, eq :: equations_not_in_coi, roots')
+
+            )
+
+            (* Modify equations in sliced and unsliced node, and roots *)
+            (equations_in_coi, [], roots')
+
+            (* Iterate over all equations in unsliced node *)
+            equations_not_in_coi
+
+        in
+
+        (* Node calls with call returning state variable added, and new
+           roots from dependencies of node call *)
+        let calls_in_coi', calls_not_in_coi', roots' = 
+
+          List.fold_left 
+
+            (fun
+              (calls_in_coi, calls_not_in_coi, roots')
+              ({ N.call_node_name; 
+                 N.call_outputs } as node_call) ->
+
+              if
+
+                (* State variable is an output of the called node? *)
+                LustreIndex.exists
+                  (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                  call_outputs
+
+
+              then
+
+                (* Add equation to sliced node *)
+                (node_call :: calls_in_coi, 
+
+                 (* Remove equation from unsliced node *)
+                 calls_not_in_coi,
+
+                 (* Add variables in equation as roots *)
+                 add_roots_of_node_call roots' node_call)
+
+
+              else
+
+                (* Do not add node call to sliced node, keep in unsliced
+                   node, and no new roots *)
+                (calls_in_coi, node_call :: calls_not_in_coi, roots')
+
+            )
+
+            (* Modify node calls in sliced and unsliced node, and roots *)
+            (calls_in_coi, [], roots')
+
+            (* Iterate over all node calls in unsliced node *)
+            calls_not_in_coi
+
+        in
+
+        (* Funtion calls with call returning state variable added, and
+           new roots from inputs of function call *)
+        let 
+
+          function_calls_in_coi', 
+          function_calls_not_in_coi', 
+          functions_in_coi', 
+          functions_not_in_coi', 
+          roots' = 
+
+          List.fold_left 
+
+            (fun
+              (function_calls_in_coi, 
+               function_calls_not_in_coi, 
+               functions_in_coi, 
+               functions_not_in_coi, 
+               roots')
+              ({ N.call_function_name; 
+                 N.call_outputs } as function_call) ->
+
+              if
+
+                (* State variable is an output of the called function? *)
+                LustreIndex.exists
+                  (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                  call_outputs
+
+
+              then
+
+                (* Add equation to sliced node *)
+                (function_call :: function_calls_in_coi, 
+
+                 (* Remove equation from unsliced node *)
+                 function_calls_not_in_coi,
+
+                 (if 
+                   
+                   (* Called function already in coi? *)
+                   List.exists 
+                     (function { F.name } -> 
+                       LustreIdent.equal name call_function_name)
+                     functions_in_coi
+                     
+                  then 
+                    
+                    (* Do not add again *)
+                    functions_in_coi
+                      
+                  else
+                    
+                    try 
+                      
+                      (* Add called function *)
+                      List.find 
+                        (function { F.name } -> 
+                          LustreIdent.equal name call_function_name)
+                        functions_not_in_coi
+                        
+                      :: functions_in_coi
+                      
+                    (* Called function must be in that list *)
+                    with Not_found -> assert false),
+                     
+                 (* Filter out called function *)
+                 List.filter
+                   (function { F.name } -> 
+                     LustreIdent.equal name call_function_name |> not)
+                   functions_not_in_coi,
+
+                 (* Add variables in equation as roots *)
+                 add_roots_of_function_call roots' function_call)
+
+
+              else
+
+                (* Do not add node call to sliced node, keep in unsliced
+                   node, and no new roots *)
+                (function_calls_in_coi, 
+                 function_call :: function_calls_not_in_coi, 
+                 functions_in_coi, 
+                 functions_not_in_coi, 
+                 roots')
+
+            )
+
+            (* Modify node calls in sliced and unsliced node, and roots *)
+            (function_calls_in_coi,
+             [], 
+             functions_in_coi, 
+             functions_not_in_coi, 
+             roots')
+
+            (* Iterate over all node calls in unsliced node *)
+            function_calls_not_in_coi
+
+        in
+
+        (* Move definitions containing the state variable from the
+           unsliced to sliced node
+
+           We move definitions of all local variables related by an
+           index together and eliminate the not visited ones at the
+           end. If we wanted to move indexed state variables one by one,
+           we would need to have a way to find out which local state
+           variable trie to insert it into.*)
+        let locals_in_coi', locals_not_in_coi' =
+
+          List.fold_left
+
+            (fun (locals_in_coi, locals_not_in_coi) l -> 
+
+               if 
+
+                 (* Local definition contains the state variable? *)
+                 (D.exists
+                    (fun _ sv -> StateVar.equal_state_vars sv state_var))
+                   l
+
+               then
+
+                 (* Add all state variables related by an index to this
+                    state variable as local variables, but do not add
+                    them as roots *)
+                 (l :: locals_in_coi, locals_not_in_coi)
+
+               else
+
+                 (* Do not add local variable to sliced node, keep in
+                    unsliced node *)
+                 (locals_in_coi, l :: locals_not_in_coi))
+
+            (* Modify local variables in sliced and unsliced node *)
+            (locals_in_coi, [])
+
+            (* Iterate over all local variables in unsliced node *)
+            locals_not_in_coi
+
+        in
+
+        (* Modify slicecd node *)
+        let node_sliced' =
+          { node_sliced with
+              N.locals = locals_in_coi';
+              N.equations = equations_in_coi';
+              N.calls = calls_in_coi';
+              N.function_calls = function_calls_in_coi' } 
+        in
+
+        (* Modify slicecd node *)
+        let node_unsliced' =
+          { node_unsliced with
+              N.equations = equations_not_in_coi';
+              N.calls = calls_not_in_coi';
+              N.function_calls = function_calls_not_in_coi';
+              N.locals = locals_not_in_coi' }
+        in
+
+        (* Continue with modified sliced node and roots *)
+        slice_nodes
+          init_slicing_of_node
+          nodes
+          functions_in_coi'
+          functions_not_in_coi'
+          accum
+          ((roots', (state_var :: leaves), node_sliced', node_unsliced') :: tl)
 
 
 (* Slice a node to its implementation, starting from the outputs,
@@ -1107,7 +1291,11 @@ let root_and_leaves_of_abstraction_map
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction' ({ A.top } as analysis) roots subsystem = 
+let slice_to_abstraction'
+    ({ A.top } as analysis) 
+    roots 
+    subsystem
+    { G.functions } = 
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)
@@ -1117,28 +1305,34 @@ let slice_to_abstraction' ({ A.top } as analysis) roots subsystem =
   in 
   
   (* Slice all nodes to either abstraction or implementation *)
-  slice_nodes
-    (root_and_leaves_of_abstraction_map false roots analysis)
-    nodes
-    []
-    [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
+  let nodes', functions' = 
 
+    slice_nodes
+      (root_and_leaves_of_abstraction_map false roots analysis)
+      nodes
+      []
+      functions
+      []
+      [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
+      
+  in
+  
   (* Create subsystem from list of nodes *)
-  |> N.subsystem_of_nodes 
+  (N.subsystem_of_nodes nodes', { G.functions = functions'})
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction analysis subsystem = 
-  slice_to_abstraction' analysis None subsystem  
+let slice_to_abstraction analysis subsystem globals = 
+  slice_to_abstraction' analysis None subsystem globals
 
   
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction_and_property analysis term subsystem = 
+let slice_to_abstraction_and_property analysis term subsystem globals = 
 
   let roots = Some (Term.state_vars_of_term term) in 
-  slice_to_abstraction' analysis roots subsystem 
+  slice_to_abstraction' analysis roots subsystem globals
 
 
   

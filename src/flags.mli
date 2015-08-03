@@ -235,6 +235,10 @@ val input_file : unit -> string
 (** Main node in Lustre file *)
 val lustre_main : unit -> string option
 
+(** Flatten arrays to one stream per element *)
+type lustre_flatten_arrays = bool
+val lustre_flatten_arrays : unit -> lustre_flatten_arrays
+
 (** {1 Parsing of the command line} *)
 
 (** Parse the command line *)

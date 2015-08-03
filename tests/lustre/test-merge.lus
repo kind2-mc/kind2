@@ -8,7 +8,7 @@ let
   s = e;
 tel
 
-node two_instances (e: int; h: bool) returns (s, t1, t2, t3, t4, t5: int);
+node two_instances (e: int; h: bool) returns (s, t1, t2, t3, t4, t5, t1_k, t2_k, t3_k, t5_k: int);
 let
   s = integr (e);
   -- Need to use activate to clock node calls
@@ -18,8 +18,15 @@ let
   t3 = merge (h; (activate integr every h) (e); (activate id every not h) (e));
   t4 = (activate integr every h initial default (0)) (e);
   t5 = merge (h; e when h; e + 1 when not h);
+
+  -- Our syntax 
+  t1_k = merge (h; integr(e); 0 -> pre t1); 
+  t2_k = merge (h; integr(e); 42);
+  t3_k = merge (h; integr(e); id(e));
+  t5_k = merge (h; e; e + 1);
+
   --%MAIN
-  --%PROPERTY t1+t2+t3+t4 > 0;
+  --%PROPERTY t1 + t2 + t3 + t4 + t5 + t1_k + t2_k + t3_k + t5_k > 0;
 tel
 
 
