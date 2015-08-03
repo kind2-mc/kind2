@@ -39,7 +39,7 @@ node a (incr, mem: bool) returns (out, p_out, pp_out, ppp_out: int) ;
 -- contract : bla ;
 --@require not (incr and mem) ;
 --@ensure not (out = p_out) ;
---@enuser out <= 100 ;
+--@ensure out <= 100 ;
 --@contract bli ;
 --@require not (incr and mem) ;
 --@ensure not (out = p_out) ; 
