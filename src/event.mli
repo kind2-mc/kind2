@@ -72,6 +72,11 @@ val log_prop_status : Lib.log_level -> (string * TransSys.prop_status) list -> u
     {!stat} to send it as a message. *)
 val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
 
+(** Log result
+
+    Log final result as the statuses of all properties. *)
+val log_result : TransSys.t option -> unit 
+
 (** Terminate log
 
     Output closing tags for XML output. *)
