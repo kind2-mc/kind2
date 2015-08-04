@@ -893,6 +893,11 @@ let main () =
     Sys.sigquit 
     (Sys.Signal_handle exception_on_signal);
 
+  (* Install generic signal handler for SIGPIPE *)
+  Sys.set_signal 
+    Sys.sigpipe 
+    (Sys.Signal_handle exception_on_signal);
+
   Stat.start_timer Stat.total_time;
 
   try 

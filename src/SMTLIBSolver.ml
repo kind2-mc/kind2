@@ -925,7 +925,13 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
        command. Hence, ignore these stale respones on the output
        channel *)
 
-    let _ = execute_command_no_response solver "(exit)" 0 in
+    begin
+      try ignore(execute_command_no_response solver "(exit)" 0)
+      with Signal s when s = Sys.sigpipe ->
+        Event.log L_fatal
+          "[Warning] Got broken pipe when trying to exit %s instance PID %d."
+          solver.solver_config.solver_cmd.(0) solver_pid
+    end;
 
     (* Check if solver instance has exited, wait 10ms, count down and
        kill process eventually *)
@@ -935,17 +941,17 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       if time_to_kill <= 0 then
 
         (
-          
+
           (* Send SIGKILL to process *)
           Unix.kill solver_pid Sys.sigkill;
-      
+
           (* Return exit code *)
           Unix.waitpid [] solver_pid |> snd
 
         )
 
       else
-        
+
         (
 
           (* Wait 10ms *)
@@ -954,14 +960,14 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           (* Check return status *)
           match Unix.waitpid [Unix.WNOHANG] solver_pid with
 
-            (* Process has not exited yet? Wait one more time *)
-            | 0, _ -> wait_and_kill (pred time_to_kill)
+          (* Process has not exited yet? Wait one more time *)
+          | 0, _ -> wait_and_kill (pred time_to_kill)
 
-            (* Return exit code *)
-            | _, process_status -> process_status
-          
+          (* Return exit code *)
+          | _, process_status -> process_status
+
         )
-  in
+    in
         
     (* Wait 10*10ms for process to terminate *)
     let process_status = wait_and_kill 10 in
@@ -991,9 +997,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     Unix.close solver_stderr
 
 
-    (* Output a comment into the trace *)
-    let trace_comment solver comment = 
-      solver.solver_trace_coms comment
+  (* Output a comment into the trace *)
+  let trace_comment solver comment = 
+    solver.solver_trace_coms comment
 
     
 
