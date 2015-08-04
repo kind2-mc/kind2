@@ -19,27 +19,9 @@
 open Lib
 
 let on_exit trans_sys =
-  
-  Event.log
-    L_info
-    "@[<v>%a@,\
-     Final statistics:@]"
-    pp_print_hline ();
-  
-  List.iter 
-    (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
-    (Event.all_stats ());
-  
-  (match trans_sys with | None -> () | Some trans_sys ->
-    Event.log_prop_status 
-      L_fatal
-      (TransSys.get_prop_status_all trans_sys));
-    
   try 
-    
     (* Send termination message to all worker processes *)
     Event.terminate ();
-
   (* Skip if running as a single process *)
   with Messaging.NotInitialized -> ()
 

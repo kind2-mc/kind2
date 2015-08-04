@@ -995,6 +995,22 @@ let log_progress mdl level k =
     | F_relay -> ()
   
 
+let log_result trans_sys =
+  let stats = all_stats () in
+  if stats <> [] then begin
+    log L_info "@[<v>%a@, Final statistics:@]" pp_print_hline ();
+  
+    List.iter 
+      (fun (mdl, stat) -> log_stat mdl L_info stat)
+      stats
+  end ;
+  
+  (match trans_sys with | None -> () | Some trans_sys ->
+    log_prop_status 
+      L_fatal
+      (TransSys.get_prop_status_all trans_sys))
+
+
 (* Terminate log output *)
 let terminate_log () = 
   match !log_format with 
