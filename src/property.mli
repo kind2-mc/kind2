@@ -71,8 +71,8 @@ and prop_source =
   | ContractGlobalRequire of Scope.t
   | ContractModeRequire of Scope.t
 
-  | ContractGlobalEnsure of Scope.t
-  | ContractModeEnsure of Scope.t
+  | ContractGlobalEnsure of Lib.position * Scope.t
+  | ContractModeEnsure of Lib.position * Scope.t
 
 
   (** Property is an instance of a property in a called node
@@ -95,6 +95,8 @@ val set_prop_ktrue : t -> int -> unit
 val set_prop_false : t -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 val length_of_cex :  (StateVar.t * Model.term_or_lambda list) list -> int
+
+val get_prop_status : t -> prop_status
 
 
 (* 

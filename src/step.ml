@@ -164,9 +164,7 @@ let clean_properties trans unknowns unfalsifiables =
 
 (* Deactivates an actlit by asserting its negation. *)
 let deactivate solver actlit =
-  actlit
-  |> Term.mk_not
-  |> SMTSolver.assert_term solver
+  actlit |> Term.mk_not |> SMTSolver.assert_term solver
 
 (* Creating a fresh actlit for path compression. *)
 let path_comp_actlit = fresh_actlit ()
@@ -246,10 +244,7 @@ let split trans solver k to_split actlits =
       else
         
         (* We only need the model at [k] *)
-        TransSys.vars_of_bounds
-          trans
-          k
-          k
+        TransSys.vars_of_bounds trans k k
         |> (SMTSolver.get_var_values solver)
         
     in
@@ -339,7 +334,7 @@ let split trans solver k to_split actlits =
               (* Splitting properties. *)
               let new_to_split, new_falsifiable =
                 List.partition
-                  ( fun (_, term) ->
+                  ( fun (_, (_, term)) ->
                     Term.bump_state k term |> eval )
                   to_split in
               (* Building result. *)
@@ -367,8 +362,7 @@ let split trans solver k to_split actlits =
    same actlit. This makes backtracking easy since positive actlits
    are not overloaded. *)
 let split_closure
-    trans solver k
-    optimistic_actlits optimistic_terms to_split =
+  trans solver k optimistic_actlits optimistic_terms to_split =
 
   let rec loop falsifiable list =
 
@@ -377,8 +371,7 @@ let split_closure
 
     (* Building negative term. *)
     let neg_term =
-      list
-      |> List.map snd
+      list |> List.map (fun pair -> snd pair |> snd)
       |> Term.mk_and |> Term.mk_not |> Term.bump_state k in
 
     (* Adding optimistic properties at k. *)
@@ -386,7 +379,7 @@ let split_closure
       neg_term ::
         ( optimistic_terms
           |> List.map
-               (fun (_, t) -> t |> Term.bump_state k) )
+               (fun (_, (_, t)) -> t |> Term.bump_state k) )
       |> Term.mk_and
     in
 
@@ -408,11 +401,10 @@ let split_closure
        actlit. *)
     let all_actlits =
       actlit_term :: (
-        list
-        |> List.fold_left
-             ( fun l (_,t) ->
-               (generate_actlit t |> term_of_actlit) :: l )
-             optimistic_actlits )
+        list |> List.fold_left (
+          fun l (_,(actlit, t)) -> actlit :: l
+        ) optimistic_actlits
+      )
     in
 
     (* Splitting. *)
@@ -471,35 +463,28 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
     |> fst
   in
 
-  (* ( match new_invariants with *)
-  (*   | [] -> () *)
-  (*   | _ -> *)
-  (*      Event.log *)
-  (*        L_info *)
-  (*        "IND @[<v> received %i invariants.@]" *)
-  (*        (List.length new_invariants) ) ; *)
-
   (* Cleaning unknowns and unfalsifiables. *)
   let confirmed, unknowns', unfalsifiables' =
     clean_properties trans unknowns unfalsifiables
   in
 
+  let unknowns': (string * (Term.t * Term.t)) list = unknowns' in
+
   (* Communicating confirmed properties. *)
-  confirmed
-  |> List.iter
-       ( fun (s,_) ->
-         Event.prop_status Property.PropInvariant input_sys aparam trans s ) ;
+  confirmed |> List.iter (fun (s,_) ->
+    Event.prop_status Property.PropInvariant input_sys aparam trans s
+  ) ;
 
   (* Adding confirmed properties to the system. *)
-  confirmed |> List.iter
-      (fun (_,term) -> TransSys.add_invariant trans term) ;
+  confirmed |> List.iter (fun (_,(_, term)) ->
+    TransSys.add_invariant trans term
+  ) ;
 
   (* Adding confirmed properties to new invariants. *)
   let new_invariants' =
-    confirmed
-    |> List.fold_left
-         ( fun invs (_,term) -> term :: invs)
-         new_invariants
+    confirmed |> List.fold_left (
+      fun invs (_,(_, term)) -> term :: invs
+    ) new_invariants
   in
 
   match unknowns', unfalsifiables' with
@@ -509,8 +494,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   | [], _ ->
      (* Need to wait for base confirmation. *)
      minisleep 0.001 ;
-     next
-       input_sys aparam trans solver k unfalsifiables' unknowns'
+     next input_sys aparam trans solver k unfalsifiables' unknowns'
   | _ ->
 
      (* Integer version of k. *)
@@ -555,54 +539,37 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      ) ;
 
      (* Asserting positive implications at k for unknowns. *)
-     unknowns'
-     |> List.iter
-          ( fun (_,term) ->
-            (* Building implication. *)
-            Term.mk_implies
-              [ generate_actlit term |> term_of_actlit ;
-                Term.bump_state k term ]
-            |> SMTSolver.assert_term solver ) ;
+     unknowns' |> List.iter (fun (_, (actlit, term)) ->
+        (* Building implication. *)
+        Term.mk_implies [ actlit ; Term.bump_state k term ]
+        |> SMTSolver.assert_term solver
+      ) ;
      
 
      (* Actlits, properties and implications at k for unfalsifiables. *)
-     let unfalsifiable_actlits,
-         unfalsifiable_props,
-         unfalsifiable_impls =
+     let unfalsifiable_actlits, unfalsifiable_props, unfalsifiable_impls =
        unfalsifiables
-       |> List.fold_left
-            ( fun (actlits, terms, impls) (_, p) ->
-              let actlits', terms', impls' =
-                p |> List.fold_left
-                       ( fun (actlits,terms,impls)
-                             ((_, term) as p) ->
-                         (* Building positive actlit. *)
-                         let actlit_term =
-                           generate_actlit term |> term_of_actlit
-                         in
-
-                         (* Actlit. *)
-                         actlit_term :: actlits,
-                         (* Property. *)
-                         p :: terms,
-                         (* Implication. *)
-                         ( Term.mk_implies
-                             [ actlit_term ; Term.bump_state k term ]
-                         ) :: impls
-                       )
-                       ([],[],[])
-              in
-
-              (
-                List.rev_append
-                  actlits' actlits,
-                List.rev_append
-                  terms' terms,
-                List.rev_append
-                  impls' impls
+       |> List.fold_left (
+          fun (actlits, props, impls) (_, p) ->
+            let actlits', props', impls' =
+              p |> List.fold_left (
+                fun (actlits,props,impls) ((_, (actlit, term)) as p) ->
+                  (* Actlits. *)
+                  actlit :: actlits,
+                  (* Property. *)
+                  p :: props,
+                  (* Implication. *)
+                  ( Term.mk_implies
+                      [ actlit ; Term.bump_state k term ]
+                  ) :: impls
               )
-            )
-            ([],[],[])
+              ([],[],[])
+            in
+
+            List.rev_append actlits' actlits,
+            List.rev_append props' props,
+            List.rev_append impls' impls
+        ) ([],[],[])
      in
 
      (* Asserting unfalsifiable implications at k. *)
@@ -694,11 +661,13 @@ let launch input_sys aparam trans =
   |> SMTSolver.assert_term solver ;
 
   (* Declaring positive actlits. *)
-  List.iter
-    (fun (_, prop) ->
-     generate_actlit prop
-     |> SMTSolver.declare_fun solver)
-    unknowns ;
+  let unknowns =
+    unknowns |> List.map (fun (s, prop) ->
+      let actlit = fresh_actlit () in
+      SMTSolver.declare_fun solver actlit ;
+      (s, (term_of_actlit actlit, prop))
+    )
+  in
 
   (* Launching step. *)
   next input_sys aparam trans solver Numeral.zero [] unknowns

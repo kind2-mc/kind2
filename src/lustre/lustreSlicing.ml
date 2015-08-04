@@ -719,8 +719,8 @@ let roots_of_props = List.map (fun (sv, _, _) -> sv)
 let roots_of_contracts contract = 
 
   (* State variables in a contract are requirements and ensures *)
-  let roots_of_contract { N.contract_req; N.contract_enss } = 
-    contract_req :: contract_enss
+  let roots_of_contract { N.contract_reqs; N.contract_enss } = 
+    (List.map snd contract_reqs) @ (List.map snd contract_enss)
   in
 
   (* Combine state variables from global contract and mode

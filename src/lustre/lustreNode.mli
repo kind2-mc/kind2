@@ -149,10 +149,10 @@ type contract =
     contract_pos: position;
     (** Position of the contract in the input *)
 
-    contract_req : StateVar.t;
+    contract_reqs : (position * StateVar.t) list;
     (** Invariant from requirements of contract *)
 
-    contract_enss : StateVar.t list
+    contract_enss : (position * StateVar.t) list
     (** Invariants from ensures of contract *)
 
   }

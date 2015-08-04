@@ -1,0 +1,56 @@
+-- Increments its output only when [incr] is true, starting at 0.
+node d (incr: bool) returns (out: int) ;
+let
+  out = 0 -> if incr then pre out + 1 else pre out ;
+  --%PROPERTY out >= 0 ;
+tel
+
+-- Memorizes the value of [in] when [mem] is true.
+node c (in: int; mem: bool) returns (out: int) ;
+-- contract : something ;
+--@require in >= 0 ;
+--@require in <= 100 ;
+--@ensure  out >= 0 ;
+--@ensure  out <= 100 ;
+--@contract mem ;
+--@require true -> mem ;
+--@ensure out = in ;
+--@ensure out >= 0 ;
+--@contract not_mem ;
+--@require false -> not mem ;
+--@ensure false -> out = pre out ;
+--@ensure out >= 0 ;
+let
+  out = in -> if mem then in else pre out ;
+  --%PROPERTY out >= 0 ;
+tel
+
+-- Increments [out] when [incr] is true, memorizes [out] when [mem] is
+-- true.
+node b (incr, mem: bool) returns (out, old_out: int) ;
+let
+  out = d(incr) ;
+  old_out = c(out, mem) ;
+tel
+
+-- Increments [out] when [incr] is true, with a sliding window
+-- memorizing the 3 last values of [out] when [mem] is true.
+node a (incr, mem: bool) returns (out, p_out, pp_out, ppp_out: int) ;
+-- contract : bla ;
+--@require not (incr and mem) ;
+--@ensure not (out = p_out) ;
+--@ensure out <= 100 ;
+--@contract bli ;
+--@require not (incr and mem) ;
+--@ensure not (out = p_out) ; 
+--@ensure out <= 100 ;
+let
+  out, p_out = b(incr, mem) ;
+  pp_out = c(out -> pre p_out, mem) ;
+  ppp_out = c(out -> pre pp_out, mem) ;
+  --%MAIN;
+  --%PROPERTY out >= 0 ;
+  --%PROPERTY p_out >= 0 ;
+  --%PROPERTY pp_out >= 0 ;
+  --%PROPERTY ppp_out >= 0 ;
+tel

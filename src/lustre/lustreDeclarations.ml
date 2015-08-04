@@ -955,14 +955,13 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
     f ctx pos ident type_expr' expr expr' 
 
 
-(* Introduce fresh state variable for each ensures expression *)
-let eval_node_ens (accum, ctx) (pos, expr) = 
+(* Introduce fresh state variable for a require expression *)
+let eval_req (accum, ctx) (pos, expr) = 
 
   (* Evaluate expression to a Boolean expression, may change
      context *)
   let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr
-    |> C.close_expr pos
+    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
   in
 
   (* Define expression with a state variable *)
@@ -972,44 +971,42 @@ let eval_node_ens (accum, ctx) (pos, expr) =
 
   (* Add state variable to accumulator, continue with possibly
      modified context *)
-  state_var :: accum, ctx
+  (pos, state_var) :: accum, ctx
+  
 
-
-(* Form conjunction of requires expressions *)
-let eval_node_req (accum, ctx) (pos, expr) =
+(* Introduce fresh state variable for an ensure expression *)
+let eval_ens (accum, ctx) (pos, expr) = 
 
   (* Evaluate expression to a Boolean expression, may change
      context *)
   let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr 
-    |> C.close_expr pos
+    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
   in
 
-  (* Add to conjunction of requirements *)
-  (E.mk_and accum expr' , ctx)
+  (* Define expression with a state variable *)
+  let state_var, ctx = 
+    C.mk_local_for_expr pos ctx expr' 
+  in
+
+  (* Add state variable to accumulator, continue with possibly
+     modified context *)
+  (pos, state_var) :: accum, ctx
 
 
 (* Declare and define ghost streams, requires and ensures expressions
    and return contract *)
 let eval_node_contract ctx contract_pos contract_name reqs enss =
 
-  (* Evaluate require clauses to a conjunction *)
-  let reqs', ctx =
-    List.fold_left eval_node_req (E.t_true, ctx) reqs 
-  in
-
-  (* Introduce state variable for conjunction of requirements *)
-  let contract_req, ctx = 
-    C.mk_local_for_expr contract_pos ctx reqs'
-  in
+  (* Evaluate require clauses separately. *)
+  let contract_reqs, ctx = List.fold_left eval_req ([], ctx) reqs in
   
-  (* Evaluate ensure clauses separately *)
-  let contract_enss, ctx = List.fold_left eval_node_ens ([], ctx) enss in
+  (* Evaluate ensure clauses separately. *)
+  let contract_enss, ctx = List.fold_left eval_ens ([], ctx) enss in
 
   (* Return a contract *)
   ({ N.contract_name;
      N.contract_pos; 
-     N.contract_req; 
+     N.contract_reqs; 
      N.contract_enss },
    ctx)
 
@@ -1273,7 +1270,7 @@ let resolve_contract node_inputs node_outputs ctx = function
 
     (* Lookup contract node spec from context *)
     let pos, 
-        (_, 
+        (_,
          contract_node_params, 
          contract_inputs, 
          contract_outputs, 

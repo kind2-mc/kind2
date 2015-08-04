@@ -80,7 +80,7 @@ let split trans solver k falsifiable to_split actlits =
     (* Splitting properties. *)
     let new_to_split, new_falsifiable =
       List.partition
-        ( fun (_, term) ->
+        ( fun (_, (_, term)) ->
           Term.bump_state k term |> eval )
         to_split in
     (* Building result. *)
@@ -103,19 +103,19 @@ let split_closure trans solver k actlits to_split =
   let rec loop falsifiable list =
     (* Building negative term. *)
     let term =
-      list
-      |> List.map snd
-      |> Term.mk_and |> Term.mk_not |> Term.bump_state k in
+      list |> List.map (fun pair -> snd pair |> snd)
+      |> Term.mk_and |> Term.mk_not |> Term.bump_state k
+    in
     (* Getting actlit for it. *)
-    let actlit = generate_actlit term in
+    let actlit = fresh_actlit () in
     (* Declaring actlit. *)
     actlit |> SMTSolver.declare_fun solver ;
+    let actlit = term_of_actlit actlit in
     (* Asserting implication. *)
-    Term.mk_implies
-        [ actlit |> term_of_actlit ; term ]
+    Term.mk_implies [ actlit ; term ]
     |> SMTSolver.assert_term solver ;
     (* All actlits. *)
-    let all_actlits = (term_of_actlit actlit) ::  actlits in
+    let all_actlits = actlit ::  actlits in
     (* Splitting. *)
     match split trans solver k falsifiable list all_actlits with
     | None -> list, falsifiable
@@ -228,18 +228,12 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
      let actlits, implications =
        nu_unknowns
        |> List.fold_left
-            ( fun (actlits,implications) (_,term) ->
-              (* Building the actlit. *)
-              let actlit_term =
-                generate_actlit term |> term_of_actlit
-              in
-
-              (* Appending it to the list of actlits. *)
-              actlit_term :: actlits,
+            ( fun (actlits,implications) (_,(actlit, term)) ->
+              (* Appending prop actlit to the list of actlits. *)
+              actlit :: actlits,
               (* Building the implication and appending. *)
-              (Term.mk_implies
-                 [ actlit_term ;
-                   Term.bump_state Numeral.(k-one) term])
+              ( Term.mk_implies [
+                  actlit ; Term.bump_state Numeral.(k-one) term ] )
               :: implications )
             ([], [])
      in
@@ -327,11 +321,13 @@ let init input_sys aparam trans =
   solver_ref := Some solver ;
 
   (* Declaring positive actlits. *)
-  List.iter
-    (fun (_, prop) ->
-     generate_actlit prop
-     |> SMTSolver.declare_fun solver)
-    unknowns ;
+  let unknowns =
+    unknowns |> List.map (fun (s, prop) ->
+      let actlit = fresh_actlit () in
+      SMTSolver.declare_fun solver actlit ;
+      (s, (term_of_actlit actlit, prop))
+    )
+  in
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds

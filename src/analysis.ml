@@ -45,8 +45,8 @@ type result =
         the analysis *)
     param : param;
 
-    (** All contracts of the system are valid *)
-    contract_valid : bool;     
+    (** All contracts of the system are valid. *)
+    contract_valid : bool;
 
     (** Contract preconditions of all subsystems are valid *)
     sub_contracts_valid : bool;
@@ -86,6 +86,48 @@ let assumptions_of_scope { assumptions } scope =
        if Scope.equal s scope then t :: a else a)
     []
     assumptions
+
+(* Abstraction of a property source. *)
+type prop_kind = | Contract | Subreq | Prop
+
+(* Creates a [result] from a [param] and a [t]. *)
+let result_of (sys_list, props) param =
+
+  (* The [prop_kind] of a property. *)
+  let rec kind_of_prop prop = match prop.Property.prop_source with
+    | Property.Requirement _ -> Subreq
+    | Property.Instantiated (_, prop) -> kind_of_prop prop
+    | Property.ContractGlobalEnsure _ -> Contract
+    | Property.ContractModeEnsure _ -> Contract
+    | _ -> Prop
+  in
+
+  let rec loop contract_valid subreqs_valid valid_props = function
+    | prop :: tail -> (
+      match kind_of_prop prop, Property.get_prop_status prop with
+
+      | _, Property.PropInvariant ->
+        loop
+          contract_valid
+          subreqs_valid
+          (prop.Property.prop_name :: valid_props)
+          tail
+
+      | Contract, _ ->
+        loop false subreqs_valid valid_props tail
+      | Subreq, _ ->
+        loop contract_valid false valid_props tail
+      | _, _ ->
+        loop contract_valid subreqs_valid valid_props tail
+    )
+    | [] -> contract_valid, subreqs_valid, valid_props
+  in
+
+  let contract_valid, sub_contracts_valid, properties =
+    loop true true [] props
+  in
+
+  { param ; contract_valid ; sub_contracts_valid ; properties }
 
 
 (** Run one analysis *)

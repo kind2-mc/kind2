@@ -47,7 +47,6 @@ type param =
     (** The top system for the analysis run *)
     top : Scope.t;
     
-    
     (** Systems flagged [true] are to be represented abstractly, those
         flagged [false] are to be represented by their
         implementation. *)

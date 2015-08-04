@@ -146,10 +146,10 @@ type contract =
     contract_pos: position;
 
     (* Invariant from requirements of contract *)
-    contract_req : StateVar.t;
+    contract_reqs : (position * StateVar.t) list;
 
     (* Invariants from ensures of contract *)
-    contract_enss : StateVar.t list
+    contract_enss : (position * StateVar.t) list
 
   }
 
@@ -444,75 +444,74 @@ let pp_print_prop safe ppf (sv, n, _) =
          Format.fprintf ppf " -- was: %s" n)
 
 (* Pretty-print an assumption *)
-let pp_print_require safe ppf expr =
+let pp_print_require safe ppf (_,sv) =
   Format.fprintf ppf
     "@[<hv 2>--@@require@ @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) expr
+    (E.pp_print_lustre_var safe) sv
 
 
 (* Pretty-print a guarantee *)
-let pp_print_ensure safe ppf sv =
+let pp_print_ensure safe ppf (_,sv) =
   Format.fprintf ppf
     "@[<hv 2>--@@ensure @[<h>%a@];@]"
     (E.pp_print_lustre_var safe) sv
 
 
 (* Pretty-print a named mode contract. *)
-let pp_print_mode_contract safe ppf { contract_name; contract_req; contract_enss } =
+let pp_print_mode_contract safe ppf {
+  contract_name; contract_reqs; contract_enss
+} =
   Format.fprintf
     ppf
     "@[<v>--@@contract %a;@,%a@,%a@]"
     (I.pp_print_ident false) contract_name
-    (pp_print_require safe) contract_req
+    (pp_print_list (pp_print_require safe) "@ ") contract_reqs
     (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
 
 
 (* Pretty-print an anonymous global contract. *)
-let pp_print_global_contract 
-    safe
-    ppf
-    { contract_name; contract_req; contract_enss } =
+let pp_print_global_contract safe ppf {
+  contract_name; contract_reqs; contract_enss
+} =
 
     Format.fprintf
       ppf
       "@[<v>-- %a@,%a@,%a@]"
       (I.pp_print_ident false) contract_name
-      (pp_print_require safe) contract_req
+      (pp_print_list (pp_print_require safe) "@ ") contract_reqs
       (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
 
 
 (* Pretty-print a named mode contract. *)
-let pp_print_mode_contract 
-    safe
-    ppf
-    { contract_name; contract_req; contract_enss } =
+let pp_print_mode_contract  safe ppf {
+  contract_name; contract_reqs; contract_enss
+} =
 
     Format.fprintf
       ppf
       "@[<v>--@contract %a@,%a@,%a@]"
       (I.pp_print_ident false) contract_name
-      (pp_print_require safe) contract_req
+      (pp_print_list (pp_print_require safe) "@ ") contract_reqs
       (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
 
 
 
 (* Pretty-print a node *)
-let pp_print_node 
-    safe
-    ppf 
-    { name;
-      inputs; 
-      oracles; 
-      outputs; 
-      locals; 
-      equations; 
-      calls; 
-      function_calls; 
-      asserts; 
-      props;
-      global_contracts;
-      mode_contracts;
-      is_main } = 
+let pp_print_node safe ppf {
+  name;
+  inputs; 
+  oracles; 
+  outputs; 
+  locals; 
+  equations; 
+  calls;
+  function_calls;
+  asserts; 
+  props;
+  global_contracts;
+  mode_contracts;
+  is_main
+} =
 
   (* Output a space if list is not empty *)
   let space_if_nonempty = function
@@ -660,8 +659,11 @@ let pp_print_node_debug
   let pp_print_contract
       ppf
       { contract_name;
-        contract_req;
+        contract_reqs;
         contract_enss } =
+    let pp_snd_of fmt (_,sv) =
+      Format.fprintf fmt "%a" StateVar.pp_print_state_var sv
+    in
 
     Format.fprintf 
       ppf
@@ -669,8 +671,8 @@ let pp_print_node_debug
             requires = @[<hv>%a@]@,\
             ensures =  @[<hv>%a@]@]"
       (I.pp_print_ident false) contract_name
-      StateVar.pp_print_state_var contract_req
-      (pp_print_list StateVar.pp_print_state_var ",@ ") contract_enss
+      (pp_print_list pp_snd_of ",@ ") contract_reqs
+      (pp_print_list pp_snd_of ",@ ") contract_enss
   in
 
   let pp_print_state_var_source ppf = 
@@ -1125,8 +1127,9 @@ let stateful_vars_of_expr { E.expr_step } =
 
 let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var 
 
-let stateful_vars_of_contract { contract_req; contract_enss } = 
-  SVS.of_list (contract_req :: contract_enss)
+let stateful_vars_of_contract { contract_reqs; contract_enss } = 
+  ( List.map snd contract_reqs ) @ ( List.map snd contract_enss )
+  |> SVS.of_list
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node

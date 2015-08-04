@@ -973,7 +973,16 @@ let rec map_cex_prop_to_subsystem'
     instances
     cex = 
 
-  function 
+  function
+
+    | ({
+      P.prop_source = P.Instantiated (s, {
+        P.prop_source = P.Requirement _
+      } );
+      P.prop_term
+    } as p) ->
+      (* Property is a requirement for a subnode. *)
+      (trans_sys, instances, cex, p)
 
     | { P.prop_source = P.Instantiated (s, p'); P.prop_term } -> 
 

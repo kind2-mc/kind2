@@ -74,8 +74,8 @@ and prop_source =
   | ContractGlobalRequire of Scope.t
   | ContractModeRequire of Scope.t
 
-  | ContractGlobalEnsure of Scope.t
-  | ContractModeEnsure of Scope.t
+  | ContractGlobalEnsure of position * Scope.t
+  | ContractModeEnsure of position * Scope.t
 
   (* Property is a mode contract implication. *)
   (* | ModeContract of position * string *)
@@ -261,6 +261,9 @@ let set_prop_status p = function
 
   | PropFalse c -> set_prop_false p c
 
+
+(* Get property status *)
+let get_prop_status { prop_status } = prop_status
 
 
 
