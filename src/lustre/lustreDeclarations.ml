@@ -961,8 +961,7 @@ let eval_req (accum, ctx) (pos, expr) =
   (* Evaluate expression to a Boolean expression, may change
      context *)
   let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr
-    |> C.close_expr pos
+    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
   in
 
   (* Define expression with a state variable *)
@@ -981,8 +980,7 @@ let eval_ens (accum, ctx) (pos, expr) =
   (* Evaluate expression to a Boolean expression, may change
      context *)
   let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr
-    |> C.close_expr pos
+    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
   in
 
   (* Define expression with a state variable *)

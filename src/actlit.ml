@@ -28,12 +28,12 @@ let actlit_of_string string =
 
 (* Creates a positive actlit as a UF. *)
 let generate_actlit term =
-  String.concat "" [ "actlit_" ; string_of_term term ]
+  String.concat "_" [ "actlit" ; string_of_term term ]
   |> actlit_of_string
 
 (* Creates a negative actlit as a UF. *)
 let generate_negative_actlit term =
-  String.concat "" [ "actlit_negative_" ; string_of_term term ]
+  String.concat "_" [ "actlit" ; "negative" ; string_of_term term ]
   |> actlit_of_string
 
 let i = ref 0
