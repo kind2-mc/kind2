@@ -769,6 +769,119 @@ let check_smtsolver () =
 
               exit 2
 
+(* Setup everything and returns the input system. Setup includes:
+   - flag parsing,
+   - debug setup,
+   - log level setup,
+   - smt solver setup,
+   - timeout setup,
+   - signal handling,
+   - starting global timer,
+   - parsing input file,
+   - building input system. *)
+let setup () =
+
+  (* Generic signal handler. *)
+  let generic_sig_handler = Sys.Signal_handle exception_on_signal in
+  (* Installs a generic signal handler for a signal. *)
+  let set_generic_handler_for s =
+    Sys.set_signal s generic_sig_handler
+  in
+
+  (* Parse command-line flags. *)
+  Flags.parse_argv () ;
+
+  (* At least one debug section enabled? *)
+  ( match Flags.debug () with
+
+    (* Initialize debug output when no debug section enabled. *)
+    | [] -> Debug.initialize ()
+
+    | _ ->
+      (* Formatter to write debug output to. *)
+      let debug_formatter = match Flags.debug_log () with
+        (* Write to stdout by default. *)
+        | None -> Format.std_formatter
+        (* Open channel to given file and create formatter on channel. *)
+        | Some f ->
+          let oc = try open_out f with Sys_error msg ->
+            Format.sprintf
+              "Could not open debug logfile \"%s\": \"%s\"" f msg
+            |> failwith
+          in
+          Format.formatter_of_out_channel oc
+      in
+
+      (* Enable each requested debug section and write to formatter. *)
+      Flags.debug () |> List.iter (
+        fun s -> Debug.enable s debug_formatter
+      )
+  ) ;
+
+  (* Set log format to XML if requested. *)
+  if Flags.log_format_xml () then Event.set_log_format_xml () ;
+
+  (* Don't print banner if no output at all. *)
+  if not (Flags.log_level () = L_off) then (
+    (* Temporarily set log level to info and output logo. *)
+    set_log_level L_info ;
+    Event.log L_info "%a" pp_print_banner ()
+  ) ;
+
+  (* Set log level. *)
+  Flags.log_level () |> set_log_level ;
+
+  (* Record backtraces on log levels debug and higher. *)
+  if output_on_level L_debug then Printexc.record_backtrace true ;
+
+  (* Check and set SMT solver. *)
+  check_smtsolver () ;
+
+  (* Wallclock timeout? *)
+  if Flags.timeout_wall () > 0. then (
+
+    (* Install signal handler for SIGALRM after wallclock timeout. *)
+    Sys.set_signal Sys.sigalrm (Sys.Signal_handle
+      (fun _ -> raise TimeoutWall)
+    ) ;
+    (* Set interval timer for wallclock timeout. *)
+    Unix.setitimer Unix.ITIMER_REAL {
+        Unix.it_interval = 0. ; Unix.it_value = Flags.timeout_wall ()
+    } |> ignore
+
+  ) else (
+
+    (* Install generic signal handler for SIGALRM. *)
+    set_generic_handler_for Sys.sigalrm
+
+  ) ;
+
+  (*
+    /!\ =================================================================== /!\
+    /!\ Must not use [vtalrm] signal, this is used internally by the OCaml  /!\
+    /!\                        [Threads] module.                            /!\
+    /!\ =================================================================== /!\
+  *)
+
+  (* Raise exception on CTRL+C. *)
+  Sys.catch_break true ;
+
+  (* Install generic signal handler for SIGINT, SIGTERM and SIGQUIT. *)
+  [ Sys.sigint ; Sys.sigterm ; Sys.sigquit ]
+  |> List.iter set_generic_handler_for ;
+
+  (* Starting global timer. *)
+  Stat.start_timer Stat.total_time ;
+
+  let in_file = Flags.input_file () in
+
+  Event.log L_info "Parsing input file \"%s\"" in_file ;
+
+  in_file |> match Flags.input_format () with
+    | `Lustre -> InputSystem.read_input_lustre
+    | `Native -> (* InputSystem.read_input_native *) assert false
+    | `Horn   -> (* InputSystem.read_input_horn *)   assert false
+
 
 (* Entry point *)
 let main () =

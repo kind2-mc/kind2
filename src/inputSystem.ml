@@ -23,12 +23,11 @@ type _ t =
   | Native : unit SubSystem.t -> unit t
   | Horn : unit SubSystem.t -> unit t
 
-
 let read_input_lustre input_file = Lustre (LustreInput.of_file input_file) 
 
 let read_input_native input_file = assert false 
 
-let read_input_horn input_file = assert false 
+let read_input_horn input_file = assert false
 
 
 
