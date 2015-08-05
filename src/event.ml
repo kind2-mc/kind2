@@ -1051,6 +1051,15 @@ let recv () =
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
 
+(* Notifies the background thread of a new list of child
+   processes. Used by the supervisor in a modular analysis when
+   restarting. *)
+let update_child_processes_list new_process_list =
+  try
+    EventMessaging.update_child_processes_list
+      new_process_list
+  with Messaging.NotInitialized -> ()
+
 (* Terminates if a termination message was received. Does NOT modified
    received messages. *)
 let check_termination () =

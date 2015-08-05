@@ -116,7 +116,12 @@ val terminate : unit -> unit
 
 (** Receive all queued events *)
 val recv : unit -> (Lib.kind_module * event) list
-                                             
+
+(** Notifies the background thread of a new list of child
+    processes. Used by the supervisor in a modular analysis when
+    restarting. *)
+val update_child_processes_list: (int * Lib.kind_module) list -> unit
+
 (** Terminates if a termination message was received. Does NOT modified
     received messages. *)
 val check_termination: unit -> unit
