@@ -28,6 +28,7 @@ end
 *)
 
 module BMC = Base
+module IND = Step
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 
@@ -55,7 +56,7 @@ let cur_trans_sys = ref None
 let main_of_process = function 
   | `IC3 -> IC3.main
   | `BMC -> BMC.main 
-  | `IND -> Step.main
+  | `IND -> IND.main
 
   | `INVGEN -> 
 
@@ -108,7 +109,7 @@ let main_of_process = function
 let on_exit_of_process = function 
   | `IC3 -> IC3.on_exit
   | `BMC -> BMC.on_exit 
-  | `IND -> Step.on_exit
+  | `IND -> IND.on_exit
   | `INVGEN -> InvGenTS.on_exit  
   | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
@@ -407,18 +408,20 @@ let on_exit process sys exn =
     (* Unix.wait was interrupted *)
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
 
-      (* Get new exit status *)
-      let status' = status_of_exn process sys (Signal 0) in
+      (* Ignoring exit code, whatever happened does not change the
+         outcome of the analysis. *)
+      status_of_exn process sys (Signal 0) |> ignore ;
 
-      clean_exit status'
+      clean_exit status
 
     (* Exception in Unix.wait loop *)
-    | e -> 
+    | e ->
 
-      (* Get new exit status *)
-      let status' = status_of_exn process sys e in
+      (* Ignoring exit code, whatever happened does not change the
+         outcome of the analysis. *)
+      status_of_exn process sys e |> ignore ;
 
-      clean_exit status'
+      clean_exit status
 
 
 (* Call cleanup function of process and exit. 
@@ -793,49 +796,45 @@ let main () =
     (* Initialize debug output when no debug section enabled *)
     Debug.initialize ()
 
-  else
+  else (
 
-    (
+    (* Formatter to write debug output to *)
+    let debug_formatter = 
 
-      (* Formatter to write debug output to *)
-      let debug_formatter = 
+      match Flags.debug_log () with 
 
-        match Flags.debug_log () with 
+        (* Write to stdout by default *)
+        | None -> Format.std_formatter
 
-          (* Write to stdout by default *)
-          | None -> Format.std_formatter
+        (* Open channel to given file and create formatter on channel *)
+        | Some f ->
 
-          (* Open channel to given file and create formatter on channel *)
-          | Some f ->
+          let oc = 
+            try open_out f with
+              | Sys_error _ -> failwith "Could not open debug logfile"
+          in 
+          Format.formatter_of_out_channel oc
 
-            let oc = 
-              try open_out f with
-                | Sys_error _ -> failwith "Could not open debug logfile"
-            in 
-            Format.formatter_of_out_channel oc
+    in
 
-      in
+    (* Enable each requested debug section and write to formatter *)
+    List.iter 
+      (function s -> Debug.enable s debug_formatter)
+      (Flags.debug ());
 
-      (* Enable each requested debug section and write to formatter *)
-      List.iter 
-        (function s -> Debug.enable s debug_formatter)
-        (Flags.debug ());
-
-    );
+  ) ;
 
   (* Set log format to XML if requested *)
   if Flags.log_format_xml () then Event.set_log_format_xml ();
 
   (* No output at all? *)
-  if not (Flags.log_level () = L_off) then
+  if not (Flags.log_level () = L_off) then (
 
-    (
+    (* Temporarily set log level to info and output logo *)
+    set_log_level L_info;
+    Event.log L_info "%a" pp_print_banner ()
 
-      (* Temporarily set log level to info and output logo *)
-      set_log_level L_info;
-      Event.log L_info "%a" pp_print_banner ()
-
-    );
+  ) ;
 
   (* Set log level *)
   set_log_level (Flags.log_level ());
@@ -848,36 +847,30 @@ let main () =
   check_smtsolver ();
 
   (* Wallclock timeout? *)
-  if Flags.timeout_wall () > 0. then
+  if Flags.timeout_wall () > 0. then (
 
-    (
+    (* Install signal handler for SIGALRM after wallclock timeout *)
+    Sys.set_signal 
+      Sys.sigalrm 
+      (Sys.Signal_handle (function _ -> raise TimeoutWall));
 
-      (* Install signal handler for SIGALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutWall));
+    (* Set interval timer for wallclock timeout *)
+    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+      Unix.setitimer 
+        Unix.ITIMER_REAL 
+        { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_wall () } 
+    in
 
-      (* Set interval timer for wallclock timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_REAL 
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_wall () } 
-      in
+    ()
 
-      ()
+  ) else (
 
-    )
+    (* Install generic signal handler for SIGALRM *)
+    Sys.set_signal 
+      Sys.sigalrm 
+      (Sys.Signal_handle exception_on_signal);
 
-  else
-
-    (
-
-      (* Install generic signal handler for SIGALRM *)
-      Sys.set_signal 
-        Sys.sigalrm 
-        (Sys.Signal_handle exception_on_signal);
-
-    );
+  ) ;
 
   (* Must not use vtalrm signal, this is used internally by the OCaml
      Threads module *)
@@ -905,7 +898,7 @@ let main () =
   try 
 
     Event.log L_info 
-      "Parsing input file %s" (Flags.input_file ()); 
+      "Parsing input file %s" (Flags.input_file ()) ; 
 
     (* Parse file into two-state transition system *)
     (match (Flags.input_format ()) with 
@@ -930,9 +923,9 @@ let main () =
           InputSystem.trans_sys_of_analysis input_sys aparam 
         in
 
-        cur_input_sys := Some input_sys_sliced;
-        cur_aparam := Some aparam;
-        cur_trans_sys := Some trans_sys;
+        cur_input_sys := Some input_sys_sliced ;
+        cur_aparam := Some aparam ;
+        cur_trans_sys := Some trans_sys ;
 
 (*          
           Some
@@ -964,7 +957,7 @@ let main () =
         "%a"
         TransSys.pp_print_trans_sys
         (get !cur_trans_sys)
-     end);
+     end) ;
 
 (* TODO
     if 
@@ -987,78 +980,69 @@ let main () =
         (Event.log L_fatal "Need at least one process enabled") 
 
       (* Single module enabled *)
-      | [p] -> 
+      | [p] ->
 
-        (
+        Event.log L_info 
+          "Running as a single process";
 
-          Event.log L_info 
-            "Running as a single process";
+        (* Set module currently running *)
+        Event.set_module p;
 
-          (* Set module currently running *)
-          Event.set_module p;
+        (* Run main function of process *)
+        (main_of_process p)
+          (get !cur_input_sys)
+          (get !cur_aparam)
+          (get !cur_trans_sys);
+        
+        (* Ignore SIGALRM from now on *)
+        Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
-          (* Run main function of process *)
-          (main_of_process p)
-            (get !cur_input_sys)
-            (get !cur_aparam)
-            (get !cur_trans_sys);
-          
-          (* Ignore SIGALRM from now on *)
-          Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
-
-          (* Cleanup before exiting process *)
-          on_exit_child None p (Some (get !cur_trans_sys)) Exit
-            
-        )
+        (* Cleanup before exiting process *)
+        on_exit_child None p (Some (get !cur_trans_sys)) Exit
         
       (* Run some modules in parallel *)
-      | ps -> 
+      | ps ->
+
+        Event.log L_info
+          "@[<hov>Running %a in parallel mode@]"
+          (pp_print_list pp_print_kind_module ",@ ")
+          ps;
+       
+        let messaging_setup = Event.setup () in
+
+        Event.log L_trace
+          "Messaging initialized in invariant manager";
+
+        (* Start all child processes *)
+        List.iter 
+          (function p -> run_process messaging_setup p)
+          ps;
+            
+        (* Set module currently running *)
+        Event.set_module `Supervisor;
         
-        (
+        Event.log L_trace "Starting invariant manager";
 
-          Event.log L_info
-            "@[<hov>Running %a in parallel mode@]"
-            (pp_print_list pp_print_kind_module ",@ ")
-            ps;
-         
-          let messaging_setup = Event.setup () in
-
-          Event.log L_trace
-            "Messaging initialized in invariant manager";
-
-          (* Start all child processes *)
-          List.iter 
-            (function p -> 
-              run_process messaging_setup p)
-            ps;
-              
-          (* Set module currently running *)
-          Event.set_module `Supervisor;
-          
-          Event.log L_trace "Starting invariant manager";
-
-          
-          (* Initialize messaging for invariant manager, obtain a background
-             thread *)
-          let _ = 
-            Event.run_im
-              messaging_setup
-              !child_pids
-              (on_exit `Supervisor !cur_trans_sys)
-          in
-
-          (* Run invariant manager *)
-          InvarManager.main child_pids 
-            (get !cur_input_sys)
-            (get !cur_aparam)
-            (get !cur_trans_sys);
-          
-          (* Exit without error *)
-          on_exit `Supervisor !cur_trans_sys Exit
         
-        );
+        (* Initialize messaging for invariant manager, obtain a background
+           thread *)
+        let _ = 
+          Event.run_im
+            messaging_setup
+            !child_pids
+            (on_exit `Supervisor !cur_trans_sys)
+        in
 
-    );
+        (* Run invariant manager *)
+        InvarManager.main child_pids 
+          (get !cur_input_sys)
+          (get !cur_aparam)
+          (get !cur_trans_sys);
+        
+        (* Exit without error *)
+        on_exit `Supervisor !cur_trans_sys Exit
+
+    ) ;
 
   with
 
