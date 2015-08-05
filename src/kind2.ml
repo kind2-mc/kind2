@@ -1016,7 +1016,7 @@ let main () =
         (* Start all child processes *)
         List.iter 
           (function p -> run_process messaging_setup p)
-          ps;
+          ps ;
             
         (* Set module currently running *)
         Event.set_module `Supervisor;
