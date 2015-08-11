@@ -109,10 +109,9 @@ let pp_print_prop_status_pt ppf = function
   | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)
 
 
-
+let pp_print_prop_status = pp_print_prop_status_pt
 
 let pp_print_prop_source ppf = function
-
   | PropAnnot pos ->
      Format.fprintf
        ppf "%a" pp_print_position pos
@@ -134,6 +133,12 @@ let pp_print_prop_source ppf = function
               (String.concat "." scope)
 
   | _ -> assert false
+
+let pp_print_prop_quiet ppf { prop_name ; prop_source } =
+  Format.fprintf ppf
+    "\"%s\": %a"
+    prop_name
+    pp_print_prop_source prop_source
 
 let pp_print_prop_source ppf = function 
   | PropAnnot _ -> Format.fprintf ppf ":user"

@@ -94,7 +94,7 @@ val smt_trace_dir : unit -> smt_trace_dir
 
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list
-val enable : unit -> enable 
+val enable : unit -> enable
 
 (** Maximal number of iterations in BMC *)
 type bmc_max = int

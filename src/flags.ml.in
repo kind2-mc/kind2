@@ -289,7 +289,9 @@ let kind_module_of_string = function
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
   | "interpreter" -> `Interpreter
-  | _ -> raise (Arg.Bad "Bad value for --enable")
+  | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --enable" unexpected
+    ) |> raise
 
 let string_of_kind_module = function
   | `IC3 -> "IC3"
@@ -298,16 +300,6 @@ let string_of_kind_module = function
   | `INVGEN -> "INVGEN"
   | `INVGENOS -> "INVGENOS"
   | `Interpreter -> "interpreter"
-
-let rec string_of_enable' accum = function 
-  | [] -> accum
-  | m :: tl -> 
-    string_of_enable'
-      ((string_of_kind_module m) ^ 
-          (if not (tl = []) then ", " else ""))
-      tl
-
-(* let string_of_enable = string_of_enable' "" *)
 
 let string_of_enable = function
   | head :: tail ->
@@ -318,11 +310,13 @@ let string_of_enable = function
     ^ "]"
   | [] -> "[]"
 
-let enable_values = "IC3, BMC, IND, INVGEN, INVGENOS, interpreter"
+let enable_values = [
+  `IC3 ; `BMC ; `IND ; `INVGEN ; `INVGENOS ; `Interpreter
+] |> List.map string_of_kind_module |> String.concat ", "
 
 let enable_default_init = []
 
-let enable_default_after = [`BMC; `IND; `IC3; `INVGEN; `INVGENOS]
+let enable_default_after = [ `BMC; `IND; `IC3; `INVGEN; `INVGENOS ]
 
 (* ********** *) 
 

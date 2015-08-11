@@ -40,47 +40,36 @@
 
 
 (** Parameters for the creation of a transition system *)
-type param = 
+type param = {
+  (** The top system for the analysis run *)
+  top : Scope.t ;
 
-  { 
-    
-    (** The top system for the analysis run *)
-    top : Scope.t;
-    
-    (** Systems flagged [true] are to be represented abstractly, those
-        flagged [false] are to be represented by their
-        implementation. *)
-    abstraction_map : bool Scope.Map.t;
+  (** Systems flagged [true] are to be represented abstractly, those flagged
+      [false] are to be represented by their implementation. *)
+  abstraction_map : bool Scope.Map.t ;
 
-    (** Named properties that can be assumed invariant in subsystems *)
-    assumptions : (Scope.t * Term.t) list;
-
-  }
-
+  (** Properties that can be assumed invariant in subsystems *)
+  assumptions : (Scope.t * Term.t) list ;
+}
 
 (** Result of analysing a transistion system *)
-type result = 
+type result = {
+  (** Parameters of the analysis. *)
+  param : param ;
 
-  { 
-    
-    (** System analyzed (see [top] field of record) and parameters of
-        the analysis *)
-    param : param;
+  (** System analyzed, contains property statuses and invariants. *)
+  sys : TransSys.t ;
 
-    (** All contracts of the system are valid *)
-    contract_valid : bool;     
+  (** [None] if system analyzed has not contracts,
+      [Some true] if it does and they have been proved correct,
+      [Some false] if it does and some are unknown / falsified. *)
+  contract_valid : bool option ;
 
-    (** Contract preconditions of all subsystems are valid *)
-    sub_contracts_valid : bool;
-
-    (** Additional properties proved invariant *)
-    properties : string list;
-
-  }
-
-
-(** An analysis consists of a set of transition systems and a set of properties *)
-type t = TransSys.t list * Property.t list
+  (** [None] if system analyzed has not sub-requirements,
+      [Some true] if it does and they have been proved correct,
+      [Some false] if it does and some are unknown / falsified. *)
+  requirements_valid : bool option ;
+}
 
 
 (** Return [true] if the scope is flagged as abstract in
@@ -90,11 +79,20 @@ val scope_is_abstract : param -> Scope.t -> bool
 
 
 (** Return assumptions of scope *)
-val assumptions_of_scope : param -> Scope.t -> Term.t list  
+val assumptions_of_scope : param -> Scope.t -> Term.t list
+
+(** Returns a result from an analysis. *)
+val result_of : param -> TransSys.t -> result
 
 
 (** Run one analysis *)
-val run : t -> result
+val run : TransSys.t -> result
+
+(** Pretty printer for [param]. *)
+val pp_print_param: Format.formatter -> param -> unit
+
+(** Pretty printer for [result]. *)
+val pp_print_result: Format.formatter -> result -> unit
 
 
 (* 

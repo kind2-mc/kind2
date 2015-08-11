@@ -43,13 +43,49 @@ let children_pgid = ref 0
    after an exception. *)
 let child_pids = ref []
 
-(* Transition system *)
-(* let input_sys = ref None *)
-
+(* Input system. *)
+let input_sys_ref = ref None
+(* Current input system. *)
 let cur_input_sys = ref None
+(* Current analysis params. *)
 let cur_aparam = ref None
+(* Current transition system. *)
 let cur_trans_sys = ref None
 
+(* Generic signal handler. *)
+let generic_sig_handler = Sys.Signal_handle exception_on_signal
+(* Installs a generic signal handler for a signal. *)
+let set_generic_handler_for s =
+  Sys.set_signal s generic_sig_handler
+
+(* Installs the relevant handler for sigalrm:
+   - default if no timeout, or
+   - [timeout] - [Stat.total_time] if there is one.
+   Raises [TimeoutWall] if [timeout] < [Stat.total_time]. *)
+let set_sigalrm_handler () =
+  match Flags.timeout_wall () with
+
+  | timeout when timeout > 0. ->
+
+    (* Retrieving total time. *)
+    let elapsed = Stat.get_float Stat.total_time in
+
+    if timeout < elapsed then raise TimeoutWall else (
+
+      (* Install signal handler for SIGALRM after wallclock timeout. *)
+      Sys.set_signal Sys.sigalrm (Sys.Signal_handle
+        (fun _ -> raise TimeoutWall)
+      ) ;
+      (* Set interval timer for wallclock timeout. *)
+      Unix.setitimer Unix.ITIMER_REAL {
+          Unix.it_interval = 0. ; Unix.it_value = timeout -. elapsed
+      } |> ignore
+
+    )
+
+  | _ ->
+    (* Install generic signal handler for SIGALRM. *)
+    set_generic_handler_for Sys.sigalrm
 
 
 (* Main function of the process *)
@@ -217,7 +253,7 @@ let status_of_exn process trans_sys_opt =
   | TimeoutVirtual -> (
 
     Event.log L_error
-      "[Timeout] CPU timeout"; 
+      "[Timeout] CPU timeout";
 
     status_of_sys ()
 
@@ -256,6 +292,121 @@ let status_of_exn process trans_sys_opt =
 
   )
 
+
+let slaughter_kids process sys =
+
+  (* Ignore SIGALRM from now on *)
+  Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
+
+  (* Clean exit from invariant manager *)
+  InvarManager.on_exit sys ;
+
+  Event.log L_info "Killing all remaining child processes" ;
+
+  (* Kill all child processes *)
+  List.iter
+    (function pid, _ ->
+
+      Event.log L_info "Sending SIGTERM to PID %d" pid ;
+
+      Unix.kill pid Sys.sigterm)
+
+    !child_pids ;
+
+  Event.log L_info
+    "Waiting for remaining child processes to terminate" ;
+
+  ( try
+
+    (* Install signal handler for SIGALRM after wallclock timeout *)
+    Sys.set_signal
+      Sys.sigalrm
+      (Sys.Signal_handle (function _ -> raise TimeoutWall)) ;
+
+    (* Set interval timer for wallclock timeout *)
+    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+      Unix.setitimer
+        Unix.ITIMER_REAL
+        { Unix.it_interval = 0.; Unix.it_value = 1. }
+    in
+
+    (try
+
+       while true do
+
+         (* Wait for child process to terminate *)
+         let pid, status = Unix.wait () in
+
+         (* Kill processes left in process group of child process *)
+         (try Unix.kill (- pid) Sys.sigkill with _ -> ()) ;
+
+         (* Remove killed process from list *)
+         child_pids := List.remove_assoc pid !child_pids ;
+
+         (* Log termination status *)
+         Event.log L_info
+           "Process %d %a" pid pp_print_process_status status
+
+       done
+
+     with TimeoutWall -> ()) ;
+
+  with
+
+    (* No more child processes, this is the normal exit *)
+    | Unix.Unix_error (Unix.ECHILD, _, _) ->
+
+      Event.log L_info
+        "All child processes terminated." ;
+
+    (* Unix.wait was interrupted *)
+    | Unix.Unix_error (Unix.EINTR, _, _) ->
+
+      (* Ignoring exit code, whatever happened does not change the
+         outcome of the analysis. *)
+      status_of_exn process sys (Signal 0) |> ignore
+
+    (* Exception in Unix.wait loop *)
+    | e ->
+
+      (* Ignoring exit code, whatever happened does not change the
+         outcome of the analysis. *)
+      status_of_exn process sys e |> ignore ) ;
+
+  (* Log termination status *)
+  ( match !child_pids with
+    | [] -> ()
+    | kids ->
+
+      kids |> Event.log L_info
+        "Some processes (%a) did not exit, killing them." (
+          pp_print_list (fun ppf (pid, _) ->
+            Format.pp_print_int ppf pid
+          ) ",@ "
+        ) ;
+
+      (* Kill all remaining processes in the process groups of child
+         processes *)
+      kids |> List.iter (fun (pid, _) ->
+        try Unix.kill (- pid) Sys.sigkill with _ -> ()
+      ) ) ;
+
+  (* Restore sigalrm handler for next analysis if any. *)
+  set_sigalrm_handler ()
+
+
+
+(* Called after everything has been cleaned up. All kids dead etc. *)
+let clean_exit process sys exn =
+
+  (* Exit status of process depends on exception *)
+  let status = status_of_exn process sys exn in
+
+  (* Close tags in XML output *)
+  Event.terminate_log () ;
+
+  (* Exit with status *)
+  exit status
 
 (* Clean up before exit *)
 let on_exit process sys exn =
@@ -297,119 +448,11 @@ let on_exit process sys exn =
     pp_print_hashcons_stat (Symbol.stats ());
 *)
 
-  let clean_exit status =
+  (* Killing kids. *)
+  slaughter_kids process sys ;
 
-    (* Log termination status *)
-    if not (!child_pids = []) then
-
-      Event.log L_info
-        "Some processes (%a) did not exit, killing them."
-        (pp_print_list
-           (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ")
-        !child_pids ;
-
-    (* Kill all remaining processes in the process groups of child
-       processes *)
-    List.iter
-      (fun (pid, _) -> try Unix.kill (- pid) Sys.sigkill with _ -> ())
-      !child_pids ;
-
-    (* Close tags in XML output *)
-    Event.terminate_log () ;
-
-    (* Exit with status *)
-    exit status
-
-  in
-
-  (* Ignore SIGALRM from now on *)
-  Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
-
-  (* Exit status of process depends on exception *)
-  let status = status_of_exn process sys exn in
-
-  (* Clean exit from invariant manager *)
-  InvarManager.on_exit sys ;
-
-  Event.log L_info "Killing all remaining child processes" ;
-
-  (* Kill all child processes *)
-  List.iter
-    (function pid, _ ->
-
-      Event.log L_info "Sending SIGTERM to PID %d" pid ;
-
-      Unix.kill pid Sys.sigterm)
-
-    !child_pids ;
-
-  Event.log L_info
-    "Waiting for remaining child processes to terminate" ;
-
-  try
-
-    (* Install signal handler for SIGALRM after wallclock timeout *)
-    Sys.set_signal
-      Sys.sigalrm
-      (Sys.Signal_handle (function _ -> raise TimeoutWall)) ;
-
-    (* Set interval timer for wallclock timeout *)
-    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-      Unix.setitimer
-        Unix.ITIMER_REAL
-        { Unix.it_interval = 0.; Unix.it_value = 1. }
-    in
-
-    (try
-
-       while true do
-
-         (* Wait for child process to terminate *)
-         let pid, status = Unix.wait () in
-
-         (* Kill processes left in process group of child process *)
-         (try Unix.kill (- pid) Sys.sigkill with _ -> ()) ;
-
-         (* Remove killed process from list *)
-         child_pids := List.remove_assoc pid !child_pids ;
-
-         (* Log termination status *)
-         Event.log L_info
-           "Process %d %a" pid pp_print_process_status status
-
-       done
-
-     with TimeoutWall -> ()) ;
-
-    clean_exit status
-
-  with
-
-    (* No more child processes, this is the normal exit *)
-    | Unix.Unix_error (Unix.ECHILD, _, _) ->
-
-      Event.log L_info
-        "All child processes terminated." ;
-
-      clean_exit status
-
-    (* Unix.wait was interrupted *)
-    | Unix.Unix_error (Unix.EINTR, _, _) ->
-
-      (* Ignoring exit code, whatever happened does not change the
-         outcome of the analysis. *)
-      status_of_exn process sys (Signal 0) |> ignore ;
-
-      clean_exit status
-
-    (* Exception in Unix.wait loop *)
-    | e ->
-
-      (* Ignoring exit code, whatever happened does not change the
-         outcome of the analysis. *)
-      status_of_exn process sys e |> ignore ;
-
-      clean_exit status
+  (* Exiting. *)
+  clean_exit process sys exn
 
 
 (* Call cleanup function of process and exit.
@@ -781,13 +824,6 @@ let check_smtsolver () =
    - building input system. *)
 let setup () =
 
-  (* Generic signal handler. *)
-  let generic_sig_handler = Sys.Signal_handle exception_on_signal in
-  (* Installs a generic signal handler for a signal. *)
-  let set_generic_handler_for s =
-    Sys.set_signal s generic_sig_handler
-  in
-
   (* Parse command-line flags. *)
   Flags.parse_argv () ;
 
@@ -837,30 +873,14 @@ let setup () =
   (* Check and set SMT solver. *)
   check_smtsolver () ;
 
-  (* Wallclock timeout? *)
-  if Flags.timeout_wall () > 0. then (
-
-    (* Install signal handler for SIGALRM after wallclock timeout. *)
-    Sys.set_signal Sys.sigalrm (Sys.Signal_handle
-      (fun _ -> raise TimeoutWall)
-    ) ;
-    (* Set interval timer for wallclock timeout. *)
-    Unix.setitimer Unix.ITIMER_REAL {
-        Unix.it_interval = 0. ; Unix.it_value = Flags.timeout_wall ()
-    } |> ignore
-
-  ) else (
-
-    (* Install generic signal handler for SIGALRM. *)
-    set_generic_handler_for Sys.sigalrm
-
-  ) ;
+  (* Set sigalrm handler. *)
+  set_sigalrm_handler () ;
 
   (*
-    /!\ =================================================================== /!\
-    /!\ Must not use [vtalrm] signal, this is used internally by the OCaml  /!\
-    /!\                        [Threads] module.                            /!\
-    /!\ =================================================================== /!\
+    /!\ ================================================================== /!\
+    /!\ Must not use [vtalrm] signal, this is used internally by the OCaml /!\
+    /!\                        [Threads] module.                           /!\
+    /!\ ================================================================== /!\
   *)
 
   (* Raise exception on CTRL+C. *)
@@ -875,16 +895,164 @@ let setup () =
 
   let in_file = Flags.input_file () in
 
-  Event.log L_info "Parsing input file \"%s\"" in_file ;
+  Event.log L_info "Parsing input file \"%s\"." in_file ;
 
   in_file |> match Flags.input_format () with
     | `Lustre -> InputSystem.read_input_lustre
     | `Native -> (* InputSystem.read_input_native *) assert false
     | `Horn   -> (* InputSystem.read_input_horn *)   assert false
 
+(* Launches analyses. *)
+let rec run_loop msg_setup modules trans_syss results =
+
+  let aparam, input_sys, trans_sys =
+    get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
+  in
+
+  (* Output the transition system. *)
+  (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
+
+  ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
+
+    (* TODO print something more relevant here. *)
+    | [] -> Event.log L_warn "Current system has no property to prove."
+
+    | _ ->
+
+      Event.log L_trace "Starting child processes." ;
+
+      (* Start all child processes. *)
+      List.iter (function p -> run_process msg_setup p) modules ;
+
+      (* Update background thread with new kids. *)
+      Event.update_child_processes_list !child_pids ;
+
+      (* Running supervisor. *)
+      InvarManager.main child_pids input_sys aparam trans_sys ;
+
+      (* Killing kids. *)
+      Some trans_sys |> slaughter_kids `Supervisor
+  ) ;
+
+  let trans_syss = trans_sys :: trans_syss in
+
+  let result = Analysis.result_of aparam trans_sys in
+
+  Event.log L_info "Result: %a" Analysis.pp_print_result result ;
+
+  let results = result :: results in
+
+  match
+    InputSystem.next_analysis_of_strategy (get !input_sys_ref) results
+  with
+
+  (* No next analysis, done. *)
+  | None -> results
+
+  (* Preparing for next analysis. *)
+  | Some aparam ->
+(*  
+    (* Extracting transition system. *)
+    let trans_sys, input_sys_sliced =
+      InputSystem.trans_sys_of_analysis input_sys aparam
+    in
+
+    (* Memorizing things. *)
+    cur_aparam    := Some aparam           ;
+    cur_input_sys := Some input_sys_sliced ;
+    cur_trans_sys := Some trans_sys        ;
+
+    (* Looping. *)
+    run_loop msg_setup modules trans_syss results
+*)
+    results
+
+(* Looks at the modules activated and decides what to do. *)
+let launch () =
+
+  let input_sys = setup () in
+
+  (* Retrieving params for next analysis. *)
+  let aparam =
+    match InputSystem.next_analysis_of_strategy input_sys [] with
+    | Some a -> a | None -> assert false
+  in
+
+  (* Building transition system and slicing info. *)
+  let trans_sys, input_sys_sliced =
+    InputSystem.trans_sys_of_analysis input_sys aparam
+  in
+
+  (* Memorizing things. *)
+  input_sys_ref := Some input_sys        ;
+  cur_input_sys := Some input_sys_sliced ;
+  cur_aparam    := Some aparam           ;
+  cur_trans_sys := Some trans_sys        ;
+
+  (* Checking what's activated. *)
+  match Flags.enable () with
+
+  (* No modules enabled. *)
+  | [] ->
+    Event.log L_fatal "Need at least one process enabled." ;
+    exit status_error
+
+  (* Only the interpreter is running. *)
+  | [m] when m = `Interpreter ->
+
+    (* Set module currently running. *)
+    Event.set_module m ;
+
+    (* Run interpreter. *)
+    Interpreter.main
+      (Flags.interpreter_input_file ())
+      (get !cur_input_sys)
+      (get !cur_aparam)
+      (get !cur_trans_sys) ;
+
+    (* Ignore SIGALRM from now on *)
+    Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
+
+    (* Cleanup before exiting process *)
+    on_exit_child None m (Some (get !cur_trans_sys)) Exit
+
+  (* Some modules, including the interpreter. *)
+  | modules when List.mem `Interpreter modules ->
+    Event.log L_fatal "Cannot run the interpreter with other processes." ;
+    exit status_error
+
+  (* Some modules, not including the interpreter. *)
+  | modules ->
+
+    Event.log L_info
+      "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
+      (pp_print_list pp_print_kind_module "@ - ")
+      modules ;
+
+    (* Setup messaging. *)
+    let msg_setup = Event.setup () in
+
+    (* Set module currently running *)
+    Event.set_module `Supervisor ;
+
+    (* Initialize messaging for invariant manager, obtain a background thread.
+       No kids yet. *)
+    Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
+
+    Event.log L_trace "Messaging initialized in supervisor." ;
+
+    try
+      run_loop msg_setup modules [] [] ;
+      Event.log L_info "on_exit" ;
+      clean_exit `Supervisor None Exit
+    with e ->
+      on_exit `Supervisor !cur_trans_sys e
+
 
 (* Entry point *)
-let main () =
+let main () = launch ()
+
+let _ () =
 
   (* Parse command-line flags *)
   Flags.parse_argv () ;
@@ -908,9 +1076,8 @@ let main () =
         (* Open channel to given file and create formatter on channel *)
         | Some f ->
 
-          let oc =
-            try open_out f with
-              | Sys_error _ -> failwith "Could not open debug logfile"
+          let oc = try open_out f with | Sys_error _ ->
+            failwith "Could not open debug logfile"
           in
           Format.formatter_of_out_channel oc
 
@@ -1146,6 +1313,8 @@ let main () =
 
     (* Exit with error *)
     | e ->
+
+      Format.printf "Exception: %s@." (Printexc.to_string e) ;
 
       (* Which modules are enabled? *)
       (match Flags.enable () with

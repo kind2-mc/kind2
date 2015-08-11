@@ -25,12 +25,9 @@ type _ t =
 
 let read_input_lustre input_file = Lustre (LustreInput.of_file input_file) 
 
-let read_input_native input_file = assert false 
+let read_input_native input_file = assert false
 
 let read_input_horn input_file = assert false
-
-
-
 
 
 let next_analysis_of_strategy (type s) : s t -> 'a -> Analysis.param option = function

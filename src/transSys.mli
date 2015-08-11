@@ -139,6 +139,14 @@ val get_logic : t -> TermLib.logic
 (** Return the scope identifying the transition system *)
 val scope_of_trans_sys : t -> Scope.t
 
+(** Returns the properties in a transition system. *)
+val get_properties : t -> Property.t list
+
+(** Returns the list of properties in a transition system, split by their
+    status as [valid, invalid, unknown]. *)
+val get_split_properties :
+  t -> Property.t list * Property.t list * Property.t list
+
 
 val mk_trans_sys : 
 

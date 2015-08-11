@@ -82,9 +82,14 @@ and prop_source =
   | Instantiated of Scope.t * t
 
 
-(** Pretty-print a property source *)
+(** Pretty-prints a property source. *)
 val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
+(** Pretty-prints a property status. *)
+val pp_print_prop_status : Format.formatter -> prop_status -> unit
+
+(** Pretty-prints a property (name and source). *)
+val pp_print_prop_quiet : Format.formatter -> t -> unit
 
 (** Return [true] if the status of the property is known *)
 val prop_status_known : prop_status -> bool

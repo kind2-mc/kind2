@@ -537,6 +537,20 @@ let get_logic t = t.logic
 (* Return the scope identifying the transition system *)
 let scope_of_trans_sys t = t.scope
 
+(* Returns the properties in the transition system. *)
+let get_properties t = t.properties
+
+(** Returns the list of properties in a transition system, split by their
+    status as [valid, invalid, unknown]. *)
+let get_split_properties { properties } =
+  properties |> List.fold_left (fun (valid, invalid, unknown) p ->
+    match Property.get_prop_status p with
+    | Property.PropInvariant -> p :: valid, invalid, unknown
+    | Property.PropFalse _ -> valid, p :: invalid, unknown
+    | _ -> valid, invalid, unknown
+  ) ([], [], [])
+
+
 (* **************************************************************** *)
 (* Iterate and Fold over Subsystems                                 *)
 (* **************************************************************** *)

@@ -18,7 +18,7 @@
         
 open Lib
 
-let on_exit trans_sys =
+let print_stats trans_sys =
   
   Event.log
     L_info
@@ -33,7 +33,11 @@ let on_exit trans_sys =
   (match trans_sys with | None -> () | Some trans_sys ->
     Event.log_prop_status 
       L_fatal
-      (TransSys.get_prop_status_all trans_sys));
+      (TransSys.get_prop_status_all trans_sys))
+
+let on_exit trans_sys =
+
+  print_stats trans_sys ;
     
   try 
     
