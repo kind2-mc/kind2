@@ -39,18 +39,31 @@
     @author Christoph Sticksel *)
 
 
-(** Parameters for the creation of a transition system *)
+(** Parameters of an analysis, also used for the creation of a transition
+    system. *)
 type param = {
-  (** The top system for the analysis run *)
+  (** The top system for the analysis run. *)
   top : Scope.t ;
 
   (** Systems flagged [true] are to be represented abstractly, those flagged
       [false] are to be represented by their implementation. *)
   abstraction_map : bool Scope.Map.t ;
 
-  (** Properties that can be assumed invariant in subsystems *)
+  (** Properties that can be assumed invariant in subsystems. *)
   assumptions : (Scope.t * Term.t) list ;
 }
+
+(** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
+   a [param]. Default to [false] if the node is not in the map. *)
+val param_scope_is_abstract : param -> Scope.t -> bool
+
+(** Retrieve the assumptions of a [scope] from a [param]. *)
+val param_assumptions_of_scope : param -> Scope.t -> Term.t list
+
+
+
+
+
 
 (** Result of analysing a transistion system *)
 type result = {
@@ -71,18 +84,25 @@ type result = {
   requirements_valid : bool option ;
 }
 
-
-(** Return [true] if the scope is flagged as abstract in
-    [abstraction_map]. Default to [false] if the scope is not in the
-    map. *)
-val scope_is_abstract : param -> Scope.t -> bool
-
-
-(** Return assumptions of scope *)
-val assumptions_of_scope : param -> Scope.t -> Term.t list
-
 (** Returns a result from an analysis. *)
-val result_of : param -> TransSys.t -> result
+val mk_result : param -> TransSys.t -> result
+
+
+
+
+(** Map from [Scope.t] to [result] storing the results found this far. *)
+type results
+
+(** Creates a new [results]. *)
+val mk_results : unit -> results
+
+(** Adds a [result] to a [results]. *)
+val results_add : result -> results -> results
+
+(** Returns the list of results for a top scope.
+
+    Raises [Not_found] if not found. *)
+val results_find : Scope.t -> results -> result list
 
 
 (** Run one analysis *)

@@ -1266,7 +1266,7 @@ let custom_roots roots node =
 let node_is_abstract analysis { N.name } = 
 
   [I.string_of_ident false name]
-  |> Analysis.scope_is_abstract analysis
+  |> Analysis.param_scope_is_abstract analysis
 
 
 (* Return roots for slicing to contracts or implementation as

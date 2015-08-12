@@ -18,10 +18,12 @@
 
 open Lib
 
-type _ t = 
-  | Lustre : (LustreNode.t SubSystem.t * LustreGlobals.t) -> LustreNode.t t
-  | Native : unit SubSystem.t -> unit t
-  | Horn : unit SubSystem.t -> unit t
+module Strat = Strategy
+
+type _ t =
+| Lustre : (LustreNode.t SubSystem.t * LustreGlobals.t) -> LustreNode.t t
+| Native : unit SubSystem.t -> unit t
+| Horn : unit SubSystem.t -> unit t
 
 let read_input_lustre input_file = Lustre (LustreInput.of_file input_file) 
 
@@ -33,27 +35,27 @@ let read_input_horn input_file = assert false
 let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
 
-| Lustre (subsystem, globals) -> (fun results -> 
-  let nodes = 
-    LustreNode.nodes_of_subsystem subsystem
-  in
+  | Lustre (subsystem, globals) -> (fun results -> 
+    let nodes = 
+      LustreNode.nodes_of_subsystem subsystem
+    in
 
-  assert (nodes <> []) ;
+    assert (nodes <> []) ;
 
-  Some {
-    Analysis.top = List.hd nodes |> LustreNode.scope_of_node ;
+    Some {
+      Analysis.top = List.hd nodes |> LustreNode.scope_of_node ;
 
-    Analysis.abstraction_map =
-      nodes |> List.fold_left (fun m n ->
-        Scope.Map.add (LustreNode.scope_of_node n) false m
-      ) Scope.Map.empty ;
+      Analysis.abstraction_map =
+        nodes |> List.fold_left (fun m n ->
+          Scope.Map.add (LustreNode.scope_of_node n) false m
+        ) Scope.Map.empty ;
 
-    Analysis.assumptions = []
-  }
-)
+      Analysis.assumptions = []
+    }
+  )
 
-| Native subsystem -> (function _ -> assert false)
-| Horn subsystem -> (function _ -> assert false)
+  | Native subsystem -> (function _ -> assert false)
+  | Horn subsystem -> (function _ -> assert false)
 
 
 (* Return a transition system with [top] as the main system, sliced to
@@ -61,57 +63,45 @@ let next_analysis_of_strategy (type s)
 let trans_sys_of_analysis (type s)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
-| Lustre (subsystem, globals) -> (function analysis ->
-  let t, s, g =
-    LustreTransSys.trans_sys_of_nodes subsystem globals analysis
-  in
-  (t, Lustre (s, g))
-)
-  
-| Native _ -> assert false
-  
-| Horn _ -> assert false
+  | Lustre (subsystem, globals) -> (function analysis ->
+    let t, s, g =
+      LustreTransSys.trans_sys_of_nodes subsystem globals analysis
+    in
+    (t, Lustre (s, g))
+  )
+    
+  | Native _ -> assert false
+    
+  | Horn _ -> assert false
 
 
 
 let pp_print_path_pt
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
 
-match input_system with 
+  match input_system with 
 
-| Lustre (subsystem, _) -> 
+  | Lustre (subsystem, _) ->
+    LustrePath.pp_print_path_pt
+      trans_sys instances subsystem first_is_init ppf model
 
-  LustrePath.pp_print_path_pt
-    trans_sys
-    instances
-    subsystem
-    first_is_init
-    ppf
-    model
+  | Native _ -> assert false
 
-| Native _ -> assert false
-
-| Horn _ -> assert false
+  | Horn _ -> assert false
 
 
 let pp_print_path_xml
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
 
-match input_system with 
+  match input_system with 
 
-| Lustre (subsystem, _) -> 
+  | Lustre (subsystem, _) ->
+    LustrePath.pp_print_path_xml
+      trans_sys instances subsystem first_is_init ppf model
 
-  LustrePath.pp_print_path_xml
-    trans_sys
-    instances
-    subsystem
-    first_is_init
-    ppf
-    model
+  | Native _ -> assert false
 
-| Native _ -> assert false
-
-| Horn _ -> assert false
+  | Horn _ -> assert false
 
 
 
@@ -190,10 +180,9 @@ let slice_to_abstraction_and_property
   in
 
   (* Replace top system with subsystem for slicing. *)
-  let analysis' = {
-      analysis with Analysis.top =
-        TransSys.scope_of_trans_sys trans_sys'
-    }
+  let analysis' =
+    { analysis with Analysis.top =
+        TransSys.scope_of_trans_sys trans_sys' }
   in
 
   (* Return subsystem that contains the property *)

@@ -939,7 +939,7 @@ let rec run_loop msg_setup modules trans_syss results =
 
   let trans_syss = trans_sys :: trans_syss in
 
-  let result = Analysis.result_of aparam trans_sys in
+  let result = Analysis.mk_result aparam trans_sys in
 
   Event.log L_info "Result: %a" Analysis.pp_print_result result ;
 

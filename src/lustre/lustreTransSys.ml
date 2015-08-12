@@ -1760,7 +1760,7 @@ let rec trans_sys_of_node'
 
             (* Filter assumptions for this node's assumptions *)
             let node_assumptions = 
-              A.assumptions_of_scope analysis_param scope
+              A.param_assumptions_of_scope analysis_param scope
             in
 
             (* Start without properties *)
@@ -1785,7 +1785,7 @@ let rec trans_sys_of_node'
             (* Add enusres to invariants if node is abstract,
                otherwise add ensures as properties *)
             let contract_asserts, properties = 
-              if A.scope_is_abstract analysis_param scope then
+              if A.param_scope_is_abstract analysis_param scope then
                 expr_of_ens scope node @ contract_asserts, properties 
               else
                 contract_asserts, props_of_ens scope node @ properties 
@@ -2234,7 +2234,7 @@ let trans_sys_of_nodes
   (* Make sure top level system is not abstract
 
      Contracts would be trivially satisfied otherwise *)
-  (if A.scope_is_abstract analysis_param top then
+  (if A.param_scope_is_abstract analysis_param top then
      raise
        (Invalid_argument
           "trans_sys_of_nodes: Top-level system must not be abstract"));
