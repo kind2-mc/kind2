@@ -32,7 +32,8 @@ val read_input_lustre : string -> LustreNode.t t
 
 
 (** Return the next system to analyze and the systems to abstract *)
-val next_analysis_of_strategy : 'a t -> Analysis.result list -> Analysis.param option
+val next_analysis_of_strategy :
+  'a t -> Analysis.result list -> Analysis.param option
 
 
 (** Return a transition system for an analysis run *)

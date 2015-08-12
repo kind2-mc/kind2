@@ -190,6 +190,14 @@ val log_level : unit -> Lib.log_level
 (** Output in XML format *)
 val log_format_xml : unit -> bool
 
+(** Modular analysis. *)
+type modular = bool
+val modular : unit -> modular
+
+(** Compositional analysis. *)
+type compositional = bool
+val compositional : unit -> compositional
+
 (** Order variables in polynomials by order of elimination **)
 type cooper_order_var_by_elim = bool
 val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim

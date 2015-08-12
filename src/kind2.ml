@@ -909,6 +909,9 @@ let rec run_loop msg_setup modules trans_syss results =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
 
+  Event.log L_fatal "Launching analysis with param %a"
+    Analysis.pp_print_param aparam ;
+
   (* Output the transition system. *)
   (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
 
@@ -947,12 +950,13 @@ let rec run_loop msg_setup modules trans_syss results =
   with
 
   (* No next analysis, done. *)
-  | None -> results
+  | None ->
+    Event.log L_fatal "Done, no more analysis to run." ;
+    results
 
   (* Preparing for next analysis. *)
-  | Some aparam ->
-(*  
-    (* Extracting transition system. *)
+  | Some aparam -> results
+(*     (* Extracting transition system. *)
     let trans_sys, input_sys_sliced =
       InputSystem.trans_sys_of_analysis input_sys aparam
     in
@@ -963,9 +967,7 @@ let rec run_loop msg_setup modules trans_syss results =
     cur_trans_sys := Some trans_sys        ;
 
     (* Looping. *)
-    run_loop msg_setup modules trans_syss results
-*)
-    results
+    run_loop msg_setup modules trans_syss results *)
 
 (* Looks at the modules activated and decides what to do. *)
 let launch () =

@@ -34,7 +34,7 @@ let next_analysis_of_strategy (type s) : s t -> 'a -> Analysis.param option = fu
 
   | Lustre (subsystem, globals) -> 
 
-    (function _ -> 
+    (function results -> 
       
       let nodes = 
         LustreNode.nodes_of_subsystem subsystem
@@ -42,15 +42,17 @@ let next_analysis_of_strategy (type s) : s t -> 'a -> Analysis.param option = fu
       
       assert (nodes <> []);
       
-      Some
-        { Analysis.top = 
-            List.hd nodes
-            |> LustreNode.scope_of_node;
-          Analysis.abstraction_map = 
-            List.fold_left 
-              (fun m n -> Scope.Map.add (LustreNode.scope_of_node n) false m)
-              Scope.Map.empty nodes;
-          Analysis.assumptions = [] }
+      Some {
+
+        Analysis.top = List.hd nodes |> LustreNode.scope_of_node;
+
+        Analysis.abstraction_map =
+          nodes |> List.fold_left (fun m n ->
+            Scope.Map.add (LustreNode.scope_of_node n) false m
+          ) Scope.Map.empty ;
+
+        Analysis.assumptions = []
+      }
     )
     
   | Native subsystem -> (function _ -> assert false)

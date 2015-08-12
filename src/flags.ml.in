@@ -492,6 +492,16 @@ let ic3_abstr_values = "IA, None"
 
 let ic3_abstr_default = `None
 
+(* ********** *)
+
+type modular = bool
+let modular_values = "true, false"
+let modular_default = false
+
+type compositional = bool
+let compositional_values = "true, false"
+let compositional_default = false
+
 (* ********** *) 
  
 type cooper_order_var_by_elim = bool 
@@ -640,6 +650,8 @@ type flags =
     mutable ic3_fwd_prop_subsume : ic3_fwd_prop_subsume;
     mutable ic3_use_invgen : ic3_use_invgen;
     mutable ic3_abstr : ic3_abstr;
+    mutable modular : modular;
+    mutable compositional : compositional;
     mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
     mutable cooper_general_lbound : cooper_general_lbound;
     mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
@@ -694,6 +706,8 @@ let flags =
     ic3_fwd_prop_subsume = ic3_fwd_prop_subsume_default;
     ic3_use_invgen = ic3_use_invgen_default;
     ic3_abstr = ic3_abstr_default;
+    compositional = compositional_default;
+    modular = modular_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
     invgengraph_prune_trivial = invgengraph_prune_trivial_default;
@@ -1061,6 +1075,29 @@ let ic3_abstr_spec =
                   ic3_abstr_values (string_of_ic3_abstr ic3_abstr_default))
 (* ********** *) 
  
+let modular_action o = flags.modular <- o
+                                          
+let modular_spec = 
+  ("--modular", 
+   Arg.Bool modular_action, 
+   Format.sprintf
+    "bottom-up analysis of each node (available: %s, default: %B)"
+    modular_values
+    modular_default)
+(* ********** *) 
+ 
+let compositional_action o = flags.compositional <- o
+                                          
+let compositional_spec = 
+  ("--compositional", 
+   Arg.Bool compositional_action, 
+   Format.sprintf
+    "abstract subnodes with a contract (available: %s, default: %B)"
+    compositional_values
+    compositional_default)
+
+(* ********** *)
+ 
 let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
                                           
 let cooper_order_var_by_elim_spec = 
@@ -1323,6 +1360,10 @@ let ic3_abstr () = flags.ic3_abstr
 
 let set_ic3_abstr f = flags.ic3_abstr <- f
 
+let modular () = flags.modular
+
+let compositional () = flags.compositional
+
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
@@ -1476,6 +1517,11 @@ and speclist =
 
     (* Abstraction in IC3 *)
     ic3_abstr_spec;
+
+    (* Modular. *)
+    modular_spec ;
+    (* Compositional. *)
+    compositional_spec ;
 
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;
