@@ -10,12 +10,6 @@ node c (in: int; mem: bool) returns (out: int) ;
 -- contract : something ;
 --@require in >= 0 ;
 --@ensure  out >= 0 ;
---@contract bla ;
---@require mem ;
---@ensure in = out ;
---@contract bli ;
---@require not mem ;
---@ensure true -> out = pre out ;
 let
   out = in -> if mem then in else pre out ;
   --%PROPERTY out >= 0 ;

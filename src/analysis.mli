@@ -87,6 +87,10 @@ type result = {
 (** Returns a result from an analysis. *)
 val mk_result : param -> TransSys.t -> result
 
+(** Returns true if all properties in the system in a [result] have been
+    proved. *)
+val result_is_all_proved : result -> bool
+
 
 
 
