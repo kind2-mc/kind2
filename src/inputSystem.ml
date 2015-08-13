@@ -36,7 +36,7 @@ let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
 
   | Lustre (subsystem, globals) -> (fun results -> 
-    let nodes = 
+    (* let nodes = 
       LustreNode.nodes_of_subsystem subsystem
     in
 
@@ -51,7 +51,22 @@ let next_analysis_of_strategy (type s)
         ) Scope.Map.empty ;
 
       Analysis.assumptions = []
-    }
+    } *)
+
+    let subs_of_scope scope =
+      let { SubSystem.subsystems } =
+        SubSystem.find_subsystem subsystem scope
+      in
+      subsystems |> List.map (
+        fun { SubSystem.scope ; SubSystem.has_contract } -> scope, has_contract
+      )
+    in
+
+    SubSystem.all_subsystems subsystem
+    |> List.map (fun { SubSystem.scope ; SubSystem.has_contract } ->
+      scope, has_contract
+    )
+    |> Strategy.MonolithicStrategy.next_analysis results subs_of_scope
   )
 
   | Native subsystem -> (function _ -> assert false)

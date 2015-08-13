@@ -943,7 +943,7 @@ let rec run_loop msg_setup modules trans_syss results =
 
   Event.log L_info "Result: %a" Analysis.pp_print_result result ;
 
-  let results = result :: results in
+  let results = Analysis.results_add result results in
 
   match
     InputSystem.next_analysis_of_strategy (get !input_sys_ref) results
@@ -973,10 +973,11 @@ let rec run_loop msg_setup modules trans_syss results =
 let launch () =
 
   let input_sys = setup () in
+  let results = Analysis.mk_results () in
 
   (* Retrieving params for next analysis. *)
   let aparam =
-    match InputSystem.next_analysis_of_strategy input_sys [] with
+    match InputSystem.next_analysis_of_strategy input_sys results with
     | Some a -> a | None -> assert false
   in
 
@@ -1044,7 +1045,7 @@ let launch () =
     Event.log L_trace "Messaging initialized in supervisor." ;
 
     try
-      run_loop msg_setup modules [] [] ;
+      run_loop msg_setup modules [] results ;
       Event.log L_info "on_exit" ;
       clean_exit `Supervisor None Exit
     with e ->
@@ -1054,7 +1055,7 @@ let launch () =
 (* Entry point *)
 let main () = launch ()
 
-let _ () =
+(* let _ () =
 
   (* Parse command-line flags *)
   Flags.parse_argv () ;
@@ -1335,7 +1336,7 @@ let _ () =
 
           on_exit `Supervisor !cur_trans_sys e
 
-      )
+      ) *)
 
 ;;
 

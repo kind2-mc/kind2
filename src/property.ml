@@ -132,7 +132,15 @@ let pp_print_prop_source ppf = function
        "instantiated from %s"
               (String.concat "." scope)
 
-  | _ -> assert false
+  | ContractGlobalRequire scope ->
+    Format.fprintf ppf "global requirement %a" Scope.pp_print_scope scope
+  | ContractModeRequire scope ->
+    Format.fprintf ppf "mode requirement %a" Scope.pp_print_scope scope
+
+  | ContractGlobalEnsure (_,scope) ->
+    Format.fprintf ppf "global ensure %a" Scope.pp_print_scope scope
+  | ContractModeEnsure (_,scope) ->
+    Format.fprintf ppf "mode ensure %a" Scope.pp_print_scope scope
 
 let pp_print_prop_quiet ppf { prop_name ; prop_source } =
   Format.fprintf ppf
@@ -144,9 +152,12 @@ let pp_print_prop_source ppf = function
   | PropAnnot _ -> Format.fprintf ppf ":user"
   | Contract _ -> Format.fprintf ppf ":contract"
   | Requirement _ -> Format.fprintf ppf ":requirement"
-  | Generated p -> Format.fprintf ppf ":generated"
+  | Generated _ -> Format.fprintf ppf ":generated"
   | Instantiated _ -> Format.fprintf ppf ":subsystem"
-  | _ -> assert false
+  | ContractGlobalRequire _ -> Format.fprintf ppf ":g_require"
+  | ContractModeRequire _ -> Format.fprintf ppf ":m_require"
+  | ContractGlobalEnsure _ -> Format.fprintf ppf ":g_ensure"
+  | ContractModeEnsure _ -> Format.fprintf ppf ":m_ensure"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 

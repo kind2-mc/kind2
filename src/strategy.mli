@@ -16,11 +16,19 @@
 
 *)
 
+(** A strategy returns an [Analysis.param option] which is [None] if done.
+    It takes
+    - the results so far, and
+    - a list of scope / [bool] pairs with the scopes sorted in topological
+      order, starting from the top-most one. Booleans indicate whether the
+      corresponding system can be abstracted. *)
+
 module A = Analysis
-module S = SubSystem
 
 module type Strategy = sig
-  val next_analysis: 'a S.t -> A.result list -> A.param option
+  val next_analysis:
+    A.results -> (Scope.t -> (Scope.t * bool) list) -> (Scope.t * bool) list ->
+    A.param option
 end
 
 module MonolithicStrategy : Strategy

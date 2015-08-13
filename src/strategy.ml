@@ -17,17 +17,53 @@
 *)
 
 module A = Analysis
-module S = SubSystem
 module Sys = TransSys
 
+let get_params results subs_of_scope sys =
+  let subs = subs_of_scope sys in
+  try (
+    match A.results_find sys results with
+    | [] -> assert false
+    | result :: _ ->
+      let abstraction, assumptions =
+        result.A.param.A.abstraction_map, result.A.param.A.assumptions
+      in
+      None
+  ) with Not_found -> Some (
+    (* First time analyzing this system, abstracting everything. *)
+    subs |> List.fold_left (fun abs (scope, b) ->
+      Scope.Map.add scope b abs
+    ) (Scope.Map.empty)
+  )
+
 module type Strategy = sig
-  val next_analysis: 'a S.t -> A.result list -> A.param option
+  val next_analysis:
+    A.results -> (Scope.t -> (Scope.t * bool) list) -> (Scope.t * bool) list ->
+    A.param option
 end
 
-
-
 module MonolithicStrategy : Strategy = struct
-  let next_analysis ({ S.scope } as system) results = None
+  let next_analysis results subs_of_scope = function
+    | (top,_) :: tail -> (
+      try (
+        match A.results_find top results with
+        | [] -> assert false
+        (* Not the first analysis, done. *)
+        | _ -> None
+      ) with Not_found -> Some { (* First analysis, creating [A.param]. *)
+        (* We will analyze the top node. *)
+        A.top = top ;
+        (* All sub-systems are concrete. *)
+        A.abstraction_map = tail |> List.fold_left (fun map (scope,_) ->
+          Scope.Map.add scope false map
+        ) (Scope.Map.empty) ;
+        (* No assumption. *)
+        A.assumptions = [] ;
+      }
+    )
+    | [] -> failwith "[strategy] \
+      no system to analyze (empty list of scopes)\
+    "
 end
 
 

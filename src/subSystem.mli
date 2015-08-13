@@ -32,7 +32,7 @@
 (** A system parameterized by its actual source *)
 type 'a t = {
   (** Name of the system as a scope *)
-  scope: string list ;
+  scope: Scope.t ;
 
   (** Original input *)
   source : 'a ;
