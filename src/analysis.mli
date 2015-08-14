@@ -45,6 +45,9 @@ type param = {
   (** The top system for the analysis run. *)
   top : Scope.t ;
 
+  (** UID for this analysis. *)
+  uid : int ;
+
   (** Systems flagged [true] are to be represented abstractly, those flagged
       [false] are to be represented by their implementation. *)
   abstraction_map : bool Scope.Map.t ;
@@ -91,6 +94,10 @@ val mk_result : param -> TransSys.t -> result
     proved. *)
 val result_is_all_proved : result -> bool
 
+(** Returns true if some properties in the system in a [result] have been
+    falsified. *)
+val result_is_some_falsified : result -> bool
+
 
 
 
@@ -107,6 +114,10 @@ val results_add : result -> results -> results
 
     Raises [Not_found] if not found. *)
 val results_find : Scope.t -> results -> result list
+
+(** Returns the total number of results stored in a [results]. Used to
+    generate UIDs for [param]s. *)
+val results_length : results -> int
 
 
 

@@ -66,7 +66,7 @@ let next_analysis_of_strategy (type s)
     |> List.map (fun { SubSystem.scope ; SubSystem.has_contract } ->
       scope, has_contract
     )
-    |> Strategy.MonolithicStrategy.next_analysis results subs_of_scope
+    |> Strategy.next_analysis results subs_of_scope
   )
 
   | Native subsystem -> (function _ -> assert false)

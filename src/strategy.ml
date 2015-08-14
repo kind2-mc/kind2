@@ -99,6 +99,7 @@ let get_params results subs_of_scope result =
       Some (sub, abstraction, List.rev_append nu_assumptions assumptions)
   )
 
+(* Returns an option of the parameter for the first analysis of a system. *)
 let first_param_of results all_nodes scope =
 
   let rec loop abstraction assumptions = function
@@ -118,8 +119,9 @@ let first_param_of results all_nodes scope =
         match A.results_find sys results with
         | [] -> assert false
         | result :: _ ->
-          if A.result_is_all_proved result then
-            (* System is correct, lifting invariants and looping. *)
+          if A.result_is_some_falsified result |> not then
+            (* System has not been proved unsafe, lifting invariants and
+               looping. *)
             let nu_assumptions =
               TransSys.invars_of_bound result.A.sys Numeral.zero
               |> List.map (fun t -> result.A.param.A.top, t)
@@ -138,9 +140,14 @@ let first_param_of results all_nodes scope =
   | None -> None
   | Some (abstraction, assumptions) -> Some {
     A.top = scope ;
+    A.uid = A.results_length results ;
     A.abstraction_map = abstraction ;
     A.assumptions = assumptions ;
   }
+
+
+(* Using modules is kind of useless here, however it compartments the code and
+   maybe in the future will have functors building the strategies. *)
 
 module type Strategy = sig
   val next_analysis:
@@ -149,30 +156,97 @@ module type Strategy = sig
 end
 
 module MonolithicStrategy : Strategy = struct
-  let next_analysis results subs_of_scope all_nodes = match all_nodes with
-    | (top,_) :: tail -> (
-      try (
-        match A.results_find top results with
-        | [] -> assert false
-        (* Not the first analysis, done. *)
-        | _ -> None
-      ) with Not_found ->
-        first_param_of results all_nodes top
-      (* Some { (* First analysis, creating [A.param]. *)
-        (* We will analyze the top node. *)
-        A.top = top ;
-        (* All sub-systems are concrete. *)
-        A.abstraction_map = tail |> List.fold_left (fun map (scope,_) ->
-          Scope.Map.add scope false map
-        ) (Scope.Map.empty) ;
-        (* No assumption. *)
-        A.assumptions = [] ;
-      } *)
-    )
+  let next_analysis results subs_of_scope all_syss = match all_syss with
     | [] -> failwith "[strategy] \
       no system to analyze (empty list of scopes)\
     "
+    | (top,_) :: tail -> try (
+      match A.results_find top results with
+      | [] -> assert false
+      (* Not the first analysis, done. *)
+      | _ -> None
+    ) with Not_found ->
+      first_param_of results all_syss top
 end
+
+module ModularStrategy : Strategy = struct
+  let next_analysis results subs_of_scope = function
+  | [] -> failwith "[strategy] \
+    no system to analyze (empty list of scopes)\
+  "
+  | all_syss ->
+
+    (* Returns the param for the first analysis of the first system in the
+       input list that can be analyzed. Returns [None] if none.
+
+       Assumes no system in the input list has already been analyzed. See
+       [go_down]. *)
+    let rec go_up = function
+      | [] -> None
+      | sys :: tail -> (
+        try (
+          match A.results_find sys results with
+          | _ -> Format.asprintf "[strategy.go_up] \
+            called with already analyzed system %a
+          " Scope.pp_print_scope sys |> failwith
+        ) with Not_found -> (
+          match first_param_of results all_syss sys with
+          | None -> go_up tail
+          | res ->
+            Format.printf "First analysis for %a@."
+              Scope.pp_print_scope sys ;
+            res
+        )
+      )
+    in
+
+    (* Finds the system that's been analyzed last by going down [all_syss].
+       Returns the params of the next analysis for that system if any, calls
+       [go_up] on the systems before that system otherwise. *)
+    let rec go_down prefix = function
+      | (sys,_) :: tail -> (
+        try (
+          match A.results_find sys results with
+          | [] -> assert false
+          | result :: _ ->
+            if A.result_is_all_proved result then
+              (* Going up. *)
+              go_up prefix
+            else (
+              match get_params results subs_of_scope result with
+              | None -> (* Cannot refine, going up. *)
+                Format.printf "Cannot refine for %a@."
+                  Scope.pp_print_scope sys ;
+                go_up prefix
+              | Some (sub, abs, ass) -> (* Refinement found. *)
+                Format.printf "Refined %a for %a@."
+                  Scope.pp_print_scope sub
+                  Scope.pp_print_scope sys ;
+                Some {
+                  A.top = sys ;
+                  A.uid = A.results_length results ;
+                  A.abstraction_map = abs ;
+                  A.assumptions = ass
+                }
+            )
+        ) with Not_found ->
+          (* Not the last system analyzed, going down. *)
+          go_down (sys :: prefix) tail
+      )
+      | [] ->
+        (* We just started, going up. *)
+        go_up prefix
+    in
+
+    go_down [] all_syss
+
+end
+
+let next_analysis results subs_of_scope all_syss = (
+  (* Calling the right function. *)
+  if Flags.modular () then ModularStrategy.next_analysis
+  else MonolithicStrategy.next_analysis
+) results subs_of_scope all_syss
 
 
 (* 

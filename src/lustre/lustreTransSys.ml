@@ -1621,7 +1621,7 @@ let rec trans_sys_of_node'
     | [] -> trans_sys_defs
 
     (* Create transition system for top node *)
-    | node_name :: tl -> 
+    | node_name :: tl ->
 
       (* Transition system for node has been created and added to
          accumulator meanwhile? *)
@@ -1660,7 +1660,7 @@ let rec trans_sys_of_node'
             (* Find node in abstract or implementation nodes by name *)
             N.node_of_name node_name nodes
 
-          with Not_found -> 
+          with Not_found ->
 
             (* Node must be in the list of nodes *)
             raise
@@ -2122,9 +2122,10 @@ let rec trans_sys_of_node'
             let init_uf_symbol = 
               UfSymbol.mk_uf_symbol
                 (Format.asprintf
-                   "%s_%a"
+                   "%s_%a_%d"
                    I.init_uf_string
-                   (LustreIdent.pp_print_ident false) node_name)
+                   (LustreIdent.pp_print_ident false) node_name
+                   analysis_param.A.uid)
                 (List.map Var.type_of_var init_formals)
                 Type.t_bool
             in
@@ -2155,9 +2156,10 @@ let rec trans_sys_of_node'
             let trans_uf_symbol = 
               UfSymbol.mk_uf_symbol
                 (Format.asprintf
-                   "%s_%a"
+                   "%s_%a_%d"
                    I.trans_uf_string
-                   (LustreIdent.pp_print_ident false) node_name)
+                   (LustreIdent.pp_print_ident false) node_name
+                   analysis_param.A.uid)
                 (List.map Var.type_of_var trans_formals)
                 Type.t_bool
             in
@@ -2229,7 +2231,7 @@ let rec trans_sys_of_node'
 let trans_sys_of_nodes 
     subsystem
     globals
-    ({ A.top; A.abstraction_map; A.assumptions } as  analysis_param) = 
+    ({ A.top; A.abstraction_map; A.assumptions } as  analysis_param) =
   
   (* Make sure top level system is not abstract
 
@@ -2243,7 +2245,7 @@ let trans_sys_of_nodes
   let subsystem' = subsystem in
 
   let { SubSystem.source = { N.name = top_name } as node } as subsystem', globals' = 
-    LustreSlicing.slice_to_abstraction analysis_param subsystem' globals
+      LustreSlicing.slice_to_abstraction analysis_param subsystem' globals
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in 
@@ -2261,7 +2263,7 @@ let trans_sys_of_nodes
     try 
 
       (* Create a transition system for each node *)
-      trans_sys_of_node' 
+      trans_sys_of_node'
         top_name
         analysis_param
         I.Map.empty

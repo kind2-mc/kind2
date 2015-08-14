@@ -23,6 +23,9 @@ type param = {
   (** The top system for the analysis run *)
   top : Scope.t ;
 
+  (** UID for the analysis. *)
+  uid : int ;
+
   (** Systems flagged [true] are to be represented abstractly, those flagged
       [false] are to be represented by their implementation. *)
   abstraction_map : bool Scope.Map.t ;
@@ -102,6 +105,13 @@ let result_is_all_proved { sys } =
   | (_, [], []) -> true
   | _ -> false
 
+(** Returns true if some properties in the system in a [result] have been
+    falsified. *)
+let result_is_some_falsified { sys } =
+  match TransSys.get_split_properties sys with
+  | (_, _ :: _, _) -> true
+  | _ -> false
+
 
 
 
@@ -131,6 +141,13 @@ let results_add result results =
 
     Raises [Not_found] if not found. *)
 let results_find = Scope.Map.find
+
+(** Returns the total number of results stored in a [results]. Used to
+    generate UIDs for [param]s. *)
+let results_length results =
+  Scope.Map.fold (fun _ l sum ->
+    (List.length l) + sum
+  ) results 0
 
 
 

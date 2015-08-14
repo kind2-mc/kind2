@@ -25,13 +25,9 @@
 
 module A = Analysis
 
-module type Strategy = sig
-  val next_analysis:
-    A.results -> (Scope.t -> (Scope.t * bool) list) -> (Scope.t * bool) list ->
-    A.param option
-end
-
-module MonolithicStrategy : Strategy
+val next_analysis:
+  A.results -> (Scope.t -> (Scope.t * bool) list) -> (Scope.t * bool) list ->
+  A.param option
 
 (* 
    Local Variables:

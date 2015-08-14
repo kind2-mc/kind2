@@ -282,10 +282,10 @@ let status_of_exn process trans_sys_opt =
 
     Event.log L_fatal
       "[Error] Runtime error: %s" 
-      (Printexc.to_string e);
+      (Printexc.to_string e) ;
 
     if Printexc.backtrace_status () then
-      Event.log L_debug "Backtrace:@\n%s" backtrace;
+      Event.log L_fatal "Backtrace:@\n%s" backtrace ;
 
     (* Return exit status for error *)
     status_error 
@@ -951,14 +951,17 @@ let rec run_loop msg_setup modules trans_syss results =
 
   (* No next analysis, done. *)
   | None ->
-    Event.log L_fatal "Done, no more analysis to run." ;
+    Event.log L_fatal "Done, no more analyses to run." ;
     results
 
   (* Preparing for next analysis. *)
-  | Some aparam -> results
-(*     (* Extracting transition system. *)
+  | Some aparam ->
+
+    Event.log L_fatal "New param %a"
+      Analysis.pp_print_param aparam ;
+    (* Extracting transition system. *)
     let trans_sys, input_sys_sliced =
-      InputSystem.trans_sys_of_analysis input_sys aparam
+      InputSystem.trans_sys_of_analysis (get !input_sys_ref) aparam
     in
 
     (* Memorizing things. *)
@@ -967,12 +970,13 @@ let rec run_loop msg_setup modules trans_syss results =
     cur_trans_sys := Some trans_sys        ;
 
     (* Looping. *)
-    run_loop msg_setup modules trans_syss results *)
+    run_loop msg_setup modules trans_syss results
 
 (* Looks at the modules activated and decides what to do. *)
 let launch () =
 
   let input_sys = setup () in
+  input_sys_ref := Some input_sys ;
   let results = Analysis.mk_results () in
 
   (* Retrieving params for next analysis. *)
@@ -987,7 +991,6 @@ let launch () =
   in
 
   (* Memorizing things. *)
-  input_sys_ref := Some input_sys        ;
   cur_input_sys := Some input_sys_sliced ;
   cur_aparam    := Some aparam           ;
   cur_trans_sys := Some trans_sys        ;
