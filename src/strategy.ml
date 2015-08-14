@@ -192,10 +192,7 @@ module ModularStrategy : Strategy = struct
         ) with Not_found -> (
           match first_param_of results all_syss sys with
           | None -> go_up tail
-          | res ->
-            Format.printf "First analysis for %a@."
-              Scope.pp_print_scope sys ;
-            res
+          | res -> res
         )
       )
     in

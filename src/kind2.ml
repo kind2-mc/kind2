@@ -956,9 +956,6 @@ let rec run_loop msg_setup modules trans_syss results =
 
   (* Preparing for next analysis. *)
   | Some aparam ->
-
-    Event.log L_fatal "New param %a"
-      Analysis.pp_print_param aparam ;
     (* Extracting transition system. *)
     let trans_sys, input_sys_sliced =
       InputSystem.trans_sys_of_analysis (get !input_sys_ref) aparam

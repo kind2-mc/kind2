@@ -435,7 +435,7 @@ let prop_status_pt level prop_status =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>%a@,Summary_of_properties:@,@,%a@,@]@."
+    "@[<v>%a@,Summary_of_properties:@,@,%a@,%a@,@]@."
     pp_print_hline ()
     (pp_print_list 
        (fun ppf (p, s) -> 
@@ -464,6 +464,7 @@ let prop_status_pt level prop_status =
             s)
        "@,")
     prop_status
+    pp_print_hline ()
           
 
 (* ********************************************************************** *)
