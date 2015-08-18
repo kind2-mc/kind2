@@ -420,7 +420,9 @@ module CandidateTermGen = struct
     
     let rec get_last = function
       | head :: [] -> [head]
-      | [] -> assert false;
+      | [] ->
+        Event.log L_fatal "can't get last" ;
+        assert false ;
       | _ :: t -> get_last t
     in
 
@@ -615,7 +617,9 @@ let create_graph trans candidates =
     CandidateTermGen.build_graphs [ (trans, candidates) ]
   with
     | (_, graph, _) :: _ -> graph
-    | _ -> assert false
+    | _ ->
+      Event.log L_fatal "no graph was built" ;
+      assert false
 
 
     

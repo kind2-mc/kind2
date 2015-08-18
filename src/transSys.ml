@@ -899,27 +899,30 @@ let define_and_declare_of_bounds
     declare
     lbound
     ubound =
+  
+  (* Declare other functions of top system *)
+  declare_ufs trans_sys declare;
 
   (* Iterate over all subsystems *)
   iter_subsystems 
     ~include_top:false
-    (fun t -> 
+    (fun t ->
+
+       (* Declare ufs for subsystems. *)
+       (* declare_ufs t declare ; *)
 
        (* Declare constant state variables of subsystem *)
        if declare_sub_vars then 
          (declare_const_vars t declare; 
-          declare_vars_of_bounds t declare lbound ubound);
+          declare_vars_of_bounds t declare lbound ubound) ;
        
        (* Define initial state predicate *)
-       define_init define t;
+       define_init define t ;
 
        (* Define transition relation predicate *)
-       define_trans define t)
+       define_trans define t )
 
-    trans_sys;
-  
-  (* Declare other functions of top system *)
-  declare_ufs trans_sys declare;
+    trans_sys ;
        
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
