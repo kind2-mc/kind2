@@ -43,6 +43,13 @@ let rec all_subsystems' accum = function
 (* All subsystems added, return. *)
 | [] -> accum
 
+(* First system on the stack is already in the accumulator. *)
+| { scope } :: tl when accum |> List.exists (
+  fun { scope = s } -> scope = s
+) ->
+  (* Skip altogether, subsystems have already been added. *)
+  all_subsystems' accum tl
+
 (* First system on the stack. *)
 | { subsystems } as h :: tl -> 
 

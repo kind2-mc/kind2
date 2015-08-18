@@ -16,6 +16,8 @@
 
 *)
 
+open Lib
+
 module A = Analysis
 module Sys = TransSys
 
@@ -184,6 +186,7 @@ module ModularStrategy : Strategy = struct
     let rec go_up = function
       | [] -> None
       | sys :: tail -> (
+        (* Format.printf "|up %a@." Scope.pp_print_scope sys ; *)
         try (
           match A.results_find sys results with
           | _ -> Format.asprintf "[strategy.go_up] \
@@ -191,7 +194,9 @@ module ModularStrategy : Strategy = struct
           " Scope.pp_print_scope sys |> failwith
         ) with Not_found -> (
           match first_param_of results all_syss sys with
-          | None -> go_up tail
+          | None ->
+            (* Format.printf "|> no first param@." ; *)
+            go_up tail
           | res -> res
         )
       )
@@ -203,13 +208,15 @@ module ModularStrategy : Strategy = struct
     let rec go_down prefix = function
       | (sys,_) :: tail -> (
         try (
+          (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
           | result :: _ ->
-            if A.result_is_all_proved result then
+            if A.result_is_all_proved result then (
+              (* Format.printf "|> all proved, going up@." ; *)
               (* Going up. *)
               go_up prefix
-            else (
+            ) else (
               match get_params results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
                 Format.printf "Cannot refine for %a@."
@@ -227,6 +234,7 @@ module ModularStrategy : Strategy = struct
                 }
             )
         ) with Not_found ->
+          (* Format.printf "|> not the last system, going down@." ; *)
           (* Not the last system analyzed, going down. *)
           go_down (sys :: prefix) tail
       )
