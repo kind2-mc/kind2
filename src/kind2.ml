@@ -84,6 +84,12 @@ let set_sigalrm_handler () =
     )
 
   | _ ->
+    (* No timeout. *)
+    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+      Unix.setitimer
+        Unix.ITIMER_REAL
+        { Unix.it_interval = 0.; Unix.it_value = 0. }
+    in
     (* Install generic signal handler for SIGALRM. *)
     set_generic_handler_for Sys.sigalrm
 
@@ -292,8 +298,10 @@ let status_of_exn process trans_sys_opt =
 
   )
 
-
+(* Kill all kids cleanly. *)
 let slaughter_kids process sys =
+
+  Format.printf "Slaughtering kids.@." ;
 
   (* Ignore SIGALRM from now on *)
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
@@ -323,7 +331,8 @@ let slaughter_kids process sys =
       Sys.sigalrm
       (Sys.Signal_handle (function _ -> raise TimeoutWall)) ;
 
-    (* Set interval timer for wallclock timeout *)
+    (* Set interval timer for wallclock timeout. Used to detect we have been
+       waiting for kids to die for too long. *)
     let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
       Unix.setitimer
         Unix.ITIMER_REAL
@@ -390,6 +399,8 @@ let slaughter_kids process sys =
       kids |> List.iter (fun (pid, _) ->
         try Unix.kill (- pid) Sys.sigkill with _ -> ()
       ) ) ;
+
+  Format.printf "Done slaughtering kids.@." ;
 
   (* Restore sigalrm handler for next analysis if any. *)
   set_sigalrm_handler ()
@@ -918,9 +929,11 @@ let rec run_loop msg_setup modules trans_syss results =
   ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
 
     (* TODO print something more relevant here. *)
-    | [] -> Event.log L_warn "Current system has no property to prove."
+    | [] -> Event.log L_warn "Current system has no properties."
 
-    | _ ->
+    | props ->
+
+      List.length props |> Event.log L_fatal "%d properties." ;
 
       Event.log L_trace "Starting child processes." ;
 
@@ -1049,6 +1062,7 @@ let launch () =
       Event.log L_info "on_exit" ;
       clean_exit `Supervisor None Exit
     with e ->
+      Format.printf "Exception in run_loop@." ;
       on_exit `Supervisor !cur_trans_sys e
 
 

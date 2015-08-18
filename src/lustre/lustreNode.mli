@@ -56,7 +56,7 @@ open Lib
     dummy position. *)
 type node_call = 
 
-  { 
+  {
 
     call_pos : position;
     (** Position of node call in input file *)

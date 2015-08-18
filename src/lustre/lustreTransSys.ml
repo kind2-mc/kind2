@@ -31,7 +31,19 @@ module P = Property
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
+module SCM = Scope.Map
 
+(* Hash map from node scopes to their index for fresh state variables.
+   Used to make sure fresh state variables are indeed fresh after a restart,
+   without risking to reach [MAXINT]. *)
+let scope_index_map = ref SCM.empty
+(* Returns a fresh index for a scope. *)
+let index_of_scope s =
+  let curr =
+    try !scope_index_map |> SCM.find s with Not_found -> 0
+  in
+  scope_index_map := !scope_index_map |> SCM.add s (curr + 1) ;
+  curr
 
 (* Transition system and information needed when calling it *)
 type node_def =
@@ -1674,9 +1686,6 @@ let rec trans_sys_of_node'
         (* Scope of node name *)
         let scope = [I.string_of_ident false node_name] in
 
-        (* Index for fresh state variables in this node *)
-        let index_ref = ref 0 in
-
         (* Create a fresh state variable *)
         let mk_fresh_state_var
             ?is_const
@@ -1684,14 +1693,14 @@ let rec trans_sys_of_node'
             state_var_type =
 
           (* Increment counter for fresh state variables *)
-          incr index_ref; 
+          let index = index_of_scope scope in
 
           (* Create state variable *)
           StateVar.mk_state_var
             ~is_input:false
             ?is_const:is_const
             ?for_inv_gen:for_inv_gen
-            ((I.push_index I.inst_ident !index_ref) 
+            ((I.push_index I.inst_ident index) 
              |> I.string_of_ident true)
             (N.scope_of_node node @ I.reserved_scope)
             state_var_type
@@ -1922,8 +1931,7 @@ let rec trans_sys_of_node'
                variables capturing outputs of node calls *)
             let stateful_vars = 
               init_flag ::
-              (N.stateful_vars_of_node node 
-               |> SVS.elements)
+              (N.stateful_vars_of_node node |> SVS.elements)
               @ lifted_locals
             in
 
