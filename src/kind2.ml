@@ -384,10 +384,13 @@ let slaughter_kids process sys =
 
   (* Log termination status *)
   ( match !child_pids with
-    | [] -> ()
+    | [] ->
+      Event.log L_fatal
+        "All child processes terminated." ;
+      ()
     | kids ->
 
-      kids |> Event.log L_info
+      kids |> Event.log L_fatal
         "Some processes (%a) did not exit, killing them." (
           pp_print_list (fun ppf (pid, _) ->
             Format.pp_print_int ppf pid
@@ -397,8 +400,16 @@ let slaughter_kids process sys =
       (* Kill all remaining processes in the process groups of child
          processes *)
       kids |> List.iter (fun (pid, _) ->
-        try Unix.kill (- pid) Sys.sigkill with _ -> ()
-      ) ) ;
+        try
+          Unix.kill (- pid) Sys.sigkill
+        with _ -> ()
+      ) ;
+
+      (* Waiting for all kids to be actually done. *)
+      kids |> List.iter (fun _ -> Unix.wait () |> ignore) ) ;
+
+  (* Draining mailbox. *)
+  Event.recv () |> ignore ;
 
   Format.printf "Done slaughtering kids.@." ;
 
