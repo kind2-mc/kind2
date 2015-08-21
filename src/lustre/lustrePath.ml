@@ -187,14 +187,14 @@ let rec substitute_definitions' stateful_vars equations subst = function
           (function 
 
             (* Equation is for state variable? *)
-            | (sv, [], def) -> StateVar.equal_state_vars sv state_var
+            | ((sv, []), def) -> StateVar.equal_state_vars sv state_var
 
             (* Fail if state variable has indexes *)
             | _ -> assert false)
           equations
 
         (* Return expression on right-hand side of equation *)
-        |> (function (_, _, e) -> e)
+        |> (function (_, e) -> e)
 
       in
 

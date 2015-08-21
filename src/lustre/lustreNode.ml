@@ -154,8 +154,12 @@ type contract =
   }
 
 
+(* Left hand side of an equation *)
+type equation_lhs = StateVar.t * E.expr bound_or_fixed list
+
+
 (* An equation *)
-type equation = (StateVar.t * E.expr bound_or_fixed list * E.t) 
+type equation = equation_lhs * E.t
 
 
 (* A Lustre node *)
@@ -305,7 +309,7 @@ let pp_print_local safe ppf l = pp_print_list (pp_print_local' safe) ";@ " ppf l
 
 
 (* Pretty-print a node equation *)
-let pp_print_node_equation safe ppf (var, bounds, expr) = 
+let pp_print_node_equation safe ppf ((var, bounds), expr) = 
 
   Format.fprintf ppf
     "@[<hv 2>%a%a =@ %a;@]"
@@ -813,7 +817,7 @@ let has_impl = function
 
     (* Return true if there is an equation of a non-ghost variable *)
     List.exists
-      (fun (sv, _, _) -> 
+      (fun ((sv, _), _) -> 
          match SVM.find sv state_var_source_map with
            | Ghost -> false
            | _ -> true
@@ -1175,26 +1179,32 @@ let stateful_vars_of_node
   (* Add stateful variables from equations *)
   let stateful_vars = 
     List.fold_left
-      (fun  accum (_, _, expr) -> 
+      (fun  accum (_, expr) -> 
          SVS.union accum (stateful_vars_of_expr expr))
       stateful_vars
       equations
   in
 
+  Format.eprintf "Liocals: ";
   (* Unconstrained local state variables must be stateful *)
   let stateful_vars = 
     List.fold_left
       (fun a l -> 
          D.fold
-           (fun _ sv a -> 
+           (fun _ sv a ->
+            Format.eprintf "%a, " StateVar.pp_print_state_var sv;
+
               if 
 
+                (* Arrays are global TODO maybe this is not necessary *)
+                not (Type.is_array (StateVar.type_of_state_var sv)) &&
+                
                 (* Local state variable is defined by an equation? *)
                 List.exists
-                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv') 
                   equations 
               then 
-              
+              let _ = Format.eprintf ":(not stateful), " in
                 (* State variable is not necessarily stateful *)
                 a
 
@@ -1232,7 +1242,7 @@ let stateful_vars_of_node
               (fun sv -> 
                  not
                    (List.exists
-                      (fun (sv', _, _) -> 
+                      (fun ((sv', _), _) -> 
                          StateVar.equal_state_vars sv sv') 
                       equations))))
       stateful_vars

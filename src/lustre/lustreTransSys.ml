@@ -350,13 +350,13 @@ let expr_of_ens scope { N.global_contracts; N.mode_contracts } =
     global_contracts
     mode_contracts
 
-
+(* TODO return ufs *)
 let convert_select instance term = 
-  
+
   Term.map
-    
+
     (fun _ t ->
-       
+
        (* Term is a select operation? *)
        if Term.is_select t then
 
@@ -378,18 +378,36 @@ let convert_select instance term =
              (* Must not have more indexes than defined in type *)
              assert (List.length indexes = List.length index_types);
 
-             (* Uninterpreted function application for array *)
-             Term.mk_uf
-               (Var.state_var_of_state_var_instance var
-                |> StateVar.uf_symbol_of_state_var)
+             Format.eprintf "uf of select %a (var %a) : %a - (%a) -> %a@."
+               Term.pp_print_term t
+               Var.pp_print_var var
+               UfSymbol.pp_print_uf_symbol
+               (Var.state_var_of_state_var_instance var |> StateVar.encode_select)
+               (fun fmt ->
+                  List.iter (Type.pp_print_type fmt)
+                    
+               ) (UfSymbol.arg_type_of_uf_symbol
+                    (Var.state_var_of_state_var_instance var |> StateVar.encode_select)
+                 )
+               Type.pp_print_type (UfSymbol.res_type_of_uf_symbol
+                                     (Var.state_var_of_state_var_instance var |> StateVar.encode_select)
+                                  )
                
+             ;
+             
+
+               (* Uninterpreted function application for array *)
+               Term.mk_uf
+               (Var.state_var_of_state_var_instance var
+                |> StateVar.encode_select)
+
                ((* First parameter is node instance *)
                  (Var.mk_const_state_var instance
                   |> Term.mk_var) :: 
-                 
+
                  (* Following parameters are indexes *)
                  indexes)
-               
+
            )
 
        else t
@@ -1396,7 +1414,7 @@ let rec constraints_of_equations
     | [] -> terms 
 
     (* Stateful variable must have an equational constraint *)
-    | (state_var, [], { E.expr_init; E.expr_step }) :: tl 
+    | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
       when List.exists (StateVar.equal_state_vars state_var) stateful_vars -> 
 
       (* Equation for stateful variable *)
@@ -1431,7 +1449,7 @@ let rec constraints_of_equations
 
 
     (* Can define state variable with a let binding *)
-    | (state_var, [], ({ E.expr_init; E.expr_step } as expr)) :: tl ->
+    | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
 
       (* Let binding for stateless variable *)
       let def =
@@ -1501,7 +1519,7 @@ let rec constraints_of_equations
         tl
 
     (* Array state variable *)
-    | (state_var, bounds, { E.expr_init; E.expr_step }) :: tl -> 
+    | ((state_var, bounds), { E.expr_init; E.expr_step }) :: tl -> 
 
       (* TODO: If bounds are not fixed, unroll to fixed bounds and
          generate equations without quantifiers *)
@@ -1540,6 +1558,8 @@ let rec constraints_of_equations
             (* Index variable *)
             let v = index_var_of_int i in
 
+            Format.eprintf "mk_forall %a@." Var.pp_print_var v;
+            
             (* Quantify over index variable between 0 and [e] *)
             (Term.mk_forall
                [v]
@@ -1552,7 +1572,7 @@ let rec constraints_of_equations
       (* Uninterpreted function application for array *)
       let uf_term = 
         Term.mk_uf
-          (StateVar.uf_symbol_of_state_var state_var)
+          (StateVar.encode_select state_var)
 
           ((* First parameter is node instance *)
             (Var.mk_const_state_var instance
@@ -1590,6 +1610,8 @@ let rec constraints_of_equations
           
       in
 
+      Format.eprintf "EQ1: %a@." Term.pp_print_term eq;
+      
       (* Wrap equation in let binding and quantifiers for indexes *)
       let def, _ = 
         List.fold_right
@@ -1935,7 +1957,7 @@ let rec trans_sys_of_node'
 
               |>
 
-              (fun (e, d) -> 
+              (fun (e, d) ->
                  constraints_of_equations
                    true
                    stateful_vars
@@ -1955,7 +1977,10 @@ let rec trans_sys_of_node'
 
               |>
 
-              (fun (e, d) -> 
+              (fun (e, d) ->
+                                  List.iter (fun e ->
+                 Format.eprintf "EQBEFORE %a@." (LustreNode.pp_print_node_equation false) e) e;
+
                  constraints_of_equations
                    false
                    stateful_vars
@@ -1966,6 +1991,10 @@ let rec trans_sys_of_node'
                  d)
 
             in
+
+            List.iter (fun t ->
+                Format.eprintf "EQ: %a @." Term.pp_print_term t) trans_terms;
+
 
 
             (* ****************************************************** *)
@@ -2080,6 +2109,14 @@ let rec trans_sys_of_node'
                 stateful_vars
             in
 
+            Format.eprintf "Signature state vars: ";
+            List.iter (fun sv -> Format.eprintf "%a, " StateVar.pp_print_state_var sv) signature_state_vars;
+            Format.eprintf "@.";            
+
+            Format.eprintf "Stateful locals: ";
+            List.iter (fun sv -> Format.eprintf "%a, " StateVar.pp_print_state_var sv) stateful_locals;
+            Format.eprintf "@.";            
+
             (* State variables in the signature of the initial state
                constraint in correct order *)
             let signature_state_vars = 
@@ -2093,6 +2130,10 @@ let rec trans_sys_of_node'
                 (fun sv -> StateVar.type_of_state_var sv |> Type.is_array)
                 signature_state_vars 
             in
+
+            Format.eprintf "Globals: ";
+            List.iter (fun sv -> Format.eprintf "%a, " StateVar.pp_print_state_var sv) global_state_vars;
+            Format.eprintf "@.";            
 
             (* TODO: add actual bound of state variable *)
             let global_state_vars = 
@@ -2177,7 +2218,13 @@ let rec trans_sys_of_node'
                 []
                 functions
             in
-                  
+
+            (* Add uf symbols for global arrays *)
+            let ufs = List.fold_left
+                (fun acc (sv, _) -> StateVar.encode_select sv :: acc)
+                ufs global_state_vars
+            in
+            
             
             (* ****************************************************** *)
             (* Create transition system                               *)

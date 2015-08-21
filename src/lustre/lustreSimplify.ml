@@ -91,7 +91,7 @@ let pp_print_trie pp_i pp_e ppf t =
    - recursive nodes
 
 *)
-let rec eval_ast_expr ctx = 
+let rec eval_ast_expr bounds ctx = 
 
   function
 
@@ -127,16 +127,16 @@ let rec eval_ast_expr ctx =
     (* ****************************************************************** *)
 
     (* Conversion to an integer number [int expr] *)
-    | A.ToInt (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_to_int expr 
+    | A.ToInt (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
 
     (* Conversion to a real number [real expr] *)
-    | A.ToReal (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_to_real expr
+    | A.ToReal (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_real expr
 
     (* Boolean negation [not expr] *)
-    | A.Not (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_not expr 
+    | A.Not (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_not expr 
 
     (* Unary minus [- expr] *)
-    | A.Uminus (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_uminus expr 
+    | A.Uminus (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uminus expr 
 
     (* ****************************************************************** *)
     (* Binary operators                                                   *)
@@ -145,77 +145,77 @@ let rec eval_ast_expr ctx =
     (* Boolean conjunction [expr1 and expr2] *)
     | A.And (pos, expr1, expr2) ->
 
-      eval_binary_ast_expr ctx pos E.mk_and expr1 expr2
+      eval_binary_ast_expr bounds ctx pos E.mk_and expr1 expr2
 
     (* Boolean disjunction [expr1 or expr2] *)
     | A.Or (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_or expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_or expr1 expr2 
 
     (* Boolean exclusive disjunction [expr1 xor expr2] *)
     | A.Xor (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_xor expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_xor expr1 expr2 
 
     (* Boolean implication [expr1 => expr2] *)
     | A.Impl (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_impl expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_impl expr1 expr2 
 
     (* Integer modulus [expr1 mod expr2] *)
     | A.Mod (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_mod expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_mod expr1 expr2 
 
     (* Subtraction [expr1 - expr2] *)
     | A.Minus (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_minus expr1 expr2
+      eval_binary_ast_expr bounds ctx pos E.mk_minus expr1 expr2
 
     (* Addition [expr1 + expr2] *)
     | A.Plus (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_plus expr1 expr2
+      eval_binary_ast_expr bounds ctx pos E.mk_plus expr1 expr2
 
     (* Real division [expr1 / expr2] *)
     | A.Div (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_div expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_div expr1 expr2 
 
     (* Multiplication [expr1 * expr2] ]*)
     | A.Times (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_times expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_times expr1 expr2 
 
     (* Integer division [expr1 div expr2] *)
     | A.IntDiv (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_intdiv expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_intdiv expr1 expr2 
 
     (* Less than or equal [expr1 <= expr2] *)
     | A.Lte (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_lte expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_lte expr1 expr2 
 
     (* Less than [expr1 < expr2] *)
     | A.Lt (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_lt expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_lt expr1 expr2 
 
     (* Greater than or equal [expr1 >= expr2] *)
     | A.Gte (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_gte expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_gte expr1 expr2 
 
     (* Greater than [expr1 > expr2] *)
     | A.Gt (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_gt expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_gt expr1 expr2 
 
     (* Arrow temporal operator [expr1 -> expr2] *)
     | A.Arrow (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_arrow expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_arrow expr1 expr2 
 
     (* ****************************************************************** *)
     (* Other operators                                                    *)
@@ -226,7 +226,7 @@ let rec eval_ast_expr ctx =
 
       (* Apply equality pointwise *)
       let expr, ctx = 
-        eval_binary_ast_expr ctx pos E.mk_eq expr1 expr2 
+        eval_binary_ast_expr bounds ctx pos E.mk_eq expr1 expr2 
       in
 
       (* We don't want to do extensional array equality, because that
@@ -259,6 +259,7 @@ let rec eval_ast_expr ctx =
 
       (* Translate to negated equation *)
       eval_ast_expr
+        bounds
         ctx
         (A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2)))
 
@@ -267,16 +268,16 @@ let rec eval_ast_expr ctx =
 
       (* Evaluate expression for condition *)
       let expr1', ctx = 
-        eval_bool_ast_expr ctx pos expr1 
+        eval_bool_ast_expr bounds ctx pos expr1 
       in
 
-      eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
+      eval_binary_ast_expr bounds ctx pos (E.mk_ite expr1') expr2 expr3
 
     (* Temporal operator pre [pre expr] *)
     | A.Pre (pos, expr) -> 
 
       (* Evaluate expression *)
-      let expr', ctx = eval_ast_expr ctx expr in
+      let expr', ctx = eval_ast_expr bounds ctx expr in
 
       (* Apply pre operator to expression, may change context with new
          variable *)
@@ -286,14 +287,25 @@ let rec eval_ast_expr ctx =
 
           (fun index expr (accum, ctx) -> 
 
+             let mk_lhs_term (sv, bounds) =
+               List.fold_left (fun (i, t) -> function
+                   | N.Bound b ->
+                   (* | D.ArrayVarIndex b -> *)
+                     succ i,
+                     Var.mk_state_var_instance (E.mk_index_var i |> E.state_var_of_expr)
+                       E.base_offset |> Term.mk_var |> Term.mk_select t
+                   | _ -> assert false)
+                 (0, Var.mk_state_var_instance sv E.pre_offset |> Term.mk_var)
+                 bounds
+             |> snd
+             in
+             
              (* Apply pre operator to expression, abstract
                   non-variable term and re-use previous variables *)
-             let expr', ctx = 
+             let expr', ctx =
                E.mk_pre
-                 (C.mk_local_for_expr pos)
-                 ctx
-                 expr 
-             in
+                 (C.mk_local_for_expr ~bounds pos)
+                 mk_lhs_term ctx expr in
 
              (D.add index expr' accum, ctx))
 
@@ -324,7 +336,7 @@ let rec eval_ast_expr ctx =
 
       (* Evaluate expression for clock *)
       let clock_expr', ctx = 
-        eval_bool_ast_expr ctx clock_pos clock_expr 
+        eval_bool_ast_expr bounds ctx clock_pos clock_expr 
       in
 
       let eval_merge_case clock_sign ctx = function
@@ -350,7 +362,7 @@ let rec eval_ast_expr ctx =
                 "Clock mismatch for argument of merge");
 
           (* Evaluate expression under [when] *)
-          eval_ast_expr ctx expr
+          eval_ast_expr bounds ctx expr
 
         (* A node call with activation condition and no defaults *)
         | A.Activate (pos, ident, case_clock, args) -> 
@@ -374,6 +386,7 @@ let rec eval_ast_expr ctx =
           
           (* Evaluate node call without defaults *)
           eval_node_or_function_call
+            bounds
             ctx
             pos
             (I.mk_string_ident ident)
@@ -386,6 +399,7 @@ let rec eval_ast_expr ctx =
           
           (* Evaluate node call without defaults *)
           eval_node_or_function_call
+            bounds
             ctx
             pos
             (I.mk_string_ident ident)
@@ -397,7 +411,7 @@ let rec eval_ast_expr ctx =
         | expr -> 
 
           (* Evaluate expression under [when] *)
-          eval_ast_expr ctx expr
+          eval_ast_expr bounds ctx expr
 
       in
       
@@ -506,7 +520,8 @@ let rec eval_ast_expr ctx =
     (* Projection to a record field [expr.field] *)
     | A.RecordProject (pos, expr, field) -> 
 
-      eval_ast_projection 
+      eval_ast_projection
+        bounds
         ctx
         pos
         expr
@@ -518,7 +533,8 @@ let rec eval_ast_expr ctx =
       (* Evaluate expression to an integer constant *)
       let field = const_int_of_ast_expr ctx pos field_expr in
 
-      eval_ast_projection 
+      eval_ast_projection
+        bounds
         ctx
         pos
         expr
@@ -551,7 +567,7 @@ let rec eval_ast_expr ctx =
           (fun (i, accum, ctx) expr -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx = eval_ast_expr bounds ctx expr in
 
              (* Increment counter *)
              (succ i,
@@ -588,7 +604,7 @@ let rec eval_ast_expr ctx =
           (fun (i, accum, ctx) expr -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx = eval_ast_expr bounds ctx expr in
 
              (* Increment counter *)
              (succ i,
@@ -642,7 +658,7 @@ let rec eval_ast_expr ctx =
           (fun (accum, ctx) (i, expr) -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx = eval_ast_expr bounds ctx expr in
 
              (* Push field index to indexes in expression and add to
                  accumulator trie *)
@@ -674,8 +690,8 @@ let rec eval_ast_expr ctx =
     | A.StructUpdate (pos, expr1, index, expr2) -> 
 
       (* Evaluate expressions *)
-      let expr1', ctx = eval_ast_expr ctx expr1 in
-      let expr2', ctx = eval_ast_expr ctx expr2 in
+      let expr1', ctx = eval_ast_expr bounds ctx expr1 in
+      let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
       (* Convert an ast index to an index *)
       let rec aux accum = function 
@@ -832,6 +848,7 @@ let rec eval_ast_expr ctx =
     | A.Condact (pos, cond, ident, args, defaults) ->  
 
       eval_node_or_function_call
+        bounds
         ctx
         pos
         (I.mk_string_ident ident)
@@ -842,7 +859,8 @@ let rec eval_ast_expr ctx =
     (* Node call without activation condition *)
     | A.Call (pos, ident, args) -> 
 
-      eval_node_or_function_call 
+      eval_node_or_function_call
+        bounds
         ctx
         pos
         (I.mk_string_ident ident)
@@ -865,7 +883,7 @@ let rec eval_ast_expr ctx =
           (fun (i, accum, ctx) expr -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx = eval_ast_expr bounds ctx expr in
 
              (* Increment counter *)
              (succ i,
@@ -898,7 +916,7 @@ let rec eval_ast_expr ctx =
       let array_size = static_int_of_ast_expr ctx pos size_expr in
 
       (* Evaluate expression for array elements *)
-      let expr', ctx = eval_ast_expr ctx expr in 
+      let expr', ctx = eval_ast_expr bounds ctx expr in 
 
       (* Push array index to indexes in expression and add to
          accumulator trie *)
@@ -918,7 +936,7 @@ let rec eval_ast_expr ctx =
       (* Evaluate expression to an integer constant *)
       let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
 
-      let expr', ctx = eval_ast_expr ctx expr in 
+      let expr', ctx = eval_ast_expr bounds ctx expr in 
 
       (* Every index starts with ArrayVarIndex or none does *)
       (match D.choose expr' with 
@@ -950,7 +968,7 @@ let rec eval_ast_expr ctx =
         | D.TupleIndex _ :: tl, _ ->
 
           (* Try again with the correct expression *)
-          eval_ast_expr ctx (A.TupleProject (pos, expr, i))
+          eval_ast_expr bounds ctx (A.TupleProject (pos, expr, i))
 
         (* Other or no index *)
         | D.RecordIndex _ :: _, _ 
@@ -1037,7 +1055,8 @@ and const_int_of_ast_expr ctx pos expr =
 
     (* Evaluate expression *)
     let expr', _ = 
-      eval_ast_expr 
+      eval_ast_expr
+        []
         (C.fail_on_new_definition
            ctx
            pos
@@ -1076,10 +1095,10 @@ and const_int_of_ast_expr ctx pos expr =
 
 
 (* Evaluate expression to an Boolean *)
-and eval_bool_ast_expr ctx pos expr = 
+and eval_bool_ast_expr bounds ctx pos expr = 
 
   (* Evaluate expression to trie *)
-  let expr', ctx = eval_ast_expr ctx expr in
+  let expr', ctx = eval_ast_expr bounds ctx expr in
 
   (* Check if evaluated expression is Boolean *)
   (match D.bindings expr' with 
@@ -1105,7 +1124,8 @@ and static_int_of_ast_expr ctx pos expr =
 
     (* Evaluate expression *)
     let expr', _ = 
-      eval_ast_expr 
+      eval_ast_expr
+        []
         (C.fail_on_new_definition
            ctx
            pos
@@ -1166,12 +1186,12 @@ and eval_nullary_expr ctx pos expr =
 
 (* Evaluate the argument of a unary expression and construct a unary
    expression of the result with the given constructor *)
-and eval_unary_ast_expr ctx pos mk expr = 
+and eval_unary_ast_expr bounds ctx pos mk expr = 
 
   try 
 
     (* Evaluate expression argument *)
-    let expr', ctx = eval_ast_expr ctx expr in
+    let expr', ctx = eval_ast_expr bounds ctx expr in
 
     (* Apply given constructor to each expression, return with same
        bounds for each expression and changed context *)
@@ -1188,13 +1208,13 @@ and eval_unary_ast_expr ctx pos mk expr =
 
 (* Evaluate the argument of a unary expression and construct a unary
    expression of the result with the given constructor *)
-and eval_binary_ast_expr ctx pos mk expr1 expr2 = 
+and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 = 
 
   (* Evaluate first expression *)
-  let expr1', ctx = eval_ast_expr ctx expr1 in
+  let expr1', ctx = eval_ast_expr bounds ctx expr1 in
 
   (* Evaluate second expression, in possibly changed context *)
-  let expr2', ctx = eval_ast_expr ctx expr2 in
+  let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
   (* Apply operator pointwise to expressions *)
   let res = 
@@ -1240,7 +1260,7 @@ and eval_binary_ast_expr ctx pos mk expr1 expr2 =
 
 
 (* Return the trie starting at the given index *)
-and eval_ast_projection ctx pos expr = function
+and eval_ast_projection bounds ctx pos expr = function
 
   (* Record or tuple field *)
   | D.RecordIndex _ 
@@ -1248,7 +1268,7 @@ and eval_ast_projection ctx pos expr = function
   | D.ArrayIntIndex _ as index ->
 
     (* Evaluate argument of expression *)
-    let expr', ctx = eval_ast_expr ctx expr in
+    let expr', ctx = eval_ast_expr bounds ctx expr in
 
     (try 
 
@@ -1273,7 +1293,7 @@ and eval_ast_projection ctx pos expr = function
   | D.ArrayVarIndex _ -> raise (Invalid_argument "eval_ast_projection")
 
 
-and eval_node_or_function_call ctx pos ident cond args defaults = 
+and eval_node_or_function_call bounds ctx pos ident cond args defaults = 
 
   match 
 
@@ -1290,7 +1310,7 @@ and eval_node_or_function_call ctx pos ident cond args defaults =
     (* Evaluate call to node *)
     | Some node -> 
 
-      eval_node_call ctx pos ident node cond args defaults 
+      eval_node_call bounds ctx pos ident node cond args defaults 
 
     (* Check if we have a function *)
     | None ->
@@ -1315,7 +1335,7 @@ and eval_node_or_function_call ctx pos ident cond args defaults =
             (* Can only call functions without activation condition *)
             | A.True _ -> 
 
-              eval_function_call ctx pos ident func args 
+              eval_function_call bounds ctx pos ident func args 
 
             (* Fail if this is a condact call *)
             | _ -> 
@@ -1335,6 +1355,7 @@ and eval_node_or_function_call ctx pos ident cond args defaults =
 
 (* Return a trie with the outputs of a node call *)
 and eval_node_call
+    bounds
     ctx
     pos
     ident
@@ -1349,7 +1370,7 @@ and eval_node_call
 
   (* Type check expressions for node inputs and abstract to fresh
      state variables *)
-  let node_inputs_of_exprs ctx node_inputs pos expr =
+  let node_inputs_of_exprs bounds ctx node_inputs pos expr =
 
     try
 
@@ -1358,7 +1379,7 @@ and eval_node_call
 
         (* Evaluate inputs as list *)
         let expr', ctx = 
-          eval_ast_expr ctx (A.ExprList (dummy_pos, expr)) 
+          eval_ast_expr bounds ctx (A.ExprList (dummy_pos, expr)) 
         in
 
         if 
@@ -1407,7 +1428,7 @@ and eval_node_call
           then 
 
             (* New variable for abstraction, is constant if input is *)
-            let state_var', ctx = 
+            let (state_var', _) , ctx = 
               C.mk_local_for_expr
                 ~is_const:(StateVar.is_const state_var) 
                 pos
@@ -1439,7 +1460,7 @@ and eval_node_call
   let node_act_cond_of_expr ctx node_outputs pos cond defaults =
 
     (* Evaluate activation condition *)
-    let cond', ctx = eval_bool_ast_expr ctx pos cond in
+    let cond', ctx = eval_bool_ast_expr bounds ctx pos cond in
 
     if 
 
@@ -1457,7 +1478,7 @@ and eval_node_call
       (
 
         (* New variable for activation condition *)
-        let state_var, ctx = C.mk_local_for_expr pos ctx cond' in
+        let (state_var, _) , ctx = C.mk_local_for_expr pos ctx cond' in
 
         (* Evaluate default value *)
         let defaults', ctx = 
@@ -1466,14 +1487,14 @@ and eval_node_call
             (* Single default, do not wrap in list *)
             | Some [d] -> 
 
-              let d', ctx = eval_ast_expr ctx d in 
+              let d', ctx = eval_ast_expr bounds ctx d in 
               Some d', ctx
 
             (* Not a single default, wrap in list *)
             | Some d ->
 
               let d', ctx = 
-                eval_ast_expr ctx (A.ExprList (dummy_pos, d)) 
+                eval_ast_expr bounds ctx (A.ExprList (dummy_pos, d)) 
               in 
               Some d', ctx
 
@@ -1527,7 +1548,7 @@ and eval_node_call
 
   (* Type check and abstract inputs to state variables *)
   let input_state_vars, ctx =
-    node_inputs_of_exprs ctx node_inputs pos args
+    node_inputs_of_exprs bounds ctx node_inputs pos args
   in
 
   (* Type check and simplify defaults, abstract activation condition
@@ -1618,7 +1639,8 @@ and eval_node_call
       (res, ctx)
 
 
-and eval_function_call 
+and eval_function_call
+    bounds
     ctx
     pos
     ident
@@ -1637,7 +1659,7 @@ and eval_function_call
 
       (* Evaluate inputs as list *)
       let expr', ctx = 
-        eval_ast_expr ctx (A.ExprList (dummy_pos, args)) 
+        eval_ast_expr bounds ctx (A.ExprList (dummy_pos, args)) 
       in
 
       (* Remove list index if singleton *)

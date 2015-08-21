@@ -66,6 +66,9 @@ exception Type_mismatch
     constructors below. *)
 type expr = private Term.t
 
+(** Return the type of the expression *)
+val type_of_expr : expr -> Type.t
+
 (** Equality of expressions *)
 val equal_expr : expr -> expr -> bool
 
@@ -332,16 +335,17 @@ val mk_arrow : t -> t -> t
     expression to a fresh variable if it is not a variable at the
     current state.
 
-    [mk_pre f c e] returns the expression [e] and context [c] unchanged
-    if it is a constant, and the previous state variable if the
-    expression is a current state variable, again together with [c]
-    unchanged.
+    [mk_pre f c e] returns the expression [e] and context [c] unchanged if it
+    is a constant, and the previous state variable if the expression is a
+    current state variable, again together with [c] unchanged.
 
-    Otherwise the expression [e] is abstracted to a fresh variable
-    obtained by calling the function [f], which returns a fresh state
-    variable and a changed context [c] that records the association
-    between the fresh variable and the expression. Then return an expression of the fresh state variable and the changed context. *)
-val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
+    Otherwise the expression [e] is abstracted to a fresh variable obtained by
+    calling the function [f], which returns a fresh abstraction and a
+    changed context [c] that records the association between the fresh variable
+    and the expression. Then return an expression of the fresh state variable
+    and the changed context. *)
+val mk_pre :
+  ('a -> t -> 'b * 'a) -> ('b -> Term.t) -> 'a -> t -> t * 'a
 
 (** Select from an array *)
 val mk_select : t -> t -> t

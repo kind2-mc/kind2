@@ -151,7 +151,10 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
     for. If a state variable was previously created for the same
     expression but with different flags, a new state variable is
     created. *)
-val mk_local_for_expr : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> Lib.position -> t -> LustreExpr.t -> StateVar.t * t
+val mk_local_for_expr :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreNode.bound_or_fixed list ->
+  Lib.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
 
 (** Create a fresh oracle state variable in the context. *)
 val mk_fresh_oracle : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t

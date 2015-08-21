@@ -80,6 +80,7 @@ let eval_const_decl ?(ghost = false) ctx = function
     (* Evaluate constant expression *)
     let res, _ = 
       S.eval_ast_expr
+        []
         (C.fail_on_new_definition
            ctx
            pos
@@ -493,7 +494,7 @@ let rec eval_eq_lhs ctx pos = function
     let indexes = 
       (D.keys res |> List.hd) |> aux 0 l
     in
-
+    
     (* Add bindings for the running variables to the context *)
     let _, ctx = 
       List.fold_left 
@@ -538,7 +539,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     expand_tuple'
       pos
-      ((state_var, bounds, expr) :: accum)
+      (((state_var, bounds), expr) :: accum)
       []
       lhs_tl
       rhs_tl
@@ -757,7 +758,7 @@ let rec eval_node_equations ctx = function
 
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
-      S.eval_bool_ast_expr ctx pos ast_expr 
+      S.eval_bool_ast_expr [] ctx pos ast_expr 
       |> C.close_expr pos
     in
 
@@ -772,7 +773,7 @@ let rec eval_node_equations ctx = function
 
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
-      S.eval_bool_ast_expr ctx pos ast_expr 
+      S.eval_bool_ast_expr [] ctx pos ast_expr 
       |> C.close_expr pos
     in
 
@@ -805,11 +806,21 @@ let rec eval_node_equations ctx = function
        for right-hand side *)
     let eq_lhs, indexes, ctx = eval_eq_lhs ctx pos lhs in
 
+    (* array bounds *)
+    let lhs_bounds =
+      List.fold_left (fun acc (i, _) ->
+          List.fold_left (fun acc -> function
+              | D.ArrayVarIndex b -> N.Bound b :: acc
+              | _ -> acc
+            ) acc i
+        ) [] (D.bindings eq_lhs) in
+    
+    
     (* Evaluate expression on right-hand side *)
     let eq_rhs, ctx = 
 
       (* Evaluate in extended context *)
-      S.eval_ast_expr ctx ast_expr 
+      S.eval_ast_expr lhs_bounds ctx ast_expr 
 
     in
 
@@ -850,7 +861,7 @@ let rec eval_node_equations ctx = function
     (* Add equations for each index *)
     let ctx =
       List.fold_left
-        (fun ctx (sv, b, e) -> C.add_node_equation ctx pos sv b indexes e)
+        (fun ctx ((sv, b), e) -> C.add_node_equation ctx pos sv b indexes e)
         ctx
         equations
     in
@@ -904,7 +915,7 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
     (* Evaluate ghost expression *)
     let expr', ctx = 
       S.eval_ast_expr
-
+        []
         (* Change context to fail on new definitions *)
         (if no_defs then 
            C.fail_on_new_definition
@@ -961,11 +972,11 @@ let eval_req (accum, ctx) (pos, expr) =
   (* Evaluate expression to a Boolean expression, may change
      context *)
   let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
+    S.eval_bool_ast_expr [] ctx pos expr |> C.close_expr pos
   in
 
   (* Define expression with a state variable *)
-  let state_var, ctx = 
+  let (state_var, _), ctx = 
     C.mk_local_for_expr pos ctx expr' 
   in
 
@@ -980,11 +991,11 @@ let eval_ens (accum, ctx) (pos, expr) =
   (* Evaluate expression to a Boolean expression, may change
      context *)
   let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
+    S.eval_bool_ast_expr [] ctx pos expr |> C.close_expr pos
   in
 
   (* Define expression with a state variable *)
-  let state_var, ctx = 
+  let (state_var, _), ctx = 
     C.mk_local_for_expr pos ctx expr' 
   in
 
@@ -1584,7 +1595,8 @@ let eval_func_req_ens (accum, ctx) (pos, expr) =
   (* Evaluate expression to a Boolean expression, may change
      context *)
   let expr', ctx = 
-    S.eval_bool_ast_expr 
+    S.eval_bool_ast_expr
+      []
       (C.fail_on_new_definition
          ctx
          pos

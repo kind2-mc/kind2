@@ -175,6 +175,9 @@ let map_array_var f ({ expr_init; expr_step } as expr) =
 let type_of_lustre_expr { expr_type } = expr_type
 
 
+let type_of_expr e = Term.type_of_term e
+
+
 (* Hash table over Lustre expressions *)
 module LustreExprHashtbl = Hashtbl.Make
     (struct
@@ -1954,9 +1957,7 @@ let mk_arrow expr1 expr2 =
 
 
 (* Pre expression *)
-let mk_pre 
-    mk_state_var_for_expr
-    ctx
+let mk_pre mk_abs_for_expr mk_lhs_term ctx
     ({ expr_init; expr_step; expr_type } as expr) = 
 
   (* Apply pre to initial state expression *)
@@ -1979,20 +1980,20 @@ let mk_pre
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
                  base_offset)  -> 
       
-      (Term.bump_state Numeral.(- one) t, ctx)
+      (Term.bump_state pre_base_offset t, ctx)
 
     (* Expression is not constant and not a variable at the current
        instant *)
-    | _ -> 
+    | _ ->
       
       (* Fresh state variable for identifier *)
-      let state_var, ctx' = mk_state_var_for_expr ctx expr in 
+      let abs, ctx' = mk_abs_for_expr ctx expr in
 
-      (* Variable at previous instant *)
-      let var = Var.mk_state_var_instance state_var pre_base_offset in
-
+      (* Abstraction at previous instant *)
+      let abs_t = mk_lhs_term abs in
+      
       (* Return term and new definitions *)
-      (Term.mk_var var, ctx')
+      (abs_t, ctx')
       
   in
 
@@ -2011,19 +2012,20 @@ let mk_pre
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
                  cur_offset)-> 
 
-      (Term.bump_state Numeral.(- one) t, ctx')
+      (Term.bump_state pre_base_offset t, ctx')
+
 
     (* Expression is not constant and no variable *)
-    | _ -> 
+    | _ ->
       
-      (* Fresh state variable for expression *)
-      let state_var, ctx' = mk_state_var_for_expr ctx' expr in
+      (* Fresh state variable for identifier *)
+      let abs, ctx' = mk_abs_for_expr ctx' expr in
 
-      (* Variable at previous instant *)
-      let var = Var.mk_state_var_instance state_var Numeral.(- one) in
-
+      (* Abstraction at previous instant *)
+      let abs_t = mk_lhs_term abs in
+      
       (* Return term and new definitions *)
-      (Term.mk_var var, ctx')
+      (abs_t, ctx')
       
   in
 

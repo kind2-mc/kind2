@@ -173,7 +173,7 @@ let rec node_state_var_dependencies'
              A state variable can be defined in more than one equation
              if an array is defined pointwise *)
           List.find_all
-            (fun (sv, _, _) -> 
+            (fun ((sv, _), _) -> 
                StateVar.equal_state_vars sv state_var)
             equations
             
@@ -182,7 +182,7 @@ let rec node_state_var_dependencies'
           List.fold_left
 
             (* State variable depends on state variables in equation *)
-            (fun accum (sv, _, expr) ->
+            (fun accum ((sv, _), expr) ->
               (if init then 
                  E.base_state_vars_of_init_expr 
                else
@@ -549,7 +549,7 @@ let order_equations
   let state_vars = 
 
     (* State variables on the left-hand side of equations *)
-    (List.map (fun (sv, _, _) -> (sv, [])) equations
+    (List.map (fun ((sv, _), _) -> (sv, [])) equations
        
     |> D.fold
          (fun _ sv a -> (sv, []) :: a)
@@ -591,7 +591,7 @@ let order_equations
             There may be more than one equation per state variable if
             the state variable is an array. *)
          List.fold_left 
-           (fun a ((sv', _, _) as e) -> 
+           (fun a (((sv', _), _) as e) -> 
               if StateVar.equal_state_vars sv sv' then e :: a else a)
            a
            equations)
@@ -707,7 +707,7 @@ let add_roots_of_function_call
   |> SVS.elements
 
 (* Add roots of cone of influence from equation to roots *)
-let add_roots_of_equation roots (_, _, expr) = 
+let add_roots_of_equation roots (_, expr) = 
   (E.state_vars_of_expr expr |> SVS.elements) @ roots
 
 
@@ -911,7 +911,7 @@ let rec slice_nodes
 
             (fun
               (equations_in_coi, equations_not_in_coi, roots')
-              ((sv, _, expr) as eq) -> 
+              (((sv, _), expr) as eq) -> 
 
               (* Equation defines variable? *)
               if StateVar.equal_state_vars state_var sv then
