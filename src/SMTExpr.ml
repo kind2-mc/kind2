@@ -235,15 +235,15 @@ struct
                 Term.mk_var (List.assq v var_to_temp_var) 
               with Not_found -> smtexpr_of_var v [])
 
-           (* Term is a select operation *)
-           | t when Term.is_select t -> 
+           (* (\* Term is a select operation *\) *)
+           (* | t when Term.is_select t ->  *)
 
-             (* Get variable and indexes *)
-             let v, i = Term.indexes_and_var_of_select t in
+           (*   (\* Get variable and indexes *\) *)
+           (*   let v, i = Term.indexes_and_var_of_select t in *)
 
-             (* Create uninterpreted function with indexes as
-                arguments from variable *)
-             smtexpr_of_var v i
+           (*   (\* Create uninterpreted function with indexes as *)
+           (*      arguments from variable *\) *)
+           (*   smtexpr_of_var v i *)
 
            (* Change divisibility symbol to modulus operator *)
            | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)

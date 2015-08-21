@@ -479,6 +479,9 @@ val state_vars_of_term : t -> StateVar.StateVarSet.t
 (** Return the variables occurring in the term *)
 val vars_of_term : t -> Var.VarSet.t
 
+(** Return the select symbols occurring in the term *)
+val select_symbols_of_term : t -> Symbol.SymbolSet.t
+
 (** Return the state variables at given offset in term *)
 val state_vars_at_offset_of_term : Numeral.t -> t -> StateVar.StateVarSet.t
 

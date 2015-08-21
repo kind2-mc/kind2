@@ -351,7 +351,8 @@ let expr_of_ens scope { N.global_contracts; N.mode_contracts } =
     mode_contracts
 
 (* TODO return ufs *)
-let convert_select instance term = 
+(*
+let convert_select instance term =
 
   Term.map
 
@@ -413,7 +414,7 @@ let convert_select instance term =
        else t
     )
     term
-
+*)
 
 
 (* ********************************************************************** *)
@@ -1354,279 +1355,191 @@ let rec constraints_of_function_calls functions init_terms trans_terms propertie
 
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
-let rec constraints_of_asserts
-    instance
-    init_terms
-    trans_terms = 
+let rec constraints_of_asserts init_terms trans_terms = function
 
-  function
+  (* All assertions consumed, return term for initial state
+     constraint and transition relation *)
+  | [] -> (init_terms, trans_terms)
 
-    (* All assertions consumed, return term for initial state
-       constraint and transition relation *)
-    | [] -> (init_terms, trans_terms)
-            
-    (* Assertion with term for initial state and term for transitions *)
-    | { E.expr_init; E.expr_step } :: tl ->
+  (* Assertion with term for initial state and term for transitions *)
+  | { E.expr_init; E.expr_step } :: tl ->
 
-       (* Term for assertion in initial state *)
-       let init_term =
-         E.base_term_of_expr TransSys.init_base expr_init
-         |> convert_select instance
-       in 
+    (* Term for assertion in initial state *)
+    let init_term = E.base_term_of_expr TransSys.init_base expr_init in 
 
-       (* Term for assertion in step state *)
-       let trans_term =
-         E.cur_term_of_expr TransSys.trans_base expr_step
-         |> convert_select instance
-       in 
+    (* Term for assertion in step state *)
+    let trans_term = E.cur_term_of_expr TransSys.trans_base expr_step in 
 
-       (* Add constraint unless it is true *)
-       let init_terms = 
-         if Term.equal init_term Term.t_true then
-           init_terms
-         else
-           init_term :: init_terms 
-       in
+    (* Add constraint unless it is true *)
+    let init_terms =
+      if Term.equal init_term Term.t_true then init_terms
+      else init_term :: init_terms in
 
-       (* Add constraint unless it is true *)
-       let trans_terms = 
-         if Term.equal trans_term Term.t_true then
-           trans_terms
-         else
-           trans_term :: trans_terms 
-       in
+    (* Add constraint unless it is true *)
+    let trans_terms = 
+      if Term.equal trans_term Term.t_true then trans_terms
+      else trans_term :: trans_terms in
 
-      (* Continue with next assertions *)
-      constraints_of_asserts instance init_terms trans_terms tl
-      
+    (* Continue with next assertions *)
+    constraints_of_asserts init_terms trans_terms tl
+
 
 (* Add constraints from equations to initial state constraint and
    transition relation *)
-let rec constraints_of_equations 
-    init
-    stateful_vars
-    instance
-    terms = 
+let rec constraints_of_equations init stateful_vars terms = function 
 
-  function 
+  (* Constraints for all equations generated *)
+  | [] -> terms 
 
-    (* Constraints for all equations generated *)
-    | [] -> terms 
+  (* Stateful variable must have an equational constraint *)
+  | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
+    when List.exists (StateVar.equal_state_vars state_var) stateful_vars -> 
 
-    (* Stateful variable must have an equational constraint *)
-    | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
-      when List.exists (StateVar.equal_state_vars state_var) stateful_vars -> 
+    (* Equation for stateful variable *)
+    let def =
+      Term.mk_eq
+        (if init then            
+           (* Equation for initial constraint on variable *)
+           [E.base_term_of_state_var TransSys.init_base state_var; 
+            E.base_term_of_expr TransSys.init_base expr_init] 
+         else 
+           (* Equation for transition relation on variable *)
+           [E.cur_term_of_state_var TransSys.trans_base state_var; 
+            E.cur_term_of_expr TransSys.trans_base expr_step])
+    in
 
-      (* Equation for stateful variable *)
-      let def = 
-
-        Term.mk_eq 
-
-          (if init then 
-
-             (* Equation for initial constraint on variable *)
-             [E.base_term_of_state_var TransSys.init_base state_var; 
-              E.base_term_of_expr TransSys.init_base expr_init] 
-
-           else
-
-             (* Equation for transition relation on variable *)
-             [E.cur_term_of_state_var TransSys.trans_base state_var; 
-              E.cur_term_of_expr TransSys.trans_base expr_step])
-
-        (* Convert select operators to uninterpreted functions *)
-        |> convert_select instance
-
-      in
-
-      (* Add terms of equation *)
-      constraints_of_equations 
-        init
-        stateful_vars
-        instance
-        (def :: terms)
-        tl
+    (* Add terms of equation *)
+    constraints_of_equations init stateful_vars (def :: terms) tl
 
 
-    (* Can define state variable with a let binding *)
-    | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
+  (* Can define state variable with a let binding *)
+  | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
 
-      (* Let binding for stateless variable *)
-      let def =
+    (* Let binding for stateless variable *)
+    let def =
+      (* Conjunction of previous terms of definitions *)
+      (Term.mk_and terms) |>
+      (* Define variable with a let *)
+      Term.mk_let 
+        (if init then 
+           (* Binding for the variable at the base instant only *)
+           [(E.base_var_of_state_var TransSys.init_base state_var, 
+             E.base_term_of_expr TransSys.init_base expr_init)] 
+         else
+           (* Binding for the variable at the current instant *)
+           (E.cur_var_of_state_var TransSys.trans_base state_var, 
+            E.cur_term_of_expr TransSys.trans_base expr_step) :: 
+           (if 
+             (* Does the state variable occur at the previous
+                instant? *)
+             Term.state_vars_at_offset_of_term 
+               Numeral.(TransSys.trans_base |> pred) 
+               (Term.mk_and terms)
+             |> SVS.mem state_var  
 
-        (* Conjunction of previous terms of definitions *)
-        (Term.mk_and terms)
+            then
+              ((* Definition must not contain a [pre] operator, otherwise we'd
+                  have a double [pre]. The state variable is not stateless in
+                  this case, and we should not be here. *)
+                assert (not (E.has_pre_var E.base_offset expr));
+                (* Binding for the variable at the previous instant *)
+                [(E.pre_var_of_state_var TransSys.trans_base state_var, 
+                  E.pre_term_of_expr TransSys.trans_base expr_step)])
+            else (* No binding for the variable at the previous instant
+                    necessary *)
+              [])
+        )
+    in
 
-        |>
+    (* Start with singleton lists of let-bound terms *)
+    constraints_of_equations init stateful_vars [def] tl
 
-        (* Define variable with a let *)
-        Term.mk_let 
+  (* Array state variable *)
+  | ((state_var, bounds), { E.expr_init; E.expr_step }) :: tl -> 
 
-          (if init then 
+    (* TODO: If bounds are not fixed, unroll to fixed bounds and
+       generate equations without quantifiers *)
 
-             (* Binding for the variable at the base instant only *)
-             [(E.base_var_of_state_var TransSys.init_base state_var, 
-               E.base_term_of_expr TransSys.init_base expr_init)] 
+    (* Return the i-th index variable *)
+    let index_var_of_int i = 
+      E.mk_index_var i
+      |> E.state_var_of_expr
+      |> (fun sv ->
+          Var.mk_state_var_instance
+            sv
+            (if init then TransSys.init_base else TransSys.trans_base))
+    in
 
-           else
+    (* Add quantifier or let binding for indexes of variable *)
+    let add_bounds = function 
 
-             (* Binding for the variable at the current instant *)
-             (E.cur_var_of_state_var TransSys.trans_base state_var, 
-              E.cur_term_of_expr TransSys.trans_base expr_step) :: 
+      (* Fixed index [e] *)
+      | N.Fixed e -> 
+        (* Let bind index variable to value [e] *)
+        fun (a, i) ->
+          (Term.mk_let 
+             [index_var_of_int i,
+              (e : E.expr :> Term.t)]
+             a,
+           pred i)
 
-             (if 
+      (* Variable index of size [e] *)
+      | N.Bound e -> 
+        (* Quantify over index variable between zero and upper bound *)
+        fun (a, i) -> 
+          (* Index variable *)
+          let v = index_var_of_int i in
+          Format.eprintf "mk_forall %a@." Var.pp_print_var v;
+          (* Quantify over index variable between 0 and [e] *)
+          (Term.mk_forall
+             [v]
+             (Term.mk_implies 
+                [Term.mk_leq [Term.mk_num Numeral.zero; Term.mk_var v; 
+                              (e : E.expr :> Term.t)]; a]),
+           pred i)
+    in
 
-               (* Does the state variable occur at the previous
-                  instant? *)
-               Term.state_vars_at_offset_of_term 
-                 Numeral.(TransSys.trans_base |> pred) 
-                 (Term.mk_and terms)
-               |> SVS.mem state_var  
+    (* Attay state variable term *)
+    let sv_term = 
+      Var.mk_state_var_instance state_var
+        (if init then E.base_offset else E.cur_offset)
+      |> Term.mk_var
+    in
+    
+    (* Select array *)
+    let select_term, _ =
+      List.fold_left
+        (fun (st, i) _ ->
+           Term.mk_select st (Term.mk_var (index_var_of_int i)),
+           succ i)
+        (sv_term, 0)
+        bounds
+    in
 
-              then
-                
-                (
+    (* Assign value to array position *)
+    let eq = 
+      Term.mk_eq 
+        [select_term;
+         if init then 
+           (* Expression at base instant *)
+           E.base_term_of_expr TransSys.init_base expr_init
+         else
+           (* Expression at current instant *)
+           E.cur_term_of_expr TransSys.trans_base expr_step]
+    in
 
-                  (* Definition must not contain a [pre] operator,
-                     otherwise we'd have a double [pre]. The state
-                     variable is not stateless in this case, and we
-                     should not be here. *)
-                  assert (not (E.has_pre_var E.base_offset expr));
+    Format.eprintf "EQ1: %a@." Term.pp_print_term eq;
 
-                  (* Binding for the variable at the previous instant *)
-                  [(E.pre_var_of_state_var TransSys.trans_base state_var, 
-                    E.pre_term_of_expr TransSys.trans_base expr_step)])
-                
-              else
+    (* Wrap equation in let binding and quantifiers for indexes *)
+    let def, _ = 
+      List.fold_right
+        add_bounds
+        bounds
+        (eq, List.length bounds |> pred)
+    in
 
-                (* No binding for the variable at the previous
-                   instant necessary *)
-                [])
-
-             )
-
-        (* Convert select operators to uninterpreted functions *)
-        |> convert_select instance
-
-      in
-
-      (* Start with singleton lists of let-bound terms *)
-      constraints_of_equations 
-        init
-        stateful_vars
-        instance
-        [def]
-        tl
-
-    (* Array state variable *)
-    | ((state_var, bounds), { E.expr_init; E.expr_step }) :: tl -> 
-
-      (* TODO: If bounds are not fixed, unroll to fixed bounds and
-         generate equations without quantifiers *)
-
-
-      (* Return the i-th index variable *)
-      let index_var_of_int i = 
-        E.mk_index_var i
-        |> E.state_var_of_expr
-        |> (fun sv ->
-            Var.mk_state_var_instance
-              sv
-              (if init then TransSys.init_base else TransSys.trans_base))
-      in
-
-      (* Add quantifier or let binding for indexes of variable *)
-      let add_bounds = function 
-
-        (* Fixed index [e] *)
-        | N.Fixed e -> 
-
-          (* Let bind index variable to value [e] *)
-          fun (a, i) ->
-            (Term.mk_let 
-               [index_var_of_int i,
-                (e : E.expr :> Term.t)]
-               a,
-             pred i)
-
-        (* Variable index of size [e] *)
-        | N.Bound e -> 
-
-          (* Quantify over index variable between zero and upper bound *)
-          fun (a, i) -> 
-
-            (* Index variable *)
-            let v = index_var_of_int i in
-
-            Format.eprintf "mk_forall %a@." Var.pp_print_var v;
-            
-            (* Quantify over index variable between 0 and [e] *)
-            (Term.mk_forall
-               [v]
-               (Term.mk_implies 
-                  [Term.mk_leq [Term.mk_num Numeral.zero; Term.mk_var v; 
-                                (e : E.expr :> Term.t)]; a]),
-             pred i)
-      in
-
-      (* Uninterpreted function application for array *)
-      let uf_term = 
-        Term.mk_uf
-          (StateVar.encode_select state_var)
-
-          ((* First parameter is node instance *)
-            (Var.mk_const_state_var instance
-             |> Term.mk_var) :: 
-
-            (* Following parameters are indexes *)
-            (List.fold_left
-               (fun (a, i) _ -> 
-                  (index_var_of_int i
-                   |> Term.mk_var) :: a,
-                  pred i)
-               ([], List.length bounds |> pred)
-               bounds 
-             |> fst))
-      in
-
-      (* Assign value to array position *)
-      let eq = 
-
-        Term.mk_eq 
-
-          (uf_term::
-
-           if init then 
-             
-             (* Expression at base instant *)
-             [E.base_term_of_expr TransSys.init_base expr_init
-              |> convert_select instance]
-             
-           else
-             
-             (* Expression at current instant *)
-             [E.cur_term_of_expr TransSys.trans_base expr_step
-              |> convert_select instance])
-          
-      in
-
-      Format.eprintf "EQ1: %a@." Term.pp_print_term eq;
-      
-      (* Wrap equation in let binding and quantifiers for indexes *)
-      let def, _ = 
-        List.fold_right
-          add_bounds
-          bounds
-          (eq, List.length bounds |> pred)
-      in
-
-      (* Add definition and continue *)
-      constraints_of_equations 
-        init
-        stateful_vars
-        instance
-        (def :: terms)
-        tl
+    (* Add definition and continue *)
+    constraints_of_equations init stateful_vars (def :: terms) tl
 
 
 let rec trans_sys_of_node' 
@@ -1928,11 +1841,7 @@ let rec trans_sys_of_node'
 
             (* Constraints from assertions *)
             let init_terms, trans_terms = 
-              constraints_of_asserts  
-                instance
-                init_terms
-                trans_terms
-                asserts
+              constraints_of_asserts init_terms trans_terms asserts
             in
 
 
@@ -1959,12 +1868,7 @@ let rec trans_sys_of_node'
 
               (fun (e, d) ->
                  constraints_of_equations
-                   true
-                   stateful_vars
-                   instance
-                   init_terms
-                   (List.rev e),
-
+                   true stateful_vars init_terms (List.rev e),
                  d)
 
             in
@@ -1978,15 +1882,12 @@ let rec trans_sys_of_node'
               |>
 
               (fun (e, d) ->
-                                  List.iter (fun e ->
-                 Format.eprintf "EQBEFORE %a@." (LustreNode.pp_print_node_equation false) e) e;
+                 List.iter (fun e ->
+                     Format.eprintf "EQBEFORE %a@."
+                       (LustreNode.pp_print_node_equation false) e) e;
 
                  constraints_of_equations
-                   false
-                   stateful_vars
-                   instance
-                   trans_terms
-                   (List.rev e),
+                   false stateful_vars trans_terms (List.rev e),
 
                  d)
 
@@ -2123,32 +2024,34 @@ let rec trans_sys_of_node'
               signature_state_vars @ stateful_locals
             in
 
-            (* Arrays become global state variables and are removed
-               from signature *)
-            let global_state_vars, signature_state_vars = 
-              List.partition
-                (fun sv -> StateVar.type_of_state_var sv |> Type.is_array)
-                signature_state_vars 
-            in
+            (* (\* Arrays become global state variables and are removed *)
+            (*    from signature *\) *)
+            (* let global_state_vars, signature_state_vars =  *)
+            (*   List.partition *)
+            (*     (fun sv -> StateVar.type_of_state_var sv |> Type.is_array) *)
+            (*     signature_state_vars  *)
+            (* in *)
 
-            Format.eprintf "Globals: ";
-            List.iter (fun sv -> Format.eprintf "%a, " StateVar.pp_print_state_var sv) global_state_vars;
-            Format.eprintf "@.";            
+            (* Format.eprintf "Globals: "; *)
+            (* List.iter (fun sv -> *)
+            (*     Format.eprintf "%a, " *)
+            (*       StateVar.pp_print_state_var sv) global_state_vars; *)
+            (* Format.eprintf "@.";             *)
 
-            (* TODO: add actual bound of state variable *)
-            let global_state_vars = 
-              List.map
-                (fun sv -> (sv, []))
-                global_state_vars
-            in
+            (* (\* TODO: add actual bound of state variable *\) *)
+            (* let global_state_vars =  *)
+            (*   List.map *)
+            (*     (fun sv -> (sv, [])) *)
+            (*     global_state_vars *)
+            (* in *)
 
-            (* Need to add an instance variable when we have arrays *)
-            let signature_state_vars, instance_state_var =
-              if global_state_vars = [] then 
-                signature_state_vars, None 
-              else 
-                instance :: signature_state_vars, Some instance 
-            in
+            (* (\* Need to add an instance variable when we have arrays *\) *)
+            (* let signature_state_vars, instance_state_var = *)
+            (*   if global_state_vars = [] then  *)
+            (*     signature_state_vars, None  *)
+            (*   else  *)
+            (*     instance :: signature_state_vars, Some instance  *)
+            (* in *)
 
             (* Formal parameters of initial state constraint *)
             let init_formals = 
@@ -2219,11 +2122,11 @@ let rec trans_sys_of_node'
                 functions
             in
 
-            (* Add uf symbols for global arrays *)
-            let ufs = List.fold_left
-                (fun acc (sv, _) -> StateVar.encode_select sv :: acc)
-                ufs global_state_vars
-            in
+            (* (\* Add uf symbols for global arrays *\) *)
+            (* let ufs = List.fold_left *)
+            (*     (fun acc (sv, _) -> StateVar.encode_select sv :: acc) *)
+            (*     ufs global_state_vars *)
+            (* in *)
             
             
             (* ****************************************************** *)
@@ -2233,9 +2136,9 @@ let rec trans_sys_of_node'
             let trans_sys, _ = 
               TransSys.mk_trans_sys 
                 [I.string_of_ident false node_name]
-                instance_state_var
+                None (* instance_state_var *)
                 init_flag
-                global_state_vars
+                [] (* global_state_vars *)
                 (signature_state_vars)
                 ufs
                 init_uf_symbol

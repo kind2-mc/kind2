@@ -713,7 +713,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `IS_INT, _
       | `DIVISIBLE _, _
       | `UF _, _
-      | `SELECT, _ -> Term.mk_not term
+      | `SELECT _, _ -> Term.mk_not term
 (*
       | `STORE, _ -> Term.mk_not term
 *)
@@ -1199,7 +1199,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             atom_of_term (Term.mk_uf u (List.map term_of_nf args))
 
           (* Select from an array *)
-          | `SELECT ->
+          | `SELECT _ ->
 
             (match args with 
 

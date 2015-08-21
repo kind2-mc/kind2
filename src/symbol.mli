@@ -147,7 +147,8 @@ type interpreted_symbol =
   | `BVULT                (** Arithmetic comparision (binary) *)
 *)
 
-  | `SELECT               (** Selection from array (binary) *)
+  (** Selection from array (binary) *)
+  | `SELECT of Type.t
 (*
   | `STORE                (** Update of an array (ternary) *)
 *)
@@ -243,7 +244,7 @@ val s_times : t
 val s_div : t
 
 (** Array read operator *)
-val s_select : t
+val s_select : Type.t -> t
 
 
 
@@ -257,10 +258,15 @@ val is_numeral : t -> bool
 
 (** Return true if the symbol is a decimal *)
 val is_decimal : t -> bool
+
 (*
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
 *)
+
+(** Return true if the symbol is select from array  *)
+val is_select : t -> bool
+
 (** Return true if the symbol is [`TRUE] or [`FALSE] *)
 val is_bool : t -> bool
 

@@ -48,16 +48,16 @@ let check_sat_assuming_cmd _ =
   failwith "Yices: check_sat_assuming not applicable"
 
 
-let headers () =
+let headers () = []
 
+
+let prelude = 
   [
-
     (* Define functions for int / real conversions *)
     "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
     "(define to_real::(-> x::int (subtype (y::real) (= y x))))";
-  ] 
-
-
+  ]
+  
 let trace_extension = "ys"
 
 
@@ -281,7 +281,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
 *)
-  | `SELECT -> Format.pp_print_string ppf ""
+  | `SELECT _ -> Format.pp_print_string ppf ""
 (*
   | `STORE -> Format.pp_print_string ppf "update"
 *)

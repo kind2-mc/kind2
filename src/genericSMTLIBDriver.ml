@@ -38,6 +38,13 @@ let check_sat_assuming_supported () = failwith "Not implemented"
 (* Headers to send after creating solver instance *)
 let headers () = []
 
+(* top level declaration to add to the solver *)
+let prelude =
+  [
+    (* Sort declaration for uninterpreted arrays *)
+    "(declare-sort FArray 2)";
+  ]
+
 (* Extension for trace file *)
 let trace_extension = "smt2"
 
@@ -433,18 +440,30 @@ let string_of_logic = TermLib.string_of_logic
 (* Pretty-print a logic identifier *)
 let pp_print_logic = TermLib.pp_print_logic
 
+(* symbol for array select function *)
+let select_symbol = "uselect"
+
+(* *)
+
 (* Convert type *)
-let interpr_type t = match Type.node_of_type t with
-
+let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ -> Type.mk_int ()
-
   | Type.Bool | Type.Int | Type.Real -> t
-
+  | Type.Array (ti, te) ->
+    let ti', te' = interpr_type ti, interpr_type te in
+    if Type.equal_types ti ti' && Type.equal_types te te' then t
+    else Type.mk_array ti' te'
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
 (* Pretty-print a sort *)
-let pp_print_sort ppf t = Type.pp_print_type ppf (interpr_type t)
+let rec pp_print_sort ppf t =
+  let t = interpr_type t in
+  (* Print array types with an abstract sort *)
+  match Type.node_of_type t with
+  | Type.Array (ti, te) ->
+    Format.fprintf ppf "(FArray %a %a)" pp_print_sort ti pp_print_sort te
+  | _ -> Type.pp_print_type ppf t
 
 (* Return a string representation of a sort *)
 let string_of_sort = string_of_t pp_print_sort
@@ -488,7 +507,9 @@ let smtlib_string_symbol_list =
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvult", Symbol.mk_symbol `BVULT);
 *)
-   ("select", Symbol.mk_symbol `SELECT);
+   (* ("select", Symbol.mk_symbol `SELECT); *)
+   (* uninterpreted select *)
+   (* ("uselect", Symbol.mk_symbol `SELECT); *)
 (*
    ("store", Symbol.mk_symbol `STORE)
 *)
@@ -578,7 +599,14 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
 *)
-  | `SELECT -> Format.pp_print_string ppf "select"
+  | `SELECT ty_array ->
+
+    (match Type.node_of_type ty_array with
+     | Type.Array (t1, t2) ->
+       Format.fprintf ppf "|uselect(%a,%a)|"
+         Type.pp_print_type t1 Type.pp_print_type t2
+     | _ -> assert false
+    )
 (*
   | `STORE -> Format.pp_print_string ppf "store"
 *)
@@ -611,30 +639,22 @@ let string_of_expr t = string_of_t pp_print_expr t
 
 (* Lookup symbol of a hashconsed string *)
 let symbol_of_smtlib_atom s = 
-
   try 
-
     (* Map hashconsed string to symbol *)
     HString.HStringHashtbl.find hstring_symbol_table s
-
   (* String is not one of our symbols *)
   with Not_found -> 
-
     (* Check if string is a reserved word *)
     if List.memq s smtlib_reserved_word_list then 
-
       (* Cannot parse S-expression *)
       raise 
         (Invalid_argument 
            (Format.sprintf 
               "Unsupported reserved word '%s' in S-expression"
               (HString.string_of_hstring s)))
-
     else
-
       (* String is not a symbol *)
       raise Not_found 
-
 
 
 (* Convert a string to a postive numeral or decimal
@@ -644,81 +664,55 @@ let symbol_of_smtlib_atom s =
    function symbols and variables. *)
 
 let const_of_smtlib_atom b t = 
-
   let res = 
-
     (* Empty strings are invalid *)
     if HString.length t = 0 then
-
       (* String is empty *)
       raise (Invalid_argument "num_expr_of_smtlib_token")
-
     else
-
       try
-
         (* Return numeral of string *)
         Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
-
       (* String is not a decimal *)
       with Invalid_argument _ -> 
-
         try 
-
           (* Return decimal of string *)
           Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
-
         with Invalid_argument _ -> 
-
           try 
-
             (* Return decimal of string *)
             Term.mk_dec (Decimal.of_num (Num.num_of_string
                                            (HString.string_of_hstring t)))
-
           with Invalid_argument _ | Failure "num_of_string" -> 
 (*
             try 
-
               (* Return bitvector of string *)
               Term.mk_bv (bitvector_of_hstring t)
-
             with Invalid_argument _ -> 
 *)
               try 
-
                 (* Return symbol of string *)
                 Term.mk_bool (bool_of_hstring t)
-
               (* String is not an interpreted symbol *)
               with Invalid_argument _ -> 
-
                 try 
-
                   (* Return bound symbol *)
                   Term.mk_var (List.assq t b)
-
                 (* String is not a bound variable *)
                 with Not_found -> 
-
                   try 
-
                     (* Return uninterpreted constant *)
                     Term.mk_uf 
                       (UfSymbol.uf_symbol_of_string
                          (HString.string_of_hstring t))
                       []
-
                   with Not_found -> 
-
                     debug smtexpr 
                         "const_of_smtlib_token %s failed" 
                         (HString.string_of_hstring t)
                     in
-
                     (* Cannot convert to an expression *)
                     failwith "Invalid constant symbol in S-expression"
-
   in
 
   debug smtexpr 
@@ -726,35 +720,30 @@ let const_of_smtlib_atom b t =
       (HString.string_of_hstring t)
       pp_print_term res
   in
-
   res
+
 
 (* Static hashconsed strings *)
 let s_int = HString.mk_hstring "Int" 
 let s_real = HString.mk_hstring "Real" 
 let s_bool = HString.mk_hstring "Bool" 
+let s_array = HString.mk_hstring "FArray"
 
 
 (* Convert an S-expression to a sort *)
-let type_of_smtlib_sexpr = 
-
-  function 
-    
-    | HStringSExpr.Atom s when s == s_int -> Type.t_int
-                                               
-    | HStringSExpr.Atom s when s == s_real -> Type.t_real
-                                                
-    | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
-                                                
-    | HStringSExpr.Atom _
-    | HStringSExpr.List _ as s -> 
-      
-      raise
-        (Invalid_argument 
-           (Format.asprintf 
-              "Sort %a not supported" 
-              HStringSExpr.pp_print_sexpr s))
-
+let rec type_of_smtlib_sexpr = function 
+  | HStringSExpr.Atom s when s == s_int -> Type.t_int
+  | HStringSExpr.Atom s when s == s_real -> Type.t_real
+  | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
+  | HStringSExpr.List [HStringSExpr.Atom s; si; se] when s == s_array ->
+    let ti, te = type_of_smtlib_sexpr si, type_of_smtlib_sexpr se in
+    Type.mk_array ti te
+  | HStringSExpr.Atom _ | HStringSExpr.List _ as s -> 
+    raise
+      (Invalid_argument 
+         (Format.asprintf 
+            "Sort %a not supported" 
+            HStringSExpr.pp_print_sexpr s))
 
 
 (* Conversions for SMTLIB *)

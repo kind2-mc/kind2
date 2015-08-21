@@ -902,7 +902,17 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         with 
           | `Success -> () 
           | _ -> raise (Failure ("Failed to add header: "^cmd))
-     ) headers;
+    ) headers;
+
+    (* Print prelude *)
+    List.iter (fun cmd ->
+        match
+          (debug smt "%s" cmd in
+           execute_command solver cmd 0)
+        with 
+          | `Success -> () 
+          | _ -> raise (Failure ("Failed to add prelude command: "^cmd))
+     ) prelude;
 
 
     (* Return solver instance *)

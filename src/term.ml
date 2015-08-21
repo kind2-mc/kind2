@@ -327,7 +327,7 @@ let rec bool_of_term t = match node_of_term t with
 let is_select t = match node_of_term t with
 
   (* Top symbol is a select operator *)
-  | T.Node (s, [a; i]) -> s == Symbol.s_select
+  | T.Node (s, [a; i]) -> Symbol.is_select s
                                  
   | _ -> false
 
@@ -337,11 +337,15 @@ let is_select t = match node_of_term t with
    The array argument of a select is either another select operation
    or a variable. For the expression [(select (select A j) k)] return
    the pair [A] and [[j; k]]. *)
-let rec indexes_and_var_of_select' accum t = match node_of_term t with 
+let rec indexes_and_var_of_select' accum t =
+
+  Format.eprintf "indexes_and_var_of_select' : %a@."
+    (fun f -> T.pp_print_term f) t;
+  match node_of_term t with 
 
   | T.FreeVar v -> (v, accum)
 
-  | T.Node (s, [a; i]) when s == Symbol.s_select -> 
+  | T.Node (s, [a; i]) when Symbol.is_select s -> 
 
     indexes_and_var_of_select' (i :: accum) a
 
@@ -548,18 +552,11 @@ let rec type_of_term t = match T.destruct t with
 *)
             
         (* Array-valued function *)
-        | `SELECT -> 
-
-          (match l with 
-
-            (* Select is binary *)
-            | [a; _] -> 
-
-              (match Type.node_of_type (type_of_term a) with
-                | Type.Array (t, _) -> t
-                | _ -> assert false)
-
-            | _ -> assert false)
+        | `SELECT ty_array ->
+          
+          (match Type.node_of_type ty_array with
+           | Type.Array (t, _) -> t
+           | _ -> assert false)
 
         (* Return type of first argument *)
         | `MINUS
@@ -1069,7 +1066,7 @@ let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]
 let mk_divisible n t = mk_app_of_symbol_node (`DIVISIBLE n) [t]
 
 (* Hashcons an array read *)
-let mk_select a i = mk_app_of_symbol_node `SELECT [a; i]
+let mk_select a i = mk_app_of_symbol_node (`SELECT (type_of_term a)) [a; i]
 
 (* Generate a new tag *)
 let newid =
@@ -1323,22 +1320,29 @@ let state_vars_of_term term  =
 let vars_of_term term = 
 
   (* Collect all variables in a set *)
-  let var_set = 
-    eval_t
-      (function 
-        | T.Var v -> 
-          (function [] -> Var.VarSet.singleton v | _ -> assert false)
-        | T.Const _ -> 
-          (function [] -> Var.VarSet.empty | _ -> assert false)
-        | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
-        | T.Attr (t, _) -> 
-          (function [s] -> s | _ -> assert false))
-      term
-  in
+  eval_t
+    (function 
+      | T.Var v -> 
+        (function [] -> Var.VarSet.singleton v | _ -> assert false)
+      | T.Const _ -> 
+        (function [] -> Var.VarSet.empty | _ -> assert false)
+      | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+      | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false))
+    term
 
-  (* Return elements of a set as list *)
-  var_set
- 
+
+let select_symbols_of_term term =
+  let selm = ref Symbol.SymbolSet.empty in
+  map
+    (fun _ t -> match node_of_term t with
+      | T.Node (s, _) when Symbol.is_select s ->
+        selm := Symbol.SymbolSet.add s !selm;
+        t
+      | _ -> t
+    ) term
+  |> ignore;
+  !selm
 
 (* Return set of state variables at given offsets in term *)
 let state_vars_at_offset_of_term i term = 

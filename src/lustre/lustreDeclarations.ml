@@ -806,7 +806,7 @@ let rec eval_node_equations ctx = function
        for right-hand side *)
     let eq_lhs, indexes, ctx = eval_eq_lhs ctx pos lhs in
 
-    (* array bounds *)
+    (* array bounds. TODO: check that the order is correct *)
     let lhs_bounds =
       List.fold_left (fun acc (i, _) ->
           List.fold_left (fun acc -> function

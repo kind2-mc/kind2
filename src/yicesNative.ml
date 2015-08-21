@@ -509,7 +509,7 @@ let ensure_symbol_qf_lira s =
   | `BVLSHR
   | `BVULT
 *)
-  | `SELECT
+  | `SELECT _
 (*  | `STORE *)
     ->
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
@@ -1220,6 +1220,15 @@ let create_instance
       | `Success -> () 
       | _ -> raise (Failure ("Failed to add header: "^cmd))
   ) headers;
+
+  (* Print prelude *)
+  List.iter (fun cmd ->
+      match (debug smt "%s" cmd in
+             execute_command solver cmd 0)
+      with 
+      | `Success -> () 
+      | _ -> raise (Failure ("Failed to add prelude command: "^cmd))
+  ) prelude;
 
   (* Return solver instance *)
   solver

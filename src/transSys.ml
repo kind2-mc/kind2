@@ -863,6 +863,27 @@ let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound =
 (* Declare other functions symbols *)
 let declare_ufs { ufs } declare =
   List.iter declare ufs
+
+(* Declare other functions symbols *)
+let declare_selects { init; trans } declare =
+  Symbol.SymbolSet.iter (fun s ->
+      (match Symbol.node_of_symbol s with
+       | `SELECT ty_array ->
+         (match Type.node_of_type ty_array with
+          | Type.Array (te,ti) ->
+            let name = Format.asprintf "|uselect(%a,%a)|"
+                Type.pp_print_type ti Type.pp_print_type te in
+            UfSymbol.mk_uf_symbol name [ty_array; ti] te
+          | _ ->  assert false
+         )
+       | _ ->  assert false
+      )
+      |>
+      declare
+    )
+    (Symbol.SymbolSet.union
+       (Term.select_symbols_of_term init)
+       (Term.select_symbols_of_term trans))
     
       
 (* Define initial state predicate *)
@@ -903,10 +924,13 @@ let define_and_declare_of_bounds
        define_trans define t)
 
     trans_sys;
-  
+
+  (* Declare monomorphized select symbols *)
+  declare_selects trans_sys declare;
+
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
-       
+
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
        

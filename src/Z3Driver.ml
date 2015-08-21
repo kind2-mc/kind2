@@ -39,10 +39,12 @@ let check_sat_limited_cmd ms =
 
 let check_sat_assuming_supported () = Flags.smt_check_sat_assume ()
 
+
 let check_sat_assuming_cmd () = "check-sat"
 
-let headers () = 
-  ["(set-option :interactive-mode true)"]
+
+let headers () = ["(set-option :interactive-mode true)"]
+
 
 let string_of_logic l =
   let open TermLib in

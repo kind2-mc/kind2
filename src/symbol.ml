@@ -86,8 +86,8 @@ type interpreted_symbol =
   | `BVLSHR               (* Logical shift right (unary) *)
   | `BVULT                (* Arithmetic comparision (binary) *)
 *)
-
-  | `SELECT               (* Selection from array (binary) *)
+  (* Selection from array (binary) *)
+  | `SELECT of Type.t
 (*
   | `STORE                (* Update of an array (ternary) *)
 *)
@@ -180,8 +180,13 @@ module Symbol_node = struct
     | `GT, `GT
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
-    | `IS_INT, `IS_INT
-    | `SELECT, `SELECT -> true
+    | `IS_INT, `IS_INT -> true
+
+  
+    | `SELECT a1, `SELECT a2 ->
+      (* Same symbol if there are on arrays of the same type *)
+      Type.equal_types a1 a2
+
 (*
     | `STORE, `STORE -> true
 *)
@@ -225,7 +230,7 @@ module Symbol_node = struct
     | `TO_REAL, _
     | `TO_INT, _
     | `IS_INT, _
-    | `SELECT, _ -> false
+    | `SELECT _, _ -> false
 
 (*
     | `STORE, _ -> false
@@ -394,7 +399,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVULT -> Format.pp_print_string ppf "bvult"
 *)
 
-  | `SELECT -> Format.pp_print_string ppf "select"
+  | `SELECT _ -> Format.pp_print_string ppf "select"
 (*
   | `STORE -> Format.pp_print_string ppf "store"
 *)
@@ -533,7 +538,11 @@ let s_times = mk_symbol `TIMES
 let s_div = mk_symbol `DIV
 
 (* Array read operator *)
-let s_select = mk_symbol `SELECT
+let s_select ta = mk_symbol (`SELECT ta)
+
+let is_select = function 
+  | { Hashcons.node = `SELECT _ } -> true 
+  | _ -> false
 
 
 

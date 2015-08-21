@@ -579,7 +579,7 @@ and pp_print_app safe ppf = function
           
         | _ -> assert false)
 
-    | `SELECT -> 
+    | `SELECT _ -> 
 
       (function 
         | [a; i] ->

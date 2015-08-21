@@ -173,6 +173,7 @@ val kind : t -> Flags.smtsolver
 val trace_comment : t -> string -> unit
 
 val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.t list
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

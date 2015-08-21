@@ -186,7 +186,7 @@ let rec pp_print_type_node ppf = function
 
     Format.fprintf
       ppf 
-      "IntRange %a %a" 
+      "(IntRange %a %a)" 
       Numeral.pp_print_numeral i 
       Numeral.pp_print_numeral j
 
@@ -202,7 +202,7 @@ let rec pp_print_type_node ppf = function
   | Array (s, t) -> 
     Format.fprintf
       ppf 
-      "Array (%a) (%a)" 
+      "(Array %a %a)" 
       pp_print_type s 
       pp_print_type t
 
@@ -210,7 +210,7 @@ let rec pp_print_type_node ppf = function
 
     Format.fprintf
       ppf 
-      "%s %a" 
+      "(%s %a)" 
       s 
       (pp_print_list Format.pp_print_string " ") l
 
