@@ -111,7 +111,7 @@ struct
 
       let cex_string = pop () in
       
-      let cex : (StateVar.t * Model.term_or_lambda list) list = 
+      let cex : (StateVar.t * Model.value list) list = 
         Marshal.from_string cex_string 0
       in
       
@@ -119,7 +119,7 @@ struct
         List.map
           (fun (sv, t) -> 
              (StateVar.import sv, 
-              List.map Model.import_term_or_lambda t))
+              List.map Model.import_value t))
           cex
       in
 
@@ -617,7 +617,7 @@ let execution_path_xml level input_sys analysis trans_sys path =
   
 
 (* Output disproved property as XML *)
-let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t * Model.term_or_lambda list) list) = 
+let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t * Model.value list) list) = 
 
   (* Only ouptut if status was unknown *)
   if 

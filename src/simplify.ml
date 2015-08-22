@@ -1068,8 +1068,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           Term.eval_t
             (simplify_term_node default_of_var uf_defs model)
             v'
-           
-        (* Defer evaluation of lambda abstraction *)
+
+        (* Defer evaluation of lambda abstraction or arrays *)
         | Model.Lambda _ -> atom_of_term (Term.mk_var v)
 
         (* Free variable without assignment in model *)
@@ -1244,7 +1244,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                       Term.eval_t 
                         (simplify_term_node default_of_var uf_defs model)
                         (Term.eval_lambda l i')
-                  
+
                     (* Variable must not evaluate to a term *)
                     | Model.Term _ -> assert false 
                       

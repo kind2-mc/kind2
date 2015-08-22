@@ -81,6 +81,9 @@ type expr_of_string_sexpr_conv =
     (* String constant for define-fun keyword *) 
     s_define_fun : HString.t;
 
+    (* String constant for define-fun keyword *) 
+    s_declare_fun : HString.t;
+
     (* Conversion of an S-expression atom to a term *)
     const_of_atom : (HString.t * Var.t) list -> HString.t -> Term.t;
 
@@ -102,7 +105,7 @@ type expr_of_string_sexpr_conv =
       expr_of_string_sexpr_conv -> 
       (HString.t * Var.t) list -> 
       HStringSExpr.t -> 
-      (HString.t * Model.term_or_lambda)
+      (HString.t * Model.value)
   }
 
 
@@ -372,7 +375,8 @@ let gen_expr_of_string_sexpr'
 (* Convert a string S-expression to a lambda abstraction 
 
    This function is generic, and also used from {!YicesDriver} *)
-let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
+let gen_expr_or_lambda_of_string_sexpr'
+    ({ s_define_fun; s_declare_fun } as conv) bound_vars = 
 
   function 
 
@@ -381,10 +385,17 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
         [HStringSExpr.Atom s; (* define-fun *)
          HStringSExpr.Atom i; (* identifier *)
          HStringSExpr.List []; (* Parameters *)
-         _; (* Result type *)
+         ty; (* Result type *)
          t (* Expression *)
         ]
       when s == s_define_fun -> 
+
+      (* Register the new symbol with its type if it does not exist *)
+      (try UfSymbol.uf_symbol_of_string (HString.string_of_hstring i)
+       with Not_found ->
+         UfSymbol.mk_uf_symbol
+           (HString.string_of_hstring i) [] (conv.type_of_sexpr ty))
+      |> ignore;
 
       (i, 
        Model.Term
@@ -396,7 +407,7 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
         [HStringSExpr.Atom s; (* define-fun *)
          HStringSExpr.Atom i; (* identifier *)
          HStringSExpr.List v; (* Parameters *)
-         _; (* Result type *)
+         ty; (* Result type *)
          t (* Expression *)
         ]
       when s == s_define_fun -> 
@@ -412,13 +423,48 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
+      (* Register the new symbol with its type if it does not exist *)
+      (try UfSymbol.uf_symbol_of_string (HString.string_of_hstring i)
+       with Not_found ->
+         UfSymbol.mk_uf_symbol
+           (HString.string_of_hstring i)
+           (List.map Var.type_of_var vars)
+           (conv.type_of_sexpr ty))
+      |> ignore;
+
+
       (i,
        Model.Lambda
          (Term.mk_lambda
             vars
             (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)))
 
-    | _ -> invalid_arg "gen_expr_of_lambda_string_sexpr"
+
+    (* delcare-fun f () ty *)
+    | HStringSExpr.List
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom i; (* identifier *)
+         HStringSExpr.List []; (* Parameters *)
+         ty; (* Result type *)
+        ]
+      when s == s_declare_fun ->
+
+      (* Register the new symbol with its type *)
+      UfSymbol.mk_uf_symbol
+        (HString.string_of_hstring i)
+        []
+        (conv.type_of_sexpr ty)
+      |> ignore;
+
+      (* and move on to the next element of the model *)
+      raise Not_found
+      
+
+    (* (unsupported ... *)
+    | _ -> raise Not_found
+      
+
+    (* | _ -> invalid_arg "gen_expr_of_lambda_string_sexpr" *)
 
 
 (* Call function with an empty list of bound variables *)      
@@ -711,7 +757,9 @@ let const_of_smtlib_atom b t =
                         "const_of_smtlib_token %s failed" 
                         (HString.string_of_hstring t)
                     in
+
                     (* Cannot convert to an expression *)
+                    (* raise Not_found *)
                     failwith "Invalid constant symbol in S-expression"
   in
 
@@ -755,6 +803,7 @@ let smtlib_string_sexpr_conv =
     s_div = HString.mk_hstring "/";
     s_minus = HString.mk_hstring "-";
     s_define_fun = HString.mk_hstring "define-fun";
+    s_declare_fun = HString.mk_hstring "declare-fun";
     const_of_atom = const_of_smtlib_atom;
     symbol_of_atom = symbol_of_smtlib_atom;
     type_of_sexpr = type_of_smtlib_sexpr;

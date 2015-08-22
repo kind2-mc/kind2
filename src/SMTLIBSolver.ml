@@ -47,7 +47,7 @@ module type SMTLIBSolverDriver = sig
 
   val expr_of_string_sexpr : HStringSExpr.t -> Term.t
 
-  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.value)
 
 end
 
@@ -175,14 +175,14 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           HStringSExpr.pp_print_sexpr e
        in
 
-       (* Get name of variable and its assignment *)
-       let s, t_or_l = expr_or_lambda_of_string_sexpr e in
-
        try
-         
+
+         (* Get name of variable and its assignment *)
+         let s, t_or_l = expr_or_lambda_of_string_sexpr e in
+
          (* Get uninterpreted function symbol by name *)
          let u =
-           UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
+           UfSymbol.uf_symbol_of_string (HString.string_of_hstring s)
          in
 
          (* Continue with next model assignment *)

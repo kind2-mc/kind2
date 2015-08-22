@@ -22,13 +22,15 @@ module SVT = StateVar.StateVarHashtbl
 module VT = Var.VarHashtbl
 
 (* Hashconsed term or hashconsed lambda expression *)
-type term_or_lambda = Term of Term.t | Lambda of Term.lambda
+type value =
+  | Term of Term.t
+  | Lambda of Term.lambda
 
 (* A model is a map variables to assignments *)
-type t = term_or_lambda VT.t
+type t = value VT.t
 
 (* A path is a map of state variables to assignments *)
-type path = term_or_lambda list SVT.t
+type path = value list SVT.t
 
 (* Pretty-print a model *)
 let pp_print_model ppf model = 
@@ -44,7 +46,9 @@ let pp_print_model ppf model =
          Format.fprintf ppf
            "@[<hv 2>%a =@ %a@]@ " 
            Var.pp_print_var v 
-           Term.pp_print_lambda l)
+           Term.pp_print_lambda l
+    )
+
     model
 
 (* Create a model of the given size *)
@@ -54,7 +58,7 @@ let create sz = VT.create sz
 let create_path sz = SVT.create sz
 
 (* Import a variable assignment from a different instance *)
-let import_term_or_lambda = function
+let import_value = function
   | Term t -> Term (Term.import t)
   | Lambda l -> Lambda (Term.import_lambda l)
 
@@ -143,6 +147,9 @@ let path_from_model state_vars model k =
       List.iter
         (fun state_var -> 
 
+           Format.eprintf "get value of %a@."
+             Var.pp_print_var (Var.mk_state_var_instance state_var i);
+           
            (* Value for variable at i *)
            let value = 
              try 
@@ -155,9 +162,14 @@ let path_from_model state_vars model k =
              with Not_found -> 
 
                (* Use default value if not defined in model *)
-               Term
-                 (TermLib.default_of_type
-                    (StateVar.type_of_state_var state_var))
+               let ty = StateVar.type_of_state_var state_var in
+               match Type.node_of_type ty with
+               | Type.Array (te, ti) ->
+                 Lambda (Term.mk_lambda
+                           [Var.mk_fresh_var ti]
+                           (TermLib.default_of_type te))
+               | _ ->
+                 Term (TermLib.default_of_type ty)
 
            in
 

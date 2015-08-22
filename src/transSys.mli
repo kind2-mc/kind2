@@ -264,7 +264,7 @@ val find_subsystem_of_scope : t -> Scope.t -> t
 
 val get_max_depth : t -> int
 
-val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.term_or_lambda list) list ->  Model.term_or_lambda list -> Model.term_or_lambda list) -> t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> t * instance list * (StateVar.t * Model.term_or_lambda list) list * Property.t 
+val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.value list) list ->  Model.value list -> Model.value list) -> t -> (StateVar.t * Model.value list) list -> Property.t -> t * instance list * (StateVar.t * Model.value list) list * Property.t 
 
 (** {1 State Variables} *)
 
@@ -426,7 +426,7 @@ val set_prop_status : t -> string -> Property.prop_status -> unit
 val set_prop_invariant : t -> string -> unit
 
 (** Mark property as false *)
-val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
+val set_prop_false : t -> string -> (StateVar.t * Model.value list) list -> unit 
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
@@ -525,7 +525,7 @@ type prop_status =
   | PropInvariant 
 
   (** Property is false at some step *)
-  | PropFalse of (StateVar.t * Model.term_or_lambda list) list
+  | PropFalse of (StateVar.t * Model.value list) list
 
 (** Return current status of all properties *)
 val get_prop_status_all_unknown : t -> (string * prop_status) list
@@ -857,7 +857,7 @@ val set_prop_status : t -> string -> prop_status -> unit
 val set_prop_invariant : t -> string -> Term.t list
 
 (** Mark property as false *)
-val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
+val set_prop_false : t -> string -> (StateVar.t * Model.value list) list -> unit 
 
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit

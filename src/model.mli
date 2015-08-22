@@ -18,15 +18,15 @@
 
 
 (** Term or lambda expression *)
-type term_or_lambda = 
-  | Term of Term.t 
+type value =
+  | Term of Term.t
   | Lambda of Term.lambda
 
 (** A model is a list of variables and assignemnts *)
-type t = term_or_lambda Var.VarHashtbl.t
+type t = value Var.VarHashtbl.t
 
 (** A path is a map of state variables to assignments *)
-type path = term_or_lambda list StateVar.StateVarHashtbl.t
+type path = value list StateVar.StateVarHashtbl.t
 
 (** Pretty-print a model *)
 val pp_print_model : Format.formatter -> t -> unit
@@ -38,19 +38,19 @@ val create : int -> t
 val create_path : int -> path
 
 (** Import a variable assignment from a different instance *)
-val import_term_or_lambda : term_or_lambda -> term_or_lambda
+val import_value : value -> value
 
 (** Create a model of an association list *)
-val of_list : (Var.t * term_or_lambda) list -> t
+val of_list : (Var.t * value) list -> t
 
 (** Return an association list with the assignments in the model *)
-val to_list : t -> (Var.t * term_or_lambda) list
+val to_list : t -> (Var.t * value) list
 
 (** Return an association list with the assignments in the model *)
-val path_to_list : path -> (StateVar.t * term_or_lambda list) list
+val path_to_list : path -> (StateVar.t * value list) list
 
 (** Create a model of an association list *)
-val path_of_list : (StateVar.t * term_or_lambda list) list -> path
+val path_of_list : (StateVar.t * value list) list -> path
 
 (** Create a model of an association list *)
 val path_of_term_list : (StateVar.t * Term.t list) list -> path

@@ -30,7 +30,7 @@ type prop_status =
   | PropInvariant 
 
   (* Property is false at some step *)
-  | PropFalse of (StateVar.t * Model.term_or_lambda list) list
+  | PropFalse of (StateVar.t * Model.value list) list
 
 
 
@@ -92,9 +92,9 @@ val prop_status_known : prop_status -> bool
 val set_prop_status : t -> prop_status -> unit
 val set_prop_invariant : t -> unit
 val set_prop_ktrue : t -> int -> unit
-val set_prop_false : t -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val set_prop_false : t -> (StateVar.t * Model.value list) list -> unit
 
-val length_of_cex :  (StateVar.t * Model.term_or_lambda list) list -> int
+val length_of_cex :  (StateVar.t * Model.value list) list -> int
 
 val get_prop_status : t -> prop_status
 

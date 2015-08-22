@@ -103,6 +103,7 @@ let smtlib_string_sexpr_conv =
        s_div = HString.mk_hstring "/";
        s_minus = HString.mk_hstring "-";
        s_define_fun = HString.mk_hstring "define-fun";
+       s_declare_fun = HString.mk_hstring "declare-fun";
        const_of_atom = GenericSMTLIBDriver.const_of_smtlib_atom;
        symbol_of_atom = GenericSMTLIBDriver.symbol_of_smtlib_atom;
        type_of_sexpr = GenericSMTLIBDriver.type_of_smtlib_sexpr;
