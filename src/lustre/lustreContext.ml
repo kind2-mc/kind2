@@ -77,6 +77,9 @@ type t =
     (* Type identifiers and their types and bounds of their indexes *)
     ident_type_map : (Type.t D.t) IT.t;
 
+    (* register indexes of state variables for later use *)
+    state_var_indexes : D.index SVT.t;
+    
     (* Identifiers and the expresssions they are bound to
 
        Contains a term of a variable if the identifier denotes a
@@ -130,6 +133,7 @@ let mk_empty_context () =
     ident_expr_map = [IT.create 7];
     expr_abs_map = ET.create 7;
     state_var_oracle_map = SVT.create 7;
+    state_var_indexes = SVT.create 7;
     fresh_local_index = 0;
     fresh_oracle_index = 0;
     definitions_allowed = None }
@@ -587,6 +591,9 @@ let mk_state_var
       state_var_type 
   in
 
+  (* Register indexes *)
+  SVT.add ctx.state_var_indexes state_var index;
+  
   (* Set source of state variable *)
   let ctx = match state_var_source with 
     | Some s -> set_state_var_source ctx state_var s 

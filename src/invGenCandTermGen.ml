@@ -403,14 +403,18 @@ module CandidateTermGen = struct
     let set_ref = ref set in
     (* Updates the set reference. *)
     let set_update set' = set_ref := set' in
-    
-    ( Term.eval_t
-        ( fun flat_term _ ->
-          (* Applying rules and updating set reference. *)
-          set_update
-            (FlatTermsRules.apply flat_term !set_ref) )
-        
-        term ) ;
+
+    (try
+       Term.eval_t
+         ( fun flat_term _ ->
+            (* Applying rules and updating set reference. *)
+            set_update
+              (FlatTermsRules.apply flat_term !set_ref) )
+
+         term
+     with
+     (* Don't do anything with quantified terms TODO mine them anyway *)
+       Invalid_argument _ -> ());
 
     !set_ref
 

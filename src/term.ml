@@ -339,8 +339,6 @@ let is_select t = match node_of_term t with
    the pair [A] and [[j; k]]. *)
 let rec indexes_and_var_of_select' accum t =
 
-  Format.eprintf "indexes_and_var_of_select' : %a@."
-    (fun f -> T.pp_print_term f) t;
   match node_of_term t with 
 
   | T.FreeVar v -> (v, accum)

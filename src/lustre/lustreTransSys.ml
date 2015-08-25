@@ -1354,6 +1354,9 @@ let rec constraints_of_equations init stateful_vars terms = function
   (* Can define state variable with a let binding *)
   | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
 
+    Format.eprintf "Trying to define %a as %a@."
+      StateVar.pp_print_state_var state_var (E.pp_print_expr false) expr_step;
+    
     (* Let binding for stateless variable *)
     let def =
       (* Conjunction of previous terms of definitions *)
@@ -1371,10 +1374,13 @@ let rec constraints_of_equations init stateful_vars terms = function
            (if 
              (* Does the state variable occur at the previous
                 instant? *)
-             Term.state_vars_at_offset_of_term 
+             try
+               Term.state_vars_at_offset_of_term 
                Numeral.(TransSys.trans_base |> pred) 
                (Term.mk_and terms)
-             |> SVS.mem state_var  
+               |> SVS.mem state_var
+             with Invalid_argument _ -> true
+             
 
             then
               ((* Definition must not contain a [pre] operator, otherwise we'd
