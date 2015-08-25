@@ -486,10 +486,6 @@ let string_of_logic = TermLib.string_of_logic
 (* Pretty-print a logic identifier *)
 let pp_print_logic = TermLib.pp_print_logic
 
-(* symbol for array select function *)
-let select_symbol = "uselect"
-
-(* *)
 
 (* Convert type *)
 let rec interpr_type t = match Type.node_of_type t with
@@ -647,6 +643,10 @@ let rec pp_print_symbol_node ?arity ppf = function
 *)
   | `SELECT ty_array ->
 
+    if Flags.smt_arrays () then
+      Format.pp_print_string ppf "select"
+        
+    else
       (match Type.node_of_type ty_array with
        | Type.Array (t1, t2) ->
          Format.fprintf ppf "|uselect(%a,%a)|"

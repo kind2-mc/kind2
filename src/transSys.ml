@@ -927,7 +927,8 @@ let define_and_declare_of_bounds
     trans_sys;
 
   (* Declare monomorphized select symbols *)
-  declare_selects trans_sys declare;
+  if not (Flags.smt_arrays ()) then
+    declare_selects trans_sys declare;
 
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;

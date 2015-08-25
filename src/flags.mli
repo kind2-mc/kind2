@@ -68,6 +68,10 @@ val smt_check_sat_assume : unit -> smt_check_sat_assume
 type smt_short_names = bool
 val smt_short_names : unit -> smt_short_names
 
+(** Use builtin theory of arrays in SMT solver *)
+type smt_arrays = bool
+val smt_arrays : unit -> smt_arrays
+
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
 val cvc4_bin : unit -> cvc4_bin

@@ -1557,27 +1557,30 @@ let map_state_vars f term =
 (* TODO return ufs *)
 
 let convert_select term =
-  map (fun _ t ->
-      (* Term is a select operation? *)
-      if is_select t then
-        (* Get array variable and indexes of term *)
-        let var, indexes = indexes_and_var_of_select t in
-        (* Get indexes of type of variable *)
-        let index_types = Var.type_of_var var |> Type.all_index_types_of_array in
-        (* Skip if not all indexes of array in term *)
-        if List.length indexes < List.length index_types then t
-        else begin
+  (* Don't encode if using the theory of arrays *)
+  if Flags.smt_arrays () then term
+  else    
+    map (fun _ t ->
+        (* Term is a select operation? *)
+        if is_select t then
+          (* Get array variable and indexes of term *)
+          let var, indexes = indexes_and_var_of_select t in
+          (* Get indexes of type of variable *)
+          let index_types = Var.type_of_var var |> Type.all_index_types_of_array in
+          (* Skip if not all indexes of array in term *)
+          if List.length indexes < List.length index_types then t
+          else begin
 
 
-          (* Must not have more indexes than defined in type *)
-          assert (List.length indexes = List.length index_types);
-          (* Uninterpreted function application for array : first parameter is
-             array and following parameters are indexes *)
-          mk_uf (Var.encode_select var) (mk_var var :: indexes)
-        end
-      else t
-    )
-    term
+            (* Must not have more indexes than defined in type *)
+            assert (List.length indexes = List.length index_types);
+            (* Uninterpreted function application for array : first parameter is
+               array and following parameters are indexes *)
+            mk_uf (Var.encode_select var) (mk_var var :: indexes)
+          end
+        else t
+      )
+      term
 
 
 (* 

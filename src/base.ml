@@ -70,7 +70,7 @@ let split trans solver k falsifiable to_split actlits =
     let model =
       SMTSolver.get_var_values
         solver
-        (TransSys.vars_of_bounds trans Numeral.zero Numeral.one)
+        (TransSys.vars_of_bounds trans Numeral.zero k)
     in
     
     Format.eprintf "BMC model :\n%a@." Model.pp_print_model model;

@@ -240,7 +240,7 @@ let split trans solver k to_split actlits =
 
         (* Get model for all variables *)
         SMTSolver.get_var_values solver
-          (TransSys.vars_of_bounds trans Numeral.zero Numeral.one)
+          (TransSys.vars_of_bounds trans Numeral.zero k)
         
       else
         

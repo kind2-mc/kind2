@@ -423,8 +423,9 @@ let model_of_smt_model s smt_model vars =
 
   (* Add all variable term pairs to the hash table *)
   List.iter
-    (fun v -> 
-       try Var.VarHashtbl.add model v (eval_array_vars v smt_model)
+    (fun v ->
+       let uf_sym = Var.unrolled_uf_of_state_var_instance v in
+       try Var.VarHashtbl.add model v (List.assq uf_sym smt_model)
        with Not_found -> ()
 
 (*
