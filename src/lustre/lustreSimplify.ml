@@ -2012,7 +2012,12 @@ let rec eval_ast_type ctx = function
     (* Add array bounds to type *)
     D.fold
       (fun j t a -> 
-         D.add (j @ [D.ArrayVarIndex array_size]) (Type.mk_array t Type.t_int) a)
+         D.add (j @ [D.ArrayVarIndex array_size])
+           (Type.mk_array t
+              (if E.is_numeral array_size then
+                 Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
+               else Type.t_int))
+           a)
       element_type
       D.empty
 

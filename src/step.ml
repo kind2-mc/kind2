@@ -239,7 +239,8 @@ let split trans solver k to_split actlits =
       if (Flags.ind_compress ()) || (Flags.ind_lazy_invariants ()) then 
 
         (* Get model for all variables *)
-        SMTSolver.get_model solver
+        SMTSolver.get_var_values solver
+          (TransSys.vars_of_bounds trans Numeral.zero Numeral.one)
         
       else
         

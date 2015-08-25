@@ -432,6 +432,9 @@ val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
 (** Beta-evaluate a lambda expression *)
 val eval_lambda : lambda -> t list -> t
 
+(** Partialy Beta-evaluate a lambda expression *)
+val partial_eval_lambda : lambda -> t list -> lambda
+
 (** Tail-recursive bottom-up right-to-left map on the term
     
     Not every subterm is a proper term, since the de Bruijn indexes are
@@ -495,6 +498,8 @@ val vars_at_offset_of_term : Numeral.t -> t -> Var.VarSet.t
 val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
 
 val stats : unit -> int * int * int * int * int * int
+
+val convert_select : t -> t
 
 (* 
    Local Variables:

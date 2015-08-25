@@ -876,7 +876,8 @@ let declare_selects { init; trans } declare =
             UfSymbol.mk_uf_symbol name [ty_array; ti] te
           | _ ->  assert false
          )
-       | _ ->  assert false
+       | `UF u -> u
+       | _ -> assert false
       )
       |>
       declare

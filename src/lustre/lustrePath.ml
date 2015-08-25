@@ -432,7 +432,7 @@ let node_path_of_subsystems
 (* *************************************************************** *)
 
 (* Pretty-print a value *)
-let rec pp_print_value ppf term =
+let rec pp_print_term ppf term =
 
   (* We expect values to be constants *)
   if Term.is_numeral term then 
@@ -470,23 +470,24 @@ let rec pp_print_value ppf term =
     Term.pp_print_term ppf term 
 
 
+let pp_print_value ppf = function
+  
+  (* Output a term as a value *)
+  | Model.Term t -> pp_print_term ppf t    
+
+  (* Output a map as a value *)
+  | Model.Map _ as v -> Model.pp_print_value ppf v
+
+  (* TODO: output an array *)
+  | Model.Lambda _ -> assert false
+
+
 (* Output a single value of a stream at an instant
 
    Give [val_width] as the maximum expected width of the string
    representation of the values for correct alignment. *)
-let pp_print_stream_value_pt val_width ppf = function
-
-  (* Output a term as a value *)
-  | Model.Term t -> 
-
-    Format.fprintf 
-      ppf
-      "%-*s"
-      val_width
-      (string_of_t pp_print_value t)    
-
-  (* TODO: output an array *)
-  | Model.Lambda _ -> assert false
+let pp_print_stream_value_pt val_width ppf v =
+  Format.fprintf ppf "%-*s" val_width (string_of_t pp_print_value v)    
 
 
 (* Output a file position *)
@@ -543,10 +544,10 @@ let rec values_to_strings val_width values = function
   | [] -> (val_width, List.rev values)
 
   (* Output a term as a value *)
-  | Model.Term t :: tl -> 
+  | v :: tl -> 
 
     (* Convert value to string *)
-    let value_string = string_of_t pp_print_value t in
+    let value_string = string_of_t pp_print_value v in
 
     (* Keep track of maximum width of values *)
     let val_width = 
@@ -559,9 +560,6 @@ let rec values_to_strings val_width values = function
       val_width
       (value_string :: values)
       tl 
-
-  (* TODO: output an array *)
-  | Model.Lambda _ :: _ -> assert false
 
   
 (* Convert identifiers and values of streams to strings and update
@@ -811,20 +809,10 @@ let pp_print_stream_prop_xml ppf = function
 
 
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value ppf i = function
-
-  | Model.Term t -> 
-
-    Format.fprintf 
-      ppf
+let pp_print_stream_value ppf i v =
+    Format.fprintf ppf
       "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
-      i
-      pp_print_value t    
-
-  | Model.Lambda _ -> 
-
-    (* TODO: output an array *)
-    assert false
+      i pp_print_value v
 
 
 (* Pretty-print a single stream *)

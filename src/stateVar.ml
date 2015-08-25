@@ -407,26 +407,6 @@ let state_var_of_string (state_var_name, state_var_scope) =
   Hstate_var.find ht (state_var_name, state_var_scope)
 
 
-(*******************************)
-(* Encoding of array variables *)
-(*******************************)
-
-let select_prefix = "_select"
-
-let encode_select sv =
-  let sv_uf = uf_symbol_of_state_var sv in
-  let ty = UfSymbol.res_type_of_uf_symbol sv_uf in
-  assert (Type.is_array ty);
-  let ty_indexes = Type.all_index_types_of_array ty in
-  (* add int for node instance *)
-  let ty_args = Type.t_int :: ty_indexes in
-  let ty_elem = Type.elem_type_of_array ty in
-  let name =
-    select_prefix ^ (string_of_int (List.length ty_indexes)) ^ "_" ^
-    (UfSymbol.string_of_uf_symbol sv_uf) in
-  UfSymbol.mk_uf_symbol name ty_args ty_elem
-
-
 (* ********************************************************************* *)
 (* Folding and utility functions on state variables                      *)
 (* ********************************************************************* *)

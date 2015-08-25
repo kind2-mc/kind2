@@ -230,7 +230,9 @@ let main input_file input_sys aparam trans_sys =
         let path = 
           Model.path_from_model 
             (TransSys.state_vars trans_sys)
-            (SMTSolver.get_model solver)
+            (* (SMTSolver.get_model solver) *)
+            (SMTSolver.get_var_values solver
+               (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
             Numeral.(pred (of_int steps))
         in
 

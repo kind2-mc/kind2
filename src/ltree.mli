@@ -191,6 +191,9 @@ sig
   (** Beta-evaluate a lambda expression *)
   val eval_lambda : lambda -> t list -> t
 
+  (** Partialy Beta-evaluate a lambda expression *)
+  val partial_eval_lambda : lambda -> t list -> lambda
+
   (** Constructor for a term *)
   val mk_term : t_node -> t
 

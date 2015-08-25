@@ -113,6 +113,8 @@ sig
 
   val eval_lambda : lambda -> t list -> t
 
+  val partial_eval_lambda : lambda -> t list -> lambda
+
   val mk_term : t_node -> t
 
   val mk_var : var -> t
@@ -1384,6 +1386,12 @@ struct
       raise (Invalid_argument "eval_lambda")
 
 
+      
+        
+  
+
+
+
   (* Constructor for a term *)
   let mk_term t = ht_term t
 
@@ -1724,6 +1732,49 @@ struct
 
   let instantiate l b = ht_let l b
     
+
+  (* let list_keep_same_number l1 l2 = *)
+  (*   let rec aux acc = function *)
+  (*     | e :: r1, _ :: r2 -> aux (e :: acc) (r1, r2) *)
+  (*     | r1, [] -> List.rev acc, r1 *)
+  (*     | [], _ -> assert false *)
+  (*   in *)
+  (*   aux [] (l1, l2) *)
+
+  (* let missing_args l1 l2 = *)
+  (*   let rec aux = function *)
+  (*     | _ :: r1, _ :: r2 -> aux (r1, r2) *)
+  (*     | r1, [] -> (\* List.map (fun ty -> Var.mk_fresh_var ty) *\) r1 *)
+  (*     | [], _ -> assert false *)
+  (*   in *)
+  (*   aux (l1, l2) *)
+
+  (* let missing_ints l1 l2 = *)
+  (*   let e = List.length l1 in *)
+  (*   let d = List.length l2 in *)
+  (*   let rec aux acc i = *)
+  (*     if i = d - 1 then List.rev acc else aux (i :: acc) (pred i) in *)
+  (*   aux [] (pred e) *)
+    
+    
+  (* (\* Beta-evaluate a lambda expression *\) *)
+  (* let partial_eval_lambda ({ Hashcons.node = L (v, t) } as l) b =  *)
+
+  (*   if List.length v <= List.length b then        *)
+  (*     raise (Invalid_argument "partial_eval_lambda") *)
+  (*   else *)
+  (*     (\* let t = map *\) *)
+  (*     (\*     (function db -> function  *\) *)
+  (*     (\*        | { H.node = BoundVar i } -> ht_bound_var (if i = 1 then 2 else 1) *\) *)
+  (*     (\*        | t -> t) t in *\) *)
+  (*     let v_covered, v_rest = list_keep_same_number v b in *)
+  (*     (\* hl_lambda v_rest (ht_let (hl_lambda v_covered t) b (\\* |> eval_t (fun t _ -> construct t) *\\)) *\) *)
+  (*     (\* ; *\) *)
+  (*     let missing = missing_ints v b |> List.map ht_bound_var in *)
+  (*     hl_lambda v_rest (ht_let l (b @ missing) |> eval_t (fun t _ -> )) *)
+
+let partial_eval_lambda _ _ = assert false
+  
 
 end
 

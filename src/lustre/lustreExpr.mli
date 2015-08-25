@@ -366,6 +366,9 @@ val mk_of_expr : expr -> t
 (** Return true if the expression is constant *)
 val is_const : t -> bool
 
+val is_numeral : expr -> bool
+
+val numeral_of_expr : expr -> Numeral.t
 
 (* 
    Local Variables:

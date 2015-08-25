@@ -2477,7 +2477,7 @@ let add_to_path model path state_vars i =
                TermLib.default_of_type 
                  (StateVar.type_of_state_var sv)
                                          
-             | Model.Lambda _ -> assert false
+             | _ -> assert false
                
          in
 

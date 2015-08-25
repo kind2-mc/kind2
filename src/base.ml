@@ -67,8 +67,14 @@ let split trans solver k falsifiable to_split actlits =
   let if_sat _ =
 
     (* Get the full model *)
-    let model = SMTSolver.get_model solver in
-
+    let model =
+      SMTSolver.get_var_values
+        solver
+        (TransSys.vars_of_bounds trans Numeral.zero Numeral.one)
+    in
+    
+    Format.eprintf "BMC model :\n%a@." Model.pp_print_model model;
+    
     (* Extract counterexample from model *)
     let cex =
       Model.path_from_model (TransSys.state_vars trans) model k in

@@ -1070,7 +1070,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             v'
 
         (* Defer evaluation of lambda abstraction or arrays *)
-        | Model.Lambda _ -> atom_of_term (Term.mk_var v)
+        | Model.Lambda _ | Model.Map _ -> atom_of_term (Term.mk_var v)
 
         (* Free variable without assignment in model *)
         | exception Not_found -> 
@@ -1245,6 +1245,16 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                         (simplify_term_node default_of_var uf_defs model)
                         (Term.eval_lambda l i')
 
+                    (* or map *)
+                    | Model.Map m ->
+                      let args = List.map (fun x ->
+                          Term.numeral_of_term x |> Numeral.to_int) i' in
+                      
+                      (* Evaluate map with simplified indexes *)
+                      Term.eval_t 
+                        (simplify_term_node default_of_var uf_defs model)
+                        (Model.MIL.find args m)
+                        
                     (* Variable must not evaluate to a term *)
                     | Model.Term _ -> assert false 
                       

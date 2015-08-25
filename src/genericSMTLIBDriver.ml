@@ -495,10 +495,10 @@ let select_symbol = "uselect"
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ -> Type.mk_int ()
   | Type.Bool | Type.Int | Type.Real -> t
-  | Type.Array (ti, te) ->
+  | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t
-    else Type.mk_array ti' te'
+    else Type.mk_array te' ti'
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
@@ -507,7 +507,7 @@ let rec pp_print_sort ppf t =
   let t = interpr_type t in
   (* Print array types with an abstract sort *)
   match Type.node_of_type t with
-  | Type.Array (ti, te) ->
+  | Type.Array (te, ti) ->
     Format.fprintf ppf "(FArray %a %a)" pp_print_sort ti pp_print_sort te
   | _ -> Type.pp_print_type ppf t
 
@@ -647,12 +647,12 @@ let rec pp_print_symbol_node ?arity ppf = function
 *)
   | `SELECT ty_array ->
 
-    (match Type.node_of_type ty_array with
-     | Type.Array (t1, t2) ->
-       Format.fprintf ppf "|uselect(%a,%a)|"
-         Type.pp_print_type t1 Type.pp_print_type t2
-     | _ -> assert false
-    )
+      (match Type.node_of_type ty_array with
+       | Type.Array (t1, t2) ->
+         Format.fprintf ppf "|uselect(%a,%a)|"
+           Type.pp_print_type t1 Type.pp_print_type t2
+       | _ -> assert false
+      )
 (*
   | `STORE -> Format.pp_print_string ppf "store"
 *)
@@ -785,7 +785,7 @@ let rec type_of_smtlib_sexpr = function
   | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
   | HStringSExpr.List [HStringSExpr.Atom s; si; se] when s == s_array ->
     let ti, te = type_of_smtlib_sexpr si, type_of_smtlib_sexpr se in
-    Type.mk_array ti te
+    Type.mk_array te ti
   | HStringSExpr.Atom _ | HStringSExpr.List _ as s -> 
     raise
       (Invalid_argument 

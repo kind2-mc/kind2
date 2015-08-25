@@ -350,71 +350,6 @@ let expr_of_ens scope { N.global_contracts; N.mode_contracts } =
     global_contracts
     mode_contracts
 
-(* TODO return ufs *)
-(*
-let convert_select instance term =
-
-  Term.map
-
-    (fun _ t ->
-
-       (* Term is a select operation? *)
-       if Term.is_select t then
-
-         (* Get array variable and indexes of term *)
-         let var, indexes = 
-           Term.indexes_and_var_of_select t
-         in
-
-         (* Get indexes of type of variable *)
-         let index_types = 
-           Var.type_of_var var |> Type.all_index_types_of_array
-         in
-
-         (* Skip if not all indexes of array in term *)
-         if List.length indexes < List.length index_types then t else
-
-           (
-
-             (* Must not have more indexes than defined in type *)
-             assert (List.length indexes = List.length index_types);
-
-             Format.eprintf "uf of select %a (var %a) : %a - (%a) -> %a@."
-               Term.pp_print_term t
-               Var.pp_print_var var
-               UfSymbol.pp_print_uf_symbol
-               (Var.state_var_of_state_var_instance var |> StateVar.encode_select)
-               (fun fmt ->
-                  List.iter (Type.pp_print_type fmt)
-                    
-               ) (UfSymbol.arg_type_of_uf_symbol
-                    (Var.state_var_of_state_var_instance var |> StateVar.encode_select)
-                 )
-               Type.pp_print_type (UfSymbol.res_type_of_uf_symbol
-                                     (Var.state_var_of_state_var_instance var |> StateVar.encode_select)
-                                  )
-               
-             ;
-             
-
-               (* Uninterpreted function application for array *)
-               Term.mk_uf
-               (Var.state_var_of_state_var_instance var
-                |> StateVar.encode_select)
-
-               ((* First parameter is node instance *)
-                 (Var.mk_const_state_var instance
-                  |> Term.mk_var) :: 
-
-                 (* Following parameters are indexes *)
-                 indexes)
-
-           )
-
-       else t
-    )
-    term
-*)
 
 
 (* ********************************************************************** *)
@@ -1365,10 +1300,12 @@ let rec constraints_of_asserts init_terms trans_terms = function
   | { E.expr_init; E.expr_step } :: tl ->
 
     (* Term for assertion in initial state *)
-    let init_term = E.base_term_of_expr TransSys.init_base expr_init in 
+    let init_term = E.base_term_of_expr TransSys.init_base expr_init
+                    |> Term.convert_select in 
 
     (* Term for assertion in step state *)
-    let trans_term = E.cur_term_of_expr TransSys.trans_base expr_step in 
+    let trans_term = E.cur_term_of_expr TransSys.trans_base expr_step
+                     |> Term.convert_select in 
 
     (* Add constraint unless it is true *)
     let init_terms =
@@ -1406,6 +1343,8 @@ let rec constraints_of_equations init stateful_vars terms = function
            (* Equation for transition relation on variable *)
            [E.cur_term_of_state_var TransSys.trans_base state_var; 
             E.cur_term_of_expr TransSys.trans_base expr_step])
+      (* Convert select operators to uninterpreted functions *)
+      |> Term.convert_select
     in
 
     (* Add terms of equation *)
@@ -1449,6 +1388,8 @@ let rec constraints_of_equations init stateful_vars terms = function
                     necessary *)
               [])
         )
+      (* Convert select operators to uninterpreted functions *)
+      |> Term.convert_select
     in
 
     (* Start with singleton lists of let-bound terms *)
@@ -1499,11 +1440,10 @@ let rec constraints_of_equations init stateful_vars terms = function
            pred i)
     in
 
-    (* Attay state variable term *)
-    let sv_term = 
-      Var.mk_state_var_instance state_var
-        (if init then E.base_offset else E.cur_offset)
-      |> Term.mk_var
+    (* Array state variable term *)
+    let sv_term =
+      if init then E.base_term_of_state_var TransSys.init_base state_var
+      else E.cur_term_of_state_var TransSys.trans_base state_var
     in
     
     (* Select array *)
@@ -1526,6 +1466,8 @@ let rec constraints_of_equations init stateful_vars terms = function
          else
            (* Expression at current instant *)
            E.cur_term_of_expr TransSys.trans_base expr_step]
+      (* Convert select operators to uninterpreted functions *)
+      |> Term.convert_select
     in
 
     Format.eprintf "EQ1: %a@." Term.pp_print_term eq;

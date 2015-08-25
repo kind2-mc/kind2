@@ -2138,6 +2138,11 @@ let mk_of_expr expr =
     expr_step = expr; 
    expr_type = Term.type_of_term expr } 
 
+
+let is_numeral = Term.is_numeral
+
+let numeral_of_expr = Term.numeral_of_term
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

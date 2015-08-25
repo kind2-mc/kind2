@@ -46,6 +46,7 @@ let cmd_line
     [| cvc4_bin; 
        "--lang"; "smt2";
        "--rewrite-divk";
+       "--fmf-bound-int";
        "--incremental" |]
 
 

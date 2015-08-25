@@ -16,17 +16,22 @@
 
 *)
 
+module MIL : Map.S with type key = int list
 
 (** Term or lambda expression *)
 type value =
   | Term of Term.t
   | Lambda of Term.lambda
+  | Map of Term.t MIL.t
 
 (** A model is a list of variables and assignemnts *)
 type t = value Var.VarHashtbl.t
 
 (** A path is a map of state variables to assignments *)
 type path = value list StateVar.StateVarHashtbl.t
+
+(** Pretty-print a value *)
+val pp_print_value : Format.formatter -> value -> unit
 
 (** Pretty-print a model *)
 val pp_print_model : Format.formatter -> t -> unit

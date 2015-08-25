@@ -196,7 +196,7 @@ let slice_to_abstraction_and_property
                        assert false
 
                    (* TODO: models with arrays *)
-                   | Model.Lambda _ -> assert false)
+                   |  _ -> assert false)
                 clock_values
                 v
                 [])

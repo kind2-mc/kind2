@@ -436,6 +436,10 @@ let eval_t = T.eval_t
    as argument *)
 let eval_lambda = T.eval_lambda
 
+(* Partialy evaluate a term bottom-up right-to-left, given the flattened term
+   as argument *)
+let partial_eval_lambda = T.partial_eval_lambda
+
 (* Bottom-up right-to-left map of the term 
 
    Must hashcons bottom-up since term was destructed and not all terms
@@ -1549,6 +1553,31 @@ let map_state_vars f term =
 
     term
 
+
+(* TODO return ufs *)
+
+let convert_select term =
+  map (fun _ t ->
+      (* Term is a select operation? *)
+      if is_select t then
+        (* Get array variable and indexes of term *)
+        let var, indexes = indexes_and_var_of_select t in
+        (* Get indexes of type of variable *)
+        let index_types = Var.type_of_var var |> Type.all_index_types_of_array in
+        (* Skip if not all indexes of array in term *)
+        if List.length indexes < List.length index_types then t
+        else begin
+
+
+          (* Must not have more indexes than defined in type *)
+          assert (List.length indexes = List.length index_types);
+          (* Uninterpreted function application for array : first parameter is
+             array and following parameters are indexes *)
+          mk_uf (Var.encode_select var) (mk_var var :: indexes)
+        end
+      else t
+    )
+    term
 
 
 (* 

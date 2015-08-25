@@ -21,34 +21,78 @@ open Lib
 module SVT = StateVar.StateVarHashtbl
 module VT = Var.VarHashtbl
 
+module MIL = Map.Make
+    (struct
+      type t = int list
+      let rec compare l1 l2 = match l1, l2 with
+        | [], [] -> 0
+        | [], _ -> -1
+        | _, [] -> 1
+        | x :: r1, y :: r2 ->
+          let c = Pervasives.compare x y in
+          if c <> 0 then c
+          else compare r1 r2
+    end)
+
+
 (* Hashconsed term or hashconsed lambda expression *)
 type value =
   | Term of Term.t
   | Lambda of Term.lambda
+  | Map of Term.t MIL.t
 
+    
 (* A model is a map variables to assignments *)
 type t = value VT.t
 
 (* A path is a map of state variables to assignments *)
 type path = value list SVT.t
 
+(* Show map as an array in counteexamples *)
+let pp_print_map_as_array ppf m =
+  let dim = MIL.choose m |> fst |> List.length in
+  let current = Array.make dim 0 in
+  let prev = Array.make dim 0 in
+  for i = 1 to dim do
+    Format.fprintf ppf "[";
+  done;
+  let first = ref true in
+  MIL.iter (fun l v ->
+      Array.blit current 0 prev 0 dim;
+      Array.blit (Array.of_list l) 0 current 0 dim;
+      let cpt = ref 0 in
+      for i = dim - 2 downto 0 do
+        if current.(i) <> prev.(i) then (Format.fprintf ppf "]"; incr cpt);
+      done;
+      (* if !cpt <> !nopen then  Format.fprintf ppf ";"; *)
+      if !cpt > 0 then Format.fprintf ppf ";@ "
+      else if not !first then Format.fprintf ppf ";";
+      for i = 1 to !cpt do
+        Format.fprintf ppf "[";
+      done;
+      Term.pp_print_term ppf v;
+      first := false;
+    ) m;
+  for i = 1 to dim do
+    Format.fprintf ppf "]";
+  done
+
+(* Print a value of the model *)  
+let pp_print_value ppf = function 
+  | Term t -> Term.pp_print_term ppf t
+  | Lambda l -> Term.pp_print_lambda ppf l
+  | Map m -> pp_print_map_as_array ppf m
+
+
 (* Pretty-print a model *)
 let pp_print_model ppf model = 
-
   Var.VarHashtbl.iter
-    (function v -> function
-       | Term t -> 
-         Format.fprintf ppf
-           "@[<hv 2>%a =@ %a@]@ " 
-           Var.pp_print_var v 
-           Term.pp_print_term t
-       | Lambda l -> 
-         Format.fprintf ppf
-           "@[<hv 2>%a =@ %a@]@ " 
-           Var.pp_print_var v 
-           Term.pp_print_lambda l
+    (fun v value ->
+      Format.fprintf ppf
+        "@[<hv 2>%a =@ %a@]@." 
+        Var.pp_print_var v
+        pp_print_value value
     )
-
     model
 
 (* Create a model of the given size *)
@@ -61,6 +105,10 @@ let create_path sz = SVT.create sz
 let import_value = function
   | Term t -> Term (Term.import t)
   | Lambda l -> Lambda (Term.import_lambda l)
+  | Map m ->
+    Map (MIL.fold (fun l v acc ->
+        MIL.add l (Term.import v) acc)
+        m MIL.empty)
 
 
 (* Create a model of an association list *)
@@ -126,6 +174,22 @@ let path_to_list p =
     []
 
 
+let find_value_vi vi model =
+  let rec find prev vi =
+    try
+      let va = VT.find model vi in
+      match va with
+      | Term t when Term.is_free_var t ->
+        find (Some va) (Term.free_var_of_term t)
+      | _ -> va
+    with Not_found ->
+      match prev with
+      | None -> raise Not_found
+      | Some va -> va
+  in
+  find None vi
+
+
 (* Extract a path in the transition system, return an association list
    of state variables to a list of their values *)
 let path_from_model state_vars model k =
@@ -155,9 +219,7 @@ let path_from_model state_vars model k =
              try 
 
                (* Find value in model *)
-               VT.find
-                 model
-                 (Var.mk_state_var_instance state_var i)
+               find_value_vi (Var.mk_state_var_instance state_var i) model
 
              with Not_found -> 
 

@@ -393,6 +393,28 @@ let model_of_smt_values conv_left type_left s smt_values =
   (* Return hash table *)
   model
 
+
+let eval_array_vars v smt_model =
+
+  let uf_sym = Var.unrolled_uf_of_state_var_instance v in
+
+  (* let ty = Var.type_of_var v in *)
+  (* match Type.node_of_type ty with *)
+  (* | Type.Array (te, ti) -> *)
+  (*   let select_s = *)
+  (*     Format.asprintf "|uselect(%a,%a)|" *)
+  (*       Type.pp_print_type ti Type.pp_print_type te in *)
+  (*   let select_uf = UfSymbol.mk_uf_symbol select_s [ty; ti] te in *)
+  (*   let select_lambda = *)
+  (*     match List.assq select_uf smt_model with *)
+  (*     | Model.Lambda l -> l | Model.Term _ -> assert false in *)
+  (*   (match List.assq uf_sym smt_model with *)
+  (*    | Model.Term t -> Model.Lambda (Term.partial_eval_lambda select_lambda [t]) *)
+  (*    | Model.Lambda  _ -> assert false) *)
+
+  (* | _ -> *) List.assq uf_sym smt_model
+
+
 let model_of_smt_model s smt_model vars = 
   let module S = (val s.solver_inst) in
 
@@ -402,15 +424,7 @@ let model_of_smt_model s smt_model vars =
   (* Add all variable term pairs to the hash table *)
   List.iter
     (fun v -> 
-
-       let uf_sym = Var.unrolled_uf_of_state_var_instance v in
-
-       try
-
-         let t_or_l = List.assq uf_sym smt_model in
-
-         Var.VarHashtbl.add model v t_or_l 
-
+       try Var.VarHashtbl.add model v (eval_array_vars v smt_model)
        with Not_found -> ()
 
 (*
@@ -424,7 +438,8 @@ let model_of_smt_model s smt_model vars =
   model
   
 
-let partial_model_of_smt_model s smt_model = 
+let partial_model_of_smt_model s smt_model =
+  
   let module S = (val s.solver_inst) in
 
   (* Create hash table with size matching the number of values *)
@@ -433,7 +448,7 @@ let partial_model_of_smt_model s smt_model =
   (* Add all variable term pairs to the hash table *)
   List.iter
     (fun (uf_sym, t_or_l) -> 
-
+       
        try 
 
          let var = Var.state_var_instance_of_uf_symbol uf_sym in
@@ -465,26 +480,43 @@ let get_term_values s terms =
    instead of get-value *)
 exception Var_is_array
 
+
+(* range as list of integers *)
+let rec range (l, u) =
+  let rec aux acc u =
+    if u < l then acc
+    else
+      aux (u :: acc) (u - 1) in
+  aux [] u
+
+
+(* Cross product between lists of elements *)
+
+let cross_2 l1 l2 =
+  List.fold_left (fun acc i1 ->
+      List.fold_left (fun acc i2 -> (i1 :: i2) :: acc) acc l2
+    ) [] l1
+    
+let cross ll = List.fold_left (fun acc l -> cross_2 l acc) [[]] ll
+
+
 (* Get model of the current context *)
 let get_var_values s vars =
   let module S = (val s.solver_inst) in
 
-  match 
+  (* separate array variables *)
+  let sexpr_vars, array_vars =
+    List.fold_left (fun (sexpr_vars, array_vars) v ->
+        if Var.type_of_var v |> Type.is_array then
+          sexpr_vars, v :: array_vars
+        else
+          (S.Conv.smtexpr_of_var v []) :: sexpr_vars, array_vars
+      ) ([], []) vars
+  in
 
-    (* Get values of SMT expressions in current context *)
-    prof_get_value s
-
-      (* Map variables to terms and raise exception if a variable is
-         of array type *)
-      (List.map
-         (fun v -> 
-            if Var.type_of_var v |> Type.is_array then
-              raise Var_is_array
-            else
-              S.Conv.smtexpr_of_var v [])
-         vars)
-
-  with 
+  (* Get values of SMT expressions in current context *)
+  let model =
+    match prof_get_value s sexpr_vars with 
 
     | `Error e -> 
       raise 
@@ -500,31 +532,41 @@ let get_var_values s vars =
 
            (* We are sure that there are no array typed variables *)
            assert (Term.is_free_var t); 
-           (Term.free_var_of_term t))
+           (Term.free_var_of_term t)
+        )
+        Var.type_of_var s v
+  in
 
-        Var.type_of_var 
-        s 
-        v
-
-    | exception Var_is_array -> 
-
-      (
-        match 
-
-          (* Get model in current context *)
-          prof_get_model s ()
-
-        with 
-
-          | `Error e -> 
-            raise 
-              (Failure ("SMT solver failed: " ^ e))
-              
-          | `Model m ->
-
-            model_of_smt_model s m vars
-
-      )
+  (* get model for arrays *)
+  List.iter (fun v ->
+      let ty = Var.type_of_var v in 
+      assert (Type.is_array ty);
+      let id_tys = Type.all_index_types_of_array ty in
+      let bnds = List.map (fun ti ->
+          let nl, nu = Type.bounds_of_int_range ti in
+          Numeral.to_int nl, Numeral.to_int nu) id_tys in
+      let args_list = cross (List.map range bnds) in
+      let vt = Term.mk_var v in
+      let sexprs =
+        List.map (fun args ->
+            List.fold_left Term.mk_select
+              vt (List.rev_map Term.mk_num_of_int args)
+            |> Term.convert_select
+            |> S.Conv.smtexpr_of_term
+          ) args_list in
+      let values =
+        match prof_get_value s sexprs with
+        | `Values v -> v
+        | `Error e -> raise (Failure ("SMT solver failed: " ^ e))
+      in
+      let m =
+        List.fold_left2 (fun acc args (_, e) ->
+            Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
+          ) Model.MIL.empty args_list values in
+      Var.VarHashtbl.add model v (Model.Map m)
+    ) array_vars;
+      
+  model
 
 
 (* Get model of the current context *)
