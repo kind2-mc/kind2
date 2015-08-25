@@ -72,6 +72,10 @@ val smt_short_names : unit -> smt_short_names
 type smt_arrays = bool
 val smt_arrays : unit -> smt_arrays
 
+(** Inline arrays with fixed bounds *)
+type inline_arrays = bool
+val inline_arrays : unit -> inline_arrays
+
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
 val cvc4_bin : unit -> cvc4_bin

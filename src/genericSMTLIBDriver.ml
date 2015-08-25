@@ -40,10 +40,12 @@ let headers () = []
 
 (* top level declaration to add to the solver *)
 let prelude =
-  [
-    (* Sort declaration for uninterpreted arrays *)
-    "(declare-sort FArray 2)";
-  ]
+  if Flags.smt_arrays () then []
+  else
+    [
+      (* Sort declaration for uninterpreted arrays *)
+      "(declare-sort FArray 2)";
+    ]
 
 (* Extension for trace file *)
 let trace_extension = "smt2"
@@ -358,12 +360,19 @@ let gen_expr_of_string_sexpr'
 
         in
 
-        (* Create an application of the function symbol to the subterms *)
-        let t = 
-          Term.mk_app
-            s
-            (List.map (expr_of_string_sexpr conv bound_vars) tl)
+        (* parse arguments *)
+        let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
+
+        (* Add correct type to select *)
+        let s = match Symbol.node_of_symbol s, args with
+          | `SELECT _, [a; _] ->
+            Symbol.mk_symbol
+              (`SELECT (Term.type_of_term a |> Type.elem_type_of_array))
+          | _ -> s
         in
+        
+        (* Create an application of the function symbol to the subterms *)
+        let t = Term.mk_app s args in
 
         (* Convert (= 0 (mod t n)) to (t divisible n) *)
         Term.mod_to_divisible t
@@ -504,7 +513,10 @@ let rec pp_print_sort ppf t =
   (* Print array types with an abstract sort *)
   match Type.node_of_type t with
   | Type.Array (te, ti) ->
-    Format.fprintf ppf "(FArray %a %a)" pp_print_sort ti pp_print_sort te
+    if Flags.smt_arrays () then
+      Format.fprintf ppf "(Array %a %a)" pp_print_sort ti pp_print_sort te
+    else
+      Format.fprintf ppf "(FArray %a %a)" pp_print_sort ti pp_print_sort te
   | _ -> Type.pp_print_type ppf t
 
 (* Return a string representation of a sort *)
@@ -549,9 +561,9 @@ let smtlib_string_symbol_list =
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvult", Symbol.mk_symbol `BVULT);
 *)
-   (* ("select", Symbol.mk_symbol `SELECT); *)
+   ("select", Symbol.mk_symbol (`SELECT Type.t_int)); (* placeholder *)
    (* uninterpreted select *)
-   (* ("uselect", Symbol.mk_symbol `SELECT); *)
+   (* ("uselect", Symbol.mk_symbol (`SELECT Type.t_int)); *)
 (*
    ("store", Symbol.mk_symbol `STORE)
 *)
@@ -775,7 +787,9 @@ let const_of_smtlib_atom b t =
 let s_int = HString.mk_hstring "Int" 
 let s_real = HString.mk_hstring "Real" 
 let s_bool = HString.mk_hstring "Bool" 
-let s_array = HString.mk_hstring "FArray"
+let s_array () =
+  if Flags.smt_arrays () then HString.mk_hstring "Array"
+  else HString.mk_hstring "FArray"
 
 
 (* Convert an S-expression to a sort *)
@@ -783,7 +797,7 @@ let rec type_of_smtlib_sexpr = function
   | HStringSExpr.Atom s when s == s_int -> Type.t_int
   | HStringSExpr.Atom s when s == s_real -> Type.t_real
   | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
-  | HStringSExpr.List [HStringSExpr.Atom s; si; se] when s == s_array ->
+  | HStringSExpr.List [HStringSExpr.Atom s; si; se] when s == s_array () ->
     let ti, te = type_of_smtlib_sexpr si, type_of_smtlib_sexpr se in
     Type.mk_array te ti
   | HStringSExpr.Atom _ | HStringSExpr.List _ as s -> 

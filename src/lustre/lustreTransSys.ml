@@ -1416,6 +1416,7 @@ let rec constraints_of_equations init stateful_vars terms = function
 
       (* Fixed index [e] *)
       | N.Fixed e -> 
+        Format.eprintf "mk_let %a@." (E.pp_print_expr false) e;
         (* Let bind index variable to value [e] *)
         fun (a, i) ->
           (Term.mk_let 
@@ -1425,7 +1426,30 @@ let rec constraints_of_equations init stateful_vars terms = function
            pred i)
 
       (* Variable index of size [e] *)
-      | N.Bound e -> 
+      | N.Bound e ->
+
+        if Flags.inline_arrays () then begin
+          if not (E.is_numeral e) then
+            failwith "Trying to inline non-fixed bounds arrays.";
+
+          let b = E.numeral_of_expr e |> Numeral.to_int in
+
+          fun (a, i) ->
+            (* Index variable *)
+            let v = index_var_of_int i in
+
+            let cj = ref [] in
+            for x = b downto 0 do
+              cj := Term.mk_let [v, Term.mk_num_of_int x] a :: !cj
+            done;
+
+            match !cj with
+            | [] -> assert false
+            | [t] -> t, pred i
+            | cj -> Term.mk_and cj, pred i
+        end
+        else
+          
         (* Quantify over index variable between zero and upper bound *)
         fun (a, i) -> 
           (* Index variable *)

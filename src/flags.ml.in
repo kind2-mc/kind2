@@ -235,6 +235,16 @@ let smt_arrays_default = false
 
 (* ********** *) 
 
+type inline_arrays = bool
+
+let inline_arrays_of_string s = s
+
+let string_of_inline_arrays s = s 
+
+let inline_arrays_default = false
+
+(* ********** *) 
+
 type cvc4_bin = string 
 
 let cvc4_bin_of_string s = s
@@ -630,6 +640,7 @@ type flags =
     mutable smt_check_sat_assume : smt_check_sat_assume;
     mutable smt_short_names : smt_short_names;
     mutable smt_arrays : smt_arrays;
+    mutable inline_arrays : inline_arrays;
     mutable cvc4_bin : cvc4_bin;
     mutable mathsat5_bin : mathsat5_bin;
     mutable yices_bin : yices_bin;
@@ -685,6 +696,7 @@ let flags =
     smt_check_sat_assume = smt_check_sat_assume_default;
     smt_short_names = smt_short_names_default;
     smt_arrays = smt_arrays_default;
+    inline_arrays = inline_arrays_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
@@ -810,6 +822,15 @@ let smt_arrays_spec =
   ("--smt_arrays", 
    Arg.Unit smt_arrays_action, 
    "Use the theory of arrays")
+
+(* ********** *) 
+
+let inline_arrays_action () = flags.inline_arrays <- true
+  
+let inline_arrays_spec = 
+  ("--inline_arrays", 
+   Arg.Unit inline_arrays_action, 
+   "Inline fixed bounds arrays")
 
 (* ********** *) 
 
@@ -1292,6 +1313,8 @@ let smt_short_names () = flags.smt_short_names
 
 let smt_arrays () = flags.smt_arrays
 
+let inline_arrays () = flags.inline_arrays
+
 let cvc4_bin () = flags.cvc4_bin
 
 let mathsat5_bin () = flags.mathsat5_bin
@@ -1426,6 +1449,9 @@ and speclist =
 
     (* Use builtin theory of arrays in SMT solver *)
     smt_arrays_spec;
+
+    (* Inline arrays with fixed bounds *)
+    inline_arrays_spec;
 
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;

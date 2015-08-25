@@ -923,12 +923,12 @@ let mk_abs_for_expr
 
     (* new array if there are bound variables *)
     let var_type = List.fold_left (fun ty -> function
-        | N.Bound b | N.Fixed b when E.is_numeral b ->
+        | N.Bound b | N.Fixed b ->
           Type.mk_array ty
             (if E.is_numeral b then
                Type.mk_int_range Numeral.zero (E.numeral_of_expr b)
              else Type.t_int)
-        | _ -> assert false
+        (* | _ -> assert false *)
       ) expr_type bounds in
 
     (* Create state variable for abstraction *)
