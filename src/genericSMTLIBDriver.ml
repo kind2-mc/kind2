@@ -366,8 +366,7 @@ let gen_expr_of_string_sexpr'
         (* Add correct type to select *)
         let s = match Symbol.node_of_symbol s, args with
           | `SELECT _, [a; _] ->
-            Symbol.mk_symbol
-              (`SELECT (Term.type_of_term a |> Type.elem_type_of_array))
+            Symbol.mk_symbol (`SELECT (Term.type_of_term a))
           | _ -> s
         in
         
@@ -561,7 +560,8 @@ let smtlib_string_symbol_list =
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvult", Symbol.mk_symbol `BVULT);
 *)
-   ("select", Symbol.mk_symbol (`SELECT Type.t_int)); (* placeholder *)
+   ("select", Symbol.mk_symbol
+      (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
    (* uninterpreted select *)
    (* ("uselect", Symbol.mk_symbol (`SELECT Type.t_int)); *)
 (*

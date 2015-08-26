@@ -521,10 +521,6 @@ node_equation:
 
 left_side:
 
-  (* Recursive array definition *)
-  | s = ident; l = nonempty_list(index_var)
-     { A.ArrayDef (mk_pos $startpos, s, l)}
-
   (* List without parentheses *)
   | l = struct_item_list { A.StructDef (mk_pos $startpos, l) }
 
@@ -540,7 +536,11 @@ struct_item:
 
   (* Single identifier *)
   | s = ident
-     { A.SingleIdent (mk_pos $startpos, s) }
+      { A.SingleIdent (mk_pos $startpos, s) }
+          
+  (* Recursive array definition *)
+  | s = ident; l = nonempty_list(index_var)
+     { A.ArrayDef (mk_pos $startpos, s, l)}
 
 (*
   (* Filter array values *)

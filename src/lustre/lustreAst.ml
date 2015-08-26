@@ -199,11 +199,11 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  | ArrayDef of position * ident * ident list
 
 
 (* The left-hand side of an equation *)
 type eq_lhs =
-  | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
 
@@ -728,6 +728,13 @@ let pp_print_node_local_decl ppf l =
       (pp_print_list pp_print_node_local_decl_var "@ ") v 
 
 
+let pp_print_array_def_index ppf ident =
+
+  Format.fprintf ppf
+    "[%a]"
+    pp_print_ident ident
+
+
 let rec pp_print_struct_item ppf = function
 
   | SingleIdent (pos, s) -> Format.fprintf ppf "%a" pp_print_ident s
@@ -758,20 +765,6 @@ let rec pp_print_struct_item ppf = function
       "%a@[<hv 1>[%a]@]" 
       pp_print_ident e
       (pp_print_list pp_print_array_slice ",@ ") i
-
-
-let pp_print_array_def_index ppf ident =
-
-  Format.fprintf ppf
-    "[%a]"
-    pp_print_ident ident
-
-
-let pp_print_eq_lhs ppf = function
-
-  | StructDef (pos, [l]) -> pp_print_struct_item ppf l
-      
-  | StructDef (pos, l) -> (pp_print_list pp_print_struct_item "@,") ppf l
                             
   | ArrayDef (pos, i, l) ->
 
@@ -779,6 +772,13 @@ let pp_print_eq_lhs ppf = function
       "%a%a"
       pp_print_ident i
       (pp_print_list pp_print_array_def_index "") l
+
+
+let pp_print_eq_lhs ppf = function
+
+  | StructDef (pos, [l]) -> pp_print_struct_item ppf l
+      
+  | StructDef (pos, l) -> (pp_print_list pp_print_struct_item "@,") ppf l
   
 
 (* Pretty-print a node equation *)

@@ -346,99 +346,7 @@ let eval_struct_item ctx pos = function
     in
 
     (* Return trie of state variables and context unchanged *)
-    (res, ctx)
-
-  | A.TupleStructItem (pos, _)  
-  | A.TupleSelection (pos, _, _) 
-  | A.FieldSelection (pos, _, _) 
-  | A.ArraySliceStructItem (pos, _, _) ->     
-
-    C.fail_at_position 
-      pos 
-      "Assignment not supported" 
-
-
-(* Remove elements of the left-hand side from the scope *)
-let uneval_eq_lhs ctx = function
-
-  (* Nothing added from structrural assignments *)
-  | A.StructDef (pos, _) -> ctx
-
-  (* Remove index variables in recursive array definitions *)
-  | A.ArrayDef (pos, _, l) -> 
-
-    (* Remove bindings for the running variables from the context in
-       reverse order *)
-    let ctx = 
-      List.fold_left 
-        (fun ctx v -> 
-
-           (* Bind identifier to the index variable, shadow previous
-              bindings *)
-           let ctx = 
-             C.remove_expr_for_ident
-               ctx
-               (I.mk_string_ident v)
-           in
-           ctx)
-        ctx
-        (List.rev l)
-    in
-           
-    ctx
-
-
-(* Return a trie of state variables from the left-hand side of an
-   equation *)
-let rec eval_eq_lhs ctx pos = function
-
-  (* Empty list for node calls without returns *)
-  | A.StructDef (pos, []) -> (D.empty, 0, ctx)
-
-  (* Single item *)
-  | A.StructDef (pos, [e]) -> 
-
-    (* Get types of item *)
-    let t, ctx = eval_struct_item ctx pos e in 
-
-    (* Return types of indexes, no array bounds and unchanged
-       context *)
-    t, 0, ctx
-
-  (* List of items *)
-  | A.StructDef (pos, l) -> 
-
-    (* Combine by adding index for position on left-hand side *)
-    let ctx, _, res = 
-      List.fold_left
-        (fun (ctx, i, accum) e -> 
-
-           (* Get state variables of item *)
-           let t, ctx = eval_struct_item ctx pos e in 
-
-           (* Changed context *)
-           (ctx,
-
-            (* Go forwards through list *)
-            succ i,
-
-            (* Add index of item on left-hand side to indexes *)
-            D.fold
-              (fun j e a -> D.add (D.ListIndex i :: j) e a)
-              t
-              accum))
-
-        (* Add to empty trie with first index zero *)
-        (ctx, 0, D.empty)
-
-        (* Iterate over list *)
-        l
-
-    in
-
-    (* Return types of indexes, no array bounds and unchanged
-       context *)
-    res, 0, ctx
+    (res, 0, ctx)
 
   (* Recursive array definition *)
   | A.ArrayDef (pos, i, l) -> 
@@ -550,6 +458,96 @@ let rec eval_eq_lhs ctx pos = function
 
     res, indexes, ctx
 
+
+  | A.TupleStructItem (pos, _)  
+  | A.TupleSelection (pos, _, _) 
+  | A.FieldSelection (pos, _, _) 
+  | A.ArraySliceStructItem (pos, _, _) ->     
+
+    C.fail_at_position 
+      pos 
+      "Assignment not supported" 
+
+
+let uneval_struct_item ctx = function
+
+  (* Remove index variables in recursive array definitions *)
+  | A.ArrayDef (pos, _, l) -> 
+
+    (* Remove bindings for the running variables from the context in
+       reverse order *)
+    let ctx = 
+      List.fold_left 
+        (fun ctx v -> 
+
+           (* Bind identifier to the index variable, shadow previous
+              bindings *)
+           let ctx = 
+             C.remove_expr_for_ident
+               ctx
+               (I.mk_string_ident v)
+           in
+           ctx)
+        ctx
+        (List.rev l)
+    in
+           
+    ctx
+
+  | _ -> ctx
+
+
+(* Remove elements of the left-hand side from the scope *)
+let uneval_eq_lhs ctx = function
+
+  (* Nothing added from structrural assignments *)
+  | A.StructDef (pos, l) -> List.fold_left uneval_struct_item ctx l
+
+
+(* Return a trie of state variables from the left-hand side of an
+   equation *)
+let rec eval_eq_lhs ctx pos = function
+
+  (* Empty list for node calls without returns *)
+  | A.StructDef (pos, []) -> (D.empty, 0, ctx)
+
+  (* Single item *)
+  | A.StructDef (pos, [e]) -> eval_struct_item ctx pos e 
+
+  (* List of items *)
+  | A.StructDef (pos, l) -> 
+
+    (* Combine by adding index for position on left-hand side *)
+    let ctx, i, res = 
+      List.fold_left
+        (fun (ctx, i, accum) e -> 
+
+           (* Get state variables of item *)
+           let t, index, ctx = eval_struct_item ctx pos e in 
+
+           (* Changed context *)
+           (ctx,
+
+            (* Go forwards through list *)
+            index + i,
+
+            (* Add index of item on left-hand side to indexes *)
+            D.fold
+              (fun j e a -> D.add (D.ListIndex index :: j) e a)
+              t
+              accum))
+
+        (* Add to empty trie with first index zero *)
+        (ctx, 0, D.empty)
+
+        (* Iterate over list *)
+        l
+
+    in
+
+    (* Return types of indexes, no array bounds and unchanged
+       context *)
+    res, i, ctx
 
 (* Match bindings from a trie of state variables and bindings for a
    trie of expressions and produce a list of equations *)
