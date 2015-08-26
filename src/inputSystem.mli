@@ -30,6 +30,9 @@ type _ t
 (** Read input from file *)
 val read_input_lustre : string -> LustreNode.t t
 
+(** Returns the scopes of all the systems in an input systems, in topological
+    order. *)
+val ordered_scopes_of : 'a t -> Scope.t list
 
 (** Return the next system to analyze and the systems to abstract *)
 val next_analysis_of_strategy :

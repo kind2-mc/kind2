@@ -186,6 +186,33 @@ let pp_print_param fmt { top ; abstraction_map ; assumptions } =
       "@ ")
     assumptions
 
+let pp_print_result_quiet fmt { sys } =
+  match TransSys.get_split_properties sys with
+  | valid, [], [] ->
+    Format.fprintf fmt "%a | safe (%d properties)"
+      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      (List.length valid)
+  | valid, [], unknown ->
+    Format.fprintf fmt "%a @[<v>\
+      | timeout@ \
+      | unknown: [ @[<hov>%a@] ]@ \
+      | valid:   [ @[<hov>%a@] ]\
+    @]"
+    Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+    (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
+    (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
+  | valid, invalid, unknown ->
+    Format.fprintf fmt "%a @[<v>\
+      | unsafe@ \
+      | invalid: [ @[<hov>%a@] ]@ \
+      | unknown: [ @[<hov>%a@] ]@ \
+      | valid:   [ @[<hov>%a@] ]\
+    @]"
+    Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+    (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
+    (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
+    (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
+
 let pp_print_result fmt {
   param ; sys ; contract_valid ; requirements_valid
 } =

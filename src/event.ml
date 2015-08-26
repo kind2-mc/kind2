@@ -37,7 +37,7 @@ type event =
 (* Pretty-print an event *)
 let pp_print_event ppf = function 
 
-  | Invariant (s, t) -> 
+  | Invariant (s, t) ->
     Format.fprintf ppf "@[<hv>Invariant for %a@ %a@]" 
       (pp_print_list Format.pp_print_string ".") s
       Term.pp_print_term t
@@ -435,7 +435,7 @@ let prop_status_pt level prop_status =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>%a@,Summary_of_properties:@,@,%a@,%a@,@]@."
+    "@[<v>%a@,Summary of properties:@,@,%a@,%a@,@]@."
     pp_print_hline ()
     (pp_print_list 
        (fun ppf (p, s) -> 
@@ -505,18 +505,33 @@ let pp_print_kind_module_xml_src ppf m =
 
 
 (* XML at the beginning the output *)
-let print_xml_header () = 
-
-  Format.fprintf 
-    !log_ppf 
-    "@[<v><?xml version=\"1.0\"?>@,\
-     <Results xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">@]@."
+let print_xml_header () =
+    Format.fprintf !log_ppf "@[<v>\
+      <?xml version=\"1.0\"?>@ \
+      <Results \
+        xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
+        enabled=\"%a\" \
+        timeout=\"%f\" \
+        bmc_max=\"%d\" \
+        compositional=\"%b\" \
+        modular=\"%b\"\
+      >@.@.@.\
+    "
+    (pp_print_list (fun fmt m ->
+        (xml_src_of_kind_module m) |> Format.fprintf fmt "%s"
+      )
+      ",")
+    (Flags.enable ())
+    (Flags.timeout_wall ())
+    (Flags.bmc_max ())
+    (Flags.compositional ())
+    (Flags.modular ())
 
 
 (* XML at the end of the output *)
 let print_xml_trailer () = 
 
-  Format.fprintf !log_ppf "</Results>@."
+  Format.fprintf !log_ppf "@.@.</Results>@."
 
 
 (* Output message as XML *)
@@ -547,7 +562,7 @@ let proved_xml mdl level trans_sys k prop =
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
         <Answer source=\"%a\">valid</Answer>@;<0 -2>\
-        </Property>@]@.") 
+        </Property>@]@.")
       prop
       (Stat.get_float Stat.total_time)
       (function ppf -> match k with 
@@ -674,7 +689,11 @@ let progress_xml mdl level k =
 (* Pretty-print a list of properties and their status *)
 let prop_status_xml level prop_status =
 
-  (ignore_or_fprintf level)
+  (* Filter unknown properties. *)
+  prop_status
+  |> List.filter (fun (prop,status) ->
+    not (Property.prop_status_known status)
+  ) |> (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@]@."
     (pp_print_list 
@@ -713,7 +732,46 @@ let prop_status_xml level prop_status =
                      (Property.length_of_cex cex))
               s)
        "@,")
-    prop_status
+  (* (ignore_or_fprintf level)
+    !log_ppf
+    "@[<v>%a@]@."
+    (pp_print_list 
+       (fun ppf (p, s) -> 
+
+          (* Only output properties with status unknonw *)
+          if not (Property.prop_status_known s) then
+            
+            Format.fprintf 
+              ppf
+              "@[<hv 2><Property name=\"%s\">@,\
+               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
+               %a@,\
+               @;<0 -2></Property>@]"
+              p
+              (function ppf -> function 
+                 | Property.PropUnknown
+                 | Property.PropKTrue _ -> Format.fprintf ppf "unknown"
+                 | Property.PropInvariant -> Format.fprintf ppf "valid"
+                 | Property.PropFalse [] 
+                 | Property.PropFalse _ -> Format.fprintf ppf "falsifiable")
+              s
+              (function ppf -> function
+                 | Property.PropUnknown
+                 | Property.PropInvariant 
+                 | Property.PropFalse [] -> ()
+                 | Property.PropKTrue k -> 
+                   Format.fprintf 
+                     ppf 
+                     "@,@[<hv 2><TrueFor>@,%d@;<0 -2></TrueFor>@]"
+                     k
+                 | Property.PropFalse cex -> 
+                   Format.fprintf 
+                     ppf 
+                     "@,@[<hv 2><FalseAt>@,%d@;<0 -2></FalseAt>@]"
+                     (Property.length_of_cex cex))
+              s)
+       "@,")
+    prop_status *)
 
 
 (* ********************************************************************** *)
@@ -865,6 +923,79 @@ let terminate_log () =
     | F_pt -> ()
     | F_xml -> print_xml_trailer ()
     | F_relay -> ()
+
+
+(* Logs the end of a run. *)
+let log_run_end results =
+  match !log_format with
+  | F_pt ->
+    (* Printing a short, human readable version of all the results. *)
+    Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
+      pp_print_hline ()
+      (pp_print_list Analysis.pp_print_result_quiet "@ ") results
+  | F_xml -> ()
+
+  | F_relay -> failwith "can only be called by supervisor"
+
+(* Logs the start of an analysis. *)
+let log_analysis_start param =
+  match !log_format with
+  | F_pt ->
+    if Flags.log_level () = L_off |> not then
+      Format.fprintf !log_ppf "\
+        @.%a@.@.Analyzing %a@   with %a\
+      @.@."
+      pp_print_hline ()
+      Scope.pp_print_scope param.Analysis.top
+      Analysis.pp_print_param param
+
+  | F_xml ->
+    (* Splitting abstract and concrete systems. *)
+    let abstract, concrete =
+      Scope.Map.fold (fun sys is_abstract (a,c) ->
+        if is_abstract then sys :: a, c else a, sys :: c
+      ) param.Analysis.abstraction_map ([],[])
+    in
+    (* Counting the number of assumption for each subsystem. *)
+    let assumption_count =
+      param.Analysis.assumptions |> List.fold_left (fun map (key, _) ->
+        let cpt = try (Scope.Map.find key map) + 1 with Not_found -> 1 in
+        Scope.Map.add key cpt map
+      ) Scope.Map.empty
+      |> Scope.Map.bindings
+    in
+    (* Opening [analysis] tag and printing info. *)
+    Format.fprintf !log_ppf "@.@.\
+      <Analysis \
+        top=\"%a\" \
+        concrete=\"%a\" \
+        abstract=\"%a\" \
+        assumptions=\"%a\"\
+      >@.@.\
+    "
+    Scope.pp_print_scope param.Analysis.top
+    (pp_print_list Scope.pp_print_scope ",") concrete
+    (pp_print_list Scope.pp_print_scope ",") abstract
+    (pp_print_list (fun fmt (scope, cpt) ->
+        Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
+      )
+      ","
+    ) assumption_count
+
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs the end of an analysis.
+    [log_analysis_start result] logs the end of an analysis. *)
+let log_analysis_end result =
+  match !log_format with
+  | F_pt -> ()
+  | F_xml ->
+    (* Closing [analysis] tag. *)
+    Format.fprintf !log_ppf "</Analysis>@.@."
+
+  | F_relay -> failwith "can only be called by supervisor"
+
+
 
 
 (* ********************************************************************** *)

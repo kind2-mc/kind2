@@ -228,9 +228,9 @@ module ModularStrategy : Strategy = struct
                   Scope.pp_print_scope sys ;
                 go_up prefix
               | Some (sub, abs, ass) -> (* Refinement found. *)
-                Format.printf "Refined %a for %a@."
+                (* Format.printf "Refined %a for %a@."
                   Scope.pp_print_scope sub
-                  Scope.pp_print_scope sys ;
+                  Scope.pp_print_scope sys ; *)
                 Some {
                   A.top = sys ;
                   A.uid = A.results_length results ;

@@ -129,6 +129,9 @@ val run : TransSys.t -> result
 (** Pretty printer for [param]. *)
 val pp_print_param: Format.formatter -> param -> unit
 
+(** Pretty printer for [result], quiet version. *)
+val pp_print_result_quiet: Format.formatter -> result -> unit
+
 (** Pretty printer for [result]. *)
 val pp_print_result: Format.formatter -> result -> unit
 

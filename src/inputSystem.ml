@@ -31,6 +31,14 @@ let read_input_native input_file = assert false
 
 let read_input_horn input_file = assert false
 
+let ordered_scopes_of (type s)
+: s t -> Scope.t list = function
+  | Lustre (subsystem, _) ->
+    SubSystem.all_subsystems subsystem
+    |> List.map (fun { SubSystem.scope } -> scope)
+
+  | Native subsystem -> assert false
+  | Horn subsystem -> assert false
 
 let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function

@@ -72,10 +72,24 @@ val log_prop_status : Lib.log_level -> (string * Property.prop_status) list -> u
     {!stat} to send it as a message. *)
 val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
 
-(** Terminate log
+(** Terminate log, called at the very end of a run.
 
     Output closing tags for XML output. *)
-val terminate_log : unit -> unit 
+val terminate_log : unit -> unit
+
+
+(** Logs the end of a run.
+    [log_run_start results] logs the end of a run. *)
+val log_run_end : Analysis.result list -> unit
+
+(** Logs the start of an analysis.
+    [log_analysis_start top abs] logs the start of an analysis for top
+    system [top] with abstraction [abs]. *)
+val log_analysis_start : Analysis.param -> unit
+
+(** Logs the end of an analysis.
+    [log_analysis_start result] logs the end of an analysis. *)
+val log_analysis_end : Analysis.result -> unit
 
 
 (** {1 Events} *)

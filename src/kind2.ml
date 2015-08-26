@@ -942,8 +942,9 @@ let rec run_loop msg_setup modules trans_syss results =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
 
-  Event.log L_fatal "Launching analysis with param %a"
-    Analysis.pp_print_param aparam ;
+  (* Event.log L_fatal "Launching analysis with param %a"
+    Analysis.pp_print_param aparam ; *)
+  Event.log_analysis_start aparam ;
 
   (* Output the transition system. *)
   (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
@@ -975,6 +976,8 @@ let rec run_loop msg_setup modules trans_syss results =
   let trans_syss = trans_sys :: trans_syss in
 
   let result = Analysis.mk_result aparam trans_sys in
+
+  Event.log_analysis_end result ;
 
   Event.log L_info "Result: %a" Analysis.pp_print_result result ;
 
@@ -1080,12 +1083,23 @@ let launch () =
     Event.log L_trace "Messaging initialized in supervisor." ;
 
     try
-      (* TODO: use result to print a summary of the analysis. *)
-      run_loop msg_setup modules [] results ;
-      Event.log L_info "on_exit" ;
+      (* Running. *)
+      let results = run_loop msg_setup modules [] results in
+      (* Producing a list of the last results for each system, in topological
+         order. *)
+      get !input_sys_ref |> InputSystem.ordered_scopes_of
+      |> List.fold_left (fun l sys ->
+        try (
+          match Analysis.results_find sys results with
+          | last :: _ -> last :: l
+          | [] -> assert false
+        ) with Not_found -> l
+      ) []
+      (* Logging the end of the run. *)
+      |> Event.log_run_end ;
+
       clean_exit `Supervisor None Exit
     with e ->
-      Format.printf "Exception in run_loop@." ;
       on_exit `Supervisor !cur_trans_sys e
 
 
