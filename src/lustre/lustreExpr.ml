@@ -346,8 +346,8 @@ let rec pp_print_var safe ppf var =
   (* Fail on other types of variables *)
   else
 
-    raise (Invalid_argument "pp_print_var")
-
+    (* free variable *)
+    Format.fprintf ppf "%s" (Var.string_of_var var)
 
 
 (* Pretty-print a term *)
@@ -827,6 +827,15 @@ let state_var_of_expr ({ expr_init; expr_step } as expr) =
     raise (Invalid_argument "state_var_of_expr")
 
 
+(* Return the free variable of a variable *)
+let var_of_expr { expr_init } = 
+  try
+    Term.free_var_of_term expr_init
+  (* Fail if any of the above fails *)
+  with Invalid_argument _ -> raise (Invalid_argument "var_of_expr")
+
+
+
 (* Return all state variables *)
 let state_vars_of_expr { expr_init; expr_step } = 
 
@@ -978,17 +987,20 @@ let mk_var state_var =
 (* i-th index variable *)
 let mk_index_var i = 
 
-  (* Create state variable *)
-  let state_var = 
-    StateVar.mk_state_var
-      ((I.push_index I.index_ident i) 
-       |> I.string_of_ident false)
-      I.reserved_scope
+  let v =
+    Var.mk_free_var
+      (String.concat "."
+         (((I.push_index I.index_ident i) |> I.string_of_ident true)
+          :: I.reserved_scope)
+       |> HString.mk_hstring)
       Type.t_int
+    |> Term.mk_var
   in
 
-  (* Create expression of state variable *)
-  mk_var state_var
+  (* create lustre expression for free variable*)
+  { expr_init = v;
+    expr_step = v;
+    expr_type = Type.t_int } 
 
 
 (* ********************************************************************** *)

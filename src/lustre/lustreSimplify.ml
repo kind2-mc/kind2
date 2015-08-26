@@ -290,10 +290,9 @@ let rec eval_ast_expr bounds ctx =
              let mk_lhs_term (sv, bounds) =
                List.fold_left (fun (i, t) -> function
                    | N.Bound b ->
-                   (* | D.ArrayVarIndex b -> *)
                      succ i,
-                     Var.mk_state_var_instance (E.mk_index_var i |> E.state_var_of_expr)
-                       E.base_offset |> Term.mk_var |> Term.mk_select t
+                     Term.mk_select t
+                       (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
                    | _ -> assert false)
                  (0, Var.mk_state_var_instance sv E.pre_offset |> Term.mk_var)
                  bounds

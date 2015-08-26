@@ -214,6 +214,12 @@ val pre_term_of_t : Numeral.t -> t -> Term.t
     is not a variable at the current or previous offset. *)
 val state_var_of_expr : t -> StateVar.t
 
+(** Return the free variable of a variable 
+
+    Fail with [Invalid_argument "var_of_expr"] if the expression
+    is not a free variable. *)
+val var_of_expr : t -> Var.t
+
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 

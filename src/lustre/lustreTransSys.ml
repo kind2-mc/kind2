@@ -1408,14 +1408,7 @@ let rec constraints_of_equations init stateful_vars terms = function
        generate equations without quantifiers *)
 
     (* Return the i-th index variable *)
-    let index_var_of_int i = 
-      E.mk_index_var i
-      |> E.state_var_of_expr
-      |> (fun sv ->
-          Var.mk_state_var_instance
-            sv
-            (if init then TransSys.init_base else TransSys.trans_base))
-    in
+    let index_var_of_int i = E.var_of_expr (E.mk_index_var i) in
 
     (* Add quantifier or let binding for indexes of variable *)
     let add_bounds = function 
