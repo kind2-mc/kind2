@@ -938,8 +938,10 @@ let rec eval_ast_expr bounds ctx =
 
       let expr', ctx = eval_ast_expr bounds ctx expr in 
 
+      let rec push expr' =
+      
       (* Every index starts with ArrayVarIndex or none does *)
-      (match D.choose expr' with 
+      match D.choose expr' with 
 
         (* Projection from an array indexed by variable *)
         | D.ArrayVarIndex _ :: _, _ ->
@@ -955,7 +957,7 @@ let rec eval_ast_expr bounds ctx =
           in
 
           (* Select from array in all elements *)
-          (D.map (fun e -> E.mk_select e index) expr', ctx)
+          D.map (fun e -> E.mk_select e index) expr'
 
         (* Projection from an array indexed by integers *)
         | D.ArrayIntIndex _ :: tl, _ -> 
@@ -965,15 +967,31 @@ let rec eval_ast_expr bounds ctx =
             "Cannot use a constant array in a recursive definition"
 
         (* Projection from a tuple expression *)
-        | D.TupleIndex _ :: tl, _ ->
+        | D.TupleIndex _ :: _, _
+        | D.RecordIndex _ :: _, _ 
+        | D.ListIndex _ :: _, _ ->
 
-          (* Try again with the correct expression *)
-          eval_ast_expr bounds ctx (A.TupleProject (pos, expr, i))
+
+          (* Try again underneath *)
+          let expr' = 
+            D.fold
+              (fun indexes v acc -> match indexes with
+                | top :: tl ->
+                  let r = D.add tl v D.empty in
+                  let e = push r in
+                  D.fold (fun j -> D.add (top :: j)) e acc
+                | _ -> assert false)
+              expr'
+              D.empty
+          in
+          expr'
 
         (* Other or no index *)
-        | D.RecordIndex _ :: _, _ 
-        | D.ListIndex _ :: _, _ 
-        | [], _ -> C.fail_at_position pos "Selection not from an array")
+        | [], _ -> C.fail_at_position pos "Selection not from an array"
+      in
+
+      push expr', ctx
+
 
     (* Array slice [A[i..j,k..l]] *)
     | A.ArraySlice (pos, _, _) -> 
@@ -1216,6 +1234,30 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
   (* Evaluate second expression, in possibly changed context *)
   let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
+    Format.eprintf
+      "E1 ==== @[<hv>%a@]@."
+      (D.pp_print_trie
+         (fun ppf (i, e) ->
+            Format.fprintf ppf
+              "@[<hv 2>%a:@ %a@]"
+              (D.pp_print_index false) i
+              (E.pp_print_lustre_expr false) e)
+         ";@ ")
+      expr1';
+
+
+    Format.eprintf
+      "E2 ==== @[<hv>%a@]@."
+      (D.pp_print_trie
+         (fun ppf (i, e) ->
+            Format.fprintf ppf
+              "@[<hv 2>%a:@ %a@]"
+              (D.pp_print_index false) i
+              (E.pp_print_lustre_expr false) e)
+         ";@ ")
+      expr2';
+    
+  
   (* Apply operator pointwise to expressions *)
   let res = 
 
@@ -1236,7 +1278,7 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 
     with 
 
-      | Invalid_argument _ ->
+      | Invalid_argument s ->
 
         C.fail_at_position
           pos

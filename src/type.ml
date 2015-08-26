@@ -275,7 +275,7 @@ let t_real = mk_real ()
 
 let rec is_int { Hashcons.node = t } = match t with
   | Int -> true 
-  | Array (t, _) -> is_int t
+  | Array (t, _) -> false (* is_int t *)
       
   | IntRange _
   | Bool 
@@ -285,7 +285,7 @@ let rec is_int { Hashcons.node = t } = match t with
 
 let rec is_int_range { Hashcons.node = t } = match t with
   | IntRange _ -> true 
-  | Array (t, _) -> is_int_range t
+  | Array (t, _) -> false (* is_int_range t *)
   | Int
   | Bool 
   | Real
@@ -294,7 +294,7 @@ let rec is_int_range { Hashcons.node = t } = match t with
 
 let rec is_bool { Hashcons.node = t } = match t with
   | Bool -> true
-  | Array (t, _) -> is_bool t
+  | Array (t, _) -> false (* is_bool t *)
   | Int
   | IntRange _
   | Real
@@ -303,7 +303,7 @@ let rec is_bool { Hashcons.node = t } = match t with
 
 let rec is_real { Hashcons.node = t } = match t with
   | Real -> true
-  | Array (t, _) -> is_real t
+  | Array (t, _) -> false (* is_real t *)
 (*   | BV _ *)
   | Bool
   | Int
@@ -332,7 +332,7 @@ let is_array { Hashcons.node = t } = match t with
 
 let rec is_scalar { Hashcons.node = t } = match t with
   | Scalar _ -> true
-  | Array (t, _) -> is_scalar t
+  | Array (t, _) -> false (* is_scalar t *)
   | Bool
   | Int
   | IntRange _

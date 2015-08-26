@@ -266,6 +266,21 @@ let rec eval_node_locals ?(ghost = false) ctx = function
     (* Evaluate type expression *)
     let index_types = S.eval_ast_type ctx var_type in
 
+    Format.eprintf "of TYPE %a@." A.pp_print_lustre_type var_type;
+
+    Format.eprintf
+      "IE @[<hv>%a@]@."
+      (D.pp_print_trie
+         (fun ppf (i, e) ->
+            Format.fprintf ppf
+              "@[<hv 2>%a:@ %a@]"
+              (D.pp_print_index false) i
+              (Type.pp_print_type) e)
+         ";@ ")
+      index_types;
+    
+
+    
     (* Add declaration of possibly indexed type to contexts *)
     let ctx = C.add_node_local ~ghost ctx ident index_types in
 
@@ -460,40 +475,56 @@ let rec eval_eq_lhs ctx pos = function
     (* Fail if the index in the second argument does not start with
        the same number of D.VarIndex keys as the length of list in the
        first argument. *)
-    let rec aux = function 
-      | [] -> (function _ -> ())
-      | h :: tl1 -> 
-        (function 
-          | D.ArrayVarIndex _ :: tl2 -> aux tl1 tl2
-          | _ -> 
-            C.fail_at_position 
-              pos 
-              "Index mismatch for array")
+    let check l1 =
+      let d1 = List.length l1 in
+      fun l2 ->
+        let d2 =
+          l2
+          |> List.filter (function D.ArrayVarIndex _ -> true | _ -> false)
+          |> List.length in
+        if d1 <> d2 then C.fail_at_position pos "Index mismatch for cacaarray"
     in
 
+    (* let rec aux = function  *)
+    (*   | [] -> (function _ -> ()) *)
+    (*   | h :: tl1 ->  *)
+    (*     (function  *)
+    (*       | D.ArrayVarIndex _ :: tl2 -> aux tl1 tl2 *)
+    (*       | _ ->  *)
+    (*         C.fail_at_position  *)
+    (*           pos  *)
+    (*           "Index mismatch for array") *)
+    (* in *)
+
+    Format.eprintf "checking 1: %a and 2:@."
+      (pp_print_list A.pp_print_ident ",, ") l;
+
+    Format.printf
+      "  @[<hv>%a@]@."
+      (D.pp_print_trie
+         (fun ppf (i, e) ->
+            Format.fprintf ppf
+              "@[<hv 2>%a:@ %a@]"
+              (D.pp_print_index false) i
+              (StateVar.pp_print_state_var) e)
+         ";@ ")
+      res;
+        
     (* Check that the variable has at least as many indexes as
        variables given *)
-    List.iter (aux l) (D.keys res);
+    List.iter (check l) (D.keys res);
 
     (* Must have at least one element in the trie *)
     assert 
       (try D.choose res |> ignore; true with Not_found -> false);
 
     (* Convert array bounds to indexes for equation *)
-    let rec aux accum = function 
-      | [] -> (function _ -> accum)
-      | h :: tl1 -> 
-        (function 
-          | D.ArrayVarIndex _ :: tl2 -> aux (succ accum) tl1 tl2
-          | _ -> 
-            C.fail_at_position 
-              pos 
-              "Index mismatch for array")
-    in
-
-    let indexes = 
-      (D.keys res |> List.hd) |> aux 0 l
-    in
+    let convert l2 =
+      List.fold_left (fun acc -> function
+          | D.ArrayVarIndex _ -> succ acc
+          | _ -> acc) 0 l2 in
+    
+    let indexes = (D.keys res |> List.hd) |> convert in
     
     (* Add bindings for the running variables to the context *)
     let _, ctx = 
@@ -533,7 +564,14 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     C.fail_at_position pos "Type mismatch in equation: indexes not of equal length"
 
-  (* All indexes consumed *)
+  | _ -> 
+    Format.eprintf "LHS : <%a> RHS : <%a> @."
+      (D.pp_print_index false) (List.hd lhs |> fst)
+      (D.pp_print_index false) (List.hd rhs |> fst);
+    match lhs, rhs with
+  | [], []   | _, [] | [], _ ->         assert false
+
+    (* All indexes consumed *)
   | ([], state_var) :: lhs_tl, 
     ([], expr) :: rhs_tl -> 
 
@@ -558,6 +596,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
   (* Array variable on left-hand side, fixed index on right-hand side *)
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (D.ArrayIntIndex i :: rhs_index_tl, expr) :: rhs_tl -> 
+Format.eprintf "ici@.@.";
 
     (* Recurse to produce equations with this index *)
     let accum' = 
@@ -739,12 +778,13 @@ let expand_tuple pos lhs rhs =
     (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs));
   *)
   
+  (* TODO check with Christoph why they were reversed *)
   expand_tuple' 
     pos
     []
     []
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs))
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs))
+    (List.map (fun (i, e) -> ((* List.rev  *)i, e)) (D.bindings lhs))
+    (List.map (fun (i, e) -> ((* List.rev  *)i, e)) (D.bindings rhs))
 
 
 (* Evaluate node statements and add to context  *)

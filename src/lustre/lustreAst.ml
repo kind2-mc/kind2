@@ -426,7 +426,7 @@ let rec pp_print_expr ppf =
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a[%a]" ppos p pp_print_expr e pp_print_expr f
+      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e pp_print_expr f
 
     | True p -> ps p "true"
     | False p -> ps p "false"
@@ -522,8 +522,10 @@ let rec pp_print_expr ppf =
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
-  
-  Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
+  if l = u then
+    Format.fprintf ppf "%a" pp_print_expr l
+  else
+    Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
 
 and pp_print_field_assign ppf (i, e) = 
 
