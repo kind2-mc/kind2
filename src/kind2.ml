@@ -301,8 +301,6 @@ let status_of_exn process trans_sys_opt =
 (* Kill all kids cleanly. *)
 let slaughter_kids process sys =
 
-  Format.printf "Slaughtering kids.@." ;
-
   (* Ignore SIGALRM from now on *)
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
 
@@ -382,36 +380,49 @@ let slaughter_kids process sys =
          outcome of the analysis. *)
       status_of_exn process sys e |> ignore ) ;
 
-  (* Log termination status *)
-  ( match !child_pids with
-    | [] -> ()
-    | kids ->
+  (* Deactivate timeout. *)
+  let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+    Unix.setitimer
+      Unix.ITIMER_REAL
+      { Unix.it_interval = 0.; Unix.it_value = 0. }
+  in
 
-      kids |> Event.log L_info
-        "Some processes (%a) did not exit, killing them." (
-          pp_print_list (fun ppf (pid, _) ->
-            Format.pp_print_int ppf pid
-          ) ",@ "
+  (* Log termination status *)
+  ( try
+    ( match !child_pids with
+      | [] -> ()
+      | kids ->
+
+        kids |> Event.log L_info
+          "Some processes (%a) did not exit, killing them." (
+            pp_print_list (fun ppf (pid, _) ->
+              Format.pp_print_int ppf pid
+            ) ",@ "
+          ) ;
+
+        (* Kill all remaining processes in the process groups of child
+           processes *)
+        kids |> List.iter (fun (pid, _) ->
+          try
+            Unix.kill (- pid) Sys.sigkill
+          with _ -> ()
         ) ;
 
-      (* Kill all remaining processes in the process groups of child
-         processes *)
-      kids |> List.iter (fun (pid, _) ->
-        try
-          Unix.kill (- pid) Sys.sigkill
-        with _ -> ()
-      ) ;
+        (* Waiting for all kids to be actually done. *)
+        kids |> List.iter (fun _ -> Unix.wait () |> ignore) )
+    with
 
-      (* Waiting for all kids to be actually done. *)
-      kids |> List.iter (fun _ -> Unix.wait () |> ignore) ) ;
+      (* No more child processes, this is the normal exit *)
+      | Unix.Unix_error (Unix.ECHILD, _, _) ->
+
+        Event.log L_info
+          "All child processes terminated." ) ;
 
   (* Cleaning kids list. *)
   child_pids := [] ;
 
   (* Draining mailbox. *)
   Event.recv () |> ignore ;
-
-  Format.printf "Done slaughtering kids.@." ;
 
   (* Restore sigalrm handler for next analysis if any. *)
   set_sigalrm_handler ()
@@ -955,7 +966,7 @@ let rec run_loop msg_setup modules trans_syss results =
       Event.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main child_pids input_sys aparam trans_sys ;
+      InvarManager.main child_pids (get !input_sys_ref) aparam trans_sys ;
 
       (* Killing kids. *)
       Some trans_sys |> slaughter_kids `Supervisor
@@ -1069,6 +1080,7 @@ let launch () =
     Event.log L_trace "Messaging initialized in supervisor." ;
 
     try
+      (* TODO: use result to print a summary of the analysis. *)
       run_loop msg_setup modules [] results ;
       Event.log L_info "on_exit" ;
       clean_exit `Supervisor None Exit

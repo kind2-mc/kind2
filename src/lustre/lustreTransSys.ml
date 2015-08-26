@@ -94,6 +94,14 @@ let lift_state_var state_var_map state_var =
      scopes *)
   with Not_found -> 
 
+    Format.printf "state_var_map: @[<v>%a@]@."
+      (pp_print_list (fun fmt (k,b) ->
+        Format.fprintf fmt "%a -> %a"
+          StateVar.pp_print_state_var k
+          StateVar.pp_print_state_var b)
+        "@ "
+      ) (SVM.bindings state_var_map) ;
+
     raise
       (Invalid_argument
          (Format.asprintf 
@@ -1135,7 +1143,7 @@ let rec constraints_of_function_calls functions init_terms trans_terms propertie
     | [] -> (init_terms, trans_terms, properties)
 
     (* Take name of called function, inputs and outputs *)
-    | { N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs } :: tl -> 
+    | { N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs } :: tl ->
 
       let 
 
