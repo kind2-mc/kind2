@@ -695,6 +695,12 @@ let print_expr = pp_print_expr Format.std_formatter
 let string_of_expr t = string_of_t pp_print_expr t
 
 
+let is_select_hstring hs =
+  let s = HString.string_of_hstring hs in
+  try Scanf.sscanf s "_select%s" (fun _ -> true)
+  with Scanf.Scan_failure _ -> false
+
+
 (* Lookup symbol of a hashconsed string *)
 let symbol_of_smtlib_atom s = 
   try 

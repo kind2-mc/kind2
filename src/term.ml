@@ -327,7 +327,7 @@ let rec bool_of_term t = match node_of_term t with
 let is_select t = match node_of_term t with
 
   (* Top symbol is a select operator *)
-  | T.Node (s, [a; i]) -> Symbol.is_select s
+  | T.Node (s, a :: _ ) -> Symbol.is_select s
                                  
   | _ -> false
 
@@ -343,9 +343,9 @@ let rec indexes_and_var_of_select' accum t =
 
   | T.FreeVar v -> (v, accum)
 
-  | T.Node (s, [a; i]) when Symbol.is_select s -> 
+  | T.Node (s, a :: li) when Symbol.is_select s -> 
 
-    indexes_and_var_of_select' (i :: accum) a
+    indexes_and_var_of_select' (li @ accum) a
 
   | T.Annot (t, _) ->  indexes_and_var_of_select' accum t
 
@@ -1554,8 +1554,6 @@ let map_state_vars f term =
     term
 
 
-(* TODO return ufs *)
-
 let convert_select term =
 
   (* Don't encode if using the theory of arrays *)
@@ -1579,6 +1577,22 @@ let convert_select term =
             mk_uf (Var.encode_select var) (mk_var var :: indexes)
           end
         else t
+      )
+      term
+
+
+
+let reinterpret_select term =
+
+  (* Don't decode if using the theory of arrays *)
+  if Flags.smt_arrays () then term
+  else    
+    map (fun _ t ->
+        match node_of_term t with
+        | T.Node (s, a :: il) when Symbol.is_select s ->
+          (* Top symbol is a select operator *)
+          List.fold_left mk_select a il
+        | _ -> t
       )
       term
 

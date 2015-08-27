@@ -579,9 +579,17 @@ let get_var_values s state_var_indexes vars =
         | `Error e -> raise (Failure ("SMT solver failed: " ^ e))
       in
       let m =
-        List.fold_left2 (fun acc args (t, e) ->
+        List.fold_left (fun acc (t, e) ->
+            Format.eprintf "Term %a@." Term.pp_print_term t;
+            let t = S.Conv.term_of_smtexpr t in
+            Format.eprintf "Term %a@." Term.pp_print_term t;
+            assert (Term.is_select t);
+            let v', args_t = Term.indexes_and_var_of_select t in
+            assert (Var.equal_vars v v');
+            let args = List.map
+                (fun x -> Numeral.to_int (Term.numeral_of_term x)) args_t in
             Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
-          ) Model.MIL.empty args_list values in
+          ) Model.MIL.empty values in
       Var.VarHashtbl.add model v (Model.Map m)
     ) array_vars;
       

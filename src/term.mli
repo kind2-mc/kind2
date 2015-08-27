@@ -501,6 +501,8 @@ val stats : unit -> int * int * int * int * int * int
 
 val convert_select : t -> t
 
+val reinterpret_select : t -> t
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
