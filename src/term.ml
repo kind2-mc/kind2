@@ -1304,7 +1304,7 @@ let state_vars_of_term term  =
       | T.Var v -> 
         (function 
           | [] ->
-            if Var.is_state_var_instance v then
+            if Var.is_state_var_instance v || Var.is_const_state_var v then
               StateVar.StateVarSet.singleton 
                 (Var.state_var_of_state_var_instance v)
             else StateVar.StateVarSet.empty
