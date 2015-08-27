@@ -83,7 +83,10 @@ val get_model : t -> Model.t
 
 (** Return a values of the terms in the current context if
     satisfiable *)
-val get_var_values : t -> Var.t list -> Model.t
+val get_var_values :
+  t ->
+  (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
+  Var.t list -> Model.t
 
 (** Return a values of the terms in the current context if
     satisfiable *)

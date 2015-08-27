@@ -158,13 +158,6 @@ type contract =
   }
 
 
-(** Type of index in an equation for an array *)
-type 'a bound_or_fixed = 
-  | Bound of 'a  (** Equation is for each value of the index variable
-                     between zero and the upper bound *)
-  | Fixed of 'a  (** Fixed value for index variable *)
-
-
 (** Type of left hand side of equations. 
 
     An equation defines defines the state variable [state_var], and a list
@@ -173,7 +166,7 @@ type 'a bound_or_fixed =
     An array can be defined either only at a given index, or at all
     indexes, when the expression on the right-hand side is interpreted
     as a function of the running variable of the index.  *)
-type equation_lhs = StateVar.t * LustreExpr.expr bound_or_fixed list
+type equation_lhs = StateVar.t * LustreExpr.expr LustreExpr.bound_or_fixed list
 
 
 (** An equation is a tuple [(eqlhs, expr)] that defines a possibly indexed

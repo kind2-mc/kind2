@@ -501,6 +501,7 @@ let query_base
       k
     (* Getting their value. *)
     |> SMTSolver.get_var_values base_solver
+      (TransSys.get_state_var_bounds system)
     (* Bumping to -k. *)
     |> Model.bump_var minus_k 
     (* Making an option out of it. *)

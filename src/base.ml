@@ -70,6 +70,7 @@ let split trans solver k falsifiable to_split actlits =
     let model =
       SMTSolver.get_var_values
         solver
+        (TransSys.get_state_var_bounds trans)
         (TransSys.vars_of_bounds trans Numeral.zero k)
     in
     

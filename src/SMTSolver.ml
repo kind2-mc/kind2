@@ -502,7 +502,7 @@ let cross ll = List.fold_left (fun acc l -> cross_2 l acc) [[]] ll
 
 
 (* Get model of the current context *)
-let get_var_values s vars =
+let get_var_values s state_var_indexes vars =
   let module S = (val s.solver_inst) in
 
   (* separate array variables *)
@@ -542,10 +542,28 @@ let get_var_values s vars =
   List.iter (fun v ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
-      let id_tys = Type.all_index_types_of_array ty in
-      let bnds = List.map (fun ti ->
-          let nl, nu = Type.bounds_of_int_range ti in
-          Numeral.to_int nl, Numeral.to_int nu) id_tys in
+      let indexes = StateVar.StateVarHashtbl.find state_var_indexes
+          (Var.state_var_of_state_var_instance v) in
+      (* let id_tys = Type.all_index_types_of_array ty in *)
+      let bnds = List.map (function
+          | LustreExpr.Fixed eu
+          | LustreExpr.Bound eu ->
+            if LustreExpr.is_numeral eu then
+              0, LustreExpr.numeral_of_expr eu |> Numeral.to_int
+            else
+              (* evaluate value of bound in current model *)
+              (* assert (StateVar.is_const svub); *)
+              let ub = LustreExpr.unsafe_term_of_expr eu
+                       |> Eval.eval_term [] model in
+              (match ub with
+               | Eval.ValNum nu -> 0, Numeral.to_int nu
+               | _ -> assert false)
+        ) indexes in
+
+      Format.eprintf "bounds of %a : [%a] @."
+        Var.pp_print_var v
+        (pp_print_list (fun ppf (_, x) -> Format.pp_print_int ppf x) ", ") bnds;
+      
       let args_list = cross (List.map range bnds) in
       let vt = Term.mk_var v in
       let sexprs =

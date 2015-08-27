@@ -993,6 +993,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    expensive due to the many activation literals. *)
                 SMTSolver.get_var_values
                   solver
+                  (TransSys.get_state_var_bounds trans_sys)
                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
               (fun _ -> ())
@@ -1234,6 +1235,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                   | _ ->
                     SMTSolver.get_var_values
                       solver
+                      (TransSys.get_state_var_bounds trans_sys)
                       (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
               (* Get unsat core from unsatisfiable query *)
@@ -1696,6 +1698,7 @@ let rec partition_inductive
       (fun solver ->
         SMTSolver.get_var_values
           solver
+          (TransSys.get_state_var_bounds trans_sys)
           (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
       
       (fun _ -> ())
@@ -1797,6 +1800,7 @@ let partition_fwd_prop
         (fun solver ->
           SMTSolver.get_var_values
             solver
+            (TransSys.get_state_var_bounds trans_sys)
             (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
         (fun _ -> ())
@@ -2554,10 +2558,8 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (SMTSolver.get_var_values
                    solver
-                   (TransSys.vars_of_bounds
-                      trans_sys
-                      Numeral.zero
-                      Numeral.one))
+                   (TransSys.get_state_var_bounds trans_sys)
+                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
                 path
                 (TransSys.state_vars trans_sys)
                 Numeral.one
@@ -2618,10 +2620,8 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (SMTSolver.get_var_values
                    solver
-                   (TransSys.vars_of_bounds
-                      trans_sys
-                      Numeral.zero
-                      Numeral.one))
+                   (TransSys.get_state_var_bounds trans_sys)
+                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
                 []
                 (TransSys.state_vars trans_sys)
                 Numeral.zero)
@@ -2893,6 +2893,7 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
       (* SMTSolver.get_model solver *)
       SMTSolver.get_var_values
         solver
+        (TransSys.get_state_var_bounds trans_sys)
         (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
     in
 

@@ -231,6 +231,8 @@ let split trans solver k to_split actlits =
   
   (* Function to run if sat. *)
   let if_sat _ =
+
+    let svi = TransSys.get_state_var_bounds trans in
     
     (* Extract a model *)
     let model = 
@@ -239,14 +241,14 @@ let split trans solver k to_split actlits =
       if (Flags.ind_compress ()) || (Flags.ind_lazy_invariants ()) then 
 
         (* Get model for all variables *)
-        SMTSolver.get_var_values solver
+        SMTSolver.get_var_values solver svi
           (TransSys.vars_of_bounds trans Numeral.zero k)
         
       else
         
         (* We only need the model at [k] *)
         TransSys.vars_of_bounds trans k k
-        |> (SMTSolver.get_var_values solver)
+        |> (SMTSolver.get_var_values solver svi)
         
     in
 

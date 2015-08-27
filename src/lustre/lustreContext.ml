@@ -77,8 +77,8 @@ type t =
     (* Type identifiers and their types and bounds of their indexes *)
     ident_type_map : (Type.t D.t) IT.t;
 
-    (* register indexes of state variables for later use *)
-    state_var_indexes : D.index SVT.t;
+    (* register bounds of state variables for later use *)
+    state_var_bounds : (E.expr E.bound_or_fixed list) SVT.t;
     
     (* Identifiers and the expresssions they are bound to
 
@@ -133,7 +133,7 @@ let mk_empty_context () =
     ident_expr_map = [IT.create 7];
     expr_abs_map = ET.create 7;
     state_var_oracle_map = SVT.create 7;
-    state_var_indexes = SVT.create 7;
+    state_var_bounds = SVT.create 7;
     fresh_local_index = 0;
     fresh_oracle_index = 0;
     definitions_allowed = None }
@@ -247,6 +247,16 @@ let pop_scope = function
   | { scope = _ :: scope; ident_expr_map = _ :: ident_expr_map } as ctx -> 
 
     { ctx with scope; ident_expr_map }
+
+
+let bounds_of_index index =
+  List.fold_left (fun acc -> function
+      | D.ArrayVarIndex b -> E.Bound b :: acc
+      | D.ArrayIntIndex i ->
+        E.Fixed (E.mk_int_expr (Numeral.of_int i)) :: acc
+      | _ -> acc
+    ) [] (List.rev index)
+
 
 
 (* Create an empty node in the context *)
@@ -460,6 +470,8 @@ let get_nodes { nodes } = nodes
 (* Return functions defined in context *)
 let get_functions { funcs } = funcs 
 
+(* Return state vars indexes hash  table  *)
+let get_state_var_bounds { state_var_bounds } = state_var_bounds
 
 (* Return a contract node by its identifier *)
 let contract_node_decl_of_ident { contract_nodes } ident = 
@@ -554,6 +566,9 @@ let mk_state_var
          index)
   in
 
+
+  Format.eprintf "MK %s %a@." state_var_name (LustreIndex.pp_print_index false) index;
+  
   (* For each index add a scope to the identifier to distinguish the
      flattened indexed identifier from unindexed identifiers
 
@@ -591,9 +606,10 @@ let mk_state_var
       state_var_type 
   in
 
-  (* Register indexes *)
-  SVT.add ctx.state_var_indexes state_var index;
-  
+  (* Register bounds for indexes *)
+  if index <> [] then
+    SVT.add ctx.state_var_bounds state_var (bounds_of_index index);
+
   (* Set source of state variable *)
   let ctx = match state_var_source with 
     | Some s -> set_state_var_source ctx state_var s 
@@ -930,7 +946,7 @@ let mk_abs_for_expr
 
     (* new array if there are bound variables *)
     let var_type = List.fold_left (fun ty -> function
-        | N.Bound b | N.Fixed b ->
+        | E.Bound b | E.Fixed b ->
           Type.mk_array ty
             (if E.is_numeral b then
                Type.mk_int_range Numeral.zero (E.numeral_of_expr b)
@@ -952,6 +968,9 @@ let mk_abs_for_expr
         None
     in
 
+    (* Register bounds *)
+    SVT.add ctx.state_var_bounds state_var bounds;
+    
     (* Add bounds from array definition if necessary *)
     let abs = state_var, bounds in
 
@@ -1450,8 +1469,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
              StateVar.equal_state_vars state_var sv &&
              List.for_all2 
                (fun b1 b2 -> match b1, b2 with
-                  | N.Fixed e1, N.Fixed e2 -> E.equal_expr e1 e2
-                  | N.Bound _, N.Bound _ -> true
+                  | E.Fixed e1, E.Fixed e2 -> E.equal_expr e1 e2
+                  | E.Bound _, E.Bound _ -> true
                   | _ -> false)
                b 
                bounds)
@@ -1500,8 +1519,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
       let state_var_type = 
         List.fold_left
           (fun t -> function
-             | N.Bound _ 
-             | N.Fixed _ -> 
+             | E.Bound _ 
+             | E.Fixed _ -> 
 
                if Type.is_array t then
 

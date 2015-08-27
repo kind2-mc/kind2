@@ -587,7 +587,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
     expand_tuple' 
       pos
       accum
-      (N.Bound b :: bounds)
+      (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
 
@@ -601,7 +601,7 @@ Format.eprintf "ici@.@.";
       expand_tuple' 
         pos
         accum
-        (N.Fixed (E.mk_int_expr (Numeral.of_int i)) :: bounds)
+        (E.Fixed (E.mk_int_expr (Numeral.of_int i)) :: bounds)
         [(lhs_index_tl, state_var)]
         [(rhs_index_tl, expr)]
     in
@@ -654,7 +654,7 @@ Format.eprintf "ici@.@.";
     expand_tuple' 
       pos
       accum
-      (N.Bound b :: bounds)
+      (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr') :: rhs_tl)
 
@@ -848,7 +848,7 @@ let rec eval_node_equations ctx = function
     let lhs_bounds =
       List.fold_left (fun acc (i, _) ->
           List.fold_left (fun acc -> function
-              | D.ArrayVarIndex b -> N.Bound b :: acc
+              | D.ArrayVarIndex b -> E.Bound b :: acc
               | _ -> acc
             ) acc i
         ) [] (D.bindings eq_lhs) in
@@ -2114,7 +2114,8 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  C.get_nodes ctx, { G.functions = C.get_functions ctx }
+  C.get_nodes ctx, { G.functions = C.get_functions ctx;
+                     G.state_var_bounds = C.get_state_var_bounds ctx }
 
 
 

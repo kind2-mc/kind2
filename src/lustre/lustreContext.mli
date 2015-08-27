@@ -93,6 +93,10 @@ val get_nodes : t -> LustreNode.t list
 (** Return the functions in the context *)
 val get_functions : t -> LustreFunction.t list
 
+  (** Return state vars bounds hash table *)
+val get_state_var_bounds : t ->
+  (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t
+
 (** Add a contract node to the context for inlining later *)
 val add_contract_node_decl_to_context : t -> Lib.position * LustreAst.contract_node_decl -> t
 
@@ -153,7 +157,7 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
     created. *)
 val mk_local_for_expr :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
-  ?bounds:LustreExpr.expr LustreNode.bound_or_fixed list ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
   Lib.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
 
 (** Create a fresh oracle state variable in the context. *)
@@ -207,7 +211,7 @@ val add_node_assert : t -> LustreExpr.t -> t
 val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t
 
 (** Add equation to context *)
-val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> int -> LustreExpr.t -> t
+val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreExpr.bound_or_fixed list -> int -> LustreExpr.t -> t
 
 (** Add node call to context *)
 val add_node_call : t -> Lib.position -> LustreNode.node_call -> t

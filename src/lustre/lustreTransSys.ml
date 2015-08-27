@@ -1414,7 +1414,7 @@ let rec constraints_of_equations init stateful_vars terms = function
     let add_bounds = function 
 
       (* Fixed index [e] *)
-      | N.Fixed e -> 
+      | E.Fixed e -> 
         Format.eprintf "mk_let %a@." (E.pp_print_expr false) e;
         (* Let bind index variable to value [e] *)
         fun (a, i) ->
@@ -1425,7 +1425,7 @@ let rec constraints_of_equations init stateful_vars terms = function
            pred i)
 
       (* Variable index of size [e] *)
-      | N.Bound e ->
+      | E.Bound e ->
 
         if Flags.inline_arrays () then begin
           if not (E.is_numeral e) then
@@ -1571,6 +1571,8 @@ let rec trans_sys_of_node'
 
         in
 
+        Format.eprintf "LUSTRETREANSSYS %a@." (N.pp_print_node false) node;
+        
         (* Scope of node name *)
         let scope = [I.string_of_ident false node_name] in
 
@@ -2105,6 +2107,7 @@ let rec trans_sys_of_node'
                 init_flag
                 [] (* global_state_vars *)
                 (signature_state_vars)
+                globals.G.state_var_bounds
                 ufs
                 init_uf_symbol
                 init_formals

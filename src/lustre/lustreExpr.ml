@@ -51,6 +51,11 @@ type t = {
 
 }
 
+(* Bound for index variable, or fixed value for index variable *)
+type 'a bound_or_fixed = 
+  | Bound of 'a  (* Upper bound for index variable *)
+  | Fixed of 'a  (* Fixed value for index variable *)
+
 
 (* Total order on expressions *)
 let compare
@@ -2154,6 +2159,9 @@ let mk_of_expr expr =
 let is_numeral = Term.is_numeral
 
 let numeral_of_expr = Term.numeral_of_term
+
+
+let unsafe_term_of_expr e = (e : Term.t)
 
 (* 
    Local Variables:

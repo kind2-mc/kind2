@@ -66,6 +66,13 @@ exception Type_mismatch
     constructors below. *)
 type expr = private Term.t
 
+(** Type of index in an equation for an array *)
+type 'a bound_or_fixed = 
+  | Bound of 'a  (** Equation is for each value of the index variable
+                     between zero and the upper bound *)
+  | Fixed of 'a  (** Fixed value for index variable *)
+
+
 (** Return the type of the expression *)
 val type_of_expr : expr -> Type.t
 
@@ -375,6 +382,8 @@ val is_const : t -> bool
 val is_numeral : expr -> bool
 
 val numeral_of_expr : expr -> Numeral.t
+
+val unsafe_term_of_expr : expr -> Term.t
 
 (* 
    Local Variables:

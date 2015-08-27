@@ -58,11 +58,6 @@ let add_to_svs set list =
   List.fold_left (fun a e -> SVS.add e a) set list 
   
 
-(* Bound for index variable, or fixed value for index variable *)
-type 'a bound_or_fixed = 
-  | Bound of 'a  (* Upper bound for index variable *)
-  | Fixed of 'a  (* Fixed value for index variable *)
-
 (* Source of a state variable *)
 type state_var_source =
 
@@ -155,7 +150,7 @@ type contract =
 
 
 (* Left hand side of an equation *)
-type equation_lhs = StateVar.t * E.expr bound_or_fixed list
+type equation_lhs = StateVar.t * E.expr E.bound_or_fixed list
 
 
 (* An equation *)
@@ -316,14 +311,14 @@ let pp_print_node_equation safe ppf ((var, bounds), expr) =
     (E.pp_print_lustre_var safe) var
     (pp_print_listi
        (fun ppf i -> function 
-          | Bound e -> 
+          | E.Bound e -> 
             Format.fprintf
               ppf
               "[%a(%a)]"
               (I.pp_print_ident false)
               (I.push_index I.index_ident i)
               (E.pp_print_expr safe) e
-          | Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e)
+          | E.Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e)
        "") 
     bounds
     (E.pp_print_lustre_expr safe) expr

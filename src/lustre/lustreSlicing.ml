@@ -776,6 +776,8 @@ let rec slice_nodes
           N.state_var_source_map } as node_sliced), 
        node_unsliced) :: tl -> 
 
+      Format.eprintf "Leaves %a@." (pp_print_list StateVar.pp_print_state_var ", ") (leaves);
+      
       (* If this is the top node, slice away inputs and outputs *)
       let inputs', outputs' = 
         if tl = [] then 
@@ -794,6 +796,8 @@ let rec slice_nodes
           inputs, outputs
       in
 
+      Format.eprintf "INPUtS %a@." (pp_print_list StateVar.pp_print_state_var ", ") (D.values inputs');
+      
       (* Local variables related by an index have been moved together,
          now discard not visited indexes *)
       let locals' = 
@@ -1295,7 +1299,7 @@ let slice_to_abstraction'
     ({ A.top } as analysis) 
     roots 
     subsystem
-    { G.functions } = 
+    globals = 
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)
@@ -1303,6 +1307,9 @@ let slice_to_abstraction'
     S.find_subsystem subsystem top
     |> N.nodes_of_subsystem 
   in 
+
+  Format.eprintf "BEFORE slicing %a@." (N.pp_print_node false) (List.hd nodes);
+
   
   (* Slice all nodes to either abstraction or implementation *)
   let nodes', functions' = 
@@ -1311,14 +1318,14 @@ let slice_to_abstraction'
       (root_and_leaves_of_abstraction_map false roots analysis)
       nodes
       []
-      functions
+      globals.G.functions
       []
       [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
       
   in
   
   (* Create subsystem from list of nodes *)
-  (N.subsystem_of_nodes nodes', { G.functions = functions'})
+  (N.subsystem_of_nodes nodes', { globals with G.functions = functions'})
 
 
 (* Slice nodes to abstraction or implementation as indicated in

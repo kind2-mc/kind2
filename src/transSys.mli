@@ -160,6 +160,9 @@ val mk_trans_sys :
   (** All state variables including globals and instance identifier *)
   StateVar.t list ->
 
+  (** indexes of state variables *)
+  (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
+
   (** Declarations of other function symbols *)
   UfSymbol.t list  -> 
 
@@ -461,6 +464,10 @@ val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 val instantiate_term_all_levels:
   t -> Numeral.t -> Scope.t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
+
+val get_state_var_bounds : t ->
+  (LustreExpr.expr LustreExpr.bound_or_fixed list)
+    StateVar.StateVarHashtbl.t
 
 
 (*

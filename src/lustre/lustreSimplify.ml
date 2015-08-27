@@ -289,7 +289,7 @@ let rec eval_ast_expr bounds ctx =
 
              let mk_lhs_term (sv, bounds) =
                List.fold_left (fun (i, t) -> function
-                   | N.Bound b ->
+                   | E.Bound b ->
                      succ i,
                      Term.mk_select t
                        (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)

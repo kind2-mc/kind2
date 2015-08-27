@@ -92,6 +92,11 @@ type t =
        state variables in [global_state_vars]. *)
     state_vars : StateVar.t list;
 
+    (* register indexes of state variables for later use *)
+    state_var_bounds : 
+      (LustreExpr.expr LustreExpr.bound_or_fixed list)
+        StateVar.StateVarHashtbl.t;
+    
     (* Transition systems called by this system, and for each instance
        additional information to map between state variables of the
        different scopes *)
@@ -1317,6 +1322,7 @@ let mk_trans_sys
     init_flag_state_var
     global_state_vars
     state_vars
+    state_var_bounds
     ufs
     init_uf_symbol
     init_formals
@@ -1458,6 +1464,7 @@ let mk_trans_sys
       instance_var_bindings;
       global_state_vars;
       state_vars;
+      state_var_bounds;
       subsystems;
       ufs;
       init_uf_symbol;
@@ -1575,6 +1582,10 @@ let instantiate_term_all_levels trans_sys offset scope term =
   ((trans_sys, top_terms) |> res_set_to_list, 
    Map.bindings intermediate_terms
    |> List.map res_set_to_list)
+
+
+
+let get_state_var_bounds { state_var_bounds } = state_var_bounds
 
 (*
 

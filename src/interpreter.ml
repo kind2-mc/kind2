@@ -232,6 +232,7 @@ let main input_file input_sys aparam trans_sys =
             (TransSys.state_vars trans_sys)
             (* (SMTSolver.get_model solver) *)
             (SMTSolver.get_var_values solver
+               (TransSys.get_state_var_bounds trans_sys)
                (TransSys.vars_of_bounds trans_sys
                   Numeral.zero (Numeral.of_int steps)))
             Numeral.(pred (of_int steps))
