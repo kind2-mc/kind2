@@ -2086,7 +2086,13 @@ let type_of_select = function
 
 
 (* Select from an array *)
-let mk_select expr1 expr2 = 
+let mk_select expr1 expr2 =
+
+  Format.eprintf "%a : %a vs %a : %a @."
+    (pp_print_lustre_expr false) expr1
+    Type.pp_print_type expr1.expr_type
+    (pp_print_lustre_expr false) expr2
+    Type.pp_print_type expr2.expr_type ;
 
   (* Types of expressions must be compatible *)
   let _res_type = 

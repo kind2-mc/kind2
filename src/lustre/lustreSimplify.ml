@@ -56,6 +56,49 @@ let pp_print_trie pp_i pp_e ppf t =
     ";@ "
     ppf
 
+
+let select_from_arrayintindex pos bound_e index expr =
+
+  (* Remove top index from all elements in trie *)
+  let vals= 
+    D.fold
+      (fun j v vals -> match j with 
+         | D.ArrayIntIndex i :: [] ->
+           (i, v) :: vals
+         | _ -> assert false)
+      expr []
+  in
+
+  let size = List.length vals in
+
+  (* type check with length of arrays when statically known *)
+  if bound_e <> None && E.is_numeral (get bound_e) &&
+     (E.numeral_of_expr (get bound_e) |> Numeral.to_int) > size
+  then
+    C.fail_at_position pos
+      "Size of indexes on left of equation is larger than size on the right";
+
+  
+  let last, vals = match vals with
+    | (_, x) :: r -> x, r
+    | _ -> assert false
+  in
+  
+  let v =
+    List.fold_left (fun acc (i, v) ->
+        E.mk_ite
+          (E.mk_eq index (E.mk_int (Numeral.of_int i)))
+          v
+          acc
+      )
+      last vals
+  in
+
+  D.add
+    [] (* D.ArrayVarIndex (List.length vals +1 |> Numeral.of_int |> E.mk_int_expr)] *)
+    v D.empty
+
+
 (* ******************************************************************** *)
 (* Evaluation of expressions                                            *)
 (* ******************************************************************** *)
@@ -929,12 +972,19 @@ let rec eval_ast_expr bounds ctx =
 
       (res, ctx)
 
-    (* Array slice [A[i..j] with i=j is just A[k] *)
-    | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
+    (* Array slice [A[i..j] with i=j is just A[i] *)
+    | A.ArraySlice (pos, expr, (i, j)) as exp when i = j -> 
 
+      Format.eprintf "eval of %a@." (A.pp_print_expr) exp;
+
+      let bound_e, bounds = match List.rev bounds with
+        | E.Fixed e :: r | E.Bound e :: r -> Some e, List.rev r
+        | [] -> None, []
+      in
+      
       (* Evaluate expression to an integer constant *)
       let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
-
+      
       let expr', ctx = eval_ast_expr bounds ctx expr in 
 
       let rec push expr' =
@@ -943,7 +993,15 @@ let rec eval_ast_expr bounds ctx =
       match D.choose expr' with 
 
         (* Projection from an array indexed by variable *)
-        | D.ArrayVarIndex _ :: _, _ ->
+      | D.ArrayVarIndex s :: tl, v -> 
+
+        (* type check with length of arrays when statically known *)
+        if bound_e <> None && E.is_numeral (get bound_e) && E.is_numeral s &&
+           Numeral.gt (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s)
+        then
+          C.fail_at_position pos
+            "Size of indexes on left of equation is larger than size on the right";
+        
 
           (* Remove top index from all elements in trie *)
           let expr' = 
@@ -955,15 +1013,22 @@ let rec eval_ast_expr bounds ctx =
               D.empty
           in
 
-          (* Select from array in all elements *)
-          D.map (fun e -> E.mk_select e index) expr'
+          if E.type_of_lustre_expr v |> Type.is_array then 
+            (* Select from array in all elements *)
+            D.map (fun e -> E.mk_select e index) expr'
+          else
+            (* otherwise returned the indexed value *)
+            expr'
+
 
         (* Projection from an array indexed by integers *)
-        | D.ArrayIntIndex _ :: tl, _ -> 
+        | D.ArrayIntIndex _ :: tl, _ ->
 
-          C.fail_at_position 
-            pos
-            "Cannot use a constant array in a recursive definition"
+          select_from_arrayintindex pos bound_e index expr'
+
+        (*   C.fail_at_position  *)
+        (*     pos *)
+        (*     "Cannot use a constant array in a recursive definition" *)
 
         (* Projection from a tuple expression *)
         | D.TupleIndex _ :: _, _
