@@ -1438,7 +1438,7 @@ let rec constraints_of_equations init stateful_vars terms = function
             let v = index_var_of_int i in
 
             let cj = ref [] in
-            for x = b downto 0 do
+            for x = (b - 1) downto 0 do
               cj := Term.mk_let [v, Term.mk_num_of_int x] a :: !cj
             done;
 
@@ -1459,7 +1459,8 @@ let rec constraints_of_equations init stateful_vars terms = function
              [v]
              (Term.mk_implies 
                 [Term.mk_leq [Term.mk_num Numeral.zero; Term.mk_var v; 
-                              (e : E.expr :> Term.t)]; a]),
+                              Term.mk_minus [(e : E.expr :> Term.t);
+                                             Term.mk_num Numeral.one]]; a]),
            pred i)
     in
 

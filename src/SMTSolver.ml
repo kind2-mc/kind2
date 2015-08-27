@@ -549,14 +549,14 @@ let get_var_values s state_var_indexes vars =
           | LustreExpr.Fixed eu
           | LustreExpr.Bound eu ->
             if LustreExpr.is_numeral eu then
-              0, LustreExpr.numeral_of_expr eu |> Numeral.to_int
+              0, LustreExpr.numeral_of_expr eu |> Numeral.to_int |> pred
             else
               (* evaluate value of bound in current model *)
               (* assert (StateVar.is_const svub); *)
               let ub = LustreExpr.unsafe_term_of_expr eu
                        |> Eval.eval_term [] model in
               (match ub with
-               | Eval.ValNum nu -> 0, Numeral.to_int nu
+               | Eval.ValNum nu -> 0, Numeral.to_int nu |> pred
                | _ -> assert false)
         ) indexes in
 
@@ -579,7 +579,7 @@ let get_var_values s state_var_indexes vars =
         | `Error e -> raise (Failure ("SMT solver failed: " ^ e))
       in
       let m =
-        List.fold_left2 (fun acc args (_, e) ->
+        List.fold_left2 (fun acc args (t, e) ->
             Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
           ) Model.MIL.empty args_list values in
       Var.VarHashtbl.add model v (Model.Map m)
