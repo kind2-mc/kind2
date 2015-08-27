@@ -22,8 +22,12 @@
 *)
 
 (** {1 Helper functions} *)
+
 (** Identity function. *)
 val identity : 'a -> 'a
+
+(** Prints the first argument and returns the second. *)
+val print_pass : string -> 'a -> 'a
 
 (** Returns true when given unit. *)
 val true_of_unit : unit -> bool

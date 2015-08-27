@@ -23,6 +23,11 @@
 (* Identity function. *)
 let identity anything = anything
 
+(* Prints the first argument and returns the second. *)
+let print_pass s whatever =
+  Format.printf "%s@." s ;
+  whatever
+
 (* Returns true when given unit. *)
 let true_of_unit () = true
 

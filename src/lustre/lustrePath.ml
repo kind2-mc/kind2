@@ -53,7 +53,7 @@ type t =
 (* ********************************************************************** *)
 
 (* Map a state variable to its instance in the top system *)
-let map_top instances state_var = 
+let map_top instances state_var =
 
   List.fold_left 
     (fun state_var (_, { T.map_up }) -> SVM.find state_var map_up)
@@ -158,8 +158,30 @@ let rec substitute_definitions' stateful_vars equations subst = function
            StateVar.equal_state_vars sv state_var) 
         subst -> 
 
-    (* Skip state variable and continue *)
-    substitute_definitions' stateful_vars equations subst tl
+    (* Moving corresponding substitution to head. *)
+    let subst, expr =
+      let rec loop pref = function
+        | ((sv,e) as pair) :: tail ->
+          if StateVar.equal_state_vars state_var sv then
+            pair :: (List.rev_append pref tail), e
+          else
+            loop (pair :: pref) tail
+        | [] -> assert false
+      in
+      loop [] subst
+    in
+
+    (* Looping with new substitution. *)
+    substitute_definitions' stateful_vars equations subst (
+      if List.exists
+        (StateVar.equal_state_vars state_var)
+        stateful_vars
+      (* If the variable is stateful we loop with the current tail. *)
+      then tl
+      (* If it's not, we need to move the bindings of whatever is in the def
+         of the variable to the head too. *)
+      else (E.state_vars_of_expr expr |> SVS.elements) @ tl
+    )
 
   (* Variable is stateful? *)
   | state_var :: tl 
@@ -223,16 +245,13 @@ let rec substitute_definitions' stateful_vars equations subst = function
    in the top system, or with its definition in [equations] *)
 let substitute_definitions instances equations state_var =
 
-  let defs = 
-    substitute_definitions' instances equations [] [state_var] 
-  in
-
+  substitute_definitions' instances equations [] [state_var]
+  |> List.rev
   (* Stateless variables do not occur under a pre, therefore it is
      enough to substitute it at the current instant *)
-  List.fold_left
+  |> List.fold_left
     (fun a b -> E.mk_let_cur [b] a)
     (E.mk_var state_var)
-    (List.rev defs)
 
 
 
@@ -276,20 +295,16 @@ let map_top_reconstruct_and_add
       | [m] when first_is_init -> 
 
         (* Value for state variable at step *)
-        let v = 
+        let v =
 
           (* Get expression for initial state *)
           E.base_term_of_t TransSys.init_base expr
 
-          |>
-
           (* Map variables in term to top system *)
-          (map_term_top instances)
-
-          |> 
+          |> (map_term_top instances)
 
           (* Evaluate term in model *)
-          Eval.eval_term
+          |> Eval.eval_term
             (TransSys.uf_defs trans_sys) 
             m
 
@@ -305,20 +320,16 @@ let map_top_reconstruct_and_add
       | m :: tl -> 
 
         (* Value for state variable at step *)
-        let v = 
+        let v =
 
           (* Get expression for step state *)
           E.cur_term_of_t TransSys.trans_base expr
 
-          |>
-
           (* Map variables in term to top system *)
-          (map_term_top instances)
-
-          |> 
+          |> (map_term_top instances)
 
           (* Evaluate expression for step state *)
-          Eval.eval_term
+          |> Eval.eval_term
             (TransSys.uf_defs trans_sys) 
             m
 
@@ -410,7 +421,7 @@ let node_path_of_subsystems
     trans_sys
     instances
     model
-    ({ S.scope } as subsystems) = 
+    ({ S.scope } as subsystems) =
 
   (* Get transition system of top scope of subsystems *)
   let trans_sys' = 
@@ -735,12 +746,10 @@ let pp_print_lustre_path_pt ppf lustre_path =
 
 (* Ouptut a hierarchical model as plan text *)
 let pp_print_path_pt trans_sys instances subsystems first_is_init ppf model = 
-
   (* Create the hierarchical model *)
   node_path_of_subsystems first_is_init trans_sys instances model subsystems
-
   (* Output as plain text *)
-  |> pp_print_lustre_path_pt ppf 
+  |> pp_print_lustre_path_pt ppf
 
 
 (* ********************************************************************** *)

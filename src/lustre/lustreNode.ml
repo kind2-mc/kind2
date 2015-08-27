@@ -1017,7 +1017,7 @@ let rec fold_node_calls_with_trans_sys'
         | _ -> assert false)
 
     (* We need to evaluate called nodes first *)
-    | FDown (({ calls } as node), trans_sys, instances) :: tl -> 
+    | FDown (({ calls } as node), trans_sys, instances) :: tl ->
       
       (* Direct subsystems of transition system *)
       let subsystems = 
@@ -1062,9 +1062,9 @@ let rec fold_node_calls_with_trans_sys'
         tl'
 
     (* Subsytems are in the accumulator, evaluate this system now *)
-    | FUp (n, t, i) :: tl -> 
+    | FUp (n, t, i) :: tl -> (
 
-      (match accum with
+      match accum with
         | a :: b :: c ->
           
           fold_node_calls_with_trans_sys' 
@@ -1073,7 +1073,9 @@ let rec fold_node_calls_with_trans_sys'
             (((f n t i a) :: b) :: c) 
             tl
             
-        | _ -> assert false)
+        | _ -> assert false
+
+    )
 
 
 
