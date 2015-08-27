@@ -34,6 +34,15 @@ open Lib
 (** Creates a fresh actlit as a bool UF constant. *)
 val fresh_actlit: unit -> UfSymbol.t
 
+(** Returns the number of fresh actlits created this far. *)
+val fresh_actlit_count: unit -> int
+
+(** Resets the internal counter for fresh actlits.
+
+    /!\ Dangerous, use only if all solvers do use any of the old actlits or
+        will not use any of the new ones. *)
+val reset_fresh_actlit_count : unit -> unit
+
 (** Returns the term corresponding to the input actlit. *)
 val term_of_actlit: UfSymbol.t -> Term.t
 

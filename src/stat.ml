@@ -517,6 +517,59 @@ let pp_print_invgengraph_ts_stats ppf =
     invgengraph_ts_stats_title
     pp_print_stats invgengraph_ts_stats
 
+(* ********** Testgen statistics ********** *)
+
+(* Number of testcases generated. *)
+let testgen_testcases = 
+  empty_item "testcases" 0
+
+(* Number of deadlocks found. *)
+let testgen_deadlocks = 
+  empty_item "deadlocks" 0
+
+(* Number of restarts performed. *)
+let testgen_restarts = 
+  empty_item "restarts" 0
+
+(* Time spent going forward. *)
+let testgen_forward_time = 
+  empty_item "forward" 0.
+
+(* Time spent going backward. *)
+let testgen_backward_time = 
+  empty_item "backward" 0.
+
+(* Time spent enumerating. *)
+let testgen_enumerate_time = 
+  empty_item "enumerate" 0.
+
+(* Total runtime for testgen. *)
+let testgen_total_time = 
+  empty_item "Total time" 0.
+
+(* Title for testgen statistics *)
+let testgen_stats_title = "TestGen"
+
+(* All testgen statistics *)
+let testgen_stats = 
+  [ I testgen_testcases ;
+    I testgen_deadlocks ;
+    I testgen_restarts ;
+    F testgen_forward_time ;
+    F testgen_backward_time ;
+    F testgen_enumerate_time ;
+    F testgen_total_time ]
+
+(* Stop and record all times *)
+let testgen_stop_timers () = stop_all_timers testgen_stats
+
+(* Pretty-print testgen statistics items *)
+let pp_print_testgen_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    testgen_stats_title
+    pp_print_stats testgen_stats
+
 
 (* ********** SMT statistics ********** *)
 

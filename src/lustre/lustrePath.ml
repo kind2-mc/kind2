@@ -948,7 +948,55 @@ let pp_print_path_xml trans_sys instances subsystems first_is_init ppf model =
   node_path_of_subsystems first_is_init trans_sys instances model subsystems
 
   (* Output as XML *)
-  |> pp_print_lustre_path_xml ppf 
+  |> pp_print_lustre_path_xml ppf
+
+
+(* ********************************************************************** *)
+(* CSV output                                                             *)
+(* ********************************************************************** *)
+
+(* Pretty-prints a single stream in CSV. *)
+let pp_print_stream_csv node model ppf (index, sv) =
+  try
+    let typ3 = StateVar.type_of_state_var sv in
+    let values = SVT.find model sv in
+    Format.fprintf ppf "%a,%a,%a"
+      pp_print_stream_ident_xml (index, sv)
+      (E.pp_print_lustre_type false) typ3
+      (pp_print_listi pp_print_stream_value ",") values
+  with Not_found ->
+    Format.asprintf
+      "[LustrePath.pp_print_stream_csv] could not find state var %a"
+      pp_print_stream_ident_xml (index, sv)
+    |> failwith
+
+
+(* Outputs a sequence of values for the inputs of a node. *)
+let pp_print_lustre_path_in_csv ppf (trace, {
+  node = { N.inputs } as node ; model
+}) =
+
+  (* Remove first dimension from index. *)
+  let pop_head_index = function
+    | [], sv -> [], sv
+    | h :: tl, sv -> tl, sv
+  in
+
+  (* Remove index of position in input for printing. *)
+  let inputs = D.bindings inputs |> List.map pop_head_index in
+
+  (* Print inputs in CSV. *)
+  Format.fprintf ppf "@[<v>%a@]"
+    (pp_print_list (pp_print_stream_csv node model) "@,") inputs
+
+(* Outputs a model for the inputs of a system in CSV. *)
+let pp_print_path_in_csv
+  trans_sys instances subsystems first_is_init ppf model
+=
+  (* Create the hierarchical model. *)
+  node_path_of_subsystems first_is_init trans_sys instances model subsystems
+  (* Output as CSV. *)
+  |> pp_print_lustre_path_in_csv ppf
 
 
 (* 

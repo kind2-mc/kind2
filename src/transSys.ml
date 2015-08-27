@@ -128,6 +128,11 @@ type t =
        Does not need to be mutable, because a Property.t is *)
     properties : Property.t list;
 
+    (** Requirements of global and non-global modes for this system (used by
+        test generation).
+        List of [(is_mode_global, mode_name, require_term)]. *)
+    mode_requires: (bool * string * Term.t) list ;
+
     (* Invariants about the current state *)
     mutable invariants_one_state : Term.t list;
 
@@ -539,6 +544,11 @@ let scope_of_trans_sys t = t.scope
 
 (* Returns the properties in the transition system. *)
 let get_properties t = t.properties
+
+(** Returns the mode requirements for this system as a list of triplets
+    [is_mode_global, mode_name, require_term].
+    Used by test generation. *)
+let get_mode_requires t = t.mode_requires
 
 (** Returns the list of properties in a transition system, split by their
     status as [valid, invalid, unknown]. *)
@@ -1317,6 +1327,7 @@ let mk_trans_sys
     trans
     subsystems
     properties
+    mode_requires
     invariants_one_state 
     invariants_two_state = 
 
@@ -1458,6 +1469,7 @@ let mk_trans_sys
       trans_formals;
       trans;
       properties;
+      mode_requires;
       logic;
       invariants_one_state;
       invariants_two_state }

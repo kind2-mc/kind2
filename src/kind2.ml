@@ -31,6 +31,7 @@ module BMC = Base
 module IND = Step
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
+module TestGen = TestgenDF
 
 (* module IC3 = Dummy *)
 

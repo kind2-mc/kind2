@@ -228,7 +228,7 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
   (* One term per require for each global mode *)
   ( global_contracts
     |> List.fold_left (fun prop_list { N.contract_name ; N.contract_reqs } ->
-        let name = LustreIdent.string_of_ident false contract_name in
+        let name = I.string_of_ident false contract_name in
         contract_reqs |> List.fold_left (fun prop_list (pos,sv) ->
           (sv |> E.mk_var |> f_global name pos) :: prop_list
         ) prop_list
@@ -236,7 +236,7 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
 
   @
 
-  (* No requirement if node has no mode *)
+  (* No mode requirement if node has no mode *)
   if mode_contracts = [] then [] else 
     
     (* Disjunction of requirements from all modes *)
@@ -247,6 +247,25 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
       )
       |> E.mk_or_n
       |> f_mode ]
+
+
+(* Generates a list of triplets
+   [(is_contract_global, contract_name, require_term)]. *)
+let contract_extract_requires global_contracts mode_contracts = (
+  global_contracts |> List.map (fun { N.contract_name ; N.contract_reqs } ->
+    true,
+    I.string_of_ident false contract_name,
+    contract_reqs |> List.map (fun (pos,sv) -> sv |> E.mk_var)
+    |> E.mk_and_n |> E.cur_term_of_t TransSys.prop_base
+  )
+) @ (
+  mode_contracts |> List.map (fun { N.contract_name ; N.contract_reqs } ->
+    false,
+    I.string_of_ident false contract_name,
+    contract_reqs |> List.map (fun (pos,sv) -> sv |> E.mk_var)
+    |> E.mk_and_n |> E.cur_term_of_t TransSys.prop_base
+  )
+)
 
 
 (* Creates one term per ensure clause in each global mode, and one term per
@@ -2019,6 +2038,11 @@ let rec trans_sys_of_node'
 
             in
 
+            (* Extract requirements. *)
+            let mode_requires =
+              contract_extract_requires global_contracts mode_contracts
+            in
+
             (* ****************************************************** *)
             (* Turn assumed properties into assertions                *)
 
@@ -2217,6 +2241,7 @@ let rec trans_sys_of_node'
                 (Term.mk_and trans_terms)
                 subsystems
                 properties
+                mode_requires
                 [] (* One-state invariants *)
                 [] (* Two-state invariants *)
             in                

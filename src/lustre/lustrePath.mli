@@ -27,6 +27,9 @@ val pp_print_path_xml : TransSys.t -> TransSys.instance list -> LustreNode.t Sub
     pre-processing reverted *)
 val pp_print_path_pt : TransSys.t -> TransSys.instance list -> LustreNode.t SubSystem.t -> bool -> Format.formatter -> Model.path -> unit
 
+(** Outputs a model as a sequence of inputs in CSV. *)
+val pp_print_path_in_csv : TransSys.t -> TransSys.instance list -> LustreNode.t SubSystem.t -> bool -> Format.formatter -> Model.path -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

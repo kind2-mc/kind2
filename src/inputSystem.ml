@@ -127,6 +127,19 @@ let pp_print_path_xml
   | Horn _ -> assert false
 
 
+let pp_print_path_in_csv
+(type s) (input_system : s t) trans_sys instances first_is_init ppf model =
+  match input_system with
+
+  | Lustre (subsystem, _) ->
+    LustrePath.pp_print_path_in_csv
+      trans_sys instances subsystem first_is_init ppf model
+
+  | Native _ -> assert false
+
+  | Horn _ -> assert false
+
+
 
 let slice_to_abstraction_and_property
 (type s) (input_sys: s t) analysis trans_sys cex prop
