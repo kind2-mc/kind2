@@ -355,8 +355,6 @@ let main (type s)
     (mode_terms |> Term.mk_or) :: global_terms |> Term.mk_and
   in
 
-  Event.log L_info "%sChecking init." log_id;
-
   let init_modes =
     match
       Solver.checksat

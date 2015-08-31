@@ -557,7 +557,7 @@ let get_split_properties { properties } =
     match Property.get_prop_status p with
     | Property.PropInvariant -> p :: valid, invalid, unknown
     | Property.PropFalse _ -> valid, p :: invalid, unknown
-    | _ -> valid, invalid, unknown
+    | _ -> valid, invalid, p :: unknown
   ) ([], [], [])
 
 

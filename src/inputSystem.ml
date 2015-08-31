@@ -19,11 +19,12 @@
 open Lib
 
 module Strat = Strategy
+module S = SubSystem
 
 type _ t =
-| Lustre : (LustreNode.t SubSystem.t * LustreGlobals.t) -> LustreNode.t t
-| Native : unit SubSystem.t -> unit t
-| Horn : unit SubSystem.t -> unit t
+| Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
+| Native : unit S.t -> unit t
+| Horn : unit S.t -> unit t
 
 let read_input_lustre input_file = Lustre (LustreInput.of_file input_file) 
 
@@ -34,8 +35,79 @@ let read_input_horn input_file = assert false
 let ordered_scopes_of (type s)
 : s t -> Scope.t list = function
   | Lustre (subsystem, _) ->
-    SubSystem.all_subsystems subsystem
-    |> List.map (fun { SubSystem.scope } -> scope)
+    S.all_subsystems subsystem
+    |> List.map (fun { S.scope } -> scope)
+
+  | Native subsystem -> assert false
+  | Horn subsystem -> assert false
+
+(* Uid generator for test generation params.
+
+/!\
+    This is _wrong_.
+    There's gonna be collision with the UIDs for regular analysis. Right now
+    analyses and testgen are separate so that's fine, but be careful in the
+    future.
+/!\
+
+*)
+let testgen_uid_ref = ref 1
+let get_testgen_uid () =
+  let uid = !testgen_uid_ref in
+  testgen_uid_ref := uid + 1 ;
+  uid
+
+(** Returns the analysis param for [top] that abstracts all its abstractable
+    subsystems if [top] has a contract. *)
+let maximal_abstraction_for_testgen (type s)
+: s t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option = function
+
+  | Lustre (subsystem, globals) -> (fun top assumptions ->
+
+    (* Collects all subsystems, abstracting them if possible. *)
+    let rec collect map = function
+      | sub :: tail ->
+        collect (Scope.Map.add sub.S.scope sub.S.has_contract map) tail
+      | [] -> Some map
+    in
+
+    (* Finds [top] in the subsystems, and then calls [collect]. *)
+    let rec get_abstraction_for_top = function
+      | sub :: tail ->
+        if sub.S.scope = top then
+          (* Sub is the system we're looking for. *)
+          if sub.S.has_contract then
+            (* System has contracts, collecting subsystems. *)
+            collect (Scope.Map.add sub.S.scope false Scope.Map.empty) tail
+          else
+            (* System has no contracts. *)
+            None
+        else
+          (* Sub is not the system we're looking for, skipping. *)
+          get_abstraction_for_top tail
+      | [] ->
+        Format.asprintf
+          "system %a does not exist, cannot generate param for testgen"
+          Scope.pp_print_scope top
+        |> failwith
+    in
+
+    match
+      S.all_subsystems subsystem |> get_abstraction_for_top
+    with
+
+    (* Top is not abstractable. *)
+    | None -> None
+
+    (* All good. *)
+    | Some map -> Some {
+      Analysis.top = top ;
+      Analysis.uid = get_testgen_uid () ;
+      Analysis.abstraction_map = map ;
+      Analysis.assumptions = assumptions ;
+    }
+
+  )
 
   | Native subsystem -> assert false
   | Horn subsystem -> assert false
@@ -62,16 +134,16 @@ let next_analysis_of_strategy (type s)
     } *)
 
     let subs_of_scope scope =
-      let { SubSystem.subsystems } =
-        SubSystem.find_subsystem subsystem scope
+      let { S.subsystems } =
+        S.find_subsystem subsystem scope
       in
       subsystems |> List.map (
-        fun { SubSystem.scope ; SubSystem.has_contract } -> scope, has_contract
+        fun { S.scope ; S.has_contract } -> scope, has_contract
       )
     in
 
-    SubSystem.all_subsystems subsystem
-    |> List.map (fun { SubSystem.scope ; SubSystem.has_contract } ->
+    S.all_subsystems subsystem
+    |> List.map (fun { S.scope ; S.has_contract } ->
       scope, has_contract
     )
     |> Strategy.next_analysis results subs_of_scope
@@ -151,8 +223,8 @@ let slice_to_abstraction_and_property
     | Lustre (subsystem, globals) -> (fun scope { TransSys.pos } cex v -> 
           
       (* Get node cals in subsystem of scope. *)
-      let { SubSystem.source = { LustreNode.calls } } = 
-        SubSystem.find_subsystem subsystem scope 
+      let { S.source = { LustreNode.calls } } = 
+        S.find_subsystem subsystem scope 
       in
     
       (* Get clock of node call identified by its position. *)
@@ -209,7 +281,7 @@ let slice_to_abstraction_and_property
 
   in  
 
-  (* Map counterexample and property to subsystem. *)
+  (* Map counterexample and property to S. *)
   let trans_sys', instances, cex', { Property.prop_term } =
     TransSys.map_cex_prop_to_subsystem 
       filter_out_values trans_sys  cex prop

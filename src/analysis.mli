@@ -119,6 +119,11 @@ val results_find : Scope.t -> results -> result list
     generate UIDs for [param]s. *)
 val results_length : results -> int
 
+(** Returns [None] if no properties were falsified but some could not be
+    proved, [Some true] if all properties were proved, and [Some false] if
+    some were falsified. *)
+val results_is_safe : results -> bool option
+
 
 
 

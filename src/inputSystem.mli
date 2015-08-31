@@ -34,10 +34,14 @@ val read_input_lustre : string -> LustreNode.t t
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list
 
+(** Returns the analysis param for [top] that abstracts all its abstractable
+    subsystems if [top] has a contract. *)
+val maximal_abstraction_for_testgen :
+  'a t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option
+
 (** Return the next system to analyze and the systems to abstract *)
 val next_analysis_of_strategy :
   'a t -> Analysis.results -> Analysis.param option
-
 
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis : 'a t -> Analysis.param -> TransSys.t * 'a t

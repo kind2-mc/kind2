@@ -222,19 +222,28 @@ let status_signal = 128
 (* Exit status if child raised an exception *)
 let status_error = 2
 
+(* Exit status from an optional [results]. *)
+let status_of_sys sys_opt = match sys_opt with
+| None -> status_timeout
+| Some sys -> status_of_trans_sys sys
+
+(* Exit status from an optional [results]. *)
+let status_of_results results_opt = match results_opt with
+| None -> status_timeout
+| Some results -> (
+  match Analysis.results_is_safe results with
+  | None -> status_timeout
+  | Some true -> status_safe
+  | Some false -> status_unsafe
+)
 
 (* Return the status code from an exception *)
-let status_of_exn process trans_sys_opt =
-
-  let status_of_sys () = match trans_sys_opt with
-    | None -> status_timeout
-    | Some sys -> status_of_trans_sys sys
-  in
+let status_of_exn process status =
 
   function
 
   (* Normal termination *)
-  | Exit -> status_of_sys ()
+  | Exit -> status
 
   (* Termination message *)
   | Event.Terminate -> (
@@ -242,7 +251,7 @@ let status_of_exn process trans_sys_opt =
     Event.log L_info
       "Received termination message" ;
 
-    status_of_sys ()
+    status
 
   ) 
 
@@ -252,7 +261,7 @@ let status_of_exn process trans_sys_opt =
     Event.log L_error
       "[Timeout] Wallclock timeout" ;
 
-    status_of_sys ()
+    status
 
   ) 
 
@@ -262,7 +271,7 @@ let status_of_exn process trans_sys_opt =
     Event.log L_error
       "[Timeout] CPU timeout";
 
-    status_of_sys ()
+    status
 
   ) 
 
@@ -298,6 +307,12 @@ let status_of_exn process trans_sys_opt =
     status_error 
 
   )
+
+let status_of_exn_sys process sys_opt =
+  status_of_exn process (status_of_sys sys_opt)
+
+let status_of_exn_results process results_opt =
+  status_of_exn process (status_of_results results_opt)
 
 (* Kill all kids cleanly. *)
 let slaughter_kids process sys =
@@ -372,14 +387,14 @@ let slaughter_kids process sys =
 
       (* Ignoring exit code, whatever happened does not change the
          outcome of the analysis. *)
-      status_of_exn process sys (Signal 0) |> ignore
+      status_of_exn_sys process None (Signal 0) |> ignore
 
     (* Exception in Unix.wait loop *)
     | e ->
 
       (* Ignoring exit code, whatever happened does not change the
          outcome of the analysis. *)
-      status_of_exn process sys e |> ignore ) ;
+      status_of_exn_sys process None e |> ignore ) ;
 
   (* Deactivate timeout. *)
   let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
@@ -431,10 +446,10 @@ let slaughter_kids process sys =
 
 
 (* Called after everything has been cleaned up. All kids dead etc. *)
-let clean_exit process sys exn =
+let clean_exit process results exn =
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process sys exn in
+  let status = status_of_exn_results process results exn in
 
   (* Close tags in XML output *)
   Event.terminate_log () ;
@@ -443,7 +458,7 @@ let clean_exit process sys exn =
   exit status
 
 (* Clean up before exit *)
-let on_exit process sys exn =
+let on_exit process results exn =
 
 (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
@@ -483,10 +498,10 @@ let on_exit process sys exn =
 *)
 
   (* Killing kids. *)
-  slaughter_kids process sys ;
+  slaughter_kids process (!cur_trans_sys) ;
 
   (* Exiting. *)
-  clean_exit process sys exn
+  clean_exit process None exn
 
 
 (* Call cleanup function of process and exit.
@@ -496,7 +511,7 @@ let on_exit process sys exn =
 let on_exit_child messaging_thread process sys_opt exn =
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process sys_opt exn in
+  let status = status_of_exn_sys process sys_opt exn in
 
   (* Call cleanup of process *)
   (on_exit_of_process process) !cur_trans_sys ;
@@ -1008,6 +1023,32 @@ let rec run_loop msg_setup modules trans_syss results =
     (* Looping. *)
     run_loop msg_setup modules trans_syss results
 
+
+(* Runs test generation on the system (scope) specified by abstracting
+   everything. *)
+let run_testgen input_sys sys =
+  match InputSystem.maximal_abstraction_for_testgen input_sys sys [] with
+  | None ->
+    Event.log L_info
+      "System %a has no contracts, cannot run test generation."
+      Scope.pp_print_scope sys
+
+  | Some param ->
+    (* Extracting transition system. *)
+    let sys, input_sys_sliced =
+      InputSystem.trans_sys_of_analysis input_sys param
+    in
+
+    (* Let's do this. *)
+    try (
+      TestGen.main param input_sys_sliced sys ;
+      (* Yay, done. Killing stuff. *)
+      TestGen.on_exit "yay"
+    ) with e -> (
+      TestGen.on_exit "T_T" ;
+      raise e
+    )
+
 (* Looks at the modules activated and decides what to do. *)
 let launch () =
 
@@ -1031,364 +1072,98 @@ let launch () =
   cur_aparam    := Some aparam           ;
   cur_trans_sys := Some trans_sys        ;
 
-  (* Checking what's activated. *)
-  match Flags.enable () with
 
-  (* No modules enabled. *)
-  | [] ->
-    Event.log L_fatal "Need at least one process enabled." ;
-    exit status_error
+  (* /!\ Test generation disclaimer: arguably it should come _after_
+     verification, since test generation assumes the system is correct.
 
-  (* Only the interpreter is running. *)
-  | [m] when m = `Interpreter ->
+     When you know what you're doing on the other hand that's fine.
+     So obviously our actual users should not be able to do this.
+   *)
+  if Flags.testgen_active () |> not then (
 
-    (* Set module currently running. *)
-    Event.set_module m ;
+    (* Checking what's activated. *)
+    match Flags.enable () with
 
-    (* Run interpreter. *)
-    Interpreter.main
-      (Flags.interpreter_input_file ())
-      (get !cur_input_sys)
-      (get !cur_aparam)
-      (get !cur_trans_sys) ;
+    (* No modules enabled. *)
+    | [] ->
+      Event.log L_fatal "Need at least one process enabled." ;
+      exit status_error
 
-    (* Ignore SIGALRM from now on *)
-    Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
+    (* Only the interpreter is running. *)
+    | [m] when m = `Interpreter ->
 
-    (* Cleanup before exiting process *)
-    on_exit_child None m (Some (get !cur_trans_sys)) Exit
+      (* Set module currently running. *)
+      Event.set_module m ;
 
-  (* Some modules, including the interpreter. *)
-  | modules when List.mem `Interpreter modules ->
-    Event.log L_fatal "Cannot run the interpreter with other processes." ;
-    exit status_error
+      (* Run interpreter. *)
+      Interpreter.main
+        (Flags.interpreter_input_file ())
+        (get !cur_input_sys)
+        (get !cur_aparam)
+        (get !cur_trans_sys) ;
 
-  (* Some modules, not including the interpreter. *)
-  | modules ->
+      (* Ignore SIGALRM from now on *)
+      Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
 
-    Event.log L_info
-      "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
-      (pp_print_list pp_print_kind_module "@ - ")
-      modules ;
+      (* Cleanup before exiting process *)
+      on_exit_child None m (Some (get !cur_trans_sys)) Exit
 
-    (* Setup messaging. *)
-    let msg_setup = Event.setup () in
+    (* Some modules, including the interpreter. *)
+    | modules when List.mem `Interpreter modules ->
+      Event.log L_fatal "Cannot run the interpreter with other processes." ;
+      exit status_error
 
-    (* Set module currently running *)
-    Event.set_module `Supervisor ;
+    (* Some modules, not including the interpreter. *)
+    | modules ->
 
-    (* Initialize messaging for invariant manager, obtain a background thread.
-       No kids yet. *)
-    Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
+      Event.log L_info
+        "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
+        (pp_print_list pp_print_kind_module "@ - ")
+        modules ;
 
-    Event.log L_trace "Messaging initialized in supervisor." ;
+      (* Setup messaging. *)
+      let msg_setup = Event.setup () in
 
-    try
-      (* Running. *)
-      let results = run_loop msg_setup modules [] results in
-      (* Producing a list of the last results for each system, in topological
-         order. *)
-      get !input_sys_ref |> InputSystem.ordered_scopes_of
-      |> List.fold_left (fun l sys ->
-        try (
-          match Analysis.results_find sys results with
-          | last :: _ -> last :: l
-          | [] -> assert false
-        ) with Not_found -> l
-      ) []
-      (* Logging the end of the run. *)
-      |> Event.log_run_end ;
+      (* Set module currently running *)
+      Event.set_module `Supervisor ;
 
-      clean_exit `Supervisor None Exit
-    with e ->
-      on_exit `Supervisor !cur_trans_sys e
+      (* Initialize messaging for invariant manager, obtain a background
+         thread. No kids yet. *)
+      Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
+
+      Event.log L_trace "Messaging initialized in supervisor." ;
+
+      try
+        (* Running. *)
+        let results = run_loop msg_setup modules [] results in
+        (* Producing a list of the last results for each system, in topological
+           order. *)
+        get !input_sys_ref |> InputSystem.ordered_scopes_of
+        |> List.fold_left (fun l sys ->
+          try (
+            match Analysis.results_find sys results with
+            | last :: _ -> last :: l
+            | [] -> assert false
+          ) with Not_found -> l
+        ) []
+        (* Logging the end of the run. *)
+        |> Event.log_run_end ;
+
+        clean_exit `Supervisor (Some results) Exit
+
+      with e -> on_exit `Supervisor None e
+
+  ) else (
+
+    match InputSystem.ordered_scopes_of input_sys with
+    | top :: _ -> run_testgen input_sys top
+    | [] -> ()
+
+  )
 
 
 (* Entry point *)
 let main () = launch ()
-
-(* let _ () =
-
-  (* Parse command-line flags *)
-  Flags.parse_argv () ;
-
-  (* At least one debug section enabled? *)
-  if Flags.debug () = [] then
-
-    (* Initialize debug output when no debug section enabled *)
-    Debug.initialize ()
-
-  else (
-
-    (* Formatter to write debug output to *)
-    let debug_formatter =
-
-      match Flags.debug_log () with
-
-        (* Write to stdout by default *)
-        | None -> Format.std_formatter
-
-        (* Open channel to given file and create formatter on channel *)
-        | Some f ->
-
-          let oc = try open_out f with | Sys_error _ ->
-            failwith "Could not open debug logfile"
-          in
-          Format.formatter_of_out_channel oc
-
-    in
-
-    (* Enable each requested debug section and write to formatter *)
-    List.iter
-      (function s -> Debug.enable s debug_formatter)
-      (Flags.debug ()) ;
-
-  ) ;
-
-  (* Set log format to XML if requested *)
-  if Flags.log_format_xml () then Event.set_log_format_xml () ;
-
-  (* No output at all? *)
-  if not (Flags.log_level () = L_off) then (
-
-    (* Temporarily set log level to info and output logo *)
-    set_log_level L_info ;
-    Event.log L_info "%a" pp_print_banner ()
-
-  ) ;
-
-  (* Set log level *)
-  set_log_level (Flags.log_level ()) ;
-
-  (* Record backtraces on log levels debug and higher *)
-  if output_on_level L_debug then
-    Printexc.record_backtrace true ;
-
-  (* Check and set SMT solver *)
-  check_smtsolver () ;
-
-  (* Wallclock timeout? *)
-  if Flags.timeout_wall () > 0. then (
-
-    (* Install signal handler for SIGALRM after wallclock timeout *)
-    Sys.set_signal
-      Sys.sigalrm
-      (Sys.Signal_handle (function _ -> raise TimeoutWall)) ;
-
-    (* Set interval timer for wallclock timeout *)
-    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-      Unix.setitimer
-        Unix.ITIMER_REAL
-        { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_wall () }
-    in
-
-    ()
-
-  ) else (
-
-    (* Install generic signal handler for SIGALRM *)
-    Sys.set_signal
-      Sys.sigalrm
-      (Sys.Signal_handle exception_on_signal) ;
-
-  ) ;
-
-  (* Must not use vtalrm signal, this is used internally by the OCaml
-     Threads module *)
-
-  (* Raise exception on CTRL+C *)
-  Sys.catch_break true ;
-
-  (* Install generic signal handler for SIGINT *)
-  Sys.set_signal
-    Sys.sigint
-    (Sys.Signal_handle exception_on_signal) ;
-
-  (* Install generic signal handler for SIGTERM *)
-  Sys.set_signal
-    Sys.sigterm
-    (Sys.Signal_handle exception_on_signal) ;
-
-  (* Install generic signal handler for SIGQUIT *)
-  Sys.set_signal
-    Sys.sigquit
-    (Sys.Signal_handle exception_on_signal) ;
-
-  Stat.start_timer Stat.total_time ;
-
-  try
-
-    Event.log L_info
-      "Parsing input file %s" (Flags.input_file ()) ;
-
-    (* Parse file into two-state transition system *)
-    (match (Flags.input_format ()) with
-
-      | `Lustre ->
-
-        let input_sys =
-          InputSystem.read_input_lustre (Flags.input_file ())
-        in
-
-        let aparam =
-          match
-            InputSystem.next_analysis_of_strategy
-              input_sys
-              []
-          with
-            | None -> assert false
-            | Some a -> a
-        in
-
-        let trans_sys, input_sys_sliced =
-          InputSystem.trans_sys_of_analysis input_sys aparam
-        in
-
-        cur_input_sys := Some input_sys_sliced ;
-        cur_aparam := Some aparam ;
-        cur_trans_sys := Some trans_sys ;
-
-(*          
-          Some
-            (LustreInput.of_file
-               (Flags.enable () = [`Interpreter])
-               (Flags.input_file ()))
-*)
-      | `Native -> (
-
-        (* Some (NativeInput.of_file (Flags.input_file ())) *)
-
-        Event.log
-          L_fatal
-          "Native input deactivated while refactoring transition system." ;
-
-        assert false
-
-      )
-
-      | `Horn ->
-
-        (* Horn.of_file (Flags.input_file ()) *)
-        assert false
-    ) ;
-
-    (* Output the transition system *)
-    (debug parse
-      "%a"
-      TransSys.pp_print_trans_sys
-      (get !cur_trans_sys)
-     end) ;
-
-(* TODO
-    if 
-
-      (* Warn if list of properties is empty *)
-      TransSys.props_list_of_bound (get !trans_sys) Numeral.zero = []
-
-    then
-
-      Event.log
-        L_warn
-        "No properties to prove";
-*)
-
-    (* Which modules are enabled? *)
-    (match Flags.enable () with
-
-      (* No modules enabled *)
-      | [] ->
-        (Event.log L_fatal "Need at least one process enabled")
-
-      (* Single module enabled *)
-      | [p] ->
-
-        Event.log L_info
-          "Running as a single process" ;
-
-        (* Set module currently running *)
-        Event.set_module p ;
-
-        (* Run main function of process *)
-        (main_of_process p)
-          (get !cur_input_sys)
-          (get !cur_aparam)
-          (get !cur_trans_sys) ;
-        
-        (* Ignore SIGALRM from now on *)
-        Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
-
-        (* Cleanup before exiting process *)
-        on_exit_child None p (Some (get !cur_trans_sys)) Exit
-
-      (* Run some modules in parallel *)
-      | ps ->
-
-        Event.log L_info
-          "@[<hov>Running %a in parallel mode@]"
-          (pp_print_list pp_print_kind_module ",@ ")
-          ps ;
-
-        let messaging_setup = Event.setup () in
-
-        Event.log L_trace
-          "Messaging initialized in invariant manager" ;
-
-        (* Start all child processes *)
-        List.iter
-          (function p -> run_process messaging_setup p)
-          ps ;
-
-        (* Set module currently running *)
-        Event.set_module `Supervisor ;
-
-        Event.log L_trace "Starting invariant manager" ;
-
-
-        (* Initialize messaging for invariant manager, obtain a background
-           thread *)
-        let _ =
-          Event.run_im
-            messaging_setup
-            !child_pids
-            (on_exit `Supervisor !cur_trans_sys)
-        in
-
-        (* Run invariant manager *)
-        InvarManager.main child_pids
-          (get !cur_input_sys)
-          (get !cur_aparam)
-          (get !cur_trans_sys) ;
-
-        (* Exit without error *)
-        on_exit `Supervisor !cur_trans_sys Exit
-
-    ) ;
-
-  with
-
-    (* Exit with error *)
-    | e ->
-
-      Format.printf "Exception: %s@." (Printexc.to_string e) ;
-
-      (* Which modules are enabled? *)
-      (match Flags.enable () with
-
-        (* No modules enabled *)
-        | [] -> ()
-
-        (* Single module enabled *)
-        | [p] ->
-
-          (* Cleanup before exiting process *)
-          on_exit_child None p !cur_trans_sys e
-
-        (* Run some modules in parallel *)
-        | _ ->
-
-          on_exit `Supervisor !cur_trans_sys e
-
-      ) *)
 
 ;;
 

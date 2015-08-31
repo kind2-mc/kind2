@@ -196,9 +196,9 @@ let pp_print_deadlock fmt path name modes =
 let pp_print_model_path fmt path =
   let rec loop cpt = function
     | modes :: modes' :: tail ->
-      Format.fprintf fmt "  %a_%d -> %a_%d ;@.@?"
-        (pp_print_list Format.pp_print_string "__") modes cpt
-        (pp_print_list Format.pp_print_string "__") modes' (cpt + 1) ;
+      Format.fprintf fmt "  \"%a\\n@%d\" -> \"%a\\n@%d\" ;@.@?"
+        (pp_print_list Format.pp_print_string "\\n") modes cpt
+        (pp_print_list Format.pp_print_string "\\n") modes' (cpt + 1) ;
       loop (cpt + 1) (modes' :: tail)
     | _ -> Format.fprintf fmt "@.@?"
   in
