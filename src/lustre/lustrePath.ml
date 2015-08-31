@@ -248,18 +248,9 @@ let substitute_definitions instances equations state_var =
   substitute_definitions' instances equations [] [state_var]
   (* Stateless variables do not occur under a pre, therefore it is
      enough to substitute it at the current instant *)
-  |> fun l ->
-    Format.printf "@.@.@.|===| Binding (%a)@." StateVar.pp_print_state_var state_var ;
-    List.fold_left (fun a b ->
-      Format.printf "  %a -> %a@."
-        StateVar.pp_print_state_var (fst b)
-        (E.pp_print_lustre_expr true) (snd b) ;
-      E.mk_let_cur [b] a
-    ) (E.mk_var state_var) l
-  |> fun e ->
-    Format.printf
-      "@.@.@.|===| expr@.  %a@.@." (E.pp_print_lustre_expr true) e ;
-    e
+  |> List.rev |> List.fold_left (
+    fun a b -> E.mk_let_cur [b] a
+  ) (E.mk_var state_var)
 
 
 
