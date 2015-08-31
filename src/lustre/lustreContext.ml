@@ -1372,7 +1372,7 @@ let add_node_property ctx source name expr =
                               N.props = prop' :: props } }
 
 
-(* Add node assert to context *)
+(* Add node equation to context *)
 let add_node_equation ctx pos state_var bounds indexes expr = 
 
   match ctx with 

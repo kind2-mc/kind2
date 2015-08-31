@@ -147,7 +147,7 @@ let map_top_and_add instances model model' _ state_var =
    definition *)
 let rec substitute_definitions' stateful_vars equations subst = function 
 
-  (* All state variables are in the top system, return substitutions *)
+  (* All state variables are in the top system, return substitutions. *)
   | [] -> subst
 
   (* Substitution for state variable already computed? *)
@@ -246,12 +246,20 @@ let rec substitute_definitions' stateful_vars equations subst = function
 let substitute_definitions instances equations state_var =
 
   substitute_definitions' instances equations [] [state_var]
-  |> List.rev
   (* Stateless variables do not occur under a pre, therefore it is
      enough to substitute it at the current instant *)
-  |> List.fold_left
-    (fun a b -> E.mk_let_cur [b] a)
-    (E.mk_var state_var)
+  |> fun l ->
+    Format.printf "@.@.@.|===| Binding (%a)@." StateVar.pp_print_state_var state_var ;
+    List.fold_left (fun a b ->
+      Format.printf "  %a -> %a@."
+        StateVar.pp_print_state_var (fst b)
+        (E.pp_print_lustre_expr true) (snd b) ;
+      E.mk_let_cur [b] a
+    ) (E.mk_var state_var) l
+  |> fun e ->
+    Format.printf
+      "@.@.@.|===| expr@.  %a@.@." (E.pp_print_lustre_expr true) e ;
+    e
 
 
 
