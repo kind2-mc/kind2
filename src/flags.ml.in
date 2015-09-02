@@ -315,6 +315,7 @@ let enable_values = [
 ] |> List.map string_of_kind_module |> String.concat ", "
 
 let enable_default_init = []
+let disable_default_init = []
 
 let enable_default_after = [ `BMC; `IND; `IC3; `INVGEN; `INVGENOS ]
 
@@ -646,7 +647,8 @@ type flags =
     mutable yices2smt2_bin : yices2smt2_bin;
     mutable smt_trace : smt_trace;
     mutable smt_trace_dir : smt_trace_dir;
-    mutable enable : enable;
+    mutable enable : enable ;
+    mutable disable : enable ;
     mutable check_version : check_version;
     mutable bmc_max : bmc_max;
     mutable ind_compress : ind_compress;
@@ -707,6 +709,7 @@ let flags =
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
     enable = enable_default_init;
+    disable = disable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
     ind_compress = ind_compress_default;
@@ -895,6 +898,21 @@ let enable_spec =
   ("--enable", 
    Arg.String enable_action, 
    Format.sprintf "enable Kind module (available: %s, default: %s)"
+                  enable_values (string_of_enable enable_default_after))
+
+(* ********** *) 
+
+let disable_action o = 
+
+  (* Ensure the each module is at most once in flags.disable *)
+  let mdl = kind_module_of_string o in
+  if not (List.mem mdl flags.disable) then
+    flags.disable <- mdl :: flags.disable
+  
+let disable_spec = 
+  ("--disable", 
+   Arg.String disable_action,
+   Format.sprintf "disable Kind module (available: %s, default enabled: %s)"
                   enable_values (string_of_enable enable_default_after))
 
 (* ********** *) 
@@ -1538,6 +1556,7 @@ and speclist =
 
     (* Set enabled modules *)
     enable_spec;
+    disable_spec;
 
     (* Output version information and exit *)
     check_version_spec;
@@ -1718,8 +1737,18 @@ let parse_argv () =
     (Format.printf "%t@." pp_print_version; exit 0);
     
   (* Set default value if unchanged *)
-  if flags.enable = enable_default_init then 
+  if flags.enable = enable_default_init then
     flags.enable <- enable_default_after;
+
+  (* Remove disabled modules. *)
+  flags.enable <- flags.enable |> List.filter (fun mdl ->
+    List.mem mdl flags.disable |> not
+  ) ;
+
+  Format.printf "enabled: %a@.@."
+    (pp_print_list (fun fmt mdl ->
+        Format.fprintf fmt "%a" pp_print_kind_module mdl
+      ) " ") flags.enable ;
 
   (* Fail if input file not set *)
   match flags.input_file with 
