@@ -861,17 +861,20 @@ let declare_vars_of_bounds
 let declare_const_vars { state_vars } declare =
 
   (* Constant state variables of the top system *)
-  List.filter StateVar.is_const state_vars 
+  List.filter StateVar.is_const state_vars
 
-  |> 
+  (* |> fun l ->
+    List.length l
+    |> Format.printf "declaring %d constant state variables:@." ;
+    Format.printf "  @[<v>%a@]@.@.@."
+      (pp_print_list StateVar.pp_print_state_var "@ ") l ;
+    l *)
 
   (* Create variable of constant state variable *)
-  List.map Var.mk_const_state_var
-
-  |>
+  |> List.map Var.mk_const_state_var
 
   (* Declare variables *)
-  Var.declare_constant_vars declare
+  |> Var.declare_constant_vars declare
 
 
 (* Return the init flag at the given bound *)
@@ -914,26 +917,21 @@ let define_and_declare_of_bounds
   declare_ufs trans_sys declare;
 
   (* Iterate over all subsystems *)
-  iter_subsystems 
-    ~include_top:false
-    (fun t ->
+  trans_sys |> iter_subsystems ~include_top:false (fun t ->
 
-       (* Declare ufs for subsystems. *)
-       (* declare_ufs t declare ; *)
+    declare_const_vars t declare ;
 
-       (* Declare constant state variables of subsystem *)
-       if declare_sub_vars then 
-         (declare_const_vars t declare; 
-          declare_vars_of_bounds t declare lbound ubound) ;
-       
-       (* Define initial state predicate *)
-       define_init define t ;
+    (* Declare constant state variables of subsystem *)
+    if declare_sub_vars then
+      declare_vars_of_bounds t declare lbound ubound ;
 
-       (* Define transition relation predicate *)
-       define_trans define t )
+    (* Define initial state predicate *)
+    define_init define t ;
 
-    trans_sys ;
-       
+    (* Define transition relation predicate *)
+    define_trans define t
+  ) ;
+
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
        
