@@ -67,7 +67,7 @@ Function c returns costs >= 0 and does not query a solver to compute a cost. If
 c(C) = 0, then C is "close enough" to being an invariant and a solver is used
 to query (1), (2) and (3). If all are unsat then a strengthening invariant has
 been found.
-In practice (2) is changed to "T \land I' \land \neg P' is unsat". Thus when we
+In practice (2) is changed to "I \land T \land \neg P' is unsat". Thus when we
 find a strengthening invariant I we don't set the property as invariant, but
 instead simply communicate I and let k-induction do the work. The reason is
 that there might be a problem with the initial state, i.e. Init \land \neg P
@@ -400,7 +400,7 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
   (* Does the candidate imply the property after a transition? *)
   Term.mk_implies [ actlit ;
     Term.mk_and [
-      candidate |> Term.bump_state Numeral.one ;
+      candidate ;
       TransSys.get_prop_term sys prop
       |> Term.bump_state Numeral.one |> Term.mk_not
     ]
@@ -445,7 +445,7 @@ let update_colors ({white ; grey ; black} as t) (check1, check2, check3) =
     | None -> black
     | Some m ->
       (debug c2i "| black" in ()) ;
-      (model_split 0 m |> snd) :: black
+      (model_split 0 m |> fst) :: black
   in
   let white, grey, black = 
     match check3 with
