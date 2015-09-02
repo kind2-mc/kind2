@@ -1,0 +1,437 @@
+------------------------------------------------------------------------------
+-- Returns true on rising edge of p
+------------------------------------------------------------------------------
+node Rise(p: bool) returns (r: bool);
+let
+  r = false -> not pre(p) and p;
+tel;
+
+node Fall(p: bool) returns (r: bool);
+let
+  r = false -> (not p) and pre p ;
+tel
+
+
+------------------------------------------------------------------------------
+-- Returns true when p changes
+------------------------------------------------------------------------------
+node Changed(p: bool) returns (r: bool);
+let
+  r = false -> p <> pre(p);
+tel;
+      
+
+------------------------------------------------------------------------------
+-- Latches p
+------------------------------------------------------------------------------
+node Latch(p: bool) returns (r: bool);
+let
+  r = p -> p or pre(r);
+tel;
+    
+
+------------------------------------------------------------------------------
+-- Converts a Boolean to an integer
+------------------------------------------------------------------------------
+node b2i(b: bool) returns (i: int);
+let i = if b then 1 else 0; tel;
+    
+
+------------------------------------------------------------------------------
+-- Returns a stream true for the first n steps of clock clk
+------------------------------------------------------------------------------
+node ctF(n: int; clk: bool) returns (r: bool);
+var
+  c: int;
+  ctF_counter_positive: bool;
+let
+  c =  b2i(clk) -> pre(c) + b2i(clk);
+  r = (c <= n);
+  
+  ctF_counter_positive = c >= 0;
+  -- PROPERTY ctF_counter_positive;
+tel;
+    
+
+------------------------------------------------------------------------------
+-- Returns number of steps p has been true
+------------------------------------------------------------------------------
+node Duration(p: bool) returns (r: int);
+var
+  value_posnat: bool;
+let
+  -- Counts the number of instants since p was last false
+  r = if p then (1 -> pre(r) + 1) else 0;
+  
+  value_posnat = r >= 0;
+  -- PROPERTY value_posnat;
+  
+tel;
+
+
+------------------------------------------------------------------------------
+-- Returns number of steps since p has been true - zero if p never true
+------------------------------------------------------------------------------
+node Since(p: bool) returns (r: int);
+var
+  value_posnat, zero_till_true: bool;
+let
+  r = b2i(p) -> if p then 1 else  if pre(r) = 0 then 0 else pre(r) + 1;
+  
+  value_posnat = r >= 0;
+  -- PROPERTY value_posnat;
+
+  zero_till_true = not Latch(p) => (r = 0);
+  -- PROPERTY zero_till_true;
+  
+tel;
+
+
+
+
+node SinceGTOrZero(in: bool ; min: int) returns (out: bool) ;
+let
+  out = (Since(in) > min) or (Since(in) = 0) ;
+tel
+
+node SinceLENotZero(in: bool ; max: int) returns (out: bool) ;
+let
+  out = (Since(in) <= max) and (Since(in) > 0) ;
+tel
+       
+------------------------------------------------------------------------------
+-- Returns whether P has been true within the last n steps
+------------------------------------------------------------------------------
+node Within(p: bool; n : int) returns (r: bool);
+let
+  r = Since(p) > 0 and Since(p) <= n;
+tel;
+
+node OnceWithin(p: bool; n : int) returns (r: bool);
+var since_p, pre_since_p : int ;
+let
+  since_p = Since(p) ;
+  pre_since_p =
+    0 -> if p then (if pre since_p = 0 then 0 else pre since_p + 1)
+         else (if pre pre_since_p > 0 then pre pre_since_p + 1
+             else 0) ;
+  r = (Since(p) > 0 and since_p <= n) and (pre_since_p > n or pre_since_p = 0) ;
+  -- PROPERTY (pre_since_p = 0) or (pre_since_p > since_p) ;
+tel;
+
+------------------------------------------------------------------------------
+-- Returns true if p is always true for at least n steps 
+------------------------------------------------------------------------------
+node True_At_Least(p: bool; n: int) returns (r: bool);
+var
+  c: int;
+  value_posnat: bool;
+let
+  -- Counts the number of steps p has been true
+  c = b2i(p) -> if p then pre(c) + 1 else 0;
+  
+  r = true -> ((pre(c) > 0 and pre(c) < n) => p);
+  
+  value_posnat = c >= 0;
+  -- PROPERTY value_posnat;
+
+tel;
+    
+  
+
+node Initializing
+  (LS_CLK, RS_CLK, LR_CLK, RL_CLK: bool) 
+returns
+  (r: bool);
+var
+  LS_Initializing: bool;
+  RS_Initializing: bool;
+  LR_Initializing: bool;
+  RL_Initializing: bool;
+  
+let
+  LS_Initializing = ctF(1, LS_CLK);
+  RS_Initializing = ctF(1, RS_CLK);
+  LR_Initializing = ctF(1, LR_CLK);
+  RL_Initializing = ctF(1, RL_CLK);
+
+  r = 
+    (LS_Initializing or
+     RS_Initializing or
+     LR_Initializing or
+     RL_Initializing);
+
+tel
+
+-- Inihibited mode constant.
+const inhibit_count_max = 2;
+
+node PFS_Logic
+  (riseTS, riseOSPF : bool;
+   const Primary_Side : bool)
+
+returns 
+  (PFS : bool);
+
+--@global_contract : init_R1 ;
+--@require true -> (pre not PFS) => (not riseOSPF) ;
+--@ensure  (PFS = Primary_Side) -> true ;
+
+--@contract : active_change_R3 ;
+--@require riseOSPF ;
+--@require false -> pre PFS ;
+--@ensure  not PFS ;
+
+--@contract : inactive_change_R3 ;
+--@require riseTS ;
+--@require false -> not pre PFS ;
+--@require Duration(true) > inhibit_count_max + 2 ;
+--@require SinceGTOrZero(riseOSPF, inhibit_count_max + 1) ;
+--@ensure  PFS ;
+
+--@contract : inhibited_R2_R3 ;
+--@require false -> not pre PFS ;
+--@require SinceLENotZero(riseOSPF, inhibit_count_max + 1) ;
+--@ensure  not PFS ;
+
+--@contract : active_no_switch_R5 ;
+--@require Primary_Side -> ((pre PFS) and not riseOSPF) ;
+--@ensure  true -> PFS ;
+
+--@contract : inactive_no_switch_R5 ;
+--@require (not Primary_Side) -> ((not pre PFS) and not riseTS) ;
+--@ensure  true -> not PFS ;
+
+const St_Inhibited : int = 1 ;
+const St_Listening : int = 2 ;
+const St_Flying : int = 3 ;
+
+var
+  state : subrange [1, 3] of int;
+  fly_to_inh, inh_to_lis, lis_to_fly: bool;
+  inhibit_count: int;
+let
+  -- St_Flying -> St_Inhibited
+  fly_to_inh = false -> (pre(state) = St_Flying) and riseOSPF ;
+  -- St_Inhibited -> St_Listening
+  inh_to_lis = false ->
+    (pre(state) = St_Inhibited) and pre(inhibit_count) >= inhibit_count_max ;
+  -- St_Listening -> St_Flying
+  lis_to_fly = (false -> (pre(state) = St_Listening) and riseTS) ;
+
+  state = (
+    if Primary_Side then St_Flying else St_Inhibited
+  ) -> (
+    if fly_to_inh then St_Inhibited else
+    if inh_to_lis then St_Listening else
+    if lis_to_fly then St_Flying else
+    pre state
+  ) ;
+
+  --%PROPERTY (state = St_Flying) or (state = St_Inhibited) or (state = St_Listening) ;
+
+  PFS = Primary_Side -> (
+    if state = St_Inhibited then false else
+    if state = St_Listening then false else
+    if state = St_Flying then true else
+    -- Unreachable.
+    pre PFS
+  ) ;
+
+  inhibit_count = 0 -> (
+    if state = St_Inhibited then pre inhibit_count + 1 else 0
+  ) ;
+  --%PROPERTY inhibit_count <= inhibit_count_max ;
+
+tel;
+
+
+node PFS_Side
+  (TS, OSPF : bool;
+   const Primary_Side : bool)
+
+returns 
+  (PFS : bool);
+
+--@global_contract : init_R1 ;
+--@require true -> (pre not PFS) => (not Rise(OSPF)) ;
+--@require (Primary_Side => not OSPF) -> true ;
+--@ensure  (PFS = Primary_Side) -> true ;
+
+--@contract : active_change_R3 ;
+--@require Rise(OSPF) ;
+--@require false -> pre PFS ;
+--@ensure  not PFS ;
+
+--@contract : inactive_change_R3 ;
+--@require Rise(TS) ;
+--@require false -> not pre PFS ;
+--@require Duration(true) > inhibit_count_max + 2 ;
+--@require SinceGTOrZero(Rise(OSPF), inhibit_count_max + 1) ;
+--@ensure  PFS ;
+
+--@contract : inhibited_R2_R3 ;
+--@require false -> not pre PFS ;
+--@require SinceLENotZero(Rise(OSPF), inhibit_count_max + 1) ;
+--@ensure  not PFS ;
+
+--@contract : active_no_switch_R5 ;
+--@require Primary_Side -> ((pre PFS) and not Rise(OSPF)) ;
+--@ensure  PFS ;
+
+--@contract : inactive_no_switch_R5 ;
+--@require (not Primary_Side) -> ((not pre PFS) and not Rise(TS)) ;
+--@ensure  not PFS ;
+
+var
+  PFSL_PFS : bool;
+  riseTS_O : bool;
+  riseOSPF_O : bool;
+  
+let
+
+  PFSL_PFS =
+    PFS_Logic(riseTS_O, riseOSPF_O, Primary_Side);
+  
+  riseTS_O = Rise(TS);
+
+  riseOSPF_O = Rise(OSPF);
+
+  PFS = PFSL_PFS;
+
+tel;
+
+
+node Cross_Channel_Bus
+  (I : bool;
+   const Init_Bool : bool)
+
+returns
+  (O : bool);
+
+--@global_contract : property ;
+--@ensure (O = Init_Bool) -> (O = pre I) ;
+
+const St_Step : int = 1;
+const St_Start : int = 2;
+const St_Stop : int = 3;
+let
+
+  O = Init_Bool -> pre I ;
+tel;
+
+node qs_dfa (p, q : bool) returns (ok : bool);
+
+var
+  r : int;
+
+let
+
+  ok = not (((0 -> pre r) = 2 and p) or ((0 -> pre r) = -2 and q));
+  
+  r = if p and q then 0 
+      else if p then
+        (if (0 -> pre r) < 0 then 1 else ((0 -> pre r)) + 1)
+      else if q then
+        (if (0 -> pre r) > 0 then -1 else ((0 -> pre r)) - 1)
+      else (0 -> pre r);
+
+tel;
+
+node qs_calendar
+  (CLK1: bool; CLK2: bool; CLK3: bool; CLK4: bool)
+returns
+  (ok : bool);
+let
+  ok = 
+    (qs_dfa(CLK1, CLK2) and
+     qs_dfa(CLK1, CLK3) and
+     qs_dfa(CLK1, CLK4) and
+     qs_dfa(CLK2, CLK3) and
+     qs_dfa(CLK2, CLK4) and
+     qs_dfa(CLK3, CLK4) and 
+     (CLK1 or CLK2 or CLK3 or CLK4));
+tel;
+
+
+
+
+
+const all_ticked_max = 7 ;
+const both_stabilization_max =
+  (inhibit_count_max + 2) * (all_ticked_max + 1) + all_ticked_max ;
+const side_stabilization_max =
+  (inhibit_count_max + 2) * all_ticked_max ;
+const side_comm_stabilization_max =
+  (inhibit_count_max + 2) * all_ticked_max + all_ticked_max ;
+
+
+
+
+
+
+node PFS
+  (TS, LS_CLK, RS_CLK, LR_CLK, RL_CLK : bool) 
+returns 
+  (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
+
+--@global_contract : global ;
+--@require Duration(true) <= inhibit_count_max + 2 => not Rise(TS) ;
+--@ensure (LPFS and (not RPFS)) -> true ;
+--@ensure  LPFS or RPFS ;
+--@ensure SinceGTOrZero(Rise(TS), 1) => LPFS = not RPFS;
+
+--@contract : inhibited_R2_R3 ;
+--@require false -> SinceLENotZero(Fall(true -> pre LPFS) or Fall(false -> pre RPFS), inhibit_count_max) ;
+--@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
+
+--@contract : unchanged_nop_R5 ;
+--@require SinceGTOrZero(Rise(TS), 2) ;
+--@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
+
+
+--@contract : change_R3_Rise;
+
+-- TS rised less_eq than all_ticked_max (7) steps ago.
+--@require Rise(TS) ;
+
+-- The last fall of a PFS had enough time to leave its inhibited state before
+-- the rise, or did not happen.
+--@require SinceGTOrZero(Fall(true -> pre RPFS) or Fall(false -> pre LPFS), 
+inhibit_count_max) ;
+
+-- As soon as the rise has had enough time to be taken into account, there
+-- should have been one and exactly one rise during that time.
+--@ensure  Rise(RPFS) or Rise(LPFS) and not (Rise(RPFS) and Rise(LPFS)) ;
+
+
+
+--@contract : change_R3_Fall;
+
+-- One side rised.
+--@require Since(Rise(true -> pre LPFS) or Rise(false -> pre RPFS)) = 1 ;
+
+-- If enough time after this event has passed, then there should have been one
+-- and only one fall during that event
+--@ensure Fall(RPFS) or Fall(LPFS) and not (Fall(RPFS) and Fall(LPFS)) ;
+
+
+let
+
+  LS_PFS =
+    PFS_Side(TS, RL_O, true);
+
+  RS_PFS =
+    PFS_Side(TS, LR_O, false);
+
+  LR_O =
+    Cross_Channel_Bus (LS_PFS, true);
+
+  RL_O =
+    Cross_Channel_Bus (RS_PFS, false);
+
+  LPFS = LS_PFS ;
+  RPFS = RS_PFS ;  
+tel;
+
+
