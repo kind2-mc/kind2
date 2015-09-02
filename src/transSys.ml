@@ -916,10 +916,11 @@ let define_and_declare_of_bounds
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
 
+  (* Declare constant state variables of top system *)
+  declare_const_vars trans_sys declare;
+
   (* Iterate over all subsystems *)
   trans_sys |> iter_subsystems ~include_top:false (fun t ->
-
-    declare_const_vars t declare ;
 
     (* Declare constant state variables of subsystem *)
     if declare_sub_vars then
@@ -931,9 +932,6 @@ let define_and_declare_of_bounds
     (* Define transition relation predicate *)
     define_trans define t
   ) ;
-
-  (* Declare constant state variables of top system *)
-  declare_const_vars trans_sys declare;
        
   (* Declare constant state variables of top system *)
   declare_vars_of_bounds trans_sys declare lbound ubound
