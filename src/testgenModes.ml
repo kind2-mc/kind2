@@ -81,7 +81,6 @@ let modes_of_sys sys : modes =
 
 (* The modes corresponding to a system and its subsystems. *)
 let modes_of sys =
-  Format.printf "modes_of@." ;
   (* Retrieving top modes. *)
   let top = modes_of_sys sys in
   

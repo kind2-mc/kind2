@@ -336,7 +336,7 @@ let main (type s)
   let io = IO.mk input_sys sys root "unit" "unit tests" in
   close_io_ref := Some (fun () -> IO.rm io) ;
 
-  Event.log L_info
+  (* Event.log L_info
     "%s@[<v>globals: @[<v>%a@]@ modes: @[<v>%a@]@]"
     log_id
     (pp_print_list (fun ppf (n,t) ->
@@ -346,7 +346,7 @@ let main (type s)
     (pp_print_list (fun ppf (n,t) ->
         Format.fprintf ppf "%s -> %a" n Term.pp_print_term t
       ) "@,"
-    ) modes ;
+    ) modes ; *)
 
   let global_terms = globals |> List.map snd in
   let mode_terms = modes |> List.map snd in
@@ -368,6 +368,8 @@ let main (type s)
     Tree.mk (fun name -> List.assoc name modes) init_modes
   in
 
+  Event.log L_info "%sGenerating test cases." log_id ;
+
   (* Starting the timer. *)
   Stat.start_timer Stat.testgen_total_time ;
 
@@ -382,7 +384,6 @@ let main (type s)
   Stat.smt_stop_timers () ;
 
   let all_modes = TestgenModes.modes_of sys in
-  Format.printf "all_modes = %a@." TestgenModes.pp_print_modes all_modes ;
 
   ()
 
