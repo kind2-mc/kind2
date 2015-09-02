@@ -1016,6 +1016,7 @@ type kind_module =
   | `IND
   | `INVGEN
   | `INVGENOS
+  | `C2I
   | `Interpreter
   | `Supervisor
   | `Parser ]
@@ -1028,13 +1029,14 @@ let pp_print_kind_module ppf = function
   | `IND -> Format.fprintf ppf "inductive step"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
+  | `C2I -> Format.fprintf ppf "c2i"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Supervisor -> Format.fprintf ppf "invariant manager"
   | `Parser -> Format.fprintf ppf "parser"
 
 
 (* String representation of a process type *)
-let string_of_kind_module = string_of_t pp_print_kind_module 
+let string_of_kind_module = string_of_t pp_print_kind_module
 
 
 (* Return a short representation of kind module *)
@@ -1044,8 +1046,9 @@ let suffix_of_kind_module = function
  | `IND -> "ind"
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
+ | `C2I -> "c2i"
  | `Interpreter -> "interp"
- | `Supervisor -> "invman"
+ | `Supervisor -> "super"
  | `Parser -> "parse"
                 
 
@@ -1056,6 +1059,7 @@ let kind_module_of_string = function
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
+  | "C2I" -> `C2I
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
 
@@ -1068,6 +1072,7 @@ let int_of_kind_module = function
   | `IC3 -> 3
   | `INVGEN -> 4
   | `INVGENOS -> 5
+  | `C2I -> 6
 
 
 (* Timeouts *)

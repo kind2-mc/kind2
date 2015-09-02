@@ -325,6 +325,42 @@ val invgengraph_ts_stop_timers : unit -> unit
 (** Pretty-print INVGENTS statistics items *)
 val pp_print_invgengraph_ts_stats : Format.formatter -> unit
 
+
+(** {2 C2I} *)
+
+(** Number of strengthening invariants found. *)
+val c2i_str_invs : int_item
+
+(** Number of zero-cost candidates found. *)
+val c2i_zero_cost : int_item
+
+(** Number of random moves made. *)
+val c2i_moves : int_item
+
+(** Time spent in moving and evaluating. *)
+val c2i_move_time : float_item
+
+(** Time spent querying solvers. *)
+val c2i_query_time : float_item
+
+(** Time spent comparing models. *)
+val c2i_model_comp_time : float_item
+
+(** Total time. *)
+val c2i_total_time : float_item
+
+(** Title for C2I statistics. *)
+val c2i_stats_title : string
+
+(** All C2I statistics. *)
+val c2i_stats : stat_item list
+
+(** Stop and record all timers. *)
+val c2i_stop_timers : unit -> unit
+
+(** Pretty-print C2I statistics items *)
+val pp_print_c2i_stats : Format.formatter -> unit
+
 (** {2 Testgen} *)
 
 (* Number of testcases generated. *)

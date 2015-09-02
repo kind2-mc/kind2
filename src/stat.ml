@@ -517,6 +517,39 @@ let pp_print_invgengraph_ts_stats ppf =
     invgengraph_ts_stats_title
     pp_print_stats invgengraph_ts_stats
 
+(* ********** C2I statistics *********** *)
+let c2i_str_invs = empty_item "Number of strengthening invariants" 0
+
+let c2i_zero_cost = empty_item "Number of zero-cost candidates" 0
+
+let c2i_moves = empty_item "Number of random moves" 0
+
+let c2i_model_comp_time = empty_item "Time spent comparing models" 0.
+
+let c2i_move_time = empty_item "Time spent moving and evaluating" 0.
+
+let c2i_query_time = empty_item "Time spent querying solvers" 0.
+
+let c2i_total_time = empty_item "Total time" 0.
+
+(* Title for C2I statistics. *)
+let c2i_stats_title = "C2I"
+
+(* All C2I statistics. *)
+let c2i_stats = [
+  I c2i_str_invs ; I c2i_zero_cost ; I c2i_moves ;
+  F c2i_move_time ; F c2i_query_time ; F c2i_model_comp_time ;
+  F c2i_total_time
+]
+
+(* Stop and record all timers. *)
+let c2i_stop_timers () = stop_all_timers c2i_stats
+
+(* Pretty-print C2I statistics item. *)
+let pp_print_c2i_stats ppf =
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    c2i_stats_title pp_print_stats c2i_stats
+
 (* ********** Testgen statistics ********** *)
 
 (* Number of testcases generated. *)

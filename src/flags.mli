@@ -240,6 +240,18 @@ val invgengraph_mine_trans : unit -> invgengraph_mine_trans
 type invgengraph_renice = int
 val invgengraph_renice : unit -> invgengraph_renice
 
+(** Number of disjuncts in the DNF constructed by C2I. *)
+type c2i_dnf_size = int
+val c2i_dnf_size : unit -> c2i_dnf_size
+
+(** Number of int cubes in the DNF constructed by C2I. *)
+type c2i_int_cube_size = int
+val c2i_int_cube_size : unit -> c2i_int_cube_size
+
+(** Number of real cubes in the DNF constructed by C2I. *)
+type c2i_real_cube_size = int
+val c2i_real_cube_size : unit -> c2i_real_cube_size
+
 (** Read input from file **)
 type interpreter_input_file = string
 val interpreter_input_file : unit -> interpreter_input_file

@@ -288,6 +288,7 @@ let kind_module_of_string = function
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
+  | "C2I" -> `C2I
   | "interpreter" -> `Interpreter
   | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value \"%s\" for flag --enable" unexpected
@@ -299,6 +300,7 @@ let string_of_kind_module = function
   | `IND -> "IND"
   | `INVGEN -> "INVGEN"
   | `INVGENOS -> "INVGENOS"
+  | `C2I -> "C2I"
   | `Interpreter -> "interpreter"
 
 let string_of_enable = function
@@ -311,13 +313,13 @@ let string_of_enable = function
   | [] -> "[]"
 
 let enable_values = [
-  `IC3 ; `BMC ; `IND ; `INVGEN ; `INVGENOS ; `Interpreter
+  `IC3 ; `BMC ; `IND ; `INVGEN ; `INVGENOS ; `C2I ; `Interpreter
 ] |> List.map string_of_kind_module |> String.concat ", "
 
 let enable_default_init = []
 let disable_default_init = []
 
-let enable_default_after = [ `BMC; `IND; `IC3; `INVGEN; `INVGENOS ]
+let enable_default_after = [ `BMC; `IND; `IC3; `INVGEN; `INVGENOS ; `C2I ]
 
 (* ********** *) 
 
@@ -561,6 +563,20 @@ type invgengraph_renice = int
 
 let invgengraph_renice_default = 0
 
+
+(* ********** *)
+
+(* C2I things. *)
+
+type c2i_dnf_size = int
+let c2i_dnf_size_default = 3
+
+type c2i_int_cube_size = int
+let c2i_int_cube_size_default = 3
+
+type c2i_real_cube_size = int
+let c2i_real_cube_size_default = 3
+
 (* ********** *) 
 
 type interpreter_input_file = string 
@@ -682,6 +698,9 @@ type flags =
     mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
     mutable invgengraph_mine_trans : invgengraph_mine_trans;
     mutable invgengraph_renice : invgengraph_renice;
+    mutable c2i_dnf_size : c2i_dnf_size;
+    mutable c2i_int_cube_size : c2i_int_cube_size;
+    mutable c2i_real_cube_size : c2i_real_cube_size;
     mutable interpreter_input_file : interpreter_input_file;
     mutable interpreter_steps : interpreter_steps;
     mutable lustre_main : lustre_main;
@@ -743,6 +762,9 @@ let flags =
     invgengraph_lift_candidates = invgengraph_lift_candidates_default;
     invgengraph_mine_trans = invgengraph_mine_trans_default;
     invgengraph_renice = invgengraph_renice_default;
+    c2i_dnf_size = c2i_dnf_size_default;
+    c2i_int_cube_size = c2i_int_cube_size_default;
+    c2i_real_cube_size = c2i_real_cube_size_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -1256,6 +1278,35 @@ let invgengraph_renice_spec =
   
 (* ********** *) 
 
+let c2i_dnf_size_action o = flags.c2i_dnf_size <- o
+                                       
+let c2i_dnf_size_spec = 
+  ("--c2i_dnf", 
+   Arg.Int c2i_dnf_size_action,
+   Format.sprintf
+    "Number of disjuncts in the DNF constructed by C2I (default %d)."
+    c2i_dnf_size_default)
+
+let c2i_int_cube_size_action o = flags.c2i_int_cube_size <- o
+                                       
+let c2i_int_cube_size_spec = 
+  ("--c2i_int_cubes", 
+   Arg.Int c2i_int_cube_size_action,
+   Format.sprintf
+    "Number of int cubes in the DNF constructed by C2I (default %d)."
+    c2i_int_cube_size_default)
+
+let c2i_real_cube_size_action o = flags.c2i_real_cube_size <- o
+                                       
+let c2i_real_cube_size_spec = 
+  ("--c2i_real_cubes", 
+   Arg.Int c2i_real_cube_size_action,
+   Format.sprintf
+    "Number of real cubes in the DNF constructed by C2I (default %d)."
+    c2i_real_cube_size_default)
+  
+(* ********** *) 
+
 let interpreter_input_file_action o = flags.interpreter_input_file <- o
                                        
 let interpreter_input_file_spec = 
@@ -1478,6 +1529,12 @@ let invgengraph_mine_trans () = flags.invgengraph_mine_trans
 
 let invgengraph_renice () = flags.invgengraph_renice
 
+let c2i_dnf_size () = flags.c2i_dnf_size
+
+let c2i_int_cube_size () = flags.c2i_int_cube_size
+
+let c2i_real_cube_size () = flags.c2i_real_cube_size
+
 let interpreter_input_file () = flags.interpreter_input_file
 
 let interpreter_steps () = flags.interpreter_steps
@@ -1640,6 +1697,11 @@ and speclist =
     invgengraph_lift_candidates_spec;
     invgengraph_mine_trans_spec;
     invgengraph_renice_spec;
+
+    (* Set C2I options. *)
+    c2i_dnf_size_spec ;
+    c2i_int_cube_size_spec ;
+    c2i_real_cube_size_spec ;
 
     (* Read input from file *)
     interpreter_input_file_spec;

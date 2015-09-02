@@ -270,20 +270,13 @@ let pp_print_level_pt ppf l = Format.fprintf ppf "%s" (pt_string_of_level l)
 
 
 (* Kind module as string for plain text output *)
-let pt_string_of_kind_module = function
-  | `IC3 -> "IC3"
-  | `BMC -> "BMC"
-  | `IND -> "inductive step"
-  | `INVGEN -> "two state invariant generator"
-  | `INVGENOS -> "one state invariant generator"
-  | `Supervisor -> "invariant manager"
-  | `Interpreter -> "interpreter"
-  | `Parser -> "parser"
+let pt_string_of_kind_module =
+  Format.asprintf "%a" pp_print_kind_module
 
 
-(* Pretty-print kind module  for plain text output *)
-let pp_print_kind_module_pt ppf m = 
-  Format.fprintf ppf "%s" (pt_string_of_kind_module m)
+(* Pretty-print kind module for plain text output *)
+let pp_print_kind_module_pt =
+  pp_print_kind_module
 
 
 (* Output message as plain text *)
@@ -488,15 +481,7 @@ let pp_print_level_xml_cls ppf l =
 
 
 (* Kind module as source attribute of log tag *)
-let xml_src_of_kind_module = function
-  | `IC3 -> "ic3"
-  | `BMC -> "bmc"
-  | `IND -> "indstep"
-  | `INVGEN -> "invgen"
-  | `INVGENOS -> "invgenos"
-  | `Supervisor -> "super"
-  | `Interpreter -> "interpreter"
-  | `Parser -> "parser"
+let xml_src_of_kind_module = suffix_of_kind_module
 
 
 (* Pretty-print kind module as source attribute of log tag *)

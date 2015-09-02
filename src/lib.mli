@@ -331,6 +331,7 @@ type kind_module =
   | `IND
   | `INVGEN
   | `INVGENOS
+  | `C2I
   | `Interpreter
   | `Supervisor
   | `Parser ]

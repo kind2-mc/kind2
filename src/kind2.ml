@@ -32,6 +32,7 @@ module IND = Step
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 module TestGen = TestgenDF
+module C2I = C2I
 
 (* module IC3 = Dummy *)
 
@@ -94,56 +95,26 @@ let set_sigalrm_handler () =
     (* Install generic signal handler for SIGALRM. *)
     set_generic_handler_for Sys.sigalrm
 
+(* Renices the current process. Used for invariant generation. *)
+let renice () =
+  let nice =  (Flags.invgengraph_renice ()) in
+
+  if nice < 0 then
+    Event.log L_info
+      "Ignoring negative niceness value for invariant generation."
+
+  else
+    let nice' = Unix.nice nice in
+    Event.log L_info "Renicing invariant generation to %d" nice'
 
 (* Main function of the process *)
 let main_of_process = function
   | `IC3 -> IC3.main
   | `BMC -> BMC.main
   | `IND -> IND.main
-
-  | `INVGEN ->
-
-    let nice =  (Flags.invgengraph_renice ()) in
-
-    (if nice < 0 then
-
-       Event.log
-         L_info
-         "Ignoring negative niceness value for invariant generation."
-
-     else
-
-       let nice' = Unix.nice nice in
-
-       Event.log
-         L_info
-         "Renicing invariant generation to %d"
-         nice');
-
-    InvGenTS.main
-
-
-  | `INVGENOS ->
-
-    let nice =  (Flags.invgengraph_renice ()) in
-
-    (if nice < 0 then
-
-       Event.log
-         L_info
-         "Ignoring negative niceness value for invariant generation."
-
-     else
-
-       let nice' = Unix.nice (Flags.invgengraph_renice ()) in
-
-       Event.log
-         L_info
-         "Renicing invariant generation to %d"
-         nice');
-
-    InvGenOS.main
-
+  | `INVGEN -> renice () ; InvGenTS.main
+  | `INVGENOS -> renice () ; InvGenOS.main
+  | `C2I -> renice () ; C2I.main
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `Supervisor -> InvarManager.main child_pids
   | `Parser -> (fun _ _ _ -> ())
@@ -155,6 +126,7 @@ let on_exit_of_process = function
   | `IND -> IND.on_exit
   | `INVGEN -> InvGenTS.on_exit
   | `INVGENOS -> InvGenOS.on_exit
+  | `C2I -> C2I.on_exit
   | `Interpreter -> Interpreter.on_exit
   | `Supervisor -> InvarManager.on_exit
   | `Parser -> ignore
@@ -176,6 +148,7 @@ let debug_ext_of_process = function
   | `IND -> "ind"
   | `INVGEN -> "invgenTS"
   | `INVGENOS -> "invgenOS"
+  | `C2I -> "c2i"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
   | `Supervisor -> "super"
