@@ -252,6 +252,10 @@ val c2i_int_cube_size : unit -> c2i_int_cube_size
 type c2i_real_cube_size = int
 val c2i_real_cube_size : unit -> c2i_real_cube_size
 
+(** Whether mode sub candidate is activated in c2i. *)
+type c2i_modes = bool
+val c2i_modes : unit -> c2i_modes
+
 (** Read input from file **)
 type interpreter_input_file = string
 val interpreter_input_file : unit -> interpreter_input_file

@@ -915,9 +915,10 @@ let log_run_end results =
   match !log_format with
   | F_pt ->
     (* Printing a short, human readable version of all the results. *)
-    Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
-      pp_print_hline ()
-      (pp_print_list Analysis.pp_print_result_quiet "@ ") results
+    if Flags.compositional () then
+      Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
+        pp_print_hline ()
+        (pp_print_list Analysis.pp_print_result_quiet "@ ") results
   | F_xml -> ()
 
   | F_relay -> failwith "can only be called by supervisor"

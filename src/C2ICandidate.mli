@@ -21,8 +21,9 @@
 type t
 
 (** Creates a new candidate that can be randomly moved. Should be called only
-    once as it mines the init and trans predicates. Use [reset]. *)
-val mk: TransSys.t -> int -> int -> int -> t
+    once as it mines the init and trans predicates. Use [reset] to launch a new
+    C2I run. *)
+val mk: TransSys.t -> t
 
 (** Resets a candidate. *)
 val reset: t -> t

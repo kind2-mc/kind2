@@ -557,7 +557,7 @@ let invgengraph_lift_candidates_default = false
 
 type invgengraph_mine_trans = bool
 
-let invgengraph_mine_trans_default = false
+let invgengraph_mine_trans_default = true
 
 type invgengraph_renice = int
 
@@ -576,6 +576,9 @@ let c2i_int_cube_size_default = 3
 
 type c2i_real_cube_size = int
 let c2i_real_cube_size_default = 3
+
+type c2i_modes = bool
+let c2i_modes_default = true
 
 (* ********** *) 
 
@@ -701,6 +704,7 @@ type flags =
     mutable c2i_dnf_size : c2i_dnf_size;
     mutable c2i_int_cube_size : c2i_int_cube_size;
     mutable c2i_real_cube_size : c2i_real_cube_size;
+    mutable c2i_modes : c2i_modes;
     mutable interpreter_input_file : interpreter_input_file;
     mutable interpreter_steps : interpreter_steps;
     mutable lustre_main : lustre_main;
@@ -765,6 +769,7 @@ let flags =
     c2i_dnf_size = c2i_dnf_size_default;
     c2i_int_cube_size = c2i_int_cube_size_default;
     c2i_real_cube_size = c2i_real_cube_size_default;
+    c2i_modes = c2i_modes_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -1304,6 +1309,15 @@ let c2i_real_cube_size_spec =
    Format.sprintf
     "Number of real cubes in the DNF constructed by C2I (default %d)."
     c2i_real_cube_size_default)
+
+let c2i_modes_action o = flags.c2i_modes <- o
+                                       
+let c2i_modes_spec = 
+  ("--c2i_modes", 
+   Arg.Bool c2i_modes_action,
+   Format.sprintf
+    "Activates mode subcandidates. Subsumes c2i_dnf_size (default %b)."
+    c2i_modes_default)
   
 (* ********** *) 
 
@@ -1535,6 +1549,8 @@ let c2i_int_cube_size () = flags.c2i_int_cube_size
 
 let c2i_real_cube_size () = flags.c2i_real_cube_size
 
+let c2i_modes () = flags.c2i_modes
+
 let interpreter_input_file () = flags.interpreter_input_file
 
 let interpreter_steps () = flags.interpreter_steps
@@ -1702,6 +1718,7 @@ and speclist =
     c2i_dnf_size_spec ;
     c2i_int_cube_size_spec ;
     c2i_real_cube_size_spec ;
+    c2i_modes_spec ;
 
     (* Read input from file *)
     interpreter_input_file_spec;

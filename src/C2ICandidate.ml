@@ -128,6 +128,8 @@ above actually kind of accounts for arrays. *)
 module type SubCandidate = sig
   (** Name of the sub candidate module. *)
   val name: string
+  (** Indicates whether the sub candidate can be move. *)
+  val is_moveable: bool
   (** Type of the "coefficient" of the sub candidate. *)
   type value
   (** The zero for type [value]. *)
@@ -148,7 +150,7 @@ module type SubCandidate = sig
      Things might be a bit different depending on the type of the variables.
      For bools for instance, a sub cube is just a conjunction of bool
      variables, and [con_count] is ignored. *)
-  val mk: int -> int -> Var.t list -> value list -> t
+  val mk: int -> int -> Term.t list -> value list -> t
   (** Resets a candidate. *)
   val reset: t -> t
   (** Moves a candidate. *)
@@ -175,13 +177,14 @@ end
 (* Module for boolean sub candidates. *)
 module BoolSC : SubCandidate = struct
   let name = "bool"
+  let is_moveable = true
   type value = bool option
   let zero = None
   let equal b1 b2 = b1 = b2
   
   type t = {
     (* Variables. *)
-    vars: Var.t list ;
+    vars: Term.t list ;
     (* Values of the variables in the sub cubes. *)
     vals: (bool option) list list ;
   }
@@ -190,13 +193,6 @@ module BoolSC : SubCandidate = struct
     | [] -> 0 | head :: _ -> List.length head
   
   let mk disj_count _ vars _ =
-    (* Type checking. *)
-    assert (
-      List.for_all (fun v -> match Var.type_of_var v |> Type.node_of_type with
-        | Type.Bool -> true
-        | _ -> false
-      ) vars
-    ) ;
     (* All bool variables are false in the default sub cube. *)
     let vals =
       vars |> List.map (fun _ -> zero) |> mk_list disj_count
@@ -235,10 +231,44 @@ module BoolSC : SubCandidate = struct
          cube. *)
       List.fold_left2 (fun nu_cube var -> function
         | None -> Term.t_true :: nu_cube
-        | Some true -> (Term.mk_var var) :: nu_cube
-        | Some false -> (Term.mk_var var |> Term.mk_not) :: nu_cube
+        | Some true -> var :: nu_cube
+        | Some false -> (var |> Term.mk_not) :: nu_cube
       ) cube vars cube_vals
     ) vals
+end
+
+
+(** Sub candidate for modes. A mode sub candidate is not moveable. If the
+    system has [n] modes, then [n+1] sub disjuncts are created. One for each
+    mode and one empty sub disjunct (covers every mode).
+
+    The caller of [mk] is responsible for the consistence between the variable
+    list provided and the [disj_count] dimension. *)
+module ModeSC: SubCandidate = struct
+  let name = "mode"
+  let is_moveable = false
+  type value = bool
+  let zero = false
+  let equal b b' = b = b'
+  (* Simply storing the list of terms. No move is allowed anyways. *)
+  type t = Term.t list
+  (* The length is always one. Either the mode variable or true. *)
+  let len _ = 1
+
+  let mk disj_count _ terms _ =
+    (* Making sure dimensions make sense. *)
+    if disj_count - 1 != List.length terms then
+      Format.sprintf "[ModeSC] \
+        dimension mismatch: %d disjunct requested but found %d mode terms\
+      " disj_count (List.length terms)
+      |> failwith ;
+
+    (Term.mk_or terms) :: terms
+
+  let reset = identity
+  let move _ = failwith "cannot move mode sub candidate"
+  let guided_move _ _ _ = failwith "cannot move mode sub candidate"
+  let to_term t = List.map2 (fun req cube -> req :: cube) t
 end
 
 
@@ -246,6 +276,7 @@ end
    [ArithSCInfo] as parameter. *)
 module type ArithSCInfo = sig
   val name: string
+  val is_moveable: bool
   val underlying: Type.t
   type value
   val zero: value
@@ -259,6 +290,7 @@ module IntSCInfo : ArithSCInfo
 (* Exposing type info for [value], it is abstracted otherwise. *)
 with type value = Numeral.t = struct
   let name = "int"
+  let is_moveable = true
   let underlying = Type.mk_int ()
   type value = Numeral.t
   let zero = Numeral.zero
@@ -271,6 +303,7 @@ module RatSCInfo : ArithSCInfo
 (* Exposing type info for [value], it is abstracted otherwise. *)
 with type value = Decimal.t = struct
   let name = "rat"
+  let is_moveable = true
   let underlying = Type.mk_real ()
   type value = Decimal.t
   let zero = Decimal.zero
@@ -284,13 +317,14 @@ module ToArithSC (Info : ArithSCInfo)
 (* Exposing type info for [value], it is abstracted otherwise. *)
 : SubCandidate with type value = Info.value = struct
   let name = Info.name
+  let is_moveable = Info.is_moveable
   type value = Info.value
   let zero = Info.zero
   let equal = Info.equal
 
   type t = {
     (* Variables. *)
-    vars: Var.t list ;
+    vars: Term.t list ;
     (* Values in the sub candidate. First list level is dnf, second level is
        cube and contains atoms: [coef list * rhs].
        The list of coefficient should have the same length as [vars]. *)
@@ -303,12 +337,6 @@ module ToArithSC (Info : ArithSCInfo)
     | [] -> 0 | head :: _ -> List.length head
 
   let mk disj_count conj_count vars pool =
-    (* Type checking. *)
-    assert (
-      List.for_all (
-        fun v -> Var.type_of_var v |> Type.equal_types Info.underlying
-      ) vars
-    ) ;
     (* All atoms have coefs and rhs [0] by default. *)
     let vals =
       (* Default atom. *)
@@ -384,7 +412,7 @@ module ToArithSC (Info : ArithSCInfo)
         Term.mk_leq [
           (* Fold on the coefs and the variables. *)
           List.fold_left2 (fun lhs coef var ->
-            Term.mk_times [Info.to_term coef ; Term.mk_var var] :: lhs
+            Term.mk_times [Info.to_term coef ; var] :: lhs
           ) [] coefs vars
           (* Building sum. *)
           |> Term.mk_plus ;
@@ -495,11 +523,30 @@ let terms_of_sc_list d_count sc_list =
     | Cons (modul3, sub, tail) ->
       let module SC = (val modul3 : SubCandidate with type t = _) in
       loop (SC.to_term sub term_ll) tail
-    | tail -> term_ll
+    | _ -> term_ll
   in
   loop (mk_list d_count []) sc_list
   |> List.map List.rev
 
+
+(* Returns the indices of the sub atoms that cannot be moved. *)
+let unmoveable_of_sc_list sc_list =
+  let rec delta_cons offset delta l =
+    if delta > 0 then
+      (offset + delta) :: l |> delta_cons offset (delta - 1)
+    else l
+  in
+  let rec loop cpt indices = function
+    | Cons (modul3, sub, tail) ->
+      let module SC = (val modul3 : SubCandidate with type t = _) in
+      let len = SC.len sub in
+      let indices =
+        if not SC.is_moveable then (delta_cons cpt len indices) else indices
+      in
+      loop (cpt + len) indices tail
+    | _ -> indices
+  in
+  loop 0 [] sc_list
 
 
 (* |===| Helpers to add sub candidates to an [sc_list]. *)
@@ -508,20 +555,47 @@ let terms_of_sc_list d_count sc_list =
    empty. *)
 let add_bool_sub d_count vars sc_list = match vars with
   | [] -> sc_list
-  | _ -> Cons (
-    (module BoolSC: SubCandidate with type t = BoolSC.t),
-    BoolSC.mk d_count 0 vars [],
-    sc_list
-  )
+  | _ ->
+    (* Term building and type checking. *)
+    let terms =
+      vars |> List.map (fun v ->
+        if Var.type_of_var v != Type.t_bool then
+          Var.type_of_var v
+          |> Format.asprintf "\
+            expected variable of type bool but %a has type %a\
+          " Var.pp_print_var v Type.pp_print_type
+          |> failwith
+        else
+          Term.mk_var v
+      )
+    in
+    Cons (
+      (module BoolSC: SubCandidate with type t = BoolSC.t),
+      BoolSC.mk d_count 0 terms [],
+      sc_list
+    )
 
 (* Prepends an int sub candidate with [d_count] disjuncts and [c_count] atoms
    in each subcube if [vars] is not empty. *)
 let add_int_sub d_count c_count vars (vals: Numeral.t list) sc_list = match vars with
   | [] -> sc_list
   | _ ->
+    (* Term building and type checking. *)
+    let terms =
+      vars |> List.map (fun v ->
+        if Var.type_of_var v != Type.t_int then
+          Var.type_of_var v
+          |> Format.asprintf "\
+            expected variable of type int but %a has type %a\
+          " Var.pp_print_var v Type.pp_print_type
+          |> failwith
+        else
+          Term.mk_var v
+      )
+    in
     Cons (
       (module IntSC: SubCandidate with type t = IntSC.t),
-      IntSC.mk d_count c_count vars vals,
+      IntSC.mk d_count c_count terms vals,
       sc_list
     )
 
@@ -529,9 +603,31 @@ let add_int_sub d_count c_count vars (vals: Numeral.t list) sc_list = match vars
    in each subcube if [vars] is not empty. *)
 let add_rat_sub d_count c_count vars vals sc_list = match vars with
   | [] -> sc_list
+  | _ ->
+    (* Term building and type checking. *)
+    let terms =
+      vars |> List.map (fun v ->
+        if Var.type_of_var v != Type.t_real then
+          Var.type_of_var v
+          |> Format.asprintf "\
+            expected variable of type real but %a has type %a\
+          " Var.pp_print_var v Type.pp_print_type
+          |> failwith
+        else
+          Term.mk_var v
+      )
+    in
+    Cons (
+      (module RatSC: SubCandidate with type t = RatSC.t),
+      RatSC.mk d_count c_count terms vals,
+      sc_list
+    )
+
+let add_mode_sub terms sc_list = match terms with
+  | [] -> sc_list
   | _ -> Cons (
-    (module RatSC: SubCandidate with type t = RatSC.t),
-    RatSC.mk d_count c_count vars vals,
+    (module ModeSC: SubCandidate with type t = ModeSC.t),
+    ModeSC.mk ((List.length terms) + 1) 0 terms [],
     sc_list
   )
 
@@ -637,7 +733,20 @@ type t = {
 
 (* Creates a new candidate. Mines the init and trans predicate, call only once
    and then use reset. *)
-let mk sys d_count c_int_count c_rat_count =
+let mk sys =
+  (* Retrieving DNF and arithmetic sub-candidates sizes. *)
+  let d_count, c_int_count, c_rat_count =
+    (* DNF size. *)
+    ( if Flags.c2i_modes () then
+        (* One disjunct per require + 1. *)
+        (TransSys.get_mode_requires sys |> List.length) + 1
+      else Flags.c2i_dnf_size () ),
+    (* Int cube size. *)
+    Flags.c2i_int_cube_size (),
+    (* rat cube size. *)
+    Flags.c2i_real_cube_size ()
+  in
+
   (* Retrieving relevant variables. *)
   let b_vars, i_vars, r_vars =
     TransSys.vars_of_bounds sys Numeral.zero Numeral.zero
@@ -666,9 +775,20 @@ let mk sys d_count c_int_count c_rat_count =
     |> op_combinate_arith_sets
     |> fun (i, r) -> IntSet.elements i, RatSet.elements r
   in
+
+  let init_subs =
+    match Flags.c2i_modes (), TransSys.get_mode_requires sys with
+    | false, _ | true, [] -> Nil
+    | true, modes ->
+      (* Extract term for each requirement. *)
+      let req_terms = modes |> List.map (fun (_,_,t) -> t) in
+
+      add_mode_sub req_terms Nil
+  in
+
   (* Building sub candidates. *)
   let subs =
-    Nil
+    init_subs
     |> add_rat_sub d_count c_rat_count r_vars rat_vals
     |> add_int_sub d_count c_int_count i_vars int_vals
     |> add_bool_sub d_count b_vars
@@ -892,13 +1012,19 @@ let rated_cost_function ({ sys } as candidate) white grey black =
    atom of each disjunct into an [(int * (int array)) array].
    Let [n] be the highest atom rating of the input dnf rating. The result
    stores the indices of the disjuncts in which at least an atom has rating
-   [n] and the indices of the atoms in this disjunct with rating [n]. *)
-let max_of_rating rating =
+   [n] and the indices of the atoms in this disjunct with rating [n].
+
+   [forbidden] is a list of indices that should be excluded from the max
+   rating. They correspond to sub cubes that cannot be moved. *)
+let max_of_rating rating forbidden =
   (* Returns the highest rating of a conjunct, and the indices of the atoms
      having the max rating. *)
   let rec max_of_conjunct cpt max_atom_rating max_atoms = function
     | atom_rating :: tail ->
-      if atom_rating < max_atom_rating then
+      if List.mem cpt forbidden then
+        (* Atom belongs to a forbidden sub cube. Skipping. *)
+        max_of_conjunct (cpt + 1) max_atom_rating max_atoms tail
+      else if atom_rating < max_atom_rating then
         (* Rating's lower, discarding. *)
         max_of_conjunct (cpt + 1) max_atom_rating max_atoms tail
       else if atom_rating = max_atom_rating then
@@ -929,7 +1055,7 @@ let max_of_rating rating =
         (* Rating's higher, discarding [max_conjuncts]. *)
         max_of_dnf (cpt + 1) max_atom_rating' [cpt, max_atoms] tail
     | [] ->
-      (* [max_conjuncts] is reversed, but that's fine since a randome element
+      (* [max_conjuncts] is reversed, but that's fine since a random element
          will be chosen. *)
       Array.of_list max_conjuncts
   in
@@ -941,7 +1067,14 @@ let rating_decrement i j =
 
 let rated_move ({ rating ; candidate } as rated) =
 
+  (* Retrieving un-moveable indices. *)
+  let unmoveable = unmoveable_of_sc_list candidate.subs in
+
   (* Event.log L_info
+    "[C2I] | [rated_move] unmoveable: [ %a ]"
+    (pp_print_list Format.pp_print_int ", ") unmoveable ; *)
+
+(*   Event.log L_info
     "[C2I] |  [rated_move] rating: @[<v>%a@]"
     (pp_print_list
       (fun fmt ->
@@ -949,9 +1082,10 @@ let rated_move ({ rating ; candidate } as rated) =
           (pp_print_list Format.pp_print_int " "))
       "@ ")
     rating ; *)
-  let max_rating = max_of_rating rating in
+  let max_rating = max_of_rating rating unmoveable in
 
-  (* max_rating |> Array.to_list |> List.map (fun (idx,a) -> idx, Array.to_list a)
+  (* max_rating |> Array.to_list
+  |> List.map (fun (idx,a) -> idx, Array.to_list a)
   |> Event.log L_info
       "[C2I] |  [rated_move] max rating: @[<v>%a@]"
       (pp_print_list
@@ -986,6 +1120,9 @@ let rated_move ({ rating ; candidate } as rated) =
     subs ;
     subs_len = candidate.subs_len ;
   }
+
+
+
 
 (* 
    Local Variables:

@@ -83,8 +83,10 @@ let mk_result param sys =
   let rec find c r valid = function
     | p :: tail -> (
       match p.Property.prop_source with
-      | Property.Contract _ -> find (Some valid) r valid tail
-      | Property.Requirement _ -> find c (Some valid) valid tail
+      | Property.ContractGlobalRequire _
+      | Property.ContractModeRequire _ -> find c (Some valid) valid tail
+      | Property.ContractGlobalEnsure _
+      | Property.ContractModeEnsure _ -> find (Some valid) r valid tail
       | _ -> find c r valid tail
     )
     | [] -> c, r

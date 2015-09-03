@@ -277,6 +277,13 @@ let reset_prop_of {
   sys ; prop ; white ; grey ; black = [] ; solver1 ; solver2 ; solver3
 }
 
+(* Resets the grey sets of a context. *)
+let reset_grey_of {
+  sys ; prop ; white ; black ; solver1 ; solver2 ; solver3
+} = {
+  sys ; prop ; white ; grey = [] ; black ; solver1 ; solver2 ; solver3
+}
+
 (* Resets the solvers of a context every 20 checks. *)
 let reset_solvers_of ({ sys ; prop ; white ; grey ; black } as context) =
   if (Actlit.fresh_actlit_count () / 3) mod 10 = 0 then (
@@ -372,7 +379,9 @@ let assert_invariant { solver1 ; solver2 } invs =
 let get_model_option solver =
   SMTSolver.check_sat_assuming
     solver
-    (fun s -> Event.log L_info "[C2I] Getting model" ; Some (SMTSolver.get_model s))
+    (fun s ->
+      (* Event.log L_info "C2I Getting model" ; *)
+      Some (SMTSolver.get_model s) )
     (fun _ -> None)
 
 (* Checks (1), (2) and (3) for a candidate invariant. Returns a triple of
@@ -386,7 +395,7 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
   (* Getting its term. *)
   let actlit = term_of_actlit actlit_uf in
 
-  Event.log L_info "[C2I] Checking 1)." ;
+  (* Event.log L_info "C2I Checking 1)." ; *)
   (* Checking (1). *)
   SMTSolver.declare_fun solver1 actlit_uf ;
   (* Can the candidate be false in the initial state? *)
@@ -394,7 +403,7 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
   |> SMTSolver.assert_term solver1 ;
   let model_opt_1 = get_model_option solver1 [ actlit ] in
 
-  Event.log L_info "[C2I] Checking 2)." ;
+  (* Event.log L_info "C2I Checking 2)." ; *)
   (* Checking (2). Reusing same actlit as solver is different. *)
   SMTSolver.declare_fun solver2 actlit_uf ;
   (* Does the candidate imply the property after a transition? *)
@@ -407,7 +416,7 @@ let query_solvers { sys ; prop ; solver1 ; solver2 ; solver3 } candidate =
   ] |> SMTSolver.assert_term solver2 ;
   let model_opt_2 = get_model_option solver2 [ actlit ] in
 
-  Event.log L_info "[C2I] Checking 3)." ;
+  (* Event.log L_info "C2I Checking 3)." ; *)
   (* Checking (3). Reusing same actlit as solver is different. *)
   SMTSolver.declare_fun solver3 actlit_uf ;
   (* Is the candidate inductive? *)
@@ -534,12 +543,12 @@ let zero_cost_candidate {white ; grey ; black} candidate =
           > (Random.float max_float) /. max_float )
       then (
         (* Event.log L_info
-          "[C2I]   | new cost %d" cost' ; *)
+          "C2I   | new cost %d" cost' ; *)
         loop rated_candidate'
       (* Otherwise keep the previous one. *)
       ) else (
         (* Event.log L_info
-          "[C2I]   | skipping cost %d@." cost' ; *)
+          "C2I   | skipping cost %d@." cost' ; *)
         loop rated_candidate
       )
     )
@@ -562,7 +571,7 @@ let rec loop in_sys param ({sys} as context) candidate =
 
   Stat.update_time Stat.c2i_total_time ;
 
-  Event.log L_info "[C2I] Getting zero cost candidate" ;
+  (* Event.log L_info "C2I Getting zero cost candidate" ; *)
   (* Getting zero cost candidate. *)
   Stat.start_timer Stat.c2i_move_time ;
   let candidate = zero_cost_candidate context candidate in
@@ -571,16 +580,18 @@ let rec loop in_sys param ({sys} as context) candidate =
   (* Extracting term. *)
   let term = Candidate.term_of candidate in
   (* Format.printf "@.  Candidate @[<hv>%a@]@." Term.pp_print_term term ; *)
-  Event.log L_info
-    "[C2I] @[<v>Found zero-cost candidate, querying solvers context:@ \
+  (* Event.log L_info
+    "C2I @[<v>Found zero-cost candidate, querying solvers context:@ \
                 @[<hv>white: %d,@ black: %d,@ grey: %d@]@]"
     (List.length context.white)
     (List.length context.black)
-    (List.length context.grey) ;
+    (List.length context.grey) ; *)
 
-  Event.log L_info
-    "[C2I] %d actlits so far"
-    (Actlit.fresh_actlit_count ()) ;
+  (* Event.log L_info
+    "C2I %d actlits so far"
+    (Actlit.fresh_actlit_count ()) ; *)
+
+  (* Event.log L_info "C2I Found zero-cost candidate." ; *)
 
   let models = query_solvers context term in
   let context = reset_solvers_of context in
@@ -593,7 +604,21 @@ let rec loop in_sys param ({sys} as context) candidate =
     Some term
 
   | models ->
-    Event.log L_info "[C2I] Not invariant, updating colors" ;
+
+    (* Checking if the current candidate is an invariant. *)
+    ( match models with
+      | None, _, None ->
+        Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
+        (* It is, communicating. *)
+        TransSys.add_invariant context.sys term ;
+        assert_invariant context term ;
+        (* Broadcasting strengthening invariant. *)
+        Event.invariant (
+          TransSys.scope_of_trans_sys context.sys
+        ) term ;
+      | _ ->
+        Event.log L_info "C2I Candidate is not an invariant" ) ;
+
     (* Counterexample, updating context. *)
     Stat.start_timer Stat.c2i_model_comp_time ;
     update_colors context models ;
@@ -615,6 +640,7 @@ let rec loop in_sys param ({sys} as context) candidate =
     in
     (* Asserting invariants if any. *)
     if invs <> [] then Term.mk_and invs |> assert_invariant context ;
+    let context = if invs <> [] then reset_grey_of context else context in
     (* If done, return [None]. *)
     if is_done then None
     (* Looping. *)
@@ -622,24 +648,27 @@ let rec loop in_sys param ({sys} as context) candidate =
 
 (* Runs invariant hunting on each property of a list of ([string *
    prop_status]). *)
-let rec run in_sys param context_option candidate sys = function
+let rec run in_sys param context_option candidate sys =
+  match TransSys.get_split_properties sys with
   (* No more properties, done. *)
-  | [] -> ()
+  | _, _, [] -> ()
 
-  | (prop, _) :: tail -> ( match TransSys.get_prop_status sys prop with
+  | _, _, prop :: tail -> ( match Property.get_prop_status prop with
     | Property.PropInvariant | Property.PropFalse _ ->
       (* We don't care about this one .*)
-      run in_sys param context_option candidate sys tail
+      run in_sys param context_option candidate sys
 
     | _ ->
+      let prop = prop.prop_name in
       (* Check for termination. *)
       Event.check_termination () ;
       (* Let's do this. *)
-      Event.log L_info "[C2I] @[<v>Running on property %s@]" prop ;
+      Event.log L_info "C2I @[<v>Running on property %s@]" prop ;
       (* New context. *)
       let context = match context_option with
         | None -> mk_context sys prop
-        | Some context -> reset_prop_of context prop
+        | Some context ->
+          reset_prop_of context prop |> reset_grey_of
       in
       let candidate = Candidate.reset candidate in
       (* Let's do random stuff now. *)
@@ -647,7 +676,7 @@ let rec run in_sys param context_option candidate sys = function
         ( match loop in_sys param context candidate with
           | Some str_invariant ->
             Event.log L_info
-              "[C2I] @[<v>Strengthening invariant found for %s@]" prop ;
+              "C2I @[<v>Strengthening invariant found for %s@]" prop ;
             Stat.incr Stat.c2i_str_invs ;
             TransSys.add_invariant context.sys str_invariant ;
             assert_invariant context str_invariant ;
@@ -655,41 +684,161 @@ let rec run in_sys param context_option candidate sys = function
             Event.invariant (
               TransSys.scope_of_trans_sys context.sys
             ) str_invariant ;
+
+            (* Communicating. *)
+            let invs, is_done =
+              Event.recv ()
+              |> Event.update_trans_sys in_sys param sys
+              |> fun (invs,props) ->
+                invs,
+                props |> List.exists (function
+                  | _, (name, Property.PropInvariant)
+                  | _, (name, Property.PropFalse _) ->
+                    name = context.prop
+                  | _ -> false
+                )
+            in
+            (* Asserting invariants if any. *)
+            if invs <> [] then Term.mk_and invs |> assert_invariant context ;
+
             (* Updating local system. *)
-            TransSys.set_prop_invariant context.sys context.prop ;
-            TransSys.get_prop_term context.sys context.prop
-            |> fun t ->
-              TransSys.add_invariant context.sys t ;
-              assert_invariant context t
+            ( match TransSys.get_prop_status context.sys context.prop with
+              | Property.PropUnknown -> ()
+              | _ ->
+                TransSys.set_prop_invariant context.sys context.prop ;
+                TransSys.get_prop_term context.sys context.prop
+                |> fun t ->
+                  TransSys.add_invariant context.sys t ;
+                  assert_invariant context t )
           | None ->
             Event.log L_info
-              "[C2I] %s %s by another technique"
+              "C2I %s %s by another technique"
               prop
               ( if TransSys.is_proved sys prop
                 then "proved" else "falsified") ) ;
       with PropIsFalse ->
-        Event.log L_info "[C2I] @[<v>Falsification for %s detected@]" prop ) ;
+        Event.log L_info "C2I @[<v>Falsification for %s detected@]" prop ) ;
       (* Looping. *)
-      run in_sys param (Some context) candidate sys tail
+      run in_sys param (Some context) candidate sys
     )
 
 (* Entry point. *)
 let main input_sys aparam sys =
+
   (* Start timers. *)
   Stat.start_timer Stat.c2i_total_time ;
   (* New candidate. *)
-  let candidate =
-    Candidate.mk
-      sys
-      (Flags.c2i_dnf_size ())
-      (Flags.c2i_int_cube_size ())
-      (Flags.c2i_real_cube_size ())
-  in
+  let candidate = Candidate.mk sys in
+
+  (* Format.printf "|===| candidate:@.@." ; *)
+
+  (* Candidate.terms_of candidate |> List.iter (fun disj ->
+    Format.printf "\\/ | @[<v>%a@]@.@."
+      (pp_print_list
+        (fun fmt t -> Format.fprintf fmt "@[<h>%a@]" Term.pp_print_term t)
+        "@ ")
+      disj
+  ) ; *)
+
   (* Running. *)
-  TransSys.get_prop_status_all_unknown sys
-  |> run input_sys aparam None candidate sys ;
+  run input_sys aparam None candidate sys ;
+
   (* Done. *)
   stop ()
+
+
+
+(* |===| Preparing for CNF and DNF version using functors. *)
+
+
+
+
+(**
+  Signature of the modules for C2I. Basically we want to see candidates either
+  as DNFs or CNFs. Obviously the interpretation of the candidates changes both
+  when asserting them and computing their cost, but we want to be more subtle
+  than that.
+
+  In the CNF case, we can do "blame assignment" of the checks that fail by
+  doing a multi-property analysis ([get-value] on the conjuncts). This
+  provides the first feedback level: there is no need to compute the cost of
+  the conjuncts that have nothing to do with the checks failed. The feedback
+  from the cost function will thus be limited to the atom level.
+*)
+module type C2ISig = sig
+
+  (** Info maintained by the C2I module. *)
+  type 'a context
+
+  (** Creates a context from an input system, the parameter of the analysis,
+      and the transition system. *)
+  val mk_context : 'a InputSystem.t -> Analysis.param -> TransSys.t ->
+    'a context
+  (** The input system stored in a context. *)
+  val in_sys_of_context : 'a context -> 'a InputSystem.t
+  (** The parameter of the analysis stored in a context. *)
+  val param_of_context : _ context -> Analysis.param
+  (** The transition system stored in a context. *)
+  val sys_of_context : _ context -> TransSys.t
+
+  (** Name of this module. *)
+  val name : string
+  (** Prefix used for logging. *)
+  val prefix : string
+
+  (** Builds the term corresponding to the sempantics of the
+      [Term.t list list] of a candidate. *)
+  val mk_term : Term.t list list -> Term.t
+
+  (* Type for sets of models. *)
+  type model_set
+  (* Type for setts of pairs of models. *)
+  type model_pair_set
+
+  (** Type of the feedback produced by the SMT checks, fed to the cost
+      function. [unit] in the DNF case, [int list] for CNF (indices of the
+      conjuncts responsible for the checks failing. *)
+  type smt_check_feedback
+
+  (** Performs the three checks and returns model options for each of them,
+      plus feedback. *)
+  val smt_checks : Candidate.t ->
+    (Model.t option) * (Model.t option) * (Model.t option) * smt_check_feedback
+
+  (** Cost function. Takes the three sets (white, grey and black) of models and
+      the feedback from the SMT checks and returns the cost plus the two level
+      feedback. *)
+  val cost : model_set -> model_pair_set -> model_set -> smt_check_feedback ->
+    int * (int list list)
+
+end
+
+(** Signature for C2I modules. *)
+module type C2IModule = sig
+  (** Launches a C2I run. *)
+  val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+  (** Clean exit of a C2I run. *)
+  val on_exit : TransSys.t option -> unit
+end
+
+(* Creates a C2I module from a [C2ISig] module. *)
+module Make (S: C2ISig) : C2IModule = struct
+
+  (* Launches a C2I run. *)
+  let main in_sys param sys = assert false
+
+  (* Cleane exit of a C2I run. *)
+  let on_exit _ = assert false
+
+end
+
+
+
+
+
+
+
+
 
 (* 
    Local Variables:

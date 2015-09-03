@@ -978,7 +978,8 @@ let rec run_loop msg_setup modules trans_syss results =
 
   (* No next analysis, done. *)
   | None ->
-    Event.log L_fatal "Done, no more analyses to run." ;
+    if Flags.compositional () then
+      Event.log L_fatal "Done, no more analyses to run." ;
     results
 
   (* Preparing for next analysis. *)
@@ -1107,6 +1108,7 @@ let launch () =
       Event.log L_trace "Messaging initialized in supervisor." ;
 
       try
+
         (* Running. *)
         let results = run_loop msg_setup modules [] results in
         (* Producing a list of the last results for each system, in topological
