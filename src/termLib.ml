@@ -35,7 +35,7 @@ type cexs = cex list
 (* ********************************************************************** *)
 
 (* Return the default value of the type *)
-let default_of_type t = 
+let default_of_type t =
 
   match Type.node_of_type t with
 

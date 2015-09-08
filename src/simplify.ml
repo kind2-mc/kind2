@@ -1938,7 +1938,8 @@ let simplify_term_model ?default_of_var uf_defs model term =
     | Some f -> fun v -> f v
 
     (* Take default value for type if no function given *)
-    | None -> fun v -> type_default_of_var v
+    | None -> fun v ->
+        type_default_of_var v
 
   in
 
@@ -1950,10 +1951,10 @@ let simplify_term_model ?default_of_var uf_defs model term =
          term)
   in
 
-  debug simplify 
-    "Simplified@ @[<hv>%a@]@ to@ @[<hv>%a@]"
+  debug simplify
+    "Simplified@ > @[<hv>%a@]@ to@ > @[<hv>%a@]"
     Term.pp_print_term term
-    Term.pp_print_term res 
+    Term.pp_print_term res
   in
 
   res

@@ -925,7 +925,7 @@ let setup () =
     | `Horn   -> (* InputSystem.read_input_horn *)   assert false
 
 (* Launches analyses. *)
-let rec run_loop msg_setup modules trans_syss results =
+let rec run_loop msg_setup modules results =
 
   let aparam, input_sys, trans_sys =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
@@ -956,13 +956,11 @@ let rec run_loop msg_setup modules trans_syss results =
       Event.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main child_pids (get !input_sys_ref) aparam trans_sys ;
+      InvarManager.main child_pids input_sys aparam trans_sys ;
 
       (* Killing kids. *)
       Some trans_sys |> slaughter_kids `Supervisor
   ) ;
-
-  let trans_syss = trans_sys :: trans_syss in
 
   let result = Analysis.mk_result aparam trans_sys in
 
@@ -995,7 +993,7 @@ let rec run_loop msg_setup modules trans_syss results =
     cur_trans_sys := Some trans_sys        ;
 
     (* Looping. *)
-    run_loop msg_setup modules trans_syss results
+    run_loop msg_setup modules results
 
 
 (* Runs test generation on the system (scope) specified by abstracting
@@ -1110,7 +1108,7 @@ let launch () =
       try
 
         (* Running. *)
-        let results = run_loop msg_setup modules [] results in
+        let results = run_loop msg_setup modules results in
         (* Producing a list of the last results for each system, in topological
            order. *)
         get !input_sys_ref |> InputSystem.ordered_scopes_of

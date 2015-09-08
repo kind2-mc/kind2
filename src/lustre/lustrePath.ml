@@ -297,7 +297,7 @@ let map_top_reconstruct_and_add
         let v =
 
           (* Get expression for initial state *)
-          E.base_term_of_t TransSys.init_base expr
+          E.base_term_of_t Model.path_offset expr
 
           (* Map variables in term to top system *)
           |> (map_term_top instances)
@@ -322,7 +322,7 @@ let map_top_reconstruct_and_add
         let v =
 
           (* Get expression for step state *)
-          E.cur_term_of_t TransSys.trans_base expr
+          E.cur_term_of_t Model.path_offset expr
 
           (* Map variables in term to top system *)
           |> (map_term_top instances)

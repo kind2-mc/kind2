@@ -71,7 +71,8 @@ let split trans solver k falsifiable to_split actlits =
 
     (* Extract counterexample from model *)
     let cex =
-      Model.path_from_model (TransSys.state_vars trans) model k in
+      Model.path_from_model (TransSys.state_vars trans) model k
+    in
 
     (* Evaluation function. *)
     let eval term =
