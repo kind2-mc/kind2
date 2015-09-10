@@ -1525,7 +1525,7 @@ let eval_div expr1 expr2 =
 (* Type of real division
 
    /: real -> real -> real *)
-let type_of_div = type_of_real_real_real
+let type_of_div = type_of_num_num_num(* type_of_real_real_real *)
 
 
 (* Real division *)

@@ -243,7 +243,20 @@ let top_max_index t =
         | _ -> raise (Invalid_argument "top_max_index"))
 
   with Not_found -> (-1)
-    
+
+
+let compatible_one_index i1 i2 = match i1, i2 with
+  | RecordIndex s1, RecordIndex s2 -> s1 = s2
+  | TupleIndex i1, TupleIndex i2 -> i1 = i2
+  | ListIndex i1, ListIndex i2 -> i1 = i2
+  | ArrayIntIndex i1, ArrayIntIndex i2 -> i1 = i2
+  | ArrayIntIndex _, ArrayVarIndex _
+  | ArrayVarIndex _, ArrayIntIndex _
+  | ArrayVarIndex _, ArrayVarIndex _ -> true
+  | _ -> false
+
+let compatible_indexes = List.for_all2 compatible_one_index
+
 
 
 
