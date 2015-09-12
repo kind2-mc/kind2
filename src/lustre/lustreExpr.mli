@@ -69,6 +69,9 @@ type expr = private Term.t
 (** Equality of expressions *)
 val equal_expr : expr -> expr -> bool
 
+(** Returns true iff the expr is the constant true. *)
+val is_true_expr : expr -> bool
+
 (** A Lustre expression
 
     The [->] operator is moved to the top of the expression, the

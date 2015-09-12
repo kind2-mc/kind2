@@ -1583,24 +1583,29 @@ let eval_func_req_ens (accum, ctx) (pos, expr) =
 
   (* Evaluate expression to a Boolean expression, may change
      context *)
-  let expr', ctx = 
+  let expr, ctx = 
     S.eval_bool_ast_expr 
       (C.fail_on_new_definition
          ctx
          pos
          "Invalid expression in contract for function")
-      pos 
+      pos
       expr 
     |> C.close_expr pos
   in
 
-  if not (is_function_expr expr') then
+  if not (is_function_expr expr) then
     C.fail_at_position
       pos
       "Invalid temporal expression in contract of function";
 
+(*   (* Define expression with a state variable *)
+  let state_var, ctx = 
+    C.mk_local_for_expr pos ctx expr' 
+  in *)
+
   (* Add to conjunction of requirements *)
-  (E.mk_and accum expr' , ctx)
+  ((expr, pos) :: accum) , ctx
 
 
 (* Declare and define ghost streams, requires and ensures expressions
@@ -1608,26 +1613,28 @@ let eval_func_req_ens (accum, ctx) (pos, expr) =
 let eval_func_contract ctx contract_pos contract_name reqs enss =
 
   (* Evaluate require clauses to a conjunction *)
-  let reqs', ctx =
-    List.fold_left eval_func_req_ens (E.t_true, ctx) reqs 
+  let reqs, ctx =
+    List.fold_left eval_func_req_ens ([], ctx) reqs 
   in
-
-  (* Introduce state variable for conjunction of requirements *)
-  let contract_req = function_expr_of_expr reqs' in
+  let contract_reqs = reqs |> List.map (fun (e,pos) ->
+      function_expr_of_expr e, pos
+    )
+  in
   
   (* Evaluate require clauses to a conjunction *)
-  let ens', ctx =
-    List.fold_left eval_func_req_ens (E.t_true, ctx) enss
+  let enss, ctx =
+    List.fold_left eval_func_req_ens ([], ctx) enss
   in
-
-  (* Introduce state variable for conjunction of requirements *)
-  let contract_ens = function_expr_of_expr ens' in
+  let contract_enss = enss |> List.map (fun (e,pos) ->
+      function_expr_of_expr e, pos
+    )
+  in
   
   (* Return a contract *)
   ({ F.contract_name;
      F.contract_pos; 
-     F.contract_req; 
-     F.contract_ens },
+     F.contract_reqs;
+     F.contract_enss },
    ctx)
 
 

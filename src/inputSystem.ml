@@ -176,9 +176,9 @@ let pp_print_path_pt
 
   match input_system with 
 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, globals) ->
     LustrePath.pp_print_path_pt
-      trans_sys instances subsystem first_is_init ppf model
+      trans_sys instances subsystem globals first_is_init ppf model
 
   | Native _ -> assert false
 
@@ -190,9 +190,9 @@ let pp_print_path_xml
 
   match input_system with 
 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, globals) ->
     LustrePath.pp_print_path_xml
-      trans_sys instances subsystem first_is_init ppf model
+      trans_sys instances subsystem globals first_is_init ppf model
 
   | Native _ -> assert false
 
@@ -203,9 +203,9 @@ let pp_print_path_in_csv
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
   match input_system with
 
-  | Lustre (subsystem, _) ->
+  | Lustre (subsystem, globals) ->
     LustrePath.pp_print_path_in_csv
-      trans_sys instances subsystem first_is_init ppf model
+      trans_sys instances subsystem globals first_is_init ppf model
 
   | Native _ -> assert false
 

@@ -1263,9 +1263,9 @@ let dummy_pos_in_file fname =
 
 
 (* Pretty-print a position *)
-let pp_print_position 
-    ppf 
-    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
+let pp_print_position ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
 
   if pos = dummy_pos then 
 
@@ -1282,6 +1282,30 @@ let pp_print_position
       "@[<hv>%tline %d@ col. %d@]"
       (function ppf -> 
         if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+      pos_lnum
+      pos_cnum
+
+
+(* Pretty-print a position *)
+let pp_print_pos ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
+
+  if pos = dummy_pos then 
+
+    Format.fprintf ppf "[unknown]"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    Format.fprintf ppf "%s" pos_fname
+
+  else
+
+    Format.fprintf 
+      ppf
+      "[%tl%dc%d]"
+      (function ppf -> 
+        if pos_fname = "" then () else Format.fprintf ppf "%s|" pos_fname)
       pos_lnum
       pos_cnum
 

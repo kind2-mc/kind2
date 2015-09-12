@@ -24,6 +24,7 @@ module D = LustreIndex
 module A = LustreAst
 module E = LustreExpr
 module N = LustreNode
+module F = LustreFunction
 module S = SubSystem
 module T = TransSys
 
@@ -33,19 +34,9 @@ module SVS = StateVar.StateVarSet
 
 
 (* Model for a node and its subnodes *)
-type t = 
-  { 
-
-    (* Node *)
-    node : N.t;
-
-    (* Assignments to state variables of node *)
-    model : Model.path;
-
-    (* Subnodes and position of their calls *)
-    subnodes : ((I.t * position) list * t) list
-
-  }
+type t =
+  | Function of F.t * Model.path
+  | Node of N.t * Model.path * ((I.t * position) list * t) list
 
 
 (* ********************************************************************** *)
@@ -252,7 +243,12 @@ let substitute_definitions instances equations state_var =
     fun a b -> E.mk_let_cur [b] a
   ) (E.mk_var state_var)
 
-
+(* Recursively substitute the state variables in an expression with its
+   definition in [equations]. *)
+let substitute_definitions_in_expr equations expr =
+  E.state_vars_of_expr expr |> SVS.elements
+  |> substitute_definitions' [] equations []
+  |> fun bindings -> E.mk_let_cur bindings expr
 
 (* Get the sequence of values of the state variable in the top system
    and add for this state variables as with [map_top_and_add] if
@@ -349,22 +345,133 @@ let map_top_reconstruct_and_add
     |> SVT.add model' state_var
 
 
+(* Reconstruct a model for a function call given the models for the
+   subnodes. *)
+let function_path_of_instance
+  first_is_init
+  trace
+  globals
+  model_top
+  ({ N.equations; N.name } as node)
+  ({ N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs } as call)
+  trans_sys
+  instances
+  subnodes
+=
+
+  let model = Model.create_path (
+      D.cardinal call_inputs + D.cardinal call_outputs
+    )
+  in
+
+  (* Format.printf
+    "call_inputs:@." ;
+  call_inputs |> D.iter (fun _ e ->
+    Format.printf "  %a@." (E.pp_print_lustre_expr false) e
+  ) ;
+  Format.printf "@." ; *)
+
+
+  let { F.inputs; F.outputs } as fun_def =
+    try F.function_of_name call_function_name globals.LustreGlobals.functions
+    with Not_found -> assert false
+  in
+
+  let call_outputs = call_outputs |> D.map E.mk_var in
+
+  let zip formal actual =
+    D.fold2 (fun _ f a l ->
+      (f, [], a) :: l
+    ) formal actual
+  in
+
+  let equations =
+    equations |> zip inputs call_inputs |> zip outputs call_outputs
+  in
+
+  inputs |> D.iter (
+    map_top_reconstruct_and_add
+      first_is_init
+      trans_sys
+      instances
+      model_top
+      model
+      equations
+  ) ;
+
+  outputs |> D.iter (
+    map_top_reconstruct_and_add
+      first_is_init
+      trans_sys
+      instances
+      model_top
+      model
+      equations
+  ) ;
+
+  let pp_print_tol fmt = function
+    | Model.Term t -> Format.fprintf fmt "%a" Term.pp_print_term t
+    | Model.Lambda _ -> Format.fprintf fmt "lambda"
+  in
+
+  (* Format.printf "model_top:@." ;
+  model_top |> SVT.iter (fun sv tols ->
+    Format.printf "  %a -> %a@."
+      StateVar.pp_print_state_var sv
+      (pp_print_list pp_print_tol ", ") tols
+  ) ;
+  Format.printf "@." ;
+
+  Format.printf "model:@." ;
+  model |> SVT.iter (fun sv tols ->
+    Format.printf "  %a -> %a@."
+      StateVar.pp_print_state_var sv
+      (pp_print_list pp_print_tol ", ") tols
+  ) ;
+  Format.printf "@." ; *)
+
+  (name, call_pos) :: trace, Function(fun_def, model)
+
+
 (* Reconstruct model for the instance given the models for the subnodes 
 
    Use with [TransSys.fold_subsystem_instances]. *)
 let node_path_of_instance 
     first_is_init
+    globals
     model_top
-    ({ N.inputs; N.outputs; N.locals; N.equations } as node)
+    ({ N.inputs; N.outputs; N.locals; N.equations; N.function_calls } as node)
     trans_sys
     instances
     subnodes =
+
+  (* Record trace of node calls *)
+  let trace = 
+    List.map
+      (fun (t, { T.pos }) -> 
+         (TransSys.scope_of_trans_sys t |> I.of_scope, pos))
+      instances
+  in
+
+  let subnodes = function_calls |> List.fold_left (fun l fc ->
+      ( function_path_of_instance
+          first_is_init
+          trace
+          globals
+          model_top
+          node
+          fc
+          trans_sys
+          instances
+          subnodes ) :: l
+    ) subnodes
+  in
 
   (* Create a path for the state variables of the node *)
   let model = 
     Model.create_path
       (D.cardinal inputs + 
-       D.cardinal outputs + 
+       D.cardinal outputs +
        List.fold_left (fun a d -> D.cardinal d + a) 0 locals)
   in
 
@@ -383,7 +490,7 @@ let node_path_of_instance
   D.iter (map_top_and_add instances model_top model) outputs;
 
   (* Map all local state variables to the top instances or
-     reconstructand add their path to the model
+     reconstruct and add their path to the model
 
      A local variable is either stateful in which case there is
      exactly one state variable of the top system it is an instance
@@ -400,27 +507,20 @@ let node_path_of_instance
           equations))
     ((D.singleton D.empty_index node.N.init_flag) :: locals);
 
-  (* Record trace of node calls *)
-  let trace = 
-    List.map
-      (fun (t, { T.pos }) -> 
-         (TransSys.scope_of_trans_sys t |> I.of_scope, pos))
-      instances
-  in
-
   (* Return path for subnode and its call trace *)
-  (trace, { node; model; subnodes })
+  (trace, Node(node, model, subnodes))
 
 
 (* Return a hierarchical model for the nodes from a flat model by
-   mapping the model of the top node to model of the subnoe instances,
+   mapping the model of the top node to model of the subnode instances,
    reconstructing the streams in the original input. *)
 let node_path_of_subsystems
     first_is_init
     trans_sys
     instances
     model
-    ({ S.scope } as subsystems) =
+    ({ S.scope } as subsystems)
+    globals =
 
   (* Get transition system of top scope of subsystems *)
   let trans_sys' = 
@@ -432,7 +532,7 @@ let node_path_of_subsystems
   (* Create models for all subnodes *)
   N.fold_node_calls_with_trans_sys
     nodes
-    (node_path_of_instance first_is_init model)
+    (node_path_of_instance first_is_init globals model)
     (N.node_of_name (I.of_scope scope) nodes)
     trans_sys'
 
@@ -667,10 +767,19 @@ let rec pp_print_lustre_path_pt' ppf =
     | [] -> ()
 
     (* Take first node to print *)
-    | (trace,
-       { node = { N.name; N.inputs; N.outputs; N.locals } as node; 
-         model; 
-         subnodes }) :: tl ->
+    | (trace, t) :: tl ->
+
+      let name, inputs, outputs, locals, is_visible, model, subnodes, title =
+        match t with
+        | Node (
+          { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
+        ) ->
+          name, inputs, outputs, locals,
+          N.state_var_is_visible node, model, subnodes,
+          "Node"
+        | Function ( { F.name; F.inputs; F.outputs }, model ) ->
+          name, inputs, outputs, [], (fun _ -> true), model, [], "Function"
+      in
 
       (* Remove first dimension from index *)
       let pop_head_index = function 
@@ -705,7 +814,7 @@ let rec pp_print_lustre_path_pt' ppf =
         List.fold_left
           (fun a d -> 
              (D.filter 
-                (fun _ sv -> N.state_var_is_visible node sv)
+                (fun _ sv -> is_visible sv)
                 d
               |> D.bindings) 
              @ a)
@@ -715,12 +824,12 @@ let rec pp_print_lustre_path_pt' ppf =
       in
 
       (* Pretty-print this node *)
-      Format.fprintf 
-        ppf
-        "@[<v>Node %a (%a)@,\
-         %a\
-         %a\
-         %a@]@,@,"
+      Format.fprintf ppf "@[<v>\
+          %s %a (%a)@,\
+          %a\
+          %a\
+          %a@,@]"
+        title
         (I.pp_print_ident false) 
         name
         (pp_print_list pp_print_call_pt " / ") 
@@ -744,9 +853,12 @@ let pp_print_lustre_path_pt ppf lustre_path =
 
 
 (* Ouptut a hierarchical model as plan text *)
-let pp_print_path_pt trans_sys instances subsystems first_is_init ppf model = 
+let pp_print_path_pt
+  trans_sys instances subsystems globals first_is_init ppf model
+=
   (* Create the hierarchical model *)
-  node_path_of_subsystems first_is_init trans_sys instances model subsystems
+  node_path_of_subsystems
+    first_is_init trans_sys instances model subsystems globals
   (* Output as plain text *)
   |> pp_print_lustre_path_pt ppf
 
@@ -836,7 +948,7 @@ let pp_print_stream_value ppf i = function
 
 
 (* Pretty-print a single stream *)
-let pp_print_stream_xml node model ppf (index, state_var) =
+let pp_print_stream_xml get_source model ppf (index, state_var) =
 
   try 
 
@@ -851,7 +963,7 @@ let pp_print_stream_xml node model ppf (index, state_var) =
        %a@;<0 -2></Stream>@]"
       pp_print_stream_ident_xml (index, state_var)
       (E.pp_print_lustre_type false) stream_type
-      pp_print_stream_prop_xml (N.get_state_var_source node state_var)
+      pp_print_stream_prop_xml (get_source state_var)
       (pp_print_listi pp_print_stream_value "@,") stream_values
 
   with Not_found -> assert false
@@ -862,10 +974,25 @@ let rec pp_print_lustre_path_xml' ppf = function
 
   | [] -> ()
 
-  | (trace,
-     { node = { N.name; N.inputs; N.outputs; N.locals } as node; 
-       model; 
-       subnodes }) :: tl ->
+  | (trace, t) :: tl ->
+
+    let
+      name, inputs, outputs, locals, is_visible, get_source,
+      model, subnodes, title
+    =
+      match t with
+      | Node (
+        { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
+      ) ->
+        name, inputs, outputs, locals,
+        N.state_var_is_visible node, N.get_state_var_source node,
+        model, subnodes,
+        "Node"
+      | Function ( { F.name; F.inputs; F.outputs } as f, model ) ->
+        name, inputs, outputs, [],
+        (fun _ -> true), F.get_state_var_source f,
+        model, [], "Function"
+    in
 
     (* Remove first dimension from index *)
     let pop_head_index = function 
@@ -895,7 +1022,7 @@ let rec pp_print_lustre_path_xml' ppf = function
       List.fold_left
         (fun a d -> 
            (D.filter 
-              (fun _ sv -> N.state_var_is_visible node sv)
+              (fun _ sv -> is_visible sv)
               d
             |> D.bindings) 
            @ a)
@@ -906,26 +1033,28 @@ let rec pp_print_lustre_path_xml' ppf = function
     (* Pretty-print this node *)
     Format.fprintf 
       ppf
-      "@[<hv 2>@[<hv 1><Node@ name=\"%a\"%a>@]@,%a%t%a%t%a%t%a@;<0 -2></Node>@]%t"
+      "@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]@,%a%t%a%t%a%t%a@;<0 -2></%s>@]%t"
+      title
       (I.pp_print_ident false) 
       name
       pp_print_call_xml
       trace
-      (pp_print_list (pp_print_stream_xml node model) "@,") inputs'
+      (pp_print_list (pp_print_stream_xml get_source model) "@,") inputs'
       (fun ppf -> 
          if
            inputs' <> [] && 
            (outputs' <> [] || locals' <> [] || subnodes <> []) 
          then
            Format.fprintf ppf "@,")
-      (pp_print_list (pp_print_stream_xml node model) "@,") outputs'
+      (pp_print_list (pp_print_stream_xml get_source model) "@,") outputs'
       (fun ppf -> 
          if outputs' <> [] && (locals' <> [] || subnodes <> []) then
            Format.fprintf ppf "@,")
-      (pp_print_list (pp_print_stream_xml node model) "@,") locals'
+      (pp_print_list (pp_print_stream_xml get_source model) "@,") locals'
       (fun ppf -> if locals' <> [] && subnodes <> [] 
         then Format.fprintf ppf "@,")
       pp_print_lustre_path_xml' subnodes
+      title
       (fun ppf -> if tl <> [] then Format.fprintf ppf "@,");
 
     (* Continue *)
@@ -941,11 +1070,12 @@ let pp_print_lustre_path_xml ppf path =
 
 
 (* Ouptut a hierarchical model as XML *)
-let pp_print_path_xml trans_sys instances subsystems first_is_init ppf model = 
-
+let pp_print_path_xml
+  trans_sys instances subsystems globals first_is_init ppf model
+=
   (* Create the hierarchical model *)
-  node_path_of_subsystems first_is_init trans_sys instances model subsystems
-
+  node_path_of_subsystems
+    first_is_init trans_sys instances model subsystems globals
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf
 
@@ -955,7 +1085,7 @@ let pp_print_path_xml trans_sys instances subsystems first_is_init ppf model =
 (* ********************************************************************** *)
 
 (* Pretty-prints a single stream in CSV. *)
-let pp_print_stream_csv node model ppf (index, sv) =
+let pp_print_stream_csv model ppf (index, sv) =
   try
     let typ3 = StateVar.type_of_state_var sv in
     let values = SVT.find model sv in
@@ -971,9 +1101,9 @@ let pp_print_stream_csv node model ppf (index, sv) =
 
 
 (* Outputs a sequence of values for the inputs of a node. *)
-let pp_print_lustre_path_in_csv ppf (trace, {
-  node = { N.inputs } as node ; model
-}) =
+let pp_print_lustre_path_in_csv ppf = function
+| _, Function _ -> ()
+| trace, Node( { N.inputs }, model, _ ) ->
 
   (* Remove first dimension from index. *)
   let pop_head_index = function
@@ -986,14 +1116,15 @@ let pp_print_lustre_path_in_csv ppf (trace, {
 
   (* Print inputs in CSV. *)
   Format.fprintf ppf "@[<v>%a@]"
-    (pp_print_list (pp_print_stream_csv node model) "@,") inputs
+    (pp_print_list (pp_print_stream_csv model) "@,") inputs
 
 (* Outputs a model for the inputs of a system in CSV. *)
 let pp_print_path_in_csv
-  trans_sys instances subsystems first_is_init ppf model
+  trans_sys instances subsystems globals first_is_init ppf model
 =
   (* Create the hierarchical model. *)
-  node_path_of_subsystems first_is_init trans_sys instances model subsystems
+  node_path_of_subsystems 
+    first_is_init trans_sys instances model subsystems globals
   (* Output as CSV. *)
   |> pp_print_lustre_path_in_csv ppf
 

@@ -23,51 +23,50 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 
-type contract =
-  { 
+type contract = { 
 
-    (* Identifier of contract *)
-    contract_name : LustreIdent.t;
+  (* Identifier of contract *)
+  contract_name : LustreIdent.t;
 
-    (* Position of the contract in the input *)
-    contract_pos: position;
+  (* Position of the contract in the input *)
+  contract_pos: position;
 
-    (* Invariant from requirements of contract *)
-    contract_req : LustreExpr.expr;
+  (* Requirements of contract *)
+  contract_reqs : (LustreExpr.expr * position) list ;
 
-    (* Invariant from ensures of contract *)
-    contract_ens : LustreExpr.expr
+  (* Ensures of contract. We don't really need a list because we don't prove
+     the ensures of a UF anyway. *)
+  contract_enss : (LustreExpr.expr * position) list ;
 
-  }
+}
 
 
-type t = 
+type t = {
 
-  {
+  name : LustreIdent.t;
 
-    name : LustreIdent.t;
+  inputs : StateVar.t LustreIndex.t;
 
-    inputs : StateVar.t LustreIndex.t;
+  outputs : StateVar.t LustreIndex.t;
 
-    outputs : StateVar.t LustreIndex.t;
+  output_ufs : UfSymbol.t LustreIndex.t;
 
-    output_ufs : UfSymbol.t LustreIndex.t;
+  global_contracts : contract list;
 
-    global_contracts : contract list;
+  mode_contracts : contract list;
 
-    mode_contracts : contract list;
-
-  }
+}
 
 
 (* An empty function *)
-let empty_function name = 
-  { name = name;
-    inputs = D.empty;
-    outputs = D.empty;
-    output_ufs = D.empty;
-    global_contracts = [];
-    mode_contracts = [] }
+let empty_function name = {
+  name = name;
+  inputs = D.empty;
+  outputs = D.empty;
+  output_ufs = D.empty;
+  global_contracts = [];
+  mode_contracts = []
+}
 
 
 
@@ -100,41 +99,45 @@ let pp_print_input_output safe ppf (idx, var) =
 
 
 (* Pretty-print an assumption *)
-let pp_print_require safe ppf expr =
+let pp_print_require safe ppf (expr, pos) =
   Format.fprintf ppf
-    "@[<hv 2>--@@require@ @[<h>%a@];@]"
+    "@[<hv 2>--@@require@ @[<h>%a@]; -- at %a@]"
     (E.pp_print_expr safe) expr
+    pp_print_position pos
 
 
 (* Pretty-print a guarantee *)
-let pp_print_ensure safe ppf sv =
+let pp_print_ensure safe ppf (sv,pos) =
   Format.fprintf ppf
-    "@[<hv 2>--@@ensure @[<h>%a@];@]"
+    "@[<hv 2>--@@ensure @[<h>%a@]; -- at %a@]"
     (E.pp_print_expr safe) sv
+    pp_print_position pos
 
 
 (* Pretty-print a named mode contract. *)
-let pp_print_mode_contract safe ppf { contract_name; contract_req; contract_ens } =
+let pp_print_mode_contract safe ppf {
+  contract_name; contract_reqs; contract_enss; contract_pos
+} =
   Format.fprintf
     ppf
-    "@[<v>--@@contract %a;@,%a@,%a@]"
+    "@[<v>--@@contract %a; -- at %a@,%a@,%a@]"
     (I.pp_print_ident false) contract_name
-    (pp_print_require safe) contract_req
-    (pp_print_ensure safe) contract_ens
+    pp_print_position contract_pos
+    (pp_print_list (pp_print_require safe) "@,") contract_reqs
+    (pp_print_list (pp_print_ensure safe) "@,") contract_enss
 
 
 (* Pretty-print an anonymous global contract. *)
-let pp_print_global_contract 
-    safe
+let pp_print_global_contract safe ppf {
+  contract_name; contract_reqs; contract_enss; contract_pos
+} =
+  Format.fprintf
     ppf
-    { contract_name; contract_req; contract_ens } =
-
-    Format.fprintf
-      ppf
-      "@[<v>-- %a@,%a@,%a@]"
-      (I.pp_print_ident false) contract_name
-      (pp_print_require safe) contract_req
-      (pp_print_ensure safe) contract_ens
+    "@[<v>--@@global %a; -- at %a@,%a@,%a@]"
+    (I.pp_print_ident false) contract_name
+    pp_print_position contract_pos
+    (pp_print_list (pp_print_require safe) "@,") contract_reqs
+    (pp_print_list (pp_print_ensure safe) "@,") contract_enss
 
 
 (* Pretty-print a node *)
@@ -206,3 +209,18 @@ let name_of_function { name } = name
 
 (* Return the scope of the name of the function *)
 let scope_of_function { name } = name |> I.to_scope
+
+(** Returns the source of a svar in terms of [LustreNode.state_var_source]. *)
+let get_state_var_source { name ; inputs ; outputs } sv =
+  if
+    D.exists (fun _ sv' -> StateVar.equal_state_vars sv' sv) inputs
+  then LustreNode.Input
+  else if
+    D.exists (fun _ sv' -> StateVar.equal_state_vars sv' sv) outputs
+  then LustreNode.Output
+  else
+    Format.asprintf
+      "state var %a is not in the signature of function %a"
+      StateVar.pp_print_state_var sv
+      (LustreIdent.pp_print_ident false) name
+    |> invalid_arg

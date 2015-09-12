@@ -83,75 +83,70 @@ type state_var_source =
 
 
 (* A call of a node *)
-type node_call = 
+type node_call = {
 
-  { 
+  (* Position of node call in input file *)
+  call_pos : position;
 
-    (* Position of node call in input file *)
-    call_pos : position;
+  (* Name of called node *)
+  call_node_name : I.t;
+  
+  (* Boolean activation condition *)
+  call_clock : StateVar.t option;
 
-    (* Name of called node *)
-    call_node_name : I.t;
-    
-    (* Boolean activation condition *)
-    call_clock : StateVar.t option;
+  (* Variables for input parameters *)
+  call_inputs : StateVar.t D.t;
 
-    (* Variables for input parameters *)
-    call_inputs : StateVar.t D.t;
+  (* Variables providing non-deterministic inputs *)
+  call_oracles : StateVar.t list;
 
-    (* Variables providing non-deterministic inputs *)
-    call_oracles : StateVar.t list;
+  (* Variables capturing the outputs *)
+  call_outputs : StateVar.t D.t;
 
-    (* Variables capturing the outputs *)
-    call_outputs : StateVar.t D.t;
+  (* Expression for initial return values 
 
-    (* Expression for initial return values 
+     This value should be [None] for node calls on the base clock,
+      and [Some l] for node calls with a clock. A node call with a
+      clock may only have [None] here if it occurs directly under a
+      [merge] operator.*)
+  call_defaults : E.t D.t option;
 
-       This value should be [None] for node calls on the base clock,
-        and [Some l] for node calls with a clock. A node call with a
-        clock may only have [None] here if it occurs directly under a
-        [merge] operator.*)
-    call_defaults : E.t D.t option;
-
-  }
+}
 
 
 (* A call of a function *)
-type function_call = 
+type function_call = {
 
-  { 
+  (* Position of function call in input file *)
+  call_pos : position;
 
-    (* Position of function call in input file *)
-    call_pos : position;
+  (* Name of called function *)
+  call_function_name : I.t;
+  
+  (* Expressions for input parameters *)
+  call_inputs : E.t D.t;
 
-    (* Name of called function *)
-    call_function_name : I.t;
-    
-    (* Expressions for input parameters *)
-    call_inputs : E.t D.t;
+  (* Variables capturing the outputs *)
+  call_outputs : StateVar.t D.t;
 
-    (* Variables capturing the outputs *)
-    call_outputs : StateVar.t D.t;
-
-  }
+}
 
 
-type contract =
-  { 
+type contract = {
 
-    (* Identifier of contract *)
-    contract_name : LustreIdent.t;
+  (* Identifier of contract *)
+  contract_name : LustreIdent.t;
 
-    (* Position of the contract in the input *)
-    contract_pos: position;
+  (* Position of the contract in the input *)
+  contract_pos: position;
 
-    (* Invariant from requirements of contract *)
-    contract_reqs : (position * StateVar.t) list;
+  (* Invariant from requirements of contract *)
+  contract_reqs : (position * StateVar.t) list;
 
-    (* Invariants from ensures of contract *)
-    contract_enss : (position * StateVar.t) list
+  (* Invariants from ensures of contract *)
+  contract_enss : (position * StateVar.t) list
 
-  }
+}
 
 
 (* An equation *)
@@ -159,97 +154,96 @@ type equation = (StateVar.t * E.expr bound_or_fixed list * E.t)
 
 
 (* A Lustre node *)
-type t = 
+type t = { 
 
-  { 
+  (* Name of node *)
+  name : I.t;
 
-    (* Name of node *)
-    name : I.t;
+  (* Constant state variable uniquely identifying the node instance *)
+  instance : StateVar.t;
 
-    (* Constant state variable uniquely identifying the node instance *)
-    instance : StateVar.t;
+  (* Distinguished state variable to become true in the first
+     instant only *)
+  init_flag : StateVar.t;
 
-    (* Distinguished state variable to become true in the first
-       instant only *)
-    init_flag : StateVar.t;
+  (* Input variables of node together with their index in the
+     original model and a list of expressions for the upper bounds
+     of each array dimension *)
+  inputs : StateVar.t D.t;
 
-    (* Input variables of node together with their index in the
-       original model and a list of expressions for the upper bounds
-       of each array dimension *)
-    inputs : StateVar.t D.t;
+  (* Oracle inputs *)
+  oracles : StateVar.t list;
 
-    (* Oracle inputs *)
-    oracles : StateVar.t list;
+  (* Output variables of node together with their index in the
+     original model and a list of expressions for the upper bounds
+     of each array dimension *)
+  outputs : StateVar.t D.t;
 
-    (* Output variables of node together with their index in the
-       original model and a list of expressions for the upper bounds
-       of each array dimension *)
-    outputs : StateVar.t D.t;
+  (* Local variables of node and a list of expressions for the upper
+     bounds of each array dimension *)
+  locals : StateVar.t D.t list;
 
-    (* Local variables of node and a list of expressions for the upper
-       bounds of each array dimension *)
-    locals : StateVar.t D.t list;
+  (* Equations for local and output variables *)
+  equations : equation list;
 
-    (* Equations for local and output variables *)
-    equations : equation list;
+  (* Node calls *)
+  calls : node_call list;
 
-    (* Node calls *)
-    calls : node_call list;
+  (* Function calls
 
-    (* Function calls
+     Needed to share functions calls with the same input
+     parameters *)
+  function_calls : function_call list;
 
-       Needed to share functions calls with the same input
-       parameters *)
-    function_calls : function_call list;
+  (* Assertions of node *)
+  asserts : E.t list;
 
-    (* Assertions of node *)
-    asserts : E.t list;
+  (* Proof obligations for node *)
+  props : (StateVar.t * string * Property.prop_source) list;
 
-    (* Proof obligations for node *)
-    props : (StateVar.t * string * Property.prop_source) list;
+  (* Global contracts *)
+  global_contracts : contract list;
 
-    (* Global contracts *)
-    global_contracts : contract list;
+  (* Mode contracts *)
+  mode_contracts :  contract list;
 
-    (* Mode contracts *)
-    mode_contracts :  contract list;
+  (* Node is annotated as main node *)
+  is_main : bool;
 
-    (* Node is annotated as main node *)
-    is_main : bool;
+  (* Map from a state variable to its source *)
+  state_var_source_map : state_var_source SVM.t 
 
-    (* Map from a state variable to its source *)
-    state_var_source_map : state_var_source SVM.t 
-
-  }
+}
 
 
 (* An empty node *)
-let empty_node name = 
-  { name = name;
-    instance = 
-      StateVar.mk_state_var
-        ~is_const:true
-        (I.instance_ident |> I.string_of_ident false)
-        (I.to_scope name @ I.reserved_scope)
-        Type.t_int;
-    init_flag = 
-      StateVar.mk_state_var
-        (I.init_flag_ident |> I.string_of_ident false)
-        (I.to_scope name @ I.reserved_scope)
-        Type.t_bool;
-    inputs = D.empty;
-    oracles = [];
-    outputs = D.empty;
-    locals = [];
-    equations = [];
-    calls = [];
-    function_calls = [];
-    asserts = [];
-    props = [];
-    global_contracts = [];
-    mode_contracts = [];
-    is_main = false;
-    state_var_source_map = SVM.empty }
+let empty_node name = {
+  name = name;
+  instance = 
+    StateVar.mk_state_var
+      ~is_const:true
+      (I.instance_ident |> I.string_of_ident false)
+      (I.to_scope name @ I.reserved_scope)
+      Type.t_int;
+  init_flag = 
+    StateVar.mk_state_var
+      (I.init_flag_ident |> I.string_of_ident false)
+      (I.to_scope name @ I.reserved_scope)
+      Type.t_bool;
+  inputs = D.empty;
+  oracles = [];
+  outputs = D.empty;
+  locals = [];
+  equations = [];
+  calls = [];
+  function_calls = [];
+  asserts = [];
+  props = [];
+  global_contracts = [];
+  mode_contracts = [];
+  is_main = false;
+  state_var_source_map = SVM.empty
+}
 
 
 (* Pretty-print array bounds of index *)
@@ -257,16 +251,16 @@ let pp_print_array_dims safe ppf idx =
 
   match D.array_bounds_of_index idx with 
 
-    (* Print only if not empty *)
-    | [] -> ()
+  (* Print only if not empty *)
+  | [] -> ()
 
-    | bounds -> 
+  | bounds -> 
 
-      Format.fprintf 
-        ppf
-        "^%a"
-        (pp_print_list (E.pp_print_expr safe) "^")
-        bounds
+    Format.fprintf 
+      ppf
+      "^%a"
+      (pp_print_list (E.pp_print_expr safe) "^")
+      bounds
 
 
 (* Pretty-print a node input *)

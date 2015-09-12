@@ -1743,7 +1743,7 @@ let add_function_input ctx ident index_types =
           (inputs, ctx)
       in
 
-      (* Return node with input added *)
+      (* Return function with input added *)
       match ctx with
         | { func = None } -> assert false
         | { func = Some func } ->
@@ -1852,44 +1852,36 @@ let add_function_call ctx pos ({ N.call_function_name; N.call_outputs } as func_
 
     | { node = Some ({ N.equations; N.function_calls; N.calls } as node) } -> 
 
-      if 
+      if call_outputs |> D.exists (
+          fun _ state_var -> 
 
-        D.exists 
-          (fun _ state_var -> 
+            (* State variable already defined by equation? *)
+            List.exists (fun (sv, _, _) ->
+              StateVar.equal_state_vars state_var sv
+            ) equations ||
 
-             (* State variable already defined by equation? *)
-             List.exists
-               (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
-               equations
-               
-             ||
-             
-             (* State variable defined by a node call? *)
-             List.exists
-               (fun { N.call_node_name; N.call_outputs } -> 
-                  D.exists 
-                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                    call_outputs)
-               calls
+            (* State variable defined by a node call? *)
+            List.exists (fun { N.call_node_name; N.call_outputs } ->
+              call_outputs|> D.exists (fun _ sv ->
+                StateVar.equal_state_vars state_var sv
+              )
+            ) calls ||
 
-             ||
-        
-             (* State variable defined by a function call? *)
-             List.exists
-               (fun { N.call_function_name; N.call_outputs } -> 
-                  D.exists 
-                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                    call_outputs)
-               function_calls)
-
-          call_outputs
+            (* State variable defined by a function call? *)
+            List.exists (
+              fun { N.call_function_name; N.call_outputs } -> 
+                call_outputs |> D.exists (fun _ sv ->
+                  StateVar.equal_state_vars state_var sv
+                )
+            ) function_calls
+        )
 
       then
 
         fail_at_position
           pos
           "Duplicate definition for output of function call";
-                
+
       (* Add function call to context *)
       { ctx with 
           node = Some { node with 
