@@ -20,6 +20,9 @@ open Lib
 open TermLib
 open Actlit
 
+(* Raised when the unrolling alone is unsat. *)
+exception UnsatUnrollingExc
+
 let solver_ref = ref None
 
 (* Output statistics *)
@@ -92,6 +95,18 @@ let split trans solver k falsifiable to_split actlits =
   let if_unsat _ =
     None
   in
+
+  if Flags.bmc_check_unroll () then (
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Unrolling of the system is unsat at %a, \
+        the system has no more reachable states.@]"
+        warning_tag
+        Numeral.pp_print_numeral k ;
+      raise UnsatUnrollingExc
+    )
+  ) ;
 
   (* Check sat assuming with actlits. *)
   SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
@@ -342,6 +357,17 @@ let init input_sys aparam trans =
   |> SMTSolver.assert_term solver
   |> ignore ;
 
+  if Flags.bmc_check_unroll () then (
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Initial state is unsat, the system has no \
+         reachable states.@]"
+         warning_tag ;
+      raise UnsatUnrollingExc
+    )
+  ) ;
+
   (* Invariants if the system at 0. *)
   let invariants =
     TransSys.invars_of_bound trans Numeral.zero |> Term.mk_and 
@@ -351,7 +377,14 @@ let init input_sys aparam trans =
 
 (* Runs the base instance. *)
 let main input_sys aparam trans =
-  init input_sys aparam trans |> next 
+  try
+    init input_sys aparam trans |> next
+  with UnsatUnrollingExc ->
+    let _, _, unknown = TransSys.get_split_properties trans in
+    unknown |> List.iter (fun p ->
+      Event.prop_status
+        Property.PropInvariant input_sys aparam trans p.Property.prop_name
+    ) ;
 
 
 

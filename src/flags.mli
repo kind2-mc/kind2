@@ -100,24 +100,28 @@ val enable : unit -> enable
 type bmc_max = int
 val bmc_max : unit -> bmc_max
 
+(** Check that the unrolling of the system alone is satisfiable. *)
+type bmc_check_unroll = bool
+val bmc_check_unroll : unit -> bmc_check_unroll
+
 (** Output version information and exit *)
 type check_version = bool
 val check_version : unit -> check_version
 
-(** Compresss inductive counterexample *)
+(** Compress inductive counterexample *)
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
 
-(** Compresss inductive counterexample when states are equal modulo
+(** Compress inductive counterexample when states are equal modulo
     inputs *)
 type ind_compress_equal = bool
 val ind_compress_equal : unit -> ind_compress_equal
 
-(** Compresss inductive counterexample when states have same successors *)
+(** Compress inductive counterexample when states have same successors *)
 type ind_compress_same_succ = bool
 val ind_compress_same_succ : unit -> ind_compress_same_succ
 
-(** Compresss inductive counterexample when states have same predecessors *)
+(** Compress inductive counterexample when states have same predecessors *)
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
 

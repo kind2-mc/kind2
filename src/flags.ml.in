@@ -335,6 +335,12 @@ let bmc_max_default = 0
 
 (* ********** *) 
 
+type bmc_check_unroll = bool
+    
+let bmc_check_unroll_default = true
+
+(* ********** *) 
+
 type ind_compress = bool
     
 let ind_compress_default = false
@@ -670,6 +676,7 @@ type flags =
     mutable disable : enable ;
     mutable check_version : check_version;
     mutable bmc_max : bmc_max;
+    mutable bmc_check_unroll : bmc_check_unroll;
     mutable ind_compress : ind_compress;
     mutable ind_compress_equal : ind_compress_equal;
     mutable ind_compress_same_succ : ind_compress_same_succ;
@@ -735,6 +742,7 @@ let flags =
     disable = disable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
+    bmc_check_unroll = bmc_check_unroll_default;
     ind_compress = ind_compress_default;
     ind_compress_equal = ind_compress_equal_default;
     ind_compress_same_succ = ind_compress_same_succ_default;
@@ -959,6 +967,15 @@ let bmc_max_spec =
   ("--bmc_max", 
    Arg.Int bmc_max_action, 
    Format.sprintf "(BMC, IND) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
+
+(* ********** *) 
+
+let bmc_check_unroll_action o = flags.bmc_check_unroll <- o
+  
+let bmc_check_unroll_spec = 
+  ("--bmc_check_unroll", 
+   Arg.Bool bmc_check_unroll_action, 
+   Format.sprintf "(BMC) Check that the unrolling alone is satisfiable (default: %b)" bmc_check_unroll_default)
 
 (* ********** *) 
 
@@ -1475,6 +1492,8 @@ let check_version () = flags.check_version
 
 let bmc_max () = flags.bmc_max 
 
+let bmc_check_unroll () = flags.bmc_check_unroll 
+
 let ind_compress () = flags.ind_compress 
 
 let ind_compress_equal () = flags.ind_compress_equal 
@@ -1636,6 +1655,9 @@ and speclist =
 
     (* Maximal number of iterations in BMC *)
     bmc_max_spec;
+
+    (* Check that the unrolling alone is satisfiable in BMC *)
+    bmc_check_unroll_spec;
 
     (* Compress inductive counterexamples *)
     ind_compress_spec;
