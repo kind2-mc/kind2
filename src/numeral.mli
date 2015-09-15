@@ -22,7 +22,7 @@
 *)
 
 (** Type of arbitrary precision numerals *)
-type t 
+type t
 
 (** {1 Pretty-printing and String Representation} *)
 

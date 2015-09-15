@@ -1746,11 +1746,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   Dec 
                     ((List.fold_left 
                         (fun a e -> 
-                           if 
+                           (* if 
                              Decimal.(e = zero) 
                            then
                              raise (Failure "simplify_term: division by zero")
-                           else 
+                           else  *)
                              Decimal.(a / e))
                         h 
                         tl), 

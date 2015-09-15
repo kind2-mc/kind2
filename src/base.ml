@@ -96,7 +96,7 @@ let split trans solver k falsifiable to_split actlits =
     None
   in
 
-  if Flags.bmc_check_unroll () then (
+  if Flags.bmc_check_unroll () then ( 
     if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn

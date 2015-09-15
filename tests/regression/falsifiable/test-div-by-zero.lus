@@ -1,0 +1,9 @@
+node bla(in: real)
+returns(out: real ; check: bool) ;
+var divid: real ;
+let
+  check = (in <> 0.0) or (out = 1.0) ;
+  divid = (1.0 / in) ;
+  out = if in = 0.0 then 0.0 else divid ;
+  --%PROPERTY check ;
+tel

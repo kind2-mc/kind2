@@ -23,15 +23,15 @@ open Lib
 (* ********************************************************************** *)
 
 (* Arbitrary precision rational numbers are numerals *)
-type t = Num.num
+type t = | NaN | N of Num.num
 
 
 (* The rational number zero *)
-let zero = Num.num_of_int 0
+let zero = N (Num.num_of_int 0)
 
 
 (* The rational number one *)
-let one = Num.num_of_int 1
+let one = N (Num.num_of_int 1)
 
 
 (* ********************************************************************** *)
@@ -62,7 +62,9 @@ let pp_print_positive_decimal_sexpr ppf = function
       (Big_int.string_of_big_int rd)
 
 
-let pp_print_decimal_sexpr ppf d =
+let pp_print_decimal_sexpr ppf = function
+| NaN -> Format.fprintf ppf "NaN"
+| N d ->
   (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal_sexpr ppf d
 
@@ -90,16 +92,18 @@ let pp_print_positive_decimal ppf = function
       (Big_int.string_of_big_int rd)
 
 
-let pp_print_decimal ppf d =
+let pp_print_decimal ppf = function
+| NaN -> Format.fprintf ppf "NaN"
+| N d ->
   (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal ppf d
 
 
 (* Return a string representation of a decimal *)
-let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr 
+let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr
 
 (* Return a string representation of a decimal *)
-let string_of_decimal = string_of_t pp_print_decimal 
+let string_of_decimal = string_of_t pp_print_decimal
 
 
 (* ********************************************************************** *)
@@ -108,10 +112,10 @@ let string_of_decimal = string_of_t pp_print_decimal
 
 
 (* Convert an integer to a rational number *)
-let of_int = Num.num_of_int
+let of_int n = N (Num.num_of_int n)
 
 (* Convert a string to a rational number *)
-let of_string s = 
+let of_string s = if s = "NaN" then NaN else (
 
   (* Buffer for integer part, initialize to length of whole string *)
   let int_buf = Buffer.create (String.length s) in
@@ -274,7 +278,8 @@ let of_string s =
 
   in
 
-  res
+  N res
+)
 
 
 
@@ -285,14 +290,16 @@ let s_unimus = HString.mk_hstring "-"
 
 
 (* Convert an arbitrary large integer to a rational number *)
-let of_big_int n = Num.num_of_big_int n
+let of_big_int n = N (Num.num_of_big_int n)
 
 (* Convert an ocaml Num to a rational *)
-let of_num n = n
+let of_num n = N n
 
 
 (* Convert a rational number to an integer *)
-let to_int d = 
+let to_int = function
+| NaN -> invalid_arg "to_int NaN"
+| N d ->
 
   try 
 
@@ -304,70 +311,95 @@ let to_int d =
 
 
 (* Convert a rational number to an arbitrary large integer *)
-let to_big_int d = Num.big_int_of_num (Num.floor_num d)
+let to_big_int = function
+| NaN -> invalid_arg "to_int NaN"
+| N d -> Num.big_int_of_num (Num.floor_num d)
 
 
 (* Return true if decimal coincides with an integer *)
 let is_int = function 
-  | Num.Int _ 
-  | Num.Big_int _ -> true
-  | Num.Ratio _ -> false
+  | N (Num.Int _)
+  | N (Num.Big_int _) -> true
+  | _ -> false
 
 (* ********************************************************************** *)
 (* Arithmetic operators                                                   *)
 (* ********************************************************************** *)
 
 
+
+(* Applies [f] to the input if it's not [NaN] and wraps the result in [N].
+   Returns [NaN] otherwise. *)
+let handle_nan_unary f = function
+| NaN -> NaN | N n -> f n |> of_num
+
+(* Applies [f] to the inputs if neither is [NaN] and wraps the result in
+   [N]. Returns [NaN] otherwise. *)
+let handle_nan_binary f l r = match l,r with
+| NaN, _ | _, NaN -> NaN
+| N l, N r -> f l r |> of_num
+
 (* Increment a decimal by one *)
-let succ d = Num.succ_num d
+let succ = handle_nan_unary Num.succ_num
 
 (* Decrement a decimal by one *)
-let pred d = Num.pred_num d
+let pred = handle_nan_unary Num.pred_num
 
 (* Absolute value *)
-let abs = Num.abs_num
+let abs = handle_nan_unary Num.abs_num
 
 (* Unary negation *)
-let neg = Num.minus_num
+let neg = handle_nan_unary Num.minus_num
 
 (* Sum *)
-let add = Num.add_num
+let add = handle_nan_binary Num.add_num
 
 (* Difference *)
-let sub = Num.sub_num
+let sub = handle_nan_binary Num.sub_num
 
 (* Product *)
-let mult = Num.mult_num
+let mult = handle_nan_binary Num.mult_num
 
 (* Quotient *)
-let div = Num.div_num
+let div n d =
+  if d = zero then NaN else
+    handle_nan_binary Num.div_num n d
 
 (* Remainder *)
-let rem = Num.mod_num
+let rem = handle_nan_binary Num.mod_num
 
 
 (* ********************************************************************** *)
 (* Comparison operators                                                   *)
 (* ********************************************************************** *)
 
+(* Applies [f] to the inputs if neither is [NaN]. Returns [default]
+   otherwise. *)
+let handle_nan_rel f default l r = match l,r with
+| N l, N r -> f l r
+| _ -> default
 
 (* Equality *)
-let equal = Num.eq_num
+let equal = handle_nan_rel Num.eq_num false
 
 (* Comparison *)
-let compare = Num.compare_num
+let compare l r = match l,r with
+| N l, N r -> Num.compare_num l r
+| NaN, NaN -> 0
+| NaN, _ -> -100
+| _, NaN -> 100
 
 (* Less than or equal predicate *)
-let leq = Num.le_num
+let leq = handle_nan_rel Num.le_num false
 
 (* Less than predicate *)
-let lt = Num.lt_num
+let lt = handle_nan_rel Num.lt_num false
 
 (* Greater than or equal predicate *)
-let geq = Num.ge_num
+let geq = handle_nan_rel Num.ge_num false
 
 (* Greater than predicate *)
-let gt = Num.gt_num
+let gt = handle_nan_rel Num.gt_num false
 
 
 (* ********************************************************************** *)
