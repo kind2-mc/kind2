@@ -352,8 +352,8 @@ let function_path_of_instance
   trace
   globals
   model_top
-  ({ N.equations; N.name } as node)
-  ({ N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs } as call)
+  { N.equations; N.name }
+  { N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs }
   trans_sys
   instances
   subnodes
@@ -408,27 +408,6 @@ let function_path_of_instance
       model
       equations
   ) ;
-
-  let pp_print_tol fmt = function
-    | Model.Term t -> Format.fprintf fmt "%a" Term.pp_print_term t
-    | Model.Lambda _ -> Format.fprintf fmt "lambda"
-  in
-
-  (* Format.printf "model_top:@." ;
-  model_top |> SVT.iter (fun sv tols ->
-    Format.printf "  %a -> %a@."
-      StateVar.pp_print_state_var sv
-      (pp_print_list pp_print_tol ", ") tols
-  ) ;
-  Format.printf "@." ;
-
-  Format.printf "model:@." ;
-  model |> SVT.iter (fun sv tols ->
-    Format.printf "  %a -> %a@."
-      StateVar.pp_print_state_var sv
-      (pp_print_list pp_print_tol ", ") tols
-  ) ;
-  Format.printf "@." ; *)
 
   (name, call_pos) :: trace, Function(fun_def, model)
 
@@ -825,10 +804,12 @@ let rec pp_print_lustre_path_pt' ppf =
 
       (* Pretty-print this node *)
       Format.fprintf ppf "@[<v>\
-          %s %a (%a)@,\
-          %a\
-          %a\
-          %a@,@]"
+          %s %a (%a)@,  @[<v>\
+            %a\
+            %a\
+            %a\
+          @]\
+        @,@]"
         title
         (I.pp_print_ident false) 
         name

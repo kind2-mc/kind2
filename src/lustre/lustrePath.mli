@@ -40,9 +40,7 @@ val pp_print_path_in_csv :
   Format.formatter -> Model.path -> unit
 
 (** Recursively substitute the state variables in a term with their definition
-    in [equations].
-
-    TODO: Move the whole thing under this to {!LustreExpr}. *)
+    in [equations]. *)
 val substitute_definitions_in_expr :
   LustreNode.equation list -> LustreExpr.t -> LustreExpr.t
 

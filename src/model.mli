@@ -19,7 +19,7 @@
 
 (** Term or lambda expression *)
 type term_or_lambda = 
-  | Term of Term.t 
+  | Term of Term.t
   | Lambda of Term.lambda
 
 (** A model is a list of variables and assignemnts *)

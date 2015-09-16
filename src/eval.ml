@@ -136,7 +136,6 @@ let rec value_of_term term = match Term.destruct term with
 
 (* Evaluate a term to a value *)
 let eval_term uf_defs model term =
-  
   (* Simplify term with the model and return a value *)
   value_of_term (Simplify.simplify_term_model uf_defs model term)
 

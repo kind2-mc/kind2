@@ -49,7 +49,6 @@ val term_of_value : value -> Term.t
 val value_is_unknown : value -> bool
 
 
-
 (** Evaluate a term to a value, given an assignment to all free
     variables *)
 val eval_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Term.t -> value
