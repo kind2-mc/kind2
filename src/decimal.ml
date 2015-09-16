@@ -23,7 +23,7 @@ open Lib
 (* ********************************************************************** *)
 
 (* Arbitrary precision rational numbers are numerals *)
-type t = | NaN | N of Num.num
+type t = | InfPos | InfNeg | Undef | N of Num.num
 
 
 (* The rational number zero *)
@@ -63,7 +63,9 @@ let pp_print_positive_decimal_sexpr ppf = function
 
 
 let pp_print_decimal_sexpr ppf = function
-| NaN -> Format.fprintf ppf "NaN"
+| InfPos -> Format.fprintf ppf "1/0"
+| InfNeg -> Format.fprintf ppf "-1/0"
+| Undef -> Format.fprintf ppf "0/0"
 | N d ->
   (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal_sexpr ppf d
@@ -93,7 +95,9 @@ let pp_print_positive_decimal ppf = function
 
 
 let pp_print_decimal ppf = function
-| NaN -> Format.fprintf ppf "NaN"
+| InfPos -> Format.fprintf ppf "1/0"
+| InfNeg -> Format.fprintf ppf "-1/0"
+| Undef -> Format.fprintf ppf "0/0"
 | N d ->
   (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal ppf d
@@ -115,8 +119,7 @@ let string_of_decimal = string_of_t pp_print_decimal
 let of_int n = N (Num.num_of_int n)
 
 (* Convert a string to a rational number *)
-let of_string s = if s = "NaN" then NaN else (
-
+let of_string s =
   (* Buffer for integer part, initialize to length of whole string *)
   let int_buf = Buffer.create (String.length s) in
 
@@ -279,7 +282,6 @@ let of_string s = if s = "NaN" then NaN else (
   in
 
   N res
-)
 
 
 
@@ -295,25 +297,26 @@ let of_big_int n = N (Num.num_of_big_int n)
 (* Convert an ocaml Num to a rational *)
 let of_num n = N n
 
+(* Raises [Invalid_argument] exception. *)
+let raise_invalid_arg name naN: 'a =
+  Format.sprintf "%s %s" name (string_of_decimal naN) |> invalid_arg
 
 (* Convert a rational number to an integer *)
 let to_int = function
-| NaN -> invalid_arg "to_int NaN"
-| N d ->
-
+| N d -> (
   try 
-
     (* Convert with library function *)
     Num.int_of_num d
-
   (* Conversion failed because of limited precision *)
   with Failure _ -> raise (Failure "to_int")
+)
+| naN -> raise_invalid_arg "to_int" naN
 
 
 (* Convert a rational number to an arbitrary large integer *)
 let to_big_int = function
-| NaN -> invalid_arg "to_int NaN"
 | N d -> Num.big_int_of_num (Num.floor_num d)
+| naN -> raise_invalid_arg "to_int" naN
 
 
 (* Return true if decimal coincides with an integer *)
@@ -322,84 +325,126 @@ let is_int = function
   | N (Num.Big_int _) -> true
   | _ -> false
 
-(* ********************************************************************** *)
-(* Arithmetic operators                                                   *)
-(* ********************************************************************** *)
-
-
-
-(* Applies [f] to the input if it's not [NaN] and wraps the result in [N].
-   Returns [NaN] otherwise. *)
-let handle_nan_unary f = function
-| NaN -> NaN | N n -> f n |> of_num
-
-(* Applies [f] to the inputs if neither is [NaN] and wraps the result in
-   [N]. Returns [NaN] otherwise. *)
-let handle_nan_binary f l r = match l,r with
-| NaN, _ | _, NaN -> NaN
-| N l, N r -> f l r |> of_num
-
-(* Increment a decimal by one *)
-let succ = handle_nan_unary Num.succ_num
-
-(* Decrement a decimal by one *)
-let pred = handle_nan_unary Num.pred_num
-
-(* Absolute value *)
-let abs = handle_nan_unary Num.abs_num
-
-(* Unary negation *)
-let neg = handle_nan_unary Num.minus_num
-
-(* Sum *)
-let add = handle_nan_binary Num.add_num
-
-(* Difference *)
-let sub = handle_nan_binary Num.sub_num
-
-(* Product *)
-let mult = handle_nan_binary Num.mult_num
-
-(* Quotient *)
-let div n d =
-  if d = zero then NaN else
-    handle_nan_binary Num.div_num n d
-
-(* Remainder *)
-let rem = handle_nan_binary Num.mod_num
-
 
 (* ********************************************************************** *)
 (* Comparison operators                                                   *)
 (* ********************************************************************** *)
 
-(* Applies [f] to the inputs if neither is [NaN]. Returns [default]
-   otherwise. *)
-let handle_nan_rel f default l r = match l,r with
-| N l, N r -> f l r
-| _ -> default
-
 (* Equality *)
-let equal = handle_nan_rel Num.eq_num false
+let equal l r = match l, r with
+| N l, N r -> Num.eq_num l r
+| _ -> l = r
 
 (* Comparison *)
 let compare l r = match l,r with
 | N l, N r -> Num.compare_num l r
-| NaN, NaN -> 0
-| NaN, _ -> -100
-| _, NaN -> 100
+| Undef, Undef -> 0
+| Undef, _ -> 100
+| _, Undef -> -100
+| InfPos, InfPos -> 0
+| InfPos, _ -> 100
+| _, InfPos -> -100
+| InfNeg, InfNeg -> 0
+| InfNeg, _ -> -100
+| _, InfNeg -> 100
 
 (* Less than or equal predicate *)
-let leq = handle_nan_rel Num.le_num false
+let leq l r = match l, r with
+| N l, N r -> Num.le_num l r
+| Undef, _ | _, Undef -> false
+| InfPos, _ | _, InfNeg-> true
+| _, InfPos | InfNeg, _ -> false
 
 (* Less than predicate *)
-let lt = handle_nan_rel Num.lt_num false
+let lt l r = match l, r with
+| N l, N r -> Num.lt_num l r
+| _ -> leq l r && not (equal l r)
 
 (* Greater than or equal predicate *)
-let geq = handle_nan_rel Num.ge_num false
+let geq l r = match l, r with
+| N l, N r -> Num.ge_num l r
+| _ -> not (lt l r)
 
 (* Greater than predicate *)
-let gt = handle_nan_rel Num.gt_num false
+let gt l r = match l, r with
+| N l, N r -> Num.gt_num l r
+| _ -> not (leq l r)
+
+(* ********************************************************************** *)
+(* Arithmetic operators                                                   *)
+(* ********************************************************************** *)
+
+(* Increment a decimal by one *)
+let succ = function
+| N n -> Num.succ_num n |> of_num
+| nan -> nan
+
+(* Decrement a decimal by one *)
+let pred = function
+| N n -> Num.pred_num n |> of_num
+| nan -> nan
+
+(* Absolute value *)
+let abs = function
+| N n -> Num.abs_num n |> of_num
+| Undef -> Undef
+| _ -> InfPos
+
+(* Unary negation *)
+let neg = function
+| N n -> Num.minus_num n |> of_num
+| Undef -> Undef
+| InfPos -> InfNeg
+| InfNeg -> InfPos
+
+(* Sum *)
+let add l r =
+match l, r with
+| N l, N r -> Num.add_num l r |> of_num
+| Undef, _ | _, Undef -> Undef
+| InfPos, InfNeg | InfNeg, InfPos -> Undef
+| InfPos, _ | _, InfPos -> InfPos
+| InfNeg, _ | _, InfNeg -> InfNeg
+
+(* Difference *)
+let sub l r = match l, r with
+| N l, N r -> Num.sub_num l r |> of_num
+| Undef, _ | _, Undef -> Undef
+| InfPos, InfNeg -> InfPos
+| InfNeg, InfPos -> InfNeg
+| InfPos, _ | _, InfNeg -> InfPos
+| InfNeg, _ | _, InfPos -> InfNeg
+
+(* Product *)
+let mult l r = match l, r with
+| N l, N r -> Num.mult_num l r |> of_num
+| Undef, _ | _, Undef -> Undef
+| InfPos, InfNeg | InfNeg, InfPos -> InfNeg
+| InfPos, InfPos | InfNeg, InfNeg -> InfPos
+| InfPos, n | n, InfPos ->
+  if n = zero then Undef else
+  if lt n zero then InfNeg else InfPos
+| InfNeg, n | n, InfNeg ->
+  if n = zero then Undef else
+  if lt n zero then InfPos else InfNeg
+
+(* Quotient *)
+let div l r = match l, r with
+| N l', N r' -> if r = zero then (
+  if l = zero then Undef else
+  if lt l zero then InfNeg else InfPos
+) else Num.div_num l' r' |> of_num
+| N _, InfNeg | N _, InfPos -> zero
+| InfPos, N _ ->
+  if lt r zero then InfNeg else InfPos
+| InfNeg, N _ ->
+  if lt r zero then InfPos else InfNeg
+| _ -> Undef
+
+(* Remainder *)
+let rem l r = match l, r with
+| N l, N r -> Num.mod_num l r |> of_num
+| _ -> Undef
 
 
 (* ********************************************************************** *)

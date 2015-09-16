@@ -18,6 +18,15 @@
 
 open Lib
 
+let division_by_zero = ref false
+
+(** Returns true iff a division by zero happened in a simplification since
+    this function was last called. *)
+let has_division_by_zero_happened () =
+  let res = !division_by_zero in
+  division_by_zero := false ;
+  res
+
 (* ********************************************************************** *)
 (* Basic types                                                            *)
 (* ********************************************************************** *)
@@ -1746,12 +1755,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   Dec 
                     ((List.fold_left 
                         (fun a e -> 
-                           (* if 
-                             Decimal.(e = zero) 
-                           then
-                             raise (Failure "simplify_term: division by zero")
-                           else  *)
-                             Decimal.(a / e))
+                           if Decimal.(e = zero) then
+                             (* raise (Failure "simplify_term: division by zero") *)
+                             division_by_zero := true ;
+                           Decimal.(a / e))
                         h 
                         tl), 
                      [])
@@ -1924,7 +1931,7 @@ let type_default_of_var v = Var.type_of_var v |> TermLib.default_of_type
 (* Simplify a term with a model *)
 let simplify_term_model ?default_of_var uf_defs model term = 
 
-  debug simplify 
+  debug simplify
     "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
     Term.pp_print_term term
     Model.pp_print_model

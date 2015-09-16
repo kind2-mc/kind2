@@ -28,6 +28,14 @@ exception Terminate
 (* ********************************************************************** *)
 
 
+(* Warning issued if model reconstruction triggers a division by zero. *)
+let div_by_zero_text prop_name = [
+  "Division by zero detected in model reconstruction." ;
+  Format.sprintf
+    "Counterexample for property \"%s\" may be inconsistent."
+    prop_name
+]
+
 (* Messages to be relayed between processes *)
 type event = 
   | Invariant of string list * Term.t 
@@ -301,8 +309,9 @@ let proved_pt mdl level trans_sys k prop =
   then 
 
     (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
+      !log_ppf
+      ("@[<hov>%s Property %s is valid %tby %a after %.3fs.@.@.")
+      success_tag
       prop
       (function ppf -> match k with
          | None -> ()
@@ -312,43 +321,31 @@ let proved_pt mdl level trans_sys k prop =
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt 
-    level
-    input_sys
-    analysis
-    trans_sys
-    prop_name
-    ppf =
+  level input_sys analysis trans_sys prop_name ppf
+= function
+| [] -> ()
+| cex -> (
+  (* Get property by name *)
+  let prop =
+    TransSys.property_of_name trans_sys prop_name
+  in
 
-  function
+  (* Slice counterexample and transitions system to property *)
+  let trans_sys, instances, cex, prop_term, input_sys =
+    InputSystem.slice_to_abstraction_and_property
+      input_sys
+      analysis
+      trans_sys
+      cex
+      prop
+  in
 
-    | [] -> ()
-
-    | cex -> 
-
-      (
-
-        (* Get property by name *)
-        let prop =
-          TransSys.property_of_name trans_sys prop_name
-        in
-
-        (* Slice counterexample and transitions system to property *)
-        let trans_sys, instances, cex, prop_term, input_sys =
-          InputSystem.slice_to_abstraction_and_property
-            input_sys
-            analysis
-            trans_sys
-            cex
-            prop
-        in
-
-        (* Output counterexample *)
-        Format.fprintf ppf 
-          "Counterexample:@,%a"
-          (InputSystem.pp_print_path_pt input_sys trans_sys instances true) 
-          (Model.path_of_list cex)
-
-      )
+  (* Output counterexample *)
+  Format.fprintf ppf 
+    "Counterexample:@,  @[<v>%a@]"
+    (InputSystem.pp_print_path_pt input_sys trans_sys instances true) 
+    (Model.path_of_list cex)
+)
 
 
 (* Output execution path without slicing *)
@@ -379,20 +376,33 @@ let disproved_pt mdl level input_sys analysis trans_sys prop cex =
 
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then (
+    (* Reset division by zero indicator. *)
+    Simplify.has_division_by_zero_happened () |> ignore ;
 
+    (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
+      "@[<v>%s Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@."
+      failure_tag
       prop
       pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
          | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
       (Stat.get_float Stat.total_time)
-      (pp_print_counterexample_pt level input_sys analysis trans_sys prop) cex
+      (pp_print_counterexample_pt level input_sys analysis trans_sys prop)
+      cex ;
 
-  else
+    (* Output warning if division by zero happened in simplification. *)
+    if Simplify.has_division_by_zero_happened () then
+      div_by_zero_text prop
+      |> printf_pt mdl L_warn
+        "%s @[<v>%a@]"
+        warning_tag
+        (pp_print_list Format.pp_print_string "@,")
+
+  ) else
 
     (debug event "Status of property %s already known" prop in ())
 
@@ -625,8 +635,11 @@ let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t
 
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then (
+    (* Reset division by zero indicator. *)
+    Simplify.has_division_by_zero_happened () |> ignore ;
 
+    (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
       ("@[<hv 2><Property name=\"%s\">@,\
@@ -642,7 +655,15 @@ let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t
          | cex -> Format.fprintf ppf "<K>%d</K>@," (Property.length_of_cex cex))
       pp_print_kind_module_xml_src mdl
       (pp_print_counterexample_xml input_sys analysis trans_sys prop) 
-      cex
+      cex ;
+
+    (* Output warning if division by zero happened in simplification. *)
+    if Simplify.has_division_by_zero_happened () then
+      div_by_zero_text prop
+      |> printf_xml mdl L_warn
+        "@[<v>%a@]"
+        (pp_print_list Format.pp_print_string "@,")
+  )
   
 
 (* Output statistics section as XML *)
@@ -859,13 +880,18 @@ let log_proved mdl level trans_sys k prop =
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_relay -> ()
 
+(* Warning issued if model reconstruction triggers a division by zero. *)
+let div_by_zero_text = "division by zero detected, model may be inconsistent"
 
 (* Log a message with source and log level *)
 let log_disproved mdl level input_sys analysis trans_sys prop cex =
   match !log_format with 
-    | F_pt -> disproved_pt mdl level input_sys analysis trans_sys prop cex 
-    | F_xml -> disproved_xml mdl level input_sys analysis trans_sys prop cex
-    | F_relay -> ()
+  | F_pt ->
+    disproved_pt mdl level input_sys analysis trans_sys prop cex
+  | F_xml ->
+    disproved_xml mdl level input_sys analysis trans_sys prop cex
+  | F_relay -> ()
+
 
 
 (* Log an exection path *)
