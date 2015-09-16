@@ -24,6 +24,9 @@
 (** Type of a solver instance *)
 type t
 
+(** Exception raised when the solver returns "unknown" to a check-sat. *)
+exception Unknown
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with

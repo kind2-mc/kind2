@@ -218,6 +218,14 @@ let status_of_exn process status =
   (* Normal termination *)
   | Exit -> status
 
+  (* Got unknown, issue error but normal termination. *)
+  | SMTSolver.Unknown ->
+    Event.log L_error
+      "%s In %a: a check-sat resulted in \"unknown\", exiting."
+      error_tag
+      pp_print_kind_module process ;
+    status
+
   (* Termination message *)
   | Event.Terminate -> (
 
@@ -232,7 +240,8 @@ let status_of_exn process status =
   | TimeoutWall -> (
 
     Event.log L_error
-      "[Timeout] Wallclock timeout" ;
+      "%s Wallclock timeout"
+      timeout_tag ;
 
     status
 
@@ -242,7 +251,8 @@ let status_of_exn process status =
   | TimeoutVirtual -> (
 
     Event.log L_error
-      "[Timeout] CPU timeout";
+      "%s CPU timeout"
+      timeout_tag ;
 
     status
 
@@ -252,7 +262,8 @@ let status_of_exn process status =
   | Signal s -> (
 
     Event.log L_fatal
-      "[Interruption] Caught signal%t. Terminating." 
+      "%s Caught signal%t. Terminating."
+      interruption_tag
       (function ppf -> 
         match s with 
           | 0 -> () 
@@ -263,23 +274,14 @@ let status_of_exn process status =
 
   )
     
-  (* Other exception *)
-  | e -> (
-
-    (* Get backtrace now, Printf changes it *)
-    let backtrace = Printexc.get_backtrace () in
-
+  (* Other exception, return exit status for error. *)
+  | e ->
     Event.log L_fatal
-      "[Error] Runtime error: %s" 
+      "%s Runtime error in %a: %s"
+      error_tag
+      pp_print_kind_module process
       (Printexc.to_string e) ;
-
-    if Printexc.backtrace_status () then
-      Event.log L_fatal "Backtrace:@\n%s" backtrace ;
-
-    (* Return exit status for error *)
-    status_error 
-
-  )
+    status_error
 
 let status_of_exn_sys process sys_opt =
   status_of_exn process (status_of_sys sys_opt)
@@ -481,10 +483,10 @@ let on_exit process results exn =
 
    Give the exception [exn] that was raised or [Exit] on normal
    termination. *)
-let on_exit_child messaging_thread process sys_opt exn =
+let on_exit_child messaging_thread process exn =
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn_sys process sys_opt exn in
+  let status = status_of_exn process 0 exn in
 
   (* Call cleanup of process *)
   (on_exit_of_process process) !cur_trans_sys ;
@@ -520,23 +522,23 @@ let run_process messaging_setup process =
     (* We are the child process *)
     | 0 -> (
 
+        (* Make the process leader of a new session *)
+        ignore (Unix.setsid ());
+
+        let pid = Unix.getpid () in
+
+        (* Ignore SIGALRM in child process *)
+        Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
+
+        (* Initialize mtessaging system for process *)
+        let messaging_thread =
+          Event.run_process 
+            process
+            messaging_setup
+            (on_exit_child None process)
+        in
+
         try 
-
-          (* Make the process leader of a new session *)
-          ignore (Unix.setsid ());
-
-          let pid = Unix.getpid () in
-
-          (* Ignore SIGALRM in child process *)
-          Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
-
-          (* Initialize messaging system for process *)
-          let messaging_thread =
-            Event.run_process 
-              process
-              messaging_setup
-              (on_exit_child None process None)
-          in
 
           (* All log messages are sent to the invariant manager now *)
           Event.set_relay_log ();
@@ -603,28 +605,29 @@ let run_process messaging_setup process =
             (get !cur_trans_sys);
 
           (* Cleanup and exit *)
-          on_exit_child (Some messaging_thread) process None Exit
+          on_exit_child (Some messaging_thread) process Exit
 
         with 
 
           (* Termination message received *)
-          | Event.Terminate as e -> on_exit_child None process None e
+          | Event.Terminate as e ->
+            on_exit_child (Some messaging_thread) process e
 
           (* Catch all other exceptions *)
-          | e -> 
+          | e ->
 
             (* Get backtrace now, Printf changes it *)
             let backtrace = Printexc.get_backtrace () in
 
-            Event.log L_fatal
-              "Runtime error: %s" 
-              (Printexc.to_string e);
-
             if Printexc.backtrace_status () then
-              Event.log L_debug "Backtrace:@\n%s" backtrace;
+              Event.log L_fatal "%s Caught %s in %a.@ Backtrace:@\n%s"
+              error_tag
+              (Printexc.to_string e)
+              pp_print_kind_module process
+              backtrace ;
 
             (* Cleanup and exit *)
-            on_exit_child None process None e
+            on_exit_child (Some messaging_thread) process e
 
       )
 
@@ -1078,7 +1081,7 @@ let launch () =
       Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
 
       (* Cleanup before exiting process *)
-      on_exit_child None m (Some (get !cur_trans_sys)) Exit
+      on_exit_child None m Exit
 
     (* Some modules, including the interpreter. *)
     | modules when List.mem `Interpreter modules ->

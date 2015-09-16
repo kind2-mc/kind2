@@ -384,7 +384,7 @@ let main input_sys aparam trans =
     unknown |> List.iter (fun p ->
       Event.prop_status
         Property.PropInvariant input_sys aparam trans p.Property.prop_name
-    ) ;
+    )
 
 
 

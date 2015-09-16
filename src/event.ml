@@ -931,8 +931,10 @@ let log_progress mdl level k =
 (* Terminate log output *)
 let terminate_log () = 
   match !log_format with 
-    | F_pt -> ()
-    | F_xml -> print_xml_trailer ()
+    | F_pt -> Format.print_flush ()
+    | F_xml ->
+      print_xml_trailer () ;
+      Format.print_flush ()
     | F_relay -> ()
 
 
