@@ -186,21 +186,39 @@ let pp_print_param fmt { top ; abstraction_map ; assumptions } =
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
     ) ([], [])
   in
-  Format.fprintf fmt "@[<v>\
-      top: \"%a\"@ \
-      subsystems @[<v>| concrete: [@[<hov>%a@]]@ \
-                      | abstract: [@[<hov>%a@]]@]@ \
-      assumptions: [@[<v>%a@]]@ \
-    @]"
+  Format.fprintf fmt "@[<v>top: \"%a\"%a%a@]"
     Scope.pp_print_scope top
-    (pp_print_list Scope.pp_print_scope ",@ ") concrete
-    (pp_print_list Scope.pp_print_scope ",@ ") abstract
-    (pp_print_list
-      ( fun fmt (s,t) ->
-        Format.fprintf fmt "%a: %a"
-          Scope.pp_print_scope s
-          Term.pp_print_term t )
-      "@ ")
+
+    (fun fmt -> function
+      | [], [] ->
+        Format.fprintf fmt " no subsystems"
+      | concrete, abstract ->
+        Format.fprintf fmt "@ subsystems@   @[<v>" ;
+        ( match concrete with
+          | [] -> ()
+          | concrete ->
+            Format.fprintf fmt "| concrete: @[<hov>%a@]"
+              (pp_print_list Scope.pp_print_scope ",@ ") concrete ;
+            if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
+        ( match abstract with
+          | [] -> ()
+          | abstract ->
+            Format.fprintf fmt "| abstract: @[<hov>%a@]"
+          (pp_print_list Scope.pp_print_scope ",@ ") abstract) ;
+        Format.fprintf fmt "@]")
+    (concrete, abstract)
+
+    (fun fmt -> function
+      | [] -> ()
+      | assumptions ->
+        Format.fprintf fmt "@ assumptions: @[<v>%a@]"
+        (pp_print_list
+          ( fun fmt (s,t) ->
+            Format.fprintf fmt "%a: %a"
+              Scope.pp_print_scope s
+              Term.pp_print_term t )
+          "@ ")
+        assumptions)
     assumptions
 
 let pp_print_result_quiet fmt { sys } =
