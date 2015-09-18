@@ -1482,7 +1482,7 @@ let rec constraints_of_equations init stateful_vars terms = function
 
     (* Assign value to array position *)
     let eq = 
-      Term.mk_eq 
+      (Term.mk_eq 
         [select_term;
          if init then 
            (* Expression at base instant *)
@@ -1491,10 +1491,12 @@ let rec constraints_of_equations init stateful_vars terms = function
            (* Expression at current instant *)
            E.cur_term_of_expr TransSys.trans_base expr_step]
       (* Convert select operators to uninterpreted functions *)
-      |> Term.convert_select
+      ) |> Term.convert_select
     in
 
     Format.eprintf "EQ1: %a@." Term.pp_print_term eq;
+
+    assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term eq));
 
     (* Wrap equation in let binding and quantifiers for indexes *)
     let def, _ = 
@@ -1503,6 +1505,8 @@ let rec constraints_of_equations init stateful_vars terms = function
         bounds
         (eq, List.length bounds |> pred)
     in
+
+    assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term def));
 
     (* Add definition and continue *)
     constraints_of_equations init stateful_vars (def :: terms) tl
@@ -2090,6 +2094,10 @@ let rec trans_sys_of_node'
                 functions
             in
 
+            assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and init_terms)));
+
+            assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and trans_terms)));
+            
             (* (\* Add uf symbols for global arrays *\) *)
             (* let ufs = List.fold_left *)
             (*     (fun acc (sv, _) -> StateVar.encode_select sv :: acc) *)

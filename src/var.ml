@@ -493,7 +493,9 @@ let unrolled_uf_of_state_var_instance = function
          string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
      )
 
-  | _ -> raise (Invalid_argument "unrolled_uf_of_state_var_instance")
+  |v -> raise (Invalid_argument
+                 (Format.sprintf "unrolled_uf_of_state_var_instance %s"
+                    (string_of_var v)))
 
 (* Declares constant variables as constant ufsymbols using the
     provided function. *)

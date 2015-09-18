@@ -385,6 +385,9 @@ val numeral_of_expr : expr -> Numeral.t
 
 val unsafe_term_of_expr : expr -> Term.t
 
+
+val mk_array : t -> t -> t
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

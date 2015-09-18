@@ -138,11 +138,14 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           HStringSExpr.pp_print_sexpr v
        in
 
-       get_value_response_of_sexpr' 
-         ((((expr_of_string_sexpr e) :> SMTExpr.t), 
-           ((expr_of_string_sexpr v :> SMTExpr.t))) :: 
-          accum) 
-         tl)
+       let accum =
+         try
+           ((expr_of_string_sexpr e :> SMTExpr.t), 
+            (expr_of_string_sexpr v :> SMTExpr.t)) :: 
+           accum
+         with Failure _ -> accum in
+       
+       get_value_response_of_sexpr' accum tl)
 
     (* Hack for CVC4's (- 1).0 expressions *)
     | HStringSExpr.List [ e; v; HStringSExpr.Atom d ] :: tl 

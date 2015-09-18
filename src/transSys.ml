@@ -918,6 +918,10 @@ let define_and_declare_of_bounds
     ~include_top:false
     (fun t -> 
 
+       (* Declare monomorphized select symbols *)
+       if not (Flags.smt_arrays ()) then
+         declare_selects t declare;
+
        (* Declare constant state variables of subsystem *)
        if declare_sub_vars then 
          (declare_const_vars t declare; 
@@ -927,11 +931,13 @@ let define_and_declare_of_bounds
        define_init define t;
 
        (* Define transition relation predicate *)
-       define_trans define t)
+       define_trans define t;
+
+    )
 
     trans_sys;
 
-  (* Declare monomorphized select symbols *)
+  (* Declare monomorphized select symbols of top level node *)
   if not (Flags.smt_arrays ()) then
     declare_selects trans_sys declare;
 

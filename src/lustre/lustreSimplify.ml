@@ -341,9 +341,12 @@ let rec eval_ast_expr bounds ctx =
                  bounds
              |> snd
              in
+
+             Format.eprintf "MKPRE %a with %d bounds@."
+               (E.pp_print_lustre_expr false) expr (List.length bounds); 
              
-             (* Apply pre operator to expression, abstract
-                  non-variable term and re-use previous variables *)
+             (* Apply pre operator to expression, abstract non-variable term
+                  and re-use previous variables *)
              let expr', ctx =
                E.mk_pre
                  (C.mk_local_for_expr ~bounds pos)
@@ -965,7 +968,9 @@ let rec eval_ast_expr bounds ctx =
       let res = 
         D.fold
           (fun j e a -> 
-             D.add (D.ArrayVarIndex array_size :: j) e a)
+             D.add (D.ArrayVarIndex array_size :: j)
+               (E.mk_array e (E.mk_of_expr array_size))
+               a)
           expr'
           D.empty
       in
@@ -1303,9 +1308,10 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
       (D.pp_print_trie
          (fun ppf (i, e) ->
             Format.fprintf ppf
-              "@[<hv 2>%a:@ %a@]"
+              "@[<hv 2>%a:@ %a :: %a@]"
               (D.pp_print_index false) i
-              (E.pp_print_lustre_expr false) e)
+              (E.pp_print_lustre_expr false) e
+              Type.pp_print_type e.E.expr_type)
          ";@ ")
       expr1';
 
@@ -1315,9 +1321,11 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
       (D.pp_print_trie
          (fun ppf (i, e) ->
             Format.fprintf ppf
-              "@[<hv 2>%a:@ %a@]"
+              "@[<hv 2>%a:@ %a :: %a@]"
               (D.pp_print_index false) i
-              (E.pp_print_lustre_expr false) e)
+              (E.pp_print_lustre_expr false) e
+              Type.pp_print_type e.E.expr_type
+         )
          ";@ ")
       expr2';
     
@@ -1488,10 +1496,38 @@ and eval_node_call
           eval_ast_expr bounds ctx (A.ExprList (dummy_pos, expr)) 
         in
 
+        Format.printf
+          "@[<v>NIOE inputs:@,%a@]@."
+          (pp_print_list
+             (fun ppf (i, sv) -> 
+                Format.fprintf ppf "%a: %a :: %a (const:%b)"
+                  (D.pp_print_index false) i
+                  StateVar.pp_print_state_var sv
+                  Type.pp_print_type (StateVar.type_of_state_var sv)
+                  (StateVar.is_const sv)
+             )
+             "@,")
+          (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings node_inputs));
+
+        Format.printf
+          "@[<v>NIOE exprs:@,%a@]@."
+          (pp_print_list
+             (fun ppf (i, e) -> 
+                Format.fprintf ppf "%a: %a :: %a (const:%b)"
+                  (D.pp_print_index false) i
+                  (E.pp_print_lustre_expr false) e
+                  Type.pp_print_type (E.type_of_lustre_expr e)
+                  (E.is_const e)
+             )
+             "@,")
+          (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings expr'));
+
+
         if 
 
           (* Do actual and formal parameters have the same indexes? *)
-          D.keys expr' = D.keys node_inputs 
+          (* D.keys expr' = D.keys node_inputs  *)
+          List.for_all2 D.compatible_indexes (D.keys expr') (D.keys node_inputs)
 
         then
 
@@ -1521,7 +1557,9 @@ and eval_node_call
           (accum, ctx) ->
 
           if 
-
+            (Format.eprintf "%a <: %a ???@."
+               Type.pp_print_type expr_type
+               Type.pp_print_type (StateVar.type_of_state_var state_var);
             (* Expression must be of a subtype of input type *)
             Type.check_type 
               expr_type
@@ -1529,14 +1567,15 @@ and eval_node_call
 
             (* Expression must be constant if input is *)
             (not (StateVar.is_const state_var) || 
-             E.is_const expr)
+             E.is_const expr))
 
           then 
 
             (* New variable for abstraction, is constant if input is *)
             let (state_var', _) , ctx = 
               C.mk_local_for_expr
-                ~is_const:(StateVar.is_const state_var) 
+                ~is_const:(StateVar.is_const state_var)
+                ~bounds
                 pos
                 ctx
                 expr

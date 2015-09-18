@@ -597,13 +597,18 @@ let mk_state_var
 
   (* Create or retrieve state variable *)
   let state_var =
-    StateVar.mk_state_var
-      ?is_input
-      ?is_const
-      ?for_inv_gen 
-      state_var_name
-      (scope @ flatten_scopes)
-      state_var_type 
+    try
+      StateVar.state_var_of_string
+        (state_var_name,
+         (List.map Ident.to_string (scope @ flatten_scopes)))
+    with Not_found ->
+      StateVar.mk_state_var
+        ?is_input
+        ?is_const
+        ?for_inv_gen 
+        state_var_name
+        (scope @ flatten_scopes)
+        state_var_type 
   in
 
   (* Register bounds for indexes *)
@@ -766,6 +771,7 @@ let mk_fresh_oracle
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?(bounds = [])
     ({ node; definitions_allowed; fresh_oracle_index } as ctx) 
     state_var_type =
 
@@ -800,6 +806,9 @@ let mk_fresh_oracle
               (Some N.Oracle)
           in
 
+          (* Register bounds *)
+          SVT.add ctx.state_var_bounds state_var bounds;
+          
           (* Increment index of fresh oracle *)
           let ctx = 
             match ctx with
@@ -811,12 +820,17 @@ let mk_fresh_oracle
                     fresh_oracle_index = succ fresh_oracle_index }
           in
 
+          Format.eprintf "New oracle : %a :: %a@."
+            StateVar.pp_print_state_var state_var
+            Type.pp_print_type (StateVar.type_of_state_var state_var);
+          
           (* Return variable and changed context *)
           (state_var, ctx)
 
 
 (* Create a fresh state variable as an oracle input for the state variable *)
-let mk_fresh_oracle_for_state_var 
+let mk_fresh_oracle_for_state_var
+    ?bounds
     ({ state_var_oracle_map; fresh_oracle_index } as ctx) 
     state_var =
 
@@ -830,7 +844,8 @@ let mk_fresh_oracle_for_state_var
     (* Create fresh oracle *)
     let state_var', ctx = 
       mk_fresh_oracle
-        ~is_const:true 
+        ~is_const:true
+        ?bounds
         ctx
         (StateVar.type_of_state_var state_var)
     in
@@ -851,6 +866,7 @@ let mk_fresh_oracle_for_state_var
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
 let close_expr
+    ?(bounds=[])
     pos
     ({ E.expr_init } as expr, ctx) = 
 
@@ -890,6 +906,7 @@ let close_expr
               (* Create a new oracle variable or re-use previously
                  created oracle *)
               mk_fresh_oracle_for_state_var
+                ~bounds
                 ctx
                 state_var
 
@@ -1007,6 +1024,10 @@ let mk_local_for_expr
        fresh_local_index } as ctx)
     ({ E.expr_type } as expr) = 
 
+  
+  Format.eprintf "MKLOCAL %a with %d bounds@."
+    (E.pp_print_lustre_expr false) expr (if bounds = None then -1 else (List.length (get bounds))); 
+
   match definitions_allowed with 
 
     (* Fail with error if no new definitions allowed *)
@@ -1025,7 +1046,7 @@ let mk_local_for_expr
         | Some _ ->
 
           (* Guard unguarded pres before adding definition *)
-          let expr', ctx = close_expr pos (expr, ctx) in
+          let expr', ctx = close_expr ?bounds pos (expr, ctx) in
 
           (* Define the expression with a fresh abstraction *)
           let abs, ctx = 
@@ -1448,19 +1469,19 @@ let add_node_equation ctx pos state_var bounds indexes expr =
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
     | { node = Some { N.equations; N.calls; N.function_calls } } -> 
-(*
+
       Format.printf
-        "%a%a = %a (%d)@."
+        "add equation %a%a = %a (with %d indexes)@."
         StateVar.pp_print_state_var state_var
         (pp_print_list
            (function ppf -> function
-              | N.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-              | N.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
+              | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
+              | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
            "")
         bounds
         (E.pp_print_lustre_expr false) expr
         indexes;
-*)
+
       if 
         
         (* State variable already defined by equation? *)
@@ -1516,15 +1537,16 @@ let add_node_equation ctx pos state_var bounds indexes expr =
       let expr_type = E.type_of_lustre_expr expr in
 
       (* Type of state variable *)
-      let state_var_type = 
+      let state_var_type, _ = 
         List.fold_left
-          (fun t -> function
+          (fun (t, indexes) -> function
              | E.Bound _ 
              | E.Fixed _ -> 
 
-               if Type.is_array t then
-
-                 Type.elem_type_of_array t
+               if indexes = 0 then t, indexes
+               else if Type.is_array t then
+                 
+                 Type.elem_type_of_array t, indexes - 1
                    
                else
 
@@ -1534,14 +1556,14 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                       "Type mismatch in equation: %a and %a"
                       Type.pp_print_type t
                       Type.pp_print_type expr_type))
-          (StateVar.type_of_state_var state_var )
+          (StateVar.type_of_state_var state_var, indexes)
           bounds
       in
 
       let ctx = 
 
         if 
-
+true ||
           (* Type must be a subtype of declared type *)
           Type.check_type 
             expr_type
@@ -1714,7 +1736,7 @@ let node_of_context = function
     match
       (* Add equations from definitions to equations *)
       ET.fold
-        (fun e (sv, b) ctx -> add_node_equation ctx dummy_pos sv b 0 e)
+        (fun e (sv, b) ctx -> add_node_equation ctx dummy_pos sv b (List.length b) e)
         expr_abs_map ctx
       with
         | { node = Some n } -> n

@@ -433,6 +433,9 @@ let eval_struct_item ctx pos = function
           | _ -> acc) 0 l2 in
     
     let indexes = (D.keys res |> List.hd) |> convert in
+    (* XXX *)
+    
+    let indexes = List.length l in
     
     (* Add bindings for the running variables to the context *)
     let _, ctx = 
@@ -523,19 +526,19 @@ let rec eval_eq_lhs ctx pos = function
         (fun (ctx, i, accum) e -> 
 
            (* Get state variables of item *)
-           let t, index, ctx = eval_struct_item ctx pos e in 
+           let t, _, ctx = eval_struct_item ctx pos e in 
 
            (* Changed context *)
            (ctx,
 
             (* Go forwards through list *)
-            index + i,
-
+            i + 1,
+            (Format.eprintf "add %d@." i;
             (* Add index of item on left-hand side to indexes *)
             D.fold
-              (fun j e a -> D.add (D.ListIndex index :: j) e a)
+              (fun j e a -> D.add (D.ListIndex i :: j) e a)
               t
-              accum))
+              accum)))
 
         (* Add to empty trie with first index zero *)
         (ctx, 0, D.empty)
@@ -547,7 +550,7 @@ let rec eval_eq_lhs ctx pos = function
 
     (* Return types of indexes, no array bounds and unchanged
        context *)
-    res, i, ctx
+    res, 0, ctx
 
 (* Match bindings from a trie of state variables and bindings for a
    trie of expressions and produce a list of equations *)
@@ -622,6 +625,8 @@ Format.eprintf "ici@.@.";
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (D.ArrayVarIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
 
+    Format.eprintf "icilalalouiouiuoui@.@.";
+
     (* We cannot compare expressions for array bounds syntactically,
        because that may give too many false negatives. Evaluating both
        bounds to find if they are equal would be too complicated,
@@ -643,8 +648,8 @@ Format.eprintf "ici@.@.";
     
     let expr' =
       E.map
-        (fun _ e -> 
-           if E.is_var e then 
+        (fun _ e ->
+           if E.is_var e then
              (assert (E.type_of_lustre_expr e |> Type.is_array);
               E.mk_select e (E.mk_index_var i))
            else e)
@@ -667,6 +672,8 @@ Format.eprintf "ici@.@.";
 
   | ((D.ArrayIntIndex i :: lhs_index_tl, state_var) :: lhs_tl,
      (D.ArrayIntIndex j :: rhs_index_tl, expr) :: rhs_tl) -> 
+
+    Format.eprintf "icilalal@.@.";
 
     (* Indexes are sorted, must match *)
     if i = j then 
@@ -754,7 +761,7 @@ Format.eprintf "ici@.@.";
    trie of expressions *)
 let expand_tuple pos lhs rhs = 
 
-(*
+
   Format.printf
     "@[<v>expand_tuple lhs:@,%a@]@."
     (pp_print_list
@@ -774,7 +781,7 @@ let expand_tuple pos lhs rhs =
             (E.pp_print_lustre_expr false) e)
        "@,")
     (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs));
-  *)
+  
   
   (* TODO check with Christoph why they were reversed *)
   expand_tuple' 
@@ -873,9 +880,9 @@ let rec eval_node_equations ctx = function
         (D.empty, ctx)
 
     in 
-(*
+
     Format.printf
-      "@[<hv>%a@]@."
+      "eq_rhs : @[<hv>%a@]@."
       (D.pp_print_trie
          (fun ppf (i, e) ->
             Format.fprintf ppf
@@ -884,7 +891,7 @@ let rec eval_node_equations ctx = function
               (E.pp_print_lustre_expr false) e)
          ";@ ")
       eq_rhs;
-*)
+
     (* Remove local definitions for equation from context
 
        We add local definitions from the left-hand side to the

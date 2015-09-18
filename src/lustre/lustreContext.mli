@@ -161,12 +161,16 @@ val mk_local_for_expr :
   Lib.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
 
 (** Create a fresh oracle state variable in the context. *)
-val mk_fresh_oracle : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
+val mk_fresh_oracle : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+  t -> Type.t -> StateVar.t * t
 
 (** Create a fresh oracle state variable for the pre-initial value of
     the given state variable in the context, or return a previously
     created oracle for this state variable. *)
-val mk_fresh_oracle_for_state_var : t -> StateVar.t -> StateVar.t * t
+val mk_fresh_oracle_for_state_var :
+    ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+    t -> StateVar.t -> StateVar.t * t
 
 (** Return the node of the given name from the context*)
 val node_of_name : t -> LustreIdent.t -> LustreNode.t
@@ -228,7 +232,9 @@ val set_node_main : t -> t
 
     The second argument is a pair so that it can take the output of
     {!LustreSimplify.eval_ast_expr} directly. *)
-val close_expr : Lib.position -> (LustreExpr.t * t) -> (LustreExpr.t * t)
+val close_expr :
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+  Lib.position -> (LustreExpr.t * t) -> (LustreExpr.t * t)
 
 
 (** {1 Functions} *)

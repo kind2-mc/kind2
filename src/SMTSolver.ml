@@ -542,6 +542,7 @@ let get_var_values s state_var_indexes vars =
   List.iter (fun v ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
+      Format.eprintf "model of %a@." Var.pp_print_var v;
       let indexes = StateVar.StateVarHashtbl.find state_var_indexes
           (Var.state_var_of_state_var_instance v) in
       (* let id_tys = Type.all_index_types_of_array ty in *)

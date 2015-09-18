@@ -81,7 +81,10 @@ let pp_print_map_as_array ppf m =
 let pp_print_value ppf = function 
   | Term t -> Term.pp_print_term ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
-  | Map m -> pp_print_map_as_array ppf m
+  | Map m ->
+    try
+      pp_print_map_as_array ppf m
+    with Not_found -> ()
 
 
 (* Pretty-print a model *)

@@ -407,7 +407,7 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     (* Array is a subtype of array if both index type and element type
        are subtype *)
     | Array (i1, t1), Array (i2, t2) ->
-      (check_type i1 i2) && (check_type t1 t2)
+      (check_type i1 i2) (* && (check_type t2 t1) *)
 
     (* No other subtype relationships *)
     | _ -> false

@@ -2100,7 +2100,15 @@ let mk_select expr1 expr2 =
   in
 
   mk_binary eval_select type_of_select expr1 expr2
-  
+
+
+let mk_array expr1 expr2 =
+
+  (* Types of expressions must be compatible *)
+  let type_of_array t1 t2 = Type.mk_array t1 t2 in
+
+  mk_binary (fun x _ -> x) type_of_array expr1 expr2
+
 
 (* ********************************************************************** *)
 
@@ -2146,8 +2154,9 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
   
   (* Apply substitutions separately *)
   { expr with 
-      expr_init = Term.mk_let substs_init expr_init; 
-      expr_step = Term.mk_let substs_step expr_step }
+      expr_init = Term.mk_let substs_init expr_init |> Term.unlet;
+      expr_step = Term.mk_let substs_step expr_step |> Term.unlet;
+  }
 
 (* ********************************************************************** *)
 

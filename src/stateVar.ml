@@ -276,9 +276,12 @@ let mk_state_var
       raise 
         (Invalid_argument 
            (Format.asprintf
-              "State variable %a redeclared with different type" 
+              "State variable %a redeclared with different type (want %a, was %a)" 
               pp_print_state_var_name 
-              (state_var_name, state_var_scope)))
+              (state_var_name, state_var_scope)
+              Type.pp_print_type state_var_type
+              Type.pp_print_type (type_of_state_var v)
+           ))
 
   (* State variable is not in the hashcons table *)
   with Not_found | Hstate_var.Key_not_found _ -> 

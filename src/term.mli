@@ -503,6 +503,8 @@ val convert_select : t -> t
 
 val reinterpret_select : t -> t
 
+val unlet : t -> t
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -9,7 +9,7 @@ node X(s: int; -- const array_size: int
        ) returns (A8: int^2);
 const array_default = 0;
 var 
-  A1, A2, A7: int^array_size;
+  A0, A1, A2, A7: int^array_size;
   A3, A4: int^array_size^array_size;
   A5: [int, bool]^array_size;
   A6: rational^array_size;
@@ -27,6 +27,9 @@ let
   -- These identifiers are hidden in the array definitions
   -- j = true;
   
+  -- A0[k] = A1[k];
+
+  A0 = A1;
   -- A sliding window over input stream s
   A2[k] = if k = 0 then s else (k -> pre A1[k-1]);
   
@@ -35,6 +38,7 @@ let
 
   --%PROPERTY A2[0] = s;
   --%PROPERTY A1[3] = s;
+  --%PROPERTY A0[3] = s;
   --%PROPERTY A3[1][0] =s; 
   --%PROPERTY x = 0;
   --%PROPERTY i = 0.0;
@@ -65,7 +69,7 @@ let
   -- A7[i] = 0 -> pre i;
 
   -- -- Return an array from a node call
-  A8[i] = 0;
+  A8[k] = pre(A1[k-1]);
 
   A9[i] = C1[i] -> pre A9[i] + 1;
 
