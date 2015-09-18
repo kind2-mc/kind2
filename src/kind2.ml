@@ -340,7 +340,8 @@ let on_exit process sys exn =
   InvarManager.on_exit sys;
 
   if Flags.certif () &&
-     (status = status_safe || status = status_signal )then
+     (Flags.certif_force ()
+      || status = status_safe || status = status_signal ) then
     (* Create certificate *)
     (match sys with | None -> () | Some trans_sys ->
       CertifChecker.generate_all_certificates trans_sys
@@ -934,7 +935,8 @@ let main () =
     (* Output the transition system *)
     (debug parse
         "%a"
-        NativeInput.pp_print_native
+        (* NativeInput.pp_print_native *)
+        TransSys.pp_print_trans_sys
         (get !trans_sys)
      end);
 

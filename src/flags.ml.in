@@ -272,6 +272,12 @@ let certif_default = false
 
 (* ********** *) 
 
+type certif_force = bool
+
+let certif_force_default = false
+
+(* ********** *) 
+
 type jkind_bin = string 
 
 let jkind_bin_of_string s = s
@@ -700,6 +706,7 @@ type flags =
     mutable log_level : log_level;
     mutable log_format_xml : bool;
     mutable certif : certif;
+    mutable certif_force : certif_force;
     mutable certif_min : certif_min;
     mutable certif_dir : certif_dir;
     mutable input_format : [`Default | input_format];
@@ -758,6 +765,7 @@ let flags =
     log_level = log_level_default;
     log_format_xml = log_format_xml_default;
     certif = certif_default;
+    certif_force = certif_force_default;
     certif_min = certif_min_default;
     certif_dir = certif_dir_default;
     input_format = input_format_default;
@@ -910,6 +918,15 @@ let certif_spec =
   ("--certif", 
    Arg.Unit certif_action, 
    Format.sprintf "Produce certificate")
+
+(* ********** *) 
+
+let certif_force_action o = flags.certif_force <- true
+  
+let certif_force_spec = 
+  ("--certif_force", 
+   Arg.Unit certif_force_action, 
+   Format.sprintf "Force production of certificate even if some properties are false")
 
 (* ********** *) 
 
@@ -1360,6 +1377,8 @@ let smt_trace_dir () = flags.smt_trace_dir
 
 let certif () = flags.certif
 
+let certif_force () = flags.certif_force
+
 let certif_min () = flags.certif_min
 
 let certif_dir () = flags.certif_dir
@@ -1523,6 +1542,9 @@ and speclist =
 
     (* Produce certificates *)
     certif_spec;
+
+    (* Force produce certificates *)
+    certif_force_spec;
 
     (* Minimize certificates *)
     certif_min_spec;

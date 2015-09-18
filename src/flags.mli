@@ -233,6 +233,10 @@ val interpreter_steps : unit -> interpreter_steps
 type certif = bool
 val certif : unit -> certif
 
+(** Force production of certificates *)
+type certif_force = bool
+val certif_force : unit -> certif
+
 (** Produce certificates *)
 type certif_min = [ `No | `Fwd | `Bwd | `Dicho | `Auto ]
 val certif_min : unit -> certif_min
