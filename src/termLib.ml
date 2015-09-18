@@ -185,9 +185,10 @@ let logic_of_flat t acc =
   | App (s, l) when s == Symbol.s_times && at_most_one_non_num l ->
     add LA (sup_logics acc)
 
-  | App (s, [n; d]) when Symbol.(s == s_div || s == s_intdiv) &&
-    (Term.is_numeral d || Term.is_decimal d) ->
-    add LA (sup_logics acc)
+  (* division is non-linear for solvers *)
+  (* | App (s, [n; d]) when Symbol.(s == s_div || s == s_intdiv) && *)
+  (*   (Term.is_numeral d || Term.is_decimal d) -> *)
+  (*   add LA (sup_logics acc) *)
 
   | App (s, l) when Symbol.(s == s_div || s == s_times || s == s_abs
                             || s == s_intdiv || s == s_mod) ->
