@@ -63,14 +63,14 @@ let hactlits = TH.create 2001
    get the activatition literal corresponding to the term. In all cases, the
    activation literal is returned at the end. *)
 let actlitify ?(imp=false) solver t =
-  let a = generate_actlit t in
+  let a = fresh_actlit () in (* was generate actlit before *)
   let ta = term_of_actlit a in
-  if not (TH.mem hactlits ta) then begin
-    TH.add hactlits ta ();
-    SMTSolver.declare_fun solver a;
-    (if imp then Term.mk_implies else Term.mk_eq)
-      [ta; t] |> SMTSolver.assert_term solver;
-  end;
+  (* if not (TH.mem hactlits ta) then begin *)
+  TH.add hactlits ta t;
+  SMTSolver.declare_fun solver a;
+  (if imp then Term.mk_implies else Term.mk_eq)
+    [ta; t] |> SMTSolver.assert_term solver;
+  (* end; *)
   ta
 
 
@@ -371,10 +371,10 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   (* This functions maps activation literals (returned by the function
      fixpoint) back to original invariants *)
   let map_back_to_invs useful_acts =
+    let useful_terms = List.map (TH.find hactlits) useful_acts in
     List.fold_left (fun acc i ->
-        let a = Term.bump_state (Numeral.of_int k) i
-                |> generate_actlit |> term_of_actlit in
-        if List.exists (Term.equal a) useful_acts &&
+        let a = Term.bump_state (Numeral.of_int k) i in
+        if List.exists (Term.equal a) useful_terms &&
            not (List.exists (Term.equal i) acc) then
           i :: acc
         else acc
@@ -1184,15 +1184,23 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
       end);
 
       (* Fail if variables of properties do not have a jKind equivalent *)
-      if prop && jkind_vars = [] then begin
+      if jkind_vars = [] then begin
+  
+      Event.log L_fatal
+        "[Warning] Could not find a match for the variable %a."
+        StateVar.pp_print_state_var sv;
+      
+        if prop (* && jkind_vars = [] *) then begin
 
-        Event.log L_fatal "[Error] Frontend certificate was not generated.";
-
-        failwith (
-          Format.asprintf
-            "Could not find a match for the property variable %a."
-            StateVar.pp_print_state_var sv);
+          Event.log L_fatal "[Error] Frontend certificate was not generated.";
+          
+          failwith (
+            Format.asprintf
+              "Could not find a match for the property variable %a."
+              StateVar.pp_print_state_var sv);
+        end;
       end;
+
 
       List.fold_left (fun acc jv ->
           Term.mk_eq [term_state_var sv; term_state_var jv] :: acc
