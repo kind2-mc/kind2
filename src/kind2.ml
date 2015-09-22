@@ -33,6 +33,7 @@ module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 module TestGen = TestgenDF
 module C2I = C2I
+module C2Icnf = C2Icnf
 
 (* module IC3 = Dummy *)
 

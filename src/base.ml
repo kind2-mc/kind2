@@ -80,13 +80,15 @@ let split trans solver k falsifiable to_split actlits =
     (* Evaluation function. *)
     let eval term =
       Eval.eval_term (TransSys.uf_defs trans) model term
-      |> Eval.bool_of_value in
+      |> Eval.bool_of_value
+    in
     (* Splitting properties. *)
     let new_to_split, new_falsifiable =
       List.partition
         ( fun (_, (_, term)) ->
           Term.bump_state k term |> eval )
-        to_split in
+        to_split
+    in
     (* Building result. *)
     Some (new_to_split, (new_falsifiable, cex))
   in

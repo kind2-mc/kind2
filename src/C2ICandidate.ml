@@ -648,7 +648,9 @@ end )
 
 (* Initial int and rat set contain [0] and [1]. *)
 let int_init_set, rat_init_set =
-  IntSet.empty |> IntSet.add Numeral.zero |> IntSet.add Numeral.one,
+  (* [ -3 ; -2 ; -1 ; 0 ; 1 ; 2 ; 3 ] *)
+  IntSet.empty |> IntSet.add Numeral.zero |> IntSet.add Numeral.one
+  |> IntSet.add Numeral.(one + one) |> IntSet.add Numeral.(one + one + one),
   RatSet.empty |> RatSet.add Decimal.zero |> RatSet.add Decimal.one
 
 (* Mines a term for integer and rational constants. Integers (resp. rationals)

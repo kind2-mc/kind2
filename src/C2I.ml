@@ -659,7 +659,7 @@ let rec run in_sys param context_option candidate sys =
       run in_sys param context_option candidate sys
 
     | _ ->
-      let prop = prop.prop_name in
+      let prop = prop.Property.prop_name in
       (* Check for termination. *)
       Event.check_termination () ;
       (* Let's do this. *)
@@ -745,96 +745,6 @@ let main input_sys aparam sys =
 
   (* Done. *)
   stop ()
-
-
-
-(* |===| Preparing for CNF and DNF version using functors. *)
-
-
-
-
-(**
-  Signature of the modules for C2I. Basically we want to see candidates either
-  as DNFs or CNFs. Obviously the interpretation of the candidates changes both
-  when asserting them and computing their cost, but we want to be more subtle
-  than that.
-
-  In the CNF case, we can do "blame assignment" of the checks that fail by
-  doing a multi-property analysis ([get-value] on the conjuncts). This
-  provides the first feedback level: there is no need to compute the cost of
-  the conjuncts that have nothing to do with the checks failed. The feedback
-  from the cost function will thus be limited to the atom level.
-*)
-module type C2ISig = sig
-
-  (** Info maintained by the C2I module. *)
-  type 'a context
-
-  (** Creates a context from an input system, the parameter of the analysis,
-      and the transition system. *)
-  val mk_context : 'a InputSystem.t -> Analysis.param -> TransSys.t ->
-    'a context
-  (** The input system stored in a context. *)
-  val in_sys_of_context : 'a context -> 'a InputSystem.t
-  (** The parameter of the analysis stored in a context. *)
-  val param_of_context : _ context -> Analysis.param
-  (** The transition system stored in a context. *)
-  val sys_of_context : _ context -> TransSys.t
-
-  (** Name of this module. *)
-  val name : string
-  (** Prefix used for logging. *)
-  val prefix : string
-
-  (** Builds the term corresponding to the sempantics of the
-      [Term.t list list] of a candidate. *)
-  val mk_term : Term.t list list -> Term.t
-
-  (* Type for sets of models. *)
-  type model_set
-  (* Type for setts of pairs of models. *)
-  type model_pair_set
-
-  (** Type of the feedback produced by the SMT checks, fed to the cost
-      function. [unit] in the DNF case, [int list] for CNF (indices of the
-      conjuncts responsible for the checks failing. *)
-  type smt_check_feedback
-
-  (** Performs the three checks and returns model options for each of them,
-      plus feedback. *)
-  val smt_checks : Candidate.t ->
-    (Model.t option) * (Model.t option) * (Model.t option) * smt_check_feedback
-
-  (** Cost function. Takes the three sets (white, grey and black) of models and
-      the feedback from the SMT checks and returns the cost plus the two level
-      feedback. *)
-  val cost : model_set -> model_pair_set -> model_set -> smt_check_feedback ->
-    int * (int list list)
-
-end
-
-(** Signature for C2I modules. *)
-module type C2IModule = sig
-  (** Launches a C2I run. *)
-  val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-  (** Clean exit of a C2I run. *)
-  val on_exit : TransSys.t option -> unit
-end
-
-(* Creates a C2I module from a [C2ISig] module. *)
-module Make (S: C2ISig) : C2IModule = struct
-
-  (* Launches a C2I run. *)
-  let main in_sys param sys = assert false
-
-  (* Cleane exit of a C2I run. *)
-  let on_exit _ = assert false
-
-end
-
-
-
-
 
 
 

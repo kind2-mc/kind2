@@ -1846,11 +1846,6 @@ let parse_argv () =
     List.mem mdl flags.disable |> not
   ) ;
 
-  Format.printf "enabled: %a@.@."
-    (pp_print_list (fun fmt mdl ->
-        Format.fprintf fmt "%a" pp_print_kind_module mdl
-      ) " ") flags.enable ;
-
   (* Fail if input file not set *)
   match flags.input_file with 
     | None -> 
