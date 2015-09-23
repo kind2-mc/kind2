@@ -466,16 +466,18 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
           let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
 
           (* Output counterexample *)
-          Format.fprintf ppf 
-            "Counterexample:@,%a"
-            (LustrePath.pp_print_path_pt nodes' true) 
-            (Model.path_of_list cex)
+         (ignore_or_fprintf level)
+           ppf 
+           "Counterexample:@,%a"
+           (LustrePath.pp_print_path_pt nodes' true) 
+           (Model.path_of_list cex)
 
         (* Native input *)
         | TransSys.Native ->
 
           (* Output counterexample *)
-          Format.fprintf ppf 
+          (ignore_or_fprintf level)
+            ppf 
             "Counterexample:@,%a" NativeInput.pp_print_path_pt cex
 
 
@@ -536,14 +538,16 @@ let disproved_pt mdl level trans_sys prop cex =
 
       (ignore_or_fprintf level)
         !log_ppf 
-        ("@[<v>Candidate %s disproved by %a %tafter %.3fs.@]@.") 
+        ("@[<v>Candidate %s disproved by %a %tafter %.3fs.@,%a@]@.") 
         prop
         pp_print_kind_module_pt mdl
         (function ppf -> match cex with
            | [] -> ()
            | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
         (Stat.get_float Stat.total_time)
-
+        (pp_print_counterexample_pt
+           (log_level_of_int (int_of_log_level level + 2)) trans_sys prop) cex
+        
     else
 
       (ignore_or_fprintf level)
