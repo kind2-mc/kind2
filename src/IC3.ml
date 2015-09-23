@@ -2998,8 +2998,14 @@ let main trans_sys =
       (* IC3 solving starts now *)
       Stat.start_timer Stat.ic3_total_time;
 
-      (* Determine logic for the SMT solver *)
-      let logic = TransSys.get_logic trans_sys in
+      (* Determine logic for the SMT solver: add LIA for some clauses of IC3 *)
+      let logic = match TransSys.get_logic trans_sys with
+        | `Inferred fs ->
+          `Inferred
+            (TermLib.FeatureSet.add TermLib.IA
+               (TermLib.FeatureSet.add TermLib.LA fs))
+        | l -> l
+      in
 
       (* Create new solver instance *)
       let solver = 
