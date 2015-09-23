@@ -136,7 +136,7 @@ val recv : unit -> (Lib.kind_module * event) list
     restarting. *)
 val update_child_processes_list: (int * Lib.kind_module) list -> unit
 
-(** Terminates if a termination message was received. Does NOT modified
+(** Terminates if a termination message was received. Does NOT modify
     received messages. *)
 val check_termination: unit -> unit
 

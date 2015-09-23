@@ -230,7 +230,7 @@ let status_of_exn process status =
   (* Termination message *)
   | Event.Terminate -> (
 
-    Event.log L_info
+    Event.log L_debug
       "Received termination message" ;
 
     status
@@ -305,13 +305,13 @@ let slaughter_kids process sys =
   List.iter
     (function pid, _ ->
 
-      Event.log L_info "Sending SIGTERM to PID %d" pid ;
+      Event.log L_debug "Sending SIGTERM to PID %d" pid ;
 
       Unix.kill pid Sys.sigterm)
 
     !child_pids ;
 
-  Event.log L_info
+  Event.log L_debug
     "Waiting for remaining child processes to terminate" ;
 
   ( try
@@ -343,7 +343,7 @@ let slaughter_kids process sys =
          child_pids := List.remove_assoc pid !child_pids ;
 
          (* Log termination status *)
-         Event.log L_info
+         Event.log L_debug
            "Process %d %a" pid pp_print_process_status status
 
        done
@@ -385,7 +385,7 @@ let slaughter_kids process sys =
       | [] -> ()
       | kids ->
 
-        kids |> Event.log L_info
+        kids |> Event.log L_debug
           "Some processes (%a) did not exit, killing them." (
             pp_print_list (fun ppf (pid, _) ->
               Format.pp_print_int ppf pid
@@ -492,7 +492,7 @@ let on_exit_child messaging_thread process exn =
   (* Call cleanup of process *)
   (on_exit_of_process process) !cur_trans_sys ;
 
-  Event.log L_info
+  Event.log L_debug
     "Process %d terminating"
     (Unix.getpid ()) ;
 
@@ -551,7 +551,7 @@ let run_process messaging_setup process =
           if output_on_level L_debug then
             Printexc.record_backtrace true;
 
-          Event.log L_info 
+          Event.log L_debug
             "Starting new process %a with PID %d" 
             pp_print_kind_module process
             pid;

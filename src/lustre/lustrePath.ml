@@ -132,47 +132,54 @@ let map_top_and_add instances model model' _ state_var =
     raise Not_found
 
 
+let find_and_move_to_head f =
+  let rec loop pref = function
+  | hd :: tl when fst hd |> f -> hd :: (List.rev_append pref tl)
+  | hd :: tl -> loop (hd :: pref) tl
+  | [] -> raise Not_found
+  in
+  loop []
+
 (* Compute substitutions for each state variable in the last arguments
    to either its instance in the top system, or its definition in
    [equations] and recursively for each state variable in a
-   definition *)
-let rec substitute_definitions' stateful_vars equations subst = function 
+   definition.
 
-  (* All state variables are in the top system, return substitutions. *)
-  | [] -> subst
+   /!\ [equations] must be topologically sorted. /!\
+
+   We separate the substitutions for state vars [sv_subst] and those coming
+   from equations [subst]. The latter needs to be reordered at the end. *)
+let rec substitute_definitions'
+  stateful_vars equations sv_subst subst
+= function 
+
+  (* All state variables are in the top system, reorder substitutions to make
+     sure they respect the topological order of the equations. *)
+  | [] ->
+    let subst =
+      equations |> List.fold_left (fun subst (sv, _, _) ->
+        try
+          find_and_move_to_head
+            (StateVar.equal_state_vars sv)
+            subst
+        with Not_found -> subst
+      ) subst
+    in
+    subst @ sv_subst
 
   (* Substitution for state variable already computed? *)
   | state_var :: tl 
-    when 
-      List.exists
-        (fun (sv, _) -> 
-           StateVar.equal_state_vars sv state_var) 
-        subst -> 
-
-    (* Moving corresponding substitution to head. *)
-    let subst, expr =
-      let rec loop pref = function
-        | ((sv,e) as pair) :: tail ->
-          if StateVar.equal_state_vars state_var sv then
-            pair :: (List.rev_append pref tail), e
-          else
-            loop (pair :: pref) tail
-        | [] -> assert false
-      in
-      loop [] subst
-    in
-
-    (* Looping with new substitution. *)
-    substitute_definitions' stateful_vars equations subst (
-      if List.exists
-        (StateVar.equal_state_vars state_var)
-        stateful_vars
-      (* If the variable is stateful we loop with the current tail. *)
-      then tl
-      (* If it's not, we need to move the bindings of whatever is in the def
-         of the variable to the head too. *)
-      else (E.state_vars_of_expr expr |> SVS.elements) @ tl
-    )
+    when
+        List.exists
+          (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+          subst
+    ||  
+        List.exists
+          (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+          sv_subst
+  ->
+    (* Do nothing, we reorder before returning anyways. *)
+    substitute_definitions' stateful_vars equations sv_subst subst tl
 
   (* Variable is stateful? *)
   | state_var :: tl 
@@ -183,9 +190,10 @@ let rec substitute_definitions' stateful_vars equations subst = function
 
     (* Add substitution for state variable and continue *)
     substitute_definitions'
-      stateful_vars 
+      stateful_vars
       equations
-      ((state_var, E.mk_var state_var) :: subst)
+      ((state_var, E.mk_var state_var) :: sv_subst)
+      subst
       tl
 
   (* Get variable in this system to be instantiated *)
@@ -215,6 +223,7 @@ let rec substitute_definitions' stateful_vars equations subst = function
       substitute_definitions'
         stateful_vars 
         equations
+        sv_subst
         ((state_var, expr) :: subst)
         ((E.state_vars_of_expr expr |> SVS.elements) @ tl)
 
@@ -227,6 +236,7 @@ let rec substitute_definitions' stateful_vars equations subst = function
       substitute_definitions'
         stateful_vars 
         equations
+        sv_subst
         subst
         tl
 
@@ -235,11 +245,10 @@ let rec substitute_definitions' stateful_vars equations subst = function
 (* Recursively substitute the state variable with either its instance
    in the top system, or with its definition in [equations] *)
 let substitute_definitions instances equations state_var =
-
-  substitute_definitions' instances equations [] [state_var]
+  substitute_definitions' instances equations [] [] [state_var]
   (* Stateless variables do not occur under a pre, therefore it is
      enough to substitute it at the current instant *)
-  |> List.rev |> List.fold_left (
+  |> List.fold_left (
     fun a b -> E.mk_let_cur [b] a
   ) (E.mk_var state_var)
 
@@ -247,7 +256,7 @@ let substitute_definitions instances equations state_var =
    definition in [equations]. *)
 let substitute_definitions_in_expr equations expr =
   E.state_vars_of_expr expr |> SVS.elements
-  |> substitute_definitions' [] equations []
+  |> substitute_definitions' [] equations [] []
   |> fun bindings -> E.mk_let_cur bindings expr
 
 (* Get the sequence of values of the state variable in the top system
@@ -259,10 +268,10 @@ let substitute_definitions_in_expr equations expr =
 let map_top_reconstruct_and_add
     first_is_init
     trans_sys
-    instances 
+    instances
+    equations_of_init
     model 
     model'
-    equations
     index
     state_var =
 
@@ -272,16 +281,21 @@ let map_top_reconstruct_and_add
     map_top_and_add instances model model' index state_var
 
   (* No instance, or no model *)
-  with Not_found -> 
+  with Not_found ->
     
     (* Get stateful variables of transition system *)
     let stateful_vars = TransSys.state_vars trans_sys in
 
     (* Get definition in terms of state variables of the top node *)
-    let expr = substitute_definitions stateful_vars equations state_var in
+    let expr init =
+      substitute_definitions
+        stateful_vars
+        (equations_of_init init)
+        state_var
+    in
 
     (* Evaluate expression with reversed list of models *)
-    let rec aux accum = function 
+    let rec aux expr_not_init accum = function 
 
       (* All steps in path evaluated, return *)
       | [] -> accum
@@ -293,7 +307,7 @@ let map_top_reconstruct_and_add
         let v =
 
           (* Get expression for initial state *)
-          E.base_term_of_t Model.path_offset expr
+          E.base_term_of_t Model.path_offset (expr true)
 
           (* Map variables in term to top system *)
           |> (map_term_top instances)
@@ -312,13 +326,18 @@ let map_top_reconstruct_and_add
         Model.Term v :: accum
 
       (* Model for step of path *)
-      | m :: tl -> 
+      | m :: tl ->
+
+        let expr_not_init = match expr_not_init with
+          | None -> expr false
+          | Some eni -> eni
+        in
 
         (* Value for state variable at step *)
         let v =
 
           (* Get expression for step state *)
-          E.cur_term_of_t Model.path_offset expr
+          E.cur_term_of_t Model.path_offset expr_not_init
 
           (* Map variables in term to top system *)
           |> (map_term_top instances)
@@ -334,12 +353,12 @@ let map_top_reconstruct_and_add
         in
 
         (* Add term to accumulator and continue *)
-        aux (Model.Term v :: accum) tl
+        aux (Some expr_not_init) (Model.Term v :: accum) tl
 
     in
 
     (* Evaluate expression at each step of path *)
-    aux [] (Model.models_of_path model |> List.rev)
+    aux None [] (Model.models_of_path model |> List.rev)
 
     (* Add as path of subnode state variable *)
     |> SVT.add model' state_var
@@ -352,7 +371,7 @@ let function_path_of_instance
   trace
   globals
   model_top
-  { N.equations; N.name }
+  ({ N.name } as node)
   { N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs }
   trans_sys
   instances
@@ -363,13 +382,6 @@ let function_path_of_instance
       D.cardinal call_inputs + D.cardinal call_outputs
     )
   in
-
-  (* Format.printf
-    "call_inputs:@." ;
-  call_inputs |> D.iter (fun _ e ->
-    Format.printf "  %a@." (E.pp_print_lustre_expr false) e
-  ) ;
-  Format.printf "@." ; *)
 
 
   let { F.inputs; F.outputs } as fun_def =
@@ -385,8 +397,10 @@ let function_path_of_instance
     ) formal actual
   in
 
-  let equations =
-    equations |> zip inputs call_inputs |> zip outputs call_outputs
+  let equations_of_init init =
+    N.ordered_equations_of_node
+      node (TransSys.state_vars trans_sys) init
+    |> zip inputs call_inputs |> zip outputs call_outputs
   in
 
   inputs |> D.iter (
@@ -394,9 +408,9 @@ let function_path_of_instance
       first_is_init
       trans_sys
       instances
+      equations_of_init
       model_top
       model
-      equations
   ) ;
 
   outputs |> D.iter (
@@ -404,9 +418,9 @@ let function_path_of_instance
       first_is_init
       trans_sys
       instances
+      equations_of_init
       model_top
       model
-      equations
   ) ;
 
   (name, call_pos) :: trace, Function(fun_def, model)
@@ -468,6 +482,11 @@ let node_path_of_instance
      variable of the top system each output is an instance of. *)
   D.iter (map_top_and_add instances model_top model) outputs;
 
+  let equations_of_init init =
+    N.ordered_equations_of_node
+      node (TransSys.state_vars trans_sys) init
+  in
+
   (* Map all local state variables to the top instances or
      reconstruct and add their path to the model
 
@@ -481,9 +500,9 @@ let node_path_of_instance
           first_is_init
           trans_sys
           instances
+          equations_of_init
           model_top
-          model
-          equations))
+          model))
     ((D.singleton D.empty_index node.N.init_flag) :: locals);
 
   (* Return path for subnode and its call trace *)

@@ -1713,7 +1713,7 @@ let rec constraints_of_equations init stateful_vars instance terms = function
       tl
 
 
-let rec trans_sys_of_node' 
+let rec trans_sys_of_node'
   top_name
   analysis_param
   trans_sys_defs

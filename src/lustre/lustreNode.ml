@@ -740,6 +740,43 @@ let node_of_name name nodes =
 (* Return the name of the node *)
 let name_of_node { name } = name
 
+
+(** [ordered_equations_of_node n stateful init]
+    Returns the equations of [n], topologically sorted by their base (step)
+    expression if [init] ([not init]). *)
+let ordered_equations_of_node { equations } stateful init =
+  let svars_of (_, _, expr) =
+    expr |> if init
+      then E.base_state_vars_of_init_expr
+      else E.cur_state_vars_of_step_expr
+  in
+
+  let is_known eqs svar =
+    List.exists (StateVar.equal_state_vars svar) stateful ||
+    List.exists (fun (sv, _, _) -> StateVar.equal_state_vars svar sv) eqs
+  in
+
+  let rec loop postponed ordered = function
+    | eq :: tail ->
+      if svars_of eq |> SVS.for_all (is_known ordered) then
+        (* We have ordered all the state vars the lhs of the equation mentions.
+           Prepending to ordered. *)
+        loop postponed (eq :: ordered) tail
+      else
+        (* We are missing some equations, postponing the ordering of this
+           equation. *)
+        loop (eq :: postponed) ordered tail
+    | [] -> (
+      match postponed with
+      | [] -> List.rev ordered
+      | _ -> loop [] ordered postponed
+    )
+  in
+
+  loop [] [] equations
+
+
+
 (* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope
 

@@ -330,6 +330,12 @@ val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 (** Return the name of the node *)
 val name_of_node : t -> LustreIdent.t
 
+(** [ordered_equations_of_node n stateful init]
+    Returns the equations of [n], topologically sorted by their base (step)
+    expression if [init] ([not init]). *)
+val ordered_equations_of_node :
+  t -> StateVar.t list -> bool -> equation list
+
 (** Return the scope of the node *)
 val scope_of_node : t -> Scope.t
 

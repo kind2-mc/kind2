@@ -179,7 +179,6 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
 
-
     let new_invs, updated_props =
       (* Receiving messages. *)
       Event.recv ()

@@ -608,16 +608,15 @@ let rec loop in_sys param ({sys} as context) candidate =
     (* Checking if the current candidate is an invariant. *)
     ( match models with
       | None, _, None ->
-        Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
         (* It is, communicating. *)
+        Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
         TransSys.add_invariant context.sys term ;
         assert_invariant context term ;
-        (* Broadcasting strengthening invariant. *)
+        (* Broadcasting invariant. *)
         Event.invariant (
           TransSys.scope_of_trans_sys context.sys
         ) term ;
-      | _ ->
-        Event.log L_info "C2I Candidate is not an invariant" ) ;
+      | _ -> () ) ;
 
     (* Counterexample, updating context. *)
     Stat.start_timer Stat.c2i_model_comp_time ;
@@ -711,11 +710,16 @@ let rec run in_sys param context_option candidate sys =
                   TransSys.add_invariant context.sys t ;
                   assert_invariant context t )
           | None ->
-            Event.log L_info
-              "C2I %s %s by another technique"
-              prop
-              ( if TransSys.is_proved sys prop
-                then "proved" else "falsified") ) ;
+            (* Proved or disproved by another technique, or termination was
+               requested. *)
+            if TransSys.is_proved sys prop then
+              Event.log L_info
+                "C2I %s proved by another technique"
+                prop
+            else if TransSys.is_disproved sys prop then
+              Event.log L_info
+                "C2I %s disproved by another technique"
+                prop ) ;
       with PropIsFalse ->
         Event.log L_info "C2I @[<v>Falsification for %s detected@]" prop ) ;
       (* Looping. *)

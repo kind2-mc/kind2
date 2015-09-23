@@ -599,7 +599,7 @@ let order_equations
       []
       state_vars_ordered 
 
-  in 
+  in
 
   (* Dependency of output variables on input variables *)
   let output_input_dep = 
