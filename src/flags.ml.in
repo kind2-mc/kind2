@@ -143,7 +143,7 @@ let enable_flag =
 
 (*   type smtsolver = Z3_SMTLIB | CVC4_SMTLIB arg smtsolver default CVC4_SMTLIB action smtsolver_action doc " choose SMT solver (available: %s, default: %s" *)
   
-(* ********** *) 
+(* ********** *)
 
 let timeout_wall_default = 0. 
 
@@ -794,7 +794,7 @@ let flags =
 let timeout_wall_action o = flags.timeout_wall <- o  
 
 let timeout_wall_spec = 
-  ("--timeout_wall", 
+  ("--timeout", 
    Arg.Float timeout_wall_action, 
    Format.sprintf "wallclock timeout (default: %1.f)" timeout_wall_default)
 
@@ -1611,7 +1611,7 @@ and speclist =
     timeout_wall_spec;
 
     (* CPU timeout *)
-    timeout_virtual_spec;
+    (* timeout_virtual_spec; *)
 
     (* Set SMT solver *)
     smtsolver_spec;

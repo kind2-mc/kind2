@@ -213,7 +213,6 @@ let status_of_results results_opt = match results_opt with
 
 (* Return the status code from an exception *)
 let status_of_exn process status =
-
   function
 
   (* Normal termination *)
@@ -378,6 +377,8 @@ let slaughter_kids process sys =
       Unix.ITIMER_REAL
       { Unix.it_interval = 0.; Unix.it_value = 0. }
   in
+  (* Install generic signal handler for SIGALRM. *)
+  set_generic_handler_for Sys.sigalrm ;
 
   (* Log termination status *)
   ( try
@@ -474,7 +475,11 @@ let on_exit process results exn =
 *)
 
   (* Killing kids. *)
-  slaughter_kids process (!cur_trans_sys) ;
+  try
+    slaughter_kids process (!cur_trans_sys)
+  with
+    (* We're past the timeout, but we're exiting anyways. *)
+    TimeoutWall -> () ;
 
   (* Exiting. *)
   clean_exit process None exn
@@ -549,7 +554,7 @@ let run_process messaging_setup process =
 
           (* Record backtraces on log levels debug and higher *)
           if output_on_level L_debug then
-            Printexc.record_backtrace true;
+            Printexc.record_backtrace true ;
 
           Event.log L_debug
             "Starting new process %a with PID %d" 
@@ -1128,7 +1133,8 @@ let launch () =
 
         clean_exit `Supervisor (Some results) Exit
 
-      with e -> on_exit `Supervisor None e
+      with e ->
+        on_exit `Supervisor None e
 
   ) else (
 
