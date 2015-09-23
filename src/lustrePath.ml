@@ -1007,6 +1007,11 @@ let inverse_oracle_map nodes =
   List.fold_left (fun acc node ->
       StateVar.StateVarHashtbl.fold (fun sv oracle acc ->
           let l = try SVMap.find oracle acc with Not_found -> [] in
+          (debug certif
+             "inverse oracle: %a ->>> %a"
+             StateVar.pp_print_state_var oracle
+             StateVar.pp_print_state_var sv
+           end);
           SVMap.add oracle (sv :: l) acc 
         ) node.LustreNode.state_var_oracle_map acc
     ) SVMap.empty nodes
@@ -1022,6 +1027,17 @@ let inverse_expr_map nodes =
         ) node.LustreNode.expr_state_var_map acc
     ) SVMap.empty nodes
 
+
+let rec orig_of_oracle oracle_map sv =
+  try SVMap.find sv oracle_map with Not_found -> [sv]
+  (* try *)
+  (*   let l = SVMap.find sv oracle_map in *)
+  (*   List.fold_left *)
+  (*     (fun acc sv -> List.rev_append (orig_of_oracle oracle_map sv) acc) [] l *)
+  (* with Not_found -> [sv] *)
+
+
+  
 let reconstruct_lustre_streams nodes state_vars =
   
   (* mapback from abstract state variables to expressions *)
@@ -1037,11 +1053,21 @@ let reconstruct_lustre_streams nodes state_vars =
 
       (* if it's an oracle get the original variables otherwise just keep the
          variable *)
-      let l = try SVMap.find sv oracle_map with Not_found -> [sv] in
+      let l = orig_of_oracle oracle_map sv in
+      (* try SVMap.find sv oracle_map with Not_found -> [sv] in *)
 
       (* get streams *)
       let streams = List.flatten (List.map (get_lustre_streams hc) l) in
 
+      (* get original variables of oracles in node call parameters *)
+      let streams =
+        List.fold_left (fun acc (sv, p) ->
+            List.fold_left
+              (fun acc s -> (s, p) :: acc)
+              acc (orig_of_oracle oracle_map sv)
+          ) [] streams
+        |> List.rev in
+      
       (* append to others *)
       let others = try SVMap.find sv acc with Not_found -> [] in
       SVMap.add sv (streams @ others) acc

@@ -92,7 +92,8 @@ let rec lookup_fuzzy str scope =
   try StateVar.state_var_of_string (str, scope)
   with Not_found ->
     let pos_us = String.rindex str '_' in
-    let str = String.init (String.length str) (fun i -> if i = pos_us then '.' else str.[i]) in
+    let str = String.init (String.length str)
+        (fun i -> if i = pos_us then '.' else str.[i]) in
     lookup_fuzzy str scope
 
 
