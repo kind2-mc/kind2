@@ -87,6 +87,15 @@ let is_observer sv =
   Lib.string_starts_with (StateVar.name_of_state_var sv)
     LustreIdent.observer_ident_string
 
+
+let rec lookup_fuzzy str scope =
+  try StateVar.state_var_of_string (str, scope)
+  with Not_found ->
+    let pos_us = String.rindex str '_' in
+    let str = String.init (String.length str) (fun i -> if i = pos_us then '.' else str.[i]) in
+    lookup_fuzzy str scope
+
+
 let build_call_base kind_sv base_li parents =
   
   let strs, _ = List.fold_left (fun (acc, prev_clocked) (ni, n, clock) ->
@@ -112,7 +121,7 @@ let build_call_base kind_sv base_li parents =
   (* Format.eprintf "kindsv:%a -> jkind? %s@." StateVar.pp_print_state_var kind_sv str; *)
   
   (* get previously constructed jkind variable *)
-  StateVar.state_var_of_string (str, jkind_scope)
+  lookup_fuzzy str jkind_scope
 
 
 (* Returns a state variable of JKind form a state variable of Kind 2 and a
