@@ -87,14 +87,9 @@ let is_observer sv =
   Lib.string_starts_with (StateVar.name_of_state_var sv)
     LustreIdent.observer_ident_string
 
-
 let is_first_tick sv =
-  let b = Lib.string_starts_with (StateVar.name_of_state_var sv)
-      LustreIdent.first_tick_ident_string in
-  (* Format.eprintf "is_first_tick: %a : %b@." StateVar.pp_print_state_var sv b; *)
-  b
-  
-
+  Lib.string_starts_with (StateVar.name_of_state_var sv)
+      LustreIdent.first_tick_ident_string
 
 let rec lookup_fuzzy str scope =
   try StateVar.state_var_of_string (str, scope)

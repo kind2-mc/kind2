@@ -939,28 +939,6 @@ let pos_to_numbers abstr_map nodes =
   let node_by_lid lid =
     List.find (fun n -> I.equal n.N.name lid) nodes in
 
-  (* (\* Previous value of index of first_tick flag for condact *)
-  (*    Keep in this function to reset index for each node *\) *)
-  (* let first_tick_state_var_index = ref Numeral.(- one) in *)
-
-  (* (\* Create a fresh state variable to first_tick flag of node *\) *)
-  (* let mk_first_tick_state_var () =  *)
-  (*   (\* Create fresh state variable *\) *)
-  (*   let state_var = *)
-  (*     E.mk_fresh_state_var *)
-  (*       ~is_input:false *)
-  (*       ~is_const:false *)
-  (*       ~for_inv_gen:false *)
-  (*       (I.index_of_ident main_node.N.name) *)
-  (*       I.first_tick_ident *)
-  (*       Type.t_bool *)
-  (*       first_tick_state_var_index *)
-  (*   in *)
-  (*   (\* State variable is abstract *\) *)
-  (*   E.set_state_var_source state_var E.Abstract; *)
-  (*   state_var *)
-  (* in *)
-
   let rec fold parents node =
 
     List.iter
@@ -968,25 +946,6 @@ let pos_to_numbers abstr_map nodes =
              call_pos = pos; call_clock = clock;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
-        (* if clock <> None then begin *)
-        (*   let fs = mk_first_tick_state_var () in *)
-        (*   let init = E.mk_var TransSys.init_flag_svar E.base_clock in *)
-        (*   E.set_state_var_instance fs pos lid TransSys.init_flag_svar *)
-        (* end; *)
-        
-        (* let abstr_map, inputs = if clock = None then abstr_map, inputs *)
-        (*   else *)
-        (*     let fs = mk_first_tick_state_var () in *)
-        (*     let init = E.mk_var TransSys.init_flag_svar E.base_clock in *)
-
-        (*     E.set_state_var_instance fs pos lid TransSys.init_flag_svar; *)
-
-        (*     (\* SVMap.add fs init  *\)abstr_map, *)
-        (*     (\* fs :: *\) inputs *)
-        (* in *)
-           
-        (* let call = {call with N.call_inputs = inputs } in *)
-        
         (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
         (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
         (*   (match clock with *)
@@ -1081,7 +1040,6 @@ let rec orig_of_oracle oracle_map sv =
   (* with Not_found -> [sv] *)
 
 
-  
 let reconstruct_lustre_streams nodes state_vars =
   
   (* mapback from abstract state variables to expressions *)
@@ -1098,7 +1056,6 @@ let reconstruct_lustre_streams nodes state_vars =
       (* if it's an oracle get the original variables otherwise just keep the
          variable *)
       let l = orig_of_oracle oracle_map sv in
-      (* try SVMap.find sv oracle_map with Not_found -> [sv] in *)
 
       (* get streams *)
       let streams = List.flatten (List.map (get_lustre_streams hc) l) in
