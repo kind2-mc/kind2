@@ -796,7 +796,13 @@ let timeout_wall_action o = flags.timeout_wall <- o
 let timeout_wall_spec = 
   ("--timeout", 
    Arg.Float timeout_wall_action, 
-   Format.sprintf "wallclock timeout (default: %1.f)" timeout_wall_default)
+   Format.sprintf "wallclock timeout in seconds (default: %1.f)"
+    timeout_wall_default)
+
+let timeout_wall_legacy_spec = 
+  ("--timeout_wall", 
+   Arg.Float timeout_wall_action, 
+   Format.sprintf "for legacy, same as \"--timeout\"")
 
 (* ********** *) 
 
@@ -1609,6 +1615,7 @@ and speclist =
 
     (* Wallclock timeout *)
     timeout_wall_spec;
+    timeout_wall_legacy_spec;
 
     (* CPU timeout *)
     (* timeout_virtual_spec; *)
