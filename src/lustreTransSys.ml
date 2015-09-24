@@ -1051,6 +1051,10 @@ let rec definitions_of_node_calls
                    input_shadow_vars
             in
 
+            (* Register the first tick as the a variable instance *)
+            E.set_state_var_instance
+              first_tick_state_var pos node_name TransSys.init_flag_svar;
+
             (* Guard formula with activation condition *)
             let guard_formula = 
               function t -> Term.mk_implies [act_cond_init; t]

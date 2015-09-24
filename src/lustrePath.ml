@@ -937,21 +937,64 @@ let pos_to_numbers abstr_map nodes =
   let main_node = List.hd nodes in
 
   let node_by_lid lid =
-    List.find (fun n -> LustreIdent.equal n.LustreNode.name lid) nodes in
+    List.find (fun n -> I.equal n.N.name lid) nodes in
+
+  (* (\* Previous value of index of first_tick flag for condact *)
+  (*    Keep in this function to reset index for each node *\) *)
+  (* let first_tick_state_var_index = ref Numeral.(- one) in *)
+
+  (* (\* Create a fresh state variable to first_tick flag of node *\) *)
+  (* let mk_first_tick_state_var () =  *)
+  (*   (\* Create fresh state variable *\) *)
+  (*   let state_var = *)
+  (*     E.mk_fresh_state_var *)
+  (*       ~is_input:false *)
+  (*       ~is_const:false *)
+  (*       ~for_inv_gen:false *)
+  (*       (I.index_of_ident main_node.N.name) *)
+  (*       I.first_tick_ident *)
+  (*       Type.t_bool *)
+  (*       first_tick_state_var_index *)
+  (*   in *)
+  (*   (\* State variable is abstract *\) *)
+  (*   E.set_state_var_source state_var E.Abstract; *)
+  (*   state_var *)
+  (* in *)
 
   let rec fold parents node =
 
     List.iter
-      (fun ({ LustreNode.call_node_name = lid;
+      (fun ({ N.call_node_name = lid;
              call_pos = pos; call_clock = clock;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
-        (* Format.eprintf "register : %a at %a %s@." *)
+        (* if clock <> None then begin *)
+        (*   let fs = mk_first_tick_state_var () in *)
+        (*   let init = E.mk_var TransSys.init_flag_svar E.base_clock in *)
+        (*   E.set_state_var_instance fs pos lid TransSys.init_flag_svar *)
+        (* end; *)
+        
+        (* let abstr_map, inputs = if clock = None then abstr_map, inputs *)
+        (*   else *)
+        (*     let fs = mk_first_tick_state_var () in *)
+        (*     let init = E.mk_var TransSys.init_flag_svar E.base_clock in *)
+
+        (*     E.set_state_var_instance fs pos lid TransSys.init_flag_svar; *)
+
+        (*     (\* SVMap.add fs init  *\)abstr_map, *)
+        (*     (\* fs :: *\) inputs *)
+        (* in *)
+           
+        (* let call = {call with N.call_inputs = inputs } in *)
+        
+        (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
         (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
         (*   (match clock with *)
         (*    | None -> "" *)
-        (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)); *)
-
+        (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)) *)
+        (*   (pp_print_list StateVar.pp_print_state_var ", ") inputs *)
+        (* ; *)
+        
         register_callpos_for_nb
           abstr_map hc lid parents pos clock (inputs, defs);
 
@@ -987,6 +1030,7 @@ let get_pos_number hc lid pos =
 
 
 let rec get_instances acc hc parents sv =
+  (* Format.eprintf "get_instances : %a@." StateVar.pp_print_state_var sv; *)
   match LustreExpr.get_state_var_instances sv with
   | [] -> (sv, List.rev parents) :: acc
   | insts ->
@@ -1025,7 +1069,7 @@ let inverse_expr_map nodes =
          end);
           SVMap.add sv e acc
         ) node.LustreNode.expr_state_var_map acc
-    ) SVMap.empty nodes
+  ) SVMap.empty nodes
 
 
 let rec orig_of_oracle oracle_map sv =
@@ -1045,7 +1089,7 @@ let reconstruct_lustre_streams nodes state_vars =
 
   (* convert position to call numbers *)
   let hc = pos_to_numbers abstr_map nodes in
-
+  
   (* mapback from oracles to state vars *)
   let oracle_map = inverse_oracle_map nodes in
 

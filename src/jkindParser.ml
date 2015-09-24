@@ -88,6 +88,14 @@ let is_observer sv =
     LustreIdent.observer_ident_string
 
 
+let is_first_tick sv =
+  let b = Lib.string_starts_with (StateVar.name_of_state_var sv)
+      LustreIdent.first_tick_ident_string in
+  (* Format.eprintf "is_first_tick: %a : %b@." StateVar.pp_print_state_var sv b; *)
+  b
+  
+
+
 let rec lookup_fuzzy str scope =
   try StateVar.state_var_of_string (str, scope)
   with Not_found ->
@@ -133,7 +141,11 @@ let jkind_var_of_lustre kind_sv (li, parents) =
     | _, (_, _, Some clock) :: _ when StateVar.equal_state_vars li clock ->
       (* the var is the clock, always named ~clock in JKind *)
       "~clock"
-        
+
+    | _, (_, _, Some clock) :: _ when is_first_tick kind_sv ->
+      (* init variable *)
+      "~init"
+
     | (_, _, Some _) :: _, _
       when not (StateVar.is_input li) && is_observer kind_sv ->
       (* clocked property variable *)
@@ -142,7 +154,11 @@ let jkind_var_of_lustre kind_sv (li, parents) =
     | (_, _, Some _) :: _, _ when not (StateVar.is_input li) ->
       (* other clocked variable *)
       (StateVar.name_of_state_var li) ^"~clocked"
-      
+
+    | _ when is_first_tick kind_sv ->
+      (* init variable *)
+      "%init"
+              
     | _ -> StateVar.name_of_state_var li
   in
 
