@@ -89,7 +89,10 @@ let is_observer sv =
 
 let is_first_tick sv =
   Lib.string_starts_with (StateVar.name_of_state_var sv)
-      LustreIdent.first_tick_ident_string
+    LustreIdent.first_tick_ident_string
+
+let is_init sv =
+  StateVar.equal_state_vars sv TransSys.init_flag_svar
 
 let rec lookup_fuzzy str scope =
   try StateVar.state_var_of_string (str, scope)
@@ -137,7 +140,7 @@ let jkind_var_of_lustre kind_sv (li, parents) =
       (* the var is the clock, always named ~clock in JKind *)
       "~clock"
 
-    | _, (_, _, Some clock) :: _ when is_first_tick kind_sv ->
+    | _, (_, _, Some clock) :: _ when is_first_tick kind_sv || is_init li ->
       (* init variable *)
       "~init"
 
@@ -150,7 +153,7 @@ let jkind_var_of_lustre kind_sv (li, parents) =
       (* other clocked variable *)
       (StateVar.name_of_state_var li) ^"~clocked"
 
-    | _ when is_first_tick kind_sv ->
+    | _ when is_first_tick kind_sv || is_init li ->
       (* init variable *)
       "%init"
               
