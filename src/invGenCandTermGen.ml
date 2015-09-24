@@ -472,7 +472,7 @@ module CandidateTermGen = struct
 
              (* Candidates from trans. *)
              |> if Flags.invgengraph_mine_trans ()
-                then identity else set_of_term trans
+                then set_of_term trans else identity
            in
 
            let candidates =
