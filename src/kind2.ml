@@ -185,7 +185,6 @@ let status_of_trans_sys sys =
     else if falsifiable then status_unsafe
     else status_safe
   in
-  Format.printf "status of trans sys@." ;
   (* Exit status. *)
   exit_status
 
@@ -971,10 +970,7 @@ let rec run_loop msg_setup modules results =
   with
 
   (* No next analysis, done. *)
-  | None ->
-    if Flags.compositional () then
-      Event.log L_fatal "Done, no more analyses to run." ;
-    results
+  | None -> results
 
   (* Preparing for next analysis. *)
   | Some aparam ->
