@@ -85,7 +85,9 @@ let mk_pos = position_of_lexing
 *)
 
 %token PROPERTY
+%token BANGPROPERTY
 %token MAIN
+%token BANGMAIN
 
 %token COMMENTGHOSTVAR
 %token COMMENTGHOSTCONST
@@ -512,10 +514,15 @@ node_equation:
     { A.Equation (mk_pos $startpos, l, e) }
 
   (* Node annotation *)
-  | MAIN { A.AnnotMain }
+  | MAIN { A.AnnotMain true }
+  | BANGMAIN; COLON; TRUE ; SEMICOLON { A.AnnotMain true }
+  | BANGMAIN; COLON; FALSE ; SEMICOLON { A.AnnotMain false }
 
   (* Property annotation *)
   | PROPERTY; e = expr; SEMICOLON { A.AnnotProperty (mk_pos $startpos, e) }
+  | BANGPROPERTY; COLON; e = expr; SEMICOLON {
+    A.AnnotProperty (mk_pos $startpos, e)
+  }
 
 
 

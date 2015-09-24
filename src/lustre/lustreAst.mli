@@ -171,7 +171,7 @@ type eq_lhs =
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr
-  | AnnotMain 
+  | AnnotMain of bool
   | AnnotProperty of position * expr
 
 (** A contract ghost constant *)

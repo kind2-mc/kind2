@@ -522,6 +522,23 @@ and comment = parse
       skip_to_eol lexbuf
     )
   }
+
+  (* Contract *)
+  | "!" (id as p) {
+    match p with
+
+    (* Return token, continue with rest of line. *)
+    | "PROPERTY" -> BANGPROPERTY
+
+    (* Return token, continue with rest of line. *)
+    | "MAIN" -> BANGMAIN
+
+    (* Warn and ignore rest of line *)
+    | _ -> (
+      print_warning "Unknown contract %s skipped" p ;
+      skip_to_eol lexbuf
+    )
+  }
 (*
   (* Bang annotation *)
   | "!" (id as p) { BANGCOMMENT p }

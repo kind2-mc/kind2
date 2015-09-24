@@ -789,11 +789,16 @@ let rec eval_node_equations ctx = function
     eval_node_equations ctx tl
 
   (* Annotation for main node *)
-  | A.AnnotMain :: tl -> 
+  | (A.AnnotMain true) :: tl -> 
 
     eval_node_equations 
       (C.set_node_main ctx)
       tl
+
+  (* Annotation for main node *)
+  | (A.AnnotMain false) :: tl -> 
+
+    eval_node_equations ctx tl
 
   (* Equations with possibly more than one variable on the left-hand side
 
