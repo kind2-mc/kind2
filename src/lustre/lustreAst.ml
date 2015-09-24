@@ -211,7 +211,7 @@ type eq_lhs =
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
-  | AnnotMain
+  | AnnotMain of bool
   | AnnotProperty of position * expr
 
 (* A contract ghost constant. *)
@@ -793,7 +793,9 @@ let pp_print_node_equation ppf = function
       pp_print_eq_lhs lhs
       pp_print_expr e
 
-  | AnnotMain -> Format.fprintf ppf "--%%MAIN;"
+  | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
+
+  | AnnotMain false -> Format.fprintf ppf "--!MAIN : false;"
 
   | AnnotProperty (pos, e) -> Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 

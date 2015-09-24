@@ -37,11 +37,12 @@ type contract =
     contract_pos: Lib.position;
     (** Position of the contract in the input *)
 
-    contract_req : LustreExpr.expr;
-    (** Invariant from requirements of contract *)
+    contract_reqs : (LustreExpr.expr * Lib.position) list;
+    (** Requirements of contract *)
 
-    contract_ens : LustreExpr.expr
-    (** Invariant from ensures of contract *)
+    contract_enss : (LustreExpr.expr * Lib.position) list
+    (** Ensures of contract. We don't really need a list because we don't prove
+       the ensures of a UF anyway. *)
 
   }
 
@@ -98,6 +99,9 @@ val function_of_name : LustreIdent.t -> t list -> t
 
 (** Return true if a function of the given name exists in the a list of function *)
 val exists_function_of_name : LustreIdent.t -> t list -> bool 
+
+(** Returns the source of a svar in terms of [LustreNode.state_var_source]. *)
+val get_state_var_source : t -> StateVar.t -> LustreNode.state_var_source
 
 
 val pp_print_function : bool -> Format.formatter -> t -> unit

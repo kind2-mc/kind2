@@ -599,7 +599,7 @@ let order_equations
       []
       state_vars_ordered 
 
-  in 
+  in
 
   (* Dependency of output variables on input variables *)
   let output_input_dep = 
@@ -1266,7 +1266,7 @@ let custom_roots roots node =
 let node_is_abstract analysis { N.name } = 
 
   [I.string_of_ident false name]
-  |> Analysis.scope_is_abstract analysis
+  |> Analysis.param_scope_is_abstract analysis
 
 
 (* Return roots for slicing to contracts or implementation as
@@ -1295,14 +1295,14 @@ let slice_to_abstraction'
     ({ A.top } as analysis) 
     roots 
     subsystem
-    { G.functions } = 
+    { G.functions } =
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)
-  let nodes = 
+  let nodes =
     S.find_subsystem subsystem top
     |> N.nodes_of_subsystem 
-  in 
+  in
   
   (* Slice all nodes to either abstraction or implementation *)
   let nodes', functions' = 

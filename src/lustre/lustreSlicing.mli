@@ -68,8 +68,12 @@
     same index. A syntactic comparison would again miss some cycles,
     and we would need to evaluate the indexes for a precise
     comparison. This is probably too much effort for what it is worth. *)
-val order_equations : bool ->
-(LustreIdent.t * (LustreIndex.index list LustreIndex.t * LustreIndex.index list LustreIndex.t)) list ->
+val order_equations : bool -> (
+  LustreIdent.t * (
+    LustreIndex.index list LustreIndex.t *
+    LustreIndex.index list LustreIndex.t
+  )
+) list ->
 LustreNode.t ->
 LustreNode.equation list *
 LustreIndex.index list LustreIndex.t

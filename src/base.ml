@@ -20,6 +20,9 @@ open Lib
 open TermLib
 open Actlit
 
+(* Raised when the unrolling alone is unsat. *)
+exception UnsatUnrollingExc
+
 let solver_ref = ref None
 
 (* Output statistics *)
@@ -71,18 +74,21 @@ let split trans solver k falsifiable to_split actlits =
 
     (* Extract counterexample from model *)
     let cex =
-      Model.path_from_model (TransSys.state_vars trans) model k in
+      Model.path_from_model (TransSys.state_vars trans) model k
+    in
 
     (* Evaluation function. *)
     let eval term =
       Eval.eval_term (TransSys.uf_defs trans) model term
-      |> Eval.bool_of_value in
+      |> Eval.bool_of_value
+    in
     (* Splitting properties. *)
     let new_to_split, new_falsifiable =
       List.partition
         ( fun (_, (_, term)) ->
           Term.bump_state k term |> eval )
-        to_split in
+        to_split
+    in
     (* Building result. *)
     Some (new_to_split, (new_falsifiable, cex))
   in
@@ -91,6 +97,18 @@ let split trans solver k falsifiable to_split actlits =
   let if_unsat _ =
     None
   in
+
+  if Flags.bmc_check_unroll () then ( 
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Unrolling of the system is unsat at %a, \
+        the system has no more reachable states.@]"
+        warning_tag
+        Numeral.pp_print_numeral k ;
+      raise UnsatUnrollingExc
+    )
+  ) ;
 
   (* Check sat assuming with actlits. *)
   SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
@@ -160,7 +178,6 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
 
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
-
 
     let new_invs, updated_props =
       (* Receiving messages. *)
@@ -341,6 +358,17 @@ let init input_sys aparam trans =
   |> SMTSolver.assert_term solver
   |> ignore ;
 
+  if Flags.bmc_check_unroll () then (
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Initial state is unsat, the system has no \
+         reachable states.@]"
+         warning_tag ;
+      raise UnsatUnrollingExc
+    )
+  ) ;
+
   (* Invariants if the system at 0. *)
   let invariants =
     TransSys.invars_of_bound trans Numeral.zero |> Term.mk_and 
@@ -350,7 +378,14 @@ let init input_sys aparam trans =
 
 (* Runs the base instance. *)
 let main input_sys aparam trans =
-  init input_sys aparam trans |> next 
+  try
+    init input_sys aparam trans |> next
+  with UnsatUnrollingExc ->
+    let _, _, unknown = TransSys.get_split_properties trans in
+    unknown |> List.iter (fun p ->
+      Event.prop_status
+        Property.PropInvariant input_sys aparam trans p.Property.prop_name
+    )
 
 
 

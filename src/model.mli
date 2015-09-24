@@ -19,7 +19,7 @@
 
 (** Term or lambda expression *)
 type term_or_lambda = 
-  | Term of Term.t 
+  | Term of Term.t
   | Lambda of Term.lambda
 
 (** A model is a list of variables and assignemnts *)
@@ -27,6 +27,9 @@ type t = term_or_lambda Var.VarHashtbl.t
 
 (** A path is a map of state variables to assignments *)
 type path = term_or_lambda list StateVar.StateVarHashtbl.t
+
+(** Offset of the variables at each step of a path. *)
+val path_offset: Numeral.t
 
 (** Pretty-print a model *)
 val pp_print_model : Format.formatter -> t -> unit

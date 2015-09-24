@@ -30,26 +30,22 @@
     @author Christoph Sticksel *)
 
 (** A system parameterized by its actual source *)
-type 'a t = 
+type 'a t = {
+  (** Name of the system as a scope *)
+  scope: Scope.t ;
 
-  { 
-    
-    (** Name of the system as a scope *)
-    scope: string list;
+  (** Original input *)
+  source : 'a ;
 
-    (** Original input *)
-    source : 'a;
+  (** System can be abstracted to its contract *)
+  has_contract : bool ;
 
-    (** System can be abstracted to its contract *)
-    has_contract : bool;
+  (** System can be refined to its implementation *)
+  has_impl : bool ;
 
-    (** System can be refined to its implementation *)
-    has_impl : bool;
-
-    (** Sub-systems *)
-    subsystems : 'a t list;
-
-  }
+  (** Sub-systems *)
+  subsystems : 'a t list ;
+}
 
 (** Return all subsystems in topological order with the top system at
     the head of the list *)

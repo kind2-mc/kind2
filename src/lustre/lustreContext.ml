@@ -18,8 +18,31 @@
 
 open Lib
 
-(* FIXME: Remove unless debugging *)
-module Event = struct let log _ fmt = Format.printf (fmt ^^ "@.") end
+(* FIXME: Remove unless debugging.
+
+   Adrien: Removing produces circular build. Factor in Lib, along with lexer
+     warnings? *)
+module Event = struct
+  let log lvl fmt =
+    if Flags.log_format_xml () then
+      ( match lvl with
+        | L_warn -> "warn"
+        | L_error -> "error"
+        (* Only warning or errors in theory. *)
+        | _ -> failwith "LustreContext should only output warnings or errors" )
+      |> Format.printf ("@[<hov 2>\
+          <Log class=\"%s\" source=\"parse\">@ \
+            @[<hov>" ^^ fmt ^^ "@]\
+          @;<0 -2></Log>\
+        @]@.")
+    else
+      ( match lvl with
+        | L_warn -> warning_tag
+        | L_error -> error_tag
+        (* Only warning or errors in theory. *)
+        | _ -> failwith "LustreContext should only output warnings or errors" )
+      |> Format.printf ("%s @[<v>" ^^ fmt ^^ "@]@.")
+end
 
 module A = LustreAst
 
@@ -139,7 +162,7 @@ let mk_empty_context () =
 let fail_at_position pos msg = 
 
   Event.log
-    L_warn
+    L_error
     "Parser error at %a: %s"
     Lib.pp_print_position pos
     msg;
@@ -161,7 +184,7 @@ let warn_at_position pos msg =
 let fail_no_position msg = 
 
   Event.log
-    L_warn
+    L_error
     "Parser error: %s"
     msg;
 
@@ -1372,7 +1395,7 @@ let add_node_property ctx source name expr =
                               N.props = prop' :: props } }
 
 
-(* Add node assert to context *)
+(* Add node equation to context *)
 let add_node_equation ctx pos state_var bounds indexes expr = 
 
   match ctx with 
@@ -1743,7 +1766,7 @@ let add_function_input ctx ident index_types =
           (inputs, ctx)
       in
 
-      (* Return node with input added *)
+      (* Return function with input added *)
       match ctx with
         | { func = None } -> assert false
         | { func = Some func } ->
@@ -1852,44 +1875,36 @@ let add_function_call ctx pos ({ N.call_function_name; N.call_outputs } as func_
 
     | { node = Some ({ N.equations; N.function_calls; N.calls } as node) } -> 
 
-      if 
+      if call_outputs |> D.exists (
+          fun _ state_var -> 
 
-        D.exists 
-          (fun _ state_var -> 
+            (* State variable already defined by equation? *)
+            List.exists (fun (sv, _, _) ->
+              StateVar.equal_state_vars state_var sv
+            ) equations ||
 
-             (* State variable already defined by equation? *)
-             List.exists
-               (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
-               equations
-               
-             ||
-             
-             (* State variable defined by a node call? *)
-             List.exists
-               (fun { N.call_node_name; N.call_outputs } -> 
-                  D.exists 
-                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                    call_outputs)
-               calls
+            (* State variable defined by a node call? *)
+            List.exists (fun { N.call_node_name; N.call_outputs } ->
+              call_outputs|> D.exists (fun _ sv ->
+                StateVar.equal_state_vars state_var sv
+              )
+            ) calls ||
 
-             ||
-        
-             (* State variable defined by a function call? *)
-             List.exists
-               (fun { N.call_function_name; N.call_outputs } -> 
-                  D.exists 
-                    (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                    call_outputs)
-               function_calls)
-
-          call_outputs
+            (* State variable defined by a function call? *)
+            List.exists (
+              fun { N.call_function_name; N.call_outputs } -> 
+                call_outputs |> D.exists (fun _ sv ->
+                  StateVar.equal_state_vars state_var sv
+                )
+            ) function_calls
+        )
 
       then
 
         fail_at_position
           pos
           "Duplicate definition for output of function call";
-                
+
       (* Add function call to context *)
       { ctx with 
           node = Some { node with 

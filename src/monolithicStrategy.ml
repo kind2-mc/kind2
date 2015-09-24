@@ -21,26 +21,23 @@ module S = SubSystem
 
 let next_analysis ({ S.scope } as system) = function 
 
-  (* First analysis *)
-  | [] -> 
+(* First analysis *)
+| [] -> Some {
 
-    (* Continue analysis *)
-    Some
+  (* Analyze top system *) 
+  A.top = scope ; 
 
-      { (* Analyze top system *) 
-        A.top = scope; 
-        
-        (* Implementations for all systems *)
-        A.abstraction_map = 
-          [S.all_subsystems system
-           |> List.map (fun { scope } -> (scope, false))];
+  (* Implementations for all systems *)
+  A.abstraction_map = [
+    S.all_subsystems system |> List.map (fun { scope } -> (scope, false))
+  ] ;
 
-        (* No assumptions *)
-        A.assumptions = [] }
+  (* No assumptions *)
+  A.assumptions = []
+}
 
-  (* One analysis only, terminate after first analysis *)
-  | _ -> None
-
+(* One analysis only, terminate after first analysis *)
+| _ -> None
 
 (* 
    Local Variables:
@@ -48,4 +45,3 @@ let next_analysis ({ S.scope } as system) = function
    indent-tabs-mode: nil
    End: 
 *)
-  

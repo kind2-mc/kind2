@@ -143,7 +143,7 @@ let enable_flag =
 
 (*   type smtsolver = Z3_SMTLIB | CVC4_SMTLIB arg smtsolver default CVC4_SMTLIB action smtsolver_action doc " choose SMT solver (available: %s, default: %s" *)
   
-(* ********** *) 
+(* ********** *)
 
 let timeout_wall_default = 0. 
 
@@ -288,8 +288,11 @@ let kind_module_of_string = function
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
+  | "C2I" -> `C2I
   | "interpreter" -> `Interpreter
-  | _ -> raise (Arg.Bad "Bad value for --enable")
+  | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --enable" unexpected
+    ) |> raise
 
 let string_of_kind_module = function
   | `IC3 -> "IC3"
@@ -297,17 +300,8 @@ let string_of_kind_module = function
   | `IND -> "IND"
   | `INVGEN -> "INVGEN"
   | `INVGENOS -> "INVGENOS"
+  | `C2I -> "C2I"
   | `Interpreter -> "interpreter"
-
-let rec string_of_enable' accum = function 
-  | [] -> accum
-  | m :: tl -> 
-    string_of_enable'
-      ((string_of_kind_module m) ^ 
-          (if not (tl = []) then ", " else ""))
-      tl
-
-(* let string_of_enable = string_of_enable' "" *)
 
 let string_of_enable = function
   | head :: tail ->
@@ -318,11 +312,14 @@ let string_of_enable = function
     ^ "]"
   | [] -> "[]"
 
-let enable_values = "IC3, BMC, IND, INVGEN, INVGENOS, interpreter"
+let enable_values = [
+  `IC3 ; `BMC ; `IND ; `INVGEN ; `INVGENOS ; `C2I ; `Interpreter
+] |> List.map string_of_kind_module |> String.concat ", "
 
 let enable_default_init = []
+let disable_default_init = []
 
-let enable_default_after = [`BMC; `IND; `IC3; `INVGEN; `INVGENOS]
+let enable_default_after = [ `BMC; `IND; `IC3; `INVGEN; `INVGENOS ; `C2I ]
 
 (* ********** *) 
 
@@ -335,6 +332,12 @@ let check_version_default = false
 type bmc_max = int
     
 let bmc_max_default = 0
+
+(* ********** *) 
+
+type bmc_check_unroll = bool
+    
+let bmc_check_unroll_default = true
 
 (* ********** *) 
 
@@ -498,6 +501,16 @@ let ic3_abstr_values = "IA, None"
 
 let ic3_abstr_default = `None
 
+(* ********** *)
+
+type modular = bool
+let modular_values = "true, false"
+let modular_default = false
+
+type compositional = bool
+let compositional_values = "true, false"
+let compositional_default = false
+
 (* ********** *) 
  
 type cooper_order_var_by_elim = bool 
@@ -513,6 +526,23 @@ type cooper_general_lbound = bool
 let cooper_general_lbound_values = "true, false"
  
 let cooper_general_lbound_default = false
+
+
+(* ********** *)
+
+(* testgen things. *)
+
+type testgen_active = bool
+let testgen_active_default = false
+
+type testgen_lustrec = string option
+let testgen_lustrec_default = None
+
+type testgen_out_dir = string
+let testgen_out_dir_default = "."
+
+type testgen_len = int
+let testgen_len_default = 5
 
 
 (* ********** *)
@@ -533,11 +563,28 @@ let invgengraph_lift_candidates_default = false
 
 type invgengraph_mine_trans = bool
 
-let invgengraph_mine_trans_default = false
+let invgengraph_mine_trans_default = true
 
 type invgengraph_renice = int
 
 let invgengraph_renice_default = 0
+
+
+(* ********** *)
+
+(* C2I things. *)
+
+type c2i_dnf_size = int
+let c2i_dnf_size_default = 3
+
+type c2i_int_cube_size = int
+let c2i_int_cube_size_default = 3
+
+type c2i_real_cube_size = int
+let c2i_real_cube_size_default = 3
+
+type c2i_modes = bool
+let c2i_modes_default = true
 
 (* ********** *) 
 
@@ -625,9 +672,11 @@ type flags =
     mutable yices2smt2_bin : yices2smt2_bin;
     mutable smt_trace : smt_trace;
     mutable smt_trace_dir : smt_trace_dir;
-    mutable enable : enable;
+    mutable enable : enable ;
+    mutable disable : enable ;
     mutable check_version : check_version;
     mutable bmc_max : bmc_max;
+    mutable bmc_check_unroll : bmc_check_unroll;
     mutable ind_compress : ind_compress;
     mutable ind_compress_equal : ind_compress_equal;
     mutable ind_compress_same_succ : ind_compress_same_succ;
@@ -646,13 +695,23 @@ type flags =
     mutable ic3_fwd_prop_subsume : ic3_fwd_prop_subsume;
     mutable ic3_use_invgen : ic3_use_invgen;
     mutable ic3_abstr : ic3_abstr;
+    mutable modular : modular;
+    mutable compositional : compositional;
     mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
     mutable cooper_general_lbound : cooper_general_lbound;
+    mutable testgen_active : testgen_active;
+    mutable testgen_lustrec : testgen_lustrec;
+    mutable testgen_out_dir : testgen_out_dir;
+    mutable testgen_len : testgen_len;
     mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
     mutable invgengraph_max_succ : invgengraph_max_succ;
     mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
     mutable invgengraph_mine_trans : invgengraph_mine_trans;
     mutable invgengraph_renice : invgengraph_renice;
+    mutable c2i_dnf_size : c2i_dnf_size;
+    mutable c2i_int_cube_size : c2i_int_cube_size;
+    mutable c2i_real_cube_size : c2i_real_cube_size;
+    mutable c2i_modes : c2i_modes;
     mutable interpreter_input_file : interpreter_input_file;
     mutable interpreter_steps : interpreter_steps;
     mutable lustre_main : lustre_main;
@@ -680,8 +739,10 @@ let flags =
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
     enable = enable_default_init;
+    disable = disable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
+    bmc_check_unroll = bmc_check_unroll_default;
     ind_compress = ind_compress_default;
     ind_compress_equal = ind_compress_equal_default;
     ind_compress_same_succ = ind_compress_same_succ_default;
@@ -700,13 +761,23 @@ let flags =
     ic3_fwd_prop_subsume = ic3_fwd_prop_subsume_default;
     ic3_use_invgen = ic3_use_invgen_default;
     ic3_abstr = ic3_abstr_default;
+    compositional = compositional_default;
+    modular = modular_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
+    testgen_active = testgen_active_default;
+    testgen_lustrec = testgen_lustrec_default;
+    testgen_out_dir = testgen_out_dir_default;
+    testgen_len = testgen_len_default;
     invgengraph_prune_trivial = invgengraph_prune_trivial_default;
     invgengraph_max_succ = invgengraph_max_succ_default;
     invgengraph_lift_candidates = invgengraph_lift_candidates_default;
     invgengraph_mine_trans = invgengraph_mine_trans_default;
     invgengraph_renice = invgengraph_renice_default;
+    c2i_dnf_size = c2i_dnf_size_default;
+    c2i_int_cube_size = c2i_int_cube_size_default;
+    c2i_real_cube_size = c2i_real_cube_size_default;
+    c2i_modes = c2i_modes_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -723,9 +794,15 @@ let flags =
 let timeout_wall_action o = flags.timeout_wall <- o  
 
 let timeout_wall_spec = 
+  ("--timeout", 
+   Arg.Float timeout_wall_action, 
+   Format.sprintf "wallclock timeout in seconds (default: %1.f)"
+    timeout_wall_default)
+
+let timeout_wall_legacy_spec = 
   ("--timeout_wall", 
    Arg.Float timeout_wall_action, 
-   Format.sprintf "wallclock timeout (default: %1.f)" timeout_wall_default)
+   Format.sprintf "for legacy, same as \"--timeout\"")
 
 (* ********** *) 
 
@@ -866,6 +943,21 @@ let enable_spec =
 
 (* ********** *) 
 
+let disable_action o = 
+
+  (* Ensure the each module is at most once in flags.disable *)
+  let mdl = kind_module_of_string o in
+  if not (List.mem mdl flags.disable) then
+    flags.disable <- mdl :: flags.disable
+  
+let disable_spec = 
+  ("--disable", 
+   Arg.String disable_action,
+   Format.sprintf "disable Kind module (available: %s, default enabled: %s)"
+                  enable_values (string_of_enable enable_default_after))
+
+(* ********** *) 
+
 let check_version_action () = flags.check_version <- true
   
 let check_version_spec = 
@@ -881,6 +973,15 @@ let bmc_max_spec =
   ("--bmc_max", 
    Arg.Int bmc_max_action, 
    Format.sprintf "(BMC, IND) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
+
+(* ********** *) 
+
+let bmc_check_unroll_action o = flags.bmc_check_unroll <- o
+  
+let bmc_check_unroll_spec = 
+  ("--bmc_check_unroll", 
+   Arg.Bool bmc_check_unroll_action, 
+   Format.sprintf "(BMC) Check that the unrolling alone is satisfiable (default: %b)" bmc_check_unroll_default)
 
 (* ********** *) 
 
@@ -1044,6 +1145,55 @@ let ic3_fwd_prop_subsume_spec =
    Arg.Bool ic3_fwd_prop_subsume_action, 
    Format.sprintf "(IC3) Subsumption in forward propagation (default: %s)"
                   (string_of_ic3_fwd_prop_subsume ic3_fwd_prop_subsume_default))
+  
+(* ********** *) 
+
+let testgen_active_action o = flags.testgen_active <- o
+                                       
+let testgen_active_spec = 
+  ("--testgen", 
+   Arg.Bool testgen_active_action,
+   Format.sprintf
+     "@[<v 7>@,(default: %b)@ \
+      Activates test generation.@]"
+     testgen_active_default)
+  
+(* ********** *) 
+
+let testgen_lustrec_action o = flags.testgen_lustrec <- Some o
+                                       
+let testgen_lustrec_spec = 
+  ("--testgen_lustrec", 
+   Arg.String testgen_lustrec_action,
+   Format.sprintf
+     "@[<v 7>@,(default: %s)@ \
+      Sets the command for the lustreC compiler and activates@ \
+      oracle compilation.@]"
+     (match testgen_lustrec_default with | Some def -> def | _ -> "inactive"))
+  
+(* ********** *) 
+
+let testgen_out_dir_action o = flags.testgen_out_dir <- o
+                                       
+let testgen_out_dir_spec = 
+  ("--testgen_out", 
+   Arg.String testgen_out_dir_action,
+   Format.sprintf
+     "@[<v 7>@,(default: %s)@ \
+      The directory to write test generation files into.@]"
+     testgen_out_dir_default)
+  
+(* ********** *) 
+  
+let testgen_len_action o = flags.testgen_len <- o
+                                       
+let testgen_len_spec = 
+  ("--testgen_len", 
+   Arg.Int testgen_len_action,
+   Format.sprintf
+     "@[<v 7>@,(default: %d)@ \
+      Maximimum length for test generation.@]"
+     testgen_len_default)
 
 (* ********** *) 
  
@@ -1066,6 +1216,29 @@ let ic3_abstr_spec =
                    (available: %s, default: %s)"
                   ic3_abstr_values (string_of_ic3_abstr ic3_abstr_default))
 (* ********** *) 
+ 
+let modular_action o = flags.modular <- o
+                                          
+let modular_spec = 
+  ("--modular", 
+   Arg.Bool modular_action, 
+   Format.sprintf
+    "bottom-up analysis of each node (available: %s, default: %B)"
+    modular_values
+    modular_default)
+(* ********** *) 
+ 
+let compositional_action o = flags.compositional <- o
+                                          
+let compositional_spec = 
+  ("--compositional", 
+   Arg.Bool compositional_action, 
+   Format.sprintf
+    "abstract subnodes with a contract (available: %s, default: %B)"
+    compositional_values
+    compositional_default)
+
+(* ********** *)
  
 let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
                                           
@@ -1130,6 +1303,44 @@ let invgengraph_renice_spec =
   ("--invgen_renice", 
    Arg.Int invgengraph_renice_action,
    "Renice invariant generation process. Give a positive argument to lower priority.")
+  
+(* ********** *) 
+
+let c2i_dnf_size_action o = flags.c2i_dnf_size <- o
+                                       
+let c2i_dnf_size_spec = 
+  ("--c2i_dnf", 
+   Arg.Int c2i_dnf_size_action,
+   Format.sprintf
+    "Number of disjuncts in the DNF constructed by C2I (default %d)."
+    c2i_dnf_size_default)
+
+let c2i_int_cube_size_action o = flags.c2i_int_cube_size <- o
+                                       
+let c2i_int_cube_size_spec = 
+  ("--c2i_int_cubes", 
+   Arg.Int c2i_int_cube_size_action,
+   Format.sprintf
+    "Number of int cubes in the DNF constructed by C2I (default %d)."
+    c2i_int_cube_size_default)
+
+let c2i_real_cube_size_action o = flags.c2i_real_cube_size <- o
+                                       
+let c2i_real_cube_size_spec = 
+  ("--c2i_real_cubes", 
+   Arg.Int c2i_real_cube_size_action,
+   Format.sprintf
+    "Number of real cubes in the DNF constructed by C2I (default %d)."
+    c2i_real_cube_size_default)
+
+let c2i_modes_action o = flags.c2i_modes <- o
+                                       
+let c2i_modes_spec = 
+  ("--c2i_modes", 
+   Arg.Bool c2i_modes_action,
+   Format.sprintf
+    "Activates mode subcandidates. Subsumes c2i_dnf_size (default %b)."
+    c2i_modes_default)
   
 (* ********** *) 
 
@@ -1287,6 +1498,8 @@ let check_version () = flags.check_version
 
 let bmc_max () = flags.bmc_max 
 
+let bmc_check_unroll () = flags.bmc_check_unroll 
+
 let ind_compress () = flags.ind_compress 
 
 let ind_compress_equal () = flags.ind_compress_equal 
@@ -1329,9 +1542,21 @@ let ic3_abstr () = flags.ic3_abstr
 
 let set_ic3_abstr f = flags.ic3_abstr <- f
 
+let modular () = flags.modular
+
+let compositional () = flags.compositional
+
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
+
+let testgen_active () = flags.testgen_active
+
+let testgen_lustrec () = flags.testgen_lustrec
+
+let testgen_out_dir () = flags.testgen_out_dir
+
+let testgen_len () = flags.testgen_len
 
 let invgengraph_prune_trivial () = flags.invgengraph_prune_trivial
 
@@ -1342,6 +1567,14 @@ let invgengraph_lift_candidates () = flags.invgengraph_lift_candidates
 let invgengraph_mine_trans () = flags.invgengraph_mine_trans
 
 let invgengraph_renice () = flags.invgengraph_renice
+
+let c2i_dnf_size () = flags.c2i_dnf_size
+
+let c2i_int_cube_size () = flags.c2i_int_cube_size
+
+let c2i_real_cube_size () = flags.c2i_real_cube_size
+
+let c2i_modes () = flags.c2i_modes
 
 let interpreter_input_file () = flags.interpreter_input_file
 
@@ -1382,9 +1615,10 @@ and speclist =
 
     (* Wallclock timeout *)
     timeout_wall_spec;
+    timeout_wall_legacy_spec;
 
     (* CPU timeout *)
-    timeout_virtual_spec;
+    (* timeout_virtual_spec; *)
 
     (* Set SMT solver *)
     smtsolver_spec;
@@ -1421,12 +1655,16 @@ and speclist =
 
     (* Set enabled modules *)
     enable_spec;
+    disable_spec;
 
     (* Output version information and exit *)
     check_version_spec;
 
     (* Maximal number of iterations in BMC *)
     bmc_max_spec;
+
+    (* Check that the unrolling alone is satisfiable in BMC *)
+    bmc_check_unroll_spec;
 
     (* Compress inductive counterexamples *)
     ind_compress_spec;
@@ -1483,9 +1721,20 @@ and speclist =
     (* Abstraction in IC3 *)
     ic3_abstr_spec;
 
+    (* Modular. *)
+    modular_spec ;
+    (* Compositional. *)
+    compositional_spec ;
+
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;
     cooper_general_lbound_spec;
+
+    (* Set testgen options. *)
+    testgen_active_spec;
+    testgen_lustrec_spec;
+    testgen_out_dir_spec;
+    testgen_len_spec;
 
     (* Set invgen options. *)
     invgengraph_prune_trivial_spec;
@@ -1493,6 +1742,12 @@ and speclist =
     invgengraph_lift_candidates_spec;
     invgengraph_mine_trans_spec;
     invgengraph_renice_spec;
+
+    (* Set C2I options. *)
+    c2i_dnf_size_spec ;
+    c2i_int_cube_size_spec ;
+    c2i_real_cube_size_spec ;
+    c2i_modes_spec ;
 
     (* Read input from file *)
     interpreter_input_file_spec;
@@ -1590,8 +1845,13 @@ let parse_argv () =
     (Format.printf "%t@." pp_print_version; exit 0);
     
   (* Set default value if unchanged *)
-  if flags.enable = enable_default_init then 
+  if flags.enable = enable_default_init then
     flags.enable <- enable_default_after;
+
+  (* Remove disabled modules. *)
+  flags.enable <- flags.enable |> List.filter (fun mdl ->
+    List.mem mdl flags.disable |> not
+  ) ;
 
   (* Fail if input file not set *)
   match flags.input_file with 

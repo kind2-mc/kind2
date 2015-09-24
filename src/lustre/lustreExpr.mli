@@ -69,21 +69,21 @@ type expr = private Term.t
 (** Equality of expressions *)
 val equal_expr : expr -> expr -> bool
 
+(** Returns true iff the expr is the constant true. *)
+val is_true_expr : expr -> bool
+
 (** A Lustre expression
 
     The [->] operator is moved to the top of the expression, the
     expression is to be interpreted as [expr_init -> expr_step]. *)
-type t = private 
-
-  { 
-
-    expr_init: expr;     (** Lustre expression for initial state *)
-
-    expr_step: expr;     (** Lustre expression after initial state *)
-
-    expr_type: Type.t;   (** Common type of both initial and the step expression *)
-
-  }
+type t = private {
+  expr_init: expr ;
+  (** Lustre expression for initial state *)
+  expr_step: expr ;
+  (** Lustre expression after initial state *)
+  expr_type: Type.t ;
+  (** Common type of both initial and the step expression *)
+}
 
 (** Hash table over Lustre expressions *)
 module LustreExprHashtbl : Hashtbl.S with type key = t

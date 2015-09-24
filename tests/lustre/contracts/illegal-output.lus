@@ -1,0 +1,20 @@
+contract c1 (in: int) returns (out: int);
+let
+  -- Constraining previous version of output is fine.
+  require (in  > 0) and (pre out > 0) ;
+  ensure  out > 0 ;
+tel
+
+contract c2 (in: int) returns (out: int);
+let
+  -- Constraining current version of output is not.
+  require (in  > 0) and (out > 0) ;
+  ensure  out > 0 ;
+tel
+
+node bla (in: int) returns (out: int);
+--@contract c1 ;
+--@contract c2 ;
+let
+  out = 5 ;
+tel

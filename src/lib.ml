@@ -23,6 +23,11 @@
 (* Identity function. *)
 let identity anything = anything
 
+(* Prints the first argument and returns the second. *)
+let print_pass s whatever =
+  Format.printf "%s@." s ;
+  whatever
+
 (* Returns true when given unit. *)
 let true_of_unit () = true
 
@@ -945,6 +950,11 @@ let log_level_of_int = function
   | 5 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
 
+let tag_of_level = function
+| L_fatal | L_error -> error_tag
+| L_warn -> warning_tag
+| _ -> ""
+
 (* Compare two levels *)
 let compare_levels l1 l2 = 
   Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)
@@ -1011,6 +1021,7 @@ type kind_module =
   | `IND
   | `INVGEN
   | `INVGENOS
+  | `C2I
   | `Interpreter
   | `Supervisor
   | `Parser ]
@@ -1023,13 +1034,14 @@ let pp_print_kind_module ppf = function
   | `IND -> Format.fprintf ppf "inductive step"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
+  | `C2I -> Format.fprintf ppf "c2i"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Supervisor -> Format.fprintf ppf "invariant manager"
   | `Parser -> Format.fprintf ppf "parser"
 
 
 (* String representation of a process type *)
-let string_of_kind_module = string_of_t pp_print_kind_module 
+let string_of_kind_module = string_of_t pp_print_kind_module
 
 
 (* Return a short representation of kind module *)
@@ -1039,8 +1051,9 @@ let suffix_of_kind_module = function
  | `IND -> "ind"
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
+ | `C2I -> "c2i"
  | `Interpreter -> "interp"
- | `Supervisor -> "invman"
+ | `Supervisor -> "super"
  | `Parser -> "parse"
                 
 
@@ -1051,6 +1064,7 @@ let kind_module_of_string = function
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
+  | "C2I" -> `C2I
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
 
@@ -1063,6 +1077,7 @@ let int_of_kind_module = function
   | `IC3 -> 3
   | `INVGEN -> 4
   | `INVGENOS -> 5
+  | `C2I -> 6
 
 
 (* Timeouts *)
@@ -1253,9 +1268,9 @@ let dummy_pos_in_file fname =
 
 
 (* Pretty-print a position *)
-let pp_print_position 
-    ppf 
-    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
+let pp_print_position ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
 
   if pos = dummy_pos then 
 
@@ -1272,6 +1287,30 @@ let pp_print_position
       "@[<hv>%tline %d@ col. %d@]"
       (function ppf -> 
         if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+      pos_lnum
+      pos_cnum
+
+
+(* Pretty-print a position *)
+let pp_print_pos ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
+
+  if pos = dummy_pos then 
+
+    Format.fprintf ppf "[unknown]"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    Format.fprintf ppf "%s" pos_fname
+
+  else
+
+    Format.fprintf 
+      ppf
+      "[%tl%dc%d]"
+      (function ppf -> 
+        if pos_fname = "" then () else Format.fprintf ppf "%s|" pos_fname)
       pos_lnum
       pos_cnum
 

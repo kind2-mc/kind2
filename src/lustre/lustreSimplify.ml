@@ -1630,6 +1630,10 @@ and eval_function_call
       F.mode_contracts } 
     args = 
 
+(*   args |> Format.printf
+    "args = @[<hov>%a@]@.@."
+    (pp_print_list A.pp_print_expr ",@ ") ; *)
+
   (* Evaluate inputs *)
   let args', ctx = 
 
@@ -1637,33 +1641,34 @@ and eval_function_call
 
       (* Evaluate inputs as list *)
       let expr', ctx = 
-        eval_ast_expr ctx (A.ExprList (dummy_pos, args)) 
+        eval_ast_expr ctx (A.ExprList (dummy_pos, args))
       in
+
 
       (* Remove list index if singleton *)
       let expr', ctx = 
 
-      if 
+        if 
 
-        (* Do actual and formal parameters have the same indexes? *)
-        D.keys expr' = D.keys inputs 
+          (* Do actual and formal parameters have the same indexes? *)
+          D.keys expr' = D.keys inputs 
 
-      then
+        then
 
-        (* Return actual parameters and changed context *)
-        expr', ctx
+          (* Return actual parameters and changed context *)
+          expr', ctx
 
-      else
+        else
 
 
-        (* Remove list index if expression is a singleton list *)
-        (D.fold
-           (function 
-             | D.ListIndex 0 :: tl -> D.add tl
-             | _ -> raise E.Type_mismatch) 
-           expr'
-           D.empty,
-         ctx)
+          (* Remove list index if expression is a singleton list *)
+          (D.fold
+             (function 
+               | D.ListIndex 0 :: tl -> D.add tl
+               | _ -> raise E.Type_mismatch) 
+             expr'
+             D.empty,
+           ctx)
 
       in
 
@@ -1698,7 +1703,7 @@ and eval_function_call
 
   match 
     
-    (* Find a previously created node call with the same paramters *)
+    (* Find a previously created function call with the same paramters *)
     C.call_outputs_of_function_call ctx ident args'
       
   with 
@@ -1707,7 +1712,7 @@ and eval_function_call
     | Some call_outputs -> 
 
       (* Return tuple of state variables capturing outputs *)
-      let res = 
+      let res =
         D.map E.mk_var call_outputs
       in
       
@@ -1741,7 +1746,14 @@ and eval_function_call
           N.call_outputs = output_state_vars } 
       in
 
-      (* Add node call to context *)
+      (* args' |> Format.printf "call_inputs = @[<hov>%a@]@.@." (
+        D.pp_print_trie (fun fmt (_, e) ->
+          Format.fprintf fmt "%a" (E.pp_print_lustre_expr false) e
+          C.expr_of_ident
+        ) ",@ "
+      ) ; *)
+
+      (* Add function call to context *)
       let ctx = C.add_function_call ctx pos function_call in
 
       (* Return expression and changed context *)

@@ -72,10 +72,30 @@ val log_prop_status : Lib.log_level -> (string * Property.prop_status) list -> u
     {!stat} to send it as a message. *)
 val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
 
-(** Terminate log
+(** Terminate log, called at the very end of a run.
 
     Output closing tags for XML output. *)
-val terminate_log : unit -> unit 
+val terminate_log : unit -> unit
+
+
+(** Logs the end of a run.
+    [log_run_start results] logs the end of a run. *)
+val log_run_end : Analysis.result list -> unit
+
+(** Logs the start of an analysis.
+    [log_analysis_start top abs] logs the start of an analysis for top
+    system [top] with abstraction [abs]. *)
+val log_analysis_start : Analysis.param -> unit
+
+(** Logs the end of an analysis.
+    [log_analysis_start result] logs the end of an analysis. *)
+val log_analysis_end : Analysis.result -> unit
+
+(** Logs a timeout. Input should be [true] for wallclock, [false] for CPU. *)
+val log_timeout : bool -> unit
+
+(** Logs an interruption for some signal. *)
+val log_interruption : int -> unit
 
 
 (** {1 Events} *)
@@ -116,8 +136,13 @@ val terminate : unit -> unit
 
 (** Receive all queued events *)
 val recv : unit -> (Lib.kind_module * event) list
-                                             
-(** Terminates if a termination message was received. Does NOT modified
+
+(** Notifies the background thread of a new list of child
+    processes. Used by the supervisor in a modular analysis when
+    restarting. *)
+val update_child_processes_list: (int * Lib.kind_module) list -> unit
+
+(** Terminates if a termination message was received. Does NOT modify
     received messages. *)
 val check_termination: unit -> unit
 

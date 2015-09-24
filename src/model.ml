@@ -21,6 +21,9 @@ open Lib
 module SVT = StateVar.StateVarHashtbl
 module VT = Var.VarHashtbl
 
+(* Offset of the variables at each step of a path. *)
+let path_offset = Numeral.zero
+
 (* Hashconsed term or hashconsed lambda expression *)
 type term_or_lambda = Term of Term.t | Lambda of Term.lambda
 
@@ -152,7 +155,7 @@ let path_from_model state_vars model k =
                  model
                  (Var.mk_state_var_instance state_var i)
 
-             with Not_found -> 
+             with Not_found ->
 
                (* Use default value if not defined in model *)
                Term
@@ -292,12 +295,12 @@ let models_of_path path =
            (fun i t_or_l m -> 
 
               (* Add assignment to variable to model *)
-              VT.add m (Var.mk_state_var_instance sv Numeral.zero) t_or_l;
+              VT.add m (Var.mk_state_var_instance sv path_offset) t_or_l;
 
-              (* Increment counter for zero *)
+              (* Increment counter for zero: ACTUALLY UNUSED *)
               Numeral.(succ i))
 
-           (* Start first model at offset zero *)
+           (* Start first model at offset zero: ACTUALLY UNUSED *)
            Numeral.zero
 
            (* Assignments to state variable on path *)

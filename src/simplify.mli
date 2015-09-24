@@ -41,6 +41,10 @@
     @author Christoph Sticksel
 *)
 
+(** Returns true iff a division by zero happened in a simplification since
+    this function was last called. *)
+val has_division_by_zero_happened: unit -> bool
+
 (** Simplify a term *)
 val simplify_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Term.t -> Term.t
 

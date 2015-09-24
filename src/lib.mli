@@ -22,8 +22,12 @@
 *)
 
 (** {1 Helper functions} *)
+
 (** Identity function. *)
 val identity : 'a -> 'a
+
+(** Prints the first argument and returns the second. *)
+val print_pass : string -> 'a -> 'a
 
 (** Returns true when given unit. *)
 val true_of_unit : unit -> bool
@@ -287,6 +291,8 @@ val int_of_log_level : log_level -> int
 
 val log_level_of_int : int -> log_level
 
+val tag_of_level : log_level -> string
+
 
 (** Current formatter for output *)
 val log_ppf : Format.formatter ref 
@@ -327,6 +333,7 @@ type kind_module =
   | `IND
   | `INVGEN
   | `INVGENOS
+  | `C2I
   | `Interpreter
   | `Supervisor
   | `Parser ]
@@ -389,6 +396,9 @@ val is_dummy_pos : position -> bool
 
 (** Pretty-print a position *)
 val pp_print_position : Format.formatter -> position -> unit
+
+(** Pretty-print a position in a concise way *)
+val pp_print_pos : Format.formatter -> position -> unit
 
 (** Return the file, line and column of a position; fail with
     [Invalid_argument "file_row_col_of_pos"] if the position is a dummy

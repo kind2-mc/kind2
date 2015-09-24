@@ -139,8 +139,21 @@ val get_logic : t -> TermLib.logic
 (** Return the scope identifying the transition system *)
 val scope_of_trans_sys : t -> Scope.t
 
+(** Returns the properties in a transition system. *)
+val get_properties : t -> Property.t list
 
-val mk_trans_sys : 
+(** Returns the mode requirements for this system as a list of triplets
+    [is_mode_global, mode_name, require_term].
+    Used by test generation. *)
+val get_mode_requires : t -> (bool * string * Term.t) list
+
+(** Returns the list of properties in a transition system, split by their
+    status as [valid, invalid, unknown]. *)
+val get_split_properties :
+  t -> Property.t list * Property.t list * Property.t list
+
+
+val mk_trans_sys :
 
   (** Start value for fresh instance identifiers *)
   ?instance_var_id_start:int ->
@@ -186,6 +199,12 @@ val mk_trans_sys :
 
   (** Properties *)
   Property.t list -> 
+
+  (** Requirements of global and non-global modes for this system (used by
+      test generation).
+      List of [(is_mode_global, mode_name, require_term)]. *)
+  (bool * string * Term.t) list ->
+
 
   (** One-state invariants *)
   Term.t list -> 

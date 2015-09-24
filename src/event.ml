@@ -28,6 +28,14 @@ exception Terminate
 (* ********************************************************************** *)
 
 
+(* Warning issued if model reconstruction triggers a division by zero. *)
+let div_by_zero_text prop_name = [
+  "Division by zero detected in model reconstruction." ;
+  Format.sprintf
+    "Counterexample for property \"%s\" may be inconsistent."
+    prop_name
+]
+
 (* Messages to be relayed between processes *)
 type event = 
   | Invariant of string list * Term.t 
@@ -37,7 +45,7 @@ type event =
 (* Pretty-print an event *)
 let pp_print_event ppf = function 
 
-  | Invariant (s, t) -> 
+  | Invariant (s, t) ->
     Format.fprintf ppf "@[<hv>Invariant for %a@ %a@]" 
       (pp_print_list Format.pp_print_string ".") s
       Term.pp_print_term t
@@ -270,20 +278,13 @@ let pp_print_level_pt ppf l = Format.fprintf ppf "%s" (pt_string_of_level l)
 
 
 (* Kind module as string for plain text output *)
-let pt_string_of_kind_module = function
-  | `IC3 -> "IC3"
-  | `BMC -> "BMC"
-  | `IND -> "inductive step"
-  | `INVGEN -> "two state invariant generator"
-  | `INVGENOS -> "one state invariant generator"
-  | `Supervisor -> "invariant manager"
-  | `Interpreter -> "interpreter"
-  | `Parser -> "parser"
+let pt_string_of_kind_module =
+  Format.asprintf "%a" pp_print_kind_module
 
 
-(* Pretty-print kind module  for plain text output *)
-let pp_print_kind_module_pt ppf m = 
-  Format.fprintf ppf "%s" (pt_string_of_kind_module m)
+(* Pretty-print kind module for plain text output *)
+let pp_print_kind_module_pt =
+  pp_print_kind_module
 
 
 (* Output message as plain text *)
@@ -292,7 +293,8 @@ let printf_pt mdl level fmt =
   (ignore_or_fprintf level)
     !log_ppf 
     (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("@[<hov>" ^^ fmt ^^ "@]@.@.") 
+    ("%s@[<hov>" ^^ fmt ^^ "@]@.@.")
+    (tag_of_level level)
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
     
@@ -308,8 +310,9 @@ let proved_pt mdl level trans_sys k prop =
   then 
 
     (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
+      !log_ppf
+      ("@[<hov>%s Property %s is valid %tby %a after %.3fs.@.@.")
+      success_tag
       prop
       (function ppf -> match k with
          | None -> ()
@@ -319,43 +322,31 @@ let proved_pt mdl level trans_sys k prop =
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt 
-    level
-    input_sys
-    analysis
-    trans_sys
-    prop_name
-    ppf =
+  level input_sys analysis trans_sys prop_name ppf
+= function
+| [] -> ()
+| cex -> (
+  (* Get property by name *)
+  let prop =
+    TransSys.property_of_name trans_sys prop_name
+  in
 
-  function
+  (* Slice counterexample and transitions system to property *)
+  let trans_sys, instances, cex, prop_term, input_sys =
+    InputSystem.slice_to_abstraction_and_property
+      input_sys
+      analysis
+      trans_sys
+      cex
+      prop
+  in
 
-    | [] -> ()
-
-    | cex -> 
-
-      (
-
-        (* Get property by name *)
-        let prop =
-          TransSys.property_of_name trans_sys prop_name
-        in
-
-        (* Slice counterexample and transitions system to property *)
-        let trans_sys', instances, cex', prop_term, input_sys' =
-          InputSystem.slice_to_abstraction_and_property
-            input_sys
-            analysis
-            trans_sys
-            cex
-            prop
-        in
-
-        (* Output counterexample *)
-        Format.fprintf ppf 
-          "Counterexample:@,%a"
-          (InputSystem.pp_print_path_pt input_sys' trans_sys' instances true) 
-          (Model.path_of_list cex')
-
-      )
+  (* Output counterexample *)
+  Format.fprintf ppf 
+    "Counterexample:@,  @[<v>%a@]"
+    (InputSystem.pp_print_path_pt input_sys trans_sys instances true) 
+    (Model.path_of_list cex)
+)
 
 
 (* Output execution path without slicing *)
@@ -386,20 +377,33 @@ let disproved_pt mdl level input_sys analysis trans_sys prop cex =
 
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then (
+    (* Reset division by zero indicator. *)
+    Simplify.has_division_by_zero_happened () |> ignore ;
 
+    (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
+      "@[<v>%s Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@."
+      failure_tag
       prop
       pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
          | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
       (Stat.get_float Stat.total_time)
-      (pp_print_counterexample_pt level input_sys analysis trans_sys prop) cex
+      (pp_print_counterexample_pt level input_sys analysis trans_sys prop)
+      cex ;
 
-  else
+    (* Output warning if division by zero happened in simplification. *)
+    if Simplify.has_division_by_zero_happened () then
+      div_by_zero_text prop
+      |> printf_pt mdl L_warn
+        "%s @[<v>%a@]"
+        warning_tag
+        (pp_print_list Format.pp_print_string "@,")
+
+  ) else
 
     (debug event "Status of property %s already known" prop in ())
 
@@ -435,7 +439,7 @@ let prop_status_pt level prop_status =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>%a@,Summary_of_properties:@,@,%a@,@]@."
+    "@[<v>%a@,Summary of properties:@,@,%a@,%a@,@]@."
     pp_print_hline ()
     (pp_print_list 
        (fun ppf (p, s) -> 
@@ -464,6 +468,7 @@ let prop_status_pt level prop_status =
             s)
        "@,")
     prop_status
+    pp_print_hline ()
           
 
 (* ********************************************************************** *)
@@ -487,15 +492,7 @@ let pp_print_level_xml_cls ppf l =
 
 
 (* Kind module as source attribute of log tag *)
-let xml_src_of_kind_module = function
-  | `IC3 -> "ic3"
-  | `BMC -> "bmc"
-  | `IND -> "indstep"
-  | `INVGEN -> "invgen"
-  | `INVGENOS -> "invgenos"
-  | `Supervisor -> "super"
-  | `Interpreter -> "interpreter"
-  | `Parser -> "parser"
+let xml_src_of_kind_module = suffix_of_kind_module
 
 
 (* Pretty-print kind module as source attribute of log tag *)
@@ -504,18 +501,33 @@ let pp_print_kind_module_xml_src ppf m =
 
 
 (* XML at the beginning the output *)
-let print_xml_header () = 
-
-  Format.fprintf 
-    !log_ppf 
-    "@[<v><?xml version=\"1.0\"?>@,\
-     <Results xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">@]@."
+let print_xml_header () =
+    Format.fprintf !log_ppf "@[<v>\
+      <?xml version=\"1.0\"?>@ \
+      <Results \
+        xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
+        enabled=\"%a\" \
+        timeout=\"%f\" \
+        bmc_max=\"%d\" \
+        compositional=\"%b\" \
+        modular=\"%b\"\
+      >@.@.@.\
+    "
+    (pp_print_list (fun fmt m ->
+        (xml_src_of_kind_module m) |> Format.fprintf fmt "%s"
+      )
+      ",")
+    (Flags.enable ())
+    (Flags.timeout_wall ())
+    (Flags.bmc_max ())
+    (Flags.compositional ())
+    (Flags.modular ())
 
 
 (* XML at the end of the output *)
 let print_xml_trailer () = 
 
-  Format.fprintf !log_ppf "</Results>@."
+  Format.fprintf !log_ppf "@.@.</Results>@."
 
 
 (* Output message as XML *)
@@ -546,7 +558,7 @@ let proved_xml mdl level trans_sys k prop =
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
         <Answer source=\"%a\">valid</Answer>@;<0 -2>\
-        </Property>@]@.") 
+        </Property>@]@.")
       prop
       (Stat.get_float Stat.total_time)
       (function ppf -> match k with 
@@ -624,8 +636,11 @@ let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t
 
     not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
-  then 
+  then (
+    (* Reset division by zero indicator. *)
+    Simplify.has_division_by_zero_happened () |> ignore ;
 
+    (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
       ("@[<hv 2><Property name=\"%s\">@,\
@@ -641,7 +656,15 @@ let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t
          | cex -> Format.fprintf ppf "<K>%d</K>@," (Property.length_of_cex cex))
       pp_print_kind_module_xml_src mdl
       (pp_print_counterexample_xml input_sys analysis trans_sys prop) 
-      cex
+      cex ;
+
+    (* Output warning if division by zero happened in simplification. *)
+    if Simplify.has_division_by_zero_happened () then
+      div_by_zero_text prop
+      |> printf_xml mdl L_warn
+        "@[<v>%a@]"
+        (pp_print_list Format.pp_print_string "@,")
+  )
   
 
 (* Output statistics section as XML *)
@@ -673,7 +696,11 @@ let progress_xml mdl level k =
 (* Pretty-print a list of properties and their status *)
 let prop_status_xml level prop_status =
 
-  (ignore_or_fprintf level)
+  (* Filter unknown properties. *)
+  prop_status
+  |> List.filter (fun (prop,status) ->
+    not (Property.prop_status_known status)
+  ) |> (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@]@."
     (pp_print_list 
@@ -712,7 +739,46 @@ let prop_status_xml level prop_status =
                      (Property.length_of_cex cex))
               s)
        "@,")
-    prop_status
+  (* (ignore_or_fprintf level)
+    !log_ppf
+    "@[<v>%a@]@."
+    (pp_print_list 
+       (fun ppf (p, s) -> 
+
+          (* Only output properties with status unknonw *)
+          if not (Property.prop_status_known s) then
+            
+            Format.fprintf 
+              ppf
+              "@[<hv 2><Property name=\"%s\">@,\
+               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
+               %a@,\
+               @;<0 -2></Property>@]"
+              p
+              (function ppf -> function 
+                 | Property.PropUnknown
+                 | Property.PropKTrue _ -> Format.fprintf ppf "unknown"
+                 | Property.PropInvariant -> Format.fprintf ppf "valid"
+                 | Property.PropFalse [] 
+                 | Property.PropFalse _ -> Format.fprintf ppf "falsifiable")
+              s
+              (function ppf -> function
+                 | Property.PropUnknown
+                 | Property.PropInvariant 
+                 | Property.PropFalse [] -> ()
+                 | Property.PropKTrue k -> 
+                   Format.fprintf 
+                     ppf 
+                     "@,@[<hv 2><TrueFor>@,%d@;<0 -2></TrueFor>@]"
+                     k
+                 | Property.PropFalse cex -> 
+                   Format.fprintf 
+                     ppf 
+                     "@,@[<hv 2><FalseAt>@,%d@;<0 -2></FalseAt>@]"
+                     (Property.length_of_cex cex))
+              s)
+       "@,")
+    prop_status *)
 
 
 (* ********************************************************************** *)
@@ -815,13 +881,18 @@ let log_proved mdl level trans_sys k prop =
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_relay -> ()
 
+(* Warning issued if model reconstruction triggers a division by zero. *)
+let div_by_zero_text = "division by zero detected, model may be inconsistent"
 
 (* Log a message with source and log level *)
 let log_disproved mdl level input_sys analysis trans_sys prop cex =
   match !log_format with 
-    | F_pt -> disproved_pt mdl level input_sys analysis trans_sys prop cex 
-    | F_xml -> disproved_xml mdl level input_sys analysis trans_sys prop cex
-    | F_relay -> ()
+  | F_pt ->
+    disproved_pt mdl level input_sys analysis trans_sys prop cex
+  | F_xml ->
+    disproved_xml mdl level input_sys analysis trans_sys prop cex
+  | F_relay -> ()
+
 
 
 (* Log an exection path *)
@@ -861,9 +932,113 @@ let log_progress mdl level k =
 (* Terminate log output *)
 let terminate_log () = 
   match !log_format with 
-    | F_pt -> ()
-    | F_xml -> print_xml_trailer ()
+    | F_pt -> Format.print_flush ()
+    | F_xml ->
+      print_xml_trailer () ;
+      Format.print_flush ()
     | F_relay -> ()
+
+
+(* Logs the end of a run. *)
+let log_run_end results =
+  match !log_format with
+  | F_pt ->
+    (* Printing a short, human readable version of all the results. *)
+    if Flags.compositional () then
+      Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
+        pp_print_hline ()
+        (pp_print_list Analysis.pp_print_result_quiet "@ ") results
+  | F_xml -> ()
+
+  | F_relay -> failwith "can only be called by supervisor"
+
+(* Logs the start of an analysis. *)
+let log_analysis_start param =
+  match !log_format with
+  | F_pt ->
+    if Flags.log_level () = L_off |> not then
+      Format.fprintf !log_ppf "\
+        @.%a@.@.Analyzing %a@   with %a\
+      @.@."
+      pp_print_hline ()
+      Scope.pp_print_scope param.Analysis.top
+      Analysis.pp_print_param param
+
+  | F_xml ->
+    (* Splitting abstract and concrete systems. *)
+    let abstract, concrete =
+      Scope.Map.fold (fun sys is_abstract (a,c) ->
+        if is_abstract then sys :: a, c else a, sys :: c
+      ) param.Analysis.abstraction_map ([],[])
+    in
+    (* Counting the number of assumption for each subsystem. *)
+    let assumption_count =
+      param.Analysis.assumptions |> List.fold_left (fun map (key, _) ->
+        let cpt = try (Scope.Map.find key map) + 1 with Not_found -> 1 in
+        Scope.Map.add key cpt map
+      ) Scope.Map.empty
+      |> Scope.Map.bindings
+    in
+    (* Opening [analysis] tag and printing info. *)
+    Format.fprintf !log_ppf "@.@.\
+      <Analysis \
+        top=\"%a\" \
+        concrete=\"%a\" \
+        abstract=\"%a\" \
+        assumptions=\"%a\"\
+      >@.@.\
+    "
+    Scope.pp_print_scope param.Analysis.top
+    (pp_print_list Scope.pp_print_scope ",") concrete
+    (pp_print_list Scope.pp_print_scope ",") abstract
+    (pp_print_list (fun fmt (scope, cpt) ->
+        Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
+      )
+      ","
+    ) assumption_count
+
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs the end of an analysis.
+    [log_analysis_start result] logs the end of an analysis. *)
+let log_analysis_end result =
+  match !log_format with
+  | F_pt -> ()
+  | F_xml ->
+    (* Closing [analysis] tag. *)
+    Format.fprintf !log_ppf "</Analysis>@.@."
+
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs a timeout. *)
+let log_timeout b =
+  let pref = if b then "Wallclock" else "CPU" in
+  match !log_format with
+  | F_pt ->
+    if Flags.log_level () = L_off |> not then
+      Format.printf "%s %s timeout.@.@." timeout_tag pref
+  | F_xml ->
+    log L_fatal "%s timeout." pref
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs a timeout. *)
+let log_interruption signal =
+  let txt =
+    Format.sprintf "Caught signal%s. Terminating." (
+      match signal with
+      | 0 -> ""
+      | _ -> Format.asprintf " %s" (string_of_signal signal)
+    )
+  in
+  match !log_format with
+  | F_pt ->
+    if Flags.log_level () = L_off |> not then
+      Format.printf "%s %s@.@." interruption_tag txt
+  | F_xml ->
+    log L_fatal "%s" txt
+  | F_relay -> failwith "can only be called by supervisor"
+
+
 
 
 (* ********************************************************************** *)
@@ -1050,6 +1225,15 @@ let recv () =
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
+
+(* Notifies the background thread of a new list of child
+   processes. Used by the supervisor in a modular analysis when
+   restarting. *)
+let update_child_processes_list new_process_list =
+  try
+    EventMessaging.update_child_processes_list
+      new_process_list
+  with Messaging.NotInitialized -> ()
 
 (* Terminates if a termination message was received. Does NOT modified
    received messages. *)

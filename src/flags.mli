@@ -94,30 +94,34 @@ val smt_trace_dir : unit -> smt_trace_dir
 
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list
-val enable : unit -> enable 
+val enable : unit -> enable
 
 (** Maximal number of iterations in BMC *)
 type bmc_max = int
 val bmc_max : unit -> bmc_max
 
+(** Check that the unrolling of the system alone is satisfiable. *)
+type bmc_check_unroll = bool
+val bmc_check_unroll : unit -> bmc_check_unroll
+
 (** Output version information and exit *)
 type check_version = bool
 val check_version : unit -> check_version
 
-(** Compresss inductive counterexample *)
+(** Compress inductive counterexample *)
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
 
-(** Compresss inductive counterexample when states are equal modulo
+(** Compress inductive counterexample when states are equal modulo
     inputs *)
 type ind_compress_equal = bool
 val ind_compress_equal : unit -> ind_compress_equal
 
-(** Compresss inductive counterexample when states have same successors *)
+(** Compress inductive counterexample when states have same successors *)
 type ind_compress_same_succ = bool
 val ind_compress_same_succ : unit -> ind_compress_same_succ
 
-(** Compresss inductive counterexample when states have same predecessors *)
+(** Compress inductive counterexample when states have same predecessors *)
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
 
@@ -190,6 +194,14 @@ val log_level : unit -> Lib.log_level
 (** Output in XML format *)
 val log_format_xml : unit -> bool
 
+(** Modular analysis. *)
+type modular = bool
+val modular : unit -> modular
+
+(** Compositional analysis. *)
+type compositional = bool
+val compositional : unit -> compositional
+
 (** Order variables in polynomials by order of elimination **)
 type cooper_order_var_by_elim = bool
 val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
@@ -197,6 +209,22 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 (** Choose lower bounds containing variables **)
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
+
+(** Activates test generation. *)
+type testgen_active = bool
+val testgen_active : unit -> testgen_active
+
+(** Command for lustrec. *)
+type testgen_lustrec = string option
+val testgen_lustrec : unit -> testgen_lustrec
+
+(** Output directory for test generation. *)
+type testgen_out_dir = string
+val testgen_out_dir : unit -> testgen_out_dir
+
+(** Length of the test case generated. *)
+type testgen_len = int
+val testgen_len : unit -> testgen_len
 
 (** InvGen will remove trivial invariants, i.e. invariants implied by
     the transition relation.. **)
@@ -215,6 +243,22 @@ val invgengraph_mine_trans : unit -> invgengraph_mine_trans
 (** Renice invariant generation process *)
 type invgengraph_renice = int
 val invgengraph_renice : unit -> invgengraph_renice
+
+(** Number of disjuncts in the DNF constructed by C2I. *)
+type c2i_dnf_size = int
+val c2i_dnf_size : unit -> c2i_dnf_size
+
+(** Number of int cubes in the DNF constructed by C2I. *)
+type c2i_int_cube_size = int
+val c2i_int_cube_size : unit -> c2i_int_cube_size
+
+(** Number of real cubes in the DNF constructed by C2I. *)
+type c2i_real_cube_size = int
+val c2i_real_cube_size : unit -> c2i_real_cube_size
+
+(** Whether mode sub candidate is activated in c2i. *)
+type c2i_modes = bool
+val c2i_modes : unit -> c2i_modes
 
 (** Read input from file **)
 type interpreter_input_file = string

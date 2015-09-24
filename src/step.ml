@@ -673,17 +673,18 @@ let launch input_sys aparam trans =
   next input_sys aparam trans solver Numeral.zero [] unknowns
 
 (* Runs the step instance. *)
-let main input_sys aparam trans = 
+let main input_sys aparam trans =
 
   if not (List.mem `BMC (Flags.enable ())) then
 
-    Event.log 
+    Event.log
       L_warn 
       "@[<v>Inductive step without BMC will not be able to prove or@ \
        disprove any properties.@,\
        Use both options --enable BMC --enable IND together.@]";
-      
+
   launch input_sys aparam trans
+
 
 
 (* 

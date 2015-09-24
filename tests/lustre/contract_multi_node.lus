@@ -10,6 +10,12 @@ node c (in: int; mem: bool) returns (out: int) ;
 -- contract : something ;
 --@require in >= 0 ;
 --@ensure  out >= 0 ;
+--@contract bla ;
+--@require mem ;
+--@ensure in = out ;
+--@contract bli ;
+--@require not mem ;
+--@ensure true -> out = pre out ;
 let
   out = in -> if mem then in else pre out ;
   --%PROPERTY out >= 0 ;
@@ -26,12 +32,18 @@ tel
 -- Increments [out] when [incr] is true, with a sliding window
 -- memorizing the 3 last values of [out] when [mem] is true.
 node a (incr, mem: bool) returns (out, p_out, pp_out, ppp_out: int) ;
--- contract : bla ;
---@require not (incr and mem) ;
---@ensure not (out = p_out) ; 
+--@contract bla ;
+--@require not incr ;
+--@ensure true -> out = pre out ;
 --@contract bli ;
---@require not (incr and mem) ;
---@ensure not (out = p_out) ; 
+--@require incr ;
+--@ensure true -> out = pre out + 1 ;
+--@contract blu ;
+--@require mem ;
+--@ensure true -> p_out = out ;
+--@contract blo ;
+--@require not mem ;
+--@ensure true -> p_out = pre p_out ;
 let
   out, p_out = b(incr, mem) ;
   pp_out = c(out -> pre p_out, mem) ;

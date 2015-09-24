@@ -31,6 +31,9 @@ exception Type_mismatch
 (* A Lustre expression is a term *)
 type expr = Term.t
 
+(* Lift of [Term.is_true]. *)
+let is_true_expr e = e = Term.t_true
+
 (* A Lustre type is a type *)
 type lustre_type = Type.t
 

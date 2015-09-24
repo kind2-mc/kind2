@@ -26,12 +26,8 @@ module N = LustreNode
 module F = LustreFunction
 
 
-type t = 
-
-  { 
-
-    (* Functions *)
-    functions : F.t list;
-
-  }
+type t = { 
+  (* Functions *)
+  functions : F.t list;
+}
 

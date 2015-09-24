@@ -3044,8 +3044,7 @@ let main input_sys aparam trans_sys =
     (* Yices with SMTLIB input does not work *)
     | `Yices_SMTLIB -> 
 
-      Event.log L_error
-        "Cannot use this solver in IC3."
+      Event.log L_error "Cannot use this solver in IC3."
 
     (* Else is fine or will break without unsound results *)
     | _ -> 
