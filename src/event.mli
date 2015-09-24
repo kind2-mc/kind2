@@ -91,6 +91,12 @@ val log_analysis_start : Analysis.param -> unit
     [log_analysis_start result] logs the end of an analysis. *)
 val log_analysis_end : Analysis.result -> unit
 
+(** Logs a timeout. Input should be [true] for wallclock, [false] for CPU. *)
+val log_timeout : bool -> unit
+
+(** Logs an interruption for some signal. *)
+val log_interruption : int -> unit
+
 
 (** {1 Events} *)
 

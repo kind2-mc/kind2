@@ -221,8 +221,7 @@ let status_of_exn process status =
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
     Event.log L_error
-      "%s In %a: a check-sat resulted in \"unknown\", exiting."
-      error_tag
+      "In %a: a check-sat resulted in \"unknown\", exiting."
       pp_print_kind_module process ;
     status
 
@@ -239,9 +238,7 @@ let status_of_exn process status =
   (* Catch wallclock timeout *)
   | TimeoutWall -> (
 
-    Event.log L_error
-      "%s Wallclock timeout"
-      timeout_tag ;
+    Event.log_timeout true ;
 
     status
 
@@ -250,9 +247,7 @@ let status_of_exn process status =
   (* Catch CPU timeout *)
   | TimeoutVirtual -> (
 
-    Event.log L_error
-      "%s CPU timeout"
-      timeout_tag ;
+    Event.log_timeout false ;
 
     status
 
@@ -261,13 +256,7 @@ let status_of_exn process status =
   (* Signal caught *)
   | Signal s -> (
 
-    Event.log L_fatal
-      "%s Caught signal%t. Terminating."
-      interruption_tag
-      (function ppf -> 
-        match s with 
-          | 0 -> () 
-          | _ -> Format.fprintf ppf " %s" (string_of_signal s));
+    Event.log_interruption s ;
 
     (* Return exit status and signal number *)
     status_signal + s
@@ -277,8 +266,7 @@ let status_of_exn process status =
   (* Other exception, return exit status for error. *)
   | e ->
     Event.log L_fatal
-      "%s Runtime error in %a: %s"
-      error_tag
+      "Runtime error in %a: %s"
       pp_print_kind_module process
       (Printexc.to_string e) ;
     status_error
@@ -626,8 +614,7 @@ let run_process messaging_setup process =
             let backtrace = Printexc.get_backtrace () in
 
             if Printexc.backtrace_status () then
-              Event.log L_fatal "%s Caught %s in %a.@ Backtrace:@\n%s"
-              error_tag
+              Event.log L_fatal "Caught %s in %a.@ Backtrace:@\n%s"
               (Printexc.to_string e)
               pp_print_kind_module process
               backtrace ;
@@ -954,7 +941,7 @@ let rec run_loop msg_setup modules results =
 
     | props ->
 
-      List.length props |> Event.log L_fatal "%d properties." ;
+      List.length props |> Event.log L_info "%d properties." ;
 
       Event.log L_trace "Starting child processes." ;
 

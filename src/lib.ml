@@ -48,7 +48,7 @@ let false_of_any _ = false
 (* ********************************************************************** *)
 
 (* Formats a string to construct a tag. *)
-let tagify = Format.sprintf "[%s]"
+let tagify = Format.sprintf "<%s>"
 
 (* Timeout tag. *)
 let timeout_tag = tagify "Timeout"
@@ -949,6 +949,11 @@ let log_level_of_int = function
   | 4 -> L_debug
   | 5 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
+
+let tag_of_level = function
+| L_fatal | L_error -> error_tag
+| L_warn -> warning_tag
+| _ -> ""
 
 (* Compare two levels *)
 let compare_levels l1 l2 = 

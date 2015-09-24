@@ -20,6 +20,20 @@
 
 open LustreParser
 
+(* XML or plain text warning.
+
+   Adrien: Relying on Event causes circular build. Factor in Lib, along with
+     context warnings? *)
+let print_warning fmt =
+  if Flags.log_format_xml () then
+    Format.printf ("@[<hov 2>\
+        <Log class=\"warn\" source=\"parse\">@,\
+          @[<hov>" ^^ fmt ^^ "@]\
+        @;<0 -2></Log>\
+      @]@.")
+  else
+    Format.printf ("%s @[<v>" ^^ fmt ^^ "@]@.") Lib.warning_tag
+
 (* Pretty-print an array of integers *)
 let rec pp_print_int_array i ppf a = 
 
@@ -455,53 +469,59 @@ and skip_commented_parenstar = parse
 and comment = parse 
 
   (* Annotation *)
-  | "%" (id as p) 
-      { match p with 
+  | "%" (id as p) {
+    match p with 
 
-        (* Ignore rest of line and return token *)
-        | "MAIN" -> return_at_eol MAIN lexbuf
+    (* Ignore rest of line and return token *)
+    | "MAIN" -> return_at_eol MAIN lexbuf
 
-        (* Return token, continue with rest of line *)
-        | "PROPERTY" -> PROPERTY
+    (* Return token, continue with rest of line *)
+    | "PROPERTY" -> PROPERTY
 
-        (* Warn and ignore rest of line *)
-        | _ -> (Format.printf "Warning: unknown annotation %s skipped@." p; 
-                skip_to_eol lexbuf ) }
+    (* Warn and ignore rest of line *)
+    | _ -> (
+      print_warning "Unknown annotation %s skipped" p ;
+      skip_to_eol lexbuf
+    )
+  }
 
   (* Contract *)
-  | "@" (id as p) 
-      { match p with
+  | "@" (id as p) {
+    match p with
 
-        (* Ignore rest of line and return token *)
-        | "main" -> return_at_eol MAIN lexbuf
+    (* Ignore rest of line and return token *)
+    | "main" -> return_at_eol MAIN lexbuf
 
-        (* Return token, continue with rest of line *)
-        | "property" -> PROPERTY
+    (* Return token, continue with rest of line *)
+    | "property" -> PROPERTY
 
-        (* Return token, continue with rest of line *)
-        | "var" -> COMMENTGHOSTVAR
+    (* Return token, continue with rest of line *)
+    | "var" -> COMMENTGHOSTVAR
 
-        (* Return token, continue with rest of line *)
-        | "const" -> COMMENTGHOSTCONST
+    (* Return token, continue with rest of line *)
+    | "const" -> COMMENTGHOSTCONST
 
-        (* Return token, continue with rest of line. *)
-        | "import" -> COMMENTIMPORT
+    (* Return token, continue with rest of line. *)
+    | "import" -> COMMENTIMPORT
 
-        (* Return token, continue with rest of line. *)
-        | "import_mode" -> COMMENTIMPORTMODE
+    (* Return token, continue with rest of line. *)
+    | "import_mode" -> COMMENTIMPORTMODE
 
-        (* Return token, continue with rest of line. *)
-        | "contract" -> COMMENTCONTRACT
+    (* Return token, continue with rest of line. *)
+    | "contract" -> COMMENTCONTRACT
 
-        (* Return token, continue with rest of line *)
-        | "require" -> COMMENTREQUIRE
+    (* Return token, continue with rest of line *)
+    | "require" -> COMMENTREQUIRE
 
-        (* Return token, continue with rest of line *)
-        | "ensure" -> COMMENTENSURE
+    (* Return token, continue with rest of line *)
+    | "ensure" -> COMMENTENSURE
 
-        (* Warn and ignore rest of line *)
-        | _ -> (Format.printf "Warning: unknown contract %s skipped@." p; 
-                skip_to_eol lexbuf ) }
+    (* Warn and ignore rest of line *)
+    | _ -> (
+      print_warning "Unknown contract %s skipped" p ;
+      skip_to_eol lexbuf
+    )
+  }
 (*
   (* Bang annotation *)
   | "!" (id as p) { BANGCOMMENT p }

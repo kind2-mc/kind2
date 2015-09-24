@@ -293,7 +293,8 @@ let printf_pt mdl level fmt =
   (ignore_or_fprintf level)
     !log_ppf 
     (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("@[<hov>" ^^ fmt ^^ "@]@.@.") 
+    ("%s@[<hov>" ^^ fmt ^^ "@]@.@.")
+    (tag_of_level level)
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
     
@@ -1007,6 +1008,34 @@ let log_analysis_end result =
     (* Closing [analysis] tag. *)
     Format.fprintf !log_ppf "</Analysis>@.@."
 
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs a timeout. *)
+let log_timeout b =
+  let pref = if b then "Wallclock" else "CPU" in
+  match !log_format with
+  | F_pt ->
+    if Flags.log_level () = L_off |> not then
+      Format.printf "%s %s timeout.@.@." timeout_tag pref
+  | F_xml ->
+    log L_fatal "%s timeout." pref
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs a timeout. *)
+let log_interruption signal =
+  let txt =
+    Format.sprintf "Caught signal%s. Terminating." (
+      match signal with
+      | 0 -> ""
+      | _ -> Format.asprintf " %s" (string_of_signal signal)
+    )
+  in
+  match !log_format with
+  | F_pt ->
+    if Flags.log_level () = L_off |> not then
+      Format.printf "%s %s@.@." interruption_tag txt
+  | F_xml ->
+    log L_fatal "%s" txt
   | F_relay -> failwith "can only be called by supervisor"
 
 
