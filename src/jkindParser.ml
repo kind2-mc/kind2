@@ -115,7 +115,7 @@ let build_call_base kind_sv base_li parents =
         | Some _, _ -> bni ^"~condact~"^ (string_of_int n)
       in
 
-      jcall_name :: acc, (clock <> None)
+      jcall_name :: acc, (prev_clocked || clock <> None)
     ) ([], false) parents
   in
 
