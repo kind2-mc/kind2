@@ -220,7 +220,7 @@ let pp_print_features fmt l =
   if L.is_empty l then fprintf fmt "SAT";
   if L.mem UF l then fprintf fmt "UF";
   if L.mem NA l then fprintf fmt "N"
-  else if L.mem LA l then fprintf fmt "L";
+  else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
   if L.mem IA l then fprintf fmt "I";
   if L.mem RA l then fprintf fmt "R"; 
   if L.mem IA l || L.mem RA l then fprintf fmt "A"
