@@ -1,4 +1,3 @@
-
 function sincos(in: real) returns (sin: real; cos: real);
 --@const max = 1.0;
 --@const pi = 3.14;
@@ -7,11 +6,11 @@ function sincos(in: real) returns (sin: real; cos: real);
 --@require in <= 0.0 or in >= 0.0;
 --@ensure min <= sin and sin <= max;
 
---@contract pos;
+--@mode pos;
 --@require 0.0 <= in and in <= tau;
 --@ensure sin >= 0.0;
 
---@contract neg;
+--@mode neg;
 --@require - tau <= in and in <= 0.0;
 --@ensure sin <= 0.0;
 
