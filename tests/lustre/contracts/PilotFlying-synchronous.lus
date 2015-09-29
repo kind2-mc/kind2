@@ -173,32 +173,31 @@ node PFS_Logic
 returns 
   (PFS : bool);
 
---@global_contract : init_R1 ;
 --@require true -> (pre not PFS) => (not riseOSPF) ;
 --@ensure  (PFS = Primary_Side) -> true ;
 
---@contract : active_change_R3 ;
+--@mode active_change_R3 ;
 --@require riseOSPF ;
 --@require false -> pre PFS ;
 --@ensure  not PFS ;
 
---@contract : inactive_change_R3 ;
+--@mode inactive_change_R3 ;
 --@require riseTS ;
 --@require false -> not pre PFS ;
 --@require Duration(true) > inhibit_count_max + 2 ;
 --@require SinceGTOrZero(riseOSPF, inhibit_count_max + 1) ;
 --@ensure  PFS ;
 
---@contract : inhibited_R2_R3 ;
+--@mode inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
 --@require SinceLENotZero(riseOSPF, inhibit_count_max + 1) ;
 --@ensure  not PFS ;
 
---@contract : active_no_switch_R5 ;
+--@mode active_no_switch_R5 ;
 --@require Primary_Side -> ((pre PFS) and not riseOSPF) ;
 --@ensure  true -> PFS ;
 
---@contract : inactive_no_switch_R5 ;
+--@mode inactive_no_switch_R5 ;
 --@require (not Primary_Side) -> ((not pre PFS) and not riseTS) ;
 --@ensure  true -> not PFS ;
 
@@ -253,33 +252,32 @@ node PFS_Side
 returns 
   (PFS : bool);
 
---@global_contract : init_R1 ;
 --@require true -> (pre not PFS) => (not Rise(OSPF)) ;
 --@require (Primary_Side => not OSPF) -> true ;
 --@ensure  (PFS = Primary_Side) -> true ;
 
---@contract : active_change_R3 ;
+--@mode active_change_R3 ;
 --@require Rise(OSPF) ;
 --@require false -> pre PFS ;
 --@ensure  not PFS ;
 
---@contract : inactive_change_R3 ;
+--@mode inactive_change_R3 ;
 --@require Rise(TS) ;
 --@require false -> not pre PFS ;
 --@require Duration(true) > inhibit_count_max + 2 ;
 --@require SinceGTOrZero(Rise(OSPF), inhibit_count_max + 1) ;
 --@ensure  PFS ;
 
---@contract : inhibited_R2_R3 ;
+--@mode inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
 --@require SinceLENotZero(Rise(OSPF), inhibit_count_max + 1) ;
 --@ensure  not PFS ;
 
---@contract : active_no_switch_R5 ;
+--@mode active_no_switch_R5 ;
 --@require Primary_Side -> ((pre PFS) and not Rise(OSPF)) ;
 --@ensure  PFS ;
 
---@contract : inactive_no_switch_R5 ;
+--@mode inactive_no_switch_R5 ;
 --@require (not Primary_Side) -> ((not pre PFS) and not Rise(TS)) ;
 --@ensure  not PFS ;
 
@@ -309,7 +307,6 @@ node Cross_Channel_Bus
 returns
   (O : bool);
 
---@global_contract : property ;
 --@ensure (O = Init_Bool) -> (O = pre I) ;
 
 const St_Step : int = 1;
@@ -375,22 +372,21 @@ node PFS
 returns 
   (LPFS, RPFS, LS_PFS, RS_PFS, RL_O, LR_O : bool) ;
 
---@global_contract : global ;
 --@require Duration(true) <= inhibit_count_max + 2 => not Rise(TS) ;
 --@ensure (LPFS and (not RPFS)) -> true ;
 --@ensure  LPFS or RPFS ;
 --@ensure SinceGTOrZero(Rise(TS), 1) => LPFS = not RPFS;
 
---@contract : inhibited_R2_R3 ;
+--@mode inhibited_R2_R3 ;
 --@require false -> SinceLENotZero(Fall(true -> pre LPFS) or Fall(false -> pre RPFS), inhibit_count_max) ;
 --@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
---@contract : unchanged_nop_R5 ;
+--@mode unchanged_nop_R5 ;
 --@require SinceGTOrZero(Rise(TS), 2) ;
 --@ensure  (not (Changed(RPFS) or Changed(LPFS))) ;
 
 
---@contract : change_R3_Rise;
+--@mode change_R3_Rise;
 
 -- TS rised less_eq than all_ticked_max (7) steps ago.
 --@require Rise(TS) ;
@@ -406,7 +402,7 @@ inhibit_count_max) ;
 
 
 
---@contract : change_R3_Fall;
+--@mode change_R3_Fall;
 
 -- One side rised.
 --@require Since(Rise(true -> pre LPFS) or Rise(false -> pre RPFS)) = 1 ;

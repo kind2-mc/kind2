@@ -5,7 +5,7 @@ let
 tel
 
 node c1_node (in: int) returns (out: int);
---@contract c1 ;
+--@mode c1 ;
 let
   out = in + 5 ;
 tel
@@ -16,8 +16,7 @@ let
 tel
 
 node bla (in: int) returns (out: int);
---@contract c1 ;
---@contract : should_fail ;
+--@mode c1 ;
 --@require in >= 0 ;
 -- Illegal call to a node with a
 -- contract spec in contract

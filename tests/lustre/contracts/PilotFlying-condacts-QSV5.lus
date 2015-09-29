@@ -143,38 +143,37 @@ node PFS_Logic
 returns 
   (PFS : bool);
 
---@global_contract : init_R1 ;
 --@ensure  (PFS = Primary_Side) -> true ;
 
---@contract : inhibited_R2_R3 ;
+--@mode inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
 --@require false -> (Since(Changed(pre PFS)) <= inhibit_count_max + 1) ;
 --@require false -> (Since(Changed(pre PFS)) > 0) ;
 --@ensure  true -> (PFS = pre PFS) ;
 
---@contract : inhibited_init ;
+--@mode inhibited_init ;
 --@require (Duration(true) <= inhibit_count_max + 3) ;
 --@require true -> (not pre PFS) ;
 --@ensure true -> not PFS ;
 
---@contract : active_change_R3 ;
+--@mode active_change_R3 ;
 --@require riseOSPF ;
 --@require false -> pre PFS ;
 --@require Duration(true) > inhibit_count_max;
 --@ensure  not PFS ;
 
---@contract : inactive_change_R3 ;
+--@mode inactive_change_R3 ;
 --@require riseTS ;
 --@require false -> not pre PFS ;
 --@require Duration(true) > inhibit_count_max ;
 --@require false -> pre Duration(not Changed(PFS)) > inhibit_count_max;
 --@ensure  PFS or (Duration(true) <= inhibit_count_max + 3) ;
 
---@contract : active_no_switch_R5 ;
+--@mode active_no_switch_R5 ;
 --@require false -> ((pre PFS) and not riseOSPF) ;
 --@ensure  true -> PFS ;
 
---@contract : inactive_no_switch_R5 ;
+--@mode inactive_no_switch_R5 ;
 --@require false -> ((not pre PFS) and not riseTS) ;
 --@ensure  true -> not PFS ;
 
@@ -268,37 +267,36 @@ node PFS_Side
 returns 
   (PFS : bool);
 
---@global_contract : init_R1 ;
 --@ensure (PFS = Primary_Side) -> true ;
 
---@contract : inhibited_R2_R3 ;
+--@mode inhibited_R2_R3 ;
 --@require false -> not pre PFS ;
 --@require false -> (Since(Changed(pre PFS)) <= inhibit_count_max + 1) ;
 --@require false -> (Since(Changed(pre PFS)) > 0) ;
 --@ensure  true -> (PFS = pre PFS) ;
 
---@contract : inhibited_init ;
+--@mode inhibited_init ;
 --@require (Duration(true) <= inhibit_count_max + 3) ;
 --@require true -> (not pre PFS) ;
 --@ensure  true -> not PFS ;
 
---@contract : active_change_R3 ;
+--@mode active_change_R3 ;
 --@require Rise(OSPF) ;
 --@require false -> pre PFS ;
 --@require Duration(true) > inhibit_count_max;
 --@ensure  not PFS ;
 
---@contract : inactive_change_R3 ;
+--@mode inactive_change_R3 ;
 --@require Rise(TS) ;
 --@require false -> not pre PFS ;
 --@require false -> pre Duration(not Changed(PFS)) > inhibit_count_max;
 --@ensure  PFS or (Duration(true) <= inhibit_count_max + 3) ;
 
---@contract : active_no_switch_R5 ;
+--@mode active_no_switch_R5 ;
 --@require false -> ((pre PFS) and not Rise(OSPF)) ;
 --@ensure  true -> PFS ;
 
---@contract : inactive_no_switch_R5 ;
+--@mode inactive_no_switch_R5 ;
 --@require false -> ((not pre PFS) and not Rise(TS)) ;
 --@ensure  true -> not PFS ;
 
@@ -328,7 +326,6 @@ node Cross_Channel_Bus
 returns
   (O : bool);
 
---@global_contract : property ;
 --@ensure (O = Init_Bool) or (false -> (O = pre I)) ;
 
 const St_Step : int = 1;
@@ -413,26 +410,25 @@ node PFS
 returns 
   (LPFS, RPFS : bool) ;
 
---@global_contract : global_R1_R4 ;
 --@require True_At_Least(TS, 7);
 --@require True_At_Least(not TS, 7);
 --@require qs_calendar(LS_CLK, RS_CLK, LR_CLK, RL_CLK);
 --@ensure  (LPFS or RPFS) ;
 --@ensure  (LPFS and (not RPFS)) -> true ;
 
---@contract : init_contract ;
+--@mode init_contract ;
 --@require Duration(not Initializing(LS_CLK, RS_CLK, LR_CLK, RL_CLK)) <= 24 ;
 --@ensure  (LPFS or RPFS) ;
 
---@contract : only_one_active_R2;
+--@mode only_one_active_R2;
 --@require Duration(not Initializing(LS_CLK, RS_CLK, LR_CLK, RL_CLK) and not Rise(TS)) > 24;
 --@ensure  true -> (LPFS = not RPFS);
 
---@contract : change_R3;
+--@mode change_R3;
 --@require Since(Duration(pre(not Initializing(LS_CLK, RS_CLK, LR_CLK, RL_CLK) and not Rise(TS))) > 45 and Rise(TS)) = 7;
 --@ensure  Within(Rise(LPFS) or Rise(RPFS), 7);
 
---@contract : unchanged_R5; 
+--@mode unchanged_R5; 
 --@require Duration(not Initializing(LS_CLK, RS_CLK, LR_CLK, RL_CLK) and not Rise(TS)) > 25;
 --@ensure (not (Changed(RPFS) or Changed(LPFS)));
 

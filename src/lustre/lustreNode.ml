@@ -141,10 +141,10 @@ type contract = {
   contract_pos: position;
 
   (* Invariant from requirements of contract *)
-  contract_reqs : (position * StateVar.t) list;
+  contract_reqs : (position * int * StateVar.t) list;
 
   (* Invariants from ensures of contract *)
-  contract_enss : (position * StateVar.t) list
+  contract_enss : (position * int * StateVar.t) list
 
 }
 
@@ -438,14 +438,14 @@ let pp_print_prop safe ppf (sv, n, _) =
          Format.fprintf ppf " -- was: %s" n)
 
 (* Pretty-print an assumption *)
-let pp_print_require safe ppf (_,sv) =
+let pp_print_require safe ppf (_,_,sv) =
   Format.fprintf ppf
     "@[<hv 2>--@@require@ @[<h>%a@];@]"
     (E.pp_print_lustre_var safe) sv
 
 
 (* Pretty-print a guarantee *)
-let pp_print_ensure safe ppf (_,sv) =
+let pp_print_ensure safe ppf (_,_,sv) =
   Format.fprintf ppf
     "@[<hv 2>--@@ensure @[<h>%a@];@]"
     (E.pp_print_lustre_var safe) sv
@@ -655,7 +655,7 @@ let pp_print_node_debug
       { contract_name;
         contract_reqs;
         contract_enss } =
-    let pp_snd_of fmt (_,sv) =
+    let pp_thrd_of fmt (_,_,sv) =
       Format.fprintf fmt "%a" StateVar.pp_print_state_var sv
     in
 
@@ -665,8 +665,8 @@ let pp_print_node_debug
             requires = @[<hv>%a@]@,\
             ensures =  @[<hv>%a@]@]"
       (I.pp_print_ident false) contract_name
-      (pp_print_list pp_snd_of ",@ ") contract_reqs
-      (pp_print_list pp_snd_of ",@ ") contract_enss
+      (pp_print_list pp_thrd_of ",@ ") contract_reqs
+      (pp_print_list pp_thrd_of ",@ ") contract_enss
   in
 
   let pp_print_state_var_source ppf = 
@@ -1160,8 +1160,9 @@ let stateful_vars_of_expr { E.expr_step } =
 
 let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var 
 
-let stateful_vars_of_contract { contract_reqs; contract_enss } = 
-  ( List.map snd contract_reqs ) @ ( List.map snd contract_enss )
+let stateful_vars_of_contract { contract_reqs; contract_enss } =
+  let thrd_of (_,_,thrd) = thrd in
+  ( List.map thrd_of contract_reqs ) @ ( List.map thrd_of contract_enss )
   |> SVS.of_list
 
 (* Return all stateful variables from expressions in a node *)

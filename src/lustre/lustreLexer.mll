@@ -508,7 +508,7 @@ and comment = parse
     | "import_mode" -> COMMENTIMPORTMODE
 
     (* Return token, continue with rest of line. *)
-    | "contract" -> COMMENTCONTRACT
+    | "mode" -> COMMENTMODE
 
     (* Return token, continue with rest of line *)
     | "require" -> COMMENTREQUIRE
@@ -518,12 +518,12 @@ and comment = parse
 
     (* Warn and ignore rest of line *)
     | _ -> (
-      print_warning "Unknown contract %s skipped" p ;
+      print_warning "Unknown \"@\" contract annotation %s skipped" p ;
       skip_to_eol lexbuf
     )
   }
 
-  (* Contract *)
+  (* Bang annotation *)
   | "!" (id as p) {
     match p with
 
@@ -535,7 +535,7 @@ and comment = parse
 
     (* Warn and ignore rest of line *)
     | _ -> (
-      print_warning "Unknown contract %s skipped" p ;
+      print_warning "Unknown \"!\" annotation %s skipped" p ;
       skip_to_eol lexbuf
     )
   }

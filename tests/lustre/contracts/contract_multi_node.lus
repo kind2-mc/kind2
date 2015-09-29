@@ -7,7 +7,7 @@ tel
 
 -- Memorizes the value of [in] when [mem] is true.
 node c (in: int; mem: bool) returns (out: int) ;
---@contract : something ;
+--@mode something ;
 --@require in >= 0 ;
 --@ensure  out >= 0 ;
 let
@@ -26,10 +26,10 @@ tel
 -- Increments [out] when [incr] is true, with a sliding window
 -- memorizing the 3 last values of [out] when [mem] is true.
 node a (incr, mem: bool) returns (out, p_out, pp_out, ppp_out: int) ;
---@contract : bla ;
+--@mode bla ;
 --@require not (incr and mem) ;
 --@ensure not (out = p_out) ; 
---@contract : bli ;
+--@mode bli ;
 --@require not (incr and mem) ;
 --@ensure not (out = p_out) ; 
 let

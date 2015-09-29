@@ -961,7 +961,7 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
 
 
 (* Introduce fresh state variable for a require expression *)
-let eval_req (accum, ctx) (pos, expr) = 
+let eval_req (accum, ctx, count) (pos, expr) = 
 
   (* Evaluate expression to a Boolean expression, may change
      context *)
@@ -976,11 +976,11 @@ let eval_req (accum, ctx) (pos, expr) =
 
   (* Add state variable to accumulator, continue with possibly
      modified context *)
-  (pos, state_var) :: accum, ctx
+  (pos, count, state_var) :: accum, ctx, count + 1
   
 
 (* Introduce fresh state variable for an ensure expression *)
-let eval_ens (accum, ctx) (pos, expr) = 
+let eval_ens (accum, ctx, count) (pos, expr) = 
 
   (* Evaluate expression to a Boolean expression, may change
      context *)
@@ -995,7 +995,7 @@ let eval_ens (accum, ctx) (pos, expr) =
 
   (* Add state variable to accumulator, continue with possibly
      modified context *)
-  (pos, state_var) :: accum, ctx
+  (pos, count, state_var) :: accum, ctx, count + 1
 
 
 (* Declare and define ghost streams, requires and ensures expressions
@@ -1003,10 +1003,10 @@ let eval_ens (accum, ctx) (pos, expr) =
 let eval_node_contract ctx contract_pos contract_name reqs enss =
 
   (* Evaluate require clauses separately. *)
-  let contract_reqs, ctx = List.fold_left eval_req ([], ctx) reqs in
+  let contract_reqs, ctx, _ = List.fold_left eval_req ([], ctx, 1) reqs in 
   
   (* Evaluate ensure clauses separately. *)
-  let contract_enss, ctx = List.fold_left eval_ens ([], ctx) enss in
+  let contract_enss, ctx, _ = List.fold_left eval_ens ([], ctx, 1) enss in
 
   (* Return a contract *)
   ({ N.contract_name;
