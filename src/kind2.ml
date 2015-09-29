@@ -914,10 +914,15 @@ let setup () =
 
   Event.log L_info "Parsing input file \"%s\"." in_file ;
 
-  in_file |> match Flags.input_format () with
-    | `Lustre -> InputSystem.read_input_lustre
-    | `Native -> (* InputSystem.read_input_native *) assert false
-    | `Horn   -> (* InputSystem.read_input_horn *)   assert false
+  try
+    in_file |> match Flags.input_format () with
+      | `Lustre -> InputSystem.read_input_lustre
+      | `Native -> (* InputSystem.read_input_native *) assert false
+      | `Horn   -> (* InputSystem.read_input_horn *)   assert false
+  with e -> (* Could not create input system. *)
+    (* Terminating log and exiting with error. *)
+    Event.terminate_log () ;
+    exit status_error
 
 (* Launches analyses. *)
 let rec run_loop msg_setup modules results =
