@@ -229,8 +229,8 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
   ( global_contracts
     |> List.fold_left (fun prop_list { N.contract_name ; N.contract_reqs } ->
         let name = I.string_of_ident false contract_name in
-        contract_reqs |> List.fold_left (fun prop_list (pos,sv) ->
-          (sv |> E.mk_var |> f_global name pos) :: prop_list
+        contract_reqs |> List.fold_left (fun prop_list (pos,count,sv) ->
+          (sv |> E.mk_var |> f_global name pos count) :: prop_list
         ) prop_list
     ) [] )
 
@@ -242,7 +242,7 @@ let contract_req_map f_global f_mode global_contracts mode_contracts =
     (* Disjunction of requirements from all modes *)
     [ mode_contracts
       |> List.map (fun { N.contract_reqs } -> 
-          contract_reqs |> List.map (fun (_,sv) -> sv |> E.mk_var)
+          contract_reqs |> List.map (fun (_,_,sv) -> sv |> E.mk_var)
           |> E.mk_and_n
       )
       |> E.mk_or_n
@@ -255,14 +255,14 @@ let contract_extract_requires global_contracts mode_contracts = (
   global_contracts |> List.map (fun { N.contract_name ; N.contract_reqs } ->
     true,
     I.string_of_ident false contract_name,
-    contract_reqs |> List.map (fun (pos,sv) -> sv |> E.mk_var)
+    contract_reqs |> List.map (fun (pos,_,sv) -> sv |> E.mk_var)
     |> E.mk_and_n |> E.cur_term_of_t TransSys.prop_base
   )
 ) @ (
   mode_contracts |> List.map (fun { N.contract_name ; N.contract_reqs } ->
     false,
     I.string_of_ident false contract_name,
-    contract_reqs |> List.map (fun (pos,sv) -> sv |> E.mk_var)
+    contract_reqs |> List.map (fun (pos,_,sv) -> sv |> E.mk_var)
     |> E.mk_and_n |> E.cur_term_of_t TransSys.prop_base
   )
 )
@@ -280,9 +280,9 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
     (fun accum { N.contract_name ; N.contract_enss } ->
       let name = LustreIdent.string_of_ident false contract_name in
        List.map
-         (fun (pos, sv_ens) -> 
+         (fun (pos, count, sv_ens) -> 
             E.mk_var sv_ens
-            |> f_global name pos)
+            |> f_global name pos count)
          contract_enss @ accum)
     []
     global_contracts
@@ -296,16 +296,16 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
       
         (* Guard for property is requirement *)
         let t_req =
-          contract_reqs |> List.map (fun pair -> snd pair |> E.mk_var)
+          contract_reqs |> List.map (fun (_,_,sv) -> E.mk_var sv)
           |> E.mk_and_n
         in
          
         (* Each property in mode contract is implication between
            requirement and ensures *)
         List.map
-          (fun (pos, sv_ens) -> 
+          (fun (pos, count, sv_ens) -> 
              E.mk_impl t_req (E.mk_var sv_ens)
-             |> f_mode name pos)
+             |> f_mode name pos count)
           contract_enss @ accum )
     []
     mode_contracts
@@ -324,20 +324,22 @@ let props_of_req scope { N.global_contracts; N.mode_contracts } =
   let prop_status = P.PropUnknown in
 
   (* Create property from terms of global and mode requires *)
-  contract_req_map 
-    ( fun contract_name req_pos ->
-        let ident = Ident.of_string contract_name in
-        let scope = ident :: scope in
-        let name =
-          Format.asprintf "%s.require[%a]"
-            contract_name pprint_pos req_pos
-        in
-        P.ContractGlobalRequire scope
-        |> property_of_expr name prop_status )
+  contract_req_map
+    ( fun contract_name req_pos req_count ->
+      let ident = Ident.of_string contract_name in
+      let scope = ident :: scope in
+      let name =
+        Format.asprintf "%s.require[%a][%d]"
+          contract_name pprint_pos req_pos req_count
+      in
+      P.ContractGlobalRequire scope
+      |> property_of_expr name prop_status
+    )
     ( property_of_expr
         "one_mode_active"
         prop_status
-        (P.ContractModeRequire scope) )
+        (P.ContractModeRequire scope)
+    )
     global_contracts
     mode_contracts
 
@@ -347,34 +349,36 @@ let expr_of_req scope { N.global_contracts; N.mode_contracts } =
 
   (* Return terms of global and mode requires unchanged *)
   contract_req_map 
-    (fun _ _ -> identity)
+    (fun _ _ _ -> identity)
     identity
     global_contracts
     mode_contracts
 
 
 (* Return properties from contracts of node *)
-let props_of_ens scope { N.global_contracts; N.mode_contracts } = 
+let props_of_ens scope { N.global_contracts; N.mode_contracts } =
 
   (*  *)
-  let prop_name_of name pos =
-    Format.asprintf "%s.ensure[%a]" name pprint_pos pos
+  let prop_name_of count name pos =
+    Format.asprintf "%s.ensure[%a][%d]" name pprint_pos pos count
   in
 
   (* Property is unknown *)
   let prop_status = P.PropUnknown in
        
   (* Create property with fixed name and status *)
-  let property_of_expr' name pos =
-    property_of_expr (prop_name_of name pos) prop_status
+  let property_of_expr' count name pos =
+    property_of_expr (prop_name_of count name pos) prop_status
   in
 
   (* Create property from terms of global and mode requires *)
-  contract_ens_map 
-    ( fun name pos ->
-        property_of_expr' name pos (P.ContractGlobalEnsure (pos, scope)) )
-    ( fun name pos ->
-        property_of_expr' name pos (P.ContractModeEnsure (pos, scope)) )
+  contract_ens_map (
+      fun name pos count ->
+        property_of_expr' count name pos (P.ContractGlobalEnsure (pos, scope))
+    ) (
+      fun name pos count ->
+        property_of_expr' count name pos (P.ContractModeEnsure (pos, scope))
+    )
     global_contracts
     mode_contracts
 
@@ -384,8 +388,8 @@ let expr_of_ens scope { N.global_contracts; N.mode_contracts } =
 
   (* Return terms of global and mode requires unchanged *)
   contract_ens_map 
-    (fun _ _ -> identity)
-    (fun _ _ -> identity)
+    (fun _ _ _ -> identity)
+    (fun _ _ _ -> identity)
     global_contracts
     mode_contracts
 

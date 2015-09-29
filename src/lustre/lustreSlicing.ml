@@ -720,7 +720,8 @@ let roots_of_contracts contract =
 
   (* State variables in a contract are requirements and ensures *)
   let roots_of_contract { N.contract_reqs; N.contract_enss } = 
-    (List.map snd contract_reqs) @ (List.map snd contract_enss)
+    let thrd_of (_,_,thrd) = thrd in
+    (List.map thrd_of contract_reqs) @ (List.map thrd_of contract_enss)
   in
 
   (* Combine state variables from global contract and mode
