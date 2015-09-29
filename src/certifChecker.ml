@@ -27,6 +27,8 @@ module SVS = StateVar.StateVarSet
 module IntM = Map.Make (struct type t = int let compare = compare end)
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
+let global_jkind_vars = ref []
+
 
 (*************************************************)
 (* Hard coded options for certificate generation *)
@@ -1187,7 +1189,8 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
       if jkind_vars = [] then begin
   
       Event.log L_fatal
-        "[Warning] Could not find a match for the variable %a."
+        "[Warning] Could not find a match for the%s variable %a."
+        (if StateVar.is_input sv then " INPUT" else "")
         StateVar.pp_print_state_var sv;
       
         if prop (* && jkind_vars = [] *) then begin
@@ -1203,6 +1206,7 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
 
 
       List.fold_left (fun acc jv ->
+          global_jkind_vars := List.filter (fun sv -> not (StateVar.equal_state_vars sv jv)) !global_jkind_vars;
           Term.mk_eq [term_state_var sv; term_state_var jv] :: acc
         ) acc jkind_vars
 
@@ -1344,8 +1348,15 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let init = init_uf, (state_vars0, init_term) in
   let trans = trans_uf, (state_vars1 @ state_vars0, trans_term) in
 
+  global_jkind_vars := orig_jkind_vars; 
+  
   (* Create properties *)
   let props = mk_multiprop_obs ~only_out:false lustre_vars kind2_sys in
+
+  (debug certif
+     "@[<hv 4>UnMAtched JKind vars:@,%a@]@."
+     (pp_print_list StateVar.pp_print_state_var "@,") !global_jkind_vars
+   end);
   
   (* Create observer system *)
   let obs_sys =
