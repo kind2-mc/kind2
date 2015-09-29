@@ -1630,7 +1630,7 @@ and eval_function_call
       F.mode_contracts } 
     args = 
 
-(*   args |> Format.printf
+  (* args |> Format.printf
     "args = @[<hov>%a@]@.@."
     (pp_print_list A.pp_print_expr ",@ ") ; *)
 
@@ -1700,6 +1700,12 @@ and eval_function_call
       C.fail_at_position pos "Type mismatch for input parameters"
 
   in
+
+  (* Format.printf "args' = @[<v>%a@]@.@."
+    (D.pp_print_trie (fun fmt (_,e) ->
+        Format.fprintf fmt "%a" (E.pp_print_lustre_expr true) e
+      ) "@ ") args' ; *)
+
 
   match 
     
