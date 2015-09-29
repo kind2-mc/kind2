@@ -1156,14 +1156,14 @@ let rec constraints_of_function_calls
     N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs
   } :: tl ->
 
-    let 
-
-      (* Definition of called function *)
-      { F.inputs; 
-        F.outputs; 
-        F.output_ufs; 
-        F.global_contracts; 
-        F.mode_contracts } as fn = 
+    (* Definition of called function *)
+    let {
+      F.inputs; 
+      F.outputs; 
+      F.output_ufs; 
+      F.global_contracts; 
+      F.mode_contracts
+    } as fn =
 
       (* Get called function by name *)
       try F.function_of_name call_function_name functions 

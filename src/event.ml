@@ -293,7 +293,7 @@ let printf_pt mdl level fmt =
   (ignore_or_fprintf level)
     !log_ppf 
     (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("%s@[<hov>" ^^ fmt ^^ "@]@.@.")
+    ("%s @[<hov>" ^^ fmt ^^ "@]@.@.")
     (tag_of_level level)
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
@@ -399,7 +399,7 @@ let disproved_pt mdl level input_sys analysis trans_sys prop cex =
     if Simplify.has_division_by_zero_happened () then
       div_by_zero_text prop
       |> printf_pt mdl L_warn
-        "%s @[<v>%a@]"
+        "%s @[<v> %a@]"
         warning_tag
         (pp_print_list Format.pp_print_string "@,")
 
@@ -1016,7 +1016,7 @@ let log_timeout b =
   match !log_format with
   | F_pt ->
     if Flags.log_level () = L_off |> not then
-      Format.printf "%s %s timeout.@.@." timeout_tag pref
+      Format.printf "%s %s timeout.@.@." timeout_tag pref 
   | F_xml ->
     log L_fatal "%s timeout." pref
   | F_relay -> failwith "can only be called by supervisor"

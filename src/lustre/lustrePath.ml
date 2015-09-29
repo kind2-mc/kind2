@@ -275,24 +275,47 @@ let map_top_reconstruct_and_add
     index
     state_var =
 
-  try 
+  try
+
+    (* Format.printf "map_top_reconstruct_and_add@.@." ;
+    Format.printf "  state_var %a@.@."
+      StateVar.pp_print_state_var state_var ; *)
 
     (* Return the model for the instance *)
     map_top_and_add instances model model' index state_var
 
   (* No instance, or no model *)
   with Not_found ->
+
+    (* Format.printf "not found@.@." ; *)
     
     (* Get stateful variables of transition system *)
     let stateful_vars = TransSys.state_vars trans_sys in
 
+    (* Format.printf "stateful:@.  @[<v>%a@]@.@."
+      (pp_print_list StateVar.pp_print_state_var "@ ") stateful_vars ; *)
+
     (* Get definition in terms of state variables of the top node *)
     let expr init =
+      let equations = equations_of_init init in
+(*       Format.printf "equations (%b):@.  @[<v>%a@]@.@."
+        init
+        (pp_print_list (fun fmt (sv,_,e) ->
+          Format.fprintf fmt "%a = %a"
+            StateVar.pp_print_state_var sv
+            (LustreExpr.pp_print_lustre_expr true) e)
+         "@ ")
+        equations ; *)
       substitute_definitions
         stateful_vars
-        (equations_of_init init)
+        equations
         state_var
     in
+
+    (* Format.printf "%a = %a -> %a@.@."
+      StateVar.pp_print_state_var state_var
+      (LustreExpr.pp_print_lustre_expr true) (expr true)
+      (LustreExpr.pp_print_lustre_expr true) (expr false) ; *)
 
     (* Evaluate expression with reversed list of models *)
     let rec aux expr_not_init accum = function 
@@ -344,7 +367,7 @@ let map_top_reconstruct_and_add
 
           (* Evaluate expression for step state *)
           |> Eval.eval_term
-            (TransSys.uf_defs trans_sys) 
+            (TransSys.uf_defs trans_sys)
             m
 
           (* Return term *)
@@ -378,18 +401,25 @@ let function_path_of_instance
   subnodes
 =
 
+  (* Format.printf "function_path_of_instance@.@." ; *)
+
   let model = Model.create_path (
       D.cardinal call_inputs + D.cardinal call_outputs
     )
   in
 
+  (* Format.printf "model@.@." ; *)
 
   let { F.inputs; F.outputs } as fun_def =
     try F.function_of_name call_function_name globals.LustreGlobals.functions
     with Not_found -> assert false
   in
 
+  (* Format.printf "fun_def@.@." ; *)
+
   let call_outputs = call_outputs |> D.map E.mk_var in
+
+  (* Format.printf "call_outputs@.@." ; *)
 
   let zip formal actual =
     D.fold2 (fun _ f a l ->
@@ -398,10 +428,13 @@ let function_path_of_instance
   in
 
   let equations_of_init init =
-    N.ordered_equations_of_node
-      node (TransSys.state_vars trans_sys) init
-    |> zip inputs call_inputs |> zip outputs call_outputs
+    (zip inputs call_inputs [] |> zip outputs call_outputs) @ (
+      N.ordered_equations_of_node
+        node (TransSys.state_vars trans_sys) init
+    )
   in
+
+
 
   inputs |> D.iter (
     map_top_reconstruct_and_add
@@ -413,6 +446,8 @@ let function_path_of_instance
       model
   ) ;
 
+  (* Format.printf "inputs@.@." ; *)
+
   outputs |> D.iter (
     map_top_reconstruct_and_add
       first_is_init
@@ -422,6 +457,8 @@ let function_path_of_instance
       model_top
       model
   ) ;
+
+  (* Format.printf "outputs@.@." ; *)
 
   (name, call_pos) :: trace, Function(fun_def, model)
 
@@ -438,6 +475,8 @@ let node_path_of_instance
     instances
     subnodes =
 
+  (* Format.printf "node_path_of_instance@.@." ; *)
+
   (* Record trace of node calls *)
   let trace = 
     List.map
@@ -445,6 +484,8 @@ let node_path_of_instance
          (TransSys.scope_of_trans_sys t |> I.of_scope, pos))
       instances
   in
+
+  (* Format.printf "trace@.@." ; *)
 
   let subnodes = function_calls |> List.fold_left (fun l fc ->
       ( function_path_of_instance
@@ -460,6 +501,8 @@ let node_path_of_instance
     ) subnodes
   in
 
+  (* Format.printf "subnodes@.@." ; *)
+
   (* Create a path for the state variables of the node *)
   let model = 
     Model.create_path
@@ -467,6 +510,8 @@ let node_path_of_instance
        D.cardinal outputs +
        List.fold_left (fun a d -> D.cardinal d + a) 0 locals)
   in
+
+  (* Format.printf "model@.@." ; *)
 
   (* Map all input state variables to the top instances and add their
      path to the model
@@ -520,19 +565,35 @@ let node_path_of_subsystems
     ({ S.scope } as subsystems)
     globals =
 
+  (* Format.printf "trans_sys@.@." ; *)
+
   (* Get transition system of top scope of subsystems *)
   let trans_sys' = 
     TransSys.find_subsystem_of_scope trans_sys scope 
   in
 
+  (* Format.printf "nodes@.@." ; *)
+
   let nodes = N.nodes_of_subsystem subsystems in
 
-  (* Create models for all subnodes *)
-  N.fold_node_calls_with_trans_sys
-    nodes
-    (node_path_of_instance first_is_init globals model)
-    (N.node_of_name (I.of_scope scope) nodes)
-    trans_sys'
+  (* Format.printf "folding@.@." ; *)
+  Printexc.record_backtrace true ;
+
+  try
+    (* Create models for all subnodes *)
+    N.fold_node_calls_with_trans_sys
+      nodes
+      (node_path_of_instance first_is_init globals model)
+      (N.node_of_name (I.of_scope scope) nodes)
+      trans_sys'
+  with e ->
+    (* Get backtrace now, Printf changes it *)
+    let backtrace = Printexc.get_backtrace () in
+
+    Format.printf "Caught %s.@ Backtrace:@\n%s@.@."
+      (Printexc.to_string e)
+      backtrace ;
+    raise e
 
 
 (* *************************************************************** *)
@@ -757,91 +818,84 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
-let rec pp_print_lustre_path_pt' ppf = 
+let rec pp_print_lustre_path_pt' ppf = function
 
-  function 
+(* All nodes printed *)
+| [] -> ()
 
-    (* All nodes printed *)
-    | [] -> ()
+(* Take first node to print *)
+| (trace, t) :: tl ->
 
-    (* Take first node to print *)
-    | (trace, t) :: tl ->
+  let name, inputs, outputs, locals, is_visible, model, subnodes, title =
+    match t with
+    | Node (
+      { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
+    ) ->
+      name, inputs, outputs, locals,
+      N.state_var_is_visible node, model, subnodes,
+      "Node"
+    | Function ( { F.name; F.inputs; F.outputs }, model ) ->
+      name, inputs, outputs, [], (fun _ -> true), model, [], "Function"
+  in
 
-      let name, inputs, outputs, locals, is_visible, model, subnodes, title =
-        match t with
-        | Node (
-          { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
-        ) ->
-          name, inputs, outputs, locals,
-          N.state_var_is_visible node, model, subnodes,
-          "Node"
-        | Function ( { F.name; F.inputs; F.outputs }, model ) ->
-          name, inputs, outputs, [], (fun _ -> true), model, [], "Function"
-      in
+  (* Remove first dimension from index *)
+  let pop_head_index = function 
+    | ([], sv) -> ([], sv)
+    | (h :: tl, sv) -> (tl, sv)
+  in
 
-      (* Remove first dimension from index *)
-      let pop_head_index = function 
-        | ([], sv) -> ([], sv)
-        | (h :: tl, sv) -> (tl, sv)
-      in
+  (* Reset maximum widths for this node *)
+  let ident_width, val_width = 0, 0 in
 
-      (* Reset maximum widths for this node *)
-      let ident_width, val_width = 0, 0 in
+  (* Remove index of position in input for printing *)
+  let ident_width, val_width, inputs' = 
+    D.bindings inputs
+    |> List.map pop_head_index
+    |> streams_to_strings model ident_width val_width []
+  in
 
-      (* Remove index of position in input for printing *)
-      let ident_width, val_width, inputs' = 
-        D.bindings inputs
-        |> List.map pop_head_index
-        |> streams_to_strings model ident_width val_width []
-      in
+  (* Remove index of position in output for printing *)
+  let ident_width, val_width, outputs' = 
+    D.bindings outputs
+    |> List.map pop_head_index
+    |> streams_to_strings model ident_width val_width []
+  in
 
-      (* Remove index of position in output for printing *)
-      let ident_width, val_width, outputs' = 
-        D.bindings outputs
-        |> List.map pop_head_index
-        |> streams_to_strings model ident_width val_width []
-      in
+  (* Filter locals to for visible state variables only and return
+     as a list 
 
-      (* Filter locals to for visible state variables only and return
-         as a list 
+     The list of locals is the reversed from the original input in
+     the node, with fold_left here we get it in the original order
+     again. *)
+  let ident_width, val_width, locals' = 
+    locals |> List.fold_left (
+      fun a d ->
+        (D.filter (fun _ sv -> is_visible sv) d |> D.bindings) @ a
+    ) []
+    |> streams_to_strings model ident_width val_width []
+  in
 
-         The list of locals is the reversed from the original input in
-         the node, with fold_left here we get it in the original order
-         again. *)
-      let ident_width, val_width, locals' = 
-        List.fold_left
-          (fun a d -> 
-             (D.filter 
-                (fun _ sv -> is_visible sv)
-                d
-              |> D.bindings) 
-             @ a)
-          []
-          locals
-        |> streams_to_strings model ident_width val_width []
-      in
+  (* Pretty-print this node or function. *)
+  Format.fprintf ppf "@[<v>\
+      %s %a (%a)@,  @[<v>\
+        %a\
+        %a\
+        %a\
+      @]\
+    @,@]"
+    title
+    (I.pp_print_ident false) 
+    name
+    (pp_print_list pp_print_call_pt " / ") 
+    (List.rev trace)
+    (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
+    (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
+    (pp_print_stream_section_pt ident_width val_width "Locals") locals';
 
-      (* Pretty-print this node *)
-      Format.fprintf ppf "@[<v>\
-          %s %a (%a)@,  @[<v>\
-            %a\
-            %a\
-            %a\
-          @]\
-        @,@]"
-        title
-        (I.pp_print_ident false) 
-        name
-        (pp_print_list pp_print_call_pt " / ") 
-        (List.rev trace)
-        (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
-        (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
-        (pp_print_stream_section_pt ident_width val_width "Locals") locals';
-
-      (* Recurse depth-first to print subnodes *)
-      pp_print_lustre_path_pt' 
-        ppf
-        (subnodes @ tl)
+  (* Recurse depth-first to print subnodes *)
+  pp_print_lustre_path_pt' 
+    ppf
+    (subnodes @ tl)
 
 
 (* Output sequences of values for each stream of the node and for all

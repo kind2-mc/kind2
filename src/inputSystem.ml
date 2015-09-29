@@ -229,10 +229,10 @@ let slice_to_abstraction_and_property
     
       (* Get clock of node call identified by its position. *)
       let { LustreNode.call_clock } = 
-        List.find
-          (fun { LustreNode.call_node_name; 
-                 LustreNode.call_pos } -> call_pos = pos)
-          calls
+        List.find (fun {
+            LustreNode.call_node_name; LustreNode.call_pos
+          } -> call_pos = pos
+        ) calls
       in
 
       (* Node call has an activation condition? *)
@@ -282,9 +282,9 @@ let slice_to_abstraction_and_property
   in  
 
   (* Map counterexample and property to S. *)
-  let trans_sys', instances, cex', { Property.prop_term } =
+  let trans_sys', instances, cex', prop' =
     TransSys.map_cex_prop_to_subsystem 
-      filter_out_values trans_sys  cex prop
+      filter_out_values trans_sys cex prop
   in
 
   (* Replace top system with subsystem for slicing. *)
@@ -294,17 +294,24 @@ let slice_to_abstraction_and_property
   in
 
   (* Return subsystem that contains the property *)
-  trans_sys', instances, cex', prop_term, (
+  trans_sys', instances, cex', prop'.Property.prop_term, (
 
     (* Slicing is input-specific *)
     match input_sys with 
 
     (* Slice Lustre subnode to property term *)
-    | Lustre (subsystem, globals) -> 
+    | Lustre (subsystem, globals) ->
+
+     let vars = match prop'.Property.prop_source with
+      | Property.ContractGlobalRequire _ | Property.ContractModeRequire _ ->
+        TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
+      | _ ->
+        Term.state_vars_of_term prop'.Property.prop_term
+    in
 
      let subsystem', globals' = 
        LustreSlicing.slice_to_abstraction_and_property
-         analysis' prop_term subsystem globals
+         analysis' vars subsystem globals
      in
 
      Lustre (subsystem', globals')
