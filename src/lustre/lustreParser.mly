@@ -93,7 +93,7 @@ let mk_pos = position_of_lexing
 %token COMMENTGHOSTCONST
 %token COMMENTIMPORT
 %token COMMENTIMPORTMODE
-%token COMMENTCONTRACT
+%token COMMENTMODE
 %token COMMENTREQUIRE
 %token COMMENTENSURE
 
@@ -357,7 +357,7 @@ contract_spec:
   | ghost_consts = list(comment_contract_ghost_const);
     ghost_vars = list(comment_contract_ghost_var);
     global = option(contract_global);
-    modes  = list(contract)
+    modes  = list(mode)
     { ghost_consts, ghost_vars, global, modes }
 
 (* Need three production with not empty lists to forbid a contract
@@ -377,18 +377,18 @@ contract_global:
   | COMMENTIMPORT; n = ident; SEMICOLON
     { A.ContractCall (mk_pos $startpos, n) }
 
-(* Need three production with not empty lists to forbid a contract
+(* Need three production with not empty lists to forbid a mode
    without requires and ensures. This causes a conflict, because an
-   empty contract looks like no contracts. *)
-contract:
-  | COMMENTCONTRACT; n = ident; SEMICOLON
+   empty mode looks like no modes. *)
+mode:
+  | COMMENTMODE; n = ident; SEMICOLON
     reqs = nonempty_list(comment_contract_require);
     enss = nonempty_list(comment_contract_ensure)
     { A.InlinedContract (mk_pos $startpos, n, reqs, enss) }
-  | COMMENTCONTRACT; n = ident; SEMICOLON
+  | COMMENTMODE; n = ident; SEMICOLON
     reqs = nonempty_list(comment_contract_require);
     { A.InlinedContract (mk_pos $startpos, n, reqs, []) }
-  | COMMENTCONTRACT; n = ident; SEMICOLON
+  | COMMENTMODE; n = ident; SEMICOLON
     enss = nonempty_list(comment_contract_ensure)
     { A.InlinedContract (mk_pos $startpos, n, [], enss) }
   | COMMENTIMPORTMODE; n = ident; SEMICOLON
