@@ -775,7 +775,7 @@ let rec slice_nodes
           N.outputs; 
           N.locals; 
           N.state_var_source_map } as node_sliced), 
-       node_unsliced) :: tl -> 
+       node_unsliced) :: tl ->
 
       (* If this is the top node, slice away inputs and outputs *)
       let inputs', outputs' = 
@@ -1179,7 +1179,7 @@ let root_and_leaves_of_impl
   
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
-    (match roots with 
+    ( match roots with 
       
       (* No roots given? *)
       | None -> 
@@ -1190,12 +1190,14 @@ let root_and_leaves_of_impl
         |> SVS.union (roots_of_props props |> SVS.of_list)
                                           
       (* Use instead of roots from properties and contracts *)
-      | Some r -> r)
+      | Some r -> r )
 
     |> add_roots_of_asserts asserts
 
     (* Consider outputs as roots except at the top node *)
-    |> SVS.union (if is_top then SVS.empty else D.values outputs |> SVS.of_list) 
+    |> SVS.union (
+      if is_top then SVS.empty else D.values outputs |> SVS.of_list
+    )
     |> SVS.elements
   in
 
@@ -1274,35 +1276,25 @@ let node_is_abstract analysis { N.name } =
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map 
-    is_top
-    roots
-    abstraction_map
-    ({ N.name } as node) = 
-
-  if node_is_abstract abstraction_map node then 
-
-    (* Node is to be abstract *)
+  is_top roots abstraction_map ({ N.name } as node)
+=
+  if node_is_abstract abstraction_map node
+  then (* Node is to be abstract *)
     root_and_leaves_of_contracts is_top roots node 
-
-  else
-
-    (* Node is to be concrete *)
+  else (* Node is to be concrete *)
     root_and_leaves_of_impl is_top roots node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction'
-    ({ A.top } as analysis) 
-    roots 
-    subsystem
-    { G.functions } =
+  ({ A.top } as analysis) roots subsystem { G.functions }
+=
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)
   let nodes =
-    S.find_subsystem subsystem top
-    |> N.nodes_of_subsystem 
+    S.find_subsystem subsystem top |> N.nodes_of_subsystem 
   in
   
   (* Slice all nodes to either abstraction or implementation *)
@@ -1315,7 +1307,7 @@ let slice_to_abstraction'
       functions
       []
       [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
-      
+
   in
   
   (* Create subsystem from list of nodes *)
@@ -1330,9 +1322,8 @@ let slice_to_abstraction analysis subsystem globals =
   
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction_and_property analysis term subsystem globals = 
-
-  let roots = Some (Term.state_vars_of_term term) in 
+let slice_to_abstraction_and_property analysis vars subsystem globals =
+  let roots = Some vars in
   slice_to_abstraction' analysis roots subsystem globals
 
 
