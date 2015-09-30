@@ -104,6 +104,10 @@ val bmc_max : unit -> bmc_max
 type bmc_check_unroll = bool
 val bmc_check_unroll : unit -> bmc_check_unroll
 
+(** Print counterexamples to induction. *)
+type ind_print_cex = bool
+val ind_print_cex : unit -> ind_print_cex
+
 (** Output version information and exit *)
 type check_version = bool
 val check_version : unit -> check_version
@@ -128,10 +132,6 @@ val ind_compress_same_pred : unit -> ind_compress_same_pred
 (** Lazy assertion of invariants. *)
 type ind_lazy_invariants = bool
 val ind_lazy_invariants : unit -> ind_lazy_invariants
-
-(* (** Output inductive counterexample *)
-type ind_print_inductive_cex = bool
-val ind_print_inductive_cex : unit -> ind_print_inductive_cex *)
 
 (** Algorithm for quantifier elimination in IC3 *)
 type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
