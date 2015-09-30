@@ -1,5 +1,4 @@
 node bla(in: real) returns (out: real) ;
---@require in > 0.0 ;
 var tmp: real ;
 let
   tmp = in -> pre in ;
