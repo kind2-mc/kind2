@@ -40,11 +40,17 @@ val set_log_format_xml : unit -> unit
 (** Relay log messages to invariant manager *)
 val set_relay_log : unit -> unit
 
+(** Logs a step counterexample.
+
+    Should only be used by step for sending the cex, and invariant manager to
+    actually print it. *)
+val log_step_cex : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
+
 (** Log a disproved property
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
+val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (** Log a proved property
 
@@ -104,6 +110,7 @@ val log_interruption : int -> unit
 type event = 
   | Invariant of string list * Term.t 
   | PropStatus of string * Property.prop_status
+  | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
@@ -124,6 +131,9 @@ val progress : int -> unit
 
 (** Broadcast a discovered top level invariant *)
 val invariant : string list -> Term.t -> unit
+
+(** Broadcast a step cex *)
+val step_cex : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (** Broadcast a property status *)
 val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit

@@ -40,6 +40,7 @@ let div_by_zero_text prop_name = [
 type event = 
   | Invariant of string list * Term.t 
   | PropStatus of string * Property.prop_status
+  | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 
 
 (* Pretty-print an event *)
@@ -66,6 +67,13 @@ let pp_print_event ppf = function
     Format.fprintf 
       ppf
       "@[<hv>Property %s false at step %d@]" 
+      p
+      (Property.length_of_cex cex)
+
+  | StepCex (p, cex) ->
+    Format.fprintf 
+      ppf
+      "@[<hv>Step cex for property %s at step %d@]" 
       p
       (Property.length_of_cex cex)
 
@@ -133,6 +141,26 @@ struct
 
       PropStatus (p, Property.PropFalse cex')
 
+    | "STEP_CEX" -> 
+
+      let p = pop () in
+
+      let cex_string = pop () in
+      
+      let cex : (StateVar.t * Model.term_or_lambda list) list = 
+        Marshal.from_string cex_string 0
+      in
+      
+      let cex' =
+        List.map
+          (fun (sv, t) -> 
+             (StateVar.import sv, 
+              List.map Model.import_term_or_lambda t))
+          cex
+      in
+
+      StepCex (p, cex')
+
     | s -> 
 
       (debug event 
@@ -173,6 +201,13 @@ struct
       let cex_string = Marshal.to_string cex [Marshal.No_sharing] in
       
       [cex_string; p; "PROP_FALSE"]
+
+    | StepCex (p, cex) ->
+
+      (* Serialize counterexample to string *)
+      let cex_string = Marshal.to_string cex [Marshal.No_sharing] in
+      
+      [cex_string; p; "STEP_CEX"]
 
   (* Pretty-print a message *)
   let pp_print_message = pp_print_event
@@ -322,7 +357,7 @@ let proved_pt mdl level trans_sys k prop =
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt 
-  level input_sys analysis trans_sys prop_name ppf
+  level input_sys analysis trans_sys prop_name disproved ppf
 = function
 | [] -> ()
 | cex -> (
@@ -344,7 +379,7 @@ let pp_print_counterexample_pt
   (* Output counterexample *)
   Format.fprintf ppf 
     "Counterexample:@,  @[<v>%a@]"
-    (InputSystem.pp_print_path_pt input_sys trans_sys instances true) 
+    (InputSystem.pp_print_path_pt input_sys trans_sys instances disproved)
     (Model.path_of_list cex)
 )
 
@@ -367,10 +402,9 @@ let execution_path_pt level input_sys analysis trans_sys path =
     ("@[<v>Execution:@,\
       %a@]@.")
     (pp_print_path_pt input_sys analysis trans_sys true) path
-  
 
-(* Output disproved property as plain text *)
-let disproved_pt mdl level input_sys analysis trans_sys prop cex = 
+(* Output cex for a property as plain text *)
+let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
 
   (* Only ouptut if status was unknown *)
   if 
@@ -384,15 +418,21 @@ let disproved_pt mdl level input_sys analysis trans_sys prop cex =
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
-      "@[<v>%s Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@."
-      failure_tag
+      "@[<v>%s Property %s %s %tafter %.3fs.@,@,%a@]@."
+      (if disproved then failure_tag else warning_tag)
       prop
-      pp_print_kind_module_pt mdl
+      (
+        if disproved then
+          Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
+        else
+          "has a step k-induction counterexample"
+      )
       (function ppf -> match cex with
          | [] -> ()
          | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
       (Stat.get_float Stat.total_time)
-      (pp_print_counterexample_pt level input_sys analysis trans_sys prop)
+      (pp_print_counterexample_pt
+        level input_sys analysis trans_sys prop disproved)
       cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -573,6 +613,7 @@ let pp_print_counterexample_xml
     analysis
     trans_sys
     prop_name
+    disproved
     ppf =
 
   function
@@ -598,11 +639,20 @@ let pp_print_counterexample_xml
             prop
         in
 
+        let tag =
+          if disproved then "Counterexample"
+          else "InductionCounterexample"
+        in
+
         (* Output counterexample *)
         Format.fprintf ppf 
-          "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
+          "@[<hv 2>\
+            <%s>@,%a@;<0 -2></%s>\
+          @]"
+          tag
           (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true) 
           (Model.path_of_list cex')
+          tag
 
       )
 
@@ -629,7 +679,10 @@ let execution_path_xml level input_sys analysis trans_sys path =
   
 
 (* Output disproved property as XML *)
-let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t * Model.term_or_lambda list) list) = 
+let cex_xml
+mdl level input_sys analysis trans_sys prop (
+  cex : (StateVar.t * Model.term_or_lambda list) list
+) disproved = 
 
   (* Only ouptut if status was unknown *)
   if 
@@ -655,7 +708,7 @@ let disproved_xml mdl level input_sys analysis trans_sys prop (cex : (StateVar.t
          | [] -> () 
          | cex -> Format.fprintf ppf "<K>%d</K>@," (Property.length_of_cex cex))
       pp_print_kind_module_xml_src mdl
-      (pp_print_counterexample_xml input_sys analysis trans_sys prop) 
+      (pp_print_counterexample_xml input_sys analysis trans_sys prop disproved)
       cex ;
 
     (* Output warning if division by zero happened in simplification. *)
@@ -885,14 +938,21 @@ let log_proved mdl level trans_sys k prop =
 let div_by_zero_text = "division by zero detected, model may be inconsistent"
 
 (* Log a message with source and log level *)
-let log_disproved mdl level input_sys analysis trans_sys prop cex =
+let log_cex disproved mdl level input_sys analysis trans_sys prop cex =
   match !log_format with 
   | F_pt ->
-    disproved_pt mdl level input_sys analysis trans_sys prop cex
+    cex_pt mdl level input_sys analysis trans_sys prop cex disproved
   | F_xml ->
-    disproved_xml mdl level input_sys analysis trans_sys prop cex
+    cex_xml mdl level input_sys analysis trans_sys prop cex disproved
   | F_relay -> ()
 
+(* Log a message with source and log level *)
+let log_disproved mdl level input_sys analysis trans_sys prop cex =
+  log_cex true mdl level input_sys analysis trans_sys prop cex
+
+(* Log a step counterexample. *)
+let log_step_cex mdl level input_sys analysis trans_sys prop cex =
+  log_cex false mdl level input_sys analysis trans_sys prop cex
 
 
 (* Log an exection path *)
@@ -1061,8 +1121,9 @@ let invariant scope term =
   with Messaging.NotInitialized -> ()
 
 
+
 (* Broadcast a property status *)
-let prop_status status input_sys analysis trans_sys prop = 
+let prop_status status input_sys analysis trans_sys prop =
   
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time;
@@ -1072,7 +1133,7 @@ let prop_status status input_sys analysis trans_sys prop =
   (match status with
     | Property.PropInvariant -> log_proved mdl L_warn trans_sys None prop
     | Property.PropFalse cex -> 
-      log_disproved mdl L_warn input_sys analysis trans_sys prop cex
+      log_cex true mdl L_warn input_sys analysis trans_sys prop cex
 
     | _ -> ());
 
@@ -1081,8 +1142,26 @@ let prop_status status input_sys analysis trans_sys prop =
 
   try
     
-    (* Send invariant message *)
+    (* Send status message *)
     EventMessaging.send_relay_message (PropStatus (prop, status))
+
+  (* Don't fail if not initialized *) 
+  with Messaging.NotInitialized -> ()
+
+
+
+(* Broadcast a step cex *)
+let step_cex input_sys analysis trans_sys prop cex =
+  
+  (* Update time in case we are not running in parallel mode *)
+  Stat.update_time Stat.total_time;
+
+  log_cex true (get_module ()) L_warn input_sys analysis trans_sys prop cex ;
+
+  try
+    
+    (* Send status message *)
+    EventMessaging.send_relay_message (StepCex (prop, cex))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -1334,7 +1413,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     | (m, PropStatus (p, (Property.PropFalse cex as s))) :: tl -> 
 
       (* Output disproved property *)
-      log_disproved m L_warn input_sys analysis trans_sys p cex;
+      log_cex true m L_warn input_sys analysis trans_sys p cex ;
 
       (* Change property status in transition system *)
       TransSys.set_prop_false trans_sys p cex;
@@ -1344,6 +1423,19 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
         trans_sys
         invars
         ((m, (p, s)) :: prop_status) 
+        tl
+
+    (* Property found false *)
+    | (m, StepCex (p, cex)) :: tl -> 
+
+      (* Output disproved property *)
+      log_cex false m L_warn input_sys analysis trans_sys p cex ;
+
+      (* Continue with unchanged accumulator *)
+      update_trans_sys' 
+        trans_sys
+        invars
+        prop_status
         tl
 
   in

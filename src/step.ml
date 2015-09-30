@@ -227,7 +227,7 @@ let eval_terms_assert_first_false trans solver eval k =
   result
 
 (* Check-sat and splits properties.. *)
-let split trans solver k to_split actlits =
+let split (input_sys, analysis, trans) solver k to_split actlits =
   
   (* Function to run if sat. *)
   let if_sat _ =
@@ -236,7 +236,11 @@ let split trans solver k to_split actlits =
     let model = 
 
       (* Do we need the full model? *)
-      if (Flags.ind_compress ()) || (Flags.ind_lazy_invariants ()) then 
+      if
+        (Flags.ind_compress ()) ||
+        (Flags.ind_lazy_invariants ()) ||
+        (Flags.ind_print_cex ())
+      then 
 
         (* Get model for all variables *)
         SMTSolver.get_model solver
@@ -251,32 +255,9 @@ let split trans solver k to_split actlits =
 
     Some model
 
-(*
-    (* Get-model function. *)
-    let get_model = SMTSolver.get_model solver in
-    
-    (* Getting counterexample for path compression is needed. *)
-    let cex =
-      if Flags.ind_compress () then
-        Model.path_from_model (TransSys.state_vars trans) get_model k
-      else 
-        Model.create_path 7
-    in
-    
-    (* Getting model for evaluation. *)
-    let model =
-      if Flags.ind_lazy_invariants () then
-        (* Lazy invariant mode, we need the full model. *)
-        TransSys.vars_of_bounds trans Numeral.zero k |> get_model
-      else
-        (* Not in lazy invariant mode, we only need model at [0]. *)
-        TransSys.vars_of_bounds trans k k |> get_model
-    in
-    
-    Some (cex, model)
-*)
-
   in
+
+  let print_cex = Flags.ind_print_cex () in
 
   (* Function to run if unsat. *)
   let if_unsat _ = None in
@@ -315,28 +296,36 @@ let split trans solver k to_split actlits =
       (* Blocked model with an invariant, rechecking
          satisfiability. *)
       then loop ()
-      else
+      else (
+        let path =
+          if (Flags.ind_compress ()) || print_cex then
+            Model.path_from_model
+              (TransSys.state_vars trans) model k
+          else StateVar.StateVarHashtbl.create 0
+        in
+        let cex =
+          if print_cex then Model.path_to_list path else []
+        in
       
         (* Attempting to compress path. *)
         ( match
-            if not (Flags.ind_compress ()) then [] else
-               let cex = 
-                Model.path_from_model
-                  (TransSys.state_vars trans) 
-                  model 
-                  k 
-              in
+            if Flags.ind_compress () then
               Compress.check_and_block
-                (SMTSolver.declare_fun solver) trans cex
+                (SMTSolver.declare_fun solver) trans path
+            else []
           with
 
             | [] ->
               (* Splitting properties. *)
               let new_to_split, new_falsifiable =
-                List.partition
-                  ( fun (_, (_, term)) ->
-                    Term.bump_state k term |> eval )
-                  to_split in
+                List.partition (fun (name, (_, term)) ->
+                  let holds = Term.bump_state k term |> eval in
+                  if (not holds) && print_cex then
+                    (* Log cex. *)
+                    Event.step_cex input_sys analysis trans name cex ;
+                  holds
+                ) to_split
+              in
               (* Building result. *)
               Some (new_to_split, new_falsifiable)
 
@@ -348,6 +337,7 @@ let split trans solver k to_split actlits =
                 |> SMTSolver.assert_term solver ;
               (* Rechecking satisfiability. *)
               loop () )
+      )
 
     | None ->
       (* Returning the unsat result. *)
@@ -362,7 +352,8 @@ let split trans solver k to_split actlits =
    same actlit. This makes backtracking easy since positive actlits
    are not overloaded. *)
 let split_closure
-  trans solver k optimistic_actlits optimistic_terms to_split =
+  ((_,_,trans) as sys) solver k optimistic_actlits optimistic_terms to_split
+=
 
   let rec loop falsifiable list =
 
@@ -408,7 +399,7 @@ let split_closure
     in
 
     (* Splitting. *)
-    match split trans solver k list all_actlits with
+    match split sys solver k list all_actlits with
 
     | None ->
        (* Unsat. *)
@@ -589,7 +580,8 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      (* Splitting. *)
      let unfalsifiables_at_k, falsifiables_at_k =
        split_closure
-         trans solver k_p_1
+         (input_sys, aparam, trans)
+         solver k_p_1
          unfalsifiable_actlits
          unfalsifiable_props
          unknowns'
