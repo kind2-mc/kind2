@@ -1,8 +1,7 @@
 node bla(in: real) returns (out: real) ;
 --@require in > 0.0 ;
-var tmp: real ; cnt: int ;
+var tmp: real ;
 let
-  cnt = 0 -> 1 + pre cnt ;
   tmp = in -> pre in ;
   out = in -> pre tmp ;
   --%PROPERTY out = (in -> pre (in -> pre in )) ;
