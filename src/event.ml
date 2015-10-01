@@ -1041,12 +1041,12 @@ let log_analysis_start param =
     in
     (* Opening [analysis] tag and printing info. *)
     Format.fprintf !log_ppf "@.@.\
-      <Analysis \
+      <AnalysisStart \
         top=\"%a\" \
         concrete=\"%a\" \
         abstract=\"%a\" \
         assumptions=\"%a\"\
-      >@.@.\
+      />@.@.\
     "
     Scope.pp_print_scope param.Analysis.top
     (pp_print_list Scope.pp_print_scope ",") concrete
@@ -1066,7 +1066,7 @@ let log_analysis_end result =
   | F_pt -> ()
   | F_xml ->
     (* Closing [analysis] tag. *)
-    Format.fprintf !log_ppf "</Analysis>@.@."
+    Format.fprintf !log_ppf "<AnalysisStop/>@.@."
 
   | F_relay -> failwith "can only be called by supervisor"
 
