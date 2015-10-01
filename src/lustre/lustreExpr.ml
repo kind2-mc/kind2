@@ -132,9 +132,11 @@ let map f ({ expr_init; expr_step } as expr) =
 
   (* Apply function separately to init and step expression and
      rebuild *)
-  { expr with 
-      expr_init = Term.map (f' true) expr_init; 
-      expr_step = Term.map (f' false) expr_step }
+  let expr_init = Term.map (f' true) expr_init in
+  let expr_step = Term.map (f' false) expr_step in
+  let expr_type = Term.type_of_term expr_init in
+      
+  { expr_init; expr_step; expr_type }
 
 
 (*
@@ -1968,7 +1970,7 @@ let mk_arrow expr1 expr2 =
   { expr_init = expr1.expr_init;
     expr_step = expr2.expr_step;
     expr_type = res_type } 
-  
+    
 
 (* ********************************************************************** *)
 
@@ -2088,18 +2090,25 @@ let type_of_select = function
 (* Select from an array *)
 let mk_select expr1 expr2 =
 
-  Format.eprintf "%a : %a vs %a : %a @."
-    (pp_print_lustre_expr false) expr1
-    Type.pp_print_type expr1.expr_type
-    (pp_print_lustre_expr false) expr2
-    Type.pp_print_type expr2.expr_type ;
-
   (* Types of expressions must be compatible *)
   let _res_type = 
     type_of_select expr1.expr_type expr2.expr_type 
   in
 
-  mk_binary eval_select type_of_select expr1 expr2
+  Format.eprintf "E.mk_select %a : %a at index %a : %a, resulting type %a@."
+    (pp_print_lustre_expr false) expr1
+    Type.pp_print_type expr1.expr_type
+    (pp_print_lustre_expr false) expr2
+    Type.pp_print_type expr2.expr_type
+    Type.pp_print_type _res_type ;
+
+  let e = mk_binary eval_select type_of_select expr1 expr2 in
+
+  Format.eprintf "  = %a : %a@."
+    (pp_print_lustre_expr false) e
+    Type.pp_print_type e.expr_type;
+
+  e
 
 
 let mk_array expr1 expr2 =
@@ -2151,12 +2160,24 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
     in
     List.rev i, List.rev s
   in
+
+  let expr_init = Term.mk_let substs_init expr_init in
+  let expr_step = Term.mk_let substs_step expr_step in
+
+  let expr_init =
+    if List.exists
+        (fun (v, _) -> Var.type_of_var v |> Type.is_array) substs_init then
+      Term.unlet expr_init
+    else expr_init in
+
+  let expr_step =
+    if List.exists
+        (fun (v, _) -> Var.type_of_var v |> Type.is_array) substs_step then
+      Term.unlet expr_step
+    else expr_step in
   
   (* Apply substitutions separately *)
-  { expr with 
-      expr_init = Term.mk_let substs_init expr_init |> Term.unlet;
-      expr_step = Term.mk_let substs_step expr_step |> Term.unlet;
-  }
+  { expr with expr_init; expr_step}
 
 (* ********************************************************************** *)
 
