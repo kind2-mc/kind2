@@ -775,6 +775,8 @@ let mk_fresh_oracle
     ({ node; definitions_allowed; fresh_oracle_index } as ctx) 
     state_var_type =
 
+  Format.eprintf "|---> mk_fresh_oracle@.";
+  
   match definitions_allowed with 
 
     (* Fail with error if no new definitions allowed *)
@@ -807,6 +809,13 @@ let mk_fresh_oracle
           in
 
           (* Register bounds *)
+          Format.eprintf "Bounds: %a@."
+            (pp_print_list
+               (function ppf -> function
+                  | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
+                  | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
+               "")
+            bounds;
           SVT.add ctx.state_var_bounds state_var bounds;
           
           (* Increment index of fresh oracle *)
@@ -841,11 +850,17 @@ let mk_fresh_oracle_for_state_var
 
   with Not_found -> 
 
+    Format.eprintf "|-- mk_fresh_oracle_for_state_var %a@." StateVar.pp_print_state_var state_var;
+    
     (* Create fresh oracle *)
     let state_var', ctx = 
       mk_fresh_oracle
         ~is_const:true
-        ?bounds
+        (* ?bounds *)
+        ~bounds:(let b =
+                  try SVT.find ctx.state_var_bounds state_var
+                  with Not_found -> [] in
+                match bounds with None | Some [] -> b | Some b' -> b @ b')
         ctx
         (StateVar.type_of_state_var state_var)
     in
@@ -986,6 +1001,15 @@ let mk_abs_for_expr
     in
 
     (* Register bounds *)
+    Format.eprintf "mk_abs Bounds: %a@."
+      (pp_print_list
+         (function ppf -> function
+            | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
+            | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
+         "")
+      bounds;
+
+    (* Register bounds *)
     SVT.add ctx.state_var_bounds state_var bounds;
     
     (* Add bounds from array definition if necessary *)
@@ -1069,6 +1093,7 @@ let mk_fresh_local
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?(bounds=[])
     ({ node; fresh_local_index } as ctx) 
     state_var_type =
   
@@ -1094,6 +1119,19 @@ let mk_fresh_local
           state_var_type
           None
       in
+
+      (* Register bounds *)
+      Format.eprintf "mk_fresh_local Bounds: %a@."
+        (pp_print_list
+           (function ppf -> function
+              | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
+              | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
+           "")
+        bounds;
+
+      (* Register bounds *)
+      SVT.add ctx.state_var_bounds state_var bounds;
+
 
       (* Increment index of fresh oracle *)
       let ctx = 
@@ -1471,7 +1509,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
     | { node = Some { N.equations; N.calls; N.function_calls } } -> 
 
       Format.printf
-        "add equation %a%a = %a (with %d indexes)@."
+        "add equation %a%a : %a = %a : %a (with %d indexes)@."
         StateVar.pp_print_state_var state_var
         (pp_print_list
            (function ppf -> function
@@ -1479,7 +1517,9 @@ let add_node_equation ctx pos state_var bounds indexes expr =
               | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
            "")
         bounds
+        Type.pp_print_type (StateVar.type_of_state_var state_var)
         (E.pp_print_lustre_expr false) expr
+        Type.pp_print_type (E.type_of_lustre_expr expr)
         indexes;
 
       if 
@@ -1536,6 +1576,59 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
       let expr_type = E.type_of_lustre_expr expr in
 
+      let rec keep_same acc l1 l2 = match l1, l2 with
+        | x :: r1, _ :: r2 -> keep_same (x :: acc) r1 r2
+        | _, [] -> List.rev acc
+        | [], _ -> assert false
+      in
+      
+      let expr, expr_type, bounds, indexes =
+        if Type.is_array expr_type then
+          let elty = Type.elem_type_of_array expr_type in
+          let eitys = Type.all_index_types_of_array expr_type in
+          let expr, i = List.fold_left (fun (e, i) _ ->
+              E.mk_select e (E.mk_index_var i), succ i
+            ) (expr, indexes) eitys in
+          let earv, is = expr
+                         |> E.cur_term_of_t E.base_offset
+                         |> Term.indexes_and_var_of_select in
+          let bnds_earv = try
+              SVT.find ctx.state_var_bounds
+                (Var.state_var_of_state_var_instance earv)
+            with Not_found -> [] in
+          Format.eprintf "[bnds_earv] %a : %d@."
+            StateVar.pp_print_state_var (Var.state_var_of_state_var_instance earv)
+            (List.length bnds_earv);
+          let extra_bnds = keep_same [] bnds_earv eitys in
+          Format.eprintf "extra bounds %a@."
+            (pp_print_list
+               (function ppf -> function
+                  | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
+                  | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
+               "")
+            extra_bnds;
+
+          expr, elty, List.rev_append extra_bnds bounds, i
+              
+        else
+          expr, expr_type, bounds, indexes
+      in
+
+      Format.printf
+        "really adding equation %a%a : %a = %a : %a (with %d indexes)@."
+        StateVar.pp_print_state_var state_var
+        (pp_print_list
+           (function ppf -> function
+              | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
+              | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
+           "")
+        bounds
+        Type.pp_print_type (StateVar.type_of_state_var state_var)
+        (E.pp_print_lustre_expr false) expr
+        Type.pp_print_type (E.type_of_lustre_expr expr)
+        indexes;
+
+      
       (* Type of state variable *)
       let state_var_type, _ = 
         List.fold_left
@@ -1733,6 +1826,8 @@ let node_of_context = function
   (* Add abstractions to node and return *)
   | { expr_abs_map; node = Some node } as ctx -> 
 
+    Format.eprintf "node_of_context@.";
+    
     match
       (* Add equations from definitions to equations *)
       ET.fold

@@ -542,10 +542,10 @@ let s_select ta = mk_symbol (`SELECT ta)
 
 let is_select = function 
   | { Hashcons.node = `SELECT _ } -> true
-  (* | { Hashcons.node = `UF u } -> *)
-  (*   let s = UfSymbol.string_of_uf_symbol u in *)
-  (*   (try Scanf.sscanf s "_select%s" (fun _ -> true) *)
-  (*    with Scanf.Scan_failure _ -> false) *)
+  | { Hashcons.node = `UF u } ->
+    let s = UfSymbol.string_of_uf_symbol u in
+    (try Scanf.sscanf s "_select%s" (fun _ -> true)
+     with Scanf.Scan_failure _ -> false)
   | _ -> false
 
 

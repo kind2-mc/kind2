@@ -1494,9 +1494,13 @@ let rec constraints_of_equations init stateful_vars terms = function
       ) |> Term.convert_select
     in
 
-    Format.eprintf "EQ1: %a@." Term.pp_print_term eq;
+    Format.eprintf "EQ1 [bounds = %a]: %a@."
+      (pp_print_list
+         (fun fmt -> function  E.Bound e| E.Fixed e ->
+            E.pp_print_expr false fmt e) ", ") bounds
+      Term.pp_print_term eq;
 
-    assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term eq));
+    (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term eq)); *)
 
     (* Wrap equation in let binding and quantifiers for indexes *)
     let def, _ = 
@@ -1506,7 +1510,7 @@ let rec constraints_of_equations init stateful_vars terms = function
         (eq, List.length bounds |> pred)
     in
 
-    assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term def));
+    (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term def)); *)
 
     (* Add definition and continue *)
     constraints_of_equations init stateful_vars (def :: terms) tl
@@ -2094,9 +2098,9 @@ let rec trans_sys_of_node'
                 functions
             in
 
-            assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and init_terms)));
+            (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and init_terms))); *)
 
-            assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and trans_terms)));
+            (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and trans_terms))); *)
             
             (* (\* Add uf symbols for global arrays *\) *)
             (* let ufs = List.fold_left *)

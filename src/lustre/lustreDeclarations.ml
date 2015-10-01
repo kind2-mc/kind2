@@ -906,7 +906,13 @@ let rec eval_node_equations ctx = function
     (* Add equations for each index *)
     let ctx =
       List.fold_left
-        (fun ctx ((sv, b), e) -> C.add_node_equation ctx pos sv b indexes e)
+        (fun ctx ((sv, b), e) ->
+           Format.eprintf "ty]> %a@."
+             (pp_print_list Type.pp_print_type ", ")
+             (Type.all_index_types_of_array (StateVar.type_of_state_var sv));
+           assert (try List.length (Type.all_index_types_of_array (StateVar.type_of_state_var sv)) = List.length b
+                   with _ -> true);
+           C.add_node_equation ctx pos sv b indexes e)
         ctx
         equations
     in

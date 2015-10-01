@@ -963,16 +963,24 @@ let rec eval_ast_expr bounds ctx =
       (* Evaluate expression for array elements *)
       let expr', ctx = eval_ast_expr bounds ctx expr in 
 
+      let bound =
+        if Term.is_numeral (E.unsafe_term_of_expr array_size) then
+          E.Fixed array_size
+        else E.Bound array_size in
+
+      
       (* Push array index to indexes in expression and add to
          accumulator trie *)
-      let res = 
+      let res, ctx = 
         D.fold
-          (fun j e a -> 
-             D.add (D.ArrayVarIndex array_size :: j)
-               (E.mk_array e (E.mk_of_expr array_size))
-               a)
+          (fun j e (a, ctx) ->
+             (* abstract with array state variable *)
+             let (state_var, _) , ctx = 
+               C.mk_local_for_expr ~bounds:[bound] pos ctx e in
+             let e' = E.mk_var state_var in
+             D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
           expr'
-          D.empty
+          (D.empty, ctx)
       in
 
       (res, ctx)
@@ -1726,17 +1734,21 @@ and eval_node_call
       (res, ctx)
 
     (* Create a new node call, cannot re-use an already created one *)
-    | None  -> 
+    | None  ->
 
       (* Fresh state variables for oracle inputs of called node *)
       let ctx, oracle_state_vars = 
         List.fold_left
           (fun (ctx, accum) sv ->
+             Format.eprintf "C.mk_fresh_oracle for %a@." StateVar.pp_print_state_var sv;
              let sv', ctx = 
                C.mk_fresh_oracle 
                  ~is_input:true
                  ~is_const:(StateVar.is_const sv)
                  ctx
+                 ~bounds:(try StateVar.StateVarHashtbl.find
+                                (C.get_state_var_bounds ctx) sv
+                          with Not_found -> [])
                  (StateVar.type_of_state_var sv) 
              in
              (* N.set_state_var_instance ctx sv' pos ident sv; *)
@@ -1749,9 +1761,13 @@ and eval_node_call
       let output_state_vars, ctx = 
         D.fold
           (fun i sv (accum, ctx) -> 
+             Format.eprintf "C.mk_fresh_local for output %a@." StateVar.pp_print_state_var sv;
              let sv', ctx = 
                C.mk_fresh_local
                  ctx
+                 ~bounds:(try StateVar.StateVarHashtbl.find
+                                (C.get_state_var_bounds ctx) sv
+                          with Not_found -> [])
                  (StateVar.type_of_state_var sv)
              in
              (D.add i sv' accum, ctx))
@@ -1890,6 +1906,9 @@ and eval_function_call
              let sv', ctx = 
                C.mk_fresh_local
                  ctx
+                 ~bounds:(try StateVar.StateVarHashtbl.find
+                                (C.get_state_var_bounds ctx) sv
+                          with Not_found -> [])
                  (StateVar.type_of_state_var sv)
              in
              (D.add i sv' accum, ctx))

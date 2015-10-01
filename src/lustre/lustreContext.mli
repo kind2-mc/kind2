@@ -142,7 +142,10 @@ val type_in_context : t -> LustreIdent.t -> bool
 val node_or_function_in_context : t -> LustreIdent.t -> bool
 
 (** Create a fresh local state variable in the context. *)
-val mk_fresh_local : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
+val mk_fresh_local :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+  t -> Type.t -> StateVar.t * t
 
 val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
 
