@@ -22,6 +22,9 @@ open Lib
 (* Termination message received *)
 exception Terminate
 
+(* Indicates an [AnalysisStart] tag has been printed but [AnalysisStop] was
+   not. *)
+let analysis_start_not_closed = ref false
 
 (* ********************************************************************** *)
 (* Events passed on to callers                                            *)
@@ -989,15 +992,6 @@ let log_progress mdl level k =
     | F_relay -> ()
   
 
-(* Terminate log output *)
-let terminate_log () = 
-  match !log_format with 
-    | F_pt -> Format.print_flush ()
-    | F_xml ->
-      print_xml_trailer () ;
-      Format.print_flush ()
-    | F_relay -> ()
-
 
 (* Logs the end of a run. *)
 let log_run_end results =
@@ -1041,21 +1035,22 @@ let log_analysis_start param =
     in
     (* Opening [analysis] tag and printing info. *)
     Format.fprintf !log_ppf "@.@.\
-      <AnalysisStart \
-        top=\"%a\" \
-        concrete=\"%a\" \
-        abstract=\"%a\" \
-        assumptions=\"%a\"\
-      />@.@.\
-    "
-    Scope.pp_print_scope param.Analysis.top
-    (pp_print_list Scope.pp_print_scope ",") concrete
-    (pp_print_list Scope.pp_print_scope ",") abstract
-    (pp_print_list (fun fmt (scope, cpt) ->
-        Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
-      )
-      ","
-    ) assumption_count
+        <AnalysisStart \
+          top=\"%a\" \
+          concrete=\"%a\" \
+          abstract=\"%a\" \
+          assumptions=\"%a\"\
+        />@.@.\
+      "
+      Scope.pp_print_scope param.Analysis.top
+      (pp_print_list Scope.pp_print_scope ",") concrete
+      (pp_print_list Scope.pp_print_scope ",") abstract
+      (pp_print_list (fun fmt (scope, cpt) ->
+          Format.fprintf fmt "(%a,%d)" Scope.pp_print_scope scope cpt
+        )
+        ","
+      ) assumption_count ;
+    analysis_start_not_closed := true
 
   | F_relay -> failwith "can only be called by supervisor"
 
@@ -1065,10 +1060,23 @@ let log_analysis_end result =
   match !log_format with
   | F_pt -> ()
   | F_xml ->
-    (* Closing [analysis] tag. *)
-    Format.fprintf !log_ppf "<AnalysisStop/>@.@."
+    if !analysis_start_not_closed then (
+      (* Closing [analysis] tag. *)
+      Format.fprintf !log_ppf "<AnalysisStop/>@.@." ;
+      analysis_start_not_closed := false
+    ) ;
 
   | F_relay -> failwith "can only be called by supervisor"
+
+(* Terminate log output *)
+let terminate_log () = 
+  match !log_format with 
+    | F_pt -> Format.print_flush ()
+    | F_xml ->
+      log_analysis_end () ;
+      print_xml_trailer () ;
+      Format.print_flush ()
+    | F_relay -> ()
 
 (** Logs a timeout. *)
 let log_timeout b =
