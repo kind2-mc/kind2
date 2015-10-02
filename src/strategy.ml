@@ -224,8 +224,8 @@ module ModularStrategy : Strategy = struct
             ) else (
               match get_params results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
-                Format.printf "Cannot refine for %a@."
-                  Scope.pp_print_scope sys ;
+                (* Format.printf "Cannot refine for %a@."
+                  Scope.pp_print_scope sys ; *)
                 go_up prefix
               | Some (sub, abs, ass) -> (* Refinement found. *)
                 (* Format.printf "Refined %a for %a@."
