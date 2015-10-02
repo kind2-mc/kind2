@@ -522,52 +522,88 @@ let find_bound_back sys solver kmax invs prop =
   loop (-1, Not_inductive) kmax
 
 
+
+(* Recursive binary search between k_l and k_u *)
+let rec loop_dicho sys solver kmax invs prop trans_acts_map acc k_l k_u =
+
+  if k_l > k_u then
+    match acc with
+    | _, Not_inductive ->
+      (* Not k-inductive *)
+      failwith "[Certification] Could not verify inductiveness of invariant"
+
+    | k, Inductive_to_reduce f ->
+      (* The previous step was inductive, evaluate the continuation to
+         extract useful invariants *)
+      k, f ()
+
+    | k, Inductive useful ->
+      (* The previous step was inductive and we already have the useful
+         invariants *)
+      k, useful
+
+  else
+
+    (* Middle point *)
+    let k_mid = (k_l + k_u) / 2 in
+    (* Activation literals for transition relation from 1 to kmid *)
+    let trans_act = IntM.find k_mid trans_acts_map in
+
+    match try_at_bound ~just_check_ind:true
+            sys solver k_mid invs prop [trans_act]
+    with
+    | Not_inductive ->
+      (* Not inductive, look for inductiveness on the right *)
+      loop_dicho sys solver kmax invs prop trans_acts_map
+        acc (k_mid + 1) k_u
+
+    | res ->
+      (* Inductive, register and Look for non-inductiveness on the left *)
+      loop_dicho sys solver kmax invs prop trans_acts_map
+        (k_mid, res) k_l (k_mid - 1)
+
+
 (* Find the minimum bound by dichotomy between 1 and kmax (binary search) *)
-let rec find_bound_dicho sys solver kmax invs prop =
-  
+let find_bound_dicho sys solver kmax invs prop =
+  (* Creating activation literals for transition unrollings *)
+  let trans_acts_map = unroll_trans_actlits sys solver kmax in
+  (* Start with interval [1; kmax] *)
+  loop_dicho sys solver kmax invs prop trans_acts_map (-1, Not_inductive) 1 kmax
+
+
+(* Find the minimum bound by dichotomy between 1 and kmax (try at kmax frontier
+   then binary search) *)
+let find_bound_frontier_dicho sys solver kmax invs prop =
   (* Creating activation literals for transition unrollings *)
   let trans_acts_map = unroll_trans_actlits sys solver kmax in
 
-  (* Recursive binary search between k_l and k_u *)
-  let rec loop_dicho acc k_l k_u =
-
-    if k_l > k_u then
-      match acc with
-      | _, Not_inductive ->
-        (* Not k-inductive *)
-        failwith "[Certification] Could not verify inductiveness of invariant"
-
-      | k, Inductive_to_reduce f ->
-        (* The previous step was inductive, evaluate the continuation to
-           extract useful invariants *)
-        k, f ()
-
-      | k, Inductive useful ->
-        (* The previous step was inductive and we already have the useful
-           invariants *)
-        k, useful
-
+  (* Try boundary kmax / kmax - 1 first *)
+  let res_kmax =
+      let trans_act = IntM.find kmax trans_acts_map in
+      try_at_bound ~just_check_ind:true sys solver kmax invs prop [trans_act]
+  in
+  let res_kmax_m1 =
+    if kmax - 1 = 0 then Not_inductive
     else
-
-      (* Middle point *)
-      let k_mid = (k_l + k_u) / 2 in
-      (* Activation literals for transition relation from 1 to kmid *)
-      let trans_act = IntM.find k_mid trans_acts_map in
-      
-      match try_at_bound ~just_check_ind:true
-              sys solver k_mid invs prop [trans_act]
-      with
-        | Not_inductive ->
-          (* Not inductive, look for inductiveness on the right *)
-          loop_dicho acc (k_mid + 1) k_u
-
-        | res ->
-          (* Inductive, register and Look for non-inductiveness on the left *)
-          loop_dicho (k_mid, res) k_l (k_mid - 1)
+      let trans_act = IntM.find (kmax - 1) trans_acts_map in
+      try_at_bound ~just_check_ind:true
+        sys solver (kmax - 1) invs prop [trans_act]
   in
 
-  (* Start with interval [1; kmax] *)
-  loop_dicho (-1, Not_inductive) 1 kmax
+  match res_kmax, res_kmax_m1 with
+  | Not_inductive, _ ->
+    failwith "[Certification] Could not verify inductiveness of invariant"
+
+  | Inductive useful, Not_inductive -> kmax, useful
+
+  | Inductive_to_reduce f, Not_inductive -> kmax, f ()
+
+  | (Inductive _ | Inductive_to_reduce _),
+    (Inductive _ | Inductive_to_reduce _) ->
+
+    (* Binary search in interval [1; kmax-2] *)
+    loop_dicho sys solver kmax invs prop trans_acts_map
+      (kmax - 1, res_kmax_m1) 1 (kmax - 2)
 
 
 (* Minimization of certificate: returns the minimum bound for k-induction and a
@@ -588,9 +624,7 @@ let minimize_certificate sys =
   (* For stats *)
   let k_orig, nb_invs = k, List.length invs in
   
-  (debug certif "Trying to simplify up to k = %d\ninvs = %a\n"
-    k_orig Term.pp_print_term (Term.mk_and invs) end);
-  
+  (debug certif "Trying to simplify up to k = %d\n" k_orig end);
   
   (* Creating solver that will be used to replay and minimize inductive step *)
   let solver =
@@ -615,7 +649,7 @@ let minimize_certificate sys =
       (* Heuristic to find best strategy *)
       if k <= 3 then `Fwd
       else if k <= 20 then `Dicho
-      else `Bwd
+      else `FrontierDicho
   in
       
   (* Depending on the minimization strategy, we use different variants to find
@@ -624,6 +658,7 @@ let minimize_certificate sys =
   let kmin, uinvs = match min_strategy with
     | `Fwd -> find_bound sys solver 1 k invs prop
     | `Bwd -> find_bound_back sys solver k invs prop
+    | `FrontierDicho -> find_bound_frontier_dicho sys solver k invs prop
     | `Dicho -> find_bound_dicho sys solver k invs prop
   in
 
@@ -631,8 +666,7 @@ let minimize_certificate sys =
      anylonger *)
   SMTSolver.delete_instance solver;
   
-  (debug certif "Simplification found for k = %d\ninv = %a\n"
-     kmin Term.pp_print_term (Term.mk_and uinvs) end);
+  (debug certif "Simplification found for k = %d\n" kmin end);
 
   printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
     (List.length uinvs) nb_invs kmin k_orig;

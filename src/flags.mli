@@ -238,7 +238,7 @@ type certif_force = bool
 val certif_force : unit -> certif
 
 (** Produce certificates *)
-type certif_min = [ `No | `Fwd | `Bwd | `Dicho | `Auto ]
+type certif_min = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
 val certif_min : unit -> certif_min
 
 (** Directory for certificates *)

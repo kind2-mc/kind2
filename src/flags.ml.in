@@ -288,13 +288,14 @@ let jkind_bin_default = "jkind"
 
 (* ********** *) 
 
-type certif_min = [ `No | `Fwd | `Bwd | `Dicho | `Auto]
+type certif_min = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
 
 let certif_min_of_string = function
   | "no" -> `No
   | "fwd" -> `Fwd
   | "bwd" -> `Bwd
   | "dicho" -> `Dicho
+  | "frontierdicho" -> `FrontierDicho
   | "auto" -> `Auto
   | _ -> raise (Arg.Bad "Bad value for --certif_min")
 
@@ -303,9 +304,10 @@ let string_of_certif_min = function
   | `Fwd -> "fwd"
   | `Bwd -> "bwd"
   | `Dicho -> "dicho"
+  | `FrontierDicho -> "frontierdicho"
   | `Auto -> "auto"
 
-let certif_min_values = "fwd, bwd, dicho, auto"
+let certif_min_values = "fwd, bwd, dicho, frontierdicho, auto"
   
 let certif_min_default = `No
 
