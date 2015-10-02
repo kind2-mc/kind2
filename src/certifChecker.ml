@@ -228,7 +228,6 @@ let global_certificate sys =
 exception Reduce_cont of (unit -> Term.t list)
 
 
-
 (* Iterative fixpoint to identify which invariants are usefull. Returns the
    subset of invs_acts which preserves inductiveness. The paramteer
    just_check_ind controls if we want to only check the induction step without
@@ -241,16 +240,20 @@ exception Reduce_cont of (unit -> Term.t list)
 
    - Returns a subset of invs_acts which preserves inductiveness otherwise.
 *)
-let rec fixpoint ~just_check_ind
-    acc solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
+let rec fixpoint
+    solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   let if_sat _ =
-    (debug certif "[Fixpoint] fail" end);
+    (* this should not happen because we've already performed the inductive
+       check *)
+    (debug certif "[Fixpoint] fail (impossible)" end);
     raise Exit
-    
   in
 
-  let reduce uc =
+  let if_unsat _ =
+    (* Activation literals in unsat core, extracted right away in case we
+       modify the solver state before calling the continuation *)
+    let uc = SMTSolver.get_unsat_core_lits solver in
 
     (* Identify the useful invariants with the unsat core *)    
     let uinvs_acts =
@@ -272,9 +275,7 @@ let rec fixpoint ~just_check_ind
     let neg_new_prop' = Term.mk_not new_prop' in
     let neg_new_prop'act = actlitify solver neg_new_prop' in
 
-    (* Accumulate useful invariants (identified by their activation
-       literals) *)
-    let acc = (uinvs' @ acc) in
+    (* let acc = uinvs' @ acc in *)
 
     (* Check preservation of invariants by k-steps *)
     SMTSolver.check_sat_assuming solver
@@ -283,31 +284,21 @@ let rec fixpoint ~just_check_ind
          (* SAT try to find what invariants are missing *)
          (debug certif "[Fixpoint] could not verify inductiveness" end);
 
-         fixpoint ~just_check_ind:false acc solver
+         fixpoint solver
            invs_acts new_prop_act new_prop'act neg_new_prop'act trans_acts)
       
       (fun _ ->
          (* UNSAT: return accumulated invariants *)
          (debug certif "[Fixpoint] OK"
            (* (pp_print_list Term.pp_print_term "@ ") acc *) end);
-  
-         acc)
+
+         (* Return useful invariants (identified by their activation
+            literals) *)
+         uinvs')
 
       (trans_acts @ new_prop_acts @ [neg_new_prop'act])
-    
   in
-
   
-  let if_unsat () =
-    
-    (* Activation literals in unsat core, extracted right away in case we
-       modify the solver state before calling the continuation *)
-    let uc = SMTSolver.get_unsat_core_lits solver in
-
-    (* return a continuation to minimize the set of invariants *)
-    fun () -> reduce uc
-  in
-
   (* Get invariants at k - 1 *)
   let invs = List.map fst invs_acts in
 
@@ -315,13 +306,49 @@ let rec fixpoint ~just_check_ind
 
   (* Check if the property is preserved by k-steps when assuming the
      invariants *)
-  SMTSolver.check_sat_assuming solver
-    if_sat
-    (fun _ ->
-       if just_check_ind then raise (Reduce_cont (if_unsat ()))
-       else if_unsat () ())
+  SMTSolver.check_sat_assuming solver if_sat if_unsat
     (trans_acts @ (neg_prop'act :: prev_props_act :: invs))
 
+
+
+
+
+let check_ind_and_fixpoint ~just_check_ind
+    solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
+
+  (* Get invariants at k - 1 *)
+  let invs, invs' = List.split invs_acts in
+
+  let neg_invs'prop'act = prop'act :: invs'
+                          |> Term.mk_and |> Term.mk_not |> actlitify solver in
+  
+  SMTSolver.trace_comment solver "check inductiveness at k;";
+
+  (* Check k-inductiveness of whole set first *)
+  SMTSolver.check_sat_assuming solver
+    (fun _ -> (* SAT *)
+        (debug certif "[Fixpoint] failure of whole inductive check" end);
+        raise Exit)
+    (fun _ -> (* UNSAT *)
+
+     (* First cleaning *)    
+     let uc = SMTSolver.get_unsat_core_lits solver in
+     let invs_acts =
+       List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
+
+     (* Continuation: execute fixpoint *)
+     let cont () =
+       fixpoint solver invs_acts prev_props_act prop'act neg_prop'act trans_acts
+     in
+       
+     if just_check_ind then raise (Reduce_cont cont)
+     else cont ())
+    
+    (trans_acts @ (neg_invs'prop'act :: prev_props_act :: invs))
+
+  
+
+    
 
 (* Return type of the following function try_at_bound *)
 type return_of_try =
@@ -386,8 +413,8 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   try
     (* Can fail and raise Exit or Reduce_cont *)
     let useful_acts =
-      fixpoint ~just_check_ind
-        [] solver invs_acts prev_props_act prop'act neg_prop'act trans_acts in
+      check_ind_and_fixpoint ~just_check_ind
+        solver invs_acts prev_props_act prop'act neg_prop'act trans_acts in
 
     (* If fixpoint returned a list of useful invariants we just return them *)
     Inductive (
