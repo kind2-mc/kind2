@@ -1242,7 +1242,13 @@ let delete_instance
      command. Hence, ignore these stale respones on the output
      channel *)
 
-  ignore (execute_command_no_response solver "(exit)" 0);
+  begin
+    try ignore(execute_command_no_response solver "(exit)" 0)
+    with Signal s when s = Sys.sigpipe ->
+      Event.log L_fatal
+        "[Warning] Got broken pipe when trying to exit %s instance PID %d."
+        solver.solver_config.solver_cmd.(0) solver_pid
+  end;
 
   (* Reset internal state of yices *)
   solver.solver_last_id <- YicesResponse.yices_id_of_int 0;

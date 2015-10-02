@@ -51,10 +51,11 @@ let check_sat_assuming_cmd _ =
 let headers () =
 
   [
-
     (* Define functions for int / real conversions *)
     "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
     "(define to_real::(-> x::int (subtype (y::real) (= y x))))";
+    (* Define xor operator *)
+    "(define xor :: (-> bool bool bool) (lambda (x::bool y::bool) (and (or x y) (not (and x y)) )))";
   ] 
 
 
@@ -227,7 +228,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `IMPLIES -> Format.pp_print_string ppf "=>"
   | `AND  -> Format.pp_print_string ppf "and"
   | `OR -> Format.pp_print_string ppf "or"
-  | `XOR -> failwith "xor not implemented for yices"
+  | `XOR -> Format.pp_print_string ppf "xor"
 
   | `EQ -> Format.pp_print_string ppf "="
   | `DISTINCT -> failwith "distinct not implemented for yices"

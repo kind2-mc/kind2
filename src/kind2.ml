@@ -166,7 +166,7 @@ let status_of_trans_sys sys =
       if falsifiable then status_unsafe
       else status_safe
   in
-  Format.printf "status of trans sys@." ;
+
   (* Exit status. *)
   exit_status
 
@@ -322,9 +322,12 @@ let on_exit process sys exn =
       (fun (pid, _) -> try Unix.kill (- pid) Sys.sigkill with _ -> ())
       !child_pids;
 
+    (* Log stats and statuses of properties *)
+    Event.log_result sys;
+
     (* Close tags in XML output *)
     Event.terminate_log ();
-
+  
     (* Exit with status *)
     exit status
 
@@ -430,7 +433,7 @@ let on_exit process sys exn =
 
    Give the exception [exn] that was raised or [Exit] on normal
    termination *)
-let on_exit_child messaging_thread process sys_opt exn = 
+let on_exit_child ?(alone=false) messaging_thread process sys_opt exn = 
 
   (* Exit status of process depends on exception *)
   let status = status_of_exn process sys_opt exn in
@@ -442,8 +445,6 @@ let on_exit_child messaging_thread process sys_opt exn =
     "Process %d terminating"
     (Unix.getpid ());
 
-  Event.terminate_log ();
-  
   (match messaging_thread with 
     | Some t -> Event.exit t
     | None -> ());
@@ -453,6 +454,11 @@ let on_exit_child messaging_thread process sys_opt exn =
       pp_print_kind_module process
     in
 
+    (* Log stats and statuses of properties if run as a single process *)
+    if alone then Event.log_result sys_opt;
+
+    Event.terminate_log ();
+      
     (* Exit process with status *)
     exit status )
 
@@ -565,11 +571,13 @@ let run_process messaging_setup process =
             let backtrace = Printexc.get_backtrace () in
 
             Event.log L_fatal
-              "Runtime error: %s" 
+              "[%a] Runtime error: %s"
+              pp_print_kind_module process
               (Printexc.to_string e);
 
             if Printexc.backtrace_status () then
-              Event.log L_debug "Backtrace:@\n%s" backtrace;
+              Event.log L_debug "[%a] Backtrace:@\n%s"
+                pp_print_kind_module process backtrace;
 
             (* Cleanup and exit *)
             on_exit_child None process None e
@@ -902,6 +910,11 @@ let main () =
     Sys.sigquit 
     (Sys.Signal_handle exception_on_signal);
 
+  (* Install generic signal handler for SIGPIPE *)
+  Sys.set_signal 
+    Sys.sigpipe 
+    (Sys.Signal_handle exception_on_signal);
+
   Stat.start_timer Stat.total_time;
 
   try 
@@ -976,7 +989,7 @@ let main () =
           Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
           (* Cleanup before exiting process *)
-          on_exit_child None p (Some (get !trans_sys)) Exit
+          on_exit_child ~alone:true None p (Some (get !trans_sys)) Exit
             
         )
         
@@ -1042,7 +1055,7 @@ let main () =
         | [p] -> 
           
           (* Cleanup before exiting process *)
-          on_exit_child None p !trans_sys e
+          on_exit_child ~alone:true None p !trans_sys e
             
        
         (* Run some modules in parallel *)
