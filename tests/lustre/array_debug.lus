@@ -1,0 +1,27 @@
+-- const n: int;
+
+node pump_failure(pump_defect:int) 
+	returns (pump_failure:bool);
+let
+	pump_failure = (pump_defect<>1);
+tel;
+
+
+node operate_pumps(const n: int; n_pumps_to_open:int;
+                   pump_status, pump_defect:int^n; 
+                   flow:bool^n) 
+returns (operate_pumps:int^n);
+
+let
+  assert(n>0);
+
+  operate_pumps[k] =
+      if (not(pump_defect[k] <> 1) and 
+          pre(pump_defect[k])=2) then 
+              1 
+          else
+            pump_status[k];
+
+  --%PROPERTY operate_pumps[0]=0;
+
+tel;
