@@ -43,6 +43,7 @@ type t =
   | Num of Numeral.t polynomial
   | Dec of Decimal.t polynomial
   | Bool of Term.t 
+  | Array of Term.t 
 
 
 let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
@@ -169,6 +170,7 @@ let term_of_nf = function
   | Num p -> term_of_num_polynomial p
   | Dec p -> term_of_dec_polynomial p
   | Bool b -> b
+  | Array b -> b
 
 
 (* ********************************************************************** *)
@@ -204,9 +206,7 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | Num _
-  | Dec _ 
-  | Bool _ -> false
+  | Num _ | Dec _ | Bool _ | Array _ -> false
 
 
 (* Return true if value is variable-free *)
@@ -632,8 +632,7 @@ let flatten_bool_subterms s l =
       flatten_bool_subterms' symbol accum' tl
 
     (* Fail on non-boolean arguments *)
-    | Num _ :: _ 
-    | Dec _ :: _ -> assert false
+    | (Num _ | Dec _ | Array _ ) :: _ -> assert false
 
   in
 
@@ -775,8 +774,7 @@ let implies_to_or args =
     | [] -> assert false
     | [a] -> List.rev (a :: accum)
     | Bool h :: tl -> implies_to_or' (Bool (negate_nnf h) :: accum) tl
-    | Num _ :: _
-    | Dec _ :: _ -> assert false
+    | (Num _ | Dec _ | Array _ ) :: _ -> assert false
   in
 
   implies_to_or' [] args 
@@ -943,7 +941,7 @@ let relation
         args
 
     (* Relation must be between integers or reals *)
-    | Bool _ :: _ -> assert false
+    | (Bool _ | Array _) :: _ -> assert false
 
 
 (* Normalize equality relation between normal forms *)
@@ -1036,7 +1034,11 @@ let atom_of_term t =
     (* Variable is an atom *)
     Bool t
 
-    (* Term is of some other type (bitvector or array  *)
+  else if Type.is_array tt then
+
+    Array t
+    
+    (* Term is of some other type  *)
   else 
 
     (* Not implemented *)
@@ -1079,7 +1081,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           let t = Term.mk_var v in
 
           (* Term obtained by evaluating variable to its default *)
-          let t' = default_of_var v in
+          let t' =
+            if Var.type_of_var v |> Type.is_array then t
+            else default_of_var v in
 
           (* Break cycle if the the variable is its own default *)
           if Term.equal t t' then atom_of_term t else
@@ -1564,10 +1568,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   (Bool term' :: tl)
 
               (* Not well-typed arguments *)
-              | Bool _ :: Num _ :: _
-              | Bool _ :: Dec _ :: _
-              | Num _ :: _ 
-              | Dec _ :: _  -> assert false
+              | Bool _ :: (Num _ | Dec _ | Array _) :: _
+              | (Num _  | Dec _ | Array _) :: _  -> assert false
 
             )
 

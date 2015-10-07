@@ -51,7 +51,7 @@ let check_sat_assuming_cmd _ =
 let headers () = []
 
 
-let prelude = 
+let prelude =
   [
     (* Define functions for int / real conversions *)
     "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
@@ -65,15 +65,16 @@ let comment_delims = ";;", ""
 
 
 (* Pretty-print a type *)
-let rec pp_print_type_node ppf =
+let rec pp_print_type ppf t =
+  pp_print_type_node ppf (Type.node_of_type t)
 
-  let open Type in function 
+and pp_print_type_node ppf = function 
 
-    | Bool -> Format.pp_print_string ppf "bool"
+    | Type.Bool -> Format.pp_print_string ppf "bool"
 
-    | Int -> Format.pp_print_string ppf "int"
+    | Type.Int -> Format.pp_print_string ppf "int"
 
-    | IntRange (i, j) -> 
+    | Type.IntRange (i, j) -> 
 
       Format.fprintf
         ppf 
@@ -81,7 +82,7 @@ let rec pp_print_type_node ppf =
         Numeral.pp_print_numeral i 
         Numeral.pp_print_numeral j
 
-    | Real -> Format.pp_print_string ppf "real"
+    | Type.Real -> Format.pp_print_string ppf "real"
 (*
   | BV i -> 
 
@@ -90,14 +91,14 @@ let rec pp_print_type_node ppf =
       "(bitvector %d)" 
       i 
 *)
-    | Array (s, t) -> 
+    | Type.Array (te, ti) -> 
       Format.fprintf
         ppf 
         "(-> %a %a)" 
-        pp_print_type s 
-        pp_print_type t
+        pp_print_type ti
+        pp_print_type te
 
-    | Scalar (s, l) -> 
+    | Type.Scalar (s, l) -> 
 
       Format.fprintf
         ppf 
@@ -106,16 +107,19 @@ let rec pp_print_type_node ppf =
         (pp_print_list Format.pp_print_string " ") l
 
 (* Pretty-print a hashconsed variable *)
-and pp_print_type ppf t = pp_print_type_node ppf (Type.node_of_type t)
 
 
 (* Pretty-print a logic identifier *)
 let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 
-let interpr_type t = match Type.node_of_type t with
+let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
   | Type.Bool | Type.Int | Type.Real -> t
+  | Type.Array (te, ti) ->
+    let ti', te' = interpr_type ti, interpr_type te in
+    if Type.equal_types ti ti' && Type.equal_types te te' then t
+    else Type.mk_array te' ti'
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
@@ -297,10 +301,94 @@ and pp_print_symbol ?arity ppf s =
 let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
 
 
-let pp_print_term ppf t =
-  Term.T.pp_print_term_w pp_print_symbol ppf t
-        
-    
+(* Pretty-print a list of typed variables *)
+let rec pp_print_typed_var_list db ppf = function 
+  (* Print nothing for the empty list *)
+  | [] -> ()
+  (* Print the first typed variable *)
+  | s :: tl -> 
+    (* Increment variable index *)
+    let db' = succ db in
+    (* Print variable as (Xn t) *)
+    Format.fprintf ppf "@[<hv 1>X%i::%a@]" db' pp_print_type s;
+    (* Add space and recurse if more bindings follow *)
+    if not (tl = []) then 
+      (Format.pp_print_space ppf (); 
+       pp_print_typed_var_list db' ppf tl)
+
+
+(* Pretty-print at a given De Bruijn index *)
+let rec pp_print_term' db ppf t = match Term.T.node_of_t t with
+  (* Delegate printing of free variables to function in input module *)
+  | Term.T.FreeVar v -> Var.pp_print_var ppf v
+
+  (* Print bound variable with its de Bruijn index *)
+  | Term.T.BoundVar dbv -> Format.fprintf ppf "X%i" (db - dbv + 1)
+
+  (* Delegate printing of leaf to function in input module *)
+  | Term.T.Leaf s -> pp_print_symbol ?arity:(Some 0) ppf s
+
+  (* Print a function application as S-expression *)
+  | Term.T.Node (s, a) -> 
+
+    Format.fprintf ppf 
+      "@[<hv 1>(%a@ %a)@]" 
+      (pp_print_symbol ?arity:(Some (List.length a))) s
+      (pp_print_list (pp_print_term' db) "@ ") a
+
+  (* Print a let binding *)
+  | Term.T.Let (l, b) ->
+    let Term.T.L (x, t) = Term.T.node_of_lambda l in
+    Format.fprintf ppf
+      "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]"
+      (pp_print_let_bindings 0 db) (b, x)
+      (pp_print_term' (db + List.length b)) t
+
+  (* Print a universal quantification *)
+  | (Term.T.Forall l | Term.T.Exists l) as nt ->
+    let Term.T.L (x, t) = Term.T.node_of_lambda l in
+    let quant = match nt with
+      | Term.T.Forall _ -> "forall"
+      | Term.T.Exists _ -> "exists"
+      | _ -> assert false
+    in
+    Format.fprintf ppf
+      "@[<hv 1>(%s@ @[<hv 1>(%a)@ %a@])@]"
+      quant
+      (pp_print_typed_var_list db) x
+      (pp_print_term' (db + List.length x)) t
+
+  | _ -> Term.T.pp_print_term_w pp_print_symbol ~db ppf t
+
+
+(* Pretty-print a list of variable term bindings *)
+and pp_print_let_bindings i db ppf = function 
+  (* Print nothing for the empty list *)
+  | [], [] -> ()
+  (* Print the first binding *)
+  | t :: tl, s :: sl -> 
+    (* Increment variable index *)
+    let db' = succ db in
+    (* Print as binding as (Xn t) *)
+    Format.fprintf 
+      ppf 
+      "@[<hv 1>(X%i::%a@ %a)@]" 
+      db'
+      pp_print_type s
+      (pp_print_term' (db - i)) t;
+
+    (* Add space and recurse if more bindings follow *)
+    if not (tl = []) then 
+      (Format.pp_print_space ppf (); 
+       pp_print_let_bindings (succ i) db' ppf (tl, sl))
+      
+  | _ -> assert false
+
+
+(* Pretty-print a term *)
+let pp_print_term = pp_print_term' 0
+
+
 (* Pretty-print an expression *)
 let pp_print_expr = pp_print_term
 
