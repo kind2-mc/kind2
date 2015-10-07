@@ -1643,12 +1643,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
           (fun (t, indexes) -> function
              | E.Bound _ 
              | E.Fixed _ -> 
-
-               if indexes = 0 then t, indexes
-               else if Type.is_array t then
-                 
+               if Type.is_array t then
                  Type.elem_type_of_array t, indexes - 1
-                   
                else
 
                  fail_at_position
@@ -1664,7 +1660,6 @@ let add_node_equation ctx pos state_var bounds indexes expr =
       let ctx = 
 
         if 
-true ||
           (* Type must be a subtype of declared type *)
           Type.check_type 
             expr_type
