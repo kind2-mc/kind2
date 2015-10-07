@@ -114,8 +114,7 @@ let smtlib_string_sexpr_conv =
 let rec yices_expr_of_string_sexpr = function
 
   (* An list with a list as first element, can be a multidimentional array *)
-  | HStringSExpr.List [(HStringSExpr.List _ as ar); arg]
-    when Flags.smt_arrays () ->
+  | HStringSExpr.List [(HStringSExpr.List _ as ar); arg] ->
 
     let ar_t = yices_expr_of_string_sexpr ar in
     let arg_t = yices_expr_of_string_sexpr arg in
@@ -124,10 +123,10 @@ let rec yices_expr_of_string_sexpr = function
   | sexpr ->
     GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv sexpr
 
+
 let yices_lambda_of_string_sexpr = 
-  GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
-
-
+  GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr
+    smtlib_string_sexpr_conv
 
 
 let next_id solver =
@@ -822,6 +821,52 @@ let check_sat_assuming solver exprs =
   res
 
 
+
+let model_of_yices_model model =
+
+  let vars_assign = Var.VarHashtbl.create (SMTExprMap.cardinal model) in
+
+  (* Construct an assignment of state variables found in the model *)
+  SMTExprMap.iter
+    (fun e v ->
+       try
+         let t = Conv.var_term_of_smtexpr e in
+
+         if Term.is_free_var t then
+
+           Var.VarHashtbl.add vars_assign 
+             (Term.free_var_of_term t)
+             (Model.Term (Conv.term_of_smtexpr v))
+
+         else begin
+           assert (Term.is_select t);
+           (* The term is an array, we construct a map to represent its
+              model. Here we just add one component of the map, mapping the
+              arguments of the array access to the value v *)
+
+           let var, args_t = Term.indexes_and_var_of_select t in
+           let args = List.map
+               (fun x -> Numeral.to_int (Term.numeral_of_term x)) args_t in
+
+           let vt = Conv.term_of_smtexpr v in
+
+           let map_var = match Var.VarHashtbl.find vars_assign var with
+             | Model.Map m -> m
+             | _ -> assert false
+             | exception Not_found -> Model.MIL.empty in
+           let map_var = Model.MIL.add args vt map_var in
+
+           Var.VarHashtbl.add vars_assign var (Model.Map map_var)
+         end
+       (* Ignore expressions that are not state variables *)
+       with Invalid_argument _ -> ()
+    ) 
+    model;
+
+  vars_assign
+
+
+
 (* Get values of expressions in the model *)
 let get_value solver expr_list = 
 
@@ -841,45 +886,7 @@ let get_value solver expr_list =
   match solver.solver_state with
     | YModel model ->
 
-      let vars_assign = Var.VarHashtbl.create (List.length expr_list) in
-
-      (* Construct an assignment of state variables found in the model *)
-      SMTExprMap.iter
-        (fun e v ->
-           try
-             let t = Conv.var_term_of_smtexpr e in
-
-             if Term.is_free_var t then
-             
-               Var.VarHashtbl.add vars_assign 
-                 (Term.free_var_of_term t)
-                 (Model.Term (Conv.term_of_smtexpr v))
-
-             else begin
-               assert (Term.is_select t);
-               (* The term is an array, we construct a map to represent its
-                  model. Here we just add one component of the map, mapping the
-                  arguments of the array access to the value v *)
-               
-               let var, args_t = Term.indexes_and_var_of_select t in
-               let args = List.map
-                   (fun x -> Numeral.to_int (Term.numeral_of_term x)) args_t in
-
-               let vt = Conv.term_of_smtexpr v in
-               
-               let map_var = match Var.VarHashtbl.find vars_assign var with
-                 | Model.Map m -> m
-                 | _ -> assert false
-                 | exception Not_found -> Model.MIL.empty in
-               let map_var = Model.MIL.add args vt map_var in
-
-               Var.VarHashtbl.add vars_assign var (Model.Map map_var)
-             end
-           (* Ignore expressions that are not state variables *)
-           with Invalid_argument _ -> ()
-        ) 
-        model;
-
+      let vars_assign = model_of_yices_model model in
 
       let smt_expr_values =
         List.fold_left
@@ -939,29 +946,12 @@ let get_model solver =
   match solver.solver_state with
     | YModel model ->
 
-      let vars_assign = 
-
-        (* Construct an assignment of state variables found in the model *)
-        SMTExprMap.fold
-          (fun e v a ->
-             
-             try
-               
-               (let t = Conv.var_term_of_smtexpr e in 
-                (* TODO: deal with arrays*)
-                assert (Term.is_free_var t);
-                Term.free_var_of_term t |> 
-                Var.unrolled_uf_of_state_var_instance,
-                Model.Term (Conv.term_of_smtexpr v)) :: a
-                 
-             (* Ignore expressions that are not state variables *)
-             with Invalid_argument _ -> a
-          ) 
-          model
-          []
-      in
-
-      `Model vars_assign
+      let m =
+        Var.VarHashtbl.fold (fun var value acc ->
+            (Var.unrolled_uf_of_state_var_instance var, value) :: acc)
+          (model_of_yices_model model) [] in
+      
+      `Model m
 
     | _ -> failwith "Yices: No model to compute get-values"
 
