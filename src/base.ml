@@ -65,11 +65,6 @@ let split trans solver k falsifiable to_split actlits =
 
   (* Function to run if sat. *)
   let if_sat _ =
-    
-    Format.eprintf "BMC model for %a, vars : %a@."
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys trans)
-      (pp_print_list Var.pp_print_var ", ") 
-      (TransSys.vars_of_bounds trans Numeral.zero k);
 
     (* Get the full model *)
     let model =
@@ -78,8 +73,6 @@ let split trans solver k falsifiable to_split actlits =
         (TransSys.get_state_var_bounds trans)
         (TransSys.vars_of_bounds trans Numeral.zero k)
     in
-    
-    Format.eprintf "BMC model :\n%a@." Model.pp_print_model model;
     
     (* Extract counterexample from model *)
     let cex =

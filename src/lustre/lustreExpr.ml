@@ -2089,33 +2089,14 @@ let type_of_select = function
 
 (* Select from an array *)
 let mk_select expr1 expr2 =
-
   (* Types of expressions must be compatible *)
-  let _res_type = 
-    type_of_select expr1.expr_type expr2.expr_type 
-  in
-
-  Format.eprintf "E.mk_select %a : %a at index %a : %a, resulting type %a@."
-    (pp_print_lustre_expr false) expr1
-    Type.pp_print_type expr1.expr_type
-    (pp_print_lustre_expr false) expr2
-    Type.pp_print_type expr2.expr_type
-    Type.pp_print_type _res_type ;
-
-  let e = mk_binary eval_select type_of_select expr1 expr2 in
-
-  Format.eprintf "  = %a : %a@."
-    (pp_print_lustre_expr false) e
-    Type.pp_print_type e.expr_type;
-
-  e
+  let _res_type = type_of_select expr1.expr_type expr2.expr_type in
+  mk_binary eval_select type_of_select expr1 expr2
 
 
 let mk_array expr1 expr2 =
-
   (* Types of expressions must be compatible *)
   let type_of_array t1 t2 = Type.mk_array t1 t2 in
-
   mk_binary (fun x _ -> x) type_of_array expr1 expr2
 
 

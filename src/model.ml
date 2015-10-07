@@ -213,9 +213,6 @@ let path_from_model state_vars model k =
          necessarily in a partial model *)
       List.iter
         (fun state_var -> 
-
-           Format.eprintf "get value of %a@."
-             Var.pp_print_var (Var.mk_state_var_instance state_var i);
            
            (* Value for variable at i *)
            let value = 

@@ -341,9 +341,6 @@ let rec eval_ast_expr bounds ctx =
                  bounds
              |> snd
              in
-
-             Format.eprintf "MKPRE %a with %d bounds@."
-               (E.pp_print_lustre_expr false) expr (List.length bounds); 
              
              (* Apply pre operator to expression, abstract non-variable term
                   and re-use previous variables *)
@@ -998,9 +995,7 @@ let rec eval_ast_expr bounds ctx =
         (res, ctx)
 
     (* Array slice [A[i..j] with i=j is just A[i] *)
-    | A.ArraySlice (pos, expr, (i, j)) as exp when i = j -> 
-
-      Format.eprintf "eval of %a@." (A.pp_print_expr) exp;
+    | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
 
       let bound_e, bounds = match List.rev bounds with
         | E.Fixed e :: r | E.Bound e :: r -> Some e, List.rev r
@@ -1323,31 +1318,31 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
   (* Evaluate second expression, in possibly changed context *)
   let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
-    Format.eprintf
-      "E1 ==== @[<hv>%a@]@."
-      (D.pp_print_trie
-         (fun ppf (i, e) ->
-            Format.fprintf ppf
-              "@[<hv 2>%a:@ %a :: %a@]"
-              (D.pp_print_index false) i
-              (E.pp_print_lustre_expr false) e
-              Type.pp_print_type e.E.expr_type)
-         ";@ ")
-      expr1';
+    (* Format.eprintf *)
+    (*   "E1 ==== @[<hv>%a@]@." *)
+    (*   (D.pp_print_trie *)
+    (*      (fun ppf (i, e) -> *)
+    (*         Format.fprintf ppf *)
+    (*           "@[<hv 2>%a:@ %a :: %a@]" *)
+    (*           (D.pp_print_index false) i *)
+    (*           (E.pp_print_lustre_expr false) e *)
+    (*           Type.pp_print_type e.E.expr_type) *)
+    (*      ";@ ") *)
+    (*   expr1'; *)
 
 
-    Format.eprintf
-      "E2 ==== @[<hv>%a@]@."
-      (D.pp_print_trie
-         (fun ppf (i, e) ->
-            Format.fprintf ppf
-              "@[<hv 2>%a:@ %a :: %a@]"
-              (D.pp_print_index false) i
-              (E.pp_print_lustre_expr false) e
-              Type.pp_print_type e.E.expr_type
-         )
-         ";@ ")
-      expr2';
+    (* Format.eprintf *)
+    (*   "E2 ==== @[<hv>%a@]@." *)
+    (*   (D.pp_print_trie *)
+    (*      (fun ppf (i, e) -> *)
+    (*         Format.fprintf ppf *)
+    (*           "@[<hv 2>%a:@ %a :: %a@]" *)
+    (*           (D.pp_print_index false) i *)
+    (*           (E.pp_print_lustre_expr false) e *)
+    (*           Type.pp_print_type e.E.expr_type *)
+    (*      ) *)
+    (*      ";@ ") *)
+    (*   expr2'; *)
     
   
   (* Apply operator pointwise to expressions *)
@@ -1516,31 +1511,31 @@ and eval_node_call
           eval_ast_expr bounds ctx (A.ExprList (dummy_pos, expr)) 
         in
 
-        Format.printf
-          "@[<v>NIOE inputs:@,%a@]@."
-          (pp_print_list
-             (fun ppf (i, sv) -> 
-                Format.fprintf ppf "%a: %a :: %a (const:%b)"
-                  (D.pp_print_index false) i
-                  StateVar.pp_print_state_var sv
-                  Type.pp_print_type (StateVar.type_of_state_var sv)
-                  (StateVar.is_const sv)
-             )
-             "@,")
-          (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings node_inputs));
+        (* Format.printf *)
+        (*   "@[<v>NIOE inputs:@,%a@]@." *)
+        (*   (pp_print_list *)
+        (*      (fun ppf (i, sv) ->  *)
+        (*         Format.fprintf ppf "%a: %a :: %a (const:%b)" *)
+        (*           (D.pp_print_index false) i *)
+        (*           StateVar.pp_print_state_var sv *)
+        (*           Type.pp_print_type (StateVar.type_of_state_var sv) *)
+        (*           (StateVar.is_const sv) *)
+        (*      ) *)
+        (*      "@,") *)
+        (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings node_inputs)); *)
 
-        Format.printf
-          "@[<v>NIOE exprs:@,%a@]@."
-          (pp_print_list
-             (fun ppf (i, e) -> 
-                Format.fprintf ppf "%a: %a :: %a (const:%b)"
-                  (D.pp_print_index false) i
-                  (E.pp_print_lustre_expr false) e
-                  Type.pp_print_type (E.type_of_lustre_expr e)
-                  (E.is_const e)
-             )
-             "@,")
-          (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings expr'));
+        (* Format.printf *)
+        (*   "@[<v>NIOE exprs:@,%a@]@." *)
+        (*   (pp_print_list *)
+        (*      (fun ppf (i, e) ->  *)
+        (*         Format.fprintf ppf "%a: %a :: %a (const:%b)" *)
+        (*           (D.pp_print_index false) i *)
+        (*           (E.pp_print_lustre_expr false) e *)
+        (*           Type.pp_print_type (E.type_of_lustre_expr e) *)
+        (*           (E.is_const e) *)
+        (*      ) *)
+        (*      "@,") *)
+        (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings expr')); *)
 
 
         if 
@@ -1577,10 +1572,6 @@ and eval_node_call
           (accum, ctx) ->
 
           if 
-            (Format.eprintf "%a <: %a (w index %a)???@."
-               Type.pp_print_type expr_type
-               Type.pp_print_type (StateVar.type_of_state_var state_var)
-               (D.pp_print_index false) i;
             (* Expression must be of a subtype of input type *)
             Type.check_type 
               expr_type
@@ -1588,8 +1579,7 @@ and eval_node_call
 
             (* Expression must be constant if input is *)
             (not (StateVar.is_const state_var) || 
-             E.is_const expr))
-
+             E.is_const expr)
           then 
 
             (* New variable for abstraction, is constant if input is *)
@@ -1753,7 +1743,6 @@ and eval_node_call
       let ctx, oracle_state_vars = 
         List.fold_left
           (fun (ctx, accum) sv ->
-             Format.eprintf "C.mk_fresh_oracle for %a@." StateVar.pp_print_state_var sv;
              let sv', ctx = 
                C.mk_fresh_oracle 
                  ~is_input:true
@@ -1774,7 +1763,6 @@ and eval_node_call
       let output_state_vars, ctx = 
         D.fold
           (fun i sv (accum, ctx) -> 
-             Format.eprintf "C.mk_fresh_local for output %a@." StateVar.pp_print_state_var sv;
              let sv', ctx = 
                C.mk_fresh_local
                  ctx

@@ -245,10 +245,6 @@ let mk_state_var
     state_var_name
     state_var_scope
     state_var_type = 
-
-  Format.eprintf "mk_state_var %a : %a@." pp_print_state_var_name 
-    (state_var_name, state_var_scope) Type.pp_print_type
-    state_var_type;
   
   try 
 

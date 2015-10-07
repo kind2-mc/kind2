@@ -775,8 +775,6 @@ let rec slice_nodes
           N.locals; 
           N.state_var_source_map } as node_sliced), 
        node_unsliced) :: tl -> 
-
-      Format.eprintf "\nLeaves %a@." (pp_print_list StateVar.pp_print_state_var ", ") (leaves);
       
       (* If this is the top node, slice away inputs and outputs *)
       let inputs', outputs' = 
@@ -795,8 +793,6 @@ let rec slice_nodes
         else
           inputs, outputs
       in
-
-      Format.eprintf "\nINPUtS %a@." (pp_print_list StateVar.pp_print_state_var ", ") (D.values inputs');
       
       (* Local variables related by an index have been moved together,
          now discard not visited indexes *)
@@ -825,12 +821,6 @@ let rec slice_nodes
           []
           locals 
       in
-
-      List.iter (fun l ->
-          Format.eprintf "\nLSLocals %a@." (pp_print_list StateVar.pp_print_state_var ", ") (D.values l);
-        ) locals';
-
-      Format.eprintf "\nLSOracles %a@." (pp_print_list StateVar.pp_print_state_var ", ") (oracles);
 
       (* Replace inputs and outputs in sliced node *)
       let node_sliced = 
@@ -1312,11 +1302,6 @@ let slice_to_abstraction'
     S.find_subsystem subsystem top
     |> N.nodes_of_subsystem 
   in 
-
-  Format.eprintf "BEFORE slicing %a@." (N.pp_print_node false) (List.hd nodes);
-
-  Format.eprintf "\nBFS_Oracles %a@." (pp_print_list StateVar.pp_print_state_var ", ") ((List.hd nodes).N.oracles);
-
   
   (* Slice all nodes to either abstraction or implementation *)
   let nodes', functions' = 

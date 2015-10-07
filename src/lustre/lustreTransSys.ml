@@ -1338,9 +1338,6 @@ let rec constraints_of_equations init stateful_vars terms = function
 
   (* Can define state variable with a let binding *)
   | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
-
-    Format.eprintf "Trying to define %a as %a@."
-      StateVar.pp_print_state_var state_var (E.pp_print_expr false) expr_step;
     
     (* Let binding for stateless variable *)
     let def =
@@ -1400,7 +1397,6 @@ let rec constraints_of_equations init stateful_vars terms = function
 
       (* Fixed index [e] *)
       | E.Fixed e -> 
-        Format.eprintf "mk_let %a@." (E.pp_print_expr false) e;
         (* Let bind index variable to value [e] *)
         fun (a, i) ->
           (Term.mk_let 
@@ -1438,7 +1434,6 @@ let rec constraints_of_equations init stateful_vars terms = function
         fun (a, i) -> 
           (* Index variable *)
           let v = index_var_of_int i in
-          Format.eprintf "mk_forall %a@." Var.pp_print_var v;
           (* Quantify over index variable between 0 and [e] *)
           (Term.mk_forall
              [v]
@@ -1478,12 +1473,6 @@ let rec constraints_of_equations init stateful_vars terms = function
       (* Convert select operators to uninterpreted functions *)
       ) |> Term.convert_select
     in
-
-    Format.eprintf "EQ1 [bounds = %a]: %a@."
-      (pp_print_list
-         (fun fmt -> function  E.Bound e| E.Fixed e ->
-            E.pp_print_expr false fmt e) ", ") bounds
-      Term.pp_print_term eq;
 
     (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term eq)); *)
 
@@ -1564,8 +1553,6 @@ let rec trans_sys_of_node'
                     (I.pp_print_ident false) node_name))
 
         in
-
-        Format.eprintf "LUSTRETREANSSYS %a@." (N.pp_print_node false) node;
         
         (* Scope of node name *)
         let scope = [I.string_of_ident false node_name] in
@@ -1855,21 +1842,9 @@ let rec trans_sys_of_node'
               |>
 
               (fun (e, d) ->
-                 List.iter (fun e ->
-                     Format.eprintf "EQBEFORE %a@."
-                       (LustreNode.pp_print_node_equation false) e) e;
-
                  constraints_of_equations
-                   false stateful_vars trans_terms (List.rev e),
-
-                 d)
-
+                   false stateful_vars trans_terms (List.rev e), d)
             in
-
-            List.iter (fun t ->
-                Format.eprintf "EQ: %a @." Term.pp_print_term t) trans_terms;
-
-
 
             (* ****************************************************** *)
             (* Properties                                         
@@ -1983,48 +1958,11 @@ let rec trans_sys_of_node'
                 stateful_vars
             in
 
-            Format.eprintf "Signature state vars: ";
-            List.iter (fun sv -> Format.eprintf "%a, " StateVar.pp_print_state_var sv) signature_state_vars;
-            Format.eprintf "@.";            
-
-            Format.eprintf "Stateful locals: ";
-            List.iter (fun sv -> Format.eprintf "%a, " StateVar.pp_print_state_var sv) stateful_locals;
-            Format.eprintf "@.";            
-
-            (* State variables in the signature of the initial state
-               constraint in correct order *)
+            (* State variables in the signature of the initial state constraint
+               in correct order *)
             let signature_state_vars = 
               signature_state_vars @ stateful_locals
             in
-
-            (* (\* Arrays become global state variables and are removed *)
-            (*    from signature *\) *)
-            (* let global_state_vars, signature_state_vars =  *)
-            (*   List.partition *)
-            (*     (fun sv -> StateVar.type_of_state_var sv |> Type.is_array) *)
-            (*     signature_state_vars  *)
-            (* in *)
-
-            (* Format.eprintf "Globals: "; *)
-            (* List.iter (fun sv -> *)
-            (*     Format.eprintf "%a, " *)
-            (*       StateVar.pp_print_state_var sv) global_state_vars; *)
-            (* Format.eprintf "@.";             *)
-
-            (* (\* TODO: add actual bound of state variable *\) *)
-            (* let global_state_vars =  *)
-            (*   List.map *)
-            (*     (fun sv -> (sv, [])) *)
-            (*     global_state_vars *)
-            (* in *)
-
-            (* (\* Need to add an instance variable when we have arrays *\) *)
-            (* let signature_state_vars, instance_state_var = *)
-            (*   if global_state_vars = [] then  *)
-            (*     signature_state_vars, None  *)
-            (*   else  *)
-            (*     instance :: signature_state_vars, Some instance  *)
-            (* in *)
 
             (* Formal parameters of initial state constraint *)
             let init_formals = 
@@ -2034,8 +1972,7 @@ let rec trans_sys_of_node'
                 signature_state_vars
             in
 
-            (* Create uninterpreted symbol for initial state
-               predicate *)
+            (* Create uninterpreted symbol for initial state predicate *)
             let init_uf_symbol = 
               UfSymbol.mk_uf_symbol
                 (Format.asprintf
@@ -2055,8 +1992,7 @@ let rec trans_sys_of_node'
                    Var.mk_state_var_instance sv TransSys.trans_base)
                 signature_state_vars @
 
-              (* Not constant state variables at the previous
-                 instant *)
+              (* Not constant state variables at the previous instant *)
               List.map 
                 (fun sv -> 
                    Var.mk_state_var_instance 
@@ -2067,8 +2003,7 @@ let rec trans_sys_of_node'
                    signature_state_vars)
             in
 
-            (* Create uninterpreted symbol for transition relation
-               predicate *)
+            (* Create uninterpreted symbol for transition relation predicate *)
             let trans_uf_symbol = 
               UfSymbol.mk_uf_symbol
                 (Format.asprintf
@@ -2081,9 +2016,8 @@ let rec trans_sys_of_node'
 
             (* Collect uninterpreted function symbols from globals
 
-               TODO: We could first reduce the list of uninterpreted
-               function symbols to the ones used in this system and
-               its subsystems. *)
+               TODO: We could first reduce the list of uninterpreted function
+               symbols to the ones used in this system and its subsystems. *)
             let ufs =
               List.fold_left
                 (fun accum { F.output_ufs } ->
@@ -2094,20 +2028,10 @@ let rec trans_sys_of_node'
                 []
                 functions
             in
-
-            (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and init_terms))); *)
-
-            (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term (Term.mk_and trans_terms))); *)
-            
-            (* (\* Add uf symbols for global arrays *\) *)
-            (* let ufs = List.fold_left *)
-            (*     (fun acc (sv, _) -> StateVar.encode_select sv :: acc) *)
-            (*     ufs global_state_vars *)
-            (* in *)
-            
             
             (* ****************************************************** *)
             (* Create transition system                               *)
+            (* ****************************************************** *)
 
             (* Create transition system *)
             let trans_sys, _ = 
@@ -2130,9 +2054,7 @@ let rec trans_sys_of_node'
                 [] (* One-state invariants *)
                 [] (* Two-state invariants *)
             in                
-(*
-            Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
-*)
+
             trans_sys_of_node'
               top_name
               analysis_param
@@ -2169,25 +2091,13 @@ let trans_sys_of_nodes
 
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
-
-
-  Format.eprintf "\nTRS_Oracles %a@." (pp_print_list StateVar.pp_print_state_var ", ") (subsystem.SubSystem.source.N.oracles);
-
   
   let { SubSystem.source = { N.name = top_name } as node } as subsystem', globals' = 
     LustreSlicing.slice_to_abstraction analysis_param subsystem' globals
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in 
-(*
-  Format.printf 
-    "@[<v>%a@]@."
-    (pp_print_list (F.pp_print_function false) "@,") globals'.G.functions;
 
-  Format.printf
-    "@[<v>%a@]@."
-    (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
-*)
   let { trans_sys } =   
 
     try 

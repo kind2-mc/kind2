@@ -382,8 +382,6 @@ let rec last_elem_type_of_array = function
 
 (* Check if [t1] is a subtype of [t2] *)
 let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } = 
-
-  Format.eprintf "Check_type : %a <: %a@." pp_print_type_node t1 pp_print_type_node t2;
   
   match t1, t2 with 
 

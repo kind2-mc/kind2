@@ -76,8 +76,6 @@ let eval_const_decl ?(ghost = false) ctx = function
         (Format.asprintf 
            "Identifier %a is redeclared as constant" 
            (I.pp_print_ident false) ident);
-
-    Format.eprintf "Eval const expression..........@.";
     
     (* Evaluate constant expression *)
     let res, _ = 
@@ -268,21 +266,6 @@ let rec eval_node_locals ?(ghost = false) ctx = function
     (* Evaluate type expression *)
     let index_types = S.eval_ast_type ctx var_type in
 
-    Format.eprintf "of TYPE %a@." A.pp_print_lustre_type var_type;
-
-    Format.eprintf
-      "IE @[<hv>%a@]@."
-      (D.pp_print_trie
-         (fun ppf (i, e) ->
-            Format.fprintf ppf
-              "@[<hv 2>%a:@ %a@]"
-              (D.pp_print_index false) i
-              (Type.pp_print_type) e)
-         ";@ ")
-      index_types;
-    
-
-    
     (* Add declaration of possibly indexed type to contexts *)
     let ctx = C.add_node_local ~ghost ctx ident index_types in
 
@@ -406,20 +389,6 @@ let eval_struct_item ctx pos = function
     (*           "Index mismatch for array") *)
     (* in *)
 
-    Format.eprintf "checking 1: %a and 2:@."
-      (pp_print_list A.pp_print_ident ",, ") l;
-
-    Format.printf
-      "  @[<hv>%a@]@."
-      (D.pp_print_trie
-         (fun ppf (i, e) ->
-            Format.fprintf ppf
-              "@[<hv 2>%a:@ %a@]"
-              (D.pp_print_index false) i
-              (StateVar.pp_print_state_var) e)
-         ";@ ")
-      res;
-        
     (* Check that the variable has at least as many indexes as
        variables given *)
     List.iter (check l) (D.keys res);
@@ -427,15 +396,6 @@ let eval_struct_item ctx pos = function
     (* Must have at least one element in the trie *)
     assert 
       (try D.choose res |> ignore; true with Not_found -> false);
-
-    (* Convert array bounds to indexes for equation *)
-    let convert l2 =
-      List.fold_left (fun acc -> function
-          | D.ArrayVarIndex _ -> succ acc
-          | _ -> acc) 0 l2 in
-    
-    let indexes = (D.keys res |> List.hd) |> convert in
-    (* XXX *)
     
     let indexes = List.length l in
     
@@ -535,12 +495,12 @@ let rec eval_eq_lhs ctx pos = function
 
             (* Go forwards through list *)
             i + 1,
-            (Format.eprintf "add %d@." i;
+
             (* Add index of item on left-hand side to indexes *)
             D.fold
               (fun j e a -> D.add (D.ListIndex i :: j) e a)
               t
-              accum)))
+              accum))
 
         (* Add to empty trie with first index zero *)
         (ctx, 0, D.empty)
@@ -567,13 +527,6 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     C.fail_at_position pos "Type mismatch in equation: indexes not of equal length"
 
-  | _ -> 
-    Format.eprintf "LHS : <%a> RHS : <%a> @."
-      (D.pp_print_index false) (List.hd lhs |> fst)
-      (D.pp_print_index false) (List.hd rhs |> fst);
-    match lhs, rhs with
-  | [], []   | _, [] | [], _ ->         assert false
-
     (* All indexes consumed *)
   | ([], state_var) :: lhs_tl, 
     ([], expr) :: rhs_tl -> 
@@ -599,7 +552,6 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
   (* Array variable on left-hand side, fixed index on right-hand side *)
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (D.ArrayIntIndex i :: rhs_index_tl, expr) :: rhs_tl -> 
-Format.eprintf "ici@.@.";
 
     (* Recurse to produce equations with this index *)
     let accum' = 
@@ -626,8 +578,6 @@ Format.eprintf "ici@.@.";
   (* Array index on left-hand and right-hand side *)
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
     (D.ArrayVarIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
-
-    Format.eprintf "icilalalouiouiuoui@.@.";
 
     (* We cannot compare expressions for array bounds syntactically,
        because that may give too many false negatives. Evaluating both
@@ -674,8 +624,6 @@ Format.eprintf "ici@.@.";
 
   | ((D.ArrayIntIndex i :: lhs_index_tl, state_var) :: lhs_tl,
      (D.ArrayIntIndex j :: rhs_index_tl, expr) :: rhs_tl) -> 
-
-    Format.eprintf "icilalal@.@.";
 
     (* Indexes are sorted, must match *)
     if i = j then 
@@ -763,26 +711,25 @@ Format.eprintf "ici@.@.";
    trie of expressions *)
 let expand_tuple pos lhs rhs = 
 
+  (* Format.eprintf *)
+  (*   "@[<v>expand_tuple lhs:@,%a@]@." *)
+  (*   (pp_print_list *)
+  (*      (fun ppf (i, sv) ->  *)
+  (*         Format.fprintf ppf "%a: %a " *)
+  (*           (D.pp_print_index false) i *)
+  (*           StateVar.pp_print_state_var sv) *)
+  (*      "@,") *)
+  (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs)); *)
 
-  Format.printf
-    "@[<v>expand_tuple lhs:@,%a@]@."
-    (pp_print_list
-       (fun ppf (i, sv) -> 
-          Format.fprintf ppf "%a: %a "
-            (D.pp_print_index false) i
-            StateVar.pp_print_state_var sv)
-       "@,")
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs));
-
-  Format.printf
-    "@[<v>expand_tuple rhs:@,%a@]@."
-    (pp_print_list
-       (fun ppf (i, e) -> 
-          Format.fprintf ppf "%a: %a "
-            (D.pp_print_index false) i
-            (E.pp_print_lustre_expr false) e)
-       "@,")
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs));
+  (* Format.eprintf *)
+  (*   "@[<v>expand_tuple rhs:@,%a@]@." *)
+  (*   (pp_print_list *)
+  (*      (fun ppf (i, e) ->  *)
+  (*         Format.fprintf ppf "%a: %a " *)
+  (*           (D.pp_print_index false) i *)
+  (*           (E.pp_print_lustre_expr false) e) *)
+  (*      "@,") *)
+  (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs)); *)
   
   
   (* TODO check with Christoph why they were reversed *)
@@ -886,17 +833,6 @@ let rec eval_node_equations ctx = function
 
     in 
 
-    Format.printf
-      "eq_rhs : @[<hv>%a@]@."
-      (D.pp_print_trie
-         (fun ppf (i, e) ->
-            Format.fprintf ppf
-              "@[<hv 2>%a:@ %a@]"
-              (D.pp_print_index false) i
-              (E.pp_print_lustre_expr false) e)
-         ";@ ")
-      eq_rhs;
-
     (* Remove local definitions for equation from context
 
        We add local definitions from the left-hand side to the
@@ -912,11 +848,10 @@ let rec eval_node_equations ctx = function
     let ctx =
       List.fold_left
         (fun ctx ((sv, b), e) ->
-           Format.eprintf "ty]> %a@."
-             (pp_print_list Type.pp_print_type ", ")
-             (Type.all_index_types_of_array (StateVar.type_of_state_var sv));
-           assert (try List.length (Type.all_index_types_of_array (StateVar.type_of_state_var sv)) = List.length b
-                   with _ -> true);
+           assert (
+             try List.length (Type.all_index_types_of_array
+                                (StateVar.type_of_state_var sv)) = List.length b
+             with _ -> true);
            C.add_node_equation ctx pos sv b indexes e)
         ctx
         equations
@@ -1972,8 +1907,6 @@ let rec declarations_to_context ctx =
 
        (* Node may be forward referenced *)
        with C.Node_or_function_not_found (called_ident, pos) -> 
-
-         Format.eprintf "FORWARD REFERENCE DETECTED in %a@." (I.pp_print_ident false) ident;
          
          if 
 

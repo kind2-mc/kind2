@@ -538,22 +538,16 @@ let get_var_values s state_var_indexes vars =
         Var.type_of_var s v
   in
 
-  (* get model for arrays *)
+  (* Get model for arrays *)
+  (* We obtain the model by first evaluating the bound of the array in the
+     current model when it is not fixed. Then we evaluate A[0], ..., A[n] in the
+     solver and return a map that represent this as the model *)
   List.iter (fun v ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
-      Format.eprintf "model of %a@." Var.pp_print_var v;
       let indexes = StateVar.StateVarHashtbl.find state_var_indexes
           (Var.state_var_of_state_var_instance v) in
-      (* let id_tys = Type.all_index_types_of_array ty in *)
 
-      Format.eprintf "indexes of %a : [%a] @."
-        Var.pp_print_var v
-        (pp_print_list
-           (fun ppf -> function LustreExpr.Fixed eu | LustreExpr.Bound eu ->
-              LustreExpr.pp_print_expr false ppf eu)
-           ", ") indexes;
-      
       let bnds = List.map (function
           | LustreExpr.Fixed eu
           | LustreExpr.Bound eu ->
@@ -568,10 +562,6 @@ let get_var_values s state_var_indexes vars =
                | Eval.ValNum nu -> 0, Numeral.to_int nu |> pred
                | _ -> assert false)
         ) indexes in
-
-      Format.eprintf "bounds of %a : [%a] @."
-        Var.pp_print_var v
-        (pp_print_list (fun ppf (_, x) -> Format.pp_print_int ppf x) ", ") bnds;
       
       let args_list = cross (List.map range bnds) in
       let vt = Term.mk_var v in
@@ -590,9 +580,7 @@ let get_var_values s state_var_indexes vars =
       in
       let m =
         List.fold_left (fun acc (t, e) ->
-            Format.eprintf "Term %a@." Term.pp_print_term t;
             let t = S.Conv.term_of_smtexpr t in
-            Format.eprintf "Term %a@." Term.pp_print_term t;
             assert (Term.is_select t);
             let v', args_t = Term.indexes_and_var_of_select t in
             assert (Var.equal_vars v v');

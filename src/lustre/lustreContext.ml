@@ -310,7 +310,7 @@ let create_function = function
 
 
 (* Add a binding of an identifier to an expression to context *)
-let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr = 
+let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr = 
 
   (* Must have at least a map for the top level *)
   assert (ident_expr_map <> []);
@@ -320,48 +320,13 @@ let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr 
      then also if some of the lower scopes contains a binding to the
      identifier. *)
   if 
-    
     (not shadow 
      && 
      (IT.mem (List.hd ident_expr_map) ident)
      || 
      (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map)))
-
   then
-    (Format.eprintf "add_expr_for_ident: ident = %a , expr = %a@."
-       (I.pp_print_ident false) ident
-               (D.pp_print_trie
-                  (fun ppf (i, e) ->
-                     Format.fprintf ppf
-                       "@[<hv 2>%a:@ %a@]"
-                       (D.pp_print_index false) i
-                       (E.pp_print_lustre_expr false) e)
-                  ";@ ")
-               expr
-             ;
-     Format.eprintf "                    in@.";
-     List.iter (fun m ->
-         Format.eprintf "[\n";
-         IT.iter (fun id d ->
-
-             Format.eprintf
-               "%a -> @[<hv>%a@]@."
-               (I.pp_print_ident false) id
-               (D.pp_print_trie
-                  (fun ppf (i, e) ->
-                     Format.fprintf ppf
-                       "@[<hv 2>%a:@ %a@]"
-                       (D.pp_print_index false) i
-                       (E.pp_print_lustre_expr false) e)
-                  ";@ ")
-               d
-             ;
-           ) m;
-         Format.eprintf "\n]@.";
-       ) ident_expr_map;
-
      raise (Invalid_argument "add_expr_for_ident")    
-    )
   else
     
     (* Modify hash table in place *)
@@ -566,9 +531,6 @@ let mk_state_var
          index)
   in
 
-
-  Format.eprintf "MK %s %a@." state_var_name (LustreIndex.pp_print_index false) index;
-  
   (* For each index add a scope to the identifier to distinguish the
      flattened indexed identifier from unindexed identifiers
 
@@ -784,8 +746,6 @@ let mk_fresh_oracle
     ?(bounds = [])
     ({ node; definitions_allowed; fresh_oracle_index } as ctx) 
     state_var_type =
-
-  Format.eprintf "|---> mk_fresh_oracle@.";
   
   match definitions_allowed with 
 
@@ -819,26 +779,11 @@ let mk_fresh_oracle
           in
 
           (* Register bounds *)
-          Format.eprintf "Bounds: %a@."
-            (pp_print_list
-               (function ppf -> function
-                  | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-                  | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
-               "")
-            bounds;
           SVT.add ctx.state_var_bounds state_var bounds;
           
           (* Increment index of fresh oracle *)
           let ctx = add_node_oracle ctx state_var in
 
-          
-          Format.eprintf "New oracle : %a :: %a@."
-            StateVar.pp_print_state_var state_var
-            Type.pp_print_type (StateVar.type_of_state_var state_var);
-
-          Format.eprintf "\nafter adding Oracles %a@." (pp_print_list StateVar.pp_print_state_var ", ") ((get ctx.node).N.oracles);
-          Format.eprintf "\nafter adding (nodes) %a@." (pp_print_list (I.pp_print_ident false) ", ") (List.map (fun n -> n.N.name) ctx.nodes);
-          
           (* Return variable and changed context *)
           (state_var, ctx)
 
@@ -858,8 +803,6 @@ let mk_fresh_oracle_for_state_var
 
   with Not_found -> 
 
-    Format.eprintf "|-- mk_fresh_oracle_for_state_var %a@." StateVar.pp_print_state_var state_var;
-    
     (* Create fresh oracle *)
     let state_var', ctx = 
       mk_fresh_oracle
@@ -1009,15 +952,6 @@ let mk_abs_for_expr
     in
 
     (* Register bounds *)
-    Format.eprintf "mk_abs Bounds: %a@."
-      (pp_print_list
-         (function ppf -> function
-            | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-            | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
-         "")
-      bounds;
-
-    (* Register bounds *)
     SVT.add ctx.state_var_bounds state_var bounds;
     
     (* Add bounds from array definition if necessary *)
@@ -1055,10 +989,6 @@ let mk_local_for_expr
        definitions_allowed;
        fresh_local_index } as ctx)
     ({ E.expr_type } as expr) = 
-
-  
-  Format.eprintf "MKLOCAL %a with %d bounds@."
-    (E.pp_print_lustre_expr false) expr (if bounds = None then -1 else (List.length (get bounds))); 
 
   match definitions_allowed with 
 
@@ -1127,15 +1057,6 @@ let mk_fresh_local
           state_var_type
           None
       in
-
-      (* Register bounds *)
-      Format.eprintf "mk_fresh_local Bounds: %a@."
-        (pp_print_list
-           (function ppf -> function
-              | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-              | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
-           "")
-        bounds;
 
       (* Register bounds *)
       SVT.add ctx.state_var_bounds state_var bounds;
@@ -1515,23 +1436,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
     | { node = Some { N.equations; N.calls; N.function_calls } } -> 
-
-      Format.printf
-        "add equation %a%a : %a = %a : %a (with %d indexes)@."
-        StateVar.pp_print_state_var state_var
-        (pp_print_list
-           (function ppf -> function
-              | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-              | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
-           "")
-        bounds
-        Type.pp_print_type (StateVar.type_of_state_var state_var)
-        (E.pp_print_lustre_expr false) expr
-        Type.pp_print_type (E.type_of_lustre_expr expr)
-        indexes;
-
       if 
-        
         (* State variable already defined by equation? *)
         List.exists
           (fun ((sv, b), _) -> 
@@ -1592,6 +1497,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
       
       let expr, expr_type, bounds, indexes =
         if Type.is_array expr_type then
+          (* When expression is of type array, add select operator around to
+             fall back in a supported fragment *)
           let elty = Type.elem_type_of_array expr_type in
           let eitys = Type.all_index_types_of_array expr_type in
           let expr, i = List.fold_left (fun (e, i) _ ->
@@ -1604,38 +1511,14 @@ let add_node_equation ctx pos state_var bounds indexes expr =
               SVT.find ctx.state_var_bounds
                 (Var.state_var_of_state_var_instance earv)
             with Not_found -> [] in
-          Format.eprintf "[bnds_earv] %a : %d@."
-            StateVar.pp_print_state_var (Var.state_var_of_state_var_instance earv)
-            (List.length bnds_earv);
+          (* We only add select (and their bounds) for array indexes which do
+             not yet appear on the left hand side *)
           let extra_bnds = keep_same [] bnds_earv eitys in
-          Format.eprintf "extra bounds %a@."
-            (pp_print_list
-               (function ppf -> function
-                  | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-                  | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
-               "")
-            extra_bnds;
-
           expr, elty, List.rev_append extra_bnds bounds, i
               
         else
           expr, expr_type, bounds, indexes
       in
-
-      Format.printf
-        "really adding equation %a%a : %a = %a : %a (with %d indexes)@."
-        StateVar.pp_print_state_var state_var
-        (pp_print_list
-           (function ppf -> function
-              | E.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-              | E.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
-           "")
-        bounds
-        Type.pp_print_type (StateVar.type_of_state_var state_var)
-        (E.pp_print_lustre_expr false) expr
-        Type.pp_print_type (E.type_of_lustre_expr expr)
-        indexes;
-
       
       (* Type of state variable *)
       let state_var_type, _ = 
@@ -1643,10 +1526,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
           (fun (t, indexes) -> function
              | E.Bound _ 
              | E.Fixed _ -> 
-               if Type.is_array t then
-                 Type.elem_type_of_array t, indexes - 1
+               if Type.is_array t then Type.elem_type_of_array t, indexes - 1
                else
-
                  fail_at_position
                    pos
                    (Format.asprintf 
@@ -1828,9 +1709,6 @@ let node_of_context = function
 
   (* Add abstractions to node and return *)
   | { expr_abs_map; node = Some node } as ctx -> 
-
-    Format.eprintf "node_of_context@.";
-    
     match
       (* Add equations from definitions to equations *)
       ET.fold

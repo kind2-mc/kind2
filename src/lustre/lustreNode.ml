@@ -1180,29 +1180,20 @@ let stateful_vars_of_node
       equations
   in
 
-  Format.eprintf "Liocals: ";
   (* Unconstrained local state variables must be stateful *)
   let stateful_vars = 
     List.fold_left
       (fun a l -> 
          D.fold
            (fun _ sv a ->
-            Format.eprintf "%a, " StateVar.pp_print_state_var sv;
-
               if 
-
                 (* Arrays are global TODO maybe this is not necessary *)
                 not (Type.is_array (StateVar.type_of_state_var sv)) &&
-                
                 (* Local state variable is defined by an equation? *)
                 List.exists
                   (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv') 
                   equations 
-              then 
-              let _ = Format.eprintf ":(not stateful), " in
-                (* State variable is not necessarily stateful *)
-                a
-
+              then a
               else 
 
                 (* State variable without equation must be stateful *)

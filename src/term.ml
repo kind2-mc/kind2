@@ -1555,8 +1555,6 @@ let map_state_vars f term =
 
 
 let convert_select term =
-
-  Format.eprintf "convert_select: %a@." pp_print_term term;
   
   (* Don't encode if using the theory of arrays *)
   if Flags.smt_arrays () then term
@@ -1564,13 +1562,8 @@ let convert_select term =
     map (fun _ t ->
         (* Term is a select operation? *)
         if is_select t then
-          let _ = Format.eprintf ">>> %a@." pp_print_term t in
           (* Get array variable and indexes of term *)
           let var, indexes = indexes_and_var_of_select t in
-          Format.eprintf ">>>>> %a :: %a [%a]@."
-            Var.pp_print_var var
-            Type.pp_print_type (Var.type_of_var var)
-            (pp_print_list pp_print_term " , ") indexes;
           (* Get indexes of type of variable *)
           let index_types =
             Var.type_of_var var |> Type.all_index_types_of_array in

@@ -153,9 +153,6 @@ let register_model solver model =
   let m =
     List.fold_left
       (fun acc (e, v) ->
-         (* Format.eprintf "in model (= %a %a)@." *)
-         (*   HStringSExpr.pp_print_sexpr e *)
-         (*   HStringSExpr.pp_print_sexpr v; *)
          let e_smte = yices_expr_of_string_sexpr e in
          let v_smte = yices_expr_of_string_sexpr v in
 
