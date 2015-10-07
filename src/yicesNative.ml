@@ -111,8 +111,18 @@ let smtlib_string_sexpr_conv =
        expr_or_lambda_of_string_sexpr = gen_expr_or_lambda_of_string_sexpr' } )
  
 
-let yices_expr_of_string_sexpr = 
-  GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv
+let rec yices_expr_of_string_sexpr = function
+
+  (* An list with a list as first element, can be a multidimentional array *)
+  | HStringSExpr.List [(HStringSExpr.List _ as ar); arg]
+    when Flags.smt_arrays () ->
+
+    let ar_t = yices_expr_of_string_sexpr ar in
+    let arg_t = yices_expr_of_string_sexpr arg in
+    Term.mk_select ar_t arg_t
+
+  | sexpr ->
+    GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv sexpr
 
 let yices_lambda_of_string_sexpr = 
   GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
@@ -836,17 +846,35 @@ let get_value solver expr_list =
       (* Construct an assignment of state variables found in the model *)
       SMTExprMap.iter
         (fun e v ->
-
            try
+             let t = Conv.var_term_of_smtexpr e in
 
-             Var.VarHashtbl.add
-               vars_assign 
-               (let t = Conv.var_term_of_smtexpr e in 
-                (* TODO: deal with arrays*)
-                assert (Term.is_free_var t);
-                Term.free_var_of_term t)
-               (Model.Term (Conv.term_of_smtexpr v))
+             if Term.is_free_var t then
+             
+               Var.VarHashtbl.add vars_assign 
+                 (Term.free_var_of_term t)
+                 (Model.Term (Conv.term_of_smtexpr v))
 
+             else begin
+               assert (Term.is_select t);
+               (* The term is an array, we construct a map to represent its
+                  model. Here we just add one component of the map, mapping the
+                  arguments of the array access to the value v *)
+               
+               let var, args_t = Term.indexes_and_var_of_select t in
+               let args = List.map
+                   (fun x -> Numeral.to_int (Term.numeral_of_term x)) args_t in
+
+               let vt = Conv.term_of_smtexpr v in
+               
+               let map_var = match Var.VarHashtbl.find vars_assign var with
+                 | Model.Map m -> m
+                 | _ -> assert false
+                 | exception Not_found -> Model.MIL.empty in
+               let map_var = Model.MIL.add args vt map_var in
+
+               Var.VarHashtbl.add vars_assign var (Model.Map map_var)
+             end
            (* Ignore expressions that are not state variables *)
            with Invalid_argument _ -> ()
         ) 
