@@ -169,7 +169,7 @@ let status_of_trans_sys sys =
       if falsifiable then status_unsafe
       else status_safe
   in
-  Format.printf "status of trans sys@." ;
+
   (* Exit status. *)
   exit_status
 

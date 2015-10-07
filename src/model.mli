@@ -33,6 +33,9 @@ type path = value list StateVar.StateVarHashtbl.t
 (** Pretty-print a value *)
 val pp_print_value : Format.formatter -> value -> unit
 
+(** Pretty-print a value in xml format *)
+val pp_print_value_xml : Format.formatter -> value -> unit
+
 (** Pretty-print a model *)
 val pp_print_model : Format.formatter -> t -> unit
 

@@ -801,11 +801,12 @@ let pp_print_stream_prop_xml ppf = function
   | _ -> assert false 
 
 
+
 (* Pretty-print a single value of a stream at an instant *)
 let pp_print_stream_value ppf i v =
     Format.fprintf ppf
       "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
-      i pp_print_value v
+      i Model.pp_print_value_xml v
 
 
 (* Pretty-print a single stream *)

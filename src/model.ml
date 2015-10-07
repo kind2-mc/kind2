@@ -77,6 +77,66 @@ let pp_print_map_as_array ppf m =
     Format.fprintf ppf "]";
   done
 
+      (* "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]"  *)
+
+
+type array_model =
+  | ItemValue of Term.t
+  | ItemArray of int * array_model array
+
+
+let rec allocate_model sizes =
+  match sizes with
+  | [] ->
+    ItemValue (Term.t_false)
+
+  | s :: rs ->
+    ItemArray
+      (s,
+       Array.init s (fun _ -> allocate_model rs))
+
+
+let dimension_of_map m =
+  MIL.fold (fun l _ acc -> List.map2 max acc l)
+    m (fst @@ MIL.choose m)
+  |> List.map succ
+
+
+let rec add_at_indexes l v arm =
+  match l, arm with
+  | [], ItemValue _ -> ItemValue v
+  | i :: l, ItemArray (s, a) ->
+    let new_a_i = add_at_indexes l v a.(i) in
+    a.(i) <- new_a_i;
+    arm
+  | _ -> assert false
+
+let rec map_to_array_model m =
+  allocate_model (dimension_of_map m)
+  |> MIL.fold add_at_indexes m
+
+
+let rec pp_print_array_model ppf index = function
+  | ItemValue v ->
+    Format.fprintf ppf
+      "@[<hv 2><Item index=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Item>@]"
+      index
+      Term.pp_print_term v
+  | ItemArray (s, a) ->
+    Format.fprintf ppf
+      "@[<hv 2><Array size=\"%d\">@,%a@;<0 -2></Array>@]"
+      s
+      (pp_print_listi pp_print_array_model "@,") (Array.to_list a)
+
+
+(* Show map as xml in counteexamples *)
+let pp_print_map_as_xml ppf m =
+  let arm = map_to_array_model m in
+  pp_print_array_model ppf 0 arm
+
+
+
+
 (* Print a value of the model *)  
 let pp_print_value ppf = function 
   | Term t -> Term.pp_print_term ppf t
@@ -84,6 +144,17 @@ let pp_print_value ppf = function
   | Map m ->
     try
       pp_print_map_as_array ppf m
+    with Not_found -> ()
+
+
+
+
+let pp_print_value_xml ppf = function 
+  | Term t -> Term.pp_print_term ppf t
+  | Lambda l -> Term.pp_print_lambda ppf l
+  | Map m ->
+    try
+      pp_print_map_as_xml ppf m
     with Not_found -> ()
 
 
