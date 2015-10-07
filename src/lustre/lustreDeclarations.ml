@@ -77,6 +77,8 @@ let eval_const_decl ?(ghost = false) ctx = function
            "Identifier %a is redeclared as constant" 
            (I.pp_print_ident false) ident);
 
+    Format.eprintf "Eval const expression..........@.";
+    
     (* Evaluate constant expression *)
     let res, _ = 
       S.eval_ast_expr
@@ -854,10 +856,13 @@ let rec eval_node_equations ctx = function
     (* array bounds. TODO: check that the order is correct *)
     let lhs_bounds =
       List.fold_left (fun acc (i, _) ->
-          List.fold_left (fun acc -> function
-              | D.ArrayVarIndex b -> E.Bound b :: acc
-              | _ -> acc
-            ) acc i
+          List.fold_left (fun (acc, cpt) -> function
+              | D.ArrayVarIndex b ->
+                if cpt < indexes then E.Bound b :: acc, succ cpt
+                else acc, cpt
+              | _ -> acc, cpt
+            ) (acc, 0) i
+          |> fst
         ) [] (D.bindings eq_lhs) in
     
     
@@ -1968,6 +1973,8 @@ let rec declarations_to_context ctx =
        (* Node may be forward referenced *)
        with C.Node_or_function_not_found (called_ident, pos) -> 
 
+         Format.eprintf "FORWARD REFERENCE DETECTED in %a@." (I.pp_print_ident false) ident;
+         
          if 
 
            (* Is the referenced node declared later? *)

@@ -23,6 +23,7 @@ module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
 module F = LustreFunction
+module C = LustreContext
 module G = LustreGlobals
 module S = LustreSlicing
 
@@ -528,6 +529,7 @@ let call_terms_of_node_call
            mk_fresh_state_var
              ?is_const:(Some (StateVar.is_const state_var))
              ?for_inv_gen:(Some true)
+             ~inst_for_sv:state_var
              (StateVar.type_of_state_var state_var)
          in
 
@@ -801,6 +803,7 @@ let rec constraints_of_node_calls
                 mk_fresh_state_var
                   ?is_const:None
                   ?for_inv_gen:(Some false)
+                  ~inst_for_sv:formal_sv
                   (StateVar.type_of_state_var formal_sv) 
               in
 
@@ -861,54 +864,36 @@ let rec constraints_of_node_calls
           node_def
       in
 
-      let clock_init = 
-        E.base_term_of_state_var TransSys.init_base clock 
-      in
+      let clock_init = E.base_term_of_state_var TransSys.init_base clock in
 
-      let clock_trans = 
-        E.cur_term_of_state_var TransSys.trans_base clock 
-      in
+      let clock_trans = E.cur_term_of_state_var TransSys.trans_base clock in
 
-      let clock_prop = 
-        E.cur_term_of_state_var TransSys.prop_base clock 
-      in
+      let clock_prop = E.cur_term_of_state_var TransSys.prop_base clock in
 
-      let clock_trans_pre = 
-        E.pre_term_of_state_var TransSys.trans_base clock 
-      in
+      let clock_trans_pre = E.pre_term_of_state_var TransSys.trans_base clock in
 
       let has_ticked =
-        mk_fresh_state_var
-          ?is_const:None
-          ?for_inv_gen:(Some false)
-          Type.t_bool
+        mk_fresh_state_var ?is_const:None ?for_inv_gen:(Some false)
+          ~inst_for_sv:clock Type.t_bool
       in
 
-      let node_locals = 
-        has_ticked :: node_locals
-      in
+      let node_locals = has_ticked :: node_locals in
 
-      let has_ticked_init = 
-        E.base_term_of_state_var TransSys.init_base has_ticked
-      in
+      let has_ticked_init =
+        E.base_term_of_state_var TransSys.init_base has_ticked in
 
-      let has_ticked_trans = 
-        E.cur_term_of_state_var TransSys.trans_base has_ticked
-      in
+      let has_ticked_trans =
+        E.cur_term_of_state_var TransSys.trans_base has_ticked in
 
-      let has_ticked_trans_pre = 
-        E.pre_term_of_state_var TransSys.trans_base has_ticked
-      in
+      let has_ticked_trans_pre =
+        E.pre_term_of_state_var TransSys.trans_base has_ticked in
 
       let init_flags = 
         List.map (fun sv -> SVM.find sv state_var_map_up) init_flags
       in
 
       let init_flags_init =
-        List.map
-          (E.base_term_of_state_var TransSys.init_base) 
-          init_flags
-      in
+        List.map (E.base_term_of_state_var TransSys.init_base) init_flags in
 
       let init_term = 
 
@@ -1427,9 +1412,9 @@ let rec constraints_of_equations init stateful_vars terms = function
       (* Variable index of size [e] *)
       | E.Bound e ->
 
-        if Flags.inline_arrays () then begin
-          if not (E.is_numeral e) then
-            failwith "Trying to inline non-fixed bounds arrays.";
+        if Flags.inline_arrays () && (E.is_numeral e) then begin
+          (* if not (E.is_numeral e) then *)
+          (*   failwith "Trying to inline non-fixed bounds arrays."; *)
 
           let b = E.numeral_of_expr e |> Numeral.to_int in
 
@@ -1592,21 +1577,33 @@ let rec trans_sys_of_node'
         let mk_fresh_state_var
             ?is_const
             ?for_inv_gen
+            ~inst_for_sv
             state_var_type =
 
           (* Increment counter for fresh state variables *)
           incr index_ref; 
 
           (* Create state variable *)
-          StateVar.mk_state_var
-            ~is_input:false
-            ?is_const:is_const
-            ?for_inv_gen:for_inv_gen
-            ((I.push_index I.inst_ident !index_ref) 
-             |> I.string_of_ident true)
-            (N.scope_of_node node @ I.reserved_scope)
-            state_var_type
+          let fsv =
+            StateVar.mk_state_var
+              ~is_input:false
+              ?is_const:is_const
+              ?for_inv_gen:for_inv_gen
+              ((I.push_index I.inst_ident !index_ref) 
+               |> I.string_of_ident true)
+              (N.scope_of_node node @ I.reserved_scope)
+              state_var_type
+          in
 
+          (* Register bounds *)
+          let bounds =
+            try StateVar.StateVarHashtbl.find
+                  globals.G.state_var_bounds inst_for_sv
+            with Not_found -> [] in
+          StateVar.StateVarHashtbl.add globals.G.state_var_bounds fsv bounds;
+
+          fsv
+          
         in
 
         (* Subnodes for which we have not created a transition
@@ -2173,6 +2170,10 @@ let trans_sys_of_nodes
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
 
+
+  Format.eprintf "\nTRS_Oracles %a@." (pp_print_list StateVar.pp_print_state_var ", ") (subsystem.SubSystem.source.N.oracles);
+
+  
   let { SubSystem.source = { N.name = top_name } as node } as subsystem', globals' = 
     LustreSlicing.slice_to_abstraction analysis_param subsystem' globals
   in

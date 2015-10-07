@@ -546,6 +546,14 @@ let get_var_values s state_var_indexes vars =
       let indexes = StateVar.StateVarHashtbl.find state_var_indexes
           (Var.state_var_of_state_var_instance v) in
       (* let id_tys = Type.all_index_types_of_array ty in *)
+
+      Format.eprintf "indexes of %a : [%a] @."
+        Var.pp_print_var v
+        (pp_print_list
+           (fun ppf -> function LustreExpr.Fixed eu | LustreExpr.Bound eu ->
+              LustreExpr.pp_print_expr false ppf eu)
+           ", ") indexes;
+      
       let bnds = List.map (function
           | LustreExpr.Fixed eu
           | LustreExpr.Bound eu ->
@@ -575,9 +583,10 @@ let get_var_values s state_var_indexes vars =
             |> S.Conv.smtexpr_of_term
           ) args_list in
       let values =
-        match prof_get_value s sexprs with
-        | `Values v -> v
-        | `Error e -> raise (Failure ("SMT solver failed: " ^ e))
+        if sexprs = [] then [] (* when the size of the array is 0 in the model *)
+        else match prof_get_value s sexprs with
+          | `Values v -> v
+          | `Error e -> raise (Failure ("SMT solver failed: " ^ e))
       in
       let m =
         List.fold_left (fun acc (t, e) ->

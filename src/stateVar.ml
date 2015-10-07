@@ -423,6 +423,27 @@ let iter f =
   Hstate_var.iter f ht
 
 
+(*******************************)
+(* Encoding of array variables *)
+(*******************************)
+
+let select_prefix = "_select"
+
+let encode_select sv =
+  let sv_uf = uf_symbol_of_state_var sv in
+  let ty = UfSymbol.res_type_of_uf_symbol sv_uf in
+  assert (Type.is_array ty);
+  let ty_indexes = Type.all_index_types_of_array ty in
+  (* add type for array *)
+  let ty_args = ty :: ty_indexes in
+  let ty_elem = Type.last_elem_type_of_array ty in
+  let name =
+    select_prefix ^ (*string_of_int (List.length ty_indexes) ^*) "_" ^
+    (UfSymbol.string_of_uf_symbol sv_uf) (* ^ *)
+    (* "@" ^ (Numeral.string_of_numeral off) *) in
+  UfSymbol.mk_uf_symbol name ty_args ty_elem
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

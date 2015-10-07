@@ -141,6 +141,8 @@ val fold : (t -> 'a -> 'a) -> 'a -> 'a
     uninterpreted function symbol. *)
 val iter : (t -> unit) -> unit
 
+(** encode array select operation *)
+val encode_select : t -> UfSymbol.t
 
 (** {1 Pretty-printing} *)
 

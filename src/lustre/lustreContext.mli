@@ -278,6 +278,9 @@ val fail_no_position : string -> 'a
 (** Output a warning without a position *)
 val warn_no_position : string -> unit 
 
+(** Returns true if new definitions are allowed in the context *)
+val are_definitions_allowed : t -> bool
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

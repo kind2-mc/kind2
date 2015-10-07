@@ -181,21 +181,14 @@ let rec substitute_definitions' stateful_vars equations subst = function
     try 
 
       (* Find equation for the variable *)
-      let expr = 
-
-        List.find
-          (function 
-
+      let expr =
+        List.find (fun ((sv, _), def) -> 
             (* Equation is for state variable? *)
-            | ((sv, []), def) -> StateVar.equal_state_vars sv state_var
-
-            (* Fail if state variable has indexes *)
-            | _ -> assert false)
-          equations
-
+            StateVar.equal_state_vars sv state_var
+          ) equations
+          
         (* Return expression on right-hand side of equation *)
         |> (function (_, e) -> e)
-
       in
 
       (* Add substitution for state variable and continue *)

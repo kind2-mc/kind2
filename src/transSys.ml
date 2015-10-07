@@ -870,26 +870,32 @@ let declare_ufs { ufs } declare =
   List.iter declare ufs
 
 (* Declare other functions symbols *)
-let declare_selects { init; trans } declare =
-  Symbol.SymbolSet.iter (fun s ->
-      (match Symbol.node_of_symbol s with
-       | `SELECT ty_array ->
-         (match Type.node_of_type ty_array with
-          | Type.Array (te,ti) ->
-            let name = Format.asprintf "|uselect(%a,%a)|"
-                Type.pp_print_type ti Type.pp_print_type te in
-            UfSymbol.mk_uf_symbol name [ty_array; ti] te
-          | _ ->  assert false
-         )
-       | `UF u -> u
-       | _ -> assert false
-      )
-      |>
-      declare
-    )
-    (Symbol.SymbolSet.union
-       (Term.select_symbols_of_term init)
-       (Term.select_symbols_of_term trans))
+let declare_selects { state_vars; init; trans } declare =
+  List.iter (fun sv ->
+      if Type.is_array @@ StateVar.type_of_state_var sv then
+        StateVar.encode_select sv |> declare
+      else ()
+    ) state_vars
+  
+  (* Symbol.SymbolSet.iter (fun s -> *)
+  (*     (match Symbol.node_of_symbol s with *)
+  (*      | `SELECT ty_array -> *)
+  (*        (match Type.node_of_type ty_array with *)
+  (*         | Type.Array (te,ti) -> *)
+  (*           let name = Format.asprintf "|uselect(%a,%a)|" *)
+  (*               Type.pp_print_type ti Type.pp_print_type te in *)
+  (*           UfSymbol.mk_uf_symbol name [ty_array; ti] te *)
+  (*         | _ ->  assert false *)
+  (*        ) *)
+  (*      | `UF u -> u *)
+  (*      | _ -> assert false *)
+  (*     ) *)
+  (*     |> *)
+  (*     declare *)
+  (*   ) *)
+  (*   (Symbol.SymbolSet.union *)
+  (*      (Term.select_symbols_of_term init) *)
+  (*      (Term.select_symbols_of_term trans)) *)
     
       
 (* Define initial state predicate *)

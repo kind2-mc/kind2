@@ -963,27 +963,39 @@ let rec eval_ast_expr bounds ctx =
       (* Evaluate expression for array elements *)
       let expr', ctx = eval_ast_expr bounds ctx expr in 
 
-      let bound =
-        if Term.is_numeral (E.unsafe_term_of_expr array_size) then
-          E.Fixed array_size
-        else E.Bound array_size in
-
       
-      (* Push array index to indexes in expression and add to
-         accumulator trie *)
-      let res, ctx = 
-        D.fold
-          (fun j e (a, ctx) ->
-             (* abstract with array state variable *)
-             let (state_var, _) , ctx = 
-               C.mk_local_for_expr ~bounds:[bound] pos ctx e in
-             let e' = E.mk_var state_var in
-             D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
-          expr'
-          (D.empty, ctx)
-      in
+      if not (C.are_definitions_allowed ctx) &&
+         Term.is_numeral (E.unsafe_term_of_expr array_size) then
+        let l_expr =
+          array_size
+          |> E.unsafe_term_of_expr
+          |> Term.numeral_of_term
+          |> Numeral.to_int
+          |> Lib.list_init (fun _ -> expr) in
+        
+        eval_ast_expr bounds ctx (A.ArrayExpr (pos, l_expr))
+      else
 
-      (res, ctx)
+        let bound =
+          if Term.is_numeral (E.unsafe_term_of_expr array_size) then
+            E.Fixed array_size
+          else E.Bound array_size in
+
+        (* Push array index to indexes in expression and add to
+           accumulator trie *)
+        let res, ctx = 
+          D.fold
+            (fun j e (a, ctx) ->
+               (* abstract with array state variable *)
+               let (state_var, _) , ctx = 
+                 C.mk_local_for_expr ~bounds:[bound] pos ctx e in
+               let e' = E.mk_var state_var in
+               D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
+            expr'
+            (D.empty, ctx)
+        in
+
+        (res, ctx)
 
     (* Array slice [A[i..j] with i=j is just A[i] *)
     | A.ArraySlice (pos, expr, (i, j)) as exp when i = j -> 
@@ -1565,9 +1577,10 @@ and eval_node_call
           (accum, ctx) ->
 
           if 
-            (Format.eprintf "%a <: %a ???@."
+            (Format.eprintf "%a <: %a (w index %a)???@."
                Type.pp_print_type expr_type
-               Type.pp_print_type (StateVar.type_of_state_var state_var);
+               Type.pp_print_type (StateVar.type_of_state_var state_var)
+               (D.pp_print_index false) i;
             (* Expression must be of a subtype of input type *)
             Type.check_type 
               expr_type

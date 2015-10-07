@@ -766,6 +766,16 @@ let add_state_var_to_locals = function
                           N.locals = 
                             D.singleton D.empty_index state_var :: locals} })
 
+let add_node_oracle = function
+  | { node = None } -> (fun _ -> assert false)
+  | { node = Some node } as ctx ->
+    fun state_var ->
+      { ctx with 
+        node = Some { node with 
+                      N.oracles = state_var :: node.N.oracles}; 
+        fresh_oracle_index = succ ctx.fresh_oracle_index }
+
+
 (* Create a fresh state variable as an oracle input *)
 let mk_fresh_oracle 
     ?is_input
@@ -819,19 +829,15 @@ let mk_fresh_oracle
           SVT.add ctx.state_var_bounds state_var bounds;
           
           (* Increment index of fresh oracle *)
-          let ctx = 
-            match ctx with
-              | { node = None } -> assert false
-              | { node = Some node } ->
-                { ctx with 
-                    node = Some { node with 
-                                    N.oracles = state_var :: oracles}; 
-                    fresh_oracle_index = succ fresh_oracle_index }
-          in
+          let ctx = add_node_oracle ctx state_var in
 
+          
           Format.eprintf "New oracle : %a :: %a@."
             StateVar.pp_print_state_var state_var
             Type.pp_print_type (StateVar.type_of_state_var state_var);
+
+          Format.eprintf "\nafter adding Oracles %a@." (pp_print_list StateVar.pp_print_state_var ", ") ((get ctx.node).N.oracles);
+          Format.eprintf "\nafter adding (nodes) %a@." (pp_print_list (I.pp_print_ident false) ", ") (List.map (fun n -> n.N.name) ctx.nodes);
           
           (* Return variable and changed context *)
           (state_var, ctx)
@@ -846,7 +852,9 @@ let mk_fresh_oracle_for_state_var
   try 
 
     (* Return previously created oracle *)
-    (SVT.find state_var_oracle_map state_var, ctx)
+    let oracle_sv = SVT.find state_var_oracle_map state_var in
+    let ctx = add_node_oracle ctx oracle_sv in
+    (oracle_sv, ctx)
 
   with Not_found -> 
 
@@ -2155,6 +2163,9 @@ let add_function_to_context ctx func_ctx =
   let func = function_of_context func_ctx in
 
   { ctx with funcs = func :: ctx.funcs }
+
+(* Returns true if new definitions are allowed in the context *)
+let are_definitions_allowed ctx = ctx.definitions_allowed = None
 
 (* 
    Local Variables:

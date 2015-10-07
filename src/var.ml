@@ -545,23 +545,8 @@ let state_var_instance_of_uf_symbol uf_sym =
 (* Encoding of array variables *)
 (*******************************)
 
-let select_prefix = "_select"
-
 let encode_select v =
-  let sv = state_var_of_state_var_instance v in
-  (* let off = offset_of_state_var_instance v in *)
-  let sv_uf = StateVar.uf_symbol_of_state_var sv in
-  let ty = UfSymbol.res_type_of_uf_symbol sv_uf in
-  assert (Type.is_array ty);
-  let ty_indexes = Type.all_index_types_of_array ty in
-  (* add type for array *)
-  let ty_args = ty :: ty_indexes in
-  let ty_elem = Type.last_elem_type_of_array ty in
-  let name =
-    select_prefix ^ (*string_of_int (List.length ty_indexes) ^*) "_" ^
-    (UfSymbol.string_of_uf_symbol sv_uf) (* ^ *)
-    (* "@" ^ (Numeral.string_of_numeral off) *) in
-  UfSymbol.mk_uf_symbol name ty_args ty_elem
+  StateVar.encode_select @@ state_var_of_state_var_instance v
 
 
 
