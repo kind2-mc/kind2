@@ -287,6 +287,7 @@ val int_of_log_level : log_level -> int
 
 val log_level_of_int : int -> log_level
 
+val string_of_log_level : log_level -> string
 
 (** Current formatter for output *)
 val log_ppf : Format.formatter ref 

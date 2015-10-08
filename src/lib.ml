@@ -945,6 +945,16 @@ let log_level_of_int = function
   | 5 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
 
+let string_of_log_level = function
+  | L_off -> "off"
+  | L_fatal -> "fatal"
+  | L_error -> "error"
+  | L_warn -> "warn"
+  | L_info -> "info"
+  | L_debug -> "debug"
+  | L_trace -> "trace"
+
+
 (* Compare two levels *)
 let compare_levels l1 l2 = 
   Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)

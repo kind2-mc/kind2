@@ -471,15 +471,8 @@ let prop_status_pt level prop_status =
 (* ********************************************************************** *)
 
 (* Level to class attribute of log tag *)
-let xml_cls_of_level = function
-  | L_off -> "off"
-  | L_fatal -> "fatal"
-  | L_error -> "error"
-  | L_warn -> "warn"
-  | L_info -> "info"
-  | L_debug -> "debug"
-  | L_trace -> "trace"
-  
+let xml_cls_of_level = string_of_log_level
+
 
 (* Pretty-print level as class attribute of log tag *)
 let pp_print_level_xml_cls ppf l = 

@@ -19,7 +19,23 @@
 open Lib
 
 (* FIXME: Remove unless debugging *)
-module Event = struct let log _ fmt = Format.printf (fmt ^^ "@.") end
+module Event = struct
+
+  let log level fmt =
+
+    if Flags.log_format_xml () then
+
+      (ignore_or_fprintf level)
+        !log_ppf 
+        ("@[<hv 2><Log class=\"%s\" source=\"%a\">@,@[<hov>" ^^ 
+         fmt ^^ 
+         "@]@;<0 -2></Log>@]@.") 
+        (string_of_log_level level)
+        pp_print_kind_module `Parser
+
+    else (ignore_or_fprintf level) !log_ppf (fmt ^^ "@.")
+
+end
 
 module A = LustreAst
 
