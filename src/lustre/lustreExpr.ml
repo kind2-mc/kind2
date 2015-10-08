@@ -251,7 +251,9 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
     raise 
       (Invalid_argument "pp_print_lustre_type: BV is not a Lustre type")
 *)
-  | Type.Array (s, t) -> pp_print_lustre_type safe ppf t
+  | Type.Array (s, t) ->
+
+    Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
 
 
 (* String representation of a symbol in Lustre *)

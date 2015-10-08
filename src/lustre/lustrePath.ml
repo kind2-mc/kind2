@@ -809,22 +809,29 @@ let pp_print_stream_value ppf i v =
       i Model.pp_print_value_xml v
 
 
+(* Print type of a stream in the current model *)
+let pp_print_type_of_svar model ppf state_var =
+  (* Get type of identifier *)
+  let stream_type = StateVar.type_of_state_var state_var in
+  match SVT.find model state_var |> List.hd with
+  | Model.Map m ->
+    Format.fprintf ppf "%a ^ %a"
+      (E.pp_print_lustre_type false) (Type.last_elem_type_of_array stream_type)
+      (pp_print_list Format.pp_print_int " ^ ") (Model.dimension_of_map m)
+  | _ -> E.pp_print_lustre_type false ppf stream_type
+  
+  
+
 (* Pretty-print a single stream *)
 let pp_print_stream_xml node model ppf (index, state_var) =
-
   try 
-
-    (* Get type of identifier *)
-    let stream_type = StateVar.type_of_state_var state_var in
-
     let stream_values = SVT.find model state_var in
-
     Format.fprintf 
       ppf
       "@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]@,\
        %a@;<0 -2></Stream>@]"
       pp_print_stream_ident_xml (index, state_var)
-      (E.pp_print_lustre_type false) stream_type
+      (pp_print_type_of_svar model) state_var
       pp_print_stream_prop_xml (N.get_state_var_source node state_var)
       (pp_print_listi pp_print_stream_value "@,") stream_values
 

@@ -105,6 +105,10 @@ val merge : t -> t -> t
     merging. *)
 val bump_and_merge : Numeral.t -> t -> t -> t 
 
+(** Returns the bounds / dimension of the array value represented by the map in
+    the model*)
+val dimension_of_map : Term.t MIL.t -> int list
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
