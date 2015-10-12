@@ -545,27 +545,27 @@ let add_subsystem
 
    This factors out node calls with or without an activation
    condition *)
-let call_terms_of_node_call
-  mk_fresh_state_var
-  { N.call_node_name;
-    N.call_pos;
-    N.call_inputs;
-    N.call_oracles;
-    N.call_outputs }
-  node_locals
-  node_props
-  { init_uf_symbol;
-    trans_uf_symbol;
-    node = { N.init_flag;
-             N.instance;
-             N.inputs;
-             N.oracles;
-             N.outputs;
-             N.locals;
-             N.props };
-    stateful_locals;
-    properties }
-=
+let call_terms_of_node_call mk_fresh_state_var {
+  N.call_node_name ;
+  N.call_pos       ;
+  N.call_inputs    ;
+  N.call_oracles   ;
+  N.call_outputs   ;
+} node_locals node_props {
+  init_uf_symbol  ;
+  trans_uf_symbol ;
+  node = {
+    N.init_flag ;
+    N.instance  ;
+    N.inputs    ;
+    N.oracles   ;
+    N.outputs   ;
+    N.locals    ;
+    N.props     ;
+  }               ;
+  stateful_locals ;
+  properties      ;
+} =
 
   (* Initialize map of state variable in callee to instantiated state
      variable in caller *)

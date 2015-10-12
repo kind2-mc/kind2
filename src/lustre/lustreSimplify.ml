@@ -1563,8 +1563,10 @@ and eval_node_call
     | None  -> 
 
       (* Fresh state variables for oracle inputs of called node *)
-      let ctx, oracle_state_vars = 
-        List.fold_left
+      let ctx, oracle_state_vars =
+        node_oracles
+        |> List.rev (* Preserve order of oracles. *)
+        |> List.fold_left
           (fun (ctx, accum) sv ->
              let sv', ctx = 
                C.mk_fresh_oracle 
@@ -1576,7 +1578,6 @@ and eval_node_call
              (* N.set_state_var_instance ctx sv' pos ident sv; *)
              (ctx, sv' :: accum))
           (ctx, [])
-          node_oracles 
       in
 
       (* Create fresh state variable for each output *)

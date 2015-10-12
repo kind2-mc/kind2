@@ -970,7 +970,7 @@ let eval_req (accum, ctx, count) (pos, expr) =
   in
 
   (* Define expression with a state variable *)
-  let state_var, ctx = 
+  let state_var, ctx =
     C.mk_local_for_expr pos ctx expr' 
   in
 
