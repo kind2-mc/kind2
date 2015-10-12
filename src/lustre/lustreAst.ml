@@ -381,7 +381,7 @@ let rec pp_print_expr ppf =
         "@[<hv 1>(%a@ with@ @[<hv>%a@] =@ %a)@]"
         pp_print_expr e1
         (pp_print_list pp_print_label_or_index "") i
-        pp_print_expr e1
+        pp_print_expr e2
 
 
     | ArrayConstr (p, e1, e2) -> 
