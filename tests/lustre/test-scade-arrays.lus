@@ -19,18 +19,18 @@ var
   Ab: int^3;
   i: real;
   r: real;
-  -- j: bool;
+  j: bool;
   x:  int;
 
 let
   assert(array_size > 0);
   -- x= 0 + 0 + 1 - 1 + (s*0) + (array_size*0);
   -- These identifiers are hidden in the array definitions
-  -- j = true;
+  j = true;
   
   -- A0[k] = A1[k];
-
   A0 = A1;
+
   -- A sliding window over input stream s
   A2[k] = if k = 0 then s else (k -> pre A1[k-1]);
 
@@ -38,18 +38,6 @@ let
 
   -- A pointwise definition of an array
   -- A1[i] = array_default;
-
-  --%PROPERTY A2[0] = 0;
-  --%PROPERTY A1[3] = s;
-  --%PROPERTY A0[3] = 0;
-  --%PROPERTY A3[1][0] =s; 
-  --%PROPERTY x = 0;
-  --%PROPERTY i = 0.0;
-  --%PROPERTY A5[0] = { 0 ,  true} ;
-  --%PROPERTY {0*s, true}.%0 = 0 ;
-  --%PROPERTY A6[3].n = 2 ;
-  --%PROPERTY A4[1][3] = 4 ;
-  --%PROPERTY A11[2] = 3 * s;
 
   -- -- A multi-dimensional array
   A3[i][j] = s;
@@ -69,7 +57,7 @@ let
   i =((r * 0.0) / 2.0);
   
   -- -- Temporal operator applied to running variable: legal?
-  -- A7[i] = 0 -> pre i;
+  A7[i] = 0 -> pre i;
 
   -- -- Return an array from a node call
   A8[k] = pre(A1[k-1]);
@@ -79,5 +67,19 @@ let
   A10[i] = C2[i] -> pre A10[i] + 1;
 
   -- Ab[i] = Aca[i]; -- should fail
+
+  --%PROPERTY A2[0] = 0;
+  --%PROPERTY A1[3] = s;
+  --%PROPERTY A0[3] = 0;
+  --%PROPERTY A3[1][0] =s; 
+  --%PROPERTY x = 0;
+  --%PROPERTY i = 0.0;
+  --%PROPERTY A5[0] = { 0 ,  true} ;
+  --%PROPERTY {0*s, true}.%0 = 0 ;
+  --%PROPERTY A6[3].n = 2 ;
+  --%PROPERTY A4[1][3] = 4 ;
+  --%PROPERTY A11[2] = 3 * s;
+  --%PROPERTY A7[0] = 0; 
+
 
 tel
