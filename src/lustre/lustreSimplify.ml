@@ -57,6 +57,19 @@ let pp_print_trie pp_i pp_e ppf t =
     ppf
 
 
+let pp_print_trie_expr ppf expr =
+  D.pp_print_trie
+    (fun ppf (i, e) ->
+       Format.fprintf ppf
+         "@[<hv 2>%a:@ %a :: %a@]"
+         (D.pp_print_index false) i
+         (E.pp_print_lustre_expr false) e
+         Type.pp_print_type e.E.expr_type)
+    ";@ "
+    ppf
+    expr
+
+
 let select_from_arrayintindex pos bound_e index expr =
 
   (* Remove top index from all elements in trie *)
@@ -736,7 +749,7 @@ let rec eval_ast_expr bounds ctx =
       let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
       (* Convert an ast index to an index *)
-      let rec aux accum = function 
+      let rec aux accum = function
 
         (* All indexes consumed return in original order *)
         | [] -> List.rev accum
@@ -762,94 +775,99 @@ let rec eval_ast_expr bounds ctx =
         (* First index is an integer index *)
         | A.Index (pos, index_expr) :: tl -> 
 
-          (
-
+          begin
             (* Evaluate index expression to a static integer *)
-            let index_expr' = 
-              static_int_of_ast_expr ctx pos index_expr 
-            in 
+            let index_expr' = static_int_of_ast_expr ctx pos index_expr in 
 
             (* Expression to update with indexes already seen
                removed *)
             let expr1'_sub = 
-
               (* Get subtrie with index from accumulator *)
               try D.find_prefix accum expr1' with 
 
-                (* We have checked before that the index in the
-                   accumulator is a prefix of the expression to
-                   update *)
-                | Not_found -> assert false
+              (* We have checked before that the index in the
+                 accumulator is a prefix of the expression to
+                 update *)
+              | Not_found -> assert false
             in
 
             (* All indexes are of the same type *)
             (match D.choose expr1'_sub with
 
-              (* Expression is indexed with a variable *)
-              | D.ArrayVarIndex _ :: _, _ -> 
+             (* Expression is indexed with a variable *)
+             | D.ArrayVarIndex _ :: _, _ -> 
 
-                (* Abuse bound for array variable to store index to
-                   update and continue *)
-                aux 
-                  (D.ArrayVarIndex index_expr' :: accum)
-                  tl
+               (* Abuse bound for array variable to store index to
+                  update and continue *)
 
-              (* Expression is an array indexed with integers *)
-              | D.ArrayIntIndex _ :: _, _ -> 
+               (* Cast Lustre expression to a term *)
+               let index_term = (index_expr' : E.expr :> Term.t) in
 
-                (* Cast Lustre expression to a term *)
-                let index_term = (index_expr' : E.expr :> Term.t) in
+               let i =
+                 if Term.is_numeral index_term then 
+                   D.ArrayIntIndex
+                     (Term.numeral_of_term index_term |> Numeral.to_int)
+                 else
+                   D.ArrayVarIndex index_expr'
+               in
 
-                (* Term must be a numeral *)
-                if Term.is_numeral index_term then 
+               aux (i :: accum) tl
 
-                  (* Add array index of integer of numeral to
-                     accumulator and continue *)
-                  aux
-                    (D.ArrayIntIndex
-                       (Term.numeral_of_term index_term 
-                        |> Numeral.to_int) :: accum)
-                    tl
+             (* Expression is an array indexed with integers *)
+             | D.ArrayIntIndex _ :: _, _ -> 
 
-                else
+               (* Cast Lustre expression to a term *)
+               let index_term = (index_expr' : E.expr :> Term.t) in
 
-                  C.fail_at_position
-                    pos
-                    "Invalid index for expression"
+               (* Term must be a numeral *)
+               if Term.is_numeral index_term then 
 
-              (* Expression is tuple indexed with integers *)
-              | D.TupleIndex _ :: _, _ -> 
+                 (* Add array index of integer of numeral to
+                    accumulator and continue *)
+                 aux
+                   (D.ArrayIntIndex
+                      (Term.numeral_of_term index_term 
+                       |> Numeral.to_int) :: accum)
+                   tl
 
-                (* Cast Lustre expression to a term *)
-                let index_term = (index_expr' : E.expr :> Term.t) in
+               else
 
-                (* Term must be a numeral *)
-                if Term.is_numeral index_term then 
+                 C.fail_at_position
+                   pos
+                   "Invalid index for expression"
 
-                  (* Add array index of integer of numeral to
-                     accumulator and continue *)
-                  aux
-                    (D.TupleIndex
-                       (Term.numeral_of_term index_term 
-                        |> Numeral.to_int) :: accum)
-                    tl
+             (* Expression is tuple indexed with integers *)
+             | D.TupleIndex _ :: _, _ -> 
 
-                else
+               (* Cast Lustre expression to a term *)
+               let index_term = (index_expr' : E.expr :> Term.t) in
 
-                  C.fail_at_position
-                    pos
-                    "Invalid index for expression"
+               (* Term must be a numeral *)
+               if Term.is_numeral index_term then 
 
-              (* Cannot be record, list or empty index *)
-              | D.RecordIndex _ :: _, _
-              | D.ListIndex _ :: _, _
-              | [], _ ->
+                 (* Add array index of integer of numeral to
+                    accumulator and continue *)
+                 aux
+                   (D.TupleIndex
+                      (Term.numeral_of_term index_term 
+                       |> Numeral.to_int) :: accum)
+                   tl
 
-                C.fail_at_position
-                  pos
-                  "Invalid index for expression")
+               else
 
-          )
+                 C.fail_at_position
+                   pos
+                   "Invalid index for expression"
+
+             (* Cannot be record, list or empty index *)
+             | D.RecordIndex _ :: _, _
+             | D.ListIndex _ :: _, _
+             | [], _ ->
+
+               C.fail_at_position
+                 pos
+                 "Invalid index for expression")
+          end
 
       in
 
@@ -864,6 +882,25 @@ let rec eval_ast_expr bounds ctx =
           D.empty
       in
 
+      (* When the index is a variable we will need to update the structure
+         conditionnaly *)
+      let rec mk_cond_indexes (acc, cpt) li ri =
+        match li, ri with
+        | D.ArrayVarIndex v :: li', D.ArrayIntIndex vi :: ri' ->
+          let acc =
+            E.mk_eq (E.mk_index_var cpt) (E.mk_int (Numeral.of_int vi)) :: acc
+          in
+          mk_cond_indexes (acc, cpt+1) li' ri'
+        | D.ArrayVarIndex v :: li', D.ArrayVarIndex vi :: ri' ->
+          let acc =
+            E.mk_eq (E.mk_index_var cpt) (E.mk_of_expr vi) :: acc in
+          mk_cond_indexes (acc, cpt+1) li' ri'
+        | _ :: li', _ :: ri' -> mk_cond_indexes (acc, cpt) li' ri'
+        | [], _ | _, [] ->
+          if acc = [] then raise Not_found;
+          List.rev acc |> E.mk_and_n
+      in
+
       (* Replace indexes in updated expression *)
       let expr1'' = 
         D.fold
@@ -871,8 +908,25 @@ let rec eval_ast_expr bounds ctx =
              try 
                let v' = D.find i expr2'' in
                D.add i v' a
-             with Not_found -> 
-               D.add i v a)
+             with Not_found ->
+               try
+                 (* The index is not in expr2'' which means we're updating an
+                    array that has varialbe indexes. In this case we remove the
+                    index and create the index variables to be able to mention
+                    the values of the array. *)
+                 (* the value if the index condition is false *)
+                 let old_v = List.fold_left (fun (acc, cpt) _ ->
+                     E.mk_select acc (E.mk_index_var cpt), cpt + 1
+                   ) (v, 0) i |> fst in
+                 (* the new value if the condition matches *)
+                 let new_v = D.find index' expr2'' in
+                 (* the conditional value *)
+                 let v' =
+                   E.mk_ite (mk_cond_indexes ([], 0) i index') new_v old_v in
+                 (* We've added the index variables so we can forget this one *)
+                 D.add [] v' a
+               with Not_found ->
+                 D.add i v a)
           expr1'
           D.empty
       in
@@ -1320,29 +1374,12 @@ and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 =
 
     (* Format.eprintf *)
     (*   "E1 ==== @[<hv>%a@]@." *)
-    (*   (D.pp_print_trie *)
-    (*      (fun ppf (i, e) -> *)
-    (*         Format.fprintf ppf *)
-    (*           "@[<hv 2>%a:@ %a :: %a@]" *)
-    (*           (D.pp_print_index false) i *)
-    (*           (E.pp_print_lustre_expr false) e *)
-    (*           Type.pp_print_type e.E.expr_type) *)
-    (*      ";@ ") *)
-    (*   expr1'; *)
+    (*   pp_print_trie_expr expr1'; *)
 
 
     (* Format.eprintf *)
     (*   "E2 ==== @[<hv>%a@]@." *)
-    (*   (D.pp_print_trie *)
-    (*      (fun ppf (i, e) -> *)
-    (*         Format.fprintf ppf *)
-    (*           "@[<hv 2>%a:@ %a :: %a@]" *)
-    (*           (D.pp_print_index false) i *)
-    (*           (E.pp_print_lustre_expr false) e *)
-    (*           Type.pp_print_type e.E.expr_type *)
-    (*      ) *)
-    (*      ";@ ") *)
-    (*   expr2'; *)
+    (*   pp_print_trie_expr expr2'; *)
     
   
   (* Apply operator pointwise to expressions *)

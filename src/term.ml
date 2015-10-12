@@ -1555,6 +1555,10 @@ let map_state_vars f term =
 
 
 let convert_select term =
+
+  (* Format.eprintf "convert select : %a : %a @." *)
+  (*   pp_print_term term *)
+  (*   Type.pp_print_type (type_of_term term); *)
   
   (* Don't encode if using the theory of arrays *)
   if Flags.smt_arrays () then term
