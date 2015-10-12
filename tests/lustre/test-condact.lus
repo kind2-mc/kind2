@@ -8,5 +8,5 @@ let y = 0 -> pre y + 1; tel;
 node CountRise(x: bool) returns (y: int);
 let y = condact(pre Rise(x), Count(), 0); 
 --%PROPERTY y >= 0;
---%MAIN
+--%MAIN ;
 tel;

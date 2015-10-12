@@ -30,7 +30,7 @@ let
   v = Z(true);
   y = X(pre x + v.one);
   (flag, value) = if x > 0 then nodecall(x) else (true, 0);
-  --%MAIN
+  --%MAIN ;
   --%PROPERTY y > 0;
 tel; 
 
@@ -67,7 +67,7 @@ let
   x1, y1 = U1(pre x, y);
   xp = pre pre x;
 
-  --%MAIN
+  --%MAIN ;
   --%PROPERTY x > 0; 
 tel;
 
