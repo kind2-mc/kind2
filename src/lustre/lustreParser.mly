@@ -102,7 +102,7 @@ let mk_pos = position_of_lexing
 %token CONTRACT
 %token IMPORTCONTRACT
 %token MODE
-%token IMPORTMODE
+(* %token IMPORTMODE *)
 %token REQUIRE
 %token ENSURE
 %token INLINEMODE
