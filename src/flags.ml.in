@@ -319,7 +319,7 @@ let enable_values = [
 let enable_default_init = []
 let disable_default_init = []
 
-let enable_default_after = [ `BMC; `IND; `IC3; `INVGEN; `INVGENOS ; `C2I ]
+let enable_default_after = [ `BMC; `IND; `IC3; `INVGEN; `INVGENOS ]
 
 (* ********** *) 
 

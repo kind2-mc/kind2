@@ -1,4 +1,4 @@
- kind2 v0.8.0-243-gb5bb23a
+ kind2 v0.8.0-254-ga351d7d
 
 
 ------------------------------------------------------------------------------
@@ -8,50 +8,16 @@ Analyzing main
        subsystems
          | concrete: main, integ
 
-<Success> Property prop1 is valid by inductive step after 0.070s.
+<Success> Property prop1 is valid by inductive step after 0.080s.
 
-<Error> Runtime error in property directed reachability: Failure("set_prop_ktrue")
+<Error> Child process 80745 (property directed reachability) exited with return code 2
 
-<Failure> Property prop2 is invalid by property directed reachability for k=3 after 0.081s.
-
-Counterexample:
-  Node main ()
-    == Inputs ==
-    x         0     2     0
-    y         0     0     0
-    r         0   1/2   1/2
-    == Locals ==
-    prop2  true  true false
-    
-  Node integ (main[l19c32])
-    == Inputs ==
-    x   0 2 0
-    == Outputs ==
-    sum 0 2 2
-    
-  Node integ (main[l19c21])
-    == Inputs ==
-    x   0 0 0
-    == Outputs ==
-    sum 0 0 0
-    
-  Node integ (main[l12c6])
-    == Inputs ==
-    x   0 2 0
-    == Outputs ==
-    sum 0 2 2
-    
-  
 ------------------------------------------------------------------------------
 Summary of properties:
 
 prop1: valid
-prop2: true up to 8 steps
+prop2: true up to 11 steps
 ------------------------------------------------------------------------------
 
-<Error> Runtime error in one state invariant generator: Failure("set_prop_false: was 8-true before, now cex of length 3")
-
-<Error> Runtime error in c2i: Failure("set_prop_false: was 8-true before, now cex of length 3")
-
-<Error> Runtime error in bounded model checking: Failure("set_prop_false: was 19-true before, now cex of length 3")
+<Error> Runtime error in property directed reachability: Failure("set_prop_false: was 7-true before, now cex of length 3")
 
