@@ -303,6 +303,7 @@ let newline = '\r'* '\n'
 (* Toplevel function *)
 rule token = parse
 
+
   (* |===| Annotations. *)
 
   (* Inline. *)
