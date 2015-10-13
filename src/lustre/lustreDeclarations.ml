@@ -1365,13 +1365,9 @@ let rec eval_node_mode_contracts resolve_contract ctx = function
 
 
 (* Add all node contracts to contexts *)
-let eval_node_contract_spec 
-  resolve_contract
-    ctx
-    (ghost_consts,
-     ghost_vars,
-     global_contract,
-     mode_contracts) =
+let eval_node_contract_spec resolve_contract ctx (
+  ghost_consts, ghost_vars, global_contract, mode_contracts
+) =
 
   (* Add constants to context *)
   let ctx = List.fold_left (eval_const_decl ~ghost:true) ctx ghost_consts in
