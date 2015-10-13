@@ -1003,17 +1003,16 @@ let eval_ens (accum, ctx, count) (pos, expr) =
 let eval_node_contract ctx contract_pos contract_name reqs enss =
 
   (* Evaluate require clauses separately. *)
-  let contract_reqs, ctx, _ = List.fold_left eval_req ([], ctx, 1) reqs in 
+  let contract_reqs, ctx, _ = List.fold_left eval_req ([], ctx, 1) reqs in
   
   (* Evaluate ensure clauses separately. *)
   let contract_enss, ctx, _ = List.fold_left eval_ens ([], ctx, 1) enss in
 
   (* Return a contract *)
-  ({ N.contract_name;
-     N.contract_pos; 
-     N.contract_reqs; 
-     N.contract_enss },
-   ctx)
+  ({ N.contract_name ;
+     N.contract_pos  ;
+     N.contract_reqs ;
+     N.contract_enss }, ctx)
 
 
 (* Fail if a contract node input is incompatible with a node input *)
@@ -1023,11 +1022,11 @@ let rec check_node_and_contract_inputs call_pos ctx node_inputs = function
   | [] -> ()
 
   (* Input to contract, must not have a clock *)
-  | (pos, 
-     ident, 
-     contract_input_lustre_type, 
-     A.ClockTrue, 
-     contract_input_const) :: tl -> 
+  | ( pos, 
+      ident, 
+      contract_input_lustre_type, 
+      A.ClockTrue, 
+      contract_input_const ) :: tl -> 
 
     let 
 
@@ -1294,7 +1293,7 @@ let resolve_contract node_inputs node_outputs ctx = function
     check_node_and_contract_outputs call_pos ctx node_outputs contract_outputs;
 
     (* Declare and define all ghost constants *)
-    let ctx = eval_node_locals ~ghost:true ctx contract_locals in 
+    let ctx = eval_node_locals ~ghost:true ctx contract_locals in
 
     (* Inline definitions of ghost variables *)
     inline_contract_of_contract_node
@@ -1314,9 +1313,9 @@ let rec eval_node_mode_contracts resolve_contract ctx = function
   | mode_contract :: tl -> 
 
     (* Peek at contract to get identifier for scoping *)
-    let ident = match mode_contract with
-      | A.InlinedContract (_, ident, _, _) 
-      | A.ContractCall (_, ident) -> ident
+    let ident, pos = match mode_contract with
+      | A.InlinedContract (pos, ident, _, _) 
+      | A.ContractCall (pos, ident) -> ident, pos
     in
 
     (* New scope for local declarations *)
@@ -1344,6 +1343,22 @@ let rec eval_node_mode_contracts resolve_contract ctx = function
 
     (* Remove scope for local declarations *)
     let ctx = C.pop_scope ctx in
+
+    (* Add requirements for mode ident so that other contracts can refer to its
+    requirements. *)
+    let ctx =
+      contract.N.contract_reqs
+      |> List.map (fun (_,_,sv) -> E.mk_var sv)
+      |> E.mk_and_n
+      |> fun reqs -> D.add D.empty_index reqs D.empty
+      |> fun reqs -> try
+        C.add_expr_for_ident ctx contract.N.contract_name reqs
+      with Invalid_argument _ ->
+        Format.asprintf
+          "mode identifier \"%a\" is shadowing another identifier"
+          (I.pp_print_ident false) contract.N.contract_name
+        |> C.fail_at_position pos
+    in
 
     (* Continue with next contracts *)
     eval_node_mode_contracts resolve_contract ctx tl 
@@ -1386,10 +1401,10 @@ let eval_node_contract_spec
 
   let ctx = match global_contract with
     
-    (* No global contract for nodex *)
+    (* No global contract for node. *)
     | None -> ctx
 
-    (* Global contract for node *)
+    (* Global contract for node. *)
     | Some c -> 
       
       (* New scope for local declarations in contract *)
@@ -1419,9 +1434,14 @@ let eval_node_contract_spec
       C.pop_scope ctx
       
   in
+
+  (* Push scope for modes as identifiers to refer to requirements. *)
+  let ctx = C.push_scope ctx "__mode" in
   
   (* Continue with mode contracts *)
   eval_node_mode_contracts resolve_contract ctx mode_contracts
+  (* Pop mode scope. *)
+  |> C.pop_scope
 
 
 (* Add declarations of node to context *)
