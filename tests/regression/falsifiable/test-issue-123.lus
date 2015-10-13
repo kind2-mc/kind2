@@ -264,7 +264,7 @@ var
   _THIS_CONTRACT_CONSIST : bool;
   _THIS_CONTRACT_HIST : bool;
 let
-  --%MAIN
+  --%MAIN ;
   _TOTAL_COMP_HIST = ((true and (true and true)) -> ((true and (true and true)) and (pre _TOTAL_COMP_HIST)));
 
   _SYSTEM_ASSUMP_HIST = ((true and true) -> ((true and true) and (pre _SYSTEM_ASSUMP_HIST)));

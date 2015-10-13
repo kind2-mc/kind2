@@ -19,7 +19,7 @@ node X (in: real) returns (OK: bool);
 let
   OK = exp(0.0 -> in, 1.0 -> in) > 0.0 or sincos(2.0 -> in) + sincos(2.0 -> in) = (0.0, 0.0);
   --%PROPERTY OK;
-  --%MAIN
+  --%MAIN ;
 tel;
 
 node id (in: real) returns (out: int);

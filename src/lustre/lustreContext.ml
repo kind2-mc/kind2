@@ -834,14 +834,14 @@ let close_expr
          Numeral.(Var.offset_of_state_var_instance var < E.base_offset))
       init_vars
   in
-  
+
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, ctx) else
-    
+
     (warn_at_position
        pos
        "Unguarded pre in expression, adding new oracle input";
-     
+
      (* New oracle for each state variable *)
      let oracle_substs, ctx =
        VS.fold
