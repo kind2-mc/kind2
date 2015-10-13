@@ -82,6 +82,13 @@ let rec enumerate io solver tree modes contract_term =
   Stat.start_timer Stat.testgen_enumerate_time ;
   Solver.comment solver "enumerate" ;
   let rec loop () =
+    (* Log if it's time to do so. *)
+    let tc_count = IO.testcase_count io in
+    if tc_count >= !next_tc_comm then (
+      next_tc_comm := tc_count + delta_tc_comm ;
+      Event.log L_info "%s%d testcases generated." log_id tc_count
+    ) ;
+
     (* Format.printf "  tree: %a@." Tree.pp_print_tree tree ; *)
     let k = Tree.depth_of tree in
     let modes = modes |> List.map (fun (n,t) -> n, Term.bump_state k t) in
@@ -136,7 +143,7 @@ let rec enumerate io solver tree modes contract_term =
 and forward io solver tree modes contract_term =
   Stat.start_timer Stat.testgen_forward_time ;
   (* Resetting if too many fresh actlits have been created. *)
-  let solver = if Actlit.fresh_actlit_count () >= 500 then (
+  let solver = if Actlit.fresh_actlit_count () >= 100 then (
       Stat.incr Stat.testgen_restarts ;
       Event.log L_info "%sRestarting solver." log_id ;
       Actlit.reset_fresh_actlit_count () ;
@@ -151,7 +158,6 @@ and forward io solver tree modes contract_term =
   let rec loop () =
     (* Format.printf "  tree: %a@." Tree.pp_print_tree tree ; *)
     let k = Tree.depth_of tree |> Num.succ in
-
     if Flags.testgen_len () > Num.to_int k then (
       (* We haven't reached the max depth yet, keep going forward. *)
       (* Format.printf "  at %a@." Num.pp_print_numeral k ; *)
@@ -163,7 +169,15 @@ and forward io solver tree modes contract_term =
       match Solver.checksat solver k term [] modes unit_of with
       | Some (map,()) ->
         (* Extracting modes activated @k by the model. *)
-        active_modes_of_map map |> Tree.push tree ;
+        let active = active_modes_of_map map in
+        (* Event.log L_info "%sGoing forward (%a): @[<hov><%a>@]."
+          log_id
+          Num.pp_print_numeral k
+          (pp_print_list
+            Format.pp_print_string
+            ">,@ <")
+          (fst active) ; *)
+        Tree.push tree active ;
         loop ()
       | None ->
         (* Deadlock. *)
@@ -199,6 +213,8 @@ and backward io solver tree modes contract_term =
     Tree.pop tree ;
     (* Format.printf "  popped tree: %a@." Tree.pp_print_tree tree ; *)
     let k = Tree.depth_of tree in
+    (* Event.log L_info "%sGoing backward (%a)."
+      log_id Num.pp_print_numeral (Num.succ k) ; *)
     let modes = modes |> List.map (fun (n,t) -> n, Term.bump_state k t) in
     let contract_term = Term.bump_state k contract_term in
     let mode_path =
@@ -207,8 +223,16 @@ and backward io solver tree modes contract_term =
 
     match Solver.checksat solver k mode_path [] modes unit_of with
     | Some (map,()) ->
-      (* Extracting modes activated @k by the model. *)
-      active_modes_of_map map |> Tree.update tree
+        (* Extracting modes activated @k by the model. *)
+        let active = active_modes_of_map map in
+        (* Event.log L_info "%sGoing up (%a): @[<hov><%a>@]."
+          log_id
+          Num.pp_print_numeral (Num.succ k)
+          (pp_print_list
+            Format.pp_print_string
+            ">,@ <")
+          (fst active) ; *)
+        Tree.update tree active
     | None ->
       (* Cannot activate any other mode conjunction, going backward. *)
       loop ()
@@ -216,11 +240,6 @@ and backward io solver tree modes contract_term =
   (* Going backwards. *)
   loop () ;
   Stat.record_time Stat.testgen_backward_time ;
-  let tc_count = IO.testcase_count io in
-  if tc_count >= !next_tc_comm then (
-    next_tc_comm := tc_count + delta_tc_comm ;
-    Event.log L_info "%s%d testcases generated." log_id tc_count
-  ) ;
   (* Found a different path, going forward now. *)
   forward io solver tree modes contract_term
 

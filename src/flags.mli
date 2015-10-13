@@ -214,6 +214,10 @@ val cooper_general_lbound : unit -> cooper_general_lbound
 type testgen_active = bool
 val testgen_active : unit -> testgen_active
 
+(** Only generate graph of reachable modes, do not log testcases. *)
+type testgen_graph_only = bool
+val testgen_graph_only : unit -> testgen_graph_only
+
 (** Command for lustrec. *)
 type testgen_lustrec = string option
 val testgen_lustrec : unit -> testgen_lustrec

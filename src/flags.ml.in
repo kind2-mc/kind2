@@ -534,6 +534,9 @@ let cooper_general_lbound_default = false
 type testgen_active = bool
 let testgen_active_default = false
 
+type testgen_graph_only = bool
+let testgen_graph_only_default = false
+
 type testgen_lustrec = string option
 let testgen_lustrec_default = None
 
@@ -699,6 +702,7 @@ type flags =
     mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
     mutable cooper_general_lbound : cooper_general_lbound;
     mutable testgen_active : testgen_active;
+    mutable testgen_graph_only : testgen_graph_only;
     mutable testgen_lustrec : testgen_lustrec;
     mutable testgen_out_dir : testgen_out_dir;
     mutable testgen_len : testgen_len;
@@ -765,6 +769,7 @@ let flags =
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
     testgen_active = testgen_active_default;
+    testgen_graph_only = testgen_graph_only_default;
     testgen_lustrec = testgen_lustrec_default;
     testgen_out_dir = testgen_out_dir_default;
     testgen_len = testgen_len_default;
@@ -1155,6 +1160,18 @@ let testgen_active_spec =
      "@[<v 7>@,(default: %b)@ \
       Activates test generation.@]"
      testgen_active_default)
+(* ********** *) 
+
+let testgen_graph_only_action o = flags.testgen_graph_only <- o
+                                       
+let testgen_graph_only_spec = 
+  ("--testgen_graph_only", 
+   Arg.Bool testgen_graph_only_action,
+   Format.sprintf
+     "@[<v 7>@,(default: %b)@ \
+      Only draw the graph of reachable modes, do not log testcases.@ \
+      Does log errors.@]"
+     testgen_graph_only_default)
   
 (* ********** *) 
 
@@ -1550,6 +1567,8 @@ let cooper_general_lbound () = flags.cooper_general_lbound
 
 let testgen_active () = flags.testgen_active
 
+let testgen_graph_only () = flags.testgen_graph_only
+
 let testgen_lustrec () = flags.testgen_lustrec
 
 let testgen_out_dir () = flags.testgen_out_dir
@@ -1730,6 +1749,7 @@ and speclist =
 
     (* Set testgen options. *)
     testgen_active_spec;
+    testgen_graph_only_spec;
     testgen_lustrec_spec;
     testgen_out_dir_spec;
     testgen_len_spec;
