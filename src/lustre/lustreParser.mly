@@ -440,6 +440,14 @@ block_mode:
     enss = list(contract_ensure) ;
     RPAREN ; SEMICOLON
     { A.InlinedContract (mk_pos $startpos, n, reqs, enss) }
+  | MODE ; n = ident ; WHEN ; LPAREN ; e = expr ; RPAREN ; LPAREN ;
+    reqs = list(contract_require) ;
+    enss = list(contract_ensure) ;
+    RPAREN ; SEMICOLON {
+      A.InlinedContract (
+        mk_pos $startpos, n, (mk_pos $startpos, e) :: reqs, enss
+      )
+    }
 
 contract_require:
   | REQUIRE; e = expr; SEMICOLON

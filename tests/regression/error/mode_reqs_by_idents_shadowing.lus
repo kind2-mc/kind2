@@ -1,0 +1,69 @@
+node abs (in: int) returns (out: int) ;
+let
+  out = if in < 0 then -in else in ;
+  (*%PROPERTY out >= 0 ; *)
+  /*!PROPERTY : if in < 0 then (out = -in) else (out = in) ; */
+tel
+
+node has_been_true(in: bool) returns (out: bool) ;
+
+/*@contract
+
+  @mode false_so_far (
+    @require not (in or (false -> pre out)) ;
+    @ensure not out ;
+  ) ;
+
+  @mode in_true (
+    @require in ;
+    @ensure out ;
+  ) ;
+
+  @mode always_true (
+    @require not false_so_far ;
+    @require in -> pre out ;
+    @ensure out ;
+  ) ;
+*/
+let
+  out = in or (false -> pre out) ;
+tel
+
+
+node my_node (in: int ; in_pos: int) returns (out: int) ;
+
+(*@contract
+
+  const bound = 10 ;
+  var in_bounded = abs(in) < bound ;
+
+  @require in_bounded ;
+  @ensure out >= - bound ;
+
+  @mode in_neg (
+    @require in < 0 ;
+    @ensure out = in ;
+  ) ;
+
+  @mode in_pos (
+    @require in >= 0 ;
+    @ensure out >= 0 ;
+    @ensure true -> (
+      (pre has_been_true(in > 0)) => out > in
+    ) ;
+  ) ;
+*)
+var mem: int ;
+let
+  mem = abs(in) + (0 -> pre mem) ;
+  out = if in < 0 then in else mem ;
+
+  (* Old style still works. *)
+  --%PROPERTY out - in >= 0 ;
+
+  (* Doing the same thing using different annotations. *)
+  (*!MAIN: true ; *)
+  (*%MAIN ; *)
+  --%MAIN ;
+  --!MAIN: true ;
+tel
