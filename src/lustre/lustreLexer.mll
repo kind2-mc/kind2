@@ -245,8 +245,8 @@ let keyword_table = mk_hashtbl [
   ("MAIN", MAIN) ;
   (* Contract related things. *)
   ("contract", CONTRACT) ;
-  ("mode", MODE) ;
-  ("require", REQUIRE) ; ("ensure", ENSURE) ;
+  ("@mode", MODE) ;
+  ("@require", REQUIRE) ; ("@ensure", ENSURE) ;
 
   (* Boolean operators *)
   ("true", TRUE) ; ("false", FALSE) ;
