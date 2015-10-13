@@ -237,9 +237,13 @@ val certif : unit -> certif
 type certif_force = bool
 val certif_force : unit -> certif
 
-(** Produce certificates *)
+(** Minimization strategy of k of certificates *)
 type certif_min = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
 val certif_min : unit -> certif_min
+
+(** Minimization of invariants of certificates *)
+type certif_mininvs = [ `Easy | `Medium | `MediumOnly | `Hard | `HardOnly ]
+val certif_mininvs : unit -> certif_mininvs
 
 (** Directory for certificates *)
 type certif_dir = string 

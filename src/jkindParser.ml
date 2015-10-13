@@ -72,7 +72,7 @@ let jkind_options = [
 let jkind_command_line file =
   let jkind = Flags.jkind_bin () in
   let file_red =
-    if Debug.mode "certif" then [file]
+    if Debug.mode "fec" then [file]
     else [file; ">/dev/null"] in
   String.concat " " (jkind :: jkind_options @ file_red)
 
@@ -399,7 +399,7 @@ let of_channel in_ch =
       Type.t_bool 
   in
 
-  (debug certif "JKind Lambda:\n%a" Term.pp_print_lambda jk_trans_lambda
+  (debug fec "JKind Lambda:\n%a" Term.pp_print_lambda jk_trans_lambda
    end);
 
 (* Term for initial states and new constant oracles. We do a simplification

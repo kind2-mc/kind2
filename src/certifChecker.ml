@@ -65,15 +65,17 @@ let hactlits = TH.create 2001
    get the activatition literal corresponding to the term. In all cases, the
    activation literal is returned at the end. *)
 let actlitify ?(imp=false) solver t =
-  let a = fresh_actlit () in (* was generate actlit before *)
-  let ta = term_of_actlit a in
-  (* if not (TH.mem hactlits ta) then begin *)
-  TH.add hactlits ta t;
-  SMTSolver.declare_fun solver a;
-  (if imp then Term.mk_implies else Term.mk_eq)
-    [ta; t] |> SMTSolver.assert_term solver;
-  (* end; *)
-  ta
+  try TH.find hactlits t
+  with Not_found ->
+    let a = fresh_actlit () in (* was generate actlit before *)
+    let ta = term_of_actlit a in
+    (* if not (TH.mem hactlits ta) then begin *)
+    TH.add hactlits t ta;
+    SMTSolver.declare_fun solver a;
+    (if imp then Term.mk_implies else Term.mk_eq)
+      [ta; t] |> SMTSolver.assert_term solver;
+    (* end; *)
+    ta
 
 
 (* Transform unrolled state variables back to functions (that take an integer
@@ -338,17 +340,98 @@ let check_ind_and_fixpoint ~just_check_ind
 
      (* Continuation: execute fixpoint *)
      let cont () =
-       fixpoint solver invs_acts prev_props_act prop'act neg_prop'act trans_acts
+       match Flags.certif_mininvs () with
+       | `HardOnly | `MediumOnly ->
+         (* Only do the first inductive check if we want only hard
+            minimization *)
+         List.map snd invs_acts
+       | _ ->
+         (* Otherwise complete the fixpoint in the continuation *)
+         fixpoint solver
+           invs_acts prev_props_act prop'act neg_prop'act trans_acts
      in
-       
+
      if just_check_ind then raise (Reduce_cont cont)
      else cont ())
-    
+
     (trans_acts @ (neg_invs'prop'act :: prev_props_act :: invs))
 
-  
 
-    
+
+(* Second phase of minimization, a lot more costly. This is also a fixpoint
+   computation but this time we add invariants instead of removing them.
+   We start with the k-inductive check:
+     P /\ T |= P'
+   and when it is not valid, we look for invariants which evaluate to false in
+   the model and add them to P (one-by-one or all at the same time)
+*)
+let rec minimize_hard solver trans
+    needed_invs remaining_invs prev_props_act prop'act neg_prop'act trans_acts =
+
+  let needed_invs_acts, needed_invs'acts = List.split needed_invs in
+  
+  let neg_invs'prop'act = prop'act :: needed_invs'acts
+                          |> Term.mk_and |> Term.mk_not |> actlitify solver in
+
+  SMTSolver.trace_comment solver "Hard minimization";
+
+  SMTSolver.check_sat_assuming solver
+    (fun _ -> (* SAT *)
+       (* Not enough invariants *)
+       
+       (* Get the full model *)
+       let model = SMTSolver.get_model solver in
+
+       (* Evaluation function. *)
+       let eval term =
+         Eval.eval_term (TransSys.uf_defs trans) model term
+         |> Eval.bool_of_value in
+
+       (* Look for all of the first invariant which evaluate to false *)
+       let other_invs, extra_needed, _ =
+         (* List.partition (fun (inv, _) -> eval inv) remaining_invs *)
+         List.fold_left (fun (other, extra, found) ((inv, _) as ii) ->
+             (* Only add the first invariant if we want to do the hardest
+                minimization *)
+             if (Flags.certif_mininvs () = `Hard ||
+                 Flags.certif_mininvs () = `HardOnly) &&
+                found then
+               ii :: other, extra, true
+             else if not (eval inv) then other, ii :: extra, true
+             else ii :: other, extra, false
+           )
+           ([], [], false)
+           (List.rev remaining_invs)
+       in
+
+       (* If we have no more invariants to add, it means the whole set is not
+          k-inductive *)
+       if extra_needed = [] then begin
+         (debug certif "[Hard Fixpoint] fail (impossible)" end);
+         raise Exit
+       end;
+       
+       (* new list of needed invariants *)
+       let needed_invs = List.fold_left (fun acc (inv, inv') ->
+           let invact = actlitify solver inv in
+           let inv'act = actlitify solver inv' in
+           (invact, inv'act) :: acc
+         ) needed_invs extra_needed in
+
+       (debug certif "Hard minimization identified %d"
+          (List.length needed_invs) end);
+
+       (* recursive call to find out if we have found an inductive set or not *)
+       minimize_hard solver trans
+         needed_invs other_invs prev_props_act prop'act neg_prop'act trans_acts
+    )
+    (fun _ -> (* UNSAT *)
+       (* We found a k-inductive set of invariants *)
+       needed_invs'acts
+    )
+
+    (trans_acts @ (neg_invs'prop'act :: prev_props_act :: needed_invs_acts))
+
 
 (* Return type of the following function try_at_bound *)
 type return_of_try =
@@ -379,15 +462,18 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
     actlitify solver (Term.mk_and (List.rev !prev_props_l)) in
 
   (* Construct invariants (with activation literals) from 1 to k-1 and for k *)
-  let invs_acts = List.map (fun inv ->
+  let invs_acts, invs_infos = List.fold_left (fun (invs_acts, invs_infos) inv ->
       let l = ref [inv] in
       for i = 1 to k - 1 do
         l := Term.bump_state (Numeral.of_int i) inv :: !l;
       done;
-      let prev_invs_act = actlitify solver (Term.mk_and (List.rev !l)) in
-      let pa1 = Term.bump_state (Numeral.of_int k) inv |> actlitify solver in
-      prev_invs_act, pa1
-    ) invs in
+      let prev_invs = Term.mk_and (List.rev !l) in
+      let prev_invs_act = actlitify solver prev_invs in
+      let p1 = Term.bump_state (Numeral.of_int k) inv in
+      let pa1 = actlitify solver p1 in
+      (prev_invs_act, pa1) :: invs_acts,
+      (inv, prev_invs_act, prev_invs, pa1, p1) :: invs_infos
+    ) ([], []) (List.rev invs) in
 
   (* Construct property at k *)
   let prop' = Term.bump_state (Numeral.of_int k) prop in
@@ -400,14 +486,34 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   (* This functions maps activation literals (returned by the function
      fixpoint) back to original invariants *)
   let map_back_to_invs useful_acts =
-    let useful_terms = List.map (TH.find hactlits) useful_acts in
-    List.fold_left (fun acc i ->
-        let a = Term.bump_state (Numeral.of_int k) i in
-        if List.exists (Term.equal a) useful_terms &&
-           not (List.exists (Term.equal i) acc) then
-          i :: acc
-        else acc
-      ) [] invs
+    List.fold_left (fun acc a ->
+        List.fold_left (fun acc (inv, _, _, a', _) ->
+            if Term.equal a a' then inv :: acc else acc
+          ) acc invs_infos
+      ) [] useful_acts
+  in
+
+  let reconstruct_infos useful_acts =
+    List.fold_left (fun acc a ->
+        List.fold_left (fun acc (_, _, prev_inv, a', inv') ->
+            if Term.equal a a' then (prev_inv, inv') :: acc else acc
+          ) acc invs_infos
+      ) [] useful_acts
+  in
+
+  let min_hard useful_acts =
+    let useful_infos = reconstruct_infos useful_acts in
+    minimize_hard solver sys
+      [] useful_infos prev_props_act prop'act neg_prop'act trans_acts
+    |> map_back_to_invs
+  in
+
+  let follow_up =
+    match Flags.certif_mininvs () with
+    | `Easy -> map_back_to_invs
+    | `Medium | `MediumOnly | `Hard | `HardOnly ->
+      (* Second phase of harder minimization if we decide to not stop at easy *)
+      min_hard
   in
   
   try
@@ -415,10 +521,11 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
     let useful_acts =
       check_ind_and_fixpoint ~just_check_ind
         solver invs_acts prev_props_act prop'act neg_prop'act trans_acts in
-
+    
     (* If fixpoint returned a list of useful invariants we just return them *)
     Inductive (
-      map_back_to_invs useful_acts
+      follow_up useful_acts
+      (* map_back_to_invs useful_acts *)
     )
   with
   | Exit ->
@@ -427,7 +534,7 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   | Reduce_cont f ->
     (* fixpoint was interrupted, we return the continuation that will resume
        the computation of the useful invariants *)
-    Inductive_to_reduce (fun () -> f () |> map_back_to_invs)
+    Inductive_to_reduce (fun () -> f () |> follow_up)
 
 
 (* Find the minimum bound by increasing k *)
@@ -644,7 +751,7 @@ let minimize_certificate sys =
 
   let min_strategy = match Flags.certif_min () with
     | `No -> assert false
-    | (`Fwd | `Bwd | `Dicho) as s -> s
+    | (`Fwd | `Bwd | `Dicho | `FrontierDicho) as s -> s
     | `Auto ->
       (* Heuristic to find best strategy *)
       if k <= 3 then `Fwd
@@ -1241,7 +1348,7 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
       let jkind_vars =
         JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv in
 
-      (debug certif "(Kind2->JKind): %a -> [ %a ]"
+      (debug fec "(Kind2->JKind): %a -> [ %a ]"
          StateVar.pp_print_state_var sv
          (pp_print_list StateVar.pp_print_state_var ", ") jkind_vars
       end);
@@ -1414,8 +1521,8 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   (* Create properties *)
   let props = mk_multiprop_obs ~only_out:false lustre_vars kind2_sys in
 
-  (debug certif
-     "@[<hv 4>UnMAtched JKind vars:@,%a@]@."
+  (debug fec
+     "@[<hv 4>Unmatched JKind vars:@,%a@]@."
      (pp_print_list StateVar.pp_print_state_var "@,") !global_jkind_vars
    end);
   
@@ -1462,7 +1569,7 @@ let generate_frontend_certificate kind2_sys dirname =
     let lustre_vars =
       LustrePath.reconstruct_lustre_streams nodes (TS.state_vars kind2_sys) in
 
-    (debug certif "Lustre vars:@,%a"
+    (debug fec "Lustre vars:@,%a"
        (fun fmt ->
           StateVar.StateVarMap.iter (fun sv l ->
               List.iter (fun (sv', l') ->

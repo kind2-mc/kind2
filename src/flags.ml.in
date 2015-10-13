@@ -313,6 +313,29 @@ let certif_min_default = `No
 
 (* ********** *) 
 
+type certif_mininvs = [ `Easy | `Medium | `MediumOnly | `Hard | `HardOnly ]
+
+let certif_mininvs_of_string = function
+  | "easy" -> `Easy
+  | "medium" -> `Medium
+  | "mediumonly" -> `MediumOnly
+  | "hard" -> `Hard
+  | "hardonly" -> `HardOnly
+  | _ -> raise (Arg.Bad "Bad value for --certif_mininvs")
+
+let string_of_certif_mininvs = function
+  | `Easy -> "easy"
+  | `Medium -> "medium"
+  | `MediumOnly -> "mediumonly"
+  | `Hard -> "hard"
+  | `HardOnly -> "hardonly"
+
+let certif_mininvs_values = "easy, medium, mediumonly, hard, hardonly"
+  
+let certif_mininvs_default = `Medium
+
+(* ********** *) 
+
 type certif_dir = string
 
 let certif_dir_default = Sys.getcwd ()
@@ -710,6 +733,7 @@ type flags =
     mutable certif : certif;
     mutable certif_force : certif_force;
     mutable certif_min : certif_min;
+    mutable certif_mininvs : certif_mininvs;
     mutable certif_dir : certif_dir;
     mutable input_format : [`Default | input_format];
     mutable input_file : string option }
@@ -769,6 +793,7 @@ let flags =
     certif = certif_default;
     certif_force = certif_force_default;
     certif_min = certif_min_default;
+    certif_mininvs = certif_mininvs_default;
     certif_dir = certif_dir_default;
     input_format = input_format_default;
     input_file = None } 
@@ -938,6 +963,17 @@ let certif_min_spec =
   ("--certif_min", 
    Arg.String certif_min_action, 
    Format.sprintf "Minimize certificate with strategies %s" certif_min_values)
+
+(* ********** *) 
+
+let certif_mininvs_action o =
+  flags.certif_mininvs <- (certif_mininvs_of_string o)
+  
+let certif_mininvs_spec = 
+  ("--certif_mininvs", 
+   Arg.String certif_mininvs_action, 
+   Format.sprintf "Minimize certificate invariants %s (default: %s)"
+     certif_mininvs_values (string_of_certif_mininvs certif_mininvs_default))
 
 (* ********** *) 
 
@@ -1383,6 +1419,8 @@ let certif_force () = flags.certif_force
 
 let certif_min () = flags.certif_min
 
+let certif_mininvs () = flags.certif_mininvs
+
 let certif_dir () = flags.certif_dir
 
 let jkind_bin () = flags.jkind_bin
@@ -1548,8 +1586,11 @@ and speclist =
     (* Force produce certificates *)
     certif_force_spec;
 
-    (* Minimize certificates *)
+    (* Minimize certificates k *)
     certif_min_spec;
+
+    (* Minimize certificates invariants *)
+    certif_mininvs_spec;
 
     (* Directory for certificates *)
     certif_dir_spec;

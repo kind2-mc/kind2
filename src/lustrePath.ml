@@ -1010,7 +1010,7 @@ let inverse_oracle_map nodes =
   List.fold_left (fun acc node ->
       StateVar.StateVarHashtbl.fold (fun sv oracle acc ->
           let l = try SVMap.find oracle acc with Not_found -> [] in
-          (debug certif
+          (debug fec
              "inverse oracle: %a ->>> %a"
              StateVar.pp_print_state_var oracle
              StateVar.pp_print_state_var sv
@@ -1022,7 +1022,7 @@ let inverse_oracle_map nodes =
 let inverse_expr_map nodes =
   List.fold_left (fun acc node ->
       LustreExpr.ExprHashtbl.fold (fun e sv acc ->
-        (debug certif
+        (debug fec
            "inverse expr: %a ->>> %a" StateVar.pp_print_state_var sv
            (LustreExpr.pp_print_lustre_expr false) e
          end);
