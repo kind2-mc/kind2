@@ -245,8 +245,6 @@ let keyword_table = mk_hashtbl [
   ("MAIN", MAIN) ;
   (* Contract related things. *)
   ("contract", CONTRACT) ;
-  ("@mode", MODE) ;
-  ("@require", REQUIRE) ; ("@ensure", ENSURE) ;
 
   (* Boolean operators *)
   ("true", TRUE) ; ("false", FALSE) ;
@@ -331,6 +329,13 @@ rule token = parse
 
   (* End of slash star (SS). *)
   | "*/" { SSBLOCKEND }
+
+
+  (* |===| Block annotation contract stuff. *)
+
+  | "@mode" { MODE }
+  | "@require" { REQUIRE }
+  | "@ensure" { ENSURE }
 
 
   (* |===| Actual comments. *)
