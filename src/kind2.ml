@@ -347,7 +347,11 @@ let on_exit process sys exn =
       || status = status_safe || status = status_signal ) then
     (* Create certificate *)
     (match sys with | None -> () | Some trans_sys ->
-      CertifChecker.generate_all_certificates trans_sys
+      if List.exists
+          (function | _, TransSys.PropInvariant _ -> true | _ -> false)
+          (TransSys.get_prop_status_all trans_sys)
+      then
+        CertifChecker.generate_all_certificates trans_sys
     );
 
   Event.log L_info "Killing all remaining child processes";

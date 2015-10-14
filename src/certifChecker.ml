@@ -387,7 +387,7 @@ let rec minimize_hard solver trans
          Eval.eval_term (TransSys.uf_defs trans) model term
          |> Eval.bool_of_value in
 
-       (* Look for all of the first invariant which evaluate to false *)
+       (* Look for all or the first invariant which evaluate to false *)
        let other_invs, extra_needed, _ =
          (* List.partition (fun (inv, _) -> eval inv) remaining_invs *)
          List.fold_left (fun (other, extra, found) ((inv, _) as ii) ->
