@@ -142,6 +142,9 @@ val list_indexes : 'a list -> 'a list -> int list
     positions [p1], [p2] etc. *)
 val list_filter_nth : 'a list -> int list -> 'a list
 
+(** Remove and returns the nth element form a list *)
+val list_extract_nth : 'a list -> int -> 'a * 'a list
+
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 

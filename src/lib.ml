@@ -183,6 +183,15 @@ let rec list_filter_nth' current_pos accum =
 let list_filter_nth l p = list_filter_nth' 0 [] l p
 
 
+let list_extract_nth l i =
+  let rec aux acc l i = match i, l with
+    | 0, x :: r -> x, List.rev_append acc r
+    | i, x :: r when i > 0 -> aux (x :: acc) r (i - 1) 
+    | _ -> raise (Invalid_argument "list_extract_nth")
+  in
+  aux [] l i
+
+
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 
 

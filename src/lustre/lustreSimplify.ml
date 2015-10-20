@@ -89,7 +89,10 @@ let select_from_arrayintindex pos bound_e index expr =
      (E.numeral_of_expr (get bound_e) |> Numeral.to_int) > size
   then
     C.fail_at_position pos
-      "Size of indexes on left of equation is larger than size on the right";
+      (Format.asprintf "Size of indexes on left of equation (%a) is larger than \
+                        size on the right (%d)"
+         (E.pp_print_expr false) (get bound_e)
+         size);
 
   
   let last, vals = match vals with
@@ -1051,13 +1054,16 @@ let rec eval_ast_expr bounds ctx =
     (* Array slice [A[i..j] with i=j is just A[i] *)
     | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
 
-      let bound_e, bounds = match List.rev bounds with
-        | E.Fixed e :: r | E.Bound e :: r -> Some e, List.rev r
-        | [] -> None, []
-      in
-      
       (* Evaluate expression to an integer constant *)
       let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
+      
+      let bound_e, bounds =
+        try
+          let index_nb = E.int_of_index_var index in
+          let b, bounds = Lib.list_extract_nth bounds index_nb in
+          match b with E.Fixed e | E.Bound e -> Some e, bounds
+        with Invalid_argument _ | Failure _ -> None, bounds
+      in
       
       let expr', ctx = eval_ast_expr bounds ctx expr in 
 
@@ -1074,7 +1080,9 @@ let rec eval_ast_expr bounds ctx =
            Numeral.gt (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s)
         then
           C.fail_at_position pos
-            "Size of indexes on left of equation is larger than size on the right";
+            (Format.asprintf "Size of indexes on left of equation (%a) is larger than size on the right (%a)"
+            (E.pp_print_expr false) (get bound_e)
+            (E.pp_print_expr false) s);
         
 
           (* Remove top index from all elements in trie *)

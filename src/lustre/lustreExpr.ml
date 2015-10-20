@@ -1011,6 +1011,16 @@ let mk_index_var i =
     expr_step = v;
     expr_type = Type.t_int } 
 
+let int_of_index_var { expr_init = t } =
+  if not (Term.is_free_var t) then raise (Invalid_argument "int_of_index_var");
+  let v = Term.free_var_of_term t in
+  let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
+  try
+    Scanf.sscanf s ("__index_%d%s")
+      (fun i _ -> i)
+  with Scanf.Scan_failure _ -> raise (Invalid_argument "int_of_index_var")
+          
+
 
 (* ********************************************************************** *)
 (* Type checking constructors                                             *)

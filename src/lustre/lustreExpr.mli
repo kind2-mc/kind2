@@ -272,6 +272,9 @@ val mk_var : StateVar.t -> t
 (** Return an expression for the i-th index variable. *)
 val mk_index_var : int -> t
 
+(** Return the number/position of the index variable. *)
+val int_of_index_var : t -> int
+  
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
 

@@ -810,7 +810,8 @@ let rec eval_node_equations ctx = function
               | _ -> acc, cpt
             ) (acc, 0) i
           |> fst
-        ) [] (D.bindings eq_lhs) in
+        ) [] (D.bindings eq_lhs)
+      |> List.rev in
     
     
     (* Evaluate expression on right-hand side *)

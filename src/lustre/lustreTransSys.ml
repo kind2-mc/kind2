@@ -1478,10 +1478,10 @@ let rec constraints_of_equations init stateful_vars terms = function
 
     (* Wrap equation in let binding and quantifiers for indexes *)
     let def, _ = 
-      List.fold_right
-        add_bounds
-        bounds
+      List.fold_left
+        (fun t b -> add_bounds b t)
         (eq, List.length bounds |> pred)
+        bounds
     in
 
     (* assert (Symbol.SymbolSet.is_empty (Term.select_symbols_of_term def)); *)
