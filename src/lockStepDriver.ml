@@ -732,7 +732,9 @@ let increment_and_query_step
      (* adding certificates for k-induction *)
      let invariants_certs =
        List.map (fun t ->
-           let cert = Numeral.to_int k, t in
+           (* Here this is in fact k + 1 inductive and not k-inductive *)
+           (* Unrolling above is done one step further, so at k + 1 *)
+           let cert = Numeral.to_int k + 1, t in
            t, cert)
          invariants in
 
