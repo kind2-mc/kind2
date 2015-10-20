@@ -1,6 +1,6 @@
 node X(x: int) returns (y: int);
-  --@require pre(x) > 2;
-  --@ensure pre(x > 3);
+  --@assume pre(x) > 2;
+  --@guarantee pre(x > 3);
 let
   assert (pre pre (x + 1) > 0);
   --%PROPERTY 1 > x;

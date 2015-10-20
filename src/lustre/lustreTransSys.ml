@@ -318,31 +318,45 @@ let pprint_pos fmt pos =
   Format.fprintf fmt "%sl%dc%d" f l c
 
 (* Return properties from contracts of node *)
-let props_of_req scope { N.global_contracts; N.mode_contracts } =
-
+let caller_props_of_req scope { N.global_contracts; N.mode_contracts } =
   (* Property is unknown *)
   let prop_status = P.PropUnknown in
+  (* Create property from terms of global requires. *)
+  global_contracts
+  |> List.fold_left (
+    fun prop_list { N.contract_name ; N.contract_reqs ; N.contract_pos } ->
+      contract_reqs |> List.fold_left (fun prop_list (pos,count,sv) ->
+        let name =
+          Format.asprintf "%a.require[%a][%d]"
+            (LustreIdent.pp_print_ident true)
+            contract_name pprint_pos pos count
+        in
+        let var = E.mk_var sv in
+        (property_of_expr
+          name prop_status (
+            P.Assumption (contract_pos, scope)
+          ) var) :: prop_list
+    ) prop_list
+  ) []
 
-  (* Create property from terms of global and mode requires *)
-  contract_req_map
-    ( fun contract_name req_pos req_count ->
-      let ident = Ident.of_string contract_name in
-      let scope = ident :: scope in
-      let name =
-        Format.asprintf "%s.require[%a][%d]"
-          contract_name pprint_pos req_pos req_count
-      in
-      P.ContractGlobalRequire scope
-      |> property_of_expr name prop_status
-    )
-    ( property_of_expr
-        "one_mode_active"
-        prop_status
-        (P.ContractModeRequire scope)
-    )
-    global_contracts
-    mode_contracts
-
+let one_mode_active scope { N.mode_contracts } =
+  match mode_contracts with
+  | [] -> [] | _ -> [
+    (* Originally prop is unknown. *)
+    let prop_status = P.PropUnknown in
+    let name = "__one_mode_active" in
+    (* Create disjunction of mode requirements. *)
+    mode_contracts |> List.map (
+      fun { N.contract_name ; N.contract_pos ; N.contract_reqs } ->
+        (* Conjunction of the requires of the mode. *)
+        contract_reqs |> List.map (fun (_,_,sv) -> E.mk_var sv) |> E.mk_and_n
+    ) |> E.mk_or_n
+    (* Building property. *)
+    |> property_of_expr
+      "__one_mode_active"
+      P.PropUnknown
+      (P.GuaranteeOneModeActive scope)
+  ]
 
 (* Return terms from contracts of node *)
 let expr_of_req scope { N.global_contracts; N.mode_contracts } = 
@@ -359,7 +373,10 @@ let expr_of_req scope { N.global_contracts; N.mode_contracts } =
 let props_of_ens scope { N.global_contracts; N.mode_contracts } =
 
   (*  *)
-  let prop_name_of count name pos =
+  let guarantee_name_of count _ pos =
+    Format.asprintf "guarantee[%a][%d]" pprint_pos pos count
+  in
+  let ensure_name_of count name pos =
     Format.asprintf "%s.ensure[%a][%d]" name pprint_pos pos count
   in
 
@@ -367,17 +384,22 @@ let props_of_ens scope { N.global_contracts; N.mode_contracts } =
   let prop_status = P.PropUnknown in
        
   (* Create property with fixed name and status *)
-  let property_of_expr' count name pos =
-    property_of_expr (prop_name_of count name pos) prop_status
+  let guarantee_of_expr' count name pos =
+    property_of_expr (guarantee_name_of count name pos) prop_status
+  in
+  let ensure_of_expr' count name pos =
+    property_of_expr (ensure_name_of count name pos) prop_status
   in
 
   (* Create property from terms of global and mode requires *)
   contract_ens_map (
       fun name pos count ->
-        property_of_expr' count name pos (P.ContractGlobalEnsure (pos, scope))
+        guarantee_of_expr' count name pos (P.Guarantee (pos, scope))
     ) (
       fun name pos count ->
-        property_of_expr' count name pos (P.ContractModeEnsure (pos, scope))
+        ensure_of_expr' count name pos (
+          P.GuaranteeModeImplication (pos, scope)
+        )
     )
     global_contracts
     mode_contracts
@@ -1376,7 +1398,7 @@ let rec constraints_of_function_calls
                   pp_print_pos pos ;
               (* We cannot give the svars for the ensures following from this
                  requirement because they're not svars... *)
-              P.prop_source = P.Requirement (pos, scope, []);
+              P.prop_source = P.Assumption (pos, scope);
               P.prop_status;
               P.prop_term =
                 Var.mk_state_var_instance sv TransSys.prop_base
@@ -1419,29 +1441,6 @@ let rec constraints_of_function_calls
       )
       (init_terms, trans_terms, [])
       mode_contracts
-    in
-
-    (* Create property from mode requirements *)
-    let locals, init_terms, trans_terms, properties =
-      match mode_contracts_req with
-      | [] -> locals, init_terms, trans_terms, properties
-      | _ ->
-        (* Creating new state var for lifted mode requirements. *)
-        let l, i, t, sv =
-          E.mk_or_n mode_contracts_req
-          |> add_prop_sv_constraints locals init_terms trans_terms
-        in
-
-        l, i, t, { (* Creating new property for mode requirements. *)
-          P.prop_name =
-            Format.sprintf
-              "%s.func_mode_req" prop_scope ;
-          P.prop_source = P.ContractModeRequire scope ;
-          P.prop_status ;
-          P.prop_term =
-            Var.mk_state_var_instance sv TransSys.prop_base
-            |> Term.mk_var
-        } :: properties
     in
 
     (* Continue with next function call *)
@@ -1883,9 +1882,10 @@ let rec trans_sys_of_node'
              otherwise add requirements as properties *)
           let contract_asserts, properties = 
             if I.equal node_name top_name then 
-              expr_of_req scope node @ contract_asserts, properties 
+              expr_of_req scope node @ contract_asserts,
+              one_mode_active scope node @ properties
             else
-              contract_asserts, props_of_req scope node @ properties 
+              contract_asserts, properties
           in            
 
           (* Add enusres to invariants if node is abstract,
@@ -2411,6 +2411,7 @@ let trans_sys_of_nodes
           Biggest bucket length: %d@]@."
     s1 s2 s3 s4 s5 s6;
 *)
+
   trans_sys, subsystem', globals'
 
 (*

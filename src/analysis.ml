@@ -83,10 +83,10 @@ let mk_result param sys =
   let rec find c r valid = function
     | p :: tail -> (
       match p.Property.prop_source with
-      | Property.ContractGlobalRequire _
-      | Property.ContractModeRequire _ -> find c (Some valid) valid tail
-      | Property.ContractGlobalEnsure _
-      | Property.ContractModeEnsure _ -> find (Some valid) r valid tail
+      | Property.Assumption _ -> find c (Some valid) valid tail
+      | Property.Guarantee _
+      | Property.GuaranteeOneModeActive _
+      | Property.GuaranteeModeImplication _ -> find (Some valid) r valid tail
       | _ -> find c r valid tail
     )
     | [] -> c, r
@@ -270,9 +270,9 @@ let pp_print_result fmt {
       | Some true -> "contract is valid"
       | Some false -> "contract is not valid" )
     ( match requirements_valid with
-      | None -> "no sub-requirements"
-      | Some true -> "sub-requirements are valid"
-      | Some false -> "sub-requirements are not valid" )
+      | None -> "no sub-assumptions"
+      | Some true -> "sub-assumptions are valid"
+      | Some false -> "sub-assumptions are not valid" )
     ( match valid with
       | [] -> pp_print_skip
       | _ -> (pp_print_prop_list "valid") )

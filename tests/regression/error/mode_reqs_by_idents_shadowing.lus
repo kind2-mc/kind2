@@ -37,8 +37,8 @@ node my_node (in: int ; in_pos: int) returns (out: int) ;
   const bound = 10 ;
   var in_bounded = abs(in) < bound ;
 
-  @require in_bounded ;
-  @ensure out >= - bound ;
+  @assume in_bounded ;
+  @guarantee out >= - bound ;
 
   @mode in_neg (
     @require in < 0 ;

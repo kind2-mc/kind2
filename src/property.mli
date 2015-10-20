@@ -55,31 +55,28 @@ type t =
 (** Source of a property *)
 and prop_source =
 
-  (** Property is from an annotation *)
+  (* Property is from an annotation *)
   | PropAnnot of Lib.position
 
-  (** Property is part of a contract *)
-  | Contract of Lib.position * string
-
-  (** Property was generated, for example, from a subrange
-      constraint *)
+  (* Property was generated, for example, from a subrange constraint *)
   | Generated of StateVar.t list
 
-  (** Property is a requirement of a subnode. *)
-  | Requirement of Lib.position * string list * StateVar.t list
+  (* Property is an instance of a property in a called node.
 
-  | ContractGlobalRequire of Scope.t
-  | ContractModeRequire of Scope.t
-
-  | ContractGlobalEnsure of Lib.position * Scope.t
-  | ContractModeEnsure of Lib.position * Scope.t
-
-
-  (** Property is an instance of a property in a called node
-
-      Reference the instantiated property by the [scope] of the
-      subsystem and the name of the property *)
+     Reference the instantiated property by the [scope] of the subsystem and
+     the name of the property *)
   | Instantiated of Scope.t * t
+
+  (* Contract assumption that a caller has to prove. The list of state vars is
+  the guarantees that proving the requirement yields. *)
+  | Assumption of Lib.position * string list
+
+  (* Contract guarantees. *)
+  | Guarantee of (Lib.position * Scope.t)
+  (* Contract: at least one mode active. *)
+  | GuaranteeOneModeActive of Scope.t
+  (* Contract: mode implication. *)
+  | GuaranteeModeImplication of (Lib.position * Scope.t)
 
 
 (** Pretty-prints a property source. *)

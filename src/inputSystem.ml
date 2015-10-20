@@ -303,7 +303,7 @@ let slice_to_abstraction_and_property
     | Lustre (subsystem, globals) ->
 
      let vars = match prop'.Property.prop_source with
-      | Property.ContractGlobalRequire _ | Property.ContractModeRequire _ ->
+      | Property.Assumption _ ->
         TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
       | _ ->
         Term.state_vars_of_term prop'.Property.prop_term

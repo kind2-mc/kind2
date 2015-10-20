@@ -438,6 +438,19 @@ let pp_print_prop safe ppf (sv, n, _) =
          Format.fprintf ppf " -- was: %s" n)
 
 (* Pretty-print an assumption *)
+let pp_print_assume safe ppf (_,_,sv) =
+  Format.fprintf ppf
+    "@[<hv 2>--@@assume@ @[<h>%a@];@]"
+    (E.pp_print_lustre_var safe) sv
+
+
+(* Pretty-print a guarantee *)
+let pp_print_guarantee safe ppf (_,_,sv) =
+  Format.fprintf ppf
+    "@[<hv 2>--@@guarantee @[<h>%a@];@]"
+    (E.pp_print_lustre_var safe) sv
+
+(* Pretty-print an assumption *)
 let pp_print_require safe ppf (_,_,sv) =
   Format.fprintf ppf
     "@[<hv 2>--@@require@ @[<h>%a@];@]"
@@ -472,8 +485,8 @@ let pp_print_global_contract safe ppf {
       ppf
       "@[<v>-- %a@,%a@,%a@]"
       (I.pp_print_ident false) contract_name
-      (pp_print_list (pp_print_require safe) "@ ") contract_reqs
-      (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
+      (pp_print_list (pp_print_assume safe) "@ ") contract_reqs
+      (pp_print_list (pp_print_guarantee safe) "@ ") contract_enss
 
 
 (* Pretty-print a named mode contract. *)
