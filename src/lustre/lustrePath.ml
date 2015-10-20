@@ -686,7 +686,7 @@ let pp_print_pos_pt ppf pos =
 
 
 (* Output the identifier of an indexed stream *)
-let pp_print_stream_ident_pt ppf (index, state_var) = 
+let pp_print_stream_ident_pt ppf (index, state_var) =
 
   Format.fprintf
     ppf
