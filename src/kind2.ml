@@ -321,11 +321,11 @@ let on_exit process sys exn =
       (fun (pid, _) -> try Unix.kill (- pid) Sys.sigkill with _ -> ())
       !child_pids;
 
-    (* Close tags in XML output *)
-    Event.terminate_log ();
-
     (* Log stats and statuses of properties *)
     Event.log_result sys;
+
+    (* Close tags in XML output *)
+    Event.terminate_log ();
   
     (* Exit with status *)
     exit status
@@ -436,8 +436,6 @@ let on_exit_child ?(alone=false) messaging_thread process sys_opt exn =
     "Process %d terminating"
     (Unix.getpid ());
 
-  Event.terminate_log ();
-  
   (match messaging_thread with 
     | Some t -> Event.exit t
     | None -> ());
@@ -449,7 +447,9 @@ let on_exit_child ?(alone=false) messaging_thread process sys_opt exn =
 
     (* Log stats and statuses of properties if run as a single process *)
     if alone then Event.log_result sys_opt;
-    
+
+    Event.terminate_log ();
+      
     (* Exit process with status *)
     exit status )
 

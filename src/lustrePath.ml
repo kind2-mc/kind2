@@ -395,8 +395,7 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
         let curr_var = Var.mk_state_var_instance sv E.cur_offset in
 
-        (* FIXME: Why is this unused? *)
-        (* let prev_var = Var.mk_state_var_instance sv E.pre_offset in *)
+        let prev_var = Var.mk_state_var_instance sv E.pre_offset in
 
         let stream_terms = stream in
 
@@ -408,7 +407,7 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
         in
 
         VT.add substitutions curr_var stream_terms.(i);
-        VT.add substitutions curr_var stream_terms.(i - 1)
+        VT.add substitutions prev_var stream_terms.(i - 1)
 
     in
 
