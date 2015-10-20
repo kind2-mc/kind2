@@ -69,30 +69,43 @@ let mk input_sys sys root name title =
   let dir = Format.sprintf "%s/%s" root name in
   let edir = Format.sprintf "%s/errors" dir in
   mk_dir dir ;
-
-  (* |===| XML class file. *)
   let class_file =
-    Format.sprintf "%s.xml" dir |> openfile
+    if Flags.testgen_graph_only () |> not then (
+
+      (* |===| XML class file. *)
+      let class_file =
+        Format.sprintf "%s.xml" dir |> openfile
+      in
+      let class_fmt = fmt_of_file class_file in
+      Format.fprintf class_fmt
+        "<?xml version=\"1.0\"?>@.\
+         <data system=\"%a\" name=\"%s\">@.@.@?"
+        Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+        title ;
+      class_file
+    ) else Unix.stderr
   in
-  let class_fmt = fmt_of_file class_file in
-  Format.fprintf class_fmt
-    "<?xml version=\"1.0\"?>@.\
-     <data system=\"%a\" name=\"%s\">@.@.@?"
-    Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
-    title ;
 
   (* |===| Graph file. *)
   let graph_file =
     Format.sprintf "%s.dot" dir |> openfile
   in
   let graph_fmt = fmt_of_file graph_file in
-  Format.fprintf graph_fmt "strict digraph mode_graph {@.@.@?" ;
+  Format.fprintf graph_fmt "\
+    strict digraph mode_graph {@.@[<v 2>\
+      graph [bgcolor=black margin=0.0] ;@ \
+      node [@ \
+        style=filled@ \
+        fillcolor=black@ \
+        fontcolor=\"#1e90ff\"@ \
+        color=\"#666666\"@ \
+      ] ;@ \
+      edge [color=\"#1e90ff\" fontcolor=\"#222222\"] ;@ \
+    @]@.@." ;
 
   (* Building result. *)
   { input_sys ; sys ; uid = 0 ; euid = 0 ; dir ;
-    class_file = class_file ;
-    graph_file = graph_file ;
-    edir ; error_file = None ; }
+    class_file ; graph_file ; edir ; error_file = None ; }
 
 (* Initialization for error dir and file. *)
 let init_error (type s)
@@ -114,13 +127,11 @@ let init_error (type s)
 (* Closes internal file descriptors. *)
 let rm (type s) : s t -> unit
 = fun { class_file ; graph_file ; error_file } ->
-  (* |===| Finishing class file. *)
-  let class_fmt = fmt_of_file class_file in
-  Format.fprintf class_fmt "@.</data>@.@?" ;
-  (* |===| Finishing graph file. *)
-  let graph_fmt = fmt_of_file graph_file in
-  Format.fprintf graph_fmt "}@.@?" ;
-  Unix.close class_file ; Unix.close graph_file ;
+  if Flags.testgen_graph_only () |> not then (
+    (* |===| Finishing class file. *)
+    let class_fmt = fmt_of_file class_file in
+    Format.fprintf class_fmt "@.</data>@.@?" ;
+  ) ;
   (* |===| Finishing error file. *)
   ( match error_file with
     | None -> ()
@@ -128,6 +139,10 @@ let rm (type s) : s t -> unit
       let error_fmt = fmt_of_file error_file in
       Format.fprintf error_fmt "@.</data>@.@?" ;
       Unix.close error_file ) ;
+  (* |===| Finishing graph file. *)
+  let graph_fmt = fmt_of_file graph_file in
+  Format.fprintf graph_fmt "}@.@?" ;
+  Unix.close class_file ; Unix.close graph_file ;
   ()
 
 (* The number of testcases generated. *)
@@ -143,7 +158,6 @@ let testcase_csv (type s) : s t -> string * string * Unix.file_descr
 = fun ({uid ; dir} as t) ->
   let name = Format.sprintf "testcase_%d" uid in
   let path = Format.sprintf "%s/%s.csv" dir name in
-  t.uid <- uid + 1 ;
   name, path, openfile path
 
 (* Descriptor for an error file. *)
@@ -210,22 +224,25 @@ let log_testcase (type s)
 = fun t modes model k ->
   Stat.incr Stat.testgen_testcases ;
   (* Format.printf "  log_testcase@." ; *)
+  t.uid <- t.uid + 1 ;
 
-  (* |===| Logging testcase. *)
-  (* Format.printf "    logging testcase@." ; *)
-  let name, path, tc_file = testcase_csv t in
-  let tc_fmt = fmt_of_file tc_file in
-  (* Logging test case. *)
-  cex_to_inputs_csv tc_fmt t.input_sys t.sys model k ;
-  (* Flushing. *)
-  Format.fprintf tc_fmt "@?" ;
-  (* Close file. *)
-  Unix.close tc_file ;
+  if Flags.testgen_graph_only () |> not then (
+    (* |===| Logging testcase. *)
+    (* Format.printf "    logging testcase@." ; *)
+    let name, path, tc_file = testcase_csv t in
+    let tc_fmt = fmt_of_file tc_file in
+    (* Logging test case. *)
+    cex_to_inputs_csv tc_fmt t.input_sys t.sys model k ;
+    (* Flushing. *)
+    Format.fprintf tc_fmt "@?" ;
+    (* Close file. *)
+    Unix.close tc_file ;
 
-  (* |===| Updating class file. *)
-  (* Format.printf "    updating class file@." ; *)
-  let class_fmt = fmt_of_file t.class_file in
-  pp_print_tc class_fmt path name modes ;
+    (* |===| Updating class file. *)
+    (* Format.printf "    updating class file@." ; *)
+    let class_fmt = fmt_of_file t.class_file in
+    pp_print_tc class_fmt path name modes ;
+  ) ;
 
   (* |===| Updating graph. *)
   (* Format.printf "    updating graph@." ; *)
@@ -239,6 +256,7 @@ let log_deadlock (type s)
 : s t -> string list list -> Model.t -> Numeral.t -> unit
 = fun t modes model k ->
   Stat.incr Stat.testgen_deadlocks ;
+
   let error_file = match t.error_file with
     | None -> init_error t ; get t.error_file
     | Some error_file -> error_file
