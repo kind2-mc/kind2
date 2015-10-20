@@ -135,6 +135,9 @@ let pp_print_event ppf = function
   | PropStatus (p, TransSys.PropUnknown) -> 
     Format.fprintf ppf "@[<hv>Property %s is unknown@]" p 
 
+  | PropStatus (p, TransSys.PropForgotten) -> 
+    Format.fprintf ppf "@[<hv>Property %s is forgotten@]" p 
+
   | PropStatus (p, TransSys.PropKTrue k) -> 
     Format.fprintf ppf "@[<hv>Property %s true for %d steps@]" p k
 
@@ -186,6 +189,12 @@ struct
       let p = pop () in
 
       PropStatus (p, TransSys.PropUnknown)
+
+    | "PROP_FORGOTTEN" -> 
+
+      let p = pop () in
+
+      PropStatus (p, TransSys.PropForgotten)
 
     | "PROP_KTRUE" -> 
 
@@ -259,6 +268,10 @@ struct
     | PropStatus (p, TransSys.PropUnknown) -> 
 
       [p; "PROP_UNKNOWN"]
+
+    | PropStatus (p, TransSys.PropForgotten) -> 
+
+      [p; "PROP_FORGOTTEN"]
 
     | PropStatus (p, TransSys.PropKTrue k) -> 
 
@@ -609,6 +622,9 @@ let prop_status_pt level prop_status =
                | TransSys.PropUnknown -> 
                  Format.fprintf ppf "unknown"
 
+               | TransSys.PropForgotten -> 
+                 Format.fprintf ppf "forgotten"
+
                | TransSys.PropKTrue k -> 
                  Format.fprintf ppf "true up to %d steps" k
 
@@ -869,14 +885,14 @@ let prop_status_xml level prop_status =
                @;<0 -2></Property>@]"
               p
               (function ppf -> function 
-                 | TransSys.PropUnknown
+                 | TransSys.PropUnknown | TransSys.PropForgotten
                  | TransSys.PropKTrue _ -> Format.fprintf ppf "unknown"
                  | TransSys.PropInvariant _ -> Format.fprintf ppf "valid"
                  | TransSys.PropFalse [] 
                  | TransSys.PropFalse _ -> Format.fprintf ppf "falsifiable")
               s
               (function ppf -> function
-                 | TransSys.PropUnknown
+                 | TransSys.PropUnknown | TransSys.PropForgotten
                  | TransSys.PropInvariant _ 
                  | TransSys.PropFalse [] -> ()
                  | TransSys.PropKTrue k -> 
@@ -1356,6 +1372,16 @@ let update_trans_sys_sub trans_sys events =
 
       (* Continue without changes *)
       update_trans_sys' trans_sys invars prop_status tl
+
+    (* Property forgotten *)
+    | (m, PropStatus (p, TransSys.PropForgotten)) :: tl -> 
+
+      (* Change property status in transition system *)
+      TransSys.forget_prop trans_sys p;
+
+      (* Continue with propert status added to accumulator *)
+      update_trans_sys' trans_sys invars
+        ((m, (p, TransSys.PropForgotten)) :: prop_status) tl
 
     (* Property found true for k steps *)
     | (m, PropStatus (p, (TransSys.PropKTrue k as s))) :: tl -> 

@@ -17,6 +17,7 @@
 *)
 
 open Lib
+module TSet = Term.TermSet
 
 module CandidateTermGen = struct
 
@@ -458,18 +459,24 @@ module CandidateTermGen = struct
 
            debug invGenCand "Generating candidates." in
 
+           let user_candidates =
+             if two_state then TSet.empty
+             else TSet.of_list (TransSys.get_unknown_candidates system) in
+  
            let candidates' =
 
-             TSet.empty
-               
-             (* Synthesizing candidates. *)
-             |> StateVarRules.apply (TransSys.state_vars system)
-                                     
-             (* Candidates from init. *)
-             |> set_of_term init
+             if Flags.only_user_candidates () then user_candidates
+             else
+                user_candidates
 
-             (* Candidates from trans. *)
-             |> if Flags.invgengraph_mine_trans ()
+                (* Synthesizing candidates. *)
+                |> StateVarRules.apply (TransSys.state_vars system)
+
+                (* Candidates from init. *)
+                |> set_of_term init
+
+                (* Candidates from trans. *)
+                |> if Flags.invgengraph_mine_trans ()
                 then identity else set_of_term trans
            in
 
@@ -568,6 +575,7 @@ let generate_graphs two_state trans =
   let candidate_terms, count =
     generate_candidate_terms two_state trans
   in
+
   (* Returning implication graphs and candidate term count. *)
   CandidateTermGen.build_graphs candidate_terms, count
 

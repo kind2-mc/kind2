@@ -211,6 +211,9 @@ val invgengraph_max_succ : unit -> invgengraph_max_succ
 (** InvGen will lift candidate terms from subsystems.. **)
 type invgengraph_lift_candidates = bool
 val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will look only at given candidates. **)
+type only_user_candidates = bool
+val only_user_candidates : unit -> only_user_candidates
 (** InvGen will look for candidate terms in the transition
     predicate. *)
 type invgengraph_mine_trans = bool

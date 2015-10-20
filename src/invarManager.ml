@@ -18,10 +18,36 @@
         
 open Lib
 
+let handle_events trans_sys = 
+
+  (* Receive queued events *)
+  let events = Event.recv () in
+
+  (* Output events *)
+  List.iter 
+    (function (m, e) -> 
+      Event.log
+        L_debug
+        "[InvarManager] Message received from %a: %a"
+        pp_print_kind_module m
+        Event.pp_print_event e)
+    events;
+
+  (* Update transition system from events *)
+  let _ =
+    Event.update_trans_sys trans_sys events
+  in
+
+  ()
+
+
 let on_exit trans_sys =
   try 
     (* Send termination message to all worker processes *)
     Event.terminate ();
+
+    (* if trans_sys <> None then handle_events (get trans_sys); *)
+      
   (* Skip if running as a single process *)
   with Messaging.NotInitialized -> ()
 
@@ -87,32 +113,39 @@ let rec wait_for_children child_pids =
       )
 
 
-let handle_events trans_sys = 
-
-  (* Receive queued events *)
-  let events = Event.recv () in
-
-  (* Output events *)
-  List.iter 
-    (function (m, e) -> 
-      Event.log
-        L_debug
-        "Message received from %a: %a"
-        pp_print_kind_module m
-        Event.pp_print_event e)
-    events;
-
-  (* Update transition system from events *)
-  let _ =
-    Event.update_trans_sys trans_sys events
-  in
-
-  ()
-
 (* Polling loop *)
 let rec loop done_at child_pids trans_sys = 
 
   handle_events trans_sys;
+
+  (* if TransSys.all_props_proved trans_sys then begin *)
+  (*   let forgot = ref false in *)
+  (*   List.iter *)
+  (*     (function *)
+  (*       | s, TermLib.Candidate, _, (TransSys.PropKTrue _ | TransSys.PropUnknown) -> *)
+  (*         forgot := true; *)
+  (*         Format.eprintf "[invar] Forget %s@." s; *)
+  (*         TransSys.forget_prop trans_sys s; *)
+  (*         Event.prop_status TransSys.PropForgotten trans_sys s *)
+  (*       | _ -> ()) *)
+  (*     (TransSys.get_candidate_properties trans_sys) *)
+  (*   ; *)
+
+  (*   if !forgot then *)
+  (*     List.iter *)
+  (*       (function *)
+  (*         | s, _, _, TransSys.PropInvariant (k, _) -> *)
+  (*           Format.eprintf "[invar] reset to %d true %s@." k s; *)
+  (*           TransSys.set_prop_ktrue trans_sys k s; *)
+  (*           Event.prop_status (TransSys.PropKTrue k) trans_sys s *)
+  (*         | _ -> ()) *)
+  (*       (TransSys.get_properties trans_sys) *)
+  (*   ; *)
+
+    
+
+  (*   handle_events trans_sys; *)
+  (* end; *)
 
   let done_at' =
 

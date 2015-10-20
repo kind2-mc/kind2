@@ -206,6 +206,14 @@ let extract_props_certs sys =
       else c :: c_acc
     ) certs (TS.get_invariants sys) in
 
+  let certs =  List.fold_left (fun certs -> function
+      | _, TermLib.Candidate, p, TS.PropInvariant c -> c :: certs
+      | p_name, _, _, _ ->
+        Event.log L_info "Skipping unproved candidate %s" p_name;
+        certs
+    ) certs (TS.get_candidate_properties sys) in
+
+
   List.rev props, certs
 
 

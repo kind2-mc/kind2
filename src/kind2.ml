@@ -342,6 +342,7 @@ let on_exit process sys exn =
   (* Clean exit from invariant manager *)
   InvarManager.on_exit sys;
 
+  (* Generate certificates if necessary *)
   if Flags.certif () &&
      (Flags.certif_force ()
       || status = status_safe || status = status_signal ) then
@@ -353,7 +354,7 @@ let on_exit process sys exn =
       then
         CertifChecker.generate_all_certificates trans_sys
     );
-
+    
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)

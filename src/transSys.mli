@@ -36,6 +36,9 @@ type prop_status =
   (** Status of property is unknown *)
   | PropUnknown
 
+  (** Property is forgotten *)
+  | PropForgotten
+
   (** Property is true up to k-th step *)
   | PropKTrue of int
 
@@ -274,6 +277,9 @@ val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) lis
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
+(** Forget property *)
+val forget_prop : t -> string -> unit
+
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 
 
@@ -282,6 +288,16 @@ val is_disproved : t -> string -> bool
 
 (** Return true if the property is a candidate invariant *)
 val is_candidate : t -> string -> bool 
+
+(** Return list of candidate invariants *)
+val get_candidates : t -> Term.t list
+
+(** Return list of candidate invariants properties *)
+val get_candidate_properties :
+    t -> (string * TermLib.prop_source * Term.t * prop_status) list
+
+(** Return candidate invariants that have not been proved or disproved yet *)
+val get_unknown_candidates : t -> Term.t list
 
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool

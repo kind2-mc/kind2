@@ -74,8 +74,11 @@ let split_unfalsifiable_rm_proved trans k =
     ( fun (dis,true_k,others) ((s,_) as p) ->
       match TransSys.get_prop_status trans s with
       | TransSys.PropInvariant _ ->
-         (dis, true_k, others)
-      | TransSys.PropFalse _ ->
+        (dis, true_k, others)
+      | TransSys.PropForgotten ->
+        (* Format.eprintf "[step] Forget %s@." s; *)
+         (p :: dis, true_k, others)
+      | TransSys.PropFalse _ | TransSys.PropForgotten ->
          (p :: dis, true_k, others)
       | TransSys.PropKTrue n when n >= k ->
          (dis, p :: true_k, others)
@@ -89,6 +92,17 @@ let split_unfalsifiable_rm_proved trans k =
    new unknown properties, and the new unfalsifiable ones. *)
 let clean_properties trans unknowns unfalsifiables =
   let unknowns' = clean_unknowns trans unknowns in
+
+  (* Format.eprintf "PROPERIST: %a@." (pp_print_list (fun fmt (_, (s, st)) -> *)
+  (*     Format.fprintf fmt "%s : %a" s TransSys.pp_print_prop_status_pt st) "@.") *)
+  (*   (unfalsifiables); *)
+
+  (* List.iter (fun (k, u) ->  *)
+  (*       Format.eprintf "PROPERIST %d %: %a@." k *)
+  (*         (pp_print_list (fun fmt (s,_) -> *)
+  (*              Format.fprintf fmt "%s : up to %d" s k) "@.") u *)
+  (*     ) *)
+  (*     (unfalsifiables); *)
 
   let rec loop confirmed = function
     | (k, unfls_k) :: tail as list ->
@@ -463,7 +477,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
   (* Integer version of k. *)
   let k_int = Numeral.to_int k in
-  
+    
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
     (* Receiving messages. *)
@@ -517,6 +531,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
   match unknowns', unfalsifiables' with
   | [], [] ->
+    Format.eprintf "Nothing left !!!!!!!!!!!!!@.";
      (* Nothing left to do. *)
      stop ()
   | [], _ ->

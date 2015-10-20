@@ -54,6 +54,9 @@ type prop_status =
   (* Status of property is unknown *)
   | PropUnknown
 
+  (* Property is forgotten *)
+  | PropForgotten
+
   (* Property is true for at least k steps *)
   | PropKTrue of int
 
@@ -97,6 +100,7 @@ let length_of_cex = function
 
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
+  | PropForgotten -> Format.fprintf ppf "forgotted"
   | PropKTrue k -> Format.fprintf ppf "true-for %d" k
   | PropInvariant _ -> Format.fprintf ppf "invariant"
   | PropFalse [] -> Format.fprintf ppf "false"
@@ -111,6 +115,7 @@ let prop_status_known = function
   | PropKTrue _ -> false
 
   (* Property is invariant or false *)
+  | PropForgotten
   | PropInvariant _
   | PropFalse _ -> true
 
@@ -860,7 +865,8 @@ let named_terms_list_of_bound l i =
 
 (* Instantiate all properties to the bound *)
 let props_list_of_bound t i = 
-  named_terms_list_of_bound t.properties i
+  named_terms_list_of_bound (* t.properties i *)
+    (List.filter (fun p -> p.prop_source <> TermLib.Candidate) t.properties) i
 
 
 (* Instantiate all properties to the bound *)
@@ -925,9 +931,11 @@ let get_invariants t = t.invars
 
 (* Return all properties *)
 let get_properties t =
-  List.map (fun {prop_name; prop_source; prop_term; prop_status} ->
-      (prop_name, prop_source, prop_term, prop_status))
-    t.properties
+  List.fold_left (fun acc {prop_name; prop_source; prop_term; prop_status} ->
+      if prop_source = TermLib.Candidate then acc
+      else (prop_name, prop_source, prop_term, prop_status) :: acc
+    ) [] t.properties
+  |> List.rev
 
 (* Return current status of all properties *)
 let get_prop_status_all t = 
@@ -979,10 +987,12 @@ let set_prop_invariant t prop certif =
 
     (* Check current status *)
     match p.prop_status with
+      | PropForgotten -> PropForgotten
 
       (* Mark property as invariant if it was unknown, k-true or
          invariant *)
       | PropUnknown
+      (* | PropForgotten *)
       | PropKTrue _
       | PropInvariant _ -> PropInvariant certif
 
@@ -1005,6 +1015,8 @@ let set_prop_false t prop cex =
       (* Mark property as k-false if it was unknown, l-true for l <
          k or invariant *)
       | PropUnknown -> PropFalse cex
+
+      | PropForgotten -> PropForgotten
 
       (* Fail if property was invariant *)
       | PropInvariant _ -> 
@@ -1041,6 +1053,7 @@ let set_prop_ktrue t k prop =
 
     (* Check current status *)
     match p.prop_status with
+      | PropForgotten -> PropForgotten
 
       (* Mark as k-true if it was unknown *)
       | PropUnknown -> PropKTrue k
@@ -1063,9 +1076,17 @@ let set_prop_ktrue t k prop =
 
 
 (* Mark property status *)
+let forget_prop t p =
+    let p = property_of_name t p in
+    p.prop_status <- PropForgotten
+
+
+(* Mark property status *)
 let set_prop_status t p = function
 
   | PropUnknown -> ()
+
+  | PropForgotten -> forget_prop t p
 
   | PropKTrue k -> set_prop_ktrue t k p
 
@@ -1101,6 +1122,29 @@ let is_disproved t prop =
 let is_candidate t prop =
   (property_of_name t prop).prop_source = TermLib.Candidate
 
+let get_candidates t =
+  List.fold_left (fun acc p ->
+      if p.prop_source = TermLib.Candidate then p.prop_term :: acc else acc
+    ) [] t.properties
+  |> List.rev
+
+let get_candidate_properties t =
+  List.fold_left (fun acc {prop_name; prop_source; prop_term; prop_status} ->
+      if prop_source = TermLib.Candidate then
+         (prop_name, prop_source, prop_term, prop_status) :: acc
+      else acc
+    ) [] t.properties
+  |> List.rev
+
+let get_unknown_candidates t =
+  List.fold_left (fun acc p ->
+      if true || p.prop_source = TermLib.Candidate then
+        match p.prop_status with
+        | PropUnknown | PropKTrue _ -> p.prop_term :: acc
+        | PropForgotten | PropInvariant _ | PropFalse _ -> acc
+      else acc
+    ) [] t.properties
+  |> List.rev
 
 (* Return true if all properties are either valid or invalid *)
 let all_props_proved t =
@@ -1113,6 +1157,7 @@ let all_props_proved t =
          ||
          (match p.prop_status with
            | PropUnknown
+           | PropForgotten
            | PropKTrue _ -> false
            | PropInvariant _
            | PropFalse _ -> true)
