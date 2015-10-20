@@ -91,7 +91,17 @@ let mk input_sys sys root name title =
     Format.sprintf "%s.dot" dir |> openfile
   in
   let graph_fmt = fmt_of_file graph_file in
-  Format.fprintf graph_fmt "strict digraph mode_graph {@.@.@?" ;
+  Format.fprintf graph_fmt "\
+    strict digraph mode_graph {@.@[<v 2>\
+      graph [bgcolor=black margin=0.0] ;@ \
+      node [@ \
+        style=filled@ \
+        fillcolor=black@ \
+        fontcolor=\"#1e90ff\"@ \
+        color=\"#666666\"@ \
+      ] ;@ \
+      edge [color=\"#1e90ff\" fontcolor=\"#222222\"] ;@ \
+    @]@.@." ;
 
   (* Building result. *)
   { input_sys ; sys ; uid = 0 ; euid = 0 ; dir ;

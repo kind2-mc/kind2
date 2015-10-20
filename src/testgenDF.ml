@@ -143,7 +143,7 @@ let rec enumerate io solver tree modes contract_term =
 and forward io solver tree modes contract_term =
   Stat.start_timer Stat.testgen_forward_time ;
   (* Resetting if too many fresh actlits have been created. *)
-  let solver = if Actlit.fresh_actlit_count () >= 100 then (
+  let solver = if Actlit.fresh_actlit_count () >= 250 then (
       Stat.incr Stat.testgen_restarts ;
       Event.log L_info "%sRestarting solver." log_id ;
       Actlit.reset_fresh_actlit_count () ;
