@@ -359,14 +359,20 @@ let one_mode_active scope { N.mode_contracts } =
   ]
 
 (* Return terms from contracts of node *)
-let expr_of_req scope { N.global_contracts; N.mode_contracts } = 
+let assumption_of_contract scope { N.global_contracts } = 
+  match global_contracts with
+  | [ { N.contract_reqs } ] -> contract_reqs |> List.map (
+    fun (pos, count, sv) -> sv |> E.mk_var
+  ) |> E.mk_and_n
+  | [] -> E.t_true
+  | _ -> failwith "more than one global contract"
 
   (* Return terms of global and mode requires unchanged *)
-  contract_req_map 
+  (* contract_req_map 
     (fun _ _ _ -> identity)
     identity
     global_contracts
-    mode_contracts
+    mode_contracts *)
 
 
 (* Return properties from contracts of node *)
@@ -1882,7 +1888,7 @@ let rec trans_sys_of_node'
              otherwise add requirements as properties *)
           let contract_asserts, properties = 
             if I.equal node_name top_name then 
-              expr_of_req scope node @ contract_asserts,
+              assumption_of_contract scope node :: contract_asserts,
               one_mode_active scope node @ properties
             else
               contract_asserts, properties
