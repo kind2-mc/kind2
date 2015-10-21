@@ -412,14 +412,46 @@ let props_of_ens scope { N.global_contracts; N.mode_contracts } =
 
 
 (* Return terms from contracts of node *)
-let expr_of_ens scope { N.global_contracts; N.mode_contracts } = 
+let abstraction_of_node scope { N.global_contracts; N.mode_contracts } = 
+
+  (* Collect assumption and guarantees. *)
+  let assumption, guarantees =
+    global_contracts |> List.fold_left (
+      fun (a,g) { N.contract_reqs ; N.contract_enss } ->
+        contract_reqs |> List.fold_left (
+          fun acc (_,_,sv) -> (E.mk_var sv) :: a
+        ) a,
+        contract_enss |> List.fold_left (
+          fun acc (_,_,sv) -> (E.mk_var sv) :: a
+        ) g
+    ) ([],[])
+    |> fun (a,g) -> E.mk_and_n a, g
+  in
+
+  (* Collect mode implications modulo assumption. *)
+  mode_contracts |> List.fold_left (
+    fun acc { N.contract_reqs ; N.contract_enss } ->
+      E.mk_impl (
+        contract_reqs |> List.map(
+          fun (_,_,sv) -> E.mk_var sv
+        ) |> E.mk_and_n
+      ) (
+        contract_enss |> List.map(
+          fun (_,_,sv) -> E.mk_var sv
+        ) |> E.mk_and_n
+      ) :: acc
+  ) guarantees
+  (* More readable if guarantees are first. *)
+  |> List.rev |> E.mk_and_n
+  (* Only valid when assumption holds. *)
+  |> E.mk_impl assumption
 
   (* Return terms of global and mode requires unchanged *)
-  contract_ens_map 
+  (* contract_ens_map 
     (fun _ _ _ -> identity)
     (fun _ _ _ -> identity)
     global_contracts
-    mode_contracts
+    mode_contracts *)
 
 
 let convert_select instance term = 
@@ -583,13 +615,14 @@ let call_terms_of_node_call mk_fresh_state_var {
   init_uf_symbol  ;
   trans_uf_symbol ;
   node = {
-    N.init_flag ;
-    N.instance  ;
-    N.inputs    ;
-    N.oracles   ;
-    N.outputs   ;
-    N.locals    ;
-    N.props     ;
+    N.init_flag        ;
+    N.instance         ;
+    N.inputs           ;
+    N.oracles          ;
+    N.outputs          ;
+    N.locals           ;
+    N.props            ;
+    N.global_contracts ;
   }               ;
   stateful_locals ;
   properties      ;
@@ -668,40 +701,65 @@ let call_terms_of_node_call mk_fresh_state_var {
   
   (* Instantiate all properties of the called node in this node *)
   let node_props = 
-    List.fold_left 
+    properties |> List.fold_left (
+      fun a ({ P.prop_name = n; P.prop_term = t } as p) -> 
 
-      (fun a ({ P.prop_name = n; P.prop_term = t } as p) -> 
+        (* Lift name of property *)
+        let prop_name =
+          lift_prop_name call_node_name call_pos n
+        in
 
-         (* Lift name of property *)
-         let prop_name =
-           lift_prop_name call_node_name call_pos n
-         in
+        (* Lift state variable of property
 
-         (* Lift state variable of property
+          Property is a local variable, thus it has been
+          instantiated and is in the map *)
+        let prop_term = lift_term state_var_map_up t in
 
-            Property is a local variable, thus it has been
-            instantiated and is in the map *)
-         let prop_term = lift_term state_var_map_up t in
+        (* Property is instantiated *)
+        let prop_source = 
+          P.Instantiated (I.to_scope call_node_name, p)
+        in
 
-         (* Property is instantiated *)
-         let prop_source = 
-           P.Instantiated
-             (I.to_scope call_node_name, p)
-         in
+        (* Property status is unknown *)
+        let prop_status = P.PropUnknown in
 
-         (* Property status is unknown *)
-         let prop_status = P.PropUnknown in
+        (* Create and append property *)
+        { P.prop_name ;
+          P.prop_source ;
+          P.prop_term ;
+          P.prop_status } :: a
+    ) node_props
+  in
 
-         (* Create and append property *)
-         { P.prop_name;
-           P.prop_source;
-           P.prop_term;
-           P.prop_status } :: a)
-
-      node_props
-
-      properties
-
+  (* Instantiate assumptions from contracts in this node. *)
+  let node_props =
+    global_contracts |> List.fold_left (
+      fun a { N.contract_reqs } ->
+        contract_reqs |> List.fold_left (
+          fun a (pos,n,sv) ->
+            (* Create assumption nameh and lift it. *)
+            let prop_name =
+              Format.asprintf "assumption[%a][%d]" pprint_pos pos n
+              |> lift_prop_name call_node_name call_pos
+            in
+            (* Lift svar of assumption. Should be in the map. *)
+            let prop_term =
+              Var.mk_state_var_instance sv TransSys.prop_base
+              |> Term.mk_var |> lift_term state_var_map_up
+            in
+            (* Property is an assumption. *)
+            let prop_source =
+              P.Assumption (pos, I.to_scope call_node_name)
+            in
+            (* Property status is unknown. *)
+            let prop_status = P.PropUnknown in
+            (* Create and append property. *)
+            { P.prop_name ;
+              P.prop_source ;
+              P.prop_term ;
+              P.prop_status } :: a
+        ) a
+    ) node_props
   in
 
   (* Return actual parameters of initial state constraint at bound in
@@ -1898,7 +1956,7 @@ let rec trans_sys_of_node'
              otherwise add ensures as properties *)
           let contract_asserts, properties = 
             if A.param_scope_is_abstract analysis_param scope then
-              expr_of_ens scope node @ contract_asserts, properties 
+              abstraction_of_node scope node :: contract_asserts, properties 
             else
               contract_asserts, props_of_ens scope node @ properties 
           in            
@@ -1966,15 +2024,14 @@ let rec trans_sys_of_node'
 
           (* Instantiated state variables and constraints from node
              calls *)
-          let 
-
+          let
             subsystems, 
             lifted_locals, 
             init_flags,
             lifted_props, 
             init_terms, 
-            trans_terms = 
-
+            trans_terms
+          =
             constraints_of_node_calls
               mk_fresh_state_var
               trans_sys_defs
@@ -1984,7 +2041,7 @@ let rec trans_sys_of_node'
               []  (* No subsystems *)
               init_terms
               trans_terms
-              calls 
+              calls
           in
 
           (* Add lifted properties *)

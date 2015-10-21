@@ -114,14 +114,10 @@ let pp_print_prop_source ppf = function
        "instantiated from %s"
               (String.concat "." scope)
 
-  | Assumption (pos, scope) ->
-    Format.fprintf
-      ppf
-      "assumption of %s for call at %a"
-      (String.concat "." scope)
-      pp_print_position pos
+  | Assumption (_, scope) ->
+    Format.fprintf ppf "assumption of %s" (String.concat "." scope)
   | Guarantee (_, scope) ->
-    Format.fprintf ppf "guarantee %a" Scope.pp_print_scope scope
+    Format.fprintf ppf "guarantee (%a)" Scope.pp_print_scope scope
   | GuaranteeOneModeActive _ ->
     Format.fprintf ppf "one mode active"
   | GuaranteeModeImplication (_, scope) ->
