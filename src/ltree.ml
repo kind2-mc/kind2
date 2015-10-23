@@ -149,6 +149,8 @@ sig
 
   val destruct : t -> flat
 
+  val has_quantifier : t -> bool
+
   val instantiate : lambda -> t list -> t
 
   val construct : flat -> t
@@ -1730,6 +1732,57 @@ struct
     | _ -> assert false
 
 
+  let rec has_quantifier term =
+
+    (* Add the subterms in reverse order to the instruction stack *)
+    let rec push trees st = match trees with
+      | [] -> st
+      | h :: t -> push t ((MTree h) :: st)
+    in
+
+    
+    (* Recursive has_quantifier *)
+    let rec has_quantifier has n =
+      has ||
+      match n with
+
+      (* The stack is empty, we are done. *)
+      | [] -> has
+
+      (* Free variable, bound variable or constant *)
+      | MTree { H.node = (FreeVar _ | BoundVar _ | Leaf _) } :: s -> 
+        has_quantifier has s
+
+      (* Function application *)
+      | MTree { H.node = Node (o, a)} :: s -> 
+        (* Push symbol and subterms in reverse order to the stack *)
+        has_quantifier has (push a ((MNode o) :: s))
+
+      (* Annotated term *)
+      | MTree { H.node = Annot (t, a)} :: s -> 
+        (* Push annotation and terms to the stack *)
+        has_quantifier has ((MTree t) :: (MAnnot a) :: s)
+
+      (* Let binding *)
+      | MTree { H.node = Let ({ H.node = L (x, t)}, b) } :: s -> 
+        has_quantifier has (push b ((MTree t) :: (MLet x) :: s)) 
+
+      (* Existential quantifier *)
+      | MTree ({ H.node = Exists _ }) :: _
+      | MTree ({ H.node = Forall _ }) :: _ -> true
+        
+      (* Function application *)
+      | MNode _ :: s | MAnnot _ :: s | MLet _ :: s -> has_quantifier has s
+
+      | MExists _ :: _  | MForall _ :: _ -> true
+        
+    in
+
+    (* Call recursive function with initial parameters *)
+    has_quantifier false [MTree term]
+
+
+    
   let instantiate l b = ht_let l b
     
 

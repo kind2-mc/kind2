@@ -115,6 +115,8 @@ let node_of_term = T.node_of_t
 (* Flatten top node of term *)
 let destruct = T.destruct
 
+let has_quantifier = T.has_quantifier
+
 
 (* Return true if the term is a free variable *)
 let is_free_var t = match node_of_term t with

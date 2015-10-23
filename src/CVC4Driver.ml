@@ -27,28 +27,25 @@ let cmd_line
     produce_proofs
     produce_cores
     produce_interpolants =
+
+  let open TermLib in
   
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.cvc4_bin () in
 
-  (* Use unsat cores *)
-  if produce_cores then 
+  let incr_mode =
+    if produce_cores then "--tear-down-incremental" else "--incremental" in
 
-    (* Need to use tear-down incremental mode for unsat cores *)
-    [| cvc4_bin; 
-       "--lang"; "smt2";
-       "--rewrite-divk";
-       "--tear-down-incremental" |]
+  let inst_flags = match logic with
+    | `Inferred l ->
+      if FeatureSet.mem A l then [| "--fmf-bound-int"; "--fmf-inst-engine" |]
+      else [||]
+    | _ -> [| "--fmf-bound-int"; "--fmf-inst-engine" |] in
 
-  else
+  let default_cmd = [| cvc4_bin; "--lang"; "smt2"; "--rewrite-divk" |] in
 
-    (* Use normal incremental mode if unsat cores not needed *)
-    [| cvc4_bin; 
-       "--lang"; "smt2";
-       "--rewrite-divk";
-       "--fmf-bound-int";
-       "--incremental" |]
-
+  Array.concat [default_cmd; [|incr_mode|]; inst_flags]
+  
 
 let check_sat_limited_cmd _ = 
   failwith "check-sat with timeout not implemented for CVC4"

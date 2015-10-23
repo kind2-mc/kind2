@@ -255,6 +255,9 @@ sig
       distributed over the subterms. *)
   val destruct : t -> flat
 
+  (** Returns [true] if the term has quantifiers *)
+  val has_quantifier : t -> bool
+
   val instantiate : lambda -> t list -> t
 
   (** Convert the flattened representation back into a term *)

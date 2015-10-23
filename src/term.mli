@@ -321,6 +321,9 @@ val type_of_term : t -> Type.t
 (** Flatten top node of term *)
 val destruct : t -> T.flat
 
+(** Returns [true] if the term has quantifiers *)
+val has_quantifier : t -> bool
+
 (** Convert a flat term to a term *)
 val construct : T.flat -> t
 
