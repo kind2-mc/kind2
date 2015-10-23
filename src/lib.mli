@@ -253,6 +253,9 @@ val pp_print_hline : Format.formatter -> unit -> unit
 (** Pretty-print into a string *)
 val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string 
 
+(** Return the width of the string, meaning the wisth of it's longest line *)
+val width_of_string : string -> int
+
 (** Return the strings as a parenthesized and space separated list *)
 val paren_string_of_string_list : string list -> string
 

@@ -562,6 +562,13 @@ let string_of_t pp t =
 let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list
 
+(* Return the width of the string, meaning the wisth of it's longest line *)
+let width_of_string s =
+  let lines = Str.split (Str.regexp "\n") s in
+  List.fold_left (fun max_width s ->
+      max max_width (String.length s)
+    ) 0 lines
+
 
 (* Output a horizonal dasehd line *)
 let pp_print_hline ppf () = 

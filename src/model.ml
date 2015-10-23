@@ -48,13 +48,29 @@ type t = value VT.t
 (* A path is a map of state variables to assignments *)
 type path = value list SVT.t
 
+(* Pretty-print a value *)
+let rec pp_print_term ppf term =
+  (* if Term.is_bool term then *)
+  (*   if Term.bool_of_term term then *)
+  (*     Format.fprintf ppf "✓" (\* "true" *\) *)
+  (*   else Format.fprintf ppf "✗" (\* "false" *\) *)
+  (* else *) Term.pp_print_term ppf term 
+
+
+let width_val_of_map m =
+  MIL.fold (fun _ v ->
+      max (width_of_string (string_of_t pp_print_term v))
+    ) m 0
+
+      
 (* Show map as an array in counteexamples *)
 let pp_print_map_as_array ppf m =
+  let val_width = width_val_of_map m in
   let dim = MIL.choose m |> fst |> List.length in
   let current = Array.make dim 0 in
   let prev = Array.make dim 0 in
   for i = 1 to dim do
-    Format.fprintf ppf "[";
+    Format.fprintf ppf "[@[<hov 0>";
   done;
   let first = ref true in
   MIL.iter (fun l v ->
@@ -62,19 +78,19 @@ let pp_print_map_as_array ppf m =
       Array.blit (Array.of_list l) 0 current 0 dim;
       let cpt = ref 0 in
       for i = dim - 2 downto 0 do
-        if current.(i) <> prev.(i) then (Format.fprintf ppf "]"; incr cpt);
+        if current.(i) <> prev.(i) then (Format.fprintf ppf "@]]"; incr cpt);
       done;
       (* if !cpt <> !nopen then  Format.fprintf ppf ";"; *)
-      if !cpt > 0 then Format.fprintf ppf ";@ "
-      else if not !first then Format.fprintf ppf ";";
+      if !cpt > 0 then Format.fprintf ppf ",@ "
+      else if not !first then Format.fprintf ppf ",";
       for i = 1 to !cpt do
-        Format.fprintf ppf "[";
+        Format.fprintf ppf "[@[<hov 0>";
       done;
-      Term.pp_print_term ppf v;
+      Format.fprintf ppf "%*s" val_width (string_of_t pp_print_term v);
       first := false;
     ) m;
   for i = 1 to dim do
-    Format.fprintf ppf "]";
+    Format.fprintf ppf "@]]";
   done
 
       (* "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]"  *)
@@ -139,11 +155,10 @@ let pp_print_map_as_xml ppf m =
 
 (* Print a value of the model *)  
 let pp_print_value ppf = function 
-  | Term t -> Term.pp_print_term ppf t
+  | Term t -> pp_print_term ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
   | Map m ->
-    try
-      pp_print_map_as_array ppf m
+    try Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
     with Not_found -> ()
 
 

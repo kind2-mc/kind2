@@ -1076,13 +1076,14 @@ let rec eval_ast_expr bounds ctx =
       | D.ArrayVarIndex s :: tl, v -> 
 
         (* type check with length of arrays when statically known *)
-        if bound_e <> None && E.is_numeral (get bound_e) && E.is_numeral s &&
-           Numeral.gt (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s)
-        then
-          C.fail_at_position pos
-            (Format.asprintf "Size of indexes on left of equation (%a) is larger than size on the right (%a)"
-            (E.pp_print_expr false) (get bound_e)
-            (E.pp_print_expr false) s);
+        (* Disabled because not precise enough *)
+        (* if bound_e <> None && E.is_numeral (get bound_e) && E.is_numeral s && *)
+        (*    Numeral.gt (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s) *)
+        (* then *)
+        (*   C.fail_at_position pos *)
+        (*     (Format.asprintf "Size of indexes on left of equation (%a) is larger than size on the right (%a)" *)
+        (*     (E.pp_print_expr false) (get bound_e) *)
+        (*     (E.pp_print_expr false) s); *)
         
 
           (* Remove top index from all elements in trie *)

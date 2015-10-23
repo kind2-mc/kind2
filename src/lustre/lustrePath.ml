@@ -480,7 +480,9 @@ let pp_print_value ppf = function
    Give [val_width] as the maximum expected width of the string
    representation of the values for correct alignment. *)
 let pp_print_stream_value_pt val_width ppf v =
-  Format.fprintf ppf "%-*s" val_width (string_of_t pp_print_value v)    
+  let value_string = string_of_t pp_print_value v in
+  let padding = val_width - (width_of_string value_string) in
+  Format.fprintf ppf "%a%-*s" pp_print_value  v    padding "" 
 
 
 (* Output a file position *)
@@ -531,28 +533,23 @@ let pp_print_call_pt ppf (name, pos) =
 
 
 (* Convert values to strings and update maximal lengths *)
-let rec values_to_strings val_width values = function
+let rec values_width val_width = function
 
   (* All values consumed, return in original order *)
-  | [] -> (val_width, List.rev values)
+  | [] -> val_width
 
   (* Output a term as a value *)
   | v :: tl -> 
 
     (* Convert value to string *)
     let value_string = string_of_t pp_print_value v in
-
+    
     (* Keep track of maximum width of values *)
-    let val_width = 
-      max val_width (String.length value_string)
-    in
-
+    let val_width = max val_width (width_of_string value_string) in
+    
     (* Add string representation of value and continue with remaining
        values *)
-    values_to_strings 
-      val_width
-      (value_string :: values)
-      tl 
+    values_width val_width tl 
 
   
 (* Convert identifiers and values of streams to strings and update
@@ -577,11 +574,9 @@ let rec streams_to_strings path ident_width val_width streams =
 
         (* Get values of stream and convert to strings, keep track of
            maximum width of values *)
-        let val_width, stream_values = 
-          SVT.find path state_var  
-          |> values_to_strings val_width []
-        in
-
+        let stream_values = SVT.find path state_var in
+        let val_width = values_width val_width stream_values in
+        
         (* Keep track of maximum width of identifiers *)
         let ident_width = 
           max ident_width (String.length stream_name)
@@ -598,15 +593,6 @@ let rec streams_to_strings path ident_width val_width streams =
 
       (* State variable must be in the model *)
       with Not_found -> assert false
-
-
-(* Output a stream value with the given width *)
-let pp_print_stream_value_pt val_width ppf v =
-  Format.fprintf
-    ppf 
-    "%*s"
-    val_width
-    v
 
 
 (* Output a stream value with given width for the identifier and

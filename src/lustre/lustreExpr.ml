@@ -102,7 +102,7 @@ let hash { expr_init; expr_step } =
    because [(l -> r) -> t = (l -> t)]. Same for [expr_step], because
    [t -> (l -> r) = t -> r].
 *)
-let map f ({ expr_init; expr_step } as expr) = 
+let map f { expr_init; expr_step } = 
 
   (* Create a Lustre expression from a term and return a term, if
      [init] is true considering [expr_init] only, otherwise [expr_step]
