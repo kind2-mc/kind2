@@ -517,8 +517,8 @@ let ensure_symbol_qf_lira s =
   | `BVULT
 *)
   | `SELECT _
-(*  | `STORE *)
-    ->
+  | `STORE ->
+    
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
                               symbol %s is not interpreted correctly in this \
                               mode. Run Kind 2 with --no_detect_logic instead."

@@ -904,6 +904,22 @@ let rec eval_ast_expr bounds ctx =
           List.rev acc |> E.mk_and_n
       in
 
+      (* how to build recursive (functional) stores in arrays *)
+      let rec mk_store acc a ri x = match ri with
+        | D.ArrayIntIndex vi :: ri' ->
+          let i = E.mk_int (Numeral.of_int vi) in
+          let a' = List.fold_left E.mk_select a acc in
+          let x = mk_store [i] a' ri' x in
+          E.mk_store a i x
+        | D.ArrayVarIndex vi :: ri' ->
+          let i = E.mk_of_expr vi in
+          let a' = List.fold_left E.mk_select a acc in
+          let x = mk_store [i] a' ri' x in
+          E.mk_store a i x
+        | _ :: ri' -> mk_store acc a ri' x
+        | [] -> x
+      in
+      
       (* Replace indexes in updated expression *)
       let expr1'' = 
         D.fold
@@ -913,10 +929,11 @@ let rec eval_ast_expr bounds ctx =
                D.add i v' a
              with Not_found ->
                try
+
                  (* The index is not in expr2'' which means we're updating an
-                    array that has varialbe indexes. In this case we remove the
-                    index and create the index variables to be able to mention
-                    the values of the array. *)
+                    array that has varialbe indexes. In this case we remove
+                    the index and create the index variables to be able to
+                    mention the values of the array. *)
                  (* the value if the index condition is false *)
                  let old_v = List.fold_left (fun (acc, cpt) _ ->
                      E.mk_select acc (E.mk_index_var cpt), cpt + 1
@@ -924,10 +941,20 @@ let rec eval_ast_expr bounds ctx =
                  (* the new value if the condition matches *)
                  let new_v = D.find index' expr2'' in
                  (* the conditional value *)
-                 let v' =
-                   E.mk_ite (mk_cond_indexes ([], 0) i index') new_v old_v in
-                 (* We've added the index variables so we can forget this one *)
-                 D.add [] v' a
+
+                 if Flags.smt_arrays () then
+                   (* Build a store expression if we allow the theory of
+                      arrays *)
+                   let v' = mk_store [] v index' new_v in
+                   D.add [] v' a
+
+                 else
+                   let v' =
+                     E.mk_ite (mk_cond_indexes ([], 0) i index') new_v old_v in
+
+                   (* We've added the index variables so we can forget this
+                      one *)
+                   D.add [] v' a
                with Not_found ->
                  D.add i v a)
           expr1'

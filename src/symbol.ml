@@ -88,9 +88,7 @@ type interpreted_symbol =
 *)
   (* Selection from array (binary) *)
   | `SELECT of Type.t
-(*
   | `STORE                (* Update of an array (ternary) *)
-*)
   ]
 
 
@@ -187,9 +185,7 @@ module Symbol_node = struct
       (* Same symbol if there are on arrays of the same type *)
       Type.equal_types a1 a2
 
-(*
     | `STORE, `STORE -> true
-*)
 
 (*
     | `CONCAT, `CONCAT
@@ -230,11 +226,8 @@ module Symbol_node = struct
     | `TO_REAL, _
     | `TO_INT, _
     | `IS_INT, _
-    | `SELECT _, _ -> false
-
-(*
+    | `SELECT _, _
     | `STORE, _ -> false
-*)
 (*
     | `CONCAT, _
     | `BVNOT, _ 
@@ -400,9 +393,7 @@ let rec pp_print_symbol_node ppf = function
 *)
 
   | `SELECT _ -> Format.pp_print_string ppf "select"
-(*
   | `STORE -> Format.pp_print_string ppf "store"
-*)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 (* Pretty-print a hashconsed symbol *)
@@ -548,6 +539,8 @@ let is_select = function
      with Scanf.Scan_failure _ -> false)
   | _ -> false
 
+
+let s_store = mk_symbol `STORE
 
 
 

@@ -592,11 +592,24 @@ and pp_print_app safe ppf = function
 
       (function 
         | [a; i] ->
-        
+
           Format.fprintf ppf 
             "@[<hv 2>%a[%a]@]" 
             (pp_print_term_node safe) a 
             (pp_print_term_node safe) i
+            
+        | _ -> assert false)
+
+    | `STORE ->
+      
+      (function 
+        | [a; i; v] ->
+        
+          Format.fprintf ppf 
+            "@[<hv 2>(%a with [%a] = %a)@]" 
+            (pp_print_term_node safe) a 
+            (pp_print_term_node safe) i
+            (pp_print_term_node safe) v
             
         | _ -> assert false)
         
@@ -617,7 +630,6 @@ and pp_print_app safe ppf = function
     | `BVSHL
     | `BVLSHR
     | `BVULT
-    | `STORE
 *)
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
@@ -2102,8 +2114,10 @@ let type_of_select = function
 
 (* Select from an array *)
 let mk_select expr1 expr2 =
+  (* Format.eprintf "mk_select %a %a@." *)
+  (*   (pp_print_lustre_expr false) expr1 *)
+  (*   (pp_print_lustre_expr false) expr2; *)
   (* Types of expressions must be compatible *)
-  let _res_type = type_of_select expr1.expr_type expr2.expr_type in
   mk_binary eval_select type_of_select expr1 expr2
 
 
@@ -2111,6 +2125,58 @@ let mk_array expr1 expr2 =
   (* Types of expressions must be compatible *)
   let type_of_array t1 t2 = Type.mk_array t1 t2 in
   mk_binary (fun x _ -> x) type_of_array expr1 expr2
+
+
+
+(* ********************************************************************** *)
+
+(* Evaluate store from array 
+
+   Nothing to simplify here *)
+let eval_store = Term.mk_store 
+
+
+let type_of_store = function 
+
+  (* First argument must be an array type *)
+  | s when Type.is_array s -> 
+
+    (fun i v -> 
+
+      (* Second argument must match index type of array *)
+       if Type.check_type i (Type.index_type_of_array s) &&
+          Type.check_type (Type.elem_type_of_array s) v
+       then 
+
+        (* Return type of array *)
+        s
+
+      else
+
+        (* Type of indexes do not match*)
+        raise Type_mismatch)
+
+  (* Not an array type *)
+  | _ ->
+    raise Type_mismatch
+
+
+(* Store from an array *)
+let mk_store expr1 expr2 expr3 =
+  (* Format.eprintf "mk_store  %a:%a [%a, %a]  %a:%a  %a:%a@." *)
+  (*   (pp_print_lustre_expr false) expr1 *)
+  (*   Type.pp_print_type (type_of_lustre_expr expr1) *)
+  (*   Type.pp_print_type (Type.index_type_of_array (type_of_lustre_expr expr1)) *)
+  (*   Type.pp_print_type (Type.elem_type_of_array (type_of_lustre_expr expr1)) *)
+  (*   (pp_print_lustre_expr false) expr2 *)
+  (*   Type.pp_print_type (type_of_lustre_expr expr2) *)
+  (*   (pp_print_lustre_expr false) expr3 *)
+  (*   Type.pp_print_type (type_of_lustre_expr expr3); *)
+  (* Types of expressions must be compatible *)
+  mk_ternary eval_store type_of_store expr1 expr2 expr3
+    
+
+let is_store { expr_init } = Term.is_store expr_init
 
 
 (* ********************************************************************** *)

@@ -565,9 +565,8 @@ let smtlib_string_symbol_list =
       (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
    (* uninterpreted select *)
    (* ("uselect", Symbol.mk_symbol (`SELECT Type.t_int)); *)
-(*
+
    ("store", Symbol.mk_symbol `STORE)
-*)
 
   ]
 
@@ -666,9 +665,8 @@ let rec pp_print_symbol_node ?arity ppf = function
            Type.pp_print_type t1 Type.pp_print_type t2
        | _ -> assert false
       )
-(*
+
   | `STORE -> Format.pp_print_string ppf "store"
-*)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 (* Pretty-print a hashconsed symbol *)

@@ -712,10 +712,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `IS_INT, _
       | `DIVISIBLE _, _
       | `UF _, _
-      | `SELECT _, _ -> Term.mk_not term
-(*
+      | `SELECT _, _
       | `STORE, _ -> Term.mk_not term
-*)
 
       (* Negate both cases of ite term *)
       | `ITE, [p; l; r] -> 
@@ -1288,9 +1286,23 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                         
             )
 
-(*
-          | `STORE -> assert false
-*)
+          (* array store *)
+          | `STORE ->
+
+
+            (match args with 
+
+              (* Arguments are array, index and value *)
+             | [a; i; v] ->
+
+               atom_of_term (
+                 Term.mk_store (term_of_nf a) (term_of_nf i) (term_of_nf v))
+
+              (* Store is ternary *)
+              | _ -> assert false
+            )
+            
+  
 
           (* Boolean negation *)
           | `NOT -> 

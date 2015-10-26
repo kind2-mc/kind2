@@ -149,9 +149,9 @@ type interpreted_symbol =
 
   (** Selection from array (binary) *)
   | `SELECT of Type.t
-(*
+
   | `STORE                (** Update of an array (ternary) *)
-*)
+
   ]
 
 (** Adding uninterpreted function symbols separately for conversions
@@ -246,6 +246,8 @@ val s_div : t
 (** Array read operator *)
 val s_select : Type.t -> t
 
+(** array store symbol *)
+val s_store : t
 
 
 (** {1 Accessors functions} *)

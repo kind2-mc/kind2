@@ -333,6 +333,14 @@ let is_select t = match node_of_term t with
                                  
   | _ -> false
 
+(* Return true if the term is an application of the store operator *)
+let is_store t = match node_of_term t with
+
+  (* Top symbol is a select operator *)
+  | T.Node (s, _ :: _ ) -> s == Symbol.s_store
+                                 
+  | _ -> false
+
 
 (* Return the indexes of the select operator 
 
@@ -340,25 +348,34 @@ let is_select t = match node_of_term t with
    or a variable. For the expression [(select (select A j) k)] return
    the pair [A] and [[j; k]]. *)
 let rec indexes_and_var_of_select' accum t =
-
   match node_of_term t with 
-
   | T.FreeVar v -> (v, accum)
-
   | T.Node (s, a :: li) when Symbol.is_select s -> 
-
     indexes_and_var_of_select' (li @ accum) a
-
   | T.Annot (t, _) ->  indexes_and_var_of_select' accum t
-
   |  _ -> invalid_arg "indexes_of_select"
-
-
 
 (* Return the indexes of the select operator *)
 let indexes_and_var_of_select t = indexes_and_var_of_select' [] t
 
- 
+let rec array_and_indexes_of_select' accum t =
+  match node_of_term t with 
+  | T.Node (s, a :: li) when Symbol.is_select s -> 
+    array_and_indexes_of_select' (li @ accum) a
+  | T.Annot (t, _) ->  array_and_indexes_of_select' accum t
+  | _ -> t, accum
+
+(* Return the indexes of the select operator *)
+let array_and_indexes_of_select t = array_and_indexes_of_select' [] t
+
+
+let rec var_of_select_store t =
+  match node_of_term t with 
+  | T.FreeVar v -> v
+  | T.Node (s, a :: _) when Symbol.is_select s -> var_of_select_store a
+  | T.Node (s, a :: _) when s == Symbol.s_store -> var_of_select_store a
+  | T.Annot (t, _) -> var_of_select_store t
+  |  _ -> invalid_arg "var_of_select_store"
 
 
 (* ********************************************************************* *)
@@ -585,15 +602,13 @@ let rec type_of_term t = match T.destruct t with
         | `BVSHL
         | `BVLSHR
 *)
-(*
         | `STORE -> 
 
           (match l with 
               
-            (* Function must be at least binary *)
-            | a :: _ -> type_of_term a
+            (* Function must be ternary *)
+            | [a; _; _] -> type_of_term a
             | _ -> assert false)
-*)
 
 
         (* Return type of second argument *)
@@ -1071,6 +1086,11 @@ let mk_divisible n t = mk_app_of_symbol_node (`DIVISIBLE n) [t]
 
 (* Hashcons an array read *)
 let mk_select a i = mk_app_of_symbol_node (`SELECT (type_of_term a)) [a; i]
+
+(* Hashcons array store *)
+let mk_store a i v =
+  mk_app_of_symbol_node `STORE [a; i; v]
+
 
 (* Generate a new tag *)
 let newid =

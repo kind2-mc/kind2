@@ -366,6 +366,12 @@ val mk_pre :
 (** Select from an array *)
 val mk_select : t -> t -> t
 
+(** Store in an array *)
+val mk_store : t -> t -> t -> t
+
+(** Returns true if this is a store in an array *)
+val is_store : t -> bool
+
 (** Substitute state variable at current instant with expression *)
 val mk_let_cur : (StateVar.t * t) list -> t -> t
 

@@ -181,8 +181,11 @@ val mk_is_int : t -> t
 (** Create a predicate for divisibility by a constant integer *)
 val mk_divisible : Numeral.t -> t -> t
 
-(** Create a predicate for divisibility by a constant integer *)
+(** Create select from an array at a particular index *)
 val mk_select : t -> t -> t
+
+(** Functionnaly update an array at a given index *)
+val mk_store : t -> t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)
@@ -397,12 +400,19 @@ val bool_of_term : t -> bool
 (** Return true if the term is an application of the select operator *)
 val is_select : t -> bool
 
+(** Return true if the term is an application of the store operator *)
+val is_store : t -> bool
+
 (** Return the indexes and the array variable of the select operator
 
     The array argument of a select is either another select operation
     or a variable. For the expression [(select (select A j) k)] return
     the pair [A] and [[j; k]]. *)
 val indexes_and_var_of_select : t -> Var.t * t list
+
+val array_and_indexes_of_select : t -> t * t list
+
+val var_of_select_store : t -> Var.t
 
 (** {1 Pretty-printing} *)
 

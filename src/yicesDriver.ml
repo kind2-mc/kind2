@@ -205,9 +205,8 @@ let string_symbol_list =
    ("bv-lt", Symbol.mk_symbol `BVULT);
 *)
    (* ("select", Symbol.mk_symbol `SELECT); *)
-(*
+
    ("update", Symbol.mk_symbol `STORE)
-*)
 
   ]
 
@@ -286,9 +285,9 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
 *)
   | `SELECT _ -> Format.pp_print_string ppf ""
-(*
+
   | `STORE -> Format.pp_print_string ppf "update"
-*)
+
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 
@@ -327,6 +326,16 @@ let rec pp_print_term' db ppf t = match Term.T.node_of_t t with
 
   (* Delegate printing of leaf to function in input module *)
   | Term.T.Leaf s -> pp_print_symbol ?arity:(Some 0) ppf s
+
+  (* Print array store *)
+  | Term.T.Node (s, [a; i; v]) when s == Symbol.s_store ->
+
+    Format.fprintf ppf 
+      "@[<hv 1>(%a@ %a (%a)@ %a)@]" 
+      (pp_print_symbol ?arity:(Some 3)) s
+      (pp_print_term' db) a
+      (pp_print_term' db) i
+      (pp_print_term' db) v
 
   (* Print a function application as S-expression *)
   | Term.T.Node (s, a) -> 

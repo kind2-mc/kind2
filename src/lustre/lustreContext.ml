@@ -1510,9 +1510,10 @@ let add_node_equation ctx pos state_var bounds indexes expr =
         | _, [] -> List.rev acc
         | [], _ -> assert false
       in
-      
+            
       let expr, expr_type, bounds, indexes =
         if Type.is_array expr_type then
+
           (* When expression is of type array, add select operator around to
              fall back in a supported fragment *)
           let elty = Type.elem_type_of_array expr_type in
@@ -1520,18 +1521,26 @@ let add_node_equation ctx pos state_var bounds indexes expr =
           let expr, i = List.fold_left (fun (e, i) _ ->
               E.mk_select e (E.mk_index_var i), succ i
             ) (expr, indexes) eitys in
-          let earv, is = expr
-                         |> E.cur_term_of_t E.base_offset
-                         |> Term.indexes_and_var_of_select in
-          let bnds_earv = try
-              SVT.find ctx.state_var_bounds
-                (Var.state_var_of_state_var_instance earv)
-            with Not_found -> [] in
-          (* We only add select (and their bounds) for array indexes which do
-             not yet appear on the left hand side *)
-          let extra_bnds = keep_same [] bnds_earv eitys in
-          expr, elty, List.rev_append extra_bnds bounds, i
-              
+          
+
+          let ear, _ = expr
+                    |> E.cur_term_of_t E.base_offset
+                    |> Term.array_and_indexes_of_select in
+
+          (* maybe we're doing a select over a store *)
+          if not (Term.is_free_var ear) then expr, elty, bounds, indexes
+          else
+            let earv = Term.free_var_of_term ear in
+
+            let bnds_earv = try
+                SVT.find ctx.state_var_bounds
+                  (Var.state_var_of_state_var_instance earv)
+              with Not_found -> [] in
+            (* We only add select (and their bounds) for array indexes which do
+               not yet appear on the left hand side *)
+            let extra_bnds = keep_same [] bnds_earv eitys in
+            expr, elty, List.rev_append extra_bnds bounds, i
+
         else
           expr, expr_type, bounds, indexes
       in
