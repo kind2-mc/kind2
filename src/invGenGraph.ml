@@ -24,30 +24,6 @@ module CandTerm = InvGenCandTermGen
 module LSD = LockStepDriver
 
 
-module type InvGen = sig
-
-  val main : TransSys.t -> unit
-    
-  val on_exit : TransSys.t option -> unit
- 
-  val no_more_lsd : unit -> unit
-
-  val run :
-    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
-    Term.TermSet.t * Term.TermSet.t
-
-  val mine_system :
-    bool -> bool -> bool -> TransSys.t -> Term.TermSet.t
-
-  val mine_terms :
-    TransSys.t -> Term.t list -> Term.TermSet.t -> Term.TermSet.t
-
-  val mine_terms_run :
-    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.t list -> Term.TermSet.t
-    -> Term.TermSet.t * Term.TermSet.t
-end
-
-
 (* Module gathering pruning algorithms. *)
 module Pruning = struct
 
@@ -292,7 +268,7 @@ module type In = sig
 end
 
 (* Output signature of a graph-based invariant generation technique. *)
-module type Out = sig
+module type InvGen = sig
 
   (** Invariant generation entry point. *)
   val main : TransSys.t -> unit
@@ -338,7 +314,7 @@ module type Out = sig
 end
 
 (* Builds an invariant generation technique from an [In] module. *)
-module Make (InModule : In) : Out = struct
+module Make (InModule : In) : InvGen = struct
 
   (* Two state mode flag. *)
   let two_state = InModule.two_state
@@ -1016,7 +992,7 @@ module Make (InModule : In) : Out = struct
   (* Mines candidate terms from a list of terms, adds them to [set],
      and runs invariant generation up to [maxK]. *)
   let mine_terms_run sys ignore maxK terms set =
-      (* mine_terms sys terms set *) TSet.empty
+      mine_terms sys terms set
       |> TSet.union (TSet.of_list (TransSys.get_unknown_candidates sys))
       |> run sys ignore maxK
 
