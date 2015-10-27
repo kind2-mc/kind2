@@ -118,35 +118,6 @@ let rec loop done_at child_pids trans_sys =
 
   handle_events trans_sys;
 
-  (* if TransSys.all_props_proved trans_sys then begin *)
-  (*   let forgot = ref false in *)
-  (*   List.iter *)
-  (*     (function *)
-  (*       | s, TermLib.Candidate, _, (TransSys.PropKTrue _ | TransSys.PropUnknown) -> *)
-  (*         forgot := true; *)
-  (*         Format.eprintf "[invar] Forget %s@." s; *)
-  (*         TransSys.forget_prop trans_sys s; *)
-  (*         Event.prop_status TransSys.PropForgotten trans_sys s *)
-  (*       | _ -> ()) *)
-  (*     (TransSys.get_candidate_properties trans_sys) *)
-  (*   ; *)
-
-  (*   if !forgot then *)
-  (*     List.iter *)
-  (*       (function *)
-  (*         | s, _, _, TransSys.PropInvariant (k, _) -> *)
-  (*           Format.eprintf "[invar] reset to %d true %s@." k s; *)
-  (*           TransSys.set_prop_ktrue trans_sys k s; *)
-  (*           Event.prop_status (TransSys.PropKTrue k) trans_sys s *)
-  (*         | _ -> ()) *)
-  (*       (TransSys.get_properties trans_sys) *)
-  (*   ; *)
-
-    
-
-  (*   handle_events trans_sys; *)
-  (* end; *)
-
   let done_at' =
 
     (* All properties proved? *)

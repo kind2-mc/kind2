@@ -36,9 +36,6 @@ type prop_status =
   (** Status of property is unknown *)
   | PropUnknown
 
-  (** Property is forgotten *)
-  | PropForgotten
-
   (** Property is true up to k-th step *)
   | PropKTrue of int
 
@@ -276,9 +273,6 @@ val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) lis
 
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
-
-(** Forget property *)
-val forget_prop : t -> string -> unit
 
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 

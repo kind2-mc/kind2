@@ -75,10 +75,7 @@ let split_unfalsifiable_rm_proved trans k =
       match TransSys.get_prop_status trans s with
       | TransSys.PropInvariant _ ->
         (dis, true_k, others)
-      | TransSys.PropForgotten ->
-        (* Format.eprintf "[step] Forget %s@." s; *)
-         (p :: dis, true_k, others)
-      | TransSys.PropFalse _ | TransSys.PropForgotten ->
+      | TransSys.PropFalse _ ->
          (p :: dis, true_k, others)
       | TransSys.PropKTrue n when n >= k ->
          (dis, p :: true_k, others)

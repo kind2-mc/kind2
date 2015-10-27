@@ -54,9 +54,6 @@ type prop_status =
   (* Status of property is unknown *)
   | PropUnknown
 
-  (* Property is forgotten *)
-  | PropForgotten
-
   (* Property is true for at least k steps *)
   | PropKTrue of int
 
@@ -100,7 +97,6 @@ let length_of_cex = function
 
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
-  | PropForgotten -> Format.fprintf ppf "forgotted"
   | PropKTrue k -> Format.fprintf ppf "true-for %d" k
   | PropInvariant _ -> Format.fprintf ppf "invariant"
   | PropFalse [] -> Format.fprintf ppf "false"
@@ -115,7 +111,6 @@ let prop_status_known = function
   | PropKTrue _ -> false
 
   (* Property is invariant or false *)
-  | PropForgotten
   | PropInvariant _
   | PropFalse _ -> true
 
@@ -987,12 +982,9 @@ let set_prop_invariant t prop certif =
 
     (* Check current status *)
     match p.prop_status with
-      | PropForgotten -> PropForgotten
-
       (* Mark property as invariant if it was unknown, k-true or
          invariant *)
       | PropUnknown
-      (* | PropForgotten *)
       | PropKTrue _
       | PropInvariant _ -> PropInvariant certif
 
@@ -1015,8 +1007,6 @@ let set_prop_false t prop cex =
       (* Mark property as k-false if it was unknown, l-true for l <
          k or invariant *)
       | PropUnknown -> PropFalse cex
-
-      | PropForgotten -> PropForgotten
 
       (* Fail if property was invariant *)
       | PropInvariant _ -> 
@@ -1053,8 +1043,6 @@ let set_prop_ktrue t k prop =
 
     (* Check current status *)
     match p.prop_status with
-      | PropForgotten -> PropForgotten
-
       (* Mark as k-true if it was unknown *)
       | PropUnknown -> PropKTrue k
 
@@ -1076,17 +1064,9 @@ let set_prop_ktrue t k prop =
 
 
 (* Mark property status *)
-let forget_prop t p =
-    let p = property_of_name t p in
-    p.prop_status <- PropForgotten
-
-
-(* Mark property status *)
 let set_prop_status t p = function
 
   | PropUnknown -> ()
-
-  | PropForgotten -> forget_prop t p
 
   | PropKTrue k -> set_prop_ktrue t k p
 
@@ -1141,7 +1121,7 @@ let get_unknown_candidates t =
       if true || p.prop_source = TermLib.Candidate then
         match p.prop_status with
         | PropUnknown | PropKTrue _ -> p.prop_term :: acc
-        | PropForgotten | PropInvariant _ | PropFalse _ -> acc
+        | PropInvariant _ | PropFalse _ -> acc
       else acc
     ) [] t.properties
   |> List.rev
@@ -1157,7 +1137,6 @@ let all_props_proved t =
          ||
          (match p.prop_status with
            | PropUnknown
-           | PropForgotten
            | PropKTrue _ -> false
            | PropInvariant _
            | PropFalse _ -> true)
