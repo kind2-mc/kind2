@@ -2258,6 +2258,7 @@ let numeral_of_expr = Term.numeral_of_term
 
 
 let unsafe_term_of_expr e = (e : Term.t)
+let unsafe_expr_of_term t = t
 
 (* 
    Local Variables:

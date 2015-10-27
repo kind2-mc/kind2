@@ -54,7 +54,10 @@ let rec pp_print_term ppf term =
   (*   if Term.bool_of_term term then *)
   (*     Format.fprintf ppf "✓" (\* "true" *\) *)
   (*   else Format.fprintf ppf "✗" (\* "false" *\) *)
-  (* else *) Term.pp_print_term ppf term 
+  (* else *)
+  (* Term.pp_print_term ppf term *)
+  (LustreExpr.pp_print_expr false) ppf
+    (LustreExpr.unsafe_expr_of_term term)
 
 
 let width_val_of_map m =

@@ -393,6 +393,7 @@ val is_numeral : expr -> bool
 val numeral_of_expr : expr -> Numeral.t
 
 val unsafe_term_of_expr : expr -> Term.t
+val unsafe_expr_of_term : Term.t -> expr
 
 
 val mk_array : t -> t -> t
