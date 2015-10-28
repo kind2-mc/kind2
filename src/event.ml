@@ -327,9 +327,10 @@ module MdlMap =
         | `INVMAN -> -1
         | `BMC -> 1
         | `IND -> 2
-        | `IC3 -> 3
-        | `INVGEN -> 4
-        | `INVGENOS -> 5
+        | `IND2 -> 3
+        | `IC3 -> 4
+        | `INVGEN -> 5
+        | `INVGENOS -> 6
           
       let compare m1 m2 = 
         compare (int_of_kind_module m1) (int_of_kind_module m2)
@@ -373,6 +374,7 @@ let pt_string_of_kind_module = function
   | `IC3 -> "IC3"
   | `BMC -> "BMC"
   | `IND -> "inductive step"
+  | `IND2 -> "2-induction"
   | `INVGEN -> "two state invariant generator"
   | `INVGENOS -> "one state invariant generator"
   | `INVMAN -> "invariant manager"
@@ -612,6 +614,7 @@ let xml_src_of_kind_module = function
   | `IC3 -> "ic3"
   | `BMC -> "bmc"
   | `IND -> "indstep"
+  | `IND2 -> "ind2"
   | `INVGEN -> "invgen"
   | `INVGENOS -> "invgenos"
   | `INVMAN -> "invman"

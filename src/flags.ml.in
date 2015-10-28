@@ -274,6 +274,7 @@ let kind_module_of_string = function
   | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
+  | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
   | "interpreter" -> `Interpreter
@@ -283,6 +284,7 @@ let string_of_kind_module = function
   | `IC3 -> "IC3"
   | `BMC -> "BMC"
   | `IND -> "IND"
+  | `IND2 -> "IND2"
   | `INVGEN -> "INVGEN"
   | `INVGENOS -> "INVGENOS"
   | `Interpreter -> "interpreter"
@@ -306,11 +308,11 @@ let string_of_enable = function
     ^ "]"
   | [] -> "[]"
 
-let enable_values = "IC3, BMC, IND, INVGEN, INVGENOS, interpreter"
+let enable_values = "IC3, BMC, IND, IND2, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`BMC; `IND; `IC3; `INVGEN; `INVGENOS]
+let enable_default_after = [`BMC; `IND; `IND2; `IC3; `INVGEN; `INVGENOS]
 
 (* ********** *) 
 
