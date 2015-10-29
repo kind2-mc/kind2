@@ -28,6 +28,7 @@ end
 *)
 
 module BMC = Base
+module Step2 = Step2
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
 
@@ -51,6 +52,7 @@ let main_of_process = function
   | `IC3 -> IC3.main
   | `BMC -> BMC.main 
   | `IND -> Step.main
+  | `IND2 -> Step2.main
 
   | `INVGEN -> 
 
@@ -105,6 +107,7 @@ let on_exit_of_process = function
   | `IC3 -> IC3.on_exit
   | `BMC -> BMC.on_exit 
   | `IND -> Step.on_exit
+  | `IND2 -> Step2.on_exit
   | `INVGEN -> InvGenTS.on_exit  
   | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
@@ -126,6 +129,7 @@ let debug_ext_of_process = function
   | `IC3 -> "ic3"
   | `BMC -> "bmc"
   | `IND -> "ind"
+  | `IND2 -> "ind2"
   | `INVGEN -> "invgenTS"
   | `INVGENOS -> "invgenOS"
   | `INVMAN -> "invman"
