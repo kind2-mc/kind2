@@ -310,6 +310,8 @@ rule token = parse
   | "--%" { PERCENTANNOT }
   | "--!" { BANGANNOT }
   | "--@mode" { INLINEMODE }
+  | "--@assume" { INLINEASSUME }
+  | "--@guarantee" { INLINEGUARANTEE }
   | "--@require" { INLINEREQUIRE }
   | "--@ensure" { INLINEENSURE }
   | "--@const" { INLINECONST }
@@ -335,6 +337,8 @@ rule token = parse
   (* |===| Block annotation contract stuff. *)
 
   | "@mode" { MODE }
+  | "@assume" { ASSUME }
+  | "@guarantee" { GUARANTEE }
   | "@require" { REQUIRE }
   | "@ensure" { ENSURE }
 

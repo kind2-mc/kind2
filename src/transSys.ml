@@ -167,16 +167,7 @@ let pp_print_property_status ppf = function
   | P.PropFalse _ -> Format.fprintf ppf ":false"
 
 
-let pp_print_property_source ppf = function 
-  | P.PropAnnot _ -> Format.fprintf ppf ":annotation"
-  | P.Contract _ -> Format.fprintf ppf ":contract"
-  | P.Generated _ -> Format.fprintf ppf ":generated"
-  | P.ContractGlobalRequire _ -> Format.fprintf ppf ":global-req"
-  | P.ContractModeRequire _ -> Format.fprintf ppf ":mode-req"
-  | P.ContractGlobalEnsure _ -> Format.fprintf ppf ":global-ens"
-  | P.ContractModeEnsure _ -> Format.fprintf ppf ":mode-ens"
-  | P.Instantiated _ -> Format.fprintf ppf ":instantiated"
-  | P.Requirement _ -> Format.fprintf ppf ":requirement"
+let pp_print_property_source = P.pp_print_prop_source
 
 let pp_print_property 
     ppf
@@ -1000,7 +991,7 @@ let rec map_cex_prop_to_subsystem'
 
     | ({
       P.prop_source = P.Instantiated (s, {
-        P.prop_source = P.Requirement _
+        P.prop_source = P.Assumption _
       } );
       P.prop_term
     } as p) ->

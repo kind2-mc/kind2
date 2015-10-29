@@ -103,10 +103,14 @@ let mk_pos = position_of_lexing
 %token IMPORTCONTRACT
 %token MODE
 (* %token IMPORTMODE *)
+%token ASSUME
+%token GUARANTEE
 %token REQUIRE
 %token ENSURE
 %token INLINEMODE
 %token INLINEIMPORTMODE
+%token INLINEASSUME
+%token INLINEGUARANTEE
 %token INLINEREQUIRE
 %token INLINEENSURE
 %token INLINECONST
@@ -202,7 +206,7 @@ decl:
                       d }
   | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
   | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
-  | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] }
+  (* | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] } *)
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
 
@@ -328,7 +332,7 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 
 
 (* An uninterpreted function declaration *)
-func_decl:
+(* func_decl:
   | FUNCTION; 
     n = ident; 
     i = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
@@ -337,7 +341,7 @@ func_decl:
     SEMICOLON;
     r = contract_spec;
 
-    { (n, List.flatten i, List.flatten o, r)  }
+    { (n, List.flatten i, List.flatten o, r)  } *)
 
 
 (* A node declaration *)
@@ -392,28 +396,28 @@ contract_spec:
    without requires and ensures. This causes a conflict, because an
    empty contract looks like no contracts. *)
 inline_contract_global:
-  | reqs = nonempty_list(comment_contract_require);
-    enss = nonempty_list(comment_contract_ensure)
+  | reqs = nonempty_list(comment_contract_assume);
+    enss = nonempty_list(comment_contract_guarantee)
     { A.InlinedContract
         (mk_pos $startpos, "__global", reqs, enss) }
-  | reqs = nonempty_list(comment_contract_require);
+  | reqs = nonempty_list(comment_contract_assume);
     { A.InlinedContract
         (mk_pos $startpos, "__global", reqs, []) }
-  | enss = nonempty_list(comment_contract_ensure)
+  | enss = nonempty_list(comment_contract_guarantee)
     { A.InlinedContract
         (mk_pos $startpos, "__global", [], enss) }
   | ATANNOT ; IMPORTCONTRACT; n = ident; SEMICOLON
     { A.ContractCall (mk_pos $startpos, n) }
 
 block_contract_global:
-  | reqs = nonempty_list(contract_require);
-    enss = nonempty_list(contract_ensure)
+  | reqs = nonempty_list(contract_assume);
+    enss = nonempty_list(contract_guarantee)
     { A.InlinedContract
         (mk_pos $startpos, "__global", reqs, enss) }
-  | reqs = nonempty_list(contract_require);
+  | reqs = nonempty_list(contract_assume);
     { A.InlinedContract
         (mk_pos $startpos, "__global", reqs, []) }
-  | enss = nonempty_list(contract_ensure)
+  | enss = nonempty_list(contract_guarantee)
     { A.InlinedContract
         (mk_pos $startpos, "__global", [], enss) }
 
@@ -449,12 +453,28 @@ block_mode:
       )
     }
 
+contract_assume:
+  | ASSUME; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+contract_guarantee:
+  | GUARANTEE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
 contract_require:
   | REQUIRE; e = expr; SEMICOLON
     { mk_pos $startpos, e }
 
 contract_ensure:
   | ENSURE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+comment_contract_assume:
+  | INLINEASSUME ; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+comment_contract_guarantee:
+  | INLINEGUARANTEE; e = expr; SEMICOLON
     { mk_pos $startpos, e }
 
 comment_contract_require:
