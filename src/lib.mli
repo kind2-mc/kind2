@@ -331,6 +331,7 @@ type kind_module =
   [ `IC3
   | `BMC
   | `IND
+  | `IND2
   | `INVGEN
   | `INVGENOS
   | `C2I
