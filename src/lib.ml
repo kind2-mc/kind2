@@ -1018,7 +1018,8 @@ let pp_print_version ppf = pp_print_banner ppf ()
 type kind_module = 
   [ `IC3 
   | `BMC 
-  | `IND
+  | `IND 
+  | `IND2
   | `INVGEN
   | `INVGENOS
   | `C2I
@@ -1032,6 +1033,7 @@ let pp_print_kind_module ppf = function
   | `IC3 -> Format.fprintf ppf "property directed reachability"
   | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
+  | `IND2 -> Format.fprintf ppf "2-induction"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
   | `C2I -> Format.fprintf ppf "c2i"
@@ -1049,6 +1051,7 @@ let suffix_of_kind_module = function
  | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
+ | `IND2 -> "ind2"
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
  | `C2I -> "c2i"
@@ -1062,6 +1065,7 @@ let kind_module_of_string = function
   | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
+  | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
   | "C2I" -> `C2I
@@ -1074,10 +1078,11 @@ let int_of_kind_module = function
   | `Supervisor -> -1
   | `BMC -> 1
   | `IND -> 2
-  | `IC3 -> 3
-  | `INVGEN -> 4
-  | `INVGENOS -> 5
-  | `C2I -> 6
+  | `IND2 -> 3
+  | `IC3 -> 4
+  | `INVGEN -> 5
+  | `INVGENOS -> 6
+  | `C2I -> 7
 
 
 (* Timeouts *)
