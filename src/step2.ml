@@ -79,13 +79,13 @@ type ctx = {
   solver: Smt.t ;
   (* System we're analyzing. *)
   sys: Sys.t ; 
-  (* Property to (positive actlit, negative actlit, prop term) map. *)
-  mutable map: ( string * (term * term * term) ) list ;
+  (* Property to (positive actlit, prop term) map. *)
+  mutable map: ( string * (term * term) ) list ;
 }
 
 (* Creates a solver, memorizes it for clean exit, asserts transition relation
   [(0,1)] and [(1,2)], creates actlits for unknown properties, creates positive
-  and negative activation literals and asserts relevant implications. *)
+  activation literals and asserts relevant implications. *)
 let mk_ctx sys =
   let solver =
     Smt.create_instance
@@ -116,16 +116,15 @@ let mk_ctx sys =
 
   {
     solver ; sys ;
-    (* Creating map from properties to positive/negative actlit pairs. *)
+    (* Creating map from properties to positive actlit / term pairs. *)
     map = Sys.get_prop_status_all_unknown sys |> List.fold_left (
       fun map (name,_) ->
         (* Getting fresh actlit UFs. *)
-        let pactlit, nactlit = fresh_actlit (), fresh_actlit () in
+        let pactlit = fresh_actlit () in
         (* Declaring them. *)
         Smt.declare_fun solver pactlit ;
-        Smt.declare_fun solver nactlit ;
         (* Building terms. *)
-        let pactlit, nactlit = actlit_term pactlit, actlit_term nactlit in
+        let pactlit = actlit_term pactlit in
         (* Retrieving prop term. *)
         let prop = Sys.named_term_of_prop_name sys name in
         (* Positive implications. *)
@@ -133,12 +132,8 @@ let mk_ctx sys =
         |> Smt.assert_term solver ;
         Term.mk_implies [ pactlit ; unroll Numeral.one prop ]
         |> Smt.assert_term solver ;
-        (* Negative implication. *)
-        Term.mk_implies [
-          nactlit ; unroll Numeral.(succ one) prop |> Term.mk_not
-        ] |> Smt.assert_term solver ;
         (* Appending mapping. *)
-        (name, (pactlit, nactlit, prop)) :: map
+        (name, (pactlit, prop)) :: map
     ) [] ;
   }
 
@@ -162,18 +157,16 @@ let rec check_new_things ({ solver ; sys ; map } as ctx) =
       let map, invs =
         map |> List.fold_left (
           (* Go through map and inspect property status. *)
-          fun (map,invs) ( (name, (pos,neg,prop)) as p ) ->
+          fun (map,invs) ( (name, (pos,prop)) as p ) ->
             match Sys.get_prop_status sys name with
             | Sys.PropFalse _ ->
               (* Deactivate actlits and remove from map. *)
               deactivate solver pos ;
-              deactivate solver neg ;
               map, invs
 
             | Sys.PropInvariant ->
               (* Deactivate actlits, remove from map, add to invariants. *)
               deactivate solver pos ;
-              deactivate solver neg ;
               map, prop :: invs
 
             | _ ->
@@ -200,25 +193,38 @@ let split ({ solver ; map } as ctx) =
       (* Check if termination was requested. *)
       Event.check_termination () ;
 
-      (* Actlits for unknown properties. *)
-      let actlits =
-        map |> List.fold_left (fun l (prop, (pos,neg,_)) ->
+      (* Positive actlits for unknown properties. *)
+      let actlits, unknowns =
+        map |> List.fold_left (fun (actlits,terms) (prop, (pos,term)) ->
           (* Ignore falsifiable properties. *)
           if List.mem prop falsifiable |> not
-          then pos :: neg :: l else l
-        ) []
+          then pos :: actlits, term :: terms  else actlits, terms
+        ) ([],[])
       in
+
+      (* Negative actlit. *)
+      let nactlit =
+        let nactlit = fresh_actlit () in
+        Smt.declare_fun solver nactlit ;
+        let nactlit = term_of_actlit nactlit in
+        Term.mk_implies [ nactlit ; Term.mk_and unknowns ]
+        |> Smt.assert_term solver ;
+        nactlit
+      in
+
+      (* Deactivation function. *)
+      let deactivate () = Term.mk_not nactlit |> Smt.assert_term solver in
 
       (* Check-sat. *)
       match
-        actlits
+        nactlit :: actlits
         |> Smt.check_sat_assuming
           solver
           (fun _ -> (* If sat. *)
             (* Maps prop terms at 2 to their name. *)
             let props_2 =
               map |> List.map (
-                fun (name, (_,_,t)) -> unroll Numeral.(succ one) t, name
+                fun (name, (_,t)) -> unroll Numeral.(succ one) t, name
               )
             in
             (* Retrieve values. *)
@@ -236,9 +242,11 @@ let split ({ solver ; map } as ctx) =
           )
       with
       | None -> (* Unsat, remaining properties are unfalsifiable. *)
+        deactivate () ;
         map |> List.map fst
       | Some nu_falsifiable ->
         (* Sat, we need to check the remaining properties. *)
+        deactivate () ;
         List.rev_append nu_falsifiable falsifiable |> loop
     )
   in
@@ -272,11 +280,10 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
       ) ;
       (* Removing from map and updating solver. *)
       let map =
-        map |> List.filter (fun (name, (pos,neg,t)) ->
+        map |> List.filter (fun (name, (pos,t)) ->
           if List.mem name confirmed then (
             (* Deactivating actlits. *)
             deactivate solver pos ;
-            deactivate solver neg ;
             (* Adding invariant. *)
             add_invariants solver [t] ;
             (* Don't keep. *)
