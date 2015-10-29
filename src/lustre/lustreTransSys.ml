@@ -2493,8 +2493,8 @@ let trans_sys_of_nodes subsystem globals (
           TransSys.get_prop_term trans_sys name
           |> TransSys.add_invariant trans_sys
         
-        | name, P.PropFalse model -> (
-          match List.length model with
+        | name, P.PropFalse cex -> (
+          match P.length_of_cex cex with
           | k when k > 0 -> (* False at k>0 is now (k-1)-true. *)
             TransSys.set_prop_status trans_sys name (P.PropKTrue (k-1))
           | _ -> (* False at 0 is now unknown, do nothing. *)

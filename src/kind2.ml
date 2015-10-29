@@ -104,7 +104,7 @@ let renice () =
     Event.log L_info
       "Ignoring negative niceness value for invariant generation."
 
-  else
+  else if nice > 0 then
     let nice' = Unix.nice nice in
     Event.log L_info "Renicing invariant generation to %d" nice'
 
@@ -930,11 +930,6 @@ let rec run_loop msg_setup modules results =
   let aparam, input_sys, trans_sys =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
-
-  Format.printf
-    "properties: @[<v>%a@]@.@."
-    (pp_print_list Property.pp_print_property "@ ")
-    (TransSys.get_properties trans_sys) ;
 
   (* Event.log L_fatal "Launching analysis with param %a"
     Analysis.pp_print_param aparam ; *)
