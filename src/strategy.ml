@@ -150,6 +150,7 @@ let first_param_of results all_nodes scope =
     A.uid = A.results_length results ;
     A.abstraction_map = abstraction ;
     A.assumptions = assumptions ;
+    A.refinement_of = None
   }
 
 
@@ -235,7 +236,8 @@ module ModularStrategy : Strategy = struct
                   A.top = sys ;
                   A.uid = A.results_length results ;
                   A.abstraction_map = abs ;
-                  A.assumptions = ass
+                  A.assumptions = ass ;
+                  A.refinement_of = Some result ;
                 }
             )
         ) with Not_found ->

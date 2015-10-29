@@ -129,17 +129,25 @@ let split_closure trans solver k actlits to_split =
     (* Declaring actlit. *)
     actlit |> SMTSolver.declare_fun solver ;
     let actlit = term_of_actlit actlit in
+    (* Deactivation function. *)
+    let deactivate () =
+      actlit |> Term.mk_not |> SMTSolver.assert_term solver
+    in
     (* Asserting implication. *)
     Term.mk_implies [ actlit ; term ]
     |> SMTSolver.assert_term solver ;
     (* All actlits. *)
-    let all_actlits = actlit ::  actlits in
+    let all_actlits = actlit :: actlits in
     (* Splitting. *)
     match split trans solver k falsifiable list all_actlits with
-    | None -> list, falsifiable
+    | None ->
+      deactivate () ;
+      list, falsifiable
     | Some ([], new_falsifiable) ->
+      deactivate () ;
        [], new_falsifiable :: falsifiable
     | Some (new_list, new_falsifiable) ->
+      deactivate () ;
        loop (new_falsifiable :: falsifiable) new_list
   in
 
@@ -210,113 +218,133 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
   | [] -> ()
 
   | _ ->
-     let k_int = Numeral.to_int k in
+    let k_int = Numeral.to_int k in
 
-     (* Notifying framework of our progress. *)
-     Stat.set k_int Stat.bmc_k ;
-     Event.progress k_int ;
-     Stat.update_time Stat.bmc_total_time ;
+    (* Notifying framework of our progress. *)
+    Stat.set k_int Stat.bmc_k ;
+    Event.progress k_int ;
+    Stat.update_time Stat.bmc_total_time ;
 
-     (* Output current progress. *)
+    (* Merging old and new invariants and asserting them. *)
+    let nu_invariants =
+      match invariants, new_invariants with
+      | [],[] -> []
+      | _, [] ->
+        assert_old_invariants invariants ;
+        invariants
+      | [], _ ->
+        assert_new_invariants new_invariants ;
+        new_invariants
+      | _ ->
+        assert_old_invariants invariants ;
+        assert_new_invariants new_invariants ;
+        List.rev_append new_invariants invariants
+    in
+
+    (* Building the positive actlits and corresponding implications
+      at k-1. *)
+    let actlits, implications =
+      nu_unknowns
+      |> List.fold_left (
+        fun (actlits,implications) (_,(actlit, term)) ->
+          (* Appending prop actlit to the list of actlits. *)
+          actlit :: actlits,
+          (* Building the implication and appending. *)
+          ( Term.mk_implies
+            [ actlit ; Term.bump_state Numeral.(k-one) term ]
+          ) :: implications
+      ) ([], [])
+    in
+
+    (* Asserting implications if k > 0. *)
+    if Numeral.(k > zero) then
+      implications |> Term.mk_and |> SMTSolver.assert_term solver ;
+
+    (* Filtering properties which are not known to be k-true at this step. *)
+    let unknowns_at_k =
+      nu_unknowns |> List.filter (
+        fun (name,_) -> match TransSys.get_prop_status trans name with
+        | Property.PropKTrue k -> k_int > k
+        | _ -> true
+      )
+    in
+
+    let unfalsifiable =
+      match unknowns_at_k with
+      | [] ->
+        Event.log
+          L_info
+          "BMC @[<v>at k = %i@,\
+                    skipping@]"
+          k_int ;
+        nu_unknowns
+
+      | _ ->
+        (* Output current progress. *)
+        Event.log
+          L_info
+          "BMC @[<v>at k = %i@,\
+                    %i properties.@]"
+          k_int (List.length nu_unknowns);
+
+        (* Splitting. *)
+        let unfalsifiable, falsifiable =
+          split_closure trans solver k actlits nu_unknowns
+        in
+
+        (* Broadcasting k-true properties. *)
+        unfalsifiable |> List.iter ( fun (s, _) ->
+          Event.prop_status
+            (Property.PropKTrue (Numeral.to_int k))
+            input_sys
+            aparam
+            trans
+            s
+        ) ;
+
+        (* Broadcasting falsified properties. *)
+        falsifiable |> List.iter ( fun (p, cex) ->
+          List.iter
+            ( fun (s,_) ->
+              Event.prop_status
+                (Property.PropFalse (Model.path_to_list cex)) 
+                input_sys
+                aparam
+                trans
+                s )
+            p
+        ) ;
+
+        unfalsifiable
+    in
+
+    (* K plus one. *)
+    let k_p_1 = Numeral.succ k in
+
+    (* Declaring unrolled vars at k+1. *)
+    TransSys.declare_vars_of_bounds
+     trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
+
+    (* Asserting transition relation for next iteration. *)
+    TransSys.trans_of_bound trans k_p_1
+    |> SMTSolver.assert_term solver
+    |> ignore ;
+
+    (* Output statistics *)
+    print_stats ();
+
+    (* Int k plus one. *)
+    let k_p_1_int = Numeral.to_int k_p_1 in
+
+    (* Checking if we have reached max k. *)
+    if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
      Event.log
        L_info
-       "BMC @[<v>at k = %i@,\
-                 %i unfalsifiable properties.@]"
-       (Numeral.to_int k) (List.length nu_unknowns);
-
-     (* Merging old and new invariants and asserting them. *)
-     let nu_invariants =
-       match invariants, new_invariants with
-       | [],[] -> []
-       | _, [] ->
-          assert_old_invariants invariants ;
-          invariants
-       | [], _ ->
-          assert_new_invariants new_invariants ;
-          new_invariants
-       | _ ->
-          assert_old_invariants invariants ;
-          assert_new_invariants new_invariants ;
-          List.rev_append new_invariants invariants
-     in
-
-     (* Building the positive actlits and corresponding implications
-        at k-1. *)
-     let actlits, implications =
-       nu_unknowns
-       |> List.fold_left
-            ( fun (actlits,implications) (_,(actlit, term)) ->
-              (* Appending prop actlit to the list of actlits. *)
-              actlit :: actlits,
-              (* Building the implication and appending. *)
-              ( Term.mk_implies [
-                  actlit ; Term.bump_state Numeral.(k-one) term ] )
-              :: implications )
-            ([], [])
-     in
-
-     (* Asserting implications if k > 0. *)
-     if Numeral.(k > zero) then
-       implications
-       |> Term.mk_and
-       |> SMTSolver.assert_term solver ;
-
-     (* Splitting. *)
-     let unfalsifiable, falsifiable =
-       split_closure trans solver k actlits nu_unknowns
-     in
-
-     (* Broadcasting k-true properties. *)
-     unfalsifiable
-     |> List.iter
-          ( fun (s, _) ->
-            Event.prop_status
-              (Property.PropKTrue (Numeral.to_int k))
-              input_sys
-              aparam
-              trans
-              s ) ;
-
-     (* Broadcasting falsified properties. *)
-     falsifiable
-     |> List.iter
-          ( fun (p, cex) ->
-            List.iter
-              ( fun (s,_) ->
-                Event.prop_status
-                  (Property.PropFalse (Model.path_to_list cex)) 
-                  input_sys
-                  aparam
-                  trans
-                  s )
-              p ) ;
-
-     (* K plus one. *)
-     let k_p_1 = Numeral.succ k in
-     
-     (* Declaring unrolled vars at k+1. *)
-     TransSys.declare_vars_of_bounds
-       trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
-     
-     (* Asserting transition relation for next iteration. *)
-     TransSys.trans_of_bound trans k_p_1
-     |> SMTSolver.assert_term solver
-     |> ignore ;
-
-     (* Output statistics *)
-     print_stats ();
-
-     (* Int k plus one. *)
-     let k_p_1_int = Numeral.to_int k_p_1 in
-
-     (* Checking if we have reached max k. *)
-     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
-       Event.log
-         L_info
-         "BMC @[<v>reached maximal number of iterations.@]"
-     else
-       (* Looping. *)
-       next (input_sys, aparam, trans, solver, k_p_1 , nu_invariants, unfalsifiable)
+       "BMC @[<v>reached maximal number of iterations.@]"
+    else
+     (* Looping. *)
+     next
+      (input_sys, aparam, trans, solver, k_p_1, nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
 let init input_sys aparam trans =

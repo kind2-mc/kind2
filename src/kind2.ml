@@ -931,6 +931,11 @@ let rec run_loop msg_setup modules results =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
 
+  Format.printf
+    "properties: @[<v>%a@]@.@."
+    (pp_print_list Property.pp_print_property "@ ")
+    (TransSys.get_properties trans_sys) ;
+
   (* Event.log L_fatal "Launching analysis with param %a"
     Analysis.pp_print_param aparam ; *)
   Event.log_analysis_start aparam ;

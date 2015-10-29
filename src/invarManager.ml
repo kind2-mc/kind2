@@ -21,13 +21,13 @@ open Lib
 let print_stats trans_sys =
   
   Event.log
-    L_info
+    L_debug
     "@[<v>%a@,\
      Final statistics:@]"
     pp_print_hline ();
   
   List.iter 
-    (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
+    (fun (mdl, stat) -> Event.log_stat mdl L_debug stat)
     (Event.all_stats ());
   
   (match trans_sys with | None -> () | Some trans_sys ->
