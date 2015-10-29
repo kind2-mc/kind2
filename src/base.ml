@@ -284,10 +284,8 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
         Event.log
           L_info
           "BMC @[<v>at k = %i@,\
-                    %i properties ( @[<v>%a@] ).@]"
-          k_int (List.length unknowns_at_k)
-          (pp_print_list Format.pp_print_string "@ ")
-          (unknowns_at_k |> List.map fst) ;
+                    %i properties.@]"
+          k_int (List.length unknowns_at_k) ;
 
         (* Splitting. *)
         let unfalsifiable, falsifiable =
