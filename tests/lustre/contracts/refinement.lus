@@ -21,6 +21,7 @@ tel
 node top (in: bool) returns (cpt: int) ;
 (*@contract
   @guarantee cpt >= 0 ;
+  @guarantee (count(true) > 15) => false ;
 *)
 let
   cpt = sub(in) ;
