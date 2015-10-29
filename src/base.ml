@@ -261,8 +261,8 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
       implications |> Term.mk_and |> SMTSolver.assert_term solver ;
 
     (* Filtering properties which are not known to be k-true at this step. *)
-    let unknowns_at_k =
-      nu_unknowns |> List.filter (
+    let unknowns_at_k, k_true =
+      nu_unknowns |> List.partition (
         fun (name,_) -> match TransSys.get_prop_status trans name with
         | Property.PropKTrue k -> k_int > k
         | _ -> true
@@ -284,12 +284,14 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
         Event.log
           L_info
           "BMC @[<v>at k = %i@,\
-                    %i properties.@]"
-          k_int (List.length nu_unknowns);
+                    %i properties ( @[<v>%a@] ).@]"
+          k_int (List.length unknowns_at_k)
+          (pp_print_list Format.pp_print_string "@ ")
+          (unknowns_at_k |> List.map fst) ;
 
         (* Splitting. *)
         let unfalsifiable, falsifiable =
-          split_closure trans solver k actlits nu_unknowns
+          split_closure trans solver k actlits unknowns_at_k
         in
 
         (* Broadcasting k-true properties. *)
@@ -315,7 +317,7 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
             p
         ) ;
 
-        unfalsifiable
+        k_true @ unfalsifiable
     in
 
     (* K plus one. *)

@@ -2495,8 +2495,9 @@ let trans_sys_of_nodes subsystem globals (
         
         | name, P.PropFalse cex -> (
           match P.length_of_cex cex with
-          | k when k > 0 -> (* False at k>0 is now (k-1)-true. *)
-            TransSys.set_prop_status trans_sys name (P.PropKTrue (k-1))
+          | l when l > 1 -> (* False at k>0 is now (k-1)-true. *)
+            (* Minus 2 because l = k + 1. *)
+            TransSys.set_prop_status trans_sys name (P.PropKTrue (l-2))
           | _ -> (* False at 0 is now unknown, do nothing. *)
             ()
         )
