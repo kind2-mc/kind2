@@ -544,6 +544,8 @@ sig
 
   val create_top: TermSet.t -> t
 
+  val create_siblings: TermSet.t -> t
+
   val is_top: t -> bool
 
   val is_bottom: t -> bool
@@ -697,6 +699,61 @@ struct
       creation_index = 0 ;
       creation_from = term_top ; }
 
+
+  (* Creates a graph with all members in separate nodes at the same level, each
+     connected to top and bottom. *)
+  let create_siblings members =
+    (* Using lazy evaluation for recursive definitions *)
+
+    let node_top =
+      { representative = term_top;
+        members = TermSet.singleton term_top;
+        value = true;
+        kids = NodeS.empty;
+        parents = NodeS.empty;
+        updated_down_frontier = FrontierDown.set_empty () ;
+        iteration = 0 ;
+        history = [] ;
+        creation_index = 0 ;
+        creation_from = term_top}
+    in
+    
+    let node_bottom =
+      { representative = term_bottom;
+        members = TermSet.singleton term_bottom;
+        value = false;
+        kids = NodeS.empty;
+        parents = NodeS.empty;
+        updated_down_frontier = FrontierDown.set_empty () ;
+        iteration = 0 ;
+        history = [] ;
+        creation_index = 1 ;
+        creation_from = term_bottom}
+    in
+    
+    let siblings =
+      let cpt =ref 1 in
+      TermSet.fold (fun c ->
+          incr cpt;
+          { representative = c;
+            members = TermSet.singleton c;
+            value = true;
+            kids = NodeS.singleton node_bottom;
+            parents = NodeS.singleton node_top;
+            updated_down_frontier = FrontierDown.set_empty () ;
+            iteration = 0 ;
+            history = [] ;
+            creation_index = !cpt ;
+            creation_from = c}
+          |> NodeS.add
+        ) members NodeS.empty
+    in
+
+    node_bottom.parents <- siblings;
+    node_top.kids <- siblings;
+    
+    node_top
+  
 
   (* Compare function for nodes. *)
   let compare node node' =
@@ -1150,6 +1207,14 @@ let to_dot file { graph } = Node.graph_to_dot file graph
 let create members = {
   graph = Node.create_top members ;
   eq_classes = [members] ;
+  non_trivial_implications = [] ;
+  trivial_implications = [] ;
+}
+
+let create_degenerate members = {
+  graph = Node.create_siblings members ;
+  eq_classes = Term.t_true :: Term.t_false :: TermSet.elements members
+               |> List.map TermSet.singleton ;
   non_trivial_implications = [] ;
   trivial_implications = [] ;
 }

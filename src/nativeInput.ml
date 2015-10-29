@@ -566,7 +566,7 @@ let pp_print_callers ppf (t, c) =
 
 let pp_print_props ppf sys =
   let props =
-    (TransSys.get_properties sys) @ (TransSys.get_candidate_properties sys)
+    (TransSys.get_real_properties sys) @ (TransSys.get_candidate_properties sys)
   in
   if props <> [] then
   Format.fprintf ppf

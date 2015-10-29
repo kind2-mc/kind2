@@ -859,9 +859,13 @@ let named_terms_list_of_bound l i =
       
 
 (* Instantiate all properties to the bound *)
-let props_list_of_bound t i = 
-  named_terms_list_of_bound (* t.properties i *)
+let props_list_of_bound t i =
+  if Flags.cands_to_invgen () then
+  named_terms_list_of_bound
     (List.filter (fun p -> p.prop_source <> TermLib.Candidate) t.properties) i
+  else
+    named_terms_list_of_bound t.properties i
+
 
 
 (* Instantiate all properties to the bound *)
@@ -925,7 +929,7 @@ let add_invariant t invar certif = add_scoped_invariant t t.scope invar certif
 let get_invariants t = t.invars
 
 (* Return all properties *)
-let get_properties t =
+let get_real_properties t =
   List.fold_left (fun acc {prop_name; prop_source; prop_term; prop_status} ->
       if prop_source = TermLib.Candidate then acc
       else (prop_name, prop_source, prop_term, prop_status) :: acc
@@ -951,8 +955,9 @@ let get_prop_status_all_unknown t =
     (function accum -> function 
 
        | { prop_name; prop_status; prop_source } 
-         when prop_source <> TermLib.Candidate &&
-              not (prop_status_known prop_status) -> 
+         when (not (Flags.cands_to_invgen ()) ||
+               prop_source <> TermLib.Candidate)
+              && not (prop_status_known prop_status) -> 
 
          (prop_name, prop_status) :: accum 
 

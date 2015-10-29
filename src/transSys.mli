@@ -249,8 +249,8 @@ val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
 (** Return invariants with their certificates *)
 val get_invariants : t -> (Term.t * Certificate.t) list
 
-(** Return current status of all properties *)
-val get_properties :
+(** Return current status of all real (not candidate) properties *)
+val get_real_properties :
   t -> (string * TermLib.prop_source * Term.t * prop_status) list
 
 (** Return current status of all properties *)

@@ -549,18 +549,22 @@ module CandidateTermGen = struct
     sys_graphs_map [] [ trans_sys ]
 
 
-  let build_graphs =
-    
+  let build_graphs cands =
+
+    let create_graph term_set =
+      (* if Flags.only_user_candidates () then *)
+      (*   ImplicationGraph.create_degenerate term_set *)
+      (* else *)
+        ImplicationGraph.create
+          (TSet.union true_false_set term_set)
+    in
+
     (* Building the graphs. *)
-    List.map
-      ( fun (sys,term_set) ->
-
+    List.map (fun (sys,term_set) ->
         (* Creating graph. *)
-        (sys,
-         ImplicationGraph.create
-           (TSet.union true_false_set term_set),
-         TSet.cardinal term_set) )
-
+        (sys, create_graph term_set, TSet.cardinal term_set)
+      ) cands
+      
 end
 
 (* Generates candidate terms for a transition system, and its

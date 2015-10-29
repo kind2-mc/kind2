@@ -599,6 +599,10 @@ type only_user_candidates = bool
 
 let only_user_candidates_default = false
 
+type cands_to_invgen = bool
+
+let cands_to_invgen_default = false
+
 type invgengraph_mine_trans = bool
 
 let invgengraph_mine_trans_default = false
@@ -726,6 +730,7 @@ type flags =
     mutable invgengraph_max_succ : invgengraph_max_succ;
     mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
     mutable only_user_candidates : only_user_candidates;
+    mutable cands_to_invgen : cands_to_invgen;
     mutable invgengraph_mine_trans : invgengraph_mine_trans;
     mutable invgengraph_renice : invgengraph_renice;
     mutable interpreter_input_file : interpreter_input_file;
@@ -787,6 +792,7 @@ let flags =
     invgengraph_max_succ = invgengraph_max_succ_default;
     invgengraph_lift_candidates = invgengraph_lift_candidates_default;
     only_user_candidates = only_user_candidates_default;
+    cands_to_invgen = cands_to_invgen_default;
     invgengraph_mine_trans = invgengraph_mine_trans_default;
     invgengraph_renice = invgengraph_renice_default;
     interpreter_input_file = interpreter_input_file_default;
@@ -1276,6 +1282,16 @@ let only_user_candidates_spec =
      "Invariant generation will only try to prove candidates given by the user (default: %B)."
      only_user_candidates_default)
   
+
+let cands_to_invgen_action o = flags.cands_to_invgen <- true
+                                       
+let cands_to_invgen_spec = 
+  ("--cands_to_invgen", 
+   Arg.Unit cands_to_invgen_action,
+   Format.sprintf
+     "Send candidate invariants to the invariant generation module (default: %B)."
+     cands_to_invgen_default)
+  
 let invgengraph_mine_trans_action o = flags.invgengraph_mine_trans <- o
                                        
 let invgengraph_mine_trans_spec = 
@@ -1504,6 +1520,8 @@ let invgengraph_lift_candidates () = flags.invgengraph_lift_candidates
 
 let only_user_candidates () = flags.only_user_candidates
 
+let cands_to_invgen () = flags.cands_to_invgen
+
 let invgengraph_mine_trans () = flags.invgengraph_mine_trans
 
 let invgengraph_renice () = flags.invgengraph_renice
@@ -1694,6 +1712,7 @@ and speclist =
     invgengraph_max_succ_spec;
     invgengraph_lift_candidates_spec;
     only_user_candidates_spec;
+    cands_to_invgen_spec;
     invgengraph_mine_trans_spec;
     invgengraph_renice_spec;
 

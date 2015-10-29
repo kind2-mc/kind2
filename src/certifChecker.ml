@@ -199,7 +199,7 @@ let extract_props_certs sys =
       | p_name, _, _, _ ->
         Event.log L_fatal "[Warning] Skipping unproved property %s" p_name;
         acc
-    ) ([], []) (TS.get_properties sys) in
+    ) ([], []) (TS.get_real_properties sys) in
 
   let certs = List.fold_left (fun c_acc (i, c) ->
       if List.exists (Term.equal i) props then c_acc
@@ -1417,7 +1417,7 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
   let prop_vs =
     List.fold_left (fun acc (_,_,p,_) ->
         Term.state_vars_of_term p |> SVS.union acc
-      ) SVS.empty (TS.get_properties kind2_sys)
+      ) SVS.empty (TS.get_real_properties kind2_sys)
   in
   
   let other_vars =

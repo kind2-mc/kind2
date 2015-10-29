@@ -39,6 +39,10 @@ val create: term_set -> t
 (** Creates a graph from a list of terms .*)
 val create_of_list: term list -> t
 
+(** Creates a degenerate graph from a set of terms where everyone is a sibling
+    connected to both bottom and top.*)
+val create_degenerate: term_set -> t
+
 (** The equivalence classes of a graph. *)
 val eq_classes: t -> term_set list
 
