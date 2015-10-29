@@ -71,7 +71,7 @@ let pp_print_event ppf = function
       ppf
       "@[<hv>Property %s false at step %d@]" 
       p
-      (Property.length_of_cex cex)
+      ((Property.length_of_cex cex) - 1)
 
   | StepCex (p, cex) ->
     Format.fprintf 
@@ -432,7 +432,8 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
       )
       (function ppf -> match cex with
          | [] -> ()
-         | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
+         | ((_, c) :: _) ->
+           (List.length c) - 1 |> Format.fprintf ppf "for k=%d ")
       (Stat.get_float Stat.total_time)
       (pp_print_counterexample_pt
         level input_sys analysis trans_sys prop disproved)
@@ -507,7 +508,7 @@ let prop_status_pt level prop_status =
                  Format.fprintf 
                    ppf
                    "invalid after %d steps"
-                   (Property.length_of_cex cex))
+                   ((Property.length_of_cex cex) - 1))
             s)
        "@,")
     prop_status
@@ -709,7 +710,8 @@ mdl level input_sys analysis trans_sys prop (
       (Stat.get_float Stat.total_time)
       (function ppf -> match cex with 
          | [] -> () 
-         | cex -> Format.fprintf ppf "<K>%d</K>@," (Property.length_of_cex cex))
+         | cex ->
+          (Property.length_of_cex cex) - 1 |> Format.fprintf ppf "<K>%d</K>@,")
       pp_print_kind_module_xml_src mdl
       (pp_print_counterexample_xml input_sys analysis trans_sys prop disproved)
       cex ;
@@ -792,7 +794,7 @@ let prop_status_xml level prop_status =
                    Format.fprintf 
                      ppf 
                      "@,@[<hv 2><FalseAt>@,%d@;<0 -2></FalseAt>@]"
-                     (Property.length_of_cex cex))
+                     ((Property.length_of_cex cex) - 1))
               s)
        "@,")
   (* (ignore_or_fprintf level)

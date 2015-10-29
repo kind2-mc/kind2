@@ -2410,19 +2410,18 @@ let rec trans_sys_of_node'
             tl
           
 
-let trans_sys_of_nodes 
-  subsystem
-  globals
-  ({ A.top; A.abstraction_map; A.assumptions } as  analysis_param)
-=
+let trans_sys_of_nodes subsystem globals (
+  { A.top; A.abstraction_map; A.assumptions; A.refinement_of }
+  as analysis_param
+) =
   
   (* Make sure top level system is not abstract
 
      Contracts would be trivially satisfied otherwise *)
-  (if A.param_scope_is_abstract analysis_param top then
+(*   (if A.param_scope_is_abstract analysis_param top then
      raise
        (Invalid_argument
-          "trans_sys_of_nodes: Top-level system must not be abstract"));
+          "trans_sys_of_nodes: Top-level system must not be abstract")); *)
 
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
@@ -2474,6 +2473,36 @@ let trans_sys_of_nodes
           Biggest bucket length: %d@]@."
     s1 s2 s3 s4 s5 s6;
 *)
+
+  
+  ( match refinement_of with
+    | None -> ()
+    | Some result ->
+      (* The analysis that's going to run is a refinement. *)
+      TransSys.get_prop_status_all result.sys
+      |> List.iter (function
+        | name, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
+          ()
+        
+        | name, (P.PropKTrue k as status) -> (* K-true is still k-true. *)
+          TransSys.set_prop_status trans_sys name status
+        
+        | name, P.PropInvariant -> (* Invariant is still invariant. *)
+          TransSys.set_prop_invariant trans_sys name ;
+          (* Adding to invariants of the system. *)
+          TransSys.get_prop_term trans_sys name
+          |> TransSys.add_invariant trans_sys
+        
+        | name, P.PropFalse cex -> (
+          match P.length_of_cex cex with
+          | l when l > 1 -> (* False at k>0 is now (k-1)-true. *)
+            (* Minus 2 because l = k + 1. *)
+            TransSys.set_prop_status trans_sys name (P.PropKTrue (l-2))
+          | _ -> (* False at 0 is now unknown, do nothing. *)
+            ()
+        )
+      )
+  ) ;
 
   trans_sys, subsystem', globals'
 

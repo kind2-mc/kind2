@@ -32,29 +32,14 @@ type param = {
 
   (** Properties that can be assumed invariant in subsystems *)
   assumptions : (Scope.t * Term.t) list ;
+
+  (** Result of the previous analysis of the top system if this analysis is a
+      refinement. *)
+  refinement_of : result option
 }
 
-(* Retrieve the assumptions of a [scope] from a [param]. *)
-let param_assumptions_of_scope { assumptions } scope =
-  assumptions |> List.fold_left (fun a (s, t) -> 
-     if Scope.equal s scope then t :: a else a
-  ) []
-
-(* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
-   a [param]. Default to [false] if the node is not in the map. *)
-let param_scope_is_abstract { abstraction_map } scope =
-  try
-    (* Find node in abstraction map by name *)
-    Scope.Map.find scope abstraction_map 
-  (* Assume node to be concrete if not in map *)
-  with Not_found -> false
-
-
-
-
-
 (** Result of analysing a transistion system *)
-type result = {
+and result = {
   (** Parameters of the analysis. *)
   param : param ;
 
@@ -71,6 +56,21 @@ type result = {
       [Some false] if it does and some are unknown / falsified. *)
   requirements_valid : bool option ;
 }
+
+(* Retrieve the assumptions of a [scope] from a [param]. *)
+let param_assumptions_of_scope { assumptions } scope =
+  assumptions |> List.fold_left (fun a (s, t) -> 
+     if Scope.equal s scope then t :: a else a
+  ) []
+
+(* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
+   a [param]. Default to [false] if the node is not in the map. *)
+let param_scope_is_abstract { abstraction_map } scope =
+  try
+    (* Find node in abstraction map by name *)
+    Scope.Map.find scope abstraction_map 
+  (* Assume node to be concrete if not in map *)
+  with Not_found -> false
 
 (* Abstraction of a property source. *)
 type prop_kind = | Contract | Subreq | Prop

@@ -105,6 +105,7 @@ let maximal_abstraction_for_testgen (type s)
       Analysis.uid = get_testgen_uid () ;
       Analysis.abstraction_map = map ;
       Analysis.assumptions = assumptions ;
+      Analysis.refinement_of = None ;
     }
 
   )

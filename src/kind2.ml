@@ -105,7 +105,7 @@ let renice () =
     Event.log L_info
       "Ignoring negative niceness value for invariant generation."
 
-  else
+  else if nice > 0 then
     let nice' = Unix.nice nice in
     Event.log L_info "Renicing invariant generation to %d" nice'
 
