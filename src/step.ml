@@ -474,7 +474,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
   (* Integer version of k. *)
   let k_int = Numeral.to_int k in
-    
+
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
     (* Receiving messages. *)
@@ -528,7 +528,6 @@ let rec next trans solver k unfalsifiables unknowns =
 
   match unknowns', unfalsifiables' with
   | [], [] ->
-    Format.eprintf "Nothing left !!!!!!!!!!!!!@.";
      (* Nothing left to do. *)
      stop ()
   | [], _ ->
