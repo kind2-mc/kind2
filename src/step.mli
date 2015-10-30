@@ -20,7 +20,7 @@
 val on_exit: TransSys.t option -> unit
 
 (** Runs the step instance. *)
-val main: TransSys.t -> unit
+val main: 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 
 (* 

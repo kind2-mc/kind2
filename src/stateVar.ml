@@ -179,26 +179,9 @@ let string_of_state_var_name (n, s) =
 let pp_print_state_var_node ppf (n, s) = 
   pp_print_state_var_name ppf (n, s)
 
-(*
-(* Pretty-print a state variable as it occurred in the original input *)
-let pp_print_state_var_node_original ppf s = 
-  Format.pp_print_string ppf (Kind1.Tables.internal_name_to_original_name s)
-*)
-
 (* Pretty-print a hashconsed state variable *)
 let pp_print_state_var ppf { Hashcons.node = (n, s) } =
   pp_print_state_var_node ppf (n, s)
-
-(*
-(* Pretty-print a hashconsed state variable as it occurred in the
-   original input *)
-let pp_print_state_var_original ppf = function 
-
-  | { Hashcons.node = (n, s) } -> pp_print_state_var_node_original ppf n
-
-  (* Cannot have scopes in old parser *)
-  | _ -> invalid_arg "pp_print_state_var_original"
-*)
 
 (* Return a string representation of a hashconsed state variable *)
 let string_of_state_var s = string_of_t pp_print_state_var s
@@ -246,6 +229,16 @@ let set_for_inv_gen flag { Hashcons.prop } = prop.for_inv_gen <- flag
 (* ********************************************************************* *)
 
 
+(* Generate a new identifier for an uninterpreted functions symbol *)
+let gen_uf =
+  let r = ref 0 in
+  fun a s -> 
+    incr r; 
+    UfSymbol.mk_uf_symbol 
+      (Format.sprintf "f%d" !r)
+      a
+      s
+
 (* Hashcons a state variable *)
 let mk_state_var 
     ?(is_input:bool = false)
@@ -265,7 +258,7 @@ let mk_state_var
     if 
 
       (* Given type is a subtype of declared type? *)
-      Type.check_type state_var_type (type_of_state_var v)  
+      (Type.check_type state_var_type (type_of_state_var v)) 
 
     then
 
@@ -278,18 +271,24 @@ let mk_state_var
 
     else
 
-      raise 
+      raise
         (Invalid_argument 
            (Format.asprintf
-              "State variable %a redeclared with different type" 
+              "State variable %a redeclared with different type (%a, now %a)" 
               pp_print_state_var_name 
-              (state_var_name, state_var_scope)))
+              (state_var_name, state_var_scope)
+              Type.pp_print_type state_var_type
+              Type.pp_print_type (type_of_state_var v)
+            )
+         )
 
   (* State variable is not in the hashcons table *)
   with Not_found | Hstate_var.Key_not_found _ -> 
     
     try 
       
+      if Flags.smt_short_names () then raise Not_found;
+
       let _ = 
         UfSymbol.uf_symbol_of_string 
           (string_of_state_var_name (state_var_name, state_var_scope))
@@ -307,9 +306,17 @@ let mk_state_var
 
        (* Create an uninterpreted function symbol for the state variable *)
        let state_var_uf_symbol = 
-         UfSymbol.mk_uf_symbol 
-           (string_of_state_var_name 
-              (state_var_name, state_var_scope))
+
+         (if Flags.smt_short_names () then 
+            
+            gen_uf
+              
+          else
+            
+            (UfSymbol.mk_uf_symbol 
+               (string_of_state_var_name 
+                 (state_var_name, state_var_scope))))
+
            []
            (* (if is_const then [] else [Type.mk_int ()]) *)
            state_var_type 
@@ -336,6 +343,51 @@ let mk_state_var
 
        (* Return state variable *)
        state_var
+
+(* Init flag string. *)
+let init_flag_string = "__init_flag"
+
+(* Abstraction depth input string. *)
+let depth_input_string = "__depth_input"
+
+(* Abstraction depth input string. *)
+let max_depth_input_string = "__max_depth_input"
+
+(* Transition system reserved strings. *)
+let reserved_strings =
+  [ init_flag_string ;
+    depth_input_string ;
+    max_depth_input_string ]
+
+(* Returns a scoped init flag. *)
+let mk_init_flag scope =
+  mk_state_var
+    ~is_input:true
+    ~is_const:false
+    ~for_inv_gen:false
+    init_flag_string
+    scope
+    Type.t_bool
+
+(* Returns a scoped depth input. *)
+let mk_depth_input scope =
+  mk_state_var
+    ~is_input:true
+    ~is_const:true
+    ~for_inv_gen:false
+    depth_input_string
+    scope
+    Type.t_int
+
+(* Returns a scoped max depth input. *)
+let mk_max_depth_input scope =
+  mk_state_var
+    ~is_input:true
+    ~is_const:true
+    ~for_inv_gen:false
+    max_depth_input_string
+    scope
+    Type.t_int
 
 
 (* Import a state variable from a different instance into this

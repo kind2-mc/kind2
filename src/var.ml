@@ -279,7 +279,6 @@ let is_free_var = function
 (* Constructors                                                          *)
 (* ********************************************************************* *)
 
-
 (* Return a hashconsed variable which is a constant state variable *)    
 let mk_const_state_var v = 
 
@@ -391,31 +390,62 @@ let mk_fresh_var var_type =
   mk_free_var v var_type 
 
 
-(* Return a state variable at the given offset *)
-let set_offset_of_state_var_instance i = function 
+(* ********************************************************************* *)
+(* Changing offsets and state variables                                  *)
+(* ********************************************************************* *)
 
+(* Return a state variable at the given offset *)
+let set_offset_of_state_var_instance v i = match v with
+
+  (* State variable instance *)
   | { Hashcons.node = StateVarInstance (v, o) } -> 
+
+    (* Keep state variable and set offset *)
     mk_state_var_instance v i
 
-  | { Hashcons.node = ConstStateVar _ } as v -> v
-
-  | { Hashcons.node = FreeVar _ } -> 
-    raise (Invalid_argument "bump_offset_of_state_var_instance")
+  (* Keep constant state variables or free variables *)
+  | { Hashcons.node = ConstStateVar _ } 
+  | { Hashcons.node = FreeVar _ } as v -> v
 
 
 (* Add to the offset of a state variable instance
 
    Negative values are allowed *)
-let bump_offset_of_state_var_instance i = function 
+let bump_offset_of_state_var_instance v i = match v with
 
+  (* State variable instance *)
   | { Hashcons.node = StateVarInstance (v, o) } -> 
+
+    (* Keep state variable and add to offset *)
     mk_state_var_instance v Numeral.(o + i)
 
-  | { Hashcons.node = ConstStateVar _ } as v-> v
+  (* Keep constant state variables or free variables *)
+  | { Hashcons.node = ConstStateVar _ } 
+  | { Hashcons.node = FreeVar _ } as v -> v
 
-  | { Hashcons.node = FreeVar _ } -> 
-    raise (Invalid_argument "bump_offset_of_state_var_instance")
 
+(* Replace every state variable by another *)
+let map_state_var f v = match v with
+
+  (* State variable instance  *)
+  | { Hashcons.node = StateVarInstance (sv, o) } -> 
+
+    (* Keep offset and change state variable *)
+    mk_state_var_instance (f sv) o
+
+  (* Constant state variable *)
+  | { Hashcons.node = ConstStateVar sv } -> 
+
+    (* Change state variable *)
+    mk_const_state_var (f sv)
+
+  (* Keep free variables unchanged *)
+  | { Hashcons.node = FreeVar _ } as v -> v
+
+
+(* ********************************************************************* *)
+(* Unrolling of state variable instances to uninterpreted constants      *)
+(* ********************************************************************* *)
 
 module StringMap = Map.Make(String)
 
@@ -506,6 +536,8 @@ let state_var_instance_of_symbol sym =
    uninterpreted symbol. Throws [Not_found] if the sym is unknown. *)
 let state_var_instance_of_uf_symbol uf_sym =
   UfSymbol.string_of_uf_symbol uf_sym |> find_unrolled_var_map
+
+
 
 
 

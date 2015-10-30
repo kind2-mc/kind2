@@ -18,7 +18,7 @@
         
 open Lib
 
-let handle_events trans_sys = 
+let handle_events input_sys aparam trans_sys = 
 
   (* Receive queued events *)
   let events = Event.recv () in
@@ -28,20 +28,39 @@ let handle_events trans_sys =
     (function (m, e) -> 
       Event.log
         L_debug
-        "[InvarManager] Message received from %a: %a"
+        "Message received from %a: %a"
         pp_print_kind_module m
         Event.pp_print_event e)
     events;
 
   (* Update transition system from events *)
   let _ =
-    Event.update_trans_sys trans_sys events
+    Event.update_trans_sys input_sys aparam trans_sys events
   in
 
   ()
 
+let print_stats trans_sys =
+  
+  Event.log
+    L_info
+    "@[<v>%a@,\
+     Final statistics:@]"
+    pp_print_hline ();
+  
+  List.iter 
+    (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
+    (Event.all_stats ());
+  
+  (match trans_sys with | None -> () | Some trans_sys ->
+    Event.log_prop_status 
+      L_fatal
+      (TransSys.get_prop_status_all trans_sys))
 
 let on_exit trans_sys =
+
+  print_stats trans_sys ;
+    
   try 
     (* Send termination message to all worker processes *)
     Event.terminate ();
@@ -114,9 +133,9 @@ let rec wait_for_children child_pids =
 
 
 (* Polling loop *)
-let rec loop done_at child_pids trans_sys = 
+let rec loop done_at child_pids input_sys aparam trans_sys = 
 
-  handle_events trans_sys;
+  handle_events input_sys aparam trans_sys;
 
   let done_at' =
 
@@ -175,7 +194,7 @@ let rec loop done_at child_pids trans_sys =
     (
 
       (* Get messages after termination of all processes *)
-      handle_events trans_sys ;
+      handle_events input_sys aparam trans_sys ;
 
       (* All properties proved? *)
       if TransSys.all_props_proved trans_sys then
@@ -191,16 +210,16 @@ let rec loop done_at child_pids trans_sys =
       minisleep 0.01;
 
       (* Continue polling loop *)
-      loop done_at' child_pids trans_sys
+      loop done_at' child_pids input_sys aparam trans_sys
 
     )
   
 
 (* Entry point *)
-let main child_pids transSys =
+let main child_pids input_sys aparam trans_sys =
 
   (* Run main loop *)
-  loop None child_pids transSys
+  loop None child_pids input_sys aparam trans_sys
 
 (* 
    Local Variables:

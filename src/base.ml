@@ -20,6 +20,9 @@ open Lib
 open TermLib
 open Actlit
 
+(* Raised when the unrolling alone is unsat. *)
+exception UnsatUnrollingExc
+
 let solver_ref = ref None
 
 (* Output statistics *)
@@ -56,8 +59,8 @@ let on_exit _ =
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropInvariant _
-  | TransSys.PropFalse _ -> false
+  | Property.PropInvariant
+  | Property.PropFalse _ -> false
   | _ -> true
 
 (* Check-sat and splits properties.. *)
@@ -71,18 +74,21 @@ let split trans solver k falsifiable to_split actlits =
 
     (* Extract counterexample from model *)
     let cex =
-      Model.path_from_model (TransSys.state_vars trans) model k in
+      Model.path_from_model (TransSys.state_vars trans) model k
+    in
 
     (* Evaluation function. *)
     let eval term =
       Eval.eval_term (TransSys.uf_defs trans) model term
-      |> Eval.bool_of_value in
+      |> Eval.bool_of_value
+    in
     (* Splitting properties. *)
     let new_to_split, new_falsifiable =
       List.partition
-        ( fun (_, term) ->
+        ( fun (_, (_, term)) ->
           Term.bump_state k term |> eval )
-        to_split in
+        to_split
+    in
     (* Building result. *)
     Some (new_to_split, (new_falsifiable, cex))
   in
@@ -91,6 +97,18 @@ let split trans solver k falsifiable to_split actlits =
   let if_unsat _ =
     None
   in
+
+  if Flags.bmc_check_unroll () then ( 
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Unrolling of the system is unsat at %a, \
+        the system has no more reachable states.@]"
+        warning_tag
+        Numeral.pp_print_numeral k ;
+      raise UnsatUnrollingExc
+    )
+  ) ;
 
   (* Check sat assuming with actlits. *)
   SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
@@ -103,19 +121,19 @@ let split_closure trans solver k actlits to_split =
   let rec loop falsifiable list =
     (* Building negative term. *)
     let term =
-      list
-      |> List.map snd
-      |> Term.mk_and |> Term.mk_not |> Term.bump_state k in
+      list |> List.map (fun pair -> snd pair |> snd)
+      |> Term.mk_and |> Term.mk_not |> Term.bump_state k
+    in
     (* Getting actlit for it. *)
-    let actlit = generate_actlit term in
+    let actlit = fresh_actlit () in
     (* Declaring actlit. *)
     actlit |> SMTSolver.declare_fun solver ;
+    let actlit = term_of_actlit actlit in
     (* Asserting implication. *)
-    Term.mk_implies
-        [ actlit |> term_of_actlit ; term ]
+    Term.mk_implies [ actlit ; term ]
     |> SMTSolver.assert_term solver ;
     (* All actlits. *)
-    let all_actlits = (term_of_actlit actlit) ::  actlits in
+    let all_actlits = actlit ::  actlits in
     (* Splitting. *)
     match split trans solver k falsifiable list all_actlits with
     | None -> list, falsifiable
@@ -142,7 +160,7 @@ let split_closure trans solver k actlits to_split =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (trans, solver, k, invariants, unknowns) =
+let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
 
   (* Asserts terms from 0 to k. *)
   let assert_new_invariants =
@@ -161,12 +179,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
 
-
     let new_invs, updated_props =
       (* Receiving messages. *)
       Event.recv ()
       (* Updating transition system. *)
-      |> Event.update_trans_sys trans
+      |> Event.update_trans_sys input_sys aparam trans
       (* Extracting invariant module/term pairs. *)
     in
 
@@ -175,9 +192,9 @@ let rec next (trans, solver, k, invariants, unknowns) =
     |> List.fold_left
          ( fun list (_, (name, status)) ->
           match status with
-          | TransSys.PropInvariant cert ->
+          | Property.PropInvariant cert ->
              (* Memorizing new invariant property. *)
-             ( TransSys.named_term_of_prop_name trans name )
+             ( TransSys.get_prop_term trans name )
              :: list
           | _ -> list )
          (* New invariant properties are added to new invariants. *)
@@ -227,18 +244,12 @@ let rec next (trans, solver, k, invariants, unknowns) =
      let actlits, implications =
        nu_unknowns
        |> List.fold_left
-            ( fun (actlits,implications) (_,term) ->
-              (* Building the actlit. *)
-              let actlit_term =
-                generate_actlit term |> term_of_actlit
-              in
-
-              (* Appending it to the list of actlits. *)
-              actlit_term :: actlits,
+            ( fun (actlits,implications) (_,(actlit, term)) ->
+              (* Appending prop actlit to the list of actlits. *)
+              actlit :: actlits,
               (* Building the implication and appending. *)
-              (Term.mk_implies
-                 [ actlit_term ;
-                   Term.bump_state Numeral.(k-one) term])
+              ( Term.mk_implies [
+                  actlit ; Term.bump_state Numeral.(k-one) term ] )
               :: implications )
             ([], [])
      in
@@ -259,7 +270,9 @@ let rec next (trans, solver, k, invariants, unknowns) =
      |> List.iter
           ( fun (s, _) ->
             Event.prop_status
-              (TransSys.PropKTrue (Numeral.to_int k))
+              (Property.PropKTrue (Numeral.to_int k))
+              input_sys
+              aparam
               trans
               s ) ;
 
@@ -270,7 +283,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
             List.iter
               ( fun (s,_) ->
                 Event.prop_status
-                  (TransSys.PropFalse (Model.path_to_list cex)) trans s )
+                  (Property.PropFalse (Model.path_to_list cex)) 
+                  input_sys
+                  aparam
+                  trans
+                  s )
               p ) ;
 
      (* K plus one. *)
@@ -298,10 +315,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
          "BMC @[<v>reached maximal number of iterations.@]"
      else
        (* Looping. *)
-       next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
+       next (input_sys, aparam, trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
-let init trans =
+let init input_sys aparam trans =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
@@ -320,14 +337,16 @@ let init trans =
   solver_ref := Some solver ;
 
   (* Declaring positive actlits. *)
-  List.iter
-    (fun (_, prop) ->
-     generate_actlit prop
-     |> SMTSolver.declare_fun solver)
-    unknowns ;
+  let unknowns =
+    unknowns |> List.map (fun (s, prop) ->
+      let actlit = fresh_actlit () in
+      SMTSolver.declare_fun solver actlit ;
+      (s, (term_of_actlit actlit, prop))
+    )
+  in
 
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.define_and_declare_of_bounds
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
@@ -338,16 +357,34 @@ let init trans =
   |> SMTSolver.assert_term solver
   |> ignore ;
 
+  if Flags.bmc_check_unroll () then (
+    if SMTSolver.check_sat solver |> not then (
+      Event.log
+        L_warn
+        "%s BMC @[<v>Initial state is unsat, the system has no \
+         reachable states.@]"
+         warning_tag ;
+      raise UnsatUnrollingExc
+    )
+  ) ;
+
   (* Invariants if the system at 0. *)
   let invariants =
-    TransSys.invars_of_bound trans Numeral.zero
+    TransSys.invars_of_bound trans Numeral.zero |> Term.mk_and 
   in
 
-  (trans, solver, Numeral.zero, [invariants], unknowns)
+  (input_sys, aparam, trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
-let main trans =
-  init trans |> next
+let main input_sys aparam trans =
+  try
+    init input_sys aparam trans |> next
+  with UnsatUnrollingExc ->
+    let _, _, unknown = TransSys.get_split_properties trans in
+    unknown |> List.iter (fun p ->
+      Event.prop_status
+        Property.PropInvariant input_sys aparam trans p.Property.prop_name
+    )
 
 
 

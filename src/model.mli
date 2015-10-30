@@ -19,7 +19,7 @@
 
 (** Term or lambda expression *)
 type term_or_lambda = 
-  | Term of Term.t 
+  | Term of Term.t
   | Lambda of Term.lambda
 
 (** A model is a list of variables and assignemnts *)
@@ -27,6 +27,9 @@ type t = term_or_lambda Var.VarHashtbl.t
 
 (** A path is a map of state variables to assignments *)
 type path = term_or_lambda list StateVar.StateVarHashtbl.t
+
+(** Offset of the variables at each step of a path. *)
+val path_offset: Numeral.t
 
 (** Pretty-print a model *)
 val pp_print_model : Format.formatter -> t -> unit
@@ -63,6 +66,11 @@ val path_of_term_list : (StateVar.t * Term.t list) list -> path
     equal length. Values that are not defined in the model are filled
     with {!TermLib.default_of_type}. *)
 val path_from_model : StateVar.t list -> t -> Numeral.t -> path
+
+(** Return the length of the value paths 
+
+    All value paths are of equal lengths. *)
+val path_length : path -> int
 
 (** Extract values at instant [k] from the path and return a model *)
 val model_at_k_of_path : path -> Numeral.t -> t

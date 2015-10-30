@@ -22,6 +22,7 @@ open Actlit
 
 module Smt = SMTSolver
 module Sys = TransSys
+module Prop = Property
 
 type term = Term.t
 
@@ -74,9 +75,13 @@ let add_invariants solver = function
   true
 
 (* Context of the 2-induction engine. *)
-type ctx = {
+type 'a ctx = {
   (* Solver used for the analysis. *)
   solver: Smt.t ;
+  (* Input system. *)
+  in_sys: 'a InputSystem.t ;
+  (* Analysis. *)
+  param: Analysis.param ;
   (* System we're analyzing. *)
   sys: Sys.t ; 
   (* Property to (positive actlit, negative actlit, prop term) map. *)
@@ -86,7 +91,7 @@ type ctx = {
 (* Creates a solver, memorizes it for clean exit, asserts transition relation
   [(0,1)] and [(1,2)], creates actlits for unknown properties, creates positive
   and negative activation literals and asserts relevant implications. *)
-let mk_ctx sys =
+let mk_ctx in_sys param sys =
   let solver =
     Smt.create_instance
       ~produce_assignments:true
@@ -97,14 +102,14 @@ let mk_ctx sys =
   solver_ref := Some solver ;
 
   (* Defining UFs and declaring variables. *)
-  Sys.init_define_fun_declare_vars_of_bounds
+  Sys.define_and_declare_of_bounds
     sys
     (Smt.define_fun solver)
     (Smt.declare_fun solver)
     Numeral.(~- one) Numeral.(succ one) ;
 
   (* Invariants of the system at 0, 1 and 2. *)
-  [ Sys.invars_of_bound sys Numeral.zero ]
+  Sys.invars_of_bound sys Numeral.zero
   |> add_invariants solver |> ignore ;
 
   (* Transition relation (0,1). *)
@@ -115,7 +120,7 @@ let mk_ctx sys =
   |> Smt.assert_term solver ;
 
   {
-    solver ; sys ;
+    solver ; in_sys ; param ; sys ;
     (* Creating map from properties to positive/negative actlit pairs. *)
     map = Sys.get_prop_status_all_unknown sys |> List.fold_left (
       fun map (name,_) ->
@@ -127,7 +132,7 @@ let mk_ctx sys =
         (* Building terms. *)
         let pactlit, nactlit = actlit_term pactlit, actlit_term nactlit in
         (* Retrieving prop term. *)
-        let prop = Sys.named_term_of_prop_name sys name in
+        let prop = Sys.get_prop_term sys name in
         (* Positive implications. *)
         Term.mk_implies [ pactlit ; unroll Numeral.zero prop ]
         |> Smt.assert_term solver ;
@@ -147,7 +152,7 @@ let mk_ctx sys =
 
   Loops until something new is received. *)
 let rec check_new_things ({ solver ; sys ; map } as ctx) =
-  match Event.recv () |> Event.update_trans_sys sys with
+  match Event.recv () |> Event.update_trans_sys ctx.in_sys ctx.param sys with
     (* Nothing new property-wise, keep going. *)
     | (invs, []) ->
       let new_things = add_invariants solver invs in
@@ -164,13 +169,13 @@ let rec check_new_things ({ solver ; sys ; map } as ctx) =
           (* Go through map and inspect property status. *)
           fun (map,invs) ( (name, (pos,neg,prop)) as p ) ->
             match Sys.get_prop_status sys name with
-            | Sys.PropFalse _ ->
+            | Prop.PropFalse _ ->
               (* Deactivate actlits and remove from map. *)
               deactivate solver pos ;
               deactivate solver neg ;
               map, invs
 
-            | Sys.PropInvariant _ ->
+            | Prop.PropInvariant _ ->
               (* Deactivate actlits, remove from map, add to invariants. *)
               deactivate solver pos ;
               deactivate solver neg ;
@@ -253,9 +258,9 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
     | prop :: tail -> (
       let ok_cert =
         match Sys.get_prop_status sys prop with
-        | Sys.PropKTrue n when n >= 1 ->
+        | Prop.PropKTrue n when n >= 1 ->
           Some (2, Sys.named_term_of_prop_name sys prop)
-        | Sys.PropInvariant ((k, phi) as cert) ->
+        | Prop.PropInvariant ((k, phi) as cert) ->
           if k <= 2 then Some cert
           else Some (2, Sys.named_term_of_prop_name sys prop)
         | _ -> None
@@ -272,7 +277,8 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
       (* All properties confirmed, broadcasting as invariant. *)
       confirmed |> List.iter (
         fun (prop, cert) ->
-          Event.prop_status (Sys.PropInvariant cert) sys prop
+          Event.prop_status (Prop.PropInvariant cert)
+            ctx.in_sys ctx.param sys prop
       ) ;
       (* Removing from map and updating solver. *)
       let map =
@@ -326,9 +332,9 @@ let rec run ctx =
     run ctx
 
 (* Entry point. *)
-let main sys =
+let main in_sys param sys =
   (* Building context. *)
-  let ctx = mk_ctx sys in
+  let ctx = mk_ctx in_sys param sys in
   match ctx.map with
   | [] -> 
     (* Don't start if nothing to run on. *)

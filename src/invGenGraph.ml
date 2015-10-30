@@ -271,7 +271,7 @@ end
 module type InvGen = sig
 
   (** Invariant generation entry point. *)
-  val main : TransSys.t -> unit
+  val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
@@ -443,17 +443,17 @@ module Make (InModule : In) : InvGen = struct
   let is_one_state_running () = Flags.enable () |> List.mem `INVGENOS
 
   (* Guards a term with init if in two state mode. *)
-  let sanitize_term =
+  let sanitize_term sys =
     if two_state then fun term ->
         Term.mk_or
-          [ TransSys.init_flag_var Numeral.zero |> Term.mk_var ;
+          [ TransSys.init_flag_of_bound sys Numeral.zero;
             term ]
     else identity
 
   (* Guards a term and certificate with init if in two state mode. *)
-  let sanitize_term_cert =
+  let sanitize_term_cert sys =
     if two_state then fun (term, (k, phi)) ->
-      let term' = sanitize_term term in
+      let term' = sanitize_term sys term in
       if Term.equal term phi then term', (k, term')
       else term', (k, sanitize_term phi)
     else identity
@@ -589,34 +589,37 @@ module Make (InModule : In) : InvGen = struct
        (* All intermediary invariants and top level ones. *)
        let ((_, top_invariants), intermediary_invariants) =
          if top_sys == sys then
-           (top_sys, List.map sanitize_term_cert invariants_certs), []
+           (top_sys, List.map (sanitize_term_cert sys) invariants_certs), []
          else
            mk_and_invar_certs invariants_certs
            (* Guarding with init if needed. *)
-           |> sanitize_term_cert
+           |> sanitize_term_cert sys
            (* Instantiating at all levels. *)
-           |> TransSys.instantiate_term_cert_all_levels sys
+           |> TransSys.instantiate_term_all_levels 
+             top_sys
+             TransSys.prop_base
+             (TransSys.scope_of_trans_sys sys)
        in
 
        intermediary_invariants
        |> List.iter
-         ( fun (sub_sys, termsc') ->
-            (* Drop certificates *)
-            let invs = List.map fst termsc' in
-            (* Adding invariants to the lsd. *)
-            LSD.add_invariants lsd sub_sys invs ;
-            (* Adding invariants w/ certificates to the transition system. *)
-            termsc'
-            |> List.map
-              (fun (i,c) -> TransSys.add_invariant sub_sys i c)
-            |> ignore ;
-            (* Broadcasting invariants with certificates. *)
-            termsc'
-            |> List.iter (fun (i, c) ->
-                Event.invariant (TransSys.get_scope sub_sys) i c)
-         ) ;
+            ( fun (sub_sys, termsc') ->
+              (* Drop certificates *)
+              let invs = List.map fst termsc' in
+              (* Adding invariants to the lsd. *)
+              LSD.add_invariants lsd sub_sys terms' ;
+              (* Adding invariants to the transition system. *)
+              termssc'
+              |> List.map
+                 (fun (i,c) -> TransSys.add_invariant sub_sys i c)
+              |> ignore ;
+              (* Broadcasting invariants with certificates. *)
+              termsc'
+              |> List.iter (fun (i, c) ->
+                   Event.invariant (TransSys.scope_of_trans_sys sub_sys) i c
+          ) ;
 
-       let top_scope = TransSys.get_scope top_sys in
+       let top_scope = TransSys.scope_of_trans_sys top_sys in
 
        top_invariants
        |> List.iter
@@ -723,7 +726,7 @@ module Make (InModule : In) : InvGen = struct
            (List.length new_invariants)
            (TSet.cardinal invariants')
            (LSD.get_k lsd sys |> Numeral.pred |> Numeral.to_int)
-           (TransSys.get_scope sys |> String.concat "/")
+           (TransSys.scope_of_trans_sys sys |> String.concat "/")
            top_count ) ;
 
     (* Returning updated invariant set. *)
@@ -731,13 +734,13 @@ module Make (InModule : In) : InvGen = struct
 
   (* Receives messages, updates transition system, asserts new
      invariants in lsd. *)
-  let recv_update_top_sys_lsd top_sys lsd =
+  let recv_update_top_sys_lsd in_sys aparm top_sys lsd =
 
     (* Receiving messages. *)
     Event.recv ()
 
     (* Updating transition system. *)
-    |> Event.update_trans_sys_sub top_sys
+    |> Event.update_trans_sys_sub in_sys aparm top_sys
 
     (* Handling new invariants and property statuses. *)
     |> ( fun (invariants_certs, properties) ->
@@ -748,16 +751,16 @@ module Make (InModule : In) : InvGen = struct
               ( fun (_, (scope, inv, _)) ->
                 LSD.add_invariants
                   lsd
-                  (TransSys.subsystem_of_scope top_sys scope)
+                  (TransSys.find_subsystem_of_scope top_sys scope)
                   [ inv ] ) ;
 
          (* Adding valid properties to lsd. *)
          properties
          |> List.iter
               ( function
-                | (_, (name, TransSys.PropInvariant _)) ->
+                | (_, (name, Property.PropInvariant _)) ->
                    (* Getting term from property name. *)
-                   [ TransSys.named_term_of_prop_name top_sys name ]
+                   [ TransSys.get_prop_term top_sys name ]
                    (* Adding it to lsd. *)
                    |> LSD.add_invariants lsd top_sys
                 | _ -> () ) ; )
@@ -766,7 +769,7 @@ module Make (InModule : In) : InvGen = struct
      extracts invariants from the step instance. Returns the new
      binding, i.e. the updated graph and the new invariants. *)
   let rewrite_graph_find_invariants
-        top_sys lsd (sys, graph, invariants, ignore) =
+        in_sys aparm top_sys lsd (sys, graph, invariants, ignore) =
 
     (* BASE INSTANCE: rewriting the graph until base is unsat. *)
     let graph', unsat_on_first_check =
@@ -774,7 +777,7 @@ module Make (InModule : In) : InvGen = struct
     in
 
     (* Receiving things. *)
-    recv_update_top_sys_lsd top_sys lsd ;
+    recv_update_top_sys_lsd in_sys aparm top_sys lsd ;
 
     (* STEP INSTANCE: checking which properties are k inductive,
        asserting them in lsd, and broadcast. *)
@@ -789,7 +792,7 @@ module Make (InModule : In) : InvGen = struct
   (* Iterates on a [sys], [graph], [invariants] until the base
      instance is unsat on the first check or the upper bound given by
      the flags has been reached. *)
-  let iterate_on_binding top_sys lsd (binding, cand_count) =
+  let iterate_on_binding in_sys aparm top_sys lsd (binding, cand_count) =
 
     let rec loop count ((sys,_,invs,_) as binding) =
       (*
@@ -807,7 +810,7 @@ module Make (InModule : In) : InvGen = struct
       *)
       (* Getting new binding and base flag. *)
       let binding', base_unsat_on_first_check =
-        rewrite_graph_find_invariants top_sys lsd binding
+        rewrite_graph_find_invariants in_sys aparm top_sys lsd binding
       in
 
       if
@@ -824,13 +827,13 @@ module Make (InModule : In) : InvGen = struct
     loop 1 binding
 
   (* Generates invariants by splitting an implication graph. *)
-  let generate_invariants top_sys lsd =
+  let generate_invariants in_sys aparm top_sys lsd =
 
     (* Generating the candidate terms and building the graphs. Result is a list
        of triplets: system, graph, invariants. *)
     let sys_graph_map, candidate_term_count =
       top_sys
-      |> CandTerm.generate_graphs two_state
+      |> CandTerm.generate_graphs two_state top_sys
       |> ( fun (list, count) ->
             list
             |> List.map
@@ -860,7 +863,7 @@ module Make (InModule : In) : InvGen = struct
       (* Going through the map to generate invariants and generate the
          new map for the next iteration. *)
       let map' =
-        List.map (iterate_on_binding top_sys lsd) map
+        List.map (iterate_on_binding in_sys aparm top_sys lsd) map
       in
 
       (* Recursing with updated invariants and sys/graph mapping. *)
@@ -891,7 +894,7 @@ module Make (InModule : In) : InvGen = struct
     no_more_lsd ()
 
   (* Module entry point. *)
-  let main trans_sys =
+  let main in_sys aparm trans_sys =
 
     (* Creating lsd instance. *)
     let lsd =
@@ -905,7 +908,7 @@ module Make (InModule : In) : InvGen = struct
     lsd_ref := Some lsd ;
 
     (* Generating invariants. *)
-    generate_invariants trans_sys lsd
+    generate_invariants in_sys aparm trans_sys lsd
 
 
   (* Launches invariant generation with a max [k] and a set of

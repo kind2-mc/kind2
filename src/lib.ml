@@ -23,6 +23,11 @@
 (* Identity function. *)
 let identity anything = anything
 
+(* Prints the first argument and returns the second. *)
+let print_pass s whatever =
+  Format.printf "%s@." s ;
+  whatever
+
 (* Returns true when given unit. *)
 let true_of_unit () = true
 
@@ -32,6 +37,33 @@ let false_of_unit () = false
 (* Returns None when given unit. *)
 let none_of_unit () = None
 
+(* Returns true *)
+let true_of_any _ = true
+
+(* Returns false s*)
+let false_of_any _ = false
+
+(* ********************************************************************** *)
+(* Event tags used when outputting info.                                  *)
+(* ********************************************************************** *)
+
+(* Formats a string to construct a tag. *)
+let tagify = Format.sprintf "<%s>"
+
+(* Timeout tag. *)
+let timeout_tag = tagify "Timeout"
+(* Success tag. *)
+let success_tag = tagify "Success"
+(* Failure tag. *)
+let failure_tag = tagify "Failure"
+(* Error tag. *)
+let error_tag = tagify "Error"
+(* Warning tag. *)
+let warning_tag = tagify "Warning"
+(* Interruption tag. *)
+let interruption_tag = tagify "Interruption"
+(* Done tag. *)
+let done_tag = tagify "Done"
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
@@ -43,6 +75,13 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 (* ********************************************************************** *)
 (* List functions                                                         *)
 (* ********************************************************************** *)
+
+(* Add element to the head of the list if the option value is not [None] *)
+let ( @:: ) = 
+    function
+    | None -> (function l -> l)
+    | Some e -> (function l -> e :: l)
+
 
 (* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 let list_init f n =
@@ -446,6 +485,32 @@ let rec pp_print_list pp sep ppf = function
     pp_print_list pp sep ppf tl
 
 
+  
+(* Pretty-print a list with a counter of its elements *)
+let rec pp_print_listi' pp sep ppf = function 
+
+  (* Output nothing for the empty list *) 
+  | (_, []) -> ()
+
+  (* Output a single element in the list  *) 
+  | (i, e :: []) -> pp ppf i e
+
+  (* Output a single element and a space *) 
+  | (i, e :: tl) -> 
+
+    (* Output one element *)
+    pp ppf i e;
+
+    (* Output separator *)
+    Format.fprintf ppf sep; 
+
+    (* Output the rest of the list *)
+    pp_print_listi' pp sep ppf (succ i, tl)
+
+
+(* Pretty-print a list with a counter of its elements *)
+let pp_print_listi pp sep ppf l = pp_print_listi' pp sep ppf (0, l)
+
 (* Pretty-print a list wrapped in parentheses *)
 let pp_print_paren_list ppf list = 
       
@@ -464,6 +529,11 @@ let pp_print_option pp ppf = function
   | None -> Format.fprintf ppf "None"
   | Some s -> Format.fprintf ppf "@[<hv>Some@ %a@]" pp s
 
+
+(* Print if list is not empty *)
+let pp_print_if_not_empty s ppf = function 
+  | [] -> ()
+  | _ -> Format.fprintf ppf s
 
 (* Pretty-print into a string *)
 let string_of_t pp t = 
@@ -880,6 +950,11 @@ let log_level_of_int = function
   | 5 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
 
+let tag_of_level = function
+| L_fatal | L_error -> error_tag
+| L_warn -> warning_tag
+| _ -> ""
+
 (* Compare two levels *)
 let compare_levels l1 l2 = 
   Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)
@@ -947,10 +1022,11 @@ type kind_module =
   | `IND2
   | `INVGEN
   | `INVGENOS
-  | `INVMAN
+  | `C2I
   | `Interpreter
+  | `Supervisor
   | `Parser
-  | `Certif]
+  | `Certif  ]
 
 
 (* Pretty-print the type of the process *)
@@ -961,13 +1037,14 @@ let pp_print_kind_module ppf = function
   | `IND2 -> Format.fprintf ppf "2-induction"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
-  | `INVMAN -> Format.fprintf ppf "invariant manager"
+  | `C2I -> Format.fprintf ppf "c2i"
   | `Interpreter -> Format.fprintf ppf "interpreter"
+  | `Supervisor -> Format.fprintf ppf "invariant manager"
   | `Parser -> Format.fprintf ppf "parser"
   | `Certif -> Format.fprintf ppf "certificate"
 
 (* String representation of a process type *)
-let string_of_kind_module = string_of_t pp_print_kind_module 
+let string_of_kind_module = string_of_t pp_print_kind_module
 
 
 (* Return a short representation of kind module *)
@@ -976,10 +1053,11 @@ let suffix_of_kind_module = function
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `IND2 -> "ind2"
- | `INVGEN -> "inv"
- | `INVGENOS -> "invos"
- | `INVMAN -> "man"
+ | `INVGEN -> "invgents"
+ | `INVGENOS -> "invgenos"
+ | `C2I -> "c2i"
  | `Interpreter -> "interp"
+ | `Supervisor -> "super"
  | `Parser -> "parse"
  | `Certif -> "certif"
                 
@@ -992,8 +1070,21 @@ let kind_module_of_string = function
   | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
-  | "INVMAN" -> `INVMAN
+  | "C2I" -> `C2I
   | _ -> raise (Invalid_argument "kind_module_of_string")
+
+
+let int_of_kind_module = function
+  | `Parser -> -3
+  | `Interpreter -> -2
+  | `Supervisor -> -1
+  | `BMC -> 1
+  | `IND -> 2
+  | `IND2 -> 3
+  | `IC3 -> 4
+  | `INVGEN -> 5
+  | `INVGENOS -> 6
+  | `C2I -> 7
 
 
 (* Timeouts *)
@@ -1184,9 +1275,9 @@ let dummy_pos_in_file fname =
 
 
 (* Pretty-print a position *)
-let pp_print_position 
-    ppf 
-    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
+let pp_print_position ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
 
   if pos = dummy_pos then 
 
@@ -1203,6 +1294,30 @@ let pp_print_position
       "@[<hv>%tline %d@ col. %d@]"
       (function ppf -> 
         if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+      pos_lnum
+      pos_cnum
+
+
+(* Pretty-print a position *)
+let pp_print_pos ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
+
+  if pos = dummy_pos then 
+
+    Format.fprintf ppf "[unknown]"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    Format.fprintf ppf "%s" pos_fname
+
+  else
+
+    Format.fprintf 
+      ppf
+      "[%tl%dc%d]"
+      (function ppf -> 
+        if pos_fname = "" then () else Format.fprintf ppf "%s|" pos_fname)
       pos_lnum
       pos_cnum
 

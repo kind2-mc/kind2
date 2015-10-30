@@ -21,6 +21,9 @@ open Lib
 module SVT = StateVar.StateVarHashtbl
 module VT = Var.VarHashtbl
 
+(* Offset of the variables at each step of a path. *)
+let path_offset = Numeral.zero
+
 (* Hashconsed term or hashconsed lambda expression *)
 type term_or_lambda = Term of Term.t | Lambda of Term.lambda
 
@@ -152,7 +155,7 @@ let path_from_model state_vars model k =
                  model
                  (Var.mk_state_var_instance state_var i)
 
-             with Not_found -> 
+             with Not_found ->
 
                (* Use default value if not defined in model *)
                Term
@@ -197,6 +200,21 @@ let path_from_model state_vars model k =
 
   (* Return path *)
   path
+
+
+(* Return the length of the paths *)
+let path_length path = 
+
+  (* There is no Hashtbl.S.choose, and no way to get a single key as
+     of now, so we need to iterate over all entries anyways. Then we
+     can just as well check if all lists are of equal length. *)
+  SVT.fold
+    (fun _ l a -> 
+       let r = List.length l in
+       assert (a < 0 || r = a);
+       a)
+    path
+    (- 1)
 
 
 (* Extract value at instant [k] from the path and return a model *)
@@ -277,12 +295,12 @@ let models_of_path path =
            (fun i t_or_l m -> 
 
               (* Add assignment to variable to model *)
-              VT.add m (Var.mk_state_var_instance sv Numeral.zero) t_or_l;
+              VT.add m (Var.mk_state_var_instance sv path_offset) t_or_l;
 
-              (* Increment counter for zero *)
+              (* Increment counter for zero: ACTUALLY UNUSED *)
               Numeral.(succ i))
 
-           (* Start first model at offset zero *)
+           (* Start first model at offset zero: ACTUALLY UNUSED *)
            Numeral.zero
 
            (* Assignments to state variable on path *)
@@ -344,7 +362,10 @@ let map f_var f_val model =
 
 
 (* Add [k] to offset of all variables in model *)
-let bump_var k model = map (Var.bump_offset_of_state_var_instance k) identity model
+let bump_var k model = 
+  map
+    (fun v -> Var.bump_offset_of_state_var_instance v k) 
+    identity model
 
 
 (* Add [k] to offset of all variables in model *)
@@ -391,7 +412,7 @@ let merge model1 model2 =
     model. *)
 let bump_and_merge k model1 model2 = 
   apply_and_merge 
-    (fun v t_or_l -> Var.bump_offset_of_state_var_instance k v, t_or_l)
+    (fun v t_or_l -> Var.bump_offset_of_state_var_instance v k, t_or_l)
     model1 
     model2
   

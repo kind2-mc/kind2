@@ -39,7 +39,7 @@ module type M = sig
   val add : key -> 'a -> 'a t -> 'a t
   (* val singleton: key -> 'a -> 'a t *)
   val remove : key -> 'a t -> 'a t
-  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
+  val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
   val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
   val iter : (key -> 'a -> unit) -> 'a t -> unit
@@ -52,7 +52,7 @@ module type M = sig
   val bindings : 'a t -> (key * 'a) list
   val min_binding: 'a t -> (key * 'a)
   val max_binding: 'a t -> (key * 'a)
-  (* val choose: 'a t -> (key * 'a) *)
+  val choose: 'a t -> (key * 'a)
   val split: key -> 'a t -> 'a t * 'a option * 'a t
   val find : key -> 'a t -> 'a 
   val map : ('a -> 'b) -> 'a t -> 'b t
@@ -64,6 +64,7 @@ end
 module type S = sig
   include M 
   val find_prefix : key -> 'a t -> 'a t
+  val mem_prefix : key -> 'a t -> bool
   val keys : 'a t -> key list
   val values : 'a t -> 'a list
   val fold2 : (key-> 'a -> 'b -> 'c -> 'c) -> 'a t -> 'b t -> 'c -> 'c
@@ -73,6 +74,8 @@ module type S = sig
   val exists2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
   val subsume : 'a t -> key -> (key * 'a) list * 'a t
   val is_subsumed : 'a t -> key -> bool
+  val pp_print_trie : (Format.formatter -> key * 'a -> unit) ->
+    ('b, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
 end
 
 module Make (M : M) = struct
@@ -140,11 +143,29 @@ module Make (M : M) = struct
     | _, Empty
     | _ :: _, Leaf _ -> raise Not_found
 
-    (* Return trie if we have a leaf for an empty list of keys *)
+    (* Return trie if we have an empty list of keys *)
     | [], t -> t
 
     (* Recurse to the sub-trie of the head element the keys *)
     | h :: tl, Node m -> find_prefix tl (M.find h m)
+
+
+  (* Return [true] if there is a subtrie for the list of keys *)
+  let rec mem_prefix l t = match (l,t) with
+
+    (* Fail if we have a non-empty list of keys at a leaf *)
+    | _, Empty
+    | _ :: _, Leaf _ -> false
+
+    (* Return success if we have an empty list of keys *)
+    | [], t -> true
+
+    (* Recurse to the sub-trie of the head element the keys *)
+    | h :: tl, Node m -> 
+
+      try
+        mem_prefix tl (M.find h m)
+      with Not_found -> false
 
 
   (* Insert value for a key sequence into the trie. Overwrite if the
@@ -338,11 +359,11 @@ module Make (M : M) = struct
     | Empty, Empty -> true
 
   
-  let keys t = fold (fun k _ a -> k :: a) t []
+  let keys t = fold (fun k _ a -> k :: a) t [] |> List.rev
 
-  let values t = fold (fun _ v a -> v :: a) t []
+  let values t = fold (fun _ v a -> v :: a) t [] |> List.rev
 
-  let bindings t = fold (fun k v a -> (k, v) :: a) t []
+  let bindings t = fold (fun k v a -> (k, v) :: a) t [] |> List.rev
 
   let cardinal t = fold (fun k v a -> succ a) t 0
 
@@ -420,11 +441,56 @@ module Make (M : M) = struct
     min_binding' [] t
 
 
+  let choose t = 
+
+    let rec choose' k = function
+      | Empty -> raise Not_found
+      | Leaf v -> (List.rev k, v)
+      | Node m -> let k', v = M.choose m in choose' (k' :: k) v
+    in
+
+    choose' [] t
+
+
   let split _ = assert false
 
-  (* TODO: Rewrite fold2, map2 and iter2 with Map.merge to avoid using
-     Map.bindings *)
 
+  (* Iterate over two tries *)
+  let iter2 f t1 t2 =
+
+    (* Keys are pushed to revp in reverse order *)
+    let rec iter2' revp t1 t2 = match t1, t2 with
+
+      (* Recurse to sub-tries of inner node *)
+      | Node m1, Node m2 -> 
+
+        let _ = 
+          M.merge 
+            (fun k t1 t2 -> 
+               match t1, t2 with 
+                 | None, None -> None
+                 | Some t1', Some t2' -> iter2' (k :: revp) t1' t2'; None
+                 | _ -> raise (Invalid_argument "Trie.iter2"))
+            m1
+            m2
+        in
+
+        ()
+
+      (* Return value after function application *)
+      | Leaf v1, Leaf v2 -> f (List.rev revp) v1 v2
+
+      (* Return accumulator on empty trie *)
+      | Empty, Empty -> ()
+
+      | _ -> raise (Invalid_argument "Trie.iter2")
+
+    in
+
+    (* Evaluate recursive function with initially empty path *)
+    iter2' [] t1 t2 
+
+      
   (* Fold over values at leaves *)
   let fold2 f t1 t2 acc =
 
@@ -434,12 +500,28 @@ module Make (M : M) = struct
       (* Recurse to sub-tries of inner node *)
       | Node m1, Node m2 -> 
 
+        (* Merge into an empty trie, fail if sets of keys are not
+           equal
+
+           This is necessary to use the comparison function of the map
+           instead of the polymorphic equality. *)
+        let _ = 
+          M.merge 
+            (fun k t1 t2 -> 
+               match t1, t2 with 
+                 | None, None -> None
+                 | Some t1', Some t2' -> None
+                 | _ -> raise (Invalid_argument "Trie.fold2"))
+            m1
+            m2
+        in
+
+        (* Now fold over bindings, knowing that the keys are equal by
+           the equality predicate of the mep, althouhg not necessarily by
+           polymorphic equality *)
         List.fold_left2 
-          (fun acc (k1, t1) (k2, t2) -> 
-             if k1 = k2 then 
-               fold2' (k1 :: revp) t1 t2 acc
-             else
-               raise (Invalid_argument "Trie.fold2"))
+          (fun acc (k, t1) (_, t2) -> 
+             fold2' (k :: revp) t1 t2 acc)
           acc
           (M.bindings m1)
           (M.bindings m2)
@@ -459,24 +541,25 @@ module Make (M : M) = struct
 
 
   (* Map over two tries *)
-  let map2 f t1 t2 =
+  let map2 f t1 t2 = 
 
     (* Keys are pushed to revp in reverse order *)
     let rec map2' revp t1 t2 = match t1, t2 with
-
+    
       (* Recurse to sub-tries of inner node *)
       | Node m1, Node m2 -> 
 
         Node
-          (List.fold_left2 
-             (fun acc (k1, t1) (k2, t2) -> 
-                if k1 = k2 then 
-                  M.add k1 (map2' (k1 :: revp) t1 t2) acc
-                else
-                  raise (Invalid_argument "Trie.map2"))
-             M.empty
-             (M.bindings m1)
-             (M.bindings m2))
+
+          (* Need merge to use the equality function given for the map *)
+          (M.merge
+             (fun k t1 t2 -> 
+                match t1, t2 with 
+                  | None, None -> None
+                  | Some t1', Some t2' -> Some (map2' (k :: revp) t1' t2') 
+                  | _ -> raise (Invalid_argument "Trie.map2"))
+             m1
+             m2)
 
       (* Return value after function application *)
       | Leaf v1, Leaf v2 -> Leaf (f (List.rev revp) v1 v2)
@@ -492,38 +575,6 @@ module Make (M : M) = struct
     map2' [] t1 t2 
 
 
-  (* Iterate over two tries *)
-  let iter2 f t1 t2 =
-
-    (* Keys are pushed to revp in reverse order *)
-    let rec iter2' revp t1 t2 = match t1, t2 with
-
-      (* Recurse to sub-tries of inner node *)
-      | Node m1, Node m2 -> 
-
-        List.iter2 
-          (fun (k1, t1) (k2, t2) -> 
-             if k1 = k2 then 
-               (iter2' (k1 :: revp) t1 t2) 
-             else
-               raise (Invalid_argument "Trie.iter2"))
-          (M.bindings m1)
-          (M.bindings m2)
-
-      (* Return value after function application *)
-      | Leaf v1, Leaf v2 -> f (List.rev revp) v1 v2
-
-      (* Return accumulator on empty trie *)
-      | Empty, Empty -> ()
-
-      | _ -> raise (Invalid_argument "Trie.iter2")
-
-    in
-
-    (* Evaluate recursive function with initially empty path *)
-    iter2' [] t1 t2 
-
-      
   let for_all2 p t1 t2 = 
 
     let rec for_all2' revp p t1 t2 = 
@@ -579,6 +630,7 @@ module Make (M : M) = struct
 
     exists2' [] p t1 t2 
 
+
   (* Subset subsumption: remove all entries that have the given key as
      a subset. Keys must be sorted *)
   let subsume t k = 
@@ -588,19 +640,19 @@ module Make (M : M) = struct
       (* The empty key subsumes all subtries *)
       | [] ->
 
-	(* Add all removed bindings to accumulator *)
-	let accum' =
-	  fold
-	    (fun k v a -> ((List.rev_append revp k, v) :: a))
-	    t
-	    accum
-	in
-	
-	(accum', Empty)
+        (* Add all removed bindings to accumulator *)
+        let accum' =
+          fold
+            (fun k v a -> ((List.rev_append revp k, v) :: a))
+            t
+            accum
+        in
+        
+        (accum', Empty)
 
       | h :: tl as s ->
 
-	(match t with
+        (match t with
 
           (* Nothing to subsume *)
           | Empty -> (accum, Empty)
@@ -623,8 +675,8 @@ module Make (M : M) = struct
             let accum', mr' = match mc with
               | None -> (accum, mr)
               | Some t ->
-		let a', t' = subsume' accum (h :: revp) t tl in
-		(a', M.add h t' mr)
+                let a', t' = subsume' accum (h :: revp) t tl in
+                (a', M.add h t' mr)
             in
 
             (* Subsume in left subtries and add to center and right subtries *)
@@ -632,10 +684,10 @@ module Make (M : M) = struct
               
               M.fold
 
-		(fun k t (a', t') ->
+                (fun k t (a', t') ->
 
                   (* Subsume in subtrie with key *)
-		  let a'', t'' = subsume' a' (k :: revp) t s in
+                  let a'', t'' = subsume' a' (k :: revp) t s in
 
                   match t'' with
 
@@ -644,12 +696,12 @@ module Make (M : M) = struct
                       
                     | _ -> (a'', M.add k t'' t'))
 
-		(* Subsume in left subtries *)
-		ml
+                (* Subsume in left subtries *)
+                ml
 
-		(* Add to already filtered tries *)
-		(accum', mr')
-		
+                (* Add to already filtered tries *)
+                (accum', mr')
+                
             in
 
             (* Return empty if all subsumed *)
@@ -659,11 +711,11 @@ module Make (M : M) = struct
 
     subsume' [] [] t k
 
-	
+        
   (* Subset subsumption: return true if there is a key in the trie that is a
      subset of the given key. Keys must be sorted *)
   let is_subsumed t k = 
-	
+        
     let rec is_subsumed' = function
 
       (* Could not subsume key in any subtrie *)
@@ -671,40 +723,55 @@ module Make (M : M) = struct
 
       (* No keys in trie, nothing subsumed *)
       | (Empty, _) :: tl -> is_subsumed' tl
-	
+        
       (* All keys are emtpty, subsume any key *)
       | (Leaf _, _) :: _ -> true
 
       (* Empty key is not subsumed in non-empty trie *)
       | (Node _, []) :: tl -> is_subsumed' tl
-	
+        
       (* Non-empty key is *)
       | (Node m, (h :: ktl)) :: tl ->
 
-	(* *)
-	let _, mc, mr = M.split h m in
+        (* *)
+        let _, mc, mr = M.split h m in
 
-	let tl' =
-	  tl
+        let tl' =
+          tl
       |> (fun l ->
-	if M.is_empty mr then l else (Node mr, ktl) :: l)
+        if M.is_empty mr then l else (Node mr, ktl) :: l)
       |> (fun l ->
-	match mc with
-	  | None -> l
-	  | Some t -> (t, ktl) :: l)
-	in
+        match mc with
+          | None -> l
+          | Some t -> (t, ktl) :: l)
+        in
 
-	is_subsumed' tl'
+        is_subsumed' tl'
 
     in
 
     is_subsumed' [(t, k)]
-	  
+          
+
+  let merge _ _ _ = assert false
 
       
-	
-end
+  let pp_print_trie pp sep ppf t = 
 
+    let rec pp_print_list pp sep ppf = function 
+      | [] -> ()
+      | e :: [] -> pp ppf e
+      | e :: tl -> 
+        pp_print_list pp sep ppf [e]; 
+        Format.fprintf ppf sep; 
+        pp_print_list pp sep ppf tl
+    in
+    
+    bindings t |> 
+    pp_print_list pp sep ppf
+
+        
+end
 
 
 
@@ -875,6 +942,7 @@ T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) T.empty T.empty [];;
 T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) T.empty a1 [];;
 T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) a1 a1 [];;
 T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) a1b2cd3ce4 a2b3cd4ce5 [];;
+
 
 T.map2 (fun k v1 v2 -> v1 + v2) T.empty T.empty;;
 T.map2 (fun k v1 v2 -> v1 + v2) T.empty a1;;

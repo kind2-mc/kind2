@@ -110,7 +110,7 @@
 module type InvGen = sig
 
   (** Invariant generation entry point. *)
-  val main : TransSys.t -> unit
+  val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit

@@ -1,0 +1,11 @@
+node X () returns (OK: bool);
+let
+  --%MAIN ;
+  OK = Y();
+  --%PROPERTY OK;
+tel
+
+node Y() returns (OK: bool);
+let
+  OK = true;
+tel;

@@ -18,18 +18,30 @@
 
 open Lib
 
-(** Returns an actlit built from a string. Beware of name
-   collisions. *)
-val actlit_of_string: string -> UfSymbol.t
+(* Removed because too unsafe.
 
-(** Creates a positive actlit as a bool UF constant. *)
-val generate_actlit: Term.t -> UfSymbol.t
+   (** Returns an actlit built from a string. Beware of name
+      collisions. *)
+   val actlit_of_string: string -> UfSymbol.t
 
-(** Creates a negative actlit as a bool UF constant. *)
-val generate_negative_actlit: Term.t -> UfSymbol.t
+   (** Creates a positive actlit as a bool UF constant. *)
+   val generate_actlit: Term.t -> UfSymbol.t
+
+   (** Creates a negative actlit as a bool UF constant. *)
+   val generate_negative_actlit: Term.t -> UfSymbol.t
+*)
 
 (** Creates a fresh actlit as a bool UF constant. *)
 val fresh_actlit: unit -> UfSymbol.t
+
+(** Returns the number of fresh actlits created this far. *)
+val fresh_actlit_count: unit -> int
+
+(** Resets the internal counter for fresh actlits.
+
+    /!\ Dangerous, use only if all solvers do use any of the old actlits or
+        will not use any of the new ones. *)
+val reset_fresh_actlit_count : unit -> unit
 
 (** Returns the term corresponding to the input actlit. *)
 val term_of_actlit: UfSymbol.t -> Term.t

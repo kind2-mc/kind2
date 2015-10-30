@@ -48,10 +48,10 @@ ocamlczmq:
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/@PACKAGE_NAME@-terms.top $(LOCAL_BINDIR)/$@
 
-lustre-checker: 
+lustre2kind: 
 	make -C src $@
 	mkdir -p $(LOCAL_BINDIR)
-	cp -f src/_build/lustreChecker.native $(LOCAL_BINDIR)/$@
+	cp -f src/_build/lustre2kind.native $(LOCAL_BINDIR)/$@
 
 bin/cvc4_lfsc_check:
 	timeout 1 sleep 2; sed "s/@TOCODE@/"$$?"/g" scripts/cvc4_lfsc_check > $@
@@ -66,6 +66,8 @@ lfsc-extractor: bin/cvc4_lfsc_check
 	make -C src $@
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/@PACKAGE_NAME@.docdir/* $(LOCAL_DOCDIR)
+	mkdir -p $(LOCAL_DOCDIR)/include
+	cp -Rf src/doc/include/* $(LOCAL_DOCDIR)/include
 
 .PHONY: install clean-@PACKAGE_NAME@ clean-ocamlczmq clean test doc
 

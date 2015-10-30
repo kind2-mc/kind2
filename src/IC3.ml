@@ -111,6 +111,8 @@ exception Restart
    Assert new invariants received and terminate on message *)
 let handle_events
     solver
+    input_sys 
+    aparam 
     trans_sys
     props =
 
@@ -121,7 +123,7 @@ let handle_events
 
   (* Update transition system from messages *)
   let invariants_recvd, prop_status = 
-    Event.update_trans_sys trans_sys messages 
+    Event.update_trans_sys input_sys aparam trans_sys messages 
   in
 
   (* Add invariant to the transition system and assert in solver
@@ -181,7 +183,7 @@ let handle_events
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
     (fun (p, _) -> match TransSys.get_prop_status trans_sys p with 
-       | TransSys.PropFalse _ -> raise (Disproved p)
+       | Property.PropFalse _ -> raise (Disproved p)
        | _ -> ())
     props
 
@@ -838,7 +840,7 @@ let abstr_simulate trace trans_sys raise_cex =
             `Z3_SMTLIB
         in   
 
-        TransSys.init_define_fun_declare_vars_of_bounds
+        TransSys.define_and_declare_of_bounds
           trans_sys
           (SMTSolver.define_fun solver)
           (SMTSolver.declare_fun solver)
@@ -946,7 +948,7 @@ let abstr_simulate trace trans_sys raise_cex =
    a list of cubes that are to be shown unreachable in that frame.
 
 *)
-let rec block solver trans_sys prop_set term_tbl predicates = 
+let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates = 
 
   function 
 
@@ -962,7 +964,12 @@ let rec block solver trans_sys prop_set term_tbl predicates =
         | r_k :: frames_tl as frames -> 
 
           (* Receive and assert new invariants *)
-          handle_events solver trans_sys (C.props_of_prop_set prop_set);
+          handle_events
+            solver
+            input_sys
+            aparam
+            trans_sys
+            (C.props_of_prop_set prop_set);
 
           SMTSolver.trace_comment 
             solver
@@ -1075,6 +1082,8 @@ let rec block solver trans_sys prop_set term_tbl predicates =
                    relatively inductive *)
                 block 
                   solver
+                  input_sys 
+                  aparam
                   trans_sys 
                   prop_set
                   ()
@@ -1117,6 +1126,8 @@ let rec block solver trans_sys prop_set term_tbl predicates =
         (* Return to counterexamples to block in R_i+1 *)
         block 
           solver
+          input_sys 
+          aparam 
           trans_sys
           prop_set
           term_tbl
@@ -1192,7 +1203,12 @@ let rec block solver trans_sys prop_set term_tbl predicates =
         in
 
         (* Receive and assert new invariants *)
-        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+        handle_events 
+          solver
+          input_sys
+          aparam
+          trans_sys
+          (C.props_of_prop_set prop_set);
 
         SMTSolver.trace_comment 
           solver
@@ -1253,6 +1269,8 @@ let rec block solver trans_sys prop_set term_tbl predicates =
                    let rec wait () = 
                      handle_events 
                        solver
+                       input_sys
+                       aparam 
                        trans_sys
                        (C.props_of_prop_set prop_set);
                      minisleep 0.01;
@@ -1457,6 +1475,8 @@ let rec block solver trans_sys prop_set term_tbl predicates =
                 this frame *)
              block 
                solver
+               input_sys 
+               aparam
                trans_sys 
                prop_set
                term_tbl
@@ -1551,6 +1571,8 @@ let rec block solver trans_sys prop_set term_tbl predicates =
 
                      block
                        solver
+                       input_sys 
+                       aparam
                        trans_sys
                        prop_set
                        term_tbl
@@ -1616,6 +1638,8 @@ let rec block solver trans_sys prop_set term_tbl predicates =
 
                  block 
                    solver
+                   input_sys 
+                   aparam 
                    trans_sys 
                    prop_set
                    term_tbl
@@ -1837,7 +1861,7 @@ let partition_fwd_prop
 
     
 (* Forward propagate clauses in all frames *)
-let fwd_propagate solver trans_sys prop_set frames predicates = 
+let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates = 
 
   let subsume_and_add a c =
 
@@ -1956,7 +1980,7 @@ let fwd_propagate solver trans_sys prop_set frames predicates =
 
   in
 
-  let rec fwd_propagate' solver trans_sys prop frames =
+  let rec fwd_propagate' solver input_sys aparam trans_sys prop frames =
 
     function 
 
@@ -1964,7 +1988,12 @@ let fwd_propagate solver trans_sys prop_set frames predicates =
       | [] -> 
 
         (* Receive and assert new invariants *)
-        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+        handle_events 
+          solver
+          input_sys
+          aparam
+          trans_sys
+          (C.props_of_prop_set prop_set);
 
         (* Check inductiveness of blocking clauses? *)
         if Flags.ic3_check_inductive () && prop <> [] then 
@@ -2017,7 +2046,8 @@ let fwd_propagate solver trans_sys prop_set frames predicates =
                 List.iter (fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
-                    Event.invariant (TransSys.get_scope trans_sys) i cert)
+                    Event.invariant
+                      (TransSys.scope_of_trans_sys trans_sys) i cert)
                   inductive_terms;
 
                 (* Increment statistics *)
@@ -2085,7 +2115,12 @@ let fwd_propagate solver trans_sys prop_set frames predicates =
       | frame :: frames_tl -> 
 
         (* Receive and assert new invariants *)
-        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+        handle_events 
+          solver
+          input_sys
+          aparam
+          trans_sys
+          (C.props_of_prop_set prop_set);
 
         SMTSolver.trace_comment
           solver
@@ -2273,6 +2308,8 @@ let fwd_propagate solver trans_sys prop_set frames predicates =
             (* Propagate clauses in next frame *)
             fwd_propagate' 
               solver
+              input_sys 
+              aparam 
               trans_sys
               fwd'
               ((List.fold_left subsume_and_add F.empty keep)
@@ -2286,6 +2323,8 @@ let fwd_propagate solver trans_sys prop_set frames predicates =
   (* Forward propagate all clauses and add a new frame *)
   fwd_propagate'
     solver
+    input_sys 
+    aparam
     trans_sys
     []
     []
@@ -2295,7 +2334,7 @@ let fwd_propagate solver trans_sys prop_set frames predicates =
 (*
    TODO: After a restart we want to propagate all used blocking
    clauses into R_1. *)
-let rec ic3 solver trans_sys prop_set frames predicates =
+let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
 
   (* Must have checked for 0 and 1 step counterexamples, either by
      delegating to BMC or before this point *)
@@ -2304,8 +2343,8 @@ let rec ic3 solver trans_sys prop_set frames predicates =
     (* Every property is either invariant or at least 1-true *)
     List.for_all 
       (fun (p, _) -> match TransSys.get_prop_status trans_sys p with
-         | TransSys.PropInvariant _ -> true
-         | TransSys.PropKTrue k when k >= 1 -> true
+         | Property.PropInvariant _ -> true
+         | Property.PropKTrue k when k >= 1 -> true
          | _ -> false)
       (C.props_of_prop_set prop_set)
 
@@ -2329,6 +2368,8 @@ let rec ic3 solver trans_sys prop_set frames predicates =
       (* Forward propagate clauses in all frames *)
       fwd_propagate
         solver
+        input_sys
+        aparam 
         trans_sys
         prop_set
         frames
@@ -2355,7 +2396,12 @@ let rec ic3 solver trans_sys prop_set frames predicates =
           Event.log L_info "Waiting for BMC to pass k=1";
 
           (* Receive messages and update transition system *)
-          handle_events solver trans_sys (C.props_of_prop_set prop_set);
+          handle_events 
+            solver
+            input_sys
+            aparam 
+            trans_sys
+            (C.props_of_prop_set prop_set);
 
           (* No 0- or 1-step countexample? *)
           if bmc_checks_passed prop_set then
@@ -2392,6 +2438,8 @@ let rec ic3 solver trans_sys prop_set frames predicates =
   let frames'' , predicates = 
     block
       solver
+      input_sys
+      aparam 
       trans_sys
       prop_set
       ()
@@ -2410,7 +2458,7 @@ let rec ic3 solver trans_sys prop_set frames predicates =
   if output_on_level L_debug then print_stats ();
 
   (* No reachable state violates the property, continue with next k *)
-  ic3 solver trans_sys prop_set frames'' predicates
+  ic3 solver input_sys aparam trans_sys prop_set frames'' predicates
 
 (* Get a values for the state variables at offset [i], add values to
    path, and return an equational constraint at offset zero for values
@@ -2444,7 +2492,7 @@ let add_to_path model path state_vars i =
          ((sv, Model.Term t) :: m), 
          Term.mk_eq 
            [Term.mk_var 
-              (Var.set_offset_of_state_var_instance Numeral.zero v);
+              (Var.set_offset_of_state_var_instance v Numeral.zero);
             t]
          :: eq)
 
@@ -2623,7 +2671,7 @@ let add_to_r1 clauses = []
 
 
 (* Helper function for restarts *)
-let rec restart_loop trans_sys solver props predicates = 
+let rec restart_loop solver input_sys aparam trans_sys props predicates = 
 
   (* Exit if no properties left to prove *)
   if props = [] then () else
@@ -2644,6 +2692,8 @@ let rec restart_loop trans_sys solver props predicates =
         (* Run IC3 procedure *)
         ic3
           solver 
+          input_sys
+          aparam 
           trans_sys 
           prop_set
           []
@@ -2663,7 +2713,12 @@ let rec restart_loop trans_sys solver props predicates =
             (* Send out valid properties *)
             List.iter
               (fun (p, _) -> 
-                 Event.prop_status (TransSys.PropInvariant cert) trans_sys p) 
+                 Event.prop_status
+                   (Property.PropInvariant cert)
+                   input_sys
+                   aparam
+                   trans_sys
+                   p) 
               props;
 
             (* No more properties remaining *)
@@ -2699,16 +2754,24 @@ let rec restart_loop trans_sys solver props predicates =
                    if 
 
                      (* Property is false along path? *)
-                     TransSys.exists_eval_on_path
-                       (TransSys.uf_defs trans_sys)
-                       ((=) (Eval.ValBool false))
-                       t
+                     Model.exists_on_path
+                       (fun m -> 
+                          match 
+                            Eval.eval_term
+                              (TransSys.uf_defs trans_sys)
+                              m
+                              t
+                          with 
+                            | Eval.ValBool false -> true
+                            | _ -> false)
                        (Model.path_of_list cex_path)
 
                    then
 
                      (Event.prop_status 
-                        (TransSys.PropFalse cex_path) 
+                        (Property.PropFalse cex_path) 
+                        input_sys
+                        aparam 
                         trans_sys 
                         p;
 
@@ -2821,13 +2884,13 @@ let rec restart_loop trans_sys solver props predicates =
         Stat.incr Stat.ic3_restarts);
 
     (* Restart with remaining properties *)
-    restart_loop trans_sys solver props' predicates
+    restart_loop solver input_sys aparam trans_sys props' predicates
     
    
 (* Check if the property is valid in the initial state and in the
    successor of the initial state, raise exception [Counterexample] if
    not *)
-let rec bmc_checks solver trans_sys props =
+let rec bmc_checks solver input_sys aparam trans_sys props =
 
   (* Activation literal for frame, is symbol has been declared *)
   let actlit_R0 = C.actlit_of_frame 0 in
@@ -2924,7 +2987,9 @@ let rec bmc_checks solver trans_sys props =
           List.iter
             (fun (s, _) ->
                Event.prop_status
-                 (TransSys.PropFalse (Model.path_to_list cex))
+                 (Property.PropFalse (Model.path_to_list cex))
+                 input_sys
+                 aparam 
                  trans_sys
                  s)
             falsifiable;
@@ -2943,8 +3008,10 @@ let rec bmc_checks solver trans_sys props =
           List.iter 
             (fun (s, _) -> 
                Event.prop_status
-                 (TransSys.PropKTrue
+                 (Property.PropKTrue
                     (if check_primed then 1 else 0))
+                 input_sys
+                 aparam 
                  trans_sys
                  s)
             props';
@@ -2981,15 +3048,14 @@ let rec bmc_checks solver trans_sys props =
      exceptions.
 
 *)
-let main trans_sys =
+let main input_sys aparam trans_sys =
 
   match Flags.smtsolver () with 
 
     (* Yices with SMTLIB input does not work *)
     | `Yices_SMTLIB -> 
 
-      Event.log L_error
-        "Cannot use this solver in IC3."
+      Event.log L_error "Cannot use this solver in IC3."
 
     (* Else is fine or will break without unsound results *)
     | _ -> 
@@ -3032,7 +3098,7 @@ let main trans_sys =
         "main: Declare state variables and define predicates";
 
       (* Declare uninterpreted function symbols *)
-      TransSys.init_define_fun_declare_vars_of_bounds
+      TransSys.define_and_declare_of_bounds
         trans_sys
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
@@ -3052,11 +3118,11 @@ let main trans_sys =
       in
 
       (* Assert invariants for current state if not empty *)
-      if not (invars_0 == Term.t_true) then 
+      if invars_0 <> [] then 
 
         (SMTSolver.trace_comment solver "main: Assert invariants";
-         SMTSolver.assert_term solver invars_0;
-         SMTSolver.assert_term solver invars_1);
+         List.iter (SMTSolver.assert_term solver) invars_0;
+         List.iter (SMTSolver.assert_term solver) invars_1);
 
       (* Create activation literal for frame R_0 *)
       let actconst_r0, actlit_r0 =
@@ -3164,13 +3230,21 @@ let main trans_sys =
           (* BMC is not running, must check here *)
           bmc_checks
             solver
+            input_sys
+            aparam 
             trans_sys
             trans_sys_props
 
       in
 
       (* Run and restart on disproved properties *)
-      restart_loop trans_sys solver props' predicates
+      restart_loop  
+        solver
+        input_sys
+        aparam 
+        trans_sys
+        props'
+        predicates
 
 
 (* 

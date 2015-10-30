@@ -2,34 +2,39 @@ open Ocamlbuild_plugin;;
 open Command;;
 open Ocamlbuild_pack;;
 
-(*
-(* Configuration section *)
-let glib_lib = "@GLIB_CONF_LIBS@"
-let glib_include = "@GLIB_CONF_CFLAGS@";; 
-*)
-
-let ocamlfind_query pkg =
-  let cmd = Printf.sprintf "ocamlfind query %s" (Filename.quote pkg) in
-  My_unix.run_and_open cmd (fun ic ->
-    Log.dprintf 5 "Getting Ocaml directory from command %s" cmd;
-    input_line ic);;
-
 dispatch begin function
 
   | After_rules ->
     ocaml_lib ~extern:true ~dir:"../../ocamlczmq/lib" "ZMQ";
-         
+
+    (* Intro if tagged with_intro *)
+    pflag_and_dep ["doc"] "with_intro" (fun f -> S [A "-intro"; P f]);
+
+    (* Flags for documentation *)
+    flag
+      ["ocaml"; "doc"] 
+      (S [A"-css-style"; A"include/style.css";
+          A"-colorize-code"]);
+
+
 (*
+    rule
+      "ocamldoc: copy included files"
+      ~deps:[ ]
+      ~prods:[ "%.docdir/includes" ]
+      ~stamp:"%.docdir/includes.stamp"
+      ~insert:`top
+      (fun env builder -> 
+         Log.eprintf
+           "Copying files from %s to %s"
+           "doc/includes"
+           (env "%.docdir/includes" |> Pathname.to_string);
 
-| After_rules -> 
-    flag ["link"; "ocaml"; "use_stub"] (S[A"util_glib_stubs.o"]);
-    (* Link flag for GLIB *)
-    flag ["link"; "ocaml"; "use_glib"] (S[A"-cclib"; A glib_lib]);
-
-    (* Compile flag for GLIB *)
-    flag ["c"; "compile"; "include_glib"] (S[A"-cc"; A "cc"; A"-ccopt"; A glib_include; A"-ccopt"; A"-DNATIVE"]);
-
+         Seq
+           [Nop])
 *)
- 
-| _ -> ()
+
+    
+  | _ -> ()
+
 end

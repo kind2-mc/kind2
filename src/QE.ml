@@ -67,7 +67,7 @@ let get_solver_instance trans_sys =
               (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
       
       (* Defining uf's and declaring variables. *)
-      TransSys.init_define_fun_declare_vars_of_bounds
+      TransSys.define_and_declare_of_bounds
         trans_sys
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
@@ -137,7 +137,7 @@ let get_checking_solver_instance trans_sys =
         (SMTSolver.define_fun solver); 
 *)
   (* Defining uf's and declaring variables. *)
-      TransSys.init_define_fun_declare_vars_of_bounds
+      TransSys.define_and_declare_of_bounds
         trans_sys
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)

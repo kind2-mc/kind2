@@ -23,7 +23,7 @@
     @author Christoph Sticksel *)
 
 (** Entry point *)
-val main : TransSys.t -> unit
+val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Cleanup before exit *)
 val on_exit : TransSys.t option -> unit

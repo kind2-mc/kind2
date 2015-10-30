@@ -33,7 +33,7 @@ module CandidateTermGen = struct
 
   (* The name of a transition system. *)
   let name_of_sys sys =
-    TransSys.get_scope sys |> String.concat "/"
+    TransSys.scope_of_trans_sys sys |> String.concat "/"
 
 
 
@@ -417,11 +417,13 @@ module CandidateTermGen = struct
 
   (* Generates sets of candidate terms from a transition system, and
      its subsystems if the flags require it. *)
-  let candidate_terms_of_trans two_state trans_sys =
+  let candidate_terms_of_trans two_state top_sys trans_sys =
     
     let rec get_last = function
       | head :: [] -> [head]
-      | [] -> assert false;
+      | [] ->
+        Event.log L_fatal "can't get last" ;
+        assert false ;
       | _ :: t -> get_last t
     in
 
@@ -433,12 +435,12 @@ module CandidateTermGen = struct
 
       | system :: tail ->
          (* Getting the scope of the system. *)
-         let scope = TransSys.get_scope system in
+         let scope = TransSys.scope_of_trans_sys system in
 
          (* Do we know that system already?. *)
          if List.exists
               ( fun (sys,_) ->
-                TransSys.get_scope sys = scope )
+                TransSys.scope_of_trans_sys sys = scope )
               result
               
          then
@@ -448,7 +450,7 @@ module CandidateTermGen = struct
          else (
 
            debug invGenCand "Looking at [%s]."
-                 (TransSys.get_scope system |> String.concat "/") in
+                 (TransSys.scope_of_trans_sys system |> String.concat "/") in
            
            (* We don't, getting init and trans. *)
            let init, trans =
@@ -467,18 +469,18 @@ module CandidateTermGen = struct
 
              if Flags.only_user_candidates () then user_candidates
              else
-                user_candidates
+               user_candidates
 
-                (* Synthesizing candidates. *)
-                |> StateVarRules.apply (TransSys.state_vars system)
+               (* Synthesizing candidates. *)
+               |> StateVarRules.apply (TransSys.state_vars system)
 
-                (* Candidates from init. *)
-                |> set_of_term init
+               (* Candidates from init. *)
+               |> set_of_term init
 
-                (* Candidates from trans. *)
-                |> if Flags.invgengraph_mine_trans ()
-                then identity else set_of_term trans
-           in
+               (* Candidates from trans. *)
+               |> if Flags.invgengraph_mine_trans ()
+               then set_of_term trans else identity
+  in
 
            let candidates =
              (* Adding two state complement if
@@ -495,7 +497,7 @@ module CandidateTermGen = struct
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
-                          system term
+                          top_sys TransSys.trans_base scope term
                           |> (function | (top,others) -> top :: others)
                           |> List.fold_left
                               ( fun map (sys,terms) ->
@@ -570,14 +572,14 @@ end
 (* Generates candidate terms for a transition system, and its
    subsystems if the flags require it.
    /!\ The sets do NOT contain true and false /!\ *)
-let generate_candidate_terms two_state trans =
-  CandidateTermGen.candidate_terms_of_trans two_state trans
+let generate_candidate_terms two_state top_sys trans =
+  CandidateTermGen.candidate_terms_of_trans two_state top_sys trans
 
 (* Generates implication graphs for a transition system, and its
    subsystems if the flags require it. *)
-let generate_graphs two_state trans =
+let generate_graphs two_state top_sys trans =
   let candidate_terms, count =
-    generate_candidate_terms two_state trans
+    generate_candidate_terms two_state top_sys trans
   in
 
   (* Returning implication graphs and candidate term count. *)
@@ -627,7 +629,9 @@ let create_graph trans candidates =
     CandidateTermGen.build_graphs [ (trans, candidates) ]
   with
     | (_, graph, _) :: _ -> graph
-    | _ -> assert false
+    | _ ->
+      Event.log L_fatal "no graph was built" ;
+      assert false
 
 
     

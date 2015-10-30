@@ -129,7 +129,7 @@ let state_var_of_sexpr = function
 
     (* Create state variable and return *)
     StateVar.mk_state_var ~is_input ~is_const ~for_inv_gen
-      var_name scope var_type
+      var_name scope var_type []
 
   | _ -> failwith "Invalid state variable declaration"
 
@@ -202,7 +202,6 @@ let caller_of_sexpr = function
     Format.eprintf "CALLER %a@." HS.pp_print_sexpr s;
     failwith "Invalid caller description"
     
-
 
 
 let file_row_col_of_string s =

@@ -1,0 +1,5 @@
+node top () returns (p, q: bool);
+let
+  p = not q;
+  --%PROPERTY false;
+tel

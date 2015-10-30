@@ -30,37 +30,12 @@ type cexs = cex list
 
 *)
 
-
 (* ********************************************************************** *)
 (* Properties of transition systems                                       *)
 (* ********************************************************************** *)
 
-(* Source of a property *)
-type prop_source =
-
-  (* Property is from an annotation *)
-  | PropAnnot of position
-
-  (* Property is part of a contract *)
-  | Contract of position
-
-  (* Property was generated, for example, from a subrange
-     constraint *)
-  | Generated of StateVar.t list
-
-  (* Property is an instance of a property in a called node
-
-     Reference the instantiated property by the [scope] of the
-     subsystem and the name of the property *)
-  | Instantiated of string list * string
-
-  (* Property is only a candidate invariant here to help prove other
-     properties *)
-  | Candidate
-
-
 (* Return the default value of the type *)
-let default_of_type t = 
+let default_of_type t =
 
   match Type.node_of_type t with
 
@@ -241,5 +216,222 @@ let string_of_logic = function
   | `None -> ""
   | `Inferred l -> string_of_features l
   | `SMTLogic s -> s
+
+
+
+
+module Signals: sig
+
+  (** Pretty printer for signal info. *)
+  val pp_print_signals: Format.formatter -> unit -> unit
+
+  (** Sets the handler for sigalrm to ignore. *)
+  val ignore_sigalrm: unit -> unit
+  (** Sets the handler for sigint to ignore. *)
+  val ignore_sigint: unit -> unit
+  (** Sets the handler for sigquit to ignore. *)
+  val ignore_sigquit: unit -> unit
+  (** Sets the handler for sigterm to ignore. *)
+  val ignore_sigterm: unit -> unit
+
+  (** Sets a timeout handler for sigalrm. *)
+  val set_sigalrm_timeout: unit -> unit
+  (** Sets an exception handler for sigalarm. *)
+  val set_sigalrm_exn: unit -> unit
+  (** Sets an exception handler for sigint. *)
+  val set_sigint: unit -> unit
+  (** Sets an exception handler for sigquit. *)
+  val set_sigquit: unit -> unit
+  (** Sets an exception handler for sigterm. *)
+  val set_sigterm: unit -> unit
+
+  (** Sets a timeout. *)
+  val set_timeout: float -> unit
+  (** Sets a timeout from the timeout flag. *)
+  val set_timeout_from_flag: unit -> unit
+  (** Deactivates timeout. *)
+  val unset_timeout: unit -> unit
+
+  (** Raise exception on ctrl+c if true. *)
+  val catch_break: bool -> unit
+
+end = struct
+
+  type handler = | Ignore | Exn | Timeout
+
+  let pp_print_handler fmt = function
+    | Ignore ->
+       Format.fprintf
+         fmt
+         "ignore"
+    | Exn ->
+       Format.fprintf
+         fmt
+         "raise exception"
+    | Timeout ->
+       Format.fprintf
+         fmt
+         "raise timeout"
+
+  type t = {
+      (* Signals. *)
+      mutable sigalrm: handler ;
+      mutable sigint:  handler ;
+      mutable sigquit: handler ;
+      mutable sigterm: handler ;
+
+      (* Timeout value. *)
+      mutable timeout: float option ;
+
+      (* Raise [Break] on ctrl+c. *)
+      mutable break: bool ;
+  }
+
+  let signals = {
+      sigalrm = Ignore ;
+      sigint  = Ignore ;
+      sigterm = Ignore ;
+      sigquit = Ignore ;
+      timeout = None   ;
+      break   = false  ;
+  }
+
+  let pp_print_signals fmt () =
+    Format.fprintf
+      fmt
+      "Signals: @[<v>\
+       sigalrm | %a@ \
+       sigint  | %a@ \
+       sigquit | %a@ \
+       sigterm | %a@ \
+       timeout | %a@ \
+       break   | %b@]"
+      pp_print_handler signals.sigalrm
+      pp_print_handler signals.sigint
+      pp_print_handler signals.sigquit
+      pp_print_handler signals.sigterm
+      (pp_print_option Format.pp_print_float)
+      signals.timeout
+      signals.break
+
+  let catch_break b =
+    if signals.break = b then ()
+    else (
+      signals.break <- b ;
+      Sys.catch_break b
+    )
+
+  (* Sets the handler to ignore for some signal. *)
+  let ignore_sig s =
+    Sys.set_signal s Sys.Signal_ignore
+
+  (* Sets the handler for sigalrm to ignore. *)
+  let ignore_sigalrm () =
+    if signals.sigalrm = Ignore then ()
+    else (
+      signals.sigalrm <- Ignore ;
+      ignore_sig Sys.sigalrm
+    )
+
+  (* Sets the handler for sigint to ignore. *)
+  let ignore_sigint () =
+    if signals.sigint = Ignore then ()
+    else (
+      signals.sigint <- Ignore ;
+      ignore_sig Sys.sigint
+    )
+
+  (* Sets the handler for sigquit to ignore. *)
+  let ignore_sigquit () =
+    if signals.sigquit = Ignore then ()
+    else (
+      signals.sigquit <- Ignore ;
+      ignore_sig Sys.sigquit
+    )
+
+  (* Sets the handler for sigterm to ignore. *)
+  let ignore_sigterm () =
+    if signals.sigterm = Ignore then ()
+    else (
+      signals.sigterm <- Ignore ;
+      ignore_sig Sys.sigterm
+    )
+
+  (* Ignore all signals. *)
+  let ignore_all_sigs () =
+    ignore_sigalrm () ;
+    ignore_sigint () ;
+    ignore_sigquit () ;
+    ignore_sigterm () ;
+    catch_break false
+
+  (* Sets a handler for a signal. *)
+  let set_sig s f =
+    Sys.set_signal s ( Sys.Signal_handle f )
+
+
+  (* Sets a handler for sigalrm. *)
+  let set_sigalrm_timeout () =
+    signals.sigalrm <- Timeout ;
+    set_sig Sys.sigalrm (fun _ -> raise TimeoutWall)
+
+
+  (* Sets a handler for sigalrm. *)
+  let set_sigalrm_exn () =
+    signals.sigalrm <- Exn ;
+    set_sig Sys.sigalrm exception_on_signal
+
+  (* Sets a handler for sigint. *)
+  let set_sigint () =
+    signals.sigint <- Exn ;
+    set_sig Sys.sigint exception_on_signal
+
+  (* Sets a handler for sigquit. *)
+  let set_sigquit () =
+    signals.sigquit <- Exn ;
+    set_sig Sys.sigquit exception_on_signal
+
+  (* Sets a handler for sigterm. *)
+  let set_sigterm () =
+    signals.sigterm <- Exn ;
+    set_sig Sys.sigterm exception_on_signal
+
+
+  (* Sets a timeout. *)
+  let set_timeout_value ?(interval = 0.) value =
+    set_sigalrm_timeout () ;
+    (* Set timer. *)
+    Unix.setitimer
+      Unix.ITIMER_REAL
+      { Unix.it_interval = interval ;
+        Unix.it_value = value }
+    |> ignore
+
+  (* Sets a timeout. *)
+  let set_timeout value =
+    signals.timeout <- Some(value) ;
+    set_timeout_value value
+
+  (* Sets a timeout based on the flag value. *)
+  let set_timeout_from_flag () =
+    if Flags.timeout_wall () > 0.
+    then Flags.timeout_wall () |> set_timeout
+    else ()
+
+  (* Deactivates timeout. *)
+  let unset_timeout () =
+    set_sigalrm_exn () ;
+    signals.timeout <- None ;
+    set_timeout_value 0.
+
+  end
+
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   indent-tabs-mode: nil
+   End: 
+*)
   
 

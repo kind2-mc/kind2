@@ -39,7 +39,7 @@ module type M = sig
   val add : key -> 'a -> 'a t -> 'a t
   (* val singleton: key -> 'a -> 'a t *)
   val remove : key -> 'a t -> 'a t
-  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
+  val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
   val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
   val iter : (key -> 'a -> unit) -> 'a t -> unit
@@ -52,7 +52,7 @@ module type M = sig
   val bindings : 'a t -> (key * 'a) list
   val min_binding: 'a t -> (key * 'a)
   val max_binding: 'a t -> (key * 'a)
-  (* val choose: 'a t -> (key * 'a) *)
+  val choose: 'a t -> (key * 'a)
   val split: key -> 'a t -> 'a t * 'a option * 'a t
   val find : key -> 'a t -> 'a 
   val map : ('a -> 'b) -> 'a t -> 'b t
@@ -92,7 +92,7 @@ module type S = sig
       Do not fail if key does not exist. *)
   val remove : key -> 'a t -> 'a t
 
-  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
+  val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
 
   (** Comparision function on tries *)
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
@@ -123,13 +123,14 @@ module type S = sig
 
   (** Return an association list of key to bindings in the trie
 
-      The keys are returned in reverse lexicographic order. *)
+      The keys are returned in lexicographic order. *)
   val bindings : 'a t -> (key * 'a) list
 
   val min_binding: 'a t -> (key * 'a)
   val max_binding: 'a t -> (key * 'a)
 
-  (* val choose: 'a t -> (key * 'a) *)
+  val choose: 'a t -> (key * 'a)
+
   val split: key -> 'a t -> 'a t * 'a option * 'a t
 
   (** Return the value for the key in the trie *)
@@ -146,17 +147,19 @@ module type S = sig
   (** Return the subtrie starting at the given key prefix *)
   val find_prefix : key -> 'a t -> 'a t
 
+  (** Return [true] if there is a subtrie starting at the given key
+      prefix *)
+  val mem_prefix : key -> 'a t -> bool
+
   (** Return the keys in the trie
 
-      The keys are returned in reverse lexicographic order. *)
+      The keys are returned in lexicographic order. *)
   val keys : 'a t -> key list
 
   (** Return the values in the trie
 
-      The values are returned in reverse lexicographic order. *)
+      The values are returned in lexicographic order. *)
   val values : 'a t -> 'a list
-
-  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
 
   (** Fold over two tries with identical keys
 
@@ -216,6 +219,16 @@ module type S = sig
       [is_subsumed t k] assumes that all keys in the trie [t], and the key
       [k] are sorted and do not contain duplicates.*)
   val is_subsumed : 'a t -> key -> bool
+
+  (** Pretty-print bindings in the trie with a printer for key and
+      value pairs
+
+      [pp_print_trie f s p t] prints to the formatter [p] all bindings
+      of the trie in lexicographic order of the keys with the printer
+      [f] for key and value pairs. Each binding is separated by the
+      format string [s]. *)
+  val pp_print_trie : (Format.formatter -> key * 'a -> unit) ->
+    ('b, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
     
 end
 

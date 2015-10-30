@@ -443,6 +443,19 @@ val eval_lambda : lambda -> t list -> t
     indexes can be adjusted in the subterm if necessary. *)
 val map : (int -> T.t -> T.t) -> t -> t
 
+(*
+(** Substitutes the free variables appearing in a term according to a
+    state var mapping. *)
+val substitute_variables : (StateVar.t * StateVar.t) list -> t -> t
+*)
+
+(** Return a new term with each state variable replaced 
+
+    [map_state_vars t f] returns a new term of [t] with each occurring
+    state variable [s] replaced by the result of the evaluation [f s].
+*)
+val map_state_vars : (StateVar.t -> StateVar.t) -> t -> t
+
 (** Convert [(= 0 (mod t n))] to [(divisble n t)]
 
     The term [n] must be an integer numeral. *)

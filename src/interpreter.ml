@@ -59,11 +59,11 @@ let rec assert_trans solver t i =
     
 
 (* Main entry point *)
-let main input_file trans_sys =
+let main input_file input_sys aparam trans_sys =
 
   Event.set_module `Interpreter;
 
-  let input_scope = TransSys.get_scope trans_sys in
+  let input_scope = TransSys.scope_of_trans_sys trans_sys in
 
   if input_file = "" then 
 
@@ -79,6 +79,8 @@ let main input_file trans_sys =
 
     (* Output execution path *)
     Event.execution_path
+      input_sys
+      aparam
       trans_sys 
       v
 
@@ -169,7 +171,7 @@ let main input_file trans_sys =
     ref_solver := Some solver;
     
     (* Defining uf's and declaring variables. *)
-    TransSys.init_define_fun_declare_vars_of_bounds
+    TransSys.define_and_declare_of_bounds
       trans_sys
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
@@ -234,6 +236,8 @@ let main input_file trans_sys =
 
         (* Output execution path *)
         Event.execution_path
+          input_sys
+          aparam
           trans_sys 
           (Model.path_to_list path)
 
