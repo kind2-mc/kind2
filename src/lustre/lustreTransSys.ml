@@ -2306,7 +2306,7 @@ let rec trans_sys_of_node'
                  "%s_%a_%d"
                  I.init_uf_string
                  (LustreIdent.pp_print_ident false) node_name
-                 analysis_param.A.uid)
+                 (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var init_formals)
               Type.t_bool
           in
@@ -2340,7 +2340,7 @@ let rec trans_sys_of_node'
                  "%s_%a_%d"
                  I.trans_uf_string
                  (LustreIdent.pp_print_ident false) node_name
-                 analysis_param.A.uid)
+                 (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var trans_formals)
               Type.t_bool
           in
@@ -2410,11 +2410,10 @@ let rec trans_sys_of_node'
             tl
           
 
-let trans_sys_of_nodes subsystem globals (
-  { A.top; A.abstraction_map; A.assumptions; A.refinement_of }
-  as analysis_param
-) =
-  
+let trans_sys_of_nodes subsystem globals analysis_param =
+  let { A.top; A.abstraction_map; A.assumptions } =
+    A.info_of_param analysis_param
+  in
   (* Make sure top level system is not abstract
 
      Contracts would be trivially satisfied otherwise *)
@@ -2475,9 +2474,8 @@ let trans_sys_of_nodes subsystem globals (
 *)
 
   
-  ( match refinement_of with
-    | None -> ()
-    | Some result ->
+  ( match analysis_param with
+    | A.Refinement (_,result) ->
       (* The analysis that's going to run is a refinement. *)
       TransSys.get_prop_status_all result.sys
       |> List.iter (function
@@ -2502,6 +2500,7 @@ let trans_sys_of_nodes subsystem globals (
             ()
         )
       )
+    | _ -> ()
   ) ;
 
   trans_sys, subsystem', globals'

@@ -252,7 +252,7 @@ let main (type s)
   let abstract, concrete =
     Scope.Map.fold (fun key value (a,c) ->
       if value then key :: a, c else a, key :: c
-    ) param.Analysis.abstraction_map ([],[])
+    ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
   Event.log L_info "%s@[<v>\
       Launching on %a.@ \

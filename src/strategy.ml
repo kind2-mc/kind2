@@ -37,7 +37,8 @@ let merge_abstractions =
    scope of the system refined, the new abstraction, and the new assumptions.
    (New assumptions is an augmentation of the one in result.) *)
 let get_params results subs_of_scope result =
-  let sys = result.A.param.top in
+  let info = A.info_of_param result.A.param in
+  let sys = info.A.top in
   let subs = subs_of_scope sys in
 
   match result.A.requirements_valid with
@@ -48,7 +49,7 @@ let get_params results subs_of_scope result =
     None
   | _ -> (
     let abstraction, assumptions =
-      result.A.param.A.abstraction_map, result.A.param.A.assumptions
+      info.A.abstraction_map, info.A.assumptions
     in
 
     (* Input is a list of list of scope / whatever pairs. Initially input
@@ -82,15 +83,15 @@ let get_params results subs_of_scope result =
     match loop [ subs ] with
     (* No refinement possible. *)
     | None -> None
-    | Some ({ A.param } as result) -> (* Refinement found, need to update
-                                         abstraction and lift invariants.
-                                         *)
-      let sub = param.A.top in
+    | Some ({ A.param } as result) ->
+      (* Refinement found, need to update abstraction and lift invariants. *)
+      let info = A.info_of_param param in
+      let sub = info.A.top in
       (* System is now concrete. *)
       let abstraction = Scope.Map.add sub false abstraction in
       (* Updating with the abstraction used to prove [sub]. *)
       let abstraction =
-        merge_abstractions abstraction param.A.abstraction_map
+        merge_abstractions abstraction info.A.abstraction_map
       in
       (* Lifting invariants from previous result. *)
       let nu_assumptions =
@@ -131,7 +132,7 @@ let first_param_of results all_nodes scope =
                looping. *)
             let nu_assumptions =
               TransSys.invars_of_bound result.A.sys Numeral.zero
-              |> List.map (fun t -> result.A.param.A.top, t)
+              |> List.map (fun t -> (A.info_of_param result.A.param).A.top, t)
             in
             loop abstraction (List.rev_append nu_assumptions assumptions) tail
           else None (* System is not correct, no need to keep going. *)
@@ -145,13 +146,14 @@ let first_param_of results all_nodes scope =
 
   match loop Scope.Map.empty [] all_nodes with
   | None -> None
-  | Some (abstraction, assumptions) -> Some {
-    A.top = scope ;
-    A.uid = A.results_length results ;
-    A.abstraction_map = abstraction ;
-    A.assumptions = assumptions ;
-    A.refinement_of = None
-  }
+  | Some (abstraction, assumptions) -> Some (
+    A.First {
+      A.top = scope ;
+      A.uid = A.results_length results ;
+      A.abstraction_map = abstraction ;
+      A.assumptions = assumptions
+    }
+  )
 
 
 (* Using modules is kind of useless here, however it compartments the code and
@@ -232,13 +234,15 @@ module ModularStrategy : Strategy = struct
                 (* Format.printf "Refined %a for %a@."
                   Scope.pp_print_scope sub
                   Scope.pp_print_scope sys ; *)
-                Some {
-                  A.top = sys ;
-                  A.uid = A.results_length results ;
-                  A.abstraction_map = abs ;
-                  A.assumptions = ass ;
-                  A.refinement_of = Some result ;
-                }
+                Some (
+                  A.Refinement (
+                    { A.top = sys ;
+                      A.uid = A.results_length results ;
+                      A.abstraction_map = abs ;
+                      A.assumptions = ass ; },
+                    result
+                  )
+                )
             )
         ) with Not_found ->
           (* Format.printf "|> not the last system, going down@." ; *)

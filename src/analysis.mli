@@ -39,8 +39,9 @@
     @author Christoph Sticksel *)
 
 
-(** Parameters for the creation of a transition system *)
-type param = {
+
+(** Information for the creation of a transition system *)
+type info = {
   (** The top system for the analysis run *)
   top : Scope.t ;
 
@@ -56,8 +57,17 @@ type param = {
 
   (** Result of the previous analysis of the top system if this analysis is a
       refinement. *)
-  refinement_of : result option
+  (* refinement_of : result option *)
 }
+
+(** Parameter of an analysis. *)
+type param =
+  (** Analysis of the contract of a system. *)
+  | ContractCheck of info
+  (** First analysis of a system. *)
+  | First of info
+  (** Refinement of a system. Store the result of the previous analysis. *)
+  | Refinement of info * result
 
 (** Result of analysing a transistion system *)
 and result = {
@@ -77,6 +87,11 @@ and result = {
       [Some false] if it does and some are unknown / falsified. *)
   requirements_valid : bool option ;
 }
+
+
+
+(** The info or a param. *)
+val info_of_param : param -> info
 
 (** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)

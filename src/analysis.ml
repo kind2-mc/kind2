@@ -18,8 +18,8 @@
 
 open Lib
 
-(** Parameters for the creation of a transition system *)
-type param = {
+(** Information for the creation of a transition system *)
+type info = {
   (** The top system for the analysis run *)
   top : Scope.t ;
 
@@ -35,8 +35,18 @@ type param = {
 
   (** Result of the previous analysis of the top system if this analysis is a
       refinement. *)
-  refinement_of : result option
+  (* refinement_of : result option *)
 }
+
+(** Parameter of an analysis. *)
+type param =
+  (* Analysis of the contract of a system. *)
+  | ContractCheck of info
+  (* First analysis of a system. *)
+  | First of info
+  (* Refinement of a system. Store the result of the previous analysis. *)
+  | Refinement of info * result
+
 
 (** Result of analysing a transistion system *)
 and result = {
@@ -57,15 +67,24 @@ and result = {
   requirements_valid : bool option ;
 }
 
+
+(* The info or a param. *)
+let info_of_param = function
+| ContractCheck info -> info
+| First info -> info
+| Refinement (info,_) -> info
+
 (* Retrieve the assumptions of a [scope] from a [param]. *)
-let param_assumptions_of_scope { assumptions } scope =
+let param_assumptions_of_scope param scope =
+  let { assumptions } = info_of_param param in
   assumptions |> List.fold_left (fun a (s, t) -> 
      if Scope.equal s scope then t :: a else a
   ) []
 
 (* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
-let param_scope_is_abstract { abstraction_map } scope =
+let param_scope_is_abstract param scope =
+  let { abstraction_map } = info_of_param param in
   try
     (* Find node in abstraction map by name *)
     Scope.Map.find scope abstraction_map 
@@ -129,7 +148,7 @@ let mk_results () = Scope.Map.empty
 (** Adds a [result] to a [results]. *)
 let results_add result results =
   (* The key is the top scope of the result. *)
-  let key = result.param.top in
+  let key = (info_of_param result.param).top in
   (* Building updated value for [key]. *)
   let value = result :: (
       (* Retrieving current value. *)
@@ -180,13 +199,18 @@ let results_is_safe results = Scope.Map.fold (fun _ -> function
 
 
 
-let pp_print_param fmt { top ; abstraction_map ; assumptions } =
+let pp_print_param fmt param =
+  let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
     ) ([], [])
   in
-  Format.fprintf fmt "@[<v>top: \"%a\"%a%a@]"
+  Format.fprintf fmt "%s @[<v>top: \"%a\"%a%a@]"
+    ( match param with
+      | ContractCheck _ -> "ContractCheck"
+      | First _ -> "First"
+      | Refinement _ -> "Refinement")
     Scope.pp_print_scope top
 
     (fun fmt -> function

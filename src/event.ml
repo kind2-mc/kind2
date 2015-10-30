@@ -1010,6 +1010,7 @@ let log_run_end results =
 
 (* Logs the start of an analysis. *)
 let log_analysis_start param =
+  let info = Analysis.info_of_param param in
   match !log_format with
   | F_pt ->
     if Flags.log_level () = L_off |> not then
@@ -1017,7 +1018,7 @@ let log_analysis_start param =
         @.%a@.@.Analyzing %a@   with %a\
       @.@."
       pp_print_hline ()
-      Scope.pp_print_scope param.Analysis.top
+      Scope.pp_print_scope info.Analysis.top
       Analysis.pp_print_param param
 
   | F_xml ->
@@ -1025,11 +1026,12 @@ let log_analysis_start param =
     let abstract, concrete =
       Scope.Map.fold (fun sys is_abstract (a,c) ->
         if is_abstract then sys :: a, c else a, sys :: c
-      ) param.Analysis.abstraction_map ([],[])
+      ) info.Analysis.abstraction_map ([],[])
     in
     (* Counting the number of assumption for each subsystem. *)
     let assumption_count =
-      param.Analysis.assumptions |> List.fold_left (fun map (key, _) ->
+      info.Analysis.assumptions
+      |> List.fold_left (fun map (key, _) ->
         let cpt = try (Scope.Map.find key map) + 1 with Not_found -> 1 in
         Scope.Map.add key cpt map
       ) Scope.Map.empty
@@ -1044,7 +1046,7 @@ let log_analysis_start param =
           assumptions=\"%a\"\
         />@.@.\
       "
-      Scope.pp_print_scope param.Analysis.top
+      Scope.pp_print_scope info.Analysis.top
       (pp_print_list Scope.pp_print_scope ",") concrete
       (pp_print_list Scope.pp_print_scope ",") abstract
       (pp_print_list (fun fmt (scope, cpt) ->
