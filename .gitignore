@@ -1,3 +1,6 @@
+# Log files.
+*.log
+
 # Generated bin directory.
 /bin
 
