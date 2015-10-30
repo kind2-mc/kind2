@@ -245,8 +245,7 @@ and backward io solver tree modes contract_term =
 
 
 (* Entry point. *)
-let main (type s)
-: Analysis.param -> s InputSystem.t -> TSys.t -> unit
+let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
 = fun param input_sys sys ->
   (* Separating abstract and concrete systems. *)
   let abstract, concrete =

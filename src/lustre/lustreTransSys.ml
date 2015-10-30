@@ -341,7 +341,7 @@ let caller_props_of_req scope { N.global_contracts; N.mode_contracts } =
 
 let one_mode_active scope { N.mode_contracts } =
   match mode_contracts with
-  | [] -> [] | _ -> [
+  | [] -> None | _ -> Some (
     (* Originally prop is unknown. *)
     let prop_status = P.PropUnknown in
     let name = "__one_mode_active" in
@@ -356,7 +356,7 @@ let one_mode_active scope { N.mode_contracts } =
       "__one_mode_active"
       P.PropUnknown
       (P.GuaranteeOneModeActive scope)
-  ]
+  )
 
 (* Return terms from contracts of node *)
 let assumption_of_contract scope { N.global_contracts } = 
@@ -1942,12 +1942,17 @@ let rec trans_sys_of_node'
           (* Start without invariants for contracts *)
           let contract_asserts = [] in
 
-          (* Add requirements to invariants if node is the top node,
-             otherwise add requirements as properties *)
+          (* Add requirements to invariants if node is the top node *)
           let contract_asserts, properties = 
             if I.equal node_name top_name then 
               assumption_of_contract scope node :: contract_asserts,
-              one_mode_active scope node @ properties
+              (* Add property for completeness of modes if top node is
+                abstract. *)
+              if A.param_scope_is_abstract analysis_param scope then
+                match one_mode_active scope node with
+                | Some p -> p :: properties
+                | None -> failwith "top node is abstract but has no modes"
+              else properties
             else
               contract_asserts, properties
           in            
@@ -2417,10 +2422,14 @@ let trans_sys_of_nodes subsystem globals analysis_param =
   (* Make sure top level system is not abstract
 
      Contracts would be trivially satisfied otherwise *)
-(*   (if A.param_scope_is_abstract analysis_param top then
-     raise
-       (Invalid_argument
-          "trans_sys_of_nodes: Top-level system must not be abstract")); *)
+  ( match analysis_param with
+    | A.ContractCheck _ -> ()
+    | _ ->
+      if A.param_scope_is_abstract analysis_param top then
+        raise (Invalid_argument
+          "trans_sys_of_nodes: Top-level system must not be abstract"
+        )
+  );
 
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in

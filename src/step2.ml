@@ -188,7 +188,7 @@ let rec check_new_things ({ solver ; sys ; map } as ctx) =
       ()
 
 (* Returns the properties that cannot be falsified. *)
-let split ({ solver ; map } as ctx) =
+let split { solver ; map } =
 
   let rec loop falsifiable =
     if (List.length falsifiable) = (List.length map) then
@@ -290,7 +290,7 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
             (* Deactivating actlits. *)
             deactivate solver pos ;
             (* Adding invariant. *)
-            add_invariants solver [t] ;
+            add_invariants solver [t] |> ignore ;
             (* Don't keep. *)
             false
           ) else true

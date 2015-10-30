@@ -5,6 +5,7 @@ tel
 
 node sub (in: bool) returns (cpt: int) ;
 (*@contract
+  @assume true -> in = not pre in ;
   @mode begin (
     @require count(true) <= 10 ;
     @ensure  cpt >= 0 ;
@@ -20,6 +21,7 @@ tel
 
 node top (in: bool) returns (cpt: int) ;
 (*@contract
+  @assume true -> in = not pre in ;
   @guarantee cpt >= 0 ;
   @guarantee (count(true) > 15) => false ;
 *)

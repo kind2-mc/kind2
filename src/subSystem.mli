@@ -40,6 +40,9 @@ type 'a t = {
   (** System can be abstracted to its contract *)
   has_contract : bool ;
 
+  (** System has modes. *)
+  has_modes : bool ;
+
   (** System can be refined to its implementation *)
   has_impl : bool ;
 
