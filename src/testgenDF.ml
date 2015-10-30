@@ -245,14 +245,13 @@ and backward io solver tree modes contract_term =
 
 
 (* Entry point. *)
-let main (type s)
-: Analysis.param -> s InputSystem.t -> TSys.t -> unit
+let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
 = fun param input_sys sys ->
   (* Separating abstract and concrete systems. *)
   let abstract, concrete =
     Scope.Map.fold (fun key value (a,c) ->
       if value then key :: a, c else a, key :: c
-    ) param.Analysis.abstraction_map ([],[])
+    ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
   Event.log L_info "%s@[<v>\
       Launching on %a.@ \

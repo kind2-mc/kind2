@@ -100,13 +100,14 @@ let maximal_abstraction_for_testgen (type s)
     | None -> None
 
     (* All good. *)
-    | Some map -> Some {
-      Analysis.top = top ;
-      Analysis.uid = get_testgen_uid () ;
-      Analysis.abstraction_map = map ;
-      Analysis.assumptions = assumptions ;
-      Analysis.refinement_of = None ;
-    }
+    | Some map -> Some (
+      Analysis.First {
+        Analysis.top = top ;
+        Analysis.uid = get_testgen_uid () ;
+        Analysis.abstraction_map = map ;
+        Analysis.assumptions = assumptions ;
+      }
+    )
 
   )
 
@@ -139,15 +140,18 @@ let next_analysis_of_strategy (type s)
         S.find_subsystem subsystem scope
       in
       subsystems |> List.map (
-        fun { S.scope ; S.has_contract } -> scope, has_contract
+        fun { S.scope ; S.has_contract ; S.has_modes } ->
+          scope, has_contract, has_modes
       )
     in
 
     S.all_subsystems subsystem
-    |> List.map (fun { S.scope ; S.has_contract } ->
-      scope, has_contract
+    |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
+      scope, has_contract, has_modes
     )
     |> Strategy.next_analysis results subs_of_scope
+    |> fun res ->
+      res
   )
 
   | Native subsystem -> (function _ -> assert false)
@@ -290,8 +294,10 @@ let slice_to_abstraction_and_property
 
   (* Replace top system with subsystem for slicing. *)
   let analysis' =
-    { analysis with Analysis.top =
-        TransSys.scope_of_trans_sys trans_sys' }
+    Analysis.First {
+      Analysis.info_of_param analysis
+      with Analysis.top = TransSys.scope_of_trans_sys trans_sys'
+    }
   in
 
   (* Return subsystem that contains the property *)

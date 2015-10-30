@@ -26,7 +26,9 @@
 module A = Analysis
 
 val next_analysis:
-  A.results -> (Scope.t -> (Scope.t * bool) list) -> (Scope.t * bool) list ->
+  A.results ->
+  (Scope.t -> (Scope.t * bool * bool) list) ->
+  (Scope.t * bool * bool) list ->
   A.param option
 
 (* 

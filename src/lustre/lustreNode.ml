@@ -839,10 +839,11 @@ let rec ident_of_top = function
   | h :: tl -> ident_of_top tl
 
 
-(* Node has a contract if it has a global or at least one mode
-   contract *)
+(* Node has a contract if it has a global or at least one mode contract *)
 let has_contract { global_contracts; mode_contracts } = 
   not (global_contracts = [] && mode_contracts = [])
+
+let has_modes { mode_contracts } = mode_contracts <> []
 
 
 (* Node always has an implementation *)
@@ -978,6 +979,9 @@ let rec subsystem_of_nodes' nodes accum = function
         (* Does node have contracts? *)
         let has_contract = has_contract node in 
 
+        (* Does node have modes? *)
+        let has_modes = has_modes node in
+
         (* Does node have an implementation? *)
         let has_impl = has_impl node in
 
@@ -987,6 +991,7 @@ let rec subsystem_of_nodes' nodes accum = function
           { SubSystem.scope;
             SubSystem.source = node;
             SubSystem.has_contract;
+            SubSystem.has_modes;
             SubSystem.has_impl;
             SubSystem.subsystems  }
 

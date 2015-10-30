@@ -11,7 +11,7 @@ node sub (in: bool) returns (cpt: int) ;
     @ensure  cpt >= 0 ;
   ) ;
   @mode and_then (
-    @require not begin ;
+    @require count(true) > 15 ;
     @ensure  true ;
   ) ;
 *)

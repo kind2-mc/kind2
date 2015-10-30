@@ -341,7 +341,7 @@ let caller_props_of_req scope { N.global_contracts; N.mode_contracts } =
 
 let one_mode_active scope { N.mode_contracts } =
   match mode_contracts with
-  | [] -> [] | _ -> [
+  | [] -> None | _ -> Some (
     (* Originally prop is unknown. *)
     let prop_status = P.PropUnknown in
     let name = "__one_mode_active" in
@@ -356,7 +356,7 @@ let one_mode_active scope { N.mode_contracts } =
       "__one_mode_active"
       P.PropUnknown
       (P.GuaranteeOneModeActive scope)
-  ]
+  )
 
 (* Return terms from contracts of node *)
 let assumption_of_contract scope { N.global_contracts } = 
@@ -1942,12 +1942,17 @@ let rec trans_sys_of_node'
           (* Start without invariants for contracts *)
           let contract_asserts = [] in
 
-          (* Add requirements to invariants if node is the top node,
-             otherwise add requirements as properties *)
+          (* Add requirements to invariants if node is the top node *)
           let contract_asserts, properties = 
             if I.equal node_name top_name then 
               assumption_of_contract scope node :: contract_asserts,
-              one_mode_active scope node @ properties
+              (* Add property for completeness of modes if top node is
+                abstract. *)
+              if A.param_scope_is_abstract analysis_param scope then
+                match one_mode_active scope node with
+                | Some p -> p :: properties
+                | None -> failwith "top node is abstract but has no modes"
+              else properties
             else
               contract_asserts, properties
           in            
@@ -2306,7 +2311,7 @@ let rec trans_sys_of_node'
                  "%s_%a_%d"
                  I.init_uf_string
                  (LustreIdent.pp_print_ident false) node_name
-                 analysis_param.A.uid)
+                 (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var init_formals)
               Type.t_bool
           in
@@ -2340,7 +2345,7 @@ let rec trans_sys_of_node'
                  "%s_%a_%d"
                  I.trans_uf_string
                  (LustreIdent.pp_print_ident false) node_name
-                 analysis_param.A.uid)
+                 (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var trans_formals)
               Type.t_bool
           in
@@ -2410,18 +2415,21 @@ let rec trans_sys_of_node'
             tl
           
 
-let trans_sys_of_nodes subsystem globals (
-  { A.top; A.abstraction_map; A.assumptions; A.refinement_of }
-  as analysis_param
-) =
-  
+let trans_sys_of_nodes subsystem globals analysis_param =
+  let { A.top; A.abstraction_map; A.assumptions } =
+    A.info_of_param analysis_param
+  in
   (* Make sure top level system is not abstract
 
      Contracts would be trivially satisfied otherwise *)
-(*   (if A.param_scope_is_abstract analysis_param top then
-     raise
-       (Invalid_argument
-          "trans_sys_of_nodes: Top-level system must not be abstract")); *)
+  ( match analysis_param with
+    | A.ContractCheck _ -> ()
+    | _ ->
+      if A.param_scope_is_abstract analysis_param top then
+        raise (Invalid_argument
+          "trans_sys_of_nodes: Top-level system must not be abstract"
+        )
+  );
 
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
@@ -2475,9 +2483,8 @@ let trans_sys_of_nodes subsystem globals (
 *)
 
   
-  ( match refinement_of with
-    | None -> ()
-    | Some result ->
+  ( match analysis_param with
+    | A.Refinement (_,result) ->
       (* The analysis that's going to run is a refinement. *)
       TransSys.get_prop_status_all result.sys
       |> List.iter (function
@@ -2502,6 +2509,7 @@ let trans_sys_of_nodes subsystem globals (
             ()
         )
       )
+    | _ -> ()
   ) ;
 
   trans_sys, subsystem', globals'

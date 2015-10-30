@@ -37,7 +37,8 @@ let merge_abstractions =
    scope of the system refined, the new abstraction, and the new assumptions.
    (New assumptions is an augmentation of the one in result.) *)
 let get_params results subs_of_scope result =
-  let sys = result.A.param.top in
+  let info = A.info_of_param result.A.param in
+  let sys = info.A.top in
   let subs = subs_of_scope sys in
 
   match result.A.requirements_valid with
@@ -48,7 +49,7 @@ let get_params results subs_of_scope result =
     None
   | _ -> (
     let abstraction, assumptions =
-      result.A.param.A.abstraction_map, result.A.param.A.assumptions
+      info.A.abstraction_map, info.A.assumptions
     in
 
     (* Input is a list of list of scope / whatever pairs. Initially input
@@ -60,7 +61,7 @@ let get_params results subs_of_scope result =
        looks at the subsystems previously appended to the input
        recursively. *)
     let rec loop = function
-      | ( (candidate, _) :: tail ) :: lower -> (
+      | ( (candidate, _, _) :: tail ) :: lower -> (
         (* Is candidate currently abstracted? *)
         if Scope.Map.find candidate abstraction then
           (* Is candidate refineable? *)
@@ -82,15 +83,15 @@ let get_params results subs_of_scope result =
     match loop [ subs ] with
     (* No refinement possible. *)
     | None -> None
-    | Some ({ A.param } as result) -> (* Refinement found, need to update
-                                         abstraction and lift invariants.
-                                         *)
-      let sub = param.A.top in
+    | Some ({ A.param } as result) ->
+      (* Refinement found, need to update abstraction and lift invariants. *)
+      let info = A.info_of_param param in
+      let sub = info.A.top in
       (* System is now concrete. *)
       let abstraction = Scope.Map.add sub false abstraction in
       (* Updating with the abstraction used to prove [sub]. *)
       let abstraction =
-        merge_abstractions abstraction param.A.abstraction_map
+        merge_abstractions abstraction info.A.abstraction_map
       in
       (* Lifting invariants from previous result. *)
       let nu_assumptions =
@@ -105,7 +106,7 @@ let get_params results subs_of_scope result =
 let first_param_of results all_nodes scope =
 
   let rec loop abstraction assumptions = function
-    | (sys, abstractable) :: tail -> (
+    | (sys, abstractable, has_modes) :: tail -> (
       (* Format.printf "> %a@." Scope.pp_print_scope sys ;
       ( if abstractable then
           Format.printf "  abstractable@."
@@ -113,7 +114,8 @@ let first_param_of results all_nodes scope =
           Format.printf "  not abstractable@." ) ; *)
       (* Can/should we abstract this system? *)
       let is_abstract =
-        (sys = scope |> not) && abstractable && (Flags.compositional ())
+        if sys = scope then has_modes else
+          abstractable && (Flags.compositional ())
       in
       let abstraction = Scope.Map.add sys is_abstract abstraction in
       if is_abstract then
@@ -131,7 +133,7 @@ let first_param_of results all_nodes scope =
                looping. *)
             let nu_assumptions =
               TransSys.invars_of_bound result.A.sys Numeral.zero
-              |> List.map (fun t -> result.A.param.A.top, t)
+              |> List.map (fun t -> (A.info_of_param result.A.param).A.top, t)
             in
             loop abstraction (List.rev_append nu_assumptions assumptions) tail
           else None (* System is not correct, no need to keep going. *)
@@ -145,13 +147,35 @@ let first_param_of results all_nodes scope =
 
   match loop Scope.Map.empty [] all_nodes with
   | None -> None
-  | Some (abstraction, assumptions) -> Some {
-    A.top = scope ;
-    A.uid = A.results_length results ;
-    A.abstraction_map = abstraction ;
-    A.assumptions = assumptions ;
-    A.refinement_of = None
-  }
+  | Some (abstraction, assumptions) ->
+    let info =
+      { A.top = scope ;
+        A.uid = A.results_length results ;
+        A.abstraction_map = abstraction ;
+        A.assumptions = assumptions }
+    in
+    if Scope.Map.find scope abstraction then
+      (* Top level is abstract, we're checking its contract. *)
+      Some (A.ContractCheck info)
+    else
+      (* Top level is not abstract, first analysis. *)
+      Some (A.First info)
+
+let first_analysis_of_contract_check top (
+  { A.uid ; A.abstraction_map } as info
+) = function
+| None -> failwith "unreachable"
+| Some true -> (* Modes are complete. *)
+  Some (
+    A.First {
+      info with
+        A.uid = uid + 1 ;
+        A.abstraction_map = Scope.Map.add top false abstraction_map ;
+    }
+  )
+| Some false -> (* Modes are incomplete, done. *)
+  None
+
 
 
 (* Using modules is kind of useless here, however it compartments the code and
@@ -159,7 +183,9 @@ let first_param_of results all_nodes scope =
 
 module type Strategy = sig
   val next_analysis:
-    A.results -> (Scope.t -> (Scope.t * bool) list) -> (Scope.t * bool) list ->
+    A.results ->
+    (Scope.t -> (Scope.t * bool * bool) list) ->
+    (Scope.t * bool * bool) list ->
     A.param option
 end
 
@@ -168,9 +194,13 @@ module MonolithicStrategy : Strategy = struct
     | [] -> failwith "[strategy] \
       no system to analyze (empty list of scopes)\
     "
-    | (top,_) :: tail -> try (
+    | (top,_,_) :: tail -> try (
       match A.results_find top results with
-      | [] -> assert false
+      | [] -> failwith "unreachable"
+      | [ {
+        A.param = A.ContractCheck info ;
+        A.contract_valid ;
+      } ] -> first_analysis_of_contract_check top info contract_valid
       (* Not the first analysis, done. *)
       | _ -> None
     ) with Not_found ->
@@ -212,11 +242,15 @@ module ModularStrategy : Strategy = struct
        Returns the params of the next analysis for that system if any, calls
        [go_up] on the systems before that system otherwise. *)
     let rec go_down prefix = function
-      | (sys,_) :: tail -> (
+      | (sys, _, _) :: tail -> (
         try (
           (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
+          | [ {
+            A.param = A.ContractCheck info ;
+            A.contract_valid ;
+          } ] -> first_analysis_of_contract_check sys info contract_valid
           | result :: _ ->
             if A.result_is_all_proved result then (
               (* Format.printf "|> all proved, going up@." ; *)
@@ -232,13 +266,15 @@ module ModularStrategy : Strategy = struct
                 (* Format.printf "Refined %a for %a@."
                   Scope.pp_print_scope sub
                   Scope.pp_print_scope sys ; *)
-                Some {
-                  A.top = sys ;
-                  A.uid = A.results_length results ;
-                  A.abstraction_map = abs ;
-                  A.assumptions = ass ;
-                  A.refinement_of = Some result ;
-                }
+                Some (
+                  A.Refinement (
+                    { A.top = sys ;
+                      A.uid = A.results_length results ;
+                      A.abstraction_map = abs ;
+                      A.assumptions = ass ; },
+                    result
+                  )
+                )
             )
         ) with Not_found ->
           (* Format.printf "|> not the last system, going down@." ; *)
