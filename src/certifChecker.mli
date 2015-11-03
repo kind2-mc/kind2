@@ -27,8 +27,8 @@ val generate_certificate : TransSys.t -> string -> unit
 (** Generate a certificate for the frontend translation / simplification phases
     as a system in native input. To be verified, this certificate is expected
     to be fed back to Kind 2. *)
-val generate_frontend_certificate : TransSys.t -> string -> unit
+val generate_frontend_certificate : 'a InputSystem.t -> TransSys.t -> string -> unit
 
 
 (** Generate all certificates in the directory given by {!Flags.certif_dir}. *)
-val generate_all_certificates : TransSys.t -> unit
+val generate_all_certificates : 'a InputSystem.t -> TransSys.t -> unit

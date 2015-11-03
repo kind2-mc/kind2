@@ -51,7 +51,9 @@ module E = LustreExpr
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
+module SVT = StateVar.StateVarHashtbl
 
+module ET = LustreExpr.LustreExprHashtbl
 
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
@@ -211,7 +213,11 @@ type t = {
   is_main : bool;
 
   (* Map from a state variable to its source *)
-  state_var_source_map : state_var_source SVM.t 
+  state_var_source_map : state_var_source SVM.t;
+
+  oracle_state_var_map : StateVar.t SVT.t;
+
+  state_var_expr_map : LustreExpr.t SVT.t;
 
 }
 
@@ -242,7 +248,9 @@ let empty_node name = {
   global_contracts = [];
   mode_contracts = [];
   is_main = false;
-  state_var_source_map = SVM.empty
+  state_var_source_map = SVM.empty;
+  oracle_state_var_map = SVT.create 17;
+  state_var_expr_map = SVT.create 17;
 }
 
 
@@ -1359,6 +1367,15 @@ let get_state_var_source { state_var_source_map } state_var =
   SVM.find
     state_var
     state_var_source_map 
+
+
+let set_oracle_state_var { oracle_state_var_map } = SVT.add oracle_state_var_map
+
+let get_oracle_state_var_map { oracle_state_var_map } = oracle_state_var_map
+
+let set_state_var_expr { state_var_expr_map } = SVT.add state_var_expr_map
+
+let get_state_var_expr_map { state_var_expr_map } = state_var_expr_map
 
 
 (* Return true if the state variable should be visible to the user,

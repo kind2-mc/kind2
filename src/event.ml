@@ -60,7 +60,7 @@ let pp_print_event ppf = function
   | PropStatus (p, Property.PropKTrue k) -> 
     Format.fprintf ppf "@[<hv>Property %s true for %d steps@]" p k
 
-  | PropStatus (p, TransSys.PropInvariant (k, _)) -> 
+  | PropStatus (p, Property.PropInvariant (k, _)) -> 
     Format.fprintf ppf "@[<hv>Property %s invariant (%d-inductive)@]" p k
 
   | PropStatus (p, Property.PropFalse []) -> 
@@ -213,7 +213,7 @@ struct
 
       [string_of_int k; p; "PROP_KTRUE"]
 
-    | PropStatus (p, TransSys.PropInvariant (k, phi)) -> 
+    | PropStatus (p, Property.PropInvariant (k, phi)) -> 
 
       (* Serialize term to string *)
       let phi_string = Marshal.to_string phi [Marshal.No_sharing] in
@@ -447,7 +447,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
       if disproved then begin
         (ignore_or_fprintf level)
           !log_ppf 
-          ("@[<v>Candidate %s disproved by %a %tafter %.3fs.@,%a@]@.") 
+          "@[<v>Candidate %s disproved by %a %tafter %.3fs.@,%a@]@."
           prop
           pp_print_kind_module_pt mdl
           (function ppf -> match cex with
@@ -457,6 +457,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
           (pp_print_counterexample_pt
              (log_level_of_int (int_of_log_level level + 2))
              input_sys analysis trans_sys prop disproved)
+          cex
       end
       else
 

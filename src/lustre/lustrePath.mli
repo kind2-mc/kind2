@@ -47,7 +47,9 @@ val substitute_definitions_in_expr :
 
 (** Reconstruct Lustre streams from state variables *)
 val reconstruct_lustre_streams :
-  LustreNode.t list -> StateVar.t list ->
+  LustreNode.t SubSystem.t -> 
+  (* LustreNode.t list -> *)
+  StateVar.t list ->
   (StateVar.t * (LustreIdent.t * int * StateVar.t option) list) list
     StateVar.StateVarMap.t
 

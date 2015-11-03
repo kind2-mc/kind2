@@ -192,12 +192,15 @@ let sexit fmt = fprintf fmt "@[<hv 1>(exit)@]@."
    system. *)
 let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | _, TermLib.Candidate, _, _ ->
+      | { Property.prop_source = Property.Candidate } ->
         (* Put valid candidates in invariants *)
         acc
-      | _, _, p, TS.PropInvariant c -> c :: c_acc, p :: p_acc
-      | p_name, _, _, _ ->
-        Event.log L_fatal "[Warning] Skipping unproved property %s" p_name;
+      | { Property.prop_status = Property.PropInvariant ((_,phi) as c); prop_term = p;prop_name } ->
+        Event.log L_fatal "certificate for %s (%a)" prop_name Term.pp_print_term phi;
+
+        c :: c_acc, p :: p_acc
+      | { Property.prop_name } ->
+        Event.log L_fatal "[Warning] Skipping unproved property %s" prop_name;
         acc
     ) ([], []) (TS.get_real_properties sys) in
 
@@ -207,12 +210,12 @@ let extract_props_certs sys =
     ) certs (TS.get_invariants sys) in
 
   let certs =  List.fold_left (fun certs -> function
-      | _, TermLib.Candidate, p, TS.PropInvariant c -> c :: certs
-      | p_name, _, _, _ ->
-        Event.log L_info "Skipping unproved candidate %s" p_name;
+      | { Property.prop_status = Property.PropInvariant c;
+          prop_source = Property.Candidate; prop_term = p } -> c :: certs
+      | { Property.prop_name } ->
+        Event.log L_info "Skipping unproved candidate %s" prop_name;
         certs
     ) certs (TS.get_candidate_properties sys) in
-
 
   List.rev props, certs
 
@@ -748,7 +751,7 @@ let minimize_certificate sys =
   in
   
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
@@ -819,7 +822,7 @@ let echo fmt s = fprintf fmt "(echo \"%s\")@." (String.escaped s)
 
 (* Returns true if the system is an observer of equivalence, i.e. an FEC *)
 let is_fec sys =
-  match TransSys.get_scope sys with
+  match TransSys.scope_of_trans_sys sys with
   | "OBS" :: _ -> true
   | _ -> false
     
@@ -1266,8 +1269,9 @@ let obs_name = "OBS"
 
 (* Add an additional scope to a state variable *)
 let add_scope_state_var scope sv =
-  if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv
-  else
+  (* if StateVar.equal_state_vars (TransSys.init_flag_state_var sys) sv then sv *)
+  (* else *)
+  (* TODO we use to not scope init_flags, still the case? *)
     StateVar.mk_state_var
       ~is_input:(StateVar.is_input sv)
       ~is_const:(StateVar.is_const sv)
@@ -1278,8 +1282,9 @@ let add_scope_state_var scope sv =
 
 (* Remove top scope of a state variable *)
 let unscope_state_var scope sv =
-  if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv
-  else
+  (* if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv *)
+  (* else *)
+  (* TODO we use to not scope init_flags, still the case? *)
     StateVar.mk_state_var
       ~is_input:(StateVar.is_input sv)
       ~is_const:(StateVar.is_const sv)
@@ -1316,17 +1321,36 @@ let unscope_var scope v =
 
 
 (* Helper function for creating an initial term with scoping information *)
-let mk_init_term scope sys =
+let mk_init_term init_flag scope sys =
+  let vinit = Var.mk_state_var_instance
+      (TransSys.init_flag_state_var sys) TransSys.init_base in
+  let viflag = Var.mk_state_var_instance init_flag TransSys.init_base in
   Term.mk_uf (TS.init_uf_symbol sys)
-    (List.map (fun v -> Term.mk_var (add_scope_var scope v))
-       (TS.init_vars sys))
+    (List.map (fun v ->
+         if Var.equal_vars v vinit then
+           Term.mk_var viflag
+         else Term.mk_var (add_scope_var scope v))
+       (TS.init_formals sys))
 
 
 (* Helper function for creating a transition term with scoping information *)
-let mk_trans_term scope sys =
+let mk_trans_term init_flag scope sys =
+  let vinit = Var.mk_state_var_instance
+      (TransSys.init_flag_state_var sys) Numeral.(TransSys.trans_base - one) in
+  let viflag = Var.mk_state_var_instance
+      init_flag Numeral.(TransSys.trans_base - one) in
+  let vinit' = Var.mk_state_var_instance
+      (TransSys.init_flag_state_var sys) TransSys.trans_base in
+  let viflag' = Var.mk_state_var_instance init_flag TransSys.trans_base in
+
   Term.mk_uf (TS.trans_uf_symbol sys)
-    (List.map (fun v -> Term.mk_var (add_scope_var scope v))
-       (TS.trans_vars sys))
+    (List.map (fun v ->
+         if Var.equal_vars v vinit' then
+           Term.mk_var viflag'
+         else if Var.equal_vars v vinit then
+           Term.mk_var viflag
+         else Term.mk_var (add_scope_var scope v))
+        (TS.trans_formals sys))
 
 
 (* Helper function for creating terms of state variables at offset 0 with an
@@ -1345,7 +1369,7 @@ let term_state_var1 scope sv =
 
 
 
-let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
+let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
 
   let term_state_var =
     if prime then term_state_var1 [obs_name]
@@ -1354,7 +1378,7 @@ let mk_obs_eqs ?(prime=false) ?(prop=false) lustre_vars orig_kind2_vars =
   List.fold_left (fun acc sv ->
 
       let jkind_vars =
-        JkindParser.jkind_vars_of_kind2_statevar lustre_vars sv in
+        JkindParser.jkind_vars_of_kind2_statevar kind2_sys lustre_vars sv in
 
       (debug fec "(Kind2->JKind): %a -> [ %a ]"
          StateVar.pp_print_state_var sv
@@ -1402,11 +1426,11 @@ let mk_prop_obs ~only_out lustre_vars kind2_sys =
     if only_out then
       List.filter (fun x -> not (StateVar.is_input x)) orig_kind2_vars
     else orig_kind2_vars in      
-  let eqs = mk_obs_eqs ~prime:false lustre_vars vars in
+  let eqs = mk_obs_eqs kind2_sys ~prime:false lustre_vars vars in
   
   (* Conjunction of equalities between state varaibles *)
   ["Observational_Equivalence",
-   TermLib.Generated [],
+   Property.Generated [],
    Term.mk_and eqs]
 
 
@@ -1415,8 +1439,8 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
   let orig_kind2_vars = TS.state_vars kind2_sys in
   
   let prop_vs =
-    List.fold_left (fun acc (_,_,p,_) ->
-        Term.state_vars_of_term p |> SVS.union acc
+    List.fold_left (fun acc p ->
+        Term.state_vars_of_term p.Property.prop_term |> SVS.union acc
       ) SVS.empty (TS.get_real_properties kind2_sys)
   in
   
@@ -1427,25 +1451,31 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
 
   let prop_vars = SVS.elements prop_vs in
   
-  let props_eqs = mk_obs_eqs ~prime:false ~prop:true lustre_vars prop_vars in
-  let others_eqs = mk_obs_eqs ~prime:false ~prop:false lustre_vars other_vars in
+  let props_eqs =
+    mk_obs_eqs kind2_sys ~prime:false ~prop:true lustre_vars prop_vars in
+  let others_eqs =
+    mk_obs_eqs kind2_sys  ~prime:false ~prop:false lustre_vars other_vars in
 
   let cpt = ref 0 in
   let props_obs =
     List.map (fun eq ->
         incr cpt;
-        "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt),
-        TermLib.Generated [],
-        eq)
-      props_eqs in
+        { Property.prop_name =
+            "PROPERTY_Observational_Equivalence_" ^(string_of_int !cpt);
+          prop_source = Property.Generated [];
+          prop_term = eq;
+          prop_status = Property.PropUnknown; }
+      ) props_eqs in
 
   let others_obs =
     List.map (fun eq ->
         incr cpt;
-        "OTHER_Observational_Equivalence_" ^(string_of_int !cpt),
-        TermLib.Candidate,
-        eq)
-      others_eqs in
+        { Property.prop_name =
+            "OTHER_Observational_Equivalence_" ^(string_of_int !cpt);
+          prop_source = Property.Candidate;
+          prop_term = eq;
+          prop_status = Property.PropUnknown; }
+        ) others_eqs in
 
   props_obs @ others_obs
   
@@ -1454,11 +1484,30 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
 
 (* Create additional constraints that force the input state varaibles to be the
    same in Kind2 and jKind. *)
-let same_inputs ?(prime=false) lustre_vars orig_kind2_vars =
-  mk_obs_eqs ~prime
+let same_inputs kind2_sys ?(prime=false) lustre_vars orig_kind2_vars =
+  mk_obs_eqs kind2_sys ~prime
     lustre_vars (List.filter StateVar.is_input orig_kind2_vars)
   |> Term.mk_and
 
+
+
+let mk_inst init_flag sys formal_vars =
+  let map_down, map_up =
+    List.fold_left (fun (map_down, map_up) vf ->
+        let v =
+          if StateVar.equal_state_vars vf (TransSys.init_flag_state_var sys)
+          then init_flag
+          else add_scope_state_var [obs_name] vf
+        in
+        StateVar.StateVarMap.add v vf map_down,
+        StateVar.StateVarMap.add vf v map_up
+      ) StateVar.StateVarMap.(empty, empty) formal_vars
+  in
+  sys,
+  [ { TransSys.pos = Lib.dummy_pos;
+      map_down;
+      map_up;
+      guard_clock = fun _ t -> t } ]
 
 (* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
    [jkind_sys] in parallel and observes the values of their state
@@ -1469,12 +1518,19 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let orig_kind2_vars = TS.state_vars kind2_sys in
   let orig_jkind_vars = TS.state_vars jkind_sys in
 
+  let init_flag = StateVar.mk_init_flag [obs_name] in
+
   (* Create versions of variables with the new scope *)
   let kind2_vars = List.map (add_scope_state_var [obs_name]) orig_kind2_vars in
   let jkind_vars = List.map (add_scope_state_var [obs_name]) orig_jkind_vars in
-  let state_vars = kind2_vars @ jkind_vars in
+  let state_vars =
+    init_flag :: kind2_vars @ jkind_vars |>
+    List.filter (fun sv ->
+        not (StateVar.equal_state_vars
+               sv (TransSys.init_flag_state_var kind2_sys)))
+  in
   let vars_types = List.map StateVar.type_of_state_var state_vars in
-
+  
   let state_vars0 = List.map (fun sv ->
       Var.mk_state_var_instance sv Numeral.zero)
       state_vars in
@@ -1505,10 +1561,10 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let init_term =
     Term.mk_and [
       (* init flag *)
-      TransSys.init_flag_var TransSys.init_base |> Term.mk_var;
-      same_inputs lustre_vars orig_kind2_vars;
-      mk_init_term [obs_name] kind2_sys;
-      mk_init_term [obs_name] jkind_sys] in
+      Var.mk_state_var_instance init_flag TransSys.init_base |> Term.mk_var;
+      same_inputs kind2_sys lustre_vars orig_kind2_vars;
+      mk_init_term init_flag [obs_name] kind2_sys;
+      mk_init_term init_flag [obs_name] jkind_sys] in
 
   (* Term describing the transition relation: [inputs1' = inputs2' /\
      T1(X1,X1') /\ T2(X2,X2')]. Here [inputs1'] is the subset of [X1'] which
@@ -1516,13 +1572,14 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let trans_term =
     Term.mk_and [
       (* init flag *)
-      TransSys.init_flag_var TransSys.trans_base |> Term.mk_var |> Term.mk_not;
-      same_inputs ~prime:true lustre_vars orig_kind2_vars;
-      mk_trans_term [obs_name] kind2_sys;
-      mk_trans_term [obs_name] jkind_sys] in
+      Var.mk_state_var_instance init_flag TransSys.trans_base
+      |> Term.mk_var |> Term.mk_not;
+      same_inputs ~prime:true kind2_sys lustre_vars orig_kind2_vars;
+      mk_trans_term init_flag [obs_name] kind2_sys;
+      mk_trans_term init_flag [obs_name] jkind_sys] in
 
-  let init = init_uf, (state_vars0, init_term) in
-  let trans = trans_uf, (state_vars1 @ state_vars0, trans_term) in
+  let init_args = state_vars0 in
+  let trans_args = state_vars1 @ state_vars0 in
 
   global_jkind_vars := orig_jkind_vars; 
   
@@ -1533,19 +1590,36 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
      "@[<hv 4>Unmatched JKind vars:@,%a@]@."
      (pp_print_list StateVar.pp_print_state_var "@,") !global_jkind_vars
    end);
+
+
+  let kind2_subsys_inst = mk_inst init_flag kind2_sys orig_kind2_vars in
+  let jkind_subsys_inst = mk_inst init_flag jkind_sys orig_jkind_vars in
   
   (* Create observer system *)
-  let obs_sys =
-    TS.mk_trans_sys [obs_name]
-      state_vars init trans [kind2_sys; jkind_sys] props TS.Native
-  in
+  let obs_sys, _ =
+    TS.mk_trans_sys
+      [obs_name]
+      None
+      init_flag
+      []
+      state_vars
+      []
+      init_uf
+      init_args
+      init_term
+      trans_uf
+      trans_args
+      trans_term
+      [kind2_subsys_inst; jkind_subsys_inst]
+      props
+      [] [] [] in
 
-  (* Add caller info to subnodes *)
-  TS.add_caller kind2_sys
-    obs_sys ((List.combine orig_kind2_vars kind2_vars), (fun t -> t));
+  (* (\* Add caller info to subnodes *\) *)
+  (* TS.add_caller kind2_sys *)
+  (*   obs_sys ((List.combine orig_kind2_vars kind2_vars), (fun t -> t)); *)
 
-  TS.add_caller jkind_sys
-    obs_sys ((List.combine orig_jkind_vars jkind_vars), (fun t -> t));
+  (* TS.add_caller jkind_sys *)
+  (*   obs_sys ((List.combine orig_jkind_vars jkind_vars), (fun t -> t)); *)
 
   (* Return the observer system *)
   obs_sys
@@ -1554,66 +1628,57 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
 (* Generate a certificate for the frontend translation / simplification phases
    as a system in native input. To be verified, this certificate is expected to
    be fed back to Kind 2. *)
-let generate_frontend_certificate kind2_sys dirname =
-  match TS.get_source kind2_sys with
+let generate_frontend_certificate node kind2_sys dirname =
 
-  (* Only generate the frontend certificate if the system comes from a Lustre
+  (* Time statistics *)
+  Stat.start_timer Stat.certif_frontend_time;
+
+  printf "Generating frontend certificate with jKind ...@.";
+
+  (* Call jKind and get back its internal transition system for the same
      file *)
-  | TS.Lustre _ ->
+  let jkind_sys = JkindParser.get_jkind_transsys (Flags.input_file ()) in
 
-    let nodes = TS.get_original_lustre_nodes kind2_sys in
-    
-    (* Time statistics *)
-    Stat.start_timer Stat.certif_frontend_time;
+  (* Find original Lustre names (with callsite info) for the state variables
+     in the Kind2 system. *)
+  let lustre_vars =
+    InputSystem.reconstruct_lustre_streams node (TS.state_vars kind2_sys) in
 
-    printf "Generating frontend certificate with jKind ...@.";
-
-    (* Call jKind and get back its internal transition system for the same
-       file *)
-    let jkind_sys = JkindParser.get_jkind_transsys (Flags.input_file ()) in
-
-    (* Find original Lustre names (with callsite info) for the state variables
-       in the Kind2 system. *)
-    let lustre_vars =
-      LustrePath.reconstruct_lustre_streams nodes (TS.state_vars kind2_sys) in
-
-    (debug fec "Lustre vars:@,%a"
-       (fun fmt ->
-          StateVar.StateVarMap.iter (fun sv l ->
-              List.iter (fun (sv', l') ->
-                  Format.fprintf fmt "%a -> %a : %a@,"
-                    StateVar.pp_print_state_var sv
-                    StateVar.pp_print_state_var sv'
-                    (pp_print_list
-                       (fun fmt (lid, n, clock) ->
-                          Format.fprintf fmt "%a [%d] %s"
-                            (LustreIdent.pp_print_ident true) lid n
-                            (match clock with
-                             | None -> ""
-                             | Some c -> "ON "^ (StateVar.string_of_state_var c))
-                       )
-                       " , ") l'
-                ) l
+  (debug fec "Lustre vars:@,%a"
+     (fun fmt ->
+        StateVar.StateVarMap.iter (fun sv l ->
+            List.iter (fun (sv', l') ->
+                Format.fprintf fmt "%a -> %a : %a@,"
+                  StateVar.pp_print_state_var sv
+                  StateVar.pp_print_state_var sv'
+                  (pp_print_list
+                     (fun fmt (lid, n, clock) ->
+                        Format.fprintf fmt "%a [%d] %s"
+                          (LustreIdent.pp_print_ident true) lid n
+                          (match clock with
+                           | None -> ""
+                           | Some c -> "ON "^ (StateVar.string_of_state_var c))
+                     )
+                     " , ") l'
+              ) l
           ))
-       lustre_vars
-    end);
+     lustre_vars
+  end);
     
-    (* Create the observer system with the property of observational
-       equivalence. *)
-    let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
+  (* Create the observer system with the property of observational
+     equivalence. *)
+  let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
 
-    let filename = Filename.concat dirname "FEC.kind2" in
+  let filename = Filename.concat dirname "FEC.kind2" in
 
-    (* Output certificate in native format *)
-    NativeInput.dump_native_to obs_sys filename;
-    
-    (* Time statistics *)
-    Stat.record_time Stat.certif_frontend_time;
+  (* Output certificate in native format *)
+  NativeInput.dump_native_to obs_sys filename;
 
-    (* Show which file contains the certificate *)
-    printf "Frontend certificate was written in %s, run Kind 2 on it with option --certif@." filename;
+  (* Time statistics *)
+  Stat.record_time Stat.certif_frontend_time;
 
-  | _ -> assert false
+  (* Show which file contains the certificate *)
+  printf "Frontend certificate was written in %s, run Kind 2 on it with option --certif@." filename
 
 
 
@@ -1666,7 +1731,7 @@ let fecc_checker_script =
 (********************************)
 
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
-let generate_all_certificates sys =
+let generate_all_certificates input sys =
 
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
@@ -1677,10 +1742,11 @@ let generate_all_certificates sys =
 
   generate_certificate sys dirname;
 
-  begin match TS.get_source sys with
-  | TS.Lustre _ -> generate_frontend_certificate sys dirname
-  | _ -> printf "No certificate for frontend@."
-  end;
+  (* Only generate frontend certificates for Lustre *)
+  if InputSystem.is_lustre_input input then
+    generate_frontend_certificate input sys dirname
+  else
+    printf "No certificate for frontend@.";
 
   
   let open Unix in

@@ -253,13 +253,24 @@ type t =
     is_main : bool;
     (** Flag node as the top node *)
 
-    state_var_source_map : state_var_source StateVar.StateVarMap.t 
+    state_var_source_map : state_var_source StateVar.StateVarMap.t;
     (** Map from a state variable to its source 
 
         Variables that were introduced to abstract expressions do not
         have a source. *)
 
+    oracle_state_var_map : StateVar.t StateVar.StateVarHashtbl.t;
+    (** Map from state variables to state variables providing a
+        non-deterministic pre-initial value *)
+
+    state_var_expr_map : LustreExpr.t StateVar.StateVarHashtbl.t;
+
   }
+
+
+(** Instance of state vars as streams with their position  *)
+type state_var_instance = position * LustreIdent.t * StateVar.t
+
 
 (** Return a node of the given name without inputs, outputs, oracles,
     equations, etc. Create a state variable for the {!t.instance} and
@@ -272,7 +283,8 @@ val empty_node : LustreIdent.t -> t
 
     If the flag in the first argument is [true], print identifiers in
     Lustre syntax. *)
-val pp_print_node_equation : bool -> Format.formatter -> StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t -> unit
+val pp_print_node_equation : bool -> Format.formatter ->
+  StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t -> unit
 
 (** Pretty-print a node call in Lustre format 
 
@@ -363,7 +375,10 @@ val scope_of_node : t -> Scope.t
     system is presented to [f] after all its subsystem instances have
     been presented.
 *)
-val fold_node_calls_with_trans_sys : t list -> (t -> TransSys.t -> (TransSys.t * TransSys.instance) list -> 'a list -> 'a) -> t -> TransSys.t -> 'a
+val fold_node_calls_with_trans_sys :
+  t list ->
+  (t -> TransSys.t -> (TransSys.t * TransSys.instance) list -> 'a list -> 'a) ->
+  t -> TransSys.t -> 'a
 
 (** {2 Sources} *)
 
@@ -389,6 +404,17 @@ val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 
 (** Get source of state variable *)
 val get_state_var_source : t -> StateVar.t -> state_var_source
+
+val set_oracle_state_var : t -> StateVar.t -> StateVar.t -> unit
+
+val get_oracle_state_var_map : t -> StateVar.t StateVar.StateVarHashtbl.t
+
+val set_state_var_expr : t -> StateVar.t -> LustreExpr.t -> unit
+
+val get_state_var_expr_map : t -> LustreExpr.t StateVar.StateVarHashtbl.t
+
+(** get all instances of a state variable *)
+val get_state_var_instances : StateVar.t -> state_var_instance list
 
 (** Return true if the state variable should be visible to the user,
     false if it was created internally

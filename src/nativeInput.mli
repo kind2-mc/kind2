@@ -25,10 +25,10 @@
 (** {2 Printing from native input format } *)
   
 (** Parse from the channel *)
-val of_channel : in_channel -> TransSys.t
+val of_channel : in_channel -> TransSys.t SubSystem.t
 
 (** Parse from the file *)
-val of_file : string -> TransSys.t
+val of_file : string -> TransSys.t SubSystem.t
 
 
 (** {2 Printing to native format } *)

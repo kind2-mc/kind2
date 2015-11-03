@@ -1189,16 +1189,19 @@ let pp_print_path_in_csv
 (***************************************************)
 
 let same_args abstr_map (inputs, defs) (inputs', defs') =
-  List.for_all2 (fun a1 a2 ->
+  D.equal (fun a1 a2 ->
       StateVar.equal_state_vars a1 a2 ||
       (* can be abstractions *)
       try
-        let e1 = SVMap.find a1 abstr_map in
-        let e2 = SVMap.find a2 abstr_map in
-        LustreExpr.equal_expr e1 e2
+        let e1 = SVM.find a1 abstr_map in
+        let e2 = SVM.find a2 abstr_map in
+        LustreExpr.equal e1 e2
       with Not_found -> false)
     inputs inputs' &&
-  List.for_all2 LustreExpr.equal_expr defs defs'
+  match defs, defs' with
+  | Some d1, Some d2 -> D.equal LustreExpr.equal d1 d2
+  | None, None -> true
+  | _ -> false
 
 
 let rec add_to_callpos abstr_map acc pos clock args calls =
@@ -1309,7 +1312,7 @@ let get_pos_number hc lid pos =
 
 let rec get_instances acc hc parents sv =
   (* Format.eprintf "get_instances : %a@." StateVar.pp_print_state_var sv; *)
-  match LustreExpr.get_state_var_instances sv with
+  match N.get_state_var_instances sv with
   | [] -> (sv, List.rev parents) :: acc
   | insts ->
     List.fold_left (fun acc (pos, lid, lsv) ->
@@ -1327,31 +1330,31 @@ let get_lustre_streams hc sv = get_instances [] hc [] sv
 
 let inverse_oracle_map nodes =
   List.fold_left (fun acc node ->
-      StateVar.StateVarHashtbl.fold (fun sv oracle acc ->
-          let l = try SVMap.find oracle acc with Not_found -> [] in
+      SVT.fold (fun oracle sv acc ->
+          let l = try SVM.find oracle acc with Not_found -> [] in
           (debug fec
              "inverse oracle: %a ->>> %a"
              StateVar.pp_print_state_var oracle
              StateVar.pp_print_state_var sv
            end);
-          SVMap.add oracle (sv :: l) acc 
-        ) node.LustreNode.state_var_oracle_map acc
-    ) SVMap.empty nodes
+          SVM.add oracle (sv :: l) acc 
+        ) (N.get_oracle_state_var_map node) acc
+    ) SVM.empty nodes
 
 let inverse_expr_map nodes =
   List.fold_left (fun acc node ->
-      LustreExpr.ExprHashtbl.fold (fun e sv acc ->
+      SVT.fold (fun sv e acc ->
         (debug fec
            "inverse expr: %a ->>> %a" StateVar.pp_print_state_var sv
            (LustreExpr.pp_print_lustre_expr false) e
          end);
-          SVMap.add sv e acc
-        ) node.LustreNode.expr_state_var_map acc
-  ) SVMap.empty nodes
+          SVM.add sv e acc
+        ) (N.get_state_var_expr_map node) acc
+  ) SVM.empty nodes
 
 
 let rec orig_of_oracle oracle_map sv =
-  try SVMap.find sv oracle_map with Not_found -> [sv]
+  try SVM.find sv oracle_map with Not_found -> [sv]
   (* try *)
   (*   let l = SVMap.find sv oracle_map in *)
   (*   List.fold_left *)
@@ -1359,7 +1362,10 @@ let rec orig_of_oracle oracle_map sv =
   (* with Not_found -> [sv] *)
 
 
-let reconstruct_lustre_streams nodes state_vars =
+let reconstruct_lustre_streams node state_vars =
+
+  let nodes = SubSystem.all_subsystems node
+              |> List.map (fun {SubSystem.source} -> source) in
   
   (* mapback from abstract state variables to expressions *)
   let abstr_map = inverse_expr_map nodes in
@@ -1389,10 +1395,10 @@ let reconstruct_lustre_streams nodes state_vars =
         |> List.rev in
       
       (* append to others *)
-      let others = try SVMap.find sv acc with Not_found -> [] in
-      SVMap.add sv (streams @ others) acc
+      let others = try SVM.find sv acc with Not_found -> [] in
+      SVM.add sv (streams @ others) acc
         
-    ) SVMap.empty state_vars
+    ) SVM.empty state_vars
 
 
 (* 

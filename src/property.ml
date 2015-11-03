@@ -29,7 +29,7 @@ type prop_status =
   | PropKTrue of int
 
   (* Property is true in all reachable states *)
-  | PropInvariant 
+  | PropInvariant of Certificate.t
 
   (* Property is false at some step *)
   | PropFalse of (StateVar.t * Model.term_or_lambda list) list
@@ -99,7 +99,7 @@ let length_of_cex = function
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
   | PropKTrue k -> Format.fprintf ppf "true-for %d steps" k
-  | PropInvariant -> Format.fprintf ppf "invariant"
+  | PropInvariant (k, _) -> Format.fprintf ppf "invariant at %d" k
   | PropFalse [] -> Format.fprintf ppf "false"
   | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)
 
@@ -112,6 +112,8 @@ let pp_print_prop_source ppf = function
        ppf "%a" pp_print_position pos
   | Generated _ ->
      Format.fprintf ppf "subrange constraint"
+  | Candidate ->
+     Format.fprintf ppf "user supplied candidate invariant"
   | Instantiated (scope,_) ->
      Format.fprintf
        ppf
@@ -136,6 +138,7 @@ let pp_print_prop_quiet ppf { prop_name ; prop_source } =
 let pp_print_prop_source ppf = function 
   | PropAnnot _ -> Format.fprintf ppf ":user"
   | Generated _ -> Format.fprintf ppf ":generated"
+  | Candidate -> Format.fprintf ppf ":candidate"
   | Instantiated _ -> Format.fprintf ppf ":subsystem"
   | Assumption _ -> Format.fprintf ppf ":assumption"
   | Guarantee _ -> Format.fprintf ppf ":guarantee"
@@ -160,12 +163,12 @@ let prop_status_known = function
   | PropKTrue _ -> false
 
   (* Property is invariant or false *)
-  | PropInvariant
+  | PropInvariant _
   | PropFalse _ -> true
 
 
 (* Mark property as invariant *)
-let set_prop_invariant p =
+let set_prop_invariant p cert =
 
   (* Modify status *)
   p.prop_status <- 
@@ -175,8 +178,8 @@ let set_prop_invariant p =
 
       (* Mark as k-true if it was unknown *)
       | PropKTrue _
-      | PropInvariant
-      | PropUnknown -> PropInvariant
+      | PropInvariant _
+      | PropUnknown -> PropInvariant cert
 
       (* Fail if property was l-false for l <= k *)
       | PropFalse _ -> 
@@ -197,7 +200,7 @@ let set_prop_false p cex =
       | PropUnknown -> PropFalse cex
 
       (* Fail if property was invariant *)
-      | PropInvariant -> 
+      | PropInvariant _ -> 
         raise (Failure "prop_false")
 
       (* Fail if property was l-true for l >= k *)
@@ -239,7 +242,7 @@ let set_prop_ktrue p k =
       | PropKTrue _ -> PropKTrue k
 
       (* Keep if it was invariant *)
-      | PropInvariant -> p.prop_status
+      | PropInvariant _ -> p.prop_status
 
       (* Keep if property was l-false for l > k *)
       | PropFalse cex when (length_of_cex cex) > k -> p.prop_status
@@ -256,7 +259,7 @@ let set_prop_status p = function
 
   | PropKTrue k -> set_prop_ktrue p k 
 
-  | PropInvariant -> set_prop_invariant p
+  | PropInvariant cert -> set_prop_invariant p cert
 
   | PropFalse c -> set_prop_false p c
 

@@ -171,7 +171,7 @@ let trans_sys_of_analysis (type s)
       (t, Lustre (s, g))
     )
 
-  | Native sub -> (sub.SubSystem.source, Native sub)
+  | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
     
   | Horn _ -> assert false
 
@@ -187,8 +187,8 @@ let pp_print_path_pt
       trans_sys instances subsystem globals first_is_init ppf model
 
   | Native sub ->
-    Event.log L_fatal "pp_print_path_pt not implemented for native input"
-
+    Format.eprintf "pp_print_path_pt not implemented for native input@.";
+    assert false
 
   | Horn _ -> assert false
 
@@ -203,7 +203,8 @@ let pp_print_path_xml
       trans_sys instances subsystem globals first_is_init ppf model
 
   | Native _ ->
-    Event.log L_fatal "pp_print_path_xml not implemented for native input"
+    Format.eprintf "pp_print_path_xml not implemented for native input@.";
+    assert false;
 
 
   | Horn _ -> assert false
@@ -218,10 +219,24 @@ let pp_print_path_in_csv
       trans_sys instances subsystem globals first_is_init ppf model
 
   | Native _ ->
-    Event.log L_fatal "pp_print_path_in_csv not implemented for native input"
+    Format.eprintf "pp_print_path_in_csv not implemented for native input";
+    assert false
 
   | Horn _ -> assert false
 
+
+let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
+  match input_system with 
+  | Lustre (subsystem, _) ->
+    LustrePath.reconstruct_lustre_streams subsystem state_vars
+  | Native _ -> assert false
+  | Horn _ -> assert false
+
+let is_lustre_input (type s) (input_system : s t) =
+  match input_system with 
+  | Lustre _ -> true
+  | Native _ -> false
+  | Horn _ -> false
 
 
 let slice_to_abstraction_and_property

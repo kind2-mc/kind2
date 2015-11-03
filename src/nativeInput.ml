@@ -22,6 +22,8 @@ module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module D = GenericSMTLIBDriver
 
+module I = Ident
+
 let s_prime = HString.mk_hstring "prime"
 
 module Conv = SMTExpr.Converter(D)
@@ -35,18 +37,26 @@ let s_define_node = HString.mk_hstring "define-node"
 let s_init = HString.mk_hstring "init"
 let s_trans = HString.mk_hstring "trans"
 let s_callers = HString.mk_hstring "callers"
+let s_subsystems = HString.mk_hstring "subsystems"
 let s_lambda = HString.mk_hstring "lambda"
 let s_opt_const = HString.mk_hstring ":const"
 let s_opt_input = HString.mk_hstring ":input"
 let s_opt_for_inv_gen = HString.mk_hstring ":for-inv-gen"
+let s_opt_init_flag =  HString.mk_hstring ":init-flag"
 let s_annot = HString.mk_hstring ":user"
 let s_contract = HString.mk_hstring ":contract"
 let s_gen = HString.mk_hstring ":generated"
 let s_inst = HString.mk_hstring ":subsystem"
 let s_cand = HString.mk_hstring ":candidate"
+let s_assumption =  HString.mk_hstring ":assumption"
+let s_guarantee =  HString.mk_hstring ":guarantee"
+let s_guaranteeonemodeactive = HString.mk_hstring ":one_mode_active"
+let s_guaranteemodeimplication = HString.mk_hstring ":mode_implication"
 let s_props = HString.mk_hstring "props"
 let s_intrange = HString.mk_hstring "IntRange"
 
+
+let seen_systems = HH.create 17
 
 (*********************************************)
 (* Parsing of systems in native input format *)
@@ -54,12 +64,12 @@ let s_intrange = HString.mk_hstring "IntRange"
 
 (* Return the name of the initial state constraint predicate *)
 let init_pred_hname pred =
-  Format.sprintf "%s_%s" LustreIdent.init_uf_string
+  Format.sprintf "%s_%s_0" LustreIdent.init_uf_string
     (HString.string_of_hstring pred)
 
 (* Return the name of the transition relation predicate *)
 let trans_pred_hname pred =
-  Format.sprintf "%s_%s" LustreIdent.trans_uf_string
+  Format.sprintf "%s_%s_0" LustreIdent.trans_uf_string
     (HString.string_of_hstring pred)
 
 
@@ -108,28 +118,31 @@ let state_var_of_sexpr = function
     let var_type = type_of_sexpr t in
 
     (* Options of the variable *)
-    let is_const, is_input, for_inv_gen  = 
+    let is_const, is_input, for_inv_gen, is_init_flag = 
       List.fold_left 
 
         (* Parse input and modify options *)
-        (fun (is_const, is_input, for_inv_gen) -> function 
+        (fun (is_const, is_input, for_inv_gen, is_init_flag) -> function 
            | HS.Atom c when c == s_opt_const ->
-             (true, is_input, for_inv_gen)
+             (true, is_input, for_inv_gen, is_init_flag)
            | HS.Atom c when c == s_opt_input ->
-             (is_const, true, for_inv_gen)
+             (is_const, true, for_inv_gen,is_init_flag)
            | HS.Atom c when c == s_opt_for_inv_gen ->
-             (is_const, is_input, true)
+             (is_const, is_input, true, is_init_flag)
+           | HS.Atom c when c == s_opt_init_flag ->
+             (is_const, is_input, for_inv_gen, true)
            | _ -> failwith "Invalid option for state variable")
 
         (* Defaults for the options *)
-        (false, false, false)
+        (false, false, false, false)
 
         opts
     in
 
     (* Create state variable and return *)
     StateVar.mk_state_var ~is_input ~is_const ~for_inv_gen
-      var_name scope var_type []
+      var_name scope var_type,
+    is_init_flag
 
   | _ -> failwith "Invalid state variable declaration"
 
@@ -152,7 +165,8 @@ let init_args_of_state_vars state_vars =
 (* Arguments of transition relation predicate *)
 let trans_args_of_state_vars state_vars =
   let at0 = init_args_of_state_vars state_vars in
-  let at1 = List.map (Var.bump_offset_of_state_var_instance Numeral.one) at0 in
+  let at1 =
+    List.map (fun v -> Var.bump_offset_of_state_var_instance v Numeral.one) at0 in
   let at0 = List.filter (fun v -> not (Var.is_const_state_var v)) at0 in
   at1 @ at0
 
@@ -165,13 +179,14 @@ let sbind_of_sexpr = function
     Format.eprintf "CALL MAP %a@." HS.pp_print_sexpr s;
     failwith "Invalid state variable map in caller"
 
-let state_var_map_of_smap =
-  List.map (fun (v1, v2) ->
+let state_var_map_of_smap m =
+  List.fold_left (fun acc (v1, v2) ->
       try
-        StateVar.state_var_of_long_string v1,
-        StateVar.state_var_of_long_string v2
+        let sv1, sv2 = StateVar.state_var_of_long_string v1,
+                       StateVar.state_var_of_long_string v2 in
+        StateVar.StateVarMap.add sv1 sv2 acc
       with Not_found -> failwith "Invalid state variable map in caller"
-    )
+    ) StateVar.StateVarMap.empty m
 
 
 let state_var_of_atom = function
@@ -179,7 +194,7 @@ let state_var_of_atom = function
     StateVar.state_var_of_long_string (HString.string_of_hstring v)
   | _ -> failwith "Not a state var"
 
-let caller_of_sexpr = function
+let subsystems_of_sexpr = function
   | HS.List 
       [HS.Atom c;
        HS.List m;
@@ -190,70 +205,129 @@ let caller_of_sexpr = function
     (* Get name of caller *)
     let name = c in
     (* Get variable map *)
-    let map = List.map sbind_of_sexpr m in
+    let m =  List.map sbind_of_sexpr m in
+    let map_down = state_var_map_of_smap m in
+    let map_up = state_var_map_of_smap (List.map (fun (x,y) -> y,x) m) in
+
     (* Get guard of boolean function *)
     (* Get list of variables of fun *)
     let tyv = type_of_sexpr ty in
-    let vars = [Var.mk_free_var v tyv] in
-    (* Assemble caller *)
-    name, map, (vars, g)
 
+    let v = Var.mk_free_var v tyv in
+    let bvars = [Var.hstring_of_free_var v, v] in
+    let body = term_of_sexpr_bound_vars bvars g in
+    let guard_lambda = Term.mk_lambda [v] body in
+    let guard_clock =
+      if Term.is_lambda_identity guard_lambda then
+        (* Simply return the identity (on terms) function if the guard
+           is lambda x.x *)
+        (fun _ t -> t)
+      else (fun i t ->
+          Term.bump_state i (* KLUDGE we should just bump the clock *)
+            (Term.eval_lambda guard_lambda [t]))
+    in
+
+    let subsys =
+      try HH.find seen_systems name
+      with Not_found ->
+        failwith (Format.sprintf "Undefined subsystem %s"
+                    (HString.string_of_hstring name))
+    in
+
+    let inst = { TransSys.pos = Lib.dummy_pos; map_down; map_up; guard_clock} in
+
+    (* assemble subsystem *)
+    subsys, inst
+    
   | s ->
-    Format.eprintf "CALLER %a@." HS.pp_print_sexpr s;
-    failwith "Invalid caller description"
+    Format.eprintf "SUBSYSTEM %a@." HS.pp_print_sexpr s;
+    failwith "Invalid subsystem description"
     
 
 
 let file_row_col_of_string s =
   Scanf.sscanf s "%s@:%d-%d" (fun x1 x2 x3-> x1, x2, x3)
 
-let prop_source_of_sexpr = function
-  | [] -> TermLib.PropAnnot Lib.dummy_pos
+let prop_source_of_sexpr prop_term = function
+  | [] -> Property.PropAnnot Lib.dummy_pos
 
   | [HS.Atom c; HS.Atom pos]
     when c == s_annot || c == s_contract ->
     let frc_pos = file_row_col_of_string (HString.string_of_hstring pos) in
     let ppos = Lib.pos_of_file_row_col frc_pos in
-    if c == s_annot then TermLib.PropAnnot ppos
-    else if c == s_contract then TermLib.Contract ppos
+    if c == s_annot then Property.PropAnnot ppos
     else assert false
 
   | [HS.Atom c; HS.List svs] when c == s_gen ->
     let vars = List.map state_var_of_atom svs in
-    TermLib.Generated vars
+    Property.Generated vars
 
-  | [HS.Atom c; HS.Atom scopedprop] when c == s_inst ->
+  | [HS.Atom c; HS.Atom scopedprop] ->
     let p, scope =
       Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
-    TermLib.Instantiated (scope, p)
+    if c == s_inst then
+      let rec prop = {Property.prop_name = p; prop_source = source;
+                  prop_term; prop_status = Property.PropUnknown }
+      and source = Property.Instantiated (scope, prop) in
+      source
+    else if c = s_guaranteeonemodeactive then
+      Property.GuaranteeOneModeActive scope
+    else assert false
 
-  | [HS.Atom c] when c == s_cand -> TermLib.Candidate
+  | [HS.Atom c; HS.Atom pos; HS.Atom scopedprop] ->
+
+    let frc_pos = file_row_col_of_string (HString.string_of_hstring pos) in
+    let ppos = Lib.pos_of_file_row_col frc_pos in
+    let p, scope =
+      Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
+    if c == s_assumption then Property.Assumption (ppos, scope)
+    else if c == s_guarantee then Property.Guarantee (ppos, scope)
+    else if c == s_guaranteemodeimplication then
+      Property.GuaranteeModeImplication (ppos, scope)
+    else assert false
+
+  | [HS.Atom c] when c == s_cand -> Property.Candidate
 
   | _ -> failwith "Invalid property source"
 
 
 let prop_of_sexpr = function
   | HS.List (HS.Atom n :: p :: source) ->
-    (HString.string_of_hstring n,
-     prop_source_of_sexpr source,
-     term_of_sexpr p)
+    let prop_term = term_of_sexpr p in
+    { Property.prop_name = HString.string_of_hstring n;
+      prop_source = prop_source_of_sexpr prop_term source;
+      prop_term;
+      prop_status = Property.PropUnknown }
   | _ -> failwith "Invalid property"
 
 
-let rec optional_fields_of_sexprs (callers, props) = function
-  (* Callers *)
-  | HS.List (HS.Atom ca :: ca_l) :: rs
-    when ca = s_callers ->
-    let callers = List.map caller_of_sexpr ca_l in
-    optional_fields_of_sexprs (callers, props) rs
+module TM = Map.Make(struct
+    type t = TransSys.t
+    let compare = TransSys.compare_scope
+  end)
+
+let merge_subsystem_insts subs =
+  List.fold_left (fun acc (s, inst) ->
+      let other_insts = try TM.find s acc with Not_found -> [] in
+      TM.add s (inst :: other_insts) acc
+    ) TM.empty subs
+  |> TM.bindings
+
+let rec optional_fields_of_sexprs (subsystems, props) = function
+  (* Subsystems *)
+  | HS.List (HS.Atom s :: subs_l) :: rs
+    when s == s_subsystems ->
+    let subsystems = List.map subsystems_of_sexpr subs_l
+                     |> merge_subsystem_insts in
+    optional_fields_of_sexprs (subsystems, props) rs
 
   (* Propeties *)
   | HS.List [HS.Atom p; HS.List ps] :: rs
-    when p = s_props ->
+    when p == s_props ->
     let props = List.map prop_of_sexpr ps in 
-    optional_fields_of_sexprs (callers, props) rs
+    optional_fields_of_sexprs (subsystems, props) rs
 
-  | [] -> (callers, props)
+  | [] -> (subsystems, props)
 
   | _ -> failwith "Invalid field in node"
 
@@ -281,7 +355,15 @@ let node_def_of_sexpr = function
     let node_name = n in
 
     (* Create state variables *)
-    let state_vars = List.map state_var_of_sexpr v in
+    let state_vars_b = List.map state_var_of_sexpr v in
+    let state_vars = List.map fst state_vars_b in
+    let init_flag = match List.filter snd state_vars_b with
+      | [init_flag, _] -> init_flag
+      | _ ->
+        (* there may be no init flag (for jkind systems), we make one up *)
+        StateVar.mk_init_flag [HString.string_of_hstring node_name]
+        (* failwith "No init flag in native definition" *)
+    in
 
     (* Arguments of initial state predicate *)
     let init_args = init_args_of_state_vars state_vars in
@@ -318,15 +400,16 @@ let node_def_of_sexpr = function
     let trans_term = term_of_sexpr t in
 
     (* Optional callers and properties *)
-    let callers, props = optional_fields_of_sexprs ([], []) others in
+    let subsystems, props = optional_fields_of_sexprs ([], []) others in
     
     (* Intermediate representation of node/system *)
     (
       node_name,
+      init_flag,
       state_vars,
       (init_uf_symbol, (init_args, init_term)), 
       (trans_uf_symbol, (trans_args, trans_term)),
-      callers,
+      subsystems,
       props
     )
 
@@ -336,6 +419,15 @@ let node_def_of_sexpr = function
 
 
 
+let rec mk_subsys_structure sys =
+  { SubSystem.scope = TransSys.scope_of_trans_sys sys;
+    source = sys;
+    has_contract = false;
+    has_impl = false;
+    subsystems =
+      TransSys.get_subsystems sys
+      |> List.map mk_subsys_structure
+  }
 
 
 (* Parse from input channel *)
@@ -347,11 +439,14 @@ let of_channel in_ch =
   (* Callers mapping to transition system *)
   let calling_table = HH.create (List.length sexps) in
 
-  (* Parse sexps and register callers *)
-  let sys_and_calls =
+  (* Parse sexps *)
+  let systems =
     List.map (fun sexp ->
 
-        let node_name, state_vars, init_pred, trans_pred, callers, props =
+        let node_name, init_flag, state_vars,
+            (init_uf_symbol, (init_args, init_term)), 
+            (trans_uf_symbol, (trans_args, trans_term)),
+            subsystems, props =
           node_def_of_sexpr sexp in
 
         (* Scope from name *)
@@ -361,36 +456,52 @@ let of_channel in_ch =
           s @ [n] in
 
         (* find who I call *)
-        let i_call =
-          try
-            HH.find calling_table node_name
-            |> snd
-            |> List.map (fun (a,_,_) -> a)
-          with Not_found -> []
-        in
+        (* let i_call = *)
+        (*   try *)
+        (*     HH.find calling_table node_name *)
+        (*     |> snd *)
+        (*     |> List.map (fun (a,_,_) -> a) *)
+        (*   with Not_found -> [] *)
+        (* in *)
 
+        
         (* Create transition system *)
-        let sys = TransSys.mk_trans_sys
-            node_scope state_vars init_pred trans_pred i_call props
-            TransSys.Native in
+        let sys, _ = TransSys.mk_trans_sys
+            node_scope
+            None
+            init_flag
+            []
+            state_vars
+            [] (* ufs *)
+            init_uf_symbol
+            init_args
+            init_term
+            trans_uf_symbol
+            trans_args
+            trans_term
+            subsystems
+            props
+            [] [] [] in
 
         (* Add calling information *)
-        List.iter (fun (c, m, g) ->
-            let n, calling_c =
-              try HH.find calling_table c
-              with Not_found -> None, []
-            in
-            HH.replace calling_table c (n, (sys, m, g) :: calling_c);
-          ) callers;
+        (* List.iter (fun (c, m, g) -> *)
+        (*     let n, calling_c = *)
+        (*       try HH.find calling_table c *)
+        (*       with Not_found -> None, [] *)
+        (*     in *)
+        (*     HH.replace calling_table c (n, (sys, m, g) :: calling_c); *)
+        (*   ) callers; *)
 
-        (* Register new system *)
-        let calling_me =
-          try snd (HH.find calling_table node_name)
-          with Not_found -> [] in
-        HH.replace calling_table node_name (Some sys, calling_me);        
+        (* (\* Register new system *\) *)
+        (* let calling_me = *)
+        (*   try snd (HH.find calling_table node_name) *)
+        (*   with Not_found -> [] in *)
+        (* HH.replace calling_table node_name (Some sys, calling_me);         *)
+
+        HH.add seen_systems node_name sys;
         
-        (* Return constructed system and callers *)
-        sys, callers
+        (* Return constructed system  *)
+        sys (* , callers *)
 
       ) sexps
   in
@@ -413,37 +524,37 @@ let of_channel in_ch =
 
   
   (* Add callers *)
-  let all_sys =
-    List.fold_left (fun acc (sys, callers) ->
-        (* Add callers *)
-        List.iter (fun (c, m, (vars, g)) ->
-            let c_sys = match fst (HH.find calling_table c) with
-              | None -> assert false
-              | Some s -> s in
+  (* let all_sys = *)
+  (*   List.fold_left (fun acc (sys, callers) -> *)
+  (*       (\* Add callers *\) *)
+  (*       List.fold_left (fun (c, m, (vars, g)) -> *)
+  (*           let c_sys = match fst (HH.find calling_table c) with *)
+  (*             | None -> assert false *)
+  (*             | Some s -> s in *)
 
-            (* Construct state var map *)
-            let map = state_var_map_of_smap m in
+  (*           (\* Construct state var map *\) *)
+  (*           let map = state_var_map_of_smap m in *)
 
-            (* Construct lambda for guard now that all symbols are declared *)
-            let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in
-            let guard_lambda =
-              Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in
-            let guard_fun =
-              if Term.is_lambda_identity guard_lambda then
-                (* Simply return the identity (on terms) function if the guard
-                   is lambda x.x *)
-                (fun t -> t)
-              else (fun t -> Term.eval_lambda guard_lambda [t])
-            in
+  (*           (\* Construct lambda for guard now that all symbols are declared *\) *)
+  (*           let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in *)
+  (*           let guard_lambda = *)
+  (*             Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in *)
+  (*           let guard_fun = *)
+  (*             if Term.is_lambda_identity guard_lambda then *)
+  (*               (\* Simply return the identity (on terms) function if the guard *)
+  (*                  is lambda x.x *\) *)
+  (*               (fun t -> t) *)
+  (*             else (fun t -> Term.eval_lambda guard_lambda [t]) *)
+  (*           in *)
 
-            TransSys.add_caller sys c_sys (map, guard_fun)
-          ) callers;
-        sys :: acc
-      ) [] sys_and_calls
-  in
+  (*           TransSys.add_caller sys c_sys (map, guard_fun) *)
+  (*         ) callers; *)
+  (*       sys :: acc *)
+  (*     ) [] sys_and_calls *)
+  (* in *)
 
   (* Return top level system *)
-  match all_sys with
+  match List.rev systems with
   | top_sys :: _ ->
 
     debug nativeInput
@@ -451,7 +562,7 @@ let of_channel in_ch =
       TransSys.pp_print_trans_sys top_sys
     in
 
-    top_sys
+    mk_subsys_structure top_sys
       
   | _ -> failwith "No systems"
 
@@ -497,9 +608,9 @@ let pp_print_lambda ppf =
     pp_print_var ppf
 
 
-let pp_print_state_var ppf state_var = 
+let pp_print_state_var sys ppf state_var = 
   Format.fprintf ppf
-    "@[<hv 1>(%a@ %a%t%t%t)@]" 
+    "@[<hv 1>(%a@ %a%t%t%t%t)@]" 
     StateVar.pp_print_state_var state_var
     Type.pp_print_type (StateVar.type_of_state_var state_var)
     (fun ppf -> 
@@ -511,34 +622,46 @@ let pp_print_state_var ppf state_var =
     (fun ppf -> 
        if StateVar.for_inv_gen state_var
        then Format.fprintf ppf "@ :for-inv-gen")
+    (fun ppf -> 
+       if StateVar.equal_state_vars state_var (TransSys.init_flag_state_var sys)
+       then Format.fprintf ppf "@ :init-flag")
 
 let pp_pos ppf pos =
   let f,r,c = file_row_col_of_pos pos in
   Format.fprintf ppf "%s:%d-%d" f r c
   
 
-let pp_print_prop_source ppf = function 
-  | TermLib.PropAnnot pos -> Format.fprintf ppf ":user@ %a" pp_pos pos
-  | TermLib.Contract pos -> Format.fprintf ppf ":contract@ %a" pp_pos pos
-  | TermLib.Generated state_vars ->
+let pp_print_prop_source sys ppf = function 
+  | Property.PropAnnot pos -> Format.fprintf ppf ":user@ %a" pp_pos pos
+  | Property.Generated state_vars ->
     Format.fprintf ppf ":generated@ (@[<v>%a@])"
-    (pp_print_list pp_print_state_var "@ ") state_vars  
-  | TermLib.Instantiated (scope, name) ->
+    (pp_print_list (pp_print_state_var sys) "@ ") state_vars  
+  | Property.Instantiated (scope, prop) ->
+    let name = prop.Property.prop_name in
     Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
-  | TermLib.Candidate ->
+  | Property.Candidate ->
     Format.fprintf ppf ":candidate"
+  | _ -> () (* TODO *)
 
 
-let pp_print_property ppf (prop_name, prop_source, prop_term, _) = 
+let pp_print_property sys ppf {Property.prop_name; prop_source; prop_term} = 
   Format.fprintf 
     ppf
     "@[<hv 1>(%s@ %a@ %a)@]"
     prop_name
     pp_print_term prop_term
-    pp_print_prop_source prop_source
+    (pp_print_prop_source sys) prop_source
 
 
-let pp_print_caller name_c ppf (m, ft) =
+let fresh_statevar =
+  let cpt = ref 0 in
+  fun ty ->
+    let s = "__v"^(string_of_int !cpt) in
+    incr cpt;
+    StateVar.mk_state_var s [] ty
+      
+
+let pp_print_subsystem name_c ppf {TransSys.map_down; guard_clock} =
   Format.fprintf ppf 
     "(%s@ @[<hv 1>(%a)@,@[<v>%a@]@])"
     name_c
@@ -549,45 +672,49 @@ let pp_print_caller name_c ppf (m, ft) =
             StateVar.pp_print_state_var s
             StateVar.pp_print_state_var t)
        "@ ")
-    m
+    (StateVar.StateVarMap.bindings map_down)
     pp_print_lambda
-    (let v = Var.mk_fresh_var Type.t_bool in
+    (let sv = fresh_statevar Type.t_bool in
+     let v = Var.mk_state_var_instance sv Numeral.zero in
      let tv = Term.mk_var v in
-     Term.mk_lambda [v] (ft tv))
+     Term.mk_lambda [v] (guard_clock Numeral.zero tv))
 
 
-let pp_print_callers ppf (t, c) =
-  let name_c = String.concat "." (TransSys.get_scope t) in
+let pp_print_subsystems ppf (t, inst) =
+  let name_s = String.concat "." (TransSys.scope_of_trans_sys t) in
   Format.fprintf ppf
     "@[<hv 1>%a@]"
-    (pp_print_list (pp_print_caller name_c) "@ ") c
+    (pp_print_list (pp_print_subsystem name_s) "@ ") inst
 
 
 let pp_print_props ppf sys =
-  let props =
-    (TransSys.get_real_properties sys) @ (TransSys.get_candidate_properties sys)
+  let props = (* TransSys.get_real_properties *)
+    (TransSys.get_properties sys) @ (TransSys.get_candidate_properties sys)
   in
   if props <> [] then
   Format.fprintf ppf
      "@[<hv 2>(props@ (@[<v>%a@]))@]\n@,"
-     (pp_print_list pp_print_property "@ ") props
+     (pp_print_list (pp_print_property sys) "@ ") props
      
 
-let pp_print_callers ppf sys =
-  let callers = TransSys.get_callers sys in
-  if callers <> [] then
+let pp_print_subsystems ppf sys =
+  let subs = TransSys.get_subsystem_instances sys in
+  if subs <> [] then
   Format.fprintf ppf
-     "@[<hv 2>(callers@ @[<v>%a@])@]\n@,"
-     (pp_print_list pp_print_callers "@ ") callers
+     "@[<hv 2>(subsystems@ @[<v>%a@])@]\n@,"
+     (pp_print_list pp_print_subsystems "@ ") subs
      
 
 let eq_sys s1 s2 =
-  TransSys.get_name s1 = TransSys.get_name s2 &&
-  TransSys.get_scope s1 = TransSys.get_scope s2 &&
+  TransSys.equal_scope s1 s2 &&
   List.for_all2 StateVar.equal_state_vars
     (TransSys.state_vars s1) (TransSys.state_vars s2) &&
-  Term.equal (TransSys.init_term s1) (TransSys.init_term s2) &&
-  Term.equal (TransSys.trans_term s1) (TransSys.trans_term s2)
+  Term.equal
+    (TransSys.init_of_bound s1 Numeral.zero)
+    (TransSys.init_of_bound s2 Numeral.zero) &&
+  Term.equal
+    (TransSys.trans_of_bound s1 Numeral.zero)
+    (TransSys.trans_of_bound s2 Numeral.zero)
 
 let all_systems sys =
   let rec all_systems_rec acc sys =
@@ -611,11 +738,11 @@ let pp_print_one_native ppf sys =
      @]\
      )@]\
      \n@."
-    (String.concat "." (TransSys.get_scope sys))
-    (pp_print_list pp_print_state_var "@ ") (TransSys.state_vars sys)
-    pp_print_term (TransSys.init_term sys)
-    pp_print_term (TransSys.trans_term sys)
-    pp_print_callers sys
+    (String.concat "." (TransSys.scope_of_trans_sys sys))
+    (pp_print_list (pp_print_state_var sys) "@ ") (TransSys.state_vars sys)
+    pp_print_term (TransSys.init_of_bound sys TransSys.init_base)
+    pp_print_term (TransSys.trans_of_bound sys TransSys.trans_base)
+    pp_print_subsystems sys
     pp_print_props sys
 
 

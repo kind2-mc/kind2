@@ -455,7 +455,7 @@ module Make (InModule : In) : InvGen = struct
     if two_state then fun (term, (k, phi)) ->
       let term' = sanitize_term sys term in
       if Term.equal term phi then term', (k, term')
-      else term', (k, sanitize_term phi)
+      else term', (k, sanitize_term sys phi)
     else identity
 
   (* Lazy function deciding if a term should be kept or not depending
@@ -595,7 +595,7 @@ module Make (InModule : In) : InvGen = struct
            (* Guarding with init if needed. *)
            |> sanitize_term_cert sys
            (* Instantiating at all levels. *)
-           |> TransSys.instantiate_term_all_levels 
+           |> TransSys.instantiate_term_cert_all_levels 
              top_sys
              TransSys.prop_base
              (TransSys.scope_of_trans_sys sys)
@@ -607,29 +607,29 @@ module Make (InModule : In) : InvGen = struct
               (* Drop certificates *)
               let invs = List.map fst termsc' in
               (* Adding invariants to the lsd. *)
-              LSD.add_invariants lsd sub_sys terms' ;
+              LSD.add_invariants lsd sub_sys invs ;
               (* Adding invariants to the transition system. *)
-              termssc'
+              termsc'
               |> List.map
                  (fun (i,c) -> TransSys.add_invariant sub_sys i c)
               |> ignore ;
               (* Broadcasting invariants with certificates. *)
               termsc'
               |> List.iter (fun (i, c) ->
-                   Event.invariant (TransSys.scope_of_trans_sys sub_sys) i c
+                   Event.invariant (TransSys.scope_of_trans_sys sub_sys) i c)
           ) ;
 
        let top_scope = TransSys.scope_of_trans_sys top_sys in
 
        top_invariants
        |> List.iter
-            (fun (inv, cert) ->
-             (* Adding top level invariants to transition system. *)
-             TransSys.add_invariant top_sys inv cert ;
-             (* Adding top level invariants to LSD. *)
-             LSD.add_invariants lsd top_sys [ inv ] ;
-             Event.invariant top_scope inv cert) ;
-
+         (fun (inv, cert) ->
+            (* Adding top level invariants to transition system. *)
+            TransSys.add_invariant top_sys inv cert ;
+            (* Adding top level invariants to LSD. *)
+            LSD.add_invariants lsd top_sys [ inv ] ;
+            Event.invariant top_scope inv cert) ;
+       
        List.length top_invariants
 
   (* Queries step to find invariants to communicate. *)

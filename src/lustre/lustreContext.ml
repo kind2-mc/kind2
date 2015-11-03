@@ -784,6 +784,16 @@ let mk_fresh_oracle
           (state_var, ctx)
 
 
+(* Associate oracle with state variable *)
+let set_state_var_oracle ctx state_var oracle =
+  SVT.add ctx.state_var_oracle_map state_var oracle;
+  match ctx with
+  | { node = Some n } ->
+    (* Register inverse binding in node *)
+    N.set_oracle_state_var n oracle state_var
+  | _ -> ()
+
+
 (* Create a fresh state variable as an oracle input for the state variable *)
 let mk_fresh_oracle_for_state_var 
     ({ state_var_oracle_map; fresh_oracle_index } as ctx) 
@@ -805,7 +815,8 @@ let mk_fresh_oracle_for_state_var
     in
 
     (* Associate oracle with state variable *)
-    SVT.add state_var_oracle_map state_var state_var';
+    set_state_var_oracle ctx state_var state_var';
+    (* SVT.add state_var_oracle_map state_var state_var'; *)
 
     (* Return changed context
 
@@ -876,6 +887,18 @@ let close_expr
      ((E.mk_arrow (E.mk_let_pre oracle_substs expr) expr),
       ctx))
 
+(* Record mapping of expression to state variable
+
+   This will shadow but not replace a previous definition. Use
+   [find_all] to retrieve the definitions, and the usual
+   [fold] to iterate over all definitions. *)
+let set_expr_state_var ctx expr state_var =
+  ET.add ctx.expr_state_var_map expr state_var;
+  match ctx with
+  | { node = Some n } ->
+    (* register inverse binding in node *)
+    N.set_state_var_expr n state_var expr
+  | _ -> ()
 
 (* Define the expression with a state variable *)
 let mk_state_var_for_expr
@@ -934,11 +957,8 @@ let mk_state_var_for_expr
        This will shadow but not replace a previous definition. Use
        [find_all] to retrieve the definitions, and the usual
        [fold] to iterate over all definitions. *)
-    ET.add
-      expr_state_var_map
-      expr
-      state_var;
-
+    set_expr_state_var ctx expr state_var;
+    
     (* Evaluate continuation after creating new variable *)
     let ctx = after_mk ctx state_var in
 

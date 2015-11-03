@@ -121,6 +121,28 @@ val init_of_bound : t -> Numeral.t -> Term.t
 val trans_of_bound : t -> Numeral.t -> Term.t 
 
 
+(** Predicate for the initial state constraint *)
+val init_uf_symbol : t -> UfSymbol.t
+
+(** Predicate for the transition relation *)
+val trans_uf_symbol : t -> UfSymbol.t
+
+
+(** Variables in the initial state constraint *)
+val init_formals : t -> Var.t list 
+
+(** Variables in the transition relation *)
+val trans_formals : t -> Var.t list
+
+
+(** Builds a call to the initial function on state [k]. *)
+val init_fun_of : t -> Numeral.t -> Term.t
+  
+(** Builds a call to the transition relation function linking state
+    [k] and [k']. *)
+val trans_fun_of : t -> Numeral.t -> Numeral.t -> Term.t
+
+
 (** Return the state variable for the init flag *)
 val init_flag_state_var : t -> StateVar.t
 
@@ -141,6 +163,25 @@ val scope_of_trans_sys : t -> Scope.t
 
 (** Returns the properties in a transition system. *)
 val get_properties : t -> Property.t list
+
+(** Return current status of all real (not candidate) properties *)
+val get_real_properties : t -> Property.t list
+
+(** Return true if the property is a candidate invariant *)
+val is_candidate : t -> string -> bool 
+
+(** Return list of candidate invariants *)
+val get_candidates : t -> Term.t list
+
+(** Return list of candidate invariants properties *)
+val get_candidate_properties : t -> Property.t list
+
+(** Return candidate invariants that have not been proved or disproved yet *)
+val get_unknown_candidates : t -> Term.t list
+
+(* Return true if all properties are valid *)
+(* val all_props_actually_proved : t -> bool *)
+
 
 (** Returns the mode requirements for this system as a list of triplets
     [is_mode_global, mode_name, require_term].
@@ -207,10 +248,10 @@ val mk_trans_sys :
 
 
   (** One-state invariants *)
-  Term.t list -> 
+  (Term.t * Certificate.t) list -> 
 
   (** Two-state invariants *)
-  Term.t list -> 
+  (Term.t * Certificate.t) list -> 
 
   (** Created transition system and next starting value for fresh
       instance identifiers *)
@@ -442,10 +483,12 @@ val set_prop_status : t -> string -> Property.prop_status -> unit
 val set_prop_status : t -> string -> Property.prop_status -> unit
 
 (** Mark property as invariant *)
-val set_prop_invariant : t -> string -> unit
+val set_prop_invariant : t -> string -> Certificate.t -> unit
 
 (** Mark property as false *)
-val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
+val set_prop_false :
+  t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
+
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
@@ -461,6 +504,8 @@ val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 
+(** Return invariants with their certificates *)
+val get_invariants : t -> (Term.t * Certificate.t) list
 
 (** Instantiate a term of a given scope from all instances of the
     system of that scope upwards to the top system

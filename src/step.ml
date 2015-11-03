@@ -477,15 +477,15 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   let confirmed_cert =
     confirmed
     |> List.map
-      (fun (s, phi) ->
+      (fun (s, (ac, phi)) ->
          (* certificate for k-induction *)
          let cert = k_int, phi in 
-         s, phi, cert)
+         s, (ac, phi, cert))
   in
   
   (* Communicating confirmed properties. *)
   confirmed_cert
-  |> List.iter (fun (s, phi, cert) ->
+  |> List.iter (fun (s, (_, _, cert)) ->
       Event.prop_status (Property.PropInvariant cert) input_sys aparam trans s);
   
   (* Adding confirmed properties to the system. *)
@@ -495,7 +495,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   (* Adding confirmed properties to new invariants. *)
   let new_invariants' =
     confirmed |> List.fold_left (
-      fun invs (_,(_, term)) -> term :: invs
+      fun invs (_, (_, term)) -> term :: invs
     ) new_invariants
   in
 

@@ -134,10 +134,10 @@ type t =
     mode_requires: (bool * string * Term.t) list ;
 
     (* Invariants about the current state *)
-    mutable invariants_one_state : Term.t list;
+    mutable invariants_one_state : (Term.t * Certificate.t) list;
 
     (* Invariants about current and previous state pairs *)
-    mutable invariants_two_state : Term.t list;
+    mutable invariants_two_state : (Term.t * Certificate.t) list;
 
   }
 
@@ -536,6 +536,11 @@ let scope_of_trans_sys t = t.scope
 (* Returns the properties in the transition system. *)
 let get_properties t = t.properties
 
+(* Return all properties *)
+let get_real_properties t =
+  List.filter (fun {P.prop_source} -> prop_source <> P.Candidate) t.properties
+
+
 (** Returns the mode requirements for this system as a list of triplets
     [is_mode_global, mode_name, require_term].
     Used by test generation. *)
@@ -546,7 +551,7 @@ let get_mode_requires t = t.mode_requires
 let get_split_properties { properties } =
   properties |> List.fold_left (fun (valid, invalid, unknown) p ->
     match Property.get_prop_status p with
-    | Property.PropInvariant -> p :: valid, invalid, unknown
+    | Property.PropInvariant _ -> p :: valid, invalid, unknown
     | Property.PropFalse _ -> valid, p :: invalid, unknown
     | _ -> valid, invalid, p :: unknown
   ) ([], [], [])
@@ -936,6 +941,77 @@ let trans_uf_def { trans_uf_symbol; trans_formals; trans } =
   (trans_uf_symbol, (trans_formals, trans))
 
 
+(* Return the predicate for the initial state constraint *)
+let init_uf_symbol { init_uf_symbol } = init_uf_symbol
+
+(* Return the predicate for the transition relation *)
+let trans_uf_symbol { trans_uf_symbol } = trans_uf_symbol
+
+(* Return the variables in the initial state constraint *)
+let init_formals { init_formals } = init_formals
+
+(* Return the variables in the transition relation *)
+let trans_formals { trans_formals } = trans_formals
+
+
+(* Builds a call to the init function on state [k]. *)
+let init_fun_of { init_uf_symbol; init_formals } k =
+
+  let rec bump_as_needed res = function
+    | var :: tail ->
+      let bumped_term =
+        if Var.is_const_state_var var then Term.mk_var var
+        else (
+          let offset = Var.offset_of_state_var_instance var in
+          if Numeral. (offset = init_base ) then
+            (* Primed state variable, bumping to k. *)
+            Var.bump_offset_of_state_var_instance
+              var Numeral.( k - offset )
+            |> Term.mk_var
+          else
+            (* This cannot happen. *)
+            assert false
+        )
+      in
+      bump_as_needed (bumped_term :: res) tail
+    | [] -> List.rev res
+  in
+
+  Term.mk_uf init_uf_symbol (bump_as_needed [] init_formals)
+
+(* Builds a call to the transition relation function linking state [k]
+   and [k']. *)
+let trans_fun_of { trans_uf_symbol; trans_formals } k k' =
+
+  let trans_base_pre = Numeral.( pred trans_base ) in
+
+  let rec bump_as_needed res = function
+    | var :: tail ->
+      let bumped_term =
+        if Var.is_const_state_var var then Term.mk_var var
+        else (
+          let offset = Var.offset_of_state_var_instance var in
+          if Numeral.( offset = trans_base ) then
+            (* Unprimed state variable, bumping to k'. *)
+            Var.bump_offset_of_state_var_instance
+              var Numeral.( k' - offset )
+            |> Term.mk_var
+          else if Numeral. (offset = trans_base_pre ) then
+            (* Primed state variable, bumping to k. *)
+            Var.bump_offset_of_state_var_instance
+              var Numeral.( k - offset )
+            |> Term.mk_var
+          else
+            (* This cannot happen. *)
+            assert false
+        )
+      in
+      bump_as_needed (bumped_term :: res) tail
+    | [] -> List.rev res
+  in
+
+  Term.mk_uf trans_uf_symbol (bump_as_needed [] trans_formals)
+
 
 (* Return predicate definitions of initial state and transition
    relation of the top system and all its subsystem in reverse
@@ -957,8 +1033,7 @@ let uf_defs trans_sys =
           will be reversed *)
        trans_uf_def t :: init_uf_def t :: a)
 
-    (* Add definition of the top system *)
-    [ trans_uf_def trans_sys; init_uf_def trans_sys ]
+    []
     trans_sys
 
   (* Reverse predicate definitions to have predicate definitions of
@@ -1126,7 +1201,7 @@ let is_proved trans_sys prop =
 
   try 
     ( match (property_of_name trans_sys prop).P.prop_status with
-      | P.PropInvariant -> true
+      | P.PropInvariant _ -> true
       | _ -> false )
         
   with
@@ -1155,11 +1230,11 @@ let set_prop_status trans_sys p s =
   with Not_found -> raise Not_found
 
 
-let set_prop_invariant trans_sys p = 
+let set_prop_invariant trans_sys p cert = 
 
   try 
     
-    P.set_prop_invariant (property_of_name trans_sys p)
+    P.set_prop_invariant (property_of_name trans_sys p) cert
 
   with Not_found -> raise Not_found
   
@@ -1243,7 +1318,7 @@ let props_list_of_bound t i =
 
 
 (* Add an invariant to the transition system *)
-let add_scoped_invariant t scope invar =
+let add_scoped_invariant t scope invar cert =
 
   let is_one_state = 
     match Term.var_offsets_of_term invar with
@@ -1258,14 +1333,14 @@ let add_scoped_invariant t scope invar =
        
        if Scope.equal scope s then
          if is_one_state then 
-           t.invariants_one_state <- invar :: invariants_one_state
+           t.invariants_one_state <- (invar, cert) :: invariants_one_state
          else
-           t.invariants_two_state <- invar :: invariants_two_state)
+           t.invariants_two_state <- (invar, cert) :: invariants_two_state)
     t
 
 
 (* Add an invariant to the transition system *)
-let add_invariant t invar = add_scoped_invariant t t.scope invar
+let add_invariant t invar cert = add_scoped_invariant t t.scope invar cert
 
 
 (* Instantiate the initial state constraint to the bound *)
@@ -1281,18 +1356,50 @@ let invars_of_bound
     (if one_state_only then
 
        (* Return only one-state invariants *)
-       invariants_one_state
+       List.map fst invariants_one_state
 
      else
 
        (* Return all invariants *)
-       invariants_one_state @ invariants_two_state)
+       List.map fst (invariants_one_state @ invariants_two_state))
 
   in 
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else List.map (Term.bump_state i) invars_0
 
+
+(*************************************************************************)
+(* Candidates                                                            *)
+(*************************************************************************)
+
+(* Return true if the property is a candidate invariant *)
+let is_candidate t prop =
+  (property_of_name t prop).P.prop_source = P.Candidate
+
+let get_candidates t =
+  List.fold_left (fun acc p ->
+      if p.P.prop_source = P.Candidate then
+        p.P.prop_term :: acc
+      else acc
+    ) [] t.properties
+  |> List.rev
+
+let get_candidate_properties t =
+  List.filter (fun {P.prop_source} -> prop_source = P.Candidate) t.properties
+
+let get_unknown_candidates t =
+  List.fold_left (fun acc p ->
+      if true || p.P.prop_source = P.Candidate then
+        match p.P.prop_status with
+        | P.PropUnknown | P.PropKTrue _ -> p.P.prop_term :: acc
+        | P.PropInvariant _ | P.PropFalse _ -> acc
+      else acc
+    ) [] t.properties
+  |> List.rev
+
+
+let get_invariants t = t.invariants_one_state @ t.invariants_two_state
 
 (* ********************************************************************** *)
 (* Construct a transition system                                          *)
@@ -1476,15 +1583,15 @@ let mk_trans_sys
 let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) = 
 
   (* merge maps of term -> certificate by keeping simplest certificate *)
-  let merge_term_cand_maps _ v1 v2 =
+  let merge_term_cert_maps _ (v1: Certificate.t option) (v2: Certificate.t option) =
     match v1, v2 with
-    | Some (k1, _) as c1, Some (k2, _) as c2 ->
+    | Some ((k1, _) as c1), Some ((k2, _) as c2) ->
       if k1 < k2 then Some c1
       else if k1 > k2 then Some c2
       else
         let size_comp = compare (Certificate.size c1) (Certificate.size c2) in
-        if size_comp <= 0 then c1
-        else c2
+        if size_comp <= 0 then Some c1
+        else Some c2
     | Some c1, None -> Some c1
     | None, Some c2 -> Some c2
     | None, None -> None
@@ -1493,7 +1600,7 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
   (* merge maps whose values are sets of terms by union *)
   let merge_term_set_maps _ v1 v2 = 
     match v1, v2 with
-      | Some s1, Some s2 -> Some (Map.merge merge_term_cand_maps s1 s2)
+      | Some s1, Some s2 -> Some (Term.TermMap.merge merge_term_cert_maps s1 s2)
       | Some s1, None -> Some s1
       | None, Some s2 -> Some s2
       | None, None -> None
@@ -1542,7 +1649,7 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
 
 
   let merge_accum (t, i) (t', i') = 
-    (Term.TermSet.union t t', 
+    (Term.TermMap.merge merge_term_cert_maps t t', 
      Map.merge merge_term_set_maps i i')
   in
 

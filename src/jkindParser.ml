@@ -81,18 +81,20 @@ let jkind_command_line file =
 (* JKind state variables from Lustre name *)
 (******************************************)
 
-(* Simple heuristic to see if a state variable is an observer (which are named
+(* Simple heuristic to see if a state variable is a property (which are named
    differently in JKind when they appear under a condact) *)
-let is_observer sv =
-  Lib.string_starts_with (StateVar.name_of_state_var sv)
-    LustreIdent.observer_ident_string
+let is_property sys sv =
+  let tsv = Var.mk_state_var_instance sv TransSys.prop_base |> Term.mk_var in
+  List.exists (fun {Property.prop_term} ->
+      Term.equal tsv prop_term
+    ) (TransSys.get_properties sys)
 
-let is_first_tick sv =
-  Lib.string_starts_with (StateVar.name_of_state_var sv)
-    LustreIdent.first_tick_ident_string
+(* let is_first_tick sv = *)
+(*   Lib.string_starts_with (StateVar.name_of_state_var sv) *)
+(*     LustreIdent.first_tick_ident_string *)
 
-let is_init sv =
-  StateVar.equal_state_vars sv TransSys.init_flag_svar
+let is_init sys sv =
+  StateVar.equal_state_vars sv (TransSys.init_flag_state_var sys)
 
 let rec lookup_fuzzy str scope =
   try StateVar.state_var_of_string (str, scope)
@@ -107,7 +109,7 @@ let build_call_base kind_sv base_li parents =
   
   let strs, _ = List.fold_left (fun (acc, prev_clocked) (ni, n, clock) ->
 
-      let bni = List.hd (LustreIdent.scope_of_ident ni) in
+      let bni = List.hd (LustreIdent.to_scope ni) in
 
       let jcall_name = match clock, prev_clocked with
         | None, false -> bni ^"~"^ (string_of_int n)
@@ -133,19 +135,19 @@ let build_call_base kind_sv base_li parents =
 
 (* Returns a state variable of JKind form a state variable of Kind 2 and a
    callsite information *)
-let jkind_var_of_lustre kind_sv (li, parents) =
+let jkind_var_of_lustre sys kind_sv (li, parents) =
 
   let base_li = match parents, List.rev parents with
     | _, (_, _, Some clock) :: _ when StateVar.equal_state_vars li clock ->
       (* the var is the clock, always named ~clock in JKind *)
       "~clock"
 
-    | _, (_, _, Some clock) :: _ when is_first_tick kind_sv || is_init li ->
+    | _, (_, _, Some clock) :: _ when (* is_first_tick kind_sv || *) is_init sys li ->
       (* init variable *)
       "~init"
 
     | (_, _, Some _) :: _, _
-      when not (StateVar.is_input li) && is_observer kind_sv ->
+      when not (StateVar.is_input li) && is_property sys kind_sv ->
       (* clocked property variable *)
       (StateVar.name_of_state_var li) ^"~clocked_property"
 
@@ -153,7 +155,7 @@ let jkind_var_of_lustre kind_sv (li, parents) =
       (* other clocked variable *)
       (StateVar.name_of_state_var li) ^"~clocked"
 
-    | _ when is_first_tick kind_sv || is_init li ->
+    | _ when (* is_first_tick kind_sv || *) is_init sys li ->
       (* init variable *)
       "%init"
               
@@ -181,10 +183,10 @@ let match_condact_clock lustre_vars sv =
   
 
 (* Returns all JKind variables corresponding to a Kind2 variable *)
-let jkind_vars_of_kind2_statevar lustre_vars sv =
+let jkind_vars_of_kind2_statevar sys lustre_vars sv =
   let lus_vs = SVMap.find sv lustre_vars in
   List.fold_left (fun acc lv ->
-      try jkind_var_of_lustre sv lv :: acc
+      try jkind_var_of_lustre sys sv lv :: acc
       with Not_found -> acc
     ) [] lus_vs
   |> List.rev_append (match_condact_clock lustre_vars sv)
@@ -386,7 +388,7 @@ let of_channel in_ch =
   (* Predicate symbol for initial state predicate *)
   let init_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.init_uf_string ^ "_JKind") 
+      (LustreIdent.init_uf_string ^ "_JKind_0") 
       vars_types
       Type.t_bool 
   in
@@ -394,7 +396,7 @@ let of_channel in_ch =
   (* Predicate symbol for transition relation predicate *)
   let trans_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.trans_uf_string ^ "_JKind") 
+      (LustreIdent.trans_uf_string ^ "_JKind_0") 
       (vars_types @ vars_types)
       Type.t_bool 
   in
@@ -422,19 +424,33 @@ let of_channel in_ch =
   in
 
   let vconsts = List.map Var.mk_const_state_var consts in
-  let init = init_uf_symbol, (vconsts @ statevars0, init_term) in
-  let trans = trans_uf_symbol, (vconsts @ statevars1 @ statevars0, trans_term) in
+  let init_args = vconsts @ statevars0 in
+  let trans_args = vconsts @ statevars1 @ statevars0 in
 
+  let init_flag = StateVar.mk_init_flag jkind_scope in
   let allstatevars = consts @ statevars in
   
   (* Creation of transition system *)
-  TransSys.mk_trans_sys
-    jkind_scope
-    allstatevars
-    init trans
-    (* No subsystems, no properties *)
-    [] []
-    TransSys.Native
+  let sys, _ =
+    TransSys.mk_trans_sys
+      jkind_scope
+      None
+      init_flag
+      []
+      allstatevars
+      []
+      init_uf_symbol
+      init_args
+      init_term
+      trans_uf_symbol
+      trans_args
+      trans_term
+      (* No subsystems, no properties *)
+      [] [] [] [] []
+  in
+
+  sys
+
 
 
 (* Return a transition system extracted from a call to JKind. *)

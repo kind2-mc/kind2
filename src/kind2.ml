@@ -36,7 +36,11 @@ module TestGen = TestgenDF
 module C2I = C2I
 module C2Icnf = C2Icnf
 
-(* module IC3 = Dummy *)
+
+(* Hide existential type parameter of to construct values of 'a InputSystem.t
+   at runtime *)
+type any_input =
+  | Input : 'a InputSystem.t -> any_input
 
 let children_pgid = ref 0
 
@@ -55,6 +59,10 @@ let cur_input_sys = ref None
 let cur_aparam = ref None
 (* Current transition system. *)
 let cur_trans_sys = ref None
+
+
+(* let get_input_sys_ref () = *)
+(*   let Input i = get !input_sys_ref in i *)
 
 (* Generic signal handler. *)
 let generic_sig_handler = Sys.Signal_handle exception_on_signal
@@ -120,7 +128,7 @@ let main_of_process = function
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `Supervisor -> InvarManager.main child_pids
-  | `Parser -> (fun _ _ _ -> ())
+  | `Parser | `Certif -> (fun _ _ _ -> ())
 
 (* Cleanup function of the process *)
 let on_exit_of_process = function
@@ -290,17 +298,19 @@ let slaughter_kids process sys =
   (* Clean exit from invariant manager *)
   InvarManager.on_exit sys ;
 
+  let Input input_sys = get !cur_input_sys in
+
   (* Generate certificates if necessary *)
-  if Flags.certif () &&
-     (Flags.certif_force ()
-      || status = status_safe || status = status_signal ) then
+  if Flags.certif () (* && *)
+     (* (Flags.certif_force () *)
+     (*  || status = status_safe || status = status_signal ) *) then
     (* Create certificate *)
     (match sys with | None -> () | Some trans_sys ->
       if List.exists
           (function | _, Property.PropInvariant _ -> true | _ -> false)
           (TransSys.get_prop_status_all trans_sys)
       then
-        CertifChecker.generate_all_certificates trans_sys
+        CertifChecker.generate_all_certificates input_sys trans_sys
     );
     
   Event.log L_info "Killing all remaining child processes";
@@ -518,7 +528,7 @@ let on_exit_child ?(alone=false) messaging_thread process exn =
     in
 
     (* Log stats and statuses of properties if run as a single process *)
-    if alone then Event.log_result sys_opt;
+    (* if alone then Event.log_result sys_opt; *)
 
     Event.terminate_log ();
       
@@ -614,9 +624,11 @@ let run_process messaging_setup process =
 
           );
 
+          let Input cur_in_sys = get !cur_input_sys in
+          
           (* Run main function of process *)
           (main_of_process process) 
-            (get !cur_input_sys)
+            cur_in_sys
             (get !cur_aparam)
             (get !cur_trans_sys);
 
@@ -862,7 +874,7 @@ let check_smtsolver () =
    - starting global timer,
    - parsing input file,
    - building input system. *)
-let setup () =
+let setup : unit -> any_input = fun () ->
 
   (* Parse command-line flags. *)
   Flags.parse_argv () ;
@@ -938,19 +950,21 @@ let setup () =
   Event.log L_info "Parsing input file \"%s\"." in_file ;
 
   try
-    in_file |> match Flags.input_format () with
-      | `Lustre -> InputSystem.read_input_lustre
-      | `Native -> InputSystem.read_input_native
-      | `Horn   -> (* InputSystem.read_input_horn *)   assert false
+    (* in_file |> *)
+    match Flags.input_format () with
+    | `Lustre -> Input (InputSystem.read_input_lustre in_file)
+    | `Native -> Input (InputSystem.read_input_native in_file)
+    | `Horn   -> (* InputSystem.read_input_horn *)   assert false
   with e -> (* Could not create input system. *)
     (* Terminating log and exiting with error. *)
     Event.terminate_log () ;
+    raise e;
     exit status_error
 
 (* Launches analyses. *)
 let rec run_loop msg_setup modules results =
 
-  let aparam, input_sys, trans_sys =
+  let aparam, Input input_sys, trans_sys =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
 
@@ -993,9 +1007,9 @@ let rec run_loop msg_setup modules results =
 
   let results = Analysis.results_add result results in
 
-  match
-    InputSystem.next_analysis_of_strategy (get !input_sys_ref) results
-  with
+  let Input input_sys = get !input_sys_ref in
+  
+  match InputSystem.next_analysis_of_strategy input_sys results with
 
   (* No next analysis, done. *)
   | None -> results
@@ -1004,12 +1018,11 @@ let rec run_loop msg_setup modules results =
   | Some aparam ->
     (* Extracting transition system. *)
     let trans_sys, input_sys_sliced =
-      InputSystem.trans_sys_of_analysis (get !input_sys_ref) aparam
-    in
+      InputSystem.trans_sys_of_analysis input_sys aparam in
 
     (* Memorizing things. *)
     cur_aparam    := Some aparam           ;
-    cur_input_sys := Some input_sys_sliced ;
+    cur_input_sys := Some (Input input_sys_sliced) ;
     cur_trans_sys := Some trans_sys        ;
 
     (* Looping. *)
@@ -1048,19 +1061,21 @@ let launch () =
   input_sys_ref := Some input_sys ;
   let results = Analysis.mk_results () in
 
+  let Input in_sys = input_sys in
+  
   (* Retrieving params for next analysis. *)
   let aparam =
-    match InputSystem.next_analysis_of_strategy input_sys results with
+    match InputSystem.next_analysis_of_strategy in_sys results with
     | Some a -> a | None -> assert false
   in
 
   (* Building transition system and slicing info. *)
   let trans_sys, input_sys_sliced =
-    InputSystem.trans_sys_of_analysis input_sys aparam
+    InputSystem.trans_sys_of_analysis in_sys aparam
   in
 
   (* Memorizing things. *)
-  cur_input_sys := Some input_sys_sliced ;
+  cur_input_sys := Some (Input input_sys_sliced) ;
   cur_aparam    := Some aparam           ;
   cur_trans_sys := Some trans_sys        ;
 
@@ -1094,10 +1109,12 @@ let launch () =
       (* Set module currently running. *)
       Event.set_module m ;
 
+      let Input cur_sys = get !cur_input_sys in
+      
       (* Run interpreter. *)
       Interpreter.main
         (Flags.interpreter_input_file ())
-        (get !cur_input_sys)
+        cur_sys
         (get !cur_aparam)
         (get !cur_trans_sys) ;
 
@@ -1138,7 +1155,9 @@ let launch () =
         let results = run_loop msg_setup modules results in
         (* Producing a list of the last results for each system, in topological
            order. *)
-        get !input_sys_ref |> InputSystem.ordered_scopes_of
+        let Input input_sys = get !input_sys_ref in
+        input_sys
+        |> InputSystem.ordered_scopes_of
         |> List.fold_left (fun l sys ->
           try (
             match Analysis.results_find sys results with
@@ -1156,8 +1175,8 @@ let launch () =
 
   ) else (
 
-    match InputSystem.ordered_scopes_of input_sys with
-    | top :: _ -> run_testgen input_sys top
+    match InputSystem.ordered_scopes_of in_sys with
+    | top :: _ -> run_testgen in_sys top
     | [] -> ()
 
   )

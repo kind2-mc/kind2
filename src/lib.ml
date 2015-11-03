@@ -1075,6 +1075,7 @@ let kind_module_of_string = function
 
 
 let int_of_kind_module = function
+  | `Certif -> -4
   | `Parser -> -3
   | `Interpreter -> -2
   | `Supervisor -> -1

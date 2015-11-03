@@ -108,7 +108,7 @@ val log_interruption : int -> unit
 (** Events exposed to callers *)
 
 type event = 
-  | Invariant of string list * Term.t   Certificate.t 
+  | Invariant of string list * Term.t * Certificate.t 
   | PropStatus of string * Property.prop_status
   | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 

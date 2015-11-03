@@ -20,8 +20,8 @@ open Lib
 open TermLib
 open Actlit
 
-(* Raised when the unrolling alone is unsat. *)
-exception UnsatUnrollingExc
+(* Raised when the unrolling alone is unsat (with the bound). *)
+exception UnsatUnrollingExc of int
 
 let solver_ref = ref None
 
@@ -59,7 +59,7 @@ let on_exit _ =
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | Property.PropInvariant
+  | Property.PropInvariant _
   | Property.PropFalse _ -> false
   | _ -> true
 
@@ -106,7 +106,7 @@ let split trans solver k falsifiable to_split actlits =
         the system has no more reachable states.@]"
         warning_tag
         Numeral.pp_print_numeral k ;
-      raise UnsatUnrollingExc
+      raise (UnsatUnrollingExc (Numeral.to_int k))
     )
   ) ;
 
@@ -364,7 +364,7 @@ let init input_sys aparam trans =
         "%s BMC @[<v>Initial state is unsat, the system has no \
          reachable states.@]"
          warning_tag ;
-      raise UnsatUnrollingExc
+      raise (UnsatUnrollingExc 0)
     )
   ) ;
 
@@ -379,12 +379,14 @@ let init input_sys aparam trans =
 let main input_sys aparam trans =
   try
     init input_sys aparam trans |> next
-  with UnsatUnrollingExc ->
+  with UnsatUnrollingExc k ->
     let _, _, unknown = TransSys.get_split_properties trans in
     unknown |> List.iter (fun p ->
-      Event.prop_status
-        Property.PropInvariant input_sys aparam trans p.Property.prop_name
-    )
+        let cert = k, p.Property.prop_term in
+        Event.prop_status
+          (Property.PropInvariant cert)
+          input_sys aparam trans p.Property.prop_name
+      )
 
 
 

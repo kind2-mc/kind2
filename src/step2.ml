@@ -259,10 +259,10 @@ let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
       let ok_cert =
         match Sys.get_prop_status sys prop with
         | Prop.PropKTrue n when n >= 1 ->
-          Some (2, Sys.named_term_of_prop_name sys prop)
+          Some (2, Sys.get_prop_term sys prop)
         | Prop.PropInvariant ((k, phi) as cert) ->
           if k <= 2 then Some cert
-          else Some (2, Sys.named_term_of_prop_name sys prop)
+          else Some (2, Sys.get_prop_term sys prop)
         | _ -> None
       in
       match ok_cert with
