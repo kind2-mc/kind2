@@ -888,6 +888,13 @@ let cur_state_vars_of_step_expr { expr_step } =
     (cur_term_of_expr cur_offset expr_step)
 
 
+let indexes_of_state_vars_in_init sv { expr_init } =
+  Term.indexes_of_state_var sv expr_init
+
+let indexes_of_state_vars_in_step sv { expr_step } =
+  Term.indexes_of_state_var sv expr_step
+
+
 (* Split a list of Lustre expressions into a list of pairs of
    expressions for the initial step and the transition steps,
    respectively *)

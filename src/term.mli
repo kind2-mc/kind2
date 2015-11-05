@@ -518,6 +518,8 @@ val reinterpret_select : t -> t
 
 val unlet : t -> t
 
+val indexes_of_state_var : StateVar.t -> t -> t list
+    
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

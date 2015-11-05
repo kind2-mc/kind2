@@ -34,6 +34,28 @@ module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap 
 
 
+
+let is_index_var v =
+  let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
+  try
+    Scanf.sscanf s ("__index_%s")
+      (fun _ -> true)
+  with Scanf.Scan_failure _ -> false
+
+
+let ref_previous_indexes (expr:E.expr) =
+  let t = E.unsafe_term_of_expr expr in
+  match Term.vars_of_term t
+        |> Var.VarSet.elements
+        |> List.filter is_index_var with
+  | [v] ->
+    let tv = Term.mk_var v in
+    let smaller = Term.mk_lt [t; tv] |> Simplify.simplify_term [] in
+    (* Format.eprintf "smaller test: %a@." Term.pp_print_term smaller; *)
+    Term.equal smaller Term.t_true
+  | _ -> true
+
+
 (* ********************************************************************** *)
 (* Dependency order of definitions and cycle detection                    *)
 (* ********************************************************************** *)
@@ -155,7 +177,7 @@ let rec node_state_var_dependencies'
            that are not visible in the origial source *)
         C.fail_no_position 
           (Format.asprintf
-             "Circular dependency in %a: %a@."
+             "Circular dependency in %a: @[<hov>%a@]@."
              (I.pp_print_ident false) node.N.name
              (pp_print_list
                Format.pp_print_string
@@ -195,10 +217,19 @@ let rec node_state_var_dependencies'
                  simple expressions such as [A[k] = 0 -> pre A[k-1]]
                  would not be possible. Accept some false negatives
                  here. *)
-              |> SVS.filter 
-                (fun sv -> StateVar.type_of_state_var sv
-                           |> Type.is_array |> not)
-                
+              (* |> SVS.filter  *)
+              (*   (fun sv -> StateVar.type_of_state_var sv *)
+              (*              |> Type.is_array |> not) *)
+              (* Remove array variables which are which are indexed at a
+                 smaller index than the current index to keep recursive
+                 definitions well founded *)
+              |> SVS.filter
+                (fun sv ->
+                   let indexes =
+                     if init then E.indexes_of_state_vars_in_init sv expr
+                     else E.indexes_of_state_vars_in_step sv expr in
+                   List.for_all (fun i -> not (ref_previous_indexes i)) indexes
+                )
               |> SVS.union accum)
             SVS.empty
 
