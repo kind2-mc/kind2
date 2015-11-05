@@ -221,8 +221,15 @@ let pp_print_param fmt { top ; abstraction_map ; assumptions } =
         assumptions)
     assumptions
 
+let split_properties_nocands sys =
+  let valid, invalid, unknown = TransSys.get_split_properties sys in
+  let remove_cands l =
+    List.filter (fun p -> Property.(p.prop_source <> Candidate)) l
+    |> List.rev in
+  remove_cands valid, remove_cands invalid, remove_cands unknown
+
 let pp_print_result_quiet fmt { sys } =
-  match TransSys.get_split_properties sys with
+  match split_properties_nocands sys with
   | valid, [], [] ->
     Format.fprintf fmt "%a | safe (%d properties)"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
@@ -259,7 +266,7 @@ let pp_print_result fmt {
       props
   in
   let pp_print_skip _ _ = () in
-  let valid, invalid, unknown = TransSys.get_split_properties sys in
+  let valid, invalid, unknown = split_properties_nocands sys in
   Format.fprintf fmt "@[<v>\
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \

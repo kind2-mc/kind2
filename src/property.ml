@@ -110,6 +110,8 @@ let pp_print_prop_source ppf = function
   | PropAnnot pos ->
      Format.fprintf
        ppf "%a" pp_print_position pos
+  | Generated [] ->
+     Format.fprintf ppf "generated"
   | Generated _ ->
      Format.fprintf ppf "subrange constraint"
   | Candidate ->

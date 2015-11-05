@@ -1150,7 +1150,8 @@ let stateful_vars_of_expr { E.expr_step } =
       (* Previous state variables have negative offset *)
       | Term.T.Var v when 
           Var.is_state_var_instance v && 
-          Numeral.(Var.offset_of_state_var_instance v < E.cur_offset) -> 
+          (Numeral.(Var.offset_of_state_var_instance v < E.cur_offset)
+           || Flags.certif ()) -> 
 
         (function 
           | [] -> 

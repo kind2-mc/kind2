@@ -195,9 +195,7 @@ let extract_props_certs sys =
       | { Property.prop_source = Property.Candidate } ->
         (* Put valid candidates in invariants *)
         acc
-      | { Property.prop_status = Property.PropInvariant ((_,phi) as c); prop_term = p;prop_name } ->
-        Event.log L_fatal "certificate for %s (%a)" prop_name Term.pp_print_term phi;
-
+      | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
         c :: c_acc, p :: p_acc
       | { Property.prop_name } ->
         Event.log L_fatal "[Warning] Skipping unproved property %s" prop_name;
@@ -1041,7 +1039,9 @@ let generate_certificate sys dirname =
   if is_fec sys then begin
 
     let obs_sys = sys in
-    let jkind_sys = List.hd (TransSys.get_subsystems sys) in
+    let jkind_sys = match TransSys.get_subsystems sys with
+      | _ :: jkind_sys :: _ -> jkind_sys
+      | _ -> assert false in
   
     let jkdef_filename = Filename.concat dirname "jkind_defs.smt2" in
     let jkdef_oc = open_out jkdef_filename in

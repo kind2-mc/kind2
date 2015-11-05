@@ -1258,11 +1258,12 @@ let set_prop_false trans_sys p c =
   
 
 (* Return current status of all properties *)
-let get_prop_status_all t = 
-  
-  List.map 
-    (fun { P.prop_name; P.prop_status } -> (prop_name, prop_status))
-    t.properties
+let get_prop_status_all_nocands t = 
+  List.fold_left (fun acc -> function
+      | { P.prop_source = P.Candidate } -> acc
+      | { P.prop_name; P.prop_status } -> (prop_name, prop_status) :: acc
+    ) [] t.properties
+  |> List.rev
 
 
 (* Return current status of all properties *)
@@ -1281,16 +1282,15 @@ let get_prop_status_all_unknown t =
     t.properties
 
 
-(* Return true if all properties are either valid or invalid *)
+(* Return true if all properties which are not candidates are either valid or
+   invalid *)
 let all_props_proved t =
-  
   List.for_all
-    (fun { P.prop_status } -> match prop_status with
-       | P.PropUnknown
-       | P.PropKTrue _ -> false
-       | P.PropInvariant _
-       | P.PropFalse _ -> true)
-    t.properties
+    (function
+      | { P.prop_source = P.Candidate } -> true
+      | { P.prop_status = (P.PropInvariant _ | P.PropFalse _) } -> true
+      | _ -> false
+    ) t.properties
 
 
 

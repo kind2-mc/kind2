@@ -52,10 +52,13 @@ let print_stats trans_sys =
     (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
     (Event.all_stats ());
   
-  (match trans_sys with | None -> () | Some trans_sys ->
-    Event.log_prop_status 
-      L_fatal
-      (TransSys.get_prop_status_all trans_sys))
+  match trans_sys with
+  | None -> ()
+  | Some trans_sys ->
+    Event.log_prop_status L_fatal
+      (TransSys.get_prop_status_all_nocands trans_sys)
+                        
+
 
 let on_exit trans_sys =
 

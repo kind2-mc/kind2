@@ -452,11 +452,11 @@ val is_proved : t -> string -> bool
 (** Return true if the property is proved not invariant *)
 val is_disproved : t -> string -> bool 
 
-(** Return current status of all properties
+(** Return current status of all properties excepted candidates
 
     [get_prop_status t] returns the status saved in the transition
     system of each property along with the name of the property. *)
-val get_prop_status_all : t -> (string * Property.prop_status) list
+val get_prop_status_all_nocands : t -> (string * Property.prop_status) list
 
 (** Return current status of all unknown properties
 
@@ -492,7 +492,8 @@ val set_prop_false :
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
-(** Return true if all properties are either valid or invalid *)
+(** Return true if all properties which are not candidates are either valid or
+    invalid *)
 val all_props_proved : t -> bool
 
 (** Add an invariant to the transition system *)

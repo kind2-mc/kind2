@@ -183,7 +183,7 @@ let status_safe = 20
 let status_of_trans_sys sys =
   (* Checking if some properties are unknown of falsifiable. *)
   let unknown, falsifiable =
-    TransSys.get_prop_status_all sys
+    TransSys.get_prop_status_all_nocands sys
     |> List.fold_left (fun (u,f) -> function
       | (_, Property.PropUnknown)
       | (_, Property.PropKTrue _) -> u+1,f
@@ -308,7 +308,7 @@ let slaughter_kids process sys =
     (match sys with | None -> () | Some trans_sys ->
       if List.exists
           (function | _, Property.PropInvariant _ -> true | _ -> false)
-          (TransSys.get_prop_status_all trans_sys)
+          (TransSys.get_prop_status_all_nocands trans_sys)
       then
         CertifChecker.generate_all_certificates input_sys trans_sys
     );
