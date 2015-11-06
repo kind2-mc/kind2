@@ -68,33 +68,35 @@ let width_val_of_map m =
       
 (* Show map as an array in counteexamples *)
 let pp_print_map_as_array ppf m =
-  let val_width = width_val_of_map m in
-  let dim = MIL.choose m |> fst |> List.length in
-  let current = Array.make dim 0 in
-  let prev = Array.make dim 0 in
-  for i = 1 to dim do
-    Format.fprintf ppf "[@[<hov 0>";
-  done;
-  let first = ref true in
-  MIL.iter (fun l v ->
-      Array.blit current 0 prev 0 dim;
-      Array.blit (Array.of_list l) 0 current 0 dim;
-      let cpt = ref 0 in
-      for i = dim - 2 downto 0 do
-        if current.(i) <> prev.(i) then (Format.fprintf ppf "@]]"; incr cpt);
-      done;
-      (* if !cpt <> !nopen then  Format.fprintf ppf ";"; *)
-      if !cpt > 0 then Format.fprintf ppf ",@ "
-      else if not !first then Format.fprintf ppf ",";
-      for i = 1 to !cpt do
-        Format.fprintf ppf "[@[<hov 0>";
-      done;
-      Format.fprintf ppf "%*s" val_width (string_of_t pp_print_term v);
-      first := false;
-    ) m;
-  for i = 1 to dim do
-    Format.fprintf ppf "@]]";
-  done
+  if MIL.is_empty m then Format.fprintf ppf "[]"
+  else
+    let val_width = width_val_of_map m in
+    let dim = MIL.choose m |> fst |> List.length in
+    let current = Array.make dim 0 in
+    let prev = Array.make dim 0 in
+    for i = 1 to dim do
+      Format.fprintf ppf "[@[<hov 0>";
+    done;
+    let first = ref true in
+    MIL.iter (fun l v ->
+        Array.blit current 0 prev 0 dim;
+        Array.blit (Array.of_list l) 0 current 0 dim;
+        let cpt = ref 0 in
+        for i = dim - 2 downto 0 do
+          if current.(i) <> prev.(i) then (Format.fprintf ppf "@]]"; incr cpt);
+        done;
+        (* if !cpt <> !nopen then  Format.fprintf ppf ";"; *)
+        if !cpt > 0 then Format.fprintf ppf ",@ "
+        else if not !first then Format.fprintf ppf ",";
+        for i = 1 to !cpt do
+          Format.fprintf ppf "[@[<hov 0>";
+        done;
+        Format.fprintf ppf "%*s" val_width (string_of_t pp_print_term v);
+        first := false;
+      ) m;
+    for i = 1 to dim do
+      Format.fprintf ppf "@]]";
+    done
 
       (* "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]"  *)
 
@@ -154,17 +156,11 @@ let pp_print_map_as_xml ppf m =
   pp_print_array_model ppf 0 arm
 
 
-
-
 (* Print a value of the model *)  
 let pp_print_value ppf = function 
   | Term t -> pp_print_term ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
-  | Map m ->
-    try Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
-    with Not_found -> ()
-
-
+  | Map m -> Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
 
 
 let pp_print_value_xml ppf = function 

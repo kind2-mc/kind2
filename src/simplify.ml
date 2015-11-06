@@ -1249,14 +1249,22 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
                     (* or map *)
                     | Model.Map m ->
-                      let args = List.map (fun x ->
-                          Term.numeral_of_term x |> Numeral.to_int) i' in
-                      
-                      (* Evaluate map with simplified indexes *)
-                      Term.eval_t 
-                        (simplify_term_node default_of_var uf_defs model)
-                        (Model.MIL.find args m)
-                        
+
+                      if Model.MIL.is_empty m then
+                        List.fold_left
+                          Term.mk_select (Term.mk_var v) (List.rev i')
+                        |> atom_of_term
+
+                      else 
+
+                        let args = List.map (fun x ->
+                            Term.numeral_of_term x |> Numeral.to_int) i' in
+
+                        (* Evaluate map with simplified indexes *)
+                        Term.eval_t 
+                          (simplify_term_node default_of_var uf_defs model)
+                          (Model.MIL.find args m)
+
                     (* Variable must not evaluate to a term *)
                     | Model.Term _ -> assert false 
                       

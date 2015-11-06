@@ -459,8 +459,9 @@ let rec pp_print_term ppf term =
         
   else
     
-    (* Fall back to pretty-print as a term *)
-    Term.pp_print_term ppf term 
+    (* Fall back to pretty-print as lustre expression *)
+    (LustreExpr.pp_print_expr false) ppf
+      (LustreExpr.unsafe_expr_of_term term)
 
 
 let pp_print_value ppf = function
