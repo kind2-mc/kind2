@@ -32,7 +32,7 @@ let
   A0 = A1;
 
   -- A sliding window over input stream s
-  A2[k] = if k = 0 then s else (k -> pre A1[k-1]); -- A2[k] will fail but A2[k-1] is allowed
+  A2[k] = if k = 0 then s else (k -> pre A1[k-1]); -- A2[k], A2[0] will fail but A2[k-1] is allowed
 
   A11 = (A0 with [2] = 3 * A0[1]);
 

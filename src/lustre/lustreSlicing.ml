@@ -52,9 +52,10 @@ let ref_previous_indexes (expr:E.expr) =
   | [v] ->
     let tv = Term.mk_var v in
     let smaller = Term.mk_lt [t; tv] |> Simplify.simplify_term [] in
-    (* Format.eprintf "smaller test: %a@." Term.pp_print_term smaller; *)
+    (* Format.eprintf "smaller test: %a < %a ? %a@." *)
+    (*   Term.pp_print_term t Term.pp_print_term tv Term.pp_print_term smaller; *)
     Term.equal smaller Term.t_true
-  | _ -> true
+  | _ -> false
 
 
 (* ********************************************************************** *)
@@ -221,11 +222,13 @@ let rec node_state_var_dependencies'
               (* |> SVS.filter  *)
               (*   (fun sv -> StateVar.type_of_state_var sv *)
               (*              |> Type.is_array |> not) *)
-              (* Remove array variables which are which are indexed at a
-                 smaller index than the current index to keep recursive
-                 definitions well founded *)
+              (* Remove array variables which are indexed at a smaller index
+                 than the current index to keep recursive definitions well
+                 founded *)
               |> SVS.filter
                 (fun sv ->
+                   StateVar.type_of_state_var sv |> Type.is_array |> not
+                   ||
                    let indexes =
                      if init then E.indexes_of_state_vars_in_init sv expr
                      else E.indexes_of_state_vars_in_step sv expr in
