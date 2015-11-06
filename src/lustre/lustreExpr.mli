@@ -98,8 +98,11 @@ type t = private
 (** Hash table over Lustre expressions *)
 module LustreExprHashtbl : Hashtbl.S with type key = t
 
-(** Total order on expressions *)
+(** Total order on lustre expressions *)
 val compare : t -> t -> int
+
+(** Total order on expressions *)
+val compare_expr : expr -> expr -> int
 
 (** Equality of expressions *)
 val equal : t -> t -> bool

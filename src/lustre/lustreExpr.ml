@@ -57,17 +57,16 @@ type 'a bound_or_fixed =
   | Fixed of 'a  (* Fixed value for index variable *)
 
 
+let compare_expr = Term.compare
+
 (* Total order on expressions *)
 let compare
     { expr_init = init1; expr_step = step1 } 
     { expr_init = init2; expr_step = step2 } =
 
   (* Lexicographic comparision of initial value, step value *)
-  let c_init = Term.compare init1 init2 in 
-  if c_init = 0 then 
-    Term.compare step1 step2 
-  else
-    c_init
+  let c_init = compare_expr init1 init2 in 
+  if c_init = 0 then compare_expr step1 step2 else c_init
 
 
 (* Equality on expressions *)
