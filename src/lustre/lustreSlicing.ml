@@ -36,6 +36,7 @@ module SVM = StateVar.StateVarMap
 
 
 let is_index_var v =
+  Var.is_free_var v &&
   let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
   try
     Scanf.sscanf s ("__index_%s")
