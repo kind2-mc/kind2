@@ -238,9 +238,9 @@ val base_state_vars_of_init_expr : t -> StateVar.StateVarSet.t
     instant *)
 val cur_state_vars_of_step_expr : t -> StateVar.StateVarSet.t
 
-val indexes_of_state_vars_in_init : StateVar.t -> t -> expr list
+val indexes_of_state_vars_in_init : StateVar.t -> t -> expr list list
 
-val indexes_of_state_vars_in_step : StateVar.t -> t -> expr list
+val indexes_of_state_vars_in_step : StateVar.t -> t -> expr list list
 
 (** Split a list of Lustre expressions into a list of pairs of
     expressions for the initial step and the transition steps,

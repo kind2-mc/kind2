@@ -57,6 +57,10 @@ let ref_previous_indexes (expr:E.expr) =
     Term.equal smaller Term.t_true
   | _ -> false
 
+let all_have_previous_dimension =
+  List.for_all (List.exists (fun i -> ref_previous_indexes i))
+
+
 
 (* ********************************************************************** *)
 (* Dependency order of definitions and cycle detection                    *)
@@ -232,7 +236,7 @@ let rec node_state_var_dependencies'
                    let indexes =
                      if init then E.indexes_of_state_vars_in_init sv expr
                      else E.indexes_of_state_vars_in_step sv expr in
-                   List.for_all (fun i -> not (ref_previous_indexes i)) indexes
+                   not (all_have_previous_dimension indexes)
                 )
               |> SVS.union accum)
             SVS.empty

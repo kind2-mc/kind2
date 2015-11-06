@@ -518,7 +518,7 @@ val reinterpret_select : t -> t
 
 val unlet : t -> t
 
-val indexes_of_state_var : StateVar.t -> t -> t list
+val indexes_of_state_var : StateVar.t -> t -> t list list
     
 (* 
    Local Variables:

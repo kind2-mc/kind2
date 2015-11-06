@@ -1401,19 +1401,28 @@ let indexes_of_state_var sv term =
   eval_t (fun t acc -> match t with
       | T.App (s, x :: indexes) when
           Symbol.is_select s &&
-          (acc <> [] ||
+          ((match acc with [] :: _ -> false | _ -> true) ||
            (is_free_var x &&
             let vx = free_var_of_term x in
             Var.is_state_var_instance vx &&
             let svx = Var.state_var_of_state_var_instance vx in
             StateVar.equal_state_vars sv svx)) ->
-        (* Format.eprintf "           adding %a@." (pp_print_list pp_print_term ", ") indexes; *)
-        List.rev_append indexes (List.flatten acc)
-      | _ -> List.flatten acc)
+        (* Format.eprintf "           adding %a@." *)
+        (*   (pp_print_list pp_print_term ", ") indexes; *)
+        (match acc with
+         | x :: r ->
+           List.rev_append indexes (List.flatten x) :: (List.flatten r)
+         | _ -> List.flatten acc)
+        (* List.rev_append indexes (List.flatten acc) *)
+      | _ ->
+        (match acc with
+         | [] :: r -> [] :: List.flatten r
+         | _ -> [] ::  List.flatten acc))
     term
-  |> List.rev
+  |> List.filter (fun l -> l <> [])
   (* in *)
-  (* Format.eprintf "   vars: %a@." (pp_print_list pp_print_term ", ") var; *)
+  (* Format.eprintf "   vars: %a@." *)
+  (*   (pp_print_list (pp_print_list pp_print_term ", ")  "  ;   ") var; *)
   (* var *)
 
 
