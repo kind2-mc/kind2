@@ -336,11 +336,11 @@ rule token = parse
 
   (* |===| Block annotation contract stuff. *)
 
-  | "@mode" { MODE }
-  | "@assume" { ASSUME }
-  | "@guarantee" { GUARANTEE }
-  | "@require" { REQUIRE }
-  | "@ensure" { ENSURE }
+  | "mode" { MODE }
+  | "assume" { ASSUME }
+  | "guarantee" { GUARANTEE }
+  | "require" { REQUIRE }
+  | "ensure" { ENSURE }
 
 
   (* |===| Actual comments. *)

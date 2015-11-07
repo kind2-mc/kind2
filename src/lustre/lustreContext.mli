@@ -188,14 +188,11 @@ val add_node_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreInde
 (** Add node local to context *)
 val add_node_local : ?ghost:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
-(** Add global contract to node
+(** Adds assumptions and guarantees to a node. *)
+val add_node_ass_gua : t -> Contract.svar list -> Contract.svar list -> t
 
-    The node must not have a global contract defined, otherwise a
-    parse error will be raised. *)
-val add_node_global_contract : t -> position -> LustreNode.contract -> t
-
-(** Add mode contract to node *)
-val add_node_mode_contract : t -> position -> string -> LustreNode.contract -> t
+(** Add modes to node *)
+val add_node_modes : t -> Contract.mode list -> t
 
 (** Add assertion to context *)
 val add_node_assert : t -> LustreExpr.t -> t

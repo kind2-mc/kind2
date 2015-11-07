@@ -626,8 +626,7 @@ let slice_all_of_node
       N.outputs; 
       N.asserts;
       N.props; 
-      N.global_contracts; 
-      N.mode_contracts; 
+      N.contract;
       N.is_main;
       N.state_var_source_map } = 
 
@@ -646,8 +645,7 @@ let slice_all_of_node
     N.function_calls = [];
     N.asserts;
     N.props = if keep_props then props else [];
-    N.global_contracts = if keep_contracts then global_contracts else [];
-    N.mode_contracts = if keep_contracts then mode_contracts else [];
+    N.contract = if keep_contracts then contract else None;
     N.is_main;
     N.state_var_source_map = state_var_source_map }
 
@@ -716,20 +714,9 @@ let roots_of_props = List.map (fun (sv, _, _) -> sv)
 
 
 (* Return state variables from contracts *)
-let roots_of_contracts contract = 
-
-  (* State variables in a contract are requirements and ensures *)
-  let roots_of_contract { N.contract_reqs; N.contract_enss } = 
-    let thrd_of (_,_,thrd) = thrd in
-    (List.map thrd_of contract_reqs) @ (List.map thrd_of contract_enss)
-  in
-
-  (* Combine state variables from global contract and mode
-     contracts *)
-  List.fold_left 
-    (fun a c -> roots_of_contract c @ a)
-    []
-    contract
+let roots_of_contract = function
+| None -> []
+| Some contract -> Contract.svars_of contract |> SVS.elements
 
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
@@ -1164,8 +1151,7 @@ let root_and_leaves_of_impl
     is_top
     roots
     ({ N.outputs; 
-       N.global_contracts; 
-       N.mode_contracts; 
+       N.contract;
        N.props;
        N.asserts } as node) =
 
@@ -1185,8 +1171,7 @@ let root_and_leaves_of_impl
       | None -> 
 
         (* Consider properties and contracts as roots *)
-        (roots_of_contracts global_contracts |> SVS.of_list)
-        |> SVS.union (roots_of_contracts mode_contracts |> SVS.of_list)
+        (roots_of_contract contract |> SVS.of_list)
         |> SVS.union (roots_of_props props |> SVS.of_list)
                                           
       (* Use instead of roots from properties and contracts *)
@@ -1213,8 +1198,7 @@ let root_and_leaves_of_contracts
     is_top
     roots
     ({ N.outputs; 
-       N.global_contracts; 
-       N.mode_contracts; 
+       N.contract;
        N.props } as node) =
 
   (* Slice everything from node *)
@@ -1226,13 +1210,9 @@ let root_and_leaves_of_contracts
   in
     
   (* Slice starting with contracts *)
-  let node_roots = 
-    match roots with 
-      | None -> 
-
-        roots_of_contracts global_contracts @
-        roots_of_contracts mode_contracts 
-         
+  let node_roots =
+    match roots with
+      | None -> roots_of_contract contract
       | Some r -> SVS.elements r
   in
 

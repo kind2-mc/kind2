@@ -174,40 +174,47 @@ type node_equation =
   | AnnotMain of bool
   | AnnotProperty of position * expr
 
-(** A contract ghost constant *)
+(* A contract ghost constant. *)
 type contract_ghost_const = const_decl
 
-(** A contract ghost variable *)
+(* A contract ghost variable. *)
 type contract_ghost_var = const_decl
 
-(** A contract requirement *)
+(* A contract assume. *)
+type contract_assume = position * expr
+
+(* A contract guarantee. *)
+type contract_guarantee = position * expr
+
+(* A contract requirement. *)
 type contract_require = position * expr
 
-(** A contract ensure *)
+(* A contract ensure. *)
 type contract_ensure = position * expr
 
-(** Equations that can appear in a contract node *)
+(* A contract mode. *)
+type contract_mode =
+  position * ident * (contract_require list) * (contract_ensure list)
+
+(* Equations that can appear in a contract node. *)
 type contract_node_equation =
   | GhostEquation of position * ident * expr
+  | Assume of contract_assume
+  | Guarantee of contract_guarantee
   | Require of contract_require
   | Ensure of contract_ensure
 
-(** A contract for a node is either an inlined contract (defined in
-   the node itself), or a contract node call *)
+(* A contract is some ghost consts / var, and assumes guarantees and modes. *)
 type contract =
-  | InlinedContract of position
-                       * ident
-                       * contract_require list
-                       * contract_ensure list
-  | ContractCall of position * ident
+  contract_ghost_const list * contract_ghost_var list *
+  contract_assume list * contract_guarantee list * contract_mode list
 
-(** A contract specification for a node (if it has one) is either a
-    list of modes or a global contract and a list of modes *)
-type contract_spec =
-  contract_ghost_const list
-  * contract_ghost_var list
-  * contract option
-  * contract list
+(* A contract call. *)
+type contract_call = position * ident * expr list * expr list
+
+(* A contract specification for a node (if it has one) is either a
+   list of modes or a global contract and a list of modes. *)
+type contract_spec = contract * contract_call list
 
 (** Declaration of a node as a tuple of
 
@@ -225,7 +232,7 @@ type node_decl =
   * clocked_typed_decl list
   * node_local_decl list
   * node_equation list
-  * contract_spec 
+  * contract_spec option
 
 (** A contract node declaration
 

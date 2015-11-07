@@ -54,6 +54,7 @@ module D = LustreIndex
 module E = LustreExpr
 module ET = E.LustreExprHashtbl
 
+module C = Contract
 module N = LustreNode
 module F = LustreFunction
 
@@ -1261,40 +1262,36 @@ let add_node_local ?(ghost = false) ctx ident index_types =
           { ctx with node = Some { node with N.locals = local :: locals } }
 
 
-(* Add node contract to context *)
-let add_node_global_contract ctx pos contract = 
+(* Add node assume/guarantees to context *)
+let add_node_ass_gua ctx assumes guarantees = 
 
-  match ctx with 
+  match ctx with
 
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
-    | { node = Some ({ N.global_contracts } as node) } -> 
-
+    | { node = Some ({ N.contract } as node) } ->
+      let contract = match contract with
+        | None -> C.mk assumes guarantees []
+        | Some contract -> C.add_ass_gua contract assumes guarantees
+      in
       (* Return node with contract added *)
-      { ctx with 
-          node = 
-            Some
-              { node with 
-                  N.global_contracts = 
-                    contract :: global_contracts } }
+      { ctx with node = Some { node with N.contract = Some contract } }
 
 
-(* Add node contract to context *)
-let add_node_mode_contract ctx pos contract_name contract = 
+(* Add node mode to context *)
+let add_node_modes ctx modes = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_mode_contract")
 
-    | { node = Some ({ N.mode_contracts } as node) } -> 
-
+    | { node = Some ({ N.contract } as node) } ->
+      let contract = match contract with
+        | None -> C.mk [] [] modes
+        | Some contract -> C.add_modes contract modes
+      in
       (* Return node with contract added *)
-      { ctx with 
-          node = 
-            Some
-              { node with 
-                  N.mode_contracts = 
-                    contract :: mode_contracts } }
+      { ctx with node = Some{ node with N.contract = Some contract } }
 
 
 (* Add node assert to context *)

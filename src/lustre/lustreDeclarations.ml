@@ -957,62 +957,38 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
     in
 
     (* Pass to continuation *)
-    f ctx pos ident type_expr' expr expr' 
+    f ctx pos ident type_expr' expr expr'
 
 
+(* Introduces a fresh state variable for a
+  - assume,
+  - guarantee,
+  - require, or
+  - ensure. *)
+let eval_contract_item (accum, ctx ,count) (pos, expr) =
+  (* Evaluate exrpession to a Boolean expression, may change context. *)
+  let expr, ctx = S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos in
+  (* Define expression with a state variable .*)
+  let state_var, ctx = C.mk_local_for_expr pos ctx expr in
+  (* Add state variable to accumulator, continue with possibly modified
+  context. *)
+  (Contract.mk_svar pos count state_var) :: accum, ctx, count + 1
+
+(* Introduce fresh state variable for an assume expression *)
+let eval_ass = eval_contract_item
+(* Introduce fresh state variable for a guarantee expression *)
+let eval_gua = eval_contract_item
 (* Introduce fresh state variable for a require expression *)
-let eval_req (accum, ctx, count) (pos, expr) = 
-
-  (* Evaluate expression to a Boolean expression, may change
-     context *)
-  let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
-  in
-
-  (* Define expression with a state variable *)
-  let state_var, ctx =
-    C.mk_local_for_expr pos ctx expr' 
-  in
-
-  (* Add state variable to accumulator, continue with possibly
-     modified context *)
-  (pos, count, state_var) :: accum, ctx, count + 1
-  
-
+let eval_req = eval_contract_item
 (* Introduce fresh state variable for an ensure expression *)
-let eval_ens (accum, ctx, count) (pos, expr) = 
-
-  (* Evaluate expression to a Boolean expression, may change
-     context *)
-  let expr', ctx = 
-    S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos
-  in
-
-  (* Define expression with a state variable *)
-  let state_var, ctx = 
-    C.mk_local_for_expr pos ctx expr' 
-  in
-
-  (* Add state variable to accumulator, continue with possibly
-     modified context *)
-  (pos, count, state_var) :: accum, ctx, count + 1
+let eval_ens = eval_contract_item
 
 
-(* Declare and define ghost streams, requires and ensures expressions
-   and return contract *)
-let eval_node_contract ctx contract_pos contract_name reqs enss =
-
-  (* Evaluate require clauses separately. *)
-  let contract_reqs, ctx, _ = List.fold_left eval_req ([], ctx, 1) reqs in
-  
-  (* Evaluate ensure clauses separately. *)
-  let contract_enss, ctx, _ = List.fold_left eval_ens ([], ctx, 1) enss in
-
-  (* Return a contract *)
-  ({ N.contract_name ;
-     N.contract_pos  ;
-     N.contract_reqs ;
-     N.contract_enss }, ctx)
+(* Evals requires and ensures of a mode and builds it. *)
+let eval_node_mode ctx (pos, id, reqs, enss) =
+  let reqs, ctx, _ = reqs |> List.fold_left eval_req ([], ctx, 1) in
+  let enss, ctx, _ = enss |> List.fold_left eval_ens ([], ctx, 1) in
+  (Contract.mk_mode pos id reqs enss), ctx
 
 
 (* Fail if a contract node input is incompatible with a node input *)
@@ -1259,8 +1235,10 @@ let rec inline_contract_of_contract_node
          ens :: contract_enss)
         contract_locals
         tl
-    
 
+    | _ -> failwith "unimplemented"
+    
+(*
 (* Lookup definition of contract from contract node, or return inline contract *)
 let resolve_contract node_inputs node_outputs ctx = function 
 
@@ -1438,7 +1416,7 @@ let eval_node_contract_spec resolve_contract ctx (
   eval_node_mode_contracts resolve_contract ctx mode_contracts
   (* Pop mode scope. *)
   |> C.pop_scope
-
+*)
 
 (* Add declarations of node to context *)
 let eval_node_decl
@@ -1461,9 +1439,9 @@ let eval_node_decl
   let ctx = C.push_scope ctx "contract" in
 
   (* Parse contracts and add to context in contracts *)
-  let ctx = 
+(*   let ctx = 
     eval_node_contract_spec (resolve_contract inputs outputs) ctx contract_spec 
-  in
+  in *)
 
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in
@@ -1598,7 +1576,7 @@ let rec eval_func_outputs ?is_single ctx = function
     (* Continue with following inputs *)
     eval_func_outputs ctx tl
 
-
+(*
 (* Form conjunction of requires expressions *)
 let eval_func_req_ens (accum, ctx) (pos, expr) =
 
@@ -1799,7 +1777,7 @@ let eval_func_contract_spec
   
   (* Continue with mode contracts *)
   eval_func_mode_contracts inlined_contract_only ctx mode_contracts
-
+*)
 
 (* Add declarations of node to context *)
 let eval_func_decl
@@ -1820,7 +1798,7 @@ let eval_func_decl
   let ctx = C.push_scope ctx "contract" in
 
   (* Parse contracts and add to context in contracts *)
-  let ctx = eval_func_contract_spec ctx inputs outputs contract_spec in
+  (* let ctx = eval_func_contract_spec ctx inputs outputs contract_spec in *)
 
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in

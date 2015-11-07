@@ -128,34 +128,8 @@ type state_var_source =
   | Oracle  (** Generated non-deterministic input *)
 
 
-(** A contract has an identifier and a position in the input. It
-    consists of a state variable stands for the conjunction of its
-    require clauses, and one state variable that stand for each ensure
-    clause.
-
-    The requirement of a global contract may be assumed
-    invariant. Each ensures of a global or mode contract is a separate
-    proof obligation for the node. 
-
-    The conjunction of the requirements of all global contracts, and
-    the disjunction of the requirements of all mode contracts is a
-    proof obligation for all calling nodes. *)
-type contract =
-  { 
-
-    contract_name : LustreIdent.t;
-    (** Identifier of contract *)
-
-    contract_pos: position;
-    (** Position of the contract in the input *)
-
-    contract_reqs : (position * int * StateVar.t) list;
-    (** Invariant from requirements of contract *)
-
-    contract_enss : (position * int * StateVar.t) list
-    (** Invariants from ensures of contract *)
-
-  }
+(** A contract. *)
+type contract = Contract.t
 
 
 (** Type of index in an equation for an array *)
@@ -244,11 +218,8 @@ type t =
     props : (StateVar.t * string * Property.prop_source) list;
     (** Proof obligations for the node *)
 
-    global_contracts : contract list;
-    (** Global contracts *)
-
-    mode_contracts : contract list;
-    (** Mode contracts *)
+    contract : contract option ;
+    (** Contract. *)
 
     is_main : bool;
     (** Flag node as the top node *)
