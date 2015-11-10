@@ -1329,7 +1329,7 @@ module MBounds = Map.Make (struct
 
 (* Add constraints from equations to initial state constraint and
    transition relation *)
-let rec constraints_of_equations' eq_bounds init stateful_vars terms = function 
+let rec constraints_of_equations_wo_arrays eq_bounds init stateful_vars terms = function 
 
   (* Constraints for all equations generated *)
   | [] -> terms, eq_bounds
@@ -1354,7 +1354,7 @@ let rec constraints_of_equations' eq_bounds init stateful_vars terms = function
     in
 
     (* Add terms of equation *)
-    constraints_of_equations' eq_bounds init stateful_vars (def :: terms) tl
+    constraints_of_equations_wo_arrays eq_bounds init stateful_vars (def :: terms) tl
 
 
   (* Can define state variable with a let binding *)
@@ -1402,7 +1402,7 @@ let rec constraints_of_equations' eq_bounds init stateful_vars terms = function
     in
 
     (* Start with singleton lists of let-bound terms *)
-    constraints_of_equations' eq_bounds init stateful_vars [def] tl
+    constraints_of_equations_wo_arrays eq_bounds init stateful_vars [def] tl
 
   (* Array state variable *)
   | (((state_var, bounds), { E.expr_init; E.expr_step }) as eq) :: tl -> 
@@ -1411,14 +1411,11 @@ let rec constraints_of_equations' eq_bounds init stateful_vars terms = function
 
     (* map equation to its bounds for future treatment and continue *)
     let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
-    constraints_of_equations' eq_bounds init stateful_vars terms tl
+    constraints_of_equations_wo_arrays eq_bounds init stateful_vars terms tl
 
 
-let rec constraints_of_equations init stateful_vars terms equations =
-
-  let terms, eq_bounds =
-    constraints_of_equations' MBounds.empty init stateful_vars terms equations
-  in
+(* create quantified (or no) constraints for recursive arrays definitions *)
+let constraints_of_arrays init terms eq_bounds =
 
   (* Return the i-th index variable *)
   let index_var_of_int i = E.var_of_expr (E.mk_index_var i) in
@@ -1457,7 +1454,7 @@ let rec constraints_of_equations init stateful_vars terms equations =
         fun (a, i) -> 
           (* Index variable *)
           let v = index_var_of_int i in
-          (* Quantify over index variable between 0 and [e] *)
+          (* Quantify over index variable between 0 and [e-1] *)
           (Term.mk_forall
              [v]
              (Term.mk_implies 
@@ -1512,6 +1509,19 @@ let rec constraints_of_equations init stateful_vars terms equations =
       defs :: terms
 
     ) eq_bounds terms              
+
+
+let constraints_of_equations init stateful_vars terms equations =
+
+  (* make constraints for equations which do not redefine arrays first *)
+  let terms, eq_bounds =
+    constraints_of_equations_wo_arrays
+      MBounds.empty init stateful_vars terms equations
+  in
+
+  (* then make constraints for recursive arrays so as to merge quantifiers as
+     much as possible *)
+  constraints_of_arrays init terms eq_bounds
 
 
 let rec trans_sys_of_node' 
@@ -1807,13 +1817,8 @@ let rec trans_sys_of_node'
             (* Instantiated state variables and constraints from node
                calls *)
             let init_terms, trans_terms, properties = 
-
               constraints_of_function_calls
-                functions
-                init_terms
-                trans_terms
-                properties
-                function_calls 
+                functions init_terms trans_terms properties function_calls 
             in
 
             (* ****************************************************** *)
@@ -1825,8 +1830,7 @@ let rec trans_sys_of_node'
 
             (* Constraints from assertions *)
             let init_terms, trans_terms = 
-              constraints_of_asserts init_terms trans_terms asserts
-            in
+              constraints_of_asserts init_terms trans_terms asserts in
 
 
             (* ****************************************************** *)
@@ -1837,37 +1841,25 @@ let rec trans_sys_of_node'
                variables capturing outputs of node calls *)
             let stateful_vars = 
               init_flag ::
-              (N.stateful_vars_of_node node 
-               |> SVS.elements)
-              @ lifted_locals
-            in
+              (N.stateful_vars_of_node node |> SVS.elements)
+              @ lifted_locals in
 
             (* Order initial state equations by dependency and
                generate terms *)
             let init_terms, node_output_input_dep_init =
-
               S.order_equations true output_input_dep node
-
-              |>
-
-              (fun (e, d) ->
-                 constraints_of_equations
-                   true stateful_vars init_terms (List.rev e),
-                 d)
-
+              |> (fun (e, d) ->
+                  constraints_of_equations
+                    true stateful_vars init_terms (List.rev e), d)
             in
 
             (* Order transition relation equations by dependency and
                generate terms *)
             let trans_terms, node_output_input_dep_trans =
-
               S.order_equations false output_input_dep node
-
-              |>
-
-              (fun (e, d) ->
-                 constraints_of_equations
-                   false stateful_vars trans_terms (List.rev e), d)
+              |> (fun (e, d) ->
+                  constraints_of_equations
+                    false stateful_vars trans_terms (List.rev e), d)
             in
 
             (* ****************************************************** *)
