@@ -34,7 +34,11 @@ module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap 
 
 
+(********************)
+(* Helper functions *)
+(********************)
 
+(* Returns [true] if the variable is an array index variable *)
 let is_index_var v =
   Var.is_free_var v &&
   let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
@@ -43,7 +47,7 @@ let is_index_var v =
       (fun _ -> true)
   with Scanf.Scan_failure _ -> false
 
-
+(* Is an index access refencing only previous positions in the array? *)
 let ref_previous_indexes (expr:E.expr) =
   let t = E.unsafe_term_of_expr expr in
   match Term.vars_of_term t
@@ -52,420 +56,476 @@ let ref_previous_indexes (expr:E.expr) =
   | [v] ->
     let tv = Term.mk_var v in
     let smaller = Term.mk_lt [t; tv] |> Simplify.simplify_term [] in
-    (* Format.eprintf "smaller test: %a < %a ? %a@." *)
+    (* Format.eprintf "\nsmaller test: %a < %a ? %a@." *)
     (*   Term.pp_print_term t Term.pp_print_term tv Term.pp_print_term smaller; *)
     Term.equal smaller Term.t_true
   | _ -> false
 
+(* Checks that all array access have at least one dimention that refences only
+   previous cells in the array. *)
 let all_have_previous_dimension =
   List.for_all (List.exists (fun i -> ref_previous_indexes i))
 
 
+(* Take array indexes on an apparent cycle and checks if the sum of their
+   offests is negative, i.e. for A[k-1], B[i], C[j-2] this checks that
+   k-1-k + i-i + j-2-j < 0 *)
+let sum_indexes_negative indexes =
+  let offsets =
+    List.fold_left (fun acc expr ->
+        let t = E.unsafe_term_of_expr expr in
+        match Term.vars_of_term t
+              |> Var.VarSet.elements
+              |> List.filter is_index_var with
+        | [v] ->
+          let tv = Term.mk_var v in
+          let offset = Term.mk_minus [t; tv] in
+          offset :: acc
+        | _ -> t :: acc) [] indexes
+  in
+  offsets = [] ||
+  let neg_offset_test =
+    Term.mk_lt [Term.mk_plus offsets; Term.mk_num_of_int 0] in
+  let neg_offset_val = Simplify.simplify_term [] neg_offset_test in
+  (* Format.eprintf "\n Neg offset test: %a ? %a@." *)
+  (*   Term.pp_print_term neg_offset_test Term.pp_print_term neg_offset_val; *)
+  Term.equal neg_offset_val Term.t_true
+
+
+
+(* Checks if a variable contains a cycle in its dependencies. For apparent
+   cycles between arrays, this checks that all apparent cycles have a sum of
+   indexes offsets negative. This ensures that arrays defined this way are well
+   founded. *)
+let has_cycle state_var parents =
+  (* Format.eprintf "Has CYCLE %a ?@." StateVar.pp_print_state_var state_var; *)
+  let sames, others =
+    List.partition (fun (sv, _) -> StateVar.equal_state_vars state_var sv)
+      parents in
+  sames <> [] &&
+  let oindexes = List.map snd others |> List.flatten |> List.flatten in
+  List.exists (fun (_, indsgr) ->
+      List.exists (fun inds ->
+          let indchecks = inds @ oindexes in
+          not (sum_indexes_negative indchecks)
+        ) indsgr
+    ) sames
+
+(* Return a chain of variable names and node names that describe the
+   cycle, in reverse order *)
+let rec describe_cycle node accum = function
+
+  | (state_var, _) :: tl ->
+
+    (* Output state variable if visible, or node call *)
+    (match N.get_state_var_source node state_var with
+
+     (* Output state variable if visible *)
+     | N.Input | N.Output | N.Local | N.Ghost -> 
+
+       describe_cycle node
+         ((Format.asprintf
+             "%a"
+             (E.pp_print_lustre_var false) 
+             state_var) :: 
+          accum)
+         tl
+
+     (* Skip oracles *)
+     | N.Oracle -> describe_cycle node accum tl
+
+     (* State variable from abstraction *)
+     | exception Not_found -> 
+
+       try 
+
+         (* Find node call with state variable as output *)
+         let { N.call_node_name } =
+           List.find
+             (fun { N.call_node_name; N.call_outputs } -> 
+                D.exists
+                  (fun _ sv -> StateVar.equal_state_vars state_var sv)
+                  call_outputs)
+             node.N.calls 
+         in
+
+         (* Output name of called node *)
+         describe_cycle node
+           ((Format.asprintf 
+               "<call to %a>"
+               (I.pp_print_ident false)
+               call_node_name)
+            :: accum)
+           tl
+
+       (* Skip abstracted state variable *)
+       with Not_found -> describe_cycle node accum tl)
+
+  (* Return in reverse order at end of cycle *)
+  | [] -> accum
+
+
+(* Checks if the state varriable appears in some accumulator [accum] or if
+   there exists a cycle, then checks that one of the dependecies is already in
+   the accumulator. *)
+let break_cycle accum parents state_var sv =
+  (* StateVar.equal_state_vars state_var sv || *)
+  List.exists
+    (fun (sv', _) ->
+       StateVar.equal_state_vars sv sv')
+    accum
+  ||
+
+  List.exists
+    (fun (sv', _) ->
+       StateVar.equal_state_vars state_var sv' ||
+       StateVar.equal_state_vars sv sv' &&
+       List.exists
+         (fun (sv'', _) ->
+            StateVar.equal_state_vars sv' sv'')
+         accum
+    )
+    parents
+
+
+(* Strategy for merging dependecies (we keep them all). *)
+let merge_deps sv oind1 oind2 = match oind1, oind2 with
+  | Some i1, Some i2 -> Some (i1 @ i2)
+  | Some i, None | None, Some i -> Some i
+  | _ -> None
+
+(* Union of a map of dependecies/index with a set of dependencies *)
+let union_noind_set m s =
+  let m' = SVS.fold (fun sv -> SVM.add sv []) s SVM.empty in
+  SVM.merge merge_deps m' m
+  
 
 (* ********************************************************************** *)
 (* Dependency order of definitions and cycle detection                    *)
 (* ********************************************************************** *)
 
-(* For each state variable return the list of state variables in the
-   current instant that are used in its definition, and transitively
-   in their definitions, and fail if the definitions contain a
-   cycle. 
+(* For each state variable return the list of state variables in the current
+   instant that are used in its definition, and transitively in their
+   definitions, and fail if the definitions contain a cycle. The returned list
+   also contains indexes for arrays accesses on which the variable definition
+   depends. This allows to find cycles for non weel-founded (mutually)
+   recurively defined arrays while allowing correct definitions.
 
-   We don't need to consider assertions and node calls here, since we
-   only need the ordering only to sort equations and detect cycles.
+   We don't need to consider assertions and node calls here, since we only need
+   the ordering only to sort equations and detect cycles.
 
-   We could find potential cycles when a node does not have an
-   implementation, but this is more trouble than it's worth. We need
-   to distinguish between strong and weak dependencies. If variable is
-   undefined, it weakly depends on all inputs. Then we can find weak
-   dependencies through nodes where an input is
-   underspecified. However, we then need to eliminate that cycle by
-   backtracking over the children we explored and that's where the
-   troubles start. *)
+   We could find potential cycles when a node does not have an implementation,
+   but this is more trouble than it's worth. We need to distinguish between
+   strong and weak dependencies. If variable is undefined, it weakly depends on
+   all inputs. Then we can find weak dependencies through nodes where an input
+   is underspecified. However, we then need to eliminate that cycle by
+   backtracking over the children we explored and that's where the troubles
+   start. *)
 let rec node_state_var_dependencies' 
     init
     output_input_deps
     ({ N.inputs; N.equations; N.calls; N.function_calls } as node)
-    accum = 
+    accum = function 
 
-  (* Return true if the state variable occurs on a path of
-     dependencies in its parents *)
-  let rec has_cycle state_var = function 
+  (* Return all calculated dependencies *)
+  | [] -> accum
 
-    (* First dependency *)
-    | sv :: tl -> 
+  (* Calculate dependency of variable [state_var], which all
+     variables in [parents] depend on *)
+  | (state_var, parents) :: tl ->
 
-      (* State variable occurs as its parent? *)
-      StateVar.equal_state_vars sv state_var || 
-      has_cycle state_var tl
+    if 
+      (* Is there a strong dependency cycle with the state
+         variable? *)
+      has_cycle state_var parents
+    then
 
-    (* No more dependencies *)
-    | [] -> false
+      (* Output variables in circular dependency, drop variables
+         that are not visible in the origial source *)
+      C.fail_no_position 
+        (Format.asprintf
+           "Circular dependency in %a: @[<hov>%a@]@."
+           (I.pp_print_ident false) node.N.name
+           (pp_print_list
+              Format.pp_print_string
+              " ->@ ")
+           (describe_cycle node [] ((state_var, []) :: parents)))
 
-  in
+    else
+      (* All state variables at the current instant in the equation
+         defining the state variable *)
+      let children = 
 
-  (* Return a chain of variable names and node names that describe the
-     cycle, in reverse order *)
-  let rec describe_cycle accum = function
-    
-    | state_var :: tl ->
+        (* Find equations defining the state variable 
 
-      (* Output state variable if visible, or node call *)
-      (match N.get_state_var_source node state_var with
-        
-        (* Output state variable if visible *)
-        | N.Input 
-        | N.Output
-        | N.Local
-        | N.Ghost -> 
-          
-          describe_cycle 
-            ((Format.asprintf
-                "%a"
-                (E.pp_print_lustre_var false) 
-                state_var) :: 
-             accum)
-            tl
-                         
-          (* Skip oracles *)
-          | N.Oracle -> describe_cycle accum tl
-                        
-          (* State variable from abstraction *)
-          | exception Not_found -> 
-            
-          try 
-            
-            (* Find node call with state variable as output *)
-            let { N.call_node_name } =
-              List.find
-                (fun { N.call_node_name; N.call_outputs } -> 
-                   D.exists
-                     (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                     call_outputs)
-                node.N.calls 
+           A state variable can be defined in more than one equation
+           if an array is defined pointwise *)
+        List.find_all
+          (fun ((sv, _), _) -> 
+             StateVar.equal_state_vars sv state_var)
+          equations
+
+        |> 
+        List.fold_left
+
+          (* State variable depends on state variables in equation *)
+          (fun accum ((sv, _), expr) ->
+             (* Format.eprintf "Equation: %a@." *)
+             (*   (N.pp_print_node_equation false) eq; *)
+
+             let state_vars = 
+               if init then E.base_state_vars_of_init_expr expr
+               else E.cur_state_vars_of_step_expr expr in
+
+             (* add indexes *)
+             SVS.fold (fun sv acc ->
+                 let indexes =
+                   if init then E.indexes_of_state_vars_in_init sv expr
+                   else E.indexes_of_state_vars_in_step sv expr in
+                 SVM.merge merge_deps (SVM.singleton sv indexes) acc
+               ) state_vars accum
+
+          ) SVM.empty
+
+      in
+
+      (* All state variables at the current instant in the node call
+         defining the state variable *)
+      let children = 
+
+        (* Find node calls defining the state variable *)
+        List.find_all
+          (fun { N.call_node_name; N.call_outputs } -> 
+             D.exists 
+               (fun _ sv -> StateVar.equal_state_vars state_var sv)
+               call_outputs)
+          calls
+
+        |>
+
+        List.fold_left
+
+          (fun
+            accum
+            { N.call_node_name; 
+              N.call_inputs; 
+              N.call_oracles; 
+              N.call_outputs; 
+              N.call_defaults;
+              N.call_clock } -> 
+
+            (* Index of state variable in outputs *)
+            let output_index = 
+
+              try
+
+                (* Find state variable in outputs and return its
+                   index *)
+                D.bindings call_outputs 
+                |> List.find
+                  (fun (_, sv) -> 
+                     StateVar.equal_state_vars state_var sv)
+                |> fst
+
+              (* State variable is an output, has been found before *)
+              with Not_found -> assert false 
+
             in
 
-            (* Output name of called node *)
-            describe_cycle
-              ((Format.asprintf 
-                  "<call to %a>"
-                  (I.pp_print_ident false)
-                  call_node_name)
-               :: accum)
-              tl
+            (* Get computed dependencies of outputs on inputs for
+               called node *)
+            let output_input_dep =
 
-          (* Skip abstracted state variable *)
-          with Not_found -> describe_cycle accum tl)
+              try 
 
-    (* Return in reverse order at end of cycle *)
-    | [] -> accum
+                List.assoc call_node_name output_input_deps
 
-  in
+                |> if init then fst else snd
 
-  function 
+              (* Node of name not found *)
+              with Not_found -> D.empty
 
-    (* Return all calculated dependencies *)
-    | [] -> accum
+            in
 
-    (* Calculate dependency of variable [state_var], which all
-       variables in [parents] depend on *)
-    | (state_var, parents) :: tl -> 
+            (* Get indexes of inputs the output depends on *)
+            (try 
 
-      if 
+               D.find output_index output_input_dep
 
-        (* Is there a strong dependency cycle with the state
-           variable? *)
-        has_cycle state_var parents
+             (* All outputs must have dependencies computed *)
+             with Not_found -> assert false)
 
-      then
+            |> 
 
-        (* Output variables in circular dependency, drop variables
-           that are not visible in the origial source *)
-        C.fail_no_position 
-          (Format.asprintf
-             "Circular dependency in %a: @[<hov>%a@]@."
-             (I.pp_print_ident false) node.N.name
-             (pp_print_list
-               Format.pp_print_string
-               " ->@ ")
-             (describe_cycle [] (state_var :: parents)))
+            (List.fold_left
+               (fun accum i -> 
+
+                  (* Get actual input by index, and add as
+                     dependency *)
+                  try SVM.add (D.find i call_inputs) [] accum 
+
+                  (* Invalid map *)
+                  with Not_found -> assert false)
+               SVM.empty)
+
+            |> 
+
+            (* Defaults of a condact are children *)
+            (function children ->
+
+              (* Only if computing dependencies in the initial
+                     state *)
+              if init then 
+
+                (* Add state variables at the initial state from
+                       the default expressions *)
+                (match call_defaults with 
+                 | None -> children
+
+                 | Some d -> 
+
+                   D.fold
+                     (fun _ default accum -> 
+                        E.base_state_vars_of_init_expr default
+                        |> union_noind_set accum)
+                     d
+                     children)
+
+              else
+
+                (* Default expressions are only evaluated at the
+                       initial state *)
+                children)
+
+            |> 
+
+            (* Clock of condact is a child *)
+            (function children -> 
+              match call_clock with 
+              | None -> children
+              | Some clk -> SVM.add clk [] children)
+
+            |>
+
+            (* Add to set of children from equations *)
+            SVM.merge merge_deps accum)
+          children
+
+      in
+
+      (* All state variables at the current instant in the function call
+         defining the state variable *)
+      let children = 
+
+        (* Find function calls defining the state variable *)
+        List.find_all
+          (fun { N.call_function_name; N.call_outputs } -> 
+             D.exists 
+               (fun _ sv -> StateVar.equal_state_vars state_var sv)
+               call_outputs)
+          function_calls
+
+        |>
+
+        List.fold_left
+
+          (fun
+            accum
+            { N.call_function_name; 
+              N.call_inputs } -> 
+
+            D.fold
+              (fun _ expr accum ->
+                 (if init then 
+                    E.base_state_vars_of_init_expr 
+                  else
+                    E.cur_state_vars_of_step_expr)
+                   expr 
+                 |> union_noind_set accum)
+              call_inputs
+              accum)
+          children
+
+      in
+
+
+      (* Format.eprintf "For %a:\n" StateVar.pp_print_state_var state_var; *)
+      (* Format.eprintf "   parents %a:\n" *)
+      (*   (pp_print_list StateVar.pp_print_state_var ",@ ") *)
+      (*   (List.map fst parents); *)
+      (* Format.eprintf "   accum %a:\n" *)
+      (*   (pp_print_list StateVar.pp_print_state_var ",@ ") *)
+      (*   (List.map fst accum); *)
+      (* Format.eprintf "   children: %a\n@." *)
+      (*   (pp_print_list StateVar.pp_print_state_var ",@ ") *)
+      (*   (List.map fst (SVM.bindings children)); *)
+
+      (* Some variables have had their dependencies calculated
+         already *)
+      let children_visited, children_not_visited =
+        SVM.partition
+          (fun sv _ -> break_cycle accum parents state_var sv)
+          children
+      in
+
+      (* Format.eprintf "Not visited: %a\n@." *)
+      (*   (pp_print_list StateVar.pp_print_state_var ",@ ") *)
+      (*   (List.map fst (SVM.bindings children_not_visited)); *)
+
+      (* All children visited? *)
+      if SVM.is_empty children_not_visited then 
+
+        (* Dependencies of this variable is set of dependencies of its
+           variables *)
+        let children = 
+
+          SVM.fold
+
+            (fun sv ind a -> 
+
+               try 
+
+                 (* Add child as strong dependency to accumulator *)
+                 SVM.merge merge_deps
+                   a
+                   (SVM.singleton sv ind)
+
+                 |>
+
+                 (* Add grandchildren as strong or weak dependencies *)
+                 SVM.merge merge_deps
+                   (try List.find 
+                          (fun (sv', _) -> StateVar.equal_state_vars sv sv')
+                          accum |> snd
+                    with Not_found -> SVM.empty)
+
+               with Not_found -> assert false)
+
+            children_visited
+            SVM.empty
+
+        in
+
+        (* Add variable and its dependencies to accumulator *)
+        node_state_var_dependencies' 
+          init
+          output_input_deps
+          node 
+          ((state_var, children) :: accum)
+          tl
 
       else
 
-        (* All state variables at the current instant in the equation
-           defining the state variable *)
-        let children = 
-
-          (* Find equations defining the state variable 
-
-             A state variable can be defined in more than one equation
-             if an array is defined pointwise *)
-          List.find_all
-            (fun ((sv, _), _) -> 
-               StateVar.equal_state_vars sv state_var)
-            equations
-            
-          |> 
-          
-          List.fold_left
-
-            (* State variable depends on state variables in equation *)
-            (fun accum ((sv, _), expr) ->
-              (if init then 
-                 E.base_state_vars_of_init_expr 
-               else
-                 E.cur_state_vars_of_step_expr)
-                expr
-                
-              (* Filter out array typed state variables
-
-                 Don't consider cycles through arrays. Otherwise,
-                 simple expressions such as [A[k] = 0 -> pre A[k-1]]
-                 would not be possible. Accept some false negatives
-                 here. *)
-              (* |> SVS.filter  *)
-              (*   (fun sv -> StateVar.type_of_state_var sv *)
-              (*              |> Type.is_array |> not) *)
-              (* Remove array variables which are indexed at a smaller index
-                 than the current index to keep recursive definitions well
-                 founded *)
-              |> SVS.filter
-                (fun sv ->
-                   StateVar.type_of_state_var sv |> Type.is_array |> not
-                   ||
-                   let indexes =
-                     if init then E.indexes_of_state_vars_in_init sv expr
-                     else E.indexes_of_state_vars_in_step sv expr in
-                   not (all_have_previous_dimension indexes)
-                )
-              |> SVS.union accum)
-            SVS.empty
-
-        in
-
-        (* All state variables at the current instant in the node call
-           defining the state variable *)
-        let children = 
-
-          (* Find node calls defining the state variable *)
-          List.find_all
-            (fun { N.call_node_name; N.call_outputs } -> 
-               D.exists 
-                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                 call_outputs)
-            calls
-            
-          |>
-          
-          List.fold_left
-            
-            (fun
-              accum
-              { N.call_node_name; 
-                N.call_inputs; 
-                N.call_oracles; 
-                N.call_outputs; 
-                N.call_defaults;
-                N.call_clock } -> 
-              
-              (* Index of state variable in outputs *)
-              let output_index = 
-                
-                try
-                  
-                  (* Find state variable in outputs and return its
-                     index *)
-                  D.bindings call_outputs 
-                  |> List.find
-                    (fun (_, sv) -> 
-                       StateVar.equal_state_vars state_var sv)
-                  |> fst
-                  
-                (* State variable is an output, has been found before *)
-                with Not_found -> assert false 
-                  
-              in
-              
-              (* Get computed dependencies of outputs on inputs for
-                 called node *)
-              let output_input_dep =
-                
-                try 
-                  
-                  List.assoc call_node_name output_input_deps
-                    
-                  |> if init then fst else snd
-                    
-                (* Node of name not found *)
-                with Not_found -> D.empty
-                                    
-              in
-              
-              (* Get indexes of inputs the output depends on *)
-              (try 
-                 
-                 D.find output_index output_input_dep
-                   
-               (* All outputs must have dependencies computed *)
-               with Not_found -> assert false)
-              
-              |> 
-              
-              (List.fold_left
-                 (fun accum i -> 
-                    
-                    (* Get actual input by index, and add as
-                       dependency *)
-                    try SVS.add (D.find i call_inputs) accum 
-                          
-                    (* Invalid map *)
-                    with Not_found -> assert false)
-                 SVS.empty)
-              
-              |> 
-              
-              (* Defaults of a condact are children *)
-              (function children ->
-                
-                (* Only if computing dependencies in the initial
-                       state *)
-                if init then 
-                  
-                  (* Add state variables at the initial state from
-                         the default expressions *)
-                  (match call_defaults with 
-                    | None -> children
-                      
-                    | Some d -> 
-                      
-                      D.fold
-                        (fun _ default accum -> 
-                           E.base_state_vars_of_init_expr default
-                           |> SVS.union accum)
-                        d
-                        children)
-                  
-                else
-                  
-                  (* Default expressions are only evaluated at the
-                         initial state *)
-                  children)
-              
-              |> 
-              
-              (* Clock of condact is a child *)
-              (function children -> 
-                match call_clock with 
-                  | None -> children
-                  | Some clk -> SVS.add clk children)
-              
-              |>
-              
-              (* Add to set of children from equations *)
-              SVS.union accum)
-            children
-            
-        in
-
-        (* All state variables at the current instant in the function call
-           defining the state variable *)
-        let children = 
-
-          (* Find function calls defining the state variable *)
-          List.find_all
-            (fun { N.call_function_name; N.call_outputs } -> 
-               D.exists 
-                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                 call_outputs)
-            function_calls
-            
-          |>
-          
-          List.fold_left
-            
-            (fun
-              accum
-              { N.call_function_name; 
-                N.call_inputs } -> 
-
-              D.fold
-                (fun _ expr accum ->
-                  (if init then 
-                     E.base_state_vars_of_init_expr 
-                   else
-                     E.cur_state_vars_of_step_expr)
-                  expr 
-                |> SVS.union accum)
-                call_inputs
-                accum)
-            children
-            
-        in
-
-        (* Some variables have had their dependencies calculated
-           already *)
-        let children_visited, children_not_visited =
-          SVS.partition
-            (fun sv -> 
-               List.exists
-                 (fun (sv', _) -> StateVar.equal_state_vars sv sv')
-                 accum)
-            children
-        in
-
-        (* All children visited? *)
-        if SVS.is_empty children_not_visited then 
-
-          (* Dependencies of this variable is set of dependencies of its
-             variables *)
-          let children = 
-
-            SVS.fold
-
-              (fun sv a -> 
-
-                 try 
-
-                   (* Add child as strong dependency to accumulator *)
-                   SVS.union
-                     a
-                     (SVS.singleton sv)
-
-                   |>
-
-                   (* Add grandchildren as strong or weak dependencies *)
-                   SVS.union
-                     (List.find 
-                        (fun (sv', _) -> StateVar.equal_state_vars sv sv')
-                        accum |> snd)
-
-                 with Not_found -> assert false)
-
-              children_visited
-              SVS.empty
-
-          in
-
-          (* Add variable and its dependencies to accumulator *)
-          node_state_var_dependencies' 
-            init
-            output_input_deps
-            node 
-            ((state_var, children) :: accum)
-            tl
-
-        else
-
-          (* First get dependencies of all dependent variables *)
-          node_state_var_dependencies' 
-            init
-            output_input_deps
-            node
-            accum 
-            (SVS.fold 
-               (fun sv a -> (sv, state_var :: parents) :: a) 
-               children_not_visited
-               ((state_var, parents) :: tl))
+        (* First get dependencies of all dependent variables *)
+        node_state_var_dependencies' 
+          init
+          output_input_deps
+          node
+          accum 
+          (SVM.fold 
+             (fun sv ind a -> (sv, (state_var, ind) :: parents) :: a) 
+             children_not_visited
+             ((state_var, parents) :: tl))
 
 
 (* Given an association list of state variables to the set of the
@@ -488,7 +548,10 @@ let rec order_state_vars accum = function
     if 
 
       (* All dependencies of state variables in the accumulator? *)
-      SVS.for_all (fun sv -> List.mem sv accum) d
+      SVM.for_all (fun sv _ -> List.mem sv accum) d
+      ||
+      (SVM.mem h d)
+
 
     then
 
@@ -499,8 +562,8 @@ let rec order_state_vars accum = function
 
       (* Push all dependent variables to the top of the stack *)
       let tl' = 
-        SVS.fold
-          (fun sv a -> 
+        SVM.fold
+          (fun sv _ a -> 
              try 
                (* Find dependencies of state variable *)
                (List.find 
@@ -546,8 +609,8 @@ let output_input_dep_of_dependencies dependencies inputs outputs =
        in
 
        (* Get indexes of all state variables that are inputs *)
-       SVS.fold
-         (fun sv a -> 
+       SVM.fold
+         (fun sv _ a -> 
 
             match 
 
