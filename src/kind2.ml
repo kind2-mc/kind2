@@ -215,9 +215,7 @@ let status_of_results results_opt = match results_opt with
 )
 
 (* Return the status code from an exception *)
-let status_of_exn process status =
-  function
-
+let status_of_exn process status = function
   (* Normal termination *)
   | Exit -> status
 
@@ -1126,6 +1124,7 @@ let launch () =
         clean_exit `Supervisor (Some results) Exit
 
       with e ->
+        (* Format.printf "caught exception@.@." ; *)
         on_exit `Supervisor None e
 
   ) else (

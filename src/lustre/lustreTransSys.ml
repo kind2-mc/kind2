@@ -412,25 +412,30 @@ let props_of_ens scope { N.global_contracts; N.mode_contracts } =
     global_contracts
     mode_contracts *)
 
+(* Creates the conjunction of a list of contract svar. *)
+let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
+
 (* The assumption of the contract. *)
-let assumption_of_contract { C.assumes } =
-  assumes |> List.map (fun { C.svar } -> E.mk_var svar) |> E.mk_and_n
+let assumption_of_contract { C.assumes } = conj_of assumes
+
+(* The mode requirements of a contract, for test generation. *)
+let mode_requires_of_contract _ = []
 
 (* The guarantees of a contract, including mode implications, as properties. *)
 let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
   let prop_status = P.PropUnknown in
-  (* Creates a name from a [C.svar]. *)
+  (* Creates a name from a [C.expr]. *)
   let name_of_svar kind name { C.pos ; C.num } =
     Format.asprintf "%s%s[%a][%d]" kind name pprint_pos pos num
   in
   (* Creates a property for a guarantee. *)
-  let guarantee_of_svar svar =
-    svar.C.svar |> E.mk_var
+  let guarantee_of_svar ({ C.svar ; C.pos } as sv) =
+    E.mk_var svar
     |> property_of_expr
-      (name_of_svar "guarantee" "" svar)
+      (name_of_svar "guarantee" "" sv)
       prop_status
-      (P.Guarantee (svar.C.pos, scope))
+      (P.Guarantee (pos, scope))
   in
   (* Creates properties for mode implications of a mode. *)
   let implications_of_modes modes acc =
@@ -438,14 +443,11 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
       fun acc { C.name ; C.pos ; C.requires ; C.ensures } ->
         let name = Format.asprintf "%a" (I.pp_print_ident true) name in
         (* LHS of the implication. *)
-        let guard =
-          requires |> List.map (fun { C.svar } -> E.mk_var svar)
-          |> E.mk_and_n
-        in
+        let guard = conj_of requires in
         (* Generating one property per ensure. *)
         ensures |> List.fold_left (
           fun acc ({ C.num ; C.pos ; C.svar } as sv) -> (
-            E.mk_impl guard (E.mk_var svar)
+            E.mk_var svar |> E.mk_impl guard
             |> property_of_expr
               (name_of_svar name ".require" sv)
               prop_status
@@ -458,31 +460,40 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
   guarantees |> List.map guarantee_of_svar |> implications_of_modes modes
 
 (* The assumptions of a contract as properties. *)
-let subrequirements_of_contract scope { C.assumes } = assumes |> List.map (
-  fun { C.pos ; C.num ; C.svar } ->
-    E.mk_var svar
-    |> property_of_expr
-      (Format.asprintf "assume[%a][%d]" pp_print_pos pos num)
-      P.PropUnknown
-      (P.Assumption (pos, scope))
-)
+let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
+  assumes |> List.map (
+    fun { C.pos ; C.num ; C.svar } ->
+      let prop_term =
+        Var.mk_state_var_instance svar TransSys.prop_base
+        |> Term.mk_var
+        |> lift_term svar_map
+      in
+      let prop_name =
+        Format.asprintf
+          "%a%a.assume%a[%d]"
+          Scope.pp_print_scope scope pp_print_pos call_pos
+          pp_print_pos pos num
+      in
+      let prop_status = P.PropUnknown in
+      let prop_source = P.Assumption (pos, scope) in
+      { P.prop_name ;
+        P.prop_source ;
+        P.prop_term ;
+        P.prop_status }
+  )
 
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
 [ a => ( g and /\ {r_i => e_i} ) ]. *)
 let abstraction_of_contract { C.assumes ; C.guarantees ; C.modes } =
-
-  (* Creates the conjunction of a list of [C.svar]. *)
-  let term_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n in
-
   (* LHS of the implication. *)
-  let lhs = term_of assumes in
+  let lhs = conj_of assumes in
   (* Guarantee. *)
   let gua = guarantees |> List.map (fun { C.svar } -> E.mk_var svar) in
   (* Adding mode implications to guarantees. *)
   modes |> List.fold_left (
     fun acc { C.requires ; C.ensures } ->
-      (E.mk_impl (term_of requires) (term_of ensures)) :: acc
+      (E.mk_impl (conj_of requires) (conj_of ensures)) :: acc
   ) gua
   |> E.mk_and_n
   (* Building actual abstraction. *)
@@ -492,10 +503,8 @@ let abstraction_of_contract { C.assumes ; C.guarantees ; C.modes } =
 active. *)
 let one_mode_active scope { C.modes } =
   if modes = [] then failwith "one_mode_active asked on mode-less contract" ;
-  (* Creates the conjunction of a list of [C.svar]. *)
-  let term_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n in
   (* Disjunction of mode requirements. *)
-  modes |> List.map (fun { C.requires } -> term_of requires) |> E.mk_or_n
+  modes |> List.map (fun { C.requires } -> conj_of requires) |> E.mk_or_n
   (* Building property. *)
   |> property_of_expr
     "_one_mode_active" P.PropUnknown (P.GuaranteeOneModeActive scope)
@@ -782,9 +791,10 @@ let call_terms_of_node_call mk_fresh_state_var {
   (* Instantiate assumptions from contracts in this node. *)
   let node_props = match contract with
     | None -> node_props
-    | Some contract ->
-      (subrequirements_of_contract (I.to_scope call_node_name) contract)
-      @ node_props
+    | Some contract -> (
+      subrequirements_of_contract
+        call_pos (I.to_scope call_node_name) state_var_map_up contract
+    ) @ node_props
   in
 
   (* Return actual parameters of initial state constraint at bound in
@@ -1951,6 +1961,7 @@ let rec trans_sys_of_node'
            created *)
         | [] ->
 
+
           (* Filter assumptions for this node's assumptions *)
           let node_assumptions = 
             A.param_assumptions_of_scope analysis_param scope
@@ -1960,7 +1971,7 @@ let rec trans_sys_of_node'
           (* ****************************************************** *)
           (* Assertions from contracts and init flag                *)
 
-          (* Start without invariants for contracts *)
+          (* Start with asserts and properties for contracts *)
           let contract_asserts, properties = match contract with
             | None -> [], []
             | Some contract ->
@@ -1968,7 +1979,7 @@ let rec trans_sys_of_node'
               (* Add requirements to invariants if node is the top node *)
               let contract_asserts, properties = 
                 if I.equal node_name top_name then
-                  (* Node is tope, forcing contract assumption. *)
+                  (* Node is top, forcing contract assumption. *)
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
                     abstract. *)
@@ -2185,22 +2196,21 @@ let rec trans_sys_of_node'
             let prop_status = P.PropUnknown in
 
             (* Iterate over each property annotation *)
-            List.map
-              (fun (state_var, prop_name, prop_source) -> 
+            List.map (
+              fun (state_var, prop_name, prop_source) -> 
 
-                 (* Property is just the state variable *)
-                 let prop_term =
-                   E.cur_term_of_state_var
-                     TransSys.prop_base
-                     state_var
-                 in
+              (* Property is just the state variable *)
+              let prop_term =
+                E.cur_term_of_state_var
+                  TransSys.prop_base
+                  state_var
+              in
 
-                   { P.prop_name; 
-                     P.prop_source; 
-                     P.prop_term;
-                     P.prop_status })
-
-              props
+              { P.prop_name; 
+                P.prop_source; 
+                P.prop_term;
+                P.prop_status }
+            ) props
               
             (* Add to existing properties *)
             @ properties 
@@ -2208,9 +2218,7 @@ let rec trans_sys_of_node'
           in
 
           (* Extract requirements. *)
-          let mode_requires = []
-            (* contract_extract_requires global_contracts mode_contracts *)
-          in
+          let mode_requires = mode_requires_of_contract contract in
 
           (* ****************************************************** *)
           (* Turn assumed properties into assertions                *)
@@ -2447,11 +2455,10 @@ let trans_sys_of_nodes subsystem globals analysis_param =
      Contracts would be trivially satisfied otherwise *)
   ( match analysis_param with
     | A.ContractCheck _ -> ()
-    | _ ->
-      if A.param_scope_is_abstract analysis_param top then
-        raise (Invalid_argument
-          "trans_sys_of_nodes: Top-level system must not be abstract"
-        )
+    | _ -> if A.param_scope_is_abstract analysis_param top then raise (
+      Invalid_argument
+        "trans_sys_of_nodes: Top-level system must not be abstract"
+    )
   );
 
   (* TODO: Find top subsystem by name *)

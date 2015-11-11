@@ -960,19 +960,15 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
     f ctx pos ident type_expr' expr expr'
 
 
-(* Introduces a fresh state variable for a
-  - assume,
-  - guarantee,
-  - require, or
-  - ensure. *)
-let eval_contract_item (accum, ctx ,count) (pos, expr) =
+(* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
+let eval_contract_item (ctx ,accum, count) (pos, expr) =
   (* Evaluate exrpession to a Boolean expression, may change context. *)
   let expr, ctx = S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos in
-  (* Define expression with a state variable .*)
-  let state_var, ctx = C.mk_local_for_expr pos ctx expr in
+  (* Define expression with a state variable *)
+  let svar, ctx =  C.mk_local_for_expr pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
-  (Contract.mk_svar pos count state_var) :: accum, ctx, count + 1
+  ctx, (Contract.mk_svar pos count svar) :: accum, count + 1
 
 (* Introduce fresh state variable for an assume expression *)
 let eval_ass = eval_contract_item
@@ -986,8 +982,8 @@ let eval_ens = eval_contract_item
 
 (* Evals requires and ensures of a mode and builds it. *)
 let eval_node_mode ctx (pos, id, reqs, enss) =
-  let reqs, ctx, _ = reqs |> List.fold_left eval_req ([], ctx, 1) in
-  let enss, ctx, _ = enss |> List.fold_left eval_ens ([], ctx, 1) in
+  let ctx, reqs, _ = reqs |> List.fold_left eval_req (ctx, [], 1) in
+  let ctx, enss, _ = enss |> List.fold_left eval_ens (ctx, [], 1) in
   (Contract.mk_mode pos id reqs enss), ctx
 
 
@@ -1340,11 +1336,22 @@ let rec eval_node_mode_contracts resolve_contract ctx = function
 
     (* Continue with next contracts *)
     eval_node_mode_contracts resolve_contract ctx tl 
+*)
 
+(* Construct a mode for a node. *)
+let eval_node_mode (ctx, l) (pos, id, reqs, enss) =
+  (* Push scope for mode. *)
+  let ctx = C.push_scope ctx id in
+  (* Evaluate requires. *)
+  let ctx, reqs, _ = reqs |> List.fold_left eval_req (ctx, [], 1) in
+  (* Evaluate ensures. *)
+  let ctx, enss, _ = enss |> List.fold_left eval_ens (ctx, [], 1) in
+  (* Done. *)
+  ctx, (Contract.mk_mode (I.mk_string_ident id) pos reqs enss) :: l
 
 (* Add all node contracts to contexts *)
-let eval_node_contract_spec resolve_contract ctx (
-  ghost_consts, ghost_vars, global_contract, mode_contracts
+let eval_node_contract_spec ctx (
+  (ghost_consts, ghost_vars, assumes, guarantees, modes), calls
 ) =
 
   (* Add constants to context *)
@@ -1357,20 +1364,44 @@ let eval_node_contract_spec resolve_contract ctx (
     let ctx = C.add_node_local ~ghost:true ctx ident type_expr in
 
     (* Add equation for ghost stream *)
-    eval_node_equations 
-      ctx
-      [A.Equation
-         (pos, 
-          (A.StructDef 
-             (pos,
-              [A.SingleIdent (pos, I.string_of_ident false ident)])), 
-          ast_expr)]
-      
+    eval_node_equations ctx [
+      A.Equation (
+        pos, (
+          A.StructDef (
+            pos,
+            [A.SingleIdent (pos, I.string_of_ident false ident)]
+          )
+        ), 
+        ast_expr
+      )
+    ]
   in
 
   (* Add ghost variables to context *)
   let ctx = List.fold_left (eval_ghost_var f) ctx ghost_vars in
 
+  (* Evaluate assumptions. *)
+  let ctx, assumes, _ =
+    assumes |> List.fold_left eval_ass (ctx, [], 1)
+  in
+
+  (* Evaluate guarantees. *)
+  let ctx, guarantees, _ =
+    guarantees |> List.fold_left eval_gua (ctx, [], 1)
+  in
+
+  let ctx = C.add_node_ass_gua ctx assumes guarantees in
+
+  (* Evaluate modes. *)
+  let ctx, modes =
+    modes |> List.fold_left eval_node_mode (ctx, [])
+  in
+
+  let ctx = C.add_node_modes ctx modes in
+
+  ctx
+
+(* 
   (* Add global contract to context *)
 
   let ctx = match global_contract with
@@ -1415,8 +1446,7 @@ let eval_node_contract_spec resolve_contract ctx (
   (* Continue with mode contracts *)
   eval_node_mode_contracts resolve_contract ctx mode_contracts
   (* Pop mode scope. *)
-  |> C.pop_scope
-*)
+  |> C.pop_scope *)
 
 (* Add declarations of node to context *)
 let eval_node_decl
@@ -1435,16 +1465,17 @@ let eval_node_decl
      to outputs *)
   let ctx = eval_node_outputs ~is_single:(List.length outputs = 1) ctx outputs in
 
-  (* New scope for local declarations in contracts *)
-  let ctx = C.push_scope ctx "contract" in
-
-  (* Parse contracts and add to context in contracts *)
-(*   let ctx = 
-    eval_node_contract_spec (resolve_contract inputs outputs) ctx contract_spec 
-  in *)
-
-  (* Remove scope for local declarations in implementation *)
-  let ctx = C.pop_scope ctx in
+  (* Parse contracts and add to context *)
+  let ctx = match contract_spec with
+    | None -> ctx
+    | Some contract ->
+      (* New scope for local declarations in contracts *)
+      let ctx = C.push_scope ctx "contract" in
+      (* Eval contracts. *)
+      let ctx = eval_node_contract_spec ctx contract in
+      (* Remove scope for local declarations in contract *)
+      C.pop_scope ctx
+  in
 
   (* New scope for local declarations in implementation *)
   let ctx = C.push_scope ctx "impl" in
@@ -1891,6 +1922,7 @@ let rec declarations_to_context ctx =
          (* Create separate context for node *)
          let node_ctx = C.create_node ctx ident in
 
+
          (* Evaluate node declaration in separate context *)
          let node_ctx = 
            eval_node_decl
@@ -1900,7 +1932,7 @@ let rec declarations_to_context ctx =
              locals
              equations
              contracts
-         in  
+         in
 
          (* Add node to context *)
          let ctx = C.add_node_to_context ctx node_ctx in
@@ -1978,7 +2010,7 @@ let rec declarations_to_context ctx =
                 (I.pp_print_ident false) called_ident))
 
     (* Declaration of a contract node *)
-    | A.ContractNodeDecl (pos, node_decl) :: decls -> 
+    | A.ContractNodeDecl (pos, node_decl) :: decls ->
 
       (* Add to context for later inlining *)
       let ctx = C.add_contract_node_decl_to_context ctx (pos, node_decl) in

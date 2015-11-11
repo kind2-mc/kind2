@@ -19,7 +19,7 @@
 
 (** Wraps a state variable for use in a contract. *)
 type svar = {
-  (** Position of the original svar. *)
+  (** Position of the original expression. *)
   pos: Lib.position ;
   (** Number given to it at parse time.
 
@@ -58,21 +58,6 @@ type t = {
   (** Modes of the contract. *)
   modes: mode list ;
 }
-(* = {
-  (** Assumptions of the contract. *)
-  assumes: svar list ;
-  (** Guarantees of the contract. *)
-  guarantees: svar list ;
-  (** Modes of the contract. *)
-  modes: mode list ;
-  (** Calls of the contract.
-
-  List of [(id, map, t)] where
-  * [id] is the name of the contract called,
-  * [map] is the format to actual paramater binding of the call,
-  * [t] is the contract called. *)
-  calls: (LustreIdent.t * (StateVar.t * LustreExpr.t) list * t) list ;
-} *)
 
 (** Creates an empty contract. *)
 val empty: unit -> t
