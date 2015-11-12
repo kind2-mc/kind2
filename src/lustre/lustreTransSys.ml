@@ -1329,10 +1329,11 @@ module MBounds = Map.Make (struct
 
 (* Add constraints from equations to initial state constraint and
    transition relation *)
-let rec constraints_of_equations_wo_arrays eq_bounds init stateful_vars terms = function 
+let rec constraints_of_equations_wo_arrays
+    eq_bounds init stateful_vars terms lets = function 
 
   (* Constraints for all equations generated *)
-  | [] -> terms, eq_bounds
+  | [] -> terms, lets, eq_bounds
 
   (* Stateful variable must have an equational constraint *)
   | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
@@ -1354,17 +1355,15 @@ let rec constraints_of_equations_wo_arrays eq_bounds init stateful_vars terms = 
     in
 
     (* Add terms of equation *)
-    constraints_of_equations_wo_arrays eq_bounds init stateful_vars (def :: terms) tl
+    constraints_of_equations_wo_arrays
+      eq_bounds init stateful_vars (def :: terms) lets tl
 
 
   (* Can define state variable with a let binding *)
   | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
 
-    (* Let binding for stateless variable *)
-    let def =
-      (* Conjunction of previous terms of definitions *)
-      (Term.mk_and terms) |>
-      (* Define variable with a let *)
+    (* Let binding for stateless variable, in closure form *)
+    let let_closure =
       Term.mk_let 
         (if init then 
            (* Binding for the variable at the base instant only *)
@@ -1397,12 +1396,11 @@ let rec constraints_of_equations_wo_arrays eq_bounds init stateful_vars terms = 
                     necessary *)
               [])
         )
-      (* Convert select operators to uninterpreted functions *)
-      |> Term.convert_select
     in
 
     (* Start with singleton lists of let-bound terms *)
-    constraints_of_equations_wo_arrays eq_bounds init stateful_vars [def] tl
+    constraints_of_equations_wo_arrays
+      eq_bounds init stateful_vars terms (let_closure :: lets) tl
 
   (* Array state variable *)
   | (((state_var, bounds), { E.expr_init; E.expr_step }) as eq) :: tl -> 
@@ -1411,7 +1409,9 @@ let rec constraints_of_equations_wo_arrays eq_bounds init stateful_vars terms = 
 
     (* map equation to its bounds for future treatment and continue *)
     let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
-    constraints_of_equations_wo_arrays eq_bounds init stateful_vars terms tl
+    
+    constraints_of_equations_wo_arrays
+      eq_bounds init stateful_vars terms lets tl
 
 
 (* create quantified (or no) constraints for recursive arrays definitions *)
@@ -1514,14 +1514,21 @@ let constraints_of_arrays init terms eq_bounds =
 let constraints_of_equations init stateful_vars terms equations =
 
   (* make constraints for equations which do not redefine arrays first *)
-  let terms, eq_bounds =
+  let terms, lets, eq_bounds =
     constraints_of_equations_wo_arrays
-      MBounds.empty init stateful_vars terms equations
+      MBounds.empty init stateful_vars terms [] equations
   in
 
   (* then make constraints for recursive arrays so as to merge quantifiers as
      much as possible *)
-  constraints_of_arrays init terms eq_bounds
+  let terms = constraints_of_arrays init terms eq_bounds in
+
+  if lets = [] then terms
+  else
+    (* Apply let bindings *)
+    [List.fold_left (fun t let_bind -> let_bind t)
+       (Term.mk_and terms) (List.rev lets)
+     |> Term.convert_select]
 
 
 let rec trans_sys_of_node' 
