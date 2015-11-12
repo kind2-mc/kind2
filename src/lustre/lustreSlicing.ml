@@ -290,6 +290,9 @@ let rec node_state_var_dependencies' init output_input_deps
                if init then E.base_state_vars_of_init_expr expr
                else E.cur_state_vars_of_step_expr expr in
 
+             (* let state_vars = SVS.filter (fun sv -> *)
+             (*     StateVar.type_of_state_var sv |> Type.is_array |> not) state_vars in *)
+
              (* add indexes *)
              SVS.fold (fun sv acc ->
                  let indexes =
@@ -456,36 +459,34 @@ let rec node_state_var_dependencies' init output_input_deps
 
    There must be no cyclic dependencies, otherwise this function will
    loop forever. *)
-let rec order_state_vars accum = function
+let rec order_state_vars accum seen = function
 
   (* All variables in the accumulator *)
   | [] -> accum
 
   (* Skip if state variable is already in the accumulator *)
-  | (h, _) :: tl when List.mem h accum -> order_state_vars accum tl
+  | (h, _) :: tl when List.mem h accum -> order_state_vars accum seen tl
 
   (* State variable and the variables it depends on *)
   | (h, d) :: tl -> 
     
-    if 
 
-      (* All dependencies of state variables in the accumulator? *)
-      SVM.for_all (fun sv _ -> List.mem sv accum) d
-      ||
-      (SVM.mem h d)
-
+    (* All dependencies of state variables, except themselves, in the
+       accumulator? *)
+    if SVM.for_all (fun sv _ -> List.mem sv accum) d
+    || List.mem h seen
 
     then
 
       (* Add state variable to accumulator and continue *)
-      order_state_vars (h :: accum) tl
+      order_state_vars (h :: accum) [] tl
       
     else
 
       (* Push all dependent variables to the top of the stack *)
       let tl' = 
         SVM.fold
-          (fun sv _ a -> 
+          (fun sv _ a ->
              try 
                (* Find dependencies of state variable *)
                (List.find 
@@ -498,7 +499,7 @@ let rec order_state_vars accum = function
       in
 
       (* Must add dependent state variables to accumulator first *)
-      order_state_vars accum tl'
+      order_state_vars accum (h :: seen) tl'
       
       
 (* Compute dependencies of outputs on inputs 
@@ -586,7 +587,7 @@ let order_equations
   in
 
   (* Order state variables by dependencies *)
-  let state_vars_ordered = order_state_vars [] dependencies in
+  let state_vars_ordered = order_state_vars [] [] dependencies in
 
   (* Order equations by state variables *)
   let equations' = List.fold_left (fun a sv ->
