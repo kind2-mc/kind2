@@ -290,9 +290,6 @@ let rec node_state_var_dependencies' init output_input_deps
                if init then E.base_state_vars_of_init_expr expr
                else E.cur_state_vars_of_step_expr expr in
 
-             (* let state_vars = SVS.filter (fun sv -> *)
-             (*     StateVar.type_of_state_var sv |> Type.is_array |> not) state_vars in *)
-
              (* add indexes *)
              SVS.fold (fun sv acc ->
                  let indexes =
