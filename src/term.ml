@@ -1395,9 +1395,6 @@ let state_vars_at_offset_of_term i term =
     term
 
 let indexes_of_state_var sv term =
-  (* Format.eprintf "indexes_of_state_var %a in %a @." *)
-  (*   StateVar.pp_print_state_var sv pp_print_term term; *)
-  (* let var = *)
   eval_t (fun t acc -> match t with
       | T.App (s, x :: indexes) when
           Symbol.is_select s &&
@@ -1407,23 +1404,16 @@ let indexes_of_state_var sv term =
             Var.is_state_var_instance vx &&
             let svx = Var.state_var_of_state_var_instance vx in
             StateVar.equal_state_vars sv svx)) ->
-        (* Format.eprintf "           adding %a@." *)
-        (*   (pp_print_list pp_print_term ", ") indexes; *)
         (match acc with
          | x :: r ->
            List.rev_append indexes (List.flatten x) :: (List.flatten r)
          | _ -> List.flatten acc)
-        (* List.rev_append indexes (List.flatten acc) *)
       | _ ->
         (match acc with
          | [] :: r -> [] :: List.flatten r
-         | _ -> [] ::  List.flatten acc))
+         | _ -> List.flatten acc))
     term
   |> List.filter (fun l -> l <> [])
-  (* in *)
-  (* Format.eprintf "   vars: %a@." *)
-  (*   (pp_print_list (pp_print_list pp_print_term ", ")  "  ;   ") var; *)
-  (* var *)
 
 
 (* Return set of state variables at given offsets in term *)

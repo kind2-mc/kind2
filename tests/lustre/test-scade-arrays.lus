@@ -28,13 +28,13 @@ let
   -- x= 0 + 0 + 1 - 1 + (s*0) + (array_size*0);
   -- These identifiers are hidden in the array definitions
   j = true;
-  
+
   -- A0[k] = A1[k];
   A0 = A1;
 
   A[k] = B[k+1];
   B[k] = C[k-1];
-  C[k] = A[k-1] + B[k+1];
+  C[k] = A[k-1] + B[k];
 
   -- A sliding window over input stream s
   A2[k] = if k = 0 then s else (k -> pre A1[k-1]); -- A2[k], A2[0] will fail but A2[k-1] is allowed
