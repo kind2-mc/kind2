@@ -313,11 +313,6 @@ let contract_ens_map f_global f_mode global_contracts mode_contracts =
     mode_contracts
 
  *)
-(* Quiet pretty printer for non dummy positions. *)
-let pprint_pos fmt pos =
-  let f,l,c = file_row_col_of_pos pos in
-  let f = if f = "" then "" else f ^ "@" in
-  Format.fprintf fmt "%sl%dc%d" f l c
 
 (* (* Return properties from contracts of node *)
 let caller_props_of_req scope { N.global_contracts; N.mode_contracts } =
@@ -425,15 +420,11 @@ let mode_requires_of_contract _ = []
 let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
   let prop_status = P.PropUnknown in
-  (* Creates a name from a [C.expr]. *)
-  let name_of_svar kind name { C.pos ; C.num } =
-    Format.asprintf "%s%s[%a][%d]" kind name pprint_pos pos num
-  in
   (* Creates a property for a guarantee. *)
   let guarantee_of_svar ({ C.svar ; C.pos } as sv) =
     E.mk_var svar
     |> property_of_expr
-      (name_of_svar "guarantee" "" sv)
+      (C.prop_name_of_svar sv "guarantee" "")
       prop_status
       (P.Guarantee (pos, scope))
   in
@@ -449,7 +440,7 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
           fun acc ({ C.num ; C.pos ; C.svar } as sv) -> (
             E.mk_var svar |> E.mk_impl guard
             |> property_of_expr
-              (name_of_svar name ".require" sv)
+              (C.prop_name_of_svar sv name ".require")
               prop_status
               (P.GuaranteeModeImplication (pos, scope))
           ) :: acc

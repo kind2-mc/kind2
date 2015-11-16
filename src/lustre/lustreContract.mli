@@ -31,9 +31,20 @@ type svar = {
   num: int ;
   (** Actual state variable. *)
   svar: StateVar.t ;
+  (** Succession of imports leading to this precise state variable. *)
+  scope: (Lib.position * string) list ;
 }
+
 (** Creates a [svar]. *)
-val mk_svar : Lib.position -> int -> StateVar.t -> svar
+val mk_svar :
+  Lib.position -> int -> StateVar.t -> (Lib.position * string) list -> svar
+
+(** Generates a property name.
+
+[prop_name_of_svar svar kind name] generates a property name with the trace
+of contract call / position pairs. [kind] and [name] are concatenated and
+placed between the trace and the [svar] position and number. *)
+val prop_name_of_svar : svar -> string -> string -> string
 
 (** Type of modes. *)
 type mode = {
