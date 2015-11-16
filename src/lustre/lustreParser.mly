@@ -205,7 +205,7 @@ decl:
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
   | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
-  (* | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] } *)
+  | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
   (* | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] } *)
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
@@ -423,9 +423,16 @@ assguamodes_in_block:
     assgua, modes
   }
 
-contract_import:
+(* contract_import:
   IMPORTCONTRACT ; n = ident ;
   LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ;
+  LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
+    mk_pos $startpos, n, in_params, out_params
+  } *)
+
+contract_import:
+  IMPORTCONTRACT ; n = ident ;
+  LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
   LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
     mk_pos $startpos, n, in_params, out_params
   }
@@ -449,7 +456,7 @@ contract_equations:
   | GUARANTEE; e = expr; SEMICOLON { mk_pos $startpos, e }
   | ens = contract_ensure {A.Ensure ens}
   | i = ident; EQUALS; e = expr; SEMICOLON
-    { A.GhostEquation (mk_pos $startpos, i, e) }
+    { A.GhostEquation (mk_pos $startpos, i, e) } *)
 
 (* A contract node declaration. *)
 contract_decl:
@@ -460,9 +467,8 @@ contract_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    l = list(node_local_decl);
     LET;
-    (* e = list(contract_equations); *)
+      e = contract_equations;
     TEL
     option(node_sep) 
 
@@ -470,8 +476,7 @@ contract_decl:
        p,
        List.flatten i,
        List.flatten o,
-       (List.flatten l),
-       e) } *)
+       e) }
 
 contract_spec:
   (* Block contract, parenthesis star (PS). *)

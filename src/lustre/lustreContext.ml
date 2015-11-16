@@ -54,7 +54,7 @@ module D = LustreIndex
 module E = LustreExpr
 module ET = E.LustreExprHashtbl
 
-module C = Contract
+module C = LustreContract
 module N = LustreNode
 module F = LustreFunction
 
@@ -457,23 +457,26 @@ let contract_node_decl_of_ident { contract_nodes } ident =
     
     (* Return contract node by name *)
     List.find
-      (function (_, (i, _, _, _, _, _)) -> i = ident)
+      (function (_, (i, _, _, _, _)) -> i = ident)
       contract_nodes
 
   (* Raise error again for more precise backtrace *)
   with Not_found -> raise Not_found
 
 
+(** The contract nodes in the context. *)
+let contract_nodes { contract_nodes } = List.map snd contract_nodes
+
 (* Add a contract node to the context for inlining later *)
 let add_contract_node_decl_to_context
     ({ contract_nodes } as ctx)
-    (pos, ((ident, _, _, _, _, _) as contract_node_decl)) =
+    (pos, ((ident, _, _, _, _) as contract_node_decl)) =
 
   if 
 
     (* Check if contract of with the same identifier exists *)
     List.exists
-      (function (_, (i, _, _, _, _, _)) -> i = ident)
+      (function (_, (i, _, _, _, _)) -> i = ident)
       contract_nodes
 
   then

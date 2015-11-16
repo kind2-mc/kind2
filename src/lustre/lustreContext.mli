@@ -93,6 +93,9 @@ val get_nodes : t -> LustreNode.t list
 (** Return the functions in the context *)
 val get_functions : t -> LustreFunction.t list
 
+(** The contract nodes in the context. *)
+val contract_nodes : t -> LustreAst.contract_node_decl list
+
 (** Add a contract node to the context for inlining later *)
 val add_contract_node_decl_to_context : t -> Lib.position * LustreAst.contract_node_decl -> t
 
@@ -189,10 +192,11 @@ val add_node_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreInde
 val add_node_local : ?ghost:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
 (** Adds assumptions and guarantees to a node. *)
-val add_node_ass_gua : t -> Contract.svar list -> Contract.svar list -> t
+val add_node_ass_gua :
+  t -> LustreContract.svar list -> LustreContract.svar list -> t
 
 (** Add modes to node *)
-val add_node_modes : t -> Contract.mode list -> t
+val add_node_modes : t -> LustreContract.mode list -> t
 
 (** Add assertion to context *)
 val add_node_assert : t -> LustreExpr.t -> t

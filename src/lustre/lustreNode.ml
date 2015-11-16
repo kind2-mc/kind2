@@ -48,6 +48,7 @@ open Lib
 module I = LustreIdent 
 module D = LustreIndex
 module E = LustreExpr
+module C = LustreContract
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
@@ -135,7 +136,7 @@ type function_call = {
 type equation = (StateVar.t * E.expr bound_or_fixed list * E.t) 
 
 (* A contract. *)
-type contract = Contract.t
+type contract = C.t
 
 (* A Lustre node *)
 type t = { 
@@ -476,7 +477,7 @@ let pp_print_node safe ppf {
     (fun fmt -> function
       | None -> ()
       | Some contract ->
-        Format.fprintf fmt "%a@ " (Contract.pp_print_contract safe) contract)
+        Format.fprintf fmt "%a@ " (C.pp_print_contract safe) contract)
     contract
 
     (* %t *)
@@ -619,7 +620,7 @@ let pp_print_node_debug
       | None -> ()
       | Some contract ->
         Format.fprintf fmt "%a@ "
-          (Contract.pp_print_contract false) contract) contract
+          (C.pp_print_contract false) contract) contract
     is_main
     (pp_print_list pp_print_state_var_source ";@ ") 
     (SVM.bindings state_var_source_map)
@@ -740,7 +741,7 @@ let has_contract { contract } = contract != None
 
 let has_modes = function
 | { contract = None } -> false
-| { contract = Some { modes } } -> modes != []
+| { contract = Some { C.modes } } -> modes != []
 
 
 (* Node always has an implementation *)
@@ -1110,7 +1111,7 @@ let stateful_vars_of_node
   (* Add stateful variables from global and mode contracts *)
   let stateful_vars = match contract with
     | None -> stateful_vars
-    | Some contract -> Contract.svars_of contract |> SVS.union stateful_vars 
+    | Some contract -> C.svars_of contract |> SVS.union stateful_vars 
   in
 
   (* Add stateful variables from equations *)

@@ -234,17 +234,19 @@ type node_decl =
   * node_equation list
   * contract_spec option
 
-(** A contract node declaration
+(** A contract node declaration as a tuple of
 
-    Almost the same as a [node_decl] but with a different type for
-    equations, and no contract specification *)
+  - its identifier,
+  - its type parameters,
+  - its inputs,
+  - its outputs,
+  - its body as a [contract_spec]. *)
 type contract_node_decl =
   ident
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
-  * node_local_decl list
-  * contract_node_equation list
+  * contract_spec
 
 (** Declaration of a function as a tuple of 
 
@@ -300,6 +302,8 @@ val pp_print_struct_item : Format.formatter -> struct_item -> unit
 val pp_print_node_equation : Format.formatter -> node_equation -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
+
+val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
 
 (* 
    Local Variables:

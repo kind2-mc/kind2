@@ -129,7 +129,7 @@ type state_var_source =
 
 
 (** A contract. *)
-type contract = Contract.t
+type contract = LustreContract.t
 
 
 (** Type of index in an equation for an array *)

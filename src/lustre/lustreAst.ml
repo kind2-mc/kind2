@@ -274,8 +274,7 @@ type contract_node_decl =
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
-  * node_local_decl list
-  * contract_node_equation list
+  * contract_spec
 
 (* A function declaration *)
 type func_decl = 
@@ -956,6 +955,27 @@ let pp_print_contract_node_equation ppf = function
   | Require req -> pp_print_contract_require ppf req
 
   | Ensure ens -> pp_print_contract_ensure ppf ens
+
+(* Pretty-prints a contract node. *)
+let pp_print_contract_node ppf (
+  id, _, i, o, (contract, calls)
+) =
+  Format.fprintf ppf "@[<v>\
+      contract %s (@   \
+        @[<v>%a@]@ \
+      ) returns (@   \
+        @[<v>%a@]@ \
+      ) ;@ \
+      spec@   \
+        %a@ \
+      ceps\
+      @]
+    @]"
+    id
+    (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+    (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+    pp_print_contract contract 
+
   
 
 (* Pretty-print a declaration *)
@@ -989,14 +1009,13 @@ let pp_print_declaration ppf = function
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e
 
-  | ContractNodeDecl (pos, (n,p,i,o,l,e)) ->
+  | ContractNodeDecl (pos, (n,p,i,o,e)) ->
 
      Format.fprintf
        ppf
        "@[<hv>@[<hv 2>contract %a%t@ \
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@ \
-        %a\
         @[<hv 2>let@ \
         %a@;<1 -2>\
         tel;@]@]"
@@ -1004,8 +1023,7 @@ let pp_print_declaration ppf = function
        (function ppf -> pp_print_node_param_list ppf p)
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-       pp_print_node_local_decl l
-       (pp_print_list pp_print_contract_node_equation "@ ") e
+       pp_print_contract_spec e
 
   | FuncDecl (pos, (n, i, o, r)) -> 
 

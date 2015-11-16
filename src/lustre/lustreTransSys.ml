@@ -21,7 +21,7 @@ open Lib
 module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
-module C = Contract
+module C = LustreContract
 module N = LustreNode
 module F = LustreFunction
 module G = LustreGlobals
