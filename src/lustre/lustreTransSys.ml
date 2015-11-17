@@ -2507,7 +2507,7 @@ let trans_sys_of_nodes subsystem globals analysis_param =
   ( match analysis_param with
     | A.Refinement (_,result) ->
       (* The analysis that's going to run is a refinement. *)
-      TransSys.get_prop_status_all result.sys
+      TransSys.get_prop_status_all result.A.sys
       |> List.iter (function
         | name, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
           ()

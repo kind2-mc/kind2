@@ -293,6 +293,11 @@ let create_node = function
           expr_state_var_map = ET.copy expr_state_var_map;
           node = Some (N.empty_node ident) } )
 
+(* Returns the name of the current node, if any. *)
+let current_node_name = function
+| { node = Some { N.name } } -> Some name
+| { node = None } -> None
+
 
 (* Create an empty function in the context *)
 let create_function = function 
@@ -1222,6 +1227,11 @@ let add_node_output ?(is_single = false) ctx ident index_types =
         | { node = None } -> assert false
         | { node = Some node } ->
           { ctx with node = Some { node with N.outputs = outputs' } }
+
+(* The output state variables of the current node. *)
+let outputs_of_current_node = function
+| { node = None } -> raise (Invalid_argument "outputs_of_current_node")
+| { node = Some { N.outputs } } -> outputs
 
 
 (* Add node local to context *)

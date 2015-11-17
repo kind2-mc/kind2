@@ -48,6 +48,9 @@ val pop_scope : t -> t
     in the context *)
 val create_node : t -> LustreIdent.t -> t 
 
+(** Returns the name of the current node, if any. *)
+val current_node_name : t -> LustreIdent.t option
+
 (** Return a copy of the context with an empty function of the given name
     in the context *)
 val create_function : t -> LustreIdent.t -> t 
@@ -187,6 +190,9 @@ val add_node_input : ?is_const:bool -> t -> LustreIdent.t -> Type.t LustreIndex.
 
 (** Add node output to context *)
 val add_node_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+
+(** The output state variables of the current node. *)
+val outputs_of_current_node : t -> StateVar.t LustreIndex.t
 
 (** Add node local to context *)
 val add_node_local : ?ghost:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t

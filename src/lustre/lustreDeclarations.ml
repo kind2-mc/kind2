@@ -961,12 +961,64 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
     f ctx pos ident type_expr' expr expr'
 
 
+(** Returns an option of the output state variables mentioned in the current
+state of a lustre expression. *)
+let contract_check_no_output ctx expr =
+  let outputs = LustreContext.outputs_of_current_node ctx in
+  E.cur_term_of_t Numeral.zero expr
+  |> Term.state_vars_at_offset_of_term Numeral.zero
+  |> StateVar.StateVarSet.filter (
+    fun sv -> D.exists (fun _ sv' -> sv == sv') outputs
+  )
+  |> fun set ->
+    if StateVar.StateVarSet.cardinal set > 0 then
+      Some (StateVar.StateVarSet.elements set)
+    else None
+
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
-let eval_contract_item scope (ctx, accum, count) (pos, expr) =
+let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate exrpession to a Boolean expression, may change context. *)
   let expr, ctx = S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos in
+  (* Check the expression if asked to. *)
+  ( match check with
+    | None -> ()
+    | Some desc -> (
+      match contract_check_no_output ctx expr with
+      | None -> ()
+      | Some svars ->
+        assert (List.length svars > 0) ;
+        let s = if List.length svars > 1 then "s" else "" in
+        let pref = match C.current_node_name ctx with
+          | None -> ""
+          | Some name ->
+            Format.asprintf " in node %a" (I.pp_print_ident false) name
+        in
+        let suff = match scope with
+          | [] -> ""
+          | _ ->
+            List.rev scope
+            |> Format.asprintf " (contract call trace: %a)" (
+              pp_print_list (
+                fun fmt (pos, name) ->
+                  Format.fprintf fmt "%s%a" name pp_print_pos pos
+              ) ", "
+            )
+        in
+        C.fail_at_position pos (
+          Format.asprintf
+            "@[<v>%s mentions output%s in the current state (%a)%s%s@]"
+              desc s (
+                pp_print_list (
+                  fun fmt sv ->
+                    Format.fprintf fmt "%s" (StateVar.name_of_state_var sv)
+                ) ", "
+              ) svars
+              pref suff
+        )
+    )
+  ) ;
   (* Define expression with a state variable *)
   let svar, ctx =  C.mk_local_for_expr pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified
@@ -974,13 +1026,13 @@ let eval_contract_item scope (ctx, accum, count) (pos, expr) =
   ctx, (Contract.mk_svar pos count svar scope) :: accum, count + 1
 
 (* Introduce fresh state variable for an assume expression *)
-let eval_ass = eval_contract_item
+let eval_ass = eval_contract_item (Some "assume")
 (* Introduce fresh state variable for a guarantee expression *)
-let eval_gua = eval_contract_item
+let eval_gua = eval_contract_item None
 (* Introduce fresh state variable for a require expression *)
-let eval_req = eval_contract_item
+let eval_req = eval_contract_item (Some "require")
 (* Introduce fresh state variable for an ensure expression *)
-let eval_ens = eval_contract_item
+let eval_ens = eval_contract_item None
 
 
 (* Evals requires and ensures of a mode and builds it. *)
@@ -1236,6 +1288,7 @@ let rec inline_contract_of_contract_node
         tl
 
     | _ -> failwith "unimplemented"
+
     
 (*
 (* Lookup definition of contract from contract node, or return inline contract *)
@@ -1410,22 +1463,21 @@ let rec eval_node_contract_calls ctx scope = function
       "type parameters in contract node is not supported"
     )
   ) ;
-  let ins, outs =
-    ins |> List.map (
+  ( ins |> List.iter (
       function
-      | pos, id, typ, A.ClockTrue, is_const -> pos, id, typ, is_const
+      | pos, id, typ, A.ClockTrue, is_const -> () (* pos, id, typ, is_const *)
       | _ -> C.fail_at_position pos (
         "clocks in contract node signature are not supported"
       )
     ),
-    outs |> List.map (
+    outs |> List.iter (
       function
-      | pos, id, typ, A.ClockTrue -> pos, id, typ
+      | pos, id, typ, A.ClockTrue -> () (* pos, id, typ *)
       | _ -> C.fail_at_position pos (
         "clocks in contract node signature are not supported"
       )
     )
-  in
+  ) ;
 
 (*   try eval_node_contract_inputs ctx call_pos (ins, in_params) with
   | Invalid_argument _ -> C.fail_at_position call_pos (
@@ -1438,9 +1490,6 @@ let rec eval_node_contract_calls ctx scope = function
   let def_pos, ( (_, _, in_formals, out_formals, contract) as contract_node) =
     C.contract_node_decl_of_ident ctx id
   in
-
-  Format.printf "contract node called:@.  @[<v>%a@]@.@."
-    A.pp_print_contract_node contract_node ;
 
   (* Add substitution from formal inputs to actual one before we evaluate
   everything. *)
@@ -1468,6 +1517,47 @@ let rec eval_node_contract_calls ctx scope = function
               id in_id
           )
         ) ;
+
+        (* Fail if expression mentions an output in the current state. *)
+        (
+          D.iter (
+            fun _ expr -> match contract_check_no_output ctx expr with
+              | None -> ()
+              | Some svars ->
+                assert (List.length svars > 0) ;
+                let s = if List.length svars > 1 then "s" else "" in
+                let pref = match C.current_node_name ctx with
+                  | None -> ""
+                  | Some name ->
+                    Format.asprintf " in node %a" (I.pp_print_ident false) name
+                in
+                let suff = match scope with
+                  | [] -> ""
+                  | _ ->
+                    List.rev scope
+                    |> Format.asprintf " (contract call trace: %a)" (
+                      pp_print_list (
+                        fun fmt (pos, name) ->
+                          Format.fprintf fmt "%s%a" name pp_print_pos pos
+                      ) ", "
+                    )
+                in
+                C.fail_at_position pos (
+                  Format.asprintf
+                    "@[<v>input parameter in contract import%s mentions \
+                    output%s in the current states: %a%s@]"
+                    pref s (
+                      pp_print_list (
+                        fun fmt sv ->
+                          Format.fprintf fmt "%s"
+                          (StateVar.name_of_state_var sv)
+                      ) ", "
+                    ) svars
+                    suff
+                )
+          ) expr
+        ) ;
+
         ctx
     ) ctx in_params in_formals
   with

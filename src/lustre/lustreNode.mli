@@ -195,7 +195,7 @@ type t =
     (** Output streams defined in the node
 
         The outputs are considered as a list with an integer indexes
-        correpsonding to their position in the formal parameters. *)
+        corresponding to their position in the formal parameters. *)
 
     locals : StateVar.t LustreIndex.t list;
     (** Local variables of node
