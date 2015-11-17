@@ -424,14 +424,6 @@ assguamodes_in_block:
   | modes = nonempty_list(mode_equation) ; {
     ([], []), modes
   }
-
-(* contract_import:
-  IMPORTCONTRACT ; n = ident ;
-  LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ;
-  LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
-    mk_pos $startpos, n, in_params, out_params
-  } *)
-
 contract_import:
   IMPORTCONTRACT ; n = ident ;
   LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
@@ -491,39 +483,6 @@ contract_spec:
     m = list(inline_mode) ;
     c = list(inline_contract_import)
     { (ghost_consts, ghost_vars, a, g, m), c }
-(* 
-(* Need three production with not empty lists to forbid a contract
-   without requires and ensures. This causes a conflict, because an
-   empty contract looks like no contracts. *)
-inline_contract_global:
-  | reqs = nonempty_list(comment_contract_assume);
-    enss = nonempty_list(comment_contract_guarantee)
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", reqs, enss) }
-  | reqs = nonempty_list(comment_contract_assume);
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", reqs, []) }
-  | enss = nonempty_list(comment_contract_guarantee)
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", [], enss) }
-  | ATANNOT ; IMPORTCONTRACT; n = ident ;
-    LPAREN ;  in_params = list(expr) ; RPAREN ;
-    LPAREN ; out_params = list(expr) ; RPAREN ;
-    SEMICOLON
-    { mk_pos $startpos, n, in_params, out_params } *)
-(* 
-block_contract_global:
-  | reqs = nonempty_list(contract_assume);
-    enss = nonempty_list(contract_guarantee)
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", reqs, enss) }
-  | reqs = nonempty_list(contract_assume);
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", reqs, []) }
-  | enss = nonempty_list(contract_guarantee)
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", [], enss) }
-*)
 
 inline_contract_ghost_var:
   | INLINEVAR ;
