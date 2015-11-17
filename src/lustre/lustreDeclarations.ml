@@ -1034,12 +1034,12 @@ let eval_req = eval_contract_item (Some "require")
 (* Introduce fresh state variable for an ensure expression *)
 let eval_ens = eval_contract_item None
 
-
+(* 
 (* Evals requires and ensures of a mode and builds it. *)
 let eval_node_mode scope ctx (pos, id, reqs, enss) =
   let ctx, reqs, _ = reqs |> List.fold_left (eval_req scope) (ctx, [], 1) in
   let ctx, enss, _ = enss |> List.fold_left (eval_ens scope) (ctx, [], 1) in
-  (Contract.mk_mode pos id reqs enss), ctx
+  (Contract.mk_mode pos id reqs enss), ctx *)
 
 
 (* Fail if a contract node input is incompatible with a node input *)
@@ -1402,6 +1402,26 @@ let eval_node_mode scope (ctx, l) (pos, id, reqs, enss) =
   let ctx, reqs, _ = reqs |> List.fold_left (eval_req scope) (ctx, [], 1) in
   (* Evaluate ensures. *)
   let ctx, enss, _ = enss |> List.fold_left (eval_ens scope) (ctx, [], 1) in
+  (* Add requirements for mode ident so that other contracts can refer to its
+  requirements. *)
+  let req_id =
+    scope |> List.rev |> List.map (fun (_, name) -> name)
+    |> fun scope -> Format.asprintf
+      "%a%s" (pp_print_list Format.pp_print_string "_") scope id
+    |> I.mk_string_ident
+  in
+  let ctx =
+    reqs
+    |> List.map (fun { Contract.svar } -> E.mk_var svar)
+    |> E.mk_and_n
+    |> fun reqs -> D.add D.empty_index reqs D.empty
+    |> fun reqs -> try
+      C.add_expr_for_ident ctx req_id reqs
+    with Invalid_argument _ ->
+      Format.asprintf
+        "mode identifier \"%s\" is shadowing another identifier" id
+      |> C.fail_at_position pos
+  in
   (* Done. *)
   ctx, (Contract.mk_mode (I.mk_string_ident id) pos reqs enss) :: l
 

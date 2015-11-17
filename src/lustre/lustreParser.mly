@@ -109,7 +109,7 @@ let mk_pos = position_of_lexing
 %token MODE
 %token REQUIRE
 %token ENSURE
-%token INLINEIMPORTMODE
+%token INLINEIMPORTCONTRACT
 %token INLINEASSUME
 %token INLINEGUARANTEE
 %token INLINEMODE
@@ -418,9 +418,11 @@ mode_equation:
   }
 
 assguamodes_in_block:
-  assgua = assguas_in_block ;
-  modes = list(mode_equation) ; {
+  | assgua = assguas_in_block ; modes = list(mode_equation) ; {
     assgua, modes
+  }
+  | modes = nonempty_list(mode_equation) ; {
+    ([], []), modes
   }
 
 (* contract_import:
@@ -449,14 +451,6 @@ contract_equations:
     in
     (fst ghosts, snd ghosts, a, g, m), calls
   }
-(* 
-(* Equations of a contract node. *)
-contract_equations:
-  | ASSUME; e = expr; SEMICOLON { mk_pos $startpos, e }
-  | GUARANTEE; e = expr; SEMICOLON { mk_pos $startpos, e }
-  | ens = contract_ensure {A.Ensure ens}
-  | i = ident; EQUALS; e = expr; SEMICOLON
-    { A.GhostEquation (mk_pos $startpos, i, e) } *)
 
 (* A contract node declaration. *)
 contract_decl:
@@ -489,12 +483,14 @@ contract_spec:
     eqs = contract_equations
     SSBLOCKEND
     { eqs }
-  (* (* Inline contract. *)
-  | ghost_consts = list(inline_contract_ghost_const);
-    ghost_vars = list(inline_contract_ghost_var);
-    global = option(inline_contract_global);
-    modes = list(inline_mode)
-    { ghost_consts, ghost_vars, global, modes } *)
+  (* Inline contract. *)
+  | ghost_consts = list(inline_contract_ghost_const) ;
+    ghost_vars = list(inline_contract_ghost_var) ;
+    a = list(inline_contract_assume) ;
+    g = list(inline_contract_guarantee) ;
+    m = list(inline_mode) ;
+    c = list(inline_contract_import)
+    { (ghost_consts, ghost_vars, a, g, m), c }
 (* 
 (* Need three production with not empty lists to forbid a contract
    without requires and ensures. This causes a conflict, because an
@@ -527,44 +523,7 @@ block_contract_global:
   | enss = nonempty_list(contract_guarantee)
     { A.InlinedContract
         (mk_pos $startpos, "__global", [], enss) }
-
-(* Need three production with not empty lists to forbid a mode
-   without requires and ensures. This causes a conflict, because an
-   empty mode looks like no modes. *)
-inline_mode:
-  | INLINEMODE; n = ident; SEMICOLON
-    reqs = nonempty_list(comment_contract_require);
-    enss = nonempty_list(comment_contract_ensure)
-    { mk_pos $startpos, n, reqs, enss }
-  | INLINEMODE; n = ident; SEMICOLON
-    reqs = nonempty_list(comment_contract_require);
-    { mk_pos $startpos, n, reqs, [] }
-  | INLINEMODE; n = ident; SEMICOLON
-    enss = nonempty_list(comment_contract_ensure)
-    { mk_pos $startpos, n, [], enss }
-
-block_mode:
-  | MODE ; n = ident ; LPAREN ;
-    reqs = list(contract_require) ;
-    enss = list(contract_ensure) ;
-    RPAREN ; SEMICOLON
-    { mk_pos $startpos, n, reqs, enss }
-
-comment_contract_assume:
-  | INLINEASSUME ; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
-
-comment_contract_guarantee:
-  | INLINEGUARANTEE; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
-
-comment_contract_require:
-  | INLINEREQUIRE ; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
-
-comment_contract_ensure:
-  | INLINEENSURE; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
+*)
 
 inline_contract_ghost_var:
   | INLINEVAR ;
@@ -579,7 +538,45 @@ inline_contract_ghost_const:
     i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
     { A.TypedConst (mk_pos $startpos, i, e, t) }
   | INLINECONST ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
-    { A.UntypedConst (mk_pos $startpos, i, e) } *)
+    { A.UntypedConst (mk_pos $startpos, i, e) }
+
+inline_contract_assume:
+  | INLINEASSUME ; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+inline_contract_guarantee:
+  | INLINEGUARANTEE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+inline_contract_require:
+  | INLINEREQUIRE ; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+inline_contract_ensure:
+  | INLINEENSURE; e = expr; SEMICOLON
+    { mk_pos $startpos, e }
+
+inline_contract_import:
+  INLINEIMPORTCONTRACT ; n = ident ;
+  LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
+  LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
+    mk_pos $startpos, n, in_params, out_params
+  }
+
+(* Need three production with not empty lists to forbid a mode
+   without requires and ensures. This causes a conflict, because an
+   empty mode looks like no modes. *)
+inline_mode:
+  | INLINEMODE; n = ident; SEMICOLON
+    reqs = nonempty_list(inline_contract_require);
+    enss = nonempty_list(inline_contract_ensure)
+    { mk_pos $startpos, n, reqs, enss }
+  | INLINEMODE; n = ident; SEMICOLON
+    reqs = nonempty_list(inline_contract_require);
+    { mk_pos $startpos, n, reqs, [] }
+  | INLINEMODE; n = ident; SEMICOLON
+    enss = nonempty_list(inline_contract_ensure)
+    { mk_pos $startpos, n, [], enss }
 
 
 (* A node declaration as an instance of a paramterized node *)

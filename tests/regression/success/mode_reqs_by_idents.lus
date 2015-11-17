@@ -9,20 +9,20 @@ node has_been_true(in: bool) returns (out: bool) ;
 
 /*@contract
 
-  @mode false_so_far (
-    @require not (in or (false -> pre out)) ;
-    @ensure not out ;
+  mode false_so_far (
+    require not (in or (false -> pre out)) ;
+    ensure not out ;
   ) ;
 
-  @mode in_true (
-    @require in ;
-    @ensure out ;
+  mode in_true (
+    require in ;
+    ensure out ;
   ) ;
 
-  @mode always_true (
-    @require not false_so_far ;
-    @require in -> pre out ;
-    @ensure out ;
+  mode always_true (
+    require not false_so_far ;
+    require in -> pre out ;
+    ensure out ;
   ) ;
 */
 let
@@ -37,18 +37,18 @@ node my_node (in: int) returns (out: int) ;
   const bound = 10 ;
   var in_bounded = abs(in) < bound ;
 
-  @assume in_bounded ;
-  @guarantee out >= - bound ;
+  assume in_bounded ;
+  guarantee out >= - bound ;
 
-  @mode in_neg (
-    @require in < 0 ;
-    @ensure out = in ;
+  mode in_neg (
+    require in < 0 ;
+    ensure out = in ;
   ) ;
 
-  @mode in_pos (
-    @require in >= 0 ;
-    @ensure out >= 0 ;
-    @ensure true -> (
+  mode in_pos (
+    require in >= 0 ;
+    ensure out >= 0 ;
+    ensure true -> (
       (pre has_been_true(in > 0)) => out > in
     ) ;
   ) ;

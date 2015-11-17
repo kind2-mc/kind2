@@ -310,6 +310,7 @@ rule token = parse
   (* Inline. *)
   | "--%" { PERCENTANNOT }
   | "--!" { BANGANNOT }
+  | "--@import" { INLINEIMPORTCONTRACT }
   | "--@mode" { INLINEMODE }
   | "--@assume" { INLINEASSUME }
   | "--@guarantee" { INLINEGUARANTEE }
