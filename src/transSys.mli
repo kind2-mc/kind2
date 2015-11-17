@@ -145,7 +145,7 @@ val get_properties : t -> Property.t list
 (** Returns the mode requirements for this system as a list of triplets
     [is_mode_global, mode_name, require_term].
     Used by test generation. *)
-val get_mode_requires : t -> (bool * string * Term.t) list
+val get_mode_requires : t -> Term.t option * (LustreIdent.t * Term.t) list
 
 (** Returns the list of properties in a transition system, split by their
     status as [valid, invalid, unknown]. *)
@@ -200,10 +200,9 @@ val mk_trans_sys :
   (** Properties *)
   Property.t list -> 
 
-  (** Requirements of global and non-global modes for this system (used by
-      test generation).
-      List of [(is_mode_global, mode_name, require_term)]. *)
-  (bool * string * Term.t) list ->
+  (** Assumption and mode requirements for this system (used by test
+      generation). *)
+  Term.t option * (LustreIdent.t * Term.t) list ->
 
 
   (** One-state invariants *)

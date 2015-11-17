@@ -993,29 +993,29 @@ let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
         let pref = match C.current_node_name ctx with
           | None -> ""
           | Some name ->
-            Format.asprintf " in node %a" (I.pp_print_ident false) name
+            Format.asprintf " of node %a" (I.pp_print_ident false) name
         in
         let suff = match scope with
           | [] -> ""
           | _ ->
             List.rev scope
-            |> Format.asprintf " (contract call trace: %a)" (
-              pp_print_list (
-                fun fmt (pos, name) ->
-                  Format.fprintf fmt "%s%a" name pp_print_pos pos
-              ) ", "
-            )
+            |> Format.asprintf " (via call%s: %a)"
+              (if List.length scope > 1 then "s" else "") (
+                pp_print_list (
+                  fun fmt (pos, name) ->
+                    Format.fprintf fmt "%s%a" name pp_print_pos pos
+                ) ", "
+              )
         in
         C.fail_at_position pos (
           Format.asprintf
-            "@[<v>%s mentions output%s in the current state (%a)%s%s@]"
-              desc s (
+            "@[<v>%s mentions output%s%s %a%s@]"
+              desc s pref (
                 pp_print_list (
                   fun fmt sv ->
-                    Format.fprintf fmt "%s" (StateVar.name_of_state_var sv)
+                    Format.fprintf fmt "\"%s\"" (StateVar.name_of_state_var sv)
                 ) ", "
-              ) svars
-              pref suff
+              ) svars suff
         )
     )
   ) ;
@@ -1362,14 +1362,6 @@ let rec eval_node_contract_calls ctx scope = function
     )
   ) ;
 
-(*   try eval_node_contract_inputs ctx call_pos (ins, in_params) with
-  | Invalid_argument _ -> C.fail_at_position call_pos (
-    Format.sprintf
-      "dimension mismatch for inputs in contract import: \
-      expected %d parameters but found %d"
-      (List.length ins) (List.length in_params)
-  ) ; *)
-
   let def_pos, ( (_, _, in_formals, out_formals, contract) as contract_node) =
     C.contract_node_decl_of_ident ctx id
   in
@@ -1428,11 +1420,11 @@ let rec eval_node_contract_calls ctx scope = function
                 C.fail_at_position pos (
                   Format.asprintf
                     "@[<v>input parameter in contract import%s mentions \
-                    output%s in the current states: %a%s@]"
+                    output%s %a%s@]"
                     pref s (
                       pp_print_list (
                         fun fmt sv ->
-                          Format.fprintf fmt "%s"
+                          Format.fprintf fmt "\"%s\""
                           (StateVar.name_of_state_var sv)
                       ) ", "
                     ) svars
@@ -1440,6 +1432,9 @@ let rec eval_node_contract_calls ctx scope = function
                 )
           ) expr
         ) ;
+
+        C.add_expr_for_ident
+          ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
 
         ctx
     ) ctx in_params in_formals

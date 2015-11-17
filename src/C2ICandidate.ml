@@ -741,7 +741,7 @@ let mk sys =
     (* DNF size. *)
     ( if Flags.c2i_modes () then
         (* One disjunct per require + 1. *)
-        (TransSys.get_mode_requires sys |> List.length) + 1
+        (TransSys.get_mode_requires sys |> snd |> List.length) + 1
       else Flags.c2i_dnf_size () ),
     (* Int cube size. *)
     Flags.c2i_int_cube_size (),
@@ -780,11 +780,14 @@ let mk sys =
 
   let init_subs =
     match Flags.c2i_modes (), TransSys.get_mode_requires sys with
-    | false, _ | true, [] -> Nil
-    | true, modes ->
+    | false, _ | true, (None, []) -> Nil
+    | true, (Some ass, modes) ->
       (* Extract term for each requirement. *)
-      let req_terms = modes |> List.map (fun (_,_,t) -> t) in
-
+      let req_terms = ass :: (modes |> List.map snd) in
+      add_mode_sub req_terms Nil
+    | true, (None, modes) ->
+      (* Extract term for each requirement. *)
+      let req_terms = modes |> List.map snd in
       add_mode_sub req_terms Nil
   in
 

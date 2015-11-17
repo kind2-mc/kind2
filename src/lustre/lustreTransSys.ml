@@ -222,11 +222,25 @@ let property_of_expr
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
 
+(* Creates the term conjunction of a list of contract svar. *)
+let term_conj_of l = List.map (
+  fun { C.svar } ->
+    Var.mk_state_var_instance svar Numeral.zero |> Term.mk_var
+) l |> Term.mk_and
+
 (* The assumption of the contract. *)
 let assumption_of_contract { C.assumes } = conj_of assumes
 
 (* The mode requirements of a contract, for test generation. *)
-let mode_requires_of_contract _ = []
+let ass_and_mode_requires_of_contract = function
+| Some { C.assumes ; C.modes } -> (
+    match assumes with
+      | [] -> None
+      | _ -> Some (term_conj_of assumes)
+  ), modes |> List.map (
+    fun { C.name ; C.requires } -> name, term_conj_of requires
+  )
+| None -> None, []
 
 (* The guarantees of a contract, including mode implications, as properties. *)
 let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
@@ -2021,7 +2035,7 @@ let rec trans_sys_of_node'
           in
 
           (* Extract requirements. *)
-          let mode_requires = mode_requires_of_contract contract in
+          let mode_requires = ass_and_mode_requires_of_contract contract in
 
           (* ****************************************************** *)
           (* Turn assumed properties into assertions                *)
