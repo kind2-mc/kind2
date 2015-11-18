@@ -51,6 +51,9 @@ val create_node : t -> LustreIdent.t -> t
 (** Returns the name of the current node, if any. *)
 val current_node_name : t -> LustreIdent.t option
 
+(** Returns the modes of the current node. *)
+val current_node_modes : t -> LustreContract.mode list option option
+
 (** Return a copy of the context with an empty function of the given name
     in the context *)
 val create_function : t -> LustreIdent.t -> t 
@@ -202,7 +205,7 @@ val add_node_ass_gua :
   t -> LustreContract.svar list -> LustreContract.svar list -> t
 
 (** Add modes to node *)
-val add_node_modes : t -> LustreContract.mode list -> t
+val add_node_mode : t -> LustreContract.mode -> t
 
 (** Add assertion to context *)
 val add_node_assert : t -> LustreExpr.t -> t

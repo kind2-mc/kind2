@@ -52,13 +52,17 @@ type mode = {
   name: LustreIdent.t ;
   (** Position of the mode. *)
   pos: Lib.position ;
+  (** Path of contract imports to this node. *)
+  path: string list ;
   (** Requires of the mode. *)
   requires: svar list ;
   (** Ensures of the mode. *)
   ensures: svar list ;
 }
 (** Creates a [mode]. *)
-val mk_mode: LustreIdent.t -> Lib.position -> svar list -> svar list -> mode
+val mk_mode:
+  LustreIdent.t -> Lib.position -> string list ->
+  svar list -> svar list -> mode
 
 (** Type of contracts. *)
 type t = {

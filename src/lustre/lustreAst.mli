@@ -54,6 +54,7 @@ type index = string
 (** A Lustre expression *)
 type expr =
     Ident of position * ident
+  | ModeRef of position * ident list
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
   | StructUpdate of position * expr * label_or_index list * expr
@@ -204,17 +205,15 @@ type contract_node_equation =
   | Require of contract_require
   | Ensure of contract_ensure
 
-(* A contract is some ghost consts / var, and assumes guarantees and modes. *)
-type contract =
-  contract_ghost_const list * contract_ghost_var list *
-  contract_assume list * contract_guarantee list * contract_mode list
-
 (* A contract call. *)
 type contract_call = position * ident * expr list * expr list
 
-(* A contract specification for a node (if it has one) is either a
-   list of modes or a global contract and a list of modes. *)
-type contract_spec = contract * contract_call list
+(* A contract is some ghost consts / var, and assumes guarantees and modes. *)
+type contract =
+  contract_ghost_const list * contract_ghost_var list * (
+    contract_assume list * contract_guarantee list *
+    contract_mode list * contract_call list
+  ) list
 
 (** Declaration of a node as a tuple of
 
@@ -232,7 +231,7 @@ type node_decl =
   * clocked_typed_decl list
   * node_local_decl list
   * node_equation list
-  * contract_spec option
+  * contract option
 
 (** A contract node declaration as a tuple of
 
@@ -240,13 +239,13 @@ type node_decl =
   - its type parameters,
   - its inputs,
   - its outputs,
-  - its body as a [contract_spec]. *)
+  - its body as a [contract]. *)
 type contract_node_decl =
   ident
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
-  * contract_spec
+  * contract
 
 (** Declaration of a function as a tuple of 
 
@@ -255,7 +254,7 @@ type contract_node_decl =
     - the list of its outputs 
 *)
 type func_decl =
-    ident * typed_ident list * typed_ident list  * contract_spec 
+    ident * typed_ident list * typed_ident list * contract option
 
 
 (** An instance of a parametric node as a tuple of the identifier for

@@ -41,6 +41,7 @@ type expr =
 
   (* Identifier *)
   | Ident of position * ident
+  | ModeRef of position * ident list
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
 
@@ -129,12 +130,12 @@ type expr =
 
 
 (* A built-in type *)
-and lustre_type = 
+and lustre_type =
   | Bool of position
   | Int of position
   | IntRange of position * expr * expr
   | Real of position
-  | UserType of position * ident 
+  | UserType of position * ident
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
@@ -244,17 +245,15 @@ type contract_node_equation =
   | Require of contract_require
   | Ensure of contract_ensure
 
-(* A contract is some ghost consts / var, and assumes guarantees and modes. *)
-type contract =
-  contract_ghost_const list * contract_ghost_var list *
-  contract_assume list * contract_guarantee list * contract_mode list
-
 (* A contract call. *)
 type contract_call = position * ident * expr list * expr list
 
-(* A contract specification for a node (if it has one) is either a
-   list of modes or a global contract and a list of modes. *)
-type contract_spec = contract * contract_call list
+(* A contract is some ghost consts / var, and assumes guarantees and modes. *)
+type contract =
+  contract_ghost_const list * contract_ghost_var list * (
+    contract_assume list * contract_guarantee list *
+    contract_mode list * contract_call list
+  ) list
 
 (* A node declaration *)
 type node_decl =
@@ -264,7 +263,7 @@ type node_decl =
   * clocked_typed_decl list
   * node_local_decl list
   * node_equation list
-  * contract_spec option
+  * contract option
 
 (* A contract node declaration. Almost the same as a [node_decl] but
    with a different type for equations, and no contract
@@ -274,11 +273,11 @@ type contract_node_decl =
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
-  * contract_spec
+  * contract
 
 (* A function declaration *)
 type func_decl = 
-  ident * typed_ident list * typed_ident list * contract_spec 
+  ident * typed_ident list * typed_ident list * contract option
 
 
 (* An instance of a parameterized node *)
@@ -374,6 +373,11 @@ let rec pp_print_expr ppf =
   function
     
     | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p pp_print_ident id
+
+    | ModeRef (p, ids) ->
+      Format.fprintf ppf "%a::%a" ppos p (
+        pp_print_list pp_print_ident "::"
+      ) ids
  
     | ExprList (p, l) -> Format.fprintf ppf "%a@[<hv 1>(%a)@]" ppos p pl l
 
@@ -904,39 +908,32 @@ let pp_print_contract_call fmt (_, id, in_params, out_params) =
 
 let all_empty = List.for_all (fun l -> l = [])
 
-let pp_print_contract fmt (g_consts, g_vars, asss, guas, modes) =
-  let consts_nempty, vars_nempty, asss_nempty, guas_nempty, modes_nempty =
-    g_consts <> [], g_vars <> [], asss <> [], guas <> [], modes <> []
-  in
-  let sep1, sep2, sep3, sep4 =
-    consts_nempty && (
-      vars_nempty || asss_nempty || guas_nempty || modes_nempty
-    ),
-    vars_nempty && (asss_nempty || guas_nempty || modes_nempty),
-    asss_nempty && (guas_nempty || modes_nempty),
-    guas_nempty && modes_nempty
-  in
+let pp_print_contract fmt (g_consts, g_vars, lst) =
   Format.fprintf
-    fmt "@[<v>%a%a%a%a%a%a%a%a%a@]"
+    fmt "@[<v>%a@ %a%a@]"
     (pp_print_list pp_print_contract_ghost_const "@ ") g_consts
-    (cond_new_line sep1) ()
     (pp_print_list pp_print_contract_ghost_var "@ ") g_vars
-    (cond_new_line sep2) ()
-    (pp_print_list pp_print_contract_assume "@ ") asss
-    (cond_new_line sep3) ()
-    (pp_print_list pp_print_contract_guarantee "@ ") guas
-    (cond_new_line sep4) ()
-    (pp_print_list pp_print_contract_mode "@ ") modes
+    (
+      pp_print_list (
+        fun fmt (ass, gua, modes, calls) ->
+          Format.fprintf fmt
+            "%a@ %a@ %a@ %a"
+            (pp_print_list pp_print_contract_assume "@ ") ass
+            (pp_print_list pp_print_contract_guarantee "@ ") gua
+            (pp_print_list pp_print_contract_mode "@ ") modes
+            (pp_print_list pp_print_contract_call "@ ") calls
+      ) "@ "
+    ) lst
 
 let is_contract_empty = function | [],[],[],[],[] -> true | _ -> false
 
-let pp_print_contract_spec ppf (contract, calls) =
+let pp_print_contract_spec ppf = function
+| None -> ()
+| Some contract ->
   Format.fprintf 
     ppf
-    "@[<v 2>(*@contract@ %a%a%a@]@ *)"
+    "@[<v 2>(*@contract@ %a@]@ *)"
     pp_print_contract contract
-    (cond_new_line (not (is_contract_empty contract) && (calls <> []))) ()
-    (pp_print_list pp_print_contract_call "@ ") calls
 
 (* Pretty-prints a contract node equation. *)
 let pp_print_contract_node_equation ppf = function
@@ -958,7 +955,7 @@ let pp_print_contract_node_equation ppf = function
 
 (* Pretty-prints a contract node. *)
 let pp_print_contract_node ppf (
-  id, _, i, o, (contract, calls)
+  id, _, i, o, contract
 ) =
   Format.fprintf ppf "@[<v>\
       contract %s (@   \
@@ -1002,9 +999,7 @@ let pp_print_declaration ppf = function
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      (fun fmt -> function 
-        | None -> ()
-        | Some spec -> Format.fprintf fmt "%a@ " pp_print_contract_spec spec)
+      pp_print_contract_spec
       r
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e
@@ -1023,7 +1018,7 @@ let pp_print_declaration ppf = function
        (function ppf -> pp_print_node_param_list ppf p)
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-       pp_print_contract_spec e
+       pp_print_contract e
 
   | FuncDecl (pos, (n, i, o, r)) -> 
 

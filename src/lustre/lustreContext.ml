@@ -293,6 +293,15 @@ let create_node = function
           expr_state_var_map = ET.copy expr_state_var_map;
           node = Some (N.empty_node ident) } )
 
+(** Returns the modes of the current node. *)
+let current_node_modes = function
+| { node = None } -> None
+| { node = Some { N.contract } } -> Some (
+  match contract with
+  | None -> None
+  | Some { C.modes } -> Some modes
+)
+
 (* Returns the name of the current node, if any. *)
 let current_node_name = function
 | { node = Some { N.name } } -> Some name
@@ -1292,7 +1301,7 @@ let add_node_ass_gua ctx assumes guarantees =
 
 
 (* Add node mode to context *)
-let add_node_modes ctx modes = 
+let add_node_mode ctx mode = 
 
   match ctx with 
 
@@ -1300,8 +1309,8 @@ let add_node_modes ctx modes =
 
     | { node = Some ({ N.contract } as node) } ->
       let contract = match contract with
-        | None -> C.mk [] [] modes
-        | Some contract -> C.add_modes contract modes
+        | None -> C.mk [] [] [ mode ]
+        | Some contract -> C.add_modes contract [ mode ]
       in
       (* Return node with contract added *)
       { ctx with node = Some{ node with N.contract = Some contract } }

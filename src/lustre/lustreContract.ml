@@ -51,11 +51,14 @@ let prop_name_of_svar { pos ; num ; scope } kind name =
 type mode = {
   name: I.t ;
   pos: position ;
+  path: string list ;
   requires: svar list ;
   ensures: svar list ;
 }
 
-let mk_mode name pos requires ensures = { name ; pos ; requires ; ensures }
+let mk_mode name pos path requires ensures = {
+  name ; pos ; path ; requires ; ensures
+}
 
 type t = {
   assumes: svar list ;

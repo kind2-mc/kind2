@@ -977,10 +977,14 @@ let contract_check_no_output ctx expr =
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
+  let path_prefix = scope |> List.map snd in
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate exrpession to a Boolean expression, may change context. *)
-  let expr, ctx = S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos in
+  let expr, ctx =
+    S.eval_bool_ast_expr ~path_prefix:path_prefix ctx pos expr
+    |> C.close_expr pos
+  in
   (* Check the expression if asked to. *)
   ( match check with
     | None -> ()
@@ -1290,35 +1294,19 @@ let rec inline_contract_of_contract_node
     | _ -> failwith "unimplemented"
 
 (* Construct a mode for a node. *)
-let eval_node_mode scope (ctx, l) (pos, id, reqs, enss) =
+let eval_node_mode scope ctx (pos, id, reqs, enss) =
   (* Push scope for mode. *)
   let ctx = C.push_scope ctx id in
   (* Evaluate requires. *)
   let ctx, reqs, _ = reqs |> List.fold_left (eval_req scope) (ctx, [], 1) in
   (* Evaluate ensures. *)
   let ctx, enss, _ = enss |> List.fold_left (eval_ens scope) (ctx, [], 1) in
-  (* Add requirements for mode ident so that other contracts can refer to its
-  requirements. *)
-  let req_id =
-    scope |> List.rev |> List.map (fun (_, name) -> name)
-    |> fun scope -> Format.asprintf
-      "%a%s" (pp_print_list Format.pp_print_string "_") scope id
-    |> I.mk_string_ident
-  in
-  let ctx =
-    reqs
-    |> List.map (fun { Contract.svar } -> E.mk_var svar)
-    |> E.mk_and_n
-    |> fun reqs -> D.add D.empty_index reqs D.empty
-    |> fun reqs -> try
-      C.add_expr_for_ident ctx req_id reqs
-    with Invalid_argument _ ->
-      Format.asprintf
-        "mode identifier \"%s\" is shadowing another identifier" id
-      |> C.fail_at_position pos
+  let path =
+    scope |> List.fold_left (fun l (_, name) -> name :: l) [id]
   in
   (* Done. *)
-  ctx, (Contract.mk_mode (I.mk_string_ident id) pos reqs enss) :: l
+  Contract.mk_mode (I.mk_string_ident id) pos path reqs enss
+  |> C.add_node_mode ctx
 
 (* Evaluates contract calls. *)
 let rec eval_node_contract_calls ctx scope = function
@@ -1331,7 +1319,7 @@ let rec eval_node_contract_calls ctx scope = function
   (* Push scope for contract call. *)
   let ctx = C.push_scope ctx id in
   (* Retrieve contract node from context. *)
-  let pos, (id, params, ins, outs, (contract, calls)) =
+  let pos, (id, params, in_formals, out_formals, contract) =
     try C.contract_node_decl_of_ident ctx id
     (* Fail if contract node is unknown. *)
     with Not_found -> C.fail_at_position call_pos (
@@ -1346,14 +1334,14 @@ let rec eval_node_contract_calls ctx scope = function
       "type parameters in contract node is not supported"
     )
   ) ;
-  ( ins |> List.iter (
+  ( in_formals |> List.iter (
       function
       | pos, id, typ, A.ClockTrue, is_const -> () (* pos, id, typ, is_const *)
       | _ -> C.fail_at_position pos (
         "clocks in contract node signature are not supported"
       )
     ),
-    outs |> List.iter (
+    out_formals |> List.iter (
       function
       | pos, id, typ, A.ClockTrue -> () (* pos, id, typ *)
       | _ -> C.fail_at_position pos (
@@ -1361,10 +1349,6 @@ let rec eval_node_contract_calls ctx scope = function
       )
     )
   ) ;
-
-  let def_pos, ( (_, _, in_formals, out_formals, contract) as contract_node) =
-    C.contract_node_decl_of_ident ctx id
-  in
 
   (* Add substitution from formal inputs to actual one before we evaluate
   everything. *)
@@ -1498,8 +1482,9 @@ let rec eval_node_contract_calls ctx scope = function
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_spec ctx scope (
-  (ghost_consts, ghost_vars, assumes, guarantees, modes), calls
-) =
+  ghost_consts, ghost_vars, contract
+) = match contract with
+| (assumes, guarantees, modes, calls) :: tail ->
 
   (* Add constants to context *)
   let ctx = List.fold_left (eval_const_decl ~ghost:true) ctx ghost_consts in
@@ -1540,15 +1525,15 @@ and eval_node_contract_spec ctx scope (
   let ctx = C.add_node_ass_gua ctx assumes guarantees in
 
   (* Evaluate modes. *)
-  let ctx, modes =
-    modes |> List.fold_left (eval_node_mode scope) (ctx, [])
+  let ctx =
+    modes |> List.fold_left (eval_node_mode scope) ctx
   in
-
-  let ctx = C.add_node_modes ctx modes in
 
   let ctx = eval_node_contract_calls ctx scope calls in
 
-  ctx
+  eval_node_contract_spec ctx scope ([], [], tail)
+
+| [] -> ctx
 
 (* Add declarations of node to context *)
 let eval_node_decl

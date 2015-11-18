@@ -417,13 +417,6 @@ mode_equation:
     mk_pos $startpos, n, reqs, enss
   }
 
-assguamodes_in_block:
-  | assgua = assguas_in_block ; modes = list(mode_equation) ; {
-    assgua, modes
-  }
-  | modes = nonempty_list(mode_equation) ; {
-    ([], []), modes
-  }
 contract_import:
   IMPORTCONTRACT ; n = ident ;
   LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
@@ -431,22 +424,29 @@ contract_import:
     mk_pos $startpos, n, in_params, out_params
   }
 
+assguamodes_in_block:
+  | assgua = assguas_in_block ;
+    modes = list(mode_equation) ;
+    imports = list(contract_import) ; {
+    fst assgua, snd assgua, modes, imports
+  }
+  | modes = nonempty_list(mode_equation) ;
+    imports = list(contract_import) ; {
+    [], [], modes, imports
+  }
+  | imports = nonempty_list(contract_import) ; {
+    [], [], [], imports
+  }
+
 contract_equations:
   ghosts = contract_ghosts ;
-  agm = list(assguamodes_in_block) ;
-  calls = list(contract_import) ; {
-    let a, g, m =
-      agm |> List.fold_left (
-        fun (a,g,m) ( (assumes, guarantees), modes ) ->
-          a @ assumes, g @ guarantees, m @ modes
-      ) ([], [], [])
-    in
-    (fst ghosts, snd ghosts, a, g, m), calls
+  agm = list(assguamodes_in_block) ; {
+    fst ghosts, snd ghosts, agm
   }
 
 (* A contract node declaration. *)
 contract_decl:
-  | CONTRACT; 
+  | CONTRACT;
     n = ident; 
     p = loption(static_params);
     i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
@@ -478,11 +478,20 @@ contract_spec:
   (* Inline contract. *)
   | ghost_consts = list(inline_contract_ghost_const) ;
     ghost_vars = list(inline_contract_ghost_var) ;
-    a = list(inline_contract_assume) ;
+    spec = nonempty_list(inline_assguamodes)
+    { ghost_consts, ghost_vars, spec }
+
+inline_assguamodes:
+  | a = nonempty_list(inline_contract_assume) ;
     g = list(inline_contract_guarantee) ;
     m = list(inline_mode) ;
-    c = list(inline_contract_import)
-    { (ghost_consts, ghost_vars, a, g, m), c }
+    c = list(inline_contract_import) { a, g, m, c }
+  | g = nonempty_list(inline_contract_guarantee) ;
+    m = list(inline_mode) ;
+    c = list(inline_contract_import) { [], g, m, c }
+  | m = nonempty_list(inline_mode) ;
+    c = list(inline_contract_import) { [], [], m, c }
+  | c = nonempty_list(inline_contract_import) { [], [], [], c }
 
 inline_contract_ghost_var:
   | INLINEVAR ;
@@ -701,13 +710,22 @@ struct_item_list:
 index_var:
   | LSQBRACKET; s = ident; RSQBRACKET { s }
 
+(* Two colons (for mode reference). *)
+two_colons:
+  | COLON ; COLON {}
+
 (* ********************************************************************** *)
 
 (* An expression *)
 expr:
   
   (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) } 
+  | s = ident { A.Ident (mk_pos $startpos, s) }
+
+  (* A mode reference. *)
+  | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
+    A.ModeRef (mk_pos $startpos, mode_ref)
+  }
 
   (* A propositional constant *)
   | TRUE { A.True (mk_pos $startpos) }
