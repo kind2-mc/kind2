@@ -778,11 +778,21 @@ let mk_let  = T.mk_let
 
 
 (* Return a hashconsed existentially quantified term *)
-let mk_exists = T.mk_exists 
+let mk_exists ?(fundef=false) vars t =
+  let t =
+    if fundef then T.mk_annot t TermAttr.fundef
+    else t
+  in
+  T.mk_exists vars t
 
 
 (* Return a hashconsed universally quantified term *)
-let mk_forall = T.mk_forall
+let mk_forall ?(fundef=false) vars t =
+  let t =
+    if fundef then T.mk_annot t TermAttr.fundef
+    else t
+  in
+  T.mk_forall vars t
 
 
 (* Import a term from a different instance into this hashcons table *)

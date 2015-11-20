@@ -36,11 +36,25 @@ let cmd_line
   let incr_mode =
     if produce_cores then "--tear-down-incremental" else "--incremental" in
 
-  let inst_flags = match logic with
-    | `Inferred l ->
-      if FeatureSet.mem A l then [| "--fmf-bound-int"; "--fmf-inst-engine" |]
-      else [||]
-    | _ -> [| "--fmf-bound-int"; "--fmf-inst-engine" |] in
+  let fmfint_flags =
+    [| "--fmf-bound-int";
+       "--fmf-inst-engine";
+       "--quant-cf";
+       "--uf-ss-fair"|] in
+
+  let fmfrec_flags =
+    [| "--finite-model-find";
+       "--fmf-inst-engine";
+       "--fmf-fun";
+       "--quant-cf";
+       "--uf-ss-fair"|] in
+
+  let inst_flags = match logic, Flags.arrays_rec () with
+    | `Inferred l, true when FeatureSet.mem A l -> fmfrec_flags
+    | `Inferred l, false when FeatureSet.mem A l -> fmfint_flags
+    | `Inferred _, _ -> [||]
+    | _, true -> fmfrec_flags
+    | _, false -> fmfint_flags in
 
   let default_cmd = [| cvc4_bin; "--lang"; "smt2"; "--rewrite-divk" |] in
 

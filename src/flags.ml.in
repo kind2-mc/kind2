@@ -245,6 +245,16 @@ let inline_arrays_default = false
 
 (* ********** *) 
 
+type arrays_rec = bool
+
+let arrays_rec_of_string s = s
+
+let string_of_arrays_rec s = s 
+
+let arrays_rec_default = false
+
+(* ********** *) 
+
 type cvc4_bin = string 
 
 let cvc4_bin_of_string s = s
@@ -641,6 +651,7 @@ type flags =
     mutable smt_short_names : smt_short_names;
     mutable smt_arrays : smt_arrays;
     mutable inline_arrays : inline_arrays;
+    mutable arrays_rec : arrays_rec;
     mutable cvc4_bin : cvc4_bin;
     mutable mathsat5_bin : mathsat5_bin;
     mutable yices_bin : yices_bin;
@@ -697,6 +708,7 @@ let flags =
     smt_short_names = smt_short_names_default;
     smt_arrays = smt_arrays_default;
     inline_arrays = inline_arrays_default;
+    arrays_rec = arrays_rec_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
@@ -831,6 +843,15 @@ let inline_arrays_spec =
   ("--inline_arrays", 
    Arg.Unit inline_arrays_action, 
    "Inline fixed bounds arrays")
+
+(* ********** *) 
+
+let arrays_rec_action () = flags.arrays_rec <- true
+  
+let arrays_rec_spec = 
+  ("--arrays_rec", 
+   Arg.Unit arrays_rec_action, 
+   "Define recurvsive functions for arrays")
 
 (* ********** *) 
 
@@ -1315,6 +1336,8 @@ let smt_arrays () = flags.smt_arrays
 
 let inline_arrays () = flags.inline_arrays
 
+let arrays_rec () = flags.arrays_rec
+
 let cvc4_bin () = flags.cvc4_bin
 
 let mathsat5_bin () = flags.mathsat5_bin
@@ -1452,6 +1475,9 @@ and speclist =
 
     (* Inline arrays with fixed bounds *)
     inline_arrays_spec;
+
+    (* Define recursive functions for arrays *)
+    arrays_rec_spec;
 
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;

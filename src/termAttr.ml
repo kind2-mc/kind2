@@ -24,10 +24,10 @@ open Lib
 (* ********************************************************************* *)
 
 
-(* An attribute for a term annotation 
-
-   Currently we only have names for terms *)
-type attr = Named of string * int
+(* An attribute for a term annotation *)
+type attr =
+  | Named of string * int (* names for terms, used in unsat cores *)
+  | FunDef (* definition of recurisve function with quantifiers *)
 
 
 (* A private type that cannot be constructed outside this module
@@ -65,12 +65,12 @@ module Attr_node = struct
 
   (* Equality of two variables *)
   let equal v1 v2 = match v1, v2 with
-
+    | FunDef, FunDef -> true
     (* Two name attributes, use equality on integers *)
     | Named (s1, n1), Named (s2, n2) -> s1 = s2 && n1 = n2
+    | _ -> false
 
-  (* Return hash of a name attribute *)
-  let hash = function Named (s, n) -> Hashtbl.hash (s, n)
+  let hash = Hashtbl.hash
 
 end
 
@@ -161,10 +161,8 @@ module SMTLIBPrinter : Printer =
 
     (* Pretty-print an attribute *)
     let pp_print_attr_node ppf = function 
-
-      (* Pretty-print a name attribute *)
-      | Named (s, n) ->
-         Format.fprintf ppf ":named@ %s%d" s n
+      | Named (s, n) -> Format.fprintf ppf ":named@ %s%d" s n
+      | FunDef -> Format.fprintf ppf ":fun-def"
 
     (* Pretty-print an attribute to the standard formatter *)
     let print_attr_node = pp_print_attr_node Format.std_formatter 
@@ -184,9 +182,8 @@ module YicesPrinter : Printer =
 
     (* Pretty-print an attribute *)
     let pp_print_attr_node ppf = function 
-
-      (* Ignore name attribute for yices *)
-      | Named _ -> ()
+      (* Ignore attributes for yices *)
+      | Named _ | FunDef -> ()
                      
     (* Pretty-print an attribute to the standard formatter *)
     let print_attr_node = pp_print_attr_node Format.std_formatter 
@@ -218,10 +215,16 @@ include SelectedPrinter
 (* ********************************************************************* *)
 
 (* Return true if the attribute is a name *)
-let is_named = function { Hashcons.node = Named _ } -> true
+let is_named = function { Hashcons.node = Named _ } -> true | _ -> false
 
 (* Return the name in a name attribute *)
-let named_of_attr = function { Hashcons.node = Named (s, n) } -> (s, n)
+let named_of_attr = function
+  | { Hashcons.node = Named (s, n) } -> (s, n)
+  | _ -> raise (Invalid_argument "Not a name attribute")
+
+(* Return true if the attribute is a recursive function definition annotation *)
+let is_fundef = function { Hashcons.node = FunDef } -> true | _ -> false
+
 
 (* ********************************************************************* *)
 (* Constructors                                                          *)
@@ -229,10 +232,10 @@ let named_of_attr = function { Hashcons.node = Named (s, n) } -> (s, n)
 
 
 (* Return a hashconsed attribute which is a name *)    
-let mk_named s n = 
-  
-  (* Create and hashcons name attribute *)
-  Hattr.hashcons ht (Named (s, n)) ()
+let mk_named s n = Hattr.hashcons ht (Named (s, n)) ()
+
+(* Return a hashconsed attribute which is a fun-def *)    
+let fundef = Hattr.hashcons ht FunDef ()
 
 
 (* 

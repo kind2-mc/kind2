@@ -211,10 +211,10 @@ val mk_var : Var.t -> t
 val mk_let : (Var.t * t) list -> t -> t
 
 (** Return a hashconsed existentially quantified term *)
-val mk_exists : Var.t list -> t -> t
+val mk_exists : ?fundef:bool -> Var.t list -> t -> t
 
 (** Return a hashconsed universally quantified term *)
-val mk_forall : Var.t list -> t -> t
+val mk_forall : ?fundef:bool -> Var.t list -> t -> t
 
 (** {1 Constant terms} *)
 

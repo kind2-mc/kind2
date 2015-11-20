@@ -76,6 +76,10 @@ val smt_arrays : unit -> smt_arrays
 type inline_arrays = bool
 val inline_arrays : unit -> inline_arrays
 
+(** Define recursive functions for arrays *)
+type arrays_rec = bool
+val arrays_rec : unit -> arrays_rec
+
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
 val cvc4_bin : unit -> cvc4_bin

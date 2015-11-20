@@ -1414,6 +1414,7 @@ let rec constraints_of_equations_wo_arrays
       eq_bounds init stateful_vars terms lets tl
 
 
+
 (* create quantified (or no) constraints for recursive arrays definitions *)
 let constraints_of_arrays init terms eq_bounds =
 
@@ -1421,49 +1422,44 @@ let constraints_of_arrays init terms eq_bounds =
   let index_var_of_int i = E.var_of_expr (E.mk_index_var i) in
 
   (* Add quantifier or let binding for indexes of variable *)
-  let add_bounds = function 
-    (* Fixed index [e] *)
-    | E.Fixed e -> 
-      (* Let bind index variable to value [e] *)
-      fun (a, i) ->
-        (Term.mk_let 
-           [index_var_of_int i,
-            (e : E.expr :> Term.t)]
-           a,
-         pred i)
-    (* Variable index of size [e] *)
-    | E.Bound e ->
-      if Flags.inline_arrays () && (E.is_numeral e) then begin
-        (* if not (E.is_numeral e) then *)
-        (*   failwith "Trying to inline non-fixed bounds arrays."; *)
-        let b = E.numeral_of_expr e |> Numeral.to_int in
-        fun (a, i) ->
-          (* Index variable *)
+  let add_bounds term bounds =
+    let term, quant_v, _ =
+      List.fold_left (fun (term, quant_v, i) ->
           let v = index_var_of_int i in
-          let cj = ref [] in
-          for x = (b - 1) downto 0 do
-            cj := Term.mk_let [v, Term.mk_num_of_int x] a :: !cj
-          done;
-          match !cj with
-          | [] -> assert false
-          | [t] -> t, pred i
-          | cj -> Term.mk_and cj, pred i
-      end
-      else
-        (* Quantify over index variable between zero and upper bound *)
-        fun (a, i) -> 
-          (* Index variable *)
-          let v = index_var_of_int i in
-          (* Quantify over index variable between 0 and [e-1] *)
-          (Term.mk_forall
-             [v]
-             (Term.mk_implies 
-                [Term.mk_leq [Term.mk_num Numeral.zero; Term.mk_var v; 
-                              Term.mk_minus [(e : E.expr :> Term.t);
-                                             Term.mk_num Numeral.one]]; a]),
-           pred i)
-  in
+          function
+          | E.Fixed e ->
+            Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
 
+          | E.Bound e when Flags.inline_arrays () && E.is_numeral e ->
+            (* inline if static bound and option given *)
+            let b = E.numeral_of_expr e |> Numeral.to_int in
+            let cj = ref [] in
+            for x = (b - 1) downto 0 do
+              cj := Term.mk_let [v, Term.mk_num_of_int x] term :: !cj
+            done;
+            Term.mk_and !cj, quant_v, pred i
+
+          | E.Bound e ->
+            let term =
+              if Flags.arrays_rec () then term
+              else Term.(
+                  mk_implies [
+                    mk_leq [mk_num Numeral.zero; mk_var v; 
+                            mk_minus [E.unsafe_term_of_expr e;
+                                      mk_num Numeral.one]];
+                    term])
+            in
+            term, v :: quant_v, pred i
+        ) (term, [], List.length bounds - 1) bounds
+    in
+
+    match List.rev quant_v with
+    | [] -> term
+    | qvars -> Term.mk_forall ~fundef:(Flags.arrays_rec ()) quant_v term
+
+  in
+  
+  
   MBounds.fold (fun bounds eqs terms ->
       let cstrs_eqs =
         List.map (function
@@ -1494,20 +1490,20 @@ let constraints_of_arrays init terms eq_bounds =
                  (* Convert select operators to uninterpreted functions *)
               ) |> Term.convert_select
           ) eqs
-        |> Term.mk_and
       in
 
-      (* Wrap equations in let binding and quantifiers for indexes *)
-      let defs, _ = 
-        List.fold_left
-          (fun t b -> add_bounds b t)
-          (cstrs_eqs, List.length bounds |> pred)
-          bounds
-      in
-
-      (* Add definitions to terms *)
-      defs :: terms
-
+      (* group constraints under same quantifier when not using recursive
+         encoding *)
+      let cstrs =
+        if Flags.arrays_rec () then cstrs_eqs
+        else [Term.mk_and cstrs_eqs] in
+      
+      (* Wrap equations in let binding and/or quantifiers for indexes and add
+         definitions to terms *)        
+      List.fold_left (fun terms cstr ->
+            add_bounds cstr bounds :: terms
+        ) terms cstrs
+     
     ) eq_bounds terms              
 
 
