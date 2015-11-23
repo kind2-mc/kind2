@@ -1342,7 +1342,7 @@ struct
   let send msg = 
     if !initialized_process = None then raise NotInitialized else
       ( (* minisleep otherwise some messages get lost *)
-        minisleep 0.001;
+        (* minisleep 0.001; *)
         enqueue msg outgoing)
 
 

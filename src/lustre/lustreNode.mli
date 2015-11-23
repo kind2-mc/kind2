@@ -405,6 +405,10 @@ val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 (** Get source of state variable *)
 val get_state_var_source : t -> StateVar.t -> state_var_source
 
+(** State variable is identical to a state variable in a node instance *)
+val set_state_var_instance :
+  StateVar.t -> Lib.position -> LustreIdent.t -> StateVar.t -> unit
+
 val set_oracle_state_var : t -> StateVar.t -> StateVar.t -> unit
 
 val get_oracle_state_var_map : t -> StateVar.t StateVar.StateVarHashtbl.t

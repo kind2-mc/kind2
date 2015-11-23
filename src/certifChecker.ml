@@ -103,8 +103,12 @@ let roll sigma t =
             Term.mk_plus [v_at_0; i]
         in
         Term.mk_uf vf [arg]
-
-      else term
+      else
+      if Var.is_const_state_var v then
+        let sv = Var.state_var_of_state_var_instance v in
+        let vf = StateVar.uf_symbol_of_state_var sv in
+        Term.mk_uf vf []
+    else term
     else term
 
   ) t
@@ -198,7 +202,7 @@ let extract_props_certs sys =
       | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
         c :: c_acc, p :: p_acc
       | { Property.prop_name } ->
-        Event.log L_fatal "[Warning] Skipping unproved property %s" prop_name;
+        Event.log L_info "Skipping unproved property %s" prop_name;
         acc
     ) ([], []) (TS.get_real_properties sys) in
 
@@ -1039,9 +1043,9 @@ let generate_certificate sys dirname =
   if is_fec sys then begin
 
     let obs_sys = sys in
-    let jkind_sys = match TransSys.get_subsystems sys with
-      | _ :: jkind_sys :: _ -> jkind_sys
-      | _ -> assert false in
+
+    let jkind_sys =
+      TransSys.find_subsystem_of_scope sys JkindParser.jkind_scope in
   
     let jkdef_filename = Filename.concat dirname "jkind_defs.smt2" in
     let jkdef_oc = open_out jkdef_filename in
@@ -1147,8 +1151,7 @@ let generate_certificate sys dirname =
       
       let l = ref [] in
 
-      Event.log L_fatal
-        "[Warning] Using potentially incorrect check for base case";
+      Event.log L_warn "Using potentially incorrect check for base case";
 
       for i = k - 2 downto 0 do
         l := trans_t i (i+1) :: !l;
@@ -1388,14 +1391,14 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
       (* Fail if variables of properties do not have a jKind equivalent *)
       if jkind_vars = [] then begin
   
-      Event.log L_fatal
-        "[Warning] Could not find a match for the%s variable %a."
+      Event.log L_info
+        "Could not find a match for the%s variable %a."
         (if StateVar.is_input sv then " INPUT" else "")
         StateVar.pp_print_state_var sv;
       
         if prop (* && jkind_vars = [] *) then begin
 
-          Event.log L_fatal "[Error] Frontend certificate was not generated.";
+          Event.log L_fatal "Frontend certificate was not generated.";
           
           failwith (
             Format.asprintf
@@ -1481,12 +1484,20 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
   
 
 
+let is_nondet sv =
+  let nondetst, _ = (LustreIdent.oracle_ident :> string * int list) in
+  let name = StateVar.name_of_state_var sv in
+  try Scanf.sscanf name "%s@_%s" (fun s _ -> s = nondetst)
+  with Scanf.Scan_failure _ -> false
+  
 
 (* Create additional constraints that force the input state varaibles to be the
    same in Kind2 and jKind. *)
 let same_inputs kind2_sys ?(prime=false) lustre_vars orig_kind2_vars =
   mk_obs_eqs kind2_sys ~prime
-    lustre_vars (List.filter StateVar.is_input orig_kind2_vars)
+    lustre_vars
+    (List.filter (fun sv -> StateVar.is_input sv || is_nondet sv)
+       orig_kind2_vars)
   |> Term.mk_and
 
 
@@ -1733,6 +1744,8 @@ let fecc_checker_script =
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
 let generate_all_certificates input sys =
 
+  TH.clear hactlits;
+  
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
     else Filename.concat (Flags.certif_dir ())

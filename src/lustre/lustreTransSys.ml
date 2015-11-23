@@ -679,6 +679,9 @@ let call_terms_of_node_call mk_fresh_state_var {
              (StateVar.type_of_state_var state_var)
          in
 
+         N.set_state_var_instance
+           inst_state_var call_pos call_node_name state_var;
+         
          (* Add fresh state variable to locals of this node, to actual
             input parameters of node call and to map of state variable
             instances *)

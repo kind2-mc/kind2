@@ -21,6 +21,8 @@
     @author Alain Mebsout
 *)
 
+val jkind_scope : Scope.t
+
 (** Returns all jKind variables corresponding to a Kind2 variable, given a map
     for lustre streams and callsites information. *)
 val jkind_vars_of_kind2_statevar :

@@ -1069,7 +1069,9 @@ let dump_dir_spec =
 
 (* ********** *) 
 
-let certif_action o = flags.certif <- true
+let certif_action o =
+  flags.certif <- true;
+  flags.smt_short_names <- false
   
 let certif_spec = 
   ("--certif", 

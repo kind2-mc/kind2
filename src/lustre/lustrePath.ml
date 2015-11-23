@@ -1313,7 +1313,8 @@ let get_pos_number hc lid pos =
 let rec get_instances acc hc parents sv =
   (* Format.eprintf "get_instances : %a@." StateVar.pp_print_state_var sv; *)
   match N.get_state_var_instances sv with
-  | [] -> (sv, List.rev parents) :: acc
+  | [] ->
+    (sv, List.rev parents) :: acc
   | insts ->
     List.fold_left (fun acc (pos, lid, lsv) ->
         try

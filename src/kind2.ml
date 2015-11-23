@@ -298,21 +298,6 @@ let slaughter_kids process sys =
   (* Clean exit from invariant manager *)
   InvarManager.on_exit sys ;
 
-  let Input input_sys = get !cur_input_sys in
-
-  (* Generate certificates if necessary *)
-  if Flags.certif () (* && *)
-     (* (Flags.certif_force () *)
-     (*  || status = status_safe || status = status_signal ) *) then
-    (* Create certificate *)
-    (match sys with | None -> () | Some trans_sys ->
-      if List.exists
-          (function | _, Property.PropInvariant _ -> true | _ -> false)
-          (TransSys.get_prop_status_all_nocands trans_sys)
-      then
-        CertifChecker.generate_all_certificates input_sys trans_sys
-    );
-    
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
@@ -958,8 +943,8 @@ let setup : unit -> any_input = fun () ->
   with e -> (* Could not create input system. *)
     (* Terminating log and exiting with error. *)
     Event.terminate_log () ;
-    raise e;
-    exit status_error
+    raise e
+
 
 (* Launches analyses. *)
 let rec run_loop msg_setup modules results =
@@ -1005,6 +990,17 @@ let rec run_loop msg_setup modules results =
 
   Event.log L_info "Result: %a" Analysis.pp_print_result result ;
 
+  (* Generate certificates if necessary *)
+  if Flags.certif () (* && *)
+  (* (Flags.certif_force () *)
+  (*  || status = status_safe || status = status_signal ) *) then
+    (* Create certificate *)
+    if List.exists
+        (function | _, Property.PropInvariant _ -> true | _ -> false)
+        (TransSys.get_prop_status_all_nocands trans_sys)
+    then
+      CertifChecker.generate_all_certificates input_sys trans_sys;
+   
   let results = Analysis.results_add result results in
 
   let Input input_sys = get !input_sys_ref in

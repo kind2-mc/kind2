@@ -1415,6 +1415,8 @@ and eval_node_call
                 expr
             in
 
+             N.set_state_var_instance state_var' pos ident state_var;
+            
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)
 
@@ -1575,7 +1577,9 @@ and eval_node_call
                  ctx
                  (StateVar.type_of_state_var sv) 
              in
-             (* N.set_state_var_instance ctx sv' pos ident sv; *)
+             
+             N.set_state_var_instance sv' pos ident sv;
+             
              (ctx, sv' :: accum))
           (ctx, [])
       in
@@ -1589,6 +1593,9 @@ and eval_node_call
                  ctx
                  (StateVar.type_of_state_var sv)
              in
+
+             N.set_state_var_instance sv' pos ident sv;
+
              (D.add i sv' accum, ctx))
           node_outputs
           (D.empty, ctx)

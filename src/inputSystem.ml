@@ -188,7 +188,8 @@ let pp_print_path_pt
 
   | Native sub ->
     Format.eprintf "pp_print_path_pt not implemented for native input@.";
-    assert false
+    ()
+    (* assert false *)
 
   | Horn _ -> assert false
 

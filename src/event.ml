@@ -447,17 +447,17 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
       if disproved then begin
         (ignore_or_fprintf level)
           !log_ppf 
-          "@[<v>Candidate %s disproved by %a %tafter %.3fs.@,%a@]@."
+          "@[<v>Candidate %s disproved by %a %tafter %.3fs.@]@."
           prop
           pp_print_kind_module_pt mdl
           (function ppf -> match cex with
              | [] -> ()
              | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
           (Stat.get_float Stat.total_time)
-          (pp_print_counterexample_pt
-             (log_level_of_int (int_of_log_level level + 2))
-             input_sys analysis trans_sys prop disproved)
-          cex
+          (* (pp_print_counterexample_pt *)
+          (*    (log_level_of_int (int_of_log_level level + 2)) *)
+          (*    input_sys analysis trans_sys prop disproved) *)
+          (* cex *)
       end
       else
 
