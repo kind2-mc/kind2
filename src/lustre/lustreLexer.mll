@@ -245,6 +245,7 @@ let keyword_table = mk_hashtbl [
   ("MAIN", MAIN) ;
   (* Contract related things. *)
   ("contract", CONTRACT) ;
+  ("import", IMPORTCONTRACT) ;
 
   (* Boolean operators *)
   ("true", TRUE) ; ("false", FALSE) ;
@@ -309,6 +310,7 @@ rule token = parse
   (* Inline. *)
   | "--%" { PERCENTANNOT }
   | "--!" { BANGANNOT }
+  | "--@import" { INLINEIMPORTCONTRACT }
   | "--@mode" { INLINEMODE }
   | "--@assume" { INLINEASSUME }
   | "--@guarantee" { INLINEGUARANTEE }
@@ -336,11 +338,11 @@ rule token = parse
 
   (* |===| Block annotation contract stuff. *)
 
-  | "@mode" { MODE }
-  | "@assume" { ASSUME }
-  | "@guarantee" { GUARANTEE }
-  | "@require" { REQUIRE }
-  | "@ensure" { ENSURE }
+  | "mode" { MODE }
+  | "assume" { ASSUME }
+  | "guarantee" { GUARANTEE }
+  | "require" { REQUIRE }
+  | "ensure" { ENSURE }
 
 
   (* |===| Actual comments. *)

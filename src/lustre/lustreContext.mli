@@ -48,6 +48,12 @@ val pop_scope : t -> t
     in the context *)
 val create_node : t -> LustreIdent.t -> t 
 
+(** Returns the name of the current node, if any. *)
+val current_node_name : t -> LustreIdent.t option
+
+(** Returns the modes of the current node. *)
+val current_node_modes : t -> LustreContract.mode list option option
+
 (** Return a copy of the context with an empty function of the given name
     in the context *)
 val create_function : t -> LustreIdent.t -> t 
@@ -92,6 +98,9 @@ val get_nodes : t -> LustreNode.t list
 
 (** Return the functions in the context *)
 val get_functions : t -> LustreFunction.t list
+
+(** The contract nodes in the context. *)
+val contract_nodes : t -> LustreAst.contract_node_decl list
 
 (** Add a contract node to the context for inlining later *)
 val add_contract_node_decl_to_context : t -> Lib.position * LustreAst.contract_node_decl -> t
@@ -185,17 +194,18 @@ val add_node_input : ?is_const:bool -> t -> LustreIdent.t -> Type.t LustreIndex.
 (** Add node output to context *)
 val add_node_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
+(** The output state variables of the current node. *)
+val outputs_of_current_node : t -> StateVar.t LustreIndex.t
+
 (** Add node local to context *)
 val add_node_local : ?ghost:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
-(** Add global contract to node
+(** Adds assumptions and guarantees to a node. *)
+val add_node_ass_gua :
+  t -> LustreContract.svar list -> LustreContract.svar list -> t
 
-    The node must not have a global contract defined, otherwise a
-    parse error will be raised. *)
-val add_node_global_contract : t -> position -> LustreNode.contract -> t
-
-(** Add mode contract to node *)
-val add_node_mode_contract : t -> position -> string -> LustreNode.contract -> t
+(** Add modes to node *)
+val add_node_mode : t -> LustreContract.mode -> t
 
 (** Add assertion to context *)
 val add_node_assert : t -> LustreExpr.t -> t

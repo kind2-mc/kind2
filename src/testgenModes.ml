@@ -65,19 +65,13 @@ let sv_at_0 sv = Var.mk_state_var_instance sv Numeral.zero |> Term.mk_var
 
 (* Returns the modes of a system as something of type [modes]. *)
 let modes_of_sys sys : modes =
-  match
-    Sys.get_mode_requires sys |> List.fold_left (fun (glob,nglob) -> function
-      | (true, name, term) -> (name, term) :: glob, nglob
-      | (false, name, term) -> glob, (name, term) :: nglob
-    ) ([], [])
-  with
-  | [], modes -> None, modes
-  | [ global ], modes -> Some global, modes
-  | _, _ ->
-    Format.asprintf
-      "unsupported: system %a has more than one global mode"
-      Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
-    |> failwith
+  match Sys.get_mode_requires sys with
+  | None, modes -> None, modes |> List.map (
+    fun (id, t) -> LustreIdent.string_of_ident false id, t
+  )
+  | Some ass, modes -> Some ("assumption", ass), modes |> List.map (
+    fun (id, t) -> LustreIdent.string_of_ident false id, t
+  )
 
 (* The modes corresponding to a system and its subsystems. *)
 let modes_of sys =

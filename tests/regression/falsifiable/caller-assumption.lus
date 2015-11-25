@@ -1,23 +1,23 @@
 node saturation (in: int) returns (out: int) ;
 (*@contract
-  @assume in >= 0 ;
-  @guarantee out >= 0 ;
-  @guarantee out <= 42 ;
-  @mode pass_through (
-    @require in < 42 ;
-    @ensure out = in ;
+  assume in >= 0 ;
+  guarantee out >= 0 ;
+  guarantee out <= 42 ;
+  mode pass_through (
+    require in < 42 ;
+    ensure out = in ;
   ) ;
-  @mode saturate (
-    @require in >= 42 ;
-    @ensure out = 42 ;
+  mode saturate (
+    require in >= 42 ;
+    ensure out = 42 ;
   ) ;
 *)
 let out = if in >= 42 then 42 else in ; tel
 
 node top (in: int) returns (out: int) ;
 (*@contract
-  @assume in >= 0 ;
-  @guarantee out <= 42 ;
+  assume in >= 0 ;
+  guarantee out <= 42 ;
 *)
 var tmp: int ;
 let

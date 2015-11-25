@@ -131,7 +131,7 @@ type t =
     (** Requirements of global and non-global modes for this system (used by
         test generation).
         List of [(is_mode_global, mode_name, require_term)]. *)
-    mode_requires: (bool * string * Term.t) list ;
+    mode_requires: Term.t option * (LustreIdent.t * Term.t) list ;
 
     (* Invariants about the current state *)
     mutable invariants_one_state : Term.t list;

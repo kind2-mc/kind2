@@ -48,10 +48,10 @@ open Lib
 module I = LustreIdent 
 module D = LustreIndex
 module E = LustreExpr
+module C = LustreContract
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
-
 
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
@@ -132,26 +132,11 @@ type function_call = {
 }
 
 
-type contract = {
-
-  (* Identifier of contract *)
-  contract_name : LustreIdent.t;
-
-  (* Position of the contract in the input *)
-  contract_pos: position;
-
-  (* Invariant from requirements of contract *)
-  contract_reqs : (position * int * StateVar.t) list;
-
-  (* Invariants from ensures of contract *)
-  contract_enss : (position * int * StateVar.t) list
-
-}
-
-
 (* An equation *)
 type equation = (StateVar.t * E.expr bound_or_fixed list * E.t) 
 
+(* A contract. *)
+type contract = C.t
 
 (* A Lustre node *)
 type t = { 
@@ -201,14 +186,11 @@ type t = {
   (* Proof obligations for node *)
   props : (StateVar.t * string * Property.prop_source) list;
 
-  (* Global contracts *)
-  global_contracts : contract list;
-
-  (* Mode contracts *)
-  mode_contracts :  contract list;
+  (* Contract. *)
+  contract : contract option ;
 
   (* Node is annotated as main node *)
-  is_main : bool;
+  is_main : bool ;
 
   (* Map from a state variable to its source *)
   state_var_source_map : state_var_source SVM.t 
@@ -239,8 +221,7 @@ let empty_node name = {
   function_calls = [];
   asserts = [];
   props = [];
-  global_contracts = [];
-  mode_contracts = [];
+  contract = None ;
   is_main = false;
   state_var_source_map = SVM.empty
 }
@@ -437,70 +418,6 @@ let pp_print_prop safe ppf (sv, n, _) =
        if sv_string <> n then
          Format.fprintf ppf " -- was: %s" n)
 
-(* Pretty-print an assumption *)
-let pp_print_assume safe ppf (_,_,sv) =
-  Format.fprintf ppf
-    "@[<hv 2>--@@assume@ @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) sv
-
-
-(* Pretty-print a guarantee *)
-let pp_print_guarantee safe ppf (_,_,sv) =
-  Format.fprintf ppf
-    "@[<hv 2>--@@guarantee @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) sv
-
-(* Pretty-print an assumption *)
-let pp_print_require safe ppf (_,_,sv) =
-  Format.fprintf ppf
-    "@[<hv 2>--@@require@ @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) sv
-
-
-(* Pretty-print a guarantee *)
-let pp_print_ensure safe ppf (_,_,sv) =
-  Format.fprintf ppf
-    "@[<hv 2>--@@ensure @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) sv
-
-
-(* Pretty-print a named mode contract. *)
-let pp_print_mode_contract safe ppf {
-  contract_name; contract_reqs; contract_enss
-} =
-  Format.fprintf
-    ppf
-    "@[<v>--@@contract %a;@,%a@,%a@]"
-    (I.pp_print_ident false) contract_name
-    (pp_print_list (pp_print_require safe) "@ ") contract_reqs
-    (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
-
-
-(* Pretty-print an anonymous global contract. *)
-let pp_print_global_contract safe ppf {
-  contract_name; contract_reqs; contract_enss
-} =
-
-    Format.fprintf
-      ppf
-      "@[<v>-- %a@,%a@,%a@]"
-      (I.pp_print_ident false) contract_name
-      (pp_print_list (pp_print_assume safe) "@ ") contract_reqs
-      (pp_print_list (pp_print_guarantee safe) "@ ") contract_enss
-
-
-(* Pretty-print a named mode contract. *)
-let pp_print_mode_contract  safe ppf {
-  contract_name; contract_reqs; contract_enss
-} =
-
-    Format.fprintf
-      ppf
-      "@[<v>--@contract %a@,%a@,%a@]"
-      (I.pp_print_ident false) contract_name
-      (pp_print_list (pp_print_require safe) "@ ") contract_reqs
-      (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
-
 
 
 (* Pretty-print a node *)
@@ -515,8 +432,7 @@ let pp_print_node safe ppf {
   function_calls;
   asserts; 
   props;
-  global_contracts;
-  mode_contracts;
+  contract;
   is_main
 } =
 
@@ -529,8 +445,7 @@ let pp_print_node safe ppf {
   Format.fprintf ppf 
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
-     %a%t\
-     %a%t\
+     %a\
      @[<v>%t@]\
      @[<hv 2>let@ \
      %a%t\
@@ -559,11 +474,11 @@ let pp_print_node safe ppf {
        (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
        (D.bindings outputs))
 
-    (pp_print_list (pp_print_global_contract safe) "@,") global_contracts
-    (space_if_nonempty global_contracts)
-
-    (pp_print_list (pp_print_mode_contract safe) "@,") mode_contracts
-    (space_if_nonempty mode_contracts)
+    (fun fmt -> function
+      | None -> ()
+      | Some contract ->
+        Format.fprintf fmt "%a@ " (C.pp_print_contract safe) contract)
+    contract
 
     (* %t *)
     (function ppf -> 
@@ -645,8 +560,7 @@ let pp_print_node_debug
       calls; 
       asserts; 
       props;
-      global_contracts;
-      mode_contracts;
+      contract;
       is_main;
       state_var_source_map } = 
 
@@ -663,25 +577,6 @@ let pp_print_node_debug
 
   in
 
-  let pp_print_contract
-      ppf
-      { contract_name;
-        contract_reqs;
-        contract_enss } =
-    let pp_thrd_of fmt (_,_,sv) =
-      Format.fprintf fmt "%a" StateVar.pp_print_state_var sv
-    in
-
-    Format.fprintf 
-      ppf
-      "@[<v>name = %a@,\
-            requires = @[<hv>%a@]@,\
-            ensures =  @[<hv>%a@]@]"
-      (I.pp_print_ident false) contract_name
-      (pp_print_list pp_thrd_of ",@ ") contract_reqs
-      (pp_print_list pp_thrd_of ",@ ") contract_enss
-  in
-
   let pp_print_state_var_source ppf = 
     let p sv src = Format.fprintf ppf "%a:%s" StateVar.pp_print_state_var sv src in
     function 
@@ -696,20 +591,19 @@ let pp_print_node_debug
   Format.fprintf 
     ppf
     "node %a @[<hv 2>\
-       { instance =         %a;@ \
-         init_flag =        %a;@ \
-         inputs =           [@[<hv>%a@]];@ \
-         oracles =          [@[<hv>%a@]];@ \
-         outputs =          [@[<hv>%a@]];@ \
-         locals =           [@[<hv>%a@]];@ \
-         equations =        [@[<hv>%a@]];@ \
-         calls =            [@[<hv>%a@]];@ \
-         asserts =          [@[<hv>%a@]];@ \
-         props =            [@[<hv>%a@]];@ \
-         global_contracts = [@[<hv>%a@]];@ \
-         mode_contracts =   [@[<hv>%a@]];@ \
-         is_main =          @[<hv>%B@];@ \
-         source_map =       [@[<hv>%a@]]; }@]"
+       { instance =  %a;@ \
+         init_flag = %a;@ \
+         inputs =     [@[<hv>%a@]];@ \
+         oracles =    [@[<hv>%a@]];@ \
+         outputs =    [@[<hv>%a@]];@ \
+         locals =     [@[<hv>%a@]];@ \
+         equations =  [@[<hv>%a@]];@ \
+         calls =      [@[<hv>%a@]];@ \
+         asserts =    [@[<hv>%a@]];@ \
+         props =      [@[<hv>%a@]];@ \
+         contract =   [@[<hv>%a@]];@ \
+         is_main =    @[<hv>%B@];@ \
+         source_map = [@[<hv>%a@]]; }@]"
 
     StateVar.pp_print_state_var instance
     StateVar.pp_print_state_var init_flag
@@ -722,8 +616,11 @@ let pp_print_node_debug
     (pp_print_list pp_print_node_call_debug ";@ ") calls
     (pp_print_list (E.pp_print_lustre_expr false) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
-    (pp_print_list pp_print_contract ";@ ") global_contracts
-    (pp_print_list pp_print_contract ";@ ") mode_contracts
+    (fun fmt -> function
+      | None -> ()
+      | Some contract ->
+        Format.fprintf fmt "%a@ "
+          (C.pp_print_contract false) contract) contract
     is_main
     (pp_print_list pp_print_state_var_source ";@ ") 
     (SVM.bindings state_var_source_map)
@@ -840,10 +737,11 @@ let rec ident_of_top = function
 
 
 (* Node has a contract if it has a global or at least one mode contract *)
-let has_contract { global_contracts; mode_contracts } = 
-  not (global_contracts = [] && mode_contracts = [])
+let has_contract { contract } = contract != None
 
-let has_modes { mode_contracts } = mode_contracts <> []
+let has_modes = function
+| { contract = None } -> false
+| { contract = Some { C.modes } } -> modes != []
 
 
 (* Node always has an implementation *)
@@ -1176,12 +1074,7 @@ let stateful_vars_of_expr { E.expr_step } =
     (expr_step :> Term.t)
 
 
-let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var 
-
-let stateful_vars_of_contract { contract_reqs; contract_enss } =
-  let thrd_of (_,_,thrd) = thrd in
-  ( List.map thrd_of contract_reqs ) @ ( List.map thrd_of contract_enss )
-  |> SVS.of_list
+let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
@@ -1193,8 +1086,7 @@ let stateful_vars_of_node
       calls; 
       asserts; 
       props; 
-      global_contracts;
-      mode_contracts } =
+      contract } =
 
   (* Input, oracle, and output variables are always stateful
 
@@ -1217,11 +1109,9 @@ let stateful_vars_of_node
   in
 
   (* Add stateful variables from global and mode contracts *)
-  let stateful_vars =
-    List.fold_left
-      (fun accum p -> SVS.union accum (stateful_vars_of_contract p))
-      stateful_vars
-      (global_contracts @ mode_contracts)
+  let stateful_vars = match contract with
+    | None -> stateful_vars
+    | Some contract -> C.svars_of contract |> SVS.union stateful_vars 
   in
 
   (* Add stateful variables from equations *)

@@ -54,6 +54,7 @@ module D = LustreIndex
 module E = LustreExpr
 module ET = E.LustreExprHashtbl
 
+module C = LustreContract
 module N = LustreNode
 module F = LustreFunction
 
@@ -292,6 +293,20 @@ let create_node = function
           expr_state_var_map = ET.copy expr_state_var_map;
           node = Some (N.empty_node ident) } )
 
+(** Returns the modes of the current node. *)
+let current_node_modes = function
+| { node = None } -> None
+| { node = Some { N.contract } } -> Some (
+  match contract with
+  | None -> None
+  | Some { C.modes } -> Some modes
+)
+
+(* Returns the name of the current node, if any. *)
+let current_node_name = function
+| { node = Some { N.name } } -> Some name
+| { node = None } -> None
+
 
 (* Create an empty function in the context *)
 let create_function = function 
@@ -456,23 +471,26 @@ let contract_node_decl_of_ident { contract_nodes } ident =
     
     (* Return contract node by name *)
     List.find
-      (function (_, (i, _, _, _, _, _)) -> i = ident)
+      (function (_, (i, _, _, _, _)) -> i = ident)
       contract_nodes
 
   (* Raise error again for more precise backtrace *)
   with Not_found -> raise Not_found
 
 
+(** The contract nodes in the context. *)
+let contract_nodes { contract_nodes } = List.map snd contract_nodes
+
 (* Add a contract node to the context for inlining later *)
 let add_contract_node_decl_to_context
     ({ contract_nodes } as ctx)
-    (pos, ((ident, _, _, _, _, _) as contract_node_decl)) =
+    (pos, ((ident, _, _, _, _) as contract_node_decl)) =
 
   if 
 
     (* Check if contract of with the same identifier exists *)
     List.exists
-      (function (_, (i, _, _, _, _, _)) -> i = ident)
+      (function (_, (i, _, _, _, _)) -> i = ident)
       contract_nodes
 
   then
@@ -1219,6 +1237,11 @@ let add_node_output ?(is_single = false) ctx ident index_types =
         | { node = Some node } ->
           { ctx with node = Some { node with N.outputs = outputs' } }
 
+(* The output state variables of the current node. *)
+let outputs_of_current_node = function
+| { node = None } -> raise (Invalid_argument "outputs_of_current_node")
+| { node = Some { N.outputs } } -> outputs
+
 
 (* Add node local to context *)
 let add_node_local ?(ghost = false) ctx ident index_types = 
@@ -1261,40 +1284,36 @@ let add_node_local ?(ghost = false) ctx ident index_types =
           { ctx with node = Some { node with N.locals = local :: locals } }
 
 
-(* Add node contract to context *)
-let add_node_global_contract ctx pos contract = 
+(* Add node assume/guarantees to context *)
+let add_node_ass_gua ctx assumes guarantees = 
 
-  match ctx with 
+  match ctx with
 
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
-    | { node = Some ({ N.global_contracts } as node) } -> 
-
+    | { node = Some ({ N.contract } as node) } ->
+      let contract = match contract with
+        | None -> C.mk assumes guarantees []
+        | Some contract -> C.add_ass_gua contract assumes guarantees
+      in
       (* Return node with contract added *)
-      { ctx with 
-          node = 
-            Some
-              { node with 
-                  N.global_contracts = 
-                    contract :: global_contracts } }
+      { ctx with node = Some { node with N.contract = Some contract } }
 
 
-(* Add node contract to context *)
-let add_node_mode_contract ctx pos contract_name contract = 
+(* Add node mode to context *)
+let add_node_mode ctx mode = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_mode_contract")
 
-    | { node = Some ({ N.mode_contracts } as node) } -> 
-
+    | { node = Some ({ N.contract } as node) } ->
+      let contract = match contract with
+        | None -> C.mk [] [] [ mode ]
+        | Some contract -> C.add_modes contract [ mode ]
+      in
       (* Return node with contract added *)
-      { ctx with 
-          node = 
-            Some
-              { node with 
-                  N.mode_contracts = 
-                    contract :: mode_contracts } }
+      { ctx with node = Some{ node with N.contract = Some contract } }
 
 
 (* Add node assert to context *)

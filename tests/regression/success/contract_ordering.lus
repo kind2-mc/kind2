@@ -24,6 +24,13 @@ node has_been_true(in: bool) returns (out: bool) ;
     require in -> pre out ;
     ensure out ;
   ) ;
+
+  guarantee ::false_so_far => not out ;
+
+  mode never_active (
+    require false ;
+    ensure false ;
+  ) ;
 */
 let
   out = in or (false -> pre out) ;

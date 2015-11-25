@@ -61,6 +61,12 @@ let of_channel in_ch =
 
   in
 
+  (* Format.printf "declarations:@   @[<v>%a@]@.@."
+    (pp_print_list LustreAst.pp_print_declaration "@ ") declarations ; *)
+
+  (* failwith "stop" ; *)
+
+
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = D.declarations_to_nodes declarations in
 

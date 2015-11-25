@@ -36,6 +36,7 @@ module E = LustreExpr
 module N = LustreNode
 module F = LustreFunction
 module C = LustreContext
+module Contract = LustreContract
 
 (* FIXME: Remove unless debugging *)
 module Event = struct let log _ = Format.printf end
@@ -91,7 +92,7 @@ let pp_print_trie pp_i pp_e ppf t =
    - recursive nodes
 
 *)
-let rec eval_ast_expr ctx = 
+let rec eval_ast_expr ?(path_prefix = []) ctx = 
 
   function
 
@@ -101,6 +102,32 @@ let rec eval_ast_expr ctx =
 
     (* Identifier *)
     | A.Ident (pos, ident) -> eval_ident ctx pos ident
+
+    (* Mode ref *)
+    | A.ModeRef (pos, p4th) -> (
+      let p4th = List.rev_append path_prefix p4th in
+      let fail () =
+        C.fail_at_position pos (
+          Format.asprintf
+            "reference to unknown mode \"::%a\""
+            (pp_print_list Format.pp_print_string "::") p4th
+        )
+      in
+      let rec find_mode = function
+        | { Contract.path ; Contract.requires } :: tail ->
+          if path = p4th then
+            requires
+            |> List.map (fun { Contract.svar } -> E.mk_var svar)
+            |> E.mk_and_n
+            |> D.singleton D.empty_index
+          else find_mode tail
+        | [] -> fail ()
+      in
+
+      match C.current_node_modes ctx with
+      | Some (Some modes) -> find_mode modes, ctx
+      | _ -> fail ()
+    )
 
     (* ****************************************************************** *)
     (* Nullary operators                                                  *)
@@ -127,16 +154,24 @@ let rec eval_ast_expr ctx =
     (* ****************************************************************** *)
 
     (* Conversion to an integer number [int expr] *)
-    | A.ToInt (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_to_int expr 
+    | A.ToInt (pos, expr) ->
+      eval_unary_ast_expr
+        ~path_prefix:path_prefix ctx pos E.mk_to_int expr 
 
     (* Conversion to a real number [real expr] *)
-    | A.ToReal (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_to_real expr
+    | A.ToReal (pos, expr) ->
+      eval_unary_ast_expr
+        ~path_prefix:path_prefix ctx pos E.mk_to_real expr
 
     (* Boolean negation [not expr] *)
-    | A.Not (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_not expr 
+    | A.Not (pos, expr) ->
+      eval_unary_ast_expr
+        ~path_prefix:path_prefix ctx pos E.mk_not expr 
 
     (* Unary minus [- expr] *)
-    | A.Uminus (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_uminus expr 
+    | A.Uminus (pos, expr) ->
+      eval_unary_ast_expr
+        ~path_prefix:path_prefix ctx pos E.mk_uminus expr 
 
     (* ****************************************************************** *)
     (* Binary operators                                                   *)
@@ -259,6 +294,7 @@ let rec eval_ast_expr ctx =
 
       (* Translate to negated equation *)
       eval_ast_expr
+        ~path_prefix:path_prefix
         ctx
         (A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2)))
 
@@ -270,13 +306,17 @@ let rec eval_ast_expr ctx =
         eval_bool_ast_expr ctx pos expr1 
       in
 
-      eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
+      eval_binary_ast_expr
+        ~path_prefix:path_prefix
+        ctx pos (E.mk_ite expr1') expr2 expr3
 
     (* Temporal operator pre [pre expr] *)
     | A.Pre (pos, expr) -> 
 
       (* Evaluate expression *)
-      let expr', ctx = eval_ast_expr ctx expr in
+      let expr', ctx =
+        eval_ast_expr ~path_prefix:path_prefix ctx expr
+      in
 
       (* Apply pre operator to expression, may change context with new
          variable *)
@@ -324,7 +364,8 @@ let rec eval_ast_expr ctx =
 
       (* Evaluate expression for clock *)
       let clock_expr', ctx = 
-        eval_bool_ast_expr ctx clock_pos clock_expr 
+        eval_bool_ast_expr
+          ~path_prefix:path_prefix ctx clock_pos clock_expr 
       in
 
       let eval_merge_case clock_sign ctx = function
@@ -350,7 +391,7 @@ let rec eval_ast_expr ctx =
                 "Clock mismatch for argument of merge");
 
           (* Evaluate expression under [when] *)
-          eval_ast_expr ctx expr
+          eval_ast_expr ~path_prefix:path_prefix ctx expr
 
         (* A node call with activation condition and no defaults *)
         | A.Activate (pos, ident, case_clock, args) -> 
@@ -397,7 +438,7 @@ let rec eval_ast_expr ctx =
         | expr -> 
 
           (* Evaluate expression under [when] *)
-          eval_ast_expr ctx expr
+          eval_ast_expr ~path_prefix:path_prefix ctx expr
 
       in
       
@@ -551,7 +592,9 @@ let rec eval_ast_expr ctx =
           (fun (i, accum, ctx) expr -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx =
+              eval_ast_expr ~path_prefix:path_prefix ctx expr
+             in
 
              (* Increment counter *)
              (succ i,
@@ -588,7 +631,9 @@ let rec eval_ast_expr ctx =
           (fun (i, accum, ctx) expr -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx =
+              eval_ast_expr ~path_prefix:path_prefix ctx expr
+             in
 
              (* Increment counter *)
              (succ i,
@@ -642,7 +687,9 @@ let rec eval_ast_expr ctx =
           (fun (accum, ctx) (i, expr) -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx =
+              eval_ast_expr ~path_prefix:path_prefix ctx expr
+             in
 
              (* Push field index to indexes in expression and add to
                  accumulator trie *)
@@ -674,8 +721,8 @@ let rec eval_ast_expr ctx =
     | A.StructUpdate (pos, expr1, index, expr2) -> 
 
       (* Evaluate expressions *)
-      let expr1', ctx = eval_ast_expr ctx expr1 in
-      let expr2', ctx = eval_ast_expr ctx expr2 in
+      let expr1', ctx = eval_ast_expr ~path_prefix:path_prefix ctx expr1 in
+      let expr2', ctx = eval_ast_expr ~path_prefix:path_prefix ctx expr2 in
 
       (* Convert an ast index to an index *)
       let rec aux accum = function 
@@ -865,7 +912,9 @@ let rec eval_ast_expr ctx =
           (fun (i, accum, ctx) expr -> 
 
              (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+             let expr', ctx =
+              eval_ast_expr ~path_prefix:path_prefix ctx expr
+             in
 
              (* Increment counter *)
              (succ i,
@@ -898,7 +947,9 @@ let rec eval_ast_expr ctx =
       let array_size = static_int_of_ast_expr ctx pos size_expr in
 
       (* Evaluate expression for array elements *)
-      let expr', ctx = eval_ast_expr ctx expr in 
+      let expr', ctx =
+        eval_ast_expr ~path_prefix:path_prefix ctx expr
+      in
 
       (* Push array index to indexes in expression and add to
          accumulator trie *)
@@ -918,7 +969,7 @@ let rec eval_ast_expr ctx =
       (* Evaluate expression to an integer constant *)
       let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
 
-      let expr', ctx = eval_ast_expr ctx expr in 
+      let expr', ctx = eval_ast_expr ~path_prefix:path_prefix ctx expr in 
 
       (* Every index starts with ArrayVarIndex or none does *)
       (match D.choose expr' with 
@@ -950,7 +1001,8 @@ let rec eval_ast_expr ctx =
         | D.TupleIndex _ :: tl, _ ->
 
           (* Try again with the correct expression *)
-          eval_ast_expr ctx (A.TupleProject (pos, expr, i))
+          eval_ast_expr
+            ~path_prefix:path_prefix ctx (A.TupleProject (pos, expr, i))
 
         (* Other or no index *)
         | D.RecordIndex _ :: _, _ 
@@ -1076,10 +1128,10 @@ and const_int_of_ast_expr ctx pos expr =
 
 
 (* Evaluate expression to an Boolean *)
-and eval_bool_ast_expr ctx pos expr = 
+and eval_bool_ast_expr ?(path_prefix = []) ctx pos expr =
 
   (* Evaluate expression to trie *)
-  let expr', ctx = eval_ast_expr ctx expr in
+  let expr', ctx = eval_ast_expr ~path_prefix:path_prefix ctx expr in
 
   (* Check if evaluated expression is Boolean *)
   (match D.bindings expr' with 
@@ -1166,12 +1218,12 @@ and eval_nullary_expr ctx pos expr =
 
 (* Evaluate the argument of a unary expression and construct a unary
    expression of the result with the given constructor *)
-and eval_unary_ast_expr ctx pos mk expr = 
+and eval_unary_ast_expr ?(path_prefix = []) ctx pos mk expr = 
 
   try 
 
     (* Evaluate expression argument *)
-    let expr', ctx = eval_ast_expr ctx expr in
+    let expr', ctx = eval_ast_expr ~path_prefix:path_prefix ctx expr in
 
     (* Apply given constructor to each expression, return with same
        bounds for each expression and changed context *)
@@ -1188,13 +1240,17 @@ and eval_unary_ast_expr ctx pos mk expr =
 
 (* Evaluate the argument of a unary expression and construct a unary
    expression of the result with the given constructor *)
-and eval_binary_ast_expr ctx pos mk expr1 expr2 = 
+and eval_binary_ast_expr ?(path_prefix = []) ctx pos mk expr1 expr2 = 
 
   (* Evaluate first expression *)
-  let expr1', ctx = eval_ast_expr ctx expr1 in
+  let expr1', ctx =
+    eval_ast_expr ~path_prefix:path_prefix ctx expr1
+  in
 
   (* Evaluate second expression, in possibly changed context *)
-  let expr2', ctx = eval_ast_expr ctx expr2 in
+  let expr2', ctx =
+    eval_ast_expr ~path_prefix:path_prefix ctx expr2
+  in
 
   (* Apply operator pointwise to expressions *)
   let res = 
