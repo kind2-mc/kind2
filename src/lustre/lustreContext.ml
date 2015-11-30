@@ -919,8 +919,8 @@ let bounds_of_expr bounds ctx expr =
       (Term.select_terms (E.unsafe_term_of_expr expr.E.expr_step))
   in
   let i = ref (-1) in
-  List.fold_left (fun acc -> incr i; function
-      | (E.Bound b | E.Fixed b | E.Unbound b) as bnd ->
+  List.map (fun bnd -> incr i; match bnd with
+      | E.Bound b | E.Fixed b | E.Unbound b ->
         let vi = match bnd with
           | E.Unbound e -> E.mk_of_expr e |> E.var_of_expr
           | _ -> E.mk_index_var !i |> E.var_of_expr
@@ -932,12 +932,11 @@ let bounds_of_expr bounds ctx expr =
           let sv = Var.state_var_of_state_var_instance v in
           let bnds_sv = SVT.find ctx.state_var_bounds sv in
           List.fold_left2 (fun acc b ti -> 
-              if has_var_index_t vi ti then (vi, b) :: acc else acc
-            ) acc bnds_sv tind
-        with Not_found -> (vi, bnd) :: acc
+              if has_var_index_t vi ti then (vi, b) else acc
+            ) (vi, bnd) bnds_sv tind
+        with Not_found | Invalid_argument _ -> (vi, bnd)
           (* if has_var_index vi expr then bnd :: acc else acc *)
-    ) [] bounds
-  |> List.rev
+    ) bounds
   
 
 (* Define the expression with a state variable *)
@@ -987,14 +986,6 @@ let mk_abs_for_expr
 
       let bounds' = bounds_of_expr bounds ctx expr in
 
-      (* Format.eprintf "bounds : "; *)
-      (* List.iter (function *)
-      (*     | E.Fixed b -> Format.eprintf "[F %a] " (E.pp_print_expr false) b *)
-      (*     | E.Bound b -> Format.eprintf "[B %a] " (E.pp_print_expr false) b *)
-      (*     | E.Unbound b -> Format.eprintf "[U %a] " (E.pp_print_expr false) b *)
-      (*   ) bounds; *)
-      (* Format.eprintf "@."; *)
-            
       (* new array if there are bound variables *)
       let var_type, expr, present_bounds, present_bounds', _ =
         List.fold_left2 (fun (ty, expr, bounds_acc, bounds_acc', i) ->
@@ -1027,7 +1018,6 @@ let mk_abs_for_expr
 
       let present_bounds = List.rev present_bounds in
       let present_bounds' = List.rev present_bounds' in
-      let bounds' = List.map snd bounds' in
 
       (* Create state variable for abstraction *)
       let state_var, ctx = 
@@ -1045,11 +1035,6 @@ let mk_abs_for_expr
 
       (* Register bounds *)
       SVT.add ctx.state_var_bounds state_var bounds;
-
-      Format.eprintf "made abs %a with %d bounds@."
-        StateVar.pp_print_state_var state_var
-        (List.length present_bounds)
-      ;
       
       (* Add bounds from array definition if necessary *)
       let abs = state_var, present_bounds in
