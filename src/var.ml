@@ -470,6 +470,18 @@ let unrolled_uf_of_state_var_instance = function
 
       uf
 
+  | ({ Hashcons.node = FreeVar (h, ty) } as var) ->
+
+    (* Creating a uf symbol for the variable. *)
+    let uf =
+      UfSymbol.mk_fresh_uf_symbol [] ty in
+      (* UfSymbol.mk_uf_symbol (HString.string_of_hstring h) [] ty in *)
+
+    (* Updating the map. *)
+    update_unrolled_var_map (UfSymbol.name_of_uf_symbol uf) var ;
+    
+    uf
+
   | ({ Hashcons.node = StateVarInstance (v, o) } as var) ->
 
      (* Getting the uf symbol of the state var. *)
@@ -493,9 +505,7 @@ let unrolled_uf_of_state_var_instance = function
          string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
      )
 
-  |v -> raise (Invalid_argument
-                 (Format.sprintf "unrolled_uf_of_state_var_instance %s"
-                    (string_of_var v)))
+
 
 (* Declares constant variables as constant ufsymbols using the
     provided function. *)

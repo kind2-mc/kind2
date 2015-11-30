@@ -253,6 +253,8 @@ let keyword_table =
       ("else", ELSE);
       ("div", INTDIV);
       ("mod", MOD);
+      ("forall", FORALL);
+      ("exists", EXISTS);
       
       (* Clock operators *)
       ("when", WHEN);

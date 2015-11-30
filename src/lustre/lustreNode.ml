@@ -318,7 +318,8 @@ let pp_print_node_equation safe ppf ((var, bounds), expr) =
               (I.pp_print_ident false)
               (I.push_index I.index_ident i)
               (E.pp_print_expr safe) e
-          | E.Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e)
+          | E.Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e
+          | E.Unbound e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e)
        "") 
     bounds
     (E.pp_print_lustre_expr safe) expr

@@ -86,7 +86,7 @@ let
   --%PROPERTY A11[2] = 3 * s;
   --%PROPERTY A7[0] = 0;
   --%PROPERTY A[0] = B[0];
-  --%PROPERTY A[0] = C[0];
+  --%PROPERTY forall (ni:int) A[ni] = C[ni];
 
 
 tel

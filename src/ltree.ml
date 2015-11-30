@@ -48,6 +48,8 @@ sig
 
   val sort_of_var : var -> sort
 
+  val mk_fresh_var : sort -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var
@@ -960,6 +962,9 @@ struct
     (* Cached evaluation *)
     | E of 'a
 
+    (* Skip evaluation *)
+    | Skip
+
   (* ********************************************************************* *)
   (* Folding function keeping the term                                     *)
   (* ********************************************************************* *)
@@ -1075,13 +1080,13 @@ struct
 
         match 
 
-          try 
+          (* try  *)
 
             (* Get the assignment to the variable in the context stack *)
             List.assoc (dbm - db + 1) subst 
 
           (* Every variable must be bound *)
-          with Not_found -> assert false
+          (* with Not_found -> assert false *)
 
         with 
 
@@ -1119,6 +1124,11 @@ struct
 
             )
 
+          | Skip -> fold f subst accum tl
+            
+          | exception Not_found -> assert false
+                                     
+
       )
 
     (* The top element of the stack is a let binding *)
@@ -1152,9 +1162,25 @@ struct
         accum
         (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
 
-    (* The top element of the stack is a quantified term *)
-    | FTree (_, { H.node = Exists _ }) :: tl
-    | FTree (_, { H.node = Forall _ }) :: tl -> invalid_arg "Quantified term"
+    (* The top element of the stack is a quantifier *)
+    | FTree (db, { H.node = (Forall { H.node = L (n, l) } |
+                             Exists { H.node = L (n, l) })
+                 }) :: tl ->
+
+      let vs = int_seq (db + 1) (List.length n) in
+
+      let s = List.map (fun dbi -> (dbi, Skip)) vs in
+      
+      (* Add to the context stack *)
+      let subst' = s @ subst in
+
+      (* Add term under lambda to instruction stack, followed by a pop
+         instruction for the number of scopes added by the binding *)
+      fold 
+        f
+        subst'
+        accum
+        (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
 
     (* The top element of the instruction stack is a symbol *)
     | FNode (op, args) :: tl -> 
@@ -1193,7 +1219,7 @@ struct
 
           (* Pop one scope from the context stack *)
           | _ :: subst' -> fold f subst' accum (FPop (pred i) :: tl)
-          | [] -> assert false
+          | [] -> assert false 
 
       )
 
@@ -1230,9 +1256,13 @@ struct
             (* Continue with modified context *)
             fold f subst' atl itl
 
+          (* nothing to evaluate context, skip *)
+          | [] :: atl -> fold f subst atl itl
+
           (* Result stack is never empty and has a singleton list as
              first element *)
-          | _ :: _ 
+              
+          | x :: _ -> Format.eprintf "%d@." (List.length x); assert false
           | [] -> assert false
 
       )

@@ -68,9 +68,10 @@ type expr = private Term.t
 
 (** Type of index in an equation for an array *)
 type 'a bound_or_fixed = 
-  | Bound of 'a  (** Equation is for each value of the index variable
-                     between zero and the upper bound *)
-  | Fixed of 'a  (** Fixed value for index variable *)
+  | Bound of 'a    (** Equation is for each value of the index variable
+                       between zero and the upper bound *)
+  | Fixed of 'a    (** Fixed value for index variable *)
+  | Unbound of 'a  (** unbounded index variable *)
 
 
 (** Return the type of the expression *)
@@ -147,6 +148,9 @@ val has_pre_var : Numeral.t -> t -> bool
 
 (** Return true if expression is a current state variable *)
 val is_var : t -> bool
+
+val is_const_var : t -> bool
+
 
 (** Return true if expression is a previous state variable *)
 val is_pre_var : t -> bool
@@ -233,6 +237,8 @@ val var_of_expr : t -> Var.t
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
+val vars_of_expr : t -> Var.VarSet.t
+
 (** Return all state variables of the initial state expression at the
     base instant *)
 val base_state_vars_of_init_expr : t -> StateVar.StateVarSet.t
@@ -276,6 +282,8 @@ val mk_real : Decimal.t -> t
 (** Return an expression of a variable. *)
 val mk_var : StateVar.t -> t
 
+val mk_free_var : Var.t -> t
+
 (** Return an expression for the i-th index variable. *)
 val mk_index_var : int -> t
 
@@ -314,6 +322,12 @@ val mk_xor : t -> t -> t
 
 (** Return the Boolean implication of the two expressions. *)
 val mk_impl : t -> t -> t 
+
+(** Return the universal quantification of an expression. *)
+val mk_forall : Var.t list -> t -> t 
+
+(** Return the existential quantification of an expression. *)
+val mk_exists : Var.t list -> t -> t 
 
 (** Return the integer modulus of the two expressions. *)
 val mk_mod : t -> t -> t 
@@ -404,6 +418,8 @@ val unsafe_expr_of_term : Term.t -> expr
 
 
 val mk_array : t -> t -> t
+
+val mk_let : (Var.t * expr) list -> t -> t
 
 (* 
    Local Variables:

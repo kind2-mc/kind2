@@ -84,6 +84,8 @@ type expr =
   | Or of position * expr * expr
   | Xor of position * expr * expr 
   | Impl of position * expr * expr 
+  | Forall of position * typed_ident list * expr
+  | Exists of position * typed_ident list * expr
   | OneHot of position * expr list
 
   (* Arithmetic operators *)
@@ -443,6 +445,14 @@ let rec pp_print_expr ppf =
     | Xor (p, e1, e2) -> p2 p "xor" e1 e2
     | Impl (p, e1, e2) -> p2 p "=>" e1 e2
     | OneHot (p, e) -> pnp p "#" e
+    | Forall (pos, vars, e) -> 
+      Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
+        (pp_print_list pp_print_typed_decl ";@ ") vars
+        pp_print_expr e
+    | Exists (pos, vars, e) -> 
+      Format.fprintf ppf "@[<hv 2>exists@ @[<hv 1>(%a)@]@ %a@]" 
+        (pp_print_list pp_print_typed_decl ";@ ") vars
+        pp_print_expr e
 
     | Uminus (p, e) -> p1 p "-" e
     | Mod (p, e1, e2) -> p2 p "mod" e1 e2 

@@ -75,6 +75,8 @@ type expr =
   | Or of position * expr * expr
   | Xor of position * expr * expr
   | Impl of position * expr * expr
+  | Forall of position * typed_ident list * expr
+  | Exists of position * typed_ident list * expr
   | OneHot of position * expr list
   | Uminus of position * expr
   | Mod of position * expr * expr

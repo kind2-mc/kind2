@@ -453,12 +453,45 @@ let add_subsystem
     subsystems
 
 
+(* Change the bounds of state variables to the ones corresponding to actual
+   parameters of the node call *)
+let register_call_bound globals map_up sv =
+  let bounds =
+    try StateVar.StateVarHashtbl.find globals.G.state_var_bounds sv
+    with Not_found -> [] in
+
+  let bounds = List.map (fun b -> match b with
+      | E.Fixed _ | E.Unbound _ -> b
+      | E.Bound e ->
+        let t = E.unsafe_term_of_expr e in
+        let svs = Term.state_vars_of_term t |> SVS.elements in
+        let sigma =
+          List.fold_left (fun acc s ->
+              assert (StateVar.is_const s);
+              let v = Var.mk_const_state_var s in
+              try
+                let sv' = SVM.find s map_up in
+                assert (StateVar.is_const sv');
+                let tv' = Var.mk_const_state_var sv' |> Term.mk_var in
+                (v, tv') :: acc
+              with Not_found -> acc) [] svs
+          |> List.rev in
+        if sigma = [] then b
+        else
+          E.Bound (Term.mk_let sigma t
+                   |> Term.unlet |> E.unsafe_expr_of_term)
+    ) bounds in
+  StateVar.StateVarHashtbl.add globals.G.state_var_bounds sv bounds
+
+
+
 (* Return term and lifted property for node call 
 
    This factors out node calls with or without an activation
    condition *)
 let call_terms_of_node_call
-    mk_fresh_state_var 
+    mk_fresh_state_var
+    globals
     { N.call_node_name; 
       N.call_pos;
       N.call_inputs; 
@@ -643,6 +676,14 @@ let call_terms_of_node_call
 
   in
 
+  (* apply subsitutions on bounds also *)
+  LustreIndex.iter (fun _ ->
+      register_call_bound globals state_var_map_up) call_inputs;
+  LustreIndex.iter (fun _ ->
+      register_call_bound globals state_var_map_up) call_outputs;
+  List.iter (register_call_bound globals state_var_map_up) call_oracles;
+  List.iter (register_call_bound globals state_var_map_up) call_locals;
+  
   (* Return information to build constraint for node call with or
      without activation condition *)
   state_var_map_up, 
@@ -659,6 +700,7 @@ let call_terms_of_node_call
    transition relation *)
 let rec constraints_of_node_calls 
     mk_fresh_state_var
+    globals
     trans_sys_defs
     node_locals
     node_init_flags
@@ -709,6 +751,7 @@ let rec constraints_of_node_calls
         (* Create node call *)
         call_terms_of_node_call
           mk_fresh_state_var
+          globals
           node_call
           node_locals
           node_props
@@ -734,6 +777,7 @@ let rec constraints_of_node_calls
       (* Continue with next node calls *)
       constraints_of_node_calls 
         mk_fresh_state_var
+        globals
         trans_sys_defs
         node_locals
         node_init_flags
@@ -855,10 +899,9 @@ let rec constraints_of_node_calls
 
         call_terms_of_node_call
           mk_fresh_state_var
-
+          globals
           (* Modify node call to use shadow inputs *)
           { node_call with N.call_inputs = shadow_inputs }
-
           node_locals
           node_props
           node_def
@@ -874,7 +917,8 @@ let rec constraints_of_node_calls
 
       let has_ticked =
         mk_fresh_state_var ?is_const:None ?for_inv_gen:(Some false)
-          ~inst_for_sv:clock Type.t_bool
+          ~inst_for_sv:clock
+          Type.t_bool
       in
 
       let node_locals = has_ticked :: node_locals in
@@ -1043,6 +1087,7 @@ let rec constraints_of_node_calls
 
       constraints_of_node_calls
         mk_fresh_state_var
+        globals
         trans_sys_defs
         node_locals
         (init_flags @ node_init_flags)
@@ -1309,9 +1354,13 @@ let rec constraints_of_asserts init_terms trans_terms = function
 module MBounds = Map.Make (struct
     type t = E.expr E.bound_or_fixed list
     let compare_bounds b1 b2 = match b1, b2 with
-      | E.Fixed e1, E.Fixed e2 | E.Bound e1, E.Bound e2 -> E.compare_expr e1 e2
-      | E.Fixed _, E.Bound _ -> -1 
-      | E.Bound _, E.Fixed _ -> 1
+      | E.Fixed e1, E.Fixed e2
+      | E.Bound e1, E.Bound e2
+      | E.Unbound e1, E.Unbound e2 -> E.compare_expr e1 e2
+      | E.Fixed _, _ -> -1
+      | _, E.Fixed _ -> 1
+      | E.Unbound _, _ -> 1
+      | _, E.Unbound _ -> -1
     let compare l1 l2 =
       let n1, n2 = List.length l1, List.length l2 in
       let c = n2 - n1 in
@@ -1450,6 +1499,11 @@ let constraints_of_arrays init terms eq_bounds =
                     term])
             in
             term, v :: quant_v, pred i
+
+          | E.Unbound _ ->
+            (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)
+            term, v :: quant_v, pred i
+                             
         ) (term, [], List.length bounds - 1) bounds
     in
 
@@ -1625,7 +1679,7 @@ let rec trans_sys_of_node'
                   globals.G.state_var_bounds inst_for_sv
             with Not_found -> [] in
           StateVar.StateVarHashtbl.add globals.G.state_var_bounds fsv bounds;
-
+          
           fsv
           
         in
@@ -1797,6 +1851,7 @@ let rec trans_sys_of_node'
 
               constraints_of_node_calls
                 mk_fresh_state_var
+                globals
                 trans_sys_defs
                 []  (* No lifted locals *)
                 [init_flag]

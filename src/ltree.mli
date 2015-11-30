@@ -96,6 +96,8 @@ sig
   (** Return the sort of a variable *)
   val sort_of_var : var -> sort
 
+  val mk_fresh_var : sort -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var

@@ -548,7 +548,11 @@ let get_var_values s state_var_indexes vars =
       let indexes = StateVar.StateVarHashtbl.find state_var_indexes
           (Var.state_var_of_state_var_instance v) in
 
-      let bnds = List.map (function
+      let bnds = try
+          List.map (function
+          | LustreExpr.Unbound _ ->
+            raise Exit
+            (* assert false *) (* no models for unbounded arrays *)
           | LustreExpr.Fixed eu
           | LustreExpr.Bound eu ->
             if LustreExpr.is_numeral eu then
@@ -561,7 +565,9 @@ let get_var_values s state_var_indexes vars =
               (match ub with
                | Eval.ValNum nu -> 0, Numeral.to_int nu |> pred
                | _ -> assert false)
-        ) indexes in
+            ) indexes
+        with Exit -> []
+      in
       
       let args_list = cross (List.map range bnds) in
       let vt = Term.mk_var v in
@@ -572,6 +578,7 @@ let get_var_values s state_var_indexes vars =
             |> Term.convert_select
             |> S.Conv.smtexpr_of_term
           ) args_list in
+      
       let values =
         if sexprs = [] then [] (* when the size of the array is 0 in the model *)
         else match prof_get_value s sexprs with

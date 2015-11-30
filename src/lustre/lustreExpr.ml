@@ -55,6 +55,7 @@ type t = {
 type 'a bound_or_fixed = 
   | Bound of 'a  (* Upper bound for index variable *)
   | Fixed of 'a  (* Fixed value for index variable *)
+  | Unbound of 'a  (* unbounded index variable *)
 
 
 let compare_expr = Term.compare
@@ -714,10 +715,16 @@ let is_var_at_offset { expr_init; expr_step } (init_offset, step_offset) =
 
 
 
-(* Return true if expression is a previous state variable *)
+(* Return true if expression is a state variable *)
 let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 
+                                   
+let is_const_var { expr_init; expr_step } = 
+  Term.is_free_var expr_init
+  && Var.is_const_state_var (Term.free_var_of_term expr_init)
+  && Var.is_const_state_var (Term.free_var_of_term expr_step)
 
+                          
 (* Return true if expression is a previous state variable *)
 let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
 
@@ -868,6 +875,19 @@ let state_vars_of_expr { expr_init; expr_step } =
   (* Join sets of state variables *)
   SVS.union state_vars_init state_vars_step
 
+            
+(* Return all state variables *)
+let vars_of_expr { expr_init; expr_step } = 
+
+  (* State variables in initial state expression *)
+  let vars_init = Term.vars_of_term expr_init in
+
+  (* State variables in step state expression *)
+  let vars_step = Term.vars_of_term expr_step in
+
+  (* Join sets of state variables *)
+  Var.VarSet.union vars_init vars_step
+
 
 (* Return all state variables at the current instant in the initial
    state expression *)
@@ -1010,6 +1030,13 @@ let mk_var state_var =
     expr_step = cur_term_of_state_var cur_offset state_var;
     expr_type = StateVar.type_of_state_var state_var } 
 
+
+let mk_free_var v =
+  let t = Term.mk_var v in
+  { expr_init = t;
+    expr_step = t;
+    expr_type = Var.type_of_var v } 
+  
 
 (* i-th index variable *)
 let mk_index_var i = 
@@ -1398,6 +1425,45 @@ let type_of_impl = type_of_bool_bool_bool
 
 (* Boolean implication *)
 let mk_impl expr1 expr2 = mk_binary eval_impl type_of_impl expr1 expr2 
+
+(* ********************************************************************** *)
+
+let mk_let bindings expr =
+  {
+    expr_init = Term.mk_let bindings expr.expr_init;
+    expr_step = Term.mk_let bindings expr.expr_step;
+    expr_type = expr.expr_type;
+  }
+
+(* ********************************************************************** *)
+
+(* Evaluate universal quantification *)
+let eval_forall vars t = match vars, t with
+  | [], _ -> Term.t_true
+  | _, t when t == Term.t_true -> Term.t_true
+  | _, t when t == Term.t_false -> Term.t_false
+  | _ -> Term.mk_forall vars t 
+
+let type_of_forall = type_of_bool_bool
+
+(* Universal quantification*)
+let mk_forall vars expr =
+  mk_unary (eval_forall vars) type_of_forall expr
+
+
+(* ********************************************************************** *)
+
+(* Evaluate existential quantification *)
+let eval_exists vars t = match vars, t with
+  | [], _ -> Term.t_false
+  | _, t when t == Term.t_true -> Term.t_true
+  | _, t when t == Term.t_false -> Term.t_false
+  | _ -> Term.mk_exists vars t 
+
+let type_of_exists = type_of_bool_bool
+
+(* Existential quantification*)
+let mk_exists vars expr = mk_unary (eval_exists vars) type_of_exists expr
 
 
 (* ********************************************************************** *)

@@ -177,7 +177,7 @@ let pp_print_model ppf model =
   Var.VarHashtbl.iter
     (fun v value ->
       Format.fprintf ppf
-        "@[<hv 2>%a =@ %a@]@." 
+        "@[<hv 2>%a =@ %a@]@."
         Var.pp_print_var v
         pp_print_value value
     )

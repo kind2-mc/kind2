@@ -221,6 +221,24 @@ let rec eval_ast_expr bounds ctx =
 
       eval_binary_ast_expr bounds ctx pos E.mk_impl expr1 expr2 
 
+    (* Universal quantification *)
+    | A.Forall (pos, avars, expr) ->
+
+      let ctx, vars = vars_of_quant ctx avars in
+      let bounds =
+        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+          vars @ bounds in
+      eval_unary_ast_expr bounds ctx pos (E.mk_forall vars) expr
+        
+    (* Existential quantification *)
+    | A.Exists (pos, avars, expr) ->
+
+      let ctx, vars = vars_of_quant ctx avars in
+      let bounds =
+        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+          vars @ bounds in
+      eval_unary_ast_expr bounds ctx pos (E.mk_exists vars) expr
+
     (* Integer modulus [expr1 mod expr2] *)
     | A.Mod (pos, expr1, expr2) -> 
 
@@ -352,6 +370,8 @@ let rec eval_ast_expr bounds ctx =
                      succ i,
                      Term.mk_select t
                        (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
+                   | E.Unbound v ->
+                     i, Term.mk_select t (E.unsafe_term_of_expr v)
                    | _ -> assert false)
                  (0, Var.mk_state_var_instance sv E.pre_offset |> Term.mk_var)
                  bounds
@@ -1088,7 +1108,9 @@ let rec eval_ast_expr bounds ctx =
         try
           let index_nb = E.int_of_index_var index in
           let b, bounds = Lib.list_extract_nth bounds index_nb in
-          match b with E.Fixed e | E.Bound e -> Some e, bounds
+          match b with
+          | E.Fixed e | E.Bound e -> Some e, bounds
+          | E.Unbound _ -> None, bounds
         with Invalid_argument _ | Failure _ -> None, bounds
       in
       
@@ -1240,6 +1262,40 @@ let rec eval_ast_expr bounds ctx =
 (* Helper functions                                                     *)
 (* ******************************************************************** *)
 
+
+and var_of_quant (ctx, vars) (pos, v, ast_type) =
+  (* Evaluate type expression *)
+  let index_types = eval_ast_type ctx ast_type in
+
+  (* Add state variables for all indexes of input *)
+  let vars, d  =
+    D.fold
+      (fun index index_type (vars, d) ->
+         let name = Format.sprintf "%s%s" v (D.string_of_index true index) in
+         let var = Var.mk_free_var (HString.mk_hstring name) index_type in
+         let ev = E.mk_free_var var in
+         var :: vars, D.add index ev d)
+      index_types
+      (vars, D.empty)
+  in
+
+  (* Bind identifier to the index variable, shadow previous
+     bindings *)
+  let ctx = 
+    C.add_expr_for_ident
+      ~shadow:true
+      ctx
+      (I.mk_string_ident v)
+      d
+  in
+
+  ctx, vars
+  
+
+and vars_of_quant ctx l =
+  let ctx, vars = List.fold_left var_of_quant (ctx, []) l in
+  ctx, List.rev vars  
+
 (* Evaluate expression to an integer constant, return as a numeral *)
 and const_int_of_ast_expr ctx pos expr = 
 
@@ -1381,7 +1437,6 @@ and eval_nullary_expr ctx pos expr =
 and eval_unary_ast_expr bounds ctx pos mk expr = 
 
   try 
-
     (* Evaluate expression argument *)
     let expr', ctx = eval_ast_expr bounds ctx expr in
 
@@ -1398,7 +1453,7 @@ and eval_unary_ast_expr bounds ctx pos mk expr =
         "Type mismatch for expression"
 
 
-(* Evaluate the argument of a unary expression and construct a unary
+(* Evaluate the argument of a binary expression and construct a binary
    expression of the result with the given constructor *)
 and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 = 
 
@@ -1654,12 +1709,16 @@ and eval_node_call
             (not (StateVar.is_const state_var) || 
              E.is_const expr)
           then 
+            let bounds_state_var =
+              try StateVar.StateVarHashtbl.find (C.get_state_var_bounds ctx)
+                    state_var
+              with Not_found -> [] in 
 
             (* New variable for abstraction, is constant if input is *)
             let (state_var', _) , ctx = 
               C.mk_local_for_expr
                 ~is_const:(StateVar.is_const state_var)
-                ~bounds
+                ~bounds:bounds_state_var
                 pos
                 ctx
                 expr
@@ -2119,7 +2178,7 @@ let array_of_tuple pos index_vars expr =
 (* ******************************************************************** *)
     
 (* Evalute a parsed type expression to a trie of types of indexes *)
-let rec eval_ast_type ctx = function
+and eval_ast_type ctx = function
 
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool pos -> D.singleton D.empty_index Type.t_bool

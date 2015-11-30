@@ -82,7 +82,7 @@ type instance =
     (** Position as a unique identifier of the instance *)
 
     map_down : StateVar.t StateVar.StateVarMap.t;
-    (** Map from state variables of the called system to the state
+    (** Map from state variables of the caller system to the state
         variables of the this system *)
 
     map_up : StateVar.t StateVar.StateVarMap.t;

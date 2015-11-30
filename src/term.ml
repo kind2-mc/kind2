@@ -76,6 +76,8 @@ struct
   (* Get sort of a variable *)
   let sort_of_var = Var.type_of_var
 
+  let mk_fresh_var = Var.mk_fresh_var
+  
   let import_symbol = Symbol.import 
 
   let import_var = Var.import 
@@ -1379,6 +1381,14 @@ let select_symbols_of_term term =
     ) term
   |> ignore;
   !selm
+
+let select_terms term =
+  eval_t
+    (function 
+      | T.App (s, l) as t when Symbol.is_select s ->
+        fun _ -> TermSet.singleton (construct t)
+      | _ -> List.fold_left TermSet.union TermSet.empty)
+    term
 
 (* Return set of state variables at given offsets in term *)
 let state_vars_at_offset_of_term i term = 

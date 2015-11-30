@@ -763,7 +763,7 @@ let rec eval_node_equations ctx = function
 
   (* Property annotation *)
   | A.AnnotProperty (pos, ast_expr) :: tl -> 
-
+    
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
       S.eval_bool_ast_expr [] ctx pos ast_expr 

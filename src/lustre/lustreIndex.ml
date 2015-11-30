@@ -214,8 +214,8 @@ let array_vars_of_index idx =
     []
     idx
     
-(* Map of single indexes *)  
-module LustreOneIndexMap = Map.Make 
+(* Module for of single indexes *)  
+module LustreOneIndex =
     (struct 
       type t = one_index
       let compare = compare_one_index
@@ -223,7 +223,7 @@ module LustreOneIndexMap = Map.Make
 
 
 (* Trie of idexes *)  
-module LustreIndexTrie = Trie.Make (LustreOneIndexMap)
+module LustreIndexTrie = Trie.Make (LustreOneIndex)
 
 include LustreIndexTrie
 

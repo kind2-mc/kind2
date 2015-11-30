@@ -115,6 +115,8 @@ let mk_pos = position_of_lexing
 %token ELSE
 %token IMPL
 %token HASH
+%token FORALL
+%token EXISTS
     
 (* Tokens for relations *)
 %token LTE
@@ -154,6 +156,7 @@ let mk_pos = position_of_lexing
 %left PIPE
 %nonassoc ELSE
 %right ARROW
+%nonassoc prec_forall prec_exists
 %right IMPL
 %left OR XOR
 %left AND
@@ -393,19 +396,19 @@ contract:
     { A.ContractCall (mk_pos $startpos, n) }
 
 contract_require:
-  | REQUIRE; e = expr; SEMICOLON
+  | REQUIRE; e = qexpr; SEMICOLON
     { mk_pos $startpos, e }
 
 contract_ensure:
-  | ENSURE; e = expr; SEMICOLON
+  | ENSURE; e = qexpr; SEMICOLON
     { mk_pos $startpos, e }
 
 comment_contract_require:
-  | COMMENTREQUIRE; e = expr; SEMICOLON
+  | COMMENTREQUIRE; e = qexpr; SEMICOLON
     { mk_pos $startpos, e }
 
 comment_contract_ensure:
-  | COMMENTENSURE; e = expr; SEMICOLON
+  | COMMENTENSURE; e = qexpr; SEMICOLON
     { mk_pos $startpos, e }
 
 comment_contract_ghost_var:
@@ -503,7 +506,7 @@ var_decl:
 node_equation:
 
   (* An assertion *)
-  | ASSERT; e = expr; SEMICOLON
+  | ASSERT; e = qexpr; SEMICOLON
     { A.Assert (mk_pos $startpos, e) }
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
@@ -515,7 +518,7 @@ node_equation:
   | MAIN { A.AnnotMain }
 
   (* Property annotation *)
-  | PROPERTY; e = expr; SEMICOLON { A.AnnotProperty (mk_pos $startpos, e) }
+  | PROPERTY; e = qexpr; SEMICOLON { A.AnnotProperty (mk_pos $startpos, e) }
 
 
 
@@ -730,6 +733,176 @@ expr:
   | e = node_call { e } 
 
 
+
+(* An possibly quantified expression *)
+qexpr: 
+  
+  (* An identifier *)
+  | s = ident { A.Ident (mk_pos $startpos, s) } 
+
+  (* A propositional constant *)
+  | TRUE { A.True (mk_pos $startpos) }
+  | FALSE { A.False (mk_pos $startpos) }
+
+  (* An integer numeral or a floating-point decimal constant *)
+  | s = NUMERAL { A.Num (mk_pos $startpos, s) } 
+  | s = DECIMAL { A.Dec (mk_pos $startpos, s) } 
+
+  (* Conversions *)
+  | INT; e = qexpr { A.ToInt (mk_pos $startpos, e) }
+  | REAL; e = qexpr { A.ToReal (mk_pos $startpos, e) }
+
+  (* A parenthesized single expression *)
+  | LPAREN; e = qexpr; RPAREN { e } 
+
+  (* An expression list (not quantified)
+
+     Singleton list is in production above *)
+  | LPAREN; h = qexpr; COMMA; l = qexpr_list; RPAREN 
+    { A.ExprList (mk_pos $startpos, h :: l) } 
+
+  (* A tuple expression (not quantified) *)
+  (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
+  | LCURLYBRACKET; l = qexpr_list; RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
+
+  (* An array expression (not quantified) *)
+  | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
+
+  (* An array constructor (not quantified) *)
+  | e1 = qexpr; CARET; e2 = qexpr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
+
+  (* An array slice or tuple projection (not quantified) *)
+  | e = qexpr; DOTPERCENT; i = qexpr 
+    { A.TupleProject (mk_pos $startpos, e, i) }
+
+  (* An array slice (not quantified) *)
+  | e = qexpr; LSQBRACKET; s = array_slice; RSQBRACKET
+    { A.ArraySlice (mk_pos $startpos, e, s) }
+
+  (* A record field projection (not quantified) *)
+  | s = qexpr; DOT; t = ident 
+    { A.RecordProject (mk_pos $startpos, s, t) }
+
+  (* A record (not quantified) *)
+  | t = ident; 
+    f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
+    { A.RecordExpr (mk_pos $startpos, t, f) }
+
+  (* An array concatenation *)
+  | e1 = qexpr; PIPE; e2 = qexpr { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
+
+  (* with operator for updating fields of a structure (not quantified) *)
+  | LPAREN; 
+    e1 = qexpr; 
+    WITH; 
+    i = nonempty_list(label_or_index); 
+    EQUALS; 
+    e2 = qexpr; 
+    RPAREN
+
+    { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
+
+  (* An arithmetic operation *)
+  | e1 = qexpr; MINUS; e2 = qexpr { A.Minus (mk_pos $startpos, e1, e2) }
+  | MINUS; e = qexpr { A.Uminus (mk_pos $startpos, e) } 
+  | e1 = qexpr; PLUS; e2 = qexpr { A.Plus (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; MULT; e2 = qexpr { A.Times (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; DIV; e2 = qexpr { A.Div (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; INTDIV; e2 = qexpr { A.IntDiv (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; MOD; e2 = qexpr { A.Mod (mk_pos $startpos, e1, e2) }
+
+  (* A Boolean operation *)
+  | NOT; e = qexpr { A.Not (mk_pos $startpos, e) } 
+  | e1 = qexpr; AND; e2 = qexpr { A.And (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; OR; e2 = qexpr { A.Or (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; XOR; e2 = qexpr { A.Xor (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; IMPL; e2 = qexpr { A.Impl (mk_pos $startpos, e1, e2) }
+  | HASH; LPAREN; e = qexpr_list; RPAREN { A.OneHot (mk_pos $startpos, e) }
+
+  (* A Boolean operation *)
+  | FORALL; vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = qexpr
+    %prec prec_forall
+    { A.Forall (mk_pos $startpos, List.flatten vars, e) }
+  | EXISTS; vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = qexpr
+    %prec prec_exists
+    { A.Exists (mk_pos $startpos, List.flatten vars, e) }
+                                                                       
+  (* A relation *)
+  | e1 = qexpr; LT; e2 = qexpr { A.Lt (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; GT; e2 = qexpr { A.Gt (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; LTE; e2 = qexpr { A.Lte (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; GTE; e2 = qexpr { A.Gte (mk_pos $startpos, e1, e2) }
+  | e1 = qexpr; EQUALS; e2 = qexpr { A.Eq (mk_pos $startpos, e1, e2) } 
+  | e1 = qexpr; NEQ; e2 = qexpr { A.Neq (mk_pos $startpos, e1, e2) } 
+
+  (* An if operation *)
+  | IF; e1 = qexpr; THEN; e2 = qexpr; ELSE; e3 = qexpr 
+    { A.Ite (mk_pos $startpos, e1, e2, e3) }
+
+  (* Recursive node call *)
+  | WITH; e1 = qexpr; THEN; e2 = qexpr; ELSE; e3 = qexpr 
+    { A.With (mk_pos $startpos, e1, e2, e3) }
+
+  (* when operator on qexpression  *)
+  | e1 = qexpr; WHEN; e2 = qexpr { A.When (mk_pos $startpos, e1, e2) }
+
+  (* current operator on qexpression *)
+  | CURRENT; e = qexpr { A.Current (mk_pos $startpos, e) }
+
+  (* condact call with defaults *)
+  | CONDACT 
+    LPAREN; 
+    e1 = qexpr; 
+    COMMA; 
+    s = ident; LPAREN; a = separated_list(COMMA, qexpr); RPAREN; 
+    COMMA; 
+    d = qexpr_list 
+    RPAREN
+    { A.Condact (mk_pos $startpos, e1, s, a, d) } 
+
+  (* condact call may have no return values and therefore no defaults *)
+  | CONDACT 
+    LPAREN; 
+    c = qexpr; 
+    COMMA; 
+    s = ident; LPAREN; a = separated_list(COMMA, qexpr); RPAREN; 
+    RPAREN
+
+    { A.Condact (mk_pos $startpos, c, s, a, []) } 
+
+  (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
+     is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = qexpr; 
+    INITIAL DEFAULT; d = separated_list(COMMA, qexpr); RPAREN; 
+    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+
+    { A.Condact (mk_pos $startpos, c, s, a, d) }
+    
+  (* activate operator without initial defaults
+
+     Only supported inside a merge *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = qexpr; RPAREN; 
+    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+
+    { A.Activate (mk_pos $startpos, s, c, a) }
+    
+  (* Merge operator *)
+  | MERGE; 
+    LPAREN;
+    c = qexpr; SEMICOLON;
+    l = separated_nonempty_list(SEMICOLON, qexpr); RPAREN 
+    { A.Merge (mk_pos $startpos, c, l) }
+    
+  (* A temporal operation *)
+  | PRE; e = qexpr { A.Pre (mk_pos $startpos, e) }
+  | FBY LPAREN; e1 = qexpr COMMA; s = NUMERAL; COMMA; e2 = qexpr RPAREN
+    { A.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
+  | e1 = qexpr; ARROW; e2 = qexpr { A.Arrow (mk_pos $startpos, e1, e2) }
+
+  (* A node or function call *)
+  | e = node_call { e } 
+
+
 (* Static parameters are only types *)
 node_call_static_param:
   | t = lustre_type { t }
@@ -754,6 +927,10 @@ node_call:
 
 (* A list of expressions *)
 expr_list: l = separated_nonempty_list(COMMA, expr) { l }
+
+
+(* A list of quantified expressions *)
+qexpr_list: l = separated_nonempty_list(COMMA, qexpr) { l }
 
 
 (* An array slice *)
