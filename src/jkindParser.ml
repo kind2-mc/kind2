@@ -51,7 +51,7 @@ let s_and = HString.mk_hstring "and"
 
 (* New scope for the JKind system *)
 let jkind_scope = ["JKind"]
-
+let jk_init_flag = StateVar.mk_init_flag jkind_scope
 
 (* Options used to run JKind. We make it dump its smt2 files that contain the
    transition relation. Everything is disabled so that JKind only produces one
@@ -203,6 +203,7 @@ let jkind_vars_of_kind2_statevar sys lustre_vars sv =
    application [jk_trans_lambda true] and [trans] is the partial application
    [jk_trans_lambda false].)*)
 type jkind_raw = {
+  jk_init_flag : StateVar.t;
   jk_statevars : StateVar.t list;
   jk_trans_lambda : Term.lambda option;
 }
@@ -210,6 +211,7 @@ type jkind_raw = {
 
 (* An empty raw system to start with*)
 let jkind_empty = {
+  jk_init_flag = jk_init_flag;
   jk_statevars = [];
   jk_trans_lambda = None;
 }
@@ -357,10 +359,10 @@ let of_channel in_ch =
   let lexbuf = Lexing.from_channel in_ch in
   let sexps = SExprParser.sexps SExprLexer.main lexbuf in
 
-  let statevars, jk_trans_lambda =
+  let statevars, jk_trans_lambda, jk_init_flag =
     match parse jkind_empty sexps with
-    | { jk_statevars; jk_trans_lambda = Some jk_trans_lambda } ->
-      jk_statevars, jk_trans_lambda
+    | { jk_statevars; jk_trans_lambda = Some jk_trans_lambda; jk_init_flag } ->
+      jk_statevars, jk_trans_lambda, jk_init_flag
     | _ -> assert false
   in
 
@@ -384,6 +386,11 @@ let of_channel in_ch =
   let t_statevars0 = List.map Term.mk_var statevars0 in
   let t_statevars1 = List.map Term.mk_var statevars1 in
   let t_statevars_m1 = List.map Term.mk_var statevars_m1 in
+
+  let initflag0 = Var.mk_state_var_instance jk_init_flag Numeral.zero in
+  let initflag1 = Var.mk_state_var_instance jk_init_flag Numeral.one in
+  let t_initflag0 = Term.mk_var initflag0 in
+  let t_initflag1 = Term.mk_var initflag1 in
   
   (* Predicate symbol for initial state predicate *)
   let init_uf_symbol = 
@@ -411,7 +418,8 @@ let of_channel in_ch =
       (Term.t_true :: t_statevars_m1 @ t_statevars0)
     |> unlet_term
     |> simplify_trivial_ites
-    |> minus_one_to_const 
+    |> (fun t -> Term.mk_and [t_initflag0 ;t])
+    |> minus_one_to_const
   in
   
   (* Term for transition relation. We do a simplification by removing let
@@ -421,21 +429,23 @@ let of_channel in_ch =
       (Term.t_false :: t_statevars0 @ t_statevars1)
     |> unlet_term
     |> simplify_trivial_ites
+    |> (fun t -> Term.mk_and [Term.mk_not t_initflag1 ;t])
   in
 
   let vconsts = List.map Var.mk_const_state_var consts in
-  let init_args = vconsts @ statevars0 in
-  let trans_args = vconsts @ statevars1 @ statevars0 in
+  let init_args = vconsts @ (initflag0 :: statevars0) in
+  let trans_args = vconsts @
+                   (initflag1 :: statevars1) @
+                   (initflag0 :: statevars0) in
 
-  let init_flag = StateVar.mk_init_flag jkind_scope in
-  let allstatevars = consts @ statevars in
+  let allstatevars = consts @ (jk_init_flag :: statevars) in
   
   (* Creation of transition system *)
   let sys, _ =
     TransSys.mk_trans_sys
       jkind_scope
       None
-      init_flag
+      jk_init_flag
       []
       allstatevars
       []

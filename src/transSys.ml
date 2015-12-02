@@ -1626,7 +1626,8 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
         Term.map_state_vars
           (fun sv -> 
              try SVM.find sv map_up with
-               | Not_found -> 
+               | Not_found ->
+                 Format.eprintf "Not found in map up %a@." StateVar.pp_print_state_var sv;
                  assert false)
           t
         |> guard_clock offset
