@@ -20,12 +20,7 @@
 (declare invariant (! I set (! T rel (! P set type))))
 
 ;; Unrolling transition relation k times starting from the initial state
-(program
- unroll_from
- ((T rel) ;; (term (arrow Int (arrow Int Bool))))
-  (I set)
-  (k mpz))
- formula
+(program unroll_from ((T rel) (I set) (k mpz)) formula
  (mp_ifneg k
    (fail formula)
    (mp_ifzero k
@@ -37,14 +32,21 @@
 ;; the actual types of T and I
 
 
-(program base ((I set) (T rel) (P set) (k mpz)) formula
+;; base for k steps
+
+(program base_k ((I set) (T rel) (P set) (k mpz)) formula
  (mp_ifneg k
    (fail formula)
    (mp_ifzero k
      (and (unroll_from T I 0) (not (P 0)))
      (let j (mp_add k (~ 1))
-       (or (base I T P j) (and (unroll_from T I k) (not (P k))))))))
+       (or (base_k I T P j) (and (unroll_from T I k) (not (P k))))))))
 
+
+;; base for k steps
+
+(program base ((I set) (T rel) (P set) (k mpz)) formula
+ (base_k I T P (mp_add k (~ 1))))
 
 ;; unroll step case under assumption
 
@@ -63,6 +65,76 @@
   (and (unroll_with T P k) (not (P k))))
 
 
+;; Rule for strengthening of invariants
+
+(declare invariant-implies
+  (! I set
+  (! T rel
+  (! P1 set
+  (! P2 set
+
+  (! u
+     (! k mpz      
+     (! v1 (th_holds (P1 k))
+     (! v2 (th_holds (not (P2 k)))
+        (holds cln))))
+
+  (! i1
+     (invariant I T P1)
+  ;--------------------------------
+  (invariant I T P2)
+
+  )))))))
+
+
+
+;; Other version
+
+(declare invariant-implies2
+  (! I set
+  (! T rel
+  (! P1 set
+  (! P2 set
+
+  ;; proof that P1 => P2
+  (! u
+     (! k mpz      
+     (! v (th_holds (and (P1 k) (not (P2 k))))
+        (holds cln)))
+
+  ;; proof that P1 is invariant
+  (! i1
+     (invariant I T P1)
+
+  ;--------------------------------
+  (invariant I T P2)
+
+  )))))))
+
+
+;; Rule for k-induction principle
+
+(declare kinduction
+  (! I set      ; initial states
+  (! T rel      ; transition relation
+  (! P set      ; k-inductice invariant
+  (! k mpz      ; bound k
+
+  (! B formula  ; formula for base case (see sc r1)
+  (! S formula  ; formula for step case (see sc r2)
+  (! r1 (^ (base I T P k) B)
+  (! r2 (^ (step T P k) S)
+     
+  (! ub (! vb (th_holds B) (holds cln)) ; proof of base
+
+  (! us (! vs (th_holds S) (holds cln)) ; proof of step
+
+  ;------------------------------------
+  (invariant I T P)
+
+  )))))))))))
+
+     
 ;;-------------------------------------------------------------------------
 ;; Some tests
 
@@ -81,20 +153,18 @@
 ;; result:
 ;; fail
 
-
+(run (base I T P 2))
 (run (base I T P 4))
-
 (run (base I T P (~ 1)))
-
+(run (base I T P 0))
+(run (base I T P 1))
 
 (run (unroll_with T P 4))
-
 (run (unroll_with T P 1))
-
 (run (unroll_with T P 0))
-
 (run (unroll_with T P (~ 1)))
 
+(run (step T P 2))
 (run (step T P 4))
 
 ;;-------------------------------------------------------------------------
