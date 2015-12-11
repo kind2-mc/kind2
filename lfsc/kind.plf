@@ -31,6 +31,46 @@
 ;; TODO: we might need to embed indexes in terms data structure depending on
 ;; the actual types of T and I
 
+;; (define trans (term (arrow Int (arrow Int Bool))))
+;; (define init (term (arrow Int Bool)))
+;; (define term_Int (term Int))
+
+;; (run (int 0))
+
+
+;; lfsc loops on that
+
+;; (program unroll_from
+;;  ((T trans)
+;;   (I init)
+;;   (k term_Int))
+;;  formula
+;;  (match k
+;;  ((term (int k2))
+;;   (mp_ifneg k2
+;;    (fail formula)
+;;    (mp_ifzero k2
+;;      (p_app (apply Int Bool I k))
+;;      (let j (term (int (mp_add k2 (~ 1))))
+;;        (and (unroll_from T I j) (p_app (apply Int Bool (apply Int (arrow Int Bool) T j) k)))))))))
+
+;; (program unroll_from
+;;  ((T trans)
+;;   (I init)
+;;   (k mpz))
+;;  formula
+;;  (let kt (int k)
+;;  (let km1 (mp_add k (~ 1))
+;;  (let km1t (int km1)
+;;  (mp_ifneg k
+;;    (fail formula)
+;;    (mp_ifzero k
+;;      (p_app (apply Int Bool I kt))
+;;      (and (unroll_from T I km1) (p_app (apply Int Bool (apply Int (arrow Int Bool) T km1t) kt)))))))))
+
+
+;; (run 1)
+
 
 ;; base for k steps
 
@@ -99,7 +139,7 @@
   ;; proof that P1 => P2
   (! u
      (! k mpz      
-     (! v (th_holds (and (P1 k) (not (P2 k))))
+     (! v (th_holds (not (impl (P1 k) (P2 k))))
         (holds cln)))
 
   ;; proof that P1 is invariant
@@ -115,19 +155,21 @@
 ;; Rule for k-induction principle
 
 (declare kinduction
+  (! k mpz      ; bound k
   (! I set      ; initial states
   (! T rel      ; transition relation
   (! P set      ; k-inductice invariant
-  (! k mpz      ; bound k
 
   (! B formula  ; formula for base case (see sc r1)
-  (! S formula  ; formula for step case (see sc r2)
   (! r1 (^ (base I T P k) B)
+
+  (! S formula  ; formula for step case (see sc r2)
   (! r2 (^ (step T P k) S)
-     
+         
   (! ub (! vb (th_holds B) (holds cln)) ; proof of base
 
   (! us (! vs (th_holds S) (holds cln)) ; proof of step
+
 
   ;------------------------------------
   (invariant I T P)
@@ -168,3 +210,30 @@
 (run (step T P 4))
 
 ;;-------------------------------------------------------------------------
+
+
+(check
+
+ (% xI set
+ (% xT rel
+ (% xP set
+
+ (% B2 (th_holds (or (and (xI 0) (not (xP 0))) (and (and (xI 0) (xT 0 1)) (not (xP 1)))))
+ (% S2 (th_holds (and (and (and (xP 0) (xT 0 1)) (and (xP 1) (xT 1 2))) (not (xP 2))))
+    
+ (: (invariant xI xT xP)
+
+ (kinduction 2 _ _ _
+   ;; _ _
+   ;; B and S can be inferred from the other types (and the side conditions?)
+   (or (and (xI 0) (not (xP 0))) (and (and (xI 0) (xT 0 1)) (not (xP 1))))
+             
+   (and (and (and (xP 0) (xT 0 1)) (and (xP 1) (xT 1 2))) (not (xP 2)))
+
+
+   (\ pb (clausify_false (trust))) ;; hole for proof of base at 2
+     
+   (\ ps (clausify_false (trust))) ;; hole for proof of step at 2
+
+ ))))))))
+   
