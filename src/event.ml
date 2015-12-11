@@ -443,8 +443,8 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
     Simplify.has_division_by_zero_happened () |> ignore ;
 
     (* Don't show counterexamples for candidates *)
-    if TransSys.is_candidate trans_sys prop then
-      if disproved then begin
+    if TransSys.is_candidate trans_sys prop then begin
+      if disproved then
         (ignore_or_fprintf level)
           !log_ppf 
           "@[<v>Candidate %s disproved by %a %tafter %.3fs.@]@."
@@ -458,28 +458,28 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
           (*    (log_level_of_int (int_of_log_level level + 2)) *)
           (*    input_sys analysis trans_sys prop disproved) *)
           (* cex *)
-      end
-      else
+    end
+    else
 
-        (* Output cex. *)
-        (ignore_or_fprintf level)
-          !log_ppf 
-          "@[<v>%s Property %s %s %tafter %.3fs.@,@,%a@]@."
-          (if disproved then failure_tag else warning_tag)
-          prop
-          (
-            if disproved then
-              Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
-            else
-              "has a step k-induction counterexample"
-          )
-          (function ppf -> match cex with
-             | [] -> ()
-             | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
-          (Stat.get_float Stat.total_time)
-          (pp_print_counterexample_pt
-             level input_sys analysis trans_sys prop disproved)
-          cex ;
+      (* Output cex. *)
+      (ignore_or_fprintf level)
+        !log_ppf 
+        "@[<v>%s Property %s %s %tafter %.3fs.@,@,%a@]@."
+        (if disproved then failure_tag else warning_tag)
+        prop
+        (
+          if disproved then
+            Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
+          else
+            "has a step k-induction counterexample"
+        )
+        (function ppf -> match cex with
+           | [] -> ()
+           | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
+        (Stat.get_float Stat.total_time)
+        (pp_print_counterexample_pt
+           level input_sys analysis trans_sys prop disproved)
+        cex ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
