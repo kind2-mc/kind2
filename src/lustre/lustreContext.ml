@@ -1313,7 +1313,7 @@ let add_node_mode ctx mode =
         | Some contract -> C.add_modes contract [ mode ]
       in
       (* Return node with contract added *)
-      { ctx with node = Some{ node with N.contract = Some contract } }
+      { ctx with node = Some { node with N.contract = Some contract } }
 
 
 (* Add node assert to context *)

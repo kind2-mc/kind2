@@ -266,7 +266,7 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
           fun acc ({ C.num ; C.pos ; C.svar } as sv) -> (
             E.mk_var svar |> E.mk_impl guard
             |> property_of_expr
-              (C.prop_name_of_svar sv name ".require")
+              (C.prop_name_of_svar sv name ".ensure")
               prop_status
               (P.GuaranteeModeImplication (pos, scope))
           ) :: acc

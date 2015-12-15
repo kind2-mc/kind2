@@ -125,7 +125,20 @@ let rec eval_ast_expr ?(path_prefix = []) ctx =
       in
 
       match C.current_node_modes ctx with
-      | Some (Some modes) -> find_mode modes, ctx
+      | Some (Some modes) ->
+        (* Format.printf
+          "Modes:@.  @[<v>%a@]@.@."
+          (pp_print_list
+            (fun fmt { Contract.name ; Contract.path } ->
+              Format.fprintf fmt
+                "%a::%a"
+                (pp_print_list Format.pp_print_string "::")
+                path
+                (I.pp_print_ident false) name
+            )
+            "@ "
+          ) modes ; *)
+        find_mode modes, ctx
       | _ -> fail ()
     )
 

@@ -1248,7 +1248,7 @@ let rec inline_contract_of_contract_node
            "Assignment to undeclared ghost variable");
 
       (* Add equation for ghost stream *)
-      let ctx = 
+      let ctx =
         eval_node_equations 
           ctx
           [A.Equation
@@ -1459,6 +1459,10 @@ let rec eval_node_contract_calls ctx scope = function
               id in_id
           )
         ) ;
+
+        C.add_expr_for_ident
+          ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
+
         ctx
     ) ctx out_params out_formals
   with
