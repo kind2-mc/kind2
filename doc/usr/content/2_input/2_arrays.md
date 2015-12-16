@@ -176,13 +176,13 @@ M[i][j] = if i = j then 1 else 0 ;
 
 updates `M` with the identity matrix
 
--|-|-|-|-
-1|0|0|⋯|0
-0|1|0|⋯|0
-0|0|1|⋯|0
-⋮|⋮|⋮|⋱|0
-0|0|0|⋯|1
-
+```
+[[ 1 , 0 , 0 ,..., 0 ],
+ [ 0 , 1 , 0 ,..., 0 ],
+ [ 0 , 0 , 1 ,..., 0 ],
+ .................... ,
+ [ 1 , 0 , 0 ,..., 1 ]]
+```
 
 It is possible to write an equation of the form
 
