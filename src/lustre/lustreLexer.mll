@@ -99,7 +99,16 @@ let pp_print_lexbuf ppf
     pp_print_position lex_start_p
     pp_print_position lex_curr_p
 
- 
+
+  let char_for_backslash = function
+    | 'n' -> '\010'
+    | 'r' -> '\013'
+    | 'b' -> '\008'
+    | 't' -> '\009'
+    | c -> c
+
+  (* Buffer to store strings *)
+  let string_buf = Buffer.create 1024
 
 (* A stack of pairs of channels, a directory and lexing buffers to
    handle included files 
@@ -408,6 +417,9 @@ rule token = parse
   (* Newline *)
   | newline { Lexing.new_line lexbuf; token lexbuf }
 
+  (* String *)
+  | "\"" { Buffer.clear string_buf; string lexbuf }
+      
   (* End of file *)
   | eof 
 
@@ -539,6 +551,19 @@ and return_at_eol t = parse
 
   (* Ignore characters *)
   | _ { return_at_eol t lexbuf }
+
+
+and string = parse
+  | "\""
+      { STRING (Buffer.contents string_buf) }
+  | "\\" (_ as c)
+      { Buffer.add_char string_buf (char_for_backslash c); string lexbuf }
+  | newline
+      { Lexing.new_line lexbuf; Buffer.add_char string_buf '\n'; string lexbuf }
+  | eof
+      { failwith (Format.sprintf "Unterminated string") }
+  | _ as c
+      { Buffer.add_char string_buf c; string lexbuf }
 
 
 

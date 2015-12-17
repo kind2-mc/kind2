@@ -762,7 +762,7 @@ let rec eval_node_equations ctx = function
     eval_node_equations ctx tl
 
   (* Property annotation *)
-  | A.AnnotProperty (pos, ast_expr) :: tl -> 
+  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
     
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
@@ -770,10 +770,9 @@ let rec eval_node_equations ctx = function
       |> C.close_expr pos
     in
 
-    let name = 
-      Format.asprintf
-        "@[<h>%a@]"
-        A.pp_print_expr ast_expr
+    let name = match name_opt with
+      | Some n -> n
+      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
     in
     
     (* Add property to node *)

@@ -214,7 +214,7 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
   | AnnotMain
-  | AnnotProperty of position * expr
+  | AnnotProperty of position * string option * expr
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -807,7 +807,11 @@ let pp_print_node_equation ppf = function
 
   | AnnotMain -> Format.fprintf ppf "--%%MAIN;"
 
-  | AnnotProperty (pos, e) -> Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
+  | AnnotProperty (pos, None, e) ->
+    Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
+
+  | AnnotProperty (pos, Some name, e) ->
+    Format.fprintf ppf "--%%PROPERTY \"%s\" %a;" name pp_print_expr e 
 
 
 let pp_print_contract_ghost_const commented ppf = function 

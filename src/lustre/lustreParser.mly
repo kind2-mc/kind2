@@ -48,7 +48,9 @@ let mk_pos = position_of_lexing
 (* Tokens for decimals and numerals *)
 %token <string>DECIMAL
 %token <string>NUMERAL
-      
+
+%token <string>STRING
+
 (* Identifier token *)
 %token <string>SYM 
       
@@ -518,7 +520,12 @@ node_equation:
   | MAIN { A.AnnotMain }
 
   (* Property annotation *)
-  | PROPERTY; e = qexpr; SEMICOLON { A.AnnotProperty (mk_pos $startpos, e) }
+  | PROPERTY; e = qexpr; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, None, e) }
+  
+  (* Property annotation *)
+  | PROPERTY; name = STRING; e = qexpr; SEMICOLON  
+    { A.AnnotProperty (mk_pos $startpos, Some name, e) }
 
 
 

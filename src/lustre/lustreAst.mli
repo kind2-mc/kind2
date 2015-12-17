@@ -174,7 +174,7 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr
   | AnnotMain 
-  | AnnotProperty of position * expr
+  | AnnotProperty of position * string option * expr
 
 (** A contract ghost constant *)
 type contract_ghost_const = const_decl
