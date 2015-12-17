@@ -7,7 +7,7 @@
 
 This section discusses the semantics of contracts, and in particular modes, in
 Kind 2. For details regarding the syntax, please see the
-[contract syntax section][../2_input/1_lustre.md#contracts].
+[contract syntax section](../2_input/1_lustre.md#contracts).
 
 An *assume-guarantee contract* `(A,G)` for a node `n` is a set of *assumptions*
 `A` and a set of *guarantees* `G`. Assumptions describe how `n` **must** be
@@ -139,7 +139,7 @@ This defensive approach is discussed in the next section.
 Conceptually modes correspond to different situations triggering different
 behaviors for a node. Kind 2 is *defensive* in the sense that when a contract
 has at least one mode, it will check that the modes account for **all
-situtations** the assumptions allow before trying to prove the node respects
+situations** the assumptions allow before trying to prove the node respects
 its contract.
 
 More formally, consider a node `n` with contract
@@ -161,18 +161,17 @@ If `one_mode_active` is indeed invariant, it means that as long as
 then at least one mode is active at all time.
 
 
-Kind 2 follows this defensive approach because, especially in a specification /
-verification context, it is better to be safe than sorry.
+Kind 2 follows this defensive approach.
 If a mode is missing, or a requirement is more restrictive than it should be
-then Kind 2 will detect the modes are not exhaustive, provide a counterexample
+then Kind 2 will detect the modes that are not exhaustive, provide a counterexample
 and stop.
 
-
-If on the other hand you want to leave some situation unspecified on purpose,
-it is easy to add a mode
+This defensive approach is not as constraining as it first appears.
+If one wants to leave some situation unspecified on purpose,
+it is enough to add to the current set of (non-exhaustive) modes a mode like
 ```
 mode base_case (
   require true ;
 ) ;
 ```
-to the set of (non-exhaustive) modes.
+which explicitly accounts for, and hence documents, the missing cases.
