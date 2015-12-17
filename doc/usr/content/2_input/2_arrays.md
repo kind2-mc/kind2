@@ -29,7 +29,7 @@ A : int ^ n;
 This declaration is equivalent to the previous one for `A`.
 
 
-An interesting feature of these array is the possibility for users to write
+An interesting feature of these arrays is the possibility for users to write
 generic nodes and functions that are parametric in the size of the array. For
 instance one can write the following node returns the last element of an array.
 
@@ -59,10 +59,25 @@ M1 : bool ^ n ^ m;
 M2 : int ^ 3 ^ 3;
 ```
 
-Here `M1` is a matrix of size 4x5 whose elements are Boolean
-[^ `M1` can also be viewed as an array of arrays of Booleans.], and `M2` is a
+Here `M1` is a matrix of size 4x5 whose elements are Boolean, and `M2` is a
 square matrix of size 3x3 whose elements are integers.
 
+> **Remark**
+>
+> `M1` can also be viewed as an array of arrays of Booleans.
+
+Kind 2 also allows one to nest datatypes, so it is possible to write arrays of
+records, records of arrays, arrays of tuples, and so on.
+
+```
+type rational = { n: int; d: int };
+
+rats: rational^array_size;
+mm: [int, bool]^array_size;
+```
+
+In this example, `rats` is declared as an array of record elements and `mm` is
+an array of pairs.
 
 
 ### Definitions
@@ -123,37 +138,43 @@ V5](http://www.di.ens.fr/~pouzet/cours/mpri/manual_lustre.ps):
 ## Extension to unbounded arrays
 
 Kind 2 provides an extension of Lustre to express equational constraints
-between unbounded arrays
-[^ Here, by *unbounded* we mean whose size is an unbounded constant]. This
-syntax extension allows users to recursively define arrays, perform whole array
-updates and allows to encode most of the other unsupported array features. This
-extension was originally suggested by
+between unbounded arrays. This syntax extension allows users to inductively
+define arrays, give whole array definitions and allows to encode most of the
+other unsupported array features. This extension was originally suggested by
 [Esterel](http://www.esterel-technologies.com).
+
+
+> **Remark**
+>
+> Here, by *unbounded* we mean whose size is an unbounded constant.
+
 
 In addition, we also enriched the specification language of Kind 2 to support
 (universal and existential) quantifiers, allowing one to effectively model
 *parameterized* system.
 
 
-### Whole array updates
+### Whole array definitions
 
 Equations in the body of nodes can now take the following forms
 
-- `A[2] = <term> ;` This equation updates the element at index `2` to the value
-  `<term>`, the other elements remain unchanged. This form of *single point*
+- `A[2] = <term> ;` This equation defines the element at index `2` to the value
+  `<term>`, the other elements are undefined. This form of *single point*
   updates can only be written when the selections on the left of the equation
   are at constant literal integers.
 
-- `A[i] = <term(i)> ;` This equation updates the values of all elements in the
+- `A[i] = <term(i)> ;` This equation defines the values of all elements in the
   array `A`. The index `i` has to be a symbol, it is bound locally to the
-  equation and shadows all other mentions of `i`. The right hand side of the
-  equation, `<term(i)>` can depend on this index. The meaning of the equation
-  is that, for any integer `i` between the 0 and the size of `A`, the value at
-  position `i` is updated with the term `<term(i)>`.
+  equation and shadows all other mentions of `i`. Index variables that appear
+  on the left hand side of equations are **implicitly universally
+  quantified**. The right hand side of the equation, `<term(i)>` can depend on
+  this index. The meaning of the equation is that, for any integer `i` between
+  0 and the size of `A`, the value at position `i` is defined as the term
+  `<term(i)>`.
 
-- `A = B ;` This equation updates the values of the array `A` with the values
-  of `B`. It can be viewed as copying the array `B` into `A`. This equation
-  is equivalent to the equation `A[i] = B[i] ;`.
+- `A = B ;` This equation defines the values of the array `A` to be the same as
+  the values of `B`. This equation is equivalent to the equation `A[i] = B[i]
+  ;`.
 
 
 Semantically, a whole array equation is equivalent to a quantified
@@ -174,7 +195,7 @@ equation
 M[i][j] = if i = j then 1 else 0 ;
 ```
 
-updates `M` with the identity matrix
+defines `M` as the identity matrix
 
 ```
 [[ 1 , 0 , 0 ,..., 0 ],
@@ -190,19 +211,20 @@ It is possible to write an equation of the form
 M[i][i] = i;
 ```
 
-but in this case the second index `i` masks the first one, hence the definition
-is equivalent to the following one where the indexes have been renamed.
+but in this case the second index `i` shadows the first one, hence the
+definition is equivalent to the following one where the indexes have been
+renamed.
 
 ```
 M[j][i] = i;
 ```
 
 
-### Recursive definitions
+### Inductive definitions
 
 
 One interesting feature of these equations is that we allow definitions of
-arrays *recursively*. For instance it is possible to write an equation
+arrays *inductively*. For instance it is possible to write an equation
 
 ```
 A[i] = if i = 0 then 0 else A[i-1] ;
@@ -215,18 +237,18 @@ side.
 
 #### Dependency analysis
 
-Recursive definitions are allowed under the restriction that they should be
+Inductive definitions are allowed under the restriction that they should be
 *well founded*. For instance, the equation
 
 ```
 A[i] = A[i];
 ```
 
-does not make any sense and will be rejected by Kind 2 the same way the
-equation `x = x;` is rejected. Of course this restriction does not apply for
-array variables under a `pre`, so the equation `A[i] = pre A[i];` is allowed.
+is not and will be rejected by Kind 2 the same way the equation `x = x;` is
+rejected. Of course this restriction does not apply for array variables under a
+`pre`, so the equation `A[i] = pre A[i];` is allowed.
 
-In practice, Kind 2 will try to prove statically that the recursion is
+In practice, Kind 2 will try to prove statically that the definitions are
 well-founded to ensure the absence of dependency cycles. We only attempt to
 prove that definitions for an array `A` at a given index `i` depends on on
 values of `A` at indexes strictly smaller than `i`.
@@ -235,17 +257,17 @@ For instance the following set of definitions is rejected because *e.g.* `A[k]`
 depends on `A[k]`.
 
 ```
-A[k] = B[k+1];
-B[k] = C[k-1];
-C[k] = A[k];
+A[k] = B[k+1] + y;
+B[k] = C[k-1] - 2;
+C[k] = A[k] + k;
 ```
 
 On the other hand this one will be accepted.
 
 ```
-A[k] = B[k+1];
-B[k] = C[k-1];
-C[k] = A[k-1] + B[k];
+A[k] = B[k+1] + y;
+B[k] = C[k-1] - 2;
+C[k] = ( A[k-1] + B[k] ) * k ;
 ```
 
 Because the order is fixed and that the checks are simple, it is possible that
@@ -253,17 +275,23 @@ Kind 2 rejects programs that are well defined (with respect to our semantic for
 whole array updates). It will not, however, accept programs that are
 ill-defined.
 
-For instance all the following equations will be rejected:
+For instance each of the following equations will be rejected.
 
 ```
-A[i] = if i = 0 then A[i] else A[i-1];
+A[i] = if i = 0 then 0 else if i = 1 then A[0] else A[i-1];
+```
+
+```
 A[i] = if i = n then 0 else A[i+1];
+```
+
+```
 A[i] = if i = 0 then 0 else A[0];
 ```
 
 #### Examples
 
-This section gives some examples of usage for recursive definitions and whole
+This section gives some examples of usage for inductive definitions and whole
 array updates as a way to encode unsupported features and as way to encode
 complicated functions succinctly.
 
@@ -361,8 +389,10 @@ forall (i, j: int) 0 <= i and i < n and 0 <= j and j < n => M[i][j] = M[j][i]
 ```
 is a formula that specifies that the matrix `M` is symmetric.
 
-**Remark:** Existential quantification takes the same form except we use
-  `exists` instead of forall.
+> **Remark**
+>
+> Existential quantification takes the same form except we use
+> `exists` instead of `forall`.
 
 Quantifiers can be arbitrarily nested and alternated at the propositional level.
 
@@ -392,7 +422,7 @@ tel
 ### Limitations
 
 One major limitation that is present in the arrays of Kind 2 is that one cannot
-have node calls in recursive array definitions whose parameters are array
+have node calls in inductive array definitions whose parameters are array
 selections.
 
 For instance, it is currently not possible to write the following in Kind 2
@@ -425,7 +455,7 @@ A = some_node(4, B);
 
 ### Command line options
 
-We provide different encodings of recursive array definitions in our internal
+We provide different encodings of inductive array definitions in our internal
 representation of the transition system. The command line interface exposes
 different options to control which encoding is used. This is particularly
 relevant for SMT solvers that have built-in features, whether it is support for
@@ -442,7 +472,7 @@ Option           | Description
 `--arrays_rec` |  Define recurvsive functions for arrays (for CVC4)
 
 
-The default encoding will use quantified formulas for recursive definitions and
+The default encoding will use quantified formulas for inductive definitions and
 whole array updates.
 
 
@@ -496,4 +526,4 @@ will now be encoded by the constraint
 #### `--arrays_rec`
 
 This uses a special kind of encoding to tell CVC4 to treat quantified
-definitions of some uninterpreted as recursive definitions.
+definitions of some uninterpreted functions as recursive definitions.
