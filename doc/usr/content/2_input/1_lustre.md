@@ -10,7 +10,7 @@ To specify a property to verify in a Lustre node, add the following in the body 
 --%PROPERTY <bool_expr> ;
 ```
 
-where `<bool_expr>` is a boolean Lustre expression.
+where `<bool_expr>` is a Boolean Lustre expression.
 
 Kind 2 only analyzes what it calls the *top node*. By default, the top node is the last node in the file. To force a node to be the top node, add
 
@@ -28,7 +28,7 @@ kind2 --lustre_main <node_name> ...
 
 ### Example
 
-The following example declares two nodes ```greycounter``` and ```intcounter```, as well as an *observer* node ```top``` that calls these nodes and verifies that their outputs are the same. The node ```top``` is annotated with ```--%MAIN ;``` which makes it the *top node* (redundant here because it is the last node). The line ```--PROPERTY OK;``` means we want to verify that the boolean stream ```OK``` is always true.
+The following example declares two nodes ```greycounter``` and ```intcounter```, as well as an *observer* node ```top``` that calls these nodes and verifies that their outputs are the same. The node ```top``` is annotated with ```--%MAIN ;``` which makes it the *top node* (redundant here because it is the last node). The line ```--PROPERTY OK;``` means we want to verify that the Boolean stream ```OK``` is always true.
 
 ```
 node greycounter (reset: bool) returns (out: bool);
@@ -160,7 +160,7 @@ it is not accessible from the body of the node specified. Ghost variables
 (constants) are defined with the `var` (`const`) keyword. Kind 2 performs type
 inference so in most cases type annotations are not necessary.
 
-The generic syntax is
+The general syntax is
 ```
 const <id> [: <type>] = <expr> ;
 var   <id> [: <type>] = <expr> ;
@@ -183,7 +183,7 @@ var ghost_stream : int = if input > max then max else input ;
 
 An assumption over a node `n` is a constraint one must respect in order to use
 `n` legally. It cannot mention the outputs of `n` in the current state, but
-refering to outputs under a `pre` is fine.
+referring to outputs under a `pre` is fine.
 
 The idea is that it does not make sense to ask the caller to respect some
 constraints over the outputs of `n`, as the caller has no control over them
@@ -191,7 +191,7 @@ other than the inputs it feeds `n` with.
 The assumption may however depend on previous values of the outputs produced
 by `n`.
 
-Assumptions are given with the `assume` keyword, followed by any legal boolean
+Assumptions are given with the `assume` keyword, followed by any legal Boolean
 expression:
 ```
 assume <expr> ;
@@ -207,7 +207,7 @@ they express the behavior of the node they specified under the assumptions of
 this node.
 
 Guarantees are given with the `guarantee` keyword, followed by any legal
-boolean expression:
+Boolean expression:
 ```
 guarantee <expr> ;
 ```
@@ -218,10 +218,10 @@ guarantee <expr> ;
 
 A mode `(R,E)` is a set of *requires* `R` and a set of *ensures* `E`. Requires
 have the same restrictions as assumptions: they cannot mention outputs of the
-node they specify in the curent state. Ensures, like guarantees, have no
+node they specify in the current state. Ensures, like guarantees, have no
 restriction.
 
-Modes are named to ease traceability and improve feedback. The generic syntax
+Modes are named to ease traceability and improve feedback. The general syntax
 is
 ```
 mode <id> (
@@ -240,7 +240,7 @@ mode engaging (
 mode engaged (
   require engage_input ;
   require false -> pre engage_input ;
-  ensure                 output <= upper_bound ;
+  ensure  output <= upper_bound ;
   ensure  lower_bound <= output ;
 ) ;
 ```
@@ -263,7 +263,7 @@ The reason is that the distinction between inputs and outputs lets Kind 2 check
 that the assumptions and mode requirements make sense, *i.e.* do not mention
 outputs of `n` in the current state.
 
-The generic syntax is
+The general syntax is
 ```
 import <id> ( <expr>,* ) returns ( <expr>,* ) ;
 ```
@@ -324,7 +324,7 @@ To refer to the `init` mode:
 ::init
 ```
 
-A mode reference is simply a macro for the requires of the mode in question.
+A mode reference is syntactic sugar for the `requires` of the mode in question.
 So if mode `m` is
 ```
 mode m (
@@ -341,10 +341,10 @@ then `::<path>::m` is exactly the same as
 ```
 
 **N.B.**: a mode reference
-* is lustre expression of type bool just like any other. It can appear under a
-  `pre`, be used in a node call or a contract import *etc.*
+* is a Lustre expression of type `bool` just like any other Boolean expression. 
+  It can appear under a `pre`, be used in a node call or a contract import, *etc.*
 * is only legal **after** the mode item itself. That is, no
-  forward/self-reference is allowed.
+  forward/self-references are allowed.
 
 
 An interesting use-case for mode references is that of checking properties over
