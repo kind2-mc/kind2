@@ -396,10 +396,6 @@ is a formula that specifies that the matrix `M` is symmetric.
 
 Quantifiers can be arbitrarily nested and alternated at the propositional level.
 
-It is possible to describe and check properties of parameterized
-systems. Contrary to the Lustre compilers, Kind 2 does not require the
-constants used as array sizes to be instantiated with actual values. In this
-case the properties are checked *for any* array sizes.
 
 #### Example
 
@@ -492,7 +488,7 @@ These form of constraint are handled in an efficient way by CVC4 (thanks to
 finite model finding).
 
 
-#### `--smt_arrays`
+##### `--smt_arrays`
 
 By default arrays are converted using ah-hoc selection functions to avoid
 stressing the theory of arrays in the SMT solvers. This option tells Kind 2 to
@@ -501,7 +497,7 @@ it’s probably a good idea to use it in combination of `--smtlogic detect` for
 better performances.
 
 
-#### `--inline_arrays`
+##### `--inline_arrays`
 
 By default, Kind 2 will generate problems with quantifiers for arrays which
 should be useful for problems with large arrays. This option tells Kind 2 to
@@ -523,7 +519,7 @@ will now be encoded by the constraint
     (select A 4) = x ⋀ (select A 5) = x*
 
 
-#### `--arrays_rec`
+##### `--arrays_rec`
 
 This uses a special kind of encoding to tell CVC4 to treat quantified
 definitions of some uninterpreted functions as recursive definitions.
