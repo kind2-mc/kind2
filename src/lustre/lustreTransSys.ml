@@ -478,8 +478,7 @@ let register_call_bound globals map_up sv =
           |> List.rev in
         if sigma = [] then b
         else
-          E.Bound (Term.mk_let sigma t
-                   |> Term.unlet |> E.unsafe_expr_of_term)
+          E.Bound (Term.apply_subst sigma t |> E.unsafe_expr_of_term)
     ) bounds in
   StateVar.StateVarHashtbl.add globals.G.state_var_bounds sv bounds
 

@@ -225,18 +225,18 @@ let rec eval_ast_expr bounds ctx =
     | A.Forall (pos, avars, expr) ->
 
       let ctx, vars = vars_of_quant ctx avars in
-      let bounds =
+      let bounds = bounds @
         List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
-          vars @ bounds in
+          vars in
       eval_unary_ast_expr bounds ctx pos (E.mk_forall vars) expr
         
     (* Existential quantification *)
     | A.Exists (pos, avars, expr) ->
 
       let ctx, vars = vars_of_quant ctx avars in
-      let bounds =
+      let bounds = bounds @
         List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
-          vars @ bounds in
+          vars in
       eval_unary_ast_expr bounds ctx pos (E.mk_exists vars) expr
 
     (* Integer modulus [expr1 mod expr2] *)

@@ -387,6 +387,14 @@ val mk_pre :
 (** Select from an array *)
 val mk_select : t -> t -> t
 
+(** Returns true if the expression is a selection in an array *)
+val is_select : t -> bool
+
+(** Returns true if the expression is a selection of an array variable *)
+val is_select_array_var : t -> bool
+
+val var_of_array_select : t -> Var.t
+  
 (** Store in an array *)
 val mk_store : t -> t -> t -> t
 
@@ -420,6 +428,8 @@ val unsafe_expr_of_term : Term.t -> expr
 val mk_array : t -> t -> t
 
 val mk_let : (Var.t * expr) list -> t -> t
+
+val apply_subst : (Var.t * expr) list -> t -> t
 
 (* 
    Local Variables:

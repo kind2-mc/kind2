@@ -1437,6 +1437,15 @@ let mk_let bindings expr =
 
 (* ********************************************************************** *)
 
+let apply_subst sigma expr =
+  {
+    expr_init = Term.apply_subst sigma expr.expr_init;
+    expr_step = Term.apply_subst sigma expr.expr_step;
+    expr_type = expr.expr_type;
+  }
+
+(* ********************************************************************** *)
+
 (* Evaluate universal quantification *)
 let eval_forall vars t = match vars, t with
   | [], _ -> Term.t_true
@@ -2248,8 +2257,24 @@ let mk_store expr1 expr2 expr3 =
   mk_ternary eval_store type_of_store expr1 expr2 expr3
     
 
-let is_store { expr_init } = Term.is_store expr_init
+let is_store e = Term.is_store e.expr_init && Term.is_store e.expr_step
 
+let is_select e = Term.is_select e.expr_init && Term.is_select e.expr_step
+
+let is_select_array_var e =
+  is_select e &&
+  try
+    ignore (Term.indexes_and_var_of_select e.expr_init);
+    ignore (Term.indexes_and_var_of_select e.expr_step);
+    true
+  with Invalid_argument _ -> false
+
+
+let var_of_array_select e =
+  let v1, _ = Term.indexes_and_var_of_select e.expr_init in
+  let v2, _ = Term.indexes_and_var_of_select e.expr_step in
+  if not (Var.equal_vars v1 v2) then invalid_arg ("var_of_array_select");
+  v1
 
 (* ********************************************************************** *)
 
@@ -2293,20 +2318,16 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
     List.rev i, List.rev s
   in
 
-  let expr_init = Term.mk_let substs_init expr_init in
-  let expr_step = Term.mk_let substs_step expr_step in
+  let subst_has_arrays =
+    List.exists (fun (v, _) -> Var.type_of_var v |> Type.is_array) in
 
   let expr_init =
-    if List.exists
-        (fun (v, _) -> Var.type_of_var v |> Type.is_array) substs_init then
-      Term.unlet expr_init
-    else expr_init in
+    if subst_has_arrays substs_init then Term.apply_subst substs_init expr_init
+    else Term.mk_let substs_init expr_init in
 
   let expr_step =
-    if List.exists
-        (fun (v, _) -> Var.type_of_var v |> Type.is_array) substs_step then
-      Term.unlet expr_step
-    else expr_step in
+    if subst_has_arrays substs_step then Term.apply_subst substs_step expr_step
+    else Term.mk_let substs_step expr_step in
   
   (* Apply substitutions separately *)
   { expr with expr_init; expr_step}

@@ -518,7 +518,7 @@ val convert_select : t -> t
 
 val reinterpret_select : t -> t
 
-val unlet : t -> t
+val apply_subst : (Var.t * t) list -> t -> t
 
 val indexes_of_state_var : StateVar.t -> t -> t list list
     

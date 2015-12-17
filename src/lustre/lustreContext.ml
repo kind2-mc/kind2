@@ -881,7 +881,7 @@ let close_expr
             
             (* State variable of state variable instance *)
             let state_var = Var.state_var_of_state_var_instance var in
-
+            
             (* Identifier for a fresh variable *)
             let state_var', ctx = 
               
@@ -950,74 +950,97 @@ let mk_abs_for_expr
     after_mk
     ({ E.expr_type } as expr) = 
 
+  let bounds' = bounds_of_expr bounds ctx expr in
+
+  (* new array if there are bound variables *)
+  let var_type, expr, present_bounds, present_bounds', _ =
+    List.fold_left2 (fun (ty, expr, bounds_acc, bounds_acc', i) ->
+        let vi = E.mk_index_var i |> E.var_of_expr in
+        fun b1 bp -> match b1 with
+          | ev, ((E.Bound b | E.Fixed b) as bnd)
+            when Var.equal_vars ev vi ->
+            if not (has_var_index vi expr) then
+              ty, expr, bounds_acc, bounds_acc', i
+            else
+              Type.mk_array ty
+                (if E.is_numeral b then
+                   Type.mk_int_range Numeral.zero (E.numeral_of_expr b)
+                 else Type.t_int),
+              expr,
+              bp :: bounds_acc,
+              bnd :: bounds_acc',
+              succ i
+          | ev, (E.Unbound b | E.Bound b | E.Fixed b as bnd) ->
+            if not (has_var_index ev expr) then
+              ty, expr, bounds_acc, bounds_acc', i
+            else
+              let it = vi |> Term.mk_var |> E.unsafe_expr_of_term in
+              Type.mk_array ty (E.type_of_expr b),
+              E.apply_subst [ev, it] expr,
+              bp :: bounds_acc,
+              (bnd) :: bounds_acc',
+              succ i
+      ) (expr_type, expr, [], [], 0)
+      (List.rev bounds') (List.rev bounds) in
+
+  let present_bounds = List.rev present_bounds in
+  let present_bounds' = List.rev present_bounds' in
+
   try 
 
+    (* Format.eprintf "mk_abs_for_expr %a %a@." (E.pp_print_lustre_expr false) expr *)
+    (* (pp_print_listi *)
+    (*    (fun ppf i -> function *)
+    (*       | E.Bound e -> *)
+    (*         Format.fprintf *)
+    (*           ppf *)
+    (*           "[%a(%a)]" *)
+    (*           (I.pp_print_ident false) *)
+    (*           (I.push_index I.index_ident i) *)
+    (*           (E.pp_print_expr false) e *)
+    (*       | E.Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr false) e *)
+    (*       | E.Unbound e -> Format.fprintf ppf "[%a]" (E.pp_print_expr false) e) *)
+    (*    "") present_bounds'; *)
+
+    
     (* Find previous definition of expression
 
        Use [find_all] to get all state variables that define the
        expression. *)
     let lhs_list = ET.find_all expr_abs_map expr in
-
+    
     (* Find state variable with same properties *)
-    let abs = 
+    let abs_sv, _ = 
       List.find
         (fun (sv, b) ->
-           b = [] &&
+           b = present_bounds' &&
            StateVar.is_input sv = is_input && 
            StateVar.is_const sv = is_const && 
            StateVar.for_inv_gen sv = for_inv_gen)
         lhs_list
     in
 
+
     (* Return state variable used before *)
-    (abs, ctx)
+    ((abs_sv, present_bounds), ctx)
 
   (* Expresssion has not been abstracted before *)
   with Not_found ->
 
     (* Don't abstract simple state variables *)
-    if E.is_var expr || E.is_const_var expr then
-      
+    if E.is_var expr || E.is_const_var expr  then
+
       let v = E.var_of_expr expr in
       let sv = Var.state_var_of_state_var_instance v in
       (sv, bounds), ctx
 
+    else if E.is_select_array_var expr then
+
+      let v = E.var_of_array_select expr in
+      let sv = Var.state_var_of_state_var_instance v in
+      (sv, present_bounds), ctx
+      
     else
-
-      let bounds' = bounds_of_expr bounds ctx expr in
-
-      (* new array if there are bound variables *)
-      let var_type, expr, present_bounds, present_bounds', _ =
-        List.fold_left2 (fun (ty, expr, bounds_acc, bounds_acc', i) ->
-            let vi = E.mk_index_var i |> E.var_of_expr in
-            fun b1 bp -> match b1 with
-              | ev, ((E.Bound b | E.Fixed b) as bnd)
-                when Var.equal_vars ev vi ->
-                if not (has_var_index vi expr) then
-                  ty, expr, bounds_acc, bounds_acc',  pred i
-              else
-                Type.mk_array ty
-                  (if E.is_numeral b then
-                     Type.mk_int_range Numeral.zero (E.numeral_of_expr b)
-                   else Type.t_int),                 expr,
-                bp :: bounds_acc,
-                bnd :: bounds_acc',
-                pred i
-            | ev, (E.Unbound b | E.Bound b | E.Fixed b as bnd) ->
-              if not (has_var_index ev expr) then
-                ty, expr, bounds_acc, bounds_acc', pred i
-              else
-                let it = vi |> Term.mk_var |> E.unsafe_expr_of_term in
-                Type.mk_array ty (E.type_of_expr b),
-                E.mk_let [ev, it] expr,
-                bp :: bounds_acc,
-                (bnd) :: bounds_acc',
-                pred i
-          ) (expr_type, expr, [], [], pred (List.length bounds'))
-          bounds' bounds in
-
-      let present_bounds = List.rev present_bounds in
-      let present_bounds' = List.rev present_bounds' in
 
       (* Create state variable for abstraction *)
       let state_var, ctx = 
@@ -1046,6 +1069,7 @@ let mk_abs_for_expr
          [find_all] to retrieve the definitions, and the usual
          [fold] to iterate over all definitions. *)
       ET.add expr_abs_map expr abs';
+
 
       (* Evaluate continuation after creating new variable *)
       let ctx = after_mk ctx state_var in

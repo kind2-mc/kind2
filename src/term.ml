@@ -1664,9 +1664,14 @@ let reinterpret_select term =
       term
 
 
-let unlet term = construct (eval_t (fun t _ -> t) term)
-
-
+let apply_subst sigma term =
+  map (fun _ t ->
+      match node_of_term t with
+      | T.FreeVar v ->
+        (try List.find (fun (v', bt) -> Var.equal_vars v v') sigma |> snd
+         with Not_found -> t)
+      | _ -> t
+    ) term
 
 
 
