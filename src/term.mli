@@ -516,6 +516,8 @@ val stats : unit -> int * int * int * int * int * int
 
 val convert_select : t -> t
 
+val partial_selects : t -> t * UfSymbol.t list
+
 val reinterpret_select : t -> t
 
 val apply_subst : (Var.t * t) list -> t -> t

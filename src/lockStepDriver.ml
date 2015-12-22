@@ -136,7 +136,9 @@ let base_setup (solver,sys,actlit) =
 
   (* Conditionally asserting initial predicate at [0]. *)
   Term.mk_implies
-    [ actlit ; TransSys.init_of_bound sys Numeral.zero ]
+    [ actlit ;
+      TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
+        sys Numeral.zero ]
   |> SMTSolver.assert_term solver ;
 
   (* Conditionally asserting invariants of the system at [0]. *)
@@ -162,7 +164,9 @@ let step_setup (solver, sys, actlit) =
   
   (* Conditionally asserting transition predicate at [1]. *)
   Term.mk_implies
-    [ actlit ; TransSys.trans_of_bound sys Numeral.one ]
+    [ actlit ;
+      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+        sys Numeral.one ]
   |> SMTSolver.assert_term solver ;
 
   (* Conditionally asserting invariants of the system at [1]. *)
@@ -190,7 +194,9 @@ let unroll_solver solver sys actlit k =
 
   (* Conditionally asserting transition predicate at [k]. *)
   Term.mk_implies
-    [ actlit ; TransSys.trans_of_bound sys k ]
+    [ actlit ;
+      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+        sys k ]
   |> SMTSolver.assert_term solver ;
 
   (* Conditionally asserting invariants of the system at [k]. *)

@@ -488,20 +488,29 @@ let bump_relative base i term =
 (* Close the initial state constraint by binding all instance
    identifiers, and bump the state variable offsets to be at the given
    bound *)
-let init_of_bound { instance_var_bindings; init } i = 
+let init_of_bound partial { instance_var_bindings; init } i = 
+  let ib = close_term instance_var_bindings init |> bump_relative init_base i in
+  match partial with
+  | None -> ib
+  | Some declare ->
+    let ib, partial_ufs = Term.partial_selects ib in
+    List.iter declare partial_ufs;
+    ib
 
-  close_term instance_var_bindings init
-  |> bump_relative init_base i 
-  
 
 (* Close the initial state constraint by binding all instance
    identifiers, and bump the state variable offsets to be at the given
    bound *)
-let trans_of_bound { instance_var_bindings; trans } i = 
+let trans_of_bound partial { instance_var_bindings; trans } i = 
+  let tb =
+    close_term instance_var_bindings trans |> bump_relative trans_base i in
+  match partial with
+  | None -> tb
+  | Some declare ->
+    let tb, partial_ufs = Term.partial_selects tb in
+    List.iter declare partial_ufs;
+    tb
 
-  close_term instance_var_bindings trans
-  |> bump_relative trans_base i 
-  
 
 (* Return the instance variables of this transition system, the
    initial state constraint at [init_base] and the transition relation
@@ -844,15 +853,11 @@ let declare_const_vars { state_vars } declare =
   (* Constant state variables of the top system *)
   List.filter StateVar.is_const state_vars 
 
-  |> 
-
   (* Create variable of constant state variable *)
-  List.map Var.mk_const_state_var
-
-  |>
+  |> List.map Var.mk_const_state_var
 
   (* Declare variables *)
-  Var.declare_constant_vars declare
+  |> Var.declare_constant_vars declare
 
 
 (* Return the init flag at the given bound *)

@@ -1649,6 +1649,58 @@ let convert_select term =
 
 
 
+let inst_bvars term =
+  let vars = ref [] in
+  let t' =
+    map (fun _ t -> match node_of_term t with
+        | T.BoundVar db ->
+          let var =
+            try List.assoc db !vars
+            with Not_found ->
+              let v = Var.mk_fresh_var Type.t_int
+              (* TODO: (type_of_term t) *) in
+              vars := (db, v) :: !vars;
+              v in
+          mk_var var
+        | _ -> t
+      ) term in
+  let nvars = List.rev_map snd !vars in
+  t', nvars
+
+
+
+let partial_selects term =
+  
+  if Flags.smt_arrays () || not (Flags.arrays_rec ()) then term, []
+  else
+    let partials_ufs = ref [] in
+    let acc = ref [] in
+    map (fun db t ->
+        match node_of_term t with
+        | T.Node (s, a :: il) when Symbol.is_select s && db <> 0 ->
+          let ufs = Symbol.uf_of_symbol s in
+          let ty = UfSymbol.res_type_of_uf_symbol ufs in
+          let ty_il = List.tl (UfSymbol.arg_type_of_uf_symbol ufs) in
+          let partial_s_a = UfSymbol.mk_fresh_uf_symbol ty_il ty in
+          let t' = mk_uf partial_s_a il in
+          let partial_s_a_def = mk_eq [t'; t] in
+          partials_ufs := partial_s_a :: !partials_ufs;
+          acc := inst_bvars partial_s_a_def :: !acc;
+          t'
+
+        | T.Forall l | T.Exists l when !acc <> [] ->
+          let cstrs = !acc in
+          acc := [];
+          mk_and (t ::
+                  List.map (fun (t, vs) ->
+                      if vs = [] then t else mk_forall vs t) cstrs)
+          
+        | _ -> t
+      ) term,
+    !partials_ufs
+
+
+
 let reinterpret_select term =
 
   (* Don't decode if using the theory of arrays *)

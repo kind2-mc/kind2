@@ -766,7 +766,7 @@ let check_and_block declare_fun trans_sys path =
         (same_successors
            declare_fun
            (TransSys.uf_defs trans_sys)
-           (TransSys.trans_of_bound trans_sys Numeral.one))
+           (TransSys.trans_of_bound (Some declare_fun) trans_sys Numeral.one))
         block_terms 
         (Model.models_of_path path)
 
@@ -785,7 +785,7 @@ let check_and_block declare_fun trans_sys path =
         (same_predecessors
            declare_fun
            (TransSys.uf_defs trans_sys)
-           (TransSys.trans_of_bound trans_sys Numeral.one))
+           (TransSys.trans_of_bound (Some declare_fun) trans_sys Numeral.one))
         block_terms 
         (Model.models_of_path path)
 

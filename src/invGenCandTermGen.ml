@@ -455,9 +455,9 @@ module CandidateTermGen = struct
            
            (* We don't, getting init and trans. *)
            let init, trans =
-             TransSys.init_of_bound system Numeral.zero,
+             TransSys.init_of_bound None system Numeral.zero,
              (* Getting trans at [-1,0]. *)
-             TransSys.trans_of_bound system Numeral.zero
+             TransSys.trans_of_bound None system Numeral.zero
            in
 
            debug invGenCand "Generating candidates." in
@@ -588,13 +588,13 @@ let mine_term
         identity)
   |> (if mine_init then
         (* Mining init. *)
-        TransSys.init_of_bound sys Numeral.zero
+        TransSys.init_of_bound None sys Numeral.zero
         |> CandidateTermGen.set_of_term
       else
         identity)
   |> (if mine_init then
         (* Mining trans. *)
-        TransSys.trans_of_bound sys Numeral.zero
+        TransSys.trans_of_bound None sys Numeral.zero
         |> CandidateTermGen.set_of_term
       else
         identity)

@@ -287,7 +287,7 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
        trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
      
      (* Asserting transition relation for next iteration. *)
-     TransSys.trans_of_bound trans k_p_1
+     TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
      |> SMTSolver.assert_term solver
      |> ignore ;
 
@@ -342,7 +342,8 @@ let init input_sys aparam trans =
     Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)
-  TransSys.init_of_bound trans Numeral.zero
+  TransSys.init_of_bound
+    (Some (SMTSolver.declare_fun solver)) trans Numeral.zero
   |> SMTSolver.assert_term solver
   |> ignore ;
 

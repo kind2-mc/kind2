@@ -44,6 +44,7 @@ let cmd_line
 
   let fmfrec_flags =
     [| "--finite-model-find";
+       "--macros-quant";
        "--fmf-inst-engine";
        "--fmf-fun";
        "--quant-cf";

@@ -50,7 +50,8 @@ let rec assert_trans solver t i =
     (
 
       (* Assert transition relation from [i-1] to [i] *)
-      SMTSolver.assert_term solver (TransSys.trans_of_bound t i);
+      SMTSolver.assert_term solver
+        (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) t i);
                             
       (* Continue with for [i-2] and [i-1] *)
       assert_trans solver t Numeral.(i - one)
@@ -178,7 +179,9 @@ let main input_file input_sys aparam trans_sys =
       Numeral.(~- one) Numeral.(of_int steps) ;
 
     (* Assert initial state constraint *)
-    SMTSolver.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
+    SMTSolver.assert_term solver
+      (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
+         trans_sys Numeral.zero);
 
     (* Assert transition relation up to number of steps *)
     assert_trans solver trans_sys (Numeral.of_int steps);

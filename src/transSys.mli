@@ -113,12 +113,12 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 (** Close the initial state constraint by binding all instance
     identifiers, and bump the state variable offsets to be at the given
     bound *)
-val init_of_bound : t -> Numeral.t -> Term.t
+val init_of_bound : (UfSymbol.t -> unit) option -> t -> Numeral.t -> Term.t
 
 (** Close the initial state constraint by binding all instance
     identifiers, and bump the state variable offsets to be at the given
     bound *)
-val trans_of_bound : t -> Numeral.t -> Term.t 
+val trans_of_bound : (UfSymbol.t -> unit) option -> t -> Numeral.t -> Term.t 
 
 
 (** Return the state variable for the init flag *)
@@ -356,7 +356,11 @@ val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Nume
     The signatures of [f] and [g] are those of {!SMTSolver.define_fun}
     and {!SMTSolver.declare_fun}, repsectively, partially evaluated
     with their first argument. *)
-val define_and_declare_of_bounds : ?declare_sub_vars:bool -> t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+val define_and_declare_of_bounds :
+  ?declare_sub_vars:bool -> t ->
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (UfSymbol.t -> unit) ->
+  Numeral.t -> Numeral.t -> unit
 
 (** Return predicate definitions of initial state and transition
     relation of the top system and all its subsystem in reverse

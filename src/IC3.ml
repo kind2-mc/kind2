@@ -742,7 +742,7 @@ let extrapolate trans_sys state f g =
   let term = 
     Term.mk_and 
       [f; 
-       TransSys.trans_of_bound trans_sys Numeral.one; 
+       TransSys.trans_of_bound None trans_sys Numeral.one; 
 (*
        TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
        TransSys.invars_of_bound trans_sys Numeral.one; 
@@ -856,14 +856,18 @@ let abstr_simulate trace trans_sys raise_cex =
   let interpolizers =
     List.mapi
       (fun i cex ->
-         [(TransSys.trans_of_bound trans_sys (Numeral.of_int (i+1)));
+         [(TransSys.trans_of_bound (Some (SMTSolver.declare_fun intrpo))
+             trans_sys (Numeral.of_int (i+1)));
           (Term.bump_state (Numeral.of_int (i+1)) cex)]
       )
       trace
   in
 
   let interpolizers =
-    (Term.mk_and ((TransSys.init_of_bound trans_sys Numeral.zero) :: List.hd interpolizers))
+    (Term.mk_and ((TransSys.init_of_bound
+                     (Some (SMTSolver.declare_fun intrpo))
+                     trans_sys Numeral.zero)
+                  :: List.hd interpolizers))
     ::
     (List.map Term.mk_and (List.tl interpolizers))
   in
@@ -3127,7 +3131,8 @@ let main input_sys aparam trans_sys =
         solver
         (Term.mk_implies
            [actlit_r0;
-            (TransSys.init_of_bound trans_sys Numeral.zero)]);
+            (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
+               trans_sys Numeral.zero)]);
 
       (* Assert transition relation unguarded
 
@@ -3135,7 +3140,8 @@ let main input_sys aparam trans_sys =
       SMTSolver.trace_comment solver "main: Assert unguarded transition relation"; 
       SMTSolver.assert_term 
         solver
-        (TransSys.trans_of_bound trans_sys (Numeral.of_int bound));
+        (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+           trans_sys (Numeral.of_int bound));
 
       (* Print inductive assertions to file? *)
       (match Flags.ic3_print_to_file () with 
@@ -3166,7 +3172,7 @@ let main input_sys aparam trans_sys =
 
           | `IA ->
 
-            (TransSys.init_of_bound trans_sys Numeral.zero)
+            (TransSys.init_of_bound None trans_sys Numeral.zero)
             ::
             List.map
               (fun (s,t) -> t)
