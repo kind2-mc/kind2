@@ -94,7 +94,7 @@ let rec wait_for_children child_pids =
     (* Child process dies with non-zero exit status or was killed *)
     | child_pid, status -> 
 
-      (Event.log L_error
+      (Event.log L_warn
          "Child process %d (%a) %a" 
          child_pid 
          pp_print_kind_module (List.assoc child_pid !child_pids) 
