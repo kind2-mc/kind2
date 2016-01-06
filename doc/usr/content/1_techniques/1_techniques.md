@@ -12,8 +12,8 @@ This section presents the techniques available in Kind 2. How they work and how 
 
 When verifying a node `n`, *compositional reasoning* consists in abstracting
 the complexity of the subnodes of `n` by their
-[contracts](./../9_other/contract_semantics.md#contract-semantics). The idea is
-that the contract has typically a lot less state than the node it specifies,
+[contracts](./../9_other/2_contract_semantics.md#contract-semantics). The idea
+is that the contract has typically a lot less state than the node it specifies,
 which in addition to its own state contains that of its subnodes recursively.
 
 Compositional reasoning thus improves the scalability of Kind 2 by taking

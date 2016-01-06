@@ -44,7 +44,7 @@ It takes as input the size of the array and the array itself. Note that the
 type of the input `A` depends on the value of the first constant input `n`. In
 Lustre, calls to such nodes should of course end up by having concrete values
 for `n`, this is however not the case in Kind 2 (see
-[here](./2_arrays.md#extensiontounboundedarrays)).
+[here](./2_arrays.md#extension-to-unbounded-arrays)).
 
 
 Arrays can be multidimensional, so a user can declare *e.g.* matrices with the
