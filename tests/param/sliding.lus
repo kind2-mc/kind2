@@ -1,0 +1,15 @@
+node slide (const n:int; s: int) returns(ok: bool^n);
+var A: int^n;
+let
+  A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
+  ok[i] = A[i] = -1 or A[i] = s or (false -> pre ok[i]);
+
+  --%PROPERTY forall (i: int) 0 <= i and i < n => ok[i];
+tel
+
+-- node slide2 (const n:int; s: int) returns(A: int^n);
+-- let
+--   A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
+
+--   --%PROPERTY n > 1 => (true -> A[1] = pre s);
+-- tel

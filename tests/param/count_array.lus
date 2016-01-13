@@ -1,0 +1,9 @@
+node count( const n : int ; B : bool^n ) returns ( C : int ) ;
+  var A : int^n ;
+let
+  A[i] = if i = 0 then if B[i] then 1 else 0
+         else A[i-1] + (if B[i] then 1 else 0);
+  C = A[n-1] ;
+
+  --%PROPERTY n > 0 => C >= 0;
+tel

@@ -1,0 +1,63 @@
+
+node dekker (const n: int) returns (ok: bool);
+var
+   want, crit, pwant, pcrit: bool^n;
+   turn: int;
+let
+-- pwant[i] = false -> pre want[i];
+-- pcrit[i] = false -> pre crit[i];
+
+-- assert (n<5);
+
+assert (
+  
+  (forall (i: int) want[i] = false and crit[i] = false)
+
+  ->
+ 
+ (
+
+  (exists (i: int) (0 <= i and i < n and not (pre want[i]) and
+    turn = pre turn and
+    (forall (j: int)
+      ((0 <= j and j < n) =>
+      want[j] = (if j=i then true else (pre want[j]))
+      and
+      crit[j] = pre crit[j]))
+   ))
+
+  or
+
+  (exists (i: int) (0 <= i and i < n and 
+    (pre want[i]) and not (pre crit[i]) and -- turn = i and
+    turn = pre turn and
+    (forall (j: int)
+      ((0 <= j and j < n) =>
+      crit[j] = (if j=i then true else (pre crit[j]))
+      and
+      want[j] = pre want[j]))
+   ))
+
+  or
+
+  (exists (i: int) (0 <= i and i < n and
+    (pre crit[i]) and
+    (forall (j: int)
+      ((0 <= j and j < n) =>
+      crit[j] = (if j=i then false else (pre crit[j]))
+      and
+      want[j] = (if j=i then false else (pre want[j]))))
+   ))
+ )
+
+);
+
+  ok = false;
+
+  --%PROPERTY "EXCL" forall (i, j: int) 0 <= i and i < n and 0 <= j and j < n and i <> j and crit[i] => not crit[j];
+
+  --%PROPERTY "INV1" not (exists (z1, z2:int) 0 <= z1 and z1 < n and 0 <= z2 and z2 < n and z1 <> z2 and turn = z2 and want[z2] = true and crit[z1] = true and crit[z2] = false);
+
+  --%PROPERTY "INV2" not (exists (z1, z2:int) 0 <= z1 and z1 < n and 0 <= z2 and z2 < n and z1 <> z2 and turn = z2 and want[z2] = false and crit[z1] = true and crit[z2] = false);
+
+tel
