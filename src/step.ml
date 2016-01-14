@@ -454,7 +454,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   in
 
   (* Cleaning unknowns and unfalsifiables. *)
-  let confirmed, unknowns', unfalsifiables' =
+  let confirmed, unknowns', unfalsifiables =
     clean_properties trans unknowns unfalsifiables
   in
 
@@ -477,14 +477,14 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
     ) new_invariants
   in
 
-  match unknowns', unfalsifiables' with
+  match unknowns', unfalsifiables with
   | [], [] ->
      (* Nothing left to do. *)
      stop ()
   | [], _ ->
      (* Need to wait for base confirmation. *)
      minisleep 0.001 ;
-     next input_sys aparam trans solver k unfalsifiables' unknowns'
+     next input_sys aparam trans solver k unfalsifiables unknowns'
   | _ ->
 
      (* Integer version of k. *)
@@ -538,7 +538,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
      (* Actlits, properties and implications at k for unfalsifiables. *)
      let unfalsifiable_actlits, unfalsifiable_props, unfalsifiable_impls =
-       unfalsifiables'
+       unfalsifiables
        |> List.fold_left (
           fun (actlits, props, impls) (_, p) ->
             let actlits', props', impls' =
@@ -602,7 +602,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
        next
          input_sys aparam trans solver k_p_1
          (* Adding the new unfalsifiables. *)
-         ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
+         ( (k_int, unfalsifiables_at_k) :: unfalsifiables )
          (* Iterating on the properties left. *)
          falsifiables_at_k
          
