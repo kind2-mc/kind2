@@ -68,10 +68,10 @@ let is_unknown trans (s,_) =
 let clean_unknowns trans = List.filter (is_unknown trans)
 
 (* Splits the input list of properties in three lists: disproved, true
-   up to k, and others. ALSO, REMOVES PROVED PROPERTIES. *)
+   up to k, and others. NB, DISCARDS PROPERTIES KNOWN AS PROVED. *)
 let split_unfalsifiable_rm_proved trans k =
   List.fold_left
-    ( fun (dis,true_k,others) ((s,_) as p) ->
+    ( fun (dis, true_k, others) ((s,_) as p) ->
       match TransSys.get_prop_status trans s with
       | Property.PropInvariant ->
          (dis, true_k, others)
@@ -121,22 +121,21 @@ let clean_properties trans unknowns unfalsifiables =
             let unknowns'' =
               list
               |> List.fold_left
-                   ( fun unknws (_, props) ->
-                     props
-                     (* Cleaning props and appending. *)
-                     |> List.fold_left
-                          ( fun unknws' prop ->
-                            if is_unknown trans prop then
-                              (* Prop is neither proved or
-                                 disproved. *)
-                              prop :: unknws'
-                            else
-                              (* Prop has been proved or disproved. *)
-                              unknws'
-                          )
-                          unknws
-                   )
-                   unknowns'
+                ( fun unknws (_, props) ->
+                  props
+                  (* Cleaning props and appending. *)
+                  |> List.fold_left
+                    ( fun unknws' prop ->
+                      if is_unknown trans prop then
+                        (* Prop is neither proved or
+                           disproved. *)
+                        prop :: unknws'
+                      else
+                        (* Prop has been proved or disproved. *)
+                        unknws'
+                    )
+                    unknws
+                ) unknowns'
             in
 
             (
@@ -427,7 +426,7 @@ let split_closure
 
 
 (* Performs the next iteration after updating the context. Assumes the
-   solver is in the follwing state:
+   solver is in the following state:
 
    actlit(prop) => prop@i
      for all 0 <= i <= k-2 and prop      in 'unknowns'
@@ -539,7 +538,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
      (* Actlits, properties and implications at k for unfalsifiables. *)
      let unfalsifiable_actlits, unfalsifiable_props, unfalsifiable_impls =
-       unfalsifiables
+       unfalsifiables'
        |> List.fold_left (
           fun (actlits, props, impls) (_, p) ->
             let actlits', props', impls' =
