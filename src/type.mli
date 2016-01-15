@@ -148,6 +148,9 @@ val elem_type_of_array : t -> t
 (** Return all array index types of a nested array type *)
 val last_elem_type_of_array : t -> t
 
+(** Convert ranges to integer types (recursively) *)
+val int_range_to_int : t -> t
+
 (** {1 Pretty-printing} *)
 
 (** Pretty-print a type *)

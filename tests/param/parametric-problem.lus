@@ -95,7 +95,7 @@ let
   -- LastWrite remembers the last value that was written by each component, if any
   LastWrite[i] = if Accepted[i] then Value[i] else (Init -> pre LastWrite[i]) ;
 
-  Accepted[i] = Request[i] and (Turn[i]  or count(n, Request) = 1) ;
+  Accepted[i] = Request[i] and (Turn[i] and count(n, Request) = 1) ;
 
   index = min(n, Accepted) ;
 

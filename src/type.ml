@@ -413,6 +413,13 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | _ -> false
 
 
+let rec int_range_to_int ty =
+  match node_of_type ty with
+  | Int | Real | Bool | Scalar _ -> ty
+  | IntRange _ -> t_int
+  | Array (e, i) -> mk_array (int_range_to_int e) (int_range_to_int i)
+
+
 
 (* 
    Local Variables:

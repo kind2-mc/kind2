@@ -1599,7 +1599,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with 
               
               (* Nullary or unary equation *)
-              | [] 
+              | []  -> assert false
               | [_] -> assert false
 
               (* Binary equivalence, reduce to (a & b) | (~a & ~b) *)

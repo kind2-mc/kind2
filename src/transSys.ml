@@ -875,34 +875,9 @@ let declare_ufs { ufs } declare =
   List.iter declare ufs
 
 (* Declare other functions symbols *)
-let declare_selects { state_vars; init; trans } declare =
-  List.iter (fun sv ->
-      if Type.is_array @@ StateVar.type_of_state_var sv then
-        StateVar.encode_select sv |> declare
-      else ()
-    ) state_vars
+let declare_selects declare =
+  List.iter declare (StateVar.get_select_ufs ())
   
-  (* Symbol.SymbolSet.iter (fun s -> *)
-  (*     (match Symbol.node_of_symbol s with *)
-  (*      | `SELECT ty_array -> *)
-  (*        (match Type.node_of_type ty_array with *)
-  (*         | Type.Array (te,ti) -> *)
-  (*           let name = Format.asprintf "|uselect(%a,%a)|" *)
-  (*               Type.pp_print_type ti Type.pp_print_type te in *)
-  (*           UfSymbol.mk_uf_symbol name [ty_array; ti] te *)
-  (*         | _ ->  assert false *)
-  (*        ) *)
-  (*      | `UF u -> u *)
-  (*      | _ -> assert false *)
-  (*     ) *)
-  (*     |> *)
-  (*     declare *)
-  (*   ) *)
-  (*   (Symbol.SymbolSet.union *)
-  (*      (Term.select_symbols_of_term init) *)
-  (*      (Term.select_symbols_of_term trans)) *)
-    
-      
 (* Define initial state predicate *)
 let define_init define { init_uf_symbol; init_formals; init } = 
   define init_uf_symbol init_formals init
@@ -924,14 +899,13 @@ let define_and_declare_of_bounds
     lbound
     ubound =
 
+  (* Declare monomorphized select symbols *)
+  if not (Flags.smt_arrays ()) then declare_selects declare;
+  
   (* Iterate over all subsystems *)
   iter_subsystems 
     ~include_top:false
     (fun t -> 
-
-       (* Declare monomorphized select symbols *)
-       if not (Flags.smt_arrays ()) then
-         declare_selects t declare;
 
        (* Declare constant state variables of subsystem *)
        if declare_sub_vars then 
@@ -947,10 +921,6 @@ let define_and_declare_of_bounds
     )
 
     trans_sys;
-
-  (* Declare monomorphized select symbols of top level node *)
-  if not (Flags.smt_arrays ()) then
-    declare_selects trans_sys declare;
 
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
