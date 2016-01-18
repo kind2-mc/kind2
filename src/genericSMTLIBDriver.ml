@@ -375,7 +375,7 @@ let gen_expr_of_string_sexpr'
 
         (* Convert (= 0 (mod t n)) to (t divisible n) *)
         Term.mod_to_divisible t
-        |> Term.reinterpret_select
+        (* |> Term.reinterpret_select *)
 
       )
 
@@ -660,9 +660,9 @@ let rec pp_print_symbol_node ?arity ppf = function
         
     else
       (match Type.node_of_type ty_array with
-       | Type.Array (t1, t2) ->
-         Format.fprintf ppf "|uselect(%a,%a)|"
-           Type.pp_print_type t1 Type.pp_print_type t2
+       (* | Type.Array (t1, t2) -> *)
+       (*   Format.fprintf ppf "|uselect(%a,%a)|" *)
+       (*     Type.pp_print_type t1 Type.pp_print_type t2 *)
        | _ -> assert false
       )
 
