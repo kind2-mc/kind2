@@ -659,6 +659,7 @@ let rec pp_print_symbol_node ?arity ppf = function
       Format.pp_print_string ppf "select"
         
     else
+
       (match Type.node_of_type ty_array with
        (* | Type.Array (t1, t2) -> *)
        (*   Format.fprintf ppf "|uselect(%a,%a)|" *)
@@ -679,7 +680,7 @@ let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
 
 
 let pp_print_term ppf t =
-  Term.T.pp_print_term_w pp_print_symbol ppf t
+  Term.T.pp_print_term_w pp_print_symbol pp_print_sort ppf t
         
     
 (* Pretty-print an expression *)

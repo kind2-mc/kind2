@@ -367,7 +367,7 @@ let rec pp_print_term' db ppf t = match Term.T.node_of_t t with
       (pp_print_typed_var_list db) x
       (pp_print_term' (db + List.length x)) t
 
-  | _ -> Term.T.pp_print_term_w pp_print_symbol ~db ppf t
+  | _ -> Term.T.pp_print_term_w pp_print_symbol pp_print_sort ~db ppf t
 
 
 (* Pretty-print a list of variable term bindings *)
