@@ -8,7 +8,7 @@ SHELL = @SHELL@
 OCAMLCC=$(CC) $(CFLAGS)
 OCAMLC=@OCAMLC@ -cc "$(OCAMLCC)"
 OCAMLOPT=@OCAMLOPT@ -cc "$(OCAMLCC)"
-LIBTOOL=$(SHELL) @top_builddir@/zeromq/libtool
+LIBTOOL=$(SHELL) @top_builddir@/libzmq/libtool
 
 OCAMLCCLIB=$(patsubst -l%, -cclib -l%,@LIBS@)
 
@@ -20,7 +20,7 @@ czmq_stubs.o: czmq_stubs.c
 	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) -c -g -O2 -I ../include -I `ocamlc -where` -lczmq -lzmq czmq_stubs.c -o czmq_stubs.o
 
 libczmq_stubs.la: czmq_stubs.o
-	$(LIBTOOL) --tag=CC --mode=link $(CC) $(CFLAGS) -static -g -O -o libczmq_stubs.la -rpath $(CURDIR)/../lib czmq_stubs.lo ../zeromq/src/*.lo ../czmq/src/*.lo
+	$(LIBTOOL) --tag=CC --mode=link $(CC) $(CFLAGS) -static -g -O -o libczmq_stubs.la -rpath $(CURDIR)/../lib czmq_stubs.lo ../libzmq/src/*.lo ../czmq/src/*.lo
 
 ZMQ.cmi: ZMQ.mli
 	$(OCAMLC) -c $< 

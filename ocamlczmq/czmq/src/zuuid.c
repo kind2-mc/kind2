@@ -21,32 +21,15 @@
 @end
 */
 
-#include "../include/czmq.h"
 #include "platform.h"
-
-#if defined (__WINDOWS__) && !defined (HAVE_LIBUUID)
-#define HAVE_LIBUUID 1
-#endif
-
-#if defined (__UTYPE_OSX) && !defined (HAVE_LIBUUID)
-#define HAVE_LIBUUID 1
-#endif
-
-#if defined (HAVE_LIBUUID)
-#if defined (__UTYPE_FREEBSD) || defined (__UTYPE_NETBSD)
-#   include <uuid.h>
-#elif defined __UTYPE_HPUX
-#   include <dce/uuid.h>
-#elif defined (__UNIX__)
-#   include <uuid/uuid.h>
-#endif
-#endif
+#include "../include/czmq.h"
 
 //  Structure of our class
 
 struct _zuuid_t {
     byte uuid [ZUUID_LEN];              //  Binary UUID
-    char str [ZUUID_LEN * 2 + 1];       //  Printable UUID
+    char str [ZUUID_STR_LEN + 1];       //  Printable UUID
+    char *str_canonical;                //  Canonical UUID, if any
 };
 
 
@@ -57,29 +40,51 @@ zuuid_t *
 zuuid_new (void)
 {
     zuuid_t *self = (zuuid_t *) zmalloc (sizeof (zuuid_t));
-#if defined (HAVE_LIBUUID)
+    if (self) {
+#if defined (HAVE_UUID)
 #   if defined (__WINDOWS__)
-    UUID uuid;
-    assert (sizeof (uuid) == ZUUID_LEN);
-    UuidCreate (&uuid);
-    zuuid_set (self, (byte *) &uuid);
+        UUID uuid;
+        assert (sizeof (uuid) == ZUUID_LEN);
+        UuidCreate (&uuid);
+        zuuid_set (self, (byte *) &uuid);
+#   elif defined (__UTYPE_OPENBSD) || defined (__UTYPE_FREEBSD) || defined (__UTYPE_NETBSD)
+        uuid_t uuid;
+        uint32_t status = 0;
+        uuid_create (&uuid, &status);
+        if (status != uuid_s_ok) {
+            zuuid_destroy (&self);
+            return NULL;
+        }
+        byte buffer [ZUUID_LEN];
+        uuid_enc_be (&buffer, &uuid);
+        zuuid_set (self, buffer);
+#   elif defined (__UTYPE_LINUX) || defined (__UTYPE_OSX)
+        uuid_t uuid;
+        assert (sizeof (uuid) == ZUUID_LEN);
+        uuid_generate (uuid);
+        zuuid_set (self, (byte *) uuid);
 #   else
-    uuid_t uuid;
-    assert (sizeof (uuid) == ZUUID_LEN);
-    uuid_generate (uuid);
-    zuuid_set (self, (byte *) uuid);
+#       error "Unknow UNIX TYPE"
 #   endif
 #else
-    //  No UUID system calls, so generate a random string
-    byte uuid [ZUUID_LEN];
-    int fd = open ("/dev/urandom", O_RDONLY);
-    if (fd != -1) {
-        ssize_t bytes_read = read (fd, uuid, ZUUID_LEN);
-        assert (bytes_read == ZUUID_LEN);
-        close (fd);
-    }
-    zuuid_set (self, uuid);
+        //  No UUID system calls, so generate a random string
+        byte uuid [ZUUID_LEN];
+
+        int fd = open ("/dev/urandom", O_RDONLY);
+        if (fd != -1) {
+            ssize_t bytes_read = read (fd, uuid, ZUUID_LEN);
+            assert (bytes_read == ZUUID_LEN);
+            close (fd);
+            zuuid_set (self, uuid);
+        }
+        else {
+            //  We couldn't read /dev/urandom and we have no alternative
+            //  strategy
+            zsys_error (strerror (errno));
+            assert (false);
+        }
 #endif
+    }
     return self;
 }
 
@@ -93,6 +98,7 @@ zuuid_destroy (zuuid_t **self_p)
     assert (self_p);
     if (*self_p) {
         zuuid_t *self = *self_p;
+        free (self->str_canonical);
         free (self);
         *self_p = NULL;
     }
@@ -100,10 +106,23 @@ zuuid_destroy (zuuid_t **self_p)
 
 
 //  -----------------------------------------------------------------
-//  Set UUID to new supplied value
+//  Create UUID object from supplied ZUUID_LEN-octet value
+
+zuuid_t *
+zuuid_new_from (const byte *source)
+{
+    zuuid_t *self = (zuuid_t *) zmalloc (sizeof (zuuid_t));
+    if (self)
+        zuuid_set (self, source);
+    return self;
+}
+
+
+//  -----------------------------------------------------------------
+//  Set UUID to new supplied ZUUID_LEN-octet value
 
 void
-zuuid_set (zuuid_t *self, byte *source)
+zuuid_set (zuuid_t *self, const byte *source)
 {
     assert (self);
     memcpy (self->uuid, source, ZUUID_LEN);
@@ -115,13 +134,48 @@ zuuid_set (zuuid_t *self, byte *source)
         self->str [byte_nbr * 2 + 1] = hex_char [val & 15];
     }
     self->str [ZUUID_LEN * 2] = 0;
+    zstr_free (&self->str_canonical);
+}
+
+
+//  -----------------------------------------------------------------
+//  Set UUID to new supplied string value skipping '-' and '{' '}'
+//  optional delimiters. Return 0 if OK, else returns -1.
+
+int
+zuuid_set_str (zuuid_t *self, const char *source)
+{
+    assert (self);
+    assert (source);
+
+    uint byte_nbr = 0;
+    while (*source) {
+        if (*source == '-' || *source == '{' || *source == '}')
+            source++;
+        else {
+            //  Get two hex digits
+            uint value;
+            if (sscanf (source, "%02x", &value) != 1)
+                return -1;
+            if (byte_nbr < ZUUID_LEN) {
+                self->uuid [byte_nbr] = (byte) value;
+                self->str [byte_nbr * 2 + 0] = *source++;
+                self->str [byte_nbr * 2 + 1] = *source++;
+                byte_nbr++;
+            }
+            else
+                return -1;
+        }
+    }
+    zstr_free (&self->str_canonical);
+    return 0;
 }
 
 
 //  -----------------------------------------------------------------
 //  Return UUID binary data
 
-byte *
+const byte *
 zuuid_data (zuuid_t *self)
 {
     assert (self);
@@ -143,11 +197,40 @@ zuuid_size (zuuid_t *self)
 //  -----------------------------------------------------------------
 //  Returns UUID as string
 
-char *
+const char *
 zuuid_str (zuuid_t *self)
 {
     assert (self);
     return self->str;
+}
+
+
+//  -----------------------------------------------------------------
+//  Return UUID in the canonical string format: 8-4-4-4-12, in lower
+//  case. Caller does not modify or free returned value. See
+//  http://en.wikipedia.org/wiki/Universally_unique_identifier
+
+const char *
+zuuid_str_canonical (zuuid_t *self)
+{
+    assert (self);
+    if (!self->str_canonical)
+        self->str_canonical = (char *) zmalloc (8 + 4 + 4 + 4 + 12 + 5);
+    *self->str_canonical = 0;
+    strncat (self->str_canonical, self->str, 8);
+    strcat  (self->str_canonical, "-");
+    strncat (self->str_canonical, self->str + 8, 4);
+    strcat  (self->str_canonical, "-");
+    strncat (self->str_canonical, self->str + 12, 4);
+    strcat  (self->str_canonical, "-");
+    strncat (self->str_canonical, self->str + 16, 4);
+    strcat  (self->str_canonical, "-");
+    strncat (self->str_canonical, self->str + 20, 12);
+
+    int char_nbr;
+    for (char_nbr = 0; char_nbr < 36; char_nbr++)
+        self->str_canonical [char_nbr] = tolower (self->str_canonical [char_nbr]);
+    return self->str_canonical;
 }
 
 
@@ -166,7 +249,7 @@ zuuid_export (zuuid_t *self, byte *target)
 //  Check if UUID is same as supplied value
 
 bool
-zuuid_eq (zuuid_t *self, byte *compare)
+zuuid_eq (zuuid_t *self, const byte *compare)
 {
     assert (self);
     return (memcmp (self->uuid, compare, ZUUID_LEN) == 0);
@@ -177,7 +260,7 @@ zuuid_eq (zuuid_t *self, byte *compare)
 //  Check if UUID is different from supplied value
 
 bool
-zuuid_neq (zuuid_t *self, byte *compare)
+zuuid_neq (zuuid_t *self, const byte *compare)
 {
     assert (self);
     return (memcmp (self->uuid, compare, ZUUID_LEN) != 0);
@@ -185,41 +268,77 @@ zuuid_neq (zuuid_t *self, byte *compare)
 
 
 //  --------------------------------------------------------------------------
-//  Make copy of UUID object
+//  Make copy of UUID object; if uuid is null, or memory was exhausted,
+//  returns null.
 
 zuuid_t *
 zuuid_dup (zuuid_t *self)
 {
-    if (!self)
+    if (self)
+        return zuuid_new_from (zuuid_data (self));
+    else
         return NULL;
+}
 
-    zuuid_t *copy = zuuid_new ();
-    if (copy)
-        zuuid_set (copy, zuuid_data (self));
-    return copy;
+
+//  --------------------------------------------------------------------------
+//  Print properties of the zuuid object.
+
+void
+zuuid_print (zuuid_t *self)
+{
+    printf ("%s", zuuid_str_canonical (self));
 }
 
 
 //  --------------------------------------------------------------------------
 //  Selftest
 
-int
+void
 zuuid_test (bool verbose)
 {
     printf (" * zuuid: ");
 
     //  @selftest
     //  Simple create/destroy test
+    assert (ZUUID_LEN == 16);
+    assert (ZUUID_STR_LEN == 32);
+
     zuuid_t *uuid = zuuid_new ();
     assert (uuid);
-    assert (zuuid_size (uuid) == 16);
-    assert (strlen (zuuid_str (uuid)) == 32);
+    assert (zuuid_size (uuid) == ZUUID_LEN);
+    assert (strlen (zuuid_str (uuid)) == ZUUID_STR_LEN);
     zuuid_t *copy = zuuid_dup (uuid);
     assert (streq (zuuid_str (uuid), zuuid_str (copy)));
+
+    //  Check set/set_str/export methods
+    const char *myuuid = "8CB3E9A9649B4BEF8DE225E9C2CEBB38";
+    const char *myuuid2 = "8CB3E9A9-649B-4BEF-8DE2-25E9C2CEBB38";
+    const char *myuuid3 = "{8CB3E9A9-649B-4BEF-8DE2-25E9C2CEBB38}";
+    const char *myuuid4 = "8CB3E9A9649B4BEF8DE225E9C2CEBB3838";
+    int rc = zuuid_set_str (uuid, myuuid);
+    assert (rc == 0);
+    assert (streq (zuuid_str (uuid), myuuid));
+    rc = zuuid_set_str (uuid, myuuid2);
+    assert (rc == 0);
+    assert (streq (zuuid_str (uuid), myuuid));
+    rc = zuuid_set_str (uuid, myuuid3);
+    assert (rc == 0);
+    assert (streq (zuuid_str (uuid), myuuid));
+    rc = zuuid_set_str (uuid, myuuid4);
+    assert (rc == -1);
+    byte copy_uuid [ZUUID_LEN];
+    zuuid_export (uuid, copy_uuid);
+    zuuid_set (uuid, copy_uuid);
+    assert (streq (zuuid_str (uuid), myuuid));
+
+    //  Check the canonical string format
+    assert (streq (zuuid_str_canonical (uuid),
+                   "8cb3e9a9-649b-4bef-8de2-25e9c2cebb38"));
+
     zuuid_destroy (&uuid);
     zuuid_destroy (&copy);
     //  @end
 
     printf ("OK\n");
-    return 0;
 }

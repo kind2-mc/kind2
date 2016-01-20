@@ -1,0 +1,9 @@
+# Project-local changes to auto-generated content
+
+# Android-qt requires this special link dependency
+if ON_ANDROID
+src_libczmq_la_LIBADD += -llog
+endif
+
+check-py: src/libczmq.la
+	$(LIBTOOL) --mode=execute -dlopen src/libczmq.la python bindings/python/test.py

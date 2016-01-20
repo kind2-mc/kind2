@@ -53,13 +53,13 @@ AC_CONFIG_FILES([Makefile src/Makefile])
 
 
 AC_ARG_WITH(
-    [zeromq],
-    [AS_HELP_STRING([--with-zeromq], [Configure ZeroMQ <:@default: false@:>@])],
-    [with_zeromq=yes],
-    [with_zeromq=no])
+    [zmq],
+    [AS_HELP_STRING([--with-zmq], [Configure ZeroMQ <:@default: false@:>@])],
+    [with_zmq=yes],
+    [with_zmq=no])
 
-if test "x$with_zeromq" = "xyes"; then
-   AC_CONFIG_SUBDIRS([zeromq])
+if test "x$with_zmq" = "xyes"; then
+   AC_CONFIG_SUBDIRS([libzmq])
 fi
 
 AC_ARG_WITH(

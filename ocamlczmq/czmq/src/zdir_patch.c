@@ -43,19 +43,34 @@ zdir_patch_new (const char *path, zfile_t *file,
                 zdir_patch_op_t op, const char *alias)
 {
     zdir_patch_t *self = (zdir_patch_t *) zmalloc (sizeof (zdir_patch_t));
+    if (!self)
+        return NULL;
     self->path = strdup (path);
-    self->file = zfile_dup (file);
+    if (self->path)
+        self->file = zfile_dup (file);
+    if (!self->file) {
+        zdir_patch_destroy (&self);
+        return NULL;
+    }
+
     self->op = op;
-    
+
     //  Calculate virtual path for patch (remove path, prefix alias)
-    char *filename = zfile_filename (file, path);
+    const char *filename = zfile_filename (file, path);
+    if (!filename) {
+        zdir_patch_destroy (&self);
+        return NULL;
+    }
     assert (*filename != '/');
     self->vpath = (char *) zmalloc (strlen (alias) + strlen (filename) + 2);
+    if (!self->vpath) {
+        zdir_patch_destroy (&self);
+        return NULL;
+    }
     if (alias [strlen (alias) - 1] == '/')
         sprintf (self->vpath, "%s%s", alias, filename);
     else
         sprintf (self->vpath, "%s/%s", alias, filename);
-    
     return self;
 }
 
@@ -80,26 +95,39 @@ zdir_patch_destroy (zdir_patch_t **self_p)
 
 
 //  --------------------------------------------------------------------------
-//  Create copy of a patch
+//  Create copy of a patch. If the patch is null, or memory was exhausted,
+//  returns null.
 
 zdir_patch_t *
 zdir_patch_dup (zdir_patch_t *self)
 {
-    zdir_patch_t *copy = (zdir_patch_t *) zmalloc (sizeof (zdir_patch_t));
-    copy->path = strdup (self->path);
-    copy->file = zfile_dup (self->file);
-    copy->op = self->op;
-    copy->vpath = strdup (self->vpath);
-    //  Don't recalculate hash when we duplicate patch
-    copy->digest = self->digest? strdup (self->digest): NULL;
-    return copy;
+    if (self) {
+        zdir_patch_t *copy = (zdir_patch_t *) zmalloc (sizeof (zdir_patch_t));
+        if (copy) {
+            copy->op = self->op;
+            copy->path = strdup (self->path);
+            if (copy->path)
+                copy->file = zfile_dup (self->file);
+            if (copy->file)
+                copy->vpath = strdup (self->vpath);
+            if (copy->vpath)
+                //  Don't recalculate hash when we duplicate patch
+                copy->digest = self->digest? strdup (self->digest): NULL;
+
+            if (copy->digest == NULL && copy->op != patch_delete)
+                zdir_patch_destroy (&copy);
+        }
+        return copy;
+    }
+    else
+        return NULL;
 }
 
 
 //  --------------------------------------------------------------------------
 //  Return patch file directory path
 
-char *
+const char *
 zdir_patch_path (zdir_patch_t *self)
 {
     assert (self);
@@ -132,7 +160,7 @@ zdir_patch_op (zdir_patch_t *self)
 //  --------------------------------------------------------------------------
 //  Return patch virtual file path
 
-char *
+const char *
 zdir_patch_vpath (zdir_patch_t *self)
 {
     assert (self);
@@ -147,15 +175,18 @@ void
 zdir_patch_digest_set (zdir_patch_t *self)
 {
     if (self->op == patch_create
-    &&  self->digest == NULL)
+    &&  self->digest == NULL) {
         self->digest = strdup (zfile_digest (self->file));
+        assert (self->digest);
+    }
+
 }
 
 
 //  --------------------------------------------------------------------------
 //  Return hash digest for patch file (create only)
 
-char *
+const char *
 zdir_patch_digest (zdir_patch_t *self)
 {
     assert (self);
@@ -165,22 +196,25 @@ zdir_patch_digest (zdir_patch_t *self)
 
 //  --------------------------------------------------------------------------
 //  Self test of this class
-int
+
+void
 zdir_patch_test (bool verbose)
 {
     printf (" * zdir_patch: ");
 
     //  @selftest
     zfile_t *file = zfile_new (".", "bilbo");
+    assert (file);
     zdir_patch_t *patch = zdir_patch_new (".", file, patch_create, "/");
+    assert (patch);
     zfile_destroy (&file);
-    
+
     file = zdir_patch_file (patch);
+    assert (file);
     assert (streq (zfile_filename (file, "."), "bilbo"));
     assert (streq (zdir_patch_vpath (patch), "/bilbo"));
     zdir_patch_destroy (&patch);
     //  @end
 
     printf ("OK\n");
-    return 0;
 }
