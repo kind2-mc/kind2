@@ -27,22 +27,22 @@
     <Import Project="$(SolutionDir)libzmq.import.props" />
     <Import Project="$(SolutionDir)libsodium.import.props" />
   </ImportGroup>
-
-  <PropertyGroup Condition="$(Configuration.IndexOf('DEXE')) != -1">
+ 
+  <PropertyGroup Condition="'$(DefaultLinkage)' == 'dynamic'">
     <Linkage-czmq>dynamic</Linkage-czmq>
     <Linkage-libzmq>dynamic</Linkage-libzmq>
     <Linkage-libsodium>dynamic</Linkage-libsodium>
   </PropertyGroup>
-  <PropertyGroup Condition="$(Configuration.IndexOf('LEXE')) != -1">
+  <PropertyGroup Condition="'$(DefaultLinkage)' == 'ltcg'">
     <Linkage-czmq>ltcg</Linkage-czmq>
     <Linkage-libzmq>ltcg</Linkage-libzmq>
     <Linkage-libsodium>ltcg</Linkage-libsodium>
   </PropertyGroup>
-  <PropertyGroup Condition="$(Configuration.IndexOf('SEXE')) != -1">
+  <PropertyGroup Condition="'$(DefaultLinkage)' == 'static'">
     <Linkage-czmq>static</Linkage-czmq>
     <Linkage-libzmq>static</Linkage-libzmq>
     <Linkage-libsodium>static</Linkage-libsodium>
-  </PropertyGroup>
+  </PropertyGroup>   
 
   <!-- Messages -->
 
