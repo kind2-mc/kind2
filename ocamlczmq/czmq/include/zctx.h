@@ -19,9 +19,6 @@ extern "C" {
 #endif
 
 
-//  Opaque class structure
-typedef struct _zctx_t zctx_t;
-
 //  @interface
 //  Create new context, returns context object, replaces zmq_init
 CZMQ_EXPORT zctx_t *
@@ -82,12 +79,8 @@ CZMQ_EXPORT void *
     zctx_underlying (zctx_t *self);
 
 //  Self test of this class
-CZMQ_EXPORT int
+CZMQ_EXPORT void
     zctx_test (bool verbose);
-
-//  Global signal indicator, TRUE when user presses Ctrl-C or the process
-//  gets a SIGTERM signal.
-CZMQ_EXPORT extern volatile int zctx_interrupted;
 //  @end
 
 //  Create socket within this context, for CZMQ use only
