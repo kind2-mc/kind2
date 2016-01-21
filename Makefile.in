@@ -8,15 +8,15 @@ OCAMLOPT=@OCAMLOPT@
 
 all: czmq_stubs
 
-.PHONY: zeromq
+.PHONY: zmq
 
-zeromq:
-	make -C zeromq
-	make -C zeromq install
+zmq:
+	make -C libzmq
+	make -C libzmq install
 
 .PHONY: czmq
 
-czmq: zeromq
+czmq: zmq
 	make -C czmq
 	make -C czmq install
 
@@ -26,7 +26,7 @@ czmq_stubs: czmq
 clean:
 	rm -rf lib/*
 	make -C src clean
-	make -C zeromq clean
+	make -C libzmq clean
 	make -C czmq clean
 
 zmq_test: zmq_test.ml

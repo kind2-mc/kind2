@@ -19,37 +19,37 @@
 @discuss
     Here is an example ZPL stream and corresponding config structure:
 
-    context
-        iothreads = 1
-        verbose = 1      #   Ask for a trace
-    main
-        type = zqueue    #  ZMQ_DEVICE type
-        frontend
-            option
-                hwm = 1000
-                swap = 25000000     #  25MB
-            bind = 'inproc://addr1'
-            bind = 'ipc://addr2'
-        backend
-            bind = inproc://addr3
+        context
+            iothreads = 1
+            verbose = 1      #   Ask for a trace
+        main
+            type = zqueue    #  ZMQ_DEVICE type
+            frontend
+                option
+                    hwm = 1000
+                    swap = 25000000     #  25MB
+                bind = 'inproc://addr1'
+                bind = 'ipc://addr2'
+            backend
+                bind = inproc://addr3
 
-    root                    Down = child
-      |                     Across = next
-      v
-    context-->main
-      |         |
-      |         v
-      |       type=queue-->frontend-->backend
-      |                      |          |
-      |                      |          v
-      |                      |        bind=inproc://addr3
-      |                      v
-      |                    option-->bind=inproc://addr1-->bind=ipc://addr2
-      |                      |
-      |                      v
-      |                    hwm=1000-->swap=25000000
-      v
-    iothreads=1-->verbose=false
+        root                    Down = child
+        |                     Across = next
+        v
+        context-->main
+        |         |
+        |         v
+        |       type=queue-->frontend-->backend
+        |                      |          |
+        |                      |          v
+        |                      |        bind=inproc://addr3
+        |                      v
+        |                    option-->bind=inproc://addr1-->bind=ipc://addr2
+        |                      |
+        |                      v
+        |                    hwm=1000-->swap=25000000
+        v
+        iothreads=1-->verbose=false
 @end
 */
 
@@ -61,26 +61,27 @@ struct _zconfig_t {
     char *name;                 //  Property name if any
     char *value;                //  Property value, if any
     struct _zconfig_t
-        *child,                 //  First child if any
-        *next,                  //  Next sibling if any
-        *parent;                //  Parent if any
+    *child,                     //  First child if any
+    *next,                      //  Next sibling if any
+    *parent;                    //  Parent if any
     zlist_t *comments;          //  Comments if any
+    zfile_t *file;              //  Config file handle
 };
 
 //  Local functions for parsing and saving ZPL tokens
 
 static int
-    s_collect_level (char **start, int lineno);
+s_collect_level (char **start, int lineno);
 static char *
-    s_collect_name (char **start, int lineno);
+s_collect_name (char **start, int lineno);
 static int
-    s_verify_eoln (char *readptr, int lineno);
+s_verify_eoln (char *readptr, int lineno);
 static char *
-    s_collect_value (char **start, int lineno);
+s_collect_value (char **start, int lineno);
 static int
-    s_config_save (zconfig_t *self, void *arg, int level);
+s_config_save (zconfig_t *self, void *arg, int level);
 static int
-    s_config_save_chunk (zconfig_t *self, void *arg, int level);
+s_config_execute (zconfig_t *self, zconfig_fct handler, void *arg, int level);
 
 
 //  --------------------------------------------------------------------------
@@ -92,6 +93,9 @@ zconfig_t *
 zconfig_new (const char *name, zconfig_t *parent)
 {
     zconfig_t *self = (zconfig_t *) zmalloc (sizeof (zconfig_t));
+    if (!self)
+        return NULL;
+
     zconfig_set_name (self, name);
     if (parent) {
         if (parent->child) {
@@ -121,11 +125,12 @@ zconfig_destroy (zconfig_t **self_p)
         zconfig_t *self = *self_p;
 
         //  Destroy all children and siblings recursively
-        if (self->child)
-            zconfig_destroy (&self->child);
-        if (self->next)
-            zconfig_destroy (&self->next);
+        zconfig_destroy (&self->child);
+        zconfig_destroy (&self->next);
+
+        //  Destroy other properties and then self
         zlist_destroy (&self->comments);
+        zfile_destroy (&self->file);
         free (self->name);
         free (self->value);
         free (self);
@@ -157,7 +162,7 @@ zconfig_value (zconfig_t *self)
 
 
 //  --------------------------------------------------------------------------
-//  Insert or update configuration key with value; leading slash is optional 
+//  Insert or update configuration key with value; leading slash is optional
 //  and ignored.
 
 void
@@ -165,10 +170,10 @@ zconfig_put (zconfig_t *self, const char *path, const char *value)
 {
     if (*path == '/')
         path++;
-        
+
     //  Check length of next path segment
     const char *slash = strchr (path, '/');
-    int length = strlen (path);
+    size_t length = strlen (path);
     if (slash)
         length = slash - path;
 
@@ -188,6 +193,7 @@ zconfig_put (zconfig_t *self, const char *path, const char *value)
     }
     //  This segment doesn't exist, create it
     child = zconfig_new (path, self);
+    assert (child);
     child->name [length] = 0;
     if (slash)                  //  Recurse down further
         zconfig_put (child, slash, value);
@@ -195,7 +201,24 @@ zconfig_put (zconfig_t *self, const char *path, const char *value)
         zconfig_set_value (child, "%s", value);
 }
 
-    
+
+//  --------------------------------------------------------------------------
+//  Equivalent to zconfig_put, accepting a format specifier and variable
+//  argument list, instead of a single string value.
+
+void
+zconfig_putf (zconfig_t *self, const char *path, const char *format, ...)
+{
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    char *value = zsys_vprintf (format, argptr);
+    va_end (argptr);
+    zconfig_put (self, path, value);
+    zstr_free (&value);
+}
+
+
 //  --------------------------------------------------------------------------
 //  Set new name for config item; this may be null.
 
@@ -218,7 +241,7 @@ void
 zconfig_set_value (zconfig_t *self, const char *format, ...)
 {
     assert (self);
-    free (self->value);
+    zstr_free (&self->value);
     if (format) {
         va_list argptr;
         va_start (argptr, format);
@@ -258,11 +281,13 @@ zconfig_next (zconfig_t *self)
 zconfig_t *
 zconfig_locate (zconfig_t *self, const char *path)
 {
+    assert (self);
+
     //  Check length of next path segment
     if (*path == '/')
         path++;
     const char *slash = strchr (path, '/');
-    int length = strlen (path);
+    size_t length = strlen (path);
     if (slash)
         length = slash - path;
 
@@ -283,11 +308,13 @@ zconfig_locate (zconfig_t *self, const char *path)
 
 
 //  --------------------------------------------------------------------------
-//  Resolve a config path into a string value
+//  Get value for config item into a string value; leading slash is optional
+//  and ignored.
 
 char *
-zconfig_resolve (zconfig_t *self, const char *path, const char *default_value)
+zconfig_get (zconfig_t *self, const char *path, const char *default_value)
 {
+    assert (self);
     zconfig_t *item = zconfig_locate (self, path);
     if (item)
         return zconfig_value (item);
@@ -303,6 +330,8 @@ zconfig_resolve (zconfig_t *self, const char *path, const char *default_value)
 zconfig_t *
 zconfig_at_depth (zconfig_t *self, int level)
 {
+    assert (self);
+
     while (level > 0) {
         if (self->child) {
             self = self->child;
@@ -318,36 +347,44 @@ zconfig_at_depth (zconfig_t *self, int level)
 
 
 //  --------------------------------------------------------------------------
-//  Execute a callback for each config item in the tree
-
-static int
-s_config_execute (zconfig_t *self, zconfig_fct handler, void *arg, int level)
-{
-    assert (self);
-    int rc = handler (self, arg, level);
-
-    //  Process all children in one go, as a list
-    zconfig_t *child = self->child;
-    while (child && !rc) {
-        rc = s_config_execute (child, handler, arg, level + 1);
-        if (rc == -1)
-            break;              //  -1 from callback means end execution
-        child = child->next;
-    }
-    return rc;
-}
+//  Execute a callback for each config item in the tree; returns zero if
+//  successful, else -1.
 
 int
 zconfig_execute (zconfig_t *self, zconfig_fct handler, void *arg)
 {
     //  Execute top level config at level zero
     assert (self);
-    return s_config_execute (self, handler, arg, 0);
+    return s_config_execute (self, handler, arg, 0) >= 0? 0: -1;
 }
 
 
+//  Return number of bytes processed if successful, otherwise -1.
+
+static int
+s_config_execute (zconfig_t *self, zconfig_fct handler, void *arg, int level)
+{
+    assert (self);
+    int size = handler (self, arg, level);
+    if (size == -1)
+        return -1; // fail early
+
+    //  Process all children in one go, as a list
+    zconfig_t *child = self->child;
+    while (child) {
+        int rc = s_config_execute (child, handler, arg, level + 1);
+        if (rc == -1)
+            return -1;
+        size += rc;
+        child = child->next;
+    }
+    return size;
+}
+
 //  --------------------------------------------------------------------------
-//  Load a config tree from a specified ZPL text file
+//  Load a config tree from a specified ZPL text file; returns a zconfig_t
+//  reference for the root, if the file exists and is readable. Returns NULL
+//  if the file does not exist.
 
 zconfig_t *
 zconfig_load (const char *filename)
@@ -355,11 +392,19 @@ zconfig_load (const char *filename)
     //  Load entire file into memory as a chunk, then process it
     zconfig_t *self = NULL;
     zfile_t *file = zfile_new (NULL, filename);
+    if (!file)
+        return NULL;
+
     if (zfile_input (file) == 0) {
         zchunk_t *chunk = zfile_read (file, zfile_cursize (file), 0);
-        if (chunk)
+        if (chunk) {
             self = zconfig_chunk_load (chunk);
-        zchunk_destroy (&chunk);
+            zchunk_destroy (&chunk);
+            if (self)
+                self->file = file;
+            zfile_close (file);
+            file = NULL;        //  Config tree now owns file handle
+        }
     }
     zfile_destroy (&file);
     return self;
@@ -376,51 +421,165 @@ zconfig_save (zconfig_t *self, const char *filename)
     assert (self);
 
     int rc = 0;
-    if (streq (filename, "-")) {
+    if (streq (filename, "-"))
         //  "-" means write to stdout
         rc = zconfig_execute (self, s_config_save, stdout);
-    }
     else {
         FILE *file;
         file = fopen (filename, "w");
-        if (file)
+        if (file) {
             rc = zconfig_execute (self, s_config_save, file);
+            fflush (file);
+            fclose (file);
+
+            //  If we saved back to original file, restat it so that
+            //  the file does not appear as "changed"
+            if (self->file && streq (filename, zconfig_filename (self)))
+                zfile_restat (self->file);
+        }
         else
             rc = -1;          //  File not writeable
-        fflush (file);
-        fclose (file);
     }
     return rc;
 }
 
-//  Save an item
+//  Save an item, polymorphic: if arg is a zchunk_t *, appends the
+//  data to the chunk; else if arg is not null, writes data to the
+//  arg as FILE *, or appends to the chunk data. If arg is null,
+//  stores nothing. Returns data size, or -1 if memory is exhausted.
+
+static int
+s_config_printf (zconfig_t *self, void *arg, char *format, ...)
+{
+    va_list argptr;
+    va_start (argptr, format);
+    char *string = zsys_vprintf (format, argptr);
+    va_end (argptr);
+    if (!string)
+        return -1;
+
+    if (arg) {
+        if (zchunk_is (arg))
+            zchunk_append ((zchunk_t *) arg, string, strlen (string));
+        else
+            fprintf ((FILE *) arg, "%s", string);
+    }
+    size_t size = strlen (string);
+    zstr_free (&string);
+    if (size > INT_MAX)
+        return -1;
+
+    return (int) size;
+}
+
 
 static int
 s_config_save (zconfig_t *self, void *arg, int level)
 {
     assert (self);
-    assert (arg);
 
-    FILE *file = (FILE *) arg;
-    //  Save any comments on the item
+    //  Store any comments on the item
+    int size = 0;
     if (self->comments) {
         char *comment = (char *) zlist_first (self->comments);
         while (comment) {
-            fprintf (file, "#%s\n", comment);
+            size += s_config_printf (self, arg, "#%s\n", comment);
             comment = (char *) zlist_next (self->comments);
         }
-        //  Blank line after comments is nice
-        fprintf (file, "\n");
+        size += s_config_printf (self, arg, "\n");
     }
     if (level > 0) {
         if (self->value)
-            fprintf (file, "%*s%s = \"%s\"\n", (level - 1) * 4, "",
-                self->name? self->name: "(Unnamed)", self->value);
+            size += s_config_printf (self, arg,
+                                     "%*s%s = \"%s\"\n", (level - 1) * 4, "",
+                                     self->name? self->name: "(Unnamed)", self->value);
         else
-            fprintf (file, "%*s%s\n", (level - 1) * 4, "",
-                self->name? self->name: "(Unnamed)");
+            size += s_config_printf (self, arg,
+                                     "%*s%s\n", (level - 1) * 4, "",
+                                     self->name? self->name: "(Unnamed)");
     }
-    return 0;
+    return size;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Equivalent to zconfig_load, taking a format string instead of a fixed
+//  filename.
+
+zconfig_t *
+zconfig_loadf (const char *format, ...)
+{
+    va_list argptr;
+    va_start (argptr, format);
+    char *filename = zsys_vprintf (format, argptr);
+    va_end (argptr);
+    if (filename) {
+        zconfig_t *config = zconfig_load (filename);
+        free (filename);
+        return config;
+    }
+    else
+        return NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Equivalent to zconfig_save, taking a format string instead of a fixed
+//  filename.
+
+int
+zconfig_savef (zconfig_t *self, const char *format, ...)
+{
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    char *filename = zsys_vprintf (format, argptr);
+    va_end (argptr);
+    if (filename) {
+        int rc = zconfig_save (self, filename);
+        zstr_free (&filename);
+        return rc;
+    }
+    else
+        return -1;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Report filename used during zconfig_load, or NULL if none
+
+const char *
+zconfig_filename (zconfig_t *self)
+{
+    assert (self);
+    if (self->file)
+        return (zfile_filename (self->file, NULL));
+    else
+        return NULL;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Reload config tree from same file that it was previously loaded from.
+//  Returns 0 if OK, -1 if there was an error (and then does not change
+//  existing data).
+
+int
+zconfig_reload (zconfig_t **self_p)
+{
+    assert (self_p);
+    zconfig_t *self = *self_p;
+
+    if (self->file) {
+        zconfig_t *copy = zconfig_load (zfile_filename (self->file, NULL));
+        if (copy) {
+            //  Destroy old tree and install new one
+            zconfig_destroy (self_p);
+            *self_p = copy;
+            return 0;
+        }
+    }
+    return -1;              //  Not successful
 }
 
 
@@ -432,11 +591,14 @@ zconfig_chunk_load (zchunk_t *chunk)
 {
     //  Parse the chunk line by line
     zconfig_t *self = zconfig_new ("root", NULL);
+    if (!self)
+        return NULL;
+
     bool valid = true;
     int lineno = 0;
     char *data_ptr = (char *) zchunk_data (chunk);
     size_t remaining = zchunk_size (chunk);
-    
+
     while (remaining) {
         //  Copy stuff into cur_line; not fastest but safest option
         //  since chunk may not be null terminated, etc.
@@ -446,17 +608,17 @@ zconfig_chunk_load (zchunk_t *chunk)
             cur_size = eoln - data_ptr;
         else
             cur_size = remaining;
-        
+
         if (cur_size > 1024)
             cur_size = 1024;
         char cur_line [1024 + 1];
         memcpy (cur_line, data_ptr, cur_size);
         cur_line [cur_size] = '\0';
         data_ptr = eoln? eoln + 1: NULL;
-        remaining -= cur_size + (eoln? 1 :0);
+        remaining -= cur_size + (eoln? 1: 0);
 
         //  Trim line
-        int length = strlen (cur_line);
+        size_t length = strlen (cur_line);
         while (length && isspace ((byte) cur_line [length - 1]))
             cur_line [--length] = 0;
 
@@ -466,6 +628,7 @@ zconfig_chunk_load (zchunk_t *chunk)
         if (cur_line [0] == '#') {
             if (!self->comments) {
                 self->comments = zlist_new ();
+                assert (self->comments);
                 zlist_autofree (self->comments);
             }
             zlist_append (self->comments, cur_line + 1);
@@ -491,10 +654,11 @@ zconfig_chunk_load (zchunk_t *chunk)
                 zconfig_t *parent = zconfig_at_depth (self, level);
                 if (parent) {
                     zconfig_t *item = zconfig_new (name, parent);
+                    assert (item);
                     item->value = value;
                 }
                 else {
-                    fprintf (stderr, "zconfig E: (%d) indentation error\n", lineno);
+                    zclock_log ("E (zconfig): (%d) indentation error", lineno);
                     free (value);
                     valid = false;
                 }
@@ -515,7 +679,7 @@ zconfig_chunk_load (zchunk_t *chunk)
 }
 
 
-//  Count and verify indentation level, -1 means a syntax error
+//  Count and verify indentation level, -1 means a syntax error or overflow
 
 static int
 s_collect_level (char **start, int lineno)
@@ -523,13 +687,16 @@ s_collect_level (char **start, int lineno)
     char *readptr = *start;
     while (*readptr == ' ')
         readptr++;
-    int level = (readptr - *start) / 4;
+    ptrdiff_t level = (readptr - *start) / 4;
     if (level * 4 != readptr - *start) {
-        fprintf (stderr, "zconfig E: (%d) indent 4 spaces at once\n", lineno);
+        zclock_log ("E (zconfig): (%d) indent 4 spaces at once", lineno);
         level = -1;
     }
     *start = readptr;
-    return level;
+    if (level > INT_MAX)
+        return -1;
+
+    return (int) level;
 }
 
 //  Collect property name
@@ -537,15 +704,15 @@ s_collect_level (char **start, int lineno)
 static bool
 s_is_namechar (char thischar)
 {
-    return (isalnum (thischar)
-         || thischar == '$'
-         || thischar == '-'
-         || thischar == '_'
-         || thischar == '@'
-         || thischar == '.'
-         || thischar == '&'
-         || thischar == '+'
-         || thischar == '/');
+    return (  isalnum (thischar)
+           || thischar == '$'
+           || thischar == '-'
+           || thischar == '_'
+           || thischar == '@'
+           || thischar == '.'
+           || thischar == '&'
+           || thischar == '+'
+           || thischar == '/');
 }
 
 static char *
@@ -557,13 +724,18 @@ s_collect_name (char **start, int lineno)
 
     size_t length = *start - readptr;
     char *name = (char *) zmalloc (length + 1);
+    if (!name)
+        return NULL;
+
     memcpy (name, readptr, length);
     name [length] = 0;
 
     if (length > 0
-    && (name [0] == '/' || name [length - 1] == '/')) {
-        fprintf (stderr, "zconfig E: (%d) '/' not valid at name start or end\n", lineno);
+    && (name [0] == '/'
+    ||  name [length - 1] == '/')) {
+        zclock_log ("E (zconfig): (%d) '/' not valid at name start or end", lineno);
         free (name);
+        name = NULL;
     }
     return name;
 }
@@ -580,8 +752,7 @@ s_verify_eoln (char *readptr, int lineno)
         if (*readptr == '#')
             break;
         else {
-            fprintf (stderr, "E: (%d) invalid syntax '%s'\n",
-                lineno, readptr);
+            zclock_log ("E (zconfig): (%d) invalid syntax '%s'", lineno, readptr);
             return -1;
             break;
         }
@@ -612,12 +783,15 @@ s_collect_value (char **start, int lineno)
             if (endquote) {
                 size_t value_length = endquote - readptr - 1;
                 value = (char *) zmalloc (value_length + 1);
+                if (!value)
+                    return NULL;
+
                 memcpy (value, readptr + 1, value_length);
                 value [value_length] = 0;
                 rc = s_verify_eoln (endquote + 1, lineno);
             }
             else {
-                fprintf (stderr, "zconfig E: (%d) missing %c\n", lineno, *readptr);
+                zclock_log ("E (zconfig): (%d) missing %c", lineno, *readptr);
                 rc = -1;
             }
         }
@@ -637,77 +811,78 @@ s_collect_value (char **start, int lineno)
         rc = s_verify_eoln (readptr, lineno);
     }
     //  If we had an error, drop value and return NULL
-    if (rc)
+    if (rc) {
         free (value);
+        value = NULL;
+    }
     return value;
 }
 
 
 //  --------------------------------------------------------------------------
-//  Save a config tree to a new memory chunk
+//  Save a config tree to a new memory chunk; the chunk 
 
 zchunk_t *
 zconfig_chunk_save (zconfig_t *self)
 {
     assert (self);
-    size_t out_count = (size_t) zconfig_execute (self, s_config_save_chunk, NULL);
-    printf ("OUT COUNT: %zd\n", out_count);
-    zchunk_t *chunk = zchunk_new (NULL, out_count);
-    zconfig_execute (self, s_config_save_chunk, zchunk_data (chunk));
+
+    int size = s_config_execute (self, s_config_save, NULL, 0);
+    //  Allow an extra byte so we can null-terminate the data
+    zchunk_t *chunk = zchunk_new (NULL, size + 1);
+    if (chunk) {
+        s_config_execute (self, s_config_save, chunk, 0);
+        //  This lets us treat the chunk data as a string
+        zchunk_data (chunk) [zchunk_size (chunk)] = 0;
+    }
     return chunk;
 }
 
 
-//  Save an item to memory; stores the item and value with indent
-//  and newline, at the indicated location, if not null. Always
-//  returns the number of bytes (that would be) written.
+//  --------------------------------------------------------------------------
+//  Create a new config tree from a null-terminated string
 
-static int
-s_config_save_chunk (zconfig_t *self, void *arg, int level)
+zconfig_t *
+zconfig_str_load (const char *string)
+{
+    zchunk_t *chunk = zchunk_new (string, strlen (string));
+    zconfig_t *config = zconfig_chunk_load (chunk);
+    zchunk_destroy (&chunk);
+    return config;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Save a config tree to a new null terminated string
+
+char *
+zconfig_str_save (zconfig_t *self)
+{
+    zchunk_t *chunk = zconfig_chunk_save (self);
+    char *string = strdup ((char *) zchunk_data (chunk));
+    zchunk_destroy (&chunk);
+    return string;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Return true if a configuration tree was loaded from a file and that
+//  file has changed in since the tree was loaded.
+
+bool
+zconfig_has_changed (zconfig_t *self)
 {
     assert (self);
-    assert (arg);
-
-    int out_count = 0;
-    zchunk_t *chunk = (zchunk_t *) arg;
-
-    //  Store any comments on the item
-    if (self->comments) {
-        char *comment = (char *) zlist_first (self->comments);
-        while (comment) {
-            char curline [1024];
-            snprintf (curline, 1024, "#%s\n", comment);
-            out_count += strlen (curline);
-            if (chunk)
-                zchunk_append (chunk, curline, strlen (curline));
-            comment = (char *) zlist_next (self->comments);
-        }
-        //  Blank line after comments is nice
-        out_count++;
-        if (chunk)
-            zchunk_append (chunk, "\n", 1);
-    }
-    if (level > 0) {
-        char curline [1024];
-        if (self->value)
-            snprintf (curline, 1024, "%*s%s = \"%s\"\n",
-                     (level - 1) * 4, "",
-                      self->name? self->name: "(Unnamed)", self->value);
-        else
-            snprintf (curline, 1024, "%*s%s\n",
-                     (level - 1) * 4, "",
-                      self->name? self->name: "(Unnamed)");
-        out_count += strlen (curline);
-        if (chunk)
-            zchunk_append (chunk, curline, strlen (curline));
-    }
-    return out_count;
+    if (self->file && zfile_has_changed (self->file))
+        return true;
+    else
+        return false;
 }
 
 
 //  --------------------------------------------------------------------------
 //  Add comment to config item before saving to disk. You can add as many
-//  comment lines as you like. If you use a null format, all comments are 
+//  comment lines as you like. If you use a null format, all comments are
 //  deleted.
 
 void
@@ -716,15 +891,16 @@ zconfig_set_comment (zconfig_t *self, const char *format, ...)
     if (format) {
         if (!self->comments) {
             self->comments = zlist_new ();
+            assert (self->comments);
             zlist_autofree (self->comments);
         }
         va_list argptr;
         va_start (argptr, format);
         char *string = zsys_vprintf (format, argptr);
         va_end (argptr);
-        
+
         zlist_append (self->comments, string);
-        free (string);
+        zstr_free (&string);
     }
     else
         zlist_destroy (&self->comments);
@@ -769,21 +945,25 @@ void
 zconfig_test (bool verbose)
 {
     printf (" * zconfig: ");
-    
+
     //  @selftest
     //  Create temporary directory for test files
 #   define TESTDIR ".test_zconfig"
     zsys_dir_create (TESTDIR);
-    
+
     zconfig_t *root = zconfig_new ("root", NULL);
+    assert (root);
     zconfig_t *section, *item;
-    
+
     section = zconfig_new ("headers", root);
+    assert (section);
     item = zconfig_new ("email", section);
+    assert (item);
     zconfig_set_value (item, "some@random.com");
     item = zconfig_new ("name", section);
+    assert (item);
     zconfig_set_value (item, "Justin Kayce");
-    zconfig_put (root, "/curve/secret-key", "Top Secret");
+    zconfig_putf (root, "/curve/secret-key", "%s", "Top Secret");
     zconfig_set_comment (root, "   CURVE certificate");
     zconfig_set_comment (root, "   -----------------");
     assert (zconfig_comments (root));
@@ -792,31 +972,58 @@ zconfig_test (bool verbose)
     root = zconfig_load (TESTDIR "/test.cfg");
     if (verbose)
         zconfig_save (root, "-");
-        
-    char *email = zconfig_resolve (root, "/headers/email", NULL);
+    assert (streq (zconfig_filename (root), TESTDIR "/test.cfg"));
+
+    char *email = zconfig_get (root, "/headers/email", NULL);
     assert (email);
     assert (streq (email, "some@random.com"));
-    char *passwd = zconfig_resolve (root, "/curve/secret-key", NULL);
+    char *passwd = zconfig_get (root, "/curve/secret-key", NULL);
     assert (passwd);
     assert (streq (passwd, "Top Secret"));
 
-    zconfig_save (root, TESTDIR "/test.cfg");
+    zconfig_savef (root, "%s/%s", TESTDIR, "test.cfg");
+    assert (!zconfig_has_changed (root));
+    int rc = zconfig_reload (&root);
+    assert (rc == 0);
+    assert (!zconfig_has_changed (root));
     zconfig_destroy (&root);
 
-    // Test improperly terminated config files
-    char *chunk_data = "section\n    value = somevalue";
-    zchunk_t *chunk = zchunk_new (chunk_data, strlen (chunk_data));
+    //  Test chunk load/save
+    root = zconfig_new ("root", NULL);
+    assert (root);
+    section = zconfig_new ("section", root);
+    assert (section);
+    item = zconfig_new ("value", section);
+    assert (item);
+    zconfig_set_value (item, "somevalue");
+    zconfig_t *search = zconfig_locate (root, "section/value");
+    assert (search == item);
+    zchunk_t *chunk = zconfig_chunk_save (root);
+    assert (strlen ((char *) zchunk_data (chunk)) == 32);
+    char *string = zconfig_str_save (root);
+    assert (string);
+    assert (streq (string, (char *) zchunk_data (chunk)));
+    free (string);
     assert (chunk);
+    zconfig_destroy (&root);
+
     root = zconfig_chunk_load (chunk);
-    assert(root);
-    char *value = zconfig_resolve (root, "/section/value", NULL);
+    assert (root);
+    char *value = zconfig_get (root, "/section/value", NULL);
     assert (value);
     assert (streq (value, "somevalue"));
+
+    //  Test config can't be saved to a file in a path that doesn't
+    //  exist or isn't writable
+    rc = zconfig_savef (root, "%s/path/that/doesnt/exist/%s", TESTDIR, "test.cfg");
+    assert (rc == -1);
+
     zconfig_destroy (&root);
     zchunk_destroy (&chunk);
-    
+
     //  Delete all test files
     zdir_t *dir = zdir_new (TESTDIR, NULL);
+    assert (dir);
     zdir_remove (dir, true);
     zdir_destroy (&dir);
     //  @end
