@@ -47,6 +47,9 @@ sig
   val pp_print_sexpr : Format.formatter -> t -> unit
   val pp_print_sexpr_list : Format.formatter -> t list -> unit 
   val print_sexpr : t -> unit
+  val pp_print_sexpr_indent : int -> Format.formatter -> t -> unit
+  val pp_print_sexpr_list_indent : int -> Format.formatter -> t list -> unit
+  val print_sexpr_indent : int -> t -> unit
   val string_of_sexpr : t -> string
 end
 
@@ -62,30 +65,35 @@ module Make = functor (Atom : SExprAtom) -> struct
 
 
   (* Pretty-print an S-expression *)
-  let rec pp_print_sexpr ppf = function 
+  let rec pp_print_sexpr_indent indent ppf = function 
     | Atom s -> Atom.pp_print_atom ppf s
-    | List l -> pp_print_sexpr_list ppf l
+    | List l -> pp_print_sexpr_list_indent indent ppf l
       
   (* Pretty-print a list of S-expressions in parentheses *)
-  and pp_print_sexpr_list ppf l = 
-    Format.pp_open_hvbox ppf 1;
+  and pp_print_sexpr_list_indent indent ppf l = 
+    Format.pp_open_hovbox ppf indent;
     Format.pp_print_string ppf "(";
-    pp_print_sexpr_list' ppf l;
+    pp_print_sexpr_list' indent ppf l;
     Format.pp_print_string ppf ")";
     Format.pp_close_box ppf ()
       
   (* Pretty-print a list of S-expressions without parentheses *)
-  and pp_print_sexpr_list' ppf = function 
+  and pp_print_sexpr_list' indent ppf = function
     | [] -> ()
-    | e :: [] -> pp_print_sexpr ppf e
+    | e :: [] -> pp_print_sexpr_indent indent ppf e
     | e :: tl -> 
-      pp_print_sexpr ppf e; 
+      pp_print_sexpr_indent indent ppf e; 
       Format.pp_print_space ppf ();
-      pp_print_sexpr_list' ppf tl
+      pp_print_sexpr_list' indent ppf tl
 	
   (* Pretty-print an S-expression to the standard formatter *)
-  let print_sexpr = pp_print_sexpr Format.std_formatter
+  let print_sexpr_indent indent =
+    pp_print_sexpr_indent indent Format.std_formatter
 
+  let pp_print_sexpr = pp_print_sexpr_indent 1
+  let pp_print_sexpr_list = pp_print_sexpr_list_indent 1
+  let print_sexpr = print_sexpr_indent 1
+  
   (* Return a string representation of an S-Expression *)
   let string_of_sexpr s = 
     string_of_t pp_print_sexpr s      

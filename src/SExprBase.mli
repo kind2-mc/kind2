@@ -55,6 +55,15 @@ sig
   (** Pretty-print an S-expression to the standard formatter *)
   val print_sexpr : t -> unit
 
+  (** Pretty-print an S-expression *)
+  val pp_print_sexpr_indent : int -> Format.formatter -> t -> unit
+
+  (** Pretty-print a list of S-expressions enclosed in parentheses *)
+  val pp_print_sexpr_list_indent : int -> Format.formatter -> t list -> unit
+
+  (** Pretty-print an S-expression to the standard formatter *)
+  val print_sexpr_indent : int -> t -> unit
+
   (** Return a string representation of an S-Expression *)
   val string_of_sexpr : t -> string
 

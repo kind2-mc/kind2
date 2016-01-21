@@ -1321,7 +1321,7 @@ let mono_implication_check sys dirname prop certif =
   close_out oc
 
 
-let generate_mono_certificate sys dirname =
+let generate_mono_certificates sys dirname =
 
   Event.set_module `Certif;
 
@@ -1409,10 +1409,10 @@ let generate_certificate sys dirname =
   
   
   (* Names of predicates *)
-  let init_n = "__I__" in
-  let prop_n = "__P__" in
-  let trans_n = "__T__" in
-  let phi_n = "__PHI__" in
+  let init_n = "I" in
+  let prop_n = "P" in
+  let trans_n = "T" in
+  let phi_n = "PHI" in
 
   
   (* add headers for info *)
@@ -2131,7 +2131,7 @@ let generate_all_certificates input sys =
   in
   create_dir dirname;
 
-  generate_mono_certificate sys dirname;
+  generate_mono_certificates sys dirname;
 
   (* Only generate frontend certificates for Lustre *)
   if InputSystem.is_lustre_input input then
@@ -2157,3 +2157,7 @@ let generate_all_certificates input sys =
 
   (* Show which file contains the certificate *)
   printf "Certificates were produced in %s@." dirname
+
+
+(* FIXME this is just to force the compilation of proof.ml *)
+open Proof
