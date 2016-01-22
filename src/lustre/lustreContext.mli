@@ -186,19 +186,24 @@ val function_of_name : t -> LustreIdent.t -> LustreFunction.t
     to [a], and all default values are identical to [d]. It returns
     [None] if no such call was found, and its output variables
     otherwise. *)
-val call_outputs_of_node_call : t -> LustreIdent.t -> StateVar.t option -> StateVar.t LustreIndex.t -> LustreExpr.t LustreIndex.t option -> StateVar.t LustreIndex.t option
+val call_outputs_of_node_call :
+  t -> LustreIdent.t -> StateVar.t option -> StateVar.t LustreIndex.t ->
+  LustreExpr.t LustreIndex.t option -> StateVar.t LustreIndex.t option
 
 (** Add node input to context *)
-val add_node_input : ?is_const:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+val add_node_input :
+  ?is_const:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
 (** Add node output to context *)
-val add_node_output : ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+val add_node_output :
+  ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 
 (** The output state variables of the current node. *)
 val outputs_of_current_node : t -> StateVar.t LustreIndex.t
 
 (** Add node local to context *)
-val add_node_local : ?ghost:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+val add_node_local :
+  ?ghost:bool -> t -> LustreIdent.t -> Lib.position -> Type.t LustreIndex.t -> t
 
 (** Adds assumptions and guarantees to a node. *)
 val add_node_ass_gua :
@@ -214,7 +219,9 @@ val add_node_assert : t -> LustreExpr.t -> t
 val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t
 
 (** Add equation to context *)
-val add_node_equation : t -> Lib.position -> StateVar.t -> LustreExpr.expr LustreNode.bound_or_fixed list -> int -> LustreExpr.t -> t
+val add_node_equation :
+  t -> Lib.position -> StateVar.t ->
+  LustreExpr.expr LustreNode.bound_or_fixed list -> int -> LustreExpr.t -> t
 
 (** Add node call to context *)
 val add_node_call : t -> Lib.position -> LustreNode.node_call -> t
@@ -257,7 +264,9 @@ val add_function_global_contract : t -> position -> LustreFunction.contract -> t
 val add_function_mode_contract : t -> position -> string -> LustreFunction.contract -> t
 
 
-
+(** Check that the node being defined has no undefined local variables *)
+val check_local_vars_defined : t -> unit
+  
 (** {1 Helpers} *)
 
 (** Output a fatal error at position and raise an error *)
@@ -271,6 +280,7 @@ val fail_no_position : string -> 'a
 
 (** Output a warning without a position *)
 val warn_no_position : string -> unit 
+
 
 (* 
    Local Variables:

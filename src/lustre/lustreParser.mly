@@ -956,12 +956,18 @@ lustre_type_list:
   | l = separated_nonempty_list(COMMA, lustre_type) { l }
   
 
+(* A comma-separated list of identifiers with position information *)
+ident_list_pos :
+  | i = ident { [mk_pos $startpos, i] }
+  | i = ident; COMMA; l = comma_pos_separated_nonempty_list_ident
+    { (mk_pos $startpos, i) :: l }
+
+
 (* A list of comma-separated identifiers with a type *)
 typed_idents: 
-  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
-
+  | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
-    { List.map (function e -> (mk_pos $startpos, e, t)) l }
+    { List.map (function (pos, e) -> (pos, e, t)) l }
 
 (*
 (* A list of lists of typed identifiers *)
@@ -995,14 +1001,14 @@ clocked_typed_idents:
   | l = typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, A.ClockTrue)) l }
+    { List.map (function (pos, e, t) -> (pos, e, t, A.ClockTrue)) l }
 
   (* Clocked typed identifiers *)
   | l = typed_idents; WHEN; c = clock_expr
   | LPAREN; l = typed_idents; RPAREN; WHEN; c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, c)) l }
+    { List.map (function (pos, e, t) -> (pos, e, t, c)) l }
 
   (* Separate rule for non-singleton list to avoid shift/reduce conflict *)
   | LPAREN; 
@@ -1014,7 +1020,7 @@ clocked_typed_idents:
 
     (* Pair each types identifier the given clock *)
     { List.map
-        (function (_, e, t) -> (mk_pos $startpos, e, t, c)) 
+        (function (pos, e, t) -> (pos, e, t, c)) 
         (h @ (List.flatten l)) }
 
 

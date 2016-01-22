@@ -134,6 +134,11 @@ type t =
     (* [None] if definitions are allowed, otherwise a pair of a
        message and a position to raise an error with. *)
     definitions_allowed : (Lib.position * string) option;
+
+    (* saving local variables positions and their luster identifiers for error
+       reporting *)
+    locals_info : (StateVar.t * I.t * Lib.position) list;
+    
   }
 
 
@@ -156,7 +161,9 @@ let mk_empty_context () =
     state_var_oracle_map = SVT.create 7;
     fresh_local_index = 0;
     fresh_oracle_index = 0;
-    definitions_allowed = None }
+    definitions_allowed = None;
+    locals_info = [];
+  }
 
 
 (* Raise parsing exception *)
@@ -856,10 +863,12 @@ let close_expr
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, ctx) else
 
-    (warn_at_position
+    (fail_at_position
        pos
-       "Unguarded pre in expression, adding new oracle input";
-
+       (Format.asprintf "Unguarded pre in expression %a"
+          (E.pp_print_lustre_expr false) expr);
+     
+     (* TODO the rest can be removed if we disallow unguared pre's *)
      (* New oracle for each state variable *)
      let oracle_substs, ctx =
        VS.fold
@@ -1244,13 +1253,13 @@ let outputs_of_current_node = function
 
 
 (* Add node local to context *)
-let add_node_local ?(ghost = false) ctx ident index_types = 
+let add_node_local ?(ghost = false) ctx ident pos index_types = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_local")
 
-    | { node = Some { N.locals } } -> 
+    | { node = Some { N.locals }; locals_info } -> 
 
       (* Create state variable for each stream *)
       let local, ctx = 
@@ -1268,6 +1277,12 @@ let add_node_local ?(ghost = false) ctx ident index_types =
                  index
                  index_type
                  (if ghost then Some N.Ghost else Some N.Local)
+             in
+
+             (* Register local declarations positions for later *)
+             let ctx  =
+               { ctx with
+                 locals_info = (state_var, ident, pos) :: ctx.locals_info }
              in
              
              (* Add expression to trie of identifier *)
@@ -2013,6 +2028,26 @@ let add_function_to_context ctx func_ctx =
   let func = function_of_context func_ctx in
 
   { ctx with funcs = func :: ctx.funcs }
+
+
+(** Check that the node being defined has no undefined local variables *)
+let check_local_vars_defined ctx =
+  match ctx.node with
+  | None -> ()
+  | Some { N.equations } ->
+    List.iter (fun (sv, id, pos) ->
+        if not (List.exists
+                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  equations )
+        then
+          fail_at_position pos
+            (Format.asprintf "Local variable %a has no definition."
+               (I.pp_print_ident false) id
+            )
+      ) ctx.locals_info
+
+  
+
 
 (* 
    Local Variables:
