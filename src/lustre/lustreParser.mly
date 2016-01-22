@@ -959,7 +959,7 @@ lustre_type_list:
 (* A comma-separated list of identifiers with position information *)
 ident_list_pos :
   | i = ident { [mk_pos $startpos, i] }
-  | i = ident; COMMA; l = comma_pos_separated_nonempty_list_ident
+  | i = ident; COMMA; l = ident_list_pos
     { (mk_pos $startpos, i) :: l }
 
 
