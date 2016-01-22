@@ -106,6 +106,7 @@ let mk_ctx in_sys param sys =
     sys
     (Smt.define_fun solver)
     (Smt.declare_fun solver)
+    (Smt.declare_sort solver)
     Numeral.(~- one) Numeral.(succ one) ;
 
   (* Invariants of the system at 0, 1 and 2. *)

@@ -20,6 +20,18 @@
 (* The type of certificates *)
 type t = int * Term.t
 
+type out = {
+  k: int;
+  phi : string;
+  init : string;
+  prop : string;
+  trans : string;
+  base : string;
+  induction : string;
+  implication : string;
+  dummy_trace : string;
+}
+
 (* Merge certificates into one. The resulting certificate is a certificate for
    the conjunction of the original invariants. *)
 let merge certs =

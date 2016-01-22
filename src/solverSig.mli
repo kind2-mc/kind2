@@ -45,6 +45,9 @@ module type Inst = sig
 
   (** {1 Declarations} *)
 
+  (** Declare a new sort symbol *)
+  val declare_sort : SMTExpr.sort -> decl_response
+
   (** Declare a new function symbol *)
   val declare_fun : string -> SMTExpr.sort list -> SMTExpr.sort -> decl_response
 

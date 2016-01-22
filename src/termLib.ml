@@ -53,6 +53,7 @@ let default_of_type t =
 
     (* No defaults for scalars and arrays *)
     | Type.Scalar _
+    | Type.Abstr _
     | Type.Array _ -> invalid_arg "default_of_type"
 
 
@@ -102,7 +103,7 @@ let rec logic_of_sort ty =
   let open Type in
   let open FeatureSet in
   match node_of_type ty with
-  | Bool -> empty
+  | Bool | Abstr _ -> empty
     
   | Int | IntRange _ -> singleton IA
                           

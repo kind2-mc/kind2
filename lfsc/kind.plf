@@ -4,7 +4,7 @@
 ;;                                  ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Depends of sat.plf, th_base.plf and smt.plf
+;; Depends on sat.plf, th_base.plf and smt.plf
 
 
 (declare Int sort)
@@ -19,6 +19,250 @@
 
 (declare invariant (! I set (! T rel (! P set type))))
 
+;; unary encoding of naturals
+(declare nat type)
+(declare O nat)
+(declare S (! n nat nat))
+
+;; conversions to/from mpz
+
+(program mpz_of_nat ((n nat)) mpz
+  (match n
+    (O 0)
+    ((S m) (mp_add 1 (mpz_of_nat m)))))
+
+(program nat_of_mpz ((z mpz)) nat
+  (mp_ifneg z (fail nat)
+  (mp_ifzero z O
+  (S (nat_of_mpz (mp_add z (~ 1)))))))
+
+(run (nat_of_mpz 3))
+(run (nat_of_mpz (~ 3)))
+
+
+(declare %index% type)
+(declare index sort)
+(declare mk_ind (! %index% (term index)))
+
+;; predefined indexes (constructors)
+(declare %%0 %index%)
+(declare %%1 %index%)
+(declare %%2 %index%)
+(declare %%3 %index%)
+(declare %%4 %index%)
+(declare %%5 %index%)
+(declare %%6 %index%)
+(declare %%7 %index%)
+(declare %%8 %index%)
+(declare %%9 %index%)
+(declare %%10 %index%)
+(declare %%11 %index%)
+(declare %%12 %index%)
+(declare %%13 %index%)
+(declare %%14 %index%)
+(declare %%15 %index%)
+(declare %%16 %index%)
+(declare %%17 %index%)
+(declare %%18 %index%)
+(declare %%19 %index%)
+(declare %%20 %index%)
+(declare %%21 %index%)
+(declare %%22 %index%)
+(declare %%23 %index%)
+(declare %%24 %index%)
+(declare %%25 %index%)
+(declare %%26 %index%)
+(declare %%27 %index%)
+(declare %%28 %index%)
+(declare %%29 %index%)
+(declare %%30 %index%)
+(declare %%31 %index%)
+(declare %%32 %index%)
+(declare %%33 %index%)
+(declare %%34 %index%)
+(declare %%35 %index%)
+(declare %%36 %index%)
+(declare %%37 %index%)
+(declare %%38 %index%)
+(declare %%39 %index%)
+(declare %%40 %index%)
+(declare %%41 %index%)
+(declare %%42 %index%)
+(declare %%43 %index%)
+(declare %%44 %index%)
+(declare %%45 %index%)
+(declare %%46 %index%)
+(declare %%47 %index%)
+(declare %%48 %index%)
+(declare %%49 %index%)
+(declare %%50 %index%)
+
+;; conversion with to native integers
+(program mpz_of_index ((i %index%)) mpz
+  (match i
+    (%%0 0)
+    (%%1 1)
+    (%%2 2)
+    (%%3 3)
+    (%%4 4)
+    (%%5 5)
+    (%%6 6)
+    (%%7 7)
+    (%%8 8)
+    (%%9 9)
+    (%%10 10)
+    (%%11 11)
+    (%%12 12)
+    (%%13 13)
+    (%%14 14)
+    (%%15 15)
+    (%%16 16)
+    (%%17 17)
+    (%%18 18)
+    (%%19 19)
+    (%%20 20)
+    (%%21 21)
+    (%%22 22)
+    (%%23 23)
+    (%%24 24)
+    (%%25 25)
+    (%%26 26)
+    (%%27 27)
+    (%%28 28)
+    (%%29 29)
+    (%%30 30)
+    (%%31 31)
+    (%%32 32)
+    (%%33 33)
+    (%%34 34)
+    (%%35 35)
+    (%%36 36)
+    (%%37 37)
+    (%%38 38)
+    (%%39 39)
+    (%%40 40)
+    (%%41 41)
+    (%%42 42)
+    (%%43 43)
+    (%%44 44)
+    (%%45 45)
+    (%%46 46)
+    (%%47 47)
+    (%%48 48)
+    (%%49 49)
+    (%%50 50)
+    (default (fail mpz))))
+         
+;; conversion from native integers
+(program decr_index ((i %index%)) %index%
+  (match i
+    (%%1 %%0)
+    (%%2 %%1)
+    (%%3 %%2)
+    (%%4 %%3)
+    (%%5 %%4)
+    (%%6 %%5)
+    (%%7 %%6)
+    (%%8 %%7)
+    (%%9 %%8)
+    (%%10 %%9)
+    (%%11 %%10)
+    (%%12 %%11)
+    (%%13 %%12)
+    (%%14 %%13)
+    (%%15 %%14)
+    (%%16 %%15)
+    (%%17 %%16)
+    (%%18 %%17)
+    (%%19 %%18)
+    (%%20 %%19)
+    (%%21 %%20)
+    (%%22 %%21)
+    (%%23 %%22)
+    (%%24 %%23)
+    (%%25 %%24)
+    (%%26 %%25)
+    (%%27 %%26)
+    (%%28 %%27)
+    (%%29 %%28)
+    (%%30 %%29)
+    (%%31 %%30)
+    (%%32 %%31)
+    (%%33 %%32)
+    (%%34 %%33)
+    (%%35 %%34)
+    (%%36 %%35)
+    (%%37 %%36)
+    (%%38 %%37)
+    (%%39 %%38)
+    (%%40 %%39)
+    (%%41 %%40)
+    (%%42 %%41)
+    (%%43 %%42)
+    (%%44 %%43)
+    (%%45 %%44)
+    (%%46 %%45)
+    (%%47 %%46)
+    (%%48 %%47)
+    (%%49 %%48)
+    (%%50 %%49)
+    (default (fail %index%))))     
+
+(program incr_index ((i %index%)) %index%
+  (match i
+    (%%0 %%1)
+    (%%1 %%2)
+    (%%2 %%3)
+    (%%3 %%4)
+    (%%4 %%5)
+    (%%5 %%6)
+    (%%6 %%7)
+    (%%7 %%8)
+    (%%8 %%9)
+    (%%9 %%10)
+    (%%10 %%11)
+    (%%11 %%12)
+    (%%12 %%13)
+    (%%13 %%14)
+    (%%14 %%15)
+    (%%15 %%16)
+    (%%16 %%17)
+    (%%17 %%18)
+    (%%18 %%19)
+    (%%19 %%20)
+    (%%20 %%21)
+    (%%21 %%22)
+    (%%22 %%23)
+    (%%23 %%24)
+    (%%24 %%25)
+    (%%25 %%26)
+    (%%26 %%27)
+    (%%27 %%28)
+    (%%28 %%29)
+    (%%29 %%30)
+    (%%30 %%31)
+    (%%31 %%32)
+    (%%32 %%33)
+    (%%33 %%34)
+    (%%34 %%35)
+    (%%35 %%36)
+    (%%36 %%37)
+    (%%37 %%38)
+    (%%38 %%39)
+    (%%39 %%40)
+    (%%40 %%41)
+    (%%41 %%42)
+    (%%42 %%43)
+    (%%43 %%44)
+    (%%44 %%45)
+    (%%45 %%46)
+    (%%46 %%47)
+    (%%47 %%48)
+    (%%48 %%49)
+    (%%49 %%50)
+    (default (fail %index%))))     
+
+
 ;; Unrolling transition relation k times starting from the initial state
 (program unroll_from ((T rel) (I set) (k mpz)) formula
  (mp_ifneg k
@@ -27,6 +271,56 @@
      (I 0)
      (let j (mp_add k (~ 1))
        (and (unroll_from T I j) (T j k))))))
+
+
+(define trans (! x %index% (! y %index% formula)))
+(define init (! x %index% formula))
+
+(program unroll_from2 ((I init) (T trans) (k %index%)) formula
+  (match k
+    (%%0 (I %%0))
+    (default           
+     (let j (incr_index k)
+       (and (unroll_from2 I T j) (T j k)))))))
+
+
+
+
+
+
+(define trans (! _ (term Int) (! _ (term Int) formula)))
+(define init (! x (term Int) formula))
+
+(check (: (term Int) (int 0)))
+(declare ii init)
+(check (: formula (ii (int 0))))
+
+;; (define unrollf
+;;   (: (! I init (! T trans (! k mpz formula)))
+;;      (mp_ifzero k
+;;        (I (int 0))
+;;        (@ j (mp_add k (~ 1))
+;;           (and (unrollf I T j) (T (int j) (int k)))))))
+
+        
+;; (program test ((I init)) formula
+;;          (I (int 0)))
+
+;; (declare T trans)
+;; (declare I init)
+
+(program test2 ((k mpz)) formula
+         (ii (int 0)))
+
+;; (program unroll_from2 ((k mpz)) formula
+;;  (mp_ifneg k
+;;    (fail formula)
+;;    (mp_ifzero k
+;;      (I (int 0))
+;;      (let j (mp_add k (~ 1))
+;;        (and (unroll_from2 j) (T (int j) (int k)))))))
+
+
 
 ;; TODO: we might need to embed indexes in terms data structure depending on
 ;; the actual types of T and I

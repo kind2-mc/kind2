@@ -334,6 +334,7 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.term
          t
          (SMTSolver.define_fun s)
          (SMTSolver.declare_fun t) 
+         (SMTSolver.declare_sort t) 
          l
          u ]}
 
@@ -413,7 +414,12 @@ val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Nume
     The signatures of [f] and [g] are those of {!SMTSolver.define_fun}
     and {!SMTSolver.declare_fun}, repsectively, partially evaluated
     with their first argument. *)
-val define_and_declare_of_bounds : ?declare_sub_vars:bool -> t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+val define_and_declare_of_bounds :
+  ?declare_sub_vars:bool -> t ->
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (UfSymbol.t -> unit) ->
+  (Type.t -> unit) ->
+  Numeral.t -> Numeral.t -> unit
 
 (** Return predicate definitions of initial state and transition
     relation of the top system and all its subsystem in reverse

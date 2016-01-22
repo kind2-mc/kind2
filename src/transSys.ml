@@ -906,8 +906,15 @@ let define_and_declare_of_bounds
     trans_sys
     define 
     declare
+    declare_sort
     lbound
     ubound =
+
+  (* declare uninterpreted sorts *)
+  Type.get_all_abstr_types () |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
   
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;

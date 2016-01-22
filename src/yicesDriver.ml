@@ -83,6 +83,7 @@ let rec pp_print_type_node ppf =
         Numeral.pp_print_numeral j
 
     | Real -> Format.pp_print_string ppf "real"
+    | Abstr s -> Format.pp_print_string ppf s
 (*
   | BV i -> 
 
@@ -116,7 +117,7 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 let interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
-  | Type.Bool | Type.Int | Type.Real -> t
+  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ -> t
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
@@ -152,7 +153,8 @@ let type_of_string_sexpr = function
     Type.mk_int_range (Numeral.of_string (HString.string_of_hstring i))
       (Numeral.of_string (HString.string_of_hstring j))
 
-  | HStringSExpr.Atom _
+  | HStringSExpr.Atom s -> Type.mk_abstr (HString.string_of_hstring s)
+
   | HStringSExpr.List _ as s ->
 
     raise

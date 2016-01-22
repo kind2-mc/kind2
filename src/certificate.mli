@@ -20,12 +20,28 @@
 (** Certificates for Kind 2. This contains the base type as well as some
     combinators for certificates.
 
-    @author Alain Mebsout, Christoph Sticksel
+    @author Alain Mebsout
 *)
 
 
 (** The type of certificates *)
 type t = int * Term.t
+
+(** The type of certificates outputs, these are file names for the intermediate
+    SMT-LIB 2 certificates *)
+type out = {
+  k: int;               (** k of certificate *)
+  phi : string;         (** Name of function symbol for k-inductive invariant *)
+  init : string;        (** Name of function symbol for init *)
+  prop : string;        (** Name of function symbol for property *)
+  trans : string;       (** Name of function symbol for transition relation *) 
+
+  base : string;        (** File name for base case check *)
+  induction : string;   (** File name for inductive case check *)
+  implication : string; (** File name for implication of property check *)
+  dummy_trace : string; (** File name for dummy file to trace function
+                            definitions in LFSC *)
+}
 
 
 (** Merge certificates into one. The resulting certificate is a certificate for

@@ -150,6 +150,12 @@ let id_of_instance { id } = id
 (* Declarations                                                         *)
 (* ******************************************************************** *)
 
+(* Declare an uninterpreted sort symbol *) 
+let declare_sort s sort =
+  let module S = (val s.solver_inst) in
+  fail_on_smt_error (S.declare_sort sort)
+
+
 (* Declare an uninterpreted function symbol *) 
 let declare_fun s uf_symbol =
   let module S = (val s.solver_inst) in

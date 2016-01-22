@@ -471,6 +471,20 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   (* Commands                                                              *)
   (* ********************************************************************* *)
 
+  (* Declare a new sort symbol *)
+  let declare_sort solver sort = match Type.node_of_type sort with
+    | Type.Abstr _ ->
+
+      let cmd =
+        Format.sprintf "@[<hv 1>(declare-sort@ %s 0)@]"
+          (string_of_sort sort)
+      in
+
+      (* Send command to the solver without timeout *)
+      execute_command solver cmd 0
+
+    | _ -> failwith "Only declare uninterpreted sorts."
+
 
   (* Declare a new function symbol *)
   let declare_fun solver fun_symbol arg_sorts res_sort = 
@@ -1015,6 +1029,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let delete_instance () = delete_instance solver
 
 
+    let declare_sort = declare_sort solver
     let declare_fun = declare_fun solver
     let define_fun = define_fun solver
     let assert_expr = assert_expr solver

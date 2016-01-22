@@ -663,6 +663,7 @@ let launch input_sys aparam trans =
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
     Numeral.(~- one) Numeral.zero ;
 
   (* Invariants of the system at 0. *)

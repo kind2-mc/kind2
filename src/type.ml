@@ -38,7 +38,8 @@ type kindtype =
 *)
   (* First is element type, second is index type *)
   | Array of t * t
-  | Scalar of string * string list 
+  | Scalar of string * string list
+  | Abstr of string
 
 (* A private type that cannot be constructed outside this module
 
@@ -96,7 +97,9 @@ module Kindtype_node = struct
          (s1 = s2) && (List.for_all2 (=) l1 l2) 
        with Invalid_argument _ -> false)
     | Scalar _, _ -> false
-        
+    | Abstr s1, Abstr s2 -> s1 = s2
+    | Abstr _, _ -> false
+      
 end
 
 
@@ -214,6 +217,8 @@ let rec pp_print_type_node ppf = function
       s 
       (pp_print_list Format.pp_print_string " ") l
 
+  | Abstr s -> Format.pp_print_string ppf s
+
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
 
@@ -245,6 +250,8 @@ let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
 let mk_scalar s l = Hkindtype.hashcons ht (Scalar (s, l)) ()
 
+let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
+
 
 (* Import a type from a different instance into this hashcons table *)
 let rec import { Hashcons.node = n } = match n with 
@@ -262,10 +269,19 @@ let rec import { Hashcons.node = n } = match n with
 
   | Scalar (s, l) -> mk_scalar s l
 
+  | Abstr s -> mk_abstr s
+    
 (* Static values *)
 let t_bool = mk_bool ()
 let t_int = mk_int ()
 let t_real = mk_real ()
+
+
+let get_all_abstr_types () =
+  Hkindtype.fold (fun ty acc -> match ty with
+      | { Hashcons.node = Abstr _ } -> ty :: acc
+      | _ -> acc) ht []
+  |> List.rev
 
 
 (* ********************************************************************* *)
@@ -276,11 +292,11 @@ let t_real = mk_real ()
 let rec is_int { Hashcons.node = t } = match t with
   | Int -> true 
   | Array (_, t) -> is_int t
-      
   | IntRange _
   | Bool 
   | Real
 (*  | BV _ *)
+  | Abstr _
   | Scalar _ -> false
 
 let rec is_int_range { Hashcons.node = t } = match t with
@@ -290,6 +306,7 @@ let rec is_int_range { Hashcons.node = t } = match t with
   | Bool 
   | Real
 (* | BV _ *)
+  | Abstr _
   | Scalar _ -> false
 
 let rec is_bool { Hashcons.node = t } = match t with
@@ -298,6 +315,7 @@ let rec is_bool { Hashcons.node = t } = match t with
   | Int
   | IntRange _
   | Real
+  | Abstr _
 (*  | BV _ *)
   | Scalar _ -> false
 
@@ -307,8 +325,13 @@ let rec is_real { Hashcons.node = t } = match t with
 (*   | BV _ *)
   | Bool
   | Int
-  | IntRange _ 
+  | IntRange _
+  | Abstr _
   | Scalar _ -> false
+
+let rec is_abstr { Hashcons.node = t } = match t with
+  | Abstr _ -> true
+  | _ -> false
 
 (*
 let is_bv { Hashcons.node = t } = match t with
@@ -328,6 +351,7 @@ let is_array { Hashcons.node = t } = match t with
   | IntRange _
   | Real
 (*  | BV _ *)
+  | Abstr _
   | Scalar _ -> false
 
 let rec is_scalar { Hashcons.node = t } = match t with
@@ -336,6 +360,7 @@ let rec is_scalar { Hashcons.node = t } = match t with
   | Bool
   | Int
   | IntRange _
+  | Abstr _
   | Real -> false
 (*  | BV _ *)
 
@@ -383,6 +408,8 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | Real, Real
     | Bool, Bool -> true
 
+    | Abstr s1, Abstr s2 -> s1 = s2
+      
     (* IntRange is a subtype of Int *)
     | IntRange _, Int -> true
 

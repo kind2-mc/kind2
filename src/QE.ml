@@ -71,6 +71,7 @@ let get_solver_instance trans_sys =
         trans_sys
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
+        (SMTSolver.declare_sort solver)
         Numeral.(~- one) Numeral.zero;
       
       SMTSolver.trace_comment solver "Defining predicates";
@@ -141,6 +142,7 @@ let get_checking_solver_instance trans_sys =
         trans_sys
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
+        (SMTSolver.declare_sort solver)
         Numeral.(~- one) Numeral.zero;
 
       (* Save instance *)

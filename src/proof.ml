@@ -275,6 +275,9 @@ let parse_Lambda_binding ctx b ty =
   else Lambda_decl { decl_symb = b; decl_type = ty }
 
 
+(***********************)
+(* Parsing proof terms *)
+(***********************)
 
 let rec parse_proof acc = let open HS in function
 
@@ -298,6 +301,10 @@ let parse_proof_check ctx = let open HS in function
     parse_proof (mk_empty_proof ctx) proof
   | _ -> assert false
 
+
+(******************************************)
+(* Parsing context from dummy lfsc proofs *)
+(******************************************)
 
 let rec parse_context ctx = let open HS in function
 
@@ -339,15 +346,15 @@ let context_from_chan in_ch =
 
     | [Atom u; dummy_proof] when u == s_unsat ->
 
-      parse_context_dummy dummy_proof, sexps
+      parse_context_dummy dummy_proof
       
     | _ -> assert false
 
 
-let proof_from_chan ctx (* in_ch *) sexps =
+let proof_from_chan ctx in_ch =
 
-  (* let lexbuf = Lexing.from_channel in_ch in *)
-  (* let sexps = SExprParser.sexps SExprLexer.main lexbuf in *)
+  let lexbuf = Lexing.from_channel in_ch in
+  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
   let open HS in
   
   match sexps with
@@ -383,42 +390,28 @@ type smtlib2_certif = {
 
 let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --dump-proof\" <"
 
-let call cmd =
-  let ic, oc = Unix.open_process cmd in
-  let buf = Buffer.create 16 in
-  (try
-     while true do
-       Buffer.add_channel buf ic 1
-     done
-   with End_of_file -> ());
-  ignore(Unix.close_process (ic, oc));
-  Buffer.contents buf
-
 
 
 (* TODO this is just for testing *)
-let _ =
+let test () =
 
   (* pp_set_margin std_formatter max_int; *)
 
-  let ctx, sexps = context_from_chan stdin in
-
-  printf "Parsed context:\n%a@." print_context ctx;
-
-  let proof = proof_from_chan ctx sexps (* stdin *) in
-
-  printf "Parsed proof:\n%a@." (print_proof "debile") proof;
-
-  printf "\n=========================\n@.";
-
-  let cmd = cvc4_proof_cmd ^ " production_cell.smt2" in
+  let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/lfsc_defs.smt2" in
   let ic, oc = Unix.open_process cmd in
+  let ctx = context_from_chan ic in
+  printf "Parsed context:\n%a@." print_context ctx;
+  ignore(Unix.close_process (ic, oc));
 
-  let ctx, sexps = context_from_chan ic in
-
-  printf "define.smt2:---- Parsed context:\n%a@." print_context ctx;
-
+  let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/induction.smt2" in
+  let ic, oc = Unix.open_process cmd in
+  let proof = proof_from_chan ctx ic in
+  printf "Parsed proof:\n%a@." (print_proof "induction") proof;
   ignore(Unix.close_process (ic, oc));
 
   
   exit 0
+
+
+
+let _ = test ()

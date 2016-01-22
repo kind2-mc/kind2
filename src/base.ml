@@ -350,6 +350,7 @@ let init input_sys aparam trans =
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
     Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)

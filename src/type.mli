@@ -33,6 +33,7 @@ type kindtype =
 (*  | BV of int *)
   | Array of t * t
   | Scalar of string * string list
+  | Abstr of string
 
 (** Hashconsed type *)
 and t
@@ -87,6 +88,9 @@ val mk_array : t -> t -> t
 (** Return a scalar type of identifier and elements *)
 val mk_scalar : string -> string list -> t
 
+(** Return an abstract type *)
+val mk_abstr : string -> t
+
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
 
@@ -127,6 +131,9 @@ val is_array : t -> bool
 (** Return [true] if the type is a scalar type *)
 val is_scalar : t -> bool
 
+(** Return [true] if the type is abstract *)
+val is_abstr : t -> bool
+
 (** Return bounds of an integer range type, fail with
     [Invalid_argument "bounds_of_int_range"] if the type is not an
     integer range type. *)
@@ -161,6 +168,7 @@ val print_type : t -> unit
 val string_of_type : t -> string
 
 
+val get_all_abstr_types : unit -> t list
 
 (* 
    Local Variables:

@@ -343,6 +343,7 @@ let create two_state top_only top_sys =
       top_sys
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
+      (SMTSolver.declare_sort solver)
       Numeral.zero Numeral.(~- one) ;
 
 (*

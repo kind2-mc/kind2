@@ -450,7 +450,7 @@ let interpr_type t = match Type.node_of_type t with
 
   | Type.IntRange _ -> Type.mk_int ()
 
-  | Type.Bool | Type.Int | Type.Real -> t
+  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ -> t
 
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 

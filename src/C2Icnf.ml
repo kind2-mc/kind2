@@ -137,6 +137,7 @@ let mk_solver sys init solver_ref =
     sys
     (Solver.define_fun solver)
     (Solver.declare_fun solver)
+    (Solver.declare_sort solver)
     Numeral.(~- one) var_ub ;
 
   (* Asserting predicate. *)
