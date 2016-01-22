@@ -48,7 +48,9 @@ let mk_pos = position_of_lexing
 (* Tokens for decimals and numerals *)
 %token <string>DECIMAL
 %token <string>NUMERAL
-      
+
+%token <string>STRING
+
 (* Identifier token *)
 %token <string>SYM 
       
@@ -642,22 +644,22 @@ node_equation:
   }
 
   (* Property annotation *)
-  | PERCENTANNOT ; PROPERTY ; e = expr ; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, e) }
-  | PSPERCENTBLOCK ; PROPERTY ; e = expr ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | PERCENTANNOT ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | PSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; PSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | SSPERCENTBLOCK ; PROPERTY ; e = expr ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | SSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; SSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | BANGANNOT ; PROPERTY ; COLON ; e = expr ; SEMICOLON {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | BANGANNOT ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | PSBANGBLOCK ; PROPERTY ; COLON ; e = expr ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | PSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; PSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | SSBANGBLOCK ; PROPERTY ; COLON ; e = expr ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | SSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; SSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
 
 
