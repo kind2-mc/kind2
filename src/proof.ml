@@ -26,41 +26,45 @@ module H = HString
 
 (* LFSC symbols *)
 
-let s_and = HString.mk_hstring "and"
-let s_or = HString.mk_hstring "or"
-let s_not = HString.mk_hstring "not"
-let s_impl = HString.mk_hstring "impl"
-let s_iff = HString.mk_hstring "iff"
-let s_ifte = HString.mk_hstring "ifte"
-let s_xor = HString.mk_hstring "xor"
-let s_true = HString.mk_hstring "true"
-let s_false = HString.mk_hstring "false"
+let s_and = H.mk_hstring "and"
+let s_or = H.mk_hstring "or"
+let s_not = H.mk_hstring "not"
+let s_impl = H.mk_hstring "impl"
+let s_iff = H.mk_hstring "iff"
+let s_ifte = H.mk_hstring "ifte"
+let s_xor = H.mk_hstring "xor"
+let s_true = H.mk_hstring "true"
+let s_false = H.mk_hstring "false"
 
-let s_formula = HString.mk_hstring "formula"
-let s_th_holds = HString.mk_hstring "th_holds"
-let s_holds = HString.mk_hstring "holds"
+let s_formula = H.mk_hstring "formula"
+let s_th_holds = H.mk_hstring "th_holds"
+let s_holds = H.mk_hstring "holds"
 
-let s_sort = HString.mk_hstring "sort"
-let s_term = HString.mk_hstring "term"
-let s_let = HString.mk_hstring "let"
-let s_flet = HString.mk_hstring "flet"
-let s_eq = HString.mk_hstring "="
+let s_sort = H.mk_hstring "sort"
+let s_term = H.mk_hstring "term"
+let s_let = H.mk_hstring "let"
+let s_flet = H.mk_hstring "flet"
+let s_eq = H.mk_hstring "="
 
-let s_Bool = HString.mk_hstring "Bool"
-let s_p_app = HString.mk_hstring "p_app"
-let s_apply = HString.mk_hstring "apply"
-let s_cln = HString.mk_hstring "cln"
+let s_Bool = H.mk_hstring "Bool"
+let s_p_app = H.mk_hstring "p_app"
+let s_apply = H.mk_hstring "apply"
+let s_cln = H.mk_hstring "cln"
 
-let s_check = HString.mk_hstring "check"
-let s_ascr = HString.mk_hstring ":"
-let s_PI = HString.mk_hstring "!"
-let s_LAMBDA = HString.mk_hstring "%"
-let s_lambda = HString.mk_hstring "\\"
-let s_at = HString.mk_hstring "@"
+let s_check = H.mk_hstring "check"
+let s_ascr = H.mk_hstring ":"
+let s_PI = H.mk_hstring "!"
+let s_LAMBDA = H.mk_hstring "%"
+let s_lambda = H.mk_hstring "\\"
+let s_at = H.mk_hstring "@"
 
-let s_unsat = HString.mk_hstring "unsat"
-let s_sat = HString.mk_hstring "sat"
-let s_unknown = HString.mk_hstring "unknown"
+let s_unsat = H.mk_hstring "unsat"
+let s_sat = H.mk_hstring "sat"
+let s_unknown = H.mk_hstring "unknown"
+
+let s_index = H.mk_hstring "index"
+let s_pindex = H.mk_hstring "%index%"
+let s_mk_ind = H.mk_hstring "mk_ind"
 
 
 type lfsc_type = HS.t
@@ -220,10 +224,59 @@ let is_hyp b ty =
   try Scanf.sscanf s "A%_d" true
   with End_of_file | Scanf.Scan_failure _ -> false
 
+
+let is_index_var b =
+let s = H.string_of_hstring b in
+try Scanf.sscanf s "%%%%%_d" true
+with End_of_file | Scanf.Scan_failure _ -> false
+
+
+let term_index = HS.(List [Atom s_term; Atom (H.mk_hstring "index")])
+
+let sigma_pindex = [term_index, HS.Atom s_pindex]
+
+
+let is_term_index_type = function
+  | HS.List [HS.Atom t; HS.Atom i] -> t == s_term && i == s_index
+  | _ -> false
+
+let is_index_type i = i == s_index
+
+
 let is_hyp_true = let open HS in function
   | List [Atom th_holds; Atom tt]
     when th_holds == s_th_holds && tt == s_true -> true
   | _ -> false
+
+
+let rec apply_subst sigma sexp =
+  let open HS in
+  try List.find (fun (s,v) -> HS.equal sexp s) sigma |> snd
+  with Not_found ->
+    match sexp with
+    | List l ->
+      let l' = List.map (apply_subst sigma) l in
+      if List.for_all2 (==) l l' then sexp
+      else List l'
+    | Atom _ -> sexp
+
+let mk_ind a = HS.(List [Atom s_mk_ind; a])
+
+let rec mk_indexes targs sexp =
+  let open HS in
+  match sexp with
+  | Atom i when is_index_var i -> mk_ind sexp
+  | Atom a ->
+    (match List.assq a targs with
+     | HS.Atom i when i == s_pindex -> mk_ind sexp
+     (* | ty when is_term_index_type ty -> mk_ind sexp *)
+     | _ -> sexp
+     | exception Not_found -> sexp)
+  | List l ->
+    let l' = List.map (mk_indexes targs) l in
+    if List.for_all2 (==) l l' then sexp
+    else List l'
+
 
 let rec definition_artifact_rec ctx = let open HS in function
   | List [Atom at; b; t; s] when at == s_at ->
@@ -231,7 +284,8 @@ let rec definition_artifact_rec ctx = let open HS in function
       | None -> None
       | Some def ->
         (* FIXME some ugly allocations *)
-        Some { def with def_body = List [Atom at; b; t; def.def_body ]}
+        Some { def with
+               def_body = List [Atom at; b; mk_indexes def.def_args t; def.def_body ]}
     end
 
   | List [Atom iff; List [Atom p_app; Atom fdef]; term]
@@ -240,9 +294,11 @@ let rec definition_artifact_rec ctx = let open HS in function
       | None -> None
       | Some f ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
+        let targs =
+          List.map (fun (x, ty) -> x, apply_subst sigma_pindex ty) targs in
         Some { def_symb = f;
                def_args = targs;
-               def_body = term;
+               def_body = mk_indexes targs term;
                def_ty = ty_formula } 
     end
   | List [Atom eq; ty; Atom fdef; term] when eq == s_eq -> 
@@ -250,9 +306,11 @@ let rec definition_artifact_rec ctx = let open HS in function
       | None -> None
       | Some f ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
+        let targs =
+          List.map (fun (x, ty) -> x, apply_subst sigma_pindex ty) targs in
         Some { def_symb = f;
                def_args = targs;
-               def_body = term;
+               def_body = mk_indexes targs term;
                def_ty = ty_term ty } 
     end
   | _ -> None
@@ -269,9 +327,11 @@ let parse_Lambda_binding ctx b ty =
     if is_hyp_true ty then Lambda_ignore
     else match definition_artifact ctx ty with
       | Some def -> Lambda_def def
-      | None -> Lambda_hyp { decl_symb = b; decl_type = ty }
+      | None -> Lambda_hyp { decl_symb = b; decl_type = mk_indexes [] ty }
   else if fun_symbol_of_dummy_arg ctx b ty || fun_symbol_of_def b <> None then
     Lambda_ignore
+  else if is_index_type b then Lambda_ignore
+  else if is_index_var b then Lambda_ignore
   else Lambda_decl { decl_symb = b; decl_type = ty }
 
 
@@ -291,7 +351,7 @@ let rec parse_proof acc = let open HS in function
 
   | List [Atom ascr; ty; pterm] when ascr = s_ascr ->
 
-    { acc with proof_type = ty; proof_term = pterm }
+    { acc with proof_type = ty; proof_term = mk_indexes [] pterm }
 
   | _ -> assert false
 
@@ -300,6 +360,31 @@ let parse_proof_check ctx = let open HS in function
   | List [Atom check; proof] when check == s_check ->
     parse_proof (mk_empty_proof ctx) proof
   | _ -> assert false
+
+
+
+let proof_from_chan ctx in_ch =
+
+  let lexbuf = Lexing.from_channel in_ch in
+  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
+  let open HS in
+  
+  match sexps with
+  
+    | [Atom a] when a == s_sat || a == s_unknown ->
+      failwith (sprintf "Certificate cannot be checked by smt solver (%s)@."
+                  (H.string_of_hstring a))
+
+    | [Atom a] ->
+      failwith (sprintf "No proofs, instead got:\n%s@." (H.string_of_hstring a))
+
+    | [Atom u; proof] when u == s_unsat ->
+
+      parse_proof_check ctx proof
+      
+    | _ -> assert false
+
+
 
 
 (******************************************)
@@ -351,38 +436,6 @@ let context_from_chan in_ch =
     | _ -> assert false
 
 
-let proof_from_chan ctx in_ch =
-
-  let lexbuf = Lexing.from_channel in_ch in
-  let sexps = SExprParser.sexps SExprLexer.main lexbuf in
-  let open HS in
-  
-  match sexps with
-  
-    | [Atom a] when a == s_sat || a == s_unknown ->
-      failwith (sprintf "Certificate cannot be checked by smt solver (%s)@."
-                  (H.string_of_hstring a))
-
-    | [Atom a] ->
-      failwith (sprintf "No proofs, instead got:\n%s@." (H.string_of_hstring a))
-
-    | [Atom u; proof] when u == s_unsat ->
-
-      parse_proof_check ctx proof
-      
-    | _ -> assert false
-
-
-
-
-
-
-type smtlib2_certif = {
-  dummy_trace_file: string;
-  base: string;
-  induction: string;
-  implication: string;
-}
 
 
 
@@ -400,13 +453,14 @@ let test () =
   let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/lfsc_defs.smt2" in
   let ic, oc = Unix.open_process cmd in
   let ctx = context_from_chan ic in
-  printf "Parsed context:\n%a@." print_context ctx;
+  (* printf "Parsed context:\n%a@." print_context ctx; *)
   ignore(Unix.close_process (ic, oc));
 
   let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/induction.smt2" in
   let ic, oc = Unix.open_process cmd in
   let proof = proof_from_chan ctx ic in
-  printf "Parsed proof:\n%a@." (print_proof "induction") proof;
+  (* printf "Parsed proof:\n%a@." (print_proof "induction") proof; *)
+  print_proof "induction" std_formatter proof;
   ignore(Unix.close_process (ic, oc));
 
   

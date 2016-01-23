@@ -36,6 +36,16 @@ module HStringSExpr = SExprBase.Make (HStringAtom)
 include HStringSExpr
 
 
+let rec equal s1 s2 = match s1, s2 with
+  | Atom a1, Atom a2 -> a1 == a2
+  | List l1, List l2 ->
+    begin
+      try List.for_all2 equal l1 l2
+      with Invalid_argument _ -> false
+    end
+  | _ -> false
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -1088,8 +1088,8 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
  
   let name_sys = if is_fec sys then "Kind2" else "Obs" in
 
-  (* Export the definitions with tracing information for LFSC *)
-  export_system fmt ~recursive:true ~trace_lfsc_defs name_sys sys;
+  (* Do not export the definitions with tracing information for LFSC *)
+  export_system fmt ~recursive:true ~trace_lfsc_defs:false name_sys sys;
   
   
   let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
