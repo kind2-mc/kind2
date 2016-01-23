@@ -1123,7 +1123,7 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
   let i0 = TransSys.init_fun_of sys Numeral.zero in
   let init_def = roll sigma_0i i0 in
   define_fun ~trace_lfsc_defs fmt init_s [fvi] Type.t_bool init_def;
-  let init_t0 = Term.mk_uf init_s [t0] in
+  let init_t0 = Term.mk_uf init_s [index_of_int 0] in
   
   (* Declaring property (__P__ i) *)
   add_section fmt "Original property";
@@ -1227,12 +1227,15 @@ let mono_base_check sys dirname prop certif =
 
       for i = k - 1 downto 0 do
 
-        let l = ref [Term.mk_not (phi_t i)] in
+        let l = ref [] in
         for j = i - 1 downto 0 do
           l := trans_t j (j+1) :: !l;
         done;
 
-        let conj = Term.mk_and (init_t0 :: !l) in
+        let conj =
+          Term.mk_and [Term.mk_and (init_t0 :: !l);
+                       Term.mk_not (phi_t i)] in
+        
         dnf := conj :: !dnf
 
       done;
@@ -1291,11 +1294,13 @@ let mono_induction_check sys dirname prop certif =
   (* unroll k times*)
   let l = ref [] in
   for i = k - 1 downto 0 do
-    l := (phi_t i) :: (trans_t i (i+1)) :: !l
+    l := Term.mk_and [phi_t i; trans_t i (i+1)] :: !l
   done;
+
+  let g = Term.mk_and [Term.mk_and !l;
+                       Term.mk_not (phi_t k)] in
   
-  assert_expr fmt (Term.mk_and !l);
-  assert_expr fmt (Term.mk_not (phi_t k));
+  assert_expr fmt g;
   check_sat fmt;
   
   sexit fmt;
@@ -1376,6 +1381,8 @@ let generate_mono_certificates sys dirname =
       init = init_n;
       prop = prop_n;
       trans = trans_n;
+      dirname = dirname;
+      proofname = if is_fec sys then "frontend_proof" else "proof";
       dummy_trace = generate_lfsc_tracing sys dirname prop certif;
       base = mono_base_check sys dirname prop certif;
       induction = mono_induction_check sys dirname prop certif;
@@ -2155,7 +2162,10 @@ let generate_all_certificates input sys =
   in
   create_dir dirname;
 
-  ignore (generate_mono_certificates sys dirname);
+  let cert_out = generate_mono_certificates sys dirname in
+
+  Proof.generate_proof cert_out;
+  
 
   (* Only generate frontend certificates for Lustre *)
   if InputSystem.is_lustre_input input then

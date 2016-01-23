@@ -16,4 +16,4 @@
 
 *)
 
-
+val generate_proof : Certificate.out -> unit

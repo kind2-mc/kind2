@@ -26,6 +26,8 @@ type out = {
   init : string;
   prop : string;
   trans : string;
+  dirname : string;
+  proofname : string;
   base : string;
   induction : string;
   implication : string;

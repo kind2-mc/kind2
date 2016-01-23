@@ -24,6 +24,14 @@ module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module H = HString
 
+(* Hard coded options *)
+  
+let mpz_proofs = true
+let compact = true
+
+let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --dump-proof\" <"
+
+
 (* LFSC symbols *)
 
 let s_and = H.mk_hstring "and"
@@ -57,6 +65,7 @@ let s_PI = H.mk_hstring "!"
 let s_LAMBDA = H.mk_hstring "%"
 let s_lambda = H.mk_hstring "\\"
 let s_at = H.mk_hstring "@"
+let s_hole = H.mk_hstring "_"
 
 let s_unsat = H.mk_hstring "unsat"
 let s_sat = H.mk_hstring "sat"
@@ -65,6 +74,19 @@ let s_unknown = H.mk_hstring "unknown"
 let s_index = H.mk_hstring "index"
 let s_pindex = H.mk_hstring "%index%"
 let s_mk_ind = H.mk_hstring "mk_ind"
+
+let s_Int = H.mk_hstring "Int"
+let s_int = H.mk_hstring "int"
+let s_mpz = H.mk_hstring "mpz"
+
+let s_invariant = H.mk_hstring "invariant"
+let s_kinduction = H.mk_hstring "kinduction"
+let s_induction = H.mk_hstring "induction"
+let s_base = H.mk_hstring "base"
+let s_implication = H.mk_hstring "implication"
+let s_invariant_implies = H.mk_hstring "invariant-implies"
+
+let hstring_of_int i = H.mk_hstring (string_of_int i)
 
 
 type lfsc_type = HS.t
@@ -180,8 +202,9 @@ let rec print_proof_term term fmt = function
       (print_proof_term term) rhyps
 
 
-let print_proof name fmt { proof_context; proof_hyps; proof_type; proof_term } =
-  print_context fmt proof_context;
+let print_proof ?(context=false) name fmt
+    { proof_context; proof_hyps; proof_type; proof_term } =
+  if context then print_context fmt proof_context;
   let hyps = List.rev proof_hyps in
   fprintf fmt "@[<hov 1>(define %s@ @[<hov 1>(: @[<hov 0>%a@]@\n%a)@])@]"
     name
@@ -230,11 +253,20 @@ let s = H.string_of_hstring b in
 try Scanf.sscanf s "%%%%%_d" true
 with End_of_file | Scanf.Scan_failure _ -> false
 
+let mpz_of_index b =
+let s = H.string_of_hstring b in
+try Scanf.sscanf s "%%%%%d" (fun n -> Some n)
+with End_of_file | Scanf.Scan_failure _ -> None
 
 let term_index = HS.(List [Atom s_term; Atom (H.mk_hstring "index")])
 
-let sigma_pindex = [term_index, HS.Atom s_pindex]
+let s_lfsc_index = if mpz_proofs then s_mpz else s_pindex
 
+let sigma_pindex = [term_index, HS.Atom s_pindex]
+let sigma_mpz = [term_index, HS.Atom s_mpz;]
+                 (* HS.Atom s_index, HS.Atom s_Int] *)
+
+let sigma_tindex = if mpz_proofs then sigma_mpz else sigma_pindex
 
 let is_term_index_type = function
   | HS.List [HS.Atom t; HS.Atom i] -> t == s_term && i == s_index
@@ -260,20 +292,34 @@ let rec apply_subst sigma sexp =
       else List l'
     | Atom _ -> sexp
 
-let mk_ind a = HS.(List [Atom s_mk_ind; a])
 
-let rec mk_indexes targs sexp =
+let repalace_type_index = apply_subst sigma_tindex
+
+
+let embed_ind =
+  if mpz_proofs then
+    fun a -> match a with
+    | HS.Atom i ->
+      begin match mpz_of_index i with
+        | Some n -> HS.(List [Atom s_int; Atom (H.mk_hstring (string_of_int n))])
+        | None -> HS.(List [Atom s_int; a])
+      end
+    | _ -> HS.(List [Atom s_int; a])
+  else
+    fun a -> HS.(List [Atom s_mk_ind; a])
+
+let rec embed_indexes targs sexp =
   let open HS in
   match sexp with
-  | Atom i when is_index_var i -> mk_ind sexp
+  | Atom i when is_index_var i -> embed_ind sexp
   | Atom a ->
     (match List.assq a targs with
-     | HS.Atom i when i == s_pindex -> mk_ind sexp
-     (* | ty when is_term_index_type ty -> mk_ind sexp *)
+     | HS.Atom i when i == s_lfsc_index -> embed_ind sexp
+     (* | ty when is_term_index_type ty -> embed_ind sexp *)
      | _ -> sexp
      | exception Not_found -> sexp)
   | List l ->
-    let l' = List.map (mk_indexes targs) l in
+    let l' = List.map (embed_indexes targs) l in
     if List.for_all2 (==) l l' then sexp
     else List l'
 
@@ -285,7 +331,8 @@ let rec definition_artifact_rec ctx = let open HS in function
       | Some def ->
         (* FIXME some ugly allocations *)
         Some { def with
-               def_body = List [Atom at; b; mk_indexes def.def_args t; def.def_body ]}
+               def_body = List [Atom at; b; embed_indexes def.def_args t;
+                                def.def_body ]}
     end
 
   | List [Atom iff; List [Atom p_app; Atom fdef]; term]
@@ -295,10 +342,10 @@ let rec definition_artifact_rec ctx = let open HS in function
       | Some f ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
         let targs =
-          List.map (fun (x, ty) -> x, apply_subst sigma_pindex ty) targs in
+          List.map (fun (x, ty) -> x, repalace_type_index ty) targs in
         Some { def_symb = f;
                def_args = targs;
-               def_body = mk_indexes targs term;
+               def_body = embed_indexes targs term;
                def_ty = ty_formula } 
     end
   | List [Atom eq; ty; Atom fdef; term] when eq == s_eq -> 
@@ -307,10 +354,10 @@ let rec definition_artifact_rec ctx = let open HS in function
       | Some f ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
         let targs =
-          List.map (fun (x, ty) -> x, apply_subst sigma_pindex ty) targs in
+          List.map (fun (x, ty) -> x, repalace_type_index ty) targs in
         Some { def_symb = f;
                def_args = targs;
-               def_body = mk_indexes targs term;
+               def_body = embed_indexes targs term;
                def_ty = ty_term ty } 
     end
   | _ -> None
@@ -327,7 +374,7 @@ let parse_Lambda_binding ctx b ty =
     if is_hyp_true ty then Lambda_ignore
     else match definition_artifact ctx ty with
       | Some def -> Lambda_def def
-      | None -> Lambda_hyp { decl_symb = b; decl_type = mk_indexes [] ty }
+      | None -> Lambda_hyp { decl_symb = b; decl_type = embed_indexes [] ty }
   else if fun_symbol_of_dummy_arg ctx b ty || fun_symbol_of_def b <> None then
     Lambda_ignore
   else if is_index_type b then Lambda_ignore
@@ -351,7 +398,7 @@ let rec parse_proof acc = let open HS in function
 
   | List [Atom ascr; ty; pterm] when ascr = s_ascr ->
 
-    { acc with proof_type = ty; proof_term = mk_indexes [] pterm }
+    { acc with proof_type = ty; proof_term = embed_indexes [] pterm }
 
   | _ -> assert false
 
@@ -385,6 +432,13 @@ let proof_from_chan ctx in_ch =
     | _ -> assert false
 
 
+
+let proof_from_file ctx f =
+  let cmd = cvc4_proof_cmd ^ " " ^ f in
+  let ic, oc = Unix.open_process cmd in
+  let proof = proof_from_chan ctx ic in
+  ignore(Unix.close_process (ic, oc));
+  proof
 
 
 (******************************************)
@@ -436,13 +490,89 @@ let context_from_chan in_ch =
     | _ -> assert false
 
 
+let context_from_file f =
+  let cmd = cvc4_proof_cmd ^ " " ^ f in
+  let ic, oc = Unix.open_process cmd in
+  let ctx = context_from_chan ic in
+  (* printf "Parsed context:\n%a@." print_context ctx; *)
+  ignore(Unix.close_process (ic, oc));
+  ctx
+
+
+
+open Certificate
+
+let hole = HS.Atom s_hole
+
+let make_kind_proof c =
+  let open HS in
+
+  List [Atom s_check;
+
+        List [Atom s_ascr;
+
+              List [Atom s_invariant;
+                    Atom (H.mk_hstring c.init);
+                    Atom (H.mk_hstring c.trans);
+                    Atom (H.mk_hstring c.phi) ];
+
+
+              List [Atom s_kinduction;
+                    Atom (hstring_of_int c.k);
+                    Atom (H.mk_hstring c.init);
+                    Atom (H.mk_hstring c.trans);
+                    Atom (H.mk_hstring c.phi);
+                    hole;
+                    hole;
+                    Atom s_base;
+                    Atom s_induction]
+             ];
+       ]
 
 
 
 
+let generate_proof c =
 
-let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --dump-proof\" <"
+  let proof_file = Filename.concat c.dirname (c.proofname ^ ".lfsc") in
+  let proof_chan = open_out proof_file in
+  let proof_fmt = formatter_of_out_channel proof_chan in
 
+  if compact then pp_set_margin proof_fmt max_int;
+
+  (* Extracting context from dummy file *)
+  let ctx = context_from_file c.dummy_trace in
+
+  eprintf "ici1@.";
+  
+  let base_proof = proof_from_file ctx c.base in
+
+  eprintf "ici2@.";
+
+  let induction_proof = proof_from_file ctx c.induction in
+
+  eprintf "ici3@.";
+
+  let implication_proof = proof_from_file ctx c.implication in
+
+  eprintf "ici4@.";
+
+
+  print_context proof_fmt ctx;
+  print_proof "base" proof_fmt base_proof;
+  print_proof "induction" proof_fmt induction_proof;
+  (* print_proof "implication" proof_fmt implication_proof; *)
+
+  let kind_proof = make_kind_proof c in
+
+  fprintf proof_fmt "\n\n%a\n@." print_term kind_proof;
+  
+  close_out proof_chan;
+  (* Show which file contains the proof *)
+  printf "LFSC proof written in %s@." proof_file
+
+
+  
 
 
 (* TODO this is just for testing *)
@@ -453,7 +583,7 @@ let test () =
   let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/lfsc_defs.smt2" in
   let ic, oc = Unix.open_process cmd in
   let ctx = context_from_chan ic in
-  (* printf "Parsed context:\n%a@." print_context ctx; *)
+  print_context std_formatter ctx;
   ignore(Unix.close_process (ic, oc));
 
   let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/induction.smt2" in
@@ -468,4 +598,4 @@ let test () =
 
 
 
-let _ = test ()
+(* let _ = test () *)

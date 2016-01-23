@@ -36,6 +36,10 @@ type out = {
   prop : string;        (** Name of function symbol for property *)
   trans : string;       (** Name of function symbol for transition relation *) 
 
+  dirname : string;     (** Directory where certificates and proofs are
+                            produced *)
+  proofname : string;    (** Name for the final LFSC proof *)
+
   base : string;        (** File name for base case check *)
   induction : string;   (** File name for inductive case check *)
   implication : string; (** File name for implication of property check *)
