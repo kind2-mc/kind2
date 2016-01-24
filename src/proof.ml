@@ -441,9 +441,9 @@ let proof_from_chan ctx in_ch =
 
 let proof_from_file ctx f =
   let cmd = cvc4_proof_cmd ^ " " ^ f in
-  let ic, oc = Unix.open_process cmd in
+  let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
   let proof = proof_from_chan ctx ic in
-  ignore(Unix.close_process (ic, oc));
+  ignore(Unix.close_process_full (ic, oc, err));
   proof
 
 
@@ -498,10 +498,10 @@ let context_from_chan in_ch =
 
 let context_from_file f =
   let cmd = cvc4_proof_cmd ^ " " ^ f in
-  let ic, oc = Unix.open_process cmd in
+  let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
   let ctx = context_from_chan ic in
   (* printf "Parsed context:\n%a@." print_context ctx; *)
-  ignore(Unix.close_process (ic, oc));
+  ignore(Unix.close_process_full (ic, oc, err));
   ctx
 
 
@@ -598,30 +598,3 @@ let generate_proof c =
   close_out proof_chan;
   (* Show which file contains the proof *)
   printf "LFSC proof written in %s@." proof_file
-  
-
-
-(* TODO this is just for testing *)
-let test () =
-
-  (* pp_set_margin std_formatter max_int; *)
-
-  let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/lfsc_defs.smt2" in
-  let ic, oc = Unix.open_process cmd in
-  let ctx = context_from_chan ic in
-  print_context std_formatter ctx;
-  ignore(Unix.close_process (ic, oc));
-
-  let cmd = cvc4_proof_cmd ^ " production_cell.lus_certificates/induction.smt2" in
-  let ic, oc = Unix.open_process cmd in
-  let proof = proof_from_chan ctx ic in
-  (* printf "Parsed proof:\n%a@." (print_proof "induction") proof; *)
-  print_proof "induction" std_formatter proof;
-  ignore(Unix.close_process (ic, oc));
-
-  
-  exit 0
-
-
-
-(* let _ = test () *)
