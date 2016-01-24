@@ -27,7 +27,7 @@ module H = HString
 (* Hard coded options *)
   
 let mpz_proofs = true
-let compact = true
+let compact = false
 
 let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --dump-proof\" <"
 
@@ -74,6 +74,7 @@ let s_unknown = H.mk_hstring "unknown"
 let s_index = H.mk_hstring "index"
 let s_pindex = H.mk_hstring "%index%"
 let s_mk_ind = H.mk_hstring "mk_ind"
+let s_pk = H.mk_hstring "%%k"
 
 let s_Int = H.mk_hstring "Int"
 let s_int = H.mk_hstring "int"
@@ -172,7 +173,7 @@ let rec print_def_lambdas term fmt args =
 
 
 let print_def fmt { def_symb; def_args; def_ty; def_body } =
-  fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>(: @[<hov 0>%a@]@\n%a)@])@]"
+  fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>(: @[<hov 0>%a@]@ %a)@])@]"
     H.pp_print_hstring def_symb
     (print_def_type def_ty) def_args
     (print_def_lambdas def_body) def_args
@@ -206,7 +207,7 @@ let print_proof ?(context=false) name fmt
     { proof_context; proof_hyps; proof_type; proof_term } =
   if context then print_context fmt proof_context;
   let hyps = List.rev proof_hyps in
-  fprintf fmt "@[<hov 1>(define %s@ @[<hov 1>(: @[<hov 0>%a@]@\n%a)@])@]"
+  fprintf fmt "@[<hov 1>(define %s@ @[<hov 1>(: @[<hov 0>%a@]@ %a)@])@]"
     name
     (print_hyps_type proof_type) hyps
     (print_proof_term proof_term) hyps
@@ -244,13 +245,16 @@ let fun_symbol_of_def b =
 
 let is_hyp b ty =
   let s = H.string_of_hstring b in
-  try Scanf.sscanf s "A%_d" true
-  with End_of_file | Scanf.Scan_failure _ -> false
+  try Scanf.sscanf s "A%_d" true (* A0, A1, A2, etc. *)
+  with End_of_file | Scanf.Scan_failure _ ->
+    (* existentially quantified %k in implication check stays in the
+       hypotheses *)
+    b == s_pk
 
 
 let is_index_var b =
 let s = H.string_of_hstring b in
-try Scanf.sscanf s "%%%%%_d" true
+try Scanf.sscanf s "%%%%%_s" true
 with End_of_file | Scanf.Scan_failure _ -> false
 
 let mpz_of_index b =
@@ -374,7 +378,9 @@ let parse_Lambda_binding ctx b ty =
     if is_hyp_true ty then Lambda_ignore
     else match definition_artifact ctx ty with
       | Some def -> Lambda_def def
-      | None -> Lambda_hyp { decl_symb = b; decl_type = embed_indexes [] ty }
+      | None ->
+        Lambda_hyp { decl_symb = b;
+                     decl_type = repalace_type_index ty |> embed_indexes [] }
   else if fun_symbol_of_dummy_arg ctx b ty || fun_symbol_of_def b <> None then
     Lambda_ignore
   else if is_index_type b then Lambda_ignore
@@ -507,27 +513,36 @@ let hole = HS.Atom s_hole
 let make_kind_proof c =
   let open HS in
 
-  List [Atom s_check;
+  (* LFSC atoms for formulas *)
+  let a_k = Atom (hstring_of_int c.k) in
+  let a_init = Atom (H.mk_hstring c.init) in
+  let a_trans = Atom (H.mk_hstring c.trans) in
+  let a_prop = Atom (H.mk_hstring c.prop) in
+  let a_phi = Atom (H.mk_hstring c.phi) in
+
+  (* LFSC commands to construct the proof *)
+  let a_check = Atom s_check in
+  let a_invariant = Atom s_invariant in
+  let a_invariant_implies = Atom s_invariant_implies in
+  let a_kinduction = Atom s_kinduction in
+
+  (* Prior LFSC proofs *)
+  let proof_implication = Atom s_implication in
+  let proof_base = Atom s_base in
+  let proof_induction = Atom s_induction in
+
+  List [a_check;
 
         List [Atom s_ascr;
 
-              List [Atom s_invariant;
-                    Atom (H.mk_hstring c.init);
-                    Atom (H.mk_hstring c.trans);
-                    Atom (H.mk_hstring c.phi) ];
+              List [a_invariant; a_init; a_trans; a_prop];
 
+              List [a_invariant_implies; a_init; a_trans; a_phi; a_prop;
+                    proof_implication;
 
-              List [Atom s_kinduction;
-                    Atom (hstring_of_int c.k);
-                    Atom (H.mk_hstring c.init);
-                    Atom (H.mk_hstring c.trans);
-                    Atom (H.mk_hstring c.phi);
-                    hole;
-                    hole;
-                    Atom s_base;
-                    Atom s_induction]
-             ];
-       ]
+                    List [a_kinduction; a_k; a_init; a_trans; a_phi;
+                          hole; hole; proof_base; proof_induction ]
+                   ]]]
 
 
 
@@ -540,38 +555,49 @@ let generate_proof c =
 
   if compact then pp_set_margin proof_fmt max_int;
 
-  (* Extracting context from dummy file *)
+  printf "Extracting LFSC context from CVC4 proofs@.";
   let ctx = context_from_file c.dummy_trace in
-
-  eprintf "ici1@.";
   
+  printf "Extracting LFSC proof of base case from CVC4@.";
   let base_proof = proof_from_file ctx c.base in
 
-  eprintf "ici2@.";
-
+  printf "Extracting LFSC proof of inductive case from CVC4@.";
   let induction_proof = proof_from_file ctx c.induction in
 
-  eprintf "ici3@.";
-
+  printf "Extracting LFSC proof of implication from CVC4@.";
   let implication_proof = proof_from_file ctx c.implication in
 
-  eprintf "ici4@.";
-
-
-  print_context proof_fmt ctx;
-  print_proof "base" proof_fmt base_proof;
-  print_proof "induction" proof_fmt induction_proof;
-  (* print_proof "implication" proof_fmt implication_proof; *)
-
+  printf "Constructing k-induction proof@.";
   let kind_proof = make_kind_proof c in
 
-  fprintf proof_fmt "\n\n%a\n@." print_term kind_proof;
+  fprintf  proof_fmt
+    ";;------------------------------------------------------------------\n\
+     ;; LFSC proof produced by %s %s and CVC4\n\
+     ;; from original problem %s\n\
+     ;;------------------------------------------------------------------\n\n\n\
+     ;; Declarations and definitions\n@.\
+     %a\n@.\
+     ;; Proof of base case\n@.\
+     %a\n@.\
+     ;; Proof of %d-inductive case\n@.\
+     %a\n@.\
+     ;; Proof of implication\n@.\
+     %a\n@.\
+     ;; Proof of invariance by %d-induction\n@.\
+     %a@."
+    Version.package_name Version.version
+    (Flags.input_file ())
+    print_context  ctx
+    (print_proof "base") base_proof
+    c.k
+    (print_proof "induction") induction_proof
+    (print_proof "implication")  implication_proof
+    c.k
+    print_term kind_proof;
   
   close_out proof_chan;
   (* Show which file contains the proof *)
   printf "LFSC proof written in %s@." proof_file
-
-
   
 
 

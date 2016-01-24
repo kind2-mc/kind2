@@ -179,7 +179,7 @@
 
 ;; Rule for strengthening of invariants
 
-(declare invariant-implies
+(declare invariant-implies2
   (! I set
   (! T rel
   (! P1 set
@@ -202,7 +202,7 @@
 
 ;; Other version
 
-(declare invariant-implies2
+(declare invariant-implies
   (! I set
   (! T rel
   (! P1 set

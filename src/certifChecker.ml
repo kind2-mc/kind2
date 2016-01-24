@@ -1331,7 +1331,8 @@ let mono_implication_check sys dirname prop certif =
 
   begin
     if quant_free then
-      let v = UfSymbol.mk_fresh_uf_symbol [] ty_index in
+      (* let v = UfSymbol.mk_fresh_uf_symbol [] ty_index in *)
+      let v = UfSymbol.mk_uf_symbol "%%k" [] ty_index in
       declare_const fmt v;
       let f = Term.mk_implies [phi_u v []; prop_u v []] in
       assert_expr fmt (Term.mk_not f)
