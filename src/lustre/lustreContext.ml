@@ -168,44 +168,23 @@ let mk_empty_context () =
 
 (* Raise parsing exception *)
 let fail_at_position pos msg = 
-
-  Event.log
-    L_error
-    "Parser error at %a: %s"
-    Lib.pp_print_position pos
-    msg;
-
+  Event.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg;
   raise A.Parser_error
   
 
 (* Raise parsing exception *)
 let warn_at_position pos msg = 
-
-  Event.log
-    L_warn
-    "Parser warning at %a: %s"
-    Lib.pp_print_position pos
-    msg
+  Event.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
 
 
 (* Raise parsing exception *)
 let fail_no_position msg = 
-
-  Event.log
-    L_error
-    "Parser error: %s"
-    msg;
-
+  Event.log L_error "Parser error: %s" msg;
   raise A.Parser_error
   
 
 (* Raise parsing exception *)
-let warn_no_position msg = 
-
-  Event.log
-    L_warn
-    "Parser warning: %s"
-    msg
+let warn_no_position msg = Event.log L_warn "Parser warning: %s" msg
 
 
 (* ********************************************************************** *)
@@ -359,7 +338,6 @@ let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr 
      (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map)))
 
   then
-
     raise (Invalid_argument "add_expr_for_ident")    
 
   else
@@ -403,12 +381,9 @@ let add_expr_for_indexed_ident
           (List.tl ident_expr_map)))
 
     then
-
       raise (Invalid_argument "add_expr_for_ident")    
 
     else
-
-
 
       (* Add expression for index to trie *)
       let t' = D.add index expr t in
@@ -437,9 +412,7 @@ let remove_expr_for_ident ({ ident_expr_map } as ctx) ident =
 
     raise (Invalid_argument "remove_expr_for_ident")
 
-  else
-  
-    (
+  else (
 
       (* Must have at least a map for the top level *)
       assert (ident_expr_map <> []);
@@ -449,8 +422,7 @@ let remove_expr_for_ident ({ ident_expr_map } as ctx) ident =
       
       (* Return context *)
       ctx
-
-    )
+  )
 
 
 (* Add a binding of an identifier to a type to context *)
@@ -814,39 +786,31 @@ let mk_fresh_oracle_for_state_var
     ({ state_var_oracle_map; fresh_oracle_index } as ctx) 
     state_var =
 
-  try 
 
-    (* Return previously created oracle *)
-    (SVT.find state_var_oracle_map state_var, ctx)
+  (* Create fresh oracle *)
+  let state_var', ctx = 
+    mk_fresh_oracle
+      ~is_const:true 
+      ctx
+      (StateVar.type_of_state_var state_var)
+  in
 
-  with Not_found -> 
+  (* Associate oracle with state variable *)
+  SVT.add state_var_oracle_map state_var state_var';
 
-    (* Create fresh oracle *)
-    let state_var', ctx = 
-      mk_fresh_oracle
-        ~is_const:true 
-        ctx
-        (StateVar.type_of_state_var state_var)
-    in
+  (* Return changed context
 
-    (* Associate oracle with state variable *)
-    SVT.add state_var_oracle_map state_var state_var';
+     The hash table of state variables to their oracles has been
+     modfied in place. *)
+  state_var', ctx
 
-    (* Return changed context
-
-       The hash table of state variables to their oracles has been
-       modfied in place. *)
-    (state_var', ctx)
-      
 
 (* Guard unguarded pre expression with a fresh oracle constant
 
    An unguarded pre is a previous state variable occuring in the
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
-let close_expr
-    pos
-    ({ E.expr_init } as expr, ctx) = 
+let close_expr ?original pos ({ E.expr_init } as expr, ctx) = 
 
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term (expr_init :> Term.t) in
@@ -863,45 +827,84 @@ let close_expr
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, ctx) else
 
-    (fail_at_position
-       pos
-       (Format.asprintf "Unguarded pre in expression %a"
-          (E.pp_print_lustre_expr false) expr);
-     
-     (* TODO the rest can be removed if we disallow unguared pre's *)
-     (* New oracle for each state variable *)
-     let oracle_substs, ctx =
-       VS.fold
-         (fun var (accum, ctx) -> 
-            
-            (* We only expect state variable instances *)
-            assert (Var.is_state_var_instance var);
-            
-            (* State variable of state variable instance *)
-            let state_var = Var.state_var_of_state_var_instance var in
+    (* Fail only if in strict mode *)
+    let fail_or_warn =
+      if Flags.strict () then fail_at_position else warn_at_position in
 
-            (* Identifier for a fresh variable *)
-            let state_var', ctx = 
-              
-              (* Create a new oracle variable or re-use previously
-                 created oracle *)
-              mk_fresh_oracle_for_state_var
-                ctx
-                state_var
+    let err_msg, pos = match original with
+      | Some ae ->
+        Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
+          A.pp_print_expr ae, A.pos_of_expr ae
+      | None -> "Unguarded pre", pos
+    in
 
-            in
-            
-            (* Substitute oracle variable for variable *)
-            ((state_var, E.mk_var state_var') :: accum, ctx))
-         
-         init_pre_vars
-         ([], ctx)
-     in
-     
-     (* Return expression with all previous state variables in the init
-        expression substituted by fresh constants *)
-     ((E.mk_arrow (E.mk_let_pre oracle_substs expr) expr),
-      ctx))
+    fail_or_warn pos err_msg;
+
+    (* New oracle for each state variable *)
+    let oracle_substs, ctx = VS.fold (fun var (accum, ctx) -> 
+
+        (* We only expect state variable instances *)
+        assert (Var.is_state_var_instance var);
+
+        (* State variable of state variable instance *)
+        let state_var = Var.state_var_of_state_var_instance var in
+
+        (* Create a new oracle variable or re-use previously created oracle *)
+        let state_var', ctx = mk_fresh_oracle_for_state_var ctx state_var in
+
+        (* Substitute oracle variable for variable *)
+        (state_var, E.mk_var state_var') :: accum, ctx
+
+      ) init_pre_vars ([], ctx)
+    in
+
+    (* Return expression with all previous state variables in the init
+       expression substituted by fresh constants *)
+    E.mk_arrow (E.mk_let_pre oracle_substs expr) expr, ctx
+
+
+let fresh_state_var_for_expr
+    ?(is_input = false)
+    ?(is_const = false)
+    ?(for_inv_gen = true)
+    ({ expr_state_var_map; 
+       fresh_local_index } as ctx)
+    after_mk
+    ({ E.expr_type } as expr) = 
+
+  (* Create state variable for abstraction *)
+  let state_var, ctx = 
+    mk_state_var 
+      ~is_input:is_input
+      ~is_const:is_const
+      ~for_inv_gen:for_inv_gen
+      ctx
+      (scope_of_node_or_func ctx @ I.reserved_scope)
+      (I.push_index I.abs_ident fresh_local_index)
+      D.empty_index
+      expr_type
+      None
+  in
+
+  (* Record mapping of expression to state variable
+
+     This will shadow but not replace a previous definition. Use
+     [find_all] to retrieve the definitions, and the usual
+     [fold] to iterate over all definitions. *)
+  ET.add expr_state_var_map expr state_var;
+
+  (* Evaluate continuation after creating new variable *)
+  let ctx = after_mk ctx state_var in
+
+  (* Hash table is modified in place, increment index of fresh state
+     variable *)
+  let ctx = 
+    { ctx with 
+      fresh_local_index = succ fresh_local_index }
+  in
+
+  (* Return variable and changed context *)
+  (state_var, ctx)
 
 
 (* Define the expression with a state variable *)
@@ -920,11 +923,7 @@ let mk_state_var_for_expr
 
        Use [find_all] to get all state variables that define the
        expression. *)
-    let state_var_list =
-      ET.find_all
-        expr_state_var_map
-        expr
-    in
+    let state_var_list = ET.find_all expr_state_var_map expr in
 
     (* Find state variable with same properties *)
     let state_var = 
@@ -942,42 +941,8 @@ let mk_state_var_for_expr
   (* Expresssion has not been abstracted before *)
   with Not_found ->
 
-    (* Create state variable for abstraction *)
-    let state_var, ctx = 
-      mk_state_var 
-        ~is_input:is_input
-        ~is_const:is_const
-        ~for_inv_gen:for_inv_gen
-        ctx
-        (scope_of_node_or_func ctx @ I.reserved_scope)
-        (I.push_index I.abs_ident fresh_local_index)
-        D.empty_index
-        expr_type
-        None
-    in
-
-    (* Record mapping of expression to state variable
-
-       This will shadow but not replace a previous definition. Use
-       [find_all] to retrieve the definitions, and the usual
-       [fold] to iterate over all definitions. *)
-    ET.add
-      expr_state_var_map
-      expr
-      state_var;
-
-    (* Evaluate continuation after creating new variable *)
-    let ctx = after_mk ctx state_var in
-
-    (* Hash table is modified in place, increment index of fresh state
-       variable *)
-    let ctx = 
-      { ctx with 
-          fresh_local_index = succ fresh_local_index }
-    in
-
-    (* Return variable and changed context *)
-    (state_var, ctx)
+    (* If it's not there already, create a new state variable *)
+    fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ctx after_mk expr
 
 
 (* Define the expression with a state variable *)
@@ -985,6 +950,8 @@ let mk_local_for_expr
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?(reuse=true)
+    ?original
     pos
     ({ node; 
        definitions_allowed;
@@ -1009,18 +976,16 @@ let mk_local_for_expr
         | Some _ ->
 
           (* Guard unguarded pres before adding definition *)
-          let expr', ctx = close_expr pos (expr, ctx) in
+          let expr', ctx = close_expr ?original pos (expr, ctx) in
 
+          let mk_sve =
+            if reuse then mk_state_var_for_expr
+            else fresh_state_var_for_expr in
+          
           (* Define the expresssion with a fresh state variable *)
-          let state_var, ctx = 
-            mk_state_var_for_expr
-              ?is_input
-              ?is_const
-              ?for_inv_gen
-              ctx
-              add_state_var_to_locals
-              expr'
-          in
+          let state_var, ctx =
+            mk_sve ?is_input ?is_const ?for_inv_gen
+              ctx add_state_var_to_locals expr' in
 
           (* Return variable and changed context *)
           (state_var, ctx)
@@ -1747,11 +1712,7 @@ let deps_of_node { deps } ident = I.Map.find ident deps
 let add_dep ({ deps } as ctx) ident called_ident = 
 
   (* Get or initialize set of forward referenced subnodes *)
-  let dep_set = 
-    try 
-      I.Map.find ident deps
-    with Not_found -> I.Set.empty 
-  in
+  let dep_set = try I.Map.find ident deps with Not_found -> I.Set.empty in
 
   (* Add forward referenced node as dependency *)
   let deps = I.Map.add ident (I.Set.add ident dep_set) deps in
@@ -2024,14 +1985,16 @@ let function_of_context = function
 
 (* Add node from second context to nodes of first *)
 let add_function_to_context ctx func_ctx = 
-  
   let func = function_of_context func_ctx in
-
   { ctx with funcs = func :: ctx.funcs }
 
 
-(** Check that the node being defined has no undefined local variables *)
+(* Check that the node being defined has no undefined local variables *)
 let check_local_vars_defined ctx =
+  (* Fail only if in strict mode *)
+  let fail_or_warn =
+    if Flags.strict () then fail_at_position else warn_at_position in
+
   match ctx.node with
   | None -> ()
   | Some { N.equations } ->
@@ -2040,10 +2003,9 @@ let check_local_vars_defined ctx =
                   (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
                   equations )
         then
-          fail_at_position pos
+          fail_or_warn pos
             (Format.asprintf "Local variable %a has no definition."
-               (I.pp_print_ident false) id
-            )
+               (I.pp_print_ident false) id)
       ) ctx.locals_info
 
   

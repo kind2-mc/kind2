@@ -759,7 +759,7 @@ let rec eval_node_equations ctx = function
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
       S.eval_bool_ast_expr ctx pos ast_expr 
-      |> C.close_expr pos
+      |> C.close_expr ~original:ast_expr pos
     in
 
     (* Add assertion to node *)
@@ -774,7 +774,7 @@ let rec eval_node_equations ctx = function
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
       S.eval_bool_ast_expr ctx pos ast_expr 
-      |> C.close_expr pos
+      |> C.close_expr ~original:ast_expr pos
     in
 
     let name = 
@@ -823,7 +823,7 @@ let rec eval_node_equations ctx = function
     let eq_rhs, ctx = 
       D.fold 
         (fun i e (t, c) -> 
-           let e', c = C.close_expr pos (e, c) in 
+           let e', c = C.close_expr ~original:ast_expr pos (e, c) in 
            let t' = D.add i e' t in
            (t', c))
         eq_rhs
@@ -1990,7 +1990,6 @@ let declarations_to_nodes decls =
 
   (* Return nodes in context *)
   C.get_nodes ctx, { G.functions = C.get_functions ctx }
-
 
 
 (*

@@ -324,7 +324,7 @@ let rec eval_ast_expr ?(path_prefix = []) ctx =
         ctx pos (E.mk_ite expr1') expr2 expr3
 
     (* Temporal operator pre [pre expr] *)
-    | A.Pre (pos, expr) -> 
+    | A.Pre (pos, expr) as original -> 
 
       (* Evaluate expression *)
       let expr', ctx =
@@ -339,15 +339,15 @@ let rec eval_ast_expr ?(path_prefix = []) ctx =
 
           (fun index expr (accum, ctx) -> 
 
-             (* Apply pre operator to expression, abstract
-                  non-variable term and re-use previous variables *)
+             (* Apply pre operator to expression, abstract non-variable term
+                and DO NOT re-use previous variables *)
              let expr', ctx = 
                E.mk_pre
-                 (C.mk_local_for_expr pos)
+                 (C.mk_local_for_expr ~reuse:false ~original pos)
                  ctx
                  expr 
              in
-
+             
              (D.add index expr' accum, ctx))
 
           expr'
@@ -1605,15 +1605,18 @@ and eval_node_call
     node_act_cond_of_expr ctx node_outputs pos cond defaults
   in
 
-  match 
+  match
 
-    (* Find a previously created node call with the same paramters *)
-    C.call_outputs_of_node_call
-      ctx
-      ident
-      cond_state_var
-      input_state_vars
-      defaults
+    (* Do not reuse node call outputs if there are some oracles *)
+    if node_oracles <> [] then None
+    else
+      (* Find a previously created node call with the same paramters *)
+      C.call_outputs_of_node_call
+        ctx
+        ident
+        cond_state_var
+        input_state_vars
+        defaults
 
   with 
 

@@ -1,6 +1,6 @@
 node test1 () returns (ok: bool);
 let
-  ok = x -> pre true;
+  ok = pre true;
 tel
 
 node test3 () returns (ok: bool);

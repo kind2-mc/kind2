@@ -304,6 +304,12 @@ val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
 
+
+(** {1 Helpers} *)
+
+(** Returns the position of an expression *)
+val pos_of_expr : expr -> Lib.position
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

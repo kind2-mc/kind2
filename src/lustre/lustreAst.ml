@@ -1047,11 +1047,40 @@ let pp_print_program ppf p =
     "@[<v>%a@]" 
     (pp_print_list pp_print_declaration "@ ") 
     p
-        
+
+
+
+
+(***********)
+(* Helpers *)
+(***********)
+
+let pos_of_expr = function
+  | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
+  | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | True pos
+  | False pos | Num (pos , _) | Dec (pos , _) | ToInt (pos , _)
+  | ToReal (pos , _) | ExprList (pos , _ ) | TupleExpr (pos , _ )
+  | ArrayExpr (pos , _ ) | ArrayConstr (pos , _ , _ )
+  | ArraySlice (pos , _ , _) | ArrayConcat (pos , _ , _)
+  | RecordExpr (pos , _ , _) | Not (pos , _) | And (pos , _ , _)
+  | Or (pos , _ , _) | Xor (pos , _ , _) | Impl (pos , _ , _)
+  | OneHot (pos , _ ) | Uminus (pos , _) | Mod (pos , _ , _)
+  | Minus (pos , _ , _) | Plus (pos , _ , _) | Div (pos , _ , _)
+  | Times (pos , _ , _) | IntDiv (pos , _ , _) | Ite (pos , _ , _ , _)
+  | With (pos , _ , _ , _) | Eq (pos , _ , _) | Neq (pos , _ , _)
+  | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
+  | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _ )
+  | Activate (pos , _ , _ , _ ) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
+  | CallParam (pos , _ , _ , _ )
+    -> pos
+
+
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)
-  
+
