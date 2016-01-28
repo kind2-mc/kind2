@@ -258,7 +258,7 @@ let rec eval_node_locals ?(ghost = false) ctx = function
 
 
   (* Local variable on the base clock *)
-  | A.NodeVarDecl (pos, (_, i, var_type, A.ClockTrue)) :: tl -> 
+  | A.NodeVarDecl (_, (pos, i, var_type, A.ClockTrue)) :: tl -> 
 
     (* Identifier of AST identifier *)
     let ident = I.mk_string_ident i in
@@ -267,13 +267,13 @@ let rec eval_node_locals ?(ghost = false) ctx = function
     let index_types = S.eval_ast_type ctx var_type in
 
     (* Add declaration of possibly indexed type to contexts *)
-    let ctx = C.add_node_local ~ghost ctx ident index_types in
+    let ctx = C.add_node_local ~ghost ctx ident pos index_types in
 
     (* Continue with following outputs *)
     eval_node_locals ~ghost ctx tl
 
   (* Local variable not on the base clock *)
-  |  A.NodeVarDecl (pos, (_, i, _, _)) :: _ -> 
+  |  A.NodeVarDecl (_, (pos, i, _, _)) :: _ -> 
 
     C.fail_at_position 
       pos 
@@ -759,7 +759,7 @@ let rec eval_node_equations ctx = function
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
       S.eval_bool_ast_expr ctx pos ast_expr 
-      |> C.close_expr pos
+      |> C.close_expr ~original:ast_expr pos
     in
 
     (* Add assertion to node *)
@@ -769,18 +769,17 @@ let rec eval_node_equations ctx = function
     eval_node_equations ctx tl
 
   (* Property annotation *)
-  | A.AnnotProperty (pos, ast_expr) :: tl -> 
-
+  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
+    
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
       S.eval_bool_ast_expr ctx pos ast_expr 
-      |> C.close_expr pos
+      |> C.close_expr ~original:ast_expr pos
     in
 
-    let name = 
-      Format.asprintf
-        "@[<h>%a@]"
-        A.pp_print_expr ast_expr
+    let name = match name_opt with
+      | Some n -> n
+      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
     in
     
     (* Add property to node *)
@@ -823,7 +822,7 @@ let rec eval_node_equations ctx = function
     let eq_rhs, ctx = 
       D.fold 
         (fun i e (t, c) -> 
-           let e', c = C.close_expr pos (e, c) in 
+           let e', c = C.close_expr ~original:ast_expr pos (e, c) in 
            let t' = D.add i e' t in
            (t', c))
         eq_rhs
@@ -1497,7 +1496,7 @@ and eval_node_contract_spec ctx scope (
   let f ctx pos ident type_expr ast_expr expr = 
     
     (* Add local declaration for ghost stream *)
-    let ctx = C.add_node_local ~ghost:true ctx ident type_expr in
+    let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
     (* Add equation for ghost stream *)
     eval_node_equations ctx [
@@ -1538,6 +1537,7 @@ and eval_node_contract_spec ctx scope (
   eval_node_contract_spec ctx scope ([], [], tail)
 
 | [] -> ctx
+  
 
 (* Add declarations of node to context *)
 let eval_node_decl
@@ -1574,6 +1574,8 @@ let eval_node_decl
   (* Parse equations, assertions, properties *)
   let ctx = eval_node_equations ctx equations in
 
+  C.check_local_vars_defined ctx;
+  
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in
 
@@ -1987,7 +1989,6 @@ let declarations_to_nodes decls =
 
   (* Return nodes in context *)
   C.get_nodes ctx, { G.functions = C.get_functions ctx }
-
 
 
 (*

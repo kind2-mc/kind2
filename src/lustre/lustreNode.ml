@@ -1078,7 +1078,8 @@ let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
-    { inputs; 
+    { name;
+      inputs; 
       oracles; 
       outputs; 
       locals;
@@ -1123,7 +1124,8 @@ let stateful_vars_of_node
       equations
   in
 
-  (* Unconstrained local state variables must be stateful *)
+  (* TODO: this can be removed if we forbid undefined local variables.
+     Unconstrained local state variables must be stateful *)
   let stateful_vars = 
     List.fold_left
       (fun a l -> 
@@ -1149,7 +1151,7 @@ let stateful_vars_of_node
       stateful_vars
       locals
   in
-
+  
   (* Add property variables *)
   let stateful_vars = 
     add_to_svs

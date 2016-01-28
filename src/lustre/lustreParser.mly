@@ -48,7 +48,9 @@ let mk_pos = position_of_lexing
 (* Tokens for decimals and numerals *)
 %token <string>DECIMAL
 %token <string>NUMERAL
-      
+
+%token <string>STRING
+
 (* Identifier token *)
 %token <string>SYM 
       
@@ -642,22 +644,22 @@ node_equation:
   }
 
   (* Property annotation *)
-  | PERCENTANNOT ; PROPERTY ; e = expr ; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, e) }
-  | PSPERCENTBLOCK ; PROPERTY ; e = expr ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | PERCENTANNOT ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | PSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; PSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | SSPERCENTBLOCK ; PROPERTY ; e = expr ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | SSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; SSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | BANGANNOT ; PROPERTY ; COLON ; e = expr ; SEMICOLON {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | BANGANNOT ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | PSBANGBLOCK ; PROPERTY ; COLON ; e = expr ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | PSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; PSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | SSBANGBLOCK ; PROPERTY ; COLON ; e = expr ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, e)
+  | SSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; SSBLOCKEND {
+    A.AnnotProperty (mk_pos $startpos, name, e)
   }
 
 
@@ -956,12 +958,18 @@ lustre_type_list:
   | l = separated_nonempty_list(COMMA, lustre_type) { l }
   
 
+(* A comma-separated list of identifiers with position information *)
+ident_list_pos :
+  | i = ident { [mk_pos $startpos, i] }
+  | i = ident; COMMA; l = ident_list_pos
+    { (mk_pos $startpos, i) :: l }
+
+
 (* A list of comma-separated identifiers with a type *)
 typed_idents: 
-  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
-
+  | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
-    { List.map (function e -> (mk_pos $startpos, e, t)) l }
+    { List.map (function (pos, e) -> (pos, e, t)) l }
 
 (*
 (* A list of lists of typed identifiers *)
@@ -995,14 +1003,14 @@ clocked_typed_idents:
   | l = typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, A.ClockTrue)) l }
+    { List.map (function (pos, e, t) -> (pos, e, t, A.ClockTrue)) l }
 
   (* Clocked typed identifiers *)
   | l = typed_idents; WHEN; c = clock_expr
   | LPAREN; l = typed_idents; RPAREN; WHEN; c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, c)) l }
+    { List.map (function (pos, e, t) -> (pos, e, t, c)) l }
 
   (* Separate rule for non-singleton list to avoid shift/reduce conflict *)
   | LPAREN; 
@@ -1014,7 +1022,7 @@ clocked_typed_idents:
 
     (* Pair each types identifier the given clock *)
     { List.map
-        (function (_, e, t) -> (mk_pos $startpos, e, t, c)) 
+        (function (pos, e, t) -> (pos, e, t, c)) 
         (h @ (List.flatten l)) }
 
 
