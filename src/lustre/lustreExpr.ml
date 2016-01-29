@@ -694,8 +694,14 @@ let is_var_at_offset { expr_init; expr_step } (init_offset, step_offset) =
 
 
 
-(* Return true if expression is a previous state variable *)
+(* Return true if expression is a current state variable *)
 let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
+
+(* Return true if expression is a constant state variable *)
+let is_const_var { expr_init; expr_step } = 
+  Term.is_free_var expr_init
+  && Var.is_const_state_var (Term.free_var_of_term expr_init)
+  && Var.is_const_state_var (Term.free_var_of_term expr_step)
 
 
 (* Return true if expression is a previous state variable *)
@@ -825,6 +831,13 @@ let state_var_of_expr ({ expr_init; expr_step } as expr) =
 
     (* Fail if initial value is different from step value *)
     raise (Invalid_argument "state_var_of_expr")
+
+(* Return the free variable of a variable *)
+let var_of_expr { expr_init } = 
+  try
+    Term.free_var_of_term expr_init
+  (* Fail if any of the above fails *)
+  with Invalid_argument _ -> raise (Invalid_argument "var_of_expr")
 
 
 (* Return all state variables *)
