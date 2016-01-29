@@ -872,39 +872,48 @@ let fresh_state_var_for_expr
     after_mk
     ({ E.expr_type } as expr) = 
 
-  (* Create state variable for abstraction *)
-  let state_var, ctx = 
-    mk_state_var 
-      ~is_input:is_input
-      ~is_const:is_const
-      ~for_inv_gen:for_inv_gen
-      ctx
-      (scope_of_node_or_func ctx @ I.reserved_scope)
-      (I.push_index I.abs_ident fresh_local_index)
-      D.empty_index
-      expr_type
-      None
-  in
+  (* Don't abstract simple state variables *)
+  if E.is_var expr || E.is_const_var expr then
 
-  (* Record mapping of expression to state variable
+    let v = E.var_of_expr expr in
+    let sv = Var.state_var_of_state_var_instance v in
+    sv, ctx
 
-     This will shadow but not replace a previous definition. Use
-     [find_all] to retrieve the definitions, and the usual
-     [fold] to iterate over all definitions. *)
-  ET.add expr_state_var_map expr state_var;
+  else
 
-  (* Evaluate continuation after creating new variable *)
-  let ctx = after_mk ctx state_var in
+    (* Create state variable for abstraction *)
+    let state_var, ctx = 
+      mk_state_var 
+        ~is_input:is_input
+        ~is_const:is_const
+        ~for_inv_gen:for_inv_gen
+        ctx
+        (scope_of_node_or_func ctx @ I.reserved_scope)
+        (I.push_index I.abs_ident fresh_local_index)
+        D.empty_index
+        expr_type
+        None
+    in
 
-  (* Hash table is modified in place, increment index of fresh state
-     variable *)
-  let ctx = 
-    { ctx with 
-      fresh_local_index = succ fresh_local_index }
-  in
+    (* Record mapping of expression to state variable
 
-  (* Return variable and changed context *)
-  (state_var, ctx)
+       This will shadow but not replace a previous definition. Use
+       [find_all] to retrieve the definitions, and the usual
+       [fold] to iterate over all definitions. *)
+    ET.add expr_state_var_map expr state_var;
+
+    (* Evaluate continuation after creating new variable *)
+    let ctx = after_mk ctx state_var in
+
+    (* Hash table is modified in place, increment index of fresh state
+       variable *)
+    let ctx = 
+      { ctx with 
+        fresh_local_index = succ fresh_local_index }
+    in
+
+    (* Return variable and changed context *)
+    state_var, ctx
 
 
 (* Define the expression with a state variable *)
