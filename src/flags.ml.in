@@ -350,7 +350,7 @@ let ind_print_cex_default = false
 
 type ind_compress = bool
     
-let ind_compress_default = false
+let ind_compress_default = true
 
 (* ********** *) 
 
