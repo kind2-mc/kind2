@@ -511,7 +511,7 @@ module CandidateTermGen = struct
 
         let final =
           (* Only getting to system if required. *)
-          ( if false_of_unit ()
+          ( if Flags.invgengraph_top_only ()
             then get_last result else result )
           |> (
             (* One state-ing everything if required. *)
