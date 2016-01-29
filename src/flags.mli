@@ -133,6 +133,10 @@ val ind_compress_same_pred : unit -> ind_compress_same_pred
 type ind_lazy_invariants = bool
 val ind_lazy_invariants : unit -> ind_lazy_invariants
 
+(** Strict Lustre mode *)
+type strict = bool
+val strict : unit -> strict
+
 (** Algorithm for quantifier elimination in IC3 *)
 type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
 val ic3_qe : unit -> ic3_qe

@@ -378,6 +378,12 @@ let ind_lazy_invariants_default = false
 
 (* ********** *) 
 
+type strict = bool
+
+let strict_default = false
+
+(* ********** *) 
+
 type ic3_check_inductive = bool
     
 let string_of_ic3_check_inductive = string_of_bool
@@ -735,6 +741,7 @@ type flags =
     mutable debug_log : string option;
     mutable log_level : log_level;
     mutable log_format_xml : bool;
+    mutable strict : strict;
     mutable input_format : input_format;
     mutable input_file : string option }
     
@@ -804,6 +811,7 @@ let flags =
     debug_log = debug_log_default;
     log_level = log_level_default;
     log_format_xml = log_format_xml_default;
+    strict = strict_default;
     input_format = input_format_default;
     input_file = None } 
 
@@ -1060,6 +1068,18 @@ let ind_lazy_invariants_spec =
   ("--ind_lazy_invariants", 
    Arg.Bool ind_lazy_invariants_action, 
    Format.sprintf "(IND) Asserts invariants lazily (default: %B)" ind_lazy_invariants_default)
+
+(* ********** *) 
+
+let strict_action o =
+  flags.strict <- true;
+  flags.smt_short_names <- false
+  
+let strict_spec = 
+  ("--strict", 
+   Arg.Unit strict_action, 
+   Format.sprintf "Strict mode in Lustre: uninitialized pre and undefined \
+                   local variables are not allowed when this flag is present. ")
 
 (* ********** *) 
 
@@ -1565,6 +1585,8 @@ let ind_compress_same_pred () = flags.ind_compress_same_pred
 
 let ind_lazy_invariants () = flags.ind_lazy_invariants
 
+let strict () = flags.strict
+
 let ic3_qe () = flags.ic3_qe 
 
 let set_ic3_qe f = flags.ic3_qe <- f
@@ -1744,6 +1766,9 @@ and speclist =
     (* Compress inductive counterexamples when states have same predecessors *)
     ind_lazy_invariants_spec;
 
+    (* strict Lustre mode *)
+    strict_spec;
+    
     (* Set QE in IC3 *)
     ic3_qe_spec;
 

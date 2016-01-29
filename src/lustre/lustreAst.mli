@@ -173,7 +173,7 @@ type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr
   | AnnotMain of bool
-  | AnnotProperty of position * expr
+  | AnnotProperty of position * string option * expr
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -303,6 +303,12 @@ val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 
 val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
+
+
+(** {1 Helpers} *)
+
+(** Returns the position of an expression *)
+val pos_of_expr : expr -> Lib.position
 
 (* 
    Local Variables:

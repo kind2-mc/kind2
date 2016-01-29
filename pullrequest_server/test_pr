@@ -329,7 +329,7 @@ else
                 # echo -e "$res_dev \t $res_pr"
                 echo "$name ($res_dev->$res_pr)">> $failed
                 if [ "$OK" != "2" ]; then OK=1; fi
-                if [ "$res_pr" != "Valid" ]; then
+                if [ "$res_pr" == "Valid" ]; then
                     echo "Soundness bug !!!"
                     OK=2
                 fi

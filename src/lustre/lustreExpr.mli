@@ -135,6 +135,9 @@ val has_pre_var : Numeral.t -> t -> bool
 (** Return true if expression is a current state variable *)
 val is_var : t -> bool
 
+(** Return true if expression is a constant state variable *)
+val is_const_var : t -> bool
+
 (** Return true if expression is a previous state variable *)
 val is_pre_var : t -> bool
 
@@ -211,6 +214,9 @@ val pre_term_of_t : Numeral.t -> t -> Term.t
     is not a variable at the current or previous offset. *)
 val state_var_of_expr : t -> StateVar.t
 
+(** Return the free variable of a variable *)
+val var_of_expr : t -> Var.t
+  
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
