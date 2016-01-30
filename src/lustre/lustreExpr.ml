@@ -1981,25 +1981,57 @@ let mk_arrow expr1 expr2 =
 let mk_pre 
     mk_state_var_for_expr
     ctx
+    unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
-  (* Apply pre to initial state expression, always create a variable for
-  abstraction *)
-  let expr_init', ctx' =
-    
-    (* Fresh state variable for identifier *)
-    let state_var, ctx' = mk_state_var_for_expr ctx expr in 
+  (* Apply pre to initial state expression *)
+  let expr_init', ctx' = match expr_init with
 
-    (* Variable at previous instant *)
-    let var = Var.mk_state_var_instance state_var pre_base_offset in
+    (* Expression is a constant not part of an unguarded pre expression *)
+    | t when
+        not unguarded && 
+        (t == Term.t_true || 
+         t == Term.t_false || 
+           (Term.is_free_var t && 
+              Term.free_var_of_term t |> Var.is_const_state_var) ||
+             (match Term.destruct t with 
+              | Term.T.Const c1 when 
+                     Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+              | _ -> false)) ->
+       (expr_init, ctx)
+          
+    (* Expression is a variable at the current instant not part of an unguarded
+       pre expression *)
+    | t when
+        not unguarded &&
+        Term.is_free_var t &&
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
+                 base_offset) ->
+      
+      (Term.bump_state Numeral.(- one) t, ctx) 
+    (* Expression is not a variable at the current instant *)
+    | _ ->
+       
+      (* Fresh state variable for identifier *)
+      let state_var, ctx' = mk_state_var_for_expr ctx expr in 
 
-    (* Return term and new definitions *)
-    (Term.mk_var var, ctx')
+      (* Variable at previous instant *)
+      let var = Var.mk_state_var_instance state_var pre_base_offset in
+
+      (* Return term and new definitions *)
+      (Term.mk_var var, ctx')
       
   in
 
   (* Apply pre to step state expression *)
   let expr_step', ctx'' = match expr_step with 
+
+    (* Expression is identical to initial state *)
+    | _ when not unguarded &&
+             Term.equal expr_step expr_init -> 
+
+      (* Re-use abstraction for initial state *)
+      (expr_init', ctx')
 
     (* Expression is a variable at the current instant *)
     | t when

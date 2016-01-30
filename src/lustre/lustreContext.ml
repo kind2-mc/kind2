@@ -138,6 +138,9 @@ type t =
     (* saving local variables positions and their luster identifiers for error
        reporting *)
     locals_info : (StateVar.t * I.t * Lib.position) list;
+
+    (* say if we need to guard pres *)
+    guard_pre : bool;
     
   }
 
@@ -163,8 +166,15 @@ let mk_empty_context () =
     fresh_oracle_index = 0;
     definitions_allowed = None;
     locals_info = [];
+    guard_pre = false;
   }
 
+
+let set_guard_flag ctx b = { ctx with guard_pre = b }
+
+let reset_guard_flag ctx = { ctx with guard_pre = false }
+
+let guard_flag ctx = ctx.guard_pre
 
 (* Raise parsing exception *)
 let fail_at_position pos msg = 
@@ -827,19 +837,6 @@ let close_expr ?original pos ({ E.expr_init } as expr, ctx) =
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, ctx) else
 
-    (* Fail only if in strict mode *)
-    let fail_or_warn =
-      if Flags.strict () then fail_at_position else warn_at_position in
-
-    let err_msg, pos = match original with
-      | Some ae ->
-        Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
-          A.pp_print_expr ae, A.pos_of_expr ae
-      | None -> "Unguarded pre", pos
-    in
-
-    fail_or_warn pos err_msg;
-
     (* New oracle for each state variable *)
     let oracle_substs, ctx = VS.fold (fun var (accum, ctx) -> 
 
@@ -973,7 +970,7 @@ let mk_local_for_expr
        definitions_allowed;
        fresh_local_index } as ctx)
     ({ E.expr_type } as expr) = 
-
+  
   match definitions_allowed with 
 
     (* Fail with error if no new definitions allowed *)
@@ -996,7 +993,9 @@ let mk_local_for_expr
 
           (* Define the expresssion with a fresh state variable *)
           let state_var, ctx =
-            mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen ?reuse
+            mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen
+              (* ?reuse *)
+              ~reuse:(not ctx.guard_pre)
               ctx add_state_var_to_locals expr' in
 
           (* Return variable and changed context *)

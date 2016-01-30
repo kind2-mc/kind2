@@ -345,6 +345,7 @@ let rec eval_ast_expr ?(path_prefix = []) ctx =
                E.mk_pre
                  (C.mk_local_for_expr ~reuse:false ~original pos)
                  ctx
+                 (C.guard_flag ctx)
                  expr 
              in
              
