@@ -107,14 +107,11 @@ let first_param_of results all_nodes scope =
 
   let rec loop abstraction assumptions = function
     | (sys, abstractable, has_modes) :: tail -> (
-      (* Format.printf "> %a@." Scope.pp_print_scope sys ;
-      ( if abstractable then
-          Format.printf "  abstractable@."
-        else
-          Format.printf "  not abstractable@." ) ; *)
       (* Can/should we abstract this system? *)
       let is_abstract =
-        if sys = scope then has_modes else
+        if sys = scope then 
+          has_modes && (Flags.check_modes ())
+        else
           abstractable && (Flags.compositional ())
       in
       let abstraction = Scope.Map.add sys is_abstract abstraction in

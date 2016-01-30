@@ -1023,6 +1023,8 @@ let run_testgen input_sys sys =
 (* Looks at the modules activated and decides what to do. *)
 let launch () =
 
+  TermLib.Signals.ignore_sigpipe () ;
+
   let input_sys = setup () in
   input_sys_ref := Some input_sys ;
   let results = Analysis.mk_results () in

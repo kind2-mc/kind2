@@ -37,7 +37,7 @@ let mk_svar pos num svar scope = {
 (* Quiet pretty printer for non dummy positions. *)
 let pprint_pos fmt pos =
   let f,l,c = file_row_col_of_pos pos in
-  let f = if f = "" then "" else f ^ "@" in
+  let f = if f = "" then "" else f ^ "|" in
   Format.fprintf fmt "%sl%dc%d" f l c
 
 let prop_name_of_svar { pos ; num ; scope } kind name =
