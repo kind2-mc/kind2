@@ -280,7 +280,7 @@ let rec eval_ast_expr ?(path_prefix = []) ctx =
       (* We don't want to do extensional array equality, because that
          would need quantifiers already at this level *)
       D.iter
-        (fun i _ -> 
+        (fun i _ ->
            if 
              List.exists 
                (function D.ArrayVarIndex _ -> true | _ -> false)
