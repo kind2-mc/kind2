@@ -206,6 +206,10 @@ val modular : unit -> modular
 type compositional = bool
 val compositional : unit -> compositional
 
+(** Check modes. *)
+type check_modes = bool
+val check_modes : unit -> check_modes
+
 (** Order variables in polynomials by order of elimination **)
 type cooper_order_var_by_elim = bool
 val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
@@ -243,6 +247,9 @@ val invgengraph_max_succ : unit -> invgengraph_max_succ
 (** InvGen will lift candidate terms from subsystems.. **)
 type invgengraph_lift_candidates = bool
 val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will generate invariants only for top level. **)
+type invgengraph_top_only = bool
+val invgengraph_top_only : unit -> invgengraph_top_only
 (** InvGen will look for candidate terms in the transition
     predicate. *)
 type invgengraph_mine_trans = bool

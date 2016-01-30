@@ -888,7 +888,7 @@ module Make (InModule : In) : Out = struct
     let lsd =
       LSD.create
         two_state
-        false
+        (Flags.invgengraph_top_only ())
         trans_sys
     in
 

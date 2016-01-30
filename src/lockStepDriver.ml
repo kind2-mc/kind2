@@ -451,7 +451,7 @@ let query_base
       List.assq system systems
     with Not_found -> 
       Format.printf
-        "System %a not found in@ @[<hv>%a@]@."
+        "System %a not found in @[<hv>%a@]@."
         Scope.pp_print_scope (TransSys.scope_of_trans_sys system)
         (pp_print_list 
            (fun ppf (t, _) -> 
