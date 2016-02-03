@@ -49,14 +49,15 @@ let s_not = Symbol.mk_symbol `NOT
 
 
 let ty_index_name = "index"
-let ty_index = if abstr_index then Type.mk_abstr ty_index_name else Type.t_int 
+let ty_index () =
+  if abstr_index then Type.mk_abstr ty_index_name else Type.t_int 
 
 let index_sym_of_int i = "%%" ^ string_of_int i
 let index_of_int =
   if not abstr_index then Term.mk_num_of_int
   else fun i ->
     Term.mk_uf
-      (UfSymbol.mk_uf_symbol (index_sym_of_int i) [] ty_index)
+      (UfSymbol.mk_uf_symbol (index_sym_of_int i) [] (ty_index ()))
       []
 
 let t0 = Term.mk_num_of_int 0 (* index_of_int 0 *)
@@ -165,7 +166,7 @@ let declare_const fmt uf =
 let declare_state_var fmt uf =
   let fun_symbol = UfSymbol.name_of_uf_symbol uf in
   assert (UfSymbol.arg_type_of_uf_symbol uf = []);
-  let arg_sorts = [ty_index] in
+  let arg_sorts = [(ty_index ())] in
   let res_sort = UfSymbol.res_type_of_uf_symbol uf in
   declare_fun fmt fun_symbol arg_sorts res_sort
 
@@ -900,7 +901,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
     | `Inferred l ->
       `Inferred (
         l |> FeatureSet.add UF
-        |> FeatureSet.add IA
+        |> (if abstr_index then Lib.identity else FeatureSet.add IA) 
         |> (if quant_free then Lib.identity else FeatureSet.add Q)
       )
   in
@@ -946,7 +947,7 @@ let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
     | `Inferred l ->
       `Inferred (
         l |> FeatureSet.add UF
-        |> FeatureSet.add IA
+        |> (if abstr_index then Lib.identity else FeatureSet.add IA)
         |> (if quant_free then Lib.identity else FeatureSet.add Q)
       )
   in
@@ -1108,8 +1109,8 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
 
   
   (* Variables i and j to be used later *)
-  let fvi = Var.mk_free_var (HString.mk_hstring "i") ty_index in
-  let fvj = Var.mk_free_var (HString.mk_hstring "j") ty_index in
+  let fvi = Var.mk_free_var (HString.mk_hstring "i") (ty_index ()) in
+  let fvj = Var.mk_free_var (HString.mk_hstring "j") (ty_index ()) in
 
   (* Substitutions to be used later: *)
   (* [0 -> i] *)
@@ -1119,7 +1120,7 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
   
   (* Declaring initial state (__I__ i) *)
   add_section fmt "Initial states";
-  let init_s = UfSymbol.mk_uf_symbol init_n [ty_index] Type.t_bool in
+  let init_s = UfSymbol.mk_uf_symbol init_n [(ty_index ())] Type.t_bool in
   let i0 = TransSys.init_fun_of sys Numeral.zero in
   let init_def = roll sigma_0i i0 in
   define_fun ~trace_lfsc_defs fmt init_s [fvi] Type.t_bool init_def;
@@ -1127,7 +1128,7 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
   
   (* Declaring property (__P__ i) *)
   add_section fmt "Original property";
-  let prop_s = UfSymbol.mk_uf_symbol prop_n [ty_index] Type.t_bool in
+  let prop_s = UfSymbol.mk_uf_symbol prop_n [(ty_index ())] Type.t_bool in
   let prop_def = roll sigma_0i prop in
   define_fun ~trace_lfsc_defs fmt prop_s [fvi] Type.t_bool prop_def;
   (* let prop_t i = Term.mk_uf prop_s [Term.mk_num_of_int i] in *)
@@ -1138,7 +1139,7 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
   (* Declaring transition steps (__T__ i j) *)
   add_section fmt "Transition_relation";  
   let trans_s = UfSymbol.mk_uf_symbol trans_n
-      [ty_index; ty_index] Type.t_bool in
+      [(ty_index ()); (ty_index ())] Type.t_bool in
   let t01 = TransSys.trans_fun_of sys Numeral.zero Numeral.one in
   let trans_def = roll sigma_0i1j t01 in
   define_fun ~trace_lfsc_defs fmt trans_s [fvi; fvj] Type.t_bool trans_def;
@@ -1148,7 +1149,7 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
 
   (* Declaring k-inductive invariant (__PHI__ i) *)
   add_section fmt (sprintf "%d-Inductive invariant" k);
-  let phi_s = UfSymbol.mk_uf_symbol phi_n [ty_index] Type.t_bool in
+  let phi_s = UfSymbol.mk_uf_symbol phi_n [(ty_index ())] Type.t_bool in
   let phi_def = roll sigma_0i phi in
   define_fun ~trace_lfsc_defs fmt phi_s [fvi] Type.t_bool phi_def;
   let phi_t i = Term.mk_uf phi_s [index_of_int i] in
@@ -1331,13 +1332,13 @@ let mono_implication_check sys dirname prop certif =
 
   begin
     if quant_free then
-      (* let v = UfSymbol.mk_fresh_uf_symbol [] ty_index in *)
-      let v = UfSymbol.mk_uf_symbol "%%k" [] ty_index in
+      (* let v = UfSymbol.mk_fresh_uf_symbol [] (ty_index ()) in *)
+      let v = UfSymbol.mk_uf_symbol "%%k" [] (ty_index ()) in
       declare_const fmt v;
       let f = Term.mk_implies [phi_u v []; prop_u v []] in
       assert_expr fmt (Term.mk_not f)
     else
-      let v = Var.mk_fresh_var ty_index in
+      let v = Var.mk_fresh_var (ty_index ()) in
       let f = Term.mk_forall [v] (Term.mk_implies [phi_v v; prop_v v]) in
       assert_expr fmt (Term.mk_not f);
   end;
@@ -2177,22 +2178,18 @@ let generate_all_certificates input sys =
   
   let open Unix in
   
-  let certif_script_name =
-    Filename.concat dirname
-      (if is_fec sys then "FECC_checker" else "certificate_checker") in
-  let csoc = openfile certif_script_name [O_WRONLY; O_CREAT; O_TRUNC] 0o755
-             |> out_channel_of_descr in
-  let fmt_cs = formatter_of_out_channel csoc in
-  Format.pp_print_string fmt_cs
-    (if is_fec sys then fecc_checker_script else certificate_checker_script);
-  close_out csoc;
+  (* let certif_script_name = *)
+  (*   Filename.concat dirname *)
+  (*     (if is_fec sys then "FECC_checker" else "certificate_checker") in *)
+  (* let csoc = openfile certif_script_name [O_WRONLY; O_CREAT; O_TRUNC] 0o755 *)
+  (*            |> out_channel_of_descr in *)
+  (* let fmt_cs = formatter_of_out_channel csoc in *)
+  (* Format.pp_print_string fmt_cs *)
+  (*   (if is_fec sys then fecc_checker_script else certificate_checker_script); *)
+  (* close_out csoc; *)
   
   (* Send statistics *)
   Event.stat Stat.[certif_stats_title, certif_stats];
 
   (* Show which file contains the certificate *)
   printf "Certificates were produced in %s@." dirname
-
-
-(* FIXME this is just to force the compilation of proof.ml *)
-open Proof

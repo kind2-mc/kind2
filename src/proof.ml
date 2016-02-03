@@ -29,7 +29,12 @@ module H = HString
 let mpz_proofs = true
 let compact = false
 
-let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --dump-proof\" <"
+
+
+(* disable the preprocessor and tell cvc4 to dump proofs *)
+(* KLUDGE we use a linux version through ssh because of bugs in the mac
+   version *)
+let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --no-simplification --dump-proof\" <"
 
 
 (* LFSC symbols *)

@@ -1167,7 +1167,8 @@ let launch () =
         clean_exit `Supervisor (Some results) Exit
 
       with e ->
-        on_exit `Supervisor None e
+        on_exit `Supervisor None e;
+        raise e
 
   ) else (
 

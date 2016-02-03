@@ -295,6 +295,11 @@ and scan_block_comment buf locs = parse
             failwith msg
       }
 
+and ruleTail acc = parse
+  | eof { acc }
+  | _* as str { ruleTail (acc ^ str) lexbuf }
+
+  
 {
   let main ?buf =
     let buf =
