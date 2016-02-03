@@ -640,6 +640,8 @@ let log_format_xml_default = false
 
 (* ********** *) 
 
+
+                               
 (* All flags *)
 type flags = 
   { mutable timeout_wall : float;
@@ -756,6 +758,24 @@ let flags =
 
 (* ********** *) 
 
+
+let log level fmt =
+
+  if flags.log_format_xml then
+
+    (ignore_or_fprintf level)
+      !log_ppf 
+      ("@[<hv 2><Log class=\"%s\" source=\"%a\">@,@[<hov>" ^^ 
+         fmt ^^ 
+           "@]@;<0 -2></Log>@]@.") 
+      (string_of_log_level level)
+      pp_print_kind_module `Parser
+
+  else (ignore_or_fprintf level) !log_ppf (fmt ^^ "@.")
+
+                                 
+(************)
+
 let timeout_wall_action o = flags.timeout_wall <- o  
 
 let timeout_wall_spec = 
@@ -846,7 +866,13 @@ let inline_arrays_spec =
 
 (* ********** *) 
 
-let arrays_rec_action () = flags.arrays_rec <- true
+let arrays_rec_action () =
+  match flags.smtsolver with
+  | `CVC4_SMTLIB -> flags.arrays_rec <- true
+  | _ ->
+     raise (Arg.Bad 
+         "Recursive encoding of arrays can only be used with CVC4. \
+          Use the flag --smtsolver CVC4")  
   
 let arrays_rec_spec = 
   ("--arrays_rec", 

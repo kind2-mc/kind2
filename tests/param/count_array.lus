@@ -15,8 +15,8 @@ tel
 node atmone( const n: int; ) returns ( ok : bool ) ;
   var B : bool^n ;
 let
-  -- assert (n > 2);
-  B[i] = if i = 2 then true else false;
+  assert (n > 2);
+  B[i] = if i = 2 then true else true;
   -- B = [false, true, true, false];
   ok = count(n, B) <= 1;
 
