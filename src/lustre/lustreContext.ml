@@ -1034,7 +1034,7 @@ let mk_abs_for_expr
       let sv = Var.state_var_of_state_var_instance v in
       (sv, bounds), ctx
 
-    else if E.is_select_array_var expr then
+    else if E.is_select_array_var expr && present_bounds <> [] then
 
       let v = E.var_of_array_select expr in
       let sv = Var.state_var_of_state_var_instance v in
