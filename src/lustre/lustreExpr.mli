@@ -289,7 +289,10 @@ val mk_index_var : int -> t
 
 (** Return the number/position of the index variable. *)
 val int_of_index_var : t -> int
-  
+
+(** Returns [true] if the expression has index variables. *)
+val has_indexes : t -> bool
+
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
 

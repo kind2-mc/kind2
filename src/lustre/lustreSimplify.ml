@@ -1642,7 +1642,7 @@ and eval_node_call
         (* Format.printf *)
         (*   "@[<v>NIOE inputs:@,%a@]@." *)
         (*   (pp_print_list *)
-        (*      (fun ppf (i, sv) ->  *)
+        (*      (fun ppf (i, sv) -> *)
         (*         Format.fprintf ppf "%a: %a :: %a (const:%b)" *)
         (*           (D.pp_print_index false) i *)
         (*           StateVar.pp_print_state_var sv *)
@@ -1655,7 +1655,7 @@ and eval_node_call
         (* Format.printf *)
         (*   "@[<v>NIOE exprs:@,%a@]@." *)
         (*   (pp_print_list *)
-        (*      (fun ppf (i, e) ->  *)
+        (*      (fun ppf (i, e) -> *)
         (*         Format.fprintf ppf "%a: %a :: %a (const:%b)" *)
         (*           (D.pp_print_index false) i *)
         (*           (E.pp_print_lustre_expr false) e *)
@@ -1698,6 +1698,9 @@ and eval_node_call
           state_var
           ({ E.expr_type } as expr)
           (accum, ctx) ->
+
+          if E.has_indexes expr
+          then C.fail_at_position pos "Call with implicitely quantified index";
 
           if 
             (* Expression must be of a subtype of input type *)

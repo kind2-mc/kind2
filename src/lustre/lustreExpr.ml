@@ -1060,11 +1060,21 @@ let int_of_index_var { expr_init = t } =
   if not (Term.is_free_var t) then raise (Invalid_argument "int_of_index_var");
   let v = Term.free_var_of_term t in
   let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
-  try
-    Scanf.sscanf s ("__index_%d%s")
-      (fun i _ -> i)
+  try Scanf.sscanf s ("__index_%d%_s") (fun i -> i)
   with Scanf.Scan_failure _ -> raise (Invalid_argument "int_of_index_var")
           
+
+let has_q_index_expr e =
+  let vs = Term.vars_of_term e in
+  Var.VarSet.exists (fun v ->
+      Var.is_free_var v &&
+      let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
+      try Scanf.sscanf s ("__index_%_d%_s") true
+      with Scanf.Scan_failure _ -> false
+    ) vs
+
+let has_indexes { expr_init; expr_step } =
+  has_q_index_expr expr_init || has_q_index_expr expr_step
 
 
 (* ********************************************************************** *)
