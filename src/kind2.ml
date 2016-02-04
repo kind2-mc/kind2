@@ -935,7 +935,10 @@ let rec run_loop msg_setup modules results =
 
   ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
 
-    | [] -> () (* Event.log L_warn "Current system has no properties." *)
+    | [] ->
+      if Flags.modular () |> not then
+        Event.log L_warn "Current system has no properties."
+      else ()
 
     | props ->
 

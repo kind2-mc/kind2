@@ -1004,10 +1004,11 @@ let log_run_end results =
       Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
         pp_print_hline ()
         (pp_print_list Analysis.pp_print_result_quiet "@ ") (
-          results |> List.filter (
+          results
+          |> if Flags.modular () then List.filter (
             fun { Analysis.sys } ->
               (TransSys.get_split_properties sys) <> ([], [], [])
-          )
+          ) else identity
         )
   | F_xml -> ()
 
