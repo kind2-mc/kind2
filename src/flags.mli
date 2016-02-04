@@ -210,6 +210,10 @@ val compositional : unit -> compositional
 type check_modes = bool
 val check_modes : unit -> check_modes
 
+(** Check modes. *)
+type check_implem = bool
+val check_implem : unit -> check_implem
+
 (** Order variables in polynomials by order of elimination **)
 type cooper_order_var_by_elim = bool
 val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim

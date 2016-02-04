@@ -933,19 +933,18 @@ let rec run_loop msg_setup modules results =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
 
-  (* Event.log L_fatal "Launching analysis with param %a"
-    Analysis.pp_print_param aparam ; *)
-  Event.log_analysis_start aparam ;
-
-  (* Output the transition system. *)
-  (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
-
   ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
 
-    (* TODO print something more relevant here. *)
-    | [] -> Event.log L_warn "Current system has no properties."
+    | [] -> () (* Event.log L_warn "Current system has no properties." *)
 
     | props ->
+
+      (* Event.log L_fatal "Launching analysis with param %a"
+        Analysis.pp_print_param aparam ; *)
+      Event.log_analysis_start aparam ;
+
+      (* Output the transition system. *)
+      (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
 
       List.length props |> Event.log L_info "%d properties." ;
 

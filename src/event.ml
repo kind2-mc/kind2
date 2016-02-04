@@ -1003,7 +1003,12 @@ let log_run_end results =
     if Flags.compositional () then
       Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
         pp_print_hline ()
-        (pp_print_list Analysis.pp_print_result_quiet "@ ") results
+        (pp_print_list Analysis.pp_print_result_quiet "@ ") (
+          results |> List.filter (
+            fun { Analysis.sys } ->
+              (TransSys.get_split_properties sys) <> ([], [], [])
+          )
+        )
   | F_xml -> ()
 
   | F_relay -> failwith "can only be called by supervisor"

@@ -522,6 +522,10 @@ type check_modes = bool
 let check_modes_values = "true, false"
 let check_modes_default = true
 
+type check_implem = bool
+let check_implem_values = "true, false"
+let check_implem_default = true
+
 (* ********** *) 
  
 type cooper_order_var_by_elim = bool 
@@ -716,6 +720,7 @@ type flags =
     mutable modular : modular;
     mutable compositional : compositional;
     mutable check_modes : check_modes ;
+    mutable check_implem : check_implem ;
     mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
     mutable cooper_general_lbound : cooper_general_lbound;
     mutable testgen_active : testgen_active;
@@ -785,6 +790,7 @@ let flags =
     ic3_abstr = ic3_abstr_default;
     compositional = compositional_default;
     check_modes = check_modes_default;
+    check_implem = check_implem_default;
     modular = modular_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
@@ -1289,15 +1295,31 @@ let compositional_spec =
 
 (* ********** *) 
  
-let check_modes_action o = flags.check_modes <- o
+let check_modes_action o =
+  flags.check_modes <- o ;
+  if not o then flags.check_implem <- true
                                           
 let check_modes_spec = 
   ("--check_modes", 
    Arg.Bool check_modes_action, 
    Format.sprintf
-    "checks the modes of a contracts are exhaustive (available: %s, default: %B)"
+    "checks the modes of a contracts are exhaustive (available: %s, default: %B, setting to `false` automatically activates `check_implem`)"
     check_modes_values
     check_modes_default)
+
+(* ********** *) 
+ 
+let check_implem_action o =
+  flags.check_implem <- o ;
+  if not o then flags.check_modes <- true
+                                          
+let check_implem_spec = 
+  ("--check_implem", 
+   Arg.Bool check_implem_action, 
+   Format.sprintf
+    "checks the implementation of nodes (available: %s, default: %B, setting to `false` automatically activates `check_modes`)"
+    check_implem_values
+    check_implem_default)
 
 (* ********** *)
  
@@ -1623,6 +1645,8 @@ let compositional () = flags.compositional
 
 let check_modes () = flags.check_modes
 
+let check_implem () = flags.check_implem
+
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
@@ -1811,6 +1835,8 @@ and speclist =
     compositional_spec ;
     (* Check modes. *)
     check_modes_spec ;
+    (* Check implementation. *)
+    check_implem_spec ;
 
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;

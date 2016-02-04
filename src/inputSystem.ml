@@ -150,8 +150,6 @@ let next_analysis_of_strategy (type s)
       scope, has_contract, has_modes
     )
     |> Strategy.next_analysis results subs_of_scope
-    |> fun res ->
-      res
   )
 
   | Native subsystem -> (function _ -> assert false)
