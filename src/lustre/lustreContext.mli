@@ -35,6 +35,8 @@ exception Node_or_function_not_found of LustreIdent.t * Lib.position
 (** Create an initial empty context. *)
 val mk_empty_context : unit -> t
 
+val pp_print_scope : Format.formatter -> t -> unit
+
 (** Add scope to context
 
     The scopes are added to the name of the node to create scope for
@@ -43,6 +45,18 @@ val push_scope : t -> string -> t
 
 (** Remove topmost scope from context *)
 val pop_scope : t -> t
+
+(** Add contract scope to context.
+
+    Contract scopes are used for scoping of mode references and ghost
+    variables. *)
+val push_contract_scope : t -> string -> t
+
+(** Remove topmost contract scope from context *)
+val pop_contract_scope : t -> t
+
+(** The contract scope of a context. *)
+val contract_scope_of : t -> string list
 
 (** Return a copy of the context with an empty node of the given name
     in the context *)

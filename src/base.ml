@@ -102,9 +102,8 @@ let split trans solver k falsifiable to_split actlits =
     if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn
-        "%s BMC @[<v>Unrolling of the system is unsat at %a, \
+        "BMC @[<v>Unrolling of the system is unsat at %a, \
         the system has no more reachable states.@]"
-        warning_tag
         Numeral.pp_print_numeral k ;
       raise UnsatUnrollingExc
     )
@@ -390,9 +389,8 @@ let init input_sys aparam trans =
     if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn
-        "%s BMC @[<v>Initial state is unsat, the system has no \
-         reachable states.@]"
-         warning_tag ;
+        "BMC @[<v>Initial state is unsat, the system has no \
+         reachable states.@]" ;
       raise UnsatUnrollingExc
     )
   ) ;
