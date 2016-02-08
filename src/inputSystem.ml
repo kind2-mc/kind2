@@ -20,6 +20,9 @@ open Lib
 
 module Strat = Strategy
 module S = SubSystem
+module Lus = LustreNode
+
+module SVM = StateVar.StateVarMap
 
 type _ t =
 | Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
@@ -307,19 +310,19 @@ let slice_to_abstraction_and_property
     (* Slice Lustre subnode to property term *)
     | Lustre (subsystem, globals) ->
 
-     let vars = match prop'.Property.prop_source with
-      | Property.Assumption _ ->
-        TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
-      | _ ->
-        Term.state_vars_of_term prop'.Property.prop_term
-    in
+      let vars = match prop'.Property.prop_source with
+        | Property.Assumption _ ->
+          TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
+        | _ ->
+          Term.state_vars_of_term prop'.Property.prop_term
+      in
 
-     let subsystem', globals' = 
-       LustreSlicing.slice_to_abstraction_and_property
-         analysis' vars subsystem globals
-     in
+      let subsystem', globals' = 
+        LustreSlicing.slice_to_abstraction_and_property
+          analysis' vars subsystem globals
+      in
 
-     Lustre (subsystem', globals')
+      Lustre (subsystem', globals')
 
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
@@ -327,6 +330,98 @@ let slice_to_abstraction_and_property
     (* No slicing in Horn input *)
     | Horn subsystem -> Horn subsystem
   )
+
+
+let inval_arg s = invalid_arg (
+  Format.sprintf "expected lustre input, got %s input" s
+)
+let oracle_info_of (type s): s t -> Scope.t -> unit = fun sys scope ->
+Format.printf "looking for \"%a\"@.@." Scope.pp_print_scope scope ;
+match sys with
+| Lustre (sub, _) ->
+  (* Finds a subsystem given a scope. *)
+  let find_subsys = S.find_subsystem sub in
+  (* Retrieving top node. *)
+  let {
+    S.scope ;
+    S.source = {
+      Lus.inputs ; Lus.outputs ; Lus.locals ; Lus.equations ; Lus.contract ;
+      Lus.state_var_source_map
+    } ;
+    S.subsystems = subs ;
+  } = S.find_subsystem sub scope in
+
+  (* Printing inputs. *)
+  LustreIndex.bindings inputs |> List.map (function
+    | [], e -> [], e
+    | _ :: tl, e -> tl, e
+  ) |> Format.printf "@[<v>inputs @ | %a@]@.@." (
+    pp_print_list (
+      fun fmt (_, var) -> Format.fprintf fmt
+        "%a: %a"
+        (LustreExpr.pp_print_lustre_var false) var
+        (LustreExpr.pp_print_lustre_type false)
+        (StateVar.type_of_state_var var)
+    ) "@ | "
+  ) ;
+
+  (* Printing outputs. *)
+  LustreIndex.bindings outputs |> List.map (function
+    | [], e -> [], e
+    | _ :: tl, e -> tl, e
+  ) |> Format.printf "@[<v>outputs @ | %a@]@.@." (
+    pp_print_list (
+      fun fmt (_, var) -> Format.fprintf fmt
+        "%a: %a"
+        (LustreExpr.pp_print_lustre_var false) var
+        (LustreExpr.pp_print_lustre_type false)
+        (StateVar.type_of_state_var var)
+    ) "@ | "
+  ) ;
+
+  let oracle_inputs = inputs, outputs in
+
+  let ghosts = locals |> List.fold_left (fun l locals ->
+    locals |> LustreIndex.bindings |> List.map (function
+      | [], e -> [], e
+      | _ :: tl, e -> tl, e
+    )
+    (* |> List.filter (
+      fun (_, svar) ->
+        try SVM.find svar state_var_source_map = Lus.Ghost
+        with Not_found -> false
+    ) *)
+    |> fun ghosts -> ghosts @ l
+  ) []
+  in
+
+  (* Printing ghosts. *)
+  ghosts |> Format.printf "@[<v>ghosts @ | %a@]@.@." (
+    pp_print_list (
+      fun fmt (_, var) -> Format.fprintf fmt
+        "%a: %a = %a"
+        (LustreExpr.pp_print_lustre_var false) var
+        (LustreExpr.pp_print_lustre_type false)
+        (StateVar.type_of_state_var var)
+        (LustreExpr.pp_print_lustre_expr false) (
+          try (
+            let (_, _, expr) =
+              equations |> List.find (fun (svar, _, _) -> var = svar)
+            in
+            expr
+          ) with Not_found -> LustreExpr.t_true
+        )
+    ) "@ | "
+  ) ;
+
+  LustreToRust.test () ;
+
+  LustreToRust.top_to_rust "test.rs" [] sub.S.source ;
+
+  Format.printf "aaaaahhhhh@.@." ;
+  exit 2
+| Native _ -> inval_arg "native"
+| Horn _ -> inval_arg "horn clause"
 
 
 

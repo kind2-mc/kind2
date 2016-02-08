@@ -58,7 +58,7 @@ val log_deadlock: 'a t -> string list list -> Model.t -> Numeral.t -> unit
 
    Returns the path to the oracle. *)
 val generate_oracles: TransSys.t -> string -> (
-  (LustreIdent.t * LustreExpr.t) list
+  TestgenModes.mode list
 ) -> string
 
 

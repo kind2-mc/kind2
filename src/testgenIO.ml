@@ -284,6 +284,9 @@ let log_deadlock (type s)
 
 (* |===| Oracle generation. *)
 
+let generate_lustre_oracles inputs outputs locals contract =
+  failwith "aaaaahhhhhh"
+
 (* Generates an oracle for the top system of [sys]. The inputs will be the
    inputs and outputs of [sys]. [terms] is a list of
    [LustreIdent.t * LustreExpr.t], used as outputs for the oracle. The

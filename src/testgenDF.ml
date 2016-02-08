@@ -18,6 +18,8 @@
 
 open Lib
 
+module Sys = InputSystem
+
 module Solver = TestgenSolver
 module Tree = TestgenTree
 module TSys = TransSys
@@ -245,7 +247,8 @@ and backward io solver tree modes contract_term =
 
 
 (* Entry point. *)
-let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
+let main (type s) :
+Analysis.param -> s Sys.t -> TSys.t -> unit
 = fun param input_sys sys ->
   (* Separating abstract and concrete systems. *)
   let abstract, concrete =
@@ -274,15 +277,18 @@ let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
     |> Format.asprintf "%a" Scope.pp_print_scope
   in
 
-  (* Creating system directory if needed. *)
   let root =
-    Format.sprintf "%s/%s"
-      (Flags.testgen_out_dir ()) sys_name
+    Format.sprintf "%s/%s" (Flags.testgen_out_dir ()) sys_name
   in
+
+  (* Creating system directory if needed. *)
   IO.mk_dir root ;
 
   Event.log L_info "%sGenerating oracle." log_id ;
   (* |===| Begin messy temporary stuff to generate outputs for each mode. *)
+  (
+    TSys.scope_of_trans_sys sys |> Sys.oracle_info_of input_sys
+  ) ;
   (* let nodes = match TransSys.get_source sys with
     | TransSys.Lustre nodes -> nodes
     | TransSys.Native -> assert false
@@ -346,8 +352,8 @@ let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
     | (Some global, modes), _ -> [global], modes
     | (None, modes), _ -> [], modes
   in
-  let oracle_path = "fts"
-    (* globals @ modes |> IO.generate_oracles sys root *)
+  let oracle_path =
+    globals @ modes |> IO.generate_oracles sys root
   in
 
   (* Creating io context. *)
