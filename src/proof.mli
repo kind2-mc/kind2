@@ -16,6 +16,11 @@
 
 *)
 
+val proofname : string
+
+val frontend_proofname : string
+
+
 val generate_inv_proof : Certificate.invariant -> unit
 
 val generate_frontend_proof : Certificate.invariant -> unit

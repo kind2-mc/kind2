@@ -49,24 +49,24 @@ let names_bare = {
 }
 
 let names_kind2 = {
-  init = "I_Kind2";
-  prop = "P_Kind2";
-  trans = "T_Kind2";
-  phi = "PHI_Kind2"
+  init = "I1";
+  prop = "P1";
+  trans = "T1";
+  phi = "PHI1"
 }
 
 let names_jkind = {
-  init = "I_JKind";
-  prop = "P_JKind";
-  trans = "T_JKind";
-  phi = "PHI_JKind"
+  init = "I2";
+  prop = "P2";
+  trans = "T2";
+  phi = "PHI2"
 }
 
 let names_obs = {
-  init = "I_OBS";
-  prop = "P_OBS";
-  trans = "T_OBS";
-  phi = "PHI_OBS"
+  init = "IO";
+  prop = "PO";
+  trans = "TO";
+  phi = "PHIO"
 }
 
 let obs_defs_f = "observer.smt2"
@@ -2840,12 +2840,44 @@ let generate_all_certificates input sys =
       printf "No certificate for frontend@.";
 
     Proof.generate_inv_proof cert_inv;
+
+
+    printf "Generating frontend proof@.";
+    let cmd_l =
+      Array.to_list Sys.argv
+      |> List.filter (fun s -> s <> (Flags.input_file ()))
+    in
+    
+    let cmd =
+      asprintf "%a %s"
+        (pp_print_list pp_print_string " ") cmd_l
+        (Filename.concat dirname "FEC.kind2")
+    in
+    printf "Second run with: %s@." cmd;
+
+    let inv_lfsc = Filename.concat dirname Proof.proofname in
+    let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
+    let final_lfsc = Filename.concat
+        (Flags.certif_dir ())
+        (Filename.basename (Flags.input_file ()) ^ ".lfsc") in
+    
+    begin match Sys.command cmd with
+      | 0 ->
+        files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
+        
+      | c ->
+        printf "Failed to generate frontend proof (return code %d)@." c;
+        file_copy inv_lfsc final_lfsc
+    end;
+
+    printf "Final LFSC proof written to %s@." final_lfsc;
     
   else begin
 
     let frontend_inv = generate_frontend_certificates sys dirname in
     
     Proof.generate_frontend_proof frontend_inv;
+    
   end;
 
   
@@ -2862,7 +2894,5 @@ let generate_all_certificates input sys =
   (* close_out csoc; *)
   
   (* Send statistics *)
-  Event.stat Stat.[certif_stats_title, certif_stats];
-
-  (* Show which file contains the certificate *)
-  printf "Certificates were produced in %s@." dirname
+  Event.stat Stat.[certif_stats_title, certif_stats]
+  
