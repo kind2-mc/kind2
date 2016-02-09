@@ -327,8 +327,7 @@ match Term.destruct term with
   | `LEQ
   | `LT
   | `GEQ
-  | `GT
-  | `IMPLIES -> (
+  | `GT -> (
     match kids with
     | [rhs] ->
       let op =
@@ -339,7 +338,6 @@ match Term.destruct term with
         | `LT -> " < "
         | `GEQ -> " >= "
         | `GT -> " > "
-        | `IMPLIES -> " => "
         | _ -> failwith "unreachable"
       in
       Format.fprintf fmt "(" ;
@@ -351,6 +349,11 @@ match Term.destruct term with
       Format.sprintf "implication of %d kids" ((List.length kids) + 1)
       |> failwith
   )
+  (* Binary but rewritten. *)
+  | `IMPLIES ->
+    Term.mk_not kid :: kids
+    |> Term.mk_or
+    |> fmt_term_down svar_pref next fmt 
   (* Ternary. *)
   | `ITE -> (
     let i, t, e = match kids with
@@ -359,7 +362,7 @@ match Term.destruct term with
     in
     Format.fprintf fmt "( if " ;
     fmt_term_down svar_pref (
-      [ S " {@ " ; T t ; S "@ } else {" ; T e ; S "@ }" ] :: next
+      [ S " { " ; T t ; S " } else {" ; T e ; S " } )" ] :: next
     ) fmt kid
   )
   (* N-ary. *)
@@ -637,21 +640,23 @@ let node_to_rust is_top fmt (
             } ->
               Format.fprintf fmt
                 "\
-                  | `%s` \
-                  | [%s](struct.%s.html) \
-                  | `%a` \
-                  | `%a` \
+                  | `%s` @?\
+                  | [%s](struct.%s.html) @?\
+                  | %a @?\
+                  | %a @?\
                   | %a |\
                 "
                 (mk_id_legal call_node_name)
                 (mk_id_type call_node_name)
                 (mk_id_type call_node_name)
                 (pp_print_list (fun fmt (_, svar) ->
-                    SVar.name_of_state_var svar |> Format.pp_print_string fmt
+                    SVar.name_of_state_var svar
+                    |> Format.fprintf fmt "`%s`"
                   ) ", "
                 ) (I.bindings call_inputs)
                 (pp_print_list (fun fmt (_, svar) ->
-                    SVar.name_of_state_var svar |> Format.pp_print_string fmt
+                    SVar.name_of_state_var svar
+                    |> Format.fprintf fmt "`%s`"
                   ) ", "
                 ) (I.bindings call_outputs)
                 pp_print_position call_pos
@@ -682,7 +687,7 @@ let node_to_rust is_top fmt (
             LustreContract.pos ; LustreContract.num ; LustreContract.svar
           } ->
             Format.fprintf fmt
-              "| `%s` | %a | %d |"
+              "| `%s` @?| %a @?| %d |"
               (SVar.name_of_state_var svar)
               pp_print_position pos
               num
@@ -694,7 +699,7 @@ let node_to_rust is_top fmt (
   (* Fields. *)
   inputs
   |> List.iter (fun (_, svar) ->
-    Format.fprintf fmt "@.  /// Input: `%a`.@.  pub %s%s: %a,"
+    Format.fprintf fmt "@.  /// Input: `%a`@.  pub %s%s: %a,"
       SVar.pp_print_state_var svar
       svar_pref
       (SVar.name_of_state_var svar)
@@ -705,7 +710,7 @@ let node_to_rust is_top fmt (
 
   outputs
   |> List.iter (fun (_, svar) ->
-    Format.fprintf fmt "@.  /// Output: `%a`.@.  pub %s%s: %a,"
+    Format.fprintf fmt "@.  /// Output: `%a`@.  pub %s%s: %a,"
       SVar.pp_print_state_var svar
       svar_pref
       (SVar.name_of_state_var svar)
@@ -724,7 +729,7 @@ let node_to_rust is_top fmt (
       with Not_found -> ""
     in
     Format.fprintf
-      fmt "@.  /// Local%s: `%a`.@.  pub %s%s: %a,"
+      fmt "@.  /// Local%s: `%a`@.  pub %s%s: %a,"
       source
       SVar.pp_print_state_var svar
       svar_pref
@@ -1148,16 +1153,17 @@ let top_to_rust target find_sub top =
 
   let rec compile is_top compiled = function
     | node :: nodes ->
-      assert (Id.Set.mem node.N.name compiled |> not) ;
       let compiled, nodes =
-        Id.Set.add node.N.name compiled,
-        nodes @ (
-          node_to_rust is_top fmt node
-          |> List.fold_left (fun l call_id ->
-            if Id.Set.mem call_id compiled |> not
-            then (Id.to_scope call_id |> find_sub) :: l else l
-          ) []
-        )
+        if Id.Set.mem node.N.name compiled |> not then (
+          Id.Set.add node.N.name compiled,
+          nodes @ (
+            node_to_rust is_top fmt node
+            |> List.fold_left (fun l call_id ->
+              if Id.Set.mem call_id compiled |> not
+              then (Id.to_scope call_id |> find_sub) :: l else l
+            ) []
+          )
+        ) else compiled, nodes
       in
       compile false compiled nodes
     | [] -> ()

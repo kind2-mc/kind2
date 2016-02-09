@@ -1025,7 +1025,7 @@ let run_testgen input_sys sys =
 
 (* Compiles a system (scope) to Rust. *)
 let compile_to_rust input_sys sys =
-  Flags.compile_path () |> InputSystem.compile_to_rust input_sys sys
+  Flags.compile_dir () |> InputSystem.compile_to_rust input_sys sys
 
 
 (* Looks at the modules activated and decides what to do. *)
