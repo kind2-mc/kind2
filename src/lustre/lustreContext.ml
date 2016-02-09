@@ -138,6 +138,9 @@ type t =
     (* saving local variables positions and their luster identifiers for error
        reporting *)
     locals_info : (StateVar.t * I.t * Lib.position) list;
+
+    (* say if we need to guard pres *)
+    guard_pre : bool;
     
   }
 
@@ -163,8 +166,15 @@ let mk_empty_context () =
     fresh_oracle_index = 0;
     definitions_allowed = None;
     locals_info = [];
+    guard_pre = false;
   }
 
+
+let set_guard_flag ctx b = { ctx with guard_pre = b }
+
+let reset_guard_flag ctx = { ctx with guard_pre = false }
+
+let guard_flag ctx = ctx.guard_pre
 
 (* Raise parsing exception *)
 let fail_at_position pos msg = 
@@ -827,19 +837,6 @@ let close_expr ?original pos ({ E.expr_init } as expr, ctx) =
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, ctx) else
 
-    (* Fail only if in strict mode *)
-    let fail_or_warn =
-      if Flags.strict () then fail_at_position else warn_at_position in
-
-    let err_msg, pos = match original with
-      | Some ae ->
-        Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
-          A.pp_print_expr ae, A.pos_of_expr ae
-      | None -> "Unguarded pre", pos
-    in
-
-    fail_or_warn pos err_msg;
-
     (* New oracle for each state variable *)
     let oracle_substs, ctx = VS.fold (fun var (accum, ctx) -> 
 
@@ -867,13 +864,14 @@ let fresh_state_var_for_expr
     ?(is_input = false)
     ?(is_const = false)
     ?(for_inv_gen = true)
+    ?(reuse = true)
     ({ expr_state_var_map; 
        fresh_local_index } as ctx)
     after_mk
     ({ E.expr_type } as expr) = 
 
   (* Don't abstract simple state variables *)
-  if E.is_var expr || E.is_const_var expr then
+  if reuse && (E.is_var expr || E.is_const_var expr) then
 
     let v = E.var_of_expr expr in
     let sv = Var.state_var_of_state_var_instance v in
@@ -921,37 +919,43 @@ let mk_state_var_for_expr
     ?(is_input = false)
     ?(is_const = false)
     ?(for_inv_gen = true)
+    ?(reuse = true)
     ({ expr_state_var_map; 
        fresh_local_index } as ctx)
     after_mk
     ({ E.expr_type } as expr) = 
 
-  try 
+  if not reuse then
+    fresh_state_var_for_expr
+      ~is_input ~is_const ~for_inv_gen ~reuse ctx after_mk expr
+  else
+    try 
 
-    (* Find previous definition of expression
+      (* Find previous definition of expression
 
-       Use [find_all] to get all state variables that define the
-       expression. *)
-    let state_var_list = ET.find_all expr_state_var_map expr in
+         Use [find_all] to get all state variables that define the
+         expression. *)
+      let state_var_list = ET.find_all expr_state_var_map expr in
 
-    (* Find state variable with same properties *)
-    let state_var = 
-      List.find
-        (fun sv -> 
-           StateVar.is_input sv = is_input && 
-           StateVar.is_const sv = is_const && 
-           StateVar.for_inv_gen sv = for_inv_gen)
-        state_var_list
-    in
+      (* Find state variable with same properties *)
+      let state_var = 
+        List.find
+          (fun sv -> 
+             StateVar.is_input sv = is_input && 
+             StateVar.is_const sv = is_const && 
+             StateVar.for_inv_gen sv = for_inv_gen)
+          state_var_list
+      in
 
-    (* Return state variable used before *)
-    (state_var, ctx)
+      (* Return state variable used before *)
+      (state_var, ctx)
 
-  (* Expresssion has not been abstracted before *)
-  with Not_found ->
+    (* Expresssion has not been abstracted before *)
+    with Not_found ->
 
-    (* If it's not there already, create a new state variable *)
-    fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ctx after_mk expr
+      (* If it's not there already, create a new state variable *)
+      fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ~reuse
+        ctx after_mk expr
 
 
 (* Define the expression with a state variable *)
@@ -959,14 +963,14 @@ let mk_local_for_expr
     ?is_input
     ?is_const
     ?for_inv_gen
-    ?(reuse=true)
+    ?reuse
     ?original
     pos
     ({ node; 
        definitions_allowed;
        fresh_local_index } as ctx)
     ({ E.expr_type } as expr) = 
-
+  
   match definitions_allowed with 
 
     (* Fail with error if no new definitions allowed *)
@@ -987,13 +991,11 @@ let mk_local_for_expr
           (* Guard unguarded pres before adding definition *)
           let expr', ctx = close_expr ?original pos (expr, ctx) in
 
-          let mk_sve =
-            if reuse then mk_state_var_for_expr
-            else fresh_state_var_for_expr in
-          
           (* Define the expresssion with a fresh state variable *)
           let state_var, ctx =
-            mk_sve ?is_input ?is_const ?for_inv_gen
+            mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen
+              (* ?reuse *)
+              ~reuse:(not ctx.guard_pre)
               ctx add_state_var_to_locals expr' in
 
           (* Return variable and changed context *)

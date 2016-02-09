@@ -35,6 +35,12 @@ exception Node_or_function_not_found of LustreIdent.t * Lib.position
 (** Create an initial empty context. *)
 val mk_empty_context : unit -> t
 
+val set_guard_flag : t -> bool -> t
+
+val reset_guard_flag : t -> t
+
+val guard_flag : t -> bool
+
 (** Add scope to context
 
     The scopes are added to the name of the node to create scope for

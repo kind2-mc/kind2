@@ -310,6 +310,9 @@ val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
 (** Returns the position of an expression *)
 val pos_of_expr : expr -> Lib.position
 
+(** Returns true if the expression has unguareded pre's *)
+val has_unguarded_pre : expr -> bool
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

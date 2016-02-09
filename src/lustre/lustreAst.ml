@@ -20,6 +20,37 @@ open Lib
 
 exception Parser_error
 
+module Event = struct
+  let log lvl fmt =
+    if Flags.log_format_xml () then
+      ( match lvl with
+        | L_warn -> "warn"
+        | L_error -> "error"
+        (* Only warning or errors in theory. *)
+        | _ -> failwith "LustreContext should only output warnings or errors" )
+      |> Format.printf ("@[<hov 2>\
+          <Log class=\"%s\" source=\"parse\">@ \
+            @[<hov>" ^^ fmt ^^ "@]\
+          @;<0 -2></Log>\
+        @]@.")
+    else
+      ( match lvl with
+        | L_warn -> warning_tag
+        | L_error -> error_tag
+        (* Only warning or errors in theory. *)
+        | _ -> failwith "LustreContext should only output warnings or errors" )
+      |> Format.printf ("%s @[<v>" ^^ fmt ^^ "@]@.")
+end
+
+(* Raise parsing exception *)
+let error_at_position pos msg = 
+  Event.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg
+  
+(* Raise parsing exception *)
+let warn_at_position pos msg = 
+  Event.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
+
+
 (* ********************************************************************** *)
 (* Type declarations                                                      *)
 (* ********************************************************************** *)
@@ -1079,6 +1110,85 @@ let pos_of_expr = function
   | CallParam (pos , _ , _ , _ )
     -> pos
 
+
+let rec has_unguarded_pre ung = function
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
+    
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) -> has_unguarded_pre ung e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | When (_, e1, e2) | ArrayConcat (_, e1, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre ung e2 in
+
+    u1 || u2
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre ung e2 in
+    let u3 = has_unguarded_pre ung e3 in
+    u1 || u2 || u3
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    let us = List.map (has_unguarded_pre ung) l in
+    List.exists Lib.identity us
+
+  | Activate (_, _, e, l) | Merge (_, e, l) ->
+    let us = List.map (has_unguarded_pre ung) (e :: l) in
+    List.exists Lib.identity us
+
+  | Condact (_, e, _, l1, l2) ->
+    let us = List.map (has_unguarded_pre ung) (e :: l1 @ l2) in
+    List.exists Lib.identity us
+
+  | RecordExpr (_, _, ie) ->
+    let us = List.map (fun (_, e) -> has_unguarded_pre ung e) ie in
+    List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | Index (_, e) -> has_unguarded_pre ung e
+      ) li in
+    let u2 = has_unguarded_pre ung e2 in
+    u1 || u2 || List.exists Lib.identity us
+
+  | Fby (_, e1, _, e2) ->
+    let u1, u2 = has_unguarded_pre ung e1, has_unguarded_pre ung e2 in
+    u1 || u2
+
+  | Pre (pos, e) as p ->
+    if ung then begin
+      (* Fail only if in strict mode *)
+      let err_or_warn =
+        if Flags.strict () then error_at_position else warn_at_position in
+
+      err_or_warn pos
+        (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
+           pp_print_expr p)
+    end;
+
+    let u = has_unguarded_pre true e in
+    ung || u
+
+  | Arrow (_, e1, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre false e1 in
+    u1 || u2
+
+let has_unguarded_pre e =
+  let u = has_unguarded_pre true e in
+  if u && Flags.strict () then raise Parser_error;
+  u
+      
 
 
 (* 

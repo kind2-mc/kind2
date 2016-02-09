@@ -1595,6 +1595,12 @@ let mk_intdiv expr1 expr2 = mk_binary eval_intdiv type_of_intdiv expr1 expr2
 (* ********************************************************************** *)
 
 
+let has_pre_vars t =
+  Term.state_vars_at_offset_of_term (Numeral.of_int (-1)) t
+  |> StateVar.StateVarSet.is_empty
+  |> not
+
+
 (* Evaluate equality *)
 let eval_eq expr1 expr2 = match expr1, expr2 with
 
@@ -1610,8 +1616,10 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
   (* e1 = false -> not e1 *)
   | _, t when t == Term.t_false -> eval_not expr1
 
-  (* e = e -> true *)
-  | _ when Term.equal expr1 expr2 -> Term.t_true
+  (* e = e -> true and e has no pre *)
+  | _ when Term.equal expr1 expr2
+           && not (has_pre_vars expr1) && not (has_pre_vars expr2) ->
+     Term.t_true
 
   | _ -> 
 
@@ -1654,7 +1662,7 @@ let type_of_eq = type_of_a_a_bool
 
 
 (* Equality *)
-let mk_eq expr1 expr2 = mk_binary eval_eq type_of_eq expr1 expr2 
+let mk_eq expr1 expr2 = mk_binary eval_eq type_of_eq expr1 expr2
 
 
 (* ********************************************************************** *)
@@ -1973,22 +1981,37 @@ let mk_arrow expr1 expr2 =
 let mk_pre 
     mk_state_var_for_expr
     ctx
+    unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
   (* Apply pre to initial state expression *)
-  let expr_init', ctx' = match expr_init with 
+  let expr_init', ctx' = match expr_init with
 
-    (* Expression is a variable at the current instant *)
-    | t when 
-        Term.is_free_var t && 
-        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
+    (* Expression is a constant not part of an unguarded pre expression *)
+    | t when
+        not unguarded && 
+        (t == Term.t_true || 
+         t == Term.t_false || 
+           (Term.is_free_var t && 
+              Term.free_var_of_term t |> Var.is_const_state_var) ||
+             (match Term.destruct t with 
+              | Term.T.Const c1 when 
+                     Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+              | _ -> false)) ->
+       (expr_init, ctx)
+          
+    (* Expression is a variable at the current instant not part of an unguarded
+       pre expression *)
+    | t when
+        not unguarded &&
+        Term.is_free_var t &&
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
                  base_offset) ->
       
-      (Term.bump_state Numeral.(- one) t, ctx)
-
+      (Term.bump_state Numeral.(- one) t, ctx) 
     (* Expression is not a variable at the current instant *)
-    | _ -> 
-      
+    | _ ->
+       
       (* Fresh state variable for identifier *)
       let state_var, ctx' = mk_state_var_for_expr ctx expr in 
 
@@ -2003,11 +2026,18 @@ let mk_pre
   (* Apply pre to step state expression *)
   let expr_step', ctx'' = match expr_step with 
 
+    (* Expression is identical to initial state *)
+    | _ when not unguarded &&
+             Term.equal expr_step expr_init -> 
+
+      (* Re-use abstraction for initial state *)
+      (expr_init', ctx')
+
     (* Expression is a variable at the current instant *)
-    | t when 
-        Term.is_free_var t && 
-        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
-                 cur_offset)-> 
+    | t when
+        Term.is_free_var t &&
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
+                 cur_offset) ->
 
       (Term.bump_state Numeral.(- one) t, ctx')
 
