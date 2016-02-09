@@ -421,6 +421,8 @@ val create_dir : string -> unit
 (** Copying file: [file_copy from to] copies file [from] to file [to] *)
 val file_copy : string -> string -> unit
 
+val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
+  string list -> string -> Unix.file_descr
 
 (* 
    Local Variables:

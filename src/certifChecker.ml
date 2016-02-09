@@ -19,6 +19,8 @@
 open Format
 open Lib
 open Actlit
+open Certificate
+
 
 module TS = TransSys
 module TM = Term.TermMap
@@ -38,6 +40,74 @@ let quant_free = true
 let monolithic_base = true
 let simple_base = false
 let abstr_index = true 
+
+let names_bare = {
+  init = "I";
+  prop = "P";
+  trans = "T";
+  phi = "PHI"
+}
+
+let names_kind2 = {
+  init = "I_Kind2";
+  prop = "P_Kind2";
+  trans = "T_Kind2";
+  phi = "PHI_Kind2"
+}
+
+let names_jkind = {
+  init = "I_JKind";
+  prop = "P_JKind";
+  trans = "T_JKind";
+  phi = "PHI_JKind"
+}
+
+let names_obs = {
+  init = "I_OBS";
+  prop = "P_OBS";
+  trans = "T_OBS";
+  phi = "PHI_OBS"
+}
+
+let obs_defs_f = "observer.smt2"
+let obs_defs_lfsc_f = "observer_lfsc_trace.smt2"
+let obs_phi_f = "obs_phi.smt2"
+let obs_phi_lfsc_f = "obs_phi_lfsc_trace.smt2"
+
+let kind2_defs_f = "kind2_sys.smt2"
+let kind2_defs_lfsc_f = "kind2_sys_lfsc_trace.smt2"
+let kind2_phi_f = "kind2_phi.smt2"
+let kind2_phi_lfsc_f = "kind2_phi_lfsc_trace.smt2"
+
+let jkind_defs_f = "jkind_sys.smt2"
+let jkind_defs_lfsc_f = "jkind_sys_lfsc_trace.smt2"
+
+let base_f = "base.smt2"
+let induction_f = "induction.smt2"
+let implication_f = "implication.smt2"
+
+let frontend_base_f = "frontend_base.smt2"
+let frontend_induction_f = "frontend_induction.smt2"
+let frontend_implication_f = "frontend_implication.smt2"
+
+
+let kind2_cert_sys dirname = {
+  names = names_kind2;
+  smt2_file = Filename.concat dirname kind2_defs_f;
+  smt2_lfsc_trace_file = Filename.concat dirname kind2_defs_lfsc_f;
+}
+
+let jkind_cert_sys dirname = {
+  names = names_jkind;
+  smt2_file = Filename.concat dirname jkind_defs_f;
+  smt2_lfsc_trace_file = Filename.concat dirname jkind_defs_lfsc_f;
+}
+
+let obs_cert_sys dirname = {
+  names = names_obs;
+  smt2_file = Filename.concat dirname obs_defs_f;
+  smt2_lfsc_trace_file = Filename.concat dirname obs_defs_lfsc_f;
+}
 
 
 (****************************)
@@ -231,6 +301,13 @@ let sexit fmt = fprintf fmt "(exit)@."
 (***************************)
 (* Certificates extraction *)
 (***************************)
+
+let extract_props_terms sys =
+  List.fold_left (fun p_acc -> function
+      | { Property.prop_term = p } -> p :: p_acc
+    ) [] (TS.get_real_properties sys)
+  |> List.rev |> Term.mk_and
+
 
 (* Extract properties and invariants together with their certificates from a
    system. *)
@@ -1044,7 +1121,8 @@ let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
 
 
 
-let export_system fmt ?(recursive=true) ?(trace_lfsc_defs=false) prefix sys =
+let export_system_defs
+    fmt ?(recursive=true) ?(trace_lfsc_defs=false) prefix sys =
   
   (* add headers for info *)
   add_system_header fmt prefix sys;
@@ -1062,35 +1140,44 @@ let export_system fmt ?(recursive=true) ?(trace_lfsc_defs=false) prefix sys =
 
 
 
-(**********************************************)
-(* Creation of certificate and checker script *)
-(**********************************************)
+(* Declarations for abstract index constants *)
 
-(* Names of predicates *)
-let init_n = "I"
-let prop_n = "P"
-let trans_n = "T"
-let phi_n = "PHI"
-
-let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
-  (* add headers for info *)
-  (* add_header fmt_header sys k init_n prop_n trans_n phi_n; *)
-
-  (* add headers for info *)
-  monolithic_header fmt description sys init_n prop_n trans_n phi_n k;
-
+let add_decl_index fmt k =
   if abstr_index then begin
     add_section fmt "Indexes for k-induction";
     fprintf fmt "(declare-sort %s 0)\n@." ty_index_name;
     for i = 0 to k do
       fprintf fmt "(declare-fun %s () %s)@." (index_sym_of_int i) ty_index_name;
     done
-  end;
+  end
+
+(**********************************************)
+(* Creation of certificate and checker script *)
+(**********************************************)
+
+(* Names of predicates *)
+let names = {
+  init = "I";
+  prop = "P";
+  trans = "T";
+  phi = "PHI";
+}
+
+
+let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
+  (* add headers for info *)
+  (* add_header fmt_header sys k names.init names.prop names.trans names.phi; *)
+
+  (* add headers for info *)
+  monolithic_header fmt description sys
+    names.init names.prop names.trans names.phi k;
+
+  add_decl_index fmt k;
  
   let name_sys = if is_fec sys then "Kind2" else "Obs" in
 
   (* Do not export the definitions with tracing information for LFSC *)
-  export_system fmt ~recursive:true ~trace_lfsc_defs:false name_sys sys;
+  export_system_defs fmt ~recursive:true ~trace_lfsc_defs:false name_sys sys;
   
   
   let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
@@ -1118,17 +1205,17 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
   (* [0 -> i; 1 -> j] *)
   let sigma_0i1j = TM.add t1 (Term.mk_var fvj) sigma_0i in
   
-  (* Declaring initial state (__I__ i) *)
+  (* Declaring initial state (I i) *)
   add_section fmt "Initial states";
-  let init_s = UfSymbol.mk_uf_symbol init_n [(ty_index ())] Type.t_bool in
+  let init_s = UfSymbol.mk_uf_symbol names.init [(ty_index ())] Type.t_bool in
   let i0 = TransSys.init_fun_of sys Numeral.zero in
   let init_def = roll sigma_0i i0 in
   define_fun ~trace_lfsc_defs fmt init_s [fvi] Type.t_bool init_def;
   let init_t0 = Term.mk_uf init_s [index_of_int 0] in
   
-  (* Declaring property (__P__ i) *)
+  (* Declaring property (P i) *)
   add_section fmt "Original property";
-  let prop_s = UfSymbol.mk_uf_symbol prop_n [(ty_index ())] Type.t_bool in
+  let prop_s = UfSymbol.mk_uf_symbol names.prop [(ty_index ())] Type.t_bool in
   let prop_def = roll sigma_0i prop in
   define_fun ~trace_lfsc_defs fmt prop_s [fvi] Type.t_bool prop_def;
   (* let prop_t i = Term.mk_uf prop_s [Term.mk_num_of_int i] in *)
@@ -1136,9 +1223,9 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
   let prop_u u l = Term.mk_uf prop_s [Term.mk_uf u l] in
 
   
-  (* Declaring transition steps (__T__ i j) *)
+  (* Declaring transition steps (T i j) *)
   add_section fmt "Transition_relation";  
-  let trans_s = UfSymbol.mk_uf_symbol trans_n
+  let trans_s = UfSymbol.mk_uf_symbol names.trans
       [(ty_index ()); (ty_index ())] Type.t_bool in
   let t01 = TransSys.trans_fun_of sys Numeral.zero Numeral.one in
   let trans_def = roll sigma_0i1j t01 in
@@ -1147,9 +1234,9 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
       [index_of_int i; index_of_int j] in
 
 
-  (* Declaring k-inductive invariant (__PHI__ i) *)
+  (* Declaring k-inductive invariant (PHI i) *)
   add_section fmt (sprintf "%d-Inductive invariant" k);
-  let phi_s = UfSymbol.mk_uf_symbol phi_n [(ty_index ())] Type.t_bool in
+  let phi_s = UfSymbol.mk_uf_symbol names.phi [(ty_index ())] Type.t_bool in
   let phi_def = roll sigma_0i phi in
   define_fun ~trace_lfsc_defs fmt phi_s [fvi] Type.t_bool phi_def;
   let phi_t i = Term.mk_uf phi_s [index_of_int i] in
@@ -1157,6 +1244,154 @@ let monolithic_definitions fmt ~trace_lfsc_defs description sys prop (k, phi) =
   let phi_u u l = Term.mk_uf phi_s [Term.mk_uf u l] in
 
   init_t0, prop_v, prop_u, trans_t, phi_t, phi_v, phi_u
+
+
+
+
+
+(* Declare predicates (I, T, P, PHI, ...)  with tracing *)
+let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn = 
+
+  fprintf fmt "(define-fun %s (%a) Bool\n   \
+               %s)\n@."
+    fun_symbol
+    (pp_print_list (fun fmt -> fprintf fmt "(%s index)") " ") args
+    defn;
+
+  if trace_lfsc_defs then begin
+
+    fprintf fmt ";; Tracing artifact for CVC4 and LFSC proofs\n";
+    
+    let fun_def_sy = fun_symbol ^ "%def" in
+    fprintf fmt "(declare-fun %s () Bool)\n" fun_def_sy;
+
+    let cpt = ref 0 in
+    let fun_def_args = List.map (fun v ->
+        incr cpt;
+        let vfs = fun_symbol ^ "%" ^ string_of_int !cpt in
+        fprintf fmt "(declare-fun %s () index)\n" vfs;
+        vfs
+      ) args in
+
+    fprintf fmt
+      "@[<hov 1>(assert@ @[<hov 1>(=@ %s@ @[<hv 1>(%s@ %a)@])@])@]\n@."
+      fun_def_sy fun_symbol (pp_print_list pp_print_string "@ ") fun_def_args
+  end
+  
+
+
+let mononames_system fmt ~trace_lfsc_defs description sys name_sys prop names =
+
+  let consts, svars = List.partition StateVar.is_const (TS.state_vars sys) in
+  
+  (* Declaring constant symbols *)
+  add_section fmt "Constants";
+  List.iter (fun sv ->
+      declare_const fmt (StateVar.uf_symbol_of_state_var sv)
+    ) consts;
+  
+  (* Declaring state variables upto k *)
+  add_section fmt "State variables";
+  List.iter (fun sv ->
+      declare_state_var fmt (StateVar.uf_symbol_of_state_var sv)
+    ) svars;
+
+  (* Do not export the definitions with tracing information for LFSC *)
+  export_system_defs fmt ~recursive:true ~trace_lfsc_defs:false name_sys sys;
+
+  (* Variables i and j to be used later *)
+  let fvi = Var.mk_free_var (HString.mk_hstring "i") (ty_index ()) in
+  let fvj = Var.mk_free_var (HString.mk_hstring "j") (ty_index ()) in
+
+  (* Substitutions to be used later: *)
+  (* [0 -> i] *)
+  let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+  (* [0 -> i; 1 -> j] *)
+  let sigma_0i1j = TM.add t1 (Term.mk_var fvj) sigma_0i in
+  
+  (* Declaring initial state (I i) *)
+  add_section fmt "Initial states";
+  let init_s = UfSymbol.mk_uf_symbol names.init [(ty_index ())] Type.t_bool in
+  let i0 = TransSys.init_fun_of sys Numeral.zero in
+  let init_def = roll sigma_0i i0 in
+  define_fun ~trace_lfsc_defs fmt init_s [fvi] Type.t_bool init_def;
+  
+  (* Declaring property (P i) *)
+  add_section fmt "Original property";
+  let prop_s = UfSymbol.mk_uf_symbol names.prop [(ty_index ())] Type.t_bool in
+  let prop_def = roll sigma_0i prop in
+  define_fun ~trace_lfsc_defs fmt prop_s [fvi] Type.t_bool prop_def;
+
+  
+  (* Declaring transition relation (T i j) *)
+  add_section fmt "Transition_relation";  
+  let trans_s = UfSymbol.mk_uf_symbol names.trans
+      [(ty_index ()); (ty_index ())] Type.t_bool in
+  let t01 = TransSys.trans_fun_of sys Numeral.zero Numeral.one in
+  let trans_def = roll sigma_0i1j t01 in
+  define_fun ~trace_lfsc_defs fmt trans_s [fvi; fvj] Type.t_bool trans_def
+
+
+
+let export_system ~trace_lfsc_defs
+    description dirname file names sys name_sys =
+
+  let filename = Filename.concat dirname file in
+  let oc = open_out filename in
+  let fmt = formatter_of_out_channel oc in
+  Format.pp_set_margin fmt file_width;
+
+  (* Conjunction of properties *)
+  let prop = extract_props_terms sys in
+
+  if trace_lfsc_defs then add_decl_index fmt (-1);
+  
+  (* declare state variables, write I, T and P *)
+  mononames_system fmt ~trace_lfsc_defs description sys name_sys prop names;  
+
+  (* dummy goal if we only want to do tracing *)
+  if trace_lfsc_defs then begin
+    assert_expr fmt Term.t_false;
+    check_sat fmt;
+    sexit fmt;
+  end;
+  close_out oc
+
+
+let export_phi ~trace_lfsc_defs dirname file definitions_files names phi =
+
+  let filename = Filename.concat dirname file in
+  let oc =
+    if trace_lfsc_defs then
+      files_cat_open
+        ~add_prefix:(fun fmt ->
+            if trace_lfsc_defs then add_decl_index fmt (-1) else ())
+        definitions_files filename |> Unix.out_channel_of_descr
+    else open_out filename in
+  let fmt = formatter_of_out_channel oc in
+  Format.pp_set_margin fmt file_width;
+
+  let fvi = Var.mk_free_var (HString.mk_hstring "i") (ty_index ()) in
+  (* Substitutions to be used later: *)
+  (* [0 -> i] *)
+  let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+  
+  (* Declaring k-inductive invariant (PHI i) *)
+  add_section fmt "k-Inductive invariant";
+  let phi_s = UfSymbol.mk_uf_symbol names.phi [(ty_index ())] Type.t_bool in
+  let phi_def = roll sigma_0i phi in
+  define_fun ~trace_lfsc_defs fmt phi_s [fvi] Type.t_bool phi_def;
+
+  (* dummy goal if we only want to do tracing *)
+  if trace_lfsc_defs then begin
+    assert_expr fmt Term.t_false;
+    check_sat fmt;
+    sexit fmt;
+  end;
+  close_out oc
+
+
+  
 
 
 
@@ -1178,6 +1413,115 @@ let generate_lfsc_tracing sys dirname prop certif =
   sexit fmt;
   close_out oc;
   filename
+
+
+
+let smk s l =
+  asprintf "@[<hov 1>(%s@ %a)@]" s
+    (pp_print_list pp_print_string "@ ") l
+
+
+let s_assert fmt s = fprintf fmt "@[<hov 1>(assert@ %s)@]\n@." s
+  
+
+let mononames_base_check sys dirname file definitions_files k names =
+
+  let filename = Filename.concat dirname file in
+
+  let od = files_cat_open
+      ~add_prefix:(fun fmt -> add_decl_index fmt k)
+      definitions_files filename in
+  let oc = Unix.out_channel_of_descr od in
+  let fmt = formatter_of_out_channel oc in
+  Format.pp_set_margin fmt file_width;
+  
+  add_section fmt "Base case";
+
+  let dnf = ref [] in
+
+  for i = k - 1 downto 0 do
+
+    let l = ref [] in
+    for j = i - 1 downto 0 do
+      l := smk names.trans [index_sym_of_int j; index_sym_of_int (j+1)] :: !l;
+    done;
+
+    let conj =
+      smk "and" [smk "and" (smk names.init [index_sym_of_int 0] :: !l);
+                 smk "not" [smk names.phi [index_sym_of_int i]]] in
+
+    dnf := conj :: !dnf
+
+  done;
+
+  s_assert fmt (smk "or" !dnf);
+  check_sat fmt;
+
+  sexit fmt;
+  close_out oc;
+  filename
+
+let mononames_induction_check sys dirname file definitions_files k names =
+
+  let filename = Filename.concat dirname file in
+
+  let od = files_cat_open
+      ~add_prefix:(fun fmt -> add_decl_index fmt k)
+      definitions_files filename in
+  let oc = Unix.out_channel_of_descr od in
+  let fmt = formatter_of_out_channel oc in
+  Format.pp_set_margin fmt file_width;
+    
+  (* Checking k-inductive case *)
+  add_section fmt (sprintf "%d-Inductiveness" k);
+
+  (* unroll k times*)
+  let l = ref [] in
+  for i = k - 1 downto 0 do
+    l := smk "and" [smk names.phi [index_sym_of_int i];
+                    smk names.trans [index_sym_of_int i;
+                                     index_sym_of_int (i+1)]] :: !l
+  done;
+
+  let g = smk "and" [smk "and" !l;
+                     smk "not" [smk names.phi [index_sym_of_int k]]] in
+  
+  s_assert fmt g;
+  check_sat fmt;
+  
+  sexit fmt;
+  close_out oc;
+  filename
+
+
+let mononames_implication_check sys dirname file definitions_files names =
+
+  let filename = Filename.concat dirname file in
+
+  let od = files_cat_open
+      ~add_prefix:(fun fmt -> add_decl_index fmt (-1))
+      definitions_files filename in
+  let oc = Unix.out_channel_of_descr od in
+  let fmt = formatter_of_out_channel oc in
+  Format.pp_set_margin fmt file_width;
+  
+  (* Checking implication of indutive invariant to original properties *)
+  add_section fmt "Property implication";
+
+  let v = "%%k" in
+  fprintf fmt "(declare-fun %s () %s)\n@." v ty_index_name;
+  let f = smk "=>" [smk names.phi [v];
+                    smk names.prop [v]] in
+  
+  s_assert fmt (smk "not" [f]);
+
+  check_sat fmt;
+  
+  sexit fmt;
+  close_out oc;
+  filename
+
+
 
 
 let mono_base_check sys dirname prop certif =
@@ -1279,7 +1623,7 @@ let mono_induction_check sys dirname prop certif =
   let fmt = formatter_of_out_channel oc in
   Format.pp_set_margin fmt file_width;
   
-  add_section fmt "Base case";
+  add_section fmt "k-Inductive case";
 
   let _, _, _, trans_t, phi_t, _, _ =
     monolithic_definitions fmt ~trace_lfsc_defs:false
@@ -1379,10 +1723,7 @@ let generate_mono_certificates sys dirname =
   (* write certificates in smtlib2 scripts *)
   let out = Certificate.{
       k;
-      phi = phi_n;
-      init = init_n;
-      prop = prop_n;
-      trans = trans_n;
+      names = names_bare;
       dirname = dirname;
       proofname = if is_fec sys then "frontend_proof" else "proof";
       dummy_trace = generate_lfsc_tracing sys dirname prop certif;
@@ -1398,6 +1739,95 @@ let generate_mono_certificates sys dirname =
   printf "SMT-LIB2 certificates were written in %s@." dirname;
 
   out
+
+
+
+let generate_split_certificates sys dirname =
+
+  Event.set_module `Certif;
+
+  (* Extract the global raw certificate of the system *)
+  let prop, (k, phi) = global_certificate sys in
+
+  Stat.start_timer Stat.certif_min_time;
+
+  (* Performed minimization of certificate *)
+  let k, phi = match Flags.certif_min () with
+    | `No -> k, phi
+    | _ ->
+      (* Simplify certificate *)
+      let k, uinvs = minimize_certificate sys in
+      k, Term.mk_and (prop :: uinvs)
+  in
+
+  let certif = k, phi in
+  
+  (* Record statistics for minimization *)
+  Stat.record_time Stat.certif_min_time;  
+  Stat.set k Stat.certif_k;
+  Stat.set (Certificate.size (k, phi)) Stat.certif_size;
+
+  (* Export system in SMT-LIB2 format *)
+  export_system ~trace_lfsc_defs:false
+    "System constructed by Kind 2"
+    dirname kind2_defs_f names_kind2 sys "Kind2";
+
+  export_system ~trace_lfsc_defs:true
+    "System constructed by Kind 2 (tracing info for CVC4/LFSC)"
+    dirname kind2_defs_lfsc_f names_kind2 sys "Kind2";
+
+  let kind2_defs_path = Filename.concat dirname kind2_defs_f in
+  let kind2_defs_lfsc_path = Filename.concat dirname kind2_defs_lfsc_f in
+
+  (* Export k-inductive invariant phi in SMT-LIB2 format *)
+  export_phi ~trace_lfsc_defs:false
+    dirname kind2_phi_f [kind2_defs_path] names_kind2 phi;
+
+  export_phi ~trace_lfsc_defs:true
+    dirname kind2_phi_lfsc_f [kind2_defs_path] names_kind2 phi;
+
+  let kind2_phi_path = Filename.concat dirname kind2_phi_f in
+  let kind2_phi_lfsc_path = Filename.concat dirname kind2_phi_lfsc_f in
+  
+  (* definitions to use for the checks *)
+  let smt2_definitions = [kind2_defs_path; kind2_phi_path] in
+  
+  (* write certificates checks in smtlib2 scripts *)
+  let base =
+    mononames_base_check sys dirname base_f smt2_definitions k names_kind2 in
+
+  let induction =
+    mononames_induction_check sys
+      dirname induction_f smt2_definitions k names_kind2 in
+
+  let implication = 
+    mononames_implication_check sys
+      dirname implication_f smt2_definitions names_kind2 in
+
+  let kind2_sys = kind2_cert_sys dirname in
+  
+  let inv = {
+    k;
+    name = names_kind2.phi;
+    dirname;
+    phi_file = kind2_phi_path;
+    phi_lfsc_trace_file = kind2_phi_lfsc_path;
+    base;
+    induction;
+    implication;
+    for_system = kind2_sys;
+    kind2_system = kind2_sys;
+    jkind_system = jkind_cert_sys dirname;
+    obs_system = obs_cert_sys dirname;
+  } in
+
+  (* Time statistics *)
+  Stat.record_time Stat.certif_gen_time;
+
+  (* Show which file contains the certificate *)
+  printf "SMT-LIB2 certificates were written in %s@." dirname;
+
+  inv
 
   
 
@@ -1449,7 +1879,7 @@ let generate_certificate sys dirname =
   Stat.set (Certificate.size (k, phi)) Stat.certif_size;
   
   (* add headers for info *)
-  add_header fmt_header sys k init_n prop_n trans_n phi_n;
+  add_header fmt_header sys k names.init names.prop names.trans names.phi;
 
   if is_fec sys then begin
 
@@ -1461,13 +1891,13 @@ let generate_certificate sys dirname =
     let jkdef_filename = Filename.concat dirname "jkind_defs.smt2" in
     let jkdef_oc = open_out jkdef_filename in
     let fmt_jkdef = formatter_of_out_channel jkdef_oc in
-    export_system fmt_jkdef "JKind" jkind_sys;
+    export_system_defs fmt_jkdef "JKind" jkind_sys;
     close_out jkdef_oc;
 
     let obsdef_filename = Filename.concat dirname "observer_defs.smt2" in
     let obsdef_oc = open_out obsdef_filename in
     let fmt_obsdef = formatter_of_out_channel obsdef_oc in
-    export_system fmt_obsdef ~recursive:false "Obs" obs_sys;
+    export_system_defs fmt_obsdef ~recursive:false "Obs" obs_sys;
     close_out obsdef_oc;
     
   end
@@ -1477,7 +1907,7 @@ let generate_certificate sys dirname =
     let def_oc = open_out def_filename in
     let fmt_def = formatter_of_out_channel def_oc in
     
-    export_system fmt_def "Kind2" sys;
+    export_system_defs fmt_def "Kind2" sys;
 
     close_out def_oc;
       
@@ -1510,17 +1940,17 @@ let generate_certificate sys dirname =
   (* [0 -> i; 1 -> j] *)
   let sigma_0i1j = TM.add t1 (Term.mk_var fvj) sigma_0i in
   
-  (* Declaring initial state (__I__ i) *)
+  (* Declaring initial state (I i) *)
   add_section fmt "Initial states";
-  let init_s = UfSymbol.mk_uf_symbol init_n [Type.t_int] Type.t_bool in
+  let init_s = UfSymbol.mk_uf_symbol names.init [Type.t_int] Type.t_bool in
   let i0 = TransSys.init_fun_of sys Numeral.zero in
   let init_def = roll sigma_0i i0 in
   define_fun fmt init_s [fvi] Type.t_bool init_def;
   let init_t0 = Term.mk_uf init_s [t0] in
   
-  (* Declaring property (__P__ i) *)
+  (* Declaring property (P i) *)
   add_section fmt "Original property";
-  let prop_s = UfSymbol.mk_uf_symbol prop_n [Type.t_int] Type.t_bool in
+  let prop_s = UfSymbol.mk_uf_symbol names.prop [Type.t_int] Type.t_bool in
   let prop_def = roll sigma_0i prop in
   define_fun fmt prop_s [fvi] Type.t_bool prop_def;
   (* let prop_t i = Term.mk_uf prop_s [Term.mk_num_of_int i] in *)
@@ -1528,9 +1958,9 @@ let generate_certificate sys dirname =
   let prop_u u l = Term.mk_uf prop_s [Term.mk_uf u l] in
 
   
-  (* Declaring transition steps (__T__ i j) *)
+  (* Declaring transition steps (T i j) *)
   add_section fmt "Transition_relation";  
-  let trans_s = UfSymbol.mk_uf_symbol trans_n
+  let trans_s = UfSymbol.mk_uf_symbol names.trans
       [Type.t_int; Type.t_int] Type.t_bool in
   let t01 = TransSys.trans_fun_of sys Numeral.zero Numeral.one in
   let trans_def = roll sigma_0i1j t01 in
@@ -1539,9 +1969,9 @@ let generate_certificate sys dirname =
       [Term.mk_num_of_int i; Term.mk_num_of_int j] in
 
 
-  (* Declaring k-inductive invariant (__PHI__ i) *)
+  (* Declaring k-inductive invariant (PHI i) *)
   add_section fmt (sprintf "%d-Inductive invariant" k);
-  let phi_s = UfSymbol.mk_uf_symbol phi_n [Type.t_int] Type.t_bool in
+  let phi_s = UfSymbol.mk_uf_symbol names.phi [Type.t_int] Type.t_bool in
   let phi_def = roll sigma_0i phi in
   define_fun fmt phi_s [fvi] Type.t_bool phi_def;
   let phi_t i = Term.mk_uf phi_s [Term.mk_num_of_int i] in
@@ -1695,7 +2125,7 @@ let add_scope_state_var scope sv =
       (StateVar.type_of_state_var sv)
 
 (* Remove top scope of a state variable *)
-let unscope_state_var scope sv =
+let unscope_state_var sv =
   (* if StateVar.equal_state_vars TransSys.init_flag_svar sv then sv *)
   (* else *)
   (* TODO we use to not scope init_flags, still the case? *)
@@ -1721,17 +2151,24 @@ let add_scope_var scope v =
     v
 
 (* Remove top scope of a variable *)
-let unscope_var scope v =
+let unscope_var v =
   if Var.is_state_var_instance v then
     Var.mk_state_var_instance
-      (Var.state_var_of_state_var_instance v |> unscope_state_var scope)
+      (Var.state_var_of_state_var_instance v |> unscope_state_var)
       (Var.offset_of_state_var_instance v)
   else 
   if Var.is_const_state_var v then
     Var.mk_const_state_var
-      (Var.state_var_of_state_var_instance v |> unscope_state_var scope)
+      (Var.state_var_of_state_var_instance v |> unscope_state_var)
   else
     v
+
+
+let unscope_term t =
+  Term.map (fun _ t -> match Term.node_of_term t with
+      | Term.T.FreeVar v -> Term.mk_var (unscope_var v)
+      | _ -> t
+    ) t
 
 
 (* Helper function for creating an initial term with scoping information *)
@@ -1932,8 +2369,8 @@ let mk_inst init_flag sys formal_vars =
       guard_clock = fun _ t -> t } ]
 
 (* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
-   [jkind_sys] in parallel and observes the values of their state
-   variables. All variables are put under a new scope. *)
+   [jkind_sys] in parallel synchronous composition and observes the values of
+   their state variables. All variables are put under a new scope. *)
 let merge_systems lustre_vars kind2_sys jkind_sys =
 
   (* Remember the original state variables*)
@@ -2045,12 +2482,70 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
 
   (* Return the observer system *)
   obs_sys
+
+
+
+let export_obs_system ~trace_lfsc_defs
+    dirname file definitions_files
+    name_sys names_obs names_kind2 names_jkind same_inputs_term =
+
+  let filename = Filename.concat dirname file in
+
+  let oc =
+    if trace_lfsc_defs then
+      files_cat_open
+        ~add_prefix:(fun fmt ->
+            if trace_lfsc_defs then add_decl_index fmt (-1) else ())
+        definitions_files filename |> Unix.out_channel_of_descr
+    else open_out filename in
+  let fmt = formatter_of_out_channel oc in
+  Format.pp_set_margin fmt file_width;
+
+  let same_inputs_pred = "same_inputs" in
   
+  (* Variables i and j to be used later *)
+  let fvi = Var.mk_free_var (HString.mk_hstring "i") (ty_index ()) in
+  let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+
+  (* Declaring constraint to make inputs the same (I i) *)
+  add_section fmt "Same inputs for both subsystems";
+  let sip_s =
+    UfSymbol.mk_uf_symbol same_inputs_pred
+      [(ty_index ())] Type.t_bool in
+  let sip_def = roll sigma_0i (unscope_term same_inputs_term) in
+  define_fun ~trace_lfsc_defs fmt sip_s [fvi] Type.t_bool sip_def;
+
+  add_section fmt "Initial states for observer";
+
+  s_define_pred ~trace_lfsc_defs fmt names_obs.init ["i"]
+    (sprintf "(and (%s i) (and (%s i) (%s i)))"
+       same_inputs_pred names_kind2.init names_jkind.init);
+
+  add_section fmt "Transition relation for observer";
+
+  s_define_pred ~trace_lfsc_defs fmt names_obs.trans ["i"; "j"]
+    (sprintf "(and (%s j) (and (%s i j) (%s i j)))"
+       same_inputs_pred names_kind2.trans names_jkind.trans);
+
+  add_section fmt "Weak observational equivalence";
+
+  s_define_pred ~trace_lfsc_defs fmt names_obs.prop ["i"]
+    (sprintf "(= (%s i) (%s i))" names_kind2.prop names_jkind.prop);
+
+  (* dummy goal if we only want to do tracing *)
+  if trace_lfsc_defs then begin
+    assert_expr fmt Term.t_false;
+    check_sat fmt;
+    sexit fmt;
+  end;
+  close_out oc
+
+
 
 (* Generate a certificate for the frontend translation / simplification phases
    as a system in native input. To be verified, this certificate is expected to
    be fed back to Kind 2. *)
-let generate_frontend_certificate node kind2_sys dirname =
+let generate_frontend_obs node kind2_sys dirname =
 
   (* Time statistics *)
   Stat.start_timer Stat.certif_frontend_time;
@@ -2086,7 +2581,32 @@ let generate_frontend_certificate node kind2_sys dirname =
           ))
      lustre_vars
   end);
-    
+
+
+  (* Add jkind properties *)
+  let jkind_props = List.fold_left (fun acc p ->
+    let open Property in
+    match p.prop_term
+          |> Term.free_var_of_term
+          |> Var.state_var_of_state_var_instance
+          |> JkindParser.jkind_vars_of_kind2_statevar kind2_sys lustre_vars
+    with
+    | [] -> acc
+    | jksvs ->
+      let jkp =
+        List.map (fun jksv ->
+            Var.mk_state_var_instance jksv TS.prop_base
+            |> Term.mk_var
+          ) jksvs
+        |> Term.mk_and
+      in
+      { p with prop_status = PropUnknown; prop_term = jkp } :: acc
+    | exception _ -> acc
+  ) [] (TransSys.get_properties kind2_sys) in
+
+  let jkind_sys = TS.add_properties jkind_sys jkind_props in
+  
+
   (* Create the observer system with the property of observational
      equivalence. *)
   let obs_sys = merge_systems lustre_vars kind2_sys jkind_sys in
@@ -2096,11 +2616,150 @@ let generate_frontend_certificate node kind2_sys dirname =
   (* Output certificate in native format *)
   NativeInput.dump_native_to obs_sys filename;
 
+  (* Export JKind system in SMT-LIB2 format *)
+  export_system ~trace_lfsc_defs:false
+    "System constructed by JKind"
+    dirname jkind_defs_f names_jkind jkind_sys "JKind";
+
+  export_system ~trace_lfsc_defs:true
+    "System constructed by JKind (tracing info for CVC4/LFSC)"
+    dirname jkind_defs_lfsc_f names_jkind jkind_sys "JKind";
+
+  let jkind_defs_path = Filename.concat dirname jkind_defs_f in
+  let jkind_defs_lfsc_path = Filename.concat dirname jkind_defs_lfsc_f in
+
+  let kind2_defs_path = Filename.concat dirname kind2_defs_f in
+
+  let observer_deps = [kind2_defs_path; jkind_defs_path] in
+
+  let same_inputs_term =
+    same_inputs kind2_sys lustre_vars (TS.state_vars kind2_sys) in
+  
+  (* Export Observer system in SMT-LIB2 format for use in proof *)
+  export_obs_system ~trace_lfsc_defs:false
+    dirname obs_defs_f observer_deps
+    "OBS" names_obs names_kind2 names_jkind same_inputs_term;
+
+  export_obs_system ~trace_lfsc_defs:true
+    dirname obs_defs_lfsc_f observer_deps
+    "OBS" names_obs names_kind2 names_jkind same_inputs_term;
+
+  let obs_defs_path = Filename.concat dirname obs_defs_f in
+  let obs_defs_lfsc_path = Filename.concat dirname obs_defs_lfsc_f in
+
+  let jkind_cert_sys = {
+    names = names_jkind;
+    smt2_file = jkind_defs_path;
+    smt2_lfsc_trace_file = jkind_defs_lfsc_path;
+  } in
+
+  let obs_cert_sys = {
+    names = names_obs;
+    smt2_file = obs_defs_path;
+    smt2_lfsc_trace_file = obs_defs_lfsc_path;
+  } in
+
+  
   (* Time statistics *)
   Stat.record_time Stat.certif_frontend_time;
 
   (* Show which file contains the certificate *)
-  printf "Frontend certificate was written in %s, run Kind 2 on it with option --certif@." filename
+  printf "Frontend certificate was written in %s, \
+          run Kind 2 on it with option --certif@." filename;
+
+  jkind_cert_sys, obs_cert_sys
+
+
+
+
+let generate_frontend_certificates sys dirname =
+
+  assert(is_fec sys);
+
+  Event.set_module `Certif;
+
+  (* Extract the global raw certificate of the system *)
+  let prop, (k, phi) = global_certificate sys in
+
+  Stat.start_timer Stat.certif_min_time;
+
+  (* Perform minimization of certificate *)
+  let k, phi = match Flags.certif_min () with
+    | `No -> k, phi
+    | _ ->
+      (* Simplify certificate *)
+      let k, uinvs = minimize_certificate sys in
+      k, Term.mk_and (prop :: uinvs)
+
+  in
+
+  (* Remove the OBS scope *)
+  let phi = unscope_term phi in
+  let certif = k, phi in
+  
+  (* Record statistics for minimization *)
+  Stat.record_time Stat.certif_min_time;  
+  Stat.set k Stat.certif_k;
+  Stat.set (Certificate.size (k, phi)) Stat.certif_size;
+
+  let deps = [kind2_defs_f; jkind_defs_f; obs_defs_f]
+           |> List.map (Filename.concat dirname) in
+  
+  (* Export k-inductive invariant phi in SMT-LIB2 format *)
+  export_phi ~trace_lfsc_defs:false dirname obs_phi_f deps names_obs phi;
+
+  export_phi ~trace_lfsc_defs:true dirname obs_phi_lfsc_f
+    deps names_obs phi;
+
+  let obs_phi_path = Filename.concat dirname obs_phi_f in
+  let obs_phi_lfsc_path = Filename.concat dirname obs_phi_lfsc_f in
+  
+  (* definitions to use for the checks *)
+  let smt2_definitions =
+    [kind2_defs_f; jkind_defs_f; obs_defs_f; obs_phi_f]
+    |> List.map (Filename.concat dirname) in
+
+  let base =
+    mononames_base_check sys dirname base_f smt2_definitions k names_obs in
+
+  let induction =
+    mononames_induction_check sys
+      dirname induction_f smt2_definitions k names_obs in
+
+  let implication = 
+    mononames_implication_check sys
+      dirname implication_f smt2_definitions names_obs in
+
+  (* Time statistics *)
+  Stat.record_time Stat.certif_gen_time;
+
+  let obs_sys = obs_cert_sys dirname in
+
+  let inv = {
+    k;
+    name = names_obs.phi;
+    dirname;
+    phi_file = obs_phi_path;
+    phi_lfsc_trace_file = obs_phi_lfsc_path;
+    base;
+    induction;
+    implication;
+    for_system = obs_sys;
+    kind2_system = kind2_cert_sys dirname;
+    jkind_system = jkind_cert_sys dirname;
+    obs_system = obs_sys;
+  } in
+  
+  
+  (* Time statistics *)
+  Stat.record_time Stat.certif_gen_time;
+
+  (* Show which file contains the certificate *)
+  printf "SMT-LIB2 frontend certificates were written in %s@." dirname;
+
+  inv
+
+
 
 
 
@@ -2164,16 +2823,25 @@ let generate_all_certificates input sys =
   in
   create_dir dirname;
 
-  let cert_out = generate_mono_certificates sys dirname in
+  if not (is_fec sys) then
+    (* let cert_out = generate_mono_certificates sys dirname in *)
 
-  Proof.generate_proof cert_out;
-  
+    let cert_inv = generate_split_certificates sys dirname in
 
-  (* Only generate frontend certificates for Lustre *)
-  if InputSystem.is_lustre_input input then
-    generate_frontend_certificate input sys dirname
-  else
-    printf "No certificate for frontend@.";
+    (* Only generate frontend observational equivalence system for Lustre *)
+    if InputSystem.is_lustre_input input then
+      generate_frontend_obs input sys dirname |> ignore
+    else
+      printf "No certificate for frontend@.";
+
+    Proof.generate_inv_proof cert_inv;
+    
+  else begin
+
+    let frontend_inv = generate_frontend_certificates sys dirname in
+    
+    Proof.generate_frontend_proof frontend_inv;
+  end;
 
   
   let open Unix in

@@ -16,4 +16,6 @@
 
 *)
 
-val generate_proof : Certificate.out -> unit
+val generate_inv_proof : Certificate.invariant -> unit
+
+val generate_frontend_proof : Certificate.invariant -> unit

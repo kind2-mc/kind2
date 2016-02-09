@@ -502,6 +502,9 @@ val set_prop_ktrue : t -> int -> string -> unit
     invalid *)
 val all_props_proved : t -> bool
 
+(** Add properties to the transition system *)
+val add_properties : t -> Property.t list -> t
+
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> Certificate.t -> unit
 

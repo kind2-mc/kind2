@@ -319,7 +319,7 @@ val unnegate : t -> t
 val type_of_term : t -> Type.t
 
 (** Return the node of the hashconsed term *)
-(* val node_of_term : t -> T.t_node *)
+val node_of_term : t -> T.t_node
 
 (** Flatten top node of term *)
 val destruct : t -> T.flat

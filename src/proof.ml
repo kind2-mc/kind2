@@ -71,6 +71,8 @@ let s_LAMBDA = H.mk_hstring "%"
 let s_lambda = H.mk_hstring "\\"
 let s_at = H.mk_hstring "@"
 let s_hole = H.mk_hstring "_"
+let s_define = H.mk_hstring "define"
+
 
 let s_unsat = H.mk_hstring "unsat"
 let s_sat = H.mk_hstring "sat"
@@ -87,13 +89,31 @@ let s_mpz = H.mk_hstring "mpz"
 
 let s_invariant = H.mk_hstring "invariant"
 let s_kinduction = H.mk_hstring "kinduction"
-let s_induction = H.mk_hstring "induction"
-let s_base = H.mk_hstring "base"
-let s_implication = H.mk_hstring "implication"
+let s_induction = H.mk_hstring "induction_proof_1"
+let s_base = H.mk_hstring "base_proof_1"
+let s_implication = H.mk_hstring "implication_proof_1"
+let obs_induction = H.mk_hstring "induction_proof_2"
+let obs_base = H.mk_hstring "base_proof_2"
+let obs_implication = H.mk_hstring "implication_proof_2"
 let s_invariant_implies = H.mk_hstring "invariant-implies"
+let s_obs_eq = H.mk_hstring "obs_eq"
+let s_inv_obs = H.mk_hstring "inv+obs"
+let s_weak_obs_eq = H.mk_hstring "weak_obs_eq"
+let s_safe = H.mk_hstring "safe"
+
+let proof_inv_name = H.mk_hstring "proof_inv"
+let proof_obs_name = H.mk_hstring "proof_obs"
+let proof_obs_eq_name = H.mk_hstring "proof_obs_eq"
+let proof_safe_name = H.mk_hstring "proof_safe"
+  
+let proofname = "proof.lfsc"
+let frontend_proofname = "frontend_proof.lfsc"
+
 
 let hstring_of_int i = H.mk_hstring (string_of_int i)
 
+
+let hole = HS.Atom s_hole
 
 type lfsc_type = HS.t
 type lfsc_term = HS.t
@@ -190,6 +210,10 @@ let print_context fmt { lfsc_decls; lfsc_defs } =
   List.iter (fprintf fmt "%a\n@." print_def) (List.rev lfsc_defs);
   fprintf fmt "@."
 
+let print_defs fmt { lfsc_defs } =
+  List.iter (fprintf fmt "%a\n@." print_def) (List.rev lfsc_defs);
+  fprintf fmt "@."
+
 
 let rec print_hyps_type ty fmt = function
   | [] -> print_type fmt ty
@@ -213,7 +237,7 @@ let print_proof ?(context=false) name fmt
   if context then print_context fmt proof_context;
   let hyps = List.rev proof_hyps in
   fprintf fmt "@[<hov 1>(define %s@ @[<hov 1>(: @[<hov 0>%a@]@ %a)@])@]"
-    name
+    (H.string_of_hstring name)
     (print_hyps_type proof_type) hyps
     (print_proof_term proof_term) hyps
 
@@ -510,23 +534,43 @@ let context_from_file f =
   ctx
 
 
+let merge_contexts ctx1 ctx2 =
+  {
+    lfsc_decls = ctx2.lfsc_decls @ ctx1.lfsc_decls;
+    lfsc_defs = ctx2.lfsc_defs @ ctx1.lfsc_defs;
+    fun_defs_args =
+      let h = HH.create 21 in
+      HH.iter (HH.add h) ctx1.fun_defs_args;
+      HH.iter (HH.add h) ctx2.fun_defs_args;
+      h
+  }
+
+
 
 open Certificate
 
-let hole = HS.Atom s_hole
 
-let make_kind_proof c =
+(* let system_to_lfsc s = *)
+(*   printf "Extracting LFSC context from CVC4 proof@."; *)
+(*   let ctx = context_from_file *)
+(*       (Filename.concat s.dirname s.smt2_lfsc_trace_file) in *)
+
+
+
+
+let write_inv_proof fmt (s_implication, s_base, s_induction) name_proof c =
   let open HS in
 
   (* LFSC atoms for formulas *)
   let a_k = Atom (hstring_of_int c.k) in
-  let a_init = Atom (H.mk_hstring c.init) in
-  let a_trans = Atom (H.mk_hstring c.trans) in
-  let a_prop = Atom (H.mk_hstring c.prop) in
-  let a_phi = Atom (H.mk_hstring c.phi) in
+  let a_init = Atom (H.mk_hstring c.for_system.names.init) in
+  let a_trans = Atom (H.mk_hstring c.for_system.names.trans) in
+  let a_prop = Atom (H.mk_hstring c.for_system.names.prop) in
+  let a_phi = Atom (H.mk_hstring c.for_system.names.phi) in
 
   (* LFSC commands to construct the proof *)
   let a_check = Atom s_check in
+  let a_define = Atom s_define in
   let a_invariant = Atom s_invariant in
   let a_invariant_implies = Atom s_invariant_implies in
   let a_kinduction = Atom s_kinduction in
@@ -536,7 +580,10 @@ let make_kind_proof c =
   let proof_base = Atom s_base in
   let proof_induction = Atom s_induction in
 
-  List [a_check;
+  (* named prood of invariance by k-induction *)
+  let proof_inv = Atom name_proof in
+
+  List [a_define; proof_inv;
 
         List [Atom s_ascr;
 
@@ -548,57 +595,218 @@ let make_kind_proof c =
                     List [a_kinduction; a_k; a_init; a_trans; a_phi;
                           hole; hole; proof_base; proof_induction ]
                    ]]]
+  |> fprintf fmt "%a\n@." print_term;
+
+  List [a_check; proof_inv]
+  |> fprintf fmt "%a\n@." print_term
 
 
 
+let write_obs_eq_proof fmt proof_obs_name name_proof c =
+  
+  let open HS in
 
-let generate_proof c =
+  (* LFSC atoms for formulas *)
+  let a_init_1 = Atom (H.mk_hstring c.kind2_system.names.init) in
+  let a_trans_1 = Atom (H.mk_hstring c.kind2_system.names.trans) in
+  let a_prop_1 = Atom (H.mk_hstring c.kind2_system.names.prop) in
 
-  let proof_file = Filename.concat c.dirname (c.proofname ^ ".lfsc") in
+  let a_init_2 = Atom (H.mk_hstring c.jkind_system.names.init) in
+  let a_trans_2 = Atom (H.mk_hstring c.jkind_system.names.trans) in
+  let a_prop_2 = Atom (H.mk_hstring c.jkind_system.names.prop) in
+
+
+  (* LFSC commands to construct the proof *)
+  let a_check = Atom s_check in
+  let a_define = Atom s_define in
+  let a_obs_eq = Atom s_obs_eq in
+  let a_weak_obs_eq = Atom s_weak_obs_eq in
+  let a_same_inputs = Atom (H.mk_hstring "same_inputs") in
+
+  (* named prood of obsercational equivalence *)
+  let proof_obs_eq = Atom name_proof in
+  let proof_obs = Atom proof_obs_name in
+
+  List [a_define; proof_obs_eq;
+
+        List [Atom s_ascr;
+
+              List [a_weak_obs_eq;
+                    a_init_1; a_trans_1; a_prop_1;
+                    a_init_2; a_trans_2; a_prop_2];
+
+              List [a_obs_eq;
+                    a_init_1; a_trans_1; a_prop_1;
+                    a_init_2; a_trans_2; a_prop_2;
+                    a_same_inputs; proof_obs]
+                   ]]
+  |> fprintf fmt "%a\n@." print_term;
+
+  List [a_check; proof_obs_eq]
+  |> fprintf fmt "%a\n@." print_term
+  
+
+
+  
+let write_safe_proof fmt proof_inv proof_obs_eq name_proof kind2_s jkind_s =
+  let open HS in
+
+  (* LFSC atoms for formulas *)
+  let a_init = Atom (H.mk_hstring kind2_s.names.init) in
+  let a_trans = Atom (H.mk_hstring kind2_s.names.trans) in
+  let a_prop = Atom (H.mk_hstring kind2_s.names.prop) in
+
+  let a_init' = Atom (H.mk_hstring jkind_s.names.init) in
+  let a_trans' = Atom (H.mk_hstring jkind_s.names.trans) in
+  let a_prop' = Atom (H.mk_hstring jkind_s.names.prop) in
+
+
+  (* LFSC commands to construct the proof *)
+  let a_check = Atom s_check in
+  let a_define = Atom s_define in
+  let a_inv_obs = Atom s_inv_obs in
+  let a_safe = Atom s_safe in
+
+  (* Prior LFSC proofs *)
+  let proof_inv = Atom proof_inv in
+  let proof_obs_eq = Atom proof_obs_eq in
+
+  (* named prood of invariance by k-induction *)
+  let proof_safe = Atom name_proof in
+
+  List [a_define; proof_safe;
+
+        List [Atom s_ascr;
+
+              List [a_safe; a_init; a_trans; a_prop];
+
+              List [a_inv_obs;
+                    a_init; a_trans; a_prop;
+                    a_init'; a_trans'; a_prop';
+                    proof_inv; proof_obs_eq]
+                   ]]
+  |> fprintf fmt "%a\n@." print_term;
+
+  List [a_check; proof_safe]
+  |> fprintf fmt "%a\n@." print_term
+
+
+
+let generate_inv_proof inv =
+
+  let proof_file = Filename.concat inv.dirname proofname in
   let proof_chan = open_out proof_file in
   let proof_fmt = formatter_of_out_channel proof_chan in
 
   if compact then pp_set_margin proof_fmt max_int;
 
-  printf "Extracting LFSC context from CVC4 proofs@.";
-  let ctx = context_from_file c.dummy_trace in
-  
-  printf "Extracting LFSC proof of base case from CVC4@.";
-  let base_proof = proof_from_file ctx c.base in
 
-  printf "Extracting LFSC proof of inductive case from CVC4@.";
-  let induction_proof = proof_from_file ctx c.induction in
-
-  printf "Extracting LFSC proof of implication from CVC4@.";
-  let implication_proof = proof_from_file ctx c.implication in
-
-  printf "Constructing k-induction proof@.";
-  let kind_proof = make_kind_proof c in
-
-  fprintf  proof_fmt
+  fprintf proof_fmt
     ";;------------------------------------------------------------------\n\
      ;; LFSC proof produced by %s %s and CVC4\n\
      ;; from original problem %s\n\
-     ;;------------------------------------------------------------------\n\n\n\
-     ;; Declarations and definitions\n@.\
-     %a\n@.\
-     ;; Proof of base case\n@.\
-     %a\n@.\
-     ;; Proof of %d-inductive case\n@.\
-     %a\n@.\
-     ;; Proof of implication\n@.\
-     %a\n@.\
-     ;; Proof of invariance by %d-induction\n@.\
-     %a@."
+     ;;------------------------------------------------------------------\n@."
     Version.package_name Version.version
-    (Flags.input_file ())
-    print_context  ctx
-    (print_proof "base") base_proof
-    c.k
-    (print_proof "induction") induction_proof
-    (print_proof "implication")  implication_proof
-    c.k
-    print_term kind_proof;
+    (Flags.input_file ());
+
+  
+  printf "Extracting LFSC contexts from CVC4 proofs@.";
+  
+  let ctx_k2 = context_from_file inv.for_system.smt2_lfsc_trace_file in
+  fprintf proof_fmt ";; System generated by Kind 2\n\n%a\n@."
+    print_context ctx_k2;
+
+  let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
+  fprintf proof_fmt ";; System generated by JKind\n\n%a\n@."
+    print_context ctx_jk;
+
+  let ctx_obs = context_from_file inv.obs_system.smt2_lfsc_trace_file in
+  fprintf proof_fmt ";; System generated for Observer\n\n%a\n@."
+    print_defs ctx_obs;
+
+  let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
+  fprintf proof_fmt ";; k-Inductive invariant for Kind 2 system\n\n%a\n@."
+    print_defs ctx_phi;
+
+  let ctx = ctx_phi
+            |> merge_contexts ctx_obs
+            |> merge_contexts ctx_jk
+            |> merge_contexts ctx_k2
+  in
+  
+  printf "Extracting LFSC proof of base case from CVC4@.";
+  let base_proof = proof_from_file ctx inv.base in
+  fprintf proof_fmt ";; Proof of base case\n\n%a\n@."
+    (print_proof s_base) base_proof;
+
+  printf "Extracting LFSC proof of inductive case from CVC4@.";
+  let induction_proof = proof_from_file ctx inv.induction in
+  fprintf proof_fmt ";; Proof of inductive case\n\n%a\n@."
+    (print_proof s_induction) induction_proof;
+
+  printf "Extracting LFSC proof of implication from CVC4@.";
+  let implication_proof = proof_from_file ctx inv.implication in
+  fprintf proof_fmt ";; Proof of implication\n\n%a\n@."
+    (print_proof s_implication) implication_proof;
+
+  fprintf proof_fmt ";; Proof of invariance by %d-induction\n@." inv.k;
+  write_inv_proof proof_fmt
+    (s_implication, s_base, s_induction) proof_inv_name inv;
+  
+  close_out proof_chan;
+  (* Show which file contains the proof *)
+  printf "LFSC proof written in %s@." proof_file
+
+
+
+let generate_frontend_proof inv =
+
+  let proof_file = Filename.concat inv.dirname frontend_proofname in
+  let proof_chan = open_out proof_file in
+  let proof_fmt = formatter_of_out_channel proof_chan in
+
+  if compact then pp_set_margin proof_fmt max_int;
+
+
+  fprintf proof_fmt
+    ";;------------------------------------------------------------------\n\
+     ;; LFSC proof produced by %s %s and CVC4\n\
+     ;; for frontend observational equivalence and safety\n\
+     ;; (depends on proof.lfsc)\n\
+     ;;------------------------------------------------------------------\n@."
+    Version.package_name Version.version;
+
+  let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
+  fprintf proof_fmt ";; k-Inductive invariant for observer system\n\n%a\n@."
+    print_defs ctx_phi;
+
+  let ctx = ctx_phi in
+  
+  printf "Extracting LFSC proof of base case from CVC4@.";
+  let base_proof = proof_from_file ctx inv.base in
+  fprintf proof_fmt ";; Proof of base case\n\n%a\n@."
+    (print_proof obs_base) base_proof;
+
+  printf "Extracting LFSC proof of inductive case from CVC4@.";
+  let induction_proof = proof_from_file ctx inv.induction in
+  fprintf proof_fmt ";; Proof of inductive case\n\n%a\n@."
+    (print_proof obs_induction) induction_proof;
+
+  printf "Extracting LFSC proof of implication from CVC4@.";
+  let implication_proof = proof_from_file ctx inv.implication in
+  fprintf proof_fmt ";; Proof of implication\n\n%a\n@."
+    (print_proof obs_implication) implication_proof;
+
+  fprintf proof_fmt ";; Proof of invariance by %d-induction\n@." inv.k;
+  write_inv_proof proof_fmt
+    (obs_implication, obs_base, obs_induction) proof_obs_name inv;
+
+  fprintf proof_fmt ";; Proof of observational equivalence\n@.";
+  write_obs_eq_proof proof_fmt proof_obs_name proof_obs_eq_name inv;
+
+  fprintf proof_fmt ";; Final proof of safety\n@.";
+  write_safe_proof proof_fmt proof_inv_name proof_obs_eq_name
+    proof_safe_name inv.kind2_system inv.jkind_system;
   
   close_out proof_chan;
   (* Show which file contains the proof *)

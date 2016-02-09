@@ -27,15 +27,18 @@
 (** The type of certificates *)
 type t = int * Term.t
 
-(** The type of certificates outputs, these are file names for the intermediate
-    SMT-LIB 2 certificates *)
-type out = {
-  k: int;               (** k of certificate *)
+type symbols = {
   phi : string;         (** Name of function symbol for k-inductive invariant *)
   init : string;        (** Name of function symbol for init *)
   prop : string;        (** Name of function symbol for property *)
   trans : string;       (** Name of function symbol for transition relation *) 
+}
 
+(** The type of certificates outputs, these are file names for the intermediate
+    SMT-LIB 2 certificates *)
+type out = {
+  k: int;               (** k of certificate *)
+  names: symbols;       (** names for I, T, P and PHI *)
   dirname : string;     (** Directory where certificates and proofs are
                             produced *)
   proofname : string;    (** Name for the final LFSC proof *)
@@ -47,6 +50,27 @@ type out = {
                             definitions in LFSC *)
 }
 
+
+type system = {
+  names : symbols;
+  smt2_file : string;
+  smt2_lfsc_trace_file : string;
+}
+
+type invariant = {
+  k : int;
+  name : string;
+  dirname : string;
+  phi_file : string;
+  phi_lfsc_trace_file : string;
+  base : string;        (** File name for base case check *)
+  induction : string;   (** File name for inductive case check *)
+  implication : string; (** File name for implication of property check *)
+  for_system : system;
+  kind2_system : system;
+  jkind_system : system;
+  obs_system : system;
+}
 
 (** Merge certificates into one. The resulting certificate is a certificate for
     the conjunction of the original invariants. *)

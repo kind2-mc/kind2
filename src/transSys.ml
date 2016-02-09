@@ -1346,6 +1346,11 @@ let add_scoped_invariant t scope invar cert =
     t
 
 
+let add_properties t props =
+  { t with
+    properties = List.rev_append (List.rev props) t.properties }
+  
+  
 (* Add an invariant to the transition system *)
 let add_invariant t invar cert = add_scoped_invariant t t.scope invar cert
 
