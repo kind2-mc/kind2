@@ -2002,10 +2002,6 @@ let add_function_to_context ctx func_ctx =
 
 (* Check that the node being defined has no undefined local variables *)
 let check_local_vars_defined ctx =
-  (* Fail only if in strict mode *)
-  let fail_or_warn =
-    if Flags.strict () then fail_at_position else warn_at_position in
-
   match ctx.node with
   | None -> ()
   | Some { N.equations } ->
@@ -2014,7 +2010,8 @@ let check_local_vars_defined ctx =
                   (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
                   equations )
         then
-          fail_or_warn pos
+          (* Always fail *)
+          fail_at_position pos
             (Format.asprintf "Local variable %a has no definition."
                (I.pp_print_ident false) id)
       ) ctx.locals_info
