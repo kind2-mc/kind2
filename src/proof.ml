@@ -27,7 +27,8 @@ module H = HString
 (* Hard coded options *)
   
 let mpz_proofs = true
-let compact = false
+let compact = true
+let set_margin fmt = pp_set_margin fmt 80 (* (if compact then max_int else 80) *)
 
 
 
@@ -171,10 +172,13 @@ type lambda_kind =
 (* Printing LFSC terms and proofs *)
 (**********************************)
 
-let print_type = HS.pp_print_sexpr_indent 0
+let print_type =
+  if compact then HS.pp_print_sexpr_indent_compact 0
+  else HS.pp_print_sexpr_indent 0
 
-
-let print_term = HS.pp_print_sexpr_indent 0
+let print_term =
+  if compact then HS.pp_print_sexpr_indent_compact 0
+  else HS.pp_print_sexpr_indent 0
 
 
 let print_decl fmt { decl_symb; decl_type } =
@@ -197,6 +201,7 @@ let rec print_def_lambdas term fmt args =
       H.pp_print_hstring a (print_def_lambdas term) rargs
 
 
+
 let print_def fmt { def_symb; def_args; def_ty; def_body } =
   fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>(: @[<hov 0>%a@]@ %a)@])@]"
     H.pp_print_hstring def_symb
@@ -207,11 +212,11 @@ let print_def fmt { def_symb; def_args; def_ty; def_body } =
 let print_context fmt { lfsc_decls; lfsc_defs } =
   List.iter (fprintf fmt "%a@." print_decl) (List.rev lfsc_decls);
   fprintf fmt "@.";
-  List.iter (fprintf fmt "%a\n@." print_def) (List.rev lfsc_defs);
+  List.iter (fprintf fmt "%a\n@." print_def) lfsc_defs;
   fprintf fmt "@."
 
 let print_defs fmt { lfsc_defs } =
-  List.iter (fprintf fmt "%a\n@." print_def) (List.rev lfsc_defs);
+  List.iter (fprintf fmt "%a\n@." print_def) lfsc_defs;
   fprintf fmt "@."
 
 
@@ -270,6 +275,21 @@ let fun_symbol_of_def b =
   try
     Scanf.sscanf s "%s@%%def" (fun f -> Some (H.mk_hstring f))
   with End_of_file | Scanf.Scan_failure _ -> None
+
+
+let rec fun_symbol_args_of_def acc =
+  let open HS in
+  function
+  | Atom b ->
+    (match fun_symbol_of_def b with
+     | Some f -> Some (f, acc)
+     | None -> None
+    )
+  | List [Atom a; _; _; f; arg] when a == s_apply ->
+    fun_symbol_args_of_def (arg :: acc) f
+  | _ -> None
+
+let fun_symbol_args_of_def sexp = fun_symbol_args_of_def [] sexp
 
 
 let is_hyp b ty =
@@ -373,6 +393,27 @@ let rec definition_artifact_rec ctx = let open HS in function
     begin match fun_symbol_of_def fdef with
       | None -> None
       | Some f ->
+        Some { def_symb = f;
+               def_args = [];
+               def_body = term;
+               def_ty = ty_formula } 
+    end
+    
+  | List [Atom eq; ty; Atom fdef; term] when eq == s_eq -> 
+    begin match fun_symbol_of_def fdef with
+      | None -> None
+      | Some f ->
+        Some { def_symb = f;
+               def_args = [];
+               def_body = term;
+               def_ty = ty_term ty } 
+    end
+    
+  | List [Atom iff; List [Atom p_app; fd]; term]
+    when iff == s_iff && p_app == s_p_app -> 
+    begin match fun_symbol_args_of_def fd with
+      | None -> None
+      | Some (f, _) ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
         let targs =
           List.map (fun (x, ty) -> x, repalace_type_index ty) targs in
@@ -381,10 +422,11 @@ let rec definition_artifact_rec ctx = let open HS in function
                def_body = embed_indexes targs term;
                def_ty = ty_formula } 
     end
-  | List [Atom eq; ty; Atom fdef; term] when eq == s_eq -> 
-    begin match fun_symbol_of_def fdef with
+    
+  | List [Atom eq; ty; fd; term] when eq == s_eq -> 
+    begin match fun_symbol_args_of_def fd with
       | None -> None
-      | Some f ->
+      | Some (f, _) ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
         let targs =
           List.map (fun (x, ty) -> x, repalace_type_index ty) targs in
@@ -556,6 +598,17 @@ open Certificate
 (*       (Filename.concat s.dirname s.smt2_lfsc_trace_file) in *)
 
 
+let write_proof_and_check fmt pname ptype pterm =
+
+  fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>(: @[<hov 0>%a@]@ %a)@])@]@.@."
+    H.pp_print_hstring pname
+    print_type ptype
+    print_term pterm;
+
+  fprintf fmt "@[<hov 1>(check@ %a@])@]@.@."
+    H.pp_print_hstring pname
+
+
 
 
 let write_inv_proof fmt (s_implication, s_base, s_induction) name_proof c =
@@ -580,26 +633,16 @@ let write_inv_proof fmt (s_implication, s_base, s_induction) name_proof c =
   let proof_base = Atom s_base in
   let proof_induction = Atom s_induction in
 
-  (* named prood of invariance by k-induction *)
-  let proof_inv = Atom name_proof in
+  let pterm =
+    List [a_invariant_implies; a_init; a_trans; a_phi; a_prop;
+          proof_implication;
 
-  List [a_define; proof_inv;
+          List [a_kinduction; a_k; a_init; a_trans; a_phi;
+                hole; hole; proof_base; proof_induction ]
+         ] in
+  let ptype = List [a_invariant; a_init; a_trans; a_prop] in
 
-        List [Atom s_ascr;
-
-              List [a_invariant; a_init; a_trans; a_prop];
-
-              List [a_invariant_implies; a_init; a_trans; a_phi; a_prop;
-                    proof_implication;
-
-                    List [a_kinduction; a_k; a_init; a_trans; a_phi;
-                          hole; hole; proof_base; proof_induction ]
-                   ]]]
-  |> fprintf fmt "%a\n@." print_term;
-
-  List [a_check; proof_inv]
-  |> fprintf fmt "%a\n@." print_term
-
+  write_proof_and_check fmt name_proof ptype pterm
 
 
 let write_obs_eq_proof fmt proof_obs_name name_proof c =
@@ -624,27 +667,22 @@ let write_obs_eq_proof fmt proof_obs_name name_proof c =
   let a_same_inputs = Atom (H.mk_hstring "same_inputs") in
 
   (* named prood of obsercational equivalence *)
-  let proof_obs_eq = Atom name_proof in
   let proof_obs = Atom proof_obs_name in
 
-  List [a_define; proof_obs_eq;
+  let pterm = 
+    List [a_obs_eq;
+          a_init_1; a_trans_1; a_prop_1;
+          a_init_2; a_trans_2; a_prop_2;
+          a_same_inputs; proof_obs]
+  in
 
-        List [Atom s_ascr;
+  let ptype =
+    List [a_weak_obs_eq;
+          a_init_1; a_trans_1; a_prop_1;
+          a_init_2; a_trans_2; a_prop_2]
+  in
 
-              List [a_weak_obs_eq;
-                    a_init_1; a_trans_1; a_prop_1;
-                    a_init_2; a_trans_2; a_prop_2];
-
-              List [a_obs_eq;
-                    a_init_1; a_trans_1; a_prop_1;
-                    a_init_2; a_trans_2; a_prop_2;
-                    a_same_inputs; proof_obs]
-                   ]]
-  |> fprintf fmt "%a\n@." print_term;
-
-  List [a_check; proof_obs_eq]
-  |> fprintf fmt "%a\n@." print_term
-  
+  write_proof_and_check fmt name_proof ptype pterm  
 
 
   
@@ -671,25 +709,16 @@ let write_safe_proof fmt proof_inv proof_obs_eq name_proof kind2_s jkind_s =
   let proof_inv = Atom proof_inv in
   let proof_obs_eq = Atom proof_obs_eq in
 
-  (* named prood of invariance by k-induction *)
-  let proof_safe = Atom name_proof in
-
-  List [a_define; proof_safe;
-
-        List [Atom s_ascr;
-
-              List [a_safe; a_init; a_trans; a_prop];
-
-              List [a_inv_obs;
-                    a_init; a_trans; a_prop;
-                    a_init'; a_trans'; a_prop';
-                    proof_inv; proof_obs_eq]
-                   ]]
-  |> fprintf fmt "%a\n@." print_term;
-
-  List [a_check; proof_safe]
-  |> fprintf fmt "%a\n@." print_term
-
+  let pterm =
+    List [a_inv_obs;
+          a_init; a_trans; a_prop;
+          a_init'; a_trans'; a_prop';
+          proof_inv; proof_obs_eq]
+  in
+  let ptype = List [a_safe; a_init; a_trans; a_prop] in
+  
+  write_proof_and_check fmt name_proof ptype pterm  
+  
 
 
 let generate_inv_proof inv =
@@ -698,8 +727,7 @@ let generate_inv_proof inv =
   let proof_chan = open_out proof_file in
   let proof_fmt = formatter_of_out_channel proof_chan in
 
-  if compact then pp_set_margin proof_fmt max_int;
-
+  set_margin proof_fmt;
 
   fprintf proof_fmt
     ";;------------------------------------------------------------------\n\
@@ -713,19 +741,19 @@ let generate_inv_proof inv =
   printf "Extracting LFSC contexts from CVC4 proofs@.";
   
   let ctx_k2 = context_from_file inv.for_system.smt2_lfsc_trace_file in
-  fprintf proof_fmt ";; System generated by Kind 2\n\n%a\n@."
+  fprintf proof_fmt ";; System generated by Kind 2\n@.%a\n@."
     print_context ctx_k2;
 
   let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
-  fprintf proof_fmt ";; System generated by JKind\n\n%a\n@."
+  fprintf proof_fmt ";; System generated by JKind\n@.%a\n@."
     print_context ctx_jk;
 
   let ctx_obs = context_from_file inv.obs_system.smt2_lfsc_trace_file in
-  fprintf proof_fmt ";; System generated for Observer\n\n%a\n@."
+  fprintf proof_fmt ";; System generated for Observer\n@.%a\n@."
     print_defs ctx_obs;
 
   let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
-  fprintf proof_fmt ";; k-Inductive invariant for Kind 2 system\n\n%a\n@."
+  fprintf proof_fmt ";; k-Inductive invariant for Kind 2 system\n@.%a\n@."
     print_defs ctx_phi;
 
   let ctx = ctx_phi
@@ -736,17 +764,17 @@ let generate_inv_proof inv =
   
   printf "Extracting LFSC proof of base case from CVC4@.";
   let base_proof = proof_from_file ctx inv.base in
-  fprintf proof_fmt ";; Proof of base case\n\n%a\n@."
+  fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
     (print_proof s_base) base_proof;
 
   printf "Extracting LFSC proof of inductive case from CVC4@.";
   let induction_proof = proof_from_file ctx inv.induction in
-  fprintf proof_fmt ";; Proof of inductive case\n\n%a\n@."
+  fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
     (print_proof s_induction) induction_proof;
 
   printf "Extracting LFSC proof of implication from CVC4@.";
   let implication_proof = proof_from_file ctx inv.implication in
-  fprintf proof_fmt ";; Proof of implication\n\n%a\n@."
+  fprintf proof_fmt ";; Proof of implication\n@.%a\n@."
     (print_proof s_implication) implication_proof;
 
   fprintf proof_fmt ";; Proof of invariance by %d-induction\n@." inv.k;
@@ -765,8 +793,7 @@ let generate_frontend_proof inv =
   let proof_chan = open_out proof_file in
   let proof_fmt = formatter_of_out_channel proof_chan in
 
-  if compact then pp_set_margin proof_fmt max_int;
-
+  set_margin proof_fmt;
 
   fprintf proof_fmt
     ";;------------------------------------------------------------------\n\
@@ -777,24 +804,24 @@ let generate_frontend_proof inv =
     Version.package_name Version.version;
 
   let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
-  fprintf proof_fmt ";; k-Inductive invariant for observer system\n\n%a\n@."
+  fprintf proof_fmt ";; k-Inductive invariant for observer system\n@.%a\n@."
     print_defs ctx_phi;
 
   let ctx = ctx_phi in
   
   printf "Extracting LFSC proof of base case from CVC4@.";
   let base_proof = proof_from_file ctx inv.base in
-  fprintf proof_fmt ";; Proof of base case\n\n%a\n@."
+  fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
     (print_proof obs_base) base_proof;
 
   printf "Extracting LFSC proof of inductive case from CVC4@.";
   let induction_proof = proof_from_file ctx inv.induction in
-  fprintf proof_fmt ";; Proof of inductive case\n\n%a\n@."
+  fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
     (print_proof obs_induction) induction_proof;
 
   printf "Extracting LFSC proof of implication from CVC4@.";
   let implication_proof = proof_from_file ctx inv.implication in
-  fprintf proof_fmt ";; Proof of implication\n\n%a\n@."
+  fprintf proof_fmt ";; Proof of implication\n@.%a\n@."
     (print_proof obs_implication) implication_proof;
 
   fprintf proof_fmt ";; Proof of invariance by %d-induction\n@." inv.k;

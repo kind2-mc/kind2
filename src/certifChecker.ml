@@ -263,8 +263,11 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
     
     let fs = UfSymbol.string_of_uf_symbol fun_symbol in
     let fun_def_sy = fs ^ "%def" in
-    fprintf fmt "(declare-fun %s () %s)\n"
-      fun_def_sy (SMT.string_of_sort res_sort);
+    fprintf fmt "(declare-fun %s %s %s)\n"
+      fun_def_sy
+      (paren_string_of_string_list
+         (List.map (fun v -> SMT.string_of_sort (Var.type_of_var v)) arg_vars))
+      (SMT.string_of_sort res_sort);
 
     let cpt = ref 0 in
     let fun_def_args = List.map (fun v ->
@@ -276,8 +279,9 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
         vfs
       ) arg_vars in
 
-    fprintf fmt "@[<hov 1>(assert@ @[<hov 1>(=@ %s@ @[<hv 1>(%s@ %a)@])@])@]\n@."
-      fun_def_sy fs (pp_print_list pp_print_string "@ ") fun_def_args
+    fprintf fmt "@[<hov 1>(assert@ @[<hov 1>(=@ @[<hv 1>(%s@ %a)@]@ @[<hv 1>(%s@ %a)@])@])@]\n@."
+      fun_def_sy (pp_print_list pp_print_string "@ ") fun_def_args
+      fs (pp_print_list pp_print_string "@ ") fun_def_args
     
   end
   
@@ -1263,19 +1267,22 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
     fprintf fmt ";; Tracing artifact for CVC4 and LFSC proofs\n";
     
     let fun_def_sy = fun_symbol ^ "%def" in
-    fprintf fmt "(declare-fun %s () Bool)\n" fun_def_sy;
+    fprintf fmt "(declare-fun %s %s Bool)\n" fun_def_sy
+      (paren_string_of_string_list
+         (List.map (fun _ -> ty_index_name) args)) ;
 
     let cpt = ref 0 in
     let fun_def_args = List.map (fun v ->
         incr cpt;
         let vfs = fun_symbol ^ "%" ^ string_of_int !cpt in
-        fprintf fmt "(declare-fun %s () index)\n" vfs;
+        fprintf fmt "(declare-fun %s () %s)\n" vfs ty_index_name;
         vfs
       ) args in
 
     fprintf fmt
-      "@[<hov 1>(assert@ @[<hov 1>(=@ %s@ @[<hv 1>(%s@ %a)@])@])@]\n@."
-      fun_def_sy fun_symbol (pp_print_list pp_print_string "@ ") fun_def_args
+      "@[<hov 1>(assert@ @[<hov 1>(=@ @[<hv 1>(%s@ %a)@]@ @[<hv 1>(%s@ %a)@])@])@]\n@."
+      fun_def_sy (pp_print_list pp_print_string "@ ") fun_def_args
+      fun_symbol (pp_print_list pp_print_string "@ ") fun_def_args
   end
   
 
@@ -1316,21 +1323,19 @@ let mononames_system fmt ~trace_lfsc_defs description sys name_sys prop names =
   let init_def = roll sigma_0i i0 in
   define_fun ~trace_lfsc_defs fmt init_s [fvi] Type.t_bool init_def;
   
-  (* Declaring property (P i) *)
-  add_section fmt "Original property";
-  let prop_s = UfSymbol.mk_uf_symbol names.prop [(ty_index ())] Type.t_bool in
-  let prop_def = roll sigma_0i prop in
-  define_fun ~trace_lfsc_defs fmt prop_s [fvi] Type.t_bool prop_def;
-
-  
   (* Declaring transition relation (T i j) *)
   add_section fmt "Transition_relation";  
   let trans_s = UfSymbol.mk_uf_symbol names.trans
       [(ty_index ()); (ty_index ())] Type.t_bool in
   let t01 = TransSys.trans_fun_of sys Numeral.zero Numeral.one in
   let trans_def = roll sigma_0i1j t01 in
-  define_fun ~trace_lfsc_defs fmt trans_s [fvi; fvj] Type.t_bool trans_def
-
+  define_fun ~trace_lfsc_defs fmt trans_s [fvi; fvj] Type.t_bool trans_def;
+  
+  (* Declaring property (P i) *)
+  add_section fmt "Original property";
+  let prop_s = UfSymbol.mk_uf_symbol names.prop [(ty_index ())] Type.t_bool in
+  let prop_def = roll sigma_0i prop in
+  define_fun ~trace_lfsc_defs fmt prop_s [fvi] Type.t_bool prop_def
 
 
 let export_system ~trace_lfsc_defs

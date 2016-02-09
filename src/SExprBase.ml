@@ -48,8 +48,7 @@ sig
   val pp_print_sexpr_list : Format.formatter -> t list -> unit 
   val print_sexpr : t -> unit
   val pp_print_sexpr_indent : int -> Format.formatter -> t -> unit
-  val pp_print_sexpr_list_indent : int -> Format.formatter -> t list -> unit
-  val print_sexpr_indent : int -> t -> unit
+  val pp_print_sexpr_indent_compact : int -> Format.formatter -> t -> unit
   val string_of_sexpr : t -> string
 end
 
@@ -65,34 +64,43 @@ module Make = functor (Atom : SExprAtom) -> struct
 
 
   (* Pretty-print an S-expression *)
-  let rec pp_print_sexpr_indent indent ppf = function 
+  let rec pp_print_sexpr_indent compact indent ppf = function 
     | Atom s -> Atom.pp_print_atom ppf s
-    | List l -> pp_print_sexpr_list_indent indent ppf l
+    | List l -> pp_print_sexpr_list_indent compact indent ppf l
       
   (* Pretty-print a list of S-expressions in parentheses *)
-  and pp_print_sexpr_list_indent indent ppf l = 
-    Format.pp_open_hovbox ppf indent;
+  and pp_print_sexpr_list_indent compact indent ppf l = 
+    if not compact then Format.pp_open_hovbox ppf indent;
     Format.pp_print_string ppf "(";
-    pp_print_sexpr_list' indent ppf l;
+    pp_print_sexpr_list' compact indent ppf l;
     Format.pp_print_string ppf ")";
-    Format.pp_close_box ppf ()
+    if not compact then Format.pp_close_box ppf ()
       
   (* Pretty-print a list of S-expressions without parentheses *)
-  and pp_print_sexpr_list' indent ppf = function
+  and pp_print_sexpr_list' compact indent ppf = function
     | [] -> ()
-    | e :: [] -> pp_print_sexpr_indent indent ppf e
+    | e :: [] -> pp_print_sexpr_indent compact indent ppf e
     | e :: tl -> 
-      pp_print_sexpr_indent indent ppf e; 
+      pp_print_sexpr_indent compact indent ppf e; 
       Format.pp_print_space ppf ();
-      pp_print_sexpr_list' indent ppf tl
+      pp_print_sexpr_list' compact indent ppf tl
 	
   (* Pretty-print an S-expression to the standard formatter *)
   let print_sexpr_indent indent =
-    pp_print_sexpr_indent indent Format.std_formatter
+    pp_print_sexpr_indent false indent Format.std_formatter
+
+  let pp_print_sexpr_indent_compact indent ppf s =
+    Format.pp_open_hovbox ppf indent;
+    pp_print_sexpr_indent true indent ppf s;
+    Format.pp_close_box ppf ()
+
+  let pp_print_sexpr_indent indent ppf s =
+    pp_print_sexpr_indent false indent ppf s
 
   let pp_print_sexpr = pp_print_sexpr_indent 1
-  let pp_print_sexpr_list = pp_print_sexpr_list_indent 1
+  let pp_print_sexpr_list = pp_print_sexpr_list_indent false 1
   let print_sexpr = print_sexpr_indent 1
+
   
   (* Return a string representation of an S-Expression *)
   let string_of_sexpr s = 
