@@ -1764,8 +1764,6 @@ let generate_split_certificates sys dirname =
       let k, uinvs = minimize_certificate sys in
       k, Term.mk_and (prop :: uinvs)
   in
-
-  let certif = k, phi in
   
   (* Record statistics for minimization *)
   Stat.record_time Stat.certif_min_time;  
@@ -1782,7 +1780,6 @@ let generate_split_certificates sys dirname =
     dirname kind2_defs_lfsc_f names_kind2 sys "Kind2";
 
   let kind2_defs_path = Filename.concat dirname kind2_defs_f in
-  let kind2_defs_lfsc_path = Filename.concat dirname kind2_defs_lfsc_f in
 
   (* Export k-inductive invariant phi in SMT-LIB2 format *)
   export_phi ~trace_lfsc_defs:false
@@ -2700,7 +2697,6 @@ let generate_frontend_certificates sys dirname =
 
   (* Remove the OBS scope *)
   let phi = unscope_term phi in
-  let certif = k, phi in
   
   (* Record statistics for minimization *)
   Stat.record_time Stat.certif_min_time;  

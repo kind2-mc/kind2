@@ -622,8 +622,6 @@ let write_inv_proof fmt (s_implication, s_base, s_induction) name_proof c =
   let a_phi = Atom (H.mk_hstring c.for_system.names.phi) in
 
   (* LFSC commands to construct the proof *)
-  let a_check = Atom s_check in
-  let a_define = Atom s_define in
   let a_invariant = Atom s_invariant in
   let a_invariant_implies = Atom s_invariant_implies in
   let a_kinduction = Atom s_kinduction in
@@ -660,8 +658,6 @@ let write_obs_eq_proof fmt proof_obs_name name_proof c =
 
 
   (* LFSC commands to construct the proof *)
-  let a_check = Atom s_check in
-  let a_define = Atom s_define in
   let a_obs_eq = Atom s_obs_eq in
   let a_weak_obs_eq = Atom s_weak_obs_eq in
   let a_same_inputs = Atom (H.mk_hstring "same_inputs") in
@@ -700,8 +696,6 @@ let write_safe_proof fmt proof_inv proof_obs_eq name_proof kind2_s jkind_s =
 
 
   (* LFSC commands to construct the proof *)
-  let a_check = Atom s_check in
-  let a_define = Atom s_define in
   let a_inv_obs = Atom s_inv_obs in
   let a_safe = Atom s_safe in
 
