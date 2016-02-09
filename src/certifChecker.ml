@@ -40,6 +40,8 @@ let quant_free = true
 let monolithic_base = true
 let simple_base = false
 let abstr_index = true 
+let clean_tmp = true
+
 
 let names_bare = {
   init = "I";
@@ -2808,6 +2810,14 @@ let fecc_checker_script =
   "cat FECC_prelude.smt2 kind2_defs.smt2 jkind_defs.smt2 observer_defs.smt2 FECC.smt2 | $solver"
 
 
+(* Remove temporary files for certificates and intermediate certificates *)
+let remove dirname =
+  let temps = Sys.readdir dirname in
+  Array.iter (fun f -> Sys.remove (Filename.concat dirname f)) temps;
+  Unix.rmdir dirname
+      
+
+
 (********************************)
 (* Creation of all certificates *)
 (********************************)
@@ -2866,6 +2876,11 @@ let generate_all_certificates input sys =
         file_copy inv_lfsc final_lfsc
     end;
 
+    if clean_tmp then begin
+      printf "Cleaning temporary files@.";
+      remove dirname;
+    end;
+    
     printf "Final LFSC proof written to %s@." final_lfsc;
     
   else begin
@@ -2876,18 +2891,6 @@ let generate_all_certificates input sys =
     
   end;
 
-  
-  let open Unix in
-  
-  (* let certif_script_name = *)
-  (*   Filename.concat dirname *)
-  (*     (if is_fec sys then "FECC_checker" else "certificate_checker") in *)
-  (* let csoc = openfile certif_script_name [O_WRONLY; O_CREAT; O_TRUNC] 0o755 *)
-  (*            |> out_channel_of_descr in *)
-  (* let fmt_cs = formatter_of_out_channel csoc in *)
-  (* Format.pp_print_string fmt_cs *)
-  (*   (if is_fec sys then fecc_checker_script else certificate_checker_script); *)
-  (* close_out csoc; *)
   
   (* Send statistics *)
   Event.stat Stat.[certif_stats_title, certif_stats]
