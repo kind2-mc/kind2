@@ -348,9 +348,12 @@ fun sys top_scope target ->
   in
   match sys with
   | Lustre (sub, _) ->
+    (* LustreToRust.oracle_to_rust target (
+      fun scope -> (S.find_subsystem sub scope).S.source
+    ) sub.S.source ; *)
     LustreToRust.top_to_rust target (
       fun scope -> (S.find_subsystem sub scope).S.source
-    ) sub.S.source ;
+    ) sub.S.source
   | Native _ ->
     Format.printf "can't compile from native input: unsupported"
   | Horn _ ->

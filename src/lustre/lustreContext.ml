@@ -983,6 +983,7 @@ let mk_local_for_expr
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?(is_ghost=false)
     ?(reuse=true)
     ?original
     pos
@@ -1013,12 +1014,20 @@ let mk_local_for_expr
 
           let mk_sve =
             if reuse then mk_state_var_for_expr
-            else fresh_state_var_for_expr in
+            else fresh_state_var_for_expr
+          in
           
           (* Define the expresssion with a fresh state variable *)
           let state_var, ctx =
             mk_sve ?is_input ?is_const ?for_inv_gen
-              ctx add_state_var_to_locals expr' in
+              ctx add_state_var_to_locals expr'
+          in
+
+          let ctx =
+            if is_ghost
+            then set_state_var_source ctx state_var N.Ghost
+            else ctx
+          in
 
           (* Return variable and changed context *)
           (state_var, ctx)

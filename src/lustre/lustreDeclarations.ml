@@ -1022,7 +1022,7 @@ let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
     )
   ) ;
   (* Define expression with a state variable *)
-  let svar, ctx =  C.mk_local_for_expr pos ctx expr in
+  let svar, ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
   ctx, (Contract.mk_svar pos count svar scope) :: accum, count + 1

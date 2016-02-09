@@ -16,6 +16,13 @@
 
 *)
 
-(* Compiles a lustre node to Rust as a project in the directory given as first
+(** Compilation from [LustreNode.t] to Rust. *)
+
+
+
+(** Compiles a lustre node to Rust as a project in the directory given as first
 argument. *)
 val top_to_rust : string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> unit
+
+(** Compiles a lustre node as an oracle. *)
+val oracle_to_rust: string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> unit

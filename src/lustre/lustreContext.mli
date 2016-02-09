@@ -178,7 +178,7 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
     variable was previously created for the same expression but with different
     flags, a new state variable is created. *)
 val mk_local_for_expr :
-  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?reuse:bool ->
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?is_ghost:bool -> ?reuse:bool ->
   ?original:LustreAst.expr -> Lib.position ->
   t -> LustreExpr.t -> StateVar.t * t
 

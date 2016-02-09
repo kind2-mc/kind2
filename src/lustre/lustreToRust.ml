@@ -22,12 +22,14 @@ module N = LustreNode
 module Id = LustreIdent
 module I = LustreIndex
 module E = LustreExpr
+module C = LustreContract
 module SVar = StateVar
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
 
 let parse_bool_fun, parse_int_fun, parse_real_fun = "bool", "int", "real"
 
+(* Crate documentation, lint attributes and entry point ([main]). *)
 let fmt_file_prefix name typ = Format.sprintf "\
 //! Binary for lustre node `%s`.
 //!
@@ -64,6 +66,8 @@ fn main() {
 }
 " name typ
 
+(* Helpers modules: cla parsing, types, traits for systems and stdin
+parsing. *)
 let file_static = Format.sprintf "\
 /// Types and structures for systems.
 pub mod helpers {
@@ -257,24 +261,11 @@ pub mod parse {
 }
 " parse_bool_fun parse_int_fun parse_real_fun
 
-(* let consts name signature source = Format.sprintf "\
-/// Name of the top node.
-pub const name: & 'static str = \"%s\" ;
-
-/// Signature of the top lustre node (%s).
-pub const top_sig: & 'static str = \"\\
-%s\\
-\" ;
-
-/// Original lustre code.
-pub const source: & 'static str = \"\\
-%s\\
-\" ;
-" name name signature source *)
-
+(* Continuation type for the term to Rust printer.
+Used to specify what should happen after the next step. *)
 type continue =
-| T of Term.t
-| S of string
+| T of Term.t (* Next step is to print a term. *)
+| S of string (* Next step is to print a string. *)
 
 
 (* [wrap_with_sep e s [t1 ; ... ; tn]] creates the list
@@ -288,6 +279,8 @@ let wrap_with_sep ending sep kids =
   in
   loop kids []
 
+(* Prints a variable. Prefixes with ["self."] variables unrolled at 0 and
+constant variables. *)
 let fmt_var pref fmt var =
   if Var.is_state_var_instance var then (
     let off = Var.offset_of_state_var_instance var |> Numeral.to_int in
@@ -463,21 +456,25 @@ let parser_for t = match Type.node_of_type t with
 
 (* Unsafe string representation of an ident, used for rust identifiers. *)
 let mk_id_legal = Id.string_of_ident false
+
 (* Same as [mk_id_legal] but capitalizes the first letter to fit rust
 conventions for type naming. *)
 let mk_id_type id = mk_id_legal id |> String.capitalize
+
 (* Prefix for all state variables. *)
 let svar_pref = "svar_"
 
 
-
+(* Gathers [LustreNode.equation] with [LustreNode.node_call] for ordering. *)
 type equation =
-| Eq of N.equation
-| Call of (int * N.node_call)
+| Eq of N.equation (* An equation. *)
+| Call of (int * N.node_call) (* A call with a uid local to the node. *)
 
+(* Identifier refering to the current state of the system called. *)
 let id_of_call cnt { N.call_node_name } =
   Format.sprintf "%s_%d" (mk_id_legal call_node_name) cnt
 
+(* Pretty prints an equation or a call. *)
 let pp_print_equation fmt = function
 | Eq eq -> N.pp_print_node_equation false fmt eq
 | Call (cnt, call) ->
@@ -1177,3 +1174,110 @@ let top_to_rust target find_sub top =
   (* Flush and close file writer. *)
   close_out out_channel
 
+
+let print_trie desc =
+  Format.printf "%s: @[<v>%a@]@.@."
+    desc
+    ( I.pp_print_trie
+      ( fun fmt (lst, svar) ->
+        Format.fprintf fmt "%a -> %a"
+          (I.pp_print_one_index true) (List.hd lst)
+          SVar.pp_print_state_var svar
+      ) "@ "
+    )
+
+let oracle_to_rust target find_sub top =
+  (* Successor of the max index of some trie. *)
+  let next_index_of trie = I.top_max_index trie |> succ in
+  let is_ghost svar =
+    try (
+      match SVM.find svar top.N.state_var_source_map with
+      | N.Ghost -> true
+      | _ -> false
+    ) with Not_found -> false
+  in
+  let print_svar_source svar =
+    try
+      Format.printf "%a: %a@."
+        SVar.pp_print_state_var svar
+        N.pp_print_state_var_source (SVM.find svar top.N.state_var_source_map)
+    with
+      Not_found -> Format.printf "%a: not found@." SVar.pp_print_state_var svar
+  in
+
+  Format.printf "@.@.Inputs:@." ;
+  top.N.inputs |> I.bindings
+  |> List.iter (fun (_, svar) -> print_svar_source svar) ;
+  Format.printf "@.@.Outputs:@." ;
+  top.N.outputs |> I.bindings
+  |> List.iter (fun (_, svar) -> print_svar_source svar) ;
+  Format.printf "@.@.Locals:@." ;
+  top.N.locals |> List.iter (
+    fun loc -> I.bindings loc |> List.iter (
+      fun (_, svar) -> print_svar_source svar
+    )
+  ) ;
+
+  (* Appends two tries. *)
+  let append lhs rhs =
+    I.fold (
+      fun index svar trie -> match index with
+      | _ :: index ->
+        I.add (
+          I.ListIndex (next_index_of trie) :: index
+        ) svar trie
+      | [] -> failwith "empty index of outputs"
+    ) rhs lhs
+  in
+  
+  (* Adding to inputs. *)
+  let inputs = append top.N.inputs top.N.outputs in
+
+  (* Outputs are guarantees and mode ensures. *)
+  let outputs, output_svars =
+    match top.N.contract with
+    | None -> failwith "cannot generate oracle for contract-free node"
+    | Some contract ->
+      let outputs, output_svars =
+        contract.C.guarantees |> List.fold_left (fun (trie, outs) svar ->
+          I.add (
+            [ I.ListIndex (next_index_of trie) ]
+          ) svar.C.svar trie,
+          SVS.add svar.C.svar outs
+        ) (I.empty, SVS.empty)
+      in
+      contract.C.modes |> List.fold_left (fun (trie, outs) { C.ensures } ->
+        ensures |> List.fold_left (fun (trie, outs) svar ->
+          I.add (
+            [ I.ListIndex (next_index_of trie) ]
+          ) svar.C.svar trie,
+          SVS.add svar.C.svar outs
+        ) (trie, outs)
+      ) (outputs, output_svars)
+  in
+
+  let locals =
+    top.N.locals |> List.filter (
+      fun loc ->
+        I.bindings loc
+        |> List.exists ( fun (_, svar) ->
+          is_ghost svar && (SVS.mem svar output_svars |> not)
+        )
+    )
+  in
+
+  let equations =
+    let outputs = I.bindings top.N.outputs |> List.map snd in
+    top.N.equations |> List.filter (
+      fun (svar, _, _) ->
+        is_ghost svar && (List.mem svar outputs |> not)
+    )
+  in
+
+  (* Creating node and compiling. *)
+  { top with
+    N.inputs = inputs ;
+    N.outputs = outputs ;
+    N.locals = locals ;
+    N.equations = equations ;
+  } |> top_to_rust target find_sub
