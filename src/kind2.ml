@@ -1000,6 +1000,7 @@ let rec run_loop msg_setup modules results =
 (* Runs test generation on the system (scope) specified by abstracting
    everything. *)
 let run_testgen input_sys sys =
+  InputSystem.oracle_info_of input_sys sys ;
   match InputSystem.maximal_abstraction_for_testgen input_sys sys [] with
   | None ->
     Event.log L_info
@@ -1022,6 +1023,11 @@ let run_testgen input_sys sys =
       raise e
     )
 
+(* Compiles a system (scope) to Rust. *)
+let compile_to_rust input_sys sys =
+  Flags.compile_path () |> InputSystem.compile_to_rust input_sys sys
+
+
 (* Looks at the modules activated and decides what to do. *)
 let launch () =
 
@@ -1031,30 +1037,40 @@ let launch () =
   input_sys_ref := Some input_sys ;
   let results = Analysis.mk_results () in
 
-  (* Retrieving params for next analysis. *)
-  let aparam =
-    match InputSystem.next_analysis_of_strategy input_sys results with
-    | Some a -> a | None -> assert false
-  in
-
-  (* Building transition system and slicing info. *)
-  let trans_sys, input_sys_sliced =
-    InputSystem.trans_sys_of_analysis input_sys aparam
-  in
-
-  (* Memorizing things. *)
-  cur_input_sys := Some input_sys_sliced ;
-  cur_aparam    := Some aparam           ;
-  cur_trans_sys := Some trans_sys        ;
-
-
   (* /!\ Test generation disclaimer: arguably it should come _after_
      verification, since test generation assumes the system is correct.
 
      When you know what you're doing on the other hand that's fine.
-     So obviously our actual users should not be able to do this.
-   *)
-  if Flags.testgen_active () |> not then (
+     So obviously our actual users should not be able to do this. *)
+  if Flags.testgen_active () then (
+
+    match InputSystem.ordered_scopes_of input_sys with
+    | top :: _ -> run_testgen input_sys top
+    | [] -> ()
+
+  ) else if Flags.compile () then (
+
+    match InputSystem.ordered_scopes_of input_sys with
+    | top :: _ -> compile_to_rust input_sys top
+    | [] -> ()
+
+  ) else (
+
+    (* Retrieving params for next analysis. *)
+    let aparam =
+      match InputSystem.next_analysis_of_strategy input_sys results with
+      | Some a -> a | None -> assert false
+    in
+
+    (* Building transition system and slicing info. *)
+    let trans_sys, input_sys_sliced =
+      InputSystem.trans_sys_of_analysis input_sys aparam
+    in
+
+    (* Memorizing things. *)
+    cur_input_sys := Some input_sys_sliced ;
+    cur_aparam    := Some aparam           ;
+    cur_trans_sys := Some trans_sys        ;
 
     (* Checking what's activated. *)
     match Flags.enable () with
@@ -1130,13 +1146,6 @@ let launch () =
       with e ->
         (* Format.printf "caught exception@.@." ; *)
         on_exit `Supervisor None e
-
-  ) else (
-
-    match InputSystem.ordered_scopes_of input_sys with
-    | top :: _ -> run_testgen input_sys top
-    | [] -> ()
-
   )
 
 

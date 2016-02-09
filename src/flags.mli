@@ -242,6 +242,14 @@ val testgen_out_dir : unit -> testgen_out_dir
 type testgen_len = int
 val testgen_len : unit -> testgen_len
 
+(** Activates compilation to Rust. *)
+type compile = bool
+val compile : unit -> compile
+
+(** Directory to put the project into. *)
+type compile_path = string option
+val compile_path : unit -> compile_path
+
 (** InvGen will remove trivial invariants, i.e. invariants implied by
     the transition relation.. **)
 type invgengraph_prune_trivial = bool

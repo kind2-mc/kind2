@@ -41,11 +41,11 @@ let fmt_file_prefix name typ = Format.sprintf "\
 use helpers::* ;
 
 /// Entry point.
-pub fn main() {
+fn main() {
   use std::process::exit ;
   clap() ;
   let mut reader = InputReader::mk() ;
-  let mut test = match %s::read_init(& mut reader) {
+  let mut state = match %s::read_init(& mut reader) {
     Ok(init) => init,
     Err(e) => {
       println!(\"(Error: {})\", e) ;
@@ -53,8 +53,8 @@ pub fn main() {
     },
   } ;
   loop {
-    match %s.read_next(& mut reader) {
-      Ok(next) => test = next,
+    match state.read_next(& mut reader) {
+      Ok(next) => state = next,
       Err(e) => {
         println!(\"(Error: {})\", e) ;
         exit(2)
@@ -62,7 +62,7 @@ pub fn main() {
     }
   }
 }
-" name typ name
+" name typ
 
 let file_static = Format.sprintf "\
 /// Types and structures for systems.
@@ -76,9 +76,6 @@ pub mod helpers {
     println!(\"\\
 Options:
   -h, --help   | prints this message
-  -s, --source | prints the original lustre code
-  -t, --type   | prints the signature of the original lustre node
-  -n, --name   | prints the name of the top node
 Usage:
   Inputs  are  read   as comma separated values on a single line.
   Outputs are printed as comma separated values on a single line.\\
@@ -105,22 +102,22 @@ Usage:
     } ;
     if let Some(arg) = args.next() {
       match & arg as & str {
-        \"-s\" | \"--source\" => {
-          println!(\"{}\", super::source) ;
-          exit(0)
-        },
         \"-h\" | \"--help\" => {
           help() ;
           exit(0)
         },
-        \"-t\" | \"--type\" => {
-          println!(\"{}\", super::top_sig) ;
-          exit(0)
-        },
-        \"-n\" | \"--name\" => {
-          println!(\"{}\", super::name) ;
-          exit(0)
-        },
+        // \"-s\" | \"--source\" => {
+        //   println!(\"{}\", super::source) ;
+        //   exit(0)
+        // },
+        // \"-t\" | \"--type\" => {
+        //   println!(\"{}\", super::top_sig) ;
+        //   exit(0)
+        // },
+        // \"-n\" | \"--name\" => {
+        //   println!(\"{}\", super::name) ;
+        //   exit(0)
+        // },
         arg => error(
           format!(\"unexpected argument \\\"{}\\\".\", arg)
         ),
@@ -260,7 +257,7 @@ pub mod parse {
 }
 " parse_bool_fun parse_int_fun parse_real_fun
 
-let consts name signature source = Format.sprintf "\
+(* let consts name signature source = Format.sprintf "\
 /// Name of the top node.
 pub const name: & 'static str = \"%s\" ;
 
@@ -273,7 +270,7 @@ pub const top_sig: & 'static str = \"\\
 pub const source: & 'static str = \"\\
 %s\\
 \" ;
-" name name signature source
+" name name signature source *)
 
 type continue =
 | T of Term.t
@@ -315,7 +312,6 @@ let fmt_var pref fmt var =
 (* Goes down a term, printing what it can until it reaches a leaf. Then, calls
 [fmt_term_up] on the continuation. *)
 let rec fmt_term_down svar_pref next fmt term =
-Format.printf "term down: %a@.@." Term.pp_print_term term ;
 match Term.destruct term with
 | Term.T.App (sym, kid :: kids) -> (
   let node = Symbol.node_of_symbol sym in
@@ -462,46 +458,6 @@ let parser_for t = match Type.node_of_type t with
   |> failwith
 
 
-(* Orders equations topologicaly based on the [expr_init] or [expr_next]
-expression of the right-hand side of the equation. *)
-let order_equations init_or_expr inputs equations =
-  (* Checks if [svar] is defined in a list of equations or is an input. *)
-  let is_defined sorted svar =
-    List.exists (fun (_, svar') -> svar == svar') inputs
-    || List.exists (fun (svar', _, _) -> svar == svar') sorted
-  in
-  (* Sorts equations. *)
-  let rec loop count later to_do sorted = match to_do with
-    | ((_, _, rhs) as eq) :: to_do ->
-      let later, sorted =
-        if
-          init_or_expr rhs
-          |> E.cur_term_of_expr (Numeral.succ E.base_offset)
-          (* Extract svars. *)
-          |> Term.state_vars_at_offset_of_term (Numeral.succ E.base_offset)
-          (* All svars must be defined in [sorted]. *)
-          |> SVS.for_all (is_defined sorted)
-        then later, eq :: sorted else eq :: later, sorted
-      in
-      loop count later to_do sorted
-    | [] -> (
-      let count = count + 1 in
-      if count <= List.length equations then
-        match later with
-        | [] -> List.rev sorted
-        | _ -> loop count [] later sorted
-      else (
-        Format.printf
-          "Some equations use undefined variables:@.  @[<v 2>%a@]@.@." (
-            pp_print_list (N.pp_print_node_equation false) "@ "
-          ) later ;
-        failwith "could not compile system"
-      )
-    )
-  in
-  loop 0 [] equations []
-
-
 (* Unsafe string representation of an ident, used for rust identifiers. *)
 let mk_id_legal = Id.string_of_ident false
 (* Same as [mk_id_legal] but capitalizes the first letter to fit rust
@@ -510,30 +466,235 @@ let mk_id_type id = mk_id_legal id |> String.capitalize
 (* Prefix for all state variables. *)
 let svar_pref = "svar_"
 
-(* Compiles a node to rust, writes it to a formatter. *)
-let node_to_rust fmt (
-  { N.inputs ; N.outputs ; N.equations ; N.state_var_source_map } as node
-) =
-  let equations =
-    equations |> List.filter (fun (svar, _, _) ->
-      SVM.mem svar state_var_source_map
+
+
+type equation =
+| Eq of N.equation
+| Call of (int * N.node_call)
+
+let id_of_call cnt { N.call_node_name } =
+  Format.sprintf "%s_%d" (mk_id_legal call_node_name) cnt
+
+let pp_print_equation fmt = function
+| Eq eq -> N.pp_print_node_equation false fmt eq
+| Call (cnt, call) ->
+  Format.fprintf fmt "%a (%d)" (N.pp_print_call false) call cnt
+
+
+(* Orders equations topologicaly based on the [expr_init] or [expr_next]
+expression of the right-hand side of the equation. *)
+let order_equations init_or_expr inputs equations =
+  (* Checks if [svar] is defined in a list of equations or is an input. *)
+  let is_defined sorted svar =
+    List.exists (fun (_, svar') -> svar == svar') inputs
+    || List.exists (function
+      | Eq (svar', _, _) -> svar == svar'
+      | Call (_, { N.call_outputs }) ->
+        I.bindings call_outputs |> List.exists (
+          fun (_, svar') -> svar == svar'
+        )
+    ) sorted
+  in
+  (* Sorts equations. *)
+  let rec loop count later to_do sorted = match to_do with
+    (* Equation. *)
+    | (Eq (_, _, rhs)) as eq :: to_do ->
+      let later, sorted =
+        if
+          init_or_expr rhs
+          |> E.cur_term_of_expr (Numeral.succ E.base_offset)
+          (* Extract svars. *)
+          |> Term.state_vars_at_offset_of_term (Numeral.succ E.base_offset)
+          (* All svars must be defined. *)
+          |> SVS.for_all (is_defined sorted)
+        then later, eq :: sorted else eq :: later, sorted
+      in
+      loop count later to_do sorted
+    (* Node call. *)
+    | (
+      Call (
+        _, { N.call_inputs ; N.call_outputs ; N.call_defaults }
+      ) as eq
+    ) :: to_do ->
+      if call_defaults != None then (
+        Format.printf "Compilating of condacts is not supported.@.@." ;
+        failwith "could not compile system"
+      ) ;
+      let later, sorted =
+        if
+          I.bindings call_inputs
+          (* All input svar must be defined. *)
+          |> List.for_all (fun (_, svar) -> is_defined sorted svar)
+        then later, eq :: sorted else eq :: later, sorted
+      in
+      loop count later to_do sorted
+    (* Done. *)
+    | [] -> (
+      let count = count + 1 in
+      if count <= (List.length equations) + 1 then
+        match later with
+        | [] -> List.rev sorted
+        | _ -> loop count [] later sorted
+      else (
+        Format.printf
+          "Some equations use undefined variables:@.  @[<v 2>%a@]@.@." (
+            pp_print_list pp_print_equation "@ "
+          ) later ;
+        failwith "could not compile system"
+      )
     )
+  in
+  loop 0 [] equations []
+
+
+
+(* Compiles a node to rust, writes it to a formatter. *)
+let node_to_rust is_top fmt (
+  {
+    N.inputs ; N.outputs ; N.locals ;
+    N.equations ; N.state_var_source_map ; N.calls = real_calls ;
+    N.asserts ; N.contract
+  } as node
+) =
+  let calls, _ =
+    real_calls |> List.fold_left (
+      fun (l,cpt) c -> Call (cpt, c) :: l, cpt + 1
+    ) ([], 0)
+  in
+  let equations =
+    equations |> List.fold_left (fun eqs ( (svar, _, _) as eq ) ->
+      (* if SVM.mem svar state_var_source_map
+      then (Eq eq) :: eqs else eqs *)
+      Eq eq :: eqs
+    ) calls
   in
   let name = mk_id_legal node.N.name in
   let typ = mk_id_type node.N.name in
-  Format.printf "compiling node \"%s\"@.@." name ;
+
+  let inputs, outputs, locals =
+    I.bindings inputs, I.bindings outputs,
+    locals |> List.map I.bindings |> List.flatten
+    (* |> List.fold_left (fun locs index ->
+      ( I.bindings index |> List.filter (fun (_, svar) ->
+        SVM.mem svar state_var_source_map
+        ) |> List.rev_append
+      ) locs
+    ) [] *)
+  in
 
   Format.fprintf fmt "\
-    /// Stores the state for node `%s`.@.\
-    struct %s {\
-  " name typ ;
+    /// Stores the state for %s `%s`.@.\
+    ///@.\
+    /// # Inputs@.\
+    ///@.\
+    /// | Lustre identifier | type |@.\
+    /// |:------:|:-----|@.\
+    /// %a@.\
+    ///@.\
+    /// # Outputs@.\
+    ///@.\
+    /// | Lustre identifier | type |@.\
+    /// |:------:|:-----|@.\
+    /// %a@.\
+    ///@.\
+    /// # Sub systems@.\
+    ///@.\
+    /// %a\
+    ///@.\
+    /// # Assertions@.\
+    ///@.\
+    /// %a\
+    ///@.\
+    /// # Assumptions@.\
+    ///@.\
+    %a\
+    ///@.\
+    pub struct %s {\
+  " (if is_top then "**top node**" else "sub-node") name
+  ( pp_print_list (fun fmt (_, svar) ->
+      Format.fprintf fmt "| `%s` | %a |"
+        (SVar.name_of_state_var svar)
+        fmt_type (SVar.type_of_state_var svar)
+    ) "@./// "
+  ) inputs
+  ( pp_print_list (fun fmt (_, svar) ->
+      Format.fprintf fmt "| `%s` | %a |"
+        (SVar.name_of_state_var svar)
+        fmt_type (SVar.type_of_state_var svar)
+    ) "@./// "
+  ) outputs
+  ( fun fmt -> function
+    | [] -> Format.fprintf fmt "No subsystems for this system.@."
+    | calls ->
+      Format.fprintf fmt
+        "\
+          | Lustre identifier | Struct | Inputs | Outputs | Position |@.\
+          /// |:---:|:---:|:---:|:---:|:---:|@.\
+          /// %a@.\
+        " (
+            pp_print_list (fun fmt {
+              N.call_pos ; N.call_node_name ; N.call_inputs ; N.call_outputs
+            } ->
+              Format.fprintf fmt
+                "\
+                  | `%s` \
+                  | [%s](struct.%s.html) \
+                  | `%a` \
+                  | `%a` \
+                  | %a |\
+                "
+                (mk_id_legal call_node_name)
+                (mk_id_type call_node_name)
+                (mk_id_type call_node_name)
+                (pp_print_list (fun fmt (_, svar) ->
+                    SVar.name_of_state_var svar |> Format.pp_print_string fmt
+                  ) ", "
+                ) (I.bindings call_inputs)
+                (pp_print_list (fun fmt (_, svar) ->
+                    SVar.name_of_state_var svar |> Format.pp_print_string fmt
+                  ) ", "
+                ) (I.bindings call_outputs)
+                pp_print_position call_pos
+            ) "@./// "
+          ) calls
+  ) real_calls
+  ( fun fmt -> function
+    | [] -> Format.fprintf fmt "No assertions for this system.@."
+    | asserts ->
+      Format.fprintf fmt "%a@." (
+        pp_print_list (fun fmt expr ->
+          Format.fprintf fmt
+            "- `%a`"
+            (E.pp_print_lustre_expr false) expr
+        ) "@ /// "
+      ) asserts
+  ) asserts
+  ( fun fmt -> function
+    | None -> Format.fprintf fmt "/// No assumptions for this system.@."
+    | Some { LustreContract.assumes } ->
+      Format.fprintf fmt
+        "\
+          /// | State variable | Position | Number |@.\
+          /// |:------:|:-----:|:-----:|@.\
+          /// %a@.\
+        "
+        ( pp_print_list (fun fmt {
+            LustreContract.pos ; LustreContract.num ; LustreContract.svar
+          } ->
+            Format.fprintf fmt
+              "| `%s` | %a | %d |"
+              (SVar.name_of_state_var svar)
+              pp_print_position pos
+              num
+          ) "@ /// "
+        ) (List.rev assumes)
+  ) contract
+  typ ;
 
-  let inputs, outputs = I.bindings inputs, I.bindings outputs in
-
-  (* Input type. *)
+  (* Fields. *)
   inputs
   |> List.iter (fun (_, svar) ->
-    Format.fprintf fmt "@.  /// Source (input): `%a`.@.  pub %s%s: %a,"
+    Format.fprintf fmt "@.  /// Input: `%a`.@.  pub %s%s: %a,"
       SVar.pp_print_state_var svar
       svar_pref
       (SVar.name_of_state_var svar)
@@ -542,13 +703,46 @@ let node_to_rust fmt (
 
   Format.fprintf fmt "@." ;
 
-  equations |> List.iter (fun (svar, _, _) ->
-    Format.fprintf
-      fmt "@.  /// Source (local): `%a`.@.  pub %s%s: %a,"
+  outputs
+  |> List.iter (fun (_, svar) ->
+    Format.fprintf fmt "@.  /// Output: `%a`.@.  pub %s%s: %a,"
       SVar.pp_print_state_var svar
       svar_pref
       (SVar.name_of_state_var svar)
       fmt_type (SVar.type_of_state_var svar)
+  ) ;
+
+  Format.fprintf fmt "@." ;
+
+  locals |> List.iter (fun (_, svar) ->
+    let source =
+      try
+        Format.asprintf ", %a"
+          N.pp_print_state_var_source (
+            SVM.find svar state_var_source_map
+          )
+      with Not_found -> ""
+    in
+    Format.fprintf
+      fmt "@.  /// Local%s: `%a`.@.  pub %s%s: %a,"
+      source
+      SVar.pp_print_state_var svar
+      svar_pref
+      (SVar.name_of_state_var svar)
+      fmt_type (SVar.type_of_state_var svar)
+  ) ;
+
+  Format.fprintf fmt "@." ;
+
+  calls |> List.iter (function
+    | Call (cnt, ({ N.call_pos ; N.call_node_name } as call)) ->
+      Format.fprintf
+        fmt "@.  /// Call to `%a` (%a).@.  pub %s: %s,"
+        (Id.pp_print_ident false) call_node_name
+        pp_print_position call_pos
+        (id_of_call cnt call)
+        (mk_id_type call_node_name)
+    | _ -> failwith "unreachable"
   ) ;
 
   Format.fprintf fmt "@.}@.@.impl Sys for %s {@." typ ;
@@ -591,7 +785,7 @@ let node_to_rust fmt (
               @[<v>\
                 n if n == Self::arity() => {@   \
                   @[<v>\
-                    Ok( (%a,) )\
+                    Ok( (@   @[<v>%a@],@ ) )\
                   @]@ \
                 },@ \
                 n => Err(@   \
@@ -614,7 +808,7 @@ let node_to_rust fmt (
           |> parser_for
         ) ! input_cpt ;
         input_cpt := 1 + !input_cpt
-      ) "@ "
+      ) ", @ "
     ) inputs ;
 
   (* Init. *)
@@ -625,12 +819,23 @@ let node_to_rust fmt (
   Format.fprintf fmt "  \
       fn init(input: Self::Input) -> Result<Self, String> {@.    \
         @[<v>\
-          // Retrieving inputs.@ \
+          // |===| Retrieving inputs.@ \
           %a@ @ \
-          // Computing initial state.@ \
+          // |===| Computing initial state.@ \
           %a@ @ \
-          // Returning initial state.@ \
-          Ok( %s {@   @[<v>// Inputs.@ %a@ @ // Locals.@ %a@]@ } )\
+          // |===| Checking assertions.@ \
+          %a@ @ \
+          // |===| Checking assumptions.@ \
+          %a@ @ \
+          // |===| Returning initial state.@ \
+          Ok( %s {@   \
+            @[<v>\
+              // |===| Inputs.@ %a@ @ \
+              // |===| Outputs.@ %a@ @ \
+              // |===| Locals.@ %a@ @ \
+              // |===| Calls.@ %a\
+            @]@ \
+          } )\
         @]@.  \
       }@.@.\
     "
@@ -641,26 +846,100 @@ let node_to_rust fmt (
         input_cpt := 1 + !input_cpt
       ) "@ "
     ) inputs
-    ( pp_print_list (fun fmt (svar, _, expr) ->
-        expr.E.expr_init
-        |> E.base_term_of_expr (Numeral.succ E.base_offset)
-        |> Format.fprintf fmt "let %s%s = %a ;"
-          svar_pref
-          (SVar.name_of_state_var svar)
-          (fmt_term svar_pref)
+    ( pp_print_list (fun fmt -> function
+        | Eq (svar, _, expr) ->
+          expr.E.expr_init
+          |> E.base_term_of_expr (Numeral.succ E.base_offset)
+          |> Format.fprintf fmt "let %s%s = %a ;"
+            svar_pref
+            (SVar.name_of_state_var svar)
+            (fmt_term svar_pref)
+        | Call (
+          cnt, ({ N.call_node_name ; N.call_inputs ; N.call_outputs } as call)
+        ) ->
+          Format.fprintf fmt
+            "\
+              let %s = try!( %s::init( (@   @[<v>%a,@]@ ) ) ) ;@ \
+              let (@   @[<v>%a,@]@ ) = %s.output() ;@ \
+            "
+            (id_of_call cnt call)
+            (mk_id_type call_node_name)
+            ( pp_print_list (fun fmt (_, svar) ->
+                Format.fprintf fmt "%s%s"
+                  svar_pref (SVar.name_of_state_var svar)
+              ) ",@ "
+            ) (I.bindings call_inputs)
+            ( pp_print_list (fun fmt (_, svar) ->
+                Format.fprintf fmt "%s%s"
+                  svar_pref (SVar.name_of_state_var svar)
+              ) ",@ "
+            ) (I.bindings call_outputs)
+            (id_of_call cnt call)
       ) "@ "
     ) eqs_init
+    ( pp_print_list (fun fmt expr ->
+        Format.fprintf fmt
+          "// %a@ if ! (@   %a@ ) {@   \
+            @[<v>\
+              return Err(@   \
+                \"assertion failure: %a\".to_string()@ \
+              )\
+            @]@ \
+          } ;"
+          (E.pp_print_lustre_expr false) expr
+          (fmt_term svar_pref) (
+            expr.E.expr_init
+            |> E.base_term_of_expr (Numeral.succ E.base_offset)
+          )
+          (E.pp_print_lustre_expr false) expr
+      ) "@ "
+    ) asserts
+    ( fun fmt -> function
+      | None -> ()
+      | Some { LustreContract.assumes } ->
+        ( pp_print_list (fun fmt {
+            LustreContract.pos ; LustreContract.num ; LustreContract.svar
+          } ->
+            Format.fprintf fmt
+              "// Assumption number %d at %a@ if ! %s%s {@   \
+                @[<v>\
+                  return Err(@   \
+                    \"assumption failure: \
+                      %a (assumption number %d)\".to_string()@ \
+                  )\
+                @]@ \
+              } ;"
+              num
+              pp_print_position pos
+              svar_pref (SVar.name_of_state_var svar)
+              pp_print_position pos
+              num
+          ) "@ "
+        ) fmt (List.rev assumes)
+    ) contract
     typ
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "%s: %s," name name
       ) "@ "
     ) inputs
-    ( pp_print_list (fun fmt (svar, _, expr) ->
+    ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "%s: %s," name name
       ) "@ "
-    ) eqs_init ;
+    ) outputs
+    ( pp_print_list (fun fmt (_, svar) ->
+        let name = svar_pref ^ SVar.name_of_state_var svar in
+        Format.fprintf fmt "%s: %s," name name
+      ) "@ "
+    ) locals
+    ( pp_print_list (fun fmt -> function
+        | Call (cpt, call) ->
+          let name = id_of_call cpt call in
+          Format.fprintf fmt "%s: %s," name name
+        | _ -> failwith "unreachable"
+      ) "@ "
+    ) calls ;
 
   (* Next. *)
   let input_cpt = ref 0 in
@@ -668,14 +947,22 @@ let node_to_rust fmt (
     order_equations (fun expr -> expr.E.expr_step) inputs equations
   in
   Format.fprintf fmt "  \
-      fn next(self, input: Self::Input) -> Result<Self, String> {@.    \
+      fn next(mut self, input: Self::Input) -> Result<Self, String> {@.    \
         @[<v>\
-          // Retrieving inputs.@ \
+          // |===| Retrieving inputs.@ \
           %a@ @ \
-          // Computing next state.@ \
+          // |===| Computing next state.@ \
           %a@ @ \
-          // Returning next state.@ \
-          Ok( %s {@   @[<v>// Inputs.@ %a@ @ // Locals.@ %a@]@ } )\
+          // |===| Checking assertions.@ \
+          %a@ @ \
+          // |===| Checking assumptions.@ \
+          %a@ @ \
+          // |===| Updating next state.@ \
+          // |===| Inputs.@ %a@ @ \
+          // |===| Outputs.@ %a@ @ \
+          // |===| Locals.@ %a@ @ \
+          // |===| Calls.@ %a@ @ \
+          // |===| Return new state.@ Ok( self )\
         @]@.  \
       }@.@.\
     "
@@ -686,26 +973,99 @@ let node_to_rust fmt (
         input_cpt := 1 + !input_cpt
       ) "@ "
     ) inputs
-    ( pp_print_list (fun fmt (svar, _, expr) ->
-        expr.E.expr_step
-        |> E.cur_term_of_expr (Numeral.succ E.base_offset)
-        |> Format.fprintf fmt "let %s%s = %a ;"
-          svar_pref
-          (SVar.name_of_state_var svar)
-          (fmt_term svar_pref)
+    ( pp_print_list (fun fmt -> function
+        | Eq (svar, _, expr) ->
+          expr.E.expr_step
+          |> E.cur_term_of_expr (Numeral.succ E.base_offset)
+          |> Format.fprintf fmt "let %s%s = %a ;"
+            svar_pref
+            (SVar.name_of_state_var svar)
+            (fmt_term svar_pref)
+        | Call (
+          cnt, ({ N.call_node_name ; N.call_inputs ; N.call_outputs } as call)
+        ) ->
+          Format.fprintf fmt
+            "\
+              let %s = try!( self.%s.next( (@   @[<v>%a,@]@ ) ) ) ;@ \
+              let (@   @[<v>%a,@]@ ) = %s.output() ;\
+            "
+            (id_of_call cnt call)
+            (id_of_call cnt call)
+            ( pp_print_list (fun fmt (_, svar) ->
+                Format.fprintf fmt "%s%s"
+                  svar_pref (SVar.name_of_state_var svar)
+              ) ",@ "
+            ) (I.bindings call_inputs)
+            ( pp_print_list (fun fmt (_, svar) ->
+                Format.fprintf fmt "%s%s"
+                  svar_pref (SVar.name_of_state_var svar)
+              ) ",@ "
+            ) (I.bindings call_outputs)
+            (id_of_call cnt call)
       ) "@ "
     ) eqs_next
-    typ
+    ( pp_print_list (fun fmt expr ->
+        Format.fprintf fmt
+          "// %a@ if ! (@   %a@ ) {@   \
+            @[<v>\
+              return Err(@   \
+                \"assertion failure: %a\".to_string()@ \
+              )\
+            @]@ \
+          } ;"
+          (E.pp_print_lustre_expr false) expr
+          (fmt_term svar_pref) (
+            expr.E.expr_step
+            |> E.base_term_of_expr (Numeral.succ E.base_offset)
+          )
+          (E.pp_print_lustre_expr false) expr
+      ) "@ "
+    ) asserts
+    ( fun fmt -> function
+      | None -> ()
+      | Some { LustreContract.assumes } ->
+        ( pp_print_list (fun fmt {
+            LustreContract.pos ; LustreContract.num ; LustreContract.svar
+          } ->
+            Format.fprintf fmt
+              "// Assumption number %d at %a@ if ! %s%s {@   \
+                @[<v>\
+                  return Err(@   \
+                    \"assumption failure: \
+                      %a (assumption number %d)\".to_string()@ \
+                  )\
+                @]@ \
+              } ;"
+              num
+              pp_print_position pos
+              svar_pref (SVar.name_of_state_var svar)
+              pp_print_position pos
+              num
+          ) "@ "
+        ) fmt (List.rev assumes)
+    ) contract
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
-        Format.fprintf fmt "%s: %s," name name
+        Format.fprintf fmt "self.%s = %s ;" name name
       ) "@ "
     ) inputs
-    ( pp_print_list (fun fmt (svar, _, expr) ->
+    ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
-        Format.fprintf fmt "%s: %s," name name
+        Format.fprintf fmt "self.%s = %s ;" name name
       ) "@ "
-    ) eqs_next ;
+    ) outputs
+    ( pp_print_list (fun fmt (_, svar) ->
+        let name = svar_pref ^ SVar.name_of_state_var svar in
+        Format.fprintf fmt "self.%s = %s ;" name name
+      ) "@ "
+    ) locals
+    ( pp_print_list (fun fmt -> function
+        | Call (cpt, call) ->
+          let name = id_of_call cpt call in
+          Format.fprintf fmt "self.%s = %s ;" name name
+        | _ -> failwith "unreachable"
+      ) "@ "
+    ) calls ;
 
   (* Output. *)
   outputs
@@ -731,7 +1091,7 @@ let node_to_rust fmt (
       }\
     @]@.\
   " (
-    pp_print_list (fun fmt _ -> Format.fprintf fmt "{}") ",@ "
+    pp_print_list (fun fmt _ -> Format.fprintf fmt "{}") ", \\@ "
   ) outputs (
     pp_print_list (fun fmt (_, svar) ->
       Format.fprintf fmt "self.%s%s" svar_pref (SVar.name_of_state_var svar)
@@ -740,30 +1100,70 @@ let node_to_rust fmt (
 
   Format.fprintf fmt "}@.@." ;
 
-  ()
+  calls |> List.map (
+    function
+    | Call (_, { N.call_node_name } ) -> call_node_name
+    | _ -> failwith "unreachable"
+  )
 
-let top_to_rust target subs top =
-  (* Opening writer to file. *)
-  let out_channel = open_out target in
+(* Creates a directory if not already present. *)
+let mk_dir dir =
+  try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
+
+(* Dumps the default [Cargo.toml] file in a directory. *)
+let dump_toml name dir =
+  let out_channel = Format.sprintf "%s/Cargo.toml" dir |> open_out in
   let fmt = Format.formatter_of_out_channel out_channel in
+  Format.fprintf fmt
+    "\
+      [package]@.\
+      name = \"%s\"@.\
+      version = \"1.0.0\"@.\
+      authors = [\"Kind 2 <cesare-tinelli@uiowa.edu>\"]@.\
+    "
+    name ;
+  close_out out_channel
 
+let top_to_rust target find_sub top =
   let top_name, top_type = mk_id_legal top.N.name, mk_id_type top.N.name in
-
-  Format.printf "compiling for top node \"%s\"@.@." top_name ;
+  (* Creating project directory if necessary. *)
+  mk_dir target ;
+  (* Creating source dir. *)
+  let src_dir = Format.sprintf "%s/src" target in
+  mk_dir src_dir ;
+  (* Dump toml configuration file. *)
+  dump_toml top_name target ;
+  (* Opening writer to file. *)
+  let file = Format.sprintf "%s/main.rs" src_dir in
+  let out_channel = open_out file in
+  let fmt = Format.formatter_of_out_channel out_channel in
+  Format.pp_set_margin fmt max_int ;
 
   (* Write prefix and static stuff. *)
   Format.fprintf
-    fmt "%s@.@.%s@.@.%s@.@."
+    fmt "%s@.@.%s@.@."
     (fmt_file_prefix top_name top_type)
-    (consts "unimplemented" "unimplemented" "unimplemented")
+    (* (consts "unimplemented" "unimplemented" "unimplemented") *)
     file_static ;
 
-  ( try
-      node_to_rust fmt top ;
-      subs |> List.iter ( fun sub -> node_to_rust fmt sub ) ;
-    with e ->
-      Printexc.to_string e |> Format.printf "caught exception: %s@.@."
-  ) ;
+  let rec compile is_top compiled = function
+    | node :: nodes ->
+      assert (Id.Set.mem node.N.name compiled |> not) ;
+      let compiled, nodes =
+        Id.Set.add node.N.name compiled,
+        nodes @ (
+          node_to_rust is_top fmt node
+          |> List.fold_left (fun l call_id ->
+            if Id.Set.mem call_id compiled |> not
+            then (Id.to_scope call_id |> find_sub) :: l else l
+          ) []
+        )
+      in
+      compile false compiled nodes
+    | [] -> ()
+  in
+
+  compile true Id.Set.empty [ top ] ;
 
 
   Format.fprintf fmt "@.@." ;
@@ -771,18 +1171,3 @@ let top_to_rust target subs top =
   (* Flush and close file writer. *)
   close_out out_channel
 
-
-
-let test () =
-  Format.printf "|===| ToRust@.|@." ;
-
-  let term_1 = Term.t_true in
-  Format.printf "| %a: %a@." Term.pp_print_term term_1 (fmt_term "") term_1 ;
-  let term_2 = Term.mk_not Term.t_true in
-  Format.printf "| %a: %a@." Term.pp_print_term term_2 (fmt_term "") term_2 ;
-  let term_3 = Term.mk_implies [ term_1 ; term_2 ] in
-  Format.printf "| %a: %a@." Term.pp_print_term term_3 (fmt_term "") term_3 ;
-  let term_4 = Term.mk_and [ term_1 ; term_2 ; term_3 ] in
-  Format.printf "| %a: %a@." Term.pp_print_term term_4 (fmt_term "") term_4 ;
-
-  Format.printf "|@.|===|@.@." ;

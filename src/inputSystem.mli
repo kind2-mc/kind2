@@ -59,6 +59,9 @@ val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> 
 
 val oracle_info_of : _ t -> Scope.t -> unit
 
+(** Compiles a system (scope) to Rust to the folder specified as a crate. *)
+val compile_to_rust : _ t -> Scope.t -> string option -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
