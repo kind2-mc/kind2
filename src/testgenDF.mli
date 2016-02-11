@@ -19,7 +19,7 @@
 open Lib
 
 (** Entry point. *)
-val main : Analysis.param -> _ InputSystem.t -> TransSys.t -> unit
+val main : Analysis.param -> _ InputSystem.t -> TransSys.t -> string -> unit
 
 (** Clean exit. *)
 val on_exit: 'a -> unit

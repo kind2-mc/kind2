@@ -185,6 +185,13 @@ let results_is_safe results = Scope.Map.fold (fun _ -> function
   | [] -> assert false
 ) results (Some true)
 
+(** Cleans the results by removing nodes that don't have any property or
+contract. *)
+let results_clean = Scope.Map.filter (
+  fun _ -> function
+  | res :: _ -> TransSys.props_list_of_bound res.sys Numeral.zero <> []
+  | [] -> failwith "unreachable"
+)
 
 
 

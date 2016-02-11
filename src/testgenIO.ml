@@ -57,9 +57,6 @@ let openfile path = Unix.openfile path [
   Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT
 ] 0o640
 
-let mk_dir dir =
-  try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
-
 let fmt_of_file file =
   Unix.out_channel_of_descr file |> Format.formatter_of_out_channel
 

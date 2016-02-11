@@ -88,10 +88,6 @@ val yices2smt2_bin : unit -> yices2smt2_bin
 type smt_trace = bool
 val smt_trace : unit -> smt_trace
 
-(** Directory for trace logs of SMT commands *)
-type smt_trace_dir = string 
-val smt_trace_dir : unit -> smt_trace_dir
-
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list
 val enable : unit -> enable
@@ -206,6 +202,16 @@ val modular : unit -> modular
 type compositional = bool
 val compositional : unit -> compositional
 
+(** Compositional analysis. *)
+type output_dir = string
+val output_dir : unit -> output_dir
+
+(** Path to subdirectory for a system (in the output directory). *)
+val subdir_for : string list -> string
+
+(** Path to the smt trace directory. *)
+val smt_trace_dir : unit -> string
+
 (** Check modes. *)
 type check_modes = bool
 val check_modes : unit -> check_modes
@@ -234,10 +240,6 @@ val testgen_graph_only : unit -> testgen_graph_only
 type testgen_lustrec = string option
 val testgen_lustrec : unit -> testgen_lustrec
 
-(** Output directory for test generation. *)
-type testgen_out_dir = string
-val testgen_out_dir : unit -> testgen_out_dir
-
 (** Length of the test case generated. *)
 type testgen_len = int
 val testgen_len : unit -> testgen_len
@@ -245,10 +247,6 @@ val testgen_len : unit -> testgen_len
 (** Activates compilation to Rust. *)
 type compile = bool
 val compile : unit -> compile
-
-(** Directory to put the project into. *)
-type compile_dir = string option
-val compile_dir : unit -> compile_dir
 
 (** InvGen will remove trivial invariants, i.e. invariants implied by
     the transition relation.. **)

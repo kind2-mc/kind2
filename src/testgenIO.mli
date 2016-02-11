@@ -18,9 +18,6 @@
 
 open Lib
 
-(** Creates a new directory if it does not yet exist. *)
-val mk_dir: string -> unit
-
 
 (** Stores IO things to log testcases to xml. *)
 type _ t

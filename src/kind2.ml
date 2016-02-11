@@ -926,6 +926,77 @@ let setup () =
     Event.terminate_log () ;
     exit status_error
 
+
+(* Runs test generation on the system (scope) specified by abstracting
+   everything. *)
+let run_testgen input_sys top =
+  if Flags.testgen_active () then (
+    match InputSystem.maximal_abstraction_for_testgen input_sys top [] with
+    | None ->
+      Event.log L_warn
+        "System %a has no contracts, skipping test generation."
+        Scope.pp_print_scope top
+
+    | Some param ->
+      (* Create root dir if needed. *)
+      Flags.output_dir () |> mk_dir ;
+      let target = Flags.subdir_for top in
+      (* Create system dir if needed. *)
+      mk_dir target ;
+      let target = Format.sprintf "%s/testgen" target in
+      mk_dir target ;
+      Event.log_uncond
+        "|===| Generating tests for node \"%a\" to `%s`."
+        Scope.pp_print_scope top target ;
+
+      (* Extracting transition system. *)
+      let sys, input_sys_sliced =
+        InputSystem.trans_sys_of_analysis input_sys param
+      in
+
+      (* Let's do this. *)
+      try (
+        let test_target = Format.sprintf "%s/tests" target in
+        mk_dir test_target ;
+        TestGen.main param input_sys_sliced sys test_target ;
+        (* Yay, done. Killing stuff. *)
+        TestGen.on_exit "yay" ;
+        (* Generate oracle. *)
+        Event.log_uncond
+          "|===| Generating oracle for node \"%a\" to `%s`."
+          Scope.pp_print_scope top target ;
+        InputSystem.compile_oracle_to_rust input_sys top target
+      ) with e -> (
+        TestGen.on_exit "T_T" ;
+        raise e
+      )
+  )
+
+(* Compiles a system (scope) to Rust. *)
+let compile_to_rust input_sys top =
+  if Flags.compile () then (
+    (* Creating root dir if needed. *)
+    Flags.output_dir () |> mk_dir ;
+    let target = Flags.subdir_for top in
+    (* Creating system subdir if needed. *)
+    mk_dir target ;
+    (* Implementation directory. *)
+    let target = Format.sprintf "%s/implem" target in
+    Event.log_uncond
+      "|===| Compiling node \"%a\" to `%s`." Scope.pp_print_scope top target ;
+    InputSystem.compile_to_rust input_sys top target
+  )
+
+(* Runs test generation and compilation if asked to. *)
+let post_verif input_sys result =
+  if Analysis.result_is_all_proved result then (
+    let top_scope =
+      result.Analysis.sys |> TransSys.scope_of_trans_sys
+    in
+    run_testgen input_sys top_scope ;
+    compile_to_rust input_sys top_scope
+  )
+
 (* Launches analyses. *)
 let rec run_loop msg_setup modules results =
 
@@ -997,37 +1068,6 @@ let rec run_loop msg_setup modules results =
     run_loop msg_setup modules results
 
 
-(* Runs test generation on the system (scope) specified by abstracting
-   everything. *)
-let run_testgen input_sys sys =
-  InputSystem.oracle_info_of input_sys sys ;
-  match InputSystem.maximal_abstraction_for_testgen input_sys sys [] with
-  | None ->
-    Event.log L_info
-      "System %a has no contracts, cannot run test generation."
-      Scope.pp_print_scope sys
-
-  | Some param ->
-    (* Extracting transition system. *)
-    let sys, input_sys_sliced =
-      InputSystem.trans_sys_of_analysis input_sys param
-    in
-
-    (* Let's do this. *)
-    try (
-      TestGen.main param input_sys_sliced sys ;
-      (* Yay, done. Killing stuff. *)
-      TestGen.on_exit "yay"
-    ) with e -> (
-      TestGen.on_exit "T_T" ;
-      raise e
-    )
-
-(* Compiles a system (scope) to Rust. *)
-let compile_to_rust input_sys sys =
-  Flags.compile_dir () |> InputSystem.compile_to_rust input_sys sys
-
-
 (* Looks at the modules activated and decides what to do. *)
 let launch () =
 
@@ -1037,116 +1077,104 @@ let launch () =
   input_sys_ref := Some input_sys ;
   let results = Analysis.mk_results () in
 
-  (* /!\ Test generation disclaimer: arguably it should come _after_
-     verification, since test generation assumes the system is correct.
 
-     When you know what you're doing on the other hand that's fine.
-     So obviously our actual users should not be able to do this. *)
-  if Flags.testgen_active () then (
+  (* Retrieving params for next analysis. *)
+  let aparam =
+    match InputSystem.next_analysis_of_strategy input_sys results with
+    | Some a -> a | None -> assert false
+  in
 
-    match InputSystem.ordered_scopes_of input_sys with
-    | top :: _ -> run_testgen input_sys top
-    | [] -> ()
+  (* Building transition system and slicing info. *)
+  let trans_sys, input_sys_sliced =
+    InputSystem.trans_sys_of_analysis input_sys aparam
+  in
 
-  ) else if Flags.compile () then (
+  (* Memorizing things. *)
+  cur_input_sys := Some input_sys_sliced ;
+  cur_aparam    := Some aparam           ;
+  cur_trans_sys := Some trans_sys        ;
 
-    match InputSystem.ordered_scopes_of input_sys with
-    | top :: _ -> compile_to_rust input_sys top
-    | [] -> ()
+  (* Checking what's activated. *)
+  match Flags.enable () with
 
-  ) else (
+  (* No modules enabled. *)
+  | [] ->
+    Event.log L_fatal "Need at least one process enabled." ;
+    exit status_error
 
-    (* Retrieving params for next analysis. *)
-    let aparam =
-      match InputSystem.next_analysis_of_strategy input_sys results with
-      | Some a -> a | None -> assert false
-    in
+  (* Only the interpreter is running. *)
+  | [m] when m = `Interpreter ->
 
-    (* Building transition system and slicing info. *)
-    let trans_sys, input_sys_sliced =
-      InputSystem.trans_sys_of_analysis input_sys aparam
-    in
+    (* Set module currently running. *)
+    Event.set_module m ;
 
-    (* Memorizing things. *)
-    cur_input_sys := Some input_sys_sliced ;
-    cur_aparam    := Some aparam           ;
-    cur_trans_sys := Some trans_sys        ;
+    (* Run interpreter. *)
+    Interpreter.main
+      (Flags.interpreter_input_file ())
+      (get !cur_input_sys)
+      (get !cur_aparam)
+      (get !cur_trans_sys) ;
 
-    (* Checking what's activated. *)
-    match Flags.enable () with
+    (* Ignore SIGALRM from now on *)
+    Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
 
-    (* No modules enabled. *)
-    | [] ->
-      Event.log L_fatal "Need at least one process enabled." ;
-      exit status_error
+    (* Cleanup before exiting process *)
+    on_exit_child None m Exit
 
-    (* Only the interpreter is running. *)
-    | [m] when m = `Interpreter ->
+  (* Some modules, including the interpreter. *)
+  | modules when List.mem `Interpreter modules ->
+    Event.log L_fatal "Cannot run the interpreter with other processes." ;
+    exit status_error
 
-      (* Set module currently running. *)
-      Event.set_module m ;
+  (* Some modules, not including the interpreter. *)
+  | modules ->
 
-      (* Run interpreter. *)
-      Interpreter.main
-        (Flags.interpreter_input_file ())
-        (get !cur_input_sys)
-        (get !cur_aparam)
-        (get !cur_trans_sys) ;
+    Event.log L_info
+      "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
+      (pp_print_list pp_print_kind_module "@ - ")
+      modules ;
 
-      (* Ignore SIGALRM from now on *)
-      Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
+    (* Setup messaging. *)
+    let msg_setup = Event.setup () in
 
-      (* Cleanup before exiting process *)
-      on_exit_child None m Exit
+    (* Set module currently running *)
+    Event.set_module `Supervisor ;
 
-    (* Some modules, including the interpreter. *)
-    | modules when List.mem `Interpreter modules ->
-      Event.log L_fatal "Cannot run the interpreter with other processes." ;
-      exit status_error
+    (* Initialize messaging for invariant manager, obtain a background
+       thread. No kids yet. *)
+    Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
 
-    (* Some modules, not including the interpreter. *)
-    | modules ->
+    Event.log L_trace "Messaging initialized in supervisor." ;
 
-      Event.log L_info
-        "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
-        (pp_print_list pp_print_kind_module "@ - ")
-        modules ;
+    try
 
-      (* Setup messaging. *)
-      let msg_setup = Event.setup () in
+      (* Running. *)
+      let results =
+        run_loop msg_setup modules results |> Analysis.results_clean
+      in
 
-      (* Set module currently running *)
-      Event.set_module `Supervisor ;
+      (* Producing a list of the last results for each system, in topological
+         order. *)
+      get !input_sys_ref |> InputSystem.ordered_scopes_of
+      |> List.fold_left (fun l sys ->
+        try (
+          match Analysis.results_find sys results with
+          | last :: _ ->
+            (* Running post verification things. *)
+            post_verif (get !input_sys_ref) last ;
 
-      (* Initialize messaging for invariant manager, obtain a background
-         thread. No kids yet. *)
-      Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
+            last :: l
+          | [] -> assert false
+        ) with Not_found -> l
+      ) []
+      (* Logging the end of the run. *)
+      |> Event.log_run_end ;
 
-      Event.log L_trace "Messaging initialized in supervisor." ;
+      clean_exit `Supervisor (Some results) Exit
 
-      try
-
-        (* Running. *)
-        let results = run_loop msg_setup modules results in
-        (* Producing a list of the last results for each system, in topological
-           order. *)
-        get !input_sys_ref |> InputSystem.ordered_scopes_of
-        |> List.fold_left (fun l sys ->
-          try (
-            match Analysis.results_find sys results with
-            | last :: _ -> last :: l
-            | [] -> assert false
-          ) with Not_found -> l
-        ) []
-        (* Logging the end of the run. *)
-        |> Event.log_run_end ;
-
-        clean_exit `Supervisor (Some results) Exit
-
-      with e ->
-        (* Format.printf "caught exception@.@." ; *)
-        on_exit `Supervisor None e
-  )
+    with e ->
+      (* Format.printf "caught exception@.@." ; *)
+      on_exit `Supervisor None e
 
 
 (* Entry point *)

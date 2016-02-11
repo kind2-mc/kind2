@@ -336,22 +336,11 @@ let inval_arg s = invalid_arg (
   Format.sprintf "expected lustre input, got %s input" s
 )
 
-let compile_to_rust (type s): s t -> Scope.t -> string option -> unit =
+let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
 fun sys top_scope target ->
-  let target = match target with
-    | Some target -> target
-    | None -> (
-      match top_scope with
-      | name :: _ -> name
-      | _ -> failwith "could not retrieve name of top system"
-    )
-  in
   match sys with
   | Lustre (sub, _) ->
-    (* LustreToRust.oracle_to_rust target (
-      fun scope -> (S.find_subsystem sub scope).S.source
-    ) sub.S.source ; *)
-    LustreToRust.top_to_rust target (
+    LustreToRust.implem_to_rust target (
       fun scope -> (S.find_subsystem sub scope).S.source
     ) sub.S.source
   | Native _ ->
@@ -359,14 +348,17 @@ fun sys top_scope target ->
   | Horn _ ->
     Format.printf "can't compile from horn clause input: unsupported"
 
-let oracle_info_of (type s): s t -> Scope.t -> unit = fun sys scope ->
-Format.printf "looking for \"%a\"@.@." Scope.pp_print_scope scope ;
-match sys with
-| Lustre (sub, _) ->
-  Format.printf "oracle_info_of is broken right now, sorry@.@." ;
-  exit 2
-| Native _ -> inval_arg "native"
-| Horn _ -> inval_arg "horn clause"
+let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> unit =
+fun sys top_scope target ->
+  match sys with
+  | Lustre (sub, _) ->
+    LustreToRust.oracle_to_rust target (
+      fun scope -> (S.find_subsystem sub scope).S.source
+    ) sub.S.source
+  | Native _ ->
+    Format.printf "can't compile from native input: unsupported"
+  | Horn _ ->
+    Format.printf "can't compile from horn clause input: unsupported"
 
 
 

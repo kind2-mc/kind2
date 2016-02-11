@@ -57,10 +57,12 @@ val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -
 
 val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.term_or_lambda list) list * Term.t * 'a t
 
-val oracle_info_of : _ t -> Scope.t -> unit
-
 (** Compiles a system (scope) to Rust to the folder specified as a crate. *)
-val compile_to_rust : _ t -> Scope.t -> string option -> unit
+val compile_to_rust : _ t -> Scope.t -> string -> unit
+
+(** Compiles a system (scope) to Rust as an oracle to the folder specified as
+a crate. *)
+val compile_oracle_to_rust : _ t -> Scope.t -> string -> unit
 
 (* 
    Local Variables:
