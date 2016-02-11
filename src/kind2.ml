@@ -946,7 +946,7 @@ let run_testgen input_sys top =
       let target = Format.sprintf "%s/testgen" target in
       mk_dir target ;
       Event.log_uncond
-        "|===| Generating tests for node \"%a\" to `%s`."
+        "Generating tests for node \"%a\" to `%s`."
         Scope.pp_print_scope top target ;
 
       (* Extracting transition system. *)
@@ -963,7 +963,7 @@ let run_testgen input_sys top =
         TestGen.on_exit "yay" ;
         (* Generate oracle. *)
         Event.log_uncond
-          "|===| Generating oracle for node \"%a\" to `%s`."
+          "Generating oracle for node \"%a\" to `%s`."
           Scope.pp_print_scope top target ;
         InputSystem.compile_oracle_to_rust input_sys top target
       ) with e -> (
@@ -983,7 +983,7 @@ let compile_to_rust input_sys top =
     (* Implementation directory. *)
     let target = Format.sprintf "%s/implem" target in
     Event.log_uncond
-      "|===| Compiling node \"%a\" to `%s`." Scope.pp_print_scope top target ;
+      "Compiling node \"%a\" to `%s`." Scope.pp_print_scope top target ;
     InputSystem.compile_to_rust input_sys top target
   )
 

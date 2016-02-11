@@ -271,15 +271,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> unit
   (* Memorizing solver for clean exit. *)
   solver_ref := Some solver ;
 
-  (* Retrieve the name of the transition system. *)
-  let sys_name =
-    TSys.scope_of_trans_sys sys
-    |> Format.asprintf "%a" Scope.pp_print_scope
-  in
-
-  let root =
-    Format.sprintf "%s/%s" target sys_name
-  in
+  let root = target in
 
   (* Creating system directory if needed. *)
   mk_dir root ;
