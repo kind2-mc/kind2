@@ -30,6 +30,24 @@ module SVS = StateVar.StateVarSet
 (* Name of the parsing functions in the rust [parse] module. *)
 let parse_bool_fun, parse_int_fun, parse_real_fun = "bool", "int", "real"
 
+(* Formatter for types as rust expressions. *)
+let fmt_type fmt t = match Type.node_of_type t with
+| Type.Bool -> Format.fprintf fmt "Bool"
+| Type.Int
+| Type.IntRange _ -> Format.fprintf fmt "Int"
+| Type.Real -> Format.fprintf fmt "Real"
+| _ ->
+  Format.asprintf "type %a is not supported" Type.pp_print_type t
+  |> failwith
+
+
+(* Unsafe string representation of an ident, used for rust identifiers. *)
+let mk_id_legal = Id.string_of_ident false
+
+(* Same as [mk_id_legal] but capitalizes the first letter to fit rust
+conventions for type naming. *)
+let mk_id_type id = mk_id_legal id |> String.capitalize
+
 (* Crate documentation for implementation, lint attributes. *)
 let fmt_prefix blah name fmt typ = Format.fprintf fmt "\
 //! %s for lustre node `%s` (see [%s](struct.%s.html)).
@@ -53,34 +71,16 @@ let fmt_prefix_implem = fmt_prefix "Implementation"
 let fmt_prefix_oracle = fmt_prefix "Oracle"
 
 (* Crate entry point. *)
-let fmt_main fmt typ = Format.fprintf fmt "\
+let fmt_main fmt () = Format.fprintf fmt "\
 /// Entry point.
 fn main() {
-  use std::process::exit ;
-  clap() ;
-  let mut reader = InputReader::mk() ;
-  let mut state = match %s::read_init(& mut reader) {
-    Ok(init) => init,
-    Err(e) => {
-      println!(\"(Error: {})\", e) ;
-      exit(2)
-    },
-  } ;
-  loop {
-    match state.read_next(& mut reader) {
-      Ok(next) => state = next,
-      Err(e) => {
-        println!(\"(Error: {})\", e) ;
-        exit(2)
-      },
-    }
-  }
+  clap_and_run()
 }
-" typ
+"
 
 (* Helpers modules: cla parsing, types, traits for systems and stdin
 parsing. *)
-let file_static = Format.sprintf "\
+let fmt_helpers fmt systems = Format.fprintf fmt "\
 /// Types and structures for systems.
 pub mod helpers {
   use std::io::{ Stdin, stdin } ;
@@ -91,10 +91,15 @@ pub mod helpers {
     println!(\"\") ;
     println!(\"\\
 Options:
-  -h, --help   | prints this message
+  -h, --help
+    prints this message@.  \
+  @[<v>%a@]
 Usage:
-  Inputs  are  read   as comma separated values on a single line.
-  Outputs are printed as comma separated values on a single line.\\
+  Inputs (outputs) are read (printed) as comma-separated values on a single
+  line.
+  The read-eval-print loop runs forever, write \\\"exit\\\" or \\\"quit\\\"
+  to exit it cleanly.
+Default system: \\\"%s\\\".\\
     \") ;
     println!(\"\")
   }
@@ -108,7 +113,7 @@ Usage:
   }
 
   /// Handles CLA.
-  pub fn clap() {
+  pub fn clap_and_run() {
     use std::env::args ;
     let mut args = args() ;
     // Skipping first argument (name of binary).
@@ -121,24 +126,15 @@ Usage:
         \"-h\" | \"--help\" => {
           help() ;
           exit(0)
-        },
-        // \"-s\" | \"--source\" => {
-        //   println!(\"{}\", super::source) ;
-        //   exit(0)
-        // },
-        // \"-t\" | \"--type\" => {
-        //   println!(\"{}\", super::top_sig) ;
-        //   exit(0)
-        // },
-        // \"-n\" | \"--name\" => {
-        //   println!(\"{}\", super::name) ;
-        //   exit(0)
-        // },
+        },\
+@.        @[<v>%a@]
         arg => error(
           format!(\"unexpected argument \\\"{}\\\".\", arg)
         ),
       }
-    }
+    } ;
+    // If no argument given, run top system.
+    super::%s::run()
   }
 
   /// Alias for `i64`.
@@ -185,6 +181,12 @@ Usage:
           _ => buff.push(c),
         }
       } ;
+      if vec.len() > 1 {
+        match vec[0].trim() {
+          \"exit\" | \"quit\" => exit(0),
+          _ => ()
+        }
+      } ;
       Ok(vec)
     }
   }
@@ -229,6 +231,26 @@ Usage:
     fn output(& self) -> Self::Output ;
     /// String representation of the output.
     fn output_str(& self) -> String ;
+    /// Runs a never-ending, read-eval-print loop on the system.
+    fn run() -> ! {
+      let mut reader = InputReader::mk() ;
+      let mut state = match Self::read_init(& mut reader) {
+        Ok(init) => init,
+        Err(e) => {
+          println!(\"(Error: {})\", e) ;
+          exit(2)
+        }
+      } ;
+      loop {
+        match state.read_next(& mut reader) {
+          Ok(next) => state = next,
+          Err(e) => {
+            println!(\"(Error: {})\", e) ;
+            exit(2)
+          }
+        }
+      }
+    }
   }
 }
 
@@ -271,7 +293,48 @@ pub mod parse {
     generic(s, |s| Real::from_str(s), \"a real\")
   }
 }
-" parse_bool_fun parse_int_fun parse_real_fun
+"
+(pp_print_list
+  ( fun fmt { N.name ; N.inputs ; N.outputs } ->
+      Format.fprintf fmt "\
+        --%s@   @[<v>\
+          inputs:  @[<v>%a@]@ \
+          outputs: @[<v>%a@]\
+        @]\
+      "
+      (mk_id_legal name |> String.lowercase)
+      ( pp_print_list
+        ( fun fmt (_, svar) ->
+            Format.fprintf fmt "%a (%s)"
+              fmt_type (SVar.type_of_state_var svar)
+              (SVar.name_of_state_var svar)
+        )
+        "@ "
+      ) (I.bindings inputs)
+      ( pp_print_list
+        ( fun fmt (_, svar) ->
+            Format.fprintf fmt "%a (%s)"
+              fmt_type (SVar.type_of_state_var svar)
+              (SVar.name_of_state_var svar)
+        )
+        "@ "
+      ) (I.bindings outputs)
+  ) "@ "
+) systems
+( match List.rev systems with
+  | { N.name } :: _ -> mk_id_legal name |> String.lowercase
+  | _ -> failwith "Can't generate helpers, no top system to print." )
+(pp_print_list
+  ( fun fmt { N.name } ->
+      Format.fprintf fmt "\"--%s\" => super::%s::run(),"
+        (mk_id_legal name |> String.lowercase)
+        (mk_id_type name)
+  ) "@ "
+) systems
+( match List.rev systems with
+  | { N.name } :: _ -> mk_id_type name
+  | _ -> failwith "Can't generate helpers, no top system to print." )
+parse_bool_fun parse_int_fun parse_real_fun
 
 (* Continuation type for the term-to-Rust printer.
 Used to specify what should happen after the next step. *)
@@ -446,18 +509,6 @@ and fmt_term_up svar_pref fmt = function
 let fmt_term svar_pref = fmt_term_down svar_pref []
 
 
-
-
-(* Formatter for types as rust expressions. *)
-let fmt_type fmt t = match Type.node_of_type t with
-| Type.Bool -> Format.fprintf fmt "Bool"
-| Type.Int
-| Type.IntRange _ -> Format.fprintf fmt "Int"
-| Type.Real -> Format.fprintf fmt "Real"
-| _ ->
-  Format.asprintf "type %a is not supported" Type.pp_print_type t
-  |> failwith
-
 (* Rust-level parsing function for a type. *)
 let parser_for t = match Type.node_of_type t with
 | Type.Bool -> parse_bool_fun
@@ -467,14 +518,6 @@ let parser_for t = match Type.node_of_type t with
 | _ ->
   Format.asprintf "type %a is not supported" Type.pp_print_type t
   |> failwith
-
-
-(* Unsafe string representation of an ident, used for rust identifiers. *)
-let mk_id_legal = Id.string_of_ident false
-
-(* Same as [mk_id_legal] but capitalizes the first letter to fit rust
-conventions for type naming. *)
-let mk_id_type id = mk_id_legal id |> String.capitalize
 
 (* Prefix for all state variables. *)
 let svar_pref = "svar_"
@@ -1269,17 +1312,18 @@ let node_to_rust oracle_info is_top fmt (
   )
 
 (* Dumps the default [Cargo.toml] file in a directory. *)
-let dump_toml name dir =
+let dump_toml is_oracle name dir =
   let out_channel = Format.sprintf "%s/Cargo.toml" dir |> open_out in
   let fmt = Format.formatter_of_out_channel out_channel in
   Format.fprintf fmt
     "\
       [package]@.\
-      name = \"%s\"@.\
+      name = \"%s_%s\"@.\
       version = \"1.0.0\"@.\
       authors = [\"Kind 2 <cesare-tinelli@uiowa.edu>\"]@.\
     "
-    name ;
+    name
+    (if is_oracle then "oracle" else "implem") ;
   close_out out_channel
 
 let to_rust oracle_info target find_sub top =
@@ -1290,7 +1334,7 @@ let to_rust oracle_info target find_sub top =
   let src_dir = Format.sprintf "%s/src" target in
   mk_dir src_dir ;
   (* Dump toml configuration file. *)
-  dump_toml top_name target ;
+  dump_toml (oracle_info <> None) top_name target ;
   (* Opening writer to file. *)
   let file = Format.sprintf "%s/main.rs" src_dir in
   let out_channel = open_out file in
@@ -1299,24 +1343,24 @@ let to_rust oracle_info target find_sub top =
 
   (* Write prefix and static stuff. *)
   Format.fprintf
-    fmt "%a@.%a@.@.%s@.@."
+    fmt "%a@.%a@.@."
     ( match oracle_info with
       | None -> fmt_prefix_implem top_name
       | _    -> fmt_prefix_oracle top_name
     ) top_type
-    fmt_main top_type
-    (* (consts "unimplemented" "unimplemented" "unimplemented") *)
-    file_static ;
+    fmt_main ()
+    (* (consts "unimplemented" "unimplemented" "unimplemented") *) ;
 
-  let rec compile is_top compiled = function
+  let rec compile is_top systems compiled = function
     | node :: nodes ->
-      let compiled, nodes =
+      let systems, compiled, nodes =
         if Id.Set.mem node.N.name compiled |> not then (
           (* Oracle info only makes sense for the top node. *)
           let oracle_info = if not is_top then None else oracle_info in
           (* Remembering we compiled this node. *)
           let compiled = Id.Set.add node.N.name compiled in
           
+          node :: systems,
           compiled,
           nodes @ (
             (* Compiling nodes, getting subnodes back. *)
@@ -1327,16 +1371,19 @@ let to_rust oracle_info target find_sub top =
               then (Id.to_scope call_id |> find_sub) :: l else l
             ) []
           )
-        ) else compiled, nodes
+        ) else systems, compiled, nodes
       in
-      compile false compiled nodes
-    | [] -> ()
+      compile false systems compiled nodes
+    | [] -> systems
   in
 
-  compile true Id.Set.empty [ top ] ;
+  let systems = compile true [] Id.Set.empty [ top ] in
 
 
   Format.fprintf fmt "@.@." ;
+
+
+  Format.fprintf fmt "%a@.@." fmt_helpers systems ;
 
   (* Flush and close file writer. *)
   close_out out_channel

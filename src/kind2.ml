@@ -983,8 +983,10 @@ let compile_to_rust input_sys top =
     (* Implementation directory. *)
     let target = Format.sprintf "%s/implem" target in
     Event.log_uncond
-      "Compiling node \"%a\" to `%s`." Scope.pp_print_scope top target ;
-    InputSystem.compile_to_rust input_sys top target
+      "Compiling node \"%a\" to `%s`..." Scope.pp_print_scope top target ;
+    InputSystem.compile_to_rust input_sys top target ;
+    Event.log_uncond
+      "Success."
   )
 
 (* Runs test generation and compilation if asked to. *)
