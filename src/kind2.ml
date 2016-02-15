@@ -998,8 +998,13 @@ let rec run_loop msg_setup modules results =
     if List.exists
         (function | _, Property.PropInvariant _ -> true | _ -> false)
         (TransSys.get_prop_status_all_nocands trans_sys)
-    then
-      CertifChecker.generate_all_certificates input_sys trans_sys;
+    then begin
+      if Flags.proof () then
+        CertifChecker.generate_all_proofs input_sys trans_sys
+      else
+        CertifChecker.generate_smt2_certificates input_sys trans_sys
+    end;
+  
    
   let results = Analysis.results_add result results in
 

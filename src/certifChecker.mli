@@ -30,5 +30,10 @@ val generate_certificate : TransSys.t -> string -> unit
 (* val generate_frontend_obs : 'a InputSystem.t -> TransSys.t -> string -> unit *)
 
 
-(** Generate all certificates in the directory given by {!Flags.certif_dir}. *)
-val generate_all_certificates : 'a InputSystem.t -> TransSys.t -> unit
+(** Generate intermediate SMT-LIB 2 certificates in the directory given by
+    {!Flags.certif_dir}. *)
+val generate_smt2_certificates : 'a InputSystem.t -> TransSys.t -> unit
+
+
+(** Generate LFSC proofs in the directory given by {!Flags.certif_dir}. *)
+val generate_all_proofs : 'a InputSystem.t -> TransSys.t -> unit

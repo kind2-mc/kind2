@@ -278,6 +278,12 @@ let smt_trace_dir_default = Sys.getcwd ()
 
 (* ********** *) 
 
+type proof = bool
+
+let proof_default = false
+
+(* ********** *) 
+
 type certif = bool
 
 let certif_default = false
@@ -826,6 +832,7 @@ type flags =
     mutable debug_log : string option;
     mutable log_level : log_level;
     mutable log_format_xml : bool;
+    mutable proof : proof;
     mutable certif : certif;
     mutable certif_force : certif_force;
     mutable certif_min : certif_min;
@@ -903,6 +910,7 @@ let flags =
     debug_log = debug_log_default;
     log_level = log_level_default;
     log_format_xml = log_format_xml_default;
+    proof = proof_default;
     certif = certif_default;
     certif_force = certif_force_default;
     certif_min = certif_min_default;
@@ -1069,6 +1077,18 @@ let dump_dir_spec =
 
 (* ********** *) 
 
+let proof_action o =
+  flags.certif <- true;
+  flags.proof <- true;
+  flags.smt_short_names <- false
+  
+let proof_spec = 
+  ("--proof", 
+   Arg.Unit proof_action, 
+   Format.sprintf "Produce LFSC proofs")
+
+(* ********** *) 
+
 let certif_action o =
   flags.certif <- true;
   flags.smt_short_names <- false
@@ -1076,7 +1096,7 @@ let certif_action o =
 let certif_spec = 
   ("--certif", 
    Arg.Unit certif_action, 
-   Format.sprintf "Produce certificate")
+   Format.sprintf "Produce intermediate SMT-LIB 2 certificate")
 
 (* ********** *) 
 
@@ -1725,6 +1745,8 @@ let smt_trace () = flags.smt_trace
 
 let smt_trace_dir () = flags.smt_trace_dir
 
+let proof () = flags.proof
+
 let certif () = flags.certif
 
 let certif_force () = flags.certif_force
@@ -1925,6 +1947,9 @@ and speclist =
 
     (* Directory for  trace logs of SMT commands *)
     smt_trace_dir_spec;
+
+    (* Produce proofs *)
+    proof_spec;
 
     (* Produce certificates *)
     certif_spec;

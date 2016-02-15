@@ -287,6 +287,10 @@ val interpreter_input_file : unit -> interpreter_input_file
 type interpreter_steps = int
 val interpreter_steps : unit -> interpreter_steps
 
+(** Produce LFSC proofs *)
+type proof = bool
+val proof : unit -> proof
+
 (** Produce certificates *)
 type certif = bool
 val certif : unit -> certif
