@@ -972,8 +972,7 @@ let add_system_header fmt prefix sys =
   fprintf fmt "@."
 
 
-(* Populate the headers of the certificate *)
-let add_header fmt sys k init_n prop_n trans_n phi_n =
+let add_logic fmt sys = 
 
   (* Extract the logic of the system and add uninterpreted functions and
      integer arithmetic to it (because of implicit unrolling for state
@@ -988,6 +987,14 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
         |> (if quant_free then Lib.identity else FeatureSet.add Q)
       )
   in
+  (* Specify logic to help some solvers check the certificate *)
+  match logic with
+  | `None -> ()
+  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic 
+
+
+(* Populate the headers of the certificate *)
+let add_header fmt sys k init_n prop_n trans_n phi_n =
 
   (* Origin of the certificate: Kind 2 version *)
   set_info fmt "origin"
@@ -1012,10 +1019,7 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
   set_info fmt "certif" (sprintf "\"(%d , %s)\"" k phi_n);
   fprintf fmt "@.";
 
-  (* Specify logic to help some solvers check the certificate *)
-  match logic with
-  | `None -> ()
-  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic 
+  add_logic fmt sys
 
 
 (* Populate the headers of the certificate *)
@@ -1436,7 +1440,9 @@ let mononames_base_check sys dirname file definitions_files k names =
   let filename = Filename.concat dirname file in
 
   let od = files_cat_open
-      ~add_prefix:(fun fmt -> add_decl_index fmt k)
+      ~add_prefix:(fun fmt ->
+          add_logic fmt sys;
+          add_decl_index fmt k)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
   let fmt = formatter_of_out_channel oc in
@@ -1473,14 +1479,16 @@ let mononames_induction_check sys dirname file definitions_files k names =
   let filename = Filename.concat dirname file in
 
   let od = files_cat_open
-      ~add_prefix:(fun fmt -> add_decl_index fmt k)
+      ~add_prefix:(fun fmt ->
+          add_logic fmt sys;
+          add_decl_index fmt k)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
   let fmt = formatter_of_out_channel oc in
   Format.pp_set_margin fmt file_width;
     
   (* Checking k-inductive case *)
-  add_section fmt (sprintf "%d-Inductiveness" k);
+  add_section fmt (sprintf "%d-Inductiveness" k);    
 
   (* unroll k times*)
   let l = ref [] in
@@ -1506,7 +1514,9 @@ let mononames_implication_check sys dirname file definitions_files names =
   let filename = Filename.concat dirname file in
 
   let od = files_cat_open
-      ~add_prefix:(fun fmt -> add_decl_index fmt (-1))
+      ~add_prefix:(fun fmt ->
+          add_logic fmt sys;
+          add_decl_index fmt (-1))
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
   let fmt = formatter_of_out_channel oc in
@@ -1514,6 +1524,7 @@ let mononames_implication_check sys dirname file definitions_files names =
   
   (* Checking implication of indutive invariant to original properties *)
   add_section fmt "Property implication";
+    
 
   let v = "%%k" in
   fprintf fmt "(declare-fun %s () %s)\n@." v ty_index_name;
