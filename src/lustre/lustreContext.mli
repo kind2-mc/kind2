@@ -35,7 +35,17 @@ exception Node_or_function_not_found of LustreIdent.t * Lib.position
 (** Create an initial empty context. *)
 val mk_empty_context : unit -> t
 
-val pp_print_scope : Format.formatter -> t -> unit
+(** Sets the flag indicating there are unguarded pre's in the lustre code, and
+we need to guard them. *)
+val set_guard_flag : t -> bool -> t
+
+(** Resets the flag indicating there are unguarded pre's in the lustre code,
+and we need to guard them. *)
+val reset_guard_flag : t -> t
+
+(** The value of the flag indicating there are unguarded pre's in the lustre
+code, and we need to guard them. *)
+val guard_flag : t -> bool
 
 (** Add scope to context
 
@@ -178,7 +188,7 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
     variable was previously created for the same expression but with different
     flags, a new state variable is created. *)
 val mk_local_for_expr :
-  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?is_ghost:bool -> ?reuse:bool ->
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?is_ghost:bool ->
   ?original:LustreAst.expr -> Lib.position ->
   t -> LustreExpr.t -> StateVar.t * t
 

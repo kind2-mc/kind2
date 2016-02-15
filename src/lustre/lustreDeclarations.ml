@@ -755,6 +755,8 @@ let rec eval_node_equations ctx = function
 
   (* Assertion *)
   | A.Assert (pos, ast_expr) :: tl -> 
+    (* report unguarded pre *)
+    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
 
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
@@ -762,6 +764,8 @@ let rec eval_node_equations ctx = function
       |> C.close_expr ~original:ast_expr pos
     in
 
+    let ctx = C.reset_guard_flag ctx in
+    
     (* Add assertion to node *)
     let ctx = C.add_node_assert ctx expr in
 
@@ -770,13 +774,17 @@ let rec eval_node_equations ctx = function
 
   (* Property annotation *)
   | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
-    
+    (* report unguarded pre *)
+    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
       S.eval_bool_ast_expr ctx pos ast_expr 
       |> C.close_expr ~original:ast_expr pos
     in
 
+    let ctx = C.reset_guard_flag ctx in
+    
     let name = match name_opt with
       | Some n -> n
       | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
@@ -810,14 +818,14 @@ let rec eval_node_equations ctx = function
        for right-hand side *)
     let eq_lhs, indexes, ctx = eval_eq_lhs ctx pos lhs in
 
-    (* Evaluate expression on right-hand side *)
-    let eq_rhs, ctx = 
+    (* report unguarded pre *)
+    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+    
+    (* Evaluate expression on right-hand side in extended context *)
+    let eq_rhs, ctx = S.eval_ast_expr ctx ast_expr in
 
-      (* Evaluate in extended context *)
-      S.eval_ast_expr ctx ast_expr 
-
-    in
-
+    let ctx = C.reset_guard_flag ctx in
+    
     (* Close each expression by guarding all pre operators separately *)
     let eq_rhs, ctx = 
       D.fold 

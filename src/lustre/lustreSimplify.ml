@@ -330,11 +330,12 @@ let rec eval_ast_expr ctx = function
 
            (* Apply pre operator to expression, abstract non-variable term
               and DO NOT re-use previous variables *)
-           let expr', ctx = 
+           let expr', ctx =
              E.mk_pre
-               (C.mk_local_for_expr ~reuse:false ~original pos)
-               ctx
-               expr 
+              (C.mk_local_for_expr ~original pos)
+              ctx
+              (C.guard_flag ctx)
+              expr
            in
            
            (D.add index expr' accum, ctx))
