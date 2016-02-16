@@ -16,11 +16,17 @@
 
 *)
 
+(** The file to store the LFSC proof of the properties. *)
 val proofname : string
 
+(** The file to store the LFSC proof the frontend *)
 val frontend_proofname : string
 
-
+(** Generate the LFSC proof of invariance for the original properties and write
+    it in the file [!proofname]. *)
 val generate_inv_proof : Certificate.invariant -> unit
 
+(** Generate the LFSC proof of safey by producing an intermediate proofs of
+    observational equivalence for the frontend. The proof is written in the file
+    [!frontend_proofname]. *)
 val generate_frontend_proof : Certificate.invariant -> unit
