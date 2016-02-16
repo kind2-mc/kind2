@@ -42,7 +42,7 @@ let on_exit trans_sys =
   try 
     
     (* Send termination message to all worker processes *)
-    Event.terminate ();
+    Event.terminate () ;
 
   (* Skip if running as a single process *)
   with Messaging.NotInitialized -> ()

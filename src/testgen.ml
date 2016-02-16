@@ -307,12 +307,12 @@ let oracle_of_nodes out_dir nodes =
 
   let (top, subs) = last_rev_tail [] nodes in
 
-(*   Format.printf "@[<v>top: %a@,subs:@,  @[<v>%a@]@]"
+  Format.printf "@[<v>top: %a@,subs:@,  @[<v>%a@]@]@.@."
     (LustreIdent.pp_print_ident false) top.N.name
     (pp_print_list (fun ppf n ->
       Format.fprintf
         ppf "%a" (LustreIdent.pp_print_ident false) n.N.name
-    ) "@,") subs ; *)
+    ) "@,") subs ;
 
   let mk_and = function
     | [] -> LustreExpr.t_true
@@ -543,6 +543,7 @@ let oracle_of_nodes out_dir nodes =
 
 
 let generate_oracle out_dir sys =
+  Format.printf "generating oracle@.@." ;
   match TransSys.get_source sys with
   | TransSys.Lustre nodes ->
     let out_dir = out_dir ^ "/" ^ oracle_dir in
@@ -550,7 +551,7 @@ let generate_oracle out_dir sys =
     oracle_of_nodes out_dir nodes
   | TransSys.Native ->
     Format.asprintf
-      "Cannot generate oracle for %a: native source is unsupported."
+      "Cannot generate oracle for %a: native input is unsupported."
       TransSys.pp_print_trans_sys_name sys
     |> failwith
 

@@ -44,6 +44,9 @@ val true_of_any : 'a -> bool
 (** Return false *)
 val false_of_any : 'a -> bool
 
+(* Creates a directory if it does not already exist. *)
+val mk_dir : string -> unit
+
 
 (** {1 Event tags} *)
 

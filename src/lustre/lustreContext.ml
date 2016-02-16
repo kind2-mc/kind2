@@ -73,77 +73,83 @@ exception Node_or_function_not_found of I.t * position
 
 (* Context for typing, flattening of indexed types and constant
    propagation *)
-type t = 
+type t = { 
 
-  { 
+  (* Scope of context *)
+  scope : string list ;
 
-    (* Scope of context *)
-    scope : string list;
+  (* Contract scope of the context. *)
+  contract_scope: string list ;
 
-    (* Definitions for node so far *)
-    node : N.t option;
+  (* Definitions for node so far *)
+  node : N.t option;
 
-    (* Visible nodes *)
-    nodes : N.t list;
+  (* Visible nodes *)
+  nodes : N.t list;
 
-    (* Definitions for function so far *)
-    func : F.t option;
+  (* Definitions for function so far *)
+  func : F.t option;
 
-    (* Visible function *)
-    funcs : F.t list;
+  (* Visible function *)
+  funcs : F.t list;
 
-    (* Node dependencies *)
-    deps : I.Set.t I.Map.t;
+  (* Node dependencies *)
+  deps : I.Set.t I.Map.t;
 
-    (* Visible contract nodes *)
-    contract_nodes : (position * A.contract_node_decl) list;
+  (* Visible contract nodes *)
+  contract_nodes : (position * A.contract_node_decl) list;
 
-    (* Type identifiers and their types and bounds of their indexes *)
-    ident_type_map : (Type.t D.t) IT.t;
+  (* Type identifiers and their types and bounds of their indexes *)
+  ident_type_map : (Type.t D.t) IT.t;
 
-    (* Identifiers and the expresssions they are bound to
+  (* Identifiers and the expresssions they are bound to
 
-       Contains a term of a variable if the identifier denotes a
-       stream, and a term of an expression if the identifier denotes a
-       constant. Equational definitions are not stored here, this is
-       for constant propagation only. *)
-    ident_expr_map : (E.t D.t) IT.t list;
+     Contains a term of a variable if the identifier denotes a
+     stream, and a term of an expression if the identifier denotes a
+     constant. Equational definitions are not stored here, this is
+     for constant propagation only. *)
+  ident_expr_map : (E.t D.t) IT.t list;
 
-    (* Map from expressions to state variables abstracting them
+  (* Map from expressions to state variables abstracting them
 
-       This map may contain for the same expression several state
-       variables with different properties (is_const, is_input,
-       for_inv_gen). 
+     This map may contain for the same expression several state
+     variables with different properties (is_const, is_input,
+     for_inv_gen). 
 
-       The most recent binding shadows earlier ones, use ET.find_all
-       instead of ET.find. A ET.fold will return all bindings to an
-       expression. (Thus turning an annoyance of OCaml into our
-       advantage.) *)
-    expr_state_var_map : StateVar.t ET.t;
+     The most recent binding shadows earlier ones, use ET.find_all
+     instead of ET.find. A ET.fold will return all bindings to an
+     expression. (Thus turning an annoyance of OCaml into our
+     advantage.) *)
+  expr_state_var_map : StateVar.t ET.t;
 
-    (* Map from state variables to state variables providing a
-       non-deterministic pre-initial value *)
-    state_var_oracle_map : StateVar.t SVT.t;
+  (* Map from state variables to state variables providing a
+     non-deterministic pre-initial value *)
+  state_var_oracle_map : StateVar.t SVT.t;
 
-    (* Index to use for next fresh state variable *)
-    fresh_local_index : int;
+  (* Index to use for next fresh state variable *)
+  fresh_local_index : int;
 
-    (* Index to use for next fresh oracle state variable *)
-    fresh_oracle_index : int;
+  (* Index to use for next fresh oracle state variable *)
+  fresh_oracle_index : int;
 
-    (* [None] if definitions are allowed, otherwise a pair of a
-       message and a position to raise an error with. *)
-    definitions_allowed : (Lib.position * string) option;
+  (* [None] if definitions are allowed, otherwise a pair of a
+     message and a position to raise an error with. *)
+  definitions_allowed : (Lib.position * string) option;
 
-    (* saving local variables positions and their luster identifiers for error
-       reporting *)
-    locals_info : (StateVar.t * I.t * Lib.position) list;
+  (* saving local variables positions and their luster identifiers for error
+     reporting *)
+  locals_info : (StateVar.t * I.t * Lib.position) list;
 
-    (* say if we need to guard pres *)
-    guard_pre : bool;
-    
-  }
+  (* Indicates there are unguarded pre's in the lustre code and we need to
+  guard them. *)
+  guard_pre : bool;
 
+}
+
+let pp_print_scope fmt { scope ; contract_scope } =
+  Format.fprintf fmt "%a (%a)"
+    (pp_print_list Format.pp_print_string ", ") scope
+    (pp_print_list Format.pp_print_string ", ") contract_scope
 
 (* Create an initial empty context 
 
@@ -152,6 +158,7 @@ type t =
 let mk_empty_context () = 
 
   { scope = [];
+    contract_scope = [];
     node = None;
     nodes = [];
     func = None;
@@ -240,29 +247,47 @@ let scope_of_context ({ scope } as ctx) =
 
 
 (* Add scope to context *)
-let push_scope 
-    ({ scope; 
-       ident_expr_map;
-       fresh_local_index;
-       fresh_oracle_index } as ctx) 
-    ident = 
+let push_scope ({
+  scope ; ident_expr_map
+} as ctx) ident = { ctx with 
+  scope = ident :: scope ;
+  ident_expr_map = IT.create 7 :: ident_expr_map ;
+}
 
-  { ctx with 
-      scope = ident :: scope;
-      ident_expr_map = IT.create 7 :: ident_expr_map; }
+(* Add contract scope to context *)
+let push_contract_scope ({
+  contract_scope ; ident_expr_map ; fresh_local_index ; fresh_oracle_index
+} as ctx) ident = { ctx with 
+  contract_scope = ident :: contract_scope;
+  ident_expr_map = IT.create 7 :: ident_expr_map;
+}
 
 
 (* Remove scope from context *)
 let pop_scope = function
+(* fail if at top scope *)
+| { scope = [] } 
+| { ident_expr_map = [] } -> raise (Invalid_argument "pop_scope")
+(* Return context with first scope removed *)
+| { scope = _ :: scope; ident_expr_map = _ :: ident_expr_map } as ctx -> {
+  ctx with scope ; ident_expr_map
+}
 
-  (* fail if at top scope *)
-  | { scope = [] } 
-  | { ident_expr_map = [] } -> raise (Invalid_argument "pop_scope")
+(* Remove contract scope from context *)
+let pop_contract_scope = function
+(* fail if at top scope *)
+| { contract_scope = [] } 
+| { ident_expr_map = [] } -> raise (Invalid_argument "pop_scope")
+(* Return context with first scope removed *)
+| {
+  contract_scope = _ :: contract_scope ;
+  ident_expr_map = _ :: ident_expr_map ;
+} as ctx -> { ctx with
+  contract_scope ; ident_expr_map
+}
 
-  (* Return context with first scope removed *)
-  | { scope = _ :: scope; ident_expr_map = _ :: ident_expr_map } as ctx -> 
-
-    { ctx with scope; ident_expr_map }
+(* Contract scope of a context. *)
+let contract_scope_of { contract_scope } = contract_scope
 
 
 (* Create an empty node in the context *)
@@ -963,7 +988,7 @@ let mk_local_for_expr
     ?is_input
     ?is_const
     ?for_inv_gen
-    ?reuse
+    ?(is_ghost=false)
     ?original
     pos
     ({ node; 
@@ -986,17 +1011,26 @@ let mk_local_for_expr
         | None -> raise (Invalid_argument "mk_local_for_expr")
 
         (* Add to locals *)
-        | Some _ ->
+        | Some node ->
 
           (* Guard unguarded pres before adding definition *)
           let expr', ctx = close_expr ?original pos (expr, ctx) in
-
+          
           (* Define the expresssion with a fresh state variable *)
           let state_var, ctx =
             mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen
               (* ?reuse *)
               ~reuse:(not ctx.guard_pre)
-              ctx add_state_var_to_locals expr' in
+              ctx add_state_var_to_locals expr'
+          in
+
+          let ctx =
+            if is_ghost then { ctx with
+              node = Some (
+                N.set_state_var_source node state_var N.Ghost
+              )
+            } else ctx
+          in
 
           (* Return variable and changed context *)
           (state_var, ctx)

@@ -18,9 +18,6 @@
 
 open Lib
 
-(** Creates a new directory if it does not yet exist. *)
-val mk_dir: string -> unit
-
 
 (** Stores IO things to log testcases to xml. *)
 type _ t
@@ -58,7 +55,7 @@ val log_deadlock: 'a t -> string list list -> Model.t -> Numeral.t -> unit
 
    Returns the path to the oracle. *)
 val generate_oracles: TransSys.t -> string -> (
-  (LustreIdent.t * LustreExpr.t) list
+  TestgenModes.mode list
 ) -> string
 
 

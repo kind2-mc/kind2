@@ -35,10 +35,16 @@ exception Node_or_function_not_found of LustreIdent.t * Lib.position
 (** Create an initial empty context. *)
 val mk_empty_context : unit -> t
 
+(** Sets the flag indicating there are unguarded pre's in the lustre code, and
+we need to guard them. *)
 val set_guard_flag : t -> bool -> t
 
+(** Resets the flag indicating there are unguarded pre's in the lustre code,
+and we need to guard them. *)
 val reset_guard_flag : t -> t
 
+(** The value of the flag indicating there are unguarded pre's in the lustre
+code, and we need to guard them. *)
 val guard_flag : t -> bool
 
 (** Add scope to context
@@ -49,6 +55,18 @@ val push_scope : t -> string -> t
 
 (** Remove topmost scope from context *)
 val pop_scope : t -> t
+
+(** Add contract scope to context.
+
+    Contract scopes are used for scoping of mode references and ghost
+    variables. *)
+val push_contract_scope : t -> string -> t
+
+(** Remove topmost contract scope from context *)
+val pop_contract_scope : t -> t
+
+(** The contract scope of a context. *)
+val contract_scope_of : t -> string list
 
 (** Return a copy of the context with an empty node of the given name
     in the context *)
@@ -170,7 +188,7 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
     variable was previously created for the same expression but with different
     flags, a new state variable is created. *)
 val mk_local_for_expr :
-  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?reuse:bool ->
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?is_ghost:bool ->
   ?original:LustreAst.expr -> Lib.position ->
   t -> LustreExpr.t -> StateVar.t * t
 

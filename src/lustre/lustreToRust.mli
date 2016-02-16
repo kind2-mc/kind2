@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,17 +16,15 @@
 
 *)
 
-open Lib
+(** Compilation from [LustreNode.t] to Rust. *)
 
-(** Entry point. *)
-val main : Analysis.param -> _ InputSystem.t -> TransSys.t -> string -> unit
 
-(** Clean exit. *)
-val on_exit: 'a -> unit
 
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   indent-tabs-mode: nil
-   End: 
-*)
+(** Compiles a lustre node to Rust as a project in the directory given as first
+argument. *)
+val implem_to_rust :
+   string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> unit
+
+(** Compiles a lustre node as an oracle. *)
+val oracle_to_rust:
+   string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> unit

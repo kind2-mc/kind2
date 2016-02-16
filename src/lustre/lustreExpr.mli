@@ -348,8 +348,8 @@ val mk_arrow : t -> t -> t
     and the expression. Then return an expression of the fresh state variable
     and the changed context.
 
-    [b] is used to denote that we're in a context where there are unguarded pre
-    and so we should always introduce fresh intermediate variables.  *)
+    [b] is used to denote that we're in a context where there are unguarded
+    pres and so we should always introduce fresh intermediate variables. *)
 val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> bool -> t -> t * 'a
 
 (** Select from an array *)

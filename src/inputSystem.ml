@@ -20,6 +20,9 @@ open Lib
 
 module Strat = Strategy
 module S = SubSystem
+module Lus = LustreNode
+
+module SVM = StateVar.StateVarMap
 
 type _ t =
 | Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
@@ -150,8 +153,6 @@ let next_analysis_of_strategy (type s)
       scope, has_contract, has_modes
     )
     |> Strategy.next_analysis results subs_of_scope
-    |> fun res ->
-      res
   )
 
   | Native subsystem -> (function _ -> assert false)
@@ -309,19 +310,19 @@ let slice_to_abstraction_and_property
     (* Slice Lustre subnode to property term *)
     | Lustre (subsystem, globals) ->
 
-     let vars = match prop'.Property.prop_source with
-      | Property.Assumption _ ->
-        TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
-      | _ ->
-        Term.state_vars_of_term prop'.Property.prop_term
-    in
+      let vars = match prop'.Property.prop_source with
+        | Property.Assumption _ ->
+          TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
+        | _ ->
+          Term.state_vars_of_term prop'.Property.prop_term
+      in
 
-     let subsystem', globals' = 
-       LustreSlicing.slice_to_abstraction_and_property
-         analysis' vars subsystem globals
-     in
+      let subsystem', globals' = 
+        LustreSlicing.slice_to_abstraction_and_property
+          analysis' vars subsystem globals
+      in
 
-     Lustre (subsystem', globals')
+      Lustre (subsystem', globals')
 
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
@@ -329,6 +330,35 @@ let slice_to_abstraction_and_property
     (* No slicing in Horn input *)
     | Horn subsystem -> Horn subsystem
   )
+
+
+let inval_arg s = invalid_arg (
+  Format.sprintf "expected lustre input, got %s input" s
+)
+
+let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
+fun sys top_scope target ->
+  match sys with
+  | Lustre (sub, _) ->
+    LustreToRust.implem_to_rust target (
+      fun scope -> (S.find_subsystem sub scope).S.source
+    ) sub.S.source
+  | Native _ ->
+    Format.printf "can't compile from native input: unsupported"
+  | Horn _ ->
+    Format.printf "can't compile from horn clause input: unsupported"
+
+let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> unit =
+fun sys top_scope target ->
+  match sys with
+  | Lustre (sub, _) ->
+    LustreToRust.oracle_to_rust target (
+      fun scope -> (S.find_subsystem sub scope).S.source
+    ) sub.S.source
+  | Native _ ->
+    Format.printf "can't compile from native input: unsupported"
+  | Horn _ ->
+    Format.printf "can't compile from horn clause input: unsupported"
 
 
 

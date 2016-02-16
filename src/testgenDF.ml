@@ -18,6 +18,8 @@
 
 open Lib
 
+module Sys = InputSystem
+
 module Solver = TestgenSolver
 module Tree = TestgenTree
 module TSys = TransSys
@@ -77,7 +79,7 @@ let active_modes_of_map map =
 
 type result = Ok | Deadlock
 
-let rec enumerate io solver tree modes contract_term =
+let rec enumerate target io solver tree modes contract_term =
   (* Format.printf "@.enumerate@." ; *)
   Stat.start_timer Stat.testgen_enumerate_time ;
   Solver.comment solver "enumerate" ;
@@ -86,7 +88,7 @@ let rec enumerate io solver tree modes contract_term =
     let tc_count = IO.testcase_count io in
     if tc_count >= !next_tc_comm then (
       next_tc_comm := tc_count + delta_tc_comm ;
-      Event.log L_info "%s%d testcases generated." log_id tc_count
+      Event.log_uncond "%s%d testcases generated." log_id tc_count
     ) ;
 
     (* Format.printf "  tree: %a@." Tree.pp_print_tree tree ; *)
@@ -136,11 +138,11 @@ let rec enumerate io solver tree modes contract_term =
           IO.log_deadlock io modes_str model k ) ) ;
   Stat.record_time Stat.testgen_enumerate_time ;
   (* Let's go backward now. *)
-  backward io solver tree modes contract_term
+  backward target io solver tree modes contract_term
 
 
 
-and forward io solver tree modes contract_term =
+and forward target io solver tree modes contract_term =
   Stat.start_timer Stat.testgen_forward_time ;
   (* Resetting if too many fresh actlits have been created. *)
   let solver = if Actlit.fresh_actlit_count () >= 250 then (
@@ -182,7 +184,7 @@ and forward io solver tree modes contract_term =
       | None ->
         (* Deadlock. *)
         Event.log
-          L_info "%sDeadlock found (%a)" log_id Tree.pp_print_tree tree ;
+          L_warn "%sDeadlock found (%a)" log_id Tree.pp_print_tree tree ;
         let k = Num.pred k in
         ( match Solver.checksat solver k mode_path [] [] get_model with
           | None -> assert false
@@ -198,12 +200,12 @@ and forward io solver tree modes contract_term =
   match result with
   | Ok ->
     (* Max depth reached, enumerate reachable modes. *)
-    enumerate io solver tree modes contract_term
+    enumerate target io solver tree modes contract_term
   | Deadlock ->
     (* Deadlock found, going backward. *)
-    backward io solver tree modes contract_term
+    backward target io solver tree modes contract_term
 
-and backward io solver tree modes contract_term =
+and backward target io solver tree modes contract_term =
   Stat.update_time Stat.testgen_total_time ;
   Stat.start_timer Stat.testgen_backward_time ;
   (* Format.printf "@.backward@." ; *)
@@ -241,12 +243,13 @@ and backward io solver tree modes contract_term =
   loop () ;
   Stat.record_time Stat.testgen_backward_time ;
   (* Found a different path, going forward now. *)
-  forward io solver tree modes contract_term
+  forward target io solver tree modes contract_term
 
 
 (* Entry point. *)
-let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
-= fun param input_sys sys ->
+let main (type s) :
+Analysis.param -> s Sys.t -> TSys.t -> string -> unit
+= fun param input_sys sys target ->
   (* Separating abstract and concrete systems. *)
   let abstract, concrete =
     Scope.Map.fold (fun key value (a,c) ->
@@ -268,86 +271,18 @@ let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
   (* Memorizing solver for clean exit. *)
   solver_ref := Some solver ;
 
-  (* Retrieve the name of the transition system. *)
-  let sys_name =
-    TSys.scope_of_trans_sys sys
-    |> Format.asprintf "%a" Scope.pp_print_scope
-  in
+  let root = target in
 
   (* Creating system directory if needed. *)
-  let root =
-    Format.sprintf "%s/%s"
-      (Flags.testgen_out_dir ()) sys_name
-  in
-  IO.mk_dir root ;
-
-  Event.log L_info "%sGenerating oracle." log_id ;
-  (* |===| Begin messy temporary stuff to generate outputs for each mode. *)
-  (* let nodes = match TransSys.get_source sys with
-    | TransSys.Lustre nodes -> nodes
-    | TransSys.Native -> assert false
-  in
-  let (top, subs) =
-    let rec last_rev_tail acc = function
-      | [ h ] -> (h, acc)
-      | h :: t -> last_rev_tail (h :: acc) t
-      | [] -> assert false
-    in
-    last_rev_tail [] nodes
-  in
-  let mk_and = function
-    | [] -> LustreExpr.t_true
-    | [ e ] -> e
-    | e :: tail ->
-      let rec loop e = function
-        | e' :: tail -> loop (LustreExpr.mk_and e e') tail
-        | [] -> e
-      in
-      loop e tail
-  in
-  let mk_impl = LustreExpr.mk_impl in
-  let mk_out_ident id =
-    LustreIdent.mk_string_ident
-      ("output_" ^ ( (LustreIdent.string_of_ident false) id ))
-  in
-  let mk_out_ident_req id =
-    LustreIdent.mk_string_ident
-      ("output_" ^ ( (LustreIdent.string_of_ident false) id ) ^ "_req")
-  in
-  let contracts = match top.N.contract_spec with
-    | None ->
-      assert false
-    | Some (_, _, globl, modes, _) ->
-      modes
-      |> List.fold_left
-        ( fun l (m: N.contract) -> (
-            m,
-            mk_out_ident m.N.name,
-            mk_impl (mk_and m.N.reqs) (mk_and m.N.enss)
-          ) :: (
-            m,
-            mk_out_ident_req m.N.name,
-            mk_and m.N.reqs
-          ) :: l )
-        []
-      |> List.rev
-      |> (fun l -> match globl with
-        | None -> l
-        | Some c ->
-          (c, mk_out_ident_req c.N.name, mk_and c.N.reqs) ::
-          (c, mk_out_ident c.N.name, mk_and c.N.enss) :: l
-      )
-  in
-  (* |===| End of messy stuff. *)
-   *)
+  mk_dir root ;
 
 
   let globals, modes = match TestgenModes.modes_of sys with
     | (Some global, modes), _ -> [global], modes
     | (None, modes), _ -> [], modes
   in
-  let oracle_path = "fts"
-    (* globals @ modes |> IO.generate_oracles sys root *)
+  let oracle_path =
+    globals @ modes |> IO.generate_oracles sys root
   in
 
   (* Creating io context. *)
@@ -386,15 +321,13 @@ let main (type s) : Analysis.param -> s InputSystem.t -> TSys.t -> unit
     Tree.mk (fun name -> List.assoc name modes) init_modes
   in
 
-  Event.log L_info "%sGenerating test cases." log_id ;
-
   (* Starting the timer. *)
   Stat.start_timer Stat.testgen_total_time ;
 
-  ( try forward io solver tree modes mode_term with
+  ( try forward target io solver tree modes mode_term with
     | TestgenTree.TopReached ->
       Stat.get Stat.testgen_testcases
-      |> Event.log L_info "%sDone, %d testcases generated." log_id ;
+      |> Event.log_uncond "%sDone, %d testcases generated." log_id ;
       ( match Stat.get Stat.testgen_deadlocks with
         | 0 -> ()
         | n -> Event.log L_warn "%s/!\\ %d deadlocks found /!\\" log_id n) ) ;

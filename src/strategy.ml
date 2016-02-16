@@ -197,7 +197,8 @@ module MonolithicStrategy : Strategy = struct
       | [ {
         A.param = A.ContractCheck info ;
         A.contract_valid ;
-      } ] -> first_analysis_of_contract_check top info contract_valid
+      } ] when Flags.check_implem () ->
+        first_analysis_of_contract_check top info contract_valid
       (* Not the first analysis, done. *)
       | _ -> None
     ) with Not_found ->
@@ -244,6 +245,7 @@ module ModularStrategy : Strategy = struct
           (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
+          | _ when Flags.check_implem () |> not -> go_up prefix
           | [ {
             A.param = A.ContractCheck info ;
             A.contract_valid ;

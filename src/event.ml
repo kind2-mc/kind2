@@ -326,13 +326,23 @@ let pp_print_kind_module_pt =
 
 
 (* Output message as plain text *)
-let printf_pt mdl level fmt = 
+let printf_pt mdl level fmt =
 
   (ignore_or_fprintf level)
     !log_ppf 
     (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
     ("%s @[<hov>" ^^ fmt ^^ "@]@.@.")
     (tag_of_level level)
+    (* pp_print_level_pt level *)
+    (* pp_print_kind_module_pt mdl *)
+
+(* Unconditional printing as plain text. *)
+let printf_pt_uncond mdl fmt =
+
+  Format.fprintf
+    !log_ppf
+    (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
+    ("@[<hov>" ^^ fmt ^^ "@]@.@.")
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
     
@@ -922,7 +932,7 @@ let set_relay_log () = log_format := F_relay
 (* ********************************************************************** *)
 
 (* Log a message with source and log level *)
-let log level fmt = 
+let log level fmt =
 
   let mdl = get_module () in
 
@@ -930,6 +940,16 @@ let log level fmt =
     | F_pt -> printf_pt mdl level fmt
     | F_xml -> printf_xml mdl level fmt
     | F_relay -> printf_relay mdl level fmt
+
+(* Unconditionally logs a message. *)
+let log_uncond fmt =
+
+  let mdl = get_module () in
+
+  match !log_format with 
+    | F_pt -> printf_pt_uncond mdl fmt
+    | F_xml -> printf_xml mdl L_info fmt
+    | F_relay -> printf_xml mdl L_info fmt
 
 
 (* Log a message with source and log level *)
@@ -1003,7 +1023,13 @@ let log_run_end results =
     if Flags.compositional () then
       Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
         pp_print_hline ()
-        (pp_print_list Analysis.pp_print_result_quiet "@ ") results
+        (pp_print_list Analysis.pp_print_result_quiet "@ ") (
+          results
+          |> if Flags.modular () then List.filter (
+            fun { Analysis.sys } ->
+              (TransSys.get_split_properties sys) <> ([], [], [])
+          ) else identity
+        )
   | F_xml -> ()
 
   | F_relay -> failwith "can only be called by supervisor"

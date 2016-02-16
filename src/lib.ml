@@ -43,6 +43,10 @@ let true_of_any _ = true
 (* Returns false s*)
 let false_of_any _ = false
 
+(* Creates a directory if it does not already exist. *)
+let mk_dir dir =
+  try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
+
 (* ********************************************************************** *)
 (* Event tags used when outputting info.                                  *)
 (* ********************************************************************** *)
@@ -446,7 +450,7 @@ module IntegerHashtbl =
 
     
 (* ********************************************************************** *)
-(* Genric pretty-printing                                                 *)
+(* Generic pretty-printing                                                 *)
 (* ********************************************************************** *)
 
 (* Pretty-print an array *)

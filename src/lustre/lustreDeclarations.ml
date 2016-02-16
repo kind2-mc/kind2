@@ -984,12 +984,11 @@ let contract_check_no_output ctx expr =
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
-  let path_prefix = scope |> List.map snd in
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate exrpession to a Boolean expression, may change context. *)
   let expr, ctx =
-    S.eval_bool_ast_expr ~path_prefix:path_prefix ctx pos expr
+    S.eval_bool_ast_expr ctx pos expr
     |> C.close_expr pos
   in
   (* Check the expression if asked to. *)
@@ -1031,7 +1030,7 @@ let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
     )
   ) ;
   (* Define expression with a state variable *)
-  let svar, ctx =  C.mk_local_for_expr pos ctx expr in
+  let svar, ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
   ctx, (Contract.mk_svar pos count svar scope) :: accum, count + 1
@@ -1300,10 +1299,8 @@ let rec inline_contract_of_contract_node
 
     | _ -> failwith "unimplemented"
 
-(* Construct a mode for a node. *)
+(* Evaluates a mode for a node. *)
 let eval_node_mode scope ctx (pos, id, reqs, enss) =
-  (* Push scope for mode. *)
-  let ctx = C.push_scope ctx id in
   (* Evaluate requires. *)
   let ctx, reqs, _ = reqs |> List.fold_left (eval_req scope) (ctx, [], 1) in
   (* Evaluate ensures. *)
@@ -1324,7 +1321,7 @@ let rec eval_node_contract_calls ctx scope = function
   (* Push scope for contract svars. *)
   let svar_scope = (call_pos, id) :: scope in
   (* Push scope for contract call. *)
-  let ctx = C.push_scope ctx id in
+  let ctx = C.push_contract_scope ctx id in
   (* Retrieve contract node from context. *)
   let pos, (id, params, in_formals, out_formals, contract) =
     try C.contract_node_decl_of_ident ctx id
@@ -1341,19 +1338,18 @@ let rec eval_node_contract_calls ctx scope = function
       "type parameters in contract node is not supported"
     )
   ) ;
-  ( in_formals |> List.iter (
-      function
-      | pos, id, typ, A.ClockTrue, is_const -> () (* pos, id, typ, is_const *)
-      | _ -> C.fail_at_position pos (
-        "clocks in contract node signature are not supported"
-      )
-    ),
-    out_formals |> List.iter (
-      function
-      | pos, id, typ, A.ClockTrue -> () (* pos, id, typ *)
-      | _ -> C.fail_at_position pos (
-        "clocks in contract node signature are not supported"
-      )
+  in_formals |> List.iter (
+    function
+    | pos, id, typ, A.ClockTrue, is_const -> () (* pos, id, typ, is_const *)
+    | _ -> C.fail_at_position pos (
+      "clocks in contract node signature are not supported"
+    )
+  ) ;
+  out_formals |> List.iter (
+    function
+    | pos, id, typ, A.ClockTrue -> () (* pos, id, typ *)
+    | _ -> C.fail_at_position pos (
+      "clocks in contract node signature are not supported"
     )
   ) ;
 
@@ -1487,7 +1483,7 @@ let rec eval_node_contract_calls ctx scope = function
   let ctx = eval_node_contract_spec ctx svar_scope contract in
 
   (* Pop scope for contract call. *)
-  let ctx = C.pop_scope ctx in
+  let ctx = C.pop_contract_scope ctx in
   (* Loop on remaining contracts. *)
   eval_node_contract_calls ctx scope tail
 
