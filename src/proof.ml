@@ -84,8 +84,8 @@ let s_pindex = H.mk_hstring "%index%"
 let s_mk_ind = H.mk_hstring "mk_ind"
 let s_pk = H.mk_hstring "%%k"
 
-let s_Int = H.mk_hstring "Int"
-let s_int = H.mk_hstring "int"
+(* let s_Int = H.mk_hstring "Int" *)
+let s_ind = H.mk_hstring "ind"
 let s_mpz = H.mk_hstring "mpz"
 
 let s_invariant = H.mk_hstring "invariant"
@@ -133,6 +133,17 @@ type lfsc_def = {
   def_ty : lfsc_type;
   def_body : lfsc_term;
 }
+
+let equal_decl d1 d2 =
+  H.equal d1.decl_symb d2.decl_symb &&
+  HS.equal d1.decl_type d2.decl_type
+
+let equal_def d1 d2 =
+  H.equal d1.def_symb d2.def_symb &&
+  HS.equal d1.def_ty d2.def_ty &&
+  HS.equal d1.def_body d2.def_body
+(* add args if needed *)
+  
 
 type cvc4_proof_context = {
   lfsc_decls : lfsc_decl list;
@@ -218,6 +229,21 @@ let print_context fmt { lfsc_decls; lfsc_defs } =
 let print_defs fmt { lfsc_defs } =
   List.iter (fprintf fmt "%a\n@." print_def) lfsc_defs;
   fprintf fmt "@."
+
+let print_delta_context
+    { lfsc_decls=old_decls; lfsc_defs=old_defs }
+    fmt
+    { lfsc_decls; lfsc_defs } =
+  List.iter (fun d ->
+      if not (List.exists (equal_decl d) old_decls) then
+        fprintf fmt "%a@." print_decl d
+    ) (List.rev lfsc_decls);
+  (* fprintf fmt "@."; *)
+  List.iter (fun dl ->
+      if not (List.exists (equal_def dl) old_defs) then
+        fprintf fmt "%a\n@." print_def dl
+    ) lfsc_defs
+  (* fprintf fmt "@." *)
 
 
 let rec print_hyps_type ty fmt = function
@@ -354,10 +380,11 @@ let embed_ind =
     fun a -> match a with
     | HS.Atom i ->
       begin match mpz_of_index i with
-        | Some n -> HS.(List [Atom s_int; Atom (H.mk_hstring (string_of_int n))])
-        | None -> HS.(List [Atom s_int; a])
+        | Some n ->
+          HS.(List [Atom s_ind; Atom (H.mk_hstring (string_of_int n))])
+        | None -> HS.(List [Atom s_ind; a])
       end
-    | _ -> HS.(List [Atom s_int; a])
+    | _ -> HS.(List [Atom s_ind; a])
   else
     fun a -> HS.(List [Atom s_mk_ind; a])
 
@@ -445,6 +472,7 @@ let definition_artifact ctx = let open HS in function
 
 
 let parse_Lambda_binding ctx b ty =
+  (* eprintf "parse lambda %a@." H.pp_print_hstring b; *)
   if is_hyp b ty then
     if is_hyp_true ty then Lambda_ignore
     else match definition_artifact ctx ty with
@@ -467,8 +495,17 @@ let rec parse_proof acc = let open HS in function
 
   | List [Atom lam; Atom b; ty; r] when lam == s_LAMBDA ->
 
-    let acc = match parse_Lambda_binding acc.proof_context b ty with
-      | Lambda_decl _ | Lambda_def _ | Lambda_ignore -> acc
+    let ctx = acc.proof_context in
+    let acc = match parse_Lambda_binding ctx b ty with
+      | Lambda_decl d ->
+        if List.exists (equal_decl d) ctx.lfsc_decls then acc
+        else { acc with proof_context =
+                          { ctx with lfsc_decls = d :: ctx.lfsc_decls }}
+      | Lambda_def d ->
+        if List.exists (equal_def d) ctx.lfsc_defs then acc
+        else { acc with proof_context =
+                          { ctx with lfsc_defs = d :: ctx.lfsc_defs }}
+      | Lambda_ignore -> acc
       | Lambda_hyp h -> { acc with proof_hyps = h :: acc.proof_hyps }
     in
     parse_proof acc r
@@ -598,20 +635,22 @@ open Certificate
 (*       (Filename.concat s.dirname s.smt2_lfsc_trace_file) in *)
 
 
-let write_proof_and_check fmt pname ptype pterm =
+let write_proof_and_check fmt ?(check=true) pname ptype pterm =
 
   fprintf fmt "@[<hov 1>(define@ %a@ @[<hov 1>(: @[<hov 0>%a@]@ %a)@])@]@.@."
     H.pp_print_hstring pname
     print_type ptype
     print_term pterm;
 
-  fprintf fmt "@[<hov 1>(check@ %a@])@]@.@."
-    H.pp_print_hstring pname
+  if check then
+    fprintf fmt "@[<hov 1>(check@ %a@])@]@.@."
+      H.pp_print_hstring pname
 
 
 
 
-let write_inv_proof fmt (s_implication, s_base, s_induction) name_proof c =
+let write_inv_proof fmt ?(check=true)
+    (s_implication, s_base, s_induction) name_proof c =
   let open HS in
 
   (* LFSC atoms for formulas *)
@@ -640,10 +679,10 @@ let write_inv_proof fmt (s_implication, s_base, s_induction) name_proof c =
          ] in
   let ptype = List [a_invariant; a_init; a_trans; a_prop] in
 
-  write_proof_and_check fmt name_proof ptype pterm
+  write_proof_and_check fmt ~check name_proof ptype pterm
 
 
-let write_obs_eq_proof fmt proof_obs_name name_proof c =
+let write_obs_eq_proof fmt ?(check=true) proof_obs_name name_proof c =
   
   let open HS in
 
@@ -678,11 +717,12 @@ let write_obs_eq_proof fmt proof_obs_name name_proof c =
           a_init_2; a_trans_2; a_prop_2]
   in
 
-  write_proof_and_check fmt name_proof ptype pterm  
+  write_proof_and_check fmt ~check name_proof ptype pterm  
 
 
   
-let write_safe_proof fmt proof_inv proof_obs_eq name_proof kind2_s jkind_s =
+let write_safe_proof fmt ?(check=true)
+    proof_inv proof_obs_eq name_proof kind2_s jkind_s =
   let open HS in
 
   (* LFSC atoms for formulas *)
@@ -711,7 +751,7 @@ let write_safe_proof fmt proof_inv proof_obs_eq name_proof kind2_s jkind_s =
   in
   let ptype = List [a_safe; a_init; a_trans; a_prop] in
   
-  write_proof_and_check fmt name_proof ptype pterm  
+  write_proof_and_check fmt ~check name_proof ptype pterm  
   
 
 
@@ -758,16 +798,22 @@ let generate_inv_proof inv =
   
   printf "Extracting LFSC proof of base case from CVC4@.";
   let base_proof = proof_from_file ctx inv.base in
+  fprintf proof_fmt ";; Additional symbols@.%a@."
+    (print_delta_context ctx) base_proof.proof_context;
   fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
     (print_proof s_base) base_proof;
 
   printf "Extracting LFSC proof of inductive case from CVC4@.";
   let induction_proof = proof_from_file ctx inv.induction in
+  fprintf proof_fmt ";; Additional symbols@.%a@."
+    (print_delta_context ctx) induction_proof.proof_context;
   fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
     (print_proof s_induction) induction_proof;
 
   printf "Extracting LFSC proof of implication from CVC4@.";
   let implication_proof = proof_from_file ctx inv.implication in
+  fprintf proof_fmt ";; Additional symbols@.%a@."
+    (print_delta_context ctx) implication_proof.proof_context;
   fprintf proof_fmt ";; Proof of implication\n@.%a\n@."
     (print_proof s_implication) implication_proof;
 
@@ -797,33 +843,47 @@ let generate_frontend_proof inv =
      ;;------------------------------------------------------------------\n@."
     Version.package_name Version.version;
 
+  let ctx_k2 = context_from_file inv.kind2_system.smt2_lfsc_trace_file in
+  let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
+  let ctx_obs = context_from_file inv.obs_system.smt2_lfsc_trace_file in
   let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
-  fprintf proof_fmt ";; k-Inductive invariant for observer system\n@.%a\n@."
+  fprintf proof_fmt ";; k-Inductive invariant for Kind 2 system\n@.%a\n@."
     print_defs ctx_phi;
 
-  let ctx = ctx_phi in
+  let ctx = ctx_phi
+            |> merge_contexts ctx_obs
+            |> merge_contexts ctx_jk
+            |> merge_contexts ctx_k2
+  in
   
   printf "Extracting LFSC proof of base case from CVC4@.";
   let base_proof = proof_from_file ctx inv.base in
+  fprintf proof_fmt ";; Additional symbols@.%a@."
+    (print_delta_context ctx) base_proof.proof_context;
   fprintf proof_fmt ";; Proof of base case\n@.%a\n@."
     (print_proof obs_base) base_proof;
 
   printf "Extracting LFSC proof of inductive case from CVC4@.";
   let induction_proof = proof_from_file ctx inv.induction in
+  fprintf proof_fmt ";; Additional symbols@.%a@."
+    (print_delta_context ctx) induction_proof.proof_context;
   fprintf proof_fmt ";; Proof of inductive case\n@.%a\n@."
     (print_proof obs_induction) induction_proof;
 
   printf "Extracting LFSC proof of implication from CVC4@.";
   let implication_proof = proof_from_file ctx inv.implication in
+  fprintf proof_fmt ";; Additional symbols@.%a@."
+    (print_delta_context ctx) implication_proof.proof_context;
   fprintf proof_fmt ";; Proof of implication\n@.%a\n@."
     (print_proof obs_implication) implication_proof;
 
   fprintf proof_fmt ";; Proof of invariance by %d-induction\n@." inv.k;
-  write_inv_proof proof_fmt
+  write_inv_proof proof_fmt ~check:false
     (obs_implication, obs_base, obs_induction) proof_obs_name inv;
 
   fprintf proof_fmt ";; Proof of observational equivalence\n@.";
-  write_obs_eq_proof proof_fmt proof_obs_name proof_obs_eq_name inv;
+  write_obs_eq_proof proof_fmt ~check:false
+    proof_obs_name proof_obs_eq_name inv;
 
   fprintf proof_fmt ";; Final proof of safety\n@.";
   write_safe_proof proof_fmt proof_inv_name proof_obs_eq_name

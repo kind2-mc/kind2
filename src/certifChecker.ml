@@ -40,7 +40,8 @@ let quant_free = true
 let monolithic_base = true
 let simple_base = false
 let abstr_index () = Flags.proof ()
-let clean_tmp = true
+let clean_tmp = false
+let call_frontend = true
 
 
 let names_bare = {
@@ -124,9 +125,12 @@ let ty_index_name = "index"
 let ty_index () =
   if abstr_index () then Type.mk_abstr ty_index_name else Type.t_int 
 
-let index_sym_of_int i = "%%" ^ string_of_int i
+let index_sym_of_int i =
+  if abstr_index () then "%%" ^ string_of_int i
+  else string_of_int i
+    
 let index_of_int =
-  if not (abstr_index ())then Term.mk_num_of_int
+  if not (abstr_index ()) then Term.mk_num_of_int
   else fun i ->
     Term.mk_uf
       (UfSymbol.mk_uf_symbol (index_sym_of_int i) [] (ty_index ()))
@@ -209,12 +213,30 @@ let create_dir dir =
 (* We use the generic SMTLIB pretty printer for that because we want to  *)
 (* create SMTLIB2 compliant certificates.                                *)
 (*************************************************************************)
-        
+
+let rec split_cmp acc cmp = function
+  | [] | [_] -> List.rev acc |> Term.mk_and
+  | a :: (b :: _ as l) ->
+    let ci = Term.mk_app cmp [a; b] in
+    split_cmp (ci :: acc) cmp l
+
+(* Preprocessing of terms for proof producing version of CVC4 *)
+let preproc term =
+  Term.map (fun _ t -> match Term.node_of_term t with
+      | Term.T.Node (cmp, (_::_::_::_ as l)) ->
+        begin match Symbol.node_of_symbol cmp with
+          | `LEQ | `LT | `GEQ | `GT ->
+            split_cmp [] cmp l
+          | _ -> t
+        end
+      | _ -> t
+    ) term
+
 (* Assert the expression *)
 let assert_expr fmt expr =
   fprintf fmt
     "@[<hv 1>(assert@ @[<hov>%a@])@]@." 
-    SMT.pp_print_expr expr
+    SMT.pp_print_expr (preproc expr)
 
 
 (* Declare a new function symbol *)
@@ -257,7 +279,7 @@ let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn =
        "@ ")
     arg_vars
     (SMT.string_of_sort res_sort)
-    SMT.pp_print_expr defn;
+    SMT.pp_print_expr (preproc defn);
 
   if trace_lfsc_defs then begin
 
@@ -1171,10 +1193,12 @@ let add_decl_index fmt k =
 (* Declare predicates (I, T, P, PHI, ...)  with tracing *)
 let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn = 
 
+  let sindex_sort = ty_index () |> SMT.string_of_sort in
+  
   fprintf fmt "(define-fun %s (%a) Bool\n   \
                %s)\n@."
     fun_symbol
-    (pp_print_list (fun fmt -> fprintf fmt "(%s index)") " ") args
+    (pp_print_list (fun fmt f -> fprintf fmt "(%s %s)" f sindex_sort) " ") args
     defn;
 
   if trace_lfsc_defs then begin
@@ -1183,14 +1207,13 @@ let s_define_pred ?(trace_lfsc_defs=false) fmt fun_symbol args defn =
     
     let fun_def_sy = fun_symbol ^ "%def" in
     fprintf fmt "(declare-fun %s %s Bool)\n" fun_def_sy
-      (paren_string_of_string_list
-         (List.map (fun _ -> ty_index_name) args)) ;
+      (paren_string_of_string_list (List.map (fun _ -> sindex_sort) args)) ;
 
     let cpt = ref 0 in
     let fun_def_args = List.map (fun v ->
         incr cpt;
         let vfs = fun_symbol ^ "%" ^ string_of_int !cpt in
-        fprintf fmt "(declare-fun %s () %s)\n" vfs ty_index_name;
+        fprintf fmt "(declare-fun %s () %s)\n" vfs sindex_sort;
         vfs
       ) args in
 
@@ -1318,13 +1341,31 @@ let smk s l =
     (pp_print_list pp_print_string "@ ") l
 
 
+(* Build disjunction from the right as this is how the LFSC signature contructs
+   them *)
+let rec smk_or = function
+  | [] -> "false"
+  | [cj] -> cj
+  | cj :: (_::_ as r) -> smk "or" [smk_or r; cj]
+
+let smk_or l = smk_or (List.rev l)
+
+(* Build conjunctions from the right as this is how the LFSC signature
+   contructs them *)
+let rec smk_and = function
+  | [] -> "true"
+  | [cj] -> cj
+  | cj :: (_::_ as r) -> smk "and" [smk_and r; cj]
+
+let smk_and l = smk_and (List.rev l)
+
 let s_assert fmt s = fprintf fmt "@[<hov 1>(assert@ %s)@]\n@." s
   
 
 let mononames_base_check sys dirname file definitions_files k names =
 
   let filename = Filename.concat dirname file in
-
+  
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
@@ -1346,14 +1387,15 @@ let mononames_base_check sys dirname file definitions_files k names =
     done;
 
     let conj =
-      smk "and" [smk "and" (smk names.init [index_sym_of_int 0] :: !l);
-                 smk "not" [smk names.phi [index_sym_of_int i]]] in
+      smk_and [smk_and (smk names.init [index_sym_of_int 0] :: !l);
+               smk "not" [smk names.phi [index_sym_of_int i]]] in
 
     dnf := conj :: !dnf
 
   done;
-
-  s_assert fmt (smk "or" !dnf);
+  
+  s_assert fmt (smk_or !dnf);
+  (* s_assert fmt (smk "or" !dnf); *)
   check_sat fmt;
 
   sexit fmt;
@@ -1379,14 +1421,14 @@ let mononames_induction_check sys dirname file definitions_files k names =
   (* unroll k times*)
   let l = ref [] in
   for i = k - 1 downto 0 do
-    l := smk "and" [smk names.phi [index_sym_of_int i];
-                    smk names.trans [index_sym_of_int i;
-                                     index_sym_of_int (i+1)]] :: !l
+    l := smk_and [smk names.phi [index_sym_of_int i];
+                  smk names.trans [index_sym_of_int i;
+                                   index_sym_of_int (i+1)]] :: !l
   done;
 
-  let g = smk "and" [smk "and" !l;
-                     smk "not" [smk names.phi [index_sym_of_int k]]] in
-  
+  let g = smk_and [smk_and !l;
+                   smk "not" [smk names.phi [index_sym_of_int k]]] in
+
   s_assert fmt g;
   check_sat fmt;
   
@@ -2409,15 +2451,16 @@ let generate_frontend_certificates sys dirname =
     |> List.map (Filename.concat dirname) in
 
   let base =
-    mononames_base_check sys dirname base_f smt2_definitions k names_obs in
+    mononames_base_check sys
+      dirname frontend_base_f smt2_definitions k names_obs in
 
   let induction =
     mononames_induction_check sys
-      dirname induction_f smt2_definitions k names_obs in
+      dirname frontend_induction_f smt2_definitions k names_obs in
 
   let implication = 
     mononames_implication_check sys
-      dirname implication_f smt2_definitions names_obs in
+      dirname frontend_implication_f smt2_definitions names_obs in
 
   (* Time statistics *)
   Stat.record_time Stat.certif_gen_time;
@@ -2536,7 +2579,7 @@ let generate_smt2_certificates input sys =
 
   (* Recursive call *)
 
-  if not (is_fec sys) then begin
+  if not (is_fec sys) && call_frontend then begin
 
     printf "Generating frontend certificate@.";
     let cmd_l =
@@ -2587,59 +2630,62 @@ let generate_all_proofs input sys =
   create_dir dirname;
 
   if not (is_fec sys) then
-
+    
     let cert_inv = generate_split_certificates sys dirname in
-
+    
     (* Only generate frontend observational equivalence system for Lustre *)
     if InputSystem.is_lustre_input input then
       generate_frontend_obs input sys dirname |> ignore
     else
       printf "No certificate for frontend@.";
-
+    
     Proof.generate_inv_proof cert_inv;
-
-
-    printf "Generating frontend proof@.";
-    let cmd_l =
-      Array.to_list Sys.argv
-      |> List.filter (fun s -> s <> (Flags.input_file ()))
-    in
     
-    let cmd =
-      asprintf "%a %s"
-        (pp_print_list pp_print_string " ") cmd_l
-        (Filename.concat dirname "FEC.kind2")
-    in
-    printf "Second run with: %s@." cmd;
 
-    let inv_lfsc = Filename.concat dirname Proof.proofname in
-    let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
-    let final_lfsc = Filename.concat
-        (Flags.certif_dir ())
-        (Filename.basename (Flags.input_file ()) ^ ".lfsc") in
-    
-    begin match Sys.command cmd with
-      | 0 ->
-        files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
-        
-      | c ->
-        printf "Failed to generate frontend proof (return code %d)@." c;
-        file_copy inv_lfsc final_lfsc
+    if call_frontend then begin
+
+      printf "Generating frontend proof@.";
+      let cmd_l =
+        Array.to_list Sys.argv
+        |> List.filter (fun s -> s <> (Flags.input_file ()))
+      in
+
+      let cmd =
+        asprintf "%a %s"
+          (pp_print_list pp_print_string " ") cmd_l
+          (Filename.concat dirname "FEC.kind2")
+      in
+      printf "Second run with: %s@." cmd;
+
+      let inv_lfsc = Filename.concat dirname Proof.proofname in
+      let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
+      let final_lfsc = Filename.concat
+          (Flags.certif_dir ())
+          (Filename.basename (Flags.input_file ()) ^ ".lfsc") in
+
+      begin match Sys.command cmd with
+        | 0 ->
+          files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
+
+        | c ->
+          printf "Failed to generate frontend proof (return code %d)@." c;
+          file_copy inv_lfsc final_lfsc
+      end;
+
+      if clean_tmp then begin
+        printf "Cleaning temporary files@.";
+        remove dirname;
+      end;
+
+      printf "Final LFSC proof written to %s@." final_lfsc;
     end;
 
-    if clean_tmp then begin
-      printf "Cleaning temporary files@.";
-      remove dirname;
-    end;
-    
-    printf "Final LFSC proof written to %s@." final_lfsc;
-    
   else begin
 
     let frontend_inv = generate_frontend_certificates sys dirname in
-    
+
     Proof.generate_frontend_proof frontend_inv;
-    
+
   end;
 
   
