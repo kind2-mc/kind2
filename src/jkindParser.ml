@@ -178,8 +178,10 @@ let match_condact_clock lustre_vars sv =
       ) lustre_vars []
   in
 
-  List.map (fun (sv, base_li, parents) -> build_call_base sv base_li parents)
-    clocks_calls
+  List.fold_left (fun acc (sv, base_li, parents) ->
+      try build_call_base sv base_li parents :: acc
+      with Not_found -> acc) [] clocks_calls
+  |> List.rev
   
 
 (* Returns all JKind variables corresponding to a Kind2 variable *)
