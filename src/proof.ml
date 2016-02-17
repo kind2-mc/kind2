@@ -35,7 +35,11 @@ let set_margin fmt = pp_set_margin fmt 80 (* (if compact then max_int else 80) *
 (* disable the preprocessor and tell cvc4 to dump proofs *)
 (* KLUDGE we use a linux version through ssh because of bugs in the mac
    version *)
-let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --no-simplification --dump-proof\" <"
+(* let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --no-simplification --dump-proof\" <" *)
+
+let cvc4_proof_cmd =
+  Flags.cvc4_bin () ^
+  " --lang smt2 --no-simplification --dump-proof"
 
 
 (* LFSC symbols *)
@@ -453,7 +457,7 @@ let rec embed_indexes targs sexp =
      | _ -> sexp
      | exception Not_found -> sexp)
   | List l ->
-    let l' = List.map (embed_indexes targs) l in
+    let l' = List.rev_map (embed_indexes targs) l |> List.rev in
     if List.for_all2 (==) l l' then sexp
     else List l'
 
