@@ -1672,7 +1672,11 @@ let subdir_for scope =
     (output_dir ())
     (pp_print_list Format.pp_print_string "_") scope
 
-let smt_trace_dir () = Format.sprintf "%s/smt_trace" flags.output_dir
+let smt_trace_dir () =
+  mk_dir flags.output_dir ;
+  let dir = Format.sprintf "%s/smt_trace" flags.output_dir in
+  mk_dir dir ;
+  dir
 
 let check_modes () = flags.check_modes
 
