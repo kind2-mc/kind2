@@ -110,9 +110,9 @@ let first_param_of results all_nodes scope =
       (* Can/should we abstract this system? *)
       let is_abstract =
         if sys = scope then 
-          has_modes && (Flags.check_modes ())
+          has_modes && (Flags.Contracts.check_modes ())
         else
-          abstractable && (Flags.compositional ())
+          abstractable && (Flags.Contracts.compositional ())
       in
       let abstraction = Scope.Map.add sys is_abstract abstraction in
       if is_abstract then
@@ -197,7 +197,7 @@ module MonolithicStrategy : Strategy = struct
       | [ {
         A.param = A.ContractCheck info ;
         A.contract_valid ;
-      } ] when Flags.check_implem () ->
+      } ] when Flags.Contracts.check_implem () ->
         first_analysis_of_contract_check top info contract_valid
       (* Not the first analysis, done. *)
       | _ -> None
@@ -245,7 +245,7 @@ module ModularStrategy : Strategy = struct
           (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
-          | _ when Flags.check_implem () |> not -> go_up prefix
+          | _ when Flags.Contracts.check_implem () |> not -> go_up prefix
           | [ {
             A.param = A.ContractCheck info ;
             A.contract_valid ;

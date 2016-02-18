@@ -803,7 +803,7 @@ module Make (InModule : In) : Out = struct
 
       if
         base_unsat_on_first_check
-        || Flags.invgengraph_max_succ () <= count
+        || Flags.Invgen.max_succ () <= count
       then
         (* Done, returning new binding. *)
         binding', cand_count
@@ -888,7 +888,7 @@ module Make (InModule : In) : Out = struct
     let lsd =
       LSD.create
         two_state
-        (Flags.invgengraph_top_only ())
+        (Flags.Invgen.top_only ())
         trans_sys
     in
 

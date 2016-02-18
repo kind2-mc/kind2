@@ -132,7 +132,7 @@ let main input_file input_sys aparam trans_sys =
     (* Number of steps to simulate *)
     let steps = 
 
-      match Flags.interpreter_steps () with 
+      match Flags.Interpreter.steps () with 
 
         (* Simulate length of smallest input if number of steps not given *)
         | s when s <= 0 -> input_length
@@ -164,7 +164,8 @@ let main input_file input_sys aparam trans_sys =
 
     (* Create solver instance *)
     let solver = 
-      SMTSolver.create_instance ~produce_assignments:true logic (Flags.smtsolver ())
+      Flags.Smt.solver ()
+      |> SMTSolver.create_instance ~produce_assignments:true logic
     in
 
     (* Create a reference for the solver. Only used in on_exit. *)

@@ -739,14 +739,14 @@ let mk sys =
   (* Retrieving DNF and arithmetic sub-candidates sizes. *)
   let d_count, c_int_count, c_rat_count =
     (* DNF size. *)
-    ( if Flags.c2i_modes () then
+    ( if Flags.C2I.modes () then
         (* One disjunct per require + 1. *)
         (TransSys.get_mode_requires sys |> snd |> List.length) + 1
-      else Flags.c2i_dnf_size () ),
+      else Flags.C2I.dnf_size () ),
     (* Int cube size. *)
-    Flags.c2i_int_cube_size (),
+    Flags.C2I.int_cube_size (),
     (* rat cube size. *)
-    Flags.c2i_real_cube_size ()
+    Flags.C2I.real_cube_size ()
   in
 
   (* Retrieving relevant variables. *)
@@ -779,7 +779,7 @@ let mk sys =
   in
 
   let init_subs =
-    match Flags.c2i_modes (), TransSys.get_mode_requires sys with
+    match Flags.C2I.modes (), TransSys.get_mode_requires sys with
     | false, _ | true, (None, []) -> Nil
     | true, (Some ass, modes) ->
       (* Extract term for each requirement. *)

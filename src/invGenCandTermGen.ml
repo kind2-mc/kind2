@@ -471,7 +471,7 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> if Flags.invgengraph_mine_trans ()
+             |> if Flags.Invgen.mine_trans ()
                 then set_of_term trans else identity
            in
 
@@ -486,7 +486,7 @@ module CandidateTermGen = struct
 
            let sorted_result =
              result
-             |> ( if Flags.invgengraph_lift_candidates () then
+             |> ( if Flags.Invgen.lift_candidates () then
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
@@ -511,7 +511,7 @@ module CandidateTermGen = struct
 
         let final =
           (* Only getting to system if required. *)
-          ( if Flags.invgengraph_top_only ()
+          ( if Flags.Invgen.top_only ()
             then get_last result else result )
           |> (
             (* One state-ing everything if required. *)

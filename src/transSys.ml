@@ -1373,7 +1373,7 @@ let mk_trans_sys
   in
 
   (* Logic fragment of transition system  *)
-  let logic = match Flags.smtlogic () with
+  let logic = match Flags.Smt.logic () with
 
     (* Logic fragment should not be declared *)
     | `None -> `None

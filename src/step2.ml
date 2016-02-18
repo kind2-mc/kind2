@@ -96,7 +96,7 @@ let mk_ctx in_sys param sys =
     Smt.create_instance
       ~produce_assignments:true
       (Sys.get_logic sys)
-      (Flags.smtsolver())
+      (Flags.Smt.solver())
   in
   (* Memorizing solver for clean exit. *)
   solver_ref := Some solver ;

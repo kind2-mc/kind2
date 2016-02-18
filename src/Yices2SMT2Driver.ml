@@ -28,7 +28,7 @@ let cmd_line
     produce_interpolants = 
 
   (* Path and name of Yices executable *)
-  let yices2smt2_bin = Flags.yices2smt2_bin () in
+  let yices2smt2_bin = Flags.Smt.yices2smt2_bin () in
   [| yices2smt2_bin; "--incremental" |]
 
 

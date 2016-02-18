@@ -160,7 +160,7 @@ and forward target io solver tree modes contract_term =
   let rec loop () =
     (* Format.printf "  tree: %a@." Tree.pp_print_tree tree ; *)
     let k = Tree.depth_of tree |> Num.succ in
-    if Flags.testgen_len () > Num.to_int k then (
+    if Flags.Testgen.len () > Num.to_int k then (
       (* We haven't reached the max depth yet, keep going forward. *)
       (* Format.printf "  at %a@." Num.pp_print_numeral k ; *)
       let modes = modes |> List.map (fun (n,t) -> n, Term.bump_state k t) in

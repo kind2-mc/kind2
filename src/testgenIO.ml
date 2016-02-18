@@ -67,7 +67,7 @@ let mk input_sys sys root name title =
   let edir = Format.sprintf "%s/errors" dir in
   mk_dir dir ;
   let class_file =
-    if Flags.testgen_graph_only () |> not then (
+    if Flags.Testgen.graph_only () |> not then (
 
       (* |===| XML class file. *)
       let class_file =
@@ -124,7 +124,7 @@ let init_error (type s)
 (* Closes internal file descriptors. *)
 let rm (type s) : s t -> unit
 = fun { class_file ; graph_file ; error_file } ->
-  if Flags.testgen_graph_only () |> not then (
+  if Flags.Testgen.graph_only () |> not then (
     (* |===| Finishing class file. *)
     let class_fmt = fmt_of_file class_file in
     Format.fprintf class_fmt "@.</data>@.@?" ;
@@ -223,7 +223,7 @@ let log_testcase (type s)
   (* Format.printf "  log_testcase@." ; *)
   t.uid <- t.uid + 1 ;
 
-  if Flags.testgen_graph_only () |> not then (
+  if Flags.Testgen.graph_only () |> not then (
     (* |===| Logging testcase. *)
     (* Format.printf "    logging testcase@." ; *)
     let name, path, tc_file = testcase_csv t in

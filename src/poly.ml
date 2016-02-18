@@ -223,7 +223,7 @@ let get_coe_in_poly_obv (v: Var.t) (pl: poly) : Numeral.t =
 
 let get_coe_in_poly v pl = 
 
-  match (Flags.cooper_order_var_by_elim ()) with
+  match (Flags.QE.cooper_order_var_by_elim ()) with
       
     | false -> get_coe_in_poly_anyorder v pl
 
@@ -391,7 +391,7 @@ let multiply_poly_list (ptl: poly list) : poly =
 let rec compare_variables (l: Var.t list) (v1: Var.t) (v2: Var.t) : int =
 
   (* Order variables by order of elimination? *)
-  match (Flags.cooper_order_var_by_elim ()) with
+  match (Flags.QE.cooper_order_var_by_elim ()) with
 
     (* Use ordering on Var *)
     | false -> Var.compare_vars v1 v2

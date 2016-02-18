@@ -99,7 +99,7 @@ let set_sigalrm_handler () =
 
 (* Renices the current process. Used for invariant generation. *)
 let renice () =
-  let nice =  (Flags.invgengraph_renice ()) in
+  let nice =  (Flags.Invgen.renice ()) in
 
   if nice < 0 then
     Event.log L_info
@@ -118,7 +118,7 @@ let main_of_process = function
   | `INVGEN -> renice () ; InvGenTS.main
   | `INVGENOS -> renice () ; InvGenOS.main
   | `C2I -> renice () ; C2I.main
-  | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
+  | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
   | `Supervisor -> InvarManager.main child_pids
   | `Parser -> (fun _ _ _ -> ())
 
@@ -636,7 +636,7 @@ let run_process messaging_setup process =
 let check_smtsolver () =
 
   (* SMT solver from command-line *)
-  match Flags.smtsolver () with
+  match Flags.Smt.solver () with
 
     (* User chose Z3 *)
     | `Z3_SMTLIB ->
@@ -644,7 +644,7 @@ let check_smtsolver () =
       let z3_exec =
 
         (* Check if Z3 is on the path *)
-        try find_on_path (Flags.z3_bin ()) with
+        try find_on_path (Flags.Smt.z3_bin ()) with
 
           | Not_found ->
 
@@ -652,7 +652,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "Z3 executable %s not found."
-              (Flags.z3_bin ()) ;
+              (Flags.Smt.z3_bin ()) ;
 
             exit 2
 
@@ -666,7 +666,7 @@ let check_smtsolver () =
       let cvc4_exec =
 
         (* Check if CVC4 is on the path *)
-        try find_on_path (Flags.cvc4_bin ()) with
+        try find_on_path (Flags.Smt.cvc4_bin ()) with
 
           | Not_found ->
 
@@ -674,7 +674,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "CVC4 executable %s not found."
-              (Flags.cvc4_bin ()) ;
+              (Flags.Smt.cvc4_bin ()) ;
 
             exit 2
 
@@ -691,7 +691,7 @@ let check_smtsolver () =
       let mathsat5_exec =
 
         (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.mathsat5_bin ()) with
+        try find_on_path (Flags.Smt.mathsat5_bin ()) with
 
           | Not_found ->
 
@@ -699,7 +699,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "MathSat5 executable %s not found."
-              (Flags.mathsat5_bin ()) ;
+              (Flags.Smt.mathsat5_bin ()) ;
 
             exit 2
 
@@ -717,7 +717,7 @@ let check_smtsolver () =
       let yices_exec =
 
         (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.yices_bin ()) with
+        try find_on_path (Flags.Smt.yices_bin ()) with
 
           | Not_found ->
 
@@ -725,7 +725,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "Yices executable %s not found."
-              (Flags.yices_bin ()) ;
+              (Flags.Smt.yices_bin ()) ;
 
             exit 2
 
@@ -743,7 +743,7 @@ let check_smtsolver () =
       let yices_exec =
 
         (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.yices2smt2_bin ()) with
+        try find_on_path (Flags.Smt.yices2smt2_bin ()) with
 
           | Not_found ->
 
@@ -751,7 +751,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "Yices2 SMT2 executable %s not found."
-              (Flags.yices2smt2_bin ()) ;
+              (Flags.Smt.yices2smt2_bin ()) ;
 
             exit 2
 
@@ -768,7 +768,7 @@ let check_smtsolver () =
 
       try
 
-        let z3_exec = find_on_path (Flags.z3_bin ()) in
+        let z3_exec = find_on_path (Flags.Smt.z3_bin ()) in
 
         Event.log L_info "Using Z3 executable %s." z3_exec ;
 
@@ -781,7 +781,7 @@ let check_smtsolver () =
 
         try
 
-          let cvc4_exec = find_on_path (Flags.cvc4_bin ()) in
+          let cvc4_exec = find_on_path (Flags.Smt.cvc4_bin ()) in
 
           Event.log
             L_info
@@ -797,7 +797,7 @@ let check_smtsolver () =
 
           try
 
-            let mathsat5_exec = find_on_path (Flags.mathsat5_bin ()) in
+            let mathsat5_exec = find_on_path (Flags.Smt.mathsat5_bin ()) in
 
             Event.log
               L_info
@@ -813,7 +813,7 @@ let check_smtsolver () =
 
             try
 
-              let yices_exec = find_on_path (Flags.yices_bin ()) in
+              let yices_exec = find_on_path (Flags.Smt.yices_bin ()) in
 
               Event.log
                 L_info
@@ -930,7 +930,7 @@ let setup () =
 (* Runs test generation on the system (scope) specified by abstracting
    everything. *)
 let run_testgen input_sys top =
-  if Flags.testgen_active () then (
+  if Flags.Testgen.active () then (
     match InputSystem.maximal_abstraction_for_testgen input_sys top [] with
     | None ->
       Event.log L_warn
@@ -974,7 +974,7 @@ let run_testgen input_sys top =
 
 (* Compiles a system (scope) to Rust. *)
 let compile_to_rust input_sys top =
-  if Flags.compile () then (
+  if Flags.lus_compile () then (
     (* Creating root dir if needed. *)
     Flags.output_dir () |> mk_dir ;
     let target = Flags.subdir_for top in
@@ -1112,7 +1112,7 @@ let launch () =
 
     (* Run interpreter. *)
     Interpreter.main
-      (Flags.interpreter_input_file ())
+      (Flags.Interpreter.input_file ())
       (get !cur_input_sys)
       (get !cur_aparam)
       (get !cur_trans_sys) ;

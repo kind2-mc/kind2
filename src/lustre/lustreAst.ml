@@ -1169,7 +1169,7 @@ let rec has_unguarded_pre ung = function
     if ung then begin
       (* Fail only if in strict mode *)
       let err_or_warn =
-        if Flags.strict () then error_at_position else warn_at_position in
+        if Flags.lus_strict () then error_at_position else warn_at_position in
 
       err_or_warn pos
         (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
@@ -1186,7 +1186,7 @@ let rec has_unguarded_pre ung = function
 
 let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
-  if u && Flags.strict () then raise Parser_error;
+  if u && Flags.lus_strict () then raise Parser_error;
   u
       
 

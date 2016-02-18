@@ -2010,7 +2010,7 @@ let function_of_context = function
       D.fold
         (fun i sv a -> 
            let u = 
-             (if Flags.smt_short_names () then 
+             (if Flags.Smt.short_names () then 
                 UfSymbol.mk_fresh_uf_symbol
               else
                 UfSymbol.mk_uf_symbol

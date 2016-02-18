@@ -1023,12 +1023,12 @@ let execute_custom_check_sat_command cmd solver =
 let create_trace_ppf id = 
 
   (* Tracing of SMT commands enabled? *)
-  if Flags.smt_trace () then 
+  if Flags.Smt.trace () then 
     
     (* Name of SMT trace file *)
     let trace_filename = 
       Filename.concat
-        (Flags.smt_trace_dir ())
+        (Flags.Smt.trace_dir ())
         (Format.sprintf "%s.%s.%d.ys" 
                         (Filename.basename (Flags.input_file ()))
                         (suffix_of_kind_module (Event.get_module ()))
