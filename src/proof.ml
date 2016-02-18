@@ -382,7 +382,7 @@ try Scanf.sscanf s "%%%%%d" (fun n -> Some n)
 with End_of_file | Scanf.Scan_failure _ -> None
 
 (* LFSC [(term index)] *)
-let term_index = HS.(List [Atom s_term; Atom (H.mk_hstring "index")])
+let term_index = HS.(List [Atom s_term; Atom s_index])
 
 (* LFSC type for representing indexes *)
 let s_lfsc_index = if mpz_proofs then s_mpz else s_pindex
@@ -932,7 +932,7 @@ let generate_frontend_proof inv =
   let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
   let ctx_obs = context_from_file inv.obs_system.smt2_lfsc_trace_file in
   let ctx_phi = context_from_file inv.phi_lfsc_trace_file in
-  fprintf proof_fmt ";; k-Inductive invariant for Kind 2 system\n@.%a\n@."
+  fprintf proof_fmt ";; k-Inductive invariant for observer system\n@.%a\n@."
     print_defs ctx_phi;
 
   let ctx = ctx_phi

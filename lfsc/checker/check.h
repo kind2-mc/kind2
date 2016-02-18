@@ -47,6 +47,16 @@ extern int colnum;
 extern const char *filename;
 extern FILE *curfile;
 
+inline char our_peekc() {
+  const int c =
+#ifndef __linux__
+    getc(curfile);
+#else
+    getc_unlocked(curfile);
+#endif
+  return c == EOF ? EOF : ungetc(c, curfile);
+}
+
 inline void our_ungetc(char c) {
   if (our_getc_c != 0)
     report_error("Internal error: our_ungetc buffer full");

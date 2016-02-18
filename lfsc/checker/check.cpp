@@ -787,13 +787,6 @@ Expr *check(bool create, Expr *expected, Expr **computed = NULL,
     report_error("Unexpected end of file.");
     break;
 
-  case '_':
-    if (!is_hole)
-      report_error("A hole is being used in a disallowed position.");
-    *is_hole = true;
-    if (expected)
-      expected->dec();
-    return new HoleExpr();
   case '0':
   case '1':
   case '2':
@@ -869,6 +862,21 @@ Expr *check(bool create, Expr *expected, Expr **computed = NULL,
       }
     }
   }
+    
+  case '_':
+    char c;
+    if(!isspace(c = our_peekc()) && c != ')' && c != '(' ) {
+      // Identifier that starts with _
+      // jump to default case
+    } else {
+      if (!is_hole)
+        report_error("A hole is being used in a disallowed position.");
+      *is_hole = true;
+      if (expected)
+        expected->dec();
+      return new HoleExpr();
+    }
+
   default: {
     our_ungetc(d);
     string id(prefix_id());

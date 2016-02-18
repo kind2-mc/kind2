@@ -8,6 +8,7 @@
 
 
 (declare index sort)
+;; (define index Int) ;; in case we want integer indexes later
 (declare ind (! n mpz (term index)))
 
 ;; relations over indexes (used for transition relation)

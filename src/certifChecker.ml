@@ -1455,7 +1455,8 @@ let mononames_implication_check sys dirname file definitions_files names =
     
 
   let v = "%%k" in
-  fprintf fmt "(declare-fun %s () %s)\n@." v ty_index_name;
+  let sindex_sort = ty_index () |> SMT.string_of_sort in
+  fprintf fmt "(declare-fun %s () %s)\n@." v sindex_sort;
   let f = smk "=>" [smk names.phi [v];
                     smk names.prop [v]] in
   
