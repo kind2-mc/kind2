@@ -144,6 +144,26 @@ let enable_flag =
 (*   type smtsolver = Z3_SMTLIB | CVC4_SMTLIB arg smtsolver default CVC4_SMTLIB action smtsolver_action doc " choose SMT solver (available: %s, default: %s" *)
 
 
+(* Strings recognized as the bool value [true]. *)
+let true_strings = [ "true" ; "on" ; "t" ; "1" ]
+(* Strings recognized as the bool value [false]. *)
+let false_strings = [ "false" ; "off" ; "f" ; "0" ]
+(* String to bool. *)
+let bool_of_string s =
+  if List.mem s true_strings then true
+  else if List.mem s false_strings then false
+  else Arg.Bad (
+    Format.asprintf
+      "expected boolean (%a, %a), but got %s"
+      (pp_print_list Format.pp_print_string ", ") true_strings
+      (pp_print_list Format.pp_print_string ", ") false_strings
+      s
+  ) |> raise
+(* Parses a bool and sets a reference. *)
+let bool_arg reference = Arg.String (
+  fun s -> reference := bool_of_string s
+)
+
 
 (* Global flags. *)
 module Global = struct
@@ -406,7 +426,7 @@ module Global = struct
   let modular = ref modular_default
   let _ = add_spec (
     "--modular",
-    Arg.Bool (fun b -> modular := b),
+    bool_arg modular,
     Format.sprintf
       "bottom-up analysis of each node (default: %B)"
       modular_default
@@ -419,7 +439,7 @@ module Global = struct
   let lus_strict = ref lus_strict_default
   let _ = add_spec (
     "--lus_strict",
-    Arg.Bool (fun b -> lus_strict := b),
+    bool_arg lus_strict,
     Format.sprintf
       "Strict mode in Lustre: uninitialized pre and undefined \
       local variables are not allowed when this flag is present."
@@ -430,7 +450,7 @@ module Global = struct
   let lus_compile = ref lus_compile_default
   let _ = add_spec (
     "--lus_compile",
-    Arg.Bool (fun b -> lus_compile := b),
+    bool_arg lus_compile,
     Format.sprintf
       "@[<v 7>@,(default: %b)@ \
       Activates compiling to Rust, deactivates everything else.@]"
@@ -527,7 +547,7 @@ module Smt = struct
   let check_sat_assume = ref check_sat_assume_default
   let _ = add_spec (
     "--smt_check_sat_assume",
-    Arg.Bool (fun b -> check_sat_assume := b),
+    bool_arg check_sat_assume,
     Format.sprintf
       "Use check-sat with assumptions, or simulate with push/pop \
        when false (default: %B)"
@@ -542,7 +562,7 @@ module Smt = struct
   let short_names = ref short_names_default
   let _ = add_spec (
     "--smt_short_names",
-    Arg.Bool (fun b -> short_names := b),
+    bool_arg short_names,
     Format.sprintf
       "Send short variables names to SMT solver, send full names if false \
       (default: %B)"
@@ -674,7 +694,7 @@ module BmcKind = struct
   let check_unroll = ref check_unroll_default
   let _ = add_spec (
     "--bmc_check_unroll",
-    Arg.Bool (fun b -> check_unroll := b),
+    bool_arg check_unroll,
     Format.sprintf
       "(BMC) Check that the unrolling alone is satisfiable (default: %b)"
       check_unroll_default
@@ -685,7 +705,7 @@ module BmcKind = struct
   let print_cex = ref print_cex_default
   let _ = add_spec (
     "--ind_print_cex",
-    Arg.Bool (fun b -> print_cex := b),
+    bool_arg print_cex,
     Format.sprintf
       "(IND) Print counterexamples to induction (default: %b)"
       print_cex_default
@@ -696,7 +716,7 @@ module BmcKind = struct
   let compress = ref compress_default
   let _ = add_spec (
     "--ind_compress",
-    Arg.Bool (fun b -> compress := b),
+    bool_arg compress,
     Format.sprintf
       "(IND) Compress inductive counterexamples (default: %B)"
       compress_default
@@ -707,7 +727,7 @@ module BmcKind = struct
   let compress_equal = ref compress_equal_default
   let _ = add_spec (
     "--ind_compress_equal",
-    Arg.Bool (fun b -> compress_equal := b),
+    bool_arg compress_equal,
     Format.sprintf
       "(IND) Compress inductive counterexamples for states equal \
       modulo inputs (default: %B)"
@@ -719,7 +739,7 @@ module BmcKind = struct
   let compress_same_succ = ref compress_same_succ_default
   let _ = add_spec (
     "--ind_compress_same_succ",
-    Arg.Bool (fun b -> compress_same_succ := b),
+    bool_arg compress_same_succ,
     Format.sprintf
       "(IND) Compress inductive counterexamples for states \
       with same successors (default: %B)"
@@ -731,7 +751,7 @@ module BmcKind = struct
   let compress_same_pred = ref compress_same_pred_default
   let _ = add_spec (
   "--ind_compress_same_pred",
-    Arg.Bool (fun b -> compress_same_pred := b),
+    bool_arg compress_same_pred,
     Format.sprintf
       "(IND) Compress inductive counterexamples for states \
       with same predecessors (default: %B)"
@@ -743,7 +763,7 @@ module BmcKind = struct
   let lazy_invariants = ref lazy_invariants_default
   let _ = add_spec (
     "--ind_lazy_invariants",
-    Arg.Bool (fun b -> lazy_invariants := b),
+    bool_arg lazy_invariants,
     Format.sprintf
       "(IND) Asserts invariants lazily (default: %B)"
       lazy_invariants_default
@@ -771,7 +791,7 @@ module IC3 = struct
   let check_inductive = ref check_inductive_default
   let _ = add_spec (
     "--ic3_check_inductive",
-    Arg.Bool (fun b -> check_inductive := b),
+    bool_arg check_inductive,
     Format.sprintf
       "(IC3) Check inductiveness of blocking clauses (default: %s)"
       (string_of_check_inductive check_inductive_default)
@@ -807,7 +827,7 @@ module IC3 = struct
   let block_in_future = ref block_in_future_default
   let _ = add_spec (
     "--ic3_block_in_future",
-    Arg.Bool (fun b -> block_in_future := b),
+    bool_arg block_in_future,
     Format.sprintf
       "(IC3) Block counterexample in future frames (default: %s)"
       (string_of_block_in_future block_in_future_default)
@@ -819,7 +839,7 @@ module IC3 = struct
   let block_in_future_first = ref block_in_future_first_default
   let _ = add_spec (
     "--ic3_block_in_future_first",
-    Arg.Bool (fun b -> block_in_future_first := b),
+    bool_arg block_in_future_first,
     Format.sprintf
       "(IC3) Block counterexample in future frames first before returning to \
       frame (default: %s)"
@@ -832,7 +852,7 @@ module IC3 = struct
   let fwd_prop_non_gen = ref fwd_prop_non_gen_default
   let _ = add_spec (
     "--ic3_fwd_prop_non_gen",
-    Arg.Bool (fun b -> fwd_prop_non_gen := b),
+    bool_arg fwd_prop_non_gen,
     Format.sprintf
       "(IC3) Also propagate clauses before generalization (default: %s)"
       (string_of_fwd_prop_non_gen fwd_prop_non_gen_default)
@@ -844,7 +864,7 @@ module IC3 = struct
   let fwd_prop_ind_gen = ref fwd_prop_ind_gen_default
   let _ = add_spec (
     "--ic3_fwd_prop_ind_gen",
-    Arg.Bool (fun b -> fwd_prop_ind_gen := b),
+    bool_arg fwd_prop_ind_gen,
     Format.sprintf
       "(IC3) Inductively generalize all clauses after forward propagation \
       (default: %s)"
@@ -857,7 +877,7 @@ module IC3 = struct
   let fwd_prop_subsume = ref fwd_prop_subsume_default
   let _ = add_spec (
     "--ic3_fwd_prop_subsume",
-    Arg.Bool (fun b -> fwd_prop_subsume := b),
+    bool_arg fwd_prop_subsume,
     Format.sprintf
       "(IC3) Subsumption in forward propagation (default: %s)"
       (string_of_fwd_prop_subsume fwd_prop_subsume_default)
@@ -869,7 +889,7 @@ module IC3 = struct
   let use_invgen = ref use_invgen_default
   let _ = add_spec (
     "--ic3_use_invgen",
-    Arg.Bool (fun b -> use_invgen := b),
+    bool_arg use_invgen,
     Format.sprintf
       "(IC3) Use invariants from invariant generators (default: %s)"
       (string_of_use_invgen use_invgen_default)
@@ -970,7 +990,7 @@ module QE = struct
   let cooper_order_var_by_elim = ref cooper_order_var_by_elim_default
   let _ = add_spec (
     "--cooper_order_var_by_elim",
-    Arg.Bool (fun b -> cooper_order_var_by_elim := b),
+    bool_arg cooper_order_var_by_elim,
     Format.sprintf
       "(Cooper QE) Order variables in polynomials by order of \
       elimination (default: %B)"
@@ -982,7 +1002,7 @@ module QE = struct
   let cooper_general_lbound = ref cooper_general_lbound_default
   let _ = add_spec (
     "--cooper_general_lbound",
-    Arg.Bool (fun b -> cooper_general_lbound := b),
+    bool_arg cooper_general_lbound,
     Format.sprintf
       "(Cooper QE) Choose lower bounds containing variables \
       (default: %B)"
@@ -1010,7 +1030,7 @@ module Contracts = struct
   let compositional = ref compositional_default
   let _ = add_spec (
     "--compositional",
-    Arg.Bool (fun b -> compositional := b),
+    bool_arg compositional,
     Format.sprintf
       "abstract subnodes with a contract (default: %B)"
       compositional_default
@@ -1021,7 +1041,7 @@ module Contracts = struct
   let check_modes = ref check_modes_default
   let _ = add_spec (
     "--check_modes",
-    Arg.Bool (fun b -> check_modes := b),
+    bool_arg check_modes,
     Format.sprintf
       "checks the modes of a contracts are exhaustive \
       (default: %B, setting to `false` automatically activates `check_implem`)"
@@ -1033,7 +1053,7 @@ module Contracts = struct
   let check_implem = ref check_implem_default
   let _ = add_spec (
     "--check_implem",
-    Arg.Bool (fun b -> check_implem := b),
+    bool_arg check_implem,
     Format.sprintf
       "checks the implementation of nodes \
       (default: %B, setting to `false` automatically activates `check_modes`)"
@@ -1061,7 +1081,7 @@ module Testgen = struct
   let active = ref active_default
   let _ = add_spec (
     "--testgen",
-    Arg.Bool (fun b -> active := b),
+    bool_arg active,
     Format.sprintf
       "@[<v 7>@,(default: %b)@ \
       Activates test generation, deactivates everything else.@]"
@@ -1073,7 +1093,7 @@ module Testgen = struct
   let graph_only = ref graph_only_default
   let _ = add_spec (
     "--testgen_graph_only",
-    Arg.Bool (fun b -> graph_only := b),
+    bool_arg graph_only,
     Format.sprintf
      "@[<v 7>@,(default: %b)@ \
      Only draw the graph of reachable modes, do not log testcases.@ \
@@ -1113,7 +1133,7 @@ module Invgen = struct
   let prune_trivial = ref prune_trivial_default
   let _ = add_spec (
     "--invgen_prune_trivial",
-    Arg.Bool (fun b -> prune_trivial := b),
+    bool_arg prune_trivial,
     Format.sprintf
       "Invariant generation will communicate invariants not implied by the \
       transition relation (default: %B)."
@@ -1136,7 +1156,7 @@ module Invgen = struct
   let lift_candidates = ref lift_candidates_default
   let _ = add_spec (
     "--invgen_lift_candidates",
-    Arg.Bool (fun b -> lift_candidates := b),
+    bool_arg lift_candidates,
     Format.sprintf
       "Invariant generation will instantiate candidates from sub-nodes\
       (default: %B)."
@@ -1148,7 +1168,7 @@ module Invgen = struct
   let top_only = ref top_only_default
   let _ = add_spec (
     "--invgen_top_only",
-    Arg.Bool (fun b -> top_only := b),
+    bool_arg top_only,
     Format.sprintf
       "Only generate invariants for the top level\
       (default: %B)."
@@ -1160,7 +1180,7 @@ module Invgen = struct
   let mine_trans = ref mine_trans_default
   let _ = add_spec (
     "--invgen_mine_trans",
-    Arg.Bool (fun b -> mine_trans := b),
+    bool_arg mine_trans,
     Format.sprintf
       "Invariant generation will extract candidate terms from the transition \
       predicate (default: %B)."
@@ -1229,7 +1249,7 @@ module C2I = struct
   let modes = ref modes_default
   let _ = add_spec (
     "--c2i_modes",
-    Arg.Bool (fun b -> modes := b),
+    bool_arg modes,
     Format.sprintf
       "Activates mode subcandidates. Subsumes c2i_dnf_size (default %b)."
       modes_default
