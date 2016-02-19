@@ -170,9 +170,9 @@ end
 (** {2 QE flags} *)
 module QE : sig
   (** Order variables in polynomials by order of elimination **)
-  val cooper_order_var_by_elim : unit -> bool
+  val order_var_by_elim : unit -> bool
   (** Choose lower bounds containing variables **)
-  val cooper_general_lbound : unit -> bool
+  val general_lbound : unit -> bool
 end
 
 
