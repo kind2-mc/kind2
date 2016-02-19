@@ -1544,7 +1544,7 @@ module Global = struct
       "@.    \
         explains and shows the flags for a Kind 2 module among\
         @.      %a\
-        @.      %-15s explaination and flags for all Kind 2 modules\
+        @.      %-15s explanation and flags for all Kind 2 modules\
       "
       (pp_print_list
         ( fun fmt (key, m0d) ->
