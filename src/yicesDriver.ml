@@ -28,7 +28,7 @@ let cmd_line
     produce_interpolants = 
 
   (* Path and name of Yices executable *)
-  let yices_bin = Flags.yices_bin () in
+  let yices_bin = Flags.Smt.yices_bin () in
 
   [| yices_bin |]
 

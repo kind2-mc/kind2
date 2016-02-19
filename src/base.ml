@@ -98,7 +98,7 @@ let split trans solver k falsifiable to_split actlits =
     None
   in
 
-  if Flags.bmc_check_unroll () then ( 
+  if Flags.BmcKind.check_unroll () then ( 
     if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn
@@ -336,7 +336,7 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
     let k_p_1_int = Numeral.to_int k_p_1 in
 
     (* Checking if we have reached max k. *)
-    if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+    if Flags.BmcKind.max () > 0 && k_p_1_int > Flags.BmcKind.max () then
      Event.log
        L_info
        "BMC @[<v>reached maximal number of iterations.@]"
@@ -358,7 +358,7 @@ let init input_sys aparam trans =
   (* Creating solver. *)
   let solver =
     SMTSolver.create_instance ~produce_assignments:true
-      (TransSys.get_logic trans) (Flags.smtsolver ())
+      (TransSys.get_logic trans) (Flags.Smt.solver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -385,7 +385,7 @@ let init input_sys aparam trans =
   |> SMTSolver.assert_term solver
   |> ignore ;
 
-  if Flags.bmc_check_unroll () then (
+  if Flags.BmcKind.check_unroll () then (
     if SMTSolver.check_sat solver |> not then (
       Event.log
         L_warn

@@ -44,7 +44,7 @@ type t =
   { 
     
     (* Type of SMT solver *)
-    solver_kind : Flags.smtsolver;
+    solver_kind : Flags.Smt.solver;
     
     (* Solver instance *)
     solver_inst : (module SolverSig.Inst);

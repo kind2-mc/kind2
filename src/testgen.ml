@@ -180,7 +180,7 @@ let run_strategy out_dir sys strategy =
       (TransSys.get_scope sys)
       (TransSys.get_logic sys)
       (TransSys.get_abstraction sys)
-      (Flags.smtsolver ())
+      (Flags.Smt.solver ())
   in
 
   (* Memorizing solver for clean exit. *)
@@ -485,8 +485,8 @@ let oracle_of_nodes out_dir nodes =
     sliced ;
 
   Unix.close file ;
-
-  ( match Flags.testgen_lustrec () with
+(* 
+  ( match Flags.Testgenlustrec () with
     | None -> Format.printf "Skipping oracle compilation.@."
     | Some lustrec ->
       Format.printf "Compiling oracle.@." ;
@@ -535,7 +535,7 @@ let oracle_of_nodes out_dir nodes =
         | Unix.WSIGNALED n ->
           Format.printf "> /!\\ killed by signal %d.@." n
         | Unix.WSTOPPED n ->
-          Format.printf "> /!\\ stopped by signal %d.@." n ) ) ;
+          Format.printf "> /!\\ stopped by signal %d.@." n ) ) ; *)
 
   Format.printf "@." ;
 

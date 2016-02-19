@@ -573,8 +573,8 @@ let print_xml_header () =
       ",")
     (Flags.enable ())
     (Flags.timeout_wall ())
-    (Flags.bmc_max ())
-    (Flags.compositional ())
+    (Flags.BmcKind.max ())
+    (Flags.Contracts.compositional ())
     (Flags.modular ())
 
 
@@ -1020,7 +1020,7 @@ let log_run_end results =
   match !log_format with
   | F_pt ->
     (* Printing a short, human readable version of all the results. *)
-    if Flags.compositional () then
+    if Flags.Contracts.compositional () then
       Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
         pp_print_hline ()
         (pp_print_list Analysis.pp_print_result_quiet "@ ") (

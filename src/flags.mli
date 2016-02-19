@@ -6,317 +6,260 @@
    may not use this file except in compliance with the License.  You
    may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0 
+   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
    implied. See the License for the specific language governing
-   permissions and limitations under the License. 
+   permissions and limitations under the License.
 
 *)
 
-(** Command-line flags 
+(** Command-line flags
 
-    Use the OCaml module [Arg] to parse the command-line and store the
-    value in a record type.
-    
-    @author Christoph Sticksel *)
+Use the OCaml module [Arg] to parse the command-line and store the
+value in a record type.
+
+@author Christoph Sticksel *)
+
 
 (** {1 Accessors for flags} *)
 
-(** Wallclock timeout *)
-val timeout_wall : unit -> float
 
-(** CPU timeout *)
-val timeout_virtual : unit -> float
-
-(** SMT Solver to use *)
-type smtsolver = 
-  [ `Z3_SMTLIB
-  | `CVC4_SMTLIB
-  | `MathSat5_SMTLIB
-  | `Yices_SMTLIB
-  | `Yices_native
-  | `detect ]
-
-(** Return SMT solver *)
-val smtsolver : unit -> smtsolver 
-
-(** Set SMT solver and executable *)
-val set_smtsolver : smtsolver -> string -> unit
-
-(* (\** Return SMT solver to use with IC3 *\) *)
-(* val ic3_smtsolver : unit -> smtsolver  *)
-
-(* (\** Return SMT solver to use with Quantifier Elimination *\) *)
-(* val qe_smtsolver : unit -> smtsolver  *)
-
-(** detect logic to send SMT solver *)
-type smtlogic = [ `None | `detect | `Logic of string ]
-val smtlogic : unit -> smtlogic 
-
-(** Executable of Z3 solver *)
-type z3_bin = string
-val z3_bin : unit -> z3_bin
-
-(** Use check-sat with assumptions, or simulate with push/pop *)
-type smt_check_sat_assume = bool
-val smt_check_sat_assume : unit -> smt_check_sat_assume
-
-(** Send short names to SMT solver *)
-type smt_short_names = bool
-val smt_short_names : unit -> smt_short_names
-
-(** Executable of CVC4 solver *)
-type cvc4_bin = string
-val cvc4_bin : unit -> cvc4_bin
-
-(** Executable of MathSAT5 solver *)
-type mathsat5_bin = string
-val mathsat5_bin : unit -> mathsat5_bin
-
-(** Executable of Yices solver *)
-type yices_bin = string
-val yices_bin : unit -> yices_bin
-
-(** Executable of Yices2 SMT2 solver *)
-type yices2smt2_bin = string
-val yices2smt2_bin : unit -> yices2smt2_bin
-
-(** Write all SMT commands to files *)
-type smt_trace = bool
-val smt_trace : unit -> smt_trace
-
-(** Enabled Kind modules *)
-type enable = Lib.kind_module list
-val enable : unit -> enable
-
-(** Maximal number of iterations in BMC *)
-type bmc_max = int
-val bmc_max : unit -> bmc_max
-
-(** Check that the unrolling of the system alone is satisfiable. *)
-type bmc_check_unroll = bool
-val bmc_check_unroll : unit -> bmc_check_unroll
-
-(** Print counterexamples to induction. *)
-type ind_print_cex = bool
-val ind_print_cex : unit -> ind_print_cex
+(** {2 Meta flags} *)
 
 (** Output version information and exit *)
-type check_version = bool
-val check_version : unit -> check_version
+val check_version : unit -> bool
 
-(** Compress inductive counterexample *)
-type ind_compress = bool
-val ind_compress : unit -> ind_compress
 
-(** Compress inductive counterexample when states are equal modulo
-    inputs *)
-type ind_compress_equal = bool
-val ind_compress_equal : unit -> ind_compress_equal
+(** {2 Generic flags} *)
 
-(** Compress inductive counterexample when states have same successors *)
-type ind_compress_same_succ = bool
-val ind_compress_same_succ : unit -> ind_compress_same_succ
-
-(** Compress inductive counterexample when states have same predecessors *)
-type ind_compress_same_pred = bool
-val ind_compress_same_pred : unit -> ind_compress_same_pred
-
-(** Lazy assertion of invariants. *)
-type ind_lazy_invariants = bool
-val ind_lazy_invariants : unit -> ind_lazy_invariants
-
-(** Strict Lustre mode *)
-type strict = bool
-val strict : unit -> strict
-
-(** Algorithm for quantifier elimination in IC3 *)
-type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
-val ic3_qe : unit -> ic3_qe
-val set_ic3_qe : ic3_qe -> unit
-
-(** Heuristics for extraction of implicant *)
-type ic3_extract = [ `First | `Vars ]
-val ic3_extract : unit -> ic3_extract
-
-(** Check inductiveness of blocking clauses *)
-type ic3_check_inductive = bool
-val ic3_check_inductive : unit -> ic3_check_inductive
-
-(** File for inductive blocking clauses *)
-type ic3_print_to_file = string option 
-val ic3_print_to_file : unit -> ic3_print_to_file
-
-(** Tighten blocking clauses to an unsatisfiable core *)
-type ic3_inductively_generalize = int
-val ic3_inductively_generalize : unit -> ic3_inductively_generalize
-
-(** Block counterexample in future frames *)
-type ic3_block_in_future = bool
-val ic3_block_in_future : unit -> ic3_block_in_future
-  
-(** Block counterexample in future frames first before returning to frame *)
-type ic3_block_in_future_first = bool
-val ic3_block_in_future_first : unit -> ic3_block_in_future_first  
-
-(** Also propagate clauses before generalization *)
-type ic3_fwd_prop_non_gen = bool
-val ic3_fwd_prop_non_gen : unit -> ic3_fwd_prop_non_gen
-
-(** Inductively generalize all clauses after forward propagation *)
-type ic3_fwd_prop_ind_gen = bool
-val ic3_fwd_prop_ind_gen : unit -> ic3_fwd_prop_ind_gen
-
-(** Subsumption in forward propagation *)
-type ic3_fwd_prop_subsume = bool
-val ic3_fwd_prop_subsume : unit -> ic3_fwd_prop_subsume
-
-(** Use invariants from invariant generators *)
-type ic3_use_invgen = bool
-val ic3_use_invgen : unit -> ic3_use_invgen
-
-(** Abstraction mechanism to use in IC3 *)
-type ic3_abstr = [ `None | `IA ]
-val ic3_abstr : unit -> ic3_abstr
-
+(** Input file *)
+val input_file : unit -> string
+(** Main node in Lustre file *)
+val lus_main : unit -> string option
+(** Format of input file *)
+type input_format = [ `Lustre | `Horn | `Native ]
+val input_format : unit -> input_format
+(** Output directory for the files Kind 2 generates. *)
+val output_dir : unit -> string
 (** Debug sections to enable *)
 val debug : unit -> string list
-
 (** Logfile for debug output  *)
 val debug_log : unit -> string option
-
 (** Verbosity level *)
 val log_level : unit -> Lib.log_level
-
 (** Output in XML format *)
 val log_format_xml : unit -> bool
-
+(** Wallclock timeout. *)
+val timeout_wall : unit -> float
+(** The Kind modules enabled is a list of [kind_module]s. *)
+type enable = Lib.kind_module list
+(** The modules enabled. *)
+val enable : unit -> enable
 (** Modular analysis. *)
-type modular = bool
-val modular : unit -> modular
+val modular : unit -> bool
+(** Strict Lustre mode. *)
+val lus_strict : unit -> bool
+(** Activates compilation to Rust. *)
+val lus_compile : unit -> bool
 
-(** Compositional analysis. *)
-type compositional = bool
-val compositional : unit -> compositional
 
-(** Compositional analysis. *)
-type output_dir = string
-val output_dir : unit -> output_dir
+(** {2 SMT solver flags} *)
+module Smt : sig
+  (** Logic sendable to the SMT solver. *)
+  type logic = [
+    `None | `detect | `Logic of string
+  ]
+  (** Logic to send to the SMT solver *)
+  val logic : unit -> logic
+  (** Legal SMT solvers. *)
+  type solver = [
+    | `Z3_SMTLIB
+    | `CVC4_SMTLIB
+    | `MathSat5_SMTLIB
+    | `Yices_SMTLIB
+    | `Yices_native
+    | `detect
+  ]
+  (** Set SMT solver and executable *)
+  val set_solver : solver -> unit
+  (** Which SMT solver to use. *)
+  val solver : unit -> solver
+  (** Use check-sat with assumptions, or simulate with push/pop *)
+  val check_sat_assume : unit -> bool
+  (** Send short names to SMT solver *)
+  val short_names : unit -> bool
+  (** Executable of Z3 solver *)
+  val z3_bin : unit -> string
+  (** Executable of CVC4 solver *)
+  val cvc4_bin : unit -> string
+  (** Executable of MathSAT5 solver *)
+  val mathsat5_bin : unit -> string
+  (** Executable of Yices solver *)
+  val yices_bin : unit -> string
+  (** Executable of Yices2 SMT2 solver *)
+  val yices2smt2_bin : unit -> string
+  (** Write all SMT commands to files *)
+  val trace : unit -> bool
+  (** Path to the smt trace directory. *)
+  val trace_dir : unit -> string
+end
+
+
+(** {2 BMC / k-induction flags} *)
+module BmcKind : sig
+  (** Maximal number of iterations in BMC. *)
+  val max : unit -> int
+  (** Check that the unrolling of the system alone is satisfiable. *)
+  val check_unroll : unit -> bool
+  (** Print counterexamples to induction. *)
+  val print_cex : unit -> bool
+  (** Compress inductive counterexample. *)
+  val compress : unit -> bool
+  (** Compress inductive counterexample when states are equal modulo inputs. *)
+  val compress_equal : unit -> bool
+  (** Compress inductive counterexample when states have same successors. *)
+  val compress_same_succ : unit -> bool
+  (** Compress inductive counterexample when states have same predecessors. *)
+  val compress_same_pred : unit -> bool
+  (** Lazy assertion of invariants. *)
+  val lazy_invariants : unit -> bool
+end
+
+
+(** {2 IC3 flags} *)
+module IC3 : sig
+  (** Algorithm usable for quantifier elimination in IC3. *)
+  type qe = [
+    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
+  ]
+  (** The QE algorithm IC3 should use. *)
+  val qe : unit -> qe
+  (** Sets [qe]. *)
+  val set_qe : qe -> unit
+  (** Check inductiveness of blocking clauses. *)
+  val check_inductive : unit -> bool
+  (** File for inductive blocking clauses. *)
+  val print_to_file : unit -> string option
+  (** Tighten blocking clauses to an unsatisfiable core. *)
+  val inductively_generalize : unit -> int
+  (** Block counterexample in future frames. *)
+  val block_in_future : unit -> bool
+  (** Block counterexample in future frames first before returning to frame. *)
+  val block_in_future_first : unit -> bool
+  (** Also propagate clauses before generalization. *)
+  val fwd_prop_non_gen : unit -> bool
+  (** Inductively generalize all clauses after forward propagation. *)
+  val fwd_prop_ind_gen : unit -> bool
+  (** Subsumption in forward propagation. *)
+  val fwd_prop_subsume : unit -> bool
+  (** Use invariants from invariant generators. *)
+  val use_invgen : unit -> bool
+  (** Legal abstraction mechanisms for in IC3. *)
+  type abstr = [ `None | `IA ]
+  (** Abstraction mechanism IC3 should use. *)
+  val abstr : unit -> abstr
+  (** Legal heuristics for extraction of implicants in IC3. *)
+  type extract = [ `First | `Vars ]
+  (** Heuristic for extraction of implicants in IC3. *)
+  val extract : unit -> extract
+end
+
+(** {2 QE flags} *)
+module QE : sig
+  (** Order variables in polynomials by order of elimination **)
+  val order_var_by_elim : unit -> bool
+  (** Choose lower bounds containing variables **)
+  val general_lbound : unit -> bool
+end
+
+
+(** {2 Contracts flags} *)
+module Contracts : sig
+  (** Compositional analysis. *)
+  val compositional : unit -> bool
+  (** Check modes. *)
+  val check_modes : unit -> bool
+  (** Check modes. *)
+  val check_implem : unit -> bool
+end
+
+
+(** {2 Testgen flags. *)
+
+module Testgen : sig
+  (** Activates test generation. *)
+  val active : unit -> bool
+  (** Only generate graph of reachable modes, do not log testcases. *)
+  val graph_only : unit -> bool
+  (** Length of the test case generated. *)
+  val len : unit -> int
+end
+
+
+(** {2 Invgen flags} *)
+module Invgen : sig
+  (** InvGen will remove trivial invariants, i.e. invariants implied by the
+      transition relation. *)
+  val prune_trivial : unit -> bool
+  (** Number of unrollings invariant generation should perform between
+    switching to a different systems. *)
+  val max_succ : unit -> int
+  (** InvGen will lift candidate terms from subsystems. **)
+  val lift_candidates : unit -> bool
+  (** InvGen will generate invariants only for top level. **)
+  val top_only : unit -> bool
+  (** InvGen will look for candidate terms in the transition predicate. *)
+  val mine_trans : unit -> bool
+  (** Renice invariant generation process. *)
+  val renice : unit -> int
+end
+
+
+(** {2 C2I flags} *)
+module C2I : sig
+  (** Number of disjuncts in the DNF constructed by C2I. *)
+  val dnf_size : unit -> int
+  (** Number of int cubes in the DNF constructed by C2I. *)
+  val int_cube_size : unit -> int
+  (** Number of real cubes in the DNF constructed by C2I. *)
+  val real_cube_size : unit -> int
+  (** Whether mode sub candidate is activated in c2i. *)
+  val modes : unit -> bool
+end
+
+
+(** {2 Interpreter flags} *)
+module Interpreter : sig
+  (** Read input from file. *)
+  val input_file : unit -> string
+  (** Run number of steps, override the number of steps given in the input
+    file. *)
+  val steps : unit -> int
+end
+
+
+(** {1 Convenience functions} *)
 
 (** Path to subdirectory for a system (in the output directory). *)
 val subdir_for : string list -> string
 
-(** Path to the smt trace directory. *)
-val smt_trace_dir : unit -> string
+(** Sets the solver kind (z3, CVC4, ...) and the actual command for that solver
+at the same time. *)
+val set_smtsolver : Smt.solver -> string -> unit
 
-(** Check modes. *)
-type check_modes = bool
-val check_modes : unit -> check_modes
-
-(** Check modes. *)
-type check_implem = bool
-val check_implem : unit -> check_implem
-
-(** Order variables in polynomials by order of elimination **)
-type cooper_order_var_by_elim = bool
-val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
-
-(** Choose lower bounds containing variables **)
-type cooper_general_lbound = bool
-val cooper_general_lbound : unit -> cooper_general_lbound
-
-(** Activates test generation. *)
-type testgen_active = bool
-val testgen_active : unit -> testgen_active
-
-(** Only generate graph of reachable modes, do not log testcases. *)
-type testgen_graph_only = bool
-val testgen_graph_only : unit -> testgen_graph_only
-
-(** Command for lustrec. *)
-type testgen_lustrec = string option
-val testgen_lustrec : unit -> testgen_lustrec
-
-(** Length of the test case generated. *)
-type testgen_len = int
-val testgen_len : unit -> testgen_len
-
-(** Activates compilation to Rust. *)
-type compile = bool
-val compile : unit -> compile
-
-(** InvGen will remove trivial invariants, i.e. invariants implied by
-    the transition relation.. **)
-type invgengraph_prune_trivial = bool
-val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
-type invgengraph_max_succ = int
-val invgengraph_max_succ : unit -> invgengraph_max_succ
-(** InvGen will lift candidate terms from subsystems.. **)
-type invgengraph_lift_candidates = bool
-val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
-(** InvGen will generate invariants only for top level. **)
-type invgengraph_top_only = bool
-val invgengraph_top_only : unit -> invgengraph_top_only
-(** InvGen will look for candidate terms in the transition
-    predicate. *)
-type invgengraph_mine_trans = bool
-val invgengraph_mine_trans : unit -> invgengraph_mine_trans
-
-(** Renice invariant generation process *)
-type invgengraph_renice = int
-val invgengraph_renice : unit -> invgengraph_renice
-
-(** Number of disjuncts in the DNF constructed by C2I. *)
-type c2i_dnf_size = int
-val c2i_dnf_size : unit -> c2i_dnf_size
-
-(** Number of int cubes in the DNF constructed by C2I. *)
-type c2i_int_cube_size = int
-val c2i_int_cube_size : unit -> c2i_int_cube_size
-
-(** Number of real cubes in the DNF constructed by C2I. *)
-type c2i_real_cube_size = int
-val c2i_real_cube_size : unit -> c2i_real_cube_size
-
-(** Whether mode sub candidate is activated in c2i. *)
-type c2i_modes = bool
-val c2i_modes : unit -> c2i_modes
-
-(** Read input from file **)
-type interpreter_input_file = string
-val interpreter_input_file : unit -> interpreter_input_file
-
-(** Run number of steps, override the number of steps given in the
-    input file **)
-type interpreter_steps = int
-val interpreter_steps : unit -> interpreter_steps
-
-(** Format of input file *)
-type input_format = [ `Lustre | `Horn | `Native ]
-val input_format : unit -> input_format 
-
-(** Input file *)
-val input_file : unit -> string 
-
-(** Main node in Lustre file *)
-val lustre_main : unit -> string option
-
-(** Flatten arrays to one stream per element *)
-type lustre_flatten_arrays = bool
-val lustre_flatten_arrays : unit -> lustre_flatten_arrays
 
 (** {1 Parsing of the command line} *)
 
 (** Parse the command line *)
 val parse_argv : unit -> unit
 
-(* 
+(*
    Local Variables:
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
-   End: 
+   End:
 *)

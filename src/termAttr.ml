@@ -204,7 +204,7 @@ module YicesPrinter : Printer =
 
 (* Select apropriate printer based on solver *)
 let select_printer () =
-  match Flags.smtsolver () with
+  match Flags.Smt.solver () with
   | `Yices_native -> (module YicesPrinter : Printer)
   | _ -> (module SMTLIBPrinter : Printer)
 

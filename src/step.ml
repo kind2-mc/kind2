@@ -236,9 +236,9 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
       (* Do we need the full model? *)
       if
-        (Flags.ind_compress ()) ||
-        (Flags.ind_lazy_invariants ()) ||
-        (Flags.ind_print_cex ())
+        (Flags.BmcKind.compress ()) ||
+        (Flags.BmcKind.lazy_invariants ()) ||
+        (Flags.BmcKind.print_cex ())
       then 
 
         (* Get model for all variables *)
@@ -256,7 +256,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
   in
 
-  let print_cex = Flags.ind_print_cex () in
+  let print_cex = Flags.BmcKind.print_cex () in
 
   (* Function to run if unsat. *)
   let if_unsat _ = None in
@@ -285,7 +285,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
       (* Attempting to block counterexample with invariants. *)
       let blocked_by_invariant =
-        if Flags.ind_lazy_invariants () then
+        if Flags.BmcKind.lazy_invariants () then
           (* We are in lazy invariants mode, trying to block model. *)
           eval_terms_assert_first_false trans solver eval k
         else false
@@ -297,7 +297,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
       then loop ()
       else (
         let path =
-          if (Flags.ind_compress ()) || print_cex then
+          if (Flags.BmcKind.compress ()) || print_cex then
             Model.path_from_model
               (TransSys.state_vars trans) model k
           else StateVar.StateVarHashtbl.create 0
@@ -308,7 +308,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
       
         (* Attempting to compress path. *)
         ( match
-            if Flags.ind_compress () then
+            if Flags.BmcKind.compress () then
               Compress.check_and_block
                 (SMTSolver.declare_fun solver) trans path
             else []
@@ -496,7 +496,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      Stat.update_time Stat.ind_total_time ;
 
      (* Notifying compression *)
-     if Flags.ind_compress () then
+     if Flags.BmcKind.compress () then
        Compress.incr_k () ;
 
      (* k+1. *)
@@ -513,7 +513,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      |> ignore ;
 
      (* Asserting invariants if we are not in lazy invariants mode. *)
-     if not (Flags.ind_lazy_invariants ()) then (
+     if not (Flags.BmcKind.lazy_invariants ()) then (
        (* Asserting new invariants from 0 to k. *)
        ( match new_invariants' with
          | [] -> ()
@@ -593,7 +593,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      let k_p_1_int = Numeral.to_int k_p_1 in
 
      (* Checking if we have reached max k. *)
-     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+     if Flags.BmcKind.max () > 0 && k_p_1_int > Flags.BmcKind.max () then
        Event.log
          L_info
          "IND @[<v>reached maximal number of iterations.@]"
@@ -621,7 +621,7 @@ let launch input_sys aparam trans =
   (* Creating solver. *)
   let solver =
     SMTSolver.create_instance ~produce_assignments:true
-      (TransSys.get_logic trans) (Flags.smtsolver ())
+      (TransSys.get_logic trans) (Flags.Smt.solver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -635,7 +635,7 @@ let launch input_sys aparam trans =
   (* Declaring path compression actlit. *)
   path_comp_actlit |> SMTSolver.declare_fun solver ;
 
-  if Flags.ind_compress () then
+  if Flags.BmcKind.compress () then
     (* Declaring path compression function. *)
     Compress.init (SMTSolver.declare_fun solver) trans ;
 

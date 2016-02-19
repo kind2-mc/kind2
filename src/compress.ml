@@ -747,7 +747,7 @@ let check_and_block declare_fun trans_sys path =
   (* Generate blocking terms from equality relation *)
   let block_terms = 
 
-    if Flags.ind_compress_equal () then 
+    if Flags.BmcKind.compress_equal () then 
 
       fold_pairs equal_mod_input block_terms states
 
@@ -760,7 +760,7 @@ let check_and_block declare_fun trans_sys path =
   (* Generate blocking terms from same successor relation *)
   let block_terms = 
 
-    if Flags.ind_compress_same_succ () then 
+    if Flags.BmcKind.compress_same_succ () then 
 
       fold_pairs
         (same_successors
@@ -779,7 +779,7 @@ let check_and_block declare_fun trans_sys path =
   (* Generate blocking terms from same predecessor relation *)
   let block_terms = 
 
-    if Flags.ind_compress_same_pred () then 
+    if Flags.BmcKind.compress_same_pred () then 
 
       fold_pairs
         (same_predecessors
