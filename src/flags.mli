@@ -18,10 +18,10 @@
 
 (** Command-line flags
 
-    Use the OCaml module [Arg] to parse the command-line and store the
-    value in a record type.
-   
-    @author Christoph Sticksel *)
+Use the OCaml module [Arg] to parse the command-line and store the
+value in a record type.
+
+@author Christoph Sticksel *)
 
 
 (** {1 Accessors for flags} *)

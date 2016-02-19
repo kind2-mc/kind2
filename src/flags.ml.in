@@ -26,122 +26,126 @@
 
 open Lib
 
-(*
+(* 
 
-type ('a, 'b) flag =
-  { longname : string;
-    shortname : string option;
-    mutable value : 'a;
-    of_arg : 'a -> 'b -> 'a;
-    pp : Format.formatter -> 'a -> unit }
+# WORKFLOW.
 
+Flags are separated based on the technique(s) they impact. *Global flags* are
+the ones that don't impact any technique, or impact all of them. Log flags,
+help flags, timeout flags... are global flags.
 
-type int_flag = (int, int) flag
+**NB:** when adding a boolean flag, make sure to parse its value with the
+`bool_of_string` function.
 
-type float_flag = (float, float) flag
+## Adding a new (non-global) flag to an existing module
 
-type bool_flag = (bool, bool) flag
+Adding a new flag impacts three pieces of code. The first is the body of the
+module you're adding the flag to. Generally speaking, adding a flag looks like
 
-type unit_flag = (unit, bool) flag
+```ocaml
+(* Default value of the flag. *)
+let my_flag_default = ...
+(* Reference storing the value of the flag. *)
+let my_flag = ref my_flag_default
+(* Add flag specification to module specs. *)
+let _ = add_spec (
+  (* The actual flag. *)
+  "--my_flag",
+  (* What to do with the value given to the flag, see other flags. *)
+  ...,
+  (* Flag description. *)
+  fun fmt ->
+    Format.fprintf fmt
+      "@[<v>Description of my flag.@ Default: %a@]"
+      pp_print_default_value_of_my_flag my_flag_default
+)
+(* Flag value accessor. *)
+let my_flag () = !my_flag
+```
 
-type 'a string_flag = ('a, string) flag
+At this point your flag is integrated in the Kind 2 flags.
 
+To make it available to the rest of Kind 2, you need to modify the signature of
+the module you added the flag to
 
+* in this file, where the module is declared, and
+* in `flags.mli`.
 
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
+The update to the signature is typically
 
-let smtsolver_of_string = function
-  | "Z3" -> `Z3_SMTLIB
-  | "Z3_SMTLIB" -> `Z3_SMTLIB
-  | "Z3_API" -> `Z3_API
-  | "CVC4" -> `CVC4_SMTLIB
-  | "CVC4_SMTLIB" -> `CVC4_SMTLIB
-  | "CVC4_API" -> `CVC4_API
-  | "Yices" -> `Yices
-  | _ -> raise (Invalid_argument "smtsolver_of_string")
-
-let pp_print_smtsolver ppf =
-  let p = Format.fprintf ppf in
-  function
-    | `Z3_SMTLIB -> p "Z3_SMTLIB"
-    | `Z3_API -> p "Z3_API"
-    | `CVC4_SMTLIB -> p "CVC4_SMTLIB"
-    | `CVC4_API -> p "CVC4_API"
-    | `Yices -> p "Yices"
-
-let smtsolver_flag =
-  { longname = "smtsolver";
-    shortname = None;
-    value = `Z3_SMTLIB;
-    of_arg = (function _ -> smtsolver_of_string);
-    pp = pp_print_smtsolver }
-
-
-let kind_module_of_string = function
-  | "IC3" -> `IC3
-  | "BMC" -> `BMC
-  | "IND" -> `IND
-  | "INVGEN" -> `INVGEN
-  | "interpreter" -> `Interpreter
-  | _ -> raise (Invalid_argument "smtsolver_of_string")
+```ocaml
+  val my_flag : unit -> type_of_my_flag
+```
 
 
-let pp_print_kind_module ppf =
-  let p = Format.fprintf ppf in
-  function
-    | `IC3 -> p "IC3"
-    | `BMC -> p "BMC"
-    | `IND -> p "IND"
-    | `INVGEN -> p "INVGEN"
-    | `Interpreter -> p "interpreter"
+## Adding a new global flag
+
+Global flags are given in the `Global` module. They are specified almost the
+same way as discussed in the previous section for non-global flags. The
+difference is in the spec definition, more precisely the flag description:
+
+```ocaml
+let _ = add_spec (
+  (* The actual flag. *)
+  "--my_flag",
+  (* What to do with the value given to the flag, see other flags. *)
+  ...,
+  (* Flag description IS DIFFERENT. *)
+  Format.sprintf "..."
+)
+```
+
+Unfortunately global flags rely on the ocaml `Arg` module which for some
+reason was written by someone oblivious to the format module. As a result
+the description has to be a string and it's rather tricky to have it look
+nice. See existing global flags for more info.
 
 
-let enable_flag =
-  { longname = "enable";
-    shortname = Some "e";
-    value = [];
-    of_arg = (function curval -> (function arg -> kind_module_of_string arg :: curval));
-    pp = (pp_print_list pp_print_kind_module ",@ ") }
+## Adding a new flag module
+
+The template to add a new module is
+
+```ocaml
+module MyModule : sig
+  include FlagModule
+end = struct
+
+  (* Identifier of the module. No space or special characters. *)
+  let id = "..."
+  (* Short description of the module. *)
+  let desc = "..."
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      ...\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+end
+```
+
+Don't forget to update `flags.mli`:
+
+```ocaml
+module MyModule : sig
+  include FlagModule
+end
+```
+
+You then need to add your module to the `module_map`, the association map
+between module identifiers and modules. Make sure the identifier for your
+module is not used yet.
+
+You can now add modules following the instructions in the previous section.
 
 *)
-
-
-(* ********************************************************************** *)
-(* Types and defaults for flags                                            *)
-(* ********************************************************************** *)
-
-(* TODO: write camlp4 code for this
-
-   type <X> = <X1> | <X2> arg <O> default <X2> action <F> doc <D>
-  
-   becomes
-
-   type <X> = <X1> | <X2>
-
-   let <X>_of_string = function
-     | "<X1>" -> <X1>
-     | "<X2>" -> <X2>
-     | _ raise (Arg.bad "Bad value for -<O>")
-
-   let string_of_<X> = function
-     | <X1> -> "<X1>"
-     | <X2> -> "<X2>"
-
-   let <X>_values = "<X1>, <X2>"
-
-   let <X>_default = <X2>
-
-   let <O>_spec =
-     ("-<O>",
-      String <F>,
-      Format.sprintf <D> <X>_values <X>_default)
-
-*)
-  
-
-(*   type <X> = <X1> | <X2> arg <O> default <X2> action <F> doc <D> *)
-
-(*   type smtsolver = Z3_SMTLIB | CVC4_SMTLIB arg smtsolver default CVC4_SMTLIB action smtsolver_action doc " choose SMT solver (available: %s, default: %s" *)
 
 
 (* Strings recognized as the bool value [true]. *)
@@ -166,6 +170,8 @@ let bool_arg reference = Arg.String (
 
 (* Signature of modules for flags. *)
 module type FlagModule = sig
+  (* Identifier of the module. *)
+  val id: string
   (* Short description of the module. *)
   val desc: string
   (* Explanation of the module. *)
@@ -223,6 +229,8 @@ module Smt: sig
   val set_yices2smt2_bin: string -> unit
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "smt"
   (* Short description of the module. *)
   let desc = "SMT solver flags"
   (* Explanation of the module. *)
@@ -476,6 +484,8 @@ module BmcKind : sig
   val lazy_invariants : unit -> bool
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "ind"
   (* Short description of the module. *)
   let desc = "BMC / K-induction flags"
   (* Explanation of the module. *)
@@ -657,6 +667,8 @@ module IC3 : sig
   val extract : unit -> extract
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "ic3"
   (* Short description of the module. *)
   let desc = "IC3 flags"
   (* Explanation of the module. *)
@@ -895,6 +907,8 @@ module QE : sig
   val general_lbound : unit -> bool
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "qe"
   (* Short description of the module. *)
   let desc = "quantifier elimination flags"
   (* Explanation of the module. *)
@@ -962,6 +976,8 @@ module Contracts : sig
   val check_implem : unit -> bool
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "contract"
   (* Short description of the module. *)
   let desc = "contract and compositional verification flags"
   (* Explanation of the module. *)
@@ -1041,6 +1057,8 @@ module Testgen : sig
   val len : unit -> int
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "test"
   (* Short description of the module. *)
   let desc = "test generation flags"
   (* Explanation of the module. *)
@@ -1127,6 +1145,8 @@ module Invgen : sig
   val renice : unit -> int
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "invgen"
   (* Short description of the module. *)
   let desc = "invariant generation flags"
   (* Explanation of the module. *)
@@ -1253,6 +1273,8 @@ module C2I : sig
   val modes : unit -> bool
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "c2i"
   (* Short description of the module. *)
   let desc = "C2I flags"
   (* Explanation of the module. *)
@@ -1343,6 +1365,8 @@ module Interpreter : sig
   val steps : unit -> int
 end = struct
 
+  (* Identifier of the module. *)
+  let id = "interpreter"
   (* Short description of the module. *)
   let desc = "interpreter flags"
   (* Explanation of the module. *)
@@ -1408,31 +1432,31 @@ let global_usage_msg =
   " usage_msg
 
 let module_map = [
-  ("smt",
+  (Smt.id,
     (module Smt: FlagModule)
   ) ;
-  ("ind",
+  (BmcKind.id,
     (module BmcKind: FlagModule)
   ) ;
-  ("ic3",
+  (IC3.id,
     (module IC3: FlagModule)
   ) ;
-  ("invgen",
+  (Invgen.id,
     (module Invgen: FlagModule)
   ) ;
-  ("c2i",
+  (C2I.id,
     (module C2I: FlagModule)
   ) ;
-  ("test",
+  (Testgen.id,
     (module Testgen: FlagModule)
   ) ;
-  ("interpreter",
+  (Interpreter.id,
     (module Interpreter: FlagModule)
   ) ;
-  ("qe",
+  (QE.id,
     (module QE: FlagModule)
   ) ;
-  ("contract",
+  (Contracts.id,
     (module Contracts: FlagModule)
   ) ;
 ]
