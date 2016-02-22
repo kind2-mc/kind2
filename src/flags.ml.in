@@ -1942,6 +1942,17 @@ and speclist =
     Global.all_specs ()
   )
 
+let all_specs = ( Global.all_specs () ) @ (
+  List.fold_left (
+    fun l (_, m0d) ->
+      let module Flags = (val m0d: FlagModule) in
+      List.fold_left
+        (fun l (flag, action, _) -> (flag, action, "") :: l)
+        l
+        ( Flags.all_specs () )
+  ) [] module_map
+)
+
 let anon_action s =
   match Global.input_file () with
     | None -> Global.set_input_file s
@@ -1981,11 +1992,10 @@ let set_smtsolver = function
 
   | `detect -> (function _ -> ())
 
-   
-let parse_argv () =
 
+let parse_argv () =
   (* Parse command-line arguments *)
-  Arg.parse speclist anon_action global_usage_msg ;
+  Arg.parse all_specs anon_action global_usage_msg ;
 
   (* Output version information only? *)
   if Global.check_version () then (
