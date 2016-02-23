@@ -16,6 +16,8 @@
 
 *)
 
+(** Wraps the candidate invariants with info about their cost etc. *)
+
 
 (** Contains the info needed for the moves on a candidate. *)
 type t

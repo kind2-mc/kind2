@@ -187,7 +187,7 @@ module Contracts : sig
 end
 
 
-(** {2 Testgen flags. *)
+(** {2 Testgen flags} *)
 
 module Testgen : sig
   (** Activates test generation. *)

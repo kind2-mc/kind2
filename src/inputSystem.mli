@@ -16,7 +16,7 @@
 
 *)
 
-(** Delegate to concrete functions for input formats 
+(** Delegate to concrete functions for input formats.
 
     All functionality outside this module should be agnostic of the
     input format, with the exception of modules specialized to a

@@ -16,6 +16,7 @@
 
 *)
 
+
 %{
 open Lib
 
@@ -190,6 +191,7 @@ let mk_pos = position_of_lexing
 %start <LustreAst.expr> one_expr
 
 %%
+(** Parser for lustre systems. *)
 
 one_expr: e = expr EOF { e }
 

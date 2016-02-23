@@ -949,6 +949,19 @@ let run_testgen input_sys top =
         "Generating tests for node \"%a\" to `%s`."
         Scope.pp_print_scope top target ;
 
+      let param = match param with
+        | Analysis.ContractCheck info -> Analysis.ContractCheck {
+          info with Analysis.uid = info.Analysis.uid * 1000
+        }
+        | Analysis.First info -> Analysis.First {
+          info with Analysis.uid = info.Analysis.uid * 1000
+        }
+        | Analysis.Refinement (info, res) -> Analysis.Refinement (
+          { info with Analysis.uid = info.Analysis.uid * 1000 },
+          res
+        )
+      in
+
       (* Extracting transition system. *)
       let sys, input_sys_sliced =
         InputSystem.trans_sys_of_analysis input_sys param
@@ -965,7 +978,7 @@ let run_testgen input_sys top =
         Event.log_uncond
           "Generating oracle for node \"%a\" to `%s`."
           Scope.pp_print_scope top target ;
-        InputSystem.compile_oracle_to_rust input_sys top target
+        InputSystem.compile_oracle_to_rust input_sys top target ;
       ) with e -> (
         TestGen.on_exit "T_T" ;
         raise e
@@ -995,7 +1008,9 @@ let post_verif input_sys result =
     let top_scope =
       result.Analysis.sys |> TransSys.scope_of_trans_sys
     in
+    Format.printf "Running testgen@.@." ;
     run_testgen input_sys top_scope ;
+    Format.printf "Compiling to rust@.@." ;
     compile_to_rust input_sys top_scope
   )
 
@@ -1158,16 +1173,23 @@ let launch () =
       (* Producing a list of the last results for each system, in topological
          order. *)
       get !input_sys_ref |> InputSystem.ordered_scopes_of
+      |> fun syss ->
+        Format.printf "%d systems@.@." (List.length syss) ;
+        Format.printf "systems: @[<v>%a@]@.@."
+          (pp_print_list Scope.pp_print_scope "@ ") syss ;
+        syss
       |> List.fold_left (fun l sys ->
+        Format.printf "sys: %a@.@." Scope.pp_print_scope sys ;
         try (
           match Analysis.results_find sys results with
           | last :: _ ->
             (* Running post verification things. *)
             post_verif (get !input_sys_ref) last ;
-
             last :: l
           | [] -> assert false
-        ) with Not_found -> l
+        ) with
+        | Not_found -> l
+        | e -> Format.printf "%s@.@." (Printexc.to_string e) ; l
       ) []
       (* Logging the end of the run. *)
       |> Event.log_run_end ;

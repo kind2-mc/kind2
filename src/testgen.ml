@@ -600,11 +600,12 @@ let main sys =
   |> Xml.pp_necker xml_fmt ;
   (* Oracle things. *)
   TransSys.get_contracts sys
-  |> List.map
-      (fun (_, _, name) ->
-        match TransSys.contract_is_global sys name with
-        | Some b -> b, name
-        | None -> assert false)
+  |> List.map (
+    fun (_, _, name) ->
+      match TransSys.contract_is_global sys name with
+      | Some b -> b, name
+      | None -> assert false
+  )
   |> Xml.pp_oracle xml_fmt (oracle_path out_dir sys) ;
   (* Tests xml files. *)
   Xml.pp_tests xml_fmt subfiles ;

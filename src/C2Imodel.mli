@@ -17,9 +17,12 @@
 *)
 
 
+(** Handles models for the C2I algorithm. *)
+
+
 (** Updates the white, grey and black model lists.
     
-    In theory thanks to the cost function the intersetion between the new sets
+    In theory thanks to the cost function the intersection between the new sets
     and the old ones is empty. *)
 val update_colors : int ->
   Model.t list -> (Model.t * Model.t) list -> Model.t list ->

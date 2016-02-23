@@ -58,7 +58,8 @@ let fmt_prefix blah name fmt typ = Format.fprintf fmt "\
 
 // Deactiving lint warnings the transformation does not respect.
 #![allow(
-  non_upper_case_globals, unused_parens, non_snake_case, non_camel_case_types
+  non_upper_case_globals, non_snake_case, non_camel_case_types,
+  unused_variables, unused_parens
 )]
 
 use helpers::* ;
