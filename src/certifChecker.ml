@@ -400,7 +400,7 @@ exception Reduce_cont of (unit -> Term.t list)
 
    - Returns a subset of invs_acts which preserves inductiveness otherwise.
 *)
-let rec fixpoint
+let rec trim
     solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   let if_sat _ =
@@ -444,7 +444,7 @@ let rec fixpoint
          (* SAT try to find what invariants are missing *)
          (debug certif "[Fixpoint] could not verify inductiveness" end);
 
-         fixpoint solver
+         trim solver
            invs_acts new_prop_act new_prop'act neg_new_prop'act trans_acts)
       
       (fun _ ->
@@ -473,7 +473,7 @@ let rec fixpoint
 
 
 
-let check_ind_and_fixpoint ~just_check_ind
+let check_ind_and_trim ~just_check_ind
     solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   (* Get invariants at k - 1 *)
@@ -505,7 +505,7 @@ let check_ind_and_fixpoint ~just_check_ind
          List.map snd invs_acts
        | _ ->
          (* Otherwise complete the fixpoint in the continuation *)
-         fixpoint solver
+         trim solver
            invs_acts prev_props_act prop'act neg_prop'act trans_acts
      in
 
@@ -523,7 +523,7 @@ let check_ind_and_fixpoint ~just_check_ind
    and when it is not valid, we look for invariants which evaluate to false in
    the model and add them to P (one-by-one or all at the same time)
 *)
-let rec minimize_hard solver trans
+let rec cherry_pick solver trans
     needed_invs remaining_invs prev_props_act prop'act neg_prop'act trans_acts =
 
   let needed_invs_acts, needed_invs'acts = List.split needed_invs in
@@ -580,7 +580,7 @@ let rec minimize_hard solver trans
           (List.length needed_invs) end);
 
        (* recursive call to find out if we have found an inductive set or not *)
-       minimize_hard solver trans
+       cherry_pick solver trans
          needed_invs other_invs prev_props_act prop'act neg_prop'act trans_acts
     )
     (fun _ -> (* UNSAT *)
@@ -659,9 +659,9 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
       ) [] useful_acts
   in
 
-  let min_hard useful_acts =
+  let cherry_pick_min useful_acts =
     let useful_infos = reconstruct_infos useful_acts in
-    minimize_hard solver sys
+    cherry_pick solver sys
       [] useful_infos prev_props_act prop'act neg_prop'act trans_acts
     |> map_back_to_invs
   in
@@ -671,13 +671,13 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
     | `Easy -> map_back_to_invs
     | `Medium | `MediumOnly | `Hard | `HardOnly ->
       (* Second phase of harder minimization if we decide to not stop at easy *)
-      min_hard
+      cherry_pick_min
   in
   
   try
     (* Can fail and raise Exit or Reduce_cont *)
     let useful_acts =
-      check_ind_and_fixpoint ~just_check_ind
+      check_ind_and_trim ~just_check_ind
         solver invs_acts prev_props_act prop'act neg_prop'act trans_acts in
     
     (* If fixpoint returned a list of useful invariants we just return them *)
