@@ -81,16 +81,24 @@ let trans_conj_of_bounds sys lo hi =
   loop [] hi
 
 let generate _ _ sys =
+  let target_dir =
+    let file = Flags.input_file () in
+    try (
+      let start = (String.rindex file '/') + 1 in
+      let len = (String.rindex file '.') - start in
+      String.sub file start len
+    ) with Not_found -> file
+  in
+  mk_dir target_dir ;
   let target_file_for k =
-    Format.asprintf "%a_%d.smt2"
-      Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
-      k
+    Format.asprintf "%s/%a_%d.smt2"
+      target_dir Scope.pp_print_scope (Sys.scope_of_trans_sys sys) k
   in
   let low, upp = 1, 20 in
 
   let rec loop low = if low <= upp then (
     let file = target_file_for low in
-    Format.printf "> %s@." file ;
+    (* Format.printf "> %s@." file ; *)
     let fmt =
       file
       |> open_out
@@ -132,6 +140,8 @@ let generate _ _ sys =
   ) in
 
   loop low ;
+
+  Format.printf "Done generating QE challenges.@.@." ;
 
   exit 0
 
