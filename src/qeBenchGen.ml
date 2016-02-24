@@ -31,7 +31,7 @@ let string_of_sort = GenericSMTLIBDriver.string_of_sort
 
 let fmt_var ppf var =
   Format.fprintf
-    ppf "(%s %a)" (Var.string_of_var var) fmt_sort (Var.type_of_var var)
+    ppf "(%a %a)" Var.pp_print_var var fmt_sort (Var.type_of_var var)
 
 let fmt_def fmt sym args def =
   Format.fprintf fmt
@@ -56,6 +56,12 @@ let fmt_dec fmt sym =
     fmt_sym sym
     (pp_print_list fmt_sort "@ ") (Sym.arg_type_of_uf_symbol sym)
     fmt_sort (Sym.res_type_of_uf_symbol sym)
+
+let fmt_dec_var fmt var =
+  Format.fprintf fmt
+    "(declare-fun %a () %a)"
+    Var.pp_print_var var
+    fmt_sort (Var.type_of_var var)
 
 let trans_conj_of_bounds sys lo hi =
   assert (hi >= lo) ;
@@ -84,7 +90,10 @@ let generate target_dir (low, upp) sys =
   let rec loop low = if low <= upp then (
     let l_bound = Num.of_int low in
     Sys.define_and_declare_of_bounds
-      sys fmt_def fmt_dec Numeral.zero Numeral.zero ;
+      sys fmt_def fmt_dec Numeral.zero Numeral.(pred zero) ;
+    Format.fprintf fmt "@.@.;; Variables at 0.@." ;
+    Sys.vars_of_bounds sys Numeral.zero Numeral.zero
+    |> Format.fprintf fmt "%a@.@." (pp_print_list fmt_dec_var "@.") ;
     (* Variables to eliminate. *)
     let qe_vars = Numeral.of_int low |> Sys.vars_of_bounds sys Numeral.one in
     (* Printing qe challenge. *)
@@ -97,7 +106,7 @@ let generate target_dir (low, upp) sys =
       in
       props_at_0 :: terms |> Term.mk_and
     |> Format.fprintf fmt
-      "@.@.\
+      "\
         ;; Eliminate all variables @i for 1 <= i <= %d.@.\
         (get-qe@.  @[<v>\
           (exists@   @[<v>\
