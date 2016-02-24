@@ -80,14 +80,23 @@ let trans_conj_of_bounds sys lo hi =
   in
   loop [] hi
 
-let generate target_dir (low, upp) sys =
-  let target_file = "target" in
-  let fmt = open_out target_file |> Format.formatter_of_out_channel in
-  let low, upp = low + 1, upp + 1 in
-
-  let fmt_def, fmt_dec = fmt_def fmt, fmt_dec fmt in
+let generate _ _ sys =
+  let target_file_for k =
+    Format.asprintf "%a_%d.smt2"
+      Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
+      k
+  in
+  let low, upp = 1, 20 in
 
   let rec loop low = if low <= upp then (
+    let file = target_file_for low in
+    Format.printf "> %s@." file ;
+    let fmt =
+      file
+      |> open_out
+      |> Format.formatter_of_out_channel
+    in
+    let fmt_def, fmt_dec = fmt_def fmt, fmt_dec fmt in
     let l_bound = Num.of_int low in
     Sys.define_and_declare_of_bounds
       sys fmt_def fmt_dec Numeral.zero Numeral.(pred zero) ;
@@ -119,10 +128,11 @@ let generate target_dir (low, upp) sys =
       (pp_print_list fmt_var "@ ")
       qe_vars
       fmt_expr ;
-    exit 0 ;
     low + 1 |> loop
   ) in
 
-  loop low
+  loop low ;
+
+  exit 0
 
 
