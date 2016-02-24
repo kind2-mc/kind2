@@ -83,11 +83,12 @@ let trans_conj_of_bounds sys lo hi =
 let generate _ _ sys =
   let target_dir =
     let file = Flags.input_file () in
-    try (
-      let start = (String.rindex file '/') + 1 in
-      let len = (String.rindex file '.') - start in
-      String.sub file start len
-    ) with Not_found -> file
+    let start =
+      try (String.rindex file '/') + 1
+      with Not_found -> 0
+    in
+    let len = (String.rindex file '.') - start in
+    String.sub file start len
   in
   mk_dir target_dir ;
   let target_file_for k =
