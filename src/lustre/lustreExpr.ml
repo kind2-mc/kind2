@@ -728,21 +728,15 @@ let is_const_var { expr_init; expr_step } =
 (* Return true if expression is a previous state variable *)
 let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
 
+(* Are all variables in the expression constant? *)
+let is_const_expr expr = 
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr)
 
 (* Return true if the expression is constant *)
-let is_const { expr_init; expr_step } = 
-
-  (* Are all variables in the expression constant? *)
-  VS.for_all
-    Var.is_const_state_var
-    (Term.vars_of_term expr_init)
-    
-  &&
-
-  (* Are all variables in the expression constant? *)
-  VS.for_all
-    Var.is_const_state_var
-    (Term.vars_of_term expr_step)
+let is_const { expr_init; expr_step } =
+  is_const_expr expr_init && is_const_expr expr_step
     
 
 (* ********************************************************************** *)

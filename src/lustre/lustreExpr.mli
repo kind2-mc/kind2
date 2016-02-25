@@ -160,6 +160,9 @@ val is_pre_var : t -> bool
 val pre_is_unguarded : t -> bool
 
 (** Return true if the expression is constant *)
+val is_const_expr : expr -> bool
+
+(** Return true if the expression is constant *)
 val is_const : t -> bool
 
 (** {1 Conversions to terms} *)

@@ -215,7 +215,16 @@ let merge_deps sv oind1 oind2 = match oind1, oind2 with
 let union_noind_set m s =
   let m' = SVS.fold (fun sv -> SVM.add sv []) s SVM.empty in
   SVM.merge merge_deps m' m
-  
+
+let rec state_vars_of_bounds acc = function
+  | [] -> acc
+  | (E.Bound e | E.Fixed e | E.Unbound e) :: l ->
+    let acc =
+      Term.state_vars_of_term (E.unsafe_term_of_expr e) |> SVS.union acc in
+    state_vars_of_bounds acc l
+
+let state_vars_of_bounds = state_vars_of_bounds SVS.empty
+
 
 (* ********************************************************************** *)
 (* Dependency order of definitions and cycle detection                    *)
@@ -282,14 +291,18 @@ let rec node_state_var_dependencies' init output_input_deps
         List.fold_left
 
           (* State variable depends on state variables in equation *)
-          (fun accum (((sv, _), expr)) ->
+          (fun accum (((sv, bnds), expr)) ->
              (* Format.eprintf "Equation: %a@." *)
              (*   (N.pp_print_node_equation false) eq; *)
 
              let state_vars = 
                if init then E.base_state_vars_of_init_expr expr
                else E.cur_state_vars_of_step_expr expr in
-
+             
+             (* (\* add bounds *\) *)
+             let state_vars =
+               state_vars_of_bounds bnds |> SVS.union state_vars in
+             
              (* add indexes *)
              SVS.fold (fun sv acc ->
                  let indexes =
@@ -703,8 +716,10 @@ let add_roots_of_function_call
   |> SVS.elements
 
 (* Add roots of cone of influence from equation to roots *)
-let add_roots_of_equation roots (_, expr) = 
-  (E.state_vars_of_expr expr |> SVS.elements) @ roots
+let add_roots_of_equation roots ((_,bnds), expr) = 
+  (E.state_vars_of_expr expr
+   |> SVS.union (state_vars_of_bounds bnds)
+   |> SVS.elements) @ roots
 
 
 (* Return state variables from properties *)
@@ -859,7 +874,7 @@ let rec slice_nodes
           N.calls = calls_not_in_coi;
           N.function_calls = function_calls_not_in_coi;
           N.locals = locals_not_in_coi } as node_unsliced)) :: tl as l -> 
-
+      
       try 
 
         (* State variable is an output of a called node that is not
