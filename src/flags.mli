@@ -70,29 +70,6 @@ The update to the signature is typically
 ```
 
 
-## Adding a new global flag
-
-Global flags are given in the `Global` module. They are specified almost the
-same way as discussed in the previous section for non-global flags. The
-difference is in the spec definition, more precisely the flag description:
-
-```ocaml
-let _ = add_spec (
-  (* The actual flag. *)
-  "--my_flag",
-  (* What to do with the value given to the flag, see other flags. *)
-  ...,
-  (* Flag description IS DIFFERENT. *)
-  Format.sprintf "..."
-)
-```
-
-Unfortunately global flags rely on the ocaml `Arg` module which for some
-reason was written by someone oblivious to the format module. As a result
-the description has to be a string and it's rather tricky to have it look
-nice. See existing global flags for more info.
-
-
 ## Adding a new flag module
 
 The template to add a new module is
@@ -144,9 +121,6 @@ You can now add modules following the instructions in the previous section.
 
 
 (** {2 Meta flags} *)
-
-(** Output version information and exit *)
-val check_version : unit -> bool
 
 
 (** {2 Generic flags} *)

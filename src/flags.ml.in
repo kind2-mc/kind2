@@ -28,26 +28,33 @@ open Lib
 
 (* Workflow: see [flags.mli]. *)
 
+(* Raised on unknown flag. Stores the unknown flag. *)
+exception UnknownFlag of string
+(* Raised on bad argument for existing flag. Stores an explanation, the flag
+and the description of the flag. *)
+exception BadArg of string * string * (Format.formatter -> unit)
+
 
 (* Strings recognized as the bool value [true]. *)
 let true_strings = [ "true" ; "on" ; "t" ]
 (* Strings recognized as the bool value [false]. *)
 let false_strings = [ "false" ; "off" ; "f" ]
-(* String to bool. *)
-let bool_of_string s =
-  if List.mem s true_strings then true
-  else if List.mem s false_strings then false
-  else Arg.Bad (
-    Format.asprintf
-      "expected boolean (%a, %a), but got %s"
-      (pp_print_list Format.pp_print_string ", ") true_strings
-      (pp_print_list Format.pp_print_string ", ") false_strings
-      s
-  ) |> raise
+
 (* Parses a bool and sets a reference. *)
-let bool_arg reference = Arg.String (
-  fun s -> reference := bool_of_string s
-)
+let bool_arg reference = Arg.Bool (fun b -> reference := b)
+
+(* Prints all the flags in the input list, given a triples of the flag,
+its spec, and its description. *)
+let print_flags flags =
+  let rec loop = function
+    | (flag, _, desc) :: tail ->
+      Format.printf "%s@   @[<v>%t@]@ " flag desc ;
+      loop tail
+    | _ -> ()
+  in
+  Format.printf "@[<v>" ;
+  loop flags ;
+  Format.printf "@]"
 
 (* Signature of modules for flags. *)
 module type FlagModule = sig
@@ -1300,16 +1307,11 @@ end
 (* Maps identifiers to modules flag specifications and description        *)
 (* ********************************************************************** *)
 
-let usage_msg = Filename.basename Sys.executable_name |> Format.sprintf "\
-  Usage: %s [options] <lustre_file>@.\
-  Prove properties in Lustre program <lustre_file>.\
+let usage_msg_header = Filename.basename Sys.executable_name |> Format.sprintf "\
+  Usage: %s [options] <input_file>\
 "
 
-let global_usage_msg =
-  Format.sprintf "\
-    %s@.\
-    Global options follow, use \"--flags_of\" for module-specific information.\
-  " usage_msg
+let all_modules_id = "all"
 
 let module_map = [
   (Smt.id,
@@ -1366,8 +1368,8 @@ the list is empty. *)
 let print_module_info = function
 | [] -> ()
 | (hd :: tl) as ids -> (
-  Format.printf "%s@.@." usage_msg ;
-  if List.mem "all" ids then (
+  Format.printf "%s@.@." usage_msg_header ;
+  if List.mem all_modules_id ids then (
     Format.printf
       "%a"
       (pp_print_list fmt_module_info "@.@.")
@@ -1422,10 +1424,31 @@ module Global = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+  let add_spec flag parse desc =
+    all_specs := !all_specs @ [ (flag, parse, desc) ]
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
+
+  (* Returns all flags in all Kind 2 modules. *)
+  let all_kind2_specs () = List.fold_left (
+    fun l (_, m0d) ->
+      let module Flags = (val m0d: FlagModule) in
+      l @ (Flags.all_specs ())
+  ) (all_specs ()) module_map
+
+  let usage_msg = Format.sprintf "\
+    %s@.\
+    Prove properties over the Lustre program in <input_file>.@.\
+    Global options follow, \
+    use \"--help_of\" for module-specific information.\
+  " usage_msg_header
+
+
+  (* Prints help. *)
+  let print_help () =
+    Format.printf "%s@.  " usage_msg ;
+    all_specs () |> print_flags
 
 
   (* Input flag. *)
@@ -1435,33 +1458,62 @@ module Global = struct
   let input_file () = !input_file
 
 
+  (* Print help. *)
+  let help_requested_default = false
+  let help_requested = ref help_requested_default
+  let _ = add_specs [
+    (
+      "-h",
+      (Arg.Unit
+        (fun () -> print_help () ; exit 0)
+      ),
+      (fun fmt -> Format.fprintf fmt "Prints this message")
+    ) ;
+    (
+      "-help",
+      (Arg.Unit
+        (fun () -> print_help () ; exit 0)
+      ),
+      (fun fmt -> Format.fprintf fmt "Prints this message")
+    ) ;
+  ]
+
+
+
   (* Explain modules. *)
-  let flags_of_default = []
-  let flags_of = ref flags_of_default
-  let _ = add_spec
-    "--flags_of"
-    (Arg.String 
-      (fun str ->
-        if List.mem str !flags_of |> not then
-          flags_of := str :: !flags_of
-      )
-    )
-    (Format.asprintf
-      "@.    \
-        explains and shows the flags for a Kind 2 module among\
-        @.      %a\
-        @.      %-15s explanation and flags for all Kind 2 modules\
+  let help_of_default = []
+  let help_of = ref help_of_default
+  let help_of_desc fmt =
+    Format.fprintf fmt
+      "\
+        explains and shows the flags for a Kind 2 module among@   @[<v>\
+          %a@ \
+          %-15s explanation and flags for all Kind 2 modules\
+        @]\
       "
       (pp_print_list
         ( fun fmt (key, m0d) ->
           let module Flags = (val m0d: FlagModule) in
           Format.fprintf fmt
             "%-15s %s" (Format.sprintf "%s" key) Flags.desc
-        ) "@.      "
+        ) "@ "
       ) module_map
-      "all"
+      all_modules_id
+  let _ = add_spec
+    "--help_of"
+    (Arg.String 
+      (fun str ->
+        if str = all_modules_id || List.mem_assoc str module_map then (
+          if List.mem str !help_of |> not then help_of := str :: !help_of
+        ) else BadArg (
+          Format.sprintf "unknown module identifier \"%s\"" str,
+          "--help_of",
+          help_of_desc
+        ) |> raise
+      )
     )
-  let flags_of () = !flags_of
+    help_of_desc
+  let help_of () = !help_of
 
 
   (* Main lustre node. *)
@@ -1475,11 +1527,13 @@ module Global = struct
   let _ = add_spec
     "--lus_main"
     (Arg.String (fun str -> lus_main := Some str))
-    (Format.sprintf
-      "@.     \
-        Use the given node as top node in Lustre input@.     \
-        Default: \"--%%MAIN\" annotation in source if any, last node otherwise\
-      "
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Use the given node as top node in Lustre input@ \
+          Defau lt: \"--%%MAIN\" annotation in source if any, last node@ \
+          otherwise\
+        "
     )
   let lus_main () = !lus_main
 
@@ -1506,13 +1560,14 @@ module Global = struct
   let _ = add_spec
     "--input-format"
     (Arg.String (fun str -> input_format := input_format_of_string str))
-    (Format.sprintf
-      "@.     \
-        Format of input file@.     \
-        Available: %s, Default: %s\
-      "
-      input_format_values
-      (string_of_input_format input_format_default)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Format of input file@ \
+          Available: %s, Default: %s\
+        "
+        input_format_values
+        (string_of_input_format input_format_default)
     )
   let input_format () = !input_format
 
@@ -1523,13 +1578,14 @@ module Global = struct
   let _ = add_spec
     "--output_dir"
     (Arg.Set_string output_dir)
-    (Format.sprintf
-      "@.     \
-        Output directory for the files generated:@.     \
-        SMT traces, compilation, testgen, certification...@.     \
-        Default: \"%s\"\
-      "
-      output_dir_default
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Output directory for the files generated:@ \
+          SMT traces, compilation, testgen, certification...@ \
+          Default: \"%s\"\
+        "
+        output_dir_default
     )
   let output_dir () = !output_dir
 
@@ -1540,16 +1596,19 @@ module Global = struct
   let _ = add_specs ([
     ( "--timeout",
       Arg.Set_float timeout_wall,
-      Format.sprintf
-        "@.     \
-          Wallclock timeout in seconds@.     \
-          Default: %1.f\
-        "
-        timeout_wall_default
+      fun fmt ->
+        Format.fprintf fmt
+          "\
+            Wallclock timeout in seconds@ \
+            Default: %1.f\
+          "
+          timeout_wall_default
     ) ;
     ( "--timeout_wall",
       Arg.Set_float timeout_wall,
-      Format.sprintf "@.     Same as \"--timeout\" (here for legacy)"
+      fun fmt ->
+        Format.fprintf fmt
+          "Same as \"--timeout\", for legacy"
     )
   ])
   let timeout_wall () = !timeout_wall
@@ -1616,14 +1675,15 @@ module Global = struct
         then enabled := mdl :: !enabled
       )
     )
-    (Format.sprintf
-      "@.     \
-        Enable Kind module@.     \
-        Available: %s@.     \
-        Default: %s\
-      "
-      enable_values
-      (string_of_enable enable_default_after)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Enable Kind module@ \
+          Available: %s@ \
+          Default: %s\
+        "
+        enable_values
+        (string_of_enable enable_default_after)
     )
   let enabled () = !enabled
 
@@ -1637,9 +1697,10 @@ module Global = struct
         then disabled := mdl :: !disabled
       )
     )
-    (Format.sprintf
-      "@.     \
-        Disable Kind module@.     \
+    (fun fmt ->
+      Format.fprintf fmt
+      "\
+        Disable Kind module@ \
         Available: %s\
       "
       enable_values
@@ -1653,12 +1714,13 @@ module Global = struct
   let _ = add_spec
     "--modular"
     (bool_arg modular)
-    (Format.sprintf
-      "@.     \
-        bottom-up analysis of each node@.     \
-        Default: %B\
-      "
-      modular_default
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          bottom-up analysis of each node@ \
+          Default: %B\
+        "
+        modular_default
     )
   let modular () = !modular
 
@@ -1669,11 +1731,12 @@ module Global = struct
   let _ = add_spec
     "--lus_strict"
     (bool_arg lus_strict)
-    (Format.sprintf
-      "@.     \
-        Strict mode in Lustre: uninitialized pre and undefined@.     \
-        Local variables are not allowed when this flag is present\
-      "
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Strict mode in Lustre: uninitialized pre and undefined@ \
+          Local variables are not allowed when this flag is present\
+        "
     )
   let lus_strict () = !lus_strict
 
@@ -1682,12 +1745,13 @@ module Global = struct
   let _ = add_spec
     "--lus_compile"
     (bool_arg lus_compile)
-    (Format.sprintf
-      "@.     \
-        Nodes proved correct will be compiled to Rust@.     \
-        Default: %b\
-      "
-      lus_compile_default
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Nodes proved correct will be compiled to Rust@ \
+          Default: %b\
+        "
+        lus_compile_default
     )
   let lus_compile () = !lus_compile
 
@@ -1697,11 +1761,12 @@ module Global = struct
   let _ = add_spec
     "--debug"
     (Arg.String (fun str -> debug_ref := str :: !debug_ref))
-    (Format.sprintf
-      "@.     \
-        Enable debug output for a section, give one --debug option\
-        @.     for each section to be enabled\
-      "
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Enable debug output for a section, give one --debug option@ \
+          for each section to be enabled\
+        "
     )
   let debug () = !debug_ref
 
@@ -1712,9 +1777,10 @@ module Global = struct
   let _ = add_spec
     "--debug-log"
     (Arg.String (fun str -> debug_log := Some str))
-    (Format.sprintf
-      "@.     \
-        Output debug messages to file@.     \
+    (fun fmt ->
+      Format.fprintf fmt
+      "\
+        Output debug messages to file@ \
         Default: stdout\
       "
     )
@@ -1727,27 +1793,33 @@ module Global = struct
   let _ = add_specs ([
     ( "-qq",
       Arg.Unit (fun () -> log_level := L_off),
-      Format.sprintf " Disable output completely"
+      fun fmt ->
+        Format.fprintf fmt "Disable output completely"
     ) ;
     ( "-q",
       Arg.Unit (fun () -> log_level := L_fatal),
-      Format.sprintf "  Disable output, fatal errors only"
+      fun fmt ->
+        Format.fprintf fmt "Disable output, fatal errors only"
     ) ;
     ( "-s",
       Arg.Unit (fun () -> log_level := L_error),
-      Format.sprintf "  Silence output, errors only"
+      fun fmt ->
+        Format.fprintf fmt "Silence output, errors only"
     ) ;
     ( "-v",
       Arg.Unit (fun () -> log_level := L_info),
-      Format.sprintf "  Output informational messages"
+      fun fmt ->
+        Format.fprintf fmt "Output informational messages"
     ) ;
     ( "-vv",
       Arg.Unit (fun () -> log_level := L_debug),
-      Format.sprintf " Output informational and debug messages"
+      fun fmt ->
+        Format.fprintf fmt "Output informational and debug messages"
     ) ;
     ( "-vvv",
       Arg.Unit (fun () -> log_level := L_trace),
-      Format.sprintf "Output informational, debug and trace messages"
+      fun fmt ->
+        Format.fprintf fmt "Output informational, debug and trace messages"
     )
   ])
   let log_level () = !log_level
@@ -1759,18 +1831,20 @@ module Global = struct
   let _ = add_spec
     "-xml"
     (Arg.Set log_format_xml)
-    (Format.sprintf "Output in XML format")
+    (fun fmt -> Format.fprintf fmt "Output in XML format")
   let log_format_xml () = !log_format_xml
 
 
   (* Version flag. *)
-  let check_version_default = false
-  let check_version = ref check_version_default
   let _ = add_spec
     "--version"
-    (Arg.Set check_version)
-    (Format.sprintf "Print version information and exit")
-  let check_version () = !check_version
+    (Arg.Unit
+      (fun () -> 
+        Format.printf "%t@." pp_print_version ;
+        exit 0
+      )
+    )
+    (fun fmt -> Format.fprintf fmt "Print version information and exit")
 
 end
 
@@ -1787,7 +1861,6 @@ type input_format = Global.input_format
 
 let output_dir = Global.output_dir
 let enable = Global.enabled
-let check_version = Global.check_version
 let lus_strict = Global.lus_strict
 let modular = Global.modular
 let lus_main = Global.lus_main
@@ -1813,27 +1886,6 @@ let subdir_for scope =
 (* ********************************************************************** *)
 (* Parsing of command-line options into flags                             *)
 (* ********************************************************************** *)
-
-let rec help_action () =
-  Arg.Help (Arg.usage_string speclist global_usage_msg) |> raise
-
-and speclist =
-  ("--help", Arg.Unit help_action, "\\") ::
-  ("-help", Arg.Unit help_action, " | Display this list of options") ::
-  ("-h", Arg.Unit help_action, "    /") :: (
-    Global.all_specs ()
-  )
-
-let all_specs = ( Global.all_specs () ) @ (
-  List.fold_left (
-    fun l (_, m0d) ->
-      let module Flags = (val m0d: FlagModule) in
-      List.fold_left
-        (fun l (flag, action, _) -> (flag, action, "") :: l)
-        l
-        ( Flags.all_specs () )
-  ) [] module_map
-)
 
 let anon_action s =
   match Global.input_file () with
@@ -1875,39 +1927,97 @@ let set_smtsolver = function
   | `detect -> (function _ -> ())
 
 
-let parse specs anon_action global_usage_msg =
+let bool_of_string flag desc s =
+  if List.mem s true_strings then true else
+  if List.mem s false_strings then false else BadArg (
+    Format.sprintf "expected bool but got \"%s\"" s,
+    flag,
+    desc
+  ) |> raise
+
+let int_of_string flag desc s = try (
+  int_of_string s
+) with _ -> BadArg (
+  Format.sprintf "expected int but got \"%s\"" s, flag, desc
+) |> raise
+
+let float_of_string flag desc s = try (
+  float_of_string s
+) with _ -> BadArg (
+  Format.sprintf "expected float but got \"%s\"" s, flag, desc
+) |> raise
+
+let parse_clas specs anon_action global_usage_msg =
   match Array.to_list Sys.argv with
   | cmd :: args ->
-    let rec loop = function
-      | [] -> ()
-      | arg :: tail ->
-        Format.printf "%s@." arg ;
-        loop tail
+
+    (* Iterates over the specs to find the action for a CLA. *)
+    let rec spec_loop clas flag = function
+      | (flag', spec, desc) :: _ when flag = flag' -> (
+        match spec with
+        (* Unit specs, applying. *)
+        | Arg.Unit f -> f () ; clas
+        | Arg.Set b_ref -> b_ref := true ; clas
+        | Arg.Clear b_ref -> b_ref := false ; clas
+        (* Not unit spec, checking out next CLA. *)
+        | _ -> (
+          match clas with
+          (* Got nothing, bad argument. *)
+          | [] -> BadArg (
+            "expected value, got nothing",
+            flag,
+            desc
+          ) |> raise
+          (* Got a next argument, matching on spec. *)
+          | arg :: clas ->
+            (match spec with
+              | Arg.Bool f -> bool_of_string flag desc arg |> f
+              | Arg.String f -> f arg
+              | Arg.Set_string s_ref -> s_ref := arg
+              | Arg.Int f -> int_of_string flag desc arg |> f
+              | Arg.Set_int i_ref -> i_ref := int_of_string flag desc arg
+              | Arg.Float f -> float_of_string flag desc arg |> f
+              | Arg.Set_float f_ref -> f_ref := float_of_string flag desc arg
+              | _ ->
+                failwith "unsupported specification (Tuple, Symbol, or Rest)"
+            ) ;
+            clas
+        )
+      )
+      | _ :: tail -> spec_loop clas flag tail
+      | [] -> UnknownFlag flag |> raise
     in
 
-    Array.to_list Sys.argv
-    |> List.tl
-    |> loop ;
-    exit 0
-  | [] -> failwith "unreachable, 0 CLAs"
+    (* Iterates over the CLAs. *)
+    let rec cla_loop = function
+      | [] -> ()
+      | arg :: tail ->
+        spec_loop tail arg specs |> cla_loop
+    in
+
+    (
+      try Array.to_list Sys.argv |> List.tl |> cla_loop
+      with
+      | UnknownFlag flag ->
+        Global.print_help () ;
+        Format.printf "Error: unknown flag \"%s\".@." flag ;
+        exit 2
+      | BadArg (error, flag, desc) ->
+        Format.printf
+          "Error on flag@.@[<v 2>%s@ %t@]@.%s@." flag desc error ;
+        exit 2
+    ) ;
+
+  | [] ->
+    failwith "expected at least one argument, got zero"
 
 
 let parse_argv () =
-  (* Parse CLAs. *)
-  parse all_specs anon_action global_usage_msg ;
-
-
-  (* Parse command-line arguments *)
-  Arg.parse all_specs anon_action global_usage_msg ;
-
-  (* Output version information only? *)
-  if Global.check_version () then (
-    Format.printf "%t@." pp_print_version ;
-    exit 0
-  ) ;
+  (* CLAPing. *)
+  parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
 
   (* If any module info was requested, print it and exit. *)
-  Global.flags_of () |> List.rev |> print_module_info ;
+  Global.help_of () |> List.rev |> print_module_info ;
 
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled () ;
@@ -1916,8 +2026,7 @@ let parse_argv () =
   match Global.input_file () with
   | None ->
     Format.printf
-      "%s: No input file given.@\n" Sys.argv.(0) ;
-    Arg.usage speclist usage_msg ;
+      "%s@.Error: no input file given.@." usage_msg_header ;
     exit 2
   | Some _ -> ()
   
