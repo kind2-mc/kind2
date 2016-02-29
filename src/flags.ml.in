@@ -1463,7 +1463,8 @@ module Global = struct
   (* Prints help. *)
   let print_help () =
     Format.printf "%s@.  " usage_msg ;
-    all_specs () |> print_flags
+    all_specs () |> print_flags ;
+    Format.printf "@."
 
 
   (* Input flag. *)
