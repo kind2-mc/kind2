@@ -152,7 +152,7 @@ let error_count (type s) : s t -> int
 
 (* Descriptor for a testcase file. *)
 let testcase_csv (type s) : s t -> string * string * Unix.file_descr
-= fun ({uid ; dir} as t) ->
+= fun {uid ; dir} ->
   let name = Format.sprintf "testcase_%d" uid in
   let path = Format.sprintf "%s/%s.csv" dir name in
   name, path, openfile path
@@ -279,118 +279,67 @@ let log_deadlock (type s)
   ()
 
 
-(* |===| Oracle generation. *)
-
-let generate_lustre_oracles inputs outputs locals contract =
-  failwith "aaaaahhhhhh"
-
-(* Generates an oracle for the top system of [sys]. The inputs will be the
-   inputs and outputs of [sys]. [terms] is a list of
-   [LustreIdent.t * LustreExpr.t], used as outputs for the oracle. The
-   [LustreIdent.t] is the name of the output and will be defined to be equal to
-   its corresponding expression.
-   The oracle will be created in a folder in [root].
-
-   Returns the path to the oracle. *)
-let generate_oracles sys root terms =
-  (* let oracle_dir = Format.sprintf "%s/oracle" root in
-  mk_dir oracle_dir ;
-  let oracle_name sys = Format.asprintf
-    "%a_oracle" (LustreIdent.pp_print_ident false) sys.N.name
-  in
-  (* Extracting lustre nodes. *)
-  let nodes = match TransSys.get_source sys with
-    | TransSys.Lustre nodes -> nodes
-    | TransSys.Native -> assert false
-  in
-  let oracle_path =
-    List.rev nodes |> List.hd |> oracle_name
-    |> Format.sprintf "%s/%s.lus" oracle_dir
-  in
-
-  let (top, subs) =
-    let rec last_rev_tail acc = function
-      | [ h ] -> (h, acc)
-      | h :: t -> last_rev_tail (h :: acc) t
-      | [] -> assert false
-    in
-    last_rev_tail [] nodes
-  in
-
-  let oracle_ident =
-    oracle_name top |> LustreIdent.mk_string_ident
-  in
-
-  let oracle_inputs = top.N.inputs @ top.N.outputs in
-
-  let oracle_outputs, oracle_out_equations =
-    terms
-    |> List.fold_left
-        ( fun (out,eqs) (id,expr) ->
-            let sv =
-              LustreExpr.mk_state_var_of_ident
-                (LustreIdent.index_of_ident id)
-                id
-                (Type.mk_type Type.Bool)
-            in
-            (sv, LustreIdent.index_of_ident id) :: out,
-            (sv, expr) :: eqs )
-        ([],[])
-    |> fun (out,eqs) -> List.rev out, List.rev eqs
-  in
-
-  let oracle_out_svs = List.map (fun (sv,_) -> sv) oracle_outputs in
-
-  let filtered_top_eqs =
-    top.N.equations
-    |> List.filter (fun (sv,_) ->
-      oracle_inputs
-      |> List.exists (fun (sv',_) -> StateVar.equal_state_vars sv sv')
-      |> not
-    )
-  in
-
-  let oracle: N.t = {
-    N.name = oracle_ident ;
-    N.inputs = oracle_inputs ;
-    N.oracles = top.N.oracles ;
-    N.outputs = oracle_outputs ;
-    N.observers = [] ; (*top.N.observers ;*)
-    N.locals = top.N.locals ;
-    N.equations = oracle_out_equations @ filtered_top_eqs ;
-    N.calls = top.N.calls ;
-    N.asserts = [] ;
-    N.props = [] ;
-    N.contract_spec = None ;
-    N.is_main = true ;
-    N.output_input_dep = [] ;
-    N.fresh_state_var_index = top.N.fresh_state_var_index ;
-    N.fresh_oracle_index = top.N.fresh_oracle_index ;
-    N.state_var_oracle_map = top.N.state_var_oracle_map ;
-    N.expr_state_var_map = top.N.expr_state_var_map ;
-  } in
-
-  let sliced =
-    N.reduce_to_coi (oracle :: subs) oracle_ident oracle_out_svs
-  in
-
-  (* Format.printf "Writing oracle to %s@." oracle_path ; *)
-
-  let file = openfile oracle_path in
-
-  let out_fmt = fmt_of_file file in
-
-  Format.fprintf
-    out_fmt "%a@?"
+(* Logs a top level XML test file. *)
+let log_test_glue_file
+  target sys (oracle_path, guarantees, modes) implem_path test_files
+=
+  let target = Format.sprintf "%s/tests.xml" target |> openfile in
+  let fmt = fmt_of_file target in
+  Format.fprintf fmt
+    "\
+      <?xml version=\"1.0\"?>@.\
+      <data system=\"%s\">@.\
+      @.  @[<v>\
+        <oracle path=\"%s\">@   \
+          @[<v>\
+            <!--- Guarantees --->@ \
+            %a@ \
+            <!--- Mode ensures --->@ \
+            %a\
+          @]@ \
+        </oracle>\
+      @]@.@.\
+      @.  @[<v>%a%t@]@.\
+      @.\
+      </data>@.@?\
+    "
+    sys
+    oracle_path
     (pp_print_list
-      (N.pp_print_node ~no_subrange:true true)
-      "@.@.")
-    sliced ;
+      (fun fmt (pos, cnt) ->
+        Format.fprintf fmt
+          "<guarantee \
+            pos=\"%a\" \
+            count=\"%d\"\
+          ></guarantee>"
+          pp_print_pos pos cnt
+      )
+      "@ "
+    ) guarantees
+    (pp_print_list
+      (fun fmt (mode, pos, cnt) ->
+        Format.fprintf fmt
+          "<ensure \
+            mode=\"%s\" \
+            pos=\"%a\" \
+            count=\"%d\"\
+          ></ensure>"
+          mode pp_print_pos pos cnt
+      )
+      "@ "
+    ) modes
+    (pp_print_list
+      (fun fmt str -> Format.fprintf fmt "<tests>%s</tests>" str)
+      "@ "
+    ) test_files
+    (fun fmt ->
+      (* Binaries, only generate something if compilation to Rust is live. *)
+      if Flags.lus_compile () then
+        Format.fprintf
+          fmt "@ @ <binary path=\"%s\">kind2 Rust binary</binary>" implem_path
+    ) ;
 
-  Unix.close file ;
-
-  oracle_path *)
-  "fts"
+  Unix.close target
 
 
 (* 

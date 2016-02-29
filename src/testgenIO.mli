@@ -47,16 +47,14 @@ val log_testcase: 'a t -> string list list -> Model.t -> Numeral.t -> unit
     in [t]. *)
 val log_deadlock: 'a t -> string list list -> Model.t -> Numeral.t -> unit
 
-(* Generates an oracle for the top system of [sys]. The inputs will be the
-   inputs and outputs of [sys]. [terms] is a list of [string * Term.t] of
-   outputs to use for the oracle. The [string] is used to name the output and
-   will be defined to be equal to its term.
-   The oracle will be created in a folder in [root].
-
-   Returns the path to the oracle. *)
-val generate_oracles: TransSys.t -> string -> (
-  TestgenModes.mode list
-) -> string
+(** Logs the top level XML glue file. *)
+val log_test_glue_file:
+  string ->
+  string ->
+  (string * (Lib.position * int) list * (string * Lib.position * int) list) ->
+  string ->
+  string list ->
+  unit
 
 
 

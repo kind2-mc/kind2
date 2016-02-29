@@ -248,7 +248,7 @@ and backward target io solver tree modes contract_term =
 
 (* Entry point. *)
 let main (type s) :
-Analysis.param -> s Sys.t -> TSys.t -> string -> unit
+Analysis.param -> s Sys.t -> TSys.t -> string -> string list
 = fun param input_sys sys target ->
   (* Separating abstract and concrete systems. *)
   let abstract, concrete =
@@ -280,9 +280,6 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> unit
   let globals, modes = match TestgenModes.modes_of sys with
     | (Some global, modes), _ -> [global], modes
     | (None, modes), _ -> [], modes
-  in
-  let oracle_path =
-    globals @ modes |> IO.generate_oracles sys root
   in
 
   (* Creating io context. *)
@@ -322,9 +319,13 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> unit
   Stat.testgen_stop_timers () ;
   Stat.smt_stop_timers () ;
 
-  let all_modes = TestgenModes.modes_of sys in
+  [ "unit.xml" ]
 
-  ()
+
+
+(* Logs the top level XML glue file. *)
+let log_test_glue_file = TestgenIO.log_test_glue_file
+
 
 (* 
    Local Variables:
