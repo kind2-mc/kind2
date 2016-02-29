@@ -186,7 +186,11 @@ end = struct
     (Arg.String (fun str -> solver := solver_of_string str))
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>choose SMT solver@ Available: %s@ Default: %s@]"
+        "@[<v>\
+          where <string> can be %s@ \
+          Choose an SMT solver@ \
+          Default: %s\
+        @]"
         solver_values
         (string_of_solver solver_default)
     )
@@ -216,10 +220,11 @@ end = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
+          where <string> is none, detect, or a legal SMT-LIB logic@ \
           Select logic for SMT solvers@ \
           \"none\" for no logic (default)@ \
           \"detect\" to detect with the input system@ \
-          Other SMTLIB logics will be passed to the solver\
+          Other SMT-LIB logics will be passed to the solver\
         @]"
     )
   let logic () = !logic
@@ -613,7 +618,11 @@ end = struct
     (Arg.String (fun str -> print_to_file := Some str))
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Output file for blocking clauses@ Default: stdout@]"
+        "@[<v>\
+          where <string> is a file path in an existing directory.@ \
+          Output file for blocking clauses@ \
+          Default: stdout\
+        @]"
     )
   let print_to_file () = !print_to_file
 
@@ -739,8 +748,8 @@ end = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
+          where <string> can be %s@ \
           Choose quantifier elimination algorithm@ \
-          Available: %s@ \
           Default: %s\
         @]"
         qe_values (string_of_qe qe_default)
@@ -767,8 +776,8 @@ end = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
+          where <string> can be %s@ \
           Heuristics for extraction of implicant@ \
-          Available: %s@ \
           Default: %s\
         @]"
         extract_values (string_of_extract extract_default)
@@ -794,7 +803,9 @@ end = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Choose method of abstraction in IC3@ Available: %s@ Default: %s\
+          where <string> can be %s@ \
+          Choose method of abstraction in IC3@ \
+          Default: %s\
         @]"
         abstr_values (string_of_abstr abstr_default)
     )
@@ -1502,7 +1513,8 @@ module Global = struct
   let help_of_desc fmt =
     Format.fprintf fmt
       "\
-        explains and shows the flags for a Kind 2 module among@   @[<v>\
+        Explains and shows the flags for a Kind 2 module@ \
+        <string> should be a legal module identifier among@   @[<v>\
           %a@ \
           %-15s explanation and flags for all Kind 2 modules\
         @]\
@@ -1522,7 +1534,7 @@ module Global = struct
         if str = all_modules_id || List.mem_assoc str module_map then (
           if List.mem str !help_of |> not then help_of := str :: !help_of
         ) else BadArg (
-          Format.sprintf "\x1b[31munknown module identifier \"%s\"\x1b[0m" str,
+          Format.sprintf "unknown module identifier \"%s\"" str,
           (
             "--help_of",
             Arg.String (fun _ -> ()),
@@ -1549,7 +1561,8 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Use the given node as top node in Lustre input@ \
+          where <string> is node identifier from the Lustre input file@ \
+          Specifies the top node in the Lustre input file@ \
           Default: \"--%%MAIN\" annotation in source if any, last node@ \
           otherwise\
         "
@@ -1565,7 +1578,7 @@ module Global = struct
     | "lustre" -> `Lustre
     | "horn" -> `Horn
     | "native" -> `Native
-    | _ -> raise (Arg.Bad "Bad value for --input-format")
+    | _ -> raise (Arg.Bad "Bad value for --input_format")
   let string_of_input_format = function
     | `Lustre -> "lustre"
     | `Horn -> "horn"
@@ -1577,13 +1590,14 @@ module Global = struct
 
   let input_format = ref input_format_default
   let _ = add_spec
-    "--input-format"
+    "--input_format"
     (Arg.String (fun str -> input_format := input_format_of_string str))
     (fun fmt ->
       Format.fprintf fmt
         "\
+          where <string> can be %s@ \
           Format of input file@ \
-          Available: %s, Default: %s\
+          Default: %s\
         "
         input_format_values
         (string_of_input_format input_format_default)
@@ -1697,8 +1711,8 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Enable Kind module@ \
-          Available: %s@ \
+          where <string> can be %s@ \
+          Enable Kind module, repeat option to enable several modules@ \
           Default: %s\
         "
         enable_values
@@ -1719,8 +1733,8 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
       "\
-        Disable Kind module@ \
-        Available: %s\
+        where <string> can be %s@ \
+        Disable a Kind module\
       "
       enable_values
     )
@@ -1753,8 +1767,8 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Strict mode in Lustre: uninitialized pre and undefined.@ \
-          Local variables are not allowed when this flag is present.@ \
+          Strict mode in Lustre: uninitialized pre and undefined@ \
+          Local variables are not allowed when this flag is present@ \
           Default: %a\
         "
         fmt_bool lus_strict_default
@@ -1796,11 +1810,12 @@ module Global = struct
   let debug_log_default = None
   let debug_log = ref debug_log_default
   let _ = add_spec
-    "--debug-log"
+    "--debug_log"
     (Arg.String (fun str -> debug_log := Some str))
     (fun fmt ->
       Format.fprintf fmt
       "\
+        where <string> is a file path in an existing directory.@ \
         Output debug messages to file@ \
         Default: stdout\
       "
@@ -2026,7 +2041,7 @@ let parse_clas specs anon_action global_usage_msg =
         exit 2
       | BadArg (error, flag) ->
         Format.printf
-          "\x1b[31mError on flag\x1b[0m@.@[<v>%a@]@.\x1b[31m%s\x1b[0m@."
+          "Error on flag@.@[<v>%a@]@.%s@."
           fmt_flag flag error ;
         exit 2
     )

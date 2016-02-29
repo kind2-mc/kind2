@@ -922,6 +922,9 @@ let setup () =
       | `Native -> (* InputSystem.read_input_native *) assert false
       | `Horn   -> (* InputSystem.read_input_horn *)   assert false
   with e -> (* Could not create input system. *)
+    Event.log
+      L_fatal "@[<v>Error opening input file \"%s\":@ %s@]"
+      (Flags.input_file ()) (Printexc.to_string e) ;
     (* Terminating log and exiting with error. *)
     Event.terminate_log () ;
     exit status_error
