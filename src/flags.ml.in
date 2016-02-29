@@ -32,7 +32,7 @@ open Lib
 exception UnknownFlag of string
 (* Raised on bad argument for existing flag. Stores an explanation, the flag
 and the description of the flag. *)
-exception BadArg of string * string * (Format.formatter -> unit)
+exception BadArg of string * (string * Arg.spec * (Format.formatter -> unit))
 
 
 (* Strings recognized as the bool value [true]. *)
@@ -40,21 +40,39 @@ let true_strings = [ "true" ; "on" ; "t" ]
 (* Strings recognized as the bool value [false]. *)
 let false_strings = [ "false" ; "off" ; "f" ]
 
+(* Bool formatter. *)
+let fmt_bool fmt b =
+  Format.fprintf fmt "%s" (if b then "on" else "off")
+
 (* Parses a bool and sets a reference. *)
 let bool_arg reference = Arg.Bool (fun b -> reference := b)
 
+
+(* Prints a flag [(flag, spec, desc)]. *)
+let fmt_flag fmt (flag, spec, desc) =
+  Format.fprintf
+    fmt
+    "@[<v>\x1b[1m%t\x1b[0m@[<v>%t@]@]"
+    (fun fmt -> match spec with
+      | Arg.Unit _ | Arg.Set _ | Arg.Clear _ ->
+        Format.fprintf fmt "%-10s" flag
+      | Arg.Bool _ ->
+        Format.fprintf fmt "%-10s <bool>@   " flag
+      | Arg.String _ | Arg.Set_string _ ->
+        Format.fprintf fmt "%-10s <string>@   " flag
+      | Arg.Int _ | Arg.Set_int _ ->
+        Format.fprintf fmt "%-10s <int>@   " flag
+      | Arg.Float _ | Arg.Set_float _ ->
+        Format.fprintf fmt "%-10s <float>@   " flag
+      | _ ->
+        failwith "Unsupported Arg.spec (Tuple, Symbol, or Rest)."
+    )
+    desc
+
 (* Prints all the flags in the input list, given a triples of the flag,
 its spec, and its description. *)
-let print_flags flags =
-  let rec loop = function
-    | (flag, _, desc) :: tail ->
-      Format.printf "%s@   @[<v>%t@]@ " flag desc ;
-      loop tail
-    | _ -> ()
-  in
-  Format.printf "@[<v>" ;
-  loop flags ;
-  Format.printf "@]"
+let print_flags =
+  Format.printf "@[<v>%a@]" (pp_print_list fmt_flag "@ ")
 
 (* Signature of modules for flags. *)
 module type FlagModule = sig
@@ -219,9 +237,9 @@ end = struct
         "@[<v>\
           Use check-sat with assumptions, or simulate with push/pop@ \
           when false@ \
-          Default: %B\
+          Default: %a\
         @]"
-      check_sat_assume_default
+      fmt_bool check_sat_assume_default
     )
   let check_sat_assume () = !check_sat_assume
 
@@ -237,9 +255,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Send short variables names to SMT solver, send full names if false@ \
-          Default: %B\
+          Default: %a\
         @]"
-      short_names_default
+      fmt_bool short_names_default
     )
   let short_names () = !short_names
 
@@ -410,7 +428,7 @@ end = struct
       Format.fprintf fmt
       "@[<v>\
         Maximal number of iterations for BMC and k-induction@ \
-        Default: %d, unlimited: 0\
+        Default: %d (unlimited: 0)\
       @]"
       max_default
     )
@@ -425,9 +443,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Check that the unrolling alone is satisfiable@ \
-          Default: %b\
+          Default: %a\
         @]"
-        check_unroll_default
+        fmt_bool check_unroll_default
     )
   let check_unroll () = !check_unroll
 
@@ -438,8 +456,8 @@ end = struct
     (bool_arg print_cex)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Print counterexamples to induction@ Default: %b@]"
-        print_cex_default
+        "@[<v>Print counterexamples to induction@ Default: %a@]"
+        fmt_bool print_cex_default
     )
   let print_cex () = !print_cex
 
@@ -450,8 +468,8 @@ end = struct
     (bool_arg compress)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Compress inductive counterexamples@ Default: %B@]"
-        compress_default
+        "@[<v>Compress inductive counterexamples@ Default: %a@]"
+        fmt_bool compress_default
     )
   let compress () = !compress
 
@@ -464,9 +482,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Compress inductive counterexamples for states equal modulo inputs@ \
-          Default: %B\
+          Default: %a\
         @]"
-        compress_equal_default
+        fmt_bool compress_equal_default
     )
   let compress_equal () = !compress_equal
 
@@ -479,9 +497,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Compress inductive counterexamples for states with same successors@ \
-          Default: %B\
+          Default: %a\
         @]"
-        compress_same_succ_default
+        fmt_bool compress_same_succ_default
     )
   let compress_same_succ () = !compress_same_succ
 
@@ -494,9 +512,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Compress inductive counterexamples for states with same predecessors@ \
-          Default: %B\
+          Default: %a\
         @]"
-        compress_same_pred_default
+        fmt_bool compress_same_pred_default
     )
   let compress_same_pred () = !compress_same_pred
 
@@ -507,8 +525,8 @@ end = struct
     (bool_arg lazy_invariants)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Asserts invariants lazily@ Default: %B@]"
-        lazy_invariants_default
+        "@[<v>Asserts invariants lazily@ Default: %a@]"
+        fmt_bool lazy_invariants_default
     )
   let lazy_invariants () = !lazy_invariants
 
@@ -583,8 +601,8 @@ end = struct
     (bool_arg check_inductive)
     (fun fmt ->
     Format.fprintf fmt
-      "@[<v>Check inductiveness of blocking clauses@ Default: %s@]"
-      (string_of_bool check_inductive_default)
+      "@[<v>Check inductiveness of blocking clauses@ Default: %a@]"
+      fmt_bool check_inductive_default
     )
   let check_inductive () = !check_inductive
 
@@ -624,8 +642,8 @@ end = struct
     (bool_arg block_in_future)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Block counterexample in future frames@ Default: %s@]"
-        (string_of_bool block_in_future_default)
+        "@[<v>Block counterexample in future frames@ Default: %a@]"
+        fmt_bool block_in_future_default
     )
   let block_in_future () = !block_in_future
 
@@ -639,9 +657,9 @@ end = struct
         "@[<v>\
           Block counterexample in future frames first before returning to@ \
           frame@ \
-          Default: %s\
+          Default: %a\
         @]"
-        (string_of_bool block_in_future_first_default)
+        fmt_bool block_in_future_first_default
     )
   let block_in_future_first () = !block_in_future_first
 
@@ -652,8 +670,8 @@ end = struct
     (bool_arg fwd_prop_non_gen)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Also propagate clauses before generalization@ Default: %s@]"
-        (string_of_bool fwd_prop_non_gen_default)
+        "@[<v>Also propagate clauses before generalization@ Default: %a@]"
+        fmt_bool fwd_prop_non_gen_default
     )
   let fwd_prop_non_gen () = !fwd_prop_non_gen
 
@@ -666,9 +684,9 @@ end = struct
       Format.fprintf fmt
       "@[<v>\
         Inductively generalize all clauses after forward propagation@ \
-        Default: %s\
+        Default: %a\
       @]"
-      (string_of_bool fwd_prop_ind_gen_default)
+      fmt_bool fwd_prop_ind_gen_default
     )
   let fwd_prop_ind_gen () = !fwd_prop_ind_gen
 
@@ -679,8 +697,8 @@ end = struct
     (bool_arg fwd_prop_subsume)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Subsumption in forward propagation@ Default: %s@]"
-        (string_of_bool fwd_prop_subsume_default)
+        "@[<v>Subsumption in forward propagation@ Default: %a@]"
+        fmt_bool fwd_prop_subsume_default
     )
   let fwd_prop_subsume () = !fwd_prop_subsume
 
@@ -689,10 +707,10 @@ end = struct
   let _ = add_spec
     "--ic3_use_invgen"
     (bool_arg use_invgen)
-    (fun fmt  ->
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Use invariants from invariant generators@ Default: %s@]"
-        (string_of_bool use_invgen_default)
+        "@[<v>Use invariants from invariant generators@ Default: %a@]"
+        fmt_bool use_invgen_default
     )
   let use_invgen () = !use_invgen
 
@@ -827,9 +845,9 @@ end = struct
       Format.fprintf fmt
       "@[<v>\
         Order variables in polynomials by order of elimination@ \
-        Default: %B\
+        Default: %a\
       @]"
-      order_var_by_elim_default
+      fmt_bool order_var_by_elim_default
     )
   let order_var_by_elim () = !order_var_by_elim
 
@@ -842,9 +860,9 @@ end = struct
       Format.fprintf fmt
       "@[<v>\
         Choose lower bounds containing variables@ \
-        Default: %B\
+        Default: %a\
       @]"
-      general_lbound_default
+      fmt_bool general_lbound_default
     )
   let general_lbound () = !general_lbound
 end
@@ -894,8 +912,8 @@ end = struct
     (bool_arg compositional)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Abstract subnodes with a contract@ Default: %B@]"
-        compositional_default
+        "@[<v>Abstract subnodes with a contract@ Default: %a@]"
+        fmt_bool compositional_default
     )
   let compositional () = !compositional
 
@@ -908,9 +926,9 @@ end = struct
       Format.fprintf fmt
       "@[<v>\
         Checks the modes of a contracts are exhaustive@ \
-        Default: %B\
+        Default: %a\
       @]"
-      check_modes_default
+      fmt_bool check_modes_default
     )
   let check_modes () = !check_modes
 
@@ -923,9 +941,9 @@ end = struct
       Format.fprintf fmt
       "@[<v>\
         Checks the implementation of nodes@ \
-        Default: %B\
+        Default: %a\
       @]"
-      check_implem_default
+      fmt_bool check_implem_default
     )
   let check_implem () = !check_implem
 
@@ -974,9 +992,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Activates test generation for systems proved correct@ \
-          Default: %b\
+          Default: %a\
         @]"
-        active_default
+        fmt_bool active_default
     )
   let active () = !active
 
@@ -989,9 +1007,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Only draw the graph of reachable modes, do not log testcases.@ \
-          Default: %b\
+          Default: %a\
         @]"
-        graph_only_default
+        fmt_bool graph_only_default
     )
   let graph_only () = !graph_only
 
@@ -1064,9 +1082,9 @@ end = struct
         "@[<v>\
           Invariant generation will only communicate invariants not implied@ \
           by the transition relation@ \
-          Default: %B\
+          Default: %a\
         @]"
-        prune_trivial_default
+        fmt_bool prune_trivial_default
     )
   let prune_trivial () = !prune_trivial
 
@@ -1094,9 +1112,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Invariant generation will instantiate candidates from sub-nodes@ \
-          Default: %B\
+          Default: %a\
         @]"
-        lift_candidates_default
+        fmt_bool lift_candidates_default
     )
   let lift_candidates () = !lift_candidates
 
@@ -1109,9 +1127,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Only generate invariants for the top level@ \
-          Default: %B\
+          Default: %a\
         @]"
-        top_only_default
+        fmt_bool top_only_default
     )
   let top_only () = !top_only
 
@@ -1125,9 +1143,9 @@ end = struct
         "@[<v>\
           Invariant generation will extract candidate terms from the@ \
           transition predicate@ \
-          Default: %B\
+          Default: %a\
         @]"
-        mine_trans_default
+        fmt_bool mine_trans_default
     )
   let mine_trans () = !mine_trans
 
@@ -1234,9 +1252,9 @@ end = struct
       Format.fprintf fmt
         "@[<v>\
           Activates mode subcandidates. Subsumes \"c2i_dnf_size\"@ \
-          Default %b\
+          Default %a\
         @]"
-        modes_default
+        fmt_bool modes_default
     )
   let modes () = !modes
 end
@@ -1308,7 +1326,7 @@ end
 (* ********************************************************************** *)
 
 let usage_msg_header = Filename.basename Sys.executable_name |> Format.sprintf "\
-  Usage: %s [options] <input_file>\
+  Usage: \x1b[1m%s [options] <input_file>\x1b[0m\
 "
 
 let all_modules_id = "all"
@@ -1348,17 +1366,14 @@ let fmt_module_info fmt (id, m0d) =
   let module Flags = (val m0d: FlagModule) in
   Format.fprintf fmt
     "\
-      |===| Module \"%s\":@.\
-        @[<v>%t@]@.\
-        @[<v>%a@]@.\
+      |===| Module \x1b[1m%s\x1b[0m:@.\
+      @[<v>%t@]\
+      @.  @[<v>%a@]@.\
     "
     id
     Flags.fmt_explain
-    (pp_print_list
-      (fun fmt (key, _, desc) ->
-        Format.fprintf fmt "  %s:@       %t" key desc)
-      "@ "
-    ) (Flags.all_specs ())
+    (pp_print_list fmt_flag "@ ")
+    (Flags.all_specs ())
 
 (* Prints module info for a list of identifiers. If ["all"] is in the list,
 prints info for all modules.
@@ -1470,11 +1485,11 @@ module Global = struct
       (fun fmt -> Format.fprintf fmt "Prints this message")
     ) ;
     (
-      "-help",
+      "--help",
       (Arg.Unit
         (fun () -> print_help () ; exit 0)
       ),
-      (fun fmt -> Format.fprintf fmt "Prints this message")
+      (fun fmt -> Format.fprintf fmt "Prints this message too")
     ) ;
   ]
 
@@ -1506,9 +1521,12 @@ module Global = struct
         if str = all_modules_id || List.mem_assoc str module_map then (
           if List.mem str !help_of |> not then help_of := str :: !help_of
         ) else BadArg (
-          Format.sprintf "unknown module identifier \"%s\"" str,
-          "--help_of",
-          help_of_desc
+          Format.sprintf "\x1b[31munknown module identifier \"%s\"\x1b[0m" str,
+          (
+            "--help_of",
+            Arg.String (fun _ -> ()),
+            help_of_desc
+          )
         ) |> raise
       )
     )
@@ -1531,7 +1549,7 @@ module Global = struct
       Format.fprintf fmt
         "\
           Use the given node as top node in Lustre input@ \
-          Defau lt: \"--%%MAIN\" annotation in source if any, last node@ \
+          Default: \"--%%MAIN\" annotation in source if any, last node@ \
           otherwise\
         "
     )
@@ -1717,10 +1735,10 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          bottom-up analysis of each node@ \
-          Default: %B\
+          Bottom-up analysis of each node@ \
+          Default: %a\
         "
-        modular_default
+        fmt_bool modular_default
     )
   let modular () = !modular
 
@@ -1734,9 +1752,11 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Strict mode in Lustre: uninitialized pre and undefined@ \
-          Local variables are not allowed when this flag is present\
+          Strict mode in Lustre: uninitialized pre and undefined.@ \
+          Local variables are not allowed when this flag is present.@ \
+          Default: %a\
         "
+        fmt_bool lus_strict_default
     )
   let lus_strict () = !lus_strict
 
@@ -1749,9 +1769,9 @@ module Global = struct
       Format.fprintf fmt
         "\
           Nodes proved correct will be compiled to Rust@ \
-          Default: %b\
+          Default: %a\
         "
-        lus_compile_default
+        fmt_bool lus_compile_default
     )
   let lus_compile () = !lus_compile
 
@@ -1927,24 +1947,23 @@ let set_smtsolver = function
   | `detect -> (function _ -> ())
 
 
-let bool_of_string flag desc s =
+let bool_of_string ((flag, _, desc) as tuple) s =
   if List.mem s true_strings then true else
   if List.mem s false_strings then false else BadArg (
     Format.sprintf "expected bool but got \"%s\"" s,
-    flag,
-    desc
+    tuple
   ) |> raise
 
-let int_of_string flag desc s = try (
+let int_of_string ((flag, _, desc) as tuple) s = try (
   int_of_string s
 ) with _ -> BadArg (
-  Format.sprintf "expected int but got \"%s\"" s, flag, desc
+  Format.sprintf "expected int but got \"%s\"" s, tuple
 ) |> raise
 
-let float_of_string flag desc s = try (
+let float_of_string ((flag, _, desc) as tuple) s = try (
   float_of_string s
 ) with _ -> BadArg (
-  Format.sprintf "expected float but got \"%s\"" s, flag, desc
+  Format.sprintf "expected float but got \"%s\"" s, tuple
 ) |> raise
 
 let parse_clas specs anon_action global_usage_msg =
@@ -1953,7 +1972,7 @@ let parse_clas specs anon_action global_usage_msg =
 
     (* Iterates over the specs to find the action for a CLA. *)
     let rec spec_loop clas flag = function
-      | (flag', spec, desc) :: _ when flag = flag' -> (
+      | ((flag', spec, desc) as tuple) :: _ when flag = flag' -> (
         match spec with
         (* Unit specs, applying. *)
         | Arg.Unit f -> f () ; clas
@@ -1963,21 +1982,17 @@ let parse_clas specs anon_action global_usage_msg =
         | _ -> (
           match clas with
           (* Got nothing, bad argument. *)
-          | [] -> BadArg (
-            "expected value, got nothing",
-            flag,
-            desc
-          ) |> raise
+          | [] -> BadArg ("expected value, got nothing", tuple) |> raise
           (* Got a next argument, matching on spec. *)
           | arg :: clas ->
             (match spec with
-              | Arg.Bool f -> bool_of_string flag desc arg |> f
+              | Arg.Bool f -> bool_of_string tuple arg |> f
               | Arg.String f -> f arg
               | Arg.Set_string s_ref -> s_ref := arg
-              | Arg.Int f -> int_of_string flag desc arg |> f
-              | Arg.Set_int i_ref -> i_ref := int_of_string flag desc arg
-              | Arg.Float f -> float_of_string flag desc arg |> f
-              | Arg.Set_float f_ref -> f_ref := float_of_string flag desc arg
+              | Arg.Int f -> int_of_string tuple arg |> f
+              | Arg.Set_int i_ref -> i_ref := int_of_string tuple arg
+              | Arg.Float f -> float_of_string tuple arg |> f
+              | Arg.Set_float f_ref -> f_ref := float_of_string tuple arg
               | _ ->
                 failwith "unsupported specification (Tuple, Symbol, or Rest)"
             ) ;
@@ -2002,9 +2017,10 @@ let parse_clas specs anon_action global_usage_msg =
         Global.print_help () ;
         Format.printf "Error: unknown flag \"%s\".@." flag ;
         exit 2
-      | BadArg (error, flag, desc) ->
+      | BadArg (error, flag) ->
         Format.printf
-          "Error on flag@.@[<v 2>%s@ %t@]@.%s@." flag desc error ;
+          "\x1b[31mError on flag\x1b[0m@.@[<v 2>%a@]@.\x1b[31m%s\x1b[0m@."
+          fmt_flag flag error ;
         exit 2
     ) ;
 
