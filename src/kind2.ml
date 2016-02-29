@@ -36,8 +36,6 @@ module TestGen = TestgenDF
 module C2I = C2I
 module C2Icnf = C2Icnf
 
-module QeGen = QeBenchGen
-
 (* module IC3 = Dummy *)
 
 let children_pgid = ref 0
@@ -1107,8 +1105,6 @@ let launch () =
   let trans_sys, input_sys_sliced =
     InputSystem.trans_sys_of_analysis input_sys aparam
   in
-
-  QeGen.generate "target" (0,0) trans_sys ;
 
   (* Memorizing things. *)
   cur_input_sys := Some input_sys_sliced ;

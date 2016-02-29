@@ -1969,7 +1969,7 @@ let float_of_string ((flag, _, desc) as tuple) s = try (
 
 let parse_clas specs anon_action global_usage_msg =
   match Array.to_list Sys.argv with
-  | cmd :: args ->
+  | _ :: args ->
 
     (* Iterates over the specs to find the action for a CLA. *)
     let rec spec_loop clas flag = function
@@ -2007,8 +2007,14 @@ let parse_clas specs anon_action global_usage_msg =
     (* Iterates over the CLAs. *)
     let rec cla_loop = function
       | [] -> ()
-      | arg :: tail ->
-        spec_loop tail arg specs |> cla_loop
+      | arg :: tail -> (
+        try spec_loop tail arg specs |> cla_loop
+        with UnknownFlag flag -> (
+          match tail with
+          | [] -> anon_action arg
+          | _ -> UnknownFlag flag |> raise
+        )
+      )
     in
 
     (
@@ -2023,7 +2029,7 @@ let parse_clas specs anon_action global_usage_msg =
           "\x1b[31mError on flag\x1b[0m@.@[<v 2>%a@]@.\x1b[31m%s\x1b[0m@."
           fmt_flag flag error ;
         exit 2
-    ) ;
+    )
 
   | [] ->
     failwith "expected at least one argument, got zero"
