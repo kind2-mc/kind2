@@ -1778,7 +1778,7 @@ module Global = struct
   let lus_compile_default = false
   let lus_compile = ref lus_compile_default
   let _ = add_spec
-    "--lus_compile"
+    "--compile"
     (bool_arg lus_compile)
     (fun fmt ->
       Format.fprintf fmt
