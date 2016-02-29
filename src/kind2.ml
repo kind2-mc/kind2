@@ -922,6 +922,9 @@ let setup () =
       | `Native -> (* InputSystem.read_input_native *) assert false
       | `Horn   -> (* InputSystem.read_input_horn *)   assert false
   with e -> (* Could not create input system. *)
+    Event.log
+      L_fatal "@[<v>Error opening input file \"%s\":@ %s@]"
+      (Flags.input_file ()) (Printexc.to_string e) ;
     (* Terminating log and exiting with error. *)
     Event.terminate_log () ;
     exit status_error
@@ -931,6 +934,7 @@ let setup () =
    everything. *)
 let run_testgen input_sys top =
   if Flags.Testgen.active () then (
+    Format.printf "Running testgen@.@." ;
     match InputSystem.maximal_abstraction_for_testgen input_sys top [] with
     | None ->
       Event.log L_warn
@@ -988,6 +992,7 @@ let run_testgen input_sys top =
 (* Compiles a system (scope) to Rust. *)
 let compile_to_rust input_sys top =
   if Flags.lus_compile () then (
+    Format.printf "Compiling to rust@.@." ;
     (* Creating root dir if needed. *)
     Flags.output_dir () |> mk_dir ;
     let target = Flags.subdir_for top in
@@ -1008,9 +1013,7 @@ let post_verif input_sys result =
     let top_scope =
       result.Analysis.sys |> TransSys.scope_of_trans_sys
     in
-    Format.printf "Running testgen@.@." ;
     run_testgen input_sys top_scope ;
-    Format.printf "Compiling to rust@.@." ;
     compile_to_rust input_sys top_scope
   )
 
@@ -1173,13 +1176,13 @@ let launch () =
       (* Producing a list of the last results for each system, in topological
          order. *)
       get !input_sys_ref |> InputSystem.ordered_scopes_of
-      |> fun syss ->
+      (* |> fun syss ->
         Format.printf "%d systems@.@." (List.length syss) ;
         Format.printf "systems: @[<v>%a@]@.@."
           (pp_print_list Scope.pp_print_scope "@ ") syss ;
-        syss
+        syss *)
       |> List.fold_left (fun l sys ->
-        Format.printf "sys: %a@.@." Scope.pp_print_scope sys ;
+        (* Format.printf "sys: %a@.@." Scope.pp_print_scope sys ; *)
         try (
           match Analysis.results_find sys results with
           | last :: _ ->
