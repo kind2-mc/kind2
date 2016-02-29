@@ -30,6 +30,9 @@ type t = value Var.VarHashtbl.t
 (** A path is a map of state variables to assignments *)
 type path = value list StateVar.StateVarHashtbl.t
 
+(** Offset of the variables at each step of a path. *)
+val path_offset: Numeral.t
+
 (** Pretty-print a value *)
 val pp_print_value : Format.formatter -> value -> unit
 

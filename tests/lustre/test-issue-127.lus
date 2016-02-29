@@ -342,7 +342,7 @@ var
   ___kind2_record_access_workaround_26 : ADS__Pitch__Pitch_Impl;
   ___kind2_record_access_workaround_27 : ADS__Pitch__Pitch_Impl;
 let
-  --%MAIN
+  --%MAIN ;
   Flight_Control_System_Flight_Control_System_Impl_Instance__prop2 = ((false -> (pre (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_L__LSO.Valid and (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_L__LSO.Leader = 1)))) => (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_L__LSO.Valid => (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_L__LSO.Leader = 1)));
 
   Flight_Control_System_Flight_Control_System_Impl_Instance__prop1 = ((false -> (pre (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_R__LSO.Valid and (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_R__LSO.Leader = 2)))) => (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_R__LSO.Valid => (Flight_Control_System_Flight_Control_System_Impl_Instance__FGS_R__LSO.Leader = 2)));

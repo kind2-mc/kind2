@@ -35,7 +35,7 @@ type cexs = cex list
 (* ********************************************************************** *)
 
 (* Return the default value of the type *)
-let default_of_type t = 
+let default_of_type t =
 
   match Type.node_of_type t with
 
@@ -240,6 +240,8 @@ module Signals: sig
   val ignore_sigquit: unit -> unit
   (** Sets the handler for sigterm to ignore. *)
   val ignore_sigterm: unit -> unit
+  (** Sets the handler for sigpipe to ignore. *)
+  val ignore_sigpipe: unit -> unit
 
   (** Sets a timeout handler for sigalrm. *)
   val set_sigalrm_timeout: unit -> unit
@@ -286,6 +288,7 @@ end = struct
       mutable sigint:  handler ;
       mutable sigquit: handler ;
       mutable sigterm: handler ;
+      mutable sigpipe: handler ;
 
       (* Timeout value. *)
       mutable timeout: float option ;
@@ -299,6 +302,7 @@ end = struct
       sigint  = Ignore ;
       sigterm = Ignore ;
       sigquit = Ignore ;
+      sigpipe = Ignore ;
       timeout = None   ;
       break   = false  ;
   }
@@ -364,12 +368,21 @@ end = struct
       ignore_sig Sys.sigterm
     )
 
+  (* Sets the handler for sigpipeu to ignore. *)
+  let ignore_sigpipe () =
+    if signals.sigpipe = Ignore then ()
+    else (
+      signals.sigpipe <- Ignore ;
+      ignore_sig Sys.sigpipe
+    )
+
   (* Ignore all signals. *)
   let ignore_all_sigs () =
     ignore_sigalrm () ;
     ignore_sigint () ;
     ignore_sigquit () ;
     ignore_sigterm () ;
+    ignore_sigpipe () ;
     catch_break false
 
   (* Sets a handler for a signal. *)

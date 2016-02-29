@@ -47,6 +47,15 @@ let fresh_actlit () =
   i := !i + 1 ;
   actlit_of_string string
 
+(** Returns the number of fresh actlits created this far. *)
+let fresh_actlit_count () = !i
+
+(** Resets the internal counter for fresh actlits.
+
+    /!\ Dangerous, use only if all solvers do use any of the old actlits or
+        will not use any of the new ones. *)
+let reset_fresh_actlit_count () = i := 0
+
 (* Returns the term corresponding to the input actlit. *)
 let term_of_actlit actlit = Term.mk_uf actlit []
 

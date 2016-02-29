@@ -1,0 +1,7 @@
+node bla(in: real) returns (out: real) ;
+var tmp: real ;
+let
+  tmp = in -> pre in ;
+  out = in -> pre tmp ;
+  --%PROPERTY out = (in -> pre (in -> pre in )) ;
+tel

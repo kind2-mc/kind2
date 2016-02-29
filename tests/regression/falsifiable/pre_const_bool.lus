@@ -1,0 +1,5 @@
+node test () returns (ok: bool);
+let
+  ok = pre true;
+  --%PROPERTY ok;
+tel

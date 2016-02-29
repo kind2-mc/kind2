@@ -23,7 +23,8 @@
 
     @author Christoph Sticksel *)
 
-val next_analysis : 'a SubSystem.t -> Analysis.result list -> Analysis.t option
+val next_analysis :
+  'a SubSystem.t -> Analysis.result list -> Analysis.param option
 
 
 (* 

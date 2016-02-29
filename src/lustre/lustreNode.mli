@@ -56,7 +56,7 @@ open Lib
     dummy position. *)
 type node_call = 
 
-  { 
+  {
 
     call_pos : position;
     (** Position of node call in input file *)
@@ -128,34 +128,8 @@ type state_var_source =
   | Oracle  (** Generated non-deterministic input *)
 
 
-(** A contract has an identifier and a position in the input. It
-    consists of a state variable stands for the conjunction of its
-    require clauses, and one state variable that stand for each ensure
-    clause.
-
-    The requirement of a global contract may be assumed
-    invariant. Each ensures of a global or mode contract is a separate
-    proof obligation for the node. 
-
-    The conjunction of the requirements of all global contracts, and
-    the disjunction of the requirements of all mode contracts is a
-    proof obligation for all calling nodes. *)
-type contract =
-  { 
-
-    contract_name : LustreIdent.t;
-    (** Identifier of contract *)
-
-    contract_pos: position;
-    (** Position of the contract in the input *)
-
-    contract_reqs : (position * StateVar.t) list;
-    (** Invariant from requirements of contract *)
-
-    contract_enss : (position * StateVar.t) list
-    (** Invariants from ensures of contract *)
-
-  }
+(** A contract. *)
+type contract = LustreContract.t
 
 
 (** Type of left hand side of equations. 
@@ -219,7 +193,7 @@ type t =
     (** Output streams defined in the node
 
         The outputs are considered as a list with an integer indexes
-        correpsonding to their position in the formal parameters. *)
+        corresponding to their position in the formal parameters. *)
 
     locals : StateVar.t LustreIndex.t list;
     (** Local variables of node
@@ -242,11 +216,8 @@ type t =
     props : (StateVar.t * string * Property.prop_source) list;
     (** Proof obligations for the node *)
 
-    global_contracts : contract list;
-    (** Global contracts *)
-
-    mode_contracts : contract list;
-    (** Mode contracts *)
+    contract : contract option ;
+    (** Contract. *)
 
     is_main : bool;
     (** Flag node as the top node *)
@@ -327,6 +298,12 @@ val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 
 (** Return the name of the node *)
 val name_of_node : t -> LustreIdent.t
+
+(** [ordered_equations_of_node n stateful init]
+    Returns the equations of [n], topologically sorted by their base (step)
+    expression if [init] ([not init]). *)
+val ordered_equations_of_node :
+  t -> StateVar.t list -> bool -> equation list
 
 (** Return the scope of the node *)
 val scope_of_node : t -> Scope.t

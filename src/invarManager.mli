@@ -26,6 +26,9 @@ val main : (int * Lib.kind_module) list ref -> 'a InputSystem.t -> Analysis.para
 (** Cleanup before exit *)
 val on_exit : TransSys.t option -> unit
 
+(** Prints statistics and properties status. *)
+val print_stats: TransSys.t option -> unit
+
 
 (* 
    Local Variables:

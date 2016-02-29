@@ -1,10 +1,11 @@
 #!/bin/bash
+set -e
 
 # Configure with ZeroMQ and without CZMQ first 
-./configure "$@" --with-zeromq
+./configure "$@" --with-zmq
 
 # Build ZeroMQ
-make zeromq
+make zmq
 
 # Configure with CZMQ and without ZeroMQ (already configured)  
 ./configure "$@" --with-czmq
@@ -13,5 +14,5 @@ make zeromq
 make czmq
 
 # Build ocamlczmq
-make 
+make
 

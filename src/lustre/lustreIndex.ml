@@ -47,7 +47,7 @@ type one_index =
 (* Pretty-print a single index *)
 let pp_print_one_index' db = function 
   
-  | false -> 
+  | false ->
     
     (function ppf -> function 
        | RecordIndex i -> ()
@@ -56,7 +56,7 @@ let pp_print_one_index' db = function
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
        | ArrayVarIndex v -> ()) (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
 
-  | true -> 
+  | true ->
     
     (function ppf -> function 
        | RecordIndex i -> Format.fprintf ppf ".%s" i

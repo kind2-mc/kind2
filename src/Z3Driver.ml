@@ -27,7 +27,7 @@ let cmd_line
     produce_interpolants = 
 
   (* Path and name of Z3 executable *)
-  let z3_bin = Flags.z3_bin () in
+  let z3_bin = Flags.Smt.z3_bin () in
   [| z3_bin; "-smt2"; "-in" |]
 
 
@@ -37,7 +37,7 @@ let check_sat_limited_cmd ms =
   Format.sprintf "(check-sat-using (try-for smt %d))" ms
 
 
-let check_sat_assuming_supported () = Flags.smt_check_sat_assume ()
+let check_sat_assuming_supported () = Flags.Smt.check_sat_assume ()
 
 
 let check_sat_assuming_cmd () = "check-sat"

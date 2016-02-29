@@ -31,7 +31,7 @@ let cmd_line
   let open TermLib in
   
   (* Path and name of CVC4 executable *)
-  let cvc4_bin = Flags.cvc4_bin () in
+  let cvc4_bin = Flags.Smt.cvc4_bin () in
 
   let incr_mode =
     if produce_cores then "--tear-down-incremental" else "--incremental" in

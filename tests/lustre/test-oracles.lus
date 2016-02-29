@@ -14,5 +14,5 @@ let
   c = condact(clk, X(0), 0);
   d = X(0);
   --%PROPERTY c > 0 or c <= 0;
-  --%MAIN
+  --%MAIN ;
 tel;

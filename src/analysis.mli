@@ -39,62 +39,127 @@
     @author Christoph Sticksel *)
 
 
-(** Parameters for the creation of a transition system *)
-type param = 
 
-  { 
-    
-    (** The top system for the analysis run *)
-    top : Scope.t;
-    
-    (** Systems flagged [true] are to be represented abstractly, those
-        flagged [false] are to be represented by their
-        implementation. *)
-    abstraction_map : bool Scope.Map.t;
+(** Information for the creation of a transition system *)
+type info = {
+  (** The top system for the analysis run *)
+  top : Scope.t ;
 
-    (** Named properties that can be assumed invariant in subsystems *)
-    assumptions : (Scope.t * Term.t) list;
+  (** UID for the analysis. *)
+  uid : int ;
 
-  }
+  (** Systems flagged [true] are to be represented abstractly, those flagged
+      [false] are to be represented by their implementation. *)
+  abstraction_map : bool Scope.Map.t ;
 
+  (** Properties that can be assumed invariant in subsystems *)
+  assumptions : (Scope.t * Term.t) list ;
+
+  (** Result of the previous analysis of the top system if this analysis is a
+      refinement. *)
+  (* refinement_of : result option *)
+}
+
+(** Parameter of an analysis. *)
+type param =
+  (** Analysis of the contract of a system. *)
+  | ContractCheck of info
+  (** First analysis of a system. *)
+  | First of info
+  (** Refinement of a system. Store the result of the previous analysis. *)
+  | Refinement of info * result
 
 (** Result of analysing a transistion system *)
-type result = 
+and result = {
+  (** Parameters of the analysis. *)
+  param : param ;
 
-  { 
-    
-    (** System analyzed (see [top] field of record) and parameters of
-        the analysis *)
-    param : param;
+  (** System analyzed, contains property statuses and invariants. *)
+  sys : TransSys.t ;
 
-    (** All contracts of the system are valid *)
-    contract_valid : bool;     
+  (** [None] if system analyzed has not contracts,
+      [Some true] if it does and they have been proved correct,
+      [Some false] if it does and some are unknown / falsified. *)
+  contract_valid : bool option ;
 
-    (** Contract preconditions of all subsystems are valid *)
-    sub_contracts_valid : bool;
-
-    (** Additional properties proved invariant *)
-    properties : string list;
-
-  }
-
-
-(** An analysis consists of a set of transition systems and a set of properties *)
-type t = TransSys.t list * Property.t list
+  (** [None] if system analyzed has not sub-requirements,
+      [Some true] if it does and they have been proved correct,
+      [Some false] if it does and some are unknown / falsified. *)
+  requirements_valid : bool option ;
+}
 
 
-(** Return [true] if the scope is flagged as abstract in
-    [abstraction_map]. Default to [false] if the scope is not in the
-    map. *)
-val scope_is_abstract : param -> Scope.t -> bool
+
+(** The info or a param. *)
+val info_of_param : param -> info
+
+(** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
+   a [param]. Default to [false] if the node is not in the map. *)
+val param_scope_is_abstract : param -> Scope.t -> bool
+
+(** Retrieve the assumptions of a [scope] from a [param]. *)
+val param_assumptions_of_scope : param -> Scope.t -> Term.t list
 
 
-(** Return assumptions of scope *)
-val assumptions_of_scope : param -> Scope.t -> Term.t list  
+
+
+
+(** Returns a result from an analysis. *)
+val mk_result : param -> TransSys.t -> result
+
+(** Returns true if all properties in the system in a [result] have been
+    proved. *)
+val result_is_all_proved : result -> bool
+
+(** Returns true if some properties in the system in a [result] have been
+    falsified. *)
+val result_is_some_falsified : result -> bool
+
+
+
+
+(** Map from [Scope.t] to [result] storing the results found this far. *)
+type results
+
+(** Creates a new [results]. *)
+val mk_results : unit -> results
+
+(** Adds a [result] to a [results]. *)
+val results_add : result -> results -> results
+
+(** Returns the list of results for a top scope.
+
+    Raises [Not_found] if not found. *)
+val results_find : Scope.t -> results -> result list
+
+(** Returns the total number of results stored in a [results]. Used to
+    generate UIDs for [param]s. *)
+val results_length : results -> int
+
+(** Returns [None] if no properties were falsified but some could not be
+    proved, [Some true] if all properties were proved, and [Some false] if
+    some were falsified. *)
+val results_is_safe : results -> bool option
+
+(** Cleans the results by removing nodes that don't have any property or
+contract. *)
+val results_clean : results -> results
+
+
+
 
 
 (** Run one analysis *)
-val run : t -> result
+val run : TransSys.t -> result
+
+(** Pretty printer for [param]. *)
+val pp_print_param: Format.formatter -> param -> unit
+
+(** Pretty printer for [result], quiet version. *)
+val pp_print_result_quiet: Format.formatter -> result -> unit
+
+(** Pretty printer for [result]. *)
+val pp_print_result: Format.formatter -> result -> unit
 
 
 (* 

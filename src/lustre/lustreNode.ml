@@ -48,10 +48,10 @@ open Lib
 module I = LustreIdent 
 module D = LustreIndex
 module E = LustreExpr
+module C = LustreContract
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
-
 
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
@@ -78,75 +78,53 @@ type state_var_source =
 
 
 (* A call of a node *)
-type node_call = 
+type node_call = {
 
-  { 
+  (* Position of node call in input file *)
+  call_pos : position;
 
-    (* Position of node call in input file *)
-    call_pos : position;
+  (* Name of called node *)
+  call_node_name : I.t;
+  
+  (* Boolean activation condition *)
+  call_clock : StateVar.t option;
 
-    (* Name of called node *)
-    call_node_name : I.t;
-    
-    (* Boolean activation condition *)
-    call_clock : StateVar.t option;
+  (* Variables for input parameters *)
+  call_inputs : StateVar.t D.t;
 
-    (* Variables for input parameters *)
-    call_inputs : StateVar.t D.t;
+  (* Variables providing non-deterministic inputs *)
+  call_oracles : StateVar.t list;
 
-    (* Variables providing non-deterministic inputs *)
-    call_oracles : StateVar.t list;
+  (* Variables capturing the outputs *)
+  call_outputs : StateVar.t D.t;
 
-    (* Variables capturing the outputs *)
-    call_outputs : StateVar.t D.t;
+  (* Expression for initial return values 
 
-    (* Expression for initial return values 
+     This value should be [None] for node calls on the base clock,
+      and [Some l] for node calls with a clock. A node call with a
+      clock may only have [None] here if it occurs directly under a
+      [merge] operator.*)
+  call_defaults : E.t D.t option;
 
-       This value should be [None] for node calls on the base clock,
-        and [Some l] for node calls with a clock. A node call with a
-        clock may only have [None] here if it occurs directly under a
-        [merge] operator.*)
-    call_defaults : E.t D.t option;
-
-  }
+}
 
 
 (* A call of a function *)
-type function_call = 
+type function_call = {
 
-  { 
+  (* Position of function call in input file *)
+  call_pos : position;
 
-    (* Position of function call in input file *)
-    call_pos : position;
+  (* Name of called function *)
+  call_function_name : I.t;
+  
+  (* Expressions for input parameters *)
+  call_inputs : E.t D.t;
 
-    (* Name of called function *)
-    call_function_name : I.t;
-    
-    (* Expressions for input parameters *)
-    call_inputs : E.t D.t;
+  (* Variables capturing the outputs *)
+  call_outputs : StateVar.t D.t;
 
-    (* Variables capturing the outputs *)
-    call_outputs : StateVar.t D.t;
-
-  }
-
-
-type contract =
-  { 
-
-    (* Identifier of contract *)
-    contract_name : LustreIdent.t;
-
-    (* Position of the contract in the input *)
-    contract_pos: position;
-
-    (* Invariant from requirements of contract *)
-    contract_reqs : (position * StateVar.t) list;
-
-    (* Invariants from ensures of contract *)
-    contract_enss : (position * StateVar.t) list
-
-  }
+}
 
 
 (* Left hand side of an equation *)
@@ -156,99 +134,96 @@ type equation_lhs = StateVar.t * E.expr E.bound_or_fixed list
 (* An equation *)
 type equation = equation_lhs * E.t
 
+(* A contract. *)
+type contract = C.t
 
 (* A Lustre node *)
-type t = 
+type t = { 
 
-  { 
+  (* Name of node *)
+  name : I.t;
 
-    (* Name of node *)
-    name : I.t;
+  (* Constant state variable uniquely identifying the node instance *)
+  instance : StateVar.t;
 
-    (* Constant state variable uniquely identifying the node instance *)
-    instance : StateVar.t;
+  (* Distinguished state variable to become true in the first
+     instant only *)
+  init_flag : StateVar.t;
 
-    (* Distinguished state variable to become true in the first
-       instant only *)
-    init_flag : StateVar.t;
+  (* Input variables of node together with their index in the
+     original model and a list of expressions for the upper bounds
+     of each array dimension *)
+  inputs : StateVar.t D.t;
 
-    (* Input variables of node together with their index in the
-       original model and a list of expressions for the upper bounds
-       of each array dimension *)
-    inputs : StateVar.t D.t;
+  (* Oracle inputs *)
+  oracles : StateVar.t list;
 
-    (* Oracle inputs *)
-    oracles : StateVar.t list;
+  (* Output variables of node together with their index in the
+     original model and a list of expressions for the upper bounds
+     of each array dimension *)
+  outputs : StateVar.t D.t;
 
-    (* Output variables of node together with their index in the
-       original model and a list of expressions for the upper bounds
-       of each array dimension *)
-    outputs : StateVar.t D.t;
+  (* Local variables of node and a list of expressions for the upper
+     bounds of each array dimension *)
+  locals : StateVar.t D.t list;
 
-    (* Local variables of node and a list of expressions for the upper
-       bounds of each array dimension *)
-    locals : StateVar.t D.t list;
+  (* Equations for local and output variables *)
+  equations : equation list;
 
-    (* Equations for local and output variables *)
-    equations : equation list;
+  (* Node calls *)
+  calls : node_call list;
 
-    (* Node calls *)
-    calls : node_call list;
+  (* Function calls
 
-    (* Function calls
+     Needed to share functions calls with the same input
+     parameters *)
+  function_calls : function_call list;
 
-       Needed to share functions calls with the same input
-       parameters *)
-    function_calls : function_call list;
+  (* Assertions of node *)
+  asserts : E.t list;
 
-    (* Assertions of node *)
-    asserts : E.t list;
+  (* Proof obligations for node *)
+  props : (StateVar.t * string * Property.prop_source) list;
 
-    (* Proof obligations for node *)
-    props : (StateVar.t * string * Property.prop_source) list;
+  (* Contract. *)
+  contract : contract option ;
 
-    (* Global contracts *)
-    global_contracts : contract list;
+  (* Node is annotated as main node *)
+  is_main : bool ;
 
-    (* Mode contracts *)
-    mode_contracts :  contract list;
+  (* Map from a state variable to its source *)
+  state_var_source_map : state_var_source SVM.t 
 
-    (* Node is annotated as main node *)
-    is_main : bool;
-
-    (* Map from a state variable to its source *)
-    state_var_source_map : state_var_source SVM.t 
-
-  }
+}
 
 
 (* An empty node *)
-let empty_node name = 
-  { name = name;
-    instance = 
-      StateVar.mk_state_var
-        ~is_const:true
-        (I.instance_ident |> I.string_of_ident false)
-        (I.to_scope name @ I.reserved_scope)
-        Type.t_int;
-    init_flag = 
-      StateVar.mk_state_var
-        (I.init_flag_ident |> I.string_of_ident false)
-        (I.to_scope name @ I.reserved_scope)
-        Type.t_bool;
-    inputs = D.empty;
-    oracles = [];
-    outputs = D.empty;
-    locals = [];
-    equations = [];
-    calls = [];
-    function_calls = [];
-    asserts = [];
-    props = [];
-    global_contracts = [];
-    mode_contracts = [];
-    is_main = false;
-    state_var_source_map = SVM.empty }
+let empty_node name = {
+  name = name;
+  instance = 
+    StateVar.mk_state_var
+      ~is_const:true
+      (I.instance_ident |> I.string_of_ident false)
+      (I.to_scope name @ I.reserved_scope)
+      Type.t_int;
+  init_flag = 
+    StateVar.mk_state_var
+      (I.init_flag_ident |> I.string_of_ident false)
+      (I.to_scope name @ I.reserved_scope)
+      Type.t_bool;
+  inputs = D.empty;
+  oracles = [];
+  outputs = D.empty;
+  locals = [];
+  equations = [];
+  calls = [];
+  function_calls = [];
+  asserts = [];
+  props = [];
+  contract = None ;
+  is_main = false;
+  state_var_source_map = SVM.empty
+}
 
 
 (* Pretty-print array bounds of index *)
@@ -256,16 +231,16 @@ let pp_print_array_dims safe ppf idx =
 
   match D.array_bounds_of_index idx with 
 
-    (* Print only if not empty *)
-    | [] -> ()
+  (* Print only if not empty *)
+  | [] -> ()
 
-    | bounds -> 
+  | bounds -> 
 
-      Format.fprintf 
-        ppf
-        "^%a"
-        (pp_print_list (E.pp_print_expr safe) "^")
-        bounds
+    Format.fprintf 
+      ppf
+      "^%a"
+      (pp_print_list (E.pp_print_expr safe) "^")
+      bounds
 
 
 (* Pretty-print a node input *)
@@ -443,57 +418,6 @@ let pp_print_prop safe ppf (sv, n, _) =
        if sv_string <> n then
          Format.fprintf ppf " -- was: %s" n)
 
-(* Pretty-print an assumption *)
-let pp_print_require safe ppf (_,sv) =
-  Format.fprintf ppf
-    "@[<hv 2>--@@require@ @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) sv
-
-
-(* Pretty-print a guarantee *)
-let pp_print_ensure safe ppf (_,sv) =
-  Format.fprintf ppf
-    "@[<hv 2>--@@ensure @[<h>%a@];@]"
-    (E.pp_print_lustre_var safe) sv
-
-
-(* Pretty-print a named mode contract. *)
-let pp_print_mode_contract safe ppf {
-  contract_name; contract_reqs; contract_enss
-} =
-  Format.fprintf
-    ppf
-    "@[<v>--@@contract %a;@,%a@,%a@]"
-    (I.pp_print_ident false) contract_name
-    (pp_print_list (pp_print_require safe) "@ ") contract_reqs
-    (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
-
-
-(* Pretty-print an anonymous global contract. *)
-let pp_print_global_contract safe ppf {
-  contract_name; contract_reqs; contract_enss
-} =
-
-    Format.fprintf
-      ppf
-      "@[<v>-- %a@,%a@,%a@]"
-      (I.pp_print_ident false) contract_name
-      (pp_print_list (pp_print_require safe) "@ ") contract_reqs
-      (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
-
-
-(* Pretty-print a named mode contract. *)
-let pp_print_mode_contract  safe ppf {
-  contract_name; contract_reqs; contract_enss
-} =
-
-    Format.fprintf
-      ppf
-      "@[<v>--@contract %a@,%a@,%a@]"
-      (I.pp_print_ident false) contract_name
-      (pp_print_list (pp_print_require safe) "@ ") contract_reqs
-      (pp_print_list (pp_print_ensure safe) "@ ") contract_enss
-
 
 
 (* Pretty-print a node *)
@@ -508,8 +432,7 @@ let pp_print_node safe ppf {
   function_calls;
   asserts; 
   props;
-  global_contracts;
-  mode_contracts;
+  contract;
   is_main
 } =
 
@@ -522,8 +445,7 @@ let pp_print_node safe ppf {
   Format.fprintf ppf 
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
-     %a%t\
-     %a%t\
+     %a\
      @[<v>%t@]\
      @[<hv 2>let@ \
      %a%t\
@@ -552,11 +474,11 @@ let pp_print_node safe ppf {
        (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
        (D.bindings outputs))
 
-    (pp_print_list (pp_print_global_contract safe) "@,") global_contracts
-    (space_if_nonempty global_contracts)
-
-    (pp_print_list (pp_print_mode_contract safe) "@,") mode_contracts
-    (space_if_nonempty mode_contracts)
+    (fun fmt -> function
+      | None -> ()
+      | Some contract ->
+        Format.fprintf fmt "%a@ " (C.pp_print_contract safe) contract)
+    contract
 
     (* %t *)
     (function ppf -> 
@@ -638,8 +560,7 @@ let pp_print_node_debug
       calls; 
       asserts; 
       props;
-      global_contracts;
-      mode_contracts;
+      contract;
       is_main;
       state_var_source_map } = 
 
@@ -656,25 +577,6 @@ let pp_print_node_debug
 
   in
 
-  let pp_print_contract
-      ppf
-      { contract_name;
-        contract_reqs;
-        contract_enss } =
-    let pp_snd_of fmt (_,sv) =
-      Format.fprintf fmt "%a" StateVar.pp_print_state_var sv
-    in
-
-    Format.fprintf 
-      ppf
-      "@[<v>name = %a@,\
-            requires = @[<hv>%a@]@,\
-            ensures =  @[<hv>%a@]@]"
-      (I.pp_print_ident false) contract_name
-      (pp_print_list pp_snd_of ",@ ") contract_reqs
-      (pp_print_list pp_snd_of ",@ ") contract_enss
-  in
-
   let pp_print_state_var_source ppf = 
     let p sv src = Format.fprintf ppf "%a:%s" StateVar.pp_print_state_var sv src in
     function 
@@ -689,20 +591,19 @@ let pp_print_node_debug
   Format.fprintf 
     ppf
     "node %a @[<hv 2>\
-       { instance =         %a;@ \
-         init_flag =        %a;@ \
-         inputs =           [@[<hv>%a@]];@ \
-         oracles =          [@[<hv>%a@]];@ \
-         outputs =          [@[<hv>%a@]];@ \
-         locals =           [@[<hv>%a@]];@ \
-         equations =        [@[<hv>%a@]];@ \
-         calls =            [@[<hv>%a@]];@ \
-         asserts =          [@[<hv>%a@]];@ \
-         props =            [@[<hv>%a@]];@ \
-         global_contracts = [@[<hv>%a@]];@ \
-         mode_contracts =   [@[<hv>%a@]];@ \
-         is_main =          @[<hv>%B@];@ \
-         source_map =       [@[<hv>%a@]]; }@]"
+       { instance =  %a;@ \
+         init_flag = %a;@ \
+         inputs =     [@[<hv>%a@]];@ \
+         oracles =    [@[<hv>%a@]];@ \
+         outputs =    [@[<hv>%a@]];@ \
+         locals =     [@[<hv>%a@]];@ \
+         equations =  [@[<hv>%a@]];@ \
+         calls =      [@[<hv>%a@]];@ \
+         asserts =    [@[<hv>%a@]];@ \
+         props =      [@[<hv>%a@]];@ \
+         contract =   [@[<hv>%a@]];@ \
+         is_main =    @[<hv>%B@];@ \
+         source_map = [@[<hv>%a@]]; }@]"
 
     StateVar.pp_print_state_var instance
     StateVar.pp_print_state_var init_flag
@@ -715,8 +616,11 @@ let pp_print_node_debug
     (pp_print_list pp_print_node_call_debug ";@ ") calls
     (pp_print_list (E.pp_print_lustre_expr false) ";@ ") asserts
     (pp_print_list pp_print_prop ";@ ") props
-    (pp_print_list pp_print_contract ";@ ") global_contracts
-    (pp_print_list pp_print_contract ";@ ") mode_contracts
+    (fun fmt -> function
+      | None -> ()
+      | Some contract ->
+        Format.fprintf fmt "%a@ "
+          (C.pp_print_contract false) contract) contract
     is_main
     (pp_print_list pp_print_state_var_source ";@ ") 
     (SVM.bindings state_var_source_map)
@@ -745,6 +649,43 @@ let node_of_name name nodes =
 
 (* Return the name of the node *)
 let name_of_node { name } = name
+
+
+(** [ordered_equations_of_node n stateful init]
+    Returns the equations of [n], topologically sorted by their base (step)
+    expression if [init] ([not init]). *)
+let ordered_equations_of_node { equations } stateful init =
+  let svars_of (_, _, expr) =
+    expr |> if init
+      then E.base_state_vars_of_init_expr
+      else E.cur_state_vars_of_step_expr
+  in
+
+  let is_known eqs svar =
+    List.exists (StateVar.equal_state_vars svar) stateful ||
+    List.exists (fun (sv, _, _) -> StateVar.equal_state_vars svar sv) eqs
+  in
+
+  let rec loop postponed ordered = function
+    | eq :: tail ->
+      if svars_of eq |> SVS.for_all (is_known ordered) then
+        (* We have ordered all the state vars the lhs of the equation mentions.
+           Prepending to ordered. *)
+        loop postponed (eq :: ordered) tail
+      else
+        (* We are missing some equations, postponing the ordering of this
+           equation. *)
+        loop (eq :: postponed) ordered tail
+    | [] -> (
+      match postponed with
+      | [] -> List.rev ordered
+      | _ -> loop [] ordered postponed
+    )
+  in
+
+  loop [] [] equations
+
+
 
 (* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope
@@ -795,10 +736,12 @@ let rec ident_of_top = function
   | h :: tl -> ident_of_top tl
 
 
-(* Node has a contract if it has a global or at least one mode
-   contract *)
-let has_contract { global_contracts; mode_contracts } = 
-  not (global_contracts = [] && mode_contracts = [])
+(* Node has a contract if it has a global or at least one mode contract *)
+let has_contract { contract } = contract != None
+
+let has_modes = function
+| { contract = None } -> false
+| { contract = Some { C.modes } } -> modes != []
 
 
 (* Node always has an implementation *)
@@ -934,6 +877,9 @@ let rec subsystem_of_nodes' nodes accum = function
         (* Does node have contracts? *)
         let has_contract = has_contract node in 
 
+        (* Does node have modes? *)
+        let has_modes = has_modes node in
+
         (* Does node have an implementation? *)
         let has_impl = has_impl node in
 
@@ -943,6 +889,7 @@ let rec subsystem_of_nodes' nodes accum = function
           { SubSystem.scope;
             SubSystem.source = node;
             SubSystem.has_contract;
+            SubSystem.has_modes;
             SubSystem.has_impl;
             SubSystem.subsystems  }
 
@@ -1017,7 +964,7 @@ let rec fold_node_calls_with_trans_sys'
         | _ -> assert false)
 
     (* We need to evaluate called nodes first *)
-    | FDown (({ calls } as node), trans_sys, instances) :: tl -> 
+    | FDown (({ calls } as node), trans_sys, instances) :: tl ->
       
       (* Direct subsystems of transition system *)
       let subsystems = 
@@ -1062,9 +1009,9 @@ let rec fold_node_calls_with_trans_sys'
         tl'
 
     (* Subsytems are in the accumulator, evaluate this system now *)
-    | FUp (n, t, i) :: tl -> 
+    | FUp (n, t, i) :: tl -> (
 
-      (match accum with
+      match accum with
         | a :: b :: c ->
           
           fold_node_calls_with_trans_sys' 
@@ -1073,7 +1020,9 @@ let rec fold_node_calls_with_trans_sys'
             (((f n t i a) :: b) :: c) 
             tl
             
-        | _ -> assert false)
+        | _ -> assert false
+
+    )
 
 
 
@@ -1125,15 +1074,12 @@ let stateful_vars_of_expr { E.expr_step } =
     (expr_step :> Term.t)
 
 
-let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var 
-
-let stateful_vars_of_contract { contract_reqs; contract_enss } = 
-  ( List.map snd contract_reqs ) @ ( List.map snd contract_enss )
-  |> SVS.of_list
+let stateful_vars_of_prop (state_var, _, _) = SVS.singleton state_var
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
-    { inputs; 
+    { name;
+      inputs; 
       oracles; 
       outputs; 
       locals;
@@ -1141,8 +1087,7 @@ let stateful_vars_of_node
       calls; 
       asserts; 
       props; 
-      global_contracts;
-      mode_contracts } =
+      contract } =
 
   (* Input, oracle, and output variables are always stateful
 
@@ -1165,11 +1110,9 @@ let stateful_vars_of_node
   in
 
   (* Add stateful variables from global and mode contracts *)
-  let stateful_vars =
-    List.fold_left
-      (fun accum p -> SVS.union accum (stateful_vars_of_contract p))
-      stateful_vars
-      (global_contracts @ mode_contracts)
+  let stateful_vars = match contract with
+    | None -> stateful_vars
+    | Some contract -> C.svars_of contract |> SVS.union stateful_vars 
   in
 
   (* Add stateful variables from equations *)
@@ -1181,7 +1124,8 @@ let stateful_vars_of_node
       equations
   in
 
-  (* Unconstrained local state variables must be stateful *)
+  (* TODO: this can be removed if we forbid undefined local variables.
+     Unconstrained local state variables must be stateful *)
   let stateful_vars = 
     List.fold_left
       (fun a l -> 
@@ -1204,7 +1148,7 @@ let stateful_vars_of_node
       stateful_vars
       locals
   in
-
+  
   (* Add property variables *)
   let stateful_vars = 
     add_to_svs

@@ -201,9 +201,19 @@ let mk_uf_symbol s a r =
         
     else
 
-      raise 
-        (Invalid_argument 
-           "Uninterpreted symbol redeclared with different signature")
+      raise
+        (Invalid_argument (
+           Format.asprintf
+            "@[<v>\
+              Uninterpreted symbol %s with signature %a -> %a \
+              redeclared with different signature %a -> %a \
+            @]"
+            s
+            (pp_print_list Type.pp_print_type " -> ") (arg_type_of_uf_symbol u)
+            Type.pp_print_type (res_type_of_uf_symbol u)
+            (pp_print_list Type.pp_print_type " -> ") a
+            Type.pp_print_type r
+        ) )
         
   (* Uninterpreted symbol is not in the hashcons table *)
   with Not_found | Huf_symbol.Key_not_found _ -> 

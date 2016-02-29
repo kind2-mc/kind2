@@ -21,11 +21,28 @@
     @author Kevin Clancy, Christoph Sticksel *)
 
 (** Output a counterexample as a Lustre execution in XML format *)
-val pp_print_path_xml : TransSys.t -> TransSys.instance list -> LustreNode.t SubSystem.t -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_xml :
+  TransSys.t -> TransSys.instance list ->
+  LustreNode.t SubSystem.t -> LustreGlobals.t -> bool ->
+  Format.formatter -> Model.path -> unit
 
 (** Output a counterexample as a Lustre execution as plain text with
     pre-processing reverted *)
-val pp_print_path_pt : TransSys.t -> TransSys.instance list -> LustreNode.t SubSystem.t -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_pt :
+  TransSys.t -> TransSys.instance list ->
+  LustreNode.t SubSystem.t -> LustreGlobals.t -> bool ->
+  Format.formatter -> Model.path -> unit
+
+(** Outputs a model as a sequence of inputs in CSV. *)
+val pp_print_path_in_csv :
+  TransSys.t -> TransSys.instance list ->
+  LustreNode.t SubSystem.t -> LustreGlobals.t -> bool ->
+  Format.formatter -> Model.path -> unit
+
+(** Recursively substitute the state variables in a term with their definition
+    in [equations]. *)
+val substitute_definitions_in_expr :
+  LustreNode.equation list -> LustreExpr.t -> LustreExpr.t
 
 (* 
    Local Variables:

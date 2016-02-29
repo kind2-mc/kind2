@@ -16,7 +16,7 @@ node X (in: bool) returns (out: bool);
 --@var g1 : bool = true -> false;
 --@require g >= 0;
 --@ensure g = 0;
---@contract R1;
+--@mode R1;
 --@require in;
 --@ensure true -> not in and g > 0;
 

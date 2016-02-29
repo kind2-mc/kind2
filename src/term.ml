@@ -1310,7 +1310,7 @@ let bump_state i term =
          mk_var 
            (let v = free_var_of_term t in
             Var.bump_offset_of_state_var_instance v i)
-       | _ as t -> t)
+       | t -> t)
     term
 
 

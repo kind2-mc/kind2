@@ -16,7 +16,7 @@
 
 *)
 
-(** Delegate to concrete functions for input formats 
+(** Delegate to concrete functions for input formats.
 
     All functionality outside this module should be agnostic of the
     input format, with the exception of modules specialized to a
@@ -30,21 +30,39 @@ type _ t
 (** Read input from file *)
 val read_input_lustre : string -> LustreNode.t t
 
+(** Returns the scopes of all the systems in an input systems, in topological
+    order. *)
+val ordered_scopes_of : 'a t -> Scope.t list
+
+(** Returns the analysis param for [top] that abstracts all its abstractable
+    subsystems if [top] has a contract. *)
+val maximal_abstraction_for_testgen :
+  'a t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option
 
 (** Return the next system to analyze and the systems to abstract *)
-val next_analysis_of_strategy : 'a t -> Analysis.result list -> Analysis.param option
-
+val next_analysis_of_strategy :
+  'a t -> Analysis.results -> Analysis.param option
 
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis : 'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
-val pp_print_path_pt : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit 
+val pp_print_path_pt : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system *)
-val pp_print_path_xml : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit 
+val pp_print_path_xml : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
+
+(** Output a model as a sequnce of inputs in CSV. *)
+val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
 val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.value list) list * Term.t * 'a t
+
+(** Compiles a system (scope) to Rust to the folder specified as a crate. *)
+val compile_to_rust : _ t -> Scope.t -> string -> unit
+
+(** Compiles a system (scope) to Rust as an oracle to the folder specified as
+a crate. *)
+val compile_oracle_to_rust : _ t -> Scope.t -> string -> unit
 
 (* 
    Local Variables:

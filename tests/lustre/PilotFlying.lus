@@ -1,7 +1,4 @@
-node Rise 
-  (I : bool)
-returns 
-  (O : bool);
+node Rise (I : bool) returns (O : bool) ;
 let 
   O = false -> (not pre I) and I;
 tel;
@@ -9,13 +6,11 @@ tel;
 
 const inhibit_count_max = 2;
 
-node PFS_Logic
-  (riseTS, riseOSPF : bool;
-   const Primary_Side : bool; 
-   const PFS_Initial_Value : bool) 
-
-returns 
-  (PFS : bool);
+node PFS_Logic (
+  riseTS, riseOSPF : bool;
+  const Primary_Side : bool; 
+  const PFS_Initial_Value : bool
+) returns (PFS : bool) ;
 
 var
   Start_to_Pilot_Flying, 
@@ -354,7 +349,7 @@ var
 
 let
 
-  --%MAIN
+  --%MAIN ;
   clocks_are_quasi_synchronous = calendar(CLK1, CLK3, CLK2, CLK4);
   
   assert clocks_are_quasi_synchronous;

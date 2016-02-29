@@ -18,27 +18,31 @@
         
 open Lib
 
-let on_exit trans_sys =
+let print_stats trans_sys =
   
   Event.log
-    L_info
+    L_debug
     "@[<v>%a@,\
      Final statistics:@]"
     pp_print_hline ();
   
   List.iter 
-    (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
+    (fun (mdl, stat) -> Event.log_stat mdl L_debug stat)
     (Event.all_stats ());
   
   (match trans_sys with | None -> () | Some trans_sys ->
     Event.log_prop_status 
       L_fatal
-      (TransSys.get_prop_status_all trans_sys));
+      (TransSys.get_prop_status_all trans_sys))
+
+let on_exit trans_sys =
+
+  print_stats trans_sys ;
     
   try 
     
     (* Send termination message to all worker processes *)
-    Event.terminate ();
+    Event.terminate () ;
 
   (* Skip if running as a single process *)
   with Messaging.NotInitialized -> ()
@@ -90,7 +94,7 @@ let rec wait_for_children child_pids =
     (* Child process dies with non-zero exit status or was killed *)
     | child_pid, status -> 
 
-      (Event.log L_error
+      (Event.log L_warn
          "Child process %d (%a) %a" 
          child_pid 
          pp_print_kind_module (List.assoc child_pid !child_pids) 

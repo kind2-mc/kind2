@@ -424,7 +424,9 @@ module CandidateTermGen = struct
     
     let rec get_last = function
       | head :: [] -> [head]
-      | [] -> assert false;
+      | [] ->
+        Event.log L_fatal "can't get last" ;
+        assert false ;
       | _ :: t -> get_last t
     in
 
@@ -473,8 +475,8 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> if Flags.invgengraph_mine_trans ()
-                then identity else set_of_term trans
+             |> if Flags.Invgen.mine_trans ()
+                then set_of_term trans else identity
            in
 
            let candidates =
@@ -488,7 +490,7 @@ module CandidateTermGen = struct
 
            let sorted_result =
              result
-             |> ( if Flags.invgengraph_lift_candidates () then
+             |> ( if Flags.Invgen.lift_candidates () then
                     TSet.fold
                       ( fun term map ->
                         TransSys.instantiate_term_all_levels
@@ -513,7 +515,7 @@ module CandidateTermGen = struct
 
         let final =
           (* Only getting to system if required. *)
-          ( if false_of_unit ()
+          ( if Flags.Invgen.top_only ()
             then get_last result else result )
           |> (
             (* One state-ing everything if required. *)
@@ -619,7 +621,9 @@ let create_graph trans candidates =
     CandidateTermGen.build_graphs [ (trans, candidates) ]
   with
     | (_, graph, _) :: _ -> graph
-    | _ -> assert false
+    | _ ->
+      Event.log L_fatal "no graph was built" ;
+      assert false
 
 
     

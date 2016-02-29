@@ -23,6 +23,11 @@
 (* Identity function. *)
 let identity anything = anything
 
+(* Prints the first argument and returns the second. *)
+let print_pass s whatever =
+  Format.printf "%s@." s ;
+  whatever
+
 (* Returns true when given unit. *)
 let true_of_unit () = true
 
@@ -37,6 +42,10 @@ let true_of_any _ = true
 
 (* Returns false s*)
 let false_of_any _ = false
+
+(* Creates a directory if it does not already exist. *)
+let mk_dir dir =
+  try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
 
 (* ********************************************************************** *)
 (* Event tags used when outputting info.                                  *)
@@ -450,7 +459,7 @@ module IntegerHashtbl =
 
     
 (* ********************************************************************** *)
-(* Genric pretty-printing                                                 *)
+(* Generic pretty-printing                                                 *)
 (* ********************************************************************** *)
 
 (* Pretty-print an array *)
@@ -971,6 +980,11 @@ let string_of_log_level = function
   | L_trace -> "trace"
 
 
+let tag_of_level = function
+| L_fatal | L_error -> error_tag
+| L_warn -> warning_tag
+| _ -> ""
+
 (* Compare two levels *)
 let compare_levels l1 l2 = 
   Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)
@@ -1034,9 +1048,11 @@ let pp_print_version ppf = pp_print_banner ppf ()
 type kind_module = 
   [ `IC3 
   | `BMC 
-  | `IND
+  | `IND 
+  | `IND2
   | `INVGEN
   | `INVGENOS
+  | `C2I
   | `Interpreter
   | `Supervisor
   | `Parser ]
@@ -1047,15 +1063,17 @@ let pp_print_kind_module ppf = function
   | `IC3 -> Format.fprintf ppf "property directed reachability"
   | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
+  | `IND2 -> Format.fprintf ppf "2-induction"
   | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
+  | `C2I -> Format.fprintf ppf "c2i"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Supervisor -> Format.fprintf ppf "invariant manager"
   | `Parser -> Format.fprintf ppf "parser"
 
 
 (* String representation of a process type *)
-let string_of_kind_module = string_of_t pp_print_kind_module 
+let string_of_kind_module = string_of_t pp_print_kind_module
 
 
 (* Return a short representation of kind module *)
@@ -1063,10 +1081,12 @@ let suffix_of_kind_module = function
  | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
+ | `IND2 -> "ind2"
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
+ | `C2I -> "c2i"
  | `Interpreter -> "interp"
- | `Supervisor -> "invman"
+ | `Supervisor -> "super"
  | `Parser -> "parse"
                 
 
@@ -1075,8 +1095,10 @@ let kind_module_of_string = function
   | "IC3" -> `IC3
   | "BMC" -> `BMC
   | "IND" -> `IND
+  | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
+  | "C2I" -> `C2I
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
 
@@ -1086,9 +1108,11 @@ let int_of_kind_module = function
   | `Supervisor -> -1
   | `BMC -> 1
   | `IND -> 2
-  | `IC3 -> 3
-  | `INVGEN -> 4
-  | `INVGENOS -> 5
+  | `IND2 -> 3
+  | `IC3 -> 4
+  | `INVGEN -> 5
+  | `INVGENOS -> 6
+  | `C2I -> 7
 
 
 (* Timeouts *)
@@ -1279,9 +1303,9 @@ let dummy_pos_in_file fname =
 
 
 (* Pretty-print a position *)
-let pp_print_position 
-    ppf 
-    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
+let pp_print_position ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
 
   if pos = dummy_pos then 
 
@@ -1298,6 +1322,30 @@ let pp_print_position
       "@[<hv>%tline %d@ col. %d@]"
       (function ppf -> 
         if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+      pos_lnum
+      pos_cnum
+
+
+(* Pretty-print a position *)
+let pp_print_pos ppf (
+  { pos_fname; pos_lnum; pos_cnum } as pos
+) =
+
+  if pos = dummy_pos then 
+
+    Format.fprintf ppf "[unknown]"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    Format.fprintf ppf "%s" pos_fname
+
+  else
+
+    Format.fprintf 
+      ppf
+      "[%tl%dc%d]"
+      (function ppf -> 
+        if pos_fname = "" then () else Format.fprintf ppf "%s|" pos_fname)
       pos_lnum
       pos_cnum
 

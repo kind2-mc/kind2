@@ -18,110 +18,102 @@
 
 open Lib
 
-type 'a t = 
+type 'a t = {
+  (* Name of the system as a scope. *)
+  scope: Scope.t ;
 
-  { 
+  (* Original input. *)
+  source : 'a ;
 
-    (* Name of the system as a scope *)
-    scope: Scope.t;
+  (* System can be abstracted to its contract. *)
+  has_contract : bool ;
 
-    (* Original input *)
-    source : 'a;
+  (* System has modes. *)
+  has_modes : bool ;
 
-    (* System can be abstracted to its contract *)
-    has_contract : bool;
+  (* System can be refined to its implementation. *)
+  has_impl : bool ;
 
-    (* System can be refined to its implementation *)
-    has_impl : bool;
-
-    (* Direct sub-systems *)
-    subsystems : 'a t list;
-
-  }
+  (* Direct sub-systems. *)
+  subsystems : 'a t list ;
+}
 
 
-(* Add all subsystems of the systems in the second argument to the
-   accumulator in topological order with the top system at the head of
-   the list *)
+(* Add all subsystems of the systems in the second argument to the accumulator
+   in topological order with the top system at the head of the list. *)
 let rec all_subsystems' accum = function
 
-  (* All subsystems added, return *)
-  | [] -> accum
+(* All subsystems added, return. *)
+| [] -> accum
 
-  (* First system on the stack *)
-  | { subsystems } as h :: tl -> 
+(* First system on the stack is already in the accumulator. *)
+| { scope } :: tl when accum |> List.exists (
+  fun { scope = s } -> scope = s
+) ->
+  (* Skip altogether, subsystems have already been added. *)
+  all_subsystems' accum tl
 
-    (* Subsystems that are not in the accumulator *)
-    let tl' = 
-      List.fold_left 
+(* First system on the stack. *)
+| { subsystems } as h :: tl -> 
 
-        (fun tl' ({ scope } as subsystem) -> 
+  (* Subsystems that are not in the accumulator. *)
+  let tl' =
+    subsystems |> List.fold_left (fun tl' ({ scope } as subsystem) ->
+      if
+       (* System of the same name is in the accumulator? *)
+       List.exists
+         (fun { scope = s } -> scope = s)
+         accum
+      then (* Do not add twice. *)
+       tl'
+      else (* First get subsystems of this system. *)
+       subsystem :: tl'
+    ) []
+  in
 
-           if 
+  (* Are all subsystems in the accumulator? *)
+  match tl' with
 
-             (* System of the same name is in the accumulator? *)
-             List.exists
-               (fun { scope = s } -> scope = s)
-               accum
+  (* Now add this system. *)
+  | [] -> all_subsystems' (h :: accum) tl
 
-           then
-
-             (* Do not add twice *)
-             tl'
-
-           else
-
-             (* First get subsystems of this system *)
-             subsystem :: tl')
-
-        []
-        subsystems 
-
-    in
-
-    (* Are all subsystems in the accumulator? *)
-    match tl' with 
-
-      (* Now add this system *)
-      | [] -> all_subsystems' (h :: accum) tl
-
-      (* First add all subsystems *)
-      | _ -> all_subsystems' accum (tl' @ h :: tl) 
+  (* First add all subsystems. *)
+  | _ -> all_subsystems' accum (tl' @ h :: tl)
 
 
-(* Return all subsystems in topological order with the top system at
-   the head of the list *)
+(* Return all subsystems in topological order with the top system at the head
+   of the list. *)
 let all_subsystems s = all_subsystems' [] [s]
 
 
-(* Search depth-first for the subsystem in the list of subsystems,
-   skip over systems already visited *)
+(* Search depth-first for the subsystem in the list of subsystems, skip over
+   systems already visited. *)
 let rec find_subsystem' scope visited = function 
 
-  (* Stack is empty, scope not found *)
-  | [] -> raise Not_found 
+(* Stack is empty, scope not found. *)
+| [] -> raise Not_found 
 
-  (* Take first element from stack *)
-  | ({ scope = scope'; subsystems } as subsystem) :: tl -> 
+(* Take first element from stack. *)
+| ({ scope = scope'; subsystems } as subsystem) :: tl -> 
 
-    (* Return subsystem if scope matches *)
-    if scope = scope' then subsystem else 
+  (* Return subsystem if scope matches. *)
+  if scope = scope' then subsystem else 
 
-      (* System already seen? *)
-      if List.mem scope' visited then 
+    (* System already seen? *)
+    if List.mem scope' visited then 
 
-        (* Continue with rest of stack *)
-        find_subsystem' scope visited tl
+      (* Continue with rest of stack. *)
+      find_subsystem' scope visited tl
 
-      else
+    else
 
-        (* Push subsystems of this system to stack *)
-        find_subsystem' scope (scope' :: visited) (subsystems @ tl)
+      (* Push subsystems of this system to stack. *)
+      find_subsystem' scope (scope' :: visited) (subsystems @ tl)
         
     
-(* Return the subsystem of the given scope 
+(* Return the subsystem of the given scope.
 
-   Raise [Not_found] if there is no subsystem of that scope *)
+   Raise [Not_found] if there is no subsystem of that scope. *)
 let find_subsystem subsystem scope = find_subsystem' scope [] [subsystem]
 
 (* 

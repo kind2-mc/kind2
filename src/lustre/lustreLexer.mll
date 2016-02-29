@@ -20,6 +20,20 @@
 
 open LustreParser
 
+(* XML or plain text warning.
+
+   Adrien: Relying on Event causes circular build. Factor in Lib, along with
+     context warnings? *)
+let print_warning fmt =
+  if Flags.log_format_xml () then
+    Format.printf ("@[<hov 2>\
+        <Log class=\"warn\" source=\"parse\">@,\
+          @[<hov>" ^^ fmt ^^ "@]\
+        @;<0 -2></Log>\
+      @]@.")
+  else
+    Format.printf ("%s @[<v>" ^^ fmt ^^ "@]@.") Lib.warning_tag
+
 (* Pretty-print an array of integers *)
 let rec pp_print_int_array i ppf a = 
 
@@ -203,83 +217,68 @@ let read_from_lexbuf_stack buf n =
 
 
 (* Create and populate a hashtable *)
-let mk_hashtbl size init =
-  let tbl = Hashtbl.create size in
-  List.iter
-    (function (k, v) -> Hashtbl.add tbl k v)
-    init;
+let mk_hashtbl init =
+  let tbl = List.length init |> Hashtbl.create in
+  init |> List.iter (fun (k, v) -> Hashtbl.add tbl k v) ;
   tbl
   
 (* Use hash tables instead of rule matches to keep numer of transition
    of lexer small *)
 
 (* Hashtable of keywords *)
-let keyword_table = 
-  mk_hashtbl 
-    43
-    [
+let keyword_table = mk_hashtbl [
 
-      (* Types *)
-      ("type", TYPE);
-      ("int", INT);
-      ("real", REAL);
-      ("bool", BOOL);
-      ("subrange", SUBRANGE);
-      ("of", OF);
-(*      ("array", ARRAY); *)
-      ("struct", STRUCT);
-      ("enum", ENUM);
+  (* Types *)
+  ("type", TYPE) ;
+  ("int", INT) ; ("real", REAL) ; ("bool", BOOL) ;
+  ("subrange", SUBRANGE) ; ("of", OF) ;
+  (* ("array", ARRAY) ; *)
+  ("struct", STRUCT) ;
+  ("enum", ENUM) ;
 
-      (* Constant declaration *)
-      ("const", CONST);
-      
-      (* Node declaration *)
-      ("node", NODE);
-      ("function", FUNCTION);
-      ("returns", RETURNS);
-      ("var", VAR);
-      ("let", LET);
-      ("tel", TEL);
-      
-      (* Assertion *)
-      ("assert", ASSERT);
+  (* Constant declaration *)
+  ("const", CONST) ;
+  
+  (* Node / function declaration *)
+  ("node", NODE) ; ("function", FUNCTION) ;
+  ("returns", RETURNS) ;
+  ("var", VAR) ;
+  ("let", LET) ;
+  ("tel", TEL) ;
+  
+  (* Assertion *)
+  ("assert", ASSERT) ;
 
-      (* Contract related things. *)
-      ("contract", CONTRACT);
-      ("require", REQUIRE);
-      ("ensure", ENSURE);
+  (* Annotations. *)
+  ("PROPERTY", PROPERTY) ;
+  ("MAIN", MAIN) ;
+  (* Contract related things. *)
+  ("contract", CONTRACT) ;
+  ("import", IMPORTCONTRACT) ;
+
+  (* Boolean operators *)
+  ("true", TRUE) ; ("false", FALSE) ;
+  ("not", NOT) ; ("and", AND) ; ("xor", XOR) ; ("or", OR) ;
+  ("if", IF) ;
+  ("then", THEN) ;
+  ("else", ELSE) ;
+  ("with", WITH) ;
+  ("div", INTDIV) ; ("mod", MOD) ;
+  
+  (* Clock operators *)
+  ("when", WHEN) ;
+  ("current", CURRENT) ;
+  ("condact", CONDACT) ;
+  ("activate", ACTIVATE) ;
+  ("initial", INITIAL) ;
+  ("default", DEFAULT) ;
+  ("every", EVERY) ;
+  ("merge", MERGE) ;
+  
+  (* Temporal operators *)
+  ("pre", PRE) ; ("fby", FBY) ;
       
-      (* Boolean operators *)
-      ("true", TRUE);
-      ("false", FALSE);
-      ("not", NOT);
-      ("and", AND);
-      ("xor", XOR);
-      ("or", OR);
-      ("if", IF);
-      ("with", WITH);
-      ("then", THEN);
-      ("else", ELSE);
-      ("div", INTDIV);
-      ("mod", MOD);
-      ("forall", FORALL);
-      ("exists", EXISTS);
-      
-      (* Clock operators *)
-      ("when", WHEN);
-      ("current", CURRENT);
-      ("condact", CONDACT);
-      ("activate", ACTIVATE);
-      ("initial", INITIAL);
-      ("default", DEFAULT);
-      ("every", EVERY);
-      ("merge", MERGE);
-      
-      (* Temporal operators *)
-      ("pre", PRE);
-      ("fby", FBY);
-      
-    ]
+]
     
 }
 
@@ -314,59 +313,95 @@ let newline = '\r'* '\n'
 (* Toplevel function *)
 rule token = parse
 
-  (* Comment until end of line 
 
-     Need to have the '-'* here, otherwise "---" would be matched 
-     as operator *)
-  | "--" '-'* { comment lexbuf }
+  (* |===| Annotations. *)
 
-  (* Multi-line comment *)
-  |  "/*" { skip_commented_slashstar lexbuf }
+  (* Inline. *)
+  | "--%" { PERCENTANNOT }
+  | "--!" { BANGANNOT }
+  | "--@import" { INLINEIMPORTCONTRACT }
+  | "--@mode" { INLINEMODE }
+  | "--@assume" { INLINEASSUME }
+  | "--@guarantee" { INLINEGUARANTEE }
+  | "--@require" { INLINEREQUIRE }
+  | "--@ensure" { INLINEENSURE }
+  | "--@const" { INLINECONST }
+  | "--@var" { INLINEVAR }
 
-  (* Multi-line comment *)
-  |  "(*" { skip_commented_parenstar lexbuf }
+  (* Parenthesis star (PS) block annotations. *)
+  | "(*%" { PSPERCENTBLOCK }
+  | "(*!" { PSBANGBLOCK }
+  | "(*@" { PSATBLOCK }
 
-  (* Include file *)
-  | "include" whitespace* '\"' ([^'\"']* as p) '\"' 
+  (* End of parenthesis star (PS). *)
+  | "*)" { PSBLOCKEND }
 
-      { 
+  (* Slash star (SS) block annotations. *)
+  | "/*%" { SSPERCENTBLOCK }
+  | "/*!" { SSBANGBLOCK }
+  | "/*@" { SSATBLOCK }
 
-        (* Open include file *)
+  (* End of slash star (SS). *)
+  | "*/" { SSBLOCKEND }
+
+
+  (* |===| Block annotation contract stuff. *)
+
+  | "mode" { MODE }
+  | "assume" { ASSUME }
+  | "guarantee" { GUARANTEE }
+  | "require" { REQUIRE }
+  | "ensure" { ENSURE }
+
+
+  (* |===| Actual comments. *)
+
+  (* Inline.
+    Need to have the '-'* here, otherwise "---" would be matched 
+    as operator *)
+  | "--" '-'* { skip_to_eol lexbuf }
+
+  (* Multi-line. *)
+  | "/*" { skip_commented_slashstar lexbuf }
+  | "(*" { skip_commented_parenstar lexbuf }
+
+
+  (* |===| Include file. *)
+  | "include" whitespace* '\"' ([^'\"']* as p) '\"' {
+
+    (* Open include file *)
+    let include_channel, include_curdir =
+      try (
         let include_channel, include_curdir = 
-          try 
-
-            let include_channel = 
-              open_in (Filename.concat (curdir_of_lexbuf_stack ()) p) in
-
-            let include_curdir = Filename.dirname p in
-
-            include_channel, include_curdir 
-
-          with 
-            | Sys_error e -> 
-              failwith (Format.sprintf "Error opening include file %s: %s" p e)
-        in
-        
-        (* New lexing buffer from include file *)
-        lexbuf_switch_to_channel lexbuf include_channel include_curdir;
-        
-        Lexing.flush_input lexbuf;
-
-        (* Starting position in new file *)
-        let zero_pos = 
-          { Lexing.pos_fname = p;
-            Lexing.pos_lnum = 1;
-            Lexing.pos_bol = 0;
-            Lexing.pos_cnum = 0 } 
+          open_in (Filename.concat (curdir_of_lexbuf_stack ()) p),
+          Filename.dirname p
         in
 
-        (* Set new position in lexing buffer *)
-        lexbuf.Lexing.lex_curr_p <- zero_pos;
+        include_channel, include_curdir
+      ) with Sys_error e -> 
+        Format.sprintf "Error opening include file %s: %s" p e
+        |> failwith
+    in
+    
+    (* New lexing buffer from include file *)
+    lexbuf_switch_to_channel lexbuf include_channel include_curdir ;
+    
+    Lexing.flush_input lexbuf ;
 
-        (* Continue with included file *)
-        token lexbuf
-          
-      }
+    (* Starting position in new file *)
+    let zero_pos =
+      { Lexing.pos_fname = p ;
+        Lexing.pos_lnum = 1  ;
+        Lexing.pos_bol = 0   ;
+        Lexing.pos_cnum = 0  }
+    in
+
+    (* Set new position in lexing buffer *)
+    lexbuf.Lexing.lex_curr_p <- zero_pos ;
+
+    (* Continue with included file *)
+    token lexbuf
+  }
 
   (* Operators that are not identifiers *)
   | ';' { SEMICOLON }
@@ -386,8 +421,8 @@ rule token = parse
   | '}' { RCURLYBRACKET }
   | ".%" { DOTPERCENT }
   | '|' { PIPE }
-  | "<<" { LPARAMBRACKET } 
-  | ">>" { RPARAMBRACKET } 
+  | "<<" { LPARAMBRACKET }
+  | ">>" { RPARAMBRACKET }
   | "=>" { IMPL }
   | '#' { HASH }
   | "<=" { LTE }
@@ -404,32 +439,32 @@ rule token = parse
   (* Decimal or numeral *)
   | decimal as p { DECIMAL p }
   | exponent_decimal as p { DECIMAL p }
-  | numeral as p { NUMERAL p } 
+  | numeral as p { NUMERAL p }
 
   (* Keyword *)
-  | id as p 
-      { try Hashtbl.find keyword_table p with 
-        | Not_found -> (SYM p) }
+  | id as p {
+    try Hashtbl.find keyword_table p with Not_found -> (SYM p)
+  }
 
   (* Whitespace *)
   | whitespace { token lexbuf }
 
   (* Newline *)
-  | newline { Lexing.new_line lexbuf; token lexbuf }
+  | newline { Lexing.new_line lexbuf ; token lexbuf }
 
   (* String *)
   | "\"" { Buffer.clear string_buf; string lexbuf }
       
   (* End of file *)
-  | eof 
-
-      (* Pop previous lexing buffer form stack if at end of included file *)
-      { try pop_channel_of_lexbuf lexbuf; token lexbuf with End_of_file -> EOF }
+  | eof {
+    (* Pop previous lexing buffer form stack if at end of included file *)
+    try pop_channel_of_lexbuf lexbuf ; token lexbuf with End_of_file -> EOF
+  }
 
   (* Unrecognized character *)
-  | _ as c 
-      { failwith 
-          (Format.sprintf "Unrecognized token %c (0x%X)" c (Char.code c)) }
+  | _ as c {
+    Format.sprintf "Unrecognized token %c (0x%X)" c (Char.code c) |> failwith
+  }
 
 (* Parse until end of comment, count newlines and otherwise discard
    characters *)
@@ -439,10 +474,9 @@ and skip_commented_slashstar = parse
   | "*/" { token lexbuf } 
 
   (* Count new line *)
-  | newline { Lexing.new_line lexbuf; skip_commented_slashstar lexbuf } 
+  | newline { Lexing.new_line lexbuf ; skip_commented_slashstar lexbuf } 
 
-  | eof 
-      { failwith (Format.sprintf "Unterminated comment") }
+  | eof { Format.sprintf "Unterminated comment" |> failwith }
 
   (* Ignore characters in comments *)
   | _ { skip_commented_slashstar lexbuf }
@@ -458,76 +492,10 @@ and skip_commented_parenstar = parse
   (* Count new line *)
   | newline { Lexing.new_line lexbuf; skip_commented_parenstar lexbuf } 
 
-  | eof 
-      { failwith (Format.sprintf "Unterminated comment") }
+  | eof { Format.sprintf "Unterminated comment" |> failwith }
 
   (* Ignore characters in comments *)
   | _ { skip_commented_parenstar lexbuf }
-
-
-(* Parse until end of line and otherwise discard characters *)
-and comment = parse 
-
-  (* Annotation *)
-  | "%" (id as p) 
-      { match p with 
-
-        (* Ignore rest of line and return token *)
-        | "MAIN" -> return_at_eol MAIN lexbuf
-
-        (* Return token, continue with rest of line *)
-        | "PROPERTY" -> PROPERTY
-
-        (* Warn and ignore rest of line *)
-        | _ -> (Format.printf "Warning: unknown annotation %s skipped@." p; 
-                skip_to_eol lexbuf ) }
-
-  (* Contract *)
-  | "@" (id as p) 
-      { match p with
-
-        (* Ignore rest of line and return token *)
-        | "main" -> return_at_eol MAIN lexbuf
-
-        (* Return token, continue with rest of line *)
-        | "property" -> PROPERTY
-
-        (* Return token, continue with rest of line *)
-        | "var" -> COMMENTGHOSTVAR
-
-        (* Return token, continue with rest of line *)
-        | "const" -> COMMENTGHOSTCONST
-
-        (* Return token, continue with rest of line. *)
-        | "import" -> COMMENTIMPORT
-
-        (* Return token, continue with rest of line. *)
-        | "import_mode" -> COMMENTIMPORTMODE
-
-        (* Return token, continue with rest of line. *)
-        | "contract" -> COMMENTCONTRACT
-
-        (* Return token, continue with rest of line *)
-        | "require" -> COMMENTREQUIRE
-
-        (* Return token, continue with rest of line *)
-        | "ensure" -> COMMENTENSURE
-
-        (* Warn and ignore rest of line *)
-        | _ -> (Format.printf "Warning: unknown contract %s skipped@." p; 
-                skip_to_eol lexbuf ) }
-(*
-  (* Bang annotation *)
-  | "!" (id as p) { BANGCOMMENT p }
-*)
-  (* Count new line and resume *)
-  | newline { Lexing.new_line lexbuf; token lexbuf } 
-
-  (* Line ends at end of file *)
-  | eof { token lexbuf }
-
-  (* Ignore characters *)
-  | _ { skip_to_eol lexbuf }
 
 and skip_to_eol = parse
 

@@ -121,7 +121,7 @@ let get_checking_solver_instance trans_sys =
           ~produce_assignments:true
           (* add quantifiers to system logic *)
           (add_quantifiers (TransSys.get_logic trans_sys))
-          (Flags.smtsolver ())
+          (Flags.Smt.solver ())
       in
 (*
       (* Declare uninterpreted function symbols *)
@@ -656,7 +656,7 @@ let generalize trans_sys uf_defs model elim term =
      Term.pp_print_term 
      (Term.mk_and term'_bool) end);
 
-  let term' = let ic3_qe = Flags.ic3_qe () in match ic3_qe with 
+  let term' = let ic3_qe = Flags.IC3.qe () in match ic3_qe with 
     
     | `Z3
     | `Z3_impl

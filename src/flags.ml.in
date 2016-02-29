@@ -6,17 +6,17 @@
    may not use this file except in compliance with the License.  You
    may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0 
+   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
    implied. See the License for the specific language governing
-   permissions and limitations under the License. 
+   permissions and limitations under the License.
 
 *)
 
-(* WARNING: DO NOT EDIT THE .ML FILE --- CHANGES WILL BE OVERWRITTEN 
+(* WARNING: DO NOT EDIT THE .ML FILE --- CHANGES WILL BE OVERWRITTEN
 
    Do not edit the .ml file but rather the .ml.in file, the .ml file
    is generated from the .ml.in file after each run of the configure
@@ -26,1690 +26,2002 @@
 
 open Lib
 
-(*
+(* 
 
-type ('a, 'b) flag =
-  { longname : string;
-    shortname : string option;
-    mutable value : 'a;
-    of_arg : 'a -> 'b -> 'a;
-    pp : Format.formatter -> 'a -> unit }
-    
+# WORKFLOW.
 
-type int_flag = (int, int) flag 
+Flags are separated based on the technique(s) they impact. *Global flags* are
+the ones that don't impact any technique, or impact all of them. Log flags,
+help flags, timeout flags... are global flags.
 
-type float_flag = (float, float) flag 
+**NB:** when adding a boolean flag, make sure to parse its value with the
+`bool_of_string` function.
 
-type bool_flag = (bool, bool) flag
+## Adding a new (non-global) flag to an existing module
 
-type unit_flag = (unit, bool) flag 
+Adding a new flag impacts three pieces of code. The first is the body of the
+module you're adding the flag to. Generally speaking, adding a flag looks like
 
-type 'a string_flag = ('a, string) flag
+```ocaml
+(* Default value of the flag. *)
+let my_flag_default = ...
+(* Reference storing the value of the flag. *)
+let my_flag = ref my_flag_default
+(* Add flag specification to module specs. *)
+let _ = add_spec (
+  (* The actual flag. *)
+  "--my_flag",
+  (* What to do with the value given to the flag, see other flags. *)
+  ...,
+  (* Flag description. *)
+  fun fmt ->
+    Format.fprintf fmt
+      "@[<v>Description of my flag.@ Default: %a@]"
+      pp_print_default_value_of_my_flag my_flag_default
+)
+(* Flag value accessor. *)
+let my_flag () = !my_flag
+```
 
+At this point your flag is integrated in the Kind 2 flags.
 
+To make it available to the rest of Kind 2, you need to modify the signature of
+the module you added the flag to
 
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
+* in this file, where the module is declared, and
+* in `flags.mli`.
 
-let smtsolver_of_string = function
-  | "Z3" -> `Z3_SMTLIB
-  | "Z3_SMTLIB" -> `Z3_SMTLIB
-  | "Z3_API" -> `Z3_API
-  | "CVC4" -> `CVC4_SMTLIB
-  | "CVC4_SMTLIB" -> `CVC4_SMTLIB
-  | "CVC4_API" -> `CVC4_API
-  | "Yices" -> `Yices
-  | _ -> raise (Invalid_argument "smtsolver_of_string")
+The update to the signature is typically
 
-let pp_print_smtsolver ppf = 
-  let p = Format.fprintf ppf in 
-  function 
-    | `Z3_SMTLIB -> p "Z3_SMTLIB"
-    | `Z3_API -> p "Z3_API"
-    | `CVC4_SMTLIB -> p "CVC4_SMTLIB"
-    | `CVC4_API -> p "CVC4_API"
-    | `Yices -> p "Yices"
-
-let smtsolver_flag = 
-  { longname = "smtsolver";
-    shortname = None;
-    value = `Z3_SMTLIB;
-    of_arg = (function _ -> smtsolver_of_string);
-    pp = pp_print_smtsolver }
-
-
-let kind_module_of_string = function
-  | "IC3" -> `IC3
-  | "BMC" -> `BMC
-  | "IND" -> `IND
-  | "INVGEN" -> `INVGEN
-  | "interpreter" -> `Interpreter
-  | _ -> raise (Invalid_argument "smtsolver_of_string")
+```ocaml
+  val my_flag : unit -> type_of_my_flag
+```
 
 
-let pp_print_kind_module ppf = 
-  let p = Format.fprintf ppf in 
-  function
-    | `IC3 -> p "IC3"
-    | `BMC -> p "BMC"
-    | `IND -> p "IND"
-    | `INVGEN -> p "INVGEN"
-    | `Interpreter -> p "interpreter"
+## Adding a new global flag
+
+Global flags are given in the `Global` module. They are specified almost the
+same way as discussed in the previous section for non-global flags. The
+difference is in the spec definition, more precisely the flag description:
+
+```ocaml
+let _ = add_spec (
+  (* The actual flag. *)
+  "--my_flag",
+  (* What to do with the value given to the flag, see other flags. *)
+  ...,
+  (* Flag description IS DIFFERENT. *)
+  Format.sprintf "..."
+)
+```
+
+Unfortunately global flags rely on the ocaml `Arg` module which for some
+reason was written by someone oblivious to the format module. As a result
+the description has to be a string and it's rather tricky to have it look
+nice. See existing global flags for more info.
 
 
-let enable_flag = 
-  { longname = "enable";
-    shortname = Some "e";
-    value = [];
-    of_arg = (function curval -> (function arg -> kind_module_of_string arg :: curval));
-    pp = (pp_print_list pp_print_kind_module ",@ ") }
+## Adding a new flag module
+
+The template to add a new module is
+
+```ocaml
+module MyModule : sig
+  include FlagModule
+end = struct
+
+  (* Identifier of the module. No space or special characters. *)
+  let id = "..."
+  (* Short description of the module. *)
+  let desc = "..."
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      ...\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+end
+```
+
+Don't forget to update `flags.mli`:
+
+```ocaml
+module MyModule : sig
+  include FlagModule
+end
+```
+
+You then need to add your module to the `module_map`, the association map
+between module identifiers and modules. Make sure the identifier for your
+module is not used yet.
+
+You can now add modules following the instructions in the previous section.
 
 *)
 
 
+(* Strings recognized as the bool value [true]. *)
+let true_strings = [ "true" ; "on" ; "t" ]
+(* Strings recognized as the bool value [false]. *)
+let false_strings = [ "false" ; "off" ; "f" ]
+(* String to bool. *)
+let bool_of_string s =
+  if List.mem s true_strings then true
+  else if List.mem s false_strings then false
+  else Arg.Bad (
+    Format.asprintf
+      "expected boolean (%a, %a), but got %s"
+      (pp_print_list Format.pp_print_string ", ") true_strings
+      (pp_print_list Format.pp_print_string ", ") false_strings
+      s
+  ) |> raise
+(* Parses a bool and sets a reference. *)
+let bool_arg reference = Arg.String (
+  fun s -> reference := bool_of_string s
+)
+
+(* Signature of modules for flags. *)
+module type FlagModule = sig
+  (* Identifier of the module. *)
+  val id: string
+  (* Short description of the module. *)
+  val desc: string
+  (* Explanation of the module. *)
+  val fmt_explain: Format.formatter -> unit
+  (* Specifications of all the flags in the module. *)
+  val all_specs: unit -> (
+    string * Arg.spec * (Format.formatter -> unit)
+  ) list
+end
+
+(* Options related to the underlying SMT solver. *)
+module Smt: sig
+  include FlagModule
+  (** Logic sendable to the SMT solver. *)
+  type logic = [
+    `None | `detect | `Logic of string
+  ]
+  (** Logic to send to the SMT solver *)
+  val logic : unit -> logic
+  (** Legal SMT solvers. *)
+  type solver = [
+    | `Z3_SMTLIB
+    | `CVC4_SMTLIB
+    | `MathSat5_SMTLIB
+    | `Yices_SMTLIB
+    | `Yices_native
+    | `detect
+  ]
+  (** Set SMT solver and executable *)
+  val set_solver : solver -> unit
+  (** Which SMT solver to use. *)
+  val solver : unit -> solver
+  (** Use check-sat with assumptions, or simulate with push/pop *)
+  val check_sat_assume : unit -> bool
+  (** Send short names to SMT solver *)
+  val short_names : unit -> bool
+  (** Executable of Z3 solver *)
+  val z3_bin : unit -> string
+  (** Executable of CVC4 solver *)
+  val cvc4_bin : unit -> string
+  (** Executable of MathSAT5 solver *)
+  val mathsat5_bin : unit -> string
+  (** Executable of Yices solver *)
+  val yices_bin : unit -> string
+  (** Executable of Yices2 SMT2 solver *)
+  val yices2smt2_bin : unit -> string
+  (** Write all SMT commands to files *)
+  val trace : unit -> bool
+  (** Path to the smt trace directory. *)
+  val trace_dir : unit -> string
+  val set_z3_bin: string -> unit
+  val set_cvc4_bin: string -> unit
+  val set_mathsat5_bin: string -> unit
+  val set_yices_bin: string -> unit
+  val set_yices2smt2_bin: string -> unit
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "smt"
+  (* Short description of the module. *)
+  let desc = "SMT solver flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      SMT solvers are the tools Kind 2 relies on to verify systems. Flags@ \
+      in this module control which solver Kind 2 uses, the path to the@ \
+      binary, and tweak how Kind 2 interacts with the solver at runtime.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  (* Active SMT solver. *)
+  type solver = [
+    | `Z3_SMTLIB
+    | `CVC4_SMTLIB
+    | `MathSat5_SMTLIB
+    | `Yices_SMTLIB
+    | `Yices_native
+    | `detect
+  ]
+  let solver_of_string = function
+    | "Z3" -> `Z3_SMTLIB
+    | "CVC4" -> `CVC4_SMTLIB
+    | "MathSat5" -> `MathSat5_SMTLIB
+    | "Yices2" -> `Yices_SMTLIB
+    | "Yices" -> `Yices_native
+    | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
+  let string_of_solver = function
+    | `Z3_SMTLIB -> "Z3"
+    | `CVC4_SMTLIB -> "CVC4"
+    | `Yices_SMTLIB -> "Yices2"
+    | `Yices_native -> "Yices"
+    | `MathSat5_SMTLIB -> "MathSat5"
+    | `detect -> "detect"
+  let solver_values = "Z3, CVC4, MathSat5, Yices, Yices2"
+  let solver_default = `detect
+  let solver = ref solver_default
+  let _ = add_spec (
+    "--smt_solver",
+    Arg.String (fun str -> solver := solver_of_string str),
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>choose SMT solver@ Available: %s@ Default: %s@]"
+        solver_values
+        (string_of_solver solver_default)
+  )
+  let set_solver s = solver := s
+  let solver () = !solver
+
+  (* Active SMT logic. *)
+  type logic = [
+    `None | `detect | `Logic of string
+  ]
+  let logic_values = [
+    `None ; `detect ; `Logic ("\"logic\"")
+  ]
+  let logic_of_string = function
+    | "none" | "None" -> `None
+    | "detect" | "Detect" -> `detect
+    | s -> `Logic s
+  let string_of_logic = function
+    | `None -> "none"
+    | `detect -> "detect"
+    | `Logic s -> s
+  let logic_default = `None
+  let logic = ref logic_default
+  let _ = add_spec (
+    "--smt_logic",
+    Arg.String (fun str -> logic := logic_of_string str),
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Select logic for SMT solvers@ \
+          \"none\" for no logic (default)@ \
+          \"detect\" to detect with the input system@ \
+          Other SMTLIB logics will be passed to the solver\
+        @]"
+  )
+  let logic () = !logic
+
+  (* Activates check-sat with assumptions when supported. *)
+  let check_sat_assume_of_string s = s
+  let string_of_check_sat_assume s = s
+  let check_sat_assume_default = true
+  let check_sat_assume = ref check_sat_assume_default
+  let _ = add_spec (
+    "--check_sat_assume",
+    bool_arg check_sat_assume,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Use check-sat with assumptions, or simulate with push/pop@ \
+          when false@ \
+          Default: %B\
+        @]"
+      check_sat_assume_default
+  )
+  let check_sat_assume () = !check_sat_assume
+
+  (* Use short name for variables at SMT level. *)
+  let short_names_of_string s = s
+  let string_of_short_names s = s
+  let short_names_default = true
+  let short_names = ref short_names_default
+  let _ = add_spec (
+    "--smt_short_names",
+    bool_arg short_names,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Send short variables names to SMT solver, send full names if false@ \
+          Default: %B\
+        @]"
+      short_names_default
+  )
+  let short_names () = !short_names
+
+  (* Z3 binary. *)
+  let z3_bin_of_string s = s
+  let string_of_z3_bin s = s
+  let z3_bin_default = "z3"
+  let z3_bin = ref z3_bin_default
+  let _ = add_spec (
+    "--z3_bin",
+    Arg.Set_string z3_bin,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of Z3 solver@ Default: \"%s\"@]"
+        (string_of_z3_bin z3_bin_default)
+  )
+  let set_z3_bin str = z3_bin := str
+  let z3_bin () = ! z3_bin
+
+  (* CVC4 binary. *)
+  let cvc4_bin_of_string s = s
+  let string_of_cvc4_bin s = s
+  let cvc4_bin_default = "cvc4"
+  let cvc4_bin = ref cvc4_bin_default
+  let _ = add_spec (
+    "--cvc4_bin",
+    Arg.Set_string cvc4_bin,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of CVC4 solver@ Default: \"%s\"@]"
+        (string_of_cvc4_bin cvc4_bin_default)
+  )
+  let set_cvc4_bin str = cvc4_bin := str
+  let cvc4_bin () = !cvc4_bin
+
+  (* Mathsat 5 binary. *)
+  let mathsat5_bin_of_string s = s
+  let string_of_mathsat5_bin s = s
+  let mathsat5_bin_default = "mathsat"
+  let mathsat5_bin = ref mathsat5_bin_default
+  let _ = add_spec (
+    "--mathsat5_bin",
+    Arg.Set_string mathsat5_bin,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of MathSAT5 solver@ Default: \"%s\"@]"
+        (string_of_mathsat5_bin mathsat5_bin_default)
+  )
+  let set_mathsat5_bin str = mathsat5_bin := str
+  let mathsat5_bin () = !mathsat5_bin
+
+  (* Yices binary. *)
+  let yices_bin_of_string s = s
+  let string_of_yices_bin s = s
+  let yices_bin_default = "yices"
+  let yices_bin = ref yices_bin_default
+  let _ = add_spec (
+    "--yices_bin",
+    Arg.Set_string yices_bin,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of Yices solver@ Default: \"%s\"@]"
+        (string_of_yices_bin yices_bin_default)
+  )
+  let set_yices_bin str = yices_bin := str
+  let yices_bin () = !yices_bin
+
+  (* Yices 2 binary. *)
+  let yices2smt2_bin_of_string s = s
+  let string_of_yices2smt2_bin s = s
+  let yices2smt2_bin_default = "yices-smt2"
+  let yices2smt2_bin = ref yices2smt2_bin_default
+  let _ = add_spec (
+    "--yices2_bin",
+    Arg.Set_string yices2smt2_bin,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Executable of Yices2 SMT2 solver@ Default: \"%s\"@]"
+        (string_of_yices2smt2_bin yices2smt2_bin_default)
+  )
+  let set_yices2smt2_bin str = yices2smt2_bin := str
+  let yices2smt2_bin () = !yices2smt2_bin
+
+  (* Activates logging of SMT interactions. *)
+  let trace_default = false
+  let trace = ref trace_default
+  let _ = add_spec (
+    "--smt_trace",
+    Arg.Set trace,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Write all SMT commands to files@]"
+  )
+  let trace () = !trace
+
+  (* Folder to log the SMT traces into. *)
+  let trace_dir = ref None
+  let set_trace_dir s = trace_dir := Some s
+  let trace_dir () = match !trace_dir with
+    | None -> "."
+    | Some dir ->
+      mk_dir dir ;
+      let dir = Format.sprintf "%s/smt_trace" dir in
+      mk_dir dir ;
+      dir
+
+end
+
+
+
+
+(* BMC and k-induction flags. *)
+module BmcKind : sig
+  include FlagModule
+  (** Maximal number of iterations in BMC. *)
+  val max : unit -> int
+  (** Check that the unrolling of the system alone is satisfiable. *)
+  val check_unroll : unit -> bool
+  (** Print counterexamples to induction. *)
+  val print_cex : unit -> bool
+  (** Compress inductive counterexample. *)
+  val compress : unit -> bool
+  (** Compress inductive counterexample when states are equal modulo inputs. *)
+  val compress_equal : unit -> bool
+  (** Compress inductive counterexample when states have same successors. *)
+  val compress_same_succ : unit -> bool
+  (** Compress inductive counterexample when states have same predecessors. *)
+  val compress_same_pred : unit -> bool
+  (** Lazy assertion of invariants. *)
+  val lazy_invariants : unit -> bool
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "ind"
+  (* Short description of the module. *)
+  let desc = "BMC / K-induction flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      K-induction is the primary verification technique in Kind 2. It@ \
+      consists of two processes:@ \
+      > bounded model checking (BMC) explores the reachable states of the\
+      @   system looking for a falsification of one of the properties.@ \
+      > the (k-inductive) step tries to prove that from `k` succeeding states\
+      @   verifying the properties, it not possible to reach a state violating\
+      @   any of them. If this holds, then if BMC proved these properties to\
+      @   hold in the `k` first states, then by (k-)induction the properties\
+      @   hold.@ \
+      Internally many techniques such as path compression, multi-property,@ \
+      etc. are used to improve the basic scheme described above.@ \
+      Flags in this module deal with the behavior of BMC and step.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let max_default = 0
+  let max = ref max_default
+  let _ = add_spec (
+    "--unroll_max",
+    Arg.Set_int max,
+    fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Maximal number of iterations for BMC and k-induction@ \
+        Default: %d, unlimited: 0\
+      @]"
+      max_default
+  )
+  let max () = !max
+
+  let check_unroll_default = true
+  let check_unroll = ref check_unroll_default
+  let _ = add_spec (
+    "--bmc_check_unroll",
+    bool_arg check_unroll,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Check that the unrolling alone is satisfiable@ \
+          Default: %b\
+        @]"
+        check_unroll_default
+  )
+  let check_unroll () = !check_unroll
+
+  let print_cex_default = false
+  let print_cex = ref print_cex_default
+  let _ = add_spec (
+    "--ind_print_cex",
+    bool_arg print_cex,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Print counterexamples to induction@ Default: %b@]"
+        print_cex_default
+  )
+  let print_cex () = !print_cex
+
+  let compress_default = true
+  let compress = ref compress_default
+  let _ = add_spec (
+    "--ind_compress",
+    bool_arg compress,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Compress inductive counterexamples@ Default: %B@]"
+        compress_default
+  )
+  let compress () = !compress
+
+  let compress_equal_default = true
+  let compress_equal = ref compress_equal_default
+  let _ = add_spec (
+    "--ind_compress_equal",
+    bool_arg compress_equal,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Compress inductive counterexamples for states equal modulo inputs@ \
+          Default: %B\
+        @]"
+        compress_equal_default
+  )
+  let compress_equal () = !compress_equal
+
+  let compress_same_succ_default = false
+  let compress_same_succ = ref compress_same_succ_default
+  let _ = add_spec (
+    "--ind_compress_same_succ",
+    bool_arg compress_same_succ,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Compress inductive counterexamples for states with same successors@ \
+          Default: %B\
+        @]"
+        compress_same_succ_default
+  )
+  let compress_same_succ () = !compress_same_succ
+
+  let compress_same_pred_default = false
+  let compress_same_pred = ref compress_same_pred_default
+  let _ = add_spec (
+  "--ind_compress_same_pred",
+    bool_arg compress_same_pred,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Compress inductive counterexamples for states with same predecessors@ \
+          Default: %B\
+        @]"
+        compress_same_pred_default
+  )
+  let compress_same_pred () = !compress_same_pred
+
+  let lazy_invariants_default = false
+  let lazy_invariants = ref lazy_invariants_default
+  let _ = add_spec (
+    "--ind_lazy_invariants",
+    bool_arg lazy_invariants,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Asserts invariants lazily@ Default: %B@]"
+        lazy_invariants_default
+  )
+  let lazy_invariants () = !lazy_invariants
+
+end
+
+
+
+(* IC3 flags. *)
+module IC3 : sig
+  include FlagModule
+  (** Algorithm usable for quantifier elimination in IC3. *)
+  type qe = [
+    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
+  ]
+  (** The QE algorithm IC3 should use. *)
+  val qe : unit -> qe
+  (** Sets [qe]. *)
+  val set_qe : qe -> unit
+  (** Check inductiveness of blocking clauses. *)
+  val check_inductive : unit -> bool
+  (** File for inductive blocking clauses. *)
+  val print_to_file : unit -> string option
+  (** Tighten blocking clauses to an unsatisfiable core. *)
+  val inductively_generalize : unit -> int
+  (** Block counterexample in future frames. *)
+  val block_in_future : unit -> bool
+  (** Block counterexample in future frames first before returning to frame. *)
+  val block_in_future_first : unit -> bool
+  (** Also propagate clauses before generalization. *)
+  val fwd_prop_non_gen : unit -> bool
+  (** Inductively generalize all clauses after forward propagation. *)
+  val fwd_prop_ind_gen : unit -> bool
+  (** Subsumption in forward propagation. *)
+  val fwd_prop_subsume : unit -> bool
+  (** Use invariants from invariant generators. *)
+  val use_invgen : unit -> bool
+  (** Legal abstraction mechanisms for in IC3. *)
+  type abstr = [ `None | `IA ]
+  (** Abstraction mechanism IC3 should use. *)
+  val abstr : unit -> abstr
+  (** Legal heuristics for extraction of implicants in IC3. *)
+  type extract = [ `First | `Vars ]
+  (** Heuristic for extraction of implicants in IC3. *)
+  val extract : unit -> extract
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "ic3"
+  (* Short description of the module. *)
+  let desc = "IC3 flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      IC3 (a.k.a. PDR) is a relatively recent technique that tries to prove@ \
+      a property by contructing an inductive invariant that implies it.@ \
+      The IC3 engine in Kind 2 performs quantifier elimination (see module@ \
+      \"qe\"), and because of how it is implemented it is known to be rather@ \
+      slow on systems using real variables.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let check_inductive_default = true
+  let check_inductive = ref check_inductive_default
+  let _ = add_spec (
+    "--ic3_check_inductive",
+    bool_arg check_inductive,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Check inductiveness of blocking clauses@ Default: %s@]"
+        (string_of_bool check_inductive_default)
+  )
+  let check_inductive () = !check_inductive
+
+  let print_to_file_default = None
+  let print_to_file = ref print_to_file_default
+  let _ = add_spec (
+    "--ic3_print_to_file",
+    Arg.String (fun str -> print_to_file := Some str),
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Output file for blocking clauses@ Default: stdout@]"
+  )
+  let print_to_file () = !print_to_file
+
+  let inductively_generalize_default = 1
+  let inductively_generalize = ref inductively_generalize_default
+  let _ = add_spec (
+    "--ic3_inductively_generalize",
+    Arg.Set_int inductively_generalize,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Inductively generalize blocking clauses before forward propagation@ \
+          0 = none@ \
+          1 = normal IG@ \
+          2 = IG with ordering@ \
+          Default: %s\
+        @]"
+        (string_of_int inductively_generalize_default)
+  )
+  let inductively_generalize () = !inductively_generalize
+
+  let block_in_future_default = true
+  let block_in_future = ref block_in_future_default
+  let _ = add_spec (
+    "--ic3_block_in_future",
+    bool_arg block_in_future,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Block counterexample in future frames@ Default: %s@]"
+        (string_of_bool block_in_future_default)
+  )
+  let block_in_future () = !block_in_future
+
+  let block_in_future_first_default = true
+  let block_in_future_first = ref block_in_future_first_default
+  let _ = add_spec (
+    "--ic3_block_in_future_first",
+    bool_arg block_in_future_first,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Block counterexample in future frames first before returning to@ \
+          frame@ \
+          Default: %s\
+        @]"
+        (string_of_bool block_in_future_first_default)
+  )
+  let block_in_future_first () = !block_in_future_first
+
+  let fwd_prop_non_gen_default = true
+  let fwd_prop_non_gen = ref fwd_prop_non_gen_default
+  let _ = add_spec (
+    "--ic3_fwd_prop_non_gen",
+    bool_arg fwd_prop_non_gen,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Also propagate clauses before generalization@ Default: %s@]"
+        (string_of_bool fwd_prop_non_gen_default)
+  )
+  let fwd_prop_non_gen () = !fwd_prop_non_gen
+
+  let fwd_prop_ind_gen_default = true
+  let fwd_prop_ind_gen = ref fwd_prop_ind_gen_default
+  let _ = add_spec (
+    "--ic3_fwd_prop_ind_gen",
+    bool_arg fwd_prop_ind_gen,
+    fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Inductively generalize all clauses after forward propagation@ \
+        Default: %s\
+      @]"
+      (string_of_bool fwd_prop_ind_gen_default)
+  )
+  let fwd_prop_ind_gen () = !fwd_prop_ind_gen
+
+  let fwd_prop_subsume_default = true
+  let fwd_prop_subsume = ref fwd_prop_subsume_default
+  let _ = add_spec (
+    "--ic3_fwd_prop_subsume",
+    bool_arg fwd_prop_subsume,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Subsumption in forward propagation@ Default: %s@]"
+        (string_of_bool fwd_prop_subsume_default)
+  )
+  let fwd_prop_subsume () = !fwd_prop_subsume
+
+  let use_invgen_default = true
+  let use_invgen = ref use_invgen_default
+  let _ = add_spec (
+    "--ic3_use_invgen",
+    bool_arg use_invgen,
+    fun fmt  ->
+      Format.fprintf fmt
+        "@[<v>Use invariants from invariant generators@ Default: %s@]"
+        (string_of_bool use_invgen_default)
+  )
+  let use_invgen () = !use_invgen
+
+  type qe = [
+    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
+  ]
+  let qe_of_string = function
+    | "Z3" -> `Z3
+    | "Z3-impl" -> `Z3_impl
+    | "Z3-impl2" -> `Z3_impl2
+    | "cooper" -> `Cooper
+    | _ -> raise (Arg.Bad "Bad value for --ic3_qe")
+  let string_of_qe = function
+    | `Z3 -> "Z3"
+    |  `Z3_impl -> "Z3-impl"
+    |  `Z3_impl2 -> "Z3-impl2"
+    | `Cooper -> "cooper"
+  let qe_values = [
+    `Z3 ; `Z3_impl ; `Z3_impl2 ; `Cooper
+  ] |> List.map string_of_qe |> String.concat ", "
+  let qe_default = `Cooper
+  let qe = ref qe_default
+  let _ = add_spec (
+    "--ic3_qe",
+    Arg.String (fun str -> qe := qe_of_string str),
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Choose quantifier elimination algorithm@ \
+          Available: %s@ \
+          Default: %s\
+        @]"
+        qe_values (string_of_qe qe_default)
+  )
+  let set_qe q = qe := q
+  let qe () = !qe
+
+  type extract = [ `First | `Vars ]
+  let extract_of_string = function
+    | "first" -> `First
+    | "vars" -> `Vars
+    | _ -> raise (Arg.Bad "Bad value for --ic3_extract")
+  let string_of_extract = function
+    | `First -> "first"
+    | `Vars -> "vars"
+  let extract_values = [
+    `First ; `Vars
+  ] |> List.map string_of_extract |> String.concat ", "
+  let extract_default = `First
+  let extract = ref extract_default
+  let _ = add_spec (
+    "--ic3_extract",
+    Arg.String (fun str -> extract := extract_of_string str),
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Heuristics for extraction of implicant@ \
+          Available: %s@ \
+          Default: %s\
+        @]"
+        extract_values (string_of_extract extract_default)
+  )
+  let extract () = !extract
+
+  type abstr = [ `None | `IA ]
+  let abstr_of_string = function
+    | "None" -> `None
+    | "IA" -> `IA
+    | _ -> raise (Arg.Bad "Bad value for --ic3_abstr")
+  let string_of_abstr = function
+    | `IA -> "IA"
+    | `None -> "None"
+  let abstr_values = [
+    `None ; `IA
+  ] |> List.map string_of_abstr |> String.concat ", "
+  let abstr_default = `None
+  let abstr = ref abstr_default
+  let _ = add_spec (
+    "--ic3_abstr",
+    Arg.String (fun str -> abstr := abstr_of_string str),
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Choose method of abstraction in IC3@ Available: %s@ Default: %s\
+        @]"
+        abstr_values (string_of_abstr abstr_default)
+  )
+  let abstr () = !abstr
+
+end
+
+
+(* Quantifier elimination module. *)
+module QE : sig
+  include FlagModule
+  (** Order variables in polynomials by order of elimination **)
+  val order_var_by_elim : unit -> bool
+  (** Choose lower bounds containing variables **)
+  val general_lbound : unit -> bool
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "qe"
+  (* Short description of the module. *)
+  let desc = "quantifier elimination flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Quantifier elimination (QE) is a technique that, given some variables@ \
+      `v_1`, ..., `v_n` and a quantifier-free formula `f`, returns a@ \
+      quantifier-free formula equivalent to `(exists (v_1, ..., v_n) f)`.@ \
+      The QE implemented in Kind 2 does not support real arithmetic. If the@ \
+      solver used is z3, then z3's QE will be used instead of the internal@ \
+      one for systems with real variables.@ \
+      IC3 (module \"ic3\") is the only Kind 2 technique that uses QE.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let order_var_by_elim_default = false
+  let order_var_by_elim = ref order_var_by_elim_default
+  let _ = add_spec (
+    "--order_var_by_elim",
+    bool_arg order_var_by_elim,
+    fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Order variables in polynomials by order of elimination@ \
+        Default: %B\
+      @]"
+      order_var_by_elim_default
+  )
+  let order_var_by_elim () = !order_var_by_elim
+
+  let general_lbound_default = false
+  let general_lbound = ref general_lbound_default
+  let _ = add_spec (
+    "--general_lbound",
+    bool_arg general_lbound,
+    fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Choose lower bounds containing variables@ \
+        Default: %B\
+      @]"
+      general_lbound_default
+  )
+  let general_lbound () = !general_lbound
+end
+
+
+
+
+(* Contracts flags. *)
+module Contracts : sig
+  include FlagModule
+  (** Compositional analysis. *)
+  val compositional : unit -> bool
+  (** Check modes. *)
+  val check_modes : unit -> bool
+  (** Check modes. *)
+  val check_implem : unit -> bool
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "contract"
+  (* Short description of the module. *)
+  let desc = "contract and compositional verification flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 extends Lustre with a syntax for assume-guarantee-like@ \
+      contracts. The syntax and semantics of contracts are described in@ \
+      Kind 2 documentation.@ \
+      Contracts allow to perform compositional verification, where sub-nodes@ \
+      with a contract are abstracted away by their specification. Also, the@ \
+      test generation technique (see module \"testgen\") relies on contracts@ \
+      to generate the testcases.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let compositional_default = false
+  let compositional = ref compositional_default
+  let _ = add_spec (
+    "--compositional",
+    bool_arg compositional,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Abstract subnodes with a contract@ Default: %B@]"
+        compositional_default
+  )
+  let compositional () = !compositional
+
+  let check_modes_default = true
+  let check_modes = ref check_modes_default
+  let _ = add_spec (
+    "--check_modes",
+    bool_arg check_modes,
+    fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Checks the modes of a contracts are exhaustive@ \
+        Default: %B\
+      @]"
+      check_modes_default
+  )
+  let check_modes () = !check_modes
+
+  let check_implem_default = true
+  let check_implem = ref check_implem_default
+  let _ = add_spec (
+    "--check_implem",
+    bool_arg check_implem,
+    fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Checks the implementation of nodes@ \
+        Default: %B\
+      @]"
+      check_implem_default
+  )
+  let check_implem () = !check_implem
+
+end
+
+
+
+(* Testgen flags. *)
+module Testgen : sig
+  include FlagModule
+  (** Activates test generation. *)
+  val active : unit -> bool
+  (** Only generate graph of reachable modes, do not log testcases. *)
+  val graph_only : unit -> bool
+  (** Length of the test case generated. *)
+  val len : unit -> int
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "test"
+  (* Short description of the module. *)
+  let desc = "test generation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Test generation uses the contract (see module \"contract\") attached@ \
+      to a node to explore the behavior of a node. For each behavior, a@ \
+      trace of inputs triggering it is generated and logged as a testcase in@ \
+      CSV.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let active_default = false
+  let active = ref active_default
+  let _ = add_spec (
+    "--testgen",
+    bool_arg active,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Activates test generation for systems proved correct@ \
+          Default: %b\
+        @]"
+        active_default
+  )
+  let active () = !active
+
+  let graph_only_default = false
+  let graph_only = ref graph_only_default
+  let _ = add_spec (
+    "--testgen_graph_only",
+    bool_arg graph_only,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Only draw the graph of reachable modes, do not log testcases.@ \
+          Default: %b\
+        @]"
+        graph_only_default
+  )
+  let graph_only () = !graph_only
+
+  let len_default = 5
+  let len = ref len_default
+  let _ = add_spec (
+    "--testgen_len",
+    Arg.Set_int len,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Maximimum length for test generation@ \
+          Default: %d\
+        @]"
+        len_default
+  )
+  let len () = !len
+
+end
+
+
+(* Invgen flags. *)
+module Invgen : sig
+  include FlagModule
+  (** InvGen will remove trivial invariants, i.e. invariants implied by the
+      transition relation. *)
+  val prune_trivial : unit -> bool
+  (** Number of unrollings invariant generation should perform between
+    switching to a different systems. *)
+  val max_succ : unit -> int
+  (** InvGen will lift candidate terms from subsystems. **)
+  val lift_candidates : unit -> bool
+  (** InvGen will generate invariants only for top level. **)
+  val top_only : unit -> bool
+  (** InvGen will look for candidate terms in the transition predicate. *)
+  val mine_trans : unit -> bool
+  (** Renice invariant generation process. *)
+  val renice : unit -> int
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "invgen"
+  (* Short description of the module. *)
+  let desc = "invariant generation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Invariant generation attempts to discover invariants of the form@ \
+      `<expr> => <expr>` using expressions mined from the initial and@ \
+      transition predicates of the system. The candidates invariants@ \
+      considered are selected by an incremental exploration of the reachable@ \
+      states.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let prune_trivial_default = true
+  let prune_trivial = ref prune_trivial_default
+  let _ = add_spec (
+    "--invgen_prune_trivial",
+    bool_arg prune_trivial,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Invariant generation will only communicate invariants not implied@ \
+          by the transition relation@ \
+          Default: %B\
+        @]"
+        prune_trivial_default
+  )
+  let prune_trivial () = !prune_trivial
+
+  let max_succ_default = 1
+  let max_succ = ref max_succ_default
+  let _ = add_spec (
+    "--invgen_max_succ",
+    Arg.Int (fun b -> max_succ := b),
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Maximal number of successive iterations for subsystems@ \
+          Default: %d\
+        @]"
+        max_succ_default
+  )
+  let max_succ () = !max_succ
+
+  let lift_candidates_default = false
+  let lift_candidates = ref lift_candidates_default
+  let _ = add_spec (
+    "--invgen_lift_candidates",
+    bool_arg lift_candidates,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Invariant generation will instantiate candidates from sub-nodes@ \
+          Default: %B\
+        @]"
+        lift_candidates_default
+  )
+  let lift_candidates () = !lift_candidates
+
+  let top_only_default = false
+  let top_only = ref top_only_default
+  let _ = add_spec (
+    "--invgen_top_only",
+    bool_arg top_only,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Only generate invariants for the top level@ \
+          Default: %B\
+        @]"
+        top_only_default
+  )
+  let top_only () = !top_only
+
+  let mine_trans_default = true
+  let mine_trans = ref mine_trans_default
+  let _ = add_spec (
+    "--invgen_mine_trans",
+    bool_arg mine_trans,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Invariant generation will extract candidate terms from the@ \
+          transition predicate@ \
+          Default: %B\
+        @]"
+        mine_trans_default
+  )
+  let mine_trans () = !mine_trans
+
+  let renice_default = 0
+  let renice = ref renice_default
+  let _ = add_spec (
+    "--invgen_renice",
+    Arg.Set_int renice,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Renice invariant generation process. Give a positive argument to@ \
+          lower priority\
+        @]"
+  )
+  let renice () = !renice
+end
+
+
+(* C2I flags. *)
+module C2I : sig
+  include FlagModule
+  (** Number of disjuncts in the DNF constructed by C2I. *)
+  val dnf_size : unit -> int
+  (** Number of int cubes in the DNF constructed by C2I. *)
+  val int_cube_size : unit -> int
+  (** Number of real cubes in the DNF constructed by C2I. *)
+  val real_cube_size : unit -> int
+  (** Whether mode sub candidate is activated in c2i. *)
+  val modes : unit -> bool
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "c2i"
+  (* Short description of the module. *)
+  let desc = "C2I flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      C2I is an invariant generation technique based on machine-learning.@ \
+      The Kind 2 implementation is still experimental and is inactive by@ \
+      default.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let dnf_size_default = 3
+  let dnf_size = ref dnf_size_default
+  let _ = add_spec (
+    "--c2i_dnf",
+    Arg.Set_int dnf_size,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Number of disjuncts in the DNF constructed by C2I@ \
+          Default %d\
+        @]"
+        dnf_size_default
+  )
+  let dnf_size () = !dnf_size
+
+  let int_cube_size_default = 3
+  let int_cube_size = ref int_cube_size_default
+  let _ = add_spec (
+    "--c2i_int_cubes",
+    Arg.Set_int int_cube_size,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Number of int cubes in the DNF constructed by C2I@ \
+          Default %d\
+        @]"
+        int_cube_size_default
+  )
+  let int_cube_size () = !int_cube_size
+
+  let real_cube_size_default = 3
+  let real_cube_size = ref real_cube_size_default
+  let _ = add_spec (
+    "--c2i_real_cubes",
+    Arg.Set_int real_cube_size,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Number of real cubes in the DNF constructed by C2I@ \
+          Default %d\
+        @]"
+        real_cube_size_default
+  )
+  let real_cube_size () = !real_cube_size
+
+  let modes_default = true
+  let modes = ref modes_default
+  let _ = add_spec (
+    "--c2i_modes",
+    bool_arg modes,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Activates mode subcandidates. Subsumes \"c2i_dnf_size\"@ \
+          Default %b\
+        @]"
+        modes_default
+  )
+  let modes () = !modes
+end
+
+
+(* Interpreter flags. *)
+module Interpreter : sig
+  include FlagModule
+  (** Read input from file. *)
+  val input_file : unit -> string
+  (** Run number of steps, override the number of steps given in the input
+    file. *)
+  val steps : unit -> int
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "interpreter"
+  (* Short description of the module. *)
+  let desc = "interpreter flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      The interpreter is a special mode where Kind 2 reads inputs from a@ \
+      file and prints the outputs of the system at each step.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let input_file_default = ""
+  let input_file = ref input_file_default
+  let _ = add_spec (
+    "--interpreter_input_file",
+    Arg.Set_string input_file,
+    fun fmt ->
+      Format.fprintf fmt "@[<v>Read input from file@]"
+  )
+  let input_file () = !input_file
+
+  let steps_default = 0
+  let steps = ref steps_default
+  let _ = add_spec (
+    "--interpreter_steps",
+    Arg.Set_int steps,
+    fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Run number of steps, override the number of steps given in the@ \
+          input file@ \
+          Default: %d\
+        @]"
+        steps_default
+  )
+  let steps () = !steps
+
+end
+
+
+
+
+
 (* ********************************************************************** *)
-(* Types and defaults for flags                                            *)
+(* Maps identifiers to modules flag specifications and description        *)
 (* ********************************************************************** *)
 
-(* TODO: write camlp4 code for this 
-  
-   type <X> = <X1> | <X2> arg <O> default <X2> action <F> doc <D>
-      
-   becomes 
-   
-   type <X> = <X1> | <X2>
-
-   let <X>_of_string = function
-     | "<X1>" -> <X1>
-     | "<X2>" -> <X2>
-     | _ raise (Arg.bad "Bad value for -<O>")
-
-   let string_of_<X> = function 
-     | <X1> -> "<X1>"
-     | <X2> -> "<X2>"
-
-   let <X>_values = "<X1>, <X2>"
-
-   let <X>_default = <X2>
-
-   let <O>_spec = 
-     ("-<O>", 
-      String <F>, 
-      Format.sprintf <D> <X>_values <X>_default)
-
-*)
-      
-
-(*   type <X> = <X1> | <X2> arg <O> default <X2> action <F> doc <D> *)
-
-(*   type smtsolver = Z3_SMTLIB | CVC4_SMTLIB arg smtsolver default CVC4_SMTLIB action smtsolver_action doc " choose SMT solver (available: %s, default: %s" *)
-  
-(* ********** *) 
-
-let timeout_wall_default = 0. 
-
-(* ********** *) 
-
-let timeout_virtual_default = 0. 
-
-(* ********** *) 
-
-type smtsolver = [ `Z3_SMTLIB | `CVC4_SMTLIB | `MathSat5_SMTLIB | `Yices_SMTLIB | `Yices_native | `detect ]
-    
-let smtsolver_of_string = function
-  | "Z3" -> `Z3_SMTLIB
-  | "CVC4" -> `CVC4_SMTLIB
-  | "MathSat5" -> `MathSat5_SMTLIB
-  | "Yices2" -> `Yices_SMTLIB
-  | "Yices" -> `Yices_native
-  | _ -> raise (Arg.Bad "Bad value for --smtsolver")
-
-let string_of_smtsolver = function 
-  | `Z3_SMTLIB -> "Z3"
-  | `CVC4_SMTLIB -> "CVC4"
-  | `Yices_SMTLIB -> "Yices2"
-  | `Yices_native -> "Yices"
-  | `MathSat5_SMTLIB -> "MathSat5"
-  | `detect -> "detect"
-
-let smtsolver_values = "Z3, CVC4, MathSat5, Yices, Yices2"
-
-let smtsolver_default = `detect
-
-(* ********** *) 
-
-type smtlogic = [ `None | `detect | `Logic of string ]
-
-let smtlogic_values = [ `None ; `detect ; `Logic ("\"logic\"") ]
-
-let smtlogic_of_string = function
-  | "none" | "None" -> `None
-  | "detect" | "Detect" -> `detect
-  | s -> `Logic s
-
-let string_of_smtlogic = function
-  | `None -> "none"
-  | `detect -> "detect"
-  | `Logic s -> s
-
-let smtlogic_default = `None
-
-(* ********** *) 
-
-type z3_bin = string 
-
-let z3_bin_of_string s = s
-
-let string_of_z3_bin s = s 
-
-let z3_bin_default = "z3"
-
-(* ********** *) 
-
-type smt_check_sat_assume = bool
-
-let smt_check_sat_assume_of_string s = s
-
-let string_of_smt_check_sat_assume s = s 
-
-let smt_check_sat_assume_default = true
-
-(* ********** *) 
-
-type smt_short_names = bool
-
-let smt_short_names_of_string s = s
-
-let string_of_smt_short_names s = s 
-
-let smt_short_names_default = true
-
-(* ********** *) 
-
-type smt_arrays = bool
-
-let smt_arrays_of_string s = s
-
-let string_of_smt_arrays s = s 
-
-let smt_arrays_default = false
-
-(* ********** *) 
-
-type inline_arrays = bool
-
-let inline_arrays_of_string s = s
-
-let string_of_inline_arrays s = s 
-
-let inline_arrays_default = false
-
-(* ********** *) 
-
-type arrays_rec = bool
-
-let arrays_rec_of_string s = s
-
-let string_of_arrays_rec s = s 
-
-let arrays_rec_default = false
-
-(* ********** *) 
-
-type cvc4_bin = string 
-
-let cvc4_bin_of_string s = s
-
-let string_of_cvc4_bin s = s 
-
-let cvc4_bin_default = "cvc4"
-
-(* ********** *) 
-
-type mathsat5_bin = string 
-
-let mathsat5_bin_of_string s = s
-
-let string_of_mathsat5_bin s = s 
-
-let mathsat5_bin_default = "mathsat"
-
-(* ********** *) 
-
-type yices_bin = string 
-
-let yices_bin_of_string s = s
-
-let string_of_yices_bin s = s 
-
-let yices_bin_default = "yices"
-
-
-(* ********** *) 
-
-type yices2smt2_bin = string 
-
-let yices2smt2_bin_of_string s = s
-
-let string_of_yices2smt2_bin s = s 
-
-let yices2smt2_bin_default = "yices-smt2"
-
-(* ********** *) 
-
-type smt_trace = bool
-
-let smt_trace_default = false
-
-(* ********** *) 
-
-type smt_trace_dir = string
-
-let smt_trace_dir_default = Sys.getcwd ()
-
-(* ********** *) 
-
-(* type kind_module = [ `IC3 | `BMC | `IND | `INVGEN ] *)
-
-type enable = kind_module list 
-
-let kind_module_of_string = function
-  | "IC3" -> `IC3
-  | "BMC" -> `BMC
-  | "IND" -> `IND
-  | "INVGEN" -> `INVGEN
-  | "INVGENOS" -> `INVGENOS
-  | "interpreter" -> `Interpreter
-  | _ -> raise (Arg.Bad "Bad value for --enable")
-
-let string_of_kind_module = function
-  | `IC3 -> "IC3"
-  | `BMC -> "BMC"
-  | `IND -> "IND"
-  | `INVGEN -> "INVGEN"
-  | `INVGENOS -> "INVGENOS"
-  | `Interpreter -> "interpreter"
-
-let rec string_of_enable' accum = function 
-  | [] -> accum
-  | m :: tl -> 
-    string_of_enable'
-      ((string_of_kind_module m) ^ 
-          (if not (tl = []) then ", " else ""))
-      tl
-
-(* let string_of_enable = string_of_enable' "" *)
-
-let string_of_enable = function
-  | head :: tail ->
-    ( List.fold_left
+let usage_msg = Filename.basename Sys.executable_name |> Format.sprintf "\
+  Usage: %s [options] <lustre_file>@.\
+  Prove properties in Lustre program <lustre_file>.\
+"
+
+let global_usage_msg =
+  Format.sprintf "\
+    %s@.\
+    Global options follow, use \"--flags_of\" for module-specific information.\
+  " usage_msg
+
+let module_map = [
+  (Smt.id,
+    (module Smt: FlagModule)
+  ) ;
+  (BmcKind.id,
+    (module BmcKind: FlagModule)
+  ) ;
+  (IC3.id,
+    (module IC3: FlagModule)
+  ) ;
+  (Invgen.id,
+    (module Invgen: FlagModule)
+  ) ;
+  (C2I.id,
+    (module C2I: FlagModule)
+  ) ;
+  (Testgen.id,
+    (module Testgen: FlagModule)
+  ) ;
+  (Interpreter.id,
+    (module Interpreter: FlagModule)
+  ) ;
+  (QE.id,
+    (module QE: FlagModule)
+  ) ;
+  (Contracts.id,
+    (module Contracts: FlagModule)
+  ) ;
+]
+
+(* Formats an element of [module_map]. *)
+let fmt_module_info fmt (id, m0d) =
+  let module Flags = (val m0d: FlagModule) in
+  Format.fprintf fmt
+    "\
+      |===| Module \"%s\":@.\
+        @[<v>%t@]@.\
+        @[<v>%a@]@.\
+    "
+    id
+    Flags.fmt_explain
+    (pp_print_list
+      (fun fmt (key, _, desc) ->
+        Format.fprintf fmt "  %s:@       %t" key desc)
+      "@ "
+    ) (Flags.all_specs ())
+
+(* Prints module info for a list of identifiers. If ["all"] is in the list,
+prints info for all modules.
+If the input list is not empty and all identifiers are defined, exits with
+status [0]. If some operators are undefined, exits with [2]. Does nothing if
+the list is empty. *)
+let print_module_info = function
+| [] -> ()
+| (hd :: tl) as ids -> (
+  Format.printf "%s@.@." usage_msg ;
+  if List.mem "all" ids then (
+    Format.printf
+      "%a"
+      (pp_print_list fmt_module_info "@.@.")
+      module_map
+  ) else (
+    (
+      try (
+        let m0d = module_map |> List.assoc hd in
+        Format.printf "%a" fmt_module_info (hd, m0d)
+      ) with Not_found -> (
+        Format.printf
+          "Unknown module \"%s\", legal values are@.  all, %a@."
+          hd
+          (pp_print_list
+            (fun fmt (key,_) -> Format.fprintf fmt "%s" key)
+            ", "
+          ) module_map ;
+        exit 2
+      )
+    ) ;
+    tl |> List.iter ( fun id ->
+      try (
+        let m0d = module_map |> List.assoc id in
+        Format.printf "@.%a" fmt_module_info (id, m0d)
+      ) with Not_found -> (
+        Format.printf
+          "Unknown module \"%s\", legal values are@.  all, %a@."
+          id
+          (pp_print_list
+            (fun fmt (key,_) -> Format.fprintf fmt "%s" key)
+            ", "
+          ) module_map ;
+        exit 2
+      )
+    )
+  ) ;
+  exit 0
+)
+
+
+
+
+(* ********************************************************************** *)
+(* Global flags                                                           *)
+(* ********************************************************************** *)
+
+
+
+(* Global flags. *)
+module Global = struct
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+
+  (* Input flag. *)
+  let input_file_default = None
+  let input_file = ref input_file_default
+  let set_input_file f = input_file := Some f
+  let input_file () = !input_file
+
+
+  (* Explain modules. *)
+  let flags_of_default = []
+  let flags_of = ref flags_of_default
+  let _ = add_spec (
+    "--flags_of",
+    Arg.String (
+      fun str -> if List.mem str !flags_of |> not then
+        flags_of := str :: !flags_of
+    ),
+    Format.asprintf
+      "@.    \
+        explains and shows the flags for a Kind 2 module among\
+        @.      %a\
+        @.      %-15s explanation and flags for all Kind 2 modules\
+      "
+      (pp_print_list
+        ( fun fmt (key, m0d) ->
+          let module Flags = (val m0d: FlagModule) in
+          Format.fprintf fmt
+            "%-15s %s" (Format.sprintf "%s" key) Flags.desc
+        ) "@.      "
+      ) module_map
+      "all"
+  )
+  let flags_of () = !flags_of
+
+
+  (* Main lustre node. *)
+  let lus_main_of_string s = Some s
+  let string_of_lus_main = function
+    | None -> "(none)"
+    | Some s -> s
+  let lus_main_default = None
+
+  let lus_main = ref lus_main_default
+  let _ = add_spec (
+    "--lus_main",
+    Arg.String (fun str -> lus_main := Some str),
+    Format.sprintf
+      "@.     \
+        Use the given node as top node in Lustre input@.     \
+        Default: \"--%%MAIN\" annotation in source if any, last node otherwise\
+      "
+  )
+  let lus_main () = !lus_main
+
+
+  (* Input format. *)
+  type input_format = [
+    `Lustre | `Horn | `Native
+  ]
+  let input_format_of_string = function
+    | "lustre" -> `Lustre
+    | "horn" -> `Horn
+    | "native" -> `Native
+    | _ -> raise (Arg.Bad "Bad value for --input-format")
+  let string_of_input_format = function
+    | `Lustre -> "lustre"
+    | `Horn -> "horn"
+    | `Native -> "native"
+  let input_format_values = [
+    `Lustre ; `Native
+  ] |> List.map string_of_input_format |> String.concat ", "
+  let input_format_default = `Lustre
+
+  let input_format = ref input_format_default
+  let _ = add_spec (
+    "--input-format",
+    Arg.String (fun str -> input_format := input_format_of_string str),
+    Format.sprintf
+      "@.     \
+        Format of input file@.     \
+        Available: %s, Default: %s\
+      "
+      input_format_values
+      (string_of_input_format input_format_default)
+  )
+  let input_format () = !input_format
+
+
+  (* Output directory. *)
+  let output_dir_default = "kind2"
+  let output_dir = ref output_dir_default
+  let _ = add_spec (
+    "--output_dir",
+    Arg.Set_string output_dir,
+    Format.sprintf
+      "@.     \
+        Output directory for the files generated:@.     \
+        SMT traces, compilation, testgen, certification...@.     \
+        Default: \"%s\"\
+      "
+      output_dir_default
+  )
+  let output_dir () = !output_dir
+
+
+  (* Timeout. *)
+  let timeout_wall_default = 0.
+  let timeout_wall = ref timeout_wall_default
+  let _ = add_specs ([
+    ( "--timeout",
+      Arg.Set_float timeout_wall,
+      Format.sprintf
+        "@.     \
+          Wallclock timeout in seconds@.     \
+          Default: %1.f\
+        "
+        timeout_wall_default
+    ) ;
+    ( "--timeout_wall",
+      Arg.Set_float timeout_wall,
+      Format.sprintf "@.     Same as \"--timeout\" (here for legacy)"
+    )
+  ])
+  let timeout_wall () = !timeout_wall
+
+
+  (* Modules enabled. *)
+  type enable = kind_module list
+  let kind_module_of_string = function
+    | "IC3" -> `IC3
+    | "BMC" -> `BMC
+    | "IND" -> `IND
+    | "IND2" -> `IND2
+    | "INVGEN" -> `INVGEN
+    | "INVGENOS" -> `INVGENOS
+    | "C2I" -> `C2I
+    | "interpreter" -> `Interpreter
+    | unexpected -> Arg.Bad (
+      Format.sprintf "Unexpected value \"%s\" for flag --enable" unexpected
+    ) |> raise
+  let string_of_kind_module = function
+    | `IC3 -> "IC3"
+    | `BMC -> "BMC"
+    | `IND -> "IND"
+    | `IND2 -> "IND2"
+    | `INVGEN -> "INVGEN"
+    | `INVGENOS -> "INVGENOS"
+    | `C2I -> "C2I"
+    | `Interpreter -> "interpreter"
+  let string_of_enable = function
+    | head :: tail -> (
+      List.fold_left
         ( fun s m -> s ^ ", " ^ (string_of_kind_module m) )
         ("[" ^ (string_of_kind_module head))
-        tail )
-    ^ "]"
-  | [] -> "[]"
-
-let enable_values = "IC3, BMC, IND, INVGEN, INVGENOS, interpreter"
-
-let enable_default_init = []
-
-let enable_default_after = [`BMC; `IND; `IC3; `INVGEN; `INVGENOS]
-
-(* ********** *) 
-
-type check_version = bool
-
-let check_version_default = false
-
-(* ********** *) 
-
-type bmc_max = int
-    
-let bmc_max_default = 0
-
-(* ********** *) 
-
-type ind_compress = bool
-    
-let ind_compress_default = false
-
-(* ********** *) 
-
-type ind_compress_equal = bool
-    
-let ind_compress_equal_default = true
-
-(* ********** *) 
-
-type ind_compress_same_succ = bool
-    
-let ind_compress_same_succ_default = false
-
-(* ********** *) 
-
-type ind_compress_same_pred = bool
-    
-let ind_compress_same_pred_default = false
-
-(* ********** *) 
-
-type ind_lazy_invariants = bool
-    
-let ind_lazy_invariants_default = false
-
-(* ********** *) 
-
-(* type ind_print_inductive_cex = bool
-    
-let ind_print_inductive_cex_default = true *)
-
-(* ********** *) 
-
-type ic3_check_inductive = bool
-    
-let string_of_ic3_check_inductive = string_of_bool
-
-let ic3_check_inductive_default = true
-
-(* ********** *) 
-
-type ic3_print_to_file = string option
-    
-let ic3_print_to_file_default = None
-
-(* ********** *) 
-
-type ic3_inductively_generalize = int
-    
-let string_of_ic3_inductively_generalize = string_of_int
-
-let ic3_inductively_generalize_default = 1
-
-(* ********** *) 
-
-type ic3_block_in_future = bool
-    
-let string_of_ic3_block_in_future = string_of_bool
-
-let ic3_block_in_future_default = true
-
-(* ********** *) 
-
-type ic3_block_in_future_first = bool
-    
-let string_of_ic3_block_in_future_first = string_of_bool
-
-let ic3_block_in_future_first_default = true
-
-(* ********** *) 
-
-type ic3_fwd_prop_non_gen = bool
-    
-let string_of_ic3_fwd_prop_non_gen = string_of_bool
-
-let ic3_fwd_prop_non_gen_default = true
-
-(* ********** *) 
-
-type ic3_fwd_prop_ind_gen = bool
-    
-let string_of_ic3_fwd_prop_ind_gen = string_of_bool
-
-let ic3_fwd_prop_ind_gen_default = true
-
-(* ********** *) 
-
-type ic3_fwd_prop_subsume = bool
-    
-let string_of_ic3_fwd_prop_subsume = string_of_bool
-
-let ic3_fwd_prop_subsume_default = true
-
-(* ********** *) 
-
-type ic3_use_invgen = bool
-    
-let string_of_ic3_use_invgen = string_of_bool
-
-let ic3_use_invgen_default = true
-
-(* ********** *) 
-
-type ic3_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
-    
-let ic3_qe_of_string = function
-  | "Z3" -> `Z3
-  | "Z3-impl" -> `Z3_impl
-  | "Z3-impl2" -> `Z3_impl2
-  | "cooper" -> `Cooper
-  | _ -> raise (Arg.Bad "Bad value for --ic3_qe")
-
-let string_of_ic3_qe = function 
-  | `Z3 -> "Z3"
-  |  `Z3_impl -> "Z3-impl"
-  |  `Z3_impl2 -> "Z3-impl2"
-  | `Cooper -> "cooper"
-
-let ic3_qe_values = "Z3, Z3-impl, Z3-impl-2, cooper"
-
-let ic3_qe_default = `Cooper
-
-(* ********** *) 
-
-type ic3_extract = [ `First | `Vars ]
-    
-let ic3_extract_of_string = function
-  | "first" -> `First
-  | "vars" -> `Vars
-  | _ -> raise (Arg.Bad "Bad value for --ic3_extract")
-
-let string_of_ic3_extract = function 
-  | `First -> "first"
-  | `Vars -> "vars"
-
-let ic3_extract_values = "first, vars"
-
-let ic3_extract_default = `First
-
-
-(* ********** *) 
-
-type ic3_abstr = [ `None | `IA ] 
-
-let ic3_abstr_of_string = function
-| "None" -> `None
-| "IA" -> `IA
-| _ -> raise (Arg.Bad "Bad value for --ic3_abstr")
-
-let string_of_ic3_abstr = function
-| `IA -> "IA"
-| `None -> "None"
-
-let ic3_abstr_values = "IA, None"
-
-let ic3_abstr_default = `None
-
-(* ********** *) 
- 
-type cooper_order_var_by_elim = bool 
-     
-let cooper_order_var_by_elim_values = "true, false"
- 
-let cooper_order_var_by_elim_default = false
- 
-(* ********** *) 
- 
-type cooper_general_lbound = bool
-     
-let cooper_general_lbound_values = "true, false"
- 
-let cooper_general_lbound_default = false
-
-
-(* ********** *)
-
-(* INVGEN things. *)
-
-type invgengraph_prune_trivial = bool
-
-let invgengraph_prune_trivial_default = true
-
-type invgengraph_max_succ = int
-
-let invgengraph_max_succ_default = 1
-
-type invgengraph_lift_candidates = bool
-
-let invgengraph_lift_candidates_default = false
-
-type invgengraph_mine_trans = bool
-
-let invgengraph_mine_trans_default = false
-
-type invgengraph_renice = int
-
-let invgengraph_renice_default = 0
-
-(* ********** *) 
-
-type interpreter_input_file = string 
-
-let interpreter_input_file_of_string s = s
-
-let string_of_interpreter_input_file s = s 
-
-let interpreter_input_file_default = ""
-
-(* ********** *) 
-
-type interpreter_steps = int 
-
-let interpreter_steps_default = 0
-
-(* ********** *) 
-
-type input_format = [ `Lustre | `Horn | `Native ]
-    
-let input_format_of_string = function
-  | "lustre" -> `Lustre
-  | "horn" -> `Horn
-  | "native" -> `Native
-  | _ -> raise (Arg.Bad "Bad value for --input-format")
-
-let string_of_input_format = function 
-  | `Lustre -> "lustre"
-  | `Horn -> "horn"
-  | `Native -> "native"
-
-let input_format_values = "lustre, native"
-
-let input_format_default = `Lustre
-
-(* ********** *) 
-
-type lustre_main = string option
-
-let lustre_main_of_string s = Some s
-
-let string_of_lustre_main = function None -> "(none)" | Some s -> s
-
-let lustre_main_default = None
-
-(* ********** *) 
-
-type lustre_flatten_arrays = bool
-
-let string_of_lustre_flatten_arrays = string_of_bool
-
-let lustre_flatten_arrays_default = false
-
-(* ********** *) 
-
-let debug_default = []
-
-(* ********** *) 
-
-let debug_log_default = None
-
-(* ********** *) 
-
-let log_level_default = L_warn
-
-(* ********** *) 
-
-let log_format_xml_default = false
-
-(* ********** *) 
-
-
-                               
-(* All flags *)
-type flags = 
-  { mutable timeout_wall : float;
-    mutable timeout_virtual : float;
-    mutable smtsolver : smtsolver;
-    mutable smtlogic : smtlogic;
-    mutable z3_bin : z3_bin;
-    mutable smt_check_sat_assume : smt_check_sat_assume;
-    mutable smt_short_names : smt_short_names;
-    mutable smt_arrays : smt_arrays;
-    mutable inline_arrays : inline_arrays;
-    mutable arrays_rec : arrays_rec;
-    mutable cvc4_bin : cvc4_bin;
-    mutable mathsat5_bin : mathsat5_bin;
-    mutable yices_bin : yices_bin;
-    mutable yices2smt2_bin : yices2smt2_bin;
-    mutable smt_trace : smt_trace;
-    mutable smt_trace_dir : smt_trace_dir;
-    mutable enable : enable;
-    mutable check_version : check_version;
-    mutable bmc_max : bmc_max;
-    mutable ind_compress : ind_compress;
-    mutable ind_compress_equal : ind_compress_equal;
-    mutable ind_compress_same_succ : ind_compress_same_succ;
-    mutable ind_compress_same_pred : ind_compress_same_pred;
-    mutable ind_lazy_invariants : ind_lazy_invariants;
-    (* mutable ind_print_inductive_cex : ind_print_inductive_cex; *)
-    mutable ic3_qe : ic3_qe;
-    mutable ic3_extract : ic3_extract;
-    mutable ic3_check_inductive : ic3_check_inductive;
-    mutable ic3_print_to_file : ic3_print_to_file;
-    mutable ic3_inductively_generalize : ic3_inductively_generalize;
-    mutable ic3_block_in_future : ic3_block_in_future;
-    mutable ic3_block_in_future_first : ic3_block_in_future_first;
-    mutable ic3_fwd_prop_non_gen : ic3_fwd_prop_non_gen;
-    mutable ic3_fwd_prop_ind_gen : ic3_fwd_prop_ind_gen;
-    mutable ic3_fwd_prop_subsume : ic3_fwd_prop_subsume;
-    mutable ic3_use_invgen : ic3_use_invgen;
-    mutable ic3_abstr : ic3_abstr;
-    mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
-    mutable cooper_general_lbound : cooper_general_lbound;
-    mutable invgengraph_prune_trivial : invgengraph_prune_trivial;
-    mutable invgengraph_max_succ : invgengraph_max_succ;
-    mutable invgengraph_lift_candidates : invgengraph_lift_candidates;
-    mutable invgengraph_mine_trans : invgengraph_mine_trans;
-    mutable invgengraph_renice : invgengraph_renice;
-    mutable interpreter_input_file : interpreter_input_file;
-    mutable interpreter_steps : interpreter_steps;
-    mutable lustre_main : lustre_main;
-    mutable lustre_flatten_arrays : lustre_flatten_arrays;
-    mutable debug : string list;
-    mutable debug_log : string option;
-    mutable log_level : log_level;
-    mutable log_format_xml : bool;
-    mutable input_format : input_format;
-    mutable input_file : string option }
-    
-(* Defaults for all flags *)
-let flags = 
-  { timeout_wall = timeout_wall_default;
-    timeout_virtual = timeout_virtual_default;
-    smtsolver = smtsolver_default;
-    smtlogic = smtlogic_default;
-    z3_bin = z3_bin_default;
-    smt_check_sat_assume = smt_check_sat_assume_default;
-    smt_short_names = smt_short_names_default;
-    smt_arrays = smt_arrays_default;
-    inline_arrays = inline_arrays_default;
-    arrays_rec = arrays_rec_default;
-    cvc4_bin = cvc4_bin_default;
-    mathsat5_bin = mathsat5_bin_default;
-    yices_bin = yices_bin_default;
-    yices2smt2_bin = yices2smt2_bin_default;
-    smt_trace = smt_trace_default;
-    smt_trace_dir = smt_trace_dir_default;
-    enable = enable_default_init;
-    check_version = check_version_default;
-    bmc_max = bmc_max_default;
-    ind_compress = ind_compress_default;
-    ind_compress_equal = ind_compress_equal_default;
-    ind_compress_same_succ = ind_compress_same_succ_default;
-    ind_compress_same_pred = ind_compress_same_pred_default;
-    ind_lazy_invariants = ind_lazy_invariants_default;
-    (* ind_print_inductive_cex = ind_print_inductive_cex_default; *)
-    ic3_qe = ic3_qe_default;
-    ic3_extract = ic3_extract_default;
-    ic3_check_inductive = ic3_check_inductive_default;
-    ic3_print_to_file = ic3_print_to_file_default;
-    ic3_inductively_generalize = ic3_inductively_generalize_default;
-    ic3_fwd_prop_non_gen = ic3_fwd_prop_non_gen_default;
-    ic3_fwd_prop_ind_gen = ic3_fwd_prop_ind_gen_default;
-    ic3_block_in_future = ic3_block_in_future_default;
-    ic3_block_in_future_first = ic3_block_in_future_first_default;
-    ic3_fwd_prop_subsume = ic3_fwd_prop_subsume_default;
-    ic3_use_invgen = ic3_use_invgen_default;
-    ic3_abstr = ic3_abstr_default;
-    cooper_order_var_by_elim = cooper_order_var_by_elim_default;
-    cooper_general_lbound = cooper_general_lbound_default;
-    invgengraph_prune_trivial = invgengraph_prune_trivial_default;
-    invgengraph_max_succ = invgengraph_max_succ_default;
-    invgengraph_lift_candidates = invgengraph_lift_candidates_default;
-    invgengraph_mine_trans = invgengraph_mine_trans_default;
-    invgengraph_renice = invgengraph_renice_default;
-    interpreter_input_file = interpreter_input_file_default;
-    interpreter_steps = interpreter_steps_default;
-    lustre_main = lustre_main_default;
-    lustre_flatten_arrays = lustre_flatten_arrays_default;
-    debug = debug_default;
-    debug_log = debug_log_default;
-    log_level = log_level_default;
-    log_format_xml = log_format_xml_default;
-    input_format = input_format_default;
-    input_file = None } 
-
-(* ********** *) 
-
-
-let log level fmt =
-
-  if flags.log_format_xml then
-
-    (ignore_or_fprintf level)
-      !log_ppf 
-      ("@[<hv 2><Log class=\"%s\" source=\"%a\">@,@[<hov>" ^^ 
-         fmt ^^ 
-           "@]@;<0 -2></Log>@]@.") 
-      (string_of_log_level level)
-      pp_print_kind_module `Parser
-
-  else (ignore_or_fprintf level) !log_ppf (fmt ^^ "@.")
-
-                                 
-(************)
-
-let timeout_wall_action o = flags.timeout_wall <- o  
-
-let timeout_wall_spec = 
-  ("--timeout_wall", 
-   Arg.Float timeout_wall_action, 
-   Format.sprintf "wallclock timeout (default: %1.f)" timeout_wall_default)
-
-(* ********** *) 
-
-let timeout_virtual_action o = flags.timeout_virtual <- o  
-
-let timeout_virtual_spec = 
-  ("--timeout_virtual", 
-   Arg.Float timeout_virtual_action, 
-   Format.sprintf "CPU timeout (default: %1.f)" timeout_virtual_default)
-
-(* ********** *) 
-
-let smtsolver_action o = flags.smtsolver <- (smtsolver_of_string o)
-  
-let smtsolver_spec = 
-  ("--smtsolver", 
-   Arg.String smtsolver_action, 
-   Format.sprintf "choose SMT solver (available: %s, default: %s)"
-                  smtsolver_values (string_of_smtsolver smtsolver_default))
-
-(* ********** *) 
-
-let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
-  
-let smtlogic_spec = 
-  ("--smtlogic", 
-   Arg.String smtlogic_action, 
-   "select logic for SMT solvers (\"none\" for no logic (default), and \
-    \"detect\" to detect with the input system, other SMTLIB logics will be \
-    passed to the solver)")
-
-(* ********** *) 
-
-let z3_bin_action o = flags.z3_bin <- (z3_bin_of_string o)
-  
-let z3_bin_spec = 
-  ("--z3_bin", 
-   Arg.String z3_bin_action, 
-   Format.sprintf "executable of Z3 solver (default: %s)"
-                  (string_of_z3_bin z3_bin_default))
-
-(* ********** *) 
-
-let smt_check_sat_assume_action o = flags.smt_check_sat_assume <- o
-  
-let smt_check_sat_assume_spec = 
-  ("--smt_check_sat_assume", 
-   Arg.Bool smt_check_sat_assume_action, 
-   Format.sprintf
-     "Use check-sat with assumptions, or simulate with push/pop \
-      when false (default: %B)"
-     smt_check_sat_assume_default)
-
-(* ********** *) 
-
-let smt_short_names_action o = flags.smt_short_names <- o
-  
-let smt_short_names_spec = 
-  ("--smt_short_names", 
-   Arg.Bool smt_short_names_action, 
-   Format.sprintf
-     "Send short variables names to SMT solver, send full names if false (default: %B)"
-     smt_short_names_default)
-
-(* ********** *) 
-
-let smt_arrays_action () = flags.smt_arrays <- true
-  
-let smt_arrays_spec = 
-  ("--smt_arrays", 
-   Arg.Unit smt_arrays_action, 
-   "Use the theory of arrays")
-
-(* ********** *) 
-
-let inline_arrays_action () = flags.inline_arrays <- true
-  
-let inline_arrays_spec = 
-  ("--inline_arrays", 
-   Arg.Unit inline_arrays_action, 
-   "Inline fixed bounds arrays")
-
-(* ********** *) 
-
-let arrays_rec_action () =
-  match flags.smtsolver with
-  | `CVC4_SMTLIB -> flags.arrays_rec <- true
-  | _ ->
-     raise (Arg.Bad 
-         "Recursive encoding of arrays can only be used with CVC4. \
-          Use the flag --smtsolver CVC4")  
-  
-let arrays_rec_spec = 
-  ("--arrays_rec", 
-   Arg.Unit arrays_rec_action, 
-   "Define recurvsive functions for arrays")
-
-(* ********** *) 
-
-let cvc4_bin_action o = flags.cvc4_bin <- (cvc4_bin_of_string o)
-  
-let cvc4_bin_spec = 
-  ("--cvc4_bin", 
-   Arg.String cvc4_bin_action, 
-   Format.sprintf "executable of CVC4 solver (default: %s)"
-                  (string_of_cvc4_bin cvc4_bin_default))
-
-(* ********** *) 
-
-let mathsat5_bin_action o = flags.mathsat5_bin <- (mathsat5_bin_of_string o)
-  
-let mathsat5_bin_spec = 
-  ("--mathsat5_bin", 
-   Arg.String mathsat5_bin_action, 
-   Format.sprintf "executable of MathSAT5 solver (default: %s)"
-                  (string_of_mathsat5_bin mathsat5_bin_default))
-
-(* ********** *) 
-
-let yices_bin_action o = flags.yices_bin <- (yices_bin_of_string o)
-  
-let yices_bin_spec = 
-  ("--yices_bin", 
-   Arg.String yices_bin_action, 
-   Format.sprintf "executable of Yices solver (default: %s)"
-                  (string_of_yices_bin yices_bin_default))
-
-(* ********** *) 
-
-let yices2smt2_bin_action o =
-  flags.yices2smt2_bin <- (yices2smt2_bin_of_string o)
-  
-let yices2smt2_bin_spec = 
-  ("--yices2_bin", 
-   Arg.String yices2smt2_bin_action, 
-   Format.sprintf "executable of Yices2 SMT2 solver (default: %s)"
-                  (string_of_yices2smt2_bin yices2smt2_bin_default))
-
-(* ********** *) 
-
-let smt_trace_action o = flags.smt_trace <- true
-  
-let smt_trace_spec = 
-  ("--smt_trace", 
-   Arg.Unit smt_trace_action, 
-   Format.sprintf "Write all SMT commands to files")
-
-(* ********** *) 
-
-let smt_trace_dir_action o = flags.smt_trace_dir <- o
-  
-let smt_trace_dir_spec = 
-  ("--smt_trace_dir", 
-   Arg.String smt_trace_dir_action, 
-   Format.sprintf "Directory for trace logs of SMT commands (default: %s)"
-                  smt_trace_dir_default)
-
-(* ********** *) 
-
-let enable_action o = 
-
-  (* Ensure the each module is at most once in flags.enable *)
-  let mdl = kind_module_of_string o in
-  if not (List.mem mdl flags.enable) then flags.enable <- mdl :: flags.enable
-  
-let enable_spec = 
-  ("--enable", 
-   Arg.String enable_action, 
-   Format.sprintf "enable Kind module (available: %s, default: %s)"
-                  enable_values (string_of_enable enable_default_after))
-
-(* ********** *) 
-
-let check_version_action () = flags.check_version <- true
-  
-let check_version_spec = 
-  ("--version", 
-   Arg.Unit check_version_action, 
-   Format.sprintf "Output version information and exit")
-
-(* ********** *) 
-
-let bmc_max_action o = flags.bmc_max <- o
-  
-let bmc_max_spec = 
-  ("--bmc_max", 
-   Arg.Int bmc_max_action, 
-   Format.sprintf "(BMC, IND) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
-
-(* ********** *) 
-
-let ind_compress_action o = flags.ind_compress <- o
-  
-let ind_compress_spec = 
-  ("--ind_compress", 
-   Arg.Bool ind_compress_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples (default: %B)"
-                  ind_compress_default)
-
-(* ********** *) 
-
-let ind_compress_equal_action o = flags.ind_compress_equal <- o
-  
-let ind_compress_equal_spec = 
-  ("--ind_compress_equal", 
-   Arg.Bool ind_compress_equal_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states equal \
-                   modulo inputs (default: %B)" ind_compress_equal_default)
-
-(* ********** *) 
-
-let ind_compress_same_succ_action o = flags.ind_compress_same_succ <- o
-  
-let ind_compress_same_succ_spec = 
-  ("--ind_compress_same_succ", 
-   Arg.Bool ind_compress_same_succ_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states \
-                   with same successors (default: %B)"
-                  ind_compress_same_succ_default)
-
-(* ********** *) 
-
-let ind_compress_same_pred_action o = flags.ind_compress_same_pred <- o
-  
-let ind_compress_same_pred_spec = 
-  ("--ind_compress_same_pred", 
-   Arg.Bool ind_compress_same_pred_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states \
-                   with same predecessors (default: %B)"
-                  ind_compress_same_pred_default)
-
-(* ********** *) 
-
-let ind_lazy_invariants_action o = flags.ind_lazy_invariants <- o
-  
-let ind_lazy_invariants_spec = 
-  ("--ind_lazy_invariants", 
-   Arg.Bool ind_lazy_invariants_action, 
-   Format.sprintf "(IND) Asserts invariants lazily (default: %B)" ind_lazy_invariants_default)
-
-(* ********** *) 
-(* 
-let ind_print_inductive_cex_action o = flags.ind_print_inductive_cex <- o
-  
-let ind_print_inductive_cex_spec = 
-  ("--ind_print_inductive_cex", 
-   Arg.Bool ind_print_inductive_cex_action, 
-   Format.sprintf "(IND) Print inductive counterexamples (default: %B)"
-                  ind_print_inductive_cex_default) *)
-
-(* ********** *) 
-
-let ic3_qe_action o = flags.ic3_qe <- (ic3_qe_of_string o)
-  
-let ic3_qe_spec = 
-  ("--ic3_qe", 
-   Arg.String ic3_qe_action, 
-   Format.sprintf "(IC3) choose quantifier elimination algorithm \
-                   (available: %s, default: %s)"
-                  ic3_qe_values (string_of_ic3_qe ic3_qe_default))
-
-(* ********** *) 
-
-let ic3_extract_action o = flags.ic3_extract <- (ic3_extract_of_string o)
-  
-let ic3_extract_spec = 
-  ("--ic3_extract", 
-   Arg.String ic3_extract_action, 
-   Format.sprintf "(IC3) Heuristics for extraction of implicant \
-                   (available: %s, default: %s)"
-                  ic3_extract_values
-                  (string_of_ic3_extract ic3_extract_default))
-
-(* ********** *) 
-
-let ic3_check_inductive_action o = flags.ic3_check_inductive <- o
-  
-let ic3_check_inductive_spec = 
-  ("--ic3_check_inductive", 
-   Arg.Bool ic3_check_inductive_action, 
-   Format.sprintf "(IC3) Check inductiveness of blocking clauses (default: %s)"
-                  (string_of_ic3_check_inductive ic3_check_inductive_default))
-
-(* ********** *) 
-
-let ic3_print_to_file_action o = 
-  flags.ic3_print_to_file <- Some o
-  
-let ic3_print_to_file_spec = 
-  ("--ic3_print_to_file", 
-   Arg.String ic3_print_to_file_action, 
-   Format.sprintf "(IC3) Output file for blocking clauses (default: stdout)")
-
-(* ********** *) 
-
-let ic3_inductively_generalize_action o = flags.ic3_inductively_generalize <- o
-  
-let ic3_inductively_generalize_spec = 
-  ("--ic3_inductively_generalize", 
-   Arg.Int ic3_inductively_generalize_action, 
-   Format.sprintf "(IC3) Inductively generalize blocking clauses before forward propagation (0 = none, 1 = normal IG, 2 = IG with ordering) (default: %s)" (string_of_ic3_inductively_generalize ic3_inductively_generalize_default))
-
-(* ********** *) 
-
-let ic3_block_in_future_action o = flags.ic3_block_in_future <- o
-  
-let ic3_block_in_future_spec = 
-  ("--ic3_block_in_future", 
-   Arg.Bool ic3_block_in_future_action, 
-   Format.sprintf "(IC3) Block counterexample in future frames (default: %s)"
-                  (string_of_ic3_block_in_future ic3_block_in_future_default))
-
-(* ********** *) 
- 
-let ic3_block_in_future_first_action o = flags.ic3_block_in_future_first <- o
-  
-let ic3_block_in_future_first_spec = 
-  ("--ic3_block_in_future_first", 
-   Arg.Bool ic3_block_in_future_first_action, 
-   Format.sprintf "(IC3) Block counterexample in future frames first before returning to frame (default: %s)"
-                  (string_of_ic3_block_in_future_first ic3_block_in_future_first_default))
-
-(* ********** *) 
- 
-let ic3_fwd_prop_non_gen_action o = flags.ic3_fwd_prop_non_gen <- o
-  
-let ic3_fwd_prop_non_gen_spec = 
-  ("--ic3_fwd_prop_non_gen", 
-   Arg.Bool ic3_fwd_prop_non_gen_action, 
-   Format.sprintf "(IC3) Also propagate clauses before generalization (default: %s)"
-                  (string_of_ic3_fwd_prop_non_gen ic3_fwd_prop_non_gen_default))
-
-(* ********** *) 
- 
-let ic3_fwd_prop_ind_gen_action o = flags.ic3_fwd_prop_ind_gen <- o
-  
-let ic3_fwd_prop_ind_gen_spec = 
-  ("--ic3_fwd_prop_ind_gen", 
-   Arg.Bool ic3_fwd_prop_ind_gen_action, 
-   Format.sprintf "(IC3) Inductively generalize all clauses after forward propagation (default: %s)"
-                  (string_of_ic3_fwd_prop_ind_gen ic3_fwd_prop_ind_gen_default))
-
-(* ********** *) 
- 
-let ic3_fwd_prop_subsume_action o = flags.ic3_fwd_prop_subsume <- o
-  
-let ic3_fwd_prop_subsume_spec = 
-  ("--ic3_fwd_prop_subsume", 
-   Arg.Bool ic3_fwd_prop_subsume_action, 
-   Format.sprintf "(IC3) Subsumption in forward propagation (default: %s)"
-                  (string_of_ic3_fwd_prop_subsume ic3_fwd_prop_subsume_default))
-
-(* ********** *) 
- 
-let ic3_use_invgen_action o = flags.ic3_use_invgen <- o
-  
-let ic3_use_invgen_spec = 
-  ("--ic3_use_invgen", 
-   Arg.Bool ic3_use_invgen_action, 
-   Format.sprintf "(IC3) Use invariants from invariant generators (default: %s)"
-                  (string_of_ic3_use_invgen ic3_use_invgen_default))
-
-(* ********** *) 
-
-let ic3_abstr_action o = flags.ic3_abstr <- (ic3_abstr_of_string o)
-  
-let ic3_abstr_spec = 
-  ("--ic3_abstr", 
-   Arg.String ic3_abstr_action, 
-   Format.sprintf "(IC3) choose method of abstraction in IC3 \"
-                   (available: %s, default: %s)"
-                  ic3_abstr_values (string_of_ic3_abstr ic3_abstr_default))
-(* ********** *) 
- 
-let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
-                                          
-let cooper_order_var_by_elim_spec = 
-  ("--cooper_order_var_by_elim", 
-   Arg.Bool cooper_order_var_by_elim_action, 
-   Format.sprintf "(Cooper QE) Order variables in polynomials by order of \
-                   elimination (available: %s, default: %B)"
-                  cooper_order_var_by_elim_values
-                  cooper_order_var_by_elim_default)
-  
-(* ********** *) 
-  
-let cooper_general_lbound_action o = flags.cooper_general_lbound <- o
-                                       
-let cooper_general_lbound_spec = 
-  ("--cooper_general_lbound", 
-   Arg.Bool cooper_general_lbound_action, 
-   Format.sprintf "(Cooper QE) Choose lower bounds containing variables (available: %s, default: %B)" cooper_general_lbound_values cooper_general_lbound_default)
-  
-(* ********** *) 
-  
-let invgengraph_prune_trivial_action o = flags.invgengraph_prune_trivial <- o
-                                       
-let invgengraph_prune_trivial_spec = 
-  ("--invgen_prune_trivial", 
-   Arg.Bool invgengraph_prune_trivial_action,
-   Format.sprintf
-     "Invariant generation will only look for top node invariants (default: %B)."
-     invgengraph_prune_trivial_default)
-  
-let invgengraph_max_succ_action o = flags.invgengraph_max_succ <- o
-                                       
-let invgengraph_max_succ_spec = 
-  ("--invgen_max_succ", 
-   Arg.Int invgengraph_max_succ_action,
-   Format.sprintf
-     "Maximal number of successive iterations for subsystems (default: %d)."
-     invgengraph_max_succ_default)
-  
-let invgengraph_lift_candidates_action o = flags.invgengraph_lift_candidates <- o
-                                       
-let invgengraph_lift_candidates_spec = 
-  ("--invgen_lift_candidates", 
-   Arg.Bool invgengraph_lift_candidates_action,
-   Format.sprintf
-     "Invariant generation will only look for top node invariants (default: %B)."
-     invgengraph_lift_candidates_default)
-  
-let invgengraph_mine_trans_action o = flags.invgengraph_mine_trans <- o
-                                       
-let invgengraph_mine_trans_spec = 
-  ("--invgen_mine_trans", 
-   Arg.Bool invgengraph_mine_trans_action,
-   Format.sprintf
-     "Invariant generation will extract candidate terms from the transition predicate (default: %B)."
-     invgengraph_mine_trans_default)
-
-let invgengraph_renice_action o = flags.invgengraph_renice <- o
-                                       
-let invgengraph_renice_spec = 
-  ("--invgen_renice", 
-   Arg.Int invgengraph_renice_action,
-   "Renice invariant generation process. Give a positive argument to lower priority.")
-  
-(* ********** *) 
-
-let interpreter_input_file_action o = flags.interpreter_input_file <- o
-                                       
-let interpreter_input_file_spec = 
-  ("--interpreter_input_file", 
-   Arg.String interpreter_input_file_action, 
-   Format.sprintf "(Interpreter) Read input from file")
-
-(* ********** *) 
-
-let interpreter_steps_action o = flags.interpreter_steps <- o
-                                       
-let interpreter_steps_spec = 
-  ("--interpreter_steps", 
-   Arg.Int interpreter_steps_action, 
-   Format.sprintf "(Interpreter) Run number of steps, override the number of \
-                   steps given in the input file")
-
-(* ********** *) 
-
-let lustre_main_action o = flags.lustre_main <- Some o
-                                       
-let lustre_main_spec = 
-  ("--lustre_main", 
-   Arg.String lustre_main_action, 
-   Format.sprintf "Use the given node as top node in Lustre input \
-                   (default: --%%MAIN annotation)")
-
-(* ********** *) 
-
-let lustre_flatten_arrays_action o = flags.lustre_flatten_arrays <- o
-                                       
-let lustre_flatten_arrays_spec = 
-  ("--lustre_flatten_arrays", 
-   Arg.Bool lustre_flatten_arrays_action, 
-   Format.sprintf
-     "Flatten arrays to one stream per element. If false, use quantified definitions. \
-      (default: %B)"
-     lustre_flatten_arrays_default)
-
-(* ********** *) 
-
-let debug_action o = flags.debug <- o :: flags.debug 
-  
-let debug_spec = 
-  ("--debug", 
-   Arg.String debug_action, 
-   Format.sprintf "enable debug output for a section, give one --debug option \
-                   for each section to be enabled")
-
-(* ********** *) 
-
-let debug_log_action o = flags.debug_log <- Some o
-  
-let debug_log_spec = 
-  ("--debug-log", 
-   Arg.String debug_log_action, 
-   Format.sprintf "output debug messages to file (default: stdout)")
-
-(* ********** *) 
-
-let log_level_action o () = flags.log_level <- o
-  
-let log_level_off_spec = 
-  ("-qq", 
-   Arg.Unit (log_level_action L_off), 
-   Format.sprintf "Disable output completely")
-
-let log_level_fatal_spec = 
-  ("-q", 
-   Arg.Unit (log_level_action L_fatal), 
-   Format.sprintf "Disable output, fatal errors only")
-
-let log_level_error_spec = 
-  ("-s", 
-   Arg.Unit (log_level_action L_error), 
-   Format.sprintf "Silence output, errors only")
-
-let log_level_info_spec = 
-  ("-v", 
-   Arg.Unit (log_level_action L_info), 
-   Format.sprintf "Output informational messages")
-
-let log_level_debug_spec = 
-  ("-vv", 
-   Arg.Unit (log_level_action L_debug), 
-   Format.sprintf "Output informational and debug messages")
-
-let log_level_trace_spec = 
-  ("-vvv", 
-   Arg.Unit (log_level_action L_trace), 
-   Format.sprintf "Output informational, debug and trace messages")
-
-(* ********** *) 
-
-let log_format_xml_action o () = flags.log_format_xml <- o
-
-let log_format_xml_spec = 
-  ("-xml", 
-   Arg.Unit (log_format_xml_action true), 
-   Format.sprintf "Output in XML format")
-
-(* ********** *) 
-
-let input_format_action o = flags.input_format <- (input_format_of_string o)
-  
-let input_format_spec = 
-  ("--input-format", 
-   Arg.String input_format_action, 
-   Format.sprintf "Format of input file (available: %s, default: %s)"
-                  input_format_values
-                  (string_of_input_format input_format_default))
-
-
-(* ********************************************************************** *)
-(* Pretty-printing of flags                                               *)
-(* ********************************************************************** *)
+        tail
+      ) ^ "]"
+    | [] -> "[]"
+  let enable_values = [
+    `IC3 ; `BMC ; `IND ; `IND2 ; `INVGEN ; `INVGENOS ; `C2I ; `Interpreter
+  ] |> List.map string_of_kind_module |> String.concat ", "
+
+  let enable_default_init = []
+  let disable_default_init = []
+
+  let enable_default_after = [
+    `BMC ; `IND ; `IND2 ; `IC3 ; `INVGEN ; `INVGENOS
+  ]
+  let enabled = ref enable_default_init
+  let disabled = ref disable_default_init
+  let finalize_enabled () =
+    (* If [enabled] is unchanged, set it do default after init. *)
+    if !enabled = enable_default_init then (
+      enabled := enable_default_after
+    ) ;
+    (* Remove disabled modules. *)
+    enabled := !enabled |> List.filter (
+      fun mdl -> List.mem mdl !disabled |> not
+    )
+  let _ = add_spec (
+    "--enable",
+    Arg.String (
+      fun str ->
+        let mdl = kind_module_of_string str in
+        if List.mem mdl !enabled |> not
+        then enabled := mdl :: !enabled
+    ),
+    Format.sprintf
+      "@.     \
+        Enable Kind module@.     \
+        Available: %s@.     \
+        Default: %s\
+      "
+      enable_values
+      (string_of_enable enable_default_after)
+  )
+  let enabled () = !enabled
+
+  (* Modules disabled. *)
+  let _ = add_spec (
+    "--disable",
+    Arg.String (
+      fun str ->
+        let mdl = kind_module_of_string str in
+        if List.mem mdl !disabled |> not
+        then disabled := mdl :: !disabled
+    ),
+    Format.sprintf
+      "@.     \
+        Disable Kind module@.     \
+        Available: %s\
+      "
+      enable_values
+  )
+  let disabled () = !disabled
+
+
+  (* Modular mode. *)
+  let modular_default = false
+  let modular = ref modular_default
+  let _ = add_spec (
+    "--modular",
+    bool_arg modular,
+    Format.sprintf
+      "@.     \
+        bottom-up analysis of each node@.     \
+        Default: %B\
+      "
+      modular_default
+  )
+  let modular () = !modular
+
+
+  (* Reject unguarded pre's in Lustre file. *)
+  let lus_strict_default = false
+  let lus_strict = ref lus_strict_default
+  let _ = add_spec (
+    "--lus_strict",
+    bool_arg lus_strict,
+    Format.sprintf
+      "@.     \
+        Strict mode in Lustre: uninitialized pre and undefined@.     \
+        Local variables are not allowed when this flag is present\
+      "
+  )
+  let lus_strict () = !lus_strict
+
+  let lus_compile_default = false
+  let lus_compile = ref lus_compile_default
+  let _ = add_spec (
+    "--lus_compile",
+    bool_arg lus_compile,
+    Format.sprintf
+      "@.     \
+        Nodes proved correct will be compiled to Rust@.     \
+        Default: %b\
+      "
+      lus_compile_default
+  )
+  let lus_compile () = !lus_compile
+
+  (* Active debug sections. *)
+  let debug_default = []
+  let debug_ref = ref debug_default
+  let _ = add_spec (
+    "--debug",
+    Arg.String (fun str -> debug_ref := str :: !debug_ref),
+    Format.sprintf
+      "@.     \
+        Enable debug output for a section, give one --debug option\
+        @.     for each section to be enabled\
+      "
+  )
+  let debug () = !debug_ref
+
+
+  (* Debug messages to file. *)
+  let debug_log_default = None
+  let debug_log = ref debug_log_default
+  let _ = add_spec (
+    "--debug-log",
+    Arg.String (fun str -> debug_log := Some str),
+    Format.sprintf
+      "@.     \
+        Output debug messages to file@.     \
+        Default: stdout\
+      "
+  )
+  let debug_log () = ! debug_log
+
+
+  (* Log level. *)
+  let log_level_default = L_warn
+  let log_level = ref log_level_default
+  let _ = add_specs ([
+    ( "-qq",
+      Arg.Unit (fun () -> log_level := L_off),
+      Format.sprintf " Disable output completely"
+    ) ;
+    ( "-q",
+      Arg.Unit (fun () -> log_level := L_fatal),
+      Format.sprintf "  Disable output, fatal errors only"
+    ) ;
+    ( "-s",
+      Arg.Unit (fun () -> log_level := L_error),
+      Format.sprintf "  Silence output, errors only"
+    ) ;
+    ( "-v",
+      Arg.Unit (fun () -> log_level := L_info),
+      Format.sprintf "  Output informational messages"
+    ) ;
+    ( "-vv",
+      Arg.Unit (fun () -> log_level := L_debug),
+      Format.sprintf " Output informational and debug messages"
+    ) ;
+    ( "-vvv",
+      Arg.Unit (fun () -> log_level := L_trace),
+      Format.sprintf "Output informational, debug and trace messages"
+    )
+  ])
+  let log_level () = !log_level
+
+
+  (* XML log. *)
+  let log_format_xml_default = false
+  let log_format_xml = ref log_format_xml_default
+  let _ = add_spec (
+    "-xml",
+    Arg.Set log_format_xml,
+    Format.sprintf "Output in XML format"
+  )
+  let log_format_xml () = !log_format_xml
+
+
+  (* Version flag. *)
+  let check_version_default = false
+  let check_version = ref check_version_default
+  let _ = add_spec (
+    "--version",
+    Arg.Set check_version,
+    Format.sprintf "Print version information and exit"
+  )
+  let check_version () = !check_version
+
+end
+
+(* Re-exports. *)
+type enable = Global.enable
+type input_format = Global.input_format
 
 
 (* ********************************************************************** *)
 (* Accessor functions for flags                                           *)
 (* ********************************************************************** *)
 
-let timeout_wall () = flags.timeout_wall
+(* |===| The following functions allow to access global flags directly. *)
 
-let timeout_virtual () = flags.timeout_virtual
-
-let smtsolver () = flags.smtsolver 
-
-let smtlogic () = flags.smtlogic 
-
-let z3_bin () = flags.z3_bin
-
-let smt_check_sat_assume () = flags.smt_check_sat_assume
-
-let smt_short_names () = flags.smt_short_names
-
-let smt_arrays () = flags.smt_arrays
-
-let inline_arrays () = flags.inline_arrays
-
-let arrays_rec () = flags.arrays_rec
-
-let cvc4_bin () = flags.cvc4_bin
-
-let mathsat5_bin () = flags.mathsat5_bin
-
-let yices_bin () = flags.yices_bin
-
-let yices2smt2_bin () = flags.yices_bin
-
-let smt_trace () = flags.smt_trace
-
-let smt_trace_dir () = flags.smt_trace_dir
-
-let enable () = flags.enable 
-
-let check_version () = flags.check_version 
-
-let bmc_max () = flags.bmc_max 
-
-let ind_compress () = flags.ind_compress 
-
-let ind_compress_equal () = flags.ind_compress_equal 
-
-let ind_compress_same_succ () = flags.ind_compress_same_succ 
-
-let ind_compress_same_pred () = flags.ind_compress_same_pred 
-
-let ind_lazy_invariants () = flags.ind_lazy_invariants
-
-(* let ind_print_inductive_cex () = flags.ind_print_inductive_cex  *)
-
-let ic3_qe () = flags.ic3_qe 
-
-let set_ic3_qe f = flags.ic3_qe <- f
-
-let ic3_extract () = flags.ic3_extract 
-
-let ic3_check_inductive () = flags.ic3_check_inductive 
-
-let ic3_inductively_generalize () = true
-
-let ic3_print_to_file () = flags.ic3_print_to_file
-
-let ic3_inductively_generalize () = flags.ic3_inductively_generalize
-
-let ic3_block_in_future () = flags.ic3_block_in_future 
-
-let ic3_block_in_future_first () = flags.ic3_block_in_future_first 
-
-let ic3_fwd_prop_non_gen () = flags.ic3_fwd_prop_non_gen 
-
-let ic3_fwd_prop_ind_gen () = flags.ic3_fwd_prop_ind_gen 
-
-let ic3_fwd_prop_subsume () = flags.ic3_fwd_prop_subsume 
-
-let ic3_use_invgen () = flags.ic3_use_invgen 
-
-let ic3_abstr () = flags.ic3_abstr
-
-let set_ic3_abstr f = flags.ic3_abstr <- f
-
-let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
-
-let cooper_general_lbound () = flags.cooper_general_lbound
-
-let invgengraph_prune_trivial () = flags.invgengraph_prune_trivial
-
-let invgengraph_max_succ () = flags.invgengraph_max_succ
-
-let invgengraph_lift_candidates () = flags.invgengraph_lift_candidates
-
-let invgengraph_mine_trans () = flags.invgengraph_mine_trans
-
-let invgengraph_renice () = flags.invgengraph_renice
-
-let interpreter_input_file () = flags.interpreter_input_file
-
-let interpreter_steps () = flags.interpreter_steps
-
-let lustre_main () = flags.lustre_main
-
-let lustre_flatten_arrays () = flags.lustre_flatten_arrays
-
-let debug () = flags.debug
-
-let debug_log () = flags.debug_log
-
-let log_level () = flags.log_level
-
-let log_format_xml () = flags.log_format_xml
-
-let input_format () = flags.input_format 
-
-let input_file () = match flags.input_file with 
-  | Some f -> f 
+let output_dir = Global.output_dir
+let enable = Global.enabled
+let check_version = Global.check_version
+let lus_strict = Global.lus_strict
+let modular = Global.modular
+let lus_main = Global.lus_main
+let debug = Global.debug
+let debug_log = Global.debug_log
+let log_level = Global.log_level
+let log_format_xml = Global.log_format_xml
+let input_format = Global.input_format
+let timeout_wall = Global.timeout_wall
+let input_file () = match Global.input_file () with
+  | Some f -> f
   | None -> failwith "No input file given"
+let lus_compile = Global.lus_compile
+
+(* Path to subdirectory for a system (in the output directory). *)
+let subdir_for scope =
+  Format.asprintf
+    "%s/%a"
+    (output_dir ())
+    (pp_print_list Format.pp_print_string "_") scope
 
 
 (* ********************************************************************** *)
 (* Parsing of command-line options into flags                             *)
 (* ********************************************************************** *)
 
-let usage_msg = 
-  Format.sprintf 
-    "Usage: %s [options] FILE@\nProve properties in Lustre program FILE@\n" 
-    (Filename.basename Sys.executable_name)
+let rec help_action () =
+  Arg.Help (Arg.usage_string speclist global_usage_msg) |> raise
 
-let rec help_action () = raise (Arg.Help (Arg.usage_string speclist usage_msg))
+and speclist =
+  ("--help", Arg.Unit help_action, "\\") ::
+  ("-help", Arg.Unit help_action, " | Display this list of options") ::
+  ("-h", Arg.Unit help_action, "    /") :: (
+    Global.all_specs ()
+  )
 
-and speclist = 
-  [
+let all_specs = ( Global.all_specs () ) @ (
+  List.fold_left (
+    fun l (_, m0d) ->
+      let module Flags = (val m0d: FlagModule) in
+      List.fold_left
+        (fun l (flag, action, _) -> (flag, action, "") :: l)
+        l
+        ( Flags.all_specs () )
+  ) [] module_map
+)
 
-    (* Wallclock timeout *)
-    timeout_wall_spec;
-
-    (* CPU timeout *)
-    timeout_virtual_spec;
-
-    (* Set SMT solver *)
-    smtsolver_spec;
-
-    (* Set SMT logic *)
-    smtlogic_spec;
-
-    (* Set executable for Z3 solver *)
-    z3_bin_spec;
-
-    (* Use check-sat with assumptions or simulate with push/pop *)
-    smt_check_sat_assume_spec;
-
-    (* Send short names to SMT solver *)
-    smt_short_names_spec;
-
-    (* Use builtin theory of arrays in SMT solver *)
-    smt_arrays_spec;
-
-    (* Inline arrays with fixed bounds *)
-    inline_arrays_spec;
-
-    (* Define recursive functions for arrays *)
-    arrays_rec_spec;
-
-    (* Set executable for CVC4 solver *)
-    cvc4_bin_spec;
-
-    (* Set executable for MathSAT5 solver *)
-    mathsat5_bin_spec;
-
-    (* Set executable for Yices solver *)
-    yices_bin_spec;
-
-    (* Set executable for Yices2 SMT2 solver *)
-    yices2smt2_bin_spec;
-
-    (* Write all SMT commands to files *)
-    smt_trace_spec;
-
-    (* Directory for  trace logs of SMT commands *)
-    smt_trace_dir_spec;
-
-    (* Set enabled modules *)
-    enable_spec;
-
-    (* Output version information and exit *)
-    check_version_spec;
-
-    (* Maximal number of iterations in BMC *)
-    bmc_max_spec;
-
-    (* Compress inductive counterexamples *)
-    ind_compress_spec;
-
-    (* Compress inductive counterexamples when states are equal modulo
-       input *)
-    ind_compress_equal_spec;
-
-    (* Compress inductive counterexamples when states have same successors *)
-    ind_compress_same_succ_spec;
-
-    (* Compress inductive counterexamples when states have same predecessors *)
-    ind_compress_same_pred_spec;
-
-    (* Compress inductive counterexamples when states have same predecessors *)
-    ind_lazy_invariants_spec;
-
-    (* Print inductive counterexamples *)
-    (* ind_print_inductive_cex_spec; *)
-
-    (* Set QE in IC3 *)
-    ic3_qe_spec;
-
-    (* Heuristic for extraction of implicant *)
-    ic3_extract_spec;
-
-    (* Check inductiveness of blocking clauses *)
-    ic3_check_inductive_spec;
-
-    (* File for inductive of blocking clauses *)
-    ic3_print_to_file_spec;
-
-    (* Inductively generalize the blocking clause before forward propagating *)
-    ic3_inductively_generalize_spec;
-
-    (* Block counterexample in future frames *)
-    ic3_block_in_future_spec;
-
-    (* Block counterexample in future frames first before returning to frame *)
-    ic3_block_in_future_first_spec;
-
-    (* Also propagate clauses before generalization *)
-    ic3_fwd_prop_non_gen_spec;
-
-    (* Inductively generalize all clauses after forward propagation *)
-    ic3_fwd_prop_ind_gen_spec;
-
-    (* Subsumption in forward propagation *)
-    ic3_fwd_prop_subsume_spec;
-
-    (* Use invariants from invariant generators *)
-    ic3_use_invgen_spec;
-
-    (* Abstraction in IC3 *)
-    ic3_abstr_spec;
-
-    (* Set option in Cooper QE*)
-    cooper_order_var_by_elim_spec;
-    cooper_general_lbound_spec;
-
-    (* Set invgen options. *)
-    invgengraph_prune_trivial_spec;
-    invgengraph_max_succ_spec;
-    invgengraph_lift_candidates_spec;
-    invgengraph_mine_trans_spec;
-    invgengraph_renice_spec;
-
-    (* Read input from file *)
-    interpreter_input_file_spec;
-
-    (* Run number of steps, override the number of steps given in the
-       input file *)
-    interpreter_steps_spec;
-
-    (* Main node in Lustre input *)
-    lustre_main_spec;
-
-    (* Flatten arrays to one stream per element *)
-    lustre_flatten_arrays_spec;
-
-    (* Enable debug output *)
-    debug_spec;
-
-    (* Enable debug output *)
-    debug_log_spec;
-
-    (* Set verbosity of output *)
-    log_level_error_spec;
-    log_level_fatal_spec;
-    log_level_off_spec;
-    log_level_info_spec;
-    log_level_debug_spec;
-    log_level_trace_spec;
-
-    (* Set output format to XML *)
-    log_format_xml_spec;
-
-    (* Set input format *)
-    input_format_spec;
-
-    (* Display help *)
-    ("-help", 
-     Arg.Unit help_action, 
-     " Display this list of options");
-    ("--help", 
-     Arg.Unit help_action, 
-     "Display this list of options");
-    ("-h", 
-     Arg.Unit help_action, 
-     "    Display this list of options")
-  ]
-    
-
-let anon_action s = 
-  match flags.input_file with 
-    | None -> flags.input_file <- Some s
+let anon_action s =
+  match Global.input_file () with
+    | None -> Global.set_input_file s
     | Some _ -> raise (Arg.Bad "More than one input file given")
 
-let set_smtsolver = function 
+let set_smtsolver = function
 
-  | `Z3_SMTLIB as smtsolver -> 
+  | `Z3_SMTLIB as smtsolver ->
 
-    (function z3_bin -> 
-      flags.smtsolver <- smtsolver; 
-      flags.z3_bin <- z3_bin)
+    (function z3_bin ->
+      Smt.set_solver smtsolver ;
+      Smt.set_z3_bin z3_bin )
 
-  | `CVC4_SMTLIB as smtsolver -> 
+  | `CVC4_SMTLIB as smtsolver ->
 
-    (function cvc4_bin -> 
-      flags.smtsolver <- smtsolver; 
-      flags.cvc4_bin <- cvc4_bin)
+    (function cvc4_bin ->
+      Smt.set_solver smtsolver ;
+      Smt.set_cvc4_bin cvc4_bin )
 
-  | `MathSat5_SMTLIB as smtsolver -> 
+  | `MathSat5_SMTLIB as smtsolver ->
 
-    (function mathsat5_bin -> 
-      flags.smtsolver <- smtsolver; 
-      flags.mathsat5_bin <- mathsat5_bin)
+    (function mathsat5_bin ->
+      Smt.set_solver smtsolver ;
+      Smt.set_mathsat5_bin mathsat5_bin )
 
-  | `Yices_native as smtsolver -> 
+  | `Yices_native as smtsolver ->
 
-    (function yices_bin -> 
-      flags.smtsolver <- smtsolver; 
-      flags.yices_bin <- yices_bin)
+    (function yices_bin ->
+      Smt.set_solver smtsolver ;
+      Smt.set_yices_bin yices_bin )
 
-  | `Yices_SMTLIB as smtsolver -> 
+  | `Yices_SMTLIB as smtsolver ->
 
-    (function yices2smt2_bin -> 
-      flags.smtsolver <- smtsolver; 
-      flags.yices2smt2_bin <- yices2smt2_bin)
+    (function yices2smt2_bin ->
+      Smt.set_solver smtsolver ;
+      Smt.set_yices2smt2_bin yices2smt2_bin )
 
   | `detect -> (function _ -> ())
 
-       
-let parse_argv () = 
-  
+
+let parse_argv () =
   (* Parse command-line arguments *)
-  Arg.parse speclist anon_action usage_msg;
-  
+  Arg.parse all_specs anon_action global_usage_msg ;
+
   (* Output version information only? *)
-  if check_version () then 
-    (Format.printf "%t@." pp_print_version; exit 0);
-    
-  (* Set default value if unchanged *)
-  if flags.enable = enable_default_init then 
-    flags.enable <- enable_default_after;
+  if Global.check_version () then (
+    Format.printf "%t@." pp_print_version ;
+    exit 0
+  ) ;
+
+  (* If any module info was requested, print it and exit. *)
+  Global.flags_of () |> List.rev |> print_module_info ;
+
+  (* Finalize the list of enabled module. *)
+  Global.finalize_enabled () ;
 
   (* Fail if input file not set *)
-  match flags.input_file with 
-    | None -> 
-      Format.printf 
-        "%s: No input file given@\n" Sys.argv.(0);
-      Arg.usage speclist usage_msg;
-      exit 2
-    | Some _ -> ()
-      
-(* 
+  match Global.input_file () with
+  | None ->
+    Format.printf
+      "%s: No input file given.@\n" Sys.argv.(0) ;
+    Arg.usage speclist usage_msg ;
+    exit 2
+  | Some _ -> ()
+  
+(*
    Local Variables:
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
-   End: 
+   End:
 *)
