@@ -42,7 +42,7 @@ let false_strings = [ "false" ; "off" ; "f" ]
 
 (* Bool formatter. *)
 let fmt_bool fmt b =
-  Format.fprintf fmt "%s" (if b then "on" else "off")
+  Format.fprintf fmt "%s" (if b then "true" else "false")
 
 (* Parses a bool and sets a reference. *)
 let bool_arg reference = Arg.Bool (fun b -> reference := b)
@@ -52,18 +52,18 @@ let bool_arg reference = Arg.Bool (fun b -> reference := b)
 let fmt_flag fmt (flag, spec, desc) =
   Format.fprintf
     fmt
-    "@[<v>\x1b[1m%t\x1b[0m@[<v>%t@]@]"
+    "@[<v>%t@[<v>%t@]@]"
     (fun fmt -> match spec with
       | Arg.Unit _ | Arg.Set _ | Arg.Clear _ ->
-        Format.fprintf fmt "%-10s" flag
+        Format.fprintf fmt "\x1b[1m%-10s\x1b[0m" flag
       | Arg.Bool _ ->
-        Format.fprintf fmt "%-10s <bool>@   " flag
+        Format.fprintf fmt "\x1b[1m%s <bool>\x1b[0m@   " flag
       | Arg.String _ | Arg.Set_string _ ->
-        Format.fprintf fmt "%-10s <string>@   " flag
+        Format.fprintf fmt "\x1b[1m%s <string>\x1b[0m@   " flag
       | Arg.Int _ | Arg.Set_int _ ->
-        Format.fprintf fmt "%-10s <int>@   " flag
+        Format.fprintf fmt "\x1b[1m%s <int>\x1b[0m@   " flag
       | Arg.Float _ | Arg.Set_float _ ->
-        Format.fprintf fmt "%-10s <float>@   " flag
+        Format.fprintf fmt "\x1b[1m%s <float>\x1b[0m@   " flag
       | _ ->
         failwith "Unsupported Arg.spec (Tuple, Symbol, or Rest)."
     )
@@ -2026,7 +2026,7 @@ let parse_clas specs anon_action global_usage_msg =
         exit 2
       | BadArg (error, flag) ->
         Format.printf
-          "\x1b[31mError on flag\x1b[0m@.@[<v 2>%a@]@.\x1b[31m%s\x1b[0m@."
+          "\x1b[31mError on flag\x1b[0m@.@[<v>%a@]@.\x1b[31m%s\x1b[0m@."
           fmt_flag flag error ;
         exit 2
     )
