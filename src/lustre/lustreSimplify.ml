@@ -375,9 +375,10 @@ let rec eval_ast_expr bounds ctx =
   | A.Neq (pos, expr1, expr2) -> 
 
     (* Translate to negated equation *)
-    eval_ast_expr ctx (
-        bounds
-    )
+    eval_ast_expr
+      bounds
+      ctx
+      (A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2)))
 
   (* If-then-else [if expr1 then expr2 else expr3 ]*)
   | A.Ite (pos, expr1, expr2, expr3) -> 
@@ -421,6 +422,7 @@ let rec eval_ast_expr bounds ctx =
              E.mk_pre
               (C.mk_local_for_expr ~original ~bounds pos)
               mk_lhs_term
+              ctx
               (C.guard_flag ctx)
               expr
            in
@@ -809,6 +811,7 @@ let rec eval_ast_expr bounds ctx =
 
     (* Evaluate expressions *)
     let expr1', ctx = eval_ast_expr bounds ctx expr1 in
+    let expr2', ctx = eval_ast_expr bounds ctx expr1 in
 
     (* Convert an ast index to an index *)
     let rec aux accum = function 
@@ -1001,7 +1004,7 @@ let rec eval_ast_expr bounds ctx =
                  let new_v = D.find index' expr2'' in
                  (* the conditional value *)
 
-                 if Flags.smt_arrays () then
+                 if Flags.Arrays.smt () then
                    (* Build a store expression if we allow the theory of
                       arrays *)
                    let v' = mk_store [] v index' new_v in

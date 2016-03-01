@@ -390,7 +390,7 @@ val mk_arrow : t -> t -> t
 
     [b] is used to denote that we're in a context where there are unguarded
     pres and so we should always introduce fresh intermediate variables. *)
-val mk_pre : ('a -> t -> StateVar.t * 'a) -> ('b -> Term.t) -> 'a -> bool -> t -> t * 'a
+val mk_pre : ('a -> t -> 'b * 'a) -> ('b -> Term.t) -> 'a -> bool -> t -> t * 'a
 
 (** Select from an array *)
 val mk_select : t -> t -> t

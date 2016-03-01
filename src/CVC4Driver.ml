@@ -50,7 +50,7 @@ let cmd_line
        "--quant-cf";
        "--uf-ss-fair"|] in
 
-  let inst_flags = match logic, Flags.arrays_rec () with
+  let inst_flags = match logic, Flags.Arrays.recdef () with
     | `Inferred l, true when FeatureSet.mem A l -> fmfrec_flags
     | `Inferred l, false when FeatureSet.mem A l -> fmfint_flags
     | `Inferred _, _ -> [||]

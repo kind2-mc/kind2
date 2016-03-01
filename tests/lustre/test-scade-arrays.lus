@@ -5,8 +5,8 @@ const C2 = 1^3;
 -- const C3[i] : int^3 = i;
 const array_size = 4;
 
-node X(s: int; -- const array_size: int
-       ) returns (A8: int^2);
+node X(s: int; -- const array_size: int;
+       r: real;) returns (A8: int^2);
 const array_default = 0;
 var 
   A0, A1, A2, A7: int^array_size;
@@ -16,10 +16,10 @@ var
   A6: rational^array_size;
   A9, A10: int^3;
   A11 : int^array_size;
-  Aca: int^2;
-  Ab: int^3;
+  -- Aca: int^2;
+  -- Ab: int^3;
   i: real;
-  r: real;
+  -- r: real;
   j: bool;
   x:  int;
 
@@ -86,7 +86,8 @@ let
   --%PROPERTY A11[2] = 3 * s;
   --%PROPERTY A7[0] = 0;
   --%PROPERTY A[0] = B[0];
-  --%PROPERTY forall (ni:int) A[ni] = C[ni];
+  -- --%PROPERTY forall (ni:int) ni > 0 and ni < array_size - 1 => A[ni] = C[ni];
+  -- --%PROPERTY forall (ni:int) ni > 1 and ni < array_size => C[ni] = C[ni - 1] * 2;
 
 
 tel

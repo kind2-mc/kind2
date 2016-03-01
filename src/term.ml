@@ -1624,7 +1624,7 @@ let convert_select term =
   (*   Type.pp_print_type (type_of_term term); *)
   
   (* Don't encode if using the theory of arrays *)
-  if Flags.smt_arrays () then term
+  if Flags.Arrays.smt () then term
   else    
     map (fun _ t ->
         (* Term is a select operation? *)
@@ -1671,7 +1671,7 @@ let inst_bvars term =
 
 let partial_selects term =
   
-  if Flags.smt_arrays () || not (Flags.arrays_rec ()) then term, []
+  if Flags.Arrays.smt () || not (Flags.Arrays.recdef ()) then term, []
   else
     let partials_ufs = ref [] in
     let acc = ref [] in
@@ -1704,7 +1704,7 @@ let partial_selects term =
 let reinterpret_select term =
 
   (* Don't decode if using the theory of arrays *)
-  if Flags.smt_arrays () then term
+  if Flags.Arrays.smt () then term
   else    
     map (fun _ t ->
         match node_of_term t with

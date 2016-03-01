@@ -655,7 +655,7 @@ let name_of_node { name } = name
     Returns the equations of [n], topologically sorted by their base (step)
     expression if [init] ([not init]). *)
 let ordered_equations_of_node { equations } stateful init =
-  let svars_of (_, _, expr) =
+  let svars_of ((_, _), expr) =
     expr |> if init
       then E.base_state_vars_of_init_expr
       else E.cur_state_vars_of_step_expr
@@ -663,7 +663,7 @@ let ordered_equations_of_node { equations } stateful init =
 
   let is_known eqs svar =
     List.exists (StateVar.equal_state_vars svar) stateful ||
-    List.exists (fun (sv, _, _) -> StateVar.equal_state_vars svar sv) eqs
+    List.exists (fun ((sv, _), _) -> StateVar.equal_state_vars svar sv) eqs
   in
 
   let rec loop postponed ordered = function

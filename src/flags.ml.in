@@ -26,147 +26,53 @@
 
 open Lib
 
-(* 
+(* Workflow: see [flags.mli]. *)
 
-# WORKFLOW.
-
-Flags are separated based on the technique(s) they impact. *Global flags* are
-the ones that don't impact any technique, or impact all of them. Log flags,
-help flags, timeout flags... are global flags.
-
-**NB:** when adding a boolean flag, make sure to parse its value with the
-`bool_of_string` function.
-
-## Adding a new (non-global) flag to an existing module
-
-Adding a new flag impacts three pieces of code. The first is the body of the
-module you're adding the flag to. Generally speaking, adding a flag looks like
-
-```ocaml
-(* Default value of the flag. *)
-let my_flag_default = ...
-(* Reference storing the value of the flag. *)
-let my_flag = ref my_flag_default
-(* Add flag specification to module specs. *)
-let _ = add_spec (
-  (* The actual flag. *)
-  "--my_flag",
-  (* What to do with the value given to the flag, see other flags. *)
-  ...,
-  (* Flag description. *)
-  fun fmt ->
-    Format.fprintf fmt
-      "@[<v>Description of my flag.@ Default: %a@]"
-      pp_print_default_value_of_my_flag my_flag_default
-)
-(* Flag value accessor. *)
-let my_flag () = !my_flag
-```
-
-At this point your flag is integrated in the Kind 2 flags.
-
-To make it available to the rest of Kind 2, you need to modify the signature of
-the module you added the flag to
-
-* in this file, where the module is declared, and
-* in `flags.mli`.
-
-The update to the signature is typically
-
-```ocaml
-  val my_flag : unit -> type_of_my_flag
-```
-
-
-## Adding a new global flag
-
-Global flags are given in the `Global` module. They are specified almost the
-same way as discussed in the previous section for non-global flags. The
-difference is in the spec definition, more precisely the flag description:
-
-```ocaml
-let _ = add_spec (
-  (* The actual flag. *)
-  "--my_flag",
-  (* What to do with the value given to the flag, see other flags. *)
-  ...,
-  (* Flag description IS DIFFERENT. *)
-  Format.sprintf "..."
-)
-```
-
-Unfortunately global flags rely on the ocaml `Arg` module which for some
-reason was written by someone oblivious to the format module. As a result
-the description has to be a string and it's rather tricky to have it look
-nice. See existing global flags for more info.
-
-
-## Adding a new flag module
-
-The template to add a new module is
-
-```ocaml
-module MyModule : sig
-  include FlagModule
-end = struct
-
-  (* Identifier of the module. No space or special characters. *)
-  let id = "..."
-  (* Short description of the module. *)
-  let desc = "..."
-  (* Explanation of the module. *)
-  let fmt_explain fmt =
-    Format.fprintf fmt "@[<v>\
-      ...\
-    @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
-
-end
-```
-
-Don't forget to update `flags.mli`:
-
-```ocaml
-module MyModule : sig
-  include FlagModule
-end
-```
-
-You then need to add your module to the `module_map`, the association map
-between module identifiers and modules. Make sure the identifier for your
-module is not used yet.
-
-You can now add modules following the instructions in the previous section.
-
-*)
+(* Raised on unknown flag. Stores the unknown flag. *)
+exception UnknownFlag of string
+(* Raised on bad argument for existing flag. Stores an explanation, the flag
+and the description of the flag. *)
+exception BadArg of string * (string * Arg.spec * (Format.formatter -> unit))
 
 
 (* Strings recognized as the bool value [true]. *)
 let true_strings = [ "true" ; "on" ; "t" ]
 (* Strings recognized as the bool value [false]. *)
 let false_strings = [ "false" ; "off" ; "f" ]
-(* String to bool. *)
-let bool_of_string s =
-  if List.mem s true_strings then true
-  else if List.mem s false_strings then false
-  else Arg.Bad (
-    Format.asprintf
-      "expected boolean (%a, %a), but got %s"
-      (pp_print_list Format.pp_print_string ", ") true_strings
-      (pp_print_list Format.pp_print_string ", ") false_strings
-      s
-  ) |> raise
+
+(* Bool formatter. *)
+let fmt_bool fmt b =
+  Format.fprintf fmt "%s" (if b then "true" else "false")
+
 (* Parses a bool and sets a reference. *)
-let bool_arg reference = Arg.String (
-  fun s -> reference := bool_of_string s
-)
+let bool_arg reference = Arg.Bool (fun b -> reference := b)
+
+
+(* Prints a flag [(flag, spec, desc)]. *)
+let fmt_flag fmt (flag, spec, desc) =
+  Format.fprintf
+    fmt
+    "@[<v>%t@[<v>%t@]@]"
+    (fun fmt -> match spec with
+      | Arg.Unit _ | Arg.Set _ | Arg.Clear _ ->
+        Format.fprintf fmt "\x1b[1m%-10s\x1b[0m" flag
+      | Arg.Bool _ ->
+        Format.fprintf fmt "\x1b[1m%s <bool>\x1b[0m@   " flag
+      | Arg.String _ | Arg.Set_string _ ->
+        Format.fprintf fmt "\x1b[1m%s <string>\x1b[0m@   " flag
+      | Arg.Int _ | Arg.Set_int _ ->
+        Format.fprintf fmt "\x1b[1m%s <int>\x1b[0m@   " flag
+      | Arg.Float _ | Arg.Set_float _ ->
+        Format.fprintf fmt "\x1b[1m%s <float>\x1b[0m@   " flag
+      | _ ->
+        failwith "Unsupported Arg.spec (Tuple, Symbol, or Rest)."
+    )
+    desc
+
+(* Prints all the flags in the input list, given a triples of the flag,
+its spec, and its description. *)
+let print_flags =
+  Format.printf "@[<v>%a@]" (pp_print_list fmt_flag "@ ")
 
 (* Signature of modules for flags. *)
 module type FlagModule = sig
@@ -244,7 +150,7 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
@@ -275,15 +181,19 @@ end = struct
   let solver_values = "Z3, CVC4, MathSat5, Yices, Yices2"
   let solver_default = `detect
   let solver = ref solver_default
-  let _ = add_spec (
-    "--smt_solver",
-    Arg.String (fun str -> solver := solver_of_string str),
-    fun fmt ->
+  let _ = add_spec
+    "--smt_solver"
+    (Arg.String (fun str -> solver := solver_of_string str))
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>choose SMT solver@ Available: %s@ Default: %s@]"
+        "@[<v>\
+          where <string> can be %s@ \
+          Choose an SMT solver@ \
+          Default: %s\
+        @]"
         solver_values
         (string_of_solver solver_default)
-  )
+    )
   let set_solver s = solver := s
   let solver () = !solver
 
@@ -304,18 +214,19 @@ end = struct
     | `Logic s -> s
   let logic_default = `None
   let logic = ref logic_default
-  let _ = add_spec (
-    "--smt_logic",
-    Arg.String (fun str -> logic := logic_of_string str),
-    fun fmt ->
+  let _ = add_spec
+    "--smt_logic"
+    (Arg.String (fun str -> logic := logic_of_string str))
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
+          where <string> is none, detect, or a legal SMT-LIB logic@ \
           Select logic for SMT solvers@ \
           \"none\" for no logic (default)@ \
           \"detect\" to detect with the input system@ \
-          Other SMTLIB logics will be passed to the solver\
+          Other SMT-LIB logics will be passed to the solver\
         @]"
-  )
+    )
   let logic () = !logic
 
   (* Activates check-sat with assumptions when supported. *)
@@ -323,18 +234,18 @@ end = struct
   let string_of_check_sat_assume s = s
   let check_sat_assume_default = true
   let check_sat_assume = ref check_sat_assume_default
-  let _ = add_spec (
-    "--check_sat_assume",
-    bool_arg check_sat_assume,
-    fun fmt ->
+  let _ = add_spec
+    "--check_sat_assume"
+    (bool_arg check_sat_assume)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Use check-sat with assumptions, or simulate with push/pop@ \
           when false@ \
-          Default: %B\
+          Default: %a\
         @]"
-      check_sat_assume_default
-  )
+      fmt_bool check_sat_assume_default
+    )
   let check_sat_assume () = !check_sat_assume
 
   (* Use short name for variables at SMT level. *)
@@ -342,17 +253,17 @@ end = struct
   let string_of_short_names s = s
   let short_names_default = true
   let short_names = ref short_names_default
-  let _ = add_spec (
-    "--smt_short_names",
-    bool_arg short_names,
-    fun fmt ->
+  let _ = add_spec
+    "--smt_short_names"
+    (bool_arg short_names)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Send short variables names to SMT solver, send full names if false@ \
-          Default: %B\
+          Default: %a\
         @]"
-      short_names_default
-  )
+      fmt_bool short_names_default
+    )
   let short_names () = !short_names
 
   (* Z3 binary. *)
@@ -360,14 +271,14 @@ end = struct
   let string_of_z3_bin s = s
   let z3_bin_default = "z3"
   let z3_bin = ref z3_bin_default
-  let _ = add_spec (
-    "--z3_bin",
-    Arg.Set_string z3_bin,
-    fun fmt ->
+  let _ = add_spec
+    "--z3_bin"
+    (Arg.Set_string z3_bin)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of Z3 solver@ Default: \"%s\"@]"
         (string_of_z3_bin z3_bin_default)
-  )
+    )
   let set_z3_bin str = z3_bin := str
   let z3_bin () = ! z3_bin
 
@@ -376,14 +287,14 @@ end = struct
   let string_of_cvc4_bin s = s
   let cvc4_bin_default = "cvc4"
   let cvc4_bin = ref cvc4_bin_default
-  let _ = add_spec (
-    "--cvc4_bin",
-    Arg.Set_string cvc4_bin,
-    fun fmt ->
+  let _ = add_spec
+    "--cvc4_bin"
+    (Arg.Set_string cvc4_bin)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of CVC4 solver@ Default: \"%s\"@]"
         (string_of_cvc4_bin cvc4_bin_default)
-  )
+    )
   let set_cvc4_bin str = cvc4_bin := str
   let cvc4_bin () = !cvc4_bin
 
@@ -392,14 +303,14 @@ end = struct
   let string_of_mathsat5_bin s = s
   let mathsat5_bin_default = "mathsat"
   let mathsat5_bin = ref mathsat5_bin_default
-  let _ = add_spec (
-    "--mathsat5_bin",
-    Arg.Set_string mathsat5_bin,
-    fun fmt ->
+  let _ = add_spec
+    "--mathsat5_bin"
+    (Arg.Set_string mathsat5_bin)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of MathSAT5 solver@ Default: \"%s\"@]"
         (string_of_mathsat5_bin mathsat5_bin_default)
-  )
+    )
   let set_mathsat5_bin str = mathsat5_bin := str
   let mathsat5_bin () = !mathsat5_bin
 
@@ -408,14 +319,14 @@ end = struct
   let string_of_yices_bin s = s
   let yices_bin_default = "yices"
   let yices_bin = ref yices_bin_default
-  let _ = add_spec (
-    "--yices_bin",
-    Arg.Set_string yices_bin,
-    fun fmt ->
+  let _ = add_spec
+    "--yices_bin"
+    (Arg.Set_string yices_bin)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of Yices solver@ Default: \"%s\"@]"
         (string_of_yices_bin yices_bin_default)
-  )
+    )
   let set_yices_bin str = yices_bin := str
   let yices_bin () = !yices_bin
 
@@ -424,27 +335,27 @@ end = struct
   let string_of_yices2smt2_bin s = s
   let yices2smt2_bin_default = "yices-smt2"
   let yices2smt2_bin = ref yices2smt2_bin_default
-  let _ = add_spec (
-    "--yices2_bin",
-    Arg.Set_string yices2smt2_bin,
-    fun fmt ->
+  let _ = add_spec
+    "--yices2_bin"
+    (Arg.Set_string yices2smt2_bin)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of Yices2 SMT2 solver@ Default: \"%s\"@]"
         (string_of_yices2smt2_bin yices2smt2_bin_default)
-  )
+    )
   let set_yices2smt2_bin str = yices2smt2_bin := str
   let yices2smt2_bin () = !yices2smt2_bin
 
   (* Activates logging of SMT interactions. *)
   let trace_default = false
   let trace = ref trace_default
-  let _ = add_spec (
-    "--smt_trace",
-    Arg.Set trace,
-    fun fmt ->
+  let _ = add_spec
+    "--smt_trace"
+    (Arg.Set trace)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>Write all SMT commands to files@]"
-  )
+    )
   let trace () = !trace
 
   (* Folder to log the SMT traces into. *)
@@ -508,120 +419,120 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let max_default = 0
   let max = ref max_default
-  let _ = add_spec (
-    "--unroll_max",
-    Arg.Set_int max,
-    fun fmt ->
+  let _ = add_spec
+    "--unroll_max"
+    (Arg.Set_int max)
+    (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
         Maximal number of iterations for BMC and k-induction@ \
-        Default: %d, unlimited: 0\
+        Default: %d (unlimited: 0)\
       @]"
       max_default
-  )
+    )
   let max () = !max
 
   let check_unroll_default = true
   let check_unroll = ref check_unroll_default
-  let _ = add_spec (
-    "--bmc_check_unroll",
-    bool_arg check_unroll,
-    fun fmt ->
+  let _ = add_spec
+    "--bmc_check_unroll"
+    (bool_arg check_unroll)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Check that the unrolling alone is satisfiable@ \
-          Default: %b\
+          Default: %a\
         @]"
-        check_unroll_default
-  )
+        fmt_bool check_unroll_default
+    )
   let check_unroll () = !check_unroll
 
   let print_cex_default = false
   let print_cex = ref print_cex_default
-  let _ = add_spec (
-    "--ind_print_cex",
-    bool_arg print_cex,
-    fun fmt ->
+  let _ = add_spec
+    "--ind_print_cex"
+    (bool_arg print_cex)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Print counterexamples to induction@ Default: %b@]"
-        print_cex_default
-  )
+        "@[<v>Print counterexamples to induction@ Default: %a@]"
+        fmt_bool print_cex_default
+    )
   let print_cex () = !print_cex
 
   let compress_default = true
   let compress = ref compress_default
-  let _ = add_spec (
-    "--ind_compress",
-    bool_arg compress,
-    fun fmt ->
+  let _ = add_spec
+    "--ind_compress"
+    (bool_arg compress)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Compress inductive counterexamples@ Default: %B@]"
-        compress_default
-  )
+        "@[<v>Compress inductive counterexamples@ Default: %a@]"
+        fmt_bool compress_default
+    )
   let compress () = !compress
 
   let compress_equal_default = true
   let compress_equal = ref compress_equal_default
-  let _ = add_spec (
-    "--ind_compress_equal",
-    bool_arg compress_equal,
-    fun fmt ->
+  let _ = add_spec
+    "--ind_compress_equal"
+    (bool_arg compress_equal)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Compress inductive counterexamples for states equal modulo inputs@ \
-          Default: %B\
+          Default: %a\
         @]"
-        compress_equal_default
-  )
+        fmt_bool compress_equal_default
+    )
   let compress_equal () = !compress_equal
 
   let compress_same_succ_default = false
   let compress_same_succ = ref compress_same_succ_default
-  let _ = add_spec (
-    "--ind_compress_same_succ",
-    bool_arg compress_same_succ,
-    fun fmt ->
+  let _ = add_spec
+    "--ind_compress_same_succ"
+    (bool_arg compress_same_succ)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Compress inductive counterexamples for states with same successors@ \
-          Default: %B\
+          Default: %a\
         @]"
-        compress_same_succ_default
-  )
+        fmt_bool compress_same_succ_default
+    )
   let compress_same_succ () = !compress_same_succ
 
   let compress_same_pred_default = false
   let compress_same_pred = ref compress_same_pred_default
-  let _ = add_spec (
-  "--ind_compress_same_pred",
-    bool_arg compress_same_pred,
-    fun fmt ->
+  let _ = add_spec
+    "--ind_compress_same_pred"
+    (bool_arg compress_same_pred)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Compress inductive counterexamples for states with same predecessors@ \
-          Default: %B\
+          Default: %a\
         @]"
-        compress_same_pred_default
-  )
+        fmt_bool compress_same_pred_default
+    )
   let compress_same_pred () = !compress_same_pred
 
   let lazy_invariants_default = false
   let lazy_invariants = ref lazy_invariants_default
-  let _ = add_spec (
-    "--ind_lazy_invariants",
-    bool_arg lazy_invariants,
-    fun fmt ->
+  let _ = add_spec
+    "--ind_lazy_invariants"
+    (bool_arg lazy_invariants)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Asserts invariants lazily@ Default: %B@]"
-        lazy_invariants_default
-  )
+        "@[<v>Asserts invariants lazily@ Default: %a@]"
+        fmt_bool lazy_invariants_default
+    )
   let lazy_invariants () = !lazy_invariants
 
 end
@@ -676,48 +587,51 @@ end = struct
     Format.fprintf fmt "@[<v>\
       IC3 (a.k.a. PDR) is a relatively recent technique that tries to prove@ \
       a property by contructing an inductive invariant that implies it.@ \
-      The IC3 engine in Kind 2 performs quantifier elimination (see module@ \
-      \"qe\"), and because of how it is implemented it is known to be rather@ \
-      slow on systems using real variables.\
+      The IC3 engine in Kind 2 performs quantifier elimination which has its@ \
+      own flags (see module \"qe\").\
     @]"
 
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let check_inductive_default = true
   let check_inductive = ref check_inductive_default
-  let _ = add_spec (
-    "--ic3_check_inductive",
-    bool_arg check_inductive,
-    fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Check inductiveness of blocking clauses@ Default: %s@]"
-        (string_of_bool check_inductive_default)
-  )
+  let _ = add_spec
+    "--ic3_check_inductive"
+    (bool_arg check_inductive)
+    (fun fmt ->
+    Format.fprintf fmt
+      "@[<v>Check inductiveness of blocking clauses@ Default: %a@]"
+      fmt_bool check_inductive_default
+    )
   let check_inductive () = !check_inductive
 
   let print_to_file_default = None
   let print_to_file = ref print_to_file_default
-  let _ = add_spec (
-    "--ic3_print_to_file",
-    Arg.String (fun str -> print_to_file := Some str),
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_print_to_file"
+    (Arg.String (fun str -> print_to_file := Some str))
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Output file for blocking clauses@ Default: stdout@]"
-  )
+        "@[<v>\
+          where <string> is a file path in an existing directory.@ \
+          Output file for blocking clauses@ \
+          Default: stdout\
+        @]"
+    )
   let print_to_file () = !print_to_file
 
   let inductively_generalize_default = 1
   let inductively_generalize = ref inductively_generalize_default
-  let _ = add_spec (
-    "--ic3_inductively_generalize",
-    Arg.Set_int inductively_generalize,
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_inductively_generalize"
+    (Arg.Set_int inductively_generalize)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Inductively generalize blocking clauses before forward propagation@ \
@@ -727,86 +641,86 @@ end = struct
           Default: %s\
         @]"
         (string_of_int inductively_generalize_default)
-  )
+    )
   let inductively_generalize () = !inductively_generalize
 
   let block_in_future_default = true
   let block_in_future = ref block_in_future_default
-  let _ = add_spec (
-    "--ic3_block_in_future",
-    bool_arg block_in_future,
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_block_in_future"
+    (bool_arg block_in_future)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Block counterexample in future frames@ Default: %s@]"
-        (string_of_bool block_in_future_default)
-  )
+        "@[<v>Block counterexample in future frames@ Default: %a@]"
+        fmt_bool block_in_future_default
+    )
   let block_in_future () = !block_in_future
 
   let block_in_future_first_default = true
   let block_in_future_first = ref block_in_future_first_default
-  let _ = add_spec (
-    "--ic3_block_in_future_first",
-    bool_arg block_in_future_first,
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_block_in_future_first"
+    (bool_arg block_in_future_first)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Block counterexample in future frames first before returning to@ \
           frame@ \
-          Default: %s\
+          Default: %a\
         @]"
-        (string_of_bool block_in_future_first_default)
-  )
+        fmt_bool block_in_future_first_default
+    )
   let block_in_future_first () = !block_in_future_first
 
   let fwd_prop_non_gen_default = true
   let fwd_prop_non_gen = ref fwd_prop_non_gen_default
-  let _ = add_spec (
-    "--ic3_fwd_prop_non_gen",
-    bool_arg fwd_prop_non_gen,
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_fwd_prop_non_gen"
+    (bool_arg fwd_prop_non_gen)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Also propagate clauses before generalization@ Default: %s@]"
-        (string_of_bool fwd_prop_non_gen_default)
-  )
+        "@[<v>Also propagate clauses before generalization@ Default: %a@]"
+        fmt_bool fwd_prop_non_gen_default
+    )
   let fwd_prop_non_gen () = !fwd_prop_non_gen
 
   let fwd_prop_ind_gen_default = true
   let fwd_prop_ind_gen = ref fwd_prop_ind_gen_default
-  let _ = add_spec (
-    "--ic3_fwd_prop_ind_gen",
-    bool_arg fwd_prop_ind_gen,
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_fwd_prop_ind_gen"
+    (bool_arg fwd_prop_ind_gen)
+    (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
         Inductively generalize all clauses after forward propagation@ \
-        Default: %s\
+        Default: %a\
       @]"
-      (string_of_bool fwd_prop_ind_gen_default)
-  )
+      fmt_bool fwd_prop_ind_gen_default
+    )
   let fwd_prop_ind_gen () = !fwd_prop_ind_gen
 
   let fwd_prop_subsume_default = true
   let fwd_prop_subsume = ref fwd_prop_subsume_default
-  let _ = add_spec (
-    "--ic3_fwd_prop_subsume",
-    bool_arg fwd_prop_subsume,
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_fwd_prop_subsume"
+    (bool_arg fwd_prop_subsume)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Subsumption in forward propagation@ Default: %s@]"
-        (string_of_bool fwd_prop_subsume_default)
-  )
+        "@[<v>Subsumption in forward propagation@ Default: %a@]"
+        fmt_bool fwd_prop_subsume_default
+    )
   let fwd_prop_subsume () = !fwd_prop_subsume
 
   let use_invgen_default = true
   let use_invgen = ref use_invgen_default
-  let _ = add_spec (
-    "--ic3_use_invgen",
-    bool_arg use_invgen,
-    fun fmt  ->
+  let _ = add_spec
+    "--ic3_use_invgen"
+    (bool_arg use_invgen)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Use invariants from invariant generators@ Default: %s@]"
-        (string_of_bool use_invgen_default)
-  )
+        "@[<v>Use invariants from invariant generators@ Default: %a@]"
+        fmt_bool use_invgen_default
+    )
   let use_invgen () = !use_invgen
 
   type qe = [
@@ -828,18 +742,18 @@ end = struct
   ] |> List.map string_of_qe |> String.concat ", "
   let qe_default = `Cooper
   let qe = ref qe_default
-  let _ = add_spec (
-    "--ic3_qe",
-    Arg.String (fun str -> qe := qe_of_string str),
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_qe"
+    (Arg.String (fun str -> qe := qe_of_string str))
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
+          where <string> can be %s@ \
           Choose quantifier elimination algorithm@ \
-          Available: %s@ \
           Default: %s\
         @]"
         qe_values (string_of_qe qe_default)
-  )
+    )
   let set_qe q = qe := q
   let qe () = !qe
 
@@ -856,18 +770,18 @@ end = struct
   ] |> List.map string_of_extract |> String.concat ", "
   let extract_default = `First
   let extract = ref extract_default
-  let _ = add_spec (
-    "--ic3_extract",
-    Arg.String (fun str -> extract := extract_of_string str),
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_extract"
+    (Arg.String (fun str -> extract := extract_of_string str))
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
+          where <string> can be %s@ \
           Heuristics for extraction of implicant@ \
-          Available: %s@ \
           Default: %s\
         @]"
         extract_values (string_of_extract extract_default)
-  )
+    )
   let extract () = !extract
 
   type abstr = [ `None | `IA ]
@@ -883,16 +797,18 @@ end = struct
   ] |> List.map string_of_abstr |> String.concat ", "
   let abstr_default = `None
   let abstr = ref abstr_default
-  let _ = add_spec (
-    "--ic3_abstr",
-    Arg.String (fun str -> abstr := abstr_of_string str),
-    fun fmt ->
+  let _ = add_spec
+    "--ic3_abstr"
+    (Arg.String (fun str -> abstr := abstr_of_string str))
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Choose method of abstraction in IC3@ Available: %s@ Default: %s\
+          where <string> can be %s@ \
+          Choose method of abstraction in IC3@ \
+          Default: %s\
         @]"
         abstr_values (string_of_abstr abstr_default)
-  )
+    )
   let abstr () = !abstr
 
 end
@@ -926,39 +842,39 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let order_var_by_elim_default = false
   let order_var_by_elim = ref order_var_by_elim_default
-  let _ = add_spec (
-    "--order_var_by_elim",
-    bool_arg order_var_by_elim,
-    fun fmt ->
+  let _ = add_spec
+    "--order_var_by_elim"
+    (bool_arg order_var_by_elim)
+    (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
         Order variables in polynomials by order of elimination@ \
-        Default: %B\
+        Default: %a\
       @]"
-      order_var_by_elim_default
-  )
+      fmt_bool order_var_by_elim_default
+    )
   let order_var_by_elim () = !order_var_by_elim
 
   let general_lbound_default = false
   let general_lbound = ref general_lbound_default
-  let _ = add_spec (
-    "--general_lbound",
-    bool_arg general_lbound,
-    fun fmt ->
+  let _ = add_spec
+    "--general_lbound"
+    (bool_arg general_lbound)
+    (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
         Choose lower bounds containing variables@ \
-        Default: %B\
+        Default: %a\
       @]"
-      general_lbound_default
-  )
+      fmt_bool general_lbound_default
+    )
   let general_lbound () = !general_lbound
 end
 
@@ -995,55 +911,135 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let compositional_default = false
   let compositional = ref compositional_default
-  let _ = add_spec (
-    "--compositional",
-    bool_arg compositional,
-    fun fmt ->
+  let _ = add_spec
+    "--compositional"
+    (bool_arg compositional)
+    (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Abstract subnodes with a contract@ Default: %B@]"
-        compositional_default
-  )
+        "@[<v>Abstract subnodes with a contract@ Default: %a@]"
+        fmt_bool compositional_default
+    )
   let compositional () = !compositional
 
   let check_modes_default = true
   let check_modes = ref check_modes_default
-  let _ = add_spec (
-    "--check_modes",
-    bool_arg check_modes,
-    fun fmt ->
+  let _ = add_spec
+    "--check_modes"
+    (bool_arg check_modes)
+    (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
         Checks the modes of a contracts are exhaustive@ \
-        Default: %B\
+        Default: %a\
       @]"
-      check_modes_default
-  )
+      fmt_bool check_modes_default
+    )
   let check_modes () = !check_modes
 
   let check_implem_default = true
   let check_implem = ref check_implem_default
-  let _ = add_spec (
-    "--check_implem",
-    bool_arg check_implem,
-    fun fmt ->
+  let _ = add_spec
+    "--check_implem"
+    (bool_arg check_implem)
+    (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
         Checks the implementation of nodes@ \
-        Default: %B\
+        Default: %a\
       @]"
-      check_implem_default
-  )
+      fmt_bool check_implem_default
+    )
   let check_implem () = !check_implem
 
 end
 
+
+(* Arrays flags. *)
+module Arrays : sig
+  include FlagModule
+  (** Use builtin theory of arrays in SMT solver *)
+  val smt : unit -> bool
+  (** Inline arrays with fixed bounds *)
+  val inline : unit -> bool
+  (** Define recursive functions for arrays *)
+  val recdef : unit -> bool
+end = struct
+
+  (* Identifier of the module. *)
+  let id = "arrays"
+  (* Short description of the module. *)
+  let desc = "arrays flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 extends Lustre with a syntax for recursive whole arrays@ \
+      definitions. The syntax and semantics are described in@ \
+      Kind 2 documentation.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let smt_default = false
+  let smt = ref smt_default
+  let _ = add_spec
+    "--smt"
+    (bool_arg smt)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Use the builtin theory of arrays in solvers.@ Default: %a@]"
+        fmt_bool smt_default
+    )
+  let smt () = !smt
+
+  let inline_default = false
+  let inline = ref inline_default
+  let _ = add_spec
+    "--inline_arrays"
+    (bool_arg inline)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Inline arrays whose bound is statically known.@ Default: %a@]"
+        fmt_bool inline_default
+    )
+  let inline () = !inline
+
+  let recdef_default = false
+  let recdef = ref recdef_default
+
+  let recdef_action b =
+    recdef := b;
+    match Smt.solver () with
+    | `CVC4_SMTLIB -> ()
+    | _ ->
+      raise (Arg.Bad 
+               "Recursive encoding of arrays can only be used with CVC4. \
+                Use the flag --smtsolver CVC4")  
+
+  let _ = add_spec
+    "--arrays_rec"
+    (Arg.Bool recdef_action)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Define recurvsive functions for arrays (only if previously@ \
+         selected CVC4 as the SMT solver).@ Default: %a@]"
+        fmt_bool recdef_default
+    )
+  let recdef () = !recdef
+
+end
 
 
 (* Testgen flags. *)
@@ -1073,54 +1069,54 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let active_default = false
   let active = ref active_default
-  let _ = add_spec (
-    "--testgen",
-    bool_arg active,
-    fun fmt ->
+  let _ = add_spec
+    "--testgen"
+    (bool_arg active)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Activates test generation for systems proved correct@ \
-          Default: %b\
+          Default: %a\
         @]"
-        active_default
-  )
+        fmt_bool active_default
+    )
   let active () = !active
 
   let graph_only_default = false
   let graph_only = ref graph_only_default
-  let _ = add_spec (
-    "--testgen_graph_only",
-    bool_arg graph_only,
-    fun fmt ->
+  let _ = add_spec
+    "--testgen_graph_only"
+    (bool_arg graph_only)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Only draw the graph of reachable modes, do not log testcases.@ \
-          Default: %b\
+          Default: %a\
         @]"
-        graph_only_default
-  )
+        fmt_bool graph_only_default
+    )
   let graph_only () = !graph_only
 
   let len_default = 5
   let len = ref len_default
-  let _ = add_spec (
-    "--testgen_len",
-    Arg.Set_int len,
-    fun fmt ->
+  let _ = add_spec
+    "--testgen_len"
+    (Arg.Set_int len)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Maximimum length for test generation@ \
           Default: %d\
         @]"
         len_default
-  )
+    )
   let len () = !len
 
 end
@@ -1162,100 +1158,100 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let prune_trivial_default = true
   let prune_trivial = ref prune_trivial_default
-  let _ = add_spec (
-    "--invgen_prune_trivial",
-    bool_arg prune_trivial,
-    fun fmt ->
+  let _ = add_spec
+    "--invgen_prune_trivial"
+    (bool_arg prune_trivial)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Invariant generation will only communicate invariants not implied@ \
           by the transition relation@ \
-          Default: %B\
+          Default: %a\
         @]"
-        prune_trivial_default
-  )
+        fmt_bool prune_trivial_default
+    )
   let prune_trivial () = !prune_trivial
 
   let max_succ_default = 1
   let max_succ = ref max_succ_default
-  let _ = add_spec (
-    "--invgen_max_succ",
-    Arg.Int (fun b -> max_succ := b),
-    fun fmt ->
+  let _ = add_spec
+    "--invgen_max_succ"
+    (Arg.Int (fun b -> max_succ := b))
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Maximal number of successive iterations for subsystems@ \
           Default: %d\
         @]"
         max_succ_default
-  )
+    )
   let max_succ () = !max_succ
 
   let lift_candidates_default = false
   let lift_candidates = ref lift_candidates_default
-  let _ = add_spec (
-    "--invgen_lift_candidates",
-    bool_arg lift_candidates,
-    fun fmt ->
+  let _ = add_spec
+    "--invgen_lift_candidates"
+    (bool_arg lift_candidates)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Invariant generation will instantiate candidates from sub-nodes@ \
-          Default: %B\
+          Default: %a\
         @]"
-        lift_candidates_default
-  )
+        fmt_bool lift_candidates_default
+    )
   let lift_candidates () = !lift_candidates
 
   let top_only_default = false
   let top_only = ref top_only_default
-  let _ = add_spec (
-    "--invgen_top_only",
-    bool_arg top_only,
-    fun fmt ->
+  let _ = add_spec
+    "--invgen_top_only"
+    (bool_arg top_only)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Only generate invariants for the top level@ \
-          Default: %B\
+          Default: %a\
         @]"
-        top_only_default
-  )
+        fmt_bool top_only_default
+    )
   let top_only () = !top_only
 
   let mine_trans_default = true
   let mine_trans = ref mine_trans_default
-  let _ = add_spec (
-    "--invgen_mine_trans",
-    bool_arg mine_trans,
-    fun fmt ->
+  let _ = add_spec
+    "--invgen_mine_trans"
+    (bool_arg mine_trans)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Invariant generation will extract candidate terms from the@ \
           transition predicate@ \
-          Default: %B\
+          Default: %a\
         @]"
-        mine_trans_default
-  )
+        fmt_bool mine_trans_default
+    )
   let mine_trans () = !mine_trans
 
   let renice_default = 0
   let renice = ref renice_default
-  let _ = add_spec (
-    "--invgen_renice",
-    Arg.Set_int renice,
-    fun fmt ->
+  let _ = add_spec
+    "--invgen_renice"
+    (Arg.Set_int renice)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Renice invariant generation process. Give a positive argument to@ \
           lower priority\
         @]"
-  )
+    )
   let renice () = !renice
 end
 
@@ -1288,69 +1284,69 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let dnf_size_default = 3
   let dnf_size = ref dnf_size_default
-  let _ = add_spec (
-    "--c2i_dnf",
-    Arg.Set_int dnf_size,
-    fun fmt ->
+  let _ = add_spec
+    "--c2i_dnf"
+    (Arg.Set_int dnf_size)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Number of disjuncts in the DNF constructed by C2I@ \
           Default %d\
         @]"
         dnf_size_default
-  )
+    )
   let dnf_size () = !dnf_size
 
   let int_cube_size_default = 3
   let int_cube_size = ref int_cube_size_default
-  let _ = add_spec (
-    "--c2i_int_cubes",
-    Arg.Set_int int_cube_size,
-    fun fmt ->
+  let _ = add_spec
+    "--c2i_int_cubes"
+    (Arg.Set_int int_cube_size)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Number of int cubes in the DNF constructed by C2I@ \
           Default %d\
         @]"
         int_cube_size_default
-  )
+    )
   let int_cube_size () = !int_cube_size
 
   let real_cube_size_default = 3
   let real_cube_size = ref real_cube_size_default
-  let _ = add_spec (
-    "--c2i_real_cubes",
-    Arg.Set_int real_cube_size,
-    fun fmt ->
+  let _ = add_spec
+    "--c2i_real_cubes"
+    (Arg.Set_int real_cube_size)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Number of real cubes in the DNF constructed by C2I@ \
           Default %d\
         @]"
         real_cube_size_default
-  )
+    )
   let real_cube_size () = !real_cube_size
 
   let modes_default = true
   let modes = ref modes_default
-  let _ = add_spec (
-    "--c2i_modes",
-    bool_arg modes,
-    fun fmt ->
+  let _ = add_spec
+    "--c2i_modes"
+    (bool_arg modes)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Activates mode subcandidates. Subsumes \"c2i_dnf_size\"@ \
-          Default %b\
+          Default %a\
         @]"
-        modes_default
-  )
+        fmt_bool modes_default
+    )
   let modes () = !modes
 end
 
@@ -1361,7 +1357,7 @@ module Interpreter : sig
   (** Read input from file. *)
   val input_file : unit -> string
   (** Run number of steps, override the number of steps given in the input
-    file. *)
+  file. *)
   val steps : unit -> int
 end = struct
 
@@ -1379,27 +1375,27 @@ end = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
   let input_file_default = ""
   let input_file = ref input_file_default
-  let _ = add_spec (
-    "--interpreter_input_file",
-    Arg.Set_string input_file,
-    fun fmt ->
+  let _ = add_spec
+    "--interpreter_input_file"
+    (Arg.Set_string input_file)
+    (fun fmt ->
       Format.fprintf fmt "@[<v>Read input from file@]"
-  )
+    )
   let input_file () = !input_file
 
   let steps_default = 0
   let steps = ref steps_default
-  let _ = add_spec (
-    "--interpreter_steps",
-    Arg.Set_int steps,
-    fun fmt ->
+  let _ = add_spec
+    "--interpreter_steps"
+    (Arg.Set_int steps)
+    (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
           Run number of steps, override the number of steps given in the@ \
@@ -1407,7 +1403,7 @@ end = struct
           Default: %d\
         @]"
         steps_default
-  )
+    )
   let steps () = !steps
 
 end
@@ -1420,16 +1416,11 @@ end
 (* Maps identifiers to modules flag specifications and description        *)
 (* ********************************************************************** *)
 
-let usage_msg = Filename.basename Sys.executable_name |> Format.sprintf "\
-  Usage: %s [options] <lustre_file>@.\
-  Prove properties in Lustre program <lustre_file>.\
+let usage_msg_header = Filename.basename Sys.executable_name |> Format.sprintf "\
+  Usage: \x1b[1m%s [options] <input_file>\x1b[0m\
 "
 
-let global_usage_msg =
-  Format.sprintf "\
-    %s@.\
-    Global options follow, use \"--flags_of\" for module-specific information.\
-  " usage_msg
+let all_modules_id = "all"
 
 let module_map = [
   (Smt.id,
@@ -1459,6 +1450,9 @@ let module_map = [
   (Contracts.id,
     (module Contracts: FlagModule)
   ) ;
+  (Arrays.id,
+    (module Arrays: FlagModule)
+  ) ;
 ]
 
 (* Formats an element of [module_map]. *)
@@ -1466,17 +1460,14 @@ let fmt_module_info fmt (id, m0d) =
   let module Flags = (val m0d: FlagModule) in
   Format.fprintf fmt
     "\
-      |===| Module \"%s\":@.\
-        @[<v>%t@]@.\
-        @[<v>%a@]@.\
+      |===| Module \x1b[1m%s\x1b[0m:@.\
+      @[<v>%t@]\
+      @.  @[<v>%a@]@.\
     "
     id
     Flags.fmt_explain
-    (pp_print_list
-      (fun fmt (key, _, desc) ->
-        Format.fprintf fmt "  %s:@       %t" key desc)
-      "@ "
-    ) (Flags.all_specs ())
+    (pp_print_list fmt_flag "@ ")
+    (Flags.all_specs ())
 
 (* Prints module info for a list of identifiers. If ["all"] is in the list,
 prints info for all modules.
@@ -1486,8 +1477,8 @@ the list is empty. *)
 let print_module_info = function
 | [] -> ()
 | (hd :: tl) as ids -> (
-  Format.printf "%s@.@." usage_msg ;
-  if List.mem "all" ids then (
+  Format.printf "%s@.@." usage_msg_header ;
+  if List.mem all_modules_id ids then (
     Format.printf
       "%a"
       (pp_print_list fmt_module_info "@.@.")
@@ -1542,10 +1533,32 @@ module Global = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec spec = add_specs [spec]
+  let add_spec flag parse desc =
+    all_specs := !all_specs @ [ (flag, parse, desc) ]
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
+
+  (* Returns all flags in all Kind 2 modules. *)
+  let all_kind2_specs () = List.fold_left (
+    fun l (_, m0d) ->
+      let module Flags = (val m0d: FlagModule) in
+      l @ (Flags.all_specs ())
+  ) (all_specs ()) module_map
+
+  let usage_msg = Format.sprintf "\
+    %s@.\
+    Prove properties over the Lustre program in <input_file>.@.\
+    Global options follow, \
+    use \"--help_of\" for module-specific information.\
+  " usage_msg_header
+
+
+  (* Prints help. *)
+  let print_help () =
+    Format.printf "%s@.  " usage_msg ;
+    all_specs () |> print_flags ;
+    Format.printf "@."
 
 
   (* Input flag. *)
@@ -1555,31 +1568,66 @@ module Global = struct
   let input_file () = !input_file
 
 
+  (* Print help. *)
+  let help_requested_default = false
+  let help_requested = ref help_requested_default
+  let _ = add_specs [
+    (
+      "-h",
+      (Arg.Unit
+        (fun () -> print_help () ; exit 0)
+      ),
+      (fun fmt -> Format.fprintf fmt "Prints this message")
+    ) ;
+    (
+      "--help",
+      (Arg.Unit
+        (fun () -> print_help () ; exit 0)
+      ),
+      (fun fmt -> Format.fprintf fmt "Prints this message too")
+    ) ;
+  ]
+
+
+
   (* Explain modules. *)
-  let flags_of_default = []
-  let flags_of = ref flags_of_default
-  let _ = add_spec (
-    "--flags_of",
-    Arg.String (
-      fun str -> if List.mem str !flags_of |> not then
-        flags_of := str :: !flags_of
-    ),
-    Format.asprintf
-      "@.    \
-        explains and shows the flags for a Kind 2 module among\
-        @.      %a\
-        @.      %-15s explanation and flags for all Kind 2 modules\
+  let help_of_default = []
+  let help_of = ref help_of_default
+  let help_of_desc fmt =
+    Format.fprintf fmt
+      "\
+        Explains and shows the flags for a Kind 2 module@ \
+        <string> should be a legal module identifier among@   @[<v>\
+          %a@ \
+          %-15s explanation and flags for all Kind 2 modules\
+        @]\
       "
       (pp_print_list
         ( fun fmt (key, m0d) ->
           let module Flags = (val m0d: FlagModule) in
           Format.fprintf fmt
             "%-15s %s" (Format.sprintf "%s" key) Flags.desc
-        ) "@.      "
+        ) "@ "
       ) module_map
-      "all"
-  )
-  let flags_of () = !flags_of
+      all_modules_id
+  let _ = add_spec
+    "--help_of"
+    (Arg.String 
+      (fun str ->
+        if str = all_modules_id || List.mem_assoc str module_map then (
+          if List.mem str !help_of |> not then help_of := str :: !help_of
+        ) else BadArg (
+          Format.sprintf "unknown module identifier \"%s\"" str,
+          (
+            "--help_of",
+            Arg.String (fun _ -> ()),
+            help_of_desc
+          )
+        ) |> raise
+      )
+    )
+    help_of_desc
+  let help_of () = !help_of
 
 
   (* Main lustre node. *)
@@ -1590,15 +1638,18 @@ module Global = struct
   let lus_main_default = None
 
   let lus_main = ref lus_main_default
-  let _ = add_spec (
-    "--lus_main",
-    Arg.String (fun str -> lus_main := Some str),
-    Format.sprintf
-      "@.     \
-        Use the given node as top node in Lustre input@.     \
-        Default: \"--%%MAIN\" annotation in source if any, last node otherwise\
-      "
-  )
+  let _ = add_spec
+    "--lus_main"
+    (Arg.String (fun str -> lus_main := Some str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> is node identifier from the Lustre input file@ \
+          Specifies the top node in the Lustre input file@ \
+          Default: \"--%%MAIN\" annotation in source if any, last node@ \
+          otherwise\
+        "
+    )
   let lus_main () = !lus_main
 
 
@@ -1610,7 +1661,7 @@ module Global = struct
     | "lustre" -> `Lustre
     | "horn" -> `Horn
     | "native" -> `Native
-    | _ -> raise (Arg.Bad "Bad value for --input-format")
+    | _ -> raise (Arg.Bad "Bad value for --input_format")
   let string_of_input_format = function
     | `Lustre -> "lustre"
     | `Horn -> "horn"
@@ -1621,34 +1672,37 @@ module Global = struct
   let input_format_default = `Lustre
 
   let input_format = ref input_format_default
-  let _ = add_spec (
-    "--input-format",
-    Arg.String (fun str -> input_format := input_format_of_string str),
-    Format.sprintf
-      "@.     \
-        Format of input file@.     \
-        Available: %s, Default: %s\
-      "
-      input_format_values
-      (string_of_input_format input_format_default)
-  )
+  let _ = add_spec
+    "--input_format"
+    (Arg.String (fun str -> input_format := input_format_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be %s@ \
+          Format of input file@ \
+          Default: %s\
+        "
+        input_format_values
+        (string_of_input_format input_format_default)
+    )
   let input_format () = !input_format
 
 
   (* Output directory. *)
   let output_dir_default = "kind2"
   let output_dir = ref output_dir_default
-  let _ = add_spec (
-    "--output_dir",
-    Arg.Set_string output_dir,
-    Format.sprintf
-      "@.     \
-        Output directory for the files generated:@.     \
-        SMT traces, compilation, testgen, certification...@.     \
-        Default: \"%s\"\
-      "
-      output_dir_default
-  )
+  let _ = add_spec
+    "--output_dir"
+    (Arg.Set_string output_dir)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Output directory for the files generated:@ \
+          SMT traces, compilation, testgen, certification...@ \
+          Default: \"%s\"\
+        "
+        output_dir_default
+    )
   let output_dir () = !output_dir
 
 
@@ -1658,16 +1712,19 @@ module Global = struct
   let _ = add_specs ([
     ( "--timeout",
       Arg.Set_float timeout_wall,
-      Format.sprintf
-        "@.     \
-          Wallclock timeout in seconds@.     \
-          Default: %1.f\
-        "
-        timeout_wall_default
+      fun fmt ->
+        Format.fprintf fmt
+          "\
+            Wallclock timeout in seconds@ \
+            Default: %1.f\
+          "
+          timeout_wall_default
     ) ;
     ( "--timeout_wall",
       Arg.Set_float timeout_wall,
-      Format.sprintf "@.     Same as \"--timeout\" (here for legacy)"
+      fun fmt ->
+        Format.fprintf fmt
+          "Same as \"--timeout\", for legacy"
     )
   ])
   let timeout_wall () = !timeout_wall
@@ -1725,115 +1782,127 @@ module Global = struct
     enabled := !enabled |> List.filter (
       fun mdl -> List.mem mdl !disabled |> not
     )
-  let _ = add_spec (
-    "--enable",
-    Arg.String (
-      fun str ->
+  let _ = add_spec
+    "--enable"
+    (Arg.String
+      (fun str ->
         let mdl = kind_module_of_string str in
         if List.mem mdl !enabled |> not
         then enabled := mdl :: !enabled
-    ),
-    Format.sprintf
-      "@.     \
-        Enable Kind module@.     \
-        Available: %s@.     \
-        Default: %s\
-      "
-      enable_values
-      (string_of_enable enable_default_after)
-  )
+      )
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          where <string> can be %s@ \
+          Enable Kind module, repeat option to enable several modules@ \
+          Default: %s\
+        "
+        enable_values
+        (string_of_enable enable_default_after)
+    )
   let enabled () = !enabled
 
   (* Modules disabled. *)
-  let _ = add_spec (
-    "--disable",
-    Arg.String (
-      fun str ->
+  let _ = add_spec
+    "--disable"
+    (Arg.String
+      (fun str ->
         let mdl = kind_module_of_string str in
         if List.mem mdl !disabled |> not
         then disabled := mdl :: !disabled
-    ),
-    Format.sprintf
-      "@.     \
-        Disable Kind module@.     \
-        Available: %s\
+      )
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+      "\
+        where <string> can be %s@ \
+        Disable a Kind module\
       "
       enable_values
-  )
+    )
   let disabled () = !disabled
 
 
   (* Modular mode. *)
   let modular_default = false
   let modular = ref modular_default
-  let _ = add_spec (
-    "--modular",
-    bool_arg modular,
-    Format.sprintf
-      "@.     \
-        bottom-up analysis of each node@.     \
-        Default: %B\
-      "
-      modular_default
-  )
+  let _ = add_spec
+    "--modular"
+    (bool_arg modular)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Bottom-up analysis of each node@ \
+          Default: %a\
+        "
+        fmt_bool modular_default
+    )
   let modular () = !modular
 
 
   (* Reject unguarded pre's in Lustre file. *)
   let lus_strict_default = false
   let lus_strict = ref lus_strict_default
-  let _ = add_spec (
-    "--lus_strict",
-    bool_arg lus_strict,
-    Format.sprintf
-      "@.     \
-        Strict mode in Lustre: uninitialized pre and undefined@.     \
-        Local variables are not allowed when this flag is present\
-      "
-  )
+  let _ = add_spec
+    "--lus_strict"
+    (bool_arg lus_strict)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Strict mode in Lustre: uninitialized pre and undefined@ \
+          Local variables are not allowed when this flag is present@ \
+          Default: %a\
+        "
+        fmt_bool lus_strict_default
+    )
   let lus_strict () = !lus_strict
 
   let lus_compile_default = false
   let lus_compile = ref lus_compile_default
-  let _ = add_spec (
-    "--lus_compile",
-    bool_arg lus_compile,
-    Format.sprintf
-      "@.     \
-        Nodes proved correct will be compiled to Rust@.     \
-        Default: %b\
-      "
-      lus_compile_default
-  )
+  let _ = add_spec
+    "--compile"
+    (bool_arg lus_compile)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Nodes proved correct will be compiled to Rust@ \
+          Default: %a\
+        "
+        fmt_bool lus_compile_default
+    )
   let lus_compile () = !lus_compile
 
   (* Active debug sections. *)
   let debug_default = []
   let debug_ref = ref debug_default
-  let _ = add_spec (
-    "--debug",
-    Arg.String (fun str -> debug_ref := str :: !debug_ref),
-    Format.sprintf
-      "@.     \
-        Enable debug output for a section, give one --debug option\
-        @.     for each section to be enabled\
-      "
-  )
+  let _ = add_spec
+    "--debug"
+    (Arg.String (fun str -> debug_ref := str :: !debug_ref))
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Enable debug output for a section, give one --debug option@ \
+          for each section to be enabled\
+        "
+    )
   let debug () = !debug_ref
 
 
   (* Debug messages to file. *)
   let debug_log_default = None
   let debug_log = ref debug_log_default
-  let _ = add_spec (
-    "--debug-log",
-    Arg.String (fun str -> debug_log := Some str),
-    Format.sprintf
-      "@.     \
-        Output debug messages to file@.     \
+  let _ = add_spec
+    "--debug_log"
+    (Arg.String (fun str -> debug_log := Some str))
+    (fun fmt ->
+      Format.fprintf fmt
+      "\
+        where <string> is a file path in an existing directory.@ \
+        Output debug messages to file@ \
         Default: stdout\
       "
-  )
+    )
   let debug_log () = ! debug_log
 
 
@@ -1843,27 +1912,33 @@ module Global = struct
   let _ = add_specs ([
     ( "-qq",
       Arg.Unit (fun () -> log_level := L_off),
-      Format.sprintf " Disable output completely"
+      fun fmt ->
+        Format.fprintf fmt "Disable output completely"
     ) ;
     ( "-q",
       Arg.Unit (fun () -> log_level := L_fatal),
-      Format.sprintf "  Disable output, fatal errors only"
+      fun fmt ->
+        Format.fprintf fmt "Disable output, fatal errors only"
     ) ;
     ( "-s",
       Arg.Unit (fun () -> log_level := L_error),
-      Format.sprintf "  Silence output, errors only"
+      fun fmt ->
+        Format.fprintf fmt "Silence output, errors only"
     ) ;
     ( "-v",
       Arg.Unit (fun () -> log_level := L_info),
-      Format.sprintf "  Output informational messages"
+      fun fmt ->
+        Format.fprintf fmt "Output informational messages"
     ) ;
     ( "-vv",
       Arg.Unit (fun () -> log_level := L_debug),
-      Format.sprintf " Output informational and debug messages"
+      fun fmt ->
+        Format.fprintf fmt "Output informational and debug messages"
     ) ;
     ( "-vvv",
       Arg.Unit (fun () -> log_level := L_trace),
-      Format.sprintf "Output informational, debug and trace messages"
+      fun fmt ->
+        Format.fprintf fmt "Output informational, debug and trace messages"
     )
   ])
   let log_level () = !log_level
@@ -1872,23 +1947,23 @@ module Global = struct
   (* XML log. *)
   let log_format_xml_default = false
   let log_format_xml = ref log_format_xml_default
-  let _ = add_spec (
-    "-xml",
-    Arg.Set log_format_xml,
-    Format.sprintf "Output in XML format"
-  )
+  let _ = add_spec
+    "-xml"
+    (Arg.Set log_format_xml)
+    (fun fmt -> Format.fprintf fmt "Output in XML format")
   let log_format_xml () = !log_format_xml
 
 
   (* Version flag. *)
-  let check_version_default = false
-  let check_version = ref check_version_default
-  let _ = add_spec (
-    "--version",
-    Arg.Set check_version,
-    Format.sprintf "Print version information and exit"
-  )
-  let check_version () = !check_version
+  let _ = add_spec
+    "--version"
+    (Arg.Unit
+      (fun () -> 
+        Format.printf "%t@." pp_print_version ;
+        exit 0
+      )
+    )
+    (fun fmt -> Format.fprintf fmt "Print version information and exit")
 
 end
 
@@ -1905,7 +1980,6 @@ type input_format = Global.input_format
 
 let output_dir = Global.output_dir
 let enable = Global.enabled
-let check_version = Global.check_version
 let lus_strict = Global.lus_strict
 let modular = Global.modular
 let lus_main = Global.lus_main
@@ -1931,27 +2005,6 @@ let subdir_for scope =
 (* ********************************************************************** *)
 (* Parsing of command-line options into flags                             *)
 (* ********************************************************************** *)
-
-let rec help_action () =
-  Arg.Help (Arg.usage_string speclist global_usage_msg) |> raise
-
-and speclist =
-  ("--help", Arg.Unit help_action, "\\") ::
-  ("-help", Arg.Unit help_action, " | Display this list of options") ::
-  ("-h", Arg.Unit help_action, "    /") :: (
-    Global.all_specs ()
-  )
-
-let all_specs = ( Global.all_specs () ) @ (
-  List.fold_left (
-    fun l (_, m0d) ->
-      let module Flags = (val m0d: FlagModule) in
-      List.fold_left
-        (fun l (flag, action, _) -> (flag, action, "") :: l)
-        l
-        ( Flags.all_specs () )
-  ) [] module_map
-)
 
 let anon_action s =
   match Global.input_file () with
@@ -1993,18 +2046,99 @@ let set_smtsolver = function
   | `detect -> (function _ -> ())
 
 
-let parse_argv () =
-  (* Parse command-line arguments *)
-  Arg.parse all_specs anon_action global_usage_msg ;
+let bool_of_string ((flag, _, desc) as tuple) s =
+  if List.mem s true_strings then true else
+  if List.mem s false_strings then false else BadArg (
+    Format.sprintf "expected bool but got \"%s\"" s,
+    tuple
+  ) |> raise
 
-  (* Output version information only? *)
-  if Global.check_version () then (
-    Format.printf "%t@." pp_print_version ;
-    exit 0
-  ) ;
+let int_of_string ((flag, _, desc) as tuple) s = try (
+  int_of_string s
+) with _ -> BadArg (
+  Format.sprintf "expected int but got \"%s\"" s, tuple
+) |> raise
+
+let float_of_string ((flag, _, desc) as tuple) s = try (
+  float_of_string s
+) with _ -> BadArg (
+  Format.sprintf "expected float but got \"%s\"" s, tuple
+) |> raise
+
+let parse_clas specs anon_action global_usage_msg =
+  match Array.to_list Sys.argv with
+  | _ :: args ->
+
+    (* Iterates over the specs to find the action for a CLA. *)
+    let rec spec_loop clas flag = function
+      | ((flag', spec, desc) as tuple) :: _ when flag = flag' -> (
+        match spec with
+        (* Unit specs, applying. *)
+        | Arg.Unit f -> f () ; clas
+        | Arg.Set b_ref -> b_ref := true ; clas
+        | Arg.Clear b_ref -> b_ref := false ; clas
+        (* Not unit spec, checking out next CLA. *)
+        | _ -> (
+          match clas with
+          (* Got nothing, bad argument. *)
+          | [] -> BadArg ("expected value, got nothing", tuple) |> raise
+          (* Got a next argument, matching on spec. *)
+          | arg :: clas ->
+            (match spec with
+              | Arg.Bool f -> bool_of_string tuple arg |> f
+              | Arg.String f -> f arg
+              | Arg.Set_string s_ref -> s_ref := arg
+              | Arg.Int f -> int_of_string tuple arg |> f
+              | Arg.Set_int i_ref -> i_ref := int_of_string tuple arg
+              | Arg.Float f -> float_of_string tuple arg |> f
+              | Arg.Set_float f_ref -> f_ref := float_of_string tuple arg
+              | _ ->
+                failwith "unsupported specification (Tuple, Symbol, or Rest)"
+            ) ;
+            clas
+        )
+      )
+      | _ :: tail -> spec_loop clas flag tail
+      | [] -> UnknownFlag flag |> raise
+    in
+
+    (* Iterates over the CLAs. *)
+    let rec cla_loop = function
+      | [] -> ()
+      | arg :: tail -> (
+        try spec_loop tail arg specs |> cla_loop
+        with UnknownFlag flag -> (
+          match tail with
+          | [] -> anon_action arg
+          | _ -> UnknownFlag flag |> raise
+        )
+      )
+    in
+
+    (
+      try Array.to_list Sys.argv |> List.tl |> cla_loop
+      with
+      | UnknownFlag flag ->
+        Global.print_help () ;
+        Format.printf "Error: unknown flag \"%s\".@." flag ;
+        exit 2
+      | BadArg (error, flag) ->
+        Format.printf
+          "Error on flag@.@[<v>%a@]@.%s@."
+          fmt_flag flag error ;
+        exit 2
+    )
+
+  | [] ->
+    failwith "expected at least one argument, got zero"
+
+
+let parse_argv () =
+  (* CLAPing. *)
+  parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
 
   (* If any module info was requested, print it and exit. *)
-  Global.flags_of () |> List.rev |> print_module_info ;
+  Global.help_of () |> List.rev |> print_module_info ;
 
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled () ;
@@ -2013,8 +2147,7 @@ let parse_argv () =
   match Global.input_file () with
   | None ->
     Format.printf
-      "%s: No input file given.@\n" Sys.argv.(0) ;
-    Arg.usage speclist usage_msg ;
+      "%s@.Error: no input file given.@." usage_msg_header ;
     exit 2
   | Some _ -> ()
   

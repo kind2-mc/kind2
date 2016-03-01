@@ -157,7 +157,7 @@ let rec substitute_definitions'
      sure they respect the topological order of the equations. *)
   | [] ->
     let subst =
-      equations |> List.fold_left (fun subst (sv, _, _) ->
+      equations |> List.fold_left (fun subst ((sv, _), _) ->
         try
           find_and_move_to_head
             (StateVar.equal_state_vars sv)
@@ -416,7 +416,7 @@ let function_path_of_instance
 
   let zip formal actual =
     D.fold2 (fun _ f a l ->
-      (f, [], a) :: l
+      ((f, []), a) :: l
     ) formal actual
   in
 
@@ -988,6 +988,7 @@ let pp_print_stream_xml get_source model ppf (index, state_var) =
 
   try 
     let stream_values = SVT.find model state_var in
+    let stream_type = StateVar.type_of_state_var state_var in
     Format.fprintf 
       ppf
       "@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]@,\

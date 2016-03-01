@@ -829,7 +829,7 @@ let rec eval_node_equations ctx = function
     let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
     
     (* Evaluate expression on right-hand side in extended context *)
-    let eq_rhs, ctx = S.eval_ast_expr ctx ast_expr in
+    let eq_rhs, ctx = S.eval_ast_expr lhs_bounds ctx ast_expr in
 
     let ctx = C.reset_guard_flag ctx in
     
@@ -1360,7 +1360,7 @@ let rec eval_node_contract_calls ctx scope = function
   let ctx = try
     List.fold_left2 (
       fun ctx expr (_, in_id, typ, _, _) ->
-        let expr, ctx = S.eval_ast_expr ctx expr in
+        let expr, ctx = S.eval_ast_expr [] ctx expr in
 
         (* Fail if type mismatch. *)
         (
@@ -1443,7 +1443,7 @@ let rec eval_node_contract_calls ctx scope = function
   let ctx = try
     List.fold_left2 (
       fun ctx expr (_, in_id, typ, _) ->
-        let expr, ctx = S.eval_ast_expr ctx expr in
+        let expr, ctx = S.eval_ast_expr [] ctx expr in
 
         (* Fail if type mismatch. *)
         (

@@ -232,15 +232,15 @@ let mk_solvers sys prop =
     Numeral.(~- one) Numeral.one ;
 
   (* Asserting init in [solver1]. *)
-  TransSys.init_of_bound sys Numeral.zero
+  TransSys.init_of_bound (Some (SMTSolver.declare_fun solver1)) sys Numeral.zero
   |> SMTSolver.assert_term solver1 ;
 
   (* Asserting trans in [solver2]. *)
-  TransSys.trans_of_bound sys Numeral.one
+  TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver2)) sys Numeral.one
   |> SMTSolver.assert_term solver2 ;
 
   (* Asserting trans in [solver3]. *)
-  TransSys.trans_of_bound sys Numeral.one
+  TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver3)) sys Numeral.one
   |> SMTSolver.assert_term solver3 ;
 
   (* Retrieving invariants @0. *)

@@ -30,6 +30,9 @@ type t = value Var.VarHashtbl.t
 (** A path is a map of state variables to assignments *)
 type path = value list StateVar.StateVarHashtbl.t
 
+(** Equality over values of model *)
+val equal_value : value -> value -> bool
+
 (** Offset of the variables at each step of a path. *)
 val path_offset: Numeral.t
 

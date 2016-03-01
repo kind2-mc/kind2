@@ -878,7 +878,7 @@ let mk_fresh_oracle_for_state_var
    An unguarded pre is a previous state variable occuring in the
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
-let close_expr ?original ?(bounds=[]) pos ({ E.expr_init } as expr, ctx) =     
+let close_expr ?(bounds=[]) ?original pos ({ E.expr_init } as expr, ctx) =     
 
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term (expr_init :> Term.t) in
@@ -925,8 +925,8 @@ let close_expr ?original ?(bounds=[]) pos ({ E.expr_init } as expr, ctx) =
      
      (* Return expression with all previous state variables in the init
         expression substituted by fresh constants *)
-     ((E.mk_arrow (E.mk_let_pre oracle_substs expr) expr),
-      ctx))
+     E.mk_arrow (E.mk_let_pre oracle_substs expr) expr, ctx
+
 
 let has_var_index_t vi t =
   Var.VarSet.mem vi (Term.vars_of_term t)
@@ -970,10 +970,12 @@ let fresh_state_var_for_expr
     bounds
     present_bounds
     present_bounds'
-    ({ expr_state_var_map; 
+    ({ expr_abs_map; 
        fresh_local_index } as ctx)
     after_mk
-    ({ E.expr_type } as expr) = 
+    expr
+    expr_type
+  = 
 
   (* Don't abstract simple state variables *)
   if reuse && (E.is_var expr || E.is_const_var expr) then
@@ -1000,7 +1002,7 @@ let fresh_state_var_for_expr
         (scope_of_node_or_func ctx @ I.reserved_scope)
         (I.push_index I.abs_ident fresh_local_index)
         D.empty_index
-        var_type
+        expr_type
         None
     in
 
@@ -1049,7 +1051,7 @@ let mk_abs_for_expr
   let bounds' = bounds_of_expr bounds ctx expr in
 
   (* new array if there are bound variables *)
-  let var_type, expr, present_bounds, present_bounds', _ =
+  let expr_type, expr, present_bounds, present_bounds', _ =
     List.fold_left2 (fun (ty, expr, bounds_acc, bounds_acc', i) ->
         let vi = E.mk_index_var i |> E.var_of_expr in
         fun b1 bp -> match b1 with
@@ -1081,13 +1083,14 @@ let mk_abs_for_expr
 
   let present_bounds = List.rev present_bounds in
   let present_bounds' = List.rev present_bounds' in
-
+  
   if not reuse then
     
     fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ~reuse
-      bounds present_bounds present_bounds' ctx after_mk expr
-  
-  try 
+      bounds present_bounds present_bounds' ctx after_mk expr expr_type
+      
+  else
+    try 
 
     (* Format.eprintf "mk_abs_for_expr %a %a@." (E.pp_print_lustre_expr false) expr *)
     (* (pp_print_listi *)
@@ -1130,7 +1133,7 @@ let mk_abs_for_expr
 
     (* If it's not there already, create a new state variable *)
     fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ~reuse
-      bounds present_bounds present_bounds' ctx after_mk expr
+      bounds present_bounds present_bounds' ctx after_mk expr expr_type
   
 
 
@@ -2214,7 +2217,7 @@ let check_local_vars_defined ctx =
   | Some { N.equations } ->
     List.iter (fun (sv, id, pos) ->
         if not (List.exists
-                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv') 
                   equations )
         then
           (* Always fail *)

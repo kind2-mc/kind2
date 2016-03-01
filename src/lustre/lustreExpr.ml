@@ -2127,6 +2127,7 @@ let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
     | t when
         not unguarded &&
         Term.is_free_var t &&
+        Term.free_var_of_term t |> Var.is_state_var_instance &&
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
                  base_offset) ->
       

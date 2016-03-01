@@ -260,6 +260,8 @@ let keyword_table = mk_hashtbl [
   ("true", TRUE) ; ("false", FALSE) ;
   ("not", NOT) ; ("and", AND) ; ("xor", XOR) ; ("or", OR) ;
   ("if", IF) ;
+  ("forall", FORALL) ;
+  ("exists", EXISTS) ;
   ("then", THEN) ;
   ("else", ELSE) ;
   ("with", WITH) ;

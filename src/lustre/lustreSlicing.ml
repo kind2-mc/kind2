@@ -1278,10 +1278,9 @@ let root_and_leaves_of_abstraction_map
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction' analysis roots subsystem { G.functions } =
+let slice_to_abstraction' analysis roots subsystem globals =
 
   let { A.top } = A.info_of_param analysis in
-    globals = 
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)

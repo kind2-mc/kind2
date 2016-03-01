@@ -16,21 +16,111 @@
 
 *)
 
-(** Command-line flags
 
-Use the OCaml module [Arg] to parse the command-line and store the
-value in a record type.
 
-@author Christoph Sticksel *)
+(* 
+
+# WORKFLOW.
+
+Flags are separated based on the technique(s) they impact. *Global flags* are
+the ones that don't impact any technique, or impact all of them. Log flags,
+help flags, timeout flags... are global flags.
+
+**NB:** when adding a boolean flag, make sure to parse its value with the
+`bool_of_string` function.
+
+## Adding a new (non-global) flag to an existing module
+
+Adding a new flag impacts three pieces of code. The first is the body of the
+module you're adding the flag to. Generally speaking, adding a flag looks like
+
+```ocaml
+(* Default value of the flag. *)
+let my_flag_default = ...
+(* Reference storing the value of the flag. *)
+let my_flag = ref my_flag_default
+(* Add flag specification to module specs. *)
+let _ = add_spec (
+  (* The actual flag. *)
+  "--my_flag",
+  (* What to do with the value given to the flag, see other flags. *)
+  ...,
+  (* Flag description. *)
+  fun fmt ->
+    Format.fprintf fmt
+      "@[<v>Description of my flag.@ Default: %a@]"
+      pp_print_default_value_of_my_flag my_flag_default
+)
+(* Flag value accessor. *)
+let my_flag () = !my_flag
+```
+
+At this point your flag is integrated in the Kind 2 flags.
+
+To make it available to the rest of Kind 2, you need to modify the signature of
+the module you added the flag to
+
+* in this file, where the module is declared, and
+* in `flags.mli`.
+
+The update to the signature is typically
+
+```ocaml
+  val my_flag : unit -> type_of_my_flag
+```
+
+
+## Adding a new flag module
+
+The template to add a new module is
+
+```ocaml
+module MyModule : sig
+  include FlagModule
+end = struct
+
+  (* Identifier of the module. No space or special characters. *)
+  let id = "..."
+  (* Short description of the module. *)
+  let desc = "..."
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      ...\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec spec = add_specs [spec]
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+end
+```
+
+Don't forget to update `flags.mli`:
+
+```ocaml
+module MyModule : sig
+  include FlagModule
+end
+```
+
+You then need to add your module to the `module_map`, the association map
+between module identifiers and modules. Make sure the identifier for your
+module is not used yet.
+
+You can now add modules following the instructions in the previous section.
+
+@author Christoph Sticksel, Adrien Champion *)
 
 
 (** {1 Accessors for flags} *)
 
 
 (** {2 Meta flags} *)
-
-(** Output version information and exit *)
-val check_version : unit -> bool
 
 
 (** {2 Generic flags} *)
@@ -186,6 +276,16 @@ module Contracts : sig
   val check_implem : unit -> bool
 end
 
+
+(** {2 Arrays flags} *)
+module Arrays : sig
+  (** Use builtin theory of arrays in SMT solver *)
+  val smt : unit -> bool
+  (** Inline arrays with fixed bounds *)
+  val inline : unit -> bool
+  (** Define recursive functions for arrays *)
+  val recdef : unit -> bool
+end
 
 (** {2 Testgen flags} *)
 

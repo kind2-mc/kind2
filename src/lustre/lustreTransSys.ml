@@ -24,7 +24,6 @@ module E = LustreExpr
 module C = LustreContract
 module N = LustreNode
 module F = LustreFunction
-module C = LustreContext
 module G = LustreGlobals
 module S = LustreSlicing
 
@@ -465,28 +464,29 @@ let register_call_bound globals map_up sv =
 
    This factors out node calls with or without an activation
    condition *)
-let call_terms_of_node_call mk_fresh_state_var {
-  N.call_node_name ;
-  N.call_pos       ;
-  N.call_inputs    ;
-  N.call_oracles   ;
-  N.call_outputs   ;
-} node_locals node_props {
-  init_uf_symbol  ;
-  trans_uf_symbol ;
-  node = {
-    N.init_flag ;
-    N.instance  ;
-    N.inputs    ;
-    N.oracles   ;
-    N.outputs   ;
-    N.locals    ;
-    N.props     ;
-    N.contract  ;
-  }               ;
-  stateful_locals ;
-  properties      ;
-} =
+let call_terms_of_node_call mk_fresh_state_var globals
+    { N.call_node_name ;
+      N.call_pos       ;
+      N.call_inputs    ;
+      N.call_oracles   ;
+      N.call_outputs   ;}
+    node_locals
+    node_props
+    { init_uf_symbol  ;
+      trans_uf_symbol ;
+      node = {
+        N.init_flag ;
+        N.instance  ;
+        N.inputs    ;
+        N.oracles   ;
+        N.outputs   ;
+        N.locals    ;
+        N.props     ;
+        N.contract  ;
+      }               ;
+      stateful_locals ;
+      properties      ;
+    } =
 
   (* Initialize map of state variable in callee to instantiated state
      variable in caller *)
@@ -536,7 +536,7 @@ let call_terms_of_node_call mk_fresh_state_var {
            mk_fresh_state_var
              ?is_const:(Some (StateVar.is_const state_var))
              ?for_inv_gen:(Some true)
-             ~inst_for_sv:state_var
+             ?inst_for_sv:(Some state_var)
              (StateVar.type_of_state_var state_var)
          in
 
@@ -720,6 +720,7 @@ let rec constraints_of_node_calls
       (* Create node call *)
       call_terms_of_node_call
         mk_fresh_state_var
+        globals
         node_call
         node_locals
         node_props
@@ -745,6 +746,7 @@ let rec constraints_of_node_calls
     (* Continue with next node calls *)
     constraints_of_node_calls 
       mk_fresh_state_var
+      globals
       trans_sys_defs
       node_locals
       node_init_flags
@@ -814,7 +816,7 @@ let rec constraints_of_node_calls
               mk_fresh_state_var
                 ?is_const:None
                 ?for_inv_gen:(Some false)
-                ~inst_for_sv:formal_sv
+                ?inst_for_sv:(Some formal_sv)
                 (StateVar.type_of_state_var formal_sv) 
             in
 
@@ -866,7 +868,7 @@ let rec constraints_of_node_calls
 
       call_terms_of_node_call
         mk_fresh_state_var
-
+        globals
         (* Modify node call to use shadow inputs *)
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
@@ -883,9 +885,11 @@ let rec constraints_of_node_calls
     let clock_trans_pre = E.pre_term_of_state_var TransSys.trans_base clock in
 
     let has_ticked =
-        mk_fresh_state_var
-          ~inst_for_sv:clock
-          Type.t_bool
+      mk_fresh_state_var
+        ?is_const:None
+        ?for_inv_gen:None
+        ?inst_for_sv:(Some clock)
+        Type.t_bool
     in
 
     let node_locals = has_ticked :: node_locals in
@@ -1054,6 +1058,7 @@ let rec constraints_of_node_calls
 
     constraints_of_node_calls
       mk_fresh_state_var
+      globals
       trans_sys_defs
       node_locals
       (init_flags @ node_init_flags)
@@ -1236,6 +1241,7 @@ let rec constraints_of_function_calls
       let sv = mk_fresh_state_var
         ?is_const:(Some false)
         ?for_inv_gen:(Some true)
+        ?inst_for_sv:None
         (Type.t_bool)
       in
 
@@ -1351,7 +1357,7 @@ let rec constraints_of_function_calls
 
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
-let rec constraints_of_asserts instance init_terms trans_terms = function
+let rec constraints_of_asserts init_terms trans_terms = function
 
   (* All assertions consumed, return term for initial state
      constraint and transition relation *)
@@ -1510,7 +1516,7 @@ let constraints_of_arrays init terms eq_bounds =
           | E.Fixed e ->
             Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
 
-          | E.Bound e when Flags.inline_arrays () && E.is_numeral e ->
+          | E.Bound e when Flags.Arrays.inline () && E.is_numeral e ->
             (* inline if static bound and option given *)
             let b = E.numeral_of_expr e |> Numeral.to_int in
             let cj = ref [] in
@@ -1521,7 +1527,7 @@ let constraints_of_arrays init terms eq_bounds =
 
           | E.Bound e ->
             let term =
-              if Flags.arrays_rec () then term
+              if Flags.Arrays.recdef () then term
               else Term.(
                   mk_implies [
                     mk_leq [mk_num Numeral.zero; mk_var v; 
@@ -1540,7 +1546,7 @@ let constraints_of_arrays init terms eq_bounds =
 
     match List.rev quant_v with
     | [] -> term
-    | qvars -> Term.mk_forall ~fundef:(Flags.arrays_rec ()) quant_v term
+    | qvars -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
 
     in
   
@@ -1580,7 +1586,7 @@ let constraints_of_arrays init terms eq_bounds =
       (* group constraints under same quantifier when not using recursive
          encoding *)
       let cstrs =
-        if Flags.arrays_rec () then cstrs_eqs
+        if Flags.Arrays.recdef () then cstrs_eqs
         else [Term.mk_and cstrs_eqs] in
       
       (* Wrap equations in let binding and/or quantifiers for indexes and add
@@ -1681,29 +1687,31 @@ let rec trans_sys_of_node'
       let mk_fresh_state_var
           ?is_const
           ?for_inv_gen
-          ~inst_for_sv
+          ?inst_for_sv
           state_var_type =
 
         (* Increment counter for fresh state variables *)
         let index = index_of_scope scope in
 
         (* Create state variable *)
-          let fsv =
-        StateVar.mk_state_var
-          ~is_input:false
-          ?is_const:is_const
-          ?for_inv_gen:for_inv_gen
-          ((I.push_index I.inst_ident index) 
-           |> I.string_of_ident true)
-          (N.scope_of_node node @ I.reserved_scope)
-          state_var_type
-          in
+        let fsv =
+          StateVar.mk_state_var
+            ~is_input:false
+            ?is_const:is_const
+            ?for_inv_gen:for_inv_gen
+            ((I.push_index I.inst_ident index) 
+             |> I.string_of_ident true)
+            (N.scope_of_node node @ I.reserved_scope)
+            state_var_type
+        in
 
           (* Register bounds *)
-          let bounds =
-            try StateVar.StateVarHashtbl.find
-                  globals.G.state_var_bounds inst_for_sv
-            with Not_found -> [] in
+        let bounds = match inst_for_sv with
+          | None -> []
+          | Some sv ->
+            try StateVar.StateVarHashtbl.find globals.G.state_var_bounds sv
+            with Not_found -> []
+        in
           StateVar.StateVarHashtbl.add globals.G.state_var_bounds fsv bounds;
           
           fsv
@@ -1882,6 +1890,7 @@ let rec trans_sys_of_node'
           =
             constraints_of_node_calls
               mk_fresh_state_var
+              globals
               trans_sys_defs
               []  (* No lifted locals *)
               [init_flag]

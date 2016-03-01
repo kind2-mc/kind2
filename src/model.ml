@@ -44,7 +44,14 @@ type value =
   | Lambda of Term.lambda
   | Map of Term.t MIL.t
 
-    
+
+let equal_value v1 v2 = match v1, v2 with
+  | Term t1, Term t2 -> Term.equal t1 t2
+  | Lambda l1, Lambda l2 -> assert false (* TODO *)
+  | Map m1, Map m2 -> MIL.equal Term.equal m1 m2
+  | _ -> false
+
+
 (* A model is a map variables to assignments *)
 type t = value VT.t
 

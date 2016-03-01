@@ -103,8 +103,8 @@ let rec wait_for_children child_pids =
        (* Remove child process from list *)
        child_pids := List.remove_assoc child_pid !child_pids;
 
-       (* Check if more child processes have died *)
-       true
+       (* Check if all child processes have died *)
+       wait_for_children child_pids
 
       )
 
@@ -181,7 +181,7 @@ let rec loop done_at child_pids input_sys aparam trans_sys =
 
   if 
 
-    (* Check if child processes have died and exit if necessary *)
+    (* Check if all child processes have died and exit if necessary *)
     wait_for_children child_pids
     ||
     (match done_at with 

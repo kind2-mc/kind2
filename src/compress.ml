@@ -207,31 +207,16 @@ let equal_mod_input accum s1 s2 =
   if
 
     (* Check if states are equivalent *)
-    List.for_all2
-
-      (fun (v1, t_or_l1) (v2, t_or_l2) -> 
-
-         match t_or_l1, t_or_l2 with 
-
-           | Model.Term t1, Model.Term t2 -> 
-             
-             let sv1 = Var.state_var_of_state_var_instance v1 in
-             
-             (* Make sure we're talking about the same state variable *)
-             assert  
-               (StateVar.equal_state_vars
-                  sv1
-                  (Var.state_var_of_state_var_instance v2));
-             
-             (* States are equivalent if state variable is an input or
-                values are equal *)
-             StateVar.is_input sv1 || Term.equal t1 t2
-      
-           (* TODO: Compress with lambda abstractions *)
-           | _ -> assert false) 
-      
-      s1 
-      s2 
+    List.for_all2 (fun (v1, val1) (v2, val2) -> 
+        let sv1 = Var.state_var_of_state_var_instance v1 in
+        (* Make sure we're talking about the same state variable *)
+        assert  
+          (StateVar.equal_state_vars
+             sv1 (Var.state_var_of_state_var_instance v2));
+        (* States are equivalent if state variable is an input or
+           values are equal *)
+        StateVar.is_input sv1 || Model.equal_value val1 val2
+      ) s1 s2 
 
   then 
 

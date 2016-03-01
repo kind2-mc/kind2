@@ -649,21 +649,21 @@ node_equation:
   }
 
   (* Property annotation *)
-  | PERCENTANNOT ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON
+  | PERCENTANNOT ; PROPERTY ; name = option(STRING) ; e = qexpr ; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; PSBLOCKEND {
+  | PSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = qexpr ; SEMICOLON ; PSBLOCKEND {
     A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | SSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; SSBLOCKEND {
+  | SSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = qexpr ; SEMICOLON ; SSBLOCKEND {
     A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | BANGANNOT ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON {
+  | BANGANNOT ; PROPERTY ; name = option(STRING) ; COLON ; e = qexpr ; SEMICOLON {
     A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | PSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; PSBLOCKEND {
+  | PSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = qexpr ; SEMICOLON ; PSBLOCKEND {
     A.AnnotProperty (mk_pos $startpos, name, e)
   }
-  | SSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; SSBLOCKEND {
+  | SSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = qexpr ; SEMICOLON ; SSBLOCKEND {
     A.AnnotProperty (mk_pos $startpos, name, e)
   }
 

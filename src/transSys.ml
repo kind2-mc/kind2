@@ -915,7 +915,7 @@ let define_and_declare_of_bounds
     ubound =
   
   (* Declare monomorphized select symbols *)
-  if not (Flags.smt_arrays ()) then declare_selects declare;
+  if not (Flags.Arrays.smt ()) then declare_selects declare;
   
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
