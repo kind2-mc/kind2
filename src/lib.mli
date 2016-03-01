@@ -411,7 +411,12 @@ val file_row_col_of_pos : position -> string * int * int
 
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
- 
+
+
+(** Pretty print a backtrace *)
+val print_backtrace : Format.formatter -> Printexc.raw_backtrace -> unit
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

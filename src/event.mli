@@ -40,6 +40,9 @@ val set_log_format_xml : unit -> unit
 (** Relay log messages to invariant manager *)
 val set_relay_log : unit -> unit
 
+(** Cancel relaying of log messages *)
+val unset_relay_log : unit -> unit
+
 (** Logs a step counterexample.
 
     Should only be used by step for sending the cex, and invariant manager to
