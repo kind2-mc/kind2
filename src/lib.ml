@@ -1354,6 +1354,20 @@ let file_row_col_of_pos = function
   | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
 
 
+let print_backtrace fmt bt =
+  match Printexc.backtrace_slots bt with
+  | None -> ()
+  | Some slots ->
+    let n = Array.length slots in
+    Array.iteri (fun i s ->
+        match Printexc.Slot.format i s with
+        | None -> ()
+        | Some s ->
+          Format.pp_print_string fmt s;
+          if i < n - 1 then Format.pp_force_newline fmt ()
+      ) slots
+
+
 
 (* 
    Local Variables:

@@ -611,14 +611,16 @@ let run_process messaging_setup process =
           (* Catch all other exceptions *)
           | e ->
 
+            Event.unset_relay_log ();
+
             (* Get backtrace now, Printf changes it *)
-            let backtrace = Printexc.get_backtrace () in
+            let backtrace = Printexc.get_raw_backtrace () in
 
             if Printexc.backtrace_status () then
-              Event.log L_fatal "Caught %s in %a.@ Backtrace:@\n%s"
+              Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
               (Printexc.to_string e)
               pp_print_kind_module process
-              backtrace ;
+              print_backtrace backtrace;
 
             (* Cleanup and exit *)
             on_exit_child (Some messaging_thread) process e
@@ -914,7 +916,10 @@ let setup () =
 
   let in_file = Flags.input_file () in
 
-  Event.log L_info "Parsing input file \"%s\"." in_file ;
+  Event.log L_info "Parsing %s."
+    (match in_file with
+     | "" -> "standard input"
+     | _ -> "input file \"" ^ in_file ^ "\"");
 
   try
     in_file |> match Flags.input_format () with
@@ -922,11 +927,19 @@ let setup () =
       | `Native -> (* InputSystem.read_input_native *) assert false
       | `Horn   -> (* InputSystem.read_input_horn *)   assert false
   with e -> (* Could not create input system. *)
+    
+    let backtrace = Printexc.get_raw_backtrace () in
+
     Event.log
-      L_fatal "@[<v>Error opening input file \"%s\":@ %s@]"
-      (Flags.input_file ()) (Printexc.to_string e) ;
+      L_fatal "Error opening input file \"%s\":@ %s%a"
+      (Flags.input_file ()) (Printexc.to_string e)
+      (if Printexc.backtrace_status () then
+         fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
+       else fun _ _ -> ()) backtrace;
+
     (* Terminating log and exiting with error. *)
     Event.terminate_log () ;
+
     exit status_error
 
 
@@ -1200,7 +1213,15 @@ let launch () =
       clean_exit `Supervisor (Some results) Exit
 
     with e ->
-      (* Format.printf "caught exception@.@." ; *)
+      (* Get backtrace now, Printf changes it *)
+      let backtrace = Printexc.get_raw_backtrace () in
+
+      if Printexc.backtrace_status () then
+        Event.log L_fatal "Caught %s in %a.@\nBacktrace po:@\n%a"
+          (Printexc.to_string e)
+          pp_print_kind_module `Supervisor
+          print_backtrace backtrace;
+
       on_exit `Supervisor None e
 
 

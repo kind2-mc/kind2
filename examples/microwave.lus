@@ -55,7 +55,7 @@ var
    all_asserts_ok: bool;
 
 
-let --%MAIN
+let --%MAIN ;
    r6 = ((( not (false and 
       (0 > 0))) or 
       (( not (( not DOOR_CLOSED) or 

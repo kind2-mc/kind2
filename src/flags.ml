@@ -16,13 +16,6 @@
 
 *)
 
-(* WARNING: DO NOT EDIT THE .ML FILE --- CHANGES WILL BE OVERWRITTEN
-
-   Do not edit the .ml file but rather the .ml.in file, the .ml file
-   is generated from the .ml.in file after each run of the configure
-   script.
-
-*)
 
 open Lib
 
@@ -55,7 +48,7 @@ let fmt_flag fmt (flag, spec, desc) =
     "@[<v>%t@[<v>%t@]@]"
     (fun fmt -> match spec with
       | Arg.Unit _ | Arg.Set _ | Arg.Clear _ ->
-        Format.fprintf fmt "\x1b[1m%-10s\x1b[0m" flag
+        Format.fprintf fmt "\x1b[1m%-10s\x1b[0m " flag
       | Arg.Bool _ ->
         Format.fprintf fmt "\x1b[1m%s <bool>\x1b[0m@   " flag
       | Arg.String _ | Arg.Set_string _ ->
@@ -1337,7 +1330,7 @@ end
 (* ********************************************************************** *)
 
 let usage_msg_header = Filename.basename Sys.executable_name |> Format.sprintf "\
-  Usage: \x1b[1m%s [options] <input_file>\x1b[0m\
+  Usage: \x1b[1m%s [options] [input_file]\x1b[0m\
 "
 
 let all_modules_id = "all"
@@ -1465,7 +1458,8 @@ module Global = struct
 
   let usage_msg = Format.sprintf "\
     %s@.\
-    Prove properties over the Lustre program in <input_file>.@.\
+    Prove properties over the Lustre program in <input_file> or from standard@ \
+    input if no file is given.@.\
     Global options follow, \
     use \"--help_of\" for module-specific information.\
   " usage_msg_header
@@ -1479,9 +1473,9 @@ module Global = struct
 
 
   (* Input flag. *)
-  let input_file_default = None
+  let input_file_default = ""
   let input_file = ref input_file_default
-  let set_input_file f = input_file := Some f
+  let set_input_file f = input_file := f
   let input_file () = !input_file
 
 
@@ -1882,6 +1876,15 @@ module Global = struct
     )
     (fun fmt -> Format.fprintf fmt "Print version information and exit")
 
+  let only_filename_default = false
+  let only_filename = ref only_filename_default
+  (* marker to allow files that start with - *)
+  let _ = add_spec
+    "--"
+    (Arg.Set only_filename)
+    (fun fmt -> Format.fprintf fmt "What follows on the command line is\
+                                    a file name.")
+
 end
 
 (* Re-exports. *)
@@ -1906,9 +1909,7 @@ let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let input_format = Global.input_format
 let timeout_wall = Global.timeout_wall
-let input_file () = match Global.input_file () with
-  | Some f -> f
-  | None -> failwith "No input file given"
+let input_file = Global.input_file
 let lus_compile = Global.lus_compile
 
 (* Path to subdirectory for a system (in the output directory). *)
@@ -1925,8 +1926,11 @@ let subdir_for scope =
 
 let anon_action s =
   match Global.input_file () with
-    | None -> Global.set_input_file s
-    | Some _ -> raise (Arg.Bad "More than one input file given")
+  | "" ->
+    (* filenames that start with - are allowed after the flag -- *)
+    if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
+    Global.set_input_file s
+  | _ -> raise (Arg.Bad "More than one input file given")
 
 let set_smtsolver = function
 
@@ -2022,14 +2026,16 @@ let parse_clas specs anon_action global_usage_msg =
     (* Iterates over the CLAs. *)
     let rec cla_loop = function
       | [] -> ()
-      | arg :: tail -> (
-        try spec_loop tail arg specs |> cla_loop
-        with UnknownFlag flag -> (
-          match tail with
-          | [] -> anon_action arg
-          | _ -> UnknownFlag flag |> raise
-        )
-      )
+      | arg :: tail ->
+        if !Global.only_filename then begin
+          anon_action arg;
+          cla_loop tail
+        end
+        else
+          try spec_loop tail arg specs |> cla_loop
+          with UnknownFlag flag ->
+            anon_action arg;
+            cla_loop tail
     in
 
     (
@@ -2037,12 +2043,15 @@ let parse_clas specs anon_action global_usage_msg =
       with
       | UnknownFlag flag ->
         Global.print_help () ;
-        Format.printf "Error: unknown flag \"%s\".@." flag ;
+        Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag ;
         exit 2
       | BadArg (error, flag) ->
         Format.printf
-          "Error on flag@.@[<v>%a@]@.%s@."
+          "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
           fmt_flag flag error ;
+      | Arg.Bad expl ->
+        Format.printf
+          "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl;
         exit 2
     )
 
@@ -2058,16 +2067,10 @@ let parse_argv () =
   Global.help_of () |> List.rev |> print_module_info ;
 
   (* Finalize the list of enabled module. *)
-  Global.finalize_enabled () ;
+  Global.finalize_enabled ()
 
-  (* Fail if input file not set *)
-  match Global.input_file () with
-  | None ->
-    Format.printf
-      "%s@.Error: no input file given.@." usage_msg_header ;
-    exit 2
-  | Some _ -> ()
-  
+
+
 (*
    Local Variables:
    compile-command: "make -C .. -k"

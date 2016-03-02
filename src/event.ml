@@ -910,6 +910,7 @@ type log_format =
 
 (* Current log format *)
 let log_format = ref F_pt
+let prev_log_format = ref !log_format
 
 (* Set log format to plain text *)
 let set_log_format_pt () = log_format := F_pt
@@ -924,7 +925,11 @@ let set_log_format_xml () =
                
 
 (* Relay log messages to invariant manager *)
-let set_relay_log () = log_format := F_relay
+let set_relay_log () =
+  prev_log_format := !log_format;
+  log_format := F_relay
+
+let unset_relay_log () = log_format := !prev_log_format
 
 
 (* ********************************************************************** *)
