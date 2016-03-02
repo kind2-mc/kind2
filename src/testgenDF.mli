@@ -18,6 +18,9 @@
 
 open Lib
 
+(** Prefix for logging testgen related things. *)
+val log_prefix: string
+
 (** Entry point. *)
 val main :
   Analysis.param -> _ InputSystem.t -> TransSys.t -> string -> string list

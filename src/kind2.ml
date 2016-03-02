@@ -937,7 +937,6 @@ let implem_path = "implem"
    everything. *)
 let run_testgen input_sys top =
   if Flags.Testgen.active () then (
-    Format.printf "Running testgen@.@." ;
     match InputSystem.maximal_abstraction_for_testgen input_sys top [] with
     | None ->
       Event.log L_warn
@@ -974,8 +973,8 @@ let run_testgen input_sys top =
         let tests_target = Format.sprintf "%s/%s" target tests_path in
         mk_dir tests_target ;
         Event.log_uncond
-          "Generating tests for node \"%a\" to `%s`."
-          Scope.pp_print_scope top target ;
+          "%sGenerating tests for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top tests_target ;
         let testgen_xmls =
           TestGen.main param input_sys_sliced sys tests_target
         in
@@ -985,11 +984,13 @@ let run_testgen input_sys top =
         let oracle_target = Format.sprintf "%s/%s" target oracle_path in
         mk_dir oracle_target ;
         Event.log_uncond
-          "Generating oracle for node \"%a\" to `%s`."
-          Scope.pp_print_scope top oracle_target ;
+          "%sGenerating oracle for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
         let name, guarantees, modes =
           InputSystem.compile_oracle_to_rust input_sys top oracle_target
         in
+        Event.log_uncond
+          "%sGenerating glue xml file to `%s/.`." TestGen.log_prefix target ;
         testgen_xmls
         |> List.map (fun xml -> Format.sprintf "%s/%s" tests_path xml)
         |> TestGen.log_test_glue_file
@@ -1004,7 +1005,6 @@ let run_testgen input_sys top =
 (* Compiles a system (scope) to Rust. *)
 let compile_to_rust input_sys top =
   if Flags.lus_compile () then (
-    Format.printf "Compiling to rust@.@." ;
     (* Creating root dir if needed. *)
     Flags.output_dir () |> mk_dir ;
     let target = Flags.subdir_for top in
@@ -1013,10 +1013,9 @@ let compile_to_rust input_sys top =
     (* Implementation directory. *)
     let target = Format.sprintf "%s/%s" target implem_path in
     Event.log_uncond
-      "Compiling node \"%a\" to `%s`..." Scope.pp_print_scope top target ;
-    InputSystem.compile_to_rust input_sys top target ;
-    Event.log_uncond
-      "Success."
+      "[COMPILE] Compiling node \"%a\" to `%s`..."
+      Scope.pp_print_scope top target ;
+    InputSystem.compile_to_rust input_sys top target
   )
 
 (* Runs test generation and compilation if asked to. *)
