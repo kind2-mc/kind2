@@ -85,9 +85,9 @@ let
   --%PROPERTY A4[1][3] = 4 ;
   --%PROPERTY A11[2] = 3 * s;
   --%PROPERTY A7[0] = 0;
-  --%PROPERTY A[0] = B[0];
-  -- --%PROPERTY forall (ni:int) ni > 0 and ni < array_size - 1 => A[ni] = C[ni];
-  -- --%PROPERTY forall (ni:int) ni > 1 and ni < array_size => C[ni] = C[ni - 1] * 2;
+  --%PROPERTY true -> A[0] = B[0];
+  --%PROPERTY "QUANT1" forall (ni:int) ni > 0 and ni < array_size - 1 => A[ni] = C[ni];
+  --%PROPERTY "QUANT2" forall (ni:int) ni > 1 and ni < array_size => C[ni] = C[ni - 1] * 2;
 
 
 tel
