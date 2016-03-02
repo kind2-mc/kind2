@@ -7,22 +7,22 @@ export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
 # number, else use version number from configure
 GIT_DESCRIBE=$(shell command -v git > /dev/null && git describe --tags || echo "@PACKAGE_VERSION@")
 
-kind2: version.ml kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2: version.ml kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.native
 
-kind2-top: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-top: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.top
 
-kind2-terms-top: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-terms-top: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2-terms.top
 
-kind2-prof: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-prof: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) -tag profile kind2.native
 
-kind-bmc: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind-bmc: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) bmc.native
 
-lustre2kind: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+lustre2kind: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) lustre2kind.native
 
 clean:
@@ -47,9 +47,6 @@ version.ml: version.ml.in
 
 # Remake this Makefile if configuration has changed 
 Makefile: Makefile.in ../config.status
-	cd .. && ./config.status
-
-flags.ml: flags.ml.in ../config.status
 	cd .. && ./config.status
 
 kind2Config.ml: kind2Config.ml.in ../config.status

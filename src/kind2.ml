@@ -916,7 +916,10 @@ let setup () =
 
   let in_file = Flags.input_file () in
 
-  Event.log L_info "Parsing input file \"%s\"." in_file ;
+  Event.log L_info "Parsing %s."
+    (match in_file with
+     | "" -> "standard input"
+     | _ -> "input file \"" ^ in_file ^ "\"");
 
   try
     in_file |> match Flags.input_format () with
