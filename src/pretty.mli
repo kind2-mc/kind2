@@ -19,12 +19,10 @@
 
 *)
 
-open Format
-
 (** Functions for pretty ascii output (colors, etc.)
 
     By default a set of tags are added to stdout and stderr. To activate them
-    call {[Format.pp_set_tags fmt true]}. Colors can be added to another formatter with the function {!add_colors}.
+    call [Format.pp_set_tags fmt true]. Colors can be added to another formatter with the function {!add_colors}.
 
 Tags must be added to the format string with [@{<tag> what you want@}]. They can be arbitrarily nested. For instance to print a string in red with part of it bold do
 {[
@@ -52,6 +50,7 @@ The color (foreground) tags are:
 - [cyan]
 - [gray]
 - [default]
+- [c:0-255] give directly the color number on 256 colors terminals
 
 And their bright version
 - [black_b]
@@ -90,6 +89,9 @@ And their bright version
 
     @author Alain Mebsout
 *)
+
+
+open Format
 
 
 (** {1 Pretty colors} *)

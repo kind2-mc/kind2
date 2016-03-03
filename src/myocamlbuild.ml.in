@@ -14,7 +14,7 @@ dispatch begin function
     flag
       ["ocaml"; "doc"] 
       (S [A"-css-style"; A"include/style.css";
-          A"-colorize-code"]);
+          A"-colorize-code"; A"-keep-code"; A"-t"; A"Kind 2 Developer's Documentation"]);
 
 
 (*
