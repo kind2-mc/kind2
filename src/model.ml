@@ -59,7 +59,7 @@ type t = value VT.t
 type path = value list SVT.t
 
 (* Pretty-print a value *)
-let rec pp_print_term ppf term =
+let pp_print_term ppf term =
   (* if Term.is_bool term then *)
   (*   if Term.bool_of_term term then *)
   (*     Format.fprintf ppf "✓" (\* "true" *\) *)
@@ -68,6 +68,11 @@ let rec pp_print_term ppf term =
   (* Term.pp_print_term ppf term *)
   (LustreExpr.pp_print_expr false) ppf
     (LustreExpr.unsafe_expr_of_term term)
+
+let pp_print_term ppf term =
+  if Term.(equal term t_false || equal term (mk_num_of_int 0)) then
+    Format.fprintf ppf "@{<black_b>%a@}" pp_print_term term
+  else pp_print_term ppf term
 
 
 let width_val_of_map m =
@@ -101,7 +106,8 @@ let pp_print_map_as_array ppf m =
         for i = 1 to !cpt do
           Format.fprintf ppf "[@[<hov 0>";
         done;
-        Format.fprintf ppf "%*s" val_width (string_of_t pp_print_term v);
+        let w = width_of_string (string_of_t pp_print_term v) in
+        Format.fprintf ppf "%*s%a" (val_width - w) "" pp_print_term v;
         first := false;
       ) m;
     for i = 1 to dim do

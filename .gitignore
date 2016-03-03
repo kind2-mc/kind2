@@ -8,9 +8,6 @@
 /src/_build
 /src/Makefile
 
-# Generated flags.ml.
-/src/flags.ml
-
 # Generated kind2.*.
 /src/kind2.native
 /src/kind2Config.ml

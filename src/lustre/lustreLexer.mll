@@ -32,7 +32,7 @@ let print_warning fmt =
         @;<0 -2></Log>\
       @]@.")
   else
-    Format.printf ("%s @[<v>" ^^ fmt ^^ "@]@.") Lib.warning_tag
+    Format.printf ("%t @[<v>" ^^ fmt ^^ "@]@.") Pretty.warning_tag
 
 (* Pretty-print an array of integers *)
 let rec pp_print_int_array i ppf a = 

@@ -200,11 +200,11 @@ else
         cd $resultdir_pr
 
         # submit jobs to the queue
-        JOBID_NEW=$(qsub-benchmark `basename $PWD` kind.q 8 $workdir/benchs.jobs $(($TIMEOUT + 5)) $workdir/kind2-$branch -v --timeout_wall $TIMEOUT --z3_bin $workdir/z3 --yices_bin $workdir/yices | grep -oP '(?<=Your job-array\s)\w+')
+        JOBID_NEW=$(qsub-benchmark `basename $PWD` kind.q 8 $workdir/benchs.jobs $(($TIMEOUT + 5)) $workdir/kind2-$branch -v --color false --timeout_wall $TIMEOUT --z3_bin $workdir/z3 --yices_bin $workdir/yices | grep -oP '(?<=Your job-array\s)\w+')
 
         cd $resultdir_dev
 
-        JOBID_DEV=$(qsub-benchmark `basename $PWD` kind.q 8 $workdir/benchs.jobs $(($TIMEOUT + 5)) $workdir/kind2-$base -v --timeout_wall $TIMEOUT --z3_bin $workdir/z3 --yices_bin $workdir/yices | grep -oP '(?<=Your job-array\s)\w+')
+        JOBID_DEV=$(qsub-benchmark `basename $PWD` kind.q 8 $workdir/benchs.jobs $(($TIMEOUT + 5)) $workdir/kind2-$base -v --color false --timeout_wall $TIMEOUT --z3_bin $workdir/z3 --yices_bin $workdir/yices | grep -oP '(?<=Your job-array\s)\w+')
 
 
 

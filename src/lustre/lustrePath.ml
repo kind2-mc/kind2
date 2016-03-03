@@ -633,16 +633,7 @@ let rec pp_print_term ppf term =
       (LustreExpr.unsafe_expr_of_term term)
 
 
-let pp_print_value ppf = function
-  
-  (* Output a term as a value *)
-  | Model.Term t -> pp_print_term ppf t    
-
-  (* Output a map as a value *)
-  | Model.Map _ as v -> Model.pp_print_value ppf v
-
-  (* TODO: output an array *)
-  | Model.Lambda _ -> assert false
+let pp_print_value = Model.pp_print_value
 
 
 (* Output a single value of a stream at an instant
@@ -772,7 +763,7 @@ let pp_print_stream_pt ident_width val_width ppf (stream_name, stream_values) =
   (* Break lines if necessary and indent correctly *)
   Format.fprintf
     ppf
-    "@[<hov %d>%-*s %a@]"
+    "@[<hov %d>@{<blue_b>%-*s@} %a@]"
     (ident_width + 1)
     ident_width
     stream_name
@@ -787,7 +778,7 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
   | l -> 
     Format.fprintf
       ppf
-      "== %s ==@,\
+      "== @{<b>%s@} ==@,\
        %a@,"
       sect
       (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
@@ -855,7 +846,7 @@ let rec pp_print_lustre_path_pt' ppf = function
 
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
-      %s %a (%a)@,  @[<v>\
+      @{<b>%s@} @{<blue>%a@} (%a)@,  @[<v>\
         %a\
         %a\
         %a\

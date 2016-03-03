@@ -16,6 +16,8 @@
 
 *)
 
+open Format
+
 (* ********************************************************************** *)
 (* Helper functions                                                       *)
 (* ********************************************************************** *)
@@ -25,7 +27,7 @@ let identity anything = anything
 
 (* Prints the first argument and returns the second. *)
 let print_pass s whatever =
-  Format.printf "%s@." s ;
+  printf "%s@." s ;
   whatever
 
 (* Returns true when given unit. *)
@@ -47,27 +49,7 @@ let false_of_any _ = false
 let mk_dir dir =
   try Unix.mkdir dir 0o740 with Unix.Unix_error(Unix.EEXIST, _, _) -> ()
 
-(* ********************************************************************** *)
-(* Event tags used when outputting info.                                  *)
-(* ********************************************************************** *)
 
-(* Formats a string to construct a tag. *)
-let tagify = Format.sprintf "<%s>"
-
-(* Timeout tag. *)
-let timeout_tag = tagify "Timeout"
-(* Success tag. *)
-let success_tag = tagify "Success"
-(* Failure tag. *)
-let failure_tag = tagify "Failure"
-(* Error tag. *)
-let error_tag = tagify "Error"
-(* Warning tag. *)
-let warning_tag = tagify "Warning"
-(* Interruption tag. *)
-let interruption_tag = tagify "Interruption"
-(* Done tag. *)
-let done_tag = tagify "Done"
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
@@ -470,7 +452,7 @@ let pp_print_arrayi pp sep ppf array  =
       pp ppf i array.(i)
     else
       (pp ppf i array.(i);
-       Format.fprintf ppf sep)
+       fprintf ppf sep)
   in
   let indices = list_init (fun i -> i) n in  
   List.iter print_element indices
@@ -492,7 +474,7 @@ let rec pp_print_list pp sep ppf = function
     pp_print_list pp sep ppf [e]; 
 
     (* Output separator *)
-    Format.fprintf ppf sep; 
+    fprintf ppf sep; 
 
     (* Output the rest of the list *)
     pp_print_list pp sep ppf tl
@@ -515,7 +497,7 @@ let rec pp_print_listi' pp sep ppf = function
     pp ppf i e;
 
     (* Output separator *)
-    Format.fprintf ppf sep; 
+    fprintf ppf sep; 
 
     (* Output the rest of the list *)
     pp_print_listi' pp sep ppf (succ i, tl)
@@ -528,25 +510,25 @@ let pp_print_listi pp sep ppf l = pp_print_listi' pp sep ppf (0, l)
 let pp_print_paren_list ppf list = 
       
   (* Begin expression with opening parenthesis *)
-  Format.pp_print_string ppf "(";
+  pp_print_string ppf "(";
   
   (* Output elements of list *)
-  pp_print_list Format.pp_print_string "@ " ppf list;
+  pp_print_list pp_print_string "@ " ppf list;
 
   (* End expression with closing parenthesis *)
-  Format.pp_print_string ppf ")"
+  pp_print_string ppf ")"
 
 
 (* Pretty-print an option type *)
 let pp_print_option pp ppf = function 
-  | None -> Format.fprintf ppf "None"
-  | Some s -> Format.fprintf ppf "@[<hv>Some@ %a@]" pp s
+  | None -> fprintf ppf "None"
+  | Some s -> fprintf ppf "@[<hv>Some@ %a@]" pp s
 
 
 (* Print if list is not empty *)
 let pp_print_if_not_empty s ppf = function 
   | [] -> ()
-  | _ -> Format.fprintf ppf s
+  | _ -> fprintf ppf s
 
 (* Pretty-print into a string *)
 let string_of_t pp t = 
@@ -555,13 +537,13 @@ let string_of_t pp t =
   let buf = Buffer.create 80 in
   
   (* Create a formatter printing into the buffer *)
-  let ppf = Format.formatter_of_buffer buf in
+  let ppf = formatter_of_buffer buf in
 
   (* Output into buffer *)
   pp ppf t;
   
   (* Flush the formatter *)
-  Format.pp_print_flush ppf ();
+  pp_print_flush ppf ();
   
   (* Return the buffer contents *)
   Buffer.contents buf
@@ -577,19 +559,6 @@ let width_of_string s =
   List.fold_left (fun max_width s ->
       max max_width (String.length s)
     ) 0 lines
-
-
-(* Output a horizonal dasehd line *)
-let pp_print_hline ppf () = 
-  
-  let width = Format.pp_get_margin ppf () in 
-
-  let hline = String.make width '-' in
-
-  Format.fprintf 
-    ppf 
-    "%s"
-    hline
 
 
 (* ********************************************************************** *)
@@ -639,18 +608,18 @@ type bitvector = bool list
 (* Pretty-print a bitvector in binary format without #b prefix *)
 let rec pp_print_bitvector_b' ppf = function 
   | [] -> ()
-  | true :: tl -> Format.pp_print_int ppf 1; pp_print_bitvector_b' ppf tl
-  | false :: tl -> Format.pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
+  | true :: tl -> pp_print_int ppf 1; pp_print_bitvector_b' ppf tl
+  | false :: tl -> pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
 
 
 (* Pretty-print a bitvector in SMTLIB binary format *)
 let pp_smtlib_print_bitvector_b ppf b = 
-  Format.fprintf ppf "#b%a" pp_print_bitvector_b' b
+  fprintf ppf "#b%a" pp_print_bitvector_b' b
 
 
 (* Pretty-print a bitvector in Yices' binary format *)
 let pp_yices_print_bitvector_b ppf b = 
-  Format.fprintf ppf "0b%a" pp_print_bitvector_b' b
+  fprintf ppf "0b%a" pp_print_bitvector_b' b
 
 
 (* Association list of bitvectors to hexadecimal digits *)
@@ -712,7 +681,7 @@ let rec pp_print_bitvector_x' ppf = function
 
   (* Print a hexadecimal digit for the first four bits *)
   | d1 :: d2 :: d3 :: d4 :: tl -> 
-    Format.pp_print_string 
+    pp_print_string 
       ppf 
       (List.assoc ([d1; d2; d3; d4]) bv_hex_table);
     pp_print_bitvector_x' ppf tl
@@ -721,7 +690,7 @@ let rec pp_print_bitvector_x' ppf = function
 (* Pretty-print a bitvector in hexadecimal format *)
 let pp_print_bitvector_x ppf b = 
   
-  Format.pp_print_string ppf "#X";
+  pp_print_string ppf "#X";
   
   match (List.length b) mod 4 with 
     | 0 -> pp_print_bitvector_x' ppf b
@@ -980,11 +949,6 @@ let string_of_log_level = function
   | L_trace -> "trace"
 
 
-let tag_of_level = function
-| L_fatal | L_error -> error_tag
-| L_warn -> warning_tag
-| _ -> ""
-
 (* Compare two levels *)
 let compare_levels l1 l2 = 
   Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)
@@ -1002,10 +966,10 @@ let set_log_level l = log_level := l
 let output_on_level level = compare_levels level !log_level <= 0
 
 
-(* Return Format.fprintf if level is is of higher or equal priority
-   than current log level, otherwise return Format.ifprintf *)
+(* Return fprintf if level is is of higher or equal priority
+   than current log level, otherwise return ifprintf *)
 let ignore_or_fprintf level = 
-  if output_on_level level then Format.fprintf else Format.ifprintf
+  if output_on_level level then fprintf else ifprintf
 
 
 (* ********************************************************************** *)
@@ -1014,7 +978,7 @@ let ignore_or_fprintf level =
 
 
 (* Current formatter for output *)
-let log_ppf = ref Format.std_formatter
+let log_ppf = ref std_formatter
 
 
 (* Set file to write log messages to *)
@@ -1027,11 +991,11 @@ let log_to_file f =
   in 
   
   (* Create and store formatter for logfile *)
-  log_ppf := Format.formatter_of_out_channel oc
+  log_ppf := formatter_of_out_channel oc
 
 
 (* Write messages to standard output *)
-let log_to_stdout () = log_ppf := Format.std_formatter
+let log_to_stdout () = log_ppf := std_formatter
 
 
 (* ********************************************************************** *)
@@ -1039,7 +1003,7 @@ let log_to_stdout () = log_ppf := Format.std_formatter
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    Format.fprintf ppf "%s %s" Kind2Config.package_name Version.version
+    fprintf ppf "%s %s" Kind2Config.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   
@@ -1060,16 +1024,16 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `IC3 -> Format.fprintf ppf "property directed reachability"
-  | `BMC -> Format.fprintf ppf "bounded model checking"
-  | `IND -> Format.fprintf ppf "inductive step"
-  | `IND2 -> Format.fprintf ppf "2-induction"
-  | `INVGEN -> Format.fprintf ppf "two state invariant generator"
-  | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
-  | `C2I -> Format.fprintf ppf "c2i"
-  | `Interpreter -> Format.fprintf ppf "interpreter"
-  | `Supervisor -> Format.fprintf ppf "invariant manager"
-  | `Parser -> Format.fprintf ppf "parser"
+  | `IC3 -> fprintf ppf "property directed reachability"
+  | `BMC -> fprintf ppf "bounded model checking"
+  | `IND -> fprintf ppf "inductive step"
+  | `IND2 -> fprintf ppf "2-induction"
+  | `INVGEN -> fprintf ppf "two state invariant generator"
+  | `INVGENOS -> fprintf ppf "one state invariant generator"
+  | `C2I -> fprintf ppf "c2i"
+  | `Interpreter -> fprintf ppf "interpreter"
+  | `Supervisor -> fprintf ppf "invariant manager"
+  | `Parser -> fprintf ppf "parser"
 
 
 (* String representation of a process type *)
@@ -1147,22 +1111,22 @@ let string_of_signal = function
   | s when s = Sys.sigprof -> "SIGPROF"
   | s -> string_of_int s
 
-let pp_print_signal ppf s = Format.fprintf ppf "%s" (string_of_signal s)
+let pp_print_signal ppf s = fprintf ppf "%s" (string_of_signal s)
 
 (* Pretty-print the termination status of a process *)
 let pp_print_process_status ppf = function 
-  | Unix.WEXITED s -> Format.fprintf ppf "exited with return code %d" s
+  | Unix.WEXITED s -> fprintf ppf "exited with return code %d" s
 
   | Unix.WSIGNALED s -> 
-    Format.fprintf ppf "killed by signal %a" pp_print_signal s
+    fprintf ppf "killed by signal %a" pp_print_signal s
 
   | Unix.WSTOPPED s -> 
-    Format.fprintf ppf "stopped by signal %a" pp_print_signal s
+    fprintf ppf "stopped by signal %a" pp_print_signal s
 
 
 (* Raise exception on signal *)
 let exception_on_signal signal = 
-  (* Format.printf "Signal %a caught" pp_print_signal signal; *)
+  (* printf "Signal %a caught" pp_print_signal signal; *)
   raise (Signal signal)
 
 
@@ -1309,19 +1273,19 @@ let pp_print_position ppf (
 
   if pos = dummy_pos then 
 
-    Format.fprintf ppf "(unknown)"
+    fprintf ppf "(unknown)"
 
   else if pos_lnum = 0 && pos_cnum = -1 then
 
-    Format.fprintf ppf "%s" pos_fname
+    fprintf ppf "%s" pos_fname
 
   else
 
-    Format.fprintf 
+    fprintf 
       ppf
       "@[<hv>%tline %d@ col. %d@]"
       (function ppf -> 
-        if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+        if pos_fname = "" then () else fprintf ppf "%s@ " pos_fname)
       pos_lnum
       pos_cnum
 
@@ -1333,19 +1297,19 @@ let pp_print_pos ppf (
 
   if pos = dummy_pos then 
 
-    Format.fprintf ppf "[unknown]"
+    fprintf ppf "[unknown]"
 
   else if pos_lnum = 0 && pos_cnum = -1 then
 
-    Format.fprintf ppf "%s" pos_fname
+    fprintf ppf "%s" pos_fname
 
   else
 
-    Format.fprintf 
+    fprintf 
       ppf
       "[%tl%dc%d]"
       (function ppf -> 
-        if pos_fname = "" then () else Format.fprintf ppf "%s|" pos_fname)
+        if pos_fname = "" then () else fprintf ppf "%s|" pos_fname)
       pos_lnum
       pos_cnum
 
@@ -1378,6 +1342,20 @@ let file_row_col_of_pos = function
 
   (* Return tuple of filename, line and column *)
   | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
+
+
+let print_backtrace fmt bt =
+  match Printexc.backtrace_slots bt with
+  | None -> ()
+  | Some slots ->
+    let n = Array.length slots in
+    Array.iteri (fun i s ->
+        match Printexc.Slot.format i s with
+        | None -> ()
+        | Some s ->
+          pp_print_string fmt s;
+          if i < n - 1 then pp_force_newline fmt ()
+      ) slots
 
 
 

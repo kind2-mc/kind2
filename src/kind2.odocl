@@ -57,6 +57,7 @@ LustreTransSys
 LustreInput
 LustrePath 
 NativeInput
+Pretty
 Horn
 SMTExpr
 SMTLIBSolver
