@@ -23,8 +23,73 @@ open Format
 
 (** Functions for pretty ascii output (colors, etc.)
 
+    By default a set of tags are added to stdout and stderr. To activate them
+    call {[Format.pp_set_tags fmt true]}. Colors can be added to another formatter with the function {!add_colors}.
+
+Tags must be added to the format string with [@{<tag> what you want}]. They can be arbitrarily nested. For instance to print a string in red with part of it bold do
+{[
+Format.printf "@{<red>I'm red. @{<b> I'm bold red.@}}"
+]}
+
+The font tags available are:
+- [n] : normal
+- [b] : bold
+- [/b] : cancel bold
+- [dim] : dimmer color
+- [u] : underline
+- [/u] : cancel underline
+- [i] : italicize
+- [/i] : cancel italicize
+- [/bl] : cancel blinking
+
+The color (foreground) tags are: 
+- [black]
+- [red]
+- [green]
+- [yellow]
+- [blue]
+- [magenta]
+- [cyan]
+- [gray]
+- [default]
+
+And their bright version
+- [black_b]
+- [red_b]
+- [green_b]
+- [yellow_b]
+- [blue_b]
+- [magenta_b]
+- [cyan_b]
+- [gray_b]
+- [default_b]
+
+
+The background color tags are: 
+- [bg_black]
+- [bg_red]
+- [bg_green]
+- [bg_yellow]
+- [bg_blue]
+- [bg_magenta]
+- [bg_cyan]
+- [bg_gray]
+- [bg_default]
+
+And their bright version
+- [bg_black_b]
+- [bg_red_b]
+- [bg_green_b]
+- [bg_yellow_b]
+- [bg_blue_b]
+- [bg_magenta_b]
+- [bg_cyan_b]
+- [bg_gray_b]
+- [bg_default_b]
+
+
     @author Alain Mebsout
- *)
+*)
 
 
 (** {1 Pretty colors} *)

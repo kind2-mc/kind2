@@ -12,10 +12,9 @@ var t: int;
 let
   t = 0 -> if reset or pre t = max then 0 else pre t + 1;
   out = t = 2;
-  --%PROPERTY t <> 3;
 tel
 
-node topute (reset: bool) returns (OK, OK2: bool);
+node top (reset: bool) returns (OK, OK2: bool);
 var b, d: bool;
 let
   b = greycounter(reset);
@@ -23,5 +22,5 @@ let
   OK = b = d;
   OK2 = not d;
   --%PROPERTY OK;
-  --%PROPERTY OK2;
+  -- --%PROPERTY OK2;
 tel
