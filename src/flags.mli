@@ -128,33 +128,47 @@ You can now add modules following the instructions in the previous section.
 
 (** Input file *)
 val input_file : unit -> string
+
 (** Main node in Lustre file *)
 val lus_main : unit -> string option
+
 (** Format of input file *)
 type input_format = [ `Lustre | `Horn | `Native ]
 val input_format : unit -> input_format
+
 (** Output directory for the files Kind 2 generates. *)
 val output_dir : unit -> string
+
 (** Debug sections to enable *)
 val debug : unit -> string list
+
 (** Logfile for debug output  *)
 val debug_log : unit -> string option
+
 (** Verbosity level *)
 val log_level : unit -> Lib.log_level
+
 (** Output in XML format *)
 val log_format_xml : unit -> bool
+
 (** Wallclock timeout. *)
 val timeout_wall : unit -> float
+
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
+
 (** The modules enabled. *)
 val enable : unit -> enable
+
 (** Modular analysis. *)
 val modular : unit -> bool
+
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool
+
 (** Activates compilation to Rust. *)
 val lus_compile : unit -> bool
+
 (** Colored output. *)
 val color : unit -> bool
 
@@ -203,20 +217,28 @@ end
 
 (** {2 BMC / k-induction flags} *)
 module BmcKind : sig
+
   (** Maximal number of iterations in BMC. *)
   val max : unit -> int
+
   (** Check that the unrolling of the system alone is satisfiable. *)
   val check_unroll : unit -> bool
+
   (** Print counterexamples to induction. *)
   val print_cex : unit -> bool
+
   (** Compress inductive counterexample. *)
   val compress : unit -> bool
+
   (** Compress inductive counterexample when states are equal modulo inputs. *)
   val compress_equal : unit -> bool
+
   (** Compress inductive counterexample when states have same successors. *)
   val compress_same_succ : unit -> bool
+
   (** Compress inductive counterexample when states have same predecessors. *)
   val compress_same_pred : unit -> bool
+
   (** Lazy assertion of invariants. *)
   val lazy_invariants : unit -> bool
 end
@@ -224,46 +246,64 @@ end
 
 (** {2 IC3 flags} *)
 module IC3 : sig
+
   (** Algorithm usable for quantifier elimination in IC3. *)
   type qe = [
     `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
   ]
+
   (** The QE algorithm IC3 should use. *)
   val qe : unit -> qe
+
   (** Sets [qe]. *)
   val set_qe : qe -> unit
+
   (** Check inductiveness of blocking clauses. *)
   val check_inductive : unit -> bool
+
   (** File for inductive blocking clauses. *)
   val print_to_file : unit -> string option
+
   (** Tighten blocking clauses to an unsatisfiable core. *)
   val inductively_generalize : unit -> int
+
   (** Block counterexample in future frames. *)
   val block_in_future : unit -> bool
+
   (** Block counterexample in future frames first before returning to frame. *)
   val block_in_future_first : unit -> bool
+
   (** Also propagate clauses before generalization. *)
   val fwd_prop_non_gen : unit -> bool
+
   (** Inductively generalize all clauses after forward propagation. *)
   val fwd_prop_ind_gen : unit -> bool
+
   (** Subsumption in forward propagation. *)
   val fwd_prop_subsume : unit -> bool
+
   (** Use invariants from invariant generators. *)
   val use_invgen : unit -> bool
+
   (** Legal abstraction mechanisms for in IC3. *)
   type abstr = [ `None | `IA ]
+
   (** Abstraction mechanism IC3 should use. *)
   val abstr : unit -> abstr
+
   (** Legal heuristics for extraction of implicants in IC3. *)
   type extract = [ `First | `Vars ]
+
   (** Heuristic for extraction of implicants in IC3. *)
   val extract : unit -> extract
 end
 
 (** {2 QE flags} *)
 module QE : sig
+
   (** Order variables in polynomials by order of elimination **)
   val order_var_by_elim : unit -> bool
+
   (** Choose lower bounds containing variables **)
   val general_lbound : unit -> bool
 end
@@ -271,10 +311,13 @@ end
 
 (** {2 Contracts flags} *)
 module Contracts : sig
+
   (** Compositional analysis. *)
   val compositional : unit -> bool
+
   (** Check modes. *)
   val check_modes : unit -> bool
+
   (** Check modes. *)
   val check_implem : unit -> bool
 end
@@ -283,10 +326,13 @@ end
 (** {2 Testgen flags} *)
 
 module Testgen : sig
+
   (** Activates test generation. *)
   val active : unit -> bool
+
   (** Only generate graph of reachable modes, do not log testcases. *)
   val graph_only : unit -> bool
+
   (** Length of the test case generated. *)
   val len : unit -> int
 end
@@ -294,18 +340,25 @@ end
 
 (** {2 Invgen flags} *)
 module Invgen : sig
+
   (** InvGen will remove trivial invariants, i.e. invariants implied by the
       transition relation. *)
   val prune_trivial : unit -> bool
+
   (** Number of unrollings invariant generation should perform between
     switching to a different systems. *)
   val max_succ : unit -> int
+
   (** InvGen will lift candidate terms from subsystems. **)
   val lift_candidates : unit -> bool
+
   (** InvGen will generate invariants only for top level. **)
+
   val top_only : unit -> bool
   (** InvGen will look for candidate terms in the transition predicate. *)
+
   val mine_trans : unit -> bool
+
   (** Renice invariant generation process. *)
   val renice : unit -> int
 end
@@ -313,12 +366,16 @@ end
 
 (** {2 C2I flags} *)
 module C2I : sig
+
   (** Number of disjuncts in the DNF constructed by C2I. *)
   val dnf_size : unit -> int
+
   (** Number of int cubes in the DNF constructed by C2I. *)
   val int_cube_size : unit -> int
+
   (** Number of real cubes in the DNF constructed by C2I. *)
   val real_cube_size : unit -> int
+
   (** Whether mode sub candidate is activated in c2i. *)
   val modes : unit -> bool
 end
@@ -326,8 +383,10 @@ end
 
 (** {2 Interpreter flags} *)
 module Interpreter : sig
+
   (** Read input from file. *)
   val input_file : unit -> string
+
   (** Run number of steps, override the number of steps given in the input
     file. *)
   val steps : unit -> int
