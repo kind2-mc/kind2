@@ -48,24 +48,6 @@ val false_of_any : 'a -> bool
 val mk_dir : string -> unit
 
 
-(** {1 Event tags} *)
-
-(** Timeout tag. *)
-val timeout_tag : string
-(** Success tag. *)
-val success_tag : string
-(** Failure tag. *)
-val failure_tag : string
-(** Error tag. *)
-val error_tag : string
-(** Warning tag. *)
-val warning_tag : string
-(** Interruption tag. *)
-val interruption_tag : string
-(** Done tag. *)
-val done_tag : string
-
-
 
 (** {1 Option types} *)
 
@@ -251,9 +233,6 @@ val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a
 (** Pretty-print if list is not empty *)
 val pp_print_if_not_empty : (unit, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
-(** Output a horizonal dasehd line *)
-val pp_print_hline : Format.formatter -> unit -> unit 
-
 (** Pretty-print into a string *)
 val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string 
 
@@ -293,8 +272,6 @@ type log_level =
 val int_of_log_level : log_level -> int
 
 val log_level_of_int : int -> log_level
-
-val tag_of_level : log_level -> string
 
 
 (** Current formatter for output *)

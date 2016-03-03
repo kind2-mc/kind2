@@ -1864,6 +1864,22 @@ module Global = struct
     (fun fmt -> Format.fprintf fmt "Output in XML format")
   let log_format_xml () = !log_format_xml
 
+  
+  (* Colored output *)
+  let color_default = true
+  let color = ref color_default
+  let _ = add_spec
+    "--color"
+    (bool_arg color)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Display colors in ascii output (deactivated when using -xml)@ \
+          Default: %a\
+        "
+        fmt_bool color_default
+    )
+  let color () = !color
 
   (* Version flag. *)
   let _ = add_spec
@@ -1911,6 +1927,7 @@ let input_format = Global.input_format
 let timeout_wall = Global.timeout_wall
 let input_file = Global.input_file
 let lus_compile = Global.lus_compile
+let color = Global.color
 
 (* Path to subdirectory for a system (in the output directory). *)
 let subdir_for scope =
@@ -2034,7 +2051,7 @@ let parse_clas specs anon_action global_usage_msg =
         else
           try spec_loop tail arg specs |> cla_loop
           with UnknownFlag flag ->
-            anon_action arg;
+            anon_action flag;
             cla_loop tail
     in
 
@@ -2043,7 +2060,7 @@ let parse_clas specs anon_action global_usage_msg =
       with
       | UnknownFlag flag ->
         Global.print_help () ;
-        Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag ;
+        Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag;
         exit 2
       | BadArg (error, flag) ->
         Format.printf
@@ -2067,7 +2084,17 @@ let parse_argv () =
   Global.help_of () |> List.rev |> print_module_info ;
 
   (* Finalize the list of enabled module. *)
-  Global.finalize_enabled ()
+  Global.finalize_enabled ();
+
+
+  (* Colors if flag is not false and not in xml mode *)
+  let open Format in
+  if color () && not (log_format_xml ()) then begin
+    pp_set_tags std_formatter true;
+    pp_set_tags err_formatter true;
+    pp_set_tags !Lib.log_ppf true;
+  end
+
 
 
 

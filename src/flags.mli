@@ -18,23 +18,25 @@
 
 
 
-(* 
+(**
 
-# WORKFLOW.
+Parsing of command line arguments
+
+{1 Workflow}
 
 Flags are separated based on the technique(s) they impact. *Global flags* are
 the ones that don't impact any technique, or impact all of them. Log flags,
 help flags, timeout flags... are global flags.
 
-**NB:** when adding a boolean flag, make sure to parse its value with the
+{b NB:} when adding a boolean flag, make sure to parse its value with the
 `bool_of_string` function.
 
-## Adding a new (non-global) flag to an existing module
+{b Adding a new (non-global) flag to an existing module}
 
 Adding a new flag impacts three pieces of code. The first is the body of the
 module you're adding the flag to. Generally speaking, adding a flag looks like
 
-```ocaml
+{[
 (* Default value of the flag. *)
 let my_flag_default = ...
 (* Reference storing the value of the flag. *)
@@ -53,28 +55,27 @@ let _ = add_spec (
 )
 (* Flag value accessor. *)
 let my_flag () = !my_flag
-```
+]}
 
 At this point your flag is integrated in the Kind 2 flags.
 
 To make it available to the rest of Kind 2, you need to modify the signature of
 the module you added the flag to
-
-* in this file, where the module is declared, and
-* in `flags.mli`.
+- in this file, where the module is declared, and
+- in `flags.mli`.
 
 The update to the signature is typically
 
-```ocaml
+{[
   val my_flag : unit -> type_of_my_flag
-```
+]}
 
 
-## Adding a new flag module
+{b Adding a new flag module}
 
 The template to add a new module is
 
-```ocaml
+{[
 module MyModule : sig
   include FlagModule
 end = struct
@@ -98,15 +99,15 @@ end = struct
   let all_specs () = !all_specs
 
 end
-```
+]}
 
 Don't forget to update `flags.mli`:
 
-```ocaml
+{[
 module MyModule : sig
   include FlagModule
 end
-```
+]}
 
 You then need to add your module to the `module_map`, the association map
 between module identifiers and modules. Make sure the identifier for your
@@ -114,7 +115,7 @@ module is not used yet.
 
 You can now add modules following the instructions in the previous section.
 
-@author Christoph Sticksel, Adrien Champion *)
+@author Christoph Sticksel, Adrien Champion **)
 
 
 (** {1 Accessors for flags} *)
@@ -154,6 +155,8 @@ val modular : unit -> bool
 val lus_strict : unit -> bool
 (** Activates compilation to Rust. *)
 val lus_compile : unit -> bool
+(** Colored output. *)
+val color : unit -> bool
 
 
 (** {2 SMT solver flags} *)

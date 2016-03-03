@@ -24,7 +24,7 @@ let print_stats trans_sys =
     L_debug
     "@[<v>%a@,\
      Final statistics:@]"
-    pp_print_hline ();
+    Pretty.print_line ();
   
   List.iter 
     (fun (mdl, stat) -> Event.log_stat mdl L_debug stat)

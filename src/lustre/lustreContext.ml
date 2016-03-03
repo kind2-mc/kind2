@@ -36,12 +36,7 @@ module Event = struct
           @;<0 -2></Log>\
         @]@.")
     else
-      ( match lvl with
-        | L_warn -> warning_tag
-        | L_error -> error_tag
-        (* Only warning or errors in theory. *)
-        | _ -> failwith "LustreContext should only output warnings or errors" )
-      |> Format.printf ("%s @[<v>" ^^ fmt ^^ "@]@.")
+      Format.printf ("%a @[<v>" ^^ fmt ^^ "@]@.") Pretty.tag_of_level lvl
 end
 
 module A = LustreAst
