@@ -26,9 +26,9 @@ open Format
     By default a set of tags are added to stdout and stderr. To activate them
     call {[Format.pp_set_tags fmt true]}. Colors can be added to another formatter with the function {!add_colors}.
 
-Tags must be added to the format string with [@{<tag> what you want}]. They can be arbitrarily nested. For instance to print a string in red with part of it bold do
+Tags must be added to the format string with [@{<tag> what you want@}]. They can be arbitrarily nested. For instance to print a string in red with part of it bold do
 {[
-Format.printf "@{<red>I'm red. @{<b> I'm bold red.@}}"
+Format.printf "@{<red>I'm red. @{<b> I'm bold red.@}@}"
 ]}
 
 The font tags available are:
