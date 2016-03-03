@@ -225,6 +225,7 @@ Source files live in subdirectory [SMTSolver]
   Lib
   Messaging
   Numeral
+  Pretty
   SExprBase
   SExprLexer
   Stat
