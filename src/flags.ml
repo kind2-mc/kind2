@@ -1866,7 +1866,7 @@ module Global = struct
 
   
   (* Colored output *)
-  let color_default = false
+  let color_default = true
   let color = ref color_default
   let _ = add_spec
     "--color"
