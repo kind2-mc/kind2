@@ -161,12 +161,13 @@ let next_analysis_of_strategy (type s)
 
 (* Return a transition system with [top] as the main system, sliced to
    abstractions and implementations as in [abstraction_map]. *)
-let trans_sys_of_analysis (type s)
+let trans_sys_of_analysis (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (subsystem, globals) -> (function analysis ->
     let t, s, g =
-      LustreTransSys.trans_sys_of_nodes subsystem globals analysis
+      LustreTransSys.trans_sys_of_nodes
+        ~preserve_sig:preserve_sig subsystem globals analysis
     in
     (t, Lustre (s, g))
   )

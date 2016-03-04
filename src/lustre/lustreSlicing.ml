@@ -743,6 +743,7 @@ let add_roots_of_asserts asserts roots =
 
    Call this function with *)
 let rec slice_nodes
+    preserve_sig
     init_slicing_of_node
     nodes
     functions_in_coi
@@ -767,7 +768,7 @@ let rec slice_nodes
 
       (* If this is the top node, slice away inputs and outputs *)
       let inputs', outputs' = 
-        if tl = [] then 
+        if tl = [] && not preserve_sig then 
           (
 
             (* Only keep inputs that have been visited *)
@@ -822,6 +823,7 @@ let rec slice_nodes
 
       (* Continue with next nodes *)
       slice_nodes
+        preserve_sig
         init_slicing_of_node
         nodes
         functions_in_coi
@@ -835,6 +837,7 @@ let rec slice_nodes
       when List.exists (StateVar.equal_state_vars state_var) leaves -> 
 
       slice_nodes
+        preserve_sig
         init_slicing_of_node
         nodes
         functions_in_coi
@@ -882,6 +885,7 @@ let rec slice_nodes
            TODO: Detect cycles in node calls here, but that should not
            be possible with the current format. *)
         slice_nodes
+          preserve_sig
           init_slicing_of_node
           nodes
           functions_in_coi
@@ -1138,6 +1142,7 @@ let rec slice_nodes
 
         (* Continue with modified sliced node and roots *)
         slice_nodes
+          preserve_sig
           init_slicing_of_node
           nodes
           functions_in_coi'
@@ -1268,7 +1273,9 @@ let root_and_leaves_of_abstraction_map
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction' analysis roots subsystem { G.functions } =
+let slice_to_abstraction'
+  ?(preserve_sig = false) analysis roots subsystem { G.functions }
+=
 
   let { A.top } = A.info_of_param analysis in
 
@@ -1282,6 +1289,7 @@ let slice_to_abstraction' analysis roots subsystem { G.functions } =
   let nodes', functions' = 
 
     slice_nodes
+      preserve_sig
       (root_and_leaves_of_abstraction_map false roots analysis)
       nodes
       []
@@ -1297,15 +1305,21 @@ let slice_to_abstraction' analysis roots subsystem { G.functions } =
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction analysis subsystem globals = 
-  slice_to_abstraction' analysis None subsystem globals
+let slice_to_abstraction
+  ?(preserve_sig = false) analysis subsystem globals
+=
+  slice_to_abstraction'
+    ~preserve_sig:preserve_sig analysis None subsystem globals
 
   
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction_and_property analysis vars subsystem globals =
+let slice_to_abstraction_and_property
+  ?(preserve_sig = false) analysis vars subsystem globals
+=
   let roots = Some vars in
-  slice_to_abstraction' analysis roots subsystem globals
+  slice_to_abstraction'
+    ~preserve_sig:preserve_sig analysis roots subsystem globals
 
 
   

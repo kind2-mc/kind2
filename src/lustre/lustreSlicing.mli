@@ -124,9 +124,16 @@ val node_is_abstract : Analysis.param -> LustreNode.t -> bool
     influence together with a state variable not in the cone of
     influence. In this case, both state variables are in the cone of
     influence. We may add a better analysis later. *)
-val slice_to_abstraction : Analysis.param -> LustreNode.t SubSystem.t -> LustreGlobals.t -> LustreNode.t SubSystem.t * LustreGlobals.t
+val slice_to_abstraction :
+    ?preserve_sig:bool ->
+    Analysis.param -> LustreNode.t SubSystem.t -> LustreGlobals.t ->
+    LustreNode.t SubSystem.t * LustreGlobals.t
 
-val slice_to_abstraction_and_property : Analysis.param -> StateVar.StateVarSet.t -> LustreNode.t SubSystem.t -> LustreGlobals.t -> LustreNode.t SubSystem.t * LustreGlobals.t 
+val slice_to_abstraction_and_property :
+    ?preserve_sig:bool ->
+    Analysis.param -> StateVar.StateVarSet.t ->
+    LustreNode.t SubSystem.t -> LustreGlobals.t ->
+    LustreNode.t SubSystem.t * LustreGlobals.t 
 
 (* 
    Local Variables:

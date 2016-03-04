@@ -1140,13 +1140,22 @@ let pp_print_path_xml
 
 (* Pretty-prints a single stream in CSV. *)
 let pp_print_stream_csv model ppf (index, sv) =
+  Format.printf "pp_print_stream_csv@.@." ;
   try
     let typ3 = StateVar.type_of_state_var sv in
     let values = SVT.find model sv in
     Format.fprintf ppf "%a,%a,%a"
       pp_print_stream_ident_xml (index, sv)
       (E.pp_print_lustre_type false) typ3
-      (pp_print_listi pp_print_stream_value ",") values
+      (pp_print_list
+        (fun fmt -> function
+          | Model.Term v ->
+            Format.fprintf fmt "%a" pp_print_value v
+          | Model.Lambda _ ->
+            failwith "error: found lambda in model value"
+        ) ","
+      )
+      values
   with Not_found ->
     Format.asprintf
       "[LustrePath.pp_print_stream_csv] could not find state var %a"
@@ -1170,7 +1179,7 @@ let pp_print_lustre_path_in_csv ppf = function
 
   (* Print inputs in CSV. *)
   Format.fprintf ppf "@[<v>%a@]"
-    (pp_print_list (pp_print_stream_csv model) "@,") inputs
+    (pp_print_list (pp_print_stream_csv model) "@ ") inputs
 
 (* Outputs a model for the inputs of a system in CSV. *)
 let pp_print_path_in_csv

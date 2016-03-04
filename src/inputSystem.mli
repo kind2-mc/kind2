@@ -44,7 +44,8 @@ val next_analysis_of_strategy :
   'a t -> Analysis.results -> Analysis.param option
 
 (** Return a transition system for an analysis run *)
-val trans_sys_of_analysis : 'a t -> Analysis.param -> TransSys.t * 'a t
+val trans_sys_of_analysis:
+  ?preserve_sig:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
 val pp_print_path_pt : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit

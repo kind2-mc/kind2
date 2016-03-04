@@ -965,7 +965,7 @@ let run_testgen input_sys top =
 
       (* Extracting transition system. *)
       let sys, input_sys_sliced =
-        InputSystem.trans_sys_of_analysis input_sys param
+        InputSystem.trans_sys_of_analysis ~preserve_sig:true input_sys param
       in
 
       (* Let's do this. *)
@@ -994,8 +994,7 @@ let run_testgen input_sys top =
         testgen_xmls
         |> List.map (fun xml -> Format.sprintf "%s/%s" tests_path xml)
         |> TestGen.log_test_glue_file
-          target name (oracle_path, guarantees, modes)
-          (Format.sprintf "%s/%s" target implem_path) ;
+          target name (oracle_path, guarantees, modes) implem_path ;
         Event.log_uncond
           "%sDone with test generation." TestGen.log_prefix
       ) with e -> (
