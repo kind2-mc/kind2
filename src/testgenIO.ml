@@ -292,9 +292,9 @@ let log_test_glue_file
       @.  @[<v>\
         <oracle path=\"%s\">@   \
           @[<v>\
-            <!--- Guarantees --->@ \
+            <!-- Guarantees -->@ \
             %a@ \
-            <!--- Mode ensures --->@ \
+            <!-- Mode ensures -->@ \
             %a\
           @]@ \
         </oracle>\
