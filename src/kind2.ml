@@ -984,7 +984,7 @@ let run_testgen input_sys top =
         let oracle_target = Format.sprintf "%s/%s" target oracle_path in
         mk_dir oracle_target ;
         Event.log_uncond
-          "%sGenerating oracle for node \"%a\" to `%s`."
+          "%sCompiling oracle to Rust for node \"%a\" to `%s`."
           TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
         let name, guarantees, modes =
           InputSystem.compile_oracle_to_rust input_sys top oracle_target
@@ -995,7 +995,9 @@ let run_testgen input_sys top =
         |> List.map (fun xml -> Format.sprintf "%s/%s" tests_path xml)
         |> TestGen.log_test_glue_file
           target name (oracle_path, guarantees, modes)
-          (Format.sprintf "%s/%s" target implem_path)
+          (Format.sprintf "%s/%s" target implem_path) ;
+        Event.log_uncond
+          "%sDone with test generation." TestGen.log_prefix
       ) with e -> (
         TestGen.on_exit "T_T" ;
         raise e
@@ -1013,9 +1015,10 @@ let compile_to_rust input_sys top =
     (* Implementation directory. *)
     let target = Format.sprintf "%s/%s" target implem_path in
     Event.log_uncond
-      "[COMPILE] Compiling node \"%a\" to `%s`..."
+      "[TO_RUST] Compiling node \"%a\" to Rust in `%s`."
       Scope.pp_print_scope top target ;
-    InputSystem.compile_to_rust input_sys top target
+    InputSystem.compile_to_rust input_sys top target ;
+    Event.log_uncond "[TO_RUST] Done compiling."
   )
 
 (* Runs test generation and compilation if asked to. *)
