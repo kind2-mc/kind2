@@ -1140,7 +1140,6 @@ let pp_print_path_xml
 
 (* Pretty-prints a single stream in CSV. *)
 let pp_print_stream_csv model ppf (index, sv) =
-  Format.printf "pp_print_stream_csv@.@." ;
   try
     let typ3 = StateVar.type_of_state_var sv in
     let values = SVT.find model sv in

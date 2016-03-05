@@ -317,24 +317,30 @@ let log_test_glue_file
     fmt_cargo_build oracle_path
     (pp_print_list
       (fun fmt (pos, cnt) ->
+        let (file, row, col) = file_row_col_of_pos pos in
         Format.fprintf fmt
-          "<guarantee \
-            pos=\"%a\" \
-            count=\"%d\"\
-          ></guarantee>"
-          pp_print_pos pos cnt
+          "<output \
+            count=\"%d\" \
+            file=\"%s\" \
+            row=\"%d\" \
+            col=\"%d\" s\
+          ></output>"
+          cnt file row col
       )
       "@ "
     ) guarantees
     (pp_print_list
       (fun fmt (mode, pos, cnt) ->
+        let (file, row, col) = file_row_col_of_pos pos in
         Format.fprintf fmt
-          "<ensure \
+          "<output \
             mode=\"%s\" \
-            pos=\"%a\" \
-            count=\"%d\"\
-          ></ensure>"
-          mode pp_print_pos pos cnt
+            count=\"%d\" \
+            file=\"%s\" \
+            row=\"%d\" \
+            col=\"%d\" \
+          ></output>"
+          mode cnt file row col
       )
       "@ "
     ) modes
