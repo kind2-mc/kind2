@@ -1029,8 +1029,12 @@ let log_run_end results =
   | F_pt ->
     (* Printing a short, human readable version of all the results. *)
     if Flags.Contracts.compositional () then
-      Format.fprintf !log_ppf "%a@{<b>Analysis breakdown@}:@   @[<v>%a@]@.@."
+      Format.fprintf !log_ppf
+        "%a@{<b>Analysis breakdown, total runtime %.3fs seconds@}:@   \
+          @[<v>%a@]@.@.\
+        "
         Pretty.print_line ()
+        (Stat.get_float Stat.total_time)
         (pp_print_list Analysis.pp_print_result_quiet "@ ") (
           results
           |> if Flags.modular () then List.filter (
