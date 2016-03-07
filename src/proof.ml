@@ -77,6 +77,7 @@ let s_lambda = H.mk_hstring "\\"
 let s_at = H.mk_hstring "@"
 let s_hole = H.mk_hstring "_"
 let s_define = H.mk_hstring "define"
+let s_opaque = H.mk_hstring "opaque"
 
 
 let s_unsat = H.mk_hstring "unsat"
@@ -649,9 +650,17 @@ let proof_from_chan ctx in_ch =
 let proof_from_file ctx f =
   let cmd = cvc4_proof_cmd ^ " " ^ f in
   let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
-  let proof = proof_from_chan ctx ic in
-  ignore(Unix.close_process_full (ic, oc, err));
-  proof
+  try
+    let proof = proof_from_chan ctx ic in
+    ignore(Unix.close_process_full (ic, oc, err));
+    proof
+  with Failure _ as e ->
+    Event.log L_fatal "Could not parse CVC4 proof.";
+    (match Unix.close_process_full (ic, oc, err) with
+     | Unix.WEXITED 0 -> ()
+     | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
+       Event.log L_fatal "CVC4 crashed with exit code %d." i);
+    raise e
 
 
 (******************************************)
@@ -711,10 +720,18 @@ let context_from_chan in_ch =
 let context_from_file f =
   let cmd = cvc4_proof_cmd ^ " " ^ f in
   let ic, oc, err = Unix.open_process_full cmd (Unix.environment ()) in
-  let ctx = context_from_chan ic in
-  (* printf "Parsed context:\n%a@." print_context ctx; *)
-  ignore(Unix.close_process_full (ic, oc, err));
-  ctx
+  try
+    let ctx = context_from_chan ic in
+    (* printf "Parsed context:\n%a@." print_context ctx; *)
+    ignore(Unix.close_process_full (ic, oc, err));
+    ctx
+  with Failure _ as e ->
+    Event.log L_fatal "Could not parse CVC4 context.";
+    (match Unix.close_process_full (ic, oc, err) with
+     | Unix.WEXITED 0 -> ()
+     | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
+       Event.log L_fatal "CVC4 crashed with exit code %d." i);
+    raise e
 
 (* Merge two contexts *)
 let merge_contexts ctx1 ctx2 =
