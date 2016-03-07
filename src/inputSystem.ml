@@ -161,12 +161,13 @@ let next_analysis_of_strategy (type s)
 
 (* Return a transition system with [top] as the main system, sliced to
    abstractions and implementations as in [abstraction_map]. *)
-let trans_sys_of_analysis (type s)
+let trans_sys_of_analysis (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (subsystem, globals) -> (function analysis ->
     let t, s, g =
-      LustreTransSys.trans_sys_of_nodes subsystem globals analysis
+      LustreTransSys.trans_sys_of_nodes
+        ~preserve_sig:preserve_sig subsystem globals analysis
     in
     (t, Lustre (s, g))
   )
@@ -348,7 +349,11 @@ fun sys top_scope target ->
   | Horn _ ->
     Format.printf "can't compile from horn clause input: unsupported"
 
-let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> unit =
+let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> (
+  string *
+  (Lib.position * int) list *
+  (string * Lib.position * int) list
+) =
 fun sys top_scope target ->
   match sys with
   | Lustre (sub, _) ->
@@ -356,9 +361,9 @@ fun sys top_scope target ->
       fun scope -> (S.find_subsystem sub scope).S.source
     ) sub.S.source
   | Native _ ->
-    Format.printf "can't compile from native input: unsupported"
+    failwith "can't compile from native input: unsupported"
   | Horn _ ->
-    Format.printf "can't compile from horn clause input: unsupported"
+    failwith "can't compile from horn clause input: unsupported"
 
 
 

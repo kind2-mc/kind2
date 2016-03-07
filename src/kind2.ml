@@ -942,12 +942,14 @@ let setup () =
 
     exit status_error
 
+let tests_path = "tests"
+let oracle_path = "oracle"
+let implem_path = "implem"
 
 (* Runs test generation on the system (scope) specified by abstracting
    everything. *)
 let run_testgen input_sys top =
   if Flags.Testgen.active () then (
-    Format.printf "Running testgen@.@." ;
     match InputSystem.maximal_abstraction_for_testgen input_sys top [] with
     | None ->
       Event.log L_warn
@@ -960,11 +962,6 @@ let run_testgen input_sys top =
       let target = Flags.subdir_for top in
       (* Create system dir if needed. *)
       mk_dir target ;
-      let target = Format.sprintf "%s/testgen" target in
-      mk_dir target ;
-      Event.log_uncond
-        "Generating tests for node \"%a\" to `%s`."
-        Scope.pp_print_scope top target ;
 
       let param = match param with
         | Analysis.ContractCheck info -> Analysis.ContractCheck {
@@ -981,21 +978,38 @@ let run_testgen input_sys top =
 
       (* Extracting transition system. *)
       let sys, input_sys_sliced =
-        InputSystem.trans_sys_of_analysis input_sys param
+        InputSystem.trans_sys_of_analysis ~preserve_sig:true input_sys param
       in
 
       (* Let's do this. *)
       try (
-        let test_target = Format.sprintf "%s/tests" target in
-        mk_dir test_target ;
-        TestGen.main param input_sys_sliced sys test_target ;
+        let tests_target = Format.sprintf "%s/%s" target tests_path in
+        mk_dir tests_target ;
+        Event.log_uncond
+          "%sGenerating tests for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top tests_target ;
+        let testgen_xmls =
+          TestGen.main param input_sys_sliced sys tests_target
+        in
         (* Yay, done. Killing stuff. *)
         TestGen.on_exit "yay" ;
         (* Generate oracle. *)
+        let oracle_target = Format.sprintf "%s/%s" target oracle_path in
+        mk_dir oracle_target ;
         Event.log_uncond
-          "Generating oracle for node \"%a\" to `%s`."
-          Scope.pp_print_scope top target ;
-        InputSystem.compile_oracle_to_rust input_sys top target ;
+          "%sCompiling oracle to Rust for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
+        let name, guarantees, modes =
+          InputSystem.compile_oracle_to_rust input_sys top oracle_target
+        in
+        Event.log_uncond
+          "%sGenerating glue xml file to `%s/.`." TestGen.log_prefix target ;
+        testgen_xmls
+        |> List.map (fun xml -> Format.sprintf "%s/%s" tests_path xml)
+        |> TestGen.log_test_glue_file
+          target name (oracle_path, guarantees, modes) implem_path ;
+        Event.log_uncond
+          "%sDone with test generation." TestGen.log_prefix
       ) with e -> (
         TestGen.on_exit "T_T" ;
         raise e
@@ -1005,19 +1019,18 @@ let run_testgen input_sys top =
 (* Compiles a system (scope) to Rust. *)
 let compile_to_rust input_sys top =
   if Flags.lus_compile () then (
-    Format.printf "Compiling to rust@.@." ;
     (* Creating root dir if needed. *)
     Flags.output_dir () |> mk_dir ;
     let target = Flags.subdir_for top in
     (* Creating system subdir if needed. *)
     mk_dir target ;
     (* Implementation directory. *)
-    let target = Format.sprintf "%s/implem" target in
+    let target = Format.sprintf "%s/%s" target implem_path in
     Event.log_uncond
-      "Compiling node \"%a\" to `%s`..." Scope.pp_print_scope top target ;
+      "[TO_RUST] Compiling node \"%a\" to Rust in `%s`."
+      Scope.pp_print_scope top target ;
     InputSystem.compile_to_rust input_sys top target ;
-    Event.log_uncond
-      "Success."
+    Event.log_uncond "[TO_RUST] Done compiling."
   )
 
 (* Runs test generation and compilation if asked to. *)

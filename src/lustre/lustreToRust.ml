@@ -1472,28 +1472,30 @@ let oracle_to_rust target find_sub top =
           SVS.add svar.C.svar outs
         ) (I.empty, SVS.empty)
       in
-      contract.C.modes |> List.fold_left (fun (trie, outs, eqs) {
-        C.name ; C.requires ; C.ensures
-      } ->
-        ensures |> List.fold_left (fun (trie, outs, eqs) svar ->
-          let output =
-            SVar.mk_state_var
-              ( Format.sprintf "mode_%s_%d"
-                  (Id.string_of_ident false name) svar.C.num
-              ) [] Type.t_bool
-          in
-          let expr =
-            requires
-            |> List.map (fun req -> E.mk_var req.C.svar)
-            |> E.mk_and_n
-            |> fun lhs -> E.mk_impl lhs (E.mk_var svar.C.svar)
-          in
-          I.add (
-            [ I.ListIndex (next_index_of trie) ]
-          ) output trie,
-          SVS.add output outs,
-          (output, [], expr) :: eqs
-        ) (trie, outs, eqs)
+      contract.C.modes |> List.fold_left (
+        fun (trie, outs, eqs) {
+          C.name ; C.requires ; C.ensures
+        } ->
+          ensures |> List.fold_left (
+            fun (trie, outs, eqs) svar ->
+              let output =
+                SVar.mk_state_var
+                  ( Format.sprintf "mode_%s_%d"
+                      (Id.string_of_ident false name) svar.C.num
+                  ) [] Type.t_bool
+              in
+              let expr =
+                requires
+                |> List.map (fun req -> E.mk_var req.C.svar)
+                |> E.mk_and_n
+                |> fun lhs -> E.mk_impl lhs (E.mk_var svar.C.svar)
+              in
+              I.add (
+                [ I.ListIndex (next_index_of trie) ]
+              ) output trie,
+              SVS.add output outs,
+              (output, [], expr) :: eqs
+          ) (trie, outs, eqs)
       ) (outputs, output_svars, []),
       Some (
         contract.C.assumes, contract.C.guarantees, contract.C.modes
@@ -1548,12 +1550,50 @@ let oracle_to_rust target find_sub top =
   in
 
   (* Creating node and compiling. *)
-  { top with
-    N.inputs = inputs ;
-    N.outputs = outputs ;
-    N.locals = locals ;
-    N.equations = equations ;
-    N.calls = calls ;
-  } |> to_rust oracle_info target find_sub
+  let oracle =
+    { top with
+      N.inputs = inputs ;
+      N.outputs = outputs ;
+      N.locals = locals ;
+      N.equations = equations ;
+      N.calls = calls ;
+    }
+  in
+
+  (* Compiling oracle. *)
+  oracle |> to_rust oracle_info target find_sub ;
+
+  match oracle_info with
+  | None ->
+    Format.asprintf
+      "no contract for node %a" (Id.pp_print_ident false) top.N.name
+    |> failwith
+  | Some (_, guarantees, modes) -> (
+    Format.asprintf "%a" (Id.pp_print_ident false) top.N.name,
+    guarantees |> List.map (
+      fun { C.pos ; C.num } -> pos, num
+    ),
+    modes |> List.fold_left (
+      fun l { C.name ; C.ensures } ->
+        ensures
+        |> List.map (
+          fun { C.pos ; C.num } ->
+            Id.string_of_ident false name, pos, num
+        )
+        |> fun res -> List.rev_append res l
+    ) []
+  ) ;
+
+
+
+
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k"
+   indent-tabs-mode: nil
+   End: 
+*)
+
+
 
 
