@@ -39,7 +39,7 @@ let file_width = 120
 let quant_free = true
 let monolithic_base = true
 let simple_base = false
-let abstr_index () = Flags.proof ()
+let abstr_index () = Flags.certif_abstr ()
 let clean_tmp = false
 let call_frontend = true
 
@@ -1182,6 +1182,8 @@ let add_decl_index fmt k =
       fprintf fmt "(declare-fun %s () %s)@." (index_sym_of_int i) ty_index_name;
     done
   end
+  (* else  *)
+  (*   fprintf fmt "(define-sort %s () Int)\n@." ty_index_name *)
 
 
 
@@ -1287,7 +1289,10 @@ let export_system ~trace_lfsc_defs
   (* Conjunction of properties *)
   let prop = extract_props_terms sys in
 
-  if trace_lfsc_defs then add_decl_index fmt (-1);
+  if trace_lfsc_defs then begin
+    add_logic fmt sys;
+    add_decl_index fmt (-1);
+  end;
   
   (* declare state variables, write I, T and P *)
   mononames_system fmt ~trace_lfsc_defs description sys name_sys prop names;  
@@ -1301,14 +1306,17 @@ let export_system ~trace_lfsc_defs
   close_out oc
 
 
-let export_phi ~trace_lfsc_defs dirname file definitions_files names phi =
+let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
 
   let filename = Filename.concat dirname file in
   let oc =
     if trace_lfsc_defs then
       files_cat_open
         ~add_prefix:(fun fmt ->
-            if trace_lfsc_defs then add_decl_index fmt (-1) else ())
+            if trace_lfsc_defs then begin
+              add_logic fmt sys;
+              add_decl_index fmt (-1)
+            end else ())
         definitions_files filename |> Unix.out_channel_of_descr
     else open_out filename in
   let fmt = formatter_of_out_channel oc in
@@ -1509,10 +1517,10 @@ let generate_split_certificates sys dirname =
 
   (* Export k-inductive invariant phi in SMT-LIB2 format *)
   export_phi ~trace_lfsc_defs:false
-    dirname kind2_phi_f [kind2_defs_path] names_kind2 phi;
+    dirname kind2_phi_f [kind2_defs_path] names_kind2 sys phi;
 
   export_phi ~trace_lfsc_defs:true
-    dirname kind2_phi_lfsc_f [kind2_defs_path] names_kind2 phi;
+    dirname kind2_phi_lfsc_f [kind2_defs_path] names_kind2 sys phi;
 
   let kind2_phi_path = Filename.concat dirname kind2_phi_f in
   let kind2_phi_lfsc_path = Filename.concat dirname kind2_phi_lfsc_f in
@@ -2220,7 +2228,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
 
 let export_obs_system ~trace_lfsc_defs
     dirname file definitions_files
-    name_sys names_obs names_kind2 names_jkind same_inputs_term =
+    name_sys names_obs names_kind2 names_jkind kind2_sys same_inputs_term =
 
   let filename = Filename.concat dirname file in
 
@@ -2228,7 +2236,10 @@ let export_obs_system ~trace_lfsc_defs
     if trace_lfsc_defs then
       files_cat_open
         ~add_prefix:(fun fmt ->
-            if trace_lfsc_defs then add_decl_index fmt (-1) else ())
+            if trace_lfsc_defs then begin
+              add_logic fmt kind2_sys;
+              add_decl_index fmt (-1)
+            end else ())
         definitions_files filename |> Unix.out_channel_of_descr
     else open_out filename in
   let fmt = formatter_of_out_channel oc in
@@ -2371,11 +2382,11 @@ let generate_frontend_obs node kind2_sys dirname =
   (* Export Observer system in SMT-LIB2 format for use in proof *)
   export_obs_system ~trace_lfsc_defs:false
     dirname obs_defs_f observer_deps
-    "OBS" names_obs names_kind2 names_jkind same_inputs_term;
+    "OBS" names_obs names_kind2 names_jkind kind2_sys same_inputs_term;
 
   export_obs_system ~trace_lfsc_defs:true
     dirname obs_defs_lfsc_f observer_deps
-    "OBS" names_obs names_kind2 names_jkind same_inputs_term;
+    "OBS" names_obs names_kind2 names_jkind kind2_sys same_inputs_term;
 
   let obs_defs_path = Filename.concat dirname obs_defs_f in
   let obs_defs_lfsc_path = Filename.concat dirname obs_defs_lfsc_f in
@@ -2438,10 +2449,10 @@ let generate_frontend_certificates sys dirname =
            |> List.map (Filename.concat dirname) in
   
   (* Export k-inductive invariant phi in SMT-LIB2 format *)
-  export_phi ~trace_lfsc_defs:false dirname obs_phi_f deps names_obs phi;
+  export_phi ~trace_lfsc_defs:false dirname obs_phi_f deps names_obs sys phi;
 
   export_phi ~trace_lfsc_defs:true dirname obs_phi_lfsc_f
-    deps names_obs phi;
+    deps names_obs sys phi;
 
   let obs_phi_path = Filename.concat dirname obs_phi_f in
   let obs_phi_lfsc_path = Filename.concat dirname obs_phi_lfsc_f in

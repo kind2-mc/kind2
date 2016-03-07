@@ -7,9 +7,12 @@
 ;; Depends on sat.plf, smt.plf, and th_base.plf
 
 
-(declare index sort)
-;; (define index Int) ;; in case we want integer indexes later
-(declare ind (! n mpz (term index)))
+;; (declare index sort)
+;; (declare ind (! n mpz (term index)))
+
+;; in case we want integer indexes later, use this instead
+(define index Int)
+(define ind a_int)
 
 ;; relations over indexes (used for transition relation)
 (define rel (! x mpz (! y mpz formula)))

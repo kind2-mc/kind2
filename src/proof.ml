@@ -83,9 +83,11 @@ let s_unsat = H.mk_hstring "unsat"
 let s_sat = H.mk_hstring "sat"
 let s_unknown = H.mk_hstring "unknown"
 
-let s_index = H.mk_hstring "index"
+let s_index =
+  if Flags.certif_abstr () then H.mk_hstring "index"
+  else H.mk_hstring "Int"
+
 let s_pindex = H.mk_hstring "%index%"
-let s_mk_ind = H.mk_hstring "mk_ind"
 let s_pk = H.mk_hstring "%%k"
 
 (* let s_Int = H.mk_hstring "Int" *)
@@ -128,6 +130,34 @@ type lfsc_term = HS.t
 
 let ty_formula = HS.Atom s_formula
 let ty_term ty = HS.(List [Atom s_term; ty])
+
+
+(* LFSC [(term index)] *)
+let term_index = HS.(List [Atom s_term; Atom s_index])
+
+(* LFSC type for representing indexes *)
+let s_lfsc_index = if mpz_proofs then s_mpz else s_pindex
+
+(* substitution [(term index) -> %index%] *)
+let sigma_pindex = [term_index, HS.Atom s_pindex]
+
+(* substitution [(term index) -> mpz] *)
+let sigma_mpz = [term_index, HS.Atom s_mpz;]
+                 (* HS.Atom s_index, HS.Atom s_Int] *)
+
+(* substitution from [(term index)] to the selected representation *)
+let sigma_tindex = if mpz_proofs then sigma_mpz else sigma_pindex
+
+(* Returns [true] if the LFSC expression is the type for indexes [(term
+   index)] *)
+let is_term_index_type = function
+  | HS.List [HS.Atom t; HS.Atom i] -> t == s_term && i == s_index
+  | _ -> false
+
+(* Returns [true] if the argument is ["index"] *)
+let is_index_type i = i == s_index
+
+
 
 (* Type of LFSC declarations *)
 type lfsc_decl = {
@@ -318,6 +348,12 @@ let lex_comp h1 h2 =
 let lex_comp_b (_, i1, _) (_, i2, _) = Pervasives.compare i1 i2
 
 
+let is_fdummya b =
+  let s = H.string_of_hstring b in
+  try Scanf.sscanf s "%_s@%%%_d" true
+  with End_of_file | Scanf.Scan_failure _ -> false
+
+
 (* Return the symbol f in dummy symbol f%1 and register it as an argument of
    function f *)
 let fun_symbol_of_dummy_arg ctx b ty =
@@ -359,21 +395,31 @@ let rec fun_symbol_args_of_def acc =
 *)
 let fun_symbol_args_of_def sexp = fun_symbol_args_of_def [] sexp
 
-(* Returns [true] if the bounded symbol stands for an hypothesis *)
-let is_hyp b ty =
-  let s = H.string_of_hstring b in
-  try Scanf.sscanf s "A%_d" true (* A0, A1, A2, etc. *)
-  with End_of_file | Scanf.Scan_failure _ ->
-    (* existentially quantified %k in implication check stays in the
-       hypotheses *)
-    b == s_pk
 
 (* Returns [true] if the bounded symbol is an index constant of the form
-   [%%2] *)
+   [%%k] or [%%1] *)
 let is_index_constant b =
 let s = H.string_of_hstring b in
 try Scanf.sscanf s "%%%%%_s" true
 with End_of_file | Scanf.Scan_failure _ -> false
+
+
+let concrete_to_mpz ty =
+  try List.find (fun (x,y) -> HS.equal ty x) sigma_tindex |> snd
+  with Not_found -> ty
+
+
+(* Returns [true] if the bounded symbol stands for an hypothesis *)
+let is_hyp b ty =
+  let s = H.string_of_hstring b in
+  try Scanf.sscanf s "A%_d" (true, ty) (* A0, A1, A2, etc. *)
+  with End_of_file | Scanf.Scan_failure _ ->
+    (* existentially quantified %%k in implication check stays in the
+       hypotheses, but replace its index type with mpz *)
+    if b == s_pk then (true, concrete_to_mpz ty)
+    else if is_index_constant b || is_fdummya b then (false, concrete_to_mpz ty)
+    else (false, ty)
+                        
 
 (* Returns the integer index of an index constant *)
 let mpz_of_index b =
@@ -381,30 +427,6 @@ let s = H.string_of_hstring b in
 try Scanf.sscanf s "%%%%%d" (fun n -> Some n)
 with End_of_file | Scanf.Scan_failure _ -> None
 
-(* LFSC [(term index)] *)
-let term_index = HS.(List [Atom s_term; Atom s_index])
-
-(* LFSC type for representing indexes *)
-let s_lfsc_index = if mpz_proofs then s_mpz else s_pindex
-
-(* substitution [(term index) -> %index%] *)
-let sigma_pindex = [term_index, HS.Atom s_pindex]
-
-(* substitution [(term index) -> mpz] *)
-let sigma_mpz = [term_index, HS.Atom s_mpz;]
-                 (* HS.Atom s_index, HS.Atom s_Int] *)
-
-(* substitution from [(term index)] to the selected representation *)
-let sigma_tindex = if mpz_proofs then sigma_mpz else sigma_pindex
-
-(* Returns [true] if the LFSC expression is the type for indexes [(term
-   index)] *)
-let is_term_index_type = function
-  | HS.List [HS.Atom t; HS.Atom i] -> t == s_term && i == s_index
-  | _ -> false
-
-(* Returns [true] if the argument is ["index"] *)
-let is_index_type i = i == s_index
 
 (* Identify useless hypothesis [(th_holds true)] (already in the rules of
    smt.plf) *)
@@ -426,7 +448,7 @@ let rec apply_subst sigma sexp =
     | Atom _ -> sexp
 
 (* Replace the type [(term index)] by the chosen representation *)
-let repalace_type_index = apply_subst sigma_tindex
+(* let repalace_type_index = apply_subst sigma_tindex *)
 
 (* Replacing a constant of type index by an embedding of their chosen
    representation. For example, [%%1] becomes [f (ind 1)] (for mpz embedding)
@@ -442,7 +464,7 @@ let embed_ind =
       end
     | _ -> HS.(List [Atom s_ind; a])
   else
-    fun a -> HS.(List [Atom s_mk_ind; a])
+    fun a -> HS.(List [Atom s_ind; a])
 
 (* Embed indexes by replacing index constants and variables by the chosen
    representation *)
@@ -501,7 +523,7 @@ let rec definition_artifact_rec ctx = let open HS in function
       | Some (f, _) ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
         let targs =
-          List.map (fun (x, _, ty) -> x, repalace_type_index ty) targs in
+          List.map (fun (x, _, ty) -> x, (* repalace_type_index *) ty) targs in
         Some { def_symb = f;
                def_args = targs;
                def_body = embed_indexes targs term;
@@ -514,7 +536,7 @@ let rec definition_artifact_rec ctx = let open HS in function
       | Some (f, _) ->
         let targs = try HH.find ctx.fun_defs_args f with Not_found -> [] in
         let targs =
-          List.map (fun (x, _, ty) -> x, repalace_type_index ty) targs in
+          List.map (fun (x, _, ty) -> x, (* repalace_type_index *) ty) targs in
         Some { def_symb = f;
                def_args = targs;
                def_body = embed_indexes targs term;
@@ -533,7 +555,8 @@ let definition_artifact ctx = let open HS in function
 
 (* Parse lambda binding in proof and classify them. *)
 let parse_Lambda_binding ctx b ty =
-  if is_hyp b ty then
+  let ih, ty = is_hyp b ty in
+  if ih then
     if is_hyp_true ty then
       (* ignore useless (th_holds true) *)
       Lambda_ignore
@@ -544,7 +567,7 @@ let parse_Lambda_binding ctx b ty =
       | None ->
         (* Otherwise its a real hypothesis *)
         Lambda_hyp { decl_symb = b;
-                     decl_type = repalace_type_index ty |> embed_indexes [] }
+                     decl_type = (* repalace_type_index  *)ty |> embed_indexes [] }
   else if fun_symbol_of_dummy_arg ctx b ty || fun_symbol_of_def b <> None then
     (* ignore introduced dummy symbols *)
     Lambda_ignore

@@ -296,6 +296,12 @@ let certif_force_default = false
 
 (* ********** *) 
 
+type certif_abstr = bool
+
+let certif_abstr_default = false
+
+(* ********** *) 
+
 type jkind_bin = string 
 
 let jkind_bin_of_string s = s
@@ -835,6 +841,7 @@ type flags =
     mutable proof : proof;
     mutable certif : certif;
     mutable certif_force : certif_force;
+    mutable certif_abstr : certif_abstr;
     mutable certif_min : certif_min;
     mutable certif_mininvs : certif_mininvs;
     mutable certif_dir : certif_dir;
@@ -913,6 +920,7 @@ let flags =
     proof = proof_default;
     certif = certif_default;
     certif_force = certif_force_default;
+    certif_abstr = certif_abstr_default;
     certif_min = certif_min_default;
     certif_mininvs = certif_mininvs_default;
     certif_dir = certif_dir_default;
@@ -1106,6 +1114,16 @@ let certif_force_spec =
   ("--certif_force", 
    Arg.Unit certif_force_action, 
    Format.sprintf "Force production of certificate even if some properties are false")
+
+(* ********** *) 
+
+let certif_abstr_action o = flags.certif_abstr <- true
+  
+let certif_abstr_spec = 
+  ("--certif_abstr", 
+   Arg.Unit certif_abstr_action, 
+   Format.sprintf "Use abstract index types for stream / state variables \
+                   indexes. Otherwise integers are used.")
 
 (* ********** *) 
 
@@ -1751,6 +1769,8 @@ let certif () = flags.certif
 
 let certif_force () = flags.certif_force
 
+let certif_abstr () = flags.certif_abstr
+
 let certif_min () = flags.certif_min
 
 let certif_mininvs () = flags.certif_mininvs
@@ -1956,6 +1976,8 @@ and speclist =
 
     (* Force produce certificates *)
     certif_force_spec;
+
+    certif_abstr_spec;
 
     (* Minimize certificates k *)
     certif_min_spec;

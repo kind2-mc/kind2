@@ -299,6 +299,9 @@ val certif : unit -> certif
 type certif_force = bool
 val certif_force : unit -> certif
 
+type certif_abstr = bool
+val certif_abstr : unit -> certif
+
 (** Minimization strategy of k of certificates *)
 type certif_min = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
 val certif_min : unit -> certif_min
