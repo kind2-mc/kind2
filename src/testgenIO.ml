@@ -323,7 +323,7 @@ let log_test_glue_file
             count=\"%d\" \
             file=\"%s\" \
             row=\"%d\" \
-            col=\"%d\" s\
+            col=\"%d\"\
           ></output>"
           cnt file row col
       )
@@ -338,7 +338,7 @@ let log_test_glue_file
             count=\"%d\" \
             file=\"%s\" \
             row=\"%d\" \
-            col=\"%d\" \
+            col=\"%d\"\
           ></output>"
           mode cnt file row col
       )
