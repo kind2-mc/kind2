@@ -103,7 +103,17 @@ let rec eval_ast_expr ctx = function
 
   (* Mode ref *)
   | A.ModeRef (pos, p4th) -> (
-    let p4th = List.rev_append (C.contract_scope_of ctx) p4th in
+    let p4th =
+      match p4th with
+      | [] -> failwith "empty mode reference"
+      | [_] -> (* Reference to own modes, append path. *)
+        List.rev_append (C.contract_scope_of ctx) p4th
+      | _ -> (
+        match C.contract_scope_of ctx with
+        | _ :: tail -> List.rev_append tail p4th
+        | _ -> p4th
+      )
+    in
     let fail () =
       C.fail_at_position pos (
         Format.asprintf
@@ -129,10 +139,9 @@ let rec eval_ast_expr ctx = function
         (pp_print_list
           (fun fmt { Contract.name ; Contract.path } ->
             Format.fprintf fmt
-              "%a::%a"
+              "%a"
               (pp_print_list Format.pp_print_string "::")
               path
-              (I.pp_print_ident false) name
           )
           "@ "
         ) modes ; *)

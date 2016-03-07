@@ -780,11 +780,22 @@ let rec streams_to_strings path ident_width val_width streams =
 
 (* Output a stream value with the given width *)
 let pp_print_stream_value_pt val_width ppf v =
-  Format.fprintf
-    ppf 
-    "%*s"
-    val_width
-    v
+  if not (Flags.color ()) then
+    Format.fprintf ppf "%*s" val_width v
+  else
+    match v with
+    | "false" -> Format.fprintf ppf "@{<black_b>%*s@}" val_width v
+    | _ ->
+      Format.fprintf ppf "%*s" val_width v
+      (* maybe too crazy *)
+      (* try Scanf.sscanf v "%d" (fun x -> *)
+      (*     let f = Scanf.format_from_string *)
+      (*         ("@{<c:" ^ string_of_int (x mod 35 + 57) ^ ">%*s@}") *)
+      (*         "%*s" in *)
+      (*     Format.fprintf ppf f val_width v *)
+      (*   ) *)
+      (* with _ -> Format.fprintf ppf "%*s" val_width v *)
+
 
 
 (* Output a stream value with given width for the identifier and
@@ -794,7 +805,7 @@ let pp_print_stream_pt ident_width val_width ppf (stream_name, stream_values) =
   (* Break lines if necessary and indent correctly *)
   Format.fprintf
     ppf
-    "@[<hov %d>%-*s %a@]"
+    "@[<hov %d>@{<blue_b>%-*s@} %a@]"
     (ident_width + 1)
     ident_width
     stream_name
@@ -809,7 +820,7 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
   | l -> 
     Format.fprintf
       ppf
-      "== %s ==@,\
+      "== @{<b>%s@} ==@,\
        %a@,"
       sect
       (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
@@ -877,7 +888,7 @@ let rec pp_print_lustre_path_pt' ppf = function
 
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
-      %s %a (%a)@,  @[<v>\
+      @{<b>%s@} @{<blue>%a@} (%a)@,  @[<v>\
         %a\
         %a\
         %a\

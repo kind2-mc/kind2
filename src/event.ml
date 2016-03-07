@@ -16,8 +16,8 @@
 
 *)
 
+open Pretty
 open Lib
-
 
 (* Termination message received *)
 exception Terminate
@@ -25,6 +25,8 @@ exception Terminate
 (* Indicates an [AnalysisStart] tag has been printed but [AnalysisStop] was
    not. *)
 let analysis_start_not_closed = ref false
+
+
 
 (* ********************************************************************** *)
 (* Events passed on to callers                                            *)
@@ -331,8 +333,8 @@ let printf_pt mdl level fmt =
   (ignore_or_fprintf level)
     !log_ppf 
     (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("%s @[<hov>" ^^ fmt ^^ "@]@.@.")
-    (tag_of_level level)
+    ("%a @[<hov>" ^^ fmt ^^ "@]@.@.")
+    tag_of_level level
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
 
@@ -345,7 +347,8 @@ let printf_pt_uncond mdl fmt =
     ("@[<hov>" ^^ fmt ^^ "@]@.@.")
     (* pp_print_level_pt level *)
     (* pp_print_kind_module_pt mdl *)
-    
+
+
 
 (* Output proved property as plain text *)
 let proved_pt mdl level trans_sys k prop = 
@@ -359,7 +362,7 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf
-      ("@[<hov>%s Property %s is valid %tby %a after %.3fs.@.@.")
+      ("@[<hov>%t Property @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@.")
       success_tag
       prop
       (function ppf -> match k with
@@ -391,7 +394,7 @@ let pp_print_counterexample_pt
 
   (* Output counterexample *)
   Format.fprintf ppf 
-    "Counterexample:@,  @[<v>%a@]"
+    "@{<red>Counterexample@}:@,  @[<v>%a@]"
     (InputSystem.pp_print_path_pt input_sys trans_sys instances disproved)
     (Model.path_of_list cex)
 )
@@ -412,7 +415,7 @@ let execution_path_pt level input_sys analysis trans_sys path =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    ("@[<v>Execution:@,\
+    ("@[<v>@{<b>Execution@}:@,\
       %a@]@.")
     (pp_print_path_pt input_sys analysis trans_sys true) path
 
@@ -431,7 +434,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
-      "@[<v>%s Property %s %s %tafter %.3fs.@,@,%a@]@."
+      "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%a@]@."
       (if disproved then failure_tag else warning_tag)
       prop
       (
@@ -453,7 +456,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
     if Simplify.has_division_by_zero_happened () then
       div_by_zero_text prop
       |> printf_pt mdl L_warn
-        "%s @[<v> %a@]"
+        "%t @[<v> %a@]"
         warning_tag
         (pp_print_list Format.pp_print_string "@,")
 
@@ -467,7 +470,7 @@ let stat_pt mdl level stats =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    "@[<v>Statistics for %a@,@,%a@]@."
+    "@[<v>@{<b>Statistics for %a@}@,@,%a@]@."
     pp_print_kind_module mdl
     (pp_print_list
        (function ppf -> function (section, items) -> 
@@ -483,46 +486,46 @@ let progress_pt mdl level k =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    "@[<v>Progress by %a: %d@]@."
+    "@[<v>@{<b>Progress by %a@}: %d@]@."
     pp_print_kind_module mdl
     k
 
 (* Pretty-print a list of properties and their status *)
 let prop_status_pt level prop_status =
 
-
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>%a@,Summary of properties:@,@,%a@,%a@,@]@."
-    pp_print_hline ()
+    "@[<v>@{<b>%a@}@{<b>Summary of properties@}:@,%a%a@,@{<b>%a@}@]@."
+    Pretty.print_double_line ()
+    Pretty.print_line ()
     (pp_print_list 
        (fun ppf (p, s) -> 
           Format.fprintf 
             ppf
-            "@[<h>%s: %a@]"
+            "@[<h>@{<blue_b>%s@}: %a@]"
             p
             (function ppf -> function 
                | Property.PropUnknown -> 
-                 Format.fprintf ppf "unknown"
+                 Format.fprintf ppf "@{<red>unknown@}"
 
                | Property.PropKTrue k -> 
-                 Format.fprintf ppf "true up to %d steps" k
+                 Format.fprintf ppf "@{<yellow>true up to %d steps@}" k
 
                | Property.PropInvariant -> 
-                 Format.fprintf ppf "valid"
+                 Format.fprintf ppf "@{<green_b>valid@}"
 
                | Property.PropFalse [] -> 
-                 Format.fprintf ppf "invalid"
+                 Format.fprintf ppf "@{<red_b>invalid@}"
 
                | Property.PropFalse cex -> 
                  Format.fprintf 
                    ppf
-                   "invalid after %d steps"
+                   "@{<red_b>invalid after %d steps@}"
                    ((Property.length_of_cex cex) - 1))
             s)
        "@,")
     prop_status
-    pp_print_hline ()
+    Pretty.print_double_line ()
           
 
 (* ********************************************************************** *)
@@ -910,6 +913,7 @@ type log_format =
 
 (* Current log format *)
 let log_format = ref F_pt
+let prev_log_format = ref !log_format
 
 (* Set log format to plain text *)
 let set_log_format_pt () = log_format := F_pt
@@ -924,7 +928,11 @@ let set_log_format_xml () =
                
 
 (* Relay log messages to invariant manager *)
-let set_relay_log () = log_format := F_relay
+let set_relay_log () =
+  prev_log_format := !log_format;
+  log_format := F_relay
+
+let unset_relay_log () = log_format := !prev_log_format
 
 
 (* ********************************************************************** *)
@@ -1021,8 +1029,12 @@ let log_run_end results =
   | F_pt ->
     (* Printing a short, human readable version of all the results. *)
     if Flags.Contracts.compositional () then
-      Format.fprintf !log_ppf "%a@.@.Analysis breakdown:@   @[<v>%a@]@.@."
-        pp_print_hline ()
+      Format.fprintf !log_ppf
+        "%a@{<b>Analysis breakdown, total runtime %.3fs seconds@}:@   \
+          @[<v>%a@]@.@.\
+        "
+        Pretty.print_line ()
+        (Stat.get_float Stat.total_time)
         (pp_print_list Analysis.pp_print_result_quiet "@ ") (
           results
           |> if Flags.modular () then List.filter (
@@ -1041,9 +1053,9 @@ let log_analysis_start param =
   | F_pt ->
     if Flags.log_level () = L_off |> not then
       Format.fprintf !log_ppf "\
-        @.%a@.@.Analyzing %a@   with %a\
+        @.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
       @.@."
-      pp_print_hline ()
+      Pretty.print_line ()
       Scope.pp_print_scope info.Analysis.top
       Analysis.pp_print_param param
 
@@ -1114,7 +1126,7 @@ let log_timeout b =
   match !log_format with
   | F_pt ->
     if Flags.log_level () = L_off |> not then
-      Format.printf "%s %s timeout.@.@." timeout_tag pref 
+      Format.printf "%t %s timeout.@.@." timeout_tag pref 
   | F_xml ->
     log L_fatal "%s timeout." pref
   | F_relay -> failwith "can only be called by supervisor"
@@ -1131,7 +1143,7 @@ let log_interruption signal =
   match !log_format with
   | F_pt ->
     if Flags.log_level () = L_off |> not then
-      Format.printf "%s %s@.@." interruption_tag txt
+      Format.printf "%t %s@.@." interruption_tag txt
   | F_xml ->
     log L_fatal "%s" txt
   | F_relay -> failwith "can only be called by supervisor"

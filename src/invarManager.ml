@@ -24,7 +24,7 @@ let print_stats trans_sys =
     L_debug
     "@[<v>%a@,\
      Final statistics:@]"
-    pp_print_hline ();
+    Pretty.print_line ();
   
   List.iter 
     (fun (mdl, stat) -> Event.log_stat mdl L_debug stat)
@@ -47,6 +47,52 @@ let on_exit trans_sys =
   (* Skip if running as a single process *)
   with Messaging.NotInitialized -> ()
 
+
+(* List of modules to monitor, and do actions in case they crashes *) 
+let monitor_modules = [`BMC; `IND]
+
+(* modules for which other modules needs them to be active to function
+   properly *)
+let needed_by = function
+  | `BMC -> [`IND; `IND2];
+  | `IND -> [`BMC]
+  | _ -> []
+
+(* Set of core modules. The analysis goes on if at least one of them is
+   active *)
+let core_module = function
+  | `IND | `BMC | `IC3 -> true
+  | _ -> false
+
+
+let pids_depend_on m child_pids =
+  let deps = needed_by m in
+  List.filter (fun (_, md) -> List.mem md deps) child_pids
+
+(* Terminate a module and then kill it if it did not exit. *)
+let term_kill (pid, dep) =
+  Event.log L_warn "Terminating useless %a (PID %d)"
+    pp_print_kind_module dep pid;
+  (try Unix.kill pid Sys.sigterm with _ -> ());
+  minisleep 0.1; 
+  (try
+     Unix.kill (- pid) Sys.sigkill;
+     Event.log L_warn "Killed not responding useless %a (PID %d)"
+       pp_print_kind_module dep pid;
+   with _ -> ())
+
+(* Kill engines that are not needed anymore because some of their dependencies
+   have crashed. This function returns a boolean that is true when it is no
+   longer necessary to continue the analysis because core components have
+   crahsed.  *)
+let kill_useless_engines child_pids =
+  List.iter (fun m ->
+      if not (List.exists (fun (_,x) -> x = m) child_pids) then
+        List.iter term_kill (pids_depend_on m child_pids)
+    ) monitor_modules;
+  not (List.exists (fun (_,m) -> core_module m) child_pids)
+
+  
 
 (* Remove terminated child processed from list of running processes
 
@@ -104,7 +150,8 @@ let rec wait_for_children child_pids =
        child_pids := List.remove_assoc child_pid !child_pids;
 
        (* Check if more child processes have died *)
-       true
+       kill_useless_engines !child_pids ||
+       wait_for_children child_pids
 
       )
 

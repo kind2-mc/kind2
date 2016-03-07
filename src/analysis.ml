@@ -261,8 +261,8 @@ let pp_print_result_quiet fmt { sys } =
   | valid, [], unknown ->
     Format.fprintf fmt "%a @[<v>\
       | timeout@ \
-      | unknown: [ @[<hov>%a@] ]@ \
-      | valid:   [ @[<hov>%a@] ]\
+      | unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
+      | valid:   [ @[<hov>@{<green>%a@}@] ]\
     @]"
     Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
     (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
@@ -270,9 +270,9 @@ let pp_print_result_quiet fmt { sys } =
   | valid, invalid, unknown ->
     Format.fprintf fmt "%a @[<v>\
       | unsafe@ \
-      | invalid: [ @[<hov>%a@] ]@ \
-      | unknown: [ @[<hov>%a@] ]@ \
-      | valid:   [ @[<hov>%a@] ]\
+      | invalid: [ @[<hov>@{<red>%a@}@] ]@ \
+      | unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
+      | valid:   [ @[<hov>@{<green>%a@}@] ]\
     @]"
     Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
     (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
