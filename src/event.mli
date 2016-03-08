@@ -40,6 +40,9 @@ val set_log_format_xml : unit -> unit
 (** Relay log messages to invariant manager *)
 val set_relay_log : unit -> unit
 
+(** Cancel relaying of log messages *)
+val unset_relay_log : unit -> unit
+
 (** Logs a step counterexample.
 
     Should only be used by step for sending the cex, and invariant manager to
@@ -119,9 +122,12 @@ val pp_print_event : Format.formatter -> event -> unit
 val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
 
 (** [log m l f v ...] outputs a message from module [m] on level [l],
-    formatted with the parameterized string [f] and the values [v
-    ...] *)
+    formatted with the parameterized string [f] and the values [v ...] *)
 val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
+
+(** [log_uncond m f v ...] outputs a message from module [m] unconditionally,
+    formatted with the parameterized string [f] and the values [v ...] *)
+val log_uncond : ('a, Format.formatter, unit) format -> 'a
 
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit

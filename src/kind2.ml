@@ -107,13 +107,13 @@ let set_sigalrm_handler () =
 
 (* Renices the current process. Used for invariant generation. *)
 let renice () =
-  let nice =  (Flags.invgengraph_renice ()) in
+  let nice =  (Flags.Invgen.renice ()) in
 
   if nice < 0 then
     Event.log L_info
       "Ignoring negative niceness value for invariant generation."
 
-  else
+  else if nice > 0 then
     let nice' = Unix.nice nice in
     Event.log L_info "Renicing invariant generation to %d" nice'
 
@@ -126,7 +126,7 @@ let main_of_process = function
   | `INVGEN -> renice () ; InvGenTS.main
   | `INVGENOS -> renice () ; InvGenOS.main
   | `C2I -> renice () ; C2I.main
-  | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
+  | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
   | `Supervisor -> InvarManager.main child_pids
   | `Parser | `Certif -> (fun _ _ _ -> ())
 
@@ -185,9 +185,13 @@ let status_of_trans_sys sys =
   let unknown, falsifiable =
     TransSys.get_prop_status_all_nocands sys
     |> List.fold_left (fun (u,f) -> function
-      | (_, Property.PropUnknown)
-      | (_, Property.PropKTrue _) -> u+1,f
-      | (_, Property.PropFalse _) -> u,f+1
+      | (n, Property.PropUnknown)
+      | (n, Property.PropKTrue _) ->
+        Format.eprintf "%s KU@." n;
+        u+1,f
+      | (n, Property.PropFalse _) ->
+        Format.eprintf "%s FALSE@." n;
+        u,f+1
       | _ -> u,f
     ) (0,0)
     |> fun (u,f) -> u > 0, f > 0
@@ -210,23 +214,21 @@ let status_error = 2
 
 (* Exit status from an optional [results]. *)
 let status_of_sys sys_opt = match sys_opt with
-| None -> status_timeout
+| None -> Format.eprintf "NOSYS@."; status_timeout
 | Some sys -> status_of_trans_sys sys
 
 (* Exit status from an optional [results]. *)
 let status_of_results results_opt = match results_opt with
-| None -> status_timeout
+| None -> Format.eprintf "NORES@."; status_timeout
 | Some results -> (
   match Analysis.results_is_safe results with
-  | None -> status_timeout
+  | None -> Format.eprintf "NOSAFERES@."; status_timeout
   | Some true -> status_safe
   | Some false -> status_unsafe
 )
 
 (* Return the status code from an exception *)
-let status_of_exn process status =
-  function
-
+let status_of_exn process status = function
   (* Normal termination *)
   | Exit -> status
 
@@ -629,14 +631,16 @@ let run_process messaging_setup process =
           (* Catch all other exceptions *)
           | e ->
 
+            Event.unset_relay_log ();
+
             (* Get backtrace now, Printf changes it *)
-            let backtrace = Printexc.get_backtrace () in
+            let backtrace = Printexc.get_raw_backtrace () in
 
             if Printexc.backtrace_status () then
-              Event.log L_fatal "Caught %s in %a.@ Backtrace:@\n%s"
+              Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
               (Printexc.to_string e)
               pp_print_kind_module process
-              backtrace ;
+              print_backtrace backtrace;
 
             (* Cleanup and exit *)
             on_exit_child (Some messaging_thread) process e
@@ -654,7 +658,7 @@ let run_process messaging_setup process =
 let check_smtsolver () =
 
   (* SMT solver from command-line *)
-  match Flags.smtsolver () with
+  match Flags.Smt.solver () with
 
     (* User chose Z3 *)
     | `Z3_SMTLIB ->
@@ -662,7 +666,7 @@ let check_smtsolver () =
       let z3_exec =
 
         (* Check if Z3 is on the path *)
-        try find_on_path (Flags.z3_bin ()) with
+        try find_on_path (Flags.Smt.z3_bin ()) with
 
           | Not_found ->
 
@@ -670,7 +674,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "Z3 executable %s not found."
-              (Flags.z3_bin ()) ;
+              (Flags.Smt.z3_bin ()) ;
 
             exit 2
 
@@ -684,7 +688,7 @@ let check_smtsolver () =
       let cvc4_exec =
 
         (* Check if CVC4 is on the path *)
-        try find_on_path (Flags.cvc4_bin ()) with
+        try find_on_path (Flags.Smt.cvc4_bin ()) with
 
           | Not_found ->
 
@@ -692,7 +696,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "CVC4 executable %s not found."
-              (Flags.cvc4_bin ()) ;
+              (Flags.Smt.cvc4_bin ()) ;
 
             exit 2
 
@@ -709,7 +713,7 @@ let check_smtsolver () =
       let mathsat5_exec =
 
         (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.mathsat5_bin ()) with
+        try find_on_path (Flags.Smt.mathsat5_bin ()) with
 
           | Not_found ->
 
@@ -717,7 +721,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "MathSat5 executable %s not found."
-              (Flags.mathsat5_bin ()) ;
+              (Flags.Smt.mathsat5_bin ()) ;
 
             exit 2
 
@@ -735,7 +739,7 @@ let check_smtsolver () =
       let yices_exec =
 
         (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.yices_bin ()) with
+        try find_on_path (Flags.Smt.yices_bin ()) with
 
           | Not_found ->
 
@@ -743,7 +747,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "Yices executable %s not found."
-              (Flags.yices_bin ()) ;
+              (Flags.Smt.yices_bin ()) ;
 
             exit 2
 
@@ -761,7 +765,7 @@ let check_smtsolver () =
       let yices_exec =
 
         (* Check if yices 2 is on the path *)
-        try find_on_path (Flags.yices2smt2_bin ()) with 
+        try find_on_path (Flags.Smt.yices2smt2_bin ()) with
 
           | Not_found ->
 
@@ -769,7 +773,7 @@ let check_smtsolver () =
             Event.log
               L_fatal
               "Yices2 SMT2 executable %s not found."
-              (Flags.yices2smt2_bin ()) ;
+              (Flags.Smt.yices2smt2_bin ()) ;
 
             exit 2
 
@@ -786,7 +790,7 @@ let check_smtsolver () =
 
       try
 
-        let z3_exec = find_on_path (Flags.z3_bin ()) in
+        let z3_exec = find_on_path (Flags.Smt.z3_bin ()) in
 
         Event.log L_info "Using Z3 executable %s." z3_exec ;
 
@@ -799,7 +803,7 @@ let check_smtsolver () =
 
         try
 
-          let cvc4_exec = find_on_path (Flags.cvc4_bin ()) in
+          let cvc4_exec = find_on_path (Flags.Smt.cvc4_bin ()) in
 
           Event.log
             L_info
@@ -815,7 +819,7 @@ let check_smtsolver () =
 
           try
 
-            let mathsat5_exec = find_on_path (Flags.mathsat5_bin ()) in
+            let mathsat5_exec = find_on_path (Flags.Smt.mathsat5_bin ()) in
 
             Event.log
               L_info
@@ -831,7 +835,7 @@ let check_smtsolver () =
 
             try
 
-              let yices_exec = find_on_path (Flags.yices_bin ()) in
+              let yices_exec = find_on_path (Flags.Smt.yices_bin ()) in
 
               Event.log
                 L_info
@@ -932,7 +936,10 @@ let setup : unit -> any_input = fun () ->
 
   let in_file = Flags.input_file () in
 
-  Event.log L_info "Parsing input file \"%s\"." in_file ;
+  Event.log L_info "Parsing %s."
+    (match in_file with
+     | "" -> "standard input"
+     | _ -> "input file \"" ^ in_file ^ "\"");
 
   try
     (* in_file |> *)
@@ -941,10 +948,121 @@ let setup : unit -> any_input = fun () ->
     | `Native -> Input (InputSystem.read_input_native in_file)
     | `Horn   -> (* InputSystem.read_input_horn *)   assert false
   with e -> (* Could not create input system. *)
+    
+    let backtrace = Printexc.get_raw_backtrace () in
+
+    Event.log
+      L_fatal "Error opening input file \"%s\":@ %s%a"
+      (Flags.input_file ()) (Printexc.to_string e)
+      (if Printexc.backtrace_status () then
+         fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
+       else fun _ _ -> ()) backtrace;
+
     (* Terminating log and exiting with error. *)
     Event.terminate_log () ;
-    raise e
 
+    exit status_error
+
+let tests_path = "tests"
+let oracle_path = "oracle"
+let implem_path = "implem"
+
+(* Runs test generation on the system (scope) specified by abstracting
+   everything. *)
+let run_testgen input_sys top =
+  if Flags.Testgen.active () then (
+    match InputSystem.maximal_abstraction_for_testgen input_sys top [] with
+    | None ->
+      Event.log L_warn
+        "System %a has no contracts, skipping test generation."
+        Scope.pp_print_scope top
+
+    | Some param ->
+      (* Create root dir if needed. *)
+      Flags.output_dir () |> mk_dir ;
+      let target = Flags.subdir_for top in
+      (* Create system dir if needed. *)
+      mk_dir target ;
+
+      let param = match param with
+        | Analysis.ContractCheck info -> Analysis.ContractCheck {
+          info with Analysis.uid = info.Analysis.uid * 1000
+        }
+        | Analysis.First info -> Analysis.First {
+          info with Analysis.uid = info.Analysis.uid * 1000
+        }
+        | Analysis.Refinement (info, res) -> Analysis.Refinement (
+          { info with Analysis.uid = info.Analysis.uid * 1000 },
+          res
+        )
+      in
+
+      (* Extracting transition system. *)
+      let sys, input_sys_sliced =
+        InputSystem.trans_sys_of_analysis ~preserve_sig:true input_sys param
+      in
+
+      (* Let's do this. *)
+      try (
+        let tests_target = Format.sprintf "%s/%s" target tests_path in
+        mk_dir tests_target ;
+        Event.log_uncond
+          "%sGenerating tests for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top tests_target ;
+        let testgen_xmls =
+          TestGen.main param input_sys_sliced sys tests_target
+        in
+        (* Yay, done. Killing stuff. *)
+        TestGen.on_exit "yay" ;
+        (* Generate oracle. *)
+        let oracle_target = Format.sprintf "%s/%s" target oracle_path in
+        mk_dir oracle_target ;
+        Event.log_uncond
+          "%sCompiling oracle to Rust for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
+        let name, guarantees, modes =
+          InputSystem.compile_oracle_to_rust input_sys top oracle_target
+        in
+        Event.log_uncond
+          "%sGenerating glue xml file to `%s/.`." TestGen.log_prefix target ;
+        testgen_xmls
+        |> List.map (fun xml -> Format.sprintf "%s/%s" tests_path xml)
+        |> TestGen.log_test_glue_file
+          target name (oracle_path, guarantees, modes) implem_path ;
+        Event.log_uncond
+          "%sDone with test generation." TestGen.log_prefix
+      ) with e -> (
+        TestGen.on_exit "T_T" ;
+        raise e
+      )
+  )
+
+(* Compiles a system (scope) to Rust. *)
+let compile_to_rust input_sys top =
+  if Flags.lus_compile () then (
+    (* Creating root dir if needed. *)
+    Flags.output_dir () |> mk_dir ;
+    let target = Flags.subdir_for top in
+    (* Creating system subdir if needed. *)
+    mk_dir target ;
+    (* Implementation directory. *)
+    let target = Format.sprintf "%s/%s" target implem_path in
+    Event.log_uncond
+      "[TO_RUST] Compiling node \"%a\" to Rust in `%s`."
+      Scope.pp_print_scope top target ;
+    InputSystem.compile_to_rust input_sys top target ;
+    Event.log_uncond "[TO_RUST] Done compiling."
+  )
+
+(* Runs test generation and compilation if asked to. *)
+let post_verif input_sys result =
+  if Analysis.result_is_all_proved result then (
+    let top_scope =
+      result.Analysis.sys |> TransSys.scope_of_trans_sys
+    in
+    run_testgen input_sys top_scope ;
+    compile_to_rust input_sys top_scope
+  )
 
 (* Launches analyses. *)
 let rec run_loop msg_setup modules results =
@@ -953,19 +1071,21 @@ let rec run_loop msg_setup modules results =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
 
-  (* Event.log L_fatal "Launching analysis with param %a"
-    Analysis.pp_print_param aparam ; *)
-  Event.log_analysis_start aparam ;
-
-  (* Output the transition system. *)
-  (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
-
   ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
 
-    (* TODO print something more relevant here. *)
-    | [] -> Event.log L_warn "Current system has no properties."
+    | [] ->
+      if Flags.modular () |> not then
+        Event.log L_warn "Current system has no properties."
+      else ()
 
     | props ->
+
+      (* Event.log L_fatal "Launching analysis with param %a"
+        Analysis.pp_print_param aparam ; *)
+      Event.log_analysis_start aparam ;
+
+      (* Output the transition system. *)
+      (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
 
       List.length props |> Event.log L_info "%d properties." ;
 
@@ -991,7 +1111,7 @@ let rec run_loop msg_setup modules results =
   Event.log L_info "Result: %a" Analysis.pp_print_result result ;
 
   (* Generate certificates if necessary *)
-  if Flags.certif () (* && *)
+  if Flags.Certif.certif () (* && *)
   (* (Flags.certif_force () *)
   (*  || status = status_safe || status = status_signal ) *) then
     (* Create certificate *)
@@ -999,7 +1119,7 @@ let rec run_loop msg_setup modules results =
         (function | _, Property.PropInvariant _ -> true | _ -> false)
         (TransSys.get_prop_status_all_nocands trans_sys)
     then begin
-      if Flags.proof () then
+      if Flags.Certif.proof () then
         CertifChecker.generate_all_proofs input_sys trans_sys
       else
         CertifChecker.generate_smt2_certificates input_sys trans_sys
@@ -1030,33 +1150,10 @@ let rec run_loop msg_setup modules results =
     run_loop msg_setup modules results
 
 
-(* Runs test generation on the system (scope) specified by abstracting
-   everything. *)
-let run_testgen input_sys sys =
-  match InputSystem.maximal_abstraction_for_testgen input_sys sys [] with
-  | None ->
-    Event.log L_info
-      "System %a has no contracts, cannot run test generation."
-      Scope.pp_print_scope sys
-
-  | Some param ->
-    (* Extracting transition system. *)
-    let sys, input_sys_sliced =
-      InputSystem.trans_sys_of_analysis input_sys param
-    in
-
-    (* Let's do this. *)
-    try (
-      TestGen.main param input_sys_sliced sys ;
-      (* Yay, done. Killing stuff. *)
-      TestGen.on_exit "yay"
-    ) with e -> (
-      TestGen.on_exit "T_T" ;
-      raise e
-    )
-
 (* Looks at the modules activated and decides what to do. *)
 let launch () =
+
+  TermLib.Signals.ignore_sigpipe () ;
 
   let input_sys = setup () in
   input_sys_ref := Some input_sys ;
@@ -1080,108 +1177,112 @@ let launch () =
   cur_aparam    := Some aparam           ;
   cur_trans_sys := Some trans_sys        ;
 
-  
   (* Dump transition system in native format *)
-  if Flags.dump_native () then NativeInput.dump_native trans_sys;
+  (* if Flags.dump_native () then NativeInput.dump_native trans_sys; *)
 
   (* Output the transition system *)
   (* (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end); *)
 
 
-  (* /!\ Test generation disclaimer: arguably it should come _after_
-     verification, since test generation assumes the system is correct.
+  (* Checking what's activated. *)
+  match Flags.enable () with
 
-     When you know what you're doing on the other hand that's fine.
-     So obviously our actual users should not be able to do this.
-   *)
-  if Flags.testgen_active () |> not then (
+  (* No modules enabled. *)
+  | [] ->
+    Event.log L_fatal "Need at least one process enabled." ;
+    exit status_error
 
-    (* Checking what's activated. *)
-    match Flags.enable () with
+  (* Only the interpreter is running. *)
+  | [m] when m = `Interpreter ->
 
-    (* No modules enabled. *)
-    | [] ->
-      Event.log L_fatal "Need at least one process enabled." ;
-      exit status_error
+    (* Set module currently running. *)
+    Event.set_module m ;
 
-    (* Only the interpreter is running. *)
-    | [m] when m = `Interpreter ->
-
-      (* Set module currently running. *)
-      Event.set_module m ;
-
-      let Input cur_sys = get !cur_input_sys in
+    let Input cur_sys = get !cur_input_sys in
       
-      (* Run interpreter. *)
-      Interpreter.main
-        (Flags.interpreter_input_file ())
-        cur_sys
-        (get !cur_aparam)
-        (get !cur_trans_sys) ;
+    (* Run interpreter. *)
+    Interpreter.main
+      (Flags.Interpreter.input_file ())
+      cur_sys
+      (get !cur_aparam)
+      (get !cur_trans_sys) ;
 
-      (* Ignore SIGALRM from now on *)
-      Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
+    (* Ignore SIGALRM from now on *)
+    Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
 
-      (* Cleanup before exiting process *)
-      on_exit_child None m Exit
+    (* Cleanup before exiting process *)
+    on_exit_child None m Exit
 
-    (* Some modules, including the interpreter. *)
-    | modules when List.mem `Interpreter modules ->
-      Event.log L_fatal "Cannot run the interpreter with other processes." ;
-      exit status_error
+  (* Some modules, including the interpreter. *)
+  | modules when List.mem `Interpreter modules ->
+    Event.log L_fatal "Cannot run the interpreter with other processes." ;
+    exit status_error
 
-    (* Some modules, not including the interpreter. *)
-    | modules ->
+  (* Some modules, not including the interpreter. *)
+  | modules ->
 
-      Event.log L_info
-        "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
-        (pp_print_list pp_print_kind_module "@ - ")
-        modules ;
+    Event.log L_info
+      "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
+      (pp_print_list pp_print_kind_module "@ - ")
+      modules ;
 
-      (* Setup messaging. *)
-      let msg_setup = Event.setup () in
+    (* Setup messaging. *)
+    let msg_setup = Event.setup () in
 
-      (* Set module currently running *)
-      Event.set_module `Supervisor ;
+    (* Set module currently running *)
+    Event.set_module `Supervisor ;
 
-      (* Initialize messaging for invariant manager, obtain a background
-         thread. No kids yet. *)
-      Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
+    (* Initialize messaging for invariant manager, obtain a background
+       thread. No kids yet. *)
+    Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
 
-      Event.log L_trace "Messaging initialized in supervisor." ;
+    Event.log L_trace "Messaging initialized in supervisor." ;
 
-      try
+    try
 
-        (* Running. *)
-        let results = run_loop msg_setup modules results in
-        (* Producing a list of the last results for each system, in topological
-           order. *)
-        let Input input_sys = get !input_sys_ref in
-        input_sys
-        |> InputSystem.ordered_scopes_of
-        |> List.fold_left (fun l sys ->
-          try (
-            match Analysis.results_find sys results with
-            | last :: _ -> last :: l
-            | [] -> assert false
-          ) with Not_found -> l
-        ) []
-        (* Logging the end of the run. *)
-        |> Event.log_run_end ;
+      (* Running. *)
+      let results =
+        run_loop msg_setup modules results |> Analysis.results_clean
+      in
 
-        clean_exit `Supervisor (Some results) Exit
+      (* Producing a list of the last results for each system, in topological
+         order. *)
+      let Input input_sys = get !input_sys_ref in
+      input_sys |> InputSystem.ordered_scopes_of
+      (* |> fun syss ->
+        Format.printf "%d systems@.@." (List.length syss) ;
+        Format.printf "systems: @[<v>%a@]@.@."
+          (pp_print_list Scope.pp_print_scope "@ ") syss ;
+        syss *)
+      |> List.fold_left (fun l sys ->
+        (* Format.printf "sys: %a@.@." Scope.pp_print_scope sys ; *)
+        try (
+          match Analysis.results_find sys results with
+          | last :: _ ->
+            (* Running post verification things. *)
+            post_verif input_sys last ;
+            last :: l
+          | [] -> assert false
+        ) with
+        | Not_found -> l
+        | e -> Format.printf "%s@.@." (Printexc.to_string e) ; l
+      ) []
+      (* Logging the end of the run. *)
+      |> Event.log_run_end ;
 
-      with e ->
-        on_exit `Supervisor None e;
-        raise e
+      clean_exit `Supervisor (Some results) Exit
 
-  ) else (
+    with e ->
+      (* Get backtrace now, Printf changes it *)
+      let backtrace = Printexc.get_raw_backtrace () in
 
-    match InputSystem.ordered_scopes_of in_sys with
-    | top :: _ -> run_testgen in_sys top
-    | [] -> ()
+      if Printexc.backtrace_status () then
+        Event.log L_fatal "Caught %s in %a.@\nBacktrace po:@\n%a"
+          (Printexc.to_string e)
+          pp_print_kind_module `Supervisor
+          print_backtrace backtrace;
 
-  )
+      on_exit `Supervisor None e
 
 
 (* Entry point *)

@@ -16,6 +16,8 @@
 
 *)
 
+(** C2I, CNF version. *)
+
 (** Clean exit. *)
 val on_exit : TransSys.t option -> unit
 

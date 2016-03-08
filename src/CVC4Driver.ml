@@ -29,7 +29,7 @@ let cmd_line
     produce_interpolants =
   
   (* Path and name of CVC4 executable *)
-  let cvc4_bin = Flags.cvc4_bin () in
+  let cvc4_bin = Flags.Smt.cvc4_bin () in
 
   (* Use unsat cores *)
   if produce_cores then 

@@ -193,21 +193,21 @@ let mk_solvers sys prop =
   let solver1 =
     SMTSolver.create_instance
       ~produce_assignments:true
-      (TransSys.get_logic sys) (Flags.smtsolver ())
+      (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
   solver_ref_1 := Some solver1 ;
 
   let solver2 =
     SMTSolver.create_instance
       ~produce_assignments:true
-      (TransSys.get_logic sys) (Flags.smtsolver ())
+      (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
   solver_ref_2 := Some solver2 ;
 
   let solver3 =
     SMTSolver.create_instance
       ~produce_assignments:true
-      (TransSys.get_logic sys) (Flags.smtsolver ())
+      (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
   solver_ref_3 := Some solver3 ;
 

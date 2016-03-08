@@ -78,7 +78,7 @@ You can run tests to see if Kind 2 has been built correctly. To do so run
 
 You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 
-    make ARGS="--enable PDR" test
+    make ARGS="--enable IC3" test
 
 
 ## Documentation
@@ -90,4 +90,3 @@ To generate the documentation, you need
 
 * a GNU version of `sed` (`gsed` on OSX), and
 * [Pandoc](http://pandoc.org/).
-

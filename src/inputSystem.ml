@@ -20,6 +20,9 @@ open Lib
 
 module Strat = Strategy
 module S = SubSystem
+module Lus = LustreNode
+
+module SVM = StateVar.StateVarMap
 
 type _ t =
 | Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
@@ -102,12 +105,14 @@ let maximal_abstraction_for_testgen (type s)
     | None -> None
 
     (* All good. *)
-    | Some map -> Some {
-      Analysis.top = top ;
-      Analysis.uid = get_testgen_uid () ;
-      Analysis.abstraction_map = map ;
-      Analysis.assumptions = assumptions ;
-    }
+    | Some map -> Some (
+      Analysis.First {
+        Analysis.top = top ;
+        Analysis.uid = get_testgen_uid () ;
+        Analysis.abstraction_map = map ;
+        Analysis.assumptions = assumptions ;
+      }
+    )
 
   )
 
@@ -138,11 +143,14 @@ let next_analysis_of_strategy (type s)
       let subs_of_scope scope =
         let { S.subsystems } = S.find_subsystem subsystem scope in
         subsystems
-        |> List.map (fun { S.scope ; S.has_contract } -> scope, has_contract)
+        |> List.map (fun { S.scope ; S.has_contract; S.has_modes } ->
+            scope, has_contract, has_modes)
       in
 
+
       S.all_subsystems subsystem
-      |> List.map (fun { S.scope ; S.has_contract } -> scope, has_contract)
+      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
+          scope, has_contract, has_modes)
       |> Strategy.next_analysis results subs_of_scope
     )
 
@@ -150,24 +158,28 @@ let next_analysis_of_strategy (type s)
       let subs_of_scope scope =
         let { S.subsystems } = S.find_subsystem subsystem scope in
         subsystems
-        |> List.map (fun { S.scope ; S.has_contract } -> scope, has_contract)
+        |> List.map (fun { S.scope ; S.has_contract; S.has_modes } ->
+            scope, has_contract, has_modes)
       in
-
+      
       S.all_subsystems subsystem
-      |> List.map (fun { S.scope ; S.has_contract } -> scope, has_contract)
-      |> Strategy.next_analysis results subs_of_scope
-    )
+      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
+          scope, has_contract, has_modes)
+      |> Strategy.next_analysis results subs_of_scope)
+         
   | Horn subsystem -> (function _ -> assert false)
 
 
 (* Return a transition system with [top] as the main system, sliced to
    abstractions and implementations as in [abstraction_map]. *)
-let trans_sys_of_analysis (type s)
+let trans_sys_of_analysis (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (subsystem, globals) -> (function analysis ->
-      let t, s, g =
-        LustreTransSys.trans_sys_of_nodes subsystem globals analysis in
+    let t, s, g =
+      LustreTransSys.trans_sys_of_nodes
+        ~preserve_sig:preserve_sig subsystem globals analysis
+    in
       (t, Lustre (s, g))
     )
 
@@ -316,8 +328,10 @@ let slice_to_abstraction_and_property
 
   (* Replace top system with subsystem for slicing. *)
   let analysis' =
-    { analysis with Analysis.top =
-        TransSys.scope_of_trans_sys trans_sys' }
+    Analysis.First {
+      Analysis.info_of_param analysis
+      with Analysis.top = TransSys.scope_of_trans_sys trans_sys'
+    }
   in
 
   (* Return subsystem that contains the property *)
@@ -329,19 +343,19 @@ let slice_to_abstraction_and_property
     (* Slice Lustre subnode to property term *)
     | Lustre (subsystem, globals) ->
 
-     let vars = match prop'.Property.prop_source with
-      | Property.Assumption _ ->
-        TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
-      | _ ->
-        Term.state_vars_of_term prop'.Property.prop_term
-    in
+      let vars = match prop'.Property.prop_source with
+        | Property.Assumption _ ->
+          TransSys.state_vars trans_sys' |> StateVar.StateVarSet.of_list
+        | _ ->
+          Term.state_vars_of_term prop'.Property.prop_term
+      in
 
-     let subsystem', globals' = 
-       LustreSlicing.slice_to_abstraction_and_property
-         analysis' vars subsystem globals
-     in
+      let subsystem', globals' = 
+        LustreSlicing.slice_to_abstraction_and_property
+          analysis' vars subsystem globals
+      in
 
-     Lustre (subsystem', globals')
+      Lustre (subsystem', globals')
 
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
@@ -349,6 +363,39 @@ let slice_to_abstraction_and_property
     (* No slicing in Horn input *)
     | Horn subsystem -> Horn subsystem
   )
+
+
+let inval_arg s = invalid_arg (
+  Format.sprintf "expected lustre input, got %s input" s
+)
+
+let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
+fun sys top_scope target ->
+  match sys with
+  | Lustre (sub, _) ->
+    LustreToRust.implem_to_rust target (
+      fun scope -> (S.find_subsystem sub scope).S.source
+    ) sub.S.source
+  | Native _ ->
+    Format.printf "can't compile from native input: unsupported"
+  | Horn _ ->
+    Format.printf "can't compile from horn clause input: unsupported"
+
+let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> (
+  string *
+  (Lib.position * int) list *
+  (string * Lib.position * int) list
+) =
+fun sys top_scope target ->
+  match sys with
+  | Lustre (sub, _) ->
+    LustreToRust.oracle_to_rust target (
+      fun scope -> (S.find_subsystem sub scope).S.source
+    ) sub.S.source
+  | Native _ ->
+    failwith "can't compile from native input: unsupported"
+  | Horn _ ->
+    failwith "can't compile from horn clause input: unsupported"
 
 
 

@@ -37,7 +37,7 @@ val create_instance :
   ?produce_cores:bool ->
   ?produce_interpolants:bool ->
   TermLib.logic ->
-  Flags.smtsolver ->
+  Flags.Smt.solver ->
   t
 
 (** Delete an instance of an SMT solver *)
@@ -173,7 +173,7 @@ val execute_custom_check_sat_command :
 
 val converter : t -> (module SMTExpr.Conv)
 
-val kind : t -> Flags.smtsolver
+val kind : t -> Flags.Smt.solver
 
 (** Output a comment into the trace *)
 val trace_comment : t -> string -> unit

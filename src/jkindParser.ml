@@ -70,7 +70,7 @@ let jkind_options = [
 
 (* Create command line to call JKind *)
 let jkind_command_line file =
-  let jkind = Flags.jkind_bin () in
+  let jkind = Flags.Certif.jkind_bin () in
   let file_red =
     if Debug.mode "fec" then [file]
     else [file; ">/dev/null"] in
@@ -458,7 +458,7 @@ let of_channel in_ch =
       trans_args
       trans_term
       (* No subsystems, no properties *)
-      [] [] [] [] []
+      [] [] (None, []) [] []
   in
 
   sys

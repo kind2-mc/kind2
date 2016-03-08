@@ -119,7 +119,7 @@ let mk_solver sys init solver_ref =
   let solver = Solver.create_instance
     ~produce_assignments:true
     (Sys.get_logic sys)
-    (Flags.smtsolver ())
+    (Flags.Smt.solver ())
   in
 
   (** Sanity check that the solver referenced is not live. *)

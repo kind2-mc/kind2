@@ -36,6 +36,7 @@ module E = LustreExpr
 module N = LustreNode
 module F = LustreFunction
 module C = LustreContext
+module Contract = LustreContract
 
 (* FIXME: Remove unless debugging *)
 module Event = struct let log _ = Format.printf end
@@ -91,321 +92,372 @@ let pp_print_trie pp_i pp_e ppf t =
    - recursive nodes
 
 *)
-let rec eval_ast_expr ctx = 
+let rec eval_ast_expr ctx = function
+
+  (* ****************************************************************** *)
+  (* Identifier                                                         *)
+  (* ****************************************************************** *)
+
+  (* Identifier *)
+  | A.Ident (pos, ident) -> eval_ident ctx pos ident
+
+  (* Mode ref *)
+  | A.ModeRef (pos, p4th) -> (
+    let p4th =
+      match p4th with
+      | [] -> failwith "empty mode reference"
+      | [_] -> (* Reference to own modes, append path. *)
+        List.rev_append (C.contract_scope_of ctx) p4th
+      | _ -> (
+        match C.contract_scope_of ctx with
+        | _ :: tail -> List.rev_append tail p4th
+        | _ -> p4th
+      )
+    in
+    let fail () =
+      C.fail_at_position pos (
+        Format.asprintf
+          "reference to unknown mode \"::%a\""
+          (pp_print_list Format.pp_print_string "::") p4th
+      )
+    in
+    let rec find_mode = function
+      | { Contract.path ; Contract.name ; Contract.requires } :: tail ->
+        if path = p4th then
+          requires
+          |> List.map (fun { Contract.svar } -> E.mk_var svar)
+          |> E.mk_and_n
+          |> D.singleton D.empty_index
+        else find_mode tail
+      | [] -> fail ()
+    in
+
+    match C.current_node_modes ctx with
+    | Some (Some modes) ->
+      (* Format.printf
+        "Modes:@.  @[<v>%a@]@.@."
+        (pp_print_list
+          (fun fmt { Contract.name ; Contract.path } ->
+            Format.fprintf fmt
+              "%a"
+              (pp_print_list Format.pp_print_string "::")
+              path
+          )
+          "@ "
+        ) modes ; *)
+      find_mode modes, ctx
+    | _ -> fail ()
+  )
 
-  function
+  (* ****************************************************************** *)
+  (* Nullary operators                                                  *)
+  (* ****************************************************************** *)
 
-    (* ****************************************************************** *)
-    (* Identifier                                                         *)
-    (* ****************************************************************** *)
+  (* Boolean constant true [true] *)
+  | A.True pos -> eval_nullary_expr ctx pos E.t_true
 
-    (* Identifier *)
-    | A.Ident (pos, ident) -> eval_ident ctx pos ident
+  (* Boolean constant false [false] *)
+  | A.False pos -> eval_nullary_expr ctx pos E.t_false
 
-    (* ****************************************************************** *)
-    (* Nullary operators                                                  *)
-    (* ****************************************************************** *)
+  (* Integer constant [d] *)
+  | A.Num (pos, d) -> 
 
-    (* Boolean constant true [true] *)
-    | A.True pos -> eval_nullary_expr ctx pos E.t_true
+    eval_nullary_expr ctx pos (E.mk_int (Numeral.of_string d) )
 
-    (* Boolean constant false [false] *)
-    | A.False pos -> eval_nullary_expr ctx pos E.t_false
+  (* Real constant [f] *)
+  | A.Dec (pos, f) -> 
 
-    (* Integer constant [d] *)
-    | A.Num (pos, d) -> 
+    eval_nullary_expr ctx pos (E.mk_real (Decimal.of_string f))
 
-      eval_nullary_expr ctx pos (E.mk_int (Numeral.of_string d) )
+  (* ****************************************************************** *)
+  (* Unary operators                                                    *)
+  (* ****************************************************************** *)
 
-    (* Real constant [f] *)
-    | A.Dec (pos, f) -> 
+  (* Conversion to an integer number [int expr] *)
+  | A.ToInt (pos, expr) ->
+    eval_unary_ast_expr ctx pos E.mk_to_int expr 
 
-      eval_nullary_expr ctx pos (E.mk_real (Decimal.of_string f))
+  (* Conversion to a real number [real expr] *)
+  | A.ToReal (pos, expr) ->
+    eval_unary_ast_expr ctx pos E.mk_to_real expr
 
-    (* ****************************************************************** *)
-    (* Unary operators                                                    *)
-    (* ****************************************************************** *)
+  (* Boolean negation [not expr] *)
+  | A.Not (pos, expr) ->
+    eval_unary_ast_expr ctx pos E.mk_not expr 
 
-    (* Conversion to an integer number [int expr] *)
-    | A.ToInt (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_to_int expr 
+  (* Unary minus [- expr] *)
+  | A.Uminus (pos, expr) ->
+    eval_unary_ast_expr ctx pos E.mk_uminus expr 
 
-    (* Conversion to a real number [real expr] *)
-    | A.ToReal (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_to_real expr
+  (* ****************************************************************** *)
+  (* Binary operators                                                   *)
+  (* ****************************************************************** *)
 
-    (* Boolean negation [not expr] *)
-    | A.Not (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_not expr 
+  (* Boolean conjunction [expr1 and expr2] *)
+  | A.And (pos, expr1, expr2) ->
 
-    (* Unary minus [- expr] *)
-    | A.Uminus (pos, expr) -> eval_unary_ast_expr ctx pos E.mk_uminus expr 
+    eval_binary_ast_expr ctx pos E.mk_and expr1 expr2
 
-    (* ****************************************************************** *)
-    (* Binary operators                                                   *)
-    (* ****************************************************************** *)
+  (* Boolean disjunction [expr1 or expr2] *)
+  | A.Or (pos, expr1, expr2) -> 
 
-    (* Boolean conjunction [expr1 and expr2] *)
-    | A.And (pos, expr1, expr2) ->
+    eval_binary_ast_expr ctx pos E.mk_or expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_and expr1 expr2
+  (* Boolean exclusive disjunction [expr1 xor expr2] *)
+  | A.Xor (pos, expr1, expr2) -> 
 
-    (* Boolean disjunction [expr1 or expr2] *)
-    | A.Or (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_xor expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_or expr1 expr2 
+  (* Boolean implication [expr1 => expr2] *)
+  | A.Impl (pos, expr1, expr2) -> 
 
-    (* Boolean exclusive disjunction [expr1 xor expr2] *)
-    | A.Xor (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_impl expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_xor expr1 expr2 
+  (* Integer modulus [expr1 mod expr2] *)
+  | A.Mod (pos, expr1, expr2) -> 
 
-    (* Boolean implication [expr1 => expr2] *)
-    | A.Impl (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_mod expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_impl expr1 expr2 
+  (* Subtraction [expr1 - expr2] *)
+  | A.Minus (pos, expr1, expr2) -> 
 
-    (* Integer modulus [expr1 mod expr2] *)
-    | A.Mod (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_minus expr1 expr2
 
-      eval_binary_ast_expr ctx pos E.mk_mod expr1 expr2 
+  (* Addition [expr1 + expr2] *)
+  | A.Plus (pos, expr1, expr2) -> 
 
-    (* Subtraction [expr1 - expr2] *)
-    | A.Minus (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_plus expr1 expr2
 
-      eval_binary_ast_expr ctx pos E.mk_minus expr1 expr2
+  (* Real division [expr1 / expr2] *)
+  | A.Div (pos, expr1, expr2) -> 
 
-    (* Addition [expr1 + expr2] *)
-    | A.Plus (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_div expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_plus expr1 expr2
+  (* Multiplication [expr1 * expr2] ]*)
+  | A.Times (pos, expr1, expr2) -> 
 
-    (* Real division [expr1 / expr2] *)
-    | A.Div (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_times expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_div expr1 expr2 
+  (* Integer division [expr1 div expr2] *)
+  | A.IntDiv (pos, expr1, expr2) -> 
 
-    (* Multiplication [expr1 * expr2] ]*)
-    | A.Times (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_intdiv expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_times expr1 expr2 
+  (* Less than or equal [expr1 <= expr2] *)
+  | A.Lte (pos, expr1, expr2) -> 
 
-    (* Integer division [expr1 div expr2] *)
-    | A.IntDiv (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_lte expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_intdiv expr1 expr2 
+  (* Less than [expr1 < expr2] *)
+  | A.Lt (pos, expr1, expr2) -> 
 
-    (* Less than or equal [expr1 <= expr2] *)
-    | A.Lte (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_lt expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_lte expr1 expr2 
+  (* Greater than or equal [expr1 >= expr2] *)
+  | A.Gte (pos, expr1, expr2) -> 
 
-    (* Less than [expr1 < expr2] *)
-    | A.Lt (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_gte expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_lt expr1 expr2 
+  (* Greater than [expr1 > expr2] *)
+  | A.Gt (pos, expr1, expr2) -> 
 
-    (* Greater than or equal [expr1 >= expr2] *)
-    | A.Gte (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_gt expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_gte expr1 expr2 
+  (* Arrow temporal operator [expr1 -> expr2] *)
+  | A.Arrow (pos, expr1, expr2) -> 
 
-    (* Greater than [expr1 > expr2] *)
-    | A.Gt (pos, expr1, expr2) -> 
+    eval_binary_ast_expr ctx pos E.mk_arrow expr1 expr2 
 
-      eval_binary_ast_expr ctx pos E.mk_gt expr1 expr2 
+  (* ****************************************************************** *)
+  (* Other operators                                                    *)
+  (* ****************************************************************** *)
 
-    (* Arrow temporal operator [expr1 -> expr2] *)
-    | A.Arrow (pos, expr1, expr2) -> 
+  (* Equality [expr1 = expr2] *)
+  | A.Eq (pos, expr1, expr2) -> 
 
-      eval_binary_ast_expr ctx pos E.mk_arrow expr1 expr2 
+    (* Apply equality pointwise *)
+    let expr, ctx = 
+      eval_binary_ast_expr ctx pos E.mk_eq expr1 expr2 
+    in
 
-    (* ****************************************************************** *)
-    (* Other operators                                                    *)
-    (* ****************************************************************** *)
+    (* We don't want to do extensional array equality, because that
+       would need quantifiers already at this level *)
+    D.iter
+      (fun i _ -> 
+         if 
+           List.exists 
+             (function D.ArrayVarIndex _ -> true | _ -> false)
+             i
+         then 
 
-    (* Equality [expr1 = expr2] *)
-    | A.Eq (pos, expr1, expr2) -> 
+           (* Expression has array bounds *)
+           C.fail_at_position
+             pos
+             "Extensional array equality not supported")
+      expr;
 
-      (* Apply equality pointwise *)
-      let expr, ctx = 
-        eval_binary_ast_expr ctx pos E.mk_eq expr1 expr2 
-      in
+    (* Conjunction of equations *)
+    let res = 
+      D.singleton D.empty_index (List.fold_left E.mk_and E.t_true (D.values expr))
+    in
 
-      (* We don't want to do extensional array equality, because that
-         would need quantifiers already at this level *)
-      D.iter
-        (fun i _ -> 
-           if 
-             List.exists 
-               (function D.ArrayVarIndex _ -> true | _ -> false)
-               i
-           then 
+    (* Return conjunction of equations without indexes and array bounds *)
+    (res, ctx)
 
-             (* Expression has array bounds *)
-             C.fail_at_position
-               pos
-               "Extensional array equality not supported")
-        expr;
 
-      (* Conjunction of equations *)
-      let res = 
-        D.singleton D.empty_index (List.fold_left E.mk_and E.t_true (D.values expr))
-      in
+  (* Disequality [expr1 <> expr2] *)
+  | A.Neq (pos, expr1, expr2) -> 
 
-      (* Return conjunction of equations without indexes and array bounds *)
-      (res, ctx)
+    (* Translate to negated equation *)
+    eval_ast_expr ctx (
+      A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2))
+    )
 
+  (* If-then-else [if expr1 then expr2 else expr3 ]*)
+  | A.Ite (pos, expr1, expr2, expr3) -> 
 
-    (* Disequality [expr1 <> expr2] *)
-    | A.Neq (pos, expr1, expr2) -> 
+    (* Evaluate expression for condition *)
+    let expr1', ctx = 
+      eval_bool_ast_expr ctx pos expr1 
+    in
 
-      (* Translate to negated equation *)
-      eval_ast_expr
-        ctx
-        (A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2)))
+    eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
 
-    (* If-then-else [if expr1 then expr2 else expr3 ]*)
-    | A.Ite (pos, expr1, expr2, expr3) -> 
+  (* Temporal operator pre [pre expr] *)
+  | A.Pre (pos, expr) as original -> 
 
-      (* Evaluate expression for condition *)
-      let expr1', ctx = 
-        eval_bool_ast_expr ctx pos expr1 
-      in
+    (* Evaluate expression *)
+    let expr', ctx = eval_ast_expr ctx expr in
 
-      eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
+    (* Apply pre operator to expression, may change context with new
+       variable *)
+    let res, ctx = 
 
-    (* Temporal operator pre [pre expr] *)
-    | A.Pre (pos, expr) -> 
+      D.fold
 
-      (* Evaluate expression *)
-      let expr', ctx = eval_ast_expr ctx expr in
+        (fun index expr (accum, ctx) -> 
 
-      (* Apply pre operator to expression, may change context with new
-         variable *)
-      let res, ctx = 
+           (* Apply pre operator to expression, abstract non-variable term
+              and DO NOT re-use previous variables *)
+           let expr', ctx =
+             E.mk_pre
+              (C.mk_local_for_expr ~original pos)
+              ctx
+              (C.guard_flag ctx)
+              expr
+           in
+           
+           (D.add index expr' accum, ctx))
 
-        D.fold
+        expr'
+        (D.empty, ctx)
 
-          (fun index expr (accum, ctx) -> 
+    in
 
-             (* Apply pre operator to expression, abstract
-                  non-variable term and re-use previous variables *)
-             let expr', ctx = 
-               E.mk_pre
-                 (C.mk_local_for_expr pos)
-                 ctx
-                 expr 
-             in
+    (res, ctx)
 
-             (D.add index expr' accum, ctx))
+  (* Merge of complementary flows 
 
-          expr'
-          (D.empty, ctx)
+     [merge(h, e1, e2)] where [e1] is either 
 
-      in
+     [(expr when h)] or
+     [(activate N every h)(args)]
 
-      (res, ctx)
+     and [e2] is either 
 
-    (* Merge of complementary flows 
+     [(expr when not h)] or
+     [(activate N every not h)(args)]
 
-       [merge(h, e1, e2)] where [e1] is either 
+  *)
+  | A.Merge
+      (pos,
+       (A.Ident (clock_pos, clock_ident) as clock_expr),
+       [expr_high; expr_low]) ->
 
-       [(expr when h)] or
-       [(activate N every h)(args)]
+    (* Evaluate expression for clock *)
+    let clock_expr', ctx = 
+      eval_bool_ast_expr ctx clock_pos clock_expr 
+    in
 
-       and [e2] is either 
+    let eval_merge_case clock_sign ctx = function
 
-       [(expr when not h)] or
-       [(activate N every not h)(args)]
+      (* An expression under a [when] *)
+      | A.When (pos, expr, case_clock) -> 
 
-    *)
-    | A.Merge
-        (pos,
-         (A.Ident (clock_pos, clock_ident) as clock_expr),
-         [expr_high; expr_low]) ->
+        (match case_clock with
 
-      (* Evaluate expression for clock *)
-      let clock_expr', ctx = 
-        eval_bool_ast_expr ctx clock_pos clock_expr 
-      in
+          (* Compare high clock with merge clock by name *)
+          | A.Ident (_, high_clock)
+              when clock_sign && high_clock = clock_ident -> ()
+            
+          (* Compare low clock with merge clock by name *)
+          | A.Not (_, A.Ident (_, low_clock))
+              when not clock_sign && low_clock = clock_ident -> ()
+            
+          (* Clocks must be identical identifiers *)
+          | _ ->
+            
+            C.fail_at_position 
+              pos
+              "Clock mismatch for argument of merge");
 
-      let eval_merge_case clock_sign ctx = function
+        (* Evaluate expression under [when] *)
+        eval_ast_expr ctx expr
 
-        (* An expression under a [when] *)
-        | A.When (pos, expr, case_clock) -> 
+      (* A node call with activation condition and no defaults *)
+      | A.Activate (pos, ident, case_clock, args) -> 
 
-          (match case_clock with
+        (match case_clock with
 
-            (* Compare high clock with merge clock by name *)
-            | A.Ident (_, high_clock)
-                when clock_sign && high_clock = clock_ident -> ()
-              
-            (* Compare low clock with merge clock by name *)
-            | A.Not (_, A.Ident (_, low_clock))
-                when not clock_sign && low_clock = clock_ident -> ()
-              
-            (* Clocks must be identical identifiers *)
-            | _ ->
-              
-              C.fail_at_position 
-                pos
-                "Clock mismatch for argument of merge");
+          (* Compare high clock with merge clock by name *)
+          | A.Ident (_, high_clock)
+              when clock_sign && high_clock = clock_ident -> ()
 
-          (* Evaluate expression under [when] *)
-          eval_ast_expr ctx expr
+          (* Compare low clock with merge clock by name *)
+          | A.Not (_, A.Ident (_, low_clock))
+              when not clock_sign && low_clock = clock_ident -> ()
+            
+          (* Clocks must be identical identifiers *)
+          | _ -> 
 
-        (* A node call with activation condition and no defaults *)
-        | A.Activate (pos, ident, case_clock, args) -> 
+            C.fail_at_position 
+              pos
+              "Clock mismatch for argument of merge");
+        
+        (* Evaluate node call without defaults *)
+        eval_node_or_function_call
+          ctx
+          pos
+          (I.mk_string_ident ident)
+          case_clock
+          args
+          None
 
-          (match case_clock with
+      (* A node call, we implicitly clock it *)
+      | A.Call (pos, ident, args) -> 
+        
+        (* Evaluate node call without defaults *)
+        eval_node_or_function_call
+          ctx
+          pos
+          (I.mk_string_ident ident)
+          (if clock_sign then clock_expr else A.Not (dummy_pos, clock_expr))
+          args
+          None
 
-            (* Compare high clock with merge clock by name *)
-            | A.Ident (_, high_clock)
-                when clock_sign && high_clock = clock_ident -> ()
+      (* An expression not under a [when], we implicitly clock it *)
+      | expr -> 
 
-            (* Compare low clock with merge clock by name *)
-            | A.Not (_, A.Ident (_, low_clock))
-                when not clock_sign && low_clock = clock_ident -> ()
-              
-            (* Clocks must be identical identifiers *)
-            | _ -> 
+        (* Evaluate expression under [when] *)
+        eval_ast_expr ctx expr
 
-              C.fail_at_position 
-                pos
-                "Clock mismatch for argument of merge");
-          
-          (* Evaluate node call without defaults *)
-          eval_node_or_function_call
-            ctx
-            pos
-            (I.mk_string_ident ident)
-            case_clock
-            args
-            None
+    in
+    
+    
+    (* Evaluate expression for high clock *)
+    let expr_high', ctx = eval_merge_case true ctx expr_high in
 
-        (* A node call, we implicitly clock it *)
-        | A.Call (pos, ident, args) -> 
-          
-          (* Evaluate node call without defaults *)
-          eval_node_or_function_call
-            ctx
-            pos
-            (I.mk_string_ident ident)
-            (if clock_sign then clock_expr else A.Not (dummy_pos, clock_expr))
-            args
-            None
-
-        (* An expression not under a [when], we implicitly clock it *)
-        | expr -> 
-
-          (* Evaluate expression under [when] *)
-          eval_ast_expr ctx expr
-
-      in
-      
-      
-      (* Evaluate expression for high clock *)
-      let expr_high', ctx = eval_merge_case true ctx expr_high in
-
-      let expr_low', ctx = eval_merge_case false ctx expr_low in
+    let expr_low', ctx = eval_merge_case false ctx expr_low in
 (*
       (* Evaluate expression for low clock *)
       let expr_low', ctx = match expr_low with
@@ -462,568 +514,574 @@ let rec eval_ast_expr ctx =
       in
 *)
 
-      (* Apply merge pointwise to expressions *)
-      let res = 
+    (* Apply merge pointwise to expressions *)
+    let res = 
 
-        try 
+      try 
 
-          (* Fold simultanously over indexes in expressions
+        (* Fold simultanously over indexes in expressions
 
-             If tries contain the same indexes, the association list
-             returned by bindings contain the same keys in the same
-             order. *)
-          D.map2
+           If tries contain the same indexes, the association list
+           returned by bindings contain the same keys in the same
+           order. *)
+        D.map2
 
-            (* Construct expressions independent of index *)
-            (fun _ -> E.mk_ite clock_expr') 
+          (* Construct expressions independent of index *)
+          (fun _ -> E.mk_ite clock_expr') 
 
-            expr_high' 
-            expr_low'
+          expr_high' 
+          expr_low'
 
-        with 
+      with 
 
-          | Invalid_argument _ ->
-
-            C.fail_at_position
-              pos
-              "Index mismatch for expressions in merge" 
-
-          | E.Type_mismatch ->
-
-            C.fail_at_position
-              pos
-              "Type mismatch for expressions in merge" 
-
-      in
-      
-      (res, ctx)
-
-
-    (* ****************************************************************** *)
-    (* Tuple and record operators                                         *)
-    (* ****************************************************************** *)
-
-    (* Projection to a record field [expr.field] *)
-    | A.RecordProject (pos, expr, field) -> 
-
-      eval_ast_projection 
-        ctx
-        pos
-        expr
-        (D.RecordIndex field)
-
-    (* Projection to a tuple or array field [expr.%field_expr] *)
-    | A.TupleProject (pos, expr, field_expr) -> 
-
-      (* Evaluate expression to an integer constant *)
-      let field = const_int_of_ast_expr ctx pos field_expr in
-
-      eval_ast_projection 
-        ctx
-        pos
-        expr
-        (D.TupleIndex (Numeral.to_int field))
-
-    (* An expression list, flatten nested lists and add an index to
-       each elements [(expr1, expr2)] *)
-    | A.ExprList (pos, expr_list) -> 
-
-      (* Flatten nested lists *)
-      let rec flatten_expr_list accum = function 
-
-        | [] -> List.rev accum
-
-        | A.ExprList (pos, expr_list) :: tl -> 
-          flatten_expr_list accum (expr_list @ tl)
-
-        | expr :: tl -> flatten_expr_list (expr :: accum) tl
-
-      in
-
-      (* Turn ((a,b),c) into (a,b,c) *)
-      let expr_list' = flatten_expr_list [] expr_list in
-
-      let _, res, ctx = 
-
-        (* Iterate over list of expressions *)
-        List.fold_left
-
-          (fun (i, accum, ctx) expr -> 
-
-             (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
-
-             (* Increment counter *)
-             (succ i,
-
-              (* Push current index to indexes in expression and add
-                 to accumulator trie *)
-              D.fold
-                (fun j e a -> 
-                   D.add (D.ListIndex i :: j) e a)
-                expr'
-                accum,
-
-              (* Continue with added definitions *)
-              ctx))
-
-          (* Start counting index at zero, with given abstractions and
-             add to the empty trie *)
-          (0, D.empty, ctx)
-
-          expr_list'
-
-      in
-
-      (res, ctx)
-
-    (* Tuple constructor [{expr1, expr2, ...}] *)
-    | A.TupleExpr (pos, expr_list) -> 
-
-      let _, res, ctx = 
-
-        (* Iterate over list of expressions *)
-        List.fold_left
-
-          (fun (i, accum, ctx) expr -> 
-
-             (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
-
-             (* Increment counter *)
-             (succ i,
-
-              (* Push current index to indexes in expression and add
-                 to accumulator trie *)
-              D.fold
-                (fun j e a -> 
-                   D.add (D.TupleIndex i :: j) e a)
-                expr'
-                accum,
-
-              (* Continue with added definitions *)
-              ctx))
-
-          (* Start counting index at zero, with given abstractions and
-             add to the empty trie *)
-          (0, D.empty, ctx)
-
-          expr_list
-
-      in
-
-      (res, ctx)
-
-    (* Record constructor [record_type {field1 = expr1; field2 = expr2; ...}] *)
-    | A.RecordExpr (pos, record_type, expr_list) -> 
-
-      (* Extract list of fields of record *)
-      let record_indexes = 
-
-        try 
-
-          (* Look up types of record fields by type of record *)
-          C.type_of_ident ctx (I.mk_string_ident record_type)
-
-        with Not_found -> 
+        | Invalid_argument _ ->
 
           C.fail_at_position
             pos
-            (Format.asprintf 
-               "Record type %a not defined" 
-               A.pp_print_ident record_type)
+            "Index mismatch for expressions in merge" 
 
-      in
+        | E.Type_mismatch ->
 
-      (* Get indexed expressions in record definition *)
-      let res, ctx =
+          C.fail_at_position
+            pos
+            "Type mismatch for expressions in merge" 
 
-        List.fold_left 
-          (fun (accum, ctx) (i, expr) -> 
+    in
+    
+    (res, ctx)
 
-             (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
 
-             (* Push field index to indexes in expression and add to
-                 accumulator trie *)
-             (D.fold
-                (fun j e t -> 
-                   D.add (D.RecordIndex i :: j) e t)
-                expr'
-                accum), 
-             ctx)
+  (* ****************************************************************** *)
+  (* Tuple and record operators                                         *)
+  (* ****************************************************************** *)
 
-          (D.empty, ctx)
+  (* Projection to a record field [expr.field] *)
+  | A.RecordProject (pos, expr, field) -> 
 
-          expr_list
+    eval_ast_projection 
+      ctx
+      pos
+      expr
+      (D.RecordIndex field)
 
-      in
+  (* Projection to a tuple or array field [expr.%field_expr] *)
+  | A.TupleProject (pos, expr, field_expr) -> 
 
-      (* Keys in type and keys in expression must be identical *)
-      if List.for_all2 D.equal_index (D.keys record_indexes) (D.keys res) then
+    (* Evaluate expression to an integer constant *)
+    let field = const_int_of_ast_expr ctx pos field_expr in
 
-        (res, ctx)
+    eval_ast_projection 
+      ctx
+      pos
+      expr
+      (D.TupleIndex (Numeral.to_int field))
 
-      else
+  (* An expression list, flatten nested lists and add an index to
+     each elements [(expr1, expr2)] *)
+  | A.ExprList (pos, expr_list) -> 
+
+    (* Flatten nested lists *)
+    let rec flatten_expr_list accum = function 
+
+      | [] -> List.rev accum
+
+      | A.ExprList (pos, expr_list) :: tl -> 
+        flatten_expr_list accum (expr_list @ tl)
+
+      | expr :: tl -> flatten_expr_list (expr :: accum) tl
+
+    in
+
+    (* Turn ((a,b),c) into (a,b,c) *)
+    let expr_list' = flatten_expr_list [] expr_list in
+
+    let _, res, ctx = 
+
+      (* Iterate over list of expressions *)
+      List.fold_left
+
+        (fun (i, accum, ctx) expr -> 
+
+           (* Evaluate expression *)
+           let expr', ctx =
+            eval_ast_expr ctx expr
+           in
+
+           (* Increment counter *)
+           (succ i,
+
+            (* Push current index to indexes in expression and add
+               to accumulator trie *)
+            D.fold
+              (fun j e a -> 
+                 D.add (D.ListIndex i :: j) e a)
+              expr'
+              accum,
+
+            (* Continue with added definitions *)
+            ctx))
+
+        (* Start counting index at zero, with given abstractions and
+           add to the empty trie *)
+        (0, D.empty, ctx)
+
+        expr_list'
+
+    in
+
+    (res, ctx)
+
+  (* Tuple constructor [{expr1, expr2, ...}] *)
+  | A.TupleExpr (pos, expr_list) -> 
+
+    let _, res, ctx = 
+
+      (* Iterate over list of expressions *)
+      List.fold_left
+
+        (fun (i, accum, ctx) expr -> 
+
+           (* Evaluate expression *)
+           let expr', ctx =
+            eval_ast_expr ctx expr
+           in
+
+           (* Increment counter *)
+           (succ i,
+
+            (* Push current index to indexes in expression and add
+               to accumulator trie *)
+            D.fold
+              (fun j e a -> 
+                 D.add (D.TupleIndex i :: j) e a)
+              expr'
+              accum,
+
+            (* Continue with added definitions *)
+            ctx))
+
+        (* Start counting index at zero, with given abstractions and
+           add to the empty trie *)
+        (0, D.empty, ctx)
+
+        expr_list
+
+    in
+
+    (res, ctx)
+
+  (* Record constructor [record_type {field1 = expr1; field2 = expr2; ...}] *)
+  | A.RecordExpr (pos, record_type, expr_list) -> 
+
+    (* Extract list of fields of record *)
+    let record_indexes = 
+
+      try 
+
+        (* Look up types of record fields by type of record *)
+        C.type_of_ident ctx (I.mk_string_ident record_type)
+
+      with Not_found -> 
 
         C.fail_at_position
           pos
-          "Type mismatch in record"
+          (Format.asprintf 
+             "Record type %a not defined" 
+             A.pp_print_ident record_type)
 
-    (* Update of a record, tuple or array at one index *)
-    | A.StructUpdate (pos, expr1, index, expr2) -> 
+    in
 
-      (* Evaluate expressions *)
-      let expr1', ctx = eval_ast_expr ctx expr1 in
-      let expr2', ctx = eval_ast_expr ctx expr2 in
+    (* Get indexed expressions in record definition *)
+    let res, ctx =
 
-      (* Convert an ast index to an index *)
-      let rec aux accum = function 
+      List.fold_left 
+        (fun (accum, ctx) (i, expr) -> 
 
-        (* All indexes consumed return in original order *)
-        | [] -> List.rev accum
+           (* Evaluate expression *)
+           let expr', ctx =
+            eval_ast_expr ctx expr
+           in
 
-        (* First index is a record field label *)
-        | A.Label (pos, index) :: tl -> 
+           (* Push field index to indexes in expression and add to
+               accumulator trie *)
+           (D.fold
+              (fun j e t -> 
+                 D.add (D.RecordIndex i :: j) e t)
+              expr'
+              accum), 
+           ctx)
 
-          (* Add to accumulator *)
-          let accum' = D.RecordIndex index :: accum in
+        (D.empty, ctx)
 
-          (* Does expression to update have the index? *)
-          if D.mem_prefix (List.rev accum') expr1' then 
+        expr_list
 
-            (* Continue with remaining indexes *)
-            aux accum' tl
+    in
 
-          else
+    (* Keys in type and keys in expression must be identical *)
+    if List.for_all2 D.equal_index (D.keys record_indexes) (D.keys res) then
 
-            C.fail_at_position
-              pos
-              (Format.asprintf "Invalid index %s for expression" index)
+      (res, ctx)
 
-        (* First index is an integer index *)
-        | A.Index (pos, index_expr) :: tl -> 
+    else
 
-          (
+      C.fail_at_position
+        pos
+        "Type mismatch in record"
 
-            (* Evaluate index expression to a static integer *)
-            let index_expr' = 
-              static_int_of_ast_expr ctx pos index_expr 
-            in 
+  (* Update of a record, tuple or array at one index *)
+  | A.StructUpdate (pos, expr1, index, expr2) -> 
 
-            (* Expression to update with indexes already seen
-               removed *)
-            let expr1'_sub = 
+    (* Evaluate expressions *)
+    let expr1', ctx = eval_ast_expr ctx expr1 in
+    let expr2', ctx = eval_ast_expr ctx expr2 in
 
-              (* Get subtrie with index from accumulator *)
-              try D.find_prefix accum expr1' with 
+    (* Convert an ast index to an index *)
+    let rec aux accum = function 
 
-                (* We have checked before that the index in the
-                   accumulator is a prefix of the expression to
-                   update *)
-                | Not_found -> assert false
-            in
+      (* All indexes consumed return in original order *)
+      | [] -> List.rev accum
 
-            (* All indexes are of the same type *)
-            (match D.choose expr1'_sub with
+      (* First index is a record field label *)
+      | A.Label (pos, index) :: tl -> 
 
-              (* Expression is indexed with a variable *)
-              | D.ArrayVarIndex _ :: _, _ -> 
+        (* Add to accumulator *)
+        let accum' = D.RecordIndex index :: accum in
 
-                (* Abuse bound for array variable to store index to
-                   update and continue *)
-                aux 
-                  (D.ArrayVarIndex index_expr' :: accum)
+        (* Does expression to update have the index? *)
+        if D.mem_prefix (List.rev accum') expr1' then 
+
+          (* Continue with remaining indexes *)
+          aux accum' tl
+
+        else
+
+          C.fail_at_position
+            pos
+            (Format.asprintf "Invalid index %s for expression" index)
+
+      (* First index is an integer index *)
+      | A.Index (pos, index_expr) :: tl -> 
+
+        (
+
+          (* Evaluate index expression to a static integer *)
+          let index_expr' = 
+            static_int_of_ast_expr ctx pos index_expr 
+          in 
+
+          (* Expression to update with indexes already seen
+             removed *)
+          let expr1'_sub = 
+
+            (* Get subtrie with index from accumulator *)
+            try D.find_prefix accum expr1' with 
+
+              (* We have checked before that the index in the
+                 accumulator is a prefix of the expression to
+                 update *)
+              | Not_found -> assert false
+          in
+
+          (* All indexes are of the same type *)
+          (match D.choose expr1'_sub with
+
+            (* Expression is indexed with a variable *)
+            | D.ArrayVarIndex _ :: _, _ -> 
+
+              (* Abuse bound for array variable to store index to
+                 update and continue *)
+              aux 
+                (D.ArrayVarIndex index_expr' :: accum)
+                tl
+
+            (* Expression is an array indexed with integers *)
+            | D.ArrayIntIndex _ :: _, _ -> 
+
+              (* Cast Lustre expression to a term *)
+              let index_term = (index_expr' : E.expr :> Term.t) in
+
+              (* Term must be a numeral *)
+              if Term.is_numeral index_term then 
+
+                (* Add array index of integer of numeral to
+                   accumulator and continue *)
+                aux
+                  (D.ArrayIntIndex
+                     (Term.numeral_of_term index_term 
+                      |> Numeral.to_int) :: accum)
                   tl
 
-              (* Expression is an array indexed with integers *)
-              | D.ArrayIntIndex _ :: _, _ -> 
-
-                (* Cast Lustre expression to a term *)
-                let index_term = (index_expr' : E.expr :> Term.t) in
-
-                (* Term must be a numeral *)
-                if Term.is_numeral index_term then 
-
-                  (* Add array index of integer of numeral to
-                     accumulator and continue *)
-                  aux
-                    (D.ArrayIntIndex
-                       (Term.numeral_of_term index_term 
-                        |> Numeral.to_int) :: accum)
-                    tl
-
-                else
-
-                  C.fail_at_position
-                    pos
-                    "Invalid index for expression"
-
-              (* Expression is tuple indexed with integers *)
-              | D.TupleIndex _ :: _, _ -> 
-
-                (* Cast Lustre expression to a term *)
-                let index_term = (index_expr' : E.expr :> Term.t) in
-
-                (* Term must be a numeral *)
-                if Term.is_numeral index_term then 
-
-                  (* Add array index of integer of numeral to
-                     accumulator and continue *)
-                  aux
-                    (D.TupleIndex
-                       (Term.numeral_of_term index_term 
-                        |> Numeral.to_int) :: accum)
-                    tl
-
-                else
-
-                  C.fail_at_position
-                    pos
-                    "Invalid index for expression"
-
-              (* Cannot be record, list or empty index *)
-              | D.RecordIndex _ :: _, _
-              | D.ListIndex _ :: _, _
-              | [], _ ->
+              else
 
                 C.fail_at_position
                   pos
-                  "Invalid index for expression")
+                  "Invalid index for expression"
 
-          )
+            (* Expression is tuple indexed with integers *)
+            | D.TupleIndex _ :: _, _ -> 
 
-      in
+              (* Cast Lustre expression to a term *)
+              let index_term = (index_expr' : E.expr :> Term.t) in
 
-      (* Get the index prefix *)
-      let index' = aux D.empty_index index in
+              (* Term must be a numeral *)
+              if Term.is_numeral index_term then 
 
-      (* Add index prefix to the indexes of the update expression *)
-      let expr2'' = 
-        D.fold
-          (fun i v a -> D.add (index' @ i) v a)
-          expr2'
-          D.empty
-      in
+                (* Add array index of integer of numeral to
+                   accumulator and continue *)
+                aux
+                  (D.TupleIndex
+                     (Term.numeral_of_term index_term 
+                      |> Numeral.to_int) :: accum)
+                  tl
 
-      (* Replace indexes in updated expression *)
-      let expr1'' = 
-        D.fold
-          (fun i v a -> 
-             try 
-               let v' = D.find i expr2'' in
-               D.add i v' a
-             with Not_found -> 
-               D.add i v a)
-          expr1'
-          D.empty
-      in
+              else
 
-      expr1'', ctx
+                C.fail_at_position
+                  pos
+                  "Invalid index for expression"
+
+            (* Cannot be record, list or empty index *)
+            | D.RecordIndex _ :: _, _
+            | D.ListIndex _ :: _, _
+            | [], _ ->
+
+              C.fail_at_position
+                pos
+                "Invalid index for expression")
+
+        )
+
+    in
+
+    (* Get the index prefix *)
+    let index' = aux D.empty_index index in
+
+    (* Add index prefix to the indexes of the update expression *)
+    let expr2'' = 
+      D.fold
+        (fun i v a -> D.add (index' @ i) v a)
+        expr2'
+        D.empty
+    in
+
+    (* Replace indexes in updated expression *)
+    let expr1'' = 
+      D.fold
+        (fun i v a -> 
+           try 
+             let v' = D.find i expr2'' in
+             D.add i v' a
+           with Not_found -> 
+             D.add i v a)
+        expr1'
+        D.empty
+    in
+
+    expr1'', ctx
 
 
-    (* ****************************************************************** *)
-    (* Node calls                                                         *)
-    (* ****************************************************************** *)
+  (* ****************************************************************** *)
+  (* Node calls                                                         *)
+  (* ****************************************************************** *)
 
-    (* Condact, a node with an activation condition 
+  (* Condact, a node with an activation condition 
 
-       [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
-    | A.Condact (pos, cond, ident, args, defaults) ->  
+     [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
+  | A.Condact (pos, cond, ident, args, defaults) ->  
 
-      eval_node_or_function_call
-        ctx
-        pos
-        (I.mk_string_ident ident)
-        cond
-        args
-        (Some defaults)
+    eval_node_or_function_call
+      ctx
+      pos
+      (I.mk_string_ident ident)
+      cond
+      args
+      (Some defaults)
 
-    (* Node call without activation condition *)
-    | A.Call (pos, ident, args) -> 
+  (* Node call without activation condition *)
+  | A.Call (pos, ident, args) -> 
 
-      eval_node_or_function_call 
-        ctx
-        pos
-        (I.mk_string_ident ident)
-        (A.True dummy_pos)
-        args
-        None
+    eval_node_or_function_call 
+      ctx
+      pos
+      (I.mk_string_ident ident)
+      (A.True dummy_pos)
+      args
+      None
 
-    (* ****************************************************************** *)
-    (* Array operators                                                    *)
-    (* ****************************************************************** *)
+  (* ****************************************************************** *)
+  (* Array operators                                                    *)
+  (* ****************************************************************** *)
 
-    (* Array constructor [[expr1, expr2]] *)
-    | A.ArrayExpr (pos, expr_list) -> 
+  (* Array constructor [[expr1, expr2]] *)
+  | A.ArrayExpr (pos, expr_list) -> 
 
-      let _, res, ctx = 
+    let _, res, ctx = 
 
-        (* Iterate over list of expressions *)
-        List.fold_left
+      (* Iterate over list of expressions *)
+      List.fold_left
 
-          (fun (i, accum, ctx) expr -> 
+        (fun (i, accum, ctx) expr -> 
 
-             (* Evaluate expression *)
-             let expr', ctx = eval_ast_expr ctx expr in
+           (* Evaluate expression *)
+           let expr', ctx = eval_ast_expr ctx expr in
 
-             (* Increment counter *)
-             (succ i,
+           (* Increment counter *)
+           (succ i,
 
-              (* Push current index to indexes in expression and add
-                 to accumulator trie *)
-              D.fold
-                (fun j e a -> 
-                   D.add (D.ArrayIntIndex i :: j) e a)
-                expr'
-                accum,
-
-              (* Continue with added definitions *)
-              ctx))
-
-          (* Start counting index at zero, with given abstractions and
-             add to the empty trie *)
-          (0, D.empty, ctx)
-
-          expr_list
-
-      in
-
-      (res, ctx)
-
-    (* Array constructor [expr^size_expr] *)
-    | A.ArrayConstr (pos, expr, size_expr) -> 
-
-      (* Evaluate expression to an integer constant *)
-      let array_size = static_int_of_ast_expr ctx pos size_expr in
-
-      (* Evaluate expression for array elements *)
-      let expr', ctx = eval_ast_expr ctx expr in 
-
-      (* Push array index to indexes in expression and add to
-         accumulator trie *)
-      let res = 
-        D.fold
-          (fun j e a -> 
-             D.add (D.ArrayVarIndex array_size :: j) e a)
-          expr'
-          D.empty
-      in
-
-      (res, ctx)
-
-    (* Array slice [A[i..j] with i=j is just A[k] *)
-    | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
-
-      (* Evaluate expression to an integer constant *)
-      let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
-
-      let expr', ctx = eval_ast_expr ctx expr in 
-
-      (* Every index starts with ArrayVarIndex or none does *)
-      (match D.choose expr' with 
-
-        (* Projection from an array indexed by variable *)
-        | D.ArrayVarIndex _ :: _, _ ->
-
-          (* Remove top index from all elements in trie *)
-          let expr' = 
+            (* Push current index to indexes in expression and add
+               to accumulator trie *)
             D.fold
-              (function 
-                | D.ArrayVarIndex _ :: tl -> D.add tl
-                | _ -> assert false)
+              (fun j e a -> 
+                 D.add (D.ArrayIntIndex i :: j) e a)
               expr'
-              D.empty
-          in
+              accum,
 
-          (* Select from array in all elements *)
-          (D.map (fun e -> E.mk_select e index) expr', ctx)
+            (* Continue with added definitions *)
+            ctx))
 
-        (* Projection from an array indexed by integers *)
-        | D.ArrayIntIndex _ :: tl, _ -> 
+        (* Start counting index at zero, with given abstractions and
+           add to the empty trie *)
+        (0, D.empty, ctx)
 
-          C.fail_at_position 
-            pos
-            "Cannot use a constant array in a recursive definition"
+        expr_list
 
-        (* Projection from a tuple expression *)
-        | D.TupleIndex _ :: tl, _ ->
+    in
 
-          (* Try again with the correct expression *)
-          eval_ast_expr ctx (A.TupleProject (pos, expr, i))
+    (res, ctx)
 
-        (* Other or no index *)
-        | D.RecordIndex _ :: _, _ 
-        | D.ListIndex _ :: _, _ 
-        | [], _ -> C.fail_at_position pos "Selection not from an array")
+  (* Array constructor [expr^size_expr] *)
+  | A.ArrayConstr (pos, expr, size_expr) -> 
 
-    (* Array slice [A[i..j,k..l]] *)
-    | A.ArraySlice (pos, _, _) -> 
+    (* Evaluate expression to an integer constant *)
+    let array_size = static_int_of_ast_expr ctx pos size_expr in
 
-      C.fail_at_position pos "Array slices not implemented"
+    (* Evaluate expression for array elements *)
+    let expr', ctx = eval_ast_expr ctx expr in
 
-    (* ****************************************************************** *)
-    (* Not implemented                                                    *)
-    (* ****************************************************************** *)
+    (* Push array index to indexes in expression and add to
+       accumulator trie *)
+    let res = 
+      D.fold
+        (fun j e a -> 
+           D.add (D.ArrayVarIndex array_size :: j) e a)
+        expr'
+        D.empty
+    in
 
-    (* TODO below, roughly in order of importance and difficulty *)
+    (res, ctx)
 
-    (* Concatenation of arrays [A|B] *)
-    | A.ArrayConcat (pos, _, _) -> 
+  (* Array slice [A[i..j] with i=j is just A[k] *)
+  | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
 
-      C.fail_at_position pos "Array concatenation not implemented"
+    (* Evaluate expression to an integer constant *)
+    let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
 
-    (* Interpolation to base clock *)
-    | A.Current (pos, A.When (_, _, _)) -> 
+    let expr', ctx = eval_ast_expr ctx expr in 
 
-      C.fail_at_position pos "Current expression not supported"
+    (* Every index starts with ArrayVarIndex or none does *)
+    (match D.choose expr' with 
 
-    (* Boolean at-most-one constaint *)
-    | A.OneHot (pos, _) -> 
+      (* Projection from an array indexed by variable *)
+      | D.ArrayVarIndex _ :: _, _ ->
 
-      C.fail_at_position pos "One-hot expression not supported"
+        (* Remove top index from all elements in trie *)
+        let expr' = 
+          D.fold
+            (function 
+              | D.ArrayVarIndex _ :: tl -> D.add tl
+              | _ -> assert false)
+            expr'
+            D.empty
+        in
 
-    (* Followed by operator *)
-    | A.Fby (pos, _, _, _) -> 
+        (* Select from array in all elements *)
+        (D.map (fun e -> E.mk_select e index) expr', ctx)
 
-      C.fail_at_position pos "Fby operator not implemented" 
+      (* Projection from an array indexed by integers *)
+      | D.ArrayIntIndex _ :: tl, _ -> 
 
-    (* Projection on clock *)
-    | A.When (pos, _, _) -> 
+        C.fail_at_position 
+          pos
+          "Cannot use a constant array in a recursive definition"
 
-      C.fail_at_position 
-        pos
-        "When expression must be the argument of a current operator"
+      (* Projection from a tuple expression *)
+      | D.TupleIndex _ :: tl, _ ->
 
-    (* Interpolation to base clock *)
-    | A.Current (pos, _) -> 
+        (* Try again with the correct expression *)
+        eval_ast_expr ctx (A.TupleProject (pos, expr, i))
 
-      C.fail_at_position 
-        pos
-        "Current operator must have a when expression as argument"
+      (* Other or no index *)
+      | D.RecordIndex _ :: _, _ 
+      | D.ListIndex _ :: _, _ 
+      | [], _ -> C.fail_at_position pos "Selection not from an array")
 
-    | A.Merge (pos, _, _) ->
+  (* Array slice [A[i..j,k..l]] *)
+  | A.ArraySlice (pos, _, _) -> 
 
-      C.fail_at_position 
-        pos
-        "Merge operator only supported for Boolean clocks"
+    C.fail_at_position pos "Array slices not implemented"
 
-    | A.Activate (pos, _, _, _) -> 
+  (* ****************************************************************** *)
+  (* Not implemented                                                    *)
+  (* ****************************************************************** *)
 
-      C.fail_at_position 
-        pos
-        "Activate operator only supported in merge"
+  (* TODO below, roughly in order of importance and difficulty *)
+
+  (* Concatenation of arrays [A|B] *)
+  | A.ArrayConcat (pos, _, _) -> 
+
+    C.fail_at_position pos "Array concatenation not implemented"
+
+  (* Interpolation to base clock *)
+  | A.Current (pos, A.When (_, _, _)) -> 
+
+    C.fail_at_position pos "Current expression not supported"
+
+  (* Boolean at-most-one constaint *)
+  | A.OneHot (pos, _) -> 
+
+    C.fail_at_position pos "One-hot expression not supported"
+
+  (* Followed by operator *)
+  | A.Fby (pos, _, _, _) -> 
+
+    C.fail_at_position pos "Fby operator not implemented" 
+
+  (* Projection on clock *)
+  | A.When (pos, _, _) -> 
+
+    C.fail_at_position 
+      pos
+      "When expression must be the argument of a current operator"
+
+  (* Interpolation to base clock *)
+  | A.Current (pos, _) -> 
+
+    C.fail_at_position 
+      pos
+      "Current operator must have a when expression as argument"
+
+  | A.Merge (pos, _, _) ->
+
+    C.fail_at_position 
+      pos
+      "Merge operator only supported for Boolean clocks"
+
+  | A.Activate (pos, _, _, _) -> 
+
+    C.fail_at_position 
+      pos
+      "Activate operator only supported in merge"
 
 
-    (* With operator for recursive node calls *)
-    | A.With (pos, _, _, _) -> 
+  (* With operator for recursive node calls *)
+  | A.With (pos, _, _, _) -> 
 
-      C.fail_at_position pos "Recursive nodes not supported"
+    C.fail_at_position pos "Recursive nodes not supported"
 
-    (* Node call to a parametric node *)
-    | A.CallParam (pos, _, _, _) -> 
+  (* Node call to a parametric node *)
+  | A.CallParam (pos, _, _, _) -> 
 
-      C.fail_at_position pos "Parametric nodes not supported" 
+    C.fail_at_position pos "Parametric nodes not supported" 
 
 
 (* ******************************************************************** *)
@@ -1031,7 +1089,7 @@ let rec eval_ast_expr ctx =
 (* ******************************************************************** *)
 
 (* Evaluate expression to an integer constant, return as a numeral *)
-and const_int_of_ast_expr ctx pos expr = 
+and const_int_of_ast_expr ctx pos expr =
 
   match
 
@@ -1076,7 +1134,7 @@ and const_int_of_ast_expr ctx pos expr =
 
 
 (* Evaluate expression to an Boolean *)
-and eval_bool_ast_expr ctx pos expr = 
+and eval_bool_ast_expr ctx pos expr =
 
   (* Evaluate expression to trie *)
   let expr', ctx = eval_ast_expr ctx expr in
@@ -1099,18 +1157,16 @@ and eval_bool_ast_expr ctx pos expr =
 
 (* Evaluate expression to an integer expression, which is not
    necessarily an integer literal. *)
-and static_int_of_ast_expr ctx pos expr = 
+and static_int_of_ast_expr ctx pos expr =
 
   match
 
     (* Evaluate expression *)
-    let expr', _ = 
-      eval_ast_expr 
-        (C.fail_on_new_definition
-           ctx
-           pos
-           "Expression must be constant")
-        expr
+    let expr', _ =
+      eval_ast_expr (
+        C.fail_on_new_definition
+           ctx pos "Expression must be constant"
+       ) expr
     in
 
     (* Check static and array indexes *)
@@ -1136,7 +1192,7 @@ and static_int_of_ast_expr ctx pos expr =
 
 
 (* Return the trie for the identifier *)
-and eval_ident ctx pos ident = 
+and eval_ident ctx pos ident =
 
   try 
 
@@ -1155,7 +1211,7 @@ and eval_ident ctx pos ident =
          A.pp_print_ident ident)
 
 (* Return the constant inserted into an empty trie *)
-and eval_nullary_expr ctx pos expr = 
+and eval_nullary_expr ctx pos expr =
 
   (* Add expression to trie with empty index *)
   let res = D.singleton D.empty_index expr in
@@ -1441,7 +1497,9 @@ and eval_node_call
   let node_act_cond_of_expr ctx node_outputs pos cond defaults =
 
     (* Evaluate activation condition *)
-    let cond', ctx = eval_bool_ast_expr ctx pos cond in
+    let cond', ctx =
+      eval_bool_ast_expr ctx pos cond
+    in
 
     if 
 
@@ -1538,15 +1596,18 @@ and eval_node_call
     node_act_cond_of_expr ctx node_outputs pos cond defaults
   in
 
-  match 
+  match
 
-    (* Find a previously created node call with the same paramters *)
-    C.call_outputs_of_node_call
-      ctx
-      ident
-      cond_state_var
-      input_state_vars
-      defaults
+    (* Do not reuse node call outputs if there are some oracles *)
+    if node_oracles <> [] then None
+    else
+      (* Find a previously created node call with the same paramters *)
+      C.call_outputs_of_node_call
+        ctx
+        ident
+        cond_state_var
+        input_state_vars
+        defaults
 
   with 
 
@@ -1626,7 +1687,7 @@ and eval_node_call
       (res, ctx)
 
 
-and eval_function_call 
+and eval_function_call
     ctx
     pos
     ident

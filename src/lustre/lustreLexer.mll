@@ -32,7 +32,7 @@ let print_warning fmt =
         @;<0 -2></Log>\
       @]@.")
   else
-    Format.printf ("%s @[<v>" ^^ fmt ^^ "@]@.") Lib.warning_tag
+    Format.printf ("%t @[<v>" ^^ fmt ^^ "@]@.") Pretty.warning_tag
 
 (* Pretty-print an array of integers *)
 let rec pp_print_int_array i ppf a = 
@@ -113,7 +113,16 @@ let pp_print_lexbuf ppf
     pp_print_position lex_start_p
     pp_print_position lex_curr_p
 
- 
+
+  let char_for_backslash = function
+    | 'n' -> '\010'
+    | 'r' -> '\013'
+    | 'b' -> '\008'
+    | 't' -> '\009'
+    | c -> c
+
+  (* Buffer to store strings *)
+  let string_buf = Buffer.create 1024
 
 (* A stack of pairs of channels, a directory and lexing buffers to
    handle included files 
@@ -245,6 +254,7 @@ let keyword_table = mk_hashtbl [
   ("MAIN", MAIN) ;
   (* Contract related things. *)
   ("contract", CONTRACT) ;
+  ("import", IMPORTCONTRACT) ;
 
   (* Boolean operators *)
   ("true", TRUE) ; ("false", FALSE) ;
@@ -309,6 +319,7 @@ rule token = parse
   (* Inline. *)
   | "--%" { PERCENTANNOT }
   | "--!" { BANGANNOT }
+  | "--@import" { INLINEIMPORTCONTRACT }
   | "--@mode" { INLINEMODE }
   | "--@assume" { INLINEASSUME }
   | "--@guarantee" { INLINEGUARANTEE }
@@ -336,11 +347,11 @@ rule token = parse
 
   (* |===| Block annotation contract stuff. *)
 
-  | "@mode" { MODE }
-  | "@assume" { ASSUME }
-  | "@guarantee" { GUARANTEE }
-  | "@require" { REQUIRE }
-  | "@ensure" { ENSURE }
+  | "mode" { MODE }
+  | "assume" { ASSUME }
+  | "guarantee" { GUARANTEE }
+  | "require" { REQUIRE }
+  | "ensure" { ENSURE }
 
 
   (* |===| Actual comments. *)
@@ -441,6 +452,9 @@ rule token = parse
   (* Newline *)
   | newline { Lexing.new_line lexbuf ; token lexbuf }
 
+  (* String *)
+  | "\"" { Buffer.clear string_buf; string lexbuf }
+      
   (* End of file *)
   | eof {
     (* Pop previous lexing buffer form stack if at end of included file *)
@@ -505,6 +519,19 @@ and return_at_eol t = parse
 
   (* Ignore characters *)
   | _ { return_at_eol t lexbuf }
+
+
+and string = parse
+  | "\""
+      { STRING (Buffer.contents string_buf) }
+  | "\\" (_ as c)
+      { Buffer.add_char string_buf (char_for_backslash c); string lexbuf }
+  | newline
+      { Lexing.new_line lexbuf; Buffer.add_char string_buf '\n'; string lexbuf }
+  | eof
+      { failwith (Format.sprintf "Unterminated string") }
+  | _ as c
+      { Buffer.add_char string_buf c; string lexbuf }
 
 
 

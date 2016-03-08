@@ -39,37 +39,38 @@
     @author Christoph Sticksel *)
 
 
-(** Parameters of an analysis, also used for the creation of a transition
-    system. *)
-type param = {
-  (** The top system for the analysis run. *)
+
+(** Information for the creation of a transition system *)
+type info = {
+  (** The top system for the analysis run *)
   top : Scope.t ;
 
-  (** UID for this analysis. *)
+  (** UID for the analysis. *)
   uid : int ;
 
   (** Systems flagged [true] are to be represented abstractly, those flagged
       [false] are to be represented by their implementation. *)
   abstraction_map : bool Scope.Map.t ;
 
-  (** Properties that can be assumed invariant in subsystems. *)
+  (** Properties that can be assumed invariant in subsystems *)
   assumptions : (Scope.t * Term.t) list ;
+
+  (** Result of the previous analysis of the top system if this analysis is a
+      refinement. *)
+  (* refinement_of : result option *)
 }
 
-(** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
-   a [param]. Default to [false] if the node is not in the map. *)
-val param_scope_is_abstract : param -> Scope.t -> bool
-
-(** Retrieve the assumptions of a [scope] from a [param]. *)
-val param_assumptions_of_scope : param -> Scope.t -> Term.t list
-
-
-
-
-
+(** Parameter of an analysis. *)
+type param =
+  (** Analysis of the contract of a system. *)
+  | ContractCheck of info
+  (** First analysis of a system. *)
+  | First of info
+  (** Refinement of a system. Store the result of the previous analysis. *)
+  | Refinement of info * result
 
 (** Result of analysing a transistion system *)
-type result = {
+and result = {
   (** Parameters of the analysis. *)
   param : param ;
 
@@ -86,6 +87,22 @@ type result = {
       [Some false] if it does and some are unknown / falsified. *)
   requirements_valid : bool option ;
 }
+
+
+
+(** The info or a param. *)
+val info_of_param : param -> info
+
+(** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
+   a [param]. Default to [false] if the node is not in the map. *)
+val param_scope_is_abstract : param -> Scope.t -> bool
+
+(** Retrieve the assumptions of a [scope] from a [param]. *)
+val param_assumptions_of_scope : param -> Scope.t -> Term.t list
+
+
+
+
 
 (** Returns a result from an analysis. *)
 val mk_result : param -> TransSys.t -> result
@@ -123,6 +140,10 @@ val results_length : results -> int
     proved, [Some true] if all properties were proved, and [Some false] if
     some were falsified. *)
 val results_is_safe : results -> bool option
+
+(** Cleans the results by removing nodes that don't have any property or
+contract. *)
+val results_clean : results -> results
 
 
 

@@ -1,7 +1,11 @@
+documentclass:scrartcl
+
 title:"Kind 2 User Documentation"
 
 linkcolor:blue
 
 toc-depth:2
 
-toc
+add-toc
+
+subtitle:"Version ##version##"

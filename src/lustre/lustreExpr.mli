@@ -135,6 +135,9 @@ val has_pre_var : Numeral.t -> t -> bool
 (** Return true if expression is a current state variable *)
 val is_var : t -> bool
 
+(** Return true if expression is a constant state variable *)
+val is_const_var : t -> bool
+
 (** Return true if expression is a previous state variable *)
 val is_pre_var : t -> bool
 
@@ -211,6 +214,9 @@ val pre_term_of_t : Numeral.t -> t -> Term.t
     is not a variable at the current or previous offset. *)
 val state_var_of_expr : t -> StateVar.t
 
+(** Return the free variable of a variable *)
+val var_of_expr : t -> Var.t
+  
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
@@ -332,16 +338,19 @@ val mk_arrow : t -> t -> t
     expression to a fresh variable if it is not a variable at the
     current state.
 
-    [mk_pre f c e] returns the expression [e] and context [c] unchanged
-    if it is a constant, and the previous state variable if the
-    expression is a current state variable, again together with [c]
-    unchanged.
+    [mk_pre f c b e] returns the expression [e] and context [c] unchanged if it
+    is a constant, and the previous state variable if the expression is a
+    current state variable, again together with [c] unchanged.
 
-    Otherwise the expression [e] is abstracted to a fresh variable
-    obtained by calling the function [f], which returns a fresh state
-    variable and a changed context [c] that records the association
-    between the fresh variable and the expression. Then return an expression of the fresh state variable and the changed context. *)
-val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
+    Otherwise the expression [e] is abstracted to a fresh variable obtained by
+    calling the function [f], which returns a fresh state variable and a
+    changed context [c] that records the association between the fresh variable
+    and the expression. Then return an expression of the fresh state variable
+    and the changed context.
+
+    [b] is used to denote that we're in a context where there are unguarded
+    pres and so we should always introduce fresh intermediate variables. *)
+val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> bool -> t -> t * 'a
 
 (** Select from an array *)
 val mk_select : t -> t -> t

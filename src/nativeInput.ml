@@ -424,9 +424,10 @@ let rec mk_subsys_structure sys =
     source = sys;
     has_contract = false;
     has_impl = false;
+    has_modes = false;
     subsystems =
       TransSys.get_subsystems sys
-      |> List.map mk_subsys_structure
+      |> List.map mk_subsys_structure;
   }
 
 
@@ -481,7 +482,7 @@ let of_channel in_ch =
             trans_term
             subsystems
             props
-            [] [] [] in
+            (None, []) [] [] in
 
         (* Add calling information *)
         (* List.iter (fun (c, m, g) -> *)
@@ -757,7 +758,7 @@ let dump_native_to sys filename =
   
 
 let dump_native sys =
-  let dirname = Flags.dump_dir () in
+  let dirname = Flags.output_dir () in
   create_dir dirname;
   let filename =
     Filename.concat

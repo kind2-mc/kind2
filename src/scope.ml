@@ -65,7 +65,7 @@ let pp_print_scope ppf s =
 
   Format.fprintf 
     ppf
-    "%a"
+    "@{<blue>%a@}"
     (pp_print_list Ident.pp_print_ident ".")
     s
 

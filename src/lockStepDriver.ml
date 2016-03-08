@@ -327,7 +327,7 @@ let create two_state top_only top_sys =
 
   let new_inst_sys () =
     SMTSolver.create_instance ~produce_assignments: true
-      (TransSys.get_logic top_sys) (Flags.smtsolver ())
+      (TransSys.get_logic top_sys) (Flags.Smt.solver ())
   in
 
   (* Solvers. *)
@@ -452,7 +452,7 @@ let query_base
       List.assq system systems
     with Not_found -> 
       Format.printf
-        "System %a not found in@ @[<hv>%a@]@."
+        "System %a not found in @[<hv>%a@]@."
         Scope.pp_print_scope (TransSys.scope_of_trans_sys system)
         (pp_print_list 
            (fun ppf (t, _) -> 
@@ -736,7 +736,7 @@ let increment_and_query_step
   let not_trivial, trivial =
     (* Pruning direct consequences of the transition relation if
           the flag requests it. *)
-    if Flags.invgengraph_prune_trivial () then
+    if Flags.Invgen.prune_trivial () then
       prune_trivial
         pruning_solver [] actlit terms_to_check
     else terms_to_check, []

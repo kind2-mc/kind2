@@ -1,10 +1,10 @@
 /*  =========================================================================
-    zsockopt - get/set 0MQ socket options
+    zsockopt - get/set 0MQ socket options (deprecated)
 
             ****************************************************
             *   GENERATED SOURCE CODE, DO NOT EDIT!!           *
-            *   TO CHANGE THIS, EDIT scripts/sockopts.gsl      *
-            *   AND RUN ./generate in models/.                 *
+            *   TO CHANGE THIS, EDIT src/zsockopt.gsl          *
+            *   AND RUN `gsl sockopts` in src/.                *
             ****************************************************
 
     Copyright (c) the Contributors as noted in the AUTHORS file.
@@ -28,6 +28,8 @@ extern "C" {
 #if (ZMQ_VERSION_MAJOR == 4)
 //  Get socket options
 CZMQ_EXPORT int zsocket_tos (void *zocket);
+CZMQ_EXPORT char * zsocket_zap_domain (void *zocket);
+CZMQ_EXPORT int zsocket_mechanism (void *zocket);
 CZMQ_EXPORT int zsocket_plain_server (void *zocket);
 CZMQ_EXPORT char * zsocket_plain_username (void *zocket);
 CZMQ_EXPORT char * zsocket_plain_password (void *zocket);
@@ -35,8 +37,10 @@ CZMQ_EXPORT int zsocket_curve_server (void *zocket);
 CZMQ_EXPORT char * zsocket_curve_publickey (void *zocket);
 CZMQ_EXPORT char * zsocket_curve_secretkey (void *zocket);
 CZMQ_EXPORT char * zsocket_curve_serverkey (void *zocket);
-CZMQ_EXPORT char * zsocket_zap_domain (void *zocket);
-CZMQ_EXPORT int zsocket_mechanism (void *zocket);
+CZMQ_EXPORT int zsocket_gssapi_server (void *zocket);
+CZMQ_EXPORT int zsocket_gssapi_plaintext (void *zocket);
+CZMQ_EXPORT char * zsocket_gssapi_principal (void *zocket);
+CZMQ_EXPORT char * zsocket_gssapi_service_principal (void *zocket);
 CZMQ_EXPORT int zsocket_ipv6 (void *zocket);
 CZMQ_EXPORT int zsocket_immediate (void *zocket);
 CZMQ_EXPORT int zsocket_ipv4only (void *zocket);
@@ -63,7 +67,7 @@ CZMQ_EXPORT int zsocket_tcp_keepalive_cnt (void *zocket);
 CZMQ_EXPORT int zsocket_tcp_keepalive_intvl (void *zocket);
 CZMQ_EXPORT char * zsocket_tcp_accept_filter (void *zocket);
 CZMQ_EXPORT int zsocket_rcvmore (void *zocket);
-CZMQ_EXPORT int zsocket_fd (void *zocket);
+CZMQ_EXPORT SOCKET zsocket_fd (void *zocket);
 CZMQ_EXPORT int zsocket_events (void *zocket);
 CZMQ_EXPORT char * zsocket_last_endpoint (void *zocket);
 
@@ -75,6 +79,7 @@ CZMQ_EXPORT void zsocket_set_probe_router (void *zocket, int probe_router);
 CZMQ_EXPORT void zsocket_set_req_relaxed (void *zocket, int req_relaxed);
 CZMQ_EXPORT void zsocket_set_req_correlate (void *zocket, int req_correlate);
 CZMQ_EXPORT void zsocket_set_conflate (void *zocket, int conflate);
+CZMQ_EXPORT void zsocket_set_zap_domain (void *zocket, const char * zap_domain);
 CZMQ_EXPORT void zsocket_set_plain_server (void *zocket, int plain_server);
 CZMQ_EXPORT void zsocket_set_plain_username (void *zocket, const char * plain_username);
 CZMQ_EXPORT void zsocket_set_plain_password (void *zocket, const char * plain_password);
@@ -85,7 +90,10 @@ CZMQ_EXPORT void zsocket_set_curve_secretkey (void *zocket, const char * curve_s
 CZMQ_EXPORT void zsocket_set_curve_secretkey_bin (void *zocket, const byte *curve_secretkey);
 CZMQ_EXPORT void zsocket_set_curve_serverkey (void *zocket, const char * curve_serverkey);
 CZMQ_EXPORT void zsocket_set_curve_serverkey_bin (void *zocket, const byte *curve_serverkey);
-CZMQ_EXPORT void zsocket_set_zap_domain (void *zocket, const char * zap_domain);
+CZMQ_EXPORT void zsocket_set_gssapi_server (void *zocket, int gssapi_server);
+CZMQ_EXPORT void zsocket_set_gssapi_plaintext (void *zocket, int gssapi_plaintext);
+CZMQ_EXPORT void zsocket_set_gssapi_principal (void *zocket, const char * gssapi_principal);
+CZMQ_EXPORT void zsocket_set_gssapi_service_principal (void *zocket, const char * gssapi_service_principal);
 CZMQ_EXPORT void zsocket_set_ipv6 (void *zocket, int ipv6);
 CZMQ_EXPORT void zsocket_set_immediate (void *zocket, int immediate);
 CZMQ_EXPORT void zsocket_set_router_raw (void *zocket, int router_raw);
@@ -115,9 +123,6 @@ CZMQ_EXPORT void zsocket_set_tcp_keepalive_idle (void *zocket, int tcp_keepalive
 CZMQ_EXPORT void zsocket_set_tcp_keepalive_cnt (void *zocket, int tcp_keepalive_cnt);
 CZMQ_EXPORT void zsocket_set_tcp_keepalive_intvl (void *zocket, int tcp_keepalive_intvl);
 CZMQ_EXPORT void zsocket_set_tcp_accept_filter (void *zocket, const char * tcp_accept_filter);
-
-//  Emulation of widely-used 2.x socket options
-CZMQ_EXPORT void zsocket_set_hwm (void *zocket, int hwm);
 #endif
 
 #if (ZMQ_VERSION_MAJOR == 3)
@@ -146,7 +151,7 @@ CZMQ_EXPORT int zsocket_tcp_keepalive_cnt (void *zocket);
 CZMQ_EXPORT int zsocket_tcp_keepalive_intvl (void *zocket);
 CZMQ_EXPORT char * zsocket_tcp_accept_filter (void *zocket);
 CZMQ_EXPORT int zsocket_rcvmore (void *zocket);
-CZMQ_EXPORT int zsocket_fd (void *zocket);
+CZMQ_EXPORT SOCKET zsocket_fd (void *zocket);
 CZMQ_EXPORT int zsocket_events (void *zocket);
 CZMQ_EXPORT char * zsocket_last_endpoint (void *zocket);
 
@@ -178,9 +183,6 @@ CZMQ_EXPORT void zsocket_set_tcp_keepalive_idle (void *zocket, int tcp_keepalive
 CZMQ_EXPORT void zsocket_set_tcp_keepalive_cnt (void *zocket, int tcp_keepalive_cnt);
 CZMQ_EXPORT void zsocket_set_tcp_keepalive_intvl (void *zocket, int tcp_keepalive_intvl);
 CZMQ_EXPORT void zsocket_set_tcp_accept_filter (void *zocket, const char * tcp_accept_filter);
-
-//  Emulation of widely-used 2.x socket options
-CZMQ_EXPORT void zsocket_set_hwm (void *zocket, int hwm);
 #endif
 
 #if (ZMQ_VERSION_MAJOR == 2)
@@ -207,7 +209,7 @@ CZMQ_EXPORT int zsocket_reconnect_ivl_max (void *zocket);
 CZMQ_EXPORT int zsocket_backlog (void *zocket);
 CZMQ_EXPORT int zsocket_type (void *zocket);
 CZMQ_EXPORT int zsocket_rcvmore (void *zocket);
-CZMQ_EXPORT int zsocket_fd (void *zocket);
+CZMQ_EXPORT SOCKET zsocket_fd (void *zocket);
 CZMQ_EXPORT int zsocket_events (void *zocket);
 
 //  Set socket options

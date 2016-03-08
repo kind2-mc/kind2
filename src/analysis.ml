@@ -18,8 +18,8 @@
 
 open Lib
 
-(** Parameters for the creation of a transition system *)
-type param = {
+(** Information for the creation of a transition system *)
+type info = {
   (** The top system for the analysis run *)
   top : Scope.t ;
 
@@ -32,29 +32,24 @@ type param = {
 
   (** Properties that can be assumed invariant in subsystems *)
   assumptions : (Scope.t * Term.t) list ;
+
+  (** Result of the previous analysis of the top system if this analysis is a
+      refinement. *)
+  (* refinement_of : result option *)
 }
 
-(* Retrieve the assumptions of a [scope] from a [param]. *)
-let param_assumptions_of_scope { assumptions } scope =
-  assumptions |> List.fold_left (fun a (s, t) -> 
-     if Scope.equal s scope then t :: a else a
-  ) []
-
-(* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
-   a [param]. Default to [false] if the node is not in the map. *)
-let param_scope_is_abstract { abstraction_map } scope =
-  try
-    (* Find node in abstraction map by name *)
-    Scope.Map.find scope abstraction_map 
-  (* Assume node to be concrete if not in map *)
-  with Not_found -> false
-
-
-
+(** Parameter of an analysis. *)
+type param =
+  (* Analysis of the contract of a system. *)
+  | ContractCheck of info
+  (* First analysis of a system. *)
+  | First of info
+  (* Refinement of a system. Store the result of the previous analysis. *)
+  | Refinement of info * result
 
 
 (** Result of analysing a transistion system *)
-type result = {
+and result = {
   (** Parameters of the analysis. *)
   param : param ;
 
@@ -71,6 +66,30 @@ type result = {
       [Some false] if it does and some are unknown / falsified. *)
   requirements_valid : bool option ;
 }
+
+
+(* The info or a param. *)
+let info_of_param = function
+| ContractCheck info -> info
+| First info -> info
+| Refinement (info,_) -> info
+
+(* Retrieve the assumptions of a [scope] from a [param]. *)
+let param_assumptions_of_scope param scope =
+  let { assumptions } = info_of_param param in
+  assumptions |> List.fold_left (fun a (s, t) -> 
+     if Scope.equal s scope then t :: a else a
+  ) []
+
+(* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
+   a [param]. Default to [false] if the node is not in the map. *)
+let param_scope_is_abstract param scope =
+  let { abstraction_map } = info_of_param param in
+  try
+    (* Find node in abstraction map by name *)
+    Scope.Map.find scope abstraction_map 
+  (* Assume node to be concrete if not in map *)
+  with Not_found -> false
 
 (* Abstraction of a property source. *)
 type prop_kind = | Contract | Subreq | Prop
@@ -103,20 +122,20 @@ let mk_result param sys =
 (** Returns true if all properties in the system in a [result] have been
     proved. *)
 let result_is_all_proved { sys } =
-  match TransSys.get_split_properties sys with
-  | (_, [], []) -> true
-  | _ -> false
+  TransSys.get_prop_status_all_nocands sys |>
+  List.for_all (function
+      | _, Property.PropInvariant _ -> true
+      | _ -> false
+    )
 
 (** Returns true if some properties in the system in a [result] have been
     falsified. *)
 let result_is_some_falsified { sys } =
-  match TransSys.get_split_properties sys with
-  | (_, _ :: _, _) -> true
-  | _ -> false
-
-
-
-
+  TransSys.get_prop_status_all_nocands sys |>
+  List.exists (function
+      | _, Property.PropFalse _ -> true
+      | _ -> false
+    )
 
 
 
@@ -129,7 +148,7 @@ let mk_results () = Scope.Map.empty
 (** Adds a [result] to a [results]. *)
 let results_add result results =
   (* The key is the top scope of the result. *)
-  let key = result.param.top in
+  let key = (info_of_param result.param).top in
   (* Building updated value for [key]. *)
   let value = result :: (
       (* Retrieving current value. *)
@@ -166,6 +185,13 @@ let results_is_safe results = Scope.Map.fold (fun _ -> function
   | [] -> assert false
 ) results (Some true)
 
+(** Cleans the results by removing nodes that don't have any property or
+contract. *)
+let results_clean = Scope.Map.filter (
+  fun _ -> function
+  | res :: _ -> TransSys.props_list_of_bound res.sys Numeral.zero <> []
+  | [] -> failwith "unreachable"
+)
 
 
 
@@ -180,13 +206,18 @@ let results_is_safe results = Scope.Map.fold (fun _ -> function
 
 
 
-let pp_print_param fmt { top ; abstraction_map ; assumptions } =
+let pp_print_param fmt param =
+  let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
     ) ([], [])
   in
-  Format.fprintf fmt "@[<v>top: \"%a\"%a%a@]"
+  Format.fprintf fmt "%s @[<v>top: \"%a\"%a%a@]"
+    ( match param with
+      | ContractCheck _ -> "ContractCheck"
+      | First _ -> "First"
+      | Refinement _ -> "Refinement")
     Scope.pp_print_scope top
 
     (fun fmt -> function
@@ -237,8 +268,8 @@ let pp_print_result_quiet fmt { sys } =
   | valid, [], unknown ->
     Format.fprintf fmt "%a @[<v>\
       | timeout@ \
-      | unknown: [ @[<hov>%a@] ]@ \
-      | valid:   [ @[<hov>%a@] ]\
+      | unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
+      | valid:   [ @[<hov>@{<green>%a@}@] ]\
     @]"
     Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
     (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
@@ -246,9 +277,9 @@ let pp_print_result_quiet fmt { sys } =
   | valid, invalid, unknown ->
     Format.fprintf fmt "%a @[<v>\
       | unsafe@ \
-      | invalid: [ @[<hov>%a@] ]@ \
-      | unknown: [ @[<hov>%a@] ]@ \
-      | valid:   [ @[<hov>%a@] ]\
+      | invalid: [ @[<hov>@{<red>%a@}@] ]@ \
+      | unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
+      | valid:   [ @[<hov>@{<green>%a@}@] ]\
     @]"
     Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
     (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid

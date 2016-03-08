@@ -48,7 +48,7 @@ let print_stats () =
 
   Event.stat
     ([Stat.misc_stats_title, Stat.misc_stats] @
-     (if Flags.ic3_abstr () = `IA then 
+     (if Flags.IC3.abstr () = `IA then 
         [Stat.ic3_stats_title, Stat.ic3_stats;
          Stat.ic3ia_stats_title, Stat.ic3ia_stats]
       else 
@@ -130,7 +130,7 @@ let handle_events
      instances *)
   let add_invariant inv = 
 
-    if Flags.ic3_use_invgen () then 
+    if Flags.IC3.use_invgen () then 
 
       match Term.var_offsets_of_term inv with
 
@@ -706,7 +706,7 @@ let ind_generalize solver prop_set frame clause literals =
 
      assert (not cons));
     
-    let k,d = match Flags.ic3_inductively_generalize() with
+    let k,d = match Flags.IC3.inductively_generalize() with
       | 1 -> linear_search clause [] (C.elements clause)
       | 2 -> linear_search clause [] (order_terms (C.elements clause) term_tbl)
       | 3 -> binary_search [] (Array.of_list (C.elements clause))
@@ -1014,7 +1014,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                 let cti_gen = 
 
                   (* Abstraction used? *)
-                  match Flags.ic3_abstr () with
+                  match Flags.IC3.abstr () with
 
                     (* No abstraction *)
                     | `None ->
@@ -1431,7 +1431,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                frames,
 
                (* Add cube to block to next higher frame if flag is set *)
-               if Flags.ic3_block_in_future () then
+               if Flags.IC3.block_in_future () then
 
                  add_to_block_tl
                    solver
@@ -1532,7 +1532,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    raise (Counterexample (block_clause :: block_trace))
                  in
 
-                 (match Flags.ic3_abstr () with
+                 (match Flags.IC3.abstr () with
                    | `None ->
                      raise_cex ()
 
@@ -1590,7 +1590,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                     R_i-1[x] & C[x] & T[x,x'] & ~C[x'] is sat *)
                  let cti_gen =
-                   match Flags.ic3_abstr () with
+                   match Flags.IC3.abstr () with
                      | `None ->
 
                        extrapolate 
@@ -1878,7 +1878,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
       if 
 
         (* Inductive generalization after forward propagation? *)
-        Flags.ic3_fwd_prop_ind_gen () ||
+        Flags.IC3.fwd_prop_ind_gen () ||
 
         (* Inductively generalize forward propagated clause that was
            not generalized *)
@@ -1909,7 +1909,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
     let l = C.literals_of_clause c' in
 
     (* Subsumption after forward propagation? *)
-    if Flags.ic3_fwd_prop_subsume () then
+    if Flags.IC3.fwd_prop_subsume () then
 
       (* Is clause subsumed in frame? *)
       if F.is_subsumed a l then
@@ -1997,7 +1997,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
           (C.props_of_prop_set prop_set);
 
         (* Check inductiveness of blocking clauses? *)
-        if Flags.ic3_check_inductive () && prop <> [] then 
+        if Flags.IC3.check_inductive () && prop <> [] then 
 
           (
 
@@ -2241,7 +2241,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
             let fwd' = 
 
               (* Try propagating clauses before generalization? *)
-              if Flags.ic3_fwd_prop_non_gen () then
+              if Flags.IC3.fwd_prop_non_gen () then
 
                 (
                   
@@ -2859,7 +2859,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
               "Problem contains real valued variables, \
                switching off approximate QE";
 
-            Flags.set_ic3_qe `Z3;
+            Flags.IC3.set_qe `Z3;
 
             props
 
@@ -3051,7 +3051,7 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
 *)
 let main input_sys aparam trans_sys =
 
-  match Flags.smtsolver () with 
+  match Flags.Smt.solver () with 
 
     (* Yices with SMTLIB input does not work *)
     | `Yices_SMTLIB -> 
@@ -3080,12 +3080,12 @@ let main input_sys aparam trans_sys =
           ~produce_assignments:true
           ~produce_cores:true
           logic
-          (Flags.smtsolver ())
+          (Flags.Smt.solver ())
       in
 
 
       let bound =
-        match Flags.ic3_abstr () with
+        match Flags.IC3.abstr () with
           | `None -> 1
           | `IA -> 3
       in
@@ -3155,7 +3155,7 @@ let main input_sys aparam trans_sys =
         (TransSys.trans_of_bound trans_sys (Numeral.of_int bound));
 
       (* Print inductive assertions to file? *)
-      (match Flags.ic3_print_to_file () with 
+      (match Flags.IC3.print_to_file () with
 
         (* Keep default formatter *)
         | None -> ()
@@ -3179,7 +3179,7 @@ let main input_sys aparam trans_sys =
       in
       let predicates =
 
-        match Flags.ic3_abstr () with
+        match Flags.IC3.abstr () with
 
           | `IA ->
 

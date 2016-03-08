@@ -1,6 +1,4 @@
-{1 Developers' Documentation}
-
-{ul  
+{ul
   {- {%html: <a href="#devdoc"> %}Developers' Documentation{%html: </a>%}
      {ul
        {- {%html: <a href="#strategies">%}Analysis and Strategies {%html: </a>%}}
@@ -13,6 +11,7 @@
             {- {%html: <a href="#invgen">%}Invariant Generators{%html: </a>%}
                {ul
                   {- {%html: <a href="#invgen_graph">%}Implication Graph-based Invariant Generation{%html: </a>%}}
+                  {- {%html: <a href="#c2i">%}C2I: Machine-learning-based Invariant Generation{%html: </a>%}}
                }}
             {- {%html: <a href="#interpreter">%}Interpreter{%html: </a>%}}
        }}
@@ -20,15 +19,18 @@
           {ul
             {- {%html: <a href="#input_lustre">%}Lustre{%html: </a>%}}
             {- {%html: <a href="#input_native">%}Native{%html: </a>%}}
-            {- {%html: <a href="#input_horn">%}Horn{%html: </a>%}}
        }}
-       {- {%html: <a href="#smt">%}SMT Sulver Interface{%html: </a>%}
+       {- {%html: <a href="#smt">%}SMT Solver Interface{%html: </a>%}
           {ul
-            {- {%html: <a href="#smtlib">%}SMTLIB Interface{%html: </a>%}}
+            {- {%html: <a href="#smtlib">%}SMT-LIB 2.0 Interfaces{%html: </a>%}}
             {- {%html: <a href="#yices">%}Yices Interface{%html: </a>%}}
        }}
+       {- {%html: <a href="#compil">%}Lustre to Rust{%html: </a>%}
+       }
+       {- {%html: <a href="#testgen">%}Test Generation{%html: </a>%}
+       }
        {- {%html: <a href="#util">%}Utilities{%html: </a>%}}
-  }}   
+  }} 
   {- {%html: <a href="#howto">%}Howto{%html: </a>%}
      {ul
        {- {%html: <a href="#howto_doc">%}Documentation{%html: </a>%}}
@@ -36,6 +38,10 @@
   }}
   {- {%html: <a href="#indexes">%}Indexes{%html: </a>%}}
 }
+
+
+{1 Developers' Documentation}
+
 
 Overall system architecture
 
@@ -48,14 +54,13 @@ Overall system architecture
   InvarManager
   Kind2
   MonolithicStrategy
-  Refiner
 }
 
 {2:terms Terms }
 
-{!modules: 
-  Eval          
-  Ident  
+{!modules:
+  Eval        
+  Ident
   Ltree
   Model
   Scope
@@ -67,7 +72,7 @@ Overall system architecture
   Type
   UfSymbol
   Var
-}  
+}
 
 {2:trans_sys Transition System }
 
@@ -94,8 +99,7 @@ Overall system architecture
   Clause
   CooperQE
   Extract
-  Literal
-  PDR
+  IC3
   Poly
   Presburger
   QE
@@ -112,6 +116,15 @@ Overall system architecture
   LockStepDriver
 }
 
+{4:c2i C2I (machine-learning based invariant generation)}
+
+{!modules:
+  C2I
+  C2ICandidate
+  C2Icnf
+  C2Imodel
+}
+
 {3:interpreter Interpreter}
 
 {!modules:
@@ -125,10 +138,11 @@ Overall system architecture
 
 Source files live in the subdirectory [lustre]
 
-Dependecy graph of modules {%html: <img src="lustre-frontend.png"> %}
+Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
 
 {!modules:
   LustreLexer
+  LustreParser
   LustreAst
   LustreIdent
   LustreIndex
@@ -140,7 +154,7 @@ Dependecy graph of modules {%html: <img src="lustre-frontend.png"> %}
   LustreSlicing
   LustreTransSys
   LustreInput
-  LustrePath 
+  LustrePath
 }
 
 {3:input_native Native}
@@ -149,14 +163,6 @@ Source files live in subdirectory [nativeInput]
 
 {!modules:
   NativeInput
-}
-
-{3:input_horn Horn}
-
-Source files live in subdirectory [hornInput]
-
-{!modules:
-  Horn
 }
 
 {2:smt SMT Solver Interface}
@@ -168,13 +174,12 @@ Source files live in subdirectory [SMTSolver]
   SMTLIBSolver
   SMTSolver
   SolverDriver
-  SolverMethods
   SolverResponse
   SolverSig
 }
 
 {3:smtlib SMTLIB Interface}
- 
+
 {!modules:
   CVC4Driver
   GenericSMTLIBDriver
@@ -185,13 +190,31 @@ Source files live in subdirectory [SMTSolver]
 {3:yices Yices Interface}
 
 {!modules:
-  Yices2SMTDriver  
+  Yices2SMT2Driver
   YicesDriver
   YicesLexer
   YicesNative
-  YicesResponse 
+  YicesResponse
 }
-  
+
+{2:compil Lustre to Rust}
+
+{!modules:
+  LustreToRust
+}
+
+{2:testgen Test generation}
+
+{!modules:
+  TestgenDF
+  TestgenIO
+  TestgenModes
+  TestgenSolver
+  TestgenStrategies
+  TestgenTree
+  TestgenLib
+}
+
 {2:util Utilities}
 
 {!modules:
@@ -204,9 +227,9 @@ Source files live in subdirectory [SMTSolver]
   Lib
   Messaging
   Numeral
+  Pretty
   SExprBase
   SExprLexer
-  SExpr
   Stat
   TermLib
   Trie
@@ -221,7 +244,7 @@ Edit this file [doc/doc_into.txt] and add the module to one section above in, th
 
 {2:howto_dir Add a new subdirectory}
 
-To add a new subdirectory [feature] edit the [_tags] file to include the line {[<feature>: include]}.
+To add a new subdirectory [feature] edit the [_tags] file to include the line {[<feature>: include]}
 
 
 {1:indexes Indexes}

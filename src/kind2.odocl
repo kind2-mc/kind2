@@ -2,9 +2,9 @@ Analysis
 Event
 Flags
 InvarManager
-# Kind2
+Kind2
 MonolithicStrategy
-# Refiner
+InputSystem
 Eval          
 Ident  
 Ltree
@@ -18,7 +18,6 @@ Term
 Type
 UfSymbol
 Var
-# InputSystem
 Property
 SubSystem
 TransSys
@@ -29,7 +28,6 @@ Step
 Clause
 CooperQE
 Extract
-# Literal
 IC3
 Poly
 Presburger
@@ -37,10 +35,15 @@ QE
 ImplicationGraph
 InvGenCandTermGen
 InvGenGraph
+C2I
+C2ICandidate
+C2Icnf
+C2Imodel
 LockStepDriver
 InputParser
 Interpreter
 LustreLexer
+LustreParser
 LustreAst
 LustreIdent
 LustreIndex
@@ -54,6 +57,7 @@ LustreTransSys
 LustreInput
 LustrePath 
 NativeInput
+Pretty
 Horn
 SMTExpr
 SMTLIBSolver
@@ -65,8 +69,8 @@ CVC4Driver
 GenericSMTLIBDriver
 MathSAT5Driver
 Z3Driver
-# Yices2SMTDriver  
-# YicesDriver
+Yices2SMT2Driver  
+YicesDriver
 YicesLexer
 YicesNative
 YicesResponse 
@@ -81,8 +85,15 @@ Messaging
 Numeral
 SExprBase
 SExprLexer
-# SExpr
 Stat
 TermLib
 Trie
 Version
+LustreToRust
+TestgenDF
+TestgenIO
+TestgenModes
+TestgenSolver
+TestgenStrategies
+TestgenTree
+TestgenLib

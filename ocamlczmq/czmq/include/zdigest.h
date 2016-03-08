@@ -18,9 +18,6 @@
 extern "C" {
 #endif
 
-//  Opaque class structure
-typedef struct _zdigest_t zdigest_t;
-
 //  @interface
 //  Constructor - creates new digest object, which you use to build up a
 //  digest by repeatedly calling zdigest_update() on chunks of data.
@@ -51,7 +48,7 @@ CZMQ_EXPORT char *
     zdigest_string (zdigest_t *self);
     
 //  Self test of this class
-CZMQ_EXPORT int
+CZMQ_EXPORT void
     zdigest_test (bool verbose);
 //  @end
 

@@ -63,7 +63,7 @@ let mk sys =
     S.create_instance
       ~produce_assignments:true
       (Sys.get_logic sys)
-      (Flags.smtsolver ())
+      (Flags.Smt.solver ())
   in
   (* println "declaring vars@0" ; *)
   (* Declaring variables at 0. *)
