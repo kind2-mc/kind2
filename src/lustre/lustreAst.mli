@@ -182,16 +182,16 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * expr
+type contract_assume = position * string option * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * expr
+type contract_guarantee = position * string option * expr
 
 (* A contract requirement. *)
-type contract_require = position * expr
+type contract_require = position * string option * expr
 
 (* A contract ensure. *)
-type contract_ensure = position * expr
+type contract_ensure = position * string option * expr
 
 (* A contract mode. *)
 type contract_mode =

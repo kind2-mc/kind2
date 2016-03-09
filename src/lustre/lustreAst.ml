@@ -248,16 +248,16 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * expr
+type contract_assume = position * string option * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * expr
+type contract_guarantee = position * string option * expr
 
 (* A contract requirement. *)
-type contract_require = position * expr
+type contract_require = position * string option * expr
 
 (* A contract ensure. *)
-type contract_ensure = position * expr
+type contract_ensure = position * string option * expr
 
 (* A contract mode. *)
 type contract_mode =
@@ -888,29 +888,33 @@ let pp_print_contract_ghost_var ppf = function
       pp_print_expr e
 
     
-let pp_print_contract_assume ppf (_,e) =
+let pp_print_contract_assume ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>assume@ %a;@]"
+    "@[<hv 3>assume%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-let pp_print_contract_guarantee ppf (_,e) =
+let pp_print_contract_guarantee ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>guarantee@ %a;@]"
+    "@[<hv 3>guarantee%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
     
-let pp_print_contract_require ppf (_,e) =
+let pp_print_contract_require ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>require@ %a;@]"
+    "@[<hv 3>require%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-let pp_print_contract_ensure ppf (_,e) =
+let pp_print_contract_ensure ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>ensure@ %a;@]"
+    "@[<hv 3>ensure%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
 let cond_new_line b fmt () =

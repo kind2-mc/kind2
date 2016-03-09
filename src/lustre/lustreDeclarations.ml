@@ -983,7 +983,7 @@ let contract_check_no_output ctx expr =
     else None
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
-let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
+let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate exrpession to a Boolean expression, may change context. *)
@@ -1033,7 +1033,7 @@ let eval_contract_item check scope (ctx, accum, count) (pos, expr) =
   let svar, ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
-  ctx, (Contract.mk_svar pos count svar scope) :: accum, count + 1
+  ctx, (Contract.mk_svar pos count iname svar scope) :: accum, count + 1
 
 (* Introduce fresh state variable for an assume expression *)
 let eval_ass = eval_contract_item (Some "assume")

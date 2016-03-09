@@ -378,16 +378,20 @@ contract_ghost_const:
     { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_assume:
-  ASSUME; e = expr; SEMICOLON { A.Assume (mk_pos $startpos, e) }
+  ASSUME; name = option(STRING); e = expr; SEMICOLON
+  { A.Assume (mk_pos $startpos, name, e) }
 
 contract_guarantee:
-  GUARANTEE; e = expr; SEMICOLON { A.Guarantee (mk_pos $startpos, e) }
+  GUARANTEE; name = option(STRING); e = expr; SEMICOLON
+  { A.Guarantee (mk_pos $startpos, name, e) }
 
 contract_require:
-  REQUIRE; e = expr; SEMICOLON { mk_pos $startpos, e }
+  REQUIRE; name = option(STRING); e = expr; SEMICOLON
+  { mk_pos $startpos, name, e }
 
 contract_ensure:
-  ENSURE; e = expr; SEMICOLON { mk_pos $startpos, e }
+  ENSURE; name = option(STRING); e = expr; SEMICOLON
+  { mk_pos $startpos, name, e }
 
 mode_equation:
   MODE; n = ident; LPAREN;
