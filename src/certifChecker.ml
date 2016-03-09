@@ -2566,8 +2566,10 @@ let generate_smt2_certificates input sys =
   
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
-    else Filename.concat (Flags.Certif.dir ())
-         (Filename.basename (Flags.input_file ()) ^ "_certificates")
+    else begin
+      Flags.output_dir () |> mk_dir ;
+      Filename.concat (Flags.output_dir ()) "certificates"
+    end
   in
   create_dir dirname;
 
@@ -2639,8 +2641,10 @@ let generate_all_proofs input sys =
   
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
-    else Filename.concat (Flags.Certif.dir ())
-         (Filename.basename (Flags.input_file ()) ^ "_certificates")
+    else begin
+      Flags.output_dir () |> mk_dir ;
+      Filename.concat (Flags.output_dir ()) "certificates"
+    end
   in
   create_dir dirname;
 
@@ -2674,12 +2678,13 @@ let generate_all_proofs input sys =
 
       let inv_lfsc = Filename.concat dirname Proof.proofname in
       let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
-      let final_lfsc = Filename.concat
-          (Flags.Certif.dir ())
+      Flags.output_dir () |> mk_dir ;
+      let final_lfsc =
+        Filename.concat (Flags.output_dir ())
           (Filename.basename (Flags.input_file ()) ^ ".lfsc") in
 
       begin match Sys.command cmd with
-        | 20 ->
+        | 020 ->
           files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
 
         | c ->

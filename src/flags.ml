@@ -887,20 +887,6 @@ module Certif = struct
     )
   let abstr () = !abstr
 
-  let dir_default = Sys.getcwd ()
-  let dir = ref dir_default
-  let _ = add_spec
-    "--certif_dir"
-    (Arg.Set_string dir)
-    (fun fmt ->
-      Format.fprintf fmt
-        "\
-          Output directory for the intermediate certificates.@ Default: \"%s\"\
-        "
-        dir_default
-    )
-  let dir () = !dir
-
   type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
   let mink_values = [ `No; `Fwd; `Bwd; `Dicho; `FrontierDicho; `Auto]
   let mink_of_string = function

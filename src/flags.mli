@@ -364,9 +364,6 @@ module Certif : sig
   (** Minimization stragegy for invariants *)
   val mininvs : unit -> mininvs
 
-  (** Where certificates are produced *)
-  val dir : unit -> string
-
   (** Binary for JKind *)
   val jkind_bin : unit -> string
 
