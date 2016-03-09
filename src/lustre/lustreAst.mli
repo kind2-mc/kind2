@@ -182,38 +182,40 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * expr
+type contract_assume = position * string option * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * expr
+type contract_guarantee = position * string option * expr
 
 (* A contract requirement. *)
-type contract_require = position * expr
+type contract_require = position * string option * expr
 
 (* A contract ensure. *)
-type contract_ensure = position * expr
+type contract_ensure = position * string option * expr
 
 (* A contract mode. *)
 type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
-(* Equations that can appear in a contract node. *)
-type contract_node_equation =
-  | GhostEquation of position * ident * expr
-  | Assume of contract_assume
-  | Guarantee of contract_guarantee
-  | Require of contract_require
-  | Ensure of contract_ensure
-
 (* A contract call. *)
 type contract_call = position * ident * expr list * expr list
 
+(* Equations that can appear in a contract node. *)
+type contract_node_equation =
+  | GhostConst of contract_ghost_const
+  | GhostVar of contract_ghost_var
+  | Assume of contract_assume
+  | Guarantee of contract_guarantee
+  | Mode of contract_mode
+  | ContractCall of contract_call
+
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
-type contract =
-  contract_ghost_const list * contract_ghost_var list * (
-    contract_assume list * contract_guarantee list *
-    contract_mode list * contract_call list
-  ) list
+type contract = contract_node_equation list
+
+  (*   contract_ghost_const list * contract_ghost_var list * ( *)
+  (*   contract_assume list * contract_guarantee list * *)
+  (*   contract_mode list * contract_call list *)
+  (* ) list *)
 
 (** Declaration of a node as a tuple of
 

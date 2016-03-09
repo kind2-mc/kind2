@@ -248,38 +248,36 @@ type contract_ghost_const = const_decl
 type contract_ghost_var = const_decl
 
 (* A contract assume. *)
-type contract_assume = position * expr
+type contract_assume = position * string option * expr
 
 (* A contract guarantee. *)
-type contract_guarantee = position * expr
+type contract_guarantee = position * string option * expr
 
 (* A contract requirement. *)
-type contract_require = position * expr
+type contract_require = position * string option * expr
 
 (* A contract ensure. *)
-type contract_ensure = position * expr
+type contract_ensure = position * string option * expr
 
 (* A contract mode. *)
 type contract_mode =
   position * ident * (contract_require list) * (contract_ensure list)
 
-(* Equations that can appear in a contract node. *)
-type contract_node_equation =
-  | GhostEquation of position * ident * expr
-  | Assume of contract_assume
-  | Guarantee of contract_guarantee
-  | Require of contract_require
-  | Ensure of contract_ensure
-
 (* A contract call. *)
 type contract_call = position * ident * expr list * expr list
 
+(* Equations that can appear in a contract node. *)
+type contract_node_equation =
+  | GhostConst of contract_ghost_const
+  | GhostVar of contract_ghost_var
+  | Assume of contract_assume
+  | Guarantee of contract_guarantee
+  | Mode of contract_mode
+  | ContractCall of contract_call
+
 (* A contract is some ghost consts / var, and assumes guarantees and modes. *)
-type contract =
-  contract_ghost_const list * contract_ghost_var list * (
-    contract_assume list * contract_guarantee list *
-    contract_mode list * contract_call list
-  ) list
+type contract = contract_node_equation list
+
 
 (* A node declaration *)
 type node_decl =
@@ -890,29 +888,33 @@ let pp_print_contract_ghost_var ppf = function
       pp_print_expr e
 
     
-let pp_print_contract_assume ppf (_,e) =
+let pp_print_contract_assume ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>assume@ %a;@]"
+    "@[<hv 3>assume%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-let pp_print_contract_guarantee ppf (_,e) =
+let pp_print_contract_guarantee ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>guarantee@ %a;@]"
+    "@[<hv 3>guarantee%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
     
-let pp_print_contract_require ppf (_,e) =
+let pp_print_contract_require ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>require@ %a;@]"
+    "@[<hv 3>require%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-let pp_print_contract_ensure ppf (_,e) =
+let pp_print_contract_ensure ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>ensure@ %a;@]"
+    "@[<hv 3>ensure%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
 let cond_new_line b fmt () =
@@ -938,24 +940,19 @@ let pp_print_contract_call fmt (_, id, in_params, out_params) =
 
 let all_empty = List.for_all (fun l -> l = [])
 
-let pp_print_contract fmt (g_consts, g_vars, lst) =
-  Format.fprintf
-    fmt "@[<v>%a@ %a%a@]"
-    (pp_print_list pp_print_contract_ghost_const "@ ") g_consts
-    (pp_print_list pp_print_contract_ghost_var "@ ") g_vars
-    (
-      pp_print_list (
-        fun fmt (ass, gua, modes, calls) ->
-          Format.fprintf fmt
-            "%a@ %a@ %a@ %a"
-            (pp_print_list pp_print_contract_assume "@ ") ass
-            (pp_print_list pp_print_contract_guarantee "@ ") gua
-            (pp_print_list pp_print_contract_mode "@ ") modes
-            (pp_print_list pp_print_contract_call "@ ") calls
-      ) "@ "
-    ) lst
+let pp_print_contract_item fmt = function
+  | GhostConst c -> pp_print_contract_ghost_const fmt c
+  | GhostVar v -> pp_print_contract_ghost_var fmt v
+  | Assume a -> pp_print_contract_assume fmt a
+  | Guarantee g -> pp_print_contract_guarantee fmt g
+  | Mode m -> pp_print_contract_mode fmt m
+  | ContractCall call -> pp_print_contract_call fmt call
 
-let is_contract_empty = function | [],[],[],[],[] -> true | _ -> false
+
+let pp_print_contract fmt contract =
+  Format.fprintf fmt "@[<v>%a@]"
+    (pp_print_list pp_print_contract_item "@ ") contract
+
 
 let pp_print_contract_spec ppf = function
 | None -> ()
@@ -965,23 +962,6 @@ let pp_print_contract_spec ppf = function
     "@[<v 2>(*@contract@ %a@]@ *)"
     pp_print_contract contract
 
-(* Pretty-prints a contract node equation. *)
-let pp_print_contract_node_equation ppf = function
-
-  | GhostEquation (pos, l, e) ->
-     Format.fprintf
-       ppf
-       "@[<hv 2>@[<hv 1>(%a)@] =@ %a;@]"
-       pp_print_ident l
-       pp_print_expr e
-
-  | Assume req -> pp_print_contract_assume ppf req
-
-  | Guarantee ens -> pp_print_contract_guarantee ppf ens
-
-  | Require req -> pp_print_contract_require ppf req
-
-  | Ensure ens -> pp_print_contract_ensure ppf ens
 
 (* Pretty-prints a contract node. *)
 let pp_print_contract_node ppf (

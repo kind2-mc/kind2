@@ -194,7 +194,7 @@ let update ({ tree } as t) mode_conj = match tree with
 
 
 (* |===| Pretty printers. *)
-let pp_print_tree fmt ({ tree } as t) =
+let pp_print_tree fmt { tree } =
   Format.fprintf fmt "@[<v>at %a (%a)@]"
     Num.pp_print_numeral (match tree with
       | Top -> Num.(~- one) | Node (k,_,_,_) -> k

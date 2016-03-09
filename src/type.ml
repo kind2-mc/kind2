@@ -406,6 +406,12 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | _ -> false
 
 
+let generalize t = match node_of_type t with
+  | IntRange _ -> t_int
+  | _ -> t
+
+
+
 
 (* 
    Local Variables:
