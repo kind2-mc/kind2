@@ -315,16 +315,11 @@ module Smt = struct
   let trace () = !trace
 
   (* Folder to log the SMT traces into. *)
-  let trace_dir = ref None
-  let set_trace_dir s = trace_dir := Some s
-  let trace_dir () = match !trace_dir with
-    | None -> "."
-    | Some dir ->
-      mk_dir dir ;
-      let dir = Format.sprintf "%s/smt_trace" dir in
-      mk_dir dir ;
-      dir
-
+  let trace_dir = ref "."
+  let set_trace_dir s =
+    trace_dir := Filename.concat s "smt_trace"
+  let trace_dir () = !trace_dir
+      
 end
 
 
@@ -1401,18 +1396,27 @@ module Global = struct
   (* Output directory. *)
   let output_dir_default = "kind2"
   let output_dir = ref output_dir_default
+  let output_dir_action d =
+    output_dir := d;
+    Smt.set_trace_dir d
+
   let _ = add_spec
     "--output_dir"
-    (Arg.Set_string output_dir)
+    (Arg.String output_dir_action)
     (fun fmt ->
       Format.fprintf fmt
         "\
           Output directory for the files generated:@ \
           SMT traces, compilation, testgen, certification...@ \
-          Default: \"%s\"\
+          Default: \"<filename>.out\"\
         "
-        output_dir_default
     )
+
+  let set_output_dir s =
+    let b = Filename.basename s in
+    let d = try Filename.chop_extension b with Invalid_argument _ -> b in
+    output_dir_action(d ^ ".out")
+      
   let output_dir () = !output_dir
 
 
@@ -1730,10 +1734,9 @@ let color = Global.color
 
 (* Path to subdirectory for a system (in the output directory). *)
 let subdir_for scope =
-  Format.asprintf
-    "%s/%a"
+  Filename.concat
     (output_dir ())
-    (pp_print_list Format.pp_print_string "_") scope
+    (String.concat "_" scope)
 
 
 (* ********************************************************************** *)
@@ -1745,7 +1748,8 @@ let anon_action s =
   | "" ->
     (* filenames that start with - are allowed after the flag -- *)
     if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
-    Global.set_input_file s
+    Global.set_input_file s;
+    Global.set_output_dir s;
   | _ -> raise (Arg.Bad "More than one input file given")
 
 let set_smtsolver = function
