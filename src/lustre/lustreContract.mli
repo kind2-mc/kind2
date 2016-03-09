@@ -81,8 +81,11 @@ val empty: unit -> t
 list of modes. *)
 val mk: svar list -> svar list -> mode list -> t
 
-(** Adds assumes and guarantees to a contract. *)
-val add_ass_gua: t -> svar list -> svar list -> t
+(** Adds assumes to a contract. *)
+val add_ass: t -> svar list -> t
+
+(** Adds guarantees to a contract. *)
+val add_gua: t -> svar list -> t
 
 (** Adds modes to a contract. *)
 val add_modes: t -> mode list -> t

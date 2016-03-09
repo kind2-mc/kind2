@@ -74,17 +74,26 @@ let mk assumes guarantees modes = {
   assumes ; guarantees ; modes
 }
 
-let add_ass_gua t assumes guarantees = {
+
+let add_ass t assumes = {
   t with
-    assumes = assumes @ t.assumes ;
-    guarantees = guarantees @ t.guarantees ;
+    assumes = List.rev_append (List.rev assumes) t.assumes ;
 }
 
+
+let add_gua t guarantees = {
+  t with
+    guarantees = List.rev_append (List.rev guarantees) t.guarantees ;
+}
+
+
 let add_modes t modes = { t with modes = modes @ t.modes }
+
 
 let svars_of_list l set = l |> List.fold_left (
   fun set { svar } -> SVarSet.add svar set
 ) set
+
 
 let svars_of_modes modes set = modes |> List.fold_left (
   fun set { requires ; ensures } ->
@@ -92,10 +101,12 @@ let svars_of_modes modes set = modes |> List.fold_left (
     |> svars_of_list ensures
 ) set
 
+
 let svars_of { assumes ; guarantees ; modes } =
   svars_of_list assumes SVarSet.empty
   |> svars_of_list guarantees
   |> svars_of_modes modes
+
 
 (* Output a space if list is not empty *)
 let space_if_nonempty = function

@@ -1198,107 +1198,6 @@ let rec check_node_and_contract_outputs call_pos ctx node_outputs = function
       "Clocked outputs not supported"
 
 
-let rec inline_contract_of_contract_node
-    ctx
-    (contract_pos, 
-     contract_ident, 
-     contract_reqs, 
-     contract_enss)
-    contract_locals = 
-
-  function 
-
-    (* No more contract equations, return inline contract *)
-    | [] -> 
-
-      (ctx,
-       contract_pos, 
-       contract_ident, 
-       contract_reqs, 
-       contract_enss)
-
-    (* Ghost equation *)
-    | A.GhostEquation (eq_pos, ident, expr) :: tl -> 
-
-      (try 
-
-         (match 
-
-            (* Find declaration of ghost variable *)
-            List.find
-              (function 
-                | A.NodeConstDecl _ -> false
-                | A.NodeVarDecl (_, (_, i, _, _)) -> i = ident)
-              contract_locals
-
-          with 
-
-            (* Constant declarations have been filtered out *)
-            | A.NodeConstDecl (pos, _) -> assert false
-
-            (* Ghost variable on the base clock *)
-            | A.NodeVarDecl (_, (_, _, lustre_type, A.ClockTrue)) -> ()
-
-            (* Ghost variable not on the base clock *)
-            | A.NodeVarDecl (_, (_, _, _, _)) -> 
-
-              C.fail_at_position 
-                contract_pos 
-                "Clocked ghost variables not supported")
-
-       (* Ghost variable undeclared *)
-       with Not_found ->           
-
-         C.fail_at_position 
-           contract_pos 
-           "Assignment to undeclared ghost variable");
-
-      (* Add equation for ghost stream *)
-      let ctx =
-        eval_node_equations 
-          ctx
-          [A.Equation
-             (eq_pos,
-              (A.StructDef
-                 (eq_pos, [A.SingleIdent (eq_pos, ident)])), expr)]
-      in
-
-
-      inline_contract_of_contract_node
-        ctx
-        (contract_pos, 
-         contract_ident, 
-         contract_reqs, 
-         contract_enss)
-        contract_locals
-        tl
-
-    (* Requires clause *)
-    | A.Require req :: tl ->
-
-      inline_contract_of_contract_node
-        ctx
-        (contract_pos, 
-         contract_ident, 
-         req :: contract_reqs, 
-         contract_enss)
-        contract_locals
-        tl
-
-    (* Ensures clause *)
-    | A.Ensure ens :: tl -> 
-
-      inline_contract_of_contract_node
-        ctx
-        (contract_pos, 
-         contract_ident, 
-         contract_reqs, 
-         ens :: contract_enss)
-        contract_locals
-        tl
-
-    | _ -> failwith "unimplemented"
-
 (* Evaluates a mode for a node. *)
 let eval_node_mode scope ctx (pos, id, reqs, enss) =
   (* Evaluate requires. *)
@@ -1313,11 +1212,9 @@ let eval_node_mode scope ctx (pos, id, reqs, enss) =
   |> C.add_node_mode ctx
 
 (* Evaluates contract calls. *)
-let rec eval_node_contract_calls ctx scope = function
+let rec eval_node_contract_call ctx scope
+    (call_pos, id, in_params, out_params) =
 
-| [] -> ctx (* Done. *)
-
-| (call_pos, id, in_params, out_params) :: tail ->
   (* Push scope for contract svars. *)
   let svar_scope = (call_pos, id) :: scope in
   (* Push scope for contract call. *)
@@ -1327,220 +1224,215 @@ let rec eval_node_contract_calls ctx scope = function
     try C.contract_node_decl_of_ident ctx id
     (* Fail if contract node is unknown. *)
     with Not_found -> C.fail_at_position call_pos (
-      Format.sprintf "call to unknown contract node \"%s\"" id
-    )
+        Format.sprintf "call to unknown contract node \"%s\"" id
+      )
   in
 
   (* Failing for unsupported features. *)
   ( match params with
     | [] -> ()
     | _ -> C.fail_at_position pos (
-      "type parameters in contract node is not supported"
-    )
+        "type parameters in contract node is not supported"
+      )
   ) ;
   in_formals |> List.iter (
     function
     | pos, id, typ, A.ClockTrue, is_const -> () (* pos, id, typ, is_const *)
     | _ -> C.fail_at_position pos (
-      "clocks in contract node signature are not supported"
-    )
+        "clocks in contract node signature are not supported"
+      )
   ) ;
   out_formals |> List.iter (
     function
     | pos, id, typ, A.ClockTrue -> () (* pos, id, typ *)
     | _ -> C.fail_at_position pos (
-      "clocks in contract node signature are not supported"
-    )
+        "clocks in contract node signature are not supported"
+      )
   ) ;
 
   (* Add substitution from formal inputs to actual one before we evaluate
-  everything. *)
+     everything. *)
   let ctx = try
-    List.fold_left2 (
-      fun ctx expr (_, in_id, typ, _, _) ->
-        let expr, ctx = S.eval_ast_expr ctx expr in
+      List.fold_left2 (
+        fun ctx expr (_, in_id, typ, _, _) ->
+          let expr, ctx = S.eval_ast_expr ctx expr in
 
-        (* Fail if type mismatch. *)
-        (
-          try
-            (* Evaluate type expression. *)
-            let expected = S.eval_ast_type ctx typ in
-            (* Check if subtype. *)
-            D.iter2 (
-              fun _ expected { E.expr_type } ->
-                if not (Type.check_type expr_type expected) then
-                  raise E.Type_mismatch
-            ) expected expr
-          with
-          | Invalid_argument _
-          | E.Type_mismatch -> C.fail_at_position call_pos (
-            Format.asprintf
-              "type mismatch in import of contract %s for formal input %s"
-              id in_id
-          )
-        ) ;
+          (* Fail if type mismatch. *)
+          (
+            try
+              (* Evaluate type expression. *)
+              let expected = S.eval_ast_type ctx typ in
+              (* Check if subtype. *)
+              D.iter2 (
+                fun _ expected { E.expr_type } ->
+                  if not (Type.check_type expr_type expected) then
+                    raise E.Type_mismatch
+              ) expected expr
+            with
+            | Invalid_argument _
+            | E.Type_mismatch -> C.fail_at_position call_pos (
+                Format.asprintf
+                  "type mismatch in import of contract %s for formal input %s"
+                  id in_id
+              )
+          ) ;
 
-        (* Fail if expression mentions an output in the current state. *)
-        (
-          D.iter (
-            fun _ expr -> match contract_check_no_output ctx expr with
-              | None -> ()
-              | Some svars ->
-                assert (List.length svars > 0) ;
-                let s = if List.length svars > 1 then "s" else "" in
-                let pref = match C.current_node_name ctx with
-                  | None -> ""
-                  | Some name ->
-                    Format.asprintf " in node %a" (I.pp_print_ident false) name
-                in
-                let suff = match scope with
-                  | [] -> ""
-                  | _ ->
-                    List.rev scope
-                    |> Format.asprintf " (contract call trace: %a)" (
-                      pp_print_list (
-                        fun fmt (pos, name) ->
-                          Format.fprintf fmt "%s%a" name pp_print_pos pos
-                      ) ", "
-                    )
-                in
-                C.fail_at_position pos (
-                  Format.asprintf
-                    "@[<v>input parameter in contract import%s mentions \
-                    output%s %a%s@]"
-                    pref s (
+          (* Fail if expression mentions an output in the current state. *)
+          (
+            D.iter (
+              fun _ expr -> match contract_check_no_output ctx expr with
+                | None -> ()
+                | Some svars ->
+                  assert (List.length svars > 0) ;
+                  let s = if List.length svars > 1 then "s" else "" in
+                  let pref = match C.current_node_name ctx with
+                    | None -> ""
+                    | Some name ->
+                      Format.asprintf " in node %a" (I.pp_print_ident false) name
+                  in
+                  let suff = match scope with
+                    | [] -> ""
+                    | _ ->
+                      List.rev scope
+                      |> Format.asprintf " (contract call trace: %a)" (
+                        pp_print_list (
+                          fun fmt (pos, name) ->
+                            Format.fprintf fmt "%s%a" name pp_print_pos pos
+                        ) ", "
+                      )
+                  in
+                  C.fail_at_position pos (
+                    Format.asprintf
+                      "@[<v>input parameter in contract import%s mentions \
+                       output%s %a%s@]"
+                      pref s (
                       pp_print_list (
                         fun fmt sv ->
                           Format.fprintf fmt "\"%s\""
-                          (StateVar.name_of_state_var sv)
+                            (StateVar.name_of_state_var sv)
                       ) ", "
                     ) svars
-                    suff
-                )
-          ) expr
-        ) ;
+                      suff
+                  )
+            ) expr
+          ) ;
 
-        C.add_expr_for_ident
-          ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
+          C.add_expr_for_ident
+            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
 
-        ctx
-    ) ctx in_params in_formals
-  with
+          ctx
+      ) ctx in_params in_formals
+    with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
-      Format.asprintf
-        "arity mismatch for the input parameters of import of contract %s: \
-        expected %d but got %d"
-        id
-        (List.length in_formals)
-        (List.length in_params)
-    )
+        Format.asprintf
+          "arity mismatch for the input parameters of import of contract %s: \
+           expected %d but got %d"
+          id
+          (List.length in_formals)
+          (List.length in_params)
+      )
   in
 
   (* Add substitution from formal outputs to actual one before we evaluate
-  everything. *)
+     everything. *)
   let ctx = try
-    List.fold_left2 (
-      fun ctx expr (_, in_id, typ, _) ->
-        let expr, ctx = S.eval_ast_expr ctx expr in
+      List.fold_left2 (
+        fun ctx expr (_, in_id, typ, _) ->
+          let expr, ctx = S.eval_ast_expr ctx expr in
 
-        (* Fail if type mismatch. *)
-        (
-          try
-            (* Evaluate type expression. *)
-            let expected = S.eval_ast_type ctx typ in
-            (* Check if subtype. *)
-            D.iter2 (
-              fun _ expected { E.expr_type } ->
-                if not (Type.check_type expr_type expected) then
-                  raise E.Type_mismatch
-            ) expected expr
-          with
-          | Invalid_argument _
-          | E.Type_mismatch -> C.fail_at_position call_pos (
-            Format.asprintf
-              "type mismatch in import of contract %s for formal output %s"
-              id in_id
-          )
-        ) ;
+          (* Fail if type mismatch. *)
+          (
+            try
+              (* Evaluate type expression. *)
+              let expected = S.eval_ast_type ctx typ in
+              (* Check if subtype. *)
+              D.iter2 (
+                fun _ expected { E.expr_type } ->
+                  if not (Type.check_type expr_type expected) then
+                    raise E.Type_mismatch
+              ) expected expr
+            with
+            | Invalid_argument _
+            | E.Type_mismatch -> C.fail_at_position call_pos (
+                Format.asprintf
+                  "type mismatch in import of contract %s for formal output %s"
+                  id in_id
+              )
+          ) ;
 
-        C.add_expr_for_ident
-          ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
+          C.add_expr_for_ident
+            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
 
-        ctx
-    ) ctx out_params out_formals
-  with
+          ctx
+      ) ctx out_params out_formals
+    with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
-      Format.asprintf
-        "arity mismatch for the output parameters of import of contract %s: \
-        expected %d but got %d"
-        id
-        (List.length in_formals)
-        (List.length in_params)
-    )
+        Format.asprintf
+          "arity mismatch for the output parameters of import of contract %s: \
+           expected %d but got %d"
+          id
+          (List.length in_formals)
+          (List.length in_params)
+      )
   in
 
   (* Evaluate node as usual, it will merge with the current contract. *)
   let ctx = eval_node_contract_spec ctx svar_scope contract in
 
   (* Pop scope for contract call. *)
-  let ctx = C.pop_contract_scope ctx in
-  (* Loop on remaining contracts. *)
-  eval_node_contract_calls ctx scope tail
+  C.pop_contract_scope ctx
+  
+
+(* Add declaration and equation for ghost stream *)
+and add_ghost ctx pos ident type_expr ast_expr expr = 
+
+  (* Add local declaration for ghost stream *)
+  let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
+
+  (* Add equation for ghost stream *)
+  eval_node_equations ctx [
+    A.Equation (
+      pos, (
+        A.StructDef (
+          pos,
+          [A.SingleIdent (pos, I.string_of_ident false ident)]
+        )
+      ),
+      ast_expr
+    )
+  ]
 
 (* Add all node contracts to contexts *)
-and eval_node_contract_spec ctx scope (
-  ghost_consts, ghost_vars, contract
-) = match contract with
-| (assumes, guarantees, modes, calls) :: tail ->
+and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
 
   (* Add constants to context *)
-  let ctx = List.fold_left (eval_const_decl ~ghost:true) ctx ghost_consts in
-
-  (* Add declaration and equation for ghost stream *)
-  let f ctx pos ident type_expr ast_expr expr = 
-    
-    (* Add local declaration for ghost stream *)
-    let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
-
-    (* Add equation for ghost stream *)
-    eval_node_equations ctx [
-      A.Equation (
-        pos, (
-          A.StructDef (
-            pos,
-            [A.SingleIdent (pos, I.string_of_ident false ident)]
-          )
-        ), 
-        ast_expr
-      )
-    ]
-  in
+  | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
 
   (* Add ghost variables to context *)
-  let ctx = List.fold_left (eval_ghost_var f) ctx ghost_vars in
+  | A.GhostVar v -> eval_ghost_var add_ghost ctx v, cpt_a, cpt_g
 
-  (* Evaluate assumptions. *)
-  let ctx, assumes, _ =
-    assumes |> List.fold_left (eval_ass scope) (ctx, [], 1)
-  in
+  (* Evaluate assumption *)
+  | A.Assume a ->
+    let ctx, assumes, cpt_a = eval_ass scope (ctx, [], cpt_a) a in
+    C.add_node_ass ctx assumes, cpt_a, cpt_g
 
-  (* Evaluate guarantees. *)
-  let ctx, guarantees, _ =
-    guarantees |> List.fold_left (eval_gua scope) (ctx, [], 1)
-  in
-
-  let ctx = C.add_node_ass_gua ctx assumes guarantees in
+  (* Evaluate guarantee *)
+  | A.Guarantee g ->
+    let ctx, guarantees, cpt_g = eval_gua scope (ctx, [], cpt_g) g in
+    C.add_node_gua ctx guarantees, cpt_a, cpt_g
 
   (* Evaluate modes. *)
-  let ctx =
-    modes |> List.fold_left (eval_node_mode scope) ctx
-  in
+  | A.Mode m -> eval_node_mode scope ctx m, cpt_a, cpt_g
 
-  let ctx = eval_node_contract_calls ctx scope calls in
+  (* Evaluate imports. *)
+  | A.ContractCall call -> eval_node_contract_call ctx scope call, cpt_a, cpt_g
 
-  eval_node_contract_spec ctx scope ([], [], tail)
 
-| [] -> ctx
+(* Add all node contracts to contexts *)
+and eval_node_contract_spec ctx scope contract =
+  let ctx, _, _ =
+    List.fold_left (eval_node_contract_item scope) (ctx, 1, 1) contract in
+  ctx
   
 
 (* Add declarations of node to context *)

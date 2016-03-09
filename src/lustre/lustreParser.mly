@@ -76,7 +76,7 @@ let mk_pos = position_of_lexing
 %token NODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
-%token FUNCTION
+(* unused: %token FUNCTION *)
 %token RETURNS
 %token VAR
 %token LET
@@ -87,23 +87,19 @@ let mk_pos = position_of_lexing
 (* Inline annotations. *)
 %token PERCENTANNOT
 %token BANGANNOT
-%token ATANNOT
+(* %token ATANNOT *)
 (* Parenthesis star (PS) block annotations. *)
-%token PSPERCENTBLOCK
-%token PSBANGBLOCK
+%token PSBLOCKSTART
 %token PSATBLOCK
 %token PSBLOCKEND
 (* Slash star (PS) block annotations. *)
-%token SSPERCENTBLOCK
-%token SSBANGBLOCK
+%token SSBLOCKSTART
 %token SSATBLOCK
 %token SSBLOCKEND
 (* Generic annotations. *)
 %token PROPERTY
 %token MAIN
 (* Contract annotations. *)
-%token INLINECONST
-%token INLINEVAR
 %token CONTRACT
 %token IMPORTCONTRACT
 (* %token IMPORTMODE *)
@@ -112,12 +108,6 @@ let mk_pos = position_of_lexing
 %token MODE
 %token REQUIRE
 %token ENSURE
-%token INLINEIMPORTCONTRACT
-%token INLINEASSUME
-%token INLINEGUARANTEE
-%token INLINEMODE
-%token INLINEREQUIRE
-%token INLINEENSURE
 
 (* Token for assertions *)
 %token ASSERT
@@ -372,40 +362,26 @@ node_decl:
        e,
        r)  }
 
+
 contract_ghost_var:
   | VAR ;
     i = ident ; COLON ; t = lustre_type; EQUALS ; e = expr ;
     SEMICOLON 
-    { A.TypedConst (mk_pos $startpos, i, e, t) }
+    { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
   | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
-    { A.UntypedConst (mk_pos $startpos, i, e) }
+    { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
-    { A.TypedConst (mk_pos $startpos, i, e, t) }
+    { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
   | CONST; i = ident; EQUALS; e = expr; SEMICOLON 
-    { A.UntypedConst (mk_pos $startpos, i, e) }
-
-contract_ghosts:
-  ghost_consts = list(contract_ghost_const) ;
-  ghost_vars = list(contract_ghost_var) ; {
-    ghost_consts, ghost_vars
-  }
+    { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_assume:
-  ASSUME; e = expr; SEMICOLON { mk_pos $startpos, e }
+  ASSUME; e = expr; SEMICOLON { A.Assume (mk_pos $startpos, e) }
 
 contract_guarantee:
-  GUARANTEE; e = expr; SEMICOLON { mk_pos $startpos, e }
-
-assguas_in_block:
-  | assumes = nonempty_list(contract_assume) ;
-    guarantees = nonempty_list(contract_guarantee) ;
-    { assumes, guarantees }
-  | assumes = nonempty_list(contract_assume) ;
-    { assumes, [] }
-  | guarantees = nonempty_list(contract_guarantee) ;
-    { [], guarantees }
+  GUARANTEE; e = expr; SEMICOLON { A.Guarantee (mk_pos $startpos, e) }
 
 contract_require:
   REQUIRE; e = expr; SEMICOLON { mk_pos $startpos, e }
@@ -418,35 +394,28 @@ mode_equation:
   reqs = list(contract_require);
   enss = list(contract_ensure);
   RPAREN; SEMICOLON {
-    mk_pos $startpos, n, reqs, enss
+    A.Mode (mk_pos $startpos, n, reqs, enss)
   }
 
 contract_import:
   IMPORTCONTRACT ; n = ident ;
   LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
   LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
-    mk_pos $startpos, n, in_params, out_params
+    A.ContractCall (mk_pos $startpos, n, in_params, out_params)
   }
 
-assguamodes_in_block:
-  | assgua = assguas_in_block ;
-    modes = list(mode_equation) ;
-    imports = list(contract_import) ; {
-    fst assgua, snd assgua, modes, imports
-  }
-  | modes = nonempty_list(mode_equation) ;
-    imports = list(contract_import) ; {
-    [], [], modes, imports
-  }
-  | imports = nonempty_list(contract_import) ; {
-    [], [], [], imports
-  }
 
-contract_equations:
-  ghosts = contract_ghosts ;
-  agm = list(assguamodes_in_block) ; {
-    fst ghosts, snd ghosts, agm
-  }
+contract_item:
+  | v = contract_ghost_var { v } 
+  | c = contract_ghost_const { c }
+  | a = contract_assume { a }
+  | g = contract_guarantee { g }
+  | m = mode_equation { m }
+  | i = contract_import { i }
+
+contract_in_block:
+  | c = nonempty_list(contract_item) { c }
+
 
 (* A contract node declaration. *)
 contract_decl:
@@ -458,7 +427,7 @@ contract_decl:
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
     LET;
-      e = contract_equations;
+      e = contract_in_block;
     TEL
     option(node_sep) 
 
@@ -468,87 +437,18 @@ contract_decl:
        List.flatten o,
        e) }
 
+
 contract_spec:
   (* Block contract, parenthesis star (PS). *)
   | PSATBLOCK ; CONTRACT ;
-    eqs = contract_equations
+    eqs = contract_in_block
     PSBLOCKEND
     { eqs }
   (* Block contract, slash star (SS). *)
   | SSATBLOCK ; CONTRACT ;
-    eqs = contract_equations
+    eqs = contract_in_block
     SSBLOCKEND
     { eqs }
-  (* Inline contract. *)
-  | ghost_consts = list(inline_contract_ghost_const) ;
-    ghost_vars = list(inline_contract_ghost_var) ;
-    spec = nonempty_list(inline_assguamodes)
-    { ghost_consts, ghost_vars, spec }
-
-inline_assguamodes:
-  | a = nonempty_list(inline_contract_assume) ;
-    g = list(inline_contract_guarantee) ;
-    m = list(inline_mode) ;
-    c = list(inline_contract_import) { a, g, m, c }
-  | g = nonempty_list(inline_contract_guarantee) ;
-    m = list(inline_mode) ;
-    c = list(inline_contract_import) { [], g, m, c }
-  | m = nonempty_list(inline_mode) ;
-    c = list(inline_contract_import) { [], [], m, c }
-  | c = nonempty_list(inline_contract_import) { [], [], [], c }
-
-inline_contract_ghost_var:
-  | INLINEVAR ;
-    i = ident ; COLON ; t = lustre_type; EQUALS ; e = expr ;
-    SEMICOLON 
-    { A.TypedConst (mk_pos $startpos, i, e, t) }
-  | INLINEVAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
-    { A.UntypedConst (mk_pos $startpos, i, e) }
-
-inline_contract_ghost_const:
-  | INLINECONST ;
-    i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
-    { A.TypedConst (mk_pos $startpos, i, e, t) }
-  | INLINECONST ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
-    { A.UntypedConst (mk_pos $startpos, i, e) }
-
-inline_contract_assume:
-  | INLINEASSUME ; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
-
-inline_contract_guarantee:
-  | INLINEGUARANTEE; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
-
-inline_contract_require:
-  | INLINEREQUIRE ; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
-
-inline_contract_ensure:
-  | INLINEENSURE; e = expr; SEMICOLON
-    { mk_pos $startpos, e }
-
-inline_contract_import:
-  INLINEIMPORTCONTRACT ; n = ident ;
-  LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
-    mk_pos $startpos, n, in_params, out_params
-  }
-
-(* Need three production with not empty lists to forbid a mode
-   without requires and ensures. This causes a conflict, because an
-   empty mode looks like no modes. *)
-inline_mode:
-  | INLINEMODE; n = ident; SEMICOLON
-    reqs = nonempty_list(inline_contract_require);
-    enss = nonempty_list(inline_contract_ensure)
-    { mk_pos $startpos, n, reqs, enss }
-  | INLINEMODE; n = ident; SEMICOLON
-    reqs = nonempty_list(inline_contract_require);
-    { mk_pos $startpos, n, reqs, [] }
-  | INLINEMODE; n = ident; SEMICOLON
-    enss = nonempty_list(inline_contract_ensure)
-    { mk_pos $startpos, n, [], enss }
 
 
 (* A node declaration as an instance of a paramterized node *)
@@ -600,6 +500,45 @@ var_decl:
   | l = clocked_typed_idents; SEMICOLON { l }
 
 
+boolean:
+  | TRUE { true }
+  | FALSE { false }
+
+percent_or_bang:
+  | PERCENTANNOT { }
+  | BANGANNOT { }
+
+
+    
+main_annot:
+  | PERCENTANNOT ; MAIN ; SEMICOLON { A.AnnotMain true }
+  | PSBLOCKSTART ; MAIN ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain true }
+  | SSBLOCKSTART ; MAIN ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain true }
+  | BANGANNOT ; MAIN ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain b }
+  | PSBLOCKSTART ; MAIN ; COLON ; b = boolean ; option (SEMICOLON) ; PSBLOCKEND {
+    A.AnnotMain b
+  }
+  | SSBLOCKSTART ; MAIN ; COLON ; b = boolean ; option (SEMICOLON) ; SSBLOCKEND {
+    A.AnnotMain b
+  }
+
+property:
+  | percent_or_bang ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    e = expr; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    COLON; e = expr; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    e = expr ; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    COLON; e = expr ; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+
+
 (* An equations of a node *)
 node_equation:
 
@@ -613,57 +552,10 @@ node_equation:
     { A.Equation (mk_pos $startpos, l, e) }
 
   (* Node annotation *)
-  | PERCENTANNOT ; MAIN ; SEMICOLON { A.AnnotMain true }
-  | PSPERCENTBLOCK ; MAIN ; SEMICOLON ; PSBLOCKEND { A.AnnotMain true }
-  | PSPERCENTBLOCK ; MAIN ; PSBLOCKEND { A.AnnotMain true }
-  | SSPERCENTBLOCK ; MAIN ; SEMICOLON ; SSBLOCKEND { A.AnnotMain true }
-  | SSPERCENTBLOCK ; MAIN ; SSBLOCKEND { A.AnnotMain true }
-  | BANGANNOT ; MAIN ; COLON ; TRUE ; SEMICOLON { A.AnnotMain true }
-  | PSBANGBLOCK ; MAIN ; COLON ; TRUE ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotMain true
-  }
-  | PSBANGBLOCK ; MAIN ; COLON ; TRUE ; PSBLOCKEND {
-    A.AnnotMain true
-  }
-  | SSBANGBLOCK ; MAIN ; COLON ; TRUE ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotMain true
-  }
-  | SSBANGBLOCK ; MAIN ; COLON ; TRUE ; SSBLOCKEND {
-    A.AnnotMain true
-  }
-  | BANGANNOT ; MAIN ; COLON ; FALSE ; SEMICOLON { A.AnnotMain false }
-  | PSBANGBLOCK ; MAIN ; COLON ; FALSE ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotMain false
-  }
-  | PSBANGBLOCK ; MAIN ; COLON ; FALSE ; PSBLOCKEND {
-    A.AnnotMain false
-  }
-  | SSBANGBLOCK ; MAIN ; COLON ; FALSE ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotMain false
-  }
-  | SSBANGBLOCK ; MAIN ; COLON ; FALSE ; SSBLOCKEND {
-    A.AnnotMain false
-  }
+  | a = main_annot { a }
 
   (* Property annotation *)
-  | PERCENTANNOT ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, name, e) }
-  | PSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, name, e)
-  }
-  | SSPERCENTBLOCK ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, name, e)
-  }
-  | BANGANNOT ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON {
-    A.AnnotProperty (mk_pos $startpos, name, e)
-  }
-  | PSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; PSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, name, e)
-  }
-  | SSBANGBLOCK ; PROPERTY ; name = option(STRING) ; COLON ; e = expr ; SEMICOLON ; SSBLOCKEND {
-    A.AnnotProperty (mk_pos $startpos, name, e)
-  }
-
+  | p = property { p }
 
 
 left_side:

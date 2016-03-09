@@ -1,6 +1,8 @@
 node X(x: int) returns (y: int);
-  --@assume pre(x) > 2;
-  --@guarantee pre(x > 3);
+(*@contract  
+   assume pre(x) > 2;
+   guarantee pre(x > 3);
+*)
 let
   assert (pre pre (x + 1) > 0);
   --%PROPERTY 1 > x;
