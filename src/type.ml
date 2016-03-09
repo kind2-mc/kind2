@@ -413,9 +413,6 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     (* IntRange is a subtype of Int *)
     | IntRange _, Int -> true
 
-    (* IntRange are asserts *)
-    | Int , IntRange _ -> true
-
     (* IntRange is subtype of IntRange if the interval is a subset *)
     | IntRange (l1, u1), IntRange (l2, u2) ->
       Numeral.(l1 >= l2) && Numeral.(u1 <= u2)
@@ -434,6 +431,12 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
 
     (* No other subtype relationships *)
     | _ -> false
+
+
+let generalize t = match node_of_type t with
+  | IntRange _ -> t_int
+  | _ -> t
+
 
 
 

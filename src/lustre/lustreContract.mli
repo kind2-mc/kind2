@@ -21,6 +21,7 @@
 type svar = {
   (** Position of the original expression. *)
   pos: Lib.position ;
+
   (** Number given to it at parse time.
 
   If this svar is an assumption / a guarantee, it means it's the [num]
@@ -29,15 +30,21 @@ type svar = {
   If this svar is a require / an ensure, it means it's the [num] require
   / ensure of the mode it's from. *)
   num: int ;
+
+  (** optional name for an assume or a guarantee *)
+  name: string option;
+  
   (** Actual state variable. *)
   svar: StateVar.t ;
+
   (** Succession of imports leading to this precise state variable. *)
   scope: (Lib.position * string) list ;
 }
 
 (** Creates a [svar]. *)
 val mk_svar :
-  Lib.position -> int -> StateVar.t -> (Lib.position * string) list -> svar
+  Lib.position -> int -> string option ->
+  StateVar.t -> (Lib.position * string) list -> svar
 
 (** Generates a property name.
 
@@ -81,8 +88,11 @@ val empty: unit -> t
 list of modes. *)
 val mk: svar list -> svar list -> mode list -> t
 
-(** Adds assumes and guarantees to a contract. *)
-val add_ass_gua: t -> svar list -> svar list -> t
+(** Adds assumes to a contract. *)
+val add_ass: t -> svar list -> t
+
+(** Adds guarantees to a contract. *)
+val add_gua: t -> svar list -> t
 
 (** Adds modes to a contract. *)
 val add_modes: t -> mode list -> t

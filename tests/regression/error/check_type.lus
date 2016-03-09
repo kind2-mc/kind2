@@ -44,8 +44,10 @@ tel
 type pair = { one, two: int };
 
 node X (a1: real; a2: int) returns (b0: [real, int]; c0: [int,  bool]);
-  --@ensures a1 > 0.0;
-  --@requires a2 > 0;
+  (*@contract 
+     guarantee a1 > 0.0;
+     assume a2 > 0;
+   *)
 var
   a3: int;
   b1: pair;
@@ -116,8 +118,10 @@ node X
   (a: int; const b: int) 
 returns 
   (d: [bool, int, real]; f: subrange [-1, 1] of int);
-  --@requires pre (pre a > 2);
-  --@ensures pre (d[0] => false);
+  (*@contract
+    assume pre (pre a > 2);
+    guarantee pre (d[0] => false);
+  *)
 var
   e: enum { one, two };
   a1, a2, a3, a4: int;

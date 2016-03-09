@@ -969,7 +969,7 @@ let mk_int d =
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = Type.t_int } 
+    expr_type = Type.mk_int_range d d } 
 
 
 (* Real constant *)
@@ -1987,7 +1987,7 @@ let mk_pre
     ({ expr_init; expr_step; expr_type } as expr) = 
 
   (* Apply pre to initial state expression *)
-  let expr_init', ctx' = match expr_init with
+  let expr_init', expr_type', ctx' = match expr_init with
 
     (* Expression is a constant not part of an unguarded pre expression *)
     | t when
@@ -2000,7 +2000,7 @@ let mk_pre
               | Term.T.Const c1 when 
                      Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
               | _ -> false)) ->
-       (expr_init, ctx)
+       (expr_init, expr_type, ctx)
           
     (* Expression is a variable at the current instant not part of an unguarded
        pre expression *)
@@ -2010,9 +2010,13 @@ let mk_pre
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
                  base_offset) ->
       
-      (Term.bump_state Numeral.(- one) t, ctx) 
+      (Term.bump_state Numeral.(- one) t, expr_type, ctx)
+      
     (* Expression is not a variable at the current instant *)
     | _ ->
+
+      let expr_type = Type.generalize expr_type in
+      let expr = { expr with expr_type } in
        
       (* Fresh state variable for identifier *)
       let state_var, ctx' = mk_state_var_for_expr ctx expr in 
@@ -2021,19 +2025,19 @@ let mk_pre
       let var = Var.mk_state_var_instance state_var pre_base_offset in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, ctx')
+      (Term.mk_var var, expr_type, ctx')
       
   in
 
   (* Apply pre to step state expression *)
-  let expr_step', ctx'' = match expr_step with 
+  let expr_step', expr_type', ctx'' = match expr_step with 
 
     (* Expression is identical to initial state *)
     | _ when not unguarded &&
              Term.equal expr_step expr_init -> 
 
       (* Re-use abstraction for initial state *)
-      (expr_init', ctx')
+      (expr_init', expr_type', ctx')
 
     (* Expression is a variable at the current instant *)
     | t when
@@ -2041,11 +2045,14 @@ let mk_pre
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
                  cur_offset) ->
 
-      (Term.bump_state Numeral.(- one) t, ctx')
+      (Term.bump_state Numeral.(- one) t, expr_type', ctx')
 
     (* Expression is not a variable *)
     | _ -> 
-      
+
+      let expr_type = Type.generalize expr_type' in
+      let expr = { expr with expr_type } in
+       
       (* Fresh state variable for expression *)
       let state_var, ctx' = mk_state_var_for_expr ctx' expr in
 
@@ -2053,12 +2060,14 @@ let mk_pre
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, ctx')
+      (Term.mk_var var, expr_type, ctx')
       
   in
 
   (* Return expression and new definitions *)
-  ({ expr with expr_init = expr_init'; expr_step = expr_step' }, 
+  ({ expr with expr_init = expr_init';
+               expr_step = expr_step';
+               expr_type = expr_type' }, 
    ctx'') 
 
 

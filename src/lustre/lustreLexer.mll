@@ -240,7 +240,8 @@ let keyword_table = mk_hashtbl [
   ("const", CONST) ;
   
   (* Node / function declaration *)
-  ("node", NODE) ; ("function", FUNCTION) ;
+  ("node", NODE) ;
+  (* ("function", FUNCTION) ; *)
   ("returns", RETURNS) ;
   ("var", VAR) ;
   ("let", LET) ;
@@ -277,8 +278,16 @@ let keyword_table = mk_hashtbl [
   
   (* Temporal operators *)
   ("pre", PRE) ; ("fby", FBY) ;
+
+  (* |===| Block annotation contract stuff. *)
+  ("mode", MODE);
+  ("assume", ASSUME);
+  ("guarantee", GUARANTEE);
+  ("require", REQUIRE);
+  ("ensure", ENSURE);
       
-]
+  ]
+
     
 }
 
@@ -313,45 +322,25 @@ let newline = '\r'* '\n'
 (* Toplevel function *)
 rule token = parse
 
-
   (* |===| Annotations. *)
 
   (* Inline. *)
-  | "--%" { PERCENTANNOT }
-  | "--!" { BANGANNOT }
-  | "--@import" { INLINEIMPORTCONTRACT }
-  | "--@mode" { INLINEMODE }
-  | "--@assume" { INLINEASSUME }
-  | "--@guarantee" { INLINEGUARANTEE }
-  | "--@require" { INLINEREQUIRE }
-  | "--@ensure" { INLINEENSURE }
-  | "--@const" { INLINECONST }
-  | "--@var" { INLINEVAR }
+  |"--%" { PERCENTANNOT }
+  |"--!" { BANGANNOT }
 
   (* Parenthesis star (PS) block annotations. *)
-  | "(*%" { PSPERCENTBLOCK }
-  | "(*!" { PSBANGBLOCK }
+  | "(*" ('%'|'!') { PSBLOCKSTART }
   | "(*@" { PSATBLOCK }
 
   (* End of parenthesis star (PS). *)
   | "*)" { PSBLOCKEND }
 
   (* Slash star (SS) block annotations. *)
-  | "/*%" { SSPERCENTBLOCK }
-  | "/*!" { SSBANGBLOCK }
+  | "/*" ('%'|'!') { SSBLOCKSTART }
   | "/*@" { SSATBLOCK }
 
   (* End of slash star (SS). *)
   | "*/" { SSBLOCKEND }
-
-
-  (* |===| Block annotation contract stuff. *)
-
-  | "mode" { MODE }
-  | "assume" { ASSUME }
-  | "guarantee" { GUARANTEE }
-  | "require" { REQUIRE }
-  | "ensure" { ENSURE }
 
 
   (* |===| Actual comments. *)

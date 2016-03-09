@@ -175,6 +175,7 @@ val color : unit -> bool
 
 (** {2 SMT solver flags} *)
 module Smt : sig
+
   (** Logic sendable to the SMT solver. *)
   type logic = [
     `None | `detect | `Logic of string

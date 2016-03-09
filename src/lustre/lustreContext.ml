@@ -765,6 +765,8 @@ let mk_fresh_oracle
     ({ node; definitions_allowed; fresh_oracle_index } as ctx) 
     state_var_type =
 
+  let state_var_type = Type.generalize state_var_type in
+  
   match definitions_allowed with 
 
     (* Fail with error if no new definitions allowed *)
@@ -1327,8 +1329,8 @@ let add_node_local ?(ghost = false) ctx ident pos index_types =
           { ctx with node = Some { node with N.locals = local :: locals } }
 
 
-(* Add node assume/guarantees to context *)
-let add_node_ass_gua ctx assumes guarantees = 
+(* Add node assumes to context *)
+let add_node_ass ctx assumes = 
 
   match ctx with
 
@@ -1336,8 +1338,23 @@ let add_node_ass_gua ctx assumes guarantees =
 
     | { node = Some ({ N.contract } as node) } ->
       let contract = match contract with
-        | None -> C.mk assumes guarantees []
-        | Some contract -> C.add_ass_gua contract assumes guarantees
+        | None -> C.mk assumes [] []
+        | Some contract -> C.add_ass contract assumes
+      in
+      (* Return node with contract added *)
+      { ctx with node = Some { node with N.contract = Some contract } }
+
+(* Add guarantees to context *)
+let add_node_gua ctx guarantees = 
+
+  match ctx with
+
+    | { node = None } -> raise (Invalid_argument "add_node_global_contract")
+
+    | { node = Some ({ N.contract } as node) } ->
+      let contract = match contract with
+        | None -> C.mk [] guarantees []
+        | Some contract -> C.add_gua contract guarantees
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }

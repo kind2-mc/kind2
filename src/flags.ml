@@ -67,6 +67,17 @@ its spec, and its description. *)
 let print_flags =
   Format.printf "@[<v>%a@]" (pp_print_list fmt_flag "@ ")
 
+
+module Make_Spec (Dummy:sig end) = struct
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+end
+
 (* Signature of modules for flags. *)
 module type FlagModule = sig
   (* Identifier of the module. *)
@@ -81,54 +92,13 @@ module type FlagModule = sig
   ) list
 end
 
-(* Options related to the underlying SMT solver. *)
-module Smt: sig
-  include FlagModule
-  (** Logic sendable to the SMT solver. *)
-  type logic = [
-    `None | `detect | `Logic of string
-  ]
-  (** Logic to send to the SMT solver *)
-  val logic : unit -> logic
-  (** Legal SMT solvers. *)
-  type solver = [
-    | `Z3_SMTLIB
-    | `CVC4_SMTLIB
-    | `MathSat5_SMTLIB
-    | `Yices_SMTLIB
-    | `Yices_native
-    | `detect
-  ]
-  (** Set SMT solver and executable *)
-  val set_solver : solver -> unit
-  (** Which SMT solver to use. *)
-  val solver : unit -> solver
-  (** Use check-sat with assumptions, or simulate with push/pop *)
-  val check_sat_assume : unit -> bool
-  (** Send short names to SMT solver *)
-  val short_names : unit -> bool
-  val set_short_names : bool -> unit
-  (** Executable of Z3 solver *)
-  val z3_bin : unit -> string
-  (** Executable of CVC4 solver *)
-  val cvc4_bin : unit -> string
-  (** Executable of MathSAT5 solver *)
-  val mathsat5_bin : unit -> string
-  (** Executable of Yices solver *)
-  val yices_bin : unit -> string
-  (** Executable of Yices2 SMT2 solver *)
-  val yices2smt2_bin : unit -> string
-  (** Write all SMT commands to files *)
-  val trace : unit -> bool
-  (** Path to the smt trace directory. *)
-  val trace_dir : unit -> string
-  val set_z3_bin: string -> unit
-  val set_cvc4_bin: string -> unit
-  val set_mathsat5_bin: string -> unit
-  val set_yices_bin: string -> unit
-  val set_yices2smt2_bin: string -> unit
-end = struct
 
+
+(* Options related to the underlying SMT solver. *)
+module Smt = struct
+
+  include Make_Spec (struct end)
+  
   (* Identifier of the module. *)
   let id = "smt"
   (* Short description of the module. *)
@@ -140,14 +110,6 @@ end = struct
       in this module control which solver Kind 2 uses, the path to the@ \
       binary, and tweak how Kind 2 interacts with the solver at runtime.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   (* Active SMT solver. *)
   type solver = [
@@ -354,41 +316,20 @@ end = struct
   let trace () = !trace
 
   (* Folder to log the SMT traces into. *)
-  let trace_dir = ref None
-  let set_trace_dir s = trace_dir := Some s
-  let trace_dir () = match !trace_dir with
-    | None -> "."
-    | Some dir ->
-      mk_dir dir ;
-      let dir = Format.sprintf "%s/smt_trace" dir in
-      mk_dir dir ;
-      dir
-
+  let trace_dir = ref "."
+  let set_trace_dir s =
+    trace_dir := Filename.concat s "smt_trace"
+  let trace_dir () = !trace_dir
+      
 end
 
 
 
 
 (* BMC and k-induction flags. *)
-module BmcKind : sig
-  include FlagModule
-  (** Maximal number of iterations in BMC. *)
-  val max : unit -> int
-  (** Check that the unrolling of the system alone is satisfiable. *)
-  val check_unroll : unit -> bool
-  (** Print counterexamples to induction. *)
-  val print_cex : unit -> bool
-  (** Compress inductive counterexample. *)
-  val compress : unit -> bool
-  (** Compress inductive counterexample when states are equal modulo inputs. *)
-  val compress_equal : unit -> bool
-  (** Compress inductive counterexample when states have same successors. *)
-  val compress_same_succ : unit -> bool
-  (** Compress inductive counterexample when states have same predecessors. *)
-  val compress_same_pred : unit -> bool
-  (** Lazy assertion of invariants. *)
-  val lazy_invariants : unit -> bool
-end = struct
+module BmcKind = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "ind"
@@ -410,14 +351,6 @@ end = struct
       etc. are used to improve the basic scheme described above.@ \
       Flags in this module deal with the behavior of BMC and step.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let max_default = 0
   let max = ref max_default
@@ -535,43 +468,9 @@ end
 
 
 (* IC3 flags. *)
-module IC3 : sig
-  include FlagModule
-  (** Algorithm usable for quantifier elimination in IC3. *)
-  type qe = [
-    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
-  ]
-  (** The QE algorithm IC3 should use. *)
-  val qe : unit -> qe
-  (** Sets [qe]. *)
-  val set_qe : qe -> unit
-  (** Check inductiveness of blocking clauses. *)
-  val check_inductive : unit -> bool
-  (** File for inductive blocking clauses. *)
-  val print_to_file : unit -> string option
-  (** Tighten blocking clauses to an unsatisfiable core. *)
-  val inductively_generalize : unit -> int
-  (** Block counterexample in future frames. *)
-  val block_in_future : unit -> bool
-  (** Block counterexample in future frames first before returning to frame. *)
-  val block_in_future_first : unit -> bool
-  (** Also propagate clauses before generalization. *)
-  val fwd_prop_non_gen : unit -> bool
-  (** Inductively generalize all clauses after forward propagation. *)
-  val fwd_prop_ind_gen : unit -> bool
-  (** Subsumption in forward propagation. *)
-  val fwd_prop_subsume : unit -> bool
-  (** Use invariants from invariant generators. *)
-  val use_invgen : unit -> bool
-  (** Legal abstraction mechanisms for in IC3. *)
-  type abstr = [ `None | `IA ]
-  (** Abstraction mechanism IC3 should use. *)
-  val abstr : unit -> abstr
-  (** Legal heuristics for extraction of implicants in IC3. *)
-  type extract = [ `First | `Vars ]
-  (** Heuristic for extraction of implicants in IC3. *)
-  val extract : unit -> extract
-end = struct
+module IC3 = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "ic3"
@@ -585,14 +484,6 @@ end = struct
       The IC3 engine in Kind 2 performs quantifier elimination which has its@ \
       own flags (see module \"qe\").\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let check_inductive_default = true
   let check_inductive = ref check_inductive_default
@@ -810,13 +701,9 @@ end
 
 
 (* Quantifier elimination module. *)
-module QE : sig
-  include FlagModule
-  (** Order variables in polynomials by order of elimination **)
-  val order_var_by_elim : unit -> bool
-  (** Choose lower bounds containing variables **)
-  val general_lbound : unit -> bool
-end = struct
+module QE = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "qe"
@@ -833,14 +720,6 @@ end = struct
       one for systems with real variables.@ \
       IC3 (module \"ic3\") is the only Kind 2 technique that uses QE.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let order_var_by_elim_default = false
   let order_var_by_elim = ref order_var_by_elim_default
@@ -877,15 +756,9 @@ end
 
 
 (* Contracts flags. *)
-module Contracts : sig
-  include FlagModule
-  (** Compositional analysis. *)
-  val compositional : unit -> bool
-  (** Check modes. *)
-  val check_modes : unit -> bool
-  (** Check modes. *)
-  val check_implem : unit -> bool
-end = struct
+module Contracts = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "contract"
@@ -902,14 +775,6 @@ end = struct
       test generation technique (see module \"testgen\") relies on contracts@ \
       to generate the testcases.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let compositional_default = false
   let compositional = ref compositional_default
@@ -957,27 +822,9 @@ end
 
 
 (* Contracts flags. *)
-module Certif : sig
-  include FlagModule
-  (** Minimization stragegy for k *)
-  type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
-  (** Minimization stragegy for invariants *)
-  type mininvs = [ `Easy | `Medium | `MediumOnly | `Hard | `HardOnly ]
-  (** Certification only. *)
-  val certif : unit -> bool
-  (** Proof production. *)
-  val proof : unit -> bool
-  (** Use abstract type indexes in certificates/proofs. *)
-  val abstr : unit -> bool
-  (** Minimization stragegy for k *)
-  val mink : unit -> mink
-  (** Minimization stragegy for invariants *)
-  val mininvs : unit -> mininvs
-  (** Where certificates are produced *)
-  val dir : unit -> string
-  val jkind_bin : unit -> string
-  val only_user_candidates : unit -> bool
-end = struct
+module Certif = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "certif"
@@ -1161,15 +1008,9 @@ end
 
 
 (* Testgen flags. *)
-module Testgen : sig
-  include FlagModule
-  (** Activates test generation. *)
-  val active : unit -> bool
-  (** Only generate graph of reachable modes, do not log testcases. *)
-  val graph_only : unit -> bool
-  (** Length of the test case generated. *)
-  val len : unit -> int
-end = struct
+module Testgen = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "test"
@@ -1183,14 +1024,6 @@ end = struct
       trace of inputs triggering it is generated and logged as a testcase in@ \
       CSV.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let active_default = false
   let active = ref active_default
@@ -1241,23 +1074,9 @@ end
 
 
 (* Invgen flags. *)
-module Invgen : sig
-  include FlagModule
-  (** InvGenwill remove trivial invariants, i.e. invariants implied by the
-      transition relation. *)
-  val prune_trivial : unit -> bool
-  (** Number of unrollings invariant generation should perform between
-    switching to a different systems. *)
-  val max_succ : unit -> int
-  (** InvGen will lift candidate terms from subsystems. **)
-  val lift_candidates : unit -> bool
-  (** InvGen will generate invariants only for top level. **)
-  val top_only : unit -> bool
-  (** InvGen will look for candidate terms in the transition predicate. *)
-  val mine_trans : unit -> bool
-  (** Renice invariant generation process. *)
-  val renice : unit -> int
-end = struct
+module Invgen = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "invgen"
@@ -1272,14 +1091,6 @@ end = struct
       considered are selected by an incremental exploration of the reachable@ \
       states.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let prune_trivial_default = true
   let prune_trivial = ref prune_trivial_default
@@ -1375,17 +1186,9 @@ end
 
 
 (* C2I flags. *)
-module C2I : sig
-  include FlagModule
-  (** Number of disjuncts in the DNF constructed by C2I. *)
-  val dnf_size : unit -> int
-  (** Number of int cubes in the DNF constructed by C2I. *)
-  val int_cube_size : unit -> int
-  (** Number of real cubes in the DNF constructed by C2I. *)
-  val real_cube_size : unit -> int
-  (** Whether mode sub candidate is activated in c2i. *)
-  val modes : unit -> bool
-end = struct
+module C2I = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "c2i"
@@ -1398,14 +1201,6 @@ end = struct
       The Kind 2 implementation is still experimental and is inactive by@ \
       default.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let dnf_size_default = 3
   let dnf_size = ref dnf_size_default
@@ -1470,14 +1265,9 @@ end
 
 
 (* Interpreter flags. *)
-module Interpreter : sig
-  include FlagModule
-  (** Read input from file. *)
-  val input_file : unit -> string
-  (** Run number of steps, override the number of steps given in the input
-  file. *)
-  val steps : unit -> int
-end = struct
+module Interpreter = struct
+
+  include Make_Spec (struct end)
 
   (* Identifier of the module. *)
   let id = "interpreter"
@@ -1489,14 +1279,6 @@ end = struct
       The interpreter is a special mode where Kind 2 reads inputs from a@ \
       file and prints the outputs of the system at each step.\
     @]"
-
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
 
   let input_file_default = ""
   let input_file = ref input_file_default
@@ -1648,14 +1430,7 @@ let print_module_info = function
 (* Global flags. *)
 module Global = struct
 
-  (* All the flag specification of this module. *)
-  let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
-  let add_spec flag parse desc =
-    all_specs := !all_specs @ [ (flag, parse, desc) ]
-
-  (* Returns all the flag specification of this module. *)
-  let all_specs () = !all_specs
+  include Make_Spec (struct end)
 
   (* Returns all flags in all Kind 2 modules. *)
   let all_kind2_specs () = List.fold_left (
@@ -1822,18 +1597,27 @@ module Global = struct
   (* Output directory. *)
   let output_dir_default = "kind2"
   let output_dir = ref output_dir_default
+  let output_dir_action d =
+    output_dir := d;
+    Smt.set_trace_dir d
+
   let _ = add_spec
     "--output_dir"
-    (Arg.Set_string output_dir)
+    (Arg.String output_dir_action)
     (fun fmt ->
       Format.fprintf fmt
         "\
           Output directory for the files generated:@ \
           SMT traces, compilation, testgen, certification...@ \
-          Default: \"%s\"\
+          Default: \"<filename>.out\"\
         "
-        output_dir_default
     )
+
+  let set_output_dir s =
+    let b = Filename.basename s in
+    let d = try Filename.chop_extension b with Invalid_argument _ -> b in
+    output_dir_action(d ^ ".out")
+      
   let output_dir () = !output_dir
 
 
@@ -2151,10 +1935,9 @@ let color = Global.color
 
 (* Path to subdirectory for a system (in the output directory). *)
 let subdir_for scope =
-  Format.asprintf
-    "%s/%a"
+  Filename.concat
     (output_dir ())
-    (pp_print_list Format.pp_print_string "_") scope
+    (String.concat "_" scope)
 
 
 (* ********************************************************************** *)
@@ -2168,6 +1951,7 @@ let anon_action s =
     if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
     Global.set_input_file s;
     Global.set_input_format s;
+    Global.set_output_dir s;
   | _ -> raise (Arg.Bad "More than one input file given")
 
 let set_smtsolver = function
