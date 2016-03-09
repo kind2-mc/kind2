@@ -44,12 +44,12 @@ let pprint_pos fmt pos =
 let prop_name_of_svar { pos ; num ; name = s; scope } kind name =
   match s with
   | Some n ->
-    Format.asprintf "%a%s" (
+    Format.asprintf "%a%s[%d]" (
       pp_print_list (
         fun fmt (pos, call) ->
           Format.fprintf fmt "%s[%a]." call pprint_pos pos
       ) ""
-    ) scope n
+    ) scope n num
     
   | None ->
     Format.asprintf "%a%s%s[%a][%d]" (
