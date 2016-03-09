@@ -765,6 +765,8 @@ let mk_fresh_oracle
     ({ node; definitions_allowed; fresh_oracle_index } as ctx) 
     state_var_type =
 
+  let state_var_type = Type.generalize state_var_type in
+  
   match definitions_allowed with 
 
     (* Fail with error if no new definitions allowed *)

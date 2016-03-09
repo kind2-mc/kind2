@@ -145,6 +145,9 @@ val all_index_types_of_array : t -> t list
 (** Return type of array elements *)
 val elem_type_of_array : t -> t
 
+(** Generalize a type (remoe intranges) *)
+val generalize : t -> t
+
 
 (** {1 Pretty-printing} *)
 
