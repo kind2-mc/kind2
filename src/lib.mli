@@ -409,6 +409,9 @@ val file_copy : string -> string -> unit
 val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
   string list -> string -> Unix.file_descr
 
+(** Get standard output of command *)
+val syscall : string -> string
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

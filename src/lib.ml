@@ -1413,6 +1413,20 @@ let files_cat_open ?(add_prefix=fun _ -> ()) files output_name =
   in
   fd_out
 
+
+(* Captures the output and exit status of a unix command : aux func *)
+let syscall cmd =
+  let ic, oc = Unix.open_process cmd in
+  let buf = Buffer.create 16 in
+  (try
+     while true do
+       Buffer.add_channel buf ic 1
+     done
+   with End_of_file -> ());
+  ignore(Unix.close_process (ic, oc));
+  Buffer.contents buf
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

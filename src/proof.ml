@@ -42,6 +42,13 @@ let cvc4_proof_cmd =
   " --lang smt2 --no-simplification --dump-proof"
 
 
+let get_cvc4_version () =
+  let cmd = Flags.Smt.cvc4_bin () ^ " --version" in
+  let s = syscall cmd in
+  let n = String.index s '\n' in
+  let start = 8 in
+  String.sub s start (n - start)
+
 (* LFSC symbols *)
 
 let s_and = H.mk_hstring "and"
@@ -887,10 +894,12 @@ let generate_inv_proof inv =
 
   fprintf proof_fmt
     ";;------------------------------------------------------------------\n\
-     ;; LFSC proof produced by %s %s and CVC4\n\
+     ;; LFSC proof produced by %s %s and\n\
+     ;; %s\n\
      ;; from original problem %s\n\
      ;;------------------------------------------------------------------\n@."
     Version.package_name Version.version
+    (get_cvc4_version ())
     (Flags.input_file ());
 
   
@@ -962,11 +971,13 @@ let generate_frontend_proof inv =
 
   fprintf proof_fmt
     ";;------------------------------------------------------------------\n\
-     ;; LFSC proof produced by %s %s and CVC4\n\
+     ;; LFSC proof produced by %s %s and\n\
+     ;; %s\n\
      ;; for frontend observational equivalence and safety\n\
      ;; (depends on proof.lfsc)\n\
      ;;------------------------------------------------------------------\n@."
-    Version.package_name Version.version;
+    Version.package_name Version.version
+    (get_cvc4_version ()) ;
 
   let ctx_k2 = context_from_file inv.kind2_system.smt2_lfsc_trace_file in
   let ctx_jk = context_from_file inv.jkind_system.smt2_lfsc_trace_file in
