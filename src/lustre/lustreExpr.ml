@@ -1239,6 +1239,7 @@ let eval_uminus expr = match Term.destruct expr with
   | Term.T.App (s, [e]) when s == Symbol.s_minus -> e
 
   | _ -> Term.mk_minus [expr]
+  | exception Invalid_argument _ -> Term.mk_minus [expr]
 
 
 (* Type of unary minus 
@@ -1272,6 +1273,7 @@ let eval_to_int expr = match Term.destruct expr with
             (Symbol.decimal_of_symbol s)))
 
   | _ -> Term.mk_to_int expr
+  | exception Invalid_argument _ -> Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -1299,6 +1301,7 @@ let eval_to_real expr = match Term.destruct expr with
             (Symbol.numeral_of_symbol s)))
 
   | _ -> Term.mk_to_real expr
+  | exception Invalid_argument _ -> Term.mk_to_real expr
 
 (* Type of conversion to real  
 
@@ -1505,6 +1508,7 @@ let eval_mod expr1 expr2 =
                  Symbol.numeral_of_symbol c2) 
 
     | _ -> Term.mk_mod expr1 expr2
+    | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
 
 (* Type of integer modulus 
@@ -1551,6 +1555,7 @@ let eval_minus expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
         
     | _ -> Term.mk_minus [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
              
 
 (* Type of subtraction 
@@ -1601,6 +1606,7 @@ let eval_plus expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_plus [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_plus [expr1; expr2]
 
 
 (* Type of addition 
@@ -1641,6 +1647,7 @@ let eval_div expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_div [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_div [expr1; expr2]
 
 
 (* Type of real division
@@ -1676,6 +1683,7 @@ let eval_times expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_times [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_times [expr1; expr2]
 
 
 (* Type of multiplication
@@ -1705,6 +1713,7 @@ let eval_intdiv expr1 expr2 =
                  Symbol.numeral_of_symbol c2) 
 
   | _ -> Term.mk_intdiv [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_intdiv [expr1; expr2]
 
 
 (* Type of integer division
@@ -1778,6 +1787,8 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
 
 
       | _ -> Term.mk_eq [expr1; expr2]
+               
+      | exception Invalid_argument _ -> Term.mk_eq [expr1; expr2]
 
 
 (* Type of equality
@@ -1841,6 +1852,7 @@ let eval_lte expr1 expr2 =
 
 
     | _ -> Term.mk_leq [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_leq [expr1; expr2]
 
 
 (* Type of inequality
@@ -1890,6 +1902,7 @@ let eval_lt expr1 expr2 =
 
 
     | _ -> Term.mk_lt [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_lt [expr1; expr2]
 
 
 (* Type of inequality
@@ -1939,6 +1952,7 @@ let eval_gte expr1 expr2 =
 
 
     | _ -> Term.mk_geq [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_geq [expr1; expr2]
 
 
 (* Type of inequality
@@ -1988,6 +2002,7 @@ let eval_gt expr1 expr2 =
 
 
     | _ -> Term.mk_gt [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]
 
 
 (* Type of inequality
@@ -2119,7 +2134,8 @@ let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
              (match Term.destruct t with 
               | Term.T.Const c1 when 
                      Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
-              | _ -> false)) ->
+              | _ -> false
+              | exception Invalid_argument _ -> false)) ->
        (expr_init, expr_type, ctx)
           
     (* Expression is a variable at the current instant not part of an unguarded
@@ -2188,9 +2204,9 @@ let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
   in
 
   (* Return expression and new definitions *)
-  ({ expr with expr_init = expr_init';
-               expr_step = expr_step';
-               expr_type = expr_type' }, 
+  ({ expr_init = expr_init';
+     expr_step = expr_step';
+     expr_type = expr_type' }, 
    ctx'') 
 
 
