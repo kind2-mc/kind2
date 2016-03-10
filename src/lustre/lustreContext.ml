@@ -376,9 +376,9 @@ let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr =
   if 
     (not shadow 
      && 
-     (IT.mem (List.hd ident_expr_map) ident)
+     ((IT.mem (List.hd ident_expr_map) ident)
       || 
-      (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map)))
+      (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map))))
   then
      raise (Invalid_argument "add_expr_for_ident")    
   else
