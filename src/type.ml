@@ -420,6 +420,12 @@ let rec int_range_to_int ty =
   | Array (e, i) -> mk_array (int_range_to_int e) (int_range_to_int i)
 
 
+let generalize t = match node_of_type t with
+  | IntRange _ -> t_int
+  | _ -> t
+
+
+
 
 (* 
    Local Variables:

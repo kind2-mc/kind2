@@ -248,9 +248,11 @@ val outputs_of_current_node : t -> StateVar.t LustreIndex.t
 val add_node_local :
   ?ghost:bool -> t -> LustreIdent.t -> Lib.position -> Type.t LustreIndex.t -> t
 
-(** Adds assumptions and guarantees to a node. *)
-val add_node_ass_gua :
-  t -> LustreContract.svar list -> LustreContract.svar list -> t
+(** Adds assumptions to a node. *)
+val add_node_ass : t -> LustreContract.svar list -> t
+
+(** Adds guarantees to a node. *)
+val add_node_gua : t -> LustreContract.svar list -> t
 
 (** Add modes to node *)
 val add_node_mode : t -> LustreContract.mode -> t

@@ -175,12 +175,15 @@ val color : unit -> bool
 
 (** {2 SMT solver flags} *)
 module Smt : sig
+
   (** Logic sendable to the SMT solver. *)
   type logic = [
     `None | `detect | `Logic of string
   ]
+
   (** Logic to send to the SMT solver *)
   val logic : unit -> logic
+
   (** Legal SMT solvers. *)
   type solver = [
     | `Z3_SMTLIB
@@ -190,26 +193,37 @@ module Smt : sig
     | `Yices_native
     | `detect
   ]
+
   (** Set SMT solver and executable *)
   val set_solver : solver -> unit
+
   (** Which SMT solver to use. *)
   val solver : unit -> solver
+
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool
+
   (** Send short names to SMT solver *)
   val short_names : unit -> bool
+
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
+
   (** Executable of CVC4 solver *)
   val cvc4_bin : unit -> string
+
   (** Executable of MathSAT5 solver *)
   val mathsat5_bin : unit -> string
+
   (** Executable of Yices solver *)
   val yices_bin : unit -> string
+
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string
+
   (** Write all SMT commands to files *)
   val trace : unit -> bool
+
   (** Path to the smt trace directory. *)
   val trace_dir : unit -> string
 end

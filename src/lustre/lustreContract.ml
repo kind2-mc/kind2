@@ -26,12 +26,13 @@ module SVarSet = SVar.StateVarSet
 type svar = {
   pos: position ;
   num: int ;
+  name: string option;
   svar: SVar.t ;
   scope: (position * string) list ;
 }
 
-let mk_svar pos num svar scope = {
-  pos ; num ; svar ; scope
+let mk_svar pos num name svar scope = {
+  pos ; num ; name; svar ; scope
 }
 
 (* Quiet pretty printer for non dummy positions. *)
@@ -40,13 +41,24 @@ let pprint_pos fmt pos =
   let f = if f = "" then "" else f ^ "|" in
   Format.fprintf fmt "%sl%dc%d" f l c
 
-let prop_name_of_svar { pos ; num ; scope } kind name =
-  Format.asprintf "%a%s%s[%a][%d]" (
-    pp_print_list (
-      fun fmt (pos, call) ->
-        Format.fprintf fmt "%s[%a]." call pprint_pos pos
-    ) ""
-  ) scope kind name pprint_pos pos num
+let prop_name_of_svar { pos ; num ; name = s; scope } kind name =
+  match s with
+  | Some n ->
+    Format.asprintf "%a%s[%d]" (
+      pp_print_list (
+        fun fmt (pos, call) ->
+          Format.fprintf fmt "%s[%a]." call pprint_pos pos
+      ) ""
+    ) scope n num
+    
+  | None ->
+    Format.asprintf "%a%s%s[%a][%d]" (
+      pp_print_list (
+        fun fmt (pos, call) ->
+          Format.fprintf fmt "%s[%a]." call pprint_pos pos
+      ) ""
+    ) scope kind name pprint_pos pos num
+
 
 type mode = {
   name: I.t ;
@@ -74,17 +86,26 @@ let mk assumes guarantees modes = {
   assumes ; guarantees ; modes
 }
 
-let add_ass_gua t assumes guarantees = {
+
+let add_ass t assumes = {
   t with
-    assumes = assumes @ t.assumes ;
-    guarantees = guarantees @ t.guarantees ;
+    assumes = List.rev_append (List.rev assumes) t.assumes ;
 }
 
+
+let add_gua t guarantees = {
+  t with
+    guarantees = List.rev_append (List.rev guarantees) t.guarantees ;
+}
+
+
 let add_modes t modes = { t with modes = modes @ t.modes }
+
 
 let svars_of_list l set = l |> List.fold_left (
   fun set { svar } -> SVarSet.add svar set
 ) set
+
 
 let svars_of_modes modes set = modes |> List.fold_left (
   fun set { requires ; ensures } ->
@@ -92,10 +113,12 @@ let svars_of_modes modes set = modes |> List.fold_left (
     |> svars_of_list ensures
 ) set
 
+
 let svars_of { assumes ; guarantees ; modes } =
   svars_of_list assumes SVarSet.empty
   |> svars_of_list guarantees
   |> svars_of_modes modes
+
 
 (* Output a space if list is not empty *)
 let space_if_nonempty = function

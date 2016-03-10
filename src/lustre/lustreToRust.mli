@@ -18,13 +18,14 @@
 
 (** Compilation from [LustreNode.t] to Rust. *)
 
-
+open Lib
 
 (** Compiles a lustre node to Rust as a project in the directory given as first
 argument. *)
 val implem_to_rust :
-   string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> unit
+  string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> unit
 
 (** Compiles a lustre node as an oracle. *)
-val oracle_to_rust:
-   string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> unit
+val oracle_to_rust: string -> (Scope.t -> LustreNode.t) -> LustreNode.t -> (
+  string * (position * int) list * (string * position * int) list
+)

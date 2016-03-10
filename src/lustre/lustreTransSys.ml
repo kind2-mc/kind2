@@ -2208,7 +2208,9 @@ let rec trans_sys_of_node'
             tl
           
 
-let trans_sys_of_nodes subsystem globals analysis_param =
+let trans_sys_of_nodes
+  ?(preserve_sig = false) subsystem globals analysis_param
+=
   let { A.top; A.abstraction_map; A.assumptions } =
     A.info_of_param analysis_param
   in
@@ -2227,7 +2229,8 @@ let trans_sys_of_nodes subsystem globals analysis_param =
   let subsystem' = subsystem in
   
   let { SubSystem.source = { N.name = top_name } as node } as subsystem', globals' = 
-      LustreSlicing.slice_to_abstraction analysis_param subsystem' globals
+      S.slice_to_abstraction
+        ~preserve_sig:preserve_sig analysis_param subsystem' globals
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in 
