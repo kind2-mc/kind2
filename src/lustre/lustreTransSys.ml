@@ -1528,11 +1528,14 @@ let constraints_of_arrays init terms eq_bounds =
           | E.Bound e ->
             let term =
               if Flags.Arrays.recdef () then term
-              else Term.(
+              else
+                let te = E.unsafe_term_of_expr e
+                         |> fun t -> if init then t
+                            else Term.bump_state Numeral.one t in
+                Term.(
                   mk_implies [
                     mk_leq [mk_num Numeral.zero; mk_var v; 
-                            mk_minus [E.unsafe_term_of_expr e;
-                                      mk_num Numeral.one]];
+                            mk_minus [te; mk_num Numeral.one]];
                     term])
             in
             term, v :: quant_v, pred i
