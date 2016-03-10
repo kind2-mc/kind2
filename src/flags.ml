@@ -892,6 +892,19 @@ module Arrays = struct
     )
   let recdef () = !recdef
 
+  
+  let var_size_default = false
+  let var_size = ref var_size_default
+  let _ = add_spec
+    "--var_array_size"
+    (bool_arg var_size)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Allow variable arrays size (Dangerous).@ Default: %a@]"
+        fmt_bool var_size_default
+    )
+  let var_size () = !var_size
+
 end
 
 

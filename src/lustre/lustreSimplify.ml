@@ -2379,7 +2379,7 @@ and eval_ast_type ctx = function
     (* Evaluate size of array *)
     let array_size = static_int_of_ast_expr ctx pos size_expr in
 
-    if not (E.is_const_expr array_size) then
+    if not (Flags.Arrays.var_size () || E.is_const_expr array_size) then
       C.fail_at_position pos
       (Format.asprintf "Size of array (%a) has to be constant."
          (E.pp_print_expr false) array_size);
