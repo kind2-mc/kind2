@@ -545,7 +545,9 @@ let get_var_values s state_var_indexes vars =
   List.iter (fun v ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
-      let offset = Var.offset_of_state_var_instance v in
+      let offset =
+        if Var.is_state_var_instance v then Var.offset_of_state_var_instance v
+        else Numeral.zero in
       let indexes = StateVar.StateVarHashtbl.find state_var_indexes
           (Var.state_var_of_state_var_instance v) in
 
