@@ -66,8 +66,30 @@ let pp_print_term ppf term =
   (*   else Format.fprintf ppf "✗" (\* "false" *\) *)
   (* else *)
   (* Term.pp_print_term ppf term *)
+
+  (* TODO do we not want legal lustre values? *)
+  
+  (* We expect values to be constants *)
+  if Term.is_numeral term then 
+
+    (* Pretty-print as a numeral *)
+    Numeral.pp_print_numeral 
+      ppf
+      (Term.numeral_of_term term)
+
+  (* Constant is a decimal? *)
+  else if Term.is_decimal term then 
+    
+    (* Pretty-print as a decimal *)
+    Decimal.pp_print_decimal 
+      ppf
+      (Term.decimal_of_term term)
+      
+  else
+    
   (LustreExpr.pp_print_expr false) ppf
     (LustreExpr.unsafe_expr_of_term term)
+
 
 let pp_print_term ppf term =
   if Term.(equal term t_false || equal term (mk_num_of_int 0)) then
@@ -158,7 +180,7 @@ let rec pp_print_array_model ppf index = function
     Format.fprintf ppf
       "@[<hv 2><Item index=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Item>@]"
       index
-      Term.pp_print_term v
+      pp_print_term v
   | ItemArray (s, a) ->
     Format.fprintf ppf
       "@[<hv 2><Array size=\"%d\">@,%a@;<0 -2></Array>@]"
@@ -180,7 +202,7 @@ let pp_print_value ppf = function
 
 
 let pp_print_value_xml ppf = function 
-  | Term t -> Term.pp_print_term ppf t
+  | Term t -> pp_print_term ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
   | Map m ->
     try
