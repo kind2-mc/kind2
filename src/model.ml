@@ -175,23 +175,25 @@ let rec map_to_array_model m =
   |> MIL.fold add_at_indexes m
 
 
-let rec pp_print_array_model ppf index = function
+let rec pp_print_array_model top_level ppf index it =
+  if not top_level then
+    Format.fprintf ppf "@[<hv 2><Item index=\"%d\">@," index;
+  begin match it with
   | ItemValue v ->
-    Format.fprintf ppf
-      "@[<hv 2><Item index=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Item>@]"
-      index
-      pp_print_term v
+    Format.fprintf ppf "@[<hv 2>%a@]" pp_print_term v
   | ItemArray (s, a) ->
     Format.fprintf ppf
       "@[<hv 2><Array size=\"%d\">@,%a@;<0 -2></Array>@]"
       s
-      (pp_print_listi pp_print_array_model "@,") (Array.to_list a)
+      (pp_print_listi (pp_print_array_model false) "@,") (Array.to_list a)
+  end;
+  if not top_level then Format.fprintf ppf "@;<0 -2></Item>@]"
 
 
 (* Show map as xml in counteexamples *)
 let pp_print_map_as_xml ppf m =
   let arm = map_to_array_model m in
-  pp_print_array_model ppf 0 arm
+  pp_print_array_model true ppf 0 arm
 
 
 (* Print a value of the model *)  
