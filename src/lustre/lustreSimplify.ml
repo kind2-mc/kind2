@@ -90,8 +90,8 @@ let select_from_arrayintindex pos bound_e index expr =
      (E.numeral_of_expr (get bound_e) |> Numeral.to_int) > size
   then
     C.fail_at_position pos
-      (Format.asprintf "Size of indexes on left of equation (%a) is larger than \
-                        size on the right (%d)"
+      (Format.asprintf "Size of indexes on left of equation (%a) \
+                        is larger than size on the right (%d)"
          (E.pp_print_expr false) (get bound_e)
          size);
 
@@ -1153,7 +1153,8 @@ let rec eval_ast_expr bounds ctx =
   | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
 
     (* Evaluate expression to an integer constant *)
-    let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
+    let index_e = static_int_of_ast_expr ctx pos i in
+    let index = E.mk_of_expr index_e in
       
       let bound_e, bounds =
         try
@@ -1178,10 +1179,11 @@ let rec eval_ast_expr bounds ctx =
         (* type check with length of arrays when statically known *)
         (* Disabled because not precise enough *)
         (* if bound_e <> None && E.is_numeral (get bound_e) && E.is_numeral s && *)
-        (*    Numeral.gt (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s) *)
+        (*    Numeral.geq (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s) *)
         (* then *)
         (*   C.fail_at_position pos *)
-        (*     (Format.asprintf "Size of indexes on left of equation (%a) is larger than size on the right (%a)" *)
+        (*     (Format.asprintf "Size of indexes on left of equation (%a) \ *)
+        (*                       is larger than size on the right (%a)" *)
         (*     (E.pp_print_expr false) (get bound_e) *)
         (*     (E.pp_print_expr false) s); *)
         
@@ -1196,18 +1198,18 @@ let rec eval_ast_expr bounds ctx =
             D.empty
         in
 
-          if E.type_of_lustre_expr v |> Type.is_array then 
-        (* Select from array in all elements *)
-            D.map (fun e -> E.mk_select e index) expr'
-          else
-            (* otherwise returned the indexed value *)
-            expr'
+        if E.type_of_lustre_expr v |> Type.is_array then
+          (* Select from array in all elements *)
+          D.map (fun e -> E.mk_select e index) expr'
+        else
+          (* otherwise returned the indexed value *)
+          expr'
 
 
       (* Projection from an array indexed by integers *)
       | D.ArrayIntIndex _ :: tl, _ -> 
 
-          select_from_arrayintindex pos bound_e index expr'
+        select_from_arrayintindex pos bound_e index expr'
 
         (*   C.fail_at_position  *)
         (*     pos *)

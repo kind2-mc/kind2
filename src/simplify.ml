@@ -1245,7 +1245,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   in
                   
                   (* Get assignment to variable *)
-                  (match Var.VarHashtbl.find model v with
+                  (try match Var.VarHashtbl.find model v with
               
                     (* Variable must evaluate to a lambda abstraction *)
                     | Model.Lambda l -> 
@@ -1261,7 +1261,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
                       if Model.MIL.is_empty m then
                         List.fold_left
-                          Term.mk_select (Term.mk_var v) (List.rev i')
+                          Term.mk_select (Term.mk_var v) ((* List.rev *) i')
                         |> atom_of_term
 
                       else 
@@ -1269,22 +1269,30 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                         let args = List.map (fun x ->
                             Term.numeral_of_term x |> Numeral.to_int) i' in
 
+                        let value =
+                          try Model.MIL.find args m
+                          with Not_found ->
+                            TermLib.default_of_type
+                              (Type.last_elem_type_of_array
+                                 (Var.type_of_var v))
+                        in
+                        
                         (* Evaluate map with simplified indexes *)
                         Term.eval_t 
                           (simplify_term_node default_of_var uf_defs model)
-                          (Model.MIL.find args m)
+                          value
 
                     (* Variable must not evaluate to a term *)
                     | Model.Term _ -> assert false 
                       
-                    (* Free variable without assignment in model *)
-                    | exception Not_found -> 
+                   (* Free variable without assignment in model *)
+                   with Not_found -> 
 
                       let t' =                   
                         List.fold_left
                           Term.mk_select
                           (Term.mk_var v)
-                          (List.rev i')
+                          ((* List.rev *) i')
                       in
                       
                       debug simplify
