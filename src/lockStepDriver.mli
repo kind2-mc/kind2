@@ -25,7 +25,7 @@ type t
 
 (** Creates a lock step driver based on a transition system. The first
     boolean parameter indicates whether the lsd should be two states
-    or not, while the second one indicated top only mode.. *)
+    or not, while the second one indicated top only mode. *)
 val create: bool -> bool -> TransSys.t -> t
 
 (** Deletes a lock step driver. *)

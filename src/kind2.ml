@@ -32,6 +32,7 @@ module IND = Step
 module IND2 = Step2
 module InvGenTS = InvGenGraph.TwoState
 module InvGenOS = InvGenGraph.OneState
+module Unused = NuInvGen
 module TestGen = TestgenDF
 module C2I = C2I
 module C2Icnf = C2Icnf
@@ -1049,6 +1050,10 @@ let rec run_loop msg_setup modules results =
   let aparam, input_sys, trans_sys =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
+
+  Unused.main () () trans_sys ;
+
+  failwith "aaaaaahhhhh" ;
 
   ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
 
