@@ -2651,15 +2651,17 @@ let generate_all_proofs input sys =
   if not (is_fec sys) then
     
     let cert_inv = generate_split_certificates sys dirname in
+
+    Proof.generate_inv_proof cert_inv;
     
     (* Only generate frontend observational equivalence system for Lustre *)
     if InputSystem.is_lustre_input input then
-      generate_frontend_obs input sys dirname |> ignore
+      try generate_frontend_obs input sys dirname |> ignore
+      with Failure s ->
+        Event.log L_warn "%s@ No frontend observer." s
     else
       (debug certif "No certificate for frontend" end);
-    
-    Proof.generate_inv_proof cert_inv;
-    
+
 
     if call_frontend then begin
 
