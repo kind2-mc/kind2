@@ -534,7 +534,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     expand_tuple'
       pos
-      (((state_var, bounds), expr) :: accum)
+      (((state_var, List.rev bounds), expr) :: accum)
       []
       lhs_tl
       rhs_tl
@@ -578,12 +578,22 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
   (* Array index on left-hand and right-hand side *)
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
-    (D.ArrayVarIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
+    (D.ArrayVarIndex br :: rhs_index_tl, expr) :: rhs_tl -> 
 
     (* We cannot compare expressions for array bounds syntactically,
        because that may give too many false negatives. Evaluating both
        bounds to find if they are equal would be too complicated,
        therefore accept some false positives here. *)
+
+    (* Take the smaller bound when it is known statically otherwise keep the
+       one from the left-hand side *)
+    let b = 
+      if E.is_numeral b && E.is_numeral br &&
+         Numeral.(E.(numeral_of_expr b > numeral_of_expr br)) then
+        br
+      else b
+    in
+    
     
     (* Count number of variable indexes *)
     let i = 
@@ -594,16 +604,15 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
         0
         lhs_index_tl
     in
-
+    
     (* Is every variable in the expression necessarily of array type? 
 
        Need to skip the index expression of a select operator: A[k] *)
     
     let expr' =
       E.map (fun _ e ->
-          if E.is_var e then
-            (assert (E.type_of_lustre_expr e |> Type.is_array);
-             E.mk_select e (E.mk_index_var i))
+          if E.is_var e && (E.type_of_lustre_expr e |> Type.is_array) then
+             E.mk_select e (E.mk_index_var i)
           else e)
         expr
     in
@@ -714,9 +723,9 @@ let expand_tuple pos lhs rhs =
   (* Format.eprintf *)
   (*   "@[<v>expand_tuple lhs:@,%a@]@." *)
   (*   (pp_print_list *)
-  (*      (fun ppf (i, sv) ->  *)
+  (*      (fun ppf (i, sv) -> *)
   (*         Format.fprintf ppf "%a: %a " *)
-  (*           (D.pp_print_index false) i *)
+  (*           (D.pp_print_index true) i *)
   (*           StateVar.pp_print_state_var sv) *)
   (*      "@,") *)
   (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs)); *)
@@ -724,21 +733,19 @@ let expand_tuple pos lhs rhs =
   (* Format.eprintf *)
   (*   "@[<v>expand_tuple rhs:@,%a@]@." *)
   (*   (pp_print_list *)
-  (*      (fun ppf (i, e) ->  *)
+  (*      (fun ppf (i, e) -> *)
   (*         Format.fprintf ppf "%a: %a " *)
-  (*           (D.pp_print_index false) i *)
+  (*           (D.pp_print_index true) i *)
   (*           (E.pp_print_lustre_expr false) e) *)
   (*      "@,") *)
   (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs)); *)
   
-  
-  (* TODO check with Christoph why they were reversed *)
   expand_tuple' 
     pos
     []
     []
-    (List.map (fun (i, e) -> ((* List.rev  *)i, e)) (D.bindings lhs))
-    (List.map (fun (i, e) -> ((* List.rev  *)i, e)) (D.bindings rhs))
+    (List.map (fun (i, e) -> ((* List.rev *) i, e)) (D.bindings lhs))
+    (List.map (fun (i, e) -> ((* List.rev *) i, e)) (D.bindings rhs))
 
 
 (* Evaluate node statements and add to context  *)
@@ -823,8 +830,8 @@ let rec eval_node_equations ctx = function
             ) (acc, 0) i
           |> fst
         ) [] (D.bindings eq_lhs)
-      |> List.rev in
-    
+      (* |> List.rev *) in
+
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
     
@@ -844,7 +851,7 @@ let rec eval_node_equations ctx = function
         (D.empty, ctx)
 
     in 
-
+    
     (* Remove local definitions for equation from context
 
        We add local definitions from the left-hand side to the

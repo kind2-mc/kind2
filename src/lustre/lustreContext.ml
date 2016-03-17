@@ -295,7 +295,7 @@ let bounds_of_index index =
       | D.ArrayIntIndex i ->
         E.Fixed (E.mk_int_expr (Numeral.of_int i)) :: acc
       | _ -> acc
-    ) [] (List.rev index)
+    ) [] index
 
 
 

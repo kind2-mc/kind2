@@ -969,7 +969,8 @@ let pp_print_type_of_svar model ppf state_var =
   | Model.Map m ->
     Format.fprintf ppf "%a ^ %a"
       (E.pp_print_lustre_type false) (Type.last_elem_type_of_array stream_type)
-      (pp_print_list Format.pp_print_int " ^ ") (Model.dimension_of_map m)
+      (pp_print_list Format.pp_print_int " ^ ")
+      (Model.dimension_of_map m |> List.rev)
   | _ -> E.pp_print_lustre_type false ppf stream_type
   
   

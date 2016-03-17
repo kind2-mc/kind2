@@ -22,6 +22,7 @@ var
   -- r: real;
   j: bool;
   x:  int;
+  M: int^2^4;
 
 let
   assert(array_size > 0);
@@ -73,6 +74,8 @@ let
 
   -- Ab[i] = Aca[i]; -- should fail
 
+  M[i][j] = i+j; 
+
   --%PROPERTY A2[0] = 0;
   --%PROPERTY A1[3] = s;
   --%PROPERTY A0[3] = 0;
@@ -88,6 +91,6 @@ let
   --%PROPERTY true -> A[0] = B[0];
   --%PROPERTY "QUANT1" forall (ni:int) ni > 0 and ni < array_size - 1 => A[ni] = C[ni];
   --%PROPERTY "QUANT2" forall (ni:int) ni > 1 and ni < array_size => C[ni] = C[ni - 1] * 2;
-
+  --%PROPERTY M[0][0] <> 0; 
 
 tel
