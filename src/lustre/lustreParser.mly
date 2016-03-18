@@ -368,32 +368,32 @@ node_decl:
 
 contract_ghost_var:
   | VAR ;
-    i = ident ; COLON ; t = lustre_type; EQUALS ; e = expr ;
+    i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
     SEMICOLON 
     { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
-  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
+  | VAR ; i = ident ; EQUALS ; e = qexpr ; SEMICOLON 
     { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_ghost_const:
-  | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
+  | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
-  | CONST; i = ident; EQUALS; e = expr; SEMICOLON 
+  | CONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_assume:
-  ASSUME; name = option(STRING); e = expr; SEMICOLON
+  ASSUME; name = option(STRING); e = qexpr; SEMICOLON
   { A.Assume (mk_pos $startpos, name, e) }
 
 contract_guarantee:
-  GUARANTEE; name = option(STRING); e = expr; SEMICOLON
+  GUARANTEE; name = option(STRING); e = qexpr; SEMICOLON
   { A.Guarantee (mk_pos $startpos, name, e) }
 
 contract_require:
-  REQUIRE; name = option(STRING); e = expr; SEMICOLON
+  REQUIRE; name = option(STRING); e = qexpr; SEMICOLON
   { mk_pos $startpos, name, e }
 
 contract_ensure:
-  ENSURE; name = option(STRING); e = expr; SEMICOLON
+  ENSURE; name = option(STRING); e = qexpr; SEMICOLON
   { mk_pos $startpos, name, e }
 
 mode_equation:
@@ -406,8 +406,8 @@ mode_equation:
 
 contract_import:
   IMPORTCONTRACT ; n = ident ;
-  LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
+  LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+  LPAREN ; out_params = separated_list(COMMA, qexpr) ; RPAREN ; SEMICOLON ; {
     A.ContractCall (mk_pos $startpos, n, in_params, out_params)
   }
 
