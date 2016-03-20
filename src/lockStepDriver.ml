@@ -276,12 +276,9 @@ let swap_system_binding system f =
   loop []
 
 (* Unrolls a system one step further. *)
-let unroll_sys
-      ( { systems ;
-          base_solver ; step_solver ;
-          last_k }
-        as lsd)
-      system =
+let unroll_sys (
+  { systems ; base_solver ; step_solver ; last_k } as lsd
+) system =
 
   lsd.systems <- (
     systems
@@ -321,6 +318,12 @@ let unroll_sys
   check_consistency lsd "unroll_sys" ;
 
   ()
+
+(* Unrolls a lsd instance to some [k]. *)
+let rec unroll_sys_to lsd sys k = if Numeral.(get_k lsd sys < k) then (
+  unroll_sys lsd sys ;
+  unroll_sys_to lsd sys k
+)
 
 (* Creates a lsd instance. *)
 let create two_state top_only top_sys =
@@ -715,6 +718,53 @@ let rec prune_trivial
             (List.concat [ result ; falsifiables ])
             trivial_actlit
             unknowns
+
+(* Returns the terms from [terms_to_check] which are unfalsifiable in the
+   [k]-induction step instance. *)
+let query_step (
+  { systems ; step_solver ; pruning_solver ; two_state } as lsd
+) system terms_to_check =
+
+  (* Getting system info. *)
+  let k, actlit = List.assq system systems in
+
+  name system
+  |> Printf.sprintf
+       "prune_trivial for [%s]."
+  |> SMTSolver.trace_comment pruning_solver ;
+
+  let not_trivial, trivial =
+    (* Pruning direct consequences of the transition relation if
+          the flag requests it. *)
+    if Flags.Invgen.prune_trivial () then
+      prune_trivial
+        pruning_solver [] actlit terms_to_check
+    else terms_to_check, []
+  in
+
+  match not_trivial with
+  | [] ->
+     (* Unrolling system. *)
+     unroll_sys lsd system ;
+     
+     [], trivial
+  | _ ->
+
+     name system
+     |> Printf.sprintf
+          "query_step at %i for [%s]."
+          (Numeral.to_int k)
+     |> SMTSolver.trace_comment step_solver ;
+
+     let invariants =
+       (* Splitting terms. *)
+       split_closure
+         step_solver two_state actlit k [] not_trivial
+       (* Discarding falsifiable terms. *)
+       |> snd
+     in
+
+     invariants, trivial
 
 (* Unrolls [system] one step further ([k+1), and returns the terms
    from [terms_to_check] which are unfalsifiable in the [k]-induction
