@@ -490,8 +490,6 @@ let on_exit_child messaging_thread process exn =
     "Process %d terminating"
     (Unix.getpid ()) ;
 
-  Event.terminate_log () ;
-
   ( match messaging_thread with
     | Some t -> Event.exit t
     | None -> () ) ;

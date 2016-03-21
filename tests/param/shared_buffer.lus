@@ -1,4 +1,3 @@
-
 --===============================================
 -- Shared Buffer Controller
 --===============================================
@@ -130,8 +129,8 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
 
   -- Whenever there are more than one update requests at the same time, exactly
   -- one will be accepted.
-  guarantee "accept one request"
-   true -> (exists (i,j:int) 0 <= i and i < n and  0 <= j and j < n and i <> j and
+  guarantee "accept one request" true ->
+   (exists (i,j:int) 0 <= i and i < n and  0 <= j and j < n and i <> j and
      Request[i] and Request[j])
     => count(n,Accepted) = 1 ;
 
@@ -150,8 +149,8 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
 
   -- A repeated request by the same component cannot be denied twice in a row.
   -- (this property is violated)
-  guarantee "fair"
-   true -> forall (i:int) 0 <= i and i < n =>
+  guarantee "fair" true -> 
+   forall (i:int) 0 <= i and i < n =>
     pre Request[i] and not pre Accepted[i] => Accepted[i] ;
 
   -- When there are no requests at all, the buffer maintains its initialization
@@ -160,8 +159,8 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
    Sofar(count(n,Request) = 0) => SharedValue = First(Init);
 
   -- In the absence of current requests, the buffer remains unchanged.
-  guarantee "unchanged buffer"
-   true -> ( count(n,Request) = 0 ) => SharedValue = pre SharedValue;
+  guarantee "unchanged buffer" true ->
+   count(n,Request) = 0  => SharedValue = pre SharedValue;
 
   -- If the value of the buffer is different from the value a component 
   -- wanted to write, it means that that component's request was denied.
@@ -171,8 +170,8 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
 
   -- If there were no requests from the other components since the last write
   -- by the one of them, the buffer maintains the value of that last write.
-  guarantee "maintain"
-   true -> forall (i:int) 0 <= i and i < n =>
+  guarantee "maintain" true ->
+   forall (i:int) 0 <= i and i < n =>
     NoOtherRequests[i] => SharedValue = LastWrite[i];
 *)
 
