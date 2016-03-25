@@ -926,7 +926,12 @@ let setup () =
       | `Lustre -> InputSystem.read_input_lustre
       | `Native -> (* InputSystem.read_input_native *) assert false
       | `Horn   -> (* InputSystem.read_input_horn *)   assert false
-  with e -> (* Could not create input system. *)
+  with (* Could not create input system. *)
+  | LustreAst.Parser_error ->
+    (* Don't do anything for parser error, they should already have printed
+    some stuff. *)
+    exit status_error
+  | e ->
     
     let backtrace = Printexc.get_raw_backtrace () in
 
