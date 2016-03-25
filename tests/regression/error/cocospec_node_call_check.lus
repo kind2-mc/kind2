@@ -1,0 +1,18 @@
+(*
+  Tests that the restrictions on the variables usable in an assume apply also
+  to node calls in assumes.
+*)
+
+node pass_through(x : int) returns (y : int) ;
+let
+  y = x ;
+tel
+
+node top(input : int) returns (output : int) ;
+(*@contract
+  assume input < pass_through(output) ;
+  guarantee true ;
+*)
+let
+  output = input ;
+tel

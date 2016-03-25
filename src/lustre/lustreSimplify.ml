@@ -99,7 +99,8 @@ let rec eval_ast_expr ctx = function
   (* ****************************************************************** *)
 
   (* Identifier *)
-  | A.Ident (pos, ident) -> eval_ident ctx pos ident
+  | A.Ident (pos, ident) ->
+    eval_ident ctx pos ident
 
   (* Mode ref *)
   | A.ModeRef (pos, p4th) -> (
@@ -898,7 +899,7 @@ let rec eval_ast_expr ctx = function
       (Some defaults)
 
   (* Node call without activation condition *)
-  | A.Call (pos, ident, args) -> 
+  | A.Call (pos, ident, args) ->
 
     eval_node_or_function_call 
       ctx

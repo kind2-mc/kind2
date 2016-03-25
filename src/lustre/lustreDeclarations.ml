@@ -37,6 +37,9 @@ module C = LustreContext
 
 module S = LustreSimplify
 
+module SVS = StateVar.StateVarSet
+module SVM = StateVar.StateVarMap
+
 
 
 (* ********************************************************************** *)
@@ -970,34 +973,30 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
 
 (** Returns an option of the output state variables mentioned in the current
 state of a lustre expression. *)
-let contract_check_no_output ctx expr =
-  let outputs = LustreContext.outputs_of_current_node ctx in
-  E.cur_term_of_t Numeral.zero expr
-  |> Term.state_vars_at_offset_of_term Numeral.zero
-  |> StateVar.StateVarSet.filter (
-    fun sv -> D.exists (fun _ sv' -> sv == sv') outputs
-  )
-  |> fun set ->
-    if StateVar.StateVarSet.cardinal set > 0 then
-      Some (StateVar.StateVarSet.elements set)
-    else None
+let contract_check_no_output ctx pos expr =
+  let outputs =
+    LustreContext.outputs_of_current_node ctx
+  in
+  let outputs =
+    D.fold ( fun _ elm set -> SVS.add elm set ) outputs SVS.empty
+  in
+  match C.trace_svars_of ctx expr with
+  | Some coi -> SVS.inter outputs coi |> SVS.elements
+  | None -> failwith "unreachable"
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   (* Scope is created backwards. *)
   let scope = List.rev scope in
-  (* Evaluate exrpession to a Boolean expression, may change context. *)
-  let expr, ctx =
-    S.eval_bool_ast_expr ctx pos expr
-    |> C.close_expr pos
-  in
+  (* Evaluate expression to a Boolean expression, may change context. *)
+  let expr, ctx = S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos in
   (* Check the expression if asked to. *)
   ( match check with
     | None -> ()
     | Some desc -> (
-      match contract_check_no_output ctx expr with
-      | None -> ()
-      | Some svars ->
+      match contract_check_no_output ctx pos expr with
+      | [] -> ()
+      | svars ->
         assert (List.length svars > 0) ;
         let s = if List.length svars > 1 then "s" else "" in
         let pref = match C.current_node_name ctx with
@@ -1280,9 +1279,9 @@ let rec eval_node_contract_call ctx scope
           (* Fail if expression mentions an output in the current state. *)
           (
             D.iter (
-              fun _ expr -> match contract_check_no_output ctx expr with
-                | None -> ()
-                | Some svars ->
+              fun _ expr -> match contract_check_no_output ctx pos expr with
+                | [] -> ()
+                | svars ->
                   assert (List.length svars > 0) ;
                   let s = if List.length svars > 1 then "s" else "" in
                   let pref = match C.current_node_name ctx with
@@ -1412,7 +1411,7 @@ and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
   | A.GhostVar v -> eval_ghost_var add_ghost ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
-  | A.Assume a ->
+  | A.Assume ( (_, _, expr) as a ) ->
     let ctx, assumes, cpt_a = eval_ass scope (ctx, [], cpt_a) a in
     C.add_node_ass ctx assumes, cpt_a, cpt_g
 
