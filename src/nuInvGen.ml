@@ -123,7 +123,7 @@ module Bool: In = struct
   let eval = eval_bool
   let mine sys =
     sys
-    |> InvGenCandTermGen.generate_graphs false sys
+    |> InvGenCandTermGen.generate_graphs (Flags.Invgen.two_state ()) sys
     |> function
       | (_, head, _) :: _, _ ->
         ImplicationGraph.eq_classes head |> List.hd
@@ -509,7 +509,14 @@ module Make (Value : In) : Out = struct
 
     (* Inserts a chain. *)
     let rec insert known continuation chain node =
-      (* Format.printf "  inserting for %a@." fmt_term node ; *)
+(*       Format.printf "  inserting for %a@." fmt_term node ;
+
+      Format.printf "  continuation: @[<v>%a@]@."
+        (pp_print_list
+          (fun fmt (chain, nodes) ->
+            Format.fprintf fmt "chain: %a@ nodes: %a" fmt_chain chain (pp_print_list fmt_term ", ") nodes)
+          "@ ")
+        continuation ; *)
 
       let value = Map.find values node in
       (* Longest chain above current node. *)
@@ -519,7 +526,7 @@ module Make (Value : In) : Out = struct
       (* Creating links. *)
       ( match chain_above with
         | [] ->
-          (* Linking with [above] is [node] is in [below]. *)
+          (* Linking with [above] if [node] is in [below]. *)
           if Set.mem node below then (
             (* Format.printf "    linking node to above@." ; *)
             map_up |> apply (Set.union above) node ;
@@ -563,7 +570,7 @@ module Make (Value : In) : Out = struct
       | ( chain, node :: rest) :: continuation ->
         if Set.mem node known then (
           (* Format.printf "    skipping known rep %a@." fmt_term node ; *)
-          continue known continuation
+          continue known ( (chain, rest) :: continuation )
         ) else (
           insert (Set.add node known) (
             (chain, rest) :: continuation
@@ -580,7 +587,12 @@ module Make (Value : In) : Out = struct
       above |> Set.iter (
         fun above -> map_down |> apply (Set.add greatest_rep) above
       )
-    | node :: rest -> insert Set.empty [ (chain), rest ] chain node
+    | node :: rest ->
+      (* Format.printf "    below:@[<v>%a%a@]@."
+        fmt_term node
+        (pp_print_list (fun fmt -> Format.fprintf fmt "@ %a" fmt_term) "")
+        rest ; *)
+      insert Set.empty [ (chain), rest ] chain node
 
 
   let next_of_continuation { map_down ; values } =
@@ -636,7 +648,8 @@ module Make (Value : In) : Out = struct
         (* Add nodes above [nxt] to continuation if any. *)
         match above with
         | [] -> ()
-        | _ -> above :: continuation |> loop (in_cnt + 1)
+        | _ ->
+          above :: continuation |> loop (in_cnt + 1)
       )
     in
     
@@ -644,7 +657,8 @@ module Make (Value : In) : Out = struct
 
     clear graph ;
 
-    update sys known lsd (out_cnt + 1) graph
+    if out_cnt > 4 then exit () else
+      update sys known lsd (out_cnt + 1) graph
 
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
@@ -655,7 +669,7 @@ module Make (Value : In) : Out = struct
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       Numeral.pp_print_numeral k ; *)
     (* Creating LSD instance. *)
-    let lsd = Lsd.create false true sys in
+    let lsd = Lsd.create (Flags.Invgen.two_state ()) true sys in
     (* Memorizing LSD instance for clean exit. *)
     lsd_ref := Some lsd ;
     (* Unrolling to [k]. *)
@@ -722,7 +736,6 @@ module Make (Value : In) : Out = struct
     Lsd.delete lsd ;
     (* Unmemorizing LSD instance. *)
     lsd_ref := None ;
-    exit () ;
     (* Looping. *)
     system_iterator ( (sys, graph, non_trivial, trivial) :: memory ) k graphs
   | [] ->
@@ -761,7 +774,9 @@ module Make (Value : In) : Out = struct
       }
     in
 
-    system_iterator [] Numeral.zero [ sys, graph, Set.empty, Set.empty ]
+    let k = if Flags.Invgen.two_state () then Numeral.one else Numeral.zero in
+
+    system_iterator [] k [ sys, graph, Set.empty, Set.empty ]
 
 end
 

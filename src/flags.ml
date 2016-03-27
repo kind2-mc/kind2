@@ -983,6 +983,19 @@ module Invgen = struct
     )
   let mine_trans () = !mine_trans
 
+  let two_state_default = true
+  let two_state = ref two_state_default
+  let _ = add_spec
+    "--invgen_two_state"
+    (bool_arg two_state)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Run invariant generion in two state mode.\
+        @]"
+    )
+  let two_state () = !two_state
+
   let renice_default = 0
   let renice = ref renice_default
   let _ = add_spec
