@@ -34,11 +34,11 @@ let openfile path = Unix.openfile path [
 let fmt_of_file file =
   Unix.out_channel_of_descr file |> Format.formatter_of_out_channel
 
-(* Writes a graph in graphviz to file [<path>/graph_<suff>.dot]. *)
-let write_dot_to path suff fmt_graph graph =
+(* Writes a graph in graphviz to file [<path>/<name>_<suff>.dot]. *)
+let write_dot_to path name suff fmt_graph graph =
   mk_dir path ; (* Create directory if needed. *)
   let desc = (* Create descriptor for log file. *)
-    Format.sprintf "%s/graph_%s.dot" path suff |> openfile
+    Format.sprintf "%s/%s_%s.dot" path name suff |> openfile
   in
   (* Log graph in graphviz. *)
   Format.fprintf (fmt_of_file desc) "%a@.@." fmt_graph graph ;
@@ -229,6 +229,40 @@ module Make (Value : In) : Out = struct
 
     Format.fprintf fmt "@]@.}@."
 
+
+  (** Logs the equivalence classes of a graph to graphviz. *)
+  let fmt_graph_classes_dot fmt { classes ; values } =
+    Format.fprintf fmt
+      "\
+  digraph mode_graph {
+    graph [bgcolor=black margin=0.0] ;
+    node [
+      style=filled
+      fillcolor=black
+      fontcolor=\"#1e90ff\"
+      color=\"#666666\"
+    ] ;
+    edge [color=\"#1e90ff\" fontcolor=\"#222222\"] ;
+
+    @[<v>" ;
+
+    classes |> Map.iter (
+      fun rep set ->
+        let rep_value =
+          try Map.find values rep |> Format.asprintf "%a" Value.fmt
+          with Not_found -> "_mada_"
+        in
+        Format.fprintf fmt "\"%a (%s)\" ->\"%a\" ;@ "
+          fmt_term rep rep_value
+          (pp_print_list
+            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term term)
+            "\n")
+          (Set.elements set)
+    ) ;
+
+    Format.fprintf fmt "@]@.}@."
+
+
   (** Clears the [values] field of the graph ([clear] not [reset]). *)
   let clear { values } = Map.clear values
 
@@ -265,33 +299,40 @@ module Make (Value : In) : Out = struct
   inductive, some comparison terms between member of their respective class
   may be.
 
-  See also [all_terms_of], used for the base instance (graph stabilization).
+  See also [terms_of], used for the base instance (graph stabilization).
   This version produces a much larger number of terms. *)
   let all_terms_of {map_up ; classes} known =
     let cond_cons cand l = if known cand then l else cand :: l in
-    let eqs =
+    (* let eqs =
       Map.fold (
         fun rep set acc ->
           if Set.is_empty set then acc else
             cond_cons (rep :: Set.elements set |> Term.mk_eq) acc
       ) classes []
-    in
+    in *)
     Map.fold (
       fun rep above acc ->
-        above |> Set.elements |> List.fold_left (
-          fun acc rep' ->
-            cond_cons (Value.mk_cmp rep rep') acc
+        Set.fold (
+          fun rep' acc ->
+            (cond_cons (Value.mk_cmp rep rep') acc, true)
             |> Set.fold (
-              fun rep_eq acc ->
-                cond_cons (Value.mk_cmp rep_eq rep') acc
+              fun rep_eq' (acc, fst) ->
+                cond_cons (Value.mk_cmp rep rep_eq') acc
                 |> Set.fold (
-                  fun rep_eq' acc ->
-                    cond_cons (Value.mk_cmp rep rep_eq') acc
-                    |> cond_cons (Value.mk_cmp rep_eq rep_eq')
-                ) (Map.find classes rep')
-            ) (Map.find classes rep)
-        ) acc
-    ) map_up eqs
+                  fun rep_eq acc ->
+                    let acc =
+                      if fst then (
+                        cond_cons (Value.mk_cmp rep_eq rep') acc
+                        |> cond_cons (Term.mk_eq [rep ; rep_eq])
+                      ) else acc
+                    in
+                    cond_cons (Value.mk_cmp rep_eq rep_eq') acc
+                ) (Map.find classes rep),
+                false
+            ) (Map.find classes rep')
+            |> fst
+        ) above acc
+    ) map_up []
 
   (* Formats a chain. *)
   let fmt_chain fmt =
@@ -590,7 +631,7 @@ module Make (Value : In) : Out = struct
         split sys graph model nxt |> insert graph nxt ;
         (* Format.printf "@.  logging graph for %d / %d@." out_cnt in_cnt ; *)
         write_dot_to
-          "graphs/" (Format.sprintf "%d_%d" out_cnt in_cnt)
+          "graphs/" "graph" (Format.sprintf "%d_%d" out_cnt in_cnt)
           fmt_graph_dot graph ;
         (* Add nodes above [nxt] to continuation if any. *)
         match above with
@@ -614,7 +655,7 @@ module Make (Value : In) : Out = struct
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       Numeral.pp_print_numeral k ; *)
     (* Creating LSD instance. *)
-    let lsd = Lsd.create true true sys in
+    let lsd = Lsd.create false true sys in
     (* Memorizing LSD instance for clean exit. *)
     lsd_ref := Some lsd ;
     (* Unrolling to [k]. *)
@@ -632,6 +673,9 @@ module Make (Value : In) : Out = struct
         exit ()
       )
     ) ;
+    write_dot_to
+      "graphs/" "classes" (Format.asprintf "%a" Numeral.pp_print_numeral k)
+      fmt_graph_classes_dot graph ;
 
     (* Check for invariants. *)
     let non_trivial', trivial' =
@@ -647,26 +691,30 @@ module Make (Value : In) : Out = struct
     in
     ( match non_trivial', trivial' with
       | [], [] -> ()
-      | [], trivial ->
+      | [], _ ->
         Event.log L_info
-          "%s @[<v>system %a at %a@ found %d trivial invariants@]"
+          "%s @[<v>system %a at %a (%d/%d)@ found %d trivial invariants@]"
           pref
           Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
           Numeral.pp_print_numeral k
-          (List.length trivial)
-      | invs, trivial ->
-        let trivial_blah fmt = match trivial with
+          (Set.cardinal non_trivial)
+          (Set.cardinal trivial)
+          (List.length trivial')
+      | _ ->
+        let trivial_blah fmt = match trivial' with
           | [] -> ()
           | _ ->
             Format.fprintf fmt "@ and %d trivial invariants"
-              (List.length trivial)
+              (List.length trivial')
         in
         Event.log L_info
-          "%s @[<v>system %a at %a@ found %d invariants%t@]"
+          "%s @[<v>system %a at %a (%d/%d)@ found %d invariants%t@]"
           pref
           Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
           Numeral.pp_print_numeral k
-          (List.length invs)
+          (Set.cardinal non_trivial)
+          (Set.cardinal trivial)
+          (List.length non_trivial')
           trivial_blah
     ) ;
 
@@ -674,6 +722,7 @@ module Make (Value : In) : Out = struct
     Lsd.delete lsd ;
     (* Unmemorizing LSD instance. *)
     lsd_ref := None ;
+    exit () ;
     (* Looping. *)
     system_iterator ( (sys, graph, non_trivial, trivial) :: memory ) k graphs
   | [] ->
