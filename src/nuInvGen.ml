@@ -108,29 +108,6 @@ module type Out = sig
 end
 
 
-module Bool: In = struct
-  (* Evaluates a term to a boolean. *)
-  let eval_bool sys model term =
-    Eval.eval_term (TransSys.uf_defs sys) model term
-    |> Eval.bool_of_value
-
-  let name = "Bool"
-  type t = bool
-  let fmt = Format.pp_print_bool
-  let eq lhs rhs = lhs = rhs
-  let cmp lhs rhs = rhs || not lhs
-  let mk_cmp lhs rhs = Term.mk_implies [ lhs ; rhs ]
-  let eval = eval_bool
-  let mine sys =
-    sys
-    |> InvGenCandTermGen.generate_graphs (Flags.Invgen.two_state ()) sys
-    |> function
-      | (_, head, _) :: _, _ ->
-        ImplicationGraph.eq_classes head |> List.hd
-      | [], _ -> failwith "blah"
-end
-
-
 
 (** Constructs an invariant generation module from a value module.
 
@@ -904,8 +881,82 @@ module Make (Value : In) : Out = struct
 
 end
 
+
+
+
+(* |===| Actual invariant generators. *)
+
+
+module Bool: In = struct
+  (* Evaluates a term to a boolean. *)
+  let eval_bool sys model term =
+    Eval.eval_term (TransSys.uf_defs sys) model term
+    |> Eval.bool_of_value
+
+  let name = "Bool"
+  type t = bool
+  let fmt = Format.pp_print_bool
+  let eq lhs rhs = lhs = rhs
+  let cmp lhs rhs = rhs || not lhs
+  let mk_cmp lhs rhs = Term.mk_implies [ lhs ; rhs ]
+  let eval = eval_bool
+  let mine sys =
+    sys
+    |> InvGenCandTermGen.generate_graphs (Flags.Invgen.two_state ()) sys
+    |> function
+      | (_, head, _) :: _, _ ->
+        ImplicationGraph.eq_classes head |> List.hd
+      | [], _ -> failwith "blah"
+end
+
 (** Boolean invariant generation. *)
 module BoolInvGen = Make(Bool)
+
+
+module Integer: In = struct
+  (* Evaluates a term to a numeral. *)
+  let eval_int sys model term =
+    Eval.eval_term (TransSys.uf_defs sys) model term
+    |> Eval.num_of_value
+
+  let name = "Int"
+  type t = Numeral.t
+  let fmt = Numeral.pp_print_numeral
+  let eq = Numeral.equal
+  let cmp = Numeral.leq
+  let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
+  let eval = eval_int
+  let mine sys =
+    failwith "integer candidate term mining is unimplemented"
+end
+
+(** Integer invariant generation. *)
+module IntInvGen = Make(Integer)
+
+
+module Real: In = struct
+  (* Evaluates a term to a decimal. *)
+  let eval_real sys model term =
+    Eval.eval_term (TransSys.uf_defs sys) model term
+    |> Eval.dec_of_value
+
+  let name = "Real"
+  type t = Decimal.t
+  let fmt = Decimal.pp_print_decimal
+  let eq = Decimal.equal
+  let cmp = Decimal.leq
+  let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
+  let eval = eval_real
+  let mine sys =
+    failwith "real candidate term mining is unimplemented"
+end
+
+(** Real invariant generation. *)
+module RealInvGen = Make(Real)
+
+
+
+
 
 let main _ _ = BoolInvGen.main
 let exit _ = BoolInvGen.exit ()
