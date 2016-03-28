@@ -657,8 +657,7 @@ module Make (Value : In) : Out = struct
 
     clear graph ;
 
-    if out_cnt > 4 then exit () else
-      update sys known lsd (out_cnt + 1) graph
+    update sys known lsd (out_cnt + 1) graph
 
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
