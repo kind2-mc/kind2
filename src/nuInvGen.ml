@@ -132,7 +132,24 @@ end
 
 
 
-(** Constructs an invariant generation module from a value module. *)
+(** Constructs an invariant generation module from a value module.
+
+The central notion used in the graph splitting algorithm is "chains". A chain
+is just a list of representative / value pairs that represent the new nodes
+obtained after splitting an old node.
+
+Throughout the different algorithms, a chain is ordered by decreasing values.
+
+Once a node is split, the chain is inserted in all the parents of the old node.
+The update algorithm is designed such that a node is split iff all its parents
+have already be split (that is, their value is known).
+
+Inserting a chain in the parents consists in extracting the longest prefix from
+the chain such that all the values are greater than that of the parent. So for
+instance when inserting the chain [7, 3, 2, -1] (omitting the representatives)
+for a parent with value 1, then the longest prefix is [7, 3, 2]. The graph is
+thus updated by linking the parent to the representative with value 2. The rest
+of the chain ([-1]) is inserted in all the parents of the parent. *)
 module Make (Value : In) : Out = struct
 
   (* Reference to LSD for clean exit. *)
@@ -334,7 +351,7 @@ module Make (Value : In) : Out = struct
         ) above acc
     ) map_up []
 
-  (* Formats a chain. *)
+  (* Formats a chain. See functor level documentation. *)
   let fmt_chain fmt =
     Format.fprintf fmt "[%a]" (
       pp_print_list
@@ -361,8 +378,8 @@ module Make (Value : In) : Out = struct
       | Some default -> f default |> Map.replace map key
     )
 
-  (** Transitive recursive closure of the kid relation. *)
-  let kid_trc map_down =
+  (** Transitive recursive closure of the parent relation. *)
+  let parent_trc map_down =
     let rec loop to_do set rep =
       let kids = Map.find map_down rep in
       let set, to_do =
@@ -379,32 +396,68 @@ module Make (Value : In) : Out = struct
     in
     loop Set.empty
 
-  (** Adds an edge to the graph. *)
+  (** Adds an edge to the graph. Updates [map_up] and [map_down]. *)
   let add_up { map_up ; map_down } rep kid =
     apply ~not_found:(Some Set.empty) (Set.add kid) rep map_up ;
     apply ~not_found:(Some Set.empty) (Set.add rep) kid map_down
 
 
-  (** Splits the graph based on a model. *)
+  (** Splits the class of a representative based on a model. Returns the
+  resulting chain. *)
   let split sys { classes ; values ; map_up ; map_down } model rep =
     (* Format.printf "  splitting %a@." fmt_term rep ; *)
+
     let rep_val = Value.eval sys model rep in
+    (* Class of the representative. Terms evaluating to a different value will
+    be removed from this set. *)
     let rep_cl4ss = ref (Map.find classes rep) in
 
+    (* Insertion in a list of triples composed of
+    - a representative
+    - its value in the model
+    - its class (set of terms
+    The list is ordered by decreasing values.
+
+    Used to evaluate all the terms in [rep_cl4ss] and create the new classes.
+
+    If a representative for the value we're inserting does not exist, then
+    a new triple [term, value, Set.empty] is created at the right place in the
+    sorted list. Otherwise, if the value is different from [rep_val], it is
+    inserted in the set of the representative with that value.
+    In both these cases, the term is removed from [rep_cl4ss].
+    If the value is equal to [rep_val], nothing happens.
+
+    The idea is that if all terms evaluate to the representative's value, no
+    operation is performed. Once all terms in [rep_cl4ss] have been evaluated
+    and "inserted", then the representative is inserted with the remaining
+    terms form [rep_cl4ss]. *)
     let rec insert ?(is_rep=false) pref sorted term value =
       if is_rep || value <> rep_val then (
         let default = if is_rep then !rep_cl4ss else Set.empty in
         if not is_rep then rep_cl4ss := Set.remove term !rep_cl4ss ;
+
         match sorted with
-        | [] -> (term, value, default) :: pref |> List.rev
+
+        | [] ->
+          (* No more elements, inserting. *)
+          (term, value, default) :: pref |> List.rev
+
         | (rep, value', set) :: tail when value = value' ->
+          (* Inserting. *)
           (rep, value', Set.add term set) :: tail |> List.rev_append pref
+
         | ( (_, value', _) :: _ as tail) when Value.cmp value' value ->
+          (* Found a value lower than [value], inserting. *)
           (term, value, default) :: tail |> List.rev_append pref
-        | head :: tail -> insert ~is_rep:is_rep (head :: pref) tail term value
+
+        | head :: tail ->
+          (* [head] is greater than [value], looping. *)
+          insert ~is_rep:is_rep (head :: pref) tail term value
+
       ) else sorted
     in
 
+    (* Creating new classes if necessary. *)
     let sorted =
       Set.fold (
         fun term sorted -> insert [] sorted term (Value.eval sys model term)
@@ -412,15 +465,22 @@ module Make (Value : In) : Out = struct
     in
 
     match sorted with
+
+    (* No new class was created, all terms evaluate to the value of the 
+    representative. *)
     | [] ->
-      (* Format.printf "    all terms evaluate to %a@.@." Value.fmt rep_val ; *)
-      (* Update values. *)
+      (* Format.printf
+        "    all terms evaluate to %a@.@." Value.fmt rep_val ; *)
+      (* Update values, no need to update classes. *)
       Map.replace values rep rep_val ;
       (* All terms in the class yield the same value. *)
       [ (rep, rep_val) ]
+
+    (* New classes were created. *)
     | _ ->
       (* Format.printf "    class was split@.@." ; *)
-      (* Representative's class was split, updating. *)
+      (* Representative's class was split, inserting [rep] and its updated
+      class. *)
       insert ~is_rep:true [] sorted rep rep_val
       |> List.map (
         fun (rep, value, set) ->
@@ -436,20 +496,28 @@ module Make (Value : In) : Out = struct
       )
 
 
-  (** Inserts a chain in a graph. *)
+  (** Inserts a chain obtained by splitting [rep] in a graph.
+
+  Remember that a node can be split iff all its parents have been split. *)
   let insert ({ map_up ; map_down ; values } as graph) rep chain =
     (* Format.printf "  inserting chain for %a@." fmt_term rep ;
     Format.printf "    chain: %a@." fmt_chain chain ; *)
+
     (* Nodes above [rep]. *)
     let above = Map.find map_up rep in
     (* Nodes below [rep]. *)
     let below = Map.find map_down rep in
+
     (* Format.printf
       "    %d above, %d below@." (Set.cardinal above) (Set.cardinal below) ; *)
+
     (* Greatest value in the chain. *)
     let greatest_rep, greatest_val = List.hd chain in
 
-    (* Break all links to and from [rep]. *)
+    (* Break all links from [rep], except if rep is the top of the chain. These
+    links will be used to update the kids of [rep] in the future. Remember that
+    a node can be split iff all its parents have been split. Hence all the kids
+    of the current representative have not been split yet. *)
     if Term.equal rep greatest_rep |> not then (
       (* Format.printf "    breaking all links from %a@." fmt_term rep ; *)
       map_up |> apply (
@@ -474,7 +542,10 @@ module Make (Value : In) : Out = struct
       (* Format.printf "    keeping uplinks: (original) %a = %a (greatest)@."
         fmt_term rep fmt_term greatest_rep ; *)
     ) ;
+
     (* Format.printf "    breaking all links to %a@." fmt_term rep ; *)
+
+    (* Break all links to [rep]. *)
     map_down |> apply (
       fun set ->
         (* Break uplinks. *)
@@ -489,27 +560,44 @@ module Make (Value : In) : Out = struct
     ) rep ;
 
     (* Format.printf "    creating chain links@." ; *)
-    (* Create chain links. *)
-    let rec loop last = function
+    
+    (* Create links between the elements of the chain.
+
+    Has to be done after we disconnect [rep], otherwise these links would also
+    be disconnected. *)
+    let rec link_chain last = function
       | (next, _) :: tail ->
-        (* Format.printf "      creating %a -> %a@." fmt_term next fmt_term last ; *)
+        (* Format.printf
+          "      creating %a -> %a@." fmt_term next fmt_term last ; *)
         add_up graph next last ;
-        loop next tail
+        link_chain next tail
       | [] -> ()
     in
-    ( match chain with | (head, _) :: tail -> loop head tail | [] -> () ) ;
+    ( match chain with
+      | (head, _) :: tail -> link_chain head tail
+      (* This case IS unreachable, because of the [List.hd chain] above that
+      would crash if [chain] was empty. *)
+      | [] -> failwith "unreachable"
+    ) ;
 
-    (* Returns the longest subchain above [value'], in DECREASING order.
-    Assumes the chain is in INCREASING order. *)
+    (* Returns the longest subchain above [value'], in INCREASING order.
+    Assumes the chain is in DECREASING order. *)
     let rec longest_above pref value' = function
       | (rep, value) :: tail when Value.cmp value' value ->
+        (* [value'] lower than the head, looping. *)
         longest_above (rep :: pref) value' tail
-      | rest -> pref, rest
+      | rest ->
+        (* [value'] greaten than the head, done. *)
+        pref, rest
     in
 
-    (* Inserts a chain. *)
+    (* Inserts a chain.
+    - [known]: nodes below [rep] we have already seen
+    - [continuation]: list of (sub)chain / parent left to handle
+    - [chain]: (sub)chain we're currently inserting
+    - [node]: the node we're trying to link to the chain *)
     let rec insert known continuation chain node =
-(*       Format.printf "  inserting for %a@." fmt_term node ;
+      (* Format.printf "  inserting for %a@." fmt_term node ;
 
       Format.printf "  continuation: @[<v>%a@]@."
         (pp_print_list
@@ -519,14 +607,21 @@ module Make (Value : In) : Out = struct
         continuation ; *)
 
       let value = Map.find values node in
+
       (* Longest chain above current node. *)
       let chain_above, rest = longest_above [] value chain in
+
       (* Format.printf "    %d above, %d below@."
         (List.length chain_above) (List.length rest) ; *)
+
       (* Creating links. *)
       ( match chain_above with
         | [] ->
-          (* Linking with [above] if [node] is in [below]. *)
+          (* [value] is greater than the greatest value in the (sub)chain. *)
+
+          (* Linking [node] with [above] if [node] is in [below]. (This means
+          [node] is a direct parent of [rep] that's greater than any element of
+          the chain.) *)
           if Set.mem node below then (
             (* Format.printf "    linking node to above@." ; *)
             map_up |> apply (Set.union above) node ;
@@ -534,23 +629,31 @@ module Make (Value : In) : Out = struct
               fun above -> map_down |> apply (Set.add node) above
             )
           )
-        | chain_above :: _ ->
-          apply (Set.add chain_above) node map_up ;
-          apply (Set.add node) chain_above map_down ;
-          (* Also linking with [above] is [node] is in [below]. *)
+        | lowest :: _ ->
+          (* [lowest] is the LOWEST element of the chain above [node]. We thus
+          link [node] to [lowest]. *)
+
+          add_up graph node lowest ;
+
+          (* I had this thing at some point, but it should not be needed.
+          Keeping it just in case. *)
+
+          (* (* Also linking with [above] is [node] is in [below]. *)
           if Set.mem node below then (
             (* Format.printf "    linking greatest to above@." ; *)
             map_up |> apply (Set.union above) greatest_rep ;
             above |> Set.iter (
               fun above -> map_down |> apply (Set.add greatest_rep) above
             )
-          )
+          ) *)
       ) ;
+
+      (* Anything left to insert below? *)
       match rest with
       | [] ->
-        (* Chain successfully inserted, add everything below [none] to
+        (* Chain completely inserted, add everything below [node] to
         [known]. *)
-        let known = kid_trc map_down known node in
+        let known = parent_trc map_down known node in
         (* Continuing. *)
         continue known continuation
       | _ ->
@@ -558,7 +661,7 @@ module Make (Value : In) : Out = struct
         (rest, Map.find map_down node |> Set.elements) :: continuation
         |> continue known
 
-    (* Continuation handling for chain insertion. *)
+    (* Continuation for chain insertion. *)
     and continue known = function
       | ( chain, [node]) :: continuation ->
         if Set.mem node known then (
@@ -581,12 +684,17 @@ module Make (Value : In) : Out = struct
     in
 
     match Set.elements below with
+
+    (* Nothing below the node that was split. Linking everything above to
+    greatest. Future splits will insert things in the right place. *)
     | [] ->
       (* Format.printf "    linking greatest to above@." ; *)
       map_up |> apply (Set.union above) greatest_rep ;
       above |> Set.iter (
         fun above -> map_down |> apply (Set.add greatest_rep) above
       )
+
+    (* Need to insert the chain. *)
     | node :: rest ->
       (* Format.printf "    below:@[<v>%a%a@]@."
         fmt_term node
@@ -594,13 +702,15 @@ module Make (Value : In) : Out = struct
         rest ; *)
       insert Set.empty [ (chain), rest ] chain node
 
-
+  (* Finds a node that's not been split, but with all its parents split. *)
   let next_of_continuation { map_down ; values } =
+    (* [skipped] contains the nodes with parents that have not been split
+    yet. *)
     let rec loop skipped = function
-      | [] -> None
+      | [] -> assert (skipped = []) ; None
       | (nxt :: rest) :: tail ->
-        (* Next rep of continuation is legal if all kids have been
-        evaluated. *)
+        (* Next rep of continuation is legal if all parents have been
+        split. *)
         let legal_nxt =
           try
             Map.find map_down nxt
@@ -619,9 +729,9 @@ module Make (Value : In) : Out = struct
     in
     loop []
 
-  (** Queries the lsd and updates the graph. Iterates until a fixedpoint is
-  reached. *)
-  let rec update sys known lsd out_cnt ({ map_up } as graph) = match
+  (** Queries the lsd and updates the graph. Iterates until the graph is stable
+  meaning the lsd returns unsat. *)
+  let rec update sys known lsd out_cnt ({ map_up ; map_down } as graph) = match
     terms_of graph known |> Lsd.query_base lsd sys
   with
   | None ->
@@ -652,17 +762,28 @@ module Make (Value : In) : Out = struct
           above :: continuation |> loop (in_cnt + 1)
       )
     in
-    
-    loop 0 [ [ Term.t_false ] ] ;
 
+    (* Retrieve all nodes that have no parents. *)
+    let orphans =
+      Map.fold (
+        fun rep parents acc -> if Set.is_empty parents then rep :: acc else acc
+      ) map_down []
+    in
+
+    (* Clear (NOT RESET) the value map for update. *)
     clear graph ;
+    
+    (* Stabilize graph. *)
+    loop 0 [ orphans ] ;
 
+    (* Check if new graph is stable. *)
     update sys known lsd (out_cnt + 1) graph
 
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
   after incrementing [k]. *)
   let rec system_iterator memory k = function
+
   | (sys, graph, non_trivial, trivial) :: graphs ->
     (* Format.printf "Running on %a for %a@.@."
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
@@ -694,6 +815,7 @@ module Make (Value : In) : Out = struct
     let non_trivial', trivial' =
       all_terms_of graph prune |> Lsd.query_step lsd sys
     in
+
     let non_trivial, trivial =
       non_trivial' |> List.fold_left (
         fun set inv -> Set.add inv set
@@ -702,6 +824,8 @@ module Make (Value : In) : Out = struct
         fun set inv -> Set.add inv set
       ) trivial
     in
+
+    (* Communicate invariants. *)
     ( match non_trivial', trivial' with
       | [], [] -> ()
       | [], _ ->
@@ -737,6 +861,7 @@ module Make (Value : In) : Out = struct
     lsd_ref := None ;
     (* Looping. *)
     system_iterator ( (sys, graph, non_trivial, trivial) :: memory ) k graphs
+
   | [] ->
     (* Done for all systems for this k, incrementing. *)
     let k = Numeral.succ k in
