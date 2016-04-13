@@ -115,6 +115,7 @@ let main_of_process = function
   | `BMC -> BMC.main
   | `IND -> IND.main
   | `IND2 -> IND2.main
+  | `NUINVGEN -> renice () ; NuInvGen.main
   | `INVGEN -> renice () ; InvGenTS.main
   | `INVGENOS -> renice () ; InvGenOS.main
   | `C2I -> renice () ; C2I.main
@@ -128,6 +129,7 @@ let on_exit_of_process = function
   | `BMC -> BMC.on_exit
   | `IND -> IND.on_exit
   | `IND2 -> IND2.on_exit
+  | `NUINVGEN -> NuInvGen.exit
   | `INVGEN -> InvGenTS.on_exit
   | `INVGENOS -> InvGenOS.on_exit
   | `C2I -> C2I.on_exit
@@ -151,6 +153,7 @@ let debug_ext_of_process = function
   | `BMC -> "bmc"
   | `IND -> "ind"
   | `IND2 -> "ind2"
+  | `NUINVGEN -> "nuinvgen"
   | `INVGEN -> "invgenTS"
   | `INVGENOS -> "invgenOS"
   | `C2I -> "c2i"
@@ -1049,10 +1052,6 @@ let rec run_loop msg_setup modules results =
   let aparam, input_sys, trans_sys =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
-
-  NuInvGen.BoolInvGen.main trans_sys ;
-
-  failwith "aaaaaahhhhh" ;
 
   ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
 

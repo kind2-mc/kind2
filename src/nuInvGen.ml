@@ -47,7 +47,6 @@ let write_dot_to path name suff fmt_graph graph =
 
 
 
-
 (* |===| Module and type aliases *)
 
 
@@ -74,6 +73,61 @@ let fmt_term = Term.pp_print_term
 
 
 
+(* |===| Communication stuff. *)
+
+(* Guards a term with init if in two state mode. *)
+let sanitize_term two_state sys term =
+  if two_state then (
+    match Term.var_offsets_of_term term with
+    | Some min, Some max when min != max ->
+      Term.mk_or [ TransSys.init_flag_of_bound sys Numeral.zero ; term ]
+    | _ -> term
+  ) else term
+
+(* Instantiates [invariants] for all the systems calling [sys] and communicates
+them to the framework. *)
+let communicate_invariants top_sys two_state sys invariants =
+  if Set.is_empty invariants then 0 else (
+    let invariants = Set.elements invariants in
+
+    (* All intermediary invariants and top level ones. *)
+    let ((_, top_invariants), intermediary_invariants) =
+      if top_sys == sys then
+       (top_sys, List.map (sanitize_term two_state sys) invariants), []
+      else
+       Term.mk_and invariants
+       (* Guarding with init if needed. *)
+       |> sanitize_term two_state sys
+       (* Instantiating at all levels. *)
+       |> TransSys.instantiate_term_all_levels 
+         top_sys TransSys.prop_base (TransSys.scope_of_trans_sys sys)
+    in
+
+    intermediary_invariants |> List.iter (
+      fun (sub_sys, terms) ->
+        (* Adding invariants to the transition system. *)
+        terms |> List.iter (TransSys.add_invariant sub_sys) ;
+        (* Broadcasting invariants. *)
+        terms |> List.iter (
+          TransSys.scope_of_trans_sys sub_sys |> Event.invariant
+        )
+    ) ;
+
+    let top_scope = TransSys.scope_of_trans_sys top_sys in
+
+    top_invariants |> List.iter (
+      fun inv ->
+        (* Adding top level invariants to transition system. *)
+        TransSys.add_invariant top_sys inv ;
+        (* Communicate invariant. *)
+        Event.invariant top_scope inv
+    ) ;
+
+    List.length top_invariants
+  )
+
+
+
 
 (* |===| Functor stuff *)
 
@@ -95,7 +149,7 @@ module type In = sig
   (** Evaluates a term. *)
   val eval : TransSys.t -> Model.t -> Term.t -> t
   (** Mines a transition system for candidate terms. *)
-  val mine : TransSys.t -> Term.TermSet.t
+  val mine : TransSys.t -> (TransSys.t * Term.TermSet.t) list
 end
 
 (** Signature of the module returned by the [Make] invariant generation functor
@@ -157,6 +211,25 @@ module Make (Value : In) : Out = struct
     (** Maps representatives to the value they evaluate to in the current
     model. Cleared between each iteration ([clear] not [reset]). *)
     values: Value.t map ;
+  }
+
+  let mk_graph rep candidates = {
+    map_up = (
+      let map = Map.create 107 in
+      Map.replace map rep Set.empty ;
+      map
+    ) ;
+    map_down = (
+      let map = Map.create 107 in
+      Map.replace map rep Set.empty ;
+      map
+    ) ;
+    classes = (
+      let map = Map.create 107 in
+      Map.replace map rep candidates ;
+      map
+    ) ;
+    values = Map.create 107 ;
   }
 
   (* Formats a graph to graphviz format. *)
@@ -729,9 +802,9 @@ module Make (Value : In) : Out = struct
         (* Split and insert chain. *)
         split sys graph model nxt |> insert graph nxt ;
         (* Format.printf "@.  logging graph for %d / %d@." out_cnt in_cnt ; *)
-        write_dot_to
+        (* write_dot_to
           "graphs/" "graph" (Format.sprintf "%d_%d" out_cnt in_cnt)
-          fmt_graph_dot graph ;
+          fmt_graph_dot graph ; *)
         (* Add nodes above [nxt] to continuation if any. *)
         match above with
         | [] -> ()
@@ -753,18 +826,21 @@ module Make (Value : In) : Out = struct
     (* Stabilize graph. *)
     loop 0 [ orphans ] ;
 
+    (* Checking if we should terminate before looping. *)
+    Event.check_termination () ;
+
     (* Check if new graph is stable. *)
     update sys known lsd (out_cnt + 1) graph
 
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
   after incrementing [k]. *)
-  let rec system_iterator memory k = function
+  let rec system_iterator top_sys memory k = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
-    (* Format.printf "Running on %a for %a@.@."
+    Format.printf "Running on %a for %a@.@."
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
-      Numeral.pp_print_numeral k ; *)
+      Numeral.pp_print_numeral k ;
     (* Creating LSD instance. *)
     let lsd = Lsd.create (Flags.Invgen.two_state ()) true sys in
     (* Memorizing LSD instance for clean exit. *)
@@ -777,6 +853,9 @@ module Make (Value : In) : Out = struct
     (* Prunes known invariant from a list of candidates. *)
     let prune cand = Set.mem cand non_trivial || Set.mem cand trivial in
 
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
+
     (* Stabilize graph. *)
     ( try update sys prune lsd 0 graph with
       | e -> (
@@ -784,9 +863,9 @@ module Make (Value : In) : Out = struct
         exit ()
       )
     ) ;
-    write_dot_to
+    (* write_dot_to
       "graphs/" "classes" (Format.asprintf "%a" Numeral.pp_print_numeral k)
-      fmt_graph_classes_dot graph ;
+      fmt_graph_classes_dot graph ; *)
 
     (* Check for invariants. *)
     let non_trivial', trivial' =
@@ -821,6 +900,21 @@ module Make (Value : In) : Out = struct
             Format.fprintf fmt "@ and %d trivial invariants"
               (List.length trivial')
         in
+
+        (* Communicate non trivial invariants. *)
+        communicate_invariants
+          top_sys (Flags.Invgen.two_state ()) sys non_trivial ;
+
+        (* Communicate trivial invariants if asked. *)
+        if Flags.Invgen.prune_trivial () |> not then (
+          communicate_invariants
+            top_sys (Flags.Invgen.two_state ()) sys trivial
+          |> ignore
+        ) ;
+
+        (* TODO: take into account the number of invariants for top level when
+        logging. *)
+
         Event.log L_info
           "%s @[<v>system %a at %a (%d/%d)@ found %d invariants%t@]"
           pref
@@ -829,55 +923,44 @@ module Make (Value : In) : Out = struct
           (Set.cardinal non_trivial)
           (Set.cardinal trivial)
           (List.length non_trivial')
-          trivial_blah
+          trivial_blah ;
     ) ;
 
     (* Destroying LSD. *)
     Lsd.delete lsd ;
     (* Unmemorizing LSD instance. *)
     lsd_ref := None ;
+
+    (* Checking if we should terminate before looping. *)
+    Event.check_termination () ;
+
     (* Looping. *)
-    system_iterator ( (sys, graph, non_trivial, trivial) :: memory ) k graphs
+    system_iterator
+      top_sys ( (sys, graph, non_trivial, trivial) :: memory ) k graphs
 
   | [] ->
     (* Done for all systems for this k, incrementing. *)
     let k = Numeral.succ k in
     Event.log L_info
       "%s Looking for invariants at %a." pref Numeral.pp_print_numeral k ;
-    List.rev memory |> system_iterator [] k
+    List.rev memory |> system_iterator top_sys [] k
 
 
   (** Invariant generation entry point. *)
   let main sys =
 
-    (* Generating the candidate terms and building the graphs. Result is a list
-       of triplets: system, graph, invariants. *)
-    let candidate_terms = Value.mine sys |> Set.remove Term.t_false in
-
-    let graph =
-      {
-        map_up = (
-          let map = Map.create 107 in
-          Map.replace map Term.t_false Set.empty ;
-          map
-        ) ;
-        map_down = (
-          let map = Map.create 107 in
-          Map.replace map Term.t_false Set.empty ;
-          map
-        ) ;
-        classes = (
-          let map = Map.create 107 in
-          Map.replace map Term.t_false candidate_terms ;
-          map
-        ) ;
-        values = Map.create 107 ;
-      }
-    in
-
+    (* Initial [k]. *)
     let k = if Flags.Invgen.two_state () then Numeral.one else Numeral.zero in
 
-    system_iterator [] k [ sys, graph, Set.empty, Set.empty ]
+    (* Generating the candidate terms and building the graphs. Result is a list
+    of quadruples: system, graph, non-trivial invariants, trivial
+    invariants. *)
+    Value.mine sys |> List.map (
+      fun (sys, set) ->
+        let set = Set.add Term.t_true set in
+        sys, mk_graph Term.t_false set, Set.empty, Set.empty
+    )
+    |> system_iterator sys [] k
 
 end
 
@@ -901,12 +984,9 @@ module Bool: In = struct
   let mk_cmp lhs rhs = Term.mk_implies [ lhs ; rhs ]
   let eval = eval_bool
   let mine sys =
-    sys
-    |> InvGenCandTermGen.generate_graphs (Flags.Invgen.two_state ()) sys
-    |> function
-      | (_, head, _) :: _, _ ->
-        ImplicationGraph.eq_classes head |> List.hd
-      | [], _ -> failwith "blah"
+    InvGenCandTermGen.generate_candidate_terms
+      (Flags.Invgen.two_state ()) sys sys
+    |> fst
 end
 
 (** Boolean invariant generation. *)
