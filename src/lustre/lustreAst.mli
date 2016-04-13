@@ -278,6 +278,7 @@ type declaration =
 type t = declaration list
 
 (** {1 Pretty-printers} *)
+val pp_print_node_param_list : Format.formatter -> node_param list -> unit
 val pp_print_ident : Format.formatter -> ident -> unit
 val pp_print_expr : Format.formatter -> expr -> unit
 val pp_print_array_slice : Format.formatter -> expr * expr -> unit

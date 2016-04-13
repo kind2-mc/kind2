@@ -1125,7 +1125,6 @@ let launch () =
   TermLib.Signals.ignore_sigpipe () ;
 
   let input_sys = setup () in
-  input_sys_ref := Some input_sys ;
   let results = Analysis.mk_results () in
 
 

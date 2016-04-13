@@ -61,6 +61,8 @@ let of_channel in_ch =
 
   in
 
+  ContractsToProps.translate declarations "blah.lus" ;
+
   (* Format.printf "declarations:@   @[<v>%a@]@.@."
     (pp_print_list LustreAst.pp_print_declaration "@ ") declarations ; *)
 
