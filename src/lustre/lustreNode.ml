@@ -454,7 +454,7 @@ let pp_print_node safe ppf {
      %a%t\
      %t\
      %a@;<1 -2>\
-     tel;@]@]"  
+     tel;@]@]@?"  
 
     (* %a *)
     (I.pp_print_ident safe) name

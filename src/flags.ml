@@ -787,6 +787,26 @@ module Contracts = struct
     )
   let compositional () = !compositional
 
+  let translate_default = None
+  let translate = ref translate_default
+  let _ = add_spec
+    "--translate_contracts"
+    ( Arg.String (fun str -> translate := Some str) )
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Translates a contracts in assertions / properties (experimental)@ \
+          Default: %t@]"
+        (fun fmt ->
+          Format.fprintf fmt "%s" (
+            match translate_default with
+            | None -> "off"
+            | Some f -> f
+          )
+        )
+    )
+  let translate_contracts () = !translate
+
   let check_modes_default = true
   let check_modes = ref check_modes_default
   let _ = add_spec

@@ -801,12 +801,14 @@ let pp_print_array_def_index ppf ident =
 
 let pp_print_eq_lhs ppf = function
 
-  | StructDef (pos, [l]) -> pp_print_struct_item ppf l
+  | StructDef (pos, [l]) ->
+    pp_print_struct_item ppf l
       
-  | StructDef (pos, l) -> (pp_print_list pp_print_struct_item "@,") ppf l
+  | StructDef (pos, l) ->
+    Format.fprintf ppf "(%a)"
+      (pp_print_list pp_print_struct_item ",") l
                             
   | ArrayDef (pos, i, l) ->
-
     Format.fprintf ppf
       "%a%a"
       pp_print_ident i
@@ -959,7 +961,7 @@ let pp_print_contract_spec ppf = function
 | Some contract ->
   Format.fprintf 
     ppf
-    "@[<v 2>(*@contract@ %a@]@ *)"
+    "@[<v 2>(*@contract@ %a@]@ *)@ "
     pp_print_contract contract
 
 
@@ -1002,7 +1004,7 @@ let pp_print_declaration ppf = function
        returns@ @[<hv 1>(%a)@];@]@ \
        %a\
        %a\
-       @[<hv 2>let@ \
+       @[<v 2>let@ \
        %a@;<1 -2>\
        tel;@]@]"
       pp_print_ident n 

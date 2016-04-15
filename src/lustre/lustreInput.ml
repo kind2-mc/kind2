@@ -26,9 +26,8 @@ module D = LustreDeclarations
 module S = SubSystem
 
 
-
-(* Parse from input channel *)
-let of_channel in_ch = 
+(* Constructs an AST from an input channel. *)
+let ast_of_channel in_ch =
 
   (* Create lexing buffer *)
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
@@ -39,27 +38,20 @@ let of_channel in_ch =
     (try Filename.dirname (Flags.input_file ())
      with Failure _ -> Sys.getcwd ());
 
-  (* Lustre file is a list of declarations *)
-  let declarations = 
+  try
+    (* Parse file to list of declarations *)
+    LustreParser.main LustreLexer.token lexbuf 
+  with
+  | LustreParser.Error ->
+    let lexer_pos = Lexing.lexeme_start_p lexbuf in
+    C.fail_at_position (position_of_lexing lexer_pos) "Syntax error"
 
-    try 
 
-      (* Parse file to list of declarations *)
-      LustreParser.main LustreLexer.token lexbuf 
+(* Parse from input channel *)
+let of_channel in_ch =
 
-    with 
-
-      | LustreParser.Error ->
-
-        let lexer_pos = 
-          Lexing.lexeme_start_p lexbuf 
-        in
-
-        C.fail_at_position
-          (position_of_lexing lexer_pos)
-          "Syntax error"
-
-  in
+  (* Get declarations from channel. *)
+  let declarations = ast_of_channel in_ch in
 
   (* Format.printf "declarations:@   @[<v>%a@]@.@."
     (pp_print_list LustreAst.pp_print_declaration "@ ") declarations ; *)
@@ -119,16 +111,28 @@ let of_channel in_ch =
   (* Return a subsystem tree from the list of nodes *)
   N.subsystem_of_nodes nodes', globals
   
-
-(* Open and parse from file *)
-let of_file filename = 
+(* Returns the AST from a file. *)
+let ast_of_file filename =
 
   (* Open the given file for reading *)
   let in_ch = match filename with
     | "" -> stdin
-    | _ -> open_in filename in
+    | _ -> open_in filename
+  in
 
-    of_channel in_ch
+  ast_of_channel in_ch
+
+
+(* Open and parse from file *)
+let of_file filename =
+
+  (* Open the given file for reading *)
+  let in_ch = match filename with
+    | "" -> stdin
+    | _ -> open_in filename
+  in
+
+  of_channel in_ch
 
 
 (* 
