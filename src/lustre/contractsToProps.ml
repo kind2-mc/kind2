@@ -205,13 +205,14 @@ let rec fmt_declarations fmt = function
 )
 | [] -> ()
 
-let translate program target =
+let translate ast target =
   let tgt = open_out target in
   let fmt = Format.formatter_of_out_channel tgt in
+  fmt_declarations fmt ast
 
-  fmt_declarations fmt program ;
-
-  exit 2
+let translate_file file target =
+  let ast = LustreInput.ast_of_file file in
+  translate ast target
 
 (* 
    Local Variables:

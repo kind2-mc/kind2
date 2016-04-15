@@ -119,6 +119,9 @@
     and refinement from analysis strategies. *)
 val of_file : string -> LustreNode.t SubSystem.t * LustreGlobals.t
 
+(** Parse from the file, returns the AST. *)
+val ast_of_file : string -> LustreAst.declaration list
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

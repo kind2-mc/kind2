@@ -329,6 +329,9 @@ module Contracts : sig
   (** Compositional analysis. *)
   val compositional : unit -> bool
 
+  (** Translate contracts. *)
+  val translate_contracts : unit -> string option
+
   (** Check modes. *)
   val check_modes : unit -> bool
 
