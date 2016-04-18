@@ -883,7 +883,7 @@ let rec eval_node_equations ctx = function
 
    This function is shared between nodes and functions, each has a
    different way to deal with ghost variables. *)
-let eval_ghost_var ?(no_defs = false) f ctx = function
+let eval_ghost_var ?(no_defs = false) ctx = function
 
   (* Declaration of a free variable *)
   | A.FreeConst (pos, _, _) ->
@@ -898,77 +898,85 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
     (* Identifier of AST identifier *)
     let ident = I.mk_string_ident i in
 
-    if
-
-      (try 
-
-         (* Identifier must not be declared *)
-         C.expr_in_context ctx ident 
-
+    if (
+      try 
+        (* Identifier must not be declared *)
+        C.expr_in_context ctx ident 
+      with Invalid_argument e ->
        (* Fail if reserved identifier used *)
-       with Invalid_argument e -> C.fail_at_position pos e)
-
-    then
-
+       C.fail_at_position pos e
+    ) then (
       (* Fail if identifier already declared *)
-      C.fail_at_position 
-        pos 
-        (Format.asprintf 
-           "Identifier %a is redeclared as ghost" 
-           (I.pp_print_ident false) ident);
+      C.fail_at_position pos (
+        Format.asprintf 
+          "Identifier %a is redeclared as ghost" 
+          (I.pp_print_ident false) ident
+      )
+    ) ;
 
-    (* Evaluate ghost expression *)
-    let expr', ctx = 
-      S.eval_ast_expr
+    if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        pos
+        "Illegal unguarded pre in ghost variable definition."
+    ) ;
 
-        (* Change context to fail on new definitions *)
-        (if no_defs then 
-           C.fail_on_new_definition
-             ctx
-             pos
-             "Invalid expression for variable"
-         else 
-           ctx)
-        expr
-    in
+    match const_decl with 
+    (* Distinguish typed and untyped constant here *)
 
-    let type_expr' = 
+    (* Need to type check constant against given type *)
+    | A.TypedConst (_, _, _, type_expr) -> (
 
-      (* Distinguish typed and untyped constant here *)
-      (match const_decl with 
+      try (
+        (* Evaluate type expression *)
+        let type_expr = S.eval_ast_type ctx type_expr in
+        (* Add ghost to context. *)
+        let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
-        (* Need to type check constant against given type *)
-        | A.TypedConst (_, _, _, type_expr) -> 
+        let ctx =
+          eval_node_equations ctx [
+            A.Equation (pos, (A.ArrayDef (pos, i, [])), expr)
+          ]
+        in
 
-          (try 
+        ctx
 
-             (* Evaluate type expression *)
-             let type_expr' = S.eval_ast_type ctx type_expr in 
+      ) with
+      | E.Type_mismatch -> (
+        C.fail_at_position
+          pos "Type mismatch in ghost variable declaration"
+      )
+      | e -> (
+        C.fail_at_position
+          pos (
+            Format.asprintf
+              "unexpected error in ghost variable treatment: %s"
+              (Printexc.to_string e)
+          )
+      )
+    )
 
-             (* Check if type of expression is a subtype of the defined
-                type at each index *)
-             D.iter2
-               (fun _ def_type { E.expr_type } ->
-                  if not (Type.check_type expr_type def_type) then
-                    raise E.Type_mismatch)
-               type_expr'
-               expr';
+    (* No type check for untyped or free constant *)
+    | _ -> (
+      (* Evaluate ghost expression *)
+      let expr, ctx =
+        S.eval_ast_expr (
+          (* Change context to fail on new definitions *)
+          if no_defs then 
+            C.fail_on_new_definition
+              ctx pos "Invalid expression for variable"
+          else ctx
+        ) expr
+      in
+      
+      let type_expr = D.map (fun { E.expr_type } -> expr_type) expr in
+      (* Add ghost to context. *)
+      let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
+      let ctx =
+        C.add_expr_for_ident ~shadow:true ctx ident expr
+      in
 
-             type_expr'
-
-           with Invalid_argument _ | E.Type_mismatch -> 
-
-             (C.fail_at_position
-                pos
-                "Type mismatch in ghost variable declaration"))
-
-        (* No type check for untyped or free constant *)
-        | _ -> D.map (fun { E.expr_type } -> expr_type) expr')
-
-    in
-
-    (* Pass to continuation *)
-    f ctx pos ident type_expr' expr expr'
+      ctx
+    )
 
 
 (** Returns an option of the output state variables mentioned in the current
@@ -1360,9 +1368,7 @@ let rec eval_node_contract_call ctx scope
           ) ;
 
           C.add_expr_for_ident
-            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
-
-          ctx
+            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
       ) ctx out_params out_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
@@ -1408,7 +1414,7 @@ and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
   | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
 
   (* Add ghost variables to context *)
-  | A.GhostVar v -> eval_ghost_var add_ghost ctx v, cpt_a, cpt_g
+  | A.GhostVar v -> eval_ghost_var ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
   | A.Assume ( (_, _, expr) as a ) ->
