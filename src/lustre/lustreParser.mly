@@ -368,8 +368,8 @@ contract_ghost_var:
     i = ident ; COLON ; t = lustre_type; EQUALS ; e = expr ;
     SEMICOLON 
     { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
-  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
-    { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) }
+(*  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
+    { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) } *)
 
 contract_ghost_const:
   | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
