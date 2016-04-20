@@ -89,17 +89,17 @@ let mk assumes guarantees modes = {
 
 let add_ass t assumes = {
   t with
-    assumes = List.rev_append (List.rev assumes) t.assumes ;
+    assumes = t.assumes @ assumes ;
 }
 
 
 let add_gua t guarantees = {
   t with
-    guarantees = List.rev_append (List.rev guarantees) t.guarantees ;
+    guarantees = t.guarantees @ guarantees ;
 }
 
 
-let add_modes t modes = { t with modes = modes @ t.modes }
+let add_modes t modes = { t with modes = t.modes @ modes }
 
 
 let svars_of_list l set = l |> List.fold_left (
