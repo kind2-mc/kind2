@@ -648,7 +648,7 @@ let expr_of_svar { expr_state_var_map } svar =
   try
     expr_state_var_map |> ET.iter (
       fun expr svar' ->
-        Format.printf "  - %a@." StateVar.pp_print_state_var svar ;
+        (* Format.printf "  - %a@." StateVar.pp_print_state_var svar ; *)
         if svar == svar' then raise (FoundIt expr) else ()
     ) ;
     None
