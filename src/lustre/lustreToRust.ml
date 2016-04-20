@@ -695,7 +695,7 @@ let fmt_assumes_doc fmt = function
         fmt_pos_as_link pos
         num
     ) "@ /// "
-  ) (List.rev assumes)
+  ) assumes
 
 
 (* Writes the documentation for a struct for the implementation of a node. *)
@@ -774,7 +774,7 @@ let oracle_doc_of_struct is_top fmt (
       ///@.\
       /// - `(req_1 && ... && req_n) => ens_1`
       /// - ...
-      /// - `(req_1 && ... && req_n) => ens_n`
+      /// - `(req_1 && ... && req_n) => ens_m`
       ///@.\
       /// Hence, an ensure output is false iff the mode is active and the
       /// ensure is false.
@@ -820,7 +820,7 @@ let oracle_doc_of_struct is_top fmt (
       | [] -> Format.fprintf fmt "No guarantees for this system.@."
       | guarantees ->
         Format.fprintf fmt "\
-            | Lustre identifier | Assumption number | Position |@.\
+            | Lustre identifier | Guarantee number | Position |@.\
             /// |:---:|:---:|:---|@.\
             /// %a@.
           "
@@ -1145,7 +1145,7 @@ let node_to_rust oracle_info is_top fmt (
               fmt_pos_as_link pos
               num
           ) "@ "
-        ) fmt (List.rev assumes)
+        ) fmt assumes
     ) contract
     typ
     ( pp_print_list (fun fmt (_, svar) ->
@@ -1272,7 +1272,7 @@ let node_to_rust oracle_info is_top fmt (
               fmt_pos_as_link pos
               num
           ) "@ "
-        ) fmt (List.rev assumes)
+        ) fmt assumes
     ) contract
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
@@ -1676,31 +1676,16 @@ fn write_footer<W: Write>(w: & mut W) -> IoRes<()> {
   close_out out_channel ;
 
   (* Copy all input files to the lus directory. *)
-  let cp src =
-    Format.printf "cp %s@." src ;
-    fmt_cp_target src lus_path
-    |> fun name -> (
-      Format.printf "  to %s@.@." name ;
-      name
-    )
-    |> cp_file src
-  in
-  try (
-    Flags.input_file () |> cp ;
-    Flags.all_input_files () |> List.iter (
-      fun file -> cp file
-    )
-  ) with e -> (
-    Format.printf "exception: %s" (Printexc.to_string e)
+  let cp src = fmt_cp_target src lus_path |> cp_file src in
+  Flags.input_file () |> cp ;
+  Flags.all_input_files () |> List.iter (
+    fun file -> cp file
   )
 
 
 
 
 let to_rust oracle_info target find_sub top =
-  Format.printf "coi: @[<v>%a@]@.@."
-    (pp_print_list Format.pp_print_string "@ ") (Flags.all_input_files ()) ;
-
   let top_name, top_type = mk_id_legal top.N.name, mk_id_type top.N.name in
   (* Creating project directory if necessary. *)
   mk_dir target ;
@@ -1838,7 +1823,8 @@ let oracle_to_rust target find_sub top =
     | None -> failwith "cannot generate oracle for contract-free node"
     | Some contract ->
       let outputs, output_svars =
-        contract.C.guarantees |> List.fold_left (fun (trie, outs) svar ->
+        contract.C.guarantees
+        |> List.fold_left (fun (trie, outs) svar ->
           I.add (
             [ I.ListIndex (next_index_of trie) ]
           ) svar.C.svar trie,
