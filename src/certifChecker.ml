@@ -2577,7 +2577,10 @@ let generate_smt2_certificates input sys =
 
   (* Only generate frontend observational equivalence system for Lustre *)
   if InputSystem.is_lustre_input input then
-    generate_frontend_obs input sys dirname |> ignore
+    try
+      generate_frontend_obs input sys dirname |> ignore
+    with Failure s ->
+      Event.log L_warn "%s@ No frontend observer." s
   else
     printf "No certificate for frontend@.";
 
@@ -2656,7 +2659,8 @@ let generate_all_proofs input sys =
     
     (* Only generate frontend observational equivalence system for Lustre *)
     if InputSystem.is_lustre_input input then
-      try generate_frontend_obs input sys dirname |> ignore
+      try
+        generate_frontend_obs input sys dirname |> ignore
       with Failure s ->
         Event.log L_warn "%s@ No frontend observer." s
     else

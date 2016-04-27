@@ -2,7 +2,8 @@
 # CC = gcc-mp-5
 # CXX = g++-mp-5
 
-AM_CXXFLAGS = -Wall -Wno-deprecated -Wl,-stack_size -Wl,1312D000
+AM_CXXFLAGS = -Wall -Wno-deprecated #-Wl,-stack_size -Wl,1312D000
+LDFLAGS = -Wl,--stack,1312D000
 
 bin_PROGRAMS = lfsc-checker
 
