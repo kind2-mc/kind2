@@ -54,6 +54,7 @@ module N = LustreNode
 module F = LustreFunction
 
 module SVT = StateVar.StateVarHashtbl
+module SVS = StateVar.StateVarSet
 
 module VS = Var.VarSet
 
@@ -466,8 +467,10 @@ let add_type_for_ident ({ ident_type_map } as ctx) ident l_type =
 
 
 (* Return nodes defined in context *)
-let get_nodes { nodes } = nodes 
+let get_nodes { nodes } = nodes
 
+(* Return the current node in context. *)
+let get_node { node } = node
 
 (* Return functions defined in context *)
 let get_functions { funcs } = funcs 
@@ -636,6 +639,22 @@ let mk_state_var
   state_var, ctx
 
 
+(* Exception because can't iterate manually over bindings in fucking hash
+tables. *)
+exception FoundIt of E.t
+
+(* Resolve an svar to an expression *)
+let expr_of_svar { expr_state_var_map } svar =
+  try
+    expr_state_var_map |> ET.iter (
+      fun expr svar' ->
+        (* Format.printf "  - %a@." StateVar.pp_print_state_var svar ; *)
+        if svar == svar' then raise (FoundIt expr) else ()
+    ) ;
+    None
+  with FoundIt expr -> Some expr
+
+
 
 (* Resolve an indentifier to an expression in all scopes *)
 let rec expr_of_ident' ident = function 
@@ -643,12 +662,11 @@ let rec expr_of_ident' ident = function
   | [] -> raise Not_found
 
   | m :: tl ->
-
     try IT.find m ident with Not_found -> expr_of_ident' ident tl
 
 
 (* Resolve an indentifier to an expression *)
-let expr_of_ident { ident_expr_map } ident = 
+let expr_of_ident { ident_expr_map } ident =
   expr_of_ident' ident ident_expr_map
 
 
@@ -1014,7 +1032,7 @@ let mk_local_for_expr
     ({ node; 
        definitions_allowed;
        fresh_local_index } as ctx)
-    ({ E.expr_type } as expr) = 
+    ({ E.expr_type } as expr) =
   
   match definitions_allowed with 
 
@@ -1045,11 +1063,16 @@ let mk_local_for_expr
           in
 
           let ctx =
-            if is_ghost then { ctx with
-              node = Some (
-                N.set_state_var_source node state_var N.Ghost
-              )
-            } else ctx
+            if is_ghost then (
+              (* Don't change source of svar if already there. *)
+              try
+                N.get_state_var_source node state_var ; ctx
+              with Not_found -> {
+                ctx with node = Some (
+                  N.set_state_var_source node state_var N.Ghost
+                )
+              }
+            ) else ctx
           in
 
           (* Return variable and changed context *)
@@ -1186,9 +1209,10 @@ let call_outputs_of_node_call
       (* No node call found *)
       with Not_found -> None 
 
+module SVM = StateVar.StateVarMap
 
 (* Add node input to context *)
-let add_node_input ?is_const ctx ident index_types = 
+let add_node_input ?is_const ctx ident index_types =
 
   match ctx with 
 
@@ -1327,6 +1351,76 @@ let add_node_local ?(ghost = false) ctx ident pos index_types =
         | { node = None } -> assert false
         | { node = Some node } ->
           { ctx with node = Some { node with N.locals = local :: locals } }
+
+(** The svars in the COI of the input expression, in the current node.
+
+Returns [None] if there's no current node.
+Raises [Not_found] if some svars in the COI do not have an equation and are
+not outputs of node calls.
+
+Used to check that the assumes and requires of a contract do not mention
+the outputs. *)
+let trace_svars_of ctx expr = match ctx with
+| { node = None } -> None | { node = (Some node) } -> (
+
+  (* Svars of an expression. *)
+  let svars_of e =
+    E.base_state_vars_of_init_expr e
+    |> SVS.union (E.cur_state_vars_of_step_expr e)
+  in
+  (* Set of an index. *)
+  let to_set idx = D.fold ( fun _ elm set -> SVS.add elm set ) idx SVS.empty in
+  (* $(a \setminus b) \cup c$ *)
+  let diff_union a b c = SVS.diff a b |> SVS.union c in
+
+  let rec loop (mem, to_do) =
+    if SVS.is_empty to_do then mem else (
+      (mem, SVS.empty) |> SVS.fold (
+        fun svar (mem, to_do) ->
+          let mem = SVS.add svar mem in
+          match (
+            (* Fresh vars do not have a source, catching that here. *)
+            try N.get_state_var_source node svar with Not_found -> N.Local
+          ) with
+          | N.Oracle
+          | N.Input
+          | N.Output -> mem, to_do
+          | N.Local
+          | N.Ghost -> (
+            let svars =
+              (* Do we have an equation for svar? *)
+              match N.equation_of_svar node svar with
+              | Some (_, _, expr) -> svars_of expr
+              | None -> (
+                (* Is it the output of a node call? *)
+                match N.node_call_of_svar node svar with
+                | Some { N.call_inputs } -> to_set call_inputs
+                | None -> (
+                  (* Is it the output of a function call? *)
+                  match N.function_call_of_svar node svar with
+                  | Some { N.call_inputs } ->
+                    D.fold (
+                      fun _ expr set -> svars_of expr |> SVS.union set
+                    ) call_inputs SVS.empty
+                  | None -> (
+                    (* Is it purely contextual?. *)
+                    match expr_of_svar ctx svar with
+                    | Some expr -> svars_of expr
+                    | None -> raise Not_found
+                  )
+                )
+              )
+            in
+            mem, diff_union svars mem to_do
+          )
+      ) to_do
+      |> loop
+    )
+  in
+  Some (
+    (SVS.empty, svars_of expr) |> loop
+  )
+)
 
 
 (* Add node assumes to context *)

@@ -319,6 +319,15 @@ val name_of_node : t -> LustreIdent.t
 val ordered_equations_of_node :
   t -> StateVar.t list -> bool -> equation list
 
+(** Returns the equation for a state variable if any. *)
+val equation_of_svar : t -> StateVar.t -> equation option
+
+(** Returns the node call the svar is (one of) the output(s) of, if any. *)
+val node_call_of_svar : t -> StateVar.t -> node_call option
+
+(** Returns the function call the svar is (one of) the output(s) of, if any. *)
+val function_call_of_svar : t -> StateVar.t -> function_call option
+
 (** Return the scope of the node *)
 val scope_of_node : t -> Scope.t
 

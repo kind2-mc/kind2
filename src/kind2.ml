@@ -947,7 +947,12 @@ let setup : unit -> any_input = fun () ->
     | `Lustre -> Input (InputSystem.read_input_lustre in_file)
     | `Native -> Input (InputSystem.read_input_native in_file)
     | `Horn   -> (* InputSystem.read_input_horn *)   assert false
-  with e -> (* Could not create input system. *)
+  with (* Could not create input system. *)
+  | LustreAst.Parser_error ->
+    (* Don't do anything for parser error, they should already have printed
+    some stuff. *)
+    exit status_error
+  | e ->
     
     let backtrace = Printexc.get_raw_backtrace () in
 
@@ -1151,12 +1156,8 @@ let rec run_loop msg_setup modules results =
 
 
 (* Looks at the modules activated and decides what to do. *)
-let launch () =
+let launch input_sys =
 
-  TermLib.Signals.ignore_sigpipe () ;
-
-  let input_sys = setup () in
-  input_sys_ref := Some input_sys ;
   let results = Analysis.mk_results () in
 
   let Input in_sys = input_sys in
@@ -1286,7 +1287,26 @@ let launch () =
 
 
 (* Entry point *)
-let main () = launch ()
+let main () =
+
+  (* Set everything up and produce input system. *)
+  let input_sys = setup () in
+  input_sys_ref := Some input_sys ;
+
+  (* Not launching if we're just translating contracts. *)
+  match Flags.Contracts.translate_contracts () with
+  | Some target -> (
+    let src = Flags.input_file () in
+    Event.log_uncond "Translating contracts to file \"%s\"" target ;
+    try (
+      InputSystem.translate_contracts_lustre src target ;
+      Event.log_uncond "Success"
+    ) with e ->
+      Event.log L_error
+        "Could not translate contracts from file \"%s\":@ %s"
+        src (Printexc.to_string e)
+  )
+  | None -> launch input_sys
 
 ;;
 

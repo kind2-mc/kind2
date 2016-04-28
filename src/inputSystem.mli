@@ -29,6 +29,8 @@ type _ t
 
 (** Read input from file *)
 val read_input_lustre : string -> LustreNode.t t
+(** Translate lustre contracts to properties. *)
+val translate_contracts_lustre : string -> string -> unit
 
 (** Read native input from file *)
 val read_input_native : string -> TransSys.t t

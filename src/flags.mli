@@ -129,6 +129,13 @@ You can now add modules following the instructions in the previous section.
 (** Input file *)
 val input_file : unit -> string
 
+(** All lustre files in the cone of influence of the input file. *)
+val all_input_files : unit -> string list
+(** Clears the lustre files in the cone of influence of the input file. *)
+val clear_input_files : unit -> unit
+(** Adds a lustre file in the cone of influence of the input file. *)
+val add_input_file : string -> unit
+
 (** Main node in Lustre file *)
 val lus_main : unit -> string option
 
@@ -331,6 +338,9 @@ module Contracts : sig
 
   (** Compositional analysis. *)
   val compositional : unit -> bool
+
+  (** Translate contracts. *)
+  val translate_contracts : unit -> string option
 
   (** Check modes. *)
   val check_modes : unit -> bool

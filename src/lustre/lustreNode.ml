@@ -451,7 +451,7 @@ let pp_print_node safe ppf {
   in
 
   Format.fprintf ppf 
-    "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
+    "@[<v>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
      %a\
      @[<v>%t@]\
@@ -462,7 +462,7 @@ let pp_print_node safe ppf {
      %a%t\
      %t\
      %a@;<1 -2>\
-     tel;@]@]"  
+     tel;@]@]@?"  
 
     (* %a *)
     (I.pp_print_ident safe) name
@@ -693,7 +693,33 @@ let ordered_equations_of_node { equations } stateful init =
 
   loop [] [] equations
 
+(** Returns the equation for a state variable if any. *)
+let equation_of_svar { equations } svar =
+  try Some (
+    equations |> List.find (fun (svar',_,_) -> svar == svar')
+  ) with Not_found -> None
 
+(** Returns the node call the svar is the output of, if any. *)
+let node_call_of_svar { calls } svar =
+  let rec loop: node_call list -> node_call option = function
+    | ({ call_outputs } as call) :: _ when D.exists (
+      fun _ svar' -> svar == svar'
+    ) call_outputs -> Some call
+    | _ :: tail -> loop tail
+    | [] -> None
+  in
+  loop calls
+
+(** Returns the function call the svar is the output of, if any. *)
+let function_call_of_svar { function_calls } svar =
+  let rec loop = function
+    | ({ call_outputs } as call) :: _ when D.exists (
+      fun _ svar' -> svar == svar'
+    ) call_outputs -> Some call
+    | _ :: tail -> loop tail
+    | [] -> None
+  in
+  loop function_calls
 
 (* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope

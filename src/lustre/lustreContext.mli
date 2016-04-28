@@ -121,11 +121,24 @@ val add_type_for_ident : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
 (** Return the nodes in the context *)
 val get_nodes : t -> LustreNode.t list
 
+(** Return the current node in context. *)
+val get_node : t -> LustreNode.t option
+
 (** Return the functions in the context *)
 val get_functions : t -> LustreFunction.t list
 
 (** The contract nodes in the context. *)
 val contract_nodes : t -> LustreAst.contract_node_decl list
+
+(** The svars in the COI of the input expression, in the current node.
+
+Returns [None] if there's no current node.
+Raises [Not_found] if some svars in the COI do not have an equation and are
+not outputs of node calls.
+
+Used to check that the assumes and requires of a contract do not mention
+the outputs in [LustreDeclarations]. *)
+val trace_svars_of : t -> LustreExpr.t -> StateVar.StateVarSet.t option
 
 (** Add a contract node to the context for inlining later *)
 val add_contract_node_decl_to_context :

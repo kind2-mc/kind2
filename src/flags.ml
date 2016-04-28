@@ -788,6 +788,26 @@ module Contracts = struct
     )
   let compositional () = !compositional
 
+  let translate_default = None
+  let translate = ref translate_default
+  let _ = add_spec
+    "--translate_contracts"
+    ( Arg.String (fun str -> translate := Some str) )
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Translates a contracts in assertions / properties (experimental)@ \
+          Default: %t@]"
+        (fun fmt ->
+          Format.fprintf fmt "%s" (
+            match translate_default with
+            | None -> "off"
+            | Some f -> f
+          )
+        )
+    )
+  let translate_contracts () = !translate
+
   let check_modes_default = true
   let check_modes = ref check_modes_default
   let _ = add_spec
@@ -1447,6 +1467,12 @@ module Global = struct
   let set_input_file f = input_file := f
   let input_file () = !input_file
 
+  (* All files in the cone of influence of the input file. *)
+  let all_input_files = ref []
+  let clear_input_files () = all_input_files := []
+  let add_input_file file = all_input_files := file :: !all_input_files
+  let get_all_input_files () = ! all_input_files
+
 
   (* Print help. *)
   let help_requested_default = false
@@ -1916,6 +1942,9 @@ let log_format_xml = Global.log_format_xml
 let input_format = Global.input_format
 let timeout_wall = Global.timeout_wall
 let input_file = Global.input_file
+let all_input_files = Global.get_all_input_files
+let clear_input_files = Global.clear_input_files
+let add_input_file = Global.add_input_file
 let lus_compile = Global.lus_compile
 let color = Global.color
 
