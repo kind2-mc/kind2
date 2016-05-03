@@ -88,8 +88,7 @@ let mk_base_checker sys k =
   Format.asprintf (* Logging stuff in smt trace. *)
     "Actlit for initial predicate: [%a]." Uf.pp_print_uf_symbol init_actlit
   |> Smt.trace_comment solver ;
-  
-  Smt.declare_fun solver init_actlit ; (* Declaring actlit. *)
+  Smt.declare_fun solver init_actlit ;
 
 
   let init_actlit = (* Getting term of actlit UF. *)
@@ -97,11 +96,18 @@ let mk_base_checker sys k =
   in
 
 
+  (* Smt.trace_comment solver (* Logging stuff in smt trace. *)
+    "Declaring system's constants." ;
+  Sys.declare_const_vars sys (Smt.declare_fun solver) ; *)
+
+
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Declaring system's svars at [-1] and [0]." ;
-
-  Sys.declare_vars_of_bounds (* Declaring unrolled vars at [-1] and [0]. *)
-    sys (Smt.declare_fun solver) Numeral.(~- one) Numeral.zero ;
+  Sys.define_and_declare_of_bounds
+    sys
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
 
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
@@ -120,20 +126,24 @@ let mk_base_checker sys k =
 
 
   (* Unrolls the transition relation as needed. *)
-  let rec unroll i = if Num.(i <= k) then
-    Format.asprintf "Declaring svars at [%a]." Num.pp_print_numeral i
-    |> Smt.trace_comment solver ;
-    Sys.declare_vars_of_bounds sys (Smt.declare_fun solver) i i ;
+  let rec unroll i =
+    if Num.(i <= k) then (
+      Format.asprintf "Declaring svars at [%a]." Num.pp_print_numeral i
+      |> Smt.trace_comment solver ;
+      Sys.declare_vars_of_bounds sys (Smt.declare_fun solver) i i ;
 
-    Format.asprintf
-      "Asserting transition relation at [%a]." Num.pp_print_numeral i
-    |> Smt.trace_comment solver ;
-    Sys.trans_of_bound sys i |> Smt.assert_term solver ;
+      Format.asprintf
+        "Asserting transition relation at [%a]." Num.pp_print_numeral i
+      |> Smt.trace_comment solver ;
+      Sys.trans_of_bound sys i |> Smt.assert_term solver ;
 
-    Format.asprintf
-      "Asserting invariants at [%a]." Num.pp_print_numeral i
-    |> Smt.trace_comment solver ;
-    Sys.invars_of_bound sys i |> List.iter (Smt.assert_term solver)
+      Format.asprintf
+        "Asserting invariants at [%a]." Num.pp_print_numeral i
+      |> Smt.trace_comment solver ;
+      Sys.invars_of_bound sys i |> List.iter (Smt.assert_term solver) ;
+
+      Num.succ i |> unroll
+    )
   in
 
   (* Unroll from one to [k]. *)
@@ -151,14 +161,14 @@ let base_add_invariants { solver ; k } =
 
 
 (** Queries base, returns an option of the model. *)
-let query_base { solver ; k ; init_actlit } candidates =
+let query_base { sys ; solver ; k ; init_actlit } candidates =
   let actlit = Actlit.fresh_actlit () in
-  
+
   Format.asprintf
     "Querying base with actlit [%a] (%d candidates)."
     Uf.pp_print_uf_symbol actlit (List.length candidates)
   |> Smt.trace_comment solver ;
-  
+
   Smt.declare_fun solver actlit ; (* Declaring actlit. *)
 
   let actlit = (* Getting term of actlit UF. *)
@@ -166,20 +176,34 @@ let query_base { solver ; k ; init_actlit } candidates =
   in
 
   (* Conditionally asserting negation of candidates at [k+1]. *)
-  candidates |> List.iter (
-    fun candidate ->
-      Term.mk_implies [
-        actlit ; Term.bump_state k candidate |> Term.mk_not
-      ] |> Smt.assert_term solver ;
-  ) ;
+  Term.mk_implies [
+    actlit ; Term.mk_and candidates |> Term.mk_not |> Term.bump_state k
+  ] |> Smt.assert_term solver ;
 
-  Smt.check_sat_assuming solver (
-    (* If sat, get model and return that. *)
-    fun solver -> Some (Smt.get_model solver)
-  ) (
-    (* If unsat then no model. *)
-    fun _ -> None
-  ) [ init_actlit ; actlit ]
+  let res =
+    Smt.check_sat_assuming solver (
+      (* If sat, get model and return that. *)
+      fun solver ->
+
+        let minus_k = Numeral.(~- k) in
+        (* Variables we want to know the value of. *)
+        TransSys.vars_of_bounds sys (Numeral.pred k) k
+        (* Getting their value. *)
+        |> SMTSolver.get_var_values solver
+        (* Bumping to -k. *)
+        |> Model.bump_var minus_k 
+        (* Making an option out of it. *)
+        |> (fun model -> Some model)
+    ) (
+      (* If unsat then no model. *)
+      fun _ -> None
+    ) [ init_actlit ; actlit ]
+  in
+
+  (* Deactivating actlit. *)
+  Term.mk_not actlit |> Smt.assert_term solver ;
+
+  res
 
 
 
@@ -223,6 +247,13 @@ let to_step { solver ; sys ; k ; init_actlit } =
   { solver ; sys ; k = kp1 }
 
 
+(** Adds invariants to a step checker. *)
+let step_add_invariants { solver ; k } =
+  let eub = Num.succ k in (* Exclusive upper bound. *)
+  List.iter (
+    fun invar -> assert_0_to solver eub invar
+  )
+
 
 (** Queries step.
 
@@ -251,13 +282,12 @@ let rec query_step ( { solver ; k } as lsd ) candidates =
     candidates |> List.map (
       fun (candidate, _) ->
         Term.mk_implies [ actlit ; candidate ] |> assert_0_to solver k ;
-        let cand = Term.bump_state k candidate in
-        Term.mk_implies [
-          actlit ; cand |> Term.mk_not
-        ] |> Smt.assert_term solver ;
-        cand
+        Term.bump_state k candidate
     )
   in
+  Term.mk_implies [
+    actlit ; Term.mk_and cands |> Term.mk_not
+  ] |> Smt.assert_term solver ;
 
   (* Will be [None] if all candidates are invariants. Otherwise, will be
   the candidates that were **not** falsified, at 0, with their info. *)
@@ -318,6 +348,12 @@ let mk_pruning_checker sys =
   |> Format.asprintf (* Logging stuff in smt trace. *)
     "[Pruning] Setting up system [%s]."
   |> Smt.trace_comment solver ;
+
+
+  Smt.trace_comment solver (* Logging stuff in smt trace. *)
+    "Declaring system's constants." ;
+
+  Sys.declare_const_vars sys (Smt.declare_fun solver) ;
 
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)

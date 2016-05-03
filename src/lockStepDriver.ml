@@ -477,14 +477,15 @@ let query_base
   in
 
   (* Building the implication. *)
-  Term.mk_implies
-    [ actlit ;
-      (* Making a conjunction of the terms to check. *)
-      Term.mk_and terms_to_check
-      (* Negating it. *)
-      |> Term.mk_not
-      (* Bumping it. *)
-      |> Term.bump_state k ]
+  Term.mk_implies [
+    actlit ;
+    (* Making a conjunction of the terms to check. *)
+    Term.mk_and terms_to_check
+    (* Negating it. *)
+    |> Term.mk_not
+    (* Bumping it. *)
+    |> Term.bump_state k
+  ]
   (* Asserting implication. *)
   |> SMTSolver.assert_term base_solver ;
 

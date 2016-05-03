@@ -19,7 +19,7 @@
 
 open Lib
 
-module Blah = NuLockStepDriver
+module NLsd = NuLockStepDriver
 
 
 (* |===| IO stuff *)
@@ -183,13 +183,24 @@ thus updated by linking the parent to the representative with value 2. The rest
 of the chain ([-1]) is inserted in all the parents of the parent. *)
 module Make (Value : In) : Out = struct
 
-  (* Reference to LSD for clean exit. *)
-  let lsd_ref = ref None
+  (* Reference to base checker for clean exit. *)
+  let base_ref = ref None
+  (* Reference to step checker for clean exit. *)
+  let step_ref = ref None
+  (* Reference to pruning checkers for clean exit. *)
+  let prune_ref = ref []
 
   (* Kills the LSD instance. *)
-  let no_more_lsd () = match !lsd_ref with
-  | None -> ()
-  | Some lsd -> Lsd.delete lsd
+  let no_more_lsd () =
+    ( match !base_ref with
+      | None -> ()
+      | Some lsd -> NLsd.kill_base lsd ) ;
+    ( match !step_ref with
+      | None -> ()
+      | Some lsd -> NLsd.kill_step lsd ) ;
+    ! prune_ref |> List.iter (
+      fun lsd -> NLsd.kill_pruning lsd
+    )
 
   (* Clean exit. *)
   let exit () =
@@ -235,6 +246,18 @@ module Make (Value : In) : Out = struct
     ) ;
     values = Map.create 107 ;
   }
+
+
+  let drop_class_member { classes } rep term =
+    try
+      Map.find classes rep
+      |> Set.remove term
+      |> Map.replace classes rep
+    with Not_found ->
+      Event.log L_fatal
+        "%s drop_class_member asked to drop term [%a] for inexistant rep [%a]"
+        pref fmt_term term fmt_term rep ;
+      exit ()
 
   (* Formats a graph to graphviz format. *)
   let fmt_graph_dot fmt { map_up ; map_down ; classes ; values } =
@@ -477,7 +500,45 @@ module Make (Value : In) : Out = struct
         ) above acc
     ) map_up []
 
-  (* Formats a chain. See functor level documentation. *)
+
+  (** Equalities coming from the equivalence classes of a graph. *)
+  let equalities_of { classes } known =
+    let cond_cons l cand info =
+      if known cand then l else (cand, info) :: l
+    in
+
+    let rec loop rep res = function
+      | term :: tail ->
+        let res =
+          cond_cons res (Term.mk_eq [ rep ; term ]) (rep, term)
+        in
+        List.fold_left (
+          fun res term' ->
+            cond_cons res (Term.mk_eq [ term ; term' ]) (rep, term')
+        ) res tail
+      | [] -> res
+    in
+
+    (* For each [rep -> terms] in [classes]. *)
+    Map.fold (
+      fun rep terms acc -> Set.elements terms |> loop rep acc
+    ) classes []
+
+
+  (** Relations between representatives coming from a graph. *)
+  let relations_of { map_up } known =
+    let cond_cons l cand = if known cand then l else (cand, ()) :: l in
+
+    (* For each [rep -> reps] in [map_up]. *)
+    Map.fold (
+      fun rep reps acc ->
+        Set.fold (
+          fun rep' acc ->
+            Value.mk_cmp rep rep' |> cond_cons acc
+        ) reps acc
+    ) map_up []
+
+  (* Formats a chain. *)
   let fmt_chain fmt =
     Format.fprintf fmt "[%a]" (
       pp_print_list
@@ -858,7 +919,7 @@ module Make (Value : In) : Out = struct
   (** Queries the lsd and updates the graph. Iterates until the graph is stable
   meaning the lsd returns unsat. *)
   let rec update sys known lsd out_cnt ({ map_up ; map_down } as graph) = match
-    terms_of graph known |> Lsd.query_base lsd sys
+    terms_of graph known |> NLsd.query_base lsd
   with
   | None ->
     (* Format.printf "unsat, done@.@." ; *)
@@ -908,25 +969,75 @@ module Make (Value : In) : Out = struct
     (* Check if new graph is stable. *)
     update sys known lsd (out_cnt + 1) graph
 
+  let sys_name sys =
+    TransSys.scope_of_trans_sys sys |> Scope.to_string
+
+
+  (** Communicates some invariants. *)
+  let communicate_and_add sys k blah non_trivial trivial =
+    ( match (non_trivial, trivial) with
+      | [], [] -> ()
+      | _, [] ->
+        Event.log L_info
+          "%s @[<v>\
+            On system [%s] at %a: %s@ \
+            found %d non-trivial invariants\
+          @]"
+          pref
+          (sys_name sys)
+          Numeral.pp_print_numeral k
+          blah
+          (List.length non_trivial)
+      | [], _ ->
+        Event.log L_info
+          "%s @[<v>\
+            On system [%s] at %a: %s@ \
+            found %d trivial invariants\
+          @]"
+          pref
+          (sys_name sys)
+          Numeral.pp_print_numeral k
+          blah
+          (List.length trivial)
+      | _, _ ->
+        Event.log L_info
+          "%s @[<v>\
+            On system [%s] at %a: %s@ \
+            found %d non-trivial invariants and %d trivial ones\
+          @]"
+          pref
+          (sys_name sys)
+          Numeral.pp_print_numeral k
+          blah
+          (List.length non_trivial)
+          (List.length trivial)
+    ) ;
+    (* Broadcasting invariants. *)
+    non_trivial |> List.iter (
+      fun term ->
+        TransSys.add_invariant sys term ;
+        Event.invariant (TransSys.scope_of_trans_sys sys) term
+    )
+
+
+
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
   after incrementing [k]. *)
   let rec system_iterator top_sys memory k = function
 
-  | (sys, graph, non_trivial, trivial) :: graphs ->
+  | (sys, graph, non_trivial, trivial, pruning_checker) :: graphs ->
     Event.log_uncond "Running on %a for %a"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       Numeral.pp_print_numeral k ;
-    (* Creating LSD instance. *)
-    let lsd = Lsd.create (Flags.Invgen.two_state ()) true sys in
+    (* Creating base checker. *)
+    let lsd = NLsd.mk_base_checker sys k in
     (* Memorizing LSD instance for clean exit. *)
-    lsd_ref := Some lsd ;
-    (* Unrolling to [k]. *)
-    Lsd.unroll_sys_to lsd sys k ;
+    base_ref := Some lsd ;
 
     (* Format.printf "LSD instance is at %a@.@." Numeral.pp_print_numeral (Lsd.get_k lsd sys) ; *)
 
-    (* Prunes known invariant from a list of candidates. *)
+    (* Prunes known invariants from a list of candidates. *)
     let prune cand = Set.mem cand non_trivial || Set.mem cand trivial in
 
     (* Checking if we should terminate before doing anything. *)
@@ -950,81 +1061,90 @@ module Make (Value : In) : Out = struct
 
     Event.log_uncond "Done checking consistency" ;
 
-    (* Check for invariants. *)
-    let non_trivial', trivial' =
-      all_terms_of graph prune |> (
-        Event.log_uncond "Done extracting candidate terms, querying step" ;
-        Lsd.query_step lsd sys
+    let lsd = NLsd.to_step lsd in
+    base_ref := None ;
+    step_ref := Some lsd ;
+
+
+    (* Check class equivalence first. *)
+    let equalities = equalities_of graph prune in
+    (* Extract invariants. *)
+    Event.log_uncond "(equality) checking for invariants" ;
+    let inv_eqs = NLsd.query_step lsd equalities in
+    (* Removing rhs of the equality from its class. *)
+    let inv_eqs =
+      inv_eqs |> List.map (
+        fun (eq, (rep, term)) ->
+          drop_class_member graph rep term ;
+          eq
       )
     in
-
-    Event.log_uncond "Done extracting invariants, communicating" ;
-
-    let non_trivial, trivial =
-      non_trivial' |> List.fold_left (
-        fun set inv -> Set.add inv set
-      ) non_trivial,
-      trivial' |> List.fold_left (
-        fun set inv -> Set.add inv set
-      ) trivial
+    (* Extracting non-trivial invariants. *)
+    Event.log_uncond "(equality) pruning" ;
+    let non_trivial_eqs =
+      NLsd.query_pruning pruning_checker inv_eqs
     in
+    (* Adding non-trivial to step and pruning checkers. *)
+    NLsd.step_add_invariants lsd non_trivial_eqs ;
+    NLsd.pruning_add_invariants pruning_checker non_trivial_eqs ;
+    (* Extracting trivial invariants. *)
+    let trivial_eqs =
+      inv_eqs |> List.filter (
+        fun term -> List.mem term non_trivial_eqs |> not
+      )
+    in
+    (* Communicating an adding to trans sys. *)
+    communicate_and_add
+      sys k (
+        Format.asprintf
+          "class equalities (%d candidates)"
+          (List.length equalities)
+      ) non_trivial_eqs trivial_eqs ;
 
-    (* Communicate invariants. *)
-    ( match non_trivial', trivial' with
-      | [], [] -> ()
-      | [], _ ->
-        Event.log L_info
-          "%s @[<v>system %a at %a (%d/%d)@ found %d trivial invariants@]"
-          pref
-          Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
-          Numeral.pp_print_numeral k
-          (Set.cardinal non_trivial)
-          (Set.cardinal trivial)
-          (List.length trivial')
-      | _ ->
-        let trivial_blah fmt = match trivial' with
-          | [] -> ()
-          | _ ->
-            Format.fprintf fmt "@ and %d trivial invariants"
-              (List.length trivial')
-        in
 
-        (* Communicate non-trivial invariants. *)
-        communicate_invariants
-          top_sys (Flags.Invgen.two_state ()) sys non_trivial ;
-
-        (* Communicate trivial invariants if asked. *)
-        if Flags.Invgen.prune_trivial () |> not then (
-          communicate_invariants
-            top_sys (Flags.Invgen.two_state ()) sys trivial
-          |> ignore
-        ) ;
-
-        (* TODO: take into account the number of invariants for top level when
-        logging. *)
-
-        Event.log_uncond
-          "%s @[<v>system %a at %a (%d/%d)@ found %d invariants%t@]"
-          pref
-          Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
-          Numeral.pp_print_numeral k
-          (Set.cardinal non_trivial)
-          (Set.cardinal trivial)
-          (List.length non_trivial')
-          trivial_blah ;
-    ) ;
+    (* Checking graph edges now. *)
+    let relations = relations_of graph prune in
+    (* Extracting invariants. *)
+    Event.log_uncond "(relations) checking for invariants" ;
+    let inv_rels = NLsd.query_step lsd relations |> List.map fst in
+    (* Extracting non-trivial invariants. *)
+    Event.log_uncond "(relations) pruning" ;
+    let non_trivial_rels =
+      NLsd.query_pruning pruning_checker inv_rels
+    in
+    (* Adding non-trivial to step and pruning checkers. *)
+    NLsd.step_add_invariants lsd non_trivial_rels ;
+    NLsd.pruning_add_invariants pruning_checker non_trivial_rels ;
+    (* Extracting trivial invariants. *)
+    let trivial_rels =
+      inv_rels |> List.filter (
+        fun term -> List.mem term non_trivial_rels |> not
+      )
+    in
+    (* Communicating an adding to trans sys. *)
+    communicate_and_add
+      sys k (
+        Format.asprintf
+          "graph relations (%d candidates)"
+          (List.length relations)
+      ) non_trivial_rels trivial_rels ;
 
     (* Destroying LSD. *)
-    Lsd.delete lsd ;
+    NLsd.kill_step lsd ;
     (* Unmemorizing LSD instance. *)
-    lsd_ref := None ;
+    step_ref := None ;
 
     (* Checking if we should terminate before looping. *)
     Event.check_termination () ;
 
+(*     minisleep 2.0 ;
+    exit () ; *)
+
     (* Looping. *)
     system_iterator
-      top_sys ( (sys, graph, non_trivial, trivial) :: memory ) k graphs
+      top_sys (
+        (sys, graph, non_trivial, trivial, pruning_checker) :: memory
+      ) k graphs
 
   | [] ->
     (* Done for all systems for this k, incrementing. *)
@@ -1040,15 +1160,28 @@ module Make (Value : In) : Out = struct
     (* Initial [k]. *)
     let k = if Flags.Invgen.two_state () then Numeral.one else Numeral.zero in
 
+    let top_only = Flags.Invgen.top_only () in
+
     (* Generating the candidate terms and building the graphs. Result is a list
     of quadruples: system, graph, non-trivial invariants, trivial
     invariants. *)
-    Value.mine sys |> List.map (
-      fun (sys, set) ->
-        let set = Set.add Term.t_true set in
-        sys, mk_graph Term.t_false set, Set.empty, Set.empty
-    )
-    |> system_iterator sys [] k
+    Value.mine sys |> List.fold_left (
+      fun acc (sub_sys, set) ->
+        let shall_add = if top_only then sub_sys == sys else true in
+        if shall_add then (
+          let set = Set.add Term.t_true set in
+          let pruning_checker = NLsd.mk_pruning_checker sys in
+          (* Memorizing pruning checker for clean exit. *)
+          prune_ref := pruning_checker :: (! prune_ref ) ;
+          (
+            sys,
+            mk_graph Term.t_false set,
+            Set.empty,
+            Set.empty,
+            pruning_checker
+          ) :: acc
+        ) else acc
+    ) [] |> system_iterator sys [] k
 
 end
 
