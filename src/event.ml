@@ -883,6 +883,19 @@ let printf_relay mdl level fmt =
     Format.str_formatter
     fmt
 
+(* Send message to invariant manager *)
+let printf_relay_uncond mdl fmt = 
+
+  Format.kfprintf 
+    (function ppf -> 
+
+      let s = Format.flush_str_formatter () in
+
+      log mdl L_off s)
+
+    Format.str_formatter
+    fmt
+
 
 (*
 (* Send statistics *)
@@ -957,7 +970,7 @@ let log_uncond fmt =
   match !log_format with 
     | F_pt -> printf_pt_uncond mdl fmt
     | F_xml -> printf_xml mdl L_info fmt
-    | F_relay -> printf_xml mdl L_info fmt
+    | F_relay -> printf_relay_uncond mdl fmt
 
 
 (* Log a message with source and log level *)

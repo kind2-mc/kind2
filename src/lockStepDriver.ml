@@ -149,9 +149,8 @@ let step_setup (solver, sys, actlit) =
   SMTSolver.trace_comment solver "Step setup." ;
 
   (* Conditionally asserting invariants of the system at [0]. *)
-  Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.zero |> Term.mk_and ]
-  |> SMTSolver.assert_term solver ;
+  TransSys.invars_of_bound sys Numeral.zero
+  |> List.iter (SMTSolver.assert_term solver) ;
 
   (* Declaring unrolled vars at [1]. *)
   TransSys.declare_vars_of_bounds
@@ -161,14 +160,11 @@ let step_setup (solver, sys, actlit) =
     Numeral.one Numeral.one ;
   
   (* Conditionally asserting transition predicate at [1]. *)
-  Term.mk_implies
-    [ actlit ; TransSys.trans_of_bound sys Numeral.one ]
-  |> SMTSolver.assert_term solver ;
+  TransSys.trans_of_bound sys Numeral.one |> SMTSolver.assert_term solver ;
 
   (* Conditionally asserting invariants of the system at [1]. *)
-  Term.mk_implies
-    [ actlit ; TransSys.invars_of_bound sys Numeral.one |> Term.mk_and ]
-  |> SMTSolver.assert_term solver
+  TransSys.invars_of_bound sys Numeral.one
+  |> List.iter (SMTSolver.assert_term solver)
 
 let pruning_setup = step_setup
 
@@ -646,8 +642,7 @@ let rec split_closure
 
 (* Prunes the terms which are a direct consequence of the transition
    relation. Assumes [T(0,1)] is asserted. *)
-let rec prune_trivial
-          solver result trivial_actlit = function
+let rec prune_trivial solver result trivial_actlit = function
   | [] -> result, []
   | terms ->
 
@@ -700,16 +695,20 @@ let rec prune_trivial
 
      let if_unsat _ = None in
 
+     Format.printf "Check sat@.@." ;
+
      match
       SMTSolver.check_sat_assuming
         solver if_sat if_unsat [actlit ; trivial_actlit]
      with
        | None ->
+          Format.printf "  unsat@.@." ;
           (* Deactivating actlit. *)
           Term.mk_not actlit |> SMTSolver.assert_term solver ;
           (* Unsat, the terms cannot be falsified. *)
           result, terms
        | Some (unknowns, falsifiables) ->
+          Format.printf "  sat (%d)@.@." (List.length falsifiables) ;
           (* Deactivating actlit. *)
           Term.mk_not actlit |> SMTSolver.assert_term solver ;
           (* Looping. *)
@@ -735,36 +734,40 @@ let query_step (
 
   let not_trivial, trivial =
     (* Pruning direct consequences of the transition relation if
-          the flag requests it. *)
-    if Flags.Invgen.prune_trivial () then
-      prune_trivial
-        pruning_solver [] actlit terms_to_check
-    else terms_to_check, []
+    the flag requests it. *)
+    if Flags.Invgen.prune_trivial () then (
+      Event.log_uncond "Pruning trivial candidate invariants" ;
+      prune_trivial pruning_solver [] actlit terms_to_check
+    ) else terms_to_check, []
   in
 
-  match not_trivial with
-  | [] ->
-     (* Unrolling system. *)
-     unroll_sys lsd system ;
-     
-     [], trivial
-  | _ ->
+  let result = match not_trivial with
+    | [] -> [], trivial
+    | _ ->
 
-     name system
-     |> Printf.sprintf
+      name system
+      |> Printf.sprintf
           "query_step at %i for [%s]."
           (Numeral.to_int k)
-     |> SMTSolver.trace_comment step_solver ;
+      |> SMTSolver.trace_comment step_solver ;
 
-     let invariants =
+      Event.log_uncond "Splitting non-trivial candidate invariants" ;
+
+      let invariants =
        (* Splitting terms. *)
-       split_closure
-         step_solver two_state actlit k [] not_trivial
+       split_closure step_solver two_state actlit k [] not_trivial
        (* Discarding falsifiable terms. *)
        |> snd
-     in
+      in
 
-     invariants, trivial
+      invariants, trivial
+  in
+
+  Event.log_uncond "Unrolling system" ;
+  (* Unrolling system. *)
+  unroll_sys lsd system ;
+
+  result
 
 (* Unrolls [system] one step further ([k+1), and returns the terms
    from [terms_to_check] which are unfalsifiable in the [k]-induction

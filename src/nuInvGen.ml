@@ -19,7 +19,7 @@
 
 open Lib
 
-
+module Blah = NuLockStepDriver
 
 
 (* |===| IO stuff *)
@@ -186,11 +186,14 @@ module Make (Value : In) : Out = struct
   (* Reference to LSD for clean exit. *)
   let lsd_ref = ref None
 
+  (* Kills the LSD instance. *)
+  let no_more_lsd () = match !lsd_ref with
+  | None -> ()
+  | Some lsd -> Lsd.delete lsd
+
   (* Clean exit. *)
   let exit () =
-    ( match !lsd_ref with
-      | None -> ()
-      | Some lsd -> Lsd.delete lsd ) ;
+    no_more_lsd () ;
     exit 0
 
   (** Prefix used for logging. *)
@@ -213,6 +216,7 @@ module Make (Value : In) : Out = struct
     values: Value.t map ;
   }
 
+  (* Graph constructor. *)
   let mk_graph rep candidates = {
     map_up = (
       let map = Map.create 107 in
@@ -328,6 +332,78 @@ module Make (Value : In) : Out = struct
     ) ;
 
     Format.fprintf fmt "@]@.}@."
+
+  (* Checks that a graph makes sense. *)
+  let check_graph ( { map_up ; map_down ; classes } as graph ) =
+    Format.printf "Checking graph...@.@." ;
+    Map.fold (
+      fun rep reps ok ->
+
+        let is_ok = ref true in
+
+        if ( (* Fail if [rep] has no kids and is not [true] or [false]. *)
+          Set.is_empty reps && rep <> Term.t_false && rep <> Term.t_true
+        ) then (
+          Event.log L_fatal
+            "Inconsistent graph:@   \
+            @[<v>representative [%a] has no kids@]"
+            Term.pp_print_term rep ;
+          is_ok := false
+        ) ;
+
+        ( try let _ = Map.find classes rep in ()
+          with Not_found -> (
+            Event.log L_fatal
+              "Inconsistent graph:@   \
+              @[<v>representative [%a] has no equivalence class@]"
+              Term.pp_print_term rep ;
+            is_ok := false
+          )
+        ) ;
+
+        reps |> Set.iter (
+          fun kid ->
+            try (
+              let kid_parents = Map.find map_down kid in
+              if Set.mem rep kid_parents |> not then (
+                (* Fail if [rep] is not a parent of [kid]. *)
+                Event.log L_fatal
+                  "Inconsistent graph:@   \
+                  @[<v>representative [%a] is a kid of [%a]@ \
+                  but [%a] is not a parent of [%a]@]"
+                  Term.pp_print_term kid Term.pp_print_term rep
+                  Term.pp_print_term rep Term.pp_print_term kid ;
+                is_ok := false
+              )
+            ) with Not_found -> (
+              (* Fail if [kid] does not appear in [map_down]. *)
+              Event.log L_fatal
+                "Inconsistent graph:@   \
+                @[<v>representative [%a] does not appear in [map_down]@]"
+                Term.pp_print_term kid ;
+              is_ok := false
+            )
+        ) ;
+
+        ok && ! is_ok
+    ) map_up true
+    |> function
+    | true -> ()
+    | false -> (
+      Event.log L_fatal
+        "Stopping invariant generation due to graph inconsistencies" ;
+      no_more_lsd () ;
+      let dump_path = "./" in
+      Event.log L_fatal
+        "Dumping current graph as graphviz in current directory" ;
+      write_dot_to
+        dump_path "inconsistent" "graph" fmt_graph_dot graph ;
+      Event.log L_fatal
+        "Dumping current classes as graphviz in current directory" ;
+      write_dot_to
+        dump_path "inconsistent" "classes" fmt_graph_classes_dot graph ;
+      failwith "inconsistent graph"
+    )
 
 
   (** Clears the [values] field of the graph ([clear] not [reset]). *)
@@ -838,7 +914,7 @@ module Make (Value : In) : Out = struct
   let rec system_iterator top_sys memory k = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
-    Format.printf "Running on %a for %a@.@."
+    Event.log_uncond "Running on %a for %a"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       Numeral.pp_print_numeral k ;
     (* Creating LSD instance. *)
@@ -867,10 +943,22 @@ module Make (Value : In) : Out = struct
       "graphs/" "classes" (Format.asprintf "%a" Numeral.pp_print_numeral k)
       fmt_graph_classes_dot graph ; *)
 
+    Event.log_uncond "Done stabilizing graph, checking consistency" ;
+
+    (* Check graphs consistency. *)
+    check_graph graph ;
+
+    Event.log_uncond "Done checking consistency" ;
+
     (* Check for invariants. *)
     let non_trivial', trivial' =
-      all_terms_of graph prune |> Lsd.query_step lsd sys
+      all_terms_of graph prune |> (
+        Event.log_uncond "Done extracting candidate terms, querying step" ;
+        Lsd.query_step lsd sys
+      )
     in
+
+    Event.log_uncond "Done extracting invariants, communicating" ;
 
     let non_trivial, trivial =
       non_trivial' |> List.fold_left (
@@ -901,7 +989,7 @@ module Make (Value : In) : Out = struct
               (List.length trivial')
         in
 
-        (* Communicate non trivial invariants. *)
+        (* Communicate non-trivial invariants. *)
         communicate_invariants
           top_sys (Flags.Invgen.two_state ()) sys non_trivial ;
 
@@ -915,7 +1003,7 @@ module Make (Value : In) : Out = struct
         (* TODO: take into account the number of invariants for top level when
         logging. *)
 
-        Event.log L_info
+        Event.log_uncond
           "%s @[<v>system %a at %a (%d/%d)@ found %d invariants%t@]"
           pref
           Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
