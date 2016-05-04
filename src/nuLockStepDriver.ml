@@ -20,6 +20,17 @@
 open Lib
 
 
+(** Lock Step Driver for graph-based invariant generation.
+
+Provides structures to abstract SMT-solvers for the base / step case, as well
+as trivial invariant pruning.
+
+*)
+
+
+
+
+
 (* |===| Aliases. *)
 
 module Smt = SMTSolver
@@ -50,6 +61,33 @@ let assert_0_to solver k term =
   in
   loop Num.zero
 
+(** Counter for actlit's uids. *)
+let actlit_uid = ref 0
+(** Maximal number of actlit created before solvers are reset. *)
+let max_actlit_count_before_reset = 200
+
+(** Indicates whether we should reset or not base on the number of actlits
+created so far. *)
+let shall_reset () = max_actlit_count_before_reset <= ! actlit_uid
+
+(** Resets the actlit uid counter. BEWARE OF COLLISIONS. *)
+let reset_actlit_uids () = actlit_uid := 0
+
+(* Returns an actlit built from a uid. Beware of name collisions. *)
+let fresh_actlit_of uid =
+  UfSymbol.mk_uf_symbol (
+    Format.sprintf "actlit_%d" uid
+  ) [] (Type.mk_bool ())
+
+(* Returns an actlit built from a uid. Beware of name collisions. *)
+let fresh_actlit () =
+  let fresh = ! actlit_uid |> fresh_actlit_of in
+  actlit_uid := 1 + ! actlit_uid ;
+  fresh
+
+(* Returns the term corresponding to the input actlit. *)
+let term_of_actlit actlit = Term.mk_uf actlit []
+
 
 
 
@@ -58,17 +96,17 @@ let assert_0_to solver k term =
 
 (** A base checker. *)
 type base = {
-  solver: solver ;
+  mutable solver: solver ;
   sys: sys ;
-  init_actlit: term ;
+  mutable init_actlit: term ;
   k: num ;
 }
 
 (** Kills a base checker. *)
 let kill_base { solver } = Smt.delete_instance solver
 
-(** Creates an LSD instance to check the base case. *)
-let mk_base_checker sys k =
+(** Creates a solver for the base case. *)
+let mk_base_checker_solver sys k =
   let solver = (* Creating solver. *)
     Smt.create_instance ~produce_assignments: true
       (Sys.get_logic sys) (Flags.Smt.solver ())
@@ -82,7 +120,7 @@ let mk_base_checker sys k =
 
 
   let init_actlit = (* Creating actlit for initial predicate. *)
-    Actlit.fresh_actlit ()
+    fresh_actlit ()
   in
 
   Format.asprintf (* Logging stuff in smt trace. *)
@@ -92,7 +130,7 @@ let mk_base_checker sys k =
 
 
   let init_actlit = (* Getting term of actlit UF. *)
-    Actlit.term_of_actlit init_actlit
+    term_of_actlit init_actlit
   in
 
 
@@ -149,8 +187,23 @@ let mk_base_checker sys k =
   (* Unroll from one to [k]. *)
   unroll Num.one ;
 
+  solver, init_actlit
+
+(** Creates a checker for the base case of invariant generation. *)
+let mk_base_checker sys k =
+  let solver, init_actlit = mk_base_checker_solver sys k in
   { solver ; sys ; init_actlit ; k }
 
+(** Resets the solver in a base checker if needed. *)
+let conditional_base_solver_reset (
+  { solver ; sys ; k } as base_checker
+) = if shall_reset () then (
+  Smt.delete_instance solver ;
+  reset_actlit_uids () ;
+  let solver, init_actlit = mk_base_checker_solver sys k in
+  base_checker.solver <- solver ;
+  base_checker.init_actlit <- init_actlit
+)
 
 (** Adds invariants to a base checker. *)
 let base_add_invariants { solver ; k } =
@@ -161,8 +214,12 @@ let base_add_invariants { solver ; k } =
 
 
 (** Queries base, returns an option of the model. *)
-let query_base { sys ; solver ; k ; init_actlit } candidates =
-  let actlit = Actlit.fresh_actlit () in
+let query_base base_checker candidates =
+  (* Restarting solver if necessary. *)
+  conditional_base_solver_reset base_checker ;
+
+  let { sys ; solver ; k ; init_actlit } = base_checker in
+  let actlit = fresh_actlit () in
 
   Format.asprintf
     "Querying base with actlit [%a] (%d candidates)."
@@ -172,7 +229,7 @@ let query_base { sys ; solver ; k ; init_actlit } candidates =
   Smt.declare_fun solver actlit ; (* Declaring actlit. *)
 
   let actlit = (* Getting term of actlit UF. *)
-    Actlit.term_of_actlit actlit
+    term_of_actlit actlit
   in
 
   (* Conditionally asserting negation of candidates at [k+1]. *)
@@ -213,7 +270,7 @@ let query_base { sys ; solver ; k ; init_actlit } candidates =
 
 (* A step checker. *)
 type step = {
-  solver: solver ;
+  mutable solver: solver ;
   sys: sys ;
   k: num ;
 }
@@ -221,9 +278,12 @@ type step = {
 (** Kills a step checker. *)
 let kill_step { solver } = Smt.delete_instance solver
 
-(** Transforms a base instance in a step instance. *)
-let to_step { solver ; sys ; k ; init_actlit } =
+(** Transforms a base instance solver in a step instance solver. *)
+let to_step_solver { solver ; sys ; k ; init_actlit } =
   Smt.trace_comment solver "Switching to step mode." ;
+
+  Smt.trace_comment solver "Deactivating actlit for initial predicate." ;
+  Term.mk_not init_actlit |> Smt.assert_term solver ;
 
   let kp1 = Num.succ k in
 
@@ -241,10 +301,23 @@ let to_step { solver ; sys ; k ; init_actlit } =
   |> Smt.trace_comment solver ;
   Sys.invars_of_bound sys kp1 |> List.iter (Smt.assert_term solver) ;
 
-  Smt.trace_comment solver "Deactivating actlit for initial predicate." ;
-  Term.mk_not init_actlit |> Smt.assert_term solver ;
+  solver, kp1
 
-  { solver ; sys ; k = kp1 }
+(** Transforms a base checker into a step checker. *)
+let to_step ( { solver ; sys ; k ; init_actlit } as base_checker ) =
+  let solver, k = to_step_solver base_checker in
+  { solver ; sys ; k }
+
+
+(** Resets the solver in a step checker if needed. *)
+let conditional_step_solver_reset (
+  { solver ; sys ; k } as step_checker
+) = if shall_reset () then (
+  Smt.delete_instance solver ;
+  reset_actlit_uids () ;
+  let solver, _ = mk_base_checker sys Num.(pred k) |> to_step_solver in
+  step_checker.solver <- solver
+)
 
 
 (** Adds invariants to a step checker. *)
@@ -262,8 +335,12 @@ is understood as some information about the candidate.
 
 Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
-let rec query_step ( { solver ; k } as lsd ) candidates =
-  let actlit = Actlit.fresh_actlit () in
+let rec query_step step_checker candidates =
+  (* Restarting solver if necessary. *)
+  conditional_step_solver_reset step_checker ;
+
+  let { sys ; solver ; k } = step_checker in
+  let actlit = fresh_actlit () in
 
   Format.asprintf
     "Querying step with actlit [%a] (%d candidates)."
@@ -273,7 +350,7 @@ let rec query_step ( { solver ; k } as lsd ) candidates =
   Smt.declare_fun solver actlit ; (* Declaring actlit. *)
 
   let actlit = (* Getting term of actlit UF. *)
-    Actlit.term_of_actlit actlit
+    term_of_actlit actlit
   in
 
   (* Conditionally asserting candidates from [0] to [k-1], and their negation
@@ -317,7 +394,7 @@ let rec query_step ( { solver ; k } as lsd ) candidates =
 
   match unfalsified_opt with
   | None -> candidates
-  | Some candidates -> query_step lsd candidates
+  | Some candidates -> query_step step_checker candidates
 
 
 
@@ -329,15 +406,22 @@ let rec query_step ( { solver ; k } as lsd ) candidates =
 
 (** A pruning checker. *)
 type pruning = {
-  solver: solver ;
+  mutable solver: solver ;
   sys: sys ;
+  mutable actlit_uid: int ;
 }
+
+(** Fresh actlit based on the uid counter in a pruning checker. *)
+let pruning_fresh_actlit pruning_checker =
+  let fresh = fresh_actlit_of pruning_checker.actlit_uid in
+  pruning_checker.actlit_uid <- 1 + pruning_checker.actlit_uid ;
+  fresh
 
 (** Kills a pruning checker. *)
 let kill_pruning { solver } = Smt.delete_instance solver
 
 (** Creates a new pruning solver. *)
-let mk_pruning_checker sys =
+let mk_pruning_checker_solver sys =
   let solver = (* Creating solver. *)
     Smt.create_instance ~produce_assignments:false
       (Sys.get_logic sys) (Flags.Smt.solver ())
@@ -376,7 +460,22 @@ let mk_pruning_checker sys =
     "Asserting transition relation."
   |> Smt.trace_comment solver ;
 
-  { solver ; sys }
+  solver
+
+(** Creates a new pruning checker. *)
+let mk_pruning_checker sys =
+  { solver = mk_pruning_checker_solver sys ; sys ; actlit_uid = 0 }
+
+
+(** Resets the solver in a pruning checker if needed. *)
+let conditional_pruning_solver_reset (
+  { solver ; sys ; actlit_uid } as pruning_checker
+) = if actlit_uid >= max_actlit_count_before_reset then (
+  Smt.delete_instance solver ;
+  let solver = mk_pruning_checker_solver sys in
+  pruning_checker.solver <- solver ;
+  pruning_checker.actlit_uid <- 0
+)
 
 
 (** Adds invariants to a pruning checker. *)
@@ -388,7 +487,11 @@ let pruning_add_invariants { solver } =
 
 
 (** Prunes the trivial invariants from a list of candidates. *)
-let rec query_pruning ( { solver } as lsd ) candidates =
+let rec query_pruning pruning_checker candidates =
+  (* Restarting solver if necessary. *)
+  conditional_pruning_solver_reset pruning_checker ;
+
+  let { solver } = pruning_checker in
   let actlit = Actlit.fresh_actlit () in
 
   Format.asprintf
@@ -404,17 +507,12 @@ let rec query_pruning ( { solver } as lsd ) candidates =
 
   let k = Num.one in
 
+  (* Bumping everyone for query and get values. *)
+  let cands = candidates |> List.map (Term.bump_state k) in
   (* Conditionally asserting negation of candidates at [1]. *)
-  let cands =
-    candidates |> List.map (
-      fun candidate ->
-        let cand = Term.bump_state k candidate in
-        Term.mk_implies [
-          actlit ; cand |> Term.mk_not
-        ] |> Smt.assert_term solver ;
-        cand
-    )
-  in
+  Term.mk_implies [
+    actlit ; cands |> Term.mk_and |> Term.mk_not
+  ] |> Smt.assert_term solver ;
 
   (* Will be [None] if all candidates are invariants. Otherwise, will be
   the candidates that were **not** falsified, at 0, with their info. *)
@@ -445,7 +543,7 @@ let rec query_pruning ( { solver } as lsd ) candidates =
   | None ->
     Smt.trace_comment solver "|===| Done." ;
     candidates
-  | Some candidates -> query_pruning lsd candidates
+  | Some candidates -> query_pruning pruning_checker candidates
   
 
 

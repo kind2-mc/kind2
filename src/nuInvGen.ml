@@ -22,6 +22,8 @@ open Lib
 module NLsd = NuLockStepDriver
 
 
+
+
 (* |===| IO stuff *)
 
 
@@ -58,6 +60,11 @@ module Map = Term.TermHashtbl
 (* Term set. *)
 module Set = Term.TermSet
 
+(* Transition system module. *)
+module Sys = TransSys
+(* System hash table. *)
+module SysMap = Sys.Hashtbl
+
 (* Term. *)
 type term = Term.t
 (* A representative is just a term. *)
@@ -75,12 +82,16 @@ let fmt_term = Term.pp_print_term
 
 (* |===| Communication stuff. *)
 
+(** Name of a transition system. *)
+let sys_name sys =
+  Sys.scope_of_trans_sys sys |> Scope.to_string
+
 (* Guards a term with init if in two state mode. *)
 let sanitize_term two_state sys term =
   if two_state then (
     match Term.var_offsets_of_term term with
     | Some min, Some max when min != max ->
-      Term.mk_or [ TransSys.init_flag_of_bound sys Numeral.zero ; term ]
+      Term.mk_or [ Sys.init_flag_of_bound sys Numeral.zero ; term ]
     | _ -> term
   ) else term
 
@@ -99,33 +110,32 @@ let communicate_invariants top_sys two_state sys invariants =
        (* Guarding with init if needed. *)
        |> sanitize_term two_state sys
        (* Instantiating at all levels. *)
-       |> TransSys.instantiate_term_all_levels 
-         top_sys TransSys.prop_base (TransSys.scope_of_trans_sys sys)
+       |> Sys.instantiate_term_all_levels 
+         top_sys Sys.prop_base (Sys.scope_of_trans_sys sys)
     in
 
     intermediary_invariants |> List.iter (
       fun (sub_sys, terms) ->
         (* Adding invariants to the transition system. *)
-        terms |> List.iter (TransSys.add_invariant sub_sys) ;
+        terms |> List.iter (Sys.add_invariant sub_sys) ;
         (* Broadcasting invariants. *)
         terms |> List.iter (
-          TransSys.scope_of_trans_sys sub_sys |> Event.invariant
+          Sys.scope_of_trans_sys sub_sys |> Event.invariant
         )
     ) ;
 
-    let top_scope = TransSys.scope_of_trans_sys top_sys in
+    let top_scope = Sys.scope_of_trans_sys top_sys in
 
     top_invariants |> List.iter (
       fun inv ->
         (* Adding top level invariants to transition system. *)
-        TransSys.add_invariant top_sys inv ;
+        Sys.add_invariant top_sys inv ;
         (* Communicate invariant. *)
         Event.invariant top_scope inv
     ) ;
 
     List.length top_invariants
   )
-
 
 
 
@@ -147,16 +157,20 @@ module type In = sig
   (** Creates the term corresponding to the ordering of two terms. *)
   val mk_cmp : Term.t -> Term.t -> Term.t
   (** Evaluates a term. *)
-  val eval : TransSys.t -> Model.t -> Term.t -> t
+  val eval : Sys.t -> Model.t -> Term.t -> t
   (** Mines a transition system for candidate terms. *)
-  val mine : TransSys.t -> (TransSys.t * Term.TermSet.t) list
+  val mine : Sys.t -> (Sys.t * Term.TermSet.t) list
+  (** Returns true iff the input term is bottom. *)
+  val is_bot: Term.t -> bool
+  (** Returns true iff the input term is top. *)
+  val is_top: Term.t -> bool
 end
 
 (** Signature of the module returned by the [Make] invariant generation functor
 when given a module with signature [In]. *)
 module type Out = sig
   (** Runs the invariant generator. *)
-  val main : TransSys.t -> unit
+  val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
   (** Clean exit for the invariant generator. *)
   val exit : unit -> unit
 end
@@ -209,6 +223,45 @@ module Make (Value : In) : Out = struct
 
   (** Prefix used for logging. *)
   let pref = Format.sprintf "[%s Inv Gen]" Value.name
+
+
+  (** Receives messages from the rest of the framework.
+
+  Updates all transition systems through [top_sys].
+
+  Adds the new invariants to the pruning solvers in the transition system /
+  pruning solver map [sys_map].
+
+  Returns the new invariants for the system [sys]. *)
+  let recv_and_update input_sys aparam top_sys sys_map sys =
+
+    let rec update_pruning_checkers sys_invs = function
+      | [] -> sys_invs
+      | (_, (scope, inv)) :: tail ->
+        let this_sys = Sys.find_subsystem_of_scope top_sys scope in
+        (* Retrieving pruning checker for this system. *)
+        let pruning_checker =
+          try SysMap.find sys_map this_sys with Not_found -> (
+            Event.log L_fatal
+              "%s could not find pruning checker for system [%s]"
+              pref (sys_name this_sys) ;
+            exit ()
+          )
+        in
+        NLsd.pruning_add_invariants pruning_checker [inv] ;
+        update_pruning_checkers (
+          if this_sys == sys then inv :: sys_invs else sys_invs
+        ) tail
+    in
+
+    (* Receiving messages. *)
+    Event.recv ()
+    (* Updating transition system. *)
+    |> Event.update_trans_sys_sub input_sys aparam top_sys
+    (* Only keep new invariants. *)
+    |> fst
+    (* Update everything. *)
+    |> update_pruning_checkers []
 
   (** Structure storing all the graph information. *)
   type graph = {
@@ -358,7 +411,7 @@ module Make (Value : In) : Out = struct
 
   (* Checks that a graph makes sense. *)
   let check_graph ( { map_up ; map_down ; classes } as graph ) =
-    Format.printf "Checking graph...@.@." ;
+    (* Format.printf "Checking graph...@.@." ; *)
     Map.fold (
       fun rep reps ok ->
 
@@ -526,8 +579,10 @@ module Make (Value : In) : Out = struct
 
 
   (** Relations between representatives coming from a graph. *)
-  let relations_of { map_up } known =
-    let cond_cons l cand = if known cand then l else (cand, ()) :: l in
+  let relations_of { map_up } acc known =
+    let cond_cons l cand =
+      if known cand then l else (cand, ()) :: l
+    in
 
     (* For each [rep -> reps] in [map_up]. *)
     Map.fold (
@@ -535,8 +590,14 @@ module Make (Value : In) : Out = struct
         Set.fold (
           fun rep' acc ->
             Value.mk_cmp rep rep' |> cond_cons acc
+            (* if (
+              Value.is_bot rep |> not
+            ) && (
+              Value.is_top rep' |> not
+            ) then Value.mk_cmp rep rep' |> cond_cons acc
+            else acc *)
         ) reps acc
-    ) map_up []
+    ) map_up acc
 
   (* Formats a chain. *)
   let fmt_chain fmt =
@@ -925,6 +986,9 @@ module Make (Value : In) : Out = struct
     (* Format.printf "unsat, done@.@." ; *)
     ()
   | Some model ->
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
+
     (* Format.printf "@.sat, updating graph: %d@." out_cnt ; *)
 
     (* Splits the graph based on the current model. *)
@@ -969,11 +1033,8 @@ module Make (Value : In) : Out = struct
     (* Check if new graph is stable. *)
     update sys known lsd (out_cnt + 1) graph
 
-  let sys_name sys =
-    TransSys.scope_of_trans_sys sys |> Scope.to_string
 
-
-  (** Communicates some invariants. *)
+  (** Communicates some invariants and adds them to the trans sys. *)
   let communicate_and_add sys k blah non_trivial trivial =
     ( match (non_trivial, trivial) with
       | [], [] -> ()
@@ -1015,8 +1076,8 @@ module Make (Value : In) : Out = struct
     (* Broadcasting invariants. *)
     non_trivial |> List.iter (
       fun term ->
-        TransSys.add_invariant sys term ;
-        Event.invariant (TransSys.scope_of_trans_sys sys) term
+        Sys.add_invariant sys term ;
+        Event.invariant (Sys.scope_of_trans_sys sys) term
     )
 
 
@@ -1024,12 +1085,27 @@ module Make (Value : In) : Out = struct
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
   after incrementing [k]. *)
-  let rec system_iterator top_sys memory k = function
+  let rec system_iterator input_sys param top_sys memory k sys_map = function
 
-  | (sys, graph, non_trivial, trivial, pruning_checker) :: graphs ->
-    Event.log_uncond "Running on %a for %a"
-      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+  | (sys, graph, non_trivial, trivial) :: graphs ->
+    Event.log L_info "%s Running on %a at %a"
+      pref Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
       Numeral.pp_print_numeral k ;
+
+    (* Receiving messages, don't care about new invariants for now as we
+    haven't create the base/step checker yet. *)
+    let _ = recv_and_update input_sys param top_sys sys_map sys in
+
+    (* Retrieving pruning checker for this system. *)
+    let pruning_checker =
+      try SysMap.find sys_map sys with Not_found -> (
+        Event.log L_fatal
+          "%s could not find pruning checker for system [%s]"
+          pref (sys_name sys) ;
+        exit ()
+      )
+    in
+
     (* Creating base checker. *)
     let lsd = NLsd.mk_base_checker sys k in
     (* Memorizing LSD instance for clean exit. *)
@@ -1065,6 +1141,10 @@ module Make (Value : In) : Out = struct
     base_ref := None ;
     step_ref := Some lsd ;
 
+    (* Receiving messages. *)
+    let new_invs_for_sys = recv_and_update input_sys param top_sys sys_map sys in
+    NLsd.step_add_invariants lsd new_invs_for_sys ;
+
 
     (* Check class equivalence first. *)
     let equalities = equalities_of graph prune in
@@ -1079,10 +1159,24 @@ module Make (Value : In) : Out = struct
           eq
       )
     in
+    (* Extract non invariant equality candidates to check with edges
+    candidates. *)
+    let non_inv_eqs =
+      equalities |> List.fold_left (
+        fun acc (eq, _) ->
+          if List.memq eq inv_eqs then acc else (eq, ()) :: acc
+      ) []
+    in
     (* Extracting non-trivial invariants. *)
     Event.log_uncond "(equality) pruning" ;
     let non_trivial_eqs =
       NLsd.query_pruning pruning_checker inv_eqs
+    in
+    (* Updating set of non-trivial invariants for this system. *)
+    let non_trivial =
+      non_trivial_eqs |> List.fold_left (
+        fun non_trivial inv -> Set.add inv non_trivial
+      ) non_trivial
     in
     (* Adding non-trivial to step and pruning checkers. *)
     NLsd.step_add_invariants lsd non_trivial_eqs ;
@@ -1093,6 +1187,12 @@ module Make (Value : In) : Out = struct
         fun term -> List.mem term non_trivial_eqs |> not
       )
     in
+    (* Updating set of trivial invariants for this system. *)
+    let trivial =
+      trivial_eqs |> List.fold_left (
+        fun trivial inv -> Set.add inv trivial
+      ) trivial
+    in
     (* Communicating an adding to trans sys. *)
     communicate_and_add
       sys k (
@@ -1101,9 +1201,16 @@ module Make (Value : In) : Out = struct
           (List.length equalities)
       ) non_trivial_eqs trivial_eqs ;
 
+    (* Receiving messages. *)
+    let new_invs_for_sys =
+      recv_and_update input_sys param top_sys sys_map sys
+    in
+    NLsd.step_add_invariants lsd new_invs_for_sys ;
 
     (* Checking graph edges now. *)
-    let relations = relations_of graph prune in
+    let relations =
+      relations_of graph non_inv_eqs prune
+    in
     (* Extracting invariants. *)
     Event.log_uncond "(relations) checking for invariants" ;
     let inv_rels = NLsd.query_step lsd relations |> List.map fst in
@@ -1112,14 +1219,30 @@ module Make (Value : In) : Out = struct
     let non_trivial_rels =
       NLsd.query_pruning pruning_checker inv_rels
     in
-    (* Adding non-trivial to step and pruning checkers. *)
-    NLsd.step_add_invariants lsd non_trivial_rels ;
+    (* Updating set of non-trivial invariants for this system. *)
+    let non_trivial =
+      non_trivial_rels |> List.fold_left (
+        fun non_trivial inv -> Set.add inv non_trivial
+      ) non_trivial
+    in
+    (* Not adding to lsd, we won't use it anymore. *)
+    (* Destroying LSD. *)
+    NLsd.kill_step lsd ;
+    (* Unmemorizing LSD instance. *)
+    step_ref := None ;
+    (* Adding to pruning checker. *)
     NLsd.pruning_add_invariants pruning_checker non_trivial_rels ;
     (* Extracting trivial invariants. *)
     let trivial_rels =
       inv_rels |> List.filter (
         fun term -> List.mem term non_trivial_rels |> not
       )
+    in
+    (* Updating set of trivial invariants for this system. *)
+    let trivial =
+      trivial_rels |> List.fold_left (
+        fun trivial inv -> Set.add inv trivial
+      ) trivial
     in
     (* Communicating an adding to trans sys. *)
     communicate_and_add
@@ -1129,38 +1252,35 @@ module Make (Value : In) : Out = struct
           (List.length relations)
       ) non_trivial_rels trivial_rels ;
 
-    (* Destroying LSD. *)
-    NLsd.kill_step lsd ;
-    (* Unmemorizing LSD instance. *)
-    step_ref := None ;
-
-    (* Checking if we should terminate before looping. *)
-    Event.check_termination () ;
-
-(*     minisleep 2.0 ;
+    (* minisleep 2.0 ;
     exit () ; *)
 
     (* Looping. *)
     system_iterator
-      top_sys (
-        (sys, graph, non_trivial, trivial, pruning_checker) :: memory
-      ) k graphs
+      input_sys param top_sys (
+        (sys, graph, non_trivial, trivial) :: memory
+      ) k sys_map graphs
 
   | [] ->
     (* Done for all systems for this k, incrementing. *)
     let k = Numeral.succ k in
     Event.log L_info
-      "%s Looking for invariants at %a." pref Numeral.pp_print_numeral k ;
-    List.rev memory |> system_iterator top_sys [] k
+      "%s Looking for invariants at %a (%d)."
+      pref Numeral.pp_print_numeral k
+      (List.length memory) ;
+    List.rev memory |> system_iterator input_sys param top_sys [] k sys_map
 
 
   (** Invariant generation entry point. *)
-  let main sys =
+  let main input_sys aparam sys =
 
     (* Initial [k]. *)
     let k = if Flags.Invgen.two_state () then Numeral.one else Numeral.zero in
 
     let top_only = Flags.Invgen.top_only () in
+
+    (* Maps systems to their pruning solver. *)
+    let sys_map = SysMap.create 107 in
 
     (* Generating the candidate terms and building the graphs. Result is a list
     of quadruples: system, graph, non-trivial invariants, trivial
@@ -1170,18 +1290,18 @@ module Make (Value : In) : Out = struct
         let shall_add = if top_only then sub_sys == sys else true in
         if shall_add then (
           let set = Set.add Term.t_true set in
-          let pruning_checker = NLsd.mk_pruning_checker sys in
+          let pruning_checker = NLsd.mk_pruning_checker sub_sys in
           (* Memorizing pruning checker for clean exit. *)
           prune_ref := pruning_checker :: (! prune_ref ) ;
+          SysMap.replace sys_map sub_sys pruning_checker ;
           (
-            sys,
+            sub_sys,
             mk_graph Term.t_false set,
             Set.empty,
-            Set.empty,
-            pruning_checker
+            Set.empty
           ) :: acc
         ) else acc
-    ) [] |> system_iterator sys [] k
+    ) [] |> List.rev |> system_iterator input_sys aparam sys [] k sys_map
 
 end
 
@@ -1194,7 +1314,7 @@ end
 module Bool: In = struct
   (* Evaluates a term to a boolean. *)
   let eval_bool sys model term =
-    Eval.eval_term (TransSys.uf_defs sys) model term
+    Eval.eval_term (Sys.uf_defs sys) model term
     |> Eval.bool_of_value
 
   let name = "Bool"
@@ -1208,6 +1328,8 @@ module Bool: In = struct
     InvGenCandTermGen.generate_candidate_terms
       (Flags.Invgen.two_state ()) sys sys
     |> fst
+  let is_bot term = term = Term.t_false
+  let is_top term = term = Term.t_true
 end
 
 (** Boolean invariant generation. *)
@@ -1217,7 +1339,7 @@ module BoolInvGen = Make(Bool)
 module Integer: In = struct
   (* Evaluates a term to a numeral. *)
   let eval_int sys model term =
-    Eval.eval_term (TransSys.uf_defs sys) model term
+    Eval.eval_term (Sys.uf_defs sys) model term
     |> Eval.num_of_value
 
   let name = "Int"
@@ -1229,6 +1351,8 @@ module Integer: In = struct
   let eval = eval_int
   let mine sys =
     failwith "integer candidate term mining is unimplemented"
+  let is_bot _ = false
+  let is_top _ = false
 end
 
 (** Integer invariant generation. *)
@@ -1238,7 +1362,7 @@ module IntInvGen = Make(Integer)
 module Real: In = struct
   (* Evaluates a term to a decimal. *)
   let eval_real sys model term =
-    Eval.eval_term (TransSys.uf_defs sys) model term
+    Eval.eval_term (Sys.uf_defs sys) model term
     |> Eval.dec_of_value
 
   let name = "Real"
@@ -1250,6 +1374,8 @@ module Real: In = struct
   let eval = eval_real
   let mine sys =
     failwith "real candidate term mining is unimplemented"
+  let is_bot _ = false
+  let is_top _ = false
 end
 
 (** Real invariant generation. *)
@@ -1259,7 +1385,7 @@ module RealInvGen = Make(Real)
 
 
 
-let main _ _ = BoolInvGen.main
+let main = BoolInvGen.main
 let exit _ = BoolInvGen.exit ()
 
 
