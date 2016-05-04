@@ -2637,6 +2637,12 @@ let remove dirname =
   Unix.rmdir dirname
 
 
+(* Temporary fix for proofs that contain dummy A0 input *)
+let fix_A0 final_lfsc =
+  Sys.command ("sed -i '' 's/A0/truth/' " ^ final_lfsc)
+  |> ignore
+
+
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
 let generate_all_proofs input sys =
 
@@ -2704,6 +2710,7 @@ let generate_all_proofs input sys =
         remove dirname;
       end;
 
+      fix_A0 final_lfsc; (* temporary *)
       printf "Final @{<green>LFSC proof@} written to @{<b>%s@}@." final_lfsc;
     end;
 

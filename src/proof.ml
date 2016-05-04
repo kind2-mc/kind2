@@ -39,7 +39,7 @@ let set_margin fmt = pp_set_margin fmt 80 (* (if compact then max_int else 80) *
 
 let cvc4_proof_cmd =
   Flags.Smt.cvc4_bin () ^
-  " --lang smt2 --no-simplification --dump-proof"
+  " --lang smt2 --no-simplification --fewer-preprocessing-holes --dump-proof"
 
 
 let get_cvc4_version () =
@@ -618,14 +618,16 @@ let rec parse_proof acc = let open HS in function
 
     { acc with proof_type = ty; proof_term = embed_indexes [] pterm }
 
-  | _ -> assert false
+  | s ->
+    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
 
 
 (* Parse a proof from CVC4 from one that start with [(check ...]. *)
 let parse_proof_check ctx = let open HS in function
   | List [Atom check; proof] when check == s_check ->
     parse_proof (mk_empty_proof ctx) proof
-  | _ -> assert false
+  | s ->
+    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
 
 
 
@@ -650,7 +652,10 @@ let proof_from_chan ctx in_ch =
 
       parse_proof_check ctx proof
       
-    | _ -> assert false
+    | _ ->
+      failwith (asprintf "No proofs, instead got:\n%a@."
+                  HS.pp_print_sexpr_list sexps)
+
 
 
 (* Call CVC4 in proof production mode on an SMT2 file an returns the proof *)
@@ -688,14 +693,17 @@ let rec parse_context ctx = let open HS in function
 
   | List [Atom ascr; _; _] when ascr = s_ascr -> ctx
 
-  | _ -> assert false
+  | s ->
+    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
 
 
 (* Parse a context from a dummy proof check used only for tracing *)
 let parse_context_dummy = let open HS in function
   | List [Atom check; dummy] when check == s_check ->
     parse_context (mk_empty_proof_context ()) dummy
-  | _ -> assert false
+
+  | s ->
+    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
 
 
 (* Parse a context from a channel. The goal is trivial because the file
@@ -720,7 +728,11 @@ let context_from_chan in_ch =
 
       parse_context_dummy dummy_proof
       
-    | _ -> assert false
+    | _ ->
+      failwith (asprintf "No proofs, instead got:\n%a@."
+                  HS.pp_print_sexpr_list sexps)
+
+
 
 (* Call CVC4 on a file that contains only tracing information and parse the
    dummy proof to extract the context (declarations and definitions). *)
