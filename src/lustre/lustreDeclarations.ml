@@ -37,6 +37,9 @@ module C = LustreContext
 
 module S = LustreSimplify
 
+module SVS = StateVar.StateVarSet
+module SVM = StateVar.StateVarMap
+
 
 
 (* ********************************************************************** *)
@@ -880,7 +883,7 @@ let rec eval_node_equations ctx = function
 
    This function is shared between nodes and functions, each has a
    different way to deal with ghost variables. *)
-let eval_ghost_var ?(no_defs = false) f ctx = function
+let eval_ghost_var ?(no_defs = false) ctx = function
 
   (* Declaration of a free variable *)
   | A.FreeConst (pos, _, _) ->
@@ -895,109 +898,113 @@ let eval_ghost_var ?(no_defs = false) f ctx = function
     (* Identifier of AST identifier *)
     let ident = I.mk_string_ident i in
 
-    if
-
-      (try 
-
-         (* Identifier must not be declared *)
-         C.expr_in_context ctx ident 
-
+    if (
+      try 
+        (* Identifier must not be declared *)
+        C.expr_in_context ctx ident 
+      with Invalid_argument e ->
        (* Fail if reserved identifier used *)
-       with Invalid_argument e -> C.fail_at_position pos e)
-
-    then
-
+       C.fail_at_position pos e
+    ) then (
       (* Fail if identifier already declared *)
-      C.fail_at_position 
-        pos 
-        (Format.asprintf 
-           "Identifier %a is redeclared as ghost" 
-           (I.pp_print_ident false) ident);
+      C.fail_at_position pos (
+        Format.asprintf 
+          "Identifier %a is redeclared as ghost" 
+          (I.pp_print_ident false) ident
+      )
+    ) ;
 
-    (* Evaluate ghost expression *)
-    let expr', ctx = 
-      S.eval_ast_expr
+    if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        pos
+        "Illegal unguarded pre in ghost variable definition."
+    ) ;
 
-        (* Change context to fail on new definitions *)
-        (if no_defs then 
-           C.fail_on_new_definition
-             ctx
-             pos
-             "Invalid expression for variable"
-         else 
-           ctx)
-        expr
-    in
+    match const_decl with 
+    (* Distinguish typed and untyped constant here *)
 
-    let type_expr' = 
+    (* Need to type check constant against given type *)
+    | A.TypedConst (_, _, _, type_expr) -> (
 
-      (* Distinguish typed and untyped constant here *)
-      (match const_decl with 
+      try (
+        (* Evaluate type expression *)
+        let type_expr = S.eval_ast_type ctx type_expr in
+        (* Add ghost to context. *)
+        let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
-        (* Need to type check constant against given type *)
-        | A.TypedConst (_, _, _, type_expr) -> 
+        let ctx =
+          eval_node_equations ctx [
+            A.Equation (pos, (A.ArrayDef (pos, i, [])), expr)
+          ]
+        in
 
-          (try 
+        ctx
 
-             (* Evaluate type expression *)
-             let type_expr' = S.eval_ast_type ctx type_expr in 
+      ) with
+      | E.Type_mismatch -> (
+        C.fail_at_position
+          pos "Type mismatch in ghost variable declaration"
+      )
+      | e -> (
+        C.fail_at_position
+          pos (
+            Format.asprintf
+              "unexpected error in ghost variable treatment: %s"
+              (Printexc.to_string e)
+          )
+      )
+    )
 
-             (* Check if type of expression is a subtype of the defined
-                type at each index *)
-             D.iter2
-               (fun _ def_type { E.expr_type } ->
-                  if not (Type.check_type expr_type def_type) then
-                    raise E.Type_mismatch)
-               type_expr'
-               expr';
+    (* No type check for untyped or free constant *)
+    | _ -> (
+      (* Evaluate ghost expression *)
+      let expr, ctx =
+        S.eval_ast_expr (
+          (* Change context to fail on new definitions *)
+          if no_defs then 
+            C.fail_on_new_definition
+              ctx pos "Invalid expression for variable"
+          else ctx
+        ) expr
+      in
+      
+      let type_expr = D.map (fun { E.expr_type } -> expr_type) expr in
+      (* Add ghost to context. *)
+      let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
+      let ctx =
+        C.add_expr_for_ident ~shadow:true ctx ident expr
+      in
 
-             type_expr'
-
-           with Invalid_argument _ | E.Type_mismatch -> 
-
-             (C.fail_at_position
-                pos
-                "Type mismatch in ghost variable declaration"))
-
-        (* No type check for untyped or free constant *)
-        | _ -> D.map (fun { E.expr_type } -> expr_type) expr')
-
-    in
-
-    (* Pass to continuation *)
-    f ctx pos ident type_expr' expr expr'
+      ctx
+    )
 
 
 (** Returns an option of the output state variables mentioned in the current
 state of a lustre expression. *)
-let contract_check_no_output ctx expr =
-  let outputs = LustreContext.outputs_of_current_node ctx in
-  E.cur_term_of_t Numeral.zero expr
-  |> Term.state_vars_at_offset_of_term Numeral.zero
-  |> StateVar.StateVarSet.filter (
-    fun sv -> D.exists (fun _ sv' -> sv == sv') outputs
-  )
-  |> fun set ->
-    if StateVar.StateVarSet.cardinal set > 0 then
-      Some (StateVar.StateVarSet.elements set)
-    else None
+let contract_check_no_output ctx pos expr =
+  let outputs =
+    LustreContext.outputs_of_current_node ctx
+  in
+  let outputs =
+    D.fold ( fun _ elm set -> SVS.add elm set ) outputs SVS.empty
+  in
+  match C.trace_svars_of ctx expr with
+  | Some coi -> SVS.inter outputs coi |> SVS.elements
+  | None -> failwith "unreachable"
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   (* Scope is created backwards. *)
   let scope = List.rev scope in
-  (* Evaluate exrpession to a Boolean expression, may change context. *)
-  let expr, ctx =
-    S.eval_bool_ast_expr ctx pos expr
-    |> C.close_expr pos
-  in
+  (* Evaluate expression to a Boolean expression, may change context. *)
+  let expr, ctx = S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos in
   (* Check the expression if asked to. *)
   ( match check with
     | None -> ()
     | Some desc -> (
-      match contract_check_no_output ctx expr with
-      | None -> ()
-      | Some svars ->
+      match contract_check_no_output ctx pos expr with
+      | [] -> ()
+      | svars ->
         assert (List.length svars > 0) ;
         let s = if List.length svars > 1 then "s" else "" in
         let pref = match C.current_node_name ctx with
@@ -1280,9 +1287,9 @@ let rec eval_node_contract_call ctx scope
           (* Fail if expression mentions an output in the current state. *)
           (
             D.iter (
-              fun _ expr -> match contract_check_no_output ctx expr with
-                | None -> ()
-                | Some svars ->
+              fun _ expr -> match contract_check_no_output ctx pos expr with
+                | [] -> ()
+                | svars ->
                   assert (List.length svars > 0) ;
                   let s = if List.length svars > 1 then "s" else "" in
                   let pref = match C.current_node_name ctx with
@@ -1361,9 +1368,7 @@ let rec eval_node_contract_call ctx scope
           ) ;
 
           C.add_expr_for_ident
-            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
-
-          ctx
+            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
       ) ctx out_params out_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
@@ -1409,10 +1414,10 @@ and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
   | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
 
   (* Add ghost variables to context *)
-  | A.GhostVar v -> eval_ghost_var add_ghost ctx v, cpt_a, cpt_g
+  | A.GhostVar v -> eval_ghost_var ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
-  | A.Assume a ->
+  | A.Assume ( (_, _, expr) as a ) ->
     let ctx, assumes, cpt_a = eval_ass scope (ctx, [], cpt_a) a in
     C.add_node_ass ctx assumes, cpt_a, cpt_g
 

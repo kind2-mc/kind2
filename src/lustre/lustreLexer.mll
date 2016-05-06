@@ -148,6 +148,9 @@ let lexbuf_stack = ref []
 (* Initialize the stack *)
 let lexbuf_init channel curdir = 
 
+  (* Reset input files before lexing. *)
+  Flags.clear_input_files () ;
+
   (* A dummy lexing buffer to return to *)
   let lexbuf = Lexing.from_channel channel in
 
@@ -371,6 +374,9 @@ rule token = parse
         Format.sprintf "Error opening include file %s: %s" p e
         |> failwith
     in
+
+    (* Add `p` to the list of input files. *)
+    Flags.add_input_file p ;
     
     (* New lexing buffer from include file *)
     lexbuf_switch_to_channel lexbuf include_channel include_curdir ;
