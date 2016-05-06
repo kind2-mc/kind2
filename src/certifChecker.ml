@@ -39,7 +39,7 @@ let file_width = 120
 let quant_free = true
 let monolithic_base = true
 let simple_base = false
-let abstr_index () = Flags.Certif.abstr ()
+let abstr_index () = Proof.abstr_index ()
 let clean_tmp = false
 let call_frontend = true
 
@@ -2119,13 +2119,16 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   let orig_kind2_vars = TS.state_vars kind2_sys in
   let orig_jkind_vars = TS.state_vars jkind_sys in
 
-  let init_flag = StateVar.mk_init_flag [obs_name] in
+  (* let init_flag = StateVar.mk_init_flag [obs_name] in *)
+  let init_flag = TS.init_flag_state_var kind2_sys
+                  |> add_scope_state_var [obs_name] in
 
   (* Create versions of variables with the new scope *)
   let kind2_vars = List.map (add_scope_state_var [obs_name]) orig_kind2_vars in
   let jkind_vars = List.map (add_scope_state_var [obs_name]) orig_jkind_vars in
   let state_vars =
-    init_flag :: kind2_vars @ jkind_vars |>
+    (* init_flag :: *)
+    kind2_vars @ jkind_vars |>
     List.filter (fun sv ->
         not (StateVar.equal_state_vars
                sv (TransSys.init_flag_state_var kind2_sys)))
@@ -2562,6 +2565,8 @@ let fecc_checker_script =
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
 let generate_smt2_certificates input sys =
 
+  Proof.set_proof_logic (TS.get_logic sys);
+  
   TH.clear hactlits;
   
   let dirname =
@@ -2646,6 +2651,8 @@ let fix_A0 final_lfsc =
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
 let generate_all_proofs input sys =
 
+  Proof.set_proof_logic (TS.get_logic sys);
+  
   TH.clear hactlits;
   
   let dirname =

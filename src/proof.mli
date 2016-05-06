@@ -16,6 +16,12 @@
 
 *)
 
+(** Set the logic used by the proof generations mechanism *)
+val set_proof_logic : TermLib.logic -> unit
+
+(** Should we use abstract indexes for the proof generation *)
+val abstr_index : unit -> bool
+
 (** The file to store the LFSC proof of the properties. *)
 val proofname : string
 

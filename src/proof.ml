@@ -91,8 +91,27 @@ let s_unsat = H.mk_hstring "unsat"
 let s_sat = H.mk_hstring "sat"
 let s_unknown = H.mk_hstring "unknown"
 
+
+let global_logic = ref `None
+
+let set_proof_logic l = global_logic := l
+
+let abstr_ind_of_logic = let open TermLib in
+  function
+  | `Inferred fs ->
+    if FeatureSet.mem RA fs then
+      if FeatureSet.mem IA fs then
+        failwith "CVC4 cannot generate proofs for systems with both \
+                  integer and real variables"
+      else true
+    else false
+  | _ -> false
+
+let abstr_index () =
+  Flags.Certif.abstr () || abstr_ind_of_logic !global_logic
+
 let s_index () =
-  if Flags.Certif.abstr () then H.mk_hstring "index"
+  if abstr_index () then H.mk_hstring "index"
   else H.mk_hstring "Int"
 
 let s_pindex = H.mk_hstring "%index%"
