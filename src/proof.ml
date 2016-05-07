@@ -64,6 +64,7 @@ let s_false = H.mk_hstring "false"
 let s_formula = H.mk_hstring "formula"
 let s_th_holds = H.mk_hstring "th_holds"
 let s_holds = H.mk_hstring "holds"
+let s_truth = H.mk_hstring "truth"
 
 let s_sort = H.mk_hstring "sort"
 let s_term = H.mk_hstring "term"
@@ -229,6 +230,7 @@ let mk_empty_proof_context () = {
 (* The type of a proof returned by CVC4 *)
 type cvc4_proof = {
   proof_context : cvc4_proof_context;
+  mutable true_hyps : H.t list;
   proof_hyps : lfsc_decl list; 
   proof_type : lfsc_type;
   proof_term : lfsc_type;
@@ -238,6 +240,7 @@ type cvc4_proof = {
 let mk_empty_proof ctx = {
   proof_context = ctx;
   proof_hyps = [];
+  true_hyps = [];
   proof_type = HS.List [];
   proof_term = HS.List [];
 }
@@ -249,6 +252,7 @@ type lambda_kind =
   | Lambda_hyp of lfsc_decl  (* Proof hypothesis % A0 ...*)
   | Lambda_def of lfsc_def   (* definitions % f%def *)
   | Lambda_ignore            (* ignore some extraneous symbols *)
+  | Lambda_true
 
 
 
@@ -586,7 +590,7 @@ let parse_Lambda_binding ctx b ty =
   if ih then
     if is_hyp_true ty then
       (* ignore useless (th_holds true) *)
-      Lambda_ignore
+      Lambda_true
     else match definition_artifact ctx ty with
       | Some def ->
         (* binding hypothesis for a definition artifact *)
@@ -629,13 +633,20 @@ let rec parse_proof acc = let open HS in function
         else { acc with proof_context =
                           { ctx with lfsc_defs = d :: ctx.lfsc_defs }}
       | Lambda_ignore -> acc
+      | Lambda_true -> { acc with true_hyps = b :: acc.true_hyps }
       | Lambda_hyp h -> { acc with proof_hyps = h :: acc.proof_hyps }
     in
     parse_proof acc r
 
   | List [Atom ascr; ty; pterm] when ascr = s_ascr ->
 
-    { acc with proof_type = ty; proof_term = embed_indexes [] pterm }
+    let pterm = embed_indexes [] pterm in
+    let sigma_truth =
+      List.map (fun a -> Atom a, Atom s_truth) acc.true_hyps in
+    let pterm =
+      if sigma_truth = [] then pterm
+      else apply_subst sigma_truth pterm in
+    { acc with proof_type = ty; proof_term = pterm  }
 
   | s ->
     failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
@@ -706,7 +717,7 @@ let rec parse_context ctx = let open HS in function
     let ctx = match parse_Lambda_binding ctx b ty with
       | Lambda_decl d -> { ctx with lfsc_decls = d :: ctx.lfsc_decls }
       | Lambda_def d -> { ctx with lfsc_defs = d :: ctx.lfsc_defs }
-      | Lambda_hyp _ | Lambda_ignore -> ctx
+      | Lambda_hyp _ | Lambda_ignore | Lambda_true -> ctx
     in
     parse_context ctx r
 
@@ -780,7 +791,7 @@ let merge_contexts ctx1 ctx2 =
       let h = HH.create 21 in
       HH.iter (HH.add h) ctx1.fun_defs_args;
       HH.iter (HH.add h) ctx2.fun_defs_args;
-      h
+      h;
   }
 
 

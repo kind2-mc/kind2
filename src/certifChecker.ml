@@ -2717,7 +2717,7 @@ let generate_all_proofs input sys =
         remove dirname;
       end;
 
-      fix_A0 final_lfsc; (* temporary *)
+      (* fix_A0 final_lfsc; *) (* temporary *)
       printf "Final @{<green>LFSC proof@} written to @{<b>%s@}@." final_lfsc;
     end;
 
