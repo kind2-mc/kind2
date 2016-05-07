@@ -151,8 +151,8 @@ let logic_of_flat t acc =
       |> UfSymbol.res_type_of_uf_symbol
       |> logic_of_sort
       |> union @@ sup_logics acc
-    else if Symbol.is_numeral s then add IA (sup_logics acc)
-    else if Symbol.is_decimal s then add RA (sup_logics acc)
+    (* else if Symbol.is_numeral s then add IA (sup_logics acc) *)
+    (* else if Symbol.is_decimal s then add RA (sup_logics acc) *)
     else sup_logics acc
 
   | App (s, _) when Symbol.(s == s_plus || s == s_minus) ->
