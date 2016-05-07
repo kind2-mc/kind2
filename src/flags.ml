@@ -1626,10 +1626,11 @@ module Global = struct
     )
 
   let set_output_dir s =
-    let b = Filename.basename s in
-    let d = try Filename.chop_extension b with Invalid_argument _ -> b in
-    output_dir_action(d ^ ".out")
-      
+    if !output_dir = "kind2" then
+      let b = Filename.basename s in
+      let d = try Filename.chop_extension b with Invalid_argument _ -> b in
+      output_dir_action(d ^ ".out")
+
   let output_dir () = !output_dir
 
 
