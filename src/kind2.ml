@@ -1266,7 +1266,11 @@ let launch input_sys =
           | [] -> assert false
         ) with
         | Not_found -> l
-        | e -> Format.printf "%s@.@." (Printexc.to_string e) ; l
+        | Failure s ->
+          Event.log L_fatal "Failure: %s" s;
+          l
+        | e ->
+          Event.log L_fatal "%s" (Printexc.to_string e) ; l
       ) []
       (* Logging the end of the run. *)
       |> Event.log_run_end ;
@@ -1278,7 +1282,7 @@ let launch input_sys =
       let backtrace = Printexc.get_raw_backtrace () in
 
       if Printexc.backtrace_status () then
-        Event.log L_fatal "Caught %s in %a.@\nBacktrace po:@\n%a"
+        Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
           (Printexc.to_string e)
           pp_print_kind_module `Supervisor
           print_backtrace backtrace;
