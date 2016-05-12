@@ -1489,6 +1489,8 @@ let generate_split_certificates sys dirname =
   let prop, (k, phi) = global_certificate sys in
 
   Stat.start_timer Stat.certif_min_time;
+  Stat.set k Stat.certif_old_k;
+  Stat.set (Certificate.size (k, phi)) Stat.certif_old_size;
 
   (* Performed minimization of certificate *)
   let k, phi = match Flags.Certif.mink () with
@@ -1599,6 +1601,8 @@ let generate_certificate sys dirname =
   let prop, (k, phi) = global_certificate sys in
 
   Stat.start_timer Stat.certif_min_time;
+  Stat.set k Stat.certif_old_k;
+  Stat.set (Certificate.size (k, phi)) Stat.certif_old_size;
 
   (* Performed minimization of certificate *)
   let k , phi = match Flags.Certif.mink () with
@@ -2430,6 +2434,8 @@ let generate_frontend_certificates sys dirname =
   let prop, (k, phi) = global_certificate sys in
 
   Stat.start_timer Stat.certif_min_time;
+  Stat.set k Stat.certif_old_k;
+  Stat.set (Certificate.size (k, phi)) Stat.certif_old_size;
 
   (* Perform minimization of certificate *)
   let k, phi = match Flags.Certif.mink () with

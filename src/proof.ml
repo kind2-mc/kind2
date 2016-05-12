@@ -796,6 +796,20 @@ let merge_contexts ctx1 ctx2 =
 
 
 
+let context_from_file f =
+  Stat.start_timer Stat.certif_cvc4_time;
+  let c = context_from_file f in
+  Stat.record_time Stat.certif_cvc4_time;
+  c
+  
+let proof_from_file f =
+  Stat.start_timer Stat.certif_cvc4_time;
+  let p = proof_from_file f in
+  Stat.record_time Stat.certif_cvc4_time;
+  p
+  
+
+
 open Certificate
 
 
