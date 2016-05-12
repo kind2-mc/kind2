@@ -702,6 +702,8 @@ let proof_from_file ctx f =
      | Unix.WEXITED 0 -> ()
      | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
        Event.log L_fatal "CVC4 crashed with exit code %d." i);
+    (* Send statistics *)
+    Event.stat Stat.[certif_stats_title, certif_stats];
     raise e
 
 
@@ -780,6 +782,8 @@ let context_from_file f =
      | Unix.WEXITED 0 -> ()
      | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
        Event.log L_fatal "CVC4 crashed with exit code %d." i);
+    (* Send statistics *)
+    Event.stat Stat.[certif_stats_title, certif_stats];
     raise e
 
 (* Merge two contexts *)

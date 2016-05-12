@@ -2685,6 +2685,8 @@ let generate_all_proofs input sys =
     else
       (debug certif "No certificate for frontend" end);
 
+    (* Send statistics *)
+    Event.stat Stat.[certif_stats_title, certif_stats];
 
     if call_frontend then begin
 
@@ -2733,9 +2735,8 @@ let generate_all_proofs input sys =
 
     Proof.generate_frontend_proof frontend_inv;
 
-  end;
+    (* Send statistics *)
+    Event.stat Stat.[certif_stats_title, certif_stats];
 
-  
-  (* Send statistics *)
-  Event.stat Stat.[certif_stats_title, certif_stats]
+  end
   
