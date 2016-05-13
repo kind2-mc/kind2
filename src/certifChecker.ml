@@ -2584,7 +2584,11 @@ let generate_smt2_certificates input sys =
   in
   create_dir dirname;
 
-  generate_certificate sys dirname;
+  (try generate_certificate sys dirname
+   with e ->
+     (* Send statistics *)
+     Event.stat Stat.[certif_stats_title, certif_stats];
+     raise e);
 
   (* Only generate frontend observational equivalence system for Lustre *)
   if InputSystem.is_lustre_input input then
@@ -2607,8 +2611,10 @@ let generate_smt2_certificates input sys =
     (if is_fec sys then fecc_checker_script else certificate_checker_script);
   close_out csoc;
 
-  (* Recursive call *)
+  (* Send statistics *)
+  Event.stat Stat.[certif_stats_title, certif_stats];
 
+  (* Recursive call *)
   if not (is_fec sys) && call_frontend then begin
 
     printf "@{<b>Generating frontend certificate}@.";
@@ -2629,12 +2635,7 @@ let generate_smt2_certificates input sys =
     | c ->
       Event.log L_warn
         "Failed to generate frontend certificate (return code %d)@." c
-  end;
-
-
-  (* Send statistics *)
-  Event.stat Stat.[certif_stats_title, certif_stats]
-  
+  end  
 
 
 (********************************)
@@ -2670,11 +2671,15 @@ let generate_all_proofs input sys =
   in
   create_dir dirname;
 
-  if not (is_fec sys) then
+  if not (is_fec sys) then begin
     
-    let cert_inv = generate_split_certificates sys dirname in
-
-    Proof.generate_inv_proof cert_inv;
+    (try
+       let cert_inv = generate_split_certificates sys dirname in
+       Proof.generate_inv_proof cert_inv;
+     with e ->
+       (* Send statistics *)
+       Event.stat Stat.[certif_stats_title, certif_stats];
+       raise e);
     
     (* Only generate frontend observational equivalence system for Lustre *)
     if InputSystem.is_lustre_input input then
@@ -2728,7 +2733,7 @@ let generate_all_proofs input sys =
       (* fix_A0 final_lfsc; *) (* temporary *)
       printf "Final @{<green>LFSC proof@} written to @{<b>%s@}@." final_lfsc;
     end;
-
+  end
   else begin
 
     let frontend_inv = generate_frontend_certificates sys dirname in
