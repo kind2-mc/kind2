@@ -158,12 +158,12 @@ the next section for more details.
 A ghost variable (constant) is a stream that is local to the contract. That is,
 it is not accessible from the body of the node specified. Ghost variables
 (constants) are defined with the `var` (`const`) keyword. Kind 2 performs type
-inference so in most cases type annotations are not necessary.
+inference for constants so in most cases type annotations are not necessary.
 
 The general syntax is
 ```
 const <id> [: <type>] = <expr> ;
-var   <id>  : <type> = <expr> ;
+var   <id>  : <type>  = <expr> ;
 ```
 
 For instance:
