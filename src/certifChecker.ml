@@ -2680,6 +2680,16 @@ let generate_all_proofs input sys =
        (* Send statistics *)
        Event.stat Stat.[certif_stats_title, certif_stats];
        raise e);
+
+    let inv_lfsc = Filename.concat dirname Proof.proofname in
+    let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
+    Flags.output_dir () |> mk_dir ;
+    let final_lfsc =
+      Filename.concat (Flags.output_dir ())
+        (Filename.basename (Flags.input_file ()) ^ ".lfsc") in
+
+    (* Copy first LFSC proof in case *)
+    file_copy inv_lfsc final_lfsc;
     
     (* Only generate frontend observational equivalence system for Lustre *)
     if InputSystem.is_lustre_input input then
@@ -2707,13 +2717,6 @@ let generate_all_proofs input sys =
           (Filename.concat dirname "FEC.kind2")
       in
       (debug certif "Second run with: %s" cmd end);
-
-      let inv_lfsc = Filename.concat dirname Proof.proofname in
-      let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
-      Flags.output_dir () |> mk_dir ;
-      let final_lfsc =
-        Filename.concat (Flags.output_dir ())
-          (Filename.basename (Flags.input_file ()) ^ ".lfsc") in
 
       begin match Sys.command cmd with
         | 020 ->
