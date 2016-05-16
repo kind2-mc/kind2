@@ -2741,7 +2741,12 @@ let generate_all_proofs input sys =
 
     let frontend_inv = generate_frontend_certificates sys dirname in
 
-    Proof.generate_frontend_proof frontend_inv;
+    (try
+      Proof.generate_frontend_proof frontend_inv;
+     with e ->
+       (* Send statistics *)
+       Event.stat Stat.[certif_stats_title, certif_stats];
+       raise e);
 
     (* Send statistics *)
     Event.stat Stat.[certif_stats_title, certif_stats];
