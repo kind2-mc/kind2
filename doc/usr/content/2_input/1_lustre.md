@@ -169,13 +169,7 @@ var   <id>  : <type>  = <expr> ;
 For instance:
 ```
 const max = 42 ;
-var ghost_stream = if input > max then max else input ;
-```
-
-With the optional type annotations:
-```
-const max : int= 42 ;
-var ghost_stream : int = if input > max then max else input ;
+var ghost_stream: real = if input > max then max else input ;
 ```
 
 
