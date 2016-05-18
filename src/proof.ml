@@ -65,6 +65,8 @@ let s_formula = H.mk_hstring "formula"
 let s_th_holds = H.mk_hstring "th_holds"
 let s_holds = H.mk_hstring "holds"
 let s_truth = H.mk_hstring "truth"
+let s_trust = H.mk_hstring "trust"
+let s_trust_f = H.mk_hstring "trust_f"
 
 let s_sort = H.mk_hstring "sort"
 let s_term = H.mk_hstring "term"
@@ -613,6 +615,35 @@ let parse_Lambda_binding ctx b ty =
     Lambda_decl { decl_symb = b; decl_type = ty }
 
 
+(* Returns list of admitted holes, i.e. formulas whose validity is trusted *)
+let rec extract_trusts acc = let open HS in
+  function
+  | List [Atom a; f] when a == s_trust_f || a == s_trust -> f :: acc
+  | Atom _ -> acc
+  | List l -> extract_trusts_list acc l
+                
+and extract_trusts_list acc = let open HS in
+  function
+  | [] -> acc
+  | x :: r -> extract_trusts_list (extract_trusts acc x) r 
+
+
+let trusted = ref []
+
+let register_trusts f = trusted := extract_trusts !trusted f
+
+let log_trusted ~frontend () =
+  if !trusted <> [] then begin
+    Event.log L_warn
+      "%s proof contains %d trusted assumptions:@\n@\n@[<v 0>%a@]@."
+      (if frontend then "Frontend" else "Invariance")
+      (List.length !trusted)
+      (fun fmt ->
+         List.iter (fprintf fmt "@[%a@]@\n@\n" (HS.pp_print_sexpr_indent 0)))
+      !trusted
+  end
+
+
 (***********************)
 (* Parsing proof terms *)
 (***********************)
@@ -646,6 +677,18 @@ let rec parse_proof acc = let open HS in function
     let pterm =
       if sigma_truth = [] then pterm
       else apply_subst sigma_truth pterm in
+
+    register_trusts pterm;
+    (* let trusted = extract_trusts [] pterm in *)
+    (* if trusted <> [] then begin *)
+    (*   Event.log L_warn *)
+    (*     "Proof contains %d trusted assumptions:@\n@\n@[<v 0>%a@]@." *)
+    (*     (List.length trusted) *)
+    (*     (fun fmt -> *)
+    (*        List.iter (fprintf fmt "@[%a@]@\n@\n" (HS.pp_print_sexpr_indent 0))) *)
+    (*     trusted *)
+    (* end; *)
+    
     { acc with proof_type = ty; proof_term = pterm  }
 
   | s ->
@@ -1000,8 +1043,9 @@ let generate_inv_proof inv =
   
   close_out proof_chan;
   (* Show which file contains the proof *)
-  (debug certif "LFSC proof written in %s" proof_file end)
+  (debug certif "LFSC proof written in %s" proof_file end);
 
+  log_trusted ~frontend:false ()
 
 
 (* Generate the LFSC proof of safey by producing an intermediate proofs of
@@ -1083,4 +1127,6 @@ let generate_frontend_proof inv =
   
   close_out proof_chan;
   (* Show which file contains the proof *)
-  (debug certif "LFSC proof written in %s" proof_file end)
+  (debug certif "LFSC proof written in %s" proof_file end);
+
+  log_trusted ~frontend:true ()
