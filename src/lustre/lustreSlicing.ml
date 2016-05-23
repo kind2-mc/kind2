@@ -644,7 +644,7 @@ let slice_all_of_node
     N.equations = [];
     N.calls = [];
     N.function_calls = [];
-    N.asserts;
+    N.asserts = [];
     N.props = if keep_props then props else [];
     N.contract = if keep_contracts then contract else None;
     N.is_main;
