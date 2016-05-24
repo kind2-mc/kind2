@@ -27,6 +27,7 @@ module N = LustreNode
 module F = LustreFunction
 module S = SubSystem
 module T = TransSys
+module C = LustreContract
 
 module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
@@ -462,6 +463,89 @@ let function_path_of_instance
 
   (name, call_pos) :: trace, Function(fun_def, model)
 
+let active_modes_of_instances model_top instances = function
+(* No contract. *)
+| None | Some { C.modes = [] } -> None
+(* Contract with some modes. *)
+| Some { C.modes } -> (
+  (* Retrieves the trace of value of a requirement from a top model. *)
+  let trace_of_req { C.svar } =
+    map_top instances svar
+    |> SVT.find model_top
+    |> List.map (
+      function
+      | Model.Term t -> t == Term.t_true
+      | Model.Lambda _ -> failwith "\
+        evaluating mode requirement: value should be a term, not a lambda\
+      "
+    )
+  in
+
+  Format.printf "empty trace@.@." ;
+
+  (* Trace of active modes has the same length as the model. Originally
+  empty. *)
+  let empty_trace =
+    let rec loop acc n =
+      Format.printf "n: %d@.@." n ;
+      if n <= 0 then acc else loop ([] :: acc) (n - 1)
+    in
+    Model.path_length model_top |> loop []
+  in
+  Format.printf "done@.@." ;
+
+  (* Merges two traces of requirement values. *)
+  let merge_req_traces t1 t2 =
+    let rec loop acc = function
+      | ([],[]) -> List.rev acc
+      | (v1 :: t1, v2 :: t2) -> loop ( (v1 && v2) :: acc ) (t1, t2)
+      | _ -> failwith "\
+        while constructing the trace of active modes:@ \
+        tried to merge two traces of inconsistent length\
+      "
+    in
+    Format.printf "merge req traces@.@." ;
+    loop [] (t1, t2)
+  in
+
+  (* Adds a mode [m] to the steps of a trace of active modes where [m] is
+  active. *)
+  let add_mode_to_trace mode_trace = function
+    | { C.requires = [] } as m ->
+      (* No requires, always active. *)
+      mode_trace |> List.map (fun active -> m :: active)
+    | { C.name ; C.requires = head :: tail } as m ->
+      let head = trace_of_req head in
+      let reqs_val =
+        tail |> List.fold_left (
+          fun acc req -> trace_of_req req |> merge_req_traces acc
+        ) head
+      in
+
+      let rec loop pref = function
+        | ([], []) -> List.rev pref
+        | (act :: act_tail, reqs_val :: reqs_val_tail) ->
+          loop
+            ( (if reqs_val then m :: act else act) :: pref )
+            (act_tail, reqs_val_tail)
+        | _ -> failwith "\
+          while adding mode to trace of active modes:@ \
+          tried to merge two traces of inconsistent length\
+        "
+      in
+      Format.printf "add_mode_to_trace (loop)@.@." ;
+
+      loop [] (mode_trace, reqs_val)
+  in
+
+  Some (
+    modes
+    |> List.fold_left (
+      fun acc mode -> add_mode_to_trace acc mode
+    ) empty_trace
+  )
+)
+
 
 (* Reconstruct model for the instance given the models for the subnodes 
 
@@ -470,7 +554,9 @@ let node_path_of_instance
     first_is_init
     globals
     model_top
-    ({ N.inputs; N.outputs; N.locals; N.equations; N.function_calls } as node)
+    ({
+      N.inputs; N.outputs; N.locals; N.equations; N.function_calls; N.contract
+    } as node)
     trans_sys
     instances
     subnodes =
@@ -487,8 +573,10 @@ let node_path_of_instance
 
   (* Format.printf "trace@.@." ; *)
 
-  let subnodes = function_calls |> List.fold_left (fun l fc ->
-      ( function_path_of_instance
+  let subnodes =
+    function_calls |> List.fold_left (
+      fun l fc -> (
+        function_path_of_instance
           first_is_init
           trace
           globals
@@ -497,7 +585,8 @@ let node_path_of_instance
           fc
           trans_sys
           instances
-          subnodes ) :: l
+          subnodes
+      ) :: l
     ) subnodes
   in
 
@@ -549,6 +638,18 @@ let node_path_of_instance
           model_top
           model))
     ((D.singleton D.empty_index node.N.init_flag) :: locals);
+
+  ( match active_modes_of_instances model_top instances contract with
+    | None -> ()
+    | Some active_modes ->
+      Format.printf "active modes: @[<v>%a@]@.@."
+        (pp_print_list
+          (pp_print_list
+            (fun fmt { C.name } -> LustreIdent.pp_print_ident false fmt name) ", "
+          )
+          "@ "
+        ) active_modes
+  ) ;
 
   (* Return path for subnode and its call trace *)
   (trace, Node(node, model, subnodes))
@@ -917,7 +1018,7 @@ let pp_print_lustre_path_pt ppf lustre_path =
   pp_print_lustre_path_pt' ppf [lustre_path]
 
 
-(* Ouptut a hierarchical model as plan text *)
+(* Output a hierarchical model as plain text *)
 let pp_print_path_pt
   trans_sys instances subsystems globals first_is_init ppf model
 =

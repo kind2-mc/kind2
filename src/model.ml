@@ -212,7 +212,7 @@ let path_length path =
     (fun _ l a -> 
        let r = List.length l in
        assert (a < 0 || r = a);
-       a)
+       r)
     path
     (- 1)
 
