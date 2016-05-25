@@ -28,6 +28,8 @@ type t =
     (** Functions *)
     functions : LustreFunction.t list;
 
+    (** Free constants *)
+    free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
 
     (** register bounds of state variables for later use *)
     state_var_bounds :

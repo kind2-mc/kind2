@@ -1957,6 +1957,26 @@ let rec trans_sys_of_node'
               (N.stateful_vars_of_node node |> SVS.elements)
               @ lifted_locals in
 
+
+          let global_consts =
+            Format.eprintf "Gobal constants: %d@."
+              (List.length globals.G.free_constants);
+            List.fold_left (fun acc (_, vt) ->
+                D.fold (fun _ v acc ->
+                    Format.eprintf "Gobal constant: %a@." Var.pp_print_var v;
+                    v :: acc) vt acc
+              ) [] globals.G.free_constants
+            |> List.rev
+          in
+          
+          let global_consts_sv =
+            List.map Var.state_var_of_state_var_instance global_consts
+            |> SVS.of_list in
+          let stateful_vars = List.filter (fun sv ->
+              not (SVS.mem sv global_consts_sv)
+            ) stateful_vars
+          in
+          
           (* Order initial state equations by dependency and
              generate terms *)
           let init_terms, node_output_input_dep_init =
@@ -2161,7 +2181,7 @@ let rec trans_sys_of_node'
               []
               functions
           in
-                
+          
           
           (* ****************************************************** *)
           (* Create transition system                               *)
@@ -2176,6 +2196,7 @@ let rec trans_sys_of_node'
               [] (* global_state_vars *)
               (signature_state_vars)
               globals.G.state_var_bounds
+              global_consts
               ufs
               init_uf_symbol
               init_formals

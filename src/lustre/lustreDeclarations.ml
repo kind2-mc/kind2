@@ -47,9 +47,42 @@ module S = LustreSimplify
 let eval_const_decl ?(ghost = false) ctx = function
 
   (* Declaration of a free constant *)
-  | A.FreeConst (pos, _, _) ->
+  | A.FreeConst (pos, i, ty) ->
 
-    C.fail_at_position pos "Free constants not supported"
+    (* Identifier of AST identifier *)
+    let ident = I.mk_string_ident i in
+
+    (* Evaluate type expression *)
+    let tyd = S.eval_ast_type ctx ty in 
+
+    let ed, vt, ctx = 
+      D.fold 
+        (fun i ty (ed, vt, ctx) ->
+           let state_var, ctx = 
+             C.mk_state_var 
+               ?is_input:(Some false)
+               ?is_const:(Some true)
+               ?for_inv_gen:(Some true)
+               ~shadow:ghost
+               ctx
+               (C.scope_of_context ctx @ I.user_scope)
+               ident
+               i
+               ty
+               None
+           in
+           let v = Var.mk_const_state_var state_var in
+           let e = E.mk_free_var v in
+           D.add i e ed, D.add i v vt, ctx)
+        tyd
+        (D.empty, D.empty, ctx)
+    in
+
+    C.add_free_constant ctx ident vt;
+    
+    C.add_expr_for_ident ~shadow:ghost ctx ident ed
+    
+    (* C.fail_at_position pos "Free constants not supported" *)
 
   (* Declaration of a typed or untyped constant *)
   | A.UntypedConst (pos, i, expr) 
@@ -1894,6 +1927,7 @@ let declarations_to_nodes decls =
 
   (* Return nodes in context *)
   C.get_nodes ctx, { G.functions = C.get_functions ctx;
+                     G.free_constants = C.get_free_constants ctx;
                      G.state_var_bounds = C.get_state_var_bounds ctx }
 
 
@@ -1942,7 +1976,7 @@ main ()
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -k -C ../.."
    indent-tabs-mode: nil
    End: 
 *)

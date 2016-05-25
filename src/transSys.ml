@@ -86,6 +86,9 @@ type t =
        parameters. TODO: add this functionality to Eval. *)
     global_state_vars : (StateVar.t * Term.t list) list;
 
+    (* List of global free constants *)
+    global_consts : Var.t list;
+    
     (* State variables in the scope of this transition system 
 
        Also contains [instance_state_var] unless it is None, but not
@@ -826,10 +829,15 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
    between and including [lbound] and [uboud] *)
 let vars_of_bounds
     ?(with_init_flag = true)
-    { init_flag_state_var; state_vars } 
+    { init_flag_state_var; state_vars; global_consts } 
     lbound
     ubound =
 
+  let state_vars =
+    List.rev_append
+      (List.rev_map Var.state_var_of_state_var_instance global_consts)
+      state_vars in
+  
   (* State variables to instantiate at bounds *)
   let state_vars = 
 
@@ -875,6 +883,11 @@ let declare_const_vars { state_vars } declare =
   |> Var.declare_constant_vars declare
 
 
+(* Declare global constants, call first and only once *)
+let declare_global_consts { global_consts } declare =
+  Var.declare_constant_vars declare global_consts
+
+
 (* Return the init flag at the given bound *)
 let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound = 
   
@@ -916,6 +929,9 @@ let define_and_declare_of_bounds
   
   (* Declare monomorphized select symbols *)
   if not (Flags.Arrays.smt ()) then declare_selects declare;
+
+  (* Declare constant state variables of top system *)
+  declare_global_consts trans_sys declare;
   
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
@@ -1319,6 +1335,7 @@ let mk_trans_sys
     global_state_vars
     state_vars
     state_var_bounds
+    global_consts
     ufs
     init_uf_symbol
     init_formals
@@ -1463,6 +1480,7 @@ let mk_trans_sys
       state_vars;
       state_var_bounds;
       subsystems;
+      global_consts;
       ufs;
       init_uf_symbol;
       init_formals;
