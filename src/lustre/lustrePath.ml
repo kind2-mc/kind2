@@ -37,7 +37,8 @@ module SVS = StateVar.StateVarSet
 (* Model for a node and its subnodes *)
 type t =
   | Function of F.t * Model.path
-  | Node of N.t * Model.path * ((I.t * position) list * t) list
+  | Node of
+    N.t * Model.path * C.mode list list option * ((I.t * position) list * t) list
 
 
 (* ********************************************************************** *)
@@ -481,18 +482,14 @@ let active_modes_of_instances model_top instances = function
     )
   in
 
-  Format.printf "empty trace@.@." ;
-
   (* Trace of active modes has the same length as the model. Originally
   empty. *)
   let empty_trace =
     let rec loop acc n =
-      Format.printf "n: %d@.@." n ;
       if n <= 0 then acc else loop ([] :: acc) (n - 1)
     in
     Model.path_length model_top |> loop []
   in
-  Format.printf "done@.@." ;
 
   (* Merges two traces of requirement values. *)
   let merge_req_traces t1 t2 =
@@ -504,7 +501,6 @@ let active_modes_of_instances model_top instances = function
         tried to merge two traces of inconsistent length\
       "
     in
-    Format.printf "merge req traces@.@." ;
     loop [] (t1, t2)
   in
 
@@ -533,7 +529,6 @@ let active_modes_of_instances model_top instances = function
           tried to merge two traces of inconsistent length\
         "
       in
-      Format.printf "add_mode_to_trace (loop)@.@." ;
 
       loop [] (mode_trace, reqs_val)
   in
@@ -545,6 +540,24 @@ let active_modes_of_instances model_top instances = function
     ) empty_trace
   )
 )
+
+let active_modes_to_strings =
+  let rec loop acc current rest width = function
+    | [] :: tail ->
+      loop acc ("" :: current) ([] :: rest) width tail
+    | ( mode :: mode_tail ) :: tail ->
+      let str = Format.asprintf "%a" (I.pp_print_ident false) mode.C.name in
+      loop
+        acc (str :: current) (mode_tail :: rest)
+        ( max width (String.length str) ) tail
+    | [] -> (
+      if rest |> List.for_all (fun l -> l = []) then
+        (List.rev current) :: acc, width
+      else
+        loop ( (List.rev current) :: acc ) [] [] width (List.rev rest)
+    )
+  in
+  loop [] [] []
 
 
 (* Reconstruct model for the instance given the models for the subnodes 
@@ -639,7 +652,8 @@ let node_path_of_instance
           model))
     ((D.singleton D.empty_index node.N.init_flag) :: locals);
 
-  ( match active_modes_of_instances model_top instances contract with
+  let active_modes = active_modes_of_instances model_top instances contract in
+(*   ( match active_modes with
     | None -> ()
     | Some active_modes ->
       Format.printf "active modes: @[<v>%a@]@.@."
@@ -649,10 +663,10 @@ let node_path_of_instance
           )
           "@ "
         ) active_modes
-  ) ;
+  ) ; *)
 
   (* Return path for subnode and its call trace *)
-  (trace, Node(node, model, subnodes))
+  (trace, Node(node, model, active_modes, subnodes))
 
 
 (* Return a hierarchical model for the nodes from a flat model by
@@ -938,16 +952,20 @@ let rec pp_print_lustre_path_pt' ppf = function
 (* Take first node to print *)
 | (trace, t) :: tl ->
 
-  let name, inputs, outputs, locals, is_visible, model, subnodes, title =
+  let (
+    name, inputs, outputs, locals, is_visible,
+    model, active_modes, subnodes, title
+  ) =
     match t with
     | Node (
-      { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
+      { N.name; N.inputs; N.outputs; N.locals } as node,
+      model, active_modes, subnodes
     ) ->
       name, inputs, outputs, locals,
-      N.state_var_is_visible node, model, subnodes,
+      N.state_var_is_visible node, model, active_modes, subnodes,
       "Node"
     | Function ( { F.name; F.inputs; F.outputs }, model ) ->
-      name, inputs, outputs, [], (fun _ -> true), model, [], "Function"
+      name, inputs, outputs, [], (fun _ -> true), model, None, [], "Function"
   in
 
   (* Remove first dimension from index *)
@@ -973,6 +991,20 @@ let rec pp_print_lustre_path_pt' ppf = function
     |> streams_to_strings model ident_width val_width []
   in
 
+  let mode_ident = "Mode(s)" in
+  let ident_witdth, val_width, modes = match active_modes with
+    | None -> ident_width, val_width, None
+    | Some modes ->
+      let ident_width = max ident_width (String.length mode_ident) in
+      let modes, val_width = active_modes_to_strings val_width modes in
+      (* Format.printf "modes:@." ;
+      modes |> List.iter (
+        fun line -> Format.printf "  %a@." (pp_print_list Format.pp_print_string ", ") line
+      ) ;
+      Format.printf "@." ; *)
+      ident_width, val_width, Some modes
+  in
+
   (* Filter locals to for visible state variables only and return
      as a list 
 
@@ -993,6 +1025,7 @@ let rec pp_print_lustre_path_pt' ppf = function
         %a\
         %a\
         %a\
+        %a\
       @]\
     @,@]"
     title
@@ -1000,6 +1033,13 @@ let rec pp_print_lustre_path_pt' ppf = function
     name
     (pp_print_list pp_print_call_pt " / ") 
     (List.rev trace)
+    (fun fmt -> function
+      | None -> ()
+      | Some modes ->
+        modes
+        |> List.map (fun vals -> ("", vals))
+        |> pp_print_stream_section_pt ident_width val_width mode_ident fmt
+    ) modes
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
     (pp_print_stream_section_pt ident_width val_width "Locals") locals';
@@ -1135,7 +1175,10 @@ let pp_print_stream_xml get_source model ppf (index, state_var) =
   with Not_found -> assert false
     
 
-(* Output a list of node models *)
+(* Output a list of node models
+
+TODO: mode information
+*)
 let rec pp_print_lustre_path_xml' ppf = function 
 
   | [] -> ()
@@ -1144,20 +1187,20 @@ let rec pp_print_lustre_path_xml' ppf = function
 
     let
       name, inputs, outputs, locals, is_visible, get_source,
-      model, subnodes, title
+      model, active_modes, subnodes, title
     =
       match t with
       | Node (
-        { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
+        { N.name; N.inputs; N.outputs; N.locals } as node,
+        model, active_modes, subnodes
       ) ->
         name, inputs, outputs, locals,
         N.state_var_is_visible node, N.get_state_var_source node,
-        model, subnodes,
-        "Node"
+        model, active_modes, subnodes, "Node"
       | Function ( { F.name; F.inputs; F.outputs } as f, model ) ->
         name, inputs, outputs, [],
         (fun _ -> true), F.get_state_var_source f,
-        model, [], "Function"
+        model, None, [], "Function"
     in
 
     (* Remove first dimension from index *)
@@ -1277,7 +1320,7 @@ let pp_print_stream_csv model ppf (index, sv) =
 (* Outputs a sequence of values for the inputs of a node. *)
 let pp_print_lustre_path_in_csv ppf = function
 | _, Function _ -> ()
-| trace, Node( { N.inputs }, model, _ ) ->
+| trace, Node( { N.inputs }, model, _, _ ) ->
 
   (* Remove first dimension from index. *)
   let pop_head_index = function

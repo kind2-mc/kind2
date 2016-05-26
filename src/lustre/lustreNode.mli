@@ -343,7 +343,11 @@ val scope_of_node : t -> Scope.t
     system is presented to [f] after all its subsystem instances have
     been presented.
 *)
-val fold_node_calls_with_trans_sys : t list -> (t -> TransSys.t -> (TransSys.t * TransSys.instance) list -> 'a list -> 'a) -> t -> TransSys.t -> 'a
+val fold_node_calls_with_trans_sys :
+  t list -> (
+    t -> TransSys.t ->
+    (TransSys.t * TransSys.instance) list -> 'a list -> 'a
+  ) -> t -> TransSys.t -> 'a
 
 (** {2 Sources} *)
 
