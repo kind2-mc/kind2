@@ -28,7 +28,7 @@ type term = Term.t
 
 let solver_ref = ref None
 
-let prefix = "IND2 "
+let prefix = "[IND2] "
 
 (* Clean up before exit. *)
 let on_exit _ =
@@ -150,14 +150,31 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
   match Event.recv () |> Event.update_trans_sys ctx.in_sys ctx.param sys with
     (* Nothing new property-wise, keep going. *)
     | (invs, []) ->
+
+      ( match invs with
+        | [] -> ()
+        | _ ->
+          Event.log L_info "%sreceived %d invariants" prefix (List.length invs)
+      ) ;
       let new_things = add_invariants solver invs in
       if not (new_things || new_stuff) then (
+        (* Event.log L_info
+          "%s@[<v>receiving invariants (no props)@ nothing new@]" prefix ; *)
         (* No new invariants, sleeping and looping. *)
         minisleep 0.07 ;
         check_new_things false ctx
+      ) else (
+        (* Event.log L_info
+          "%s@[<v>receiving invariants (no props)@ new stuff@]" prefix ; *)
       )
     (* Some properties changed status. *)
     | (invs, props) ->
+
+      ( match invs with
+        | [] -> ()
+        | _ ->
+          Event.log L_info "%sreceived %d invariants" prefix (List.length invs)
+      ) ;
 
       let map, invs, new_stuff =
         map |> List.fold_left (
@@ -180,17 +197,22 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
             | _ ->
               (* Still unknown. *)
               p :: map, invs, new_stuff
-        ) ([], invs, new_stuff || invs <> [])
+        ) ([], invs, new_stuff)
       in
 
       (* Update map in context. *)
       ctx.map <- map ;
       (* Adding new invariants. *)
-      add_invariants solver invs |> ignore ;
+      let new_stuff = (add_invariants solver invs) || new_stuff in
       (* We got new stuff we don't loop. *)
       if not new_stuff then (
+        (* Event.log L_info
+          "%s@[<v>receiving invariants and props@ nothing new@]" prefix ; *)
         minisleep 0.07 ;
         check_new_things false ctx
+      ) else (
+        (* Event.log L_info
+          "%s@[<v>receiving invariants and props@ new stuff@]" prefix *)
       )
 
 (* Returns the properties that cannot be falsified. *)
@@ -316,12 +338,24 @@ let rec run ctx =
 
   (* Get unfalsifiable properties. *)
   let new_stuff = match split ctx with
-    | [] -> false
+    | [] ->
+      Event.log
+        L_info
+        "%s@[<v>%d falsifiable properties@]"
+        prefix (List.length ctx.map) ;
+      false
     | unfalsifiable ->
       Event.log
         L_info
-        "%s@[<v>%d unfalsifiable properties"
-        prefix (List.length unfalsifiable) ;
+        "%s@[<v>Proved %d properties%t@]"
+        prefix (List.length unfalsifiable)
+        (fun fmt ->
+          match ctx.map with
+          | [] -> ()
+          | _ ->
+            Format.fprintf
+              fmt "@ %d falsifiable properties" (List.length ctx.map)
+        ) ;
       broadcast_if_safe ctx unfalsifiable
   in
 
@@ -336,10 +370,6 @@ let rec run ctx =
   | _ ->
     (* Keep going when new things arrive. *)
     check_new_things new_stuff ctx ;
-    Event.log
-      L_info
-      "%s@[<v>Restarting with %d properties@]"
-      prefix (List.length ctx.map) ;
     run ctx
 
 (* Entry point. *)

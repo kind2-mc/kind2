@@ -115,9 +115,8 @@ let main_of_process = function
   | `BMC -> BMC.main
   | `IND -> IND.main
   | `IND2 -> IND2.main
-  | `NUINVGEN -> renice () ; NuInvGen.main
-  | `INVGEN -> renice () ; InvGenTS.main
-  | `INVGENOS -> renice () ; InvGenOS.main
+  | `INVGEN -> renice () ; NuInvGen.main true
+  | `INVGENOS -> renice () ; NuInvGen.main false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
   | `Supervisor -> InvarManager.main child_pids
@@ -129,9 +128,8 @@ let on_exit_of_process = function
   | `BMC -> BMC.on_exit
   | `IND -> IND.on_exit
   | `IND2 -> IND2.on_exit
-  | `NUINVGEN -> NuInvGen.exit
-  | `INVGEN -> InvGenTS.on_exit
-  | `INVGENOS -> InvGenOS.on_exit
+  | `INVGEN -> NuInvGen.exit
+  | `INVGENOS -> NuInvGen.exit
   | `C2I -> C2I.on_exit
   | `Interpreter -> Interpreter.on_exit
   | `Supervisor -> InvarManager.on_exit
@@ -153,7 +151,6 @@ let debug_ext_of_process = function
   | `BMC -> "bmc"
   | `IND -> "ind"
   | `IND2 -> "ind2"
-  | `NUINVGEN -> "nuinvgen"
   | `INVGEN -> "invgenTS"
   | `INVGENOS -> "invgenOS"
   | `C2I -> "c2i"

@@ -312,7 +312,6 @@ type kind_module =
   | `BMC
   | `IND
   | `IND2
-  | `NUINVGEN
   | `INVGEN
   | `INVGENOS
   | `C2I

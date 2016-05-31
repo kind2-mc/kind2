@@ -988,7 +988,6 @@ type kind_module =
   | `BMC 
   | `IND 
   | `IND2
-  | `NUINVGEN
   | `INVGEN
   | `INVGENOS
   | `C2I
@@ -1003,7 +1002,6 @@ let pp_print_kind_module ppf = function
   | `BMC -> fprintf ppf "bounded model checking"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
-  | `NUINVGEN -> fprintf ppf "nu invariant generator"
   | `INVGEN -> fprintf ppf "two state invariant generator"
   | `INVGENOS -> fprintf ppf "one state invariant generator"
   | `C2I -> fprintf ppf "c2i"
@@ -1022,7 +1020,6 @@ let suffix_of_kind_module = function
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `IND2 -> "ind2"
- | `NUINVGEN -> "nuinvgen"
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
  | `C2I -> "c2i"
@@ -1037,7 +1034,6 @@ let kind_module_of_string = function
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "IND2" -> `IND2
-  | "NUINVGEN" -> `NUINVGEN
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
   | "C2I" -> `C2I
@@ -1052,7 +1048,6 @@ let int_of_kind_module = function
   | `IND -> 2
   | `IND2 -> 3
   | `IC3 -> 4
-  | `NUINVGEN -> 11
   | `INVGEN -> 5
   | `INVGENOS -> 6
   | `C2I -> 7
