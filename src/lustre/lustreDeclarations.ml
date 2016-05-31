@@ -1457,22 +1457,6 @@ and eval_node_contract_spec ctx scope contract =
   let ctx, _, _ =
     List.fold_left (eval_node_contract_item scope) (ctx, 1, 1) contract
   in
-  (* Extract node called in the contract. *)
-  let _ =
-    match C.get_node ctx with
-    | None ->
-      Format.asprintf "@[<v>\
-        [eval_node_contract_spec] parsed contract spec but no current node, \
-        should be unreachable@ \
-        scope: \"%a\"\
-      @]" (pp_print_list (
-        fun fmt (_, id) -> A.pp_print_ident fmt id
-      ) ", ") scope
-      |> failwith
-    | Some node -> Format.printf "\
-      calls: @[<v>%a@]@.@.\
-    " (pp_print_list (N.pp_print_call false) "@ ") node.N.calls
-  in
   ctx
   
 
