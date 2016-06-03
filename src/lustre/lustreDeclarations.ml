@@ -1225,6 +1225,25 @@ let eval_node_mode scope ctx (pos, id, reqs, enss) =
   Contract.mk_mode (I.mk_string_ident id) pos path reqs enss
   |> C.add_node_mode ctx
 
+
+(* (* Checks whether some node calls have contracts, recursively. *)
+let rec check_no_contract_in_node_calls ctx = function
+(* No call left, done. *)
+| [] -> ()
+(* Let's do this. *)
+| { N.call_node_name ; N.call_pos } :: calls -> (
+  match
+    try C.node_of_name ctx call_node_name
+    with Not_found -> C.fail_at_position call_pos (
+      Format.asprintf "call to unknown node \"%a\""
+        (LustreIdent.pp_print_ident false) call_node_name
+    )
+  with
+  | Some contract ->
+  | None -> 
+)
+ *)
+
 (* Evaluates contract calls. *)
 let rec eval_node_contract_call ctx scope
     (call_pos, id, in_params, out_params) =
@@ -1443,7 +1462,8 @@ and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
 (* Add all node contracts to contexts *)
 and eval_node_contract_spec ctx scope contract =
   let ctx, _, _ =
-    List.fold_left (eval_node_contract_item scope) (ctx, 1, 1) contract in
+    List.fold_left (eval_node_contract_item scope) (ctx, 1, 1) contract
+  in
   ctx
   
 

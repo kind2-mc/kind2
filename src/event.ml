@@ -699,10 +699,7 @@ let pp_print_counterexample_xml
             prop
         in
 
-        let tag =
-          if disproved then "Counterexample"
-          else "InductionCounterexample"
-        in
+        let tag = "CounterExample" in
 
         (* Output counterexample *)
         Format.fprintf ppf 
@@ -753,13 +750,19 @@ mdl level input_sys analysis trans_sys prop (
     (* Reset division by zero indicator. *)
     Simplify.has_division_by_zero_happened () |> ignore ;
 
+    let answer =
+      match mdl with
+      | `IND -> "unknown"
+      | _ -> "falsifiable"
+    in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
       ("@[<hv 2><Property name=\"%s\">@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
-        <Answer source=\"%a\">falsifiable</Answer>@,\
+        <Answer source=\"%a\">%s</Answer>@,\
         %a@;<0 -2>\
         </Property>@]@.") 
       prop
@@ -769,6 +772,7 @@ mdl level input_sys analysis trans_sys prop (
          | cex ->
           (Property.length_of_cex cex) - 1 |> Format.fprintf ppf "<K>%d</K>@,")
       pp_print_kind_module_xml_src mdl
+      answer
       (pp_print_counterexample_xml input_sys analysis trans_sys prop disproved)
       cex ;
 
