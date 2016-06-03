@@ -183,6 +183,10 @@ module Smt = struct
           Other SMT-LIB logics will be passed to the solver\
         @]"
     )
+    
+  let detect_logic_if_none () =
+    if !logic = `None then logic := `detect
+          
   let logic () = !logic
 
   (* Activates check-sat with assumptions when supported. *)
@@ -404,6 +408,9 @@ module BmcKind = struct
         "@[<v>Compress inductive counterexamples@ Default: %a@]"
         fmt_bool compress_default
     )
+
+  let disable_compress () = compress := false
+  
   let compress () = !compress
 
   let compress_equal_default = true
@@ -870,7 +877,10 @@ module Certif = struct
   let _ = add_spec
     "--certif"
     (Arg.Bool (fun b -> certif := b;
-                if b then Smt.set_short_names false))
+                if b then begin
+                  Smt.set_short_names false;
+                  BmcKind.disable_compress ();
+                end))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Produce SMT-LIB 2 certificates.@ Default: %a@]"
@@ -885,6 +895,8 @@ module Certif = struct
                 if b then begin
                   certif := true;
                   Smt.set_short_names false;
+                  Smt.detect_logic_if_none ();
+                  BmcKind.disable_compress ();
                 end))
     (fun fmt ->
       Format.fprintf fmt
