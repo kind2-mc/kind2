@@ -344,6 +344,15 @@ module Contracts : sig
 
   (** Check modes. *)
   val check_implem : unit -> bool
+
+  (** Contract generation. *)
+  val contract_gen : unit -> bool
+
+  (** Contract generation: max depth. *)
+  val contract_gen_depth : unit -> int
+
+  (** Contract generation: fine grain. *)
+  val contract_gen_fine_grain : unit -> bool
 end
 
 

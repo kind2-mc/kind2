@@ -1259,7 +1259,30 @@ let main () =
         "Could not translate contracts from file \"%s\":@ %s"
         src (Printexc.to_string e)
   )
-  | None -> launch input_sys
+  | None -> (
+
+    (* Are we just generating contracts?. *)
+    if Flags.Contracts.contract_gen () then ( 
+
+      let param, node_of_scope = InputSystem.contract_gen_param input_sys in
+
+      (* Building transition system and slicing info. *)
+      let trans_sys, input_sys_sliced =
+        InputSystem.trans_sys_of_analysis input_sys param
+      in
+
+      let target =
+        Flags.output_dir () |> mk_dir ;
+        Flags.output_dir () |> Format.sprintf "%s/spec_by_kind2.lus"
+      in
+
+      LustreContractGen.generate_contracts
+        input_sys_sliced trans_sys param node_of_scope target
+
+    ) else
+
+      launch input_sys
+  )
 
 ;;
 

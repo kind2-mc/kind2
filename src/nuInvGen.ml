@@ -59,11 +59,51 @@ module Lsd = LockStepDriver
 module Map = Term.TermHashtbl
 (* Term set. *)
 module Set = Term.TermSet
+(* module Set = struct
+  type t = unit Map.t
+  let empty () = Map.create 107
+  let remove term set = Map.remove set term ; set
+  let add term set = Map.replace set term () ; set
+  let of_set set =
+    Term.TermSet.cardinal set
+    |> Map.create
+    |> Term.TermSet.fold (
+      fun t set -> add t set
+    ) set
+  let cardinal = Map.length
+  let is_empty set = cardinal set = 0
+  let iter f set = Map.iter (fun t _ -> f t) set
+  let fold f = Map.fold (fun t _ acc -> f t acc)
+  exception Found of Term.t
+  let choose set =
+    try (
+      match fold (fun t _ -> raise (Found t)) set [] with
+      | [] -> raise Not_found
+      | _ -> failwith "unreachable: choose function over sets"
+    ) with Found t -> t
+  let union lft rgt =
+    (* Want to fold over the smallest set. *)
+    let lft, rgt =
+      if cardinal rgt > cardinal lft then rgt, lft else lft, rgt
+    in
+    rgt |> fold (fun t lft -> add t lft) lft
+  let elements set = fold (fun e l -> e :: l) set []
+  let mem t set = Map.mem set t
+  exception NotTrue
+  let for_all f set =
+    try (
+      iter (fun t -> if f t |> not then raise NotTrue) set ;
+      true
+    ) with NotTrue -> false
+end *)
 
 (* Transition system module. *)
 module Sys = TransSys
 (* System hash table. *)
 module SysMap = Sys.Hashtbl
+
+(* Numerals. *)
+module Num = Numeral
 
 (* Term. *)
 type term = Term.t
@@ -92,7 +132,7 @@ let sanitize_term two_state sys term =
     (* We need to sanitize systematically in two state as it DOES NOT check
     anything in the initial state. That is, even one state "invariants" could
     be false in the initial state, and thus must be guarded. *)
-    Term.mk_or [ Sys.init_flag_of_bound sys Numeral.zero ; term ]
+    Term.mk_or [ Sys.init_flag_of_bound sys Num.zero ; term ]
   ) else term
 
 
@@ -117,7 +157,7 @@ module type In = sig
   (** Evaluates a term. *)
   val eval : Sys.t -> Model.t -> Term.t -> t
   (** Mines a transition system for candidate terms. *)
-  val mine : bool -> Sys.t -> (Sys.t * Term.TermSet.t) list
+  val mine : Analysis.param -> bool -> Sys.t -> (Sys.t * Term.TermSet.t) list
   (** Returns true iff the input term is bottom. *)
   val is_bot: Term.t -> bool
   (** Returns true iff the input term is top. *)
@@ -128,7 +168,10 @@ end
 when given a module with signature [In]. *)
 module type Out = sig
   (** Runs the invariant generator. *)
-  val main : bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+  val main :
+    Num.t option -> bool -> 'a InputSystem.t -> Analysis.param -> Sys.t -> (
+      Sys.t * Set.t * Set.t
+    ) list
   (** Clean exit for the invariant generator. *)
   val exit : unit -> unit
 end
@@ -223,10 +266,7 @@ module Make (Value : In) : Out = struct
               let pruning_checker = SysMap.find sys_map sub_sys in
               NLsd.pruning_add_invariants pruning_checker terms
             ) with Not_found -> (
-              Event.log L_fatal
-                "%s could not find pruning checker for system [%s]"
-                (prefs two_state) (sys_name sub_sys) ;
-              exit ()
+              (* System is abstract, skipping. *)
             )
           ) ;
           (* Broadcasting invariants. *)
@@ -262,7 +302,7 @@ module Make (Value : In) : Out = struct
           @]"
           (prefs two_state)
           (sys_name sys)
-          Numeral.pp_print_numeral k
+          Num.pp_print_numeral k
           blah
           (List.length non_trivial)
       | [], _ ->
@@ -273,7 +313,7 @@ module Make (Value : In) : Out = struct
           @]"
           (prefs two_state)
           (sys_name sys)
-          Numeral.pp_print_numeral k
+          Num.pp_print_numeral k
           blah
           (List.length trivial)
       | _, _ ->
@@ -284,7 +324,7 @@ module Make (Value : In) : Out = struct
           @]"
           (prefs two_state)
           (sys_name sys)
-          Numeral.pp_print_numeral k
+          Num.pp_print_numeral k
           blah
           (List.length non_trivial)
           (List.length trivial)
@@ -314,15 +354,14 @@ module Make (Value : In) : Out = struct
       | (_, (scope, inv)) :: tail ->
         let this_sys = Sys.find_subsystem_of_scope top_sys scope in
         (* Retrieving pruning checker for this system. *)
-        let pruning_checker =
-          try SysMap.find sys_map this_sys with Not_found -> (
-            Event.log L_fatal
-              "%s could not find pruning checker for system [%s]"
-              pref (sys_name this_sys) ;
-            exit ()
+        (
+          try (
+            let pruning_checker = SysMap.find sys_map this_sys in
+            NLsd.pruning_add_invariants pruning_checker [inv]
+          ) with Not_found -> (
+            (* System is abstract, skipping it. *)
           )
-        in
-        NLsd.pruning_add_invariants pruning_checker [inv] ;
+        ) ;
         update_pruning_checkers (
           if this_sys == sys then inv :: sys_invs else sys_invs
         ) tail
@@ -414,7 +453,7 @@ module Make (Value : In) : Out = struct
           try Map.find values key |> Format.asprintf "%a" Value.fmt
           with Not_found -> "_mada_"
         in
-        Term.TermSet.iter (
+        Set.iter (
           fun kid ->
             let kid_len = 1 + (Set.cardinal (Map.find classes kid)) in
             let kid_value =
@@ -437,7 +476,7 @@ module Make (Value : In) : Out = struct
           try Map.find values key |> Format.asprintf "%a" Value.fmt
           with Not_found -> "_mada_"
         in
-        Term.TermSet.iter (
+        Set.iter (
           fun kid ->
             let kid_len = 1 + (Set.cardinal (Map.find classes kid)) in
             let kid_value =
@@ -642,21 +681,24 @@ module Make (Value : In) : Out = struct
       if known cand then l else (cand, info) :: l
     in
 
-    let rec loop rep res = function
+    let rec loop rep pref suff = function
       | term :: tail ->
-        let res =
-          cond_cons res (Term.mk_eq [ rep ; term ]) (rep, term)
+        let pref =
+          cond_cons pref (Term.mk_eq [ rep ; term ]) (rep, term)
         in
-        List.fold_left (
-          fun res term' ->
-            cond_cons res (Term.mk_eq [ term ; term' ]) (rep, term')
-        ) res tail
-      | [] -> res
+        let suff =
+          List.fold_left (
+            fun suff term' ->
+              cond_cons suff (Term.mk_eq [ term ; term' ]) (rep, term')
+          ) suff tail
+        in
+        loop rep pref suff tail
+      | [] -> List.rev_append pref suff
     in
 
     (* For each [rep -> terms] in [classes]. *)
     Map.fold (
-      fun rep terms acc -> Set.elements terms |> loop rep acc
+      fun rep terms acc -> Set.elements terms |> loop rep [] acc
     ) classes []
 
 
@@ -742,7 +784,7 @@ module Make (Value : In) : Out = struct
 
   (** Splits the class of a representative based on a model. Returns the
   resulting chain. *)
-  let split sys { classes ; values ; map_up ; map_down } model rep =
+  let split sys new_reps { classes ; values ; map_up ; map_down } model rep =
     (* Format.printf "  splitting %a@." fmt_term rep ; *)
 
     let rep_val = Value.eval sys model rep in
@@ -812,26 +854,39 @@ module Make (Value : In) : Out = struct
       (* Update values, no need to update classes. *)
       Map.replace values rep rep_val ;
       (* All terms in the class yield the same value. *)
-      [ (rep, rep_val) ]
+      [ (rep, rep_val) ], new_reps
 
     (* New classes were created. *)
     | _ ->
       (* Format.printf "    class was split@.@." ; *)
       (* Representative's class was split, inserting [rep] and its updated
       class. *)
-      insert ~is_rep:true [] sorted rep rep_val
-      |> List.map (
-        fun (rep, value, set) ->
-          (* Update class map. *)
-          Map.replace classes rep set ;
-          (* Update values. *)
-          Map.replace values rep value ;
-          (* Insert with empty kids and parents if not already there. *)
-          apply ~not_found:(Some Set.empty) identity rep map_up ;
-          apply ~not_found:(Some Set.empty) identity rep map_down ;
+      let new_reps = ref new_reps in
+      let chain =
+        insert ~is_rep:true [] sorted rep rep_val
+        |> List.map (
+          fun (rep, value, set) ->
+            (* TODO: add [is_bot] and [is_top] to input modules and use that
+            instead. *)
+            let rep, set =
+              if Set.mem Term.t_true set
+              then Term.t_true, set |> Set.add rep |> Set.remove Term.t_true
+              else rep, set
+            in
+            new_reps := ! new_reps |> Set.add rep ;
+            (* Update class map. *)
+            Map.replace classes rep set ;
+            (* Update values. *)
+            Map.replace values rep value ;
+            (* Insert with empty kids and parents if not already there. *)
+            apply ~not_found:(Some Set.empty) identity rep map_up ;
+            apply ~not_found:(Some Set.empty) identity rep map_down ;
 
-          (rep, value)
-      )
+            (rep, value)
+        )
+      in
+
+      chain, ! new_reps
 
 
   (** Inserts a chain obtained by splitting [rep] in a graph.
@@ -1067,9 +1122,148 @@ module Make (Value : In) : Out = struct
     in
     loop []
 
-  (** Queries the lsd and updates the graph. Iterates until the graph is stable
-  meaning the lsd returns unsat. *)
-  let rec update sys known lsd out_cnt ({ map_up ; map_down } as graph) =
+  (* Splits a graph based on the current model.
+
+  Returns the representatives created and modified. *)
+  let split_of_model sys new_reps model ({ map_down ; map_up } as graph) =
+    let rec loop new_reps continuation =
+      (* Format.printf "@.starting update %d / %d@.@." out_cnt in_cnt ; *)
+      match next_of_continuation graph continuation with
+      | None -> new_reps
+      | Some (nxt, continuation) -> (
+        (* Format.printf "  nxt is %a@.@." fmt_term nxt ; *)
+        (* Remember nodes above [nxt]. *)
+        let above = Map.find map_up nxt |> Set.elements in
+        (* Split and insert chain. *)
+        let new_reps =
+          let chain, new_reps = split sys new_reps graph model nxt in
+          insert graph nxt chain ;
+          new_reps
+        in
+        (* write_dot_to
+          "graphs/" "graph" (Format.sprintf "%d_%d" out_cnt in_cnt)
+          fmt_graph_dot graph ; *)
+        (* Add nodes above [nxt] to continuation if any. *)
+        match above with
+        | [] -> loop new_reps continuation
+        | _ -> above :: continuation |> loop new_reps
+      )
+    in
+
+    (* Retrieve all nodes that have no parents. *)
+    [
+      Map.fold (
+        fun rep parents acc ->
+          if Set.is_empty parents then rep :: acc else acc
+      ) map_down []
+    ]
+    (* And start with that. *)
+    |> loop new_reps
+
+  (** Stabilizes the equivalence classes.
+  Stabilizes classes one by one to send relatively small candidates to lsd. *)
+  let update_classes sys known lsd ({ classes } as graph) =
+
+    let rec loop count reps_to_update =
+      try (
+
+        (* Checking if we should terminate before doing anything. *)
+        Event.check_termination () ;
+
+        (* Will raise `Not_found` if no more reps to update (terminal case). *)
+        let rep = Set.choose reps_to_update in
+        let reps_to_update = Set.remove rep reps_to_update in
+
+        try (
+
+          (* Retrieve class. *)
+          let cl4ss = Map.find classes rep in
+          (* Building equalities. *)
+          let eqs, _ =
+            Set.fold (
+              fun rep (acc, last) ->
+                (Term.mk_eq [last ; rep]) :: acc, rep
+            ) cl4ss ([], rep)
+          in
+          match
+            (* Is this set of equalities falsifiable?. *)
+            NLsd.query_base lsd eqs
+          with
+          | None ->
+            (* Stable, moving on. *)
+            loop (count + 1) reps_to_update
+          | Some model ->
+            (* Checking if we should terminate before doing anything. *)
+            Event.check_termination () ;
+            (* Clear (NOT RESET) the value map for update. *)
+            clear graph ;
+            (* Stabilize graph. *)
+            let reps_to_update =
+              split_of_model sys reps_to_update model graph
+            in
+            (* Loop after adding new representatives (includes old one). *)
+            loop (count + 1) reps_to_update
+        ) with Not_found ->
+          Format.asprintf "could not find rep %a in class map" fmt_term rep
+          |> failwith
+
+      ) with Not_found ->
+        Event.log_uncond
+          "update classes done in %d iterations" count
+    in
+
+    (* Retrieve all representatives. *)
+    Map.fold ( fun rep _ set -> Set.add rep set ) classes Set.empty
+    |> loop 0
+
+  (** Stabilizes the relations. *)
+  let rec update_rels sys known lsd count ({ map_up ; classes } as graph) =
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
+
+    (* Building relations. *)
+    let rels =
+      Map.fold (
+        fun rep reps acc ->
+          Set.fold (
+            fun rep' acc -> (Value.mk_cmp rep rep') :: acc
+          ) reps acc
+      ) map_up []
+    in
+
+    match
+      (* Are these relations falsifiable?. *)
+      NLsd.query_base lsd rels
+    with
+    | None ->
+      Format.printf "update_rels done after %d iterations@.@." count ;
+      (* Stable, done. *)
+      ()
+    | Some model ->
+      (* Checking if we should terminate before doing anything. *)
+      Event.check_termination () ;
+      (* Clear (NOT RESET) the value map for update. *)
+      clear graph ;
+      (* Stabilize graph. *)
+      let reps_to_update =
+        split_of_model sys Set.empty model graph
+      in
+      (
+        if Set.is_empty reps_to_update |> not then
+          Event.log L_warn
+            "[graph splitting] @[<v>\
+              Some classes were split during relation stabilization.@ \
+              This should not be possible.\
+            "
+      ) ;
+      (* Loop after adding new representatives (includes old one). *)
+      update_rels sys known lsd (count + 1) graph
+
+  (** Queries the lsd and updates the graph. Iterates until the graph is
+  stable. That is, when the lsd returns unsat. *)
+  let rec update_loop
+    sys known lsd ({ map_up ; map_down } as graph)
+  =
 
   (* Event.log L_info "%s check sat" pref ; *)
 
@@ -1089,47 +1283,24 @@ module Make (Value : In) : Out = struct
 
     (* Format.printf "@.sat, updating graph: %d@." out_cnt ; *)
 
-    (* Splits the graph based on the current model. *)
-    let rec loop in_cnt continuation =
-      (* Format.printf "@.starting update %d / %d@.@." out_cnt in_cnt ; *)
-      match next_of_continuation graph continuation with
-      | None -> ()
-      | Some (nxt, continuation) -> (
-        (* Format.printf "  nxt is %a@.@." fmt_term nxt ; *)
-        (* Remember nodes above [nxt]. *)
-        let above = Map.find map_up nxt |> Set.elements in
-        (* Split and insert chain. *)
-        split sys graph model nxt |> insert graph nxt ;
-        (* Format.printf "@.  logging graph for %d / %d@." out_cnt in_cnt ; *)
-        (* write_dot_to
-          "graphs/" "graph" (Format.sprintf "%d_%d" out_cnt in_cnt)
-          fmt_graph_dot graph ; *)
-        (* Add nodes above [nxt] to continuation if any. *)
-        match above with
-        | [] -> ()
-        | _ ->
-          above :: continuation |> loop (in_cnt + 1)
-      )
-    in
-
-    (* Retrieve all nodes that have no parents. *)
-    let orphans =
-      Map.fold (
-        fun rep parents acc -> if Set.is_empty parents then rep :: acc else acc
-      ) map_down []
-    in
-
     (* Clear (NOT RESET) the value map for update. *)
-    clear graph ;
+    (* clear graph ; *)
     
     (* Stabilize graph. *)
-    loop 0 [ orphans ] ;
+    split_of_model sys Set.empty model graph |> ignore ;
 
     (* Checking if we should terminate before looping. *)
     Event.check_termination () ;
 
     (* Check if new graph is stable. *)
-    update sys known lsd (out_cnt + 1) graph
+    update_loop sys known lsd graph
+
+  (** Queries the lsd and updates the graph. Iterates until the graph is
+  stable. That is, when the lsd returns unsat. *)
+  let update sys known lsd graph =
+    update_loop sys known lsd graph
+    (* update_classes sys known lsd graph ;
+    update_rels sys known lsd 0 graph *)
 
 
 
@@ -1137,15 +1308,16 @@ module Make (Value : In) : Out = struct
   (** Goes through all the (sub)systems for the current [k]. Then loops
   after incrementing [k]. *)
   let rec system_iterator
-    two_state input_sys param top_sys memory k sys_map top_level_count
+    max_depth two_state
+    input_sys param top_sys memory k sys_map top_level_count
   = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
     let blah = if sys == top_sys then " (top)" else "" in
-    Event.log L_info
+    Event.log_uncond
       "%s Running on %a%s at %a (%d candidate terms)"
       (prefs two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
-      Numeral.pp_print_numeral k (term_count graph) ;
+      Num.pp_print_numeral k (term_count graph) ;
 
     (* Receiving messages, don't care about new invariants for now as we
     haven't create the base/step checker yet. *)
@@ -1166,26 +1338,35 @@ module Make (Value : In) : Out = struct
     (* Memorizing LSD instance for clean exit. *)
     base_ref := Some lsd ;
 
-    (* Format.printf "LSD instance is at %a@.@." Numeral.pp_print_numeral (Lsd.get_k lsd sys) ; *)
+    (* Format.printf "LSD instance is at %a@.@." Num.pp_print_numeral (Lsd.get_k lsd sys) ; *)
 
     (* Prunes known invariants from a list of candidates. *)
     let prune cand =
-      Set.mem cand non_trivial
-      || Set.mem cand trivial
-      || (
-        if two_state then (
+      Set.mem cand non_trivial || Set.mem cand trivial
+    in
+    let prune =
+      if two_state then (
+        fun cand -> prune cand ||  (
           match Term.var_offsets_of_term cand with
-          | (Some lo, Some hi) when lo != hi -> false
-          | _ -> true
-        ) else false
-      )
+          | (Some _, Some hi) when Num.(hi = ~- one) -> true
+          | _ -> false
+        ) || (
+          if max_depth = None then (
+            match Term.var_offsets_of_term cand with
+            | (Some lo, Some hi) when lo != hi -> false
+            | _ -> true
+          ) else false
+        )
+      ) else prune
     in
 
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
 
+    (* Event.log_uncond "%s stabilizing graph..." (prefs two_state) ; *)
+
     (* Stabilize graph. *)
-    ( try update sys prune lsd 0 graph with
+    ( try update sys prune lsd graph with
       | Event.Terminate -> exit ()
       | e -> (
         Event.log L_fatal "caught exception %s@.@." (Printexc.to_string e) ;
@@ -1194,12 +1375,12 @@ module Make (Value : In) : Out = struct
       )
     ) ;
     (* write_dot_to
-      "graphs/" "classes" (Format.asprintf "%a" Numeral.pp_print_numeral k)
+      "graphs/" "classes" (Format.asprintf "%a" Num.pp_print_numeral k)
       fmt_graph_classes_dot graph ; *)
 
-    (* Event.log_uncond "%s done stabilizing graph..." (prefs two_state) ;
+    (* Event.log_uncond "%s done stabilizing graph" (prefs two_state) ; *)
     
-    Event.log_uncond
+    (* Event.log_uncond
       "%s Done stabilizing graph, checking consistency" (prefs two_state) ;
     check_graph graph ;
     Event.log_uncond "%s Done checking consistency" (prefs two_state) ; *)
@@ -1214,6 +1395,11 @@ module Make (Value : In) : Out = struct
     in
     NLsd.step_add_invariants lsd new_invs_for_sys ;
 
+    (* Receiving messages. *)
+    let new_invs_for_sys =
+      recv_and_update input_sys param top_sys sys_map sys
+    in
+    NLsd.step_add_invariants lsd new_invs_for_sys ;
 
     (* Check class equivalence first. *)
     let equalities = equalities_of graph prune in
@@ -1254,7 +1440,7 @@ module Make (Value : In) : Out = struct
         fun trivial inv -> Set.add inv trivial
       ) trivial
     in
-    (* Communicating an adding to trans sys. *)
+    (* Communicating and adding to trans sys. *)
     let top_level_inc, sanitized_eqs =
       communicate_and_add
         two_state top_sys sys_map sys k (
@@ -1268,12 +1454,6 @@ module Make (Value : In) : Out = struct
     (* Adding non-trivial to step and pruning checkers. *)
     NLsd.step_add_invariants lsd sanitized_eqs ;
     NLsd.pruning_add_invariants pruning_checker sanitized_eqs ;
-
-    (* Receiving messages. *)
-    let new_invs_for_sys =
-      recv_and_update input_sys param top_sys sys_map sys
-    in
-    NLsd.step_add_invariants lsd new_invs_for_sys ;
 
     (* Checking graph edges now. *)
     let relations =
@@ -1293,17 +1473,13 @@ module Make (Value : In) : Out = struct
         fun non_trivial inv -> Set.add inv non_trivial
       ) non_trivial
     in
+
     (* Not adding to lsd, we won't use it anymore. *)
     (* Destroying LSD. *)
     NLsd.kill_step lsd ;
     (* Unmemorizing LSD instance. *)
     step_ref := None ;
-    (* (* Extracting trivial invariants. *)
-    let trivial_rels =
-      inv_rels |> List.filter (
-        fun term -> List.mem term non_trivial_rels |> not
-      )
-    in *)
+
     (* Updating set of trivial invariants for this system. *)
     let trivial =
       trivial_rels |> List.fold_left (
@@ -1319,6 +1495,7 @@ module Make (Value : In) : Out = struct
             (List.length relations)
         ) non_trivial_rels trivial_rels
     in
+
     let top_level_count = top_level_count + top_level_inc in
 
     (* Adding to pruning checker. *)
@@ -1337,29 +1514,34 @@ module Make (Value : In) : Out = struct
 
     (* Looping. *)
     system_iterator
-      two_state input_sys param top_sys (
+      max_depth two_state input_sys param top_sys (
         (sys, graph, non_trivial, trivial) :: memory
       ) k sys_map top_level_count graphs
 
   | [] ->
     (* Done for all systems for this k, incrementing. *)
-    let k = Numeral.succ k in
-    Event.log L_info
-      "%s Looking for invariants at %a (%d)."
-      (prefs two_state) Numeral.pp_print_numeral k
-      (List.length memory) ;
-    List.rev memory
-    |> system_iterator
-      two_state input_sys param top_sys [] k sys_map top_level_count
+    let k = Num.succ k in
+    match max_depth with
+    | Some kay when Num.(k > kay) ->
+      Event.log_uncond "%s Reached max depth (%a), stopping."
+        (prefs two_state) Num.pp_print_numeral kay ;
+        memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
+    | _ ->
+      Event.log L_info
+        "%s Looking for invariants at %a (%d)."
+        (prefs two_state) Num.pp_print_numeral k
+        (List.length memory) ;
+      List.rev memory
+      |> system_iterator
+        max_depth two_state
+        input_sys param top_sys [] k sys_map top_level_count
 
 
   (** Invariant generation entry point. *)
-  let main two_state input_sys aparam sys =
+  let main max_depth two_state input_sys aparam sys =
 
     (* Initial [k]. *)
-    let k = if two_state then Numeral.one else Numeral.zero in
-
-    let top_only = Flags.Invgen.top_only () in
+    let k = if two_state then Num.one else Num.zero in
 
     (* Maps systems to their pruning solver. *)
     let sys_map = SysMap.create 107 in
@@ -1367,28 +1549,30 @@ module Make (Value : In) : Out = struct
     (* Generating the candidate terms and building the graphs. Result is a list
     of quadruples: system, graph, non-trivial invariants, trivial
     invariants. *)
-    Value.mine two_state sys |> List.fold_left (
+    Value.mine aparam two_state sys |> List.fold_left (
       fun acc (sub_sys, set) ->
-        let shall_add = if top_only then sub_sys == sys else true in
-        if shall_add then (
-          (* Format.printf
-            "set: @[<v>%a@]@.@."
-            (pp_print_list Term.pp_print_term "@ ") (Set.elements set) ; *)
-          let set = Set.add Term.t_true set in
-          (* Format.printf "%s candidates: @[<v>%a@]@.@."
-            pref (pp_print_list fmt_term "@ ") (Set.elements set) ; *)
-          let pruning_checker = NLsd.mk_pruning_checker sub_sys in
-          (* Memorizing pruning checker for clean exit. *)
-          prune_ref := pruning_checker :: (! prune_ref ) ;
-          SysMap.replace sys_map sub_sys pruning_checker ;
-          (
-            sub_sys,
-            mk_graph Term.t_false set,
-            Set.empty,
-            Set.empty
-          ) :: acc
-        ) else acc
-    ) [] |> system_iterator two_state input_sys aparam sys [] k sys_map 0
+        let set = Set.add Term.t_true set in
+        (* Format.printf "%s candidates: @[<v>%a@]@.@."
+          pref (pp_print_list fmt_term "@ ") (Set.elements set) ; *)
+        let pruning_checker = NLsd.mk_pruning_checker sub_sys in
+        (* Memorizing pruning checker for clean exit. *)
+        prune_ref := pruning_checker :: (! prune_ref ) ;
+        SysMap.replace sys_map sub_sys pruning_checker ;
+        (
+          sub_sys,
+          mk_graph Term.t_false set,
+          Set.empty,
+          Set.empty
+        ) :: acc
+    ) []
+    |> (
+      if Flags.modular () then 
+        (* If in modular mode, we already ran on the subsystems.
+        Might as well start with the current top system since it's new. *)
+        List.rev
+      else identity
+    )
+    |> system_iterator max_depth two_state input_sys aparam sys [] k sys_map 0
 
 end
 
@@ -1411,21 +1595,33 @@ module Bool: In = struct
   let cmp lhs rhs = rhs || not lhs
   let mk_cmp lhs rhs = Term.mk_implies [ lhs ; rhs ]
   let eval = eval_bool
-  let mine two_state sys =
+  let mine param two_state sys =
+    let top_only = Flags.Invgen.top_only () in
     Sys.fold_subsystems
       ~include_top:true
       (fun acc sub_sys ->
-        (
-          sub_sys,
-          InvGenCandTermGen.mine_term
-            true (* Synthesis. *)
-            true (* Mine base. *)
-            false (* Mine step. *)
-            two_state (* Two step.  *)
-            sub_sys
-            []
-            Set.empty
-        ) :: acc
+        let shall_add =
+          (
+            TransSys.scope_of_trans_sys sub_sys
+            |> Analysis.param_scope_is_abstract param
+            |> not
+          ) && (
+            (not top_only) || (sub_sys == sys)
+          )
+        in
+        if shall_add then
+          (
+            sub_sys,
+            InvGenCandTermGen.mine_term
+              true (* Synthesis. *)
+              true (* Mine base. *)
+              (Flags.Invgen.top_only ()) (* Mine step. *)
+              two_state (* Two step.  *)
+              sub_sys
+              []
+              Term.TermSet.empty
+          ) :: acc
+        else acc
       )
       []
       sys
@@ -1447,13 +1643,13 @@ module Integer: In = struct
     |> Eval.num_of_value
 
   let name = "Int"
-  type t = Numeral.t
-  let fmt = Numeral.pp_print_numeral
-  let eq = Numeral.equal
-  let cmp = Numeral.leq
+  type t = Num.t
+  let fmt = Num.pp_print_numeral
+  let eq = Num.equal
+  let cmp = Num.leq
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_int
-  let mine _ _ =
+  let mine _ _ _ =
     failwith "integer candidate term mining is unimplemented"
   let is_bot _ = false
   let is_top _ = false
@@ -1476,7 +1672,7 @@ module Real: In = struct
   let cmp = Decimal.leq
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_real
-  let mine _ _ =
+  let mine _ _ _ =
     failwith "real candidate term mining is unimplemented"
   let is_bot _ = false
   let is_top _ = false
@@ -1489,7 +1685,9 @@ module RealInvGen = Make(Real)
 
 
 
-let main = BoolInvGen.main
+let main two_state in_sys param sys =
+  BoolInvGen.main None two_state in_sys param sys
+  |> ignore
 let exit _ = BoolInvGen.exit ()
 
 

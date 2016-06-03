@@ -270,9 +270,9 @@ let pp_print_result_quiet fmt { sys } =
   | valid, invalid, unknown ->
     Format.fprintf fmt "%a @[<v>\
       | unsafe@ \
-      | invalid: [ @[<hov>@{<red>%a@}@] ]@ \
-      | unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
-      | valid:   [ @[<hov>@{<green>%a@}@] ]\
+      | @{<red>invalid@}: [ @[<hov>%a@] ]@ \
+      | @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
+      | @{<green>valid@}:   [ @[<hov>%a@] ]\
     @]"
     Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
     (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid

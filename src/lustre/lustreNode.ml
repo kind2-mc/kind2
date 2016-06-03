@@ -419,6 +419,31 @@ let pp_print_prop safe ppf (sv, n, _) =
          Format.fprintf ppf " -- was: %s" n)
 
 
+let pp_print_node_signature fmt { inputs ; outputs } =
+  Format.fprintf fmt
+    "\
+      (@   \
+        @[<hov>%a@]@ \
+      ) returns (@   \
+        @[<hov>%a@]@ \
+      ) ;\
+    "
+
+    (* %a *)
+    (pp_print_list (pp_print_input false) ";@ ")
+    (List.map
+       (* Remove first index of input argument for printing *)
+       (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
+       (D.bindings inputs))
+
+    (* %a *)
+    (pp_print_list (pp_print_output false) ";@ ")
+    (List.map
+       (* Remove first index of output argument for printing *)
+       (function ([], e) -> ([], e) | (_ :: tl, e) -> (tl, e))
+       (D.bindings outputs))
+
+
 
 (* Pretty-print a node *)
 let pp_print_node safe ppf {

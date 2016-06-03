@@ -29,6 +29,7 @@ type _ t
 
 (** Read input from file *)
 val read_input_lustre : string -> LustreNode.t t
+
 (** Translate lustre contracts to properties. *)
 val translate_contracts_lustre : string -> string -> unit
 
@@ -70,6 +71,9 @@ val compile_oracle_to_rust : _ t -> Scope.t -> string -> (
   (Lib.position * int) list *
   (string * Lib.position * int) list
 )
+
+(** Parameter for contract generation. *)
+val contract_gen_param : _ t -> (Analysis.param * (Scope.t -> LustreNode.t))
 
 (* 
    Local Variables:

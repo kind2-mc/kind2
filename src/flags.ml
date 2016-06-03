@@ -760,7 +760,7 @@ module Contracts = struct
   include Make_Spec (struct end)
 
   (* Identifier of the module. *)
-  let id = "contract"
+  let id = "contracts"
   (* Short description of the module. *)
   let desc = "contract and compositional verification flags"
   (* Explanation of the module. *)
@@ -836,6 +836,59 @@ module Contracts = struct
       fmt_bool check_implem_default
     )
   let check_implem () = !check_implem
+
+  let contract_gen_default = false
+  let contract_gen = ref contract_gen_default
+  let _ = add_spec
+    "--contract_gen"
+    (bool_arg contract_gen)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Uses invariant generation to infer contracts for a lustre system.@ \
+        Providing contracts, properties and assertion helps but is not@ \
+        mandatory. Contracts will be written to the folder specified by@ \
+        --output_dir.@ \
+        See also --contract_gen_depth and --contract_gen_fine_grain.@ \
+        Default: %a\
+      @]"
+      fmt_bool contract_gen_default
+    )
+  let contract_gen () = !contract_gen
+
+  let contract_gen_depth_default = 7
+  let contract_gen_depth = ref contract_gen_depth_default
+  let _ = add_spec
+    "--contract_gen_depth"
+    (Arg.Int (fun n -> contract_gen_depth := n))
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Controls the depth of exploration used to generate contracts.@ \
+        Note that invariant generation is expected to go faster as it@ \
+        unrolls (explores) the system.@ \
+        Default: %d\
+      @]"
+      contract_gen_depth_default
+    )
+  let contract_gen_depth () = !contract_gen_depth
+
+  let contract_gen_fine_grain_default = false
+  let contract_gen_fine_grain = ref contract_gen_fine_grain_default
+  let _ = add_spec
+    "--contract_gen_fine_grain"
+    (bool_arg contract_gen_fine_grain)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        If active, the contracts generated will be verbose and fine@ \
+        grain w.r.t. the implementation. Otherwise, the contracts@ \
+        will capture a behavior that is more abstract.@ \
+        Default: %a\
+      @]"
+      fmt_bool contract_gen_fine_grain_default
+    )
+  let contract_gen_fine_grain () = !contract_gen_fine_grain
 
 end
 
@@ -1204,14 +1257,14 @@ let fmt_module_info fmt (id, m0d) =
   let module Flags = (val m0d: FlagModule) in
   Format.fprintf fmt
     "\
-      |===| Module \x1b[1m%s\x1b[0m:@.\
+      |===| Module \x1b[1m%s\x1b[0m:@.@.\
       @[<v>%t@]\
-      @.  @[<v>%a@]@.\
+      @.@.  @[<v>%a@]@.\
     "
     id
     Flags.fmt_explain
     (pp_print_list fmt_flag "@ ")
-    (Flags.all_specs ())
+    (Flags.all_specs () |> List.rev)
 
 (* Prints module info for a list of identifiers. If ["all"] is in the list,
 prints info for all modules.
@@ -1433,7 +1486,9 @@ module Global = struct
 
 
   (* Output directory. *)
-  let output_dir_default = "kind2"
+  let output_dir_default = ""
+  (* Do not change this ~~~^^
+  This is how `set_output_dir` knows this flag was not set by the user. *)
   let output_dir = ref output_dir_default
   let output_dir_action d =
     output_dir := d;
@@ -1451,10 +1506,12 @@ module Global = struct
         "
     )
 
-  let set_output_dir s =
-    let b = Filename.basename s in
-    let d = try Filename.chop_extension b with Invalid_argument _ -> b in
-    output_dir_action(d ^ ".out")
+  let set_output_dir s = match ! output_dir with
+    | "" ->
+      let b = Filename.basename s in
+      let d = try Filename.chop_extension b with Invalid_argument _ -> b in
+      output_dir_action(d ^ ".out")
+    | _ -> ()
       
   let output_dir () = !output_dir
 
@@ -1911,6 +1968,7 @@ let parse_clas specs anon_action global_usage_msg =
         Format.printf
           "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
           fmt_flag flag error ;
+        exit 2
       | Arg.Bad expl ->
         Format.printf
           "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl;
