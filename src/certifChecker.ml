@@ -2632,7 +2632,7 @@ let generate_smt2_certificates uid input sys =
     (debug certif "Second run with: %s" cmd end);
 
     match Sys.command cmd with
-    | 0 -> ()
+    | 0 | 20 -> ()
     | c ->
       Event.log L_warn
         "Failed to generate frontend certificate (return code %d)@." c
@@ -2723,7 +2723,7 @@ let generate_all_proofs uid input sys =
       (debug certif "Second run with: %s" cmd end);
 
       begin match Sys.command cmd with
-        | 020 ->
+        | 0 | 20 ->
           files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
 
         | c ->
