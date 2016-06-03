@@ -1146,40 +1146,31 @@ let is_disproved trans_sys prop =
 
 
 (* Return current status of property *)
-let set_prop_status trans_sys p s = 
+let set_prop_status { properties } p s =
 
-  try 
-    
-    P.set_prop_status (property_of_name trans_sys p) s
+  let found =
+    properties |> List.fold_left (
+      fun found -> function
+      | { P.prop_name } as prop when prop_name = p ->
+        P.set_prop_status prop s ;
+        true
+      | _ -> found
+    ) false
+  in
 
-  with Not_found -> raise Not_found
+  if not found then raise Not_found
 
 
-let set_prop_invariant trans_sys p = 
-
-  try 
-    
-    P.set_prop_invariant (property_of_name trans_sys p)
-
-  with Not_found -> raise Not_found
+let set_prop_invariant trans_sys p =
+  set_prop_status trans_sys p P.PropInvariant
   
 
-let set_prop_ktrue trans_sys k p = 
-
-  try 
-    
-    P.set_prop_ktrue (property_of_name trans_sys p) k
-
-  with Not_found -> raise Not_found
+let set_prop_ktrue trans_sys k p =
+  P.PropKTrue k |> set_prop_status trans_sys p
 
 
-let set_prop_false trans_sys p c = 
-
-  try 
-   
-    P.set_prop_false (property_of_name trans_sys p) c
-
-  with Not_found -> raise Not_found
+let set_prop_false trans_sys p c =
+  P.PropFalse c |> set_prop_status trans_sys p
   
 
 (* Return current status of all properties *)
