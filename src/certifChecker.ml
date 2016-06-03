@@ -2569,17 +2569,18 @@ let fecc_checker_script =
 
 
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
-let generate_smt2_certificates input sys =
+let generate_smt2_certificates uid input sys =
 
   Proof.set_proof_logic (TS.get_logic sys);
   
   TH.clear hactlits;
-  
+
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
     else begin
       Flags.output_dir () |> mk_dir ;
-      Filename.concat (Flags.output_dir ()) "certificates"
+      Filename.concat (Flags.output_dir ())
+        ("certificates." ^ string_of_int uid)
     end
   in
   create_dir dirname;
@@ -2656,7 +2657,7 @@ let fix_A0 final_lfsc =
 
 
 (* Generate all certificates in the directory given by {!Flags.certif_dir}. *)
-let generate_all_proofs input sys =
+let generate_all_proofs uid input sys =
 
   Proof.set_proof_logic (TS.get_logic sys);
   
@@ -2666,7 +2667,8 @@ let generate_all_proofs input sys =
     if is_fec sys then Filename.dirname (Flags.input_file ())
     else begin
       Flags.output_dir () |> mk_dir ;
-      Filename.concat (Flags.output_dir ()) "certificates"
+      Filename.concat (Flags.output_dir ())
+        ("certificates." ^ string_of_int uid)
     end
   in
   create_dir dirname;
@@ -2686,7 +2688,9 @@ let generate_all_proofs input sys =
     Flags.output_dir () |> mk_dir ;
     let final_lfsc =
       Filename.concat (Flags.output_dir ())
-        (Filename.basename (Flags.input_file ()) ^ ".lfsc") in
+        (String.concat "."
+           [Filename.basename (Flags.input_file ());
+            string_of_int uid; "lfsc"]) in
 
     (* Copy first LFSC proof in case *)
     file_copy inv_lfsc final_lfsc;

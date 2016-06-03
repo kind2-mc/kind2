@@ -1057,20 +1057,13 @@ let compile_to_rust input_sys top =
     Event.log_uncond "[TO_RUST] Done compiling."
   )
 
-(* Generate certificates if necessary *)
-let generate_certif_proofs input_sys trans_sys =
-  if Flags.Certif.certif () (* && *)
-  (* (Flags.certif_force () *)
-  (*  || status = status_safe || status = status_signal ) *) then
-    (* Create certificate *)
-    (* if List.exists *)
-    (*     (function | _, Property.PropInvariant _ -> true | _ -> false) *)
-    (*     (TransSys.get_prop_status_all_nocands trans_sys) *)
-    (* then *)
-      if Flags.Certif.proof () then
-        CertifChecker.generate_all_proofs input_sys trans_sys
-      else
-        CertifChecker.generate_smt2_certificates input_sys trans_sys
+(* Generate certificates and or proofs *)
+let generate_certif_proofs uid input_sys trans_sys =
+  if Flags.Certif.certif () then
+    if Flags.Certif.proof () then
+      CertifChecker.generate_all_proofs uid input_sys trans_sys
+    else
+      CertifChecker.generate_smt2_certificates uid input_sys trans_sys
 
 
 (* Runs test generation and compilation if asked to. *)
@@ -1080,7 +1073,8 @@ let post_verif input_sys result =
     let top_scope = TransSys.scope_of_trans_sys trans_sys in
     run_testgen input_sys top_scope ;
     compile_to_rust input_sys top_scope;
-    generate_certif_proofs input_sys trans_sys;
+    let uid = Analysis.(info_of_param result.param).uid in
+    generate_certif_proofs uid input_sys trans_sys;
   )
 
 (* Launches analyses. *)
