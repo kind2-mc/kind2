@@ -994,6 +994,10 @@ let contract_check_no_output ctx pos expr =
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
+  (* Check for unguarded pre-s. *)
+  if A.has_unguarded_pre expr then (
+    C.fail_at_position pos "Illegal unguarded pre in contract item."
+  ) ;
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate expression to a Boolean expression, may change context. *)
@@ -1238,8 +1242,22 @@ let rec check_no_contract_in_node_calls ctx = function
  *)
 
 (* Evaluates contract calls. *)
-let rec eval_node_contract_call ctx scope
-    (call_pos, id, in_params, out_params) =
+let rec eval_node_contract_call ctx scope (
+  call_pos, id, in_params, out_params
+) =
+  (* Check for unguarded pre-s. *)
+  in_params |> List.iter (
+    fun expr -> if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        call_pos "Illegal unguarded pre in input parameters of contract call."
+    )
+  ) ;
+  out_params |> List.iter (
+    fun expr -> if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        call_pos "Illegal unguarded pre in output parameters of contract call."
+    )
+  ) ;
 
   (* Push scope for contract svars. *)
   let svar_scope = (call_pos, id) :: scope in
@@ -1401,7 +1419,7 @@ let rec eval_node_contract_call ctx scope
   in
 
   (* Evaluate node as usual, it will merge with the current contract. *)
-  let ctx = eval_node_contract_spec ctx svar_scope contract in
+  let ctx = eval_node_contract_spec ctx call_pos svar_scope contract in
 
   (* Pop scope for contract call. *)
   C.pop_contract_scope ctx
@@ -1453,16 +1471,36 @@ and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
 
 
 (* Add all node contracts to contexts *)
-and eval_node_contract_spec ctx scope contract =
+and eval_node_contract_spec ctx pos scope contract =
   let ctx, _, _ =
     List.fold_left (eval_node_contract_item scope) (ctx, 1, 1) contract
   in
+  (* At this point we want to check whether the contract we just parsed
+  introduced any oracles. If it did, then it means there was unguarded
+  pre-s below the contract. They a priori come from node calls in the
+  contract since unguarded pre-s in contract items and contract imports
+  fail immediately.
+
+  Is it ok to do this now? Yes, because the contract is necessarily parsed
+  BEFORE we parse the body of the node. Thus, if there is any oracle after
+  parsing the contract, it means they come from the contract. Not the body. *)
+
+  ( match C.get_node ctx with
+    | None -> failwith "aaahhhh"
+    (* If no oracle we're fine. *)
+    | Some { N.oracles = [] } -> ()
+    (* Otherwise PEBCAK. *)
+    | _ ->
+      C.fail_at_position
+        pos "Illegal unguarded pre under a node call in this contract."
+  ) ;
+
   ctx
   
 
 (* Add declarations of node to context *)
 let eval_node_decl
-  ctx inputs outputs locals equations contract_spec
+  ctx pos inputs outputs locals equations contract_spec
 =
 
   (* Add inputs to context: as state variable to ident_expr_map, and
@@ -1480,7 +1518,7 @@ let eval_node_decl
       (* New scope for local declarations in contracts *)
       let ctx = C.push_scope ctx "contract" in
       (* Eval contracts. *)
-      let ctx = eval_node_contract_spec ctx [] contract in
+      let ctx = eval_node_contract_spec ctx pos [] contract in
       (* Remove scope for local declarations in contract *)
       C.pop_scope ctx
   in
@@ -1734,6 +1772,7 @@ let rec declarations_to_context ctx =
          let node_ctx = 
            eval_node_decl
              node_ctx
+             pos
              inputs
              outputs
              locals
@@ -1909,7 +1948,14 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  C.get_nodes ctx, { G.functions = C.get_functions ctx }
+  (
+    C.get_nodes ctx |> List.map (
+      fun node ->
+        Format.printf "node: @[<v>%a@]@.@."
+          (N.pp_print_node true) node ;
+        node
+    )
+  ), { G.functions = C.get_functions ctx }
 
 
 (*
