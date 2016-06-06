@@ -994,6 +994,10 @@ let contract_check_no_output ctx pos expr =
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
+  (* Check for unguarded pre-s. *)
+  if A.has_unguarded_pre expr then (
+    C.fail_at_position pos "Illegal unguarded pre in contract item."
+  ) ;
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate expression to a Boolean expression, may change context. *)
