@@ -10,6 +10,9 @@ let
 tel
 
 node top (in: int) returns (out: int) ;
+(*@contract
+  import spec (in) returns (out) ;
+*)
 let
   out = 0 -> pre in ;
 tel
