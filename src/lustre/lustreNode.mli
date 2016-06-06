@@ -179,7 +179,7 @@ type t =
     (** Input streams defined in the node
 
         The inputs are considered as a list with an integer indexes
-        correpsonding to their position in the formal parameters if
+        corresponding to their position in the formal parameters if
         there is more than one input parameter. If there is only one
         input parameter, the list index is omitted, the index is empty
         if there are no input parameters. *)

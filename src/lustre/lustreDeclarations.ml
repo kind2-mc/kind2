@@ -1242,8 +1242,22 @@ let rec check_no_contract_in_node_calls ctx = function
  *)
 
 (* Evaluates contract calls. *)
-let rec eval_node_contract_call ctx scope
-    (call_pos, id, in_params, out_params) =
+let rec eval_node_contract_call ctx scope (
+  call_pos, id, in_params, out_params
+) =
+  (* Check for unguarded pre-s. *)
+  in_params |> List.iter (
+    fun expr -> if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        call_pos "Illegal unguarded pre in input parameters of contract call."
+    )
+  ) ;
+  out_params |> List.iter (
+    fun expr -> if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        call_pos "Illegal unguarded pre in output parameters of contract call."
+    )
+  ) ;
 
   (* Push scope for contract svars. *)
   let svar_scope = (call_pos, id) :: scope in
