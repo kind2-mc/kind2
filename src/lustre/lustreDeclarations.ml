@@ -1954,14 +1954,7 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  (
-    C.get_nodes ctx |> List.map (
-      fun node ->
-        Format.printf "node: @[<v>%a@]@.@."
-          (N.pp_print_node true) node ;
-        node
-    )
-  ), { G.functions = C.get_functions ctx }
+  C.get_nodes ctx, { G.functions = C.get_functions ctx }
 
 
 (*

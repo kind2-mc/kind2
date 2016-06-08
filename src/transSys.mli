@@ -316,7 +316,7 @@ val get_subsystem_instances : t -> (t * instance list) list
     scope are identical. The transition system [t] itself is returned
     if [s] is its scope.
 
-    Raise [Not_found] if there is no transistion system of scope [s]
+    Raise [Not_found] if there is no transition system of scope [s]
     in the subsystems of [t]. *)
 val find_subsystem_of_scope : t -> Scope.t -> t
 

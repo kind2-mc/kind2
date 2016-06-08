@@ -183,7 +183,7 @@ let rec wait_for_children child_pids =
 
 
 (* Polling loop *)
-let rec loop done_at child_pids input_sys aparam trans_sys = 
+let rec loop done_at child_pids input_sys aparam trans_sys =
 
   handle_events input_sys aparam trans_sys;
 

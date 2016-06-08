@@ -1079,6 +1079,7 @@ let post_verif input_sys result =
 
 (* Launches analyses. *)
 let rec run_loop msg_setup modules results =
+  Stat.start_timer Stat.analysis_time ;
 
   let aparam, Input input_sys, trans_sys =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
@@ -1095,7 +1096,7 @@ let rec run_loop msg_setup modules results =
 
       (* Event.log L_fatal "Launching analysis with param %a"
         Analysis.pp_print_param aparam ; *)
-      Event.log_analysis_start aparam ;
+      Event.log_analysis_start trans_sys aparam ;
 
       (* Output the transition system. *)
       (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
@@ -1117,7 +1118,9 @@ let rec run_loop msg_setup modules results =
       Some trans_sys |> slaughter_kids `Supervisor
   ) ;
 
-  let result = Analysis.mk_result aparam trans_sys in
+  let result =
+    Stat.get_float Stat.analysis_time |> Analysis.mk_result aparam trans_sys
+  in
 
   Event.log_analysis_end result ;
 

@@ -60,6 +60,9 @@ type info = {
   (* refinement_of : result option *)
 }
 
+(** Shrinks an abstraction map to the subsystems of a system. *)
+val shrink_info_to_sys: info -> TransSys.t -> info
+
 (** Parameter of an analysis. *)
 type param =
   (** Analysis of the contract of a system. *)
@@ -73,6 +76,9 @@ type param =
 and result = {
   (** Parameters of the analysis. *)
   param : param ;
+
+  (** Runtime of the analysis. *)
+  time : float ;
 
   (** System analyzed, contains property statuses and invariants. *)
   sys : TransSys.t ;
@@ -93,6 +99,9 @@ and result = {
 (** The info or a param. *)
 val info_of_param : param -> info
 
+(** Shrinks a param to a system. *)
+val shrink_param_to_sys : param -> TransSys.t -> param
+
 (** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
 val param_scope_is_abstract : param -> Scope.t -> bool
@@ -105,7 +114,7 @@ val param_assumptions_of_scope : param -> Scope.t -> Term.t list
 
 
 (** Returns a result from an analysis. *)
-val mk_result : param -> TransSys.t -> result
+val mk_result : param -> TransSys.t -> float -> result
 
 (** Returns true if all properties in the system in a [result] have been
     proved. *)
