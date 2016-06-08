@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Lib.ReservedIds
 
 (* ********************************************************************** *)
 (* Types and pretty-printers                                              *)
@@ -117,32 +118,6 @@ let push_index (base, index) int = (base, int :: index)
 (* ********************************************************************** *)
 (* Reserved identifiers                                                   *)
 (* ********************************************************************** *)
-
-
-(* Reserved identifiers *)
-let abs_ident_string =  "abs" 
-let oracle_ident_string =  "nondet" 
-let instance_ident_string =  "instance"
-let init_flag_ident_string =  "init_flag"
-let all_req_ident_string =  "all_req"
-let all_ens_ident_string =  "all_ens"
-let inst_ident_string =  "inst" 
-let init_uf_string = "__node_init"
-let trans_uf_string = "__node_trans"
-let index_ident_string =  "__index" 
-
-let reserved_strings =
-  [ abs_ident_string;
-    oracle_ident_string;
-    instance_ident_string;
-    init_flag_ident_string;
-    all_req_ident_string;
-    all_ens_ident_string;
-    inst_ident_string;
-    init_uf_string;
-    trans_uf_string;
-    index_ident_string ]
-  @ StateVar.reserved_strings
 
 (* Identifier for new variables from abstrations *)
 let abs_ident = mk_string_ident abs_ident_string

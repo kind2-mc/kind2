@@ -18,6 +18,8 @@
 
 open Lib
 
+module Ids = Lib.ReservedIds
+
 module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module D = GenericSMTLIBDriver
@@ -64,12 +66,12 @@ let seen_systems = HH.create 17
 
 (* Return the name of the initial state constraint predicate *)
 let init_pred_hname pred =
-  Format.sprintf "%s_%s_0" LustreIdent.init_uf_string
+  Format.sprintf "%s_%s_0" Ids.init_uf_string
     (HString.string_of_hstring pred)
 
 (* Return the name of the transition relation predicate *)
 let trans_pred_hname pred =
-  Format.sprintf "%s_%s_0" LustreIdent.trans_uf_string
+  Format.sprintf "%s_%s_0" Ids.trans_uf_string
     (HString.string_of_hstring pred)
 
 

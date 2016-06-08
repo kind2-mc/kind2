@@ -18,6 +18,8 @@
 
 open Lib
 
+module Ids = Lib.ReservedIds
+
 module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
@@ -2160,7 +2162,7 @@ let rec trans_sys_of_node'
             UfSymbol.mk_uf_symbol
               (Format.asprintf
                  "%s_%a_%d"
-                 I.init_uf_string
+                 Ids.init_uf_string
                  (LustreIdent.pp_print_ident false) node_name
                  (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var init_formals)
@@ -2194,7 +2196,7 @@ let rec trans_sys_of_node'
             UfSymbol.mk_uf_symbol
               (Format.asprintf
                  "%s_%a_%d"
-                 I.trans_uf_string
+                 Ids.trans_uf_string
                  (LustreIdent.pp_print_ident false) node_name
                  (A.info_of_param analysis_param).A.uid)
               (List.map Var.type_of_var trans_formals)
