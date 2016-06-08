@@ -105,11 +105,18 @@ let eval_const_decl ?(ghost = false) ctx = function
            (* Check if type of expression is a subtype of the defined
               type at each index *)
            D.iter2
-             (fun _ def_type { E.expr_type } ->
-                if not (Type.check_type expr_type def_type) then
-                  raise E.Type_mismatch)
-             type_expr'
-             res
+             (fun _ def_type { E.expr_type; E.expr_init = e } ->
+                (* let e = (e :> Term.t) in *)
+                (* let open Type in *)
+                (* match node_of_type def_type with *)
+                (* | IntRange (l, u) when Term.is_numeral e -> *)
+                (*   let en = Term.numeral_of_term e in *)
+                (*   if not (Numeral.(l >= en) && Numeral.(en <= u)) then *)
+                (*       raise E.Type_mismatch *)
+                (* | _ -> *)
+                  if not (Type.check_type expr_type def_type) then
+                    raise E.Type_mismatch
+             ) type_expr' res
 
          with Invalid_argument _ | E.Type_mismatch -> 
 

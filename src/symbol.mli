@@ -212,6 +212,9 @@ val s_or : t
 (** Constant implication symbol *)
 val s_implies : t
 
+(** Constant ite symbol *)
+val s_ite : t
+
 (** Constant equality symbol *)
 val s_eq : t
 

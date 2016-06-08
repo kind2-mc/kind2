@@ -271,10 +271,14 @@ sig
   (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
-  val pp_print_lambda_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
+  val pp_print_lambda_w :
+    (?arity:int -> Format.formatter -> symbol -> unit) ->
+    (Format.formatter -> var -> unit) ->
     ?db:int -> Format.formatter -> lambda -> unit
 
-  val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
+  val pp_print_term_w :
+    (?arity:int -> Format.formatter -> symbol -> unit) ->
+    (Format.formatter -> var -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
   (** Pretty-print a term *)

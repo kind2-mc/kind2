@@ -102,6 +102,7 @@ let smtlib_string_sexpr_conv =
        s_exists = HString.mk_hstring "exists";
        s_div = HString.mk_hstring "/";
        s_minus = HString.mk_hstring "-";
+       prime_symbol = None;
        s_define_fun = HString.mk_hstring "define-fun";
        const_of_atom = GenericSMTLIBDriver.const_of_smtlib_atom;
        symbol_of_atom = GenericSMTLIBDriver.symbol_of_smtlib_atom;
@@ -561,6 +562,22 @@ let fail_declare_when_arith solver f arg_sorts res_sort =
 (* ********************************************************************* *)
 (* Commands                                                              *)
 (* ********************************************************************* *)
+
+
+(* Declare a new sort symbol *)
+let declare_sort solver sort = match Type.node_of_type sort with
+  | Type.Abstr _ ->
+
+    let cmd =
+      Format.sprintf "@[<hv 1>(define-type@ %s)@]"
+        (string_of_sort sort)
+    in
+
+    (* Send command to the solver without timeout *)
+    execute_command solver cmd 0
+
+  | _ -> failwith "Only declare uninterpreted sorts."
+
 
 (* Declare a new function symbol *)
 let declare_fun solver fun_symbol arg_sorts res_sort = 
@@ -1247,7 +1264,13 @@ let delete_instance
      command. Hence, ignore these stale respones on the output
      channel *)
 
-  ignore (execute_command_no_response solver "(exit)" 0);
+  begin
+    try ignore(execute_command_no_response solver "(exit)" 0)
+    with Signal s when s = Sys.sigpipe ->
+      Event.log L_fatal
+        "[Warning] Got broken pipe when trying to exit %s instance PID %d."
+        solver.solver_config.solver_cmd.(0) solver_pid
+  end;
 
   (* Reset internal state of yices *)
   solver.solver_last_id <- YicesResponse.yices_id_of_int 0;
@@ -1303,6 +1326,7 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let delete_instance () = delete_instance solver
 
 
+  let declare_sort = declare_sort solver
   let declare_fun = declare_fun solver
   let define_fun = define_fun solver
   let assert_expr = assert_removable_expr solver

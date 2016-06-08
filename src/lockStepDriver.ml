@@ -343,6 +343,7 @@ let create two_state top_only top_sys =
       top_sys
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
+      (SMTSolver.declare_sort solver)
       Numeral.zero Numeral.(~- one) ;
 
 (*
@@ -766,7 +767,16 @@ let increment_and_query_step
      (* Unrolling system. *)
      unroll_sys lsd system ;
 
-     invariants, trivial
+     (* adding certificates for k-induction *)
+     let invariants_certs =
+       List.map (fun t ->
+           (* Here this is in fact k + 1 inductive and not k-inductive *)
+           (* Unrolling above is done one step further, so at k + 1 *)
+           let cert = Numeral.to_int k + 1, t in
+           t, cert)
+         invariants in
+
+     invariants_certs, trivial
 
 
 (* 

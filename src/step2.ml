@@ -106,6 +106,7 @@ let mk_ctx in_sys param sys =
     sys
     (Smt.define_fun solver)
     (Smt.declare_fun solver)
+    (Smt.declare_sort solver)
     Numeral.(~- one) Numeral.(succ one) ;
 
   (* Invariants of the system at 0, 1 and 2. *)
@@ -169,7 +170,7 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
               deactivate solver pos ;
               map, invs, new_stuff
 
-            | Prop.PropInvariant ->
+            | Prop.PropInvariant _ ->
               (* Deactivate actlits, remove from map, add to invariants. *)
               deactivate solver pos ;
               map, prop :: invs, true
@@ -271,29 +272,34 @@ let split { solver ; map } =
 let broadcast_if_safe ({ solver ; sys ; map } as ctx) unfalsifiable =
   let rec loop confirmed = function
     | prop :: tail -> (
-      let ok =
+      let ok_cert =
         match Sys.get_prop_status sys prop with
-        | Prop.PropKTrue n -> n >= 1
-        | Prop.PropInvariant -> true
-        | _ -> false
+        | Prop.PropKTrue n when n >= 1 ->
+          Some (2, Sys.get_prop_term sys prop)
+        | Prop.PropInvariant ((k, phi) as cert) ->
+          if k <= 2 then Some cert
+          else Some (2, Sys.get_prop_term sys prop)
+        | _ -> None
       in
-      if ok then
+      match ok_cert with
+      | Some cert ->
         (* Property confirmed, need to check the other ones. *)
-        loop (prop :: confirmed) tail
-      else
+        loop ((prop, cert) :: confirmed) tail
+      | None ->
         (* Property unconfirmed, unsafe to communicate, aborting. *)
         false
     )
     | [] ->
       (* All properties confirmed, broadcasting as invariant. *)
       confirmed |> List.iter (
-        fun prop ->
-          Event.prop_status Prop.PropInvariant ctx.in_sys ctx.param sys prop
+        fun (prop, cert) ->
+          Event.prop_status (Prop.PropInvariant cert)
+            ctx.in_sys ctx.param sys prop
       ) ;
       (* Removing from map and updating solver. *)
       let map =
         map |> List.filter (fun (name, (pos,t)) ->
-          if List.mem name confirmed then (
+          if List.mem_assoc name confirmed then (
             (* Deactivating actlits. *)
             deactivate solver pos ;
             (* Adding invariant. *)

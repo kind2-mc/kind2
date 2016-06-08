@@ -43,7 +43,7 @@ let div_by_zero_text prop_name = [
 
 (* Messages to be relayed between processes *)
 type event = 
-  | Invariant of string list * Term.t 
+  | Invariant of string list * Term.t * Certificate.t 
   | PropStatus of string * Property.prop_status
   | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 
@@ -51,7 +51,7 @@ type event =
 (* Pretty-print an event *)
 let pp_print_event ppf = function 
 
-  | Invariant (s, t) ->
+  | Invariant (s, t, _) -> 
     Format.fprintf ppf "@[<hv>Invariant for %a@ %a@]" 
       (pp_print_list Format.pp_print_string ".") s
       Term.pp_print_term t
@@ -62,8 +62,8 @@ let pp_print_event ppf = function
   | PropStatus (p, Property.PropKTrue k) -> 
     Format.fprintf ppf "@[<hv>Property %s true for %d steps@]" p k
 
-  | PropStatus (p, Property.PropInvariant) -> 
-    Format.fprintf ppf "@[<hv>Property %s invariant@]" p
+  | PropStatus (p, Property.PropInvariant (k, _)) -> 
+    Format.fprintf ppf "@[<hv>Property %s invariant (%d-inductive)@]" p k
 
   | PropStatus (p, Property.PropFalse []) -> 
     Format.fprintf ppf "@[<hv>Property %s false@]" p
@@ -102,7 +102,15 @@ struct
 
       let l = (Marshal.from_string f 0 : string list) in 
 
-      Invariant (l, t)
+      let f = pop () in
+
+      let phi = Term.import (Marshal.from_string f 0 : Term.t) in 
+
+      let k = try int_of_string (pop ()) with 
+        | Failure _ -> raise Messaging.BadMessage 
+      in 
+
+      Invariant (l, t, (k, phi))
 
     | "PROP_UNKNOWN" -> 
 
@@ -124,7 +132,15 @@ struct
 
       let p = pop () in
 
-      PropStatus (p, Property.PropInvariant)
+      let k = try int_of_string (pop ()) with 
+        | Failure _ -> raise Messaging.BadMessage 
+      in 
+
+      let f = pop () in
+
+      let phi = Term.import (Marshal.from_string f 0 : Term.t) in 
+
+      PropStatus (p, Property.PropInvariant (k, phi))
 
     | "PROP_FALSE" -> 
 
@@ -178,15 +194,18 @@ struct
   (* Convert a message to strings *)
   let strings_of_message = function 
 
-    | Invariant (s, t) -> 
+    | Invariant (s, t, (k, phi)) -> 
 
       (* Serialize term to string *)
       let term_string = Marshal.to_string t [Marshal.No_sharing] in
+
+      (* Serialize term to string *)
+      let phi_string = Marshal.to_string phi [Marshal.No_sharing] in
       
       (* Serialize scope to string *)
       let scope_string = Marshal.to_string s [Marshal.No_sharing] in
       
-      [scope_string; term_string; "INVAR"]
+      [string_of_int k; phi_string; scope_string; term_string; "INVAR"]
 
     | PropStatus (p, Property.PropUnknown) -> 
 
@@ -196,9 +215,12 @@ struct
 
       [string_of_int k; p; "PROP_KTRUE"]
 
-    | PropStatus (p, Property.PropInvariant) -> 
+    | PropStatus (p, Property.PropInvariant (k, phi)) -> 
 
-      [p; "PROP_INVAR"]
+      (* Serialize term to string *)
+      let phi_string = Marshal.to_string phi [Marshal.No_sharing] in
+      
+      [phi_string; string_of_int k; p; "PROP_INVAR"]
 
     | PropStatus (p, Property.PropFalse cex) ->
 
@@ -362,8 +384,10 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf
-      ("@[<hov>%t Property @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@.")
+      ("@[<hov>%t %s @{<blue_b>%s@} is valid %tby %a after %.3fs.@.@.")
       success_tag
+      (if TransSys.is_candidate trans_sys prop then
+         "Candidate" else "Property")
       prop
       (function ppf -> match k with
          | None -> ()
@@ -431,26 +455,46 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
     (* Reset division by zero indicator. *)
     Simplify.has_division_by_zero_happened () |> ignore ;
 
-    (* Output cex. *)
-    (ignore_or_fprintf level)
-      !log_ppf 
+    (* Don't show counterexamples for candidates *)
+    if TransSys.is_candidate trans_sys prop then begin
+      if disproved then
+        (ignore_or_fprintf level)
+          !log_ppf 
+          "@[<v>%t Candidate %s disproved by %a %tafter %.3fs.@]@.@."
+          warning_tag
+          prop
+          pp_print_kind_module_pt mdl
+          (function ppf -> match cex with
+             | [] -> ()
+             | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
+          (Stat.get_float Stat.total_time)
+          (* (pp_print_counterexample_pt *)
+          (*    (log_level_of_int (int_of_log_level level + 2)) *)
+          (*    input_sys analysis trans_sys prop disproved) *)
+          (* cex *)
+    end
+    else
+
+      (* Output cex. *)
+      (ignore_or_fprintf level)
+        !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%a@]@."
-      (if disproved then failure_tag else warning_tag)
-      prop
-      (
-        if disproved then
-          Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
-        else
-          "has a step k-induction counterexample"
-      )
-      (function ppf -> match cex with
-         | [] -> ()
+        (if disproved then failure_tag else warning_tag)
+        prop
+        (
+          if disproved then
+            Format.asprintf "is invalid by %a" pp_print_kind_module_pt mdl
+          else
+            "has a step k-induction counterexample"
+        )
+        (function ppf -> match cex with
+           | [] -> ()
          | ((_, c) :: _) ->
            (List.length c) - 1 |> Format.fprintf ppf "for k=%d ")
-      (Stat.get_float Stat.total_time)
-      (pp_print_counterexample_pt
-        level input_sys analysis trans_sys prop disproved)
-      cex ;
+        (Stat.get_float Stat.total_time)
+        (pp_print_counterexample_pt
+           level input_sys analysis trans_sys prop disproved)
+        cex ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
@@ -511,8 +555,8 @@ let prop_status_pt level prop_status =
                | Property.PropKTrue k -> 
                  Format.fprintf ppf "@{<yellow>true up to %d steps@}" k
 
-               | Property.PropInvariant -> 
-                 Format.fprintf ppf "@{<green_b>valid@}"
+               | Property.PropInvariant (k, _) -> 
+                 Format.fprintf ppf "@{<green_b>valid (at %d)@}" k
 
                | Property.PropFalse [] -> 
                  Format.fprintf ppf "@{<red_b>invalid@}"
@@ -550,7 +594,6 @@ let pp_print_level_xml_cls ppf l =
 
 (* Kind module as source attribute of log tag *)
 let xml_src_of_kind_module = suffix_of_kind_module
-
 
 (* Pretty-print kind module as source attribute of log tag *)
 let pp_print_kind_module_xml_src ppf m = 
@@ -794,13 +837,13 @@ let prop_status_xml level prop_status =
               (function ppf -> function 
                  | Property.PropUnknown
                  | Property.PropKTrue _ -> Format.fprintf ppf "unknown"
-                 | Property.PropInvariant -> Format.fprintf ppf "valid"
+                 | Property.PropInvariant _ -> Format.fprintf ppf "valid"
                  | Property.PropFalse [] 
                  | Property.PropFalse _ -> Format.fprintf ppf "falsifiable")
               s
               (function ppf -> function
                  | Property.PropUnknown
-                 | Property.PropInvariant 
+                 | Property.PropInvariant _
                  | Property.PropFalse [] -> ()
                  | Property.PropKTrue k -> 
                    Format.fprintf 
@@ -1026,7 +1069,6 @@ let log_progress mdl level k =
     | F_relay -> ()
   
 
-
 (* Logs the end of a run. *)
 let log_run_end results =
   match !log_format with
@@ -1161,7 +1203,7 @@ let log_interruption signal =
 
 
 (* Broadcast a scoped invariant *)
-let invariant scope term = 
+let invariant scope term cert = 
 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time;
@@ -1169,7 +1211,7 @@ let invariant scope term =
   try
     
     (* Send invariant message *)
-    EventMessaging.send_relay_message (Invariant (scope, term))
+    EventMessaging.send_relay_message (Invariant (scope, term, cert))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -1185,7 +1227,7 @@ let prop_status status input_sys analysis trans_sys prop =
   let mdl = get_module () in
 
   (match status with
-    | Property.PropInvariant -> log_proved mdl L_warn trans_sys None prop
+    | Property.PropInvariant _ -> log_proved mdl L_warn trans_sys None prop
     | Property.PropFalse cex -> 
       log_cex true mdl L_warn input_sys analysis trans_sys prop cex
 
@@ -1385,7 +1427,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     | [] -> (invars, prop_status)
 
     (* Invariant discovered *)
-    | (m, Invariant (s, t)) :: tl -> 
+    | (m, Invariant (s, t, cert)) :: tl -> 
 
       (* Property status if received invariant is a property *)
       let tl' =
@@ -1397,7 +1439,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
              if Term.equal t t' then
 
                (* Inject property status event *)
-               ((m, PropStatus (p, Property.PropInvariant)) :: accum)
+               ((m, PropStatus (p, Property.PropInvariant cert)) :: accum)
 
              else
 
@@ -1409,12 +1451,12 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       in
       
       (* Add invariant to transtion system *)
-      TransSys.add_scoped_invariant trans_sys s t ;
+      TransSys.add_scoped_invariant trans_sys s t cert;
 
       (* Continue with invariant added to accumulator *)
       update_trans_sys'
         trans_sys
-        ((m, (s, t)) :: invars)
+        ((m, (s, t, cert)) :: invars)
         prop_status
         tl'
 
@@ -1438,13 +1480,13 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
         tl
 
     (* Property found invariant *)
-    | (m, PropStatus (p, (Property.PropInvariant as s))) :: tl -> 
+    | (m, PropStatus (p, (Property.PropInvariant cert as s))) :: tl -> 
 
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
           
       (* Change property status in transition system *)
-      TransSys.set_prop_invariant trans_sys p;
+      TransSys.set_prop_invariant trans_sys p cert;
 
       (try 
 
@@ -1452,7 +1494,8 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
         TransSys.add_invariant 
           trans_sys
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
-
+          cert
+          
        (* Skip if named property not found *)
        with Not_found -> ());
 
@@ -1505,7 +1548,7 @@ let top_invariants_of_invariants sys invariants =
 
   (* Only keep invariants with empty scope *)
   (List.fold_left
-     (fun accum (_, (scope, t)) ->
+     (fun accum (_, (scope, t, _)) ->
       if scope = top then t :: accum else accum)
      []
      invariants)
@@ -1518,7 +1561,7 @@ let update_trans_sys input_sys analysis trans_sys events =
     (* Calling the scoped update function. *)
     update_trans_sys_sub input_sys analysis trans_sys events
   with
-  | invs,valids ->
+  | invs, valids ->
     (* Filtering top level invariants. *)
     top_invariants_of_invariants trans_sys invs, valids
 

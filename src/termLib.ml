@@ -53,6 +53,7 @@ let default_of_type t =
 
     (* No defaults for scalars and arrays *)
     | Type.Scalar _
+    | Type.Abstr _
     | Type.Array _ -> invalid_arg "default_of_type"
 
 
@@ -102,7 +103,7 @@ let rec logic_of_sort ty =
   let open Type in
   let open FeatureSet in
   match node_of_type ty with
-  | Bool -> empty
+  | Bool | Abstr _ -> empty
     
   | Int | IntRange _ -> singleton IA
                           
@@ -150,8 +151,8 @@ let logic_of_flat t acc =
       |> UfSymbol.res_type_of_uf_symbol
       |> logic_of_sort
       |> union @@ sup_logics acc
-    else if Symbol.is_numeral s then add IA (sup_logics acc)
-    else if Symbol.is_decimal s then add RA (sup_logics acc)
+    (* else if Symbol.is_numeral s then add IA (sup_logics acc) *)
+    (* else if Symbol.is_decimal s then add RA (sup_logics acc) *)
     else sup_logics acc
 
   | App (s, _) when Symbol.(s == s_plus || s == s_minus) ->
@@ -160,9 +161,10 @@ let logic_of_flat t acc =
   | App (s, l) when s == Symbol.s_times && at_most_one_non_num l ->
     add LA (sup_logics acc)
 
-  | App (s, [n; d]) when Symbol.(s == s_div || s == s_intdiv) &&
-    (Term.is_numeral d || Term.is_decimal d) ->
-    add LA (sup_logics acc)
+  (* division is non-linear for solvers *)
+  (* | App (s, [n; d]) when Symbol.(s == s_div || s == s_intdiv) && *)
+  (*   (Term.is_numeral d || Term.is_decimal d) -> *)
+  (*   add LA (sup_logics acc) *)
 
   | App (s, l) when Symbol.(s == s_div || s == s_times || s == s_abs
                             || s == s_intdiv || s == s_mod) ->
@@ -194,7 +196,7 @@ let pp_print_features fmt l =
   if L.is_empty l then fprintf fmt "SAT";
   if L.mem UF l then fprintf fmt "UF";
   if L.mem NA l then fprintf fmt "N"
-  else if L.mem LA l then fprintf fmt "L";
+  else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
   if L.mem IA l then fprintf fmt "I";
   if L.mem RA l then fprintf fmt "R"; 
   if L.mem IA l || L.mem RA l then fprintf fmt "A"

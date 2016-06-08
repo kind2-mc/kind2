@@ -19,7 +19,6 @@
 open Lib
 open SolverResponse
 
-
 (* ********************************************************************* *)
 (* Types                                                                 *)
 (* ********************************************************************* *)
@@ -472,6 +471,20 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   (* Commands                                                              *)
   (* ********************************************************************* *)
 
+  (* Declare a new sort symbol *)
+  let declare_sort solver sort = match Type.node_of_type sort with
+    | Type.Abstr _ ->
+
+      let cmd =
+        Format.sprintf "@[<hv 1>(declare-sort@ %s 0)@]"
+          (string_of_sort sort)
+      in
+
+      (* Send command to the solver without timeout *)
+      execute_command solver cmd 0
+
+    | _ -> failwith "Only declare uninterpreted sorts."
+
 
   (* Declare a new function symbol *)
   let declare_fun solver fun_symbol arg_sorts res_sort = 
@@ -881,12 +894,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let headers =
       "(set-option :print-success true)" ::
       (headers ()) @
-      [ 
-        (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
-        Format.sprintf
-          "(set-option :produce-assignments %B)" produce_assignments;
-        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores;
-      ] @
+      (if produce_assignments then
+         ["(set-option :produce-assignments true)"] else []) @
+      (if produce_cores then
+         ["(set-option :produce-unsat-cores true)"] else []) @
       header_logic
     in
     
@@ -931,10 +942,52 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
        command. Hence, ignore these stale respones on the output
        channel *)
 
-    let _ = execute_command_no_response solver "(exit)" 0 in
+    begin
+      try ignore(execute_command_no_response solver "(exit)" 0)
+      with Signal s when s = Sys.sigpipe ->
+        Event.log L_fatal
+          "[Warning] Got broken pipe when trying to exit %s instance PID %d."
+          solver.solver_config.solver_cmd.(0) solver_pid
+    end;
 
-    (* Wait for process to terminate *)
-    let _, process_status = Unix.waitpid [] solver_pid in
+    (* Check if solver instance has exited, wait 10ms, count down and
+       kill process eventually *)
+    let rec wait_and_kill time_to_kill = 
+
+      (* Have we waited long enough? *)
+      if time_to_kill <= 0 then
+
+        (
+
+          (* Send SIGKILL to process *)
+          Unix.kill solver_pid Sys.sigkill;
+
+          (* Return exit code *)
+          Unix.waitpid [] solver_pid |> snd
+
+        )
+
+      else
+
+        (
+
+          (* Wait 10ms *)
+          minisleep 0.01;
+
+          (* Check return status *)
+          match Unix.waitpid [Unix.WNOHANG] solver_pid with
+
+          (* Process has not exited yet? Wait one more time *)
+          | 0, _ -> wait_and_kill (pred time_to_kill)
+
+          (* Return exit code *)
+          | _, process_status -> process_status
+
+        )
+    in
+        
+    (* Wait 10*10ms for process to terminate *)
+    let process_status = wait_and_kill 10 in
 
     (
 
@@ -961,9 +1014,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     Unix.close solver_stderr
 
 
-    (* Output a comment into the trace *)
-    let trace_comment solver comment = 
-      solver.solver_trace_coms comment
+  (* Output a comment into the trace *)
+  let trace_comment solver comment = 
+    solver.solver_trace_coms comment
 
     
 
@@ -982,6 +1035,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let delete_instance () = delete_instance solver
 
 
+    let declare_sort = declare_sort solver
     let declare_fun = declare_fun solver
     let define_fun = define_fun solver
     let assert_expr = assert_expr solver

@@ -553,6 +553,9 @@ let call_terms_of_node_call mk_fresh_state_var {
              (StateVar.type_of_state_var state_var)
          in
 
+         N.set_state_var_instance
+           inst_state_var call_pos call_node_name state_var;
+         
          (* Add fresh state variable to locals of this node, to actual
             input parameters of node call and to map of state variable
             instances *)
@@ -2336,7 +2339,7 @@ let trans_sys_of_nodes
   ( match analysis_param with
     | A.Refinement (_,result) ->
       (* The analysis that's going to run is a refinement. *)
-      TransSys.get_prop_status_all result.A.sys
+      TransSys.get_prop_status_all_nocands result.A.sys
       |> List.iter (function
         | name, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
           ()
@@ -2344,11 +2347,11 @@ let trans_sys_of_nodes
         | name, (P.PropKTrue k as status) -> (* K-true is still k-true. *)
           TransSys.set_prop_status trans_sys name status
         
-        | name, P.PropInvariant -> (* Invariant is still invariant. *)
-          TransSys.set_prop_invariant trans_sys name ;
+        | name, P.PropInvariant cert -> (* Invariant is still invariant. *)
+          TransSys.set_prop_invariant trans_sys name cert;
           (* Adding to invariants of the system. *)
-          TransSys.get_prop_term trans_sys name
-          |> TransSys.add_invariant trans_sys
+          let t = TransSys.get_prop_term trans_sys name in
+          TransSys.add_invariant trans_sys t cert
         
         | name, P.PropFalse cex -> (
           match P.length_of_cex cex with

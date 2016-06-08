@@ -173,6 +173,7 @@ type context = {
   solver1: SMTSolver.t ;
   solver2: SMTSolver.t ;
   solver3: SMTSolver.t ;
+  mutable k: int;
 }
 
 (* Creates two solvers for the context. Initializes them and updates the
@@ -215,6 +216,7 @@ let mk_solvers sys prop =
     sys
     (SMTSolver.define_fun solver1)
     (SMTSolver.declare_fun solver1)
+    (SMTSolver.declare_sort solver1)
     Numeral.(~- one) Numeral.zero ;
 
   (* Defining uf's and declaring variables. *)
@@ -222,6 +224,7 @@ let mk_solvers sys prop =
     sys
     (SMTSolver.define_fun solver2)
     (SMTSolver.declare_fun solver2)
+    (SMTSolver.declare_sort solver2)
     Numeral.(~- one) Numeral.one ;
 
   (* Defining uf's and declaring variables. *)
@@ -229,6 +232,7 @@ let mk_solvers sys prop =
     sys
     (SMTSolver.define_fun solver3)
     (SMTSolver.declare_fun solver3)
+    (SMTSolver.declare_sort solver3)
     Numeral.(~- one) Numeral.one ;
 
   (* Asserting init in [solver1]. *)
@@ -266,23 +270,17 @@ let mk_context sys prop =
   let solver1, solver2, solver3 = mk_solvers sys prop in
 
   { sys ; prop ;
+    k = 1;
     white = [] ; grey = [] ; black = [] ;
     solver1 ; solver2 ; solver3 }
 
 
 (* Resets a context with a new prop. Changes [prop] and resets [black]. *)
-let reset_prop_of {
-  sys ; white ; grey ; solver1 ; solver2 ; solver3
-} prop = {
-  sys ; prop ; white ; grey ; black = [] ; solver1 ; solver2 ; solver3
-}
+let reset_prop_of context prop =
+  { context with prop = prop; black = [] }
 
 (* Resets the grey sets of a context. *)
-let reset_grey_of {
-  sys ; prop ; white ; black ; solver1 ; solver2 ; solver3
-} = {
-  sys ; prop ; white ; grey = [] ; black ; solver1 ; solver2 ; solver3
-}
+let reset_grey_of context = { context with grey = [] }
 
 (* Resets the solvers of a context every 20 checks. *)
 let reset_solvers_of ({ sys ; prop ; white ; grey ; black } as context) =
@@ -291,7 +289,7 @@ let reset_solvers_of ({ sys ; prop ; white ; grey ; black } as context) =
     let solver1, solver2, solver3 = mk_solvers sys prop in
     (* Reset actlits. *)
     Actlit.reset_fresh_actlit_count () ;
-    { sys ; prop ; white ; grey ; black ; solver1 ; solver2 ; solver3 }
+    { context with solver1 ; solver2 ; solver3 }
   ) else context
 
 (* Variable hash table. *)
@@ -610,12 +608,14 @@ let rec loop in_sys param ({sys} as context) candidate =
       | None, _, None ->
         (* It is, communicating. *)
         Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
-        TransSys.add_invariant context.sys term ;
+        (* k-inductive certificate from context *)
+        let cert = context.k, term in
+        TransSys.add_invariant context.sys term cert;
         assert_invariant context term ;
         (* Broadcasting invariant. *)
         Event.invariant (
           TransSys.scope_of_trans_sys context.sys
-        ) term ;
+        ) term cert;
       | _ -> () ) ;
 
     (* Counterexample, updating context. *)
@@ -631,7 +631,7 @@ let rec loop in_sys param ({sys} as context) candidate =
       |> fun (invs,props) ->
         invs,
         props |> List.exists (function
-          | _, (name, Property.PropInvariant)
+          | _, (name, Property.PropInvariant _)
           | _, (name, Property.PropFalse _) ->
             name = context.prop
           | _ -> false
@@ -640,6 +640,8 @@ let rec loop in_sys param ({sys} as context) candidate =
     (* Asserting invariants if any. *)
     if invs <> [] then Term.mk_and invs |> assert_invariant context ;
     let context = if invs <> [] then reset_grey_of context else context in
+    (* increasing k *)
+    context.k <- context.k + 1;
     (* If done, return [None]. *)
     if is_done then None
     (* Looping. *)
@@ -653,7 +655,7 @@ let rec run in_sys param context_option candidate sys =
   | _, _, [] -> ()
 
   | _, _, prop :: tail -> ( match Property.get_prop_status prop with
-    | Property.PropInvariant | Property.PropFalse _ ->
+    | Property.PropInvariant _ | Property.PropFalse _ ->
       (* We don't care about this one .*)
       run in_sys param context_option candidate sys
 
@@ -677,12 +679,13 @@ let rec run in_sys param context_option candidate sys =
             Event.log L_info
               "C2I @[<v>Strengthening invariant found for %s@]" prop ;
             Stat.incr Stat.c2i_str_invs ;
-            TransSys.add_invariant context.sys str_invariant ;
+            let cert = context.k, str_invariant in
+            TransSys.add_invariant context.sys str_invariant cert;
             assert_invariant context str_invariant ;
             (* Broadcasting strengthening invariant. *)
             Event.invariant (
               TransSys.scope_of_trans_sys context.sys
-            ) str_invariant ;
+            ) str_invariant cert;
 
             (* Communicating. *)
             let invs, is_done =
@@ -691,7 +694,7 @@ let rec run in_sys param context_option candidate sys =
               |> fun (invs,props) ->
                 invs,
                 props |> List.exists (function
-                  | _, (name, Property.PropInvariant)
+                  | _, (name, Property.PropInvariant _)
                   | _, (name, Property.PropFalse _) ->
                     name = context.prop
                   | _ -> false
@@ -704,10 +707,10 @@ let rec run in_sys param context_option candidate sys =
             ( match TransSys.get_prop_status context.sys context.prop with
               | Property.PropUnknown -> ()
               | _ ->
-                TransSys.set_prop_invariant context.sys context.prop ;
+                TransSys.set_prop_invariant context.sys context.prop cert (* TODO check*);
                 TransSys.get_prop_term context.sys context.prop
                 |> fun t ->
-                  TransSys.add_invariant context.sys t ;
+                  TransSys.add_invariant context.sys t cert;
                   assert_invariant context t )
           | None ->
             (* Proved or disproved by another technique, or termination was

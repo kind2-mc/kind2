@@ -630,7 +630,10 @@ let slice_all_of_node
       N.props; 
       N.contract;
       N.is_main;
-      N.state_var_source_map } = 
+      N.state_var_source_map;
+      N.oracle_state_var_map;
+      N.state_var_expr_map;
+    } = 
 
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
@@ -649,7 +652,10 @@ let slice_all_of_node
     N.props = if keep_props then props else [];
     N.contract = if keep_contracts then contract else None;
     N.is_main;
-    N.state_var_source_map = state_var_source_map }
+    N.state_var_source_map = state_var_source_map;
+    N.oracle_state_var_map = oracle_state_var_map;
+    N.state_var_expr_map = state_var_expr_map;
+  }
 
 
 (* Add roots of cone of influence from node call to roots *)

@@ -36,7 +36,11 @@ module TestGen = TestgenDF
 module C2I = C2I
 module C2Icnf = C2Icnf
 
-(* module IC3 = Dummy *)
+
+(* Hide existential type parameter of to construct values of 'a InputSystem.t
+   at runtime *)
+type any_input =
+  | Input : 'a InputSystem.t -> any_input
 
 let children_pgid = ref 0
 
@@ -55,6 +59,10 @@ let cur_input_sys = ref None
 let cur_aparam = ref None
 (* Current transition system. *)
 let cur_trans_sys = ref None
+
+
+(* let get_input_sys_ref () = *)
+(*   let Input i = get !input_sys_ref in i *)
 
 (* Generic signal handler. *)
 let generic_sig_handler = Sys.Signal_handle exception_on_signal
@@ -120,7 +128,7 @@ let main_of_process = function
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
   | `Supervisor -> InvarManager.main child_pids
-  | `Parser -> (fun _ _ _ -> ())
+  | `Parser | `Certif -> (fun _ _ _ -> ())
 
 (* Cleanup function of the process *)
 let on_exit_of_process = function
@@ -133,7 +141,7 @@ let on_exit_of_process = function
   | `C2I -> C2I.on_exit
   | `Interpreter -> Interpreter.on_exit
   | `Supervisor -> InvarManager.on_exit
-  | `Parser -> ignore
+  | `Parser | `Certif -> ignore
 
 (*
 (* Messaging type of the process *)
@@ -156,6 +164,7 @@ let debug_ext_of_process = function
   | `C2I -> "c2i"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
+  | `Certif -> "certif"
   | `Supervisor -> "super"
 
 (* Exit status if timeout *)
@@ -174,11 +183,15 @@ let status_safe = 20
 let status_of_trans_sys sys =
   (* Checking if some properties are unknown of falsifiable. *)
   let unknown, falsifiable =
-    TransSys.get_prop_status_all sys
+    TransSys.get_prop_status_all_nocands sys
     |> List.fold_left (fun (u,f) -> function
-      | (_, Property.PropUnknown)
-      | (_, Property.PropKTrue _) -> u+1,f
-      | (_, Property.PropFalse _) -> u,f+1
+      | (n, Property.PropUnknown)
+      | (n, Property.PropKTrue _) ->
+        Format.eprintf "%s KU@." n;
+        u+1,f
+      | (n, Property.PropFalse _) ->
+        Format.eprintf "%s FALSE@." n;
+        u,f+1
       | _ -> u,f
     ) (0,0)
     |> fun (u,f) -> u > 0, f > 0
@@ -201,15 +214,15 @@ let status_error = 2
 
 (* Exit status from an optional [results]. *)
 let status_of_sys sys_opt = match sys_opt with
-| None -> status_timeout
+| None -> Format.eprintf "NOSYS@."; status_timeout
 | Some sys -> status_of_trans_sys sys
 
 (* Exit status from an optional [results]. *)
 let status_of_results results_opt = match results_opt with
-| None -> status_timeout
+| None -> Format.eprintf "NORES@."; status_timeout
 | Some results -> (
   match Analysis.results_is_safe results with
-  | None -> status_timeout
+  | None -> Format.eprintf "NOSAFERES@."; status_timeout
   | Some true -> status_safe
   | Some false -> status_unsafe
 )
@@ -287,7 +300,7 @@ let slaughter_kids process sys =
   (* Clean exit from invariant manager *)
   InvarManager.on_exit sys ;
 
-  Event.log L_info "Killing all remaining child processes" ;
+  Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
   List.iter
@@ -478,7 +491,7 @@ let on_exit process results exn =
 
    Give the exception [exn] that was raised or [Exit] on normal
    termination. *)
-let on_exit_child messaging_thread process exn =
+let on_exit_child ?(alone=false) messaging_thread process exn =
 
   (* Exit status of process depends on exception *)
   let status = status_of_exn process 0 exn in
@@ -499,6 +512,11 @@ let on_exit_child messaging_thread process exn =
       pp_print_kind_module process
     in
 
+    (* Log stats and statuses of properties if run as a single process *)
+    (* if alone then Event.log_result sys_opt; *)
+
+    Event.terminate_log ();
+      
     (* Exit process with status *)
     exit status )
 
@@ -591,9 +609,11 @@ let run_process messaging_setup process =
 
           );
 
+          let Input cur_in_sys = get !cur_input_sys in
+          
           (* Run main function of process *)
           (main_of_process process) 
-            (get !cur_input_sys)
+            cur_in_sys
             (get !cur_aparam)
             (get !cur_trans_sys);
 
@@ -742,7 +762,7 @@ let check_smtsolver () =
 
       let yices_exec =
 
-        (* Check if MathSat5 is on the path *)
+        (* Check if yices 2 is on the path *)
         try find_on_path (Flags.Smt.yices2smt2_bin ()) with
 
           | Not_found ->
@@ -841,7 +861,7 @@ let check_smtsolver () =
    - starting global timer,
    - parsing input file,
    - building input system. *)
-let setup () =
+let setup : unit -> any_input = fun () ->
 
   (* Parse command-line flags. *)
   Flags.parse_argv () ;
@@ -905,8 +925,8 @@ let setup () =
   (* Raise exception on CTRL+C. *)
   Sys.catch_break true ;
 
-  (* Install generic signal handler for SIGINT, SIGTERM and SIGQUIT. *)
-  [ Sys.sigint ; Sys.sigterm ; Sys.sigquit ]
+  (* Install generic signal handler for SIGINT, SIGPIPE, SIGTERM and SIGQUIT. *)
+  [ Sys.sigint ; Sys.sigpipe; Sys.sigterm ; Sys.sigquit ]
   |> List.iter set_generic_handler_for ;
 
   (* Starting global timer. *)
@@ -920,10 +940,11 @@ let setup () =
      | _ -> "input file \"" ^ in_file ^ "\"");
 
   try
-    in_file |> match Flags.input_format () with
-      | `Lustre -> InputSystem.read_input_lustre
-      | `Native -> (* InputSystem.read_input_native *) assert false
-      | `Horn   -> (* InputSystem.read_input_horn *)   assert false
+    (* in_file |> *)
+    match Flags.input_format () with
+    | `Lustre -> Input (InputSystem.read_input_lustre in_file)
+    | `Native -> Input (InputSystem.read_input_native in_file)
+    | `Horn   -> (* InputSystem.read_input_horn *)   assert false
   with (* Could not create input system. *)
   | LustreAst.Parser_error ->
     (* Don't do anything for parser error, they should already have printed
@@ -1036,20 +1057,30 @@ let compile_to_rust input_sys top =
     Event.log_uncond "[TO_RUST] Done compiling."
   )
 
+(* Generate certificates and or proofs *)
+let generate_certif_proofs uid input_sys trans_sys =
+  if Flags.Certif.certif () then
+    if Flags.Certif.proof () then
+      CertifChecker.generate_all_proofs uid input_sys trans_sys
+    else
+      CertifChecker.generate_smt2_certificates uid input_sys trans_sys
+
+
 (* Runs test generation and compilation if asked to. *)
 let post_verif input_sys result =
   if Analysis.result_is_all_proved result then (
-    let top_scope =
-      result.Analysis.sys |> TransSys.scope_of_trans_sys
-    in
+    let trans_sys = result.Analysis.sys in
+    let top_scope = TransSys.scope_of_trans_sys trans_sys in
     run_testgen input_sys top_scope ;
-    compile_to_rust input_sys top_scope
+    compile_to_rust input_sys top_scope;
+    let uid = Analysis.(info_of_param result.param).uid in
+    generate_certif_proofs uid input_sys trans_sys;
   )
 
 (* Launches analyses. *)
 let rec run_loop msg_setup modules results =
 
-  let aparam, input_sys, trans_sys =
+  let aparam, Input input_sys, trans_sys =
     get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
   in
 
@@ -1094,9 +1125,9 @@ let rec run_loop msg_setup modules results =
 
   let results = Analysis.results_add result results in
 
-  match
-    InputSystem.next_analysis_of_strategy (get !input_sys_ref) results
-  with
+  let Input input_sys = get !input_sys_ref in
+  
+  match InputSystem.next_analysis_of_strategy input_sys results with
 
   (* No next analysis, done. *)
   | None -> results
@@ -1105,12 +1136,11 @@ let rec run_loop msg_setup modules results =
   | Some aparam ->
     (* Extracting transition system. *)
     let trans_sys, input_sys_sliced =
-      InputSystem.trans_sys_of_analysis (get !input_sys_ref) aparam
-    in
+      InputSystem.trans_sys_of_analysis input_sys aparam in
 
     (* Memorizing things. *)
     cur_aparam    := Some aparam           ;
-    cur_input_sys := Some input_sys_sliced ;
+    cur_input_sys := Some (Input input_sys_sliced) ;
     cur_trans_sys := Some trans_sys        ;
 
     (* Looping. *)
@@ -1122,22 +1152,30 @@ let launch input_sys =
 
   let results = Analysis.mk_results () in
 
-
+  let Input in_sys = input_sys in
+  
   (* Retrieving params for next analysis. *)
   let aparam =
-    match InputSystem.next_analysis_of_strategy input_sys results with
+    match InputSystem.next_analysis_of_strategy in_sys results with
     | Some a -> a | None -> assert false
   in
 
   (* Building transition system and slicing info. *)
   let trans_sys, input_sys_sliced =
-    InputSystem.trans_sys_of_analysis input_sys aparam
+    InputSystem.trans_sys_of_analysis in_sys aparam
   in
 
   (* Memorizing things. *)
-  cur_input_sys := Some input_sys_sliced ;
+  cur_input_sys := Some (Input input_sys_sliced) ;
   cur_aparam    := Some aparam           ;
   cur_trans_sys := Some trans_sys        ;
+
+  (* Dump transition system in native format *)
+  (* if Flags.dump_native () then NativeInput.dump_native trans_sys; *)
+
+  (* Output the transition system *)
+  (* (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end); *)
+
 
   (* Checking what's activated. *)
   match Flags.enable () with
@@ -1153,10 +1191,12 @@ let launch input_sys =
     (* Set module currently running. *)
     Event.set_module m ;
 
+    let Input cur_sys = get !cur_input_sys in
+      
     (* Run interpreter. *)
     Interpreter.main
       (Flags.Interpreter.input_file ())
-      (get !cur_input_sys)
+      cur_sys
       (get !cur_aparam)
       (get !cur_trans_sys) ;
 
@@ -1200,7 +1240,8 @@ let launch input_sys =
 
       (* Producing a list of the last results for each system, in topological
          order. *)
-      get !input_sys_ref |> InputSystem.ordered_scopes_of
+      let Input input_sys = get !input_sys_ref in
+      input_sys |> InputSystem.ordered_scopes_of
       (* |> fun syss ->
         Format.printf "%d systems@.@." (List.length syss) ;
         Format.printf "systems: @[<v>%a@]@.@."
@@ -1212,12 +1253,16 @@ let launch input_sys =
           match Analysis.results_find sys results with
           | last :: _ ->
             (* Running post verification things. *)
-            post_verif (get !input_sys_ref) last ;
+            post_verif input_sys last ;
             last :: l
           | [] -> assert false
         ) with
         | Not_found -> l
-        | e -> Format.printf "%s@.@." (Printexc.to_string e) ; l
+        | Failure s ->
+          Event.log L_fatal "Failure: %s" s;
+          l
+        | e ->
+          Event.log L_fatal "%s" (Printexc.to_string e) ; l
       ) []
       (* Logging the end of the run. *)
       |> Event.log_run_end ;
@@ -1229,7 +1274,7 @@ let launch input_sys =
       let backtrace = Printexc.get_raw_backtrace () in
 
       if Printexc.backtrace_status () then
-        Event.log L_fatal "Caught %s in %a.@\nBacktrace po:@\n%a"
+        Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
           (Printexc.to_string e)
           pp_print_kind_module `Supervisor
           print_backtrace backtrace;

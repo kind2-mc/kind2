@@ -183,6 +183,10 @@ module Smt = struct
           Other SMT-LIB logics will be passed to the solver\
         @]"
     )
+    
+  let detect_logic_if_none () =
+    if !logic = `None then logic := `detect
+          
   let logic () = !logic
 
   (* Activates check-sat with assumptions when supported. *)
@@ -220,6 +224,7 @@ module Smt = struct
         @]"
       fmt_bool short_names_default
     )
+  let set_short_names b = short_names := b
   let short_names () = !short_names
 
   (* Z3 binary. *)
@@ -403,6 +408,9 @@ module BmcKind = struct
         "@[<v>Compress inductive counterexamples@ Default: %a@]"
         fmt_bool compress_default
     )
+
+  let disable_compress () = compress := false
+  
   let compress () = !compress
 
   let compress_equal_default = true
@@ -840,6 +848,182 @@ module Contracts = struct
 end
 
 
+(* Contracts flags. *)
+module Certif = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "certif"
+  (* Short description of the module. *)
+  let desc = "Certification and proof production flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 generates (intermediate) certificates in the SMT-LIB 2 format and@ \
+      produces proofs in the LFSC format.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let certif_default = false
+  let certif = ref certif_default
+  let _ = add_spec
+    "--certif"
+    (Arg.Bool (fun b -> certif := b;
+                if b then begin
+                  Smt.set_short_names false;
+                  BmcKind.disable_compress ();
+                end))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Produce SMT-LIB 2 certificates.@ Default: %a@]"
+        fmt_bool certif_default
+    )
+
+  let proof_default = false
+  let proof = ref proof_default
+  let _ = add_spec
+    "--proof"
+    (Arg.Bool (fun b -> proof := b;
+                if b then begin
+                  certif := true;
+                  Smt.set_short_names false;
+                  Smt.detect_logic_if_none ();
+                  BmcKind.disable_compress ();
+                end))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Produce LFSC proofs.@ Default: %a@]"
+        fmt_bool proof_default
+    )
+
+  let certif () = !certif
+  let proof () = !proof
+
+  let abstr_default = false
+  let abstr = ref abstr_default
+  let _ = add_spec
+    "--certif_abstr"
+    (bool_arg abstr)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Use absrtact type indexes in certificates and proofs .@ Default: %a@]"
+        fmt_bool abstr_default
+    )
+  let abstr () = !abstr
+
+  type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
+  let mink_values = [ `No; `Fwd; `Bwd; `Dicho; `FrontierDicho; `Auto]
+  let mink_of_string = function
+    | "no" -> `No
+    | "fwd" -> `Fwd
+    | "bwd" -> `Bwd
+    | "dicho" -> `Dicho
+    | "frontierdicho" -> `FrontierDicho
+    | "auto" -> `Auto
+    | _ -> raise (Arg.Bad "Bad value for --certif_mink")
+  let string_of_mink = function
+    | `No -> "no"
+    | `Fwd -> "fwd"
+    | `Bwd -> "bwd"
+    | `Dicho -> "dicho"
+    | `FrontierDicho -> "frontierdicho"
+    | `Auto -> "auto"
+  let mink_default = `Auto
+  let mink = ref mink_default
+  let _ = add_spec
+    "--certif_mink"
+    (Arg.String (fun str -> mink := mink_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> is no, fwd, bwd, dicho, frontierdicho or auto.@ \
+          Select strategy for minimizing k of certificates@ \
+          \"no\" for no minimization@ \
+          \"fwd\" for a search starting at 1 up to k@ \
+          \"bwd\" for a search starting at k and going down to 1@ \
+          \"dicho\" for a binary search of the minimum k@ \
+          \"frontierdicho\" tries the frontier k/k-1 then employs the dicho stractegy@ \
+          \"auto\" to heuristically select the best strategy among the previous ones (default)\
+        @]"
+    )
+  let mink () = !mink
+
+
+  type mininvs = [ `Easy | `Medium | `MediumOnly | `Hard | `HardOnly ]
+  let mininvs_values = [ `Easy; `Medium; `MediumOnly; `Hard; `HardOnly ]
+  let mininvs_of_string = function
+    | "easy" -> `Easy
+    | "medium" -> `Medium
+    | "mediumonly" -> `MediumOnly
+    | "hard" -> `Hard
+    | "hardonly" -> `HardOnly
+    | _ -> raise (Arg.Bad "Bad value for --certif_mininvs")
+  let string_of_mininvs = function
+    | `Easy -> "easy"
+    | `Medium -> "medium"
+    | `MediumOnly -> "mediumonly"
+    | `Hard -> "hard"
+    | `HardOnly -> "hardonly"
+  let mininvs_default = `Medium
+  let mininvs = ref mininvs_default
+  let _ = add_spec
+    "--certif_mininvs"
+    (Arg.String (fun str -> mininvs := mininvs_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> is easy, medium, mediumonly, hard, hardonly.@ \
+          Select strategy for minimizing the invariants of certificates@ \
+          \"easy\" to only do unsat-core based trimming@ \
+          \"medium\" does easy + coarse couter-example based minimization (default)@ \
+          \"mediumonly\" does only coarse couter-example based minimization@ \
+          \"hard\" does easy + cherry-pick invariants based on couter-examples@ \
+          \"hardonly\" only cherry-picks invariants based on couter-examples\
+        @]"
+    )
+  let mininvs () = !mininvs
+
+
+  (* JKIND binary. *)
+  let jkind_bin_default = "jkind"
+  let jkind_bin = ref jkind_bin_default
+  let _ = add_spec
+      "--jkind_bin"
+      (Arg.Set_string jkind_bin)
+      (fun fmt ->
+         Format.fprintf fmt
+           "@[<v>Executable of JKind for frontend certificates.@ \
+            Default: \"%s\"@]"
+           jkind_bin_default
+      )
+  let jkind_bin () = ! jkind_bin
+
+
+  let only_user_candidates_default = false
+  let only_user_candidates = ref only_user_candidates_default
+  let _ = add_spec
+    "--only_user_candidates"
+    (bool_arg only_user_candidates)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Only use user provided candidates for invariants.@ \
+         Default: %a@]"
+        fmt_bool only_user_candidates_default
+    )
+  let only_user_candidates () = !only_user_candidates
+
+  
+end
+
+
 
 (* Testgen flags. *)
 module Testgen = struct
@@ -1184,6 +1368,9 @@ let module_map = [
   (Contracts.id,
     (module Contracts: FlagModule)
   ) ;
+  (Certif.id,
+    (module Certif: FlagModule)
+  ) ;
 ]
 
 (* Formats an element of [module_map]. *)
@@ -1389,18 +1576,20 @@ module Global = struct
     `Lustre | `Horn | `Native
   ]
   let input_format_of_string = function
+    | "extension" -> `Extension
     | "lustre" -> `Lustre
     | "horn" -> `Horn
     | "native" -> `Native
     | _ -> raise (Arg.Bad "Bad value for --input_format")
   let string_of_input_format = function
+    | `Extension -> "extension"
     | `Lustre -> "lustre"
     | `Horn -> "horn"
     | `Native -> "native"
   let input_format_values = [
-    `Lustre ; `Native
+    `Lustre ; `Native; `Extension
   ] |> List.map string_of_input_format |> String.concat ", "
-  let input_format_default = `Lustre
+  let input_format_default = `Extension
 
   let input_format = ref input_format_default
   let _ = add_spec
@@ -1416,7 +1605,17 @@ module Global = struct
         input_format_values
         (string_of_input_format input_format_default)
     )
-  let input_format () = !input_format
+
+  let set_input_format s =
+    if !input_format = `Extension then
+      if Filename.check_suffix s ".kind2" then
+        input_format := `Native
+      else input_format := `Lustre
+
+  let input_format () =
+    match !input_format with
+    | `Extension -> assert false
+    | (`Lustre | `Native | `Horn) as f -> f
 
 
   (* Output directory. *)
@@ -1439,10 +1638,11 @@ module Global = struct
     )
 
   let set_output_dir s =
-    let b = Filename.basename s in
-    let d = try Filename.chop_extension b with Invalid_argument _ -> b in
-    output_dir_action(d ^ ".out")
-      
+    if !output_dir = "kind2" then
+      let b = Filename.basename s in
+      let d = try Filename.chop_extension b with Invalid_argument _ -> b in
+      output_dir_action(d ^ ".out")
+
   let output_dir () = !output_dir
 
 
@@ -1778,6 +1978,7 @@ let anon_action s =
     (* filenames that start with - are allowed after the flag -- *)
     if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
     Global.set_input_file s;
+    Global.set_input_format s;
     Global.set_output_dir s;
   | _ -> raise (Arg.Bad "More than one input file given")
 

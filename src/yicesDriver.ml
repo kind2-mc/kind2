@@ -51,10 +51,11 @@ let check_sat_assuming_cmd _ =
 let headers () =
 
   [
-
     (* Define functions for int / real conversions *)
     "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
     "(define to_real::(-> x::int (subtype (y::real) (= y x))))";
+    (* Define xor operator *)
+    "(define xor :: (-> bool bool bool) (lambda (x::bool y::bool) (and (or x y) (not (and x y)) )))";
   ] 
 
 
@@ -82,6 +83,7 @@ let rec pp_print_type_node ppf =
         Numeral.pp_print_numeral j
 
     | Real -> Format.pp_print_string ppf "real"
+    | Abstr s -> Format.pp_print_string ppf s
 (*
   | BV i -> 
 
@@ -115,7 +117,7 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 let interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
-  | Type.Bool | Type.Int | Type.Real -> t
+  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ -> t
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
@@ -151,7 +153,8 @@ let type_of_string_sexpr = function
     Type.mk_int_range (Numeral.of_string (HString.string_of_hstring i))
       (Numeral.of_string (HString.string_of_hstring j))
 
-  | HStringSExpr.Atom _
+  | HStringSExpr.Atom s -> Type.mk_abstr (HString.string_of_hstring s)
+
   | HStringSExpr.List _ as s ->
 
     raise
@@ -227,7 +230,7 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `IMPLIES -> Format.pp_print_string ppf "=>"
   | `AND  -> Format.pp_print_string ppf "and"
   | `OR -> Format.pp_print_string ppf "or"
-  | `XOR -> failwith "xor not implemented for yices"
+  | `XOR -> Format.pp_print_string ppf "xor"
 
   | `EQ -> Format.pp_print_string ppf "="
   | `DISTINCT -> failwith "distinct not implemented for yices"
@@ -298,7 +301,7 @@ let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
 
 
 let pp_print_term ppf t =
-  Term.T.pp_print_term_w pp_print_symbol ppf t
+  Term.T.pp_print_term_w pp_print_symbol Var.pp_print_var ppf t
         
     
 (* Pretty-print an expression *)

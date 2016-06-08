@@ -20,8 +20,8 @@ open Lib
 open TermLib
 open Actlit
 
-(* Raised when the unrolling alone is unsat. *)
-exception UnsatUnrollingExc
+(* Raised when the unrolling alone is unsat (with the bound). *)
+exception UnsatUnrollingExc of int
 
 let solver_ref = ref None
 
@@ -59,7 +59,7 @@ let on_exit _ =
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | Property.PropInvariant
+  | Property.PropInvariant _
   | Property.PropFalse _ -> false
   | _ -> true
 
@@ -105,7 +105,7 @@ let split trans solver k falsifiable to_split actlits =
         "BMC @[<v>Unrolling of the system is unsat at %a, \
         the system has no more reachable states.@]"
         Numeral.pp_print_numeral k ;
-      raise UnsatUnrollingExc
+      raise (UnsatUnrollingExc (Numeral.to_int k))
     )
   ) ;
 
@@ -197,14 +197,13 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
     updated_props
     (* Looking for new invariant properties. *)
     |> List.fold_left
-         ( fun list (_, (name,status)) ->
-           if status = Property.PropInvariant
-           then
+         ( fun list (_, (name, status)) ->
+          match status with
+          | Property.PropInvariant cert ->
              (* Memorizing new invariant property. *)
              ( TransSys.get_prop_term trans name )
              :: list
-           else
-             list )
+          | _ -> list )
          (* New invariant properties are added to new invariants. *)
          new_invs
            
@@ -378,6 +377,7 @@ let init input_sys aparam trans =
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
     Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)
@@ -391,7 +391,7 @@ let init input_sys aparam trans =
         L_warn
         "BMC @[<v>Initial state is unsat, the system has no \
          reachable states.@]" ;
-      raise UnsatUnrollingExc
+      raise (UnsatUnrollingExc 0)
     )
   ) ;
 
@@ -406,12 +406,14 @@ let init input_sys aparam trans =
 let main input_sys aparam trans =
   try
     init input_sys aparam trans |> next
-  with UnsatUnrollingExc ->
+  with UnsatUnrollingExc k ->
     let _, _, unknown = TransSys.get_split_properties trans in
     unknown |> List.iter (fun p ->
-      Event.prop_status
-        Property.PropInvariant input_sys aparam trans p.Property.prop_name
-    )
+        let cert = k, p.Property.prop_term in
+        Event.prop_status
+          (Property.PropInvariant cert)
+          input_sys aparam trans p.Property.prop_name
+      )
 
 
 

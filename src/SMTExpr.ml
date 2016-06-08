@@ -162,9 +162,11 @@ struct
         (* Annotated term *)
         | Term.T.Attr (t, _) -> var_term_of_smtexpr t
 
+        (* Already variables *)
+        | Term.T.Var _ -> e
+  
         (* Other expressions *)
-        | Term.T.App _ 
-        | Term.T.Var _ -> 
+        | Term.T.App _ -> 
 
           invalid_arg 
             "var_of_smtexpr: \

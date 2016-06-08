@@ -1346,6 +1346,225 @@ let pp_print_path_in_csv
   |> pp_print_lustre_path_in_csv ppf
 
 
+
+(***************************************************)
+(* Reconstruct Lustre streams from state variables *)
+(***************************************************)
+
+let same_args abstr_map (inputs, defs) (inputs', defs') =
+  D.equal (fun a1 a2 ->
+      StateVar.equal_state_vars a1 a2 ||
+      (* can be abstractions *)
+      try
+        let e1 = SVM.find a1 abstr_map in
+        let e2 = SVM.find a2 abstr_map in
+        LustreExpr.equal e1 e2
+      with Not_found -> false)
+    inputs inputs' &&
+  match defs, defs' with
+  | Some d1, Some d2 -> D.equal LustreExpr.equal d1 d2
+  | None, None -> true
+  | _ -> false
+
+
+let rec add_to_callpos abstr_map acc pos clock args calls =
+  match calls with
+  | ((pos', nb', clock', args') as x) :: r ->
+    let c_pos = Lib.compare_pos pos pos' in
+
+    if c_pos = 0 then raise Exit; (* already in there, abort *)
+    
+    if same_args abstr_map args args' then let _ =() in Format.eprintf "\nICI\n@.";
+      (* calls with same arguments but at different positions *)
+      (* insert in between with the same number, don't shift anything *)
+      if c_pos > 0 then
+        List.rev_append acc (x :: (pos, nb', clock, args) :: r)
+      else
+        List.rev_append acc ((pos, nb', clock, args) :: calls)
+          
+    else if c_pos > 0 then
+      (* continue to look *)
+      add_to_callpos abstr_map (x :: acc) pos clock args r
+
+    else (* c_pos < 0 *)
+      (* insert in between and shift the ones on the right *)
+      List.rev_append acc
+        ((pos, nb', clock, args) ::
+         (List.map (fun (p, n, c, a) -> (p, n+1, c, a)) calls))
+
+  | [] ->
+    (* last one or only one *)
+    let nb = match acc with [] -> 0 | (_, n, _, _) :: _ -> n+1 in
+    List.rev ((pos, nb, clock, args) :: acc)
+
+
+
+let register_callpos_for_nb abstr_map hc lid parents pos clock args =
+  let is_condact = clock <> None in
+  let cat =
+    try Hashtbl.find hc (lid, is_condact)
+    with Not_found ->
+      let c = Hashtbl.create 7 in
+      Hashtbl.add hc (lid, is_condact) c;
+      c
+  in
+  let calls = try Hashtbl.find cat parents with Not_found -> [] in
+  try
+    let new_calls = add_to_callpos abstr_map [] pos clock args calls in
+    Hashtbl.replace cat parents new_calls
+  with Exit -> () (* already in there *)
+
+  
+let pos_to_numbers abstr_map nodes =
+  let hc = Hashtbl.create 43 in
+
+  (* let main_node = List.find (fun n -> n.LustreNode.is_main) nodes in *)
+  let main_node = List.hd nodes in
+
+  let node_by_lid lid =
+    List.find (fun n -> I.equal n.N.name lid) nodes in
+
+  let rec fold parents node =
+
+    List.iter
+      (fun ({ N.call_node_name = lid;
+             call_pos = pos; call_clock = clock;
+             call_inputs = inputs; call_defaults = defs } as call) -> 
+
+        (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
+        (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
+        (*   (match clock with *)
+        (*    | None -> "" *)
+        (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)) *)
+        (*   (pp_print_list StateVar.pp_print_state_var ", ") inputs *)
+        (* ; *)
+        
+        register_callpos_for_nb
+          abstr_map hc lid parents pos clock (inputs, defs);
+
+        fold (call :: parents) (node_by_lid lid)
+
+      ) node.LustreNode.calls
+  in
+
+  fold [] main_node;
+  
+  hc
+
+exception Found of int * StateVar.t option
+
+let get_pos_number hc lid pos =
+  (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
+  (* Lib.pp_print_position pos; *)
+
+  let find_in_cat cat =
+    Hashtbl.iter (fun _ l ->
+        List.iter (fun (p, n, c, _) ->
+            if Lib.compare_pos p pos = 0 then raise (Found (n, c)))
+          l
+      ) cat;
+    raise Not_found
+  in
+
+  (* look for both condact and non condact calls *)
+  try
+    (try Hashtbl.find hc (lid, false) |> find_in_cat
+     with Not_found -> Hashtbl.find hc (lid, true)  |> find_in_cat);
+  with Found (n,c) -> n, c
+
+
+let rec get_instances acc hc parents sv =
+  (* Format.eprintf "get_instances : %a@." StateVar.pp_print_state_var sv; *)
+  match N.get_state_var_instances sv with
+  | [] ->
+    (sv, List.rev parents) :: acc
+  | insts ->
+    List.fold_left (fun acc (pos, lid, lsv) ->
+        try
+          let nb, clock = get_pos_number hc lid pos in
+          get_instances acc hc ((lid, nb, clock) :: parents) lsv
+        with Not_found ->
+          (* was removed by slicing, ingore this instance *)
+          acc
+      ) acc insts
+
+
+let get_lustre_streams hc sv = get_instances [] hc [] sv
+  
+
+let inverse_oracle_map nodes =
+  List.fold_left (fun acc node ->
+      SVT.fold (fun oracle sv acc ->
+          let l = try SVM.find oracle acc with Not_found -> [] in
+          (debug fec
+             "inverse oracle: %a ->>> %a"
+             StateVar.pp_print_state_var oracle
+             StateVar.pp_print_state_var sv
+           end);
+          SVM.add oracle (sv :: l) acc 
+        ) (N.get_oracle_state_var_map node) acc
+    ) SVM.empty nodes
+
+let inverse_expr_map nodes =
+  List.fold_left (fun acc node ->
+      SVT.fold (fun sv e acc ->
+        (debug fec
+           "inverse expr: %a ->>> %a" StateVar.pp_print_state_var sv
+           (LustreExpr.pp_print_lustre_expr false) e
+         end);
+          SVM.add sv e acc
+        ) (N.get_state_var_expr_map node) acc
+  ) SVM.empty nodes
+
+
+let rec orig_of_oracle oracle_map sv =
+  try SVM.find sv oracle_map with Not_found -> [sv]
+  (* try *)
+  (*   let l = SVMap.find sv oracle_map in *)
+  (*   List.fold_left *)
+  (*     (fun acc sv -> List.rev_append (orig_of_oracle oracle_map sv) acc) [] l *)
+  (* with Not_found -> [sv] *)
+
+
+let reconstruct_lustre_streams node state_vars =
+
+  let nodes = SubSystem.all_subsystems node
+              |> List.map (fun {SubSystem.source} -> source) in
+  
+  (* mapback from abstract state variables to expressions *)
+  let abstr_map = inverse_expr_map nodes in
+
+  (* convert position to call numbers *)
+  let hc = pos_to_numbers abstr_map nodes in
+  
+  (* mapback from oracles to state vars *)
+  let oracle_map = inverse_oracle_map nodes in
+
+  List.fold_left (fun acc sv ->
+
+      (* if it's an oracle get the original variables otherwise just keep the
+         variable *)
+      let l = orig_of_oracle oracle_map sv in
+
+      (* get streams *)
+      let streams = List.flatten (List.map (get_lustre_streams hc) l) in
+
+      (* get original variables of oracles in node call parameters *)
+      let streams =
+        List.fold_left (fun acc (sv, p) ->
+            List.fold_left
+              (fun acc s -> (s, p) :: acc)
+              acc (orig_of_oracle oracle_map sv)
+          ) [] streams
+        |> List.rev in
+      
+      (* append to others *)
+      let others = try SVM.find sv acc with Not_found -> [] in
+      SVM.add sv (streams @ others) acc
+        
+    ) SVM.empty state_vars
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

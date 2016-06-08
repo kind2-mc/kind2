@@ -59,7 +59,7 @@ let stop () = ()
    been disproved. *)
 let is_unknown trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | Property.PropInvariant
+  | Property.PropInvariant _
   | Property.PropFalse _ -> false
   | _ -> true
 
@@ -73,7 +73,7 @@ let split_unfalsifiable_rm_proved trans k =
   List.fold_left
     ( fun (dis, true_k, others) ((s,_) as p) ->
       match TransSys.get_prop_status trans s with
-      | Property.PropInvariant ->
+      | Property.PropInvariant _ ->
          (dis, true_k, others)
       | Property.PropFalse _ ->
          (p :: dis, true_k, others)
@@ -89,6 +89,17 @@ let split_unfalsifiable_rm_proved trans k =
    new unknown properties, and the new unfalsifiable ones. *)
 let clean_properties trans unknowns unfalsifiables =
   let unknowns' = clean_unknowns trans unknowns in
+
+  (* Format.eprintf "PROPERIST: %a@." (pp_print_list (fun fmt (_, (s, st)) -> *)
+  (*     Format.fprintf fmt "%s : %a" s TransSys.pp_print_prop_status_pt st) "@.") *)
+  (*   (unfalsifiables); *)
+
+  (* List.iter (fun (k, u) ->  *)
+  (*       Format.eprintf "PROPERIST %d %: %a@." k *)
+  (*         (pp_print_list (fun fmt (s,_) -> *)
+  (*              Format.fprintf fmt "%s : up to %d" s k) "@.") u *)
+  (*     ) *)
+  (*     (unfalsifiables); *)
 
   let rec loop confirmed = function
     | (k, unfls_k) :: tail as list ->
@@ -443,6 +454,9 @@ let split_closure
    to be unfalsifiable.  It should be sorted by decreasing k. *)
 let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
+  (* Integer version of k. *)
+  let k_int = Numeral.to_int k in
+
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
     (* Receiving messages. *)
@@ -458,22 +472,29 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
     clean_properties trans unknowns unfalsifiables
   in
 
-  let unknowns': (string * (Term.t * Term.t)) list = unknowns' in
-
+  (* Adding certificates to confirmed properties *)
+  let confirmed_cert =
+    confirmed
+    |> List.map
+      (fun (s, (ac, phi)) ->
+         (* certificate for k-induction *)
+         let cert = k_int, phi in 
+         s, (ac, phi, cert))
+  in
+  
   (* Communicating confirmed properties. *)
-  confirmed |> List.iter (fun (s,_) ->
-    Event.prop_status Property.PropInvariant input_sys aparam trans s
-  ) ;
-
+  confirmed_cert
+  |> List.iter (fun (s, (_, _, cert)) ->
+      Event.prop_status (Property.PropInvariant cert) input_sys aparam trans s);
+  
   (* Adding confirmed properties to the system. *)
-  confirmed |> List.iter (fun (_,(_, term)) ->
-    TransSys.add_invariant trans term
-  ) ;
+  confirmed_cert |> List.iter
+    (fun (_, (_, term, cert)) -> TransSys.add_invariant trans term cert) ;
 
   (* Adding confirmed properties to new invariants. *)
   let new_invariants' =
     confirmed |> List.fold_left (
-      fun invs (_,(_, term)) -> term :: invs
+      fun invs (_, (_, term)) -> term :: invs
     ) new_invariants
   in
 
@@ -486,9 +507,6 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      minisleep 0.001 ;
      next input_sys aparam trans solver k unfalsifiables unknowns'
   | _ ->
-
-     (* Integer version of k. *)
-     let k_int = Numeral.to_int k in
 
      (* Notifying framework of our progress. *)
      Stat.set k_int Stat.ind_k ;
@@ -618,10 +636,19 @@ let launch input_sys aparam trans =
     (TransSys.props_list_of_bound trans Numeral.zero)
   in
 
+  (* compression uses integers and uf *)
+  let logic =
+    match TransSys.get_logic trans with
+    | `Inferred fs when Flags.BmcKind.compress () ->
+      `Inferred
+        TermLib.FeatureSet.(sup_logics [fs; of_list [IA; LA; UF]])
+    | l -> l
+  in
+    
   (* Creating solver. *)
   let solver =
     SMTSolver.create_instance ~produce_assignments:true
-      (TransSys.get_logic trans) (Flags.Smt.solver ())
+      logic (Flags.Smt.solver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -644,6 +671,7 @@ let launch input_sys aparam trans =
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
     Numeral.(~- one) Numeral.zero ;
 
   (* Invariants of the system at 0. *)

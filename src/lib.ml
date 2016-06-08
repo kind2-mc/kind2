@@ -985,15 +985,16 @@ let pp_print_version ppf = pp_print_banner ppf ()
 (* Kind modules *)
 type kind_module = 
   [ `IC3 
-  | `BMC 
-  | `IND 
+  | `BMC
+  | `IND
   | `IND2
   | `INVGEN
   | `INVGENOS
   | `C2I
   | `Interpreter
   | `Supervisor
-  | `Parser ]
+  | `Parser
+  | `Certif  ]
 
 
 (* Pretty-print the type of the process *)
@@ -1008,7 +1009,7 @@ let pp_print_kind_module ppf = function
   | `Interpreter -> fprintf ppf "interpreter"
   | `Supervisor -> fprintf ppf "invariant manager"
   | `Parser -> fprintf ppf "parser"
-
+  | `Certif -> Format.fprintf ppf "certificate"
 
 (* String representation of a process type *)
 let string_of_kind_module = string_of_t pp_print_kind_module
@@ -1026,6 +1027,7 @@ let suffix_of_kind_module = function
  | `Interpreter -> "interp"
  | `Supervisor -> "super"
  | `Parser -> "parse"
+ | `Certif -> "certif"
                 
 
 (* Process type of a string *)
@@ -1041,6 +1043,7 @@ let kind_module_of_string = function
 
 
 let int_of_kind_module = function
+  | `Certif -> -4
   | `Parser -> -3
   | `Interpreter -> -2
   | `Supervisor -> -1
@@ -1331,6 +1334,97 @@ let print_backtrace fmt bt =
           if i < n - 1 then pp_force_newline fmt ()
       ) slots
 
+
+let pos_of_file_row_col (pos_fname, pos_lnum, pos_cnum) =
+  { pos_fname; pos_lnum; pos_cnum }
+
+
+(* Split a string at its first dot. Raises {Not_found} if there are not dots *)
+let split_dot s =
+  let open String in
+  let n = (index s '.') in
+  sub s 0 n, sub s (n+1) (length s - n - 1)
+
+
+(* Extract scope from a concatenated name *)
+let extract_scope_name name =
+
+  let rec loop s scope =
+    try
+      let next_scope, s' = split_dot s in
+      loop s' (next_scope :: scope)
+    with Not_found -> s, List.rev scope
+  in
+  loop name []
+
+
+
+(* Create a directory if it does not already exists. *)
+let create_dir dir =
+  try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
+  with Sys_error _ -> Unix.mkdir dir 0o755
+
+
+(* Copy file.
+
+   Implementation adapted from "Unix system programming in OCaml" by Xavier
+   Leroy and Didier Remy*)
+
+
+
+let copy_fds fd_in fd_out =
+  let open Unix in
+  let buffer_size = 8192 in
+  let buffer = Bytes.create buffer_size in
+  let rec copy_loop () = match read fd_in buffer 0 buffer_size with
+    | 0 -> ()
+    | r -> ignore (write fd_out buffer 0 r); copy_loop ()
+  in
+  copy_loop ()
+  
+
+let file_copy input_name output_name =
+  let open Unix in
+  let fd_in = openfile input_name [O_RDONLY] 0 in
+  let fd_out = openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666 in
+  copy_fds fd_in fd_out;
+  close fd_in;
+  close fd_out
+
+
+let files_cat_open ?(add_prefix=fun _ -> ()) files output_name =
+  let open Unix in
+  let fd_out = openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666 in
+  add_prefix (out_channel_of_descr fd_out |> Format.formatter_of_out_channel);
+  let _, fd_out =
+    List.fold_left (fun (first, fd_out) input_name ->
+        let fd_in = openfile input_name [O_RDONLY] 0 in
+        copy_fds fd_in fd_out;
+        let fd_out =
+          if first then begin
+            close fd_out;
+            openfile output_name [O_WRONLY; O_CREAT; O_APPEND] 0o666
+          end
+          else fd_out in
+        false, fd_out
+      )
+      (true, fd_out)
+      files
+  in
+  fd_out
+
+
+(* Captures the output and exit status of a unix command : aux func *)
+let syscall cmd =
+  let ic, oc = Unix.open_process cmd in
+  let buf = Buffer.create 16 in
+  (try
+     while true do
+       Buffer.add_channel buf ic 1
+     done
+   with End_of_file -> ());
+  ignore(Unix.close_process (ic, oc));
+  Buffer.contents buf
 
 
 (* 

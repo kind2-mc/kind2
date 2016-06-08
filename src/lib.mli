@@ -317,8 +317,8 @@ type kind_module =
   | `C2I
   | `Interpreter
   | `Supervisor
-  | `Parser ]
-
+  | `Parser
+  | `Certif ]
 
 (** Wallclock timeout *)
 exception TimeoutWall
@@ -386,6 +386,9 @@ val pp_print_pos : Format.formatter -> position -> unit
     position *)
 val file_row_col_of_pos : position -> string * int * int
 
+(** Inverse of {!file_row_col_of_pos} *)
+val pos_of_file_row_col : string * int * int -> position
+
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
 
@@ -393,6 +396,21 @@ val position_of_lexing : Lexing.position -> position
 (** Pretty print a backtrace *)
 val print_backtrace : Format.formatter -> Printexc.raw_backtrace -> unit
 
+
+(** Extract scope from a concatenated name *)
+val extract_scope_name : string -> string * string list
+
+(** Create a directory if it does not already exists. *)
+val create_dir : string -> unit
+
+(** Copying file: [file_copy from to] copies file [from] to file [to] *)
+val file_copy : string -> string -> unit
+
+val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
+  string list -> string -> Unix.file_descr
+
+(** Get standard output of command *)
+val syscall : string -> string
 
 (* 
    Local Variables:

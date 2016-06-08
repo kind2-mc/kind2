@@ -17,6 +17,7 @@
 *)
 
 open Lib
+module TSet = Term.TermSet
 
 module CandidateTermGen = struct
 
@@ -460,20 +461,26 @@ module CandidateTermGen = struct
 
            debug invGenCand "Generating candidates." in
 
+           let user_candidates =
+             if two_state then TSet.empty
+             else TSet.of_list (TransSys.get_unknown_candidates system) in
+  
            let candidates' =
 
-             TSet.empty
-               
-             (* Synthesizing candidates. *)
-             |> StateVarRules.apply (TransSys.state_vars system)
-                                     
-             (* Candidates from init. *)
-             |> set_of_term init
+             if Flags.Certif.only_user_candidates () then user_candidates
+             else
+               user_candidates
 
-             (* Candidates from trans. *)
-             |> if Flags.Invgen.mine_trans ()
-                then set_of_term trans else identity
-           in
+               (* Synthesizing candidates. *)
+               |> StateVarRules.apply (TransSys.state_vars system)
+
+               (* Candidates from init. *)
+               |> set_of_term init
+
+               (* Candidates from trans. *)
+               |> if Flags.Invgen.mine_trans ()
+               then set_of_term trans else identity
+  in
 
            let candidates =
              (* Adding two state complement if
@@ -544,18 +551,22 @@ module CandidateTermGen = struct
     sys_graphs_map [] [ trans_sys ]
 
 
-  let build_graphs =
-    
+  let build_graphs cands =
+
+    let create_graph term_set =
+      (* if Flags.only_user_candidates () then *)
+      (*   ImplicationGraph.create_degenerate term_set *)
+      (* else *)
+        ImplicationGraph.create
+          (TSet.union true_false_set term_set)
+    in
+
     (* Building the graphs. *)
-    List.map
-      ( fun (sys,term_set) ->
-
+    List.map (fun (sys,term_set) ->
         (* Creating graph. *)
-        (sys,
-         ImplicationGraph.create
-           (TSet.union true_false_set term_set),
-         TSet.cardinal term_set) )
-
+        (sys, create_graph term_set, TSet.cardinal term_set)
+      ) cands
+      
 end
 
 (* Generates candidate terms for a transition system, and its
@@ -570,6 +581,7 @@ let generate_graphs two_state top_sys trans =
   let candidate_terms, count =
     generate_candidate_terms two_state top_sys trans
   in
+
   (* Returning implication graphs and candidate term count. *)
   CandidateTermGen.build_graphs candidate_terms, count
 

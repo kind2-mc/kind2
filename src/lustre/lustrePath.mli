@@ -44,6 +44,15 @@ val pp_print_path_in_csv :
 val substitute_definitions_in_expr :
   LustreNode.equation list -> LustreExpr.t -> LustreExpr.t
 
+
+(** Reconstruct Lustre streams from state variables *)
+val reconstruct_lustre_streams :
+  LustreNode.t SubSystem.t -> 
+  (* LustreNode.t list -> *)
+  StateVar.t list ->
+  (StateVar.t * (LustreIdent.t * int * StateVar.t option) list) list
+    StateVar.StateVarMap.t
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

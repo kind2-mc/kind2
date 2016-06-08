@@ -25,6 +25,9 @@ kind-bmc: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 lustre2kind: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) lustre2kind.native
 
+lfsc-extractor: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) lfscExtractor.native
+
 clean:
 	$(OCAMLBUILD) -clean
 

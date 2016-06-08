@@ -82,7 +82,6 @@ val log_prop_status : Lib.log_level -> (string * Property.prop_status) list -> u
 val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
 
 (** Terminate log, called at the very end of a run.
-
     Output closing tags for XML output. *)
 val terminate_log : unit -> unit
 
@@ -110,8 +109,9 @@ val log_interruption : int -> unit
 (** {1 Events} *)
 
 (** Events exposed to callers *)
+
 type event = 
-  | Invariant of string list * Term.t 
+  | Invariant of string list * Term.t * Certificate.t 
   | PropStatus of string * Property.prop_status
   | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 
@@ -136,7 +136,7 @@ val stat : (string * Stat.stat_item list) list -> unit
 val progress : int -> unit
 
 (** Broadcast a discovered top level invariant *)
-val invariant : string list -> Term.t -> unit
+val invariant : string list -> Term.t -> Certificate.t -> unit
 
 (** Broadcast a step cex *)
 val step_cex : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
@@ -166,7 +166,7 @@ val check_termination: unit -> unit
     (top) scope *)
 val top_invariants_of_invariants :
   TransSys.t ->
-  (Lib.kind_module * (string list * Term.t)) list ->
+  (Lib.kind_module * (string list * Term.t * Certificate.t)) list ->
   Term.t list
 
 (** Update transition system from events and return new invariants
@@ -186,7 +186,7 @@ val update_trans_sys_sub :
   Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
-  (Lib.kind_module * (string list * Term.t)) list *
+  (Lib.kind_module * (string list * Term.t * Certificate.t)) list *
   (Lib.kind_module * (string * Property.prop_status)) list
 
 (** Update transition system from events and return new top level

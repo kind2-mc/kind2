@@ -268,7 +268,7 @@ module type In = sig
 end
 
 (* Output signature of a graph-based invariant generation technique. *)
-module type Out = sig
+module type InvGen = sig
 
   (** Invariant generation entry point. *)
   val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
@@ -314,7 +314,7 @@ module type Out = sig
 end
 
 (* Builds an invariant generation technique from an [In] module. *)
-module Make (InModule : In) : Out = struct
+module Make (InModule : In) : InvGen = struct
 
   (* Two state mode flag. *)
   let two_state = InModule.two_state
@@ -444,11 +444,18 @@ module Make (InModule : In) : Out = struct
 
   (* Guards a term with init if in two state mode. *)
   let sanitize_term sys =
-    if two_state then
-      ( fun term ->
+    if two_state then fun term ->
         Term.mk_or
           [ TransSys.init_flag_of_bound sys Numeral.zero;
-            term ] )
+            term ]
+    else identity
+
+  (* Guards a term and certificate with init if in two state mode. *)
+  let sanitize_term_cert sys =
+    if two_state then fun (term, (k, phi)) ->
+      let term' = sanitize_term sys term in
+      if Term.equal term phi then term', (k, term')
+      else term', (k, sanitize_term sys phi)
     else identity
 
   (* Lazy function deciding if a term should be kept or not depending
@@ -568,23 +575,27 @@ module Make (InModule : In) : Out = struct
     loop 1 graph
 
 
+  let mk_and_invar_certs invariants_certs =
+    let invs, certs = List.split invariants_certs in
+    Term.mk_and invs, Certificate.merge certs
+  
   (* Lifts [invariants] for all the systems calling [sys] and
      communicates them to the framework. *)
   let communicate_invariants top_sys lsd sys = function
     | [] ->
        0
-    | invariants ->
+    | invariants_certs ->
        
        (* All intermediary invariants and top level ones. *)
        let ((_, top_invariants), intermediary_invariants) =
          if top_sys == sys then
-           (top_sys, List.map (sanitize_term sys) invariants), []
+           (top_sys, List.map (sanitize_term_cert sys) invariants_certs), []
          else
-           Term.mk_and invariants
+           mk_and_invar_certs invariants_certs
            (* Guarding with init if needed. *)
-           |> sanitize_term sys
+           |> sanitize_term_cert sys
            (* Instantiating at all levels. *)
-           |> TransSys.instantiate_term_all_levels 
+           |> TransSys.instantiate_term_cert_all_levels 
              top_sys
              TransSys.prop_base
              (TransSys.scope_of_trans_sys sys)
@@ -592,31 +603,33 @@ module Make (InModule : In) : Out = struct
 
        intermediary_invariants
        |> List.iter
-            ( fun (sub_sys, terms') ->
+            ( fun (sub_sys, termsc') ->
+              (* Drop certificates *)
+              let invs = List.map fst termsc' in
               (* Adding invariants to the lsd. *)
-              LSD.add_invariants lsd sub_sys terms' ;
+              LSD.add_invariants lsd sub_sys invs ;
               (* Adding invariants to the transition system. *)
-              terms'
+              termsc'
               |> List.map
-                   (TransSys.add_invariant sub_sys)
+                 (fun (i,c) -> TransSys.add_invariant sub_sys i c)
               |> ignore ;
-              (* Broadcasting invariants. *)
-              terms'
-              |> List.iter
-                   (TransSys.scope_of_trans_sys sub_sys
-                    |> Event.invariant) ) ;
+              (* Broadcasting invariants with certificates. *)
+              termsc'
+              |> List.iter (fun (i, c) ->
+                   Event.invariant (TransSys.scope_of_trans_sys sub_sys) i c)
+          ) ;
 
        let top_scope = TransSys.scope_of_trans_sys top_sys in
 
        top_invariants
        |> List.iter
-            (fun inv ->
-             (* Adding top level invariants to transition system. *)
-             TransSys.add_invariant top_sys inv ;
-             (* Adding top level invariants to LSD. *)
-             LSD.add_invariants lsd top_sys [ inv ] ;
-             Event.invariant top_scope inv ) ;
-
+         (fun (inv, cert) ->
+            (* Adding top level invariants to transition system. *)
+            TransSys.add_invariant top_sys inv cert ;
+            (* Adding top level invariants to LSD. *)
+            LSD.add_invariants lsd top_sys [ inv ] ;
+            Event.invariant top_scope inv cert) ;
+       
        List.length top_invariants
 
   (* Queries step to find invariants to communicate. *)
@@ -681,8 +694,8 @@ module Make (InModule : In) : Out = struct
     (* Updating the set of invariants. *)
     let invariants' =
       List.fold_left
-        ( fun inv_set new_invariant ->
-          TSet.add new_invariant inv_set )
+        ( fun inv_set (new_inv, cert) ->
+          TSet.add new_inv inv_set )
         invariants
         new_invariants
     in
@@ -730,12 +743,12 @@ module Make (InModule : In) : Out = struct
     |> Event.update_trans_sys_sub in_sys aparm top_sys
 
     (* Handling new invariants and property statuses. *)
-    |> ( fun (invariants, properties) ->
+    |> ( fun (invariants_certs, properties) ->
 
          (* Adding new invariants to lsd. *)
-         invariants
+         invariants_certs
          |> List.iter
-              ( fun (_, (scope,inv)) ->
+              ( fun (_, (scope, inv, _)) ->
                 LSD.add_invariants
                   lsd
                   (TransSys.find_subsystem_of_scope top_sys scope)
@@ -745,8 +758,7 @@ module Make (InModule : In) : Out = struct
          properties
          |> List.iter
               ( function
-                | (_, (name,status))
-                     when status = Property.PropInvariant ->
+                | (_, (name, Property.PropInvariant _)) ->
                    (* Getting term from property name. *)
                    [ TransSys.get_prop_term top_sys name ]
                    (* Adding it to lsd. *)
@@ -941,7 +953,7 @@ module Make (InModule : In) : Out = struct
       )
 
     in
-
+    
     (* Memorizing invariants to return to delete lsd. *)
     let res =
       InvGenCandTermGen.create_graph sys candidates
@@ -983,7 +995,9 @@ module Make (InModule : In) : Out = struct
   (* Mines candidate terms from a list of terms, adds them to [set],
      and runs invariant generation up to [maxK]. *)
   let mine_terms_run sys ignore maxK terms set =
-    mine_terms sys terms set |> run sys ignore maxK
+      mine_terms sys terms set
+      |> TSet.union (TSet.of_list (TransSys.get_unknown_candidates sys))
+      |> run sys ignore maxK
 
 end
 

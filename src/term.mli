@@ -87,6 +87,9 @@ val import : t -> t
 (** Import a term from a different instance into this hashcons table *)
 val import_lambda : lambda -> lambda
 
+(** Returns true if the lamda expression is the identity, i.e. lambda x.x *)
+val is_lambda_identity : lambda -> bool
+
 (** Create the propositional constant [true] *)
 val mk_true : unit -> t
 
@@ -316,7 +319,7 @@ val unnegate : t -> t
 val type_of_term : t -> Type.t
 
 (** Return the node of the hashconsed term *)
-(* val node_of_term : t -> T.t_node *)
+val node_of_term : t -> T.t_node
 
 (** Flatten top node of term *)
 val destruct : t -> T.flat

@@ -48,6 +48,9 @@ val id_of_instance : t -> int
   
 (** {1 Declarations} *)
 
+(** Define uninterpreted sort *)
+val declare_sort : t -> Type.t -> unit
+
 (** Define uninterpreted symbol *)
 val declare_fun : t -> UfSymbol.t -> unit
 

@@ -42,7 +42,7 @@ let i = ref 0
 let fresh_actlit () =
   let string =
     String.concat
-      "_" [ "fresh" ; "actlit" ; string_of_int !i ]
+      "_" [ "%fresh" ; "actlit"; string_of_int !i ]
   in
   i := !i + 1 ;
   actlit_of_string string

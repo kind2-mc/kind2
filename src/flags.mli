@@ -213,6 +213,9 @@ module Smt : sig
   (** Send short names to SMT solver *)
   val short_names : unit -> bool
 
+  (** Change sending of short names to SMT solver *)
+  val set_short_names : bool -> unit
+
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
 
@@ -344,6 +347,38 @@ module Contracts : sig
 
   (** Check modes. *)
   val check_implem : unit -> bool
+end
+
+
+(** {2 Certificates and Proofs} *)
+module Certif : sig
+
+  (** Minimization stragegy for k *)
+  type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
+
+  (** Minimization stragegy for invariants *)
+  type mininvs = [ `Easy | `Medium | `MediumOnly | `Hard | `HardOnly ]
+
+  (** Certification only. *)
+  val certif : unit -> bool
+
+  (** Proof production. *)
+  val proof : unit -> bool
+
+  (** Use abstract type indexes in certificates/proofs. *)
+  val abstr : unit -> bool
+
+  (** Minimization stragegy for k *)
+  val mink : unit -> mink
+
+  (** Minimization stragegy for invariants *)
+  val mininvs : unit -> mininvs
+
+  (** Binary for JKind *)
+  val jkind_bin : unit -> string
+
+  val only_user_candidates : unit -> bool
+
 end
 
 

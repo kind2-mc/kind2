@@ -32,17 +32,6 @@ type cex = (property list * path)
 type cexs = cex list
 *)
 
-(** {1 Properties of transition systems} *)
-
-
-
-(** {1 Utilities functions on terms } *)
-
-
-(** {2 Default values } *)
-
-(** {1 Utilities functions on terms } *)
-
 
 (** {2 Default values } *)
 

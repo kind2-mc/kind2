@@ -89,7 +89,7 @@ let on_exit _ =
 
 
 (* All remaining properties are valid *)
-exception Success of int
+exception Success of int * Term.t
 
 (* Counterexample trace for some property *)
 exception Counterexample of C.t list 
@@ -844,6 +844,7 @@ let abstr_simulate trace trans_sys raise_cex =
           trans_sys
           (SMTSolver.define_fun solver)
           (SMTSolver.declare_fun solver)
+          (SMTSolver.declare_sort solver)
           (Numeral.zero)
           (Numeral.of_int (List.length trace));
 
@@ -2043,8 +2044,11 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                 in
 
                 (* Broadcast inductive clauses as invariants *)
-                List.iter 
-                  (Event.invariant (TransSys.scope_of_trans_sys trans_sys))
+                List.iter (fun i ->
+                    (* Certificate 1 inductive *)
+                    let cert = (1, i) in
+                    Event.invariant
+                      (TransSys.scope_of_trans_sys trans_sys) i cert)
                   inductive_terms;
 
                 (* Increment statistics *)
@@ -2053,7 +2057,11 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                   Stat.ic3_inductive_blocking_clauses;
 
                 (* Add inductive blocking clauses as invariants *)
-                List.iter (TransSys.add_invariant trans_sys) inductive_terms;
+                List.iter (fun i ->
+                    (* Certificate 1 inductive *)
+                    let cert = (1, i) in
+                    TransSys.add_invariant trans_sys i cert)
+                  inductive_terms;
 
                 SMTSolver.trace_comment
                   solver
@@ -2222,7 +2230,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                        ind_inv_n1])); 
 
             (* Fixpoint found, this frame is equal to the next *)
-            raise (Success (List.length frames))
+            raise (Success (List.length frames, ind_inv))
 
           )
 
@@ -2336,7 +2344,7 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
     (* Every property is either invariant or at least 1-true *)
     List.for_all 
       (fun (p, _) -> match TransSys.get_prop_status trans_sys p with
-         | Property.PropInvariant -> true
+         | Property.PropInvariant _ -> true
          | Property.PropKTrue k when k >= 1 -> true
          | _ -> false)
       (C.props_of_prop_set prop_set)
@@ -2369,7 +2377,7 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
         predicates
 
     (* Fixed point reached *)
-    with Success ic3_k -> 
+    with Success (ic3_k, ind_inv) -> 
 
       if 
 
@@ -2379,7 +2387,7 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
       then
 
         (* Property is proved *)
-        raise (Success ic3_k) 
+        raise (Success (ic3_k, ind_inv)) 
 
       else
 
@@ -2400,7 +2408,7 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
           if bmc_checks_passed prop_set then
 
             (* Raise exception again *)
-            raise (Success ic3_k)
+            raise (Success (ic3_k, ind_inv))
 
           else
 
@@ -2695,15 +2703,19 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
       with 
 
         (* All propertes are valid *)
-        | Success k -> 
+        | Success (k, ind_inv) -> 
 
           (
 
+            (* Certificate = 1-inductive invariant in conjunction of the
+               properties *)
+            let cert = 1, Term.mk_and (ind_inv :: List.map snd props) in
+            
             (* Send out valid properties *)
             List.iter
               (fun (p, _) -> 
                  Event.prop_status
-                   Property.PropInvariant 
+                   (Property.PropInvariant cert)
                    input_sys
                    aparam
                    trans_sys
@@ -3053,8 +3065,14 @@ let main input_sys aparam trans_sys =
       (* IC3 solving starts now *)
       Stat.start_timer Stat.ic3_total_time;
 
-      (* Determine logic for the SMT solver *)
-      let logic = TransSys.get_logic trans_sys in
+      (* Determine logic for the SMT solver: add LIA for some clauses of IC3 *)
+      let logic = match TransSys.get_logic trans_sys with
+        | `Inferred fs ->
+          `Inferred
+            (TermLib.FeatureSet.add TermLib.IA
+               (TermLib.FeatureSet.add TermLib.LA fs))
+        | l -> l
+      in
 
       (* Create new solver instance *)
       let solver = 
@@ -3085,6 +3103,7 @@ let main input_sys aparam trans_sys =
         trans_sys
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
+        (SMTSolver.declare_sort solver)
         Numeral.(~- one) (Numeral.of_int bound);
 
       (* Get invariants of transition system *)

@@ -22,7 +22,6 @@ val on_exit: TransSys.t option -> unit
 (** Runs the step instance. *)
 val main: 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
-
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
