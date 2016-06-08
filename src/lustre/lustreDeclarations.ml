@@ -1369,9 +1369,8 @@ let rec eval_node_contract_call ctx scope (
           ) ;
 
           C.add_expr_for_ident
-            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
+            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
 
-          ctx
       ) ctx in_params in_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (

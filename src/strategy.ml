@@ -255,7 +255,7 @@ module ModularStrategy : Strategy = struct
               (* Format.printf "|> all proved, going up@." ; *)
               (* Going up. *)
               go_up prefix
-            ) else (
+            ) else if Flags.Contracts.refinement () then (
               match get_params results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
                 (* Format.printf "Cannot refine for %a@."
@@ -274,7 +274,7 @@ module ModularStrategy : Strategy = struct
                     result
                   )
                 )
-            )
+            ) else go_up prefix
         ) with Not_found ->
           (* Format.printf "|> not the last system, going down@." ; *)
           (* Not the last system analyzed, going down. *)

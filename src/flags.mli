@@ -347,6 +347,9 @@ module Contracts : sig
 
   (** Check modes. *)
   val check_implem : unit -> bool
+
+  (** Activate refinement. *)
+  val refinement : unit -> bool
 end
 
 

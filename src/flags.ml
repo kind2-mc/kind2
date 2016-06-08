@@ -845,6 +845,21 @@ module Contracts = struct
     )
   let check_implem () = !check_implem
 
+  let refinement_default = true
+  let refinement = ref refinement_default
+  let _ = add_spec
+    "--refinement"
+    (bool_arg refinement)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        (De)activates refinement in compositional reasoning@ \
+        Default: %a\
+      @]"
+      fmt_bool refinement_default
+    )
+  let refinement () = !refinement
+
 end
 
 
