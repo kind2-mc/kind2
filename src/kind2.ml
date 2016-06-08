@@ -1073,7 +1073,7 @@ let post_verif input_sys result =
     let top_scope = TransSys.scope_of_trans_sys trans_sys in
     run_testgen input_sys top_scope ;
     compile_to_rust input_sys top_scope;
-    let uid = Analysis.(info_of_param result.param).uid in
+    let uid = Analysis.(info_of_param result.param).Analysis.uid in
     generate_certif_proofs uid input_sys trans_sys;
   )
 

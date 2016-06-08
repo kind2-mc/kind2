@@ -71,7 +71,7 @@ let print_flags =
 module Make_Spec (Dummy:sig end) = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
+  let add_specs specs = all_specs := List.rev_append specs !all_specs
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
@@ -866,7 +866,7 @@ module Certif = struct
 
   (* All the flag specification of this module. *)
   let all_specs = ref []
-  let add_specs specs = all_specs := !all_specs @ specs
+  let add_specs specs = all_specs := List.rev_append specs !all_specs
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
 
   (* Returns all the flag specification of this module. *)
@@ -1469,7 +1469,7 @@ module Global = struct
   (* Prints help. *)
   let print_help () =
     Format.printf "%s@.  " usage_msg ;
-    all_specs () |> print_flags ;
+    all_specs () |> List.rev |> print_flags ;
     Format.printf "@."
 
 
@@ -1780,6 +1780,22 @@ module Global = struct
     )
   let modular () = !modular
 
+  let lus_compile_default = false
+  let lus_compile = ref lus_compile_default
+  let _ = add_spec
+    "--compile"
+    (bool_arg lus_compile)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Nodes proved correct will be compiled to Rust@ \
+          Note that uninitialized pre's are not allowed in this mode@ \
+          Default: %a\
+        "
+        fmt_bool lus_compile_default
+    )
+  let lus_compile () = !lus_compile
+
 
   (* Reject unguarded pre's in Lustre file. *)
   let lus_strict_default = false
@@ -1796,22 +1812,7 @@ module Global = struct
         "
         fmt_bool lus_strict_default
     )
-  let lus_strict () = !lus_strict
-
-  let lus_compile_default = false
-  let lus_compile = ref lus_compile_default
-  let _ = add_spec
-    "--compile"
-    (bool_arg lus_compile)
-    (fun fmt ->
-      Format.fprintf fmt
-        "\
-          Nodes proved correct will be compiled to Rust@ \
-          Default: %a\
-        "
-        fmt_bool lus_compile_default
-    )
-  let lus_compile () = !lus_compile
+  let lus_strict () = !lus_strict || (lus_compile ())
 
   (* Active debug sections. *)
   let debug_default = []
