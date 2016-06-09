@@ -110,7 +110,8 @@ let get_int_list item = get_value item
 (* Start the timer for the statistics item *)
 let start_timer item = 
 
-  item.temp <- (Unix.gettimeofday ())
+  item.temp <- (Unix.gettimeofday ()) ;
+  item.value <- 0.
 
 (* Record the time since the call to {!start_timer} of this item, stop
    the timer *)
@@ -694,6 +695,9 @@ let pp_print_certif_stats ppf =
 let total_time = 
   empty_item "Total time" 0.
 
+let analysis_time = 
+  empty_item "Analysis time" 0.
+
 let clause_of_term_time = 
   empty_item "clause_of_term time" 0.
 
@@ -707,6 +711,7 @@ let misc_stats_title = "General"
 
 let misc_stats = 
   [ F total_time;
+    F analysis_time;
     F clause_of_term_time;
     F smtexpr_of_term_time; 
     F term_of_smtexpr_time ]
@@ -728,3 +733,4 @@ let pp_print_misc_stats ppf =
    indent-tabs-mode: nil
    End: 
 *)
+  

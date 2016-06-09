@@ -18,6 +18,8 @@
 
 open Lib
 
+module Ids = ReservedIds
+
 module HH = HString.HStringHashtbl
 module HS = HStringSExpr
 module D = GenericSMTLIBDriver
@@ -397,7 +399,7 @@ let of_channel in_ch =
   (* Predicate symbol for initial state predicate *)
   let init_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.init_uf_string ^ "_JKind_0") 
+      (Ids.init_uf_string ^ "_JKind_0") 
       vars_types
       Type.t_bool 
   in
@@ -405,7 +407,7 @@ let of_channel in_ch =
   (* Predicate symbol for transition relation predicate *)
   let trans_uf_symbol = 
     UfSymbol.mk_uf_symbol
-      (LustreIdent.trans_uf_string ^ "_JKind_0") 
+      (Ids.trans_uf_string ^ "_JKind_0") 
       (vars_types @ vars_types)
       Type.t_bool 
   in

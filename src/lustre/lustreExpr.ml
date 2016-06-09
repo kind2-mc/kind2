@@ -2065,10 +2065,10 @@ let mk_pre
   in
 
   (* Return expression and new definitions *)
-  ({ expr with expr_init = expr_init';
-               expr_step = expr_step';
-               expr_type = expr_type' }, 
-   ctx'') 
+  { expr_init = expr_init' ;
+    expr_step = expr_step' ;
+    expr_type = expr_type' ;
+  }, ctx''
 
 
 (* ********************************************************************** *)

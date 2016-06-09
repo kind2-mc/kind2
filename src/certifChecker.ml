@@ -21,6 +21,7 @@ open Lib
 open Actlit
 open Certificate
 
+module Ids = Lib.ReservedIds
 
 module TS = TransSys
 module TM = Term.TermMap
@@ -2150,7 +2151,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   (* Symbol for initial predicate of new system *)
   let init_uf =
     UfSymbol.mk_uf_symbol
-      (LustreIdent.init_uf_string ^"_"^ obs_name) 
+      (Ids.init_uf_string ^"_"^ obs_name) 
       vars_types
       Type.t_bool 
   in
@@ -2158,7 +2159,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   (* Symbol for transition relation of new system *)
   let trans_uf =
     UfSymbol.mk_uf_symbol
-      (LustreIdent.trans_uf_string ^"_"^ obs_name) 
+      (Ids.trans_uf_string ^"_"^ obs_name) 
       (vars_types @ vars_types)
       Type.t_bool 
   in

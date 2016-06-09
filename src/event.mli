@@ -93,7 +93,7 @@ val log_run_end : Analysis.result list -> unit
 (** Logs the start of an analysis.
     [log_analysis_start top abs] logs the start of an analysis for top
     system [top] with abstraction [abs]. *)
-val log_analysis_start : Analysis.param -> unit
+val log_analysis_start : TransSys.t -> Analysis.param -> unit
 
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)

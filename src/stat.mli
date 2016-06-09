@@ -447,6 +447,8 @@ val pp_print_certif_stats : Format.formatter -> unit
 (** Total time *)
 val total_time : float_item
 
+val analysis_time : float_item
+
 val clause_of_term_time : float_item
 
 val smtexpr_of_term_time : float_item

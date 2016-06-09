@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Lib.ReservedIds
 
 
 (* ********************************************************************* *)
@@ -343,21 +344,6 @@ let mk_state_var
 
        (* Return state variable *)
        state_var
-
-(* Init flag string. *)
-let init_flag_string = "__init_flag"
-
-(* Abstraction depth input string. *)
-let depth_input_string = "__depth_input"
-
-(* Abstraction depth input string. *)
-let max_depth_input_string = "__max_depth_input"
-
-(* Transition system reserved strings. *)
-let reserved_strings =
-  [ init_flag_string ;
-    depth_input_string ;
-    max_depth_input_string ]
 
 (* Returns a scoped init flag. *)
 let mk_init_flag scope =

@@ -393,7 +393,7 @@ let proved_pt mdl level trans_sys k prop =
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
       pp_print_kind_module_pt mdl
-      (Stat.get_float Stat.total_time)
+      (Stat.get_float Stat.analysis_time)
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt 
@@ -467,7 +467,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
           (function ppf -> match cex with
              | [] -> ()
              | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
-          (Stat.get_float Stat.total_time)
+          (Stat.get_float Stat.analysis_time)
           (* (pp_print_counterexample_pt *)
           (*    (log_level_of_int (int_of_log_level level + 2)) *)
           (*    input_sys analysis trans_sys prop disproved) *)
@@ -491,7 +491,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
            | [] -> ()
          | ((_, c) :: _) ->
            (List.length c) - 1 |> Format.fprintf ppf "for k=%d ")
-        (Stat.get_float Stat.total_time)
+        (Stat.get_float Stat.analysis_time)
         (pp_print_counterexample_pt
            level input_sys analysis trans_sys prop disproved)
         cex ;
@@ -660,7 +660,7 @@ let proved_xml mdl level trans_sys k prop =
         <Answer source=\"%a\">valid</Answer>@;<0 -2>\
         </Property>@]@.")
       prop
-      (Stat.get_float Stat.total_time)
+      (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
          | None -> () 
          | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
@@ -766,7 +766,7 @@ mdl level input_sys analysis trans_sys prop (
         %a@;<0 -2>\
         </Property>@]@.") 
       prop
-      (Stat.get_float Stat.total_time)
+      (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
          | [] -> () 
          | cex ->
@@ -1093,7 +1093,8 @@ let log_run_end results =
   | F_relay -> failwith "can only be called by supervisor"
 
 (* Logs the start of an analysis. *)
-let log_analysis_start param =
+let log_analysis_start sys param =
+  let param = Analysis.shrink_param_to_sys param sys in
   let info = Analysis.info_of_param param in
   match !log_format with
   | F_pt ->
@@ -1206,7 +1207,8 @@ let log_interruption signal =
 let invariant scope term cert = 
 
   (* Update time in case we are not running in parallel mode *)
-  Stat.update_time Stat.total_time;
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
   
   try
     
@@ -1222,7 +1224,8 @@ let invariant scope term cert =
 let prop_status status input_sys analysis trans_sys prop =
   
   (* Update time in case we are not running in parallel mode *)
-  Stat.update_time Stat.total_time;
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
   
   let mdl = get_module () in
 
@@ -1250,7 +1253,8 @@ let prop_status status input_sys analysis trans_sys prop =
 let step_cex input_sys analysis trans_sys prop cex =
   
   (* Update time in case we are not running in parallel mode *)
-  Stat.update_time Stat.total_time;
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
 
   log_cex true (get_module ()) L_warn input_sys analysis trans_sys prop cex ;
 
@@ -1267,7 +1271,8 @@ let step_cex input_sys analysis trans_sys prop cex =
 let execution_path trans_sys path = 
 
   (* Update time in case we are not running in parallel mode *)
-  Stat.update_time Stat.total_time;
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
   
   let mdl = get_module () in
 
@@ -1278,7 +1283,8 @@ let execution_path trans_sys path =
 let progress k =
 
   (* Update time in case we are not running in parallel mode *)
-  Stat.update_time Stat.total_time;
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
   
   let mdl = get_module () in
 
@@ -1297,7 +1303,8 @@ let progress k =
 (* Send statistics *)
 let stat stats = 
 
-  Stat.update_time Stat.total_time;
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
   
   let mdl = get_module () in
 
@@ -1336,7 +1343,8 @@ let terminate () =
 (* Receive all queued messages *)
 let recv () = 
 
-  Stat.update_time Stat.total_time;
+  Stat.update_time Stat.total_time ;
+  Stat.update_time Stat.analysis_time ;
   
   try
 

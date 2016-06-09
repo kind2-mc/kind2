@@ -1066,7 +1066,8 @@ let mk_local_for_expr
             if is_ghost then (
               (* Don't change source of svar if already there. *)
               try
-                N.get_state_var_source node state_var ; ctx
+                N.get_state_var_source node state_var |> ignore ;
+                ctx
               with Not_found -> {
                 ctx with node = Some (
                   N.set_state_var_source node state_var N.Ghost

@@ -1426,6 +1426,49 @@ let syscall cmd =
   ignore(Unix.close_process (ic, oc));
   Buffer.contents buf
 
+(* ********************************************************************** *)
+(* Reserved identifiers                                                   *)
+(* ********************************************************************** *)
+
+module ReservedIds = struct
+
+  let abs_ident_string = "abs"
+  let oracle_ident_string = "nondet"
+  let instance_ident_string = "instance"
+  let init_flag_ident_string = "init_flag"
+  let all_req_ident_string = "all_req"
+  let all_ens_ident_string = "all_ens"
+  let inst_ident_string = "inst"
+  let init_uf_string = "__node_init"
+  let trans_uf_string = "__node_trans"
+  let index_ident_string = "__index"
+
+  (* Init flag string. *)
+  let init_flag_string = "__init_flag"
+  (* Abstraction depth input string. *)
+  let depth_input_string = "__depth_input"
+  (* Abstraction depth input string. *)
+  let max_depth_input_string = "__max_depth_input"
+
+  let reserved_strings = [
+    init_flag_string ;
+    depth_input_string ;
+    max_depth_input_string ;
+
+    abs_ident_string ;
+    oracle_ident_string ;
+    instance_ident_string ;
+    init_flag_ident_string ;
+    all_req_ident_string ;
+    all_ens_ident_string ;
+    inst_ident_string ;
+    init_uf_string ;
+    trans_uf_string ;
+    index_ident_string ;
+  ]
+
+end
+
 
 (* 
    Local Variables:

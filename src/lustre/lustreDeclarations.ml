@@ -1369,9 +1369,8 @@ let rec eval_node_contract_call ctx scope (
           ) ;
 
           C.add_expr_for_ident
-            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
+            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
 
-          ctx
       ) ctx in_params in_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
@@ -1955,14 +1954,7 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  (
-    C.get_nodes ctx |> List.map (
-      fun node ->
-        Format.printf "node: @[<v>%a@]@.@."
-          (N.pp_print_node true) node ;
-        node
-    )
-  ), { G.functions = C.get_functions ctx }
+  C.get_nodes ctx, { G.functions = C.get_functions ctx }
 
 
 (*

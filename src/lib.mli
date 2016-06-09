@@ -412,6 +412,42 @@ val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
 (** Get standard output of command *)
 val syscall : string -> string
 
+(** Reserved identifiers. *)
+module ReservedIds : sig
+
+  (** New variables from abstraction. *)
+  val abs_ident_string: string
+  (** New oracle input. *)
+  val oracle_ident_string: string
+  (** Unique identifier for node instance. *)
+  val instance_ident_string: string
+  (** First instant flag. *)
+  val init_flag_ident_string: string
+  (** Observer for contract requirements. *)
+  val all_req_ident_string: string
+  (** Observer for contract ensures. *)
+  val all_ens_ident_string: string
+  (** New variables from node instance. *)
+  val inst_ident_string: string
+  (** Initial predicate. *)
+  val init_uf_string: string
+  (** Transition relation. *)
+  val trans_uf_string: string
+  (** New clock initialization flag. *)
+  val index_ident_string: string
+
+  (** Init flag string. *)
+  val init_flag_string: string
+  (** Abstraction depth input string. *)
+  val depth_input_string: string
+  (** Abstraction depth input string. *)
+  val max_depth_input_string: string
+
+  (** All reserved identifiers. *)
+  val reserved_strings: string list
+
+end
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
