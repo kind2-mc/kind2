@@ -160,6 +160,119 @@ let pp_print_contract safe fmt { assumes ; guarantees ; modes } =
       ) "@ "
     ) modes
 
+
+(* This module contains the stuff allowing to construct a hierarchical version
+of a trace of mode paths. The goal is to construct a tree representing the
+scopes defined by the contract imports for a node, and the modes active for
+these scopes.
+
+This is only used for XML output. *)
+module ModeTrace = struct
+
+  (* ADT for scoped mode trees.
+  Semantics of the triplet's elements:
+    - contract name
+    - modes for this contract
+    - sub contracts.
+  *)
+  type mode_tree_rec =
+  | Contract of string * string list * mode_tree_rec list
+
+  (* Wraps an ADT to represent a complete mode tree.
+  Semantics of the pair's elements:
+    - modes directly attached to the node
+    - contract imported for the node.
+  *)
+  type mode_tree = string list * mode_tree_rec list
+
+  let empty_tree = [], []
+
+  (* Inserts a mode path into a mode tree. *)
+  let insert (top_modes, subs) path =
+    (* Splits a list of contracts at the first contract with name
+    [contract]. *)
+    let split_at contract =
+      let rec loop pref = function
+        | (Contract (c, ms, subs)) as head :: tail ->
+          if c = contract then pref, (c, ms), subs, tail
+          else loop (head :: pref) tail
+        | [] -> pref, (contract, []), [], []
+      in
+      loop []
+    in
+    (* Zips up a zipper created by [zipper] below.
+    ASSUMES [zipper] is not empty. *)
+    let zip_up zipper trees mode =
+      let rec loop subs = function
+        | (pref, (contract, modes), suff) :: tail ->
+          let subs =
+            Contract (contract, modes, subs) :: suff
+            |> List.rev_append pref
+          in
+          loop subs tail
+        | [] -> subs
+      in
+      match zipper with
+      | (pref, (contract, modes), suff) :: tail ->
+        loop trees ( (pref, (contract, mode :: modes), suff) :: tail )
+      | _ -> failwith "unreachable (zipper cannot be empty)"
+    in
+    (* Goes down some [trees], following [path], creating trees if needed.
+    Creates a zipper to re-assemble the final tree using [zip_up]. *)
+    let rec loop zipper path trees = match path with
+      | [] -> failwith "unreachable (empty mode path, recursive case)"
+      | [ mode ] -> zip_up zipper trees mode
+      | contract :: path ->
+        let pref, contract, subs, suff = split_at contract trees in
+        loop ( (pref, contract, suff) :: zipper ) path subs
+    in
+    match path with
+    | [] -> failwith "unreachable (empty mode path)"
+    | [ mode ] -> (mode :: top_modes), subs
+    | _ -> top_modes, loop [] path subs
+
+  (** Turns a list of mode paths into a mode tree. *)
+  let mode_paths_to_tree paths =
+    paths
+    |> List.map (fun { path } -> path)
+    |> List.fold_left insert empty_tree
+
+  (** Turns a trace of lists of mode paths into a trace of trees. *)
+  let mode_trace_to_tree = List.map mode_paths_to_tree
+
+  (** Formats a tree as a cex step in xml. *)
+  let fmt_as_cex_step_xml fmt (top_mods, trees) =
+    (* Goes down the tree and prints stuff. Constructs [right], which is
+    basically the right part of a zipper over the tree structure. It is
+    used by [go_up] to print contract trailers and go down in the next
+    branch. *)
+    let rec loop right = function
+      | (Contract (name, modes, subs)) :: tail ->
+        Format.fprintf fmt "  @[<v><Contract name=\"%s\">@ " name ;
+        List.iter (Format.fprintf fmt "<Mode name=\"%s\"/>@ ") modes ;
+        loop (tail :: right) subs
+      | [] -> go_up right
+    (* Goes up the "right zipper" constructed by [loop]. Prints contract
+    trailers and runs loop on the next branch, if any. *)
+    and go_up = function
+      | head :: tail -> (
+        Format.fprintf fmt "</Contract>@]@ " ;
+        match head with
+        | [] -> go_up tail
+        | _ -> loop tail head
+      )
+      | [] -> ()
+    in
+
+    top_mods |> List.iter (
+      Format.fprintf fmt "<Mode name=\"%s\"/>"
+    ) ;
+
+    loop [] trees
+
+end
+
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

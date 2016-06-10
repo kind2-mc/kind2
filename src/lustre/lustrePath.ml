@@ -1173,12 +1173,48 @@ let pp_print_stream_xml get_source model ppf (index, state_var) =
       (pp_print_listi pp_print_stream_value "@,") stream_values
 
   with Not_found -> assert false
-    
 
-(* Output a list of node models
 
-TODO: mode information
-*)
+let pp_print_active_modes_xml ppf = function
+| None | Some [] -> ()
+| Some mode_trace ->
+  Format.fprintf ppf
+    "@[<v><ActiveModes>@   \
+      @[<v>%a@]@ \
+    </ActiveModes>@]@,"
+    (pp_print_list
+      ( fun fmt (k, tree) ->
+        Format.fprintf ppf
+          "\
+            <Value instant=\"%d\">@   \
+              %a\
+            </Value>\
+          "
+          k
+          C.ModeTrace.fmt_as_cex_step_xml tree
+          (* (List.length scoped)
+          (pp_print_list
+            (fun fmt ->
+              Format.fprintf fmt
+                "<Mode name=\"%a\">"
+                (I.pp_print_ident false)
+            )
+            "@ "
+          ) active
+          (pp_print_list pp_print_mode_scoped_xml "@ ") scoped
+          (fun ppf ->
+            if scoped <> [[]] || active <> [] then Format.fprintf ppf "@ ") *)
+      )
+      "@ "
+    ) (
+      mode_trace |> List.fold_left (
+        fun (acc, count) mode ->
+          (count, C.ModeTrace.mode_paths_to_tree mode) :: acc, count + 1
+      ) ([], 0)
+      |> fst |> List.rev
+    )
+
+(* Output a list of node models. *)
 let rec pp_print_lustre_path_xml' ppf = function 
 
   | [] -> ()
@@ -1242,12 +1278,13 @@ let rec pp_print_lustre_path_xml' ppf = function
     (* Pretty-print this node *)
     Format.fprintf 
       ppf
-      "@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]@,%a%t%a%t%a%t%a@;<0 -2></%s>@]%t"
+      "@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]@,%a%a%t%a%t%a%t%a@;<0 -2></%s>@]%t"
       title
       (I.pp_print_ident false) 
       name
       pp_print_call_xml
       trace
+      pp_print_active_modes_xml active_modes
       (pp_print_list (pp_print_stream_xml get_source model) "@,") inputs'
       (fun ppf -> 
          if
