@@ -249,7 +249,7 @@ module ModeTrace = struct
     let rec loop right = function
       | (Contract (name, modes, subs)) :: tail ->
         Format.fprintf fmt "  @[<v><Contract name=\"%s\">@ " name ;
-        List.iter (Format.fprintf fmt "<Mode name=\"%s\"/>@ ") modes ;
+        List.iter (Format.fprintf fmt "<Mode>%s</Mode>@ ") modes ;
         loop (tail :: right) subs
       | [] -> go_up right
     (* Goes up the "right zipper" constructed by [loop]. Prints contract

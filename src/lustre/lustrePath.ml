@@ -1179,16 +1179,14 @@ let pp_print_active_modes_xml ppf = function
 | None | Some [] -> ()
 | Some mode_trace ->
   Format.fprintf ppf
-    "@[<v><ActiveModes>@   \
-      @[<v>%a@]@ \
-    </ActiveModes>@]@,"
+    "@[<v>%a@]@,"
     (pp_print_list
       ( fun fmt (k, tree) ->
         Format.fprintf ppf
           "\
-            <Value instant=\"%d\">@   \
+            <ActiveModes instant=\"%d\">@   \
               %a\
-            </Value>\
+            </ActiveModes>\
           "
           k
           C.ModeTrace.fmt_as_cex_step_xml tree
