@@ -7,7 +7,7 @@ tel
 
 node has_been_true(in: bool) returns (out: bool) ;
 
-/*@contract
+/* @contract
 
   mode false_so_far (
     require not (in or (false -> pre out)) ;
