@@ -186,6 +186,38 @@
     </xs:complexType>
   </xs:element>
 
+  <!-- Active mode as output in cex's. -->
+  <xs:element name="Mode">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="Value" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Contract-scoped active modes as output in cex's. -->
+  <xs:element name="Contract">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Mode" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="Contract" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Active modes as output in cex's. -->
+  <xs:element name="ActiveMode">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Modes" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="Contract" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="instant" type="posInt" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
 
   <!-- Node, as output in a cex. -->
   <xs:element name="Node">
@@ -198,6 +230,7 @@
           <xs:element name="Stream" type="intValued"/>
           <xs:element name="Stream" type="realValued"/>
         </xs:choice> -->
+        <xs:element ref="ActiveModes" minOccurs="0" maxOccurs="1"/>
         <xs:element ref="Stream" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element ref="Node" minOccurs="0" maxOccurs="unbounded"/>
       </xs:sequence>
