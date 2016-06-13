@@ -107,6 +107,19 @@ val pp_print_mode: bool -> Format.formatter -> mode -> unit
 
 (** Pretty prints a contract. *)
 val pp_print_contract: bool -> Format.formatter -> t -> unit
+
+
+(** Mode traces as cex. *)
+module ModeTrace: sig
+  (** A mode tree: hierarchical organization of modes. *)
+  type mode_tree
+  (** Turns a list of mode paths into a mode tree. *)
+  val mode_paths_to_tree: mode list -> mode_tree
+  (** Turns a trace of lists of mode paths into a trace of trees. *)
+  val mode_trace_to_tree: mode list list -> mode_tree list
+  (** Formats a tree as a cex step in xml. *)
+  val fmt_as_cex_step_xml: Format.formatter -> mode_tree -> unit
+end
       
 (* 
    Local Variables:

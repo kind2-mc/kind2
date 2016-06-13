@@ -945,6 +945,7 @@ let setup : unit -> any_input = fun () ->
   | LustreAst.Parser_error ->
     (* Don't do anything for parser error, they should already have printed
     some stuff. *)
+    Event.terminate_log () ;
     exit status_error
   | e ->
     
