@@ -507,7 +507,7 @@ match Term.destruct term with
 | Term.T.Const sym ->
   ( match Symbol.node_of_symbol sym with
     | `NUMERAL n -> Format.fprintf fmt "%a" Numeral.pp_print_numeral n
-    | `DECIMAL d -> Format.fprintf fmt "%a" Decimal.pp_print_decimal d
+    | `DECIMAL d -> Format.fprintf fmt "%a" Decimal.pp_print_decimal_as_float d
     | `TRUE -> Format.fprintf fmt "true"
     | `FALSE -> Format.fprintf fmt "false"
     | _ -> Format.asprintf "Const %a" Symbol.pp_print_symbol sym |> failwith
