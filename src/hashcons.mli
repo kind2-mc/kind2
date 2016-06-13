@@ -23,8 +23,8 @@
     contains the value itself. The field [prop] contains properties of
     some type associated with the hashconsed value.
 
-    Hash consing tables are using weak pointers, so that values that are no
-    more referenced from anywhere else can be erased by the GC. 
+    Hash consing tables are using weak pointers or not depending on the option
+    {! Flags.weakhcons}.
 
     @author Jean-Christophe Filliatre, Christoph Sticksel
 *)
@@ -80,7 +80,6 @@ module type S =
     type key
     type prop
     type t
-    exception Key_not_found of key
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> prop -> (key, prop) hash_consed

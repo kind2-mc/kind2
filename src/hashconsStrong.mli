@@ -86,7 +86,6 @@ module type S =
     type key
     type prop
     type t
-    exception Key_not_found of key
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> prop -> (key, prop) hash_consed

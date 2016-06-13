@@ -343,7 +343,6 @@ module type S =
     type key
     type prop
     type t
-    exception Key_not_found of key
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
@@ -382,8 +381,6 @@ struct
 
   }
   
-  (* Exception raised by {!find} *)
-  exception Key_not_found of key
 
   (* An empty bucket, the next free element has index zero *)
   let emptybucket = (0, [| |])
@@ -650,31 +647,6 @@ struct
     
     (* Iterate over entries in the bucket *)
     loop 0
-
-
-  
-(*
-  (* A version of hashcons that returns existing values, but does not
-     insert the value into the table *)
-  let find t d =
-    let hkey = H.hash d in
-    let index = hkey mod (Array.length t.table) in
-    (* A bucket can only contain entries up to the index of the first free entry *)
-    let limit, bucket = t.table.(index) in
-    (* let sz = Array.length bucket in *)
-    let rec loop i =
-      if i >= sz then begin
-        (* [hashcons] inserts the value into the table here, but we
-           raise and exception *)
-	raise (Key_not_found d)
-      end else begin
-        match Array.get bucket i with
-          | Some v when H.equal v.node d -> v
-          | _ -> loop (i+1)
-      end
-    in
-    loop 0
-*)
 
       
   (* Statistics of the hashcons table *)
