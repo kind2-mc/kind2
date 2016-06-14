@@ -284,7 +284,7 @@ let mk_state_var
          )
 
   (* State variable is not in the hashcons table *)
-  with Not_found | Hstate_var.Key_not_found _ -> 
+  with Not_found -> 
     
     try 
       

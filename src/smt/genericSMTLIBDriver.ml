@@ -49,6 +49,11 @@ let comment_delims = ";;", ""
 (* Non-SMTLIB specific functions                                          *)
 (* ********************************************************************** *)
 
+
+(* Convert a hashconsed string to a Boolean value *)
+let bool_of_hstring s = bool_of_string (HString.string_of_hstring s) 
+
+
 (* Conversions for gen_expr_of_string_sexpr
 
    Defaults constants and functions for vanilla SMTLIB format are
