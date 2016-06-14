@@ -240,7 +240,7 @@ let ass_and_mode_requires_of_contract = function
       | [] -> None
       | _ -> Some (term_conj_of assumes)
   ), modes |> List.map (
-    fun { C.name ; C.requires } -> name, term_conj_of requires
+    fun { C.path ; C.requires } -> path, term_conj_of requires
   )
 | None -> None, []
 

@@ -395,9 +395,11 @@ let fmt_var pref fmt var =
     |> SVar.name_of_state_var
     |> Format.fprintf fmt "%s%s%s" from pref
   ) else if Var.is_const_state_var var then (
+    (* Constant input. Can't be just a constant, otherwise it would have been
+    propagated. *)
     Var.state_var_of_state_var_instance var
     |> SVar.name_of_state_var
-    |> Format.fprintf fmt "self.%s%s" pref
+    |> Format.fprintf fmt "%s%s" pref
   ) else
     Format.asprintf "unexpected var %a" Var.pp_print_var var
     |> failwith
@@ -567,7 +569,7 @@ let pp_print_equation fmt = function
 (* Orders equations topologicaly based on the [expr_init] or [expr_next]
 expression of the right-hand side of the equation. *)
 let order_equations init_or_expr inputs equations =
-  (* Checks if [svar] is defined in a list of equations or is an input. *)
+  (* Checks if [svar] is defined in the equations or is an input. *)
   let is_defined sorted svar =
     List.exists (fun (_, svar') -> svar == svar') inputs
     || List.exists (function
@@ -585,9 +587,9 @@ let order_equations init_or_expr inputs equations =
       let later, sorted =
         if
           init_or_expr rhs
-          |> E.cur_term_of_expr (Numeral.succ E.base_offset)
+          |> E.cur_term_of_expr E.base_offset
           (* Extract svars. *)
-          |> Term.state_vars_at_offset_of_term (Numeral.succ E.base_offset)
+          |> Term.state_vars_at_offset_of_term E.base_offset
           (* All svars must be defined. *)
           |> SVS.for_all (is_defined sorted)
         then later, eq :: sorted else eq :: later, sorted
@@ -865,12 +867,105 @@ let oracle_doc_of_struct is_top fmt (
 
 (* Compiles a node to rust, writes it to a formatter. *)
 let node_to_rust oracle_info is_top fmt (
-  {
+  { N.name ; N.locals ; N.contract ; N.state_var_source_map } as node
+) =
+
+  (* Format.printf "node: %a@.@." (Id.pp_print_ident false) name ; *)
+
+  let is_input svar =
+    try (
+      match SVM.find svar state_var_source_map with
+      | N.Input ->
+        (* Format.printf
+          "input: %a@.@." SVar.pp_print_state_var svar ; *)
+        true
+      | _ ->
+        (* Format.printf
+          "not input: %a@.@." SVar.pp_print_state_var svar ; *)
+        false
+    ) with Not_found -> (
+      (* Format.printf "dunno what dat is: %a@.@." SVar.pp_print_state_var svar ; *)
+      false
+    )
+  in
+
+  (* Remove inputs from locals, they're in the state anyways. *)
+  let locals =
+    locals |> List.filter (
+      fun local ->
+        match I.bindings local with
+        | (_, svar) :: tail ->
+          let local_is_input = is_input svar in
+          if List.exists (
+            fun (_, svar) -> (is_input svar) <> local_is_input
+          ) tail then failwith "\
+            unreachable: indexed state variable is partially an input\
+          " else (
+            if not local_is_input then (
+              true
+            ) else (
+              Format.printf "filtering local %a out@.@." SVar.pp_print_state_var svar ;
+              false
+            )
+          )
+        | [] -> failwith "unreachable: empty indexed state variable"
+    )
+  in
+
+  let {
     N.inputs ; N.outputs ; N.locals ;
     N.equations ; N.state_var_source_map ; N.calls = real_calls ;
     N.asserts ; N.contract
-  } as node
-) =
+  } as node =
+    (* If there's a contract, add all assume and requires to locals.
+
+    We need to do this because assumptions may mention pre of the mode
+    requirements. *)
+    let locals = match contract with
+      | None -> locals
+      | Some { C.assumes ; C.modes } ->
+        let known =
+          locals |> List.fold_left (
+            fun set local ->
+              I.bindings local |> List.fold_left (
+                fun set (_, svar) -> SVS.add svar set
+              ) set
+          ) SVS.empty
+        in
+        (* Format.printf "known:@." ;
+        SVS.iter (
+          fun svar -> Format.printf "  %a@." SVar.pp_print_state_var svar
+        ) known ;
+        Format.printf "@." ; *)
+        let locals, known =
+          assumes |> List.fold_left (
+            fun (locals, known) { C.svar } ->
+              if SVS.mem svar known || is_input svar
+              then locals, known else (
+                (I.singleton I.empty_index svar) :: locals, SVS.add svar known
+              )
+          ) (locals, known)
+        in
+        (* Format.printf "known:@." ;
+        SVS.iter (
+          fun svar -> Format.printf "  %a@." SVar.pp_print_state_var svar
+        ) known ;
+        Format.printf "@." ; *)
+        modes |> List.fold_left (
+          fun (locals, known) { C.requires } ->
+            requires |> List.fold_left (
+              fun (locals, known) { C.svar } ->
+                if SVS.mem svar known || is_input svar
+                then locals, known else (
+                  (I.singleton I.empty_index svar) :: locals, SVS.add svar known
+                )
+            ) (locals, known)
+        ) (locals, known)
+        |> fst
+    in
+    { node with N.locals = locals }
+  in
+
   let calls, _ =
     real_calls |> List.fold_left (
       fun (l,cpt) c -> Call (cpt, c) :: l, cpt + 1
@@ -913,8 +1008,7 @@ let node_to_rust oracle_info is_top fmt (
   Format.fprintf fmt "pub struct %s {" typ ;
 
   (* Fields. *)
-  inputs
-  |> List.iter (fun (_, svar) ->
+  inputs |> List.iter (fun (_, svar) ->
     Format.fprintf fmt "@.  /// Input: `%a`@.  pub %s%s: %a,"
       SVar.pp_print_state_var svar
       svar_pref
@@ -924,8 +1018,7 @@ let node_to_rust oracle_info is_top fmt (
 
   Format.fprintf fmt "@." ;
 
-  outputs
-  |> List.iter (fun (_, svar) ->
+  outputs |> List.iter (fun (_, svar) ->
     Format.fprintf fmt "@.  /// Output: `%a`@.  pub %s%s: %a,"
       SVar.pp_print_state_var svar
       svar_pref
@@ -981,8 +1074,7 @@ let node_to_rust oracle_info is_top fmt (
   ) ;
 
   (* Output type. *)
-  outputs
-  |> Format.fprintf fmt "  type Output = (@.    @[<v>%a@]@.  ) ;@." (
+  outputs |> Format.fprintf fmt "  type Output = (@.    @[<v>%a@]@.  ) ;@." (
     pp_print_list (fun fmt (_, svar) ->
       Format.fprintf fmt "%a, // %s%s (%a)"
         fmt_type (SVar.type_of_state_var svar)
@@ -1037,6 +1129,10 @@ let node_to_rust oracle_info is_top fmt (
   let eqs_init =
     order_equations (fun expr -> expr.E.expr_init) inputs equations
   in
+  assert (
+    (List.length eqs_init) == (List.length equations)
+  ) ;
+
   Format.fprintf fmt "  \
       fn init(input: Self::Input) -> Result<Self, String> {@.    \
         @[<v>\
@@ -1059,6 +1155,7 @@ let node_to_rust oracle_info is_top fmt (
         @]@.  \
       }@.@.\
     "
+
     ( pp_print_list (fun fmt (_, svar) ->
         Format.fprintf fmt "let %s%s = input.%d ;"
           svar_pref
@@ -1066,6 +1163,7 @@ let node_to_rust oracle_info is_top fmt (
         input_cpt := 1 + !input_cpt
       ) "@ "
     ) inputs
+
     ( pp_print_list (fun fmt -> function
         | Eq (svar, _, expr) ->
           expr.E.expr_init
@@ -1097,14 +1195,12 @@ let node_to_rust oracle_info is_top fmt (
             (id_of_call cnt call)
       ) "@ "
     ) eqs_init
+
     ( fun fmt asserts ->
       if oracle_info = None
       then
         Format.fprintf fmt
-          "\
-            // |===| Checking assumptions.@ \
-            %a@ @ \
-          "
+          "%a@ @ "
           ( pp_print_list (fun fmt expr ->
               Format.fprintf fmt
                 "// %a@ if ! (@   %a@ ) {@   \
@@ -1124,7 +1220,9 @@ let node_to_rust oracle_info is_top fmt (
             ) "@ "
           ) asserts
     ) asserts
+
     ( fun fmt -> function
+      | _ when oracle_info = None -> ()
       | None -> ()
       | Some { LustreContract.assumes } ->
         ( pp_print_list (fun fmt {
@@ -1147,22 +1245,27 @@ let node_to_rust oracle_info is_top fmt (
           ) "@ "
         ) fmt assumes
     ) contract
+
     typ
+
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "%s: %s," name name
       ) "@ "
     ) inputs
+
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "%s: %s," name name
       ) "@ "
     ) outputs
+
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "%s: %s," name name
       ) "@ "
     ) locals
+
     ( pp_print_list (fun fmt -> function
         | Call (cpt, call) ->
           let name = id_of_call cpt call in
@@ -1176,6 +1279,10 @@ let node_to_rust oracle_info is_top fmt (
   let eqs_next =
     order_equations (fun expr -> expr.E.expr_step) inputs equations
   in
+  assert (
+    (List.length eqs_next) == (List.length equations)
+  ) ;
+
   Format.fprintf fmt "  \
       fn next(mut self, input: Self::Input) -> Result<Self, String> {@.    \
         @[<v>\
@@ -1196,6 +1303,7 @@ let node_to_rust oracle_info is_top fmt (
         @]@.  \
       }@.@.\
     "
+
     ( pp_print_list (fun fmt (_, svar) ->
         Format.fprintf fmt "let %s%s = input.%d ;"
           svar_pref
@@ -1203,8 +1311,10 @@ let node_to_rust oracle_info is_top fmt (
         input_cpt := 1 + !input_cpt
       ) "@ "
     ) inputs
+
     ( pp_print_list (fun fmt -> function
         | Eq (svar, _, expr) ->
+          (* Format.printf "eq: %a@.@." pp_print_equation eq ; *)
           expr.E.expr_step
           |> E.cur_term_of_expr (Numeral.succ E.base_offset)
           |> Format.fprintf fmt "let %s%s = %a ;"
@@ -1234,6 +1344,7 @@ let node_to_rust oracle_info is_top fmt (
             (id_of_call cnt call)
       ) "@ "
     ) eqs_next
+
     ( pp_print_list (fun fmt expr ->
         Format.fprintf fmt
           "// %a@ if ! (@   %a@ ) {@   \
@@ -1251,6 +1362,7 @@ let node_to_rust oracle_info is_top fmt (
           (E.pp_print_lustre_expr false) expr
       ) "@ "
     ) asserts
+
     ( fun fmt -> function
       | None -> ()
       | Some { LustreContract.assumes } ->
@@ -1274,21 +1386,25 @@ let node_to_rust oracle_info is_top fmt (
           ) "@ "
         ) fmt assumes
     ) contract
+
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "self.%s = %s ;" name name
       ) "@ "
     ) inputs
+
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "self.%s = %s ;" name name
       ) "@ "
     ) outputs
+
     ( pp_print_list (fun fmt (_, svar) ->
         let name = svar_pref ^ SVar.name_of_state_var svar in
         Format.fprintf fmt "self.%s = %s ;" name name
       ) "@ "
     ) locals
+
     ( pp_print_list (fun fmt -> function
         | Call (cpt, call) ->
           let name = id_of_call cpt call in
@@ -1375,9 +1491,8 @@ let dump_toml is_oracle name dir =
       authors = [\"Kind 2 <cesare-tinelli@uiowa.edu>\"]@.\
       build = \"%s\"@.@?\
     "
-    name
-    (if is_oracle then "oracle" else "implem")
-    build_file ;
+    name (if is_oracle then "oracle" else "implem") build_file ;
+
   close_out out_channel ;
 
   let rsc_path = Format.sprintf "%s/%s" dir rsc_dir in
@@ -1686,6 +1801,9 @@ fn write_footer<W: Write>(w: & mut W) -> IoRes<()> {
 
 
 let to_rust oracle_info target find_sub top =
+
+
+  (* Format.printf "node: @[<v>%a@]@.@." (N.pp_print_node false) top ; *)
   let top_name, top_type = mk_id_legal top.N.name, mk_id_type top.N.name in
   (* Creating project directory if necessary. *)
   mk_dir target ;
@@ -1762,15 +1880,17 @@ let print_trie desc =
 let implem_to_rust = to_rust None
 
 let oracle_to_rust target find_sub top =
+
   (* Successor of the max index of some trie. *)
   let next_index_of trie = I.top_max_index trie |> succ in
-  let is_ghost svar =
+
+  (* let is_ghost svar =
     try (
       match SVM.find svar top.N.state_var_source_map with
       | N.Ghost -> true
       | _ -> false
     ) with Not_found -> false
-  in
+  in *)
   (* let print_svar_source svar =
     try
       Format.printf "%a: %a@."
@@ -1778,9 +1898,9 @@ let oracle_to_rust target find_sub top =
         N.pp_print_state_var_source (SVM.find svar top.N.state_var_source_map)
     with
       Not_found -> Format.printf "%a: not found@." SVar.pp_print_state_var svar
-  in *)
+  in
 
-  (* Format.printf "@.@.Inputs:@." ;
+  Format.printf "@.@.Inputs:@." ;
   top.N.inputs |> I.bindings
   |> List.iter (fun (_, svar) -> print_svar_source svar) ;
   Format.printf "@.@.Outputs:@." ;
@@ -1803,19 +1923,19 @@ let oracle_to_rust target find_sub top =
   Format.printf "@.@." ; *)
 
   (* Appends two tries. *)
-  let append lhs rhs =
-    I.fold (
-      fun index svar trie -> match index with
-      | _ :: index ->
-        I.add (
-          I.ListIndex (next_index_of trie) :: index
-        ) svar trie
-      | [] -> failwith "empty index of outputs"
-    ) rhs lhs
+  let rec append lhs rhs =
+    (I.empty, 0)
+    |> I.fold (
+      fun _ svar (trie, cnt) -> I.add [I.TupleIndex cnt] svar trie, cnt + 1
+    ) lhs
+    |> I.fold (
+      fun _ svar (trie, cnt) -> I.add [I.TupleIndex cnt] svar trie, cnt + 1
+    ) rhs
+    |> fst
   in
   
   (* Adding to inputs. *)
-  let inputs = append top.N.inputs top.N.outputs in
+  let inputs = try append top.N.inputs top.N.outputs with e -> Format.asprintf "exc: %s" (Printexc.to_string e) |> failwith in
 
   (* Outputs are guarantees and mode ensures. *)
   let (outputs, output_svars, output_eqs), oracle_info =

@@ -28,7 +28,7 @@ type num = Num.t
 type depth = num
 
 (* A [mode] is just its name. *)
-type mode = string
+type mode = Scope.t
 
 (*
   A conjunction of modes. First are the modes activated, then come the mode
@@ -199,11 +199,12 @@ let pp_print_tree fmt { tree } =
     Num.pp_print_numeral (match tree with
       | Top -> Num.(~- one) | Node (k,_,_,_) -> k
     )
-    (fun fmt (act,_) ->
-      Format.fprintf fmt "%a"
-        (pp_print_list Format.pp_print_string ", ") act)
+    (fun fmt (act, deact) ->
+      Format.fprintf fmt "@[<v>%a@ %a@]"
+        (pp_print_list Scope.pp_print_scope ", ") act
+        (pp_print_list Scope.pp_print_scope ", ") deact)
     (match tree with
-      | Top -> ["top"], [] | Node(_,_,c,_) -> c)
+      | Top -> [ ["top"] ], [] | Node(_,_,c,_) -> c)
 
 
 (* 

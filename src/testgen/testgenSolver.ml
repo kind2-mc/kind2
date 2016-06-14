@@ -80,8 +80,9 @@ let mk sys =
     S.declare_fun solver fresh ;
     term_of_actlit fresh
   in
-  (* println "conditional init" ; *)
+
   (* Asserting init conditionally. *)
+  S.trace_comment solver "|===| Conditional init." ;
   Term.mk_implies [ actlit ; Sys.init_of_bound sys zero ]
   |> S.assert_term solver ;
 
@@ -122,6 +123,7 @@ let nth_actlit_of ({ sys ; solver ; actlits } as t) n =
           (* Declaring variables at the new [k]. *)
           Sys.vars_of_bounds sys cpt cpt
           |> Var.declare_vars (S.declare_fun solver) ;
+          S.trace_comment solver "|===| Conditional trans." ;
           (* Asserting trans@k conditionally with the previous actlit. *)
           Term.mk_implies [
             actlit ; Term.mk_and [ prev_actlit ; Sys.trans_of_bound sys cpt ]
@@ -164,7 +166,7 @@ let checksat ({ solver } as t) n term actlits terms f =
   actlit :: unrolling_actlit :: actlits
   |> S.check_sat_assuming solver
     (* If sat. *)
-    ( fun _ ->
+    ( fun solver ->
         (* Retrieving values. *)
         let values = match terms with
           | [] -> []
@@ -175,7 +177,7 @@ let checksat ({ solver } as t) n term actlits terms f =
         (* Deactivating actlit. *)
         Term.mk_not actlit |> S.assert_term solver ;
         Some (
-          terms |> List.map (fun (key,term) ->
+          terms |> List.map (fun (key, term) ->
             key, List.assq term values
           ),
           whatever

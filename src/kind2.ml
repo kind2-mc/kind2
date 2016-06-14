@@ -1171,8 +1171,8 @@ let launch input_sys =
 
   (* Memorizing things. *)
   cur_input_sys := Some (Input input_sys_sliced) ;
-  cur_aparam    := Some aparam           ;
-  cur_trans_sys := Some trans_sys        ;
+  cur_aparam    := Some aparam ;
+  cur_trans_sys := Some trans_sys ;
 
   (* Dump transition system in native format *)
   (* if Flags.dump_native () then NativeInput.dump_native trans_sys; *)

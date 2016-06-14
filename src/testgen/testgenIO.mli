@@ -40,12 +40,12 @@ val error_count: 'a t -> int
 (** [log_testcase t modes model k] logs a test case of length [k]
     represented by model [model] and activating modes [modes] using the info
     in [t]. *)
-val log_testcase: 'a t -> string list list -> Model.t -> Numeral.t -> unit
+val log_testcase: 'a t -> Scope.t list list -> Model.t -> Numeral.t -> unit
 
 (** [log_deadlock t modes model k] logs a deadlock trace of length [k]
     represented by model [model] and activating modes [modes] using the info
     in [t]. *)
-val log_deadlock: 'a t -> string list list -> Model.t -> Numeral.t -> unit
+val log_deadlock: 'a t -> Scope.t list list -> Model.t -> Numeral.t -> unit
 
 (** Logs the top level XML glue file. *)
 val log_test_glue_file:
