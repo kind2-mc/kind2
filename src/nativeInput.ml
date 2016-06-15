@@ -440,7 +440,7 @@ let of_channel in_ch =
   let sexps = SExprParser.sexps SExprLexer.main lexbuf in
 
   (* Callers mapping to transition system *)
-  let calling_table = HH.create (List.length sexps) in
+  (* let calling_table = HH.create (List.length sexps) in *)
 
   (* Parse sexps *)
   let systems =

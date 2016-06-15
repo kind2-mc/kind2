@@ -693,7 +693,8 @@ let const_of_smtlib_atom b t =
             Term.mk_dec (Decimal.of_num (Num.num_of_string
                                            (HString.string_of_hstring t)))
 
-          with Invalid_argument _ | Failure "num_of_string" -> 
+          with
+            Invalid_argument _ | Failure _ -> 
 (*
             try 
 
