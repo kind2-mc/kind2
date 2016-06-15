@@ -1,0 +1,19 @@
+node count (in: bool) returns (out: int) ;
+(*@contract
+  guarantee out >= 0 ;
+*)
+let
+  out = (if in then 1 else 0) + (0 -> pre out) ;
+tel
+
+contract spec (in: int) returns (out: int) ;
+let
+  guarantee true -> (
+    count(in > 0) = out
+  ) ;
+tel
+
+node test (in: int) returns (out: int) ;
+(*@contract import spec (in) returns (out) ; *)
+let
+tel

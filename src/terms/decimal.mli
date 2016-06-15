@@ -29,6 +29,9 @@ type t
 (** Pretty-print a rational *)
 val pp_print_decimal : Format.formatter -> t -> unit
 
+(** Pretty-print a rational as an f64 (used by compilation to Rust) *)
+val pp_print_decimal_as_float : Format.formatter -> t -> unit
+
 (** Pretty-print a rational as an S-expression *)
 val pp_print_decimal_sexpr : Format.formatter -> t -> unit
 

@@ -102,6 +102,30 @@ let pp_print_decimal ppf = function
   (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal ppf d
 
+let pp_print_decimal_as_float fmt = function
+| InfPos -> failwith "can't print decimal <infpos> as float"
+| InfNeg -> failwith "can't print decimal <infneg> as float"
+| Undef -> failwith "can't print decimal <undef> as float"
+| N d -> (
+  match d with
+  | Num.Int i -> Format.fprintf fmt "%df64" i
+  | Num.Big_int n -> Format.fprintf fmt "%sf64" (Big_int.string_of_big_int n)
+  | Num.Ratio r -> 
+
+    (* Normalize rational number *)
+    let r' = Ratio.normalize_ratio r in
+
+    (* Get numerator and denominator *)
+    let rn = Ratio.numerator_ratio r' in
+    let rd = Ratio.denominator_ratio r' in
+    
+    (* Print with division as prefix operator *)
+    Format.fprintf fmt 
+      "%sf64 / %sf64"
+      (Big_int.string_of_big_int rn)
+      (Big_int.string_of_big_int rd)
+)
+
 
 (* Return a string representation of a decimal *)
 let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr

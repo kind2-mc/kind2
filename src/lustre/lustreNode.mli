@@ -54,78 +54,74 @@ open Lib
     Calls are uniquely identified by the position, no two calls may
     share the same position, therefore the [call_pos] must not be a
     dummy position. *)
-type node_call = 
+type node_call = {
 
-  {
+  call_pos : position;
+  (** Position of node call in input file *)
 
-    call_pos : position;
-    (** Position of node call in input file *)
+  call_node_name : LustreIdent.t;
+  (** Identifier of the called node *)
+  
+  call_clock : StateVar.t option;
+  (** Boolean activation condition if any *)
 
-    call_node_name : LustreIdent.t;
-    (** Identifier of the called node *)
-    
-    call_clock : StateVar.t option;
-    (** Boolean activation condition if any *)
+  call_inputs : StateVar.t LustreIndex.t;
+  (** Variables for actual input parameters 
 
-    call_inputs : StateVar.t LustreIndex.t;
-    (** Variables for actual input parameters 
+      The keys of the index match those in the {!t.inputs} field of
+      the called node. *)
 
-        The keys of the index match those in the {!t.inputs} field of
-        the called node. *)
+  call_oracles : StateVar.t list;
+  (** Variables providing non-deterministic inputs
 
-    call_oracles : StateVar.t list;
-    (** Variables providing non-deterministic inputs
+      The length of the list is equal to the length of the list in
+      the {!t.oracles} field of the called node. *)
 
-        The length of the list is equal to the length of the list in
-        the {!t.oracles} field of the called node. *)
+  call_outputs : StateVar.t LustreIndex.t;
+  (** Variables capturing the outputs 
 
-    call_outputs : StateVar.t LustreIndex.t;
-    (** Variables capturing the outputs 
+      The keys of the index match those in the {!t.outputs} field of the
+      called node. *)
 
-        The keys of the index match those in the {!t.outputs} field of the
-        called node. *)
+  call_defaults : LustreExpr.t LustreIndex.t option;
+  (** Expressions for initial return values
 
-    call_defaults : LustreExpr.t LustreIndex.t option;
-    (** Expressions for initial return values
+      This value should be [None] for node calls on the base clock,
+      and [Some l] for node calls with a clock. A node call with a
+      clock may only have [None] here if it occurs directly under a
+      [merge] operator. 
 
-        This value should be [None] for node calls on the base clock,
-        and [Some l] for node calls with a clock. A node call with a
-        clock may only have [None] here if it occurs directly under a
-        [merge] operator. 
+      If the option value is not [None], the keys of the index match
+      those in the {!t.outputs} field of the called node. *)
 
-        If the option value is not [None], the keys of the index match
-        those in the {!t.outputs} field of the called node. *)
-
-  }
+}
 
 
 (** A call of a function *)
-type function_call = 
+type function_call = {
 
-  { 
+  (** Position of function call in input file *)
+  call_pos : position;
 
-    (** Position of function call in input file *)
-    call_pos : position;
+  (** Name of called function *)
+  call_function_name : LustreIdent.t;
+  
+  (** Expressions for input parameters *)
+  call_inputs : LustreExpr.t LustreIndex.t;
 
-    (** Name of called function *)
-    call_function_name : LustreIdent.t;
-    
-    (** Expressions for input parameters *)
-    call_inputs : LustreExpr.t LustreIndex.t;
+  (** Variables capturing the outputs *)
+  call_outputs : StateVar.t LustreIndex.t;
 
-    (** Variables capturing the outputs *)
-    call_outputs : StateVar.t LustreIndex.t;
-
-  }
+}
 
 
 (** Source of a state variable *)
 type state_var_source =
-  | Input   (** Declared input variable *)
-  | Output  (** Declared output variable *)
-  | Local   (** Declared local variable *)
-  | Ghost   (** Declared ghost variable *)
-  | Oracle  (** Generated non-deterministic input *)
+| Input   (** Declared input variable *)
+| Output  (** Declared output variable *)
+| Local   (** Declared local variable *)
+| Ghost   (** Declared ghost variable *)
+| Oracle  (** Generated non-deterministic input *)
 
 
 (** A contract. *)
@@ -134,9 +130,9 @@ type contract = LustreContract.t
 
 (** Type of index in an equation for an array *)
 type 'a bound_or_fixed = 
-  | Bound of 'a  (** Equation is for each value of the index variable
-                     between zero and the upper bound *)
-  | Fixed of 'a  (** Fixed value for index variable *)
+| Bound of 'a  (** Equation is for each value of the index variable
+                   between zero and the upper bound *)
+| Fixed of 'a  (** Fixed value for index variable *)
 
 
 (** An equation is a triple [(state_var, bounds, expr)] of the
@@ -146,8 +142,9 @@ type 'a bound_or_fixed =
     An array can be defined either only at a given index, or at all
     indexes, when the expression on the right-hand side is interpreted
     as a function of the running variable of the index.  *)
-type equation = 
-  (StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t)
+type equation = (
+  StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t
+)
 
 
 (** A Lustre node
@@ -160,83 +157,81 @@ type equation =
     {!bound_or_fixed.Fixed}. If the state variable is not an array, or
     all its bounds are {!bound_or_fixed.Bound}, then it occurs at most
     once on the left-hand side of {!t.equations}. *)
-type t = 
+type t = {
 
-  { 
+  name : LustreIdent.t;
+  (** Name of the node *)
 
-    name : LustreIdent.t;
-    (** Name of the node *)
+  instance : StateVar.t;
+  (** Distinguished constant state variable uniquely identifying the
+      node instance *)
 
-    instance : StateVar.t;
-    (** Distinguished constant state variable uniquely identifying the
-        node instance *)
+  init_flag : StateVar.t;
+  (** Distinguished state variable to be true in the first
+     instant only *)
 
-    init_flag : StateVar.t;
-    (** Distinguished state variable to be true in the first
-       instant only *)
+  inputs : StateVar.t LustreIndex.t;
+  (** Input streams defined in the node
 
-    inputs : StateVar.t LustreIndex.t;
-    (** Input streams defined in the node
+      The inputs are considered as a list with an integer indexes
+      corresponding to their position in the formal parameters if
+      there is more than one input parameter. If there is only one
+      input parameter, the list index is omitted, the index is empty
+      if there are no input parameters. *)
 
-        The inputs are considered as a list with an integer indexes
-        corresponding to their position in the formal parameters if
-        there is more than one input parameter. If there is only one
-        input parameter, the list index is omitted, the index is empty
-        if there are no input parameters. *)
+  oracles : StateVar.t list;
+  (** Oracle inputs added to the node inputs
 
-    oracles : StateVar.t list;
-    (** Oracle inputs added to the node inputs
+      Input streams added to the node to obtain non-deterministic
+      values for the initial values of unguarded pre operators. The
+      state variables are constant. *)
 
-        Input streams added to the node to obtain non-deterministic
-        values for the initial values of unguarded pre operators. The
-        state variables are constant. *)
+  outputs : StateVar.t LustreIndex.t;
+  (** Output streams defined in the node
 
-    outputs : StateVar.t LustreIndex.t;
-    (** Output streams defined in the node
+      The outputs are considered as a list with an integer indexes
+      corresponding to their position in the formal parameters. *)
 
-        The outputs are considered as a list with an integer indexes
-        corresponding to their position in the formal parameters. *)
+  locals : StateVar.t LustreIndex.t list;
+  (** Local variables of node
 
-    locals : StateVar.t LustreIndex.t list;
-    (** Local variables of node
+      The order of the list is irrelevant, we are doing dependency
+      analysis and cone of influence reduction later. *)
 
-        The order of the list is irrelevant, we are doing dependency
-        analysis and cone of influence reduction later. *)
+  equations : equation list;
+  (** Equations for local and output variables *)
 
-    equations : equation list;
-    (** Equations for local and output variables *)
+  calls : node_call list;
+  (** Node calls inside the node *)
 
-    calls : node_call list;
-    (** Node calls inside the node *)
+  function_calls : function_call list;
+  (** Function calls in the node *)
 
-    function_calls : function_call list;
-    (** Function calls in the node *)
+  asserts : LustreExpr.t list;
+  (** Assertions of node *)
 
-    asserts : LustreExpr.t list;
-    (** Assertions of node *)
+  props : (StateVar.t * string * Property.prop_source) list;
+  (** Proof obligations for the node *)
 
-    props : (StateVar.t * string * Property.prop_source) list;
-    (** Proof obligations for the node *)
+  contract : contract option ;
+  (** Contract. *)
 
-    contract : contract option ;
-    (** Contract. *)
+  is_main : bool;
+  (** Flag node as the top node *)
 
-    is_main : bool;
-    (** Flag node as the top node *)
+  state_var_source_map : state_var_source StateVar.StateVarMap.t;
+  (** Map from a state variable to its source 
 
-    state_var_source_map : state_var_source StateVar.StateVarMap.t;
-    (** Map from a state variable to its source 
+      Variables that were introduced to abstract expressions do not
+      have a source. *)
 
-        Variables that were introduced to abstract expressions do not
-        have a source. *)
+  oracle_state_var_map : StateVar.t StateVar.StateVarHashtbl.t;
+  (** Map from state variables to state variables providing a
+      non-deterministic pre-initial value *)
 
-    oracle_state_var_map : StateVar.t StateVar.StateVarHashtbl.t;
-    (** Map from state variables to state variables providing a
-        non-deterministic pre-initial value *)
+  state_var_expr_map : LustreExpr.t StateVar.StateVarHashtbl.t;
 
-    state_var_expr_map : LustreExpr.t StateVar.StateVarHashtbl.t;
-
-  }
+}
 
 
 (** Instance of state vars as streams with their position  *)
@@ -304,7 +299,7 @@ val has_impl : t -> bool
 val subsystem_of_nodes : t list -> t SubSystem.t
 
 (** Return list of topologically ordered list of nodes from subsystem.
-    The top node is a the head of the list. *)
+    The top node is the head of the list. *)
 val nodes_of_subsystem : t SubSystem.t -> t list
 
 (** Return all stateful variables from expressions in a node *)
