@@ -46,7 +46,7 @@ let create sz =
   let sz = if sz < 7 then 7 else sz in
   let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
   let emptybucket = Weak.create 0 in
-  { table = Array.create sz emptybucket;
+  { table = Array.make sz emptybucket;
     totsize = 0;
     limit = 3; }
 
@@ -192,7 +192,7 @@ struct
     let sz = if sz < 7 then 7 else sz in
     let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
     {
-      table = Array.create sz emptybucket;
+      table = Array.make sz emptybucket;
       totsize = 0;
       limit = 3;
     }
