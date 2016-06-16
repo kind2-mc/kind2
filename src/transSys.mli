@@ -513,6 +513,11 @@ val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 
+(** Instantiate invariants and valid properties to the bound and applies a
+function *)
+val map_invars_of_bound :
+  ?one_state_only:bool -> t -> (Term.t -> unit) -> Numeral.t -> unit
+
 (** Return invariants with their certificates *)
 val get_invariants : t -> (Term.t * Certificate.t) list
 
