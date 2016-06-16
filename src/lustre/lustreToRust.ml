@@ -70,7 +70,7 @@ let mk_id_legal = Id.string_of_ident false
 
 (* Same as [mk_id_legal] but capitalizes the first letter to fit rust
 conventions for type naming. *)
-let mk_id_type id = mk_id_legal id |> String.capitalize_ascii
+let mk_id_type id = mk_id_legal id |> String.capitalize
 
 (* Crate documentation for implementation, lint attributes. *)
 let fmt_prefix blah name fmt typ = Format.fprintf fmt "\
@@ -327,7 +327,7 @@ pub mod parse {
           outputs: @[<v>%a@]\
         @]\
       "
-      (mk_id_legal name |> String.lowercase_ascii)
+      (mk_id_legal name |> String.lowercase)
       ( pp_print_list
         ( fun fmt (_, svar) ->
             Format.fprintf fmt "%a (%s)"
@@ -347,12 +347,12 @@ pub mod parse {
   ) "@ "
 ) systems
 ( match List.rev systems with
-  | { N.name } :: _ -> mk_id_legal name |> String.lowercase_ascii
+  | { N.name } :: _ -> mk_id_legal name |> String.lowercase
   | _ -> failwith "Can't generate helpers, no top system to print." )
 (pp_print_list
   ( fun fmt { N.name } ->
       Format.fprintf fmt "\"--%s\" => super::%s::run(),"
-        (mk_id_legal name |> String.lowercase_ascii)
+        (mk_id_legal name |> String.lowercase)
         (mk_id_type name)
   ) "@ "
 ) systems

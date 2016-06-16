@@ -224,16 +224,16 @@ let contains_from { Hashcons.node = n } i c = Bytes.contains_from n i c
 let rcontains_from { Hashcons.node = n } i c = Bytes.rcontains_from n i c
 
 let uppercase { Hashcons.node = n } =
-  mk_hstring (Bytes.uppercase_ascii n)
+  mk_hstring (Bytes.uppercase n)
 
 let lowercase { Hashcons.node = n } =
-  mk_hstring (Bytes.lowercase_ascii n)
+  mk_hstring (Bytes.lowercase n)
 
 let capitalize { Hashcons.node = n } =
-  mk_hstring (Bytes.capitalize_ascii n)
+  mk_hstring (Bytes.capitalize n)
 
 let uncapitalize { Hashcons.node = n } =
-  mk_hstring (Bytes.uncapitalize_ascii n)
+  mk_hstring (Bytes.uncapitalize n)
 
 
 (* 
