@@ -1,17 +1,20 @@
-(**************************************************************************)
-(*                                                                        *)
-(*  Copyright (C) Jean-Christophe Filliatre                               *)
-(*                                                                        *)
-(*  This software is free software; you can redistribute it and/or        *)
-(*  modify it under the terms of the GNU Library General Public           *)
-(*  License version 2.1, with the special exception on linking            *)
-(*  described in file LICENSE.                                            *)
-(*                                                                        *)
-(*  This software is distributed in the hope that it will be useful,      *)
-(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
-(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                  *)
-(*                                                                        *)
-(**************************************************************************)
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
+*)
 
 (** Hash tables for hash consing
 
@@ -23,8 +26,7 @@
     contains the value itself. The field [prop] contains properties of
     some type associated with the hashconsed value.
 
-    Hash consing tables are using weak pointers or not depending on the option
-    {! Flags.weakhcons}.
+    Values added to a hashcons table are never garbage collected.
 
     @author Jean-Christophe Filliatre, Christoph Sticksel
 *)
@@ -44,18 +46,22 @@ val hash : ('a, 'b) hash_consed -> int
 type ('a, 'b) t
 
 val create : int -> ('a, 'b) t
-  (** [create n] creates an empty table of initial size [n]. The table
-      will grow as needed. *)  
+(** [create n] creates an empty table of initial size [n]. The table
+      will grow as needed. *)
+
 val clear : ('a, 'b) t -> unit
-  (** Removes all elements from the table. *)
+(** Removes all elements from the table. *)
+
 val hashcons : ('a, 'b) t -> 'a -> 'b -> ('a, 'b) hash_consed
-  (** [hashcons t n] hash-cons the value [n] using table [t] i.e. returns
-      any existing value in [t] equal to [n], if any; otherwise, allocates
-      a new one hash-consed value of node [n] and returns it. 
-      As a consequence the returned value is physically equal to
-      any equal value already hash-consed using table [t]. *)
+(** [hashcons t n] hash-cons the value [n] using table [t] i.e. returns
+    any existing value in [t] equal to [n], if any; otherwise, allocates
+    a new one hash-consed value of node [n] and returns it. 
+    As a consequence the returned value is physically equal to
+    any equal value already hash-consed using table [t]. *)
+
 val iter : (('a, 'b) hash_consed -> unit) -> ('a, 'b) t -> unit
-  (** [iter f t] iterates [f] over all elements of [t]. *)
+(** [iter f t] iterates [f] over all elements of [t]. *)
+
 val fold : (('a, 'b) hash_consed -> 'c -> 'c) -> ('a, 'b) t -> 'c -> 'c
 (** [fold f t a] computes (f xN ... (f x2 (f x1 a))...), where x1
     ... xN are the elements of t. *)
@@ -80,6 +86,7 @@ module type S =
     type key
     type prop
     type t
+    exception Key_not_found of key
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> prop -> (key, prop) hash_consed

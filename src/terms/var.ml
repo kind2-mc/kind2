@@ -374,7 +374,7 @@ let rec next_fresh_var_node var_type =
     next_fresh_var_node var_type
 
   (* Candidiate symbol is not declared and can be used *)
-  with Not_found -> fresh_var_name
+  with Not_found | Hvar.Key_not_found _ -> fresh_var_name
     
     
 (* Return a fresh uninterpreted symbol 

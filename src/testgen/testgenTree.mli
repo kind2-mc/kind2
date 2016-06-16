@@ -26,7 +26,7 @@ type num = Numeral.t
 type depth = num
 
 (** A [mode] is just its name. *)
-type mode = string
+type mode = Scope.t
 
 (**
   A conjunction of modes. First are the modes activated, then come the mode
@@ -58,7 +58,7 @@ exception TopReached
   Originally there are no witnesses, some initial state mode, and no modes
   explored.
 *)
-val mk: (string -> term) -> mode_conj -> t
+val mk: (mode -> term) -> mode_conj -> t
 
 (**
   Returns the list of mode conjunctions corresponding to a partial tree.

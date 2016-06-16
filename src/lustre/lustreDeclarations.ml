@@ -1487,7 +1487,7 @@ and eval_node_contract_spec ctx pos scope contract =
   from the contract itself. *)
   ( match C.get_node ctx with
     | None -> failwith "unreachable, no current node after parsing contract"
-    | Some ( { N.oracles ; N.calls } as node ) -> (
+    | Some { N.oracles ; N.calls } -> (
       (* Checking whether the contract we just parsed introduced any oracles.
       If it did, then it means there was unguarded pre-s below the contract.
       They a priori come from node calls in the contract since unguarded pre-s

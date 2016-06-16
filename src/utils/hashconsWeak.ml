@@ -46,7 +46,7 @@ let create sz =
   let sz = if sz < 7 then 7 else sz in
   let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
   let emptybucket = Weak.create 0 in
-  { table = Array.create sz emptybucket;
+  { table = Array.make sz emptybucket;
     totsize = 0;
     limit = 3; }
 
@@ -162,6 +162,7 @@ module type S =
     type key
     type prop
     type t
+    exception Key_not_found of key
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
@@ -186,13 +187,15 @@ struct
     mutable limit : int;               (* max ratio totsize/table length *)
   }
 
+  exception Key_not_found of key
+
   let emptybucket = Weak.create 0
 
   let create sz =
     let sz = if sz < 7 then 7 else sz in
     let sz = if sz > Sys.max_array_length then Sys.max_array_length else sz in
     {
-      table = Array.create sz emptybucket;
+      table = Array.make sz emptybucket;
       totsize = 0;
       limit = 3;
     }
@@ -298,7 +301,7 @@ struct
       if i >= sz then begin
         (* [hashcons] inserts the value into the table here, but we
            raise and exception *)
-	raise (Not_found)
+	raise (Key_not_found d)
       end else begin
         match Weak.get_copy bucket i with
           | Some v when H.equal v.node d -> 

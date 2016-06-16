@@ -82,7 +82,7 @@ let to_int n =
     Big_int.int_of_big_int n 
 
   (* Conversion failed because of limited precision *)
-  with Failure "int_of_big_int" -> raise (Failure "to_int")
+  with Failure _ -> raise (Failure "to_int")
 
 
 (* Convert an big integer to a numeral *)

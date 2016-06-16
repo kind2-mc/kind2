@@ -179,9 +179,6 @@ val lus_compile : unit -> bool
 (** Colored output. *)
 val color : unit -> bool
 
-(** Use weak hash-consing. *)
-val weakhcons : unit -> bool
-
 
 (** {2 SMT solver flags} *)
 module Smt : sig
@@ -468,11 +465,10 @@ at the same time. *)
 val set_smtsolver : Smt.solver -> string -> unit
 
 
-(** {1 Parsing of the command line} 
+(** {1 Parsing of the command line} *)
 
-    Parsing of the command line arguments is performed when loading this
-    module.
-*)
+(** Parse the command line *)
+val parse_argv : unit -> unit
 
 (*
    Local Variables:

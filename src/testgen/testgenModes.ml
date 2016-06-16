@@ -23,7 +23,7 @@ module Sys = TransSys
 type sys = Sys.t
 
 (* A mode is the string representation of the mode and its term@0. *)
-type mode = string * Term.t
+type mode = Scope.t * Term.t
 
 (* A global mode and the list of modes. *)
 type modes = (mode option) * (mode list)
@@ -35,8 +35,9 @@ type sys_modes = sys * (modes list)
 type t = modes * (sys_modes list)
 
 (* Pretty printer for [mode]. *)
-let pp_print_mode fmt (name, term) =
-  Format.fprintf fmt "%s (%a)" name Term.pp_print_term term
+let pp_print_mode fmt (scope, term) =
+  Format.fprintf fmt "%a (%a)"
+    Scope.pp_print_scope scope Term.pp_print_term term
 
 (* Pretty printer for [modes]. *)
 let pp_print_modes fmt (g_opt, m_list) =
@@ -66,12 +67,8 @@ let sv_at_0 sv = Var.mk_state_var_instance sv Numeral.zero |> Term.mk_var
 (* Returns the modes of a system as something of type [modes]. *)
 let modes_of_sys sys : modes =
   match Sys.get_mode_requires sys with
-  | None, modes -> None, modes |> List.map (
-    fun (id, t) -> LustreIdent.string_of_ident false id, t
-  )
-  | Some ass, modes -> Some ("assumption", ass), modes |> List.map (
-    fun (id, t) -> LustreIdent.string_of_ident false id, t
-  )
+  | None, modes -> None, modes
+  | Some ass, modes -> Some ( ["assumption"], ass ), modes
 
 (* The modes corresponding to a system and its subsystems. *)
 let modes_of sys =

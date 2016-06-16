@@ -144,9 +144,9 @@ let mk_result param sys time =
 let result_is_all_proved { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.for_all (function
-      | _, Property.PropInvariant _ -> true
-      | _ -> false
-    )
+    | _, Property.PropInvariant _ -> true
+    | _ -> false
+  )
 
 (** Returns true if some properties in the system in a [result] have been
     falsified. *)

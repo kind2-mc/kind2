@@ -179,7 +179,7 @@ let pp_print_tc fmt path name modes =
     | modes :: tail ->
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
-        (pp_print_list Format.pp_print_string " and ")
+        (pp_print_list Scope.pp_print_scope " and ")
         modes ;
       loop (cpt + 1) tail
     | [] -> ()
@@ -195,7 +195,7 @@ let pp_print_deadlock fmt path name modes =
     | modes :: tail ->
       Format.fprintf fmt
         "    at step %d, activates @[<v>%a@]@." cpt
-        (pp_print_list Format.pp_print_string " and ")
+        (pp_print_list Scope.pp_print_scope " and ")
         modes ;
       loop (cpt + 1) tail
     | [] -> Format.fprintf fmt "    deadlock reached@."
@@ -210,8 +210,8 @@ let pp_print_model_path fmt path =
   let rec loop cpt = function
     | modes :: modes' :: tail ->
       Format.fprintf fmt "  \"%a\\n@%d\" -> \"%a\\n@%d\" ;@.@?"
-        (pp_print_list Format.pp_print_string "\\n") modes cpt
-        (pp_print_list Format.pp_print_string "\\n") modes' (cpt + 1) ;
+        (pp_print_list Scope.pp_print_scope "\\n") modes cpt
+        (pp_print_list Scope.pp_print_scope "\\n") modes' (cpt + 1) ;
       loop (cpt + 1) (modes' :: tail)
     | _ -> Format.fprintf fmt "@.@?"
   in
@@ -219,7 +219,7 @@ let pp_print_model_path fmt path =
 
 (* Logs a test case. *)
 let log_testcase (type s)
-: s t -> string list list -> Model.t -> Numeral.t -> unit
+: s t -> Scope.t list list -> Model.t -> Numeral.t -> unit
 = fun t modes model k ->
   Stat.incr Stat.testgen_testcases ;
   (* Format.printf "  log_testcase@." ; *)
@@ -252,7 +252,7 @@ let log_testcase (type s)
 
 (* Logs a test case. *)
 let log_deadlock (type s)
-: s t -> string list list -> Model.t -> Numeral.t -> unit
+: s t -> Scope.t list list -> Model.t -> Numeral.t -> unit
 = fun t modes model k ->
   Stat.incr Stat.testgen_deadlocks ;
 
