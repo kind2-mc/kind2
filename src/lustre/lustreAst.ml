@@ -20,30 +20,14 @@ open Lib
 
 exception Parser_error
 
-module Event = struct
-  let log lvl fmt =
-    if Flags.log_format_xml () then
-      ( match lvl with
-        | L_warn -> "warn"
-        | L_error -> "error"
-        (* Only warning or errors in theory. *)
-        | _ -> failwith "LustreContext should only output warnings or errors" )
-      |> Format.printf ("@[<hov 2>\
-          <Log class=\"%s\" source=\"parse\">@ \
-            @[<hov>" ^^ fmt ^^ "@]\
-          @;<0 -2></Log>\
-        @]@.")
-    else
-      Format.printf ("%a @[<v>" ^^ fmt ^^ "@]@.") Pretty.tag_of_level lvl
-end
 
 (* Raise parsing exception *)
 let error_at_position pos msg = 
-  Event.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg
+  Log.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg
   
 (* Raise parsing exception *)
 let warn_at_position pos msg = 
-  Event.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
+  Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
 
 
 (* ********************************************************************** *)

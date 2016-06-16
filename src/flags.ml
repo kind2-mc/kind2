@@ -312,9 +312,7 @@ module Smt = struct
     (* Check if solver execdutable is on the path *)
     try find_on_path bin with
     | Not_found when fail ->
-      Format.printf
-        "\x1b[31;1mFatal error\x1b[0m: @[<v>%s executable %s not found.@]@."
-        name bin;
+      Log.log L_fatal "@[<v>%s executable %s not found.@]" name bin;
       exit 2
 
   
@@ -354,8 +352,7 @@ module Smt = struct
         set_solver `Yices_SMTLIB;
         set_yices2smt2_bin exec;
       with Not_found ->
-        Format.printf
-          "\x1b[31;1mFatal error\x1b[0m: @[<v>No SMT Solver found.@]@.";
+        Log.log L_fatal "No SMT Solver found.";
         exit 2
 
   
@@ -2200,6 +2197,8 @@ let print_xml_options () =
 
 let post_argv_parse_actions () =
 
+  if Global.log_format_xml () then print_xml_options ();
+
   (* Don't print banner if no output at all. *)
   if not (Global.log_level () = L_off) then (
     (* Temporarily set log level to info and output logo. *)
@@ -2207,21 +2206,13 @@ let post_argv_parse_actions () =
     Log.log L_info "%a" pp_print_banner ();
     (* Reset log level. *)
     Global.log_level () |> set_log_level ;
-  ) ;
-
-  if Global.log_format_xml () then print_xml_options ()
+  )
 
 
 
 let parse_argv () =
   (* CLAPing. *)
   parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
-
-  (* If any module info was requested, print it and exit. *)
-  Global.help_of () |> List.rev |> print_module_info ;
-
-  (* Check solver on path *)
-  Smt.check_smtsolver ();
 
   (* Colors if flag is not false and not in xml mode *)
   let open Format in
@@ -2230,6 +2221,12 @@ let parse_argv () =
     pp_set_tags err_formatter true;
     pp_set_tags !Lib.log_ppf true;
   end;
+
+  (* If any module info was requested, print it and exit. *)
+  Global.help_of () |> List.rev |> print_module_info ;
+
+  (* Check solver on path *)
+  Smt.check_smtsolver ();
   
   solver_dependant_actions ();
   
