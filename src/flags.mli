@@ -165,7 +165,7 @@ val timeout_wall : unit -> float
 type enable = Lib.kind_module list
 
 (** The modules enabled. *)
-val enable : unit -> enable
+val enabled : unit -> enable
 
 (** Modular analysis. *)
 val modular : unit -> bool
@@ -462,10 +462,6 @@ end
 
 (** Path to subdirectory for a system (in the output directory). *)
 val subdir_for : string list -> string
-
-(** Sets the solver kind (z3, CVC4, ...) and the actual command for that solver
-at the same time. *)
-val set_smtsolver : Smt.solver -> string -> unit
 
 
 (** {1 Parsing of the command line} 

@@ -324,7 +324,68 @@ module Smt = struct
   let set_trace_dir s =
     trace_dir := Filename.concat s "smt_trace"
   let trace_dir () = !trace_dir
-      
+
+
+
+  let find_solver ~fail name bin =
+    (* Check if solver execdutable is on the path *)
+    try find_on_path bin with
+    | Not_found when fail ->
+      Format.printf
+        "\x1b[31;1mFatal error\x1b[0m: @[<v>%s executable %s not found.@]@."
+        name bin;
+      exit 2
+
+  
+  (* Check which SMT solver is available *)
+  let check_smtsolver () = match solver () with
+    (* User chose Z3 *)
+    | `Z3_SMTLIB ->
+      find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
+    (* User chose CVC4 *)
+    | `CVC4_SMTLIB ->
+      find_solver ~fail:true "CVC4" (cvc4_bin ()) |> ignore
+    (* User chose MathSat5 *)
+    | `MathSat5_SMTLIB ->
+      find_solver ~fail:true "MathSat5" (mathsat5_bin ()) |> ignore
+    (* User chose Yices *)
+    | `Yices_native ->
+      find_solver ~fail:true "Yices" (yices_bin ()) |> ignore
+    (* User chose Yices2 *)
+    | `Yices_SMTLIB ->
+      find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
+    (* User did not choose SMT solver *)
+    | `detect ->
+      try
+        let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
+        set_solver `Z3_SMTLIB;
+        set_z3_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
+        set_solver `CVC4_SMTLIB;
+        set_cvc4_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "MathSat5" (mathsat5_bin ()) in
+        set_solver `MathSat5_SMTLIB;
+        set_mathsat5_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
+        set_solver `Yices_native;
+        set_yices_bin exec;
+      with Not_found ->
+      try
+        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
+        set_solver `Yices_SMTLIB;
+        set_yices2smt2_bin exec;
+      with Not_found ->
+        Format.printf
+          "\x1b[31;1mFatal error\x1b[0m: @[<v>No SMT Solver found.@]@.";
+        exit 2
+
+  
 end
 
 
@@ -1756,6 +1817,7 @@ module Global = struct
         enable_values
         (string_of_enable enable_default_after)
     )
+  let enable mdl = enabled := mdl :: !enabled
   let enabled () = !enabled
 
   (* Modules disabled. *)
@@ -1776,6 +1838,7 @@ module Global = struct
       "
       enable_values
     )
+  let disable mdl = disabled := mdl :: !disabled
   let disabled () = !disabled
 
 
@@ -1867,32 +1930,50 @@ module Global = struct
   let log_level = ref log_level_default
   let _ = add_specs ([
     ( "-qq",
-      Arg.Unit (fun () -> log_level := L_off),
+      Arg.Unit (fun () ->
+          log_level := L_off;
+          set_log_level L_off;
+        ),
       fun fmt ->
         Format.fprintf fmt "Disable output completely"
     ) ;
     ( "-q",
-      Arg.Unit (fun () -> log_level := L_fatal),
+      Arg.Unit (fun () ->
+          log_level := L_fatal;
+          set_log_level L_fatal;
+        ),
       fun fmt ->
         Format.fprintf fmt "Disable output, fatal errors only"
     ) ;
     ( "-s",
-      Arg.Unit (fun () -> log_level := L_error),
+      Arg.Unit (fun () ->
+          log_level := L_error;
+          set_log_level L_error;
+        ),
       fun fmt ->
         Format.fprintf fmt "Silence output, errors only"
     ) ;
     ( "-v",
-      Arg.Unit (fun () -> log_level := L_info),
+      Arg.Unit (fun () ->
+          log_level := L_info;
+          set_log_level L_info;
+        ),
       fun fmt ->
         Format.fprintf fmt "Output informational messages"
     ) ;
     ( "-vv",
-      Arg.Unit (fun () -> log_level := L_debug),
+      Arg.Unit (fun () ->
+          log_level := L_debug;
+          set_log_level L_debug;
+        ),
       fun fmt ->
         Format.fprintf fmt "Output informational and debug messages"
     ) ;
     ( "-vvv",
-      Arg.Unit (fun () -> log_level := L_trace),
+      Arg.Unit (fun () ->
+          log_level := L_trace;
+          set_log_level L_trace;
+        ),
       fun fmt ->
         Format.fprintf fmt "Output informational, debug and trace messages"
     )
@@ -1905,7 +1986,10 @@ module Global = struct
   let log_format_xml = ref log_format_xml_default
   let _ = add_spec
     "-xml"
-    (Arg.Set log_format_xml)
+    (Arg.Unit (fun () ->
+         log_format_xml := true;
+         Log.set_log_format_xml ()
+       ))
     (fun fmt -> Format.fprintf fmt "Output in XML format")
   let log_format_xml () = !log_format_xml
 
@@ -1979,7 +2063,7 @@ type input_format = Global.input_format
 (* |===| The following functions allow to access global flags directly. *)
 
 let output_dir = Global.output_dir
-let enable = Global.enabled
+let enabled = Global.enabled
 let lus_strict = Global.lus_strict
 let modular = Global.modular
 let lus_main = Global.lus_main
@@ -2017,40 +2101,6 @@ let anon_action s =
     Global.set_input_format s;
     Global.set_output_dir s;
   | _ -> raise (Arg.Bad "More than one input file given")
-
-let set_smtsolver = function
-
-  | `Z3_SMTLIB as smtsolver ->
-
-    (function z3_bin ->
-      Smt.set_solver smtsolver ;
-      Smt.set_z3_bin z3_bin )
-
-  | `CVC4_SMTLIB as smtsolver ->
-
-    (function cvc4_bin ->
-      Smt.set_solver smtsolver ;
-      Smt.set_cvc4_bin cvc4_bin )
-
-  | `MathSat5_SMTLIB as smtsolver ->
-
-    (function mathsat5_bin ->
-      Smt.set_solver smtsolver ;
-      Smt.set_mathsat5_bin mathsat5_bin )
-
-  | `Yices_native as smtsolver ->
-
-    (function yices_bin ->
-      Smt.set_solver smtsolver ;
-      Smt.set_yices_bin yices_bin )
-
-  | `Yices_SMTLIB as smtsolver ->
-
-    (function yices2smt2_bin ->
-      Smt.set_solver smtsolver ;
-      Smt.set_yices2smt2_bin yices2smt2_bin )
-
-  | `detect -> (function _ -> ())
 
 
 let bool_of_string ((flag, _, desc) as tuple) s =
@@ -2145,6 +2195,51 @@ let parse_clas specs anon_action global_usage_msg =
     failwith "expected at least one argument, got zero"
 
 
+let solver_dependant_actions () = match Smt.solver () with
+  | (`CVC4_SMTLIB | `Yices_SMTLIB) as s ->
+    (* Disable IC3 for CVC4 and Yices 2 because of lack of support for unsat
+       cores*)
+    Global.disable `IC3;
+    Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s)
+  | _ -> ()
+
+
+
+(* XML starting with options *)
+let print_xml_options () =
+    Format.fprintf !log_ppf "@[<v>\
+      <Results \
+        xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
+        enabled=\"%a\" \
+        timeout=\"%f\" \
+        bmc_max=\"%d\" \
+        compositional=\"%b\" \
+        modular=\"%b\"\
+      >@.@.@.\
+    "
+    (pp_print_list Log.pp_print_kind_module_xml_src ",") (Global.enabled ())
+    (Global.timeout_wall ())
+    (BmcKind.max ())
+    (Contracts.compositional ())
+    (Global.modular ())
+
+
+
+let post_argv_parse_actions () =
+
+  (* Don't print banner if no output at all. *)
+  if not (Global.log_level () = L_off) then (
+    (* Temporarily set log level to info and output logo. *)
+    set_log_level L_info ;
+    Log.log L_info "%a" pp_print_banner ();
+    (* Reset log level. *)
+    Global.log_level () |> set_log_level ;
+  ) ;
+
+  if Global.log_format_xml () then print_xml_options ()
+
+
+
 let parse_argv () =
   (* CLAPing. *)
   parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
@@ -2152,9 +2247,8 @@ let parse_argv () =
   (* If any module info was requested, print it and exit. *)
   Global.help_of () |> List.rev |> print_module_info ;
 
-  (* Finalize the list of enabled module. *)
-  Global.finalize_enabled ();
-
+  (* Check solver on path *)
+  Smt.check_smtsolver ();
 
   (* Colors if flag is not false and not in xml mode *)
   let open Format in
@@ -2162,7 +2256,15 @@ let parse_argv () =
     pp_set_tags std_formatter true;
     pp_set_tags err_formatter true;
     pp_set_tags !Lib.log_ppf true;
-  end
+  end;
+  
+  solver_dependant_actions ();
+  
+  (* Finalize the list of enabled module. *)
+  Global.finalize_enabled ();
+
+  post_argv_parse_actions ()
+  
 
 
 (* Parsing command line arguments at load time *)
