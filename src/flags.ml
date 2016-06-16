@@ -1926,25 +1926,6 @@ module Global = struct
     )
   let color () = !color
 
-  
-  (* Use weak hash-consing. *)
-  let weakhcons_default = false
-  let weakhcons = ref weakhcons_default
-  let _ = add_spec
-    "--weakhcons"
-    (bool_arg weakhcons)
-    (fun fmt ->
-      Format.fprintf fmt
-        "\
-          Use weak hash-consing.@ \
-          Default: %a\
-        "
-        fmt_bool weakhcons_default
-    )
-  let weakhcons () = !weakhcons
-
-  
-  
   (* Version flag. *)
   let _ = add_spec
     "--version"
@@ -1995,7 +1976,6 @@ let clear_input_files = Global.clear_input_files
 let add_input_file = Global.add_input_file
 let lus_compile = Global.lus_compile
 let color = Global.color
-let weakhcons = Global.weakhcons
 
 (* Path to subdirectory for a system (in the output directory). *)
 let subdir_for scope =
@@ -2165,8 +2145,6 @@ let parse_argv () =
   end
 
 
-(* Parsing command line arguments at load time *)
-let () = parse_argv ()
 
 
 (*
