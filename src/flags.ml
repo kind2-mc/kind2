@@ -115,7 +115,6 @@ module Smt = struct
   type solver = [
     | `Z3_SMTLIB
     | `CVC4_SMTLIB
-    | `MathSat5_SMTLIB
     | `Yices_SMTLIB
     | `Yices_native
     | `detect
@@ -123,7 +122,6 @@ module Smt = struct
   let solver_of_string = function
     | "Z3" -> `Z3_SMTLIB
     | "CVC4" -> `CVC4_SMTLIB
-    | "MathSat5" -> `MathSat5_SMTLIB
     | "Yices2" -> `Yices_SMTLIB
     | "Yices" -> `Yices_native
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
@@ -132,9 +130,8 @@ module Smt = struct
     | `CVC4_SMTLIB -> "CVC4"
     | `Yices_SMTLIB -> "Yices2"
     | `Yices_native -> "Yices"
-    | `MathSat5_SMTLIB -> "MathSat5"
     | `detect -> "detect"
-  let solver_values = "Z3, CVC4, MathSat5, Yices, Yices2"
+  let solver_values = "Z3, CVC4, Yices, Yices2"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -259,22 +256,6 @@ module Smt = struct
   let set_cvc4_bin str = cvc4_bin := str
   let cvc4_bin () = !cvc4_bin
 
-  (* Mathsat 5 binary. *)
-  let mathsat5_bin_of_string s = s
-  let string_of_mathsat5_bin s = s
-  let mathsat5_bin_default = "mathsat"
-  let mathsat5_bin = ref mathsat5_bin_default
-  let _ = add_spec
-    "--mathsat5_bin"
-    (Arg.Set_string mathsat5_bin)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Executable of MathSAT5 solver@ Default: \"%s\"@]"
-        (string_of_mathsat5_bin mathsat5_bin_default)
-    )
-  let set_mathsat5_bin str = mathsat5_bin := str
-  let mathsat5_bin () = !mathsat5_bin
-
   (* Yices binary. *)
   let yices_bin_of_string s = s
   let string_of_yices_bin s = s
@@ -345,9 +326,6 @@ module Smt = struct
     (* User chose CVC4 *)
     | `CVC4_SMTLIB ->
       find_solver ~fail:true "CVC4" (cvc4_bin ()) |> ignore
-    (* User chose MathSat5 *)
-    | `MathSat5_SMTLIB ->
-      find_solver ~fail:true "MathSat5" (mathsat5_bin ()) |> ignore
     (* User chose Yices *)
     | `Yices_native ->
       find_solver ~fail:true "Yices" (yices_bin ()) |> ignore
@@ -365,11 +343,6 @@ module Smt = struct
         let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
         set_solver `CVC4_SMTLIB;
         set_cvc4_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "MathSat5" (mathsat5_bin ()) in
-        set_solver `MathSat5_SMTLIB;
-        set_mathsat5_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Yices" (yices_bin ()) in

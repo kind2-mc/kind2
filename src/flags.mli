@@ -198,7 +198,6 @@ module Smt : sig
   type solver = [
     | `Z3_SMTLIB
     | `CVC4_SMTLIB
-    | `MathSat5_SMTLIB
     | `Yices_SMTLIB
     | `Yices_native
     | `detect
@@ -224,9 +223,6 @@ module Smt : sig
 
   (** Executable of CVC4 solver *)
   val cvc4_bin : unit -> string
-
-  (** Executable of MathSAT5 solver *)
-  val mathsat5_bin : unit -> string
 
   (** Executable of Yices solver *)
   val yices_bin : unit -> string
