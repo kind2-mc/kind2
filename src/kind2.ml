@@ -629,16 +629,16 @@ let run_process messaging_setup process =
           (* Catch all other exceptions *)
           | e ->
 
-            Event.unset_relay_log ();
-
             (* Get backtrace now, Printf changes it *)
             let backtrace = Printexc.get_raw_backtrace () in
 
-            if Printexc.backtrace_status () then
-              Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
-              (Printexc.to_string e)
-              pp_print_kind_module process
-              print_backtrace backtrace;
+            if Printexc.backtrace_status () then (
+              Event.log L_fatal
+                "Caught %s in %a.@\nBacktrace:@\n%a"
+                (Printexc.to_string e)
+                pp_print_kind_module process
+                print_backtrace backtrace
+            ) ;
 
             (* Cleanup and exit *)
             on_exit_child (Some messaging_thread) process e
