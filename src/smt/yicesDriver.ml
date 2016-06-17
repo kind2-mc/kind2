@@ -74,13 +74,9 @@ let rec pp_print_type_node ppf =
 
     | Int -> Format.pp_print_string ppf "int"
 
-    | IntRange (i, j) -> 
-
-      Format.fprintf
-        ppf 
-        "(subrange %a %a)" 
-        Numeral.pp_print_numeral i 
-        Numeral.pp_print_numeral j
+    | IntRange (i, j) ->
+      Format.fprintf ppf "(subrange %a %a)"
+        Numeral.pp_print_numeral i Numeral.pp_print_numeral j
 
     | Real -> Format.pp_print_string ppf "real"
     | Abstr s -> Format.pp_print_string ppf s
@@ -159,7 +155,7 @@ let type_of_string_sexpr = function
 
     raise
       (Invalid_argument 
-         (Format.asprintf 
+         (Format.asprintfs 
             "Sort %a not supported" 
             HStringSExpr.pp_print_sexpr s))
 

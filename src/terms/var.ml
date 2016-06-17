@@ -472,9 +472,10 @@ let unrolled_uf_of_state_var_instance = function
 
   | ({ Hashcons.node = StateVarInstance (v, o) } as var) ->
 
-     (* Getting the uf symbol of the state var. *)
+     (* Getting the uf symbol and type of the state var. *)
      let uf = StateVar.uf_symbol_of_state_var v in
-
+     let ty = StateVar.type_of_state_var v in
+     
      (* Building the string representing the unrolled state var. *)
      let string =
        String.concat
@@ -488,10 +489,7 @@ let unrolled_uf_of_state_var_instance = function
      update_unrolled_var_map string var ;
      
      (* Declaring the uf. *)
-     UfSymbol.(
-       mk_uf_symbol
-         string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
-     )
+     UfSymbol.(mk_uf_symbol string (arg_type_of_uf_symbol uf) ty)
 
   | _ -> raise (Invalid_argument "unrolled_uf_of_state_var_instance")
 
