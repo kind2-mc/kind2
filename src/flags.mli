@@ -165,7 +165,7 @@ val timeout_wall : unit -> float
 type enable = Lib.kind_module list
 
 (** The modules enabled. *)
-val enable : unit -> enable
+val enabled : unit -> enable
 
 (** Modular analysis. *)
 val modular : unit -> bool
@@ -178,6 +178,9 @@ val lus_compile : unit -> bool
 
 (** Colored output. *)
 val color : unit -> bool
+
+(** Use weak hash-consing. *)
+val weakhcons : unit -> bool
 
 
 (** {2 SMT solver flags} *)
@@ -195,7 +198,6 @@ module Smt : sig
   type solver = [
     | `Z3_SMTLIB
     | `CVC4_SMTLIB
-    | `MathSat5_SMTLIB
     | `Yices_SMTLIB
     | `Yices_native
     | `detect
@@ -221,9 +223,6 @@ module Smt : sig
 
   (** Executable of CVC4 solver *)
   val cvc4_bin : unit -> string
-
-  (** Executable of MathSAT5 solver *)
-  val mathsat5_bin : unit -> string
 
   (** Executable of Yices solver *)
   val yices_bin : unit -> string
@@ -460,15 +459,12 @@ end
 (** Path to subdirectory for a system (in the output directory). *)
 val subdir_for : string list -> string
 
-(** Sets the solver kind (z3, CVC4, ...) and the actual command for that solver
-at the same time. *)
-val set_smtsolver : Smt.solver -> string -> unit
 
+(** {1 Parsing of the command line} 
 
-(** {1 Parsing of the command line} *)
-
-(** Parse the command line *)
-val parse_argv : unit -> unit
+    Parsing of the command line arguments is performed when loading this
+    module.
+*)
 
 (*
    Local Variables:

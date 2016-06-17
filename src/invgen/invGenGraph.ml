@@ -440,7 +440,7 @@ module Make (InModule : In) : InvGen = struct
     result
 
   (* Checks if one state is enabled. *)
-  let is_one_state_running () = Flags.enable () |> List.mem `INVGENOS
+  let is_one_state_running () = Flags.enabled () |> List.mem `INVGENOS
 
   (* Guards a term with init if in two state mode. *)
   let sanitize_term sys =

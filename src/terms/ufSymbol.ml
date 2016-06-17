@@ -24,6 +24,11 @@ open Lib
 (* ********************************************************************* *)
 
 
+(* Using strong (as opposed to weak) hash-consing because the table is used for
+   memoization *)
+module H = HashconsStrong
+
+
 (* Uninterpreted symbol to be hash-consed *)
 type uf_symbol = string 
 
@@ -54,7 +59,7 @@ type uf_prop =
 
 
 (* Hashconsed uninterpreted symbol *) 
-type t = (uf_symbol_node, uf_prop) Hashcons.hash_consed
+type t = (uf_symbol_node, uf_prop) H.hash_consed
 
 
 (* Hashing and equality on uninterpreted symbols *) 
@@ -76,7 +81,7 @@ end
 
 
 (* Hashconsed uninterpreted symbols *)
-module Huf_symbol = Hashcons.Make (Uf_symbol_node)
+module Huf_symbol = H.Make (Uf_symbol_node)
 
 
 (* Storage for uninterpreted function symbols *)
@@ -89,13 +94,13 @@ let ht = Huf_symbol.create 251
 
 
 (* Comparison function on uninterpreted function symbols *)
-let compare_uf_symbols = Hashcons.compare
+let compare_uf_symbols = H.compare
 
 (* Equality function on uninterpreted function symbols *)
-let equal_uf_symbols = Hashcons.equal
+let equal_uf_symbols = H.equal
 
 (* Hashing function on uninterpreted function symbols *)
-let hash_uf_symbol = Hashcons.hash 
+let hash_uf_symbol = H.hash 
 
 
 (* Module as input to functors *)
@@ -149,7 +154,7 @@ let rec pp_print_uf_symbol_node ppf s =
   Format.pp_print_string ppf s
 
 (* Pretty-print a hashconsed uninterpreted function symbol *)
-and pp_print_uf_symbol ppf { Hashcons.node = n } =
+and pp_print_uf_symbol ppf { H.node = n } =
   pp_print_uf_symbol_node ppf n
 
 
@@ -163,15 +168,15 @@ let string_of_uf_symbol s = string_of_t pp_print_uf_symbol s
 
 
 (* Return type of arguments of an uninterpreted symbol *)
-let name_of_uf_symbol { Hashcons.node = s } = s
+let name_of_uf_symbol { H.node = s } = s
 
 
 (* Return type of result of an uninterpreted symbol *)
-let res_type_of_uf_symbol { Hashcons.prop = { uf_res_type = t } } = t
+let res_type_of_uf_symbol { H.prop = { uf_res_type = t } } = t
 
 
 (* Return type of arguments of an uninterpreted symbol *)
-let arg_type_of_uf_symbol { Hashcons.prop = { uf_arg_type = t } } = t
+let arg_type_of_uf_symbol { H.prop = { uf_arg_type = t } } = t
 
 
 (* ********************************************************************* *)
@@ -216,7 +221,7 @@ let mk_uf_symbol s a r =
         ) )
         
   (* Uninterpreted symbol is not in the hashcons table *)
-  with Not_found | Huf_symbol.Key_not_found _ -> 
+  with Not_found  -> 
     
     (* Hashcons uninterpreted symbol *)
     Huf_symbol.hashcons 
@@ -260,7 +265,7 @@ let rec next_fresh_uf_symbol () =
     next_fresh_uf_symbol ()
 
   (* Candidiate symbol is not declared and can be used *)
-  with Not_found | Huf_symbol.Key_not_found _ -> s
+  with Not_found  -> s
     
     
 (* Return a fresh uninterpreted symbol 
@@ -299,8 +304,8 @@ let fold_uf_declarations f a =
   Huf_symbol.fold
     (fun u a ->
       let s, t, r = 
-        (function { Hashcons.node = s; 
-                    Hashcons.prop = { uf_arg_type = t; uf_res_type = r } } -> 
+        (function { H.node = s; 
+                    H.prop = { uf_arg_type = t; uf_res_type = r } } -> 
           s, t, r)
           u
       in
@@ -314,8 +319,8 @@ let iter_uf_declarations f =
   Huf_symbol.iter
     (fun u ->
       let s, t, r = 
-        (function { Hashcons.node = s; 
-                    Hashcons.prop = { uf_arg_type = t; uf_res_type = r } } -> 
+        (function { H.node = s; 
+                    H.prop = { uf_arg_type = t; uf_res_type = r } } -> 
           s, t, r)
           u
       in

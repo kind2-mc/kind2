@@ -402,9 +402,13 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   (* Send the command to the solver instance *)
   let send_command
       cmd_type
-      ({ solver_stdin = solver_stdin; } as solver)
+      ({ solver_stdin; solver_stderr } as solver)
       command 
       timeout = 
+
+    let err_p1 = Unix.((fstat solver_stderr).st_size) in
+    
+    try
 
     (* Get an output channel to write to solver's stdin *)
     let solver_stdin_ch = Unix.out_channel_of_descr solver_stdin in
@@ -425,6 +429,23 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     (* Return response *)
     res
+
+    with e ->
+      let err_p2 = Unix.(fstat solver_stderr).st_size in
+      let len = err_p2 - err_p1 in
+      (* Was something written to stderr? *)
+      if len <> 0 then begin
+        let buf = Bytes.create err_p2 in
+        Unix.read solver_stderr buf 0 err_p2 |> ignore;
+        let err_msg = Bytes.sub_string buf err_p1 len in
+        (* Show solver error message *)
+        (* Event.log L_fatal "@[<v>Solver error message:@ %s@]" err_msg; *)
+        failwith ("Solver error: "^err_msg)
+      end
+
+      (* Otherwise propagate error *)
+      else raise e
+
 
   (* Samme as above but additionnaly trace the commands and responses *)
   let send_command_and_trace =
