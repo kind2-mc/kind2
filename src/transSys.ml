@@ -23,6 +23,8 @@ module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
 module SVT = StateVar.StateVarHashtbl
 
+module TermMap = Term.TermHashtbl
+
 (* Offset of state variables in initial state constraint *)
 let init_base = Numeral.zero
 
@@ -131,13 +133,13 @@ type t =
     (** Requirements of global and non-global modes for this system (used by
         test generation).
         List of [(is_mode_global, mode_name, require_term)]. *)
-    mode_requires: Term.t option * (LustreIdent.t * Term.t) list ;
+    mode_requires: Term.t option * (Scope.t * Term.t) list ;
 
     (* Invariants about the current state *)
-    mutable invariants_one_state : (Term.t * Certificate.t) list;
+    invariants_one_state : Certificate.t TermMap.t ;
 
     (* Invariants about current and previous state pairs *)
-    mutable invariants_two_state : (Term.t * Certificate.t) list;
+    invariants_two_state : Certificate.t TermMap.t ;
 
   }
 
@@ -1326,15 +1328,14 @@ let add_scoped_invariant t scope invar cert =
       | Some l, Some u -> Numeral.(equal l u)
   in
 
-  iter_subsystems
-    (fun ({ scope = s; invariants_two_state; invariants_one_state } as t) -> 
-       
-       if Scope.equal scope s then
-         if is_one_state then 
-           t.invariants_one_state <- (invar, cert) :: invariants_one_state
-         else
-           t.invariants_two_state <- (invar, cert) :: invariants_two_state)
-    t
+  iter_subsystems (
+    fun { scope = s ; invariants_two_state ; invariants_one_state } ->
+      (* Would be better to do nothing if invariant is already there, but I
+      couldn't find a way to do a [find_or_else]. *)
+      if Scope.equal scope s then TermMap.replace (
+        if is_one_state then invariants_one_state else invariants_two_state
+      ) invar cert
+  ) t
 
 
 let add_properties t props =
@@ -1348,28 +1349,39 @@ let add_invariant t invar cert = add_scoped_invariant t t.scope invar cert
 
 (* Instantiate the initial state constraint to the bound *)
 let invars_of_bound
-    ?(one_state_only = false)
-    { invariants_one_state; invariants_two_state } 
-    i = 
+  ?(one_state_only = false)
+  { invariants_one_state ; invariants_two_state } 
+  i
+=
+  let append_key =
+    if Numeral.(i = zero)
+    then fun term _ acc ->                    term  :: acc
+    else fun term _ acc -> (Term.bump_state i term) :: acc
+  in
 
-  (* Create conjunction of property terms *)
-  let invars_0 = 
+  TermMap.fold append_key invariants_one_state [] |> (
+    if one_state_only
+    then identity
+    else TermMap.fold append_key invariants_two_state
+  )
 
-    (* Only one-state invariants? *)
-    (if one_state_only then
+(* Instantiate the initial state constraint to the bound and applies a
+function *)
+let map_invars_of_bound
+  ?(one_state_only = false)
+  { invariants_one_state ; invariants_two_state } 
+  f
+  i
+=
+  let bump_apply_f =
+    if Numeral.(i = zero)
+    then fun term _ -> f term
+    else fun term _ -> Term.bump_state i term |> f
+  in
 
-       (* Return only one-state invariants *)
-       List.map fst invariants_one_state
-
-     else
-
-       (* Return all invariants *)
-       List.map fst (invariants_one_state @ invariants_two_state))
-
-  in 
-
-  (* Bump bound if greater than zero *)
-  if Numeral.(i = zero) then invars_0 else List.map (Term.bump_state i) invars_0
+  TermMap.iter bump_apply_f invariants_one_state ;
+  if one_state_only then
+    TermMap.iter bump_apply_f invariants_two_state
 
 
 (*************************************************************************)
@@ -1402,7 +1414,9 @@ let get_unknown_candidates t =
   |> List.rev
 
 
-let get_invariants t = t.invariants_one_state @ t.invariants_two_state
+let get_invariants { invariants_one_state ; invariants_two_state } =
+  TermMap.fold (fun t c acc -> (t, c) :: acc) invariants_two_state []
+  |> TermMap.fold (fun t c acc -> (t, c) :: acc) invariants_one_state
 
 (* ********************************************************************** *)
 (* Construct a transition system                                          *)
@@ -1548,6 +1562,19 @@ let mk_trans_sys
               raise (Invalid_argument "mk_trans_sys: scope is not unique"))
          t)
        subsystems;
+
+  (* Constructing invariant maps. *)
+  let invariants_one_state, invariants_two_state =
+    let ios, its = (* Empty maps with the right size. *)
+      List.length invariants_one_state |> TermMap.create,
+      List.length invariants_two_state |> TermMap.create
+    in
+    (* Populating maps. *)
+    invariants_one_state |> List.iter (fun (t, c) -> TermMap.add ios t c) ;
+    invariants_one_state |> List.iter (fun (t, c) -> TermMap.add its t c) ;
+    (* Done. *)
+    ios, its
+  in
   
   (* Transition system containing only the subsystems *)
   let trans_sys = 

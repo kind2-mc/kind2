@@ -1481,24 +1481,59 @@ and eval_node_contract_spec ctx pos scope contract =
   let ctx, _, _ =
     List.fold_left (eval_node_contract_item scope) (ctx, 1, 1) contract
   in
-  (* At this point we want to check whether the contract we just parsed
-  introduced any oracles. If it did, then it means there was unguarded
-  pre-s below the contract. They a priori come from node calls in the
-  contract since unguarded pre-s in contract items and contract imports
-  fail immediately.
 
-  Is it ok to do this now? Yes, because the contract is necessarily parsed
-  BEFORE we parse the body of the node. Thus, if there is any oracle after
-  parsing the contract, it means they come from the contract. Not the body. *)
-
+  (* What follows are checks over the contract. We know the contract is parsed
+  before the body of the node, so whatever's currently in the node just comes
+  from the contract itself. *)
   ( match C.get_node ctx with
-    | None -> failwith "aaahhhh"
-    (* If no oracle we're fine. *)
-    | Some { N.oracles = [] } -> ()
-    (* Otherwise PEBCAK. *)
-    | _ ->
-      C.fail_at_position
-        pos "Illegal unguarded pre under a node call in this contract."
+    | None -> failwith "unreachable, no current node after parsing contract"
+    | Some { N.oracles ; N.calls } -> (
+      (* Checking whether the contract we just parsed introduced any oracles.
+      If it did, then it means there was unguarded pre-s below the contract.
+      They a priori come from node calls in the contract since unguarded pre-s
+      in contract items and contract imports fail immediately. *)
+      ( match oracles with
+        | [] -> () (* No oracles introduced, we're fine. *)
+        | _ -> (* PEBCAK. *)
+          C.fail_at_position
+            pos "Illegal unguarded pre under a node call in this contract."
+      ) ;
+      (* Checking that no subsystem of the current node has contracts. If one
+      of them does, it means there is a call to a node with a contract in the
+      cone of influence of the contract we just parsed. *)
+      let node_of_name ctx name =
+        try C.node_of_name ctx name with Not_found -> Format.asprintf "\
+          unreachable, node %a called in contract undefined\
+        " (I.pp_print_ident false) name
+        |> failwith
+      in
+      let rec loop known = function
+        | [] -> ()
+        | { N.name ; N.calls ; N.contract = None } :: tail ->
+          (* No contract, is ok. Preparing recursive call. *)
+          let known = I.Set.add name known in
+          calls |> List.fold_left (
+            fun acc { N.call_node_name = sub_name } -> 
+              if I.Set.mem sub_name known then acc
+              else (node_of_name ctx sub_name) :: acc
+          ) tail
+          |> loop known
+        | { N.name } :: _ -> (* PEBCAK. *)
+          Format.asprintf "\
+            Illegal call to node \"%a\" in the cone of influence of this \
+            contract: node %a has a contract.\
+          " (I.pp_print_ident false) name (I.pp_print_ident false) name
+          |> C.fail_at_position pos
+      in
+      let subs, known =
+        calls |> List.fold_left (
+          fun (subs, known) { N.call_node_name = sub_name } ->
+            if I.Set.mem sub_name known then subs, known
+            else (node_of_name ctx sub_name) :: subs, I.Set.add sub_name known
+        ) ([], I.Set.empty)
+      in
+      loop known subs
+    )
   ) ;
 
   ctx

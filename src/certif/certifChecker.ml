@@ -2593,20 +2593,14 @@ let generate_smt2_certificates uid input sys =
      raise e);
 
   (* Only generate frontend observational equivalence system for Lustre *)
-  let gen_frontend =
-    if InputSystem.is_lustre_input input then
-      try
-        generate_frontend_obs input sys dirname |> ignore;
-        true
-      with Failure s ->
-        Event.log L_warn "%s@ No frontend observer." s;
-        false
-    else begin
-      printf "No certificate for frontend@.";
-      false
-    end
-  in
-  
+  if InputSystem.is_lustre_input input then
+    try
+      generate_frontend_obs input sys dirname |> ignore
+    with Failure s ->
+      Event.log L_warn "%s@ No frontend observer." s
+  else
+    printf "No certificate for frontend@.";
+
   let open Unix in
 
   let certif_script_name =
@@ -2623,9 +2617,9 @@ let generate_smt2_certificates uid input sys =
   Event.stat Stat.[certif_stats_title, certif_stats];
 
   (* Recursive call *)
-  if not (is_fec sys) && call_frontend && gen_frontend then begin
+  if not (is_fec sys) && call_frontend then begin
 
-    printf "@{<b>Generating frontend certificate@}@.";
+    printf "@{<b>Generating frontend certificate}@.";
     let cmd_l =
       Array.to_list Sys.argv
       |> List.filter (fun s -> s <> (Flags.input_file ()))
@@ -2703,49 +2697,40 @@ let generate_all_proofs uid input sys =
     file_copy inv_lfsc final_lfsc;
     
     (* Only generate frontend observational equivalence system for Lustre *)
-    let gen_frontend =
-      if InputSystem.is_lustre_input input then
-        try
-          generate_frontend_obs input sys dirname |> ignore;
-          true
-        with Failure s ->
-          Event.log L_warn "%s@ No frontend observer." s;
-          false
-      else begin
-        (debug certif "No certificate for frontend" end);
-        false
-      end
-    in
+    if InputSystem.is_lustre_input input then
+      try
+        generate_frontend_obs input sys dirname |> ignore
+      with Failure s ->
+        Event.log L_warn "%s@ No frontend observer." s
+    else
+      (debug certif "No certificate for frontend" end);
 
     (* Send statistics *)
     Event.stat Stat.[certif_stats_title, certif_stats];
 
     if call_frontend then begin
 
-      if gen_frontend then begin
+      printf "@{<b>Generating frontend proof@}@.";
+      let cmd_l =
+        Array.to_list Sys.argv
+        |> List.filter (fun s -> s <> (Flags.input_file ()))
+      in
 
-        printf "@{<b>Generating frontend proof@}@.";
-        let cmd_l =
-          Array.to_list Sys.argv
-          |> List.filter (fun s -> s <> (Flags.input_file ()))
-        in
+      let cmd =
+        asprintf "%a %s"
+          (pp_print_list pp_print_string " ") cmd_l
+          (Filename.concat dirname "FEC.kind2")
+      in
+      (debug certif "Second run with: %s" cmd end);
 
-        let cmd =
-          asprintf "%a %s"
-            (pp_print_list pp_print_string " ") cmd_l
-            (Filename.concat dirname "FEC.kind2")
-        in
-        (debug certif "Second run with: %s" cmd end);
+      begin match Sys.command cmd with
+        | 0 | 20 ->
+          files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
 
-        begin match Sys.command cmd with
-          | 0 | 20 ->
-            files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
-
-          | c ->
-            Event.log L_warn
-              "Failed to generate frontend proof (return code %d)@." c;
-            file_copy inv_lfsc final_lfsc
-        end;
+        | c ->
+          Event.log L_warn
+            "Failed to generate frontend proof (return code %d)@." c;
+          file_copy inv_lfsc final_lfsc
       end;
 
       if clean_tmp then begin

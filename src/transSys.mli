@@ -186,7 +186,7 @@ val get_unknown_candidates : t -> Term.t list
 (** Returns the mode requirements for this system as a list of triplets
     [is_mode_global, mode_name, require_term].
     Used by test generation. *)
-val get_mode_requires : t -> Term.t option * (LustreIdent.t * Term.t) list
+val get_mode_requires : t -> Term.t option * (Scope.t * Term.t) list
 
 (** Returns the list of properties in a transition system, split by their
     status as [valid, invalid, unknown]. *)
@@ -243,7 +243,7 @@ val mk_trans_sys :
 
   (** Assumption and mode requirements for this system (used by test
       generation). *)
-  Term.t option * (LustreIdent.t * Term.t) list ->
+  Term.t option * (Scope.t * Term.t) list ->
 
 
   (** One-state invariants *)
@@ -512,6 +512,11 @@ val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
+
+(** Instantiate invariants and valid properties to the bound and applies a
+function *)
+val map_invars_of_bound :
+  ?one_state_only:bool -> t -> (Term.t -> unit) -> Numeral.t -> unit
 
 (** Return invariants with their certificates *)
 val get_invariants : t -> (Term.t * Certificate.t) list

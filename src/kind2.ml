@@ -660,6 +660,7 @@ let run_process messaging_setup process =
 
 
 (* Setup everything and returns the input system. Setup includes:
+   - flag parsing,
    - debug setup,
    - log level setup,
    - smt solver setup,
@@ -669,6 +670,9 @@ let run_process messaging_setup process =
    - parsing input file,
    - building input system. *)
 let setup : unit -> any_input = fun () ->
+
+  (* Parse command-line flags. *)
+  Flags.parse_argv () ;
 
   (* At least one debug section enabled? *)
   ( match Flags.debug () with
@@ -960,8 +964,8 @@ let launch input_sys =
 
   (* Memorizing things. *)
   cur_input_sys := Some (Input input_sys_sliced) ;
-  cur_aparam    := Some aparam           ;
-  cur_trans_sys := Some trans_sys        ;
+  cur_aparam    := Some aparam ;
+  cur_trans_sys := Some trans_sys ;
 
   (* Dump transition system in native format *)
   (* if Flags.dump_native () then NativeInput.dump_native trans_sys; *)

@@ -39,7 +39,7 @@ let close_io_ref = ref None
 let restart_count_ref = ref 0
 
 (* Communicate testcase count every 50 testcases generated. *)
-let delta_tc_comm = 50
+let delta_tc_comm = 20
 let next_tc_comm = ref delta_tc_comm
 
 let log_prefix = "[TESTGEN] "
@@ -145,9 +145,9 @@ let rec enumerate target io solver tree modes contract_term =
 and forward target io solver tree modes contract_term =
   Stat.start_timer Stat.testgen_forward_time ;
   (* Resetting if too many fresh actlits have been created. *)
-  let solver = if Actlit.fresh_actlit_count () >= 250 then (
+  let solver = if Actlit.fresh_actlit_count () >= 10 then (
       Stat.incr Stat.testgen_restarts ;
-      Event.log L_info "%sRestarting solver." log_prefix ;
+      Event.log_uncond "%sRestarting solver." log_prefix ;
       Actlit.reset_fresh_actlit_count () ;
       let solver = Solver.restart solver in
       solver_ref := Some solver ;
@@ -256,7 +256,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
       if value then key :: a, c else a, key :: c
     ) (Analysis.info_of_param param).Analysis.abstraction_map ([],[])
   in
-  Event.log L_info "%s@[<v>\
+  Event.log_uncond "%s@[<v>\
       Launching on %a.@ \
       concrete subsystems: [ @[<hov>%a@] ]@ \
       abstract subsystems: [ @[<hov>%a@] ]\
@@ -295,8 +295,7 @@ Analysis.param -> s Sys.t -> TSys.t -> string -> string list
 
   let init_modes =
     match
-      Solver.checksat
-        solver Numeral.zero mode_term [] modes unit_of
+      Solver.checksat solver Numeral.zero mode_term [] modes unit_of
     with
     | None -> failwith "no mode activable in init"
     | Some (map, ()) -> active_modes_of_map map

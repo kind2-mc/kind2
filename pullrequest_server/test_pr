@@ -153,8 +153,6 @@ else
 
     echo " * Building $base"
 
-    make clean
-
     ./autogen.sh
 
     ./build.sh
