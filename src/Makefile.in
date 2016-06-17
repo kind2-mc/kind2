@@ -1,4 +1,4 @@
-OCAMLBUILD=@OCAMLBUILD@ -classic-display -cflags -w,@P@U@F
+OCAMLBUILD=@OCAMLBUILD@ -cflags -w,@P@U@F
 
 # Enable debug output for sections
 export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@

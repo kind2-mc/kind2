@@ -155,7 +155,7 @@ let type_of_string_sexpr = function
 
     raise
       (Invalid_argument 
-         (Format.asprintfs 
+         (Format.asprintf
             "Sort %a not supported" 
             HStringSExpr.pp_print_sexpr s))
 
