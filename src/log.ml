@@ -177,14 +177,6 @@ let printf_xml mdl level fmt =
 (*****************************************************************)
 (* Setup                                                         *)
 (*****************************************************************)
-
-(* Relay function (uninitialized) *)
-let printf_relay : ('a m_log_printer) ref =
-  ref (fun _ _ _ -> raise (Failure "undefined"))
-  
-  (* ref (fun _ _ _ -> *)
-  (*   failwith "Cannot send relay messages before initializtion" *)
-  (* ) *)
   
 (* Set log format to plain text *)
 let set_log_format_pt () = log_format := F_pt
@@ -197,11 +189,9 @@ let set_log_format_xml () =
 
 
 (* Relay log messages to invariant manager *)
-let set_relay_log (* (relay_f : 'a m_log_printer) *) () =
+let set_relay_log () =
   prev_log_format := !log_format;
   log_format := F_relay
-  (* ; *)
-  (* printf_relay := relay_f *)
 
 
 let unset_relay_log () = log_format := !prev_log_format

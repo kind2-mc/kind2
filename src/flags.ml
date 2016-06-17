@@ -187,8 +187,6 @@ module Smt = struct
   let logic () = !logic
 
   (* Activates check-sat with assumptions when supported. *)
-  let check_sat_assume_of_string s = s
-  let string_of_check_sat_assume s = s
   let check_sat_assume_default = true
   let check_sat_assume = ref check_sat_assume_default
   let _ = add_spec
@@ -206,8 +204,6 @@ module Smt = struct
   let check_sat_assume () = !check_sat_assume
 
   (* Use short name for variables at SMT level. *)
-  let short_names_of_string s = s
-  let string_of_short_names s = s
   let short_names_default = true
   let short_names = ref short_names_default
   let _ = add_spec
@@ -225,8 +221,6 @@ module Smt = struct
   let short_names () = !short_names
 
   (* Z3 binary. *)
-  let z3_bin_of_string s = s
-  let string_of_z3_bin s = s
   let z3_bin_default = "z3"
   let z3_bin = ref z3_bin_default
   let _ = add_spec
@@ -235,14 +229,12 @@ module Smt = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of Z3 solver@ Default: \"%s\"@]"
-        (string_of_z3_bin z3_bin_default)
+        z3_bin_default
     )
   let set_z3_bin str = z3_bin := str
   let z3_bin () = ! z3_bin
 
   (* CVC4 binary. *)
-  let cvc4_bin_of_string s = s
-  let string_of_cvc4_bin s = s
   let cvc4_bin_default = "cvc4"
   let cvc4_bin = ref cvc4_bin_default
   let _ = add_spec
@@ -251,14 +243,12 @@ module Smt = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of CVC4 solver@ Default: \"%s\"@]"
-        (string_of_cvc4_bin cvc4_bin_default)
+        cvc4_bin_default
     )
   let set_cvc4_bin str = cvc4_bin := str
   let cvc4_bin () = !cvc4_bin
 
   (* Yices binary. *)
-  let yices_bin_of_string s = s
-  let string_of_yices_bin s = s
   let yices_bin_default = "yices"
   let yices_bin = ref yices_bin_default
   let _ = add_spec
@@ -267,14 +257,12 @@ module Smt = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of Yices solver@ Default: \"%s\"@]"
-        (string_of_yices_bin yices_bin_default)
+        yices_bin_default
     )
   let set_yices_bin str = yices_bin := str
   let yices_bin () = !yices_bin
 
   (* Yices 2 binary. *)
-  let yices2smt2_bin_of_string s = s
-  let string_of_yices2smt2_bin s = s
   let yices2smt2_bin_default = "yices-smt2"
   let yices2smt2_bin = ref yices2smt2_bin_default
   let _ = add_spec
@@ -283,7 +271,7 @@ module Smt = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Executable of Yices2 SMT2 solver@ Default: \"%s\"@]"
-        (string_of_yices2smt2_bin yices2smt2_bin_default)
+        yices2smt2_bin_default
     )
   let set_yices2smt2_bin str = yices2smt2_bin := str
   let yices2smt2_bin () = !yices2smt2_bin
