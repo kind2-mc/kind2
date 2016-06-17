@@ -31,17 +31,16 @@ exception Terminate
 
 (** {1 Logging} *)
 
-(** Set log format to plain text *)
-val set_log_format_pt : unit -> unit
+(** Expose functions from logging module *)
+include Log.Sig
 
-(** Set log format to XML *)
-val set_log_format_xml : unit -> unit
+(** Logging instantiated with an actual relay function *)
+include Log.SLog
 
-(** Relay log messages to invariant manager *)
+(** Relay log messages to invariant manager (overrides function from
+    {! Log}) *)
 val set_relay_log : unit -> unit
 
-(** Cancel relaying of log messages *)
-val unset_relay_log : unit -> unit
 
 (** Logs a step counterexample.
 
@@ -120,14 +119,6 @@ val pp_print_event : Format.formatter -> event -> unit
 
 (** Return the last statistics received *)
 val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
-
-(** [log m l f v ...] outputs a message from module [m] on level [l],
-    formatted with the parameterized string [f] and the values [v ...] *)
-val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
-
-(** [log_uncond m f v ...] outputs a message from module [m] unconditionally,
-    formatted with the parameterized string [f] and the values [v ...] *)
-val log_uncond : ('a, Format.formatter, unit) format -> 'a
 
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit
@@ -217,17 +208,12 @@ type messaging_setup
 (** Background thread of the messaging system *)
 type mthread
 
-(** Set module currently running *)
-val set_module : Lib.kind_module -> unit 
-
-(** Get module currently running *)
-val get_module : unit -> Lib.kind_module
-
 (** Create contexts and bind ports for all processes *)
 val setup : unit -> messaging_setup
 
 (** Start messaging for the invariant manager *)
-val run_im : messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+val run_im :
+  messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
 
 (** Start messaging for another process *)
 val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
@@ -236,7 +222,9 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 val exit : mthread -> unit
 
 
-val pp_print_path_pt : 'a InputSystem.t -> Analysis.param -> TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val pp_print_path_pt :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> 'a ->
+  Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (* 
    Local Variables:

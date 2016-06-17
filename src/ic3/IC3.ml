@@ -3219,7 +3219,7 @@ let main input_sys aparam trans_sys =
       let props' =
 
         (* Is BMC running in parallel? *)
-        if List.mem `BMC (Flags.enable ()) && not debug_assert then 
+        if List.mem `BMC (Flags.enabled ()) && not debug_assert then 
 
           (Event.log L_info
              "Delegating check for zero and one step counterexamples \

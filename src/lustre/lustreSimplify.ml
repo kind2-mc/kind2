@@ -38,9 +38,6 @@ module F = LustreFunction
 module C = LustreContext
 module Contract = LustreContract
 
-(* FIXME: Remove unless debugging *)
-module Event = struct let log _ = Format.printf end
-
 
 let pp_print_trie pp_i pp_e ppf t = 
   D.bindings t |> 

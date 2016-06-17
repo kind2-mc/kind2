@@ -276,7 +276,14 @@ let status_of_exn process status = function
     status_signal + s
 
   )
-    
+
+  | Failure msg ->
+    Event.log L_fatal
+      "Runtime failure in %a: %s"
+      pp_print_kind_module process
+      msg ;
+    status_error
+
   (* Other exception, return exit status for error. *)
   | e ->
     Event.log L_fatal
@@ -652,207 +659,7 @@ let run_process messaging_setup process =
       child_pids := (pid, process) :: !child_pids
 
 
-(* Check which SMT solver is available *)
-let check_smtsolver () =
-
-  (* SMT solver from command-line *)
-  match Flags.Smt.solver () with
-
-    (* User chose Z3 *)
-    | `Z3_SMTLIB ->
-
-      let z3_exec =
-
-        (* Check if Z3 is on the path *)
-        try find_on_path (Flags.Smt.z3_bin ()) with
-
-          | Not_found ->
-
-            (* Fail if not *)
-            Event.log
-              L_fatal
-              "Z3 executable %s not found."
-              (Flags.Smt.z3_bin ()) ;
-
-            exit 2
-
-      in
-
-      Event.log L_info "Using Z3 executable %s." z3_exec
-
-    (* User chose CVC4 *)
-    | `CVC4_SMTLIB ->
-
-      let cvc4_exec =
-
-        (* Check if CVC4 is on the path *)
-        try find_on_path (Flags.Smt.cvc4_bin ()) with
-
-          | Not_found ->
-
-            (* Fail if not *)
-            Event.log
-              L_fatal
-              "CVC4 executable %s not found."
-              (Flags.Smt.cvc4_bin ()) ;
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using CVC4 executable %s."
-        cvc4_exec
-
-    (* User chose MathSat5 *)
-    | `MathSat5_SMTLIB ->
-
-      let mathsat5_exec =
-
-        (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.Smt.mathsat5_bin ()) with
-
-          | Not_found ->
-
-            (* Fail if not *)
-            Event.log
-              L_fatal
-              "MathSat5 executable %s not found."
-              (Flags.Smt.mathsat5_bin ()) ;
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using MathSat5 executable %s."
-        mathsat5_exec
-
-
-    (* User chose Yices *)
-    | `Yices_native ->
-
-      let yices_exec =
-
-        (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.Smt.yices_bin ()) with
-
-          | Not_found ->
-
-            (* Fail if not *)
-            Event.log
-              L_fatal
-              "Yices executable %s not found."
-              (Flags.Smt.yices_bin ()) ;
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using Yices executable %s."
-        yices_exec
-
-
-    (* User chose Yices2 *)
-    | `Yices_SMTLIB ->
-
-      let yices_exec =
-
-        (* Check if yices 2 is on the path *)
-        try find_on_path (Flags.Smt.yices2smt2_bin ()) with
-
-          | Not_found ->
-
-            (* Fail if not *)
-            Event.log
-              L_fatal
-              "Yices2 SMT2 executable %s not found."
-              (Flags.Smt.yices2smt2_bin ()) ;
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using Yices2 SMT2 executable %s."
-        yices_exec
-
-
-    (* User did not choose SMT solver *)
-    | `detect ->
-
-      try
-
-        let z3_exec = find_on_path (Flags.Smt.z3_bin ()) in
-
-        Event.log L_info "Using Z3 executable %s." z3_exec ;
-
-        (* Z3 is on path? *)
-        Flags.set_smtsolver
-          `Z3_SMTLIB
-          z3_exec
-
-      with Not_found ->
-
-        try
-
-          let cvc4_exec = find_on_path (Flags.Smt.cvc4_bin ()) in
-
-          Event.log
-            L_info
-            "Using CVC4 executable %s."
-            cvc4_exec ;
-
-          (* CVC4 is on path? *)
-          Flags.set_smtsolver
-            `CVC4_SMTLIB
-            cvc4_exec
-
-        with Not_found ->
-
-          try
-
-            let mathsat5_exec = find_on_path (Flags.Smt.mathsat5_bin ()) in
-
-            Event.log
-              L_info
-              "Using MatSat5 executable %s."
-              mathsat5_exec ;
-
-            (* MathSat5 is on path? *)
-            Flags.set_smtsolver
-              `MathSat5_SMTLIB
-              mathsat5_exec
-
-          with Not_found ->
-
-            try
-
-              let yices_exec = find_on_path (Flags.Smt.yices_bin ()) in
-
-              Event.log
-                L_info
-                "Using Yices executable %s."
-                yices_exec ;
-
-              (* Yices is on path? *)
-              Flags.set_smtsolver
-                `Yices_SMTLIB
-                yices_exec
-
-            with Not_found ->
-
-              Event.log L_fatal "No SMT Solver found" ;
-
-              exit 2
-
 (* Setup everything and returns the input system. Setup includes:
-   - flag parsing,
    - debug setup,
    - log level setup,
    - smt solver setup,
@@ -862,9 +669,6 @@ let check_smtsolver () =
    - parsing input file,
    - building input system. *)
 let setup : unit -> any_input = fun () ->
-
-  (* Parse command-line flags. *)
-  Flags.parse_argv () ;
 
   (* At least one debug section enabled? *)
   ( match Flags.debug () with
@@ -893,24 +697,9 @@ let setup : unit -> any_input = fun () ->
       )
   ) ;
 
-  (* Set log format to XML if requested. *)
-  if Flags.log_format_xml () then Event.set_log_format_xml () ;
-
-  (* Don't print banner if no output at all. *)
-  if not (Flags.log_level () = L_off) then (
-    (* Temporarily set log level to info and output logo. *)
-    set_log_level L_info ;
-    Event.log L_info "%a" pp_print_banner ()
-  ) ;
-
-  (* Set log level. *)
-  Flags.log_level () |> set_log_level ;
 
   (* Record backtraces on log levels debug and higher. *)
   if output_on_level L_debug then Printexc.record_backtrace true ;
-
-  (* Check and set SMT solver. *)
-  check_smtsolver () ;
 
   (* Set sigalrm handler. *)
   set_sigalrm_handler () ;
@@ -1182,7 +971,7 @@ let launch input_sys =
 
 
   (* Checking what's activated. *)
-  match Flags.enable () with
+  match Flags.enabled () with
 
   (* No modules enabled. *)
   | [] ->

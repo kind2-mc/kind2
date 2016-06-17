@@ -162,7 +162,6 @@ module type S =
     type key
     type prop
     type t
-    exception Key_not_found of key
     val create : int -> t
     val clear : t -> unit
     val hashcons : t -> key -> prop -> (key, prop) hash_consed
@@ -186,8 +185,6 @@ struct
     mutable totsize : int;             (* sum of the bucket sizes *)
     mutable limit : int;               (* max ratio totsize/table length *)
   }
-
-  exception Key_not_found of key
 
   let emptybucket = Weak.create 0
 
@@ -301,7 +298,7 @@ struct
       if i >= sz then begin
         (* [hashcons] inserts the value into the table here, but we
            raise and exception *)
-	raise (Key_not_found d)
+	raise (Not_found)
       end else begin
         match Weak.get_copy bucket i with
           | Some v when H.equal v.node d -> 

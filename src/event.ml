@@ -19,6 +19,8 @@
 open Pretty
 open Lib
 
+include Log
+
 (* Termination message received *)
 exception Terminate
 
@@ -573,74 +575,8 @@ let prop_status_pt level prop_status =
           
 
 (* ********************************************************************** *)
-(* XML output                                                             *)
+(* XML specific functions                                                 *)
 (* ********************************************************************** *)
-
-(* Level to class attribute of log tag *)
-let xml_cls_of_level = function
-  | L_off -> "off"
-  | L_fatal -> "fatal"
-  | L_error -> "error"
-  | L_warn -> "warn"
-  | L_info -> "info"
-  | L_debug -> "debug"
-  | L_trace -> "trace"
-  
-
-(* Pretty-print level as class attribute of log tag *)
-let pp_print_level_xml_cls ppf l = 
-  Format.fprintf ppf "%s" (xml_cls_of_level l)
-
-
-(* Kind module as source attribute of log tag *)
-let xml_src_of_kind_module = suffix_of_kind_module
-
-(* Pretty-print kind module as source attribute of log tag *)
-let pp_print_kind_module_xml_src ppf m = 
-  Format.fprintf ppf "%s" (xml_src_of_kind_module m)
-
-
-(* XML at the beginning the output *)
-let print_xml_header () =
-    Format.fprintf !log_ppf "@[<v>\
-      <?xml version=\"1.0\"?>@ \
-      <Results \
-        xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
-        enabled=\"%a\" \
-        timeout=\"%f\" \
-        bmc_max=\"%d\" \
-        compositional=\"%b\" \
-        modular=\"%b\"\
-      >@.@.@.\
-    "
-    (pp_print_list (fun fmt m ->
-        (xml_src_of_kind_module m) |> Format.fprintf fmt "%s"
-      )
-      ",")
-    (Flags.enable ())
-    (Flags.timeout_wall ())
-    (Flags.BmcKind.max ())
-    (Flags.Contracts.compositional ())
-    (Flags.modular ())
-
-
-(* XML at the end of the output *)
-let print_xml_trailer () = 
-
-  Format.fprintf !log_ppf "@.@.</Results>@."
-
-
-(* Output message as XML *)
-let printf_xml mdl level fmt = 
-
-  (ignore_or_fprintf level)
-    !log_ppf 
-    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ 
-       fmt ^^ 
-       "@]@;<0 -2></Log>@]@.") 
-    pp_print_level_xml_cls level
-    pp_print_kind_module_xml_src mdl
-
 
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
@@ -857,46 +793,6 @@ let prop_status_xml level prop_status =
                      ((Property.length_of_cex cex) - 1))
               s)
        "@,")
-  (* (ignore_or_fprintf level)
-    !log_ppf
-    "@[<v>%a@]@."
-    (pp_print_list 
-       (fun ppf (p, s) -> 
-
-          (* Only output properties with status unknonw *)
-          if not (Property.prop_status_known s) then
-            
-            Format.fprintf 
-              ppf
-              "@[<hv 2><Property name=\"%s\">@,\
-               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
-               %a@,\
-               @;<0 -2></Property>@]"
-              p
-              (function ppf -> function 
-                 | Property.PropUnknown
-                 | Property.PropKTrue _ -> Format.fprintf ppf "unknown"
-                 | Property.PropInvariant -> Format.fprintf ppf "valid"
-                 | Property.PropFalse [] 
-                 | Property.PropFalse _ -> Format.fprintf ppf "falsifiable")
-              s
-              (function ppf -> function
-                 | Property.PropUnknown
-                 | Property.PropInvariant 
-                 | Property.PropFalse [] -> ()
-                 | Property.PropKTrue k -> 
-                   Format.fprintf 
-                     ppf 
-                     "@,@[<hv 2><TrueFor>@,%d@;<0 -2></TrueFor>@]"
-                     k
-                 | Property.PropFalse cex -> 
-                   Format.fprintf 
-                     ppf 
-                     "@,@[<hv 2><FalseAt>@,%d@;<0 -2></FalseAt>@]"
-                     (Property.length_of_cex cex))
-              s)
-       "@,")
-    prop_status *)
 
 
 (* ********************************************************************** *)
@@ -931,85 +827,21 @@ let printf_relay mdl level fmt =
     fmt
 
 
-(*
-(* Send statistics *)
-let stat_relay stats =
-
-  try 
-
-    (* Send statistics message *)
-    EventMessaging.send_output_message
-      (EventMessaging.Stat (Marshal.to_string stats []))
-
-  (* Don't fail if not initialized *) 
-  with Messaging.NotInitialized -> ()
-
-*)
-
-(* ********************************************************************** *)
-(* State of the logger                                                    *)
-(* ********************************************************************** *)
+(* (\* Relay log messages to invariant manager *\) *)
+(* let set_relay_log () = Log.set_relay_log printf_relay *)
 
 
-(* Log formats *)
-type log_format = 
-  | F_pt
-  | F_xml
-  | F_relay
-
-
-(* Current log format *)
-let log_format = ref F_pt
-let prev_log_format = ref !log_format
-
-(* Set log format to plain text *)
-let set_log_format_pt () = log_format := F_pt
-
-(* Set log format to XML *)
-let set_log_format_xml () = 
-
-  log_format := F_xml;
-
-  (* Print XML header *)
-  print_xml_header ()
-               
-
-(* Relay log messages to invariant manager *)
-let set_relay_log () =
-  prev_log_format := !log_format;
-  log_format := F_relay
-
-let unset_relay_log () = log_format := !prev_log_format
+module ELog = Log.Make (struct let printf_relay = printf_relay end)
+include ELog
 
 
 (* ********************************************************************** *)
-(* Generic logging functions                                              *)
+(* Specialized logging functions                                          *)
 (* ********************************************************************** *)
-
-(* Log a message with source and log level *)
-let log level fmt =
-
-  let mdl = get_module () in
-
-  match !log_format with 
-    | F_pt -> printf_pt mdl level fmt
-    | F_xml -> printf_xml mdl level fmt
-    | F_relay -> printf_relay mdl level fmt
-
-(* Unconditionally logs a message. *)
-let log_uncond fmt =
-
-  let mdl = get_module () in
-
-  match !log_format with 
-    | F_pt -> printf_pt_uncond mdl fmt
-    | F_xml -> printf_xml mdl L_info fmt
-    | F_relay -> printf_xml mdl L_info fmt
-
 
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
-  match !log_format with 
+  match get_log_format () with 
     | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_relay -> ()
@@ -1019,7 +851,7 @@ let div_by_zero_text = "division by zero detected, model may be inconsistent"
 
 (* Log a message with source and log level *)
 let log_cex disproved mdl level input_sys analysis trans_sys prop cex =
-  match !log_format with 
+  match get_log_format () with 
   | F_pt ->
     cex_pt mdl level input_sys analysis trans_sys prop cex disproved
   | F_xml ->
@@ -1038,7 +870,7 @@ let log_step_cex mdl level input_sys analysis trans_sys prop cex =
 (* Log an exection path *)
 let log_execution_path mdl level input_sys analysis trans_sys path =
 
-  (match !log_format with 
+  (match get_log_format () with 
     | F_pt -> execution_path_pt level input_sys analysis trans_sys path
     | F_xml -> execution_path_xml level input_sys analysis trans_sys path 
     | F_relay -> ())
@@ -1046,7 +878,7 @@ let log_execution_path mdl level input_sys analysis trans_sys path =
 
 (* Output summary of status of properties *)
 let log_prop_status level prop_status =
-  match !log_format with 
+  match get_log_format () with 
     | F_pt -> prop_status_pt level prop_status
     | F_xml -> prop_status_xml level prop_status
     | F_relay -> ()
@@ -1055,7 +887,7 @@ let log_prop_status level prop_status =
 (* Output statistics of a section of a source *)
 let log_stat mdl level stats =
 
-  match !log_format with 
+  match get_log_format () with 
     | F_pt -> stat_pt mdl level stats
     | F_xml -> stat_xml mdl level stats
     | F_relay -> ()
@@ -1063,7 +895,7 @@ let log_stat mdl level stats =
 
 (* Output progress indicator of a source *)
 let log_progress mdl level k = 
-  match !log_format with 
+  match get_log_format () with 
     | F_pt -> ()
     | F_xml -> progress_xml mdl level k
     | F_relay -> ()
@@ -1071,7 +903,7 @@ let log_progress mdl level k =
 
 (* Logs the end of a run. *)
 let log_run_end results =
-  match !log_format with
+  match get_log_format () with
   | F_pt ->
     (* Printing a short, human readable version of all the results. *)
     if Flags.Contracts.compositional () then
@@ -1096,7 +928,7 @@ let log_run_end results =
 let log_analysis_start sys param =
   let param = Analysis.shrink_param_to_sys param sys in
   let info = Analysis.info_of_param param in
-  match !log_format with
+  match get_log_format () with
   | F_pt ->
     if Flags.log_level () = L_off |> not then
       Format.fprintf !log_ppf "\
@@ -1146,7 +978,7 @@ let log_analysis_start sys param =
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)
 let log_analysis_end result =
-  match !log_format with
+  match get_log_format () with
   | F_pt -> ()
   | F_xml ->
     if !analysis_start_not_closed then (
@@ -1159,7 +991,7 @@ let log_analysis_end result =
 
 (* Terminate log output *)
 let terminate_log () = 
-  match !log_format with 
+  match get_log_format () with 
     | F_pt -> Format.print_flush ()
     | F_xml ->
       log_analysis_end () ;
@@ -1170,7 +1002,7 @@ let terminate_log () =
 (** Logs a timeout. *)
 let log_timeout b =
   let pref = if b then "Wallclock" else "CPU" in
-  match !log_format with
+  match get_log_format () with
   | F_pt ->
     if Flags.log_level () = L_off |> not then
       Format.printf "%t %s timeout.@.@." timeout_tag pref 
@@ -1187,7 +1019,7 @@ let log_interruption signal =
       | _ -> Format.asprintf " %s" (string_of_signal signal)
     )
   in
-  match !log_format with
+  match get_log_format () with
   | F_pt ->
     if Flags.log_level () = L_off |> not then
       Format.printf "%t %s@.@." interruption_tag txt

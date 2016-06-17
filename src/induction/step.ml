@@ -694,7 +694,7 @@ let launch input_sys aparam trans =
 (* Runs the step instance. *)
 let main input_sys aparam trans =
 
-  if not (List.mem `BMC (Flags.enable ())) then
+  if not (List.mem `BMC (Flags.enabled ())) then
 
     Event.log
       L_warn 
