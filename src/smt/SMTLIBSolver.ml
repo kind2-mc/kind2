@@ -431,7 +431,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     res
 
     with e ->
-      let err_p2 = Unix.(fstat solver_stderr).st_size in
+      let err_p2 = Unix.(fstat solver_stderr).Unix.st_size in
       let len = err_p2 - err_p1 in
       (* Was something written to stderr? *)
       if len <> 0 then begin
