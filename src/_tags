@@ -8,7 +8,7 @@
 # Do not traverse all directories by default - excludes .svn, .git etc.
 # Must list all subdirectories explicitly
 # (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
-true: -traverse
+true: -traverse, annot, bin_annot
 
 # Sub-directory decomposition input
 <utils>: include

@@ -298,7 +298,7 @@ let status_of_exn_sys process sys_opt =
 let status_of_exn_results process results_opt =
   status_of_exn process (status_of_results results_opt)
 
-(* Kill all kids cleanly. *)
+(* Kill all kids violently. *)
 let slaughter_kids process sys =
 
   (* Ignore SIGALRM from now on *)
@@ -309,116 +309,58 @@ let slaughter_kids process sys =
 
   Event.log L_info "Killing all remaining child processes";
 
-  (* Kill all child processes *)
+  (* Kill all child processes groups *)
   List.iter
     (function pid, _ ->
 
-      Event.log L_debug "Sending SIGTERM to PID %d" pid ;
+      Event.log L_debug "Sending SIGKILL to PID %d" pid ;
 
-      Unix.kill pid Sys.sigterm)
+      try Unix.kill (- pid) Sys.sigkill with _ -> ())
 
     !child_pids ;
 
   Event.log L_debug
     "Waiting for remaining child processes to terminate" ;
 
-  ( try
+  (try
+     while true do
+       (* Wait for child process to terminate *)
+       let pid, status = Unix.wait () in
+       (* Remove killed process from list *)
+       child_pids := List.remove_assoc pid !child_pids ;
 
-    (* Install signal handler for SIGALRM after wallclock timeout *)
-    Sys.set_signal
-      Sys.sigalrm
-      (Sys.Signal_handle (function _ -> raise TimeoutWall)) ;
+       (* Log termination status *)
+       Event.log L_debug
+         "Process %d %a" pid pp_print_process_status status
+     done
+   with
 
-    (* Set interval timer for wallclock timeout. Used to detect we have been
-       waiting for kids to die for too long. *)
-    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-      Unix.setitimer
-        Unix.ITIMER_REAL
-        { Unix.it_interval = 0.; Unix.it_value = 1. }
-    in
+   (* No more child processes, this is the normal exit *)
+   | Unix.Unix_error (Unix.ECHILD, _, _) ->
 
-    (try
+     Event.log L_info
+       "All child processes terminated." ;
 
-       while true do
+     (* Unix.wait was interrupted *)
+   | Unix.Unix_error (Unix.EINTR, _, _) ->
 
-         (* Wait for child process to terminate *)
-         let pid, status = Unix.wait () in
+     (* Ignoring exit code, whatever happened does not change the
+        outcome of the analysis. *)
+     status_of_exn_sys process None (Signal 0) |> ignore
 
-         (* Kill processes left in process group of child process *)
-         (try Unix.kill (- pid) Sys.sigkill with _ -> ()) ;
+   (* Exception in Unix.wait loop *)
+   | e ->
 
-         (* Remove killed process from list *)
-         child_pids := List.remove_assoc pid !child_pids ;
+     (* Ignoring exit code, whatever happened does not change the
+        outcome of the analysis. *)
+     status_of_exn_sys process None e |> ignore ;
+  );
 
-         (* Log termination status *)
-         Event.log L_debug
-           "Process %d %a" pid pp_print_process_status status
-
-       done
-
-     with TimeoutWall -> ()) ;
-
-  with
-
-    (* No more child processes, this is the normal exit *)
-    | Unix.Unix_error (Unix.ECHILD, _, _) ->
-
-      Event.log L_info
-        "All child processes terminated." ;
-
-    (* Unix.wait was interrupted *)
-    | Unix.Unix_error (Unix.EINTR, _, _) ->
-
-      (* Ignoring exit code, whatever happened does not change the
-         outcome of the analysis. *)
-      status_of_exn_sys process None (Signal 0) |> ignore
-
-    (* Exception in Unix.wait loop *)
-    | e ->
-
-      (* Ignoring exit code, whatever happened does not change the
-         outcome of the analysis. *)
-      status_of_exn_sys process None e |> ignore ) ;
-
-  (* Deactivate timeout. *)
-  let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-    Unix.setitimer
-      Unix.ITIMER_REAL
-      { Unix.it_interval = 0.; Unix.it_value = 0. }
-  in
+  if !child_pids <> [] then
+    Event.log L_fatal "Some children did not exit.";
+  
   (* Install generic signal handler for SIGALRM. *)
   set_generic_handler_for Sys.sigalrm ;
-
-  (* Log termination status *)
-  ( try
-    ( match !child_pids with
-      | [] -> ()
-      | kids ->
-
-        kids |> Event.log L_debug
-          "Some processes (%a) did not exit, killing them." (
-            pp_print_list (fun ppf (pid, _) ->
-              Format.pp_print_int ppf pid
-            ) ",@ "
-          ) ;
-
-        (* Kill all remaining processes in the process groups of child
-           processes *)
-        kids |> List.iter (fun (pid, _) ->
-          try
-            Unix.kill (- pid) Sys.sigkill
-          with _ -> ()
-        ) ;
-
-        (* Waiting for all kids to be actually done. *)
-        kids |> List.iter (fun _ -> Unix.wait () |> ignore) )
-    with
-
-      (* No more child processes, this is the normal exit *)
-      | Unix.Unix_error (Unix.ECHILD, _, _) ->
-
-        Event.log L_info
-          "All child processes terminated." ) ;
 
   (* Cleaning kids list. *)
   child_pids := [] ;
