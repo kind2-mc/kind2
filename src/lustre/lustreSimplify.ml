@@ -913,105 +913,17 @@ let rec eval_ast_expr ctx = function
   (* Array constructor [[expr1, expr2]] *)
   | A.ArrayExpr (pos, expr_list) -> 
 
-    let _, res, ctx = 
-
-      (* Iterate over list of expressions *)
-      List.fold_left
-
-        (fun (i, accum, ctx) expr -> 
-
-           (* Evaluate expression *)
-           let expr', ctx = eval_ast_expr ctx expr in
-
-           (* Increment counter *)
-           (succ i,
-
-            (* Push current index to indexes in expression and add
-               to accumulator trie *)
-            D.fold
-              (fun j e a -> 
-                 D.add (D.ArrayIntIndex i :: j) e a)
-              expr'
-              accum,
-
-            (* Continue with added definitions *)
-            ctx))
-
-        (* Start counting index at zero, with given abstractions and
-           add to the empty trie *)
-        (0, D.empty, ctx)
-
-        expr_list
-
-    in
-
-    (res, ctx)
+    C.fail_at_position pos "Arrays not supported"
 
   (* Array constructor [expr^size_expr] *)
   | A.ArrayConstr (pos, expr, size_expr) -> 
 
-    (* Evaluate expression to an integer constant *)
-    let array_size = static_int_of_ast_expr ctx pos size_expr in
-
-    (* Evaluate expression for array elements *)
-    let expr', ctx = eval_ast_expr ctx expr in
-
-    (* Push array index to indexes in expression and add to
-       accumulator trie *)
-    let res = 
-      D.fold
-        (fun j e a -> 
-           D.add (D.ArrayVarIndex array_size :: j) e a)
-        expr'
-        D.empty
-    in
-
-    (res, ctx)
+    C.fail_at_position pos "Arrays not supported"
 
   (* Array slice [A[i..j] with i=j is just A[k] *)
   | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
 
-    (* Evaluate expression to an integer constant *)
-    let index = static_int_of_ast_expr ctx pos i |> E.mk_of_expr in
-
-    let expr', ctx = eval_ast_expr ctx expr in 
-
-    (* Every index starts with ArrayVarIndex or none does *)
-    (match D.choose expr' with 
-
-      (* Projection from an array indexed by variable *)
-      | D.ArrayVarIndex _ :: _, _ ->
-
-        (* Remove top index from all elements in trie *)
-        let expr' = 
-          D.fold
-            (function 
-              | D.ArrayVarIndex _ :: tl -> D.add tl
-              | _ -> assert false)
-            expr'
-            D.empty
-        in
-
-        (* Select from array in all elements *)
-        (D.map (fun e -> E.mk_select e index) expr', ctx)
-
-      (* Projection from an array indexed by integers *)
-      | D.ArrayIntIndex _ :: tl, _ -> 
-
-        C.fail_at_position 
-          pos
-          "Cannot use a constant array in a recursive definition"
-
-      (* Projection from a tuple expression *)
-      | D.TupleIndex _ :: tl, _ ->
-
-        (* Try again with the correct expression *)
-        eval_ast_expr ctx (A.TupleProject (pos, expr, i))
-
-      (* Other or no index *)
-      | D.RecordIndex _ :: _, _ 
-      | D.ListIndex _ :: _, _ 
-      | [], _ -> C.fail_at_position pos "Selection not from an array")
+    C.fail_at_position pos "Arrays not supported"
 
   (* Array slice [A[i..j,k..l]] *)
   | A.ArraySlice (pos, _, _) -> 
