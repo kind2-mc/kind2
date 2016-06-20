@@ -18,188 +18,73 @@
 
 open Lib
 
-(* Entry for a debug section *)
-type debug_section = 
-  { formatter : Format.formatter;
-    mutable seq : int;
-    enabled_time : float; }
+let dflags = Flags.debug ()
 
-(* Formatters for enabled debug sections
-
-   Start with defaults to enable debug output before flags have been
-   parsed *)
-let section_formatters = ref [("*", 
-                               { formatter = Format.std_formatter; 
-                                 enabled_time = Unix.gettimeofday ();
-                                 seq = 1 })]
-
-(* Set to true after the first call to enable a debug section *)
-let initialized = ref false
-
-
-(* Initialize debug output by removing the default output *)
-let initialize () = 
-
-  (* Remove default debug section *)
-  if not !initialized then (initialized := true; section_formatters := [])
-  
-
-(* Check if debug section is enabled *)
-let mode section = 
-
-  (* A section is enabled if a formatter has been associated with it
-     or there is a global formatter *)
-  (List.mem_assoc section !section_formatters) || 
-    (List.mem_assoc "*" !section_formatters)
+let certif =     List.mem "all" dflags || List.mem "certif" dflags
+let event =      List.mem "all" dflags || List.mem "event" dflags
+let extract =    List.mem "all" dflags || List.mem "extract" dflags
+let fec =        List.mem "all" dflags || List.mem "fec" dflags
+let invgencand = List.mem "all" dflags || List.mem "invgencand" dflags
+let kind2 =      List.mem "all" dflags || List.mem "kind2" dflags
+let ltree =      List.mem "all" dflags || List.mem "ltree" dflags
+let messaging =  List.mem "all" dflags || List.mem "messaging" dflags
+let parse =      List.mem "all" dflags || List.mem "parse" dflags
+let qe =         List.mem "all" dflags || List.mem "qe" dflags
+let qedetailed = List.mem "all" dflags || List.mem "qedetailed" dflags
+let simplify =   List.mem "all" dflags || List.mem "simplify" dflags
+let smt =        List.mem "all" dflags || List.mem "smt" dflags
+let smtexpr =    List.mem "all" dflags || List.mem "smtexpr" dflags
+let transsys =   List.mem "all" dflags || List.mem "transsys" dflags
+let c2i =        List.mem "all" dflags || List.mem "c2i" dflags
+let ic3 =        List.mem "all" dflags || List.mem "ic3" dflags
+let compress =   List.mem "all" dflags || List.mem "compress" dflags
+let native =     List.mem "all" dflags || List.mem "native" dflags
 
 
-(* Return the formatter for a debug section 
+let enabled_time = Unix.gettimeofday ()
 
-   The debug section must be enabled or all sections must be enabled
-   globally, otherwise the exception {!Not_found} is raised. *)
-let formatter_of_section section = 
+let ppf = ref Format.std_formatter
 
-  try 
-
-    (* Get the individual formatter for the section *)
-    (List.assoc section !section_formatters).formatter
-
-  with Not_found -> 
-
-    (* Get the global formatter for all sections *)
-    (List.assoc "*" !section_formatters).formatter
+let set_formatter f = ppf := f
 
 
-(* Return the timestamp for a debug section 
-
-   The debug section must be enabled or all sections must be enabled
-   globally, otherwise the exception {!Not_found} is raised. *)
-let timestamp_of_section section = 
-
-  let enabled_time = 
-
-    try 
-      
-      (* Get the individual formatter for the section *)
-      (List.assoc section !section_formatters).enabled_time
-        
-    with Not_found -> 
-      
-      (* Get the global formatter for all sections *)
-      (List.assoc "*" !section_formatters).enabled_time 
-
-  in
-
-  (Unix.gettimeofday ()) -. enabled_time
-
-
-(* Return the sequence number for a debug section 
-
-   The debug section must be enabled or all sections must be enabled
-   globally, otherwise the exception {!Not_found} is raised. *)
-let seq_of_section section = 
-
-  let entry = 
-
-    try 
-    
-      (* Get the individual formatter for the section *)
-      List.assoc section !section_formatters
-        
-    with Not_found -> 
-      
-      (* Get the global formatter for all sections *)
-      List.assoc "*" !section_formatters
-
-  in
-
-  let res = entry.seq in
-
-  entry.seq <- succ entry.seq;
-
-  res
-
-
-
-(* Enable a debug section *)
-let enable section fmt = 
-
-  (* Initialize debug sections to empty if this is the first call *)
-  initialize ();
-
-  (* Check if debug section has had a formatter associated *)
-  if mode section then 
-
-    (* Do not enable twice, this would shadow previous formatter,
-       which would become visible again after disabling the section *)
-    invalid_arg 
-      (Format.sprintf "Debug section %s is already enabled" section)
-      
-  else
-    
-    (* Add association of section with its formattter to head of list *)
-    section_formatters := 
-      (section, 
-       { formatter = fmt; 
-         enabled_time = Unix.gettimeofday ();
-         seq = 1 }) :: 
-        !section_formatters
-
-
-(* Enable a debug section *)
-let enable_all ppf = 
-
-  (* Initialize debug sections to empty if this is the first call *)
-  initialize ();
-
-  (* Check if debug sections are enabled *)
-  match !section_formatters with 
-
-    (* No debug sections are enabled, add global formatter *)
-    | [] -> 
-
-      section_formatters := 
-        [("*", 
-          { formatter = ppf; 
-            enabled_time = Unix.gettimeofday ();
-            seq = 1 })]
-
-    | _ -> 
-
-      (* Do not add global formatter if there is a section with an
-         individual formatter *)
-      invalid_arg "Individual debug section already enabled"
-
-        
-(* Disable a debug section *)
-let disable section = 
-
-  (* Initialize debug sections to empty if this is the first call *)
-  initialize ();
-
-  (* Remove association of section with a formattter from list *)
-  section_formatters := List.remove_assoc section !section_formatters
-
-
-(* Disable a debug section *)
-let disable_all () = 
-  
-  (* Remove all associations of sections with a formattter *)
-  section_formatters := []
+(* Types of debug functions *)
+type 'a t = ('a, Format.formatter, unit) format -> 'a
 
 
 (* Output a message for an debug section *)
-let printf section fmt = 
-
+let printf cond section fmt = 
   (* We know that the section is enabled, {!List.assoc} will not fail *)
-  Format.fprintf
-    (formatter_of_section section)
-    ("@[<hv %i>@{<b>[@}@{<cyan_b>%s@}, @{<cyan>%.3f/%d@}@{<b>]@}@ @[<hv>" ^^fmt^^ "@]@]@.")
+  let fprintf = if cond then Format.fprintf else Format.ifprintf in
+  fprintf !ppf
+    ("@[<hv %i>@{<b>[@}@{<cyan_b>%s@}, @{<cyan>%.3f@}@{<b>]@}@ @[<hv>" ^^fmt^^ "@]@]@.")
     ((String.length section) + 3)
     section
-    (timestamp_of_section section)
-    (seq_of_section section)
-    
+    (Unix.gettimeofday () -. enabled_time)
+
+
+(* Instantiated debug functions *)
+let certif fmt = printf certif "certif" fmt
+let event fmt = printf event "event" fmt
+let extract fmt = printf extract "extract" fmt
+let fec fmt = printf fec "fec" fmt
+let invgencand fmt = printf invgencand "invgencand" fmt
+let kind2 fmt = printf kind2 "kind2" fmt
+let ltree fmt = printf ltree "ltree" fmt
+let messaging fmt = printf messaging "messaging" fmt
+let parse fmt = printf parse "parse" fmt
+let qe fmt = printf qe "qe" fmt
+let qedetailed fmt = printf qedetailed "qedetailed" fmt
+let simplify fmt = printf simplify "simplify" fmt
+let smt fmt = printf smt "smt" fmt
+let smtexpr fmt = printf smtexpr "smtexpr" fmt
+let transsys fmt = printf transsys "transsys" fmt
+let c2i fmt = printf c2i "c2i" fmt
+let ic3 fmt = printf ic3 "ic3" fmt
+let compress fmt = printf compress "compress" fmt
+let native fmt = printf native "native" fmt
+
+
         
 (* 
    Local Variables:

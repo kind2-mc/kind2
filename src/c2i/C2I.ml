@@ -441,17 +441,17 @@ exception PropIsFalse
 
 (* Updates the white, grey and black lists. *)
 let update_colors ({white ; grey ; black} as t) (check1, check2, check3) =
-  (debug c2i "Updating colors" in ()) ;
+  Debug.c2i "Updating colors";
   let white = match check1 with
     | None -> white
     | Some m ->
-      (debug c2i "| white" in ()) ;
+      Debug.c2i "| white";
       (model_split 0 m |> fst) :: white
   in
   let black = match check2 with
     | None -> black
     | Some m ->
-      (debug c2i "| black" in ()) ;
+      Debug.c2i "| black";
       (model_split 0 m |> fst) :: black
   in
   let white, grey, black = 
@@ -459,25 +459,25 @@ let update_colors ({white ; grey ; black} as t) (check1, check2, check3) =
     | None -> white, grey, black
     | Some m ->
       (* First, split m. *)
-      (debug c2i "| grey" in ()) ;
+      Debug.c2i "| grey";
       (* TODO: change the [0] in the number of state variables. *)
       let m, m' = model_split 0 m in
 
       match contains m white, contains m' black with
       | true, false ->
-        (debug c2i " \\ to white" in ()) ;
+        Debug.c2i " \\ to white";
         (* [m] is white, so is [m']. *)
         m' :: white, grey, black
       | false, true ->
-        (debug c2i " \\ to black" in ()) ;
+        Debug.c2i " \\ to black";
         (* [m'] is black, so is [m]. *)
         white, grey, m :: black
       | false, false ->
-        (debug c2i " \\ to grey" in ()) ;
+        Debug.c2i " \\ to grey";
         (* None of the above, adding to grey. *)
         white, (m,m') :: grey, black
       | true, true ->
-        (debug c2i " \\ invalid" in ()) ;
+        Debug.c2i " \\ invalid";
         (* Property is invalid. *)
         raise PropIsFalse
   in
@@ -493,20 +493,17 @@ let gamma = log 2.0
 
 (* Returns a candidate with a cost of zero. *)
 let zero_cost_candidate {white ; grey ; black} candidate =
-  ( debug c2i "\
+  Debug.c2i "\
         |=====| generating zero cost candidate (%d white, %d grey, %d black)\
-      " (List.length white) (List.length grey) (List.length black)
-    in ()) ;
+      " (List.length white) (List.length grey) (List.length black);
 
   let rec loop rated_candidate =
-    ( debug c2i "|===| loop (%d white, %d grey, %d black)"
-        (List.length white) (List.length grey) (List.length black)
-      in ()) ;
-    ( debug c2i "candidate: @[<v>%a@]"
+    Debug.c2i "|===| loop (%d white, %d grey, %d black)"
+        (List.length white) (List.length grey) (List.length black);
+    Debug.c2i "candidate: @[<v>%a@]"
         Term.pp_print_term (
           Candidate.candidate_of_rated rated_candidate |> Candidate.term_of
-        )
-      in ()) ;
+        );
     Event.check_termination () ;
     let cost = Candidate.cost_of_rated rated_candidate in
     (* If zero we're done. *)
@@ -519,10 +516,9 @@ let zero_cost_candidate {white ; grey ; black} candidate =
       let candidate = Candidate.rated_move rated_candidate in
       Stat.incr Stat.c2i_moves ;
       
-      ( debug c2i
-          "new candidate: @[<v>%a@]"
-          Term.pp_print_term (Candidate.term_of candidate)
-        in () ) ;
+      Debug.c2i
+        "new candidate: @[<v>%a@]"
+          Term.pp_print_term (Candidate.term_of candidate);
       (* Get its cost. *)
       let rated_candidate' =
         Candidate.rated_cost_function candidate white grey black
@@ -556,9 +552,8 @@ let zero_cost_candidate {white ; grey ; black} candidate =
   let rated_candidate = 
     Candidate.rated_cost_function candidate white grey black
   in
-  (debug c2i
-    "| initial cost %d@." (Candidate.cost_of_rated rated_candidate)
-  in ()) ;
+  Debug.c2i
+    "| initial cost %d@." (Candidate.cost_of_rated rated_candidate);
   (* Loop. *)
   loop rated_candidate
 

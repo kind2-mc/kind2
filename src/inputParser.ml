@@ -18,198 +18,62 @@
 
 open Lib
 
-(* Use the generic lexer *)
-open Genlex
 
-module I = LustreIdent
-module E = LustreExpr
-
-(* Keywords are the comma and the Boolean literals *)
-let lexer = make_lexer [","; "true"; "false"]
-
-(* Parse one line in CSV file *)
-let rec parse_stream input_scope = parser
-    
-    (* A line starting with an identifier, followed by a comma and a
-       sequence of values *)
-  | [< 'Ident input_name; 'Kwd ","; sequence = parse_sequence >] ->
-    
-    (
-
-      try
-        
-        (* Find the state variable of top scope *) 
-        let state_var = 
-          StateVar.state_var_of_string (input_name, input_scope) 
-        in
-        
-        (* State variable must be an input *)
-        if StateVar.is_input state_var then 
-
-          (* Return state variable and its input *)
-          (state_var, sequence)
-          
-        else
-          
-          (* Fail *)
-          (Event.log
-             L_fatal
-             "State variable %s is not an input" 
-             input_name;
-           
-           raise (Invalid_argument "parse_stream"))
-          
-      with Not_found ->
-        
-        (* Fail *)
-        (Event.log
-           L_fatal
-           "State variable %s not found" 
-           input_name;
-         
-         raise (Invalid_argument "parse_stream"))
-        
-    )
-
-  (* No more input *)
-  | [< >] -> raise End_of_file
-      
-
-(* Parse a sequence of values *)
-and parse_sequence = parser
-
-  (* Sequence starting with an integer *)
-  | [< 'Int value; 
-       int_sequence = 
-         parse_int_sequence [Term.mk_num_of_int value] >] -> 
-
-    int_sequence
-
-(*
-  (* Sequence starting with a float *)
-  | [< 'Float value;
-       float_sequence = 
-         parse_float_sequence [Term.mk_dec_of_float value] >] ->
-
-    float_sequence
-*)
-
-  (* Sequence starting with the Boolean value true *)
-  | [< 'Kwd "true"; 
-       bool_sequence = 
-         parse_bool_sequence [Term.t_true] >] -> 
-
-    bool_sequence
-
-  (* Sequence starting with the Boolean value false *)
-  | [< 'Kwd "false"; 
-       bool_sequence = 
-         parse_bool_sequence [Term.t_false] >] -> 
-  
-    bool_sequence
+(* Parse one value *)
+let value_of_str ty = function
+  | "true" when Type.(check_type ty t_bool) ->
+    Term.t_true
+  | "false" when Type.(check_type ty t_bool) ->
+    Term.t_false
+  | s ->
+    try
+      if Type.(check_type ty t_int) then
+        Term.mk_num (Numeral.of_string s)
+      else if Type.(check_type ty t_real) then
+        Term.mk_dec (Decimal.of_string s)
+      else
+        raise Parsing.Parse_error
+    with Invalid_argument _ ->
+      raise Parsing.Parse_error
 
 
-(* Parse a sequence of integers *)
-and parse_int_sequence l = parser
-
-  (* Integer value with preceeding comma *)
-  | [< 'Kwd ","; 
-       'Int value; 
-       int_sequence = 
-         parse_int_sequence
-           ((Term.mk_num_of_int value) :: l) >] -> 
-
-    int_sequence
-
-  (* End of the sequence *)
-  | [< >] -> 
-
-    (* Return list reversed *)
-    List.rev l
-
-(*
-
-(* Parse a sequence of floats *)
-and parse_float_sequence l = parser
-
-  (* Integer value with preceeding comma *)
-  | [< 'Kwd ","; 
-       'Float value; 
-       float_sequence = 
-         parse_float_sequence
-           ((Term.mk_dec_of_float value) :: l) >] -> 
-
-    float_sequence
-
-  (* End of a sequence *)
-  | [< >] -> 
-
-    (* Return list reversed *)
-    List.rev l
-*)
+(* Parse list of values *)
+let values_of_strs ty l =
+  List.rev_map (value_of_str ty) l |> List.rev 
 
 
-(* Parse a sequence of Booleans values *)
-and parse_bool_sequence l  = parser
+let separator = Str.regexp ","
 
-  (* Boolean value with preceding comma *)
-  | [< 'Kwd ","; b = parse_bool_sequence_aux l >] -> b
-
-  (* End of the sequence *)
-  | [< >] -> List.rev l
-                                
-(* Parse a Boolean literal at the head of a list of Boolean values *)
-and parse_bool_sequence_aux l = parser
-
-  (* True literal *)
-  |[< 'Kwd "true"; 
-      bool_sequence = parse_bool_sequence (Term.t_true :: l) >] -> 
-
-    bool_sequence
-
-  (* False literal *)
-  | [< 'Kwd "false"; 
-       bool_sequence = parse_bool_sequence (Term.t_false :: l) >] -> 
-
-    bool_sequence
+(* Parse a line *)
+let parse_stream scope chan =
+  let line = input_line chan in
+  let l = Str.split_delim separator line in
+  match l with
+  | [] -> raise Not_found
+  | name :: stream ->
+    try
+      let sv = StateVar.state_var_of_string (name, scope) in
+      if StateVar.is_input sv then 
+        (* Return state variable and its input *)
+        (sv, values_of_strs (StateVar.type_of_state_var sv) stream)
+      else raise Not_found
+    with Not_found ->
+      (* Fail *)
+      Event.log L_fatal "State variable %s is not an input state variable" name;
+      raise (Parsing.Parse_error)
 
 
-(* Parse from a lexer stream *)
-let parse top_scope_index s = parse_stream top_scope_index (lexer (Stream.of_string s))
+let rec parse scope chan acc =
+  try parse scope chan (parse_stream scope chan :: acc)
+  with
+  | Not_found -> parse scope chan acc
+  | End_of_file -> close_in chan; acc
 
 
 (* Read in a csv file *)
 let read_file top_scope_index filename = 
-
-  (* Open the file *)
   let chan = open_in filename in
-
-  (* Parse lines from the file until the end *)
-  let rec parse_chan acc  = 
-
-    try
-      
-      (* Read a line from the file *)
-      let line = input_line chan in
-      
-      (* Parse line and add to accumulator *)
-      parse_chan ((parse top_scope_index line) :: acc)
-
-    (* End of file reached *)
-    with End_of_file ->
-      
-      (* Close input file *)
-      close_in chan; 
-
-      (* Return *)
-      acc
-
-  in
-  
-  (* Parse file contents into an empty accumulator *)
-  parse_chan []
-
-
+  parse top_scope_index chan []
 
 
 (* 

@@ -30,7 +30,7 @@ type _ command_type =
   | GetValueCmd : get_value_response command_type
   | GetModelCmd : get_model_response command_type
   | GetUnsatCoreCmd : get_unsat_core_response command_type
-  | CustomCmd : (int -> custom_response command_type) 
+  | CustomCmd : int -> custom_response command_type
 
 
 let s_success = HString.mk_hstring "success"
@@ -131,34 +131,32 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     | [] -> `Values (List.rev accum)
     | HStringSExpr.List [ e; v ] :: tl -> 
 
-      (debug smtexpr
-          "get_value_response_of_sexpr: %a is %a"
-          HStringSExpr.pp_print_sexpr e
-          HStringSExpr.pp_print_sexpr v
-       in
+      Debug.smtexpr
+        "get_value_response_of_sexpr: %a is %a"
+        HStringSExpr.pp_print_sexpr e
+        HStringSExpr.pp_print_sexpr v; 
 
-       get_value_response_of_sexpr' 
-         ((((expr_of_string_sexpr e) :> SMTExpr.t), 
-           ((expr_of_string_sexpr v :> SMTExpr.t))) :: 
-          accum) 
-         tl)
+      get_value_response_of_sexpr' 
+        ((((expr_of_string_sexpr e) :> SMTExpr.t), 
+          ((expr_of_string_sexpr v :> SMTExpr.t))) :: 
+         accum) 
+        tl
 
     (* Hack for CVC4's (- 1).0 expressions *)
     | HStringSExpr.List [ e; v; HStringSExpr.Atom d ] :: tl 
       when d == HString.mk_hstring ".0" ->
-      
+
       get_value_response_of_sexpr' 
         accum
         (HStringSExpr.List [ e; v ] :: tl)
 
     | e :: _ -> 
 
-      (debug smtexpr
-          "get_value_response_of_sexpr: %a"
-          HStringSExpr.pp_print_sexpr e
-       in
+      Debug.smtexpr
+        "get_value_response_of_sexpr: %a"
+        HStringSExpr.pp_print_sexpr e;
 
-       invalid_arg "get_value_response_of_sexpr")
+      invalid_arg "get_value_response_of_sexpr"
 
 
   (* Helper function to return a solver response to a get-model command
@@ -169,33 +167,31 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     | e :: tl -> 
 
-      (debug smtexpr
-          "get_model_response_of_sexpr: %a"
-          HStringSExpr.pp_print_sexpr e
-       in
+      Debug.smtexpr
+        "get_model_response_of_sexpr: %a" HStringSExpr.pp_print_sexpr e;
 
-       (* Get name of variable and its assignment *)
-       let s, t_or_l = expr_or_lambda_of_string_sexpr e in
+      (* Get name of variable and its assignment *)
+      let s, t_or_l = expr_or_lambda_of_string_sexpr e in
 
-       try
-         
-         (* Get uninterpreted function symbol by name *)
-         let u =
-           UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
-         in
+      try
 
-         (* Continue with next model assignment *)
-         get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl
+        (* Get uninterpreted function symbol by name *)
+        let u =
+          UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
+        in
 
-       (* No symbol of that name
+        (* Continue with next model assignment *)
+        get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl
 
-          May happen if named terms have been asserted *)
-       with Not_found ->
+      (* No symbol of that name
 
-         (* Continue with next model assignment *)
-         get_model_response_of_sexpr' accum tl)
-                    
-    
+         May happen if named terms have been asserted *)
+      with Not_found ->
+
+        (* Continue with next model assignment *)
+        get_model_response_of_sexpr' accum tl
+
+
 
   (* Return a solver response to a get-value command as expression pairs *)
   let get_value_response_of_sexpr = function 
@@ -431,7 +427,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     res
 
     with e ->
-      let err_p2 = Unix.(fstat solver_stderr).st_size in
+      let err_p2 = Unix.((fstat solver_stderr).st_size) in
       let len = err_p2 - err_p1 in
       (* Was something written to stderr? *)
       if len <> 0 then begin
@@ -934,10 +930,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     
     (* Print specific headers specifications *)
     List.iter (fun cmd ->
-        match
-          (debug smt "%s" cmd in
-           execute_command solver cmd 0)
-        with 
+        Debug.smt "%s" cmd;
+        match execute_command solver cmd 0 with 
           | `Success -> () 
           | _ -> raise (Failure ("Failed to add header: "^cmd))
      ) headers;
@@ -1017,15 +1011,15 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
       (* Exit with code *)
       | Unix.WEXITED c -> 
-        (debug smt "Solver exited with code %d" c end)
+        Debug.smt "Solver exited with code %d" c;
 
       (* Killed by signal *)
       | Unix.WSIGNALED s -> 
-        (debug smt "Solver killed with signal %d" s end)
+        Debug.smt "Solver killed with signal %d" s;
 
       (* Stopped by signal *)
       | Unix.WSTOPPED s -> 
-        (debug smt "Solver stopped by signal %d" s end)
+        Debug.smt "Solver stopped by signal %d" s;
 
     );
 

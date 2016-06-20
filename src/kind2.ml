@@ -456,18 +456,16 @@ let on_exit_child ?(alone=false) messaging_thread process exn =
     | Some t -> Event.exit t
     | None -> () ) ;
 
-  ( debug kind2
-      "Process %a terminating"
-      pp_print_kind_module process
-    in
+  Debug.kind2
+    "Process %a terminating" pp_print_kind_module process ;
 
-    (* Log stats and statuses of properties if run as a single process *)
-    (* if alone then Event.log_result sys_opt; *)
+  (* Log stats and statuses of properties if run as a single process *)
+  (* if alone then Event.log_result sys_opt; *)
 
-    Event.terminate_log ();
-      
-    (* Exit process with status *)
-    exit status )
+  Event.terminate_log ();
+
+  (* Exit process with status *)
+  exit status
 
 
 
@@ -542,14 +540,7 @@ let run_process messaging_setup process =
 
                   (* Formatter writing to file *)
                   let debug_formatter = Format.formatter_of_out_channel oc in
-
-                  (* Enable each requested debug section and write to
-                     formatter *) 
-                  List.iter
-                    (function s -> 
-                      Debug.disable s; 
-                      Debug.enable s debug_formatter)
-                    (Flags.debug ())
+                  Debug.set_formatter debug_formatter
 
                 with
 
@@ -612,31 +603,18 @@ let run_process messaging_setup process =
    - building input system. *)
 let setup : unit -> any_input = fun () ->
 
-  (* At least one debug section enabled? *)
-  ( match Flags.debug () with
-
-    (* Initialize debug output when no debug section enabled. *)
-    | [] -> Debug.initialize ()
-
-    | _ ->
-      (* Formatter to write debug output to. *)
-      let debug_formatter = match Flags.debug_log () with
-        (* Write to stdout by default. *)
-        | None -> Format.std_formatter
-        (* Open channel to given file and create formatter on channel. *)
-        | Some f ->
-          let oc = try open_out f with Sys_error msg ->
-            Format.sprintf
-              "Could not open debug logfile \"%s\": \"%s\"" f msg
-            |> failwith
-          in
-          Format.formatter_of_out_channel oc
+  (* Formatter to write debug output to. *)
+  (match Flags.debug_log () with
+    (* Write to stdout by default. *)
+    | None -> ()
+    (* Open channel to given file and create formatter on channel. *)
+    | Some f ->
+      let oc = try open_out f with Sys_error msg ->
+        Format.sprintf
+          "Could not open debug logfile \"%s\": \"%s\"" f msg
+        |> failwith
       in
-
-      (* Enable each requested debug section and write to formatter. *)
-      Flags.debug () |> List.iter (
-        fun s -> Debug.enable s debug_formatter
-      )
+      Debug.set_formatter (Format.formatter_of_out_channel oc)
   ) ;
 
 
@@ -831,11 +809,11 @@ let rec run_loop msg_setup modules results =
       Event.log_analysis_start trans_sys aparam ;
 
       (* Output the transition system. *)
-      (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end) ;
+      Debug.parse "%a" TransSys.pp_print_trans_sys trans_sys;
 
       List.length props |> Event.log L_info "%d properties." ;
 
-      Event.log L_trace "Starting child processes." ;
+      Event.log L_debug "Starting child processes." ;
 
       (* Start all child processes. *)
       List.iter (function p -> run_process msg_setup p) modules ;
@@ -908,10 +886,6 @@ let launch input_sys =
   (* Dump transition system in native format *)
   (* if Flags.dump_native () then NativeInput.dump_native trans_sys; *)
 
-  (* Output the transition system *)
-  (* (debug parse "%a" TransSys.pp_print_trans_sys trans_sys end); *)
-
-
   (* Checking what's activated. *)
   match Flags.enabled () with
 
@@ -964,7 +938,7 @@ let launch input_sys =
        thread. No kids yet. *)
     Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
 
-    Event.log L_trace "Messaging initialized in supervisor." ;
+    Event.log L_debug "Messaging initialized in supervisor." ;
 
     try
 

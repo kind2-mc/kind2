@@ -319,22 +319,17 @@ struct
     (* Push identifying tag of message *)
     ignore (zmsg_pushstr zmsg (tag_of_message msg));
 
-    (debug messaging
-      "@[<hv>zmsg_of_msg:@ %a@]"
-      pp_print_zmsg zmsg 
-     in
+    Debug.messaging
+      "@[<hv>zmsg_of_msg:@ %a@]" pp_print_zmsg zmsg; 
 
      (* Return message *)
-     zmsg)
+     zmsg
 
 
   (* Return a message of a ZeroMQ message *)
   let msg_of_zmsg zmsg =
 
-    debug messaging
-      "@[<hv>msg_of_zmsg:@ %a@]"
-      pp_print_zmsg zmsg 
-    in
+    Debug.messaging "@[<hv>msg_of_zmsg:@ %a@]" pp_print_zmsg zmsg;
 
     (* Pop the topmost message frame and return as string *)
     let pop () = 
@@ -520,11 +515,10 @@ struct
         (* *)
         let sender, payload = msg in
 
-        debug messaging
-            "Invariant manager received message %a from %d"
-            pp_print_message payload 
-            sender
-        in
+        Debug.messaging
+          "Invariant manager received message %a from %d"
+          pp_print_message payload 
+          sender;
 
         (match payload with 
 
@@ -626,11 +620,10 @@ struct
 
         let sender, payload = msg in
 
-        debug messaging
-            "Worker received message %a from %d"
-            pp_print_message payload 
-            sender
-        in
+        Debug.messaging
+          "Worker received message %a from %d"
+          pp_print_message payload 
+          sender;
 
         (match payload with 
 
@@ -817,11 +810,10 @@ struct
 
           let message = get (outgoing_msg) in
 
-          debug messaging
-              "Worker %d sending message %a"
-              (Unix.getpid ())
-              pp_print_message message
-          in
+          Debug.messaging
+            "Worker %d sending message %a"
+            (Unix.getpid ())
+            pp_print_message message;
 
           let rc = 
             zmsg_send (zmsg_of_msg message) sock 
@@ -910,7 +902,7 @@ struct
 
         (
 
-          debug messaging "Sending PING to workers" in
+          Debug.messaging "Sending PING to workers";
 
           (* let workers know invariant manager is ready *)
           let rc = 
@@ -936,11 +928,10 @@ struct
                 
                 (
                   
-                  debug messaging 
-                      "Received a READY message from %d while waiting for \
-                       workers" 
-                      sender 
-                  in
+                  Debug.messaging 
+                    "Received a READY message from %d while waiting for \
+                     workers" 
+                    sender; 
 
                   wait_iter (List.filter ((<>) sender) workers_remaining);
 
@@ -951,12 +942,11 @@ struct
                 (
 
 
-                  debug messaging 
-                      "Received message from %d while waiting for \
-                       workers: %a" 
-                      sender 
-                      pp_print_message payload
-                  in
+                  Debug.messaging
+                    "Received message from %d while waiting for \
+                     workers: %a" 
+                    sender 
+                    pp_print_message payload;
 
                   wait_iter (List.filter ((<>) sender) workers_remaining);
 
@@ -968,9 +958,8 @@ struct
 
             (
 
-              debug messaging 
-                  "No message received, still waiting for workers" 
-              in
+              Debug.messaging
+                  "No message received, still waiting for workers";
 
               minisleep 0.1;
               wait_iter workers_remaining
@@ -1052,20 +1041,17 @@ struct
         (Hashtbl.create (List.length worker_pids))
       in
 
-      ( debug messaging
-              "Waiting for workers (%a) to become ready."
-              (pp_print_list Format.pp_print_int ",@")
-              worker_pids
-        in () ) ;
+      Debug.messaging
+        "Waiting for workers (%a) to become ready."
+        (pp_print_list Format.pp_print_int ",@")
+        worker_pids;
 
       (* Waiting for all workers to be ready. *)
       wait_for_workers
         worker_pids worker_status pub_sock pull_sock ;
 
-      ( debug messaging
-              "All workers are ready."
-        in () ) ;
-
+      Debug.messaging "All workers are ready.";
+      
       (* Unique invariant identifier and invariants hash table. *)
       invariant_id := 1 ;
       let invariants = (Hashtbl.create 1000) in
@@ -1080,11 +1066,9 @@ struct
          supervisor. *)
       match im_check_for_new_workers () with
       | Some new_workers -> (
-         ( debug
-             messaging
-             "Child processes update, \
-              setting things up and resume running."
-           in () ) ;
+          Debug.messaging
+            "Child processes update, \
+             setting things up and resume running.";
          init_and_run new_workers
       )
       | None -> (
@@ -1137,72 +1121,67 @@ struct
         assert (rc = 0);
 
         (* wait for a message from the IM before sending anything *)
-        (debug messaging
-            "Waiting for message from invariant manager in %d" (Unix.getpid ())
-         in  
+        Debug.messaging
+          "Waiting for message from invariant manager in %d" (Unix.getpid ());
 
-         ignore(zmsg_recv sub_sock));
+        ignore(zmsg_recv sub_sock);
 
-        (debug messaging
-            "Worker is ready to send messages"
-         in
+        Debug.messaging "Worker is ready to send messages";
 
-         let confirmed_invariants = (Hashtbl.create 1000) in
-         let unconfirmed_invariants = (Hashtbl.create 100) in
-         let last_received_invariant_id = ref 0 in
+        let confirmed_invariants = (Hashtbl.create 1000) in
+        let unconfirmed_invariants = (Hashtbl.create 100) in
+        let last_received_invariant_id = ref 0 in
 
-         while true do
+        while true do
 
-           if !exit_flag then 
+          if !exit_flag then 
 
-             (
+            (
 
-               (* send any messages in outgoing queue *)
-               worker_send_messages proc push_sock unconfirmed_invariants;
+              (* send any messages in outgoing queue *)
+              worker_send_messages proc push_sock unconfirmed_invariants;
 
-               Thread.exit ()
+              Thread.exit ()
 
-             )
+            )
 
-           else
+          else
 
-             (
+            (
 
-               (* get any messages from invariant manager *)
-               recv_messages sub_sock (is_invariant_manager proc);
+              (* get any messages from invariant manager *)
+              recv_messages sub_sock (is_invariant_manager proc);
 
-               (* handle incoming messages *)
-               if (not !debug_mode) then 
+              (* handle incoming messages *)
+              if (not !debug_mode) then 
 
-                 (
+                (
 
-                   worker_handle_messages 
-                     unconfirmed_invariants 
-                     confirmed_invariants 
-                     last_received_invariant_id
+                  worker_handle_messages 
+                    unconfirmed_invariants 
+                    confirmed_invariants 
+                    last_received_invariant_id
 
-                 );
+                );
 
-               (* send any messages in outgoing queue *)
-               worker_send_messages proc push_sock unconfirmed_invariants;
+              (* send any messages in outgoing queue *)
+              worker_send_messages proc push_sock unconfirmed_invariants;
 
-               (* resend any old unconfirmed invariants *)
-               worker_resend_invariants unconfirmed_invariants;
+              (* resend any old unconfirmed invariants *)
+              worker_resend_invariants unconfirmed_invariants;
 
-               minisleep 0.01
+              minisleep 0.01
 
-             )
+            )
 
-         done)
-
-      )
+        done)
 
     with e -> on_exit e
 
 
-  (* ******************************************************************** *)
-  (*  Public Interface                                                    *)
-  (* ******************************************************************** *)
+(* ******************************************************************** *)
+(*  Public Interface                                                    *)
+(* ******************************************************************** *)
 
   let init_im () =
 
@@ -1225,12 +1204,11 @@ struct
 
           (
 
-            debug messaging
-                "PUB socket is at tcp://127.0.0.1:%d, \
-                 PULL socket is at tcp://127.0.0.1:%d" 
-                bcast_port 
-                push_port
-            in
+            Debug.messaging
+              "PUB socket is at tcp://127.0.0.1:%d, \
+               PULL socket is at tcp://127.0.0.1:%d" 
+              bcast_port 
+              push_port;
 
             (* Return sockets *)
             (bg_ctx, pub_sock, pull_sock), 
@@ -1278,12 +1256,11 @@ struct
 
           (
 
-            debug messaging
-                "SUB port for %a is %s, PUSH port is %s" 
-                pp_print_kind_module proc
-                bcast_port 
-                push_port
-            in
+            Debug.messaging
+              "SUB port for %a is %s, PUSH port is %s" 
+              pp_print_kind_module proc
+              bcast_port 
+              push_port ;
 
             (* Return sockets *)
             (bg_ctx, sub_sock, push_sock)
@@ -1358,10 +1335,8 @@ struct
       (empty_list incoming_handled)
 
   let update_child_processes_list ps =
-    ( debug
-        messaging
-        "Updating child process list in background thread."
-      in () ) ;
+    Debug.messaging
+      "Updating child process list in background thread.";
     if !initialized_process = None
     then raise NotInitialized
     else set_locking_list_option new_workers_option ps

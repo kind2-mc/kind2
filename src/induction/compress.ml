@@ -312,12 +312,10 @@ let equal_mod_input accum s1 s2 =
 
       in
 
-      (debug compress
-          "Compression clause@ %a"
-          Term.pp_print_term term
-       in
+      Debug.compress
+        "Compression clause@ %a" Term.pp_print_term term;
 
-       term :: accum)
+      term :: accum
 
     )
 

@@ -589,6 +589,7 @@ let int_of_log_level = function
   | L_debug -> 4
   | L_trace -> 5
 
+
 let log_level_of_int = function 
   | -1 -> L_off 
   | 0 -> L_fatal
@@ -598,6 +599,7 @@ let log_level_of_int = function
   | 4 -> L_debug
   | 5 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
+
 
 (* Compare two levels *)
 let compare_levels l1 l2 = 
