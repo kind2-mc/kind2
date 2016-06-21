@@ -787,7 +787,7 @@ module Contracts = struct
   include Make_Spec (struct end)
 
   (* Identifier of the module. *)
-  let id = "contract"
+  let id = "contracts"
   (* Short description of the module. *)
   let desc = "contract and compositional verification flags"
   (* Explanation of the module. *)
@@ -2143,6 +2143,7 @@ let parse_clas specs anon_action global_usage_msg =
         Format.printf
           "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
           fmt_flag flag error ;
+        exit 2
       | Arg.Bad expl ->
         Format.printf
           "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl;
