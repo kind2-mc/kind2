@@ -18,6 +18,10 @@
 
 open Lib
 
+(* typing errors *)
+exception Type_error of Type.t * string
+
+let divsep = Str.regexp "/"
 
 (* Parse one value *)
 let value_of_str ty = function
@@ -30,11 +34,15 @@ let value_of_str ty = function
       if Type.(check_type ty t_int) then
         Term.mk_num (Numeral.of_string s)
       else if Type.(check_type ty t_real) then
-        Term.mk_dec (Decimal.of_string s)
+        match Str.split_delim divsep s with
+        | [s] -> Term.mk_dec (Decimal.of_string s)
+        | [s1; s2] ->
+          Decimal.(div (of_string s1) (of_string s2)) |> Term.mk_dec
+        | _ -> raise (Type_error (ty, s))
       else
-        raise Parsing.Parse_error
+        raise (Type_error (ty, s))
     with Invalid_argument _ ->
-      raise Parsing.Parse_error
+      raise (Type_error (ty, s))
 
 
 (* Parse list of values *)
@@ -42,12 +50,12 @@ let values_of_strs ty l =
   List.rev_map (value_of_str ty) l |> List.rev 
 
 
-let separator = Str.regexp ","
+let separator = Str.regexp " *, *"
 
 (* Parse a line *)
 let parse_stream scope chan =
-  let line = input_line chan in
-  let l = Str.split_delim separator line in
+  let line = input_line chan |> String.trim in
+  let l = Str.split separator line in
   match l with
   | [] -> raise Not_found
   | name :: stream ->
@@ -63,11 +71,21 @@ let parse_stream scope chan =
       raise (Parsing.Parse_error)
 
 
-let rec parse scope chan acc =
-  try parse scope chan (parse_stream scope chan :: acc)
-  with
-  | Not_found -> parse scope chan acc
-  | End_of_file -> close_in chan; acc
+let rec parse =
+  let line_nb = ref 0 in
+  fun scope chan acc ->
+    try
+      incr line_nb;
+      parse scope chan (parse_stream scope chan :: acc)
+    with
+    | Not_found -> parse scope chan acc
+    | End_of_file -> close_in chan; acc
+    | Type_error (ty, s) ->
+      Log.log L_fatal
+        "Typing error in input values file at line %d: \
+         expected value of type %a, got value %s"
+        !line_nb Type.pp_print_type ty s;
+      exit 2
 
 
 (* Read in a csv file *)
