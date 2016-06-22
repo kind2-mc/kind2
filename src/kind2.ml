@@ -1022,6 +1022,7 @@ let main () =
 
   (* Set everything up and produce input system. *)
   let input_sys = setup () in
+  Format.printf "done with setup@.@." ;
   input_sys_ref := Some input_sys ;
 
   (* Not launching if we're just translating contracts. *)
