@@ -269,7 +269,7 @@ type event_tag =
 let tagify fmt s = Format.fprintf fmt ("@{<b><" ^^ s ^^ ">@}")
 
 let print_event_tag fmt = function
-  | Timeout -> tagify fmt "@{<magenta>Timeout}"
+  | Timeout -> tagify fmt "@{<magenta>Timeout@}"
   | Success -> tagify fmt "@{<green_b>Success@}"
   | Failure -> tagify fmt "@{<red_b>Failure@}"
   | Warning -> tagify fmt "@{<yellow>Warning@}"

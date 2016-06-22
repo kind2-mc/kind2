@@ -37,6 +37,8 @@ module SVS = StateVar.StateVarSet
 
 module VS = Var.VarSet
 
+module Deps = LustreDependencies
+
 
 (* Node not found, possible forward reference 
 
@@ -44,6 +46,10 @@ module VS = Var.VarSet
    analysis to recognize cycles to fully support forward
    referencing. *)
 exception Node_or_function_not_found of I.t * position
+
+exception Type_not_found of I.t * position
+
+exception Contract_not_found of I.t * position
 
 
 (* Context for typing, flattening of indexed types and constant
@@ -68,8 +74,11 @@ type t = {
   (* Visible function *)
   funcs : F.t list;
 
-  (* Node dependencies *)
-  deps : I.Set.t I.Map.t;
+  (* Node and function dependencies. *)
+  deps : I.Set.t I.Map.t ;
+
+  (* Dependencies. *)
+  deps' : Deps.t ;
 
   (* Visible contract nodes *)
   contract_nodes : (position * A.contract_node_decl) list;
@@ -139,6 +148,7 @@ let mk_empty_context () =
     func = None;
     funcs = [];
     deps = I.Map.empty;
+    deps' = Deps.empty;
     contract_nodes = [];
     ident_type_map = IT.create 7;
     ident_expr_map = [IT.create 7];
@@ -1847,32 +1857,44 @@ let add_node_to_context ctx node_ctx =
 
 
 (* Mark node as main node *)
-let set_node_main ctx = 
-
-  match ctx with 
-
-    | { node = None } -> raise (Invalid_argument "set_node_main")
-
-    | { node = Some node } -> 
-
-      { ctx with node = Some { node with N.is_main = true } }
+let set_node_main ctx = match ctx with
+| { node = None } -> raise (Invalid_argument "set_node_main")
+| { node = Some node } ->
+  { ctx with node = Some { node with N.is_main = true } }
 
 
-(* Return forward referenced subnodes of node *)
-let deps_of_node { deps } ident = I.Map.find ident deps
+
+(* Resolve a forward reference, fails if a circular dependency is detected. *)
+let solve_fref { deps' } decl (f_type, f_ident) decls =
+  (* Retrieve info of current declaration. *)
+  let pos, ident, typ = Deps.info_of_decl decl in
+  (* Does the declaration forward ref-ed depend on current declaration? *)
+  if Deps.mem deps' (f_type, f_ident) (typ, ident) then (
+    Format.asprintf
+      "circular dependency between %a \"%a\" and %a \"%a\""
+      Deps.pp_print_decl f_type (I.pp_print_ident false) f_ident
+      Deps.pp_print_decl typ (I.pp_print_ident false) ident
+    |> fail_at_position pos
+  ) else (
+    (* Add dependency between current declaration and forward one. *)
+    Deps.add deps' (typ, ident) (f_type, f_ident) ;
+    try
+      Deps.insert_decl decl (f_type, f_ident) decls
+    with Not_found ->
+      (* Forward reference to unknown declaration. *)
+      Format.asprintf
+        "unknown %a \"%a\" referenced in %a \"%a\""
+        ( fun ppf -> function
+          (* If it's an unknown constant, it's more generally an unknown
+          identifier. *)
+          | Deps.Const -> Format.fprintf ppf "identifier"
+          | typ -> Deps.pp_print_decl ppf typ
+        ) f_type (I.pp_print_ident false) f_ident
+        Deps.pp_print_decl typ (I.pp_print_ident false) ident
+      |> fail_at_position pos
+  )
 
 
-(* Add second node as a forward referenced subnode of the first *)
-let add_dep ({ deps } as ctx) ident called_ident = 
-
-  (* Get or initialize set of forward referenced subnodes *)
-  let dep_set = try I.Map.find ident deps with Not_found -> I.Set.empty in
-
-  (* Add forward referenced node as dependency *)
-  let deps = I.Map.add ident (I.Set.add ident dep_set) deps in
-  
-  (* Return changed context *)
-  { ctx with deps }
 
 
 (* ********************************************************************** *)
