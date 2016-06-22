@@ -40,7 +40,7 @@ type _ command_type =
   | CheckSatCmd : check_sat_response command_type
   | GetValueCmd : get_value_response command_type
   | GetUnsatCoreCmd : get_unsat_core_response command_type
-  | CustomCmd : (int -> custom_response command_type) 
+  | CustomCmd : int -> custom_response command_type
 
 
 type yices_state =
@@ -115,7 +115,8 @@ let yices_expr_of_string_sexpr =
   GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv
 
 let yices_lambda_of_string_sexpr = 
-  GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
+  GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr
+    smtlib_string_sexpr_conv
 
 
 
@@ -515,7 +516,7 @@ let ensure_symbol_qf_lira s =
     ->
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
                               symbol %s is not interpreted correctly in this \
-                              mode. Run Kind 2 with --no_detect_logic instead."
+                              mode. Run Kind 2 with --smt_logic none instead."
         (Symbol.string_of_symbol s)
     in
     Event.log L_error "%s" msg;
@@ -1064,8 +1065,7 @@ let create_trace_ppf id =
       let trace_oc = open_out trace_filename in
       
       Event.log L_debug
-                "Tracing output of SMT solver instace to %s"
-                trace_filename;
+        "Tracing output of SMT solver instace to %s" trace_filename;
 
       (* Return formatter *)
       Some (Format.formatter_of_out_channel trace_oc)
@@ -1073,9 +1073,7 @@ let create_trace_ppf id =
     (* Silently fail *)
     with Sys_error e -> 
 
-      Event.log L_debug
-                "Failed to open trace file for SMT solver %s"
-                e;
+      Event.log L_debug "Failed to open trace file for SMT solver %s" e;
       
       None 
         
@@ -1237,9 +1235,8 @@ let create_instance
   
   (* Print specific headers specifications *)
   List.iter (fun cmd ->
-      match (debug smt "%s" cmd in
-             execute_command solver cmd 0)
-      with 
+      Debug.smt "%s" cmd;
+      match execute_command solver cmd 0 with
       | `Success -> () 
       | _ -> raise (Failure ("Failed to add header: "^cmd))
   ) headers;
@@ -1288,15 +1285,15 @@ let delete_instance
 
       (* Exit with code *)
       | Unix.WEXITED c -> 
-        (debug smt "Solver exited with code %d" c end)
+        Debug.smt "Solver exited with code %d" c;
           
       (* Killed by signal *)
       | Unix.WSIGNALED s -> 
-        (debug smt "Solver killed with signal %d" s end)
+        Debug.smt "Solver killed with signal %d" s;
           
       (* Stopped by signal *)
       | Unix.WSTOPPED s -> 
-        (debug smt "Solver stopped by signal %d" s end)
+        Debug.smt "Solver stopped by signal %d" s;
 
   );
 

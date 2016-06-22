@@ -1441,7 +1441,7 @@ struct
         bound_vars
     in
 
-    debug ltree
+    Debug.ltree
       "@[<hv>trim_let_domain:@ %a@ \
              terms@ @[<hv>%a@]@ \
              bound vars@ @[<hv>%a@]@ \
@@ -1452,8 +1452,7 @@ struct
       (pp_print_list 
          (fun ppf (i, j) -> Format.fprintf ppf "%d:%d" i j)
          ",@ ") 
-      bound_var_map
-    in
+      bound_var_map;
 
       (* Return the elements with indexes from the list
 
@@ -1532,13 +1531,9 @@ struct
               (* Every variable in the term the is bound outside has a
                  new index *)
               with Not_found -> 
-                
-                (debug ltree
-                   "No mapping for BoundVar %d at offset %d"
-                   i
-                   o
-                 in
-                 assert false))
+                Debug.ltree
+                  "No mapping for BoundVar %d at offset %d" i o ;
+                assert false)
 
            (* Keep terms other than bound variables unchanged *)
            | t -> t)

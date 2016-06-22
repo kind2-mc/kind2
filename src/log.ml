@@ -91,21 +91,6 @@ let set_log_format l = log_format := l
 (* ********************************************************************** *)
 
 
-(* Level as string for plain text output *)
-let pt_string_of_level = function 
-  | L_off -> assert false
-  | L_fatal -> "FATAL"
-  | L_error -> "ERROR"
-  | L_warn -> "WARNING"
-  | L_info -> "INFO"
-  | L_debug -> "DEBUG"
-  | L_trace -> "TRACE"
-
-
-(* Pretty-print level for plain text output *)
-let pp_print_level_pt ppf l = Format.fprintf ppf "%s" (pt_string_of_level l)
-
-
 (* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module

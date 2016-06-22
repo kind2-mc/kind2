@@ -311,7 +311,7 @@ let pp_print_param_of_result fmt { param ; sys } =
             Format.asprintf
               "could not find system %a \
               in abstraction map of previous result"
-              Scope.pp_print_scope scope ;
+              Scope.pp_print_scope scope
             |> failwith
           ) else acc
       ) abstraction_map []

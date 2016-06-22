@@ -560,10 +560,7 @@ let of_channel in_ch =
   match List.rev systems with
   | top_sys :: _ ->
 
-    debug nativeInput
-      "%a"
-      TransSys.pp_print_trans_sys top_sys
-    in
+    Debug.native "%a" TransSys.pp_print_trans_sys top_sys ;
 
     mk_subsys_structure top_sys
       

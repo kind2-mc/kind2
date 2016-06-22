@@ -766,8 +766,8 @@ let mk sys =
     ) ([],[],[])
   in
 
-  (debug c2i "[mk] %d bool vars, %d int vars, %d rat vars@."
-    (List.length b_vars) (List.length i_vars) (List.length r_vars) in ()) ;
+  Debug.c2i "[mk] %d bool vars, %d int vars, %d rat vars@."
+    (List.length b_vars) (List.length i_vars) (List.length r_vars);
 
   (* Mining init and trans predicates for arith constants. *)
   let int_vals, rat_vals =

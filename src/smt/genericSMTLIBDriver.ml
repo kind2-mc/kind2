@@ -748,21 +748,19 @@ let const_of_smtlib_atom b t =
 
                   with Not_found -> 
 
-                    debug smtexpr 
+                    Debug.smtexpr
                         "const_of_smtlib_token %s failed" 
-                        (HString.string_of_hstring t)
-                    in
+                        (HString.string_of_hstring t);
 
                     (* Cannot convert to an expression *)
                     failwith "Invalid constant symbol in S-expression"
 
   in
 
-  debug smtexpr 
-      "const_of_smtlib_token %s is %a" 
-      (HString.string_of_hstring t)
-      pp_print_term res
-  in
+  Debug.smtexpr 
+    "const_of_smtlib_token %s is %a" 
+    (HString.string_of_hstring t)
+    pp_print_term res;
 
   res
 

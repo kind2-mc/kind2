@@ -407,7 +407,7 @@ let rec trim
   let if_sat _ =
     (* this should not happen because we've already performed the inductive
        check *)
-    (debug certif "[Fixpoint] fail (impossible)" end);
+    Debug.certif "[Fixpoint] fail (impossible)";
     raise Exit
   in
 
@@ -420,8 +420,8 @@ let rec trim
     let uinvs_acts =
       List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
 
-    (debug certif "[Fixpoint] extracted %d useful invariants"
-      (List.length uinvs_acts) end);
+    Debug.certif "[Fixpoint] extracted %d useful invariants"
+      (List.length uinvs_acts);
 
     let uinvs, uinvs' = List.split uinvs_acts in
 
@@ -443,15 +443,16 @@ let rec trim
       
       (fun _ ->
          (* SAT try to find what invariants are missing *)
-         (debug certif "[Fixpoint] could not verify inductiveness" end);
+         Debug.certif
+           "[Fixpoint] could not verify inductiveness";
 
          trim solver
            invs_acts new_prop_act new_prop'act neg_new_prop'act trans_acts)
       
       (fun _ ->
          (* UNSAT: return accumulated invariants *)
-         (debug certif "[Fixpoint] OK"
-           (* (pp_print_list Term.pp_print_term "@ ") acc *) end);
+         Debug.certif "[Fixpoint] OK" ;
+         (* (pp_print_list Term.pp_print_term "@ ") acc *)
 
          (* Return useful invariants (identified by their activation
             literals) *)
@@ -488,7 +489,8 @@ let check_ind_and_trim ~just_check_ind
   (* Check k-inductiveness of whole set first *)
   SMTSolver.check_sat_assuming solver
     (fun _ -> (* SAT *)
-        (debug certif "[Fixpoint] failure of whole inductive check" end);
+       Debug.certif
+         "[Fixpoint] failure of whole inductive check";
         raise Exit)
     (fun _ -> (* UNSAT *)
 
@@ -566,7 +568,7 @@ let rec cherry_pick solver trans
        (* If we have no more invariants to add, it means the whole set is not
           k-inductive *)
        if extra_needed = [] then begin
-         (debug certif "[Hard Fixpoint] fail (impossible)" end);
+         Debug.certif "[Hard Fixpoint] fail (impossible)";
          raise Exit
        end;
        
@@ -577,8 +579,8 @@ let rec cherry_pick solver trans
            (invact, inv'act) :: acc
          ) needed_invs extra_needed in
 
-       (debug certif "Hard minimization identified %d"
-          (List.length needed_invs) end);
+       Debug.certif "Hard minimization identified %d"
+         (List.length needed_invs);
 
        (* recursive call to find out if we have found an inductive set or not *)
        cherry_pick solver trans
@@ -608,7 +610,7 @@ type return_of_try =
    invariants *)
 let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   
-  (debug certif "Try bound %d" k end);
+  Debug.certif "Try bound %d" k;
 
   (* Construct properties from 1 to k-1 *)
   let prev_props_l = ref [prop] in
@@ -890,7 +892,7 @@ let minimize_certificate sys =
   (* For stats *)
   let k_orig, nb_invs = k, List.length invs in
   
-  (debug certif "Trying to simplify up to k = %d\n" k_orig end);
+  Debug.certif "Trying to simplify up to k = %d\n" k_orig;
   
   (* Creating solver that will be used to replay and minimize inductive step *)
   let solver =
@@ -933,7 +935,7 @@ let minimize_certificate sys =
      anylonger *)
   SMTSolver.delete_instance solver;
   
-  (debug certif "Simplification found for k = %d\n" kmin end);
+  Debug.certif "Simplification found for k = %d\n" kmin;
 
   printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
     (List.length uinvs) nb_invs kmin k_orig;
@@ -1564,8 +1566,8 @@ let generate_split_certificates sys dirname =
   Stat.record_time Stat.certif_gen_time;
 
   (* Show which file contains the certificate *)
-  (debug certif
-     "SMT-LIB2 intermediate certificates were written in %s" dirname end);
+  Debug.certif
+     "SMT-LIB2 intermediate certificates were written in %s" dirname;
 
   inv
 
@@ -1978,10 +1980,9 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
       let jkind_vars =
         JkindParser.jkind_vars_of_kind2_statevar kind2_sys lustre_vars sv in
 
-      (debug fec "(Kind2->JKind): %a -> [ %a ]"
+      Debug.fec "(Kind2->JKind): %a -> [ %a ]"
          StateVar.pp_print_state_var sv
-         (pp_print_list StateVar.pp_print_state_var ", ") jkind_vars
-      end);
+         (pp_print_list StateVar.pp_print_state_var ", ") jkind_vars;
 
       (* Fail if variables of properties do not have a jKind equivalent *)
       if jkind_vars = [] then begin
@@ -2195,10 +2196,9 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
   (* Create properties *)
   let props = mk_multiprop_obs ~only_out:false lustre_vars kind2_sys in
 
-  (debug fec
+  Debug.fec 
      "@[<hv 4>Unmatched JKind vars:@,%a@]@."
-     (pp_print_list StateVar.pp_print_state_var "@,") !global_jkind_vars
-   end);
+     (pp_print_list StateVar.pp_print_state_var "@,") !global_jkind_vars;
 
 
   let kind2_subsys_inst = mk_inst init_flag kind2_sys orig_kind2_vars in
@@ -2314,7 +2314,7 @@ let generate_frontend_obs node kind2_sys dirname =
   let lustre_vars =
     InputSystem.reconstruct_lustre_streams node (TS.state_vars kind2_sys) in
 
-  (debug fec "Lustre vars:@,%a"
+    Debug.fec "Lustre vars:@,%a"
      (fun fmt ->
         StateVar.StateVarMap.iter (fun sv l ->
             List.iter (fun (sv', l') ->
@@ -2332,8 +2332,7 @@ let generate_frontend_obs node kind2_sys dirname =
                      " , ") l'
               ) l
           ))
-     lustre_vars
-  end);
+     lustre_vars;
 
 
   (* Add jkind properties *)
@@ -2417,8 +2416,9 @@ let generate_frontend_obs node kind2_sys dirname =
   Stat.record_time Stat.certif_frontend_time;
 
   (* Show which file contains the certificate *)
-  (debug printf "Frontend eq-observer was written in %s, \
-                 run Kind 2 on it" filename end);
+    Debug.fec 
+      "Frontend eq-observer was written in %s, \
+       run Kind 2 on it" filename;
 
   jkind_cert_sys, obs_cert_sys
 
@@ -2510,8 +2510,8 @@ let generate_frontend_certificates sys dirname =
   Stat.record_time Stat.certif_gen_time;
 
   (* Show which file contains the certificate *)
-  (debug certif
-     "SMT-LIB2 frontend certificates were written in %s" dirname end);
+  Debug.certif 
+     "SMT-LIB2 frontend certificates were written in %s" dirname;
 
   inv
 
@@ -2636,7 +2636,7 @@ let generate_smt2_certificates uid input sys =
         (pp_print_list pp_print_string " ") cmd_l
         (Filename.concat dirname "FEC.kind2")
     in
-    (debug certif "Second run with: %s" cmd end);
+    Debug.certif "Second run with: %s" cmd;
 
     match Sys.command cmd with
     | 0 | 20 -> ()
@@ -2712,7 +2712,7 @@ let generate_all_proofs uid input sys =
           Event.log L_warn "%s@ No frontend observer." s;
           false
       else begin
-        (debug certif "No certificate for frontend" end);
+        Debug.certif "No certificate for frontend";
         false
       end
     in
@@ -2735,7 +2735,7 @@ let generate_all_proofs uid input sys =
             (pp_print_list pp_print_string " ") cmd_l
             (Filename.concat dirname "FEC.kind2")
         in
-        (debug certif "Second run with: %s" cmd end);
+        Debug.certif "Second run with: %s" cmd;
 
         begin match Sys.command cmd with
           | 0 | 20 ->
@@ -2749,7 +2749,7 @@ let generate_all_proofs uid input sys =
       end;
 
       if clean_tmp then begin
-        (debug certif "Cleaning temporary files" end);
+        Debug.certif "Cleaning temporary files";
         remove dirname;
       end;
 
