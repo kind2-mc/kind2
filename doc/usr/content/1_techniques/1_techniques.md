@@ -1,6 +1,7 @@
 # Techniques
 
-This section presents the techniques available in Kind 2. How they work and how they can be tweaked through options:
+This section presents the techniques available in Kind 2: how they work,
+and how they can be tweaked through various options:
 
 * [k-induction](./2_kinduction.md#k-induction)
 * [invariant generation](./3_invgen.md#invariant-generation)
