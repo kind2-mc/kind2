@@ -42,7 +42,7 @@ ZMQ.cmxa: ZMQ.cmx libczmq_stubs.la
 install: libczmq_stubs.la ZMQ.cmi ZMQ.cmxa 
 	$(LIBTOOL) --mode=install cp libczmq_stubs.la $(CURDIR)/../lib
 	$(LIBTOOL) --finish $(CURDIR)/../lib
-	cp ZMQ.cmi ZMQ.a ZMQ.cmxa ../lib
+	cp ZMQ.cmi ZMQ.a ZMQ.cmx ZMQ.cmxa ../lib
 
 clean:
 	rm -f *.[oa] *.so *.cm[ixoa] *.cmxa 

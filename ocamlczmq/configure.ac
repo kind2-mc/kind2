@@ -30,12 +30,6 @@ fi
 #   AC_MSG_ERROR([OCaml 4 is required])
 # fi
 
-# Check for Camlp4
-AC_PROG_CAMLP4
-if test "x$CAMLP4" = "xno"; then
-  AC_MSG_ERROR([You must install the Camlp4 preprocessor])
-fi
-
 # Check for OCaml findlib
 AC_PROG_FINDLIB
 if test "x$OCAMLFIND" = "xno"; then

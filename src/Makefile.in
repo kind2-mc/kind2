@@ -1,45 +1,35 @@
-OCAMLBUILD=@OCAMLBUILD@ -cflags -w,@P@U@F
-
-# Enable debug output for sections
-export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
+OCAMLBUILD=@OCAMLBUILD@ -j 0 -cflags -w,@P@U@F
 
 # Check if git is installed and use output of git describe as version
 # number, else use version number from configure
 GIT_DESCRIBE=$(shell command -v git > /dev/null && git describe --tags || echo "@PACKAGE_VERSION@")
 
-kind2: version.ml kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2: version.ml kind2Config.ml myocamlbuild.ml
 	$(OCAMLBUILD) kind2.native
 
-kind2-top: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-top: kind2Config.ml myocamlbuild.ml
 	$(OCAMLBUILD) kind2.top
 
-kind2-terms-top: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-terms-top: kind2Config.ml myocamlbuild.ml
 	$(OCAMLBUILD) kind2-terms.top
 
-kind2-prof: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-prof: kind2Config.ml myocamlbuild.ml
 	$(OCAMLBUILD) -tag profile kind2.native
 
-kind-bmc: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind-bmc: kind2Config.ml myocamlbuild.ml
 	$(OCAMLBUILD) bmc.native
 
-lustre2kind: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+lustre2kind: kind2Config.ml myocamlbuild.ml
 	$(OCAMLBUILD) lustre2kind.native
 
-lfsc-extractor: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+lfsc-extractor: kind2Config.ml flags.ml myocamlbuild.ml
 	$(OCAMLBUILD) lfscExtractor.native
 
 clean:
 	$(OCAMLBUILD) -clean
 
-kind2-doc: myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-doc: myocamlbuild.ml
 	$(OCAMLBUILD) kind2.docdir/index.html
-
-# Compile a native-code version of Camlp4DebugParser, the
-# Debian/Ubuntu package does not contain a .cmxs file 
-# (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
-_build/Camlp4DebugParser.cmxs:
-	$(OCAMLBUILD) Camlp4DebugParser.cmxs
-# $(OCAMLOPT) -shared -I `$(OCAMLOPT) -where`/camlp4 -pp camlp4rf dynlink.cmxa camlp4lib.cmxa Camlp4DebugParser.cmx -o Camlp4DebugParser.cmxs
 
 .PHONY: version.ml
 

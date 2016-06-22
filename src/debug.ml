@@ -54,7 +54,6 @@ type 'a t = ('a, Format.formatter, unit) format -> 'a
 
 (* Output a message for an debug section *)
 let printf cond section fmt = 
-  (* We know that the section is enabled, {!List.assoc} will not fail *)
   let fprintf = if cond then Format.fprintf else Format.ifprintf in
   fprintf !ppf
     ("@[<hv %i>@{<b>[@}@{<cyan_b>%s@}, @{<cyan>%.3f@}@{<b>]@}@ @[<hv>" ^^fmt^^ "@]@]@.")
