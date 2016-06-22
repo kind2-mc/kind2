@@ -63,7 +63,8 @@ let main input_file input_sys aparam trans_sys =
 
   Event.set_module `Interpreter;
 
-  let input_scope = TransSys.scope_of_trans_sys trans_sys in
+  let input_scope = TransSys.scope_of_trans_sys trans_sys @
+                    LustreIdent.user_scope in
 
   if input_file = "" then 
 
@@ -103,6 +104,14 @@ let main input_file input_sys aparam trans_sys =
 
         raise (Failure "main")
 
+    in
+
+    let trans_svars = TransSys.state_vars trans_sys in
+
+    (* Remove sliced inputs *)
+    let inputs = List.filter (fun (sv, _) ->
+        List.exists (StateVar.equal_state_vars sv) trans_svars
+      ) inputs
     in
 
     (* Minimum number of steps in input *)
@@ -189,7 +198,7 @@ let main input_file input_sys aparam trans_sys =
        instant *)
     List.iter
 
-      (fun (state_var, values) -> 
+      (fun (state_var, values) ->
 
          List.iteri 
            (fun instant instant_value ->

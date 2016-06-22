@@ -1531,11 +1531,10 @@ let inverse_oracle_map nodes =
   List.fold_left (fun acc node ->
       SVT.fold (fun oracle sv acc ->
           let l = try SVM.find oracle acc with Not_found -> [] in
-          (debug fec
+          Debug.fec
              "inverse oracle: %a ->>> %a"
              StateVar.pp_print_state_var oracle
-             StateVar.pp_print_state_var sv
-           end);
+             StateVar.pp_print_state_var sv;
           SVM.add oracle (sv :: l) acc 
         ) (N.get_oracle_state_var_map node) acc
     ) SVM.empty nodes
@@ -1543,10 +1542,9 @@ let inverse_oracle_map nodes =
 let inverse_expr_map nodes =
   List.fold_left (fun acc node ->
       SVT.fold (fun sv e acc ->
-        (debug fec
+        Debug.fec
            "inverse expr: %a ->>> %a" StateVar.pp_print_state_var sv
-           (LustreExpr.pp_print_lustre_expr false) e
-         end);
+           (LustreExpr.pp_print_lustre_expr false) e;
           SVM.add sv e acc
         ) (N.get_state_var_expr_map node) acc
   ) SVM.empty nodes

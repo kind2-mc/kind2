@@ -449,8 +449,8 @@ module CandidateTermGen = struct
 
          else (
 
-           debug invGenCand "Looking at [%s]."
-                 (TransSys.scope_of_trans_sys system |> String.concat "/") in
+           Debug.invgencand "Looking at [%s]."
+                 (TransSys.scope_of_trans_sys system |> String.concat "/");
            
            (* We don't, getting init and trans. *)
            let init, trans =
@@ -459,7 +459,7 @@ module CandidateTermGen = struct
              TransSys.trans_of_bound system Numeral.zero
            in
 
-           debug invGenCand "Generating candidates." in
+           Debug.invgencand "Generating candidates.";
 
            let user_candidates =
              if two_state then TSet.empty
@@ -540,7 +540,7 @@ module CandidateTermGen = struct
               2
         in
 
-        debug invGenCand "%i candidates" count in
+        Debug.invgencand "%i candidates" count;
 
         (* Returning the candidate terms... *)
         final,

@@ -1129,12 +1129,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               List.assq uf_symbol uf_defs 
             in
             
-             debug simplify
+             Debug.simplify
                "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
                UfSymbol.pp_print_uf_symbol uf_symbol
                (pp_print_list Var.pp_print_var "@ ") vars
-               Term.pp_print_term uf_def
-             in
+               Term.pp_print_term uf_def;
 
             (* Replace function by its definition *)
             let term' = 
@@ -1175,12 +1174,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               List.assq uf_symbol uf_defs 
             in
             
-            debug simplify
-                "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
-                UfSymbol.pp_print_uf_symbol uf_symbol
-                (pp_print_list Var.pp_print_var "@ ") vars
-                Term.pp_print_term uf_def
-            in
+            Debug.simplify
+              "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
+              UfSymbol.pp_print_uf_symbol uf_symbol
+              (pp_print_list Var.pp_print_var "@ ") vars
+              Term.pp_print_term uf_def;
 
             (* Replace function by its definition *)
             let term' = 
@@ -1193,10 +1191,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                 uf_def
             in
 
-            debug simplify
-                "@[<v>Simplify@ %a@]"
-                Term.pp_print_term term'
-            in
+            Debug.simplify
+              "@[<v>Simplify@ %a@]" Term.pp_print_term term';
 
             (Term.eval_t
                (simplify_term_node default_of_var uf_defs model) 
@@ -1267,11 +1263,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                           (List.rev i')
                       in
                       
-                      debug simplify
+                      Debug.simplify
                         "Simplified %a to %a"
                         Term.pp_print_term (Term.construct fterm) 
-                        Term.pp_print_term t'
-                      in
+                        Term.pp_print_term t';
 
                       (* Return term *)
                       atom_of_term t'
@@ -1319,11 +1314,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               (* Binary conjunction or higher arity *)
               | _ -> 
 
-                debug simplify
-                    "@[<hv>`AND with arguments@ %a@]"
-                    (pp_print_list Term.pp_print_term "@ ")
-                    (List.map term_of_nf args)
-                in
+                Debug.simplify
+                  "@[<hv>`AND with arguments@ %a@]"
+                  (pp_print_list Term.pp_print_term "@ ")
+                  (List.map term_of_nf args);
 
                 (* Lift arguments of subterms *)
                 let args' = flatten_bool_subterms Symbol.s_and args in
@@ -1931,12 +1925,11 @@ let type_default_of_var v = Var.type_of_var v |> TermLib.default_of_type
 (* Simplify a term with a model *)
 let simplify_term_model ?default_of_var uf_defs model term = 
 
-  debug simplify
+  Debug.simplify
     "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
     Term.pp_print_term term
     Model.pp_print_model
-    model
-  in
+    model;
 
   Var.VarHashtbl.iter (fun v -> function
       | Model.Term t when Term.is_free_var t ->
@@ -1966,11 +1959,10 @@ let simplify_term_model ?default_of_var uf_defs model term =
          term)
   in
 
-  debug simplify
+  Debug.simplify
     "Simplified@ > @[<hv>%a@]@ to@ > @[<hv>%a@]"
     Term.pp_print_term term
-    Term.pp_print_term res
-  in
+    Term.pp_print_term res;
 
   res
 

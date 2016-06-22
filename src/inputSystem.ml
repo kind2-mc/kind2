@@ -331,7 +331,7 @@ let slice_to_abstraction_and_property
   (* Replace top system with subsystem for slicing. *)
   let analysis' =
     Analysis.First {
-      Analysis.info_of_param analysis
+      (Analysis.info_of_param analysis)
       with Analysis.top = TransSys.scope_of_trans_sys trans_sys'
     }
   in

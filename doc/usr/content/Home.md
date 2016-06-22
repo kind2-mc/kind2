@@ -42,7 +42,6 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 
 - Linux or Mac OS X,
 - OCaml 4.03 or later,
-- Camlp4 
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
     - [CVC4](http://cvc4.cs.nyu.edu),

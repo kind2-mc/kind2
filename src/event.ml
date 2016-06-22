@@ -186,11 +186,8 @@ struct
 
     | s -> 
 
-      (debug event 
-        "Bad message %s"
-        s
-       in
-       raise Messaging.BadMessage)
+      Debug.event "Bad message %s" s;
+      raise Messaging.BadMessage
 
 
   (* Convert a message to strings *)
@@ -326,21 +323,6 @@ let all_stats () =
 (* ********************************************************************** *)
 
 
-(* Level as string for plain text output *)
-let pt_string_of_level = function 
-  | L_off -> assert false
-  | L_fatal -> "FATAL"
-  | L_error -> "ERROR"
-  | L_warn -> "WARNING"
-  | L_info -> "INFO"
-  | L_debug -> "DEBUG"
-  | L_trace -> "TRACE"
-
-
-(* Pretty-print level for plain text output *)
-let pp_print_level_pt ppf l = Format.fprintf ppf "%s" (pt_string_of_level l)
-
-
 (* Kind module as string for plain text output *)
 let pt_string_of_kind_module =
   Format.asprintf "%a" pp_print_kind_module
@@ -353,24 +335,13 @@ let pp_print_kind_module_pt =
 
 (* Output message as plain text *)
 let printf_pt mdl level fmt =
-
   (ignore_or_fprintf level)
-    !log_ppf 
-    (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("%a @[<hov>" ^^ fmt ^^ "@]@.@.")
-    tag_of_level level
-    (* pp_print_level_pt level *)
-    (* pp_print_kind_module_pt mdl *)
+    !log_ppf ("%a @[<hov>" ^^ fmt ^^ "@]@.@.") tag_of_level level
+
 
 (* Unconditional printing as plain text. *)
 let printf_pt_uncond mdl fmt =
-
-  Format.fprintf
-    !log_ppf
-    (* ("@[<hov>%a (%a):@ " ^^ fmt ^^ "@]@.@.") *)
-    ("@[<hov>" ^^ fmt ^^ "@]@.@.")
-    (* pp_print_level_pt level *)
-    (* pp_print_kind_module_pt mdl *)
+  Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.")
 
 
 
@@ -508,7 +479,7 @@ let cex_pt mdl level input_sys analysis trans_sys prop cex disproved =
 
   ) else
 
-    (debug event "Status of property %s already known" prop in ())
+    Debug.event "Status of property %s already known" prop
 
 
 (* Output statistics section as plain text *)

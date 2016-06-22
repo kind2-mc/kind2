@@ -74,8 +74,8 @@ let jkind_options = [
 let jkind_command_line file =
   let jkind = Flags.Certif.jkind_bin () in
   let file_red =
-    if Debug.mode "fec" then [file]
-    else [file; ">/dev/null"] in
+    (* if Debug.mode "fec" then [file] *)
+    (* else *) [file; ">/dev/null"] in
   String.concat " " (jkind :: jkind_options @ file_red)
 
 
@@ -412,8 +412,8 @@ let of_channel in_ch =
       Type.t_bool 
   in
 
-  (debug fec "JKind Lambda:\n%a" Term.pp_print_lambda jk_trans_lambda
-   end);
+  Debug.fec "JKind Lambda:\n%a"
+    Term.pp_print_lambda jk_trans_lambda;
 
 (* Term for initial states and new constant oracles. We do a simplification
    by removing let bindings originating from the lambda application. *)
@@ -475,12 +475,12 @@ let get_jkind_transsys file =
   let tmp = Filename.temp_file base ".lus" in
   file_copy file tmp;
 
-  (debug certif "Temporary file %s" tmp end);
+  Debug.certif "Temporary file %s" tmp;
   
   (* Run JKind on temporary copy *)
   let cmd = jkind_command_line tmp in
 
-  (debug certif "JKind command line: %s" cmd end);
+  Debug.certif "JKind command line: %s" cmd;
 
   if Sys.command cmd <> 0 then
     failwith "JKind execution failed";
@@ -488,7 +488,7 @@ let get_jkind_transsys file =
   (* open dump file and parse *)
   let dump_file = tmp ^ ".bmc.smt2" in
 
-  (debug certif "Parsing from JKind dump file: %s" dump_file end);
+  Debug.certif "Parsing from JKind dump file: %s" dump_file;
 
   let in_ch = open_in dump_file in
   let sys = of_channel in_ch in

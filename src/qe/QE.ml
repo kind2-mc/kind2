@@ -548,15 +548,14 @@ let solve_eqs vars terms =
   (* Order list of definitions by dependency *)
   let eqs' = order_defs [] eqs in
 
-  debug qe
+  Debug.qe
     "@[<v>@[<hv>Equations:@ @[<hv>%a@]@]@,@[<hv>Terms:@ @[<hv>%a@]@]@]"
     (pp_print_list 
-      (fun ppf (v, t) -> Format.fprintf ppf "%a = %a" Var.pp_print_var v Term.pp_print_term t)
-      ",@ ")
+       (fun ppf (v, t) -> Format.fprintf ppf "%a = %a" Var.pp_print_var v Term.pp_print_term t)
+       ",@ ")
     eqs'
     (pp_print_list Term.pp_print_term ",@ ")
-    terms'
-  in
+    terms';
 
   let rec subst_defs term = 
 
@@ -595,29 +594,27 @@ let solve_eqs vars terms =
 
 let generalize trans_sys uf_defs model elim term =
 
-  (debug qe
-     "@[<hv>Generalizing@ @[<hv>%a@]@]@ for variables@ @[<hv>%a@]@."
-     Term.pp_print_term term
-     (pp_print_list Var.pp_print_var ",@ ") elim
-     end);
+  Debug.qe
+    "@[<hv>Generalizing@ @[<hv>%a@]@]@ for variables@ @[<hv>%a@]@."
+    Term.pp_print_term term
+    (pp_print_list Var.pp_print_var ",@ ") elim;
 
-  (debug qe
-     "@[<hv>with the model@ @[<hv>%a@]@]@."
-     Model.pp_print_model model
-     end);
+  Debug.qe
+    "@[<hv>with the model@ @[<hv>%a@]@]@."
+    Model.pp_print_model model;
   
   (* Extract active path from term and model *)
   let extract_bool, extract_int = Extract.extract uf_defs model term in
 
-  (debug qe
-     "@[<hv>Extracted term:@ @[<hv>%a@]@]@."
-     (pp_print_list Term.pp_print_term "@ ")
-     extract_int end);
+  Debug.qe
+    "@[<hv>Extracted term:@ @[<hv>%a@]@]@."
+    (pp_print_list Term.pp_print_term "@ ")
+    extract_int;
 
-  (debug qe
-     "@[<hv>Extracted term Booleans:@ @[<hv>%a@]@]@."
-     (pp_print_list Term.pp_print_term "@ ")
-     extract_bool end);
+  Debug.qe
+    "@[<hv>Extracted term Booleans:@ @[<hv>%a@]@]@."
+    (pp_print_list Term.pp_print_term "@ ")
+    extract_bool;
 
   (* Partition list of state variables into Boolean and integer variables *)
   let elim_bool, elim_int =
@@ -640,10 +637,10 @@ let generalize trans_sys uf_defs model elim term =
 
   let extract_int = Term.mk_and (solve_eqs elim_int extract_int) in
 
-  (debug qe
-     "@[<hv>Extracted term simplified:@ @[<hv>%a@]@]@."
-     Term.pp_print_term
-     extract_int end);
+  Debug.qe
+    "@[<hv>Extracted term simplified:@ @[<hv>%a@]@]@."
+    Term.pp_print_term
+    extract_int;
 (*
   check_implication 
     trans_sys
@@ -653,10 +650,10 @@ let generalize trans_sys uf_defs model elim term =
        (Term.mk_and [Term.mk_and extract_bool; extract_int]))
     (SMTExpr.smtexpr_of_term term);
 *)
-  (debug qe
-     "@[<hv>QE for Booleans:@ @[<hv>%a@]@]@."
-     Term.pp_print_term 
-     (Term.mk_and term'_bool) end);
+  Debug.qe
+    "@[<hv>QE for Booleans:@ @[<hv>%a@]@]@."
+    Term.pp_print_term 
+    (Term.mk_and term'_bool);
 
   let term' = let ic3_qe = Flags.IC3.qe () in match ic3_qe with 
     
@@ -769,11 +766,10 @@ let generalize trans_sys uf_defs model elim term =
         (* Convert term to Presburger formula *)
         let cf = Presburger.to_presburger elim_int extract_int in
         
-        (debug qe
-           "@[<hv>In Presburger:@ @[<v>%a@]@]@."
-           Poly.pp_print_cformula
-           cf 
-         end);
+        Debug.qe
+          "@[<hv>In Presburger:@ @[<v>%a@]@]@."
+          Poly.pp_print_cformula
+          cf;
 (*
         check_implication 
           trans_sys
@@ -795,11 +791,10 @@ let generalize trans_sys uf_defs model elim term =
           CooperQE.eliminate model elim_int cf  
         in
         
-        (debug qe
-           "@[<hv>Cooper QE:@ @[<v>%a@]@]"
-           Poly.pp_print_cformula
-           elim_pformula
-         end);
+        Debug.qe
+          "@[<hv>Cooper QE:@ @[<v>%a@]@]"
+          Poly.pp_print_cformula
+          elim_pformula;
 
         (* Convert quantifier eliminated Presburger formula to term *)
         let term'_int = Presburger.term_of_cformula elim_pformula in
@@ -820,7 +815,7 @@ let generalize trans_sys uf_defs model elim term =
 
   in
 
-  (debug qe "QE term %a" Term.pp_print_term (Term.mk_and term') end);
+  Debug.qe "QE term %a" Term.pp_print_term (Term.mk_and term');
 
   (* Return quantifier eliminated term *)
   term'

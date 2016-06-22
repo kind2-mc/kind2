@@ -20,6 +20,7 @@
 @author Ruoyu Zhang
 *)
 
+open Lib
 open Poly
 
 
@@ -763,20 +764,18 @@ let preAtom_is_trivial (pret: preAtom) : bool =
 let eliminate_variable_in_cformula (c: Var.t -> Var.t -> int) 
     model (v: Var.t) (cf: cformula) : cformula =
 
-  (debug qe_detailed
-     "Eliminating variable %a: @."
-     Term.pp_print_term (Term.mk_var v)
-   end);
+  Debug.qedetailed
+    "Eliminating variable %a: @."
+    Term.pp_print_term (Term.mk_var v);
 
   (* Find the least common multiple of the coefficient of all
      occurrences of the variable *)
   let coe_lcm = find_lcm_in_cformula v cf in
-  
-  (debug qe_detailed
-     "The coe_lcm on %a is %a" 
-     Term.pp_print_term (Term.mk_var v)
-     Numeral.pp_print_numeral coe_lcm
-   end);
+
+  Debug.qedetailed
+    "The coe_lcm on %a is %a" 
+    Term.pp_print_term (Term.mk_var v)
+    Numeral.pp_print_numeral coe_lcm;
 
   (* Variable does not occur in formula, then return unchanged *)
   if Numeral.(coe_lcm = zero) then cf else
@@ -785,10 +784,9 @@ let eliminate_variable_in_cformula (c: Var.t -> Var.t -> int)
        eliminated with the same coefficient *)
     let scf = scale_coefficient_in_cformula v coe_lcm cf in
     
-    (debug qe_detailed
-       "Scaling formula to:@. @[<hv>%a@]@;" 
-       Poly.pp_print_cformula scf
-     end);
+    Debug.qedetailed
+      "Scaling formula to:@. @[<hv>%a@]@;" 
+      Poly.pp_print_cformula scf;
     
     try
 
@@ -799,18 +797,16 @@ let eliminate_variable_in_cformula (c: Var.t -> Var.t -> int)
           find_lower_bound_in_cformula c model v coe_lcm scf 
         in
         
-        (debug qe_detailed
-           "@[<hv>The lowerbound is:@ @[<v>%a@]@]@."
-           Poly.pp_print_poly lower_bound
-         end);
+        Debug.qedetailed
+          "@[<hv>The lowerbound is:@ @[<v>%a@]@]@."
+          Poly.pp_print_poly lower_bound;
 
         (* Substitute polynomial for all occurrences of coe_lcm*v *)
         let ret = substitute_summand_in_cformula c v lower_bound scf in
         
-        (debug qe_detailed
-           "@[<hv>The result is:@ @[<v>%a@]@]@."
-           Poly.pp_print_cformula ret
-         end);
+        Debug.qedetailed
+          "@[<hv>The result is:@ @[<v>%a@]@]@."
+          Poly.pp_print_cformula ret;
         
         (* Filter out all trivial atoms *)
         List.filter (fun x -> not (preAtom_is_trivial x)) ret
@@ -820,16 +816,13 @@ let eliminate_variable_in_cformula (c: Var.t -> Var.t -> int)
     (* No lower bound for the variable to be eliminated *)
     with Not_found -> 
 
-      (debug qe_detailed
-         "No lowerbound found.@."
-       end);
+      Debug.qedetailed "No lowerbound found.@.";
       
       let ret = handle_infinitely_small_case c model v scf in
 
-      (debug qe_detailed
-         "@[<hv>The result is:@ @[<v>%a@]@]@."
-         Poly.pp_print_cformula ret
-       end);
+      Debug.qedetailed
+        "@[<hv>The result is:@ @[<v>%a@]@]@."
+        Poly.pp_print_cformula ret;
       
       (* Filter out all trivial atoms *)
       List.filter (fun x -> not (preAtom_is_trivial x)) ret
