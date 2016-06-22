@@ -619,6 +619,7 @@ let order_equations
 let slice_all_of_node 
     ?(keep_props = true)
     ?(keep_contracts = true)
+    ?(keep_asserts = true)
     { N.name; 
       N.instance;
       N.init_flag;
@@ -629,7 +630,10 @@ let slice_all_of_node
       N.props; 
       N.contract;
       N.is_main;
-      N.state_var_source_map } = 
+      N.state_var_source_map;
+      N.oracle_state_var_map;
+      N.state_var_expr_map;
+    } = 
 
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
@@ -644,11 +648,14 @@ let slice_all_of_node
     N.equations = [];
     N.calls = [];
     N.function_calls = [];
-    N.asserts;
+    N.asserts = if keep_asserts then asserts else [] ;
     N.props = if keep_props then props else [];
     N.contract = if keep_contracts then contract else None;
     N.is_main;
-    N.state_var_source_map = state_var_source_map }
+    N.state_var_source_map = state_var_source_map;
+    N.oracle_state_var_map = oracle_state_var_map;
+    N.state_var_expr_map = state_var_expr_map;
+  }
 
 
 (* Add roots of cone of influence from node call to roots *)
@@ -1209,9 +1216,10 @@ let root_and_leaves_of_contracts
 
   (* Slice everything from node *)
   let node_sliced = 
-    slice_all_of_node 
+    slice_all_of_node
       ~keep_props:false
       ~keep_contracts:true
+      ~keep_asserts:false
       node 
   in
     

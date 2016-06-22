@@ -28,7 +28,11 @@ type t
 
 
 (** Node or function not found, possible forward reference *)
-exception Node_or_function_not_found of LustreIdent.t * Lib.position
+exception Node_or_function_not_found of LustreIdent.t * position
+
+exception Type_not_found of LustreIdent.t * position
+
+exception Contract_not_found of LustreIdent.t * position
 
 (** {1 Scopes and Nodes} *)
 
@@ -91,11 +95,10 @@ val add_node_to_context : t -> t -> t
 val add_function_to_context : t -> t -> t
 
 
-(** Return forward referenced subnodes of node *)
-val deps_of_node : t -> LustreIdent.t -> LustreIdent.Set.t
-
-(** Add second node as a forward referenced subnode of the first *)
-val add_dep : t -> LustreIdent.t -> LustreIdent.t -> t 
+(** Resolve a forward reference, fails if a circular dependency is detected. *)
+val solve_fref : t -> LustreAst.declaration -> (
+  LustreDependencies.decl * LustreIdent.t
+) -> LustreAst.declaration list -> LustreAst.declaration list
 
 (** Add a binding of an identifier to an expression to context 
 

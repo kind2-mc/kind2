@@ -25,23 +25,26 @@ module SVM = StateVar.StateVarMap
 
 type _ t =
 | Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
-| Native : unit S.t -> unit t
+| Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
 let read_input_lustre input_file = Lustre (LustreInput.of_file input_file)
+
 let translate_contracts_lustre = ContractsToProps.translate_file
 
-let read_input_native input_file = assert false
+let read_input_native input_file = Native (NativeInput.of_file input_file)
 
 let read_input_horn input_file = assert false
 
-let ordered_scopes_of (type s)
-: s t -> Scope.t list = function
+let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre (subsystem, _) ->
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
-  | Native subsystem -> assert false
+  | Native subsystem ->
+    S.all_subsystems subsystem
+    |> List.map (fun { S.scope } -> scope)
+
   | Horn subsystem -> assert false
 
 (* Uid generator for test generation params.
@@ -121,41 +124,50 @@ let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
 
   | Lustre (subsystem, globals) -> (fun results -> 
-    (* let nodes = 
-      LustreNode.nodes_of_subsystem subsystem
-    in
+      (* let nodes = 
+         LustreNode.nodes_of_subsystem subsystem
+         in
 
-    assert (nodes <> []) ;
+         assert (nodes <> []) ;
 
-    Some {
-      Analysis.top = List.hd nodes |> LustreNode.scope_of_node ;
+         Some {
+         Analysis.top = List.hd nodes |> LustreNode.scope_of_node ;
 
-      Analysis.abstraction_map =
-        nodes |> List.fold_left (fun m n ->
-          Scope.Map.add (LustreNode.scope_of_node n) false m
-        ) Scope.Map.empty ;
+         Analysis.abstraction_map =
+          nodes |> List.fold_left (fun m n ->
+            Scope.Map.add (LustreNode.scope_of_node n) false m
+          ) Scope.Map.empty ;
 
-      Analysis.assumptions = []
-    } *)
+         Analysis.assumptions = []
+         } *)
 
-    let subs_of_scope scope =
-      let { S.subsystems } =
-        S.find_subsystem subsystem scope
+      let subs_of_scope scope =
+        let { S.subsystems } = S.find_subsystem subsystem scope in
+        subsystems
+        |> List.map (fun { S.scope ; S.has_contract; S.has_modes } ->
+            scope, has_contract, has_modes)
       in
-      subsystems |> List.map (
-        fun { S.scope ; S.has_contract ; S.has_modes } ->
-          scope, has_contract, has_modes
-      )
-    in
 
-    S.all_subsystems subsystem
-    |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
-      scope, has_contract, has_modes
+
+      S.all_subsystems subsystem
+      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
+          scope, has_contract, has_modes)
+      |> Strategy.next_analysis results subs_of_scope
     )
-    |> Strategy.next_analysis results subs_of_scope
-  )
 
-  | Native subsystem -> (function _ -> assert false)
+  | Native subsystem -> (fun results ->
+      let subs_of_scope scope =
+        let { S.subsystems } = S.find_subsystem subsystem scope in
+        subsystems
+        |> List.map (fun { S.scope ; S.has_contract; S.has_modes } ->
+            scope, has_contract, has_modes)
+      in
+      
+      S.all_subsystems subsystem
+      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
+          scope, has_contract, has_modes)
+      |> Strategy.next_analysis results subs_of_scope)
+         
   | Horn subsystem -> (function _ -> assert false)
 
 
@@ -169,10 +181,10 @@ let trans_sys_of_analysis (type s) ?(preserve_sig = false)
       LustreTransSys.trans_sys_of_nodes
         ~preserve_sig:preserve_sig subsystem globals analysis
     in
-    (t, Lustre (s, g))
-  )
-    
-  | Native _ -> assert false
+      (t, Lustre (s, g))
+    )
+
+  | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
     
   | Horn _ -> assert false
 
@@ -187,7 +199,10 @@ let pp_print_path_pt
     LustrePath.pp_print_path_pt
       trans_sys instances subsystem globals first_is_init ppf model
 
-  | Native _ -> assert false
+  | Native sub ->
+    Format.eprintf "pp_print_path_pt not implemented for native input@.";
+    ()
+    (* assert false *)
 
   | Horn _ -> assert false
 
@@ -201,7 +216,10 @@ let pp_print_path_xml
     LustrePath.pp_print_path_xml
       trans_sys instances subsystem globals first_is_init ppf model
 
-  | Native _ -> assert false
+  | Native _ ->
+    Format.eprintf "pp_print_path_xml not implemented for native input@.";
+    assert false;
+
 
   | Horn _ -> assert false
 
@@ -214,10 +232,25 @@ let pp_print_path_in_csv
     LustrePath.pp_print_path_in_csv
       trans_sys instances subsystem globals first_is_init ppf model
 
-  | Native _ -> assert false
+  | Native _ ->
+    Format.eprintf "pp_print_path_in_csv not implemented for native input";
+    assert false
 
   | Horn _ -> assert false
 
+
+let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
+  match input_system with 
+  | Lustre (subsystem, _) ->
+    LustrePath.reconstruct_lustre_streams subsystem state_vars
+  | Native _ -> assert false
+  | Horn _ -> assert false
+
+let is_lustre_input (type s) (input_system : s t) =
+  match input_system with 
+  | Lustre _ -> true
+  | Native _ -> false
+  | Horn _ -> false
 
 
 let slice_to_abstraction_and_property

@@ -1,4 +1,4 @@
-OCAMLBUILD=@OCAMLBUILD@ -classic-display -cflags -w,@P@U@F
+OCAMLBUILD=@OCAMLBUILD@ -cflags -w,@P@U@F
 
 # Enable debug output for sections
 export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
@@ -24,6 +24,9 @@ kind-bmc: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 
 lustre2kind: kind2Config.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) lustre2kind.native
+
+lfsc-extractor: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) lfscExtractor.native
 
 clean:
 	$(OCAMLBUILD) -clean

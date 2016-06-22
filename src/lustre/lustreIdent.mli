@@ -105,12 +105,6 @@ val inst_ident : t
 (** Identifier for index variables in arrays *)
 val index_ident : t
 
-(** Identifier of uninterpreted symbol for initial state constraint *)
-val init_uf_string : string 
-
-(** Identifier of uninterpreted symbol for transition relation *)
-val trans_uf_string : string 
-
 
 (* 
    Local Variables:

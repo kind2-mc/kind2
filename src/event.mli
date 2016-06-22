@@ -31,17 +31,16 @@ exception Terminate
 
 (** {1 Logging} *)
 
-(** Set log format to plain text *)
-val set_log_format_pt : unit -> unit
+(** Expose functions from logging module *)
+include Log.Sig
 
-(** Set log format to XML *)
-val set_log_format_xml : unit -> unit
+(** Logging instantiated with an actual relay function *)
+include Log.SLog
 
-(** Relay log messages to invariant manager *)
+(** Relay log messages to invariant manager (overrides function from
+    {! Log}) *)
 val set_relay_log : unit -> unit
 
-(** Cancel relaying of log messages *)
-val unset_relay_log : unit -> unit
 
 (** Logs a step counterexample.
 
@@ -82,7 +81,6 @@ val log_prop_status : Lib.log_level -> (string * Property.prop_status) list -> u
 val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
 
 (** Terminate log, called at the very end of a run.
-
     Output closing tags for XML output. *)
 val terminate_log : unit -> unit
 
@@ -94,7 +92,7 @@ val log_run_end : Analysis.result list -> unit
 (** Logs the start of an analysis.
     [log_analysis_start top abs] logs the start of an analysis for top
     system [top] with abstraction [abs]. *)
-val log_analysis_start : Analysis.param -> unit
+val log_analysis_start : TransSys.t -> Analysis.param -> unit
 
 (** Logs the end of an analysis.
     [log_analysis_start result] logs the end of an analysis. *)
@@ -110,8 +108,9 @@ val log_interruption : int -> unit
 (** {1 Events} *)
 
 (** Events exposed to callers *)
+
 type event = 
-  | Invariant of string list * Term.t 
+  | Invariant of string list * Term.t * Certificate.t 
   | PropStatus of string * Property.prop_status
   | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 
@@ -121,14 +120,6 @@ val pp_print_event : Format.formatter -> event -> unit
 (** Return the last statistics received *)
 val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
 
-(** [log m l f v ...] outputs a message from module [m] on level [l],
-    formatted with the parameterized string [f] and the values [v ...] *)
-val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
-
-(** [log_uncond m f v ...] outputs a message from module [m] unconditionally,
-    formatted with the parameterized string [f] and the values [v ...] *)
-val log_uncond : ('a, Format.formatter, unit) format -> 'a
-
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit
 
@@ -136,7 +127,7 @@ val stat : (string * Stat.stat_item list) list -> unit
 val progress : int -> unit
 
 (** Broadcast a discovered top level invariant *)
-val invariant : string list -> Term.t -> unit
+val invariant : string list -> Term.t -> Certificate.t -> unit
 
 (** Broadcast a step cex *)
 val step_cex : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
@@ -166,7 +157,7 @@ val check_termination: unit -> unit
     (top) scope *)
 val top_invariants_of_invariants :
   TransSys.t ->
-  (Lib.kind_module * (string list * Term.t)) list ->
+  (Lib.kind_module * (string list * Term.t * Certificate.t)) list ->
   Term.t list
 
 (** Update transition system from events and return new invariants
@@ -186,7 +177,7 @@ val update_trans_sys_sub :
   Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
-  (Lib.kind_module * (string list * Term.t)) list *
+  (Lib.kind_module * (string list * Term.t * Certificate.t)) list *
   (Lib.kind_module * (string * Property.prop_status)) list
 
 (** Update transition system from events and return new top level
@@ -217,17 +208,12 @@ type messaging_setup
 (** Background thread of the messaging system *)
 type mthread
 
-(** Set module currently running *)
-val set_module : Lib.kind_module -> unit 
-
-(** Get module currently running *)
-val get_module : unit -> Lib.kind_module
-
 (** Create contexts and bind ports for all processes *)
 val setup : unit -> messaging_setup
 
 (** Start messaging for the invariant manager *)
-val run_im : messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+val run_im :
+  messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
 
 (** Start messaging for another process *)
 val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
@@ -236,7 +222,9 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 val exit : mthread -> unit
 
 
-val pp_print_path_pt : 'a InputSystem.t -> Analysis.param -> TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val pp_print_path_pt :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> 'a ->
+  Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (* 
    Local Variables:

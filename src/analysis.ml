@@ -38,6 +38,17 @@ type info = {
   (* refinement_of : result option *)
 }
 
+(** Shrinks an abstraction map to the subsystems of a system. *)
+let shrink_info_to_sys ({ abstraction_map } as info) sys =
+  let abstraction_map =
+    TransSys.fold_subsystems ?include_top:(Some false) (
+      fun map sys ->
+        let scope = TransSys.scope_of_trans_sys sys in
+        Scope.Map.add scope (Scope.Map.find scope abstraction_map) map
+    ) Scope.Map.empty sys
+  in
+  { info with abstraction_map }
+
 (** Parameter of an analysis. *)
 type param =
   (* Analysis of the contract of a system. *)
@@ -52,6 +63,9 @@ type param =
 and result = {
   (** Parameters of the analysis. *)
   param : param ;
+
+  (** Total time of the analysis. *)
+  time: float ;
 
   (** System analyzed, contains property statuses and invariants. *)
   sys : TransSys.t ;
@@ -74,6 +88,12 @@ let info_of_param = function
 | First info -> info
 | Refinement (info,_) -> info
 
+(** Shrinks a param to a system. *)
+let shrink_param_to_sys param sys = match param with
+| ContractCheck info -> ContractCheck (shrink_info_to_sys info sys)
+| First info -> First (shrink_info_to_sys info sys)
+| Refinement (info, res) -> Refinement ( (shrink_info_to_sys info sys), res )
+
 (* Retrieve the assumptions of a [scope] from a [param]. *)
 let param_assumptions_of_scope param scope =
   let { assumptions } = info_of_param param in
@@ -94,8 +114,8 @@ let param_scope_is_abstract param scope =
 (* Abstraction of a property source. *)
 type prop_kind = | Contract | Subreq | Prop
 
-(* Creates a [result] from a [param] and a [t]. *)
-let mk_result param sys =
+(* Creates a [result] from a [param], a [t] and an analysis time. *)
+let mk_result param sys time =
 
   let valid, invalid, unknown = TransSys.get_split_properties sys in
 
@@ -117,25 +137,25 @@ let mk_result param sys =
     find c_valid r_valid false unknown
   in
 
-  { param ; sys ; contract_valid ; requirements_valid }
+  { param ; time ; sys ; contract_valid ; requirements_valid }
 
 (** Returns true if all properties in the system in a [result] have been
     proved. *)
 let result_is_all_proved { sys } =
-  match TransSys.get_split_properties sys with
-  | (_, [], []) -> true
-  | _ -> false
+  TransSys.get_prop_status_all_nocands sys |>
+  List.for_all (function
+    | _, Property.PropInvariant _ -> true
+    | _ -> false
+  )
 
 (** Returns true if some properties in the system in a [result] have been
     falsified. *)
 let result_is_some_falsified { sys } =
-  match TransSys.get_split_properties sys with
-  | (_, _ :: _, _) -> true
-  | _ -> false
-
-
-
-
+  TransSys.get_prop_status_all_nocands sys |>
+  List.exists (function
+      | _, Property.PropFalse _ -> true
+      | _ -> false
+    )
 
 
 
@@ -222,7 +242,7 @@ let pp_print_param fmt param =
 
     (fun fmt -> function
       | [], [] ->
-        Format.fprintf fmt " no subsystems"
+        Format.fprintf fmt " (no subsystems)"
       | concrete, abstract ->
         Format.fprintf fmt "@ subsystems@   @[<v>" ;
         ( match concrete with
@@ -252,32 +272,104 @@ let pp_print_param fmt param =
         assumptions)
     assumptions
 
-let pp_print_result_quiet fmt { sys } =
-  match TransSys.get_split_properties sys with
+let split_properties_nocands sys =
+  let valid, invalid, unknown = TransSys.get_split_properties sys in
+  let remove_cands l =
+    List.filter (fun p -> Property.(p.prop_source <> Candidate)) l
+    |> List.rev in
+  remove_cands valid, remove_cands invalid, remove_cands unknown
+
+let pp_print_param_of_result fmt { param ; sys } =
+  let param = shrink_param_to_sys param sys in
+  match param with
+  | ContractCheck _ -> Format.fprintf fmt "checking mode exhaustiveness"
+  | First { abstraction_map } ->
+    let count =
+      Scope.Map.fold (
+        fun _ is_abs acc ->
+          if is_abs then acc + 1 else acc
+      ) abstraction_map 0
+    in
+    Format.fprintf
+      fmt "without refinement: %d abstract system%s" count (
+        if count = 1 then "" else "s"
+      )
+  | Refinement ( { abstraction_map }, { param = pre_param } ) ->
+    let { abstraction_map = pre_abs_map } = info_of_param pre_param in
+    let count =
+      Scope.Map.fold (
+        fun _ is_abs acc ->
+          if is_abs then acc + 1 else acc
+      ) abstraction_map 0
+    in
+    let refined =
+      Scope.Map.fold (
+        fun scope is_abs acc ->
+          if not is_abs then try (
+            if Scope.Map.find scope pre_abs_map then scope :: acc else acc
+          ) with Not_found -> (
+            Format.asprintf
+              "could not find system %a \
+              in abstraction map of previous result"
+              Scope.pp_print_scope scope ;
+            |> failwith
+          ) else acc
+      ) abstraction_map []
+    in
+    Format.fprintf
+      fmt
+      "with %d abstract system%s@ \
+      but after refining %d system%s:@   \
+      @[<hov>%a@]"
+      count
+      (if count = 1 then "" else "s")
+      (List.length refined)
+      (if (List.length refined) = 1 then "" else "s")
+      (pp_print_list
+        Scope.pp_print_scope
+        ",@ "
+      ) refined
+
+let pp_print_result_quiet fmt ({ time ; sys } as res) =
+  match split_properties_nocands sys with
   | valid, [], [] ->
-    Format.fprintf fmt "%a | safe (%d properties)"
+    Format.fprintf fmt "%a:@   @[<v>\
+        @{<green>safe@} in %.3fs@ \
+        %a@ \
+        %d propert%s\
+      @]"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      time
+      pp_print_param_of_result res
       (List.length valid)
+      ( match valid with
+        | [ _ ] -> "y"
+        | _ -> "ies" )
   | valid, [], unknown ->
-    Format.fprintf fmt "%a @[<v>\
-      | timeout@ \
-      | unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
-      | valid:   [ @[<hov>@{<green>%a@}@] ]\
-    @]"
-    Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
-    (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
-    (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
+    Format.fprintf fmt "%a:@   @[<v>\
+        @{<red>timeout@}@ \
+        %a@ \
+        unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
+        valid:   [ @[<hov>@{<green>%a@}@] ]\
+      @]"
+      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      pp_print_param_of_result res
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
   | valid, invalid, unknown ->
-    Format.fprintf fmt "%a @[<v>\
-      | unsafe@ \
-      | @{<red>invalid@}: [ @[<hov>%a@] ]@ \
-      | @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
-      | @{<green>valid@}:   [ @[<hov>%a@] ]\
-    @]"
-    Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
-    (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
-    (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
-    (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
+    Format.fprintf fmt "%a:@   @[<v>\
+        @{<red>unsafe@} in %.3fs@ \
+        %a@ \
+        invalid: [ @[<hov>@{<red>%a@}@] ]@ \
+        unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
+        valid:   [ @[<hov>@{<green>%a@}@] ]\
+      @]"
+      Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
+      time
+      pp_print_param_of_result res
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") invalid
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") unknown
+      (pp_print_list Property.pp_print_prop_quiet ",@ ") valid
 
 let pp_print_result fmt {
   param ; sys ; contract_valid ; requirements_valid
@@ -290,7 +382,7 @@ let pp_print_result fmt {
       props
   in
   let pp_print_skip _ _ = () in
-  let valid, invalid, unknown = TransSys.get_split_properties sys in
+  let valid, invalid, unknown = split_properties_nocands sys in
   Format.fprintf fmt "@[<v>\
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \

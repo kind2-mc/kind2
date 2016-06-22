@@ -232,6 +232,8 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Real -> Format.pp_print_string ppf "real"
 
+  | Type.Abstr s -> Format.pp_print_string ppf s
+
   | Type.Scalar (s, l) -> 
 
     Format.fprintf
@@ -2063,10 +2065,10 @@ let mk_pre
   in
 
   (* Return expression and new definitions *)
-  ({ expr with expr_init = expr_init';
-               expr_step = expr_step';
-               expr_type = expr_type' }, 
-   ctx'') 
+  { expr_init = expr_init' ;
+    expr_step = expr_step' ;
+    expr_type = expr_type' ;
+  }, ctx''
 
 
 (* ********************************************************************** *)

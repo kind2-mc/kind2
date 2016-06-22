@@ -41,7 +41,7 @@
     index that is set to a unique term for the instance of the
     transition system the array occurs in.
 
-    @author Christoph Sticksels
+    @author Christoph Sticksel
     @author Adrien Champion
 *)
 
@@ -123,6 +123,28 @@ val init_of_bound : t -> Numeral.t -> Term.t
 val trans_of_bound : t -> Numeral.t -> Term.t 
 
 
+(** Predicate for the initial state constraint *)
+val init_uf_symbol : t -> UfSymbol.t
+
+(** Predicate for the transition relation *)
+val trans_uf_symbol : t -> UfSymbol.t
+
+
+(** Variables in the initial state constraint *)
+val init_formals : t -> Var.t list 
+
+(** Variables in the transition relation *)
+val trans_formals : t -> Var.t list
+
+
+(** Builds a call to the initial function on state [k]. *)
+val init_fun_of : t -> Numeral.t -> Term.t
+  
+(** Builds a call to the transition relation function linking state
+    [k] and [k']. *)
+val trans_fun_of : t -> Numeral.t -> Numeral.t -> Term.t
+
+
 (** Return the state variable for the init flag *)
 val init_flag_state_var : t -> StateVar.t
 
@@ -144,10 +166,29 @@ val scope_of_trans_sys : t -> Scope.t
 (** Returns the properties in a transition system. *)
 val get_properties : t -> Property.t list
 
+(** Return current status of all real (not candidate) properties *)
+val get_real_properties : t -> Property.t list
+
+(** Return true if the property is a candidate invariant *)
+val is_candidate : t -> string -> bool 
+
+(** Return list of candidate invariants *)
+val get_candidates : t -> Term.t list
+
+(** Return list of candidate invariants properties *)
+val get_candidate_properties : t -> Property.t list
+
+(** Return candidate invariants that have not been proved or disproved yet *)
+val get_unknown_candidates : t -> Term.t list
+
+(* Return true if all properties are valid *)
+(* val all_props_actually_proved : t -> bool *)
+
+
 (** Returns the mode requirements for this system as a list of triplets
     [is_mode_global, mode_name, require_term].
     Used by test generation. *)
-val get_mode_requires : t -> Term.t option * (LustreIdent.t * Term.t) list
+val get_mode_requires : t -> Term.t option * (Scope.t * Term.t) list
 
 (** Returns the list of properties in a transition system, split by their
     status as [valid, invalid, unknown]. *)
@@ -204,14 +245,14 @@ val mk_trans_sys :
 
   (** Assumption and mode requirements for this system (used by test
       generation). *)
-  Term.t option * (LustreIdent.t * Term.t) list ->
+  Term.t option * (Scope.t * Term.t) list ->
 
 
   (** One-state invariants *)
-  Term.t list -> 
+  (Term.t * Certificate.t) list -> 
 
   (** Two-state invariants *)
-  Term.t list -> 
+  (Term.t * Certificate.t) list -> 
 
   (** Created transition system and next starting value for fresh
       instance identifiers *)
@@ -277,7 +318,7 @@ val get_subsystem_instances : t -> (t * instance list) list
     scope are identical. The transition system [t] itself is returned
     if [s] is its scope.
 
-    Raise [Not_found] if there is no transistion system of scope [s]
+    Raise [Not_found] if there is no transition system of scope [s]
     in the subsystems of [t]. *)
 val find_subsystem_of_scope : t -> Scope.t -> t
 
@@ -294,6 +335,7 @@ val map_cex_prop_to_subsystem : (Scope.t -> instance -> (StateVar.t * Model.term
          t
          (SMTSolver.define_fun s)
          (SMTSolver.declare_fun t) 
+         (SMTSolver.declare_sort t) 
          l
          u ]}
 
@@ -373,7 +415,12 @@ val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Nume
     The signatures of [f] and [g] are those of {!SMTSolver.define_fun}
     and {!SMTSolver.declare_fun}, repsectively, partially evaluated
     with their first argument. *)
-val define_and_declare_of_bounds : ?declare_sub_vars:bool -> t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+val define_and_declare_of_bounds :
+  ?declare_sub_vars:bool -> t ->
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (UfSymbol.t -> unit) ->
+  (Type.t -> unit) ->
+  Numeral.t -> Numeral.t -> unit
 
 (** Return predicate definitions of initial state and transition
     relation of the top system and all its subsystem in reverse
@@ -412,11 +459,11 @@ val is_proved : t -> string -> bool
 (** Return true if the property is proved not invariant *)
 val is_disproved : t -> string -> bool 
 
-(** Return current status of all properties
+(** Return current status of all properties excepted candidates
 
     [get_prop_status t] returns the status saved in the transition
     system of each property along with the name of the property. *)
-val get_prop_status_all : t -> (string * Property.prop_status) list
+val get_prop_status_all_nocands : t -> (string * Property.prop_status) list
 
 (** Return current status of all unknown properties
 
@@ -443,25 +490,38 @@ val set_prop_status : t -> string -> Property.prop_status -> unit
 val set_prop_status : t -> string -> Property.prop_status -> unit
 
 (** Mark property as invariant *)
-val set_prop_invariant : t -> string -> unit
+val set_prop_invariant : t -> string -> Certificate.t -> unit
 
 (** Mark property as false *)
-val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
+val set_prop_false :
+  t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
+
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
-(** Return true if all properties are either valid or invalid *)
+(** Return true if all properties which are not candidates are either valid or
+    invalid *)
 val all_props_proved : t -> bool
 
-(** Add an invariant to the transition system *)
-val add_invariant : t -> Term.t -> unit
+(** Add properties to the transition system *)
+val add_properties : t -> Property.t list -> t
 
 (** Add an invariant to the transition system *)
-val add_scoped_invariant : t -> string list -> Term.t -> unit
+val add_invariant : t -> Term.t -> Certificate.t -> unit
+
+(** Add an invariant to the transition system *)
+val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 
+(** Instantiate invariants and valid properties to the bound and applies a
+function *)
+val map_invars_of_bound :
+  ?one_state_only:bool -> t -> (Term.t -> unit) -> Numeral.t -> unit
+
+(** Return invariants with their certificates *)
+val get_invariants : t -> (Term.t * Certificate.t) list
 
 (** Instantiate a term of a given scope from all instances of the
     system of that scope upwards to the top system
@@ -481,6 +541,12 @@ val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 val instantiate_term_all_levels:
   t -> Numeral.t -> Scope.t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
+
+(** Same as above but with certificates *)
+val instantiate_term_cert_all_levels: t -> Numeral.t -> Scope.t ->
+  Term.t * Certificate.t ->
+  (t * (Term.t * Certificate.t) list) *
+  (t * (Term.t * Certificate.t) list) list
 
 
 (*
@@ -542,7 +608,7 @@ type prop_status =
   | PropKTrue of int
 
   (** Property is invariant *)
-  | PropInvariant 
+  | PropInvariant of Certificate.t
 
   (** Property is false at some step *)
   | PropFalse of (StateVar.t * Model.term_or_lambda list) list
@@ -727,11 +793,10 @@ val mk_trans_sys :
 
   t
 
-(** Add entry for new system instantiation to the transition system *)
-val add_caller :
-  t -> t ->
-  (StateVar.t * StateVar.t) list * (Term.t -> Term.t) ->
-  unit
+(** Add entry for new system instantiation to the transition
+    system. [add_caller callee caller var_map guard] *)
+val add_caller : t -> t ->
+  (StateVar.t * StateVar.t) list * (Term.t -> Term.t) -> unit
 
 val get_callers : t -> t list
 
@@ -744,18 +809,19 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> TermLib.logic
                        
-(** Instantiates a term for all (over)systems instantiating, possibly
-    more than once, the input system. *)
-val instantiate_term: t -> Term.t -> (t * Term.t list) list
-                                                       
 (** Instantiates a term for the top system by going up the system
    hierarchy, for all instantiations of the input system. Returns the
    top system and the corresponding instantiated terms, paired with
    the intermediary systems and term instantiations. Note that the
    input system/term of the function will be in the result, either as
    intermediary or top level. *)
-val instantiate_term_all_levels:
-  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+val instantiate_term_all_levels: t -> Term.t ->
+  (t * Term.t list) * (t * Term.t list) list
+
+(** Same as above but with certificates *)
+val instantiate_term_cert_all_levels: t -> Term.t * Certificate.t ->
+  (t * (Term.t * Certificate.t) list) *
+  (t * (Term.t * Certificate.t) list) list
 
 (** Instantiates a term for the top system by going up the system
     hierarchy, for all instantiations of the input system. *)
@@ -814,11 +880,27 @@ val get_all_subsystems : t -> t list
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
 
+(** Return the Luste nodes before slicing *)
+val get_original_lustre_nodes : t -> LustreNode.t list
+
+(** Register the Luste nodes before slicing *)
+val set_original_lustre_nodes : t -> LustreNode.t list -> unit
+
+(** Return the scope of the transition system *)
+val get_scope : t -> string list
+
 (** Finds the subsystem of [t] corresponding to [scope]. *)
 val subsystem_of_scope : t -> string list -> t
 
 (** Returns the source name of the transition system. *)
 val get_source_name : t -> string
+
+(** Declares constants of the transition system. *)
+val declare_consts : t -> (UfSymbol.t -> unit) -> unit
+
+(** Declares variables of the transition system between two offsets. *)
+val declare_vars_of_bounds_no_init :
+  t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
 (** Returns the variables of the transition system between two
     bounds. *)
@@ -830,6 +912,13 @@ val vars_of_bounds :
 (** The init flag of a transition system, as a [Var]. *)
 val init_flag_of_trans_sys : t -> Numeral.t -> Var.t
 
+(** Instantiate the transition relation constraint to the bound.  The
+    bound given is the bound of the state after the transition *)
+val trans_of_bound : t -> Numeral.t -> Term.t
+
+(** Builds a call to the initial function on state [k]. *)
+val init_fun_of : t -> Numeral.t -> Term.t
+  
 (** Builds a call to the transition relation function linking state
     [k] and [k']. *)
 val trans_fun_of : t -> Numeral.t -> Numeral.t -> Term.t
@@ -849,6 +938,10 @@ val props_list_of_bound_not_valid : t -> Numeral.t -> (string * Term.t) list
 (** The list of invariants and valid properties at zero. *)
 val get_invars : t -> Term.t list
 
+(** The list of callers of this system *)
+val get_callers : t ->
+  (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t)) list)) list
+
 (** Return uninterpreted function symbols to be declared in the SMT
     solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
@@ -864,6 +957,19 @@ val is_trans_uf_def : t -> UfSymbol.t -> bool
 (** Return [true] if the uninterpreted symbol is an initial state constraint *)
 val is_init_uf_def : t -> UfSymbol.t -> bool
 
+(** Add an invariant to the transition system *)
+val add_invariant : t -> Term.t -> Certificate.t -> unit
+
+(** Add an invariant to the transition system *)
+val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
+
+(** Return invariants with their certificates *)
+val get_invariants : t -> (Term.t * Certificate.t) list
+
+(** Return current status of all real (not candidate) properties *)
+val get_real_properties :
+  t -> (string * TermLib.prop_source * Term.t * prop_status) list
+
 (** Return current status of all properties *)
 val get_prop_status_all : t -> (string * prop_status) list
 
@@ -873,8 +979,7 @@ val get_prop_source : t -> string -> TermLib.prop_source option
 (** Mark current status of property *)
 val set_prop_status : t -> string -> prop_status -> unit
 
-(** Mark property as invariant *)
-val set_prop_invariant : t -> string -> Term.t list
+val set_prop_invariant : t -> string -> Certificate.t -> unit 
 
 (** Mark property as false *)
 val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
@@ -914,19 +1019,41 @@ val is_proved : t -> string -> bool
 (** Return true if the property is proved not invariant *)
 val is_disproved : t -> string -> bool 
 
+(** Return true if the property is a candidate invariant *)
+val is_candidate : t -> string -> bool 
+
+(** Return list of candidate invariants *)
+val get_candidates : t -> Term.t list
+
+(** Return list of candidate invariants properties *)
+val get_candidate_properties :
+    t -> (string * TermLib.prop_source * Term.t * prop_status) list
+
+(** Return candidate invariants that have not been proved or disproved yet *)
+val get_unknown_candidates : t -> Term.t list
+
 (** Return true if all properties are valid *)
 val all_props_actually_proved : t -> bool
 
 (** Apply [f] to all uninterpreted function symbols of the transition
     system *)
 val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
+  
+(* (\** Apply [f] to all function definitions of the transition system *\) *)
+(* val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit *)
+                                                                 
+(** Define uf definitions, declare constant state variables and declare
+    variables from [lbound] to [upbound]. *)
+val init_define_fun_declare_vars_of_bounds :
+      t ->
+      (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+      (UfSymbol.t -> unit) ->
+      Numeral.t -> Numeral.t ->
+      unit
+
 
 val exists_eval_on_path :
-  pred_def list ->
-  (Eval.value -> bool) ->
-  Term.t ->
-  Model.path -> bool
-
+  pred_def list -> (Eval.value -> bool) -> Term.t -> Model.path -> bool
 
 
 (** {1 Abstraction} *)

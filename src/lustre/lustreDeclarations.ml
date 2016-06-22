@@ -40,6 +40,8 @@ module S = LustreSimplify
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
 
+module Deps = LustreDependencies
+
 
 
 (* ********************************************************************** *)
@@ -105,11 +107,18 @@ let eval_const_decl ?(ghost = false) ctx = function
            (* Check if type of expression is a subtype of the defined
               type at each index *)
            D.iter2
-             (fun _ def_type { E.expr_type } ->
-                if not (Type.check_type expr_type def_type) then
-                  raise E.Type_mismatch)
-             type_expr'
-             res
+             (fun _ def_type { E.expr_type; E.expr_init = e } ->
+                (* let e = (e :> Term.t) in *)
+                (* let open Type in *)
+                (* match node_of_type def_type with *)
+                (* | IntRange (l, u) when Term.is_numeral e -> *)
+                (*   let en = Term.numeral_of_term e in *)
+                (*   if not (Numeral.(l >= en) && Numeral.(en <= u)) then *)
+                (*       raise E.Type_mismatch *)
+                (* | _ -> *)
+                  if not (Type.check_type expr_type def_type) then
+                    raise E.Type_mismatch
+             ) type_expr' res
 
          with Invalid_argument _ | E.Type_mismatch -> 
 
@@ -994,6 +1003,10 @@ let contract_check_no_output ctx pos expr =
 
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
 let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
+  (* Check for unguarded pre-s. *)
+  if A.has_unguarded_pre expr then (
+    C.fail_at_position pos "Illegal unguarded pre in contract item."
+  ) ;
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate expression to a Boolean expression, may change context. *)
@@ -1218,9 +1231,54 @@ let eval_node_mode scope ctx (pos, id, reqs, enss) =
   Contract.mk_mode (I.mk_string_ident id) pos path reqs enss
   |> C.add_node_mode ctx
 
+
+(* (* Checks whether some node calls have contracts, recursively. *)
+let rec check_no_contract_in_node_calls ctx = function
+(* No call left, done. *)
+| [] -> ()
+(* Let's do this. *)
+| { N.call_node_name ; N.call_pos } :: calls -> (
+  match
+    try C.node_of_name ctx call_node_name
+    with Not_found -> C.fail_at_position call_pos (
+      Format.asprintf "call to unknown node \"%a\""
+        (LustreIdent.pp_print_ident false) call_node_name
+    )
+  with
+  | Some contract ->
+  | None -> 
+)
+ *)
+
 (* Evaluates contract calls. *)
-let rec eval_node_contract_call ctx scope
-    (call_pos, id, in_params, out_params) =
+let rec eval_node_contract_call known ctx scope (
+  call_pos, id, in_params, out_params
+) =
+  let ident = I.mk_string_ident id in
+
+  if I.Set.mem ident known then (
+    Format.asprintf
+      "circular dependency between following contracts: @[<hov>%a@]"
+      (pp_print_list (I.pp_print_ident false) ", ")
+      (I.Set.elements known)
+    |> C.fail_at_position call_pos
+  ) ;
+
+  let known = I.Set.add ident known in
+
+  (* Check for unguarded pre-s. *)
+  in_params |> List.iter (
+    fun expr -> if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        call_pos "Illegal unguarded pre in input parameters of contract call."
+    )
+  ) ;
+  out_params |> List.iter (
+    fun expr -> if A.has_unguarded_pre expr then (
+      C.fail_at_position
+        call_pos "Illegal unguarded pre in output parameters of contract call."
+    )
+  ) ;
 
   (* Push scope for contract svars. *)
   let svar_scope = (call_pos, id) :: scope in
@@ -1229,18 +1287,17 @@ let rec eval_node_contract_call ctx scope
   (* Retrieve contract node from context. *)
   let pos, (id, params, in_formals, out_formals, contract) =
     try C.contract_node_decl_of_ident ctx id
-    (* Fail if contract node is unknown. *)
-    with Not_found -> C.fail_at_position call_pos (
-        Format.sprintf "call to unknown contract node \"%s\"" id
-      )
+    with Not_found ->
+      (* Contract might be forward referenced. *)
+      Deps.Unknown_decl (Deps.Contract, ident) |> raise
   in
 
   (* Failing for unsupported features. *)
   ( match params with
     | [] -> ()
     | _ -> C.fail_at_position pos (
-        "type parameters in contract node is not supported"
-      )
+      "type parameters in contract node is not supported"
+    )
   ) ;
   in_formals |> List.iter (
     function
@@ -1325,9 +1382,8 @@ let rec eval_node_contract_call ctx scope
           ) ;
 
           C.add_expr_for_ident
-            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr ;
+            ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
 
-          ctx
       ) ctx in_params in_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
@@ -1382,7 +1438,7 @@ let rec eval_node_contract_call ctx scope
   in
 
   (* Evaluate node as usual, it will merge with the current contract. *)
-  let ctx = eval_node_contract_spec ctx svar_scope contract in
+  let ctx = eval_node_contract_spec known ctx call_pos svar_scope contract in
 
   (* Pop scope for contract call. *)
   C.pop_contract_scope ctx
@@ -1408,7 +1464,9 @@ and add_ghost ctx pos ident type_expr ast_expr expr =
   ]
 
 (* Add all node contracts to contexts *)
-and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
+and eval_node_contract_item
+  known scope (ctx, cpt_a, cpt_g)
+= function
 
   (* Add constants to context *)
   | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
@@ -1430,19 +1488,76 @@ and eval_node_contract_item scope (ctx, cpt_a, cpt_g) = function
   | A.Mode m -> eval_node_mode scope ctx m, cpt_a, cpt_g
 
   (* Evaluate imports. *)
-  | A.ContractCall call -> eval_node_contract_call ctx scope call, cpt_a, cpt_g
+  | A.ContractCall call ->
+    eval_node_contract_call known ctx scope call, cpt_a, cpt_g
 
 
 (* Add all node contracts to contexts *)
-and eval_node_contract_spec ctx scope contract =
+and eval_node_contract_spec known ctx pos scope contract =
   let ctx, _, _ =
-    List.fold_left (eval_node_contract_item scope) (ctx, 1, 1) contract in
+    List.fold_left (eval_node_contract_item known scope) (ctx, 1, 1) contract
+  in
+
+  (* What follows are checks over the contract. We know the contract is parsed
+  before the body of the node, so whatever's currently in the node just comes
+  from the contract itself. *)
+  ( match C.get_node ctx with
+    | None -> failwith "unreachable, no current node after parsing contract"
+    | Some { N.oracles ; N.calls } -> (
+      (* Checking whether the contract we just parsed introduced any oracles.
+      If it did, then it means there was unguarded pre-s below the contract.
+      They a priori come from node calls in the contract since unguarded pre-s
+      in contract items and contract imports fail immediately. *)
+      ( match oracles with
+        | [] -> () (* No oracles introduced, we're fine. *)
+        | _ -> (* PEBCAK. *)
+          C.fail_at_position
+            pos "Illegal unguarded pre under a node call in this contract."
+      ) ;
+      (* Checking that no subsystem of the current node has contracts. If one
+      of them does, it means there is a call to a node with a contract in the
+      cone of influence of the contract we just parsed. *)
+      let node_of_name ctx name =
+        try C.node_of_name ctx name with Not_found -> Format.asprintf "\
+          unreachable, node %a called in contract undefined\
+        " (I.pp_print_ident false) name
+        |> failwith
+      in
+      let rec loop known = function
+        | [] -> ()
+        | { N.name ; N.calls ; N.contract = None } :: tail ->
+          (* No contract, is ok. Preparing recursive call. *)
+          let known = I.Set.add name known in
+          calls |> List.fold_left (
+            fun acc { N.call_node_name = sub_name } -> 
+              if I.Set.mem sub_name known then acc
+              else (node_of_name ctx sub_name) :: acc
+          ) tail
+          |> loop known
+        | { N.name } :: _ -> (* PEBCAK. *)
+          Format.asprintf "\
+            Illegal call to node \"%a\" in the cone of influence of this \
+            contract: node %a has a contract.\
+          " (I.pp_print_ident false) name (I.pp_print_ident false) name
+          |> C.fail_at_position pos
+      in
+      let subs, known =
+        calls |> List.fold_left (
+          fun (subs, known) { N.call_node_name = sub_name } ->
+            if I.Set.mem sub_name known then subs, known
+            else (node_of_name ctx sub_name) :: subs, I.Set.add sub_name known
+        ) ([], I.Set.empty)
+      in
+      loop known subs
+    )
+  ) ;
+
   ctx
   
 
 (* Add declarations of node to context *)
 let eval_node_decl
-  ctx inputs outputs locals equations contract_spec
+  ctx pos inputs outputs locals equations contract_spec
 =
 
   (* Add inputs to context: as state variable to ident_expr_map, and
@@ -1460,7 +1575,7 @@ let eval_node_decl
       (* New scope for local declarations in contracts *)
       let ctx = C.push_scope ctx "contract" in
       (* Eval contracts. *)
-      let ctx = eval_node_contract_spec ctx [] contract in
+      let ctx = eval_node_contract_spec I.Set.empty ctx pos [] contract in
       (* Remove scope for local declarations in contract *)
       C.pop_scope ctx
   in
@@ -1599,10 +1714,11 @@ let rec eval_func_outputs ?is_single ctx = function
 
 (* Add declarations of node to context *)
 let eval_func_decl
-    ctx
-    inputs
-    outputs
-    contract_spec = 
+  ctx
+  inputs
+  outputs
+  contract_spec
+= 
 
   (* Add inputs to context: as state variable to ident_expr_map, and
      to inputs *)
@@ -1635,243 +1751,243 @@ let eval_func_decl
 (* Parse declarations                                                     *)
 (* ********************************************************************** *)
 
-(* Add declarations of program to context *)
-let rec declarations_to_context ctx = 
+(** Handle declaration and return context. *)
+let declaration_to_context ctx = function
+(* Declaration of a type as alias or free *)
+| A.TypeDecl (pos, A.AliasType (_, i, type_expr)) ->
 
-  function 
+  (* Identifier of AST identifier *)
+  let ident = I.mk_string_ident i in
 
-    (* All declarations processed, return result *)
-    | [] -> ctx
+  (* Type t must not be declared *)
+  if C.type_in_context ctx ident then C.fail_at_position pos (
+    Format.asprintf
+      "Type %a is redeclared" (I.pp_print_ident false) ident
+  ) ;
 
-    (* Declaration of a type as alias or free *)
-    | (A.TypeDecl (pos, A.AliasType (_, i, type_expr))) :: decls ->
+  (* Add all indexes of type to identifier and add to trie *)
+  let res = S.eval_ast_type ctx type_expr in
 
-      (* Identifier of AST identifier *)
-      let ident = I.mk_string_ident i in
+  (* Return changed context and unchanged declarations *)
+  C.add_type_for_ident ctx ident res
 
-      if       
+(* Declaration of a typed or untyped constant *)
+| A.ConstDecl (_, const_decl) ->
 
-        (* Type t must not be declared *)
-        C.type_in_context ctx ident
+  (* Add mapping of identifier to value to context *)
+  eval_const_decl ctx const_decl
 
-      then
+(* Node declaration without parameters *)
+| A.NodeDecl (
+  pos, (i, [], inputs, outputs, locals, equations, contracts)
+) -> (
 
-        C.fail_at_position 
-          pos
-          (Format.asprintf 
-             "Type %a is redeclared" 
-             (I.pp_print_ident false) ident);
+  (* Identifier of AST identifier *)
+  let ident = I.mk_string_ident i in
 
-      (* Add all indexes of type to identifier and add to trie *)
-      let res = S.eval_ast_type ctx type_expr in
+  (* Identifier must not be declared *)
+  if C.node_or_function_in_context ctx ident then C.fail_at_position pos (
+    Format.asprintf 
+      "Node %a is redeclared" 
+      (I.pp_print_ident false) ident
+  ) ;
 
-      (* Return changed context and unchanged declarations *)
-      let ctx = C.add_type_for_ident ctx ident res in
+  (* Create separate context for node *)
+  let node_ctx = C.create_node ctx ident in
 
-      (* Recurse for next declarations *)
-      declarations_to_context ctx decls
+  (* Evaluate node declaration in separate context *)
+  let node_ctx = 
+    eval_node_decl
+      node_ctx pos inputs outputs locals equations contracts
+  in
 
-    (* Declaration of a typed or untyped constant *)
-    | (A.ConstDecl (_, const_decl)) :: decls ->
+  (* Add node to context *)
+  C.add_node_to_context ctx node_ctx
+)
 
-      (* Add mapping of identifier to value to context *)
-      let ctx = eval_const_decl ctx const_decl in
+  (* try (
+    (* Create separate context for node *)
+    let node_ctx = C.create_node ctx ident in
 
-      (* Recurse for next declarations *)
-      declarations_to_context ctx decls
+    (* Evaluate node declaration in separate context *)
+    let node_ctx = 
+      eval_node_decl
+        node_ctx pos inputs outputs locals equations contracts
+    in
 
-    (* Node declaration without parameters *)
-    | (A.NodeDecl 
-         (pos, 
-          (i, 
-           [], 
-           inputs, 
-           outputs, 
-           locals, 
-           equations, 
-           contracts))) as curr_decl :: decls -> 
+    (* Add node to context *)
+    C.add_node_to_context ctx node_ctx
 
-      (* Identifier of AST identifier *)
-      let ident = I.mk_string_ident i in
+  (* Node may be forward referenced *)
+  with C.Node_or_function_not_found (called_ident, pos) -> 
 
-      (* Identifier must not be declared *)
-      if C.node_or_function_in_context ctx ident then
+     if 
 
-        (* Fail if identifier already declared *)
-        C.fail_at_position 
-          pos 
-          (Format.asprintf 
-             "Node %a is redeclared" 
-             (I.pp_print_ident false) ident);
+       (* Is the referenced node declared later? *)
+       List.exists 
+         (function 
+           | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
+           | A.FuncDecl (_, (i, _, _, _)) 
+             when i = (I.string_of_ident false) called_ident -> true 
+           | _ -> false)
+         decls
 
-      (try
+     then
 
-         (* Create separate context for node *)
-         let node_ctx = C.create_node ctx ident in
+       (
 
+         (* Check circularity *)
+         (try
 
-         (* Evaluate node declaration in separate context *)
-         let node_ctx = 
-           eval_node_decl
-             node_ctx
-             inputs
-             outputs
-             locals
-             equations
-             contracts
+            (* Get nodes that this forward references *)
+            let called_deps = C.deps_of_node ctx called_ident in
+
+            (* Is the reference circular? *)
+            if I.Set.mem ident called_deps then 
+
+              C.fail_at_position
+                pos
+                (Format.asprintf 
+                   "Circular dependecy between nodes %a and %a" 
+                   (I.pp_print_ident false) ident
+                   (I.pp_print_ident false) called_ident)
+
+          with Not_found -> ());
+
+         (* Add new dependency *)
+         let ctx = C.add_dep ctx ident called_ident in
+
+         (* Move declaration to correct position.  
+
+            Inefficient: might be better to do a topological sort
+            beforehand *)
+         let decls =
+           List.fold_left 
+             (fun acc d -> match d with 
+                | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
+                | A.FuncDecl (_, (i, _, _, _)) 
+                  when i = (I.string_of_ident false) called_ident ->
+                  curr_decl :: d :: acc
+                | _ -> d :: acc)
+             [] 
+             decls
+           |> List.rev
          in
 
-         (* Add node to context *)
-         let ctx = C.add_node_to_context ctx node_ctx in
-
-         (* Recurse for next declarations *)
+         (* Continue *)
          declarations_to_context ctx decls
 
-       (* Node may be forward referenced *)
-       with C.Node_or_function_not_found (called_ident, pos) -> 
+       )
 
-         if 
+     else
 
-           (* Is the referenced node declared later? *)
-           List.exists 
-             (function 
-               | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
-               | A.FuncDecl (_, (i, _, _, _)) 
-                 when i = (I.string_of_ident false) called_ident -> true 
-               | _ -> false)
-             decls
+       C.fail_at_position
+         pos
+         (Format.asprintf 
+            "Node or function %a is not defined" 
+            (I.pp_print_ident false) called_ident)) *)
 
-         then
+(* Declaration of a contract node *)
+| A.ContractNodeDecl (pos, node_decl) ->
 
-           (
-
-             (* Check circularity *)
-             (try
-
-                (* Get nodes that this forward references *)
-                let called_deps = C.deps_of_node ctx called_ident in
-
-                (* Is the reference circular? *)
-                if I.Set.mem ident called_deps then 
-
-                  C.fail_at_position
-                    pos
-                    (Format.asprintf 
-                       "Circular dependecy between nodes %a and %a" 
-                       (I.pp_print_ident false) ident
-                       (I.pp_print_ident false) called_ident)
-
-              with Not_found -> ());
-
-             (* Add new dependency *)
-             let ctx = C.add_dep ctx ident called_ident in
-
-             (* Move declaration to correct position.  
-
-                Inefficient: might be better to do a topological sort
-                beforehand *)
-             let decls =
-               List.fold_left 
-                 (fun acc d -> match d with 
-                    | A.NodeDecl (_, (i, _, _, _, _, _, _)) 
-                    | A.FuncDecl (_, (i, _, _, _)) 
-                      when i = (I.string_of_ident false) called_ident ->
-                      curr_decl :: d :: acc
-                    | _ -> d :: acc)
-                 [] 
-                 decls
-               |> List.rev
-             in
-
-             (* Continue *)
-             declarations_to_context ctx decls
-
-           )
-
-         else
-
-           C.fail_at_position
-             pos
-             (Format.asprintf 
-                "Node or function %a is not defined" 
-                (I.pp_print_ident false) called_ident))
-
-    (* Declaration of a contract node *)
-    | A.ContractNodeDecl (pos, node_decl) :: decls ->
-
-      (* Add to context for later inlining *)
-      let ctx = C.add_contract_node_decl_to_context ctx (pos, node_decl) in
-
-      (* Recurse for next declarations *)
-      declarations_to_context ctx decls
+  (* Add to context for later inlining *)
+  C.add_contract_node_decl_to_context ctx (pos, node_decl)
 
 
-    (* Uninterpreted function declaration *)
-    | (A.FuncDecl 
-         (pos, 
-          (i, 
-           inputs, 
-           outputs,
-           contracts))) :: decls ->
+(* Uninterpreted function declaration *)
+| A.FuncDecl (pos, (i, inputs, outputs, contracts)) -> (
 
-      (* Identifier of AST identifier *)
-      let ident = I.mk_string_ident i in
+  (* Identifier of AST identifier *)
+  let ident = I.mk_string_ident i in
 
-      (* Identifier must not be declared *)
-      if C.node_or_function_in_context ctx ident then
+  (* Identifier must not be declared *)
+  if C.node_or_function_in_context ctx ident then (
+    C.fail_at_position pos (
+      Format.asprintf
+         "Function %a is redeclared"
+         (I.pp_print_ident false) ident
+    )
+  ) ;
 
-        (* Fail if identifier already declared *)
-        C.fail_at_position 
-          pos 
-          (Format.asprintf 
-             "Function %a is redeclared" 
-             (I.pp_print_ident false) ident);
+  (* Create separate context for function *)
+  let func_ctx = C.create_function ctx ident in
 
-      (try
+  (* Evaluate node declaration in separate context *)
+  let func_ctx = eval_func_decl func_ctx inputs outputs contracts in
 
-         (* Create separate context for function *)
-         let func_ctx = C.create_function ctx ident in
-
-         (* Evaluate node declaration in separate context *)
-         let func_ctx = 
-           eval_func_decl
-             func_ctx
-             inputs
-             outputs
-             contracts 
-         in  
-
-         (* Add node to context *)
-         let ctx = C.add_function_to_context ctx func_ctx in
-
-         (* Recurse for next declarations *)
-         declarations_to_context ctx decls
-
-       (* No references in function, since node or function calls not
-          allowed *)
-       with C.Node_or_function_not_found (called_ident, pos) -> 
-
-           C.fail_at_position
-             pos
-             (Format.asprintf 
-                "Node or function %a is not defined" 
-                (I.pp_print_ident false) called_ident))
-
-    (* ******************************************************************** *)
-    (* Unsupported below                                                    *)
-    (* ******************************************************************** *)
-
-    (* Identifier is a free type *)
-    | (A.TypeDecl (pos, (A.FreeType _))) :: decls -> 
-
-      C.fail_at_position pos "Free types not supported"
+  (* Add node to context *)
+  C.add_function_to_context ctx func_ctx
+)
 
 
-    (* Parametric node declaration *)
-    | (A.NodeParamInst (pos, _)) :: _
-    | (A.NodeDecl (pos, _)) :: _ ->
 
-      C.fail_at_position pos "Parametric nodes not supported" 
+  (* (try
+
+     (* Create separate context for function *)
+     let func_ctx = C.create_function ctx ident in
+
+     (* Evaluate node declaration in separate context *)
+     let func_ctx = 
+       eval_func_decl
+         func_ctx
+         inputs
+         outputs
+         contracts 
+     in  
+
+     (* Add node to context *)
+     let ctx = C.add_function_to_context ctx func_ctx in
+
+     (* Recurse for next declarations *)
+     declarations_to_context ctx decls
+
+   (* No references in function, since node or function calls not
+      allowed *)
+   with C.Node_or_function_not_found (called_ident, pos) -> 
+
+       C.fail_at_position
+         pos
+         (Format.asprintf 
+            "Node or function %a is not defined" 
+            (I.pp_print_ident false) called_ident)) *)
+
+(* ******************************************************************** *)
+(* Unsupported below                                                    *)
+(* ******************************************************************** *)
+
+(* Identifier is a free type *)
+| A.TypeDecl (pos, (A.FreeType _)) ->
+
+  C.fail_at_position pos "Free types not supported"
+
+
+(* Parametric node declaration *)
+| A.NodeParamInst (pos, _)
+| A.NodeDecl (pos, _) ->
+
+  C.fail_at_position pos "Parametric nodes not supported"
+
+(* Add declarations of program to context *)
+let rec declarations_to_context ctx = function
+
+(* All declarations processed, return new context. *)
+| [] -> ctx
+
+(* Some declarations left. *)
+| decl :: tail ->
+  (* Getting next context and tail. *)
+  let ctx, tail =
+    (* Try to handle this declaration. If successful, the tail is unchanged. *)
+    try declaration_to_context ctx decl, tail
+    (* Otherwise, something unknown was found. Let's check if this something is
+    forward referenced. *)
+    with
+    | Deps.Unknown_decl (typ, ident) ->
+      ctx, C.solve_fref ctx decl (typ, ident) tail
+  in
+  (* Looping with (potentially) new context and tail. *)
+  declarations_to_context ctx tail
+
 
 
 

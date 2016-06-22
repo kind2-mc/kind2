@@ -165,7 +165,7 @@ val timeout_wall : unit -> float
 type enable = Lib.kind_module list
 
 (** The modules enabled. *)
-val enable : unit -> enable
+val enabled : unit -> enable
 
 (** Modular analysis. *)
 val modular : unit -> bool
@@ -178,6 +178,9 @@ val lus_compile : unit -> bool
 
 (** Colored output. *)
 val color : unit -> bool
+
+(** Use weak hash-consing. *)
+val weakhcons : unit -> bool
 
 
 (** {2 SMT solver flags} *)
@@ -195,7 +198,6 @@ module Smt : sig
   type solver = [
     | `Z3_SMTLIB
     | `CVC4_SMTLIB
-    | `MathSat5_SMTLIB
     | `Yices_SMTLIB
     | `Yices_native
     | `detect
@@ -213,14 +215,14 @@ module Smt : sig
   (** Send short names to SMT solver *)
   val short_names : unit -> bool
 
+  (** Change sending of short names to SMT solver *)
+  val set_short_names : bool -> unit
+
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
 
   (** Executable of CVC4 solver *)
   val cvc4_bin : unit -> string
-
-  (** Executable of MathSAT5 solver *)
-  val mathsat5_bin : unit -> string
 
   (** Executable of Yices solver *)
   val yices_bin : unit -> string
@@ -345,6 +347,7 @@ module Contracts : sig
   (** Check modes. *)
   val check_implem : unit -> bool
 
+
   (** Contract generation. *)
   val contract_gen : unit -> bool
 
@@ -353,6 +356,41 @@ module Contracts : sig
 
   (** Contract generation: fine grain. *)
   val contract_gen_fine_grain : unit -> bool
+
+  (** Activate refinement. *)
+  val refinement : unit -> bool
+end
+
+
+(** {2 Certificates and Proofs} *)
+module Certif : sig
+
+  (** Minimization stragegy for k *)
+  type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
+
+  (** Minimization stragegy for invariants *)
+  type mininvs = [ `Easy | `Medium | `MediumOnly | `Hard | `HardOnly ]
+
+  (** Certification only. *)
+  val certif : unit -> bool
+
+  (** Proof production. *)
+  val proof : unit -> bool
+
+  (** Use abstract type indexes in certificates/proofs. *)
+  val abstr : unit -> bool
+
+  (** Minimization stragegy for k *)
+  val mink : unit -> mink
+
+  (** Minimization stragegy for invariants *)
+  val mininvs : unit -> mininvs
+
+  (** Binary for JKind *)
+  val jkind_bin : unit -> string
+
+  val only_user_candidates : unit -> bool
+
 end
 
 
@@ -433,15 +471,12 @@ end
 (** Path to subdirectory for a system (in the output directory). *)
 val subdir_for : string list -> string
 
-(** Sets the solver kind (z3, CVC4, ...) and the actual command for that solver
-at the same time. *)
-val set_smtsolver : Smt.solver -> string -> unit
 
+(** {1 Parsing of the command line} 
 
-(** {1 Parsing of the command line} *)
-
-(** Parse the command line *)
-val parse_argv : unit -> unit
+    Parsing of the command line arguments is performed when loading this
+    module.
+*)
 
 (*
    Local Variables:

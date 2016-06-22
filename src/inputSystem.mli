@@ -33,6 +33,9 @@ val read_input_lustre : string -> LustreNode.t t
 (** Translate lustre contracts to properties. *)
 val translate_contracts_lustre : string -> string -> unit
 
+(** Read native input from file *)
+val read_input_native : string -> TransSys.t t
+
 (** Returns the scopes of all the systems in an input systems, in topological
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list
@@ -60,6 +63,16 @@ val pp_print_path_xml : _ t -> TransSys.t -> TransSys.instance list -> bool -> F
 val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
 val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.term_or_lambda list) list * Term.t * 'a t
+
+
+val reconstruct_lustre_streams :
+  _ t -> 
+  StateVar.t list ->
+  (StateVar.t * (LustreIdent.t * int * StateVar.t option) list) list
+    StateVar.StateVarMap.t
+
+
+val is_lustre_input : _ t -> bool
 
 (** Compiles a system (scope) to Rust to the folder specified as a crate. *)
 val compile_to_rust : _ t -> Scope.t -> string -> unit

@@ -1340,9 +1340,10 @@ struct
       
 
   let send msg = 
-
     if !initialized_process = None then raise NotInitialized else
-      enqueue msg outgoing
+      ( (* minisleep otherwise some messages get lost *)
+        (* minisleep 0.001; *)
+        enqueue msg outgoing)
 
 
   let send_term_message () = send (ControlMessage Terminate)

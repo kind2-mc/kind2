@@ -8,10 +8,20 @@
 # Do not traverse all directories by default - excludes .svn, .git etc.
 # Must list all subdirectories explicitly
 # (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
-true: -traverse
+true: -traverse, annot, bin_annot
 
-# Lustre input
+# Sub-directory decomposition input
+<utils>: include
+<smt>: include
+<terms>: include
 <lustre>: include
+<qe>: include
+<testgen>: include
+<induction>: include
+<ic3>: include
+<invgen>: include
+<c2i>: include
+<certif>: include
 <doc>: include
 
 # Compile everything with debug symbols and .annot file for type information
@@ -25,7 +35,7 @@ true: -traverse
 # Source files that use the Thread and ZMQ modules
 <messaging.ml>: thread,use_ZMQ
 <messaging.mli>: thread
-<lib.ml>: thread
+<utils/lib.ml>: thread
 
 # Use menhir instead of ocamlyacc
 true: use_menhir

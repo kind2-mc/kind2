@@ -18,6 +18,28 @@
         
 open Lib
 
+let handle_events input_sys aparam trans_sys = 
+
+  (* Receive queued events *)
+  let events = Event.recv () in
+
+  (* Output events *)
+  List.iter 
+    (function (m, e) -> 
+      Event.log
+        L_debug
+        "Message received from %a: %a"
+        pp_print_kind_module m
+        Event.pp_print_event e)
+    events;
+
+  (* Update transition system from events *)
+  let _ =
+    Event.update_trans_sys input_sys aparam trans_sys events
+  in
+
+  ()
+
 let print_stats trans_sys =
   
   Event.log
@@ -30,20 +52,24 @@ let print_stats trans_sys =
     (fun (mdl, stat) -> Event.log_stat mdl L_debug stat)
     (Event.all_stats ());
   
-  (match trans_sys with | None -> () | Some trans_sys ->
-    Event.log_prop_status 
-      L_fatal
-      (TransSys.get_prop_status_all trans_sys))
+  match trans_sys with
+  | None -> ()
+  | Some trans_sys ->
+    Event.log_prop_status L_fatal
+      (TransSys.get_prop_status_all_nocands trans_sys)
+                        
+
 
 let on_exit trans_sys =
 
   print_stats trans_sys ;
     
   try 
-    
     (* Send termination message to all worker processes *)
     Event.terminate () ;
 
+    (* if trans_sys <> None then handle_events (get trans_sys); *)
+      
   (* Skip if running as a single process *)
   with Messaging.NotInitialized -> ()
 
@@ -155,40 +181,8 @@ let rec wait_for_children child_pids =
 
       )
 
-let handle_rec_upper_bound = 10
-
-
-let rec handle_events ?(count=0) input_sys aparam trans_sys = 
-
-  (* Receive queued events *)
-  match Event.recv () with
-  | [] -> ()
-
-  | events -> (
-
-    (* Output events *)
-    List.iter 
-      (function (m, e) -> 
-        Event.log
-          L_debug
-          "Message received from %a: %a"
-          pp_print_kind_module m
-          Event.pp_print_event e)
-      events;
-
-    (* Update transition system from events *)
-    Event.update_trans_sys input_sys aparam trans_sys events
-    |> ignore ;
-
-    (* if count < handle_rec_upper_bound then *)
-      (* Loop until there's no more events to handle. *)
-      handle_events ~count:(count + 1) input_sys aparam trans_sys
-    (* else
-      Event.log_uncond "[handle_events] upper bound reached" *)
-  )
-
 (* Polling loop *)
-let rec loop done_at child_pids input_sys aparam trans_sys = 
+let rec loop done_at child_pids input_sys aparam trans_sys =
 
   handle_events input_sys aparam trans_sys;
 

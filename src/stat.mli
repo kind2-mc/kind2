@@ -419,10 +419,35 @@ val smt_stats : stat_item list
 (** Print statistics for SMT *)
 val pp_print_smt_stats : Format.formatter -> unit 
 
+(** {2 Certificates} *)
+
+val certif_gen_time : float_item 
+val certif_min_time : float_item 
+val certif_frontend_time : float_item 
+val certif_cvc4_time : float_item 
+val certif_k : int_item 
+val certif_size : int_item 
+val certif_old_k : int_item 
+val certif_old_size : int_item 
+
+val certif_stop_timers : unit -> unit 
+
+(** Title for certificate statistics *)
+val certif_stats_title : string
+
+(** Certificate statistics *)
+val certif_stats : stat_item list
+
+(** Print statistics for certificate *)
+val pp_print_certif_stats : Format.formatter -> unit 
+
+
 (** {2 Misc.} *)
 
 (** Total time *)
 val total_time : float_item
+
+val analysis_time : float_item
 
 val clause_of_term_time : float_item
 

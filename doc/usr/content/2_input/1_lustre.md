@@ -158,24 +158,18 @@ the next section for more details.
 A ghost variable (constant) is a stream that is local to the contract. That is,
 it is not accessible from the body of the node specified. Ghost variables
 (constants) are defined with the `var` (`const`) keyword. Kind 2 performs type
-inference so in most cases type annotations are not necessary.
+inference for constants so in most cases type annotations are not necessary.
 
 The general syntax is
 ```
 const <id> [: <type>] = <expr> ;
-var   <id> [: <type>] = <expr> ;
+var   <id>  : <type>  = <expr> ;
 ```
 
 For instance:
 ```
 const max = 42 ;
-var ghost_stream = if input > max then max else input ;
-```
-
-With the optional type annotations:
-```
-const max : int= 42 ;
-var ghost_stream : int = if input > max then max else input ;
+var ghost_stream: real = if input > max then max else input ;
 ```
 
 
@@ -280,11 +274,11 @@ node my_node (
   engaged: real
 ) ;
 (*@contract 
-  var bool_eng = engage <> 0.0 ;
-  var bool_dis = disengage <> 0.0 ;
-  var bool_enged = engaged <> 0.0 ;
+  var bool_eng: bool = engage <> 0.0 ;
+  var bool_dis: bool = disengage <> 0.0 ;
+  var bool_enged: bool = engaged <> 0.0 ;
 
-  var never_triggered = (
+  var never_triggered: bool = (
     not bool_eng -> not bool_eng and pre never_triggered
   ) ;
 

@@ -18,27 +18,6 @@
 
 open Lib
 
-(* FIXME: Remove unless debugging.
-
-   Adrien: Removing produces circular build. Factor in Lib, along with lexer
-     warnings? *)
-module Event = struct
-  let log lvl fmt =
-    if Flags.log_format_xml () then
-      ( match lvl with
-        | L_warn -> "warn"
-        | L_error -> "error"
-        (* Only warning or errors in theory. *)
-        | _ -> failwith "LustreContext should only output warnings or errors" )
-      |> Format.printf ("@[<hov 2>\
-          <Log class=\"%s\" source=\"parse\">@ \
-            @[<hov>" ^^ fmt ^^ "@]\
-          @;<0 -2></Log>\
-        @]@.")
-    else
-      Format.printf ("%a @[<v>" ^^ fmt ^^ "@]@.") Pretty.tag_of_level lvl
-end
-
 module A = LustreAst
 
 module I = LustreIdent
@@ -58,6 +37,8 @@ module SVS = StateVar.StateVarSet
 
 module VS = Var.VarSet
 
+module Deps = LustreDependencies
+
 
 (* Node not found, possible forward reference 
 
@@ -65,6 +46,10 @@ module VS = Var.VarSet
    analysis to recognize cycles to fully support forward
    referencing. *)
 exception Node_or_function_not_found of I.t * position
+
+exception Type_not_found of I.t * position
+
+exception Contract_not_found of I.t * position
 
 
 (* Context for typing, flattening of indexed types and constant
@@ -89,8 +74,11 @@ type t = {
   (* Visible function *)
   funcs : F.t list;
 
-  (* Node dependencies *)
-  deps : I.Set.t I.Map.t;
+  (* Node and function dependencies. *)
+  deps : I.Set.t I.Map.t ;
+
+  (* Dependencies. *)
+  deps' : Deps.t ;
 
   (* Visible contract nodes *)
   contract_nodes : (position * A.contract_node_decl) list;
@@ -160,6 +148,7 @@ let mk_empty_context () =
     func = None;
     funcs = [];
     deps = I.Map.empty;
+    deps' = Deps.empty;
     contract_nodes = [];
     ident_type_map = IT.create 7;
     ident_expr_map = [IT.create 7];
@@ -181,23 +170,23 @@ let guard_flag ctx = ctx.guard_pre
 
 (* Raise parsing exception *)
 let fail_at_position pos msg = 
-  Event.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg;
+  Log.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg;
   raise A.Parser_error
   
 
 (* Raise parsing exception *)
 let warn_at_position pos msg = 
-  Event.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
+  Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
 
 
 (* Raise parsing exception *)
 let fail_no_position msg = 
-  Event.log L_error "Parser error: %s" msg;
+  Log.log L_error "Parser error: %s" msg;
   raise A.Parser_error
   
 
 (* Raise parsing exception *)
-let warn_no_position msg = Event.log L_warn "Parser warning: %s" msg
+let warn_no_position msg = Log.log L_warn "Parser warning: %s" msg
 
 
 (* ********************************************************************** *)
@@ -831,6 +820,16 @@ let mk_fresh_oracle
           (state_var, ctx)
 
 
+(* Associate oracle with state variable *)
+let set_state_var_oracle ctx state_var oracle =
+  SVT.add ctx.state_var_oracle_map state_var oracle;
+  match ctx with
+  | { node = Some n } ->
+    (* Register inverse binding in node *)
+    N.set_oracle_state_var n oracle state_var
+  | _ -> ()
+
+
 (* Create a fresh state variable as an oracle input for the state variable *)
 let mk_fresh_oracle_for_state_var 
     ({ state_var_oracle_map; fresh_oracle_index } as ctx) 
@@ -846,7 +845,8 @@ let mk_fresh_oracle_for_state_var
   in
 
   (* Associate oracle with state variable *)
-  SVT.add state_var_oracle_map state_var state_var';
+  set_state_var_oracle ctx state_var state_var';
+  (* SVT.add state_var_oracle_map state_var state_var'; *)
 
   (* Return changed context
 
@@ -899,6 +899,18 @@ let close_expr ?original pos ({ E.expr_init } as expr, ctx) =
        expression substituted by fresh constants *)
     E.mk_arrow (E.mk_let_pre oracle_substs expr) expr, ctx
 
+(* Record mapping of expression to state variable
+
+   This will shadow but not replace a previous definition. Use
+   [find_all] to retrieve the definitions, and the usual
+   [fold] to iterate over all definitions. *)
+let set_expr_state_var ctx expr state_var =
+  ET.add ctx.expr_state_var_map expr state_var;
+  match ctx with
+  | { node = Some n } ->
+    (* register inverse binding in node *)
+    N.set_state_var_expr n state_var expr
+  | _ -> ()
 
 let fresh_state_var_for_expr
     ?(is_input = false)
@@ -938,8 +950,8 @@ let fresh_state_var_for_expr
        This will shadow but not replace a previous definition. Use
        [find_all] to retrieve the definitions, and the usual
        [fold] to iterate over all definitions. *)
-    ET.add expr_state_var_map expr state_var;
-
+    set_expr_state_var ctx expr state_var;
+    
     (* Evaluate continuation after creating new variable *)
     let ctx = after_mk ctx state_var in
 
@@ -1043,7 +1055,8 @@ let mk_local_for_expr
             if is_ghost then (
               (* Don't change source of svar if already there. *)
               try
-                N.get_state_var_source node state_var ; ctx
+                N.get_state_var_source node state_var |> ignore ;
+                ctx
               with Not_found -> {
                 ctx with node = Some (
                   N.set_state_var_source node state_var N.Ghost
@@ -1844,32 +1857,44 @@ let add_node_to_context ctx node_ctx =
 
 
 (* Mark node as main node *)
-let set_node_main ctx = 
-
-  match ctx with 
-
-    | { node = None } -> raise (Invalid_argument "set_node_main")
-
-    | { node = Some node } -> 
-
-      { ctx with node = Some { node with N.is_main = true } }
+let set_node_main ctx = match ctx with
+| { node = None } -> raise (Invalid_argument "set_node_main")
+| { node = Some node } ->
+  { ctx with node = Some { node with N.is_main = true } }
 
 
-(* Return forward referenced subnodes of node *)
-let deps_of_node { deps } ident = I.Map.find ident deps
+
+(* Resolve a forward reference, fails if a circular dependency is detected. *)
+let solve_fref { deps' } decl (f_type, f_ident) decls =
+  (* Retrieve info of current declaration. *)
+  let pos, ident, typ = Deps.info_of_decl decl in
+  (* Does the declaration forward ref-ed depend on current declaration? *)
+  if Deps.mem deps' (f_type, f_ident) (typ, ident) then (
+    Format.asprintf
+      "circular dependency between %a \"%a\" and %a \"%a\""
+      Deps.pp_print_decl f_type (I.pp_print_ident false) f_ident
+      Deps.pp_print_decl typ (I.pp_print_ident false) ident
+    |> fail_at_position pos
+  ) else (
+    (* Add dependency between current declaration and forward one. *)
+    Deps.add deps' (typ, ident) (f_type, f_ident) ;
+    try
+      Deps.insert_decl decl (f_type, f_ident) decls
+    with Not_found ->
+      (* Forward reference to unknown declaration. *)
+      Format.asprintf
+        "unknown %a \"%a\" referenced in %a \"%a\""
+        ( fun ppf -> function
+          (* If it's an unknown constant, it's more generally an unknown
+          identifier. *)
+          | Deps.Const -> Format.fprintf ppf "identifier"
+          | typ -> Deps.pp_print_decl ppf typ
+        ) f_type (I.pp_print_ident false) f_ident
+        Deps.pp_print_decl typ (I.pp_print_ident false) ident
+      |> fail_at_position pos
+  )
 
 
-(* Add second node as a forward referenced subnode of the first *)
-let add_dep ({ deps } as ctx) ident called_ident = 
-
-  (* Get or initialize set of forward referenced subnodes *)
-  let dep_set = try I.Map.find ident deps with Not_found -> I.Set.empty in
-
-  (* Add forward referenced node as dependency *)
-  let deps = I.Map.add ident (I.Set.add ident dep_set) deps in
-  
-  (* Return changed context *)
-  { ctx with deps }
 
 
 (* ********************************************************************** *)

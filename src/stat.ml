@@ -110,7 +110,8 @@ let get_int_list item = get_value item
 (* Start the timer for the statistics item *)
 let start_timer item = 
 
-  item.temp <- (Unix.gettimeofday ())
+  item.temp <- (Unix.gettimeofday ()) ;
+  item.value <- 0.
 
 (* Record the time since the call to {!start_timer} of this item, stop
    the timer *)
@@ -635,10 +636,67 @@ let pp_print_smt_stats ppf =
     pp_print_stats smt_stats
 
 
+
+(* ********** Certificate statistics ********** *)
+
+let certif_gen_time = 
+  empty_item "generation time" 0.
+
+let certif_min_time = 
+  empty_item "minimization time" 0.
+
+let certif_frontend_time = 
+  empty_item "frontend time" 0.
+
+let certif_cvc4_time = 
+  empty_item "CVC4 proof-gen time" 0.
+
+let certif_k =
+  empty_item "k" (-1)
+
+let certif_size = 
+  empty_item "size" 0
+
+let certif_old_k =
+  empty_item "Old k" (-1)
+
+let certif_old_size = 
+  empty_item "Old size" 0
+
+(* Title for Certificate statistics *)
+let certif_stats_title = "Certificate"
+
+(* All SMT statistics *)
+let certif_stats = 
+  [ F certif_gen_time;
+    F certif_min_time;
+    F certif_frontend_time;
+    I certif_k;
+    I certif_size;
+    I certif_old_k;
+    I certif_old_size;
+    F certif_cvc4_time;
+  ] 
+
+(* Stop and record all times *)
+let certif_stop_timers () = stop_all_timers certif_stats
+
+(* Pretty-print SMT statistics items *)
+let pp_print_certif_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    certif_stats_title
+    pp_print_stats certif_stats
+
+
+
 (* ********** Misc statistics ********** *)
 
 let total_time = 
   empty_item "Total time" 0.
+
+let analysis_time = 
+  empty_item "Analysis time" 0.
 
 let clause_of_term_time = 
   empty_item "clause_of_term time" 0.
@@ -653,6 +711,7 @@ let misc_stats_title = "General"
 
 let misc_stats = 
   [ F total_time;
+    F analysis_time;
     F clause_of_term_time;
     F smtexpr_of_term_time; 
     F term_of_smtexpr_time ]
@@ -674,3 +733,4 @@ let pp_print_misc_stats ppf =
    indent-tabs-mode: nil
    End: 
 *)
+  

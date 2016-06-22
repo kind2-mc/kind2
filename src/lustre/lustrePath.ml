@@ -27,6 +27,7 @@ module N = LustreNode
 module F = LustreFunction
 module S = SubSystem
 module T = TransSys
+module C = LustreContract
 
 module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
@@ -36,7 +37,8 @@ module SVS = StateVar.StateVarSet
 (* Model for a node and its subnodes *)
 type t =
   | Function of F.t * Model.path
-  | Node of N.t * Model.path * ((I.t * position) list * t) list
+  | Node of
+    N.t * Model.path * C.mode list list option * ((I.t * position) list * t) list
 
 
 (* ********************************************************************** *)
@@ -462,6 +464,101 @@ let function_path_of_instance
 
   (name, call_pos) :: trace, Function(fun_def, model)
 
+let active_modes_of_instances model_top instances = function
+(* No contract. *)
+| None | Some { C.modes = [] } -> None
+(* Contract with some modes. *)
+| Some { C.modes } -> (
+  (* Retrieves the trace of value of a requirement from a top model. *)
+  let trace_of_req { C.svar } =
+    map_top instances svar
+    |> SVT.find model_top
+    |> List.map (
+      function
+      | Model.Term t -> t == Term.t_true
+      | Model.Lambda _ -> failwith "\
+        evaluating mode requirement: value should be a term, not a lambda\
+      "
+    )
+  in
+
+  (* Trace of active modes has the same length as the model. Originally
+  empty. *)
+  let empty_trace =
+    let rec loop acc n =
+      if n <= 0 then acc else loop ([] :: acc) (n - 1)
+    in
+    Model.path_length model_top |> loop []
+  in
+
+  (* Merges two traces of requirement values. *)
+  let merge_req_traces t1 t2 =
+    let rec loop acc = function
+      | ([],[]) -> List.rev acc
+      | (v1 :: t1, v2 :: t2) -> loop ( (v1 && v2) :: acc ) (t1, t2)
+      | _ -> failwith "\
+        while constructing the trace of active modes:@ \
+        tried to merge two traces of inconsistent length\
+      "
+    in
+    loop [] (t1, t2)
+  in
+
+  (* Adds a mode [m] to the steps of a trace of active modes where [m] is
+  active. *)
+  let add_mode_to_trace mode_trace = function
+    | { C.requires = [] } as m ->
+      (* No requires, always active. *)
+      mode_trace |> List.map (fun active -> m :: active)
+    | { C.name ; C.requires = head :: tail } as m ->
+      let head = trace_of_req head in
+      let reqs_val =
+        tail |> List.fold_left (
+          fun acc req -> trace_of_req req |> merge_req_traces acc
+        ) head
+      in
+
+      let rec loop pref = function
+        | ([], []) -> List.rev pref
+        | (act :: act_tail, reqs_val :: reqs_val_tail) ->
+          loop
+            ( (if reqs_val then m :: act else act) :: pref )
+            (act_tail, reqs_val_tail)
+        | _ -> failwith "\
+          while adding mode to trace of active modes:@ \
+          tried to merge two traces of inconsistent length\
+        "
+      in
+
+      loop [] (mode_trace, reqs_val)
+  in
+
+  Some (
+    modes
+    |> List.fold_left (
+      fun acc mode -> add_mode_to_trace acc mode
+    ) empty_trace
+  )
+)
+
+let active_modes_to_strings =
+  let rec loop acc current rest width = function
+    | [] :: tail ->
+      loop acc ("" :: current) ([] :: rest) width tail
+    | ( mode :: mode_tail ) :: tail ->
+      let str = Format.asprintf "%a" (I.pp_print_ident false) mode.C.name in
+      loop
+        acc (str :: current) (mode_tail :: rest)
+        ( max width (String.length str) ) tail
+    | [] -> (
+      if rest |> List.for_all (fun l -> l = []) then
+        (List.rev current) :: acc, width
+      else
+        loop ( (List.rev current) :: acc ) [] [] width (List.rev rest)
+    )
+  in
+  loop [] [] []
+
 
 (* Reconstruct model for the instance given the models for the subnodes 
 
@@ -470,7 +567,9 @@ let node_path_of_instance
     first_is_init
     globals
     model_top
-    ({ N.inputs; N.outputs; N.locals; N.equations; N.function_calls } as node)
+    ({
+      N.inputs; N.outputs; N.locals; N.equations; N.function_calls; N.contract
+    } as node)
     trans_sys
     instances
     subnodes =
@@ -487,8 +586,10 @@ let node_path_of_instance
 
   (* Format.printf "trace@.@." ; *)
 
-  let subnodes = function_calls |> List.fold_left (fun l fc ->
-      ( function_path_of_instance
+  let subnodes =
+    function_calls |> List.fold_left (
+      fun l fc -> (
+        function_path_of_instance
           first_is_init
           trace
           globals
@@ -497,7 +598,8 @@ let node_path_of_instance
           fc
           trans_sys
           instances
-          subnodes ) :: l
+          subnodes
+      ) :: l
     ) subnodes
   in
 
@@ -550,8 +652,21 @@ let node_path_of_instance
           model))
     ((D.singleton D.empty_index node.N.init_flag) :: locals);
 
+  let active_modes = active_modes_of_instances model_top instances contract in
+(*   ( match active_modes with
+    | None -> ()
+    | Some active_modes ->
+      Format.printf "active modes: @[<v>%a@]@.@."
+        (pp_print_list
+          (pp_print_list
+            (fun fmt { C.name } -> LustreIdent.pp_print_ident false fmt name) ", "
+          )
+          "@ "
+        ) active_modes
+  ) ; *)
+
   (* Return path for subnode and its call trace *)
-  (trace, Node(node, model, subnodes))
+  (trace, Node(node, model, active_modes, subnodes))
 
 
 (* Return a hierarchical model for the nodes from a flat model by
@@ -837,16 +952,20 @@ let rec pp_print_lustre_path_pt' ppf = function
 (* Take first node to print *)
 | (trace, t) :: tl ->
 
-  let name, inputs, outputs, locals, is_visible, model, subnodes, title =
+  let (
+    name, inputs, outputs, locals, is_visible,
+    model, active_modes, subnodes, title
+  ) =
     match t with
     | Node (
-      { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
+      { N.name; N.inputs; N.outputs; N.locals } as node,
+      model, active_modes, subnodes
     ) ->
       name, inputs, outputs, locals,
-      N.state_var_is_visible node, model, subnodes,
+      N.state_var_is_visible node, model, active_modes, subnodes,
       "Node"
     | Function ( { F.name; F.inputs; F.outputs }, model ) ->
-      name, inputs, outputs, [], (fun _ -> true), model, [], "Function"
+      name, inputs, outputs, [], (fun _ -> true), model, None, [], "Function"
   in
 
   (* Remove first dimension from index *)
@@ -872,6 +991,20 @@ let rec pp_print_lustre_path_pt' ppf = function
     |> streams_to_strings model ident_width val_width []
   in
 
+  let mode_ident = "Mode(s)" in
+  let ident_witdth, val_width, modes = match active_modes with
+    | None -> ident_width, val_width, None
+    | Some modes ->
+      let ident_width = max ident_width (String.length mode_ident) in
+      let modes, val_width = active_modes_to_strings val_width modes in
+      (* Format.printf "modes:@." ;
+      modes |> List.iter (
+        fun line -> Format.printf "  %a@." (pp_print_list Format.pp_print_string ", ") line
+      ) ;
+      Format.printf "@." ; *)
+      ident_width, val_width, Some modes
+  in
+
   (* Filter locals to for visible state variables only and return
      as a list 
 
@@ -892,6 +1025,7 @@ let rec pp_print_lustre_path_pt' ppf = function
         %a\
         %a\
         %a\
+        %a\
       @]\
     @,@]"
     title
@@ -899,6 +1033,13 @@ let rec pp_print_lustre_path_pt' ppf = function
     name
     (pp_print_list pp_print_call_pt " / ") 
     (List.rev trace)
+    (fun fmt -> function
+      | None -> ()
+      | Some modes ->
+        modes
+        |> List.map (fun vals -> ("", vals))
+        |> pp_print_stream_section_pt ident_width val_width mode_ident fmt
+    ) modes
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
     (pp_print_stream_section_pt ident_width val_width "Locals") locals';
@@ -917,7 +1058,7 @@ let pp_print_lustre_path_pt ppf lustre_path =
   pp_print_lustre_path_pt' ppf [lustre_path]
 
 
-(* Ouptut a hierarchical model as plan text *)
+(* Output a hierarchical model as plain text *)
 let pp_print_path_pt
   trans_sys instances subsystems globals first_is_init ppf model
 =
@@ -1032,9 +1173,46 @@ let pp_print_stream_xml get_source model ppf (index, state_var) =
       (pp_print_listi pp_print_stream_value "@,") stream_values
 
   with Not_found -> assert false
-    
 
-(* Output a list of node models *)
+
+let pp_print_active_modes_xml ppf = function
+| None | Some [] -> ()
+| Some mode_trace ->
+  Format.fprintf ppf
+    "@[<v>%a@]@,"
+    (pp_print_list
+      ( fun fmt (k, tree) ->
+        Format.fprintf ppf
+          "\
+            <ActiveModes instant=\"%d\">@   \
+              %a\
+            </ActiveModes>\
+          "
+          k
+          C.ModeTrace.fmt_as_cex_step_xml tree
+          (* (List.length scoped)
+          (pp_print_list
+            (fun fmt ->
+              Format.fprintf fmt
+                "<Mode name=\"%a\">"
+                (I.pp_print_ident false)
+            )
+            "@ "
+          ) active
+          (pp_print_list pp_print_mode_scoped_xml "@ ") scoped
+          (fun ppf ->
+            if scoped <> [[]] || active <> [] then Format.fprintf ppf "@ ") *)
+      )
+      "@ "
+    ) (
+      mode_trace |> List.fold_left (
+        fun (acc, count) mode ->
+          (count, C.ModeTrace.mode_paths_to_tree mode) :: acc, count + 1
+      ) ([], 0)
+      |> fst |> List.rev
+    )
+
+(* Output a list of node models. *)
 let rec pp_print_lustre_path_xml' ppf = function 
 
   | [] -> ()
@@ -1043,20 +1221,20 @@ let rec pp_print_lustre_path_xml' ppf = function
 
     let
       name, inputs, outputs, locals, is_visible, get_source,
-      model, subnodes, title
+      model, active_modes, subnodes, title
     =
       match t with
       | Node (
-        { N.name; N.inputs; N.outputs; N.locals } as node, model, subnodes
+        { N.name; N.inputs; N.outputs; N.locals } as node,
+        model, active_modes, subnodes
       ) ->
         name, inputs, outputs, locals,
         N.state_var_is_visible node, N.get_state_var_source node,
-        model, subnodes,
-        "Node"
+        model, active_modes, subnodes, "Node"
       | Function ( { F.name; F.inputs; F.outputs } as f, model ) ->
         name, inputs, outputs, [],
         (fun _ -> true), F.get_state_var_source f,
-        model, [], "Function"
+        model, None, [], "Function"
     in
 
     (* Remove first dimension from index *)
@@ -1098,12 +1276,13 @@ let rec pp_print_lustre_path_xml' ppf = function
     (* Pretty-print this node *)
     Format.fprintf 
       ppf
-      "@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]@,%a%t%a%t%a%t%a@;<0 -2></%s>@]%t"
+      "@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]@,%a%a%t%a%t%a%t%a@;<0 -2></%s>@]%t"
       title
       (I.pp_print_ident false) 
       name
       pp_print_call_xml
       trace
+      pp_print_active_modes_xml active_modes
       (pp_print_list (pp_print_stream_xml get_source model) "@,") inputs'
       (fun ppf -> 
          if
@@ -1176,7 +1355,7 @@ let pp_print_stream_csv model ppf (index, sv) =
 (* Outputs a sequence of values for the inputs of a node. *)
 let pp_print_lustre_path_in_csv ppf = function
 | _, Function _ -> ()
-| trace, Node( { N.inputs }, model, _ ) ->
+| trace, Node( { N.inputs }, model, _, _ ) ->
 
   (* Remove first dimension from index. *)
   let pop_head_index = function
@@ -1200,6 +1379,225 @@ let pp_print_path_in_csv
     first_is_init trans_sys instances model subsystems globals
   (* Output as CSV. *)
   |> pp_print_lustre_path_in_csv ppf
+
+
+
+(***************************************************)
+(* Reconstruct Lustre streams from state variables *)
+(***************************************************)
+
+let same_args abstr_map (inputs, defs) (inputs', defs') =
+  D.equal (fun a1 a2 ->
+      StateVar.equal_state_vars a1 a2 ||
+      (* can be abstractions *)
+      try
+        let e1 = SVM.find a1 abstr_map in
+        let e2 = SVM.find a2 abstr_map in
+        LustreExpr.equal e1 e2
+      with Not_found -> false)
+    inputs inputs' &&
+  match defs, defs' with
+  | Some d1, Some d2 -> D.equal LustreExpr.equal d1 d2
+  | None, None -> true
+  | _ -> false
+
+
+let rec add_to_callpos abstr_map acc pos clock args calls =
+  match calls with
+  | ((pos', nb', clock', args') as x) :: r ->
+    let c_pos = Lib.compare_pos pos pos' in
+
+    if c_pos = 0 then raise Exit; (* already in there, abort *)
+    
+    if same_args abstr_map args args' then let _ =() in Format.eprintf "\nICI\n@.";
+      (* calls with same arguments but at different positions *)
+      (* insert in between with the same number, don't shift anything *)
+      if c_pos > 0 then
+        List.rev_append acc (x :: (pos, nb', clock, args) :: r)
+      else
+        List.rev_append acc ((pos, nb', clock, args) :: calls)
+          
+    else if c_pos > 0 then
+      (* continue to look *)
+      add_to_callpos abstr_map (x :: acc) pos clock args r
+
+    else (* c_pos < 0 *)
+      (* insert in between and shift the ones on the right *)
+      List.rev_append acc
+        ((pos, nb', clock, args) ::
+         (List.map (fun (p, n, c, a) -> (p, n+1, c, a)) calls))
+
+  | [] ->
+    (* last one or only one *)
+    let nb = match acc with [] -> 0 | (_, n, _, _) :: _ -> n+1 in
+    List.rev ((pos, nb, clock, args) :: acc)
+
+
+
+let register_callpos_for_nb abstr_map hc lid parents pos clock args =
+  let is_condact = clock <> None in
+  let cat =
+    try Hashtbl.find hc (lid, is_condact)
+    with Not_found ->
+      let c = Hashtbl.create 7 in
+      Hashtbl.add hc (lid, is_condact) c;
+      c
+  in
+  let calls = try Hashtbl.find cat parents with Not_found -> [] in
+  try
+    let new_calls = add_to_callpos abstr_map [] pos clock args calls in
+    Hashtbl.replace cat parents new_calls
+  with Exit -> () (* already in there *)
+
+  
+let pos_to_numbers abstr_map nodes =
+  let hc = Hashtbl.create 43 in
+
+  (* let main_node = List.find (fun n -> n.LustreNode.is_main) nodes in *)
+  let main_node = List.hd nodes in
+
+  let node_by_lid lid =
+    List.find (fun n -> I.equal n.N.name lid) nodes in
+
+  let rec fold parents node =
+
+    List.iter
+      (fun ({ N.call_node_name = lid;
+             call_pos = pos; call_clock = clock;
+             call_inputs = inputs; call_defaults = defs } as call) -> 
+
+        (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
+        (*   (LustreIdent.pp_print_ident false) lid Lib.pp_print_position pos *)
+        (*   (match clock with *)
+        (*    | None -> "" *)
+        (*    | Some c -> "ON "^ (StateVar.string_of_state_var c)) *)
+        (*   (pp_print_list StateVar.pp_print_state_var ", ") inputs *)
+        (* ; *)
+        
+        register_callpos_for_nb
+          abstr_map hc lid parents pos clock (inputs, defs);
+
+        fold (call :: parents) (node_by_lid lid)
+
+      ) node.LustreNode.calls
+  in
+
+  fold [] main_node;
+  
+  hc
+
+exception Found of int * StateVar.t option
+
+let get_pos_number hc lid pos =
+  (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
+  (* Lib.pp_print_position pos; *)
+
+  let find_in_cat cat =
+    Hashtbl.iter (fun _ l ->
+        List.iter (fun (p, n, c, _) ->
+            if Lib.compare_pos p pos = 0 then raise (Found (n, c)))
+          l
+      ) cat;
+    raise Not_found
+  in
+
+  (* look for both condact and non condact calls *)
+  try
+    (try Hashtbl.find hc (lid, false) |> find_in_cat
+     with Not_found -> Hashtbl.find hc (lid, true)  |> find_in_cat);
+  with Found (n,c) -> n, c
+
+
+let rec get_instances acc hc parents sv =
+  (* Format.eprintf "get_instances : %a@." StateVar.pp_print_state_var sv; *)
+  match N.get_state_var_instances sv with
+  | [] ->
+    (sv, List.rev parents) :: acc
+  | insts ->
+    List.fold_left (fun acc (pos, lid, lsv) ->
+        try
+          let nb, clock = get_pos_number hc lid pos in
+          get_instances acc hc ((lid, nb, clock) :: parents) lsv
+        with Not_found ->
+          (* was removed by slicing, ingore this instance *)
+          acc
+      ) acc insts
+
+
+let get_lustre_streams hc sv = get_instances [] hc [] sv
+  
+
+let inverse_oracle_map nodes =
+  List.fold_left (fun acc node ->
+      SVT.fold (fun oracle sv acc ->
+          let l = try SVM.find oracle acc with Not_found -> [] in
+          (debug fec
+             "inverse oracle: %a ->>> %a"
+             StateVar.pp_print_state_var oracle
+             StateVar.pp_print_state_var sv
+           end);
+          SVM.add oracle (sv :: l) acc 
+        ) (N.get_oracle_state_var_map node) acc
+    ) SVM.empty nodes
+
+let inverse_expr_map nodes =
+  List.fold_left (fun acc node ->
+      SVT.fold (fun sv e acc ->
+        (debug fec
+           "inverse expr: %a ->>> %a" StateVar.pp_print_state_var sv
+           (LustreExpr.pp_print_lustre_expr false) e
+         end);
+          SVM.add sv e acc
+        ) (N.get_state_var_expr_map node) acc
+  ) SVM.empty nodes
+
+
+let rec orig_of_oracle oracle_map sv =
+  try SVM.find sv oracle_map with Not_found -> [sv]
+  (* try *)
+  (*   let l = SVMap.find sv oracle_map in *)
+  (*   List.fold_left *)
+  (*     (fun acc sv -> List.rev_append (orig_of_oracle oracle_map sv) acc) [] l *)
+  (* with Not_found -> [sv] *)
+
+
+let reconstruct_lustre_streams node state_vars =
+
+  let nodes = SubSystem.all_subsystems node
+              |> List.map (fun {SubSystem.source} -> source) in
+  
+  (* mapback from abstract state variables to expressions *)
+  let abstr_map = inverse_expr_map nodes in
+
+  (* convert position to call numbers *)
+  let hc = pos_to_numbers abstr_map nodes in
+  
+  (* mapback from oracles to state vars *)
+  let oracle_map = inverse_oracle_map nodes in
+
+  List.fold_left (fun acc sv ->
+
+      (* if it's an oracle get the original variables otherwise just keep the
+         variable *)
+      let l = orig_of_oracle oracle_map sv in
+
+      (* get streams *)
+      let streams = List.flatten (List.map (get_lustre_streams hc) l) in
+
+      (* get original variables of oracles in node call parameters *)
+      let streams =
+        List.fold_left (fun acc (sv, p) ->
+            List.fold_left
+              (fun acc s -> (s, p) :: acc)
+              acc (orig_of_oracle oracle_map sv)
+          ) [] streams
+        |> List.rev in
+      
+      (* append to others *)
+      let others = try SVM.find sv acc with Not_found -> [] in
+      SVM.add sv (streams @ others) acc
+        
+    ) SVM.empty state_vars
 
 
 (* 

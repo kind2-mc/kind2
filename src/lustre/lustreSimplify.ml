@@ -38,8 +38,7 @@ module F = LustreFunction
 module C = LustreContext
 module Contract = LustreContract
 
-(* FIXME: Remove unless debugging *)
-module Event = struct let log _ = Format.printf end
+module Deps = LustreDependencies
 
 
 let pp_print_trie pp_i pp_e ppf t = 
@@ -674,21 +673,19 @@ let rec eval_ast_expr ctx = function
   (* Record constructor [record_type {field1 = expr1; field2 = expr2; ...}] *)
   | A.RecordExpr (pos, record_type, expr_list) -> 
 
+    let record_ident = I.mk_string_ident record_type in
+
     (* Extract list of fields of record *)
     let record_indexes = 
 
       try 
 
         (* Look up types of record fields by type of record *)
-        C.type_of_ident ctx (I.mk_string_ident record_type)
+        C.type_of_ident ctx record_ident
 
-      with Not_found -> 
-
-        C.fail_at_position
-          pos
-          (Format.asprintf 
-             "Record type %a not defined" 
-             A.pp_print_ident record_type)
+      with Not_found ->
+        (* Type might be forward referenced. *)
+        Deps.Unknown_decl (Deps.Type, record_ident) |> raise
 
     in
 
@@ -1194,22 +1191,19 @@ and static_int_of_ast_expr ctx pos expr =
 
 (* Return the trie for the identifier *)
 and eval_ident ctx pos ident =
+  let ident = I.mk_string_ident ident in
 
   try 
 
     (* Get expression and bounds for identifier *)
-    let res = C.expr_of_ident ctx (I.mk_string_ident ident) in
+    let res = C.expr_of_ident ctx ident in
 
     (* Return expresssion with its bounds and unchanged context *)
     (res, ctx)
 
-  with Not_found -> 
-
-    C.fail_at_position
-      pos
-      (Format.asprintf 
-         "Undeclared identifier %a"
-         A.pp_print_ident ident)
+  with Not_found ->
+    (* Might be a forward referenced constant. *)
+    Deps.Unknown_decl (Deps.Const, ident) |> raise
 
 (* Return the constant inserted into an empty trie *)
 and eval_nullary_expr ctx pos expr =
@@ -1382,10 +1376,9 @@ and eval_node_or_function_call ctx pos ident cond args defaults =
                 "Invalid function call")
 
         (* Neither node nor function of that name *)
-        | None -> 
-
+        | None ->
           (* Node or function may be forward referenced *)
-          raise (C.Node_or_function_not_found (ident, pos))
+          Deps.Unknown_decl (Deps.NodeOrFun, ident) |> raise
 
 
 
@@ -1472,6 +1465,8 @@ and eval_node_call
                 expr
             in
 
+             N.set_state_var_instance state_var' pos ident state_var;
+            
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)
 
@@ -1637,7 +1632,9 @@ and eval_node_call
                  ctx
                  (StateVar.type_of_state_var sv) 
              in
-             (* N.set_state_var_instance ctx sv' pos ident sv; *)
+             
+             N.set_state_var_instance sv' pos ident sv;
+             
              (ctx, sv' :: accum))
           (ctx, [])
       in
@@ -1651,6 +1648,9 @@ and eval_node_call
                  ctx
                  (StateVar.type_of_state_var sv)
              in
+
+             N.set_state_var_instance sv' pos ident sv;
+
              (D.add i sv' accum, ctx))
           node_outputs
           (D.empty, ctx)
@@ -1980,21 +1980,15 @@ let rec eval_ast_type ctx = function
 
   (* User-defined type, look up type in defined types, return subtrie
      of starting with possibly indexed identifier *)
-  | A.UserType (pos, ident) -> 
-
-    (try 
-
-       (* Find subtrie of types starting with identifier *)
-       C.type_of_ident ctx (I.mk_string_ident ident)
-
-     with Not_found -> 
-
-       C.fail_at_position 
-         pos
-         (Format.asprintf 
-            "Type %a is not declared" 
-            A.pp_print_ident ident))
-
+  | A.UserType (pos, ident) -> (
+    let ident = I.mk_string_ident ident in
+    try
+      (* Find subtrie of types starting with identifier *)
+      C.type_of_ident ctx ident
+    with Not_found ->
+      (* Type might be forward referenced. *)
+      Deps.Unknown_decl (Deps.Type, ident) |> raise
+  )
 
   (* Record type, return trie of indexes in record *)
   | A.RecordType (pos, record_fields) -> 

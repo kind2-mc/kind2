@@ -27,7 +27,7 @@ type prop_status =
   | PropKTrue of int
 
   (* Property is true in all reachable states *)
-  | PropInvariant 
+  | PropInvariant of Certificate.t
 
   (* Property is false at some step *)
   | PropFalse of (StateVar.t * Model.term_or_lambda list) list
@@ -55,28 +55,33 @@ type t =
 (** Source of a property *)
 and prop_source =
 
-  (* Property is from an annotation *)
+  (** Property is from an annotation *)
   | PropAnnot of Lib.position
 
-  (* Property was generated, for example, from a subrange constraint *)
+  (** Property was generated, for example, from a subrange constraint *)
   | Generated of StateVar.t list
 
-  (* Property is an instance of a property in a called node.
+  (** Property is an instance of a property in a called node.
 
      Reference the instantiated property by the [scope] of the subsystem and
      the name of the property *)
   | Instantiated of Scope.t * t
 
-  (* Contract assumption that a caller has to prove. The list of state vars is
-  the guarantees that proving the requirement yields. *)
+  (** Contract assumption that a caller has to prove. The list of state vars is
+      the guarantees that proving the requirement yields. *)
   | Assumption of Lib.position * string list
 
-  (* Contract guarantees. *)
+  (** Contract guarantees. *)
   | Guarantee of (Lib.position * Scope.t)
-  (* Contract: at least one mode active. *)
+                 
+  (** Contract: at least one mode active. *)
   | GuaranteeOneModeActive of Scope.t
-  (* Contract: mode implication. *)
+                                
+  (** Contract: mode implication. *)
   | GuaranteeModeImplication of (Lib.position * Scope.t)
+
+  (** User supplied candidate invariant *)
+  | Candidate
 
 
 (** Pretty-prints a property source. *)
@@ -95,7 +100,7 @@ val pp_print_property : Format.formatter -> t -> unit
 val prop_status_known : prop_status -> bool
 
 val set_prop_status : t -> prop_status -> unit
-val set_prop_invariant : t -> unit
+val set_prop_invariant : t -> Certificate.t ->unit
 val set_prop_ktrue : t -> int -> unit
 val set_prop_false : t -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
