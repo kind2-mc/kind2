@@ -3,7 +3,7 @@
 
 > Test generation is, as of Kind 2 1.0, still a rather experimental feature.
 > There is a lot of room for improvement and the Kind 2 team is eagerly
-> awaiting for feedback.
+> awaiting feedback / bug reports.
 
 
 Most test generation techniques analyze the syntax of the model they run on to
