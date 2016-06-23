@@ -346,70 +346,93 @@ is understood as some information about the candidate.
 
 Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
-let rec query_step two_state step_checker candidates =
-  (* Restarting solver if necessary. *)
-  conditional_step_solver_reset step_checker ;
+let query_step two_state step_checker candidates =
+  Format.printf "query_step (%d)@.@." (List.length candidates) ;
 
-  let { sys ; solver ; k } = step_checker in
-  let actlit = fresh_actlit () in
+  let rec loop candidates =
+    (* Restarting solver if necessary. *)
+    conditional_step_solver_reset step_checker ;
 
-  Format.asprintf
-    "Querying step with actlit [%a] (%d candidates)."
-    Uf.pp_print_uf_symbol actlit (List.length candidates)
-  |> Smt.trace_comment solver ;
-  
-  Smt.declare_fun solver actlit ; (* Declaring actlit. *)
+    let { sys ; solver ; k } = step_checker in
+    let actlit = fresh_actlit () in
 
-  let actlit = (* Getting term of actlit UF. *)
-    term_of_actlit actlit
-  in
+    Format.asprintf
+      "Querying step with actlit [%a] (%d candidates)."
+      Uf.pp_print_uf_symbol actlit (List.length candidates)
+    |> Smt.trace_comment solver ;
+    
+    Smt.declare_fun solver actlit ; (* Declaring actlit. *)
 
-  (* Conditionally asserting candidates from [0] to [k-1], and their negation
-  at [k]. *)
-  let cands =
-    candidates |> List.map (
-      fun (candidate, _) ->
-        Term.mk_implies [ actlit ; candidate ]
-        |> (if two_state then assert_1_to else assert_0_to) solver k ;
-        Term.bump_state k candidate
-    )
-  in
-  Term.mk_implies [
-    actlit ; Term.mk_and cands |> Term.mk_not
-  ] |> Smt.assert_term solver ;
+    let actlit = (* Getting term of actlit UF. *)
+      term_of_actlit actlit
+    in
 
-  (* Event.log_uncond "check sat (%d)" (List.length candidates) ; *)
+    let assert_fun = if two_state then assert_1_to else assert_0_to in
 
-  (* Will be [None] if all candidates are invariants. Otherwise, will be
-  the candidates that were **not** falsified, at 0, with their info. *)
-  let unfalsified_opt =
-    let minus_k = Num.(~- k) in
-    Smt.check_sat_assuming solver (
-      (* If sat, get values and remove falsified candidates. *)
-      fun solver -> Some (
-        Smt.get_term_values solver cands
-        |> List.fold_left (fun acc ->
-          function
-          | (cand, b_val) when b_val = Term.t_true ->
-            let candidate = Term.bump_state minus_k cand in
-            (candidate, List.assq candidate candidates) :: acc
-          | _ -> acc
-        ) []
+    (* Conditionally asserting candidates from [0] to [k-1], and their negation
+    at [k]. *)
+    let cands =
+      candidates |> List.map (
+        fun (candidate, _) ->
+          Term.mk_implies [ actlit ; candidate ] |> assert_fun solver k ;
+          Term.bump_state k candidate
       )
-    ) (
-      (* If unsat. *)
-      fun _ -> None
-    ) [ actlit ]
+    in
+    Term.mk_implies [
+      actlit ; Term.mk_and cands |> Term.mk_not
+    ] |> Smt.assert_term solver ;
+
+    (* Format.printf "check sat (%d)@.@." (List.length candidates) ; *)
+
+    (* Will be [None] if all candidates are invariants. Otherwise, will be
+    the candidates that were **not** falsified, at 0, with their info. *)
+    let unfalsified_opt =
+      let minus_k = Num.(~- k) in
+      Smt.check_sat_assuming solver (
+        (* If sat, get values and remove falsified candidates. *)
+        fun solver -> Some (
+          Smt.get_term_values solver cands
+          |> List.fold_left (fun acc ->
+            function
+            | (cand, b_val) when b_val = Term.t_true ->
+              let candidate = Term.bump_state minus_k cand in
+              (candidate, List.assq candidate candidates) :: acc
+            | _ -> acc
+          ) []
+        )
+      ) (
+        (* If unsat. *)
+        fun _ -> None
+      ) [ actlit ]
+    in
+    (* Format.printf "done@.@." ; *)
+
+    (* Deactivate actlit. *)
+    Smt.trace_comment solver "Deactivating actlit for check." ;
+    Term.mk_not actlit |> Smt.assert_term solver ;
+
+    match unfalsified_opt with
+    | None -> candidates
+    | Some candidates -> loop candidates
   in
-  (* Event.log_uncond "done" ; *)
 
-  (* Deactivate actlit. *)
-  Smt.trace_comment solver "Deactivating actlit for check." ;
-  Term.mk_not actlit |> Smt.assert_term solver ;
+  let rec take_500 res count = function
+    | head :: tail when count <= 500 -> take_500 (head :: res) (count + 1) tail
+    | rest -> res, rest
+  in
 
-  match unfalsified_opt with
-  | None -> candidates
-  | Some candidates -> query_step two_state step_checker candidates
+  let rec control_query_size res candidates =
+    let candidates, postponed = take_500 [] 1 candidates in
+    Format.printf "controled query: %d (%d)...@.@."
+      (List.length candidates) (List.length postponed) ;
+    let res = List.rev_append (loop candidates) res in
+    Format.printf "done (%d)@.@." (List.length res) ;
+    match postponed with
+    | [] -> res
+    | _ -> control_query_size res postponed
+  in
+
+  control_query_size [] candidates
 
 
 

@@ -311,7 +311,7 @@ module Make (Value : In) : Out = struct
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
-        Event.log L_info
+        Event.log_uncond (* L_info *)
           "%s @[<v>\
             On system [%s] at %a: %s@ \
             found %d non-trivial invariants\
@@ -322,7 +322,7 @@ module Make (Value : In) : Out = struct
           blah
           (List.length non_trivial)
       | [], _ ->
-        Event.log L_info
+        Event.log_uncond (* L_info *)
           "%s @[<v>\
             On system [%s] at %a: %s@ \
             found %d trivial invariants\
@@ -333,7 +333,7 @@ module Make (Value : In) : Out = struct
           blah
           (List.length trivial)
       | _, _ ->
-        Event.log L_info
+        Event.log_uncond (* L_info *)
           "%s @[<v>\
             On system [%s] at %a: %s@ \
             found %d non-trivial invariants and %d trivial ones\
@@ -713,8 +713,17 @@ module Make (Value : In) : Out = struct
     in
 
     (* For each [rep -> terms] in [classes]. *)
-    Map.fold (
+    (* Map.fold (
       fun rep terms acc -> Set.elements terms |> loop rep [] acc
+    ) classes [] *)
+
+    Map.fold (
+      fun rep terms acc ->
+        (* Set.elements terms |> loop rep [] acc *)
+        Set.fold (
+          fun term acc ->
+            ( Term.mk_eq [rep ; term], (rep, term) ) :: acc
+        ) terms acc
     ) classes []
 
 
@@ -1116,72 +1125,73 @@ module Make (Value : In) : Out = struct
       insert Set.empty [ (chain), rest ] chain node
 
   (* Finds a node that's not been split, but with all its parents split. *)
-  let next_of_continuation { map_down ; values } =
-    (* [skipped] contains the nodes with parents that have not been split
-    yet. *)
-    let rec loop skipped = function
-      | [] -> assert (skipped = []) ; None
-      | (nxt :: rest) :: tail ->
-        (* Next rep of continuation is legal if all parents have been
-        split. *)
-        let legal_nxt =
-          try
-            Map.find map_down nxt
-            |> Set.for_all (
-              fun rep -> Map.mem values rep
-            )
-          with Not_found ->
-            Format.asprintf "could not find rep %a in map down" fmt_term nxt
-            |> failwith
+  let next_of_continuation { map_down ; values } continuation =
+    if Set.is_empty continuation then None else (
+      try (
+        let next, continuation =
+          Set.partition (
+            fun rep ->
+              try
+                Map.find map_down rep
+                |> Set.for_all (
+                  fun rep -> Map.mem values rep
+                )
+              with Not_found ->
+                Format.asprintf
+                  "could not find rep %a in map down" fmt_term rep
+                |> failwith
+          ) continuation
         in
-        if legal_nxt then
-          Some (nxt, (List.rev_append skipped rest) :: tail)
-        else
-          loop (nxt :: skipped) (rest :: tail)
-      | [] :: tail -> loop skipped tail
-    in
-    loop []
+        Some (next, continuation)
+      ) with Not_found ->
+        failwith "could not find legal next rep in continuation"
+    )
 
   (* Splits a graph based on the current model.
 
   Returns the representatives created and modified. *)
   let split_of_model sys new_reps model ({ map_down ; map_up } as graph) =
-    let rec loop new_reps continuation =
+    let rec loop new_reps continuation next =
       (* Format.printf "@.starting update %d / %d@.@." out_cnt in_cnt ; *)
+      (* Format.printf "  nxt is %a@.@." fmt_term nxt ; *)
+      let new_reps, continuation =
+        Set.fold (
+          fun rep (new_reps, continuation) ->
+            (* Add nodes above current rep to [continuation].
+            These nodes CANNOT be in [nxt] because they had an outdated
+            parent: the current rep. *)
+            let continuation =
+              Map.find map_up rep |> Set.union continuation
+            in
+            (* Split and insert chain. *)
+            let new_reps =
+              let chain, new_reps = split sys new_reps graph model rep in
+              insert graph rep chain ;
+              new_reps
+            in
+            (* Moving on. *)
+            new_reps, continuation
+        ) next (new_reps, continuation)
+      in
+      (* write_dot_to
+        "graphs/" "graph" (Format.sprintf "%d_%d" out_cnt in_cnt)
+        fmt_graph_dot graph ; *)
       match next_of_continuation graph continuation with
       | None -> new_reps
-      | Some (nxt, continuation) -> (
-        (* Format.printf "  nxt is %a@.@." fmt_term nxt ; *)
-        (* Remember nodes above [nxt]. *)
-        let above = Map.find map_up nxt |> Set.elements in
-        (* Split and insert chain. *)
-        let new_reps =
-          let chain, new_reps = split sys new_reps graph model nxt in
-          insert graph nxt chain ;
-          new_reps
-        in
-        (* write_dot_to
-          "graphs/" "graph" (Format.sprintf "%d_%d" out_cnt in_cnt)
-          fmt_graph_dot graph ; *)
-        (* Add nodes above [nxt] to continuation if any. *)
-        match above with
-        | [] -> loop new_reps continuation
-        | _ -> above :: continuation |> loop new_reps
-      )
+      | Some (next, continuation) ->
+        loop new_reps continuation next
     in
 
     (* Retrieve all nodes that have no parents. *)
-    [
-      Map.fold (
-        fun rep parents acc ->
-          if Set.is_empty parents then rep :: acc else acc
-      ) map_down []
-    ]
+    Map.fold (
+      fun rep parents acc ->
+        if Set.is_empty parents then Set.add rep acc else acc
+    ) map_down Set.empty
     (* And start with that. *)
-    |> loop new_reps
+    |> loop new_reps Set.empty
 
   (** Stabilizes the equivalence classes.
-  Stabilizes classes one by one to send relatively small candidates to lsd. *)
+  Stabilizes classes one by one to send relatively few candidates to lsd. *)
   let update_classes sys known lsd ({ classes } as graph) =
 
     let rec loop count reps_to_update =
@@ -1213,6 +1223,7 @@ module Make (Value : In) : Out = struct
             (* Stable, moving on. *)
             loop (count + 1) reps_to_update
           | Some model ->
+            (* Format.printf "  sat@.@." ; *)
             (* Checking if we should terminate before doing anything. *)
             Event.check_termination () ;
             (* Clear (NOT RESET) the value map for update. *)
@@ -1256,10 +1267,11 @@ module Make (Value : In) : Out = struct
       NLsd.query_base lsd rels
     with
     | None ->
-      Format.printf "update_rels done after %d iterations@.@." count ;
+      (* Format.printf "update_rels done after %d iterations@.@." count ; *)
       (* Stable, done. *)
       ()
     | Some model ->
+      (* Format.printf "  sat@.@." ; *)
       (* Checking if we should terminate before doing anything. *)
       Event.check_termination () ;
       (* Clear (NOT RESET) the value map for update. *)
@@ -1285,17 +1297,16 @@ module Make (Value : In) : Out = struct
     sys known lsd ({ map_up ; map_down } as graph)
   =
 
-  (* Event.log L_info "%s check sat" pref ; *)
+  (* Format.printf "%s check sat@.@." pref ; *)
 
   match
     terms_of graph known |> NLsd.query_base lsd
   with
   | None ->
-    (* Event.log L_info "%s   unsat" pref ; *)
-    (* Format.printf "unsat, done@.@." ; *)
+    (* Format.printf "%s   unsat@.@." pref ; *)
     ()
   | Some model ->
-    (* Event.log L_info "%s   sat" pref ; *)
+    (* Format.printf "%s   sat@.@." pref ; *)
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
 
@@ -1304,7 +1315,7 @@ module Make (Value : In) : Out = struct
     (* Format.printf "@.sat, updating graph: %d@." out_cnt ; *)
 
     (* Clear (NOT RESET) the value map for update. *)
-    (* clear graph ; *)
+    clear graph ;
     
     (* Stabilize graph. *)
     split_of_model sys Set.empty model graph |> ignore ;
@@ -1318,9 +1329,10 @@ module Make (Value : In) : Out = struct
   (** Queries the lsd and updates the graph. Iterates until the graph is
   stable. That is, when the lsd returns unsat. *)
   let update sys known lsd graph =
-    update_loop sys known lsd graph
-    (* update_classes sys known lsd graph ;
-    update_rels sys known lsd 0 graph *)
+    (* update_loop sys known lsd graph *)
+    update_classes sys known lsd graph ;
+    (* Format.printf "done stabilizing classes@.@." ; *)
+    update_rels sys known lsd 0 graph
 
 
 
@@ -1334,8 +1346,8 @@ module Make (Value : In) : Out = struct
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
     let blah = if sys == top_sys then " (top)" else "" in
-    Event.log_uncond
-      "%s Running on %a%s at %a (%d candidate terms)"
+    Format.printf
+      "%s Running on %a%s at %a (%d candidate terms)@.@."
       (prefs two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
       Num.pp_print_numeral k (term_count graph) ;
 
@@ -1383,13 +1395,13 @@ module Make (Value : In) : Out = struct
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
 
-    (* Event.log_uncond "%s stabilizing graph..." (prefs two_state) ; *)
+    Format.printf "%s stabilizing graph...@.@." (prefs two_state) ;
 
     (* Stabilize graph. *)
     ( try update sys prune lsd graph with
       | Event.Terminate -> exit ()
       | e -> (
-        Event.log L_fatal "caught exception %s@.@." (Printexc.to_string e) ;
+        Event.log L_fatal "caught exception %s" (Printexc.to_string e) ;
         minisleep 0.5 ;
         exit ()
       )
@@ -1398,7 +1410,7 @@ module Make (Value : In) : Out = struct
       "graphs/" "classes" (Format.asprintf "%a" Num.pp_print_numeral k)
       fmt_graph_classes_dot graph ; *)
 
-    (* Event.log_uncond "%s done stabilizing graph" (prefs two_state) ; *)
+    Format.printf "%s done stabilizing graph@.@." (prefs two_state) ;
     
     (* Event.log_uncond
       "%s Done stabilizing graph, checking consistency" (prefs two_state) ;
@@ -1424,7 +1436,7 @@ module Make (Value : In) : Out = struct
     (* Check class equivalence first. *)
     let equalities = equalities_of graph prune in
     (* Extract invariants. *)
-    (* Event.log_uncond "(equality) checking for invariants" ; *)
+    Format.printf "(equality) checking for invariants (%d)@.@." (List.length equalities) ;
     let inv_eqs = NLsd.query_step two_state lsd equalities in
     (* Removing rhs of the equality from its class. *)
     let inv_eqs =
@@ -1443,7 +1455,7 @@ module Make (Value : In) : Out = struct
       ) []
     in
     (* Extracting non-trivial invariants. *)
-    (* Event.log_uncond "(equality) pruning" ; *)
+    Format.printf "(equality) pruning@.@." ;
     let (non_trivial_eqs, trivial_eqs) =
       NLsd.query_pruning pruning_checker inv_eqs
     in
@@ -1477,13 +1489,13 @@ module Make (Value : In) : Out = struct
 
     (* Checking graph edges now. *)
     let relations =
-      relations_of graph non_inv_eqs prune
+      relations_of graph [] (* non_inv_eqs *) prune
     in
     (* Extracting invariants. *)
-    (* Event.log_uncond "(relations) checking for invariants" ; *)
+    Format.printf "(relations) checking for invariants@.@." ;
     let inv_rels = NLsd.query_step two_state lsd relations |> List.map fst in
     (* Extracting non-trivial invariants. *)
-    (* Event.log_uncond "(relations) pruning" ; *)
+    Format.printf "(relations) pruning@.@." ;
     let (non_trivial_rels, trivial_rels) =
        NLsd.query_pruning pruning_checker inv_rels
     in
@@ -1547,8 +1559,8 @@ module Make (Value : In) : Out = struct
         (prefs two_state) Num.pp_print_numeral kay ;
         memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
     | _ ->
-      Event.log L_info
-        "%s Looking for invariants at %a (%d)."
+      Format.printf
+        "%s Looking for invariants at %a (%d)@.@."
         (prefs two_state) Num.pp_print_numeral k
         (List.length memory) ;
       List.rev memory
@@ -1559,6 +1571,8 @@ module Make (Value : In) : Out = struct
 
   (** Invariant generation entry point. *)
   let main max_depth two_state input_sys aparam sys =
+
+    Format.printf "Starting@.@." ;
 
     (* Initial [k]. *)
     let k = if two_state then Num.one else Num.zero in
@@ -1592,6 +1606,9 @@ module Make (Value : In) : Out = struct
         List.rev
       else identity
     )
+    |> fun syss ->
+      Format.printf "Running on %d systems@.@." (List.length syss) ;
+      syss
     |> system_iterator max_depth two_state input_sys aparam sys [] k sys_map 0
 
 end
@@ -1616,17 +1633,17 @@ module Bool: In = struct
   let mk_cmp lhs rhs = Term.mk_implies [ lhs ; rhs ]
   let eval = eval_bool
   let mine param two_state sys =
-    let top_only = Flags.Invgen.top_only () in
+    let top_only = true in (* Flags.Invgen.top_only () in *)
     Sys.fold_subsystems
       ~include_top:true
       (fun acc sub_sys ->
         let shall_add =
-          (
-            TransSys.scope_of_trans_sys sub_sys
-            |> Analysis.param_scope_is_abstract param
-            |> not
-          ) && (
-            (not top_only) || (sub_sys == sys)
+          (sub_sys == sys) || (
+            (not top_only) && (
+              TransSys.scope_of_trans_sys sub_sys
+              |> Analysis.param_scope_is_abstract param
+              |> not
+            )
           )
         in
         if shall_add then
@@ -1635,7 +1652,7 @@ module Bool: In = struct
             InvGenCandTermGen.mine_term
               true (* Synthesis. *)
               true (* Mine base. *)
-              (Flags.Invgen.top_only ()) (* Mine step. *)
+              false (* Mine step. *)
               two_state (* Two step.  *)
               sub_sys
               []
