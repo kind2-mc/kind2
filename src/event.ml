@@ -341,7 +341,7 @@ let printf_pt mdl level fmt =
 
 (* Unconditional printing as plain text. *)
 let printf_pt_uncond mdl fmt =
-  Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.")
+  Format.fprintf !log_ppf ("@[<hov>" ^^ fmt ^^ "@]@.@.@?")
 
 
 

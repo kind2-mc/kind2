@@ -347,7 +347,7 @@ is understood as some information about the candidate.
 Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
 let query_step two_state step_checker candidates =
-  Format.printf "query_step (%d)@.@." (List.length candidates) ;
+  (* Format.printf "query_step (%d)@.@." (List.length candidates) ; *)
 
   let rec loop candidates =
     (* Restarting solver if necessary. *)
@@ -416,7 +416,7 @@ let query_step two_state step_checker candidates =
     | Some candidates -> loop candidates
   in
 
-  let rec take_500 res count = function
+(*   let rec take_500 res count = function
     | head :: tail when count <= 500 -> take_500 (head :: res) (count + 1) tail
     | rest -> res, rest
   in
@@ -430,9 +430,10 @@ let query_step two_state step_checker candidates =
     match postponed with
     | [] -> res
     | _ -> control_query_size res postponed
-  in
+  in *)
 
-  control_query_size [] candidates
+  (* control_query_size [] candidates *)
+  loop candidates
 
 
 
