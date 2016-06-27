@@ -295,6 +295,9 @@ let next_analysis results subs_of_scope all_syss = (
   else MonolithicStrategy.next_analysis
 ) results subs_of_scope all_syss
 
+let monolithic =
+  MonolithicStrategy.next_analysis (Analysis.mk_results ()) (fun _ -> [])
+
 
 (* 
    Local Variables:

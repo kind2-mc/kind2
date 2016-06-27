@@ -25,7 +25,7 @@ type t
 
 (** Creates a lock step driver based on a transition system. The first
     boolean parameter indicates whether the lsd should be two states
-    or not, while the second one indicated top only mode.. *)
+    or not, while the second one indicated top only mode. *)
 val create: bool -> bool -> TransSys.t -> t
 
 (** Deletes a lock step driver. *)
@@ -42,6 +42,17 @@ val add_invariants: t -> TransSys.t -> Term.t list -> unit
     otherwise. *)
 val query_base:
   t -> TransSys.t -> Term.t list -> Model.t option
+
+(** Checks if some of the input terms are k-inductive. Returns the terms
+    unfalsifiable in the next state and the trivial terms pruned from the input
+    list. *)
+val query_step: t -> TransSys.t -> Term.t list -> Term.t list * Term.t list
+
+(** Unrolls a system one step further. *)
+val unroll_sys: t -> TransSys.t -> unit
+
+(** Unrolls a system to some k. *)
+val unroll_sys_to: t -> TransSys.t -> Numeral.t -> unit
 
 (** Increments the lsd and checks if some of the input terms are
     k-inductive. Returns the terms unfalsifiable in the next state and

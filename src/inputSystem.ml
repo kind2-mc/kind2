@@ -18,7 +18,6 @@
 
 open Lib
 
-module Strat = Strategy
 module S = SubSystem
 module Lus = LustreNode
 
@@ -399,6 +398,25 @@ fun sys top_scope target ->
   | Horn _ ->
     failwith "can't compile from horn clause input: unsupported"
 
+let contract_gen_param (type s): s t -> (Analysis.param * (Scope.t -> LustreNode.t)) =
+fun sys ->
+  match sys with
+  | Lustre(sub, _) -> (
+    match
+      S.all_subsystems sub
+      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
+        scope, has_contract, has_modes
+      )
+      |> Strategy.monolithic
+    with
+    | None -> failwith "aaahhh"
+    | Some param ->
+      param, (fun scope -> (S.find_subsystem sub scope).S.source)
+  )
+  | Native _ ->
+    failwith "can't generate contracts from native input: unsupported"
+  | Horn _ ->
+    failwith "can't generate contracts from horn clause input: unsupported"
 
 
 (* 

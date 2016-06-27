@@ -634,7 +634,8 @@ module Make (InModule : In) : InvGen = struct
 
   (* Queries step to find invariants to communicate. *)
   let find_and_communicate_invariants
-        top_sys lsd invariants ignore sys graph =
+    top_sys lsd invariants ignore sys graph
+  =
 
     (* Getting candidates invariants from equivalence classes and
        implications. *)

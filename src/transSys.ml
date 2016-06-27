@@ -774,7 +774,7 @@ module Set = Set.Make (T)
 module Map = Map.Make (T)
 
 (* Hash table of transition systems *)
-module Hashbtl = Hashtbl.Make (T)
+module Hashtbl = Hashtbl.Make (T)
 
 
 
