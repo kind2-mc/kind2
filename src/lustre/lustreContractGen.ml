@@ -161,7 +161,8 @@ let rec fmt_lus_down next fmt term = match Term.destruct term with
 | Term.T.Const sym ->
   ( match Symbol.node_of_symbol sym with
     | `NUMERAL n -> Format.fprintf fmt "%a" Numeral.pp_print_numeral n
-    | `DECIMAL d -> Format.fprintf fmt "%a" Decimal.pp_print_decimal d
+    | `DECIMAL d ->
+      Format.fprintf fmt "%a" Decimal.pp_print_decimal_as_lus_real d
     | `TRUE -> Format.fprintf fmt "true"
     | `FALSE -> Format.fprintf fmt "false"
     | _ -> Format.asprintf "Const %a" Symbol.pp_print_symbol sym |> failwith
@@ -191,6 +192,27 @@ let fmt_lus fmt term =
     | _ -> "",""
   in
   Format.fprintf fmt "%s%a%s" fst (fmt_lus_down []) term lst
+
+let fmt_lus_mode fmt (req, enss) =
+  let fst, lst =
+    match Term.var_offsets_of_term req with
+    | (Some lo, Some hi) when Num.(lo < zero) -> "true -> ( ", " )"
+    | _ -> (
+      if enss |> List.exists (
+        fun t ->
+          match Term.var_offsets_of_term t with
+          | (Some lo, Some hi) when Num.(lo < zero) -> true
+          | _ -> false
+      ) then "true -> ( ", " )" else "", ""
+    )
+  in
+  Format.fprintf fmt "require %s%a%s ;@ %a"
+    fst (fmt_lus_down []) req lst
+    (pp_print_list
+      (fun fmt ens ->
+        Format.fprintf fmt "ensure %s%a%s ;" fst (fmt_lus_down []) ens lst)
+      "@ "
+    ) enss
 
 
 let fmt_contract fmt (node, assumes, guarantees, modes) =
@@ -230,22 +252,15 @@ let fmt_contract fmt (node, assumes, guarantees, modes) =
     | _ ->
       Format.fprintf fmt "@ --| Modes.@ " ;
       modes |> List.fold_left (
-        fun cnt (req, enss) ->
+        fun cnt mode ->
           Format.fprintf fmt "\
             @[<v>\
               mode mode_%d (@   \
-                @[<v>\
-                  require %a ;@ \
-                  %a\
-                @]@ \
+                @[<v>%a@]@ \
               ) ;@ \
             @]"
             cnt
-            fmt_lus req
-            (pp_print_list
-              (fun fmt ens -> Format.fprintf fmt "ensure %a ;" fmt_lus ens)
-              "@ "
-            ) enss ;
+            fmt_lus_mode mode ;
           cnt + 1
       ) 0
       |> ignore
@@ -273,7 +288,8 @@ let generate_contracts in_sys sys param get_node path =
   Event.log_uncond "Running invariant generation..." ;
 
   let result =
-    NuInvGen.BoolInvGen.main (Some max_depth) true in_sys param sys
+    NuInvGen.BoolInvGen.main
+      (Some max_depth) (Flags.modular () |> not) false true in_sys param sys
   in
 
   Event.log_uncond "Done running invariant generation." ;
@@ -495,21 +511,10 @@ let generate_contracts in_sys sys param get_node path =
           (* \
           @[<v>\
           Contract for node [%s].@ @ \
-          Attach this contract to node `%s` by adding the following between@ \
-          the signature and the `var` or `let` keyword starting the body:@    \
-          @ \
-          node %s (...) returns (...) ;@ \
-          (*@contract import %s_spec ; *)@ \
-          var ... ;@ \
-          let ... tel@ \
           @ \
           Do make sure you include this file using an `include` statement.\
-          @]@ \
-          *)@ \
+          @]@ @ \
         contract %s_spec %a@]@.@."
-        (sys_name sys)
-        (sys_name sys)
-        (sys_name sys)
         (sys_name sys)
         (sys_name sys)
         fmt_contract (node, assumptions, guarantees, modes) ;

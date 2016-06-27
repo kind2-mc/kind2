@@ -165,7 +165,7 @@ module type In = sig
   (** Evaluates a term. *)
   val eval : Sys.t -> Model.t -> Term.t -> t
   (** Mines a transition system for candidate terms. *)
-  val mine : Analysis.param -> bool -> Sys.t -> (Sys.t * Term.TermSet.t) list
+  val mine : bool -> Analysis.param -> bool -> Sys.t -> (Sys.t * Term.TermSet.t) list
   (** Returns true iff the input term is bottom. *)
   val is_bot: Term.t -> bool
   (** Returns true iff the input term is top. *)
@@ -177,7 +177,8 @@ when given a module with signature [In]. *)
 module type Out = sig
   (** Runs the invariant generator. *)
   val main :
-    Num.t option -> bool -> 'a InputSystem.t -> Analysis.param -> Sys.t -> (
+    Num.t option -> bool -> bool -> bool -> 'a InputSystem.t ->
+    Analysis.param -> Sys.t -> (
       Sys.t * Set.t * Set.t
     ) list
   (** Clean exit for the invariant generator. *)
@@ -1633,7 +1634,7 @@ module Make (Value : In) : Out = struct
 
 
   (** Invariant generation entry point. *)
-  let main max_depth two_state input_sys aparam sys =
+  let main max_depth top_only modular two_state input_sys aparam sys =
 
     (* Format.printf "Starting@.@." ; *)
 
@@ -1646,7 +1647,7 @@ module Make (Value : In) : Out = struct
     (* Generating the candidate terms and building the graphs. Result is a list
     of quadruples: system, graph, non-trivial invariants, trivial
     invariants. *)
-    Value.mine aparam two_state sys |> List.fold_left (
+    Value.mine top_only aparam two_state sys |> List.fold_left (
       fun acc (sub_sys, set) ->
         let set = Set.add Term.t_true set in
         (* Format.printf "%s candidates: @[<v>%a@]@.@."
@@ -1663,7 +1664,7 @@ module Make (Value : In) : Out = struct
         ) :: acc
     ) []
     |> (
-      if Flags.modular () then 
+      if modular then 
         (* If in modular mode, we already ran on the subsystems.
         Might as well start with the current top system since it's new. *)
         List.rev
@@ -1695,8 +1696,7 @@ module Bool: In = struct
   let cmp lhs rhs = rhs || not lhs
   let mk_cmp lhs rhs = Term.mk_implies [ lhs ; rhs ]
   let eval = eval_bool
-  let mine param two_state sys =
-    let top_only = Flags.Invgen.top_only () in
+  let mine top_only param two_state sys =
     Sys.fold_subsystems
       ~include_top:true
       (fun acc sub_sys ->
@@ -1749,7 +1749,7 @@ module Integer: In = struct
   let cmp = Num.leq
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_int
-  let mine _ _ _ =
+  let mine _ _ _ _ =
     failwith "integer candidate term mining is unimplemented"
   let is_bot _ = false
   let is_top _ = false
@@ -1772,7 +1772,7 @@ module Real: In = struct
   let cmp = Decimal.leq
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_real
-  let mine _ _ _ =
+  let mine _ _ _ _ =
     failwith "real candidate term mining is unimplemented"
   let is_bot _ = false
   let is_top _ = false
@@ -1786,7 +1786,7 @@ module RealInvGen = Make(Real)
 
 
 let main two_state in_sys param sys =
-  BoolInvGen.main None two_state in_sys param sys
+  BoolInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
   |> ignore
 let exit _ = BoolInvGen.exit ()
 
