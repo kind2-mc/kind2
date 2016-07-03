@@ -59,7 +59,13 @@ module Lsd = LockStepDriver
 module Map = Term.TermHashtbl
 (* Term set. *)
 module Set = Term.TermSet
-(* module Set = struct
+
+
+(*
+
+(* Attempt at an implementation similar to Term.TermSet using HashTbl. *)
+
+module Set = struct
   type t = unit Map.t
   let empty () = Map.create 107
   let remove term set = Map.remove set term ; set
@@ -234,7 +240,7 @@ module Make (Value : In) : Out = struct
   (** Prefix used for logging. *)
   let pref = Format.sprintf "[%s Inv Gen]" Value.name
   (** Prefix used for logging. *)
-  let prefs two_state =
+  let pref_s two_state =
     if two_state then Format.sprintf "[%s Inv Gen 2]" Value.name
     else Format.sprintf "[%s Inv Gen 1]" Value.name
 
@@ -326,7 +332,7 @@ module Make (Value : In) : Out = struct
             On system [%s] at %a: %s@ \
             found %d non-trivial invariants\
           @]@.@."
-          (prefs two_state)
+          (pref_s two_state)
           (sys_name sys)
           Num.pp_print_numeral k
           blah
@@ -337,7 +343,7 @@ module Make (Value : In) : Out = struct
             On system [%s] at %a: %s@ \
             found %d trivial invariants\
           @]@.@."
-          (prefs two_state)
+          (pref_s two_state)
           (sys_name sys)
           Num.pp_print_numeral k
           blah
@@ -348,7 +354,7 @@ module Make (Value : In) : Out = struct
             On system [%s] at %a: %s@ \
             found %d non-trivial invariants and %d trivial ones\
           @]@.@."
-          (prefs two_state)
+          (pref_s two_state)
           (sys_name sys)
           Num.pp_print_numeral k
           blah
@@ -419,7 +425,7 @@ module Make (Value : In) : Out = struct
     values: Value.t map ;
   }
 
-  (* Graph constructor. *)
+  (** Graph constructor. *)
   let mk_graph rep candidates = {
     map_up = (
       let map = Map.create 107 in
@@ -444,7 +450,7 @@ module Make (Value : In) : Out = struct
       fun rep cl4ss sum -> sum + 1 + (Set.cardinal cl4ss)
     ) classes 0
 
-
+  (** Forgets a member of an equivalence class. *)
   let drop_class_member { classes } rep term =
     try
       Map.find classes rep
@@ -456,7 +462,7 @@ module Make (Value : In) : Out = struct
         pref fmt_term term fmt_term rep ;
       exit ()
 
-  (* Formats a graph to graphviz format. *)
+  (** Formats a graph to graphviz format. *)
   let fmt_graph_dot fmt { map_up ; map_down ; classes ; values } =
     Format.fprintf fmt
       "\
@@ -1426,7 +1432,7 @@ module Make (Value : In) : Out = struct
     let blah = if sys == top_sys then " (top)" else "" in
     Event.log_uncond
       "%s Running on %a%s at %a (%d candidate terms)"
-      (prefs two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
+      (pref_s two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
       Num.pp_print_numeral k (term_count graph) ;
 
     (* Receiving messages, don't care about new invariants for now as we
@@ -1438,7 +1444,7 @@ module Make (Value : In) : Out = struct
       try SysMap.find sys_map sys with Not_found -> (
         Event.log L_fatal
           "%s could not find pruning checker for system [%s]"
-          (prefs two_state) (sys_name sys) ;
+          (pref_s two_state) (sys_name sys) ;
         exit ()
       )
     in
@@ -1473,7 +1479,7 @@ module Make (Value : In) : Out = struct
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
 
-    (* Format.printf "%s stabilizing graph...@.@." (prefs two_state) ; *)
+    (* Format.printf "%s stabilizing graph...@.@." (pref_s two_state) ; *)
 
     (* Stabilize graph. *)
     ( try update sys prune lsd graph with
@@ -1488,12 +1494,12 @@ module Make (Value : In) : Out = struct
       "graphs/" "classes" (Format.asprintf "%a" Num.pp_print_numeral k)
       fmt_graph_classes_dot graph ; *)
 
-    (* Format.printf "%s done stabilizing graph@.@." (prefs two_state) ; *)
+    (* Format.printf "%s done stabilizing graph@.@." (pref_s two_state) ; *)
     
     (* Event.log_uncond
-      "%s Done stabilizing graph, checking consistency" (prefs two_state) ;
+      "%s Done stabilizing graph, checking consistency" (pref_s two_state) ;
     check_graph graph ;
-    Event.log_uncond "%s Done checking consistency" (prefs two_state) ; *)
+    Event.log_uncond "%s Done checking consistency" (pref_s two_state) ; *)
 
     let lsd = NLsd.to_step lsd in
     base_ref := None ;
@@ -1620,12 +1626,12 @@ module Make (Value : In) : Out = struct
     match max_depth with
     | Some kay when Num.(k > kay) ->
       Event.log_uncond "%s Reached max depth (%a), stopping."
-        (prefs two_state) Num.pp_print_numeral kay ;
+        (pref_s two_state) Num.pp_print_numeral kay ;
         memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
     | _ ->
       (* Format.printf
         "%s Looking for invariants at %a (%d)@.@."
-        (prefs two_state) Num.pp_print_numeral k
+        (pref_s two_state) Num.pp_print_numeral k
         (List.length memory) ; *)
       List.rev memory
       |> system_iterator
@@ -1788,6 +1794,7 @@ module RealInvGen = Make(Real)
 let main two_state in_sys param sys =
   BoolInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
   |> ignore
+
 let exit _ = BoolInvGen.exit ()
 
 
