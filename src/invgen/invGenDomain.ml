@@ -78,10 +78,8 @@ module Bool: Domain = struct
         if shall_add then
           (
             sub_sys,
-            InvGenCandTermGen.mine_term
+            InvGenMiner.mine_term
               true (* Synthesis. *)
-              true (* Mine base. *)
-              true (* Mine step. *)
               two_state (* Two step.  *)
               sub_sys
               []
