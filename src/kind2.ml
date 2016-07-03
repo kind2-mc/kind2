@@ -30,8 +30,6 @@ end
 module BMC = Base
 module IND = Step
 module IND2 = Step2
-module InvGenTS = InvGenGraph.TwoState
-module InvGenOS = InvGenGraph.OneState
 module TestGen = TestgenDF
 module C2I = C2I
 module C2Icnf = C2Icnf
@@ -123,8 +121,8 @@ let main_of_process = function
   | `BMC -> BMC.main
   | `IND -> IND.main
   | `IND2 -> IND2.main
-  | `INVGEN -> renice () ; NuInvGen.main true
-  | `INVGENOS -> renice () ; NuInvGen.main false
+  | `INVGEN -> renice () ; InvGen.main true
+  | `INVGENOS -> renice () ; InvGen.main false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
   | `Supervisor -> InvarManager.main child_pids
@@ -136,8 +134,8 @@ let on_exit_of_process = function
   | `BMC -> BMC.on_exit
   | `IND -> IND.on_exit
   | `IND2 -> IND2.on_exit
-  | `INVGEN -> NuInvGen.exit
-  | `INVGENOS -> NuInvGen.exit
+  | `INVGEN -> InvGen.exit
+  | `INVGENOS -> InvGen.exit
   | `C2I -> C2I.on_exit
   | `Interpreter -> Interpreter.on_exit
   | `Supervisor -> InvarManager.on_exit

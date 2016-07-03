@@ -288,7 +288,7 @@ let generate_contracts in_sys sys param get_node path =
   Event.log_uncond "Running invariant generation..." ;
 
   let result =
-    NuInvGen.BoolInvGen.main
+    InvGen.BoolInvGen.main
       (Some max_depth) (Flags.modular () |> not) false true
       in_sys param sys
   in

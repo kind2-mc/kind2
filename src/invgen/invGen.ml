@@ -19,7 +19,7 @@
 
 open Lib
 
-module NLsd = NuLockStepDriver
+module Graph = InvGenGraph
 
 
 
@@ -224,12 +224,12 @@ module Make (Value : In) : Out = struct
   let no_more_lsd () =
     ( match !base_ref with
       | None -> ()
-      | Some lsd -> NLsd.kill_base lsd ) ;
+      | Some lsd -> Lsd.kill_base lsd ) ;
     ( match !step_ref with
       | None -> ()
-      | Some lsd -> NLsd.kill_step lsd ) ;
+      | Some lsd -> Lsd.kill_step lsd ) ;
     ! prune_ref |> List.iter (
-      fun lsd -> NLsd.kill_pruning lsd
+      fun lsd -> Lsd.kill_pruning lsd
     )
 
   (* Clean exit. *)
@@ -287,7 +287,7 @@ module Make (Value : In) : Out = struct
           (
             try (
               let pruning_checker = SysMap.find sys_map sub_sys in
-              NLsd.pruning_add_invariants pruning_checker term_certs
+              Lsd.pruning_add_invariants pruning_checker term_certs
             ) with Not_found -> (
               (* System is abstract, skipping. *)
             )
@@ -301,7 +301,7 @@ module Make (Value : In) : Out = struct
       let _ =
         try (
           let pruning_checker = SysMap.find sys_map top_sys in
-          NLsd.pruning_add_invariants pruning_checker top_invariants
+          Lsd.pruning_add_invariants pruning_checker top_invariants
         ) with Not_found -> (
           (* System is abstract, skipping. *)
         )
@@ -389,7 +389,7 @@ module Make (Value : In) : Out = struct
         (
           try (
             let pruning_checker = SysMap.find sys_map this_sys in
-            NLsd.pruning_add_invariants pruning_checker [inv, cert]
+            Lsd.pruning_add_invariants pruning_checker [inv, cert]
           ) with Not_found -> (
             (* System is abstract, skipping it. *)
           )
@@ -1232,7 +1232,7 @@ module Make (Value : In) : Out = struct
           in
           match
             (* Is this set of equalities falsifiable?. *)
-            NLsd.query_base lsd eqs
+            Lsd.query_base lsd eqs
           with
           | None ->
             (* Stable, moving on. *)
@@ -1279,7 +1279,7 @@ module Make (Value : In) : Out = struct
 
     match
       (* Are these relations falsifiable?. *)
-      NLsd.query_base lsd rels
+      Lsd.query_base lsd rels
     with
     | None ->
       (* Format.printf "update_rels done after %d iterations@.@." count ; *)
@@ -1315,7 +1315,7 @@ module Make (Value : In) : Out = struct
   (* Format.printf "%s check sat@.@." pref ; *)
 
   match
-    terms_of graph known |> NLsd.query_base lsd
+    terms_of graph known |> Lsd.query_base lsd
   with
   | None ->
     (* Format.printf "%s   unsat@.@." pref ; *)
@@ -1357,14 +1357,14 @@ module Make (Value : In) : Out = struct
   =
     (* Format.printf "find_invariants (%d)@.@." (List.length candidates) ;
     Format.printf "  query_step@.@." ; *)
-    let invs = NLsd.query_step two_state lsd candidates in
+    let invs = Lsd.query_step two_state lsd candidates in
     
     (* Applying client function. *)
     let invs = f invs in
 
     (* Extracting non-trivial invariants. *)
     (* Format.printf "  pruning@.@." ; *)
-    let (non_trivial, trivial) = NLsd.query_pruning pruner invs in
+    let (non_trivial, trivial) = Lsd.query_pruning pruner invs in
 
     (* Communicating and adding to trans sys. *)
     let top_level_inc, sanitized =
@@ -1373,9 +1373,9 @@ module Make (Value : In) : Out = struct
     in
     
     (* Adding sanitized non-trivial to pruning checker. *)
-    NLsd.pruning_add_invariants pruner sanitized ;
+    Lsd.pruning_add_invariants pruner sanitized ;
     (* Adding sanitized non-trivial to step checker. *)
-    NLsd.step_add_invariants lsd sanitized ;
+    Lsd.step_add_invariants lsd sanitized ;
 
     non_trivial, trivial, top_level_inc
 
@@ -1450,7 +1450,7 @@ module Make (Value : In) : Out = struct
     in
 
     (* Creating base checker. *)
-    let lsd = NLsd.mk_base_checker sys k in
+    let lsd = Lsd.mk_base_checker sys k in
     (* Memorizing LSD instance for clean exit. *)
     base_ref := Some lsd ;
 
@@ -1501,7 +1501,7 @@ module Make (Value : In) : Out = struct
     check_graph graph ;
     Event.log_uncond "%s Done checking consistency" (pref_s two_state) ; *)
 
-    let lsd = NLsd.to_step lsd in
+    let lsd = Lsd.to_step lsd in
     base_ref := None ;
     step_ref := Some lsd ;
 
@@ -1509,13 +1509,13 @@ module Make (Value : In) : Out = struct
     let new_invs_for_sys =
       recv_and_update input_sys param top_sys sys_map sys
     in
-    NLsd.step_add_invariants lsd new_invs_for_sys ;
+    Lsd.step_add_invariants lsd new_invs_for_sys ;
 
     (* Receiving messages. *)
     let new_invs_for_sys =
       recv_and_update input_sys param top_sys sys_map sys
     in
-    NLsd.step_add_invariants lsd new_invs_for_sys ;
+    Lsd.step_add_invariants lsd new_invs_for_sys ;
 
     (* Check class equivalence first. *)
     let equalities = equalities_of graph prune in
@@ -1596,7 +1596,7 @@ module Make (Value : In) : Out = struct
 
     (* Not adding to lsd, we won't use it anymore. *)
     (* Destroying LSD. *)
-    NLsd.kill_step lsd ;
+    Lsd.kill_step lsd ;
     (* Unmemorizing LSD instance. *)
     step_ref := None ;
 
@@ -1658,7 +1658,7 @@ module Make (Value : In) : Out = struct
         let set = Set.add Term.t_true set in
         (* Format.printf "%s candidates: @[<v>%a@]@.@."
           pref (pp_print_list fmt_term "@ ") (Set.elements set) ; *)
-        let pruning_checker = NLsd.mk_pruning_checker sub_sys in
+        let pruning_checker = Lsd.mk_pruning_checker sub_sys in
         (* Memorizing pruning checker for clean exit. *)
         prune_ref := pruning_checker :: (! prune_ref ) ;
         SysMap.replace sys_map sub_sys pruning_checker ;
