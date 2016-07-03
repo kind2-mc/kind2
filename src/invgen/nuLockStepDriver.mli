@@ -17,6 +17,25 @@
 *)
 
 
+(** Lock Step Driver (LSD).
+
+The LSD is used by invariant generation to split its graph using [base],
+discover invariants using [step], and prune trivial invariants using [pruning].
+
+The workflow is that each invariant generation (graph splitting + invariant
+discovery at [k]) starts by creating a [base]. Once the graph is stable, the
+base checker is transformed into a [step] using [to_step].
+
+To query a step checker one gives a list of [Term.t * 'a] where ['a] is some
+information. Typically, it's used to when checking invariants of candidates
+coming from equivalence classes. If an equality is invariant, then we can
+remove the term from the eq class of the corresponding representative. In this
+case the information has type [Term.t * Term.t] and stores the representative
+and the term to drop. *)
+
+
+
+
 (** The base checker is used to check whether some candidate invariants hold
 [k] steps away from the initial state. *)
 type base
