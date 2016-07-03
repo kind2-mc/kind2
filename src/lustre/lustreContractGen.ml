@@ -289,7 +289,8 @@ let generate_contracts in_sys sys param get_node path =
 
   let result =
     NuInvGen.BoolInvGen.main
-      (Some max_depth) (Flags.modular () |> not) false true in_sys param sys
+      (Some max_depth) (Flags.modular () |> not) false true
+      in_sys param sys
   in
 
   Event.log_uncond "Done running invariant generation." ;
@@ -343,7 +344,7 @@ let generate_contracts in_sys sys param get_node path =
         )
       in
 
-      let mentions_outputs_only =
+(*       let mentions_outputs_only =
         List.filter (
           fun t ->
             Term.state_vars_of_term t
@@ -356,7 +357,7 @@ let generate_contracts in_sys sys param get_node path =
                 ) with Not_found -> false
             )
         )
-      in
+      in *)
 
       let is_pure_pre term =
         match Term.var_offsets_of_term term with
@@ -503,7 +504,10 @@ let generate_contracts in_sys sys param get_node path =
       in
 
       let assumptions, guarantees, modes =
-        split (List.rev_append non_trivial trivial)
+        ( if Flags.Contracts.contract_gen_fine_grain () then
+            List.rev_append non_trivial trivial
+          else non_trivial )
+        |> split
       in
 
       Format.fprintf fmt
@@ -513,7 +517,7 @@ let generate_contracts in_sys sys param get_node path =
           Contract for node [%s].@ @ \
           @ \
           Do make sure you include this file using an `include` statement.\
-          @]@ @ \
+          @]@ *)@ \
         contract %s_spec %a@]@.@."
         (sys_name sys)
         (sys_name sys)

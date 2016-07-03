@@ -24,7 +24,7 @@ module NLsd = NuLockStepDriver
 
 
 
-(* |===| IO stuff *)
+(* |===| IO stuff to log graphs and so on. *)
 
 
 (* Opens a file in write mode, creating it if needed. *)

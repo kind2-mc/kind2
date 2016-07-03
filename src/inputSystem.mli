@@ -88,6 +88,10 @@ val compile_oracle_to_rust : _ t -> Scope.t -> string -> (
 (** Parameter for contract generation. *)
 val contract_gen_param : _ t -> (Analysis.param * (Scope.t -> LustreNode.t))
 
+(** Transition system for contract generation, without any slicing. *)
+val contract_gen_trans_sys_of:
+  ?preserve_sig:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

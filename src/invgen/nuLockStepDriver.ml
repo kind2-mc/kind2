@@ -99,7 +99,10 @@ let term_of_actlit actlit = Term.mk_uf actlit []
 
 
 
-(* |===| Base checker. *)
+(* |===| Base checker.
+
+The base checker is used to check whether some candidate invariants hold [k]
+steps away from the initial state. *)
 
 
 (** A base checker. *)
@@ -275,7 +278,10 @@ let query_base base_checker candidates =
 
 
 
-(* |===| Step checker. *)
+(* |===| Step checker.
+
+The step checker is used to check whether some candidate invariants hold in the
+[k]-inductive step instance. *)
 
 
 (* A step checker. *)
@@ -343,6 +349,11 @@ let step_add_invariants { solver ; k } =
 
 [candidates] is a list of elements of type [(Term.t, 'a)]. The second element
 is understood as some information about the candidate.
+
+The "information" represented by ['a] is used when checking equality candidate
+invariants coming from equivalence classes from the graph. The info is then a
+pair representative / eq class member meaning that if the candidate is indeed
+invariant, we can drop the class member from the equivalence class.
 
 Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
@@ -416,22 +427,6 @@ let query_step two_state step_checker candidates =
     | Some candidates -> loop candidates
   in
 
-(*   let rec take_500 res count = function
-    | head :: tail when count <= 500 -> take_500 (head :: res) (count + 1) tail
-    | rest -> res, rest
-  in
-
-  let rec control_query_size res candidates =
-    let candidates, postponed = take_500 [] 1 candidates in
-    Format.printf "controled query: %d (%d)...@.@."
-      (List.length candidates) (List.length postponed) ;
-    let res = List.rev_append (loop candidates) res in
-    Format.printf "done (%d)@.@." (List.length res) ;
-    match postponed with
-    | [] -> res
-    | _ -> control_query_size res postponed
-  in *)
-
   (* control_query_size [] candidates *)
   loop candidates
 
@@ -440,7 +435,10 @@ let query_step two_state step_checker candidates =
 
 
 
-(* |===| Pruning checker. *)
+(* |===| Pruning checker.
+
+Used to check whether some invariants are implied by the transition relation
+alone. That is, [T(0,1) and (not inv(1))] is unsat. *)
 
 
 (** A pruning checker. *)
@@ -522,7 +520,7 @@ let pruning_add_invariants { solver } =
   )
 
 
-(** Prunes the trivial invariants from a list of candidates. *)
+(** Separates the trivial invariants from a list of candidates. *)
 let query_pruning pruning_checker =
 
   let { solver } = pruning_checker in

@@ -1017,11 +1017,14 @@ let main () =
     if Flags.Contracts.contract_gen () then ( 
       let Input input_sys = input_sys in
 
-      let param, node_of_scope = InputSystem.contract_gen_param input_sys in
+      let param, node_of_scope =
+        InputSystem.contract_gen_param input_sys
+      in
 
       (* Building transition system and slicing info. *)
       let trans_sys, input_sys_sliced =
-        InputSystem.trans_sys_of_analysis input_sys param
+        InputSystem.contract_gen_trans_sys_of
+          ~preserve_sig:true input_sys param
       in
 
       let target =
