@@ -275,7 +275,7 @@ let generate_contracts in_sys sys param get_node path =
   let max_depth = Flags.Contracts.contract_gen_depth () |> Num.of_int in
 
   Event.log_uncond "\
-    @{<b>Generating contracts@}@ \
+    @{<b>Generating contracts@}@   \
     @[<v>\
       for system %s@ \
       using two state (boolean) invariant generation to depth %a@ \
@@ -293,7 +293,7 @@ let generate_contracts in_sys sys param get_node path =
       in_sys param sys
   in
 
-  Event.log_uncond "Done running invariant generation." ;
+  Event.log_uncond "Done." ;
 
   Event.log_uncond "Generating contracts." ;
 

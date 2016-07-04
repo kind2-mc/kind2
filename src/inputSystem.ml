@@ -426,7 +426,7 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
   | Lustre (
     ( { S.source ; S.subsystems } as subsystem ), globals
   ) -> (fun analysis ->
-    Format.printf "contract gen: %d subsystems@.@." (List.length subsystems) ;
+    (* Format.printf "contract gen: %d subsystems@.@." (List.length subsystems) ; *)
 
     (* Adds the outputs of a node as dummy properties to the node. *)
     let augment_node ( { Lus.outputs ; Lus.props } as node ) =
@@ -435,9 +435,6 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
           LustreIndex.values outputs
           |> List.map (
             fun svar ->
-              Format.printf
-                "  generating dummy property for %a@."
-                SVar.pp_print_state_var svar ;
               svar,
               Format.asprintf "dummy prop for output %a"
                 SVar.pp_print_state_var svar,
@@ -454,9 +451,9 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
           fun acc ( {
             S.source = ( { Lus.name ; Lus.outputs ; Lus.props } as node )
           } as sys ) ->
-            Format.printf "%a@." (LustreIdent.pp_print_ident false) name ;
+            (* Format.printf "%a@." (LustreIdent.pp_print_ident false) name ; *)
             let node = augment_node node in
-            Format.printf "@." ;
+            (* Format.printf "@." ; *)
             { sys with S.source = node } :: acc
         ) [] |> List.rev
       }

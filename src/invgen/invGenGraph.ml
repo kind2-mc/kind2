@@ -1012,7 +1012,7 @@ digraph mode_graph {
           |> failwith
 
       ) with Not_found ->
-        Event.log_uncond
+        Event.log L_info
           "update classes done in %d iterations" count
     in
 

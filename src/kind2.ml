@@ -1012,7 +1012,13 @@ let main () =
   | None -> (
 
     (* Are we just generating contracts?. *)
-    if Flags.Contracts.contract_gen () then ( 
+    if Flags.Contracts.contract_gen () then (
+      Event.log L_warn
+        "Contract generation is a very experimental feature:@ \
+        in particular, the modes it generates might not be exhaustive,@ \
+        which means that Kind 2 will consider the contract unsafe.@ \
+        This can be dealt with by adding a wild card mode:@ \
+        mode wildcard () ;" ;
       let Input input_sys = input_sys in
 
       let param, node_of_scope =

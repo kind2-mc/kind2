@@ -467,7 +467,7 @@ module Make (Graph : GraphSig) : Out = struct
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
     let blah = if sys == top_sys then " (top)" else "" in
-    Event.log_uncond
+    Event.log L_info
       "%s Running on %a%s at %a (%d candidate terms)"
       (pref_s two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
       Num.pp_print_numeral k (Graph.term_count graph) ;
