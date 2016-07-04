@@ -305,33 +305,33 @@ module Make (Graph : GraphSig) : Out = struct
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
-        Format.printf (* L_info *)
+        Event.log L_info
           "%s @[<v>\
             On system [%s] at %a: %s@ \
             found %d non-trivial invariants\
-          @]@.@."
+          @]"
           (pref_s two_state)
           (sys_name sys)
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
       | [], _ ->
-        Format.printf (* L_info *)
+        Event.log L_info
           "%s @[<v>\
             On system [%s] at %a: %s@ \
             found %d trivial invariants\
-          @]@.@."
+          @]"
           (pref_s two_state)
           (sys_name sys)
           Num.pp_print_numeral k
           blah
           (List.length trivial)
       | _, _ ->
-        Format.printf (* L_info *)
+        Event.log L_info
           "%s @[<v>\
             On system [%s] at %a: %s@ \
             found %d non-trivial invariants and %d trivial ones\
-          @]@.@."
+          @]"
           (pref_s two_state)
           (sys_name sys)
           Num.pp_print_numeral k
@@ -519,7 +519,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "%s stabilizing graph...@.@." (pref_s two_state) ; *)
 
     (* Stabilize graph. *)
-    ( try Graph.update graph sys prune lsd with
+    ( try Graph.stabilize graph sys prune lsd with
       | Event.Terminate -> exit ()
       | e -> (
         Event.log L_fatal "caught exception %s" (Printexc.to_string e) ;
@@ -636,6 +636,22 @@ module Make (Graph : GraphSig) : Out = struct
       ) trivial
     in
 
+(*  
+    (* Next is step graph stabilization. deactivated for now. *)
+
+    let invs =
+      Format.printf "step_stabilize:@." ;
+      Graph.step_stabilize
+        two_state graph sys prune lsd (
+          fun l -> Format.printf "  found %d eq invariants@." (List.length l)
+        )
+    in
+
+    communicate_and_add
+      two_state top_sys sys_map sys k "blah" invs [] ;
+
+    Format.printf "  found %d rel invariants@.@." (List.length invs) ; *)
+
     (* Not adding to lsd, we won't use it anymore. *)
     (* Destroying LSD. *)
     Lsd.kill_step lsd ;
@@ -706,7 +722,7 @@ module Make (Graph : GraphSig) : Out = struct
         SysMap.replace sys_map sub_sys pruning_checker ;
         (
           sub_sys,
-          Graph.mk_graph Term.t_false set,
+          Graph.mk Term.t_false set,
           Set.empty,
           Set.empty
         ) :: acc

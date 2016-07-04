@@ -47,7 +47,10 @@ module type Graph = sig
 
   (** Creates a graph from a single equivalence class and its
   representative. *)
-  val mk_graph : term -> set -> graph
+  val mk : term -> set -> graph
+
+  (** Clones a graph. *)
+  val clone : graph -> graph
 
   (** Total number of terms in the graph. *)
   val term_count : graph -> int
@@ -108,7 +111,16 @@ module type Graph = sig
 
   Input function returns true for candidates we want to ignore, typically
   candidates we have already proved true. *)
-  val update : graph -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
+  val stabilize : graph -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
+
+  (** Clones the graph, and splits it in step.
+
+  Stabilizes eq classes one by one, communicates invariants at each step.
+  Then stabilizes relations, communicating by packs. *)
+  val step_stabilize :
+    bool -> graph -> TransSys.t -> (term -> bool) -> Lsd.step -> (
+      (Term.t * Certificate.t) list -> unit
+    ) -> Term.t list
 end
 
 

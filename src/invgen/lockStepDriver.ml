@@ -324,6 +324,8 @@ let to_step ( { solver ; sys ; k ; init_actlit } as base_checker ) =
   let solver, k = to_step_solver base_checker in
   { solver ; sys ; k }
 
+(** Certificate ([k]) of a step checker. *)
+let step_cert { k } = 1 + Num.to_int k
 
 (** Resets the solver in a step checker if needed. *)
 let conditional_step_solver_reset (
@@ -429,6 +431,65 @@ let query_step two_state step_checker candidates =
 
   (* control_query_size [] candidates *)
   loop candidates
+
+(** Queries step, returns an option of the model. *)
+let nu_query_step two_state step_checker candidates =
+  (* Restarting solver if necessary. *)
+  conditional_step_solver_reset step_checker ;
+
+  let { sys ; solver ; k } = step_checker in
+  let actlit = fresh_actlit () in
+
+  Format.asprintf
+    "Querying base with actlit [%a] (%d candidates)."
+    Uf.pp_print_uf_symbol actlit (List.length candidates)
+  |> Smt.trace_comment solver ;
+
+  Smt.declare_fun solver actlit ; (* Declaring actlit. *)
+
+  let actlit = (* Getting term of actlit UF. *)
+    term_of_actlit actlit
+  in
+
+  let assert_fun = if two_state then assert_1_to else assert_0_to in
+
+  (* Conditionally asserting candidates from [0] to [k-1], and their negation
+  at [k]. *)
+  let cands =
+    candidates |> List.map (
+      fun candidate ->
+        Term.mk_implies [ actlit ; candidate ] |> assert_fun solver k ;
+        Term.bump_state k candidate
+    )
+  in
+  Term.mk_implies [
+    actlit ; Term.mk_and cands |> Term.mk_not
+  ] |> Smt.assert_term solver ;
+
+  let res =
+    Smt.check_sat_assuming solver (
+      (* If sat, get model and return that. *)
+      fun solver ->
+
+        let minus_k = Numeral.(~- k) in
+        (* Variables we want to know the value of. *)
+        TransSys.vars_of_bounds sys (Numeral.pred k) k
+        (* Getting their value. *)
+        |> SMTSolver.get_var_values solver
+        (* Bumping to -k. *)
+        |> Model.bump_var minus_k 
+        (* Making an option out of it. *)
+        |> (fun model -> Some model)
+    ) (
+      (* If unsat then no model. *)
+      fun _ -> None
+    ) [ actlit ]
+  in
+
+  (* Deactivating actlit. *)
+  Term.mk_not actlit |> Smt.assert_term solver ;
+
+  res
 
 
 

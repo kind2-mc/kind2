@@ -72,6 +72,9 @@ the base checker corresponds to. That is, the transition relation is unrolled
 one step further and the initial state constraint is removed. *)
 val to_step : base -> step
 
+(** Certificate ([k]) of a step checker. *)
+val step_cert : step -> int
+
 (** Adds invariants to a step checker. *)
 val step_add_invariants : step -> (Term.t * Certificate.t) list -> unit
 
@@ -88,6 +91,9 @@ invariant, we can drop the class member from the equivalence class.
 Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
 val query_step : bool -> step -> (Term.t * 'a) list -> (Term.t * 'a) list
+
+(** Queries step, returns an option of the model. *)
+val nu_query_step : bool -> step -> Term.t list -> Model.t option
 
 
 

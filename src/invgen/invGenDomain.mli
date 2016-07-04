@@ -17,7 +17,8 @@
 *)
 
 
-
+(** Exception thrown when a domain is asked to build a trivial implication. *)
+exception TrivialRelation
 
 
 (** Signature of the modules describing an order relation over some values. *)
@@ -32,6 +33,8 @@ module type Domain = sig
   val eq : t -> t -> bool
   (** Ordering relation. *)
   val cmp : t -> t -> bool
+  (** Creates the term corresponding to the equality of two terms. *)
+  val mk_eq : Term.t -> Term.t -> Term.t
   (** Creates the term corresponding to the ordering of two terms. *)
   val mk_cmp : Term.t -> Term.t -> Term.t
   (** Evaluates a term. *)

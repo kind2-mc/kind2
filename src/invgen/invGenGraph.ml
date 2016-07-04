@@ -87,7 +87,10 @@ module type Graph = sig
 
   (** Creates a graph from a single equivalence class and its
   representative. *)
-  val mk_graph : term -> set -> graph
+  val mk : term -> set -> graph
+
+  (** Clones a graph. *)
+  val clone : graph -> graph
 
   (** Total number of terms in the graph. *)
   val term_count : graph -> int
@@ -148,7 +151,16 @@ module type Graph = sig
 
   Input function returns true for candidates we want to ignore, typically
   candidates we have already proved true. *)
-  val update : graph -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
+  val stabilize : graph -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
+
+  (** Clones the graph, and splits it in step.
+
+  Stabilizes eq classes one by one, communicates invariants at each step.
+  Then stabilizes relations, communicating by packs. *)
+  val step_stabilize :
+    bool -> graph -> TransSys.t -> (term -> bool) -> Lsd.step -> (
+      (Term.t * Certificate.t) list -> unit
+    ) -> Term.t list
 end
 
 
@@ -183,7 +195,7 @@ module Make (Dom: DomainSig) : Graph = struct
   }
 
   (** Graph constructor. *)
-  let mk_graph rep candidates = {
+  let mk rep candidates = {
     map_up = (
       let map = Map.create 107 in
       Map.replace map rep Set.empty ;
@@ -200,6 +212,14 @@ module Make (Dom: DomainSig) : Graph = struct
       map
     ) ;
     values = Map.create 107 ;
+  }
+
+  (** Clones a graph. *)
+  let clone { map_up ; map_down ; classes ; values } = {
+    map_up = Map.copy map_up ;
+    map_down = Map.copy map_down ;
+    classes = Map.copy classes ;
+    values = Map.copy values ;
   }
 
   (** Total number of terms in the graph. *)
@@ -414,8 +434,8 @@ digraph mode_graph {
         if Domain.is_bot rep then acc else
           above |> Set.elements |> List.fold_left (
             fun acc rep' ->
-              if Domain.is_top rep' then acc
-              else cond_cons (Domain.mk_cmp rep rep') acc
+              try cond_cons (Domain.mk_cmp rep rep') acc
+              with InvGenDomain.TrivialRelation -> acc
           ) acc
     ) map_up eqs
 
@@ -445,19 +465,26 @@ digraph mode_graph {
       fun rep above acc ->
         Set.fold (
           fun rep' acc ->
-            (cond_cons (Domain.mk_cmp rep rep') acc, true)
+            ( 
+              ( try cond_cons (Domain.mk_cmp rep rep') acc
+                with InvGenDomain.TrivialRelation -> acc ),
+              true
+            )
             |> Set.fold (
               fun rep_eq' (acc, fst) ->
-                cond_cons (Domain.mk_cmp rep rep_eq') acc
+                ( try cond_cons (Domain.mk_cmp rep rep_eq') acc
+                  with InvGenDomain.TrivialRelation -> acc )
                 |> Set.fold (
                   fun rep_eq acc ->
                     let acc =
                       if fst then (
-                        cond_cons (Domain.mk_cmp rep_eq rep') acc
-                        |> cond_cons (Term.mk_eq [rep ; rep_eq])
+                        ( try cond_cons (Domain.mk_cmp rep_eq rep') acc
+                          with InvGenDomain.TrivialRelation -> acc )
+                        |> cond_cons (Domain.mk_eq rep rep_eq)
                       ) else acc
                     in
-                    cond_cons (Domain.mk_cmp rep_eq rep_eq') acc
+                    try cond_cons (Domain.mk_cmp rep_eq rep_eq') acc
+                    with InvGenDomain.TrivialRelation -> acc
                 ) (Map.find classes rep),
                 false
             ) (Map.find classes rep')
@@ -475,12 +502,12 @@ digraph mode_graph {
     let rec loop rep pref suff = function
       | term :: tail ->
         let pref =
-          cond_cons pref (Term.mk_eq [ rep ; term ]) (rep, term)
+          cond_cons pref (Domain.mk_eq rep term) (rep, term)
         in
         let suff =
           List.fold_left (
             fun suff term' ->
-              cond_cons suff (Term.mk_eq [ term ; term' ]) (rep, term')
+              cond_cons suff (Domain.mk_eq term term') (rep, term')
           ) suff tail
         in
         loop rep pref suff tail
@@ -494,7 +521,7 @@ digraph mode_graph {
         else
           Set.fold (
             fun term acc ->
-              ( Term.mk_eq [rep ; term], (rep, term) ) :: acc
+              ( Domain.mk_eq rep term, (rep, term) ) :: acc
           ) terms acc
     ) classes []
 
@@ -516,10 +543,15 @@ digraph mode_graph {
               ) || (
                 Domain.is_top rep'
               ) then acc else (
-                let acc = Domain.mk_cmp rep rep' |> cond_cons acc in
+                let acc =
+                  try Domain.mk_cmp rep rep' |> cond_cons acc
+                  with InvGenDomain.TrivialRelation -> acc
+                in
                 let cl4ss = Map.find classes rep' in
                 Set.fold (
-                  fun term acc -> Domain.mk_cmp rep term |> cond_cons acc
+                  fun term acc ->
+                    try Domain.mk_cmp rep term |> cond_cons acc
+                    with InvGenDomain.TrivialRelation -> acc
                 ) cl4ss acc
               )
           ) reps acc
@@ -932,7 +964,7 @@ digraph mode_graph {
 
   (** Stabilizes the equivalence classes.
   Stabilizes classes one by one to send relatively few candidates to lsd. *)
-  let update_classes sys known lsd ({ classes } as graph) =
+  let stabilize_classes sys known stable_action query ({ classes } as graph) =
 
     let rec loop count reps_to_update =
       try (
@@ -952,14 +984,15 @@ digraph mode_graph {
           let eqs, _ =
             Set.fold (
               fun rep (acc, last) ->
-                (Term.mk_eq [last ; rep]) :: acc, rep
+                (Domain.mk_eq last rep) :: acc, rep
             ) cl4ss ([], rep)
           in
           match
             (* Is this set of equalities falsifiable?. *)
-            Lsd.query_base lsd eqs
+            query eqs
           with
           | None ->
+            stable_action rep cl4ss ;
             (* Stable, moving on. *)
             loop (count + 1) reps_to_update
           | Some model ->
@@ -988,7 +1021,9 @@ digraph mode_graph {
     |> loop 0
 
   (** Stabilizes the relations. *)
-  let rec update_rels sys known lsd count ({ map_up ; classes } as graph) =
+  let rec stabilize_rels sys known query count (
+    { map_up ; classes } as graph
+  ) =
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
 
@@ -997,17 +1032,19 @@ digraph mode_graph {
       Map.fold (
         fun rep reps acc ->
           Set.fold (
-            fun rep' acc -> (Domain.mk_cmp rep rep') :: acc
+            fun rep' acc ->
+              try (Domain.mk_cmp rep rep') :: acc
+              with InvGenDomain.TrivialRelation -> acc
           ) reps acc
       ) map_up []
     in
 
     match
       (* Are these relations falsifiable?. *)
-      Lsd.query_base lsd rels
+      query rels
     with
     | None ->
-      (* Format.printf "update_rels done after %d iterations@.@." count ; *)
+      (* Format.printf "stabilize_rels done after %d iterations@.@." count ; *)
       (* Stable, done. *)
       ()
     | Some model ->
@@ -1029,11 +1066,11 @@ digraph mode_graph {
             "
       ) ;
       (* Loop after adding new representatives (includes old one). *)
-      update_rels sys known lsd (count + 1) graph
+      stabilize_rels sys known query (count + 1) graph
 
-  (** Queries the lsd and updates the graph. Iterates until the graph is
+  (* (** Queries the lsd and updates the graph. Iterates until the graph is
   stable. That is, when the lsd returns unsat. *)
-  let rec update_loop
+  let rec stabilize_loop
    sys known lsd ({ map_up ; map_down } as graph)
   = match terms_of graph known |> Lsd.query_base lsd with
 
@@ -1060,15 +1097,56 @@ digraph mode_graph {
     Event.check_termination () ;
 
     (* Check if new graph is stable. *)
-    update_loop sys known lsd graph
+    stabilize_loop sys known lsd graph *)
 
   (** Queries the lsd and updates the graph. Iterates until the graph is
   stable. That is, when the lsd returns unsat. *)
-  let update graph sys known lsd =
+  let stabilize graph sys known lsd =
     (* update_loop sys known lsd graph *)
-    update_classes sys known lsd graph ;
+    stabilize_classes sys known (fun _ _ -> ()) (Lsd.query_base lsd) graph ;
     (* Format.printf "done stabilizing classes@.@." ; *)
-    update_rels sys known lsd 0 graph
+    stabilize_rels sys known (Lsd.query_base lsd) 0 graph
+
+  (** Clones the graph, and splits it in step.
+
+  Stabilizes eq classes one by one, communicates invariants at each step.
+  Then stabilizes relations, communicating by packs. *)
+  let step_stabilize two_state graph sys known lsd comm =
+    let graph = clone graph in
+    let query_fun = Lsd.nu_query_step two_state lsd in
+    let k = Lsd.step_cert lsd in
+
+    stabilize_classes sys known (
+      (* Action to perform on stable eq classes. *)
+      fun rep cl4ss ->
+        Set.fold (
+          fun term acc ->
+            let inv = Domain.mk_eq rep term in
+            (inv, (k, inv)) :: acc
+        ) cl4ss []
+        |> comm
+    ) query_fun graph ;
+
+    (* For relations we stabilize the graph first. *)
+    stabilize_rels sys known query_fun 0 graph ;
+    
+    (* All the implications left are invariants. *)
+    let invs =
+      Map.fold (
+        fun rep reps acc ->
+          Set.fold (
+            fun rep' acc ->
+              try (
+                let inv = Domain.mk_cmp rep rep' in
+                (inv, (k, inv)) :: acc
+              ) with InvGenDomain.TrivialRelation -> acc
+          ) reps acc
+      ) graph.map_up []
+    in
+
+    comm invs ;
+
+    invs |> List.map fst
 
 end
 

@@ -21,6 +21,10 @@ module Sys = TransSys
 module Num = Numeral
 
 
+(** Exception thrown when a domain is asked to build a trivial implication. *)
+exception TrivialRelation
+
+
 (** Signature of the modules describing an order relation over some domain. *)
 module type Domain = sig
   (** Short string description of the domain, used in the logging prefix. *)
@@ -33,6 +37,8 @@ module type Domain = sig
   val eq : t -> t -> bool
   (** Ordering relation. *)
   val cmp : t -> t -> bool
+  (** Creates the term corresponding to the equality of two terms. *)
+  val mk_eq : Term.t -> Term.t -> Term.t
   (** Creates the term corresponding to the ordering of two terms. *)
   val mk_cmp : Term.t -> Term.t -> Term.t
   (** Evaluates a term. *)
@@ -60,7 +66,15 @@ module Bool: Domain = struct
   let fmt = Format.pp_print_bool
   let eq lhs rhs = lhs = rhs
   let cmp lhs rhs = rhs || not lhs
-  let mk_cmp lhs rhs = Term.mk_implies [ lhs ; rhs ]
+  let mk_eq rep term =
+    if rep == Term.t_true then term else (
+      if rep == Term.t_true then Term.mk_not term else
+      Term.mk_eq [ rep ; term ]
+    )
+  let mk_cmp lhs rhs =
+    if lhs != Term.t_false && rhs != Term.t_true then
+      Term.mk_implies [ lhs ; rhs ]
+    else raise TrivialRelation
   let eval = eval_bool
   let mine top_only param two_state sys =
     Sys.fold_subsystems
@@ -109,6 +123,7 @@ module Int: Domain = struct
   let fmt = Num.pp_print_numeral
   let eq = Num.equal
   let cmp = Num.leq
+  let mk_eq rep term = Term.mk_eq [ rep ; term ]
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_int
   let mine _ _ _ _ =
@@ -130,6 +145,7 @@ module Real: Domain = struct
   let fmt = Decimal.pp_print_decimal
   let eq = Decimal.equal
   let cmp = Decimal.leq
+  let mk_eq rep term = Term.mk_eq [ rep ; term ]
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_real
   let mine _ _ _ _ =
