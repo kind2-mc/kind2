@@ -145,6 +145,7 @@ let proof_safe_name = H.mk_hstring "proof_safe"
   
 let proofname = "proof.lfsc"
 let frontend_proofname = "frontend_proof.lfsc"
+let trustfname = "trusted.lfsc"
 
 
 let hstring_of_int i = H.mk_hstring (string_of_int i)
@@ -632,15 +633,33 @@ let trusted = ref []
 
 let register_trusts f = trusted := extract_trusts !trusted f
 
-let log_trusted ~frontend () =
-  if !trusted <> [] then begin
+let log_trusted ~frontend dirname =
+  if Flags.Certif.log_trust () && !trusted <> [] then begin
+
+    let o_flags =
+      if frontend then [Open_wronly; Open_append; Open_text]
+      else [Open_wronly; Open_creat; Open_trunc; Open_text]
+    in
+    let trust_file = Filename.concat dirname trustfname in
+    let trust_chan = open_out_gen o_flags 0o666 trust_file in
+    let trust_fmt = formatter_of_out_channel trust_chan in
+    
     Event.log L_warn
-      "%s proof contains %d trusted assumptions:@\n@\n@[<v 0>%a@]@."
+      "%s proof contains %d trusted assumptions.@."
       (if frontend then "Frontend" else "Invariance")
-      (List.length !trusted)
-      (fun fmt ->
-         List.iter (fprintf fmt "@[%a@]@\n@\n" (HS.pp_print_sexpr_indent 0)))
-      !trusted
+      (List.length !trusted);
+    fprintf trust_fmt ";; Trusted assumptions in %s proof\n@."
+      (if frontend then "frontend" else "invariance");
+    List.iter
+      (fprintf trust_fmt
+         "(check (: @[<hov 2>(th_holds %a)@]@\n  \
+          ;; Replace the following by an actual proof@\n  \
+          change_me@\n\
+          ))@\n@." (HS.pp_print_sexpr_indent 0))
+      !trusted;
+
+    close_out trust_chan
+
   end
 
 
@@ -678,16 +697,7 @@ let rec parse_proof acc = let open HS in function
       if sigma_truth = [] then pterm
       else apply_subst sigma_truth pterm in
 
-    register_trusts pterm;
-    (* let trusted = extract_trusts [] pterm in *)
-    (* if trusted <> [] then begin *)
-    (*   Event.log L_warn *)
-    (*     "Proof contains %d trusted assumptions:@\n@\n@[<v 0>%a@]@." *)
-    (*     (List.length trusted) *)
-    (*     (fun fmt -> *)
-    (*        List.iter (fprintf fmt "@[%a@]@\n@\n" (HS.pp_print_sexpr_indent 0))) *)
-    (*     trusted *)
-    (* end; *)
+    if Flags.Certif.log_trust () then register_trusts pterm;
     
     { acc with proof_type = ty; proof_term = pterm  }
 
@@ -1047,7 +1057,7 @@ let generate_inv_proof inv =
   (* Show which file contains the proof *)
   Debug.certif "LFSC proof written in %s" proof_file;
 
-  log_trusted ~frontend:false ()
+  log_trusted ~frontend:false inv.dirname
 
 
 (* Generate the LFSC proof of safey by producing an intermediate proofs of
@@ -1132,4 +1142,4 @@ let generate_frontend_proof inv =
   (* Show which file contains the proof *)
   Debug.certif "LFSC proof written in %s" proof_file;
 
-  log_trusted ~frontend:true ()
+  log_trusted ~frontend:true inv.dirname

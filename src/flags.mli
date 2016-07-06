@@ -370,6 +370,9 @@ module Certif : sig
   (** Use abstract type indexes in certificates/proofs. *)
   val abstr : unit -> bool
 
+  (** Log trusted parts of proofs. *)
+  val log_trust : unit -> bool
+
   (** Minimization stragegy for k *)
   val mink : unit -> mink
 

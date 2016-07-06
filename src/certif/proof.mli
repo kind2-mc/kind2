@@ -28,6 +28,9 @@ val proofname : string
 (** The file to store the LFSC proof the frontend *)
 val frontend_proofname : string
 
+(** The file to store the LFSC trusted formulas. *)
+val trustfname : string
+
 (** Generate the LFSC proof of invariance for the original properties and write
     it in the file [!proofname]. *)
 val generate_inv_proof : Certificate.invariant -> unit
