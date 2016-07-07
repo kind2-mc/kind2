@@ -16,32 +16,13 @@
 
 *)
 
-(** Generates candidate terms for a transition system, and its
-    subsystems if the flags require it. The first parameter is a flag
-    for two state candidate terms generation. The result features the
-    number of candidate terms generated.
-    {b These sets do NOT contain [true] and [false].} *)
-val generate_candidate_terms :
-  bool -> TransSys.t -> TransSys.t -> (TransSys.t * Term.TermSet.t) list * int
-
-(** Generates implication graphs for a transition system, and its
-    subsystems if the flags require it. The first parameter is a flag
-    for two state candidate terms generation. The result features the
-    number of candidate terms generated. *)
-val generate_graphs :
-  bool -> TransSys.t -> TransSys.t -> (TransSys.t * ImplicationGraph.t * int) list * int
-  
-(** Creates a graph for a transition system using the specified list
-    of invariants. *)
-val create_graph : TransSys.t -> Term.TermSet.t -> ImplicationGraph.t
-
 (** Mines candidate terms from a system and a list of terms.  First
     bool flag activates synthesis, i.e. mining based on the state
     variables of the system. Second (resp. third) bool flag activates
     init (resp. transition) predicate mining. Fourth is for two
     state. Candidates are added to the input set and returned. *)
 val mine_term :
-  bool -> bool -> bool -> bool -> TransSys.t ->
+  bool -> bool -> TransSys.t ->
   Term.t list -> Term.TermSet.t ->
   Term.TermSet.t
 

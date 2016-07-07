@@ -126,6 +126,30 @@ let pp_print_decimal_as_float fmt = function
       (Big_int.string_of_big_int rd)
 )
 
+let pp_print_decimal_as_lus_real fmt = function
+| InfPos -> failwith "can't print decimal <infpos> as lus real"
+| InfNeg -> failwith "can't print decimal <infneg> as lus real"
+| Undef -> failwith "can't print decimal <undef> as lus real"
+| N d -> (
+  match d with
+  | Num.Int i -> Format.fprintf fmt "%d.0" i
+  | Num.Big_int n -> Format.fprintf fmt "%s.0" (Big_int.string_of_big_int n)
+  | Num.Ratio r -> 
+
+    (* Normalize rational number *)
+    let r' = Ratio.normalize_ratio r in
+
+    (* Get numerator and denominator *)
+    let rn = Ratio.numerator_ratio r' in
+    let rd = Ratio.denominator_ratio r' in
+    
+    (* Print with division as prefix operator *)
+    Format.fprintf fmt 
+      "%s.0 / %s.0"
+      (Big_int.string_of_big_int rn)
+      (Big_int.string_of_big_int rd)
+)
+
 
 (* Return a string representation of a decimal *)
 let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr

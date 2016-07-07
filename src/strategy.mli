@@ -31,6 +31,12 @@ val next_analysis:
   (Scope.t * bool * bool) list ->
   A.param option
 
+val monolithic:
+  (Scope.t * bool * bool) list ->
+  A.param option
+
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

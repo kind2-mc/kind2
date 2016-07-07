@@ -264,6 +264,10 @@ val pp_print_call : bool -> Format.formatter -> node_call -> unit
     Lustre syntax. *)
 val pp_print_node : bool -> Format.formatter -> t -> unit 
 
+(** Pretty-prints the signature of a node in Lustre format, WITHOUT NODE
+KEYWORD AND NAME. (Used in contract generation.) *)
+val pp_print_node_signature : Format.formatter -> t -> unit
+
 (** Pretty-print the node as a record with all information  *)
 val pp_print_node_debug : Format.formatter -> t -> unit 
 

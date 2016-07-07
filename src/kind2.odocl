@@ -32,9 +32,10 @@ IC3
 Poly
 Presburger
 QE
-ImplicationGraph
-InvGenCandTermGen
+InvGenMiner
+InvGenDomain
 InvGenGraph
+InvGen
 C2I
 C2ICandidate
 C2Icnf

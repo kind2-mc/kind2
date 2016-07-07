@@ -181,7 +181,6 @@ let rec wait_for_children child_pids =
 
       )
 
-
 (* Polling loop *)
 let rec loop done_at child_pids input_sys aparam trans_sys =
 
@@ -203,7 +202,10 @@ let rec loop done_at child_pids input_sys aparam trans_sys =
 
               (* Message after is_done becomes true first time *)
               Event.log L_info
-                "<Done> All properties proved or disproved in %.3fs."
+                "<Done> @[<v>\
+                  All properties proved or disproved in %.3fs.@ \
+                  Waiting for children to terminate.\
+                @]"
                 (Stat.get_float Stat.total_time);
 
               Event.terminate ();
@@ -211,12 +213,6 @@ let rec loop done_at child_pids input_sys aparam trans_sys =
               Some (Unix.gettimeofday ())
 
             | Some t ->
-
-              (* Message after if is_done has been true in the last
-                 iteration *)
-              Event.log L_info
-                "All properties proved or disproved,@ \
-                 waiting for children to terminate.";
 
               Some t
 
