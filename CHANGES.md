@@ -32,11 +32,11 @@ New features:
       boolean values the different parts of the contract evaluate to
 - Support for forward references on nodes, types, constants and contracts
 - Contract generation: `--contract_gen`
-  - very experimental: the modes generated might not be exhaustive and the
+  - Very experimental: the modes generated might not be exhaustive and the
     check exhaustiveness check might fail
-  This feature's main goal, for now, is to help users get started with
-  contracts by generating a contract stub partially filled with invariants
-  discovered by invariant generation
+  - This feature's main goal, for now, is to help users get started with
+    contracts by generating a contract stub partially filled with invariants
+    discovered by invariant generation
 
 Improvements:
 
