@@ -36,10 +36,6 @@ InvGenMiner
 InvGenDomain
 InvGenGraph
 InvGen
-C2I
-C2ICandidate
-C2Icnf
-C2Imodel
 LockStepDriver
 InputParser
 Interpreter
@@ -59,7 +55,6 @@ LustreInput
 LustrePath 
 NativeInput
 Pretty
-Horn
 SMTExpr
 SMTLIBSolver
 SMTSolver
@@ -68,7 +63,6 @@ SolverResponse
 SolverSig
 CVC4Driver
 GenericSMTLIBDriver
-MathSAT5Driver
 Z3Driver
 Yices2SMT2Driver  
 YicesDriver
