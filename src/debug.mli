@@ -26,7 +26,7 @@ type 'a t = ('a, Format.formatter, unit) format -> 'a
 val set_formatter : Format.formatter -> unit
 
 
-(** { 3 Available debug functions } *)
+(** {3 Available debug functions } *)
 
 val certif : 'a t
 val event : 'a t

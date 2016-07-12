@@ -86,15 +86,15 @@ contains the checker and the necessary signature files with the proof rules:
 
 ```
 lfsc
-├── checker
-│   ...
-└── signatures
-    ├── kind.plf
-    ├── sat.plf
-    ├── smt.plf
-    ├── th_base.plf
-    ├── th_int.plf
-    └── th_real.plf
+|-- checker
+|   ...
+|-- signatures
+    |-- kind.plf
+    |-- sat.plf
+    |-- smt.plf
+    |-- th_base.plf
+    |-- th_int.plf
+    |-- th_real.plf
 ```
 
 The checker can be compiled using:
@@ -137,20 +137,20 @@ following structure:
 
 ```
 add_two.out/
-└── certificates.0
-    ├── FEC.kind2
-    ├── FECC.smt2
-    ├── FECC_checker
-    ├── FECC_prelude.smt2
-    ├── certificate.smt2
-    ├── certificate_checker
-    ├── certificate_prelude.smt2
-    ├── jkind_sys.smt2
-    ├── jkind_sys_lfsc_trace.smt2
-    ├── kind2_sys.smt2
-    ├── observer.smt2
-    ├── observer_lfsc_trace.smt2
-    └── observer_sys.smt2
+|-- certificates.0
+    |-- FEC.kind2
+    |-- FECC.smt2
+    |-- FECC_checker
+    |-- FECC_prelude.smt2
+    |-- certificate.smt2
+    |-- certificate_checker
+    |-- certificate_prelude.smt2
+    |-- jkind_sys.smt2
+    |-- jkind_sys_lfsc_trace.smt2
+    |-- kind2_sys.smt2
+    |-- observer.smt2
+    |-- observer_lfsc_trace.smt2
+    |-- observer_sys.smt2
 ```
 
 In particular, it contains two scripts of interest: `certificate_checker` and
@@ -208,27 +208,27 @@ structure:
 
 ```
 add_two.out/
-├── add_two.lus.0.lfsc
-└── certificates.0
-    ├── FEC.kind2
-    ├── base.smt2
-    ├── frontend_base.smt2
-    ├── frontend_implication.smt2
-    ├── frontend_induction.smt2
-    ├── frontend_proof.lfsc
-    ├── implication.smt2
-    ├── induction.smt2
-    ├── jkind_sys.smt2
-    ├── jkind_sys_lfsc_trace.smt2
-    ├── kind2_phi.smt2
-    ├── kind2_phi_lfsc_trace.smt2
-    ├── kind2_sys.smt2
-    ├── kind2_sys_lfsc_trace.smt2
-    ├── obs_phi.smt2
-    ├── obs_phi_lfsc_trace.smt2
-    ├── observer.smt2
-    ├── observer_lfsc_trace.smt2
-    └── proof.lfsc
+|-- add_two.lus.0.lfsc
+|-- certificates.0
+    |-- FEC.kind2
+    |-- base.smt2
+    |-- frontend_base.smt2
+    |-- frontend_implication.smt2
+    |-- frontend_induction.smt2
+    |-- frontend_proof.lfsc
+    |-- implication.smt2
+    |-- induction.smt2
+    |-- jkind_sys.smt2
+    |-- jkind_sys_lfsc_trace.smt2
+    |-- kind2_phi.smt2
+    |-- kind2_phi_lfsc_trace.smt2
+    |-- kind2_sys.smt2
+    |-- kind2_sys_lfsc_trace.smt2
+    |-- obs_phi.smt2
+    |-- obs_phi_lfsc_trace.smt2
+    |-- observer.smt2
+    |-- observer_lfsc_trace.smt2
+    |-- proof.lfsc
 ```
 
 It contains as many proofs (at the root) as there are relevant analysis
@@ -257,9 +257,9 @@ output of `lfsc-checker`.
 ## Contents of certificates
 
 For a given problem (whose safety property is P), an internal certificate
-consists in only a pair `(k, ɸ)` where ɸ is a _k_-inductive invariant of the
+consists in only a pair `(k, phi)` where phi is a _k_-inductive invariant of the
 system which implies the original properties. SMT-LIB 2 certificates are in
-fact scripts whose check make sure that ɸ implies P and is _k_-inductive. The
+fact scripts whose check make sure that phi implies P and is _k_-inductive. The
 LFSC proof is a formal proof that P is invariant in the system, using
 sub-proofs of validity (unsatisfiability) returned by CVC4.
 
@@ -290,7 +290,7 @@ _z_(0)), (_y_(1) , _z_(1)), ... instead of (_y0_ , _z0_), (_y1_ , _z1_), ... whe
 _y0_ , _y_ 1 , ..., _z0_ , _z1_, ... are (distinct) variables.  Correspondingly,
 our LFSC encoding of a transition relation formula T[**x**, **x'**] is
 parametrized by two natural variables, the index of the pre-state and of the
-post-state, instead of two tuples of state variables.  Similarly, I, P and ɸ
+post-state, instead of two tuples of state variables.  Similarly, I, P and phi
 are parametrized by a single natural variable.
 
 The signature defines several derivability judgments,

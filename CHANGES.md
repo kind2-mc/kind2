@@ -31,13 +31,20 @@ New features:
       values for the original node on `stdin` and prints on `stdout` the
       boolean values the different parts of the contract evaluate to
 - Support for forward references on nodes, types, constants and contracts
+- Contract generation: `--contract_gen`
+  - Very experimental: the modes generated might not be exhaustive and the
+    check exhaustiveness check might fail
+  - This feature's main goal, for now, is to help users get started with
+    contracts by generating a contract stub partially filled with invariants
+    discovered by invariant generation
 
 Improvements:
 
 - Flags are now organized into modules, see `--help` and `--help_of <module>`
 - Added mode information (when available) to counterexample output
-- Optimized invariant generation
+- Rewrote invariant generation from scratch: much faster now
 - Many bug and performance fixes
+- czmq fixes: there should be no process still running after Kind 2 exits
 
 Refer to the [user documentation online](https://github.com/kind2-mc/kind2/tree/develop/doc/usr/content) for more details.
 
