@@ -476,7 +476,7 @@ let rec apply_subst sigma sexp =
   with Not_found ->
     match sexp with
     | List l ->
-      let l' = List.map (apply_subst sigma) l in
+      let l' = List.rev_map (apply_subst sigma) l |> List.rev in
       if List.for_all2 (==) l l' then sexp
       else List l'
     | Atom _ -> sexp
