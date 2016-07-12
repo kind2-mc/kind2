@@ -25,7 +25,7 @@ of the binaries. There is no reason to believe any connection between the two.
 Now, the only thing we know of the binaries is that they are supposed to
 verify the specification. For this reason, Kind 2's test generation ignores
 the syntax of the input model and instead builds on
-[contracts](./../9_other/2_contract_semantics.md), and more precisely on the
+[contracts](./../9_other/2_contract_semantics.md#contract-semantics), and more precisely on the
 notion on *mode*.
 
 
@@ -84,7 +84,7 @@ kind2 --testgen on --testgen_len 5 stopwatch.lus
 This will generate the following graph (and a lot of other files we will
 discuss below but omit for now):
 
-#![Stopwatch DAG](./3_stopwatch_1.png)
+![Stopwatch DAG](./3_stopwatch_1.png)
 
 The graph confirms our understanding of the specification, each mode can be
 activated at any time. Say now we made a mistake on the assumption:
@@ -96,7 +96,7 @@ activated at any time. Say now we made a mistake on the assumption:
 It is now illegal to reset or start the stopwatch. The graph is generated very
 quickly as with this assumption the system cannot do anything:
 
-#![Stopwatch mistake DAG](./3_stopwatch_2.png)
+![Stopwatch mistake DAG](./3_stopwatch_2.png)
 
 **N.B.** In this simple system, only one mode could be active at a time. This
 is not the case in general. See for example the mode graphs for the [mode logic](https://github.com/kind2-mc/cocospec_tcm_experiments/blob/master/graphs/MODE_LOGIC/dot.pdf)
