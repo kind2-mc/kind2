@@ -2071,7 +2071,9 @@ let anon_action s =
     Global.set_input_file s;
     Global.set_input_format s;
     Global.set_output_dir s;
-  | _ -> raise (Arg.Bad "More than one input file given")
+  | _ ->
+    if s.[0] = '-' then raise (UnknownFlag s)
+    else raise (Arg.Bad ("More than one input file given: "^s))
 
 
 let bool_of_string ((flag, _, desc) as tuple) s =
