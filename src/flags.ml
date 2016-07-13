@@ -1006,6 +1006,19 @@ module Certif = struct
     )
   let abstr () = !abstr
 
+  let log_trust_default = false
+  let log_trust = ref log_trust_default
+  let _ = add_spec
+    "--log_trust"
+    (bool_arg log_trust)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Log trusted parts of the proof in a separate file \
+         for users to fill.@ Default: %a@]"
+        fmt_bool log_trust_default
+    )
+  let log_trust () = !log_trust
+
   type mink = [ `No | `Fwd | `Bwd | `Dicho | `FrontierDicho | `Auto]
   let mink_values = [ `No; `Fwd; `Bwd; `Dicho; `FrontierDicho; `Auto]
   let mink_of_string = function
@@ -2126,7 +2139,9 @@ let anon_action s =
     Global.set_input_file s;
     Global.set_input_format s;
     Global.set_output_dir s;
-  | _ -> raise (Arg.Bad "More than one input file given")
+  | _ ->
+    if s.[0] = '-' then raise (UnknownFlag s)
+    else raise (Arg.Bad ("More than one input file given: "^s))
 
 
 let bool_of_string ((flag, _, desc) as tuple) s =

@@ -205,7 +205,9 @@ let roll sigma t =
 
 (* Create a directory if it does not already exists. *)
 let create_dir dir =
-  try if not (Sys.is_directory dir) then failwith (dir^" is not a directory")
+  try
+    if not (Sys.is_directory dir) then failwith (dir^" is not a directory");
+    (* TODO remove directory *)
   with Sys_error _ -> Unix.mkdir dir 0o755
 
 
@@ -2692,15 +2694,22 @@ let generate_all_proofs uid input sys =
 
     let inv_lfsc = Filename.concat dirname Proof.proofname in
     let front_lfsc = Filename.concat dirname Proof.frontend_proofname in
+    let trust_lfsc = Filename.concat dirname Proof.trustfname in
     Flags.output_dir () |> mk_dir ;
     let final_lfsc =
       Filename.concat (Flags.output_dir ())
         (String.concat "."
            [Filename.basename (Flags.input_file ());
             string_of_int uid; "lfsc"]) in
+    let final_trust =
+      Filename.concat (Flags.output_dir ())
+        (String.concat "."
+           [Filename.basename (Flags.input_file ());
+            string_of_int uid; "trusted_aux"; "lfsc"]) in
 
     (* Copy first LFSC proof in case *)
     file_copy inv_lfsc final_lfsc;
+    if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
     
     (* Only generate frontend observational equivalence system for Lustre *)
     let gen_frontend =
@@ -2739,12 +2748,15 @@ let generate_all_proofs uid input sys =
 
         begin match Sys.command cmd with
           | 0 | 20 ->
-            files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close
+            files_cat_open [inv_lfsc; front_lfsc] final_lfsc |> Unix.close;
+            if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
 
           | c ->
             Event.log L_warn
               "Failed to generate frontend proof (return code %d)@." c;
-            file_copy inv_lfsc final_lfsc
+            file_copy inv_lfsc final_lfsc;
+            if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
+
         end;
       end;
 
@@ -2755,6 +2767,9 @@ let generate_all_proofs uid input sys =
 
       (* fix_A0 final_lfsc; *) (* temporary *)
       printf "Final @{<green>LFSC proof@} written to @{<b>%s@}@." final_lfsc;
+      if Sys.file_exists final_trust then 
+        printf "Some trusted assumptions remain to be proven in @{<b>%s@}@."
+          final_trust;
     end;
   end
   else begin

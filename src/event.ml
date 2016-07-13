@@ -1336,6 +1336,12 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     (* Property found false *)
     | (m, StepCex (p, cex)) :: tl -> 
 
+      (* remove uninterresting first state for step counterexamples *)
+      let cex = List.map (function
+          | (sv, []) as c -> c
+          | (sv, _::vl) -> sv, vl) cex
+      in
+      
       (* Output disproved property *)
       log_cex false m L_warn input_sys analysis trans_sys p cex ;
 

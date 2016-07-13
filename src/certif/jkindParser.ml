@@ -490,13 +490,15 @@ let get_jkind_transsys file =
 
   Debug.certif "Parsing from JKind dump file: %s" dump_file;
 
-  let in_ch = open_in dump_file in
-  let sys = of_channel in_ch in
+  try
+    let in_ch = open_in dump_file in
+    let sys = of_channel in_ch in
 
-  (* Close file *)
-  close_in in_ch;
+    (* Close file *)
+    close_in in_ch;
 
-  sys
+    sys
+  with Sys_error _ -> failwith "JKind dump failed"
 
 
 (* 
