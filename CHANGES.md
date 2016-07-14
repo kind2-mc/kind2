@@ -30,14 +30,26 @@ New features:
       [Rust](https://www.rust-lang.org/): reads a sequence of inputs/outputs
       values for the original node on `stdin` and prints on `stdout` the
       boolean values the different parts of the contract evaluate to
+- Generation of certificates and proofs: `--proof` and `--certif`
+    - produces either SMTLIB-2 certificates or LFSC proofs
+    - distributed with LFSC proof rules for k-induction
+    - requires CVC4, JKind and the LFSC checker for proofs
+    - generate proofs skeletons for potential holes
 - Support for forward references on nodes, types, constants and contracts
+- Output and parser for native (internal) transition system format
+ 
 
 Improvements:
 
 - Flags are now organized into modules, see `--help` and `--help_of <module>`
-- Added mode information (when available) to counterexample output
+- Mode information (when available) to counterexample output
 - Optimized invariant generation
-- Many bug and performance fixes
+- Named properties and guarantees
+- Colored output
+- No more dependencies on Camlp4
+- Strict mode to disallow unguarded pre and undefined local variables
+- Many bug fixes and performance improvements
+
 
 Refer to the [user documentation online](https://github.com/kind2-mc/kind2/tree/develop/doc/usr/content) for more details.
 
