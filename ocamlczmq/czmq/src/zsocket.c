@@ -1,5 +1,5 @@
 /*  =========================================================================
-    zsocket - working with 0MQ sockets
+    zsocket - working with 0MQ sockets (deprecated)
 
     Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
@@ -99,7 +99,7 @@ zsocket_bind (void *self, const char *format, ...)
 int
 zsocket_unbind (void *self, const char *format, ...)
 {
-#if (ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,2,0))
+#if (ZMQ_VERSION >= ZMQ_MAKE_VERSION (3, 2, 0))
     char endpoint [256];
     va_list argptr;
     va_start (argptr, format);
@@ -134,7 +134,7 @@ zsocket_connect (void *self, const char *format, ...)
 int
 zsocket_disconnect (void *self, const char *format, ...)
 {
-#if (ZMQ_VERSION >= ZMQ_MAKE_VERSION(3,2,0))
+#if (ZMQ_VERSION >= ZMQ_MAKE_VERSION (3, 2, 0))
     char endpoint [256];
     va_list argptr;
     va_start (argptr, format);
@@ -145,6 +145,7 @@ zsocket_disconnect (void *self, const char *format, ...)
     return -1;
 #endif
 }
+
 
 //  --------------------------------------------------------------------------
 //  Poll for input events on the socket. Returns true if there is input
@@ -165,20 +166,8 @@ zsocket_poll (void *self, int msecs)
 const char *
 zsocket_type_str (void *self)
 {
-    char *type_name [] = {
-        "PAIR", "PUB", "SUB", "REQ", "REP",
-        "DEALER", "ROUTER", "PULL", "PUSH",
-        "XPUB", "XSUB", "STREAM"
-    };
-    int type = zsocket_type (self);
-#if ZMQ_VERSION_MAJOR == 4
-    if (type < 0 || type > ZMQ_STREAM)
-#else
-    if (type < 0 || type > ZMQ_XSUB)
-#endif
-        return "UNKNOWN";
-    else
-        return type_name [type];
+    assert (self);
+    return zsys_sockname (zsocket_type (self));
 }
 
 
@@ -187,19 +176,19 @@ zsocket_type_str (void *self)
 //  Accepts these flags: ZFRAME_MORE and ZFRAME_DONTWAIT.
 
 int
-zsocket_sendmem (void *zocket, const void *data, size_t size, int flags)
+zsocket_sendmem (void *self, const void *data, size_t size, int flags)
 {
-    assert (zocket);
+    assert (self);
     assert (size == 0 || data);
 
-    int snd_flags = (flags & ZFRAME_MORE)? ZMQ_SNDMORE : 0;
-    snd_flags |= (flags & ZFRAME_DONTWAIT)? ZMQ_DONTWAIT : 0;
+    int snd_flags = (flags & ZFRAME_MORE)? ZMQ_SNDMORE: 0;
+    snd_flags |= (flags & ZFRAME_DONTWAIT)? ZMQ_DONTWAIT: 0;
 
     zmq_msg_t msg;
     zmq_msg_init_size (&msg, size);
     memcpy (zmq_msg_data (&msg), data, size);
 
-    if (zmq_sendmsg (zocket, &msg, snd_flags) == -1) {
+    if (zmq_sendmsg (self, &msg, snd_flags) == -1) {
         zmq_msg_close (&msg);
         return -1;
     }
@@ -214,16 +203,10 @@ zsocket_sendmem (void *zocket, const void *data, size_t size, int flags)
 //  Returns -1 if there was an error sending the signal.
 
 int
-zsocket_signal (void *zocket)
+zsocket_signal (void *self)
 {
-    zmq_msg_t msg;
-    zmq_msg_init_size (&msg, 0);
-    if (zmq_sendmsg (zocket, &msg, 0) == -1) {
-        zmq_msg_close (&msg);
-        return -1;
-    }
-    else
-        return 0;
+    assert (self);
+    return zstr_send (self, "");
 }
 
 
@@ -233,31 +216,45 @@ zsocket_signal (void *zocket)
 //  0 on success.
 
 int
-zsocket_wait (void *zocket)
+zsocket_wait (void *self)
 {
-    zmq_msg_t msg;
-    zmq_msg_init (&msg);
-    if (zmq_recvmsg (zocket, &msg, 0) == -1)
-        return -1;
-    else
+    assert (self);
+    char *message = zstr_recv (self);
+    if (message) {
+        free (message);
         return 0;
+    }
+    else
+        return -1;
 }
 
+
+#if (ZMQ_VERSION_MAJOR > 2)
+//  --------------------------------------------------------------------------
+//  Set socket high-water mark, emulating 2.x API
+
+void
+zsocket_set_hwm (void *self, int hwm)
+{
+    zsocket_set_sndhwm (self, hwm);
+    zsocket_set_rcvhwm (self, hwm);
+}
+#endif
 
 //  --------------------------------------------------------------------------
 //  Selftest
 
-int
+void
 zsocket_test (bool verbose)
 {
-    printf (" * zsocket: ");
+    printf (" * zsocket (deprecated): ");
 
     //  @selftest
     zctx_t *ctx = zctx_new ();
     assert (ctx);
 
     //  Create a detached thread, let it run
-    char *interf = "*";
+    char *interf = "127.0.0.1";
     char *domain = "localhost";
     int service = 5560;
 
@@ -270,7 +267,7 @@ zsocket_test (bool verbose)
     int rc = zsocket_bind (writer, "tcp://%s:%d", interf, service);
     assert (rc == service);
 
-#if (ZMQ_VERSION >= ZMQ_MAKE_VERSION (3,2,0))
+#if (ZMQ_VERSION >= ZMQ_MAKE_VERSION (3, 2, 0))
     //  Check unbind
     rc = zsocket_unbind (writer, "tcp://%s:%d", interf, service);
     assert (rc == 0);
@@ -305,7 +302,7 @@ zsocket_test (bool verbose)
     assert (rc == -1);
 
     //  Test sending frames to socket
-    rc = zsocket_sendmem (writer,"ABC", 3, ZFRAME_MORE);
+    rc = zsocket_sendmem (writer, "ABC", 3, ZFRAME_MORE);
     assert (rc == 0);
     rc = zsocket_sendmem (writer, "DEFG", 4, 0);
     assert (rc == 0);
@@ -333,5 +330,4 @@ zsocket_test (bool verbose)
     //  @end
 
     printf ("OK\n");
-    return 0;
 }

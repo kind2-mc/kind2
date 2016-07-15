@@ -18,52 +18,73 @@
 
 open Lib
 
-module S = SExprBase.Make(HStringSExpr.HStringAtom)
+module Ids = Lib.ReservedIds
 
-(* Distingushed strings in input *)
-let s_define_pred = HString.mk_hstring "define-pred"
+module HH = HString.HStringHashtbl
+module HS = HStringSExpr
+module D = GenericSMTLIBDriver
+
+module I = Ident
+
+let s_prime = HString.mk_hstring "prime"
+
+module Conv = SMTExpr.Converter(D)
+let conv = { D.smtlib_string_sexpr_conv with
+             D.prime_symbol = Some s_prime }
+let conv_type_of_sexpr = conv.D.type_of_sexpr
+let conv_term_of_sexpr = conv.D.expr_of_string_sexpr conv
+
+  
+let s_define_node = HString.mk_hstring "define-node"
 let s_init = HString.mk_hstring "init"
 let s_trans = HString.mk_hstring "trans"
+let s_callers = HString.mk_hstring "callers"
+let s_subsystems = HString.mk_hstring "subsystems"
+let s_lambda = HString.mk_hstring "lambda"
 let s_opt_const = HString.mk_hstring ":const"
-let s_prime = HString.mk_hstring "prime"
-let s_check_prop = HString.mk_hstring "check-prop"
-let s_int = HString.mk_hstring "Int"
-let s_real = HString.mk_hstring "Real"
-let s_bool = HString.mk_hstring "Bool"
+let s_opt_input = HString.mk_hstring ":input"
+let s_opt_for_inv_gen = HString.mk_hstring ":for-inv-gen"
+let s_opt_init_flag =  HString.mk_hstring ":init-flag"
+let s_annot = HString.mk_hstring ":user"
+let s_contract = HString.mk_hstring ":contract"
+let s_gen = HString.mk_hstring ":generated"
+let s_inst = HString.mk_hstring ":subsystem"
+let s_cand = HString.mk_hstring ":candidate"
+let s_assumption =  HString.mk_hstring ":assumption"
+let s_guarantee =  HString.mk_hstring ":guarantee"
+let s_guaranteeonemodeactive = HString.mk_hstring ":one_mode_active"
+let s_guaranteemodeimplication = HString.mk_hstring ":mode_implication"
+let s_props = HString.mk_hstring "props"
 let s_intrange = HString.mk_hstring "IntRange"
-let s_let = HString.mk_hstring "let"
 
-let top_scope = ["__top"]
 
-(* Suffix of initial state predicate *)
-let init_pred_suff = ".init"
+let seen_systems = HH.create 17
 
-(* Suffix of transition relation predicate *)
-let trans_pred_suff = ".trans"
+(*********************************************)
+(* Parsing of systems in native input format *)
+(*********************************************)
 
 (* Return the name of the initial state constraint predicate *)
-let init_pred_name pred = Format.sprintf "%s%s" pred init_pred_suff
+let init_pred_hname pred =
+  Format.sprintf "%s_%s_0" Ids.init_uf_string
+    (HString.string_of_hstring pred)
 
 (* Return the name of the transition relation predicate *)
-let trans_pred_name pred = Format.sprintf "%s%s" pred trans_pred_suff
+let trans_pred_hname pred =
+  Format.sprintf "%s_%s_0" Ids.trans_uf_string
+    (HString.string_of_hstring pred)
+
 
 (* Return a type of an S-expression *)
 let type_of_sexpr = function 
 
-  (* Integer type *)
-  | HStringSExpr.Atom c when c == s_int -> Type.t_int
-
-  (* Real type  *)
-  | HStringSExpr.Atom c when c == s_real -> Type.t_real
-
-  (* Boolean type *)
-  | HStringSExpr.Atom c when c == s_bool -> Type.t_bool
-
   (* Integer range type *)
-  | HStringSExpr.List [HStringSExpr.Atom c; HStringSExpr.Atom l; HStringSExpr.Atom u] when c == s_intrange -> 
+  | HS.List [HS.Atom c;
+             HS.Atom l;
+             HS.Atom u] when c == s_intrange -> 
 
     (* Numeral of lower bound *)
-    let nl = 
+    let nl =
       try Numeral.of_string (HString.string_of_hstring l) with 
         | Invalid_argument _ -> 
           failwith "Invalid argument for integer range type"
@@ -79,437 +100,279 @@ let type_of_sexpr = function
     (* Create integer range type *)
     Type.mk_int_range nl nu
 
-  | _ -> failwith "Invalid type"
+  | s ->
+    (* Otherwise get SMTLIB type *)
+    conv_type_of_sexpr s
+
+
 
 (* Create a state variable with the given scope from the S-expression *)
-let state_var_of_sexpr scope = function 
+let state_var_of_sexpr = function 
 
   (* State variable definition is the name, its type and options *)
-  | HStringSExpr.List (HStringSExpr.Atom v :: t :: opts) -> 
+  | HS.List (HS.Atom v :: t :: opts) -> 
 
     (* Name of the variable *)
-    let var_name = HString.string_of_hstring v in
+    let var_name, scope =
+      Lib.extract_scope_name (HString.string_of_hstring v) in
 
     (* Type of the variable *)
     let var_type = type_of_sexpr t in
 
     (* Options of the variable *)
-    let is_const, is_input = 
+    let is_const, is_input, for_inv_gen, is_init_flag = 
       List.fold_left 
 
         (* Parse input and modify options *)
-        (fun (is_const, is_input) -> function 
-           | HStringSExpr.Atom c when c == s_opt_const -> (true, is_input)
+        (fun (is_const, is_input, for_inv_gen, is_init_flag) -> function 
+           | HS.Atom c when c == s_opt_const ->
+             (true, is_input, for_inv_gen, is_init_flag)
+           | HS.Atom c when c == s_opt_input ->
+             (is_const, true, for_inv_gen,is_init_flag)
+           | HS.Atom c when c == s_opt_for_inv_gen ->
+             (is_const, is_input, true, is_init_flag)
+           | HS.Atom c when c == s_opt_init_flag ->
+             (is_const, is_input, for_inv_gen, true)
            | _ -> failwith "Invalid option for state variable")
 
         (* Defaults for the options *)
-        (false, false)
+        (false, false, false, false)
 
         opts
     in
 
     (* Create state variable and return *)
-    StateVar.mk_state_var ~is_input ~is_const var_name scope var_type
+    StateVar.mk_state_var ~is_input ~is_const ~for_inv_gen
+      var_name scope var_type,
+    is_init_flag
 
   | _ -> failwith "Invalid state variable declaration"
 
 
-(* Association list of strings to function symbols *) 
-let string_symbol_list =
-  [("not", Symbol.mk_symbol `NOT);
-   ("=>", Symbol.mk_symbol `IMPLIES);
-   ("and", Symbol.mk_symbol `AND);
-   ("or", Symbol.mk_symbol `OR);
-   ("xor", Symbol.mk_symbol `XOR);
-   ("=", Symbol.mk_symbol `EQ);
-   ("distinct", Symbol.mk_symbol `DISTINCT);
-   ("ite", Symbol.mk_symbol `ITE);
-   ("-", Symbol.mk_symbol `MINUS);
-   ("+", Symbol.mk_symbol `PLUS);
-   ("*", Symbol.mk_symbol `TIMES);
-   ("/", Symbol.mk_symbol `DIV);
-   ("div", Symbol.mk_symbol `INTDIV);
-   ("mod", Symbol.mk_symbol `MOD);
-   ("abs", Symbol.mk_symbol `ABS);
-   ("<=", Symbol.mk_symbol `LEQ);
-   ("<", Symbol.mk_symbol `LT);
-   (">=", Symbol.mk_symbol `GEQ);
-   (">", Symbol.mk_symbol `GT);
-   ("to_real", Symbol.mk_symbol `TO_REAL);
-   ("to_int", Symbol.mk_symbol `TO_INT);
-   ("is_int", Symbol.mk_symbol `IS_INT);
-   ("concat", Symbol.mk_symbol `CONCAT);
-   ("bvnot", Symbol.mk_symbol `BVNOT);
-   ("bvneg", Symbol.mk_symbol `BVNEG);
-   ("bvand", Symbol.mk_symbol `BVAND);
-   ("bvor", Symbol.mk_symbol `BVOR);
-   ("bvadd", Symbol.mk_symbol `BVADD);
-   ("bvmul", Symbol.mk_symbol `BVMUL);
-   ("bvdiv", Symbol.mk_symbol `BVDIV);
-   ("bvurem", Symbol.mk_symbol `BVUREM);
-   ("bvshl", Symbol.mk_symbol `BVSHL);
-   ("bvlshr", Symbol.mk_symbol `BVLSHR);
-   ("bvult", Symbol.mk_symbol `BVULT);
-   ("select", Symbol.mk_symbol `SELECT);
-   ("store", Symbol.mk_symbol `STORE)]
 
-(* Hashtable for hashconsed strings to function symbols *)
-let hstring_symbol_table = HString.HStringHashtbl.create 50 
+(* Convert an s-expression to a term *)
+let term_of_sexpr s = conv_term_of_sexpr [] s
+
+(* Convert an s-expression to a term with bound free varaibles *)
+let term_of_sexpr_bound_vars bvars s = conv_term_of_sexpr bvars s
 
 
-(* Populate hashtable with hashconsed strings and their symbol *)
-let _ = 
-  List.iter
-    (function (s, v) -> 
-      HString.HStringHashtbl.add 
-        hstring_symbol_table 
-        (HString.mk_hstring s)
-        v)
-    string_symbol_list 
+
+(* Arguments of initial state predicate *)
+let init_args_of_state_vars state_vars =
+  List.map
+    (fun sv -> Var.mk_state_var_instance sv Numeral.zero)
+    state_vars
+
+(* Arguments of transition relation predicate *)
+let trans_args_of_state_vars state_vars =
+  let at0 = init_args_of_state_vars state_vars in
+  let at1 =
+    List.map (fun v -> Var.bump_offset_of_state_var_instance v Numeral.one) at0 in
+  let at0 = List.filter (fun v -> not (Var.is_const_state_var v)) at0 in
+  at1 @ at0
 
 
-(* Reserved words that cannot be a symbol *)
-let reserved_word_list = 
-  List.map 
-    HString.mk_hstring 
-    ["par"; "_"; "!"; "as"; "let"; "forall"; "exists" ]
+
+let sbind_of_sexpr = function
+  | HS.List [HS.Atom v1; HS.Atom v2] ->
+    HString.string_of_hstring v1, HString.string_of_hstring v2
+  | s ->
+    Format.eprintf "CALL MAP %a@." HS.pp_print_sexpr s;
+    failwith "Invalid state variable map in caller"
+
+let state_var_map_of_smap m =
+  List.fold_left (fun acc (v1, v2) ->
+      try
+        let sv1, sv2 = StateVar.state_var_of_long_string v1,
+                       StateVar.state_var_of_long_string v2 in
+        StateVar.StateVarMap.add sv1 sv2 acc
+      with Not_found -> failwith "Invalid state variable map in caller"
+    ) StateVar.StateVarMap.empty m
 
 
-(* Lookup symbol of a hashconsed string *)
-let symbol_of_hstring s = 
+let state_var_of_atom = function
+  | HS.Atom v ->
+    StateVar.state_var_of_long_string (HString.string_of_hstring v)
+  | _ -> failwith "Not a state var"
 
-  try 
+let subsystems_of_sexpr = function
+  | HS.List 
+      [HS.Atom c;
+       HS.List m;
+       HS.List [HS.Atom f;
+                HS.List [HS.List [HS.Atom v; ty]];
+                HS.List [g]]] 
+    when f == s_lambda ->
+    (* Get name of caller *)
+    let name = c in
+    (* Get variable map *)
+    let m =  List.map sbind_of_sexpr m in
+    let map_down = state_var_map_of_smap m in
+    let map_up = state_var_map_of_smap (List.map (fun (x,y) -> y,x) m) in
 
-    (* Map hashconsed string to symbol *)
-    HString.HStringHashtbl.find hstring_symbol_table s
+    (* Get guard of boolean function *)
+    (* Get list of variables of fun *)
+    let tyv = type_of_sexpr ty in
 
-  (* String is not one of our symbols *)
-  with Not_found -> 
-
-    (* Check if string is a reserved word *)
-    if List.memq s reserved_word_list then 
-      
-      (* Cannot parse S-expression *)
-      raise 
-        (Invalid_argument 
-           (Format.sprintf 
-              "Unsupported reserved word '%s' in expression"
-              (HString.string_of_hstring s)))
-
-    else
-
-      (* String is not a symbol *)
-      raise Not_found 
-
-
-(* Convert an atom to a term *)
-let term_of_hstring scope bound_vars t = 
-  
-  (* Empty strings are invalid *)
-  if HString.length t = 0 then
-    
-    (* String is empty *)
-    raise (Invalid_argument "const_of_hstring")
-      
-  else
-
-    try
-
-      (* Return numeral of string *)
-      Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
-
-    (* String is not a decimal *)
-    with Invalid_argument _ -> 
-
-      try 
-
-        (* Return decimal of string *)
-        Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
-          
-      with Invalid_argument _ -> 
-
-        try 
-
-          (* Return bitvector of string *)
-          Term.mk_bv (bitvector_of_hstring t)
-            
-        with Invalid_argument _ -> 
-          
-          try 
-            
-            (* Return propositional constant of string *)
-            Term.mk_bool (bool_of_hstring t)
-
-          (* String is not an interpreted symbol *)
-          with Invalid_argument _ -> 
-
-            try 
-              
-              (* Return bound symbol *)
-              Term.mk_var (List.assq t bound_vars)
-
-            (* String is not a bound variable *)
-            with Not_found -> 
-              
-              try 
-
-                (* Name of state variable *)
-                let state_var_name = HString.string_of_hstring t in
-
-                (* State variable of name and given scope *)
-                let state_var = 
-                  StateVar.state_var_of_string
-                    (state_var_name, scope) 
-                in
-                
-                (* State variable at instant zero *)
-                let var = 
-                  Var.mk_state_var_instance state_var Numeral.zero
-                in
-
-                (* Return term *)
-                Term.mk_var var
-
-              with Not_found -> 
-                
-                (* Cannot convert to an expression *)
-                failwith 
-                  (Format.asprintf 
-                     "Invalid expression %a" 
-                     HString.pp_print_hstring t)
-
-
-let rec term_of_sexpr scope bound_vars = function 
-
-  | HStringSExpr.List [] -> failwith "Invalid nil in expression"
-  | HStringSExpr.List [_] -> failwith "Invalid singleton list in expression"
-
-  (* Let binding *)
-  | HStringSExpr.List [HStringSExpr.Atom a; HStringSExpr.List v; t] when a == s_let -> 
-
-    (* Convert bindings and obtain a list of bound variables *)
-    let bindings = bindings_of_sexpr scope bound_vars [] v in
-
-    (* Convert bindings to an association list from strings to
-       variables *)
-    let bound_vars' = 
-      List.map 
-        (function (v, _) -> (Var.hstring_of_temp_var v, v))
-        bindings 
+    let v = Var.mk_free_var v tyv in
+    let bvars = [Var.hstring_of_free_var v, v] in
+    let body = term_of_sexpr_bound_vars bvars g in
+    let guard_lambda = Term.mk_lambda [v] body in
+    let guard_clock =
+      if Term.is_lambda_identity guard_lambda then
+        (* Simply return the identity (on terms) function if the guard
+           is lambda x.x *)
+        (fun _ t -> t)
+      else (fun i t ->
+          Term.bump_state i (* KLUDGE we should just bump the clock *)
+            (Term.eval_lambda guard_lambda [t]))
     in
 
-    (* Parse the subterm, giving an association list of bound
-       variables and return a let bound term *)
-    Term.mk_let 
-      bindings
-      (term_of_sexpr scope (bound_vars @ bound_vars') t)
+    let subsys =
+      try HH.find seen_systems name
+      with Not_found ->
+        failwith (Format.sprintf "Undefined subsystem %s"
+                    (HString.string_of_hstring name))
+    in
+
+    let inst = { TransSys.pos = Lib.dummy_pos; map_down; map_up; guard_clock} in
+
+    (* assemble subsystem *)
+    subsys, inst
+    
+  | s ->
+    Format.eprintf "SUBSYSTEM %a@." HS.pp_print_sexpr s;
+    failwith "Invalid subsystem description"
+    
+
+
+let file_row_col_of_string s =
+  Scanf.sscanf s "%s@:%d-%d" (fun x1 x2 x3-> x1, x2, x3)
+
+let prop_source_of_sexpr prop_term = function
+  | [] -> Property.PropAnnot Lib.dummy_pos
+
+  | [HS.Atom c; HS.Atom pos]
+    when c == s_annot || c == s_contract ->
+    let frc_pos = file_row_col_of_string (HString.string_of_hstring pos) in
+    let ppos = Lib.pos_of_file_row_col frc_pos in
+    if c == s_annot then Property.PropAnnot ppos
+    else assert false
+
+  | [HS.Atom c; HS.List svs] when c == s_gen ->
+    let vars = List.map state_var_of_atom svs in
+    Property.Generated vars
+
+  | [HS.Atom c; HS.Atom scopedprop] ->
+    let p, scope =
+      Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
+    if c == s_inst then
+      let rec prop = {Property.prop_name = p; prop_source = source;
+                  prop_term; prop_status = Property.PropUnknown }
+      and source = Property.Instantiated (scope, prop) in
+      source
+    else if c = s_guaranteeonemodeactive then
+      Property.GuaranteeOneModeActive scope
+    else assert false
+
+  | [HS.Atom c; HS.Atom pos; HS.Atom scopedprop] ->
+
+    let frc_pos = file_row_col_of_string (HString.string_of_hstring pos) in
+    let ppos = Lib.pos_of_file_row_col frc_pos in
+    let p, scope =
+      Lib.extract_scope_name (HString.string_of_hstring scopedprop) in
+    if c == s_assumption then Property.Assumption (ppos, scope)
+    else if c == s_guarantee then Property.Guarantee (ppos, scope)
+    else if c == s_guaranteemodeimplication then
+      Property.GuaranteeModeImplication (ppos, scope)
+    else assert false
+
+  | [HS.Atom c] when c == s_cand -> Property.Candidate
+
+  | _ -> failwith "Invalid property source"
+
+
+let prop_of_sexpr = function
+  | HS.List (HS.Atom n :: p :: source) ->
+    let prop_term = term_of_sexpr p in
+    { Property.prop_name = HString.string_of_hstring n;
+      prop_source = prop_source_of_sexpr prop_term source;
+      prop_term;
+      prop_status = Property.PropUnknown }
+  | _ -> failwith "Invalid property"
+
+
+module TM = Map.Make(struct
+    type t = TransSys.t
+    let compare = TransSys.compare_scope
+  end)
+
+let merge_subsystem_insts subs =
+  List.fold_left (fun acc (s, inst) ->
+      let other_insts = try TM.find s acc with Not_found -> [] in
+      TM.add s (inst :: other_insts) acc
+    ) TM.empty subs
+  |> TM.bindings
+
+let rec optional_fields_of_sexprs (subsystems, props) = function
+  (* Subsystems *)
+  | HS.List (HS.Atom s :: subs_l) :: rs
+    when s == s_subsystems ->
+    let subsystems = List.map subsystems_of_sexpr subs_l
+                     |> merge_subsystem_insts in
+    optional_fields_of_sexprs (subsystems, props) rs
+
+  (* Propeties *)
+  | HS.List [HS.Atom p; HS.List ps] :: rs
+    when p == s_props ->
+    let props = List.map prop_of_sexpr ps in 
+    optional_fields_of_sexprs (subsystems, props) rs
+
+  | [] -> (subsystems, props)
 
-  (* Not a valid let binding *)
-  | HStringSExpr.List (HStringSExpr.Atom a :: _) when a == s_let -> 
-    failwith "Invalid let binding in expression"
+  | _ -> failwith "Invalid field in node"
 
-  (* Atom *)
-  | HStringSExpr.Atom a -> term_of_hstring scope bound_vars a 
 
-  (* A primed variable *)
-  | HStringSExpr.List [HStringSExpr.Atom c; HStringSExpr.Atom a] when c == s_prime -> 
 
-    (* Term of primed atom *)
-    let t = term_of_hstring scope bound_vars a in
-
-    (* Prime term if it is a variable *)
-    if Term.is_free_var t then Term.bump_state Numeral.one t else
-
-      failwith "Prime only applies to variables"
-
-  (* A function application *)
-  | HStringSExpr.List (HStringSExpr.Atom h :: tl) -> 
-
-    (try 
-
-       (* Built-in symbol of string *)
-       Term.mk_app
-         (symbol_of_hstring h)
-         (List.map (term_of_sexpr scope bound_vars) tl)
-
-     with Not_found -> 
-
-       (* String of hashconsed string *)
-       let s = HString.string_of_hstring h in
-
-       (* Length of suffix for initial state predicate name  *)
-       let init_len = String.length init_pred_suff in
-
-       (* String must be longer than suffix *)
-       if String.length s > init_len then 
-
-         if 
-
-           (* String has suffix of initial state predicate? *)
-           String.sub
-             s
-             (String.length s - init_len)
-             init_len 
-           = init_pred_suff
-
-         then
-
-           (* Uninterpreted function symbol *)
-           let uf_symbol = 
-
-             try 
-
-               UfSymbol.uf_symbol_of_string s 
-
-             with Not_found -> 
-
-               failwith
-                 (Format.sprintf "Predicate %s not defined" s)
-
-           in
-
-           if 
-
-             (* Number of arguments must match definition *)
-             (List.length (UfSymbol.arg_type_of_uf_symbol uf_symbol))
-             = List.length tl 
-
-           then
-
-             (* Application of predicate symbol *)
-             Term.mk_uf 
-               uf_symbol
-               (List.map (term_of_sexpr scope bound_vars) tl)
-
-           else
-
-             failwith "Wrong number of arguments"
-
-         else
-
-           (* Length of suffix for transition relation predicate name  *)
-           let trans_len = String.length trans_pred_suff in
-
-           (* String must be longer than suffix *)
-           if String.length s > trans_len then 
-
-             if 
-
-               (* String has suffix of transition relation predicate? *)
-               String.sub
-                 s
-                 (String.length s - trans_len)
-                 trans_len 
-               = trans_pred_suff
-
-             then
-
-               (* Uninterpreted function symbol *)
-               let uf_symbol = 
-
-                 try 
-
-                   UfSymbol.uf_symbol_of_string s 
-
-                 with Not_found -> 
-
-                   failwith "Predicate not defined"
-
-               in
-
-               if 
-
-                 (* Number of arguments must match definition *)
-                 (List.length (UfSymbol.arg_type_of_uf_symbol uf_symbol))
-                 = List.length tl 
-
-               then
-
-                 (* Application of predicate symbol *)
-                 Term.mk_uf 
-                   uf_symbol
-                   (List.map (term_of_sexpr scope bound_vars) tl)
-
-               else
-
-                 failwith "Wrong number of arguments"
-
-             else
-
-               failwith "Undefined function symbol" 
-
-           else
-
-             failwith "Undefined function symbol" 
-
-       else
-
-         failwith "Undefined function symbol") 
-
-
-  | _ -> Term.t_false
-
-
-(* Convert a list of bindings *)
-and bindings_of_sexpr scope b accum = function 
-
-  (* All bindings consumed: return accumulator in original order *)
-  | [] -> List.rev accum
-
-  (* Take first binding *)
-  | HStringSExpr.List [HStringSExpr.Atom v; t] :: tl -> 
-
-    (* Convert to an expression *)
-    let term = term_of_sexpr scope b t in
-
-    (* Get the type of the expression *)
-    let term_type = Term.type_of_term term in
-
-    (* Create a variable of the identifier and the type of the expression *)
-    let var = Var.mk_temp_var v term_type in
-
-    (* Add bound expresssion to accumulator *)
-    bindings_of_sexpr scope b ((var, term) :: accum) tl
-
-  (* Expression must be a pair *)
-  | e :: _ -> 
-
-    failwith "Invalid expression in let binding"
-      
 
 (* Convert a predicate definition *)
-let pred_def_of_sexpr = function
+let node_def_of_sexpr = function
 
-  (* (define-pred NAME (VARS) (init INIT) (trans TRANS)) *)
-  | HStringSExpr.List 
-      [HStringSExpr.Atom c; 
-       HStringSExpr.Atom p; 
-       HStringSExpr.List v; 
-       HStringSExpr.List [HStringSExpr.Atom ci; i]; 
-       HStringSExpr.List [HStringSExpr.Atom ct; t]] 
-    when c == s_define_pred && ci == s_init && ct = s_trans -> 
+  (* (define-node NAME (VARS) (init INIT) (trans TRANS) (callers CALLERS))?
+     (props PROPS)? *)
+  | HS.List 
+      (HS.Atom c :: 
+       HS.Atom n ::
+       HS.List v ::
+       HS.List [HS.Atom ci; i] ::
+       HS.List [HS.Atom ct; t] ::
+       others
+      ) 
+    when c == s_define_node &&
+         ci == s_init &&
+         ct = s_trans ->
 
     (* Get name of defined predicate *)
-    let pred_name = HString.string_of_hstring p in
+    let node_name = n in
 
     (* Create state variables *)
-    let state_vars = List.map (state_var_of_sexpr [pred_name]) v in
+    let state_vars_b = List.map state_var_of_sexpr v in
+    let state_vars = List.map fst state_vars_b in
+    let init_flag = match List.filter snd state_vars_b with
+      | [init_flag, _] -> init_flag
+      | _ ->
+        (* there may be no init flag (for jkind systems), we make one up *)
+        StateVar.mk_init_flag [HString.string_of_hstring node_name]
+        (* failwith "No init flag in native definition" *)
+    in
 
     (* Arguments of initial state predicate *)
-    let init_args = 
-      List.map
-        (fun sv -> Var.mk_state_var_instance sv Numeral.zero)
-        state_vars
-    in
-
+    let init_args = init_args_of_state_vars state_vars in
+    
     (* Arguments of transition relation predicate *)
-    let trans_args = 
-      init_args @
-      List.map 
-        (fun sv -> Var.mk_state_var_instance sv Numeral.one)
-        (List.filter (fun sv -> not (StateVar.is_const sv)) state_vars)
-    in
-
+    let trans_args = trans_args_of_state_vars state_vars in
+    
     (* Types of initial state predicate arguments *)
     let init_args_types = List.map Var.type_of_var init_args in
 
@@ -519,7 +382,7 @@ let pred_def_of_sexpr = function
     (* Predicate symbol for initial state predicate *)
     let init_uf_symbol = 
       UfSymbol.mk_uf_symbol
-        (init_pred_name pred_name) 
+        (init_pred_hname node_name) 
         init_args_types
         Type.t_bool 
     in
@@ -527,185 +390,181 @@ let pred_def_of_sexpr = function
     (* Predicate symbol for transition relation predicate *)
     let trans_uf_symbol = 
       UfSymbol.mk_uf_symbol
-        (trans_pred_name pred_name) 
+        (trans_pred_hname node_name) 
         trans_args_types
         Type.t_bool 
     in
     
     (* Initial state constraint *)
-    let init_term = term_of_sexpr [pred_name] [] i in
+    let init_term = term_of_sexpr i in
 
     (* Transition relation *)
-    let trans_term = term_of_sexpr [pred_name] [] t in
+    let trans_term = term_of_sexpr t in
 
-    (* Definitions of initial state and transition relation *)
-    ((init_uf_symbol, (init_args, init_term)), 
-     (trans_uf_symbol, (trans_args, trans_term)))
+    (* Optional callers and properties *)
+    let subsystems, props = optional_fields_of_sexprs ([], []) others in
+    
+    (* Intermediate representation of node/system *)
+    (
+      node_name,
+      init_flag,
+      state_vars,
+      (init_uf_symbol, (init_args, init_term)), 
+      (trans_uf_symbol, (trans_args, trans_term)),
+      subsystems,
+      props
+    )
 
-  | HStringSExpr.Atom _ 
-  | HStringSExpr.List _ -> failwith "Invalid format of predicate definition"
-
-
-(* Create a copy of the state variable at the top level *)
-let state_var_of_top_scope state_var =
-  
-  (* Create state variable with same parameters except scope *)
-  StateVar.mk_state_var
-    ~is_input:(StateVar.is_input state_var)
-    ~is_const:(StateVar.is_const state_var)
-    (StateVar.name_of_state_var state_var)
-    top_scope
-    (StateVar.type_of_state_var state_var)
+  | HS.Atom _ 
+  | HS.List _ -> failwith "Invalid format of node definition"
 
 
-(* Create a copy of the state variable instance at the top level *)
-let var_of_top_scope var = 
 
-  (* State variable *)
-  let state_var = Var.state_var_of_state_var_instance var in
 
-  (* State variable of top scope *)
-  let state_var' = state_var_of_top_scope state_var in
-
-  (* Create state variable instance of top scope *)
-  Var.mk_state_var_instance 
-    state_var'
-    (Var.offset_of_state_var_instance var)
+let rec mk_subsys_structure sys =
+  { SubSystem.scope = TransSys.scope_of_trans_sys sys;
+    source = sys;
+    has_contract = false;
+    has_impl = false;
+    has_modes = false;
+    subsystems =
+      TransSys.get_subsystems sys
+      |> List.map mk_subsys_structure;
+  }
 
 
 (* Parse from input channel *)
 let of_channel in_ch = 
 
-  (* Create a lexing buffer on solver's stdout *)
   let lexbuf = Lexing.from_channel in_ch in
-
-  (* Parse S-expression and return *)
   let sexps = SExprParser.sexps SExprLexer.main lexbuf in
 
-  (* Create definitions of expressions, last expression is list of
-     properties *)
-  let rec aux defs = function 
+  (* Callers mapping to transition system *)
+  (* let calling_table = HH.create (List.length sexps) in *)
 
-    | [] -> failwith "Empty input"
+  (* Parse sexps *)
+  let systems =
+    List.map (fun sexp ->
 
-    (* List must end with check-prop atom *)
-    | [HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.List p]] 
-      when s == s_check_prop -> 
+        let node_name, init_flag, state_vars,
+            (init_uf_symbol, (init_args, init_term)), 
+            (trans_uf_symbol, (trans_args, trans_term)),
+            subsystems, props =
+          node_def_of_sexpr sexp in
 
-      (* Last element in (reversed list) is topmost definition *)
-      let top_init, top_trans = match defs with
-        | [] -> failwith "Empty definitions"
-        | h :: _ -> h
-      in
-      
-      (* Predicate symbol and arguments of initial state constraint *)
-      let (top_init_uf_symbol, (top_init_vars, _)) = top_init in
+        (* Scope from name *)
+        let node_scope =
+          let n, s =
+            Lib.extract_scope_name (HString.string_of_hstring node_name) in
+          s @ [n] in
 
-      (* Predicate symbol and arguments of transition relation *)
-      let (top_trans_uf_symbol, (top_trans_vars, _)) = top_trans in
+        (* find who I call *)
+        (* let i_call = *)
+        (*   try *)
+        (*     HH.find calling_table node_name *)
+        (*     |> snd *)
+        (*     |> List.map (fun (a,_,_) -> a) *)
+        (*   with Not_found -> [] *)
+        (* in *)
 
-      (* Copy state variables of top node to new scope
+        
+        (* Create transition system *)
+        let sys, _ = TransSys.mk_trans_sys
+            node_scope
+            None
+            init_flag
+            []
+            state_vars
+            [] (* ufs *)
+            init_uf_symbol
+            init_args
+            init_term
+            trans_uf_symbol
+            trans_args
+            trans_term
+            subsystems
+            props
+            (None, []) [] [] in
 
-         Must do this first, because variables in property are of top
-         scope. *)
-      let state_vars = 
-        List.map 
-          (fun v -> 
-             state_var_of_top_scope 
-           (Var.state_var_of_state_var_instance v))
-          top_init_vars
-      in
+        (* Add calling information *)
+        (* List.iter (fun (c, m, g) -> *)
+        (*     let n, calling_c = *)
+        (*       try HH.find calling_table c *)
+        (*       with Not_found -> None, [] *)
+        (*     in *)
+        (*     HH.replace calling_table c (n, (sys, m, g) :: calling_c); *)
+        (*   ) callers; *)
+
+        (* (\* Register new system *\) *)
+        (* let calling_me = *)
+        (*   try snd (HH.find calling_table node_name) *)
+        (*   with Not_found -> [] in *)
+        (* HH.replace calling_table node_name (Some sys, calling_me);         *)
+
+        HH.add seen_systems node_name sys;
+        
+        (* Return constructed system  *)
+        sys (* , callers *)
+
+      ) sexps
+  in
+
+
+  (* Format.eprintf "CALLING TABLE:@."; *)
+  (* HH.iter (fun c (n, calls) -> *)
+  (*     Format.eprintf "%s " (HString.string_of_hstring c); *)
+  (*     (match n with *)
+  (*      | None -> Format.eprintf "(None)" *)
+  (*      | Some s -> Format.eprintf "(%s)" *)
+  (*                    (String.concat "." (TransSys.get_scope s))); *)
+  (*     Format.eprintf  " -> ["; *)
+  (*     List.iter (fun (sys, _, _) -> *)
+  (*         Format.eprintf "%s," *)
+  (*           (String.concat "." (TransSys.get_scope sys)) *)
+  (*       ) calls; *)
+  (*     Format.eprintf  "]@."; *)
+  (*   ) calling_table; *)
+
   
-      (* Copy variables in signature of top node to new scope *)
-      let init_vars = 
-        List.map var_of_top_scope top_init_vars 
-      in
+  (* Add callers *)
+  (* let all_sys = *)
+  (*   List.fold_left (fun acc (sys, callers) -> *)
+  (*       (\* Add callers *\) *)
+  (*       List.fold_left (fun (c, m, (vars, g)) -> *)
+  (*           let c_sys = match fst (HH.find calling_table c) with *)
+  (*             | None -> assert false *)
+  (*             | Some s -> s in *)
+
+  (*           (\* Construct state var map *\) *)
+  (*           let map = state_var_map_of_smap m in *)
+
+  (*           (\* Construct lambda for guard now that all symbols are declared *\) *)
+  (*           let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) vars in *)
+  (*           let guard_lambda = *)
+  (*             Term.mk_lambda vars (term_of_sexpr_bound_vars bvars g) in *)
+  (*           let guard_fun = *)
+  (*             if Term.is_lambda_identity guard_lambda then *)
+  (*               (\* Simply return the identity (on terms) function if the guard *)
+  (*                  is lambda x.x *\) *)
+  (*               (fun t -> t) *)
+  (*             else (fun t -> Term.eval_lambda guard_lambda [t]) *)
+  (*           in *)
+
+  (*           TransSys.add_caller sys c_sys (map, guard_fun) *)
+  (*         ) callers; *)
+  (*       sys :: acc *)
+  (*     ) [] sys_and_calls *)
+  (* in *)
+
+  (* Return top level system *)
+  match List.rev systems with
+  | top_sys :: _ ->
+
+    Debug.native "%a" TransSys.pp_print_trans_sys top_sys ;
+
+    mk_subsys_structure top_sys
       
-      (* Copy variables in signature of top node to new scope *)
-      let trans_vars = 
-        List.map var_of_top_scope top_trans_vars 
-      in
-      
-      (* Expression for initial state constraint *)
-      let init_term = 
-        Term.mk_uf 
-          top_init_uf_symbol 
-          (List.map Term.mk_var init_vars)
-      in
-      
-      (* Expression for transition relation *)
-      let trans_term = 
-        Term.mk_uf
-          top_trans_uf_symbol
-          (List.map Term.mk_var trans_vars)
-      in
-
-      let init = 
-        (top_init_uf_symbol, 
-         (List.combine 
-            top_init_vars 
-            (List.map Term.mk_var init_vars)))
-      in
-
-      let trans =
-        (top_trans_uf_symbol, 
-         (List.combine 
-            top_trans_vars
-            (List.map Term.mk_var trans_vars)))
-      in
-
-      (* Collect all properties to prove *)
-      let props = 
-        List.fold_left 
-          (function accum -> function
-
-             (* Property must be a pair of name and term *)
-             | HStringSExpr.List [HStringSExpr.Atom p; t] -> 
-
-               (* Convert S-expression to term *)
-               (HString.string_of_hstring p, 
-                term_of_sexpr top_scope  [] t) 
-               :: accum
-
-             | _ -> failwith "Invalid format of property")
-          []
-          p
-      in
-
-      (* Return definititons in original order and properties *)
-      List.rev defs, state_vars, init, trans, props
-
-    | [HStringSExpr.List (HStringSExpr.Atom s :: _)] when s == s_check_prop -> 
-
-      failwith "Invalid format of check-prop statement"
-
-    | [_] -> failwith "Definitions must end with check-prop statement"
-               
-    (* First element of a list of at least two elements is a predicate
-       definition *)
-    | h :: tl -> aux ((pred_def_of_sexpr h) :: defs) tl
-                   
-  in
-
-  (* Definitions and properties in input *)
-  let defs, state_vars, init, trans, props = aux [] sexps in
-
-  let res = 
-    TransSys.mk_trans_sys 
-      defs
-      state_vars
-      init
-      trans
-      props
-      TransSys.Native
-  in
-
-  debug nativeInput
-    "%a"
-    TransSys.pp_print_trans_sys res
-  in
-
-  res
+  | _ -> failwith "No systems"
 
 
 
@@ -718,10 +577,206 @@ let of_file filename =
 
     of_channel in_ch
 
+
+
+(************************************************************************)
+(* Printing of transition systems to the compatible native input format *)
+(************************************************************************)
+
+
+let pp_print_var ppf v =
+  if Var.is_state_var_instance v then
+    let sv = Var.state_var_of_state_var_instance v in
+    let n = Var.offset_of_state_var_instance v |> Numeral.to_int in
+
+    let rec add_primes ppf = function
+      | 0 -> StateVar.pp_print_state_var ppf sv
+      | n when n > 0 ->
+        Format.fprintf ppf "(prime %a)" add_primes (n-1)
+      | _ -> assert false
+    in
+
+    add_primes ppf n
+  else Var.pp_print_var ppf v
+
+let pp_print_term ppf =
+  Term.T.pp_print_term_w (fun ?arity -> Symbol.pp_print_symbol)
+    pp_print_var ppf
+
+let pp_print_lambda ppf =
+  Term.T.pp_print_lambda_w (fun ?arity -> Symbol.pp_print_symbol)
+    pp_print_var ppf
+
+
+let pp_print_state_var sys ppf state_var = 
+  Format.fprintf ppf
+    "@[<hv 1>(%a@ %a%t%t%t%t)@]" 
+    StateVar.pp_print_state_var state_var
+    Type.pp_print_type (StateVar.type_of_state_var state_var)
+    (fun ppf -> 
+       if StateVar.is_const state_var
+       then Format.fprintf ppf "@ :const")
+    (fun ppf -> 
+       if StateVar.is_input state_var
+       then Format.fprintf ppf "@ :input")
+    (fun ppf -> 
+       if StateVar.for_inv_gen state_var
+       then Format.fprintf ppf "@ :for-inv-gen")
+    (fun ppf -> 
+       if StateVar.equal_state_vars state_var (TransSys.init_flag_state_var sys)
+       then Format.fprintf ppf "@ :init-flag")
+
+let pp_pos ppf pos =
+  let f,r,c = file_row_col_of_pos pos in
+  Format.fprintf ppf "%s:%d-%d" f r c
+  
+
+let pp_print_prop_source sys ppf = function 
+  | Property.PropAnnot pos -> Format.fprintf ppf ":user@ %a" pp_pos pos
+  | Property.Generated state_vars ->
+    Format.fprintf ppf ":generated@ (@[<v>%a@])"
+    (pp_print_list (pp_print_state_var sys) "@ ") state_vars  
+  | Property.Instantiated (scope, prop) ->
+    let name = prop.Property.prop_name in
+    Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
+  | Property.Candidate ->
+    Format.fprintf ppf ":candidate"
+  | _ -> () (* TODO *)
+
+
+let pp_print_property sys ppf {Property.prop_name; prop_source; prop_term} = 
+  Format.fprintf 
+    ppf
+    "@[<hv 1>(%s@ %a@ %a)@]"
+    prop_name
+    pp_print_term prop_term
+    (pp_print_prop_source sys) prop_source
+
+
+let fresh_statevar =
+  let cpt = ref 0 in
+  fun ty ->
+    let s = "__v"^(string_of_int !cpt) in
+    incr cpt;
+    StateVar.mk_state_var s [] ty
+      
+
+let pp_print_subsystem name_c ppf {TransSys.map_down; guard_clock} =
+  Format.fprintf ppf 
+    "(%s@ @[<hv 1>(%a)@,@[<v>%a@]@])"
+    name_c
+    (pp_print_list 
+       (fun ppf (s, t) ->
+          Format.fprintf ppf
+            "@[<hv 1>(@[<hv>%a@]@ @[<hv>%a@])@]"
+            StateVar.pp_print_state_var s
+            StateVar.pp_print_state_var t)
+       "@ ")
+    (StateVar.StateVarMap.bindings map_down)
+    pp_print_lambda
+    (let sv = fresh_statevar Type.t_bool in
+     let v = Var.mk_state_var_instance sv Numeral.zero in
+     let tv = Term.mk_var v in
+     Term.mk_lambda [v] (guard_clock Numeral.zero tv))
+
+
+let pp_print_subsystems ppf (t, inst) =
+  let name_s = String.concat "." (TransSys.scope_of_trans_sys t) in
+  Format.fprintf ppf
+    "@[<hv 1>%a@]"
+    (pp_print_list (pp_print_subsystem name_s) "@ ") inst
+
+
+let pp_print_props ppf sys =
+  let props = (* TransSys.get_real_properties *)
+    (TransSys.get_properties sys) @ (TransSys.get_candidate_properties sys)
+  in
+  if props <> [] then
+  Format.fprintf ppf
+     "@[<hv 2>(props@ (@[<v>%a@]))@]\n@,"
+     (pp_print_list (pp_print_property sys) "@ ") props
+     
+
+let pp_print_subsystems ppf sys =
+  let subs = TransSys.get_subsystem_instances sys in
+  if subs <> [] then
+  Format.fprintf ppf
+     "@[<hv 2>(subsystems@ @[<v>%a@])@]\n@,"
+     (pp_print_list pp_print_subsystems "@ ") subs
+     
+
+let eq_sys s1 s2 =
+  TransSys.equal_scope s1 s2 &&
+  List.for_all2 StateVar.equal_state_vars
+    (TransSys.state_vars s1) (TransSys.state_vars s2) &&
+  Term.equal
+    (TransSys.init_of_bound s1 Numeral.zero)
+    (TransSys.init_of_bound s2 Numeral.zero) &&
+  Term.equal
+    (TransSys.trans_of_bound s1 Numeral.zero)
+    (TransSys.trans_of_bound s2 Numeral.zero)
+
+let all_systems sys =
+  let rec all_systems_rec acc sys =
+    let acc = List.fold_left all_systems_rec acc (TransSys.get_subsystems sys) in
+    let acc = if List.exists (eq_sys sys) acc then acc
+      else sys :: acc in
+    acc
+  in
+  all_systems_rec [] sys |> List.rev
+
+let pp_print_one_native ppf sys = 
+  
+  Format.fprintf 
+    ppf
+    "@[<v>(define-node %s@,\
+     @[<v 2>@[<hv 2>(@[<v>%a@])@]\n@,\
+     @[<hv 2>(init@ @[<v>%a@])@]\n@,\
+     @[<hv 2>(trans@ @[<v>%a@])@]\n@,\
+     %a\
+     %a\
+     @]\
+     )@]\
+     \n@."
+    (String.concat "." (TransSys.scope_of_trans_sys sys))
+    (pp_print_list (pp_print_state_var sys) "@ ") (TransSys.state_vars sys)
+    pp_print_term (TransSys.init_of_bound sys TransSys.init_base)
+    pp_print_term (TransSys.trans_of_bound sys TransSys.trans_base)
+    pp_print_subsystems sys
+    pp_print_props sys
+
+
+let pp_print_native ppf sys = 
+  List.iter (pp_print_one_native ppf) (all_systems sys)
+
+let dump_native_to sys filename =
+  let dump_oc = open_out filename in
+  let fmt = Format.formatter_of_out_channel dump_oc in
+  pp_print_native fmt sys
+
+  
+
+let dump_native sys =
+  let dirname = Flags.output_dir () in
+  create_dir dirname;
+  let filename =
+    Filename.concat
+      dirname
+      (Format.sprintf "%s.kind2" 
+         (Filename.basename (Flags.input_file ()))
+      )
+  in
+  dump_native_to sys filename
+
+  
 (* ************************************************************ *)
 (* Counterexample output in plain text                          *)
 (* ************************************************************ *)
 
+
+let print_term_or_lambda fmt = function
+  | Model.Term t -> Term.pp_print_term fmt t
+  | Model.Lambda l -> Term.pp_print_lambda fmt l
 
 (* Return width of widest identifier and widest value *)
 let rec widths_of_model max_ident_width max_val_width = function 
@@ -745,7 +800,7 @@ let rec widths_of_model max_ident_width max_val_width = function
            max
              m
              (String.length
-                (string_of_t Term.pp_print_term v)))
+                (string_of_t print_term_or_lambda v)))
         max_val_width
         values
     in
@@ -760,7 +815,7 @@ let pp_print_value_pt val_width ppf value =
     ppf
     "%-*s"
     val_width
-    (string_of_t Term.pp_print_term value)
+    (string_of_t print_term_or_lambda value)
 
 (* Pretty-print a state variable and its values *)
 let pp_print_state_var_pt state_var_width val_width ppf (state_var, values) =
@@ -775,9 +830,10 @@ let pp_print_state_var_pt state_var_width val_width ppf (state_var, values) =
        " ")
     values
 
-(* Pretty-print a model *)
+(* Pretty-print a model without the values for the Skolem variables. Because
+   they are not original state variables, their values are generally not
+   useful. *)
 let pp_print_path_pt ppf model = 
-
   let state_var_width, val_width = widths_of_model 0 0 model in
 
   Format.fprintf
@@ -792,7 +848,7 @@ let pp_print_path_pt ppf model =
 (* Counterexample output in XML                                 *)
 (* ************************************************************ *)
 
-let pp_print_path_xml ppf model = ()
+let pp_print_path_xml ppf model = () (* TODO *)
 
 (* 
    Local Variables:

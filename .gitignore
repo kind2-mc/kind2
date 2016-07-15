@@ -1,12 +1,12 @@
+# Log files.
+*.log
+
 # Generated bin directory.
 /bin
 
 # Generated build stuff.
 /src/_build
 /src/Makefile
-
-# Generated flags.ml.
-/src/flags.ml
 
 # Generated kind2.*.
 /src/kind2.native

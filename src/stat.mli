@@ -325,6 +325,77 @@ val invgengraph_ts_stop_timers : unit -> unit
 (** Pretty-print INVGENTS statistics items *)
 val pp_print_invgengraph_ts_stats : Format.formatter -> unit
 
+
+(** {2 C2I} *)
+
+(** Number of strengthening invariants found. *)
+val c2i_str_invs : int_item
+
+(** Number of zero-cost candidates found. *)
+val c2i_zero_cost : int_item
+
+(** Number of random moves made. *)
+val c2i_moves : int_item
+
+(** Time spent in moving and evaluating. *)
+val c2i_move_time : float_item
+
+(** Time spent querying solvers. *)
+val c2i_query_time : float_item
+
+(** Time spent comparing models. *)
+val c2i_model_comp_time : float_item
+
+(** Total time. *)
+val c2i_total_time : float_item
+
+(** Title for C2I statistics. *)
+val c2i_stats_title : string
+
+(** All C2I statistics. *)
+val c2i_stats : stat_item list
+
+(** Stop and record all timers. *)
+val c2i_stop_timers : unit -> unit
+
+(** Pretty-print C2I statistics items *)
+val pp_print_c2i_stats : Format.formatter -> unit
+
+(** {2 Testgen} *)
+
+(* Number of testcases generated. *)
+val testgen_testcases: int_item
+
+(* Number of deadlocks found. *)
+val testgen_deadlocks: int_item
+
+(* Number of restarts performed. *)
+val testgen_restarts: int_item
+
+(** Time spent going forward. *)
+val testgen_forward_time: float_item
+
+(** Time spent going backward. *)
+val testgen_backward_time: float_item
+
+(** Time spent enumerating. *)
+val testgen_enumerate_time: float_item
+
+(* Total runtime for testgen. *)
+val testgen_total_time: float_item
+
+(* Title for testgen statistics *)
+val testgen_stats_title: string
+
+(* All testgen statistics *)
+val testgen_stats: stat_item list
+
+(* Stop and record all times *)
+val testgen_stop_timers: unit -> unit
+
+(* Pretty-print testgen statistics items *)
+val pp_print_testgen_stats: Format.formatter -> unit
+
 (** {2 SMT} *)
 
 (** Time in check-sat calls *)
@@ -348,10 +419,35 @@ val smt_stats : stat_item list
 (** Print statistics for SMT *)
 val pp_print_smt_stats : Format.formatter -> unit 
 
+(** {2 Certificates} *)
+
+val certif_gen_time : float_item 
+val certif_min_time : float_item 
+val certif_frontend_time : float_item 
+val certif_cvc4_time : float_item 
+val certif_k : int_item 
+val certif_size : int_item 
+val certif_old_k : int_item 
+val certif_old_size : int_item 
+
+val certif_stop_timers : unit -> unit 
+
+(** Title for certificate statistics *)
+val certif_stats_title : string
+
+(** Certificate statistics *)
+val certif_stats : stat_item list
+
+(** Print statistics for certificate *)
+val pp_print_certif_stats : Format.formatter -> unit 
+
+
 (** {2 Misc.} *)
 
 (** Total time *)
 val total_time : float_item
+
+val analysis_time : float_item
 
 val clause_of_term_time : float_item
 

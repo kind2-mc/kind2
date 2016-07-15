@@ -30,12 +30,6 @@ fi
 #   AC_MSG_ERROR([OCaml 4 is required])
 # fi
 
-# Check for Camlp4
-AC_PROG_CAMLP4
-if test "x$CAMLP4" = "xno"; then
-  AC_MSG_ERROR([You must install the Camlp4 preprocessor])
-fi
-
 # Check for OCaml findlib
 AC_PROG_FINDLIB
 if test "x$OCAMLFIND" = "xno"; then
@@ -53,13 +47,13 @@ AC_CONFIG_FILES([Makefile src/Makefile])
 
 
 AC_ARG_WITH(
-    [zeromq],
-    [AS_HELP_STRING([--with-zeromq], [Configure ZeroMQ <:@default: false@:>@])],
-    [with_zeromq=yes],
-    [with_zeromq=no])
+    [zmq],
+    [AS_HELP_STRING([--with-zmq], [Configure ZeroMQ <:@default: false@:>@])],
+    [with_zmq=yes],
+    [with_zmq=no])
 
-if test "x$with_zeromq" = "xyes"; then
-   AC_CONFIG_SUBDIRS([zeromq])
+if test "x$with_zmq" = "xyes"; then
+   AC_CONFIG_SUBDIRS([libzmq])
 fi
 
 AC_ARG_WITH(

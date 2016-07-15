@@ -113,7 +113,7 @@ var
    sequence11: bool;
 
 
-let --%MAIN
+let --%MAIN;
    MWI_FcnMin_Out11 = 
       (if ((Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_StarPlanetTracker_timer + 1) < 6)
          then (Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_StarPlanetTracker_timer + 1)

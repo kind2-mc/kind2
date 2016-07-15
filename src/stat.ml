@@ -110,7 +110,8 @@ let get_int_list item = get_value item
 (* Start the timer for the statistics item *)
 let start_timer item = 
 
-  item.temp <- (Unix.gettimeofday ())
+  item.temp <- (Unix.gettimeofday ()) ;
+  item.value <- 0.
 
 (* Record the time since the call to {!start_timer} of this item, stop
    the timer *)
@@ -517,6 +518,92 @@ let pp_print_invgengraph_ts_stats ppf =
     invgengraph_ts_stats_title
     pp_print_stats invgengraph_ts_stats
 
+(* ********** C2I statistics *********** *)
+let c2i_str_invs = empty_item "Number of strengthening invariants" 0
+
+let c2i_zero_cost = empty_item "Number of zero-cost candidates" 0
+
+let c2i_moves = empty_item "Number of random moves" 0
+
+let c2i_model_comp_time = empty_item "Time spent comparing models" 0.
+
+let c2i_move_time = empty_item "Time spent moving and evaluating" 0.
+
+let c2i_query_time = empty_item "Time spent querying solvers" 0.
+
+let c2i_total_time = empty_item "Total time" 0.
+
+(* Title for C2I statistics. *)
+let c2i_stats_title = "C2I"
+
+(* All C2I statistics. *)
+let c2i_stats = [
+  I c2i_str_invs ; I c2i_zero_cost ; I c2i_moves ;
+  F c2i_move_time ; F c2i_query_time ; F c2i_model_comp_time ;
+  F c2i_total_time
+]
+
+(* Stop and record all timers. *)
+let c2i_stop_timers () = stop_all_timers c2i_stats
+
+(* Pretty-print C2I statistics item. *)
+let pp_print_c2i_stats ppf =
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    c2i_stats_title pp_print_stats c2i_stats
+
+(* ********** Testgen statistics ********** *)
+
+(* Number of testcases generated. *)
+let testgen_testcases = 
+  empty_item "testcases" 0
+
+(* Number of deadlocks found. *)
+let testgen_deadlocks = 
+  empty_item "deadlocks" 0
+
+(* Number of restarts performed. *)
+let testgen_restarts = 
+  empty_item "restarts" 0
+
+(* Time spent going forward. *)
+let testgen_forward_time = 
+  empty_item "forward" 0.
+
+(* Time spent going backward. *)
+let testgen_backward_time = 
+  empty_item "backward" 0.
+
+(* Time spent enumerating. *)
+let testgen_enumerate_time = 
+  empty_item "enumerate" 0.
+
+(* Total runtime for testgen. *)
+let testgen_total_time = 
+  empty_item "Total time" 0.
+
+(* Title for testgen statistics *)
+let testgen_stats_title = "TestGen"
+
+(* All testgen statistics *)
+let testgen_stats = 
+  [ I testgen_testcases ;
+    I testgen_deadlocks ;
+    I testgen_restarts ;
+    F testgen_forward_time ;
+    F testgen_backward_time ;
+    F testgen_enumerate_time ;
+    F testgen_total_time ]
+
+(* Stop and record all times *)
+let testgen_stop_timers () = stop_all_timers testgen_stats
+
+(* Pretty-print testgen statistics items *)
+let pp_print_testgen_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    testgen_stats_title
+    pp_print_stats testgen_stats
+
 
 (* ********** SMT statistics ********** *)
 
@@ -549,10 +636,67 @@ let pp_print_smt_stats ppf =
     pp_print_stats smt_stats
 
 
+
+(* ********** Certificate statistics ********** *)
+
+let certif_gen_time = 
+  empty_item "generation time" 0.
+
+let certif_min_time = 
+  empty_item "minimization time" 0.
+
+let certif_frontend_time = 
+  empty_item "frontend time" 0.
+
+let certif_cvc4_time = 
+  empty_item "CVC4 proof-gen time" 0.
+
+let certif_k =
+  empty_item "k" (-1)
+
+let certif_size = 
+  empty_item "size" 0
+
+let certif_old_k =
+  empty_item "Old k" (-1)
+
+let certif_old_size = 
+  empty_item "Old size" 0
+
+(* Title for Certificate statistics *)
+let certif_stats_title = "Certificate"
+
+(* All SMT statistics *)
+let certif_stats = 
+  [ F certif_gen_time;
+    F certif_min_time;
+    F certif_frontend_time;
+    I certif_k;
+    I certif_size;
+    I certif_old_k;
+    I certif_old_size;
+    F certif_cvc4_time;
+  ] 
+
+(* Stop and record all times *)
+let certif_stop_timers () = stop_all_timers certif_stats
+
+(* Pretty-print SMT statistics items *)
+let pp_print_certif_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    certif_stats_title
+    pp_print_stats certif_stats
+
+
+
 (* ********** Misc statistics ********** *)
 
 let total_time = 
   empty_item "Total time" 0.
+
+let analysis_time = 
+  empty_item "Analysis time" 0.
 
 let clause_of_term_time = 
   empty_item "clause_of_term time" 0.
@@ -567,6 +711,7 @@ let misc_stats_title = "General"
 
 let misc_stats = 
   [ F total_time;
+    F analysis_time;
     F clause_of_term_time;
     F smtexpr_of_term_time; 
     F term_of_smtexpr_time ]
@@ -588,3 +733,4 @@ let pp_print_misc_stats ppf =
    indent-tabs-mode: nil
    End: 
 *)
+  

@@ -1,17 +1,21 @@
 #!/bin/bash
+set -e
+
+# get number of processors for parallel compilation
+NBPROCS=`getconf _NPROCESSORS_ONLN`
 
 # Configure with ZeroMQ and without CZMQ first 
-./configure "$@" --with-zeromq
+./configure "$@" --with-zmq
 
 # Build ZeroMQ
-make zeromq
+make -j$NBPROCS zmq
 
 # Configure with CZMQ and without ZeroMQ (already configured)  
 ./configure "$@" --with-czmq
 
 # Build ZeroMQ
-make czmq
+make -j$NBPROCS czmq
 
 # Build ocamlczmq
-make 
+make -j$NBPROCS
 

@@ -1,1 +1,6 @@
 B _build
+B _build/**
+B ../ocamlczmq/lib
+S .
+S ./**
+S ../ocamlczmq/src

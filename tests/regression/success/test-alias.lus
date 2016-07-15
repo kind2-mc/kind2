@@ -11,7 +11,7 @@ var
 	a : sub;
 	b : real;
 let
-	 --%MAIN 	 
+	 --%MAIN ;
 	 (a,b) = test (in);										
 OK = a <=3;
 tel

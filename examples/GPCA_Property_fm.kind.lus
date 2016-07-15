@@ -4246,7 +4246,7 @@ var
    all_asserts_ok: bool;
 
 
-let --%MAIN
+let --%MAIN;
    GPCA_State_Machine_StateChanger_main_rlt_state_in_rlt_chart_data_vars_GPCA_State_Machine_StateChanger_tempx = (0 -> ( pre GPCA_State_Machine_StateChanger_main_simp_rlt_node_state2344_rlt_chart_data_vars_GPCA_State_Machine_StateChanger_tempx));
 
    GPCA_State_Machine_StateChanger_main_rlt_state_in_rlt_chart_data_states_GPCA_State_Machine_StateChanger_InfusionStateMachine_InfusionInSession_InfusionSubMachine = (0 -> ( pre GPCA_State_Machine_StateChanger_main_simp_rlt_node_state2344_rlt_chart_data_states_GPCA_State_Machine_StateChanger_InfusionStateMachine_InfusionInSession_InfusionSubMachine));

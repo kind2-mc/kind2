@@ -1,0 +1,51 @@
+function sincos(in: real) returns (sin: real; cos: real);
+
+-- Third input is not used to compute output 
+node Xi (in1, in2, in3: int) returns (out: int);
+let
+  out = in1 + in2;
+tel;
+
+-- Implementation is empty 
+node Xc (in1, in2, in3: int) returns (out: int);
+--@ensure out = in1 + in2;
+let tel;
+
+node Y() returns (OK: int);
+var
+  a, b, c,  d: int;
+  s1, s2, s3: int;
+  
+  x1, x2, y1, y2: real; 
+  A, B: int^3;
+
+
+let
+
+  s1 = s2;
+  s2 = s3;
+  -- s3 = s1;
+  
+  d = Xi(a, b, c);
+  -- a = d;
+  
+  -- b = Xi(a, c, b);
+  a = b;
+
+  -- This is a potential cycle, because we don't know the implementation
+  -- c = Xc(a, b, c);
+
+  -- c = a -> pre c;
+
+  -- a = b -> c;
+
+  -- This is a cycle 
+  x1, x2 = sincos(y1);
+  y1, y2 = sincos(x1);
+
+  -- This is a cycle, variable A is defined in more than one equation
+  A = [B[0], B[1], B[2]];
+  B[k] = A[k];
+
+  --%PROPERTY a + b + c + d + s1 + s2 + s3 + A[0] + B[0] > 0 + (int x1) + (int y1);
+tel;

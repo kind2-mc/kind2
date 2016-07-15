@@ -37,7 +37,7 @@ contract_dir="${test_dir}/contracts"
 shift
 k2_args="$@"
 
-basic_k2_cmd="$k2_args"
+basic_k2_cmd="$k2_args --color false"
 contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
 
 success_code="20"
@@ -118,7 +118,7 @@ function run_one {
 
 # Constructs the find command from a directory and a subdirectory.
 function find_tests {
-  echo "find ${1}/${2} -iname *.lus"
+  echo "find ${1}/${2} -iname '*.lus'"
 }
 
 # Runs the tests in some directory, takes the working directory and the Kind 2
@@ -129,22 +129,26 @@ function run_in {
   kind2_cmd="$@"
 
   # Success
-  find_cmd=`find_tests $work_dir $success_dir`
-  file_count=`$find_cmd | wc -l | tr -d ' '`
+  find_cmd=`find_tests "$work_dir" "$success_dir"`
+  file_count=`eval $find_cmd | wc -l | tr -d ' '`
   echo "| Running \"success\" ($file_count files)"
-  for file in `$find_cmd`; do
+  for file in `eval $find_cmd`; do
     run_one "$file" "$success_code" "$kind2_cmd"
   done
 
   # Falsifiable
-  echo "| Running \"falsifiable\""
-  for file in `find ${work_dir}/$falsifiable_dir -iname *.lus`; do
+  find_cmd=`find_tests $work_dir $falsifiable_dir`
+  file_count=`eval $find_cmd | wc -l | tr -d ' '`
+  echo "| Running \"falsifiable\" ($file_count files)"
+  for file in `eval $find_cmd`; do
     run_one "$file" "$falsifiable_code" "$kind2_cmd"
   done
 
   # Error
-  echo "| Running \"error\""
-  for file in `find ${work_dir}/$error_dir -iname *.lus`; do
+  find_cmd=`find_tests $work_dir $error_dir`
+  file_count=`eval $find_cmd | wc -l | tr -d ' '`
+  echo "| Running \"error\" ($file_count files)"
+  for file in `eval $find_cmd`; do
     run_one "$file" "$error_code" "$kind2_cmd"
   done
 }

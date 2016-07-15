@@ -41,8 +41,7 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 ## Requirements
 
 - Linux or Mac OS X,
-- OCaml 4.02 or later,
-- Camlp4 
+- OCaml 4.03 or later,
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
     - [CVC4](http://cvc4.cs.nyu.edu),
@@ -78,7 +77,7 @@ You can run tests to see if Kind 2 has been built correctly. To do so run
 
 You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 
-    make ARGS="--enable PDR" test
+    make ARGS="--enable IC3" test
 
 
 ## Documentation
@@ -90,4 +89,3 @@ To generate the documentation, you need
 
 * a GNU version of `sed` (`gsed` on OSX), and
 * [Pandoc](http://pandoc.org/).
-

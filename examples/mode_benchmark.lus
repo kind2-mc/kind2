@@ -59,7 +59,7 @@ var
   -- all_asserts_ok: bool;
   -- added_invariant_1, added_invariant_2, added_invariants: bool;
 
-let --%MAIN
+let --%MAIN;
    mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic = (0 -> ( pre mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic));
 
    mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic_RUNNING = (0 -> ( pre mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic_RUNNING));

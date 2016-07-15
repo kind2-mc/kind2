@@ -1,130 +1,280 @@
-<!-- This is the xml schema for the kind counterexample output !-->
-<!-- Author : Mingyu Ma !-->
-<!-- Note that the expected xsd processor is xsd 1.1 , otherwise xs:alternative won't be recognized!-->
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-<?xml version="1.1" encoding="utf-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
-    xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" vc:minVersion="1.1">
-  
-  <xs:element name="path">
+
+  <!-- |===| Simple types. -->
+
+  <!-- Log class. Among "info", "warn" and "fatal" -->
+  <xs:simpleType name="logClass">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="info"/>
+      <xs:enumeration value="warn"/>
+      <xs:enumeration value="fatal"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Kind 2 module. Not restricted for now. -->
+  <xs:simpleType name="k2Module">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+
+  <!-- Time unit. Can only be "sec" for now. -->
+  <xs:simpleType name="timeUnit">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="sec"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Positive integer for k and instants. -->
+  <xs:simpleType name="posInt">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Stream type. Among "bool", "int" and "real". -->
+  <xs:simpleType name="streamType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="bool"/>
+      <xs:enumeration value="int"/>
+      <xs:enumeration value="real"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Stream class. Among "input", "output" and "local". -->
+  <xs:simpleType name="streamClass">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="input"/>
+      <xs:enumeration value="output"/>
+      <xs:enumeration value="local"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Property status. Among "valid" and "falsifiable". -->
+  <xs:simpleType name="propStatus">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="valid"/>
+      <xs:enumeration value="falsifiable"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+
+
+  <!-- |===| Elements. -->
+
+
+  <!-- Log. -->
+  <xs:element name="Log">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:string">
+          <xs:attribute name="class" type="logClass" use="required"/>
+          <xs:attribute name="source" type="xs:string" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+
+  <!-- Runtime. -->
+  <xs:element name="Runtime">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:decimal">
+          <xs:attribute name="unit" type="timeUnit" use="required"/>
+          <xs:attribute name="timeout" type="xs:boolean" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Answer. -->
+  <xs:element name="Answer">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="propStatus">
+          <xs:attribute name="source" type="k2Module" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="boolValued">
+    <xs:sequence>
+      <xs:element name="Value" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:boolean">
+              <xs:attribute name="instant" type="posInt"/>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="xs:string" fixed="bool" use="required"/>
+    <xs:attribute name="class" type="streamClass" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="intValued">
+    <xs:sequence>
+      <xs:element name="Value" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:integer">
+              <xs:attribute name="instant" type="posInt"/>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="xs:string" fixed="int" use="required"/>
+    <xs:attribute name="class" type="streamClass" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="realValued">
+    <xs:sequence>
+      <xs:element name="Value" minOccurs="1" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:string">
+              <xs:attribute name="instant" type="posInt"/>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="xs:string" fixed="real" use="required"/>
+    <xs:attribute name="class" type="streamClass" use="required"/>
+  </xs:complexType>
+
+  <!-- All of the above is useless, we can't type the values of a trace. -->
+  <xs:simpleType name="genericValue">
+    <xs:restriction base="xs:string">
+      <!-- Bool. -->
+      <xs:pattern value="false|true"/>
+      <!-- Integer. -->
+      <xs:pattern value="0|[1-9]([0-9])*"/>
+      <!-- Real. -->
+      <xs:pattern value="(0|[1-9]([0-9])*)\.(0|([0-9])*[1-9])"/>
+      <xs:pattern value="(0|[1-9]([0-9])*)/(0|[1-9]([0-9])*)"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Value as output in cex's. -->
+  <xs:element name="Value">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="genericValue">
+          <xs:attribute name="instant" type="posInt" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Stream as output in cex's. -->
+  <xs:element name="Stream">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="node" type="node" minOccurs="1" maxOccurs="1"/>
+        <xs:element ref="Value" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+      <xs:attribute name="type" type="streamType" use="required"/>
+      <xs:attribute name="class" type="streamClass" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Active mode as output in cex's. -->
+  <xs:element name="Mode">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="Value" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Contract-scoped active modes as output in cex's. -->
+  <xs:element name="Contract">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Mode" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="Contract" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Active modes as output in cex's. -->
+  <xs:element name="ActiveMode">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Modes" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="Contract" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="instant" type="posInt" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+
+  <!-- Node, as output in a cex. -->
+  <xs:element name="Node">
+    <xs:complexType>
+      <xs:sequence>
+        <!-- Typed version.
+             Does not work, cannot use same name with different types. -->
+        <!-- <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="Stream" type="boolValued"/>
+          <xs:element name="Stream" type="intValued"/>
+          <xs:element name="Stream" type="realValued"/>
+        </xs:choice> -->
+        <xs:element ref="ActiveModes" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="Stream" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="Node" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+      <xs:attribute name="line" type="posInt"/>
+      <xs:attribute name="column" type="posInt"/>
+    </xs:complexType>
+  </xs:element>
+
+
+  <!-- Counter example. -->
+  <xs:element name="Counterexample">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="Node" minOccurs="1" maxOccurs="unbounded"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>
-  
-  
-    
-  <xs:complexType name="node">
-    <xs:sequence>
-      <xs:element name="stream" type ="streamBase" minOccurs="1" maxOccurs="unbounded">
-        <xs:alternative test="@type='bool'" type="streamBool"/>
-        <xs:alternative test="@type='int'" type="streamInt"/>
-        <xs:alternative test="@type='real'" type="streamReal"/>
-      </xs:element>
-      <xs:element name="node" type="node" minOccurs="0" maxOccurs="unbounded"/>
-    </xs:sequence>
-    <xs:attribute name="name" type="xs:string" use="required"/>
-    <xs:attribute name="file" type="xs:string" use="optional"/>
-    <xs:attribute name="line" type="xs:integer" use="optional"/>
-    <xs:attribute name="column" type="xs:integer" use="optional"/>
-    
-  </xs:complexType>
-  
-  <xs:complexType name="streamBase">
-    <xs:attribute name="name" type="xs:string" use ="required"/>
-    <xs:attribute name="type" use ="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:enumeration value="bool"/>
-          <xs:enumeration value="int"/>
-          <xs:enumeration value="real"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-    <xs:attribute name="class" use ="optional">
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:enumeration value="input"/>
-          <xs:enumeration value="output"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute> 
-  </xs:complexType>
-  
-  
-  <xs:complexType name="streamBool">
-    <xs:complexContent>
-      <xs:extension base="streamBase">
-        <xs:sequence>
-          <xs:element name="value" type="valueBool" minOccurs="1" maxOccurs="unbounded"/>
-        </xs:sequence>    
-      </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-  
-  
-  <xs:complexType name="streamInt">
-    <xs:complexContent>
-      <xs:extension base="streamBase">
-        <xs:sequence>
-          <xs:element name="value" type="valueInt" minOccurs="1" maxOccurs="unbounded"/>
-        </xs:sequence>    
-      </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-  
-  
-  <xs:complexType name="streamReal">
-    <xs:complexContent>
-      <xs:extension base="streamBase">
-        <xs:sequence>
-          <xs:element name="value" type="valueReal" minOccurs="1" maxOccurs="unbounded"/>
-        </xs:sequence>    
-      </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-  
-  
-  <xs:simpleType name="real">
-    <xs:restriction base="xs:float">
-      <xs:pattern value="[0-9]+[.][0-9]+"/>
-      <xs:pattern value="[\-+]?[0-9]+[eE][0-9]+"/>
-    </xs:restriction>       
-  </xs:simpleType>
-  
-  
-  <xs:simpleType name="nondigitbool">
-    <xs:restriction base="xs:boolean">
-      <xs:pattern value="false"/>
-      <xs:pattern value="true"/>
-    </xs:restriction>       
-  </xs:simpleType>
-  
-  
-  <xs:complexType name ="valueBool">
-    <xs:simpleContent>
-      <xs:extension base="nondigitbool">
-        <xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
-      </xs:extension>
-    </xs:simpleContent>
-  </xs:complexType>
-  
-  <xs:complexType name ="valueInt">
-    <xs:simpleContent>
-      <xs:extension base="xs:nonNegativeInteger">
-        <xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
-      </xs:extension>
-    </xs:simpleContent>
-  </xs:complexType>
-  
-  <xs:complexType name ="valueReal">
-    <xs:simpleContent>
-      <xs:extension base="real">
-        <xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
-      </xs:extension>
-    </xs:simpleContent>
-  </xs:complexType>
-  
+
+
+  <!-- Property status. -->
+  <xs:element name="Property">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="Runtime" minOccurs="1" maxOccurs="1"/>
+        <xs:element name="K" type="posInt" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="Answer" minOccurs="1" maxOccurs="1"/>
+        <xs:element ref="Counterexample" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+
+
+  <!-- |===| Root. -->
+  <xs:element name="Results">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="Log" minOccurs="1" maxOccurs="unbounded"/>
+        <xs:element ref="Property" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+
+
 </xs:schema>

@@ -59,11 +59,12 @@ let rec assert_trans solver t i =
     
 
 (* Main entry point *)
-let main input_file trans_sys =
+let main input_file input_sys aparam trans_sys =
 
   Event.set_module `Interpreter;
 
-  let input_scope = TransSys.get_scope trans_sys in
+  let input_scope = TransSys.scope_of_trans_sys trans_sys @
+                    LustreIdent.user_scope in
 
   if input_file = "" then 
 
@@ -79,6 +80,8 @@ let main input_file trans_sys =
 
     (* Output execution path *)
     Event.execution_path
+      input_sys
+      aparam
       trans_sys 
       v
 
@@ -101,6 +104,14 @@ let main input_file trans_sys =
 
         raise (Failure "main")
 
+    in
+
+    let trans_svars = TransSys.state_vars trans_sys in
+
+    (* Remove sliced inputs *)
+    let inputs = List.filter (fun (sv, _) ->
+        List.exists (StateVar.equal_state_vars sv) trans_svars
+      ) inputs
     in
 
     (* Minimum number of steps in input *)
@@ -130,7 +141,7 @@ let main input_file trans_sys =
     (* Number of steps to simulate *)
     let steps = 
 
-      match Flags.interpreter_steps () with 
+      match Flags.Interpreter.steps () with 
 
         (* Simulate length of smallest input if number of steps not given *)
         | s when s <= 0 -> input_length
@@ -162,17 +173,19 @@ let main input_file trans_sys =
 
     (* Create solver instance *)
     let solver = 
-      SMTSolver.create_instance ~produce_assignments:true logic (Flags.smtsolver ())
+      Flags.Smt.solver ()
+      |> SMTSolver.create_instance ~produce_assignments:true logic
     in
 
     (* Create a reference for the solver. Only used in on_exit. *)
     ref_solver := Some solver;
     
     (* Defining uf's and declaring variables. *)
-    TransSys.init_define_fun_declare_vars_of_bounds
+    TransSys.define_and_declare_of_bounds
       trans_sys
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
+      (SMTSolver.declare_sort solver)
       Numeral.(~- one) Numeral.(of_int steps) ;
 
     (* Assert initial state constraint *)
@@ -185,7 +198,7 @@ let main input_file trans_sys =
        instant *)
     List.iter
 
-      (fun (state_var, values) -> 
+      (fun (state_var, values) ->
 
          List.iteri 
            (fun instant instant_value ->
@@ -234,6 +247,8 @@ let main input_file trans_sys =
 
         (* Output execution path *)
         Event.execution_path
+          input_sys
+          aparam
           trans_sys 
           (Model.path_to_list path)
 

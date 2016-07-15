@@ -1,6 +1,6 @@
 # These lines are required
 AC_PREREQ(2.59)
-AC_INIT([kind2], [v0.8.0], [christoph-sticksel@uiowa.edu])
+AC_INIT([kind2], [v1.0.0], [christoph-sticksel@uiowa.edu])
 
 # This just checks if some source file is present
 AC_CONFIG_SRCDIR([src/kind2.ml])
@@ -15,15 +15,9 @@ if test "x$OCAMLOPT" = "xno"; then
   AC_MSG_ERROR([You must install the OCaml native-code compiler])
 fi
 
-# Check for OCaml 4.02 
-if expr "$OCAMLVERSION" '<' '4.02' > /dev/null ; then
-  AC_MSG_ERROR([OCaml version 4.02 or later required])
-fi
-
-# Check for Camlp4
-AC_PROG_CAMLP4
-if test "x$CAMLP4" = "xno"; then
-  AC_MSG_ERROR([You must install the Camlp4 preprocessor])
+# Check for OCaml 4.03 
+if expr "$OCAMLVERSION" '<' '4.03' > /dev/null ; then
+  AC_MSG_ERROR([OCaml version 4.03 or later required])
 fi
 
 # Check for OCaml findlib
@@ -67,27 +61,27 @@ fi
 
 AC_SUBST(bin_suffix)
 
-# ######################################################################
-# Debug builds            
-# ######################################################################
+dnl ######################################################################
+dnl Debug builds            
+dnl ######################################################################
 
-AC_ARG_ENABLE(
-    [debug],
-    AS_HELP_STRING([--enable-debug@<:@=TAGS@:>@], [Enable debug output, optionally give tags to enable @<:@default: no, --enable-debug enables all tags@:>@]),
-    [],
-    [enable_debug=no])
+dnl AC_ARG_ENABLE(
+dnl     [debug],
+dnl     AS_HELP_STRING([--enable-debug@<:@=TAGS@:>@], [Enable debug output, optionally give tags to enable @<:@default: no, --enable-debug enables all tags@:>@]),
+dnl     [],
+dnl     [enable_debug=no])
 
-if test "x$enable_debug" = "xyes"; then
-   static_camlp4_debug='*'
+dnl if test "x$enable_debug" = "xyes"; then
+dnl    static_camlp4_debug='*'
 
-elif test "x$enable_debug" = "xno"; then
-   static_camlp4_debug=''
+dnl elif test "x$enable_debug" = "xno"; then
+dnl    static_camlp4_debug=''
      
-else
-   static_camlp4_debug=$enable_debug
-fi
+dnl else
+dnl    static_camlp4_debug=$enable_debug
+dnl fi
 
-AC_SUBST(static_camlp4_debug)
+dnl AC_SUBST(static_camlp4_debug)
 
 dnl # ######################################################################
 dnl # Check for SMT solvers 
@@ -371,7 +365,7 @@ AC_SUBST(IZ3_BIN)
 AC_CONFIG_SUBDIRS([ocamlczmq])
 
 # Configuration files
-AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/kind2Config.ml src/flags.ml server/Makefile server/myocamlbuild.ml])
+AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/kind2Config.ml server/Makefile server/myocamlbuild.ml])
 
 # Write configuration files
 AC_OUTPUT

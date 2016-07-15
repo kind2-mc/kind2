@@ -1,0 +1,30 @@
+node count (in: bool) returns (cpt: int) ;
+let
+  cpt = (if in then 1 else 0) + (0 -> pre cpt) ;
+tel
+
+node sub (in: bool) returns (cpt: int) ;
+(*@contract
+  @assume true -> in = not pre in ;
+  @mode begin (
+    @require count(true) <= 10 ;
+    @ensure  cpt >= 0 ;
+  ) ;
+  @mode and_then (
+    @require not begin ;
+    @ensure  true ;
+  ) ;
+*)
+let
+  cpt = count(in) ;
+tel
+
+node top (in: bool) returns (cpt: int) ;
+(*@contract
+  @assume true -> in = not pre in ;
+  @guarantee cpt >= 0 ;
+  @guarantee (count(true) > 15) => false ;
+*)
+let
+  cpt = sub(in) ;
+tel

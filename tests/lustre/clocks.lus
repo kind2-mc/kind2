@@ -1,5 +1,5 @@
-node X() returns (x: int);
-var c : bool;
+node X() returns (x: bool);
+var c : int;
 let
   c = 0 -> (if pre c = 3 then 0 else pre c + 1);
   x = c = 3;
@@ -11,6 +11,7 @@ let
 tel
 
 node A (clk: bool) returns (b: bool);
+var clk2: bool;
 let
 
   clk2 = X() when clk;

@@ -18,6 +18,15 @@
 
 open Lib
 
+let division_by_zero = ref false
+
+(** Returns true iff a division by zero happened in a simplification since
+    this function was last called. *)
+let has_division_by_zero_happened () =
+  let res = !division_by_zero in
+  division_by_zero := false ;
+  res
+
 (* ********************************************************************** *)
 (* Basic types                                                            *)
 (* ********************************************************************** *)
@@ -1120,12 +1129,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               List.assq uf_symbol uf_defs 
             in
             
-             debug simplify
+             Debug.simplify
                "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
                UfSymbol.pp_print_uf_symbol uf_symbol
                (pp_print_list Var.pp_print_var "@ ") vars
-               Term.pp_print_term uf_def
-             in
+               Term.pp_print_term uf_def;
 
             (* Replace function by its definition *)
             let term' = 
@@ -1166,12 +1174,11 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               List.assq uf_symbol uf_defs 
             in
             
-            debug simplify
-                "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
-                UfSymbol.pp_print_uf_symbol uf_symbol
-                (pp_print_list Var.pp_print_var "@ ") vars
-                Term.pp_print_term uf_def
-            in
+            Debug.simplify
+              "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
+              UfSymbol.pp_print_uf_symbol uf_symbol
+              (pp_print_list Var.pp_print_var "@ ") vars
+              Term.pp_print_term uf_def;
 
             (* Replace function by its definition *)
             let term' = 
@@ -1184,10 +1191,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                 uf_def
             in
 
-            debug simplify
-                "@[<v>Simplify@ %a@]"
-                Term.pp_print_term term'
-            in
+            Debug.simplify
+              "@[<v>Simplify@ %a@]" Term.pp_print_term term';
 
             (Term.eval_t
                (simplify_term_node default_of_var uf_defs model) 
@@ -1258,11 +1263,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                           (List.rev i')
                       in
                       
-                      debug simplify
+                      Debug.simplify
                         "Simplified %a to %a"
                         Term.pp_print_term (Term.construct fterm) 
-                        Term.pp_print_term t'
-                      in
+                        Term.pp_print_term t';
 
                       (* Return term *)
                       atom_of_term t'
@@ -1310,11 +1314,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               (* Binary conjunction or higher arity *)
               | _ -> 
 
-                debug simplify
-                    "@[<hv>`AND with arguments@ %a@]"
-                    (pp_print_list Term.pp_print_term "@ ")
-                    (List.map term_of_nf args)
-                in
+                Debug.simplify
+                  "@[<hv>`AND with arguments@ %a@]"
+                  (pp_print_list Term.pp_print_term "@ ")
+                  (List.map term_of_nf args);
 
                 (* Lift arguments of subterms *)
                 let args' = flatten_bool_subterms Symbol.s_and args in
@@ -1746,12 +1749,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   Dec 
                     ((List.fold_left 
                         (fun a e -> 
-                           if 
-                             Decimal.(e = zero) 
-                           then
-                             raise (Failure "simplify_term: division by zero")
-                           else 
-                             Decimal.(a / e))
+                           if Decimal.(e = zero) then
+                             (* raise (Failure "simplify_term: division by zero") *)
+                             division_by_zero := true ;
+                           Decimal.(a / e))
                         h 
                         tl), 
                      [])
@@ -1924,13 +1925,20 @@ let type_default_of_var v = Var.type_of_var v |> TermLib.default_of_type
 (* Simplify a term with a model *)
 let simplify_term_model ?default_of_var uf_defs model term = 
 
-  debug simplify 
+  Debug.simplify
     "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
     Term.pp_print_term term
     Model.pp_print_model
-    model
-  in
+    model;
 
+  Var.VarHashtbl.iter (fun v -> function
+      | Model.Term t when Term.is_free_var t ->
+        let v' = Term.free_var_of_term t in
+        if Var.equal_vars v v' then
+          Var.VarHashtbl.remove model v
+      | _ -> ()
+    ) model;
+  
   (* Convert returned default value to a polynomial *)
   let default_of_var' = match default_of_var with
 
@@ -1938,7 +1946,8 @@ let simplify_term_model ?default_of_var uf_defs model term =
     | Some f -> fun v -> f v
 
     (* Take default value for type if no function given *)
-    | None -> fun v -> type_default_of_var v
+    | None -> fun v ->
+        type_default_of_var v
 
   in
 
@@ -1950,11 +1959,10 @@ let simplify_term_model ?default_of_var uf_defs model term =
          term)
   in
 
-  debug simplify 
-    "Simplified@ @[<hv>%a@]@ to@ @[<hv>%a@]"
+  Debug.simplify
+    "Simplified@ > @[<hv>%a@]@ to@ > @[<hv>%a@]"
     Term.pp_print_term term
-    Term.pp_print_term res 
-  in
+    Term.pp_print_term res;
 
   res
 

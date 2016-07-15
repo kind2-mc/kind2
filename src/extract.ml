@@ -122,7 +122,7 @@ let choose_term (bool_terms, int_terms) =
     | h :: tl as terms -> 
 
       (* Heuristic to choose terms *)
-      match Flags.ic3_extract () with 
+      match Flags.IC3.extract () with 
 
         (* Always pick the first term *)
         | `First -> List.hd terms 
@@ -131,10 +131,9 @@ let choose_term (bool_terms, int_terms) =
         | `Vars -> 
 
           (
-           debug extract
+           Debug.extract
               "choose_term candidates:@ @[<hv 1>[%a]@]"
-              (pp_print_list Term.pp_print_term ";@ ") terms
-           in
+              (pp_print_list Term.pp_print_term ";@ ") terms;
 
           (* Collect variables in accumulator in a set *)
           let vars_accum = 
@@ -155,11 +154,10 @@ let choose_term (bool_terms, int_terms) =
                    (var_set_of_list (vars_of_term term)))
             in
 
-            debug extract
+            Debug.extract
                 "Number of variables with@ %a@ is %d"
                 Term.pp_print_term term
-                res
-            in
+                res;
 
             res
 
@@ -176,10 +174,9 @@ let choose_term (bool_terms, int_terms) =
 
           (
 
-           debug extract
+           Debug.extract
               "choose_term picked@ %a"
-              Term.pp_print_term term
-           in
+              Term.pp_print_term term;
 
            term))
 
@@ -189,11 +186,10 @@ let extract uf_defs env term =
   let eval_term t = 
     let res = Eval.eval_term uf_defs env t in
 
-    debug extract 
+    Debug.extract 
         "@[<v>%a@ evaluates to@ @[<hv>%a@]@]" 
         Term.pp_print_term t
-        Term.pp_print_term (Eval.term_of_value res)
-    in
+        Term.pp_print_term (Eval.term_of_value res);
 
     res
 
@@ -257,11 +253,10 @@ let extract uf_defs env term =
 
           (
 
-           debug extract 
+           Debug.extract 
               "@[<hv 1>%a@]@ to be@ %B" 
               Term.pp_print_term (Term.mk_const s)
-              polarity
-           in
+              polarity;
 
            (* Fail on an unsatisfiable formula *)
            raise (Invalid_argument "Extract on unsatisfiable formula"))
@@ -272,11 +267,10 @@ let extract uf_defs env term =
 
           (
 
-           debug extract 
+           Debug.extract 
               "@[<hv 1>%a@]@ to be@ %B" 
               Term.pp_print_term (Term.mk_const s)
-              polarity
-           in
+              polarity;
 
            (* Fail on an unsatisfiable formula *)
            raise (Invalid_argument "Extract on unsatisfiable formula"))
@@ -365,11 +359,10 @@ let extract uf_defs env term =
 
                     (
 
-                     debug extract 
+                     Debug.extract 
                         "@[<hv 1>%a@]@ to be@ %B" 
                         Term.pp_print_term (Term.T.construct term)
-                        polarity
-                     in
+                        polarity;
 
                      (* Fail on an unsatisfiable formula *)
                      raise 
@@ -449,11 +442,10 @@ let extract uf_defs env term =
 
                 (
 
-                  debug extract 
+                  Debug.extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
-                    polarity
-                 in
+                    polarity;
 
                  (* Fail on an unsatisfiable formula *)
                  raise 
@@ -491,11 +483,10 @@ let extract uf_defs env term =
 
                 (
 
-                 debug extract 
+                 Debug.extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
-                    polarity
-                 in
+                    polarity;
 
                  (* Fail on an unsatisfiable formula *)
                  raise 
@@ -580,12 +571,11 @@ let extract uf_defs env term =
 
           (
 
-           debug extract 
+           Debug.extract 
               "@[<hv 1>%a@]@ %a to be@ %B" 
               Term.pp_print_term (Term.T.construct term)
               Type.pp_print_type (Term.type_of_term (Term.T.construct term))
-              polarity
-           in
+              polarity;
 
            match l with
 
@@ -752,12 +742,11 @@ let extract uf_defs env term =
                List.assq uf_symbol uf_defs 
              in
 
-             debug extract1
+             Debug.extract
                  "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
                  UfSymbol.pp_print_uf_symbol uf_symbol
                  (pp_print_list Var.pp_print_var "@ ") vars
-                 Term.pp_print_term uf_def
-             in
+                 Term.pp_print_term uf_def;
 
              let term' = 
                Term.mk_let 
@@ -769,12 +758,11 @@ let extract uf_defs env term =
                  uf_def
              in
 
-             debug extract
+             Debug.extract
                  "@[<v>Substituted definition for %a in@,%a@,yields@,%a@]" 
                  UfSymbol.pp_print_uf_symbol uf_symbol
                  Term.pp_print_term (Term.construct term)
-                 Term.pp_print_term term'
-             in
+                 Term.pp_print_term term';
 
              (accum, [term', env, polarity])
 
@@ -850,12 +838,11 @@ let extract uf_defs env term =
 
                   with Invalid_argument s -> 
 
-                    debug extract2
+                    Debug.extract
                         "%s for@ %a@ evaluating@ %a"
                         s
                         Term.pp_print_term p
-                        Term.pp_print_term (Term.construct fterm)
-                    in
+                        Term.pp_print_term (Term.construct fterm);
 
                     assert false
 
@@ -899,21 +886,19 @@ let extract uf_defs env term =
 
        with Invalid_argument s -> 
 
-         debug extract2
+         Debug.extract
              "%s for@ %a"
              s
-             Term.pp_print_term (Term.T.construct term)
-         in
+             Term.pp_print_term (Term.T.construct term);
 
          assert false)
 
 
     in
 
-    debug extract
+    Debug.extract
         "@[<hv>extract_term_atom_node: term' = @ %a@]" 
-        Term.pp_print_term term'
-    in
+        Term.pp_print_term term';
 
     let term'' = term' in
 

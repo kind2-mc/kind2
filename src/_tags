@@ -1,44 +1,34 @@
-# Build native code debug parser
-<Camlp4DebugParser.ml>: pp(camlp4rf),use_camlp4,use_dynlink
-
-# Use native code version of camlp4 and native code debug parser
-# (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
-<*.ml{,i}>: pp(camlp4o.opt -parser Camlp4DebugParser.cmxs)
-
 # Do not traverse all directories by default - excludes .svn, .git etc.
 # Must list all subdirectories explicitly
 # (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
-true: -traverse
-# <{kind1}/**>: traverse
+true: -traverse, annot, bin_annot, color(always)
 
-# Pack all modules into Kind1 to avoid cluttering the namespace
-<kind1/*.cmx>: for-pack(Kind1)
-
-# Compile everything with debug symbols and .annot file for type information
-<*.ml>: debug,annot,bin_annot
-<kind1/*.ml>: debug,annot
+# Sub-directory decomposition input
+<utils>: include
+<smt>: include
+<terms>: include
+<lustre>: include
+<qe>: include
+<testgen>: include
+<induction>: include
+<ic3>: include
+<invgen>: include
+<c2i>: include
+<certif>: include
+<doc>: include
 
 # Use Unix, Str, ZMQ and Thread modules  
-<*.native>: use_nums,use_unix,use_str,use_ZMQ,thread
-<*.byte>: use_nums,use_unix,use_str,use_ZMQ,thread
-<*.top>: debug,use_nums,use_unix,use_str,thread
+<**/*.native>: use_nums,use_unix,use_str,use_ZMQ,thread
+<**/*.byte>: use_nums,use_unix,use_str,use_ZMQ,thread
+<**/*.top>: debug,use_nums,use_unix,use_str,thread
 
 # Source files that use the Thread and ZMQ modules
 <messaging.ml>: thread,use_ZMQ
 <messaging.mli>: thread
-<lib.ml>: thread
+<utils/lib.ml>: thread
 
 # Use menhir instead of ocamlyacc
 true: use_menhir
 
-# Obsolete 
-
-# <invarManager.ml>: thread
-# <kind2.ml>: thread
-# <threadtest.ml>: thread
-# <zmq_io_bug.ml>: thread,use_ZMQ
-# <dummy.ml>: thread
-# <SExpr>: include
-# <SExpr/*.cmx>: for-pack(SExpr)
-# <SExpr/*.p.cmx>: for-pack(SExpr)
-
+# Use custom intro page if building documentation
+<kind2.docdir/index.html>: with_intro(doc/doc_intro.txt)

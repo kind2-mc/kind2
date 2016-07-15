@@ -1,0 +1,110 @@
+
+-- Declare alias type 
+type x = int;
+
+-- Must fail: redeclare type
+-- type x = real;
+
+-- Declare alias type of alias type
+type y = x;
+
+-- Not supported: free type
+-- type z;
+
+-- Alias definition of record type
+type t = { one: x; two: real };
+
+-- Alias definition of tuple type
+type u = [t, bool, subrange [-1, 1] of int ];
+
+-- Alias definition of array type
+type v = t^3;
+
+-- Alias definition of matrix type
+type w = t^3^5;
+
+-- Not supported: alias definition of enumerated type 
+-- type p = enum { start, loop, end }; 
+
+
+-- Untyped constant declaration
+const x = 1;
+
+-- Typed constant declaration
+const y: int = 2;
+
+-- Not supported free constants
+-- const z;
+
+-- Record constant 
+const t: t = t { two = 2.0; one = x };
+
+-- Must fail: record field with wrong type
+-- const t1: t = t { two = false; one = x };
+
+-- Must fail: field not in record
+-- const t2: t = t { two = 2.0; one = x; three = false };
+
+-- Must fail: record field not defined
+-- const t3: t = t { one = x; };
+
+-- Tuple constants
+const u: u = [ t, false, 0 ];
+
+-- Must fail: tuple field with wrong type
+-- const u1: u = [ t, 0, false ];
+
+-- Must fail: too many elements for tuple 
+const u2: u = [ t, false, 0, 2.0 ];
+
+-- Must fail: not enough elements for tuple
+-- const u3: u = [ t ];
+
+const u4: u = [ t + t, false, 0];
+
+-- Array constants
+const v: v = [ t, t, t ];
+
+-- Must fail: array field with wrong type
+-- const v1: v = [ t, 1, t ];
+
+-- Must fail: too many elements for array 
+const v2: v = [ t, t, t, t ];
+
+-- Must fail: not enough elements for array
+-- const v3: v = [ t ];
+
+const w = [v, v, v, v, v];
+
+-- Not supported: enumerated types
+-- const p = start;
+
+node Y(yy: t) returns (yu: u);
+let 
+  yu = u;
+tel;
+
+
+
+node X(xt: t) returns (xu: u; xv: v);
+let 
+
+  -- Must fail: forward reference to a node
+  xu = Y(xt);
+
+  -- Must fail: reference to a nonexistent node
+  -- xv = Z(xt);
+tel
+
+node W(wu0: u; wv0: v) returns (wu: u; wv: v);
+let
+  wu = wu0;
+  wv = wv0;
+tel
+
+node Z() returns (zu: u; zv: v);
+var uv: [u, v];
+let
+  zu, zv = X(t);
+  uv = W(W(X(t)));
+tel

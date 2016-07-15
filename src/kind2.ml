@@ -28,88 +28,118 @@ end
 *)
 
 module BMC = Base
-module InvGenTS = InvGenGraph.TwoState
-module InvGenOS = InvGenGraph.OneState
+module IND = Step
+module IND2 = Step2
+module TestGen = TestgenDF
+module C2I = C2I
+module C2Icnf = C2Icnf
 
-(* module IC3 = Dummy *)
+
+(* Hide existential type parameter of to construct values of 'a InputSystem.t
+   at runtime *)
+type any_input =
+  | Input : 'a InputSystem.t -> any_input
 
 let children_pgid = ref 0
-  
-(* Child processes forked 
+
+(* Child processes forked
 
    This is an association list of PID to process type. We need a
    reference here, because we may need to terminate asynchronously
    after an exception. *)
 let child_pids = ref []
 
-(* Transition system *)
-let trans_sys = ref None
+(* Input system. *)
+let input_sys_ref = ref None
+(* Current input system. *)
+let cur_input_sys = ref None
+(* Current analysis params. *)
+let cur_aparam = ref None
+(* Current transition system. *)
+let cur_trans_sys = ref None
 
+
+(* let get_input_sys_ref () = *)
+(*   let Input i = get !input_sys_ref in i *)
+
+(* Generic signal handler. *)
+let generic_sig_handler = Sys.Signal_handle exception_on_signal
+(* Installs a generic signal handler for a signal. *)
+let set_generic_handler_for s =
+  Sys.set_signal s generic_sig_handler
+
+(* Installs the relevant handler for sigalrm:
+   - default if no timeout, or
+   - [timeout] - [Stat.total_time] if there is one.
+   Raises [TimeoutWall] if [timeout] < [Stat.total_time]. *)
+let set_sigalrm_handler () =
+  match Flags.timeout_wall () with
+
+  | timeout when timeout > 0. ->
+
+    (* Retrieving total time. *)
+    let elapsed = Stat.get_float Stat.total_time in
+
+    if timeout < elapsed then raise TimeoutWall else (
+
+      (* Install signal handler for SIGALRM after wallclock timeout. *)
+      Sys.set_signal Sys.sigalrm (Sys.Signal_handle
+        (fun _ -> raise TimeoutWall)
+      ) ;
+      (* Set interval timer for wallclock timeout. *)
+      Unix.setitimer Unix.ITIMER_REAL {
+          Unix.it_interval = 0. ; Unix.it_value = timeout -. elapsed
+      } |> ignore
+
+    )
+
+  | _ ->
+    (* No timeout. *)
+    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+      Unix.setitimer
+        Unix.ITIMER_REAL
+        { Unix.it_interval = 0.; Unix.it_value = 0. }
+    in
+    (* Install generic signal handler for SIGALRM. *)
+    set_generic_handler_for Sys.sigalrm
+
+(* Renices the current process. Used for invariant generation. *)
+let renice () =
+  let nice =  (Flags.Invgen.renice ()) in
+
+  if nice < 0 then
+    Event.log L_info
+      "Ignoring negative niceness value for invariant generation."
+
+  else if nice > 0 then
+    let nice' = Unix.nice nice in
+    Event.log L_info "Renicing invariant generation to %d" nice'
 
 (* Main function of the process *)
-let main_of_process = function 
+let main_of_process = function
   | `IC3 -> IC3.main
-  | `BMC -> BMC.main 
-  | `IND -> Step.main
-
-  | `INVGEN -> 
-
-    let nice =  (Flags.invgengraph_renice ()) in
-
-    (if nice < 0 then 
-
-       Event.log
-         L_info 
-         "Ignoring negative niceness value for invariant generation."
-
-     else
-
-       let nice' = Unix.nice nice in
-
-       Event.log
-         L_info 
-         "Renicing invariant generation to %d"
-         nice');
-
-    InvGenTS.main
-
-
-  | `INVGENOS -> 
-
-    let nice =  (Flags.invgengraph_renice ()) in
-
-    (if nice < 0 then 
-
-       Event.log
-         L_info 
-         "Ignoring negative niceness value for invariant generation."
-
-     else
-
-       let nice' = Unix.nice (Flags.invgengraph_renice ()) in
-
-       Event.log
-         L_info 
-         "Renicing invariant generation to %d"
-         nice');
-
-    InvGenOS.main
-
-  | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
-  | `INVMAN -> InvarManager.main child_pids
-  | `Parser -> ignore
-                       
+  | `BMC -> BMC.main
+  | `IND -> IND.main
+  | `IND2 -> IND2.main
+  | `INVGEN -> renice () ; InvGen.main true
+  | `INVGENOS -> renice () ; InvGen.main false
+  | `C2I -> renice () ; C2I.main
+  | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
+  | `Supervisor -> InvarManager.main child_pids
+  | `Parser | `Certif -> (fun _ _ _ -> ())
 
 (* Cleanup function of the process *)
-let on_exit_of_process = function 
+let on_exit_of_process = function
   | `IC3 -> IC3.on_exit
-  | `BMC -> BMC.on_exit 
-  | `IND -> Step.on_exit
-  | `INVGEN -> InvGenTS.on_exit  
-  | `INVGENOS -> InvGenOS.on_exit  
+  | `BMC -> BMC.on_exit
+  | `IND -> IND.on_exit
+  | `IND2 -> IND2.on_exit
+  | `INVGEN -> InvGen.exit
+  | `INVGENOS -> InvGen.exit
+  | `C2I -> C2I.on_exit
   | `Interpreter -> Interpreter.on_exit
-  | `INVMAN -> InvarManager.on_exit                       
-  | `Parser -> ignore
+  | `Supervisor -> InvarManager.on_exit
+  | `Parser | `Certif -> ignore
 
 (*
 (* Messaging type of the process *)
@@ -118,19 +148,22 @@ let init_messaging_of_process = function
   | `BMC -> Kind2Message.init_bmc
   | `IND -> Kind2Message.init_indStep
   | `INVGEN -> Kind2Message.init_invarGen 
-  | `INVMAN -> Kind2Message.init_invarManager (List.map fst !child_pids)
+  | `Supervisor -> Kind2Message.init_invarManager (List.map fst !child_pids)
 *)
 
 
-let debug_ext_of_process = function 
+let debug_ext_of_process = function
   | `IC3 -> "ic3"
   | `BMC -> "bmc"
   | `IND -> "ind"
+  | `IND2 -> "ind2"
   | `INVGEN -> "invgenTS"
   | `INVGENOS -> "invgenOS"
-  | `INVMAN -> "invman"
+  | `C2I -> "c2i"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
+  | `Certif -> "certif"
+  | `Supervisor -> "super"
 
 (* Exit status if timeout *)
 let status_timeout = 0
@@ -148,24 +181,25 @@ let status_safe = 20
 let status_of_trans_sys sys =
   (* Checking if some properties are unknown of falsifiable. *)
   let unknown, falsifiable =
-    TransSys.get_prop_status_all sys
-    |> List.fold_left
-      ( fun (u,f) -> function
-        | (_, TransSys.PropUnknown)
-        | (_, TransSys.PropKTrue _) -> u+1,f
-        | (_, TransSys.PropFalse _) -> u,f+1
-        | _ -> u,f )
-      (0,0)
+    TransSys.get_prop_status_all_nocands sys
+    |> List.fold_left (fun (u,f) -> function
+      | (n, Property.PropUnknown)
+      | (n, Property.PropKTrue _) ->
+        Format.eprintf "%s KU@." n;
+        u+1,f
+      | (n, Property.PropFalse _) ->
+        Format.eprintf "%s FALSE@." n;
+        u,f+1
+      | _ -> u,f
+    ) (0,0)
     |> fun (u,f) -> u > 0, f > 0
   in
   (* Getting relevant exit code. *)
   let exit_status =
     if unknown then status_timeout
-    else
-      if falsifiable then status_unsafe
-      else status_safe
+    else if falsifiable then status_unsafe
+    else status_safe
   in
-  Format.printf "status of trans sys@." ;
   (* Exit status. *)
   exit_status
 
@@ -176,96 +210,181 @@ let status_signal = 128
 (* Exit status if child raised an exception *)
 let status_error = 2
 
+(* Exit status from an optional [results]. *)
+let status_of_sys sys_opt = match sys_opt with
+| None -> Format.eprintf "NOSYS@."; status_timeout
+| Some sys -> status_of_trans_sys sys
+
+(* Exit status from an optional [results]. *)
+let status_of_results results_opt = match results_opt with
+| None -> Format.eprintf "NORES@."; status_timeout
+| Some results -> (
+  match Analysis.results_is_safe results with
+  | None -> Format.eprintf "NOSAFERES@."; status_timeout
+  | Some true -> status_safe
+  | Some false -> status_unsafe
+)
 
 (* Return the status code from an exception *)
-let status_of_exn process trans_sys_opt =
-
-  let status_of_sys () = match trans_sys_opt with
-    | None -> status_timeout
-    | Some sys -> status_of_trans_sys sys
-  in
-
-  function
-  
+let status_of_exn process status = function
   (* Normal termination *)
-  | Exit -> status_of_sys ()
+  | Exit -> status
+
+  (* Got unknown, issue error but normal termination. *)
+  | SMTSolver.Unknown ->
+    Event.log L_error
+      "In %a: a check-sat resulted in \"unknown\", exiting."
+      pp_print_kind_module process ;
+    status
 
   (* Termination message *)
-  | Event.Terminate ->
-    
-    (
+  | Event.Terminate -> (
 
-      Event.log L_info
-        "Received termination message";
+    Event.log L_debug
+      "Received termination message" ;
 
-      status_of_sys ()
+    status
 
-    ) 
+  ) 
 
   (* Catch wallclock timeout *)
-  | TimeoutWall -> 
-    
-    (
+  | TimeoutWall -> (
 
-      Event.log L_error 
-        "<Timeout> Wallclock timeout";
+    Event.log_timeout true ;
 
-      status_of_sys ()
+    status
 
-    ) 
+  ) 
 
   (* Catch CPU timeout *)
-  | TimeoutVirtual -> 
+  | TimeoutVirtual -> (
 
-    (
-      
-      Event.log L_error
-        "<Timeout> CPU timeout"; 
+    Event.log_timeout false ;
 
-      status_of_sys ()
+    status
 
-    ) 
-    
+  ) 
+
   (* Signal caught *)
-  | Signal s -> 
-    
-    (
-      
-      Event.log L_fatal
-        "<Interruption> Caught signal%t. Terminating." 
-        (function ppf -> 
-          match s with 
-            | 0 -> () 
-            | _ -> Format.fprintf ppf " %s" (string_of_signal s));
-      
-      (* Return exit status and signal number *)
-      status_signal + s
-        
-    )
-    
-  (* Other exception *)
-  | e -> 
-    
-    (
-      
-      (* Get backtrace now, Printf changes it *)
-      let backtrace = Printexc.get_backtrace () in
+  | Signal s -> (
 
-      Event.log L_fatal
-        "<Error> Runtime error: %s" 
-        (Printexc.to_string e);
+    Event.log_interruption s ;
 
-      if Printexc.backtrace_status () then
-        Event.log L_debug "Backtrace:@\n%s" backtrace;
+    (* Return exit status and signal number *)
+    status_signal + s
 
-      (* Return exit status for error *)
-      status_error 
-      
-    )
+  )
 
+  | Failure msg ->
+    Event.log L_fatal
+      "Runtime failure in %a: %s"
+      pp_print_kind_module process
+      msg ;
+    status_error
+
+  (* Other exception, return exit status for error. *)
+  | e ->
+    Event.log L_fatal
+      "Runtime error in %a: %s"
+      pp_print_kind_module process
+      (Printexc.to_string e) ;
+    status_error
+
+let status_of_exn_sys process sys_opt =
+  status_of_exn process (status_of_sys sys_opt)
+
+let status_of_exn_results process results_opt =
+  status_of_exn process (status_of_results results_opt)
+
+(* Kill all kids violently. *)
+let slaughter_kids process sys =
+
+  (* Ignore SIGALRM from now on *)
+  Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
+
+  (* Clean exit from invariant manager *)
+  InvarManager.on_exit sys ;
+
+  Event.log L_info "Killing all remaining child processes";
+
+  (* Kill all child processes groups *)
+  List.iter
+    (function pid, _ ->
+
+      Event.log L_debug "Sending SIGKILL to PID %d" pid ;
+
+      try Unix.kill (- pid) Sys.sigkill with _ -> ())
+
+    !child_pids ;
+
+  Event.log L_debug
+    "Waiting for remaining child processes to terminate" ;
+
+  (try
+     while true do
+       (* Wait for child process to terminate *)
+       let pid, status = Unix.wait () in
+       (* Remove killed process from list *)
+       child_pids := List.remove_assoc pid !child_pids ;
+
+       (* Log termination status *)
+       Event.log L_debug
+         "Process %d %a" pid pp_print_process_status status
+     done
+   with
+
+   (* No more child processes, this is the normal exit *)
+   | Unix.Unix_error (Unix.ECHILD, _, _) ->
+
+     Event.log L_info
+       "All child processes terminated." ;
+
+     (* Unix.wait was interrupted *)
+   | Unix.Unix_error (Unix.EINTR, _, _) ->
+
+     (* Ignoring exit code, whatever happened does not change the
+        outcome of the analysis. *)
+     status_of_exn_sys process None (Signal 0) |> ignore
+
+   (* Exception in Unix.wait loop *)
+   | e ->
+
+     (* Ignoring exit code, whatever happened does not change the
+        outcome of the analysis. *)
+     status_of_exn_sys process None e |> ignore ;
+  );
+
+  if !child_pids <> [] then
+    Event.log L_fatal "Some children did not exit.";
+  
+  (* Install generic signal handler for SIGALRM. *)
+  set_generic_handler_for Sys.sigalrm ;
+
+  (* Cleaning kids list. *)
+  child_pids := [] ;
+
+  (* Draining mailbox. *)
+  Event.recv () |> ignore ;
+
+  (* Restore sigalrm handler for next analysis if any. *)
+  set_sigalrm_handler ()
+
+
+
+(* Called after everything has been cleaned up. All kids dead etc. *)
+let clean_exit process results exn =
+
+  (* Exit status of process depends on exception *)
+  let status = status_of_exn_results process results exn in
+
+  (* Close tags in XML output *)
+  Event.terminate_log () ;
+
+  (* Exit with status *)
+  exit status
 
 (* Clean up before exit *)
-let on_exit process sys exn = 
+let on_exit process results exn =
 
 (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
@@ -304,181 +423,78 @@ let on_exit process sys exn =
     pp_print_hashcons_stat (Symbol.stats ());
 *)
 
-  let clean_exit status =
+  (* Killing kids. *)
+  try
+    slaughter_kids process (!cur_trans_sys)
+  with
+    (* We're past the timeout, but we're exiting anyways. *)
+    TimeoutWall -> () ;
 
-    (* Log termination status *)
-    if not (!child_pids = []) then
-
-      Event.log L_info 
-        "Some processes (%a) did not exit, killing them." 
-        (pp_print_list 
-           (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ") 
-        !child_pids;
-
-    (* Kill all remaining processes in the process groups of child
-       processes *)
-    List.iter
-      (fun (pid, _) -> try Unix.kill (- pid) Sys.sigkill with _ -> ())
-      !child_pids;
-
-    (* Close tags in XML output *)
-    Event.terminate_log ();
-
-    (* Exit with status *)
-    exit status
-
-  in
-
-  (* Ignore SIGALRM from now on *)
-  Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
-
-  (* Exit status of process depends on exception *)
-  let status = status_of_exn process sys exn in
-
-  (* Clean exit from invariant manager *)
-  InvarManager.on_exit sys;
-
-  Event.log L_info "Killing all remaining child processes";
-
-  (* Kill all child processes *)
-  List.iter 
-    (function pid, _ -> 
-
-      Event.log L_info "Sending SIGTERM to PID %d" pid;
-
-      Unix.kill pid Sys.sigterm)
-
-    !child_pids;
-
-  Event.log L_info 
-    "Waiting for remaining child processes to terminate";
-
-  try 
-
-    (* Install signal handler for SIGALRM after wallclock timeout *)
-    Sys.set_signal 
-      Sys.sigalrm 
-      (Sys.Signal_handle (function _ -> raise TimeoutWall));
-
-    (* Set interval timer for wallclock timeout *)
-    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-      Unix.setitimer 
-        Unix.ITIMER_REAL 
-        { Unix.it_interval = 0.; Unix.it_value = 1. } 
-    in
-
-    (try 
-
-       while true do
-
-         (* Wait for child process to terminate *)
-         let pid, status = Unix.wait () in
-
-         (* Kill processes left in process group of child process *)
-         (try Unix.kill (- pid) Sys.sigkill with _ -> ());
-
-         (* Remove killed process from list *)
-         child_pids := List.remove_assoc pid !child_pids;
-
-         (* Log termination status *)
-         Event.log L_info 
-           "Process %d %a" pid pp_print_process_status status
-
-       done
-
-     with TimeoutWall -> ());
-
-    clean_exit status
-
-  with 
-
-    (* No more child processes, this is the normal exit *)
-    | Unix.Unix_error (Unix.ECHILD, _, _) -> 
-
-      Event.log L_info 
-        "All child processes terminated.";
-
-      clean_exit status
-
-    (* Unix.wait was interrupted *)
-    | Unix.Unix_error (Unix.EINTR, _, _) -> 
-
-      (* Get new exit status *)
-      let status' = status_of_exn process sys (Signal 0) in
-
-      clean_exit status'
-
-    (* Exception in Unix.wait loop *)
-    | e -> 
-
-      (* Get new exit status *)
-      let status' = status_of_exn process sys e in
-
-      clean_exit status'
+  (* Exiting. *)
+  clean_exit process None exn
 
 
-(* Call cleanup function of process and exit. 
+(* Call cleanup function of process and exit.
 
    Give the exception [exn] that was raised or [Exit] on normal
-   termination *)
-let on_exit_child messaging_thread process sys_opt exn = 
+   termination. *)
+let on_exit_child ?(alone=false) messaging_thread process exn =
 
   (* Exit status of process depends on exception *)
-  let status = status_of_exn process sys_opt exn in
+  let status = status_of_exn process 0 exn in
 
   (* Call cleanup of process *)
-  (on_exit_of_process process) !trans_sys;
-  
-  Event.log L_info 
+  (on_exit_of_process process) !cur_trans_sys ;
+
+  Event.log L_debug
     "Process %d terminating"
-    (Unix.getpid ());
+    (Unix.getpid ()) ;
+
+  ( match messaging_thread with
+    | Some t -> Event.exit t
+    | None -> () ) ;
+
+  Debug.kind2
+    "Process %a terminating" pp_print_kind_module process ;
+
+  (* Log stats and statuses of properties if run as a single process *)
+  (* if alone then Event.log_result sys_opt; *)
 
   Event.terminate_log ();
-  
-  (match messaging_thread with 
-    | Some t -> Event.exit t
-    | None -> ());
-           
-  ( debug kind2 
-      "Process %a terminating"
-      pp_print_kind_module process
-    in
 
-    (* Exit process with status *)
-    exit status )
+  (* Exit process with status *)
+  exit status
 
 
 
 (* Fork and run a child process *)
-let run_process messaging_setup process = 
+let run_process messaging_setup process =
 
   (* Fork a new process *)
   let pid = Unix.fork () in
 
-  match pid with 
+  match pid with
 
     (* We are the child process *)
-    | 0 -> 
+    | 0 -> (
 
-      (
+        (* Make the process leader of a new session *)
+        ignore (Unix.setsid ());
+
+        let pid = Unix.getpid () in
+
+        (* Ignore SIGALRM in child process *)
+        Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
+
+        (* Initialize mtessaging system for process *)
+        let messaging_thread =
+          Event.run_process 
+            process
+            messaging_setup
+            (on_exit_child None process)
+        in
 
         try 
-
-          (* Make the process leader of a new session *)
-          ignore (Unix.setsid ());
-
-          let pid = Unix.getpid () in
-
-          (* Ignore SIGALRM in child process *)
-          Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
-
-          (* Initialize messaging system for process *)
-          let messaging_thread =
-            Event.run_process 
-              process
-              messaging_setup
-              (on_exit_child None process None)
-          in
 
           (* All log messages are sent to the invariant manager now *)
           Event.set_relay_log ();
@@ -488,9 +504,9 @@ let run_process messaging_setup process =
 
           (* Record backtraces on log levels debug and higher *)
           if output_on_level L_debug then
-            Printexc.record_backtrace true;
+            Printexc.record_backtrace true ;
 
-          Event.log L_info 
+          Event.log L_debug
             "Starting new process %a with PID %d" 
             pp_print_kind_module process
             pid;
@@ -522,14 +538,7 @@ let run_process messaging_setup process =
 
                   (* Formatter writing to file *)
                   let debug_formatter = Format.formatter_of_out_channel oc in
-
-                  (* Enable each requested debug section and write to
-                     formatter *) 
-                  List.iter
-                    (function s -> 
-                      Debug.disable s; 
-                      Debug.enable s debug_formatter)
-                    (Flags.debug ())
+                  Debug.set_formatter debug_formatter
 
                 with
 
@@ -538,32 +547,39 @@ let run_process messaging_setup process =
 
           );
 
+          let Input cur_in_sys = get !cur_input_sys in
+          
           (* Run main function of process *)
-          (main_of_process process) (get !trans_sys);
+          (main_of_process process) 
+            cur_in_sys
+            (get !cur_aparam)
+            (get !cur_trans_sys);
 
           (* Cleanup and exit *)
-          on_exit_child (Some messaging_thread) process None Exit
+          on_exit_child (Some messaging_thread) process Exit
 
         with 
 
           (* Termination message received *)
-          | Event.Terminate as e -> on_exit_child None process None e
+          | Event.Terminate as e ->
+            on_exit_child (Some messaging_thread) process e
 
           (* Catch all other exceptions *)
-          | e -> 
+          | e ->
 
             (* Get backtrace now, Printf changes it *)
-            let backtrace = Printexc.get_backtrace () in
+            let backtrace = Printexc.get_raw_backtrace () in
 
-            Event.log L_fatal
-              "Runtime error: %s" 
-              (Printexc.to_string e);
-
-            if Printexc.backtrace_status () then
-              Event.log L_debug "Backtrace:@\n%s" backtrace;
+            if Printexc.backtrace_status () then (
+              Event.log L_fatal
+                "Caught %s in %a.@\nBacktrace:@\n%a"
+                (Printexc.to_string e)
+                pp_print_kind_module process
+                print_backtrace backtrace
+            ) ;
 
             (* Cleanup and exit *)
-            on_exit_child None process None e
+            on_exit_child (Some messaging_thread) process e
 
       )
 
@@ -574,484 +590,464 @@ let run_process messaging_setup process =
       child_pids := (pid, process) :: !child_pids
 
 
-(* Check which SMT solver is available *)  
-let check_smtsolver () = 
+(* Setup everything and returns the input system. Setup includes:
+   - debug setup,
+   - log level setup,
+   - smt solver setup,
+   - timeout setup,
+   - signal handling,
+   - starting global timer,
+   - parsing input file,
+   - building input system. *)
+let setup : unit -> any_input = fun () ->
 
-  (* SMT solver from command-line *)
-  match Flags.smtsolver () with 
-
-    (* User chose Z3 *)
-    | `Z3_SMTLIB -> 
-
-      let z3_exec = 
-
-        (* Check if Z3 is on the path *)
-        try find_on_path (Flags.z3_bin ()) with 
-
-          | Not_found -> 
-
-            (* Fail if not *)
-            Event.log 
-              L_fatal 
-              "Z3 executable %s not found."
-              (Flags.z3_bin ());
-
-            exit 2
-
+  (* Formatter to write debug output to. *)
+  (match Flags.debug_log () with
+    (* Write to stdout by default. *)
+    | None -> ()
+    (* Open channel to given file and create formatter on channel. *)
+    | Some f ->
+      let oc = try open_out f with Sys_error msg ->
+        Format.sprintf
+          "Could not open debug logfile \"%s\": \"%s\"" f msg
+        |> failwith
       in
-
-      Event.log L_info "Using Z3 executable %s." z3_exec
-
-    (* User chose CVC4 *)
-    | `CVC4_SMTLIB -> 
-
-      let cvc4_exec = 
-
-        (* Check if CVC4 is on the path *)
-        try find_on_path (Flags.cvc4_bin ()) with 
-
-          | Not_found -> 
-
-            (* Fail if not *)
-            Event.log 
-              L_fatal
-              "CVC4 executable %s not found."
-              (Flags.cvc4_bin ());
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using CVC4 executable %s."
-        cvc4_exec
-
-    (* User chose MathSat5 *)
-    | `MathSat5_SMTLIB -> 
-
-      let mathsat5_exec = 
-
-        (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.mathsat5_bin ()) with 
-
-          | Not_found -> 
-
-            (* Fail if not *)
-            Event.log 
-              L_fatal
-              "MathSat5 executable %s not found."
-              (Flags.mathsat5_bin ());
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using MathSat5 executable %s." 
-        mathsat5_exec
-
-
-    (* User chose Yices *)
-    | `Yices_native -> 
-
-      let yices_exec = 
-
-        (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.yices_bin ()) with 
-
-          | Not_found -> 
-
-            (* Fail if not *)
-            Event.log 
-              L_fatal
-              "Yices executable %s not found."
-              (Flags.yices_bin ());
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using Yices executable %s." 
-        yices_exec
-
-
-    (* User chose Yices2 *)
-    | `Yices_SMTLIB -> 
-
-      let yices_exec = 
-
-        (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.yices2smt2_bin ()) with 
-
-          | Not_found -> 
-
-            (* Fail if not *)
-            Event.log 
-              L_fatal
-              "Yices2 SMT2 executable %s not found."
-              (Flags.yices2smt2_bin ());
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using Yices2 SMT2 executable %s." 
-        yices_exec
-
-
-    (* User did not choose SMT solver *)
-    | `detect -> 
-
-      try 
-
-        let z3_exec = find_on_path (Flags.z3_bin ()) in
-
-        Event.log L_info "Using Z3 executable %s." z3_exec;
-
-        (* Z3 is on path? *)
-        Flags.set_smtsolver 
-          `Z3_SMTLIB
-          z3_exec
-
-      with Not_found -> 
-
-        try 
-
-          let cvc4_exec = find_on_path (Flags.cvc4_bin ()) in
-
-          Event.log
-            L_info
-            "Using CVC4 executable %s." 
-            cvc4_exec;
-
-          (* CVC4 is on path? *)
-          Flags.set_smtsolver 
-            `CVC4_SMTLIB
-            cvc4_exec
-
-        with Not_found -> 
-
-          try 
-
-            let mathsat5_exec = find_on_path (Flags.mathsat5_bin ()) in
-
-            Event.log
-              L_info
-              "Using MatSat5 executable %s." 
-              mathsat5_exec;
-
-            (* MathSat5 is on path? *)
-            Flags.set_smtsolver 
-              `MathSat5_SMTLIB
-              mathsat5_exec
-
-          with Not_found -> 
-
-            try 
-
-              let yices_exec = find_on_path (Flags.yices_bin ()) in
-
-              Event.log
-                L_info
-                "Using Yices executable %s." 
-                yices_exec;
-
-              (* Yices is on path? *)
-              Flags.set_smtsolver 
-                `Yices_SMTLIB
-                yices_exec
-                
-            with Not_found -> 
-              
-              Event.log L_fatal "No SMT Solver found"; 
-              
-              exit 2
-                
-
-(* Entry point *)    
-let main () =   
-
-  (* Parse command-line flags *)
-  Flags.parse_argv ();
-
-  (* At least one debug section enabled? *)
-  if Flags.debug () = [] then
-
-    (* Initialize debug output when no debug section enabled *)
-    Debug.initialize ()
-
-  else
-
-    (
-
-      (* Formatter to write debug output to *)
-      let debug_formatter = 
-
-        match Flags.debug_log () with 
-
-          (* Write to stdout by default *)
-          | None -> Format.std_formatter
-
-          (* Open channel to given file and create formatter on channel *)
-          | Some f ->
-
-            let oc = 
-              try open_out f with
-                | Sys_error _ -> failwith "Could not open debug logfile"
-            in 
-            Format.formatter_of_out_channel oc
-
-      in
-
-      (* Enable each requested debug section and write to formatter *)
-      List.iter 
-        (function s -> Debug.enable s debug_formatter)
-        (Flags.debug ());
-
-    );
-
-  (* Set log format to XML if requested *)
-  if Flags.log_format_xml () then Event.set_log_format_xml ();
-
-  (* No output at all? *)
-  if not (Flags.log_level () = L_off) then
-
-    (
-
-      (* Temporarily set log level to info and output logo *)
-      set_log_level L_info;
-      Event.log L_info "%a" pp_print_banner ()
-
-    );
-
-  (* Set log level *)
-  set_log_level (Flags.log_level ());
-
-  (* Record backtraces on log levels debug and higher *)
-  if output_on_level L_debug then
-    Printexc.record_backtrace true;
-
-  (* Check and set SMT solver *)
-  check_smtsolver ();
-
-  (* Wallclock timeout? *)
-  if Flags.timeout_wall () > 0. then
-
-    (
-
-      (* Install signal handler for SIGALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutWall));
-
-      (* Set interval timer for wallclock timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_REAL 
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_wall () } 
-      in
-
-      ()
-
-    )
-
-  else
-
-    (
-
-      (* Install generic signal handler for SIGALRM *)
-      Sys.set_signal 
-        Sys.sigalrm 
-        (Sys.Signal_handle exception_on_signal);
-
-    );
-
-  (* Must not use vtalrm signal, this is used internally by the OCaml
-     Threads module *)
-
-  (* Raise exception on CTRL+C *)
-  Sys.catch_break true;
-
-  (* Install generic signal handler for SIGINT *)
-  Sys.set_signal 
-    Sys.sigint 
-    (Sys.Signal_handle exception_on_signal);
-
-  (* Install generic signal handler for SIGTERM *)
-  Sys.set_signal 
-    Sys.sigterm 
-    (Sys.Signal_handle exception_on_signal);
-
-  (* Install generic signal handler for SIGQUIT *)
-  Sys.set_signal 
-    Sys.sigquit 
-    (Sys.Signal_handle exception_on_signal);
-
-  Stat.start_timer Stat.total_time;
-
-  try 
-
-    Event.log L_info 
-      "Parsing input file %s" (Flags.input_file ()); 
-
-    (* Parse file into two-state transition system *)
-    trans_sys := (match (Flags.input_format ()) with 
-
-        | `Lustre -> 
-          
-          Some
-            (LustreInput.of_file
-               (Flags.enable () = [`Interpreter])
-               (Flags.input_file ()))
-            
-        | `Native -> 
-          
-          (
-
-          (* Some (NativeInput.of_file (Flags.input_file ())) *)
-
-            Event.log
-              L_fatal
-              "Native input deactivated while refactoring transition system.";
-          
-            assert false
-
-          )
-
-        | `Horn -> 
-          
-          (* Horn.of_file (Flags.input_file ()) *)
-          assert false);
-
-    (* Output the transition system *)
-    (debug parse
-        "%a"
-        TransSys.pp_print_trans_sys
-        (get !trans_sys)
-     end);
-
-    if 
-
-      (* Warn if list of properties is empty *)
-      TransSys.props_list_of_bound (get !trans_sys) Numeral.zero = []
-
-    then
-
-      Event.log
-        L_warn
-        "No properties to prove";
-
-    (* Which modules are enabled? *)
-    (match Flags.enable () with
-
-      (* No modules enabled *)
-      | [] -> 
-        (Event.log L_fatal "Need at least one process enabled") 
-
-      (* Single module enabled *)
-      | [p] -> 
-
-        (
-
-          Event.log L_info 
-            "Running as a single process";
-
-          (* Set module currently running *)
-          Event.set_module p;
-
-          (* Run main function of process *)
-          (main_of_process p) (get !trans_sys);
-          
-          (* Ignore SIGALRM from now on *)
-          Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
-
-          (* Cleanup before exiting process *)
-          on_exit_child None p (Some (get !trans_sys)) Exit
-            
+      Debug.set_formatter (Format.formatter_of_out_channel oc)
+  ) ;
+
+
+  (* Record backtraces on log levels debug and higher. *)
+  if output_on_level L_debug then Printexc.record_backtrace true ;
+
+  (* Set sigalrm handler. *)
+  set_sigalrm_handler () ;
+
+  (*
+    /!\ ================================================================== /!\
+    /!\ Must not use [vtalrm] signal, this is used internally by the OCaml /!\
+    /!\                        [Threads] module.                           /!\
+    /!\ ================================================================== /!\
+  *)
+
+  (* Raise exception on CTRL+C. *)
+  Sys.catch_break true ;
+
+  (* Install generic signal handler for SIGINT, SIGPIPE, SIGTERM and SIGQUIT. *)
+  [ Sys.sigint ; Sys.sigpipe; Sys.sigterm ; Sys.sigquit ]
+  |> List.iter set_generic_handler_for ;
+
+  (* Starting global timer. *)
+  Stat.start_timer Stat.total_time ;
+
+  let in_file = Flags.input_file () in
+
+  Event.log L_info "Parsing %s."
+    (match in_file with
+     | "" -> "standard input"
+     | _ -> "input file \"" ^ in_file ^ "\"");
+
+  try
+    (* in_file |> *)
+    match Flags.input_format () with
+    | `Lustre -> Input (InputSystem.read_input_lustre in_file)
+    | `Native -> Input (InputSystem.read_input_native in_file)
+    | `Horn   -> (* InputSystem.read_input_horn *)   assert false
+  with (* Could not create input system. *)
+  | LustreAst.Parser_error ->
+    (* Don't do anything for parser error, they should already have printed
+    some stuff. *)
+    Event.terminate_log () ;
+    exit status_error
+  | e ->
+    
+    let backtrace = Printexc.get_raw_backtrace () in
+
+    Event.log
+      L_fatal "Error opening input file \"%s\":@ %s%a"
+      (Flags.input_file ()) (Printexc.to_string e)
+      (if Printexc.backtrace_status () then
+         fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
+       else fun _ _ -> ()) backtrace;
+
+    (* Terminating log and exiting with error. *)
+    Event.terminate_log () ;
+
+    exit status_error
+
+let tests_path = "tests"
+let oracle_path = "oracle"
+let implem_path = "implem"
+
+(* Runs test generation on the system (scope) specified by abstracting
+   everything. *)
+let run_testgen input_sys top =
+  if Flags.Testgen.active () then (
+    match InputSystem.maximal_abstraction_for_testgen input_sys top [] with
+    | None ->
+      Event.log L_warn
+        "System %a has no contracts, skipping test generation."
+        Scope.pp_print_scope top
+
+    | Some param ->
+      (* Create root dir if needed. *)
+      Flags.output_dir () |> mk_dir ;
+      let target = Flags.subdir_for top in
+      (* Create system dir if needed. *)
+      mk_dir target ;
+
+      let param = match param with
+        | Analysis.ContractCheck info -> Analysis.ContractCheck {
+          info with Analysis.uid = info.Analysis.uid * 1000
+        }
+        | Analysis.First info -> Analysis.First {
+          info with Analysis.uid = info.Analysis.uid * 1000
+        }
+        | Analysis.Refinement (info, res) -> Analysis.Refinement (
+          { info with Analysis.uid = info.Analysis.uid * 1000 },
+          res
         )
-        
-      (* Run some modules in parallel *)
-      | ps -> 
-        
-        (
+      in
 
-          Event.log L_info
-            "@[<hov>Running %a in parallel mode@]"
-            (pp_print_list pp_print_kind_module ",@ ")
-            ps;
-         
-          let messaging_setup = Event.setup () in
+      (* Extracting transition system. *)
+      let sys, input_sys_sliced =
+        InputSystem.trans_sys_of_analysis ~preserve_sig:true input_sys param
+      in
 
-          Event.log L_trace
-            "Messaging initialized in invariant manager";
-
-          (* Start all child processes *)
-          List.iter 
-            (function p -> 
-              run_process messaging_setup p)
-            ps;
-              
-          (* Set module currently running *)
-          Event.set_module `INVMAN;
-          
-          Event.log L_trace "Starting invariant manager";
-
-          
-          (* Initialize messaging for invariant manager, obtain a background
-             thread *)
-          let _ = 
-            Event.run_im
-              messaging_setup
-              !child_pids
-              (on_exit `INVMAN !trans_sys)
-          in
-
-          (* Run invariant manager *)
-          InvarManager.main child_pids (get !trans_sys);
-          
-          (* Exit without error *)
-          on_exit `INVMAN !trans_sys Exit
-        
-        );
-
-    );
-
-  with
-
-    (* Exit with error *)
-    | e -> 
-
-      (* Which modules are enabled? *)
-      (match Flags.enable () with
-
-        (* No modules enabled *)
-        | [] -> ()
-
-
-        (* Single module enabled *)
-        | [p] -> 
-          
-          (* Cleanup before exiting process *)
-          on_exit_child None p !trans_sys e
-            
-       
-        (* Run some modules in parallel *)
-        | _ -> 
-        
-          on_exit `INVMAN !trans_sys e
-            
+      (* Let's do this. *)
+      try (
+        let tests_target = Format.sprintf "%s/%s" target tests_path in
+        mk_dir tests_target ;
+        Event.log_uncond
+          "%sGenerating tests for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top tests_target ;
+        let testgen_xmls =
+          TestGen.main param input_sys_sliced sys tests_target
+        in
+        (* Yay, done. Killing stuff. *)
+        TestGen.on_exit "yay" ;
+        (* Generate oracle. *)
+        let oracle_target = Format.sprintf "%s/%s" target oracle_path in
+        mk_dir oracle_target ;
+        Event.log_uncond
+          "%sCompiling oracle to Rust for node \"%a\" to `%s`."
+          TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
+        let name, guarantees, modes =
+          InputSystem.compile_oracle_to_rust input_sys top oracle_target
+        in
+        Event.log_uncond
+          "%sGenerating glue xml file to `%s/.`." TestGen.log_prefix target ;
+        testgen_xmls
+        |> List.map (fun xml -> Format.sprintf "%s/%s" tests_path xml)
+        |> TestGen.log_test_glue_file
+          target name (oracle_path, guarantees, modes) implem_path ;
+        Event.log_uncond
+          "%sDone with test generation." TestGen.log_prefix
+      ) with e -> (
+        TestGen.on_exit "T_T" ;
+        raise e
       )
+  )
+
+(* Compiles a system (scope) to Rust. *)
+let compile_to_rust input_sys top =
+  if Flags.lus_compile () then (
+    (* Creating root dir if needed. *)
+    Flags.output_dir () |> mk_dir ;
+    let target = Flags.subdir_for top in
+    (* Creating system subdir if needed. *)
+    mk_dir target ;
+    (* Implementation directory. *)
+    let target = Format.sprintf "%s/%s" target implem_path in
+    Event.log_uncond
+      "[TO_RUST] Compiling node \"%a\" to Rust in `%s`."
+      Scope.pp_print_scope top target ;
+    InputSystem.compile_to_rust input_sys top target ;
+    Event.log_uncond "[TO_RUST] Done compiling."
+  )
+
+(* Generate certificates and or proofs *)
+let generate_certif_proofs uid input_sys trans_sys =
+  if Flags.Certif.certif () then
+    if Flags.Certif.proof () then
+      CertifChecker.generate_all_proofs uid input_sys trans_sys
+    else
+      CertifChecker.generate_smt2_certificates uid input_sys trans_sys
+
+
+(* Runs test generation and compilation if asked to. *)
+let post_verif input_sys result =
+  if Analysis.result_is_all_proved result then (
+    let trans_sys = result.Analysis.sys in
+    let top_scope = TransSys.scope_of_trans_sys trans_sys in
+    run_testgen input_sys top_scope ;
+    compile_to_rust input_sys top_scope;
+    let uid = Analysis.(info_of_param result.param).Analysis.uid in
+    generate_certif_proofs uid input_sys trans_sys;
+  )
+
+(* Launches analyses. *)
+let rec run_loop msg_setup modules results =
+  Stat.start_timer Stat.analysis_time ;
+
+  let aparam, Input input_sys, trans_sys =
+    get !cur_aparam, get !cur_input_sys, get !cur_trans_sys
+  in
+
+  ( match TransSys.props_list_of_bound trans_sys Numeral.zero with
+
+    | [] ->
+      if Flags.modular () |> not then
+        Event.log L_warn "Current system has no properties."
+      else ()
+
+    | props ->
+
+      (* Event.log L_fatal "Launching analysis with param %a"
+        Analysis.pp_print_param aparam ; *)
+      Event.log_analysis_start trans_sys aparam ;
+
+      (* Output the transition system. *)
+      Debug.parse "%a" TransSys.pp_print_trans_sys trans_sys;
+
+      List.length props |> Event.log L_info "%d properties." ;
+
+      Event.log L_debug "Starting child processes." ;
+
+      (* Start all child processes. *)
+      List.iter (function p -> run_process msg_setup p) modules ;
+
+      (* Update background thread with new kids. *)
+      Event.update_child_processes_list !child_pids ;
+
+      (* Running supervisor. *)
+      InvarManager.main child_pids input_sys aparam trans_sys ;
+
+      (* Killing kids. *)
+      Some trans_sys |> slaughter_kids `Supervisor
+  ) ;
+
+  let result =
+    Stat.get_float Stat.analysis_time |> Analysis.mk_result aparam trans_sys
+  in
+
+  Event.log_analysis_end result ;
+
+  Event.log L_info "Result: %a" Analysis.pp_print_result result ;
+
+  let results = Analysis.results_add result results in
+
+  let Input input_sys = get !input_sys_ref in
+  
+  match InputSystem.next_analysis_of_strategy input_sys results with
+
+  (* No next analysis, done. *)
+  | None -> results
+
+  (* Preparing for next analysis. *)
+  | Some aparam ->
+    (* Extracting transition system. *)
+    let trans_sys, input_sys_sliced =
+      InputSystem.trans_sys_of_analysis input_sys aparam in
+
+    (* Memorizing things. *)
+    cur_aparam    := Some aparam           ;
+    cur_input_sys := Some (Input input_sys_sliced) ;
+    cur_trans_sys := Some trans_sys        ;
+
+    (* Looping. *)
+    run_loop msg_setup modules results
+
+
+(* Looks at the modules activated and decides what to do. *)
+let launch input_sys =
+
+  let results = Analysis.mk_results () in
+
+  let Input in_sys = input_sys in
+  
+  (* Retrieving params for next analysis. *)
+  let aparam =
+    match InputSystem.next_analysis_of_strategy in_sys results with
+    | Some a -> a | None -> assert false
+  in
+
+  (* Building transition system and slicing info. *)
+  let trans_sys, input_sys_sliced =
+    InputSystem.trans_sys_of_analysis in_sys aparam
+  in
+
+  (* Memorizing things. *)
+  cur_input_sys := Some (Input input_sys_sliced) ;
+  cur_aparam    := Some aparam ;
+  cur_trans_sys := Some trans_sys ;
+
+  (* Dump transition system in native format *)
+  (* if Flags.dump_native () then NativeInput.dump_native trans_sys; *)
+
+  (* Checking what's activated. *)
+  match Flags.enabled () with
+
+  (* No modules enabled. *)
+  | [] ->
+    Event.log L_fatal "Need at least one process enabled." ;
+    exit status_error
+
+  (* Only the interpreter is running. *)
+  | [m] when m = `Interpreter ->
+
+    (* Set module currently running. *)
+    Event.set_module m ;
+
+    let Input cur_sys = get !cur_input_sys in
+      
+    (* Run interpreter. *)
+    Interpreter.main
+      (Flags.Interpreter.input_file ())
+      cur_sys
+      (get !cur_aparam)
+      (get !cur_trans_sys) ;
+
+    (* Ignore SIGALRM from now on *)
+    Sys.set_signal Sys.sigalrm Sys.Signal_ignore ;
+
+    (* Cleanup before exiting process *)
+    on_exit_child None m Exit
+
+  (* Some modules, including the interpreter. *)
+  | modules when List.mem `Interpreter modules ->
+    Event.log L_fatal "Cannot run the interpreter with other processes." ;
+    exit status_error
+
+  (* Some modules, not including the interpreter. *)
+  | modules ->
+
+    Event.log L_info
+      "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
+      (pp_print_list pp_print_kind_module "@ - ")
+      modules ;
+
+    (* Setup messaging. *)
+    let msg_setup = Event.setup () in
+
+    (* Set module currently running *)
+    Event.set_module `Supervisor ;
+
+    (* Initialize messaging for invariant manager, obtain a background
+       thread. No kids yet. *)
+    Event.run_im msg_setup [] (on_exit `Supervisor None) |> ignore ;
+
+    Event.log L_debug "Messaging initialized in supervisor." ;
+
+    try
+
+      (* Running. *)
+      let results =
+        run_loop msg_setup modules results |> Analysis.results_clean
+      in
+
+      (* Producing a list of the last results for each system, in topological
+         order. *)
+      let Input input_sys = get !input_sys_ref in
+      input_sys |> InputSystem.ordered_scopes_of
+      (* |> fun syss ->
+        Format.printf "%d systems@.@." (List.length syss) ;
+        Format.printf "systems: @[<v>%a@]@.@."
+          (pp_print_list Scope.pp_print_scope "@ ") syss ;
+        syss *)
+      |> List.fold_left (fun l sys ->
+        (* Format.printf "sys: %a@.@." Scope.pp_print_scope sys ; *)
+        try (
+          match Analysis.results_find sys results with
+          | last :: _ ->
+            (* Running post verification things. *)
+            post_verif input_sys last ;
+            last :: l
+          | [] -> assert false
+        ) with
+        | Not_found -> l
+        | Failure s ->
+          Event.log L_fatal "Failure: %s" s;
+          l
+        | e ->
+          Event.log L_fatal "%s" (Printexc.to_string e) ; l
+      ) []
+      (* Logging the end of the run. *)
+      |> Event.log_run_end ;
+
+      clean_exit `Supervisor (Some results) Exit
+
+    with e ->
+      (* Get backtrace now, Printf changes it *)
+      let backtrace = Printexc.get_raw_backtrace () in
+
+      if Printexc.backtrace_status () then
+        Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
+          (Printexc.to_string e)
+          pp_print_kind_module `Supervisor
+          print_backtrace backtrace;
+
+      on_exit `Supervisor None e
+
+
+(* Entry point *)
+let main () =
+
+  (* Set everything up and produce input system. *)
+  let input_sys = setup () in
+  input_sys_ref := Some input_sys ;
+
+  (* Not launching if we're just translating contracts. *)
+  match Flags.Contracts.translate_contracts () with
+  | Some target -> (
+    let src = Flags.input_file () in
+    Event.log_uncond "Translating contracts to file \"%s\"" target ;
+    try (
+      InputSystem.translate_contracts_lustre src target ;
+      Event.log_uncond "Success"
+    ) with e ->
+      Event.log L_error
+        "Could not translate contracts from file \"%s\":@ %s"
+        src (Printexc.to_string e)
+  )
+  | None -> (
+
+    (* Are we just generating contracts?. *)
+    if Flags.Contracts.contract_gen () then (
+      Event.log L_warn
+        "Contract generation is a very experimental feature:@ \
+        in particular, the modes it generates might not be exhaustive,@ \
+        which means that Kind 2 will consider the contract unsafe.@ \
+        This can be dealt with by adding a wild card mode:@ \
+        mode wildcard () ;" ;
+      let Input input_sys = input_sys in
+
+      let param, node_of_scope =
+        InputSystem.contract_gen_param input_sys
+      in
+
+      (* Building transition system and slicing info. *)
+      let trans_sys, input_sys_sliced =
+        InputSystem.contract_gen_trans_sys_of
+          ~preserve_sig:true input_sys param
+      in
+
+      let target =
+        Flags.output_dir () |> mk_dir ;
+        Flags.output_dir () |> Format.sprintf "%s/spec_by_kind2.lus"
+      in
+
+      LustreContractGen.generate_contracts
+        input_sys_sliced trans_sys param node_of_scope target
+
+    ) else
+
+      launch input_sys
+  )
 
 ;;
 
-main ()  
-      
+main ()
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

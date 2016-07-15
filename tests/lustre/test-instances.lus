@@ -1,0 +1,27 @@
+node X3 (in: int) returns (out: int);
+let out = in;
+tel;
+
+node X2(in: int) returns (out: int);
+let
+  out = X3(in) + 
+        X3(in + 1) + 
+        condact(in > 0, X3(in + 2), 0) + 
+        condact(in < 0, X3(in), 0);
+tel;
+
+node X1(in: int) returns (out: int);
+let
+  out = X2(in) + 
+        X3(in + 1);
+tel;
+
+node X0(in: int) returns (out: int);
+let
+  out = X3(in) + 
+        X2(in + 1) + 
+        X1(in + 2);
+
+  --%PROPERTY out > in;
+
+tel;

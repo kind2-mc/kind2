@@ -18,18 +18,37 @@
 
 (** Parse a file in native input format into a transition system 
 
-    @author Christoph Sticksel
+    @author Christoph Sticksel, Alain Mebsout
 *)
 
+
+(** {2 Printing from native input format } *)
+  
 (** Parse from the channel *)
-val of_channel : in_channel -> TransSys.t
+val of_channel : in_channel -> TransSys.t SubSystem.t
 
 (** Parse from the file *)
-val of_file : string -> TransSys.t
+val of_file : string -> TransSys.t SubSystem.t
 
-val pp_print_path_pt : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
-val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+(** {2 Printing to native format } *)
+  
+(** Print a transition system in native format *)
+val pp_print_native : Format.formatter -> TransSys.t -> unit
+
+(** Dump a transition system to a given file in native format *)
+val dump_native_to : TransSys.t -> string -> unit
+
+(** Dump a transition system to a file in native format *)
+val dump_native : TransSys.t -> unit
+
+(** {2 Pretty printing of counter-examples} *)
+  
+val pp_print_path_pt :
+  Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
+
+val pp_print_path_xml :
+  Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 
 (* 
