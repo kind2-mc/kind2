@@ -49,7 +49,6 @@
 (* Dependencies: initial state predicate may occur in the transition
    relation in condacts, and if we support reset. *)
 
-
 (** Offset of the current state variables in initial state
     constraint *)
 val init_base : Numeral.t
@@ -66,6 +65,9 @@ val prop_base : Numeral.t
 
     Constructed with the function {!mk_trans_sys} *)
 type t
+
+(** Hash table over transition systems. *)
+module Hashtbl : Hashtbl.S with type key = t
 
 (** Predicate definition 
 

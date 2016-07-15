@@ -32,13 +32,10 @@ IC3
 Poly
 Presburger
 QE
-ImplicationGraph
-InvGenCandTermGen
+InvGenMiner
+InvGenDomain
 InvGenGraph
-C2I
-C2ICandidate
-C2Icnf
-C2Imodel
+InvGen
 LockStepDriver
 InputParser
 Interpreter
@@ -58,7 +55,6 @@ LustreInput
 LustrePath 
 NativeInput
 Pretty
-Horn
 SMTExpr
 SMTLIBSolver
 SMTSolver
@@ -67,7 +63,6 @@ SolverResponse
 SolverSig
 CVC4Driver
 GenericSMTLIBDriver
-MathSAT5Driver
 Z3Driver
 Yices2SMT2Driver  
 YicesDriver

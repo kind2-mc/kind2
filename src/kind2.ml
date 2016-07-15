@@ -30,8 +30,6 @@ end
 module BMC = Base
 module IND = Step
 module IND2 = Step2
-module InvGenTS = InvGenGraph.TwoState
-module InvGenOS = InvGenGraph.OneState
 module TestGen = TestgenDF
 module C2I = C2I
 module C2Icnf = C2Icnf
@@ -123,8 +121,8 @@ let main_of_process = function
   | `BMC -> BMC.main
   | `IND -> IND.main
   | `IND2 -> IND2.main
-  | `INVGEN -> renice () ; InvGenTS.main
-  | `INVGENOS -> renice () ; InvGenOS.main
+  | `INVGEN -> renice () ; InvGen.main true
+  | `INVGENOS -> renice () ; InvGen.main false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
   | `Supervisor -> InvarManager.main child_pids
@@ -136,8 +134,8 @@ let on_exit_of_process = function
   | `BMC -> BMC.on_exit
   | `IND -> IND.on_exit
   | `IND2 -> IND2.on_exit
-  | `INVGEN -> InvGenTS.on_exit
-  | `INVGENOS -> InvGenOS.on_exit
+  | `INVGEN -> InvGen.exit
+  | `INVGENOS -> InvGen.exit
   | `C2I -> C2I.on_exit
   | `Interpreter -> Interpreter.on_exit
   | `Supervisor -> InvarManager.on_exit
@@ -996,7 +994,6 @@ let main () =
 
   (* Set everything up and produce input system. *)
   let input_sys = setup () in
-  Format.printf "done with setup@.@." ;
   input_sys_ref := Some input_sys ;
 
   (* Not launching if we're just translating contracts. *)
@@ -1012,7 +1009,40 @@ let main () =
         "Could not translate contracts from file \"%s\":@ %s"
         src (Printexc.to_string e)
   )
-  | None -> launch input_sys
+  | None -> (
+
+    (* Are we just generating contracts?. *)
+    if Flags.Contracts.contract_gen () then (
+      Event.log L_warn
+        "Contract generation is a very experimental feature:@ \
+        in particular, the modes it generates might not be exhaustive,@ \
+        which means that Kind 2 will consider the contract unsafe.@ \
+        This can be dealt with by adding a wild card mode:@ \
+        mode wildcard () ;" ;
+      let Input input_sys = input_sys in
+
+      let param, node_of_scope =
+        InputSystem.contract_gen_param input_sys
+      in
+
+      (* Building transition system and slicing info. *)
+      let trans_sys, input_sys_sliced =
+        InputSystem.contract_gen_trans_sys_of
+          ~preserve_sig:true input_sys param
+      in
+
+      let target =
+        Flags.output_dir () |> mk_dir ;
+        Flags.output_dir () |> Format.sprintf "%s/spec_by_kind2.lus"
+      in
+
+      LustreContractGen.generate_contracts
+        input_sys_sliced trans_sys param node_of_scope target
+
+    ) else
+
+      launch input_sys
+  )
 
 ;;
 

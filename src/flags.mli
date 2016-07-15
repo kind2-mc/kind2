@@ -347,6 +347,16 @@ module Contracts : sig
   (** Check modes. *)
   val check_implem : unit -> bool
 
+
+  (** Contract generation. *)
+  val contract_gen : unit -> bool
+
+  (** Contract generation: max depth. *)
+  val contract_gen_depth : unit -> int
+
+  (** Contract generation: fine grain. *)
+  val contract_gen_fine_grain : unit -> bool
+
   (** Activate refinement. *)
   val refinement : unit -> bool
 end
@@ -417,11 +427,13 @@ module Invgen : sig
   val lift_candidates : unit -> bool
 
   (** InvGen will generate invariants only for top level. **)
-
   val top_only : unit -> bool
-  (** InvGen will look for candidate terms in the transition predicate. *)
 
+  (** InvGen will look for candidate terms in the transition predicate. *)
   val mine_trans : unit -> bool
+
+  (** InvGen will run in two state mode. *)
+  val two_state : unit -> bool
 
   (** Renice invariant generation process. *)
   val renice : unit -> int

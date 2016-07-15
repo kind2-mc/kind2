@@ -549,89 +549,45 @@ module CandidateTermGen = struct
     in
 
     sys_graphs_map [] [ trans_sys ]
-
-
-  let build_graphs cands =
-
-    let create_graph term_set =
-      (* if Flags.only_user_candidates () then *)
-      (*   ImplicationGraph.create_degenerate term_set *)
-      (* else *)
-        ImplicationGraph.create
-          (TSet.union true_false_set term_set)
-    in
-
-    (* Building the graphs. *)
-    List.map (fun (sys,term_set) ->
-        (* Creating graph. *)
-        (sys, create_graph term_set, TSet.cardinal term_set)
-      ) cands
       
 end
 
-(* Generates candidate terms for a transition system, and its
-   subsystems if the flags require it.
-   /!\ The sets do NOT contain true and false /!\ *)
-let generate_candidate_terms two_state top_sys trans =
-  CandidateTermGen.candidate_terms_of_trans two_state top_sys trans
-
-(* Generates implication graphs for a transition system, and its
-   subsystems if the flags require it. *)
-let generate_graphs two_state top_sys trans =
-  let candidate_terms, count =
-    generate_candidate_terms two_state top_sys trans
-  in
-
-  (* Returning implication graphs and candidate term count. *)
-  CandidateTermGen.build_graphs candidate_terms, count
-
-let mine_term
-      synthesis
-      mine_init
-      mine_trans
-      two_state sys terms set =
-  set
-  |> (if synthesis then
-        (* Synthesizing candidates from sys. *)
-        CandidateTermGen.StateVarRules.apply (TransSys.state_vars sys)
-      else
-        identity)
-  |> (if mine_init then
-        (* Mining init. *)
-        TransSys.init_of_bound sys Numeral.zero
-        |> CandidateTermGen.set_of_term
-      else
-        identity)
-  |> (if mine_init then
-        (* Mining trans. *)
-        TransSys.trans_of_bound sys Numeral.zero
-        |> CandidateTermGen.set_of_term
-      else
-        identity)
-  |> (* Mining terms. *)
-    (fun set ->
-     List.fold_left
-       (fun set' term ->
-        CandidateTermGen.set_of_term term set')
-       set
-       terms)
-  |> (if two_state then
-        (* In two state get the complement. *)
-        CandidateTermGen.two_state_complement
-      else
-        (* In one state, one-state-ify. *)
-        CandidateTermGen.one_state_only)
-
-(* Creates a graph for a transition system using the specified list of
-   invariants. *)
-let create_graph trans candidates =
-  match
-    CandidateTermGen.build_graphs [ (trans, candidates) ]
-  with
-    | (_, graph, _) :: _ -> graph
-    | _ ->
-      Event.log L_fatal "no graph was built" ;
-      assert false
+let mine_term synthesis two_state sys terms set =
+  set |> (
+    if synthesis then
+      (* Synthesizing candidates from sys. *)
+      CandidateTermGen.StateVarRules.apply (TransSys.state_vars sys)
+    else
+      identity
+  )
+  |> (
+    (* Mining init. *)
+    TransSys.init_of_bound sys Numeral.zero
+    |> CandidateTermGen.set_of_term
+  )
+  |> (
+    if Flags.Invgen.mine_trans () then
+      (* Mining trans. *)
+      TransSys.trans_of_bound sys Numeral.zero
+      |> CandidateTermGen.set_of_term
+    else
+      identity
+  )
+  |> (
+    (* Mining terms. *)
+    fun set ->
+      List.fold_left (
+        fun set' term -> CandidateTermGen.set_of_term term set'
+      ) set terms
+  )
+  |> (
+    if two_state then
+      (* In two state get the complement. *)
+      CandidateTermGen.two_state_complement
+    else
+      (* In one state, one-state-ify. *)
+      CandidateTermGen.one_state_only
+  )
 
 
     

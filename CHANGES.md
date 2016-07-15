@@ -37,7 +37,12 @@ New features:
     - generate proofs skeletons for potential holes
 - Support for forward references on nodes, types, constants and contracts
 - Output and parser for native (internal) transition system format
- 
+- Contract generation: `--contract_gen`
+  - Very experimental: the modes generated might not be exhaustive and the
+    check exhaustiveness check might fail
+  - This feature's main goal, for now, is to help users get started with
+    contracts by generating a contract stub partially filled with invariants
+    discovered by invariant generation
 
 Improvements:
 
@@ -49,7 +54,10 @@ Improvements:
 - No more dependencies on Camlp4
 - Strict mode to disallow unguarded pre and undefined local variables
 - Many bug fixes and performance improvements
-
+- Added mode information (when available) to counterexample output
+- Rewrote invariant generation from scratch: much faster now
+- Many bug and performance fixes
+- czmq fixes: there should be no process still running after Kind 2 exits
 
 Refer to the [user documentation online](https://github.com/kind2-mc/kind2/tree/develop/doc/usr/content) for more details.
 

@@ -14,998 +14,1154 @@
    implied. See the License for the specific language governing
    permissions and limitations under the License. 
 
- *)
+*)
+
 
 open Lib
 
-module TSet = Term.TermSet
-module Graph = ImplicationGraph
-module CandTerm = InvGenCandTermGen
-module LSD = LockStepDriver
+
+(* |===| Aliases. *)
 
 
-(* Module gathering pruning algorithms. *)
-module Pruning = struct
+(* LSD module. *)
+module Lsd = LockStepDriver
 
-  (* Tests if [rhs] is an [or] containing [lhs], or a negated and
-     containing the complement of [lhs]. *)
-  let trivial_rhs_or lhs rhs =
+(* Term hash table. *)
+module Map = Term.TermHashtbl
+(* Term set. *)
+module Set = Term.TermSet
 
-    (* Returns true if [negated] is an or containing the complement
-       of [lhs]. Used if [rhs] is a not. *)
-    let negated_and negated =
-      if Term.is_node negated
-      then
-      
-        if Term.node_symbol_of_term negated == Symbol.s_and
-        then
-          (* Term is an and. *)
-          Term.node_args_of_term negated
-          |> List.mem (Term.negate lhs)
-
-        else false
-      else false
-    in
-  
-    (* Is rhs an application? *)
-    if Term.is_node rhs
-    then
-
-      ( if Term.node_symbol_of_term rhs == Symbol.s_or
-        then
-          (* Rhs is an or. *)
-          Term.node_args_of_term rhs |> List.mem lhs
-
-        else if Term.node_symbol_of_term rhs == Symbol.s_not
-        then
-          (* Rhs is a not, need to check if there is an and
-             below. *)
-          ( match Term.node_args_of_term rhs with
-
-            (* Well founded not. *)
-            | [ negated ] -> negated_and negated
-
-            (* Dunno what that is. *)
-            | _ -> false )
-
-        else false )
-    else false
+(* Values. *)
+module type DomainSig = InvGenDomain.Domain
 
 
-  (* Tests if [lhs] is an [and] containing [rhs], or a negated or
-     containing the complement of [rhs]. *)
-  let trivial_lhs_and lhs rhs =
 
-    (* Returns true if [negated] is an and containing the complement
-       of [rhs]. Used if [lhs] is a not. *)
-    let negated_or negated =
-      if Term.is_node negated
-      then
-
-        if Term.node_symbol_of_term negated == Symbol.s_or
-        then
-          (* Term is an or. *)
-          Term.node_args_of_term negated
-          |> List.mem (Term.negate rhs)
-
-        else false
-      else false
-    in
-
-    (* Is rhs an application? *)
-    if Term.is_node lhs
-    then
-
-      ( if Term.node_symbol_of_term lhs == Symbol.s_and
-        then
-          (* Lhs is an and. *)
-          Term.node_args_of_term lhs |> List.mem rhs
+(* Term. *)
+type term = Term.t
+(* Maps terms to something. *)
+type 'a map = 'a Map.t
+(* Set of terms. *)
+type set = Set.t
 
 
-        else if Term.node_symbol_of_term lhs == Symbol.s_not
-        then
-          (* Lhs is a not, need to check if there is an or below. *)
-          ( match Term.node_args_of_term lhs with
 
-            (* Well founded not. *)
-            | [ negated ] -> negated_or negated
-
-            (* Dunno what that is. *)
-            | _ -> false )
-
-        else false )
-
-    else false
-    
-   
+(* |===| Helper stuff. *)
 
 
-  (* Tests if [lhs] and [rhs] are arithmetic operators that
-     trivially imply each other, such as [x<=2] and [x<=0]. *)
-  let trivial_impl_arith lhs rhs =
+(* Term formatter. *)
+let fmt_term = Term.pp_print_term
 
-    (* Returns true if the two input terms are arith constants and
-       the first one is greater than or equal to the second one. *)
-    let term_geq t1 t2 =
-      if (Term.is_numeral t1) && (Term.is_numeral t2)
-      then
-        (* Comparing numerals. *)
-        Numeral.(
-          (Term.numeral_of_term t1) >= (Term.numeral_of_term t2)
-        )
+(* Opens a file in write mode, creating it if needed. *)
+let openfile path = Unix.openfile path [
+  Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT
+] 0o640
 
-      else if (Term.is_decimal t1) && (Term.is_decimal t2)
-      then
-        (* Comparing decimals. *)
-        Decimal.(
-          (Term.decimal_of_term t1) >= (Term.decimal_of_term t2)
-        )
+(* Formatter of a file descriptor. *)
+let fmt_of_file file =
+  Unix.out_channel_of_descr file |> Format.formatter_of_out_channel
 
-      else
-        (* Uncomparable terms. *)
-        false
-    in
+(* Writes a graph in graphviz to file [<path>/<name>_<suff>.dot]. *)
+let write_dot_to path name suff fmt_graph graph =
+  mk_dir path ; (* Create directory if needed. *)
+  let desc = (* Create descriptor for log file. *)
+    Format.sprintf "%s/%s_%s.dot" path name suff |> openfile
+  in
+  (* Log graph in graphviz. *)
+  Format.fprintf (fmt_of_file desc) "%a@.@." fmt_graph graph ;
+  (* Close log file descriptor. *)
+  Unix.close desc
 
-    (* Are lhs and rhs applications? *)
-    if (Term.is_node lhs) && (Term.is_node rhs)
-    then
 
-      (* Are rhs and lhs similar applications? *)
-      if
-        (Term.node_symbol_of_term lhs)
-        == (Term.node_symbol_of_term rhs)
-      then (
 
-        match
-          (Term.node_args_of_term lhs),
-          (Term.node_args_of_term rhs)
-        with
 
-          | [kid1 ; kid2], [kid1' ; kid2'] ->
+(* |===| Preliminary functor stuff. *)
 
-            (* If lhs and rhs are applications of [symbol], and if
-               [kid1] and [kid1'] are the same variables then return
-               [operator kid2 kid2']. Else, if [kid2] and [kid2']
-               are the same variables then return [operator kid1'
-               kid1]. Otherwise return false. *)
-            let compare symbol operator =
 
-              if (Term.node_symbol_of_term lhs) == symbol
-              then
+(** Signature of the modules created by the graph functor. *)
+module type Graph = sig
+  (** Domain with an order relation. *)
+  module Domain : DomainSig
 
-                ( if
-                    (Term.is_free_var kid1)
-                    && (Term.is_free_var kid1')
-                  then
+  (** A graph. *)
+  type graph
 
-                    ( (Term.free_var_of_term kid1) ==
-                        (Term.free_var_of_term kid1') )
-                    && ( operator kid2 kid2' )
+  (** Creates a graph from a single equivalence class and its
+  representative. *)
+  val mk : term -> set -> graph
 
-                  else if
-                      (Term.is_free_var kid2)
-                      && (Term.is_free_var kid2')
-                  then
+  (** Clones a graph. *)
+  val clone : graph -> graph
 
-                    ( (Term.free_var_of_term kid2)
-                      == (Term.free_var_of_term kid2') )
-                    && ( operator kid1' kid1 )
+  (** Total number of terms in the graph. *)
+  val term_count : graph -> int
 
-                  else false )
-                  
-              else false
+  (** Drops a term from the class corresponding to a representative. *)
+  val drop_class_member : graph -> term -> term -> unit
 
+  (** Formats a graph in dot format. Only the representatives will appear. *)
+  val fmt_graph_dot : Format.formatter -> graph -> unit
+  (** Formats the eq classes of a graph in dot format. *)
+  val fmt_graph_classes_dot : Format.formatter -> graph -> unit
+
+  (** Checks that a graph makes sense. Dumps the graph and its classes in dot
+  format in the current directory if the graph does not make sense. *)
+  val check_graph : graph -> bool
+
+  (** Minimal list of terms encoding the current state of the graph. Contains
+  - equality between representatives and their class, and
+  - comparison terms between representatives.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true.
+
+  Used when querying the base instance of the LSD (graph stabilization).
+  See also [equalities_of] and [relations_of], used for the step instance
+  (induction check). *)
+  val terms_of : graph -> (term -> bool) -> term list
+
+  (** Equalities coming from the equivalence classes of a graph.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true.
+
+  Generates a list of pairs [term * (term * term)]. The first term is the
+  candidate invariant, while the second element stores the representative
+  of the class the candidate comes from, and the term that can be dropped
+  from it if the candidate is indeed invariant. *)
+  val equalities_of : graph -> (term -> bool) -> (term * (term * term)) list
+
+  (** Appends the relations from a graph to the input term list.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true.
+
+  More precisely, generates implications between representatives and the
+  representative and terms of each equivalence class they're a parent of.
+
+  Generates a list of pairs [term * unit]. The useless [unit] second element
+  is just there to be compatible with the signature of the lsd step query
+  function. This is to accomodate with the information we need to keep around
+  for the equalities of a graph (see [equalities_of]). *)
+  val relations_of :
+    graph -> (term * unit) list -> (term -> bool) -> (term * unit) list
+
+  (** Queries the lsd and updates the graph. Terminates when the graph is
+  stable, meaning all terms the graph represents are unfalsifiable in the
+  current lsd.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true. *)
+  val stabilize : graph -> TransSys.t -> (term -> bool) -> Lsd.base -> unit
+
+  (** Clones the graph, and splits it in step.
+
+  Stabilizes eq classes one by one, communicates invariants at each step.
+  Then stabilizes relations, communicating by packs. *)
+  val step_stabilize :
+    bool -> graph -> TransSys.t -> (term -> bool) -> Lsd.step -> (
+      (Term.t * Certificate.t) list -> unit
+    ) -> Term.t list
+end
+
+
+
+
+
+
+(* |===| Functor! *)
+
+
+(** Functor creating value specific graphs. *)
+module Make (Dom: DomainSig) : Graph = struct
+
+  (** Domain with an order relation. *)
+  module Domain = Dom
+
+  (** Structure storing all the graph information. *)
+  type graph = {
+    (** Maps representatives [t] to the set [{t_i}] of representatives such
+    that, for all models seen so far and for all [t_i]s, [In.cmp t t_i]. *)
+    map_up: set map ;
+    (** Maps representatives [t] to the set [{t_i}] of representatives such
+    that, for all models seen so far and for all [t_i]s, [In.cmp t_i t]. *)
+    map_down: set map ;
+    (** Maps representatives [t] to the set of terms [{t_i}] they represent.
+    That is, for all models seen so far and for all [t_i]s,
+    [In.value_eq t t_i]. *)
+    classes: set map ;
+    (** Maps representatives to the value they evaluate to in the current
+    model. Cleared between each iteration ([clear] not [reset]). *)
+    values: Domain.t map ;
+  }
+
+  (** Graph constructor. *)
+  let mk rep candidates = {
+    map_up = (
+      let map = Map.create 107 in
+      Map.replace map rep Set.empty ;
+      map
+    ) ;
+    map_down = (
+      let map = Map.create 107 in
+      Map.replace map rep Set.empty ;
+      map
+    ) ;
+    classes = (
+      let map = Map.create 107 in
+      Map.replace map rep candidates ;
+      map
+    ) ;
+    values = Map.create 107 ;
+  }
+
+  (** Clones a graph. *)
+  let clone { map_up ; map_down ; classes ; values } = {
+    map_up = Map.copy map_up ;
+    map_down = Map.copy map_down ;
+    classes = Map.copy classes ;
+    values = Map.copy values ;
+  }
+
+  (** Total number of terms in the graph. *)
+  let term_count { classes } =
+    Map.fold (
+     fun rep cl4ss sum -> sum + 1 + (Set.cardinal cl4ss)
+    ) classes 0
+
+  (** Forgets a member of an equivalence class. *)
+  let drop_class_member { classes } rep term =
+    try
+      Map.find classes rep
+      |> Set.remove term
+      |> Map.replace classes rep
+    with Not_found ->
+      Event.log L_fatal
+        "drop_class_member asked to drop term [%a] for inexistant rep [%a]"
+        fmt_term term fmt_term rep ;
+      raise Not_found
+
+  (** Formats a graph to graphviz format. *)
+  let fmt_graph_dot fmt { map_up ; map_down ; classes ; values } =
+    Format.fprintf fmt
+    "\
+digraph mode_graph {
+ graph [bgcolor=black margin=0.0] ;
+ node [
+   style=filled
+   fillcolor=black
+   fontcolor=\"#1e90ff\"
+   color=\"#666666\"
+ ] ;
+ edge [color=\"#1e90ff\" fontcolor=\"#222222\"] ;
+
+\
+   @[<v>" ;
+
+    map_up |> Map.iter (
+      fun key ->
+        let key_len = 1 + (Set.cardinal (Map.find classes key)) in
+        let key_value =
+          try Map.find values key |> Format.asprintf "%a" Domain.fmt
+          with Not_found -> "_mada_"
+        in
+        Set.iter (
+          fun kid ->
+            let kid_len = 1 + (Set.cardinal (Map.find classes kid)) in
+            let kid_value =
+              try Map.find values kid |> Format.asprintf "%a" Domain.fmt
+              with Not_found -> "_mada_"
             in
+            Format.fprintf
+              fmt "\"%a (%d, %s)\" -> \"%a (%d, %s)\" [\
+                constraint=false\
+              ] ;@ "
+              fmt_term key key_len key_value
+              fmt_term kid kid_len kid_value
+        )
+    ) ;
+
+    map_down |> Map.iter (
+      fun key ->
+        let key_len = 1 + (Set.cardinal (Map.find classes key)) in
+        let key_value =
+          try Map.find values key |> Format.asprintf "%a" Domain.fmt
+          with Not_found -> "_mada_"
+        in
+        Set.iter (
+          fun kid ->
+            let kid_len = 1 + (Set.cardinal (Map.find classes kid)) in
+            let kid_value =
+              try Map.find values kid |> Format.asprintf "%a" Domain.fmt
+              with Not_found -> "_mada_"
+            in
+            Format.fprintf
+              fmt "\"%a (%d, %s)\" -> \"%a (%d, %s)\" [\
+                color=\"red\"\
+              ] ;@ "
+              fmt_term key key_len key_value
+              fmt_term kid kid_len kid_value
+        )
+    ) ;
+
+    Format.fprintf fmt "@]@.}@."
 
 
-            (* Returns true if
-               [x>=n  x>=n' and n  >= n']
-               [n>=x n'>=x  and n' >= n] *)
-            (compare Symbol.s_geq term_geq)
+  (** Logs the equivalence classes of a graph to graphviz. *)
+  let fmt_graph_classes_dot fmt { classes ; values } =
+    Format.fprintf fmt
+      "\
+digraph mode_graph {
+  graph [bgcolor=black margin=0.0] ;
+  node [
+    style=filled
+    fillcolor=black
+    fontcolor=\"#1e90ff\"
+    color=\"#666666\"
+  ] ;
+  edge [color=\"#1e90ff\" fontcolor=\"#222222\"] ;
 
-            (* Returns true if
-               [x>n  x>n'   and n  >= n']
-               [n>x n'>x    and n' >= n] *)
-            || (compare Symbol.s_gt term_geq)
+\
+    @[<v>" ;
 
-            (* Returns true if
-               [x<=n  x<=n' and n  <= n']
-               [n<=x n'<=x  and n' <= n] *)
-            || (compare
-                    Symbol.s_leq (fun t1 t2 -> term_geq t2 t1))
+    classes |> Map.iter (
+      fun rep set ->
+        let rep_value =
+          try Map.find values rep |> Format.asprintf "%a" Domain.fmt
+          with Not_found -> "_mada_"
+        in
+        Format.fprintf fmt "\"%a (%s)\" ->\"%a\" ;@ "
+          fmt_term rep rep_value
+          (pp_print_list
+            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term term)
+            "\n")
+          (Set.elements set)
+    ) ;
 
-            (* Returns true if
-               [x<n  x<n'   and n  <= n']
-               [n<x n'<x    and n' <= n] *)
-            || (compare
-                  Symbol.s_lt (fun t1 t2 -> term_geq t2 t1))
+    Format.fprintf fmt "@]@.}@."
 
+  (* Checks that a graph makes sense. *)
+  let check_graph ( { map_up ; map_down ; classes } as graph ) =
+    (* Format.printf "Checking graph...@.@." ; *)
+    Map.fold (
+      fun rep reps ok ->
 
-          (* Kid count does not fit the template, returning
-             false. *)
-          | _ -> false
+        let is_ok = ref true in
 
-      (* [rhs] and [lhs] are not similar applications, returning
-         false. *)
-      ) else false
-
-    (* [rhs] and [lhs] are not applications, returning false. *)
-    else false
-
- 
-  
-  let structural_criterion term =
-    if Term.node_symbol_of_term term == Symbol.s_implies then
-        (* Term is indeed an implication. *)
-        ( match Term.node_args_of_term term with
-
-          (* Term is a well founded implication. *)
-          | [ lhs ; rhs ] ->
-             (* Checking if rhs is an and containing lhs, or a
-                negated or containing the negation of lhs. *)
-             (trivial_rhs_or lhs rhs)
-             (* Checking if lhs is an or containing lhs, or a
-                negated or containing the negation of lhs. *)
-             || (trivial_lhs_and lhs rhs)
-             (* Checking if lhs and rhs are arith operator and lhs
-                trivially implies rhs. *)
-             || (trivial_impl_arith lhs rhs)
-
-          (* Implication is not well-founded, crashing. *)
-          | _ -> assert false )
-    else
-      (* Node is not an implication. *)
-      true
-end
-
-
-(* Input signature of a graph-based invariant generation technique. *)
-module type In = sig
-
-  (* Two state mode flag. *)
-  val two_state : bool
-
-end
-
-(* Output signature of a graph-based invariant generation technique. *)
-module type InvGen = sig
-
-  (** Invariant generation entry point. *)
-  val main : 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
-
-  (** Destroys the underlying solver and cleans things up. *)
-  val on_exit : TransSys.t option -> unit
-
-  (** Destroys the underlying lsd instance. *)
-  val no_more_lsd : unit -> unit
-
-  (** Launches invariant generation with a max [k] and a set of
-      candidate terms. More precisely, [run sys ignore maxK
-      candidates] will find invariants from set [candidates] by going
-      up to [maxK] for [sys] and ignoring any term appearing in
-      [ignore]. The result is a pair composed of the invariants
-      discovered and the new set of ignored terms. *)
-  val run :
-    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
-    Term.TermSet.t * Term.TermSet.t
-
-  (** Mines candidate terms from a system.  First bool flag activates
-      synthesis, i.e. mining based on the state variables of the
-      system. Second (resp. third) bool flag activates init
-      (resp. transition) predicate mining. *)
-  val mine_system :
-    bool -> bool -> bool -> TransSys.t -> Term.TermSet.t
-
-  (** Mines candidate terms from a list of terms, and adds them to the
-      input set. *)
-  val mine_terms :
-    TransSys.t -> Term.t list -> Term.TermSet.t -> Term.TermSet.t
-
-  (** Mines candidate terms from the list of terms. More precisely,
-      [mine_terms_run sys ignore maxK candidates set] will mine
-      candidate terms from list of terms [candidates], and add them to
-      [set].  It then runs goes up to [maxK] for [sys] and ignores any
-      term appearing in [ignore]. The result is a pair composed of the
-      invariants discovered and the new set of ignored terms. *)
-  val mine_terms_run :
-    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.t list -> Term.TermSet.t ->
-    Term.TermSet.t * Term.TermSet.t
-
-end
-
-(* Builds an invariant generation technique from an [In] module. *)
-module Make (InModule : In) : InvGen = struct
-
-  (* Two state mode flag. *)
-  let two_state = InModule.two_state
-    
-  (* Getting the right stats. *)
-  let (
-    k_stat, inv_stat, impl_stat,
-    time_stat, rewrite_stat, candidate_count_stat,
-    stop_timers
-  ) = (
-    if two_state then
-      Stat.invgengraph_ts_k,
-      Stat.invgengraph_ts_invariant_count,
-      Stat.invgengraph_ts_implication_count,
-      Stat.invgengraph_ts_total_time,
-      Stat.invgengraph_ts_graph_rewriting_time,
-      Stat.invgengraph_ts_candidate_term_count,
-      Stat.invgengraph_ts_stop_timers
-    else
-      Stat.invgengraph_os_k,
-      Stat.invgengraph_os_invariant_count,
-      Stat.invgengraph_os_implication_count,
-      Stat.invgengraph_os_total_time,
-      Stat.invgengraph_os_graph_rewriting_time,
-      Stat.invgengraph_os_candidate_term_count,
-      Stat.invgengraph_os_stop_timers
-  )
-
-  (* Name of the technique for communication. *)
-  let name = if two_state then "INVGENTS" else "INVGENOS"
-
-  (* Prints information about the state of the run. *)
-  let communicate_progress () =
-    Event.log
-      L_info
-      "%s @[<v>at k = %i@,\
-               %i invariants discovered@,\
-               %i of which are implications@,\
-               (originally %i candidate terms)@]"
-      name
-      (Stat.get k_stat)
-      (Stat.get inv_stat)
-      (Stat.get impl_stat)
-      (Stat.get candidate_count_stat)
-
-  (* Prints the statistics. *)
-  let print_stats () =
-    Event.stat
-      [ Stat.misc_stats_title, Stat.misc_stats ;
-        (
-          if two_state then
-            Stat.invgengraph_ts_stats_title, Stat.invgengraph_ts_stats
-          else
-            Stat.invgengraph_os_stats_title, Stat.invgengraph_os_stats
+        if ( (* Fail if [rep] has no kids and is not [true] or [false]. *)
+          Set.is_empty reps && rep <> Term.t_false && rep <> Term.t_true
+        ) then (
+          Event.log L_fatal
+            "Inconsistent graph:@   \
+            @[<v>representative [%a] has no kids@]"
+            Term.pp_print_term rep ;
+          is_ok := false
         ) ;
-        Stat.smt_stats_title, Stat.smt_stats ]
 
-  (* Initializes the statistics of the module. *)
-  let init_stats () =
-    (* Getting the right initial k value. *)
-    let init_k = if two_state then 1 else 0 in
-    (* Updating statistics. *)
-    Stat.set init_k k_stat ;
-    (* Notifying framework. *)
-    Event.progress init_k ;
-    (* Starting timer. *)
-    Stat.start_timer time_stat ;
-    (* Communicating progress. *)
-    communicate_progress ()
+        ( try let _ = Map.find classes rep in ()
+          with Not_found -> (
+            Event.log L_fatal
+              "Inconsistent graph:@   \
+              @[<v>representative [%a] has no equivalence class@]"
+              Term.pp_print_term rep ;
+            is_ok := false
+          )
+        ) ;
 
-  (* Updates the candidate term count stat. *)
-  let update_candidate_count_stats count =
-    (* Updating statistics. *)
-    Stat.set count candidate_count_stat
+        reps |> Set.iter (
+          fun kid ->
+            try (
+              let kid_parents = Map.find map_down kid in
+              if Set.mem rep kid_parents |> not then (
+                (* Fail if [rep] is not a parent of [kid]. *)
+                Event.log L_fatal
+                  "Inconsistent graph:@   \
+                  @[<v>representative [%a] is a kid of [%a]@ \
+                  but [%a] is not a parent of [%a]@]"
+                  Term.pp_print_term kid Term.pp_print_term rep
+                  Term.pp_print_term rep Term.pp_print_term kid ;
+                is_ok := false
+              )
+            ) with Not_found -> (
+              (* Fail if [kid] does not appear in [map_down]. *)
+              Event.log L_fatal
+                "Inconsistent graph:@   \
+                @[<v>representative [%a] does not appear in [map_down]@]"
+                Term.pp_print_term kid ;
+              is_ok := false
+            )
+        ) ;
 
-  (* Updates invariant discovery related stats. *)
-  let update_invariant_stats
-      sys_name k_int inv_count impl_count
-  =
-    if inv_count > 0 then (
-      (* Updating invariant count. *)
-      Stat.set
-        (inv_count + Stat.get inv_stat)
-        inv_stat ;
-      (* Updating implication count. *)
-      Stat.set
-        (impl_count + Stat.get impl_stat)
-        impl_stat ;
-      (* Updating time. *)
-      Stat.update_time time_stat ;
-      (* Printing info if not in top only mode (since
-         [update_progress] would be ran right afterwards). *)
-      Event.log
-        L_info
-        "%s @[<v>%i (%i) invariants discovered@,\
-         at %i for system [%s].@]"
-        name
-        inv_count
-        impl_count
-        k_int
-        sys_name
+        ok && ! is_ok
+    ) map_up true
+    |> function
+    | true -> true
+    | false -> (
+      Event.log L_fatal
+        "Stopping invariant generation due to graph inconsistencies" ;
+      let dump_path = "./" in
+      Event.log L_fatal
+        "Dumping current graph as graphviz in current directory" ;
+      write_dot_to
+        dump_path "inconsistent" "graph" fmt_graph_dot graph ;
+      Event.log L_fatal
+        "Dumping current classes as graphviz in current directory" ;
+      write_dot_to
+        dump_path "inconsistent" "classes" fmt_graph_classes_dot graph ;
+      false
     )
 
-  (* Updates progress related stats. *)
-  let update_progress_stats k_int =
-    (* Updating stats. *)
-    Stat.set k_int k_stat ;
-    Stat.update_time time_stat ;
-    (* Notifying framwork. *)
-    Event.progress k_int ;
-    (* Explicit output. *)
-    communicate_progress ()
 
-  (* Times a rewriting of the graph. *)
-  let time_rewrite_update_stats rewrite =
-    (* Starting graph rewriting timer. *)
-    Stat.start_timer rewrite_stat ;
-    (* Rewriting graph. *)
-    let result = rewrite () in
-    (* Stopping graph rewriting timer. *)
-    Stat.record_time rewrite_stat ;
-    (* Returning result. *)
-    result
+  (** Clears the [values] field of the graph ([clear] not [reset]). *)
+  let clear { values } = Map.clear values
 
-  (* Checks if one state is enabled. *)
-  let is_one_state_running () = Flags.enabled () |> List.mem `INVGENOS
+  (** Minimal list of terms encoding the current state of the graph. Contains
+  - equality between representatives and their class, and
+  - comparison terms between representatives.
 
-  (* Guards a term with init if in two state mode. *)
-  let sanitize_term sys =
-    if two_state then fun term ->
-        Term.mk_or
-          [ TransSys.init_flag_of_bound sys Numeral.zero;
-            term ]
-    else identity
-
-  (* Guards a term and certificate with init if in two state mode. *)
-  let sanitize_term_cert sys =
-    if two_state then fun (term, (k, phi)) ->
-      let term' = sanitize_term sys term in
-      if Term.equal term phi then term', (k, term')
-      else term', (k, sanitize_term sys phi)
-    else identity
-
-  (* Lazy function deciding if a term should be kept or not depending
-     on the lower bound and upper bound of the offsets of its state
-     variables. *)
-  let lazy_offset_criterion =
-    lazy
-      ( if two_state then
-          (* In two state, ignore terms only mentioning -1. *)
-          (fun candidate ->
-           match Term.var_offsets_of_term candidate with
-           | _, Some ubound -> Numeral.(ubound = zero)
-           | _ -> false)
-        else
-          (* We are in one state mode, keeping everything. *)
-          (fun candidate -> true) )
-                                    
-
-  (* Filters candidate invariants from a set of term for step. *)
-  let filter_step_candidates invariants ignore =
-
-    (* Function returning false for the candidate invariants to prune
-       out. *)
-    let filter_candidates term =
-
-      if TSet.mem term invariants then
-        (* This term is known to be an invariant, pruning it. *)
-        false
-      else if TSet.mem term ignore then
-        false
-      else (
-
-        (* Applying offset criterion. *)
-        let offset_filter =
-          (Lazy.force lazy_offset_criterion) term
-        in
-
-        offset_filter
-      )
+  Used when querying the base instance of the LSD (graph stabilization).
+  See also [all_terms_of], used for the step instance (induction check). *)
+  let terms_of { map_up ; classes } known =
+    let cond_cons cand l = if known cand then l else cand :: l in
+    let eqs =
+      Map.fold (
+        fun rep set acc ->
+          if Set.is_empty set then acc else
+            cond_cons (rep :: Set.elements set |> Term.mk_eq) acc
+      ) classes []
     in
-  
-    List.filter filter_candidates
+    Map.fold (
+      fun rep above acc ->
+        if Domain.is_bot rep then acc else
+          above |> Set.elements |> List.fold_left (
+            fun acc rep' ->
+              try cond_cons (Domain.mk_cmp rep rep') acc
+              with InvGenDomain.TrivialRelation -> acc
+          ) acc
+    ) map_up eqs
 
-  (* Rewrites a graph until the base instance of the input lsd becomes
-     unsat. *)
-  let rewrite_graph_until_base_unsat lsd sys graph =
+  (** Maximal list of terms encoding the current state of the graph. Contains
+  - equality between representatives and their class, and
+  - comparison terms between all members of the classes.
 
-    (* Rewrites a graph until the base instance becomes unsat. Returns
-       the final version of the graph. *)
-    let rec loop iteration graph =
+  Ignores all terms for which [known] is [true].
 
-      (* Getting candidates invariants from equivalence classes and
-         implications. *)
-      let candidate_invariants =
-      
-        Graph.eq_classes graph
-        (* Iterating over the equivalence classes. *)
-        |> List.fold_left
+  Used when querying the step instance of the LSD (induction check). The idea
+  is that while the comparison terms between representatives may not be
+  inductive, some comparison terms between member of their respective class
+  may be.
 
-            ( fun list set ->
-              (* If there is only one element in the set there is no
-                 equality to add. *)
-              if TSet.cardinal set <= 1 then list
-              else
-                (* Otherwise we choose a representative. *)
-                let rep = TSet.choose set in
-              
-                TSet.fold
-                  (* And we build all the equalities. *)
-                  (fun term list' ->
-                    if rep != term then
-                      (Term.mk_eq [rep ; term])
-                      :: list'
-                    else
-                      list')
-                  set
-                  list )
+  See also [terms_of], used for the base instance (graph stabilization).
+  This version produces a much larger number of terms. *)
+  let all_terms_of {map_up ; classes} known =
+    let cond_cons cand l = if known cand then l else cand :: l in
+    (* let eqs =
+      Map.fold (
+        fun rep set acc ->
+          if Set.is_empty set then acc else
+            cond_cons (rep :: Set.elements set |> Term.mk_eq) acc
+      ) classes []
+    in *)
+    Map.fold (
+      fun rep above acc ->
+        Set.fold (
+          fun rep' acc ->
+            ( 
+              ( try cond_cons (Domain.mk_cmp rep rep') acc
+                with InvGenDomain.TrivialRelation -> acc ),
+              true
+            )
+            |> Set.fold (
+              fun rep_eq' (acc, fst) ->
+                ( try cond_cons (Domain.mk_cmp rep rep_eq') acc
+                  with InvGenDomain.TrivialRelation -> acc )
+                |> Set.fold (
+                  fun rep_eq acc ->
+                    let acc =
+                      if fst then (
+                        ( try cond_cons (Domain.mk_cmp rep_eq rep') acc
+                          with InvGenDomain.TrivialRelation -> acc )
+                        |> cond_cons (Domain.mk_eq rep rep_eq)
+                      ) else acc
+                    in
+                    try cond_cons (Domain.mk_cmp rep_eq rep_eq') acc
+                    with InvGenDomain.TrivialRelation -> acc
+                ) (Map.find classes rep),
+                false
+            ) (Map.find classes rep')
+            |> fst
+        ) above acc
+    ) map_up []
 
-            (* Adding equivalence classes to the non trivial
-               implications. *)
-            (Graph.non_trivial_implications graph)
+
+  (** Equalities coming from the equivalence classes of a graph. *)
+  let equalities_of { classes } known =
+    let cond_cons l cand info =
+      if known cand then l else (cand, info) :: l
+    in
+   
+    let rec loop rep pref suff = function
+      | term :: tail ->
+        let pref =
+          cond_cons pref (Domain.mk_eq rep term) (rep, term)
+        in
+        let suff =
+          List.fold_left (
+            fun suff term' ->
+              cond_cons suff (Domain.mk_eq term term') (rep, term')
+          ) suff tail
+        in
+        loop rep pref suff tail
+      | [] -> List.rev_append pref suff
+    in
+
+    Map.fold (
+      fun rep terms acc ->
+        if Set.cardinal terms < 50 then
+          Set.elements terms |> loop rep [] acc
+        else
+          Set.fold (
+            fun term acc ->
+              ( Domain.mk_eq rep term, (rep, term) ) :: acc
+          ) terms acc
+    ) classes []
+
+
+  (** Relations between representatives coming from a graph. *)
+  let relations_of { map_up ; classes } acc known =
+    let cond_cons l cand =
+      if known cand then l else (cand, ()) :: l
+    in
+
+    (* For each [rep -> term] in [map_up]. *)
+    Map.fold (
+      fun rep reps acc ->
+        if Domain.is_bot rep then acc else
+          Set.fold (
+            fun rep' acc ->
+              if (
+                Domain.is_bot rep
+              ) || (
+                Domain.is_top rep'
+              ) then acc else (
+                let acc =
+                  try Domain.mk_cmp rep rep' |> cond_cons acc
+                  with InvGenDomain.TrivialRelation -> acc
+                in
+                let cl4ss = Map.find classes rep' in
+                Set.fold (
+                  fun term acc ->
+                    try Domain.mk_cmp rep term |> cond_cons acc
+                    with InvGenDomain.TrivialRelation -> acc
+                ) cl4ss acc
+              )
+          ) reps acc
+    ) map_up acc
+
+  (* Formats a chain. *)
+  let fmt_chain fmt =
+    Format.fprintf fmt "[%a]" (
+      pp_print_list
+      (fun fmt (rep, value) ->
+        Format.fprintf fmt "<%a, %a>" fmt_term rep Domain.fmt value)
+      ", "
+    )
+
+  (** Applies a function [f] to the value [key] is bound to in [map].
+
+  Optional parameter [not_found] is used if [key] is not bound in [map]:
+  - if it's [None], [apply] fails
+  - if it's [Some default], then a binding between [key] and [f default] will
+   be created
+  *)
+  let apply ?(not_found=None) f key map =
+    try
+      Map.find map key |> f |> Map.replace map key
+    with Not_found -> (
+      match not_found with
+      | None ->
+        Format.asprintf "could not find %a in map" fmt_term key
+        |> failwith
+      | Some default -> f default |> Map.replace map key
+    )
+
+  (** Transitive closure of the parent relation. *)
+  let parent_trc map_down =
+    let rec loop to_do set rep =
+      let kids = Map.find map_down rep in
+      let set, to_do =
+        Set.fold (
+          fun kid (set, to_do) ->
+            if Set.mem kid set then set, to_do
+            else Set.add kid set, Set.add kid to_do
+        ) kids (Set.add rep set, to_do)
+      in
+      try (
+        let rep = Set.choose to_do in
+        loop (Set.remove rep to_do) set rep
+      ) with Not_found -> set
+    in
+    loop Set.empty
+
+  (** Adds an edge to the graph. Updates [map_up] and [map_down]. *)
+  let add_up { map_up ; map_down } rep kid =
+    apply ~not_found:(Some Set.empty) (Set.add kid) rep map_up ;
+    apply ~not_found:(Some Set.empty) (Set.add rep) kid map_down
+
+
+  (** Splits the class of a representative based on a model. Returns the
+  resulting chain sorted in DECREASING order on the values of the reps. *)
+  let split sys new_reps { classes ; values ; map_up ; map_down } model rep =
+    (* Format.printf "  splitting %a@." fmt_term rep ; *)
+
+    (* Domain of the representative. *)
+    let rep_val = Domain.eval sys model rep in
+
+    (* Class of the representative. Terms evaluating to a different value will
+    be removed from this set. *)
+    let rep_cl4ss = ref (Map.find classes rep) in
+
+    (* Insertion in a list of triples composed of
+    - a representative
+    - its value in the model
+    - its class (set of terms
+    The list is ordered by decreasing values.
+
+    Used to evaluate all the terms in [rep_cl4ss] and create the new classes.
+
+    If a representative for the value we're inserting does not exist, then
+    a new triple [term, value, Set.empty] is created at the right place in the
+    sorted list. Otherwise, if the value is different from [rep_val], it is
+    inserted in the set of the representative with that value.
+    In both these cases, the term is removed from [rep_cl4ss].
+    If the value is equal to [rep_val], nothing happens.
+
+    The idea is that if all terms evaluate to the representative's value, no
+    operation is performed. Once all terms in [rep_cl4ss] have been evaluated
+    and "inserted", then the representative is inserted with the remaining
+    terms form [rep_cl4ss]. *)
+    let rec insert ?(is_rep=false) pref sorted term value =
+      if is_rep || value <> rep_val then (
+        let default = if is_rep then !rep_cl4ss else Set.empty in
+        if not is_rep then rep_cl4ss := Set.remove term !rep_cl4ss ;
+
+        match sorted with
+
+        | [] ->
+          (* No more elements, inserting. *)
+          (term, value, default) :: pref |> List.rev
+
+        | (rep, value', set) :: tail when value = value' ->
+          (* Inserting. *)
+          (rep, value', Set.add term set) :: tail |> List.rev_append pref
+
+        | ( ((_, value', _) :: _) as tail) when Domain.cmp value' value ->
+          (* Found a value lower than [value], inserting. *)
+          (term, value, default) :: tail |> List.rev_append pref
+
+        | head :: tail ->
+          (* [head] is greater than [value], looping. *)
+          insert ~is_rep:is_rep (head :: pref) tail term value
+
+      ) else sorted
+    in
+
+    (* Creating new classes if necessary. *)
+    let sorted =
+      Set.fold (
+        fun term sorted -> insert [] sorted term (Domain.eval sys model term)
+      ) !rep_cl4ss []
+    in
+
+    match sorted with
+
+    (* No new class was created, all terms evaluate to the value of the 
+    representative. *)
+    | [] ->
+      (* Update values, no need to update classes. *)
+      Map.replace values rep rep_val ;
+      (* All terms in the class yield the same value. *)
+      [ (rep, rep_val) ], new_reps
+
+    (* New classes were created. *)
+    | _ ->
+      (* Representative's class was split, inserting [rep] and its updated
+      class. *)
+      let new_reps = ref new_reps in
+      let chain =
+        insert ~is_rep:true [] sorted rep rep_val
+        |> List.map (
+          fun (rep, value, set) ->
+            (* TODO: add [is_bot] and [is_top] to input modules and use that
+            instead. *)
+            let rep, set =
+              if Set.mem Term.t_true set
+              then Term.t_true, set |> Set.add rep |> Set.remove Term.t_true
+              else rep, set
+            in
+            new_reps := ! new_reps |> Set.add rep ;
+            (* Update class map. *)
+            Map.replace classes rep set ;
+            (* Update values. *)
+            Map.replace values rep value ;
+            (* Insert with empty kids and parents if not already there. *)
+            apply ~not_found:(Some Set.empty) identity rep map_up ;
+            apply ~not_found:(Some Set.empty) identity rep map_down ;
+
+            (rep, value)
+        )
       in
 
+      chain, ! new_reps
+
+
+  (** Inserts a chain obtained by splitting [rep] in a graph.
+
+  ASSUMES the chain is in DECREASING order.
+
+  Remember that a node can be split iff all its parents have been split. *)
+  let insert ({ map_up ; map_down ; values } as graph) rep chain =
+
+    (* Nodes above [rep]. *)
+    let above = Map.find map_up rep in
+    (* Nodes below [rep]. *)
+    let below = Map.find map_down rep in
+
+    (* Greatest value in the chain. *)
+    let greatest_rep, greatest_val = List.hd chain in
+
+    (* Break all links to [rep], except if rep is the top of the chain. These
+    links will be used to update the kids of [rep] in the future. Remember that
+    a node can be split iff all its parents have been split. Hence all the kids
+    of the current representative have not been split yet. *)
+    if Term.equal rep greatest_rep |> not then (
+      (* Format.printf "    breaking all links from %a@." fmt_term rep ; *)
+      map_up |> apply (
+        fun set ->
+          (* Break downlinks. *)
+          set |> Set.iter (
+            fun rep' ->
+              (* Format.printf
+                "      breaking %a -> %a@." fmt_term rep fmt_term rep' ; *)
+              map_down |> apply (Set.remove rep) rep'
+          ) ;
+          (* Break uplinks. *)
+          Set.empty
+      ) rep ;
+      (* Format.printf "    linking greatest to above@." ; *)
+      above |> Set.iter (
+        fun above ->
+          map_up |> apply (Set.add above) greatest_rep ;
+          map_down |> apply (Set.add greatest_rep) above
+      )
+    ) ;
+
+    (* Break all links to [rep]. *)
+    map_down |> apply (
+      fun set ->
+        (* Break uplinks. *)
+        set |> Set.iter (
+          fun rep' ->
+            (* Format.printf
+              "      breaking %a -> %a@." fmt_term rep' fmt_term rep ; *)
+            map_up |> apply (Set.remove rep) rep'
+        ) ;
+        (* Break uplinks. *)
+        Set.empty
+    ) rep ;
+
+    (* Format.printf "    creating chain links@." ; *)
+   
+    (* Create links between the elements of the chain.
+
+    Has to be done after we disconnect [rep], otherwise these links would also
+    be disconnected. *)
+    let rec link_chain last = function
+      | (next, _) :: tail ->
+        (* Format.printf
+          "      creating %a -> %a@." fmt_term next fmt_term last ; *)
+        add_up graph next last ;
+        link_chain next tail
+      | [] -> ()
+    in
+    ( match chain with
+      | (head, _) :: tail -> link_chain head tail
+      (* This case IS unreachable, because of the [List.hd chain] above that
+      would crash if [chain] was empty. *)
+      | [] -> failwith "unreachable"
+    ) ;
+
+    (* Returns the longest subchain above [value'], in INCREASING order.
+    Assumes the chain is in DECREASING order. *)
+    let rec longest_above pref value' = function
+      | (rep, value) :: tail when Domain.cmp value' value ->
+        (* [value'] lower than the head, looping. *)
+        longest_above (rep :: pref) value' tail
+      | rest ->
+        (* [value'] greaten than the head, done. *)
+        pref, rest
+    in
+
+    (* Inserts a chain.
+    - [known]: nodes below [rep] we have already seen
+    - [continuation]: list of (sub)chain / parent left to handle
+    - [chain]: (sub)chain we're currently inserting
+    - [node]: the node we're trying to link to the chain *)
+    let rec insert known continuation chain node =
+      let value = Map.find values node in
+
+      (* Longest chain above current node. *)
+      let chain_above, rest = longest_above [] value chain in
+
+      (* Format.printf "    %d above, %d below@."
+        (List.length chain_above) (List.length rest) ; *)
+
+      (* Creating links. *)
+      ( match chain_above with
+        | [] ->
+          (* [value] is greater than the greatest value in the (sub)chain. *)
+
+          (* Linking [node] with [above] if [node] is in [below]. (This means
+          [node] is a direct parent of [rep] that's greater than any element of
+          the chain.) *)
+          if Set.mem node below then (
+            (* Format.printf "    linking node to above@." ; *)
+            map_up |> apply (Set.union above) node ;
+            above |> Set.iter (
+              fun above -> map_down |> apply (Set.add node) above
+            )
+          )
+        | lowest :: _ ->
+          (* [lowest] is the LOWEST element of the chain above [node]. We thus
+          link [node] to [lowest]. *)
+
+          add_up graph node lowest ;
+
+          (* I had this thing at some point, but it should not be needed.
+          Keeping it just in case. *)
+
+          (* (* Also linking with [above] is [node] is in [below]. *)
+          if Set.mem node below then (
+            (* Format.printf "    linking greatest to above@." ; *)
+            map_up |> apply (Set.union above) greatest_rep ;
+            above |> Set.iter (
+              fun above -> map_down |> apply (Set.add greatest_rep) above
+            )
+          ) *)
+      ) ;
+
+      (* Anything left to insert below? *)
+      match rest with
+      | [] ->
+        (* Chain completely inserted, add everything below [node] to
+        [known]. *)
+        let known = parent_trc map_down known node in
+        (* Continuing. *)
+        continue known continuation
+      | _ ->
+        (* Not done inserting the chain. *)
+        (rest, Map.find map_down node |> Set.elements) :: continuation
+        |> continue known
+
+    (* Continuation for chain insertion. *)
+    and continue known = function
+      | ( chain, [node]) :: continuation ->
+        if Set.mem node known then (
+          continue known continuation
+        ) else (
+          insert (Set.add node known) continuation chain node
+        )
+      | ( chain, node :: rest) :: continuation ->
+        if Set.mem node known then (
+          continue known ( (chain, rest) :: continuation )
+        ) else (
+          insert (Set.add node known) (
+            (chain, rest) :: continuation
+          ) chain node
+        )
+      | (_, []) :: continuation -> continue known continuation
+      | [] -> ()
+    in
+
+    match Set.elements below with
+
+    (* Nothing below the node that was split. Linking everything above to
+    greatest. Future splits will insert things in the right place. *)
+    | [] ->
+      map_up |> apply (Set.union above) greatest_rep ;
+      above |> Set.iter (
+        fun above -> map_down |> apply (Set.add greatest_rep) above
+      )
+
+    (* Need to insert the chain. *)
+    | node :: rest ->
+      insert Set.empty [ (chain), rest ] chain node
+
+  (* Finds a node that's not been split, but with all its parents split. *)
+  let next_of_continuation { map_down ; values } continuation =
+    if Set.is_empty continuation then None else (
+      try (
+        let next, continuation =
+          Set.partition (
+            fun rep ->
+              try
+                Map.find map_down rep
+                |> Set.for_all (
+                  fun rep -> Map.mem values rep
+                )
+              with Not_found ->
+                Format.asprintf
+                  "could not find rep %a in map down" fmt_term rep
+                |> failwith
+          ) continuation
+        in
+        Some (next, continuation)
+      ) with Not_found ->
+        failwith "could not find legal next rep in continuation"
+    )
+
+  (* Splits a graph based on the current model.
+
+  Returns the representatives created and modified. *)
+  let split_of_model sys new_reps model ({ map_down ; map_up } as graph) =
+    let rec loop new_reps continuation next =
+      (* Format.printf "@.starting update %d / %d@.@." out_cnt in_cnt ; *)
+      (* Format.printf "  nxt is %a@.@." fmt_term nxt ; *)
+      let new_reps, continuation =
+        Set.fold (
+          fun rep (new_reps, continuation) ->
+            (* Add nodes above current rep to [continuation].
+            These nodes CANNOT be in [nxt] because they had an outdated parent:
+            the current rep. *)
+            let continuation =
+              Map.find map_up rep |> Set.union continuation
+            in
+            (* Split and insert chain. *)
+            let new_reps =
+              let chain, new_reps = split sys new_reps graph model rep in
+              insert graph rep chain ;
+              new_reps
+            in
+            (* Moving on. *)
+            new_reps, continuation
+        ) next (new_reps, continuation)
+      in
+      (* write_dot_to
+        "graphs/" "graph" (Format.sprintf "%d_%d" out_cnt in_cnt)
+        fmt_graph_dot graph ; *)
+      match next_of_continuation graph continuation with
+      | None -> new_reps
+      | Some (next, continuation) ->
+        loop new_reps continuation next
+    in
+
+    (* Retrieve all nodes that have no parents. *)
+    Map.fold (
+      fun rep parents acc ->
+        if Set.is_empty parents then Set.add rep acc else acc
+    ) map_down Set.empty
+    (* And start with that. *)
+    |> loop new_reps Set.empty
+
+  (** Stabilizes the equivalence classes.
+  Stabilizes classes one by one to send relatively few candidates to lsd. *)
+  let stabilize_classes sys known stable_action query ({ classes } as graph) =
+
+    let rec loop count reps_to_update =
+      try (
+
+        (* Checking if we should terminate before doing anything. *)
+        Event.check_termination () ;
+
+        (* Will raise `Not_found` if no more reps to update (terminal case). *)
+        let rep = Set.choose reps_to_update in
+        let reps_to_update = Set.remove rep reps_to_update in
+
+        try (
+
+          (* Retrieve class. *)
+          let cl4ss = Map.find classes rep in
+          (* Building equalities. *)
+          let eqs, _ =
+            Set.fold (
+              fun rep (acc, last) ->
+                (Domain.mk_eq last rep) :: acc, rep
+            ) cl4ss ([], rep)
+          in
+          match
+            (* Is this set of equalities falsifiable?. *)
+            query eqs
+          with
+          | None ->
+            stable_action rep cl4ss ;
+            (* Stable, moving on. *)
+            loop (count + 1) reps_to_update
+          | Some model ->
+            (* Format.printf "  sat@.@." ; *)
+            (* Checking if we should terminate before doing anything. *)
+            Event.check_termination () ;
+            (* Clear (NOT RESET) the value map for update. *)
+            clear graph ;
+            (* Stabilize graph. *)
+            let reps_to_update =
+              split_of_model sys reps_to_update model graph
+            in
+            (* Loop after adding new representatives (includes old one). *)
+            loop (count + 1) reps_to_update
+        ) with Not_found ->
+          Format.asprintf "could not find rep %a in class map" fmt_term rep
+          |> failwith
+
+      ) with Not_found ->
+        Event.log L_info
+          "update classes done in %d iterations" count
+    in
+
+    (* Retrieve all representatives. *)
+    Map.fold ( fun rep _ set -> Set.add rep set ) classes Set.empty
+    |> loop 0
+
+  (** Stabilizes the relations. *)
+  let rec stabilize_rels sys known query count (
+    { map_up ; classes } as graph
+  ) =
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
+
+    (* Building relations. *)
+    let rels =
+      Map.fold (
+        fun rep reps acc ->
+          Set.fold (
+            fun rep' acc ->
+              try (Domain.mk_cmp rep rep') :: acc
+              with InvGenDomain.TrivialRelation -> acc
+          ) reps acc
+      ) map_up []
+    in
+
+    match
+      (* Are these relations falsifiable?. *)
+      query rels
+    with
+    | None ->
+      (* Format.printf "stabilize_rels done after %d iterations@.@." count ; *)
+      (* Stable, done. *)
+      ()
+    | Some model ->
+      (* Format.printf "  sat@.@." ; *)
       (* Checking if we should terminate before doing anything. *)
       Event.check_termination () ;
-
-      (* Querying base .*)
-      match LSD.query_base lsd sys candidate_invariants with
-
-        | Some model ->
-          (* LSD instance is sat. *)
-
-          (* Building eval function. *)
-          let eval term =
-            Eval.eval_term
-              (TransSys.uf_defs sys)
-              model
-              term
-            |> Eval.bool_of_value
-          in
-          
-         (* Rewriting graph. *)
-          let fixed_point, graph' =
-            time_rewrite_update_stats
-              (fun () -> Graph.rewrite_graph eval graph)
-          in
-
-          (* LSD base instance is not unsat, looping. *)
-          loop (iteration + 1) graph'
-
-        | None ->
-           (* Returning current graph. *)
-           graph, iteration = 1
-    in
-
-    (* Starting graph rewriting process. *)
-    loop 1 graph
-
-
-  let mk_and_invar_certs invariants_certs =
-    let invs, certs = List.split invariants_certs in
-    Term.mk_and invs, Certificate.merge certs
-  
-  (* Lifts [invariants] for all the systems calling [sys] and
-     communicates them to the framework. *)
-  let communicate_invariants top_sys lsd sys = function
-    | [] ->
-       0
-    | invariants_certs ->
-       
-       (* All intermediary invariants and top level ones. *)
-       let ((_, top_invariants), intermediary_invariants) =
-         if top_sys == sys then
-           (top_sys, List.map (sanitize_term_cert sys) invariants_certs), []
-         else
-           mk_and_invar_certs invariants_certs
-           (* Guarding with init if needed. *)
-           |> sanitize_term_cert sys
-           (* Instantiating at all levels. *)
-           |> TransSys.instantiate_term_cert_all_levels 
-             top_sys
-             TransSys.prop_base
-             (TransSys.scope_of_trans_sys sys)
-       in
-
-       intermediary_invariants
-       |> List.iter
-            ( fun (sub_sys, termsc') ->
-              (* Drop certificates *)
-              let invs = List.map fst termsc' in
-              (* Adding invariants to the lsd. *)
-              LSD.add_invariants lsd sub_sys invs ;
-              (* Adding invariants to the transition system. *)
-              termsc'
-              |> List.map
-                 (fun (i,c) -> TransSys.add_invariant sub_sys i c)
-              |> ignore ;
-              (* Broadcasting invariants with certificates. *)
-              termsc'
-              |> List.iter (fun (i, c) ->
-                   Event.invariant (TransSys.scope_of_trans_sys sub_sys) i c)
-          ) ;
-
-       let top_scope = TransSys.scope_of_trans_sys top_sys in
-
-       top_invariants
-       |> List.iter
-         (fun (inv, cert) ->
-            (* Adding top level invariants to transition system. *)
-            TransSys.add_invariant top_sys inv cert ;
-            (* Adding top level invariants to LSD. *)
-            LSD.add_invariants lsd top_sys [ inv ] ;
-            Event.invariant top_scope inv cert) ;
-       
-       List.length top_invariants
-
-  (* Queries step to find invariants to communicate. *)
-  let find_and_communicate_invariants
-        top_sys lsd invariants ignore sys graph =
-
-    (* Getting candidates invariants from equivalence classes and
-       implications. *)
-    let candidate_invariants =
-
-      Graph.eq_classes graph
-      (* Iterating over equivalence classes. *)
-      |> List.fold_left
-      
-          ( fun list set ->
-            (* If there is only one element in the set there is no
-               equality to add. *)
-            if TSet.cardinal set <= 1 then list
-            else
-              (* Otherwise we choose a representative. *)
-              let rep = TSet.choose set in
-
-              TSet.fold
-                (* And we build all the equalities. *)
-                (fun term list' ->
-                  if rep != term then
-                    (Term.mk_eq [rep ; term]) :: list'
-                  else list')
-                set
-                list )
-
-          (* Adding equivalence classes to non trivial
-             implications. *)
-          ( Graph.non_trivial_implications graph )
-      (* Removing previously discovered invariants and
-         uninteresting implications. *)
-      |> filter_step_candidates invariants ignore
-    in
-
-    (* Discovering new invariants. *)
-    let new_invariants, trivial =
-      LSD.increment_and_query_step lsd sys candidate_invariants
-    in
-
-    (* (\* Counting implications for statistics. *\) *)
-    (* new_invariants *)
-    (* |> List.fold_left *)
-    (*     ( fun sum inv -> *)
-    (*       if *)
-    (*         (Term.is_node inv) *)
-    (*         && (Term.node_symbol_of_term inv = Symbol.s_implies) *)
-    (*       then sum + 1 *)
-    (*       else sum ) *)
-    (*     0 *)
-
-    (* (\* Updating invariant discovery related statistics. *\) *)
-    (* |> update_invariant_stats *)
-    (*     (TransSys.get_name sys) *)
-    (*     (LSD.get_k lsd |> Numeral.to_int) *)
-    (*     (List.length new_invariants) ; *)
-
-    (* Updating the set of invariants. *)
-    let invariants' =
-      List.fold_left
-        ( fun inv_set (new_inv, cert) ->
-          TSet.add new_inv inv_set )
-        invariants
-        new_invariants
-    in
-
-    (* Udating the set of ignored candidates. *)
-    let ignore' =
-      (List.fold_left
-         ( fun inv_set new_invariant ->
-           TSet.add new_invariant inv_set )
-         ignore
-         trivial)
-    in
-
-    (* Lifting, adding to lsd, and communicating invariants. *)
-    let top_count =
-      communicate_invariants top_sys lsd sys new_invariants
-    in
-
-    ( match new_invariants with
-      | [] -> ()
-      | _ ->
-         Event.log
-           L_info
-           "%s @[<v>%i invariants discovered (%i total)@ \
-            at %i for [%s],@ \
-            %i top level invariants generated.@]"
-           name
-           (List.length new_invariants)
-           (TSet.cardinal invariants')
-           (LSD.get_k lsd sys |> Numeral.pred |> Numeral.to_int)
-           (TransSys.scope_of_trans_sys sys |> String.concat "/")
-           top_count ) ;
-
-    (* Returning updated invariant set. *)
-    invariants', ignore'
-
-  (* Receives messages, updates transition system, asserts new
-     invariants in lsd. *)
-  let recv_update_top_sys_lsd in_sys aparm top_sys lsd =
-
-    (* Receiving messages. *)
-    Event.recv ()
-
-    (* Updating transition system. *)
-    |> Event.update_trans_sys_sub in_sys aparm top_sys
-
-    (* Handling new invariants and property statuses. *)
-    |> ( fun (invariants_certs, properties) ->
-
-         (* Adding new invariants to lsd. *)
-         invariants_certs
-         |> List.iter
-              ( fun (_, (scope, inv, _)) ->
-                LSD.add_invariants
-                  lsd
-                  (TransSys.find_subsystem_of_scope top_sys scope)
-                  [ inv ] ) ;
-
-         (* Adding valid properties to lsd. *)
-         properties
-         |> List.iter
-              ( function
-                | (_, (name, Property.PropInvariant _)) ->
-                   (* Getting term from property name. *)
-                   [ TransSys.get_prop_term top_sys name ]
-                   (* Adding it to lsd. *)
-                   |> LSD.add_invariants lsd top_sys
-                | _ -> () ) ; )
-
-  (* Rewrites the graph until the base instance becomes unsat, then
-     extracts invariants from the step instance. Returns the new
-     binding, i.e. the updated graph and the new invariants. *)
-  let rewrite_graph_find_invariants
-        in_sys aparm top_sys lsd (sys, graph, invariants, ignore) =
-
-    (* BASE INSTANCE: rewriting the graph until base is unsat. *)
-    let graph', unsat_on_first_check =
-      rewrite_graph_until_base_unsat lsd sys graph
-    in
-
-    (* Receiving things. *)
-    recv_update_top_sys_lsd in_sys aparm top_sys lsd ;
-
-    (* STEP INSTANCE: checking which properties are k inductive,
-       asserting them in lsd, and broadcast. *)
-    let invariants', ignore' =
-      find_and_communicate_invariants
-        top_sys lsd invariants ignore sys graph'
-    in
-  
-    (* Returning new binding and base instance flag. *)
-    (sys, graph', invariants', ignore'), unsat_on_first_check
-
-  (* Iterates on a [sys], [graph], [invariants] until the base
-     instance is unsat on the first check or the upper bound given by
-     the flags has been reached. *)
-  let iterate_on_binding in_sys aparm top_sys lsd (binding, cand_count) =
-
-    let rec loop count ((sys,_,invs,_) as binding) =
-      (*
-      let k = LSD.get_k lsd sys in
-      debug
-        invGen
-        "%s @[<v>rewriting [%s]@ \
-         lsd at %i, %i invariants discovered@ \
-         from %i candidate terms.@]"
-        name
-        (TransSys.get_scope sys |> String.concat "/")
-        (k |> Numeral.to_int)
-        (TSet.cardinal invs)
-        cand_count in
-      *)
-      (* Getting new binding and base flag. *)
-      let binding', base_unsat_on_first_check =
-        rewrite_graph_find_invariants in_sys aparm top_sys lsd binding
+      (* Clear (NOT RESET) the value map for update. *)
+      clear graph ;
+      (* Stabilize graph. *)
+      let reps_to_update =
+        split_of_model sys Set.empty model graph
       in
+      (
+        if Set.is_empty reps_to_update |> not then
+          Event.log L_warn
+            "[graph splitting] @[<v>\
+              Some classes were split during relation stabilization.@ \
+              This should not be possible.\
+            "
+      ) ;
+      (* Loop after adding new representatives (includes old one). *)
+      stabilize_rels sys known query (count + 1) graph
 
-      if
-        base_unsat_on_first_check
-        || Flags.Invgen.max_succ () <= count
-      then
-        (* Done, returning new binding. *)
-        binding', cand_count
-      else
-        (* Looping. *)
-        loop (count + 1) binding'
-    in
+  (* (** Queries the lsd and updates the graph. Iterates until the graph is
+  stable. That is, when the lsd returns unsat. *)
+  let rec stabilize_loop
+   sys known lsd ({ map_up ; map_down } as graph)
+  = match terms_of graph known |> Lsd.query_base lsd with
 
-    loop 1 binding
+  | None ->
+    (* Format.printf "%s   unsat@.@." pref ; *)
+    ()
 
-  (* Generates invariants by splitting an implication graph. *)
-  let generate_invariants in_sys aparm top_sys lsd =
+  | Some model ->
+    (* Format.printf "%s   sat@.@." pref ; *)
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
 
-    (* Generating the candidate terms and building the graphs. Result is a list
-       of triplets: system, graph, invariants. *)
-    let sys_graph_map, candidate_term_count =
-      top_sys
-      |> CandTerm.generate_graphs two_state top_sys
-      |> ( fun (list, count) ->
-            list
-            |> List.map
-                 ( fun (sys,graph,cand_count) ->
-                   (* Building triplet. *)
-                   (sys, graph, TSet.empty, TSet.empty),
-                   cand_count )
-            |> (fun list' -> list', count) )
-    in
+    (* Event.log L_info "%s stabilization: check" pref ; *)
 
-    Event.log
-      L_info
-      "%s Starting with %i candidate terms total."
-      name
-      candidate_term_count ;
+    (* Format.printf "@.sat, updating graph: %d@." out_cnt ; *)
 
-    (* Updating stats. *)
-    update_candidate_count_stats candidate_term_count ;
+    (* Clear (NOT RESET) the value map for update. *)
+    clear graph ;
+   
+    (* Stabilize graph. *)
+    split_of_model sys Set.empty model graph |> ignore ;
 
-    (* Initializing statistics. *)
-    (* init_stats () ; *)
+    (* Checking if we should terminate before looping. *)
+    Event.check_termination () ;
 
-    (* Looks for invariants for all the systems in the system graph
-       map. *)
-    let rec loop map =
+    (* Check if new graph is stable. *)
+    stabilize_loop sys known lsd graph *)
 
-      (* Going through the map to generate invariants and generate the
-         new map for the next iteration. *)
-      let map' =
-        List.map (iterate_on_binding in_sys aparm top_sys lsd) map
-      in
+  (** Queries the lsd and updates the graph. Iterates until the graph is
+  stable. That is, when the lsd returns unsat. *)
+  let stabilize graph sys known lsd =
+    (* update_loop sys known lsd graph *)
+    stabilize_classes sys known (fun _ _ -> ()) (Lsd.query_base lsd) graph ;
+    (* Format.printf "done stabilizing classes@.@." ; *)
+    stabilize_rels sys known (Lsd.query_base lsd) 0 graph
 
-      (* Recursing with updated invariants and sys/graph mapping. *)
-      loop map'
+  (** Clones the graph, and splits it in step.
 
-    in
+  Stabilizes eq classes one by one, communicates invariants at each step.
+  Then stabilizes relations, communicating by packs. *)
+  let step_stabilize two_state graph sys known lsd comm =
+    let graph = clone graph in
+    let query_fun = Lsd.nu_query_step two_state lsd in
+    let k = Lsd.step_cert lsd in
 
-    loop sys_graph_map
+    stabilize_classes sys known (
+      (* Action to perform on stable eq classes. *)
+      fun rep cl4ss ->
+        Set.fold (
+          fun term acc ->
+            let inv = Domain.mk_eq rep term in
+            (inv, (k, inv)) :: acc
+        ) cl4ss []
+        |> comm
+    ) query_fun graph ;
 
-
-  (* Reference to lsd for easy clean up. *)
-  let lsd_ref = ref None
-
-  let no_more_lsd () =
-    (* Destroying lsd if one was created. *)
-    ( match !lsd_ref with
-      | None -> ()
-      | Some lsd -> LSD.delete lsd ) ;
-    lsd_ref := None
-
-  (* Cleans up things on exit. *)
-  let on_exit _ =
-    (* Stop all timers. *)
-    stop_timers () ;
-    Stat.smt_stop_timers () ;
-    (* Output statistics. *)
-    print_stats () ;
-    no_more_lsd ()
-
-  (* Module entry point. *)
-  let main in_sys aparm trans_sys =
-
-    (* Creating lsd instance. *)
-    let lsd =
-      LSD.create
-        two_state
-        (Flags.Invgen.top_only ())
-        trans_sys
-    in
-
-    (* Memorizing lsd for clean exit. *)
-    lsd_ref := Some lsd ;
-
-    (* Generating invariants. *)
-    generate_invariants in_sys aparm trans_sys lsd
-
-
-  (* Launches invariant generation with a max [k] and a set of
-     candidate terms. *)
-  let run sys ignore maxK candidates =
-
-    let lsd =
-      (* Creating lsd instance. *)
-      LSD.create
-        two_state
-        true
-        sys
-    in
-
-    (* Memorizing lsd for clean exit. *)
-    lsd_ref := Some lsd ;
-
-    let rec loop invariants ignore k graph =
-
-      if Numeral.(k > maxK) then
-
-        (* Maximal number of iterations reached, returning
-           invariants. *)
-        invariants, ignore
-        
-      else (
-
-        (* Rewriting graph in the base case. *)
-        let graph', _ =
-          rewrite_graph_until_base_unsat lsd sys graph
-        in
-
-        (* Extracting invariants at k. *)
-        let invariants', ignore' =
-          find_and_communicate_invariants
-            sys lsd invariants ignore sys graph'
-        in
-
-        (* Looping with new invariants. *)
-        loop invariants' ignore' Numeral.(succ k) graph'
-
-      )
-
-    in
+    (* For relations we stabilize the graph first. *)
+    stabilize_rels sys known query_fun 0 graph ;
     
-    (* Memorizing invariants to return to delete lsd. *)
-    let res =
-      InvGenCandTermGen.create_graph sys candidates
-      |> loop TSet.empty ignore Numeral.zero
+    (* All the implications left are invariants. *)
+    let invs =
+      Map.fold (
+        fun rep reps acc ->
+          Set.fold (
+            fun rep' acc ->
+              try (
+                let inv = Domain.mk_cmp rep rep' in
+                (inv, (k, inv)) :: acc
+              ) with InvGenDomain.TrivialRelation -> acc
+          ) reps acc
+      ) graph.map_up []
     in
 
-    (* Deleting lsd. *)
-    no_more_lsd () ;
+    comm invs ;
 
-    res
-
-  (* Mines candidates terms from a system. *)
-  let mine_system
-        synthesis mine_init mine_trans sys =
-    InvGenCandTermGen.mine_term
-      synthesis mine_init mine_trans
-      two_state sys [] TSet.empty
-
-  (* Mines candidate terms from a list of terms and adds them to the
-     set. *)
-  let mine_terms sys terms set =
-    (* Bumping all terms to 0. *)
-    let terms' =
-      terms
-      |> List.map
-           ( fun term ->
-             match Term.var_offsets_of_term term with
-             | _, Some offset ->
-                if Numeral.(offset = zero) then
-                  term
-                else
-                  Term.bump_state Numeral.(- offset) term
-             | _ -> term )
-    in
-    (* Mining terms. *)
-    InvGenCandTermGen.mine_term
-      false false false two_state sys terms' set
-
-  (* Mines candidate terms from a list of terms, adds them to [set],
-     and runs invariant generation up to [maxK]. *)
-  let mine_terms_run sys ignore maxK terms set =
-      mine_terms sys terms set
-      |> TSet.union (TSet.of_list (TransSys.get_unknown_candidates sys))
-      |> run sys ignore maxK
+    invs |> List.map fst
 
 end
 
-(* One state graph-based invariant generation module. *)
-module OneState = Make (struct let two_state = false end)
 
-(* Two state graph-based invariant generation module. *)
-module TwoState = Make (struct let two_state = true end)
+(* |===| Actual graph modules. *)
+
+(** Graph of booleans with implication. *)
+module Bool = Make( InvGenDomain.Bool )
+
+(** Graph of integers with less than or equal. *)
+module Int = Make( InvGenDomain.Int )
+
+(** Graph of reals with less than or equal. *)
+module Real = Make( InvGenDomain.Real )
+
 
 
 (* 
@@ -1015,4 +1171,3 @@ module TwoState = Make (struct let two_state = true end)
    indent-tabs-mode: nil
    End: 
 *)
-

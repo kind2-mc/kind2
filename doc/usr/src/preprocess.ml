@@ -377,7 +377,7 @@ module IO = struct
       let head, tail = get_head "" 0 line in
 
       let rec get_label is_ws_rep label index =
-        if index >= String.length tail then String.lowercase label else
+        if index >= String.length tail then String.lowercase_ascii label else
           match String.get tail index with
           | ' ' | '\t' ->
             get_label
@@ -433,6 +433,7 @@ module IO = struct
               |> rewrite_pics dirname
               |> fun smthng -> printf "rewrite labels@." ; smthng *)
               |> rewrite_label prefix
+              |> echo_pipe [ rewrite_pics dirname ]
               |> output_string tgt_chan ;
               output_string tgt_chan "\n"
             done ;
@@ -513,7 +514,7 @@ module Context = struct
      file. *)
   let map_add_label map file label =
     let node = IO.node_of_file file in
-    let label = String.lowercase label in
+    let label = String.lowercase_ascii label in
     let check_add prefix tail labels =
       if List.mem label labels
       then raise (LabelClash (file, label))
@@ -526,7 +527,7 @@ module Context = struct
   (* Adds a label to a file in the clash map of a context. Adds a new
      association if the file is not already there. *)
   let add_clash t file label =
-    let label = String.lowercase label in
+    let label = String.lowercase_ascii label in
     try
       t.file2clashes <- map_add_label t.file2clashes file label
     with LabelClash _ -> ()

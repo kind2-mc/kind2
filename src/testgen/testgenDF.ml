@@ -147,7 +147,7 @@ and forward target io solver tree modes contract_term =
   (* Resetting if too many fresh actlits have been created. *)
   let solver = if Actlit.fresh_actlit_count () >= 10 then (
       Stat.incr Stat.testgen_restarts ;
-      Event.log_uncond "%sRestarting solver." log_prefix ;
+      Event.log L_info "%sRestarting solver." log_prefix ;
       Actlit.reset_fresh_actlit_count () ;
       let solver = Solver.restart solver in
       solver_ref := Some solver ;
