@@ -4234,7 +4234,7 @@ var
    all_asserts_ok: bool;
 
 
-let --%MAIN
+let --%MAIN;
    StateChanger_main_rlt_state_in_rlt_chart_data_vars_StateChanger_tempx = (0 -> ( pre StateChanger_main_simp_rlt_node_state2344_rlt_chart_data_vars_StateChanger_tempx));
 
    StateChanger_main_rlt_state_in_rlt_chart_data_states_StateChanger_InfusionStateMachine_InfusionInSession = (0 -> ( pre StateChanger_main_simp_rlt_node_state2344_rlt_chart_data_states_StateChanger_InfusionStateMachine_InfusionInSession));

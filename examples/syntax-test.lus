@@ -75,14 +75,14 @@ type k = int^5;
 type l = int^3^5; -- ^ is left-associative
 
 -- A constant of a nested array type
-const l : l = 1^3^5;
+-- const l : l = 1^3^5;
 
 -- A constant of array type 
-const l_1 : int^3 = l[4];
+-- const l_1 : int^3 = l[4];
 
 -- Declare an array type with a constant as a parameter 
-const h = 2;
-type m = int^5*h;
+-- const h = 2;
+-- type m = int^5*h;
 
 
 -- ------------------------------------------------------------
@@ -151,12 +151,12 @@ let
   e = 1;
   (f) = 2;
 
-  -- Main node annotation, anything can follow, semicolon is not
+  -- Main node annotation, semicolon is
   --necessary,  can be anywhere in the node body 
 
-  --%MAIN 
+  --%MAIN;
   --%MAIN; 
-  --%MAIN xyz
+  --%MAIN ;
 
   -- Assignment to a list
   -- g, h, i = x(c);
@@ -247,7 +247,7 @@ tel;
 
 -- Another node 
 node X(x: int) returns (y: int);
-var z: int; v: t; 
+var v: t; 
 let 
 
   -- Return value of record type 
@@ -285,26 +285,26 @@ let
 tel; 
 
 -- Array-valued node 
-node V(x: int) returns (y: int^3);
-let
-  y = (x + 1)^3;
-tel
+-- node V(x: int) returns (y: int^3);
+-- let
+--   y = (x + 1)^3;
+-- tel
 
 -- Nodes with array-valued node calls 
-node W(x: int) returns (y: int);
-var y_3 : int^3;
-let
+-- node W(x: int) returns (y: int);
+-- var y_3 : int^3;
+-- let
 
-  -- Node call not top level of expression
-  y_3 = 1^3 + V(x);
-  y = y_3[0];
+--   -- Node call not top level of expression
+--   y_3 = 1^3 + V(x);
+--   y = y_3[0];
 
-tel;
+-- tel;
 
 -- Node with two return values 
 node U1(x0: int; y0: real) returns (x1: int; y1: real);
 let 
-  x1, y1 = [x0, y0]; 
+  x1, y1 = (x0, y0); 
 tel;
 
 -- Node with tuple input a
@@ -351,16 +351,16 @@ let
   Y = EDGE(not X);
 tel
 
-node SWITCH1 (set, reset, initial: bool) returns (level: bool);
+node SWITCH1 (set, reset, init: bool) returns (level: bool);
 let
-  level = initial -> if set then true else if reset then false else pre(level);
+  level = init -> if set then true else if reset then false else pre(level);
   assert not (set and reset);
 tel
 
 
-node SWITCH (set, reset, initial: bool) returns (level: bool);
+node SWITCH (set, reset, init: bool) returns (level: bool);
 let
-  level = initial -> if set and not pre(level) then true else if reset then false else pre(level);
+  level = init -> if set and not pre(level) then true else if reset then false else pre(level);
 tel
 
 node x1 (X: bool; N: int) returns ();
@@ -499,9 +499,9 @@ tel
 type T2 = int^3^5;
 type complex = [real, real];
 
-node x22 () returns ();
-var x, y: complex;
-let tel;
+-- node x22 () returns ();
+-- var x, y: complex;
+-- let tel;
 
 const 
   PI = 3.1416;
@@ -557,24 +557,24 @@ tel;
 
 -- Section 6
 
-node N (U, V, W: int) returns (X: int; Y: real); let tel;
+node N3 (U, V, W: int) returns (X: int; Y: real); let tel;
 
 node x61 (C: bool; E, E1: int; F, F1: real) returns (X: int; Y: real);
 let 
-  (X, Y) = if C then (E, F) else (E1, F1);
+  -- (X, Y) = if C then (E, F) else (E1, F1);
   (X, Y) = (E, F) -> pre (X, Y);
   -- (X, Y) = (E, F) when C;
-  (X, Y) = N(1, 2, 3);
+  -- (X, Y) = N3(1, 2, 3);
 tel
 
 
-node N (a, b: int) returns (c, d: int);
+node NN (a, b: int) returns (c, d: int);
 let (c, d) = (a, b); tel
 
-node x62 (E, F, G, H: int) returns (A, B, C, D: int);
-let 
-  (A, B, C, D) = (N(E, F), N(G, H));
-tel;
+-- node x62 (E, F, G, H: int) returns (A, B, C, D: int);
+-- let 
+--   (A, B, C, D) = (NN(E, F), NN(G, H));
+-- tel;
 
 /* TODO: 
 -- Node with structural assignments 
@@ -591,7 +591,7 @@ tel;
 
 -- Section 7
 
-node N (x1, x2, x3: int) returns (y1, y2, y3: int);
+node N7 (x1, x2, x3: int) returns (y1, y2, y3: int);
 let 
   (y1, y2, y3) = (x1, x2, x3);
 tel
@@ -599,20 +599,20 @@ tel
 -- Node with a condact call 
 node x71 (C: bool; x1, x2, x3: int; v1, v2, v3: int) returns (y1, y2, y3: int);
 let 
-  (y1, y2, y3) = condact(C, N(x1, x2, x3), v1, v2, v3);
+  (y1, y2, y3) = condact(C, N7(x1, x2, x3), v1, v2, v3);
 
 /* TODO: 
 -- Equivalent expression to condact call
-  (y1, y2, y3) = if C then current(N((x1, x2, x3) when C)) 
+  (y1, y2, y3) = if C then current(N7((x1, x2, x3) when C)) 
                  else (v1, v2, v3) -> pre(y1, y2, z3);
 */
 tel
 
-node x72 (e1 : int; e2: real; e3: bool) returns (e: [int, real, bool]; f: real);
-let
-  e = [e1, e2, e3];
-  f = e[1];
-tel
+-- node x72 (e1 : int; e2: real; e3: bool) returns (e: [int, real, bool]; f: real);
+-- let
+--   e = (e1, e2, e3);
+--   f = e[1];
+-- tel
 
 node x73 (a, b, c, e, f: int; d: bool) returns (e1, e2, e4: int; e3: bool);
 let
@@ -622,10 +622,10 @@ let
   e4 = if d then a else e -> f;
 tel
 
-node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
-let
-  e = [e1, e2, e3];
-tel
+-- node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
+-- let
+--   e = [e1, e2, e3];
+-- tel
 
 /* TODO: 
 -- Node with array slices 
@@ -703,7 +703,7 @@ let
 tel
 
 type matrix_3_3 = int^3^3;
-const m1 = 0^3^3;
-const m2 = [1, 2, 3]^3;
+-- const m1 = 0^3^3;
+-- const m2 = [1, 2, 3]^3;
 
 
