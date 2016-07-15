@@ -53,7 +53,7 @@ var
    sequence11: bool;
 
 
-let --%MAIN
+let --%MAIN;
    sequence11 = (( not FailedApproach) or 
       ( not ApproachOrbitComplete));
 
