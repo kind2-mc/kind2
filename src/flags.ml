@@ -1572,7 +1572,7 @@ module Global = struct
   let usage_msg = Format.sprintf "\
     %s@.\
     Prove properties over the Lustre program in <input_file> or from standard@ \
-    input if no file is given.@.\
+    input (in Lustre) if no file is given.@.\
     Global options follow, \
     use \"--help_of\" for module-specific information.\
   " usage_msg_header
@@ -1726,7 +1726,7 @@ module Global = struct
 
   let input_format () =
     match !input_format with
-    | `Extension -> assert false
+    | `Extension -> `Lustre
     | (`Lustre | `Native | `Horn) as f -> f
 
 
