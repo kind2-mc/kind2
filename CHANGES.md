@@ -1,3 +1,8 @@
+# Kind 2 v1.0.1
+
+- Read files on standard input in Lustre format
+
+
 # Kind 2 v1.0.0
 
 This new version brings many new features and improvements over v0.8 (more
