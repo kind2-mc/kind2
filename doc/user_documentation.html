@@ -705,7 +705,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <body>
 <div id="header">
 <h1 class="title">Kind 2 User Documentation</h1>
-<h1 class="subtitle">Version v1.0.0</h1>
+<h1 class="subtitle">Version v1.0.1</h1>
 </div>
 <div id="TOC">
 <ul>
@@ -739,18 +739,18 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <li><a href="#n19417377-contract-items-and-restrictions">Contract items and restrictions</a></li>
 </ul></li>
 </ul></li>
-<li><a href="#n20865517-arrays">Arrays</a><ul>
-<li><a href="#n20865517-lustre-arrays">Lustre arrays</a><ul>
-<li><a href="#n20865517-declarations">Declarations</a></li>
-<li><a href="#n20865517-definitions">Definitions</a></li>
-<li><a href="#n20865517-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</a></li>
+<li><a href="#n21062776-arrays">Arrays</a><ul>
+<li><a href="#n21062776-lustre-arrays">Lustre arrays</a><ul>
+<li><a href="#n21062776-declarations">Declarations</a></li>
+<li><a href="#n21062776-definitions">Definitions</a></li>
+<li><a href="#n21062776-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</a></li>
 </ul></li>
-<li><a href="#n20865517-extension-to-unbounded-arrays">Extension to unbounded arrays</a><ul>
-<li><a href="#n20865517-whole-array-definitions">Whole array definitions</a></li>
-<li><a href="#n20865517-inductive-definitions">Inductive definitions</a></li>
-<li><a href="#n20865517-quantifiers-in-specifications">Quantifiers in specifications</a></li>
-<li><a href="#n20865517-limitations">Limitations</a></li>
-<li><a href="#n20865517-command-line-options">Command line options</a></li>
+<li><a href="#n21062776-extension-to-unbounded-arrays">Extension to unbounded arrays</a><ul>
+<li><a href="#n21062776-whole-array-definitions">Whole array definitions</a></li>
+<li><a href="#n21062776-inductive-definitions">Inductive definitions</a></li>
+<li><a href="#n21062776-quantifiers-in-specifications">Quantifiers in specifications</a></li>
+<li><a href="#n21062776-limitations">Limitations</a></li>
+<li><a href="#n21062776-command-line-options">Command line options</a></li>
 </ul></li>
 </ul></li>
 <li><a href="#n18820171-arrays">Arrays</a><ul>
@@ -1112,13 +1112,13 @@ guarantee true -&gt; ( -- `m1`, `m2` and `m3` are exclusive.
   not (::m1 and ::m2 and ::m3)
 ) ;</code></pre>
 <p></p>
-<h1 id="n20865517-arrays">Arrays</h1>
+<h1 id="n21062776-arrays">Arrays</h1>
 <blockquote>
 <p>This feature is only available as an experimental development version of Kind 2.</p>
 </blockquote>
-<h2 id="n20865517-lustre-arrays">Lustre arrays</h2>
+<h2 id="n21062776-lustre-arrays">Lustre arrays</h2>
 <p>Kind 2 supports the traditional Lustre V5 syntax for arrays.</p>
-<h3 id="n20865517-declarations">Declarations</h3>
+<h3 id="n21062776-declarations">Declarations</h3>
 <p>Array variables can be declared as global, local or as input/output of nodes. Arrays in Lustre are always indexed by integers (type <code>int</code> in Lustre), and the type of an array variable is written with the syntax <code>t ^ &lt;size&gt;</code> where <code>t</code> is a Lustre type and <code>&lt;size&gt;</code> is an integer literal or a constant symbol.</p>
 <p>The following</p>
 <pre><code>A : int ^ 3;</code></pre>
@@ -1132,7 +1132,7 @@ A : int ^ n;</code></pre>
 let
   x = A[n-1];
 tel</code></pre>
-<p>It takes as input the size of the array and the array itself. Note that the type of the input <code>A</code> depends on the value of the first constant input <code>n</code>. In Lustre, calls to such nodes should of course end up by having concrete values for <code>n</code>, this is however not the case in Kind 2 (see <a href="#n20865517-extension-to-unbounded-arrays">here</a>).</p>
+<p>It takes as input the size of the array and the array itself. Note that the type of the input <code>A</code> depends on the value of the first constant input <code>n</code>. In Lustre, calls to such nodes should of course end up by having concrete values for <code>n</code>, this is however not the case in Kind 2 (see <a href="#n21062776-extension-to-unbounded-arrays">here</a>).</p>
 <p>Arrays can be multidimensional, so a user can declare <em>e.g.</em> matrices with the following</p>
 <pre><code>const n = 4;
 const m = 5;
@@ -1151,7 +1151,7 @@ M2 : int ^ 3 ^ 3;</code></pre>
 rats: rational^array_size;
 mm: [int, bool]^array_size;</code></pre>
 <p>In this example, <code>rats</code> is declared as an array of record elements and <code>mm</code> is an array of pairs.</p>
-<h3 id="n20865517-definitions">Definitions</h3>
+<h3 id="n21062776-definitions">Definitions</h3>
 <p>In the body of nodes or at the top-level, arrays can be defined with literals of the form</p>
 <pre><code>A = [2, 5, 7];</code></pre>
 <p>This defines an array <code>A</code> of size 3 whose elements are 2, 5 and 7. Another way to construct Lustre arrays is to have each elements be the same value. This can be done with expressions of the form <code>&lt;value&gt; ^ &lt;size&gt;</code>. For example the two following definitions are equivalent.</p>
@@ -1163,7 +1163,7 @@ A = [2, 2, 2];</code></pre>
      [4, 5, 6],
      [7, 8, 9]];</code></pre>
 <p>then the expression <code>M[1][2]</code> is valid and evaluates to 6. The result of a single selection on an <em>n</em>-dimensional array is an <em>(n-1)</em>-dimensional array. The result of <code>M[2]</code> is the array <code>[7, 8, 9]</code>.</p>
-<h3 id="n20865517-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</h3>
+<h3 id="n21062776-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</h3>
 <p>Kind 2 currently <strong>does not support</strong> the following features of <a href="http://www.di.ens.fr/~pouzet/cours/mpri/manual_lustre.ps">Lustre V5</a>:</p>
 <ul>
 <li><p>Array concatenation like <code>[0, 1] | [2, 3, 4]</code></p></li>
@@ -1171,14 +1171,14 @@ A = [2, 2, 2];</code></pre>
 <li><p>The operators are not homomorphically extended. For instance <code>or</code> has type <code>bool -&gt; bool -&gt; bool</code>, given two arrays of Booleans <code>A</code> and <code>B</code>, the expression <code>A or B</code> will be rejected at typing by Kind 2</p></li>
 <li><p>Node calls don't have an homomorphic extension either</p></li>
 </ul>
-<h2 id="n20865517-extension-to-unbounded-arrays">Extension to unbounded arrays</h2>
+<h2 id="n21062776-extension-to-unbounded-arrays">Extension to unbounded arrays</h2>
 <p>Kind 2 provides an extension of Lustre to express equational constraints between unbounded arrays. This syntax extension allows users to inductively define arrays, give whole array definitions and allows to encode most of the other unsupported array features. This extension was originally suggested by <a href="http://www.esterel-technologies.com">Esterel</a>.</p>
 <blockquote>
 <p><strong>Remark</strong></p>
 <p>Here, by <em>unbounded</em> we mean whose size is an unbounded constant.</p>
 </blockquote>
 <p>In addition, we also enriched the specification language of Kind 2 to support (universal and existential) quantifiers, allowing one to effectively model <em>parameterized</em> system.</p>
-<h3 id="n20865517-whole-array-definitions">Whole array definitions</h3>
+<h3 id="n21062776-whole-array-definitions">Whole array definitions</h3>
 <p>Equations in the body of nodes can now take the following forms</p>
 <ul>
 <li><p><code>A[2] = &lt;term&gt; ;</code> This equation defines the element at index <code>2</code> to the value <code>&lt;term&gt;</code>, the other elements are undefined. This form of <em>single point</em> updates can only be written when the selections on the left of the equation are at constant literal integers.</p></li>
@@ -1200,11 +1200,11 @@ A = [2, 2, 2];</code></pre>
 <pre><code>M[i][i] = i;</code></pre>
 <p>but in this case the second index <code>i</code> shadows the first one, hence the definition is equivalent to the following one where the indexes have been renamed.</p>
 <pre><code>M[j][i] = i;</code></pre>
-<h3 id="n20865517-inductive-definitions">Inductive definitions</h3>
+<h3 id="n21062776-inductive-definitions">Inductive definitions</h3>
 <p>One interesting feature of these equations is that we allow definitions of arrays <em>inductively</em>. For instance it is possible to write an equation</p>
 <pre><code>A[i] = if i = 0 then 0 else A[i-1] ;</code></pre>
 <p>This is however not very exciting because this is the same as saying that <code>A</code> will contain only zeros, but notice we allow the use of <code>A</code> in the right hand side.</p>
-<h4 id="n20865517-dependency-analysis">Dependency analysis</h4>
+<h4 id="n21062776-dependency-analysis">Dependency analysis</h4>
 <p>Inductive definitions are allowed under the restriction that they should be <em>well founded</em>. For instance, the equation</p>
 <pre><code>A[i] = A[i];</code></pre>
 <p>is not and will be rejected by Kind 2 the same way the equation <code>x = x;</code> is rejected. Of course this restriction does not apply for array variables under a <code>pre</code>, so the equation <code>A[i] = pre A[i];</code> is allowed.</p>
@@ -1222,9 +1222,9 @@ C[k] = ( A[k-1] + B[k] ) * k ;</code></pre>
 <pre><code>A[i] = if i = 0 then 0 else if i = 1 then A[0] else A[i-1];</code></pre>
 <pre><code>A[i] = if i = n then 0 else A[i+1];</code></pre>
 <pre><code>A[i] = if i = 0 then 0 else A[0];</code></pre>
-<h4 id="n20865517-examples">Examples</h4>
+<h4 id="n21062776-examples">Examples</h4>
 <p>This section gives some examples of usage for inductive definitions and whole array updates as a way to encode unsupported features and as way to encode complicated functions succinctly.</p>
-<h5 id="n20865517-sum-of-the-elements-in-an-array">Sum of the elements in an array</h5>
+<h5 id="n21062776-sum-of-the-elements-in-an-array">Sum of the elements in an array</h5>
 <p>The following node returns the sum of all elements in an array.</p>
 <pre><code>node sum (const n: int; A: int ^ n) returns (s: int);
 var cumul: int ^ n;
@@ -1234,21 +1234,21 @@ let
 tel</code></pre>
 <p>We declare a local array <code>cumul</code> to store the cumulative sum (<em>i.e.</em> <code>cumul[i]</code> contains the sum of elements in <code>A</code> up to index <code>i</code>) and the returned value of the node is the element stored in the last position of <code>cumul</code>.</p>
 <p>Note that this node is parametric in the size of the array.</p>
-<h5 id="n20865517-array-slices">Array slices</h5>
+<h5 id="n21062776-array-slices">Array slices</h5>
 <p>Array slices can be trivially implemented with the features presented above.</p>
 <pre><code>node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
 let
   B[i] = A[low + i];
 tel</code></pre>
-<h5 id="n20865517-homomorphic-extensions">Homomorphic extensions</h5>
+<h5 id="n21062776-homomorphic-extensions">Homomorphic extensions</h5>
 <p>Encoding an homomorphic <code>or</code> on Boolean arrays is even simpler.</p>
 <pre><code>node or_array (const n: int; A, B : bool^n) returns (C: bool^n);
 let
   C[i] = A[i] or B[i];
 tel</code></pre>
 <p>Defining a generic homomorphic extension of node calls is not possible because nodes are not first order objects in Lustre.</p>
-<h5 id="n20865517-parameterized-systems">Parameterized systems</h5>
+<h5 id="n21062776-parameterized-systems">Parameterized systems</h5>
 <p>It is possible to describe and check properties of parameterized systems. Contrary to the Lustre compilers, Kind 2 does not require the constants used as array sizes to be instantiated with actual values. In this case the properties are checked <em>for any</em> array sizes.</p>
 <pre><code>node slide (const n:int; s: int) returns(A: int^n);
 let
@@ -1258,7 +1258,7 @@ let
 tel</code></pre>
 <p>This node stores in an array <code>A</code> a <em>sliding window</em> over an integer stream <code>s</code>. It saves the values taken by <code>s</code> up to <code>n</code> steps in the past, where <code>n</code> is the size of the array.</p>
 <p>Here the property says, that if the array <code>A</code> has at least two cells then its second value is the previous value of <code>s</code>.</p>
-<h3 id="n20865517-quantifiers-in-specifications">Quantifiers in specifications</h3>
+<h3 id="n21062776-quantifiers-in-specifications">Quantifiers in specifications</h3>
 <p>To better support parameterized systems or systems with large arrays, we expose quantifiers for use in the language of the specifications. Quantifiers can thus appear in <strong>properties</strong>, <strong>contracts</strong> and <strong>assertions</strong>.</p>
 <p>Universal quantification is written with:</p>
 <pre><code>forall ( &lt;x : type&gt;;+ ) P(&lt;x&gt;+)</code></pre>
@@ -1271,7 +1271,7 @@ tel</code></pre>
 <p>Existential quantification takes the same form except we use <code>exists</code> instead of <code>forall</code>.</p>
 </blockquote>
 <p>Quantifiers can be arbitrarily nested and alternated at the propositional level.</p>
-<h4 id="n20865517-example">Example</h4>
+<h4 id="n21062776-example">Example</h4>
 <p>The same parameterized system of a sliding window, slightly modified to express the property that <code>A</code> contains in each of its cells, an uninitialized value (<em>i.e.</em> value <code>-1</code>), or one of the previous values of the stream <code>s</code>.</p>
 <pre><code>node slide (const n:int; s: int) returns(ok: bool^n);
 var A: int^n;
@@ -1281,7 +1281,7 @@ let
 
   --%PROPERTY forall (i: int) 0 &lt;= i and i &lt; n =&gt; ok[i];
 tel</code></pre>
-<h3 id="n20865517-limitations">Limitations</h3>
+<h3 id="n21062776-limitations">Limitations</h3>
 <p>One major limitation that is present in the arrays of Kind 2 is that one cannot have node calls in inductive array definitions whose parameters are array selections.</p>
 <p>For instance, it is currently not possible to write the following in Kind 2 where <code>A</code> and <code>B</code> are array and <code>some_node</code> takes values as inputs.</p>
 <pre><code>node some_node (x: int) returns (y: int);
@@ -1299,7 +1299,7 @@ A, B: int^4;
 ...
 
 A = some_node(4, B);</code></pre>
-<h3 id="n20865517-command-line-options">Command line options</h3>
+<h3 id="n21062776-command-line-options">Command line options</h3>
 <p>We provide different encodings of inductive array definitions in our internal representation of the transition system. The command line interface exposes different options to control which encoding is used. This is particularly relevant for SMT solvers that have built-in features, whether it is support for the theory of arrays, or special options or annotations for quantifier instantiation.</p>
 <p>These options are summed up in the following table and described in more detail in the rest of this section.</p>
 <table>
@@ -1332,9 +1332,9 @@ A[k] = x;</code></pre>
 <p>we will generate internally the constraint</p>
 <p><em>∀ k: int. 0 &lt;= k &lt; 6 =&gt; (select A k) = x</em></p>
 <p>These form of constraint are handled in an efficient way by CVC4 (thanks to finite model finding).</p>
-<h5 id="smt_arrays-n20865517---smt_arrays"><code>--smt_arrays</code> {#n20865517-<code>--smt_arrays</code>}</h5>
+<h5 id="smt_arrays-n21062776---smt_arrays"><code>--smt_arrays</code> {#n21062776-<code>--smt_arrays</code>}</h5>
 <p>By default arrays are converted using ah-hoc selection functions to avoid stressing the theory of arrays in the SMT solvers. This option tells Kind 2 to use the builtin theory of arrays of the solvers instead. If you want to try it, it’s probably a good idea to use it in combination of <code>--smtlogic detect</code> for better performances.</p>
-<h5 id="inline_arrays-n20865517---inline_arrays"><code>--inline_arrays</code> {#n20865517-<code>--inline_arrays</code>}</h5>
+<h5 id="inline_arrays-n21062776---inline_arrays"><code>--inline_arrays</code> {#n21062776-<code>--inline_arrays</code>}</h5>
 <p>By default, Kind 2 will generate problems with quantifiers for arrays which should be useful for problems with large arrays. This option tells Kind 2 to instantiate these quantifiers when it can reasonably do so. Only CVC4 has a good support for this kind of quantification so you may want to use this option with the other solvers.</p>
 <p>The previous example</p>
 <pre><code>A : int^6;
@@ -1342,7 +1342,7 @@ A[k] = x;</code></pre>
 A[k] = x;</code></pre>
 <p>will now be encoded by the constraint</p>
 <p><em>(select A 0) = x ⋀ (select A 1) = x ⋀ (select A 2) = x ⋀ (select A 3) = x ⋀ (select A 4) = x ⋀ (select A 5) = x</em></p>
-<h5 id="arrays_rec-n20865517---arrays_rec"><code>--arrays_rec</code> {#n20865517-<code>--arrays_rec</code>}</h5>
+<h5 id="arrays_rec-n21062776---arrays_rec"><code>--arrays_rec</code> {#n21062776-<code>--arrays_rec</code>}</h5>
 <p>This uses a special kind of encoding to tell CVC4 to treat quantified definitions of some uninterpreted functions as recursive definitions.</p>
 <p></p>
 <h1 id="n18820171-arrays">Arrays</h1>
@@ -1362,7 +1362,7 @@ A : int ^ n;</code></pre>
 let
   x = A[n-1];
 tel</code></pre>
-<p>It takes as input the size of the array and the array itself. Note that the type of the input <code>A</code> depends on the value of the first constant input <code>n</code>. In Lustre, calls to such nodes should of course end up by having concrete values for <code>n</code>, this is however not the case in Kind 2 (see <a href="#n20865517-extension-to-unbounded-arrays">here</a>).</p>
+<p>It takes as input the size of the array and the array itself. Note that the type of the input <code>A</code> depends on the value of the first constant input <code>n</code>. In Lustre, calls to such nodes should of course end up by having concrete values for <code>n</code>, this is however not the case in Kind 2 (see <a href="#n21062776-extension-to-unbounded-arrays">here</a>).</p>
 <p>Arrays can be multidimensional, so a user can declare <em>e.g.</em> matrices with the following</p>
 <pre><code>const n = 4;
 const m = 5;
