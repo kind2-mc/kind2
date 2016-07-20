@@ -6,13 +6,13 @@
    may not use this file except in compliance with the License.  You
    may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0 
+   http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
    implied. See the License for the specific language governing
-   permissions and limitations under the License. 
+   permissions and limitations under the License.
 
 *)
 
@@ -97,7 +97,7 @@ let shrink_param_to_sys param sys = match param with
 (* Retrieve the assumptions of a [scope] from a [param]. *)
 let param_assumptions_of_scope param scope =
   let { assumptions } = info_of_param param in
-  assumptions |> List.fold_left (fun a (s, t) -> 
+  assumptions |> List.fold_left (fun a (s, t) ->
      if Scope.equal s scope then t :: a else a
   ) []
 
@@ -107,7 +107,7 @@ let param_scope_is_abstract param scope =
   let { abstraction_map } = info_of_param param in
   try
     (* Find node in abstraction map by name *)
-    Scope.Map.find scope abstraction_map 
+    Scope.Map.find scope abstraction_map
   (* Assume node to be concrete if not in map *)
   with Not_found -> false
 
@@ -414,11 +414,9 @@ let pp_print_result fmt {
 let run _ = assert false
 
 
-(* 
+(*
    Local Variables:
    compile-command: "make -k -C .."
    indent-tabs-mode: nil
-   End: 
+   End:
 *)
-  
-

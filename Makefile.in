@@ -24,6 +24,10 @@ install_files=@PACKAGE_NAME@ lfsc-extractor cvc4_lfsc_check
 # Arguments for regression tests: timeout
 ARGS="--timeout 5"
 
+# pass variables to sub-makes
+export
+
+
 all: @PACKAGE_NAME@
 
 .PHONY: ocamlczmq @PACKAGE_NAME@ @PACKAGE_NAME@-prof @PACKAGE_NAME@-top @PACKAGE_NAME@-doc 
