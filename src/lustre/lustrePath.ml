@@ -1409,7 +1409,7 @@ let rec add_to_callpos abstr_map acc pos clock args calls =
 
     if c_pos = 0 then raise Exit; (* already in there, abort *)
     
-    if same_args abstr_map args args' then let _ =() in Format.eprintf "\nICI\n@.";
+    if same_args abstr_map args args' then
       (* calls with same arguments but at different positions *)
       (* insert in between with the same number, don't shift anything *)
       if c_pos > 0 then
