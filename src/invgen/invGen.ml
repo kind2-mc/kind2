@@ -467,8 +467,8 @@ module Make (Graph : GraphSig) : Out = struct
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
     let blah = if sys == top_sys then " (top)" else "" in
-    Event.log L_info
-      "%s Running on %a%s at %a (%d candidate terms)"
+    Format.printf
+      "%s Running on %a%s at %a (%d candidate terms)@.@."
       (pref_s two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
       Num.pp_print_numeral k (Graph.term_count graph) ;
 
@@ -495,7 +495,7 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Prunes known invariants from a list of candidates. *)
     let prune cand =
-      Set.mem cand non_trivial || Set.mem cand trivial
+      Set.mem cand non_trivial || Set.mem cand trivial || Sys.is_inv sys cand
     in
     let prune =
       if two_state then (
@@ -700,7 +700,7 @@ module Make (Graph : GraphSig) : Out = struct
   (** Invariant generation entry point. *)
   let main max_depth top_only modular two_state input_sys aparam sys =
 
-    (* Format.printf "Starting@.@." ; *)
+    (* Format.printf "Starting (%b)@.@." two_state ; *)
 
     (* Initial [k]. *)
     let k = if two_state then Num.one else Num.zero in
@@ -711,28 +711,17 @@ module Make (Graph : GraphSig) : Out = struct
     (* Generating the candidate terms and building the graphs. Result is a list
     of quadruples: system, graph, non-trivial invariants, trivial
     invariants. *)
-    Domain.mine top_only aparam two_state sys |> List.fold_left (
-      fun acc (sub_sys, set) ->
-        let set = Set.add Term.t_true set in
-        (* Format.printf "%s candidates: @[<v>%a@]@.@."
-          pref (pp_print_list fmt_term "@ ") (Set.elements set) ; *)
-        let pruning_checker = Lsd.mk_pruning_checker sub_sys in
-        (* Memorizing pruning checker for clean exit. *)
-        prune_ref := pruning_checker :: (! prune_ref ) ;
-        SysMap.replace sys_map sub_sys pruning_checker ;
-        (
-          sub_sys,
-          Graph.mk Term.t_false set,
-          Set.empty,
-          Set.empty
-        ) :: acc
-    ) []
-    |> (
+    Graph.mine top_only two_state aparam sys (
+      fun sys ->
+        let pruning_checker = Lsd.mk_pruning_checker sys in
+        prune_ref := pruning_checker :: (! prune_ref) ;
+        SysMap.replace sys_map sys pruning_checker
+    ) |> (
       if modular then 
         (* If in modular mode, we already ran on the subsystems.
         Might as well start with the current top system since it's new. *)
-        List.rev
-      else identity
+        identity
+      else List.rev
     )
     |> fun syss ->
       (* Format.printf "Running on %d systems@.@." (List.length syss) ; *)

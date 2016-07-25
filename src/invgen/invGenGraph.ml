@@ -89,6 +89,14 @@ module type Graph = sig
   representative. *)
   val mk : term -> set -> graph
 
+  (** Mines a system and creates the relevant graphs.
+  
+  First boolean is [top_only], then [two_state]. Input function is applied to
+  each subsystem. It is used to create the pruning checkers. *)
+  val mine : bool -> bool -> Analysis.param -> TransSys.t -> (
+    TransSys.t -> unit
+  ) -> (TransSys.t * graph * set * set) list
+
   (** Clones a graph. *)
   val clone : graph -> graph
 
@@ -213,6 +221,16 @@ module Make (Dom: DomainSig) : Graph = struct
     ) ;
     values = Map.create 107 ;
   }
+
+  (** Mines a system and creates the relevant graphs. *)
+  let mine top_only two_state param sys do_stuff =
+    Dom.mine top_only two_state param sys
+    |> List.fold_left (
+      fun acc (sub_sys, terms) ->
+        do_stuff sub_sys ;
+        let rep, terms = Dom.first_rep_of terms in
+        (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
+    ) []
 
   (** Clones a graph. *)
   let clone { map_up ; map_down ; classes ; values } = {
