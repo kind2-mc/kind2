@@ -270,7 +270,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
           if two_state then identity else List.map (
             fun (sys, set) ->
               let res = one_state_ify_set set in
-              if not two_state then (
+              (* if not two_state then (
                 Format.printf
                   "candidates %s (%d, %b):@   @[<v>%a@]@.@."
                   (name_of_sys sys)
@@ -280,7 +280,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
                     Term.pp_print_term
                     "@ "
                   ) (Set.elements res)
-              ) ;
+              ) ; *)
               sys, res
           )
         )
