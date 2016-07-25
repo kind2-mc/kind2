@@ -1270,6 +1270,22 @@ module Invgen = struct
     )
   let top_only () = !top_only
 
+  let all_out_default = false
+  let all_out = ref all_out_default
+  let _ = add_spec
+    "--invgen_all_out"
+    (bool_arg all_out)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces invariant generation to consider a huge number of candidates@ \
+          Slower, but more likely to succeed.@ \
+          Default: %a\
+        @]"
+        fmt_bool all_out_default
+    )
+  let all_out () = !all_out
+
   let mine_trans_default = true
   let mine_trans = ref mine_trans_default
   let _ = add_spec

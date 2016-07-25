@@ -429,6 +429,9 @@ module Invgen : sig
   (** InvGen will generate invariants only for top level. **)
   val top_only : unit -> bool
 
+  (** Forces invgen to consider a huge number of candidates. *)
+  val all_out : unit -> bool
+
   (** InvGen will look for candidate terms in the transition predicate. *)
   val mine_trans : unit -> bool
 

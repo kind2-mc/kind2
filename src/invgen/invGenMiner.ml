@@ -362,13 +362,19 @@ module BoolRules = struct
   let int_rule svar set =
     let var = Var.mk_state_var_instance svar zero |> Term.mk_var in
     Set.add (Term.mk_geq [var ; Term.mk_num zero]) set
-    |> Set.add (Term.mk_eq [var ; Term.mk_num zero])
+    |>
+      if Flags.Invgen.all_out () then
+        Set.add (Term.mk_eq [var ; Term.mk_num zero])
+      else identity
 
   (* Adds [svar >= 0] for a real [svar] to the input set. *)
   let real_rule svar set =
     let var = Var.mk_state_var_instance svar zero |> Term.mk_var in
     Set.add (Term.mk_geq [var ; Term.mk_dec Dec.zero]) set
-    |> Set.add (Term.mk_eq [var ; Term.mk_dec Dec.zero])
+    |>
+      if Flags.Invgen.all_out () then
+        Set.add (Term.mk_eq [var ; Term.mk_dec Dec.zero])
+      else identity
 
 
 
@@ -439,17 +445,24 @@ module BoolRules = struct
   let post_svars two_state (set, _) = set, ()
 
   let flat_rules two_state flat (set, _) =
-    (* match to_term flat |> type_of with
-    | Type.Bool -> arith_op_synth flat set, () (* |> bool_term_rule flat *)
-    | _ -> set, () *)
-    set, ()
+    match to_term flat |> type_of with
+    | Type.Bool -> (
+      arith_op_synth flat set
+      |>
+        if Flags.Invgen.all_out () then
+          bool_term_rule flat
+        else identity
+    ), ()
+    | _ -> set, ()
 
   let post_rules two_state _  _ set =
-    (* Set.fold (
-      fun term set -> Set.add (Term.negate_simplify term) set
-    ) set set
-    |> *)
-    Set.add Term.t_true set
+    (
+      if Flags.Invgen.all_out () then
+        Set.fold (
+          fun term set -> Set.add (Term.negate_simplify term) set
+        ) set set
+      else set
+    ) |> Set.add Term.t_true
 
 end
 
