@@ -114,8 +114,18 @@ module Int: Domain = struct
   let mk_eq rep term = Term.mk_eq [ rep ; term ]
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_int
-  let mine _ _ _ _ =
-    failwith "integer candidate term mining is unimplemented"
+  let mine top_only two_state param top_sys =
+    InvGenMiner.Int.mine top_only two_state top_sys
+    |> List.filter (
+      fun (sys, _) ->
+        (sys == top_sys) || (
+          (not top_only) && (
+            TransSys.scope_of_trans_sys sys
+            |> Analysis.param_scope_is_abstract param
+            |> not
+          )
+        )
+    )
   let first_rep_of terms =
     let rep = Set.choose terms in
     rep, Set.remove rep terms

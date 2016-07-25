@@ -103,6 +103,9 @@ module type Graph = sig
   (** Total number of terms in the graph. *)
   val term_count : graph -> int
 
+  (** Total number of classes in the graph. *)
+  val class_count : graph -> int
+
   (** Drops a term from the class corresponding to a representative. *)
   val drop_class_member : graph -> term -> term -> unit
 
@@ -111,9 +114,9 @@ module type Graph = sig
   (** Formats the eq classes of a graph in dot format. *)
   val fmt_graph_classes_dot : Format.formatter -> graph -> unit
 
-  (** Checks that a graph makes sense. Dumps the graph and its classes in dot
+  (* (** Checks that a graph makes sense. Dumps the graph and its classes in dot
   format in the current directory if the graph does not make sense. *)
-  val check_graph : graph -> bool
+  val check_graph : graph -> bool *)
 
   (** Minimal list of terms encoding the current state of the graph. Contains
   - equality between representatives and their class, and
@@ -243,8 +246,16 @@ module Make (Dom: DomainSig) : Graph = struct
   (** Total number of terms in the graph. *)
   let term_count { classes } =
     Map.fold (
-     fun rep cl4ss sum -> sum + 1 + (Set.cardinal cl4ss)
+      fun rep cl4ss sum ->
+        (* Format.printf "%a -> @[<v>%a@]@.@."
+          fmt_term rep
+          (pp_print_list fmt_term "@ ")
+          (Set.elements cl4ss) ; *)
+        sum + 1 + (Set.cardinal cl4ss)
     ) classes 0
+
+  (** Number of classes in the graph. *)
+  let class_count { classes } = Map.length classes
 
   (** Forgets a member of an equivalence class. *)
   let drop_class_member { classes } rep term =
@@ -658,7 +669,7 @@ digraph mode_graph {
     and "inserted", then the representative is inserted with the remaining
     terms form [rep_cl4ss]. *)
     let rec insert ?(is_rep=false) pref sorted term value =
-      if is_rep || value <> rep_val then (
+      if is_rep || (Domain.eq value rep_val |> not) then (
         let default = if is_rep then !rep_cl4ss else Set.empty in
         if not is_rep then rep_cl4ss := Set.remove term !rep_cl4ss ;
 
@@ -668,7 +679,7 @@ digraph mode_graph {
           (* No more elements, inserting. *)
           (term, value, default) :: pref |> List.rev
 
-        | (rep, value', set) :: tail when value = value' ->
+        | (rep, value', set) :: tail when Domain.eq value value' ->
           (* Inserting. *)
           (rep, value', Set.add term set) :: tail |> List.rev_append pref
 

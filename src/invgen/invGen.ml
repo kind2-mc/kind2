@@ -302,38 +302,42 @@ module Make (Graph : GraphSig) : Out = struct
   let communicate_and_add
     two_state top_sys sys_map sys k blah non_trivial trivial
   =
+    (* Format.printf "trivial: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ") trivial ;
+    Format.printf "non trivial: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ") non_trivial ; *)
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
         Event.log L_info
           "%s @[<v>\
-            On system [%s] at %a: %s@ \
+            On system [%a] at %a: %s@ \
             found %d non-trivial invariants\
           @]"
           (pref_s two_state)
-          (sys_name sys)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
       | [], _ ->
         Event.log L_info
           "%s @[<v>\
-            On system [%s] at %a: %s@ \
+            On system [%a] at %a: %s@ \
             found %d trivial invariants\
           @]"
           (pref_s two_state)
-          (sys_name sys)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
           Num.pp_print_numeral k
           blah
           (List.length trivial)
       | _, _ ->
         Event.log L_info
           "%s @[<v>\
-            On system [%s] at %a: %s@ \
+            On system [%a] at %a: %s@ \
             found %d non-trivial invariants and %d trivial ones\
           @]"
           (pref_s two_state)
-          (sys_name sys)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
@@ -468,9 +472,10 @@ module Make (Graph : GraphSig) : Out = struct
   | (sys, graph, non_trivial, trivial) :: graphs ->
     let blah = if sys == top_sys then " (top)" else "" in
     Format.printf
-      "%s Running on %a%s at %a (%d candidate terms)@.@."
+      "%s Running on %a%s at %a (%d candidate terms, %d classes)@.@."
       (pref_s two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
-      Num.pp_print_numeral k (Graph.term_count graph) ;
+      Num.pp_print_numeral k (Graph.term_count graph)
+      (Graph.class_count graph) ;
 
     (* Receiving messages, don't care about new invariants for now as we
     haven't create the base/step checker yet. *)
@@ -749,7 +754,7 @@ module RealInvGen = Make(InvGenGraph.Real)
 
 
 let main two_state in_sys param sys =
-  BoolInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  IntInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
   |> ignore
 
 
