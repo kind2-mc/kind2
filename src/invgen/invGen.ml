@@ -664,6 +664,15 @@ module Make (Graph : GraphSig) : Out = struct
           "%s Graph for system %a is stale, forgetting it."
           (pref_s two_state)
           Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
+        (
+          try
+            SysMap.find sys_map sys |> Lsd.kill_pruning
+          with Not_found ->
+            Event.log L_warn
+              "%s Could not find pruning checker for system %a."
+              (pref_s two_state)
+              Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
+        ) ;
         SysMap.remove sys_map sys ;
         memory, (sys, non_trivial, trivial) :: res
       ) else

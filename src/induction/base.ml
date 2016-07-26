@@ -170,17 +170,17 @@ let split_closure trans solver k actlits to_split =
 let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
 
   (* Asserts terms from 0 to k. *)
-  let assert_new_invariants =
-    List.iter
+  let assert_new_invariants = ignore
+    (* List.iter
       (Term.bump_and_apply_k
-         (SMTSolver.assert_term solver) k)
+         (SMTSolver.assert_term solver) k) *)
   in
 
   (* Asserts terms at k. *)
-  let assert_old_invariants =
-    List.iter
+  let assert_old_invariants = ignore
+    (* List.iter
       (fun term -> Term.bump_state k term
-                   |> SMTSolver.assert_term solver)
+                   |> SMTSolver.assert_term solver) *)
   in
 
   (* Getting new invariants and updating transition system. *)
