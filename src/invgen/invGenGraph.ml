@@ -106,6 +106,9 @@ module type Graph = sig
   (** Total number of classes in the graph. *)
   val class_count : graph -> int
 
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  val is_stale : graph -> bool
+
   (** Drops a term from the class corresponding to a representative. *)
   val drop_class_member : graph -> term -> term -> unit
 
@@ -256,6 +259,9 @@ module Make (Dom: DomainSig) : Graph = struct
 
   (** Number of classes in the graph. *)
   let class_count { classes } = Map.length classes
+
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  let is_stale t = (term_count t) = (class_count t)
 
   (** Forgets a member of an equivalence class. *)
   let drop_class_member { classes } rep term =

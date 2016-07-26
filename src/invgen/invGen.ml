@@ -23,32 +23,6 @@ module type GraphSig = InvGenGraph.Graph
 
 
 
-
-(* |===| IO stuff to log graphs and so on. *)
-
-
-(* Opens a file in write mode, creating it if needed. *)
-let openfile path = Unix.openfile path [
-  Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT
-] 0o640
-
-(* Formatter of a file descriptor. *)
-let fmt_of_file file =
-  Unix.out_channel_of_descr file |> Format.formatter_of_out_channel
-
-(* Writes a graph in graphviz to file [<path>/<name>_<suff>.dot]. *)
-let write_dot_to path name suff fmt_graph graph =
-  mk_dir path ; (* Create directory if needed. *)
-  let desc = (* Create descriptor for log file. *)
-    Format.sprintf "%s/%s_%s.dot" path name suff |> openfile
-  in
-  (* Log graph in graphviz. *)
-  Format.fprintf (fmt_of_file desc) "%a@.@." fmt_graph graph ;
-  (* Close log file descriptor. *)
-  Unix.close desc
-
-
-
 (* |===| Module and type aliases *)
 
 
@@ -373,7 +347,7 @@ module Make (Graph : GraphSig) : Out = struct
             let pruning_checker = SysMap.find sys_map this_sys in
             Lsd.pruning_add_invariants pruning_checker [inv, cert]
           ) with Not_found -> (
-            (* System is abstract, skipping it. *)
+            (* System is abstract or was discarded, skipping it. *)
           )
         ) ;
         update_pruning_checkers (
@@ -466,7 +440,8 @@ module Make (Graph : GraphSig) : Out = struct
   after incrementing [k]. *)
   let rec system_iterator
     max_depth two_state
-    input_sys param top_sys memory k sys_map top_level_count
+    input_sys param top_sys res memory
+    k sys_map top_level_count
   = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
@@ -672,16 +647,33 @@ module Make (Graph : GraphSig) : Out = struct
     Format.printf "%s trivial: @[<v>%a@]@.@."
       pref (pp_print_list fmt_term "@ ") (Set.elements trivial) ; *)
 
-    (* write_dot_to "." "graph" "blah" fmt_graph_dot graph ;
-    write_dot_to "." "classes" "blah" fmt_graph_classes_dot graph ; *)
+    let suff =
+      Format.asprintf "%a_%s" Num.pp_print_numeral k (sys_name sys)
+    in
+    InvGenGraph.write_dot_to
+      "." "graph" suff Graph.fmt_graph_dot graph ;
+    InvGenGraph.write_dot_to
+      "." "classes" suff Graph.fmt_graph_classes_dot graph ;
     (* minisleep 2.0 ;
     exit () ; *)
 
+    (* Forget the graph if it is stale. *)
+    let memory, res =
+      if Graph.is_stale graph then (
+        Event.log L_info
+          "%s Graph for system %a is stale, forgetting it."
+          (pref_s two_state)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
+        SysMap.remove sys_map sys ;
+        memory, (sys, non_trivial, trivial) :: res
+      ) else
+        (sys, graph, non_trivial, trivial) :: memory, res
+    in
+
     (* Looping. *)
     system_iterator
-      max_depth two_state input_sys param top_sys (
-        (sys, graph, non_trivial, trivial) :: memory
-      ) k sys_map top_level_count graphs
+      max_depth two_state input_sys param top_sys
+      res memory k sys_map top_level_count graphs
 
   | [] ->
     (* Done for all systems for this k, incrementing. *)
@@ -691,15 +683,23 @@ module Make (Graph : GraphSig) : Out = struct
       Event.log_uncond "%s Reached max depth (%a), stopping."
         (pref_s two_state) Num.pp_print_numeral kay ;
         memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
-    | _ ->
-      (* Format.printf
-        "%s Looking for invariants at %a (%d)@.@."
-        (pref_s two_state) Num.pp_print_numeral k
-        (List.length memory) ; *)
-      List.rev memory
-      |> system_iterator
-        max_depth two_state
-        input_sys param top_sys [] k sys_map top_level_count
+    | _ -> (
+      match memory with
+      | [] ->
+        Event.log L_info
+          "%s No more system to run on, stopping."
+          (pref_s two_state) ;
+        res
+      | _ ->
+        (* Format.printf
+          "%s Looking for invariants at %a (%d)@.@."
+          (pref_s two_state) Num.pp_print_numeral k
+          (List.length memory) ; *)
+        List.rev memory
+        |> system_iterator
+          max_depth two_state
+          input_sys param top_sys res [] k sys_map top_level_count
+    )
 
 
   (** Invariant generation entry point. *)
@@ -731,7 +731,8 @@ module Make (Graph : GraphSig) : Out = struct
     |> fun syss ->
       (* Format.printf "Running on %d systems@.@." (List.length syss) ; *)
       syss
-    |> system_iterator max_depth two_state input_sys aparam sys [] k sys_map 0
+    |> system_iterator
+      max_depth two_state input_sys aparam sys [] [] k sys_map 0
 
 end
 

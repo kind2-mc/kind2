@@ -37,6 +37,12 @@ type 'a map = 'a Term.TermHashtbl.t
 (** Set of terms. *)
 type set = Term.TermSet.t
 
+(** [write_dot_to path name suff fmt graph]
+Writes a graph in graphviz to file [<path>/<name>_<suff>.dot]. *)
+val write_dot_to : string -> string -> string -> (
+  Format.formatter -> 'a -> unit
+) -> 'a -> unit
+
 (** Signature of the modules created by the graph functor. *)
 module type Graph = sig
   (** Domain with an order relation. *)
@@ -65,6 +71,9 @@ module type Graph = sig
 
   (** Total number of classes in the graph. *)
   val class_count : graph -> int
+
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  val is_stale : graph -> bool
 
   (** Drops a term from the class corresponding to a representative. *)
   val drop_class_member : graph -> term -> term -> unit
