@@ -1810,6 +1810,10 @@ module Global = struct
     | "IND2" -> `IND2
     | "INVGEN" -> `INVGEN
     | "INVGENOS" -> `INVGENOS
+    | "INVGENINT" -> `INVGENINT
+    | "INVGENINTOS" -> `INVGENINTOS
+    | "INVGENREAL" -> `INVGENREAL
+    | "INVGENREALOS" -> `INVGENREALOS
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
     | unexpected -> Arg.Bad (
@@ -1822,6 +1826,10 @@ module Global = struct
     | `IND2 -> "IND2"
     | `INVGEN -> "INVGEN"
     | `INVGENOS -> "INVGENOS"
+    | `INVGENINT -> "INVGENINT"
+    | `INVGENINTOS -> "INVGENINTOS"
+    | `INVGENREAL -> "INVGENREAL"
+    | `INVGENREALOS -> "INVGENREALOS"
     | `C2I -> "C2I"
     | `Interpreter -> "interpreter"
   let string_of_enable = function
@@ -1833,14 +1841,20 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `BMC ; `IND ; `IND2 ; `INVGEN ; `INVGENOS ; `C2I ; `Interpreter
+    `IC3 ; `BMC ; `IND ; `IND2 ;
+    `INVGEN ; `INVGENOS ;
+    `INVGENINT ; `INVGENINTOS ;
+    `INVGENREAL ; `INVGENREALOS ; `C2I ; `Interpreter
   ] |> List.map string_of_kind_module |> String.concat ", "
 
   let enable_default_init = []
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `IND ; `IND2 ; `IC3 ; `INVGEN ; `INVGENOS
+    `BMC ; `IND ; `IND2 ; `IC3 ;
+    `INVGEN ; `INVGENOS ;
+    `INVGENINT ; `INVGENINTOS ;
+    `INVGENREAL ; `INVGENREALOS
   ]
   let enabled = ref enable_default_init
   let disabled = ref disable_default_init

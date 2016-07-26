@@ -285,6 +285,10 @@ type kind_module =
   | `IND2
   | `INVGEN
   | `INVGENOS
+  | `INVGENINT
+  | `INVGENINTOS
+  | `INVGENREAL
+  | `INVGENREALOS
   | `C2I
   | `Interpreter
   | `Supervisor

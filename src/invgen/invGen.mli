@@ -22,16 +22,23 @@
 Invariant generation is written as a functor and is instantiated to create
 boolean, integer and real invariant generation.
 
-/!\ Currently, only boolean invariant generation works.
-
 For more details, refer to the paper about invariant generation that I need to
-write but currently haven't.
+write but haven't yet.
 *)
 
 
 
 (** Temporary entry point for boolean invariant generation. *)
-val main : bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+val main_bool :
+  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+
+(** Temporary entry point for integer invariant generation. *)
+val main_int :
+  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+
+(** Temporary entry point for real invariant generation. *)
+val main_real :
+  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary exit point for boolean invariant generation. *)
 val exit : 'a -> unit
@@ -54,13 +61,11 @@ end
 (** Boolean invariant generation module. *)
 module BoolInvGen : Out
 
-(*
 (** Int invariant generation module. *)
 module IntInvGen : Out
 
 (** Real invariant generation module. *)
 module RealInvGen : Out
-*)
 
 
 

@@ -121,8 +121,12 @@ let main_of_process = function
   | `BMC -> BMC.main
   | `IND -> IND.main
   | `IND2 -> IND2.main
-  | `INVGEN -> renice () ; InvGen.main true
-  | `INVGENOS -> renice () ; InvGen.main false
+  | `INVGEN -> renice () ; InvGen.main_bool true
+  | `INVGENOS -> renice () ; InvGen.main_bool false
+  | `INVGENINT -> renice () ; InvGen.main_int true
+  | `INVGENINTOS -> renice () ; InvGen.main_int false
+  | `INVGENREAL -> renice () ; InvGen.main_real true
+  | `INVGENREALOS -> renice () ; InvGen.main_real false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Interpreter.main (Flags.Interpreter.input_file ())
   | `Supervisor -> InvarManager.main child_pids
@@ -136,6 +140,10 @@ let on_exit_of_process = function
   | `IND2 -> IND2.on_exit
   | `INVGEN -> InvGen.exit
   | `INVGENOS -> InvGen.exit
+  | `INVGENINT -> InvGen.exit
+  | `INVGENINTOS -> InvGen.exit
+  | `INVGENREAL -> InvGen.exit
+  | `INVGENREALOS -> InvGen.exit
   | `C2I -> C2I.on_exit
   | `Interpreter -> Interpreter.on_exit
   | `Supervisor -> InvarManager.on_exit
@@ -159,6 +167,10 @@ let debug_ext_of_process = function
   | `IND2 -> "ind2"
   | `INVGEN -> "invgenTS"
   | `INVGENOS -> "invgenOS"
+  | `INVGENINT -> "invgenintTS"
+  | `INVGENINTOS -> "invgenintOS"
+  | `INVGENREAL -> "invgenintTS"
+  | `INVGENREALOS -> "invgenintOS"
   | `C2I -> "c2i"
   | `Interpreter -> "interp"
   | `Parser -> "parser"

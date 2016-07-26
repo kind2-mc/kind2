@@ -483,6 +483,59 @@ module Bool = MakeCandGen (BoolRules)
 
 
 
+let empty_model = Model.of_list []
+
+let eval term =
+  Eval.eval_term [] empty_model term
+  |> Eval.term_of_value
+
+let octagons oct3 f =
+  let rec octagons_3 terms terms set = match terms with
+    | term :: tail ->
+    (*   Format.printf "  oct 3 %a (%d)@."
+        fmt_term term
+        (List.length tail) ; *)
+      List.map (fun term' -> [ term' ; term ]) terms
+      |> List.fold_left (
+        fun set terms ->
+          Set.add (Term.mk_plus terms |> f) set
+          |> Set.add (Term.mk_minus terms |> f)
+      ) set
+      |> octagons_3 terms tail
+    | [] -> set
+  in
+  let rec octagons_2_3 term terms set = match terms with
+    | term' :: tail ->
+     (*  Format.printf "  oct 2 %a (%d)@."
+        fmt_term term'
+        (List.length tail) ; *)
+      let terms = [ term ; term' ] in
+      let sum, diff =
+        Term.mk_plus terms |> f, Term.mk_minus terms |> f
+      in
+      Set.add sum set
+      |> Set.add diff
+      |> (if oct3 then octagons_3 [ sum ; diff ] tail else identity)
+      |> octagons_2_3 term tail
+    | [] -> set
+  in
+  let rec loop terms set = match terms with
+    | term :: tail ->
+      (* Format.printf "loop %a (%d)@."
+        fmt_term term
+        (List.length tail) ; *)
+      (* Adding current term. *)
+      Set.add term set
+      (* Forming octagons. *)
+      |> octagons_2_3 term tail
+      (* Looping. *)
+      |> loop tail
+    | [] -> set
+  in
+  loop
+
+
+
 
 
 (** Integer rules. *)
@@ -491,57 +544,6 @@ module IntRules = struct
 
   (* We'll extract the state var to create octagons. *)
   type svar_info = ()
-
-  let empty_model = Model.of_list []
-
-  let eval term =
-    Eval.eval_term [] empty_model term
-    |> Eval.term_of_value
-
-  let octagons oct3 f =
-    let rec octagons_3 terms terms set = match terms with
-      | term :: tail ->
-      (*   Format.printf "  oct 3 %a (%d)@."
-          fmt_term term
-          (List.length tail) ; *)
-        List.map (fun term' -> [ term' ; term ]) terms
-        |> List.fold_left (
-          fun set terms ->
-            Set.add (Term.mk_plus terms |> f) set
-            |> Set.add (Term.mk_minus terms |> f)
-        ) set
-        |> octagons_3 terms tail
-      | [] -> set
-    in
-    let rec octagons_2_3 term terms set = match terms with
-      | term' :: tail ->
-       (*  Format.printf "  oct 2 %a (%d)@."
-          fmt_term term'
-          (List.length tail) ; *)
-        let terms = [ term ; term' ] in
-        let sum, diff =
-          Term.mk_plus terms |> f, Term.mk_minus terms |> f
-        in
-        Set.add sum set
-        |> Set.add diff
-        |> (if oct3 then octagons_3 [ sum ; diff ] tail else identity)
-        |> octagons_2_3 term tail
-      | [] -> set
-    in
-    let rec loop terms set = match terms with
-      | term :: tail ->
-        (* Format.printf "loop %a (%d)@."
-          fmt_term term
-          (List.length tail) ; *)
-        (* Adding current term. *)
-        Set.add term set
-        (* Forming octagons. *)
-        |> octagons_2_3 term tail
-        (* Looping. *)
-        |> loop tail
-      | [] -> set
-    in
-    loop
 
   let svar_rules two_state svars set =
     (* Format.printf "svars: @[<v>%a@]@.@."
@@ -637,6 +639,109 @@ end
 
 (** Int candidate term miner. *)
 module Int = MakeCandGen (IntRules)
+
+
+
+
+
+
+(** Real rules. *)
+module RealRules = struct
+  let comp_set _ = Set.empty
+
+  (* We'll extract the state var to create octagons. *)
+  type svar_info = ()
+
+  let svar_rules two_state svars set =
+    (* Format.printf "svars: @[<v>%a@]@.@."
+      (pp_print_list
+        (fun fmt svar ->
+          Format.fprintf fmt "%a (%a)"
+            fmt_svar svar
+            Type.pp_print_type_node (type_of_svar svar)
+        ) "@ "
+      ) svars ; *)
+    let svars, set =
+      svars |> List.fold_left (
+        fun (svars, set) svar ->
+        match type_of_svar svar with
+        | Type.Real ->
+          if SVar.for_inv_gen svar then
+            (var_of svar) :: svars, set
+          else svars, set
+        | _ -> svars, set
+      ) ([], set)
+    in
+    (* Format.printf "loop: @[<v>%a@]@.@."
+      (pp_print_list
+        (fun fmt term ->
+          Format.fprintf fmt "%a (%a)"
+            fmt_term term
+            Type.pp_print_type_node (type_of term)
+        ) "@ "
+      ) svars ; *)
+    let set =
+      octagons (Flags.Invgen.all_out ()) identity svars set
+    in
+    (* Format.printf "set: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ")
+      (Set.elements set) ; *)
+    set, ()
+
+  (* We're gonna use the flat info to store the constants found in the flat
+  terms. *)
+  type flat_info = set
+
+  let post_svars _ (set, _) = (set, Set.empty)
+
+  let rec flat_rules two_state flat (set, constants) =
+    let term = to_term flat in
+    match type_of term with
+    | Type.Real -> (
+      match flat with
+      | Term.T.App (sym, kids) ->
+        if (
+          Flags.Invgen.all_out ()
+        ) || (
+          kids |> List.for_all is_var_or_const
+        ) then Set.add term set, constants else set, constants
+      | Term.T.Const sym -> (
+        match Symbol.node_of_symbol sym with
+        | `DECIMAL n -> Set.add term set, Set.add term constants
+        | _ -> failwith "Constant of type real is not a decimal."
+      )
+      | Term.T.Attr (term, _) ->
+        flat_rules two_state (Term.destruct term) (set, constants)
+      | Term.T.Var _ ->
+        Set.add term set, constants
+    )
+    | _ -> set, constants
+
+  let post_rules _ _ constants set =
+    let zero, one = Term.mk_dec Decimal.zero, Term.mk_dec Decimal.one in
+    let set =
+      Set.add zero set
+      |> Set.add one
+      |> octagons true eval (
+        Set.add one constants |> Set.elements
+      )
+    in
+    let set =
+      Set.fold (
+        fun term set -> Set.add (Term.mk_minus_simplify term) set
+      ) set set
+    in
+    (* Format.printf "set: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ")
+      (Set.elements set) ; *)
+    set
+
+
+end
+
+
+(** Real candidate term miner. *)
+module Real = MakeCandGen (RealRules)
 
 
 
