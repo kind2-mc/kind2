@@ -647,13 +647,13 @@ module Make (Graph : GraphSig) : Out = struct
     Format.printf "%s trivial: @[<v>%a@]@.@."
       pref (pp_print_list fmt_term "@ ") (Set.elements trivial) ; *)
 
-    let suff =
+    (* let suff =
       Format.asprintf "%a_%s" Num.pp_print_numeral k (sys_name sys)
     in
     InvGenGraph.write_dot_to
       "." "graph" suff Graph.fmt_graph_dot graph ;
     InvGenGraph.write_dot_to
-      "." "classes" suff Graph.fmt_graph_classes_dot graph ;
+      "." "classes" suff Graph.fmt_graph_classes_dot graph ; *)
     (* minisleep 2.0 ;
     exit () ; *)
 
@@ -674,6 +674,9 @@ module Make (Graph : GraphSig) : Out = struct
               Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
         ) ;
         SysMap.remove sys_map sys ;
+        prune_ref := SysMap.fold (
+          fun _ prune acc -> prune :: acc
+        ) sys_map [] ;
         memory, (sys, non_trivial, trivial) :: res
       ) else
         (sys, graph, non_trivial, trivial) :: memory, res

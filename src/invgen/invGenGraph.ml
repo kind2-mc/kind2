@@ -431,8 +431,8 @@ digraph mode_graph {
     |> function
     | true -> true
     | false -> (
-      Event.log L_fatal
-        "Stopping invariant generation due to graph inconsistencies" ;
+      Format.printf
+        "Stopping invariant generation due to graph inconsistencies@.@." ;
       let dump_path = "./" in
       Event.log L_fatal
         "Dumping current graph as graphviz in current directory" ;
@@ -1046,9 +1046,9 @@ digraph mode_graph {
           Format.asprintf "could not find rep %a in class map" fmt_term rep
           |> failwith
 
-      ) with Not_found ->
-        Event.log L_info
-          "update classes done in %d iterations" count
+      ) with Not_found -> ()
+        (* Event.log L_info
+          "update classes done in %d iterations" count *)
     in
 
     (* Retrieve all representatives. *)
