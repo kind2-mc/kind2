@@ -49,7 +49,6 @@ module type Domain = sig
     Sys.t * Set.t
   ) list
   (** Representative of the first equivalence class.
-
   [False] for bool, a random term in the set for arith. *)
   val first_rep_of : Set.t -> Term.t * Set.t
   (** Returns true iff the input term is bottom. *)

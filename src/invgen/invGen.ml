@@ -475,7 +475,12 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Prunes known invariants from a list of candidates. *)
     let prune cand =
-      Set.mem cand non_trivial || Set.mem cand trivial || Sys.is_inv sys cand
+      (
+        Term.var_offsets_of_term cand = (None, None)
+      )
+      || Set.mem cand non_trivial
+      || Set.mem cand trivial
+      || Sys.is_inv sys cand
     in
     let prune =
       if two_state then (
