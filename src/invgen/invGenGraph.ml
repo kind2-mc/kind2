@@ -551,12 +551,12 @@ digraph mode_graph {
 
     Map.fold (
       fun rep terms acc ->
-        if Set.cardinal terms < 50 then
+        if Set.cardinal terms < 10 then
           Set.elements terms |> loop rep [] acc
         else
           Set.fold (
             fun term acc ->
-              ( Domain.mk_eq rep term, (rep, term) ) :: acc
+              cond_cons acc (Domain.mk_eq rep term) (rep, term)
           ) terms acc
     ) classes []
 
