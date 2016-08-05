@@ -573,11 +573,7 @@ digraph mode_graph {
         if Domain.is_bot rep then acc else
           Set.fold (
             fun rep' acc ->
-              if (
-                Domain.is_bot rep
-              ) || (
-                Domain.is_top rep'
-              ) then acc else (
+              if Domain.is_top rep' then acc else (
                 let acc =
                   try Domain.mk_cmp rep rep' |> cond_cons acc
                   with InvGenDomain.TrivialRelation -> acc
@@ -648,7 +644,7 @@ digraph mode_graph {
   let split sys new_reps { classes ; values ; map_up ; map_down } model rep =
     (* Format.printf "  splitting %a@." fmt_term rep ; *)
 
-    (* Domain of the representative. *)
+    (* Value of the representative. *)
     let rep_val = Domain.eval sys model rep in
 
     (* Class of the representative. Terms evaluating to a different value will
@@ -673,7 +669,9 @@ digraph mode_graph {
     The idea is that if all terms evaluate to the representative's value, no
     operation is performed. Once all terms in [rep_cl4ss] have been evaluated
     and "inserted", then the representative is inserted with the remaining
-    terms form [rep_cl4ss]. *)
+    terms form [rep_cl4ss].
+
+    This function DOES NOT modify [map_up] and [map_down]. *)
     let rec insert ?(is_rep=false) pref sorted term value =
       if is_rep || (Domain.eq value rep_val |> not) then (
         let default = if is_rep then !rep_cl4ss else Set.empty in
@@ -764,7 +762,7 @@ digraph mode_graph {
     (* Greatest value in the chain. *)
     let greatest_rep, greatest_val = List.hd chain in
 
-    (* Break all links to [rep], except if rep is the top of the chain. These
+    (* Break all links from [rep], except if rep is the top of the chain. These
     links will be used to update the kids of [rep] in the future. Remember that
     a node can be split iff all its parents have been split. Hence all the kids
     of the current representative have not been split yet. *)
@@ -790,7 +788,7 @@ digraph mode_graph {
       )
     ) ;
 
-    (* Break all links to [rep]. *)
+    (* Break all links from [rep]. *)
     map_down |> apply (
       fun set ->
         (* Break uplinks. *)
@@ -906,13 +904,9 @@ digraph mode_graph {
           insert (Set.add node known) continuation chain node
         )
       | ( chain, node :: rest) :: continuation ->
-        if Set.mem node known then (
-          continue known ( (chain, rest) :: continuation )
-        ) else (
-          insert (Set.add node known) (
-            (chain, rest) :: continuation
-          ) chain node
-        )
+        let continuation = (chain, rest) :: continuation in
+        if Set.mem node known then continue known continuation
+        else insert (Set.add node known) continuation chain node
       | (_, []) :: continuation -> continue known continuation
       | [] -> ()
     in
