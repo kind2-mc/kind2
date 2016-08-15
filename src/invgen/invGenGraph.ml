@@ -1180,6 +1180,141 @@ digraph mode_graph {
 end
 
 
+
+(** Functor for equivalence classes only. *)
+module MakeEq (Dom: DomainSig) : Graph = struct
+
+  (** Domain with an order relation. *)
+  module Domain = Dom
+
+  (** Structure storing the equivalence classes. *)
+  type graph = set map
+
+  (** Creates a graph from a single equivalence class and its
+  representative. *)
+  let mk term set =
+    let map = Map.create 107 in
+    Map.replace map term set ;
+    map
+  
+
+  let mine top_only two_state param sys do_stuff =
+    Dom.mine top_only two_state param sys
+    |> List.fold_left (
+      fun acc (sub_sys, terms) ->
+        do_stuff sub_sys ;
+        let rep, terms = Dom.first_rep_of terms in
+        (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
+    ) []
+
+  (** Clones a graph. *)
+  let clone = Map.copy
+
+  (** Total number of terms in the graph. *)
+  let term_count graph = Map.fold (
+    fun _ cl4ss sum -> sum + (Map.length graph) + 1
+  ) graph 0
+
+  (** Total number of classes in the graph. *)
+  let class_count = Map.length
+
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  let is_stale graph = (term_count graph) = (class_count graph)
+
+  (** Drops a term from the class corresponding to a representative. *)
+  let drop_class_member graph rep term =
+    try
+      Map.find graph rep
+      |> Set.remove term
+      |> Map.replace graph rep
+    with Not_found ->
+      Event.log L_fatal
+        "Asked to remove term %a from class of %a, but no such class found"
+        fmt_term term fmt_term rep
+
+  (** Formats a graph in dot format. Only the representatives will appear. *)
+  let fmt_graph_dot _ _ =
+    Event.log L_fatal "Equality-graph formatting is unimplemented"
+  (** Formats the eq classes of a graph in dot format. *)
+  let fmt_graph_classes_dot _ _ =
+    Event.log L_fatal "Equality-graph formatting is unimplemented"
+
+  let terms_of graph known =
+    let cond_cons l cand =
+      if known cand then l else cand :: l
+    in
+    Map.fold (
+      fun rep ->
+        Set.fold (
+          fun term acc ->
+            Domain.mk_eq rep term
+            |> cond_cons acc
+        )
+    ) graph []
+
+  (** Equalities coming from the equivalence classes of a graph.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true.
+
+  Generates a list of pairs [term * (term * term)]. The first term is the
+  candidate invariant, while the second element stores the representative
+  of the class the candidate comes from, and the term that can be dropped
+  from it if the candidate is indeed invariant. *)
+  let equalities_of graph known =
+    let cond_cons l cand info =
+      if known cand then l else (cand, info) :: l
+    in
+   
+    let rec loop rep pref suff = function
+      | term :: tail ->
+        let pref =
+          cond_cons pref (Domain.mk_eq rep term) (rep, term)
+        in
+        let suff =
+          List.fold_left (
+            fun suff term' ->
+              cond_cons suff (Domain.mk_eq term term') (rep, term')
+          ) suff tail
+        in
+        loop rep pref suff tail
+      | [] -> List.rev_append pref suff
+    in
+
+    Map.fold (
+      fun rep terms acc ->
+        if Set.cardinal terms < 10 then
+          Set.elements terms |> loop rep [] acc
+        else
+          Set.fold (
+            fun term acc ->
+              cond_cons acc (Domain.mk_eq rep term) (rep, term)
+          ) terms acc
+    ) graph []
+
+  let relations_of _ l _ = l
+
+  (** Queries the lsd and updates the graph. Terminates when the graph is
+  stable, meaning all terms the graph represents are unfalsifiable in the
+  current lsd.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true. *)
+  let stabilize graph sys known base =
+    failwith "unimplemented"
+
+
+  (** Clones the graph, and splits it in step.
+
+  Stabilizes eq classes one by one, communicates invariants at each step.
+  Then stabilizes relations, communicating by packs. *)
+  let step_stabilize _ _ _ _ _ _ =
+    failwith "Step stabilization for equality-graph is unimplemented"
+
+
+end
+
+
 (* |===| Actual graph modules. *)
 
 (** Graph of booleans with implication. *)
@@ -1191,7 +1326,19 @@ module Int = Make( InvGenDomain.Int )
 (** Graph of reals with less than or equal. *)
 module Real = Make( InvGenDomain.Real )
 
+(** Graph modules for equivalence only. *)
+module EqOnly = struct
 
+  (** Graph of booleans. *)
+  module Bool = MakeEq( InvGenDomain.Bool )
+
+  (** Graph of integers. *)
+  module Int = MakeEq( InvGenDomain.Int )
+
+  (** Graph of reals. *)
+  module Real = MakeEq( InvGenDomain.Real )
+
+end
 
 (* 
    Local Variables:

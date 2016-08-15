@@ -154,6 +154,20 @@ module Int : Graph
 (** Graph of reals with less than or equal. *)
 module Real : Graph
 
+(** Graph modules for equivalence only. *)
+module EqOnly : sig
+
+  (** Graph of booleans. *)
+  module Bool : Graph
+
+  (** Graph of integers. *)
+  module Int : Graph
+
+  (** Graph of reals. *)
+  module Real : Graph
+
+end
+
 
 
 
