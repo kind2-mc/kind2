@@ -69,6 +69,21 @@ module RealInvGen : Out
 
 
 
+(** Graph modules for equivalence-only invgen. *)
+module EqOnly : sig
+
+  (** Graph of booleans. *)
+  module BoolInvGen : Out
+
+  (** Graph of integers. *)
+  module IntInvGen : Out
+
+  (** Graph of reals. *)
+  module RealInvGen : Out
+
+end
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

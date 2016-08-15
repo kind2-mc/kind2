@@ -1310,10 +1310,25 @@ module Invgen = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Run invariant generion in two state mode.\
-        @]"
+          Run invariant generion in two state mode\
+          Default: %b\
+        @]" two_state_default
     )
   let two_state () = !two_state
+
+  let eq_only_default = false
+  let eq_only = ref eq_only_default
+  let _ = add_spec
+    "--invgen_eq_only"
+    (bool_arg eq_only)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces invgen to look for equalities only\
+          Default: %b\
+        @]" eq_only_default
+    )
+  let eq_only () = !eq_only
 
   let renice_default = 0
   let renice = ref renice_default
@@ -1843,8 +1858,9 @@ module Global = struct
   let enable_values = [
     `IC3 ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
-    `INVGENINT ; `INVGENINTOS ;
-    `INVGENREAL ; `INVGENREALOS ; `C2I ; `Interpreter
+    `INVGENINT ; (* `INVGENINTOS ; *)
+    `INVGENREAL ; (* `INVGENREALOS ; *)
+    `C2I ; `Interpreter
   ] |> List.map string_of_kind_module |> String.concat ", "
 
   let enable_default_init = []

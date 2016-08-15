@@ -767,20 +767,49 @@ module IntInvGen = Make(InvGenGraph.Int)
 (** Real invariant generation. *)
 module RealInvGen = Make(InvGenGraph.Real)
 
+(** Graph modules for equivalence-only invgen. *)
+module EqOnly = struct
+
+  (** Graph of booleans. *)
+  module BoolInvGen = Make( InvGenGraph.EqOnly.Bool )
+
+  (** Graph of integers. *)
+  module IntInvGen = Make( InvGenGraph.EqOnly.Int )
+
+  (** Graph of reals. *)
+  module RealInvGen = Make( InvGenGraph.EqOnly.Real )
+
+end
+
 
 
 
 
 let main_bool two_state in_sys param sys =
-  BoolInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  (
+    if Flags.Invgen.eq_only () then
+      EqOnly.BoolInvGen.main
+    else
+      BoolInvGen.main
+  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
   |> ignore
 
 let main_int two_state in_sys param sys =
-  IntInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  (
+    if Flags.Invgen.eq_only () then
+      EqOnly.IntInvGen.main
+    else
+      IntInvGen.main
+  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
   |> ignore
 
 let main_real two_state in_sys param sys =
-  RealInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  (
+    if Flags.Invgen.eq_only () then
+      EqOnly.RealInvGen.main
+    else
+      RealInvGen.main
+  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
   |> ignore
 
 

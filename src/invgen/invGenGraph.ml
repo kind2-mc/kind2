@@ -1301,7 +1301,63 @@ module MakeEq (Dom: DomainSig) : Graph = struct
   Input function returns true for candidates we want to ignore, typically
   candidates we have already proved true. *)
   let stabilize graph sys known base =
-    failwith "unimplemented"
+    let has_cex = Lsd.query_base base in
+
+    (** Splits a class and inserts it in the graph. Replaces the binding of
+    [rep] in the graph if any. *)
+    let split graph rep set eval =
+      let val_map = ref [] in
+
+      let add rep term =
+        Map.replace graph rep (
+          try Map.find graph rep |> Set.add term
+          with Not_found -> Set.add term Set.empty
+        ) 
+      in
+
+      (* Evaluate representative. *)
+      val_map := ((eval rep), rep) :: ! val_map ;
+      Map.replace graph rep Set.empty ;
+
+      Set.iter (
+        fun term ->
+          let value = eval term in
+          try (
+            let rep = ! val_map |> List.assoc value  in
+            add rep term
+          ) with Not_found -> (
+            val_map := (value, term) :: ! val_map ;
+            Map.replace graph term Set.empty
+          )
+      ) set
+    in
+
+    (** Stabilizes a graph for a model. *)
+    let model_stabilize graph eval =
+      (* Don't modify the map when folding over it, that's undefined
+      behavior. *)
+      Map.fold (
+        fun rep set acc -> (rep, set) :: acc
+      ) graph []
+      (* Extract info and modify afterwards. *)
+      |> List.iter (
+        fun (rep, set) -> split graph rep set eval
+      )
+    in
+
+    (** Loops as long as the graph is unstable in base. *)
+    let loop () =
+      match
+        terms_of graph known |> has_cex
+      with
+      | None -> ()
+      | Some model ->
+        let eval = Domain.eval sys model in
+        model_stabilize graph eval
+    in
+
+    loop ()
+
 
 
   (** Clones the graph, and splits it in step.
