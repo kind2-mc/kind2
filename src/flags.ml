@@ -1858,8 +1858,8 @@ module Global = struct
   let enable_values = [
     `IC3 ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
-    `INVGENINT ; (* `INVGENINTOS ; *)
-    `INVGENREAL ; (* `INVGENREALOS ; *)
+    (* `INVGENINT ; *) `INVGENINTOS ;
+    (* `INVGENREAL ; *) `INVGENREALOS ;
     `C2I ; `Interpreter
   ] |> List.map string_of_kind_module |> String.concat ", "
 

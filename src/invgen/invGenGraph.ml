@@ -1323,7 +1323,11 @@ module MakeEq (Dom: DomainSig) : Graph = struct
         fun term ->
           let value = eval term in
           try (
-            let rep = ! val_map |> List.assoc value  in
+            let _, rep =
+              ! val_map |> List.find (
+                fun (v, rep) -> Domain.eq v value
+              )
+            in
             add rep term
           ) with Not_found -> (
             val_map := (value, term) :: ! val_map ;
