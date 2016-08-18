@@ -1316,7 +1316,7 @@ module Invgen = struct
     )
   let two_state () = !two_state
 
-  let eq_only_default = true
+  let eq_only_default = false
   let eq_only = ref eq_only_default
   let _ = add_spec
     "--invgen_eq_only"
@@ -1858,8 +1858,8 @@ module Global = struct
   let enable_values = [
     `IC3 ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
-    (* `INVGENINT ; *) `INVGENINTOS ;
-    (* `INVGENREAL ; *) `INVGENREALOS ;
+    `INVGENINT ; `INVGENINTOS ;
+    `INVGENREAL ; `INVGENREALOS ;
     `C2I ; `Interpreter
   ] |> List.map string_of_kind_module |> String.concat ", "
 
@@ -1869,8 +1869,8 @@ module Global = struct
   let enable_default_after = [
     `BMC ; `IND ; `IND2 ; `IC3 ;
     `INVGEN ; `INVGENOS ;
-    `INVGENINT ; `INVGENINTOS ;
-    `INVGENREAL ; `INVGENREALOS
+    (* `INVGENINT ; *) `INVGENINTOS ;
+    (* `INVGENREAL ; *) `INVGENREALOS
   ]
   let enabled = ref enable_default_init
   let disabled = ref disable_default_init
