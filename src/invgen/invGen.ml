@@ -792,7 +792,8 @@ let main_bool two_state in_sys param sys =
     else
       BoolInvGen.main
   ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
-  |> ignore
+  |> ignore ;
+  exit 0
 
 let main_int two_state in_sys param sys =
   (
@@ -801,7 +802,8 @@ let main_int two_state in_sys param sys =
     else
       IntInvGen.main
   ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
-  |> ignore
+  |> ignore ;
+  exit 0
 
 let main_real two_state in_sys param sys =
   (
@@ -810,7 +812,8 @@ let main_real two_state in_sys param sys =
     else
       RealInvGen.main
   ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
-  |> ignore
+  |> ignore ;
+  exit 0
 
 
 
