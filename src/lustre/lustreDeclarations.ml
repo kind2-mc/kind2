@@ -609,13 +609,13 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
        Need to skip the index expression of a select operator: A[k] *)
     
-    let expr' =
-      E.map (fun _ e ->
-          if E.is_var e && (E.type_of_lustre_expr e |> Type.is_array) then
-             E.mk_select e (E.mk_index_var i)
-          else e)
-        expr
-    in
+    let expr' = expr in
+    (*   E.map (fun _ e -> *)
+    (*       if E.is_var e && (E.type_of_lustre_expr e |> Type.is_array) then *)
+    (*          E.mk_select e (E.mk_index_var i) *)
+    (*       else e) *)
+    (*     expr *)
+    (* in *)
 
     expand_tuple' 
       pos

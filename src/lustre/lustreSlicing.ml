@@ -87,7 +87,7 @@ let sum_offsets_negative offsets =
 
 (* For variable v and parents [a,b,c,v,d,v,v,e,f], returns
    [[a,b,c,v],[a,b,c,d,v],[a,b,c,d,v]] *)
-let rec gather_offsets_on_cycles state_var parents =
+let gather_offsets_on_cycles state_var parents =
   let rec gather_up_to big_acc small_acc sv parents =
     match parents with
     | ((sv', Some off) as x) :: r when StateVar.equal_state_vars sv' sv ->
@@ -267,7 +267,7 @@ let rec node_state_var_dependencies' init output_input_deps
          that are not visible in the origial source *)
       let str_path = describe_cycle node [] ((state_var, None) :: path) in
 
-      C.fail_no_position 
+      C.fail_no_position
         (Format.asprintf
            "Circular dependency for %a in %a: @[<hov>%a@]@."
            (E.pp_print_lustre_var false) state_var

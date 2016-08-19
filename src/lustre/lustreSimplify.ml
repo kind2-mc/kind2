@@ -820,7 +820,7 @@ let rec eval_ast_expr bounds ctx =
 
     (* Evaluate expressions *)
     let expr1', ctx = eval_ast_expr bounds ctx expr1 in
-    let expr2', ctx = eval_ast_expr bounds ctx expr1 in
+    let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
     (* Convert an ast index to an index *)
     let rec aux accum = function 
@@ -949,7 +949,7 @@ let rec eval_ast_expr bounds ctx =
     let index' = aux D.empty_index index in
 
     (* Add index prefix to the indexes of the update expression *)
-    let expr2'' = 
+    let expr2'' =
       D.fold
         (fun i v a -> D.add (index' @ i) v a)
         expr2'
@@ -958,7 +958,7 @@ let rec eval_ast_expr bounds ctx =
 
       (* When the index is a variable we will need to update the structure
          conditionnaly *)
-      let rec mk_cond_indexes (acc, cpt) li ri =
+    let rec mk_cond_indexes (acc, cpt) li ri =
         match li, ri with
         | D.ArrayVarIndex v :: li', D.ArrayIntIndex vi :: ri' ->
           let acc =
@@ -1089,7 +1089,7 @@ let rec eval_ast_expr bounds ctx =
                to accumulator trie *)
             D.fold
               (fun j e a -> 
-                 D.add (D.ArrayIntIndex i :: j) e a)
+                 D.add (j @[D.ArrayIntIndex i]) e a)
               expr'
               accum,
 

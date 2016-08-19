@@ -1677,60 +1677,63 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
       let expr_type = E.type_of_lustre_expr expr in
 
-      let rec keep_same acc l1 l2 = match l1, l2 with
-        | x :: r1, _ :: r2 -> keep_same (x :: acc) r1 r2
-        | _, [] -> List.rev acc
-        | [], _ -> assert false
-      in
-            
+      (* let rec keep_same acc l1 l2 = match l1, l2 with *)
+      (*   | x :: r1, _ :: r2 -> keep_same (x :: acc) r1 r2 *)
+      (*   | _, [] -> List.rev acc *)
+      (*   | [], _ -> assert false *)
+      (* in *)
+
       let expr, expr_type, bounds, indexes =
         if Type.is_array expr_type then
 
           (* When expression is of type array, add select operator around to
              fall back in a supported fragment *)
-          let elty = Type.elem_type_of_array expr_type in
+          let elty = Type.last_elem_type_of_array expr_type in
           let eitys = Type.all_index_types_of_array expr_type in
           let expr, i = List.fold_left (fun (e, i) _ ->
               E.mk_select e (E.mk_index_var i), succ i
             ) (expr, indexes) eitys in
+
+          expr, elty, bounds, indexes
           
+          (* let ear, _ = expr *)
+          (*           |> E.cur_term_of_t E.base_offset *)
+          (*           |> Term.array_and_indexes_of_select in *)
 
-          let ear, _ = expr
-                    |> E.cur_term_of_t E.base_offset
-                    |> Term.array_and_indexes_of_select in
+          (* (\* maybe we're doing a select over a store *\) *)
+          (* if not (Term.is_free_var ear) then expr, elty, bounds, indexes *)
+          (* else *)
+          (*   let earv = Term.free_var_of_term ear in *)
 
-          (* maybe we're doing a select over a store *)
-          if not (Term.is_free_var ear) then expr, elty, bounds, indexes
-          else
-            let earv = Term.free_var_of_term ear in
-
-            let bnds_earv = try
-                SVT.find ctx.state_var_bounds
-                  (Var.state_var_of_state_var_instance earv)
-              with Not_found -> [] in
-            (* We only add select (and their bounds) for array indexes which do
-               not yet appear on the left hand side *)
-            let extra_bnds = keep_same [] bnds_earv eitys in
-            expr, elty, List.rev_append extra_bnds bounds, i
+          (*   let bnds_earv = try *)
+          (*       SVT.find ctx.state_var_bounds *)
+          (*         (Var.state_var_of_state_var_instance earv) *)
+          (*     with Not_found -> [] in *)
+          (*   (\* We only add select (and their bounds) for array indexes which do *)
+          (*      not yet appear on the left hand side *\) *)
+          (*   let extra_bnds = keep_same [] bnds_earv eitys in *)
+          (*   Format.printf "extra %d@." (List.length extra_bnds); *)
+          (*   expr, elty, List.rev_append extra_bnds bounds, i *)
 
         else
           expr, expr_type, bounds, indexes
       in
-      
       (* Type of state variable *)
       let state_var_type, _ = 
         List.fold_left
           (fun (t, indexes) -> function
              | E.Bound _ 
              | E.Fixed _
-             | E.Unbound _ -> 
+             | E.Unbound _ ->
                if Type.is_array t then Type.elem_type_of_array t, indexes - 1
                else
                  fail_at_position
                    pos
                    (Format.asprintf 
                       "Type mismatch in equation: %a and %a"
+                      (* StateVar.pp_print_state_var state_var *)
                       Type.pp_print_type t
+                      (* (E.pp_print_lustre_expr false) expr *)
                       Type.pp_print_type expr_type))
           (StateVar.type_of_state_var state_var, indexes)
           bounds
