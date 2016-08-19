@@ -68,6 +68,8 @@ val pop_contract_scope : t -> t
 (** The contract scope of a context. *)
 val contract_scope_of : t -> string list
 
+val scope_of_context : t -> string list
+
 (** Return a copy of the context with an empty node of the given name
     in the context *)
 val create_node : t -> LustreIdent.t -> t 
@@ -96,6 +98,13 @@ val deps_of_node : t -> LustreIdent.t -> LustreIdent.Set.t
 
 (** Add second node as a forward referenced subnode of the first *)
 val add_dep : t -> LustreIdent.t -> LustreIdent.t -> t 
+
+(** Register a free constant, shadows previous declarations *)
+val add_free_constant : t -> LustreIdent.t -> Var.t LustreIndex.t -> unit
+
+(** Return declared free constants *)
+val get_free_constants : t -> (LustreIdent.t * Var.t LustreIndex.t) list
+
 
 (** Add a binding of an identifier to an expression to context 
 
@@ -130,6 +139,13 @@ val get_state_var_bounds : t ->
 
 (** The contract nodes in the context. *)
 val contract_nodes : t -> LustreAst.contract_node_decl list
+
+
+val mk_state_var :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?shadow:bool -> t ->
+  Ident.t list -> LustreIdent.t -> LustreIndex.index -> Type.t ->
+  LustreNode.state_var_source option ->
+  StateVar.t * t
 
 
 (** Add a contract node to the context for inlining later *)

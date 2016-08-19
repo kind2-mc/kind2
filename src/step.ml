@@ -509,6 +509,12 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      TransSys.declare_vars_of_bounds
        trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
 
+     (* Assert transition relation also for -1, 0 at the begining *)
+     (* if k_int = 0 then *)
+     (*   TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k *)
+     (*   |> SMTSolver.assert_term solver *)
+     (*   |> ignore ; *)
+     
      (* Asserting transition relation. *)
      (* TransSys.trans_fun_of trans k k_p_1 *)
      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1

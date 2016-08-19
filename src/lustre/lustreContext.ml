@@ -142,6 +142,8 @@ type t = {
   guard them. *)
   guard_pre : bool;
 
+  free_constants : (Var.t D.t) IT.t;
+  
 }
 
 let pp_print_scope fmt { scope ; contract_scope } =
@@ -173,6 +175,7 @@ let mk_empty_context () =
     definitions_allowed = None;
     locals_info = [];
     guard_pre = false;
+    free_constants = IT.create 7;
   }
 
 
@@ -363,6 +366,18 @@ let create_function = function
           func = Some (F.empty_function ident) } )
 
 
+let add_free_constant ctx ident vt =
+  Format.eprintf "add free const: %a@." (I.pp_print_ident true) ident;
+  D.iter (fun _ v ->
+      Format.eprintf "We have: %a@." Var.pp_print_var v;
+    ) vt;
+  IT.add ctx.free_constants ident vt 
+
+
+let get_free_constants ctx =
+  IT.fold (fun i vt acc -> (i, vt) :: acc) ctx.free_constants []
+
+
 (* Add a binding of an identifier to an expression to context *)
 let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr = 
 
@@ -376,8 +391,8 @@ let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr =
   if 
     (not shadow 
      && 
-     ((IT.mem (List.hd ident_expr_map) ident)
-      || 
+     ((* (IT.mem (List.hd ident_expr_map) ident) *)
+      (* ||  *)
       (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map))))
   then
      raise (Invalid_argument "add_expr_for_ident")    

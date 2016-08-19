@@ -176,6 +176,9 @@ val mk_trans_sys :
   (** indexes of state variables *)
   (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
 
+  (** Global free constants *)
+  Var.t list  -> 
+
   (** Declarations of other function symbols *)
   UfSymbol.t list  -> 
 
