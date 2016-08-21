@@ -576,11 +576,12 @@ let rec type_of_term t = match T.destruct t with
             
         (* Array-valued function *)
         | `SELECT ty_array ->
-          
-          (match Type.node_of_type ty_array with
-           | Type.Array (t, _) -> t
+             
+          (match l with
+           | a :: _ -> Type.elem_type_of_array (type_of_term a)
            | _ -> assert false)
 
+      
         (* Return type of first argument *)
         | `MINUS
         | `PLUS
@@ -1310,7 +1311,7 @@ let bump_state i term =
          mk_var 
            (let v = free_var_of_term t in
             Var.bump_offset_of_state_var_instance v i)
-       | _ as t -> t)
+       | t -> t)
     term
 
 
@@ -1428,12 +1429,21 @@ let indexes_of_state_var sv term =
          | x :: r ->
            List.rev_append indexes (List.flatten x) :: (List.flatten r)
          | _ -> List.flatten acc)
-      | _ ->
-        (match acc with
-         | [] :: r -> [] :: List.flatten r
-         | _ -> List.flatten acc))
+      | _ -> List.flatten acc)
     term
   |> List.filter (fun l -> l <> [])
+
+(* let indexes_of_state_var sv term = *)
+(*   let inds = indexes_of_state_var sv term in *)
+(*   Format.eprintf "indexes of %a IN %a ==@." *)
+(*     StateVar.pp_print_state_var sv *)
+(*     pp_print_term term; *)
+(*   List.iter (fun l -> *)
+(*       Format.eprintf "--@."; *)
+(*       List.iter (Format.eprintf "  %a,@." pp_print_term) l) inds; *)
+(*   inds *)
+
+
 
 
 (* Return set of state variables at given offsets in term *)
@@ -1624,7 +1634,7 @@ let convert_select term =
   (*   Type.pp_print_type (type_of_term term); *)
   
   (* Don't encode if using the theory of arrays *)
-  if Flags.smt_arrays () then term
+  if Flags.Arrays.smt () then term
   else    
     map (fun _ t ->
         (* Term is a select operation? *)
@@ -1671,7 +1681,7 @@ let inst_bvars term =
 
 let partial_selects term =
   
-  if Flags.smt_arrays () || not (Flags.arrays_rec ()) then term, []
+  if Flags.Arrays.smt () || not (Flags.Arrays.recdef ()) then term, []
   else
     let partials_ufs = ref [] in
     let acc = ref [] in
@@ -1704,7 +1714,7 @@ let partial_selects term =
 let reinterpret_select term =
 
   (* Don't decode if using the theory of arrays *)
-  if Flags.smt_arrays () then term
+  if Flags.Arrays.smt () then term
   else    
     map (fun _ t ->
         match node_of_term t with

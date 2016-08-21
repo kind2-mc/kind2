@@ -23,8 +23,9 @@
 @end
 */
 
+#include "platform.h"
 #include "../include/czmq.h"
-#include "../foreign/sha1/sha1.c"
+#include "foreign/sha1/sha1.inc_c"
 
 
 //  Structure of our class
@@ -47,7 +48,8 @@ zdigest_t *
 zdigest_new (void)
 {
     zdigest_t *self = (zdigest_t *) zmalloc (sizeof (zdigest_t));
-    SHA1_Init (&self->context);
+    if (self)
+        SHA1_Init (&self->context);
     return self;
 }
 
@@ -131,7 +133,7 @@ zdigest_string (zdigest_t *self)
 //  --------------------------------------------------------------------------
 //  Self test of this class
 
-int
+void
 zdigest_test (bool verbose)
 {
     printf (" * zdigest: ");
@@ -139,8 +141,9 @@ zdigest_test (bool verbose)
     //  @selftest
     byte *buffer = (byte *) zmalloc (1024);
     memset (buffer, 0xAA, 1024);
-    
+
     zdigest_t *digest = zdigest_new ();
+    assert (digest);
     zdigest_update (digest, buffer, 1024);
     byte *data = zdigest_data (digest);
     assert (data [0] == 0xDE);
@@ -148,11 +151,10 @@ zdigest_test (bool verbose)
     assert (data [2] == 0x38);
     assert (data [3] == 0x07);
     assert (streq (zdigest_string (digest),
-        "DEB23807D4FE025E900FE9A9C7D8410C3DDE9671"));
+                   "DEB23807D4FE025E900FE9A9C7D8410C3DDE9671"));
     zdigest_destroy (&digest);
     free (buffer);
     //  @end
 
     printf ("OK\n");
-    return 0;
 }

@@ -122,7 +122,7 @@ let choose_term (bool_terms, int_terms) =
     | h :: tl as terms -> 
 
       (* Heuristic to choose terms *)
-      match Flags.ic3_extract () with 
+      match Flags.IC3.extract () with 
 
         (* Always pick the first term *)
         | `First -> List.hd terms 

@@ -2,7 +2,7 @@ type sub = subrange [0, 2] of int;
 
 node test (in : sub) returns (out : bool);
 let
-  --%MAIN
+  --%MAIN ;
   out = in >= 0 and in <= 2;
   --%PROPERTY out;
 tel;

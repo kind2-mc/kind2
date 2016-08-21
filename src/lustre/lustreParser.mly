@@ -16,6 +16,7 @@
 
 *)
 
+
 %{
 open Lib
 
@@ -75,29 +76,36 @@ let mk_pos = position_of_lexing
 %token NODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
-%token FUNCTION
+(* unused: %token FUNCTION *)
 %token RETURNS
 %token VAR
 %token LET
 %token TEL
     
 (* Tokens for annotations *)
-(*
-%token <string>BANGCOMMENT
-*)
 
+(* Inline annotations. *)
+%token PERCENTANNOT
+%token BANGANNOT
+(* %token ATANNOT *)
+(* Parenthesis star (PS) block annotations. *)
+%token PSBLOCKSTART
+%token PSATBLOCK
+%token PSBLOCKEND
+(* Slash star (PS) block annotations. *)
+%token SSBLOCKSTART
+%token SSATBLOCK
+%token SSBLOCKEND
+(* Generic annotations. *)
 %token PROPERTY
 %token MAIN
-
-%token COMMENTGHOSTVAR
-%token COMMENTGHOSTCONST
-%token COMMENTIMPORT
-%token COMMENTIMPORTMODE
-%token COMMENTCONTRACT
-%token COMMENTREQUIRE
-%token COMMENTENSURE
-
+(* Contract annotations. *)
 %token CONTRACT
+%token IMPORTCONTRACT
+(* %token IMPORTMODE *)
+%token ASSUME
+%token GUARANTEE
+%token MODE
 %token REQUIRE
 %token ENSURE
 
@@ -176,6 +184,7 @@ let mk_pos = position_of_lexing
 %start <LustreAst.expr> one_expr
 
 %%
+(** Parser for lustre systems. *)
 
 one_expr: e = expr EOF { e }
 
@@ -194,7 +203,7 @@ decl:
                       d }
   | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
   | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
-  | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] }
+  (* | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] } *)
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
 
@@ -320,7 +329,7 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 
 
 (* An uninterpreted function declaration *)
-func_decl:
+(* func_decl:
   | FUNCTION; 
     n = ident; 
     i = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
@@ -329,7 +338,7 @@ func_decl:
     SEMICOLON;
     r = contract_spec;
 
-    { (n, List.flatten i, List.flatten o, r)  }
+    { (n, List.flatten i, List.flatten o, r)  } *)
 
 
 (* A node declaration *)
@@ -341,7 +350,7 @@ node_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    r = contract_spec;
+    r = option(contract_spec);
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
@@ -356,94 +365,76 @@ node_decl:
        e,
        r)  }
 
-contract_spec:
-  | ghost_consts = list(comment_contract_ghost_const);
-    ghost_vars = list(comment_contract_ghost_var);
-    global = option(contract_global);
-    modes  = list(contract)
-    { ghost_consts, ghost_vars, global, modes }
 
-(* Need three production with not empty lists to forbid a contract
-   without requires and ensures. This causes a conflict, because an
-   empty contract looks like no contracts. *)
-contract_global:
-  | reqs = nonempty_list(comment_contract_require);
-    enss = nonempty_list(comment_contract_ensure)
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", reqs, enss) }
-  | reqs = nonempty_list(comment_contract_require);
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", reqs, []) }
-  | enss = nonempty_list(comment_contract_ensure)
-    { A.InlinedContract
-        (mk_pos $startpos, "__global", [], enss) }
-  | COMMENTIMPORT; n = ident; SEMICOLON
-    { A.ContractCall (mk_pos $startpos, n) }
+contract_ghost_var:
+  | VAR ;
+    i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
+    SEMICOLON 
+    { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
+  | VAR ; i = ident ; EQUALS ; e = qexpr ; SEMICOLON 
+    { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) }
 
-(* Need three production with not empty lists to forbid a contract
-   without requires and ensures. This causes a conflict, because an
-   empty contract looks like no contracts. *)
-contract:
-  | COMMENTCONTRACT; n = ident; SEMICOLON
-    reqs = nonempty_list(comment_contract_require);
-    enss = nonempty_list(comment_contract_ensure)
-    { A.InlinedContract (mk_pos $startpos, n, reqs, enss) }
-  | COMMENTCONTRACT; n = ident; SEMICOLON
-    reqs = nonempty_list(comment_contract_require);
-    { A.InlinedContract (mk_pos $startpos, n, reqs, []) }
-  | COMMENTCONTRACT; n = ident; SEMICOLON
-    enss = nonempty_list(comment_contract_ensure)
-    { A.InlinedContract (mk_pos $startpos, n, [], enss) }
-  | COMMENTIMPORTMODE; n = ident; SEMICOLON
-    { A.ContractCall (mk_pos $startpos, n) }
+contract_ghost_const:
+  | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
+    { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
+  | CONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
+    { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
+
+contract_assume:
+  ASSUME; name = option(STRING); e = qexpr; SEMICOLON
+  { A.Assume (mk_pos $startpos, name, e) }
+
+contract_guarantee:
+  GUARANTEE; name = option(STRING); e = qexpr; SEMICOLON
+  { A.Guarantee (mk_pos $startpos, name, e) }
 
 contract_require:
-  | REQUIRE; e = qexpr; SEMICOLON
-    { mk_pos $startpos, e }
+  REQUIRE; name = option(STRING); e = qexpr; SEMICOLON
+  { mk_pos $startpos, name, e }
 
 contract_ensure:
-  | ENSURE; e = qexpr; SEMICOLON
-    { mk_pos $startpos, e }
+  ENSURE; name = option(STRING); e = qexpr; SEMICOLON
+  { mk_pos $startpos, name, e }
 
-comment_contract_require:
-  | COMMENTREQUIRE; e = qexpr; SEMICOLON
-    { mk_pos $startpos, e }
+mode_equation:
+  MODE; n = ident; LPAREN;
+  reqs = list(contract_require);
+  enss = list(contract_ensure);
+  RPAREN; SEMICOLON {
+    A.Mode (mk_pos $startpos, n, reqs, enss)
+  }
 
-comment_contract_ensure:
-  | COMMENTENSURE; e = qexpr; SEMICOLON
-    { mk_pos $startpos, e }
+contract_import:
+  IMPORTCONTRACT ; n = ident ;
+  LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+  LPAREN ; out_params = separated_list(COMMA, qexpr) ; RPAREN ; SEMICOLON ; {
+    A.ContractCall (mk_pos $startpos, n, in_params, out_params)
+  }
 
-comment_contract_ghost_var:
-  | COMMENTGHOSTVAR; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
-    { A.TypedConst (mk_pos $startpos, i, e, t) }
-  | COMMENTGHOSTVAR; i = ident; EQUALS; e = expr; SEMICOLON 
-    { A.UntypedConst (mk_pos $startpos, i, e) }
 
-comment_contract_ghost_const:
-  | COMMENTGHOSTCONST; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
-    { A.TypedConst (mk_pos $startpos, i, e, t) }
-  | COMMENTGHOSTCONST; i = ident; EQUALS; e = expr; SEMICOLON 
-    { A.UntypedConst (mk_pos $startpos, i, e) }
+contract_item:
+  | v = contract_ghost_var { v } 
+  | c = contract_ghost_const { c }
+  | a = contract_assume { a }
+  | g = contract_guarantee { g }
+  | m = mode_equation { m }
+  | i = contract_import { i }
 
-(* Equations of a contract node. *)
-contract_equations:
-  | req = contract_require {A.Require req}
-  | ens = contract_ensure {A.Ensure ens}
-  | i = ident; EQUALS; e = expr; SEMICOLON
-    { A.GhostEquation (mk_pos $startpos, i, e) }
+contract_in_block:
+  | c = nonempty_list(contract_item) { c }
+
 
 (* A contract node declaration. *)
 contract_decl:
-  | CONTRACT; 
+  | CONTRACT;
     n = ident; 
     p = loption(static_params);
     i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    l = list(node_local_decl);
     LET;
-    e = list(contract_equations);
+      e = contract_in_block;
     TEL
     option(node_sep) 
 
@@ -451,8 +442,20 @@ contract_decl:
        p,
        List.flatten i,
        List.flatten o,
-       (List.flatten l),
        e) }
+
+
+contract_spec:
+  (* Block contract, parenthesis star (PS). *)
+  | PSATBLOCK ; CONTRACT ;
+    eqs = contract_in_block
+    PSBLOCKEND
+    { eqs }
+  (* Block contract, slash star (SS). *)
+  | SSATBLOCK ; CONTRACT ;
+    eqs = contract_in_block
+    SSBLOCKEND
+    { eqs }
 
 
 (* A node declaration as an instance of a paramterized node *)
@@ -504,6 +507,45 @@ var_decl:
   | l = clocked_typed_idents; SEMICOLON { l }
 
 
+boolean:
+  | TRUE { true }
+  | FALSE { false }
+
+percent_or_bang:
+  | PERCENTANNOT { }
+  | BANGANNOT { }
+
+
+    
+main_annot:
+  | PERCENTANNOT ; MAIN ; SEMICOLON { A.AnnotMain true }
+  | PSBLOCKSTART ; MAIN ; option (SEMICOLON) ; PSBLOCKEND { A.AnnotMain true }
+  | SSBLOCKSTART ; MAIN ; option (SEMICOLON) ; SSBLOCKEND { A.AnnotMain true }
+  | BANGANNOT ; MAIN ; COLON ; b = boolean ; SEMICOLON { A.AnnotMain b }
+  | PSBLOCKSTART ; MAIN ; COLON ; b = boolean ; option (SEMICOLON) ; PSBLOCKEND {
+    A.AnnotMain b
+  }
+  | SSBLOCKSTART ; MAIN ; COLON ; b = boolean ; option (SEMICOLON) ; SSBLOCKEND {
+    A.AnnotMain b
+  }
+
+property:
+  | percent_or_bang ; PROPERTY ; name = option(STRING) ; e = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    e = qexpr; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    COLON; e = qexpr; SEMICOLON ; PSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    e = qexpr ; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+  | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
+    COLON; e = qexpr ; SEMICOLON; SSBLOCKEND
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
+
+
 (* An equations of a node *)
 node_equation:
 
@@ -517,16 +559,10 @@ node_equation:
     { A.Equation (mk_pos $startpos, l, e) }
 
   (* Node annotation *)
-  | MAIN { A.AnnotMain }
+  | a = main_annot { a }
 
   (* Property annotation *)
-  | PROPERTY; e = qexpr; SEMICOLON
-    { A.AnnotProperty (mk_pos $startpos, None, e) }
-  
-  (* Property annotation *)
-  | PROPERTY; name = STRING; e = qexpr; SEMICOLON  
-    { A.AnnotProperty (mk_pos $startpos, Some name, e) }
-
+  | p = property { p }
 
 
 left_side:
@@ -577,13 +613,22 @@ struct_item_list:
 index_var:
   | LSQBRACKET; s = ident; RSQBRACKET { s }
 
+(* Two colons (for mode reference). *)
+two_colons:
+  | COLON ; COLON {}
+
 (* ********************************************************************** *)
 
 (* An expression *)
-expr: 
+expr:
   
   (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) } 
+  | s = ident { A.Ident (mk_pos $startpos, s) }
+
+  (* A mode reference. *)
+  | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
+    A.ModeRef (mk_pos $startpos, mode_ref)
+  }
 
   (* A propositional constant *)
   | TRUE { A.True (mk_pos $startpos) }
@@ -941,9 +986,9 @@ qexpr_list: l = separated_nonempty_list(COMMA, qexpr) { l }
 
 
 (* An array slice *)
-array_slice: 
-   | il = expr; DOTDOT; iu = expr { il, iu }
-   | i = expr { i, i }
+array_slice:
+  | il = expr; DOTDOT; iu = expr { il, iu }
+  | i = expr { i, i }
 
 
 (* An assignment to a record field *)
@@ -964,7 +1009,14 @@ clock_expr:
 
 
 (* An identifier *)
-ident: s = SYM { s }
+ident:
+  (* Contract tokens are not keywords. *)
+  | MODE { "mode" }
+  | ASSUME { "assume" }
+  | GUARANTEE { "guarantee" }
+  | REQUIRE { "require" }
+  | ENSURE { "ensure" }
+  | s = SYM { s }
 
 
 (* An identifier with a type *)
@@ -981,12 +1033,18 @@ lustre_type_list:
   | l = separated_nonempty_list(COMMA, lustre_type) { l }
   
 
+(* A comma-separated list of identifiers with position information *)
+ident_list_pos :
+  | i = ident { [mk_pos $startpos, i] }
+  | i = ident; COMMA; l = ident_list_pos
+    { (mk_pos $startpos, i) :: l }
+
+
 (* A list of comma-separated identifiers with a type *)
 typed_idents: 
-  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
-
+  | l = ident_list_pos; COLON; t = lustre_type 
     (* Pair each identifier with the type *)
-    { List.map (function e -> (mk_pos $startpos, e, t)) l }
+    { List.map (function (pos, e) -> (pos, e, t)) l }
 
 (*
 (* A list of lists of typed identifiers *)
@@ -1020,14 +1078,14 @@ clocked_typed_idents:
   | l = typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, A.ClockTrue)) l }
+    { List.map (function (pos, e, t) -> (pos, e, t, A.ClockTrue)) l }
 
   (* Clocked typed identifiers *)
   | l = typed_idents; WHEN; c = clock_expr
   | LPAREN; l = typed_idents; RPAREN; WHEN; c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (_, e, t) -> (mk_pos $startpos, e, t, c)) l }
+    { List.map (function (pos, e, t) -> (pos, e, t, c)) l }
 
   (* Separate rule for non-singleton list to avoid shift/reduce conflict *)
   | LPAREN; 
@@ -1039,7 +1097,7 @@ clocked_typed_idents:
 
     (* Pair each types identifier the given clock *)
     { List.map
-        (function (_, e, t) -> (mk_pos $startpos, e, t, c)) 
+        (function (pos, e, t) -> (pos, e, t, c)) 
         (h @ (List.flatten l)) }
 
 

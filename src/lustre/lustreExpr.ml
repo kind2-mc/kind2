@@ -31,6 +31,9 @@ exception Type_mismatch
 (* A Lustre expression is a term *)
 type expr = Term.t
 
+(* Lift of [Term.is_true]. *)
+let is_true_expr e = e = Term.t_true
+
 (* A Lustre type is a type *)
 type lustre_type = Type.t
 
@@ -715,10 +718,10 @@ let is_var_at_offset { expr_init; expr_step } (init_offset, step_offset) =
 
 
 
-(* Return true if expression is a state variable *)
+(* Return true if expression is a current state variable *)
 let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 
-                                   
+(* Return true if expression is a constant state variable *)
 let is_const_var { expr_init; expr_step } = 
   Term.is_free_var expr_init
   && Var.is_const_state_var (Term.free_var_of_term expr_init)
@@ -728,21 +731,15 @@ let is_const_var { expr_init; expr_step } =
 (* Return true if expression is a previous state variable *)
 let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
 
+(* Are all variables in the expression constant? *)
+let is_const_expr expr = 
+  VS.for_all
+    Var.is_const_state_var
+    (Term.vars_of_term expr)
 
 (* Return true if the expression is constant *)
-let is_const { expr_init; expr_step } = 
-
-  (* Are all variables in the expression constant? *)
-  VS.for_all
-    Var.is_const_state_var
-    (Term.vars_of_term expr_init)
-    
-  &&
-
-  (* Are all variables in the expression constant? *)
-  VS.for_all
-    Var.is_const_state_var
-    (Term.vars_of_term expr_step)
+let is_const { expr_init; expr_step } =
+  is_const_expr expr_init && is_const_expr expr_step
     
 
 (* ********************************************************************** *)
@@ -852,6 +849,13 @@ let state_var_of_expr ({ expr_init; expr_step } as expr) =
 
     (* Fail if initial value is different from step value *)
     raise (Invalid_argument "state_var_of_expr")
+
+(* Return the free variable of a variable *)
+let var_of_expr { expr_init } = 
+  try
+    Term.free_var_of_term expr_init
+  (* Fail if any of the above fails *)
+  with Invalid_argument _ -> raise (Invalid_argument "var_of_expr")
 
 
 (* Return the free variable of a variable *)
@@ -1235,6 +1239,7 @@ let eval_uminus expr = match Term.destruct expr with
   | Term.T.App (s, [e]) when s == Symbol.s_minus -> e
 
   | _ -> Term.mk_minus [expr]
+  | exception Invalid_argument _ -> Term.mk_minus [expr]
 
 
 (* Type of unary minus 
@@ -1268,6 +1273,7 @@ let eval_to_int expr = match Term.destruct expr with
             (Symbol.decimal_of_symbol s)))
 
   | _ -> Term.mk_to_int expr
+  | exception Invalid_argument _ -> Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -1295,6 +1301,7 @@ let eval_to_real expr = match Term.destruct expr with
             (Symbol.numeral_of_symbol s)))
 
   | _ -> Term.mk_to_real expr
+  | exception Invalid_argument _ -> Term.mk_to_real expr
 
 (* Type of conversion to real  
 
@@ -1501,6 +1508,7 @@ let eval_mod expr1 expr2 =
                  Symbol.numeral_of_symbol c2) 
 
     | _ -> Term.mk_mod expr1 expr2
+    | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
 
 (* Type of integer modulus 
@@ -1547,6 +1555,7 @@ let eval_minus expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
         
     | _ -> Term.mk_minus [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
              
 
 (* Type of subtraction 
@@ -1597,6 +1606,7 @@ let eval_plus expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_plus [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_plus [expr1; expr2]
 
 
 (* Type of addition 
@@ -1637,6 +1647,7 @@ let eval_div expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_div [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_div [expr1; expr2]
 
 
 (* Type of real division
@@ -1672,6 +1683,7 @@ let eval_times expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_times [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_times [expr1; expr2]
 
 
 (* Type of multiplication
@@ -1701,6 +1713,7 @@ let eval_intdiv expr1 expr2 =
                  Symbol.numeral_of_symbol c2) 
 
   | _ -> Term.mk_intdiv [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_intdiv [expr1; expr2]
 
 
 (* Type of integer division
@@ -1714,6 +1727,12 @@ let mk_intdiv expr1 expr2 = mk_binary eval_intdiv type_of_intdiv expr1 expr2
 
 
 (* ********************************************************************** *)
+
+
+let has_pre_vars t =
+  Term.state_vars_at_offset_of_term (Numeral.of_int (-1)) t
+  |> StateVar.StateVarSet.is_empty
+  |> not
 
 
 (* Evaluate equality *)
@@ -1731,8 +1750,10 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
   (* e1 = false -> not e1 *)
   | _, t when t == Term.t_false -> eval_not expr1
 
-  (* e = e -> true *)
-  | _ when Term.equal expr1 expr2 -> Term.t_true
+  (* e = e -> true and e has no pre *)
+  | _ when Term.equal expr1 expr2
+           && not (has_pre_vars expr1) && not (has_pre_vars expr2) ->
+     Term.t_true
 
   | _ -> 
 
@@ -1766,6 +1787,8 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
 
 
       | _ -> Term.mk_eq [expr1; expr2]
+               
+      | exception Invalid_argument _ -> Term.mk_eq [expr1; expr2]
 
 
 (* Type of equality
@@ -1775,7 +1798,7 @@ let type_of_eq = type_of_a_a_bool
 
 
 (* Equality *)
-let mk_eq expr1 expr2 = mk_binary eval_eq type_of_eq expr1 expr2 
+let mk_eq expr1 expr2 = mk_binary eval_eq type_of_eq expr1 expr2
 
 
 (* ********************************************************************** *)
@@ -1829,6 +1852,7 @@ let eval_lte expr1 expr2 =
 
 
     | _ -> Term.mk_leq [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_leq [expr1; expr2]
 
 
 (* Type of inequality
@@ -1878,6 +1902,7 @@ let eval_lt expr1 expr2 =
 
 
     | _ -> Term.mk_lt [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_lt [expr1; expr2]
 
 
 (* Type of inequality
@@ -1927,6 +1952,7 @@ let eval_gte expr1 expr2 =
 
 
     | _ -> Term.mk_geq [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_geq [expr1; expr2]
 
 
 (* Type of inequality
@@ -1976,6 +2002,7 @@ let eval_gt expr1 expr2 =
 
 
     | _ -> Term.mk_gt [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]
 
 
 (* Type of inequality
@@ -2091,36 +2118,43 @@ let mk_arrow expr1 expr2 =
 
 
 (* Pre expression *)
-let mk_pre mk_abs_for_expr mk_lhs_term ctx
+let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
   (* Apply pre to initial state expression *)
-  let expr_init', ctx' = match expr_init with 
+  let expr_init', expr_type', ctx' = match expr_init with
 
-    (* Expression is a constant *)
-    | t when 
-        t == Term.t_true || 
-        t == Term.t_false || 
-        (Term.is_free_var t && 
-         Term.free_var_of_term t |> Var.is_const_state_var) ||
-        (match Term.destruct t with 
-          | Term.T.Const c1 when 
-              Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
-          | _ -> false) -> (expr_init, ctx)
-
-    (* Expression is a variable at the current instant *)
-    | t when 
+    (* Expression is a constant not part of an unguarded pre expression *)
+    | t when
+        not unguarded && 
+        (t == Term.t_true || 
+         t == Term.t_false || 
+           (Term.is_free_var t && 
+              Term.free_var_of_term t |> Var.is_const_state_var) ||
+             (match Term.destruct t with 
+              | Term.T.Const c1 when 
+                     Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+              | _ -> false
+              | exception Invalid_argument _ -> false)) ->
+       (expr_init, expr_type, ctx)
+          
+    (* Expression is a variable at the current instant not part of an unguarded
+       pre expression *)
+    | t when
+        not unguarded &&
         Term.is_free_var t &&
         Term.free_var_of_term t |> Var.is_state_var_instance &&
-        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
-                 base_offset)  -> 
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
+                 base_offset) ->
       
-      (Term.bump_state pre_base_offset t, ctx)
-
-    (* Expression is not constant and not a variable at the current
-       instant *)
+      (Term.bump_state Numeral.(- one) t, expr_type, ctx)
+      
+    (* Expression is not a variable at the current instant *)
     | _ ->
-      
+
+      let expr_type = Type.generalize expr_type in
+      let expr = { expr with expr_type } in
+       
       (* Fresh state variable for identifier *)
       let abs, ctx' = mk_abs_for_expr ctx expr in
 
@@ -2128,44 +2162,51 @@ let mk_pre mk_abs_for_expr mk_lhs_term ctx
       let abs_t = mk_lhs_term abs in
       
       (* Return term and new definitions *)
-      (abs_t, ctx')
+      (abs_t, expr_type, ctx')
       
   in
 
   (* Apply pre to step state expression *)
-  let expr_step', ctx'' = match expr_step with 
+  let expr_step', expr_type', ctx'' = match expr_step with 
 
     (* Expression is identical to initial state *)
-    | _ when Term.equal expr_step expr_init -> 
+    | _ when not unguarded &&
+             Term.equal expr_step expr_init -> 
 
       (* Re-use abstraction for initial state *)
-      (expr_init', ctx')
+      (expr_init', expr_type', ctx')
 
     (* Expression is a variable at the current instant *)
-    | t when 
-        Term.is_free_var t && 
-        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
-                 cur_offset)-> 
+    | t when
+        Term.is_free_var t &&
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
+                 cur_offset) ->
 
-      (Term.bump_state pre_base_offset t, ctx')
+      (Term.bump_state pre_base_offset t, expr_type', ctx')
 
 
-    (* Expression is not constant and no variable *)
-    | _ ->
-      
+    (* Expression is not a variable *)
+    | _ -> 
+
+      let expr_type = Type.generalize expr_type' in
+      let expr = { expr with expr_type } in
+
       (* Fresh state variable for identifier *)
       let abs, ctx' = mk_abs_for_expr ctx' expr in
+       
 
       (* Abstraction at previous instant *)
       let abs_t = mk_lhs_term abs in
       
       (* Return term and new definitions *)
-      (abs_t, ctx')
+      (abs_t, expr_type, ctx')
       
   in
 
   (* Return expression and new definitions *)
-  ({ expr with expr_init = expr_init'; expr_step = expr_step' }, 
+  ({ expr_init = expr_init';
+     expr_step = expr_step';
+     expr_type = expr_type' }, 
    ctx'') 
 
 

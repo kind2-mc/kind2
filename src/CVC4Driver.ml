@@ -31,7 +31,7 @@ let cmd_line
   let open TermLib in
   
   (* Path and name of CVC4 executable *)
-  let cvc4_bin = Flags.cvc4_bin () in
+  let cvc4_bin = Flags.Smt.cvc4_bin () in
 
   let incr_mode =
     if produce_cores then "--tear-down-incremental" else "--incremental" in
@@ -50,7 +50,7 @@ let cmd_line
        "--quant-cf";
        "--uf-ss-fair"|] in
 
-  let inst_flags = match logic, Flags.arrays_rec () with
+  let inst_flags = match logic, Flags.Arrays.recdef () with
     | `Inferred l, true when FeatureSet.mem A l -> fmfrec_flags
     | `Inferred l, false when FeatureSet.mem A l -> fmfint_flags
     | `Inferred _, _ -> [||]

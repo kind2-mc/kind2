@@ -21,6 +21,9 @@ open Lib
 module SVT = StateVar.StateVarHashtbl
 module VT = Var.VarHashtbl
 
+(* Offset of the variables at each step of a path. *)
+let path_offset = Numeral.zero
+
 module MIL = Map.Make
     (struct
       type t = int list
@@ -41,7 +44,14 @@ type value =
   | Lambda of Term.lambda
   | Map of Term.t MIL.t
 
-    
+
+let equal_value v1 v2 = match v1, v2 with
+  | Term t1, Term t2 -> Term.equal t1 t2
+  | Lambda l1, Lambda l2 -> assert false (* TODO *)
+  | Map m1, Map m2 -> MIL.equal Term.equal m1 m2
+  | _ -> false
+
+
 (* A model is a map variables to assignments *)
 type t = value VT.t
 
@@ -49,15 +59,42 @@ type t = value VT.t
 type path = value list SVT.t
 
 (* Pretty-print a value *)
-let rec pp_print_term ppf term =
+let pp_print_term ppf term =
   (* if Term.is_bool term then *)
   (*   if Term.bool_of_term term then *)
   (*     Format.fprintf ppf "✓" (\* "true" *\) *)
   (*   else Format.fprintf ppf "✗" (\* "false" *\) *)
   (* else *)
   (* Term.pp_print_term ppf term *)
+
+  (* TODO do we not want legal lustre values? *)
+  
+  (* We expect values to be constants *)
+  if Term.is_numeral term then 
+
+    (* Pretty-print as a numeral *)
+    Numeral.pp_print_numeral 
+      ppf
+      (Term.numeral_of_term term)
+
+  (* Constant is a decimal? *)
+  else if Term.is_decimal term then 
+    
+    (* Pretty-print as a decimal *)
+    Decimal.pp_print_decimal 
+      ppf
+      (Term.decimal_of_term term)
+      
+  else
+    
   (LustreExpr.pp_print_expr false) ppf
     (LustreExpr.unsafe_expr_of_term term)
+
+
+let pp_print_term ppf term =
+  if Term.(equal term t_false || equal term (mk_num_of_int 0)) then
+    Format.fprintf ppf "@{<black_b>%a@}" pp_print_term term
+  else pp_print_term ppf term
 
 
 let width_val_of_map m =
@@ -91,7 +128,8 @@ let pp_print_map_as_array ppf m =
         for i = 1 to !cpt do
           Format.fprintf ppf "[@[<hov 0>";
         done;
-        Format.fprintf ppf "%*s" val_width (string_of_t pp_print_term v);
+        let w = width_of_string (string_of_t pp_print_term v) in
+        Format.fprintf ppf "%*s%a" (val_width - w) "" pp_print_term v;
         first := false;
       ) m;
     for i = 1 to dim do
@@ -137,23 +175,25 @@ let rec map_to_array_model m =
   |> MIL.fold add_at_indexes m
 
 
-let rec pp_print_array_model ppf index = function
+let rec pp_print_array_model top_level ppf index it =
+  if not top_level then
+    Format.fprintf ppf "@[<hv 2><Item index=\"%d\">@," index;
+  begin match it with
   | ItemValue v ->
-    Format.fprintf ppf
-      "@[<hv 2><Item index=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Item>@]"
-      index
-      Term.pp_print_term v
+    Format.fprintf ppf "@[<hv 2>%a@]" pp_print_term v
   | ItemArray (s, a) ->
     Format.fprintf ppf
       "@[<hv 2><Array size=\"%d\">@,%a@;<0 -2></Array>@]"
       s
-      (pp_print_listi pp_print_array_model "@,") (Array.to_list a)
+      (pp_print_listi (pp_print_array_model false) "@,") (Array.to_list a)
+  end;
+  if not top_level then Format.fprintf ppf "@;<0 -2></Item>@]"
 
 
 (* Show map as xml in counteexamples *)
 let pp_print_map_as_xml ppf m =
   let arm = map_to_array_model m in
-  pp_print_array_model ppf 0 arm
+  pp_print_array_model true ppf 0 arm
 
 
 (* Print a value of the model *)  
@@ -164,7 +204,7 @@ let pp_print_value ppf = function
 
 
 let pp_print_value_xml ppf = function 
-  | Term t -> Term.pp_print_term ppf t
+  | Term t -> pp_print_term ppf t
   | Lambda l -> Term.pp_print_lambda ppf l
   | Map m ->
     try
@@ -306,7 +346,7 @@ let path_from_model state_vars model k =
                (* Find value in model *)
                find_value_vi (Var.mk_state_var_instance state_var i) model
 
-             with Not_found -> 
+             with Not_found ->
 
                (* Use default value if not defined in model *)
                let ty = StateVar.type_of_state_var state_var in
@@ -451,12 +491,12 @@ let models_of_path path =
            (fun i t_or_l m -> 
 
               (* Add assignment to variable to model *)
-              VT.add m (Var.mk_state_var_instance sv Numeral.zero) t_or_l;
+              VT.add m (Var.mk_state_var_instance sv path_offset) t_or_l;
 
-              (* Increment counter for zero *)
+              (* Increment counter for zero: ACTUALLY UNUSED *)
               Numeral.(succ i))
 
-           (* Start first model at offset zero *)
+           (* Start first model at offset zero: ACTUALLY UNUSED *)
            Numeral.zero
 
            (* Assignments to state variable on path *)

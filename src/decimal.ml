@@ -23,15 +23,15 @@ open Lib
 (* ********************************************************************** *)
 
 (* Arbitrary precision rational numbers are numerals *)
-type t = Num.num
+type t = | InfPos | InfNeg | Undef | N of Num.num
 
 
 (* The rational number zero *)
-let zero = Num.num_of_int 0
+let zero = N (Num.num_of_int 0)
 
 
 (* The rational number one *)
-let one = Num.num_of_int 1
+let one = N (Num.num_of_int 1)
 
 
 (* ********************************************************************** *)
@@ -62,7 +62,11 @@ let pp_print_positive_decimal_sexpr ppf = function
       (Big_int.string_of_big_int rd)
 
 
-let pp_print_decimal_sexpr ppf d =
+let pp_print_decimal_sexpr ppf = function
+| InfPos -> Format.fprintf ppf "1/0"
+| InfNeg -> Format.fprintf ppf "-1/0"
+| Undef -> Format.fprintf ppf "0/0"
+| N d ->
   (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal_sexpr ppf d
 
@@ -90,16 +94,20 @@ let pp_print_positive_decimal ppf = function
       (Big_int.string_of_big_int rd)
 
 
-let pp_print_decimal ppf d =
+let pp_print_decimal ppf = function
+| InfPos -> Format.fprintf ppf "1/0"
+| InfNeg -> Format.fprintf ppf "-1/0"
+| Undef -> Format.fprintf ppf "0/0"
+| N d ->
   (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal ppf d
 
 
 (* Return a string representation of a decimal *)
-let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr 
+let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr
 
 (* Return a string representation of a decimal *)
-let string_of_decimal = string_of_t pp_print_decimal 
+let string_of_decimal = string_of_t pp_print_decimal
 
 
 (* ********************************************************************** *)
@@ -108,11 +116,10 @@ let string_of_decimal = string_of_t pp_print_decimal
 
 
 (* Convert an integer to a rational number *)
-let of_int = Num.num_of_int
+let of_int n = N (Num.num_of_int n)
 
 (* Convert a string to a rational number *)
-let of_string s = 
-
+let of_string s =
   (* Buffer for integer part, initialize to length of whole string *)
   let int_buf = Buffer.create (String.length s) in
 
@@ -274,7 +281,7 @@ let of_string s =
 
   in
 
-  res
+  N res
 
 
 
@@ -285,89 +292,159 @@ let s_unimus = HString.mk_hstring "-"
 
 
 (* Convert an arbitrary large integer to a rational number *)
-let of_big_int n = Num.num_of_big_int n
+let of_big_int n = N (Num.num_of_big_int n)
 
 (* Convert an ocaml Num to a rational *)
-let of_num n = n
+let of_num n = N n
 
+(* Raises [Invalid_argument] exception. *)
+let raise_invalid_arg name naN: 'a =
+  Format.sprintf "%s %s" name (string_of_decimal naN) |> invalid_arg
 
 (* Convert a rational number to an integer *)
-let to_int d = 
-
+let to_int = function
+| N d -> (
   try 
-
     (* Convert with library function *)
     Num.int_of_num d
-
   (* Conversion failed because of limited precision *)
   with Failure _ -> raise (Failure "to_int")
+)
+| naN -> raise_invalid_arg "to_int" naN
 
 
 (* Convert a rational number to an arbitrary large integer *)
-let to_big_int d = Num.big_int_of_num (Num.floor_num d)
+let to_big_int = function
+| N d -> Num.big_int_of_num (Num.floor_num d)
+| naN -> raise_invalid_arg "to_int" naN
 
 
 (* Return true if decimal coincides with an integer *)
 let is_int = function 
-  | Num.Int _ 
-  | Num.Big_int _ -> true
-  | Num.Ratio _ -> false
-
-(* ********************************************************************** *)
-(* Arithmetic operators                                                   *)
-(* ********************************************************************** *)
-
-
-(* Increment a decimal by one *)
-let succ d = Num.succ_num d
-
-(* Decrement a decimal by one *)
-let pred d = Num.pred_num d
-
-(* Absolute value *)
-let abs = Num.abs_num
-
-(* Unary negation *)
-let neg = Num.minus_num
-
-(* Sum *)
-let add = Num.add_num
-
-(* Difference *)
-let sub = Num.sub_num
-
-(* Product *)
-let mult = Num.mult_num
-
-(* Quotient *)
-let div = Num.div_num
-
-(* Remainder *)
-let rem = Num.mod_num
+  | N (Num.Int _)
+  | N (Num.Big_int _) -> true
+  | _ -> false
 
 
 (* ********************************************************************** *)
 (* Comparison operators                                                   *)
 (* ********************************************************************** *)
 
-
 (* Equality *)
-let equal = Num.eq_num
+let equal l r = match l, r with
+| N l, N r -> Num.eq_num l r
+| _ -> l = r
 
 (* Comparison *)
-let compare = Num.compare_num
+let compare l r = match l,r with
+| N l, N r -> Num.compare_num l r
+| Undef, Undef -> 0
+| Undef, _ -> 100
+| _, Undef -> -100
+| InfPos, InfPos -> 0
+| InfPos, _ -> 100
+| _, InfPos -> -100
+| InfNeg, InfNeg -> 0
+| InfNeg, _ -> -100
+| _, InfNeg -> 100
 
 (* Less than or equal predicate *)
-let leq = Num.le_num
+let leq l r = match l, r with
+| N l, N r -> Num.le_num l r
+| Undef, _ | _, Undef -> false
+| InfPos, _ | _, InfNeg-> true
+| _, InfPos | InfNeg, _ -> false
 
 (* Less than predicate *)
-let lt = Num.lt_num
+let lt l r = match l, r with
+| N l, N r -> Num.lt_num l r
+| _ -> leq l r && not (equal l r)
 
 (* Greater than or equal predicate *)
-let geq = Num.ge_num
+let geq l r = match l, r with
+| N l, N r -> Num.ge_num l r
+| _ -> not (lt l r)
 
 (* Greater than predicate *)
-let gt = Num.gt_num
+let gt l r = match l, r with
+| N l, N r -> Num.gt_num l r
+| _ -> not (leq l r)
+
+(* ********************************************************************** *)
+(* Arithmetic operators                                                   *)
+(* ********************************************************************** *)
+
+(* Increment a decimal by one *)
+let succ = function
+| N n -> Num.succ_num n |> of_num
+| nan -> nan
+
+(* Decrement a decimal by one *)
+let pred = function
+| N n -> Num.pred_num n |> of_num
+| nan -> nan
+
+(* Absolute value *)
+let abs = function
+| N n -> Num.abs_num n |> of_num
+| Undef -> Undef
+| _ -> InfPos
+
+(* Unary negation *)
+let neg = function
+| N n -> Num.minus_num n |> of_num
+| Undef -> Undef
+| InfPos -> InfNeg
+| InfNeg -> InfPos
+
+(* Sum *)
+let add l r =
+match l, r with
+| N l, N r -> Num.add_num l r |> of_num
+| Undef, _ | _, Undef -> Undef
+| InfPos, InfNeg | InfNeg, InfPos -> Undef
+| InfPos, _ | _, InfPos -> InfPos
+| InfNeg, _ | _, InfNeg -> InfNeg
+
+(* Difference *)
+let sub l r = match l, r with
+| N l, N r -> Num.sub_num l r |> of_num
+| Undef, _ | _, Undef -> Undef
+| InfPos, InfNeg -> InfPos
+| InfNeg, InfPos -> InfNeg
+| InfPos, _ | _, InfNeg -> InfPos
+| InfNeg, _ | _, InfPos -> InfNeg
+
+(* Product *)
+let mult l r = match l, r with
+| N l, N r -> Num.mult_num l r |> of_num
+| Undef, _ | _, Undef -> Undef
+| InfPos, InfNeg | InfNeg, InfPos -> InfNeg
+| InfPos, InfPos | InfNeg, InfNeg -> InfPos
+| InfPos, n | n, InfPos ->
+  if n = zero then Undef else
+  if lt n zero then InfNeg else InfPos
+| InfNeg, n | n, InfNeg ->
+  if n = zero then Undef else
+  if lt n zero then InfPos else InfNeg
+
+(* Quotient *)
+let div l r = match l, r with
+| N l', N r' -> if r = zero then (
+  if l = zero then Undef else
+  if lt l zero then InfNeg else InfPos
+) else Num.div_num l' r' |> of_num
+| N _, InfNeg | N _, InfPos -> zero
+| InfPos, N _ ->
+  if lt r zero then InfNeg else InfPos
+| InfNeg, N _ ->
+  if lt r zero then InfPos else InfNeg
+| _ -> Undef
+
+(* Remainder *)
+let rem l r = match l, r with
+| N l, N r -> Num.mod_num l r |> of_num
+| _ -> Undef
 
 
 (* ********************************************************************** *)

@@ -61,6 +61,12 @@ let of_channel in_ch =
 
   in
 
+  (* Format.printf "declarations:@   @[<v>%a@]@.@."
+    (pp_print_list LustreAst.pp_print_declaration "@ ") declarations ; *)
+
+  (* failwith "stop" ; *)
+
+
   (* Simplify declarations to a list of nodes *)
   let nodes, globals = D.declarations_to_nodes declarations in
 
@@ -68,7 +74,7 @@ let of_channel in_ch =
   let main_node = 
 
     (* Command-line flag for main node given? *)
-    match Flags.lustre_main () with 
+    match Flags.lus_main () with 
       
       (* Use given identifier to choose main node *)
       | Some s -> LustreIdent.mk_string_ident s
@@ -117,9 +123,10 @@ let of_channel in_ch =
 (* Open and parse from file *)
 let of_file filename = 
 
-    (* Open the given file for reading *)
-    let use_file = open_in filename in
-    let in_ch = use_file in
+  (* Open the given file for reading *)
+  let in_ch = match filename with
+    | "" -> stdin
+    | _ -> open_in filename in
 
     of_channel in_ch
 

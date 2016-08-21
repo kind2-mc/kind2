@@ -18,6 +18,15 @@
 
 open Lib
 
+let division_by_zero = ref false
+
+(** Returns true iff a division by zero happened in a simplification since
+    this function was last called. *)
+let has_division_by_zero_happened () =
+  let res = !division_by_zero in
+  division_by_zero := false ;
+  res
+
 (* ********************************************************************** *)
 (* Basic types                                                            *)
 (* ********************************************************************** *)
@@ -1236,7 +1245,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   in
                   
                   (* Get assignment to variable *)
-                  (match Var.VarHashtbl.find model v with
+                  (try match Var.VarHashtbl.find model v with
               
                     (* Variable must evaluate to a lambda abstraction *)
                     | Model.Lambda l -> 
@@ -1252,7 +1261,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
                       if Model.MIL.is_empty m then
                         List.fold_left
-                          Term.mk_select (Term.mk_var v) (List.rev i')
+                          Term.mk_select (Term.mk_var v) ((* List.rev *) i')
                         |> atom_of_term
 
                       else 
@@ -1260,22 +1269,30 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                         let args = List.map (fun x ->
                             Term.numeral_of_term x |> Numeral.to_int) i' in
 
+                        let value =
+                          try Model.MIL.find args m
+                          with Not_found ->
+                            TermLib.default_of_type
+                              (Type.last_elem_type_of_array
+                                 (Var.type_of_var v))
+                        in
+                        
                         (* Evaluate map with simplified indexes *)
                         Term.eval_t 
                           (simplify_term_node default_of_var uf_defs model)
-                          (Model.MIL.find args m)
+                          value
 
                     (* Variable must not evaluate to a term *)
                     | Model.Term _ -> assert false 
                       
-                    (* Free variable without assignment in model *)
-                    | exception Not_found -> 
+                   (* Free variable without assignment in model *)
+                   with Not_found -> 
 
                       let t' =                   
                         List.fold_left
                           Term.mk_select
                           (Term.mk_var v)
-                          (List.rev i')
+                          ((* List.rev *) i')
                       in
                       
                       debug simplify
@@ -1778,12 +1795,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   Dec 
                     ((List.fold_left 
                         (fun a e -> 
-                           if 
-                             Decimal.(e = zero) 
-                           then
-                             raise (Failure "simplify_term: division by zero")
-                           else 
-                             Decimal.(a / e))
+                           if Decimal.(e = zero) then
+                             (* raise (Failure "simplify_term: division by zero") *)
+                             division_by_zero := true ;
+                           Decimal.(a / e))
                         h 
                         tl), 
                      [])
@@ -1956,7 +1971,7 @@ let type_default_of_var v = Var.type_of_var v |> TermLib.default_of_type
 (* Simplify a term with a model *)
 let simplify_term_model ?default_of_var uf_defs model term = 
 
-  debug simplify 
+  debug simplify
     "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
     Term.pp_print_term term
     Model.pp_print_model
@@ -1970,7 +1985,8 @@ let simplify_term_model ?default_of_var uf_defs model term =
     | Some f -> fun v -> f v
 
     (* Take default value for type if no function given *)
-    | None -> fun v -> type_default_of_var v
+    | None -> fun v ->
+        type_default_of_var v
 
   in
 
@@ -1982,10 +1998,10 @@ let simplify_term_model ?default_of_var uf_defs model term =
          term)
   in
 
-  debug simplify 
-    "Simplified@ @[<hv>%a@]@ to@ @[<hv>%a@]"
+  debug simplify
+    "Simplified@ > @[<hv>%a@]@ to@ > @[<hv>%a@]"
     Term.pp_print_term term
-    Term.pp_print_term res 
+    Term.pp_print_term res
   in
 
   res

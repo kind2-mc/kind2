@@ -647,12 +647,18 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   let create_trace_ppf id = 
 
     (* Tracing of SMT commands enabled? *)
-    if Flags.smt_trace () then 
+    if Flags.Smt.trace () then 
+
+      let tdir = Flags.Smt.trace_dir () in
+      (* Create root dir if needed. *)
+      Flags.output_dir () |> mk_dir ;
+      (* Create smt_trace dir if needed. *)
+      mk_dir tdir ;
 
       (* Name of SMT trace file *)
       let trace_filename = 
         Filename.concat
-          (Flags.smt_trace_dir ())
+          tdir
           (Format.sprintf "%s.%s.%d.%s" 
              (Filename.basename (Flags.input_file ()))
              (suffix_of_kind_module (Event.get_module ()))

@@ -31,6 +31,6 @@ let
   time_is_positive = time > 0;
   --%PROPERTY time_is_positive;
 
-  --%MAIN
+  --%MAIN ;
 tel
 

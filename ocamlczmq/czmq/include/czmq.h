@@ -1,5 +1,5 @@
 /*  =========================================================================
-    czmq.h - CZMQ wrapper
+    CZMQ - a high-level binding in C for ZeroMQ
 
     Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
@@ -14,51 +14,18 @@
 #ifndef __CZMQ_H_INCLUDED__
 #define __CZMQ_H_INCLUDED__
 
-//  Set up environment for the application
+//  These are signatures for handler functions that customize the
+//  behavior of CZMQ containers. These are shared between all CZMQ
+//  container types.
 
-#include "czmq_prelude.h"
+//  -- destroy an item
+typedef void (czmq_destructor) (void **item);
+//  -- duplicate an item
+typedef void *(czmq_duplicator) (const void *item);
+//  - compare two items, for sorting
+typedef int (czmq_comparator) (const void *item1, const void *item2);
 
-//  CZMQ version macros for compile-time API detection
-
-#define CZMQ_VERSION_MAJOR 2
-#define CZMQ_VERSION_MINOR 2
-#define CZMQ_VERSION_PATCH 1
-
-#define CZMQ_MAKE_VERSION(major, minor, patch) \
-    ((major) * 10000 + (minor) * 100 + (patch))
-#define CZMQ_VERSION \
-    CZMQ_MAKE_VERSION(CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR, CZMQ_VERSION_PATCH)
-
-//  Public API classes
-
-#include "zchunk.h"
-#include "zclock.h"
-#include "zframe.h"
-#include "zlist.h"
-#include "zhash.h"
-#include "zconfig.h"
-#include "zctx.h"
-#include "zfile.h"
-#include "zdir.h"
-#include "zdir_patch.h"
-#include "zdigest.h"
-#include "zlog.h"
-#include "zloop.h"
-#include "zmsg.h"
-#include "zmonitor.h"
-#include "zmutex.h"
-#include "zpoller.h"
-#include "zsocket.h"
-#include "zsockopt.h"
-#include "zstr.h"
-#include "zsys.h"
-#include "zthread.h"
-#include "zrex.h"
-#include "zbeacon.h"
-#include "zauth.h"
-#include "zcert.h"
-#include "zcertstore.h"
-#include "zproxy.h"
-#include "zuuid.h"
+//  Include the project library file
+#include "czmq_library.h"
 
 #endif

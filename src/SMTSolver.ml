@@ -44,7 +44,7 @@ type t =
   { 
     
     (* Type of SMT solver *)
-    solver_kind : Flags.smtsolver;
+    solver_kind : Flags.Smt.solver;
     
     (* Solver instance *)
     solver_inst : (module SolverSig.Inst);
@@ -545,6 +545,9 @@ let get_var_values s state_var_indexes vars =
   List.iter (fun v ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
+      let offset =
+        if Var.is_state_var_instance v then Var.offset_of_state_var_instance v
+        else Numeral.zero in
       let indexes = StateVar.StateVarHashtbl.find state_var_indexes
           (Var.state_var_of_state_var_instance v) in
 
@@ -561,6 +564,7 @@ let get_var_values s state_var_indexes vars =
               (* evaluate value of bound in current model *)
               (* assert (StateVar.is_const svub); *)
               let ub = LustreExpr.unsafe_term_of_expr eu
+                       |> Term.bump_state offset
                        |> Eval.eval_term [] model in
               (match ub with
                | Eval.ValNum nu -> 0, Numeral.to_int nu |> pred

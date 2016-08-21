@@ -22,6 +22,7 @@ open Lib
 module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
+module Contract = LustreContract
 module N = LustreNode
 module F = LustreFunction
 module G = LustreGlobals
@@ -86,7 +87,7 @@ let sum_offsets_negative offsets =
 
 (* For variable v and parents [a,b,c,v,d,v,v,e,f], returns
    [[a,b,c,v],[a,b,c,d,v],[a,b,c,d,v]] *)
-let rec gather_offsets_on_cycles state_var parents =
+let gather_offsets_on_cycles state_var parents =
   let rec gather_up_to big_acc small_acc sv parents =
     match parents with
     | ((sv', Some off) as x) :: r when StateVar.equal_state_vars sv' sv ->
@@ -215,7 +216,16 @@ let merge_deps sv oind1 oind2 = match oind1, oind2 with
 let union_noind_set m s =
   let m' = SVS.fold (fun sv -> SVM.add sv []) s SVM.empty in
   SVM.merge merge_deps m' m
-  
+
+let rec state_vars_of_bounds acc = function
+  | [] -> acc
+  | (E.Bound e | E.Fixed e | E.Unbound e) :: l ->
+    let acc =
+      Term.state_vars_of_term (E.unsafe_term_of_expr e) |> SVS.union acc in
+    state_vars_of_bounds acc l
+
+let state_vars_of_bounds = state_vars_of_bounds SVS.empty
+
 
 (* ********************************************************************** *)
 (* Dependency order of definitions and cycle detection                    *)
@@ -257,7 +267,7 @@ let rec node_state_var_dependencies' init output_input_deps
          that are not visible in the origial source *)
       let str_path = describe_cycle node [] ((state_var, None) :: path) in
 
-      C.fail_no_position 
+      C.fail_no_position
         (Format.asprintf
            "Circular dependency for %a in %a: @[<hov>%a@]@."
            (E.pp_print_lustre_var false) state_var
@@ -282,14 +292,18 @@ let rec node_state_var_dependencies' init output_input_deps
         List.fold_left
 
           (* State variable depends on state variables in equation *)
-          (fun accum (((sv, _), expr)) ->
+          (fun accum (((sv, bnds), expr)) ->
              (* Format.eprintf "Equation: %a@." *)
              (*   (N.pp_print_node_equation false) eq; *)
 
              let state_vars = 
                if init then E.base_state_vars_of_init_expr expr
                else E.cur_state_vars_of_step_expr expr in
-
+             
+             (* (\* add bounds *\) *)
+             let state_vars =
+               state_vars_of_bounds bnds |> SVS.union state_vars in
+             
              (* add indexes *)
              SVS.fold (fun sv acc ->
                  let indexes =
@@ -595,7 +609,7 @@ let order_equations
             if StateVar.equal_state_vars sv sv' then e :: a else a
           ) a equations
       ) [] state_vars_ordered 
-  in 
+  in
 
   (* Dependency of output variables on input variables *)
   let output_input_dep = 
@@ -622,8 +636,7 @@ let slice_all_of_node
       N.outputs; 
       N.asserts;
       N.props; 
-      N.global_contracts; 
-      N.mode_contracts; 
+      N.contract;
       N.is_main;
       N.state_var_source_map } = 
 
@@ -642,8 +655,7 @@ let slice_all_of_node
     N.function_calls = [];
     N.asserts = [];
     N.props = if keep_props then props else [];
-    N.global_contracts = if keep_contracts then global_contracts else [];
-    N.mode_contracts = if keep_contracts then mode_contracts else [];
+    N.contract = if keep_contracts then contract else None;
     N.is_main;
     N.state_var_source_map = state_var_source_map }
 
@@ -703,8 +715,10 @@ let add_roots_of_function_call
   |> SVS.elements
 
 (* Add roots of cone of influence from equation to roots *)
-let add_roots_of_equation roots (_, expr) = 
-  (E.state_vars_of_expr expr |> SVS.elements) @ roots
+let add_roots_of_equation roots ((_,bnds), expr) = 
+  (E.state_vars_of_expr expr
+   |> SVS.union (state_vars_of_bounds bnds)
+   |> SVS.elements) @ roots
 
 
 (* Return state variables from properties *)
@@ -712,19 +726,9 @@ let roots_of_props = List.map (fun (sv, _, _) -> sv)
 
 
 (* Return state variables from contracts *)
-let roots_of_contracts contract = 
-
-  (* State variables in a contract are requirements and ensures *)
-  let roots_of_contract { N.contract_reqs; N.contract_enss } = 
-    (List.map snd contract_reqs) @ (List.map snd contract_enss)
-  in
-
-  (* Combine state variables from global contract and mode
-     contracts *)
-  List.fold_left 
-    (fun a c -> roots_of_contract c @ a)
-    []
-    contract
+let roots_of_contract = function
+| None -> []
+| Some contract -> Contract.svars_of contract |> SVS.elements
 
 (* Add state variables in assertion *)
 let add_roots_of_asserts asserts roots = 
@@ -750,6 +754,7 @@ let add_roots_of_asserts asserts roots =
 
    Call this function with *)
 let rec slice_nodes
+    preserve_sig
     init_slicing_of_node
     nodes
     functions_in_coi
@@ -770,11 +775,11 @@ let rec slice_nodes
           N.outputs; 
           N.locals; 
           N.state_var_source_map } as node_sliced), 
-       node_unsliced) :: tl -> 
+       node_unsliced) :: tl ->
       
       (* If this is the top node, slice away inputs and outputs *)
       let inputs', outputs' = 
-        if tl = [] then 
+        if tl = [] && not preserve_sig then 
           (
 
             (* Only keep inputs that have been visited *)
@@ -828,6 +833,7 @@ let rec slice_nodes
 
       (* Continue with next nodes *)
       slice_nodes
+        preserve_sig
         init_slicing_of_node
         nodes
         functions_in_coi
@@ -841,6 +847,7 @@ let rec slice_nodes
       when List.exists (StateVar.equal_state_vars state_var) leaves -> 
 
       slice_nodes
+        preserve_sig
         init_slicing_of_node
         nodes
         functions_in_coi
@@ -859,7 +866,7 @@ let rec slice_nodes
           N.calls = calls_not_in_coi;
           N.function_calls = function_calls_not_in_coi;
           N.locals = locals_not_in_coi } as node_unsliced)) :: tl as l -> 
-
+      
       try 
 
         (* State variable is an output of a called node that is not
@@ -888,6 +895,7 @@ let rec slice_nodes
            TODO: Detect cycles in node calls here, but that should not
            be possible with the current format. *)
         slice_nodes
+          preserve_sig
           init_slicing_of_node
           nodes
           functions_in_coi
@@ -1144,6 +1152,7 @@ let rec slice_nodes
 
         (* Continue with modified sliced node and roots *)
         slice_nodes
+          preserve_sig
           init_slicing_of_node
           nodes
           functions_in_coi'
@@ -1158,8 +1167,7 @@ let root_and_leaves_of_impl
     is_top
     roots
     ({ N.outputs; 
-       N.global_contracts; 
-       N.mode_contracts; 
+       N.contract;
        N.props;
        N.asserts } as node) =
 
@@ -1173,23 +1181,24 @@ let root_and_leaves_of_impl
   
   (* Slice starting with outputs, contracts and properties *)
   let node_roots = 
-    (match roots with 
+    ( match roots with 
       
       (* No roots given? *)
       | None -> 
 
         (* Consider properties and contracts as roots *)
-        (roots_of_contracts global_contracts |> SVS.of_list)
-        |> SVS.union (roots_of_contracts mode_contracts |> SVS.of_list)
+        (roots_of_contract contract |> SVS.of_list)
         |> SVS.union (roots_of_props props |> SVS.of_list)
                                           
       (* Use instead of roots from properties and contracts *)
-      | Some r -> r)
+      | Some r -> r )
 
     |> add_roots_of_asserts asserts
 
     (* Consider outputs as roots except at the top node *)
-    |> SVS.union (if is_top then SVS.empty else D.values outputs |> SVS.of_list) 
+    |> SVS.union (
+      if is_top then SVS.empty else D.values outputs |> SVS.of_list
+    )
     |> SVS.elements
   in
 
@@ -1205,8 +1214,7 @@ let root_and_leaves_of_contracts
     is_top
     roots
     ({ N.outputs; 
-       N.global_contracts; 
-       N.mode_contracts; 
+       N.contract;
        N.props } as node) =
 
   (* Slice everything from node *)
@@ -1218,13 +1226,9 @@ let root_and_leaves_of_contracts
   in
     
   (* Slice starting with contracts *)
-  let node_roots = 
-    match roots with 
-      | None -> 
-
-        roots_of_contracts global_contracts @
-        roots_of_contracts mode_contracts 
-         
+  let node_roots =
+    match roots with
+      | None -> roots_of_contract contract
       | Some r -> SVS.elements r
   in
 
@@ -1261,55 +1265,48 @@ let custom_roots roots node =
 let node_is_abstract analysis { N.name } = 
 
   [I.string_of_ident false name]
-  |> Analysis.scope_is_abstract analysis
+  |> Analysis.param_scope_is_abstract analysis
 
 
 (* Return roots for slicing to contracts or implementation as
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map 
-    is_top
-    roots
-    abstraction_map
-    ({ N.name } as node) = 
-
-  if node_is_abstract abstraction_map node then 
-
-    (* Node is to be abstract *)
+  is_top roots abstraction_map ({ N.name } as node)
+=
+  if node_is_abstract abstraction_map node
+  then (* Node is to be abstract *)
     root_and_leaves_of_contracts is_top roots node 
-
-  else
-
-    (* Node is to be concrete *)
+  else (* Node is to be concrete *)
     root_and_leaves_of_impl is_top roots node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction'
-    ({ A.top } as analysis) 
-    roots 
-    subsystem
-    globals = 
+  ?(preserve_sig = false) analysis roots subsystem globals
+=
+
+  let { A.top } = A.info_of_param analysis in
 
   (* Get list of nodes from subsystem in toplogical order with the top
      node at the head of the list *)
-  let nodes = 
-    S.find_subsystem subsystem top
-    |> N.nodes_of_subsystem 
-  in 
+  let nodes =
+    S.find_subsystem subsystem top |> N.nodes_of_subsystem 
+  in
   
   (* Slice all nodes to either abstraction or implementation *)
   let nodes', functions' = 
 
     slice_nodes
+      preserve_sig
       (root_and_leaves_of_abstraction_map false roots analysis)
       nodes
       []
       globals.G.functions
       []
       [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
-      
+
   in
   
   (* Create subsystem from list of nodes *)
@@ -1318,16 +1315,21 @@ let slice_to_abstraction'
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction analysis subsystem globals = 
-  slice_to_abstraction' analysis None subsystem globals
+let slice_to_abstraction
+  ?(preserve_sig = false) analysis subsystem globals
+=
+  slice_to_abstraction'
+    ~preserve_sig:preserve_sig analysis None subsystem globals
 
   
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
-let slice_to_abstraction_and_property analysis term subsystem globals = 
-
-  let roots = Some (Term.state_vars_of_term term) in 
-  slice_to_abstraction' analysis roots subsystem globals
+let slice_to_abstraction_and_property
+  ?(preserve_sig = false) analysis vars subsystem globals
+=
+  let roots = Some vars in
+  slice_to_abstraction'
+    ~preserve_sig:preserve_sig analysis roots subsystem globals
 
 
   

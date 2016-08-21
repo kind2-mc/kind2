@@ -1,6 +1,6 @@
 node X () returns (OK: bool);
 let
-  --%MAIN
+  --%MAIN ;
   OK = Y();
   --%PROPERTY OK;
 tel

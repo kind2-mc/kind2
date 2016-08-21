@@ -1,0 +1,19 @@
+node X(x: int) returns (y: int);
+(*@contract  
+   assume "pre is gt 2" pre(x) > 2;
+   guarantee "then after, pre is gt 3" pre(x > 3);
+*)
+let
+  assert (pre pre (x + 1) > 0);
+  --%PROPERTY "less1" 1 > x;
+tel;
+
+
+node Y(a, b: real; clk: bool) returns (c: int);
+var d: int;
+let
+  c = condact(clk, X(0), 0);
+  d = X(0);
+  --%PROPERTY "trivial" c > 0 or c <= 0;
+  --%MAIN ;
+tel;

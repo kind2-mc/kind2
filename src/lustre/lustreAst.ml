@@ -20,6 +20,32 @@ open Lib
 
 exception Parser_error
 
+module Event = struct
+  let log lvl fmt =
+    if Flags.log_format_xml () then
+      ( match lvl with
+        | L_warn -> "warn"
+        | L_error -> "error"
+        (* Only warning or errors in theory. *)
+        | _ -> failwith "LustreContext should only output warnings or errors" )
+      |> Format.printf ("@[<hov 2>\
+          <Log class=\"%s\" source=\"parse\">@ \
+            @[<hov>" ^^ fmt ^^ "@]\
+          @;<0 -2></Log>\
+        @]@.")
+    else
+      Format.printf ("%a @[<v>" ^^ fmt ^^ "@]@.") Pretty.tag_of_level lvl
+end
+
+(* Raise parsing exception *)
+let error_at_position pos msg = 
+  Event.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg
+  
+(* Raise parsing exception *)
+let warn_at_position pos msg = 
+  Event.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
+
+
 (* ********************************************************************** *)
 (* Type declarations                                                      *)
 (* ********************************************************************** *)
@@ -41,6 +67,7 @@ type expr =
 
   (* Identifier *)
   | Ident of position * ident
+  | ModeRef of position * ident list
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
 
@@ -131,12 +158,12 @@ type expr =
 
 
 (* A built-in type *)
-and lustre_type = 
+and lustre_type =
   | Bool of position
   | Int of position
   | IntRange of position * expr * expr
   | Real of position
-  | UserType of position * ident 
+  | UserType of position * ident
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
@@ -213,7 +240,7 @@ type eq_lhs =
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
-  | AnnotMain
+  | AnnotMain of bool
   | AnnotProperty of position * string option * expr
 
 (* A contract ghost constant. *)
@@ -222,34 +249,37 @@ type contract_ghost_const = const_decl
 (* A contract ghost variable. *)
 type contract_ghost_var = const_decl
 
+(* A contract assume. *)
+type contract_assume = position * string option * expr
+
+(* A contract guarantee. *)
+type contract_guarantee = position * string option * expr
+
 (* A contract requirement. *)
-type contract_require = position * expr
+type contract_require = position * string option * expr
 
 (* A contract ensure. *)
-type contract_ensure = position * expr
+type contract_ensure = position * string option * expr
+
+(* A contract mode. *)
+type contract_mode =
+  position * ident * (contract_require list) * (contract_ensure list)
+
+(* A contract call. *)
+type contract_call = position * ident * expr list * expr list
 
 (* Equations that can appear in a contract node. *)
 type contract_node_equation =
-  | GhostEquation of position * ident * expr
-  | Require of contract_require
-  | Ensure of contract_ensure
+  | GhostConst of contract_ghost_const
+  | GhostVar of contract_ghost_var
+  | Assume of contract_assume
+  | Guarantee of contract_guarantee
+  | Mode of contract_mode
+  | ContractCall of contract_call
 
-(* A contract for a node is either an inlined contract (defined in the
-   node itself), or a contract node call. *)
-type contract =
-  | InlinedContract of position
-                       * ident
-                       * contract_require list
-                       * contract_ensure list
-  | ContractCall of position * ident
+(* A contract is some ghost consts / var, and assumes guarantees and modes. *)
+type contract = contract_node_equation list
 
-(* A contract specification for a node (if it has one) is either a
-   list of modes or a global contract and a list of modes. *)
-type contract_spec =
-  contract_ghost_const list
-  * contract_ghost_var list
-  * contract option
-  * contract list
 
 (* A node declaration *)
 type node_decl =
@@ -259,7 +289,7 @@ type node_decl =
   * clocked_typed_decl list
   * node_local_decl list
   * node_equation list
-  * contract_spec 
+  * contract option
 
 (* A contract node declaration. Almost the same as a [node_decl] but
    with a different type for equations, and no contract
@@ -269,12 +299,11 @@ type contract_node_decl =
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
-  * node_local_decl list
-  * contract_node_equation list
+  * contract
 
 (* A function declaration *)
 type func_decl = 
-  ident * typed_ident list * typed_ident list * contract_spec 
+  ident * typed_ident list * typed_ident list * contract option
 
 
 (* An instance of a parameterized node *)
@@ -370,6 +399,11 @@ let rec pp_print_expr ppf =
   function
     
     | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p pp_print_ident id
+
+    | ModeRef (p, ids) ->
+      Format.fprintf ppf "%a::%a" ppos p (
+        pp_print_list pp_print_ident "::"
+      ) ids
  
     | ExprList (p, l) -> Format.fprintf ppf "%a@[<hv 1>(%a)@]" ppos p pl l
 
@@ -805,7 +839,9 @@ let pp_print_node_equation ppf = function
       pp_print_eq_lhs lhs
       pp_print_expr e
 
-  | AnnotMain -> Format.fprintf ppf "--%%MAIN;"
+  | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
+
+  | AnnotMain false -> Format.fprintf ppf "--!MAIN : false;"
 
   | AnnotProperty (pos, None, e) ->
     Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
@@ -814,135 +850,151 @@ let pp_print_node_equation ppf = function
     Format.fprintf ppf "--%%PROPERTY \"%s\" %a;" name pp_print_expr e 
 
 
-let pp_print_contract_ghost_const commented ppf = function 
+let pp_print_contract_ghost_const ppf = function 
 
   | FreeConst (pos, s, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>%sconst %a:@ %a;@]" 
-      (if commented then "--@" else "")
+      "@[<hv 3>const %a:@ %a;@]" 
       pp_print_ident s 
       pp_print_lustre_type t
 
   | UntypedConst (pos, s, e) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>%sconst %a =@ %a;@]" 
-      (if commented then "--@" else "")
+      "@[<hv 3>const %a =@ %a;@]" 
       pp_print_ident s 
       pp_print_expr e
 
   | TypedConst (pos, s, e, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>%sconst %a:@ %a =@ %a;@]" 
-      (if commented then "--@" else "")
+      "@[<hv 3>const %a:@ %a =@ %a;@]" 
       pp_print_ident s 
       pp_print_lustre_type t
       pp_print_expr e
 
     
-let pp_print_contract_ghost_var commented ppf = function 
+let pp_print_contract_ghost_var ppf = function 
 
   | FreeConst (pos, s, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>%svar %a:@ %a;@]" 
-      (if commented then "--@" else "")
+      "@[<hv 3>var %a:@ %a;@]" 
       pp_print_ident s 
       pp_print_lustre_type t
 
   | UntypedConst (pos, s, e) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>%svar %a =@ %a;@]" 
-      (if commented then "--@" else "")
+      "@[<hv 3>var %a =@ %a;@]" 
       pp_print_ident s 
       pp_print_expr e
 
   | TypedConst (pos, s, e, t) -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>%svar %a:@ %a =@ %a;@]" 
-      (if commented then "--@" else "")
+      "@[<hv 3>var %a:@ %a =@ %a;@]" 
       pp_print_ident s 
       pp_print_lustre_type t
       pp_print_expr e
 
     
-let pp_print_contract_require commented ppf (pos,e) =
+let pp_print_contract_assume ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>%srequire@ %a;@]"
-    (if commented then "--@" else "")
+    "@[<hv 3>assume%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-let pp_print_contract_ensure commented ppf (pos,e) =
+let pp_print_contract_guarantee ppf (_, n, e) =
   Format.fprintf
     ppf
-    "@[<hv 3>%sensure@ %a;@]"
-    (if commented then "--@" else "")
+    "@[<hv 3>guarantee%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
     pp_print_expr e
 
-
-(* Pretty-print a node contract *)
-let pp_print_contract global ppf = function
-
-  | InlinedContract (pos, id, req, ens) ->
-     Format.fprintf
-       ppf
-       "@[<v 2>--@%s : %a;@,%a@,%a@]"
-       (if global then "global_contract" else "contract")
-       pp_print_ident id
-       (pp_print_list
-          (pp_print_contract_require true)
-          "@ ")
-       req
-       (pp_print_list
-          (pp_print_contract_ensure true)
-          "@ ")
-       ens
-
-  | ContractCall (pos, id) ->
-     Format.fprintf
-       ppf
-       "--@%s %a;"
-       (if global then "import" else "import_mode")
-       pp_print_ident id
-
-let pp_print_contract_spec 
+    
+let pp_print_contract_require ppf (_, n, e) =
+  Format.fprintf
     ppf
-    (ghost_consts, 
-     ghost_vars, 
-     global_contract, 
-     mode_contracts) = 
+    "@[<hv 3>require%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
+    pp_print_expr e
 
+let pp_print_contract_ensure ppf (_, n, e) =
+  Format.fprintf
+    ppf
+    "@[<hv 3>ensure%s@ %a;@]"
+    (match n with None -> "" | Some s -> " \""^s^"\"")
+    pp_print_expr e
+
+let cond_new_line b fmt () =
+  if b then Format.fprintf fmt "@ " else Format.fprintf fmt ""
+
+let pp_print_contract_mode ppf (_, id, reqs, enss) =
+  Format.fprintf
+    ppf
+    "@[<hv 2>mode %a (%a%a%a%a@]%a) ;"
+    pp_print_ident id
+    (cond_new_line (reqs <> [])) ()
+    (pp_print_list pp_print_contract_require "@ ") reqs
+    (cond_new_line (enss <> [])) ()
+    (pp_print_list pp_print_contract_ensure "@ ") enss
+    (cond_new_line ((reqs,enss) <> ([],[]))) ()
+
+let pp_print_contract_call fmt (_, id, in_params, out_params) =
+  Format.fprintf
+    fmt "@[<hov 2>import %a (@,%a@,) (@,%a@,) ;@]"
+    pp_print_ident id
+    (pp_print_list pp_print_expr ", ") in_params
+    (pp_print_list pp_print_expr ", ") out_params
+
+let all_empty = List.for_all (fun l -> l = [])
+
+let pp_print_contract_item fmt = function
+  | GhostConst c -> pp_print_contract_ghost_const fmt c
+  | GhostVar v -> pp_print_contract_ghost_var fmt v
+  | Assume a -> pp_print_contract_assume fmt a
+  | Guarantee g -> pp_print_contract_guarantee fmt g
+  | Mode m -> pp_print_contract_mode fmt m
+  | ContractCall call -> pp_print_contract_call fmt call
+
+
+let pp_print_contract fmt contract =
+  Format.fprintf fmt "@[<v>%a@]"
+    (pp_print_list pp_print_contract_item "@ ") contract
+
+
+let pp_print_contract_spec ppf = function
+| None -> ()
+| Some contract ->
   Format.fprintf 
     ppf
-    "@[<v>%a%a%t%a@]"
-    (pp_print_list (pp_print_contract_ghost_const true) "@,") ghost_consts
-    (pp_print_list (pp_print_contract_ghost_var true) "@,") ghost_vars
-    (fun ppf -> match global_contract with 
-       | None -> ()
-       | Some c -> pp_print_contract true ppf c)
-    (pp_print_list (pp_print_contract false) "@,") mode_contracts
-    
+    "@[<v 2>(*@contract@ %a@]@ *)"
+    pp_print_contract contract
 
-(* Pretty-prints a contract node equation. *)
-let pp_print_contract_node_equation ppf = function
 
-  | GhostEquation (pos, l, e) ->
-     Format.fprintf
-       ppf
-       "@[<hv 2>@[<hv 1>(%a)@] =@ %a;@]"
-       pp_print_ident l
-       pp_print_expr e
+(* Pretty-prints a contract node. *)
+let pp_print_contract_node ppf (
+  id, _, i, o, contract
+) =
+  Format.fprintf ppf "@[<v>\
+      contract %s (@   \
+        @[<v>%a@]@ \
+      ) returns (@   \
+        @[<v>%a@]@ \
+      ) ;@ \
+      spec@   \
+        %a@ \
+      ceps\
+      @]
+    @]"
+    id
+    (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+    (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+    pp_print_contract contract 
 
-  | Require req ->
-     pp_print_contract_require false ppf req
-
-  | Ensure ens ->
-     pp_print_contract_ensure false ppf ens
   
 
 (* Pretty-print a declaration *)
@@ -969,18 +1021,18 @@ let pp_print_declaration ppf = function
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract_spec r
+      pp_print_contract_spec
+      r
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e
 
-  | ContractNodeDecl (pos, (n,p,i,o,l,e)) ->
+  | ContractNodeDecl (pos, (n,p,i,o,e)) ->
 
      Format.fprintf
        ppf
        "@[<hv>@[<hv 2>contract %a%t@ \
         @[<hv 1>(%a)@]@;<1 -2>\
         returns@ @[<hv 1>(%a)@];@]@ \
-        %a\
         @[<hv 2>let@ \
         %a@;<1 -2>\
         tel;@]@]"
@@ -988,8 +1040,7 @@ let pp_print_declaration ppf = function
        (function ppf -> pp_print_node_param_list ppf p)
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-       pp_print_node_local_decl l
-       (pp_print_list pp_print_contract_node_equation "@ ") e
+       pp_print_contract e
 
   | FuncDecl (pos, (n, i, o, r)) -> 
 
@@ -1018,11 +1069,121 @@ let pp_print_program ppf p =
     "@[<v>%a@]" 
     (pp_print_list pp_print_declaration "@ ") 
     p
-        
+
+
+
+
+(***********)
+(* Helpers *)
+(***********)
+
+let pos_of_expr = function
+  | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
+  | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | True pos
+  | False pos | Num (pos , _) | Dec (pos , _) | ToInt (pos , _)
+  | ToReal (pos , _) | ExprList (pos , _ ) | TupleExpr (pos , _ )
+  | ArrayExpr (pos , _ ) | ArrayConstr (pos , _ , _ )
+  | ArraySlice (pos , _ , _) | ArrayConcat (pos , _ , _)
+  | RecordExpr (pos , _ , _) | Not (pos , _) | And (pos , _ , _)
+  | Or (pos , _ , _) | Xor (pos , _ , _) | Impl (pos , _ , _)
+  | OneHot (pos , _ ) | Uminus (pos , _) | Mod (pos , _ , _)
+  | Minus (pos , _ , _) | Plus (pos , _ , _) | Div (pos , _ , _)
+  | Times (pos , _ , _) | IntDiv (pos , _ , _) | Ite (pos , _ , _ , _)
+  | With (pos , _ , _ , _) | Eq (pos , _ , _) | Neq (pos , _ , _)
+  | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
+  | Forall (pos, _, _) | Exists (pos, _, _)
+  | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _ )
+  | Activate (pos , _ , _ , _ ) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
+  | CallParam (pos , _ , _ , _ )
+    -> pos
+
+
+let rec has_unguarded_pre ung = function
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
+    
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e)
+  | Forall (_, _, e) | Exists (_, _, e) -> has_unguarded_pre ung e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | When (_, e1, e2) | ArrayConcat (_, e1, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre ung e2 in
+
+    u1 || u2
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre ung e2 in
+    let u3 = has_unguarded_pre ung e3 in
+    u1 || u2 || u3
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    let us = List.map (has_unguarded_pre ung) l in
+    List.exists Lib.identity us
+
+  | Activate (_, _, e, l) | Merge (_, e, l) ->
+    let us = List.map (has_unguarded_pre ung) (e :: l) in
+    List.exists Lib.identity us
+
+  | Condact (_, e, _, l1, l2) ->
+    let us = List.map (has_unguarded_pre ung) (e :: l1 @ l2) in
+    List.exists Lib.identity us
+
+  | RecordExpr (_, _, ie) ->
+    let us = List.map (fun (_, e) -> has_unguarded_pre ung e) ie in
+    List.exists Lib.identity us
+
+  | StructUpdate (_, e1, li, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let us = List.map (function
+        | Label _ -> false
+        | Index (_, e) -> has_unguarded_pre ung e
+      ) li in
+    let u2 = has_unguarded_pre ung e2 in
+    u1 || u2 || List.exists Lib.identity us
+
+  | Fby (_, e1, _, e2) ->
+    let u1, u2 = has_unguarded_pre ung e1, has_unguarded_pre ung e2 in
+    u1 || u2
+
+  | Pre (pos, e) as p ->
+    if ung then begin
+      (* Fail only if in strict mode *)
+      let err_or_warn =
+        if Flags.lus_strict () then error_at_position else warn_at_position in
+
+      err_or_warn pos
+        (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
+           pp_print_expr p)
+    end;
+
+    let u = has_unguarded_pre true e in
+    ung || u
+
+  | Arrow (_, e1, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre false e1 in
+    u1 || u2
+
+let has_unguarded_pre e =
+  let u = has_unguarded_pre true e in
+  if u && Flags.lus_strict () then raise Parser_error;
+  u
+      
+
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)
-  
+

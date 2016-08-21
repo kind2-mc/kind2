@@ -24,6 +24,9 @@
 (** Type of a solver instance *)
 type t
 
+(** Exception raised when the solver returns "unknown" to a check-sat. *)
+exception Unknown
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with
@@ -34,7 +37,7 @@ val create_instance :
   ?produce_cores:bool ->
   ?produce_interpolants:bool ->
   TermLib.logic ->
-  Flags.smtsolver ->
+  Flags.Smt.solver ->
   t
 
 (** Delete an instance of an SMT solver *)
@@ -170,7 +173,7 @@ val execute_custom_check_sat_command :
 
 val converter : t -> (module SMTExpr.Conv)
 
-val kind : t -> Flags.smtsolver
+val kind : t -> Flags.Smt.solver
 
 (** Output a comment into the trace *)
 val trace_comment : t -> string -> unit

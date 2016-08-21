@@ -119,6 +119,11 @@ sig
   (** Receive messages queued by the background thread *)
   val recv : unit -> (Lib.kind_module * message) list
 
+  (** Notifies the background thread of a new list of child
+      processes. Used by the supervisor in a modular analysis when
+      restarting. *)
+  val update_child_processes_list : (int * Lib.kind_module) list -> unit
+
   (** Returns true if a termination message was received. Does NOT
       modify received message in any way. *)
   val check_termination : unit -> bool

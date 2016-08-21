@@ -86,6 +86,9 @@ type t =
        parameters. TODO: add this functionality to Eval. *)
     global_state_vars : (StateVar.t * Term.t list) list;
 
+    (* List of global free constants *)
+    global_consts : Var.t list;
+    
     (* State variables in the scope of this transition system 
 
        Also contains [instance_state_var] unless it is None, but not
@@ -133,6 +136,11 @@ type t =
        Does not need to be mutable, because a Property.t is *)
     properties : Property.t list;
 
+    (** Requirements of global and non-global modes for this system (used by
+        test generation).
+        List of [(is_mode_global, mode_name, require_term)]. *)
+    mode_requires: Term.t option * (LustreIdent.t * Term.t) list ;
+
     (* Invariants about the current state *)
     mutable invariants_one_state : Term.t list;
 
@@ -167,16 +175,7 @@ let pp_print_property_status ppf = function
   | P.PropFalse _ -> Format.fprintf ppf ":false"
 
 
-let pp_print_property_source ppf = function 
-  | P.PropAnnot _ -> Format.fprintf ppf ":annotation"
-  | P.Contract _ -> Format.fprintf ppf ":contract"
-  | P.Generated _ -> Format.fprintf ppf ":generated"
-  | P.ContractGlobalRequire _ -> Format.fprintf ppf ":global-req"
-  | P.ContractModeRequire _ -> Format.fprintf ppf ":mode-req"
-  | P.ContractGlobalEnsure _ -> Format.fprintf ppf ":global-ens"
-  | P.ContractModeEnsure _ -> Format.fprintf ppf ":mode-ens"
-  | P.Instantiated _ -> Format.fprintf ppf ":instantiated"
-  | P.Requirement _ -> Format.fprintf ppf ":requirement"
+let pp_print_property_source = P.pp_print_prop_source
 
 let pp_print_property 
     ppf
@@ -551,6 +550,25 @@ let get_logic t = t.logic
 (* Return the scope identifying the transition system *)
 let scope_of_trans_sys t = t.scope
 
+(* Returns the properties in the transition system. *)
+let get_properties t = t.properties
+
+(** Returns the mode requirements for this system as a list of triplets
+    [is_mode_global, mode_name, require_term].
+    Used by test generation. *)
+let get_mode_requires t = t.mode_requires
+
+(** Returns the list of properties in a transition system, split by their
+    status as [valid, invalid, unknown]. *)
+let get_split_properties { properties } =
+  properties |> List.fold_left (fun (valid, invalid, unknown) p ->
+    match Property.get_prop_status p with
+    | Property.PropInvariant -> p :: valid, invalid, unknown
+    | Property.PropFalse _ -> valid, p :: invalid, unknown
+    | _ -> valid, invalid, p :: unknown
+  ) ([], [], [])
+
+
 (* **************************************************************** *)
 (* Iterate and Fold over Subsystems                                 *)
 (* **************************************************************** *)
@@ -811,10 +829,15 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
    between and including [lbound] and [uboud] *)
 let vars_of_bounds
     ?(with_init_flag = true)
-    { init_flag_state_var; state_vars } 
+    { init_flag_state_var; state_vars; global_consts } 
     lbound
     ubound =
 
+  let state_vars =
+    List.rev_append
+      (List.rev_map Var.state_var_of_state_var_instance global_consts)
+      state_vars in
+  
   (* State variables to instantiate at bounds *)
   let state_vars = 
 
@@ -851,13 +874,18 @@ let declare_vars_of_bounds
 let declare_const_vars { state_vars } declare =
 
   (* Constant state variables of the top system *)
-  List.filter StateVar.is_const state_vars 
+  List.filter StateVar.is_const state_vars
 
   (* Create variable of constant state variable *)
   |> List.map Var.mk_const_state_var
 
   (* Declare variables *)
   |> Var.declare_constant_vars declare
+
+
+(* Declare global constants, call first and only once *)
+let declare_global_consts { global_consts } declare =
+  Var.declare_constant_vars declare global_consts
 
 
 (* Return the init flag at the given bound *)
@@ -898,35 +926,32 @@ let define_and_declare_of_bounds
     declare
     lbound
     ubound =
-
-  (* Declare monomorphized select symbols *)
-  if not (Flags.smt_arrays ()) then declare_selects declare;
   
-  (* Iterate over all subsystems *)
-  iter_subsystems 
-    ~include_top:false
-    (fun t -> 
+  (* Declare monomorphized select symbols *)
+  if not (Flags.Arrays.smt ()) then declare_selects declare;
 
-       (* Declare constant state variables of subsystem *)
-       if declare_sub_vars then 
-         (declare_const_vars t declare; 
-          declare_vars_of_bounds t declare lbound ubound);
-       
-       (* Define initial state predicate *)
-       define_init define t;
-
-       (* Define transition relation predicate *)
-       define_trans define t;
-
-    )
-
-    trans_sys;
-
+  (* Declare constant state variables of top system *)
+  declare_global_consts trans_sys declare;
+  
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
 
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
+
+  (* Iterate over all subsystems *)
+  trans_sys |> iter_subsystems ~include_top:false (fun t ->
+
+    (* Declare constant state variables of subsystem *)
+    if declare_sub_vars then
+      declare_vars_of_bounds t declare lbound ubound ;
+
+    (* Define initial state predicate *)
+    define_init define t ;
+
+    (* Define transition relation predicate *)
+    define_trans define t
+  ) ;
        
   (* Declare constant state variables of top system *)
   declare_vars_of_bounds trans_sys declare lbound ubound
@@ -995,7 +1020,7 @@ let rec map_cex_prop_to_subsystem'
 
     | ({
       P.prop_source = P.Instantiated (s, {
-        P.prop_source = P.Requirement _
+        P.prop_source = P.Assumption _
       } );
       P.prop_term
     } as p) ->
@@ -1310,6 +1335,7 @@ let mk_trans_sys
     global_state_vars
     state_vars
     state_var_bounds
+    global_consts
     ufs
     init_uf_symbol
     init_formals
@@ -1319,6 +1345,7 @@ let mk_trans_sys
     trans
     subsystems
     properties
+    mode_requires
     invariants_one_state 
     invariants_two_state = 
 
@@ -1377,7 +1404,7 @@ let mk_trans_sys
   in
 
   (* Logic fragment of transition system  *)
-  let logic = match Flags.smtlogic () with
+  let logic = match Flags.Smt.logic () with
 
     (* Logic fragment should not be declared *)
     | `None -> `None
@@ -1453,6 +1480,7 @@ let mk_trans_sys
       state_vars;
       state_var_bounds;
       subsystems;
+      global_consts;
       ufs;
       init_uf_symbol;
       init_formals;
@@ -1461,6 +1489,7 @@ let mk_trans_sys
       trans_formals;
       trans;
       properties;
+      mode_requires;
       logic;
       invariants_one_state;
       invariants_two_state }

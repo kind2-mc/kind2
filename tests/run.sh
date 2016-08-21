@@ -37,7 +37,7 @@ contract_dir="${test_dir}/contracts"
 shift
 k2_args="$@"
 
-basic_k2_cmd="$k2_args"
+basic_k2_cmd="$k2_args --color false"
 contract_k2_cmd="$basic_k2_cmd --modular true --compositional true"
 
 success_code="20"
@@ -137,13 +137,17 @@ function run_in {
   done
 
   # Falsifiable
-  echo "| Running \"falsifiable\""
+  find_cmd=`find_tests $work_dir $falsifiable_dir`
+  file_count=`$find_cmd | wc -l | tr -d ' '`
+  echo "| Running \"falsifiable\" ($file_count files)"
   for file in `find ${work_dir}/$falsifiable_dir -iname *.lus`; do
     run_one "$file" "$falsifiable_code" "$kind2_cmd"
   done
 
   # Error
-  echo "| Running \"error\""
+  find_cmd=`find_tests $work_dir $error_dir`
+  file_count=`$find_cmd | wc -l | tr -d ' '`
+  echo "| Running \"error\" ($file_count files)"
   for file in `find ${work_dir}/$error_dir -iname *.lus`; do
     run_one "$file" "$error_code" "$kind2_cmd"
   done

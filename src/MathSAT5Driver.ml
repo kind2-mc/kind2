@@ -27,7 +27,7 @@ let cmd_line
     produce_interpolants = 
   
   (* Path and name of MathSAT5 executable *)
-  let mathsat5_bin = Flags.mathsat5_bin () in
+  let mathsat5_bin = Flags.Smt.mathsat5_bin () in
   [| mathsat5_bin; "-input=smt2" |]
 
 

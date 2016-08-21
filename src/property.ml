@@ -60,34 +60,25 @@ and prop_source =
   (* Property is from an annotation *)
   | PropAnnot of position
 
-  (* Property is part of a contract *)
-  | Contract of position * string
-
-  (* Property was generated, for example, from a subrange
-     constraint *)
+  (* Property was generated, for example, from a subrange constraint *)
   | Generated of StateVar.t list
 
-  (* Property is a requirement of a subnode. The list of state
-     variables are the guarantees proving the requirement yields. *)
-  | Requirement of position * string list * StateVar.t list
+  (* Property is an instance of a property in a called node.
 
-  | ContractGlobalRequire of Scope.t
-  | ContractModeRequire of Scope.t
-
-  | ContractGlobalEnsure of position * Scope.t
-  | ContractModeEnsure of position * Scope.t
-
-  (* Property is a mode contract implication. *)
-  (* | ModeContract of position * string *)
-
-  (* Property is a global contract. *)
-  (* | GlobalContract of position * string *)
-
-  (* Property is an instance of a property in a called node
-
-     Reference the instantiated property by the [scope] of the
-     subsystem and the name of the property *)
+     Reference the instantiated property by the [scope] of the subsystem and
+     the name of the property *)
   | Instantiated of Scope.t * t
+
+  (* Contract assumption that a caller has to prove. The list of state vars is
+  the guarantees that proving the requirement yields. *)
+  | Assumption of position * string list
+
+  (* Contract guarantees. *)
+  | Guarantee of (position * Scope.t)
+  (* Contract: at least one mode active. *)
+  | GuaranteeOneModeActive of Scope.t
+  (* Contract: mode implication. *)
+  | GuaranteeModeImplication of (position * Scope.t)
 
 
 
@@ -109,22 +100,12 @@ let pp_print_prop_status_pt ppf = function
   | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)
 
 
-
+let pp_print_prop_status = pp_print_prop_status_pt
 
 let pp_print_prop_source ppf = function
-
   | PropAnnot pos ->
      Format.fprintf
        ppf "%a" pp_print_position pos
-  | Contract (pos, name) ->
-     Format.fprintf
-       ppf "contract %s at %a" name pp_print_position pos
-  | Requirement (pos, scope, _) ->
-     Format.fprintf
-       ppf
-       "requirement of %s for call at %a"
-       (String.concat "." scope)
-       pp_print_position pos
   | Generated _ ->
      Format.fprintf ppf "subrange constraint"
   | Instantiated (scope,_) ->
@@ -133,15 +114,29 @@ let pp_print_prop_source ppf = function
        "instantiated from %s"
               (String.concat "." scope)
 
-  | _ -> assert false
+  | Assumption (_, scope) ->
+    Format.fprintf ppf "assumption of %s" (String.concat "." scope)
+  | Guarantee (_, scope) ->
+    Format.fprintf ppf "guarantee (%a)" Scope.pp_print_scope scope
+  | GuaranteeOneModeActive _ ->
+    Format.fprintf ppf "one mode active"
+  | GuaranteeModeImplication (_, scope) ->
+    Format.fprintf ppf "mode implication %a" Scope.pp_print_scope scope
+
+let pp_print_prop_quiet ppf { prop_name ; prop_source } =
+  Format.fprintf ppf
+    "\"%s\": %a"
+    prop_name
+    pp_print_prop_source prop_source
 
 let pp_print_prop_source ppf = function 
   | PropAnnot _ -> Format.fprintf ppf ":user"
-  | Contract _ -> Format.fprintf ppf ":contract"
-  | Requirement _ -> Format.fprintf ppf ":requirement"
-  | Generated p -> Format.fprintf ppf ":generated"
+  | Generated _ -> Format.fprintf ppf ":generated"
   | Instantiated _ -> Format.fprintf ppf ":subsystem"
-  | _ -> assert false
+  | Assumption _ -> Format.fprintf ppf ":assumption"
+  | Guarantee _ -> Format.fprintf ppf ":guarantee"
+  | GuaranteeOneModeActive _ -> Format.fprintf ppf ":one_mode_active"
+  | GuaranteeModeImplication _ -> Format.fprintf ppf ":mode_implication"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 

@@ -40,7 +40,7 @@ let headers () = []
 
 (* top level declaration to add to the solver *)
 let prelude =
-  if Flags.smt_arrays () then []
+  if Flags.Arrays.smt () then []
   else
     [
       (* Sort declaration for uninterpreted arrays *)
@@ -513,7 +513,7 @@ let rec pp_print_sort ppf t =
   (* Print array types with an abstract sort *)
   match Type.node_of_type t with
   | Type.Array (te, ti) ->
-    if Flags.smt_arrays () then
+    if Flags.Arrays.smt () then
       Format.fprintf ppf "(Array %a %a)" pp_print_sort ti pp_print_sort te
     else
       Format.fprintf ppf "(FArray %a %a)" pp_print_sort ti pp_print_sort te
@@ -655,7 +655,7 @@ let rec pp_print_symbol_node ?arity ppf = function
 *)
   | `SELECT ty_array ->
 
-    if Flags.smt_arrays () then
+    if Flags.Arrays.smt () then
       Format.pp_print_string ppf "select"
         
     else
@@ -794,7 +794,7 @@ let s_int = HString.mk_hstring "Int"
 let s_real = HString.mk_hstring "Real" 
 let s_bool = HString.mk_hstring "Bool" 
 let s_array () =
-  if Flags.smt_arrays () then HString.mk_hstring "Array"
+  if Flags.Arrays.smt () then HString.mk_hstring "Array"
   else HString.mk_hstring "FArray"
 
 

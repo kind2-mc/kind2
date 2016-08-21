@@ -1,8 +1,9 @@
 
-node dekker (const n: int) returns (ok: bool);
+node dekker (const n: int;) returns (want, crit: bool^n; turn: int; ok: bool);
 var
-   want, crit, pwant, pcrit: bool^n;
-   turn: int;
+  -- want, crit: bool^n;
+  -- turn: int;
+  pwant, pcrit: bool^n;
 let
 pwant[i] = false -> pre want[i];
 pcrit[i] = false -> pre crit[i];

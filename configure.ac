@@ -371,7 +371,7 @@ AC_SUBST(IZ3_BIN)
 AC_CONFIG_SUBDIRS([ocamlczmq])
 
 # Configuration files
-AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/kind2Config.ml src/flags.ml server/Makefile server/myocamlbuild.ml])
+AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/kind2Config.ml server/Makefile server/myocamlbuild.ml])
 
 # Write configuration files
 AC_OUTPUT

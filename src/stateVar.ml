@@ -269,22 +269,23 @@ let mk_state_var
 
     else
 
-      raise 
+      raise
         (Invalid_argument 
            (Format.asprintf
-              "State variable %a redeclared with different type (want %a, was %a)" 
+              "State variable %a redeclared with different type (%a, now %a)" 
               pp_print_state_var_name 
               (state_var_name, state_var_scope)
               Type.pp_print_type state_var_type
               Type.pp_print_type (type_of_state_var v)
-           ))
+            )
+         )
 
   (* State variable is not in the hashcons table *)
   with Not_found | Hstate_var.Key_not_found _ -> 
     
     try 
       
-      if Flags.smt_short_names () then raise Not_found;
+      if Flags.Smt.short_names () then raise Not_found;
 
       let _ = 
         UfSymbol.uf_symbol_of_string 
@@ -304,7 +305,7 @@ let mk_state_var
        (* Create an uninterpreted function symbol for the state variable *)
        let state_var_uf_symbol = 
 
-         (if Flags.smt_short_names () then 
+         (if Flags.Smt.short_names () then 
             
             gen_uf
               

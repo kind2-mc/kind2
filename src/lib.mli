@@ -22,8 +22,12 @@
 *)
 
 (** {1 Helper functions} *)
+
 (** Identity function. *)
 val identity : 'a -> 'a
+
+(** Prints the first argument and returns the second. *)
+val print_pass : string -> 'a -> 'a
 
 (** Returns true when given unit. *)
 val true_of_unit : unit -> bool
@@ -40,23 +44,8 @@ val true_of_any : 'a -> bool
 (** Return false *)
 val false_of_any : 'a -> bool
 
-
-(** {1 Event tags} *)
-
-(** Timeout tag. *)
-val timeout_tag : string
-(** Success tag. *)
-val success_tag : string
-(** Failure tag. *)
-val failure_tag : string
-(** Error tag. *)
-val error_tag : string
-(** Warning tag. *)
-val warning_tag : string
-(** Interruption tag. *)
-val interruption_tag : string
-(** Done tag. *)
-val done_tag : string
+(* Creates a directory if it does not already exist. *)
+val mk_dir : string -> unit
 
 
 
@@ -247,9 +236,6 @@ val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a
 (** Pretty-print if list is not empty *)
 val pp_print_if_not_empty : (unit, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
-(** Output a horizonal dasehd line *)
-val pp_print_hline : Format.formatter -> unit -> unit 
-
 (** Pretty-print into a string *)
 val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string 
 
@@ -332,8 +318,10 @@ type kind_module =
   [ `IC3
   | `BMC
   | `IND
+  | `IND2
   | `INVGEN
   | `INVGENOS
+  | `C2I
   | `Interpreter
   | `Supervisor
   | `Parser ]
@@ -397,6 +385,9 @@ val is_dummy_pos : position -> bool
 (** Pretty-print a position *)
 val pp_print_position : Format.formatter -> position -> unit
 
+(** Pretty-print a position in a concise way *)
+val pp_print_pos : Format.formatter -> position -> unit
+
 (** Return the file, line and column of a position; fail with
     [Invalid_argument "file_row_col_of_pos"] if the position is a dummy
     position *)
@@ -404,7 +395,12 @@ val file_row_col_of_pos : position -> string * int * int
 
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
- 
+
+
+(** Pretty print a backtrace *)
+val print_backtrace : Format.formatter -> Printexc.raw_backtrace -> unit
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

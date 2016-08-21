@@ -1,5 +1,5 @@
 /*  =========================================================================
-    zthread - working with system threads
+    zthread - working with system threads (deprecated)
 
     Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
@@ -39,7 +39,7 @@ CZMQ_EXPORT void *
     zthread_fork (zctx_t *ctx, zthread_attached_fn *thread_fn, void *args);
 
 //  Self test of this class
-CZMQ_EXPORT int
+CZMQ_EXPORT void
     zthread_test (bool verbose);
 //  @end
 

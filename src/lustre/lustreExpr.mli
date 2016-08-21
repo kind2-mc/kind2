@@ -80,21 +80,21 @@ val type_of_expr : expr -> Type.t
 (** Equality of expressions *)
 val equal_expr : expr -> expr -> bool
 
+(** Returns true iff the expr is the constant true. *)
+val is_true_expr : expr -> bool
+
 (** A Lustre expression
 
     The [->] operator is moved to the top of the expression, the
     expression is to be interpreted as [expr_init -> expr_step]. *)
-type t = private 
-
-  { 
-
-    expr_init: expr;     (** Lustre expression for initial state *)
-
-    expr_step: expr;     (** Lustre expression after initial state *)
-
-    expr_type: Type.t;   (** Common type of both initial and the step expression *)
-
-  }
+type t = private {
+  expr_init: expr ;
+  (** Lustre expression for initial state *)
+  expr_step: expr ;
+  (** Lustre expression after initial state *)
+  expr_type: Type.t ;
+  (** Common type of both initial and the step expression *)
+}
 
 (** Hash table over Lustre expressions *)
 module LustreExprHashtbl : Hashtbl.S with type key = t
@@ -149,8 +149,8 @@ val has_pre_var : Numeral.t -> t -> bool
 (** Return true if expression is a current state variable *)
 val is_var : t -> bool
 
+(** Return true if expression is a constant state variable *)
 val is_const_var : t -> bool
-
 
 (** Return true if expression is a previous state variable *)
 val is_pre_var : t -> bool
@@ -158,6 +158,9 @@ val is_pre_var : t -> bool
 (** Return [true] if there is an unguarded [pre] operator in the
     expression. *)
 val pre_is_unguarded : t -> bool
+
+(** Return true if the expression is constant *)
+val is_const_expr : expr -> bool
 
 (** Return true if the expression is constant *)
 val is_const : t -> bool
@@ -233,7 +236,7 @@ val state_var_of_expr : t -> StateVar.t
     Fail with [Invalid_argument "var_of_expr"] if the expression
     is not a free variable. *)
 val var_of_expr : t -> Var.t
-
+  
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
 
@@ -375,17 +378,19 @@ val mk_arrow : t -> t -> t
     expression to a fresh variable if it is not a variable at the
     current state.
 
-    [mk_pre f c e] returns the expression [e] and context [c] unchanged if it
+    [mk_pre f c b e] returns the expression [e] and context [c] unchanged if it
     is a constant, and the previous state variable if the expression is a
     current state variable, again together with [c] unchanged.
 
     Otherwise the expression [e] is abstracted to a fresh variable obtained by
-    calling the function [f], which returns a fresh abstraction and a
+    calling the function [f], which returns a fresh state variable and a
     changed context [c] that records the association between the fresh variable
     and the expression. Then return an expression of the fresh state variable
-    and the changed context. *)
-val mk_pre :
-  ('a -> t -> 'b * 'a) -> ('b -> Term.t) -> 'a -> t -> t * 'a
+    and the changed context.
+
+    [b] is used to denote that we're in a context where there are unguarded
+    pres and so we should always introduce fresh intermediate variables. *)
+val mk_pre : ('a -> t -> 'b * 'a) -> ('b -> Term.t) -> 'a -> bool -> t -> t * 'a
 
 (** Select from an array *)
 val mk_select : t -> t -> t

@@ -54,6 +54,7 @@ type index = string
 (** A Lustre expression *)
 type expr =
     Ident of position * ident
+  | ModeRef of position * ident list
   | RecordProject of position * expr * index
   | TupleProject of position * expr * expr
   | StructUpdate of position * expr * label_or_index list * expr
@@ -173,43 +174,50 @@ type eq_lhs =
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr
-  | AnnotMain 
+  | AnnotMain of bool
   | AnnotProperty of position * string option * expr
 
-(** A contract ghost constant *)
+(* A contract ghost constant. *)
 type contract_ghost_const = const_decl
 
-(** A contract ghost variable *)
+(* A contract ghost variable. *)
 type contract_ghost_var = const_decl
 
-(** A contract requirement *)
-type contract_require = position * expr
+(* A contract assume. *)
+type contract_assume = position * string option * expr
 
-(** A contract ensure *)
-type contract_ensure = position * expr
+(* A contract guarantee. *)
+type contract_guarantee = position * string option * expr
 
-(** Equations that can appear in a contract node *)
+(* A contract requirement. *)
+type contract_require = position * string option * expr
+
+(* A contract ensure. *)
+type contract_ensure = position * string option * expr
+
+(* A contract mode. *)
+type contract_mode =
+  position * ident * (contract_require list) * (contract_ensure list)
+
+(* A contract call. *)
+type contract_call = position * ident * expr list * expr list
+
+(* Equations that can appear in a contract node. *)
 type contract_node_equation =
-  | GhostEquation of position * ident * expr
-  | Require of contract_require
-  | Ensure of contract_ensure
+  | GhostConst of contract_ghost_const
+  | GhostVar of contract_ghost_var
+  | Assume of contract_assume
+  | Guarantee of contract_guarantee
+  | Mode of contract_mode
+  | ContractCall of contract_call
 
-(** A contract for a node is either an inlined contract (defined in
-   the node itself), or a contract node call *)
-type contract =
-  | InlinedContract of position
-                       * ident
-                       * contract_require list
-                       * contract_ensure list
-  | ContractCall of position * ident
+(* A contract is some ghost consts / var, and assumes guarantees and modes. *)
+type contract = contract_node_equation list
 
-(** A contract specification for a node (if it has one) is either a
-    list of modes or a global contract and a list of modes *)
-type contract_spec =
-  contract_ghost_const list
-  * contract_ghost_var list
-  * contract option
-  * contract list
+  (*   contract_ghost_const list * contract_ghost_var list * ( *)
+  (*   contract_assume list * contract_guarantee list * *)
+  (*   contract_mode list * contract_call list *)
+  (* ) list *)
 
 (** Declaration of a node as a tuple of
 
@@ -227,19 +235,21 @@ type node_decl =
   * clocked_typed_decl list
   * node_local_decl list
   * node_equation list
-  * contract_spec 
+  * contract option
 
-(** A contract node declaration
+(** A contract node declaration as a tuple of
 
-    Almost the same as a [node_decl] but with a different type for
-    equations, and no contract specification *)
+  - its identifier,
+  - its type parameters,
+  - its inputs,
+  - its outputs,
+  - its body as a [contract]. *)
 type contract_node_decl =
   ident
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
-  * node_local_decl list
-  * contract_node_equation list
+  * contract
 
 (** Declaration of a function as a tuple of 
 
@@ -248,7 +258,7 @@ type contract_node_decl =
     - the list of its outputs 
 *)
 type func_decl =
-    ident * typed_ident list * typed_ident list  * contract_spec 
+    ident * typed_ident list * typed_ident list * contract option
 
 
 (** An instance of a parametric node as a tuple of the identifier for
@@ -295,6 +305,17 @@ val pp_print_struct_item : Format.formatter -> struct_item -> unit
 val pp_print_node_equation : Format.formatter -> node_equation -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
+
+val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
+
+
+(** {1 Helpers} *)
+
+(** Returns the position of an expression *)
+val pos_of_expr : expr -> Lib.position
+
+(** Returns true if the expression has unguareded pre's *)
+val has_unguarded_pre : expr -> bool
 
 (* 
    Local Variables:
