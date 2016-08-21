@@ -1959,11 +1959,11 @@ let rec trans_sys_of_node'
 
 
           let global_consts =
-            Format.eprintf "Gobal constants: %d@."
-              (List.length globals.G.free_constants);
+            (* Format.eprintf "Global constants: %d@." *)
+            (*   (List.length globals.G.free_constants); *)
             List.fold_left (fun acc (_, vt) ->
                 D.fold (fun _ v acc ->
-                    Format.eprintf "Gobal constant: %a@." Var.pp_print_var v;
+                    (* Format.eprintf "Gobal constant: %a@." Var.pp_print_var v; *)
                     v :: acc) vt acc
               ) [] globals.G.free_constants
             |> List.rev
