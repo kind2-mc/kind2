@@ -54,7 +54,7 @@ module type Out = sig
       TransSys.t * Term.TermSet.t * Term.TermSet.t
     ) list
   (** Clean exit for the invariant generator. *)
-  val exit : unit -> unit
+  val exit : 'a -> unit
 end
 
 

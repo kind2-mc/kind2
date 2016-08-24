@@ -137,7 +137,7 @@ module type Out = sig
       Sys.t * Set.t * Set.t
     ) list
   (** Clean exit for the invariant generator. *)
-  val exit : unit -> unit
+  val exit : 'a -> unit
 end
 
 
@@ -185,7 +185,7 @@ module Make (Graph : GraphSig) : Out = struct
     )
 
   (* Clean exit. *)
-  let exit () =
+  let exit _ =
     no_more_lsd () ;
     exit 0
 
@@ -435,6 +435,13 @@ module Make (Graph : GraphSig) : Out = struct
     loop [] [] [] 0
 
 
+  (** Destroys the pruning solvers in a sys map. *)
+  let kill_solvers sys_map =
+    SysMap.iter (
+      fun _ pruner -> Lsd.kill_pruning pruner
+    ) sys_map ;
+    no_more_lsd ()
+
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
   after incrementing [k]. *)
@@ -498,20 +505,13 @@ module Make (Graph : GraphSig) : Out = struct
       ) else prune
     in
 
-    (* Checking if we should terminate before doing anything. *)
-    Event.check_termination () ;
-
     (* Format.printf "%s stabilizing graph...@.@." (pref_s two_state) ; *)
 
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
     (* Stabilize graph. *)
-    ( try Graph.stabilize graph sys prune lsd with
-      | Event.Terminate -> exit ()
-      | e -> (
-        Event.log L_fatal "caught exception %s" (Printexc.to_string e) ;
-        minisleep 0.5 ;
-        exit ()
-      )
-    ) ;
+    Graph.stabilize graph sys prune lsd ;
+
     (* write_dot_to
       "graphs/" "classes" (Format.asprintf "%a" Num.pp_print_numeral k)
       fmt_graph_classes_dot graph ; *)
@@ -692,20 +692,22 @@ module Make (Graph : GraphSig) : Out = struct
       max_depth two_state input_sys param top_sys
       res memory k sys_map top_level_count graphs
 
-  | [] ->
+  | [] -> (
     (* Done for all systems for this k, incrementing. *)
     let k = Num.succ k in
     match max_depth with
     | Some kay when Num.(k > kay) ->
       Event.log_uncond "%s Reached max depth (%a), stopping."
         (pref_s two_state) Num.pp_print_numeral kay ;
-        memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
+      kill_solvers sys_map ;
+      memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
     | _ -> (
       match memory with
       | [] ->
         Event.log L_info
           "%s No more system to run on, stopping."
           (pref_s two_state) ;
+        kill_solvers sys_map ;
         res
       | _ ->
         (* Format.printf
@@ -717,39 +719,49 @@ module Make (Graph : GraphSig) : Out = struct
           max_depth two_state
           input_sys param top_sys res [] k sys_map top_level_count
     )
+  )
 
 
   (** Invariant generation entry point. *)
   let main max_depth top_only modular two_state input_sys aparam sys =
+    try (
+    
+      (* Format.printf "Starting (%b)@.@." two_state ; *)
 
-    (* Format.printf "Starting (%b)@.@." two_state ; *)
+      (* Initial [k]. *)
+      let k = if two_state then Num.one else Num.zero in
 
-    (* Initial [k]. *)
-    let k = if two_state then Num.one else Num.zero in
+      (* Maps systems to their pruning solver. *)
+      let sys_map = SysMap.create 107 in
 
-    (* Maps systems to their pruning solver. *)
-    let sys_map = SysMap.create 107 in
+      (* Generating the candidate terms and building the graphs. Result is a
+      list of quadruples: system, graph, non-trivial invariants, trivial
+      invariants. *)
+      Graph.mine top_only two_state aparam sys (
+        fun sys ->
+          let pruning_checker = Lsd.mk_pruning_checker sys in
+          prune_ref := pruning_checker :: (! prune_ref) ;
+          SysMap.replace sys_map sys pruning_checker
+      ) |> (
+        if modular then 
+          (* If in modular mode, we already ran on the subsystems.
+          Might as well start with the current top system since it's new. *)
+          identity
+        else List.rev
+      )
+      |> fun syss ->
+        (* Format.printf "Running on %d systems@.@." (List.length syss) ; *)
+        syss
+      |> system_iterator
+        max_depth two_state input_sys aparam sys [] [] k sys_map 0
 
-    (* Generating the candidate terms and building the graphs. Result is a list
-    of quadruples: system, graph, non-trivial invariants, trivial
-    invariants. *)
-    Graph.mine top_only two_state aparam sys (
-      fun sys ->
-        let pruning_checker = Lsd.mk_pruning_checker sys in
-        prune_ref := pruning_checker :: (! prune_ref) ;
-        SysMap.replace sys_map sys pruning_checker
-    ) |> (
-      if modular then 
-        (* If in modular mode, we already ran on the subsystems.
-        Might as well start with the current top system since it's new. *)
-        identity
-      else List.rev
+    ) with
+    | Event.Terminate -> exit ()
+    | e -> (
+      Event.log L_fatal "caught exception %s" (Printexc.to_string e) ;
+      minisleep 0.5 ;
+      exit ()
     )
-    |> fun syss ->
-      (* Format.printf "Running on %d systems@.@." (List.length syss) ; *)
-      syss
-    |> system_iterator
-      max_depth two_state input_sys aparam sys [] [] k sys_map 0
 
 end
 
@@ -818,7 +830,16 @@ let main_real two_state in_sys param sys =
 
 
 
-let exit _ = BoolInvGen.exit ()
+let exit _ =
+  if Flags.Invgen.eq_only () then (
+    EqOnly.BoolInvGen.exit () ;
+    EqOnly.IntInvGen.exit () ;
+    EqOnly.RealInvGen.exit ()
+  ) else (
+    BoolInvGen.exit () ;
+    IntInvGen.exit () ;
+    RealInvGen.exit ()
+  )
 
 
 
