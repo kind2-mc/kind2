@@ -1873,6 +1873,8 @@ module Global = struct
     (* `INVGENREAL ; *) `INVGENREALOS
   ]
   let enabled = ref enable_default_init
+  let disable modul3 =
+    enabled := (! enabled) |> List.filter (fun m -> m <> modul3)
   let disabled = ref disable_default_init
   let finalize_enabled () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -2149,6 +2151,7 @@ type input_format = Global.input_format
 
 let output_dir = Global.output_dir
 let enabled = Global.enabled
+let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular
 let lus_main = Global.lus_main

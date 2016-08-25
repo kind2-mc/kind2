@@ -55,6 +55,9 @@ module type Domain = sig
   val is_bot: Term.t -> bool
   (** Returns true iff the input term is top. *)
   val is_top: Term.t -> bool
+  (** Returns true iff the one state invgen technique for this domain is
+  running. *)
+  val is_os_running: unit -> bool
 end
 
 
@@ -95,6 +98,7 @@ module Bool: Domain = struct
     )
   let is_bot term = term = Term.t_false
   let is_top term = term = Term.t_true
+  let is_os_running () = Flags.enabled () |> List.mem `INVGENOS
 end
 
 
@@ -130,6 +134,7 @@ module Int: Domain = struct
     rep, Set.remove rep terms
   let is_bot _ = false
   let is_top _ = false
+  let is_os_running () = Flags.enabled () |> List.mem `INVGENINTOS
 end
 
 
@@ -165,6 +170,7 @@ module Real: Domain = struct
     rep, Set.remove rep terms
   let is_bot _ = false
   let is_top _ = false
+  let is_os_running () = Flags.enabled () |> List.mem `INVGENREALOS
 end
 
 

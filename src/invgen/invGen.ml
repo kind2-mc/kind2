@@ -490,19 +490,15 @@ module Make (Graph : GraphSig) : Out = struct
       || Sys.is_inv sys cand
     in
 
+    let one_state_running = Domain.is_os_running () in
     (** Prunes known invariants and irrelevant ones. *)
     let prune =
-      if two_state then (
-        fun cand -> is_inv cand ||  (
+      if two_state && one_state_running then (
+        fun cand -> is_inv cand || (
           match Term.var_offsets_of_term cand with
-          | (Some _, Some hi) when Num.(hi = ~- one) -> true
+          | (Some lo, Some hi) when Num.(lo = hi) -> true
+          | (None, None) -> true
           | _ -> false
-        ) || (
-          if max_depth = None then (
-            match Term.var_offsets_of_term cand with
-            | (Some lo, Some hi) when lo != hi -> false
-            | _ -> true
-          ) else false
         )
       ) else is_inv
     in

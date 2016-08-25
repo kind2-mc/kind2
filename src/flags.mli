@@ -167,6 +167,9 @@ type enable = Lib.kind_module list
 (** The modules enabled. *)
 val enabled : unit -> enable
 
+(** Manually disables a module. *)
+val disable : Lib.kind_module -> unit
+
 (** Modular analysis. *)
 val modular : unit -> bool
 
