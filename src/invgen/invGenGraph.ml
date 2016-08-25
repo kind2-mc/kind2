@@ -1236,8 +1236,33 @@ module MakeEq (Dom: DomainSig) : Graph = struct
   let fmt_graph_dot _ _ =
     Event.log L_fatal "Equality-graph formatting is unimplemented"
   (** Formats the eq classes of a graph in dot format. *)
-  let fmt_graph_classes_dot _ _ =
-    Event.log L_fatal "Equality-graph formatting is unimplemented"
+  let fmt_graph_classes_dot fmt classes =
+    Format.fprintf fmt
+      "\
+digraph mode_graph {
+  graph [bgcolor=black margin=0.0] ;
+  node [
+    style=filled
+    fillcolor=black
+    fontcolor=\"#1e90ff\"
+    color=\"#666666\"
+  ] ;
+  edge [color=\"#1e90ff\" fontcolor=\"#222222\"] ;
+
+
+    @[<v>" ;
+
+    classes |> Map.iter (
+      fun rep set ->
+        Format.fprintf fmt "\"%a\" ->\"%a\" ;@ "
+          fmt_term rep
+          (pp_print_list
+            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term term)
+            "@ ")
+          (Set.elements set)
+    ) ;
+
+    Format.fprintf fmt "@]@.}@."
 
   let terms_of graph known =
     let cond_cons l cand =
@@ -1350,14 +1375,15 @@ module MakeEq (Dom: DomainSig) : Graph = struct
     in
 
     (** Loops as long as the graph is unstable in base. *)
-    let loop () =
+    let rec loop () =
       match
         terms_of graph known |> has_cex
       with
       | None -> ()
       | Some model ->
         let eval = Domain.eval sys model in
-        model_stabilize graph eval
+        model_stabilize graph eval ;
+        loop ()
     in
 
     loop ()

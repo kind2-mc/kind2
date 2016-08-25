@@ -286,13 +286,14 @@ module Make (Graph : GraphSig) : Out = struct
         Event.log L_info
           "%s @[<v>\
             On system [%a] at %a: %s@ \
-            found %d non-trivial invariants\
+            found %d non-trivial invariants:@   @[<v>%a@]\
           @]"
           (pref_s two_state)
           Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
+          (pp_print_list fmt_term "@ ") non_trivial
       | [], _ ->
         Event.log L_info
           "%s @[<v>\
@@ -308,7 +309,8 @@ module Make (Graph : GraphSig) : Out = struct
         Event.log L_info
           "%s @[<v>\
             On system [%a] at %a: %s@ \
-            found %d non-trivial invariants and %d trivial ones\
+            found %d non-trivial invariants and %d trivial ones:\
+            @   @[<v>%a@]\
           @]"
           (pref_s two_state)
           Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
@@ -316,6 +318,7 @@ module Make (Graph : GraphSig) : Out = struct
           blah
           (List.length non_trivial)
           (List.length trivial)
+          (pp_print_list fmt_term "@ ") non_trivial
     ) ;
     List.map (fun i -> i, (Numeral.to_int k + 1, i)) non_trivial
     |> communicate_invariants top_sys sys_map two_state sys
@@ -481,17 +484,16 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "LSD instance is at %a@.@." Num.pp_print_numeral (Lsd.get_k lsd sys) ; *)
 
     (* Prunes known invariants from a list of candidates. *)
-    let prune cand =
-      (
-        Term.var_offsets_of_term cand = (None, None)
-      )
-      || Set.mem cand non_trivial
+    let is_inv cand =
+         Set.mem cand non_trivial
       || Set.mem cand trivial
       || Sys.is_inv sys cand
     in
+
+    (** Prunes known invariants and irrelevant ones. *)
     let prune =
       if two_state then (
-        fun cand -> prune cand ||  (
+        fun cand -> is_inv cand ||  (
           match Term.var_offsets_of_term cand with
           | (Some _, Some hi) when Num.(hi = ~- one) -> true
           | _ -> false
@@ -502,19 +504,20 @@ module Make (Graph : GraphSig) : Out = struct
             | _ -> true
           ) else false
         )
-      ) else prune
+      ) else is_inv
     in
 
     (* Format.printf "%s stabilizing graph...@.@." (pref_s two_state) ; *)
 
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
-    (* Stabilize graph. *)
-    Graph.stabilize graph sys prune lsd ;
 
-    (* write_dot_to
-      "graphs/" "classes" (Format.asprintf "%a" Num.pp_print_numeral k)
-      fmt_graph_classes_dot graph ; *)
+    (* Stabilize graph. *)
+    Graph.stabilize graph sys is_inv lsd ;
+
+    (* InvGenGraph.write_dot_to
+      "./" "classes" "after"
+      Graph.fmt_graph_classes_dot graph ; *)
 
     (* Format.printf "%s done stabilizing graph@.@." (pref_s two_state) ; *)
     
