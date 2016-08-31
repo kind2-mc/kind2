@@ -349,8 +349,8 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
     Format.fprintf fmt "%a:@   @[<v>\
         @{<red>timeout@}@ \
         %a@ \
-        unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
-        valid:   [ @[<hov>@{<green>%a@}@] ]\
+        @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
+        @{<green>valid@}:   [ @[<hov>%a@] ]\
       @]"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       pp_print_param_of_result res
@@ -360,9 +360,9 @@ let pp_print_result_quiet fmt ({ time ; sys } as res) =
     Format.fprintf fmt "%a:@   @[<v>\
         @{<red>unsafe@} in %.3fs@ \
         %a@ \
-        invalid: [ @[<hov>@{<red>%a@}@] ]@ \
-        unknown: [ @[<hov>@{<yellow>%a@}@] ]@ \
-        valid:   [ @[<hov>@{<green>%a@}@] ]\
+        @{<red>invalid@}: [ @[<hov>%a@] ]@ \
+        @{<yellow>unknown@}: [ @[<hov>%a@] ]@ \
+        @{<green>valid@}:   [ @[<hov>%a@] ]\
       @]"
       Scope.pp_print_scope (TransSys.scope_of_trans_sys sys)
       time
