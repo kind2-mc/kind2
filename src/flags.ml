@@ -1785,6 +1785,24 @@ module Global = struct
   let timeout_wall () = !timeout_wall
 
 
+  (* Timeout. *)
+  let timeout_analysis_default = 0.
+  let timeout_analysis = ref timeout_analysis_default
+  let _ = add_specs ([
+    ( "--timeout_analysis",
+      Arg.Set_float timeout_analysis,
+      fun fmt ->
+        Format.fprintf fmt
+          "\
+            Per-analysis wallclock timeout in seconds (0 for none)@ \
+            Default: %1.f\
+          "
+          timeout_analysis_default
+    )
+  ])
+  let timeout_analysis () = !timeout_analysis
+
+
   (* Modules enabled. *)
   type enable = kind_module list
   let kind_module_of_string = function
@@ -2112,6 +2130,7 @@ let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let input_format = Global.input_format
 let timeout_wall = Global.timeout_wall
+let timeout_analysis = Global.timeout_analysis
 let input_file = Global.input_file
 let all_input_files = Global.get_all_input_files
 let clear_input_files = Global.clear_input_files

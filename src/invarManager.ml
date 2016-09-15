@@ -70,7 +70,7 @@ let on_exit trans_sys =
 
     (* if trans_sys <> None then handle_events (get trans_sys); *)
       
-  (* Skip if running as a single process *)
+  (* Skip if analysisning as a single process *)
   with Messaging.NotInitialized -> ()
 
 
@@ -120,7 +120,7 @@ let kill_useless_engines child_pids =
 
   
 
-(* Remove terminated child processed from list of running processes
+(* Remove terminated child processed from list of analysisning processes
 
    Return [true] if the last child processes has terminated or some
    process exited with a runtime error or was killed. *)
@@ -145,127 +145,133 @@ let rec wait_for_children child_pids =
       !child_pids = []
 
     (* Child process exited normally *)
-    | child_pid, (Unix.WEXITED 0 as status) -> 
+    | child_pid, (Unix.WEXITED 0 as status) -> (
 
-      (
+      Event.log L_info
+        "Child process %d (%a) %a" 
+        child_pid 
+        pp_print_kind_module (List.assoc child_pid !child_pids) 
+        pp_print_process_status status ;
 
-        Event.log L_info
-          "Child process %d (%a) %a" 
-          child_pid 
-          pp_print_kind_module (List.assoc child_pid !child_pids) 
-          pp_print_process_status status;
+      (* Remove child process from list *)
+      child_pids := List.remove_assoc child_pid !child_pids;
 
-        (* Remove child process from list *)
-        child_pids := List.remove_assoc child_pid !child_pids;
+      (* Check if more child processes have died *)
+      wait_for_children child_pids
 
-        (* Check if more child processes have died *)
-        wait_for_children child_pids
-
-      )
+    )
 
     (* Child process dies with non-zero exit status or was killed *)
-    | child_pid, status -> 
+    | child_pid, status -> (
+      Event.log L_warn
+        "Child process %d (%a) %a" 
+        child_pid 
+        pp_print_kind_module (List.assoc child_pid !child_pids) 
+        pp_print_process_status status ;
 
-      (Event.log L_warn
-         "Child process %d (%a) %a" 
-         child_pid 
-         pp_print_kind_module (List.assoc child_pid !child_pids) 
-         pp_print_process_status status;
+      (* Remove child process from list *)
+      child_pids := List.remove_assoc child_pid !child_pids ;
 
-       (* Remove child process from list *)
-       child_pids := List.remove_assoc child_pid !child_pids;
+      (* Check if more child processes have died *)
+      kill_useless_engines !child_pids ||
+      wait_for_children child_pids
 
-       (* Check if more child processes have died *)
-       kill_useless_engines !child_pids ||
-       wait_for_children child_pids
-
-      )
+    )
 
 (* Polling loop *)
-let rec loop done_at child_pids input_sys aparam trans_sys =
+let rec loop
+  done_at timeout_analysis_reached child_pids input_sys aparam trans_sys
+=
 
-  handle_events input_sys aparam trans_sys;
+  handle_events input_sys aparam trans_sys ;
 
   let done_at' =
 
     (* All properties proved? *)
-    if TransSys.all_props_proved trans_sys then 
+    if TransSys.all_props_proved trans_sys then (
 
-      (
+      (* Has is_done been true in the last iteration? *)
+      match done_at with
 
-        ( 
+      | None ->
+          (* Message after is_done becomes true first time *)
+          Event.log L_info
+            "<Done> @[<v>\
+              All properties proved or disproved in %.3fs.@ \
+              Waiting for children to terminate.\
+            @]"
+            (Stat.get_float Stat.total_time) ;
 
-          (* Has is_done been true in the last iteration? *)
-          match done_at with
+          Event.terminate () ;
+          Some (Unix.gettimeofday ())
 
-            | None -> 
+      | Some t -> Some t
 
-              (* Message after is_done becomes true first time *)
-              Event.log L_info
-                "<Done> @[<v>\
-                  All properties proved or disproved in %.3fs.@ \
-                  Waiting for children to terminate.\
-                @]"
-                (Stat.get_float Stat.total_time);
+    ) else if timeout_analysis_reached () then (
 
-              Event.terminate ();
+      match done_at with
 
-              Some (Unix.gettimeofday ())
+      | None ->
 
-            | Some t ->
+        let timeout_analysis = Flags.timeout_analysis () in
 
-              Some t
+        Event.log L_info
+          "<Done> @[<v>\
+            Reached analysis timeout (%1.f)@ \
+            Waiting for children to terminate.
+          @]" timeout_analysis ;
 
-        );
+        Event.terminate () ;
+        Some (Unix.gettimeofday ())
 
-      )
+      | Some t -> Some t
 
-    else 
-
-      None
+    ) else None
 
   in
 
-  if 
+  (* Check if child processes have died and exit if necessary *)
+  if wait_for_children child_pids || (
+    match done_at with 
+    | None -> false
+    | Some t -> (Unix.gettimeofday () -. t) > 0.3
+  ) then (
 
-    (* Check if child processes have died and exit if necessary *)
-    wait_for_children child_pids
-    ||
-    (match done_at with 
-      | None -> false
-      | Some t -> (Unix.gettimeofday () -. t) > 0.3)
+    (* Get messages after termination of all processes *)
+    handle_events input_sys aparam trans_sys ;
 
-  then 
+    (* All properties proved? *)
+    if TransSys.all_props_proved trans_sys then Event.terminate ()
 
-    (
+    (* Have we reached the run timeout? *)
+  ) else (
 
-      (* Get messages after termination of all processes *)
-      handle_events input_sys aparam trans_sys ;
+    (* Sleep *)
+    minisleep 0.01 ;
 
-      (* All properties proved? *)
-      if TransSys.all_props_proved trans_sys then
-        Event.terminate ()
+    (* Continue polling loop *)
+    loop
+      done_at' timeout_analysis_reached child_pids input_sys aparam trans_sys
 
-    ) 
-
-  else
-
-    (
-
-      (* Sleep *)
-      minisleep 0.01;
-
-      (* Continue polling loop *)
-      loop done_at' child_pids input_sys aparam trans_sys
-
-    )
+  )
   
 
 (* Entry point *)
 let main child_pids input_sys aparam trans_sys =
 
+  (* Building the function checking whether we reached the analysis timeout. *)
+  let timeout_analysis = Flags.timeout_analysis () in
+  let timeout_analysis_reached =
+    if timeout_analysis > 0.0 then (
+      fun () ->
+        Stat.get_float Stat.analysis_time > timeout_analysis
+    ) else (
+      fun () -> false
+    )
+  in
+
   (* Run main loop *)
-  loop None child_pids input_sys aparam trans_sys
+  loop None timeout_analysis_reached child_pids input_sys aparam trans_sys
 
 (* 
    Local Variables:
