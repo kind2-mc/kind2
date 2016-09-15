@@ -97,6 +97,13 @@ let add deps (key_type, key_ident) (val_type, val_ident) =
       dep
     )
   in
+  
+  (* Transitivity *)
+  (try DeclMap.iter
+         (fun t -> ISet.iter (dep_add dep t))
+         (IMap.find deps val_ident)
+   with Not_found -> ());
+  
   dep_add dep val_type val_ident
 
 (** Checks if an identifier depends on a declaration. *)
