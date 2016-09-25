@@ -1,0 +1,490 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="include/style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<link rel="Start" href="index.html">
+<link rel="previous" href="LustreNode.html">
+<link rel="next" href="LustreDeclarations.html">
+<link rel="Up" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Index of module types" rel=Appendix href="index_module_types.html">
+<link title="Log" rel="Chapter" href="Log.html">
+<link title="Event" rel="Chapter" href="Event.html">
+<link title="Strategy" rel="Chapter" href="Strategy.html">
+<link title="Analysis" rel="Chapter" href="Analysis.html">
+<link title="Flags" rel="Chapter" href="Flags.html">
+<link title="InvarManager" rel="Chapter" href="InvarManager.html">
+<link title="Kind2" rel="Chapter" href="Kind2.html">
+<link title="InputSystem" rel="Chapter" href="InputSystem.html">
+<link title="Eval" rel="Chapter" href="Eval.html">
+<link title="Ident" rel="Chapter" href="Ident.html">
+<link title="Ltree" rel="Chapter" href="Ltree.html">
+<link title="Model" rel="Chapter" href="Model.html">
+<link title="Scope" rel="Chapter" href="Scope.html">
+<link title="Simplify" rel="Chapter" href="Simplify.html">
+<link title="StateVar" rel="Chapter" href="StateVar.html">
+<link title="Symbol" rel="Chapter" href="Symbol.html">
+<link title="TermAttr" rel="Chapter" href="TermAttr.html">
+<link title="Term" rel="Chapter" href="Term.html">
+<link title="Type" rel="Chapter" href="Type.html">
+<link title="UfSymbol" rel="Chapter" href="UfSymbol.html">
+<link title="Var" rel="Chapter" href="Var.html">
+<link title="Property" rel="Chapter" href="Property.html">
+<link title="SubSystem" rel="Chapter" href="SubSystem.html">
+<link title="TransSys" rel="Chapter" href="TransSys.html">
+<link title="Actlit" rel="Chapter" href="Actlit.html">
+<link title="Base" rel="Chapter" href="Base.html">
+<link title="Compress" rel="Chapter" href="Compress.html">
+<link title="Step" rel="Chapter" href="Step.html">
+<link title="Clause" rel="Chapter" href="Clause.html">
+<link title="CooperQE" rel="Chapter" href="CooperQE.html">
+<link title="Extract" rel="Chapter" href="Extract.html">
+<link title="IC3" rel="Chapter" href="IC3.html">
+<link title="Poly" rel="Chapter" href="Poly.html">
+<link title="Presburger" rel="Chapter" href="Presburger.html">
+<link title="QE" rel="Chapter" href="QE.html">
+<link title="InvGenMiner" rel="Chapter" href="InvGenMiner.html">
+<link title="InvGenDomain" rel="Chapter" href="InvGenDomain.html">
+<link title="InvGenGraph" rel="Chapter" href="InvGenGraph.html">
+<link title="InvGen" rel="Chapter" href="InvGen.html">
+<link title="LockStepDriver" rel="Chapter" href="LockStepDriver.html">
+<link title="InputParser" rel="Chapter" href="InputParser.html">
+<link title="Interpreter" rel="Chapter" href="Interpreter.html">
+<link title="LustreLexer" rel="Chapter" href="LustreLexer.html">
+<link title="LustreParser" rel="Chapter" href="LustreParser.html">
+<link title="LustreAst" rel="Chapter" href="LustreAst.html">
+<link title="LustreIdent" rel="Chapter" href="LustreIdent.html">
+<link title="LustreIndex" rel="Chapter" href="LustreIndex.html">
+<link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
+<link title="LustreNode" rel="Chapter" href="LustreNode.html">
+<link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
+<link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
+<link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
+<link title="LustreTransSys" rel="Chapter" href="LustreTransSys.html">
+<link title="LustreInput" rel="Chapter" href="LustreInput.html">
+<link title="LustrePath" rel="Chapter" href="LustrePath.html">
+<link title="NativeInput" rel="Chapter" href="NativeInput.html">
+<link title="Pretty" rel="Chapter" href="Pretty.html">
+<link title="SMTExpr" rel="Chapter" href="SMTExpr.html">
+<link title="SMTLIBSolver" rel="Chapter" href="SMTLIBSolver.html">
+<link title="SMTSolver" rel="Chapter" href="SMTSolver.html">
+<link title="SolverDriver" rel="Chapter" href="SolverDriver.html">
+<link title="SolverResponse" rel="Chapter" href="SolverResponse.html">
+<link title="SolverSig" rel="Chapter" href="SolverSig.html">
+<link title="CVC4Driver" rel="Chapter" href="CVC4Driver.html">
+<link title="GenericSMTLIBDriver" rel="Chapter" href="GenericSMTLIBDriver.html">
+<link title="Z3Driver" rel="Chapter" href="Z3Driver.html">
+<link title="Yices2SMT2Driver" rel="Chapter" href="Yices2SMT2Driver.html">
+<link title="YicesDriver" rel="Chapter" href="YicesDriver.html">
+<link title="YicesLexer" rel="Chapter" href="YicesLexer.html">
+<link title="YicesNative" rel="Chapter" href="YicesNative.html">
+<link title="YicesResponse" rel="Chapter" href="YicesResponse.html">
+<link title="Debug" rel="Chapter" href="Debug.html">
+<link title="Decimal" rel="Chapter" href="Decimal.html">
+<link title="Hashcons" rel="Chapter" href="Hashcons.html">
+<link title="HString" rel="Chapter" href="HString.html">
+<link title="HStringSExpr" rel="Chapter" href="HStringSExpr.html">
+<link title="Kind2Config" rel="Chapter" href="Kind2Config.html">
+<link title="Lib" rel="Chapter" href="Lib.html">
+<link title="Messaging" rel="Chapter" href="Messaging.html">
+<link title="Numeral" rel="Chapter" href="Numeral.html">
+<link title="SExprBase" rel="Chapter" href="SExprBase.html">
+<link title="SExprLexer" rel="Chapter" href="SExprLexer.html">
+<link title="Stat" rel="Chapter" href="Stat.html">
+<link title="TermLib" rel="Chapter" href="TermLib.html">
+<link title="Trie" rel="Chapter" href="Trie.html">
+<link title="Version" rel="Chapter" href="Version.html">
+<link title="LustreToRust" rel="Chapter" href="LustreToRust.html">
+<link title="TestgenDF" rel="Chapter" href="TestgenDF.html">
+<link title="TestgenIO" rel="Chapter" href="TestgenIO.html">
+<link title="TestgenModes" rel="Chapter" href="TestgenModes.html">
+<link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
+<link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
+<link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><link title="Scopes and Nodes" rel="Section" href="#1_ScopesandNodes">
+<link title="Functions" rel="Section" href="#1_Functions">
+<link title="Helpers" rel="Section" href="#1_Helpers">
+<title>Kind 2 Developer's Documentation : LustreContext</title>
+</head>
+<body>
+<div class="navbar"><a class="pre" href="LustreNode.html" title="LustreNode">Previous</a>
+&nbsp;<a class="up" href="index.html" title="Index">Up</a>
+&nbsp;<a class="post" href="LustreDeclarations.html" title="LustreDeclarations">Next</a>
+</div>
+<h1>Module <a href="type_LustreContext.html">LustreContext</a></h1>
+
+<pre><span class="keyword">module</span> LustreContext: <code class="code"><span class="keyword">sig</span></code> <a href="LustreContext.html">..</a> <code class="code"><span class="keyword">end</span></code></pre><div class="info module top">
+Context information used in and obtained from parsing<br>
+<b>Author(s):</b> Christoph Sticksel<br>
+</div>
+<hr width="100%">
+
+<pre><span id="TYPEt"><span class="keyword">type</span> <code class="type"></code>t</span> </pre>
+<div class="info ">
+Context<br>
+</div>
+
+
+<pre><span id="EXCEPTIONNode_or_function_not_found"><span class="keyword">exception</span> Node_or_function_not_found</span> <span class="keyword">of</span> <code class="type"><a href="LustreIdent.html#TYPEt">LustreIdent.t</a> * <a href="Lib.html#TYPEposition">Lib.position</a></code></pre>
+<div class="info ">
+Node or function not found, possible forward reference<br>
+</div>
+
+<pre><span id="EXCEPTIONType_not_found"><span class="keyword">exception</span> Type_not_found</span> <span class="keyword">of</span> <code class="type"><a href="LustreIdent.html#TYPEt">LustreIdent.t</a> * <a href="Lib.html#TYPEposition">Lib.position</a></code></pre>
+
+<pre><span id="EXCEPTIONContract_not_found"><span class="keyword">exception</span> Contract_not_found</span> <span class="keyword">of</span> <code class="type"><a href="LustreIdent.html#TYPEt">LustreIdent.t</a> * <a href="Lib.html#TYPEposition">Lib.position</a></code></pre>
+<br>
+<h1 id="1_ScopesandNodes">Scopes and Nodes</h1><br>
+
+<pre><span id="VALmk_empty_context"><span class="keyword">val</span> mk_empty_context</span> : <code class="type">unit -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Create an initial empty context.<br>
+</div>
+
+<pre><span id="VALset_guard_flag"><span class="keyword">val</span> set_guard_flag</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> bool -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Sets the flag indicating there are unguarded pre's in the lustre code, and
+we need to guard them.<br>
+</div>
+
+<pre><span id="VALreset_guard_flag"><span class="keyword">val</span> reset_guard_flag</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Resets the flag indicating there are unguarded pre's in the lustre code,
+and we need to guard them.<br>
+</div>
+
+<pre><span id="VALguard_flag"><span class="keyword">val</span> guard_flag</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> bool</code></pre><div class="info ">
+The value of the flag indicating there are unguarded pre's in the lustre
+code, and we need to guard them.<br>
+</div>
+
+<pre><span id="VALpush_scope"><span class="keyword">val</span> push_scope</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> string -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add scope to context
+<p>
+
+    The scopes are added to the name of the node to create scope for
+    variables<br>
+</div>
+
+<pre><span id="VALpop_scope"><span class="keyword">val</span> pop_scope</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Remove topmost scope from context<br>
+</div>
+
+<pre><span id="VALpush_contract_scope"><span class="keyword">val</span> push_contract_scope</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> string -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add contract scope to context.
+<p>
+
+    Contract scopes are used for scoping of mode references and ghost
+    variables.<br>
+</div>
+
+<pre><span id="VALpop_contract_scope"><span class="keyword">val</span> pop_contract_scope</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Remove topmost contract scope from context<br>
+</div>
+
+<pre><span id="VALcontract_scope_of"><span class="keyword">val</span> contract_scope_of</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> string list</code></pre><div class="info ">
+The contract scope of a context.<br>
+</div>
+
+<pre><span id="VALcreate_node"><span class="keyword">val</span> create_node</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Return a copy of the context with an empty node of the given name
+    in the context<br>
+</div>
+
+<pre><span id="VALcurrent_node_name"><span class="keyword">val</span> current_node_name</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> option</code></pre><div class="info ">
+Returns the name of the current node, if any.<br>
+</div>
+
+<pre><span id="VALcurrent_node_modes"><span class="keyword">val</span> current_node_modes</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.mode list option option</code></pre><div class="info ">
+Returns the modes of the current node.<br>
+</div>
+
+<pre><span id="VALcreate_function"><span class="keyword">val</span> create_function</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Return a copy of the context with an empty function of the given name
+    in the context<br>
+</div>
+
+<pre><span id="VALadd_node_to_context"><span class="keyword">val</span> add_node_to_context</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Return a context that is identical to the first context with the
+    node constructed in the second context added<br>
+</div>
+
+<pre><span id="VALadd_function_to_context"><span class="keyword">val</span> add_function_to_context</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Return a context that is identical to the first context with the
+    function constructed in the second context added<br>
+</div>
+
+<pre><span id="VALsolve_fref"><span class="keyword">val</span> solve_fref</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="LustreAst.html#TYPEdeclaration">LustreAst.declaration</a> -><br>       LustreDependencies.decl * <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -><br>       <a href="LustreAst.html#TYPEdeclaration">LustreAst.declaration</a> list -> <a href="LustreAst.html#TYPEdeclaration">LustreAst.declaration</a> list</code></pre><div class="info ">
+Resolve a forward reference, fails if a circular dependency is detected.<br>
+</div>
+
+<pre><span id="VALadd_expr_for_ident"><span class="keyword">val</span> add_expr_for_ident</span> : <code class="type">?shadow:bool -><br>       <a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> LustreIndex.t -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add a binding of an identifier to an expression to context 
+<p>
+
+    If the labeled argument <code class="code">shadow</code> is true, allow overwriting a
+    previous binding to the identifier. Otherwise raise the exception
+    <code class="code"><span class="constructor">Invalid_argument</span> <span class="string">"add_expr_for_ident"</span></code>.<br>
+</div>
+
+<pre><span id="VALremove_expr_for_ident"><span class="keyword">val</span> remove_expr_for_ident</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Remove the binding of an identifier from the context 
+<p>
+
+    If the identifier is not bound to an expression, raise the
+    exception <code class="code"><span class="constructor">Invalid_argument</span> <span class="string">"remove_expr_for_ident"</span></code>. Otherwise,
+    remove the most recent binding to the identifier, which may make a
+    previous binding visible, which was shadowed by a call to
+    <code class="code">add_expr_for_ident</code> with the labeled argument <code class="code">shadow</code> set to
+    true.<br>
+</div>
+
+<pre><span id="VALadd_type_for_ident"><span class="keyword">val</span> add_type_for_ident</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="Type.html#TYPEt">Type.t</a> LustreIndex.t -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add a binding of an identifier to a type to context<br>
+</div>
+
+<pre><span id="VALget_nodes"><span class="keyword">val</span> get_nodes</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreNode.html#TYPEt">LustreNode.t</a> list</code></pre><div class="info ">
+Return the nodes in the context<br>
+</div>
+
+<pre><span id="VALget_node"><span class="keyword">val</span> get_node</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreNode.html#TYPEt">LustreNode.t</a> option</code></pre><div class="info ">
+Return the current node in context.<br>
+</div>
+
+<pre><span id="VALget_functions"><span class="keyword">val</span> get_functions</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreFunction.t list</code></pre><div class="info ">
+Return the functions in the context<br>
+</div>
+
+<pre><span id="VALcontract_nodes"><span class="keyword">val</span> contract_nodes</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreAst.html#TYPEcontract_node_decl">LustreAst.contract_node_decl</a> list</code></pre><div class="info ">
+The contract nodes in the context.<br>
+</div>
+
+<pre><span id="VALtrace_svars_of"><span class="keyword">val</span> trace_svars_of</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> -> StateVar.StateVarSet.t option</code></pre><div class="info ">
+The svars in the COI of the input expression, in the current node.
+<p>
+
+Returns <code class="code"><span class="constructor">None</span></code> if there's no current node.
+Raises <code class="code"><span class="constructor">Not_found</span></code> if some svars in the COI do not have an equation and are
+not outputs of node calls.
+<p>
+
+Used to check that the assumes and requires of a contract do not mention
+the outputs in <code class="code"><span class="constructor">LustreDeclarations</span></code>.<br>
+</div>
+
+<pre><span id="VALadd_contract_node_decl_to_context"><span class="keyword">val</span> add_contract_node_decl_to_context</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="Lib.html#TYPEposition">Lib.position</a> * <a href="LustreAst.html#TYPEcontract_node_decl">LustreAst.contract_node_decl</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add a contract node to the context for inlining later<br>
+</div>
+
+<pre><span id="VALcontract_node_decl_of_ident"><span class="keyword">val</span> contract_node_decl_of_ident</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> string -> <a href="Lib.html#TYPEposition">Lib.position</a> * <a href="LustreAst.html#TYPEcontract_node_decl">LustreAst.contract_node_decl</a></code></pre><div class="info ">
+Return a contract node by its identifier<br>
+</div>
+
+<pre><span id="VALfail_on_new_definition"><span class="keyword">val</span> fail_on_new_definition</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="Lib.html#TYPEposition">Lib.position</a> -> string -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Return a context that raises an error when defining an
+    expression.
+<p>
+
+    <code class="code">fail_on_new_definition ctx pos msg</code> will evaluate
+    <a href="LustreContext.html#VALfail_at_position"><code class="code"><span class="constructor">LustreContext</span>.fail_at_position</code></a> with the location <code class="code">pos</code> and the message <code class="code">msg</code>
+    as arguments<br>
+</div>
+<br>
+Raise exception if no new definitions allowed 
+<p>
+
+    Raise <code class="code"><span class="constructor">A</span>.<span class="constructor">ParseError</span></code> with the message and position set by
+    <a href="LustreContext.html#VALfail_on_new_definition"><code class="code"><span class="constructor">LustreContext</span>.fail_on_new_definition</code></a>. Raise an assertion failure if the
+    context does allow new definitions.<br>
+
+<pre><span id="VALraise_no_new_definition_exc"><span class="keyword">val</span> raise_no_new_definition_exc</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> 'a</code></pre>
+<pre><span id="VALexpr_of_ident"><span class="keyword">val</span> expr_of_ident</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> LustreIndex.t</code></pre><div class="info ">
+Resolve an indentifier to an expression.<br>
+</div>
+
+<pre><span id="VALassignable_state_var_of_ident"><span class="keyword">val</span> assignable_state_var_of_ident</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> LustreIndex.t</code></pre><div class="info ">
+Return the respective state variable if the expression denotes an
+    output or a local variable of the node in the context<br>
+</div>
+
+<pre><span id="VALtype_of_ident"><span class="keyword">val</span> type_of_ident</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="Type.html#TYPEt">Type.t</a> LustreIndex.t</code></pre><div class="info ">
+Resolve an indentifier to a type.<br>
+</div>
+
+<pre><span id="VALexpr_in_context"><span class="keyword">val</span> expr_in_context</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> bool</code></pre><div class="info ">
+Return <code class="code"><span class="keyword">true</span></code> if the identifier denotes an expression in the context 
+<p>
+
+    Raise an <code class="code"><span class="constructor">Invalid_argument</span></code> exception if the identifier is reserved.<br>
+</div>
+
+<pre><span id="VALtype_in_context"><span class="keyword">val</span> type_in_context</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> bool</code></pre><div class="info ">
+Return <code class="code"><span class="keyword">true</span></code> if the identifier denotes a type in the context<br>
+</div>
+
+<pre><span id="VALnode_or_function_in_context"><span class="keyword">val</span> node_or_function_in_context</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> bool</code></pre><div class="info ">
+Return <code class="code"><span class="keyword">true</span></code> if the identifier denotes a node in the context<br>
+</div>
+
+<pre><span id="VALmk_fresh_local"><span class="keyword">val</span> mk_fresh_local</span> : <code class="type">?is_input:bool -><br>       ?is_const:bool -><br>       ?for_inv_gen:bool -><br>       <a href="LustreContext.html#TYPEt">t</a> -> <a href="Type.html#TYPEt">Type.t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Create a fresh local state variable in the context.<br>
+</div>
+
+<pre><span id="VALset_state_var_source"><span class="keyword">val</span> set_state_var_source</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> -> <a href="LustreNode.html#TYPEstate_var_source">LustreNode.state_var_source</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre>
+<pre><span id="VALmk_local_for_expr"><span class="keyword">val</span> mk_local_for_expr</span> : <code class="type">?is_input:bool -><br>       ?is_const:bool -><br>       ?for_inv_gen:bool -><br>       ?is_ghost:bool -><br>       ?original:<a href="LustreAst.html#TYPEexpr">LustreAst.expr</a> -><br>       <a href="Lib.html#TYPEposition">Lib.position</a> -><br>       <a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Define the expression with a fresh state variable, or the variable
+    previously used for the same expression (if the optinal argument <code class="code">reuse</code> is
+    set to true), record the definition in the context and return the context.
+<p>
+
+    The <code class="code">is_input</code>, <code class="code">is_const</code> and <code class="code">for_inv_gen</code> flags are relevant, and the
+    state variable returned has the combination of flags asked for. If a state
+    variable was previously created for the same expression but with different
+    flags, a new state variable is created.<br>
+</div>
+
+<pre><span id="VALmk_fresh_oracle"><span class="keyword">val</span> mk_fresh_oracle</span> : <code class="type">?is_input:bool -><br>       ?is_const:bool -><br>       ?for_inv_gen:bool -><br>       <a href="LustreContext.html#TYPEt">t</a> -> <a href="Type.html#TYPEt">Type.t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Create a fresh oracle state variable in the context.<br>
+</div>
+
+<pre><span id="VALmk_fresh_oracle_for_state_var"><span class="keyword">val</span> mk_fresh_oracle_for_state_var</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Create a fresh oracle state variable for the pre-initial value of
+    the given state variable in the context, or return a previously
+    created oracle for this state variable.<br>
+</div>
+
+<pre><span id="VALnode_of_name"><span class="keyword">val</span> node_of_name</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="LustreNode.html#TYPEt">LustreNode.t</a></code></pre><div class="info ">
+Return the node of the given name from the context<br>
+</div>
+
+<pre><span id="VALfunction_of_name"><span class="keyword">val</span> function_of_name</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> LustreFunction.t</code></pre><div class="info ">
+Return the function of the given name from the context<br>
+</div>
+
+<pre><span id="VALcall_outputs_of_node_call"><span class="keyword">val</span> call_outputs_of_node_call</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> option -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> LustreIndex.t -><br>       <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> LustreIndex.t option -> <a href="StateVar.html#TYPEt">StateVar.t</a> LustreIndex.t option</code></pre><div class="info ">
+Return variables capturing outputs of node call if a node call
+    with the same input parameters and activation condition is in the
+    context.
+<p>
+
+    <code class="code">call_outputs_of_node_call c n a i d</code> compares all node calls in
+    context <code class="code">c</code> if the identifier of the node matches <code class="code">n</code>, the
+    activation condition matches <code class="code">a</code>, all input variables are idential
+    to <code class="code">a</code>, and all default values are identical to <code class="code">d</code>. It returns
+    <code class="code"><span class="constructor">None</span></code> if no such call was found, and its output variables
+    otherwise.<br>
+</div>
+
+<pre><span id="VALadd_node_input"><span class="keyword">val</span> add_node_input</span> : <code class="type">?is_const:bool -><br>       <a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="Type.html#TYPEt">Type.t</a> LustreIndex.t -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add node input to context<br>
+</div>
+
+<pre><span id="VALadd_node_output"><span class="keyword">val</span> add_node_output</span> : <code class="type">?is_single:bool -><br>       <a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="Type.html#TYPEt">Type.t</a> LustreIndex.t -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add node output to context<br>
+</div>
+
+<pre><span id="VALoutputs_of_current_node"><span class="keyword">val</span> outputs_of_current_node</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> LustreIndex.t</code></pre><div class="info ">
+The output state variables of the current node.<br>
+</div>
+
+<pre><span id="VALadd_node_local"><span class="keyword">val</span> add_node_local</span> : <code class="type">?ghost:bool -><br>       <a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="Lib.html#TYPEposition">Lib.position</a> -> <a href="Type.html#TYPEt">Type.t</a> LustreIndex.t -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add node local to context<br>
+</div>
+
+<pre><span id="VALadd_node_ass"><span class="keyword">val</span> add_node_ass</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.svar list -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Adds assumptions to a node.<br>
+</div>
+
+<pre><span id="VALadd_node_gua"><span class="keyword">val</span> add_node_gua</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.svar list -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Adds guarantees to a node.<br>
+</div>
+
+<pre><span id="VALadd_node_mode"><span class="keyword">val</span> add_node_mode</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.mode -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add modes to node<br>
+</div>
+
+<pre><span id="VALadd_node_assert"><span class="keyword">val</span> add_node_assert</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add assertion to context<br>
+</div>
+
+<pre><span id="VALadd_node_property"><span class="keyword">val</span> add_node_property</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="Property.html#TYPEprop_source">Property.prop_source</a> -> string -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add property to context<br>
+</div>
+
+<pre><span id="VALadd_node_equation"><span class="keyword">val</span> add_node_equation</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="Lib.html#TYPEposition">Lib.position</a> -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> -><br>       <a href="LustreExpr.html#TYPEexpr">LustreExpr.expr</a> <a href="LustreNode.html#TYPEbound_or_fixed">LustreNode.bound_or_fixed</a> list -><br>       int -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add equation to context<br>
+</div>
+
+<pre><span id="VALadd_node_call"><span class="keyword">val</span> add_node_call</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="Lib.html#TYPEposition">Lib.position</a> -> <a href="LustreNode.html#TYPEnode_call">LustreNode.node_call</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add node call to context<br>
+</div>
+
+<pre><span id="VALset_node_main"><span class="keyword">val</span> set_node_main</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Mark node as main<br>
+</div>
+
+<pre><span id="VALclose_expr"><span class="keyword">val</span> close_expr</span> : <code class="type">?original:<a href="LustreAst.html#TYPEexpr">LustreAst.expr</a> -><br>       <a href="Lib.html#TYPEposition">Lib.position</a> -><br>       <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> * <a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> * <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Replace unguarded pre operators with oracle constants and return
+    expression and modified context. 
+<p>
+
+    <code class="code">close_expr pos (expr, ctx)</code> introduces or uses a previously
+    introduced fresh oracle constant for each <code class="code">pre</code> operator applied
+    to a variable that is not under a <code class="code"><span class="keywordsign">-&gt;</span></code>. 
+<p>
+
+    The second argument is a pair so that it can take the output of
+    <a href="LustreSimplify.html#VALeval_ast_expr"><code class="code"><span class="constructor">LustreSimplify</span>.eval_ast_expr</code></a> directly.<br>
+</div>
+<br>
+<h1 id="1_Functions">Functions</h1><br>
+
+<pre><span id="VALadd_function_input"><span class="keyword">val</span> add_function_input</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="Type.html#TYPEt">Type.t</a> LustreIndex.t -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add function input to context<br>
+</div>
+
+<pre><span id="VALadd_function_output"><span class="keyword">val</span> add_function_output</span> : <code class="type">?is_single:bool -><br>       <a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -> <a href="Type.html#TYPEt">Type.t</a> LustreIndex.t -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add function output to context<br>
+</div>
+
+<pre><span id="VALcall_outputs_of_function_call"><span class="keyword">val</span> call_outputs_of_function_call</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="LustreIdent.html#TYPEt">LustreIdent.t</a> -><br>       <a href="LustreExpr.html#TYPEt">LustreExpr.t</a> LustreIndex.t -> <a href="StateVar.html#TYPEt">StateVar.t</a> LustreIndex.t option</code></pre>
+<pre><span id="VALadd_function_call"><span class="keyword">val</span> add_function_call</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="Lib.html#TYPEposition">Lib.position</a> -> <a href="LustreNode.html#TYPEfunction_call">LustreNode.function_call</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add function call to context<br>
+</div>
+
+<pre><span id="VALadd_function_global_contract"><span class="keyword">val</span> add_function_global_contract</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="Lib.html#TYPEposition">Lib.position</a> -> LustreFunction.contract -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add global contract to function
+<p>
+
+    The function must not have a global contract defined, otherwise a
+    parse error will be raised.<br>
+</div>
+
+<pre><span id="VALadd_function_mode_contract"><span class="keyword">val</span> add_function_mode_contract</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -><br>       <a href="Lib.html#TYPEposition">Lib.position</a> -> string -> LustreFunction.contract -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+Add mode contract to node<br>
+</div>
+
+<pre><span id="VALcheck_local_vars_defined"><span class="keyword">val</span> check_local_vars_defined</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> unit</code></pre><div class="info ">
+Check that the node being defined has no undefined local variables<br>
+</div>
+<br>
+<h1 id="1_Helpers">Helpers</h1><br>
+
+<pre><span id="VALfail_at_position"><span class="keyword">val</span> fail_at_position</span> : <code class="type"><a href="Lib.html#TYPEposition">Lib.position</a> -> string -> 'a</code></pre><div class="info ">
+Output a fatal error at position and raise an error<br>
+</div>
+
+<pre><span id="VALwarn_at_position"><span class="keyword">val</span> warn_at_position</span> : <code class="type"><a href="Lib.html#TYPEposition">Lib.position</a> -> string -> unit</code></pre><div class="info ">
+Output a warning at position<br>
+</div>
+
+<pre><span id="VALfail_no_position"><span class="keyword">val</span> fail_no_position</span> : <code class="type">string -> 'a</code></pre><div class="info ">
+Output a fatal error without reporting a position and raise an error<br>
+</div>
+
+<pre><span id="VALwarn_no_position"><span class="keyword">val</span> warn_no_position</span> : <code class="type">string -> unit</code></pre><div class="info ">
+Output a warning without a position<br>
+</div>
+</body></html>

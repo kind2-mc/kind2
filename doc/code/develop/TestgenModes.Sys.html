@@ -1,0 +1,641 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="include/style.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<link rel="Start" href="index.html">
+<link rel="Up" href="TestgenModes.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Index of module types" rel=Appendix href="index_module_types.html">
+<link title="Log" rel="Chapter" href="Log.html">
+<link title="Event" rel="Chapter" href="Event.html">
+<link title="Strategy" rel="Chapter" href="Strategy.html">
+<link title="Analysis" rel="Chapter" href="Analysis.html">
+<link title="Flags" rel="Chapter" href="Flags.html">
+<link title="InvarManager" rel="Chapter" href="InvarManager.html">
+<link title="Kind2" rel="Chapter" href="Kind2.html">
+<link title="InputSystem" rel="Chapter" href="InputSystem.html">
+<link title="Eval" rel="Chapter" href="Eval.html">
+<link title="Ident" rel="Chapter" href="Ident.html">
+<link title="Ltree" rel="Chapter" href="Ltree.html">
+<link title="Model" rel="Chapter" href="Model.html">
+<link title="Scope" rel="Chapter" href="Scope.html">
+<link title="Simplify" rel="Chapter" href="Simplify.html">
+<link title="StateVar" rel="Chapter" href="StateVar.html">
+<link title="Symbol" rel="Chapter" href="Symbol.html">
+<link title="TermAttr" rel="Chapter" href="TermAttr.html">
+<link title="Term" rel="Chapter" href="Term.html">
+<link title="Type" rel="Chapter" href="Type.html">
+<link title="UfSymbol" rel="Chapter" href="UfSymbol.html">
+<link title="Var" rel="Chapter" href="Var.html">
+<link title="Property" rel="Chapter" href="Property.html">
+<link title="SubSystem" rel="Chapter" href="SubSystem.html">
+<link title="TransSys" rel="Chapter" href="TransSys.html">
+<link title="Actlit" rel="Chapter" href="Actlit.html">
+<link title="Base" rel="Chapter" href="Base.html">
+<link title="Compress" rel="Chapter" href="Compress.html">
+<link title="Step" rel="Chapter" href="Step.html">
+<link title="Clause" rel="Chapter" href="Clause.html">
+<link title="CooperQE" rel="Chapter" href="CooperQE.html">
+<link title="Extract" rel="Chapter" href="Extract.html">
+<link title="IC3" rel="Chapter" href="IC3.html">
+<link title="Poly" rel="Chapter" href="Poly.html">
+<link title="Presburger" rel="Chapter" href="Presburger.html">
+<link title="QE" rel="Chapter" href="QE.html">
+<link title="InvGenMiner" rel="Chapter" href="InvGenMiner.html">
+<link title="InvGenDomain" rel="Chapter" href="InvGenDomain.html">
+<link title="InvGenGraph" rel="Chapter" href="InvGenGraph.html">
+<link title="InvGen" rel="Chapter" href="InvGen.html">
+<link title="LockStepDriver" rel="Chapter" href="LockStepDriver.html">
+<link title="InputParser" rel="Chapter" href="InputParser.html">
+<link title="Interpreter" rel="Chapter" href="Interpreter.html">
+<link title="LustreLexer" rel="Chapter" href="LustreLexer.html">
+<link title="LustreParser" rel="Chapter" href="LustreParser.html">
+<link title="LustreAst" rel="Chapter" href="LustreAst.html">
+<link title="LustreIdent" rel="Chapter" href="LustreIdent.html">
+<link title="LustreIndex" rel="Chapter" href="LustreIndex.html">
+<link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
+<link title="LustreNode" rel="Chapter" href="LustreNode.html">
+<link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
+<link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
+<link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
+<link title="LustreTransSys" rel="Chapter" href="LustreTransSys.html">
+<link title="LustreInput" rel="Chapter" href="LustreInput.html">
+<link title="LustrePath" rel="Chapter" href="LustrePath.html">
+<link title="NativeInput" rel="Chapter" href="NativeInput.html">
+<link title="Pretty" rel="Chapter" href="Pretty.html">
+<link title="SMTExpr" rel="Chapter" href="SMTExpr.html">
+<link title="SMTLIBSolver" rel="Chapter" href="SMTLIBSolver.html">
+<link title="SMTSolver" rel="Chapter" href="SMTSolver.html">
+<link title="SolverDriver" rel="Chapter" href="SolverDriver.html">
+<link title="SolverResponse" rel="Chapter" href="SolverResponse.html">
+<link title="SolverSig" rel="Chapter" href="SolverSig.html">
+<link title="CVC4Driver" rel="Chapter" href="CVC4Driver.html">
+<link title="GenericSMTLIBDriver" rel="Chapter" href="GenericSMTLIBDriver.html">
+<link title="Z3Driver" rel="Chapter" href="Z3Driver.html">
+<link title="Yices2SMT2Driver" rel="Chapter" href="Yices2SMT2Driver.html">
+<link title="YicesDriver" rel="Chapter" href="YicesDriver.html">
+<link title="YicesLexer" rel="Chapter" href="YicesLexer.html">
+<link title="YicesNative" rel="Chapter" href="YicesNative.html">
+<link title="YicesResponse" rel="Chapter" href="YicesResponse.html">
+<link title="Debug" rel="Chapter" href="Debug.html">
+<link title="Decimal" rel="Chapter" href="Decimal.html">
+<link title="Hashcons" rel="Chapter" href="Hashcons.html">
+<link title="HString" rel="Chapter" href="HString.html">
+<link title="HStringSExpr" rel="Chapter" href="HStringSExpr.html">
+<link title="Kind2Config" rel="Chapter" href="Kind2Config.html">
+<link title="Lib" rel="Chapter" href="Lib.html">
+<link title="Messaging" rel="Chapter" href="Messaging.html">
+<link title="Numeral" rel="Chapter" href="Numeral.html">
+<link title="SExprBase" rel="Chapter" href="SExprBase.html">
+<link title="SExprLexer" rel="Chapter" href="SExprLexer.html">
+<link title="Stat" rel="Chapter" href="Stat.html">
+<link title="TermLib" rel="Chapter" href="TermLib.html">
+<link title="Trie" rel="Chapter" href="Trie.html">
+<link title="Version" rel="Chapter" href="Version.html">
+<link title="LustreToRust" rel="Chapter" href="LustreToRust.html">
+<link title="TestgenDF" rel="Chapter" href="TestgenDF.html">
+<link title="TestgenIO" rel="Chapter" href="TestgenIO.html">
+<link title="TestgenModes" rel="Chapter" href="TestgenModes.html">
+<link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
+<link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
+<link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><link title="Accessors" rel="Section" href="#1_Accessors">
+<link title="State Variables" rel="Section" href="#1_StateVariables">
+<link title="Properties" rel="Section" href="#1_Properties">
+<title>Kind 2 Developer's Documentation : TestgenModes.Sys</title>
+</head>
+<body>
+<div class="navbar">&nbsp;<a class="up" href="TestgenModes.html" title="TestgenModes">Up</a>
+&nbsp;</div>
+<h1>Module <a href="type_TestgenModes.Sys.html">TestgenModes.Sys</a> (<a href="code_TestgenModes.Sys.html">.ml</a>)</h1>
+
+<pre><span class="keyword">module</span> Sys: <code class="type"><a href="TransSys.html">TransSys</a></code></pre><hr width="100%">
+
+<pre><span id="VALinit_base"><span class="keyword">val</span> init_base</span> : <code class="type"><a href="Numeral.html#TYPEt">Numeral.t</a></code></pre><div class="info ">
+Offset of the current state variables in initial state
+    constraint<br>
+</div>
+
+<pre><span id="VALtrans_base"><span class="keyword">val</span> trans_base</span> : <code class="type"><a href="Numeral.html#TYPEt">Numeral.t</a></code></pre><div class="info ">
+Offset of current state variables in transition relation, subtract
+    one for the offset of the previous state variables<br>
+</div>
+
+<pre><span id="VALprop_base"><span class="keyword">val</span> prop_base</span> : <code class="type"><a href="Numeral.html#TYPEt">Numeral.t</a></code></pre><div class="info ">
+Offset of current state variables in properties and invariants,
+    subtract one for the offset of the previous state variables<br>
+</div>
+
+<pre><span id="TYPEt"><span class="keyword">type</span> <code class="type"></code>t</span> </pre>
+<div class="info ">
+The transition system 
+<p>
+
+    Constructed with the function <a href="TransSys.html#VALmk_trans_sys"><code class="code"><span class="constructor">TransSys</span>.mk_trans_sys</code></a><br>
+</div>
+
+
+<pre><span class="keyword">module</span> <a href="TransSys.Hashtbl.html">Hashtbl</a>: <code class="type">Hashtbl.S</code><code class="type">  with type key = t</code></pre><div class="info">
+Hash table over transition systems.
+</div>
+
+<pre><span id="TYPEpred_def"><span class="keyword">type</span> <code class="type"></code>pred_def</span> = <code class="type"><a href="UfSymbol.html#TYPEt">UfSymbol.t</a> * (<a href="Var.html#TYPEt">Var.t</a> list * <a href="Term.html#TYPEt">Term.t</a>)</code> </pre>
+<div class="info ">
+Predicate definition 
+<p>
+
+    An uninterpreted function symbols and the pair of its formal
+    parameters and its definition, to be used in an association
+    list.<br>
+</div>
+
+
+<pre><code><span id="TYPEinstance"><span class="keyword">type</span> <code class="type"></code>instance</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTinstance.pos">pos</span>&nbsp;: <code class="type"><a href="Lib.html#TYPEposition">Lib.position</a></code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+Position as a unique identifier of the instance<br>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTinstance.map_down">map_down</span>&nbsp;: <code class="type"><a href="StateVar.html#TYPEt">StateVar.t</a> StateVar.StateVarMap.t</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+Map from state variables of the called system to the state
+        variables of the this system<br>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTinstance.map_up">map_up</span>&nbsp;: <code class="type"><a href="StateVar.html#TYPEt">StateVar.t</a> StateVar.StateVarMap.t</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+Map from the state variables of this system to the state
+        variables of the instance<br>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTinstance.guard_clock">guard_clock</span>&nbsp;: <code class="type"><a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Term.html#TYPEt">Term.t</a> -> <a href="Term.html#TYPEt">Term.t</a></code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+Add a guard to the Boolean term to make it true whenver the
+        the clock of the subsystem instance is false
+<p>
+
+        <code class="code">guard_clock t</code> assumes that <code class="code">t</code> is a Boolean term and returns
+        the term <code class="code">c =&gt; t</code> where <code class="code">c</code> is the clock of the subsystem
+        instance.<br>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr></table>
+}
+
+<div class="info ">
+Instance of a subsystem<br>
+</div>
+
+
+<pre><span id="VALequal_scope"><span class="keyword">val</span> equal_scope</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="TransSys.html#TYPEt">t</a> -> bool</code></pre><div class="info ">
+Return <code class="code"><span class="keyword">true</span></code> if scopes of transition systems are equal<br>
+</div>
+
+<pre><span id="VALcompare_scope"><span class="keyword">val</span> compare_scope</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="TransSys.html#TYPEt">t</a> -> int</code></pre><div class="info ">
+Compare transition systems by their scope<br>
+</div>
+
+<pre><span id="VALpp_print_trans_sys"><span class="keyword">val</span> pp_print_trans_sys</span> : <code class="type">Format.formatter -> <a href="TransSys.html#TYPEt">t</a> -> unit</code></pre><div class="info ">
+Pretty-print a transition system<br>
+</div>
+<br>
+<h1 id="1_Accessors">Accessors</h1><br>
+
+<pre><span id="VALinit_of_bound"><span class="keyword">val</span> init_of_bound</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Term.html#TYPEt">Term.t</a></code></pre><div class="info ">
+Close the initial state constraint by binding all instance
+    identifiers, and bump the state variable offsets to be at the given
+    bound<br>
+</div>
+
+<pre><span id="VALtrans_of_bound"><span class="keyword">val</span> trans_of_bound</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Term.html#TYPEt">Term.t</a></code></pre><div class="info ">
+Close the initial state constraint by binding all instance
+    identifiers, and bump the state variable offsets to be at the given
+    bound<br>
+</div>
+
+<pre><span id="VALinit_uf_symbol"><span class="keyword">val</span> init_uf_symbol</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="UfSymbol.html#TYPEt">UfSymbol.t</a></code></pre><div class="info ">
+Predicate for the initial state constraint<br>
+</div>
+
+<pre><span id="VALtrans_uf_symbol"><span class="keyword">val</span> trans_uf_symbol</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="UfSymbol.html#TYPEt">UfSymbol.t</a></code></pre><div class="info ">
+Predicate for the transition relation<br>
+</div>
+
+<pre><span id="VALinit_formals"><span class="keyword">val</span> init_formals</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Var.html#TYPEt">Var.t</a> list</code></pre><div class="info ">
+Variables in the initial state constraint<br>
+</div>
+
+<pre><span id="VALtrans_formals"><span class="keyword">val</span> trans_formals</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Var.html#TYPEt">Var.t</a> list</code></pre><div class="info ">
+Variables in the transition relation<br>
+</div>
+
+<pre><span id="VALinit_fun_of"><span class="keyword">val</span> init_fun_of</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Term.html#TYPEt">Term.t</a></code></pre><div class="info ">
+Builds a call to the initial function on state <code class="code">k</code>.<br>
+</div>
+
+<pre><span id="VALtrans_fun_of"><span class="keyword">val</span> trans_fun_of</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Term.html#TYPEt">Term.t</a></code></pre><div class="info ">
+Builds a call to the transition relation function linking state
+    <code class="code">k</code> and <code class="code">k'</code>.<br>
+</div>
+
+<pre><span id="VALinit_flag_state_var"><span class="keyword">val</span> init_flag_state_var</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a></code></pre><div class="info ">
+Return the state variable for the init flag<br>
+</div>
+
+<pre><span id="VALinit_flag_of_bound"><span class="keyword">val</span> init_flag_of_bound</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Term.html#TYPEt">Term.t</a></code></pre><div class="info ">
+Return the init flag at the given bound<br>
+</div>
+
+<pre><span id="VALinit_trans_open"><span class="keyword">val</span> init_trans_open</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> list * <a href="Term.html#TYPEt">Term.t</a> * <a href="Term.html#TYPEt">Term.t</a></code></pre><div class="info ">
+Return the instance variables of this transition system, the
+    initial state constraint at <code class="code">init_base</code> and the transition relation
+    at <code class="code">trans_base</code> with the instance variables free.<br>
+</div>
+
+<pre><span id="VALget_logic"><span class="keyword">val</span> get_logic</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="TermLib.html#TYPElogic">TermLib.logic</a></code></pre><div class="info ">
+Return the logic fragment needed to express the transition system<br>
+</div>
+
+<pre><span id="VALscope_of_trans_sys"><span class="keyword">val</span> scope_of_trans_sys</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Scope.html#TYPEt">Scope.t</a></code></pre><div class="info ">
+Return the scope identifying the transition system<br>
+</div>
+
+<pre><span id="VALget_properties"><span class="keyword">val</span> get_properties</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Property.html#TYPEt">Property.t</a> list</code></pre><div class="info ">
+Returns the properties in a transition system.<br>
+</div>
+
+<pre><span id="VALget_real_properties"><span class="keyword">val</span> get_real_properties</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Property.html#TYPEt">Property.t</a> list</code></pre><div class="info ">
+Return current status of all real (not candidate) properties<br>
+</div>
+
+<pre><span id="VALis_candidate"><span class="keyword">val</span> is_candidate</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> bool</code></pre><div class="info ">
+Return true if the property is a candidate invariant<br>
+</div>
+
+<pre><span id="VALget_candidates"><span class="keyword">val</span> get_candidates</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Term.html#TYPEt">Term.t</a> list</code></pre><div class="info ">
+Return list of candidate invariants<br>
+</div>
+
+<pre><span id="VALget_candidate_properties"><span class="keyword">val</span> get_candidate_properties</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Property.html#TYPEt">Property.t</a> list</code></pre><div class="info ">
+Return list of candidate invariants properties<br>
+</div>
+
+<pre><span id="VALget_unknown_candidates"><span class="keyword">val</span> get_unknown_candidates</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Term.html#TYPEt">Term.t</a> list</code></pre><div class="info ">
+Return candidate invariants that have not been proved or disproved yet<br>
+</div>
+
+<pre><span id="VALget_mode_requires"><span class="keyword">val</span> get_mode_requires</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Term.html#TYPEt">Term.t</a> option * (<a href="Scope.html#TYPEt">Scope.t</a> * <a href="Term.html#TYPEt">Term.t</a>) list</code></pre><div class="info ">
+Returns the mode requirements for this system as a list of triplets
+    <code class="code">is_mode_global, mode_name, require_term</code>.
+    Used by test generation.<br>
+</div>
+
+<pre><span id="VALget_split_properties"><span class="keyword">val</span> get_split_properties</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Property.html#TYPEt">Property.t</a> list * <a href="Property.html#TYPEt">Property.t</a> list * <a href="Property.html#TYPEt">Property.t</a> list</code></pre><div class="info ">
+Returns the list of properties in a transition system, split by their
+    status as <code class="code">valid, invalid, unknown</code>.<br>
+</div>
+
+<pre><span id="VALmk_trans_sys"><span class="keyword">val</span> mk_trans_sys</span> : <code class="type">?instance_var_id_start:int -><br>       <a href="Scope.html#TYPEt">Scope.t</a> -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> option -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> -><br>       (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Term.html#TYPEt">Term.t</a> list) list -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> list -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> list -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -><br>       <a href="Var.html#TYPEt">Var.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -><br>       <a href="Var.html#TYPEt">Var.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> -><br>       (<a href="TransSys.html#TYPEt">t</a> * <a href="TransSys.html#TYPEinstance">instance</a> list) list -><br>       <a href="Property.html#TYPEt">Property.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> option * (<a href="Scope.html#TYPEt">Scope.t</a> * <a href="Term.html#TYPEt">Term.t</a>) list -><br>       (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list -><br>       (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list -> <a href="TransSys.html#TYPEt">t</a> * int</code></pre>
+<pre><span id="VALiter_subsystems"><span class="keyword">val</span> iter_subsystems</span> : <code class="type">?include_top:bool -> (<a href="TransSys.html#TYPEt">t</a> -> unit) -> <a href="TransSys.html#TYPEt">t</a> -> unit</code></pre><div class="info ">
+Iterate bottom-up over subsystems, including the top level system
+    without repeating subsystems already seen 
+<p>
+
+    <code class="code">iter_subsystems f t</code> evaluates <code class="code">f</code> for all subsystem of <code class="code">t</code>. The
+    subsystems are presented bottom-up such that for each evaluation
+    <code class="code">f t</code> the function <code class="code">f s</code> has already been evaluated for each
+    subsystem <code class="code">s</code> of <code class="code">t</code>. If <code class="code">t</code> contains a subsystem <code class="code">s</code> twice, no
+    matter at which level, <code class="code">f s</code> is evaluated only once.<br>
+</div>
+
+<pre><span id="VALfold_subsystems"><span class="keyword">val</span> fold_subsystems</span> : <code class="type">?include_top:bool -> ('a -> <a href="TransSys.html#TYPEt">t</a> -> 'a) -> 'a -> <a href="TransSys.html#TYPEt">t</a> -> 'a</code></pre><div class="info ">
+Fold bottom-up over subsystems, including or excluding the top
+    level system, without repeating subsystems already seen
+<p>
+
+    <code class="code">fold_subsystems f t</code> first evaluates <code class="code">f a s</code> for some subsystem
+    <code class="code">s</code> of <code class="code">t</code> that does not have subsystems itself. It then passes
+    the result as first argument to <code class="code">f</code> with the second argument being
+    a subsystem for which all subsystems have been evaluated with
+    <code class="code">f</code>. If <code class="code">t</code> contains a subsystem <code class="code">s</code> twice, no matter at which
+    level, <code class="code">f s</code> is evaluated only once. 
+<p>
+
+    The systems are passes in topological order such that the each
+    system is presented to <code class="code">f</code> only after all its subsystems. The
+    function <code class="code">f</code> is evaluated for the top system last, unless the
+    optional labelled parameter <code class="code">include_top</code> is set to false.<br>
+</div>
+
+<pre><span id="VALfold_subsystem_instances"><span class="keyword">val</span> fold_subsystem_instances</span> : <code class="type">(<a href="TransSys.html#TYPEt">t</a> -> (<a href="TransSys.html#TYPEt">t</a> * <a href="TransSys.html#TYPEinstance">instance</a>) list -> 'a list -> 'a) -><br>       <a href="TransSys.html#TYPEt">t</a> -> 'a</code></pre><div class="info ">
+Fold bottom-up over subsystem instances 
+<p>
+
+    <code class="code">fold_subsystem_instances f t</code> evaluates <code class="code">f s i l</code> for each
+    subsystem instance in the system <code class="code">t</code>, including <code class="code">t</code> itself. The
+    function <code class="code">f</code> is evaluated with the subsystem <code class="code">s</code>, the reverse
+    sequence of instantiations <code class="code">i</code> that reach the top system <code class="code">t</code>, and
+    the evaluations of <code class="code">f</code> on the subsystems of <code class="code">s</code>. The sequence of
+    instantiations <code class="code">i</code> contains at its head a system that has <code class="code">s</code> as a
+    direct subsystem, together with the instance parameters. For the
+    top system <code class="code">i</code> is the empty list.
+<p>
+
+    The systems are presented in topological order such that each
+    system is presented to <code class="code">f</code> after all its subsystem instances have
+    been presented.<br>
+</div>
+
+<pre><span id="VALget_subsystems"><span class="keyword">val</span> get_subsystems</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="TransSys.html#TYPEt">t</a> list</code></pre><div class="info ">
+Return the direct subsystems of a system<br>
+</div>
+
+<pre><span id="VALget_subsystem_instances"><span class="keyword">val</span> get_subsystem_instances</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (<a href="TransSys.html#TYPEt">t</a> * <a href="TransSys.html#TYPEinstance">instance</a> list) list</code></pre><div class="info ">
+Return the direct subsystems of a system and their instances<br>
+</div>
+
+<pre><span id="VALfind_subsystem_of_scope"><span class="keyword">val</span> find_subsystem_of_scope</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Scope.html#TYPEt">Scope.t</a> -> <a href="TransSys.html#TYPEt">t</a></code></pre><div class="info ">
+Find the named subsystem 
+<p>
+
+    <code class="code">find_subsystem_of_scope t s</code> returns the subsystem of <code class="code">t</code> identified
+    by the scope <code class="code">s</code>. We assume that all subsystems with the same
+    scope are identical. The transition system <code class="code">t</code> itself is returned
+    if <code class="code">s</code> is its scope.
+<p>
+
+    Raise <code class="code"><span class="constructor">Not_found</span></code> if there is no transition system of scope <code class="code">s</code>
+    in the subsystems of <code class="code">t</code>.<br>
+</div>
+
+<pre><span id="VALget_max_depth"><span class="keyword">val</span> get_max_depth</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> int</code></pre>
+<pre><span id="VALmap_cex_prop_to_subsystem"><span class="keyword">val</span> map_cex_prop_to_subsystem</span> : <code class="type">(<a href="Scope.html#TYPEt">Scope.t</a> -><br>        <a href="TransSys.html#TYPEinstance">instance</a> -><br>        (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list) list -><br>        <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list -> <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list) -><br>       <a href="TransSys.html#TYPEt">t</a> -><br>       (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list) list -><br>       <a href="Property.html#TYPEt">Property.t</a> -><br>       <a href="TransSys.html#TYPEt">t</a> * <a href="TransSys.html#TYPEinstance">instance</a> list *<br>       (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list) list * <a href="Property.html#TYPEt">Property.t</a></code></pre><br>
+<h1 id="1_StateVariables">State Variables</h1><br>
+<br>
+After 
+<p>
+
+    <pre class="codepre"><code class="code">&nbsp;define_and_declare_of_bounds&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="constructor">SMTSolver</span>.define_fun&nbsp;s)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="constructor">SMTSolver</span>.declare_fun&nbsp;t)&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="constructor">SMTSolver</span>.declare_sort&nbsp;t)&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u&nbsp;</code></pre>
+<p>
+
+    with the solver instance <code class="code">s</code>, initial state constraint and
+    transition relation can be asserted for all offsets between and
+    including <code class="code">l</code> and <code class="code">u</code>. 
+<p>
+
+    To extend the range of declared offsets to the range including <code class="code">l</code>
+    and <code class="code">v</code>, use
+<p>
+
+    <pre class="codepre"><code class="code">&nbsp;declare_vars_of_bounds
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="constructor">SMTSolver</span>.declare_fun&nbsp;t)&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="constructor">Numeral</span>.succ&nbsp;u)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;v&nbsp;&nbsp;</code></pre>. 
+<p>
+
+    Evaluating <a href="TransSys.html#VALdefine_and_declare_of_bounds"><code class="code"><span class="constructor">TransSys</span>.define_and_declare_of_bounds</code></a> is only needed once per
+    solver instance, and only for the top level transition system.<br>
+
+<pre><span id="VALstate_vars"><span class="keyword">val</span> state_vars</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="StateVar.html#TYPEt">StateVar.t</a> list</code></pre><div class="info ">
+Return the state variables of a transition system<br>
+</div>
+
+<pre><span id="VALvars_of_bounds"><span class="keyword">val</span> vars_of_bounds</span> : <code class="type">?with_init_flag:bool -> <a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Var.html#TYPEt">Var.t</a> list</code></pre><div class="info ">
+Return instances of the state variables of the transition system
+    between given instants
+<p>
+
+    <code class="code">vars_of_bounds t l u</code> returns the list of instances of the state
+    variables of the transition system <code class="code">t</code> between and including <code class="code">l</code>
+    and <code class="code">u</code>. Include the state variable for the init flag unless the
+    optional labelled argument <code class="code">with_init_flag</code> is set to false.<br>
+</div>
+
+<pre><span id="VALdeclare_vars_of_bounds"><span class="keyword">val</span> declare_vars_of_bounds</span> : <code class="type">?declare_init_flag:bool -><br>       <a href="TransSys.html#TYPEt">t</a> -> (<a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -> unit) -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> unit</code></pre><div class="info ">
+Declare variables of the transition system between given instants
+<p>
+
+    <code class="code">declare_vars_of_bounds t f l u</code> evaluates <code class="code">f</code> with the
+    uninterpreted function symbol of each state variable of the
+    transition system <code class="code">t</code> at each instant between and including <code class="code">l</code>
+    and <code class="code">u</code>. Include the state variable for the init flag unless the
+    optional labelled argument <code class="code">declare_init_flag</code> is set to false.<br>
+</div>
+
+<pre><span id="VALdeclare_const_vars"><span class="keyword">val</span> declare_const_vars</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (<a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -> unit) -> unit</code></pre>
+<pre><span id="VALdeclare_init_flag_of_bounds"><span class="keyword">val</span> declare_init_flag_of_bounds</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (<a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -> unit) -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> unit</code></pre><div class="info ">
+Declare the init flag of the transition system between given instants
+<p>
+
+    <code class="code">declare_init_flag_of_bounds t f l u</code> evaluates <code class="code">f</code> with the
+    uninterpreted function symbol of the state variable for the init
+    flag of the transition system <code class="code">t</code> at each instant between and
+    including <code class="code">l</code> and <code class="code">u</code>.<br>
+</div>
+
+<pre><span id="VALdefine_and_declare_of_bounds"><span class="keyword">val</span> define_and_declare_of_bounds</span> : <code class="type">?declare_sub_vars:bool -><br>       <a href="TransSys.html#TYPEt">t</a> -><br>       (<a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -> <a href="Var.html#TYPEt">Var.t</a> list -> <a href="Term.html#TYPEt">Term.t</a> -> unit) -><br>       (<a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -> unit) -> (<a href="Type.html#TYPEt">Type.t</a> -> unit) -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> unit</code></pre><div class="info ">
+Define predicates and declare constant and global state variables,
+    declare state variables of top system between and including the
+    given offsets
+<p>
+
+    <code class="code">define_and_declare_of_bounds t f g l u</code> first evaluates the
+    function <code class="code">f</code> for the definition of the initial state constraint
+    predicate and the transitions relation predicate of the top system
+    in the transition system <code class="code">t</code> and all its subsystems. It then
+    evaluates the function <code class="code">g</code> with the declarations of all constant
+    and global state variables of the top system, and with the
+    declarations of the remaining state variables of the top system
+    between and including the offsets <code class="code">l</code> and <code class="code">u</code>. 
+<p>
+
+    If <code class="code">l &gt; u</code>, only declarations of constant and global state are
+    passed to <code class="code">g</code>, and <code class="code">f</code> is still evaluated with all definitions.
+<p>
+
+    If the optional parameter <code class="code">declare_sub_vars</code> is <code class="code"><span class="keyword">true</span></code>, it also
+    iterates over all subsystems and evaluates <code class="code">g</code> with the
+    declarations of their constants and global state variables, and
+    their state variables between and including <code class="code">l</code> and <code class="code">u</code>. Thus the
+    subsystems can be run in parallel to the top system.
+<p>
+
+    The signatures of <code class="code">f</code> and <code class="code">g</code> are those of <a href="SMTSolver.html#VALdefine_fun"><code class="code"><span class="constructor">SMTSolver</span>.define_fun</code></a>
+    and <a href="SMTSolver.html#VALdeclare_fun"><code class="code"><span class="constructor">SMTSolver</span>.declare_fun</code></a>, repsectively, partially evaluated
+    with their first argument.<br>
+</div>
+
+<pre><span id="VALuf_defs"><span class="keyword">val</span> uf_defs</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="TransSys.html#TYPEpred_def">pred_def</a> list</code></pre><div class="info ">
+Return predicate definitions of initial state and transition
+    relation of the top system and all its subsystem in reverse
+    topological order
+<p>
+
+    <code class="code">uf_defs t</code> returns a list of predicate definitions of the top
+    system <code class="code">t</code> and all its subsystems such that the definitions of a
+    subsystem precede the definitions of all systems containing it. The
+    definition of the initial state predicate precedes the definition
+    of the transition relation predicate.<br>
+</div>
+<br>
+<h1 id="1_Properties">Properties</h1><br>
+
+<pre><span id="VALproperty_of_name"><span class="keyword">val</span> property_of_name</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> <a href="Property.html#TYPEt">Property.t</a></code></pre>
+<pre><span id="VALget_prop_term"><span class="keyword">val</span> get_prop_term</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> <a href="Term.html#TYPEt">Term.t</a></code></pre><div class="info ">
+Return term of the property
+<p>
+
+    <code class="code">get_prop_term t n</code> returns the term of the first property of name
+    <code class="code">n</code> in the transistion system <code class="code">t</code>.<br>
+</div>
+
+<pre><span id="VALget_prop_status"><span class="keyword">val</span> get_prop_status</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> <a href="Property.html#TYPEprop_status">Property.prop_status</a></code></pre><div class="info ">
+Return current status of the property
+<p>
+
+    <code class="code">get_prop_status t n</code> returns the status saved in the transition
+    system of the first property of name <code class="code">n</code>.<br>
+</div>
+
+<pre><span id="VALis_proved"><span class="keyword">val</span> is_proved</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> bool</code></pre><div class="info ">
+Return true if the property is proved invariant<br>
+</div>
+
+<pre><span id="VALis_disproved"><span class="keyword">val</span> is_disproved</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> bool</code></pre><div class="info ">
+Return true if the property is proved not invariant<br>
+</div>
+
+<pre><span id="VALget_prop_status_all_nocands"><span class="keyword">val</span> get_prop_status_all_nocands</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (string * <a href="Property.html#TYPEprop_status">Property.prop_status</a>) list</code></pre><div class="info ">
+Return current status of all properties excepted candidates
+<p>
+
+    <code class="code">get_prop_status t</code> returns the status saved in the transition
+    system of each property along with the name of the property.<br>
+</div>
+
+<pre><span id="VALget_prop_status_all_unknown"><span class="keyword">val</span> get_prop_status_all_unknown</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (string * <a href="Property.html#TYPEprop_status">Property.prop_status</a>) list</code></pre><div class="info ">
+Return current status of all unknown properties
+<p>
+
+    <code class="code">get_prop_status_all_unknown t</code> returns the status saved in the
+    transition system of each property which is considered to be
+    unknown along with the name of the property.
+<p>
+
+    According to <a href="Property.html#VALprop_status_known"><code class="code"><span class="constructor">Property</span>.prop_status_known</code></a>, a property is known if
+    it is invariant, or has a <code class="code">k</code>-step counterexample.<br>
+</div>
+
+<pre><span id="VALprops_list_of_bound"><span class="keyword">val</span> props_list_of_bound</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> (string * <a href="Term.html#TYPEt">Term.t</a>) list</code></pre><div class="info ">
+Instantiate all properties to the bound<br>
+</div>
+
+<pre><span id="VALset_prop_status"><span class="keyword">val</span> set_prop_status</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> <a href="Property.html#TYPEprop_status">Property.prop_status</a> -> unit</code></pre><div class="info ">
+Update current status of the property
+<p>
+
+    <code class="code">set_prop_status t n s</code> sets the status saved in the transition
+    system of the first property of name <code class="code">n</code> to <code class="code">s</code>.<br>
+</div>
+
+<pre><span id="VALset_prop_status"><span class="keyword">val</span> set_prop_status</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> <a href="Property.html#TYPEprop_status">Property.prop_status</a> -> unit</code></pre><div class="info ">
+Mark current status of property<br>
+</div>
+
+<pre><span id="VALset_prop_invariant"><span class="keyword">val</span> set_prop_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> Certificate.t -> unit</code></pre><div class="info ">
+Mark property as invariant<br>
+</div>
+
+<pre><span id="VALset_prop_false"><span class="keyword">val</span> set_prop_false</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list) list -> unit</code></pre><div class="info ">
+Mark property as false<br>
+</div>
+
+<pre><span id="VALset_prop_ktrue"><span class="keyword">val</span> set_prop_ktrue</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> int -> string -> unit</code></pre><div class="info ">
+Mark property as k-true<br>
+</div>
+
+<pre><span id="VALall_props_proved"><span class="keyword">val</span> all_props_proved</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> bool</code></pre><div class="info ">
+Return true if all properties which are not candidates are either valid or
+    invalid<br>
+</div>
+
+<pre><span id="VALadd_properties"><span class="keyword">val</span> add_properties</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Property.html#TYPEt">Property.t</a> list -> <a href="TransSys.html#TYPEt">t</a></code></pre><div class="info ">
+Add properties to the transition system<br>
+</div>
+
+<pre><span id="VALadd_invariant"><span class="keyword">val</span> add_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Term.html#TYPEt">Term.t</a> -> Certificate.t -> unit</code></pre><div class="info ">
+Add an invariant to the transition system<br>
+</div>
+
+<pre><span id="VALadd_scoped_invariant"><span class="keyword">val</span> add_scoped_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string list -> <a href="Term.html#TYPEt">Term.t</a> -> Certificate.t -> unit</code></pre><div class="info ">
+Add an invariant to the transition system<br>
+</div>
+
+<pre><span id="VALinvars_of_bound"><span class="keyword">val</span> invars_of_bound</span> : <code class="type">?one_state_only:bool -> <a href="TransSys.html#TYPEt">t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Term.html#TYPEt">Term.t</a> list</code></pre><div class="info ">
+Instantiate invariants and valid properties to the bound<br>
+</div>
+
+<pre><span id="VALmap_invars_of_bound"><span class="keyword">val</span> map_invars_of_bound</span> : <code class="type">?one_state_only:bool -> <a href="TransSys.html#TYPEt">t</a> -> (<a href="Term.html#TYPEt">Term.t</a> -> unit) -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> unit</code></pre><div class="info ">
+Instantiate invariants and valid properties to the bound and applies a
+function<br>
+</div>
+
+<pre><span id="VALget_invariants"><span class="keyword">val</span> get_invariants</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list</code></pre><div class="info ">
+Return invariants with their certificates<br>
+</div>
+
+<pre><span id="VALinstantiate_term_all_levels"><span class="keyword">val</span> instantiate_term_all_levels</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -><br>       <a href="Numeral.html#TYPEt">Numeral.t</a> -><br>       <a href="Scope.html#TYPEt">Scope.t</a> -><br>       <a href="Term.html#TYPEt">Term.t</a> -> (<a href="TransSys.html#TYPEt">t</a> * <a href="Term.html#TYPEt">Term.t</a> list) * (<a href="TransSys.html#TYPEt">t</a> * <a href="Term.html#TYPEt">Term.t</a> list) list</code></pre><div class="info ">
+Instantiate a term of a given scope from all instances of the
+    system of that scope upwards to the top system
+<p>
+
+    <code class="code">instantiate_term_all_levels t i s e</code> instantiates the Boolean
+    term <code class="code">e</code> of scope <code class="code">s</code> in all systems it is a subsystem of, and
+    further upwards until the top system <code class="code">t</code>. The offset <code class="code">i</code> is the
+    offset of the current instant in the term <code class="code">e</code>.
+<p>
+
+    Return the top system <code class="code">s</code> paired with the instances of the term in
+    it, and a list of all systems between the top system <code class="code">t</code> andthe
+    system <code class="code">s</code>, including <code class="code">s</code> but excluding <code class="code">t</code>, each system paired
+    with the instances of <code class="code">e</code> in it.
+<p>
+
+    The offset <code class="code">i</code> is needed to properly guard the term <code class="code">e</code> for
+    clocked system instances.<br>
+</div>
+
+<pre><span id="VALinstantiate_term_cert_all_levels"><span class="keyword">val</span> instantiate_term_cert_all_levels</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -><br>       <a href="Numeral.html#TYPEt">Numeral.t</a> -><br>       <a href="Scope.html#TYPEt">Scope.t</a> -><br>       <a href="Term.html#TYPEt">Term.t</a> * Certificate.t -><br>       (<a href="TransSys.html#TYPEt">t</a> * (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list) *<br>       (<a href="TransSys.html#TYPEt">t</a> * (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list) list</code></pre><div class="info ">
+Same as above but with certificates<br>
+</div>
+</body></html>
