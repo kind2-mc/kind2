@@ -202,6 +202,22 @@
 
 )))))))))))
 
+
+;; ;; TODO
+;; ;; Compositional
+
+;; (declare sys-approx (! I1 set (! T1 rel (! I2 set (! T2 rel type)))))
+
+;; (declare is-sys-approx
+;;    (! I1 set
+;;    (! T1 rel
+;;    (! I2 set
+;;    (! T2 rel
+;;    (! ui (! k mpz (th_holds (impl (I1 k) (I2 k))))
+;;    (! ui (! i mpz (! j mpz (th_holds (impl (T1 i j) (T2 i j))))
+;;             (sys-approx I1 T1 I2 T2)))))))))
+
+
      
 ;;-------------------------------------------------------------------------
 ;; Some tests
