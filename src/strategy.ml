@@ -158,6 +158,7 @@ let first_param_of results all_nodes scope =
       (* Top level is not abstract, first analysis. *)
       Some (A.First info)
 
+(** First analysis after the mode consistency analysis, if any. *)
 let first_analysis_of_contract_check top (
   { A.uid ; A.abstraction_map } as info
 ) = function
