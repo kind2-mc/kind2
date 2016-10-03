@@ -1316,7 +1316,7 @@ module Invgen = struct
     )
   let two_state () = !two_state
 
-  let bool_eq_only_default = true
+  let bool_eq_only_default = false
   let bool_eq_only = ref bool_eq_only_default
   let _ = add_spec
     "--invgen_bool_eq_only"
