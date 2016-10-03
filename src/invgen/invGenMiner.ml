@@ -366,7 +366,7 @@ module BoolRules = struct
     in
     loop lo
 
-  (* Adds [svar >= 0] for an int [svar] to the input set. *)
+  (* Adds [svar >= 0] and [svar == 0] for an int [svar] to the input set. *)
   let int_rule svar set =
     let var = var_of svar in
     Set.add (Term.mk_geq [var ; Term.mk_num zero]) set
@@ -415,8 +415,10 @@ module BoolRules = struct
     ( (is_var kid1) && (is_var kid2) ) *)
   ) -> (
     let add_ineqs () =
-      Set.add (Term.mk_geq kids) set
+      set
+      |> Set.add (Term.mk_geq kids)
       |> Set.add (Term.mk_leq kids)
+      |> Set.add (Term.mk_eq  kids)
     in
     match Symbol.node_of_symbol sym with
     | `LEQ | `GEQ -> add_ineqs ()
@@ -466,13 +468,10 @@ module BoolRules = struct
     | _ -> set, ()
 
   let post_rules two_state _  _ set =
-    (
-      if Flags.Invgen.all_out () then
-        Set.fold (
-          fun term set -> Set.add (Term.negate_simplify term) set
-        ) set set
-      else set
-    ) |> Set.add Term.t_true
+    Set.fold (
+      fun term set -> Set.add (Term.negate_simplify term) set
+    ) set set
+    |> Set.add Term.t_true
 
 end
 
