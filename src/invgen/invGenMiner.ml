@@ -418,7 +418,7 @@ module BoolRules = struct
       set
       |> Set.add (Term.mk_geq kids)
       |> Set.add (Term.mk_leq kids)
-      |> Set.add (Term.mk_eq  kids)
+      (* |> Set.add (Term.mk_eq  kids) *)
     in
     match Symbol.node_of_symbol sym with
     | `LEQ | `GEQ -> add_ineqs ()
@@ -468,9 +468,13 @@ module BoolRules = struct
     | _ -> set, ()
 
   let post_rules two_state _  _ set =
-    Set.fold (
-      fun term set -> Set.add (Term.negate_simplify term) set
-    ) set set
+    (
+      if Flags.Invgen.all_out () then
+        Set.fold (
+          fun term set -> Set.add (Term.negate_simplify term) set
+        ) set set
+      else set
+    )
     |> Set.add Term.t_true
 
 end
@@ -509,12 +513,15 @@ let octagons oct3 f =
         fmt_term term'
         (List.length tail) ; *)
       let terms = [ term ; term' ] in
-      let sum, diff =
-        Term.mk_plus terms |> f, Term.mk_minus terms |> f
-      in
-      Set.add sum set
-      |> Set.add diff
-      |> (if oct3 then octagons_3 [ sum ; diff ] tail else identity)
+      [
+        Term.mk_plus terms |> f ;
+        Term.mk_minus terms |> f ;
+        (* terms |> List.rev |> Term.mk_minus |> f *)
+      ]
+      |> List.fold_left (
+        fun set term -> Set.add term set
+      ) set
+      |> (if oct3 then octagons_3 terms tail else identity)
       |> octagons_2_3 term tail
     | [] -> set
   in
