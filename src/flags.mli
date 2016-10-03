@@ -441,8 +441,11 @@ module Invgen : sig
   (** InvGen will run in two state mode. *)
   val two_state : unit -> bool
 
-  (** Forces invgen to look for equalities only. *)
-  val eq_only : unit -> bool
+  (** Forces bool invgen to look for equalities only. *)
+  val bool_eq_only : unit -> bool
+
+  (** Forces arith invgen to look for equalities only. *)
+  val arith_eq_only : unit -> bool
 
   (** Renice invariant generation process. *)
   val renice : unit -> int

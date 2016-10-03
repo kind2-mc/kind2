@@ -798,7 +798,7 @@ end
 
 let main_bool two_state in_sys param sys =
   (
-    if Flags.Invgen.eq_only () then
+    if Flags.Invgen.bool_eq_only () then
       EqOnly.BoolInvGen.main
     else
       BoolInvGen.main
@@ -808,7 +808,7 @@ let main_bool two_state in_sys param sys =
 
 let main_int two_state in_sys param sys =
   (
-    if Flags.Invgen.eq_only () then
+    if Flags.Invgen.arith_eq_only () then
       EqOnly.IntInvGen.main
     else
       IntInvGen.main
@@ -818,7 +818,7 @@ let main_int two_state in_sys param sys =
 
 let main_real two_state in_sys param sys =
   (
-    if Flags.Invgen.eq_only () then
+    if Flags.Invgen.arith_eq_only () then
       EqOnly.RealInvGen.main
     else
       RealInvGen.main
@@ -830,12 +830,15 @@ let main_real two_state in_sys param sys =
 
 
 let exit _ =
-  if Flags.Invgen.eq_only () then (
-    EqOnly.BoolInvGen.exit () ;
+  ( if Flags.Invgen.bool_eq_only () then
+      EqOnly.BoolInvGen.exit ()
+    else
+      BoolInvGen.exit ()
+  ) ;
+  if Flags.Invgen.arith_eq_only () then (
     EqOnly.IntInvGen.exit () ;
     EqOnly.RealInvGen.exit ()
   ) else (
-    BoolInvGen.exit () ;
     IntInvGen.exit () ;
     RealInvGen.exit ()
   )

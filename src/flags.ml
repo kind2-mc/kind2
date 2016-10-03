@@ -1316,19 +1316,33 @@ module Invgen = struct
     )
   let two_state () = !two_state
 
-  let eq_only_default = true
-  let eq_only = ref eq_only_default
+  let bool_eq_only_default = true
+  let bool_eq_only = ref bool_eq_only_default
   let _ = add_spec
-    "--invgen_eq_only"
-    (bool_arg eq_only)
+    "--invgen_bool_eq_only"
+    (bool_arg bool_eq_only)
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Forces invgen to look for equalities only\
+          Forces bool invgen to look for equalities only\
           Default: %b\
-        @]" eq_only_default
+        @]" bool_eq_only_default
     )
-  let eq_only () = !eq_only
+  let bool_eq_only () = !bool_eq_only
+
+  let arith_eq_only_default = false
+  let arith_eq_only = ref arith_eq_only_default
+  let _ = add_spec
+    "--invgen_arith_eq_only"
+    (bool_arg arith_eq_only)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces arith invgen to look for equalities only\
+          Default: %b\
+        @]" arith_eq_only_default
+    )
+  let arith_eq_only () = !arith_eq_only
 
   let renice_default = 0
   let renice = ref renice_default
