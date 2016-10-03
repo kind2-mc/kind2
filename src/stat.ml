@@ -695,13 +695,13 @@ let pp_print_certif_stats ppf =
 let total_time = 
   empty_item "Total time" 0.
 
-let analysis_time = 
+let analysis_time =
   empty_item "Analysis time" 0.
 
-let clause_of_term_time = 
+let clause_of_term_time =
   empty_item "clause_of_term time" 0.
 
-let smtexpr_of_term_time = 
+let smtexpr_of_term_time =
   empty_item "smtexpr_of_term time" 0.
 
 let term_of_smtexpr_time =
@@ -709,7 +709,7 @@ let term_of_smtexpr_time =
 
 let misc_stats_title = "General"
 
-let misc_stats = 
+let misc_stats =
   [ F total_time;
     F analysis_time;
     F clause_of_term_time;

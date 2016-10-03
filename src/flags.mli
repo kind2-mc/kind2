@@ -161,6 +161,9 @@ val log_format_xml : unit -> bool
 (** Wallclock timeout. *)
 val timeout_wall : unit -> float
 
+(** Per-run wallclock timeout. *)
+val timeout_analysis : unit -> float
+
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
 
