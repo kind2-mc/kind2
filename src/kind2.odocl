@@ -1,9 +1,10 @@
-Analysis
+Log
 Event
+Strategy
+Analysis
 Flags
 InvarManager
 Kind2
-MonolithicStrategy
 InputSystem
 Eval          
 Ident  
@@ -92,3 +93,4 @@ TestgenSolver
 TestgenStrategies
 TestgenTree
 TestgenLib
+Certificate

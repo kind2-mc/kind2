@@ -16,6 +16,8 @@
 
 *)
 
+(** Top level of the Kind 2 model-checker. *)
+
 open Lib
 
 (*
