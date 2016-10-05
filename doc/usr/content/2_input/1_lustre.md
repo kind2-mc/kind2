@@ -357,3 +357,160 @@ guarantee true -> ( -- `m1`, `m2` and `m3` are exclusive.
 ) ;
 ```
 
+
+
+### Merge, When and Activate
+
+> **Disclaimer**: the first few examples of this section illustrating (unsafe)
+> uses of `when` and `activate` are **not legal** in Kind 2. They aim at
+> introducing the semantics of lustre clocks. As discussed below, they are only
+> legal when used inside a `merge`, hence making them safe clock-wise.
+>
+> Also, `activate` is actually not a legal Lustre v6 operator.
+
+A `merge` is an operator combining several streams defined on **complementary**
+clocks. There is two ways to define a stream on a clock. First, by wrapping its
+definition inside a `when`.
+
+```
+node example (in: int) returns (out: int) ;
+var in_pos: bool ; x: int ;
+let
+  ...
+  in_pos = x >= 0 ;
+  x = in when in_pos ;
+  ...
+tel
+```
+
+Here, `x` is only defined when `in_pos`, its clock, is `true`. That is, with
+`nil` the undefined value, a trace of execution of `example` sliced to `x`
+could be
+
+| step |   | `in` | `in_pos` |  `x`  |
+|:----:|---|:----:|:--------:|:-----:|
+| 0    |   | `3`  |   `true` | `3`   |
+| 1    |   | `-2` |  `false` | `nil` |
+| 0    |   | `-1` |  `false` | `nil` |
+| 1    |   | `7`  |   `true` | `7`   |
+| 0    |   | `42` |   `true` | `42`  |
+
+The second way to define a stream on a clock is to wrap a node call with the
+`activate` keyword. The syntax for this is
+
+```
+(activate <node_name> every <clock>)(<input_1>, <input_2>, ...)
+```
+
+For example, consider the following node:
+
+```
+node sum_ge_10 (in: int) returns (out: bool) ;
+var sum: int ;
+let
+  sum = in + (0 -> pre sum) ;
+  out = sum >= 10 ;
+tel
+```
+
+Say now we call this node as follows:
+
+```
+node example (in: int) returns (...) ;
+var tmp, in_pos: bool ;
+let
+  ...
+  in_pos = in >= 0 ;
+  tmp = (activate sum_ge_10 every in_pos)(in) ;
+  ...
+tel
+```
+
+That is, we want `sum_ge_10(in)` to tick iff `in` is positive. Here is an
+example trace of `example` sliced to `tmp`; notice how the internal state of
+`sub` (*i.e.* `pre sub.sum`) is maintained so that it does refer to the value
+of `sub.sum` *at the last clock tick of the `activate`*:
+
+| step |   | `in` | `in_pos` |  `tmp`  |   | `sub.in` | `pre sub.sum` | `sub.sum` |
+|:----:|---|:----:|:--------:|:-------:|---|:--------:|:-------------:|:---------:|
+| 0    |   |  `3` |   `true` | `false` |   |      `3` |         `nil` |       `3` |
+| 1    |   |  `2` |   `true` | `false` |   |      `2` |           `3` |       `5` |
+| 2    |   | `-1` |  `false` |   `nil` |   |    `nil` |           `5` |     `nil` |
+| 3    |   |  `2` |   `true` | `false` |   |      `2` |           `5` |       `7` |
+| 4    |   | `-7` |  `false` |   `nil` |   |    `nil` |           `7` |     `nil` |
+| 5    |   | `35` |   `true` |  `true` |   |     `35` |           `7` |      `42` |
+| 6    |   | `-2` |  `false` |   `nil` |   |    `nil` |          `42` |     `nil` |
+
+
+Now, as mentioned above the `merge` operator combines two streams defined on
+**complimentary** clocks. The syntax of `merge` is:
+
+```
+merge( <clock> ; <e_1> ; <e_2> )
+```
+
+where `e_1` and `e_2` are streams defined on `<clock>` and `not <clock>`
+respectively, or on `not <clock>` and `<clock>` respectively.
+
+> Remark: Lustre v6 allows clocks of a user-defined, enumerated type: see
+> [the Lustre v6 manual](http://www-verimag.imag.fr/DIST-TOOLS/SYNCHRONE/lustre-v6/doc/lv6-ref-man.pdf),
+> page 41 for an example.
+>
+> **Kind 2 only supports boolean clocks.**
+
+
+Building on the previous example, say add two new streams `pre_tmp` and
+`safe_tmp`:
+
+```
+node example (in: int) returns (...) ;
+var tmp, in_pos, pre_tmp, safe_tmp: bool ;
+let
+  ...
+  in_pos = in >= 0 ;
+  tmp = (activate sum_ge_10 every in_pos)(in) ;
+  pre_tmp = false -> pre safe_tmp  ;
+  safe_tmp = merge( in_pos ; tmp ; pre_tmp when not in_pos ) ;
+  ...
+tel
+```
+That is, `safe_tmp` is the value of `tmp` whenever it is defined, otherwise it
+is the previous value of `safe_tmp` if any, and `false` otherwise.
+The execution trace given above becomes
+
+
+| step |   | `in` | `in_pos` |   `tmp` | `pre_tmp` | `safe_tmp` | 
+|:----:|---|:----:|:--------:|:-------:|:---------:|:----------:|
+| 0    |   |  `3` |   `true` | `false` |   `false` |    `false` |
+| 1    |   |  `2` |   `true` | `false` |   `false` |    `false` |
+| 2    |   | `-1` |  `false` |   `nil` |   `false` |    `false` |
+| 3    |   |  `2` |   `true` | `false` |   `false` |    `false` |
+| 4    |   | `-7` |  `false` |   `nil` |   `false` |    `false` |
+| 5    |   | `35` |   `true` |  `true` |   `false` |     `true` |
+| 6    |   | `-2` |  `false` |   `nil` |    `true` |     `true` |
+
+
+Just like with uninitialized `pre`s, if not careful one can easily end up
+manipulating undefined streams. Kind 2 forces good practice by allowing
+`when` and `activate ... every` expressions only inside a `merge`. All the
+examples of this section above this point are thus invalid from Kind 2's point
+of view.
+
+Rewriting them as valid Kind 2 input is not difficult however. Here is a legal
+version of the last example:
+
+```
+node example (in: int) returns (...) ;
+var in_pos, pre_tmp, safe_tmp: bool ;
+let
+  ...
+  in_pos = in >= 0 ;
+  pre_tmp = false -> pre safe_tmp  ;
+  safe_tmp = merge(
+    in_pos ;
+    (activate sum_ge_10 every in_pos)(in) ;
+    pre_tmp when not in_pos
+  ) ;
+  ...
+tel
+```
