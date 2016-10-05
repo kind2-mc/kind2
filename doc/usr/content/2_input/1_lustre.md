@@ -366,7 +366,8 @@ guarantee true -> ( -- `m1`, `m2` and `m3` are exclusive.
 > introducing the semantics of lustre clocks. As discussed below, they are only
 > legal when used inside a `merge`, hence making them safe clock-wise.
 >
-> Also, `activate` is actually not a legal Lustre v6 operator.
+> Also, `activate` is actually not a legal Lustre v6 operator. It is however
+> legal in Scade 6.
 
 A `merge` is an operator combining several streams defined on **complementary**
 clocks. There is two ways to define a stream on a clock. First, by wrapping its
