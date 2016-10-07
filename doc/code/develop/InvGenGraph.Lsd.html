@@ -61,6 +61,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -105,7 +106,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><title>Kind 2 Developer's Documentation : InvGenGraph.Lsd</title>
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><title>Kind 2 Developer's Documentation : InvGenGraph.Lsd</title>
 </head>
 <body>
 <div class="navbar">&nbsp;<a class="up" href="InvGenGraph.html" title="InvGenGraph">Up</a>
@@ -133,7 +135,7 @@ Kills a base checker.<br>
 Creates a base checker for some system at some depth.<br>
 </div>
 
-<pre><span id="VALbase_add_invariants"><span class="keyword">val</span> base_add_invariants</span> : <code class="type"><a href="LockStepDriver.html#TYPEbase">base</a> -> (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list -> unit</code></pre><div class="info ">
+<pre><span id="VALbase_add_invariants"><span class="keyword">val</span> base_add_invariants</span> : <code class="type"><a href="LockStepDriver.html#TYPEbase">base</a> -> (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list -> unit</code></pre><div class="info ">
 Adds some invariants to a base checker.<br>
 </div>
 
@@ -169,7 +171,7 @@ one step further and the initial state constraint is removed.<br>
 Certificate (<code class="code">k</code>) of a step checker.<br>
 </div>
 
-<pre><span id="VALstep_add_invariants"><span class="keyword">val</span> step_add_invariants</span> : <code class="type"><a href="LockStepDriver.html#TYPEstep">step</a> -> (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list -> unit</code></pre><div class="info ">
+<pre><span id="VALstep_add_invariants"><span class="keyword">val</span> step_add_invariants</span> : <code class="type"><a href="LockStepDriver.html#TYPEstep">step</a> -> (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list -> unit</code></pre><div class="info ">
 Adds invariants to a step checker.<br>
 </div>
 
@@ -210,7 +212,7 @@ Kills a pruning checker.<br>
 Creates a pruning checker for a system.<br>
 </div>
 
-<pre><span id="VALpruning_add_invariants"><span class="keyword">val</span> pruning_add_invariants</span> : <code class="type"><a href="LockStepDriver.html#TYPEpruning">pruning</a> -> (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list -> unit</code></pre><div class="info ">
+<pre><span id="VALpruning_add_invariants"><span class="keyword">val</span> pruning_add_invariants</span> : <code class="type"><a href="LockStepDriver.html#TYPEpruning">pruning</a> -> (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list -> unit</code></pre><div class="info ">
 Adds invariants to a pruning checker.<br>
 </div>
 

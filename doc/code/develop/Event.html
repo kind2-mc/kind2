@@ -62,6 +62,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -106,7 +107,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><link title="Logging" rel="Section" href="#1_Logging">
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><link title="Logging" rel="Section" href="#1_Logging">
 <link title="Events" rel="Section" href="#1_Events">
 <link title="Messaging" rel="Section" href="#1_Messaging">
 <title>Kind 2 Developer's Documentation : Event</title>
@@ -226,7 +228,7 @@ Events exposed to callers<br>
 <td align="left" valign="top" >
 <code><span class="keyword">|</span></code></td>
 <td align="left" valign="top" >
-<code><span id="TYPEELTevent.Invariant"><span class="constructor">Invariant</span></span> <span class="keyword">of</span> <code class="type">string list * <a href="Term.html#TYPEt">Term.t</a> * Certificate.t</code></code></td>
+<code><span id="TYPEELTevent.Invariant"><span class="constructor">Invariant</span></span> <span class="keyword">of</span> <code class="type">string list * <a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a></code></code></td>
 
 </tr>
 <tr>
@@ -262,7 +264,7 @@ Output the statistics of the module<br>
 Output the progress of the module<br>
 </div>
 
-<pre><span id="VALinvariant"><span class="keyword">val</span> invariant</span> : <code class="type">string list -> <a href="Term.html#TYPEt">Term.t</a> -> Certificate.t -> unit</code></pre><div class="info ">
+<pre><span id="VALinvariant"><span class="keyword">val</span> invariant</span> : <code class="type">string list -> <a href="Term.html#TYPEt">Term.t</a> -> <a href="Certificate.html#TYPEt">Certificate.t</a> -> unit</code></pre><div class="info ">
 Broadcast a discovered top level invariant<br>
 </div>
 
@@ -297,12 +299,12 @@ Terminates if a termination message was received. Does NOT modify
     received messages.<br>
 </div>
 
-<pre><span id="VALtop_invariants_of_invariants"><span class="keyword">val</span> top_invariants_of_invariants</span> : <code class="type"><a href="TransSys.html#TYPEt">TransSys.t</a> -><br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * (string list * <a href="Term.html#TYPEt">Term.t</a> * Certificate.t)) list -><br>       <a href="Term.html#TYPEt">Term.t</a> list</code></pre><div class="info ">
+<pre><span id="VALtop_invariants_of_invariants"><span class="keyword">val</span> top_invariants_of_invariants</span> : <code class="type"><a href="TransSys.html#TYPEt">TransSys.t</a> -><br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * (string list * <a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>)) list -><br>       <a href="Term.html#TYPEt">Term.t</a> list</code></pre><div class="info ">
 Filter list of invariants with their scope for invariants of empty
     (top) scope<br>
 </div>
 
-<pre><span id="VALupdate_trans_sys_sub"><span class="keyword">val</span> update_trans_sys_sub</span> : <code class="type">'a <a href="InputSystem.html#TYPEt">InputSystem.t</a> -><br>       <a href="Analysis.html#TYPEparam">Analysis.param</a> -><br>       <a href="TransSys.html#TYPEt">TransSys.t</a> -><br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * <a href="Event.html#TYPEevent">event</a>) list -><br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * (string list * <a href="Term.html#TYPEt">Term.t</a> * Certificate.t)) list *<br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * (string * <a href="Property.html#TYPEprop_status">Property.prop_status</a>)) list</code></pre><div class="info ">
+<pre><span id="VALupdate_trans_sys_sub"><span class="keyword">val</span> update_trans_sys_sub</span> : <code class="type">'a <a href="InputSystem.html#TYPEt">InputSystem.t</a> -><br>       <a href="Analysis.html#TYPEparam">Analysis.param</a> -><br>       <a href="TransSys.html#TYPEt">TransSys.t</a> -><br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * <a href="Event.html#TYPEevent">event</a>) list -><br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * (string list * <a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>)) list *<br>       (<a href="Lib.html#TYPEkind_module">Lib.kind_module</a> * (string * <a href="Property.html#TYPEprop_status">Property.prop_status</a>)) list</code></pre><div class="info ">
 Update transition system from events and return new invariants
     INCLUDING subsystem ones, scoped and properties with changed
     status.

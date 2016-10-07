@@ -62,6 +62,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -106,7 +107,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><title>Kind 2 Developer's Documentation : Property</title>
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><title>Kind 2 Developer's Documentation : Property</title>
 </head>
 <body>
 <div class="navbar"><a class="pre" href="Var.html" title="Var">Previous</a>
@@ -139,7 +141,7 @@ Source of a property<br>
 <td align="left" valign="top" >
 <code><span class="keyword">|</span></code></td>
 <td align="left" valign="top" >
-<code><span id="TYPEELTprop_status.PropInvariant"><span class="constructor">PropInvariant</span></span> <span class="keyword">of</span> <code class="type">Certificate.t</code></code></td>
+<code><span id="TYPEELTprop_status.PropInvariant"><span class="constructor">PropInvariant</span></span> <span class="keyword">of</span> <code class="type"><a href="Certificate.html#TYPEt">Certificate.t</a></code></code></td>
 
 </tr>
 <tr>
@@ -269,7 +271,7 @@ Return <code class="code"><span class="keyword">true</span></code> if the status
 </div>
 
 <pre><span id="VALset_prop_status"><span class="keyword">val</span> set_prop_status</span> : <code class="type"><a href="Property.html#TYPEt">t</a> -> <a href="Property.html#TYPEprop_status">prop_status</a> -> unit</code></pre>
-<pre><span id="VALset_prop_invariant"><span class="keyword">val</span> set_prop_invariant</span> : <code class="type"><a href="Property.html#TYPEt">t</a> -> Certificate.t -> unit</code></pre>
+<pre><span id="VALset_prop_invariant"><span class="keyword">val</span> set_prop_invariant</span> : <code class="type"><a href="Property.html#TYPEt">t</a> -> <a href="Certificate.html#TYPEt">Certificate.t</a> -> unit</code></pre>
 <pre><span id="VALset_prop_ktrue"><span class="keyword">val</span> set_prop_ktrue</span> : <code class="type"><a href="Property.html#TYPEt">t</a> -> int -> unit</code></pre>
 <pre><span id="VALset_prop_false"><span class="keyword">val</span> set_prop_false</span> : <code class="type"><a href="Property.html#TYPEt">t</a> -> (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list) list -> unit</code></pre>
 <pre><span id="VALlength_of_cex"><span class="keyword">val</span> length_of_cex</span> : <code class="type">(<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Model.html#TYPEterm_or_lambda">Model.term_or_lambda</a> list) list -> int</code></pre>

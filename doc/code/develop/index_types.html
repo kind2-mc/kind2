@@ -58,6 +58,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -102,7 +103,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><title>Kind 2 Developer's Documentation : Index of types</title>
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><title>Kind 2 Developer's Documentation : Index of types</title>
 </head>
 <body>
 <div class="navbar">&nbsp;<a class="up" href="index.html" title="Index">Up</a>
@@ -426,6 +428,8 @@ An integer statistics list
 The interpreted symbols
 </div>
 </td></tr>
+<tr><td><a href="Certificate.html#TYPEinvariant">invariant</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td></td></tr>
 <tr><td align="left"><br>K</td></tr>
 <tr><td><a href="TestgenLib.html#TYPEk">k</a> [<a href="TestgenLib.html">TestgenLib</a>]</td>
 <td></td></tr>
@@ -532,6 +536,11 @@ A <code class="code">mode</code> is just its name.
 </td></tr>
 <tr><td><a href="TestgenModes.html#TYPEmode">mode</a> [<a href="TestgenModes.html">TestgenModes</a>]</td>
 <td></td></tr>
+<tr><td><a href="LustreContract.html#TYPEmode">mode</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Type of modes.
+</div>
+</td></tr>
 <tr><td><a href="TestgenTree.html#TYPEmode_conj">mode_conj</a> [<a href="TestgenTree.html">TestgenTree</a>]</td>
 <td><div class="info">
 A conjunction of modes.
@@ -540,6 +549,11 @@ A conjunction of modes.
 <tr><td><a href="TestgenTree.html#TYPEmode_path">mode_path</a> [<a href="TestgenTree.html">TestgenTree</a>]</td>
 <td><div class="info">
 A <code class="code">mode_path</code> stores the modes activated by the path in reverse order.
+</div>
+</td></tr>
+<tr><td><a href="LustreContract.ModeTrace.html#TYPEmode_tree">mode_tree</a> [<a href="LustreContract.ModeTrace.html">LustreContract.ModeTrace</a>]</td>
+<td><div class="info">
+A mode tree: hierarchical organization of modes.
 </div>
 </td></tr>
 <tr><td><a href="TestgenLib.html#TYPEmodel">model</a> [<a href="TestgenLib.html">TestgenLib</a>]</td>
@@ -594,6 +608,12 @@ An instance of a parametric node as a tuple of the identifier for
 <tr><td><a href="LustreIndex.html#TYPEone_index">one_index</a> [<a href="LustreIndex.html">LustreIndex</a>]</td>
 <td><div class="info">
 An index element
+</div>
+</td></tr>
+<tr><td><a href="Certificate.html#TYPEout">out</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td><div class="info">
+The type of certificates outputs, these are file names for the intermediate
+    SMT-LIB 2 certificates
 </div>
 </td></tr>
 <tr><td><a href="Messaging.S.html#TYPEoutput_message">output_message</a> [<a href="Messaging.S.html">Messaging.S</a>]</td>
@@ -754,6 +774,8 @@ Structural assignment on the left-hand side of an equation
 </td></tr>
 <tr><td><a href="TestgenLib.html#TYPEsvar">svar</a> [<a href="TestgenLib.html">TestgenLib</a>]</td>
 <td></td></tr>
+<tr><td><a href="LustreContract.html#TYPEsvar">svar</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td></td></tr>
 <tr><td><a href="Symbol.html#TYPEsymbol">symbol</a> [<a href="Symbol.html">Symbol</a>]</td>
 <td><div class="info">
 Adding uninterpreted function symbols separately for conversions
@@ -770,13 +792,22 @@ Symbol
 Symbol
 </div>
 </td></tr>
+<tr><td><a href="Certificate.html#TYPEsymbols">symbols</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td></td></tr>
 <tr><td><a href="TestgenLib.html#TYPEsys">sys</a> [<a href="TestgenLib.html">TestgenLib</a>]</td>
 <td></td></tr>
 <tr><td><a href="TestgenModes.html#TYPEsys">sys</a> [<a href="TestgenModes.html">TestgenModes</a>]</td>
 <td></td></tr>
 <tr><td><a href="TestgenModes.html#TYPEsys_modes">sys_modes</a> [<a href="TestgenModes.html">TestgenModes</a>]</td>
 <td></td></tr>
+<tr><td><a href="Certificate.html#TYPEsystem">system</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td></td></tr>
 <tr><td align="left"><br>T</td></tr>
+<tr><td><a href="Certificate.html#TYPEt">t</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td><div class="info">
+The type of certificates
+</div>
+</td></tr>
 <tr><td><a href="TestgenTree.html#TYPEt">t</a> [<a href="TestgenTree.html">TestgenTree</a>]</td>
 <td><div class="info">
 Stores the witnesses and the reversed tree.
@@ -841,6 +872,11 @@ Type of a solver instance
 <tr><td><a href="SMTExpr.html#TYPEt">t</a> [<a href="SMTExpr.html">SMTExpr</a>]</td>
 <td><div class="info">
 An SMT expression is of type <a href="Term.html#TYPEt"><code class="code"><span class="constructor">Term</span>.t</code></a>
+</div>
+</td></tr>
+<tr><td><a href="LustreContract.html#TYPEt">t</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Type of contracts.
 </div>
 </td></tr>
 <tr><td><a href="LustreContext.html#TYPEt">t</a> [<a href="LustreContext.html">LustreContext</a>]</td>

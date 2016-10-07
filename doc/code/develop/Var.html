@@ -62,6 +62,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -106,7 +107,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><link title="Types and hash-consing" rel="Section" href="#1_Typesandhashconsing">
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><link title="Types and hash-consing" rel="Section" href="#1_Typesandhashconsing">
 <link title="Hashtables, maps and sets" rel="Section" href="#1_Hashtablesmapsandsets">
 <link title="Constructors" rel="Section" href="#1_Constructors">
 <link title="Accessor functions" rel="Section" href="#1_Accessorfunctions">
@@ -169,18 +171,18 @@ Map over variables
 <h1 id="1_Constructors">Constructors</h1><br>
 
 <pre><span id="VALmk_const_state_var"><span class="keyword">val</span> mk_const_state_var</span> : <code class="type"><a href="StateVar.html#TYPEt">StateVar.t</a> -> <a href="Var.html#TYPEt">t</a></code></pre><div class="info ">
-Return a constant state variable 
+Return a constant state variable.
 <p>
 
     The state variable must be constant.<br>
 </div>
 
 <pre><span id="VALmk_state_var_instance"><span class="keyword">val</span> mk_state_var_instance</span> : <code class="type"><a href="StateVar.html#TYPEt">StateVar.t</a> -> <a href="Numeral.html#TYPEt">Numeral.t</a> -> <a href="Var.html#TYPEt">t</a></code></pre><div class="info ">
-Return an instance of a state variable 
+Return an instance of a state variable.
 <p>
 
-    The state variable may also be constant, in which case a variable
-    created by <code class="code">mk_const_state_var</code> is returned.<br>
+    The state variable may also be constant, in which case a variable created
+    by <code class="code">mk_const_state_var</code> is returned.<br>
 </div>
 
 <pre><span id="VALmk_free_var"><span class="keyword">val</span> mk_free_var</span> : <code class="type"><a href="HString.html#TYPEt">HString.t</a> -> <a href="Type.html#TYPEt">Type.t</a> -> <a href="Var.html#TYPEt">t</a></code></pre><div class="info ">

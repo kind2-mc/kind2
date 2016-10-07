@@ -58,6 +58,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -102,7 +103,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><title>Kind 2 Developer's Documentation : Index of values</title>
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><title>Kind 2 Developer's Documentation : Index of values</title>
 </head>
 <body>
 <div class="navbar">&nbsp;<a class="up" href="index.html" title="Index">Up</a>
@@ -453,6 +455,11 @@ Sum
 Bind a value to the key in the trie
 </div>
 </td></tr>
+<tr><td><a href="LustreContract.html#VALadd_ass">add_ass</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Adds assumes to a contract.
+</div>
+</td></tr>
 <tr><td><a href="Pretty.html#VALadd_colors">add_colors</a> [<a href="Pretty.html">Pretty</a>]</td>
 <td><div class="info">
 add color tags to a formatter
@@ -499,11 +506,21 @@ Return a context that is identical to the first context with the
     function constructed in the second context added
 </div>
 </td></tr>
+<tr><td><a href="LustreContract.html#VALadd_gua">add_gua</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Adds guarantees to a contract.
+</div>
+</td></tr>
 <tr><td><a href="Flags.html#VALadd_input_file">add_input_file</a> [<a href="Flags.html">Flags</a>]</td>
 <td></td></tr>
 <tr><td><a href="TransSys.html#VALadd_invariant">add_invariant</a> [<a href="TransSys.html">TransSys</a>]</td>
 <td><div class="info">
 Add an invariant to the transition system
+</div>
+</td></tr>
+<tr><td><a href="LustreContract.html#VALadd_modes">add_modes</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Adds modes to a contract.
 </div>
 </td></tr>
 <tr><td><a href="LustreContext.html#VALadd_node_ass">add_node_ass</a> [<a href="LustreContext.html">LustreContext</a>]</td>
@@ -1747,6 +1764,11 @@ Eliminate quantifiers of a list of variables in a formula
 </td></tr>
 <tr><td><a href="Trie.M.html#VALempty">empty</a> [<a href="Trie.M.html">Trie.M</a>]</td>
 <td></td></tr>
+<tr><td><a href="LustreContract.html#VALempty">empty</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Creates an empty contract.
+</div>
+</td></tr>
 <tr><td><a href="Trie.S.html#VALempty">empty</a> [<a href="Trie.S.html">Trie.S</a>]</td>
 <td><div class="info">
 The empty trie
@@ -2148,6 +2170,8 @@ Find the named subsystem
 Equality over values.
 </div>
 </td></tr>
+<tr><td><a href="LustreContract.ModeTrace.html#VALfmt_as_cex_step_xml">fmt_as_cex_step_xml</a> [<a href="LustreContract.ModeTrace.html">LustreContract.ModeTrace</a>]</td>
+<td></td></tr>
 <tr><td><a href="InvGenGraph.Graph.html#VALfmt_graph_classes_dot">fmt_graph_classes_dot</a> [<a href="InvGenGraph.Graph.html">InvGenGraph.Graph</a>]</td>
 <td></td></tr>
 <tr><td><a href="InvGenGraph.Graph.html#VALfmt_graph_dot">fmt_graph_dot</a> [<a href="InvGenGraph.Graph.html">InvGenGraph.Graph</a>]</td>
@@ -4074,6 +4098,11 @@ Return <code class="code"><span class="keyword">true</span></code> if there is a
       prefix
 </div>
 </td></tr>
+<tr><td><a href="Certificate.html#VALmerge">merge</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td><div class="info">
+Merge certificates into one.
+</div>
+</td></tr>
 <tr><td><a href="Trie.M.html#VALmerge">merge</a> [<a href="Trie.M.html">Trie.M</a>]</td>
 <td></td></tr>
 <tr><td><a href="Trie.S.html#VALmerge">merge</a> [<a href="Trie.S.html">Trie.S</a>]</td>
@@ -4153,6 +4182,12 @@ Creates a new solver wrapper.
 </td></tr>
 <tr><td><a href="TestgenIO.html#VALmk">mk</a> [<a href="TestgenIO.html">TestgenIO</a>]</td>
 <td></td></tr>
+<tr><td><a href="LustreContract.html#VALmk">mk</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Creates a new contract from a set of assumes, a set of guarantess, and a
+list of modes.
+</div>
+</td></tr>
 <tr><td><a href="InvGenGraph.Graph.html#VALmk">mk</a> [<a href="InvGenGraph.Graph.html">InvGenGraph.Graph</a>]</td>
 <td><div class="info">
 Creates a graph from a single equivalence class and its
@@ -4256,7 +4291,7 @@ Create a constant
 </td></tr>
 <tr><td><a href="Var.html#VALmk_const_state_var">mk_const_state_var</a> [<a href="Var.html">Var</a>]</td>
 <td><div class="info">
-Return a constant state variable 
+Return a constant state variable.
 </div>
 </td></tr>
 <tr><td><a href="TestgenLib.html#VALmk_context">mk_context</a> [<a href="TestgenLib.html">TestgenLib</a>]</td>
@@ -4557,6 +4592,8 @@ Return the integer modulus of the two expressions.
 Create an integer modulus
 </div>
 </td></tr>
+<tr><td><a href="LustreContract.html#VALmk_mode">mk_mode</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td></td></tr>
 <tr><td><a href="Term.html#VALmk_named">mk_named</a> [<a href="Term.html">Term</a>]</td>
 <td><div class="info">
 Uniquely name a term with an integer and return a named term and
@@ -4687,13 +4724,13 @@ Create a predicate for divisibility by a constant integer
 </td></tr>
 <tr><td><a href="StateVar.html#VALmk_state_var">mk_state_var</a> [<a href="StateVar.html">StateVar</a>]</td>
 <td><div class="info">
-<code class="code">mk_state_var n s t i</code> declares a state variable of name <code class="code">n</code> with
-    scope <code class="code">s</code>, and type <code class="code">t</code>.
+<code class="code">mk_state_var n s t</code> declares a state variable of name <code class="code">n</code> with scope <code class="code">s</code>,
+    and type <code class="code">t</code>.
 </div>
 </td></tr>
 <tr><td><a href="Var.html#VALmk_state_var_instance">mk_state_var_instance</a> [<a href="Var.html">Var</a>]</td>
 <td><div class="info">
-Return an instance of a state variable 
+Return an instance of a state variable.
 </div>
 </td></tr>
 <tr><td><a href="LustreIdent.html#VALmk_string_ident">mk_string_ident</a> [<a href="LustreIdent.html">LustreIdent</a>]</td>
@@ -4704,6 +4741,11 @@ Construct an identifier of a string
 <tr><td><a href="Term.html#VALmk_succ">mk_succ</a> [<a href="Term.html">Term</a>]</td>
 <td><div class="info">
 Increment integer or real term by one
+</div>
+</td></tr>
+<tr><td><a href="LustreContract.html#VALmk_svar">mk_svar</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Creates a <code class="code">svar</code>.
 </div>
 </td></tr>
 <tr><td><a href="Symbol.html#VALmk_symbol">mk_symbol</a> [<a href="Symbol.html">Symbol</a>]</td>
@@ -4811,6 +4853,16 @@ Convert <code class="code">(= 0 (<span class="keyword">mod</span> t n))</code> t
 <tr><td><a href="TestgenTree.html#VALmode_path_of">mode_path_of</a> [<a href="TestgenTree.html">TestgenTree</a>]</td>
 <td><div class="info">
 Returns the list of mode conjunctions corresponding to a partial tree.
+</div>
+</td></tr>
+<tr><td><a href="LustreContract.ModeTrace.html#VALmode_paths_to_tree">mode_paths_to_tree</a> [<a href="LustreContract.ModeTrace.html">LustreContract.ModeTrace</a>]</td>
+<td><div class="info">
+Turns a trace of lists of mode paths into a trace of trees.
+</div>
+</td></tr>
+<tr><td><a href="LustreContract.ModeTrace.html#VALmode_trace_to_tree">mode_trace_to_tree</a> [<a href="LustreContract.ModeTrace.html">LustreContract.ModeTrace</a>]</td>
+<td><div class="info">
+Formats a tree as a cex step in xml.
 </div>
 </td></tr>
 <tr><td><a href="Model.html#VALmodel_at_k_of_path">model_at_k_of_path</a> [<a href="Model.html">Model</a>]</td>
@@ -5380,6 +5432,11 @@ Print a cformula
 <td></td></tr>
 <tr><td><a href="LustreAst.html#VALpp_print_const_decl">pp_print_const_decl</a> [<a href="LustreAst.html">LustreAst</a>]</td>
 <td></td></tr>
+<tr><td><a href="LustreContract.html#VALpp_print_contract">pp_print_contract</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Pretty prints a contract.
+</div>
+</td></tr>
 <tr><td><a href="LustreAst.html#VALpp_print_contract_node">pp_print_contract_node</a> [<a href="LustreAst.html">LustreAst</a>]</td>
 <td></td></tr>
 <tr><td><a href="TestgenLib.html#VALpp_print_contract_testcase">pp_print_contract_testcase</a> [<a href="TestgenLib.html">TestgenLib</a>]</td>
@@ -5596,6 +5653,11 @@ Print general statistics
 </td></tr>
 <tr><td><a href="TestgenModes.html#VALpp_print_mode">pp_print_mode</a> [<a href="TestgenModes.html">TestgenModes</a>]</td>
 <td></td></tr>
+<tr><td><a href="LustreContract.html#VALpp_print_mode">pp_print_mode</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Pretty prints a mode.
+</div>
+</td></tr>
 <tr><td><a href="CooperQE.html#VALpp_print_model">pp_print_model</a> [<a href="CooperQE.html">CooperQE</a>]</td>
 <td><div class="info">
 Print a model
@@ -5839,6 +5901,11 @@ Print statistics
 </td></tr>
 <tr><td><a href="LustreAst.html#VALpp_print_struct_item">pp_print_struct_item</a> [<a href="LustreAst.html">LustreAst</a>]</td>
 <td></td></tr>
+<tr><td><a href="LustreContract.html#VALpp_print_svar">pp_print_svar</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Pretty prints a svar wrapper.
+</div>
+</td></tr>
 <tr><td><a href="YicesDriver.html#VALpp_print_symbol">pp_print_symbol</a> [<a href="YicesDriver.html">YicesDriver</a>]</td>
 <td></td></tr>
 <tr><td><a href="GenericSMTLIBDriver.html#VALpp_print_symbol">pp_print_symbol</a> [<a href="GenericSMTLIBDriver.html">GenericSMTLIBDriver</a>]</td>
@@ -6113,6 +6180,11 @@ Proof production.
 <td><div class="info">
 Offset of current state variables in properties and invariants,
     subtract one for the offset of the previous state variables
+</div>
+</td></tr>
+<tr><td><a href="LustreContract.html#VALprop_name_of_svar">prop_name_of_svar</a> [<a href="LustreContract.html">LustreContract</a>]</td>
+<td><div class="info">
+Generates a property name.
 </div>
 </td></tr>
 <tr><td><a href="Clause.html#VALprop_set_of_props">prop_set_of_props</a> [<a href="Clause.html">Clause</a>]</td>
@@ -6820,6 +6892,12 @@ Simplify a term given an assignment to variables
 Return a trie with a single element for the empty index
 </div>
 </td></tr>
+<tr><td><a href="Certificate.html#VALsize">size</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td><div class="info">
+Gives a measure to compare the size of the inductive invariants contained
+    in a certificate.
+</div>
+</td></tr>
 <tr><td><a href="Kind2.html#VALslaughter_kids">slaughter_kids</a> [<a href="Kind2.html">Kind2</a>]</td>
 <td></td></tr>
 <tr><td><a href="LustreSlicing.html#VALslice_to_abstraction">slice_to_abstraction</a> [<a href="LustreSlicing.html">LustreSlicing</a>]</td>
@@ -6915,10 +6993,21 @@ Return the sorts of a hashconsed lambda abstraction
 Return the source of the clause
 </div>
 </td></tr>
+<tr><td><a href="Certificate.html#VALsplit">split</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td><div class="info">
+Split a certificate following the boolean strucutre of its inductive
+    invariant
+</div>
+</td></tr>
 <tr><td><a href="Trie.M.html#VALsplit">split</a> [<a href="Trie.M.html">Trie.M</a>]</td>
 <td></td></tr>
 <tr><td><a href="Trie.S.html#VALsplit">split</a> [<a href="Trie.S.html">Trie.S</a>]</td>
 <td></td></tr>
+<tr><td><a href="Certificate.html#VALsplit_certs">split_certs</a> [<a href="Certificate.html">Certificate</a>]</td>
+<td><div class="info">
+Split a list of certificates
+</div>
+</td></tr>
 <tr><td><a href="LustreExpr.html#VALsplit_expr_list">split_expr_list</a> [<a href="LustreExpr.html">LustreExpr</a>]</td>
 <td><div class="info">
 Split a list of Lustre expressions into a list of pairs of
@@ -6997,7 +7086,8 @@ Return a previously declared state variable
 </td></tr>
 <tr><td><a href="StateVar.html#VALstate_var_of_uf_symbol">state_var_of_uf_symbol</a> [<a href="StateVar.html">StateVar</a>]</td>
 <td><div class="info">
-Return the uninterpreted function symbol of the variable
+Return the state variable corresponding to an uninterpreted function
+symbol
 </div>
 </td></tr>
 <tr><td><a href="TransSys.html#VALstate_vars">state_vars</a> [<a href="TransSys.html">TransSys</a>]</td>
@@ -7328,6 +7418,8 @@ Returns the sup of the logics given as arguments
 </div>
 </td></tr>
 <tr><td><a href="TestgenModes.html#VALsv_at_0">sv_at_0</a> [<a href="TestgenModes.html">TestgenModes</a>]</td>
+<td></td></tr>
+<tr><td><a href="LustreContract.html#VALsvars_of">svars_of</a> [<a href="LustreContract.html">LustreContract</a>]</td>
 <td></td></tr>
 <tr><td><a href="GenericSMTLIBDriver.html#VALsymbol_of_smtlib_atom">symbol_of_smtlib_atom</a> [<a href="GenericSMTLIBDriver.html">GenericSMTLIBDriver</a>]</td>
 <td></td></tr>

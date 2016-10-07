@@ -5,7 +5,7 @@
 <meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
 <link rel="Start" href="index.html">
 <link rel="previous" href="LustreNode.html">
-<link rel="next" href="LustreDeclarations.html">
+<link rel="next" href="LustreContract.html">
 <link rel="Up" href="index.html">
 <link title="Index of types" rel=Appendix href="index_types.html">
 <link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
@@ -62,6 +62,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -106,7 +107,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><link title="Scopes and Nodes" rel="Section" href="#1_ScopesandNodes">
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><link title="Scopes and Nodes" rel="Section" href="#1_ScopesandNodes">
 <link title="Functions" rel="Section" href="#1_Functions">
 <link title="Helpers" rel="Section" href="#1_Helpers">
 <title>Kind 2 Developer's Documentation : LustreContext</title>
@@ -114,7 +116,7 @@
 <body>
 <div class="navbar"><a class="pre" href="LustreNode.html" title="LustreNode">Previous</a>
 &nbsp;<a class="up" href="index.html" title="Index">Up</a>
-&nbsp;<a class="post" href="LustreDeclarations.html" title="LustreDeclarations">Next</a>
+&nbsp;<a class="post" href="LustreContract.html" title="LustreContract">Next</a>
 </div>
 <h1>Module <a href="type_LustreContext.html">LustreContext</a></h1>
 
@@ -197,7 +199,7 @@ Return a copy of the context with an empty node of the given name
 Returns the name of the current node, if any.<br>
 </div>
 
-<pre><span id="VALcurrent_node_modes"><span class="keyword">val</span> current_node_modes</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.mode list option option</code></pre><div class="info ">
+<pre><span id="VALcurrent_node_modes"><span class="keyword">val</span> current_node_modes</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContract.html#TYPEmode">LustreContract.mode</a> list option option</code></pre><div class="info ">
 Returns the modes of the current node.<br>
 </div>
 
@@ -393,15 +395,15 @@ The output state variables of the current node.<br>
 Add node local to context<br>
 </div>
 
-<pre><span id="VALadd_node_ass"><span class="keyword">val</span> add_node_ass</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.svar list -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+<pre><span id="VALadd_node_ass"><span class="keyword">val</span> add_node_ass</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContract.html#TYPEsvar">LustreContract.svar</a> list -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
 Adds assumptions to a node.<br>
 </div>
 
-<pre><span id="VALadd_node_gua"><span class="keyword">val</span> add_node_gua</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.svar list -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+<pre><span id="VALadd_node_gua"><span class="keyword">val</span> add_node_gua</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContract.html#TYPEsvar">LustreContract.svar</a> list -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
 Adds guarantees to a node.<br>
 </div>
 
-<pre><span id="VALadd_node_mode"><span class="keyword">val</span> add_node_mode</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> LustreContract.mode -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
+<pre><span id="VALadd_node_mode"><span class="keyword">val</span> add_node_mode</span> : <code class="type"><a href="LustreContext.html#TYPEt">t</a> -> <a href="LustreContract.html#TYPEmode">LustreContract.mode</a> -> <a href="LustreContext.html#TYPEt">t</a></code></pre><div class="info ">
 Add modes to node<br>
 </div>
 

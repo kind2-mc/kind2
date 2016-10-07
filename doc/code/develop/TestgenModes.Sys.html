@@ -60,6 +60,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -104,7 +105,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><link title="Accessors" rel="Section" href="#1_Accessors">
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><link title="Accessors" rel="Section" href="#1_Accessors">
 <link title="State Variables" rel="Section" href="#1_StateVariables">
 <link title="Properties" rel="Section" href="#1_Properties">
 <title>Kind 2 Developer's Documentation : TestgenModes.Sys</title>
@@ -172,8 +174,8 @@ Position as a unique identifier of the instance<br>
 <td align="left" valign="top" >
 <code><span id="TYPEELTinstance.map_down">map_down</span>&nbsp;: <code class="type"><a href="StateVar.html#TYPEt">StateVar.t</a> StateVar.StateVarMap.t</code>;</code></td>
 <td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
-Map from state variables of the called system to the state
-        variables of the this system<br>
+Map from the state variables of this system to the state
+        variables of the instance<br>
 </div>
 </td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
 </tr>
@@ -183,8 +185,8 @@ Map from state variables of the called system to the state
 <td align="left" valign="top" >
 <code><span id="TYPEELTinstance.map_up">map_up</span>&nbsp;: <code class="type"><a href="StateVar.html#TYPEt">StateVar.t</a> StateVar.StateVarMap.t</code>;</code></td>
 <td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
-Map from the state variables of this system to the state
-        variables of the instance<br>
+Map from state variables of the called system to the state
+        variables of this system<br>
 </div>
 </td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
 </tr>
@@ -319,7 +321,7 @@ Returns the list of properties in a transition system, split by their
     status as <code class="code">valid, invalid, unknown</code>.<br>
 </div>
 
-<pre><span id="VALmk_trans_sys"><span class="keyword">val</span> mk_trans_sys</span> : <code class="type">?instance_var_id_start:int -><br>       <a href="Scope.html#TYPEt">Scope.t</a> -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> option -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> -><br>       (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Term.html#TYPEt">Term.t</a> list) list -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> list -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> list -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -><br>       <a href="Var.html#TYPEt">Var.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -><br>       <a href="Var.html#TYPEt">Var.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> -><br>       (<a href="TransSys.html#TYPEt">t</a> * <a href="TransSys.html#TYPEinstance">instance</a> list) list -><br>       <a href="Property.html#TYPEt">Property.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> option * (<a href="Scope.html#TYPEt">Scope.t</a> * <a href="Term.html#TYPEt">Term.t</a>) list -><br>       (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list -><br>       (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list -> <a href="TransSys.html#TYPEt">t</a> * int</code></pre>
+<pre><span id="VALmk_trans_sys"><span class="keyword">val</span> mk_trans_sys</span> : <code class="type">?instance_var_id_start:int -><br>       <a href="Scope.html#TYPEt">Scope.t</a> -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> option -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> -><br>       (<a href="StateVar.html#TYPEt">StateVar.t</a> * <a href="Term.html#TYPEt">Term.t</a> list) list -><br>       <a href="StateVar.html#TYPEt">StateVar.t</a> list -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> list -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -><br>       <a href="Var.html#TYPEt">Var.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> -><br>       <a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -><br>       <a href="Var.html#TYPEt">Var.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> -><br>       (<a href="TransSys.html#TYPEt">t</a> * <a href="TransSys.html#TYPEinstance">instance</a> list) list -><br>       <a href="Property.html#TYPEt">Property.t</a> list -><br>       <a href="Term.html#TYPEt">Term.t</a> option * (<a href="Scope.html#TYPEt">Scope.t</a> * <a href="Term.html#TYPEt">Term.t</a>) list -><br>       (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list -><br>       (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list -> <a href="TransSys.html#TYPEt">t</a> * int</code></pre>
 <pre><span id="VALiter_subsystems"><span class="keyword">val</span> iter_subsystems</span> : <code class="type">?include_top:bool -> (<a href="TransSys.html#TYPEt">t</a> -> unit) -> <a href="TransSys.html#TYPEt">t</a> -> unit</code></pre><div class="info ">
 Iterate bottom-up over subsystems, including the top level system
     without repeating subsystems already seen 
@@ -572,7 +574,7 @@ Update current status of the property
 Mark current status of property<br>
 </div>
 
-<pre><span id="VALset_prop_invariant"><span class="keyword">val</span> set_prop_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> Certificate.t -> unit</code></pre><div class="info ">
+<pre><span id="VALset_prop_invariant"><span class="keyword">val</span> set_prop_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string -> <a href="Certificate.html#TYPEt">Certificate.t</a> -> unit</code></pre><div class="info ">
 Mark property as invariant<br>
 </div>
 
@@ -593,11 +595,11 @@ Return true if all properties which are not candidates are either valid or
 Add properties to the transition system<br>
 </div>
 
-<pre><span id="VALadd_invariant"><span class="keyword">val</span> add_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Term.html#TYPEt">Term.t</a> -> Certificate.t -> unit</code></pre><div class="info ">
+<pre><span id="VALadd_invariant"><span class="keyword">val</span> add_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> <a href="Term.html#TYPEt">Term.t</a> -> <a href="Certificate.html#TYPEt">Certificate.t</a> -> unit</code></pre><div class="info ">
 Add an invariant to the transition system<br>
 </div>
 
-<pre><span id="VALadd_scoped_invariant"><span class="keyword">val</span> add_scoped_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string list -> <a href="Term.html#TYPEt">Term.t</a> -> Certificate.t -> unit</code></pre><div class="info ">
+<pre><span id="VALadd_scoped_invariant"><span class="keyword">val</span> add_scoped_invariant</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> string list -> <a href="Term.html#TYPEt">Term.t</a> -> <a href="Certificate.html#TYPEt">Certificate.t</a> -> unit</code></pre><div class="info ">
 Add an invariant to the transition system<br>
 </div>
 
@@ -610,7 +612,7 @@ Instantiate invariants and valid properties to the bound and applies a
 function<br>
 </div>
 
-<pre><span id="VALget_invariants"><span class="keyword">val</span> get_invariants</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list</code></pre><div class="info ">
+<pre><span id="VALget_invariants"><span class="keyword">val</span> get_invariants</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -> (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list</code></pre><div class="info ">
 Return invariants with their certificates<br>
 </div>
 
@@ -635,7 +637,7 @@ Instantiate a term of a given scope from all instances of the
     clocked system instances.<br>
 </div>
 
-<pre><span id="VALinstantiate_term_cert_all_levels"><span class="keyword">val</span> instantiate_term_cert_all_levels</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -><br>       <a href="Numeral.html#TYPEt">Numeral.t</a> -><br>       <a href="Scope.html#TYPEt">Scope.t</a> -><br>       <a href="Term.html#TYPEt">Term.t</a> * Certificate.t -><br>       (<a href="TransSys.html#TYPEt">t</a> * (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list) *<br>       (<a href="TransSys.html#TYPEt">t</a> * (<a href="Term.html#TYPEt">Term.t</a> * Certificate.t) list) list</code></pre><div class="info ">
+<pre><span id="VALinstantiate_term_cert_all_levels"><span class="keyword">val</span> instantiate_term_cert_all_levels</span> : <code class="type"><a href="TransSys.html#TYPEt">t</a> -><br>       <a href="Numeral.html#TYPEt">Numeral.t</a> -><br>       <a href="Scope.html#TYPEt">Scope.t</a> -><br>       <a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a> -><br>       (<a href="TransSys.html#TYPEt">t</a> * (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list) *<br>       (<a href="TransSys.html#TYPEt">t</a> * (<a href="Term.html#TYPEt">Term.t</a> * <a href="Certificate.html#TYPEt">Certificate.t</a>) list) list</code></pre><div class="info ">
 Same as above but with certificates<br>
 </div>
 </body></html>

@@ -62,6 +62,7 @@
 <link title="LustreExpr" rel="Chapter" href="LustreExpr.html">
 <link title="LustreNode" rel="Chapter" href="LustreNode.html">
 <link title="LustreContext" rel="Chapter" href="LustreContext.html">
+<link title="LustreContract" rel="Chapter" href="LustreContract.html">
 <link title="LustreDeclarations" rel="Chapter" href="LustreDeclarations.html">
 <link title="LustreSimplify" rel="Chapter" href="LustreSimplify.html">
 <link title="LustreSlicing" rel="Chapter" href="LustreSlicing.html">
@@ -106,7 +107,8 @@
 <link title="TestgenSolver" rel="Chapter" href="TestgenSolver.html">
 <link title="TestgenStrategies" rel="Chapter" href="TestgenStrategies.html">
 <link title="TestgenTree" rel="Chapter" href="TestgenTree.html">
-<link title="TestgenLib" rel="Chapter" href="TestgenLib.html"><link title="Types and hash-consing" rel="Section" href="#1_Typesandhashconsing">
+<link title="TestgenLib" rel="Chapter" href="TestgenLib.html">
+<link title="Certificate" rel="Chapter" href="Certificate.html"><link title="Types and hash-consing" rel="Section" href="#1_Typesandhashconsing">
 <link title="Hashtables, maps and sets" rel="Section" href="#1_Hashtablesmapsandsets">
 <link title="Constructor" rel="Section" href="#1_Constructor">
 <link title="Accessor functions" rel="Section" href="#1_Accessorfunctions">
@@ -183,18 +185,17 @@ Map over state variables
 <h1 id="1_Constructor">Constructor</h1><br>
 
 <pre><span id="VALmk_state_var"><span class="keyword">val</span> mk_state_var</span> : <code class="type">?is_input:bool -><br>       ?is_const:bool -><br>       ?for_inv_gen:bool -> string -> string list -> <a href="Type.html#TYPEt">Type.t</a> -> <a href="StateVar.html#TYPEt">t</a></code></pre><div class="info ">
-<code class="code">mk_state_var n s t i</code> declares a state variable of name <code class="code">n</code> with
-    scope <code class="code">s</code>, and type <code class="code">t</code>. The optional labeled
-    arguments <code class="code">?is_input</code>, <code class="code">?is_const</code> and <code class="code">?for_inv_gen</code> flag the
-    variable as an input, as constant and as usable as a candidate for
-    invariant generation, respectively. Their defaults are <code class="code"><span class="keyword">false</span></code>,
-    <code class="code"><span class="keyword">false</span></code> and <code class="code"><span class="keyword">true</span></code>.
+<code class="code">mk_state_var n s t</code> declares a state variable of name <code class="code">n</code> with scope <code class="code">s</code>,
+    and type <code class="code">t</code>. The optional labeled arguments <code class="code">?is_input</code>, <code class="code">?is_const</code> and
+    <code class="code">?for_inv_gen</code> flag the variable as an input, as constant and as usable as
+    a candidate for invariant generation, respectively. Their defaults are
+    <code class="code"><span class="keyword">false</span></code>, <code class="code"><span class="keyword">false</span></code> and <code class="code"><span class="keyword">true</span></code>.
 <p>
 
-    Declaring a state variable again with the same signature is
-    harmless and will simply return the previously declared state
-    variable. However, re-declaring a state variable with a different
-    signature will raise an <code class="code"><span class="constructor">Invalid_argument</span></code> exception.<br>
+    Declaring a state variable again with the same signature is harmless and
+    will simply return the previously declared state variable. However,
+    re-declaring a state variable with a different signature will raise an
+    <code class="code"><span class="constructor">Invalid_argument</span></code> exception.<br>
 </div>
 
 <pre><span id="VALmk_init_flag"><span class="keyword">val</span> mk_init_flag</span> : <code class="type">string list -> <a href="StateVar.html#TYPEt">t</a></code></pre><div class="info ">
@@ -247,7 +248,8 @@ Return the uninterpreted function symbol of the variable<br>
 </div>
 
 <pre><span id="VALstate_var_of_uf_symbol"><span class="keyword">val</span> state_var_of_uf_symbol</span> : <code class="type"><a href="UfSymbol.html#TYPEt">UfSymbol.t</a> -> <a href="StateVar.html#TYPEt">t</a></code></pre><div class="info ">
-Return the uninterpreted function symbol of the variable<br>
+Return the state variable corresponding to an uninterpreted function
+symbol<br>
 </div>
 
 <pre><span id="VALis_input"><span class="keyword">val</span> is_input</span> : <code class="type"><a href="StateVar.html#TYPEt">t</a> -> bool</code></pre><div class="info ">
