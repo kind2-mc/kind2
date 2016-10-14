@@ -3,4 +3,5 @@ const a = 0 -> 1;
 node n (x: int) returns (b: bool);
 let
   b = true;
+  --%PROPERTY true -> a = 1;
 tel
