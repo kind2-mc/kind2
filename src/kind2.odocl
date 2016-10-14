@@ -48,6 +48,7 @@ LustreIndex
 LustreExpr
 LustreNode
 LustreContext
+LustreContract
 LustreDeclarations
 LustreSimplify
 LustreSlicing
