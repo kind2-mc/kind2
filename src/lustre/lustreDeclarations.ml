@@ -81,8 +81,8 @@ let eval_const_decl ?(ghost = false) ctx = function
         pos 
         (Format.asprintf 
            "Identifier %a is redeclared as constant" 
-           (I.pp_print_ident false) ident);
-
+           (I.pp_print_ident false) ident);      
+    
     (* Evaluate constant expression *)
     let res, _ = 
       S.eval_ast_expr
@@ -93,6 +93,16 @@ let eval_const_decl ?(ghost = false) ctx = function
         expr
     in
 
+    D.iter
+      (fun _ e ->
+         if not (E.is_const e) then
+           C.fail_at_position 
+             pos 
+             (Format.asprintf 
+                "Constant %a is defined with a non constant expression" 
+                (I.pp_print_ident false) ident);
+      ) res;
+    
     (* Distinguish typed and untyped constant here *)
     (match const_decl with 
 
