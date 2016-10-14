@@ -203,22 +203,74 @@
 )))))))))))
 
 
-;; ;; TODO
-;; ;; Compositional
+;; TODO
+;; Compositional
 
-;; (declare sys-approx (! I1 set (! T1 rel (! I2 set (! T2 rel type)))))
+(declare sys-approx (! I1 set (! T1 rel (! I2 set (! T2 rel type)))))
 
-;; (declare is-sys-approx
-;;    (! I1 set
-;;    (! T1 rel
-;;    (! I2 set
-;;    (! T2 rel
-;;    (! ui (! k mpz (th_holds (impl (I1 k) (I2 k))))
-;;    (! ui (! i mpz (! j mpz (th_holds (impl (T1 i j) (T2 i j))))
-;;             (sys-approx I1 T1 I2 T2)))))))))
+(declare impl-approx
+   (! I1 set
+   (! T1 rel
+   (! I2 set
+   (! T2 rel
+   (! ui (! k mpz (th_holds (impl (I1 k) (I2 k))))
+   (! ui (! i mpz (! j mpz (th_holds (impl (T1 i j) (T2 i j)))))
+            (sys-approx I1 T1 I2 T2))))))))
+
+(declare sys-approx-inv
+  (! I1 set
+  (! T1 rel
+  (! I2 set
+  (! T2 rel
+  (! P set
+  (! ua (sys-approx I1 T1 I2 T2)
+  (! up (invariant I2 T2 P)
+    (invariant I1 T1 P)))))))))
+  
+(declare contract type)
+
+(declare contract_ag (! Assume set (! Guarantee set (contract))))
+
+(declare respect_contract (! I set (! T rel (! C contract type))))
+
+(declare assume-guarantee
+  (! I set
+  (! T rel
+  (! A set
+  (! G set
+  (! ag (! ia (invariant I T A) (invariant I T G))
+  (respect_contract I T (contract_ag A G))))))))
 
 
-     
+(declare prop_to_contract
+  (! I set
+  (! T rel
+  (! P set
+  (! up (invariant I T P)
+    (respect_contract I T (contract_ag (\ _ true) P)))))))
+
+(declare contract_to_prop
+  (! I set
+  (! T rel
+  (! A set
+  (! G set
+  (! up (invariant 
+         (\ i (and (I i) (A i)))
+         (\ i (\ j (and (T i j) (A j))))
+         G)
+    (respect_contract I T (contract_ag A G))))))))
+
+
+(declare abstract_respect_contract
+  (! I set
+  (! T rel
+  (! A set
+  (! G set
+  (! ui (invariant A (\ _ A) G)
+    (respect_contract I T (contract_ag A G))))))))
+
+
+
 ;;-------------------------------------------------------------------------
 ;; Some tests
 
