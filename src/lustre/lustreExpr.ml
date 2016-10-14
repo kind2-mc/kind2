@@ -716,7 +716,7 @@ let is_const_expr expr =
 (* Return true if the expression is constant *)
 let is_const { expr_init; expr_step } = 
   is_const_expr expr_init && is_const_expr expr_step &&
-    Term.equal expr_init expr_step
+    Term.equal expr_init (Term.bump_state Numeral.(~- one) expr_step)
     
 
 (* ********************************************************************** *)
