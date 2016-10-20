@@ -359,15 +359,15 @@ guarantee true -> ( -- `m1`, `m2` and `m3` are exclusive.
 
 
 
-### Merge, When and Activate
+### Merge, When, Activate and Restart
 
 > **Disclaimer**: the first few examples of this section illustrating (unsafe)
 > uses of `when` and `activate` are **not legal** in Kind 2. They aim at
 > introducing the semantics of lustre clocks. As discussed below, they are only
 > legal when used inside a `merge`, hence making them safe clock-wise.
 >
-> Also, `activate` is actually not a legal Lustre v6 operator. It is however
-> legal in Scade 6.
+> Also, `activate` and `restart` are actually not a legal Lustre v6
+> operator. They are however legal in Scade 6.
 
 A `merge` is an operator combining several streams defined on **complementary**
 clocks. There is two ways to define a stream on a clock. First, by wrapping its
@@ -515,3 +515,50 @@ let
   ...
 tel
 ```
+
+Kind 2 supports resetting the internal state of a node to its initial state by
+using the construct restart/every. Writing
+
+```
+(restart n every c)(x1, ..., xn)
+```
+
+makes a call to the node `n` with arguments `x1`, ..., `xn` and every time the
+Boolean stream `c` is true, the internal state of the node is reset to its
+initial value.
+
+In the example below, the node `top` makes a call to `counter` (which is an
+integer counter _modulo_ a constant `max`) which is reset every time the input
+stream `reset` is true. 
+
+```
+node counter (const max: int) returns (t: int);
+let
+  t = 0 -> if pre t = max then 0 else pre t + 1;
+tel
+
+node top (reset: bool) returns (c: int);
+let
+  c = (restart counter every reset)(3);
+tel
+```
+
+A trace of execution for the node top could be:
+
+| step |   | `reset` | `c` |
+|:----:|---|:-------:|:---:|
+| 0    |   | `false` |   0 |
+| 1    |   | `false` |   1 |
+| 2    |   | `false` |   2 |
+| 3    |   | `false` |   3 |
+| 4    |   |  `true` |   0 |
+| 5    |   | `false` |   1 |
+| 6    |   | `false` |   2 |
+| 7    |   |  `true` |   0 |
+| 8    |   |  `true` |   0 |
+| 9    |   | `false` |   1 |
+
+> Remark: This construction can be encoded in traditional Lustre by having a
+> Boolean input for the reset stream for each node. However providing a
+> built-in  way to do it facilitates the modeling of complex control systems.
+
