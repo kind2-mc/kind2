@@ -277,6 +277,7 @@ let keyword_table = mk_hashtbl [
   ("initial", INITIAL) ;
   ("default", DEFAULT) ;
   ("every", EVERY) ;
+  ("restart", RESTART) ;
   ("merge", MERGE) ;
   
   (* Temporal operators *)

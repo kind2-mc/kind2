@@ -1402,9 +1402,9 @@ let same_args abstr_map (inputs, defs) (inputs', defs') =
   | _ -> false
 
 
-let rec add_to_callpos abstr_map acc pos clock args calls =
+let rec add_to_callpos abstr_map acc pos cond args calls =
   match calls with
-  | ((pos', nb', clock', args') as x) :: r ->
+  | ((pos', nb', cond', args') as x) :: r ->
     let c_pos = Lib.compare_pos pos pos' in
 
     if c_pos = 0 then raise Exit; (* already in there, abort *)
@@ -1413,29 +1413,29 @@ let rec add_to_callpos abstr_map acc pos clock args calls =
       (* calls with same arguments but at different positions *)
       (* insert in between with the same number, don't shift anything *)
       if c_pos > 0 then
-        List.rev_append acc (x :: (pos, nb', clock, args) :: r)
+        List.rev_append acc (x :: (pos, nb', cond, args) :: r)
       else
-        List.rev_append acc ((pos, nb', clock, args) :: calls)
+        List.rev_append acc ((pos, nb', cond, args) :: calls)
           
     else if c_pos > 0 then
       (* continue to look *)
-      add_to_callpos abstr_map (x :: acc) pos clock args r
+      add_to_callpos abstr_map (x :: acc) pos cond args r
 
     else (* c_pos < 0 *)
       (* insert in between and shift the ones on the right *)
       List.rev_append acc
-        ((pos, nb', clock, args) ::
+        ((pos, nb', cond, args) ::
          (List.map (fun (p, n, c, a) -> (p, n+1, c, a)) calls))
 
   | [] ->
     (* last one or only one *)
     let nb = match acc with [] -> 0 | (_, n, _, _) :: _ -> n+1 in
-    List.rev ((pos, nb, clock, args) :: acc)
+    List.rev ((pos, nb, cond, args) :: acc)
 
 
 
-let register_callpos_for_nb abstr_map hc lid parents pos clock args =
-  let is_condact = clock <> None in
+let register_callpos_for_nb abstr_map hc lid parents pos cond args =
+  let is_condact = match cond with | N.CActivate _ -> true | _ -> false in
   let cat =
     try Hashtbl.find hc (lid, is_condact)
     with Not_found ->
@@ -1445,7 +1445,7 @@ let register_callpos_for_nb abstr_map hc lid parents pos clock args =
   in
   let calls = try Hashtbl.find cat parents with Not_found -> [] in
   try
-    let new_calls = add_to_callpos abstr_map [] pos clock args calls in
+    let new_calls = add_to_callpos abstr_map [] pos cond args calls in
     Hashtbl.replace cat parents new_calls
   with Exit -> () (* already in there *)
 
@@ -1463,7 +1463,7 @@ let pos_to_numbers abstr_map nodes =
 
     List.iter
       (fun ({ N.call_node_name = lid;
-             call_pos = pos; call_clock = clock;
+             call_pos = pos; call_cond = cond;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
         (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
@@ -1475,7 +1475,7 @@ let pos_to_numbers abstr_map nodes =
         (* ; *)
         
         register_callpos_for_nb
-          abstr_map hc lid parents pos clock (inputs, defs);
+          abstr_map hc lid parents pos cond (inputs, defs);
 
         fold (call :: parents) (node_by_lid lid)
 
@@ -1486,7 +1486,7 @@ let pos_to_numbers abstr_map nodes =
   
   hc
 
-exception Found of int * StateVar.t option
+exception Found of int * N.call_cond
 
 let get_pos_number hc lid pos =
   (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
@@ -1516,8 +1516,8 @@ let rec get_instances acc hc parents sv =
   | insts ->
     List.fold_left (fun acc (pos, lid, lsv) ->
         try
-          let nb, clock = get_pos_number hc lid pos in
-          get_instances acc hc ((lid, nb, clock) :: parents) lsv
+          let nb, cond = get_pos_number hc lid pos in
+          get_instances acc hc ((lid, nb, cond) :: parents) lsv
         with Not_found ->
           (* was removed by slicing, ingore this instance *)
           acc

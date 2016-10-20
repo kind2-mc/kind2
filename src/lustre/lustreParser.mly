@@ -149,6 +149,7 @@ let mk_pos = position_of_lexing
 %token INITIAL
 %token DEFAULT
 %token EVERY
+%token RESTART
 %token MERGE
     
 (* Tokens for temporal operators *)
@@ -764,6 +765,20 @@ expr:
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
     { A.Activate (mk_pos $startpos, s, c, a) }
+
+  (* restart node call *)
+  (*| RESTART; s = ident;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN;
+    EVERY; c = expr
+
+    { A.RestartEvery (mk_pos $startpos, s, a, c) }
+   *)
+    
+  (* alternative syntax for restart node call *)
+  | LPAREN; RESTART; s = ident; EVERY; c = expr; RPAREN; 
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { A.RestartEvery (mk_pos $startpos, s, a, c) }
     
   (* Merge operator *)
   | MERGE; 

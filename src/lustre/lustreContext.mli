@@ -228,15 +228,15 @@ val function_of_name : t -> LustreIdent.t -> LustreFunction.t
     with the same input parameters and activation condition is in the
     context.
 
-    [call_outputs_of_node_call c n a i d] compares all node calls in
-    context [c] if the identifier of the node matches [n], the
-    activation condition matches [a], all input variables are idential
-    to [a], and all default values are identical to [d]. It returns
-    [None] if no such call was found, and its output variables
-    otherwise. *)
+    [call_outputs_of_node_call c n ar i d] compares all node calls in context
+    [c] if the identifier of the node matches [n], the activation or restart
+    condition matches [ar] all input variables are idential to [a], and all
+    default values are identical to [d]. It returns [None] if no such call was
+    found, and its output variables otherwise. *)
 val call_outputs_of_node_call :
-  t -> LustreIdent.t -> StateVar.t option -> StateVar.t LustreIndex.t ->
-  LustreExpr.t LustreIndex.t option -> StateVar.t LustreIndex.t option
+  t -> LustreIdent.t -> LustreNode.call_cond ->
+  StateVar.t LustreIndex.t -> LustreExpr.t LustreIndex.t option ->
+  StateVar.t LustreIndex.t option
 
 (** Add node input to context *)
 val add_node_input :

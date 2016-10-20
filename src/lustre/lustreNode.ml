@@ -83,6 +83,10 @@ type state_var_source =
   (* Oracle input stream *)
   | Oracle
 
+type call_cond =
+  | CNone
+  | CActivate of StateVar.t
+  | CRestart of StateVar.t
 
 (* A call of a node *)
 type node_call = {
@@ -92,10 +96,10 @@ type node_call = {
 
   (* Name of called node *)
   call_node_name : I.t;
-  
-  (* Boolean activation condition *)
-  call_clock : StateVar.t option;
-
+    
+  (* Boolean activation or restart condition if any *)
+  call_cond : call_cond;
+ 
   (* Variables for input parameters *)
   call_inputs : StateVar.t D.t;
 
@@ -314,7 +318,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_node_name; 
-      call_clock = None; 
+      call_cond = CNone;
       call_inputs; 
       call_oracles; 
       call_outputs } ->
@@ -330,14 +334,33 @@ let pp_print_call safe ppf = function
       (D.values call_inputs @ 
        call_oracles)
 
+  (* Node call on the base clock with restart *)
+  | { call_node_name; 
+      call_cond = CRestart restart_var;
+      call_inputs; 
+      call_oracles; 
+      call_outputs } ->
+
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>restart %a@,(%a)@ every@ %a;@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs)
+      (I.pp_print_ident safe) call_node_name
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
+      (D.values call_inputs @ 
+       call_oracles)
+      (E.pp_print_lustre_var safe) restart_var
+
   (* Node call not on the base clock is a condact *)
-  |  { call_node_name; 
-       call_clock = Some call_clock_var;
-       call_inputs; 
-       call_oracles; 
-       call_outputs; 
-       call_defaults = Some call_defaults } ->
-     
+  | { call_node_name; 
+      call_cond = CActivate call_clock_var;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = Some call_defaults } ->
+    
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>condact(@,%a,@,%a(%a)%t);@]@]"
       (pp_print_list 
@@ -364,13 +387,13 @@ let pp_print_call safe ppf = function
                l)
           
   (* Node call not on the base clock without defaults *)
-  |  { call_node_name; 
-       call_clock = Some call_clock_var;
-       call_inputs; 
-       call_oracles; 
-       call_outputs; 
-       call_defaults = None } ->
-     
+  | { call_node_name; 
+      call_cond = CActivate call_clock_var;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = None } ->
+
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>(activate@ %a@ every@ %a)@,(%a);@]@]"
       (pp_print_list 
@@ -384,7 +407,7 @@ let pp_print_call safe ppf = function
          (fun (_, sv) -> sv)
          (D.bindings call_inputs) @ 
        call_oracles)
-          
+
 
 (* Pretty-print a function call *)
 let pp_print_function_call safe ppf = function 
@@ -560,22 +583,29 @@ let pp_print_state_var_trie_debug ppf t =
     ";@ "
     ppf
 
+let pp_print_cond ppf = function
+  | CNone -> Format.pp_print_string ppf "None"
+  | CActivate c ->
+    Format.fprintf ppf "activate on %a" StateVar.pp_print_state_var c
+  | CRestart r ->
+    Format.fprintf ppf "restart on %a" StateVar.pp_print_state_var r
+
 let pp_print_node_call_debug 
     ppf
     { call_node_name; 
-      call_clock; 
+      call_cond; 
       call_inputs; 
       call_oracles; 
       call_outputs } =
 
   Format.fprintf
     ppf
-    "call %a { @[<hv>clock    = %a;@ \
+    "call %a { @[<hv>cond     = %a;@ \
                      inputs   = [@[<hv>%a@]];@ \
                      oracles  = [@[<hv>%a@]];@ \
                      outputs  = [@[<hv>%a@]]; }@]"
     (I.pp_print_ident false) call_node_name
-    (pp_print_option StateVar.pp_print_state_var) call_clock
+    pp_print_cond call_cond
     pp_print_state_var_trie_debug call_inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") call_oracles
     pp_print_state_var_trie_debug call_outputs
@@ -1249,15 +1279,21 @@ let stateful_vars_of_node
     List.fold_left
       (fun
         accum
-        { call_clock; 
+        { call_cond;
           call_inputs; 
           call_oracles;
           call_outputs; 
           call_defaults } -> 
 
-        (SVS.union 
-
-           (* Add stateful variables from initial defaults *)
+        (* Input and output variables are always stateful *)
+        ((D.values call_inputs) @ 
+         call_oracles @
+         (D.values call_outputs))
+        
+        |> SVS.of_list
+        
+        (* Add stateful variables from initial defaults *)
+        |> SVS.union 
            (match call_defaults with 
              | None -> accum
              | Some d ->
@@ -1266,21 +1302,16 @@ let stateful_vars_of_node
                     SVS.union accum (stateful_vars_of_expr expr))
                  accum
                  (D.values d))
-              
-           (* Input and output variables are always stateful *)
-           (add_to_svs
 
-              (* Variables in activation condition are always stateful *)
-              (match call_clock with
-               | Some var -> SVS.singleton var
-               | None -> SVS.empty)
-
-              (* Input and output variables are always stateful *)
-              ((D.values call_inputs) @ 
-               call_oracles @
-               (D.values call_outputs)))))
-      stateful_vars
-      calls
+        (* Variables in activation and restart conditions are always
+           stateful *)
+        |> SVS.union
+          (match call_cond with
+           | CNone -> SVS.empty
+           | CActivate cv -> SVS.singleton cv
+           | CRestart rv -> SVS.singleton rv)
+       
+      ) stateful_vars calls
   in
 
   stateful_vars

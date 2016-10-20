@@ -49,6 +49,12 @@ open Lib
 
 (** {1 Types} *)
 
+(** Call condition: activate or restart *)
+type call_cond =
+  | CNone
+  | CActivate of StateVar.t
+  | CRestart of StateVar.t
+
 (** A call to a node 
 
     Calls are uniquely identified by the position, no two calls may
@@ -62,8 +68,8 @@ type node_call = {
   call_node_name : LustreIdent.t;
   (** Identifier of the called node *)
   
-  call_clock : StateVar.t option;
-  (** Boolean activation condition if any *)
+  call_cond : call_cond;
+  (** Boolean activation or restart condition if any *)
 
   call_inputs : StateVar.t LustreIndex.t;
   (** Variables for actual input parameters 

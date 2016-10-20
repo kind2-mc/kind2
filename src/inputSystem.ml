@@ -19,14 +19,14 @@
 open Lib
 
 module S = SubSystem
-module Lus = LustreNode
+module N = LustreNode
 
 module SVar = StateVar
 
 module SVM = SVar.StateVarMap
 
 type _ t =
-| Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
+| Lustre : (N.t S.t * LustreGlobals.t) -> N.t t
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
@@ -127,17 +127,17 @@ let next_analysis_of_strategy (type s)
 
   | Lustre (subsystem, globals) -> (fun results -> 
       (* let nodes = 
-         LustreNode.nodes_of_subsystem subsystem
+         N.nodes_of_subsystem subsystem
          in
 
          assert (nodes <> []) ;
 
          Some {
-         Analysis.top = List.hd nodes |> LustreNode.scope_of_node ;
+         Analysis.top = List.hd nodes |> N.scope_of_node ;
 
          Analysis.abstraction_map =
           nodes |> List.fold_left (fun m n ->
-            Scope.Map.add (LustreNode.scope_of_node n) false m
+            Scope.Map.add (N.scope_of_node n) false m
           ) Scope.Map.empty ;
 
          Analysis.assumptions = []
@@ -265,27 +265,27 @@ let slice_to_abstraction_and_property
     | Lustre (subsystem, globals) -> (fun scope { TransSys.pos } cex v -> 
           
       (* Get node cals in subsystem of scope. *)
-      let { S.source = { LustreNode.calls } } = 
+      let { S.source = { N.calls } } = 
         S.find_subsystem subsystem scope 
       in
     
       (* Get clock of node call identified by its position. *)
-      let { LustreNode.call_clock } = 
+      let { N.call_cond } = 
         List.find (fun {
-            LustreNode.call_node_name; LustreNode.call_pos
+            N.call_node_name; N.call_pos
           } -> call_pos = pos
         ) calls
       in
 
       (* Node call has an activation condition? *)
-      match call_clock with 
+      match call_cond with 
 
         (* Keep all instants for node calls without activation
            condition. *)
-        | None -> v
+        | N.CNone | N.CRestart _ -> v
 
         (* State variable for activation condition. *)
-        | Some clock_state_var -> 
+        | N.CActivate clock_state_var -> 
 
           (* Get values of activation condition from model. *)
           let clock_values = List.assq clock_state_var cex in
@@ -400,7 +400,7 @@ fun sys top_scope target ->
   | Horn _ ->
     failwith "can't compile from horn clause input: unsupported"
 
-let contract_gen_param (type s): s t -> (Analysis.param * (Scope.t -> LustreNode.t)) =
+let contract_gen_param (type s): s t -> (Analysis.param * (Scope.t -> N.t)) =
 fun sys ->
   match sys with
   | Lustre(sub, _) -> (
@@ -429,9 +429,9 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
     (* Format.printf "contract gen: %d subsystems@.@." (List.length subsystems) ; *)
 
     (* Adds the outputs of a node as dummy properties to the node. *)
-    let augment_node ( { Lus.outputs ; Lus.props } as node ) =
+    let augment_node ( { N.outputs ; N.props } as node ) =
       { node
-        with Lus.props =
+        with N.props =
           LustreIndex.values outputs
           |> List.map (
             fun svar ->
@@ -449,7 +449,7 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
         S.source = augment_node source ;
         S.subsystems = subsystems |> List.fold_left (
           fun acc ( {
-            S.source = ( { Lus.name ; Lus.outputs ; Lus.props } as node )
+            S.source = ( { N.name ; N.outputs ; N.props } as node )
           } as sys ) ->
             (* Format.printf "%a@." (LustreIdent.pp_print_ident false) name ; *)
             let node = augment_node node in

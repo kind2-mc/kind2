@@ -109,17 +109,18 @@ let rec lookup_fuzzy str scope =
 
 let build_call_base kind_sv base_li parents =
   
-  let strs, _ = List.fold_left (fun (acc, prev_clocked) (ni, n, clock) ->
+  let strs, _ = List.fold_left (fun (acc, prev_clocked) (ni, n, cond) ->
 
       let bni = List.hd (LustreIdent.to_scope ni) in
 
-      let jcall_name = match clock, prev_clocked with
-        | None, false -> bni ^"~"^ (string_of_int n)
-        | None, true -> bni ^"~clocked~"^ (string_of_int n)
-        | Some _, _ -> bni ^"~condact~"^ (string_of_int n)
+      (* TODO check if JKind supports restart/reset calls *)
+      let jcall_name = match cond, prev_clocked with
+        | LustreNode.CActivate _, _ -> bni ^"~condact~"^ (string_of_int n)
+        | _, false -> bni ^"~"^ (string_of_int n)
+        | _, true -> bni ^"~clocked~"^ (string_of_int n)
       in
 
-      jcall_name :: acc, (prev_clocked || clock <> None)
+      jcall_name :: acc, (prev_clocked || cond <> LustreNode.CNone)
     ) ([], false) parents
   in
 
@@ -140,20 +141,22 @@ let build_call_base kind_sv base_li parents =
 let jkind_var_of_lustre sys kind_sv (li, parents) =
 
   let base_li = match parents, List.rev parents with
-    | _, (_, _, Some clock) :: _ when StateVar.equal_state_vars li clock ->
+    | _, (_, _, LustreNode.CActivate clock) :: _
+      when StateVar.equal_state_vars li clock ->
       (* the var is the clock, always named ~clock in JKind *)
       "~clock"
 
-    | _, (_, _, Some clock) :: _ when (* is_first_tick kind_sv || *) is_init sys li ->
+    | _, (_, _, LustreNode.CActivate clock) :: _
+      when (* is_first_tick kind_sv || *) is_init sys li ->
       (* init variable *)
       "~init"
 
-    | (_, _, Some _) :: _, _
+    | (_, _, LustreNode.CActivate _) :: _, _
       when not (StateVar.is_input li) && is_property sys kind_sv ->
       (* clocked property variable *)
       (StateVar.name_of_state_var li) ^"~clocked_property"
 
-    | (_, _, Some _) :: _, _ when not (StateVar.is_input li) ->
+    | (_, _, LustreNode.CActivate  _) :: _, _ when not (StateVar.is_input li) ->
       (* other clocked variable *)
       (StateVar.name_of_state_var li) ^"~clocked"
 
@@ -172,7 +175,8 @@ let match_condact_clock lustre_vars sv =
     SVMap.fold (fun _ l acc ->
         List.fold_left (fun acc (_, call_chain) ->
             match List.rev call_chain with
-            | (_, _, Some clock) :: _ when StateVar.equal_state_vars sv clock ->
+            | (_, _, LustreNode.CActivate clock) :: _
+              when StateVar.equal_state_vars sv clock ->
               let cl = (sv, "~clock", call_chain) in
               if List.mem cl acc then acc else cl :: acc
             | _ -> acc
