@@ -169,23 +169,26 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     | [] -> `Model accum
 
     | e :: tl -> 
-
-      (debug smtexpr
+      try
+        (debug smtexpr
           "get_model_response_of_sexpr: %a"
           HStringSExpr.pp_print_sexpr e
-       in
+         in
 
-       (* Get name of variable and its assignment *)
-       let s, t_or_l = expr_or_lambda_of_string_sexpr e in
+         (* Get name of variable and its assignment *)
+         let s, t_or_l = expr_or_lambda_of_string_sexpr e in
 
-       (* Get uninterpreted function symbol by name *)
-       let u =
-         UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
-       in
+         (* Get uninterpreted function symbol by name *)
+         let u =
+           UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
+         in
+       
+         (* Continue with next model assignment *)
+         get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl)
 
-       (* Continue with next model assignment *)
-       get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl)
-
+      with Not_found ->
+         (* ignore unknown symbols introduced by smt solver *)
+         get_model_response_of_sexpr' accum tl
 
   (* Return a solver response to a get-value command as expression pairs *)
   let get_value_response_of_sexpr = function 
