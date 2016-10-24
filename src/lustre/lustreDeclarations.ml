@@ -1319,7 +1319,7 @@ let rec eval_node_contract_call known ctx scope (
   (* Add substitution from formal inputs to actual one before we evaluate
      everything. *)
   let ctx = try
-      List.fold_left2 (
+    List.fold_left2 (
         fun ctx expr (_, in_id, typ, _, _) ->
           let expr, ctx = S.eval_ast_expr ctx expr in
 
@@ -1386,7 +1386,7 @@ let rec eval_node_contract_call known ctx scope (
           C.add_expr_for_ident
             ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
 
-      ) ctx in_params in_formals
+    ) ctx in_params in_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
         Format.asprintf
@@ -1438,6 +1438,31 @@ let rec eval_node_contract_call known ctx scope (
           (List.length in_params)
       )
   in
+
+  (* If node's actually a function, check that contract is not stateful. *)
+  Format.printf "current_node: %a@.@."
+    (I.pp_print_ident false) (
+      match C.current_node_name ctx with
+      | Some id -> id
+      | None -> assert false
+    ) ;
+  ( if C.get_node_function_flag ctx then (
+    Format.printf "checking contract %s@.@." id ;
+    match A.contract_has_pre_or_arrow contract with
+    | Some _ -> C.fail_at_position call_pos (
+      Format.asprintf
+        "@[<v>in contract of function %a@ \
+        illegal import of stateful contract %s@ \
+        functions can only be specified by stateless contracts@]"
+        (I.pp_print_ident false) (
+          match C.current_node_name ctx with
+          | Some id -> id
+          | None -> assert false
+        )
+        id
+    )
+    | None -> ()
+  ) ) ;
 
   (* Evaluate node as usual, it will merge with the current contract. *)
   let ctx = eval_node_contract_spec known ctx call_pos svar_scope contract in
@@ -1794,19 +1819,69 @@ let declaration_to_context ctx = function
       (I.pp_print_ident false) ident
   ) ;
 
-  (* Create separate context for function *)
-  let node_ctx = C.create_node ctx ident in
-  (* Mark node as function. *)
-  let ctx = C.set_node_function ctx in
-
-  (* Evaluate function declaration in separate context *)
-  let node_ctx = 
-    eval_node_decl
-      node_ctx pos inputs outputs locals equations contracts
+  let pre_or_arrow_fail desc = function
+    | Some illegal_pos -> C.fail_at_position pos (
+      Format.asprintf
+        "@[<v>in declaration of function %a:@ \
+        in %s at %a:@ \
+        illegal pre or arrow in function declaration@ \
+        functions cannot have any state@]"
+        (I.pp_print_ident false) ident
+        desc
+        pp_print_position illegal_pos
+    )
+    | None -> ()
   in
 
+  (* No pre or arrow in locals, equations or contracts. *)
+  ( locals
+    |> List.iter (
+      fun decl ->
+        A.node_local_decl_has_pre_or_arrow decl
+        |> pre_or_arrow_fail "local declaration"
+    ) ;
+    equations
+    |> List.iter (
+      fun equation ->
+        A.node_equation_has_pre_or_arrow equation
+        |> pre_or_arrow_fail "equation"
+    ) ;
+    match contracts with
+    | Some contract ->
+      A.contract_has_pre_or_arrow contract
+      |> pre_or_arrow_fail "contract item"
+    | None -> ()
+  ) ;
+
+  (* Create separate context for function *)
+  let fun_ctx = C.create_node ctx ident in
+  (* Mark node as function. *)
+  let fun_ctx = C.set_node_function fun_ctx in
+
+  (* Evaluate function declaration in separate context *)
+  let fun_ctx = 
+    eval_node_decl
+      fun_ctx pos inputs outputs locals equations contracts
+  in
+
+  (* Check that all there's no (non-function) node call. *)
+  ( C.current_node_calls fun_ctx
+    |> List.iter (
+      fun { N.call_pos ; N.call_node_name } ->
+        let node = C.node_of_name fun_ctx call_node_name in
+        if not node.N.is_function then C.fail_at_position call_pos (
+          Format.asprintf
+            "@[<v>in function %a@ \
+            illegal call to node %a@ \
+            functions can only call other functions, not nodes@]"
+            (I.pp_print_ident false) ident
+            (I.pp_print_ident false) call_node_name
+        )
+    )
+  ) ;
+
   (* Add function to context *)
-  C.add_node_to_context ctx node_ctx
+  C.add_node_to_context ctx fun_ctx
 )
 
 (* Node declaration without parameters *)

@@ -170,7 +170,8 @@ let guard_flag ctx = ctx.guard_pre
 
 (* Raise parsing exception *)
 let fail_at_position pos msg = 
-  Log.log L_error "Parser error at %a: %s" Lib.pp_print_position pos msg;
+  Log.log L_error "Parser error at %a: @[<v>%s@]"
+    Lib.pp_print_position pos msg;
   raise A.Parser_error
   
 
@@ -312,6 +313,11 @@ let current_node_modes = function
 let current_node_name = function
 | { node = Some { N.name } } -> Some name
 | { node = None } -> None
+
+(** Returns the calls made by the current node, if any. *)
+let current_node_calls = function
+| { node = Some { N.calls } } -> calls
+| { node = None } -> raise (Invalid_argument "current_node_calls")
 
 
 (* Create an empty function in the context *)
@@ -1868,6 +1874,11 @@ let set_node_function ctx = match ctx with
 | { node = None } -> raise (Invalid_argument "set_node_function")
 | { node = Some node } ->
   { ctx with node = Some { node with N.is_function = true } }
+
+(** Checks if the current node, if any, is a function. *)
+let get_node_function_flag ctx = match ctx with
+| { node = None } -> raise (Invalid_argument "get_node_function_flag")
+| { node = Some { N.is_function } } -> is_function
 
 
 

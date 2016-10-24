@@ -79,6 +79,9 @@ val create_node : t -> LustreIdent.t -> t
 (** Returns the name of the current node, if any. *)
 val current_node_name : t -> LustreIdent.t option
 
+(** Returns the calls made by the current node, if any. *)
+val current_node_calls : t -> LustreNode.node_call list
+
 (** Returns the modes of the current node. *)
 val current_node_modes : t -> LustreContract.mode list option option
 
@@ -281,6 +284,9 @@ val set_node_main : t -> t
 
 (** Mark node as function *)
 val set_node_function : t -> t
+
+(** Checks if the current node, if any, is a function. *)
+val get_node_function_flag : t -> bool
 
 (** Replace unguarded pre operators with oracle constants and return
     expression and modified context. 

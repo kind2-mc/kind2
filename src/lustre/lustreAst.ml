@@ -1143,9 +1143,21 @@ let has_unguarded_pre e =
   if u && Flags.lus_strict () then raise Parser_error;
   u
 
+(** If second argument is `Some _`, returns that. Otherwise runs `f`. *)
+let unwrap_or f = function
+| None -> f ()
+| res -> res
 
+(** If input list contains `Some _`, returns that. Otherwise returns `None`. *)
+let some_of_list = List.fold_left (
+  function
+  | None -> Lib.identity
+  | res -> (fun _ -> res)
+) None
+
+(** Checks whether an expression has a `pre` or a `->`. *)
 let rec has_pre_or_arrow = function
-  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> None
     
   | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
   | Not (_, e) | Uminus (_, e) | Current (_, e) -> has_pre_or_arrow e
@@ -1155,50 +1167,142 @@ let rec has_pre_or_arrow = function
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
   | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | When (_, e1, e2) | ArrayConcat (_, e1, e2) ->
-    if has_pre_or_arrow e1 then true else has_pre_or_arrow e2
+  | When (_, e1, e2) | ArrayConcat (_, e1, e2) -> (
+    match has_pre_or_arrow e1 with
+    | None -> has_pre_or_arrow e2
+    | res -> res
+  )
 
   | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
   | ArraySlice (_, e1, (e2, e3)) ->
-    if has_pre_or_arrow e1 then true
-    else if has_pre_or_arrow e2 then true
-    else has_pre_or_arrow e3
+    has_pre_or_arrow e1
+    |> unwrap_or (
+      fun _ ->
+        has_pre_or_arrow e2
+        |> unwrap_or (
+          fun _ -> has_pre_or_arrow e3
+        )
+    )
   
   | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
   | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
     List.map has_pre_or_arrow l
-    |> List.exists Lib.identity
+    |> some_of_list
 
   | Activate (_, _, e, l) | Merge (_, e, l) ->
     List.map has_pre_or_arrow (e :: l)
-    |> List.exists Lib.identity
+    |> some_of_list
 
   | Condact (_, e, _, l1, l2) ->
     List.map has_pre_or_arrow (e :: l1 @ l2)
-    |> List.exists Lib.identity
+    |> some_of_list
 
   | RecordExpr (_, _, ie) ->
     List.map (fun (_, e) -> has_pre_or_arrow e) ie
-    |> List.exists Lib.identity
+    |> some_of_list
 
   | StructUpdate (_, e1, li, e2) ->
-    if has_pre_or_arrow e1 then true
-    else if has_pre_or_arrow e2 then true
-    else (
-      List.map (function
-        | Label _ -> false
-        | Index (_, e) -> has_pre_or_arrow e
-      ) li
-      |> List.exists Lib.identity
+    has_pre_or_arrow e1
+    |> unwrap_or (
+      fun _ ->
+        has_pre_or_arrow e2
+        |> unwrap_or (
+          fun _ ->
+            List.map (function
+              | Label _ -> None
+              | Index (_, e) -> has_pre_or_arrow e
+            ) li
+            |> some_of_list
+        )
     )
 
   | Fby (_, e1, _, e2) ->
-    if has_pre_or_arrow e1 then true else has_pre_or_arrow e2
+    has_pre_or_arrow e1
+    |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
-  | Pre (_, e) -> true
+  | Pre (pos, e) -> Some pos
 
-  | Arrow (_, e1, e2) -> true
-      
+  | Arrow (pos, e1, e2) -> Some pos
+
+(** Checks whether a struct item has a `pre` or a `->`. *)
+let rec struct_item_has_pre_or_arrow = function
+| SingleIdent _
+| FieldSelection _ -> None
+| TupleStructItem (_, l) ->
+  List.map struct_item_has_pre_or_arrow l
+  |> some_of_list
+| ArraySliceStructItem (_, _, l) ->
+  List.map (
+    fun (e1, e2) ->
+      has_pre_or_arrow e1
+      |> unwrap_or (fun _ -> has_pre_or_arrow e2)
+  ) l
+  |> some_of_list
+| TupleSelection (_, _, e) -> has_pre_or_arrow e
+
+(** Checks whether a constant declaration has a `pre` or a `->`. *)
+let const_decl_has_pre_or_arrow = function
+| FreeConst _ -> None
+| UntypedConst (_, _, e) -> has_pre_or_arrow e
+| TypedConst (_, _, e, _) -> has_pre_or_arrow e
+
+
+
+(** Checks whether a node local declaration has a `pre` or a `->`. *)
+let node_local_decl_has_pre_or_arrow = function
+| NodeConstDecl (_, decl) -> const_decl_has_pre_or_arrow decl
+| NodeVarDecl _ -> None
+
+
+(** Checks whether an equation lhs has a `pre` or a `->`. *)
+let eq_lhs_has_pre_or_arrow = function
+| ArrayDef _ -> None
+| StructDef (_, l) ->
+  List.map struct_item_has_pre_or_arrow l
+  |> some_of_list
+
+(** Checks whether a node equation has a `pre` or a `->`. *)
+let node_equation_has_pre_or_arrow = function
+| Assert (_, e) -> has_pre_or_arrow e
+| Equation (_, lhs, e) ->
+  eq_lhs_has_pre_or_arrow lhs
+  |> unwrap_or (fun _ -> has_pre_or_arrow e)
+| AnnotMain _ -> None
+| AnnotProperty (_, _, e) -> has_pre_or_arrow e
+
+(** Checks whether a contract node equation has a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+let contract_node_equation_has_pre_or_arrow = function
+| GhostConst decl
+| GhostVar decl -> const_decl_has_pre_or_arrow decl
+| Assume (_, _, e)
+| Guarantee (_, _, e) -> has_pre_or_arrow e
+| Mode (_, _, reqs, enss) ->
+  List.map (fun (_, _, e) -> has_pre_or_arrow e) reqs
+  |> some_of_list
+  |> unwrap_or (
+    fun _ ->
+      List.map (fun (_, _, e) -> has_pre_or_arrow e) enss
+      |> some_of_list
+  )
+| ContractCall (_, _, ins, outs) ->
+  List.map has_pre_or_arrow ins
+  |> some_of_list
+  |> unwrap_or (
+    fun _ ->
+      List.map has_pre_or_arrow outs
+      |> some_of_list
+  )
+
+(** Checks whether a contract has a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+let contract_has_pre_or_arrow l =
+  List.map contract_node_equation_has_pre_or_arrow l
+  |> some_of_list
 
 
 (* 

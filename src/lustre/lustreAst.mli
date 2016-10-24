@@ -142,7 +142,7 @@ type const_clocked_typed_decl = position * ident * lustre_type * clock_expr * bo
 
 (** A constant declaration *)
 type const_decl =
-    FreeConst of position * ident * lustre_type
+  | FreeConst of position * ident * lustre_type
   | UntypedConst of position * ident * expr
   | TypedConst of position * ident * expr * lustre_type
 
@@ -308,7 +308,20 @@ val pos_of_expr : expr -> Lib.position
 val has_unguarded_pre : expr -> bool
 
 (** Returns true if the expression has a `pre` or a `->`. *)
-val has_pre_or_arrow : expr -> bool
+val has_pre_or_arrow : expr -> Lib.position option
+
+(** Returns true iff a contract mentions a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+val contract_has_pre_or_arrow : contract -> Lib.position option
+
+(** Checks whether a node local declaration has a `pre` or a `->`. *)
+val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
+
+(** Checks whether a node equation has a `pre` or a `->`. *)
+val node_equation_has_pre_or_arrow : node_equation -> Lib.position option
+
 
 (* 
    Local Variables:
