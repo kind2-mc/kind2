@@ -279,6 +279,9 @@ val add_node_call : t -> Lib.position -> LustreNode.node_call -> t
 (** Mark node as main *)
 val set_node_main : t -> t
 
+(** Mark node as function *)
+val set_node_function : t -> t
+
 (** Replace unguarded pre operators with oracle constants and return
     expression and modified context. 
 

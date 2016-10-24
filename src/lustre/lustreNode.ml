@@ -58,7 +58,7 @@ module ET = LustreExpr.LustreExprHashtbl
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
   List.fold_left (fun a e -> SVS.add e a) set list 
-  
+
 
 (* Bound for index variable, or fixed value for index variable *)
 type 'a bound_or_fixed = 
@@ -194,6 +194,9 @@ type t = {
   (* Node is annotated as main node *)
   is_main : bool ;
 
+  (* Node is actually a function. *)
+  is_function: bool ;
+
   (* Map from a state variable to its source *)
   state_var_source_map : state_var_source SVM.t;
 
@@ -229,6 +232,7 @@ let empty_node name = {
   props = [];
   contract = None ;
   is_main = false;
+  is_function = false ;
   state_var_source_map = SVM.empty;
   oracle_state_var_map = SVT.create 17;
   state_var_expr_map = SVT.create 17;
@@ -467,7 +471,8 @@ let pp_print_node safe ppf {
   asserts; 
   props;
   contract;
-  is_main
+  is_main ;
+  is_function ;
 } =
 
   (* Output a space if list is not empty *)
@@ -477,7 +482,7 @@ let pp_print_node safe ppf {
   in
 
   Format.fprintf ppf 
-    "@[<v>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
+    "@[<v>@[<hv 2>%s %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
      %a\
      @[<v>%t@]\
@@ -489,6 +494,9 @@ let pp_print_node safe ppf {
      %t\
      %a@;<1 -2>\
      tel;@]@]@?"  
+
+    (* %s *)
+    (if is_function then "function" else "node")
 
     (* %a *)
     (I.pp_print_ident safe) name
@@ -596,6 +604,7 @@ let pp_print_node_debug
       props;
       contract;
       is_main;
+      is_function;
       state_var_source_map } = 
 
   let pp_print_equation = pp_print_node_equation false in
@@ -637,6 +646,7 @@ let pp_print_node_debug
          props =      [@[<hv>%a@]];@ \
          contract =   [@[<hv>%a@]];@ \
          is_main =    @[<hv>%B@];@ \
+         is_function =    @[<hv>%B@];@ \
          source_map = [@[<hv>%a@]]; }@]"
 
     StateVar.pp_print_state_var instance
@@ -656,6 +666,7 @@ let pp_print_node_debug
         Format.fprintf fmt "%a@ "
           (C.pp_print_contract false) contract) contract
     is_main
+    is_function
     (pp_print_list pp_print_state_var_source ";@ ") 
     (SVM.bindings state_var_source_map)
 

@@ -263,7 +263,7 @@ type contract_node_equation =
 type contract = contract_node_equation list
 
 
-(* A node declaration *)
+(* A node or function declaration *)
 type node_decl =
   ident
   * node_param list
@@ -283,10 +283,6 @@ type contract_node_decl =
   * clocked_typed_decl list
   * contract
 
-(* A function declaration *)
-type func_decl = 
-  ident * typed_ident list * typed_ident list * contract option
-
 
 (* An instance of a parameterized node *)
 type node_param_inst = ident * ident * lustre_type list
@@ -296,8 +292,8 @@ type declaration =
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
   | NodeDecl of position * node_decl
+  | FuncDecl of position * node_decl
   | ContractNodeDecl of position * contract_node_decl
-  | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
 
@@ -969,7 +965,30 @@ let pp_print_contract_node ppf (
     (pp_print_list pp_print_clocked_typed_ident ";@ ") o
     pp_print_contract contract 
 
-  
+
+let pp_print_node_or_fun_decl is_fun ppf (
+  pos, (n, p, i, o, l, e, r)
+) =
+
+    Format.fprintf ppf
+      "@[<hv>@[<hv 2>%s %a%t@ \
+       @[<hv 1>(%a)@]@;<1 -2>\
+       returns@ @[<hv 1>(%a)@];@]@ \
+       %a\
+       %a\
+       @[<v 2>let@ \
+       %a@;<1 -2>\
+       tel;@]@]"
+      (if is_fun then "function" else "node")
+      pp_print_ident n 
+      (function ppf -> pp_print_node_param_list ppf p)
+      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+      pp_print_contract_spec
+      r
+      pp_print_node_local_decl l
+      (pp_print_list pp_print_node_equation "@ ") e
+
 
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
@@ -980,25 +999,11 @@ let pp_print_declaration ppf = function
 
   | ConstDecl (pos, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (pos, (n, p, i, o, l, e, r)) -> 
+  | NodeDecl (pos, (n, p, i, o, l, e, r)) ->
+    pp_print_node_or_fun_decl false ppf (pos, (n, p, i, o, l, e, r))
 
-    Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a%t@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@ \
-       %a\
-       %a\
-       @[<v 2>let@ \
-       %a@;<1 -2>\
-       tel;@]@]"
-      pp_print_ident n 
-      (function ppf -> pp_print_node_param_list ppf p)
-      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract_spec
-      r
-      pp_print_node_local_decl l
-      (pp_print_list pp_print_node_equation "@ ") e
+  | FuncDecl (pos, (n, p, i, o, l, e, r)) ->
+    pp_print_node_or_fun_decl true ppf (pos, (n, p, i, o, l, e, r))
 
   | ContractNodeDecl (pos, (n,p,i,o,e)) ->
 
@@ -1015,18 +1020,6 @@ let pp_print_declaration ppf = function
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
        pp_print_contract e
-
-  | FuncDecl (pos, (n, i, o, r)) -> 
-
-    Format.fprintf ppf
-      "@[<hv 2>function %a@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@ \
-       %a@]" 
-      pp_print_ident n 
-      (pp_print_list pp_print_typed_decl ";@ ") i
-      (pp_print_list pp_print_typed_decl ";@ ") o
-      pp_print_contract_spec r
 
   | NodeParamInst (pos, (n, s, p)) -> 
 
@@ -1149,6 +1142,62 @@ let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
   if u && Flags.lus_strict () then raise Parser_error;
   u
+
+
+let rec has_pre_or_arrow = function
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
+    
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) -> has_pre_or_arrow e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | When (_, e1, e2) | ArrayConcat (_, e1, e2) ->
+    if has_pre_or_arrow e1 then true else has_pre_or_arrow e2
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    if has_pre_or_arrow e1 then true
+    else if has_pre_or_arrow e2 then true
+    else has_pre_or_arrow e3
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    List.map has_pre_or_arrow l
+    |> List.exists Lib.identity
+
+  | Activate (_, _, e, l) | Merge (_, e, l) ->
+    List.map has_pre_or_arrow (e :: l)
+    |> List.exists Lib.identity
+
+  | Condact (_, e, _, l1, l2) ->
+    List.map has_pre_or_arrow (e :: l1 @ l2)
+    |> List.exists Lib.identity
+
+  | RecordExpr (_, _, ie) ->
+    List.map (fun (_, e) -> has_pre_or_arrow e) ie
+    |> List.exists Lib.identity
+
+  | StructUpdate (_, e1, li, e2) ->
+    if has_pre_or_arrow e1 then true
+    else if has_pre_or_arrow e2 then true
+    else (
+      List.map (function
+        | Label _ -> false
+        | Index (_, e) -> has_pre_or_arrow e
+      ) li
+      |> List.exists Lib.identity
+    )
+
+  | Fby (_, e1, _, e2) ->
+    if has_pre_or_arrow e1 then true else has_pre_or_arrow e2
+
+  | Pre (_, e) -> true
+
+  | Arrow (_, e1, e2) -> true
       
 
 

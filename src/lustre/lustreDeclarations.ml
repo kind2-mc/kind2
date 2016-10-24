@@ -1779,6 +1779,36 @@ let declaration_to_context ctx = function
   (* Add mapping of identifier to value to context *)
   eval_const_decl ctx const_decl
 
+(* Function declaration without parameters *)
+| A.FuncDecl (
+  pos, (i, [], inputs, outputs, locals, equations, contracts)
+) -> (
+
+  (* Identifier of AST identifier *)
+  let ident = I.mk_string_ident i in
+
+  (* Identifier must not be declared *)
+  if C.node_or_function_in_context ctx ident then C.fail_at_position pos (
+    Format.asprintf 
+      "Function %a is redeclared" 
+      (I.pp_print_ident false) ident
+  ) ;
+
+  (* Create separate context for function *)
+  let node_ctx = C.create_node ctx ident in
+  (* Mark node as function. *)
+  let ctx = C.set_node_function ctx in
+
+  (* Evaluate function declaration in separate context *)
+  let node_ctx = 
+    eval_node_decl
+      node_ctx pos inputs outputs locals equations contracts
+  in
+
+  (* Add function to context *)
+  C.add_node_to_context ctx node_ctx
+)
+
 (* Node declaration without parameters *)
 | A.NodeDecl (
   pos, (i, [], inputs, outputs, locals, equations, contracts)
@@ -1894,7 +1924,7 @@ let declaration_to_context ctx = function
 
   (* Add to context for later inlining *)
   C.add_contract_node_decl_to_context ctx (pos, node_decl)
-
+(* 
 
 (* Uninterpreted function declaration *)
 | A.FuncDecl (pos, (i, inputs, outputs, contracts)) -> (
@@ -1919,7 +1949,7 @@ let declaration_to_context ctx = function
 
   (* Add node to context *)
   C.add_function_to_context ctx func_ctx
-)
+) *)
 
 
 
@@ -1966,8 +1996,10 @@ let declaration_to_context ctx = function
 (* Parametric node declaration *)
 | A.NodeParamInst (pos, _)
 | A.NodeDecl (pos, _) ->
-
-  C.fail_at_position pos "Parametric nodes not supported"
+  C.fail_at_position pos "Parametric nodes are not supported"
+(* Parametric function declaration *)
+| A.FuncDecl (pos, _) ->
+  C.fail_at_position pos "Parametric functions are not supported"
 
 (* Add declarations of program to context *)
 let rec declarations_to_context ctx = function

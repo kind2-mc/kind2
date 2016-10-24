@@ -219,6 +219,9 @@ type t = {
   is_main : bool;
   (** Flag node as the top node *)
 
+  is_function : bool;
+  (** Node is actually a function *)
+
   state_var_source_map : state_var_source StateVar.StateVarMap.t;
   (** Map from a state variable to its source 
 

@@ -76,7 +76,7 @@ let mk_pos = position_of_lexing
 %token NODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
-(* unused: %token FUNCTION *)
+%token FUNCTION
 %token RETURNS
 %token VAR
 %token LET
@@ -198,9 +198,9 @@ decl:
   | d = type_decl { List.map 
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
-  | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
+  | NODE ; d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
+  | FUNCTION ; d = node_decl { [A.FuncDecl (mk_pos $startpos, d)] }
   | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
-  (* | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] } *)
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
 
@@ -325,42 +325,28 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 (* ********************************************************************** *)
 
 
-(* An uninterpreted function declaration *)
-(* func_decl:
-  | FUNCTION; 
-    n = ident; 
-    i = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
-    RETURNS; 
-    o = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
-    SEMICOLON;
-    r = contract_spec;
-
-    { (n, List.flatten i, List.flatten o, r)  } *)
-
-
 (* A node declaration *)
 node_decl:
-  | NODE; 
-    n = ident; 
-    p = loption(static_params);
-    i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
-    RETURNS; 
-    o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
-    SEMICOLON;
-    r = option(contract_spec);
-    l = list(node_local_decl);
-    LET;
-    e = list(node_equation);
-    TEL
-    option(node_sep) 
+| n = ident;
+  p = loption(static_params);
+  i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
+  RETURNS;
+  o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
+  SEMICOLON;
+  r = option(contract_spec);
+  l = list(node_local_decl);
+  LET;
+  e = list(node_equation);
+  TEL
+  option(node_sep)
 
-    { (n, 
-       p,
-       List.flatten i, 
-       List.flatten o, 
-       (List.flatten l), 
-       e,
-       r)  }
+  { (n, 
+     p,
+     List.flatten i, 
+     List.flatten o, 
+     (List.flatten l), 
+     e,
+     r)  }
 
 
 contract_ghost_var:

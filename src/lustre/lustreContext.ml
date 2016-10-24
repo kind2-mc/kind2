@@ -1863,6 +1863,13 @@ let set_node_main ctx = match ctx with
   { ctx with node = Some { node with N.is_main = true } }
 
 
+(* Mark node as function *)
+let set_node_function ctx = match ctx with
+| { node = None } -> raise (Invalid_argument "set_node_function")
+| { node = Some node } ->
+  { ctx with node = Some { node with N.is_function = true } }
+
+
 
 (* Resolve a forward reference, fails if a circular dependency is detected. *)
 let solve_fref { deps' } decl (f_type, f_ident) decls =
