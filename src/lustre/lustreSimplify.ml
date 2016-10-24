@@ -1872,7 +1872,7 @@ let rec eval_ast_type ctx = function
      TODO: should allow constant node arguments as bounds, but then
      we'd have to check if in each node call the lower bound is less
      than or equal to the upper bound. *)
-  | A.IntRange (pos, lbound, ubound) -> 
+  | A.IntRange (pos, lbound, ubound) as t -> 
 
     (* Evaluate expressions for bounds to constants *)
     let const_lbound, const_ubound = 
@@ -1880,6 +1880,10 @@ let rec eval_ast_type ctx = function
        const_int_of_ast_expr ctx  pos ubound) 
     in
 
+    if Numeral.lt const_ubound const_lbound then
+      C.fail_at_position pos
+        (Format.asprintf "Invalid range %a" A.pp_print_lustre_type t);
+    
     (* Add to empty trie with empty index *)
     D.singleton D.empty_index (Type.mk_int_range const_lbound const_ubound)
 
