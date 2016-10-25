@@ -116,24 +116,6 @@ type node_call = {
 }
 
 
-(* A call of a function *)
-type function_call = {
-
-  (* Position of function call in input file *)
-  call_pos : position;
-
-  (* Name of called function *)
-  call_function_name : I.t;
-  
-  (* Expressions for input parameters *)
-  call_inputs : E.t D.t;
-
-  (* Variables capturing the outputs *)
-  call_outputs : StateVar.t D.t;
-
-}
-
-
 (* An equation *)
 type equation = (StateVar.t * E.expr bound_or_fixed list * E.t) 
 
@@ -175,12 +157,6 @@ type t = {
 
   (* Node calls *)
   calls : node_call list;
-
-  (* Function calls
-
-     Needed to share functions calls with the same input
-     parameters *)
-  function_calls : function_call list;
 
   (* Assertions of node *)
   asserts : E.t list;
@@ -227,7 +203,6 @@ let empty_node name = {
   locals = [];
   equations = [];
   calls = [];
-  function_calls = [];
   asserts = [];
   props = [];
   contract = None ;
@@ -388,25 +363,7 @@ let pp_print_call safe ppf = function
          (fun (_, sv) -> sv)
          (D.bindings call_inputs) @ 
        call_oracles)
-          
 
-(* Pretty-print a function call *)
-let pp_print_function_call safe ppf = function 
-
-  (* Node call on the base clock *)
-  | { call_function_name; 
-      call_inputs; 
-      call_outputs } ->
-
-    Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>%a@,(%a);@]@]"
-      (pp_print_list 
-         (E.pp_print_lustre_var safe)
-         ",@ ") 
-      (D.values call_outputs)
-      (I.pp_print_ident safe) call_function_name
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
-      (D.values call_inputs)
 
 
 (* Pretty-print an assertion *)
@@ -467,7 +424,6 @@ let pp_print_node safe ppf {
   locals; 
   equations; 
   calls;
-  function_calls;
   asserts; 
   props;
   contract;
@@ -487,7 +443,6 @@ let pp_print_node safe ppf {
      %a\
      @[<v>%t@]\
      @[<hv 2>let@ \
-     %a%t\
      %a%t\
      %a%t\
      %a%t\
@@ -533,10 +488,6 @@ let pp_print_node safe ppf {
     (* %a%t *)
     (pp_print_list (pp_print_call safe) "@ ") calls
     (space_if_nonempty calls)
-
-    (* %a%t *)
-    (pp_print_list (pp_print_function_call safe) "@ ") function_calls
-    (space_if_nonempty function_calls)
 
     (* %a%t *)
     (pp_print_list (pp_print_node_equation safe) "@ ") equations
@@ -746,17 +697,6 @@ let node_call_of_svar { calls } svar =
     | [] -> None
   in
   loop calls
-
-(** Returns the function call the svar is the output of, if any. *)
-let function_call_of_svar { function_calls } svar =
-  let rec loop = function
-    | ({ call_outputs } as call) :: _ when D.exists (
-      fun _ svar' -> svar == svar'
-    ) call_outputs -> Some call
-    | _ :: tail -> loop tail
-    | [] -> None
-  in
-  loop function_calls
 
 (* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope

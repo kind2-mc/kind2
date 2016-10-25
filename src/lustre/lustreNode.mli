@@ -97,24 +97,6 @@ type node_call = {
 }
 
 
-(** A call of a function *)
-type function_call = {
-
-  (** Position of function call in input file *)
-  call_pos : position;
-
-  (** Name of called function *)
-  call_function_name : LustreIdent.t;
-  
-  (** Expressions for input parameters *)
-  call_inputs : LustreExpr.t LustreIndex.t;
-
-  (** Variables capturing the outputs *)
-  call_outputs : StateVar.t LustreIndex.t;
-
-}
-
-
 (** Source of a state variable *)
 type state_var_source =
 | Input   (** Declared input variable *)
@@ -203,9 +185,6 @@ type t = {
 
   calls : node_call list;
   (** Node calls inside the node *)
-
-  function_calls : function_call list;
-  (** Function calls in the node *)
 
   asserts : LustreExpr.t list;
   (** Assertions of node *)
@@ -326,9 +305,6 @@ val equation_of_svar : t -> StateVar.t -> equation option
 
 (** Returns the node call the svar is (one of) the output(s) of, if any. *)
 val node_call_of_svar : t -> StateVar.t -> node_call option
-
-(** Returns the function call the svar is (one of) the output(s) of, if any. *)
-val function_call_of_svar : t -> StateVar.t -> function_call option
 
 (** Return the scope of the node *)
 val scope_of_node : t -> Scope.t

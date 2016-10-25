@@ -25,8 +25,6 @@ module D = LustreIndex
 module E = LustreExpr
 module C = LustreContract
 module N = LustreNode
-module F = LustreFunction
-module G = LustreGlobals
 module S = LustreSlicing
 
 module A = Analysis
@@ -1090,291 +1088,6 @@ let rec constraints_of_node_calls
       tl
 
 
-(* Add functionality constraints and contracts from function calls *)
-let rec constraints_of_function_calls
-  mk_fresh_state_var locals functions init_terms trans_terms properties
-= function
-
-  (* All function calls processed *)
-  | [] -> locals, init_terms, trans_terms, properties
-
-  (* Take name of called function, inputs and outputs *)
-  | {
-    N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs
-  } :: tl ->
-
-    (* Definition of called function *)
-    let {
-      F.inputs; 
-      F.outputs; 
-      F.output_ufs; 
-      F.global_contracts; 
-      F.mode_contracts
-    } as fn =
-
-      (* Get called function by name *)
-      try F.function_of_name call_function_name functions 
-
-      (* We must have the function in the globals, otherwise we
-         should have failed earlier *)
-      with Not_found -> assert false 
-
-    in
-
-    (* Add constraints to init and trans terms *)
-    let init_terms, trans_terms = 
-      D.fold2
-        (fun _ uf o (i, t) -> 
-
-          (* Add constraint for output *)
-          let mk_i_or_t f_o f_e = 
-
-            (* Add [o = uf_f(i1, ..., In)] *)
-            Term.mk_eq
-              [Term.mk_uf 
-                  uf
-                  (D.values call_inputs |> List.map f_e); 
-               f_o o]
-          in
-          
-          (* Create constraint in initial state *)
-          mk_i_or_t 
-            (E.base_term_of_state_var TransSys.init_base)
-            (E.base_term_of_t TransSys.init_base)
-          :: i,
-
-          (* Create constraint in step state *)
-          mk_i_or_t 
-            (E.cur_term_of_state_var TransSys.trans_base)
-            (E.cur_term_of_t TransSys.trans_base)
-          :: t)
-        output_ufs
-        call_outputs
-        (init_terms, trans_terms)
-    in
-
-    (* Prefix string for properties created from contracts *)
-    let prop_scope =
-
-      (* Identify call site with line and column number *)
-      let _, call_pos_lnum, call_pos_cnum =
-        file_row_col_of_pos call_pos
-      in
-
-      (* String of function name and call position *)
-      Format.asprintf
-        "%a[l%dc%d]"
-        (I.pp_print_ident true) call_function_name
-        call_pos_lnum
-        call_pos_cnum
-    in
-
-    (* Scope of function name *)
-    let scope = I.to_scope call_function_name in
-
-    (* Properties are unknown *)
-    let prop_status = P.PropUnknown in
-
-    let
-
-        (* Substitutions of actual for formal input parameters in
-           init, trans and property terms
-
-           Functions are stateless, therefore we don't have state
-           variables at the previous instant to substitute. *)
-        actuals_for_formals_init,
-        actuals_for_formals_trans,
-        actuals_for_formals_prop =
-      
-      D.fold2
-        (fun _ sv e (i, t, p) ->
-          (Var.mk_state_var_instance sv TransSys.init_base,
-           E.base_term_of_t TransSys.init_base e) :: i,
-          (Var.mk_state_var_instance sv TransSys.trans_base,
-           E.cur_term_of_t TransSys.trans_base e) :: t,
-          (Var.mk_state_var_instance sv TransSys.prop_base,
-           E.cur_term_of_t TransSys.prop_base e) :: p)
-        inputs
-        call_inputs
-        ([], [], [])
-    in
-    
-    let
-
-        (* Substitutions of actual for formal output parameters in
-           init, trans and property terms
-
-           Functions are stateless, therefore we don't have state
-           variables at the previous instant to substitute. *)
-        actuals_for_formals_init,
-        actuals_for_formals_trans,
-        actuals_for_formals_prop =
-      
-      D.fold2
-        (fun _ sv sv' (i, t, p) ->
-          (Var.mk_state_var_instance sv TransSys.init_base,
-           Var.mk_state_var_instance sv' TransSys.init_base
-           |> Term.mk_var) :: i, 
-          (Var.mk_state_var_instance sv TransSys.trans_base,
-           Var.mk_state_var_instance sv' TransSys.trans_base
-           |> Term.mk_var) :: t, 
-          (Var.mk_state_var_instance sv TransSys.prop_base,
-           Var.mk_state_var_instance sv' TransSys.prop_base
-           |> Term.mk_var) :: p)
-        outputs
-        call_outputs
-        (actuals_for_formals_init,
-         actuals_for_formals_trans,
-         actuals_for_formals_prop)
-    in
-
-    (* let pp_print_binding title binding =
-      Format.printf "%s:@." title ;
-      binding |> List.iter (fun (v, t) ->
-        Format.printf "  %a -> %a@."
-          Var.pp_print_var v Term.pp_print_term t
-      ) ;
-      Format.printf "@."
-    in
-
-    pp_print_binding "actuals_for_formals_init" actuals_for_formals_init ;
-    pp_print_binding "actuals_for_formals_trans" actuals_for_formals_trans ;
-    pp_print_binding "actuals_for_formals_prop" actuals_for_formals_prop ; *)
-
-    (* Partially evaluate constructor for let binding to substitute
-       actuals for formals in initial state *)
-    let mk_let_init =
-      Term.mk_let actuals_for_formals_init
-    in
-    
-    (* Partially evaluate constructor for let binding to substitute
-       actuals for formals in transition state *)
-    let mk_let_trans =
-      Term.mk_let actuals_for_formals_trans
-    in
-
-    (* Adds the constraints for a property state variable to some init and
-       trans terms, prepends the new svar to a list of locals. Returns updated
-       locals, init and trans terms and the svar created. *)
-    let add_prop_sv_constraints locals init trans lexpr =
-
-      (* Creating new state var for lifted requirement. *)
-      let sv = mk_fresh_state_var
-        ?is_const:(Some false)
-        ?for_inv_gen:(Some true)
-        (Type.t_bool)
-      in
-
-      sv :: locals,
-      ( Term.mk_eq [
-          Var.mk_state_var_instance sv TransSys.init_base
-          |> Term.mk_var ;
-          E.base_term_of_t TransSys.init_base lexpr |> mk_let_init
-        ]
-      ) :: init,
-      ( Term.mk_eq [
-          Var.mk_state_var_instance sv TransSys.trans_base
-          |> Term.mk_var ;
-          E.cur_term_of_t TransSys.trans_base lexpr |> mk_let_trans
-        ]
-      ) :: trans,
-      sv
-    in
-    
-    (* Partially evaluate constructor for let binding to substitute
-       actuals for formals in property state *)
-    (* let mk_let_prop =
-      Term.mk_let actuals_for_formals_prop
-    in *)
-
-    (* Add properties and assertions from global contracts *)
-    let locals, init_terms, trans_terms, properties =
-      List.fold_left (fun (l, i, t, p) { F.contract_reqs; F.contract_enss } ->
-
-        (* Adding ensure constraints for init and trans. *)
-        let i, t = (
-            contract_enss |> List.map (fun (ens,_) ->
-              E.base_term_of_expr TransSys.init_base ens |> mk_let_init
-            )
-          ) @ i, (
-            contract_enss |> List.map (fun (ens,_) ->
-              E.cur_term_of_expr TransSys.trans_base ens |> mk_let_trans
-            )
-          ) @ t
-        in
-
-        (* Adding a property for each requirement. *)
-        contract_reqs |> List.fold_left (
-          fun (l,i,t,p) (req,pos) ->
-
-            (* Creating fresh svar, adding constraints, updating locals. *)
-            let l, i, t, sv =
-              E.mk_of_expr req |> add_prop_sv_constraints l i t
-            in
-
-            l, i, t, { (* Creating new property for the requirement. *)
-              P.prop_name =
-                Format.asprintf "%s.func_global_req%a"
-                  prop_scope
-                  pp_print_pos pos ;
-              (* We cannot give the svars for the ensures following from this
-                 requirement because they're not svars... *)
-              P.prop_source = P.Assumption (pos, scope);
-              P.prop_status;
-              P.prop_term =
-                Var.mk_state_var_instance sv TransSys.prop_base
-                |> Term.mk_var
-            } :: p
-        ) (l,i,t,p)
-      )
-      (locals, init_terms, trans_terms, properties)
-      global_contracts
-    in
-
-    (* Add assertions from mode contracts and collect requirements *)
-    let init_terms, trans_terms, mode_contracts_req =
-      List.fold_left (fun (i, t, r) { F.contract_reqs; F.contract_enss } ->
-
-        ( Term.mk_implies [
-            contract_reqs |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.init_base e
-            ) |> Term.mk_and ;
-
-            contract_enss |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.init_base e
-            ) |> Term.mk_and ;
-          ] |> mk_let_init
-        ) :: i,
-
-        ( Term.mk_implies [
-            contract_reqs |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.trans_base e
-            ) |> Term.mk_and ;
-
-            contract_enss |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.trans_base e
-            ) |> Term.mk_and ;
-          ] |> mk_let_trans
-        ) :: t,
-
-        ( contract_reqs |> List.map (fun p -> fst p |> E.mk_of_expr)
-          |> E.mk_and_n) :: r
-      )
-      (init_terms, trans_terms, [])
-      mode_contracts
-    in
-
-    (* Continue with next function call *)
-    constraints_of_function_calls
-      mk_fresh_state_var
-      locals
-      functions 
-      init_terms
-      trans_terms
-      properties
-      tl
-
-
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
 let rec constraints_of_asserts instance init_terms trans_terms = function
@@ -1643,7 +1356,6 @@ let rec trans_sys_of_node'
   trans_sys_defs
   output_input_dep
   nodes
-  ({ G.functions } as globals)
 = function
 
   (* Transition system for all nodes created *)
@@ -1662,8 +1374,7 @@ let rec trans_sys_of_node'
         analysis_param
         trans_sys_defs 
         output_input_dep
-        nodes 
-        globals
+        nodes
         tl
 
     (* Transition system has not been created *)
@@ -1671,18 +1382,17 @@ let rec trans_sys_of_node'
 
       (* Node to create a transition system for *)
       let { N.instance;
-            N.init_flag; 
-            N.inputs; 
-            N.oracles; 
-            N.outputs; 
-            N.locals; 
-            N.equations; 
-            N.calls; 
-            N.function_calls; 
-            N.asserts; 
+            N.init_flag;
+            N.inputs;
+            N.oracles;
+            N.outputs;
+            N.locals;
+            N.equations;
+            N.calls;
+            N.asserts;
             N.props;
             N.contract;
-            N.is_function } as node = 
+            N.is_function } as node =
 
         try 
 
@@ -1777,7 +1487,6 @@ let rec trans_sys_of_node'
             trans_sys_defs
             output_input_dep
             nodes
-            globals
             (tl' @ node_name :: tl)
 
         (* All transitions systems of called nodes have been
@@ -1963,33 +1672,6 @@ let rec trans_sys_of_node'
 
           (* Add lifted properties *)
           let properties = properties @ lifted_props in
-
-          (* ****************************************************** *)
-          (* Function calls 
-
-             We must add function calls before equations so that local
-             variables can be let bound in
-             {!constraints_of_equations}.                           *)
-
-          (* Instantiated state variables and constraints from node
-             calls *)
-          let lifted_locals, init_terms, trans_terms, properties =
-            constraints_of_function_calls
-              mk_fresh_state_var
-              lifted_locals
-              functions
-              init_terms
-              trans_terms
-              properties
-              function_calls 
-          in
-
-          (* Format.printf "equations: @[<hov>%a@]@.@."
-            (pp_print_list (N.pp_print_node_equation false) ",@ ") equations ;
-
-          Format.printf "properties: @[<hov>%a@]@.@."
-            (pp_print_list P.pp_print_property ",@ ")
-            properties ; *)
 
           (* ****************************************************** *)
           (* Assertions 
@@ -2259,22 +1941,8 @@ let rec trans_sys_of_node'
               Type.t_bool
           in
 
-          (* Collect uninterpreted function symbols from globals
-
-             TODO: We could first reduce the list of uninterpreted
-             function symbols to the ones used in this system and
-             its subsystems. *)
-          let ufs =
-            function_ufs
-            (* List.fold_left
-              (fun accum { F.output_ufs } ->
-                D.fold
-                  (fun _ u a -> u :: a)
-                  output_ufs
-                  accum)
-              []
-              functions *)
-          in
+          (* UFs of the system. *)
+          let ufs = function_ufs in
                 
           
           (* ****************************************************** *)
@@ -2321,12 +1989,11 @@ let rec trans_sys_of_node'
               (node_output_input_dep_init, node_output_input_dep_trans))
              :: output_input_dep)
             nodes
-            globals
             tl
           
 
 let trans_sys_of_nodes
-  ?(preserve_sig = false) subsystem globals analysis_param
+  ?(preserve_sig = false) subsystem analysis_param
 =
   let { A.top; A.abstraction_map; A.assumptions } =
     A.info_of_param analysis_param
@@ -2345,17 +2012,14 @@ let trans_sys_of_nodes
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
 
-  let { SubSystem.source = { N.name = top_name } as node } as subsystem', globals' = 
+  let { SubSystem.source = { N.name = top_name } as node } as subsystem' = 
       S.slice_to_abstraction
-        ~preserve_sig:preserve_sig analysis_param subsystem' globals
+        ~preserve_sig:preserve_sig analysis_param subsystem'
   in
 
-  let nodes = N.nodes_of_subsystem subsystem' in 
-(*
-  Format.printf 
-    "@[<v>%a@]@."
-    (pp_print_list (F.pp_print_function false) "@,") globals'.G.functions;
+  let nodes = N.nodes_of_subsystem subsystem' in
 
+(*
   Format.printf
     "@[<v>%a@]@."
     (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
@@ -2371,7 +2035,6 @@ let trans_sys_of_nodes
         I.Map.empty
         [] 
         nodes
-        globals
         [top_name]
 
       (* Return the transition system of the top node *)
@@ -2424,7 +2087,7 @@ let trans_sys_of_nodes
     | _ -> ()
   ) ;
 
-  trans_sys, subsystem', globals'
+  trans_sys, subsystem'
 
 (*
 

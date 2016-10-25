@@ -28,7 +28,7 @@ type t
 
 
 (** Node or function not found, possible forward reference *)
-exception Node_or_function_not_found of LustreIdent.t * position
+exception Node_not_found of LustreIdent.t * position
 
 exception Type_not_found of LustreIdent.t * position
 
@@ -93,10 +93,6 @@ val create_function : t -> LustreIdent.t -> t
     node constructed in the second context added *)
 val add_node_to_context : t -> t -> t
 
-(** Return a context that is identical to the first context with the
-    function constructed in the second context added *)
-val add_function_to_context : t -> t -> t
-
 
 (** Resolve a forward reference, fails if a circular dependency is detected. *)
 val solve_fref : t -> LustreAst.declaration -> (
@@ -129,9 +125,6 @@ val get_nodes : t -> LustreNode.t list
 
 (** Return the current node in context. *)
 val get_node : t -> LustreNode.t option
-
-(** Return the functions in the context *)
-val get_functions : t -> LustreFunction.t list
 
 (** The contract nodes in the context. *)
 val contract_nodes : t -> LustreAst.contract_node_decl list
@@ -191,7 +184,7 @@ val expr_in_context : t -> LustreIdent.t -> bool
 val type_in_context : t -> LustreIdent.t -> bool
 
 (** Return [true] if the identifier denotes a node in the context *)
-val node_or_function_in_context : t -> LustreIdent.t -> bool
+val node_in_context : t -> LustreIdent.t -> bool
 
 (** Create a fresh local state variable in the context. *)
 val mk_fresh_local : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
@@ -223,9 +216,6 @@ val mk_fresh_oracle_for_state_var : t -> StateVar.t -> StateVar.t * t
 
 (** Return the node of the given name from the context*)
 val node_of_name : t -> LustreIdent.t -> LustreNode.t
-
-(** Return the function of the given name from the context *)
-val function_of_name : t -> LustreIdent.t -> LustreFunction.t
 
 (** Return variables capturing outputs of node call if a node call
     with the same input parameters and activation condition is in the
@@ -300,33 +290,6 @@ val get_node_function_flag : t -> bool
 val close_expr :
   ?original:LustreAst.expr -> Lib.position ->
   (LustreExpr.t * t) -> (LustreExpr.t * t)
-
-
-(** {1 Functions} *)
-
-(** Add function input to context *)
-val add_function_input : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
-
-(** Add function output to context *)
-val add_function_output :
-  ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
-
-val call_outputs_of_function_call :
-  t -> LustreIdent.t -> LustreExpr.t LustreIndex.t ->
-  StateVar.t LustreIndex.t option
-
-(** Add function call to context *)
-val add_function_call : t -> Lib.position -> LustreNode.function_call -> t
-
-(** Add global contract to function
-
-    The function must not have a global contract defined, otherwise a
-    parse error will be raised. *)
-val add_function_global_contract : t -> position -> LustreFunction.contract -> t
-
-(** Add mode contract to node *)
-val add_function_mode_contract :
-  t -> position -> string -> LustreFunction.contract -> t
 
 (** Check that the node being defined has no undefined local variables *)
 val check_local_vars_defined : t -> unit

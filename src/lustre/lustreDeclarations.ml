@@ -30,8 +30,6 @@ module ET = E.LustreExprHashtbl
 
 module N = LustreNode
 module Contract = LustreContract
-module F = LustreFunction
-module G = LustreGlobals
 
 module C = LustreContext
 
@@ -1624,154 +1622,6 @@ let eval_node_decl
 
   (* Create node from current context and return *)
   ctx 
-  
-
-(* ********************************************************************** *)
-(* Parse function declarations                                            *)
-(* ********************************************************************** *)
-
-(* Return true if the expression is functional, i.e. without temporal
-   operators *)
-let is_function_expr ({ E.expr_init; E.expr_step } as expr) =
-
-  (* Must not have a variable at the previous state *)
-  not (E.has_pre_var E.cur_offset expr) &&
-
-  (* Expressions must be equal *)
-  (E.equal_expr expr_init expr_step)
-  
-
-(* Return an expression for a stateless function from an expression *)
-let function_expr_of_expr ({ E.expr_init; E.expr_step } as expr) =
-
-  if 
-
-    (* Check if expression does not contain temporal operators *)
-    is_function_expr expr
-  
-  then
-
-    (* Return one of the two (equal) expressions *)
-    expr_step
-
-  else
-    
-    (* Fail *)
-    raise (Invalid_argument "func_expr_of_expr")
-
-
-
-(* Add all node inputs to contexts *)
-let rec eval_func_inputs ctx = function
-
-  (* All inputs parsed *)
-  | [] -> ctx
-
-  (* Input on the base clock *)
-  | (pos, i, ast_type) :: tl -> 
-
-    (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
-
-    if 
-      
-      try 
-        C.expr_in_context ctx ident 
-      with Invalid_argument e -> 
-        C.fail_at_position pos e
-      
-    then
-      
-      C.fail_at_position 
-        pos
-        (Format.asprintf 
-           "Function input %a already declared" 
-           (I.pp_print_ident false) ident);
-    
-    (* Evaluate type expression *)
-    let index_types = S.eval_ast_type ctx ast_type in
-  
-    (* Add declaration of possibly indexed type to contexts *)
-    let ctx = 
-      C.add_function_input
-        ctx
-        ident
-        index_types
-    in
-
-    (* Continue with following inputs *)
-    eval_func_inputs ctx tl
-
-
-(* Add all function inputs to contexts *)
-let rec eval_func_outputs ?is_single ctx = function
-
-  (* All outputs parsed *)
-  | [] -> ctx
-
-  (* Output on the base clock *)
-  | (pos, i, ast_type) :: tl -> 
-
-    (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
-
-    if 
-      
-      try 
-        C.expr_in_context ctx ident 
-      with Invalid_argument e -> 
-        C.fail_at_position pos e
-      
-    then
-      
-      C.fail_at_position 
-        pos
-        (Format.asprintf 
-           "Function output %a already declared" 
-           (I.pp_print_ident false) ident);
-    
-    (* Evaluate type expression *)
-    let ident_types = S.eval_ast_type ctx ast_type in
-  
-    (* Add declaration of possibly indexed type to contexts *)
-    let ctx = C.add_function_output ?is_single ctx ident ident_types in
-
-    (* Continue with following inputs *)
-    eval_func_outputs ctx tl
-
-(* Add declarations of node to context *)
-let eval_func_decl
-  ctx
-  inputs
-  outputs
-  contract_spec
-= 
-
-  (* Add inputs to context: as state variable to ident_expr_map, and
-     to inputs *)
-  let ctx = eval_func_inputs ctx inputs in
-
-  (* Add outputs to context: as state variable to ident_expr_map, and
-     to outputs *)
-  let ctx = eval_func_outputs ~is_single:(List.length outputs = 1) ctx outputs in
-
-  (* New scope for local declarations in contracts *)
-  let ctx = C.push_scope ctx "contract" in
-
-  (* Parse contracts and add to context in contracts *)
-  (* let ctx = eval_func_contract_spec ctx inputs outputs contract_spec in *)
-
-  (* Remove scope for local declarations in implementation *)
-  let ctx = C.pop_scope ctx in
-
-  (* New scope for local declarations in implementation *)
-  let ctx = C.push_scope ctx "impl" in
-
-  (* Remove scope for local declarations in implementation *)
-  let ctx = C.pop_scope ctx in
-
-  (* Create node from current context and return *)
-  ctx 
 
 
 (* ********************************************************************** *)
@@ -1813,7 +1663,7 @@ let declaration_to_context ctx = function
   let ident = I.mk_string_ident i in
 
   (* Identifier must not be declared *)
-  if C.node_or_function_in_context ctx ident then C.fail_at_position pos (
+  if C.node_in_context ctx ident then C.fail_at_position pos (
     Format.asprintf 
       "Function %a is redeclared" 
       (I.pp_print_ident false) ident
@@ -1893,7 +1743,7 @@ let declaration_to_context ctx = function
   let ident = I.mk_string_ident i in
 
   (* Identifier must not be declared *)
-  if C.node_or_function_in_context ctx ident then C.fail_at_position pos (
+  if C.node_in_context ctx ident then C.fail_at_position pos (
     Format.asprintf 
       "Node %a is redeclared" 
       (I.pp_print_ident false) ident
@@ -2114,7 +1964,7 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  C.get_nodes ctx, { G.functions = C.get_functions ctx }
+  C.get_nodes ctx
 
 
 (*
