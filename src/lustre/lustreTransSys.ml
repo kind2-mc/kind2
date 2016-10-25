@@ -1681,7 +1681,8 @@ let rec trans_sys_of_node'
             N.function_calls; 
             N.asserts; 
             N.props;
-            N.contract } as node = 
+            N.contract;
+            N.is_function } as node = 
 
         try 
 
@@ -1784,6 +1785,51 @@ let rec trans_sys_of_node'
         | [] ->
 
 
+          (* If node is a function, create a UF `f` for each output. Also,
+          create the term `(= (f <inputs>) output)` to add it to `init` and
+          `trans`. *)
+          let function_ufs, function_constraints_at_0 =
+            if not is_function then [], [] else (
+              let inputs = D.values inputs in
+              let type_of = StateVar.type_of_state_var in
+              let term_0_of svar =
+                Var.mk_state_var_instance svar Numeral.zero
+                |> Term.mk_var
+              in
+              let input_types, input_terms_at_0 =
+                inputs
+                |> List.rev
+                |> List.fold_left (
+                  fun (types, terms) input ->
+                    (* Retrieving type of input. *)
+                    type_of input :: types,
+                    (* Creating term at 0. *)
+                    term_0_of input :: terms
+                ) ([], [])
+              in
+
+              D.values outputs
+              |> List.fold_left (
+                fun (ufs, eqs) output ->
+                  let uf_name =
+                    Format.sprintf "%s.%s"
+                      (StateVar.name_of_state_var output)
+                      Lib.ReservedIds.function_of_inputs
+                  in
+                  let uf =
+                    UfSymbol.mk_uf_symbol
+                      uf_name input_types (type_of output)
+                  in
+                  uf :: ufs,
+                  Term.mk_eq [
+                    term_0_of output ;
+                    Term.mk_uf uf input_terms_at_0
+                  ] :: eqs
+              ) ([], [])
+            )
+          in
+
+
           (* Filter assumptions for this node's assumptions *)
           let node_assumptions = 
             A.param_assumptions_of_scope analysis_param scope
@@ -1833,6 +1879,9 @@ let rec trans_sys_of_node'
               (E.base_term_of_t TransSys.init_base)
               contract_asserts
 
+            (* Add functional constraints on ouputs if any. *)
+            |> List.rev_append function_constraints_at_0
+
           in
 
           (* Transition relation *)
@@ -1847,6 +1896,13 @@ let rec trans_sys_of_node'
             List.map
               (E.cur_term_of_t TransSys.trans_base)
               contract_asserts
+
+            (* Add functional constraints on ouputs if any. *)
+            |> List.rev_append (
+              (* Bump to `1`. *)
+              function_constraints_at_0
+              |> List.map (Term.bump_state Numeral.one)
+            )
 
           in
 
@@ -2209,14 +2265,15 @@ let rec trans_sys_of_node'
              function symbols to the ones used in this system and
              its subsystems. *)
           let ufs =
-            List.fold_left
+            function_ufs
+            (* List.fold_left
               (fun accum { F.output_ufs } ->
                 D.fold
                   (fun _ u a -> u :: a)
                   output_ufs
                   accum)
               []
-              functions
+              functions *)
           in
                 
           
