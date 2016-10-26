@@ -126,6 +126,7 @@ type expr =
   | Condact of position * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr list
   | Merge of position * expr * expr list
+  | RestartEvery of position * ident * expr list * expr
       
   (* Temporal operators *)
   | Pre of position * expr 
@@ -503,7 +504,14 @@ let rec pp_print_expr ppf =
         "merge(%a,@ %a)"
         pp_print_expr e
         (pp_print_list pp_print_expr ",@ ") l 
-        
+
+    | RestartEvery (p, i, l, c) ->
+      Format.fprintf ppf
+        "(restart %a every %a)(%a)"
+        pp_print_ident i
+        pp_print_expr c
+        (pp_print_list pp_print_expr ",@ ") l 
+
     | Pre (p, e) -> p1 p "pre" e
     | Fby (p, e1, i, e2) -> 
 
@@ -1060,6 +1068,7 @@ let pos_of_expr = function
   | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
   | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _ )
   | Activate (pos , _ , _ , _ ) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | RestartEvery (pos, _, _, _)
   | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
   | CallParam (pos , _ , _ , _ )
     -> pos
@@ -1094,7 +1103,7 @@ let rec has_unguarded_pre ung = function
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
-  | Activate (_, _, e, l) | Merge (_, e, l) ->
+  | Activate (_, _, e, l) | Merge (_, e, l) | RestartEvery (_, _, l, e) ->
     let us = List.map (has_unguarded_pre ung) (e :: l) in
     List.exists Lib.identity us
 
@@ -1189,7 +1198,7 @@ let rec has_pre_or_arrow = function
     List.map has_pre_or_arrow l
     |> some_of_list
 
-  | Activate (_, _, e, l) | Merge (_, e, l) ->
+  | Activate (_, _, e, l) | Merge (_, e, l) | RestartEvery (_, _, l, e) ->
     List.map has_pre_or_arrow (e :: l)
     |> some_of_list
 

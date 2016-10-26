@@ -1107,8 +1107,8 @@ let node_of_name { nodes } ident = N.node_of_name ident nodes
    same parameters *)
 let call_outputs_of_node_call 
     { node } 
-    ident 
-    act_var 
+    ident
+    cond_var
     input_state_vars 
     defaults = 
 
@@ -1128,7 +1128,7 @@ let call_outputs_of_node_call
         let { N.call_node_name; N.call_outputs } = 
 
           List.find
-            (fun { N.call_clock = call_cond;
+            (fun { N.call_cond = call_cond;
                    N.call_defaults = call_defaults;
                    N.call_node_name = call_ident;
                    N.call_inputs = call_inputs } -> 
@@ -1136,15 +1136,13 @@ let call_outputs_of_node_call
               (* Call must be to the same node, and ... *)
               (I.equal ident call_ident) &&
 
-              (* ... activation conditions must be equal, and ... *)
-              (match act_var, call_cond with 
+              (* ... activation and restart conditions must be equal, and ... *)
+              (match cond_var, call_cond with 
 
                 (* Both calls are with an activation condition *)
-                | Some v, Some v' -> 
-
+                | N.CActivate v, N.CActivate v' -> 
                   (* Same activation condition *)
                   StateVar.equal_state_vars v v' &&
-
                   (* Same defaults *)
                   (match defaults, call_defaults with
                     | None, None -> true
@@ -1156,13 +1154,17 @@ let call_outputs_of_node_call
                     | None, Some _ 
                     | Some _, None -> false)
 
+                (* Both calls are with a restart condition *)
+                | N.CRestart v, N.CRestart v' ->
+                  StateVar.equal_state_vars v v' 
+
                 (* Both calls without activation condtion *)
-                | None, None -> true
+                | N.CNone, N.CNone -> true
 
-                (* One call with and the other without activation
-                   condition *)
-                | _ -> false) &&
-
+                (* One call with and the other without condition *)
+                | _ -> false)
+              &&
+                            
               (* ... inputs must be the same up to oracles *)
               D.for_all2 
                 (fun _ sv1 sv2 -> StateVar.equal_state_vars sv1 sv2)
@@ -1730,9 +1732,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
 (* Add node call to context *)
 let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
-
   match ctx with 
-
     | { node = None } -> raise (Invalid_argument "add_node_call")
 
     | { node = Some ({ N.equations; N.calls } as node) } -> 
@@ -1757,15 +1757,11 @@ let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
       ) call_outputs
 
       then
-
-        fail_at_position
-          pos
+        fail_at_position pos
           "Duplicate definition for output of node call";
-                
+
       (* Add node call to context *)
-      { ctx with 
-          node = Some { node with 
-                          N.calls = node_call :: calls } }
+      { ctx with node = Some { node with N.calls = node_call :: calls } }
 
 
 (* Create a node from the context *)

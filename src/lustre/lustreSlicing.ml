@@ -226,7 +226,7 @@ let rec node_state_var_dependencies'
                 N.call_oracles; 
                 N.call_outputs; 
                 N.call_defaults;
-                N.call_clock } -> 
+                N.call_cond } -> 
               
               (* Index of state variable in outputs *)
               let output_index = 
@@ -313,12 +313,12 @@ let rec node_state_var_dependencies'
               
               |> 
               
-              (* Clock of condact is a child *)
+              (* Clock of condact or restart is a child *)
               (function children -> 
-                match call_clock with 
-                  | None -> children
-                  | Some clk -> SVS.add clk children)
-              
+                match call_cond with 
+                  | N.CNone -> children
+                  | N.CActivate clk
+                  | N.CRestart clk -> SVS.add clk children)
               |>
               
               (* Add to set of children from equations *)
@@ -625,7 +625,7 @@ let slice_all_of_node
 (* Add roots of cone of influence from node call to roots *)
 let add_roots_of_node_call 
     roots
-    { N.call_clock; 
+    { N.call_cond;
       N.call_inputs; 
       N.call_oracles; 
       N.call_defaults } =
@@ -652,10 +652,11 @@ let add_roots_of_node_call
     (* Need dependencies of oracles *)
     call_oracles @ 
 
-    (* Need dependencies of clock if call has one *)
-    (match call_clock with
-      | None -> roots'
-      | Some c -> c :: roots')
+    (* Need dependencies of clock and restart if call has one *)
+    (match call_cond with
+      | N.CNone -> roots'
+      | N.CActivate c
+      | N.CRestart c -> c :: roots')
 
   in
 

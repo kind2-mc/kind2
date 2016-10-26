@@ -704,8 +704,9 @@ let rec constraints_of_node_calls
     trans_terms
   )
 
-  (* Node call without an activation condition *)
-  | { N.call_pos; N.call_node_name; N.call_clock = None } as node_call :: tl ->
+  (* Node call without an activation condition or restart *)
+  | { N.call_pos; N.call_node_name; N.call_cond = N.CNone }
+    as node_call :: tl ->
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
@@ -761,10 +762,56 @@ let rec constraints_of_node_calls
       (trans_term :: trans_terms)
       tl
 
+  (* Node call with restart condition *)
+  | { N.call_pos; N.call_node_name; N.call_cond = N.CRestart restart }
+    as node_call :: tl ->
+
+    (* Get generated transition system of callee *)
+    let { trans_sys } as node_def =
+      try I.Map.find call_node_name trans_sys_defs 
+      (* Fail if transition system for node not found *)
+      with Not_found -> assert false
+    in
+
+    let state_var_map_up, state_var_map_down, node_locals, node_props, _,
+        init_term, _, trans_term =
+      (* Create node call *)
+      call_terms_of_node_call
+        mk_fresh_state_var node_call node_locals node_props node_def
+    in
+
+    (* Add node instance to list of subsystems *)
+    let subsystems =
+      add_subsystem trans_sys call_pos state_var_map_up state_var_map_down
+        (* No guarding necessary when instantiating term, because this node
+           instance does not have an activation condition *)
+        (fun _ t -> t)
+        subsystems
+    in
+
+    let restart_trans = E.cur_term_of_state_var TransSys.trans_base restart in
+    (* Reset state of node to initial state when restart condition is true *)
+    let trans_term = Term.mk_ite restart_trans
+        (Term.bump_state Numeral.(TransSys.trans_base - E.cur_offset) init_term)
+        trans_term in
+    
+    (* Continue with next node calls *)
+    constraints_of_node_calls 
+      mk_fresh_state_var
+      trans_sys_defs
+      node_locals
+      node_init_flags
+      node_props
+      subsystems
+      (init_term :: init_terms)
+      (trans_term :: trans_terms)
+      tl
+
+
   (* Node call with activation condition *)
   | { N.call_pos; 
       N.call_node_name; 
-      N.call_clock = Some clock;
+      N.call_cond = N.CActivate clock;
       N.call_inputs;
       N.call_outputs; 
       N.call_defaults } as node_call :: tl -> 

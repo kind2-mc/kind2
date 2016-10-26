@@ -97,6 +97,7 @@ type expr =
   | Condact of position * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr list
   | Merge of position * expr * expr list
+  | RestartEvery of position * ident * expr list * expr
   | Pre of position * expr
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
