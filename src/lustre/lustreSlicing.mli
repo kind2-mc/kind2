@@ -126,14 +126,14 @@ val node_is_abstract : Analysis.param -> LustreNode.t -> bool
     influence. We may add a better analysis later. *)
 val slice_to_abstraction :
     ?preserve_sig:bool ->
-    Analysis.param -> LustreNode.t SubSystem.t -> LustreGlobals.t ->
-    LustreNode.t SubSystem.t * LustreGlobals.t
+    Analysis.param -> LustreNode.t SubSystem.t ->
+    LustreNode.t SubSystem.t
 
 val slice_to_abstraction_and_property :
     ?preserve_sig:bool ->
     Analysis.param -> StateVar.StateVarSet.t ->
-    LustreNode.t SubSystem.t -> LustreGlobals.t ->
-    LustreNode.t SubSystem.t * LustreGlobals.t 
+    LustreNode.t SubSystem.t ->
+    LustreNode.t SubSystem.t 
 
 (* 
    Local Variables:

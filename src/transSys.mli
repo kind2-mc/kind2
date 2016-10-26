@@ -84,12 +84,12 @@ type instance =
     (** Position as a unique identifier of the instance *)
 
     map_down : StateVar.t StateVar.StateVarMap.t;
-    (** Map from state variables of the called system to the state
-        variables of the this system *)
-
-    map_up : StateVar.t StateVar.StateVarMap.t;
     (** Map from the state variables of this system to the state
         variables of the instance *)
+
+    map_up : StateVar.t StateVar.StateVarMap.t;
+    (** Map from state variables of the called system to the state
+        variables of this system *)
 
     guard_clock : Numeral.t -> Term.t -> Term.t;
     (** Add a guard to the Boolean term to make it true whenver the

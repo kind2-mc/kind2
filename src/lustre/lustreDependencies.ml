@@ -131,7 +131,7 @@ let info_of_decl = function
 
 | A.NodeDecl (pos, (ident, _, _, _, _, _, _)) ->
   pos, ident |> I.mk_string_ident, NodeOrFun
-| A.FuncDecl (pos, (ident, _, _, _)) ->
+| A.FuncDecl (pos, (ident, _, _, _, _, _, _)) ->
   pos, ident |> I.mk_string_ident, NodeOrFun
 
 | A.ContractNodeDecl (pos, (ident, _, _, _, _)) ->
@@ -151,7 +151,7 @@ let insert_decl decl (f_type, f_ident) decls =
     | NodeOrFun -> (
       function
       | A.NodeDecl (_, (i, _, _, _, _, _, _)) -> i = ident
-      | A.FuncDecl (_, (i, _, _, _)) -> i = ident
+      | A.FuncDecl (_, (i, _, _, _, _, _, _)) -> i = ident
       | _ -> false
     )
     | Type -> (

@@ -143,7 +143,7 @@ type const_clocked_typed_decl = position * ident * lustre_type * clock_expr * bo
 
 (** A constant declaration *)
 type const_decl =
-    FreeConst of position * ident * lustre_type
+  | FreeConst of position * ident * lustre_type
   | UntypedConst of position * ident * expr
   | TypedConst of position * ident * expr * lustre_type
 
@@ -218,7 +218,7 @@ type contract = contract_node_equation list
   (*   contract_mode list * contract_call list *)
   (* ) list *)
 
-(** Declaration of a node as a tuple of
+(** Declaration of a node or function as a tuple of
 
     - its identifier,
     - its type parameters,
@@ -250,15 +250,6 @@ type contract_node_decl =
   * clocked_typed_decl list
   * contract
 
-(** Declaration of a function as a tuple of 
-
-    - its identifier,
-    - the list of its inputs, and 
-    - the list of its outputs 
-*)
-type func_decl =
-    ident * typed_ident list * typed_ident list * contract option
-
 
 (** An instance of a parametric node as a tuple of the identifier for
     the instance, the identifier of the parametric node and the list of
@@ -271,8 +262,8 @@ type declaration =
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
   | NodeDecl of position * node_decl
+  | FuncDecl of position * node_decl
   | ContractNodeDecl of position * contract_node_decl
-  | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
 (** A Lustre program as a list of declarations *) 
@@ -316,6 +307,22 @@ val pos_of_expr : expr -> Lib.position
 
 (** Returns true if the expression has unguareded pre's *)
 val has_unguarded_pre : expr -> bool
+
+(** Returns true if the expression has a `pre` or a `->`. *)
+val has_pre_or_arrow : expr -> Lib.position option
+
+(** Returns true iff a contract mentions a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+val contract_has_pre_or_arrow : contract -> Lib.position option
+
+(** Checks whether a node local declaration has a `pre` or a `->`. *)
+val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
+
+(** Checks whether a node equation has a `pre` or a `->`. *)
+val node_equation_has_pre_or_arrow : node_equation -> Lib.position option
+
 
 (* 
    Local Variables:

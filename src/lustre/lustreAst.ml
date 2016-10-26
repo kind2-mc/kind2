@@ -264,7 +264,7 @@ type contract_node_equation =
 type contract = contract_node_equation list
 
 
-(* A node declaration *)
+(* A node or function declaration *)
 type node_decl =
   ident
   * node_param list
@@ -284,10 +284,6 @@ type contract_node_decl =
   * clocked_typed_decl list
   * contract
 
-(* A function declaration *)
-type func_decl = 
-  ident * typed_ident list * typed_ident list * contract option
-
 
 (* An instance of a parameterized node *)
 type node_param_inst = ident * ident * lustre_type list
@@ -297,8 +293,8 @@ type declaration =
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
   | NodeDecl of position * node_decl
+  | FuncDecl of position * node_decl
   | ContractNodeDecl of position * contract_node_decl
-  | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
 
@@ -977,7 +973,30 @@ let pp_print_contract_node ppf (
     (pp_print_list pp_print_clocked_typed_ident ";@ ") o
     pp_print_contract contract 
 
-  
+
+let pp_print_node_or_fun_decl is_fun ppf (
+  pos, (n, p, i, o, l, e, r)
+) =
+
+    Format.fprintf ppf
+      "@[<hv>@[<hv 2>%s %a%t@ \
+       @[<hv 1>(%a)@]@;<1 -2>\
+       returns@ @[<hv 1>(%a)@];@]@ \
+       %a\
+       %a\
+       @[<v 2>let@ \
+       %a@;<1 -2>\
+       tel;@]@]"
+      (if is_fun then "function" else "node")
+      pp_print_ident n 
+      (function ppf -> pp_print_node_param_list ppf p)
+      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+      pp_print_contract_spec
+      r
+      pp_print_node_local_decl l
+      (pp_print_list pp_print_node_equation "@ ") e
+
 
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
@@ -988,25 +1007,11 @@ let pp_print_declaration ppf = function
 
   | ConstDecl (pos, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (pos, (n, p, i, o, l, e, r)) -> 
+  | NodeDecl (pos, (n, p, i, o, l, e, r)) ->
+    pp_print_node_or_fun_decl false ppf (pos, (n, p, i, o, l, e, r))
 
-    Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a%t@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@ \
-       %a\
-       %a\
-       @[<v 2>let@ \
-       %a@;<1 -2>\
-       tel;@]@]"
-      pp_print_ident n 
-      (function ppf -> pp_print_node_param_list ppf p)
-      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract_spec
-      r
-      pp_print_node_local_decl l
-      (pp_print_list pp_print_node_equation "@ ") e
+  | FuncDecl (pos, (n, p, i, o, l, e, r)) ->
+    pp_print_node_or_fun_decl true ppf (pos, (n, p, i, o, l, e, r))
 
   | ContractNodeDecl (pos, (n,p,i,o,e)) ->
 
@@ -1023,18 +1028,6 @@ let pp_print_declaration ppf = function
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
        pp_print_contract e
-
-  | FuncDecl (pos, (n, i, o, r)) -> 
-
-    Format.fprintf ppf
-      "@[<hv 2>function %a@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@ \
-       %a@]" 
-      pp_print_ident n 
-      (pp_print_list pp_print_typed_decl ";@ ") i
-      (pp_print_list pp_print_typed_decl ";@ ") o
-      pp_print_contract_spec r
 
   | NodeParamInst (pos, (n, s, p)) -> 
 
@@ -1158,7 +1151,167 @@ let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
   if u && Flags.lus_strict () then raise Parser_error;
   u
-      
+
+(** If second argument is `Some _`, returns that. Otherwise runs `f`. *)
+let unwrap_or f = function
+| None -> f ()
+| res -> res
+
+(** If input list contains `Some _`, returns that. Otherwise returns `None`. *)
+let some_of_list = List.fold_left (
+  function
+  | None -> Lib.identity
+  | res -> (fun _ -> res)
+) None
+
+(** Checks whether an expression has a `pre` or a `->`. *)
+let rec has_pre_or_arrow = function
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> None
+    
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) -> has_pre_or_arrow e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | When (_, e1, e2) | ArrayConcat (_, e1, e2) -> (
+    match has_pre_or_arrow e1 with
+    | None -> has_pre_or_arrow e2
+    | res -> res
+  )
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (
+      fun _ ->
+        has_pre_or_arrow e2
+        |> unwrap_or (
+          fun _ -> has_pre_or_arrow e3
+        )
+    )
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    List.map has_pre_or_arrow l
+    |> some_of_list
+
+  | Activate (_, _, e, l) | Merge (_, e, l) | RestartEvery (_, _, l, e) ->
+    List.map has_pre_or_arrow (e :: l)
+    |> some_of_list
+
+  | Condact (_, e, _, l1, l2) ->
+    List.map has_pre_or_arrow (e :: l1 @ l2)
+    |> some_of_list
+
+  | RecordExpr (_, _, ie) ->
+    List.map (fun (_, e) -> has_pre_or_arrow e) ie
+    |> some_of_list
+
+  | StructUpdate (_, e1, li, e2) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (
+      fun _ ->
+        has_pre_or_arrow e2
+        |> unwrap_or (
+          fun _ ->
+            List.map (function
+              | Label _ -> None
+              | Index (_, e) -> has_pre_or_arrow e
+            ) li
+            |> some_of_list
+        )
+    )
+
+  | Fby (_, e1, _, e2) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (fun _ -> has_pre_or_arrow e2)
+
+  | Pre (pos, e) -> Some pos
+
+  | Arrow (pos, e1, e2) -> Some pos
+
+(** Checks whether a struct item has a `pre` or a `->`. *)
+let rec struct_item_has_pre_or_arrow = function
+| SingleIdent _
+| FieldSelection _ -> None
+| TupleStructItem (_, l) ->
+  List.map struct_item_has_pre_or_arrow l
+  |> some_of_list
+| ArraySliceStructItem (_, _, l) ->
+  List.map (
+    fun (e1, e2) ->
+      has_pre_or_arrow e1
+      |> unwrap_or (fun _ -> has_pre_or_arrow e2)
+  ) l
+  |> some_of_list
+| TupleSelection (_, _, e) -> has_pre_or_arrow e
+
+(** Checks whether a constant declaration has a `pre` or a `->`. *)
+let const_decl_has_pre_or_arrow = function
+| FreeConst _ -> None
+| UntypedConst (_, _, e) -> has_pre_or_arrow e
+| TypedConst (_, _, e, _) -> has_pre_or_arrow e
+
+
+
+(** Checks whether a node local declaration has a `pre` or a `->`. *)
+let node_local_decl_has_pre_or_arrow = function
+| NodeConstDecl (_, decl) -> const_decl_has_pre_or_arrow decl
+| NodeVarDecl _ -> None
+
+
+(** Checks whether an equation lhs has a `pre` or a `->`. *)
+let eq_lhs_has_pre_or_arrow = function
+| ArrayDef _ -> None
+| StructDef (_, l) ->
+  List.map struct_item_has_pre_or_arrow l
+  |> some_of_list
+
+(** Checks whether a node equation has a `pre` or a `->`. *)
+let node_equation_has_pre_or_arrow = function
+| Assert (_, e) -> has_pre_or_arrow e
+| Equation (_, lhs, e) ->
+  eq_lhs_has_pre_or_arrow lhs
+  |> unwrap_or (fun _ -> has_pre_or_arrow e)
+| AnnotMain _ -> None
+| AnnotProperty (_, _, e) -> has_pre_or_arrow e
+
+(** Checks whether a contract node equation has a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+let contract_node_equation_has_pre_or_arrow = function
+| GhostConst decl
+| GhostVar decl -> const_decl_has_pre_or_arrow decl
+| Assume (_, _, e)
+| Guarantee (_, _, e) -> has_pre_or_arrow e
+| Mode (_, _, reqs, enss) ->
+  List.map (fun (_, _, e) -> has_pre_or_arrow e) reqs
+  |> some_of_list
+  |> unwrap_or (
+    fun _ ->
+      List.map (fun (_, _, e) -> has_pre_or_arrow e) enss
+      |> some_of_list
+  )
+| ContractCall (_, _, ins, outs) ->
+  List.map has_pre_or_arrow ins
+  |> some_of_list
+  |> unwrap_or (
+    fun _ ->
+      List.map has_pre_or_arrow outs
+      |> some_of_list
+  )
+
+(** Checks whether a contract has a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+let contract_has_pre_or_arrow l =
+  List.map contract_node_equation_has_pre_or_arrow l
+  |> some_of_list
 
 
 (* 

@@ -90,3 +90,7 @@ To generate the documentation, you need
 * a GNU version of `sed` (`gsed` on OSX), and
 * [Pandoc](http://pandoc.org/).
 
+
+## Docker
+
+Kind 2 is available on [docker](https://hub.docker.com/r/kind2/kind2/).

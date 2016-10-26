@@ -37,6 +37,10 @@ conjunction with *modular reasoning*, discussed in the next section.
 mode, Kind 2 will perform whatever type of analysis is specified by the other
 flags on **every node** of the hierarchy, bottom-up.
 
+A timeout for *each analysis* can be specified using the `--timeout_analysis`
+flag. It can be used in conjunction with the *global timeout* given with the
+`--timeout` or `--timeout_wall` time.
+
 Internally Kind 2 builds on previous analyses when starting a new one. For
 instance, by using the invariants previously discovered in subnodes of the node
 under analysis.

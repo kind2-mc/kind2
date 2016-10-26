@@ -244,7 +244,7 @@ let keyword_table = mk_hashtbl [
   
   (* Node / function declaration *)
   ("node", NODE) ;
-  (* ("function", FUNCTION) ; *)
+  ("function", FUNCTION) ;
   ("returns", RETURNS) ;
   ("var", VAR) ;
   ("let", LET) ;
