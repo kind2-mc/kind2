@@ -184,14 +184,24 @@ then
   update "dev" "kind2-dev" "$docker_push"
 fi
 
-# if [ "$local_update" = true ]
-# then
-#   # Prepare stub.
-#   echo "copying"
-#   cp -rf "$local_update_dir" local/kind2
-#   echo "done copying"
-#   update "local" "kind2-local" false
-#   rm -rf local/kind2
-# fi
+if [ "$local_update" = true ]
+then
+  # Prepare stub.
+  echo "copying"
+  loc_kind_dir="local/kind2"
+  mkdir -p "$loc_kind_dir"
+  to_copy=`ls $local_update_dir | grep -v docker | sed -e "s:^:$local_update_dir/:" | tr "\n" " "`
+  cp -rf $to_copy "$loc_kind_dir/."
+  echo "done copying"
+  # Change versioning, will fail because not in a git directory.
+  cat "$loc_kind_dir/src/Makefile.in" \
+  | sed -e 's:^GIT_DESCRIBE.*:GIT_DESCRIBE="local":g' \
+  > "$loc_kind_dir/src/Makefile.in.tmp" \
+  && mv "$loc_kind_dir/src/Makefile.in.tmp" "$loc_kind_dir/src/Makefile.in"
+  make -C local/kind2 clean
+  # exit 2
+  update "local" "kind2-local" false
+  rm -rf local/kind2
+fi
 
 echo
