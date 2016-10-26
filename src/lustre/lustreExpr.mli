@@ -250,6 +250,9 @@ val t_false : t
     are do not match the signature of the symbol, the
     {!Type_mismatch} exception is raised. *)
 
+(** Return a constructor *)
+val mk_constr : string -> Type.t -> t
+
 (** Return an expression of an integer numeral. *)
 val mk_int : Numeral.t -> t
 

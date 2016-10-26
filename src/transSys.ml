@@ -917,6 +917,12 @@ let define_and_declare_of_bounds
   List.iter (fun ty -> match Type.node_of_type ty with
       | Type.Abstr _ -> declare_sort ty
       | _ -> ());
+
+  (* declare enumerated types *)
+  Type.get_all_enum_types () |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Enum _ -> declare_sort ty
+      | _ -> ());
   
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;

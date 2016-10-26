@@ -32,8 +32,8 @@ type kindtype =
   | Real
 (*  | BV of int *)
   | Array of t * t
-  | Scalar of string * string list
   | Abstr of string
+  | Enum of string option * string list
 
 (** Hashconsed type *)
 and t
@@ -85,11 +85,11 @@ val mk_bv : int -> t
 (** Return an array type of index sort and element sort *)
 val mk_array : t -> t -> t
 
-(** Return a scalar type of identifier and elements *)
-val mk_scalar : string -> string list -> t
-
 (** Return an abstract type *)
 val mk_abstr : string -> t
+
+(** Return an enumerated datatype type *)
+val mk_enum : string option -> string list -> t
 
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
@@ -128,9 +128,6 @@ val is_bv : t -> bool
 (** Return [true] if the type is an array type *)
 val is_array : t -> bool
 
-(** Return [true] if the type is a scalar type *)
-val is_scalar : t -> bool
-
 (** Return [true] if the type is abstract *)
 val is_abstr : t -> bool
 
@@ -138,10 +135,6 @@ val is_abstr : t -> bool
     [Invalid_argument "bounds_of_int_range"] if the type is not an
     integer range type. *)
 val bounds_of_int_range : t -> (Numeral.t * Numeral.t)
-
-(** Return string elements of scalar, fail with [Invalid_argument
-    "elements_of_scalar"] if the type is not a scalar type. *)
-val elements_of_scalar : t -> string list 
 
 (** Return type of array index *)
 val index_type_of_array : t -> t 
@@ -170,8 +163,14 @@ val print_type : t -> unit
 (** Return a string representation of a type *)
 val string_of_type : t -> string
 
-
+(** Return abstract types that have been built *)
 val get_all_abstr_types : unit -> t list
+
+(** Return enumerated types that have been built *)
+val get_all_enum_types : unit -> t list
+
+(** return the enumerated datatype to which a constructor belongs (if any) *)
+val enum_of_constr : string -> t
 
 (* 
    Local Variables:

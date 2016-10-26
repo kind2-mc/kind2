@@ -91,6 +91,7 @@ type interpreted_symbol =
 (*
   | `STORE                (* Update of an array (ternary) *)
 *)
+  | `CONSTR of string
   ]
 
 
@@ -182,6 +183,7 @@ module Symbol_node = struct
     | `TO_INT, `TO_INT
     | `IS_INT, `IS_INT
     | `SELECT, `SELECT -> true
+    | `CONSTR c1, `CONSTR c2 -> String.equal c1 c2
 (*
     | `STORE, `STORE -> true
 *)
@@ -225,8 +227,8 @@ module Symbol_node = struct
     | `TO_REAL, _
     | `TO_INT, _
     | `IS_INT, _
-    | `SELECT, _ -> false
-
+    | `SELECT, _
+    | `CONSTR _, _ -> false
 (*
     | `STORE, _ -> false
 *)
@@ -398,6 +400,7 @@ let rec pp_print_symbol_node ppf = function
 (*
   | `STORE -> Format.pp_print_string ppf "store"
 *)
+  | `CONSTR c -> Format.pp_print_string ppf c
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 (* Pretty-print a hashconsed symbol *)
@@ -466,6 +469,15 @@ let is_uf = function
 let uf_of_symbol = function 
   | { Hashcons.node = `UF u } -> u
   | _ -> raise (Invalid_argument "uf_of_symbol")
+
+
+let is_constr = function
+  | { Hashcons.node = `CONSTR _ } -> true 
+  | _ -> false
+
+let constr_of_symbol = function
+  | { Hashcons.node = `CONSTR c } -> c
+  | _ -> raise (Invalid_argument "constr_of_symbol")
 
 
 (* ********************************************************************* *)
@@ -539,6 +551,7 @@ let s_div = mk_symbol `DIV
 let s_select = mk_symbol `SELECT
 
 
+let mk_constr c = mk_symbol (`CONSTR c)
 
 
 (* 

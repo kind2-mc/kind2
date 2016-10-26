@@ -151,6 +151,7 @@ type interpreted_symbol =
 (*
   | `STORE                (** Update of an array (ternary) *)
 *)
+  | `CONSTR of string
   ]
 
 (** Adding uninterpreted function symbols separately for conversions
@@ -191,6 +192,9 @@ val mk_symbol : symbol -> t
 
 (** Import symbol from a different instance into this hashcons table *)
 val import : t -> t
+
+(** Create a constructor *)
+val mk_constr : string -> t
 
 (** {1 Static symbols} *)
 
@@ -285,6 +289,12 @@ val is_uf : t -> bool
 
 (** Return the uninterpreted symbol of a symbol *)
 val uf_of_symbol : t -> UfSymbol.t
+
+(** Return true if the symbol is a constructor *)
+val is_constr : t -> bool
+
+(** Return the constructor string of a symbol *)
+val constr_of_symbol : t -> string
 
 (** {1 Pretty-printing} *)
 

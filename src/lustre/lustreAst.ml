@@ -150,7 +150,7 @@ and lustre_type =
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident list
+  | EnumType of position * ident option * ident list
 
 
 (* A declaration of an unclocked type *)
@@ -594,7 +594,7 @@ and pp_print_lustre_type ppf = function
       pp_print_lustre_type t 
       pp_print_expr e
 
-  | EnumType (pos, l) -> 
+  | EnumType (pos, _, l) -> 
 
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 

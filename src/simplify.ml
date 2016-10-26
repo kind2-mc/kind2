@@ -741,7 +741,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `FALSE, _
       | `TRUE, _
       | `NUMERAL _, _
-      | `DECIMAL _, _  -> assert false
+      | `DECIMAL _, _
+      | `CONSTR _, _  -> assert false
 (*
       | `BV _, _ -> assert false
 *)
@@ -1904,7 +1905,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TRUE
           | `FALSE
           | `NUMERAL _
-          | `DECIMAL _ -> assert false
+          | `DECIMAL _
+          | `CONSTR _ -> assert false
 (*
           | `BV _ -> assert false
 *)          

@@ -114,7 +114,7 @@ and lustre_type =
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident list
+  | EnumType of position * ident option * ident list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type

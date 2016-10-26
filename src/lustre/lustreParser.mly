@@ -241,11 +241,15 @@ type_decl:
 
   (* A free type *)
   | TYPE; l = ident_list; SEMICOLON 
-     { List.map (function e -> A.FreeType (mk_pos $startpos, e)) l }
+     { List.map (fun e -> A.FreeType (mk_pos $startpos, e)) l }
 
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (function e -> A.AliasType (mk_pos $startpos, e, t)) l }
+     { List.map (fun e -> match t with 
+                 | A.EnumType (p, _, cs) ->
+                    A.AliasType (mk_pos $startpos, e,
+                                 A.EnumType (p, Some e, cs))
+                 | _ -> A.AliasType (mk_pos $startpos, e, t)) l }
 
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
@@ -290,7 +294,7 @@ lustre_type:
   | t = array_type { A.ArrayType (mk_pos $startpos, t) }
 
   (* Enum type (V6) *)
-  | t = enum_type { A.EnumType (mk_pos $startpos, t) }
+  | t = enum_type { A.EnumType (mk_pos $startpos, None, t) }
 
 
 (* A tuple type *)

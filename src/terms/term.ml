@@ -477,6 +477,8 @@ let rec type_of_term t = match T.destruct t with
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
 
+        | `CONSTR c -> Type.enum_of_constr c
+      
         (* No other symbols are nullary *)
         | _ -> assert false 
 
@@ -611,7 +613,8 @@ let rec type_of_term t = match T.destruct t with
         | `TRUE
         | `FALSE
         | `NUMERAL _
-        | `DECIMAL _ -> assert false
+        | `DECIMAL _
+        | `CONSTR _ -> assert false
 (*
         | `BV _ -> assert false
 *)

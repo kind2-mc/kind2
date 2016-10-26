@@ -377,7 +377,7 @@ let gen_expr_of_string_sexpr'
 
       )
 
-           
+
 
 (* Convert a string S-expression to a lambda abstraction 
 
@@ -428,7 +428,7 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
             vars
             (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)))
 
-    | _ -> invalid_arg "gen_expr_of_lambda_string_sexpr"
+    | _ -> invalid_arg "gen_expr_or_lambda_of_string_sexpr"
 
 
 (* Call function with an empty list of bound variables and no prime symbol *)
@@ -455,7 +455,7 @@ let interpr_type t = match Type.node_of_type t with
 
   | Type.IntRange _ -> Type.mk_int ()
 
-  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ -> t
+  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ | Type.Enum _ -> t
 
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
@@ -600,6 +600,8 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `STORE -> Format.pp_print_string ppf "store"
 *)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+  | `CONSTR c -> Format.pp_print_string ppf c
+                                
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ?arity ppf s =
@@ -746,6 +748,14 @@ let const_of_smtlib_atom b t =
                          (HString.string_of_hstring t))
                       []
 
+                with Not_found -> 
+
+                  try 
+
+                    (* maybe a constructor *)
+                    Term.mk_const
+                      (Symbol.mk_constr (HString.string_of_hstring t))
+
                   with Not_found -> 
 
                     Debug.smtexpr
@@ -816,3 +826,5 @@ let expr_of_string_sexpr =
 (* Convert an S-expression in SMTLIB format to a lambda abstraction *)
 let expr_or_lambda_of_string_sexpr = 
   gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
+
+let s_define_fun = smtlib_string_sexpr_conv.s_define_fun

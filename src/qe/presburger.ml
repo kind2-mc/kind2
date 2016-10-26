@@ -541,7 +541,8 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 (*
                | `BVULT, _
                | `STORE, _
-               | `EXTRACT _, _  *) -> raise Not_in_LIA
+               | `EXTRACT _, _  *)
+               | `CONSTR _, _-> raise Not_in_LIA
 
              )
       )

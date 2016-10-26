@@ -51,10 +51,13 @@ let default_of_type t =
     (* Reals are zero by default *)
     | Type.Real -> Term.mk_dec Decimal.zero
 
-    (* No defaults for scalars and arrays *)
-    | Type.Scalar _
+    (* First constructor of enumeration as default *)
+    | Type.Enum (_, c :: _) -> Term.mk_const (Symbol.mk_constr c)
+
+    (* No defaults *)
     | Type.Abstr _
-    | Type.Array _ -> invalid_arg "default_of_type"
+    | Type.Array _
+    | Type.Enum (_, []) -> invalid_arg "default_of_type"
 
 
 
@@ -111,7 +114,7 @@ let rec logic_of_sort ty =
               
   | Array (ta, tr) -> add UF (union (logic_of_sort ta) (logic_of_sort tr))
       
-  | Scalar _ -> empty
+  | Enum _ -> empty
 
 
 let s_abs = Symbol.mk_symbol `ABS

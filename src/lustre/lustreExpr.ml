@@ -234,12 +234,9 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | Type.Scalar (s, l) -> 
-
-    Format.fprintf
-      ppf 
-      "enum { %a }" 
-      (pp_print_list Format.pp_print_string " ") l
+  | Type.Enum (_, cs) -> 
+    Format.fprintf ppf "enum {%a}" 
+      (pp_print_list Format.pp_print_string ", ") cs
 (*
   | Type.BV i -> 
 
@@ -484,6 +481,7 @@ and pp_print_app safe ppf = function
   | `FALSE
   | `NUMERAL _
   | `DECIMAL _
+  | `CONSTR _
   (* | `BV _ *) -> (function _ -> assert false)
 
   (* Unary symbols *) 
@@ -955,6 +953,14 @@ let t_false =
     expr_step = expr; 
     expr_type = Type.t_bool } 
 
+
+let mk_constr c t =  
+
+  let expr = Term.mk_const (Symbol.mk_constr c) in
+
+  { expr_init = expr; 
+    expr_step = expr; 
+    expr_type = t } 
 
 (* Integer constant *)
 let mk_int d =  

@@ -38,8 +38,8 @@ type kindtype =
 *)
   (* First is element type, second is index type *)
   | Array of t * t
-  | Scalar of string * string list
   | Abstr of string
+  | Enum of string option * string list
 
 (* A private type that cannot be constructed outside this module
 
@@ -92,13 +92,10 @@ module Kindtype_node = struct
 *)
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
     | Array (i1, t1), _ -> false
-    | Scalar (s1, l1), Scalar (s2, l2) -> 
-      (try 
-         (s1 = s2) && (List.for_all2 (=) l1 l2) 
-       with Invalid_argument _ -> false)
-    | Scalar _, _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
     | Abstr _, _ -> false
+    | Enum (_, c1), Enum (_, c2) -> c1 = c2
+    | Enum _, _ -> false
       
 end
 
@@ -209,15 +206,14 @@ let rec pp_print_type_node ppf = function
       pp_print_type s 
       pp_print_type t
 
-  | Scalar (s, l) -> 
-
-    Format.fprintf
-      ppf 
-      "%s %a" 
-      s 
-      (pp_print_list Format.pp_print_string " ") l
-
   | Abstr s -> Format.pp_print_string ppf s
+
+  | Enum (Some name, cstrs) ->
+    Format.fprintf ppf "%s" name 
+
+  | Enum (None, cstrs) ->
+    Format.fprintf ppf "|{%a}|" 
+      (pp_print_list Format.pp_print_string ", ") cstrs
 
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
@@ -248,14 +244,13 @@ let mk_bv w = Hkindtype.hashcons ht (BV w) ()
 *)
 let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
-let mk_scalar s l = Hkindtype.hashcons ht (Scalar (s, l)) ()
-
 let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
+
+let mk_enum name cs = Hkindtype.hashcons ht (Enum (name, cs)) ()
 
 
 (* Import a type from a different instance into this hashcons table *)
 let rec import { Hashcons.node = n } = match n with 
-
   (* Import leaf types directly *)
   | Bool
   | Int
@@ -267,10 +262,11 @@ let rec import { Hashcons.node = n } = match n with
   (* Import index and value types of array type *)
   | Array (i, t) -> mk_array (import i) (import t)
 
-  | Scalar (s, l) -> mk_scalar s l
-
   | Abstr s -> mk_abstr s
-    
+
+  | Enum (name, cs) -> mk_enum name cs
+
+
 (* Static values *)
 let t_bool = mk_bool ()
 let t_int = mk_int ()
@@ -283,6 +279,24 @@ let get_all_abstr_types () =
       | _ -> acc) ht []
   |> List.rev
 
+let get_all_enum_types () =
+  Hkindtype.fold (fun ty acc -> match ty with
+      | { Hashcons.node = Enum _ } -> ty :: acc
+      | _ -> acc) ht []
+  |> List.rev
+
+
+exception Found_enum of t
+
+let enum_of_constr c =
+  try
+    Hkindtype.iter (function
+      | { Hashcons.node = Enum (_, cs) } as ty when List.mem c cs ->
+        raise (Found_enum ty)
+      | _ -> ()) ht;
+    raise Not_found
+  with Found_enum ty -> ty
+
 
 (* ********************************************************************* *)
 (* Predicates                                                            *)
@@ -292,88 +306,49 @@ let get_all_abstr_types () =
 let rec is_int { Hashcons.node = t } = match t with
   | Int -> true 
   | Array (_, t) -> is_int t
-  | IntRange _
-  | Bool 
-  | Real
-(*  | BV _ *)
-  | Abstr _
-  | Scalar _ -> false
+  | _-> false
 
 let rec is_int_range { Hashcons.node = t } = match t with
   | IntRange _ -> true 
   | Array (_, t) -> is_int_range t
-  | Int
-  | Bool 
-  | Real
-(* | BV _ *)
-  | Abstr _
-  | Scalar _ -> false
+  |  _ -> false
 
 let rec is_bool { Hashcons.node = t } = match t with
   | Bool -> true
   | Array (_, t) -> is_bool t
-  | Int
-  | IntRange _
-  | Real
-  | Abstr _
-(*  | BV _ *)
-  | Scalar _ -> false
+  |  _ -> false
 
 let rec is_real { Hashcons.node = t } = match t with
   | Real -> true
   | Array (_, t) -> is_real t
-(*   | BV _ *)
-  | Bool
-  | Int
-  | IntRange _
-  | Abstr _
-  | Scalar _ -> false
+  | _ -> false
 
-let rec is_abstr { Hashcons.node = t } = match t with
+
+let is_abstr { Hashcons.node = t } = match t with
   | Abstr _ -> true
   | _ -> false
 
-(*
-let is_bv { Hashcons.node = t } = match t with
-  | BV _ -> true
-  | Bool
-  | Int
-  | IntRange _
-  | Real
-  | Array _ 
-  | Scalar _ -> false
-*)
+
+let is_enum { Hashcons.node = t } = match t with
+  | Enum _ -> true
+  | _ -> false
+
 
 let is_array { Hashcons.node = t } = match t with
   | Array _ -> true
-  | Bool
-  | Int
-  | IntRange _
-  | Real
-(*  | BV _ *)
-  | Abstr _
-  | Scalar _ -> false
+  | _ -> false
 
-let rec is_scalar { Hashcons.node = t } = match t with
-  | Scalar _ -> true
-  | Array (_, t) -> is_scalar t
-  | Bool
-  | Int
-  | IntRange _
-  | Abstr _
-  | Real -> false
-(*  | BV _ *)
+(* let rec is_scalar { Hashcons.node = t } = match t with *)
+(*   | Scalar _ -> true *)
+(*   | Array (_, t) -> is_scalar t *)
+(*   | _ -> false *)
+
 
 
 (* Return bounds of an integer range type *)
 let bounds_of_int_range = function
   | { Hashcons.node = IntRange (l, u) } -> (l, u)
   | _ -> raise (Invalid_argument "bounds_of_int_range")
-
-(* Return string elements of scalar *)
-let elements_of_scalar = function
-  | { Hashcons.node = Scalar (_, e) } -> e
-  | _ -> raise (Invalid_argument "elements_of_scalar")
 
 (* Return type of array index *)
 let index_type_of_array = function 
@@ -391,6 +366,11 @@ let all_index_types_of_array = all_index_types_of_array' []
 let elem_type_of_array = function 
   | { Hashcons.node = Array (e, _) } -> e
   | _ -> raise (Invalid_argument "elem_type_of_array")
+
+
+let constructors_of_enum = function
+  | { Hashcons.node = Enum (_, cs) } -> cs
+  | _ -> raise (Invalid_argument "constructors_of_enum")
 
 
 (* ********************************************************************* *)
@@ -417,17 +397,14 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | IntRange (l1, u1), IntRange (l2, u2) ->
       Numeral.(l1 >= l2) && Numeral.(u1 <= u2)
 
-    (* Enum types are subtypes if the sets of elements are subsets *)
-    | Scalar (_, l1), Scalar (_, l2) -> 
-
-      List.for_all
-        (function e -> List.mem e l2)
-        l1
-
     (* Array is a subtype of array if both index type and element type
        are subtype *)
     | Array (i1, t1), Array (i2, t2) ->
       (check_type i1 i2) && (check_type t1 t2)
+
+    (* subtyping of enums if constructors is a subset *)
+    | Enum (_, cs1), Enum (_, cs2) ->
+      List.for_all (fun c1 -> List.exists (String.equal c1) cs2) cs1
 
     (* No other subtype relationships *)
     | _ -> false
