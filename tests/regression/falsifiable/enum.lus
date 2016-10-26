@@ -1,0 +1,8 @@
+type t = enum {A, B, C};
+
+node n (x, y, z, w: t) returns (ok: bool);
+let
+  ok = x = A or x = B or x = C;
+  --%PROPERTY ok;
+  --%PROPERTY x = y or x = z or x = w or y = z or y = w;
+tel
