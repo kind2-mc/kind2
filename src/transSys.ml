@@ -930,6 +930,9 @@ let define_and_declare_of_bounds
     (* Declare constant state variables of subsystem *)
     if declare_sub_vars then
       declare_vars_of_bounds t declare lbound ubound ;
+  
+    (* Declare other functions of sub system *)
+    declare_ufs t declare;
 
     (* Define initial state predicate *)
     define_init define t ;

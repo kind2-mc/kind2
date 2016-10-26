@@ -20,7 +20,7 @@
 
     @author Christoph Sticksel *)
 
-val declarations_to_nodes : LustreAst.t -> LustreNode.t list * LustreGlobals.t
+val declarations_to_nodes : LustreAst.t -> LustreNode.t list
 
 (* 
    Local Variables:

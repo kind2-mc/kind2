@@ -43,49 +43,61 @@
 {1 Developers' Documentation}
 
 
-Overall system architecture
+Overall system architecture.
 
-{2:strategies Analysis and Strategies }
+{2:conf Configuration}
 
 {!modules:
-  Analysis
-  Event
   Flags
+}
+
+{2:com Communication and Logging}
+
+{!modules:
+  Log
+  Event
+}
+
+{2:strategies Analysis and Strategies}
+
+{!modules:
+  Strategy
+  Analysis
   InvarManager
   Kind2
-  MonolithicStrategy
 }
 
 {2:terms Terms }
 
 {!modules:
-  Eval        
-  Ident
-  Ltree
-  Model
-  Scope
-  Simplify
-  StateVar
   Symbol
-  TermAttr
-  Term
   Type
   UfSymbol
+  StateVar
   Var
+  Ident
+  Ltree
+  TermAttr
+  Term
+  Model
+  Eval
 }
 
-{2:trans_sys Transition System }
+{2:trans_sys Transition System Construction}
 
 {!modules:
+  Scope
   InputSystem
   Property
   SubSystem
   TransSys
+  Simplify
 }
 
 {2:engines Verification Engines}
 
 {3:induction k-induction}
+
 {!modules:
   Actlit
   Base
@@ -110,10 +122,11 @@ Overall system architecture
 {4:invgen_graph Implication Graph-based Invariant Generation}
 
 {!modules:
-  ImplicationGraph
-  InvGenCandTermGen
-  InvGenGraph
+  InvGenDomain
+  InvGenMiner
   LockStepDriver
+  InvGenGraph
+  InvGen
 }
 
 {4:c2i C2I (machine-learning based invariant generation)}
@@ -149,6 +162,7 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
   LustreExpr
   LustreNode
   LustreContext
+  LustreContract
   LustreDeclarations
   LustreSimplify
   LustreSlicing
@@ -218,13 +232,13 @@ Source files live in subdirectory [SMTSolver]
 {2:util Utilities}
 
 {!modules:
+  Lib
   Debug
   Decimal
   Hashcons
   HString
   HStringSExpr
   Kind2Config
-  Lib
   Messaging
   Numeral
   Pretty

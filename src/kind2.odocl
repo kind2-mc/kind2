@@ -1,9 +1,10 @@
-Analysis
+Log
 Event
+Strategy
+Analysis
 Flags
 InvarManager
 Kind2
-MonolithicStrategy
 InputSystem
 Eval          
 Ident  
@@ -47,6 +48,7 @@ LustreIndex
 LustreExpr
 LustreNode
 LustreContext
+LustreContract
 LustreDeclarations
 LustreSimplify
 LustreSlicing
@@ -92,3 +94,4 @@ TestgenSolver
 TestgenStrategies
 TestgenTree
 TestgenLib
+Certificate
