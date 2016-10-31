@@ -714,7 +714,7 @@ expr:
     { A.With (mk_pos $startpos, e1, e2, e3) }
 
   (* when operator on expression  *)
-  | e1 = expr; WHEN; e2 = expr { A.When (mk_pos $startpos, e1, e2) }
+  | e1 = expr; WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
 
   (* current operator on expression *)
   | CURRENT; e = expr { A.Current (mk_pos $startpos, e) }
@@ -759,7 +759,7 @@ expr:
   (* restart node call *)
   (*| RESTART; s = ident;
     LPAREN; a = separated_list(COMMA, expr); RPAREN;
-    EVERY; c = expr
+    EVERY; c = clock_expr
 
     { A.RestartEvery (mk_pos $startpos, s, a, c) }
    *)
@@ -770,11 +770,17 @@ expr:
 
     { A.RestartEvery (mk_pos $startpos, s, a, c) }
     
-  (* Merge operator *)
+  (* Binary merge operator *)
+  | MERGE; LPAREN;
+    c = ident; SEMICOLON;
+    pos = expr; SEMICOLON;
+    neg = expr; RPAREN 
+    { A.Merge (mk_pos $startpos, c, ["true", pos; "false", neg]) }
+
+  (* N-way merge operator *)
   | MERGE; 
-    LPAREN;
-    c = expr; SEMICOLON;
-    l = separated_nonempty_list(SEMICOLON, expr); RPAREN 
+    c = ident;
+    l = nonempty_list(merge_case);
     { A.Merge (mk_pos $startpos, c, l) }
     
   (* A temporal operation *)
@@ -830,9 +836,18 @@ clock_expr:
   | c = ident { A.ClockPos c } 
   | NOT; c = ident { A.ClockNeg c } 
   | NOT; LPAREN; c = ident; RPAREN { A.ClockNeg c } 
+  | cs = ident; LPAREN; c = ident; RPAREN { A.ClockConstr (cs, c) } 
   | TRUE { A.ClockTrue }
 
+merge_case_id:
+  | TRUE { "true" }
+  | FALSE { "false" }
+  | c = ident { c }
 
+merge_case :
+  | LPAREN; c = merge_case_id; ARROW; e = expr; RPAREN { c, e }
+
+    
 (* ********************************************************************** *)
 
 

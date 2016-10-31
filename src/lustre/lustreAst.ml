@@ -45,6 +45,13 @@ let pp_print_ident = Format.pp_print_string
 let pp_print_index = Format.pp_print_string
 
 
+(* A clock expression *)
+type clock_expr =
+  | ClockTrue
+  | ClockPos of ident
+  | ClockNeg of ident
+  | ClockConstr of ident * ident
+
 
 (* A Lustre expression *)
 type expr =
@@ -121,11 +128,11 @@ type expr =
   | Gt of position * expr * expr
 
   (* Clock operators *)
-  | When of position * expr * expr 
+  | When of position * expr * clock_expr
   | Current of position * expr
   | Condact of position * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr list
-  | Merge of position * expr * expr list
+  | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
       
   (* Temporal operators *)
@@ -165,12 +172,6 @@ and label_or_index =
 type type_decl = 
   | AliasType of position * ident * lustre_type  
   | FreeType of position * ident
-
-(* A clock expression *)
-type clock_expr =
-  | ClockPos of ident
-  | ClockNeg of ident
-  | ClockTrue 
 
 (* A declaration of a clocked type *)
 type clocked_typed_decl = 
@@ -309,10 +310,11 @@ type t = declaration list
 
 (* Pretty-print a clock expression *)
 let pp_print_clock_expr ppf = function
-
+  | ClockTrue -> ()
   | ClockPos s -> Format.fprintf ppf "@ when %a" pp_print_ident s
   | ClockNeg s -> Format.fprintf ppf "@ when not %a" pp_print_ident s
-  | ClockTrue -> ()
+  | ClockConstr (s, c) ->
+    Format.fprintf ppf "@ when %a(%a)" pp_print_ident c pp_print_ident s
 
 
 (* Pretty-print a Lustre expression *)
@@ -478,7 +480,12 @@ let rec pp_print_expr ppf =
     | Gte (p, e1, e2) -> p2 p ">=" e1 e2
     | Gt (p, e1, e2) -> p2 p ">" e1 e2
 
-    | When (p, e1, e2) -> p2 p "when" e1 e2
+    | When (p, e1, e2) ->
+      Format.fprintf ppf "%a %a when %a"
+        ppos p
+        pp_print_expr e1
+        pp_print_clock_expr e2
+
     | Current (p, e) -> p1 p "current" e
     | Condact (p, e1, n, e2, e3) -> 
   
@@ -498,12 +505,15 @@ let rec pp_print_expr ppf =
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
         
-    | Merge (p, e, l) ->
+    | Merge (p, c, l) ->
 
       Format.fprintf ppf
         "merge(%a,@ %a)"
-        pp_print_expr e
-        (pp_print_list pp_print_expr ",@ ") l 
+        pp_print_ident c
+        (pp_print_list (fun fmt (c,e) ->
+             Format.fprintf fmt "%a -> %a"
+               pp_print_ident c
+               pp_print_expr e) ",@ ") l 
 
     | RestartEvery (p, i, l, c) ->
       Format.fprintf ppf
@@ -1078,14 +1088,15 @@ let rec has_unguarded_pre ung = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
     
   | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | Current (_, e) -> has_unguarded_pre ung e
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _) ->
+    has_unguarded_pre ung e
 
   | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
   | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | When (_, e1, e2) | ArrayConcat (_, e1, e2) ->
+  | ArrayConcat (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
 
@@ -1103,7 +1114,11 @@ let rec has_unguarded_pre ung = function
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
-  | Activate (_, _, e, l) | Merge (_, e, l) | RestartEvery (_, _, l, e) ->
+  | Merge (_, _, l) ->
+    let us = List.map (has_unguarded_pre ung) (List.map snd l) in
+    List.exists Lib.identity us
+
+  | Activate (_, _, e, l) | RestartEvery (_, _, l, e) ->
     let us = List.map (has_unguarded_pre ung) (e :: l) in
     List.exists Lib.identity us
 
@@ -1169,14 +1184,15 @@ let rec has_pre_or_arrow = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> None
     
   | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | Current (_, e) -> has_pre_or_arrow e
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _) ->
+    has_pre_or_arrow e
 
   | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
   | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | When (_, e1, e2) | ArrayConcat (_, e1, e2) -> (
+  | ArrayConcat (_, e1, e2) -> (
     match has_pre_or_arrow e1 with
     | None -> has_pre_or_arrow e2
     | res -> res
@@ -1198,7 +1214,11 @@ let rec has_pre_or_arrow = function
     List.map has_pre_or_arrow l
     |> some_of_list
 
-  | Activate (_, _, e, l) | Merge (_, e, l) | RestartEvery (_, _, l, e) ->
+  | Merge (_, _, l) ->
+    List.map has_pre_or_arrow (List.map snd l)
+    |> some_of_list
+
+  | Activate (_, _, e, l) | RestartEvery (_, _, l, e) ->
     List.map has_pre_or_arrow (e :: l)
     |> some_of_list
 

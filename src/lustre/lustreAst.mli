@@ -51,6 +51,13 @@ type ident = string
 (** A single index *)
 type index = string
 
+(** A clock expression *)
+type clock_expr =
+  | ClockTrue
+  | ClockPos of ident
+  | ClockNeg of ident
+  | ClockConstr of ident * ident
+
 (** A Lustre expression *)
 type expr =
     Ident of position * ident
@@ -92,11 +99,11 @@ type expr =
   | Lt of position * expr * expr
   | Gte of position * expr * expr
   | Gt of position * expr * expr
-  | When of position * expr * expr
+  | When of position * expr * clock_expr
   | Current of position * expr
   | Condact of position * expr * ident * expr list * expr list
   | Activate of position * ident * expr * expr list
-  | Merge of position * expr * expr list
+  | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
   | Pre of position * expr
   | Fby of position * expr * int * expr
@@ -130,9 +137,6 @@ and label_or_index =
 type type_decl = 
   | AliasType of position * ident * lustre_type 
   | FreeType of position * ident
-
-(** A clock expression *)
-type clock_expr = ClockPos of ident | ClockNeg of ident | ClockTrue
 
 (** An identifier with a type and a clock as used for the type of variables *)
 type clocked_typed_decl = position * ident * lustre_type * clock_expr

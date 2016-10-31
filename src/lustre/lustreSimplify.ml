@@ -369,59 +369,66 @@ let rec eval_ast_expr ctx = function
 
   *)
   | A.Merge
-      (pos,
-       (A.Ident (clock_pos, clock_ident) as clock_expr),
-       [expr_high; expr_low]) ->
+      (pos, clock_ident, merge_cases) ->
 
-    (* Evaluate expression for clock *)
-    let clock_expr', ctx = 
-      eval_bool_ast_expr ctx clock_pos clock_expr 
+    (* Evaluate expression for clock identifier *)
+    let clock_expr, ctx = eval_clock_ident ctx pos clock_ident in 
+    let clock_type = E.type_of_lustre_expr clock_expr in
+
+    let cases_to_have =
+      if Type.is_bool clock_type then ["true"; "false"]
+      else Type.constructors_of_enum clock_type
+    in
+    let cases = List.map fst merge_cases in
+    if List.sort String.compare cases <> List.sort String.compare cases_to_have
+    then C.fail_at_position pos "Cases of merge must be exhaustive and unique";
+    
+
+    let cond_of_clock_value clock_value = match clock_value with
+      | "true" -> A.Ident (pos, clock_ident)
+      | "false" -> A.Not (pos, A.Ident (pos, clock_ident))
+      | _ ->
+        A.Eq (pos, A.Ident (pos, clock_ident), A.Ident (pos, clock_value))
     in
 
-    let eval_merge_case clock_sign ctx = function
+    let cond_expr_clock_value clock_value = match clock_value with
+      | "true" -> clock_expr
+      | "false" -> E.mk_not clock_expr
+      | _ -> E.mk_eq clock_expr (E.mk_constr clock_value clock_type)
+    in
+    
+    let eval_merge_case ctx = function
 
       (* An expression under a [when] *)
-      | A.When (pos, expr, case_clock) -> 
+      | clock_value, A.When (pos, expr, case_clock) -> 
 
         (match case_clock with
-
-          (* Compare high clock with merge clock by name *)
-          | A.Ident (_, high_clock)
-              when clock_sign && high_clock = clock_ident -> ()
-            
-          (* Compare low clock with merge clock by name *)
-          | A.Not (_, A.Ident (_, low_clock))
-              when not clock_sign && low_clock = clock_ident -> ()
-            
+          | A.ClockPos c when clock_value = "true" && c = clock_ident -> ()
+          | A.ClockNeg c when clock_value = "false" && c = clock_ident -> ()
+          | A.ClockConstr (cs, c) when clock_value = cs && c = clock_ident -> ()
           (* Clocks must be identical identifiers *)
-          | _ ->
-            
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge");
+          | _ -> C.fail_at_position pos "Clock mismatch for argument of merge");
 
         (* Evaluate expression under [when] *)
         eval_ast_expr ctx expr
 
       (* A node call with activation condition and no defaults *)
-      | A.Activate (pos, ident, case_clock, args) -> 
+      | clock_value, A.Activate (pos, ident, case_clock, args) -> 
 
         (match case_clock with
 
           (* Compare high clock with merge clock by name *)
-          | A.Ident (_, high_clock)
-              when clock_sign && high_clock = clock_ident -> ()
+          | A.Ident (_, c) when clock_value = "true" && c = clock_ident -> ()
 
           (* Compare low clock with merge clock by name *)
-          | A.Not (_, A.Ident (_, low_clock))
-              when not clock_sign && low_clock = clock_ident -> ()
+          | A.Not (_, A.Ident (_, c))
+            when clock_value = "false" && c = clock_ident -> ()
+             
+          | A.Eq (_, A.Ident (_, c), A.Ident (_, cv))
+            when clock_value = cv && c = clock_ident -> ()
              
           (* Clocks must be identical identifiers *)
-          | _ -> 
-
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge");
+          | _ -> C.fail_at_position pos "Clock mismatch for argument of merge");
         
         (* Evaluate node call without defaults *)
         try_eval_node_call
@@ -429,55 +436,63 @@ let rec eval_ast_expr ctx = function
           pos
           (I.mk_string_ident ident)
           case_clock
-          (A.False dummy_pos)
+          (A.False pos)
           args
           None
 
       (* A node call, we implicitly clock it *)
-      | A.Call (pos, ident, args) -> 
-        
+      | clock_value, A.Call (pos, ident, args) -> 
+
         (* Evaluate node call without defaults *)
         try_eval_node_call
           ctx
           pos
           (I.mk_string_ident ident)
-          (if clock_sign then clock_expr else A.Not (dummy_pos, clock_expr))
-          (A.False dummy_pos)
+          (cond_of_clock_value clock_value)
+          (A.False pos)
           args
           None
 
       (* An expression not under a [when], we implicitly clock it *)
-      | expr -> 
+      | _, expr -> 
 
         (* Evaluate expression under [when] *)
         eval_ast_expr ctx expr
 
     in
-    
-    
-    (* Evaluate expression for high clock *)
-    let expr_high', ctx = eval_merge_case true ctx expr_high in
 
-    let expr_low', ctx = eval_merge_case false ctx expr_low in
+    (* Evaluate merge cases expressions *)
+    let merge_cases_r, ctx =
+      List.fold_left (fun (acc, ctx) ((case_value, _) as case) ->
+          let e, ctx = eval_merge_case ctx case in
+          (cond_expr_clock_value case_value, e) :: acc, ctx
+        ) ([], ctx) merge_cases
+    in
+
+    (* isolate last case, drop condition *)
+    let default_case, other_cases_r = match merge_cases_r with
+      | (_, d) :: l -> d, l
+      | _ -> assert false
+    in
+    
+    (* let merge_cases' = List.rev merge_cases_r in  *)
 
     (* Apply merge pointwise to expressions *)
     let res = 
 
       try 
 
-        (* Fold simultanously over indexes in expressions
+        List.fold_left (fun acc_else (cond, e) ->
 
-           If tries contain the same indexes, the association list
-           returned by bindings contain the same keys in the same
-           order. *)
-        D.map2
+            (* Fold simultanously over indexes in expressions
 
-          (* Construct expressions independent of index *)
-          (fun _ -> E.mk_ite clock_expr') 
-
-          expr_high' 
-          expr_low'
-
+               If tries contain the same indexes, the association list
+               returned by bindings contain the same keys in the same
+               order. *)
+            D.map2 (fun _ -> E.mk_ite cond) e acc_else
+              
+          ) default_case other_cases_r
+          
       with 
 
         | Invalid_argument _ ->
@@ -931,18 +946,11 @@ let rec eval_ast_expr ctx = function
       pos
       "Current operator must have a when expression as argument"
 
-  | A.Merge (pos, _, _) ->
-
-    C.fail_at_position 
-      pos
-      "Merge operator only supported for Boolean clocks"
-
   | A.Activate (pos, _, _, _) -> 
 
     C.fail_at_position 
       pos
       "Activate operator only supported in merge"
-
 
   (* With operator for recursive node calls *)
   | A.With (pos, _, _, _) -> 
@@ -1026,6 +1034,29 @@ and eval_bool_ast_expr ctx pos expr =
       C.fail_at_position pos "Expression is not of Boolean type")
 
 
+and eval_clock_ident ctx pos ident =
+
+  (* Evaluate identifier to trie *)
+  let expr, ctx = eval_ident ctx pos ident in
+
+  (* Check if evaluated expression is Boolean or enumerated datatype *)
+  (match D.bindings expr with 
+
+    (* Boolean expression without indexes *)
+    | [ index, 
+        ({ E.expr_type = t } as expr) ] when 
+        index = D.empty_index && (Type.is_bool t || Type.is_enum t) -> 
+
+      expr, ctx
+
+    (* Expression is not Boolean or is indexed *)
+    | _ -> 
+
+      C.fail_at_position pos "Clock identifier is not Boolean or of \
+                              an enumerated datatype")
+
+
+  
 (* Evaluate expression to an integer expression, which is not
    necessarily an integer literal. *)
 and static_int_of_ast_expr ctx pos expr =

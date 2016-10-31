@@ -131,6 +131,9 @@ val is_array : t -> bool
 (** Return [true] if the type is abstract *)
 val is_abstr : t -> bool
 
+(** Return [true] if the type is enumerated *)
+val is_enum : t -> bool
+
 (** Return bounds of an integer range type, fail with
     [Invalid_argument "bounds_of_int_range"] if the type is not an
     integer range type. *)
@@ -144,6 +147,9 @@ val all_index_types_of_array : t -> t list
 
 (** Return type of array elements *)
 val elem_type_of_array : t -> t
+
+(** Return constructors of an enumerated datatype *)
+val constructors_of_enum : t -> string list
 
 (** Generalize a type (remoe intranges) *)
 val generalize : t -> t
