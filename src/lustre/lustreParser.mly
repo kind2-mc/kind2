@@ -797,12 +797,29 @@ expr:
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, r, s, a, d) }
     
+  (* alternative syntax for restart activate *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
+    INITIAL DEFAULT; d = separated_list(COMMA, expr);
+    RESTART EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) }
+    
   (* activate operator without initial defaults and restart
 
      Only supported inside a merge *)
   | LPAREN RESTART
     LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
     EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, r, a) }
+    
+  (* alternative syntax of previous construct  *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr;
+    RESTART EVERY; r = expr; RPAREN;
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
     { let pos = mk_pos $startpos in
