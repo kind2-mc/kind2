@@ -322,6 +322,16 @@ let rec bool_of_term t = match node_of_term t with
 
   | _ -> invalid_arg "bool_of_term"
 
+(* Return true if the term is a constant constructor *)
+let is_constr t = match destruct t with 
+  | T.Const s when Symbol.is_constr s -> true
+  | _ -> false
+
+(* Return the constructor if it is one *)
+let constr_of_term t = match destruct t with 
+  | T.Const s when Symbol.is_constr s -> Symbol.constr_of_symbol s
+  | _ -> invalid_arg "constr_of_term"
+
 
 (* Return true if the term is an application of the select operator *)
 let is_select t = match node_of_term t with
