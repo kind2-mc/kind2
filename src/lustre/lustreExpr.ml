@@ -234,10 +234,14 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | Type.Enum (_, cs) -> 
+  | Type.Enum (None, cs) -> 
     Format.fprintf ppf "enum {%a}" 
       (pp_print_list Format.pp_print_string ", ") cs
-(*
+
+  | Type.Enum (Some name, _) -> 
+    Format.fprintf ppf "%s" name 
+
+  (*
   | Type.BV i -> 
 
     raise 
