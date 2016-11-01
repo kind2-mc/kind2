@@ -1333,7 +1333,7 @@ let rec add_to_callpos abstr_map acc pos cond args calls =
 
 
 let register_callpos_for_nb abstr_map hc lid parents pos cond args =
-  let is_condact = match cond with | N.CActivate _ -> true | _ -> false in
+  let is_condact = match cond with | N.CActivate _ :: _ -> true | _ -> false in
   let cat =
     try Hashtbl.find hc (lid, is_condact)
     with Not_found ->
@@ -1384,7 +1384,7 @@ let pos_to_numbers abstr_map nodes =
   
   hc
 
-exception Found of int * N.call_cond
+exception Found of int * N.call_cond list
 
 let get_pos_number hc lid pos =
   (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)

@@ -728,7 +728,8 @@ expr:
     COMMA; 
     d = expr_list 
     RPAREN
-    { A.Condact (mk_pos $startpos, e1, s, a, d) } 
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, e1, A.False pos, s, a, d) } 
 
   (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
@@ -738,7 +739,35 @@ expr:
     s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
     RPAREN
 
-    { A.Condact (mk_pos $startpos, c, s, a, []) } 
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, A.False pos, s, a, []) } 
+
+  (* condact call with defaults and restart *)
+  | LPAREN RESTART
+    CONDACT 
+    LPAREN; 
+    e1 = expr; 
+    COMMA; 
+    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    COMMA; 
+    d = expr_list 
+    RPAREN EVERY;
+    r = expr; RPAREN
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, e1, r, s, a, d) } 
+
+  (* condact call with no return values and restart *)
+  | LPAREN RESTART
+    CONDACT 
+    LPAREN; 
+    c = expr; 
+    COMMA; 
+    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    RPAREN EVERY;
+    r = expr; RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, []) } 
 
   (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
      is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
@@ -746,7 +775,8 @@ expr:
     INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
-    { A.Condact (mk_pos $startpos, c, s, a, d) }
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, A.False pos, s, a, d) }
     
   (* activate operator without initial defaults
 
@@ -754,8 +784,31 @@ expr:
   | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
-    { A.Activate (mk_pos $startpos, s, c, a) }
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, A.False pos, a) }
 
+  (* restart activate *)
+  | LPAREN RESTART
+    LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
+    INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
+    EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) }
+    
+  (* activate operator without initial defaults and restart
+
+     Only supported inside a merge *)
+  | LPAREN RESTART
+    LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
+    EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, r, a) }
+
+    
   (* restart node call *)
   (*| RESTART; s = ident;
     LPAREN; a = separated_list(COMMA, expr); RPAREN;

@@ -705,7 +705,7 @@ let rec constraints_of_node_calls
   )
 
   (* Node call without an activation condition or restart *)
-  | { N.call_pos; N.call_node_name; N.call_cond = N.CNone }
+  | { N.call_pos; N.call_node_name; N.call_cond = [] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -763,7 +763,7 @@ let rec constraints_of_node_calls
       tl
 
   (* Node call with restart condition *)
-  | { N.call_pos; N.call_node_name; N.call_cond = N.CRestart restart }
+  | { N.call_pos; N.call_node_name; N.call_cond = [N.CRestart restart] }
     as node_call :: tl ->
 
     (* Get generated transition system of callee *)
@@ -811,7 +811,7 @@ let rec constraints_of_node_calls
   (* Node call with activation condition *)
   | { N.call_pos; 
       N.call_node_name; 
-      N.call_cond = N.CActivate clock;
+      N.call_cond = N.CActivate clock :: other_conds;
       N.call_inputs;
       N.call_outputs; 
       N.call_defaults } as node_call :: tl -> 
@@ -1099,6 +1099,19 @@ let rec constraints_of_node_calls
 
     in
 
+    let trans_term = match other_conds with
+      | [] -> trans_term
+      | [N.CRestart restart] ->
+
+        let restart_trans = E.cur_term_of_state_var TransSys.trans_base restart in
+        (* Reset state of node to initial state when restart condition is true *)
+        Term.mk_ite restart_trans
+          (Term.bump_state Numeral.(TransSys.trans_base - E.cur_offset) init_term)
+          trans_term
+      | _ -> assert false
+    in
+    
+    
     (* Guard lifted property with activation condition of node *)
     let node_props = 
       List.map
@@ -1133,6 +1146,9 @@ let rec constraints_of_node_calls
       (init_term :: init_terms)
       (trans_term :: trans_terms)
       tl
+
+
+  | _ -> assert false
 
 
 (* Add constraints from assertions to initial state constraint and

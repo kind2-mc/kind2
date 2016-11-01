@@ -130,8 +130,8 @@ type expr =
   (* Clock operators *)
   | When of position * expr * clock_expr
   | Current of position * expr
-  | Condact of position * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr list
+  | Condact of position * expr * expr * ident * expr list * expr list
+  | Activate of position * ident * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
       
@@ -487,22 +487,24 @@ let rec pp_print_expr ppf =
         pp_print_clock_expr e2
 
     | Current (p, e) -> p1 p "current" e
-    | Condact (p, e1, n, e2, e3) -> 
+    | Condact (p, e1, er, n, e2, e3) -> 
   
       Format.fprintf ppf 
-        "%acondact(%a,%a(%a),%a)" 
+        "%acondact(%a,restart %a,%a(%a),%a)" 
         ppos p
         pp_print_expr e1
+        pp_print_expr er
         pp_print_ident n
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
 
-    | Activate (p, i, c, l) ->
+    | Activate (p, i, c, r, l) ->
 
       Format.fprintf ppf
-        "(activate %a every %a)(%a)"
+        "(restart (activate %a every %a) every %a)(%a)"
         pp_print_ident i
         pp_print_expr c
+        pp_print_expr r
         (pp_print_list pp_print_expr ",@ ") l 
         
     | Merge (p, c, l) ->
@@ -1076,8 +1078,8 @@ let pos_of_expr = function
   | Times (pos , _ , _) | IntDiv (pos , _ , _) | Ite (pos , _ , _ , _)
   | With (pos , _ , _ , _) | Eq (pos , _ , _) | Neq (pos , _ , _)
   | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
-  | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _ )
-  | Activate (pos , _ , _ , _ ) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _, _)
+  | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | RestartEvery (pos, _, _, _)
   | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
   | CallParam (pos , _ , _ , _ )
@@ -1118,12 +1120,16 @@ let rec has_unguarded_pre ung = function
     let us = List.map (has_unguarded_pre ung) (List.map snd l) in
     List.exists Lib.identity us
 
-  | Activate (_, _, e, l) | RestartEvery (_, _, l, e) ->
+  | RestartEvery (_, _, l, e) ->
     let us = List.map (has_unguarded_pre ung) (e :: l) in
     List.exists Lib.identity us
 
-  | Condact (_, e, _, l1, l2) ->
-    let us = List.map (has_unguarded_pre ung) (e :: l1 @ l2) in
+  | Activate (_, _, e, r, l)  ->
+    let us = List.map (has_unguarded_pre ung) (e :: r :: l) in
+    List.exists Lib.identity us
+
+  | Condact (_, e, r, _, l1, l2) ->
+    let us = List.map (has_unguarded_pre ung) (e :: r :: l1 @ l2) in
     List.exists Lib.identity us
 
   | RecordExpr (_, _, ie) ->
@@ -1218,12 +1224,16 @@ let rec has_pre_or_arrow = function
     List.map has_pre_or_arrow (List.map snd l)
     |> some_of_list
 
-  | Activate (_, _, e, l) | RestartEvery (_, _, l, e) ->
+  | RestartEvery (_, _, l, e) ->
     List.map has_pre_or_arrow (e :: l)
     |> some_of_list
 
-  | Condact (_, e, _, l1, l2) ->
-    List.map has_pre_or_arrow (e :: l1 @ l2)
+  | Activate (_, _, e, r, l) ->
+    List.map has_pre_or_arrow (e :: r :: l)
+    |> some_of_list
+
+  | Condact (_, e, r, _, l1, l2) ->
+    List.map has_pre_or_arrow (e :: r :: l1 @ l2)
     |> some_of_list
 
   | RecordExpr (_, _, ie) ->

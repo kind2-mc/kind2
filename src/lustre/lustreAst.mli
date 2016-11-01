@@ -101,8 +101,8 @@ type expr =
   | Gt of position * expr * expr
   | When of position * expr * clock_expr
   | Current of position * expr
-  | Condact of position * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr list
+  | Condact of position * expr * expr * ident * expr list * expr list
+  | Activate of position * ident * expr * expr * expr list
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
   | Pre of position * expr

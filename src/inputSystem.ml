@@ -281,12 +281,9 @@ let slice_to_abstraction_and_property
       (* Node call has an activation condition? *)
       match call_cond with 
 
-        (* Keep all instants for node calls without activation
-           condition. *)
-        | N.CNone | N.CRestart _ -> v
-
         (* State variable for activation condition. *)
-        | N.CActivate clock_state_var -> 
+        | [_; N.CActivate clock_state_var] 
+        | N.CActivate clock_state_var :: _ -> 
 
           (* Get values of activation condition from model. *)
           let clock_values = List.assq clock_state_var cex in
@@ -311,7 +308,12 @@ let slice_to_abstraction_and_property
 
             (* TODO: models with arrays. *)
             | Model.Lambda _ -> assert false
-          ) clock_values v []
+            ) clock_values v []
+            
+        (* Keep all instants for node calls without activation
+           condition. *)
+        | _ -> v
+
     )
 
     (* Clocked node calls are only in Lustre, no filtering of instants in

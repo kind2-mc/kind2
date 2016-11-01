@@ -413,7 +413,7 @@ let rec eval_ast_expr ctx = function
         eval_ast_expr ctx expr
 
       (* A node call with activation condition and no defaults *)
-      | clock_value, A.Activate (pos, ident, case_clock, args) -> 
+      | clock_value, A.Activate (pos, ident, case_clock, restart_clock, args) ->
 
         (match case_clock with
 
@@ -436,7 +436,7 @@ let rec eval_ast_expr ctx = function
           pos
           (I.mk_string_ident ident)
           case_clock
-          (A.False pos)
+          restart_clock
           args
           None
 
@@ -846,14 +846,14 @@ let rec eval_ast_expr ctx = function
   (* Condact, a node with an activation condition 
 
      [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
-  | A.Condact (pos, cond, ident, args, defaults) ->  
+  | A.Condact (pos, cond, restart, ident, args, defaults) ->  
 
     try_eval_node_call
       ctx
       pos
       (I.mk_string_ident ident)
       cond
-      (A.False dummy_pos)
+      restart
       args
       (Some defaults)
 
@@ -946,7 +946,7 @@ let rec eval_ast_expr ctx = function
       pos
       "Current operator must have a when expression as argument"
 
-  | A.Activate (pos, _, _, _) -> 
+  | A.Activate (pos, _, _, _, _) -> 
 
     C.fail_at_position 
       pos
@@ -1390,12 +1390,10 @@ and eval_node_call
 
   (* cannot have both activation condition and restart condition *)
   let cond_state_var = match act_state_var, restart_state_var with
-    | None, None -> N.CNone
-    | Some c, None -> N.CActivate c
-    | None, Some r -> N.CRestart r
-    | _ ->
-      C.fail_at_position pos
-        "Cannot have both an activation condition and a restart condition"
+    | None, None -> []
+    | Some c, None -> [N.CActivate c]
+    | None, Some r -> [N.CRestart r]
+    | Some c, Some r -> [N.CActivate c; N.CRestart r]
   in
   
   match

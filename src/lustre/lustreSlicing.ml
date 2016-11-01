@@ -314,11 +314,13 @@ let rec node_state_var_dependencies'
               |> 
               
               (* Clock of condact or restart is a child *)
-              (function children -> 
-                match call_cond with 
-                  | N.CNone -> children
+              fun children ->
+              List.fold_left (fun children -> function
+                  (* | N.CNone -> children *)
                   | N.CActivate clk
-                  | N.CRestart clk -> SVS.add clk children)
+                  | N.CRestart clk -> SVS.add clk children
+                ) children call_cond
+                
               |>
               
               (* Add to set of children from equations *)
@@ -653,10 +655,10 @@ let add_roots_of_node_call
     call_oracles @ 
 
     (* Need dependencies of clock and restart if call has one *)
-    (match call_cond with
-      | N.CNone -> roots'
-      | N.CActivate c
-      | N.CRestart c -> c :: roots')
+    List.fold_left (fun roots' -> function
+      (* | N.CNone -> roots' *)
+        | N.CActivate c
+        | N.CRestart c -> c :: roots') roots' call_cond
 
   in
 

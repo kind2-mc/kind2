@@ -227,7 +227,7 @@ val node_of_name : t -> LustreIdent.t -> LustreNode.t
     default values are identical to [d]. It returns [None] if no such call was
     found, and its output variables otherwise. *)
 val call_outputs_of_node_call :
-  t -> LustreIdent.t -> LustreNode.call_cond ->
+  t -> LustreIdent.t -> LustreNode.call_cond list ->
   StateVar.t LustreIndex.t -> LustreExpr.t LustreIndex.t option ->
   StateVar.t LustreIndex.t option
 

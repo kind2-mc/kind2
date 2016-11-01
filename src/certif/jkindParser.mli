@@ -27,7 +27,7 @@ val jkind_scope : Scope.t
     for lustre streams and callsites information. *)
 val jkind_vars_of_kind2_statevar :
   TransSys.t ->
-  (StateVar.t * (LustreIdent.t * int * LustreNode.call_cond) list) list
+  (StateVar.t * (LustreIdent.t * int * LustreNode.call_cond list) list) list
     StateVar.StateVarMap.t
   -> StateVar.t -> StateVar.t list
 

@@ -1137,7 +1137,7 @@ let call_outputs_of_node_call
               (I.equal ident call_ident) &&
 
               (* ... activation and restart conditions must be equal, and ... *)
-              (match cond_var, call_cond with 
+              (try List.for_all2 (fun c c' -> match c, c' with
 
                 (* Both calls are with an activation condition *)
                 | N.CActivate v, N.CActivate v' -> 
@@ -1158,11 +1158,13 @@ let call_outputs_of_node_call
                 | N.CRestart v, N.CRestart v' ->
                   StateVar.equal_state_vars v v' 
 
-                (* Both calls without activation condtion *)
-                | N.CNone, N.CNone -> true
+                (* (\* Both calls without activation condtion *\) *)
+                (* | N.CNone, N.CNone -> true *)
 
                 (* One call with and the other without condition *)
                 | _ -> false)
+                   cond_var call_cond
+               with Invalid_argument _ -> false)
               &&
                             
               (* ... inputs must be the same up to oracles *)

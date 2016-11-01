@@ -84,7 +84,6 @@ type state_var_source =
   | Oracle
 
 type call_cond =
-  | CNone
   | CActivate of StateVar.t
   | CRestart of StateVar.t
 
@@ -97,8 +96,8 @@ type node_call = {
   (* Name of called node *)
   call_node_name : I.t;
     
-  (* Boolean activation or restart condition if any *)
-  call_cond : call_cond;
+  (* Boolean activation and/or restart conditions if any *)
+  call_cond : call_cond list;
  
   (* Variables for input parameters *)
   call_inputs : StateVar.t D.t;
@@ -297,7 +296,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_node_name; 
-      call_cond = CNone;
+      call_cond = [];
       call_inputs; 
       call_oracles; 
       call_outputs } ->
@@ -315,7 +314,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock with restart *)
   | { call_node_name; 
-      call_cond = CRestart restart_var;
+      call_cond = [CRestart restart_var];
       call_inputs; 
       call_oracles; 
       call_outputs } ->
@@ -334,7 +333,7 @@ let pp_print_call safe ppf = function
 
   (* Node call not on the base clock is a condact *)
   | { call_node_name; 
-      call_cond = CActivate call_clock_var;
+      call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
       call_outputs; 
@@ -367,7 +366,7 @@ let pp_print_call safe ppf = function
           
   (* Node call not on the base clock without defaults *)
   | { call_node_name; 
-      call_cond = CActivate call_clock_var;
+      call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
       call_outputs; 
@@ -387,6 +386,68 @@ let pp_print_call safe ppf = function
          (D.bindings call_inputs) @ 
        call_oracles)
 
+  (* Node call not on the base clock is a condact with restart *)
+  | { call_node_name; 
+      call_cond =
+        ([CActivate call_clock_var; CRestart restart_var] |
+         [CRestart restart_var; CActivate call_clock_var]) ;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = Some call_defaults } ->
+    
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>restart condact(@,%a,@,%a(%a)%t) every %a;@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs) 
+      (E.pp_print_lustre_var safe) call_clock_var
+      (I.pp_print_ident safe) call_node_name
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
+      (List.map  
+         (fun (_, sv) -> sv)
+         (D.bindings call_inputs) @ 
+       call_oracles)
+      (fun ppf -> 
+         match 
+           D.values call_defaults
+         with 
+           | [] -> ()
+           | l -> 
+             Format.fprintf 
+               ppf 
+               ",@,%a"
+               (pp_print_list (E.pp_print_lustre_expr safe) ",@ ")
+               l)
+      (E.pp_print_lustre_var safe) restart_var
+      
+  (* Node call not on the base clock without defaults with restart  *)
+  | { call_node_name; 
+      call_cond =
+        ([CActivate call_clock_var; CRestart restart_var] |
+         [CRestart restart_var; CActivate call_clock_var]) ;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = None } ->
+
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>(restart (activate@ %a@ every@ %a) every %a)@,(%a);@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs) 
+      (I.pp_print_ident safe) call_node_name
+      (E.pp_print_lustre_var safe) call_clock_var
+      (E.pp_print_lustre_var safe) restart_var
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ")
+      (List.map  
+         (fun (_, sv) -> sv)
+         (D.bindings call_inputs) @ 
+       call_oracles)
+    
+  | _ -> assert false
 
 
 (* Pretty-print an assertion *)
@@ -543,11 +604,15 @@ let pp_print_state_var_trie_debug ppf t =
     ppf
 
 let pp_print_cond ppf = function
-  | CNone -> Format.pp_print_string ppf "None"
+  (* | CNone -> Format.pp_print_string ppf "None" *)
   | CActivate c ->
     Format.fprintf ppf "activate on %a" StateVar.pp_print_state_var c
   | CRestart r ->
     Format.fprintf ppf "restart on %a" StateVar.pp_print_state_var r
+
+
+let pp_print_conds ppf = pp_print_list pp_print_cond ",@ " ppf 
+
 
 let pp_print_node_call_debug 
     ppf
@@ -564,7 +629,7 @@ let pp_print_node_call_debug
                      oracles  = [@[<hv>%a@]];@ \
                      outputs  = [@[<hv>%a@]]; }@]"
     (I.pp_print_ident false) call_node_name
-    pp_print_cond call_cond
+    pp_print_conds call_cond
     pp_print_state_var_trie_debug call_inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") call_oracles
     pp_print_state_var_trie_debug call_outputs
@@ -1257,10 +1322,8 @@ let stateful_vars_of_node
         (* Variables in activation and restart conditions are always
            stateful *)
         |> SVS.union
-          (match call_cond with
-           | CNone -> SVS.empty
-           | CActivate cv -> SVS.singleton cv
-           | CRestart rv -> SVS.singleton rv)
+          (List.map (function | CActivate v | CRestart v -> v) call_cond
+           |> SVS.of_list)
        
       ) stateful_vars calls
   in
