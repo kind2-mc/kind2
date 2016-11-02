@@ -1990,89 +1990,51 @@ let mk_pre
     unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
-  (* Apply pre to initial state expression *)
-  let expr_init', expr_type', ctx' = match expr_init with
+  let abs_pre () =
+    let expr_type = Type.generalize expr_type in
+    let expr = { expr with expr_type } in
+    (* Fresh state variable for expression *)
+    let state_var, ctx = mk_state_var_for_expr ctx expr in
+    (* Variables at previous instant *)
+    let var_init = Var.mk_state_var_instance state_var pre_base_offset in
+    let var_step = Var.mk_state_var_instance state_var pre_offset in
+    { expr_init = Term.mk_var var_init;
+      expr_step = Term.mk_var var_step;
+      expr_type }, ctx
+  in
 
+  (* Stream is the same in the initial state and step (e -> e) *)
+  if not unguarded && Term.equal expr_step expr_init then
+    match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)
     | t when
-        not unguarded && 
-        (t == Term.t_true || 
-         t == Term.t_false || 
-           (Term.is_free_var t && 
-              Term.free_var_of_term t |> Var.is_const_state_var) ||
-             (match Term.destruct t with 
-              | Term.T.Const c1 when 
-                     Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
-              | _ -> false)) ->
-       (expr_init, expr_type, ctx)
-          
+        (t == Term.t_true ||
+         t == Term.t_false ||
+         (Term.is_free_var t &&
+          Term.free_var_of_term t |> Var.is_const_state_var) ||
+           (match Term.destruct t with
+            | Term.T.Const c1 when
+                   Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+            | _ -> false)) ->
+       
+       expr, ctx
+      
     (* Expression is a variable at the current instant not part of an unguarded
        pre expression *)
-    | t when
-        not unguarded &&
-        Term.is_free_var t &&
+    | t when Term.is_free_var t &&
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
-                 base_offset) ->
-      
-      (Term.bump_state Numeral.(- one) t, expr_type, ctx)
-      
-    (* Expression is not a variable at the current instant *)
-    | _ ->
+                   base_offset) ->
 
-      let expr_type = Type.generalize expr_type in
-      let expr = { expr with expr_type } in
+       let pt = Term.bump_state Numeral.(- one) t in
+       { expr with expr_init = pt; expr_step = pt }, ctx
        
-      (* Fresh state variable for identifier *)
-      let state_var, ctx' = mk_state_var_for_expr ctx expr in 
+    (* Expression is not a variable at the current instant or a constant:
+       abstract *)
+    | _ -> abs_pre ()
 
-      (* Variable at previous instant *)
-      let var = Var.mk_state_var_instance state_var pre_base_offset in
+  else (* Stream is of the form: a -> b, abstract*)
 
-      (* Return term and new definitions *)
-      (Term.mk_var var, expr_type, ctx')
-      
-  in
-
-  (* Apply pre to step state expression *)
-  let expr_step', expr_type', ctx'' = match expr_step with 
-
-    (* Expression is identical to initial state *)
-    | _ when not unguarded &&
-             Term.equal expr_step expr_init -> 
-
-      (* Re-use abstraction for initial state *)
-      (expr_init', expr_type', ctx')
-
-    (* Expression is a variable at the current instant *)
-    | t when
-        Term.is_free_var t &&
-        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
-                 cur_offset) ->
-
-      (Term.bump_state Numeral.(- one) t, expr_type', ctx')
-
-    (* Expression is not a variable *)
-    | _ -> 
-
-      let expr_type = Type.generalize expr_type' in
-      let expr = { expr with expr_type } in
-       
-      (* Fresh state variable for expression *)
-      let state_var, ctx' = mk_state_var_for_expr ctx' expr in
-
-      (* Variable at previous instant *)
-      let var = Var.mk_state_var_instance state_var Numeral.(- one) in
-
-      (* Return term and new definitions *)
-      (Term.mk_var var, expr_type, ctx')
-      
-  in
-
-  (* Return expression and new definitions *)
-  { expr_init = expr_init' ;
-    expr_step = expr_step' ;
-    expr_type = expr_type' ;
-  }, ctx''
+    abs_pre ()
 
 
 (* ********************************************************************** *)
