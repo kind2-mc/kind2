@@ -791,7 +791,11 @@ let type_of_smtlib_sexpr =
                                                 
     | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
                                                 
-    | HStringSExpr.Atom _
+    | HStringSExpr.Atom s ->
+      let s = HString.string_of_hstring s in
+      (try Type.enum_of_name s
+       with Not_found -> Type.mk_abstr s)
+
     | HStringSExpr.List _ as s -> 
       
       raise

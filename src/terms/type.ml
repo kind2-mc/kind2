@@ -297,6 +297,16 @@ let enum_of_constr c =
     raise Not_found
   with Found_enum ty -> ty
 
+let enum_of_name n =
+  try
+    Hkindtype.iter (function
+      | { Hashcons.node = Enum (Some n', _) } as ty when n' = n ->
+        raise (Found_enum ty)
+      | _ -> ()) ht;
+    raise Not_found
+  with Found_enum ty -> ty
+
+
 
 (* ********************************************************************* *)
 (* Predicates                                                            *)

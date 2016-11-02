@@ -178,6 +178,9 @@ val get_all_enum_types : unit -> t list
 (** return the enumerated datatype to which a constructor belongs (if any) *)
 val enum_of_constr : string -> t
 
+(** return the enumerated datatype whose name is the argument (if any) *)
+val enum_of_name : string -> t
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

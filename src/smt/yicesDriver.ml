@@ -149,8 +149,11 @@ let type_of_string_sexpr = function
     when s == s_subrange ->
     Type.mk_int_range (Numeral.of_string (HString.string_of_hstring i))
       (Numeral.of_string (HString.string_of_hstring j))
-
-  | HStringSExpr.Atom s -> Type.mk_abstr (HString.string_of_hstring s)
+                                                
+  | HStringSExpr.Atom s ->
+    let s = HString.string_of_hstring s in
+    (try Type.enum_of_name s
+     with Not_found -> Type.mk_abstr s)
 
   | HStringSExpr.List _ as s ->
 

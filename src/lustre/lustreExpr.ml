@@ -1990,6 +1990,8 @@ let mk_pre
     unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
+  (* When simplifications fails, simply abstract with a new state variable,
+     i.e., create an internal new memory. *)
   let abs_pre () =
     let expr_type = Type.generalize expr_type in
     let expr = { expr with expr_type } in
