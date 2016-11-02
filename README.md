@@ -94,3 +94,53 @@ To generate the documentation, you need
 ## Docker
 
 Kind 2 is available on [docker](https://hub.docker.com/r/kind2/kind2/).
+
+### Retrieving / updating the image
+
+[Install docker](https://www.docker.com/products/docker) and then run
+
+```
+docker pull kind2/kind2:dev
+```
+
+Docker will retrieve the *layers* corresponding to the latest version of the
+Kind 2 repository, `develop` version. If you are interested in the latest
+release, run
+
+```
+docker pull kind2/kind2
+```
+
+instead.
+
+If you want to update your Kind 2 image to latest one, simply re-run the
+`docker pull` command.
+
+### Running Kind 2 through docker
+
+To run Kind 2 on a file on your system, it is recommended to mount the folder in which this file is as a [volume](https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume).
+In practice, run
+
+```
+docker run -v <absolute_path_to_folder>:/lus kind2/kind2:dev <options> /lus/<your_file>
+```
+
+where
+
+- `<absolute_path_to_folder>` is the absolute path to the folder your file is
+  in,
+- `<your_file>` is the lustre file you want to run Kind 2 on, and
+- `<options>` are some Kind 2 options of your choice.
+
+**N.B.**
+
+- the fact that the path to your folder must be absolute is [a docker constraint](https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume);
+- mount point `/lus` is arbitrary and does not matter as long as it is
+  consistent with the last argument `/lus/<your_file>`. To avoid name clashes
+  with folders already present in the container however, it is recommended to
+  use `/lus`;
+- replace `kind2:dev` by `kind2` if you want to run the latest release of Kind2
+  instead of the `develop` version;
+- `docker run` does **not** update your local Kind 2 image to the latest one:
+  the appropriate `docker pull` command does.
+
