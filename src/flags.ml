@@ -1747,15 +1747,12 @@ module Global = struct
         "\
           Output directory for the files generated:@ \
           SMT traces, compilation, testgen, certification...@ \
-          Default: \"<filename>.out\"\
+          Default: \"<path_to_filename>.out\"\
         "
     )
 
   let set_output_dir s = match ! output_dir with
-    | "" ->
-      let b = Filename.basename s in
-      let d = try Filename.chop_extension b with Invalid_argument _ -> b in
-      output_dir_action(d ^ ".out")
+    | "" -> s ^ ".out" |> output_dir_action
     | _ -> ()
 
   let output_dir () = !output_dir
