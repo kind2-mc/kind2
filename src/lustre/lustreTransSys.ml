@@ -1584,7 +1584,8 @@ let rec trans_sys_of_node'
               |> List.fold_left (
                 fun (ufs, eqs) output ->
                   let uf_name =
-                    Format.sprintf "%s.%s"
+                    Format.asprintf "%a.%s.%s"
+                      Scope.pp_print_scope scope
                       (StateVar.name_of_state_var output)
                       Lib.ReservedIds.function_of_inputs
                   in
