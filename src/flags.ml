@@ -1594,8 +1594,11 @@ module Global = struct
   (* All files in the cone of influence of the input file. *)
   let all_input_files = ref []
   let clear_input_files () = all_input_files := []
-  let add_input_file file = all_input_files := file :: !all_input_files
-  let get_all_input_files () = ! all_input_files
+  let add_input_file file =
+    (* Additional input file're relative to main input file. *)
+    let path = input_file () |> Filename.dirname in
+    all_input_files := (path ^ "/" ^ file) :: ! all_input_files
+  let get_all_input_files () = (input_file ()) :: ! all_input_files
 
 
   (* Print help. *)

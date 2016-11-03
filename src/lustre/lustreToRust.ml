@@ -1792,7 +1792,6 @@ fn write_footer<W: Write>(w: & mut W) -> IoRes<()> {
 
   (* Copy all input files to the lus directory. *)
   let cp src = fmt_cp_target src lus_path |> cp_file src in
-  Flags.input_file () |> cp ;
   Flags.all_input_files () |> List.iter (
     fun file -> cp file
   )
