@@ -144,3 +144,18 @@ where
 - `docker run` does **not** update your local Kind 2 image to the latest one:
   the appropriate `docker pull` command does.
 
+### Packaging your local version of Kind 2
+
+At the top level of the Kind 2 repository is a `Dockerfile` you can use to
+build your own Kind 2 image. To do so, just run
+
+```
+docker build -t kind2-local .
+```
+
+at the root of the repository. `kind2-local` is given here as an example, feel
+free to call it whatever you want.
+
+Note that building your own local Kind 2 image **does require access to the
+Internet**. This is because of the packages the build process needs to
+retrieve, as well as for downloading the z3 and cvc4 solvers.
