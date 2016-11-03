@@ -1438,12 +1438,12 @@ let rec eval_node_contract_call known ctx scope (
   in
 
   (* If node's actually a function, check that contract is not stateful. *)
-  Format.printf "current_node: %a@.@."
+  (* Format.printf "current_node: %a@.@."
     (I.pp_print_ident false) (
       match C.current_node_name ctx with
       | Some id -> id
       | None -> assert false
-    ) ;
+    ) ; *)
   ( if C.get_node_function_flag ctx then (
     Format.printf "checking contract %s@.@." id ;
     match A.contract_has_pre_or_arrow contract with
