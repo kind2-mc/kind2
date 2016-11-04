@@ -243,6 +243,7 @@ let keyword_table = mk_hashtbl [
   ("const", CONST) ;
   
   (* Node / function declaration *)
+  ("extern", EXTERN) ;
   ("node", NODE) ;
   ("function", FUNCTION) ;
   ("returns", RETURNS) ;

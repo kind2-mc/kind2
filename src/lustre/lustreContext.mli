@@ -73,8 +73,8 @@ val pop_contract_scope : t -> t
 val contract_scope_of : t -> string list
 
 (** Return a copy of the context with an empty node of the given name
-    in the context *)
-val create_node : t -> LustreIdent.t -> t 
+    and is extern flag in the context *)
+val create_node : t -> LustreIdent.t -> bool -> t
 
 (** Returns the name of the current node, if any. *)
 val current_node_name : t -> LustreIdent.t option
