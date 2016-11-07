@@ -743,29 +743,24 @@ expr:
       A.Condact (pos, c, A.False pos, s, a, []) } 
 
   (* condact call with defaults and restart *)
-  | LPAREN RESTART
-    CONDACT 
-    LPAREN; 
-    e1 = expr; 
+  | CONDACT LPAREN;
+    c = expr; 
+    COMMA;
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN; 
     COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
-    COMMA; 
-    d = expr_list 
-    RPAREN EVERY;
-    r = expr; RPAREN
+    d = expr_list;
+    RPAREN
     { let pos = mk_pos $startpos in
-      A.Condact (pos, e1, r, s, a, d) } 
+      A.Condact (pos, c, r, s, a, d) } 
 
   (* condact call with no return values and restart *)
-  | LPAREN RESTART
-    CONDACT 
-    LPAREN; 
+  | CONDACT ; LPAREN;
     c = expr; 
     COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
-    RPAREN EVERY;
-    r = expr; RPAREN
-
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN
+    LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    RPAREN
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, r, s, a, []) } 
 
@@ -787,17 +782,17 @@ expr:
     { let pos = mk_pos $startpos in
       A.Activate (pos, s, c, A.False pos, a) }
 
-  (* restart activate *)
-  | LPAREN RESTART
-    LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
+  (* activate restart *)
+  | LPAREN; ACTIVATE;
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
+    EVERY; c = expr; 
     INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
-    EVERY; r = expr; RPAREN;
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, r, s, a, d) }
     
-  (* alternative syntax for restart activate *)
+  (* alternative syntax for activate restart *)
   | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
     INITIAL DEFAULT; d = separated_list(COMMA, expr);
     RESTART EVERY; r = expr; RPAREN;
@@ -809,9 +804,9 @@ expr:
   (* activate operator without initial defaults and restart
 
      Only supported inside a merge *)
-  | LPAREN RESTART
-    LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
-    EVERY; r = expr; RPAREN;
+  | LPAREN; ACTIVATE;
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
+    EVERY; c = expr; RPAREN; 
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
     { let pos = mk_pos $startpos in
