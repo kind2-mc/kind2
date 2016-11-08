@@ -151,7 +151,14 @@ let mk_pos = position_of_lexing
 %token EVERY
 %token RESTART
 %token MERGE
-    
+
+(* Tokens for automata *)
+%token AUTOMATON
+%token STATE
+%token UNLESS
+%token UNTIL
+%token RESUME
+
 (* Tokens for temporal operators *)
 %token PRE
 %token FBY
@@ -337,11 +344,11 @@ node_decl:
   i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
   RETURNS;
   o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
-  SEMICOLON;
+  option(SEMICOLON);
   r = option(contract_spec);
   l = list(node_local_decl);
   LET;
-  e = list(node_equation);
+  e = list(node_item);
   TEL
   option(node_sep)
 
@@ -534,6 +541,13 @@ property:
     { A.AnnotProperty (mk_pos $startpos, name, e) }
 
 
+node_item:
+  | e = node_equation { A.EqAssert e }
+  | a = main_annot { a }
+  | p = property { p }
+  | a = node_automaton { a }
+
+
 (* An equations of a node *)
 node_equation:
 
@@ -546,12 +560,58 @@ node_equation:
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
 
-  (* Node annotation *)
-  | a = main_annot { a }
 
-  (* Property annotation *)
-  | p = property { p }
 
+node_automaton:
+  | AUTOMATON; i = ident; s = list(state)
+    { A.Automaton (mk_pos $startpos, i, s) }
+
+
+state_decl:
+  | STATE; i = ident { i, false }
+  | INITIAL STATE; i = ident { i, true }
+
+state:
+  | ii = state_decl; COLON
+    us = option(unless_transition);
+    LET;
+    e = list(node_equation);
+    TEL;
+    ul = option(until_transition)
+    { let i, init = ii in
+      A.State (mk_pos $startpos, i, init, e, us, ul) }
+
+  | ii = state_decl; COLON
+    us = option(unless_transition);
+    ul = option(until_transition)
+    { let i, init = ii in
+      A.State (mk_pos $startpos, i, init, [], us, ul) }
+
+
+unless_transition:
+  | UNLESS; b = transition_branch
+    { (mk_pos $startpos, b) }
+
+    
+until_transition:
+  | UNTIL; b = transition_branch
+    { (mk_pos $startpos, b) }
+
+
+transition_branch:
+  | IF; e = expr;
+    t = automaton_transition; r = option(transition_branch)
+    { A.TransIf (mk_pos $startpos, e, t, r) }
+  | ELSE; t = automaton_transition
+    { A.TransElse (mk_pos $startpos, t) }
+
+
+automaton_transition:
+  | RESTART; s = ident
+    { A.TransRestart (mk_pos $startpos, s) }
+
+  | RESUME; s = ident
+    { A.TransResume (mk_pos $startpos, s) }
 
 left_side:
 

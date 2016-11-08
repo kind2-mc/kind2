@@ -759,14 +759,8 @@ let expand_tuple pos lhs rhs =
     (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs))
 
 
-(* Evaluate node statements and add to context  *)
-let rec eval_node_equations ctx = function
-
-  (* No more statements *)
-  | [] -> ctx
-
-  (* Assertion *)
-  | A.Assert (pos, ast_expr) :: tl -> 
+let eval_node_equation ctx = function
+  | A.Assert (pos, ast_expr) -> 
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
 
@@ -777,54 +771,16 @@ let rec eval_node_equations ctx = function
     in
 
     let ctx = C.reset_guard_flag ctx in
-    
+
     (* Add assertion to node *)
-    let ctx = C.add_node_assert ctx expr in
-
-    (* Continue with next node statements *)
-    eval_node_equations ctx tl
-
-  (* Property annotation *)
-  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
-    (* report unguarded pre *)
-    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
-
-    (* Evaluate Boolean expression and guard all pre operators *)
-    let expr, ctx = 
-      S.eval_bool_ast_expr ctx pos ast_expr 
-      |> C.close_expr ~original:ast_expr pos
-    in
-
-    let ctx = C.reset_guard_flag ctx in
-    
-    let name = match name_opt with
-      | Some n -> n
-      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
-    in
-    
-    (* Add property to node *)
-    let ctx = C.add_node_property ctx (Property.PropAnnot pos) name expr in
-
-    (* Continue with next node statements *)
-    eval_node_equations ctx tl
-
-  (* Annotation for main node *)
-  | (A.AnnotMain true) :: tl -> 
-
-    eval_node_equations 
-      (C.set_node_main ctx)
-      tl
-
-  (* Annotation for main node *)
-  | (A.AnnotMain false) :: tl -> 
-
-    eval_node_equations ctx tl
+    C.add_node_assert ctx expr
+      
 
   (* Equations with possibly more than one variable on the left-hand side
 
      The expression is without node calls, those have been
      abstracted *)
-  | A.Equation (pos, lhs, ast_expr) :: tl -> 
+  | A.Equation (pos, lhs, ast_expr) -> 
 
     (* Trie of state variables on left-hand side and extended context
        for right-hand side *)
@@ -832,12 +788,12 @@ let rec eval_node_equations ctx = function
 
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
-    
+
     (* Evaluate expression on right-hand side in extended context *)
     let eq_rhs, ctx = S.eval_ast_expr ctx ast_expr in
 
     let ctx = C.reset_guard_flag ctx in
-    
+
     (* Close each expression by guarding all pre operators separately *)
     let eq_rhs, ctx = 
       D.fold 
@@ -869,19 +825,69 @@ let rec eval_node_equations ctx = function
        definitions from the right-hand side, but remove the local
        definitions that we made before. *)
     let ctx = uneval_eq_lhs ctx lhs in
-    
+
     let equations = expand_tuple pos eq_lhs eq_rhs in
 
     (* Add equations for each index *)
-    let ctx =
-      List.fold_left
-        (fun ctx (sv, b, e) -> C.add_node_equation ctx pos sv b indexes e)
-        ctx
-        equations
+    List.fold_left
+      (fun ctx (sv, b, e) -> C.add_node_equation ctx pos sv b indexes e)
+      ctx
+      equations
+
+
+(* Evaluate node statements and add to context  *)
+let rec eval_node_items ctx = function
+
+  (* No more statements *)
+  | [] -> ctx
+
+  (* Assertion or equation *)
+  | A.EqAssert e :: tl -> 
+
+    let ctx = eval_node_equation ctx e in
+    
+    (* Continue with next node statements *)
+    eval_node_items ctx tl
+
+  (* Property annotation *)
+  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
+    (* report unguarded pre *)
+    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+
+    (* Evaluate Boolean expression and guard all pre operators *)
+    let expr, ctx = 
+      S.eval_bool_ast_expr ctx pos ast_expr 
+      |> C.close_expr ~original:ast_expr pos
     in
 
+    let ctx = C.reset_guard_flag ctx in
+    
+    let name = match name_opt with
+      | Some n -> n
+      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
+    in
+    
+    (* Add property to node *)
+    let ctx = C.add_node_property ctx (Property.PropAnnot pos) name expr in
+
     (* Continue with next node statements *)
-    eval_node_equations ctx tl
+    eval_node_items ctx tl
+
+  (* Annotation for main node *)
+  | (A.AnnotMain true) :: tl -> 
+
+    eval_node_items 
+      (C.set_node_main ctx)
+      tl
+
+  (* Annotation for main node *)
+  | (A.AnnotMain false) :: tl -> 
+
+    eval_node_items ctx tl
+
+  | A.Automaton _ :: tl ->
+
+    failwith "Automata not yet supported"
 
 
 (* ********************************************************************** *)
@@ -942,9 +948,9 @@ let eval_ghost_var ?(no_defs = false) ctx = function
         let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
         let ctx =
-          eval_node_equations ctx [
+          eval_node_equation ctx (
             A.Equation (pos, (A.ArrayDef (pos, i, [])), expr)
-          ]
+          )
         in
 
         ctx
@@ -1476,7 +1482,7 @@ and add_ghost ctx pos ident type_expr ast_expr expr =
   let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
   (* Add equation for ghost stream *)
-  eval_node_equations ctx [
+  eval_node_equation ctx (
     A.Equation (
       pos, (
         A.StructDef (
@@ -1486,7 +1492,7 @@ and add_ghost ctx pos ident type_expr ast_expr expr =
       ),
       ast_expr
     )
-  ]
+  )
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_item
@@ -1582,7 +1588,7 @@ and eval_node_contract_spec known ctx pos scope contract =
 
 (* Add declarations of node to context *)
 let eval_node_decl
-  ctx pos inputs outputs locals equations contract_spec
+  ctx pos inputs outputs locals items contract_spec
 =
 
   (* Add inputs to context: as state variable to ident_expr_map, and
@@ -1612,8 +1618,8 @@ let eval_node_decl
      to inputs *)
   let ctx = eval_node_locals ctx locals in
 
-  (* Parse equations, assertions, properties *)
-  let ctx = eval_node_equations ctx equations in
+  (* Parse equations, assertions, properties, automata, etc. *)
+  let ctx = eval_node_items ctx items in
 
   C.check_local_vars_defined ctx;
   
@@ -1656,7 +1662,7 @@ let declaration_to_context ctx = function
 
 (* Function declaration without parameters *)
 | A.FuncDecl (
-  pos, (i, [], inputs, outputs, locals, equations, contracts)
+  pos, (i, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -1690,11 +1696,11 @@ let declaration_to_context ctx = function
         A.node_local_decl_has_pre_or_arrow decl
         |> pre_or_arrow_fail "local declaration"
     ) ;
-    equations
+    items
     |> List.iter (
-      fun equation ->
-        A.node_equation_has_pre_or_arrow equation
-        |> pre_or_arrow_fail "equation"
+      fun item ->
+        A.node_item_has_pre_or_arrow item
+        |> pre_or_arrow_fail "item"
     ) ;
     match contracts with
     | Some contract ->
@@ -1711,7 +1717,7 @@ let declaration_to_context ctx = function
   (* Evaluate function declaration in separate context *)
   let fun_ctx = 
     eval_node_decl
-      fun_ctx pos inputs outputs locals equations contracts
+      fun_ctx pos inputs outputs locals items contracts
   in
 
   (* Check that all there's no (non-function) node call. *)
@@ -1736,7 +1742,7 @@ let declaration_to_context ctx = function
 
 (* Node declaration without parameters *)
 | A.NodeDecl (
-  pos, (i, [], inputs, outputs, locals, equations, contracts)
+  pos, (i, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -1755,7 +1761,7 @@ let declaration_to_context ctx = function
   (* Evaluate node declaration in separate context *)
   let node_ctx = 
     eval_node_decl
-      node_ctx pos inputs outputs locals equations contracts
+      node_ctx pos inputs outputs locals items contracts
   in
 
   (* Add node to context *)

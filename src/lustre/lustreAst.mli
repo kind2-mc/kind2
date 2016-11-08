@@ -173,12 +173,34 @@ type eq_lhs =
   | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
-(** An Equation, assertion or annotation in the body of a node *)
+(** An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
-  | Equation of position * eq_lhs * expr
+  | Equation of position * eq_lhs * expr 
+
+type transition_to =
+  | TransRestart of position * ident
+  | TransResume of position * ident
+
+type transition_branch =
+  | TransIf of position * expr * transition_to * transition_branch option
+  | TransElse of position * transition_to
+  
+type automaton_transition = position * transition_branch
+
+type state =
+  | State of position * ident * bool *
+             node_equation list *
+             automaton_transition option *
+             automaton_transition option
+
+
+(** An item in a node declaration *)
+type node_item =
+  | EqAssert of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
+  | Automaton of position * ident * state list
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -237,7 +259,7 @@ type node_decl =
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * node_local_decl list
-  * node_equation list
+  * node_item list
   * contract option
 
 (** A contract node declaration as a tuple of
@@ -297,7 +319,7 @@ val pp_print_node_local_decl_const :
 val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
-val pp_print_node_equation : Format.formatter -> node_equation -> unit
+val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 
@@ -325,7 +347,7 @@ val contract_has_pre_or_arrow : contract -> Lib.position option
 val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 
 (** Checks whether a node equation has a `pre` or a `->`. *)
-val node_equation_has_pre_or_arrow : node_equation -> Lib.position option
+val node_item_has_pre_or_arrow : node_item -> Lib.position option
 
 
 (* 

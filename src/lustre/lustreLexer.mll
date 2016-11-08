@@ -232,63 +232,80 @@ let mk_hashtbl init =
 let keyword_table = mk_hashtbl [
 
   (* Types *)
-  ("type", TYPE) ;
-  ("int", INT) ; ("real", REAL) ; ("bool", BOOL) ;
-  ("subrange", SUBRANGE) ; ("of", OF) ;
-  (* ("array", ARRAY) ; *)
-  ("struct", STRUCT) ;
-  ("enum", ENUM) ;
+  "type", TYPE ;
+  "int", INT ;
+  "real", REAL ;
+  "bool", BOOL ;
+  "subrange", SUBRANGE ;
+  "of", OF ;
+  (* "array", ARRAY) ; *)
+  "struct", STRUCT ;
+  "enum", ENUM ;
 
   (* Constant declaration *)
-  ("const", CONST) ;
+  "const", CONST ;
   
   (* Node / function declaration *)
-  ("node", NODE) ;
-  ("function", FUNCTION) ;
-  ("returns", RETURNS) ;
-  ("var", VAR) ;
-  ("let", LET) ;
-  ("tel", TEL) ;
+  "node", NODE ;
+  "function", FUNCTION ;
+  "returns", RETURNS ;
+  "var", VAR ;
+  "let", LET ;
+  "tel", TEL ;
   
   (* Assertion *)
-  ("assert", ASSERT) ;
+  "assert", ASSERT ;
 
   (* Annotations. *)
-  ("PROPERTY", PROPERTY) ;
-  ("MAIN", MAIN) ;
+  "PROPERTY", PROPERTY ;
+  "MAIN", MAIN ;
+  
   (* Contract related things. *)
-  ("contract", CONTRACT) ;
-  ("import", IMPORTCONTRACT) ;
+  "contract", CONTRACT ;
+  "import", IMPORTCONTRACT ;
 
   (* Boolean operators *)
-  ("true", TRUE) ; ("false", FALSE) ;
-  ("not", NOT) ; ("and", AND) ; ("xor", XOR) ; ("or", OR) ;
-  ("if", IF) ;
-  ("then", THEN) ;
-  ("else", ELSE) ;
-  ("with", WITH) ;
-  ("div", INTDIV) ; ("mod", MOD) ;
+  "true", TRUE ;
+  "false", FALSE ;
+  "not", NOT ;
+  "and", AND ;
+  "xor", XOR ;
+  "or", OR ;
+  "if", IF ;
+  "then", THEN ;
+  "else", ELSE ;
+  "with", WITH ;
+  "div", INTDIV ;
+  "mod", MOD ;
   
   (* Clock operators *)
-  ("when", WHEN) ;
-  ("current", CURRENT) ;
-  ("condact", CONDACT) ;
-  ("activate", ACTIVATE) ;
-  ("initial", INITIAL) ;
-  ("default", DEFAULT) ;
-  ("every", EVERY) ;
-  ("restart", RESTART) ;
-  ("merge", MERGE) ;
+  "when", WHEN ;
+  "current", CURRENT ;
+  "condact", CONDACT ;
+  "activate", ACTIVATE ;
+  "initial", INITIAL ;
+  "default", DEFAULT ;
+  "every", EVERY ;
+  "restart", RESTART ;
+  "merge", MERGE ;
+
+  (* Automata *)
+  "automaton", AUTOMATON;
+  "state", STATE;
+  "unless", UNLESS;
+  "until", UNTIL;
+  "resume", RESUME;
   
   (* Temporal operators *)
-  ("pre", PRE) ; ("fby", FBY) ;
+  "pre", PRE ;
+  "fby", FBY ;
 
   (* |===| Block annotation contract stuff. *)
-  ("mode", MODE);
-  ("assume", ASSUME);
-  ("guarantee", GUARANTEE);
-  ("require", REQUIRE);
-  ("ensure", ENSURE);
+  "mode", MODE;
+  "assume", ASSUME;
+  "guarantee", GUARANTEE;
+  "require", REQUIRE;
+  "ensure", ENSURE;
       
   ]
 

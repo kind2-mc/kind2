@@ -219,13 +219,35 @@ type eq_lhs =
   | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
-
 (* An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
+
+type transition_to =
+  | TransRestart of position * ident
+  | TransResume of position * ident
+
+type transition_branch =
+  | TransIf of position * expr * transition_to * transition_branch option
+  | TransElse of position * transition_to
+  
+type automaton_transition = position * transition_branch
+
+type state =
+  | State of position * ident * bool *
+             node_equation list *
+             automaton_transition option *
+             automaton_transition option
+
+
+(* An item in a node declaration *)
+type node_item =
+  | EqAssert of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
+  | Automaton of position * ident * state list
+
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -272,7 +294,7 @@ type node_decl =
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * node_local_decl list
-  * node_equation list
+  * node_item list
   * contract option
 
 (* A contract node declaration. Almost the same as a [node_decl] but
@@ -816,13 +838,13 @@ let pp_print_eq_lhs ppf = function
   
 
 (* Pretty-print a node equation *)
-let pp_print_node_equation ppf = function
+let pp_print_node_item ppf = function
 
-  | Assert (pos, e) -> 
+  | EqAssert (Assert (pos, e)) -> 
 
     Format.fprintf ppf "assert %a;" pp_print_expr e
 
-  | Equation (pos, lhs, e) -> 
+  | EqAssert (Equation (pos, lhs, e)) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a;@]" 
@@ -839,6 +861,7 @@ let pp_print_node_equation ppf = function
   | AnnotProperty (pos, Some name, e) ->
     Format.fprintf ppf "--%%PROPERTY \"%s\" %a;" name pp_print_expr e 
 
+  | Automaton _ -> assert false
 
 let pp_print_contract_ghost_const ppf = function 
 
@@ -1007,7 +1030,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
       pp_print_contract_spec
       r
       pp_print_node_local_decl l
-      (pp_print_list pp_print_node_equation "@ ") e
+      (pp_print_list pp_print_node_item "@ ") e
 
 
 (* Pretty-print a declaration *)
@@ -1301,13 +1324,14 @@ let eq_lhs_has_pre_or_arrow = function
   |> some_of_list
 
 (** Checks whether a node equation has a `pre` or a `->`. *)
-let node_equation_has_pre_or_arrow = function
-| Assert (_, e) -> has_pre_or_arrow e
-| Equation (_, lhs, e) ->
+let node_item_has_pre_or_arrow = function
+| EqAssert (Assert (_, e)) -> has_pre_or_arrow e
+| EqAssert (Equation (_, lhs, e)) ->
   eq_lhs_has_pre_or_arrow lhs
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
 | AnnotMain _ -> None
 | AnnotProperty (_, _, e) -> has_pre_or_arrow e
+| Automaton _ -> assert false
 
 (** Checks whether a contract node equation has a `pre` or a `->`.
 
