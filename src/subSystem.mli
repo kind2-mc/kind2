@@ -50,6 +50,9 @@ type 'a t = {
   subsystems : 'a t list ;
 }
 
+(** Strategy info of a subsystem. *)
+val strategy_info_of: 'a t -> Strategy.info
+
 (** Return all subsystems in topological order with the top system at
     the head of the list *)
 val all_subsystems : 'a t -> 'a t list

@@ -264,9 +264,12 @@ type contract_node_equation =
 type contract = contract_node_equation list
 
 
-(* A node or function declaration *)
+(* A node or function declaration
+
+Boolean flag indicates whether node / function is extern. *)
 type node_decl =
   ident
+  * bool
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
@@ -975,11 +978,11 @@ let pp_print_contract_node ppf (
 
 
 let pp_print_node_or_fun_decl is_fun ppf (
-  pos, (n, p, i, o, l, e, r)
+  pos, (n, ext, p, i, o, l, e, r)
 ) =
 
     Format.fprintf ppf
-      "@[<hv>@[<hv 2>%s %a%t@ \
+      "@[<hv>@[<hv 2>%s%s %a%t@ \
        @[<hv 1>(%a)@]@;<1 -2>\
        returns@ @[<hv 1>(%a)@];@]@ \
        %a\
@@ -987,6 +990,7 @@ let pp_print_node_or_fun_decl is_fun ppf (
        @[<v 2>let@ \
        %a@;<1 -2>\
        tel;@]@]"
+      (if ext then "extern " else "")
       (if is_fun then "function" else "node")
       pp_print_ident n 
       (function ppf -> pp_print_node_param_list ppf p)
@@ -1007,11 +1011,11 @@ let pp_print_declaration ppf = function
 
   | ConstDecl (pos, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (pos, (n, p, i, o, l, e, r)) ->
-    pp_print_node_or_fun_decl false ppf (pos, (n, p, i, o, l, e, r))
+  | NodeDecl (pos, decl) ->
+    pp_print_node_or_fun_decl false ppf (pos, decl)
 
-  | FuncDecl (pos, (n, p, i, o, l, e, r)) ->
-    pp_print_node_or_fun_decl true ppf (pos, (n, p, i, o, l, e, r))
+  | FuncDecl (pos, decl) ->
+    pp_print_node_or_fun_decl true ppf (pos, decl)
 
   | ContractNodeDecl (pos, (n,p,i,o,e)) ->
 

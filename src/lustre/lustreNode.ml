@@ -132,6 +132,9 @@ type t = {
   (* Name of node *)
   name : I.t;
 
+  (* Is the node extern? *)
+  is_extern: bool;
+
   (* Constant state variable uniquely identifying the node instance *)
   instance : StateVar.t;
 
@@ -188,8 +191,9 @@ type t = {
 
 
 (* An empty node *)
-let empty_node name = {
-  name = name;
+let empty_node name is_extern = {
+  name ;
+  is_extern ;
   instance = 
     StateVar.mk_state_var
       ~is_const:true
@@ -785,29 +789,6 @@ let has_modes = function
 | { contract = Some { C.modes } } -> modes != []
 
 
-(* Node always has an implementation *)
-let has_impl = function 
-
-  (* Only equations without assertions can be implementation-free
-
-     Don't consider node calls here, because the outputs of node calls
-     are assigned to state variables in an equation, and we just check
-     those equations. *)
-  | { equations; asserts = []; state_var_source_map } -> 
-
-    (* Return true if there is an equation of a non-ghost variable *)
-    List.exists
-      (fun (sv, _, _) -> 
-         match SVM.find sv state_var_source_map with
-           | Ghost -> false
-           | _ -> true
-           | exception Not_found -> true)
-      equations
-
-  (* Node with an assertion does have an implementation *)
-  | _ -> false
-
-
 
 (* Return a subsystem from a list of nodes where the top node is at
    the head of the list. *)
@@ -922,7 +903,7 @@ let rec subsystem_of_nodes' nodes accum = function
         let has_modes = has_modes node in
 
         (* Does node have an implementation? *)
-        let has_impl = has_impl node in
+        let has_impl = not node.is_extern in
 
         (* Construct subsystem of node *)
         let subsystem = 

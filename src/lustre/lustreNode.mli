@@ -150,6 +150,9 @@ type t = {
   name : LustreIdent.t;
   (** Name of the node *)
 
+  is_extern : bool;
+  (** Is the node extern? *)
+
   instance : StateVar.t;
   (** Distinguished constant state variable uniquely identifying the
       node instance *)
@@ -226,10 +229,10 @@ type t = {
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
 
-(** Return a node of the given name without inputs, outputs, oracles,
-    equations, etc. Create a state variable for the {!t.instance} and
+(** Return a node of the given name and is extern flag without inputs, outputs,
+    oracles, equations, etc. Create a state variable for the {!t.instance} and
     {!t.init_flag} fields, and set {!t.is_main} to false. *)
-val empty_node : LustreIdent.t -> t
+val empty_node : LustreIdent.t -> bool -> t
 
 (** {1 Pretty-printers} *)
 
@@ -281,10 +284,6 @@ val ident_of_top : t list -> LustreIdent.t
 (** Return true if the node has a global or at least one mode
     contract *)
 val has_contract : t -> bool
-
-(** Return false if the body of the node is empty, that is, all
-    equations are ghost and there are no assertions *)
-val has_impl : t -> bool
 
 (** Return a tree-like subsystem hierarchy from a flat list of nodes,
     where the top node is at the head of the list. *)

@@ -1656,7 +1656,7 @@ let declaration_to_context ctx = function
 
 (* Function declaration without parameters *)
 | A.FuncDecl (
-  pos, (i, [], inputs, outputs, locals, equations, contracts)
+  pos, (i, ext, [], inputs, outputs, locals, equations, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -1704,7 +1704,7 @@ let declaration_to_context ctx = function
   ) ;
 
   (* Create separate context for function *)
-  let fun_ctx = C.create_node ctx ident in
+  let fun_ctx = C.create_node ctx ident ext in
   (* Mark node as function. *)
   let fun_ctx = C.set_node_function fun_ctx in
 
@@ -1736,7 +1736,7 @@ let declaration_to_context ctx = function
 
 (* Node declaration without parameters *)
 | A.NodeDecl (
-  pos, (i, [], inputs, outputs, locals, equations, contracts)
+  pos, (i, ext, [], inputs, outputs, locals, equations, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -1750,7 +1750,7 @@ let declaration_to_context ctx = function
   ) ;
 
   (* Create separate context for node *)
-  let node_ctx = C.create_node ctx ident in
+  let node_ctx = C.create_node ctx ident ext in
 
   (* Evaluate node declaration in separate context *)
   let node_ctx = 
