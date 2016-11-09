@@ -295,6 +295,8 @@ let keyword_table = mk_hashtbl [
   "unless", UNLESS;
   "until", UNTIL;
   "resume", RESUME;
+  "elsif", ELSIF;
+  "end", END;
   
   (* Temporal operators *)
   "pre", PRE ;

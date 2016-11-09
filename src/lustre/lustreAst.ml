@@ -229,8 +229,9 @@ type transition_to =
   | TransResume of position * ident
 
 type transition_branch =
-  | TransIf of position * expr * transition_to * transition_branch option
-  | TransElse of position * transition_to
+  | Target of transition_to
+  | TransIf of position * expr *
+               transition_branch * transition_branch option
   
 type automaton_transition = position * transition_branch
 

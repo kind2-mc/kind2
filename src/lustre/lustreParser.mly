@@ -158,6 +158,8 @@ let mk_pos = position_of_lexing
 %token UNLESS
 %token UNTIL
 %token RESUME
+%token ELSIF
+%token END
 
 (* Tokens for temporal operators *)
 %token PRE
@@ -597,16 +599,36 @@ until_transition:
   | UNTIL; b = transition_branch
     { (mk_pos $startpos, b) }
 
-
+/*transition_branch:
+  | IF; e = expr; b = branch
+    { A.TransIf (mk_pos $startpos, e, b, None) }
+*/
 transition_branch:
-  | IF; e = expr;
-    t = automaton_transition; r = option(transition_branch)
-    { A.TransIf (mk_pos $startpos, e, t, r) }
-  | ELSE; t = automaton_transition
-    { A.TransElse (mk_pos $startpos, t) }
+  | b = branch; option(SEMICOLON)
+    { b }
+  | e = expr; t = target; option(SEMICOLON)
+    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
+  | IF; e = expr; t = target; option(SEMICOLON)
+    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
 
 
-automaton_transition:
+branch:
+  | t = target
+    { A.Target t }
+  | IF; e = expr; b = branch; END
+    { A.TransIf (mk_pos $startpos, e, b, None) }
+  | IF; e = expr; b = branch; b2 = elsif_branch; END
+    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
+    
+elsif_branch:
+  | ELSE; b = branch
+    { b } 
+  | ELSIF; e = expr; b = branch
+    { A.TransIf (mk_pos $startpos, e, b, None) }
+  | ELSIF; e = expr; b = branch; b2 = elsif_branch
+    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
+
+target:
   | RESTART; s = ident
     { A.TransRestart (mk_pos $startpos, s) }
 
