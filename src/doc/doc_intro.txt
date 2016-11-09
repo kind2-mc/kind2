@@ -162,6 +162,7 @@ Dependency graph of modules {%html: <img src="include/lustre-frontend.png"> %}
   LustreExpr
   LustreNode
   LustreContext
+  LustreContract
   LustreDeclarations
   LustreSimplify
   LustreSlicing

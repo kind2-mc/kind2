@@ -24,8 +24,6 @@ module D = LustreIndex
 module E = LustreExpr
 module Contract = LustreContract
 module N = LustreNode
-module F = LustreFunction
-module G = LustreGlobals
 module C = LustreContext
 
 module A = Analysis
@@ -58,7 +56,7 @@ module SVM = StateVar.StateVarMap
 let rec node_state_var_dependencies' 
     init
     output_input_deps
-    ({ N.inputs; N.equations; N.calls; N.function_calls } as node)
+    ({ N.inputs; N.equations; N.calls } as node)
     accum = 
 
   (* Return true if the state variable occurs on a path of
@@ -228,7 +226,7 @@ let rec node_state_var_dependencies'
                 N.call_oracles; 
                 N.call_outputs; 
                 N.call_defaults;
-                N.call_clock } -> 
+                N.call_cond } -> 
               
               (* Index of state variable in outputs *)
               let output_index = 
@@ -315,51 +313,16 @@ let rec node_state_var_dependencies'
               
               |> 
               
-              (* Clock of condact is a child *)
+              (* Clock of condact or restart is a child *)
               (function children -> 
-                match call_clock with 
-                  | None -> children
-                  | Some clk -> SVS.add clk children)
-              
+                match call_cond with 
+                  | N.CNone -> children
+                  | N.CActivate clk
+                  | N.CRestart clk -> SVS.add clk children)
               |>
               
               (* Add to set of children from equations *)
               SVS.union accum)
-            children
-            
-        in
-
-        (* All state variables at the current instant in the function call
-           defining the state variable *)
-        let children = 
-
-          (* Find function calls defining the state variable *)
-          List.find_all
-            (fun { N.call_function_name; N.call_outputs } -> 
-               D.exists 
-                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                 call_outputs)
-            function_calls
-            
-          |>
-          
-          List.fold_left
-            
-            (fun
-              accum
-              { N.call_function_name; 
-                N.call_inputs } -> 
-
-              D.fold
-                (fun _ expr accum ->
-                  (if init then 
-                     E.base_state_vars_of_init_expr 
-                   else
-                     E.cur_state_vars_of_step_expr)
-                  expr 
-                |> SVS.union accum)
-                call_inputs
-                accum)
             children
             
         in
@@ -620,7 +583,8 @@ let slice_all_of_node
     ?(keep_props = true)
     ?(keep_contracts = true)
     ?(keep_asserts = true)
-    { N.name; 
+    { N.name;
+      N.is_extern; 
       N.instance;
       N.init_flag;
       N.inputs; 
@@ -630,6 +594,7 @@ let slice_all_of_node
       N.props; 
       N.contract;
       N.is_main;
+      N.is_function;
       N.state_var_source_map;
       N.oracle_state_var_map;
       N.state_var_expr_map;
@@ -638,7 +603,8 @@ let slice_all_of_node
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
      properties, assertions, contracts and main annotation *)
-  { N.name; 
+  { N.name;
+    N.is_extern;
     N.instance;
     N.init_flag;
     N.inputs;
@@ -647,11 +613,11 @@ let slice_all_of_node
     N.locals = [];
     N.equations = [];
     N.calls = [];
-    N.function_calls = [];
     N.asserts = if keep_asserts then asserts else [] ;
     N.props = if keep_props then props else [];
     N.contract = if keep_contracts then contract else None;
     N.is_main;
+    N.is_function;
     N.state_var_source_map = state_var_source_map;
     N.oracle_state_var_map = oracle_state_var_map;
     N.state_var_expr_map = state_var_expr_map;
@@ -661,7 +627,7 @@ let slice_all_of_node
 (* Add roots of cone of influence from node call to roots *)
 let add_roots_of_node_call 
     roots
-    { N.call_clock; 
+    { N.call_cond;
       N.call_inputs; 
       N.call_oracles; 
       N.call_defaults } =
@@ -688,29 +654,16 @@ let add_roots_of_node_call
     (* Need dependencies of oracles *)
     call_oracles @ 
 
-    (* Need dependencies of clock if call has one *)
-    (match call_clock with
-      | None -> roots'
-      | Some c -> c :: roots')
+    (* Need dependencies of clock and restart if call has one *)
+    (match call_cond with
+      | N.CNone -> roots'
+      | N.CActivate c
+      | N.CRestart c -> c :: roots')
 
   in
 
   (* Return with new roots added *)
   roots'
-
-
-(* Add roots of cone of influence from node call to roots *)
-let add_roots_of_function_call 
-    roots
-    { N.call_inputs } =
-
-  (* Add dependecies of input expressions *)
-  D.fold
-     (fun _ expr accum -> E.state_vars_of_expr expr |> SVS.union accum)
-     call_inputs
-     (SVS.of_list roots)
-
-  |> SVS.elements
 
 (* Add roots of cone of influence from equation to roots *)
 let add_roots_of_equation roots (_, _, expr) = 
@@ -753,14 +706,12 @@ let rec slice_nodes
     preserve_sig
     init_slicing_of_node
     nodes
-    functions_in_coi
-    functions_not_in_coi
     accum = 
 
   function 
 
     (* All nodes are sliced and in the accumulator *)
-    | [] -> accum, functions_in_coi
+    | [] -> accum
 
     (* Node is sliced to all equations *)
     | ([], 
@@ -833,8 +784,6 @@ let rec slice_nodes
         preserve_sig
         init_slicing_of_node
         nodes
-        functions_in_coi
-        functions_not_in_coi
         (node_sliced :: accum)
         tl
 
@@ -847,8 +796,6 @@ let rec slice_nodes
         preserve_sig
         init_slicing_of_node
         nodes
-        functions_in_coi
-        functions_not_in_coi
         accum
         ((roots_tl, leaves, node_sliced, node_unsliced) :: tl)
 
@@ -857,11 +804,9 @@ let rec slice_nodes
        leaves, 
        ({ N.equations = equations_in_coi;
           N.calls = calls_in_coi;
-          N.function_calls = function_calls_in_coi;
           N.locals = locals_in_coi } as node_sliced),
        ({ N.equations = equations_not_in_coi; 
           N.calls = calls_not_in_coi;
-          N.function_calls = function_calls_not_in_coi;
           N.locals = locals_not_in_coi } as node_unsliced)) :: tl as l -> 
 
       try 
@@ -895,8 +840,6 @@ let rec slice_nodes
           preserve_sig
           init_slicing_of_node
           nodes
-          functions_in_coi
-          functions_not_in_coi
           accum
           (init_slicing_of_node node :: l)
 
@@ -988,105 +931,6 @@ let rec slice_nodes
 
         in
 
-        (* Funtion calls with call returning state variable added, and
-           new roots from inputs of function call *)
-        let 
-
-          function_calls_in_coi', 
-          function_calls_not_in_coi', 
-          functions_in_coi', 
-          functions_not_in_coi', 
-          roots' = 
-
-          List.fold_left 
-
-            (fun
-              (function_calls_in_coi, 
-               function_calls_not_in_coi, 
-               functions_in_coi, 
-               functions_not_in_coi, 
-               roots')
-              ({ N.call_function_name; 
-                 N.call_outputs } as function_call) ->
-
-              if
-
-                (* State variable is an output of the called function? *)
-                LustreIndex.exists
-                  (fun _ sv -> StateVar.equal_state_vars state_var sv)
-                  call_outputs
-
-
-              then
-
-                (* Add equation to sliced node *)
-                (function_call :: function_calls_in_coi, 
-
-                 (* Remove equation from unsliced node *)
-                 function_calls_not_in_coi,
-
-                 (if 
-                   
-                   (* Called function already in coi? *)
-                   List.exists 
-                     (function { F.name } -> 
-                       LustreIdent.equal name call_function_name)
-                     functions_in_coi
-                     
-                  then 
-                    
-                    (* Do not add again *)
-                    functions_in_coi
-                      
-                  else
-                    
-                    try 
-                      
-                      (* Add called function *)
-                      List.find 
-                        (function { F.name } -> 
-                          LustreIdent.equal name call_function_name)
-                        functions_not_in_coi
-                        
-                      :: functions_in_coi
-                      
-                    (* Called function must be in that list *)
-                    with Not_found -> assert false),
-                     
-                 (* Filter out called function *)
-                 List.filter
-                   (function { F.name } -> 
-                     LustreIdent.equal name call_function_name |> not)
-                   functions_not_in_coi,
-
-                 (* Add variables in equation as roots *)
-                 add_roots_of_function_call roots' function_call)
-
-
-              else
-
-                (* Do not add node call to sliced node, keep in unsliced
-                   node, and no new roots *)
-                (function_calls_in_coi, 
-                 function_call :: function_calls_not_in_coi, 
-                 functions_in_coi, 
-                 functions_not_in_coi, 
-                 roots')
-
-            )
-
-            (* Modify node calls in sliced and unsliced node, and roots *)
-            (function_calls_in_coi,
-             [], 
-             functions_in_coi, 
-             functions_not_in_coi, 
-             roots')
-
-            (* Iterate over all node calls in unsliced node *)
-            function_calls_not_in_coi
-
-        in
-
         (* Move definitions containing the state variable from the
            unsliced to sliced node
 
@@ -1134,8 +978,7 @@ let rec slice_nodes
           { node_sliced with
               N.locals = locals_in_coi';
               N.equations = equations_in_coi';
-              N.calls = calls_in_coi';
-              N.function_calls = function_calls_in_coi' } 
+              N.calls = calls_in_coi'; } 
         in
 
         (* Modify slicecd node *)
@@ -1143,7 +986,6 @@ let rec slice_nodes
           { node_unsliced with
               N.equations = equations_not_in_coi';
               N.calls = calls_not_in_coi';
-              N.function_calls = function_calls_not_in_coi';
               N.locals = locals_not_in_coi' }
         in
 
@@ -1152,8 +994,6 @@ let rec slice_nodes
           preserve_sig
           init_slicing_of_node
           nodes
-          functions_in_coi'
-          functions_not_in_coi'
           accum
           ((roots', (state_var :: leaves), node_sliced', node_unsliced') :: tl)
 
@@ -1282,7 +1122,7 @@ let root_and_leaves_of_abstraction_map
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction'
-  ?(preserve_sig = false) analysis roots subsystem { G.functions }
+  ?(preserve_sig = false) analysis roots subsystem
 =
 
   let { A.top } = A.info_of_param analysis in
@@ -1294,40 +1134,38 @@ let slice_to_abstraction'
   in
   
   (* Slice all nodes to either abstraction or implementation *)
-  let nodes', functions' = 
+  let nodes' = 
 
     slice_nodes
       preserve_sig
       (root_and_leaves_of_abstraction_map false roots analysis)
       nodes
       []
-      functions
-      []
       [root_and_leaves_of_abstraction_map true roots analysis (List.hd nodes)]
 
   in
   
   (* Create subsystem from list of nodes *)
-  (N.subsystem_of_nodes nodes', { G.functions = functions'})
+  N.subsystem_of_nodes nodes'
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction
-  ?(preserve_sig = false) analysis subsystem globals
+  ?(preserve_sig = false) analysis subsystem
 =
   slice_to_abstraction'
-    ~preserve_sig:preserve_sig analysis None subsystem globals
+    ~preserve_sig:preserve_sig analysis None subsystem
 
   
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction_and_property
-  ?(preserve_sig = false) analysis vars subsystem globals
+  ?(preserve_sig = false) analysis vars subsystem
 =
   let roots = Some vars in
   slice_to_abstraction'
-    ~preserve_sig:preserve_sig analysis roots subsystem globals
+    ~preserve_sig:preserve_sig analysis roots subsystem
 
 
   

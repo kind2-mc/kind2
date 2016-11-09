@@ -34,7 +34,6 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
-module F = LustreFunction
 module C = LustreContext
 module Contract = LustreContract
 
@@ -416,7 +415,7 @@ let rec eval_ast_expr ctx = function
           (* Compare low clock with merge clock by name *)
           | A.Not (_, A.Ident (_, low_clock))
               when not clock_sign && low_clock = clock_ident -> ()
-            
+             
           (* Clocks must be identical identifiers *)
           | _ -> 
 
@@ -425,11 +424,12 @@ let rec eval_ast_expr ctx = function
               "Clock mismatch for argument of merge");
         
         (* Evaluate node call without defaults *)
-        eval_node_or_function_call
+        try_eval_node_call
           ctx
           pos
           (I.mk_string_ident ident)
           case_clock
+          (A.False dummy_pos)
           args
           None
 
@@ -437,11 +437,12 @@ let rec eval_ast_expr ctx = function
       | A.Call (pos, ident, args) -> 
         
         (* Evaluate node call without defaults *)
-        eval_node_or_function_call
+        try_eval_node_call
           ctx
           pos
           (I.mk_string_ident ident)
           (if clock_sign then clock_expr else A.Not (dummy_pos, clock_expr))
+          (A.False dummy_pos)
           args
           None
 
@@ -489,7 +490,7 @@ let rec eval_ast_expr ctx = function
           if clock_ident = low_clock_ident then 
 
             (* Evaluate node call without defaults *)
-            eval_node_or_function_call
+            try_eval_node_call
               ctx
               pos
               (I.mk_string_ident ident)
@@ -887,25 +888,40 @@ let rec eval_ast_expr ctx = function
      [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
   | A.Condact (pos, cond, ident, args, defaults) ->  
 
-    eval_node_or_function_call
+    try_eval_node_call
       ctx
       pos
       (I.mk_string_ident ident)
       cond
+      (A.False dummy_pos)
       args
       (Some defaults)
 
   (* Node call without activation condition *)
-  | A.Call (pos, ident, args) ->
+  | A.Call (pos, ident, args)
+  | A.RestartEvery (pos, ident, args, A.False _) ->
 
-    eval_node_or_function_call 
+    try_eval_node_call 
       ctx
       pos
       (I.mk_string_ident ident)
       (A.True dummy_pos)
+      (A.False dummy_pos)
       args
       None
 
+  (* Node call with reset/restart *)
+  | A.RestartEvery (pos, ident, args, cond) ->
+
+    try_eval_node_call 
+      ctx
+      pos
+      (I.mk_string_ident ident)
+      (A.True dummy_pos)
+      cond
+      args
+      None
+    
   (* ****************************************************************** *)
   (* Array operators                                                    *)
   (* ****************************************************************** *)
@@ -1236,7 +1252,7 @@ and eval_ast_projection ctx pos expr = function
   | D.ArrayVarIndex _ -> raise (Invalid_argument "eval_ast_projection")
 
 
-and eval_node_or_function_call ctx pos ident cond args defaults = 
+and try_eval_node_call ctx pos ident cond restart args defaults =
 
   match 
 
@@ -1253,44 +1269,12 @@ and eval_node_or_function_call ctx pos ident cond args defaults =
     (* Evaluate call to node *)
     | Some node -> 
 
-      eval_node_call ctx pos ident node cond args defaults 
+      eval_node_call ctx pos ident node cond restart args defaults 
 
-    (* Check if we have a function *)
+    (* No node of that name *)
     | None ->
-
-      match 
-
-        try 
-
-          (* Get called function by identifier *)
-          Some (C.function_of_name ctx ident)
-
-        (* No function of that identifier *)
-        with Not_found -> None
-
-      with 
-
-        (* Evaluate call to function *)
-        | Some func -> 
-
-          (match cond with 
-
-            (* Can only call functions without activation condition *)
-            | A.True _ -> 
-
-              eval_function_call ctx pos ident func args 
-
-            (* Fail if this is a condact call *)
-            | _ -> 
-
-              C.fail_at_position
-                pos
-                "Invalid function call")
-
-        (* Neither node nor function of that name *)
-        | None ->
-          (* Node or function may be forward referenced *)
-          Deps.Unknown_decl (Deps.NodeOrFun, ident) |> raise
+      (* Node may be forward referenced *)
+      Deps.Unknown_decl (Deps.NodeOrFun, ident) |> raise
 
 
 
@@ -1306,37 +1290,23 @@ and eval_node_call
       N.outputs = node_outputs; 
       N.props = node_props } 
     cond
+    restart
     args
     defaults = 
 
   (* Type check expressions for node inputs and abstract to fresh
      state variables *)
   let node_inputs_of_exprs ctx node_inputs pos expr =
-
     try
-
       (* Evaluate input value *)
       let expr', ctx = 
-
         (* Evaluate inputs as list *)
-        let expr', ctx = 
-          eval_ast_expr ctx (A.ExprList (dummy_pos, expr)) 
-        in
-
-        if 
-
-          (* Do actual and formal parameters have the same indexes? *)
-          D.keys expr' = D.keys node_inputs 
-
-        then
-
-          (* Return actual parameters and changed context *)
-          expr', ctx
-
+        let expr', ctx = eval_ast_expr ctx (A.ExprList (dummy_pos, expr)) in
+        (* Return actual parameters and changed context if actual and formal
+           parameters have the same indexes otherwise remove list index when
+           expression is a singleton list *)
+        if D.keys expr' = D.keys node_inputs then expr', ctx 
         else
-
-
-          (* Remove list index if expression is a singleton list *)
           (D.fold
              (function 
                | D.ListIndex 0 :: tl -> D.add tl
@@ -1344,166 +1314,115 @@ and eval_node_call
              expr'
              D.empty,
            ctx)
-
       in
-
       (* Check types and index *)
       D.fold2
-        (fun 
-          i
-          state_var
-          ({ E.expr_type } as expr)
-          (accum, ctx) ->
-
-          if 
-
-            (* Expression must be of a subtype of input type *)
-            Type.check_type 
-              expr_type
-              (StateVar.type_of_state_var state_var) &&
-
-            (* Expression must be constant if input is *)
-            (not (StateVar.is_const state_var) || 
-             E.is_const expr)
-
+        (fun i state_var ({ E.expr_type } as expr) (accum, ctx) ->
+           (* Expression must be of a subtype of input type *)
+           if Type.check_type expr_type (StateVar.type_of_state_var state_var)
+              &&
+              (* Expression must be constant if input is *)
+              (not (StateVar.is_const state_var) || E.is_const expr)
           then 
-
             (* New variable for abstraction, is constant if input is *)
-            let state_var', ctx = 
-              C.mk_local_for_expr
-                ~is_const:(StateVar.is_const state_var) 
-                pos
-                ctx
-                expr
+            let state_var', ctx =
+              C.mk_local_for_expr ~is_const:(StateVar.is_const state_var)
+                pos ctx expr
             in
-
-             N.set_state_var_instance state_var' pos ident state_var;
-            
+            N.set_state_var_instance state_var' pos ident state_var;
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)
-
           else
-
             (* Type check failed, catch exception below *)
             raise E.Type_mismatch)
-
         node_inputs
         expr'
         (D.empty, ctx)
 
     (* Type checking error or one expression has more indexes *)
     with Invalid_argument _ | E.Type_mismatch -> 
-
       C.fail_at_position pos "Type mismatch for input parameters"
-
   in
 
   (* Type check defaults against outputs, return state variable for
      activation condition *)
   let node_act_cond_of_expr ctx node_outputs pos cond defaults =
-
     (* Evaluate activation condition *)
-    let cond', ctx =
-      eval_bool_ast_expr ctx pos cond
-    in
-
-    if 
-
-      (* Node call has an activation condition? *)
-      E.equal cond' E.t_true
-
-    then
-
+    let cond', ctx = eval_bool_ast_expr ctx pos cond in
+    (* Node call has an activation condition? *)
+    if E.equal cond' E.t_true then
       (* No state variable for activation, no defaults and context is
          unchanged *)
       None, None, ctx
-
     else
+      (* New variable for activation condition *)
+      let state_var, ctx = C.mk_local_for_expr pos ctx cond' in
+      (* Evaluate default value *)
+      let defaults', ctx = match defaults with
+        (* Single default, do not wrap in list *)
+        | Some [d] -> 
+          let d', ctx = eval_ast_expr ctx d in 
+          Some d', ctx
+        (* Not a single default, wrap in list *)
+        | Some d ->
+          let d', ctx = eval_ast_expr ctx (A.ExprList (dummy_pos, d)) in 
+          Some d', ctx
+        (* No defaults, skip *)
+        | None -> None, ctx
+      in
 
-      (
-
-        (* New variable for activation condition *)
-        let state_var, ctx = C.mk_local_for_expr pos ctx cond' in
-
-        (* Evaluate default value *)
-        let defaults', ctx = 
-          match defaults with
-
-            (* Single default, do not wrap in list *)
-            | Some [d] -> 
-
-              let d', ctx = eval_ast_expr ctx d in 
-              Some d', ctx
-
-            (* Not a single default, wrap in list *)
-            | Some d ->
-
-              let d', ctx = 
-                eval_ast_expr ctx (A.ExprList (dummy_pos, d)) 
-              in 
-              Some d', ctx
-
-            (* No defaults, skip *)
-            | None -> None, ctx
-
-        in
-
-        match defaults' with 
-
-          (* No defaults, just return state variable for activation
-             condition *)
-          | None -> Some state_var, None, ctx
-
-          | Some defaults' -> 
-
-            (try 
-
-               (* Iterate over state variables in outputs and expressions
-                  for their defaults *)
-               D.iter2 
-                 (fun i sv { E.expr_type = t } -> 
-
-                    if 
-
-                      (* Type of default must match type of respective
-                         output *)
-                      not (Type.check_type t (StateVar.type_of_state_var sv)) 
-
-                    then
-
-                      C.fail_at_position 
-                        pos
-                        "Type mismatch between default arguments and outputs")
-
-                 node_outputs
-                 defaults'
-
-             with Invalid_argument _ -> 
-
-               C.fail_at_position 
-                 pos
-                 "Number of default arguments must match number of outputs");
-
-            (* Return state variable and changed context *)
-            Some state_var, Some defaults', ctx
-
-      )
-
+      match defaults' with 
+      (* No defaults, just return state variable for activation condition *)
+      | None -> Some state_var, None, ctx
+      | Some defaults' -> 
+        (try 
+           (* Iterate over state variables in outputs and expressions for their
+              defaults *)
+           D.iter2 (fun i sv { E.expr_type = t } -> 
+               (* Type of default must match type of respective output *)
+               if not (Type.check_type t (StateVar.type_of_state_var sv)) then
+                 C.fail_at_position pos
+                   "Type mismatch between default arguments and outputs")
+             node_outputs
+             defaults'
+         with Invalid_argument _ -> 
+           C.fail_at_position pos
+             "Number of default arguments must match number of outputs");
+        (* Return state variable and changed context *)
+        Some state_var, Some defaults', ctx
   in
 
+  let restart_cond_of_expr ctx pos restart =
+    (* Evaluate restart condition *)
+    let restart', ctx = eval_bool_ast_expr ctx pos restart in
+    if E.equal restart' E.t_false then None, ctx (* No restart *)
+    else
+      (* New variable for restart condition *)
+      let state_var, ctx = C.mk_local_for_expr pos ctx restart' in
+      Some state_var, ctx
+  in
+  
+  
   (* Type check and abstract inputs to state variables *)
-  let input_state_vars, ctx =
-    node_inputs_of_exprs ctx node_inputs pos args
-  in
+  let input_state_vars, ctx = node_inputs_of_exprs ctx node_inputs pos args in
+  (* Type check and simplify defaults, abstract activation condition to state
+     variable *)
+  let act_state_var, defaults, ctx =
+    node_act_cond_of_expr ctx node_outputs pos cond defaults in
+  (* Type check restart condition *)
+  let restart_state_var, ctx = restart_cond_of_expr ctx pos restart in
 
-  (* Type check and simplify defaults, abstract activation condition
-     to state variable *)
-  let cond_state_var, defaults, ctx = 
-    node_act_cond_of_expr ctx node_outputs pos cond defaults
+  (* cannot have both activation condition and restart condition *)
+  let cond_state_var = match act_state_var, restart_state_var with
+    | None, None -> N.CNone
+    | Some c, None -> N.CActivate c
+    | None, Some r -> N.CRestart r
+    | _ ->
+      C.fail_at_position pos
+        "Cannot have both an activation condition and a restart condition"
   in
-
+  
   match
-
     (* Do not reuse node call outputs if there are some oracles *)
     if node_oracles <> [] then None
     else
@@ -1514,23 +1433,16 @@ and eval_node_call
         cond_state_var
         input_state_vars
         defaults
-
   with 
-
     (* Re-use variables from previously created node call *)
     | Some call_outputs -> 
-
       (* Return tuple of state variables capturing outputs *)
-      let res = 
-        D.map E.mk_var call_outputs
-      in
-
+      let res = D.map E.mk_var call_outputs in
       (* Return previously created state variables *)
       (res, ctx)
 
     (* Create a new node call, cannot re-use an already created one *)
     | None  -> 
-
       (* Fresh state variables for oracle inputs of called node *)
       let ctx, oracle_state_vars =
         node_oracles
@@ -1538,211 +1450,39 @@ and eval_node_call
         |> List.fold_left
           (fun (ctx, accum) sv ->
              let sv', ctx = 
-               C.mk_fresh_oracle 
-                 ~is_input:true
-                 ~is_const:(StateVar.is_const sv)
-                 ctx
-                 (StateVar.type_of_state_var sv) 
-             in
-             
+               C.mk_fresh_oracle ~is_input:true ~is_const:(StateVar.is_const sv)
+                 ctx (StateVar.type_of_state_var sv) in
              N.set_state_var_instance sv' pos ident sv;
-             
              (ctx, sv' :: accum))
           (ctx, [])
       in
-
       (* Create fresh state variable for each output *)
       let output_state_vars, ctx = 
         D.fold
           (fun i sv (accum, ctx) -> 
              let sv', ctx = 
-               C.mk_fresh_local
-                 ctx
-                 (StateVar.type_of_state_var sv)
-             in
-
+               C.mk_fresh_local ctx (StateVar.type_of_state_var sv) in
              N.set_state_var_instance sv' pos ident sv;
-
              (D.add i sv' accum, ctx))
           node_outputs
           (D.empty, ctx)
       in
-
       (* Return tuple of state variables capturing outputs *)
-      let res = 
-        D.map
-          E.mk_var
-          output_state_vars
-      in
-
+      let res = D.map E.mk_var output_state_vars in
       (* Create node call *)
       let node_call = 
         { N.call_pos = pos;
           N.call_node_name = ident;
-          N.call_clock = cond_state_var;
+          N.call_cond = cond_state_var;
           N.call_inputs = input_state_vars;
           N.call_oracles = oracle_state_vars;
           N.call_outputs = output_state_vars;
           N.call_defaults = defaults } 
       in
-
       (* Add node call to context *)
       let ctx = C.add_node_call ctx pos node_call in
-
       (* Return expression and changed context *)
       (res, ctx)
-
-
-and eval_function_call
-    ctx
-    pos
-    ident
-    { F.name; 
-      F.inputs; 
-      F.outputs; 
-      F.output_ufs; 
-      F.global_contracts; 
-      F.mode_contracts } 
-    args = 
-
-  (* args |> Format.printf
-    "args = @[<hov>%a@]@.@."
-    (pp_print_list A.pp_print_expr ",@ ") ; *)
-
-  (* Evaluate inputs *)
-  let args', ctx = 
-
-    try 
-
-      (* Evaluate inputs as list *)
-      let expr', ctx = 
-        eval_ast_expr ctx (A.ExprList (dummy_pos, args))
-      in
-
-
-      (* Remove list index if singleton *)
-      let expr', ctx = 
-
-        if 
-
-          (* Do actual and formal parameters have the same indexes? *)
-          D.keys expr' = D.keys inputs 
-
-        then
-
-          (* Return actual parameters and changed context *)
-          expr', ctx
-
-        else
-
-
-          (* Remove list index if expression is a singleton list *)
-          (D.fold
-             (function 
-               | D.ListIndex 0 :: tl -> D.add tl
-               | _ -> raise E.Type_mismatch) 
-             expr'
-             D.empty,
-           ctx)
-
-      in
-
-      (* Type check actual inputs against formal inputs *)
-      D.iter2
-        (fun _ { E.expr_type } state_var -> 
-           
-           if 
-             
-             (* Expression must be of a subtype of input type *)
-             not
-               (Type.check_type 
-                  expr_type
-                  (StateVar.type_of_state_var state_var))
-
-           then 
-             
-             (* Type check failed, catch exception below *)
-             raise E.Type_mismatch)
-        expr'
-        inputs;
-
-      (* Continue with inputs and context *)
-      expr', ctx
-
-    (* Type checking error or one expression has more indexes *)
-    with Invalid_argument _ | E.Type_mismatch -> 
-
-      C.fail_at_position pos "Type mismatch for input parameters"
-
-  in
-
-  (* Format.printf "args' = @[<v>%a@]@.@."
-    (D.pp_print_trie (fun fmt (_,e) ->
-        Format.fprintf fmt "%a" (E.pp_print_lustre_expr true) e
-      ) "@ ") args' ; *)
-
-
-  match 
-    
-    (* Find a previously created function call with the same paramters *)
-    C.call_outputs_of_function_call ctx ident args'
-      
-  with 
-
-    (* Re-use variables from previously created node call *)
-    | Some call_outputs -> 
-
-      (* Return tuple of state variables capturing outputs *)
-      let res =
-        D.map E.mk_var call_outputs
-      in
-      
-      (* Return previously created state variables *)
-      (res, ctx)
-
-    | None -> 
-
-      (* Create fresh state variable for each output *)
-      let output_state_vars, ctx = 
-        D.fold
-          (fun i sv (accum, ctx) -> 
-             let sv', ctx = 
-               C.mk_fresh_local
-                 ctx
-                 (StateVar.type_of_state_var sv)
-             in
-             (D.add i sv' accum, ctx))
-          outputs
-          (D.empty, ctx)
-      in
-
-      (* Return tuple of state variables capturing outputs *)
-      let res = D.map E.mk_var output_state_vars in
-
-      (* Create function call *)
-      let function_call = 
-        { N.call_pos = pos;
-          N.call_function_name = ident;
-          N.call_inputs = args';
-          N.call_outputs = output_state_vars } 
-      in
-
-      (* args' |> Format.printf "call_inputs = @[<hov>%a@]@.@." (
-        D.pp_print_trie (fun fmt (_, e) ->
-          Format.fprintf fmt "%a" (E.pp_print_lustre_expr false) e
-          C.expr_of_ident
-        ) ",@ "
-      ) ; *)
-
-      (* Add function call to context *)
-      let ctx = C.add_function_call ctx pos function_call in
-
-      (* Return expression and changed context *)
-      (res, ctx)
-      
-    | exception Invalid_argument _ -> 
-      
-      C.raise_no_new_definition_exc ctx
 
 
 
@@ -1872,7 +1612,7 @@ let rec eval_ast_type ctx = function
      TODO: should allow constant node arguments as bounds, but then
      we'd have to check if in each node call the lower bound is less
      than or equal to the upper bound. *)
-  | A.IntRange (pos, lbound, ubound) -> 
+  | A.IntRange (pos, lbound, ubound) as t -> 
 
     (* Evaluate expressions for bounds to constants *)
     let const_lbound, const_ubound = 
@@ -1880,6 +1620,10 @@ let rec eval_ast_type ctx = function
        const_int_of_ast_expr ctx  pos ubound) 
     in
 
+    if Numeral.lt const_ubound const_lbound then
+      C.fail_at_position pos
+        (Format.asprintf "Invalid range %a" A.pp_print_lustre_type t);
+    
     (* Add to empty trie with empty index *)
     D.singleton D.empty_index (Type.mk_int_range const_lbound const_ubound)
 

@@ -30,8 +30,6 @@ module ET = E.LustreExprHashtbl
 
 module N = LustreNode
 module Contract = LustreContract
-module F = LustreFunction
-module G = LustreGlobals
 
 module C = LustreContext
 
@@ -81,8 +79,8 @@ let eval_const_decl ?(ghost = false) ctx = function
         pos 
         (Format.asprintf 
            "Identifier %a is redeclared as constant" 
-           (I.pp_print_ident false) ident);
-
+           (I.pp_print_ident false) ident);      
+    
     (* Evaluate constant expression *)
     let res, _ = 
       S.eval_ast_expr
@@ -92,7 +90,7 @@ let eval_const_decl ?(ghost = false) ctx = function
            "Invalid constant expression")
         expr
     in
-
+    
     (* Distinguish typed and untyped constant here *)
     (match const_decl with 
 
@@ -129,14 +127,16 @@ let eval_const_decl ?(ghost = false) ctx = function
       (* No type check for untyped or free constant *)
       | _ -> ());
 
-    (* Ensure expression is constant *)
-    D.iter 
-      (fun _ e -> 
-         if not (E.is_const e) then 
-           (C.fail_at_position
-              pos
-              "Invalid constant expression"))
-      res;
+    
+    D.iter
+      (fun _ e ->
+         if not (E.is_const e) then
+           C.fail_at_position
+             pos
+             (Format.asprintf
+                "Invalid constant expression for %a"
+                (I.pp_print_ident false) ident);
+      ) res;
 
 
     (* Return context with new mapping of identifier to expression *)
@@ -1317,7 +1317,7 @@ let rec eval_node_contract_call known ctx scope (
   (* Add substitution from formal inputs to actual one before we evaluate
      everything. *)
   let ctx = try
-      List.fold_left2 (
+    List.fold_left2 (
         fun ctx expr (_, in_id, typ, _, _) ->
           let expr, ctx = S.eval_ast_expr ctx expr in
 
@@ -1384,7 +1384,7 @@ let rec eval_node_contract_call known ctx scope (
           C.add_expr_for_ident
             ~shadow:true ctx (LustreIdent.mk_string_ident in_id) expr
 
-      ) ctx in_params in_formals
+    ) ctx in_params in_formals
     with
     | Invalid_argument _ ->  C.fail_at_position call_pos (
         Format.asprintf
@@ -1436,6 +1436,31 @@ let rec eval_node_contract_call known ctx scope (
           (List.length in_params)
       )
   in
+
+  (* If node's actually a function, check that contract is not stateful. *)
+  (* Format.printf "current_node: %a@.@."
+    (I.pp_print_ident false) (
+      match C.current_node_name ctx with
+      | Some id -> id
+      | None -> assert false
+    ) ; *)
+  ( if C.get_node_function_flag ctx then (
+    Format.printf "checking contract %s@.@." id ;
+    match A.contract_has_pre_or_arrow contract with
+    | Some _ -> C.fail_at_position call_pos (
+      Format.asprintf
+        "@[<v>in contract of function %a@ \
+        illegal import of stateful contract %s@ \
+        functions can only be specified by stateless contracts@]"
+        (I.pp_print_ident false) (
+          match C.current_node_name ctx with
+          | Some id -> id
+          | None -> assert false
+        )
+        id
+    )
+    | None -> ()
+  ) ) ;
 
   (* Evaluate node as usual, it will merge with the current contract. *)
   let ctx = eval_node_contract_spec known ctx call_pos svar_scope contract in
@@ -1597,154 +1622,6 @@ let eval_node_decl
 
   (* Create node from current context and return *)
   ctx 
-  
-
-(* ********************************************************************** *)
-(* Parse function declarations                                            *)
-(* ********************************************************************** *)
-
-(* Return true if the expression is functional, i.e. without temporal
-   operators *)
-let is_function_expr ({ E.expr_init; E.expr_step } as expr) =
-
-  (* Must not have a variable at the previous state *)
-  not (E.has_pre_var E.cur_offset expr) &&
-
-  (* Expressions must be equal *)
-  (E.equal_expr expr_init expr_step)
-  
-
-(* Return an expression for a stateless function from an expression *)
-let function_expr_of_expr ({ E.expr_init; E.expr_step } as expr) =
-
-  if 
-
-    (* Check if expression does not contain temporal operators *)
-    is_function_expr expr
-  
-  then
-
-    (* Return one of the two (equal) expressions *)
-    expr_step
-
-  else
-    
-    (* Fail *)
-    raise (Invalid_argument "func_expr_of_expr")
-
-
-
-(* Add all node inputs to contexts *)
-let rec eval_func_inputs ctx = function
-
-  (* All inputs parsed *)
-  | [] -> ctx
-
-  (* Input on the base clock *)
-  | (pos, i, ast_type) :: tl -> 
-
-    (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
-
-    if 
-      
-      try 
-        C.expr_in_context ctx ident 
-      with Invalid_argument e -> 
-        C.fail_at_position pos e
-      
-    then
-      
-      C.fail_at_position 
-        pos
-        (Format.asprintf 
-           "Function input %a already declared" 
-           (I.pp_print_ident false) ident);
-    
-    (* Evaluate type expression *)
-    let index_types = S.eval_ast_type ctx ast_type in
-  
-    (* Add declaration of possibly indexed type to contexts *)
-    let ctx = 
-      C.add_function_input
-        ctx
-        ident
-        index_types
-    in
-
-    (* Continue with following inputs *)
-    eval_func_inputs ctx tl
-
-
-(* Add all function inputs to contexts *)
-let rec eval_func_outputs ?is_single ctx = function
-
-  (* All outputs parsed *)
-  | [] -> ctx
-
-  (* Output on the base clock *)
-  | (pos, i, ast_type) :: tl -> 
-
-    (* Identifier of AST identifier *)
-    let ident = I.mk_string_ident i in
-
-    if 
-      
-      try 
-        C.expr_in_context ctx ident 
-      with Invalid_argument e -> 
-        C.fail_at_position pos e
-      
-    then
-      
-      C.fail_at_position 
-        pos
-        (Format.asprintf 
-           "Function output %a already declared" 
-           (I.pp_print_ident false) ident);
-    
-    (* Evaluate type expression *)
-    let ident_types = S.eval_ast_type ctx ast_type in
-  
-    (* Add declaration of possibly indexed type to contexts *)
-    let ctx = C.add_function_output ?is_single ctx ident ident_types in
-
-    (* Continue with following inputs *)
-    eval_func_outputs ctx tl
-
-(* Add declarations of node to context *)
-let eval_func_decl
-  ctx
-  inputs
-  outputs
-  contract_spec
-= 
-
-  (* Add inputs to context: as state variable to ident_expr_map, and
-     to inputs *)
-  let ctx = eval_func_inputs ctx inputs in
-
-  (* Add outputs to context: as state variable to ident_expr_map, and
-     to outputs *)
-  let ctx = eval_func_outputs ~is_single:(List.length outputs = 1) ctx outputs in
-
-  (* New scope for local declarations in contracts *)
-  let ctx = C.push_scope ctx "contract" in
-
-  (* Parse contracts and add to context in contracts *)
-  (* let ctx = eval_func_contract_spec ctx inputs outputs contract_spec in *)
-
-  (* Remove scope for local declarations in implementation *)
-  let ctx = C.pop_scope ctx in
-
-  (* New scope for local declarations in implementation *)
-  let ctx = C.push_scope ctx "impl" in
-
-  (* Remove scope for local declarations in implementation *)
-  let ctx = C.pop_scope ctx in
-
-  (* Create node from current context and return *)
-  ctx 
 
 
 (* ********************************************************************** *)
@@ -1777,23 +1654,103 @@ let declaration_to_context ctx = function
   (* Add mapping of identifier to value to context *)
   eval_const_decl ctx const_decl
 
-(* Node declaration without parameters *)
-| A.NodeDecl (
-  pos, (i, [], inputs, outputs, locals, equations, contracts)
+(* Function declaration without parameters *)
+| A.FuncDecl (
+  pos, (i, ext, [], inputs, outputs, locals, equations, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
   let ident = I.mk_string_ident i in
 
   (* Identifier must not be declared *)
-  if C.node_or_function_in_context ctx ident then C.fail_at_position pos (
+  if C.node_in_context ctx ident then C.fail_at_position pos (
+    Format.asprintf 
+      "Function %a is redeclared" 
+      (I.pp_print_ident false) ident
+  ) ;
+
+  let pre_or_arrow_fail desc = function
+    | Some illegal_pos -> C.fail_at_position pos (
+      Format.asprintf
+        "@[<v>in declaration of function %a:@ \
+        in %s at %a:@ \
+        illegal pre or arrow in function declaration@ \
+        functions cannot have any state@]"
+        (I.pp_print_ident false) ident
+        desc
+        pp_print_position illegal_pos
+    )
+    | None -> ()
+  in
+
+  (* No pre or arrow in locals, equations or contracts. *)
+  ( locals
+    |> List.iter (
+      fun decl ->
+        A.node_local_decl_has_pre_or_arrow decl
+        |> pre_or_arrow_fail "local declaration"
+    ) ;
+    equations
+    |> List.iter (
+      fun equation ->
+        A.node_equation_has_pre_or_arrow equation
+        |> pre_or_arrow_fail "equation"
+    ) ;
+    match contracts with
+    | Some contract ->
+      A.contract_has_pre_or_arrow contract
+      |> pre_or_arrow_fail "contract item"
+    | None -> ()
+  ) ;
+
+  (* Create separate context for function *)
+  let fun_ctx = C.create_node ctx ident ext in
+  (* Mark node as function. *)
+  let fun_ctx = C.set_node_function fun_ctx in
+
+  (* Evaluate function declaration in separate context *)
+  let fun_ctx = 
+    eval_node_decl
+      fun_ctx pos inputs outputs locals equations contracts
+  in
+
+  (* Check that all there's no (non-function) node call. *)
+  ( C.current_node_calls fun_ctx
+    |> List.iter (
+      fun { N.call_pos ; N.call_node_name } ->
+        let node = C.node_of_name fun_ctx call_node_name in
+        if not node.N.is_function then C.fail_at_position call_pos (
+          Format.asprintf
+            "@[<v>in function %a@ \
+            illegal call to node %a@ \
+            functions can only call other functions, not nodes@]"
+            (I.pp_print_ident false) ident
+            (I.pp_print_ident false) call_node_name
+        )
+    )
+  ) ;
+
+  (* Add function to context *)
+  C.add_node_to_context ctx fun_ctx
+)
+
+(* Node declaration without parameters *)
+| A.NodeDecl (
+  pos, (i, ext, [], inputs, outputs, locals, equations, contracts)
+) -> (
+
+  (* Identifier of AST identifier *)
+  let ident = I.mk_string_ident i in
+
+  (* Identifier must not be declared *)
+  if C.node_in_context ctx ident then C.fail_at_position pos (
     Format.asprintf 
       "Node %a is redeclared" 
       (I.pp_print_ident false) ident
   ) ;
 
   (* Create separate context for node *)
-  let node_ctx = C.create_node ctx ident in
+  let node_ctx = C.create_node ctx ident ext in
 
   (* Evaluate node declaration in separate context *)
   let node_ctx = 
@@ -1892,7 +1849,7 @@ let declaration_to_context ctx = function
 
   (* Add to context for later inlining *)
   C.add_contract_node_decl_to_context ctx (pos, node_decl)
-
+(* 
 
 (* Uninterpreted function declaration *)
 | A.FuncDecl (pos, (i, inputs, outputs, contracts)) -> (
@@ -1917,7 +1874,7 @@ let declaration_to_context ctx = function
 
   (* Add node to context *)
   C.add_function_to_context ctx func_ctx
-)
+) *)
 
 
 
@@ -1964,8 +1921,10 @@ let declaration_to_context ctx = function
 (* Parametric node declaration *)
 | A.NodeParamInst (pos, _)
 | A.NodeDecl (pos, _) ->
-
-  C.fail_at_position pos "Parametric nodes not supported"
+  C.fail_at_position pos "Parametric nodes are not supported"
+(* Parametric function declaration *)
+| A.FuncDecl (pos, _) ->
+  C.fail_at_position pos "Parametric functions are not supported"
 
 (* Add declarations of program to context *)
 let rec declarations_to_context ctx = function
@@ -2005,7 +1964,7 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  C.get_nodes ctx, { G.functions = C.get_functions ctx }
+  C.get_nodes ctx
 
 
 (*

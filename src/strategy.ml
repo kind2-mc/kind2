@@ -21,6 +21,16 @@ open Lib
 module A = Analysis
 module Sys = TransSys
 
+(** Information used by the strategy module. *)
+type info = {
+  (** Is the system refineable? ([extern] for lustre nodes.) *)
+  can_refine: bool ;
+  (** Does the system have a contract? *)
+  has_contract: bool ;
+  (** Does the system have modes? *)
+  has_modes: bool ;
+}
+
 (* Merges two abstractions with the following semantics. First abstraction is
    the one from the previous analysis, second is the abstraction used to prove
    correct the node we are refining. *)
@@ -61,7 +71,7 @@ let get_params results subs_of_scope result =
        looks at the subsystems previously appended to the input
        recursively. *)
     let rec loop = function
-      | ( (candidate, _, _) :: tail ) :: lower -> (
+      | ( (candidate, _) :: tail ) :: lower -> (
         (* Is candidate currently abstracted? *)
         if Scope.Map.find candidate abstraction then
           (* Is candidate refineable? *)
@@ -106,14 +116,17 @@ let get_params results subs_of_scope result =
 let first_param_of results all_nodes scope =
 
   let rec loop abstraction assumptions = function
-    | (sys, abstractable, has_modes) :: tail -> (
+    | (sys, { can_refine ; has_contract ; has_modes }) :: tail -> (
       (* Can/should we abstract this system? *)
       let is_abstract =
         if sys = scope then 
           has_modes && (Flags.Contracts.check_modes ())
         else
-          abstractable && (Flags.Contracts.compositional ())
+          (not can_refine) || (
+            has_contract && (Flags.Contracts.compositional ())
+          )
       in
+      (* Format.printf "%a is abstract: %b@.@." Scope.pp_print_scope sys is_abstract ; *)
       let abstraction = Scope.Map.add sys is_abstract abstraction in
       if is_abstract then
         (* Sys is abstract, no assumptions, don't care if it's correct. *)
@@ -142,21 +155,33 @@ let first_param_of results all_nodes scope =
     | [] -> Some (abstraction, assumptions)
   in
 
-  match loop Scope.Map.empty [] all_nodes with
-  | None -> None
-  | Some (abstraction, assumptions) ->
-    let info =
-      { A.top = scope ;
-        A.uid = A.results_length results ;
-        A.abstraction_map = abstraction ;
-        A.assumptions = assumptions }
-    in
-    if Scope.Map.find scope abstraction then
-      (* Top level is abstract, we're checking its contract. *)
-      Some (A.ContractCheck info)
-    else
-      (* Top level is not abstract, first analysis. *)
-      Some (A.First info)
+  let has_first_analysis =
+    try (
+      let { can_refine ; has_modes } = List.assoc scope all_nodes in
+      has_modes || can_refine
+    ) with Not_found ->
+      Format.asprintf "Unreachable: could not find info of system %a"
+        Scope.pp_print_scope scope
+      |> failwith
+  in
+
+  if has_first_analysis then (
+    match loop Scope.Map.empty [] all_nodes with
+    | None -> None
+    | Some (abstraction, assumptions) ->
+      let info =
+        { A.top = scope ;
+          A.uid = A.results_length results ;
+          A.abstraction_map = abstraction ;
+          A.assumptions = assumptions }
+      in
+      if Scope.Map.find scope abstraction then
+        (* Top level is abstract, we're checking its contract. *)
+        Some (A.ContractCheck info)
+      else
+        (* Top level is not abstract, first analysis. *)
+        Some (A.First info)
+  ) else None
 
 (** First analysis after the mode consistency analysis, if any. *)
 let first_analysis_of_contract_check top (
@@ -182,8 +207,8 @@ let first_analysis_of_contract_check top (
 module type Strategy = sig
   val next_analysis:
     A.results ->
-    (Scope.t -> (Scope.t * bool * bool) list) ->
-    (Scope.t * bool * bool) list ->
+    (Scope.t -> (Scope.t * info) list) ->
+    (Scope.t * info) list ->
     A.param option
 end
 
@@ -192,14 +217,16 @@ module MonolithicStrategy : Strategy = struct
     | [] -> failwith "[strategy] \
       no system to analyze (empty list of scopes)\
     "
-    | (top,_,_) :: tail -> try (
+    | ( top, { can_refine } ) :: tail -> try (
       match A.results_find top results with
       | [] -> failwith "unreachable"
       | [ {
         A.param = A.ContractCheck info ;
         A.contract_valid ;
       } ] when Flags.Contracts.check_implem () ->
-        first_analysis_of_contract_check top info contract_valid
+        if can_refine then
+          first_analysis_of_contract_check top info contract_valid
+        else None
       (* Not the first analysis, done. *)
       | _ -> None
     ) with Not_found ->
@@ -224,9 +251,7 @@ module ModularStrategy : Strategy = struct
         (* Format.printf "|up %a@." Scope.pp_print_scope sys ; *)
         try (
           match A.results_find sys results with
-          | _ -> Format.asprintf "[strategy.go_up] \
-            called with already analyzed system %a
-          " Scope.pp_print_scope sys |> failwith
+          | _ -> None
         ) with Not_found -> (
           match first_param_of results all_syss sys with
           | None ->
@@ -241,16 +266,20 @@ module ModularStrategy : Strategy = struct
        Returns the params of the next analysis for that system if any, calls
        [go_up] on the systems before that system otherwise. *)
     let rec go_down prefix = function
-      | (sys, _, _) :: tail -> (
+      | (sys, { can_refine }) :: tail -> (
         try (
           (* Format.printf "| %a@." Scope.pp_print_scope sys ; *)
           match A.results_find sys results with
           | [] -> assert false
-          | _ when Flags.Contracts.check_implem () |> not -> go_up prefix
+          | _
+          when
+            Flags.Contracts.check_implem () |> not ||
+            not can_refine -> go_up prefix
           | [ {
             A.param = A.ContractCheck info ;
             A.contract_valid ;
-          } ] -> first_analysis_of_contract_check sys info contract_valid
+          } ] ->
+            first_analysis_of_contract_check sys info contract_valid
           | result :: _ ->
             if A.result_is_all_proved result then (
               (* Format.printf "|> all proved, going up@." ; *)

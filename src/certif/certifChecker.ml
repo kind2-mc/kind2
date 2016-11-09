@@ -146,7 +146,9 @@ let t1 = Term.mk_num_of_int 1 (* index_of_int 1 *)
 (*********************)
 
 (* Hashtable from activation literal to term *)
-let hactlits = TH.create 2001
+(* let hactlits = TH.create 2001 *)
+
+let solver_actlits = Hashtbl.create 2
 
 
 (* Create an activation literal only if it does not currently exists. In this
@@ -154,6 +156,14 @@ let hactlits = TH.create 2001
    get the activatition literal corresponding to the term. In all cases, the
    activation literal is returned at the end. *)
 let actlitify ?(imp=false) solver t =
+  let solver_id = SMTSolver.id_of_instance solver in
+  let hactlits =
+    try Hashtbl.find solver_actlits solver_id
+    with Not_found ->
+      let h = TH.create 2001 in
+      Hashtbl.add solver_actlits solver_id h;
+      h
+  in
   try TH.find hactlits t
   with Not_found ->
     let a = fresh_actlit () in (* was generate actlit before *)
@@ -386,13 +396,100 @@ let global_certificate sys =
 (* invariants necessary.                                                  *)
 (**************************************************************************)
 
+
+let create_acts solver k inv =
+  let l = ref [inv] in
+  for i = 1 to k - 1 do
+    l := Term.bump_state (Numeral.of_int i) inv :: !l;
+  done;
+  let t = Term.mk_and (List.rev !l) in
+  let pred_act = actlitify ~imp:true solver t in
+  let not_act_k = Term.bump_state (Numeral.of_int k) inv
+                  |> Term.mk_not |> actlitify solver in
+  (inv, pred_act, not_act_k)
+
+
+let at_most_one_false solver acts =
+  let acts_cptl = List.map (fun t ->
+      Term.mk_ite t (Term.mk_num_of_int 0) (Term.mk_num_of_int 1)) acts in
+  let acts_sum = Term.mk_plus acts_cptl in
+  let c = Term.mk_leq [acts_sum; Term.mk_num_of_int 1] in
+  SMTSolver.assert_term solver c
+
+
+let rec find_must solver must acts q =
+  try
+    let not_a = Queue.pop q in
+    (* eprintf "find_must %d : %a@." (Queue.length q) Term.pp_print_term not_a; *)
+    SMTSolver.check_sat_assuming solver
+      (fun _ -> (* Sat *)
+         try
+           let inv, ai, not_ai' = List.find (fun (_, ai, _) ->
+               let vs = SMTSolver.get_term_values solver [ai] in
+               match vs with | [_, v] -> Term.equal v (Term.mk_false ())
+                             | _ -> assert false
+             ) acts in
+           SMTSolver.assert_term solver ai;
+           Queue.push not_ai' q;
+           find_must solver (inv :: must) acts q
+         with Not_found -> find_must solver must acts q
+      )
+      (fun _ -> (* Unsat *)
+         find_must solver must acts q
+      )
+      [not_a]
+  with Queue.Empty -> must
+
+
+let under_approx sys k invs prop =
+
+  let open TermLib in
+  let logic = match TransSys.get_logic sys with
+    | `None | `SMTLogic _ -> `None
+    | `Inferred l -> `Inferred (FeatureSet.add IA l)
+  in
+  
+  let solver =
+    SMTSolver.create_instance ~produce_assignments:true
+      logic (Flags.Smt.solver ())
+  in
+
+  TransSys.define_and_declare_of_bounds
+    sys
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
+    Numeral.(~- one) (Numeral.of_int (k+1));
+
+  (* Asserting transition relation up to k *)
+  for i = 1 to k do
+    TransSys.trans_of_bound sys (Numeral.of_int i)
+    |> SMTSolver.assert_term solver;
+  done;
+
+  (* create activation literals *)
+  let acts = List.map (create_acts solver k) invs in
+
+  (* at most one false constraints *)
+  List.map (fun (_, ai, _) -> ai) acts |> at_most_one_false solver;
+
+  let _, _, not_p' = create_acts solver k prop in
+  let q = Queue.create () in
+  Queue.push not_p' q;
+  
+  let must = find_must solver [] acts q in
+  SMTSolver.delete_instance solver;
+
+  must
+
+
 (* Exception raised to interrupt the computation. A continuation is given to
    resume this computation. *)
-exception Reduce_cont of (unit -> Term.t list)
+exception Reduce_cont of (unit -> Term.t list * Term.t list)
 
 
 (* Iterative fixpoint to identify which invariants are usefull. Returns the
-   subset of invs_acts which preserves inductiveness. The paramteer
+   subset of invs_acts which preserves inductiveness. The parameter
    just_check_ind controls if we want to only check the induction step without
    minimizing the set of invariants.
 
@@ -477,7 +574,7 @@ let rec trim
 
 
 
-let check_ind_and_trim ~just_check_ind
+let check_ind_and_trim ~just_check_ind sys k prop invs_terms
     solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   (* Get invariants at k - 1 *)
@@ -501,17 +598,46 @@ let check_ind_and_trim ~just_check_ind
      let invs_acts =
        List.filter (fun (a, _) -> List.exists (Term.equal a) uc) invs_acts in
 
+     let do_under = false in
+     
+     let must, prev_props_act, prop'act, neg_prop'act =
+       if not do_under || invs_terms = [] then
+         [], prev_props_act, prop'act, neg_prop'act
+       else
+         let must = under_approx sys k invs_terms prop in
+         Debug.certif
+           "Under approximation identified %d necessary invariants out of %d"
+           (List.length must)
+           (List.length invs_terms);
+         let prop = Term.mk_and (prop :: must) in
+         (* Construct properties from 1 to k-1 *)
+         let prev_props_l = ref [prop] in
+         for i = 1 to k - 1 do
+           prev_props_l := Term.bump_state (Numeral.of_int i) prop :: !prev_props_l;
+         done;
+         (* Activation literals for properties from 1 to k-1 *)
+         let prev_props_act =
+           actlitify solver (Term.mk_and (List.rev !prev_props_l)) in
+         (* Construct property at k *)
+         let prop' = Term.bump_state (Numeral.of_int k) prop in
+         let prop'act = actlitify solver prop' in
+         (* Construct negation of property at k *)
+         let neg_prop' = Term.mk_not prop' in
+         let neg_prop'act = actlitify solver neg_prop' in
+         must, prev_props_act, prop'act, neg_prop'act
+     in
+     
      (* Continuation: execute fixpoint *)
      let cont () =
        match Flags.Certif.mininvs () with
        | `HardOnly | `MediumOnly ->
          (* Only do the first inductive check if we want only hard
             minimization *)
-         List.map snd invs_acts
+         List.map snd invs_acts, must
        | _ ->
          (* Otherwise complete the fixpoint in the continuation *)
          trim solver
-           invs_acts prev_props_act prop'act neg_prop'act trans_acts
+           invs_acts prev_props_act prop'act neg_prop'act trans_acts, must
      in
 
      if just_check_ind then raise (Reduce_cont cont)
@@ -553,7 +679,7 @@ let rec cherry_pick solver trans
        (* Look for all or the first invariant which evaluate to false *)
        let other_invs, extra_needed, _ =
          (* List.partition (fun (inv, _) -> eval inv) remaining_invs *)
-         List.fold_left (fun (other, extra, found) ((inv, _) as ii) ->
+         List.fold_left (fun (other, extra, found) ((inv, inv') as ii) ->
              (* Only add the first invariant if we want to do the hardest
                 minimization *)
              if (Flags.Certif.mininvs () = `Hard ||
@@ -569,10 +695,13 @@ let rec cherry_pick solver trans
 
        (* If we have no more invariants to add, it means the whole set is not
           k-inductive *)
-       if extra_needed = [] then begin
-         Debug.certif "[Hard Fixpoint] fail (impossible)";
-         raise Exit
-       end;
+       (* if extra_needed = [] then begin *)
+       (*   Debug.certif "[Hard Fixpoint] fail (impossible)"; *)
+       (*   raise Exit *)
+       (* end; *)
+
+       if extra_needed = [] then needed_invs'acts
+       else
        
        (* new list of needed invariants *)
        let needed_invs = List.fold_left (fun acc (inv, inv') ->
@@ -648,32 +777,50 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
 
   (* This functions maps activation literals (returned by the function
      fixpoint) back to original invariants *)
-  let map_back_to_invs useful_acts =
-    List.fold_left (fun acc a ->
+  let map_back_to_invs must_invs useful_acts =
+      List.fold_left (fun acc a ->
         List.fold_left (fun acc (inv, _, _, a', _) ->
-            if Term.equal a a' then inv :: acc else acc
+            if Term.equal a a' && not (List.exists (Term.equal inv) acc) then
+              inv :: acc
+            else acc
           ) acc invs_infos
-      ) [] useful_acts
+      ) must_invs useful_acts
   in
+  
+  (* let reconstruct_infos useful_acts = *)
+  (*   List.fold_left (fun acc a -> *)
+  (*       List.fold_left (fun acc (_, _, prev_inv, a', inv') -> *)
+  (*           if Term.equal a a' then (prev_inv, inv') :: acc else acc *)
+  (*         ) acc invs_infos *)
+  (*     ) [] useful_acts *)
+  (* in *)
 
-  let reconstruct_infos useful_acts =
-    List.fold_left (fun acc a ->
-        List.fold_left (fun acc (_, _, prev_inv, a', inv') ->
-            if Term.equal a a' then (prev_inv, inv') :: acc else acc
-          ) acc invs_infos
-      ) [] useful_acts
-  in
-
-  let cherry_pick_min useful_acts =
-    let useful_infos = reconstruct_infos useful_acts in
+  let cherry_pick_min (useful_acts, must_invs) =
+    (* let useful_infos = reconstruct_infos useful_acts in *)
+    let needed, to_consider =
+      List.fold_left (fun acc a ->
+          List.fold_left (fun (needed, to_consider) (inv, _, prev_inv, a', inv') ->
+              if Term.equal a a' then
+                if List.exists (Term.equal inv) must_invs then
+                  let prev_invact = actlitify solver prev_inv in
+                  let inv'act = actlitify solver inv' in
+                  (prev_invact, inv'act) :: needed, to_consider
+                else
+                  needed, (prev_inv, inv') :: to_consider
+              else needed, to_consider
+            ) acc invs_infos
+        ) ([],[]) useful_acts
+    in
     cherry_pick solver sys
-      [] useful_infos prev_props_act prop'act neg_prop'act trans_acts
-    |> map_back_to_invs
+      (* [] useful_infos *)
+      needed to_consider
+      prev_props_act prop'act neg_prop'act trans_acts
+    |> map_back_to_invs must_invs
   in
 
   let follow_up =
     match Flags.Certif.mininvs () with
-    | `Easy -> map_back_to_invs
+    | `Easy -> fun (ua, must) -> map_back_to_invs must ua
     | `Medium | `MediumOnly | `Hard | `HardOnly ->
       (* Second phase of harder minimization if we decide to not stop at easy *)
       cherry_pick_min
@@ -681,13 +828,13 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   
   try
     (* Can fail and raise Exit or Reduce_cont *)
-    let useful_acts =
-      check_ind_and_trim ~just_check_ind
+    let useful_acts, must_invs  =
+      check_ind_and_trim ~just_check_ind sys k prop invs
         solver invs_acts prev_props_act prop'act neg_prop'act trans_acts in
     
     (* If fixpoint returned a list of useful invariants we just return them *)
     Inductive (
-      follow_up useful_acts
+      follow_up (useful_acts, must_invs)
       (* map_back_to_invs useful_acts *)
     )
   with
@@ -910,7 +1057,7 @@ let minimize_certificate sys =
     (SMTSolver.declare_sort solver)
     Numeral.(~- one) (Numeral.of_int (k+1));
 
-  (* The property we want to re-verify the conjunction of all the properties *)
+  (* The property we want to re-verify is the conjunction of all properties *)
   let prop = Term.mk_and props in
 
   let min_strategy = match Flags.Certif.mink () with
@@ -2324,12 +2471,15 @@ let generate_frontend_obs node kind2_sys dirname =
                   StateVar.pp_print_state_var sv
                   StateVar.pp_print_state_var sv'
                   (pp_print_list
-                     (fun fmt (lid, n, clock) ->
+                     (fun fmt (lid, n, cond) ->
                         Format.fprintf fmt "%a [%d] %s"
                           (LustreIdent.pp_print_ident true) lid n
-                          (match clock with
-                           | None -> ""
-                           | Some c -> "ON "^ (StateVar.string_of_state_var c))
+                          (match cond with
+                           | LustreNode.CNone -> ""
+                           | LustreNode.CActivate c ->
+                             "ACTIVATE ON "^ (StateVar.string_of_state_var c)
+                           | LustreNode.CRestart c ->
+                             "RESTART ON "^ (StateVar.string_of_state_var c))
                      )
                      " , ") l'
               ) l
@@ -2576,7 +2726,7 @@ let generate_smt2_certificates uid input sys =
 
   Proof.set_proof_logic (TS.get_logic sys);
   
-  TH.clear hactlits;
+  Hashtbl.clear solver_actlits;
 
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())
@@ -2669,8 +2819,8 @@ let fix_A0 final_lfsc =
 let generate_all_proofs uid input sys =
 
   Proof.set_proof_logic (TS.get_logic sys);
-  
-  TH.clear hactlits;
+
+  Hashtbl.clear solver_actlits;
   
   let dirname =
     if is_fec sys then Filename.dirname (Flags.input_file ())

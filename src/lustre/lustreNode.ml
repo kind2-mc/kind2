@@ -58,7 +58,7 @@ module ET = LustreExpr.LustreExprHashtbl
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
   List.fold_left (fun a e -> SVS.add e a) set list 
-  
+
 
 (* Bound for index variable, or fixed value for index variable *)
 type 'a bound_or_fixed = 
@@ -83,6 +83,10 @@ type state_var_source =
   (* Oracle input stream *)
   | Oracle
 
+type call_cond =
+  | CNone
+  | CActivate of StateVar.t
+  | CRestart of StateVar.t
 
 (* A call of a node *)
 type node_call = {
@@ -92,10 +96,10 @@ type node_call = {
 
   (* Name of called node *)
   call_node_name : I.t;
-  
-  (* Boolean activation condition *)
-  call_clock : StateVar.t option;
-
+    
+  (* Boolean activation or restart condition if any *)
+  call_cond : call_cond;
+ 
   (* Variables for input parameters *)
   call_inputs : StateVar.t D.t;
 
@@ -116,24 +120,6 @@ type node_call = {
 }
 
 
-(* A call of a function *)
-type function_call = {
-
-  (* Position of function call in input file *)
-  call_pos : position;
-
-  (* Name of called function *)
-  call_function_name : I.t;
-  
-  (* Expressions for input parameters *)
-  call_inputs : E.t D.t;
-
-  (* Variables capturing the outputs *)
-  call_outputs : StateVar.t D.t;
-
-}
-
-
 (* An equation *)
 type equation = (StateVar.t * E.expr bound_or_fixed list * E.t) 
 
@@ -145,6 +131,9 @@ type t = {
 
   (* Name of node *)
   name : I.t;
+
+  (* Is the node extern? *)
+  is_extern: bool;
 
   (* Constant state variable uniquely identifying the node instance *)
   instance : StateVar.t;
@@ -176,12 +165,6 @@ type t = {
   (* Node calls *)
   calls : node_call list;
 
-  (* Function calls
-
-     Needed to share functions calls with the same input
-     parameters *)
-  function_calls : function_call list;
-
   (* Assertions of node *)
   asserts : E.t list;
 
@@ -194,6 +177,9 @@ type t = {
   (* Node is annotated as main node *)
   is_main : bool ;
 
+  (* Node is actually a function. *)
+  is_function: bool ;
+
   (* Map from a state variable to its source *)
   state_var_source_map : state_var_source SVM.t;
 
@@ -205,8 +191,9 @@ type t = {
 
 
 (* An empty node *)
-let empty_node name = {
-  name = name;
+let empty_node name is_extern = {
+  name ;
+  is_extern ;
   instance = 
     StateVar.mk_state_var
       ~is_const:true
@@ -224,11 +211,11 @@ let empty_node name = {
   locals = [];
   equations = [];
   calls = [];
-  function_calls = [];
   asserts = [];
   props = [];
   contract = None ;
   is_main = false;
+  is_function = false ;
   state_var_source_map = SVM.empty;
   oracle_state_var_map = SVT.create 17;
   state_var_expr_map = SVT.create 17;
@@ -314,7 +301,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_node_name; 
-      call_clock = None; 
+      call_cond = CNone;
       call_inputs; 
       call_oracles; 
       call_outputs } ->
@@ -330,14 +317,33 @@ let pp_print_call safe ppf = function
       (D.values call_inputs @ 
        call_oracles)
 
+  (* Node call on the base clock with restart *)
+  | { call_node_name; 
+      call_cond = CRestart restart_var;
+      call_inputs; 
+      call_oracles; 
+      call_outputs } ->
+
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>restart %a@,(%a)@ every@ %a;@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs)
+      (I.pp_print_ident safe) call_node_name
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
+      (D.values call_inputs @ 
+       call_oracles)
+      (E.pp_print_lustre_var safe) restart_var
+
   (* Node call not on the base clock is a condact *)
-  |  { call_node_name; 
-       call_clock = Some call_clock_var;
-       call_inputs; 
-       call_oracles; 
-       call_outputs; 
-       call_defaults = Some call_defaults } ->
-     
+  | { call_node_name; 
+      call_cond = CActivate call_clock_var;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = Some call_defaults } ->
+    
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>condact(@,%a,@,%a(%a)%t);@]@]"
       (pp_print_list 
@@ -364,13 +370,13 @@ let pp_print_call safe ppf = function
                l)
           
   (* Node call not on the base clock without defaults *)
-  |  { call_node_name; 
-       call_clock = Some call_clock_var;
-       call_inputs; 
-       call_oracles; 
-       call_outputs; 
-       call_defaults = None } ->
-     
+  | { call_node_name; 
+      call_cond = CActivate call_clock_var;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = None } ->
+
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>(activate@ %a@ every@ %a)@,(%a);@]@]"
       (pp_print_list 
@@ -384,25 +390,7 @@ let pp_print_call safe ppf = function
          (fun (_, sv) -> sv)
          (D.bindings call_inputs) @ 
        call_oracles)
-          
 
-(* Pretty-print a function call *)
-let pp_print_function_call safe ppf = function 
-
-  (* Node call on the base clock *)
-  | { call_function_name; 
-      call_inputs; 
-      call_outputs } ->
-
-    Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>%a@,(%a);@]@]"
-      (pp_print_list 
-         (E.pp_print_lustre_var safe)
-         ",@ ") 
-      (D.values call_outputs)
-      (I.pp_print_ident safe) call_function_name
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
-      (D.values call_inputs)
 
 
 (* Pretty-print an assertion *)
@@ -463,11 +451,11 @@ let pp_print_node safe ppf {
   locals; 
   equations; 
   calls;
-  function_calls;
   asserts; 
   props;
   contract;
-  is_main
+  is_main ;
+  is_function ;
 } =
 
   (* Output a space if list is not empty *)
@@ -477,7 +465,7 @@ let pp_print_node safe ppf {
   in
 
   Format.fprintf ppf 
-    "@[<v>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
+    "@[<v>@[<hv 2>%s %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
      %a\
      @[<v>%t@]\
@@ -485,10 +473,12 @@ let pp_print_node safe ppf {
      %a%t\
      %a%t\
      %a%t\
-     %a%t\
      %t\
      %a@;<1 -2>\
      tel;@]@]@?"  
+
+    (* %s *)
+    (if is_function then "function" else "node")
 
     (* %a *)
     (I.pp_print_ident safe) name
@@ -527,10 +517,6 @@ let pp_print_node safe ppf {
     (space_if_nonempty calls)
 
     (* %a%t *)
-    (pp_print_list (pp_print_function_call safe) "@ ") function_calls
-    (space_if_nonempty function_calls)
-
-    (* %a%t *)
     (pp_print_list (pp_print_node_equation safe) "@ ") equations
     (space_if_nonempty equations)
 
@@ -560,22 +546,29 @@ let pp_print_state_var_trie_debug ppf t =
     ";@ "
     ppf
 
+let pp_print_cond ppf = function
+  | CNone -> Format.pp_print_string ppf "None"
+  | CActivate c ->
+    Format.fprintf ppf "activate on %a" StateVar.pp_print_state_var c
+  | CRestart r ->
+    Format.fprintf ppf "restart on %a" StateVar.pp_print_state_var r
+
 let pp_print_node_call_debug 
     ppf
     { call_node_name; 
-      call_clock; 
+      call_cond; 
       call_inputs; 
       call_oracles; 
       call_outputs } =
 
   Format.fprintf
     ppf
-    "call %a { @[<hv>clock    = %a;@ \
+    "call %a { @[<hv>cond     = %a;@ \
                      inputs   = [@[<hv>%a@]];@ \
                      oracles  = [@[<hv>%a@]];@ \
                      outputs  = [@[<hv>%a@]]; }@]"
     (I.pp_print_ident false) call_node_name
-    (pp_print_option StateVar.pp_print_state_var) call_clock
+    pp_print_cond call_cond
     pp_print_state_var_trie_debug call_inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") call_oracles
     pp_print_state_var_trie_debug call_outputs
@@ -596,6 +589,7 @@ let pp_print_node_debug
       props;
       contract;
       is_main;
+      is_function;
       state_var_source_map } = 
 
   let pp_print_equation = pp_print_node_equation false in
@@ -637,6 +631,7 @@ let pp_print_node_debug
          props =      [@[<hv>%a@]];@ \
          contract =   [@[<hv>%a@]];@ \
          is_main =    @[<hv>%B@];@ \
+         is_function =    @[<hv>%B@];@ \
          source_map = [@[<hv>%a@]]; }@]"
 
     StateVar.pp_print_state_var instance
@@ -656,6 +651,7 @@ let pp_print_node_debug
         Format.fprintf fmt "%a@ "
           (C.pp_print_contract false) contract) contract
     is_main
+    is_function
     (pp_print_list pp_print_state_var_source ";@ ") 
     (SVM.bindings state_var_source_map)
 
@@ -736,17 +732,6 @@ let node_call_of_svar { calls } svar =
   in
   loop calls
 
-(** Returns the function call the svar is the output of, if any. *)
-let function_call_of_svar { function_calls } svar =
-  let rec loop = function
-    | ({ call_outputs } as call) :: _ when D.exists (
-      fun _ svar' -> svar == svar'
-    ) call_outputs -> Some call
-    | _ :: tail -> loop tail
-    | [] -> None
-  in
-  loop function_calls
-
 (* Return the scope of the name of the node *)
 let scope_of_node { name } = name |> I.to_scope
 
@@ -802,29 +787,6 @@ let has_contract { contract } = contract != None
 let has_modes = function
 | { contract = None } -> false
 | { contract = Some { C.modes } } -> modes != []
-
-
-(* Node always has an implementation *)
-let has_impl = function 
-
-  (* Only equations without assertions can be implementation-free
-
-     Don't consider node calls here, because the outputs of node calls
-     are assigned to state variables in an equation, and we just check
-     those equations. *)
-  | { equations; asserts = []; state_var_source_map } -> 
-
-    (* Return true if there is an equation of a non-ghost variable *)
-    List.exists
-      (fun (sv, _, _) -> 
-         match SVM.find sv state_var_source_map with
-           | Ghost -> false
-           | _ -> true
-           | exception Not_found -> true)
-      equations
-
-  (* Node with an assertion does have an implementation *)
-  | _ -> false
 
 
 
@@ -941,7 +903,7 @@ let rec subsystem_of_nodes' nodes accum = function
         let has_modes = has_modes node in
 
         (* Does node have an implementation? *)
-        let has_impl = has_impl node in
+        let has_impl = not node.is_extern in
 
         (* Construct subsystem of node *)
         let subsystem = 
@@ -1249,15 +1211,21 @@ let stateful_vars_of_node
     List.fold_left
       (fun
         accum
-        { call_clock; 
+        { call_cond;
           call_inputs; 
           call_oracles;
           call_outputs; 
           call_defaults } -> 
 
-        (SVS.union 
-
-           (* Add stateful variables from initial defaults *)
+        (* Input and output variables are always stateful *)
+        ((D.values call_inputs) @ 
+         call_oracles @
+         (D.values call_outputs))
+        
+        |> SVS.of_list
+        
+        (* Add stateful variables from initial defaults *)
+        |> SVS.union 
            (match call_defaults with 
              | None -> accum
              | Some d ->
@@ -1266,21 +1234,16 @@ let stateful_vars_of_node
                     SVS.union accum (stateful_vars_of_expr expr))
                  accum
                  (D.values d))
-              
-           (* Input and output variables are always stateful *)
-           (add_to_svs
 
-              (* Variables in activation condition are always stateful *)
-              (match call_clock with
-               | Some var -> SVS.singleton var
-               | None -> SVS.empty)
-
-              (* Input and output variables are always stateful *)
-              ((D.values call_inputs) @ 
-               call_oracles @
-               (D.values call_outputs)))))
-      stateful_vars
-      calls
+        (* Variables in activation and restart conditions are always
+           stateful *)
+        |> SVS.union
+          (match call_cond with
+           | CNone -> SVS.empty
+           | CActivate cv -> SVS.singleton cv
+           | CRestart rv -> SVS.singleton rv)
+       
+      ) stateful_vars calls
   in
 
   stateful_vars

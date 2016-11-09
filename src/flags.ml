@@ -1639,8 +1639,11 @@ module Global = struct
   (* All files in the cone of influence of the input file. *)
   let all_input_files = ref []
   let clear_input_files () = all_input_files := []
-  let add_input_file file = all_input_files := file :: !all_input_files
-  let get_all_input_files () = ! all_input_files
+  let add_input_file file =
+    (* Additional input file're relative to main input file. *)
+    let path = input_file () |> Filename.dirname in
+    all_input_files := (path ^ "/" ^ file) :: ! all_input_files
+  let get_all_input_files () = (input_file ()) :: ! all_input_files
 
 
   (* Print help. *)
@@ -1792,15 +1795,12 @@ module Global = struct
         "\
           Output directory for the files generated:@ \
           SMT traces, compilation, testgen, certification...@ \
-          Default: \"<filename>.out\"\
+          Default: \"<path_to_filename>.out\"\
         "
     )
 
   let set_output_dir s = match ! output_dir with
-    | "" ->
-      let b = Filename.basename s in
-      let d = try Filename.chop_extension b with Invalid_argument _ -> b in
-      output_dir_action(d ^ ".out")
+    | "" -> s ^ ".out" |> output_dir_action
     | _ -> ()
 
   let output_dir () = !output_dir

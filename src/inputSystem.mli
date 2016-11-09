@@ -68,7 +68,7 @@ val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> 
 val reconstruct_lustre_streams :
   _ t -> 
   StateVar.t list ->
-  (StateVar.t * (LustreIdent.t * int * StateVar.t option) list) list
+  (StateVar.t * (LustreIdent.t * int * LustreNode.call_cond) list) list
     StateVar.StateVarMap.t
 
 

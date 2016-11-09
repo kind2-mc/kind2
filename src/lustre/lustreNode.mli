@@ -49,6 +49,12 @@ open Lib
 
 (** {1 Types} *)
 
+(** Call condition: activate or restart *)
+type call_cond =
+  | CNone
+  | CActivate of StateVar.t
+  | CRestart of StateVar.t
+
 (** A call to a node 
 
     Calls are uniquely identified by the position, no two calls may
@@ -62,8 +68,8 @@ type node_call = {
   call_node_name : LustreIdent.t;
   (** Identifier of the called node *)
   
-  call_clock : StateVar.t option;
-  (** Boolean activation condition if any *)
+  call_cond : call_cond;
+  (** Boolean activation or restart condition if any *)
 
   call_inputs : StateVar.t LustreIndex.t;
   (** Variables for actual input parameters 
@@ -93,24 +99,6 @@ type node_call = {
 
       If the option value is not [None], the keys of the index match
       those in the {!t.outputs} field of the called node. *)
-
-}
-
-
-(** A call of a function *)
-type function_call = {
-
-  (** Position of function call in input file *)
-  call_pos : position;
-
-  (** Name of called function *)
-  call_function_name : LustreIdent.t;
-  
-  (** Expressions for input parameters *)
-  call_inputs : LustreExpr.t LustreIndex.t;
-
-  (** Variables capturing the outputs *)
-  call_outputs : StateVar.t LustreIndex.t;
 
 }
 
@@ -162,6 +150,9 @@ type t = {
   name : LustreIdent.t;
   (** Name of the node *)
 
+  is_extern : bool;
+  (** Is the node extern? *)
+
   instance : StateVar.t;
   (** Distinguished constant state variable uniquely identifying the
       node instance *)
@@ -204,9 +195,6 @@ type t = {
   calls : node_call list;
   (** Node calls inside the node *)
 
-  function_calls : function_call list;
-  (** Function calls in the node *)
-
   asserts : LustreExpr.t list;
   (** Assertions of node *)
 
@@ -218,6 +206,9 @@ type t = {
 
   is_main : bool;
   (** Flag node as the top node *)
+
+  is_function : bool;
+  (** Node is actually a function *)
 
   state_var_source_map : state_var_source StateVar.StateVarMap.t;
   (** Map from a state variable to its source 
@@ -238,10 +229,10 @@ type t = {
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
 
-(** Return a node of the given name without inputs, outputs, oracles,
-    equations, etc. Create a state variable for the {!t.instance} and
+(** Return a node of the given name and is extern flag without inputs, outputs,
+    oracles, equations, etc. Create a state variable for the {!t.instance} and
     {!t.init_flag} fields, and set {!t.is_main} to false. *)
-val empty_node : LustreIdent.t -> t
+val empty_node : LustreIdent.t -> bool -> t
 
 (** {1 Pretty-printers} *)
 
@@ -294,10 +285,6 @@ val ident_of_top : t list -> LustreIdent.t
     contract *)
 val has_contract : t -> bool
 
-(** Return false if the body of the node is empty, that is, all
-    equations are ghost and there are no assertions *)
-val has_impl : t -> bool
-
 (** Return a tree-like subsystem hierarchy from a flat list of nodes,
     where the top node is at the head of the list. *)
 val subsystem_of_nodes : t list -> t SubSystem.t
@@ -323,9 +310,6 @@ val equation_of_svar : t -> StateVar.t -> equation option
 
 (** Returns the node call the svar is (one of) the output(s) of, if any. *)
 val node_call_of_svar : t -> StateVar.t -> node_call option
-
-(** Returns the function call the svar is (one of) the output(s) of, if any. *)
-val function_call_of_svar : t -> StateVar.t -> function_call option
 
 (** Return the scope of the node *)
 val scope_of_node : t -> Scope.t

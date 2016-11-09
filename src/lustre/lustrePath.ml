@@ -24,7 +24,6 @@ module D = LustreIndex
 module A = LustreAst
 module E = LustreExpr
 module N = LustreNode
-module F = LustreFunction
 module S = SubSystem
 module T = TransSys
 module C = LustreContract
@@ -36,9 +35,11 @@ module SVS = StateVar.StateVarSet
 
 (* Model for a node and its subnodes *)
 type t =
-  | Function of F.t * Model.path
-  | Node of
-    N.t * Model.path * C.mode list list option * ((I.t * position) list * t) list
+  Node of
+    N.t *
+    Model.path *
+    C.mode list list option *
+    ((I.t * position) list * t) list
 
 
 (* ********************************************************************** *)
@@ -388,82 +389,6 @@ let map_top_reconstruct_and_add
     (* Add as path of subnode state variable *)
     |> SVT.add model' state_var
 
-
-(* Reconstruct a model for a function call given the models for the
-   subnodes. *)
-let function_path_of_instance
-  first_is_init
-  trace
-  globals
-  model_top
-  ({ N.name } as node)
-  { N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs }
-  trans_sys
-  instances
-  subnodes
-=
-
-  (* Format.printf "function_path_of_instance@.@." ; *)
-
-  let model = Model.create_path (
-      D.cardinal call_inputs + D.cardinal call_outputs
-    )
-  in
-
-  (* Format.printf "model@.@." ; *)
-
-  let { F.inputs; F.outputs } as fun_def =
-    try F.function_of_name call_function_name globals.LustreGlobals.functions
-    with Not_found -> assert false
-  in
-
-  (* Format.printf "fun_def@.@." ; *)
-
-  let call_outputs = call_outputs |> D.map E.mk_var in
-
-  (* Format.printf "call_outputs@.@." ; *)
-
-  let zip formal actual =
-    D.fold2 (fun _ f a l ->
-      (f, [], a) :: l
-    ) formal actual
-  in
-
-  let equations_of_init init =
-    (zip inputs call_inputs [] |> zip outputs call_outputs) @ (
-      N.ordered_equations_of_node
-        node (TransSys.state_vars trans_sys) init
-    )
-  in
-
-
-
-  inputs |> D.iter (
-    map_top_reconstruct_and_add
-      first_is_init
-      trans_sys
-      instances
-      equations_of_init
-      model_top
-      model
-  ) ;
-
-  (* Format.printf "inputs@.@." ; *)
-
-  outputs |> D.iter (
-    map_top_reconstruct_and_add
-      first_is_init
-      trans_sys
-      instances
-      equations_of_init
-      model_top
-      model
-  ) ;
-
-  (* Format.printf "outputs@.@." ; *)
-
-  (name, call_pos) :: trace, Function(fun_def, model)
-
 let active_modes_of_instances model_top instances = function
 (* No contract. *)
 | None | Some { C.modes = [] } -> None
@@ -565,10 +490,9 @@ let active_modes_to_strings =
    Use with [TransSys.fold_subsystem_instances]. *)
 let node_path_of_instance 
     first_is_init
-    globals
     model_top
     ({
-      N.inputs; N.outputs; N.locals; N.equations; N.function_calls; N.contract
+      N.inputs; N.outputs; N.locals; N.equations; N.contract
     } as node)
     trans_sys
     instances
@@ -582,25 +506,6 @@ let node_path_of_instance
       (fun (t, { T.pos }) -> 
          (TransSys.scope_of_trans_sys t |> I.of_scope, pos))
       instances
-  in
-
-  (* Format.printf "trace@.@." ; *)
-
-  let subnodes =
-    function_calls |> List.fold_left (
-      fun l fc -> (
-        function_path_of_instance
-          first_is_init
-          trace
-          globals
-          model_top
-          node
-          fc
-          trans_sys
-          instances
-          subnodes
-      ) :: l
-    ) subnodes
   in
 
   (* Format.printf "subnodes@.@." ; *)
@@ -666,7 +571,7 @@ let node_path_of_instance
   ) ; *)
 
   (* Return path for subnode and its call trace *)
-  (trace, Node(node, model, active_modes, subnodes))
+  (trace, Node (node, model, active_modes, subnodes))
 
 
 (* Return a hierarchical model for the nodes from a flat model by
@@ -677,8 +582,7 @@ let node_path_of_subsystems
     trans_sys
     instances
     model
-    ({ S.scope } as subsystems)
-    globals =
+    ({ S.scope } as subsystems) =
 
   (* Format.printf "trans_sys@.@." ; *)
 
@@ -698,7 +602,7 @@ let node_path_of_subsystems
     (* Create models for all subnodes *)
     N.fold_node_calls_with_trans_sys
       nodes
-      (node_path_of_instance first_is_init globals model)
+      (node_path_of_instance first_is_init model)
       (N.node_of_name (I.of_scope scope) nodes)
       trans_sys'
   with e ->
@@ -950,22 +854,20 @@ let rec pp_print_lustre_path_pt' ppf = function
 | [] -> ()
 
 (* Take first node to print *)
-| (trace, t) :: tl ->
+| (
+  trace, Node (
+    { N.name; N.inputs; N.outputs; N.locals; N.is_function } as node,
+    model, active_modes, subnodes
+  )
+) :: tl ->
 
   let (
     name, inputs, outputs, locals, is_visible,
     model, active_modes, subnodes, title
   ) =
-    match t with
-    | Node (
-      { N.name; N.inputs; N.outputs; N.locals } as node,
-      model, active_modes, subnodes
-    ) ->
-      name, inputs, outputs, locals,
-      N.state_var_is_visible node, model, active_modes, subnodes,
-      "Node"
-    | Function ( { F.name; F.inputs; F.outputs }, model ) ->
-      name, inputs, outputs, [], (fun _ -> true), model, None, [], "Function"
+    name, inputs, outputs, locals,
+    N.state_var_is_visible node, model, active_modes, subnodes,
+    if not is_function then "Node" else "Function"
   in
 
   (* Remove first dimension from index *)
@@ -1060,11 +962,11 @@ let pp_print_lustre_path_pt ppf lustre_path =
 
 (* Output a hierarchical model as plain text *)
 let pp_print_path_pt
-  trans_sys instances subsystems globals first_is_init ppf model
+  trans_sys instances subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    first_is_init trans_sys instances model subsystems globals
+    first_is_init trans_sys instances model subsystems
   (* Output as plain text *)
   |> pp_print_lustre_path_pt ppf
 
@@ -1217,24 +1119,21 @@ let rec pp_print_lustre_path_xml' ppf = function
 
   | [] -> ()
 
-  | (trace, t) :: tl ->
+  | (
+    trace, Node (
+      { N.name; N.inputs; N.outputs; N.locals; N.is_function } as node,
+      model, active_modes, subnodes
+    )
+  ) :: tl ->
 
     let
       name, inputs, outputs, locals, is_visible, get_source,
       model, active_modes, subnodes, title
     =
-      match t with
-      | Node (
-        { N.name; N.inputs; N.outputs; N.locals } as node,
-        model, active_modes, subnodes
-      ) ->
-        name, inputs, outputs, locals,
-        N.state_var_is_visible node, N.get_state_var_source node,
-        model, active_modes, subnodes, "Node"
-      | Function ( { F.name; F.inputs; F.outputs } as f, model ) ->
-        name, inputs, outputs, [],
-        (fun _ -> true), F.get_state_var_source f,
-        model, None, [], "Function"
+      name, inputs, outputs, locals,
+      N.state_var_is_visible node, N.get_state_var_source node,
+      model, active_modes, subnodes,
+      if not is_function then "Node" else "Function"
     in
 
     (* Remove first dimension from index *)
@@ -1315,11 +1214,11 @@ let pp_print_lustre_path_xml ppf path =
 
 (* Ouptut a hierarchical model as XML *)
 let pp_print_path_xml
-  trans_sys instances subsystems globals first_is_init ppf model
+  trans_sys instances subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    first_is_init trans_sys instances model subsystems globals
+    first_is_init trans_sys instances model subsystems
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf
 
@@ -1354,8 +1253,7 @@ let pp_print_stream_csv model ppf (index, sv) =
 
 (* Outputs a sequence of values for the inputs of a node. *)
 let pp_print_lustre_path_in_csv ppf = function
-| _, Function _ -> ()
-| trace, Node( { N.inputs }, model, _, _ ) ->
+| trace, Node ( { N.inputs }, model, _, _ ) ->
 
   (* Remove first dimension from index. *)
   let pop_head_index = function
@@ -1372,11 +1270,11 @@ let pp_print_lustre_path_in_csv ppf = function
 
 (* Outputs a model for the inputs of a system in CSV. *)
 let pp_print_path_in_csv
-  trans_sys instances subsystems globals first_is_init ppf model
+  trans_sys instances subsystems first_is_init ppf model
 =
   (* Create the hierarchical model. *)
   node_path_of_subsystems 
-    first_is_init trans_sys instances model subsystems globals
+    first_is_init trans_sys instances model subsystems
   (* Output as CSV. *)
   |> pp_print_lustre_path_in_csv ppf
 
@@ -1402,9 +1300,9 @@ let same_args abstr_map (inputs, defs) (inputs', defs') =
   | _ -> false
 
 
-let rec add_to_callpos abstr_map acc pos clock args calls =
+let rec add_to_callpos abstr_map acc pos cond args calls =
   match calls with
-  | ((pos', nb', clock', args') as x) :: r ->
+  | ((pos', nb', cond', args') as x) :: r ->
     let c_pos = Lib.compare_pos pos pos' in
 
     if c_pos = 0 then raise Exit; (* already in there, abort *)
@@ -1413,29 +1311,29 @@ let rec add_to_callpos abstr_map acc pos clock args calls =
       (* calls with same arguments but at different positions *)
       (* insert in between with the same number, don't shift anything *)
       if c_pos > 0 then
-        List.rev_append acc (x :: (pos, nb', clock, args) :: r)
+        List.rev_append acc (x :: (pos, nb', cond, args) :: r)
       else
-        List.rev_append acc ((pos, nb', clock, args) :: calls)
+        List.rev_append acc ((pos, nb', cond, args) :: calls)
           
     else if c_pos > 0 then
       (* continue to look *)
-      add_to_callpos abstr_map (x :: acc) pos clock args r
+      add_to_callpos abstr_map (x :: acc) pos cond args r
 
     else (* c_pos < 0 *)
       (* insert in between and shift the ones on the right *)
       List.rev_append acc
-        ((pos, nb', clock, args) ::
+        ((pos, nb', cond, args) ::
          (List.map (fun (p, n, c, a) -> (p, n+1, c, a)) calls))
 
   | [] ->
     (* last one or only one *)
     let nb = match acc with [] -> 0 | (_, n, _, _) :: _ -> n+1 in
-    List.rev ((pos, nb, clock, args) :: acc)
+    List.rev ((pos, nb, cond, args) :: acc)
 
 
 
-let register_callpos_for_nb abstr_map hc lid parents pos clock args =
-  let is_condact = clock <> None in
+let register_callpos_for_nb abstr_map hc lid parents pos cond args =
+  let is_condact = match cond with | N.CActivate _ -> true | _ -> false in
   let cat =
     try Hashtbl.find hc (lid, is_condact)
     with Not_found ->
@@ -1445,7 +1343,7 @@ let register_callpos_for_nb abstr_map hc lid parents pos clock args =
   in
   let calls = try Hashtbl.find cat parents with Not_found -> [] in
   try
-    let new_calls = add_to_callpos abstr_map [] pos clock args calls in
+    let new_calls = add_to_callpos abstr_map [] pos cond args calls in
     Hashtbl.replace cat parents new_calls
   with Exit -> () (* already in there *)
 
@@ -1463,7 +1361,7 @@ let pos_to_numbers abstr_map nodes =
 
     List.iter
       (fun ({ N.call_node_name = lid;
-             call_pos = pos; call_clock = clock;
+             call_pos = pos; call_cond = cond;
              call_inputs = inputs; call_defaults = defs } as call) -> 
 
         (* Format.eprintf "register : %a at %a %s \n ARgs: (%a)@." *)
@@ -1475,7 +1373,7 @@ let pos_to_numbers abstr_map nodes =
         (* ; *)
         
         register_callpos_for_nb
-          abstr_map hc lid parents pos clock (inputs, defs);
+          abstr_map hc lid parents pos cond (inputs, defs);
 
         fold (call :: parents) (node_by_lid lid)
 
@@ -1486,7 +1384,7 @@ let pos_to_numbers abstr_map nodes =
   
   hc
 
-exception Found of int * StateVar.t option
+exception Found of int * N.call_cond
 
 let get_pos_number hc lid pos =
   (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)
@@ -1516,8 +1414,8 @@ let rec get_instances acc hc parents sv =
   | insts ->
     List.fold_left (fun acc (pos, lid, lsv) ->
         try
-          let nb, clock = get_pos_number hc lid pos in
-          get_instances acc hc ((lid, nb, clock) :: parents) lsv
+          let nb, cond = get_pos_number hc lid pos in
+          get_instances acc hc ((lid, nb, cond) :: parents) lsv
         with Not_found ->
           (* was removed by slicing, ingore this instance *)
           acc

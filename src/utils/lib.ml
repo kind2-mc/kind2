@@ -1140,6 +1140,7 @@ module ReservedIds = struct
   let init_uf_string = "__node_init"
   let trans_uf_string = "__node_trans"
   let index_ident_string = "__index"
+  let function_of_inputs = "__function_of_inputs"
 
   (* Init flag string. *)
   let init_flag_string = "__init_flag"
@@ -1152,6 +1153,7 @@ module ReservedIds = struct
     init_flag_string ;
     depth_input_string ;
     max_depth_input_string ;
+    function_of_inputs ;
 
     abs_ident_string ;
     oracle_ident_string ;

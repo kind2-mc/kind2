@@ -417,6 +417,8 @@ module ReservedIds : sig
   val depth_input_string: string
   (** Abstraction depth input string. *)
   val max_depth_input_string: string
+  (** Suffix used for the name of the function encoding functional systems. *)
+  val function_of_inputs: string
 
   (** All reserved identifiers. *)
   val reserved_strings: string list

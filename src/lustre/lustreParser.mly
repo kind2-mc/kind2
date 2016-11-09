@@ -73,10 +73,11 @@ let mk_pos = position_of_lexing
 %token CONST
     
 (* Tokens for node declarations *)
+%token EXTERN
 %token NODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
-(* unused: %token FUNCTION *)
+%token FUNCTION
 %token RETURNS
 %token VAR
 %token LET
@@ -149,6 +150,7 @@ let mk_pos = position_of_lexing
 %token INITIAL
 %token DEFAULT
 %token EVERY
+%token RESTART
 %token MERGE
     
 (* Tokens for temporal operators *)
@@ -189,7 +191,6 @@ one_expr: e = expr EOF { e }
 (* A Lustre program is a list of declarations *)
 main: p = list(decl) EOF { List.flatten p }
 
-
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
   | d = const_decl { List.map 
@@ -198,9 +199,25 @@ decl:
   | d = type_decl { List.map 
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
-  | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
+  | NODE ; decl = node_decl ; def = node_def {
+    let (n, p, i, o, r) = decl in
+    let (l, e) = def in
+    [A.NodeDecl ( mk_pos $startpos, (n, false, p, i, o, l, e, r) )]
+  }
+  | FUNCTION ; decl = node_decl ; def = node_def {
+    let (n, p, i, o, r) = decl in
+    let (l, e) = def in
+    [A.FuncDecl (mk_pos $startpos, (n, false, p, i, o, l, e, r))]
+  }
+  | EXTERN ; NODE ; decl = node_decl {
+    let (n, p, i, o, r) = decl in
+    [A.NodeDecl ( mk_pos $startpos, (n, true, p, i, o, [], [], r) )]
+  }
+  | EXTERN ; FUNCTION ; decl = node_decl {
+    let (n, p, i, o, r) = decl in
+    [A.FuncDecl (mk_pos $startpos, (n, true, p, i, o, [], [], r))]
+  }
   | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
-  (* | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] } *)
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
 
@@ -325,42 +342,28 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 (* ********************************************************************** *)
 
 
-(* An uninterpreted function declaration *)
-(* func_decl:
-  | FUNCTION; 
-    n = ident; 
-    i = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
-    RETURNS; 
-    o = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
-    SEMICOLON;
-    r = contract_spec;
-
-    { (n, List.flatten i, List.flatten o, r)  } *)
-
-
-(* A node declaration *)
+(* A node declaration and contract. *)
 node_decl:
-  | NODE; 
-    n = ident; 
-    p = loption(static_params);
-    i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
-    RETURNS; 
-    o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
-    SEMICOLON;
-    r = option(contract_spec);
-    l = list(node_local_decl);
-    LET;
-    e = list(node_equation);
-    TEL
-    option(node_sep) 
+| n = ident;
+  p = loption(static_params);
+  i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
+  RETURNS;
+  o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
+  SEMICOLON;
+  r = option(contract_spec)
+  {
+    (n, p, List.flatten i, List.flatten o, r)
+  }
 
-    { (n, 
-       p,
-       List.flatten i, 
-       List.flatten o, 
-       (List.flatten l), 
-       e,
-       r)  }
+(* A node definition (locals + body). *)
+node_def:
+  l = list(node_local_decl);
+  LET;
+  e = list(node_equation);
+  TEL
+  option(node_sep)
+
+  { (List.flatten l, e) }
 
 
 contract_ghost_var:
@@ -764,6 +767,20 @@ expr:
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
     { A.Activate (mk_pos $startpos, s, c, a) }
+
+  (* restart node call *)
+  (*| RESTART; s = ident;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN;
+    EVERY; c = expr
+
+    { A.RestartEvery (mk_pos $startpos, s, a, c) }
+   *)
+    
+  (* alternative syntax for restart node call *)
+  | LPAREN; RESTART; s = ident; EVERY; c = expr; RPAREN; 
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { A.RestartEvery (mk_pos $startpos, s, a, c) }
     
   (* Merge operator *)
   | MERGE; 

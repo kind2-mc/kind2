@@ -243,8 +243,9 @@ let keyword_table = mk_hashtbl [
   ("const", CONST) ;
   
   (* Node / function declaration *)
+  ("extern", EXTERN) ;
   ("node", NODE) ;
-  (* ("function", FUNCTION) ; *)
+  ("function", FUNCTION) ;
   ("returns", RETURNS) ;
   ("var", VAR) ;
   ("let", LET) ;
@@ -277,6 +278,7 @@ let keyword_table = mk_hashtbl [
   ("initial", INITIAL) ;
   ("default", DEFAULT) ;
   ("every", EVERY) ;
+  ("restart", RESTART) ;
   ("merge", MERGE) ;
   
   (* Temporal operators *)

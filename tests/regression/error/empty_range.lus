@@ -1,0 +1,4 @@
+node n (x: subrange [1, 0] of int) returns (b: bool);
+let
+  b = true;
+tel
