@@ -1122,6 +1122,15 @@ module ReservedIds = struct
   let index_ident_string = "__index"
   let function_of_inputs = "__function_of_inputs"
 
+  let state_string = "state"
+  let restart_string = "restart"
+  let state_in_string = "state.in"
+  let restart_in_string = "restart.in"
+  let state_in_next_string = "state.in.next"
+  let restart_in_next_string = "restart.in.next"
+  let handler_string = "handler"
+  let unless_string = "unless"
+  
   (* Init flag string. *)
   let init_flag_string = "__init_flag"
   (* Abstraction depth input string. *)

@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Lib.ReservedIds
 
 module A = LustreAst
 
@@ -1624,12 +1625,12 @@ let rec eval_node_items inputs outputs locals ctx = function
     in
     
     (* Node local variables used to encode the automaton *)
-    let i_state = String.concat "." [name; "state"] in
-    let i_restart = String.concat "." [name; "restart"] in
-    let i_state_in = String.concat "." [name; "state.in"] in
-    let i_restart_in = String.concat "." [name; "restart.in"] in
-    let i_state_in_next = String.concat "." [name; "state.in.next"] in
-    let i_restart_in_next = String.concat "." [name; "restart.in.next"] in
+    let i_state = String.concat "." [name; state_string] in
+    let i_restart = String.concat "." [name; restart_string] in
+    let i_state_in = String.concat "." [name; state_in_string] in
+    let i_restart_in = String.concat "." [name; restart_in_string] in
+    let i_state_in_next = String.concat "." [name; state_in_next_string] in
+    let i_restart_in_next = String.concat "." [name; restart_in_next_string] in
     (* Add them to the local variables of the current node *)
     let add_auto_local i ty ctx =
       let ident = I.mk_string_ident i in
@@ -1672,7 +1673,8 @@ let rec eval_node_items inputs outputs locals ctx = function
     let inputs_idents =
       List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in
     
-    let handlers_activate_calls = List.map2 (fun handler state_c ->
+    let handlers_activate_calls =
+      List.map2 (fun handler (A.State (pos, state_c, _, _, _, _, _)) ->
         state_c,
         (* activate handler every state = state_c restart every <restart> *)
         A.Activate
@@ -1684,7 +1686,7 @@ let rec eval_node_items inputs outputs locals ctx = function
            (* arguments to the call = inputs of the node *)
            inputs_idents
           )
-      ) handlers states_enum in
+      ) handlers states in
 
     (* merge handlers calls:
        (state.in.next, restart.in.next, outputs ...) =
@@ -1699,7 +1701,8 @@ let rec eval_node_items inputs outputs locals ctx = function
            (i_state_in_next :: i_restart_in_next :: auto_outputs)),
         A.Merge (pos, i_state, handlers_activate_calls)) in
 
-    let unlesses_activate_calls = List.map2 (fun unless state_c ->
+    let unlesses_activate_calls =
+      List.map2 (fun unless (A.State (pos, state_c, _, _, _, _, _)) ->
         state_c,
         (* activate unless every state_in = state_c restart every restart_in *)
         A.Activate
@@ -1712,7 +1715,7 @@ let rec eval_node_items inputs outputs locals ctx = function
            A.Ident (pos, i_state_in) :: A.Ident (pos, i_restart_in) ::
            inputs_idents
           )
-      ) unlesses states_enum in
+      ) unlesses states in
 
     (* merge unlesses calls: 
        (state, restart) =
@@ -1770,7 +1773,7 @@ and encode_until_handler pos auto_name state_c state_lustre_type i_state_in
          List.map (fun i -> A.SingleIdent (pos, i)) [i_state_in; i_restart_in]),
          e)
   in
-  let name = String.concat "." [auto_name; "handler"; state_c] in
+  let name = String.concat "." [auto_name; handler_string; state_c] in
   let outputs =
     (pos, i_state_in, state_lustre_type, A.ClockTrue) ::
     (pos, i_restart_in, A.Bool pos, A.ClockTrue) ::
@@ -1818,7 +1821,7 @@ and encode_unless pos auto_name state_c state_lustre_type
          List.map (fun i -> A.SingleIdent (pos, i)) [i_state; i_restart]),
          e)
   in
-  let name = String.concat "." [auto_name; "unless"; state_c] in
+  let name = String.concat "." [auto_name; unless_string; state_c] in
   let inputs =
     (pos, i_state_in, state_lustre_type, A.ClockTrue, false) ::
     (pos, i_restart_in, A.Bool pos, A.ClockTrue, false) ::

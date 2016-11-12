@@ -859,7 +859,7 @@ let rec pp_print_lustre_path_pt' ppf = function
     { N.name; N.inputs; N.outputs; N.locals; N.is_function } as node,
     model, active_modes, subnodes
   )
-) :: tl ->
+) :: tl when N.node_is_visible node ->
 
   let (
     name, inputs, outputs, locals, is_visible,
@@ -951,6 +951,11 @@ let rec pp_print_lustre_path_pt' ppf = function
     ppf
     (subnodes @ tl)
 
+| _ :: tl ->
+  
+  pp_print_lustre_path_pt' ppf tl
+
+  
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
@@ -1124,7 +1129,7 @@ let rec pp_print_lustre_path_xml' ppf = function
       { N.name; N.inputs; N.outputs; N.locals; N.is_function } as node,
       model, active_modes, subnodes
     )
-  ) :: tl ->
+  ) :: tl when N.node_is_visible node ->
 
     let
       name, inputs, outputs, locals, is_visible, get_source,
@@ -1200,6 +1205,11 @@ let rec pp_print_lustre_path_xml' ppf = function
       title
       (fun ppf -> if tl <> [] then Format.fprintf ppf "@,");
 
+    (* Continue *)
+    pp_print_lustre_path_xml' ppf tl
+
+  | _ :: tl ->
+    
     (* Continue *)
     pp_print_lustre_path_xml' ppf tl
 

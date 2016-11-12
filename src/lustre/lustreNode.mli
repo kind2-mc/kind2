@@ -391,6 +391,10 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
     [Input], [Output], or [Local], and [false] otherwise. *)
 val state_var_is_visible : t -> StateVar.t -> bool
 
+(** Return true if the node should be visible to the user,
+    false if it was created internally. *)
+val node_is_visible : t -> bool
+
 (** Return true if the state variable is an input *)
 val state_var_is_input : t -> StateVar.t -> bool
 
