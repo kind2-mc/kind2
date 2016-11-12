@@ -331,14 +331,14 @@ let eval_struct_item ctx pos = function
           
           C.fail_at_position 
             pos 
-            "Assignment to identifier not possible"
+            ("Assignment to identifier not possible " ^ i)
 
         (* Identifier not declared *)
         | Not_found -> 
           
           C.fail_at_position 
             pos 
-            "Assignment to undeclared identifier"
+            ("Assignment to undeclared identifier " ^ i)
 
     in
 
@@ -833,61 +833,6 @@ let eval_node_equation ctx = function
       (fun ctx (sv, b, e) -> C.add_node_equation ctx pos sv b indexes e)
       ctx
       equations
-
-
-(* Evaluate node statements and add to context  *)
-let rec eval_node_items ctx = function
-
-  (* No more statements *)
-  | [] -> ctx
-
-  (* Assertion or equation *)
-  | A.EqAssert e :: tl -> 
-
-    let ctx = eval_node_equation ctx e in
-    
-    (* Continue with next node statements *)
-    eval_node_items ctx tl
-
-  (* Property annotation *)
-  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
-    (* report unguarded pre *)
-    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
-
-    (* Evaluate Boolean expression and guard all pre operators *)
-    let expr, ctx = 
-      S.eval_bool_ast_expr ctx pos ast_expr 
-      |> C.close_expr ~original:ast_expr pos
-    in
-
-    let ctx = C.reset_guard_flag ctx in
-    
-    let name = match name_opt with
-      | Some n -> n
-      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
-    in
-    
-    (* Add property to node *)
-    let ctx = C.add_node_property ctx (Property.PropAnnot pos) name expr in
-
-    (* Continue with next node statements *)
-    eval_node_items ctx tl
-
-  (* Annotation for main node *)
-  | (A.AnnotMain true) :: tl -> 
-
-    eval_node_items 
-      (C.set_node_main ctx)
-      tl
-
-  (* Annotation for main node *)
-  | (A.AnnotMain false) :: tl -> 
-
-    eval_node_items ctx tl
-
-  | A.Automaton _ :: tl ->
-
-    failwith "Automata not yet supported"
 
 
 (* ********************************************************************** *)
@@ -1586,8 +1531,343 @@ and eval_node_contract_spec known ctx pos scope contract =
   ctx
   
 
+
+exception Found_auto_out of A.clocked_typed_decl
+
+
+(* Evaluate node statements and add to context  *)
+let rec eval_node_items inputs outputs locals ctx = function
+
+  (* No more statements *)
+  | [] -> ctx
+
+  (* Assertion or equation *)
+  | A.EqAssert e :: tl -> 
+
+    let ctx = eval_node_equation ctx e in
+    
+    (* Continue with next node statements *)
+    eval_node_items inputs outputs locals ctx tl
+
+  (* Property annotation *)
+  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
+    (* report unguarded pre *)
+    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+
+    (* Evaluate Boolean expression and guard all pre operators *)
+    let expr, ctx = 
+      S.eval_bool_ast_expr ctx pos ast_expr 
+      |> C.close_expr ~original:ast_expr pos
+    in
+
+    let ctx = C.reset_guard_flag ctx in
+    
+    let name = match name_opt with
+      | Some n -> n
+      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
+    in
+    
+    (* Add property to node *)
+    let ctx = C.add_node_property ctx (Property.PropAnnot pos) name expr in
+
+    (* Continue with next node statements *)
+    eval_node_items inputs outputs locals ctx tl
+
+  (* Annotation for main node *)
+  | (A.AnnotMain true) :: tl -> 
+
+    eval_node_items inputs outputs locals
+      (C.set_node_main ctx)
+      tl
+
+  (* Annotation for main node *)
+  | (A.AnnotMain false) :: tl -> 
+
+    eval_node_items inputs outputs locals ctx tl
+
+  | A.Automaton (pos, name, states, auto_outputs) :: tl ->
+
+    (* Create enumerated datatype for states *)
+    let states_enum =
+      List.map (function A.State (_, s, _, _, _, _, _) -> s) states in
+    let states_type = A.EnumType (pos, None, states_enum) in
+    (* Evaluate states type expression *)
+    let ctx, states_ty = S.eval_ast_type ctx states_type in
+    let _, bool_ty = S.eval_ast_type ctx (A.Bool pos) in
+
+    (* look for automaton outputs in local variables and outputs *)
+    let auto_outputs_dl = List.map (fun o ->
+        try List.find (fun (_, o', _, _) -> o = o') outputs
+        with Not_found ->
+          try List.iter (function
+              | A.NodeVarDecl (_, ((_, l, _, _) as ld)) when o = l ->
+                raise (Found_auto_out ld)
+              | _ -> ()) locals;
+            C.fail_at_position pos ("Cound not find automaton output "^o)
+          with Found_auto_out ld -> ld
+      ) auto_outputs in
+    
+    (* find initial state *)
+    let initial_state =
+      let inits = List.find_all
+          (function A.State (_, _, init, _, _, _, _) -> init) states in
+      match inits, states with
+      (* no initial states, take first *)
+      | [], A.State (_, s, _, _, _, _, _) :: _ -> s
+      (* one initial state *)
+      | [A.State (_, s, _, _, _, _, _)], _ -> s
+      (* no states *)
+      | _, [] -> C.fail_at_position pos "No states in automaton"
+      (* more thatn one initial state *)
+      | _ :: _, _ ->
+        C.fail_at_position pos "More than one initial state in automaton"
+    in
+    
+    (* Node local variables used to encode the automaton *)
+    let i_state = String.concat "." [name; "state"] in
+    let i_restart = String.concat "." [name; "restart"] in
+    let i_state_in = String.concat "." [name; "state.in"] in
+    let i_restart_in = String.concat "." [name; "restart.in"] in
+    let i_state_in_next = String.concat "." [name; "state.in.next"] in
+    let i_restart_in_next = String.concat "." [name; "restart.in.next"] in
+    (* Add them to the local variables of the current node *)
+    let add_auto_local i ty ctx =
+      let ident = I.mk_string_ident i in
+      C.add_node_local ctx ident pos ty
+    in
+    let ctx = ctx
+              |> add_auto_local i_state states_ty
+              |> add_auto_local i_restart bool_ty
+              |> add_auto_local i_state_in states_ty
+              |> add_auto_local i_restart_in bool_ty
+              |> add_auto_local i_state_in_next states_ty
+              |> add_auto_local i_restart_in_next bool_ty
+    in
+    
+    let ctx, aux_nodes =
+      List.fold_left (fun (ctx, aux_nodes) s ->
+          let ctx, n =
+            encode_automaton_state name inputs auto_outputs_dl
+              states_type i_state_in i_restart_in i_state i_restart ctx s
+          in
+          ctx, (n :: aux_nodes)
+        ) (ctx, []) states in
+    
+    let aux_nodes = List.rev aux_nodes in
+    
+    let handlers, unlesses = List.split aux_nodes in 
+
+    (* state_in = initial_state -> pre state_in_next; *)
+    let state_in_eq =
+      A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, i_state_in)]),
+                  A.Arrow (pos, A.Ident (pos, initial_state),
+                           A.Pre (pos, A.Ident (pos, i_state_in_next)))) in
+
+    (* restart_in = false -> pre restart_in_next; *)
+    let restart_in_eq =
+      A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, i_restart_in)]),
+                  A.Arrow (pos, A.False pos,
+                           A.Pre (pos, A.Ident (pos, i_restart_in_next)))) in
+
+    let inputs_idents =
+      List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in
+    
+    let handlers_activate_calls = List.map2 (fun handler state_c ->
+        state_c,
+        (* activate handler every state = state_c restart every <restart> *)
+        A.Activate
+          (pos, handler,
+           (* clock *)
+           A.Eq (pos, A.Ident (pos, i_state), A.Ident (pos, state_c)),
+           (* restart *)
+           A.Ident (pos, i_restart),
+           (* arguments to the call = inputs of the node *)
+           inputs_idents
+          )
+      ) handlers states_enum in
+
+    (* merge handlers calls:
+       (state.in.next, restart.in.next, outputs ...) =
+         merge state
+           (S1 -> activate handler.S1 every state = S1 restart ...)
+           (S2 -> activate handler.S1 every state = S2 restart ...)
+    *)
+    let handlers_eq =
+      A.Equation (pos,
+        A.StructDef (pos,
+         List.map (fun i -> A.SingleIdent (pos, i))
+           (i_state_in_next :: i_restart_in_next :: auto_outputs)),
+        A.Merge (pos, i_state, handlers_activate_calls)) in
+
+    let unlesses_activate_calls = List.map2 (fun unless state_c ->
+        state_c,
+        (* activate unless every state_in = state_c restart every restart_in *)
+        A.Activate
+          (pos, unless, 
+           (* clock *)
+           A.Eq (pos, A.Ident (pos, i_state_in), A.Ident (pos, state_c)),
+           (* restart *)
+           A.Ident (pos, i_restart_in),
+           (* arguments  = state_in + restart_in + inputs of the node *)
+           A.Ident (pos, i_state_in) :: A.Ident (pos, i_restart_in) ::
+           inputs_idents
+          )
+      ) unlesses states_enum in
+
+    (* merge unlesses calls: 
+       (state, restart) =
+         merge state.in
+           (S1 -> activate unless.S1 every state.in = S1 restart ...)
+           (S2 -> activate unless.S1 every state.in = S2 restart ...)
+    *)
+    let unlesses_eq =
+      A.Equation (pos,
+        A.StructDef (pos,
+         List.map (fun i -> A.SingleIdent (pos, i)) [i_state; i_restart]),
+        A.Merge (pos, i_state_in, unlesses_activate_calls)) in
+    
+    (* add equations to the node *)
+    let ctx = eval_node_equation ctx state_in_eq in
+    let ctx = eval_node_equation ctx restart_in_eq in
+    let ctx = eval_node_equation ctx handlers_eq in
+    let ctx = eval_node_equation ctx unlesses_eq in
+    
+    (* Continue with next node statements *)
+    eval_node_items inputs outputs locals ctx tl
+
+
+
+and encode_transition_branch pos state_c default = function
+  (* restart t *)
+  | A.Target (A.TransRestart (pos_t, t)) ->
+    A.ExprList (pos, [A.Ident (pos_t, t); A.True pos])
+  (* resume t *)
+  | A.Target (A.TransResume (pos_t, t)) ->
+    A.ExprList (pos, [A.Ident (pos_t, t); A.False pos])
+  (* if cond then_br; *)
+  | A.TransIf (posif, cond, then_br, None) ->
+    A.Ite (pos, cond,
+           encode_transition_branch pos state_c default then_br,
+           (* else default *)
+           default)
+  (* if cond then then_br else/elsif else_br end; *)
+  | A.TransIf (posif, cond, then_br, Some else_br) ->
+    A.Ite (pos, cond,
+           encode_transition_branch pos state_c default then_br,
+           encode_transition_branch pos state_c default else_br)
+           
+
+and encode_until_handler pos auto_name state_c state_lustre_type i_state_in
+    i_restart_in node_inputs auto_outputs locals eqs until_tr ctx =
+  let stay = A.ExprList (pos, [A.Ident (pos, state_c); A.False pos]) in
+  let e = match until_tr with
+    | None -> stay
+    | Some (posb, br) -> encode_transition_branch posb state_c stay br
+  in
+  let eq =
+      A.Equation (pos,
+        A.StructDef (pos,
+         List.map (fun i -> A.SingleIdent (pos, i)) [i_state_in; i_restart_in]),
+         e)
+  in
+  let name = String.concat "." [auto_name; "handler"; state_c] in
+  let outputs =
+    (pos, i_state_in, state_lustre_type, A.ClockTrue) ::
+    (pos, i_restart_in, A.Bool pos, A.ClockTrue) ::
+    auto_outputs
+  in
+
+  let ident = I.mk_string_ident name in
+  (* Identifier must not be declared *)
+  if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
+    Format.asprintf 
+      "Auxiliary node %a is redeclared" 
+      (I.pp_print_ident false) ident
+  ) ;
+
+  (* Format.eprintf "====\n%a\n@." *)
+  (*   A.pp_print_declaration *)
+  (*   (A.NodeDecl (pos, (name, [], node_inputs, outputs, locals, *)
+  (*     (List.map (fun e -> A.EqAssert e) (eq :: eqs)), None))); *)
+
+  (* Create separate auxiliary context for node *)
+  let node_ctx = C.create_node (C.prev ctx) ident in
+  let node_ctx =
+    eval_node_decl node_ctx pos node_inputs outputs locals
+      (List.map (fun e -> A.EqAssert e) (eq :: eqs)) None
+  in
+
+  let ctx = C.add_node_to_context ctx node_ctx in
+  
+  name, ctx
+
+
+(* encoding of unless condition for strong transition as an auxiliary node *)
+and encode_unless pos auto_name state_c state_lustre_type
+    i_state_in i_restart_in i_state i_restart
+    node_inputs unless_tr ctx =
+  let skip = A.ExprList (pos, [A.Ident (pos, i_state_in);
+                               A.Ident (pos, i_restart_in)]) in
+  let e = match unless_tr with
+    | None -> skip
+    | Some (posb, br) -> encode_transition_branch posb state_c skip br
+  in
+  let eq =
+      A.Equation (pos,
+        A.StructDef (pos,
+         List.map (fun i -> A.SingleIdent (pos, i)) [i_state; i_restart]),
+         e)
+  in
+  let name = String.concat "." [auto_name; "unless"; state_c] in
+  let inputs =
+    (pos, i_state_in, state_lustre_type, A.ClockTrue, false) ::
+    (pos, i_restart_in, A.Bool pos, A.ClockTrue, false) ::
+    node_inputs
+  in
+  let outputs = [
+    pos, i_state, state_lustre_type, A.ClockTrue;
+    pos, i_restart, A.Bool pos, A.ClockTrue;
+  ] in
+
+  let ident = I.mk_string_ident name in
+  (* Identifier must not be declared *)
+  if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
+    Format.asprintf 
+      "Auxiliary node %a is redeclared" 
+      (I.pp_print_ident false) ident
+  ) ;
+
+  (* Create separate context for node *)
+  let node_ctx = C.create_node (C.prev ctx) ident in
+  let node_ctx =
+    eval_node_decl node_ctx pos inputs outputs [] [A.EqAssert eq] None
+  in
+
+  let ctx = C.add_node_to_context ctx node_ctx in
+
+  name, ctx
+  
+  
+      
+and encode_automaton_state auto_name node_inputs auto_outputs states_lustre_type
+    i_state_in i_restart_in i_state i_restart ctx = function
+  | A.State (pos, state_c, _, locals, eqs, unless_tr, until_tr) ->
+    let handler, ctx =
+      encode_until_handler pos auto_name state_c states_lustre_type i_state_in
+        i_restart_in node_inputs auto_outputs locals eqs until_tr ctx
+    in
+    let unless, ctx =
+      encode_unless pos auto_name state_c states_lustre_type
+        i_state_in i_restart_in i_state i_restart node_inputs unless_tr ctx
+    in
+
+    ctx, (handler, unless)
+    
+
+
+
 (* Add declarations of node to context *)
-let eval_node_decl
+and eval_node_decl
   ctx pos inputs outputs locals items contract_spec
 =
 
@@ -1619,7 +1899,8 @@ let eval_node_decl
   let ctx = eval_node_locals ctx locals in
 
   (* Parse equations, assertions, properties, automata, etc. *)
-  let ctx = eval_node_items ctx items in
+  let ctx =
+    eval_node_items inputs outputs locals ctx items in
 
   C.check_local_vars_defined ctx;
   
@@ -1737,7 +2018,7 @@ let declaration_to_context ctx = function
   ) ;
 
   (* Add function to context *)
-  C.add_node_to_context ctx fun_ctx
+  C.add_node_to_context (C.prev fun_ctx) fun_ctx
 )
 
 (* Node declaration without parameters *)
@@ -1763,9 +2044,9 @@ let declaration_to_context ctx = function
     eval_node_decl
       node_ctx pos inputs outputs locals items contracts
   in
-
+  
   (* Add node to context *)
-  C.add_node_to_context ctx node_ctx
+  C.add_node_to_context (C.prev node_ctx) node_ctx
 )
 
   (* try (

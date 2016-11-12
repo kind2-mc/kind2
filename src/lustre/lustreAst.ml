@@ -237,6 +237,7 @@ type automaton_transition = position * transition_branch
 
 type state =
   | State of position * ident * bool *
+             node_local_decl list *
              node_equation list *
              automaton_transition option *
              automaton_transition option
@@ -247,7 +248,7 @@ type node_item =
   | EqAssert of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
-  | Automaton of position * ident * state list
+  | Automaton of position * ident * state list * ident list
 
 
 (* A contract ghost constant. *)
@@ -524,10 +525,10 @@ let rec pp_print_expr ppf =
     | Activate (p, i, c, r, l) ->
 
       Format.fprintf ppf
-        "(restart (activate %a every %a) every %a)(%a)"
+        "(activate (restart %a every %a) every %a) (%a)"
         pp_print_ident i
-        pp_print_expr c
         pp_print_expr r
+        pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
         
     | Merge (p, c, l) ->

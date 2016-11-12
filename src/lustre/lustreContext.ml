@@ -55,6 +55,9 @@ exception Contract_not_found of I.t * position
    propagation *)
 type t = { 
 
+  (* Previous context *)
+  prev : t;
+  
   (* Scope of context *)
   scope : string list ;
 
@@ -134,23 +137,27 @@ let pp_print_scope fmt { scope ; contract_scope } =
    modified in place. *)
 let mk_empty_context () = 
 
-  { scope = [];
-    contract_scope = [];
-    node = None;
-    nodes = [];
-    deps = I.Map.empty;
-    deps' = Deps.empty;
-    contract_nodes = [];
-    ident_type_map = IT.create 7;
-    ident_expr_map = [IT.create 7];
-    expr_state_var_map = ET.create 7;
-    state_var_oracle_map = SVT.create 7;
-    fresh_local_index = 0;
-    fresh_oracle_index = 0;
-    definitions_allowed = None;
-    locals_info = [];
-    guard_pre = false;
-  }
+  let rec c =
+    { scope = [];
+      prev = c;
+      contract_scope = [];
+      node = None;
+      nodes = [];
+      deps = I.Map.empty;
+      deps' = Deps.empty;
+      contract_nodes = [];
+      ident_type_map = IT.create 7;
+      ident_expr_map = [IT.create 7];
+      expr_state_var_map = ET.create 7;
+      state_var_oracle_map = SVT.create 7;
+      fresh_local_index = 0;
+      fresh_oracle_index = 0;
+      definitions_allowed = None;
+      locals_info = [];
+      guard_pre = false;
+    }
+  in
+  c
 
 
 let set_guard_flag ctx b = { ctx with guard_pre = b }
@@ -279,13 +286,15 @@ let create_node = function
     (function ident -> 
 
       (* Add empty node to context *)
-      { ctx with 
+      { ctx with
+        prev = ctx;
+        (* Make deep copies of hash tables *)
+        ident_type_map = IT.copy ident_type_map;
+        ident_expr_map = List.map IT.copy ident_expr_map;
+        expr_state_var_map = ET.copy expr_state_var_map;
+        node = Some (N.empty_node ident) } )
 
-          (* Make deep copies of hash tables *)
-          ident_type_map = IT.copy ident_type_map;
-          ident_expr_map = List.map IT.copy ident_expr_map;
-          expr_state_var_map = ET.copy expr_state_var_map;
-          node = Some (N.empty_node ident) } )
+
 
 (** Returns the modes of the current node. *)
 let current_node_modes = function
@@ -349,7 +358,8 @@ let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr 
      (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map)))
 
   then
-    raise (Invalid_argument "add_expr_for_ident")    
+    raise (Invalid_argument
+             ("add_expr_for_ident: "^I.string_of_ident false ident))
 
   else
     
@@ -451,6 +461,9 @@ let get_nodes { nodes } = nodes
 
 (* Return the current node in context. *)
 let get_node { node } = node
+
+
+let prev { prev } = prev
 
 
 (* Return a contract node by its identifier *)
@@ -1798,9 +1811,14 @@ let node_of_context = function
 
 
 (* Add node from second context to nodes of first *)
-let add_node_to_context ctx node_ctx = 
-
-  { ctx with nodes = (node_of_context node_ctx) :: ctx.nodes }
+let add_node_to_context ctx node_ctx =
+  let n = node_of_context node_ctx in
+  let rec aux ctx =
+    { ctx with
+      prev = if ctx.prev == ctx then ctx.prev else aux ctx.prev;
+      nodes = n :: ctx.nodes }
+  in
+  aux ctx
 
 
 (* Mark node as main node *)

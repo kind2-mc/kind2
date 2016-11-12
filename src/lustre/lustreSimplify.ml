@@ -1094,8 +1094,9 @@ and static_int_of_ast_expr ctx pos expr =
 
 
 (* Return the trie for the identifier *)
-and eval_ident ctx pos ident =
-  let ident = I.mk_string_ident ident in
+and eval_ident ctx pos i =
+
+  let ident = I.mk_string_ident i in
 
   try 
 
@@ -1105,6 +1106,11 @@ and eval_ident ctx pos ident =
     (* Return expresssion with its bounds and unchanged context *)
     (res, ctx)
 
+  with Not_found ->
+  try
+    (* Might be a constructor *)
+    let ty = Type.enum_of_constr i in
+    D.singleton D.empty_index (E.mk_constr i ty), ctx
   with Not_found ->
     (* Might be a forward referenced constant. *)
     Deps.Unknown_decl (Deps.Const, ident) |> raise
@@ -1316,7 +1322,10 @@ and eval_node_call
         (D.empty, ctx)
 
     (* Type checking error or one expression has more indexes *)
-    with Invalid_argument _ | E.Type_mismatch -> 
+    with
+    | Invalid_argument _ -> 
+      C.fail_at_position pos "Index mismatch for input parameters"
+    | E.Type_mismatch -> 
       C.fail_at_position pos "Type mismatch for input parameters"
   in
 
@@ -1608,12 +1617,12 @@ let rec eval_ast_type ctx = function
 
     let ty = Type.mk_enum enum_name enum_elements in
       
-    let ctx = List.fold_left (fun ctx c ->
-        C.add_expr_for_ident
-          ctx (I.mk_string_ident c) 
-          (D.singleton D.empty_index (E.mk_constr c ty))
-      ) ctx enum_elements
-    in
+    (* let ctx = List.fold_left (fun ctx c -> *)
+    (*     C.add_expr_for_ident *)
+    (*       ctx (I.mk_string_ident c)  *)
+    (*       (D.singleton D.empty_index (E.mk_constr c ty)) *)
+    (*   ) ctx enum_elements *)
+    (* in *)
     
     (* Add to empty trie with empty index *)
     ctx, D.singleton D.empty_index ty

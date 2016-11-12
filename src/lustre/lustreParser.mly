@@ -565,8 +565,9 @@ node_equation:
 
 
 node_automaton:
-  | AUTOMATON; i = ident; s = list(state)
-    { A.Automaton (mk_pos $startpos, i, s) }
+  | AUTOMATON; i = ident; s = list(state);
+    RETURNS; out = ident_list; SEMICOLON
+    { A.Automaton (mk_pos $startpos, i, s, out) }
 
 
 state_decl:
@@ -576,18 +577,19 @@ state_decl:
 state:
   | ii = state_decl; COLON
     us = option(unless_transition);
+    l = list(node_local_decl);
     LET;
     e = list(node_equation);
     TEL;
     ul = option(until_transition)
     { let i, init = ii in
-      A.State (mk_pos $startpos, i, init, e, us, ul) }
+      A.State (mk_pos $startpos, i, init, List.flatten l, e, us, ul) }
 
   | ii = state_decl; COLON
     us = option(unless_transition);
     ul = option(until_transition)
     { let i, init = ii in
-      A.State (mk_pos $startpos, i, init, [], us, ul) }
+      A.State (mk_pos $startpos, i, init, [], [], us, ul) }
 
 
 unless_transition:
@@ -599,10 +601,7 @@ until_transition:
   | UNTIL; b = transition_branch
     { (mk_pos $startpos, b) }
 
-/*transition_branch:
-  | IF; e = expr; b = branch
-    { A.TransIf (mk_pos $startpos, e, b, None) }
-*/
+
 transition_branch:
   | b = branch; option(SEMICOLON)
     { b }

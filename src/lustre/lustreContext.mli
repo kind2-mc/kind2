@@ -74,7 +74,7 @@ val contract_scope_of : t -> string list
 
 (** Return a copy of the context with an empty node of the given name
     in the context *)
-val create_node : t -> LustreIdent.t -> t 
+val create_node : t -> LustreIdent.t -> t
 
 (** Returns the name of the current node, if any. *)
 val current_node_name : t -> LustreIdent.t option
@@ -89,8 +89,8 @@ val current_node_modes : t -> LustreContract.mode list option option
     in the context *)
 val create_function : t -> LustreIdent.t -> t 
 
-(** Return a context that is identical to the first context with the
-    node constructed in the second context added *)
+(** Return a context that is identical to the previous context with the
+    node constructed in the current context added *)
 val add_node_to_context : t -> t -> t
 
 
@@ -125,6 +125,9 @@ val get_nodes : t -> LustreNode.t list
 
 (** Return the current node in context. *)
 val get_node : t -> LustreNode.t option
+
+(** return previous context *)
+val prev : t -> t
 
 (** The contract nodes in the context. *)
 val contract_nodes : t -> LustreAst.contract_node_decl list

@@ -191,6 +191,7 @@ type automaton_transition = position * transition_branch
 
 type state =
   | State of position * ident * bool *
+             node_local_decl list *
              node_equation list *
              automaton_transition option *
              automaton_transition option
@@ -201,7 +202,7 @@ type node_item =
   | EqAssert of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
-  | Automaton of position * ident * state list
+  | Automaton of position * ident * state list * ident list
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl

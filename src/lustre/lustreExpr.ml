@@ -275,6 +275,7 @@ let string_of_symbol = function
   | `GT -> ">"
   | `TO_REAL -> "real"
   | `TO_INT -> "int"
+  | `CONSTR c -> c
   | _ -> failwith "string_of_symbol"
 
 

@@ -212,8 +212,8 @@ let rec pp_print_type_node ppf = function
     Format.fprintf ppf "%s" name 
 
   | Enum (None, cstrs) ->
-    Format.fprintf ppf "|{%a}|" 
-      (pp_print_list Format.pp_print_string ", ") cstrs
+    Format.fprintf ppf "enum_%a" 
+      (pp_print_list Format.pp_print_string "_") cstrs
 
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
