@@ -1578,15 +1578,15 @@ let array_of_tuple pos index_vars expr =
 let rec eval_ast_type ctx = function
 
   (* Basic type bool, add to empty trie with empty index *)
-  | A.Bool pos -> ctx, D.singleton D.empty_index Type.t_bool
+  | A.Bool pos -> D.singleton D.empty_index Type.t_bool
 
 
   (* Basic type integer, add to empty trie with empty index *)
-  | A.Int pos -> ctx, D.singleton D.empty_index Type.t_int
+  | A.Int pos -> D.singleton D.empty_index Type.t_int
 
 
   (* Basic type real, add to empty trie with empty index *)
-  | A.Real pos -> ctx, D.singleton D.empty_index Type.t_real
+  | A.Real pos -> D.singleton D.empty_index Type.t_real
 
 
   (* Integer range type, constructed from evaluated expressions for
@@ -1608,7 +1608,6 @@ let rec eval_ast_type ctx = function
         (Format.asprintf "Invalid range %a" A.pp_print_lustre_type t);
     
     (* Add to empty trie with empty index *)
-    ctx,
     D.singleton D.empty_index (Type.mk_int_range const_lbound const_ubound)
 
 
@@ -1625,7 +1624,7 @@ let rec eval_ast_type ctx = function
     (* in *)
     
     (* Add to empty trie with empty index *)
-    ctx, D.singleton D.empty_index ty
+    D.singleton D.empty_index ty
 
 
   (* User-defined type, look up type in defined types, return subtrie
@@ -1634,7 +1633,6 @@ let rec eval_ast_type ctx = function
     let ident = I.mk_string_ident ident in
     try
       (* Find subtrie of types starting with identifier *)
-      ctx,
       C.type_of_ident ctx ident
     with Not_found ->
       (* Type might be forward referenced. *)
@@ -1648,22 +1646,20 @@ let rec eval_ast_type ctx = function
     List.fold_left
 
       (* Each index has a separate type *)
-      (fun (ctx, a) (_, i, t) ->
+      (fun a (_, i, t) ->
          
          (* Evaluate type expression for field to a trie *)
-         let ctx, expr = eval_ast_type ctx t in
+         let expr = eval_ast_type ctx t in
 
          (* Take all indexes and their defined types and add index of record
             field to index of type and add to trie *)
-         let d = D.fold (fun j t a -> 
+         D.fold (fun j t a -> 
              D.add (D.RecordIndex i :: j) t a
-           ) expr a in
-
-         ctx, d
+           ) expr a
       )
 
       (* Start with empty trie *)
-      (ctx, D.empty)
+      D.empty
 
       record_fields
 
@@ -1674,10 +1670,10 @@ let rec eval_ast_type ctx = function
     List.fold_left
 
       (* Count up index of field, each field has a separate type *)
-      (fun (ctx, i, a) t -> 
+      (fun (i, a) t -> 
 
          (* Evaluate type expression for field to a trie *)
-         let ctx, expr = eval_ast_type ctx t in
+         let expr = eval_ast_type ctx t in
 
          (* Take all indexes and their defined types and add index of tuple
             field to index of type and add to trie *)
@@ -1686,15 +1682,15 @@ let rec eval_ast_type ctx = function
            ) expr a in
 
          (* Increment counter for field index *)
-         ctx, succ i, d
+         succ i, d
       )
 
       (* Start with field index zero and empty trie *)
-      (ctx, 0, D.empty)
+      (0, D.empty)
 
       tuple_fields
       
-    |> fun (ctx, _, expr) -> ctx, expr 
+    |> snd
 
 
   (* Array type, return trie of indexes in tuple fields *)
@@ -1704,10 +1700,9 @@ let rec eval_ast_type ctx = function
     let array_size = static_int_of_ast_expr ctx pos size_expr in
 
     (* Evaluate type expression for elements *)
-    let ctx, element_type = eval_ast_type ctx type_expr in
+    let element_type = eval_ast_type ctx type_expr in
 
     (* Add array bounds to type *)
-    ctx,
     D.fold
       (fun j t a -> 
          D.add (j @ [D.ArrayVarIndex array_size])

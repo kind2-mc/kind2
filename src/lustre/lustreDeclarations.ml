@@ -101,7 +101,7 @@ let eval_const_decl ?(ghost = false) ctx = function
         (try 
 
            (* Evaluate type expression *)
-           let ctx, type_expr' = S.eval_ast_type ctx type_expr in 
+           let type_expr' = S.eval_ast_type ctx type_expr in 
 
            (* Check if type of expression is a subtype of the defined
               type at each index *)
@@ -176,7 +176,7 @@ let rec eval_node_inputs ctx = function
            (I.pp_print_ident false) ident);
     
     (* Evaluate type expression *)
-    let ctx, index_types = S.eval_ast_type ctx ast_type in
+    let index_types = S.eval_ast_type ctx ast_type in
   
     (* Add declaration of possibly indexed type to contexts *)
     let ctx = 
@@ -223,7 +223,7 @@ let rec eval_node_outputs ?is_single ctx = function
            (I.pp_print_ident false) ident);
     
     (* Evaluate type expression *)
-    let ctx, ident_types = S.eval_ast_type ctx ast_type in
+    let ident_types = S.eval_ast_type ctx ast_type in
   
     (* Add declaration of possibly indexed type to contexts *)
     let ctx = C.add_node_output ?is_single ctx ident ident_types in
@@ -277,7 +277,7 @@ let rec eval_node_locals ?(ghost = false) ctx = function
     let ident = I.mk_string_ident i in
 
     (* Evaluate type expression *)
-    let ctx, index_types = S.eval_ast_type ctx var_type in
+    let index_types = S.eval_ast_type ctx var_type in
 
     (* Add declaration of possibly indexed type to contexts *)
     let ctx = C.add_node_local ~ghost ctx ident pos index_types in
@@ -889,7 +889,7 @@ let eval_ghost_var ?(no_defs = false) ctx = function
 
       try (
         (* Evaluate type expression *)
-        let ctx, type_expr = S.eval_ast_type ctx type_expr in
+        let type_expr = S.eval_ast_type ctx type_expr in
         (* Add ghost to context. *)
         let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
@@ -1083,8 +1083,8 @@ let rec check_node_and_contract_inputs call_pos ctx node_inputs = function
        D.iter2
          (fun _ t s -> 
             if not (Type.check_type s t) then raise E.Type_mismatch)
-         (S.eval_ast_type ctx contract_input_lustre_type |> snd)
-         (S.eval_ast_type ctx node_input_lustre_type |> snd)
+         (S.eval_ast_type ctx contract_input_lustre_type)
+         (S.eval_ast_type ctx node_input_lustre_type)
 
      with Invalid_argument _ | E.Type_mismatch -> 
 
@@ -1151,8 +1151,8 @@ let rec check_node_and_contract_outputs call_pos ctx node_outputs = function
           compatible *)
        D.iter2
          (fun _ t s -> if not (Type.check_type s t) then raise E.Type_mismatch)
-         (S.eval_ast_type ctx contract_output_lustre_type |> snd)
-         (S.eval_ast_type ctx node_output_lustre_type |> snd)
+         (S.eval_ast_type ctx contract_output_lustre_type)
+         (S.eval_ast_type ctx node_output_lustre_type)
 
      with Invalid_argument _ | E.Type_mismatch -> 
 
@@ -1277,7 +1277,7 @@ let rec eval_node_contract_call known ctx scope (
           (
             try
               (* Evaluate type expression. *)
-              let ctx, expected = S.eval_ast_type ctx typ in
+              let expected = S.eval_ast_type ctx typ in
               (* Check if subtype. *)
               D.iter2 (
                 fun _ expected { E.expr_type } ->
@@ -1359,7 +1359,7 @@ let rec eval_node_contract_call known ctx scope (
           (
             try
               (* Evaluate type expression. *)
-              let ctx, expected = S.eval_ast_type ctx typ in
+              let expected = S.eval_ast_type ctx typ in
               (* Check if subtype. *)
               D.iter2 (
                 fun _ expected { E.expr_type } ->
@@ -1593,8 +1593,8 @@ let rec eval_node_items inputs outputs locals ctx = function
       List.map (function A.State (_, s, _, _, _, _, _) -> s) states in
     let states_type = A.EnumType (pos, None, states_enum) in
     (* Evaluate states type expression *)
-    let ctx, states_ty = S.eval_ast_type ctx states_type in
-    let _, bool_ty = S.eval_ast_type ctx (A.Bool pos) in
+    let states_ty = S.eval_ast_type ctx states_type in
+    let bool_ty = S.eval_ast_type ctx (A.Bool pos) in
 
     (* look for automaton outputs in local variables and outputs *)
     let auto_outputs_dl = List.map (fun o ->
@@ -1933,7 +1933,7 @@ let declaration_to_context ctx = function
   ) ;
 
   (* Add all indexes of type to identifier and add to trie *)
-  let ctx, res = S.eval_ast_type ctx type_expr in
+  let res = S.eval_ast_type ctx type_expr in
 
   (* Return changed context and unchanged declarations *)
   C.add_type_for_ident ctx ident res

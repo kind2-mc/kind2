@@ -29,7 +29,7 @@ val eval_ast_expr :
 
 val eval_ast_type :
    LustreContext.t -> LustreAst.lustre_type ->
-   LustreContext.t * Type.t LustreIndex.t
+   Type.t LustreIndex.t
 
 val eval_bool_ast_expr :
    LustreContext.t -> Lib.position -> LustreAst.expr ->
