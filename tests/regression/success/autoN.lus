@@ -1,6 +1,6 @@
 node N (c0 : bool; c1 : bool; i : int) returns (o : int)
 let
-  automaton SM1
+  automaton
     initial state ST0: 
     unless if c0 restart ST1;
     var k: int;

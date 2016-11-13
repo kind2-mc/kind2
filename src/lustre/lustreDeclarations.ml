@@ -1536,6 +1536,12 @@ and eval_node_contract_spec known ctx pos scope contract =
 exception Found_auto_out of A.clocked_typed_decl
 
 
+let fresh_automaton_name =
+  let cpt = ref 0 in
+  fun scope ->
+    incr cpt;
+    String.concat "." (scope @ ["automaton" ^ string_of_int !cpt])
+
 (* Evaluate node statements and add to context  *)
 let rec eval_node_items inputs outputs locals ctx = function
 
@@ -1586,8 +1592,13 @@ let rec eval_node_items inputs outputs locals ctx = function
 
     eval_node_items inputs outputs locals ctx tl
 
-  | A.Automaton (pos, name, states, auto_outputs) :: tl ->
+  | A.Automaton (pos, aname, states, auto_outputs) :: tl ->
 
+    let name = match aname with
+      | Some name -> name
+      | None -> fresh_automaton_name []
+    in
+    
     (* Create enumerated datatype for states *)
     let states_enum =
       List.map (function A.State (_, s, _, _, _, _, _) -> s) states in

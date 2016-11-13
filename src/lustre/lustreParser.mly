@@ -565,7 +565,7 @@ node_equation:
 
 
 node_automaton:
-  | AUTOMATON; i = ident; s = list(state);
+  | AUTOMATON; i = option(ident); s = list(state);
     RETURNS; out = ident_list; SEMICOLON
     { A.Automaton (mk_pos $startpos, i, s, out) }
 

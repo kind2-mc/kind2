@@ -248,7 +248,7 @@ type node_item =
   | EqAssert of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
-  | Automaton of position * ident * state list * ident list
+  | Automaton of position * ident option * state list * ident list
 
 
 (* A contract ghost constant. *)
