@@ -125,50 +125,41 @@ let maximal_abstraction_for_testgen (type s)
 let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
 
-  | Lustre subsystem -> (fun results -> 
-      (* let nodes = 
-         N.nodes_of_subsystem subsystem
-         in
-
-         assert (nodes <> []) ;
-
-         Some {
-         Analysis.top = List.hd nodes |> N.scope_of_node ;
-
-         Analysis.abstraction_map =
-          nodes |> List.fold_left (fun m n ->
-            Scope.Map.add (N.scope_of_node n) false m
-          ) Scope.Map.empty ;
-
-         Analysis.assumptions = []
-         } *)
-
+  | Lustre subsystem -> (
+    fun results ->
       let subs_of_scope scope =
         let { S.subsystems } = S.find_subsystem subsystem scope in
         subsystems
-        |> List.map (fun { S.scope ; S.has_contract; S.has_modes } ->
-            scope, has_contract, has_modes)
+        |> List.map (
+          fun ({ S.scope } as sub) ->
+            scope, S.strategy_info_of sub
+        )
       in
-
-
       S.all_subsystems subsystem
-      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
-          scope, has_contract, has_modes)
+      |> List.map (
+        fun ({ S.scope } as sub) ->
+          scope, S.strategy_info_of sub
+      )
       |> Strategy.next_analysis results subs_of_scope
-    )
+  )
 
-  | Native subsystem -> (fun results ->
+  | Native subsystem -> (
+    fun results ->
       let subs_of_scope scope =
         let { S.subsystems } = S.find_subsystem subsystem scope in
         subsystems
-        |> List.map (fun { S.scope ; S.has_contract; S.has_modes } ->
-            scope, has_contract, has_modes)
+        |> List.map (
+          fun ({ S.scope } as sub) ->
+            scope, S.strategy_info_of sub
+        )
       in
-      
       S.all_subsystems subsystem
-      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
-          scope, has_contract, has_modes)
-      |> Strategy.next_analysis results subs_of_scope)
+      |> List.map (
+        fun ({ S.scope } as sub) ->
+          scope, S.strategy_info_of sub
+      )
+      |> Strategy.next_analysis results subs_of_scope
+  )
          
   | Horn subsystem -> (function _ -> assert false)
 
@@ -409,8 +400,8 @@ fun sys ->
   | Lustre sub -> (
     match
       S.all_subsystems sub
-      |> List.map (fun { S.scope ; S.has_contract ; S.has_modes } ->
-        scope, has_contract, has_modes
+      |> List.map (fun ({ S.scope } as sub) ->
+        scope, S.strategy_info_of sub
       )
       |> Strategy.monolithic
     with

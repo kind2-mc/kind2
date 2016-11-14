@@ -25,15 +25,33 @@
 
 module A = Analysis
 
+(** Information used by the strategy module. *)
+type info = {
+  (** Is the system refineable? ([extern] for lustre nodes.) *)
+  can_refine: bool ;
+  (** Does the system have a contract? *)
+  has_contract: bool ;
+  (** Does the system have modes? *)
+  has_modes: bool ;
+}
+
+(** Takes some results and some information about (sub)systems, and returns
+the next analysis to perform, if any.
+The information it takes is
+
+- a function which, given the scope of a system, returns the scope of its
+  direct subsystems and its strategy info;
+- a list of all the scopes of all the systems and their strategy info. *)
 val next_analysis:
   A.results ->
-  (Scope.t -> (Scope.t * bool * bool) list) ->
-  (Scope.t * bool * bool) list ->
+  (Scope.t -> (Scope.t * info) list) ->
+  (Scope.t * info) list ->
   A.param option
 
+(** Works almost the same as [next_analysis], but returns a single analysis
+parameter for a monolithic analysis. Only used for contract generation. *)
 val monolithic:
-  (Scope.t * bool * bool) list ->
-  A.param option
+  (Scope.t * info) list -> A.param option
 
 
 

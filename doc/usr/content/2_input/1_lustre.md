@@ -562,3 +562,114 @@ A trace of execution for the node top could be:
 > Boolean input for the reset stream for each node. However providing a
 > built-in  way to do it facilitates the modeling of complex control systems.
 
+
+## Partially defined nodes
+
+Kind 2 allows nodes to define their outputs only partially. For instance, the
+node
+
+```
+node count (trigger: bool) returns (count: int ; error: bool) ;
+(*@contract
+  var once: bool = trigger or (false -> pre once) ;
+  guarantee count >= 0 ;
+  mode still_zero (
+    require not once ;
+    ensure count = 0 ;
+  ) ;
+  mode gt (
+    require not ::still_zero ;
+    ensure count > 0 ;
+  ) ;
+*)
+let
+  count = (if trigger then 1 else 0) + (0 -> pre count) ;
+tel
+```
+can be analyzed: first for mode exhaustiveness, and the body is checked against
+its contract, although it is only *partially* defined.
+Here, both will succeed.
+
+
+## The `extern` keyword
+
+Nodes (and functions, see below) can be declared `extern`. This means that the
+node does not have a body (`let ... tel`). In a Lustre compiler, this is
+usually used to encode a C function or more generally a call to an external
+library.
+
+In Kind 2, this means that the node is always abstract in the contract-sense.
+It can never be refined, and is always abstracted by its contract. If none is
+given, then the implicit (rather weak) contract
+
+```
+(*@contract
+  assume true ;
+  guarantee true ;
+*)
+```
+is used.
+
+In a modular analysis, `extern` nodes will not be analyzed, although if their
+contract has modes they will be checked for exhaustiveness, consistently with
+the usual Kind 2 contract workflow.
+
+
+### Partially defined nodes VS `extern`
+
+Kind 2 allows partially defined nodes, that is nodes in which some streams
+do not have a definition. At first glance, it might seem like a node with no
+definitions at all (with an empty body) is the same as an `extern` node.
+
+It is not the case. A partially defined node *still has a (potentially
+empty) body* which can be analyzed. The fact that it is not completely defined
+does not change this fact.
+If a partially defined node is at the top level, or is in the cone of
+influence of the top node in a modular analysis, then it's body **will** be analyzed.
+
+An `extern` node on the other hand *explicitely does not have a body*. Its
+non-existent body will thus never be analyzed.
+
+
+## Functions
+
+Kind 2 supports the `function` keyword which is used just like the `node` one
+but has slightly different semantics. Like the name suggests, the output(s) of
+a `function` should be a *non-temporal* combination of its inputs. That is, a
+function cannot the `->`, `pre`, `merge`, `when`, `condact`, or `activate`
+operators. A function is also not allowed to call a node, only other functions.
+In Lustre terms, functions are stateless.
+
+In Kind 2, these retrictions extend to the contract attached to the function,
+if any. Note that besides the ones mentioned here, no additional restrictions
+are enforced on functions compared to nodes.
+
+### Benefits
+
+Functions are interesting in the model-checking context of Kind 2 mainly as
+a mean to make an abstraction more precise. A realistic use-case is when one
+wants to abstract non-linear expressions. While the simple expression `x*y`
+seems harmless, at SMT-level it means bringing in the theory of non-linear
+arithmetic.
+
+Non-linear arithmetic has a huge impact not only on the performances of the
+underlying SMT solvers, but also on the SMT-level features Kind 2 can use (not
+to mention undecidability). Typically, non-lineary arithmetic tends to prevent
+Kind 2 from performing satisfiability checks with assumptions, a feature it
+heavily relies on.
+
+The bottom line is that as soon as some non-linear expression appear, Kind 2
+will most likely fail to analyze most non-trivial systems because the
+underlying solver will simply give up.
+
+Hence, it is usually [extremely rewarding](https://www.researchgate.net/publication/304360220_CoCoSpec_A_Mode-Aware_Contract_Language_for_Reactive_Systems)
+to abstract non-linear expressions away in a separate *function* equipped with
+a contract. The contract would be a linear abstraction of the non-linear
+expression that is precise enough to prove the system using correct. That way,
+a compositional analysis would *i)* verify the abstraction is correct and *ii)*
+analyze the rest of the system using this abstraction, thus making the analysis
+a linear one.
+
+Using a function instead of a node simply results in a better abstraction. Kind
+2 will encode, at SMT-level, that the outputs of this component depend on the
+*current* version of its inputs only, not on its previous values.

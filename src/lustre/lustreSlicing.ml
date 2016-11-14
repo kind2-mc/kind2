@@ -585,7 +585,8 @@ let slice_all_of_node
     ?(keep_props = true)
     ?(keep_contracts = true)
     ?(keep_asserts = true)
-    { N.name; 
+    { N.name;
+      N.is_extern; 
       N.instance;
       N.init_flag;
       N.inputs; 
@@ -604,7 +605,8 @@ let slice_all_of_node
   (* Copy of the node with the same signature, but without local
      variables, equations, assertions and node calls. Keep signature,
      properties, assertions, contracts and main annotation *)
-  { N.name; 
+  { N.name;
+    N.is_extern;
     N.instance;
     N.init_flag;
     N.inputs;

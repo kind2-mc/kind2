@@ -1883,8 +1883,8 @@ and encode_until_handler pos auto_name state_c state_lustre_type i_state_in
   (*   (A.NodeDecl (pos, (name, [], node_inputs, outputs, locals, *)
   (*     (List.map (fun e -> A.EqAssert e) (eq :: eqs)), None))); *)
 
-  (* Create separate auxiliary context for node *)
-  let node_ctx = C.create_node (C.prev ctx) ident in
+  (* Create separate auxiliary context for node (not external) *)
+  let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
     eval_node_decl node_ctx pos (node_inputs @ lasts_inputs) outputs locals
       (List.map (fun e -> A.EqAssert e) (eq :: eqs)) None
@@ -1930,8 +1930,8 @@ and encode_unless pos auto_name state_c state_lustre_type
       (I.pp_print_ident false) ident
   ) ;
 
-  (* Create separate context for node *)
-  let node_ctx = C.create_node (C.prev ctx) ident in
+  (* Create separate context for node (not external) *)
+  let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
     eval_node_decl node_ctx pos inputs outputs [] [A.EqAssert eq] None
   in
@@ -2037,7 +2037,7 @@ let declaration_to_context ctx = function
 
 (* Function declaration without parameters *)
 | A.FuncDecl (
-  pos, (i, [], inputs, outputs, locals, items, contracts)
+  pos, (i, ext, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -2085,7 +2085,7 @@ let declaration_to_context ctx = function
   ) ;
 
   (* Create separate context for function *)
-  let fun_ctx = C.create_node ctx ident in
+  let fun_ctx = C.create_node ctx ident ext in
   (* Mark node as function. *)
   let fun_ctx = C.set_node_function fun_ctx in
 
@@ -2117,7 +2117,7 @@ let declaration_to_context ctx = function
 
 (* Node declaration without parameters *)
 | A.NodeDecl (
-  pos, (i, [], inputs, outputs, locals, items, contracts)
+  pos, (i, ext, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -2131,7 +2131,7 @@ let declaration_to_context ctx = function
   ) ;
 
   (* Create separate context for node *)
-  let node_ctx = C.create_node ctx ident in
+  let node_ctx = C.create_node ctx ident ext in
 
   (* Evaluate node declaration in separate context *)
   let node_ctx = 

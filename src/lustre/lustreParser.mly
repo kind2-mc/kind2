@@ -73,6 +73,7 @@ let mk_pos = position_of_lexing
 %token CONST
     
 (* Tokens for node declarations *)
+%token EXTERN
 %token NODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
@@ -200,7 +201,6 @@ one_expr: e = expr EOF { e }
 (* A Lustre program is a list of declarations *)
 main: p = list(decl) EOF { List.flatten p }
 
-
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
   | d = const_decl { List.map 
@@ -209,8 +209,24 @@ decl:
   | d = type_decl { List.map 
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
-  | NODE ; d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
-  | FUNCTION ; d = node_decl { [A.FuncDecl (mk_pos $startpos, d)] }
+  | NODE ; decl = node_decl ; def = node_def {
+    let (n, p, i, o, r) = decl in
+    let (l, e) = def in
+    [A.NodeDecl ( mk_pos $startpos, (n, false, p, i, o, l, e, r) )]
+  }
+  | FUNCTION ; decl = node_decl ; def = node_def {
+    let (n, p, i, o, r) = decl in
+    let (l, e) = def in
+    [A.FuncDecl (mk_pos $startpos, (n, false, p, i, o, l, e, r))]
+  }
+  | EXTERN ; NODE ; decl = node_decl {
+    let (n, p, i, o, r) = decl in
+    [A.NodeDecl ( mk_pos $startpos, (n, true, p, i, o, [], [], r) )]
+  }
+  | EXTERN ; FUNCTION ; decl = node_decl {
+    let (n, p, i, o, r) = decl in
+    [A.FuncDecl (mk_pos $startpos, (n, true, p, i, o, [], [], r))]
+  }
   | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
@@ -340,7 +356,7 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 (* ********************************************************************** *)
 
 
-(* A node declaration *)
+(* A node declaration and contract. *)
 node_decl:
 | n = ident;
   p = loption(static_params);
@@ -348,20 +364,20 @@ node_decl:
   RETURNS;
   o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
   option(SEMICOLON);
-  r = option(contract_spec);
+  r = option(contract_spec)
+  {
+    (n, p, List.flatten i, List.flatten o, r)
+  }
+
+(* A node definition (locals + body). *)
+node_def:
   l = list(node_local_decl);
   LET;
   e = list(node_item);
   TEL
   option(node_sep)
 
-  { (n, 
-     p,
-     List.flatten i, 
-     List.flatten o, 
-     (List.flatten l), 
-     e,
-     r)  }
+  { (List.flatten l, e) }
 
 
 contract_ghost_var:

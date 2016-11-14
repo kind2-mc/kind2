@@ -252,6 +252,7 @@ type contract = contract_node_equation list
 (** Declaration of a node or function as a tuple of
 
     - its identifier,
+    - a flag, true if the node / function is extern
     - its type parameters,
     - the list of its inputs,
     - the list of its outputs,
@@ -260,6 +261,7 @@ type contract = contract_node_equation list
     - its optional contract specification *)
 type node_decl =
   ident
+  * bool
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list

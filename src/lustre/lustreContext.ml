@@ -283,7 +283,7 @@ let create_node = function
   (* Not in a node or function *)
   | { ident_type_map; ident_expr_map; expr_state_var_map } as ctx -> 
 
-    (function ident -> 
+    (fun ident is_extern ->
 
       (* Add empty node to context *)
       { ctx with
@@ -292,7 +292,7 @@ let create_node = function
         ident_type_map = IT.copy ident_type_map;
         ident_expr_map = List.map IT.copy ident_expr_map;
         expr_state_var_map = ET.copy expr_state_var_map;
-        node = Some (N.empty_node ident) } )
+          node = Some (N.empty_node ident is_extern) } )
 
 
 
