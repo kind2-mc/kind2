@@ -322,6 +322,12 @@ let rec eval_ast_expr ctx = function
 
     eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
 
+  (* Temporal operator last *)
+  | A.Last (pos, i)  -> 
+    (* Translate to pre *)
+    C.warn_at_position pos "Not in a state, last was replaced by pre";
+    eval_ast_expr ctx (A.Pre (pos, A.Ident (pos, i)))
+
   (* Temporal operator pre [pre expr] *)
   | A.Pre (pos, expr) as original -> 
 
@@ -961,6 +967,7 @@ let rec eval_ast_expr ctx = function
   | A.CallParam (pos, _, _, _) -> 
 
     C.fail_at_position pos "Parametric nodes not supported" 
+
 
 
 (* ******************************************************************** *)

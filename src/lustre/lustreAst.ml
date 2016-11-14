@@ -18,6 +18,8 @@
 
 open Lib
 
+module SI = Set.Make (Ident)
+
 exception Parser_error
 
 
@@ -136,7 +138,8 @@ type expr =
   | RestartEvery of position * ident * expr list * expr
       
   (* Temporal operators *)
-  | Pre of position * expr 
+  | Pre of position * expr
+  | Last of position * ident
   | Fby of position * expr * int * expr 
   | Arrow of position * expr * expr 
 
@@ -549,6 +552,8 @@ let rec pp_print_expr ppf =
         (pp_print_list pp_print_expr ",@ ") l 
 
     | Pre (p, e) -> p1 p "pre" e
+    | Last (p, id) ->
+      Format.fprintf ppf "last %a%a" ppos p pp_print_ident id
     | Fby (p, e1, i, e2) -> 
 
       Format.fprintf ppf 
@@ -1105,7 +1110,7 @@ let pos_of_expr = function
   | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
   | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
-  | RestartEvery (pos, _, _, _)
+  | Last (pos , _) | RestartEvery (pos, _, _, _)
   | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
   | CallParam (pos , _ , _ , _ )
     -> pos
@@ -1188,6 +1193,18 @@ let rec has_unguarded_pre ung = function
     let u = has_unguarded_pre true e in
     ung || u
 
+  | Last (pos, _) as p ->
+    if ung then begin
+      (* Fail only if in strict mode *)
+      let err_or_warn =
+        if Flags.lus_strict () then error_at_position else warn_at_position in
+
+      err_or_warn pos
+        (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
+           pp_print_expr p)
+    end;
+    ung
+    
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre false e1 in
@@ -1284,9 +1301,285 @@ let rec has_pre_or_arrow = function
     has_pre_or_arrow e1
     |> unwrap_or (fun _ -> has_pre_or_arrow e2)
 
-  | Pre (pos, e) -> Some pos
+  | Pre (pos, _) | Last (pos, _) -> Some pos
 
   | Arrow (pos, e1, e2) -> Some pos
+
+
+(** Returns identifiers under a last operator *)
+let rec lasts_of_expr acc = function
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> acc
+    
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _) ->
+    lasts_of_expr acc e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | ArrayConcat (_, e1, e2) ->
+    lasts_of_expr (lasts_of_expr acc e1) e2
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    lasts_of_expr (lasts_of_expr (lasts_of_expr acc e1) e2) e3
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    List.fold_left lasts_of_expr acc l
+
+  | Merge (_, _, l) ->
+    List.fold_left (fun acc (_, e) -> lasts_of_expr acc e) acc l
+
+  | RestartEvery (_, _, l, e) ->
+    List.fold_left lasts_of_expr acc (e :: l)
+
+  | Activate (_, _, e, r, l) ->
+    List.fold_left lasts_of_expr acc (e :: r :: l)
+
+  | Condact (_, e, r, _, l1, l2) ->
+    List.fold_left lasts_of_expr acc (e :: r :: l1 @ l2)
+
+  | RecordExpr (_, _, ie) ->
+    List.fold_left (fun acc (_, e) -> lasts_of_expr acc e) acc ie
+
+  | StructUpdate (_, e1, li, e2) ->
+    let acc = lasts_of_expr (lasts_of_expr acc e1) e2 in
+    List.fold_left (fun acc -> function
+        | Label _ -> acc
+        | Index (_, e) -> lasts_of_expr acc e
+      ) acc li
+    
+  | Fby (_, e1, _, e2) ->
+    lasts_of_expr (lasts_of_expr acc e1) e2
+
+  | Pre (pos, e) -> lasts_of_expr acc e
+                      
+  | Last (pos, i) -> SI.add i acc
+
+  | Arrow (pos, e1, e2) ->
+    lasts_of_expr (lasts_of_expr acc e1) e2
+
+
+let rec replace_lasts allowed prefix acc ee = match ee with
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ ->
+    ee, acc
+    
+  | RecordProject (pos, e, i) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else RecordProject (pos, e', i), acc'
+         
+  | ToInt (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToInt (pos, e'), acc'
+                      
+  | ToReal (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToReal (pos, e'), acc'
+
+  | Not (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Not (pos, e'), acc'
+
+  | Uminus (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Uminus (pos, e'), acc'
+
+  | Current (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Current (pos, e'), acc'
+
+  | When (pos, e, c) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else When (pos, e', c), acc'
+
+  | TupleProject (pos, e1, e2)
+  | And (pos, e1, e2) | Or (pos, e1, e2) | Xor (pos, e1, e2)
+  | Impl (pos, e1, e2) | ArrayConstr (pos, e1, e2) | Mod (pos, e1, e2)
+  | Minus (pos, e1, e2) | Plus (pos, e1, e2) | Div (pos, e1, e2)
+  | Times (pos, e1, e2) | IntDiv (pos, e1, e2) | Eq (pos, e1, e2)
+  | Neq (pos, e1, e2) | Lte (pos, e1, e2) | Lt (pos, e1, e2)
+  | Gte (pos, e1, e2) | Gt (pos, e1, e2) | ArrayConcat (pos, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else (match ee with
+        | TupleProject (pos, e1, e2) -> TupleProject (pos, e1', e2')
+        | And (pos, e1, e2) -> And (pos, e1', e2')
+        | Or (pos, e1, e2) -> Or (pos, e1', e2')
+        | Xor (pos, e1, e2) -> Xor (pos, e1', e2')
+        | Impl (pos, e1, e2) -> Impl (pos, e1', e2')
+        | ArrayConstr (pos, e1, e2)  -> ArrayConstr (pos, e1', e2') 
+        | Mod (pos, e1, e2) -> Mod (pos, e1', e2')
+        | Minus (pos, e1, e2) -> Minus (pos, e1', e2')
+        | Plus (pos, e1, e2) -> Plus (pos, e1', e2')
+        | Div (pos, e1, e2) -> Div (pos, e1', e2')
+        | Times (pos, e1, e2) -> Times (pos, e1', e2')
+        | IntDiv (pos, e1, e2) -> IntDiv (pos, e1', e2')
+        | Eq (pos, e1, e2) -> Eq (pos, e1', e2')
+        | Neq (pos, e1, e2) -> Neq (pos, e1', e2')
+        | Lte (pos, e1, e2) -> Lte (pos, e1', e2')
+        | Lt (pos, e1, e2) -> Lt (pos, e1', e2')
+        | Gte (pos, e1, e2) -> Gte (pos, e1', e2')
+        | Gt (pos, e1, e2) -> Gt (pos, e1', e2')
+        | ArrayConcat (pos, e1, e2) -> ArrayConcat (pos, e1', e2')
+        | _ -> assert false
+      ), acc'
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    let e3', acc' = replace_lasts allowed prefix acc' e3 in
+    if e1 == e1' && e2 == e2' && e3 == e3' then ee, acc
+    else (match ee with
+        | Ite (pos, e1, e2, e3) -> Ite (pos, e1', e2', e3')
+        | With (pos, e1, e2, e3) -> With (pos, e1', e2', e3')
+        | ArraySlice (pos, e1, (e2, e3)) -> ArraySlice (pos, e1', (e2', e3'))
+        | _ -> assert false
+      ), acc'
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    if try List.for_all2 (==) l l' with _ -> false then ee, acc
+    else (match ee with
+        | ExprList (pos, l) -> ExprList (pos, l')
+        | TupleExpr (pos, l) -> TupleExpr (pos, l')
+        | ArrayExpr (pos, l) -> ArrayExpr (pos, l')
+        | OneHot (pos, l) -> OneHot (pos, l')
+        | Call (pos, n, l) -> Call (pos, n, l')
+        | CallParam (pos, n, t, l) -> CallParam (pos, n, t, l')
+        | _ -> assert false
+      ), acc'
+      
+
+  | Merge (pos, c, l) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) (c, e) ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          (c, e) :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    if try List.for_all2 (fun (_, x) (_, x') -> x == x') l l' with _ -> false
+    then ee, acc
+    else Merge (pos, c, l'), acc'
+
+  | RestartEvery (pos, n, l, e) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    let e', acc' = replace_lasts allowed prefix acc' e in
+    if try e == e' && List.for_all2 (==) l l'  with _ -> false then ee, acc
+    else RestartEvery (pos, n, l', e'), acc
+
+  | Activate (pos, n, e, r, l) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    let e', acc' = replace_lasts allowed prefix acc' e in
+    let r', acc' = replace_lasts allowed prefix acc' r in
+    if try e == e' && r == r' &&
+           List.for_all2 (==) l l'  with _ -> false then ee, acc
+    else Activate (pos, n, e', r', l'), acc'
+
+  | Condact (pos, e, r, n, l1, l2) ->
+    let l1', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l1 in
+    let l1' = List.rev l1 in
+    let l2', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc') l2 in
+    let l2' = List.rev l2 in
+    let e', acc' = replace_lasts allowed prefix acc' e in
+    let r', acc' = replace_lasts allowed prefix acc' r in
+    if try e == e' && r == r' &&
+           List.for_all2 (==) l1 l1' &&
+           List.for_all2 (==) l2 l2'
+      with _ -> false then ee, acc
+    else Condact (pos, e', r', n, l1', l2'), acc'
+
+  | RecordExpr (pos, n, ie) ->
+    let ie', acc' =
+      List.fold_left (fun (ie, acc) (i, e) ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          (i, e) :: ie, acc
+        ) ([], acc) ie in
+    let ie' = List.rev ie' in
+    if try List.for_all2 (fun (_, e) (_, e') -> e == e') ie ie' with _ -> false
+    then ee, acc
+    else RecordExpr (pos, n, ie'), acc'
+
+  | StructUpdate (pos, e1, li, e2) ->
+    let li', acc' =
+      List.fold_left (fun (li, acc) -> function
+          | Label _ as s -> s :: li, acc
+          | Index (i, e) as s ->
+            let e', acc' = replace_lasts allowed prefix acc e in
+            if e == e' then s :: li, acc
+            else Index (i, e') :: li, acc
+        ) ([], acc) li in
+    let li' = List.rev li' in
+    let e1', acc' = replace_lasts allowed prefix acc' e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if try e1 == e1' && e2 == e2' &&
+           List.for_all2 (fun ei ei' -> match ei, ei' with
+               | Label _, Label _ -> true
+               | Index (_, e), Index (_, e') -> e == e'
+               | _ -> false
+             ) li li'
+      with _ -> false then ee, acc
+    else StructUpdate (pos, e1', li', e2'), acc'
+        
+  | Fby (pos, e1, i, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else Fby (pos, e1', i, e2'), acc'
+    
+  | Pre (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc else Pre (pos, e'), acc'
+                      
+  | Last (pos, i) ->
+    if not (List.mem i allowed) then
+      error_at_position pos
+        "Only visible variables in the node are allowed under last";
+    let acc = SI.add i acc in
+    Ident (pos, prefix ^ ".last." ^ i), acc
+
+  | Arrow (pos, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else Arrow (pos, e1', e2'), acc'
+
+
 
 (** Checks whether a struct item has a `pre` or a `->`. *)
 let rec struct_item_has_pre_or_arrow = function

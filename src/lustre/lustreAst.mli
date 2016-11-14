@@ -40,6 +40,8 @@
 
 open Lib
 
+module SI : Set.S with type elt = Ident.t
+
 (** Error while parsing *)
 exception Parser_error
 
@@ -106,6 +108,7 @@ type expr =
   | Merge of position * ident * (ident * expr) list
   | RestartEvery of position * ident * expr list * expr
   | Pre of position * expr
+  | Last of position * ident
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
   | Call of position * ident * expr list
@@ -350,6 +353,13 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 
 (** Checks whether a node equation has a `pre` or a `->`. *)
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
+
+(** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
+    [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
+    appear in the list [allowed] are allowed to appear under a last. It returns
+    the new AST expression and a set of identifers for which the last
+    application was replaced. *)
+val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
 
 
 (* 

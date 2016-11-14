@@ -300,6 +300,7 @@ let keyword_table = mk_hashtbl [
   
   (* Temporal operators *)
   "pre", PRE ;
+  "last", LAST ;
   "fby", FBY ;
 
   (* |===| Block annotation contract stuff. *)
