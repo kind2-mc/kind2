@@ -674,28 +674,32 @@ let pre_is_unguarded { expr_init } =
 let is_var_at_offset { expr_init; expr_step } (init_offset, step_offset) = 
 
   (* Term must be a free variable *)
-  (Term.is_free_var expr_init) && 
+  Term.is_free_var expr_init && 
 
   (* Get free variable of term *)
-  (let var_init = Term.free_var_of_term expr_init in 
+  let var_init = Term.free_var_of_term expr_init in 
 
-   (* Variable must be an instance of a state variable *)
-   Var.is_state_var_instance var_init && 
+  (* Variable must be an instance of a state variable *)
+  Var.is_state_var_instance var_init && 
 
-   (* Variable must be at instant zero *)
-   Numeral.(Var.offset_of_state_var_instance var_init = init_offset)) &&
+  (* Variable must be at instant zero *)
+  Numeral.(Var.offset_of_state_var_instance var_init = init_offset) &&
 
   (* Term must be a free variable *)
-  (Term.is_free_var expr_step) && 
+  Term.is_free_var expr_step && 
 
   (* Get free variable of term *)
-  (let var_step = Term.free_var_of_term expr_step in 
+  let var_step = Term.free_var_of_term expr_step in 
 
-   (* Variable must be an instance of a state variable *)
-   Var.is_state_var_instance var_step && 
+  (* Variable must be an instance of a state variable *)
+  Var.is_state_var_instance var_step && 
 
-   (* Variable must be at instant zero *)
-   Numeral.(Var.offset_of_state_var_instance var_step = step_offset))
+  (* Variable must be at instant zero *)
+  Numeral.(Var.offset_of_state_var_instance var_step = step_offset)(*  && *)
+
+  (* StateVar.equal_state_vars *)
+  (*   (Var.state_var_of_state_var_instance var_step) *)
+  (*   (Var.state_var_of_state_var_instance var_step) *)
 
 
 
@@ -2007,7 +2011,8 @@ let mk_pre
   in
 
   (* Stream is the same in the initial state and step (e -> e) *)
-  if not unguarded && Term.equal expr_step expr_init then
+  if not unguarded &&
+     Term.equal expr_init (Term.bump_state Numeral.(~- one) expr_step) then
     match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)
     | t when
