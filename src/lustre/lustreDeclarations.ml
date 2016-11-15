@@ -225,7 +225,7 @@ let rec eval_node_outputs ?is_single ctx = function
     let ident_types = S.eval_ast_type ctx ast_type in
   
     (* Add declaration of possibly indexed type to contexts *)
-    let ctx = C.add_node_output ?is_single ctx ident ident_types in
+    let ctx = C.add_node_output ?is_single ctx ident pos ident_types in
 
     (* Continue with following inputs *)
     eval_node_outputs ctx tl
@@ -1996,7 +1996,7 @@ and eval_node_decl
   let ctx =
     eval_node_items inputs outputs locals ctx items in
 
-  C.check_local_vars_defined ctx;
+  C.check_vars_defined ctx;
   
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in

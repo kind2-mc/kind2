@@ -462,6 +462,9 @@ val substitute_variables : (StateVar.t * StateVar.t) list -> t -> t
 *)
 val map_state_vars : (StateVar.t -> StateVar.t) -> t -> t
 
+(** Return a new term with each variable instance replaced *)
+val map_vars : (Var.t -> Var.t) -> t -> t
+
 (** Convert [(= 0 (mod t n))] to [(divisble n t)]
 
     The term [n] must be an integer numeral. *)

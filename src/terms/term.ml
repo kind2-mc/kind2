@@ -1570,6 +1570,26 @@ let map_state_vars f term =
 
     term
 
+(* Replace each variable instance in the term *)
+let map_vars f term = 
+
+  map
+
+    (fun  _ t -> 
+
+       (* Only map free variables *)
+       if is_free_var t then 
+
+         (* Get free variable of term *)
+         let v = free_var_of_term t in
+
+         mk_var (f v)
+
+       (* Return other terms unchanged *)
+       else t)
+
+    term
+
 
 
 (* 

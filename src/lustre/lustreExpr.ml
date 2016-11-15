@@ -135,6 +135,8 @@ let map f ({ expr_init; expr_step } as expr) =
       expr_step = Term.map (f' false) expr_step }
 
 
+let map_vars = Term.map_vars 
+  
 (*
 
 let rec map_top' f term = match Term.T.node_of_t term with 

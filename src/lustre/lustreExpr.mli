@@ -100,6 +100,9 @@ val hash : t -> int
 (** Tail-recursive bottom-up right-to-left map on the expression *)
 val map : (int -> t -> t) -> t -> t
 
+(** Replace state variables in expression *)
+val map_vars : (Var.t -> Var.t) -> expr -> expr
+
 (** Return the type of the expression *)
 val type_of_lustre_expr : t -> Type.t
 

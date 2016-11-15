@@ -240,7 +240,8 @@ val add_node_input :
 
 (** Add node output to context *)
 val add_node_output :
-  ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+  ?is_single:bool -> t -> LustreIdent.t -> Lib.position ->
+  Type.t LustreIndex.t -> t
 
 (** The output state variables of the current node. *)
 val outputs_of_current_node : t -> StateVar.t LustreIndex.t
@@ -294,8 +295,9 @@ val close_expr :
   ?original:LustreAst.expr -> Lib.position ->
   (LustreExpr.t * t) -> (LustreExpr.t * t)
 
-(** Check that the node being defined has no undefined local variables *)
-val check_local_vars_defined : t -> unit
+(** Check that the node being defined has no undefined local or output
+    variables *)
+val check_vars_defined : t -> unit
 
 
 (** {1 Helpers} *)

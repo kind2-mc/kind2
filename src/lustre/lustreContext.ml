@@ -120,6 +120,10 @@ type t = {
      reporting *)
   locals_info : (StateVar.t * I.t * Lib.position) list;
 
+  (* saving output variables positions and their luster identifiers for error
+     reporting *)
+  outputs_info : (StateVar.t * I.t * Lib.position) list;
+
   (* Indicates there are unguarded pre's in the lustre code and we need to
   guard them. *)
   guard_pre : bool;
@@ -154,6 +158,7 @@ let mk_empty_context () =
       fresh_oracle_index = 0;
       definitions_allowed = None;
       locals_info = [];
+      outputs_info = [];
       guard_pre = false;
     }
   in
@@ -862,39 +867,63 @@ let close_expr ?original pos ({ E.expr_init } as expr, ctx) =
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term (expr_init :> Term.t) in
 
-  (* Filter for variables before the base instant *)
-  let init_pre_vars = 
-    VS.filter 
+  let unguarded =
+    VS.exists 
       (fun var -> 
          Var.is_state_var_instance var &&
          Numeral.(Var.offset_of_state_var_instance var < E.base_offset))
       init_vars
   in
+  
+  (* Filter for variables before the base instant *)
+  (* let init_pre_vars =  *)
+  (*   VS.filter  *)
+  (*     (fun var ->  *)
+  (*        Var.is_state_var_instance var && *)
+  (*        Numeral.(Var.offset_of_state_var_instance var < E.base_offset)) *)
+  (*     init_vars *)
+  (* in *)
 
+  
   (* No unguarded pres in initial state term? *)
-  if VS.is_empty init_pre_vars then (expr, ctx) else
+  if not unguarded then (expr, ctx )
+  else
 
-    (* New oracle for each state variable *)
-    let oracle_substs, ctx = VS.fold (fun var (accum, ctx) -> 
-
-        (* We only expect state variable instances *)
-        assert (Var.is_state_var_instance var);
-
-        (* State variable of state variable instance *)
-        let state_var = Var.state_var_of_state_var_instance var in
-
-        (* Create a new oracle variable or re-use previously created oracle *)
-        let state_var', ctx = mk_fresh_oracle_for_state_var ctx state_var in
-
-        (* Substitute oracle variable for variable *)
-        (state_var, E.mk_var state_var') :: accum, ctx
-
-      ) init_pre_vars ([], ctx)
+    let rctx = ref ctx in
+    let expr_init = E.map_vars (fun var ->
+        if Var.is_state_var_instance var &&
+           Numeral.(Var.offset_of_state_var_instance var < E.base_offset) then
+          let state_var = Var.state_var_of_state_var_instance var in
+          let state_var', ctx = mk_fresh_oracle_for_state_var !rctx state_var in
+          rctx := ctx;
+          E.base_var_of_state_var E.base_offset state_var'
+        else var
+      ) expr_init
     in
 
-    (* Return expression with all previous state variables in the init
-       expression substituted by fresh constants *)
-    E.mk_arrow (E.mk_let_pre oracle_substs expr) expr, ctx
+    E.mk_arrow (E.mk_of_expr expr_init) expr, !rctx
+    
+    (* (\* New oracle for each state variable *\) *)
+    (* let oracle_substs, ctx = VS.fold (fun var (accum, ctx) ->  *)
+
+    (*     (\* We only expect state variable instances *\) *)
+    (*     assert (Var.is_state_var_instance var); *)
+
+    (*     (\* State variable of state variable instance *\) *)
+    (*     let state_var = Var.state_var_of_state_var_instance var in *)
+
+    (*     (\* Create a new oracle variable or re-use previously created oracle *\) *)
+    (*     let state_var', ctx = mk_fresh_oracle_for_state_var ctx state_var in *)
+
+    (*     (\* Substitute oracle variable for variable *\) *)
+    (*     (state_var, E.mk_var state_var') :: accum, ctx *)
+
+    (*   ) init_pre_vars ([], ctx) *)
+    (* in *)
+
+    (* (\* Return expression with all previous state variables in the init *)
+    (*    expression substituted by fresh constants *\) *)
+    (* E.mk_arrow (E.mk_let_pre oracle_substs expr) expr, ctx (\* {ctx with guard_pre = true}  *\) *)
 
 (* Record mapping of expression to state variable
 
@@ -1044,7 +1073,7 @@ let mk_local_for_expr
           let state_var, ctx =
             mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen
               (* ?reuse *)
-              ~reuse:(not ctx.guard_pre)
+              (* ~reuse:(not ctx.guard_pre) *)
               ctx add_state_var_to_locals expr'
           in
 
@@ -1243,13 +1272,13 @@ let add_node_input ?is_const ctx ident index_types =
 
 
 (* Add node output to context *)
-let add_node_output ?(is_single = false) ctx ident index_types = 
+let add_node_output ?(is_single = false) ctx ident pos index_types = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_output")
 
-    | { node = Some { N.outputs } } -> 
+    | { node = Some { N.outputs }; outputs_info } -> 
 
       (* Get next index at root of trie *)
       let next_top_idx = D.top_max_index outputs |> succ in
@@ -1274,6 +1303,13 @@ let add_node_output ?(is_single = false) ctx ident index_types =
                if is_single then index else 
                  D.ListIndex next_top_idx :: index
              in
+
+             (* Register local declarations positions for later *)
+             let ctx  =
+               { ctx with
+                 outputs_info = (state_var, ident, pos) :: ctx.outputs_info }
+             in
+
              (* Add expression to trie of identifier *)
              (D.add index' state_var accum, ctx))
              
@@ -1873,10 +1909,21 @@ let solve_fref { deps' } decl (f_type, f_ident) decls =
 
 
 (* Check that the node being defined has no undefined local variables *)
-let check_local_vars_defined ctx =
+let check_vars_defined ctx =
   match ctx.node with
-  | None -> ()
-  | Some { N.equations } ->
+  | Some { N.equations; N.is_extern = false } ->
+    (* Look for outputs definitions *)
+    List.iter (fun (sv, id, pos) ->
+        if not (List.exists
+                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  equations )
+        then
+          (* Always fail *)
+          fail_at_position pos
+            (Format.asprintf "Output variable %a has no definition."
+               (I.pp_print_ident false) id)
+      ) ctx.outputs_info;
+    (* Look for localss definitions *)
     List.iter (fun (sv, id, pos) ->
         if not (List.exists
                   (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
@@ -1887,6 +1934,9 @@ let check_local_vars_defined ctx =
             (Format.asprintf "Local variable %a has no definition."
                (I.pp_print_ident false) id)
       ) ctx.locals_info
+      
+  | _ -> ()
+
 
   
 
