@@ -592,7 +592,7 @@ state_decl:
   | INITIAL STATE; i = ident { i, true }
 
 state:
-  | ii = state_decl; COLON
+  | ii = state_decl; option(COLON)
     us = option(unless_transition);
     l = list(node_local_decl);
     LET;
@@ -602,7 +602,7 @@ state:
     { let i, init = ii in
       A.State (mk_pos $startpos, i, init, List.flatten l, e, us, ul) }
 
-  | ii = state_decl; COLON
+  | ii = state_decl; option(COLON)
     us = option(unless_transition);
     ul = option(until_transition)
     { let i, init = ii in

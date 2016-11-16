@@ -1592,6 +1592,35 @@ let allowed_lasts inputs outputs locals =
         | A.NodeVarDecl (_, (_, i, _, _)) -> i
     ) locals
 
+
+(* Useful information for encoding automata *)
+type automaton_info = {
+  (* Name of the automaton *)
+  auto_name : string;
+
+  (* Inputs of the node in which the automaton appears *)
+  node_inputs : A.const_clocked_typed_decl list;
+
+  (* Outputs of the automaton (declared with returns) *)
+  auto_outputs : A.clocked_typed_decl list;
+
+  (* Other node variables *)
+  other_vars : A.const_clocked_typed_decl list;
+
+  (* Memories for [last] expressions, passed as inputs to the automaton
+     states *)
+  lasts_inputs : A.const_clocked_typed_decl list;
+
+  (* Enumerated datatype to represent states *)
+  states_lustre_type : A.lustre_type;
+
+  (* Local variables used to encode the internal state of the automaton *)
+  i_state_in : A.ident;
+  i_restart_in : A.ident;
+  i_state : A.ident;
+  i_restart : A.ident;
+}
+
 (* Evaluate node statements and add to context  *)
 let rec eval_node_items inputs outputs locals ctx = function
 
@@ -1697,6 +1726,27 @@ let rec eval_node_items inputs outputs locals ctx = function
             C.fail_at_position pos ("Cound not find automaton output "^o)
           with Found_auto_out ld -> ld
       ) auto_outputs in
+
+    let auto_outputs_idents =
+      List.map (fun o -> A.Ident (pos,o)) auto_outputs in
+    
+    (* Gather other node variables which are neither inputs nor outputs of the
+       automaton *)
+    let other_vars_dl = List.fold_left (fun acc (p, o, t, c) ->
+        if not (List.exists (fun o' -> o = o') auto_outputs) then
+          (p, o, t, c, false) :: acc
+        else acc
+      ) [] outputs in
+    let other_vars_dl = List.fold_left (fun acc -> function
+        | A.NodeVarDecl (_, (p, l, t, c)) ->
+          if not (List.exists (fun o' -> l = o') auto_outputs) then
+            (p, l, t, c, false) :: acc
+          else acc
+        | _ -> acc
+      ) other_vars_dl locals in
+    let other_vars_dl = List.rev other_vars_dl in
+    let other_vars_idents =
+      List.map (fun (p, i, _, _, _) -> A.Ident (p,i)) other_vars_dl in
     
     (* find initial state *)
     let initial_state =
@@ -1734,13 +1784,23 @@ let rec eval_node_items inputs outputs locals ctx = function
               |> add_auto_local i_state_in_next states_ty
               |> add_auto_local i_restart_in_next bool_ty
     in
+
+    let info = {
+      auto_name = name;
+      node_inputs = inputs;
+      auto_outputs = auto_outputs_dl;
+      other_vars = other_vars_dl;
+      lasts_inputs;
+      states_lustre_type = states_type;
+      i_state_in;
+      i_restart_in;
+      i_state;
+      i_restart;
+    } in
     
     let ctx, aux_nodes =
       List.fold_left (fun (ctx, aux_nodes) s ->
-          let ctx, n =
-            encode_automaton_state name inputs auto_outputs_dl lasts_inputs
-              states_type i_state_in i_restart_in i_state i_restart ctx s
-          in
+          let ctx, n = encode_automaton_state info ctx s in
           ctx, (n :: aux_nodes)
         ) (ctx, []) states in
     
@@ -1773,8 +1833,8 @@ let rec eval_node_items inputs outputs locals ctx = function
            A.Eq (pos, A.Ident (pos, i_state), A.Ident (pos, state_c)),
            (* restart *)
            A.Ident (pos, i_restart),
-           (* arguments to the call = inputs of the node + lasts *)
-           inputs_idents @ lasts_args_handlers
+           (* arguments to the call = inputs of the node + others + lasts *)
+           inputs_idents @ other_vars_idents @ lasts_args_handlers
           )
       ) handlers states in
 
@@ -1801,9 +1861,10 @@ let rec eval_node_items inputs outputs locals ctx = function
            A.Eq (pos, A.Ident (pos, i_state_in), A.Ident (pos, state_c)),
            (* restart *)
            A.Ident (pos, i_restart_in),
-           (* arguments  = state_in + restart_in + inputs of the node *)
+           (* arguments = state_in + restart_in + inputs of the node + outputs
+              of the automaton + others*)
            A.Ident (pos, i_state_in) :: A.Ident (pos, i_restart_in) ::
-           inputs_idents
+           inputs_idents @ auto_outputs_idents @ other_vars_idents
           )
       ) unlesses states in
 
@@ -1829,7 +1890,7 @@ let rec eval_node_items inputs outputs locals ctx = function
     eval_node_items inputs outputs locals ctx tl
 
 
-
+(* Encode branching conditions for transitions as an expression *)
 and encode_transition_branch pos state_c default = function
   (* restart t *)
   | A.Target (A.TransRestart (pos_t, t)) ->
@@ -1849,9 +1910,12 @@ and encode_transition_branch pos state_c default = function
            encode_transition_branch pos state_c default then_br,
            encode_transition_branch pos state_c default else_br)
            
-
-and encode_until_handler pos auto_name state_c state_lustre_type i_state_in
-    i_restart_in node_inputs auto_outputs lasts_inputs locals eqs until_tr ctx =
+(* Encode body and until transition of state as a node *)
+and encode_until_handler pos
+    { auto_name; states_lustre_type;
+      auto_outputs; other_vars; lasts_inputs;
+      i_state_in; i_restart_in; node_inputs }
+    state_c locals eqs until_tr ctx =
   let stay = A.ExprList (pos, [A.Ident (pos, state_c); A.False pos]) in
   let e = match until_tr with
     | None -> stay
@@ -1865,7 +1929,7 @@ and encode_until_handler pos auto_name state_c state_lustre_type i_state_in
   in
   let name = String.concat "." [auto_name; handler_string; state_c] in
   let outputs =
-    (pos, i_state_in, state_lustre_type, A.ClockTrue) ::
+    (pos, i_state_in, states_lustre_type, A.ClockTrue) ::
     (pos, i_restart_in, A.Bool pos, A.ClockTrue) ::
     auto_outputs
   in
@@ -1878,15 +1942,13 @@ and encode_until_handler pos auto_name state_c state_lustre_type i_state_in
       (I.pp_print_ident false) ident
   ) ;
 
-  (* Format.eprintf "====\n%a\n@." *)
-  (*   A.pp_print_declaration *)
-  (*   (A.NodeDecl (pos, (name, [], node_inputs, outputs, locals, *)
-  (*     (List.map (fun e -> A.EqAssert e) (eq :: eqs)), None))); *)
-
   (* Create separate auxiliary context for node (not external) *)
   let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
-    eval_node_decl node_ctx pos (node_inputs @ lasts_inputs) outputs locals
+    eval_node_decl node_ctx pos
+      (node_inputs @ other_vars @ lasts_inputs)
+      outputs
+      locals
       (List.map (fun e -> A.EqAssert e) (eq :: eqs)) None
   in
 
@@ -1896,9 +1958,11 @@ and encode_until_handler pos auto_name state_c state_lustre_type i_state_in
 
 
 (* encoding of unless condition for strong transition as an auxiliary node *)
-and encode_unless pos auto_name state_c state_lustre_type
-    i_state_in i_restart_in i_state i_restart
-    node_inputs unless_tr ctx =
+and encode_unless pos
+    {auto_name; states_lustre_type;
+     node_inputs; auto_outputs; other_vars;
+     i_state_in; i_restart_in; i_state; i_restart }
+    state_c unless_tr ctx =
   let skip = A.ExprList (pos, [A.Ident (pos, i_state_in);
                                A.Ident (pos, i_restart_in)]) in
   let e = match unless_tr with
@@ -1912,13 +1976,15 @@ and encode_unless pos auto_name state_c state_lustre_type
          e)
   in
   let name = String.concat "." [auto_name; unless_string; state_c] in
+  let auto_out_inputs =
+    List.map (fun (p, o, t, c) -> (p, o, t, c, false)) auto_outputs in
   let inputs =
-    (pos, i_state_in, state_lustre_type, A.ClockTrue, false) ::
+    (pos, i_state_in, states_lustre_type, A.ClockTrue, false) ::
     (pos, i_restart_in, A.Bool pos, A.ClockTrue, false) ::
-    node_inputs
+    node_inputs @ auto_out_inputs @ other_vars
   in
   let outputs = [
-    pos, i_state, state_lustre_type, A.ClockTrue;
+    pos, i_state, states_lustre_type, A.ClockTrue;
     pos, i_restart, A.Bool pos, A.ClockTrue;
   ] in
 
@@ -1940,23 +2006,16 @@ and encode_unless pos auto_name state_c state_lustre_type
 
   name, ctx
   
-  
-      
-and encode_automaton_state auto_name node_inputs auto_outputs lasts_inputs
-    states_lustre_type i_state_in i_restart_in i_state i_restart ctx = function
+
+(* Encode a state of an automaton. 
+   Returns the name of the node to handle body/until and the name of the node
+   for the unless transition, as well as a modified context.*)
+and encode_automaton_state info ctx = function
   | A.State (pos, state_c, _, locals, eqs, unless_tr, until_tr) ->
     let handler, ctx =
-      encode_until_handler pos auto_name state_c states_lustre_type i_state_in
-        i_restart_in node_inputs auto_outputs lasts_inputs locals eqs until_tr
-        ctx
-    in
-    let unless, ctx =
-      encode_unless pos auto_name state_c states_lustre_type
-        i_state_in i_restart_in i_state i_restart node_inputs unless_tr ctx
-    in
-
+      encode_until_handler pos info state_c locals eqs until_tr ctx in
+    let unless, ctx = encode_unless pos info state_c unless_tr ctx in
     ctx, (handler, unless)
-    
 
 
 
