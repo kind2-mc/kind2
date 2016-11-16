@@ -610,9 +610,7 @@ let pp_print_counterexample_xml
 
         (* Output counterexample *)
         Format.fprintf ppf 
-          "@[<hv 2>\
-            <%s>@,%a@;<0 -2></%s>\
-          @]"
+          "@[<hv 2>\ <%s>%a@]@,</%s>"
           tag
           (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true) 
           (Model.path_of_list cex')

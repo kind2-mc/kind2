@@ -32,6 +32,7 @@ module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
 
+module MS = Map.Make (String)
 
 (* Model for a node and its subnodes *)
 type t =
@@ -704,13 +705,20 @@ let pp_print_pos_pt ppf pos =
       pos_cnum
 
 
+(* Output the name of the lustre variable and remove the automaton prefixes *)
+let pp_print_lustre_var ppf state_var =
+  match N.is_automaton_state_var state_var with
+  | Some (auto, name) -> Format.pp_print_string ppf name
+  | None -> E.pp_print_lustre_var false ppf state_var
+
+
 (* Output the identifier of an indexed stream *)
 let pp_print_stream_ident_pt ppf (index, state_var) =
 
   Format.fprintf
     ppf
     "%a%a"
-    (E.pp_print_lustre_var false) state_var
+    pp_print_lustre_var state_var
     (D.pp_print_index false) index
 
 
@@ -845,6 +853,38 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
       (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
       l
 
+(* Output state variables and their sequences of values under a
+   header, or output nothing if the list is empty *)
+let pp_print_stream_automaton_pt ident_width val_width auto ppf = function 
+  | [] -> ()
+  | l -> 
+    Format.fprintf
+      ppf
+      "== @{<b>Automaton@} @{<blue>%s@} ==@,\
+       %a@,"
+      auto
+      (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
+      l
+
+let pp_print_stream_automata_pt ident_width val_width ppf auto_map =
+  MS.iter (fun auto streams ->
+      pp_print_stream_automaton_pt ident_width val_width auto ppf streams
+    ) auto_map
+
+
+(* Partition variables depending on their belonging to an automaton *)
+let partition_locals_automaton is_visible locals =
+  let locals = List.map D.bindings locals |> List.flatten in
+  List.fold_left (fun (auto_map, others) (i, sv) ->
+      match N.is_automaton_state_var sv with
+      | Some (auto, _) ->
+        let l = try MS.find auto auto_map with Not_found -> [] in
+        MS.add auto ((i, sv) :: l) auto_map, others
+      | None when is_visible sv -> auto_map, (i, sv) :: others
+      | None -> auto_map, others
+    ) (MS.empty, []) locals
+
+
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
@@ -910,20 +950,26 @@ let rec pp_print_lustre_path_pt' ppf = function
   (* Filter locals to for visible state variables only and return
      as a list 
 
-     The list of locals is the reversed from the original input in
-     the node, with fold_left here we get it in the original order
-     again. *)
+     The list of locals is the reversed from the original input in the node,
+     with fold_left in partition_locals_automaton here we get it in the
+     original order again. *)
+  let locals_auto, locals = partition_locals_automaton is_visible locals in
+  
   let ident_width, val_width, locals' = 
-    locals |> List.fold_left (
-      fun a d ->
-        (D.filter (fun _ sv -> is_visible sv) d |> D.bindings) @ a
-    ) []
-    |> streams_to_strings model ident_width val_width []
+    locals |> streams_to_strings model ident_width val_width []
   in
 
+  let ident_width, val_width, locals_auto' =
+    MS.fold (fun auto streams (w, v, ls) ->
+        let w, v, s = streams_to_strings model w v [] streams in
+        w, v, MS.add auto s ls
+      ) locals_auto (ident_width, val_width, MS.empty)
+  in
+  
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
       @{<b>%s@} @{<blue>%a@} (%a)@,  @[<v>\
+        %a\
         %a\
         %a\
         %a\
@@ -944,7 +990,8 @@ let rec pp_print_lustre_path_pt' ppf = function
     ) modes
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
-    (pp_print_stream_section_pt ident_width val_width "Locals") locals';
+    (pp_print_stream_section_pt ident_width val_width "Locals") locals'
+    (pp_print_stream_automata_pt ident_width val_width) locals_auto';
 
   (* Recurse depth-first to print subnodes *)
   pp_print_lustre_path_pt' 
@@ -1025,7 +1072,7 @@ let pp_print_stream_ident_xml ppf (index, state_var) =
   Format.fprintf
     ppf
     "%a%a"
-    (E.pp_print_lustre_var false) state_var
+    pp_print_lustre_var state_var
     (D.pp_print_index false) index
 
 
@@ -1050,7 +1097,7 @@ let pp_print_stream_value ppf i = function
 
     Format.fprintf 
       ppf
-      "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
+      "@,@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@,@]</Value>" 
       i
       pp_print_value t    
 
@@ -1072,21 +1119,32 @@ let pp_print_stream_xml get_source model ppf (index, state_var) =
 
     Format.fprintf 
       ppf
-      "@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]@,\
-       %a@;<0 -2></Stream>@]"
+      "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]\
+       %a@]@,</Stream>"
       pp_print_stream_ident_xml (index, state_var)
       (E.pp_print_lustre_type false) stream_type
       pp_print_stream_prop_xml (get_source state_var)
-      (pp_print_listi pp_print_stream_value "@,") stream_values
+      (pp_print_listi pp_print_stream_value "") stream_values
 
   with Not_found -> assert false
+
+
+let pp_print_automaton_xml get_source model ppf name streams  =
+  Format.fprintf ppf "@,@[<hv 2>@[<hv 1><Automaton@ name=\"%s\">@]" name;
+  List.iter (pp_print_stream_xml get_source model ppf) streams;
+  Format.fprintf ppf"@]@,</Automaton>"
+    
+
+let pp_print_automata_xml get_source model ppf auto_map =
+  MS.iter (pp_print_automaton_xml get_source model ppf) auto_map
+
 
 
 let pp_print_active_modes_xml ppf = function
 | None | Some [] -> ()
 | Some mode_trace ->
   Format.fprintf ppf
-    "@[<v>%a@]@,"
+    "@,@[<v>%a@]"
     (pp_print_list
       ( fun fmt (k, tree) ->
         Format.fprintf ppf
@@ -1162,48 +1220,25 @@ let rec pp_print_lustre_path_xml' ppf = function
     (* Filter locals to for visible state variables only and return
        as a list 
 
-       The list of locals is the reversed from the original input in
-       the node, with fold_left here we get it in the original order
-       again. *)
-    let locals' = 
-      List.fold_left
-        (fun a d -> 
-           (D.filter 
-              (fun _ sv -> is_visible sv)
-              d
-            |> D.bindings) 
-           @ a)
-        []
-        locals
-    in
+       The list of locals is the reversed from the original input in the node,
+       with fold_left in partition_locals_automaton here we get it in the
+       original order again. *)
+    let locals_auto', locals' = partition_locals_automaton is_visible locals in
+
 
     (* Pretty-print this node *)
-    Format.fprintf 
-      ppf
-      "@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]@,%a%a%t%a%t%a%t%a@;<0 -2></%s>@]%t"
+    Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]"
       title
-      (I.pp_print_ident false) 
-      name
-      pp_print_call_xml
-      trace
-      pp_print_active_modes_xml active_modes
-      (pp_print_list (pp_print_stream_xml get_source model) "@,") inputs'
-      (fun ppf -> 
-         if
-           inputs' <> [] && 
-           (outputs' <> [] || locals' <> [] || subnodes <> []) 
-         then
-           Format.fprintf ppf "@,")
-      (pp_print_list (pp_print_stream_xml get_source model) "@,") outputs'
-      (fun ppf -> 
-         if outputs' <> [] && (locals' <> [] || subnodes <> []) then
-           Format.fprintf ppf "@,")
-      (pp_print_list (pp_print_stream_xml get_source model) "@,") locals'
-      (fun ppf -> if locals' <> [] && subnodes <> [] 
-        then Format.fprintf ppf "@,")
-      pp_print_lustre_path_xml' subnodes
-      title
-      (fun ppf -> if tl <> [] then Format.fprintf ppf "@,");
+      (I.pp_print_ident false) name
+      pp_print_call_xml trace;
+
+    pp_print_active_modes_xml ppf active_modes;
+    List.iter (pp_print_stream_xml get_source model ppf) inputs';
+    List.iter (pp_print_stream_xml get_source model ppf) outputs';
+    List.iter (pp_print_stream_xml get_source model ppf) locals';
+    pp_print_automata_xml get_source model ppf locals_auto';
+    pp_print_lustre_path_xml' ppf subnodes;
+    Format.fprintf ppf "@]@,</%s>" title;
 
     (* Continue *)
     pp_print_lustre_path_xml' ppf tl

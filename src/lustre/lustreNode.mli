@@ -390,6 +390,10 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
     [Input], [Output], or [Local], and [false] otherwise. *)
 val state_var_is_visible : t -> StateVar.t -> bool
 
+
+(** Return the automaton to which the state variable belongs if any *)
+val is_automaton_state_var : StateVar.t -> (string * string) option
+
 (** Return true if the node should be visible to the user,
     false if it was created internally. *)
 val node_is_visible : t -> bool
