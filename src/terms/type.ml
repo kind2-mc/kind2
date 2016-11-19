@@ -26,12 +26,14 @@ open Lib
 (* Types and hash-consing                                                *)
 (* ********************************************************************* *)
 
+(* Tells if the range actually encodes an enumerated datatype *)
+type rangekind = Range | Enum
 
 (* Type of an expression in KIND *)
 type kindtype = 
   | Bool
   | Int
-  | IntRange of Numeral.t * Numeral.t
+  | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
 (*
   | BV of int
@@ -39,7 +41,6 @@ type kindtype =
   (* First is element type, second is index type *)
   | Array of t * t
   | Abstr of string
-  | Enum of string option * string list
 
 (* A private type that cannot be constructed outside this module
 
@@ -81,8 +82,8 @@ module Kindtype_node = struct
     | Bool, _ -> false
     | Int, Int -> true
     | Int, _ -> false
-    | IntRange (l1, u1), IntRange (l2, u2) -> 
-      Numeral.equal l1 l2 && Numeral.equal u1 u2 
+    | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
+      k1 = k2 && Numeral.equal l1 l2 && Numeral.equal u1 u2 
     | IntRange _, _ -> false
     | Real, Real -> true
     | Real, _ -> false
@@ -94,8 +95,6 @@ module Kindtype_node = struct
     | Array (i1, t1), _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
     | Abstr _, _ -> false
-    | Enum (_, c1), Enum (_, c2) -> c1 = c2
-    | Enum _, _ -> false
       
 end
 
@@ -182,11 +181,19 @@ let rec pp_print_type_node ppf = function
 
   | Int -> Format.pp_print_string ppf "Int"
 
-  | IntRange (i, j) -> 
+  | IntRange (i, j, Range) -> 
 
     Format.fprintf
       ppf 
       "(IntRange %a %a)" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | IntRange (i, j, Enum) -> 
+
+    Format.fprintf
+      ppf 
+      "(Enum %a %a)" 
       Numeral.pp_print_numeral i 
       Numeral.pp_print_numeral j
 
@@ -208,12 +215,6 @@ let rec pp_print_type_node ppf = function
 
   | Abstr s -> Format.pp_print_string ppf s
 
-  | Enum (Some name, cstrs) ->
-    Format.fprintf ppf "%s" name 
-
-  | Enum (None, cstrs) ->
-    Format.fprintf ppf "enum_%a" 
-      (pp_print_list Format.pp_print_string "_") cstrs
 
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
@@ -236,7 +237,7 @@ let mk_bool () = Hkindtype.hashcons ht Bool ()
 
 let mk_int () = Hkindtype.hashcons ht Int ()
 
-let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u)) ()
+let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
 (*
@@ -246,7 +247,60 @@ let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
 let mk_abstr s = Hkindtype.hashcons ht (Abstr s) ()
 
-let mk_enum name cs = Hkindtype.hashcons ht (Enum (name, cs)) ()
+
+module HNum = Hashtbl.Make (struct
+    type t = Numeral.t
+    let equal = Numeral.equal
+    let hash = Hashtbl.hash
+  end)
+    
+
+(* Table from constructors to name if any and encoding to ranges *)
+let enums_table = Hashtbl.create 7
+(* Table from numeral encoding to a constructor and its type *)
+let num_enums = HNum.create 17
+(* Talbe from constructors to their numeral encoding *)
+let constr_nums = Hashtbl.create 7
+
+let mk_enum =
+  let next_n = ref 0 in
+  fun name cs ->
+    try Hashtbl.find enums_table cs |> snd
+    with Not_found ->
+      let size = List.length cs in
+      let n = !next_n in
+      let l, u = Numeral.of_int n, Numeral.of_int (n + size - 1) in
+      let range = Hkindtype.hashcons ht (IntRange (l, u, Enum)) () in
+      List.iteri (fun i c ->
+          let nu = Numeral.of_int (n + i) in
+          HNum.add num_enums nu (c, cs, range);
+          Hashtbl.add constr_nums c nu;
+        ) cs;
+      Hashtbl.add enums_table cs (name, range);
+      next_n := n + size;
+      range
+
+
+let get_constr_of_num n =
+  let c, _, _ = HNum.find num_enums n in c
+
+let get_enum_range_of_num n =
+  let _, _, r = HNum.find num_enums n in r
+
+let get_constrs_of_num n =
+  let _, cs, _ = HNum.find num_enums n in cs
+
+let get_num_of_constr c = Hashtbl.find constr_nums c
+
+let get_enum_range_of_constrs cs = Hashtbl.find enums_table cs |> snd
+
+let get_enum_name_of_constrs cs = Hashtbl.find enums_table cs |> fst
+
+let enum_of_constr c =
+  get_num_of_constr c |> get_enum_range_of_num
+
+let get_enum_name_of_num n =
+  get_constrs_of_num n |> get_enum_name_of_constrs
 
 
 (* Import a type from a different instance into this hashcons table *)
@@ -264,8 +318,6 @@ let rec import { Hashcons.node = n } = match n with
 
   | Abstr s -> mk_abstr s
 
-  | Enum (name, cs) -> mk_enum name cs
-
 
 (* Static values *)
 let t_bool = mk_bool ()
@@ -278,33 +330,6 @@ let get_all_abstr_types () =
       | { Hashcons.node = Abstr _ } -> ty :: acc
       | _ -> acc) ht []
   |> List.rev
-
-let get_all_enum_types () =
-  Hkindtype.fold (fun ty acc -> match ty with
-      | { Hashcons.node = Enum _ } -> ty :: acc
-      | _ -> acc) ht []
-  |> List.rev
-
-
-exception Found_enum of t
-
-let enum_of_constr c =
-  try
-    Hkindtype.iter (function
-      | { Hashcons.node = Enum (_, cs) } as ty when List.mem c cs ->
-        raise (Found_enum ty)
-      | _ -> ()) ht;
-    raise Not_found
-  with Found_enum ty -> ty
-
-let enum_of_name n =
-  try
-    Hkindtype.iter (function
-      | { Hashcons.node = Enum (Some n', _) } as ty when n' = n ->
-        raise (Found_enum ty)
-      | _ -> ()) ht;
-    raise Not_found
-  with Found_enum ty -> ty
 
 
 
@@ -319,8 +344,12 @@ let rec is_int { Hashcons.node = t } = match t with
   | _-> false
 
 let rec is_int_range { Hashcons.node = t } = match t with
-  | IntRange _ -> true 
+  | IntRange (_,_,Range) -> true 
   | Array (_, t) -> is_int_range t
+  |  _ -> false
+
+let rec is_enum { Hashcons.node = t } = match t with
+  | IntRange (_,_,Enum) -> true 
   |  _ -> false
 
 let rec is_bool { Hashcons.node = t } = match t with
@@ -339,11 +368,6 @@ let is_abstr { Hashcons.node = t } = match t with
   | _ -> false
 
 
-let is_enum { Hashcons.node = t } = match t with
-  | Enum _ -> true
-  | _ -> false
-
-
 let is_array { Hashcons.node = t } = match t with
   | Array _ -> true
   | _ -> false
@@ -357,7 +381,7 @@ let is_array { Hashcons.node = t } = match t with
 
 (* Return bounds of an integer range type *)
 let bounds_of_int_range = function
-  | { Hashcons.node = IntRange (l, u) } -> (l, u)
+  | { Hashcons.node = IntRange (l, u, _) } -> (l, u)
   | _ -> raise (Invalid_argument "bounds_of_int_range")
 
 (* Return type of array index *)
@@ -379,7 +403,16 @@ let elem_type_of_array = function
 
 
 let constructors_of_enum = function
-  | { Hashcons.node = Enum (_, cs) } -> cs
+  | { Hashcons.node = IntRange (l, _, Enum) } ->
+    (try get_constrs_of_num l
+     with Not_found -> raise (Invalid_argument "constructors_of_enum"))
+  | _ -> raise (Invalid_argument "constructors_of_enum")
+
+
+let name_of_enum = function
+  | { Hashcons.node = IntRange (l, _, Enum) } ->
+    (try get_enum_name_of_num l
+     with Not_found -> raise (Invalid_argument "constructors_of_enum"))
   | _ -> raise (Invalid_argument "constructors_of_enum")
 
 
@@ -404,24 +437,20 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     | IntRange _, Int -> true
 
     (* IntRange is subtype of IntRange if the interval is a subset *)
-    | IntRange (l1, u1), IntRange (l2, u2) ->
-      Numeral.(l1 >= l2) && Numeral.(u1 <= u2)
+    | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
+      k1 = k2 && Numeral.(l1 >= l2) && Numeral.(u1 <= u2)
 
     (* Array is a subtype of array if both index type and element type
        are subtype *)
     | Array (i1, t1), Array (i2, t2) ->
       (check_type i1 i2) && (check_type t1 t2)
 
-    (* subtyping of enums if constructors is a subset *)
-    | Enum (_, cs1), Enum (_, cs2) ->
-      List.for_all (fun c1 -> List.exists (String.equal c1) cs2) cs1
-
     (* No other subtype relationships *)
     | _ -> false
 
 
 let generalize t = match node_of_type t with
-  | IntRange _ -> t_int
+  | IntRange (_,_,Range) -> t_int
   | _ -> t
 
 

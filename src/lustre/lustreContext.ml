@@ -1690,10 +1690,11 @@ let add_node_equation ctx pos state_var bounds indexes expr =
           (* Type of expression may not be subtype of declared type *)
           match state_var_type, expr_type with 
 
-            (* Declared type is integer range, expression is of type
+            (* Declared type is an actual integer range, expression is of type
                integer *)
             | t, s 
-              when Type.is_int_range t && (Type.is_int s || Type.is_int_range s) -> 
+              when Type.is_int_range t &&
+                   (Type.is_int s || Type.is_int_range s) -> 
 
               let (lbound, ubound) = Type.bounds_of_int_range t in
 

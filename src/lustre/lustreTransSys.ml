@@ -386,7 +386,8 @@ let add_constraints_of_type init terms state_var =
   let state_var_type = StateVar.type_of_state_var state_var in
 
   (* Variable is of integer range type? *)
-  if Type.is_int_range state_var_type then 
+  if Type.is_int_range state_var_type ||
+     Type.is_enum state_var_type  then 
 
     (* Get bounds of integer range *)
     let l, u = Type.bounds_of_int_range state_var_type in

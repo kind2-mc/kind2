@@ -127,8 +127,10 @@ val pp_print_lustre_var_typed : bool -> Format.formatter -> StateVar.t -> unit
 (** Pretty-print a Lustre expression *)
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
 
-(** Pretty-print a Lustre expression *)
-val pp_print_expr : bool -> Format.formatter -> expr -> unit 
+(** Pretty-print a Lustre expression. The optional parameter [as_type]
+    indicates that the expression should be printed as if it had this type (used
+    for encoded enumerated datatypes). *)
+val pp_print_expr : ?as_type:Type.t -> bool -> Format.formatter -> expr -> unit
 
 (** {1 Predicates} *)
 

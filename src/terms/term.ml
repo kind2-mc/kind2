@@ -322,17 +322,6 @@ let rec bool_of_term t = match node_of_term t with
 
   | _ -> invalid_arg "bool_of_term"
 
-(* Return true if the term is a constant constructor *)
-let is_constr t = match destruct t with 
-  | T.Const s when Symbol.is_constr s -> true
-  | _ -> false
-
-(* Return the constructor if it is one *)
-let constr_of_term t = match destruct t with 
-  | T.Const s when Symbol.is_constr s -> Symbol.constr_of_symbol s
-  | _ -> invalid_arg "constr_of_term"
-
-
 (* Return true if the term is an application of the select operator *)
 let is_select t = match node_of_term t with
 
@@ -487,8 +476,6 @@ let rec type_of_term t = match T.destruct t with
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
 
-        | `CONSTR c -> Type.enum_of_constr c
-      
         (* No other symbols are nullary *)
         | _ -> assert false 
 
@@ -623,8 +610,7 @@ let rec type_of_term t = match T.destruct t with
         | `TRUE
         | `FALSE
         | `NUMERAL _
-        | `DECIMAL _
-        | `CONSTR _ -> assert false
+        | `DECIMAL _ -> assert false
 (*
         | `BV _ -> assert false
 *)
@@ -979,6 +965,9 @@ let mk_num n = (* mk_const_of_symbol_node (`NUMERAL n) *)
 
 (* Hashcons an integer numeral given an integer *)
 let mk_num_of_int i = mk_num (Numeral.of_int i)
+
+
+let mk_constr c = mk_num (Type.get_num_of_constr c)
 
 
 (* Hashcons a real decimal *)

@@ -128,6 +128,9 @@ val mk_num : Numeral.t -> t
 (** Create an integer numeral *)
 val mk_num_of_int : int -> t
 
+(** Create a constructor encoded as a numeral *)
+val mk_constr : string -> t
+
 (** Create a floating point decimal *)
 val mk_dec : Decimal.t -> t
 
@@ -390,12 +393,6 @@ val decimal_of_term : t -> Decimal.t
 
 (** Return true if the term is a Boolean constant *)
 val is_bool : t -> bool
-
-(** Return true if the term is a constant constructor *)
-val is_constr : t -> bool
-
-(** Return the constructor if it is one *)
-val constr_of_term : t -> string
 
 (** Return Boolean constant of a term *)
 val bool_of_term : t -> bool

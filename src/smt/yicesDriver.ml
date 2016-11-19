@@ -74,7 +74,7 @@ let rec pp_print_type_node ppf =
 
     | Int -> Format.pp_print_string ppf "int"
 
-    | IntRange (i, j) ->
+    | IntRange (i, j, _) ->
       Format.fprintf ppf "(subrange %a %a)"
         Numeral.pp_print_numeral i Numeral.pp_print_numeral j
 
@@ -95,15 +95,6 @@ let rec pp_print_type_node ppf =
         pp_print_type s 
         pp_print_type t
 
-    | Enum (Some name, _) -> Format.fprintf ppf "%s" name
-
-    | Enum (None, l) ->
-
-      Format.fprintf
-        ppf
-        "{%a}"
-        (pp_print_list Format.pp_print_string ",") l
-
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf t = pp_print_type_node ppf (Type.node_of_type t)
 
@@ -114,7 +105,7 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 let interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
-  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ | Type.Enum _ -> t
+  | Type.Bool | Type.Int | Type.Real | Type.Abstr _  -> t
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
@@ -150,11 +141,7 @@ let type_of_string_sexpr = function
     Type.mk_int_range (Numeral.of_string (HString.string_of_hstring i))
       (Numeral.of_string (HString.string_of_hstring j))
                                                 
-  | HStringSExpr.Atom s ->
-    let s = HString.string_of_hstring s in
-    (try Type.enum_of_name s
-     with Not_found -> Type.mk_abstr s)
-
+  | HStringSExpr.Atom _
   | HStringSExpr.List _ as s ->
 
     raise
@@ -289,7 +276,6 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `STORE -> Format.pp_print_string ppf "update"
 *)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
-  | `CONSTR c -> Format.pp_print_string ppf c
 
 
 (* Pretty-print a hashconsed symbol *)

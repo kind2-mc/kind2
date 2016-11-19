@@ -224,24 +224,27 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Int -> Format.pp_print_string ppf "int"
 
-  | Type.IntRange (i, j) -> 
+  | Type.IntRange (i, j, Type.Range) -> 
 
-    Format.fprintf
-      ppf 
-      "subrange [%a, %a] of int" 
-      Numeral.pp_print_numeral i 
-      Numeral.pp_print_numeral j
+     Format.fprintf
+       ppf 
+       "subrange [%a, %a] of int" 
+       Numeral.pp_print_numeral i 
+       Numeral.pp_print_numeral j
 
   | Type.Real -> Format.pp_print_string ppf "real"
 
   | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | Type.Enum (None, cs) -> 
-    Format.fprintf ppf "enum {%a}" 
-      (pp_print_list Format.pp_print_string ", ") cs
+  | Type.IntRange (i, j, Type.Enum) -> 
 
-  | Type.Enum (Some name, _) -> 
-    Format.fprintf ppf "%s" name 
+     begin match Type.name_of_enum t with
+     | Some n -> Format.pp_print_string ppf n
+     | None ->
+        let cs = Type.constructors_of_enum t in
+        Format.fprintf ppf "enum {%a}" 
+          (pp_print_list Format.pp_print_string ", ") cs
+     end
 
   (*
   | Type.BV i -> 
@@ -277,13 +280,22 @@ let string_of_symbol = function
   | `GT -> ">"
   | `TO_REAL -> "real"
   | `TO_INT -> "int"
-  | `CONSTR c -> c
   | _ -> failwith "string_of_symbol"
 
 
-(* Pretty-print a symbol *)
-let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s) 
-
+(* Pretty-print a symbol with a given type *)
+let pp_print_symbol_as_type as_type ppf s =
+  match as_type, s with
+  | Some ty, `NUMERAL n when Type.is_enum ty ->
+     Type.get_constr_of_num n
+     |> Format.pp_print_string ppf
+  | _ ->
+     Format.pp_print_string ppf (string_of_symbol s) 
+    
+(* Pretty-print a symbol as is *)
+let pp_print_symbol ppf s =
+  Format.pp_print_string ppf (string_of_symbol s) 
+    
 
 (* Pretty-print a variable *)
 let pp_print_lustre_var _ ppf state_var = 
@@ -357,21 +369,21 @@ let rec pp_print_var safe ppf var =
 
 
 (* Pretty-print a term *)
-and pp_print_term_node safe ppf t = match Term.T.destruct t with
+and pp_print_term_node ?as_type safe ppf t = match Term.T.destruct t with
     
   | Term.T.Var var -> pp_print_var safe ppf var
       
   | Term.T.Const s -> 
     
-    pp_print_symbol ppf (Symbol.node_of_symbol s)
+    pp_print_symbol_as_type as_type ppf (Symbol.node_of_symbol s)
       
   | Term.T.App (s, l) -> 
-    
+
     pp_print_app safe ppf (Symbol.node_of_symbol s) l
 
   | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node safe ppf t
+    pp_print_term_node ?as_type safe ppf t
       
 
 (* Pretty-print the second and following arguments of a
@@ -488,7 +500,6 @@ and pp_print_app safe ppf = function
   | `FALSE
   | `NUMERAL _
   | `DECIMAL _
-  | `CONSTR _
   (* | `BV _ *) -> (function _ -> assert false)
 
   (* Unary symbols *) 
@@ -622,30 +633,32 @@ and pp_print_app safe ppf = function
       
 
 (* Pretty-print a hashconsed term *)
-let pp_print_expr safe ppf expr =
-  pp_print_term_node safe ppf expr
+let pp_print_expr ?as_type safe ppf expr =
+  pp_print_term_node ?as_type safe ppf expr
 
 
 (* Pretty-print a hashconsed term to the standard formatter *)
-let print_expr safe = pp_print_expr safe Format.std_formatter 
+let print_expr ?as_type safe =
+  pp_print_expr ?as_type safe Format.std_formatter
 
 
 (* Pretty-print a typed Lustre expression *)
 let pp_print_lustre_expr safe ppf = function
 
   (* Same expression for initial state and following states *)
-  | { expr_init; expr_step } when Term.equal expr_init expr_step -> 
+  | { expr_init; expr_step; expr_type }
+       when Term.equal expr_init expr_step -> 
 
-    pp_print_expr safe ppf expr_step
+    pp_print_expr ~as_type:expr_type safe ppf expr_step
 
   (* Print expression of initial state followed by expression for
      following states *)
-  | { expr_init; expr_step } -> 
+  | { expr_init; expr_step; expr_type } -> 
 
     Format.fprintf ppf 
       "@[<hv 1>(%a@ ->@ %a)@]" 
-      (pp_print_expr safe) expr_init
-      (pp_print_expr safe) expr_step
+      (pp_print_expr ~as_type:expr_type safe) expr_init
+      (pp_print_expr ~as_type:expr_type safe) expr_step
 
 
 
@@ -967,7 +980,7 @@ let t_false =
 
 let mk_constr c t =  
 
-  let expr = Term.mk_const (Symbol.mk_constr c) in
+  let expr = Term.mk_constr c in
 
   { expr_init = expr; 
     expr_step = expr; 

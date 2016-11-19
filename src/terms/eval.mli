@@ -25,7 +25,6 @@ type value =
   | ValBool of bool
   | ValNum of Numeral.t
   | ValDec of Decimal.t
-  | ValConstr of string
   | ValTerm of Term.t
 
 val pp_print_value : Format.formatter -> value -> unit

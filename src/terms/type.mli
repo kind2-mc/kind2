@@ -24,16 +24,18 @@
 
 (** {1 Types and hash-consing} *)
 
+(** Tells if the range actually encodes an enumerated datatype *)
+type rangekind = Range | Enum
+
 (** Type of an expression *)
 type kindtype = 
   | Bool
   | Int
-  | IntRange of Numeral.t * Numeral.t
+  | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
 (*  | BV of int *)
   | Array of t * t
   | Abstr of string
-  | Enum of string option * string list
 
 (** Hashconsed type *)
 and t
@@ -103,10 +105,12 @@ val t_int : t
 (** The real decimal type *)
 val t_real : t
 
+
 (** {1 Type checking} *)
 
 (** [check_type s t] returns [true] if [s] is a subtype of [t] *)
 val check_type : t -> t -> bool
+
 
 (** {1 Predicates} *)
 
@@ -118,6 +122,9 @@ val is_int : t -> bool
 
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool
+
+(** Return [true] if the type is an integer range type *)
+val is_enum : t -> bool
 
 (** Return [true] if the type is the real type *)
 val is_real : t -> bool
@@ -131,13 +138,19 @@ val is_array : t -> bool
 (** Return [true] if the type is abstract *)
 val is_abstr : t -> bool
 
-(** Return [true] if the type is enumerated *)
-val is_enum : t -> bool
+(** {1 Ranges} *)
 
 (** Return bounds of an integer range type, fail with
     [Invalid_argument "bounds_of_int_range"] if the type is not an
     integer range type. *)
 val bounds_of_int_range : t -> (Numeral.t * Numeral.t)
+
+
+(** Generalize a type (remove actual intranges) *)
+val generalize : t -> t
+
+
+(** {1 Arrays } *)
 
 (** Return type of array index *)
 val index_type_of_array : t -> t 
@@ -148,11 +161,26 @@ val all_index_types_of_array : t -> t list
 (** Return type of array elements *)
 val elem_type_of_array : t -> t
 
+
+(** {1 Enumerated datatypes } *)
+
 (** Return constructors of an enumerated datatype *)
 val constructors_of_enum : t -> string list
 
-(** Generalize a type (remoe intranges) *)
-val generalize : t -> t
+(** Return the name of an enumerated datatype encoded as int ranges *)
+val name_of_enum : t -> string option
+
+(** Return the constructor encoded by the numeral argument *)
+val get_constr_of_num : Numeral.t -> string
+
+(** Return abstract types that have been built *)
+val get_all_abstr_types : unit -> t list
+
+(** Return the numeral encoding of a construcor of an enumerated datatype *)
+val get_num_of_constr : string -> Numeral.t
+
+(** Return the enumerated dataype to which the constructor belongs *)
+val enum_of_constr : string -> t
 
 
 (** {1 Pretty-printing} *)
@@ -169,17 +197,6 @@ val print_type : t -> unit
 (** Return a string representation of a type *)
 val string_of_type : t -> string
 
-(** Return abstract types that have been built *)
-val get_all_abstr_types : unit -> t list
-
-(** Return enumerated types that have been built *)
-val get_all_enum_types : unit -> t list
-
-(** return the enumerated datatype to which a constructor belongs (if any) *)
-val enum_of_constr : string -> t
-
-(** return the enumerated datatype whose name is the argument (if any) *)
-val enum_of_name : string -> t
 
 (* 
    Local Variables:

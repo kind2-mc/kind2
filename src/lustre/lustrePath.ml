@@ -621,15 +621,16 @@ let node_path_of_subsystems
 (* *************************************************************** *)
 
 (* Pretty-print a value *)
-let rec pp_print_value ppf term =
+let rec pp_print_value ty ppf term =
 
   (* We expect values to be constants *)
   if Term.is_numeral term then 
-
+    let n = Term.numeral_of_term term in
+    if Type.is_enum ty then
+      Type.get_constr_of_num n |> Format.pp_print_string ppf
+    else
     (* Pretty-print as a numeral *)
-    Numeral.pp_print_numeral 
-      ppf
-      (Term.numeral_of_term term)
+      Numeral.pp_print_numeral ppf n
 
   (* Constant is a decimal? *)
   else if Term.is_decimal term then 
@@ -663,7 +664,7 @@ let rec pp_print_value ppf term =
 
    Give [val_width] as the maximum expected width of the string
    representation of the values for correct alignment. *)
-let pp_print_stream_value_pt val_width ppf = function
+let pp_print_stream_value_pt ty val_width ppf = function
 
   (* Output a term as a value *)
   | Model.Term t -> 
@@ -672,7 +673,7 @@ let pp_print_stream_value_pt val_width ppf = function
       ppf
       "%-*s"
       val_width
-      (string_of_t pp_print_value t)    
+      (string_of_t (pp_print_value ty) t)    
 
   (* TODO: output an array *)
   | Model.Lambda _ -> assert false
@@ -733,7 +734,7 @@ let pp_print_call_pt ppf (name, pos) =
 
 
 (* Convert values to strings and update maximal lengths *)
-let rec values_to_strings val_width values = function
+let rec values_to_strings ty val_width values = function
 
   (* All values consumed, return in original order *)
   | [] -> (val_width, List.rev values)
@@ -742,7 +743,7 @@ let rec values_to_strings val_width values = function
   | Model.Term t :: tl -> 
 
     (* Convert value to string *)
-    let value_string = string_of_t pp_print_value t in
+    let value_string = string_of_t (pp_print_value ty) t in
 
     (* Keep track of maximum width of values *)
     let val_width = 
@@ -751,7 +752,7 @@ let rec values_to_strings val_width values = function
 
     (* Add string representation of value and continue with remaining
        values *)
-    values_to_strings 
+    values_to_strings ty
       val_width
       (value_string :: values)
       tl 
@@ -780,11 +781,13 @@ let rec streams_to_strings path ident_width val_width streams =
           string_of_t pp_print_stream_ident_pt (index, state_var)
         in
 
+        let ty = StateVar.type_of_state_var state_var in
+        
         (* Get values of stream and convert to strings, keep track of
            maximum width of values *)
         let val_width, stream_values = 
           SVT.find path state_var  
-          |> values_to_strings val_width []
+          |> values_to_strings ty val_width []
         in
 
         (* Keep track of maximum width of identifiers *)
@@ -1091,7 +1094,7 @@ let pp_print_stream_prop_xml ppf = function
 
 
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value ppf i = function
+let pp_print_stream_value ty ppf i = function
 
   | Model.Term t -> 
 
@@ -1099,7 +1102,7 @@ let pp_print_stream_value ppf i = function
       ppf
       "@,@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@,@]</Value>" 
       i
-      pp_print_value t    
+      (pp_print_value ty) t
 
   | Model.Lambda _ -> 
 
@@ -1124,7 +1127,8 @@ let pp_print_stream_xml get_source model ppf (index, state_var) =
       pp_print_stream_ident_xml (index, state_var)
       (E.pp_print_lustre_type false) stream_type
       pp_print_stream_prop_xml (get_source state_var)
-      (pp_print_listi pp_print_stream_value "") stream_values
+      (pp_print_listi
+         (pp_print_stream_value stream_type) "") stream_values
 
   with Not_found -> assert false
 
@@ -1283,7 +1287,7 @@ let pp_print_stream_csv model ppf (index, sv) =
       (pp_print_list
         (fun fmt -> function
           | Model.Term v ->
-            Format.fprintf fmt "%a" pp_print_value v
+            Format.fprintf fmt "%a" (pp_print_value typ3) v
           | Model.Lambda _ ->
             failwith "error: found lambda in model value"
         ) ","

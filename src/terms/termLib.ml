@@ -46,18 +46,14 @@ let default_of_type t =
     | Type.Int -> Term.mk_num Numeral.zero
 
     (* Integer range values are their lower bound by default *)
-    | Type.IntRange (l, _) -> Term.mk_num l
+    | Type.IntRange (l, _, _) -> Term.mk_num l
 
     (* Reals are zero by default *)
     | Type.Real -> Term.mk_dec Decimal.zero
 
-    (* First constructor of enumeration as default *)
-    | Type.Enum (_, c :: _) -> Term.mk_const (Symbol.mk_constr c)
-
     (* No defaults *)
     | Type.Abstr _
-    | Type.Array _
-    | Type.Enum (_, []) -> invalid_arg "default_of_type"
+    | Type.Array _ -> invalid_arg "default_of_type"
 
 
 
@@ -113,8 +109,6 @@ let rec logic_of_sort ty =
   | Real -> singleton RA
               
   | Array (ta, tr) -> add UF (union (logic_of_sort ta) (logic_of_sort tr))
-      
-  | Enum _ -> empty
 
 
 let s_abs = Symbol.mk_symbol `ABS

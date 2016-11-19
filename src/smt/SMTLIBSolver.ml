@@ -523,16 +523,16 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (* Send command to the solver without timeout *)
       execute_command solver cmd 0
 
-    | Type.Enum (name, l) ->
-      let s = match name with Some n -> n | None -> (string_of_sort sort) in
-      let cmd =
-        Format.asprintf "@[<hv 1>(declare-datatypes ()@ ((%s %a)))@]"
-          s
-          (pp_print_list (fun ppf -> Format.fprintf ppf "(%s)") " ") l
-      in
+    (* | Type.Enum (name, l) -> *)
+    (*   let s = match name with Some n -> n | None -> (string_of_sort sort) in *)
+    (*   let cmd = *)
+    (*     Format.asprintf "@[<hv 1>(declare-datatypes ()@ ((%s %a)))@]" *)
+    (*       s *)
+    (*       (pp_print_list (fun ppf -> Format.fprintf ppf "(%s)") " ") l *)
+    (*   in *)
 
-      (* Send command to the solver without timeout *)
-      execute_command solver cmd 0
+    (*   (\* Send command to the solver without timeout *\) *)
+    (*   execute_command solver cmd 0 *)
 
 
     | _ -> failwith "Only declare uninterpreted sorts."

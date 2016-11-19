@@ -45,9 +45,10 @@ module CandidateTermGen = struct
 
   end = struct
 
-    (* If svar is an IntRang(low,up) and low < up, generates terms low
-     <= x, x <= up, and x=n where x is an IntRange (low,up)
-     (n\in[low,up]). *)
+    (* If svar is an IntRange(low,up) and low < up, generates terms low <= x, x
+       <= up, and x=n where x is an IntRange (low,up) (n\in[low,up]). If svar
+       is of an encoded enumerated datatype, just generate equalities for each
+       constructor. *)
     let rec unroll_ranges svar set =
       
       (* Creates the terms for an intrange. *)
@@ -69,13 +70,19 @@ module CandidateTermGen = struct
 
       match StateVar.type_of_state_var svar |> Type.node_of_type with
 
-      | Type.IntRange (low,up) when not Numeral.(low = up) ->
+      (* Actual integer range *)
+      | Type.IntRange (low, up, Type.Range) when not Numeral.(low = up) ->
          
          unroll_range set low up var
          |> TSet.add
               (Term.mk_leq [ Term.mk_num low ; var ])
          |> TSet.add
               (Term.mk_leq [ var ; Term.mk_num up ])
+
+      (* Encoded enumerated datatype *)
+      | Type.IntRange (low, up, Type.Enum) ->
+         
+         unroll_range set low up var
 
       | _ -> set
 

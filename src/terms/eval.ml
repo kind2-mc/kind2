@@ -23,7 +23,6 @@ type value =
   | ValBool of bool
   | ValNum of Numeral.t
   | ValDec of Decimal.t
-  | ValConstr of string
   | ValTerm of Term.t
 
 
@@ -34,7 +33,6 @@ let pp_print_value ppf =
     | ValBool false -> Format.fprintf ppf "false"
     | ValNum n -> Format.fprintf ppf "%a" Numeral.pp_print_numeral n
     | ValDec d -> Format.fprintf ppf "%a" Decimal.pp_print_decimal d
-    | ValConstr c -> Format.fprintf ppf "%s" c
     | ValTerm t -> Format.fprintf ppf "%a" Term.pp_print_term t
 
 
@@ -53,8 +51,6 @@ let bool_of_value = function
       (Format.asprintf
          "bool_of_value: value %a is numeric" 
          Numeral.pp_print_numeral n)
-  | ValConstr c -> 
-    invalid_arg (Format.sprintf "bool_of_value: value %s is a constructor" c)
 
 (* Extract the integer value from the value of an expression *)
 let num_of_value = function 
@@ -70,11 +66,6 @@ let dec_of_value = function
   | _ -> invalid_arg "dec_of_value"
 
 
-let constr_of_value = function 
-  | ValConstr c -> c
-  | _ -> invalid_arg "constr_of_value"
-
-
 (* Check if the value is unknown *)
 let value_is_unknown = function 
   | ValTerm _ -> true
@@ -87,7 +78,6 @@ let term_of_value = function
   | ValBool false -> Term.mk_false ()
   | ValNum n -> Term.mk_num n
   | ValDec d -> Term.mk_dec d
-  | ValConstr s -> Term.mk_const (Symbol.mk_constr s)
   | ValTerm t -> t
 
 
@@ -113,7 +103,6 @@ let rec value_of_term term = match Term.destruct term with
         | `FALSE -> ValBool false
 
         (* Term is a constructor *)
-        | `CONSTR c -> ValConstr c
 (*
         (* Bitvectors not implemented *)
         | `BV _ -> assert false

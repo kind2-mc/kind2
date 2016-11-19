@@ -51,7 +51,6 @@ type 'a polynomial = 'a * 'a monomial list
 type t = 
   | Num of Numeral.t polynomial
   | Dec of Decimal.t polynomial
-  | Enum of Term.t
   | Bool of Term.t 
 
 
@@ -179,7 +178,6 @@ let term_of_nf = function
   | Num p -> term_of_num_polynomial p
   | Dec p -> term_of_dec_polynomial p
   | Bool b -> b
-  | Enum c -> c
 
 
 (* ********************************************************************** *)
@@ -215,8 +213,7 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | Enum t when Term.is_constr t -> true
-  | Num _ | Dec _ | Bool _ | Enum _ -> false
+  | Num _ | Dec _ | Bool _  -> false
 
 
 (* Return true if value is variable-free *)
@@ -240,10 +237,6 @@ let const_of_dec_polynomial = function
   | Dec p -> const_of_polynomial p
   | Num p -> const_of_polynomial p |> Numeral.to_big_int  |> Decimal.of_big_int 
   | _ -> assert false 
-
-(* let const_of_constr = function  *)
-(*   | Enum c -> c *)
-(*   | _ -> assert false  *)
 
 (* ********************************************************************** *)
 (* Arithmetic functions on polynomials (polymorphic)                      *)
@@ -647,7 +640,6 @@ let flatten_bool_subterms s l =
 
     (* Fail on non-boolean arguments *)
     | Num _ :: _
-    | Enum _ :: _
     | Dec _ :: _ -> assert false
 
   in
@@ -747,8 +739,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `FALSE, _
       | `TRUE, _
       | `NUMERAL _, _
-      | `DECIMAL _, _
-      | `CONSTR _, _  -> assert false
+      | `DECIMAL _, _ -> assert false
 (*
       | `BV _, _ -> assert false
 *)
@@ -792,7 +783,6 @@ let implies_to_or args =
     | [a] -> List.rev (a :: accum)
     | Bool h :: tl -> implies_to_or' (Bool (negate_nnf h) :: accum) tl
     | Num _ :: _
-    | Enum _ :: _
     | Dec _ :: _ -> assert false
   in
 
@@ -960,7 +950,7 @@ let relation
         args
 
     (* Relation must be between integers or reals *)
-    | Enum _ :: _ | Bool _ :: _ -> assert false
+    | Bool _ :: _ -> assert false
 
 
 (* Normalize equality relation between normal forms *)
@@ -1053,11 +1043,6 @@ let atom_of_term t =
     (* Variable is an atom *)
     Bool t
 
-  (* Term is of an enumerated datatype *)
-  else if Type.is_enum tt then
-
-    Enum t
-
     (* Term is of some other type (bitvector or array  *)
   else 
 
@@ -1126,9 +1111,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
           (* Polynomial for a decimal is d *)
           | `DECIMAL d -> Dec (d, [])
-
-          (* Constructor *)
-          | `CONSTR d -> Enum (Term.mk_const s)
 
           (* Propositional constant *)
           | `TRUE -> Bool (Term.t_true)
@@ -1575,8 +1557,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
               (* Not well-typed arguments *)
               | Bool _ :: Num _ :: _
               | Bool _ :: Dec _ :: _
-              | Bool _ :: Enum _ :: _
-              | Enum _ :: _
               | Num _ :: _ 
               | Dec _ :: _  -> assert false
 
@@ -1627,16 +1607,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   (Term.destruct (Term.mk_or [term_a'; term_b']))
                   [Bool term_a'; Bool term_b']
 
-              (* Eq between values of enumerated type *)
-              | [Enum a; Enum b] ->
-
-                if Term.is_constr a && Term.is_constr b then
-                  let ca, cb = Term.constr_of_term a, Term.constr_of_term b in
-                  if ca = cb then Bool (Term.mk_true ())
-                  else Bool (Term.mk_false ())
-                else
-                  Bool (Term.mk_eq [a; b])
-
               (* Equation between integers or reals *)
               | _ -> 
 
@@ -1684,8 +1654,6 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
               (* Evaluate to a Boolean *)
               | [Bool p; Bool l; Bool r] -> Bool (Term.mk_ite p l r)
-
-              | [Bool p; Enum l; Enum r] -> Bool (Term.mk_ite p l r)
 
               (* Evaluate to an integer atom *)
               | [Bool p; Num l; Num r] -> 
@@ -1930,8 +1898,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           | `TRUE
           | `FALSE
           | `NUMERAL _
-          | `DECIMAL _
-          | `CONSTR _ -> assert false
+          | `DECIMAL _ -> assert false
 (*
           | `BV _ -> assert false
 *)          

@@ -487,7 +487,6 @@ let ensure_symbol_qf_lira s =
   | `TO_INT
   | `IS_INT
   | `UF _
-  | `CONSTR _
     -> ()
 
   (* | `UF f when UfSymbol.arg_type_of_uf_symbol f = [] -> () *)
@@ -578,16 +577,16 @@ let declare_sort solver sort = match Type.node_of_type sort with
     (* Send command to the solver without timeout *)
     execute_command solver cmd 0
 
-  | Type.Enum (name, l) ->
-    let s = match name with Some n -> n | None -> (string_of_sort sort) in
-    let cmd =
-      Format.asprintf "@[<hv 1>(define-type@ %s@ (scalar %a))@]"
-        s
-        (pp_print_list Format.pp_print_string " ") l
-    in
+  (* | Type.Enum (name, l) -> *)
+  (*   let s = match name with Some n -> n | None -> (string_of_sort sort) in *)
+  (*   let cmd = *)
+  (*     Format.asprintf "@[<hv 1>(define-type@ %s@ (scalar %a))@]" *)
+  (*       s *)
+  (*       (pp_print_list Format.pp_print_string " ") l *)
+  (*   in *)
 
-    (* Send command to the solver without timeout *)
-    execute_command solver cmd 0
+  (*   (\* Send command to the solver without timeout *\) *)
+  (*   execute_command solver cmd 0 *)
 
 
   | _ -> failwith "Only declare uninterpreted and enumerated sorts."
