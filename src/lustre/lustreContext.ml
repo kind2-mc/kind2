@@ -1665,8 +1665,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                    pos
                    (Format.asprintf 
                       "Type mismatch in equation: %a and %a"
-                      Type.pp_print_type t
-                      Type.pp_print_type expr_type))
+                      (E.pp_print_lustre_type false) t
+                      (E.pp_print_lustre_type false) expr_type))
           (StateVar.type_of_state_var state_var )
           bounds
       in
@@ -1734,8 +1734,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                 pos
                 (Format.asprintf 
                    "Type mismatch in equation: %a and %a"
-                   Type.pp_print_type t
-                   Type.pp_print_type s)
+                   (E.pp_print_lustre_type false) t
+                   (E.pp_print_lustre_type false) s)
 
       in
 
@@ -1910,7 +1910,24 @@ let solve_fref { deps' } decl (f_type, f_ident) decls =
 
 
 (* Check that the node being defined has no undefined local variables *)
-let check_vars_defined ctx =
+let check_local_vars_defined ctx =
+  match ctx.node with
+  | Some { N.equations; N.is_extern = false } ->
+    (* Look for localss definitions *)
+    List.iter (fun (sv, id, pos) ->
+        if not (List.exists
+                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  equations )
+        then
+          (* Always fail *)
+          fail_at_position pos
+            (Format.asprintf "Local variable %a has no definition."
+               (I.pp_print_ident false) id)
+      ) ctx.locals_info
+  | _ -> ()
+
+
+let check_output_defined ctx =
   match ctx.node with
   | Some { N.equations; N.is_extern = false } ->
     (* Look for outputs definitions *)
@@ -1923,22 +1940,13 @@ let check_vars_defined ctx =
           fail_at_position pos
             (Format.asprintf "Output variable %a has no definition."
                (I.pp_print_ident false) id)
-      ) ctx.outputs_info;
-    (* Look for localss definitions *)
-    List.iter (fun (sv, id, pos) ->
-        if not (List.exists
-                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
-                  equations )
-        then
-          (* Always fail *)
-          fail_at_position pos
-            (Format.asprintf "Local variable %a has no definition."
-               (I.pp_print_ident false) id)
-      ) ctx.locals_info
-      
+      ) ctx.outputs_info
   | _ -> ()
 
 
+let check_vars_defined ctx =
+  (* check_outputs_defined ctx; *)
+  check_local_vars_defined ctx
   
 
 
