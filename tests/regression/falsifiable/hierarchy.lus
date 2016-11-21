@@ -16,7 +16,6 @@ let
      let
        o = i + 1 ;
      tel
-     returns o ;
   tel
 
   state ODD
@@ -33,10 +32,9 @@ let
     let
       o = -2 * i ;
     tel
-    returns o ;
   tel
 
-  returns o;
+  returns ..;
 
   cpt = 0 -> pre cpt + 1;
 

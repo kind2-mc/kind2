@@ -38,6 +38,7 @@ module S = LustreSimplify
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
+module ISet = Set.Make (String)
 
 module Deps = LustreDependencies
 
@@ -46,10 +47,39 @@ module Deps = LustreDependencies
 (* Auxiliary functions for automata encoding *)
 (*********************************************)
 
+(* Useful information for encoding automata *)
+type automaton_info = {
+  (* Name of the automaton *)
+  auto_name : string;
+
+  (* Inputs of the node in which the automaton appears *)
+  node_inputs : A.const_clocked_typed_decl list;
+
+  (* Outputs of the automaton (declared with returns) *)
+  auto_outputs : A.clocked_typed_decl list;
+
+  (* Other node variables *)
+  other_vars : A.const_clocked_typed_decl list;
+
+  (* Memories for [last] expressions, passed as inputs to the automaton
+     states *)
+  lasts_inputs : A.const_clocked_typed_decl list;
+
+  (* Enumerated datatype to represent states *)
+  states_lustre_type : A.lustre_type;
+
+  (* Local variables used to encode the internal state of the automaton *)
+  i_state_in : A.ident;
+  i_restart_in : A.ident;
+  i_state : A.ident;
+  i_restart : A.ident;
+}
+
+
 exception Found_auto_out of A.clocked_typed_decl
 exception Found_last_ty of A.lustre_type
 
-
+(* Create a new name for anonymous automata *)
 let fresh_automaton_name =
   let cpt = ref 0 in
   fun scope ->
@@ -113,34 +143,35 @@ let allowed_lasts inputs outputs locals =
     ) locals
 
 
-(* Useful information for encoding automata *)
-type automaton_info = {
-  (* Name of the automaton *)
-  auto_name : string;
+(* Infer defined streams of an automaton *)
 
-  (* Inputs of the node in which the automaton appears *)
-  node_inputs : A.const_clocked_typed_decl list;
+let rec defined_vars_struct_item acc = function
+  | A.SingleIdent (_, i)
+  | A.TupleSelection (_, i, _)
+  | A.FieldSelection (_, i, _)
+  | A.ArraySliceStructItem (_, i, _) -> ISet.add i acc
+  | A.TupleStructItem (_, l) -> List.fold_left defined_vars_struct_item acc l
 
-  (* Outputs of the automaton (declared with returns) *)
-  auto_outputs : A.clocked_typed_decl list;
+let defined_vars_lhs acc = function
+  | A.ArrayDef (_, i, _) -> ISet.add i acc 
+  | A.StructDef (_, l) -> List.fold_left defined_vars_struct_item acc l
 
-  (* Other node variables *)
-  other_vars : A.const_clocked_typed_decl list;
 
-  (* Memories for [last] expressions, passed as inputs to the automaton
-     states *)
-  lasts_inputs : A.const_clocked_typed_decl list;
+let rec defined_vars_equation acc = function
+  | A.Assert _ -> acc
+  | A.Automaton (_, _, _, A.Given returns) ->
+    List.fold_left (fun acc i -> ISet.add i acc) acc returns
+  | A.Automaton (_, _, states, A.Inferred) ->
+    List.fold_left (fun acc (A.State (_, _, _, _, eqs, _, _)) ->
+        List.fold_left defined_vars_equation acc eqs
+      ) acc states
+  | A.Equation (_, lhs, _) -> defined_vars_lhs acc lhs
+  
 
-  (* Enumerated datatype to represent states *)
-  states_lustre_type : A.lustre_type;
-
-  (* Local variables used to encode the internal state of the automaton *)
-  i_state_in : A.ident;
-  i_restart_in : A.ident;
-  i_state : A.ident;
-  i_restart : A.ident;
-}
-
+let defined_vars_eqs eqs =
+  List.fold_left defined_vars_equation ISet.empty eqs
+  |> ISet.elements
+  
 
 (*************************************)
 (* Auxiliary functions for contracts *)
@@ -954,8 +985,9 @@ let rec eval_node_equation inputs outputs locals ctx = function
       ctx
       equations
 
-  | A.Automaton (pos, aname, states, auto_outputs) ->
-    
+  | A.Automaton (pos, aname, states, _) as e ->
+
+    let auto_outputs = defined_vars_eqs [e] in
     eval_automaton pos aname states auto_outputs inputs outputs locals ctx
     
 

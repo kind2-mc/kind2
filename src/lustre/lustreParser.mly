@@ -581,7 +581,14 @@ node_equation:
   (* An automaton *)
   | AUTOMATON; i = option(ident); s = list(state);
     RETURNS; out = ident_list; SEMICOLON
-    { A.Automaton (mk_pos $startpos, i, s, out) }
+    { A.Automaton (mk_pos $startpos, i, s, A.Given out) }
+
+  | AUTOMATON; i = option(ident); s = list(state);
+    RETURNS DOTDOT SEMICOLON
+    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
+
+  | AUTOMATON; i = option(ident); s = nonempty_list(state)
+    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
 
 
 state_decl:

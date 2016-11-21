@@ -233,11 +233,13 @@ type transition_branch =
   
 type automaton_transition = position * transition_branch
 
+type auto_returns = Given of ident list | Inferred
+
 (* An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
-  | Automaton of position * ident option * state list * ident list
+  | Automaton of position * ident option * state list * auto_returns
 
 
 and state =
