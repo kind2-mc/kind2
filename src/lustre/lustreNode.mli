@@ -308,6 +308,9 @@ val ordered_equations_of_node :
 (** Returns the equation for a state variable if any. *)
 val equation_of_svar : t -> StateVar.t -> equation option
 
+(** Returns the equation for a state variable if any. *)
+val source_of_svar : t -> StateVar.t -> state_var_source option
+
 (** Returns the node call the svar is (one of) the output(s) of, if any. *)
 val node_call_of_svar : t -> StateVar.t -> node_call option
 

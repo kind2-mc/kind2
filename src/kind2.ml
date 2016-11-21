@@ -35,12 +35,13 @@ module IND2 = Step2
 module TestGen = TestgenDF
 module C2I = C2I
 module C2Icnf = C2Icnf
+module Flow = Kind2Flow
 
 
 (* Hide existential type parameter of to construct values of 'a InputSystem.t
    at runtime *)
 type any_input =
-  | Input : 'a InputSystem.t -> any_input
+| Input : 'a InputSystem.t -> any_input
 
 let children_pgid = ref 0
 
@@ -1042,7 +1043,6 @@ let main () =
         input_sys_sliced trans_sys param node_of_scope target
 
     ) else
-
       launch input_sys
   )
 

@@ -694,7 +694,7 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 
 (* Return a short representation of kind module *)
-let suffix_of_kind_module = function
+let short_name_of_kind_module = function
  | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
@@ -1147,6 +1147,18 @@ module ReservedIds = struct
     index_ident_string ;
   ]
 
+end
+
+
+(* |===| Exit codes. *)
+
+(** Exit codes. *)
+module ExitCodes = struct
+  let unknown = 0
+  let unsafe = 10
+  let safe = 20
+  let error = 2
+  let kid_status = 128
 end
 
 

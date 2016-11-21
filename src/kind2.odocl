@@ -5,6 +5,7 @@ Analysis
 Flags
 InvarManager
 Kind2
+Kind2Flow
 InputSystem
 Eval          
 Ident  
@@ -78,6 +79,7 @@ HString
 HStringSExpr
 Kind2Config
 Lib
+Res
 Messaging
 Numeral
 SExprBase

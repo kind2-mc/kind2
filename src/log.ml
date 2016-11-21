@@ -134,7 +134,7 @@ let pp_print_level_xml_cls ppf l =
   Format.fprintf ppf "%s" (xml_cls_of_level l)
 
 (* Kind module as source attribute of log tag *)
-let xml_src_of_kind_module = suffix_of_kind_module
+let xml_src_of_kind_module = short_name_of_kind_module
 
 (* Pretty-print kind module as source attribute of log tag *)
 let pp_print_kind_module_xml_src ppf m = 

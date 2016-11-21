@@ -19,6 +19,8 @@
 
 open Lib
 
+module Ignore = NuLustreContractGen
+
 module Sys = TransSys
 module Num = Numeral
 module Set = Term.TermSet
@@ -29,7 +31,6 @@ module SVM = SVar.StateVarMap
 module SVS = SVar.StateVarSet
 module VSet = Var.VarSet
 module Tree = Term.T
-
 
 let sys_name sys =
   Sys.scope_of_trans_sys sys |> Scope.to_string
@@ -506,8 +507,8 @@ let generate_contracts in_sys sys param get_node path =
       let assumptions, guarantees, modes =
         ( if Flags.Contracts.contract_gen_fine_grain () then
             List.rev_append non_trivial trivial
-          else non_trivial )
-        |> split
+          else non_trivial
+        ) |> split
       in
 
       Format.fprintf fmt

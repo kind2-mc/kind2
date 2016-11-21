@@ -221,74 +221,28 @@ let string_of_logic = function
 
 
 
-module Signals: sig
-
-  (** Pretty printer for signal info. *)
-  val pp_print_signals: Format.formatter -> unit -> unit
-
-  (** Sets the handler for sigalrm to ignore. *)
-  val ignore_sigalrm: unit -> unit
-  (** Sets the handler for sigint to ignore. *)
-  val ignore_sigint: unit -> unit
-  (** Sets the handler for sigquit to ignore. *)
-  val ignore_sigquit: unit -> unit
-  (** Sets the handler for sigterm to ignore. *)
-  val ignore_sigterm: unit -> unit
-  (** Sets the handler for sigpipe to ignore. *)
-  val ignore_sigpipe: unit -> unit
-
-  (** Sets a timeout handler for sigalrm. *)
-  val set_sigalrm_timeout: unit -> unit
-  (** Sets an exception handler for sigalarm. *)
-  val set_sigalrm_exn: unit -> unit
-  (** Sets an exception handler for sigint. *)
-  val set_sigint: unit -> unit
-  (** Sets an exception handler for sigquit. *)
-  val set_sigquit: unit -> unit
-  (** Sets an exception handler for sigterm. *)
-  val set_sigterm: unit -> unit
-
-  (** Sets a timeout. *)
-  val set_timeout: float -> unit
-  (** Sets a timeout from the timeout flag. *)
-  val set_timeout_from_flag: unit -> unit
-  (** Deactivates timeout. *)
-  val unset_timeout: unit -> unit
-
-  (** Raise exception on ctrl+c if true. *)
-  val catch_break: bool -> unit
-
-end = struct
+module Signals = struct
 
   type handler = | Ignore | Exn | Timeout
 
   let pp_print_handler fmt = function
-    | Ignore ->
-       Format.fprintf
-         fmt
-         "ignore"
-    | Exn ->
-       Format.fprintf
-         fmt
-         "raise exception"
-    | Timeout ->
-       Format.fprintf
-         fmt
-         "raise timeout"
+    | Ignore -> Format.fprintf fmt "ignore"
+    | Exn -> Format.fprintf fmt "raise exception"
+    | Timeout -> Format.fprintf fmt "raise timeout"
 
   type t = {
-      (* Signals. *)
-      mutable sigalrm: handler ;
-      mutable sigint:  handler ;
-      mutable sigquit: handler ;
-      mutable sigterm: handler ;
-      mutable sigpipe: handler ;
+    (* Signals. *)
+    mutable sigalrm: handler ;
+    mutable sigint:  handler ;
+    mutable sigquit: handler ;
+    mutable sigterm: handler ;
+    mutable sigpipe: handler ;
 
-      (* Timeout value. *)
-      mutable timeout: float option ;
+    (* Timeout value. *)
+    mutable timeout: float option ;
 
-      (* Raise [Break] on ctrl+c. *)
-      mutable break: bool ;
+    (* Raise [Break] on ctrl+c. *)
+    mutable break: bool ;
   }
 
   let signals = {
@@ -337,6 +291,18 @@ end = struct
       signals.sigalrm <- Ignore ;
       ignore_sig Sys.sigalrm
     )
+
+  (* Runs something while ignoring [sigalrm]. *)
+  let ignoring_sigalrm f =
+    let old = signals.sigalrm in
+    ignore_sigalrm () ;
+    let res =
+      try f () with e ->
+        signals.sigalrm <- old ;
+        raise e
+    in
+    signals.sigalrm <- old ;
+    res
 
   (* Sets the handler for sigint to ignore. *)
   let ignore_sigint () =
