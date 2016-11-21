@@ -564,7 +564,6 @@ node_item:
   | e = node_equation { A.EqAssert e }
   | a = main_annot { a }
   | p = property { p }
-  | a = node_automaton { a }
 
 
 (* An equations of a node *)
@@ -579,9 +578,7 @@ node_equation:
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
 
-
-
-node_automaton:
+  (* An automaton *)
   | AUTOMATON; i = option(ident); s = list(state);
     RETURNS; out = ident_list; SEMICOLON
     { A.Automaton (mk_pos $startpos, i, s, out) }

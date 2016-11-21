@@ -222,11 +222,6 @@ type eq_lhs =
   | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
-(* An equation or assertion in the node body *)
-type node_equation =
-  | Assert of position * expr
-  | Equation of position * eq_lhs * expr 
-
 type transition_to =
   | TransRestart of position * ident
   | TransResume of position * ident
@@ -238,7 +233,14 @@ type transition_branch =
   
 type automaton_transition = position * transition_branch
 
-type state =
+(* An equation or assertion in the node body *)
+type node_equation =
+  | Assert of position * expr
+  | Equation of position * eq_lhs * expr 
+  | Automaton of position * ident option * state list * ident list
+
+
+and state =
   | State of position * ident * bool *
              node_local_decl list *
              node_equation list *
@@ -251,7 +253,6 @@ type node_item =
   | EqAssert of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
-  | Automaton of position * ident option * state list * ident list
 
 
 (* A contract ghost constant. *)
@@ -861,6 +862,8 @@ let pp_print_node_item ppf = function
       pp_print_eq_lhs lhs
       pp_print_expr e
 
+  | EqAssert (Automaton (_,_,_,_)) -> assert false
+
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 
   | AnnotMain false -> Format.fprintf ppf "--!MAIN : false;"
@@ -871,7 +874,6 @@ let pp_print_node_item ppf = function
   | AnnotProperty (pos, Some name, e) ->
     Format.fprintf ppf "--%%PROPERTY \"%s\" %a;" name pp_print_expr e 
 
-  | Automaton _ -> assert false
 
 let pp_print_contract_ghost_const ppf = function 
 
@@ -1630,7 +1632,7 @@ let node_item_has_pre_or_arrow = function
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
 | AnnotMain _ -> None
 | AnnotProperty (_, _, e) -> has_pre_or_arrow e
-| Automaton _ -> assert false
+| EqAssert (Automaton _) -> assert false
 
 (** Checks whether a contract node equation has a `pre` or a `->`.
 

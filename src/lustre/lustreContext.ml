@@ -461,8 +461,10 @@ let add_type_for_ident ({ ident_type_map } as ctx) ident l_type =
   ctx
 
 
-(* Return nodes defined in context *)
-let get_nodes { nodes } = nodes
+(* Return nodes defined in all contexts *)
+let rec get_nodes ({ prev; nodes } as ctx) =
+  if ctx == prev then nodes
+  else nodes @ get_nodes prev
 
 (* Return the current node in context. *)
 let get_node { node } = node
@@ -748,10 +750,10 @@ let type_in_context { ident_type_map } ident =
 
 
 (* Return true if node has been declared in the context *)
-let node_in_context { nodes } ident = 
+let node_in_context ctx ident = 
   
-  (* Return if identifier is in context *)
-  N.exists_node_of_name ident nodes
+  (* Return if identifier is in context or previous contexts *)
+  N.exists_node_of_name ident (get_nodes ctx)
     
 
 (* Add newly created variable to locals *)
@@ -1142,7 +1144,11 @@ let mk_fresh_local
       (state_var, ctx)
 
 (* Return the node of the given name from the context*)
-let node_of_name { nodes } ident = N.node_of_name ident nodes
+let rec node_of_name ({ prev; nodes } as ctx) ident =
+  try N.node_of_name ident nodes
+  with Not_found ->
+    if ctx == prev then raise Not_found
+    else node_of_name prev ident
 
 
 (* Return the output variables of a node call in the context with the
@@ -1850,12 +1856,13 @@ let node_of_context = function
 (* Add node from second context to nodes of first *)
 let add_node_to_context ctx node_ctx =
   let n = node_of_context node_ctx in
-  let rec aux ctx =
-    { ctx with
-      prev = if ctx.prev == ctx then ctx.prev else aux ctx.prev;
-      nodes = n :: ctx.nodes }
-  in
-  aux ctx
+  (* let rec aux ctx = *)
+  (*   { ctx with *)
+  (*     prev = if ctx.prev == ctx then ctx.prev else aux ctx.prev; *)
+  (*     nodes = n :: ctx.nodes } *)
+  (* in *)
+  (* { ctx with prev = aux node_ctx.prev } *)
+  { ctx with prev = { node_ctx.prev with nodes = n :: node_ctx.prev.nodes } }
 
 
 (* Mark node as main node *)
