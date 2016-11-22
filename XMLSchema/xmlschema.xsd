@@ -232,35 +232,48 @@
     </xs:complexType>
   </xs:element>
 
+  <xs:complexType name="NodeLike">
+    <xs:sequence>
+      <!-- Typed version.
+           Does not work, cannot use same name with different types. -->
+      <!-- <xs:choice minOccurs="0" maxOccurs="unbounded">
+           <xs:element name="Stream" type="boolValued"/>
+           <xs:element name="Stream" type="intValued"/>
+           <xs:element name="Stream" type="realValued"/>
+           </xs:choice> -->
+      <xs:element ref="ActiveMode" minOccurs="0" maxOccurs="1"/>
+      <xs:element ref="Stream" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="Node"/>
+        <xs:element ref="Function"/>
+        <xs:element ref="State"/>
+        <xs:element ref="Automaton"/>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="line" type="posInt"/>
+    <xs:attribute name="column" type="posInt"/>
+  </xs:complexType>
+
+  
   <!-- Node, as output in a cex. -->
-  <xs:element name="Node">
-    <xs:complexType>
-      <xs:sequence>
-        <!-- Typed version.
-             Does not work, cannot use same name with different types. -->
-        <!-- <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="Stream" type="boolValued"/>
-          <xs:element name="Stream" type="intValued"/>
-          <xs:element name="Stream" type="realValued"/>
-        </xs:choice> -->
-        <xs:element ref="ActiveMode" minOccurs="0" maxOccurs="1"/>
-        <xs:element ref="Stream" minOccurs="0" maxOccurs="unbounded"/>
-        <xs:element ref="Node" minOccurs="0" maxOccurs="unbounded"/>
-        <xs:element ref="Automaton" minOccurs="0" maxOccurs="unbounded"/>
-      </xs:sequence>
-      <xs:attribute name="name" type="xs:string" use="required"/>
-      <xs:attribute name="line" type="posInt"/>
-      <xs:attribute name="column" type="posInt"/>
-    </xs:complexType>
-  </xs:element>
+  <xs:element name="Node" type="NodeLike"/>
 
+  <!-- Node, as output in a cex. -->
+  <xs:element name="Function" type="NodeLike"/>
 
+  <!-- Node, as output in a cex. -->
+  <xs:element name="State" type="NodeLike"/>
+
+  
   <!-- Counter example. -->
   <xs:element name="CounterExample">
     <xs:complexType>
-      <xs:sequence>
-        <xs:element ref="Node" minOccurs="1" maxOccurs="unbounded"/>
-      </xs:sequence>
+      <xs:choice minOccurs="1" maxOccurs="unbounded">
+        <xs:element ref="Node"/>
+        <xs:element ref="Function"/>
+        <xs:element ref="State"/>
+      </xs:choice>
     </xs:complexType>
   </xs:element>
 

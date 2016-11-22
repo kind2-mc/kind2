@@ -906,13 +906,24 @@ let rec pp_print_lustre_path_pt' ppf = function
 
   let (
     name, inputs, outputs, locals, is_visible,
-    model, active_modes, subnodes, title
+    model, active_modes, subnodes
   ) =
     name, inputs, outputs, locals,
-    N.state_var_is_visible node, model, active_modes, subnodes,
-    if not is_function then "Node" else "Function"
+    N.state_var_is_visible node, model, active_modes, subnodes
   in
 
+  let is_state, name =
+    match N.node_is_state_handler node with
+    | None -> false, name
+    | Some state -> true, I.mk_string_ident state
+  in
+
+  let title =
+    if is_function then "Function"
+    else if is_state then "State"
+    else "Node"
+  in
+  
   (* Remove first dimension from index *)
   let pop_head_index = function 
     | ([], sv) -> ([], sv)
@@ -926,6 +937,7 @@ let rec pp_print_lustre_path_pt' ppf = function
   let ident_width, val_width, inputs' = 
     D.bindings inputs
     |> List.map pop_head_index
+    |> List.filter (fun (_, sv) -> is_visible sv)
     |> streams_to_strings model ident_width val_width []
   in
 
@@ -933,6 +945,7 @@ let rec pp_print_lustre_path_pt' ppf = function
   let ident_width, val_width, outputs' = 
     D.bindings outputs
     |> List.map pop_head_index
+    |> List.filter (fun (_, sv) -> is_visible sv)
     |> streams_to_strings model ident_width val_width []
   in
 
@@ -1195,12 +1208,23 @@ let rec pp_print_lustre_path_xml' ppf = function
 
     let
       name, inputs, outputs, locals, is_visible, get_source,
-      model, active_modes, subnodes, title
-    =
+      model, active_modes, subnodes
+      =
       name, inputs, outputs, locals,
       N.state_var_is_visible node, N.get_state_var_source node,
-      model, active_modes, subnodes,
-      if not is_function then "Node" else "Function"
+      model, active_modes, subnodes
+    in
+  
+    let is_state, name =
+      match N.node_is_state_handler node with
+      | None -> false, name
+      | Some state -> true, I.mk_string_ident state
+    in
+
+    let title =
+      if is_function then "Function"
+      else if is_state then "State"
+      else "Node"
     in
 
     (* Remove first dimension from index *)
@@ -1212,12 +1236,14 @@ let rec pp_print_lustre_path_xml' ppf = function
     (* Remove index of position in input for printing *)
     let inputs' = 
       D.bindings inputs
+      |> List.filter (fun (_, sv) -> is_visible sv)
       |> List.map pop_head_index
     in
 
     (* Remove index of position in output for printing *)
     let outputs' = 
       D.bindings outputs
+      |> List.filter (fun (_, sv) -> is_visible sv)
       |> List.map pop_head_index
     in
 

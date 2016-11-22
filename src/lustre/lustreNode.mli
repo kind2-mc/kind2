@@ -398,6 +398,9 @@ val is_automaton_state_var : StateVar.t -> (string * string) option
     false if it was created internally. *)
 val node_is_visible : t -> bool
 
+(** Return the state that is handled by the node if any. *)
+val node_is_state_handler : t -> string option
+
 (** Return true if the state variable is an input *)
 val state_var_is_input : t -> StateVar.t -> bool
 

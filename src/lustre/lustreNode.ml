@@ -1374,12 +1374,12 @@ let state_var_is_visible node state_var =
     | exception Not_found -> false)
   &&
   let s = StateVar.name_of_state_var state_var in
-  let r = Format.sprintf ".*\\(%s\\|%s\\|%s\\|%s\\)$"
+  let r = Format.sprintf ".*\\(%s\\|%s\\|%s\\|%s\\|%s\\..*\\)$"
       state_in_string restart_in_string
-      state_in_next_string restart_in_next_string
+      state_in_next_string restart_in_next_string "last"
   in
   let r = Str.regexp r in
-  not (Str.string_match r s 0)
+  not (Str.string_match r s 0)  
 
 
 let is_automaton_state_var sv =
@@ -1397,9 +1397,20 @@ let is_automaton_state_var sv =
 
 let node_is_visible node =
   let open Lib.ReservedIds in
-  let r = Format.sprintf ".*\\.\\(%s\\|%s\\)\\." handler_string unless_string in
+  let r = Format.sprintf ".*\\.\\(%s\\)\\." unless_string in
   let r = Str.regexp r in
   not (Str.string_match r (I.string_of_ident false node.name) 0)
+
+
+let node_is_state_handler node =
+  let open Lib.ReservedIds in
+  let r = Format.sprintf ".*\\.\\(%s\\)\\.\\(.*\\)$" handler_string in
+  let r = Str.regexp r in
+  let s = I.string_of_ident false node.name in
+  if Str.string_match r s 0 then
+    try Some (Str.matched_group 2 s)
+    with Not_found -> None
+  else None
   
 
 (* Return true if the state variable is an input *)
