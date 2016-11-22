@@ -340,7 +340,7 @@ val scope_of_node : t -> Scope.t
 val fold_node_calls_with_trans_sys :
   t list -> (
     t -> TransSys.t ->
-    (TransSys.t * TransSys.instance) list -> 'a list -> 'a
+    (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a
   ) -> t -> TransSys.t -> 'a
 
 (** {2 Sources} *)

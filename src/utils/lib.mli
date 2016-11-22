@@ -198,6 +198,13 @@ val pp_print_list : (Format.formatter -> 'a -> unit) -> ('b, Format.formatter, u
 *)
 val pp_print_listi : (Format.formatter -> int -> 'a -> unit) -> ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
+(** Pretty-print two lists of the same length with given separator and maintain
+    a counter of their elements.*)
+val pp_print_list2i :
+  (Format.formatter -> int -> 'a -> 'b -> unit) ->
+  ('c, Format.formatter, unit) format ->
+  Format.formatter -> 'a list -> 'b list -> unit
+
 (** Pretty-print an option type *)
 val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a option -> unit
 

@@ -480,6 +480,24 @@ let rec pp_print_listi' pp sep ppf = function
 (* Pretty-print a list with a counter of its elements *)
 let pp_print_listi pp sep ppf l = pp_print_listi' pp sep ppf (0, l)
 
+
+
+let rec pp_print_list2i' pp sep ppf = function 
+  | _, [], [] -> ()
+  | i, [e1], [e2] -> pp ppf i e1 e2
+  | i, e1 :: tl1, e2 :: tl2 -> 
+    pp ppf i e1 e2;
+    (* Output separator *)
+    fprintf ppf sep; 
+    (* Output the rest of the two lists *)
+    pp_print_list2i' pp sep ppf (succ i, tl1, tl2)
+  | _ -> invalid_arg "pp_print_list2i"
+
+(* Pretty-print two lists of the same length with a counter of their
+   elements *)
+let pp_print_list2i pp sep ppf l1 l2 = pp_print_list2i' pp sep ppf (0, l1, l2)
+
+
 (* Pretty-print a list wrapped in parentheses *)
 let pp_print_paren_list ppf list = 
       

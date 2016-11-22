@@ -1033,12 +1033,15 @@ let nodes_of_subsystem subsystem =
 
 (* Stack for zipper in [fold_node_calls_with_trans_sys'] *)
 type fold_stack = 
-  | FDown of t * TransSys.t * (TransSys.t * TransSys.instance) list
-  | FUp of t * TransSys.t * (TransSys.t * TransSys.instance) list
+  | FDown of t * TransSys.t *
+             (TransSys.t * TransSys.instance * call_cond list) list
+  | FUp of t * TransSys.t *
+           (TransSys.t * TransSys.instance * call_cond list) list
 
 let rec fold_node_calls_with_trans_sys' 
     nodes
-    (f : t -> TransSys.t -> (TransSys.t * TransSys.instance) list -> 'a list -> 'a)
+    (f : t -> TransSys.t ->
+     (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a)
     accum = 
 
   function 
@@ -1060,7 +1063,7 @@ let rec fold_node_calls_with_trans_sys'
 
       let tl' = 
         List.fold_left 
-          (fun a { call_pos; call_node_name } ->
+          (fun a { call_pos; call_node_name; call_cond } ->
 
              (* Find called node by name *)
              let node' = node_of_name call_node_name nodes in
@@ -1083,7 +1086,8 @@ let rec fold_node_calls_with_trans_sys'
                  instances'
              in
 
-             FDown (node', trans_sys', (trans_sys, instance) :: instances) :: a)
+             FDown (node', trans_sys',
+                    (trans_sys, instance, call_cond) :: instances) :: a)
           (FUp (node, trans_sys, instances) :: tl)
 
           calls

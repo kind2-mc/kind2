@@ -50,6 +50,21 @@ let pp_print_model ppf model =
            Term.pp_print_lambda l)
     model
 
+(* Pretty-print a path *)
+let pp_print_path ppf path = 
+  SVT.iter
+    (fun sv l ->
+      Format.fprintf ppf
+        "@[<hv 2>%a =@ %a@]@ " 
+        StateVar.pp_print_state_var sv
+        (pp_print_list
+           (fun ppf -> function
+              | Term t -> Term.pp_print_term ppf t
+              | Lambda l -> Term.pp_print_lambda ppf l)
+           ", ")
+        l)
+    path
+
 (* Create a model of the given size *)
 let create sz = VT.create sz
 
