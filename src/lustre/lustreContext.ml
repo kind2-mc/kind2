@@ -903,8 +903,8 @@ let close_expr ?original pos ({ E.expr_init } as expr, ctx) =
       ) expr_init
     in
 
-    E.mk_arrow (E.mk_of_expr expr_init) expr, !rctx
-    
+    E.mk_arrow (E.mk_of_expr ~as_type:expr.E.expr_type expr_init) expr, !rctx
+
     (* (\* New oracle for each state variable *\) *)
     (* let oracle_substs, ctx = VS.fold (fun var (accum, ctx) ->  *)
 

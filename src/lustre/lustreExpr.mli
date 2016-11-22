@@ -373,7 +373,7 @@ val mk_let_pre : (StateVar.t * t) list -> t -> t
 val mk_int_expr : Numeral.t -> expr
 
 (** Return an expression with the same term on both sides of the [->] *)
-val mk_of_expr : expr -> t 
+val mk_of_expr : ?as_type:Type.t -> expr -> t 
 
 
 (** Return true if the expression is constant *)

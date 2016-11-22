@@ -379,7 +379,7 @@ and pp_print_term_node ?as_type safe ppf t = match Term.T.destruct t with
       
   | Term.T.App (s, l) -> 
 
-    pp_print_app safe ppf (Symbol.node_of_symbol s) l
+    pp_print_app ?as_type safe ppf (Symbol.node_of_symbol s) l
 
   | Term.T.Attr (t, _) -> 
     
@@ -492,7 +492,7 @@ and pp_print_app_chain safe s ppf = function
 
 
 (* Pretty-print a function application *)
-and pp_print_app safe ppf = function 
+and pp_print_app ?as_type safe ppf = function 
 
   (* Function application must have arguments, cannot have nullary
      symbols here *)
@@ -562,8 +562,8 @@ and pp_print_app safe ppf = function
         Format.fprintf ppf
           "if %a then %a else %a" 
           (pp_print_term_node safe) p
-          (pp_print_term_node safe) l
-          (pp_print_term_node safe) r
+          (pp_print_term_node ?as_type safe) l
+          (pp_print_term_node ?as_type safe) r
           
         | _ -> assert false)
         
@@ -2158,11 +2158,16 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
 let mk_int_expr n = Term.mk_num n
 
 
-let mk_of_expr expr = 
+let mk_of_expr ?as_type expr = 
+
+  let expr_type = match as_type with
+    | Some ty -> ty
+    | None -> Term.type_of_term expr
+  in
   
   { expr_init = expr; 
     expr_step = expr; 
-   expr_type = Term.type_of_term expr } 
+    expr_type } 
 
 (* 
    Local Variables:
