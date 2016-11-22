@@ -19,8 +19,6 @@
 
 open Lib
 
-module Ignore = NuLustreContractGen
-
 module Sys = TransSys
 module Num = Numeral
 module Set = Term.TermSet

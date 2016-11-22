@@ -218,6 +218,9 @@ let pp_print_uf ppf uf =
     (pp_print_list Type.pp_print_type "@ ") (UfSymbol.arg_type_of_uf_symbol uf)
     Type.pp_print_type (UfSymbol.res_type_of_uf_symbol uf)
 
+
+let pp_print_trans_sys_name fmt { scope } =
+  Format.fprintf fmt "%a" Scope.pp_print_scope scope
     
 let pp_print_trans_sys 
     ppf
@@ -1284,6 +1287,11 @@ let get_prop_status_all_unknown t =
     []
     t.properties
 
+
+(** Returns true iff sys has at least one property. *)
+let has_properties = function
+| { properties = [] } -> false
+| _ -> true
 
 (* Return true if all properties which are not candidates are either valid or
    invalid *)

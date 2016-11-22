@@ -110,6 +110,9 @@ val compare_scope : t -> t -> int
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
+(** Pretty-print the name of a transition system *)
+val pp_print_trans_sys_name : Format.formatter -> t -> unit
+
 (** {1 Accessors} *)
 
 (** Close the initial state constraint by binding all instance
@@ -498,6 +501,9 @@ val set_prop_false :
 
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
+
+(** Returns true iff sys has at least one property. *)
+val has_properties : t -> bool
 
 (** Return true if all properties which are not candidates are either valid or
     invalid *)

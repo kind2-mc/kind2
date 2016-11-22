@@ -1043,7 +1043,9 @@ let main () =
         input_sys_sliced trans_sys param node_of_scope target
 
     ) else
-      launch input_sys
+      let Input input_sys = input_sys in
+      Kind2Flow.run input_sys
+      (* launch input_sys *)
   )
 
 ;;

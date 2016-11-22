@@ -16,6 +16,8 @@
 
 *)
 
+module Num = Numeral
+
 module ISys = InputSystem
 module TSys = TransSys
 module Anal = Analysis
@@ -56,31 +58,44 @@ module type PostAnal = sig
   val run:
     (** Input system. *)
     'a ISys.t ->
-    (** Transition system. *)
-    TSys.t ->
     (** Analysis parameter. *)
     Anal.param ->
     (** Results for the current system. *)
-    Anal.result list
+    Anal.results
     (** Can fail. *)
     -> unit res
 end
 
-(** Test generation. *)
+(** Test generation.
+Generates tests for a system if system's was proved correct under the maximal
+abstraction. *)
 module RunTestGen: PostAnal = struct
   let is_active () = Flags.Testgen.active ()
-  let run i_sys sys param results =
+  let run i_sys param results =
+    (* To do: check that everything was proved with the maximal abstraction
+    before running. Otherwise: illegal to run test generation. *)
     Err (
       fun fmt -> Format.fprintf fmt "test generation is unimplemented"
     )
 end
 
-(** Contract generation. *)
+(** Contract generation.
+Generates contracts by running invariant generation techniques. *)
 module RunContractGen: PostAnal = struct
   let is_active () = Flags.Contracts.contract_gen ()
-  let run i_sys sys param results =
+  let run i_sys param results =
     Err (
       fun fmt -> Format.fprintf fmt "contract generation unimplemented"
+    )
+end
+
+(** Invariant log.
+Minimizes and logs invariants used in the proof. *)
+module RunInvLog: PostAnal = struct
+  let is_active () = false
+  let run i_sys param results =
+    Err (
+      fun fmt -> Format.fprintf fmt "invariant logging unimplemented"
     )
 end
 
@@ -88,14 +103,17 @@ end
 let post_anal = [
   (module RunTestGen: PostAnal) ;
   (module RunContractGen: PostAnal) ;
+  (module RunInvLog: PostAnal) ;
 ]
 
 (** Runs the post-analysis things on a system and its results. *)
-let run_post_anal i_sys sys param results =
+let run_post_anal i_sys param results =
   post_anal |> l_iter (
     fun m ->
       let module Module = (val m: PostAnal) in
-      Module.run i_sys sys param results
+      if Module.is_active () then
+        Module.run i_sys param results
+      else Ok ()
   )
 
 
@@ -132,16 +150,16 @@ let main_of_process = function
 
 (** Cleanup function of the process *)
 let on_exit_of_process = function
-  | `IC3 -> IC3.on_exit
-  | `BMC -> BMC.on_exit
-  | `IND -> IND.on_exit
-  | `IND2 -> IND2.on_exit
-  | `INVGEN -> InvGen.exit
-  | `INVGENOS -> InvGen.exit
-  | `C2I -> C2I.on_exit
-  | `Interpreter -> Interpreter.on_exit
-  | `Supervisor -> InvarManager.on_exit
-  | `Parser | `Certif -> ignore
+  | `IC3 -> IC3.on_exit None
+  | `BMC -> BMC.on_exit None
+  | `IND -> IND.on_exit None
+  | `IND2 -> IND2.on_exit None
+  | `INVGEN -> InvGen.exit None
+  | `INVGENOS -> InvGen.exit None
+  | `C2I -> C2I.on_exit None
+  | `Interpreter -> Interpreter.on_exit None
+  | `Supervisor -> InvarManager.on_exit None
+  | `Parser | `Certif -> ()
 
 (** Short name for a kind module. *)
 let debug_ext_of_process = short_name_of_kind_module
@@ -332,11 +350,11 @@ let on_exit sys process results exn =
 
 (** Call cleanup function of process and exit.
 Give the exception [exn] that was raised or [Exit] on normal termination. *)
-let on_exit_child ?(alone=false) sys messaging_thread process exn =
+let on_exit_child ?(alone=false) messaging_thread process exn =
   (* Exit status of process depends on exception *)
   let status = status_of_exn process 0 exn in
   (* Call cleanup of process *)
-  on_exit_of_process process (Some sys) ;
+  on_exit_of_process process ;
   Unix.getpid () |> Event.log L_debug "Process %d terminating" ;
 
   ( match messaging_thread with
@@ -353,32 +371,32 @@ let on_exit_child ?(alone=false) sys messaging_thread process exn =
 
 
 (** Forks and runs a child process. *)
-let run_process in_sys sys param messaging_setup process =
-  (* Fork a new process *)
+let run_process in_sys param sys messaging_setup process =
+  (* Fork a new process. *)
   let pid = Unix.fork () in
   match pid with
-  (* We are the child process *)
+  (* We are the child process. *)
   | 0 -> (
-    (* Ignore SIGALRM in child process *)
+    (* Ignore SIGALRM in child process. *)
     Signals.ignore_sigalrm () ;
-    (* Make the process leader of a new session *)
+    (* Make the process leader of a new session. *)
     Unix.setsid () |> ignore ;
     let pid = Unix.getpid () in
-    (* Initialize messaging system for process *)
+    (* Initialize messaging system for process. *)
     let messaging_thread =
-      on_exit_child sys None process
+      on_exit_child None process
       |> Event.run_process process messaging_setup
     in
 
     try 
 
-      (* All log messages are sent to the invariant manager now *)
+      (* All log messages are sent to the invariant manager now. *)
       Event.set_relay_log ();
 
-      (* Set module currently running *)
+      (* Set module currently running. *)
       Event.set_module process;
 
-      (* Record backtraces on log levels debug and higher *)
+      (* Record backtraces on log levels debug and higher. *)
       if output_on_level L_debug then
         Printexc.record_backtrace true ;
 
@@ -387,44 +405,41 @@ let run_process in_sys sys param messaging_setup process =
         pp_print_kind_module process
         pid;
 
-      ( (* Change debug output to per process file *)
+      ( (* Change debug output to per process file. *)
         match Flags.debug_log () with 
         (* Keep if output to stdout. *)
         | None -> ()
         
         (* Open channel to given file and create formatter on channel. *)
         | Some f ->
-          try (* Output to f.PROCESS-PID *)
+          try (* Output to [f.PROCESS-PID]. *)
             let f' = 
               Format.sprintf "%s.%s-%d" 
-                f
-                (debug_ext_of_process process)
-                pid
+                f (debug_ext_of_process process) pid
             in
 
-            (* Open output channel to file *)
+            (* Open output channel to file. *)
             let oc = open_out f' in
 
-            (* Formatter writing to file *)
-            let debug_formatter = Format.formatter_of_out_channel oc in
-            Debug.set_formatter debug_formatter
+            (* Formatter writing to file. *)
+            Format.formatter_of_out_channel oc |> Debug.set_formatter
 
           with
-          (* Ignore and keep previous file on error *)
+          (* Ignore and keep previous file on error. *)
           | Sys_error _ -> () 
 
       ) ;
       (* Retrieve input system. *)
-      let Input in_sys = in_sys in
+      (* let in_sys = in_sys in *)
       (* Run main function of process *)
       main_of_process process in_sys param sys ;
       (* Cleanup and exit *)
-      on_exit_child sys (Some messaging_thread) process Exit
+      on_exit_child (Some messaging_thread) process Exit
 
     with
     (* Termination message received. *)
     | Event.Terminate as e ->
-      on_exit_child sys (Some messaging_thread) process e
+      on_exit_child (Some messaging_thread) process e
     (* Catch all other exceptions. *)
     | e ->
       (* Get backtrace now, Printf changes it. *)
@@ -436,15 +451,182 @@ let run_process in_sys sys param messaging_setup process =
           pp_print_kind_module process
           print_backtrace backtrace
       ) ;
-      (* Cleanup and exit *)
-      on_exit_child sys (Some messaging_thread) process e
+      (* Cleanup and exit. *)
+      on_exit_child (Some messaging_thread) process e
 
   )
 
-  (* We are the parent process *)
+  (* We are the parent process. *)
   | _ ->
-    (* Keep PID of child process and return *)
+    (* Keep PID of child process and return. *)
     child_pids := (pid, process) :: !child_pids
+
+(** Performs an analysis. *)
+let analyze msg_setup modules results in_sys param sys =
+  Stat.start_timer Stat.analysis_time ;
+
+  ( if TSys.has_properties sys |> not then
+      Event.log L_warn "System %a has no property, skipping verification step."
+        TSys.pp_print_trans_sys_name sys
+    else
+      let props = TSys.props_list_of_bound sys Num.zero in
+      (* Issue analysis start notification. *)
+      Event.log_analysis_start sys param ;
+      (* Debug output system. *)
+      Debug.parse "%a" TSys.pp_print_trans_sys sys ;
+      (* Issue number of properties. *)
+      List.length props |> Event.log L_info "%d properties." ;
+
+      Event.log L_debug "Starting child processes." ;
+      (* Start all child processes. *)
+      modules |> List.iter (
+        fun p -> run_process in_sys param sys msg_setup p
+      ) ;
+      (* Update background thread with new kids. *)
+      Event.update_child_processes_list !child_pids ;
+
+      (* Running supervisor. *)
+      InvarManager.main child_pids in_sys param sys ;
+
+      (* Killing kids when supervisor's done. *)
+      Some sys |> slaughter_kids `Supervisor
+  ) ;
+
+  let result =
+    Stat.get_float Stat.analysis_time
+    |> Analysis.mk_result param sys
+  in
+  let results = Analysis.results_add result results in
+
+  (* Issue analysis end notification. *)
+  Event.log_analysis_end result ;
+  (* Issue analysis outcome. *)
+  Event.log L_info "Result: %a" Analysis.pp_print_result result ;
+
+  (* Run post-analysis things. *)
+  ( match run_post_anal in_sys param results with
+    | Ok () -> ()
+    | Err err -> Event.log L_error "Error: @[<v>%t@]" err
+  ) ;
+
+  results
+
+(** Runs the analyses produced by the strategy module. *)
+let run in_sys =
+
+  (* Who's active? *)
+  match Flags.enabled () with
+
+  (* Nothing's active. *)
+  | [] ->
+    Event.log L_fatal "Need at least one Kind 2 module active." ;
+    exit ExitCodes.error
+
+  (* Only the interpreter is active. *)
+  | [m] when m = `Interpreter -> (
+    match
+      Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
+    with
+    | Some param ->
+      (* Build trans sys and slicing info. *)
+      let sys, in_sys_sliced =
+        ISys.trans_sys_of_analysis in_sys param
+      in
+      (* Set module currently running. *)
+      Event.set_module m ;
+      (* Run interpreter. *)
+      Interpreter.main (
+        Flags.Interpreter.input_file ()
+      ) in_sys param sys ;
+      (* Ignore SIGALRM from now on *)
+      Signals.ignore_sigalrm () ;
+      (* Cleanup before exiting process *)
+      on_exit_child None m Exit
+    | None ->
+      failwith "Could not generate first analysis parameter."
+  )
+
+  (* Some modules, including the interpreter. *)
+  | modules when List.mem `Interpreter modules ->
+    Event.log L_fatal "Cannot run the interpreter with other processes." ;
+    exit ExitCodes.error
+
+  (* Some analysis modules. *)
+  (* Some modules, not including the interpreter. *)
+  | modules ->
+    Event.log L_info
+      "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
+      (pp_print_list pp_print_kind_module "@ - ")
+      modules ;
+    (* Setup messaging. *)
+    let msg_setup = Event.setup () in
+
+    (* Runs the next analysis, if any. *)
+    let rec loop results =
+      match ISys.next_analysis_of_strategy in_sys results with
+      
+      | Some param ->
+        (* Build trans sys and slicing info. *)
+        let sys, in_sys_sliced =
+          ISys.trans_sys_of_analysis in_sys param
+        in
+        (* Analyze... *)
+        analyze msg_setup modules results in_sys param sys
+        (* ...and loop. *)
+        |> loop
+
+      | None -> results
+    in
+
+    (* Set module currently running *)
+    Event.set_module `Supervisor ;
+    (* Initialize messaging for invariant manager, obtain a background thread.
+    No kids yet. *)
+    Event.run_im msg_setup [] (on_exit None `Supervisor None) |> ignore ;
+    Event.log L_debug "Messaging initialized in supervisor." ;
+
+    try (
+      (* Run everything. *)
+      let results =
+        Analysis.mk_results () |> loop |> Analysis.results_clean
+      in
+
+      (* Producing a list of the last results for each system, in topological
+      order. *)
+      in_sys |> InputSystem.ordered_scopes_of
+      |> List.fold_left (fun l sys ->
+        try (
+          match Analysis.results_find sys results with
+          | last :: _ -> last :: l
+          | [] ->
+            Format.asprintf "Unreachable: no results at all for system %a."
+              Scope.pp_print_scope sys
+            |> failwith
+        ) with
+        | Not_found -> l
+        | Failure s ->
+          Event.log L_fatal "Failure: %s" s ;
+          l
+        | e ->
+          Event.log L_fatal "%s" (Printexc.to_string e) ;
+          l
+      ) []
+      (* Logging the end of the run. *)
+      |> Event.log_run_end ;
+
+      post_clean_exit `Supervisor (Some results) Exit
+
+    ) with e ->
+      (* Get backtrace now, Printf changes it *)
+      let backtrace = Printexc.get_raw_backtrace () in
+
+      if Printexc.backtrace_status () then
+        Event.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
+          (Printexc.to_string e)
+          pp_print_kind_module `Supervisor
+          print_backtrace backtrace;
+
+      on_exit None `Supervisor None e
 
 (* 
    Local Variables:
