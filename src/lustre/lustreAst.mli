@@ -177,8 +177,8 @@ type eq_lhs =
   | StructDef of position * struct_item list
 
 type transition_to =
-  | TransRestart of position * ident
-  | TransResume of position * ident
+  | TransRestart of position * (position * ident)
+  | TransResume of position * (position * ident)
 
 type transition_branch =
   | Target of transition_to

@@ -648,11 +648,15 @@ elsif_branch:
   | ELSIF; e = expr; b = branch; b2 = elsif_branch
     { A.TransIf (mk_pos $startpos, e, b, Some b2) }
 
+target_state:
+  | s = ident
+    { mk_pos $startpos, s }
+
 target:
-  | RESTART; s = ident
+  | RESTART; s = target_state
     { A.TransRestart (mk_pos $startpos, s) }
 
-  | RESUME; s = ident
+  | RESUME; s = target_state
     { A.TransResume (mk_pos $startpos, s) }
 
 left_side:

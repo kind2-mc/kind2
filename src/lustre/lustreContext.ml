@@ -1886,7 +1886,7 @@ let get_node_function_flag ctx = match ctx with
 
 
 (* Resolve a forward reference, fails if a circular dependency is detected. *)
-let solve_fref { deps' } decl (f_type, f_ident) decls =
+let solve_fref { deps' } decl (f_type, f_ident, f_pos) decls =
   (* Retrieve info of current declaration. *)
   let pos, ident, typ = Deps.info_of_decl decl in
   (* Does the declaration forward ref-ed depend on current declaration? *)
@@ -1912,7 +1912,7 @@ let solve_fref { deps' } decl (f_type, f_ident) decls =
           | typ -> Deps.pp_print_decl ppf typ
         ) f_type (I.pp_print_ident false) f_ident
         Deps.pp_print_decl typ (I.pp_print_ident false) ident
-      |> fail_at_position pos
+      |> fail_at_position f_pos
   )
 
 

@@ -96,7 +96,7 @@ val add_node_to_context : t -> t -> t
 
 (** Resolve a forward reference, fails if a circular dependency is detected. *)
 val solve_fref : t -> LustreAst.declaration -> (
-  LustreDependencies.decl * LustreIdent.t
+  LustreDependencies.decl * LustreIdent.t * Lib.position
 ) -> LustreAst.declaration list -> LustreAst.declaration list
 
 (** Add a binding of an identifier to an expression to context 

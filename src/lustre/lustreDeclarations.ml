@@ -1394,7 +1394,7 @@ and eval_node_contract_call known ctx scope inputs outputs locals (
     try C.contract_node_decl_of_ident ctx id
     with Not_found ->
       (* Contract might be forward referenced. *)
-      Deps.Unknown_decl (Deps.Contract, ident) |> raise
+      Deps.Unknown_decl (Deps.Contract, ident, call_pos) |> raise
   in
 
   (* Failing for unsupported features. *)
@@ -1725,7 +1725,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 
     (* Pass [pre .] as arguments for the [last .] in the handler and unless of
        the state *)
-    let lasts_args = List.map (fun l ->
+    let lasts_args pos = List.map (fun l ->
         A.Pre (pos, (A.Ident (pos, l)))
       ) lasts in
     
@@ -1856,7 +1856,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            (* restart *)
            A.Ident (pos, i_restart),
            (* arguments to the call = inputs of the node + others + lasts *)
-           inputs_idents @ other_vars_idents @ lasts_args
+           inputs_idents @ other_vars_idents @ (lasts_args pos)
           )
       ) handlers states in
 
@@ -1886,7 +1886,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            (* arguments = state_in + restart_in + inputs of the node + outputs
               of the automaton + others*)
            A.Ident (pos, i_state_in) :: A.Ident (pos, i_restart_in) ::
-           inputs_idents @ auto_outputs_idents @ other_vars_idents @ lasts_args
+           inputs_idents @ auto_outputs_idents @ other_vars_idents @
+           (lasts_args pos)
           )
       ) unlesses states in
 
@@ -1914,20 +1915,20 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 (* Encode branching conditions for transitions as an expression *)
 and encode_transition_branch pos state_c default = function
   (* restart t *)
-  | A.Target (A.TransRestart (pos_t, t)) ->
-    A.ExprList (pos, [A.Ident (pos_t, t); A.True pos])
+  | A.Target (A.TransRestart (pos_t, (pos_s, s))) ->
+    A.ExprList (pos_t, [A.Ident (pos_s, s); A.True pos_t])
   (* resume t *)
-  | A.Target (A.TransResume (pos_t, t)) ->
-    A.ExprList (pos, [A.Ident (pos_t, t); A.False pos])
+  | A.Target (A.TransResume (pos_t, (pos_s, s))) ->
+    A.ExprList (pos_t, [A.Ident (pos_s, s); A.False pos_t])
   (* if cond then_br; *)
   | A.TransIf (posif, cond, then_br, None) ->
-    A.Ite (pos, cond,
+    A.Ite (posif, cond,
            encode_transition_branch pos state_c default then_br,
            (* else default *)
            default)
   (* if cond then then_br else/elsif else_br end; *)
   | A.TransIf (posif, cond, then_br, Some else_br) ->
-    A.Ite (pos, cond,
+    A.Ite (posif, cond,
            encode_transition_branch pos state_c default then_br,
            encode_transition_branch pos state_c default else_br)
            
@@ -2457,8 +2458,8 @@ let rec declarations_to_context ctx = function
     (* Otherwise, something unknown was found. Let's check if this something is
     forward referenced. *)
     with
-    | Deps.Unknown_decl (typ, ident) ->
-      ctx, C.solve_fref ctx decl (typ, ident) tail
+    | Deps.Unknown_decl (typ, ident, pos) ->
+      ctx, C.solve_fref ctx decl (typ, ident, pos) tail
   in
   (* Looping with (potentially) new context and tail. *)
   declarations_to_context ctx tail

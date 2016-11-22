@@ -652,7 +652,7 @@ let rec eval_ast_expr ctx = function
 
       with Not_found ->
         (* Type might be forward referenced. *)
-        Deps.Unknown_decl (Deps.Type, record_ident) |> raise
+        Deps.Unknown_decl (Deps.Type, record_ident, pos) |> raise
 
     in
 
@@ -1120,7 +1120,7 @@ and eval_ident ctx pos i =
     D.singleton D.empty_index (E.mk_constr i ty), ctx
   with Not_found ->
     (* Might be a forward referenced constant. *)
-    Deps.Unknown_decl (Deps.Const, ident) |> raise
+    Deps.Unknown_decl (Deps.Const, ident, pos) |> raise
 
 (* Return the constant inserted into an empty trie *)
 and eval_nullary_expr ctx pos expr =
@@ -1263,7 +1263,7 @@ and try_eval_node_call ctx pos ident cond restart args defaults =
     (* No node of that name *)
     | None ->
       (* Node may be forward referenced *)
-      Deps.Unknown_decl (Deps.NodeOrFun, ident) |> raise
+      Deps.Unknown_decl (Deps.NodeOrFun, ident, pos) |> raise
 
 
 
@@ -1643,7 +1643,7 @@ let rec eval_ast_type ctx = function
       C.type_of_ident ctx ident
     with Not_found ->
       (* Type might be forward referenced. *)
-      Deps.Unknown_decl (Deps.Type, ident) |> raise
+      Deps.Unknown_decl (Deps.Type, ident, pos) |> raise
   )
 
   (* Record type, return trie of indexes in record *)
