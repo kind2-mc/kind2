@@ -87,8 +87,30 @@ let fresh_automaton_name =
     String.concat "." (scope @ ["automaton" ^ string_of_int !cpt])
 
 
+let rec replace_lasts_branch allowed name acc = function
+  | A.Target _ as t -> t, acc
+  | A.TransIf (pos, e, br, None) as t ->
+    let e', acc = A.replace_lasts allowed name acc e in
+    let br', acc = replace_lasts_branch allowed name acc br in
+    if e' == e && br' == br then t, acc
+    else A.TransIf (pos, e', br', None), acc
+  | A.TransIf (pos, e, br, Some br2) as t ->
+    let e', acc = A.replace_lasts allowed name acc e in
+    let br', acc = replace_lasts_branch allowed name acc br in
+    let br2', acc = replace_lasts_branch allowed name acc br2 in
+    if e' == e && br' == br && br2' = br2 then t, acc
+    else A.TransIf (pos, e', br', Some br2'), acc
+
+let replace_lasts_transition allowed name acc = function
+  | None -> None, acc
+  | Some (pos, br) ->
+    let br, acc = replace_lasts_branch allowed name acc br in
+    Some (pos, br), acc
+
 let rec replace_lasts_state allowed name acc = function
   | A.State (pos, state_c, init, locals, eqs, unless_tr, until_tr) ->
+    let unless_tr, acc = replace_lasts_transition allowed name acc unless_tr in
+    let until_tr, acc = replace_lasts_transition allowed name acc until_tr in
     let eqs, acc = List.fold_left (fun (eqs, acc) -> function
         | A.Assert (pos, e) as eq ->
           let e', acc' = A.replace_lasts allowed name acc e in
@@ -1701,8 +1723,9 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
           C.fail_at_position pos ("Last type for "^l^" could not be inferred")
       ) lasts in
 
-    (* Pass [pre .] as arguments for the [last .] in the handler of the state *)
-    let lasts_args_handlers = List.map (fun l ->
+    (* Pass [pre .] as arguments for the [last .] in the handler and unless of
+       the state *)
+    let lasts_args = List.map (fun l ->
         A.Pre (pos, (A.Ident (pos, l)))
       ) lasts in
     
@@ -1833,7 +1856,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            (* restart *)
            A.Ident (pos, i_restart),
            (* arguments to the call = inputs of the node + others + lasts *)
-           inputs_idents @ other_vars_idents @ lasts_args_handlers
+           inputs_idents @ other_vars_idents @ lasts_args
           )
       ) handlers states in
 
@@ -1863,7 +1886,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            (* arguments = state_in + restart_in + inputs of the node + outputs
               of the automaton + others*)
            A.Ident (pos, i_state_in) :: A.Ident (pos, i_restart_in) ::
-           inputs_idents @ auto_outputs_idents @ other_vars_idents
+           inputs_idents @ auto_outputs_idents @ other_vars_idents @ lasts_args
           )
       ) unlesses states in
 
@@ -1958,7 +1981,7 @@ and encode_until_handler pos
 (* encoding of unless condition for strong transition as an auxiliary node *)
 and encode_unless pos
     {auto_name; states_lustre_type;
-     node_inputs; auto_outputs; other_vars;
+     node_inputs; auto_outputs; other_vars; lasts_inputs;
      i_state_in; i_restart_in; i_state; i_restart }
     state_c unless_tr ctx =
   let skip = A.ExprList (pos, [A.Ident (pos, i_state_in);
@@ -1979,7 +2002,7 @@ and encode_unless pos
   let inputs =
     (pos, i_state_in, states_lustre_type, A.ClockTrue, false) ::
     (pos, i_restart_in, A.Bool pos, A.ClockTrue, false) ::
-    node_inputs @ auto_out_inputs @ other_vars
+    node_inputs @ auto_out_inputs @ other_vars @ lasts_inputs
   in
   let outputs = [
     pos, i_state, states_lustre_type, A.ClockTrue;
