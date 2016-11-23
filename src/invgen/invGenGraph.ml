@@ -50,6 +50,9 @@ type set = Set.t
 
 (* Term formatter. *)
 let fmt_term = Term.pp_print_term
+(* Term formatter, dot version. *)
+let fmt_term_dot fmt term =
+  Term.string_of_term term |> Format.fprintf fmt "%s"
 
 (* Opens a file in write mode, creating it if needed. *)
 let openfile path = Unix.openfile path [
@@ -117,9 +120,9 @@ module type Graph = sig
   (** Formats the eq classes of a graph in dot format. *)
   val fmt_graph_classes_dot : Format.formatter -> graph -> unit
 
-  (* (** Checks that a graph makes sense. Dumps the graph and its classes in dot
+  (** Checks that a graph makes sense. Dumps the graph and its classes in dot
   format in the current directory if the graph does not make sense. *)
-  val check_graph : graph -> bool *)
+  val check_graph : graph -> bool
 
   (** Minimal list of terms encoding the current state of the graph. Contains
   - equality between representatives and their class, and
@@ -310,8 +313,8 @@ digraph mode_graph {
               fmt "\"%a (%d, %s)\" -> \"%a (%d, %s)\" [\
                 constraint=false\
               ] ;@ "
-              fmt_term key key_len key_value
-              fmt_term kid kid_len kid_value
+              fmt_term_dot key key_len key_value
+              fmt_term_dot kid kid_len kid_value
         )
     ) ;
 
@@ -333,8 +336,8 @@ digraph mode_graph {
               fmt "\"%a (%d, %s)\" -> \"%a (%d, %s)\" [\
                 color=\"red\"\
               ] ;@ "
-              fmt_term key key_len key_value
-              fmt_term kid kid_len kid_value
+              fmt_term_dot key key_len key_value
+              fmt_term_dot kid kid_len kid_value
         )
     ) ;
 
@@ -365,9 +368,9 @@ digraph mode_graph {
           with Not_found -> "_mada_"
         in
         Format.fprintf fmt "\"%a (%s)\" ->\"%a\" ;@ "
-          fmt_term rep rep_value
+          fmt_term_dot rep rep_value
           (pp_print_list
-            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term term)
+            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term_dot term)
             "\n")
           (Set.elements set)
     ) ;
@@ -844,8 +847,8 @@ digraph mode_graph {
 
       (* Longest chain above current node. *)
       let chain_above, rest = longest_above [] value chain in
-
-      (* Format.printf "    %d above, %d below@."
+(* 
+      Format.printf "    %d above, %d below@."
         (List.length chain_above) (List.length rest) ; *)
 
       (* Creating links. *)
@@ -996,6 +999,7 @@ digraph mode_graph {
   let stabilize_classes sys known stable_action query ({ classes } as graph) =
 
     let rec loop count reps_to_update =
+
       try (
 
         (* Checking if we should terminate before doing anything. *)
@@ -1263,6 +1267,9 @@ digraph mode_graph {
     ) ;
 
     Format.fprintf fmt "@]@.}@."
+
+  (* Checks that a graph makes sense. *)
+  let check_graph _ = true
 
   let terms_of graph known =
     let cond_cons l cand =

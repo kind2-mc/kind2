@@ -403,7 +403,8 @@ fun sys ->
       )
       |> Strategy.monolithic
     with
-    | None -> failwith "aaahhh"
+    | None ->
+      failwith "could not create contract generation analysis parameter"
     | Some param ->
       param, (fun scope -> (S.find_subsystem sub scope).S.source)
   )

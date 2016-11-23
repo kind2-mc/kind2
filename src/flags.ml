@@ -286,6 +286,7 @@ module Smt = struct
       Format.fprintf fmt
         "@[<v>Write all SMT commands to files@]"
     )
+  let set_trace b = trace := b
   let trace () = !trace
 
   (* Folder to log the SMT traces into. *)
@@ -1866,6 +1867,7 @@ module Global = struct
     | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value \"%s\" for flag --enable" unexpected
     ) |> raise
+
   let string_of_kind_module = function
     | `IC3 -> "IC3"
     | `BMC -> "BMC"
@@ -1901,8 +1903,8 @@ module Global = struct
   let enable_default_after = [
     `BMC ; `IND ; `IND2 ; `IC3 ;
     `INVGEN ; `INVGENOS ;
-    (* `INVGENINT ; *) `INVGENINTOS ;
-    (* `INVGENREAL ; *) `INVGENREALOS
+    `INVGENINT ; `INVGENINTOS ;
+    `INVGENREAL ; `INVGENREALOS
   ]
   let enabled = ref enable_default_init
   let disable modul3 =
@@ -1938,6 +1940,18 @@ module Global = struct
     )
   let enable mdl = enabled := mdl :: !enabled
   let enabled () = !enabled
+
+  (* Returns the invariant generation techniques enabled. *)
+  let invgen_enabled () = enabled () |> List.filter (
+    function
+    | `INVGEN
+    | `INVGENOS
+    | `INVGENINT
+    | `INVGENINTOS
+    | `INVGENREAL
+    | `INVGENREALOS -> true
+    | _ -> false
+  )
 
   (* Modules disabled. *)
   let _ = add_spec
@@ -2183,6 +2197,7 @@ type input_format = Global.input_format
 
 let output_dir = Global.output_dir
 let enabled = Global.enabled
+let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular

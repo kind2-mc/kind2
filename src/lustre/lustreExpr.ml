@@ -620,6 +620,9 @@ and pp_print_app safe ppf = function
 let pp_print_expr safe ppf expr =
   pp_print_term_node safe ppf expr
 
+(* Pretty-print a term as an expr. *)
+let pp_print_term_as_expr = pp_print_expr
+
 
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_expr safe = pp_print_expr safe Format.std_formatter 

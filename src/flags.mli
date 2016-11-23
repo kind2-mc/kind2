@@ -170,6 +170,9 @@ type enable = Lib.kind_module list
 (** The modules enabled. *)
 val enabled : unit -> enable
 
+(** Returns the invariant generation techniques currently enabled. *)
+val invgen_enabled : unit -> enable
+
 (** Manually disables a module. *)
 val disable : Lib.kind_module -> unit
 
@@ -236,6 +239,8 @@ module Smt : sig
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string
 
+  (** Forces SMT traces. *)
+  val set_trace: bool -> unit
   (** Write all SMT commands to files *)
   val trace : unit -> bool
 

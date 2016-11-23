@@ -98,7 +98,11 @@ module Bool: Domain = struct
     )
   let is_bot term = term = Term.t_false
   let is_top term = term = Term.t_true
-  let is_os_running () = Flags.enabled () |> List.mem `INVGENOS
+  let is_os_running () = (
+    Flags.enabled () |> List.mem `INVGENOS
+  ) && (
+    Flags.Contracts.contract_gen () |> not
+  )
 end
 
 
@@ -134,7 +138,11 @@ module Int: Domain = struct
     rep, Set.remove rep terms
   let is_bot _ = false
   let is_top _ = false
-  let is_os_running () = Flags.enabled () |> List.mem `INVGENINTOS
+  let is_os_running () = (
+    Flags.enabled () |> List.mem `INVGENINTOS
+  ) && (
+    Flags.Contracts.contract_gen () |> not
+  )
 end
 
 
@@ -170,7 +178,11 @@ module Real: Domain = struct
     rep, Set.remove rep terms
   let is_bot _ = false
   let is_top _ = false
-  let is_os_running () = Flags.enabled () |> List.mem `INVGENREALOS
+  let is_os_running () = (
+    Flags.enabled () |> List.mem `INVGENREALOS
+  ) && (
+    Flags.Contracts.contract_gen () |> not
+  )
 end
 
 

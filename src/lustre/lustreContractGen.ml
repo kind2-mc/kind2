@@ -19,521 +19,479 @@
 
 open Lib
 
-module Sys = TransSys
 module Num = Numeral
-module Set = Term.TermSet
-module Map = Term.TermHashtbl
-module N = LustreNode
+
+module SMap = Scope.Map
+
 module SVar = StateVar
-module SVM = SVar.StateVarMap
-module SVS = SVar.StateVarSet
+module SvMap = SVar.StateVarMap
+module SvSet = SVar.StateVarSet
 module VSet = Var.VarSet
+
+module TSet = Term.TermSet
+module TMap = Term.TermMap
 module Tree = Term.T
 
+module Sys = TransSys
+module Expr = LustreExpr
+module Node = LustreNode
 
-let sys_name sys =
-  Sys.scope_of_trans_sys sys |> Scope.to_string
+type term = Term.t
+type term_set = TSet.t
+type 'a term_map = 'a TMap.t
 
-let fmt_lus_var fmt var =
-  let fst, lst =
-    if Num.( (Var.offset_of_state_var_instance var) = ~- one)
-    then "(pre ", ")" else "", ""
-  in
-  Format.fprintf fmt "%s%s%s"
-    fst
-    (SVar.name_of_state_var (Var.state_var_of_state_var_instance var))
-    lst
+(** State variables of a term. *)
+let svars_of = Term.state_vars_of_term
+(** State variables of a term at [0]. *)
+let curr_svars_of = Term.state_vars_at_offset_of_term Num.zero
 
-(* Continuation type for the term-to-lustre printer.
-Used to specify what should happen after the next step. *)
-type continue =
-| T of Term.t (* Next step is to print a term. *)
-| S of string (* Next step is to print a string. *)
+(** List formatter. *)
+let fmt_list = pp_print_list
+(** State variable formatter. *)
+let fmt_svar = StateVar.pp_print_state_var
+(** Term formatter. *)
+let fmt_term = Term.pp_print_term
+(** (Lustre) expression formatter. *)
+let fmt_lus two_state fmt term =
+  if two_state then Format.fprintf fmt "true -> (" ;
+  Format.fprintf fmt "@[<hov 2>%a@]" (Expr.pp_print_term_as_expr true) term ;
+  if two_state then Format.fprintf fmt ")"
+(** Node signature formatter. *)
+let fmt_sig = Node.pp_print_node_signature
 
+(** Map over [option]. *)
+let omap f = function
+  | Some x -> Some (f x)
+  | None -> None
 
-(* [wrap_with_sep e s [t1 ; ... ; tn]] creates the list
-[[Ss ; T t1 ; S s ; ... ; S s ; tn ; e]]. *)
-let wrap_with_sep ending sep kids =
-  let ending = [ S ending ] in
-  let rec loop kids lst = match kids with
-    | [] -> List.rev_append lst ending
-    | [kid] -> (S sep) :: (T kid) :: ending |> List.rev_append lst
-    | kid :: kids -> (T kid) :: (S sep) :: lst |> loop kids
-  in
-  loop kids []
+(** Third. *)
+let thrd (_, _, third) = third
 
-let rec fmt_lus_down next fmt term = match Term.destruct term with
-| Term.T.App (sym, kid :: kids) -> (
-  let node = Symbol.node_of_symbol sym in
-  match node with
-  (* Unary. *)
-  | `NOT ->
-    Format.fprintf fmt "(not " ;
-    assert (kids = []) ;
-    fmt_lus_down ([ S ")" ] :: next) fmt kid
-  (* Binary. *)
-  | `EQ
-  | `MOD
-  | `LEQ
-  | `LT
-  | `GEQ
-  | `GT
-  | `IMPLIES -> (
-    match kids with
-    | [rhs] ->
-      let op =
-        match node with
-        | `EQ -> " = "
-        | `MOD -> " % "
-        | `LEQ -> " <= "
-        | `LT -> " < "
-        | `GEQ -> " >= "
-        | `GT -> " > "
-        | `IMPLIES -> " => "
-        | _ -> failwith "unreachable"
+(** Fold left over lists. *)
+let fold = List.fold_left
+
+(** Helper functions to analyze invariants and decide whether they qualify as
+Assumptions, guarantees, or modes.
+
+TERM CONVENTION: one-state terms have offset [0], two-state terms have offset
+[-1,0].*)
+module Contract = struct
+
+  (** Contract building and dependency tracing context. *)
+  type dep = {
+    (** Original node, for dependency tracing. *)
+    node: Node.t ;
+    (** Dependency tracing cache. Boolean indicates whether term can be traced
+    to current version of the outputs ([None] if no svar). *)
+    mutable cache: (bool * SvSet.t) option term_map ;
+    (** Assumptions. *)
+    ass: term_set ;
+    (** Guarantees. *)
+    gua: term_set ;
+    (** Modes: maps requires to lists of ensures. *)
+    modes: term_set term_map ;
+  }
+
+  (** Returns [None] if terms does not contain any state variables. Otherwise,
+  returns true iff term can be traced back to current version of the
+  outputs, along with the set of local svars in the term's COI.
+  First parameter yields the source of a state variable of the node, second
+  yields the expression of the lhs of its definition.
+
+  See below for cached version. *)
+  let mentions_outputs src_of expr_of term =
+
+    (** Stops as soon as an output in the current state as been reached.
+
+    Note that this would not work if there was any cyclic dependency. But if
+    there was, they were rejected by the frontend. *)
+    let rec loop known locals = function
+    
+      | svar :: tail -> (
+        let known = SvSet.add svar known in
+    
+        match src_of svar with
+
+        (* Found output, done. *)
+        | Some Node.Output -> Some (true, locals)
+
+        (* Skip inputs. *)
+        | Some Node.Input -> loop known locals tail
+        (* Found oracle, illegal invariant. *)
+        | Some Node.Oracle -> None
+
+        (* Rest should have a definition. *)
+        | Some _ -> (
+          let locals = SvSet.add svar locals in
+          
+          match expr_of svar with
+          
+          | Some expr ->
+            let svars =
+              (* Extract all **current** state vars of definition. *)
+              Expr.base_state_vars_of_init_expr expr
+              |> SvSet.union (
+                Expr.cur_state_vars_of_step_expr expr
+              )
+              (* Remove known. *)
+              |> SvSet.filter (fun svar -> SvSet.mem svar known |> not)
+              |> SvSet.elements
+            in
+            (* Append to tail and loop. *)
+            List.rev_append svars tail |> loop known locals
+          
+          | None ->
+            (* No definition, does not depend on anything. *)
+            Format.asprintf "no definition for state variable `%a`"
+              fmt_svar svar
+            |> failwith
+        )
+
+        | None -> raise Not_found
+    
+      )
+    
+      | [] -> Some (false, locals)
+    
+    in
+
+    match curr_svars_of term |> SvSet.elements with
+    | [] -> None
+    | svars -> loop SvSet.empty SvSet.empty svars
+
+  (** Returns [None] if terms does not contain any state variables. Otherwise,
+  returns true iff term can be traced back to current version of the
+  outputs, along with the set of local svars in the term's COI..
+  First parameter yields the source of a state variable of the node, second
+  yields the expression of the lhs of its definition. *)
+  let mentions_outputs ( { node ; cache } as dep ) term =
+    try TMap.find term cache with Not_found -> (
+      let res =
+        try (
+          mentions_outputs
+            (* Source of svar. *)
+            (Node.source_of_svar node)
+            (* Expression of svar definition's lhs. *)
+            (fun svar -> Node.equation_of_svar node svar |> omap thrd)
+            term
+        ) with Not_found ->
+          (* There was one unknown state variable, should be the init flag.
+          We don't take risks and just ignore the term. *)
+          None
       in
-      Format.fprintf fmt "(" ;
-      fmt_lus_down (
-        [ S op ; T rhs ; S ")" ] :: next
-      ) fmt kid
-    | [] -> failwith "implication of one kid"
-    | _ ->
-      Format.sprintf "implication of %d kids" ((List.length kids) + 1)
-      |> failwith
-  )
-  (* Ternary. *)
-  | `ITE -> (
-    let i, t, e = match kids with
-      | [ t ; e ] -> kid, t, e
-      | _ -> failwith "illegal ite"
-    in
-    Format.fprintf fmt "( if " ;
-    fmt_lus_down (
-      [ S " then " ; T t ; S " else " ; T e ; S " )" ] :: next
-    ) fmt kid
-  )
-  (* N-ary. *)
-  | `MINUS when kids = [] ->
-    Format.fprintf fmt "- " ;
-    fmt_lus_down next fmt kid
-  | `MINUS
-  | `PLUS
-  | `TIMES
-  | `DIV
-  | `OR
-  | `XOR
-  | `AND ->
-    let op =
-      match node with
-      | `MINUS -> " - "
-      | `PLUS -> " + "
-      | `TIMES -> " * "
-      | `DIV -> " / "
-      | `OR -> " or "
-      | `XOR -> " xor "
-      | `AND -> " and "
-      | _ -> failwith "unreachable"
-    in
-    Format.fprintf fmt "(" ;
-    fmt_lus_down (
-      (wrap_with_sep ")" op kids) :: next
-    ) fmt kid
-  | `DISTINCT
-  | `INTDIV
-  | `ABS
-  | _ ->
-    Format.asprintf "unsupported symbol %a" Symbol.pp_print_symbol sym
-    |> failwith
-  (*
-  | `TO_REAL
-  | `TO_INT
-  | `IS_INT
-  (* Illegal. *)
-  | `NUMERAL of Numeral.t
-  | `DECIMAL of Decimal.t
-  | `TRUE
-  | `FALSE -> Format.fprintf fmt "illegal" *)
-)
-| Term.T.App (sym, []) -> failwith "application with no kids"
-| Term.T.Var var ->
-  fmt_lus_var fmt var ;
-  fmt_lus_up fmt next
-| Term.T.Const sym ->
-  ( match Symbol.node_of_symbol sym with
-    | `NUMERAL n -> Format.fprintf fmt "%a" Numeral.pp_print_numeral n
-    | `DECIMAL d ->
-      Format.fprintf fmt "%a" Decimal.pp_print_decimal_as_lus_real d
-    | `TRUE -> Format.fprintf fmt "true"
-    | `FALSE -> Format.fprintf fmt "false"
-    | _ -> Format.asprintf "Const %a" Symbol.pp_print_symbol sym |> failwith
-  ) ;
-  fmt_lus_up fmt next
-| Term.T.Attr (kid,_) -> fmt_lus_down [] fmt kid
-
-(* Goes up a continuation. Prints the strings it finds and calls
-[fmt_lus_down] on terms. *)
-and fmt_lus_up fmt = function
-| (next :: nexts) :: tail -> (
-  let tail = nexts :: tail in
-  match next with
-  | S str ->
-    Format.fprintf fmt "%s" str ;
-    fmt_lus_up fmt tail
-  | T term ->
-    fmt_lus_down tail fmt term
-)
-| [] :: tail -> fmt_lus_up fmt tail
-| [] -> ()
-
-let fmt_lus fmt term =
-  let fst, lst =
-    match Term.var_offsets_of_term term with
-    | (Some lo, Some hi) when Num.(lo < zero) -> "true -> ( ", " )"
-    | _ -> "",""
-  in
-  Format.fprintf fmt "%s%a%s" fst (fmt_lus_down []) term lst
-
-let fmt_lus_mode fmt (req, enss) =
-  let fst, lst =
-    match Term.var_offsets_of_term req with
-    | (Some lo, Some hi) when Num.(lo < zero) -> "true -> ( ", " )"
-    | _ -> (
-      if enss |> List.exists (
-        fun t ->
-          match Term.var_offsets_of_term t with
-          | (Some lo, Some hi) when Num.(lo < zero) -> true
-          | _ -> false
-      ) then "true -> ( ", " )" else "", ""
+      dep.cache <- TMap.add term res cache ;
+      res
     )
+
+  (** Adds an invariant to the contract context:
+  - does not add it if it does not mention any state variable,
+  - to assumptions if it does not mention outputs,
+  - to guarantees otherwise.
+  
+  Returns the set of locals that must be defined for this term. *)
+  let add_inv dep term =
+    match mentions_outputs dep term with
+    | None -> dep, SvSet.empty
+    | Some (true, locals) -> {
+      dep with gua = TSet.add term dep.gua
+    }, locals
+    | Some (false, locals) -> {
+      dep with ass = TSet.add term dep.ass
+    }, locals
+
+  (** Adds an invariant implication to the contract context:
+  - does not add if it lhs or rhs do not mention any state variable,
+  - adds to assumptions if lhs and rhs do not mention outputs,
+  - adds to modes if lhs does not mention outputs but rhs does,
+  - adds to guarantees otherwise.
+  
+  Returns the set of locals that must be defined for this term. *)
+  let add_impl_inv dep lhs rhs =
+    match mentions_outputs dep lhs, mentions_outputs dep rhs with
+    | None, _
+    | _, None -> dep, SvSet.empty
+    | Some (false, lhs_locals), Some (false, rhs_locals) -> {
+      dep with ass = TSet.add (Term.mk_implies [lhs ; rhs]) dep.ass
+    }, SvSet.union lhs_locals rhs_locals
+    | Some (false, lhs_locals), Some (true, rhs_locals) ->
+      let lhs_set =
+        ( try TMap.find lhs dep.modes with Not_found -> TSet.empty )
+        |> TSet.add rhs
+      in
+      { dep with modes = TMap.add lhs lhs_set dep.modes },
+      SvSet.union lhs_locals rhs_locals
+    | Some (_, lhs_locals), Some (_, rhs_locals) -> {
+      dep with gua = TSet.add (Term.mk_implies [ lhs ; rhs ]) dep.gua
+    }, SvSet.union lhs_locals rhs_locals
+
+  (** Adds an invariant to the contract context.
+  
+  Returns the set of locals that must be defined for this term. *)
+  let add_inv dep inv = match Term.destruct inv with
+    | Tree.App (sym, [lhs ; rhs])
+    when Symbol.node_of_symbol sym = `IMPLIES -> add_impl_inv dep lhs rhs
+    | _ -> add_inv dep inv
+
+  (** Creates an empty contract generation context. *)
+  let empty node = {
+    node ;
+    cache = TMap.empty ;
+    ass = TSet.empty ;
+    gua = TSet.empty ;
+    modes = TMap.empty ;
+  }
+
+  (** Splits some invariants into assumptions, guarantees, and modes.
+  Second parameter is normal invariants, then invariant implications.
+  
+  Returns the set of locals that must be defined for this contract. *)
+  let build node invs =
+    TSet.fold (
+      fun inv (dep, locals) ->
+        let dep, new_locals = add_inv dep inv in
+        dep, SvSet.union locals new_locals
+    ) invs (empty node, SvSet.empty)
+
+  (* |===| Printing stuff. *)
+
+  (** Two state prefix. *)
+  let fmt_ts_pref fmt two_state =
+    if two_state then Format.fprintf fmt "true -> ("
+  (** Two state suffix. *)
+  let fmt_ts_suff fmt two_state =
+    if two_state then Format.fprintf fmt ")"
+
+  (** Assumption formatter. *)
+  let fmt_ass two_state fmt =
+    Format.fprintf fmt "assume @[<hov 2>%a@] ;" (fmt_lus two_state)
+
+  (** Guarantee formatter. *)
+  let fmt_gua two_state fmt =
+    Format.fprintf fmt "guarantee @[<hov 2>%a@] ;" (fmt_lus two_state)
+
+  (** Ensure formatter. *)
+  let fmt_ens two_state fmt =
+    Format.fprintf fmt "ensure @[<hov 2>%a@] ;" (fmt_lus two_state)
+
+  (** Mode formatter. *)
+  let fmt_mode (two_state, count) fmt (req, ens) =
+    TSet.elements ens
+    |> Format.fprintf fmt
+      "mode mode_%d (@   @[<v>require @[<hov 2>%a@] ;@ %a@]@ ) ;@ "
+      count (fmt_lus two_state) req (fmt_list (fmt_ens two_state) "@ ")
+
+  (** Mode map formatter. *)
+  let fmt_mode_map (two_state, count) fmt modes =
+    let rec loop fmt count = function
+      | mode :: tail ->
+        fmt_mode (two_state, count) fmt mode ;
+        (* Term.mk_implies [
+          fst mode ;
+          snd mode |> TSet.elements |> Term.mk_and
+        ]
+        |> Format.fprintf fmt "%a@ " (fmt_gua two_state) ; *)
+        if tail <> [] then (
+          Format.fprintf fmt "@ " ;
+          loop fmt (count + 1) tail
+        ) else count
+      | [] -> count
+    in
+    TMap.bindings modes |> loop fmt count
+
+  (** Prints the contract corresponding to a context. *)
+  let fmt (two_state, count) fmt { ass ; gua ; modes } =
+    Format.fprintf fmt "@[<v>" ;
+
+    let ass_cnt, gua_cnt, mod_cnt =
+      TSet.cardinal ass, TSet.cardinal gua, TMap.cardinal modes
+    in
+
+    TSet.elements ass |> Format.fprintf fmt "%a" (
+      fmt_list (fmt_ass two_state) "@ "
+    ) ;
+
+    if ass_cnt > 0 && gua_cnt + mod_cnt > 0 then
+      Format.fprintf fmt "@ @ " ;
+
+    TSet.elements gua |> Format.fprintf fmt "%a" (
+      fmt_list (fmt_gua two_state) "@ "
+    ) ;
+
+    if gua_cnt > 0 && mod_cnt > 0 then
+      Format.fprintf fmt "@ @ " ;
+
+    let count = fmt_mode_map (two_state, count) fmt modes in
+
+    Format.fprintf fmt "@]" ;
+
+    count
+
+end
+
+
+(** Scope of a transition sys. *)
+let scope_of = Sys.scope_of_trans_sys
+(** Trans sys name formatter. *)
+let fmt_sys_name fmt sys =
+  scope_of sys |> Scope.pp_print_scope fmt
+(** Name of a trans sys as a string. *)
+let sys_name sys =
+  scope_of sys |> Scope.to_string
+
+(** Ghost definition formatter. *)
+let fmt_def node fmt svar =
+  let (var, bounds, expr) =
+    match Node.equation_of_svar node svar with
+    | Some eq -> eq
+    | None ->
+      Format.asprintf "state variable `%a` has no definition"
+        fmt_svar svar
+      |> failwith
   in
-  Format.fprintf fmt "require %s%a%s ;@ %a"
-    fst (fmt_lus_down []) req lst
-    (pp_print_list
-      (fun fmt ens ->
-        Format.fprintf fmt "ensure %s%a%s ;" fst (fmt_lus_down []) ens lst)
-      "@ "
-    ) enss
+  Format.fprintf fmt "@[<hv 2>var %a%a: %a = %a ;@]"
+    (Expr.pp_print_lustre_var false) var
+    (pp_print_listi
+       (fun ppf i -> function 
+          | Node.Bound e -> 
+            Format.fprintf
+              ppf
+              "[%a(%a)]"
+              (LustreIdent.pp_print_ident false)
+              (LustreIdent.push_index LustreIdent.index_ident i)
+              (Expr.pp_print_expr false) e
+          | Node.Fixed e ->
+            Format.fprintf ppf "[%a]" (Expr.pp_print_expr false) e)
+       "") 
+    bounds
+    (Expr.pp_print_lustre_type true) (SVar.type_of_state_var svar)
+    (Expr.pp_print_lustre_expr true) expr
 
-
-let fmt_contract fmt (node, assumes, guarantees, modes) =
-  Format.fprintf fmt "%a@ let@   @[<v>"
-    N.pp_print_node_signature node ;
-
-  ( match assumes with
-    | [] -> ()
-    | _ ->
-      Format.fprintf fmt "@ \
-        --| Assumptions.@ \
-        --| NB: assumptions usually come from assertions in the original@ \
-        --|     lustre system. You should remove them and use the assumptions@ \
-        --|     below instead. The behavior will be the same, except that now@ \
-        --|     callers will need to prove they respect these assumptions.@ \
-        --|     That is, unlike assertions, assumptions ARE SAFE.@ \
-        %a@ \
-      "
-        (pp_print_list
-          (fun fmt ass -> Format.fprintf fmt "assume %a ;" fmt_lus ass)
-          "@ "
-        ) assumes
-  ) ;
-
-  ( match guarantees with
-    | [] -> ()
-    | _ ->
-      Format.fprintf fmt "@ --| Guarantees.@ %a@ "
-        (pp_print_list
-          (fun fmt ass -> Format.fprintf fmt "guarantee %a ;" fmt_lus ass)
-          "@ "
-        ) guarantees
-  ) ;
-
-  ( match modes with
-    | [] -> ()
-    | _ ->
-      Format.fprintf fmt "@ --| Modes.@ " ;
-      modes |> List.fold_left (
-        fun cnt mode ->
-          Format.fprintf fmt "\
-            @[<v>\
-              mode mode_%d (@   \
-                @[<v>%a@]@ \
-              ) ;@ \
-            @]"
-            cnt
-            fmt_lus_mode mode ;
-          cnt + 1
-      ) 0
-      |> ignore
-  ) ;
-
-  Format.fprintf fmt "@]@ tel"
-
-
-
-let generate_contracts in_sys sys param get_node path =
-
+let generate_contracts in_sys param sys get_node path =
   let max_depth = Flags.Contracts.contract_gen_depth () |> Num.of_int in
-
+  let get_node sys = try scope_of sys |> get_node with
+    | Not_found ->
+      Format.asprintf "unknown system %a" fmt_sys_name sys
+      |> failwith
+  in
+  
   Event.log_uncond "\
     @{<b>Generating contracts@}@   \
     @[<v>\
-      for system %s@ \
-      using two state (boolean) invariant generation to depth %a@ \
-      to file \"%s\"\
+      for system %a to file \"%s\"\
     @]"
-    (sys_name sys)
-    Num.pp_print_numeral max_depth
+    fmt_sys_name sys
     path ;
 
-  Event.log_uncond "Running invariant generation..." ;
-
-  Flags.disable `INVGENOS ;
-
-  let result =
+  let teks = Flags.invgen_enabled () in
+  let is_active tek = List.mem tek teks in
+  let run_bool two_state =
+    Event.log_uncond "Running %s bool invgen..." (
+      if two_state then "two-state" else "one-state"
+    ) ;
     InvGen.BoolInvGen.main
-      (Some max_depth) (Flags.modular () |> not) false true
+      (Some max_depth) (Flags.modular () |> not) false two_state
       in_sys param sys
   in
+  let run_int two_state =
+    Event.log_uncond "Running %s int invgen..." (
+      if two_state then "two-state" else "one-state"
+    ) ;
+    InvGen.IntInvGen.main
+      (Some max_depth) (Flags.modular () |> not) false two_state
+      in_sys param sys
+  in
+  let run_real two_state =
+    Event.log_uncond "Running %s real invgen..." (
+      if two_state then "two-state" else "one-state"
+    ) ;
+    InvGen.RealInvGen.main
+      (Some max_depth) (Flags.modular () |> not) false two_state
+      in_sys param sys
+  in
+  let cond_cons cond_f cond_arg f two_state rest =
+    if cond_f cond_arg then (two_state, f two_state) :: rest else rest
+  in
 
-  Event.log_uncond "Done." ;
+  let results = []
+    |> cond_cons is_active `INVGENOS run_bool false
+    |> cond_cons is_active `INVGENINTOS run_int false
+    |> cond_cons is_active `INVGENREALOS run_real false
+    |> cond_cons is_active `INVGEN run_bool true
+    |> cond_cons is_active `INVGENINT run_int true
+    |> cond_cons is_active `INVGENREAL run_real true
+  in
 
   Event.log_uncond "Generating contracts." ;
+
+  let trivial_too = Flags.Contracts.contract_gen_fine_grain () in
+
+  (* Build a map from scopes to a list of contract builders. *)
+  let contracts =
+    results |> fold (
+      fun map (two_state, result) ->
+        result |> fold (
+          fun map (sys, non_trivial, trivial) ->
+            let invs =
+              non_trivial
+              |> if trivial_too then TSet.union trivial else identity
+            in
+            let scope = scope_of sys in
+            let node = get_node sys in
+            let (_, _, locals, contracts) =
+              try SMap.find scope map
+              with Not_found -> sys, node, SvSet.empty, []
+            in
+            let contract, new_locals = Contract.build node invs in
+            SMap.add scope (
+              sys, node, SvSet.union locals new_locals,
+              (two_state, contract) :: contracts
+            ) map
+        ) map
+    ) SMap.empty
+  in
+
+  Event.log_uncond "Dumping contracts to `%s`..." path ;
 
   let out_channel = open_out path in
   let fmt = Format.formatter_of_out_channel out_channel in
 
   Format.fprintf fmt
     "(*@[<v>@ \
-      The contracts below were generated automatically by the Kind 2@ \
+      The contract(s) below were generated automatically by the Kind 2@ \
       model-checker.@ \
       @ http://kind2-mc.github.io/kind2/\
     @]@ *)@.@.@.@." ;
 
-  let rec loop = function
-    | [] -> ()
-    | (sys, non_trivial, trivial) :: tail ->
-      let scope = Sys.scope_of_trans_sys sys in
-
-      let node = get_node scope in
-      let svar_source_map = node.N.state_var_source_map in
-      let source_of svar = SVM.find svar svar_source_map in
-      let filter_eligible terms =
-        Set.elements terms |> List.filter (
-          fun t ->
-            Term.state_vars_of_term t
-            |> SVS.for_all (
-              fun svar ->
-                try (
-                  match source_of svar with
-                  | N.Input | N.Output -> true
-                  | _ -> false
-                ) with Not_found -> false
-            )
-        )
-      in
-      let mentions_curr_output term =
-        Term.vars_of_term term
-        |> VSet.exists (
-          fun var ->
-            try (
-              match
-                Var.state_var_of_state_var_instance var |> source_of
-              with
-              | N.Output ->
-                Var.offset_of_state_var_instance var == Numeral.zero
-              | _ -> false
-            ) with _ -> false
-        )
-      in
-
-(*       let mentions_outputs_only =
-        List.filter (
-          fun t ->
-            Term.state_vars_of_term t
-            |> SVS.for_all (
-              fun svar ->
-                try (
-                  match source_of svar with
-                  N.Output -> true
-                  | _ -> false
-                ) with Not_found -> false
-            )
-        )
-      in *)
-
-      let is_pure_pre term =
-        match Term.var_offsets_of_term term with
-        | (Some _, Some hi) -> Num.(hi < zero)
-        | _ -> false
-      in
-
-      let non_trivial, trivial =
-        filter_eligible non_trivial,
-        filter_eligible trivial
-      in
-
-      Event.log_uncond
-        "  @[<v>\
-          Working on system %s:@   \
-          @[<v>\
-                trivial: @[<v>%a@]@ \
-            non_trivial: @[<v>%a@]\
-          @]
-        @]"
-        (sys_name sys)
-        (pp_print_list Term.pp_print_term "@ ") trivial
-        (pp_print_list Term.pp_print_term "@ ") non_trivial ;
-
-      let mk_not term =
-        match Term.destruct term with
-        | Tree.App (sym, [sub_term])
-        when Symbol.node_of_symbol sym = `NOT -> sub_term
-
-        | Tree.App (sym, sub_terms)
-        when Symbol.node_of_symbol sym = `GEQ -> Term.mk_lt sub_terms
-        | Tree.App (sym, sub_terms)
-        when Symbol.node_of_symbol sym = `GT -> Term.mk_leq sub_terms
-        | Tree.App (sym, sub_terms)
-        when Symbol.node_of_symbol sym = `LT -> Term.mk_geq sub_terms
-        | Tree.App (sym, sub_terms)
-        when Symbol.node_of_symbol sym = `LEQ -> Term.mk_gt sub_terms
-
-        | _ -> Term.mk_not term
-      in
-
-      let split terms =
-        let modes = Map.create 107 in
-        let insert_mode req ens =
-          (try Map.find modes req with Not_found -> Set.empty)
-          |> Set.add ens
-          |> Map.replace modes req
-        in
-        let rec loop assumptions guarantees = function
-          | term :: tail -> (
-            let reboot term =
-              term :: tail
-              |> List.rev_append (Set.elements assumptions)
-              |> List.rev_append (Set.elements guarantees)
-              |> loop Set.empty Set.empty
-            in
-
-            match Term.destruct term with
-
-            | Tree.App (sym, [lft ; rgt])
-            when Symbol.node_of_symbol sym = `IMPLIES -> (
-              let assumptions, guarantees =
-                match mentions_curr_output lft, mentions_curr_output rgt with
-                | (true, true) ->
-                  (* Not a mode, current outputs appear left and right. *)
-                  assumptions, Set.add term guarantees
-                | (false, true) ->
-                  (* Mode: [lft] does not mention the outputs and is the
-                  require. *)
-                  insert_mode lft rgt ;
-                  assumptions, guarantees
-                | (true, false) ->
-                  (* Mode: [rgt] does not mention the outputs and is the
-                  require. *)
-                  insert_mode (mk_not rgt) (mk_not lft) ;
-                  assumptions, guarantees
-                | (false, false) ->
-                  (* No output mentioned at all, it's an assumption. *)
-                  Set.add term assumptions, guarantees
-              in
-              loop assumptions guarantees tail
-            )
-
-            | Tree.App (sym, [lft ; rgt])
-            when Symbol.node_of_symbol sym = `EQ && lft == Term.t_true ->
-              reboot rgt
-
-            | Tree.App (sym, [lft ; rgt])
-            when Symbol.node_of_symbol sym = `EQ && rgt == Term.t_true ->
-              reboot lft
-
-            | Tree.App (sym, [lft ; rgt])
-            when Symbol.node_of_symbol sym = `EQ && rgt == Term.t_false ->
-              reboot (mk_not lft)
-
-            | Tree.App (sym, [lft ; rgt])
-            when Symbol.node_of_symbol sym = `EQ && lft == Term.t_false ->
-              reboot (mk_not rgt)
-
-            | Tree.App (sym, [lft ; rgt])
-            when Symbol.node_of_symbol sym = `EQ && (
-              Set.mem lft guarantees || List.mem lft tail
-            ) ->
-              reboot rgt
-
-            | Tree.App (sym, [lft ; rgt])
-            when Symbol.node_of_symbol sym = `EQ && (
-              Set.mem rgt guarantees || List.mem rgt tail
-            ) ->
-              reboot lft
-
-            | _ ->
-              let assumptions, guarantees =
-                if mentions_curr_output term then
-                  (* Guarantee. *)
-                  assumptions, Set.add term guarantees
-                else 
-                  (* if mentions_outputs_only term *)
-                  (* Assumption. *)
-                  Set.add term assumptions, guarantees
-              in
-              loop assumptions guarantees tail
-          )
-          | [] -> Set.elements assumptions, Set.elements guarantees
-        in
-        let assumptions, guarantees = loop Set.empty Set.empty terms in
-        let should_keep term =
-          (* If all vars at [-1] and version bumped at [0] is known,
-          discard. *)
-          not (
-            is_pure_pre term && (
-              let at_0 = Term.bump_state Numeral.one term in
-              List.mem at_0 assumptions ||
-              List.mem at_0 guarantees
-            )
-          )
-        in
-
-        assumptions |> List.filter should_keep,
-        guarantees |> List.filter should_keep,
-        Map.fold (
-          fun req enss acc -> (req, Set.elements enss) :: acc
-        ) modes []
-      in
-
-      let assumptions, guarantees, modes =
-        ( if Flags.Contracts.contract_gen_fine_grain () then
-            List.rev_append non_trivial trivial
-          else non_trivial )
-        |> split
-      in
-
+  contracts |> SMap.iter (
+    fun _ (sys, node, locals, sub_contracts) ->
+      Event.log_uncond "Generating contract for %a..." fmt_sys_name sys ;
+      
       Format.fprintf fmt
-        "@[<v>\
-          (* \
-          @[<v>\
-          Contract for node [%s].@ @ \
-          @ \
-          Do make sure you include this file using an `include` statement.\
-          @]@ *)@ \
-        contract %s_spec %a@]@.@."
-        (sys_name sys)
-        (sys_name sys)
-        fmt_contract (node, assumptions, guarantees, modes) ;
+        "(* Contract for node %s. *)@.contract %s_spec %a@.let@[<v 2>"
+        (sys_name sys) (sys_name sys) fmt_sig node ;
+      
+      (* Declare necessary locals. *)
+      locals |> SvSet.iter (
+        fun svar ->
+          Format.fprintf fmt "@ " ;
+          fmt_def node fmt svar
+      ) ;
+      if SvSet.cardinal locals > 0 then Format.fprintf fmt "@ " ;
 
-      loop tail
-  in
+      (* Dump sub contracts. *)
+      let _ =
+        sub_contracts |> fold (
+          fun count (two_state, sub) ->
+            Format.fprintf fmt "@ " ;
+            Contract.fmt (two_state, count) fmt sub
+        ) 0
+      in
 
-  loop result ;
-  
+      Format.fprintf fmt "@]@.tel@.@."
+  ) ;
 
   close_out out_channel ;
 
-  Event.log_uncond "Done generating contracts."
 
 
 (* 

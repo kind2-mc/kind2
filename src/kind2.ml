@@ -1051,7 +1051,11 @@ let main () =
       in
 
       LustreContractGen.generate_contracts
-        input_sys_sliced trans_sys param node_of_scope target
+        input_sys_sliced param trans_sys node_of_scope target ;
+
+      let node = TransSys.scope_of_trans_sys trans_sys |> node_of_scope in
+
+      DumpSys.dump node.LustreNode.state_var_source_map trans_sys
 
     ) else
 

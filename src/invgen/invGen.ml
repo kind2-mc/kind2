@@ -176,12 +176,12 @@ module Make (Graph : GraphSig) : Out = struct
   let no_more_lsd () =
     ( match !base_ref with
       | None -> ()
-      | Some lsd -> Lsd.kill_base lsd ) ;
+      | Some lsd -> try Lsd.kill_base lsd with _ -> () ) ;
     ( match !step_ref with
       | None -> ()
-      | Some lsd -> Lsd.kill_step lsd ) ;
+      | Some lsd -> try Lsd.kill_step lsd with _ -> () ) ;
     ! prune_ref |> List.iter (
-      fun lsd -> Lsd.kill_pruning lsd
+      fun lsd -> try Lsd.kill_pruning lsd with _ -> ()
     )
 
   (* Clean exit. *)
@@ -382,7 +382,11 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Extracting non-trivial invariants. *)
     (* Format.printf "  pruning@.@." ; *)
-    let (non_trivial, trivial) = Lsd.query_pruning pruner invs in
+    let (non_trivial, trivial) =
+      if Flags.Invgen.prune_trivial () then
+        Lsd.query_pruning pruner invs
+      else (invs, [])
+    in
 
     (* Communicating and adding to trans sys. *)
     let top_level_inc, sanitized =
@@ -493,10 +497,13 @@ module Make (Graph : GraphSig) : Out = struct
     let one_state_running = Domain.is_os_running () in
     (** Prunes known invariants and irrelevant ones. *)
     let prune =
-      if two_state && one_state_running then (
+      if two_state then (
         fun cand -> is_inv cand || (
           match Term.var_offsets_of_term cand with
-          | (Some lo, Some hi) when Num.(lo = hi) -> true
+          | (Some lo, Some hi)
+          when Num.(lo = hi) && (
+            one_state_running || Num.(lo = ~- one)
+          ) -> true
           | (None, None) -> true
           | _ -> false
         )
@@ -508,7 +515,11 @@ module Make (Graph : GraphSig) : Out = struct
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
 
-    (* Stabilize graph. *)
+    (* Stabilize graph.
+
+    Note that we use `is_inv` here and not `prune`. The latter also removes
+    terms that **might** be invariant in the one-state version, but which at
+    this stage might cause the graph to split. *)
     Graph.stabilize graph sys is_inv lsd ;
 
     (* InvGenGraph.write_dot_to
@@ -519,7 +530,8 @@ module Make (Graph : GraphSig) : Out = struct
     
     (* Event.log_uncond
       "%s Done stabilizing graph, checking consistency" (pref_s two_state) ;
-    check_graph graph ;
+    if Graph.check_graph graph |> not then
+      failwith "inconsistent graph" ;
     Event.log_uncond "%s Done checking consistency" (pref_s two_state) ; *)
 
     let lsd = Lsd.to_step lsd in
@@ -651,19 +663,19 @@ module Make (Graph : GraphSig) : Out = struct
     Format.printf "%s trivial: @[<v>%a@]@.@."
       pref (pp_print_list fmt_term "@ ") (Set.elements trivial) ; *)
 
-    (* let suff =
+    let suff =
       Format.asprintf "%a_%s" Num.pp_print_numeral k (sys_name sys)
     in
     InvGenGraph.write_dot_to
-      "." "graph" suff Graph.fmt_graph_dot graph ;
+      "./dot" "graph" suff Graph.fmt_graph_dot graph ;
     InvGenGraph.write_dot_to
-      "." "classes" suff Graph.fmt_graph_classes_dot graph ; *)
+      "./dot" "classes" suff Graph.fmt_graph_classes_dot graph ;
     (* minisleep 2.0 ;
     exit () ; *)
 
     (* Forget the graph if it is stale. *)
     let memory, res =
-      if Graph.is_stale graph then (
+      (* if Graph.is_stale graph then (
         Event.log L_info
           "%s Graph for system %a is stale, forgetting it."
           (pref_s two_state)
@@ -682,7 +694,7 @@ module Make (Graph : GraphSig) : Out = struct
           fun _ prune acc -> prune :: acc
         ) sys_map [] ;
         memory, (sys, non_trivial, trivial) :: res
-      ) else
+      ) else *)
         (sys, graph, non_trivial, trivial) :: memory, res
     in
 

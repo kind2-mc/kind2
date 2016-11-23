@@ -721,6 +721,12 @@ let equation_of_svar { equations } svar =
     equations |> List.find (fun (svar',_,_) -> svar == svar')
   ) with Not_found -> None
 
+(** Returns the source of a state variable if any. *)
+let source_of_svar { state_var_source_map } svar =
+  try Some (
+    SVM.find svar state_var_source_map
+  ) with Not_found -> None
+
 (** Returns the node call the svar is the output of, if any. *)
 let node_call_of_svar { calls } svar =
   let rec loop: node_call list -> node_call option = function
