@@ -1207,6 +1207,11 @@ let get_prop_status trans_sys p =
 
   with Not_found -> P.PropUnknown
 
+(* Tests if a term is an invariant. *)
+let is_inv { invariants_one_state ; invariants_two_state } term =
+  TermMap.mem invariants_one_state term ||
+  TermMap.mem invariants_two_state term
+
 
 (* Return true if the property is proved invariant *)
 let is_proved trans_sys prop = 

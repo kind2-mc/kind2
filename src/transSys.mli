@@ -453,6 +453,10 @@ val get_prop_term : t -> string -> Term.t
 val get_prop_status : t -> string -> Property.prop_status 
 
 
+(** Returns true if the input term is a known invariant of the system. *)
+val is_inv : t -> Term.t -> bool
+
+
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 
 
