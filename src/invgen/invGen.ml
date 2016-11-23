@@ -23,32 +23,6 @@ module type GraphSig = InvGenGraph.Graph
 
 
 
-
-(* |===| IO stuff to log graphs and so on. *)
-
-
-(* Opens a file in write mode, creating it if needed. *)
-let openfile path = Unix.openfile path [
-  Unix.O_TRUNC ; Unix.O_WRONLY ; Unix.O_CREAT
-] 0o640
-
-(* Formatter of a file descriptor. *)
-let fmt_of_file file =
-  Unix.out_channel_of_descr file |> Format.formatter_of_out_channel
-
-(* Writes a graph in graphviz to file [<path>/<name>_<suff>.dot]. *)
-let write_dot_to path name suff fmt_graph graph =
-  mk_dir path ; (* Create directory if needed. *)
-  let desc = (* Create descriptor for log file. *)
-    Format.sprintf "%s/%s_%s.dot" path name suff |> openfile
-  in
-  (* Log graph in graphviz. *)
-  Format.fprintf (fmt_of_file desc) "%a@.@." fmt_graph graph ;
-  (* Close log file descriptor. *)
-  Unix.close desc
-
-
-
 (* |===| Module and type aliases *)
 
 
@@ -163,7 +137,7 @@ module type Out = sig
       Sys.t * Set.t * Set.t
     ) list
   (** Clean exit for the invariant generator. *)
-  val exit : unit -> unit
+  val exit : 'a -> unit
 end
 
 
@@ -211,7 +185,7 @@ module Make (Graph : GraphSig) : Out = struct
     )
 
   (* Clean exit. *)
-  let exit () =
+  let exit _ =
     no_more_lsd () ;
     exit 0
 
@@ -302,42 +276,49 @@ module Make (Graph : GraphSig) : Out = struct
   let communicate_and_add
     two_state top_sys sys_map sys k blah non_trivial trivial
   =
+    (* Format.printf "trivial: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ") trivial ;
+    Format.printf "non trivial: @[<v>%a@]@.@."
+      (pp_print_list fmt_term "@ ") non_trivial ; *)
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
         Event.log L_info
           "%s @[<v>\
-            On system [%s] at %a: %s@ \
-            found %d non-trivial invariants\
+            On system [%a] at %a: %s@ \
+            found %d non-trivial invariants:@   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          (sys_name sys)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
+          (pp_print_list fmt_term "@ ") non_trivial
       | [], _ ->
         Event.log L_info
           "%s @[<v>\
-            On system [%s] at %a: %s@ \
+            On system [%a] at %a: %s@ \
             found %d trivial invariants\
           @]"
           (pref_s two_state)
-          (sys_name sys)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
           Num.pp_print_numeral k
           blah
           (List.length trivial)
       | _, _ ->
         Event.log L_info
           "%s @[<v>\
-            On system [%s] at %a: %s@ \
-            found %d non-trivial invariants and %d trivial ones\
+            On system [%a] at %a: %s@ \
+            found %d non-trivial invariants and %d trivial ones:\
+            @   @[<v>%a@]\
           @]"
           (pref_s two_state)
-          (sys_name sys)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys)
           Num.pp_print_numeral k
           blah
           (List.length non_trivial)
           (List.length trivial)
+          (pp_print_list fmt_term "@ ") non_trivial
     ) ;
     List.map (fun i -> i, (Numeral.to_int k + 1, i)) non_trivial
     |> communicate_invariants top_sys sys_map two_state sys
@@ -369,7 +350,7 @@ module Make (Graph : GraphSig) : Out = struct
             let pruning_checker = SysMap.find sys_map this_sys in
             Lsd.pruning_add_invariants pruning_checker [inv, cert]
           ) with Not_found -> (
-            (* System is abstract, skipping it. *)
+            (* System is abstract or was discarded, skipping it. *)
           )
         ) ;
         update_pruning_checkers (
@@ -457,20 +438,29 @@ module Make (Graph : GraphSig) : Out = struct
     loop [] [] [] 0
 
 
+  (** Destroys the pruning solvers in a sys map. *)
+  let kill_solvers sys_map =
+    SysMap.iter (
+      fun _ pruner -> Lsd.kill_pruning pruner
+    ) sys_map ;
+    no_more_lsd ()
+
 
   (** Goes through all the (sub)systems for the current [k]. Then loops
   after incrementing [k]. *)
   let rec system_iterator
     max_depth two_state
-    input_sys param top_sys memory k sys_map top_level_count
+    input_sys param top_sys res memory
+    k sys_map top_level_count
   = function
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
     let blah = if sys == top_sys then " (top)" else "" in
     Event.log L_info
-      "%s Running on %a%s at %a (%d candidate terms)"
+      "%s Running on %a%s at %a (%d candidate terms, %d classes)"
       (pref_s two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
-      Num.pp_print_numeral k (Graph.term_count graph) ;
+      Num.pp_print_numeral k (Graph.term_count graph)
+      (Graph.class_count graph) ;
 
     (* Receiving messages, don't care about new invariants for now as we
     haven't create the base/step checker yet. *)
@@ -494,42 +484,36 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "LSD instance is at %a@.@." Num.pp_print_numeral (Lsd.get_k lsd sys) ; *)
 
     (* Prunes known invariants from a list of candidates. *)
-    let prune cand =
-      Set.mem cand non_trivial || Set.mem cand trivial
+    let is_inv cand =
+         Set.mem cand non_trivial
+      || Set.mem cand trivial
+      || Sys.is_inv sys cand
     in
+
+    let one_state_running = Domain.is_os_running () in
+    (** Prunes known invariants and irrelevant ones. *)
     let prune =
-      if two_state then (
-        fun cand -> prune cand ||  (
+      if two_state && one_state_running then (
+        fun cand -> is_inv cand || (
           match Term.var_offsets_of_term cand with
-          | (Some _, Some hi) when Num.(hi = ~- one) -> true
+          | (Some lo, Some hi) when Num.(lo = hi) -> true
+          | (None, None) -> true
           | _ -> false
-        ) || (
-          if max_depth = None then (
-            match Term.var_offsets_of_term cand with
-            | (Some lo, Some hi) when lo != hi -> false
-            | _ -> true
-          ) else false
         )
-      ) else prune
+      ) else is_inv
     in
+
+    (* Format.printf "%s stabilizing graph...@.@." (pref_s two_state) ; *)
 
     (* Checking if we should terminate before doing anything. *)
     Event.check_termination () ;
 
-    (* Format.printf "%s stabilizing graph...@.@." (pref_s two_state) ; *)
-
     (* Stabilize graph. *)
-    ( try Graph.stabilize graph sys prune lsd with
-      | Event.Terminate -> exit ()
-      | e -> (
-        Event.log L_fatal "caught exception %s" (Printexc.to_string e) ;
-        minisleep 0.5 ;
-        exit ()
-      )
-    ) ;
-    (* write_dot_to
-      "graphs/" "classes" (Format.asprintf "%a" Num.pp_print_numeral k)
-      fmt_graph_classes_dot graph ; *)
+    Graph.stabilize graph sys is_inv lsd ;
+
+    (* InvGenGraph.write_dot_to
+      "./" "classes" "after"
+      Graph.fmt_graph_classes_dot graph ; *)
 
     (* Format.printf "%s done stabilizing graph@.@." (pref_s two_state) ; *)
     
@@ -667,77 +651,116 @@ module Make (Graph : GraphSig) : Out = struct
     Format.printf "%s trivial: @[<v>%a@]@.@."
       pref (pp_print_list fmt_term "@ ") (Set.elements trivial) ; *)
 
-    (* write_dot_to "." "graph" "blah" fmt_graph_dot graph ;
-    write_dot_to "." "classes" "blah" fmt_graph_classes_dot graph ; *)
+    (* let suff =
+      Format.asprintf "%a_%s" Num.pp_print_numeral k (sys_name sys)
+    in
+    InvGenGraph.write_dot_to
+      "." "graph" suff Graph.fmt_graph_dot graph ;
+    InvGenGraph.write_dot_to
+      "." "classes" suff Graph.fmt_graph_classes_dot graph ; *)
     (* minisleep 2.0 ;
     exit () ; *)
 
+    (* Forget the graph if it is stale. *)
+    let memory, res =
+      if Graph.is_stale graph then (
+        Event.log L_info
+          "%s Graph for system %a is stale, forgetting it."
+          (pref_s two_state)
+          Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
+        (
+          try
+            SysMap.find sys_map sys |> Lsd.kill_pruning
+          with Not_found ->
+            Event.log L_warn
+              "%s Could not find pruning checker for system %a."
+              (pref_s two_state)
+              Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
+        ) ;
+        SysMap.remove sys_map sys ;
+        prune_ref := SysMap.fold (
+          fun _ prune acc -> prune :: acc
+        ) sys_map [] ;
+        memory, (sys, non_trivial, trivial) :: res
+      ) else
+        (sys, graph, non_trivial, trivial) :: memory, res
+    in
+
     (* Looping. *)
     system_iterator
-      max_depth two_state input_sys param top_sys (
-        (sys, graph, non_trivial, trivial) :: memory
-      ) k sys_map top_level_count graphs
+      max_depth two_state input_sys param top_sys
+      res memory k sys_map top_level_count graphs
 
-  | [] ->
+  | [] -> (
     (* Done for all systems for this k, incrementing. *)
     let k = Num.succ k in
     match max_depth with
     | Some kay when Num.(k > kay) ->
       Event.log_uncond "%s Reached max depth (%a), stopping."
         (pref_s two_state) Num.pp_print_numeral kay ;
-        memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
-    | _ ->
-      (* Format.printf
-        "%s Looking for invariants at %a (%d)@.@."
-        (pref_s two_state) Num.pp_print_numeral k
-        (List.length memory) ; *)
-      List.rev memory
-      |> system_iterator
-        max_depth two_state
-        input_sys param top_sys [] k sys_map top_level_count
+      kill_solvers sys_map ;
+      memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
+    | _ -> (
+      match memory with
+      | [] ->
+        Event.log L_info
+          "%s No more system to run on, stopping."
+          (pref_s two_state) ;
+        kill_solvers sys_map ;
+        res
+      | _ ->
+        (* Format.printf
+          "%s Looking for invariants at %a (%d)@.@."
+          (pref_s two_state) Num.pp_print_numeral k
+          (List.length memory) ; *)
+        List.rev memory
+        |> system_iterator
+          max_depth two_state
+          input_sys param top_sys res [] k sys_map top_level_count
+    )
+  )
 
 
   (** Invariant generation entry point. *)
   let main max_depth top_only modular two_state input_sys aparam sys =
+    try (
+    
+      (* Format.printf "Starting (%b)@.@." two_state ; *)
 
-    (* Format.printf "Starting@.@." ; *)
+      (* Initial [k]. *)
+      let k = if two_state then Num.one else Num.zero in
 
-    (* Initial [k]. *)
-    let k = if two_state then Num.one else Num.zero in
+      (* Maps systems to their pruning solver. *)
+      let sys_map = SysMap.create 107 in
 
-    (* Maps systems to their pruning solver. *)
-    let sys_map = SysMap.create 107 in
+      (* Generating the candidate terms and building the graphs. Result is a
+      list of quadruples: system, graph, non-trivial invariants, trivial
+      invariants. *)
+      Graph.mine top_only two_state aparam sys (
+        fun sys ->
+          let pruning_checker = Lsd.mk_pruning_checker sys in
+          prune_ref := pruning_checker :: (! prune_ref) ;
+          SysMap.replace sys_map sys pruning_checker
+      ) |> (
+        if modular then 
+          (* If in modular mode, we already ran on the subsystems.
+          Might as well start with the current top system since it's new. *)
+          identity
+        else List.rev
+      )
+      |> fun syss ->
+        (* Format.printf "Running on %d systems@.@." (List.length syss) ; *)
+        syss
+      |> system_iterator
+        max_depth two_state input_sys aparam sys [] [] k sys_map 0
 
-    (* Generating the candidate terms and building the graphs. Result is a list
-    of quadruples: system, graph, non-trivial invariants, trivial
-    invariants. *)
-    Domain.mine top_only aparam two_state sys |> List.fold_left (
-      fun acc (sub_sys, set) ->
-        let set = Set.add Term.t_true set in
-        (* Format.printf "%s candidates: @[<v>%a@]@.@."
-          pref (pp_print_list fmt_term "@ ") (Set.elements set) ; *)
-        let pruning_checker = Lsd.mk_pruning_checker sub_sys in
-        (* Memorizing pruning checker for clean exit. *)
-        prune_ref := pruning_checker :: (! prune_ref ) ;
-        SysMap.replace sys_map sub_sys pruning_checker ;
-        (
-          sub_sys,
-          Graph.mk Term.t_false set,
-          Set.empty,
-          Set.empty
-        ) :: acc
-    ) []
-    |> (
-      if modular then 
-        (* If in modular mode, we already ran on the subsystems.
-        Might as well start with the current top system since it's new. *)
-        List.rev
-      else identity
+    ) with
+    | Event.Terminate -> exit ()
+    | e -> (
+      Event.log L_fatal "caught exception %s" (Printexc.to_string e) ;
+      minisleep 0.5 ;
+      exit ()
     )
-    |> fun syss ->
-      (* Format.printf "Running on %d systems@.@." (List.length syss) ; *)
-      syss
-    |> system_iterator max_depth two_state input_sys aparam sys [] k sys_map 0
 
 end
 
@@ -755,18 +778,70 @@ module IntInvGen = Make(InvGenGraph.Int)
 (** Real invariant generation. *)
 module RealInvGen = Make(InvGenGraph.Real)
 
+(** Graph modules for equivalence-only invgen. *)
+module EqOnly = struct
+
+  (** Graph of booleans. *)
+  module BoolInvGen = Make( InvGenGraph.EqOnly.Bool )
+
+  (** Graph of integers. *)
+  module IntInvGen = Make( InvGenGraph.EqOnly.Int )
+
+  (** Graph of reals. *)
+  module RealInvGen = Make( InvGenGraph.EqOnly.Real )
+
+end
 
 
 
 
-let main two_state in_sys param sys =
-  BoolInvGen.main None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
-  |> ignore
+
+let main_bool two_state in_sys param sys =
+  (
+    if Flags.Invgen.bool_eq_only () then
+      EqOnly.BoolInvGen.main
+    else
+      BoolInvGen.main
+  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  |> ignore ;
+  exit 0
+
+let main_int two_state in_sys param sys =
+  (
+    if Flags.Invgen.arith_eq_only () then
+      EqOnly.IntInvGen.main
+    else
+      IntInvGen.main
+  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  |> ignore ;
+  exit 0
+
+let main_real two_state in_sys param sys =
+  (
+    if Flags.Invgen.arith_eq_only () then
+      EqOnly.RealInvGen.main
+    else
+      RealInvGen.main
+  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  |> ignore ;
+  exit 0
 
 
 
 
-let exit _ = BoolInvGen.exit ()
+let exit _ =
+  ( if Flags.Invgen.bool_eq_only () then
+      EqOnly.BoolInvGen.exit ()
+    else
+      BoolInvGen.exit ()
+  ) ;
+  if Flags.Invgen.arith_eq_only () then (
+    EqOnly.IntInvGen.exit () ;
+    EqOnly.RealInvGen.exit ()
+  ) else (
+    IntInvGen.exit () ;
+    RealInvGen.exit ()
+  )
 
 
 

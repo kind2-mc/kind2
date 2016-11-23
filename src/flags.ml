@@ -1270,6 +1270,22 @@ module Invgen = struct
     )
   let top_only () = !top_only
 
+  let all_out_default = false
+  let all_out = ref all_out_default
+  let _ = add_spec
+    "--invgen_all_out"
+    (bool_arg all_out)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces invariant generation to consider a huge number of candidates@ \
+          Slower, but more likely to succeed.@ \
+          Default: %a\
+        @]"
+        fmt_bool all_out_default
+    )
+  let all_out () = !all_out
+
   let mine_trans_default = true
   let mine_trans = ref mine_trans_default
   let _ = add_spec
@@ -1294,10 +1310,39 @@ module Invgen = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Run invariant generion in two state mode.\
-        @]"
+          Run invariant generion in two state mode\
+          Default: %b\
+        @]" two_state_default
     )
   let two_state () = !two_state
+
+  let bool_eq_only_default = false
+  let bool_eq_only = ref bool_eq_only_default
+  let _ = add_spec
+    "--invgen_bool_eq_only"
+    (bool_arg bool_eq_only)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces bool invgen to look for equalities only\
+          Default: %b\
+        @]" bool_eq_only_default
+    )
+  let bool_eq_only () = !bool_eq_only
+
+  let arith_eq_only_default = false
+  let arith_eq_only = ref arith_eq_only_default
+  let _ = add_spec
+    "--invgen_arith_eq_only"
+    (bool_arg arith_eq_only)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces arith invgen to look for equalities only\
+          Default: %b\
+        @]" arith_eq_only_default
+    )
+  let arith_eq_only () = !arith_eq_only
 
   let renice_default = 0
   let renice = ref renice_default
@@ -1812,6 +1857,10 @@ module Global = struct
     | "IND2" -> `IND2
     | "INVGEN" -> `INVGEN
     | "INVGENOS" -> `INVGENOS
+    | "INVGENINT" -> `INVGENINT
+    | "INVGENINTOS" -> `INVGENINTOS
+    | "INVGENREAL" -> `INVGENREAL
+    | "INVGENREALOS" -> `INVGENREALOS
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
     | unexpected -> Arg.Bad (
@@ -1824,6 +1873,10 @@ module Global = struct
     | `IND2 -> "IND2"
     | `INVGEN -> "INVGEN"
     | `INVGENOS -> "INVGENOS"
+    | `INVGENINT -> "INVGENINT"
+    | `INVGENINTOS -> "INVGENINTOS"
+    | `INVGENREAL -> "INVGENREAL"
+    | `INVGENREALOS -> "INVGENREALOS"
     | `C2I -> "C2I"
     | `Interpreter -> "interpreter"
   let string_of_enable = function
@@ -1835,16 +1888,25 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `BMC ; `IND ; `IND2 ; `INVGEN ; `INVGENOS ; `C2I ; `Interpreter
+    `IC3 ; `BMC ; `IND ; `IND2 ;
+    `INVGEN ; `INVGENOS ;
+    `INVGENINT ; `INVGENINTOS ;
+    `INVGENREAL ; `INVGENREALOS ;
+    `C2I ; `Interpreter
   ] |> List.map string_of_kind_module |> String.concat ", "
 
   let enable_default_init = []
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `IND ; `IND2 ; `IC3 ; `INVGEN ; `INVGENOS
+    `BMC ; `IND ; `IND2 ; `IC3 ;
+    `INVGEN ; `INVGENOS ;
+    (* `INVGENINT ; *) `INVGENINTOS ;
+    (* `INVGENREAL ; *) `INVGENREALOS
   ]
   let enabled = ref enable_default_init
+  let disable modul3 =
+    enabled := (! enabled) |> List.filter (fun m -> m <> modul3)
   let disabled = ref disable_default_init
   let finalize_enabled () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -2121,6 +2183,7 @@ type input_format = Global.input_format
 
 let output_dir = Global.output_dir
 let enabled = Global.enabled
+let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular
 let lus_main = Global.lus_main

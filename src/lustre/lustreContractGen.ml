@@ -286,6 +286,8 @@ let generate_contracts in_sys sys param get_node path =
 
   Event.log_uncond "Running invariant generation..." ;
 
+  Flags.disable `INVGENOS ;
+
   let result =
     InvGen.BoolInvGen.main
       (Some max_depth) (Flags.modular () |> not) false true

@@ -617,7 +617,6 @@ let query_pruning pruning_checker =
     let unfalsified_opt =
       let minus_k = Num.(~- k) in
       Smt.check_sat_assuming solver (
-        (* If sat, get values and remove falsified candidates. *)
         fun solver -> Some (
           Smt.get_term_values solver cands
           |> List.fold_left (
@@ -635,15 +634,20 @@ let query_pruning pruning_checker =
     in
 
     (* Deactivate actlit. *)
-    Smt.trace_comment solver "Deactivating actlit for check." ;
+    Smt.trace_comment solver "Deactivating actlit for previous check." ;
     Term.mk_not actlit |> Smt.assert_term solver ;
 
     match unfalsified_opt with
     | None ->
       Smt.trace_comment solver "|===| Done." ;
       (non_trivial, candidates)
-    | Some (non_triv, rest) ->
-      loop (List.rev_append non_triv non_trivial) rest
+    | Some (non_triv :: non_trivs, rest) ->
+      pruning_add_invariants pruning_checker [ non_triv, () ] ;
+      loop (non_triv :: non_trivial) (List.rev_append non_trivs rest)
+    | Some ([], rest) ->
+      Event.log L_fatal
+        "[pruning] satisfiable instance but no falsifiable candidate" ;
+      exit 2
   in
 
   loop []

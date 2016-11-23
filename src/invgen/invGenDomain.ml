@@ -16,6 +16,7 @@
 
 *)
 
+module Set = Term.TermSet
 
 module Sys = TransSys
 module Num = Numeral
@@ -44,13 +45,19 @@ module type Domain = sig
   (** Evaluates a term. *)
   val eval : Sys.t -> Model.t -> Term.t -> t
   (** Mines a transition system for candidate terms. *)
-  val mine : bool -> Analysis.param -> bool -> Sys.t -> (
-    Sys.t * Term.TermSet.t
+  val mine : bool -> bool -> Analysis.param -> Sys.t -> (
+    Sys.t * Set.t
   ) list
+  (** Representative of the first equivalence class.
+  [False] for bool, a random term in the set for arith. *)
+  val first_rep_of : Set.t -> Term.t * Set.t
   (** Returns true iff the input term is bottom. *)
   val is_bot: Term.t -> bool
   (** Returns true iff the input term is top. *)
   val is_top: Term.t -> bool
+  (** Returns true iff the one state invgen technique for this domain is
+  running. *)
+  val is_os_running: unit -> bool
 end
 
 
@@ -76,38 +83,22 @@ module Bool: Domain = struct
       Term.mk_implies [ lhs ; rhs ]
     else raise TrivialRelation
   let eval = eval_bool
-  let mine top_only param two_state sys =
-    Sys.fold_subsystems
-      ~include_top:true
-      (fun acc sub_sys ->
-        let shall_add =
-          (sub_sys == sys) || (
-            (not top_only) && (
-              TransSys.scope_of_trans_sys sub_sys
-              |> Analysis.param_scope_is_abstract param
-              |> not
-            )
+  let first_rep_of terms = Term.t_false, terms
+  let mine top_only two_state param top_sys =
+    InvGenMiner.Bool.mine top_only two_state top_sys
+    |> List.filter (
+      fun (sys, _) ->
+        (sys == top_sys) || (
+          (not top_only) && (
+            TransSys.scope_of_trans_sys sys
+            |> Analysis.param_scope_is_abstract param
+            |> not
           )
-        in
-        if shall_add then
-          (
-            sub_sys,
-            InvGenMiner.mine_term
-              true (* Synthesis. *)
-              two_state (* Two step.  *)
-              sub_sys
-              []
-              Term.TermSet.empty
-          ) :: acc
-        else acc
-      )
-      []
-      sys
-    (* InvGenCandTermGen.generate_candidate_terms
-      (Flags.Invgen.two_state ()) sys sys
-    |> fst *)
+        )
+    )
   let is_bot term = term = Term.t_false
   let is_top term = term = Term.t_true
+  let is_os_running () = Flags.enabled () |> List.mem `INVGENOS
 end
 
 
@@ -126,10 +117,24 @@ module Int: Domain = struct
   let mk_eq rep term = Term.mk_eq [ rep ; term ]
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_int
-  let mine _ _ _ _ =
-    failwith "integer candidate term mining is unimplemented"
+  let mine top_only two_state param top_sys =
+    InvGenMiner.Int.mine top_only two_state top_sys
+    |> List.filter (
+      fun (sys, _) ->
+        (sys == top_sys) || (
+          (not top_only) && (
+            TransSys.scope_of_trans_sys sys
+            |> Analysis.param_scope_is_abstract param
+            |> not
+          )
+        )
+    )
+  let first_rep_of terms =
+    let rep = Set.choose terms in
+    rep, Set.remove rep terms
   let is_bot _ = false
   let is_top _ = false
+  let is_os_running () = Flags.enabled () |> List.mem `INVGENINTOS
 end
 
 
@@ -148,10 +153,24 @@ module Real: Domain = struct
   let mk_eq rep term = Term.mk_eq [ rep ; term ]
   let mk_cmp lhs rhs = Term.mk_leq [ lhs ; rhs ]
   let eval = eval_real
-  let mine _ _ _ _ =
-    failwith "real candidate term mining is unimplemented"
+  let mine top_only two_state param top_sys =
+    InvGenMiner.Real.mine top_only two_state top_sys
+    |> List.filter (
+      fun (sys, _) ->
+        (sys == top_sys) || (
+          (not top_only) && (
+            TransSys.scope_of_trans_sys sys
+            |> Analysis.param_scope_is_abstract param
+            |> not
+          )
+        )
+    )
+  let first_rep_of terms =
+    let rep = Set.choose terms in
+    rep, Set.remove rep terms
   let is_bot _ = false
   let is_top _ = false
+  let is_os_running () = Flags.enabled () |> List.mem `INVGENREALOS
 end
 
 

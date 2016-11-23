@@ -170,6 +170,9 @@ type enable = Lib.kind_module list
 (** The modules enabled. *)
 val enabled : unit -> enable
 
+(** Manually disables a module. *)
+val disable : Lib.kind_module -> unit
+
 (** Modular analysis. *)
 val modular : unit -> bool
 
@@ -432,11 +435,20 @@ module Invgen : sig
   (** InvGen will generate invariants only for top level. **)
   val top_only : unit -> bool
 
+  (** Forces invgen to consider a huge number of candidates. *)
+  val all_out : unit -> bool
+
   (** InvGen will look for candidate terms in the transition predicate. *)
   val mine_trans : unit -> bool
 
   (** InvGen will run in two state mode. *)
   val two_state : unit -> bool
+
+  (** Forces bool invgen to look for equalities only. *)
+  val bool_eq_only : unit -> bool
+
+  (** Forces arith invgen to look for equalities only. *)
+  val arith_eq_only : unit -> bool
 
   (** Renice invariant generation process. *)
   val renice : unit -> int
