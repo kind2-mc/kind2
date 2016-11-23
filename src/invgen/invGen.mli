@@ -40,7 +40,15 @@ val exit : 'a -> unit
 (** Signature of the module returned by the [Make] invariant generation functor
 when given a module with signature [In]. *)
 module type Out = sig
-  (** Runs the invariant generator. *)
+  (** Runs the invariant generator.
+
+  [main max_depth top_only modular two_state input_sys aparam sys]:
+  
+  * [max_depth]: length of the invariant generation run
+  * [top_only]: run on top level only
+  * [modular]: triggers modular MINING
+  * [two_state]: generate two-state invariants
+  * the rest should be obvious. *)
   val main :
     Numeral.t option -> bool -> bool -> bool -> 'a InputSystem.t ->
     Analysis.param -> TransSys.t -> (

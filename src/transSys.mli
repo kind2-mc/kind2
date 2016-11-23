@@ -188,9 +188,10 @@ val get_unknown_candidates : t -> Term.t list
 (* val all_props_actually_proved : t -> bool *)
 
 
-(** Returns the mode requirements for this system as a list of triplets
-    [is_mode_global, mode_name, require_term].
-    Used by test generation. *)
+(** Returns the optional assumption term and the mode requirement terms for
+each mode.
+
+Used by test generation. *)
 val get_mode_requires : t -> Term.t option * (Scope.t * Term.t) list
 
 (** Returns the list of properties in a transition system, split by their

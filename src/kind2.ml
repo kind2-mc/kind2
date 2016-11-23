@@ -1014,7 +1014,7 @@ let main () =
   )
   | None -> (
 
-    (* Are we just generating contracts?. *)
+    (* (* Are we just generating contracts?. *)
     if Flags.Contracts.contract_gen () then (
       Event.log L_warn
         "Contract generation is a very experimental feature:@ \
@@ -1042,7 +1042,7 @@ let main () =
       LustreContractGen.generate_contracts
         input_sys_sliced trans_sys param node_of_scope target
 
-    ) else
+    ) else *)
       let Input input_sys = input_sys in
       Kind2Flow.run input_sys
       (* launch input_sys *)

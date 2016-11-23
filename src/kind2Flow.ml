@@ -40,11 +40,19 @@ open Res
 let fold = List.fold_left
 (** Iterator on lists. *)
 let iter = List.iter
+(** TSys name formatter. *)
+let fmt_sys = TSys.pp_print_trans_sys_name
 
-(** Hide existential type parameter to construct values of ['a InputSystem.t]
-at runtime *)
-type any_input =
-  | Input : 'a InputSystem.t -> any_input
+(** Last analysis result corresponding to a scope. *)
+let last_result results scope =
+  try
+    Ok (Anal.results_last scope results)
+  with
+  | Not_found -> Err (
+    fun fmt ->
+      Format.fprintf fmt "No result available for component %a."
+        Scope.pp_print_scope scope
+  )
 
 
 (* |===| Post analysis stuff. *)
@@ -70,12 +78,124 @@ end
 Generates tests for a system if system's was proved correct under the maximal
 abstraction. *)
 module RunTestGen: PostAnal = struct
+  (** Error head. *)
+  let head sys fmt =
+    Format.fprintf fmt "Not generating tests for component %a." fmt_sys sys
+  (** Checks that system was proved with the maximal abstraction. *)
+  let gen_param_and_check in_sys param sys =
+    let top = TSys.scope_of_trans_sys sys in
+
+    match param with
+    (* Contract check, node must be abstract. *)
+    | Anal.ContractCheck _ -> Err (
+      fun fmt ->
+        Format.fprintf fmt
+          "%t@ Cannot generate tests unless implementation is safe." (head sys)
+    )
+    | Anal.Refinement _ -> Err (
+      fun fmt ->
+        Format.fprintf fmt
+          "%t@ Component was not proven correct under its maximal abstraction."
+          (head sys)
+    )
+    | Anal.First _ ->
+
+      if TSys.all_props_proved sys |> not then Err (
+        fun fmt ->
+          Format.fprintf fmt
+            "%t@ Component has not been proved safe." (head sys)
+      ) else (
+        match InputSystem.maximal_abstraction_for_testgen in_sys top [] with
+        | None -> Err (
+          fun fmt ->
+            Format.fprintf fmt
+              "System %a has no contracts, skipping test generation."
+              fmt_sys sys
+        )
+        | Some param -> Ok param
+      )
+
   let is_active () = Flags.Testgen.active ()
-  let run i_sys param results =
-    (* To do: check that everything was proved with the maximal abstraction
-    before running. Otherwise: illegal to run test generation. *)
-    Err (
-      fun fmt -> Format.fprintf fmt "test generation is unimplemented"
+  let run in_sys param results =
+    (* Retrieve system from scope. *)
+    let top = (Anal.info_of_param param).Anal.top in
+    last_result results top
+    |> Res.chain (fun { Anal.sys } ->
+      (* Make sure there's at least one mode. *)
+      match TSys.get_mode_requires sys |> snd with
+      | [] -> Err (
+        fun fmt ->
+          Format.fprintf fmt "%t@ Contract has no mode." (head sys)
+      )
+      | _ -> Ok sys
+    )
+    |> Res.chain (gen_param_and_check in_sys param)
+    |> Res.chain (
+      fun param ->
+        (* Create root dir if needed. *)
+        Flags.output_dir () |> mk_dir ;
+        let target = Flags.subdir_for top in
+        (* Create system dir if needed. *)
+        mk_dir target ;
+
+        (* Tweak analysis uid to avoid clashes with future analyses. *)
+        let param = match param with
+          | Analysis.ContractCheck info -> Analysis.ContractCheck {
+            info with Analysis.uid = info.Analysis.uid * 10000
+          }
+          | Analysis.First info -> Analysis.First {
+            info with Analysis.uid = info.Analysis.uid * 10000
+          }
+          | Analysis.Refinement (info, res) -> Analysis.Refinement (
+            { info with Analysis.uid = info.Analysis.uid * 10000 },
+            res
+          )
+        in
+
+        (* Extracting transition system. *)
+        let sys, input_sys_sliced =
+          InputSystem.trans_sys_of_analysis
+            ~preserve_sig:true in_sys param
+        in
+
+        (* Let's do this. *)
+        try (
+          let tests_target = Format.sprintf "%s/%s" target Paths.testgen in
+          mk_dir tests_target ;
+          Event.log_uncond
+            "%sGenerating tests for node \"%a\" to `%s`."
+            TestGen.log_prefix Scope.pp_print_scope top tests_target ;
+          let testgen_xmls =
+            TestGen.main param input_sys_sliced sys tests_target
+          in
+          (* Yay, done. Killing stuff. *)
+          TestGen.on_exit "yay" ;
+          (* Generate oracle. *)
+          let oracle_target = Format.sprintf "%s/%s" target Paths.oracle in
+          mk_dir oracle_target ;
+          Event.log_uncond
+            "%sCompiling oracle to Rust for node \"%a\" to `%s`."
+            TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
+          let name, guarantees, modes =
+            InputSystem.compile_oracle_to_rust in_sys top oracle_target
+          in
+          Event.log_uncond
+            "%sGenerating glue xml file to `%s/.`." TestGen.log_prefix target ;
+          testgen_xmls
+          |> List.map (fun xml -> Format.sprintf "%s/%s" Paths.testgen xml)
+          |> TestGen.log_test_glue_file
+            target name (Paths.oracle, guarantees, modes) Paths.implem ;
+          Event.log_uncond
+            "%sDone with test generation." TestGen.log_prefix ;
+          Ok ()
+        ) with e -> (
+          TestGen.on_exit "T_T" ;
+          Err (
+            fun fmt ->
+              Printexc.to_string e
+              |> Format.fprintf fmt "during test generation:@ %s"
+          )
+        )
     )
 end
 
@@ -83,9 +203,38 @@ end
 Generates contracts by running invariant generation techniques. *)
 module RunContractGen: PostAnal = struct
   let is_active () = Flags.Contracts.contract_gen ()
+  let run in_sys param results =
+    let scope = (Anal.info_of_param param).Anal.top in
+    Event.log L_warn
+      "Contract generation is a very experimental feature:@ \
+      in particular, the modes it generates might not be exhaustive,@ \
+      which means that Kind 2 will consider the contract unsafe.@ \
+      This can be dealt with by adding a wild card mode:@ \
+      mode wildcard () ;" ;
+    let _, node_of_scope =
+      InputSystem.contract_gen_param in_sys
+    in
+    (* Building transition system and slicing info. *)
+    let sys, in_sys_sliced =
+      ISys.contract_gen_trans_sys_of ~preserve_sig:true in_sys param
+    in
+    Flags.output_dir () |> mk_dir ;
+    let target =
+      Format.asprintf "%s/kind2_contract_for_%a.lus" (Flags.output_dir ())
+        (pp_print_list Format.pp_print_string ".") scope
+    in
+    LustreContractGen.generate_contracts
+      in_sys_sliced sys param node_of_scope target ;
+    Ok ()
+end
+
+(** Contract generation.
+Compiles lustre as Rust. *)
+module RunRustGen: PostAnal = struct
+  let is_active () = Flags.lus_compile ()
   let run i_sys param results =
     Err (
-      fun fmt -> Format.fprintf fmt "contract generation unimplemented"
+      fun fmt -> Format.fprintf fmt "Rust generation is unimplemented."
     )
 end
 
@@ -95,7 +244,17 @@ module RunInvLog: PostAnal = struct
   let is_active () = false
   let run i_sys param results =
     Err (
-      fun fmt -> Format.fprintf fmt "invariant logging unimplemented"
+      fun fmt -> Format.fprintf fmt "Invariant logging is unimplemented."
+    )
+end
+
+(** Invariant log.
+Certifies the last proof. *)
+module RunCertif: PostAnal = struct
+  let is_active () = Flags.Certif.proof ()
+  let run i_sys param results =
+    Err (
+      fun fmt -> Format.fprintf fmt "Certification is unimplemented."
     )
 end
 
@@ -103,12 +262,15 @@ end
 let post_anal = [
   (module RunTestGen: PostAnal) ;
   (module RunContractGen: PostAnal) ;
+  (module RunRustGen: PostAnal) ;
   (module RunInvLog: PostAnal) ;
+  (module RunCertif: PostAnal) ;
 ]
 
-(** Runs the post-analysis things on a system and its results. *)
+(** Runs the post-analysis things on a system and its results.
+Produces a list of results, on for each thing. *)
 let run_post_anal i_sys param results =
-  post_anal |> l_iter (
+  post_anal |> List.map (
     fun m ->
       let module Module = (val m: PostAnal) in
       if Module.is_active () then
@@ -466,8 +628,8 @@ let analyze msg_setup modules results in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not then
-      Event.log L_warn "System %a has no property, skipping verification step."
-        TSys.pp_print_trans_sys_name sys
+      Event.log L_warn
+        "System %a has no property, skipping verification step." fmt_sys sys
     else
       let props = TSys.props_list_of_bound sys Num.zero in
       (* Issue analysis start notification. *)
@@ -504,9 +666,17 @@ let analyze msg_setup modules results in_sys param sys =
   Event.log L_info "Result: %a" Analysis.pp_print_result result ;
 
   (* Run post-analysis things. *)
-  ( match run_post_anal in_sys param results with
-    | Ok () -> ()
-    | Err err -> Event.log L_error "Error: @[<v>%t@]" err
+  ( try
+      run_post_anal in_sys param results
+      |> List.iter (
+        function
+        | Ok () -> ()
+        | Err err -> Event.log L_warn "@[<v>%t@]" err
+      )
+    with e ->
+      Event.log L_fatal
+        "Caught %s in post-analysis treatment."
+        (Printexc.to_string e)
   ) ;
 
   results
@@ -593,7 +763,7 @@ let run in_sys =
 
       (* Producing a list of the last results for each system, in topological
       order. *)
-      in_sys |> InputSystem.ordered_scopes_of
+      in_sys |> ISys.ordered_scopes_of
       |> List.fold_left (fun l sys ->
         try (
           match Analysis.results_find sys results with

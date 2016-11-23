@@ -183,6 +183,12 @@ let results_add result results =
     Raises [Not_found] if not found. *)
 let results_find = Scope.Map.find
 
+(** Returns the last result corresponding to a scope. *)
+let results_last scope results =
+  match results_find scope results with
+  | head :: _ -> head
+  | [] -> raise Not_found
+
 (** Returns the total number of results stored in a [results]. Used to
     generate UIDs for [param]s. *)
 let results_length results =

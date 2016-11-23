@@ -383,6 +383,17 @@ val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
 (** Get standard output of command *)
 val syscall : string -> string
 
+(** Paths Kind 2 can write some files.
+Factored to avoid clashes. *)
+module Paths : sig
+  (** Test generation files path. *)
+  val testgen : string
+  (** Test generation oracle path. *)
+  val oracle : string
+  (** Rust generation path. *)
+  val implem : string
+end
+
 (** Reserved identifiers. *)
 module ReservedIds : sig
 
