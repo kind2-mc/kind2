@@ -159,7 +159,7 @@ let fmt_node_decl fmt (
   c_asserts |> List.iter (
     fun (blah, ass) ->
       Format.fprintf fmt "  -- %s@.  %a@."
-        blah Ast.pp_print_node_item (LustreAst.EqAssert ass)
+        blah Ast.pp_print_node_item (LustreAst.Body ass)
   ) ;
   if c_asserts <> [] then Format.fprintf fmt "@." ;
 

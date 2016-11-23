@@ -252,7 +252,7 @@ and state =
 
 (* An item in a node declaration *)
 type node_item =
-  | EqAssert of node_equation
+  | Body of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
 
@@ -853,18 +853,18 @@ let pp_print_eq_lhs ppf = function
 (* Pretty-print a node equation *)
 let pp_print_node_item ppf = function
 
-  | EqAssert (Assert (pos, e)) -> 
+  | Body (Assert (pos, e)) -> 
 
     Format.fprintf ppf "assert %a;" pp_print_expr e
 
-  | EqAssert (Equation (pos, lhs, e)) -> 
+  | Body (Equation (pos, lhs, e)) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a;@]" 
       pp_print_eq_lhs lhs
       pp_print_expr e
 
-  | EqAssert (Automaton (_,_,_,_)) -> assert false
+  | Body (Automaton (_,_,_,_)) -> assert false
 
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 
@@ -1628,13 +1628,13 @@ let eq_lhs_has_pre_or_arrow = function
 
 (** Checks whether a node equation has a `pre` or a `->`. *)
 let node_item_has_pre_or_arrow = function
-| EqAssert (Assert (_, e)) -> has_pre_or_arrow e
-| EqAssert (Equation (_, lhs, e)) ->
+| Body (Assert (_, e)) -> has_pre_or_arrow e
+| Body (Equation (_, lhs, e)) ->
   eq_lhs_has_pre_or_arrow lhs
   |> unwrap_or (fun _ -> has_pre_or_arrow e)
 | AnnotMain _ -> None
 | AnnotProperty (_, _, e) -> has_pre_or_arrow e
-| EqAssert (Automaton _) -> assert false
+| Body (Automaton _) -> assert false
 
 (** Checks whether a contract node equation has a `pre` or a `->`.
 

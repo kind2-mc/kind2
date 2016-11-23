@@ -1063,7 +1063,7 @@ let rec fold_node_calls_with_trans_sys'
 
       let tl' = 
         List.fold_left 
-          (fun a { call_pos; call_node_name; call_cond } ->
+          (fun a { call_pos; call_node_name; call_cond; call_defaults } ->
 
              (* Find called node by name *)
              let node' = node_of_name call_node_name nodes in
@@ -1086,6 +1086,16 @@ let rec fold_node_calls_with_trans_sys'
                  instances'
              in
 
+             (* Only keep call conditions that effectively sample the node
+                call, i.e. not the ones where default initial values are
+                provided (e.g. for interpolating condacts) *)
+             let call_cond = match call_defaults with
+               | None -> call_cond
+               | Some _ ->
+                 List.filter (function CActivate _ -> false | _ -> true)
+                   call_cond
+             in
+             
              FDown (node', trans_sys',
                     (trans_sys, instance, call_cond) :: instances) :: a)
           (FUp (node, trans_sys, instances) :: tl)
@@ -1379,8 +1389,8 @@ let state_var_is_visible node state_var =
   &&
   let s = StateVar.name_of_state_var state_var in
   let r = Format.sprintf ".*\\(%s\\|%s\\|%s\\|%s\\|%s\\..*\\)$"
-      state_in_string restart_in_string
-      state_in_next_string restart_in_next_string "last"
+      state_selected_string restart_selected_string
+      state_selected_next_string restart_selected_next_string "last"
   in
   let r = Str.regexp r in
   not (Str.string_match r s 0)  

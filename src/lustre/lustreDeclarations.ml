@@ -69,8 +69,8 @@ type automaton_info = {
   states_lustre_type : A.lustre_type;
 
   (* Local variables used to encode the internal state of the automaton *)
-  i_state_in : A.ident;
-  i_restart_in : A.ident;
+  i_state_selected : A.ident;
+  i_restart_selected : A.ident;
   i_state : A.ident;
   i_restart : A.ident;
 }
@@ -1691,7 +1691,8 @@ and eval_node_contract_spec known ctx pos scope inputs outputs locals contract =
 
   ctx
   
-
+(* Evaluate a hierarchical automaton by recursively encoding states as nodes
+   and evaluating those *)
 and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 
   (* Create a new automaton name if anonymous *)
@@ -1789,10 +1790,13 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     (* Node local variables used to encode the automaton *)
     let i_state = String.concat "." [name; state_string] in
     let i_restart = String.concat "." [name; restart_string] in
-    let i_state_in = String.concat "." [name; state_in_string] in
-    let i_restart_in = String.concat "." [name; restart_in_string] in
-    let i_state_in_next = String.concat "." [name; state_in_next_string] in
-    let i_restart_in_next = String.concat "." [name; restart_in_next_string] in
+    let i_state_selected = String.concat "." [name; state_selected_string] in
+    let i_restart_selected =
+      String.concat "." [name; restart_selected_string] in
+    let i_state_selected_next =
+      String.concat "." [name; state_selected_next_string] in
+    let i_restart_selected_next =
+      String.concat "." [name; restart_selected_next_string] in
     (* Add them to the local variables of the current node *)
     let add_auto_local i ty ctx =
       let ident = I.mk_string_ident i in
@@ -1801,10 +1805,10 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     let ctx = ctx
               |> add_auto_local i_state states_ty
               |> add_auto_local i_restart bool_ty
-              |> add_auto_local i_state_in states_ty
-              |> add_auto_local i_restart_in bool_ty
-              |> add_auto_local i_state_in_next states_ty
-              |> add_auto_local i_restart_in_next bool_ty
+              |> add_auto_local i_state_selected states_ty
+              |> add_auto_local i_restart_selected bool_ty
+              |> add_auto_local i_state_selected_next states_ty
+              |> add_auto_local i_restart_selected_next bool_ty
     in
 
     let info = {
@@ -1814,12 +1818,14 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
       other_vars = other_vars_dl;
       lasts_inputs;
       states_lustre_type = states_type;
-      i_state_in;
-      i_restart_in;
+      i_state_selected;
+      i_restart_selected;
       i_state;
       i_restart;
     } in
-    
+
+    (* Encode/evaluate automaton states and get the names of the corresponding
+       new auxiliary nodes *)
     let ctx, aux_nodes =
       List.fold_left (fun (ctx, aux_nodes) s ->
           let ctx, n = encode_automaton_state info ctx s in
@@ -1830,17 +1836,21 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     
     let handlers, unlesses = List.split aux_nodes in 
 
-    (* state_in = initial_state -> pre state_in_next; *)
-    let state_in_eq =
-      A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, i_state_in)]),
-                  A.Arrow (pos, A.Ident (pos, initial_state),
-                           A.Pre (pos, A.Ident (pos, i_state_in_next)))) in
+    (* state_selected = initial_state -> pre state_selected_next; *)
+    let state_selected_eq =
+      A.Equation
+        (pos,
+         A.StructDef (pos, [A.SingleIdent (pos, i_state_selected)]),
+         A.Arrow (pos, A.Ident (pos, initial_state),
+                  A.Pre (pos, A.Ident (pos, i_state_selected_next)))) in
 
-    (* restart_in = false -> pre restart_in_next; *)
-    let restart_in_eq =
-      A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, i_restart_in)]),
-                  A.Arrow (pos, A.False pos,
-                           A.Pre (pos, A.Ident (pos, i_restart_in_next)))) in
+    (* restart_selected = false -> pre restart_selected_next; *)
+    let restart_selected_eq =
+      A.Equation
+        (pos,
+         A.StructDef (pos, [A.SingleIdent (pos, i_restart_selected)]),
+         A.Arrow (pos, A.False pos,
+                  A.Pre (pos, A.Ident (pos, i_restart_selected_next)))) in
 
     let inputs_idents =
       List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in
@@ -1870,22 +1880,24 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
       A.Equation (pos,
         A.StructDef (pos,
          List.map (fun i -> A.SingleIdent (pos, i))
-           (i_state_in_next :: i_restart_in_next :: auto_outputs)),
+           (i_state_selected_next :: i_restart_selected_next :: auto_outputs)),
         A.Merge (pos, i_state, handlers_activate_calls)) in
 
     let unlesses_activate_calls =
       List.map2 (fun unless (A.State (pos, state_c, _, _, _, _, _)) ->
         state_c,
-        (* activate unless every state_in = state_c restart every restart_in *)
+        (* activate unless every state_selected =
+           state_c restart every restart_selected *)
         A.Activate
           (pos, unless, 
            (* clock *)
-           A.Eq (pos, A.Ident (pos, i_state_in), A.Ident (pos, state_c)),
+           A.Eq (pos, A.Ident (pos, i_state_selected), A.Ident (pos, state_c)),
            (* restart *)
-           A.Ident (pos, i_restart_in),
-           (* arguments = state_in + restart_in + inputs of the node + outputs
-              of the automaton + others*)
-           A.Ident (pos, i_state_in) :: A.Ident (pos, i_restart_in) ::
+           A.Ident (pos, i_restart_selected),
+           (* arguments = state_selected + restart_selected +
+              inputs of the node + outputs of the automaton + others*)
+           A.Ident (pos, i_state_selected) ::
+           A.Ident (pos, i_restart_selected) ::
            inputs_idents @ auto_outputs_idents @ other_vars_idents @
            (lasts_args pos)
           )
@@ -1901,11 +1913,12 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
       A.Equation (pos,
         A.StructDef (pos,
          List.map (fun i -> A.SingleIdent (pos, i)) [i_state; i_restart]),
-        A.Merge (pos, i_state_in, unlesses_activate_calls)) in
+        A.Merge (pos, i_state_selected, unlesses_activate_calls)) in
     
     (* add equations to the node *)
-    let ctx = eval_node_equation inputs outputs locals ctx state_in_eq in
-    let ctx = eval_node_equation inputs outputs locals ctx restart_in_eq in
+    let ctx = eval_node_equation inputs outputs locals ctx state_selected_eq in
+    let ctx =
+      eval_node_equation inputs outputs locals ctx restart_selected_eq in
     let ctx = eval_node_equation inputs outputs locals ctx handlers_eq in
     let ctx = eval_node_equation inputs outputs locals ctx unlesses_eq in
 
@@ -1936,7 +1949,7 @@ and encode_transition_branch pos state_c default = function
 and encode_until_handler pos
     { auto_name; states_lustre_type;
       auto_outputs; other_vars; lasts_inputs;
-      i_state_in; i_restart_in; node_inputs }
+      i_state_selected; i_restart_selected; node_inputs }
     state_c locals eqs until_tr ctx =
   let stay = A.ExprList (pos, [A.Ident (pos, state_c); A.False pos]) in
   let e = match until_tr with
@@ -1944,15 +1957,16 @@ and encode_until_handler pos
     | Some (posb, br) -> encode_transition_branch posb state_c stay br
   in
   let eq =
-      A.Equation (pos,
-        A.StructDef (pos,
-         List.map (fun i -> A.SingleIdent (pos, i)) [i_state_in; i_restart_in]),
-         e)
+    A.Equation
+      (pos, A.StructDef
+         (pos, List.map (fun i -> A.SingleIdent (pos, i))
+            [i_state_selected; i_restart_selected]),
+       e)
   in
   let name = String.concat "." [auto_name; handler_string; state_c] in
   let outputs =
-    (pos, i_state_in, states_lustre_type, A.ClockTrue) ::
-    (pos, i_restart_in, A.Bool pos, A.ClockTrue) ::
+    (pos, i_state_selected, states_lustre_type, A.ClockTrue) ::
+    (pos, i_restart_selected, A.Bool pos, A.ClockTrue) ::
     auto_outputs
   in
 
@@ -1971,7 +1985,7 @@ and encode_until_handler pos
       (node_inputs @ other_vars @ lasts_inputs)
       outputs
       locals
-      (List.map (fun e -> A.EqAssert e) (eq :: eqs)) None
+      (List.map (fun e -> A.Body e) (eq :: eqs)) None
   in
 
   let ctx = C.add_node_to_context ctx node_ctx in
@@ -1983,10 +1997,10 @@ and encode_until_handler pos
 and encode_unless pos
     {auto_name; states_lustre_type;
      node_inputs; auto_outputs; other_vars; lasts_inputs;
-     i_state_in; i_restart_in; i_state; i_restart }
+     i_state_selected; i_restart_selected; i_state; i_restart }
     state_c unless_tr ctx =
-  let skip = A.ExprList (pos, [A.Ident (pos, i_state_in);
-                               A.Ident (pos, i_restart_in)]) in
+  let skip = A.ExprList (pos, [A.Ident (pos, i_state_selected);
+                               A.Ident (pos, i_restart_selected)]) in
   let e = match unless_tr with
     | None -> skip
     | Some (posb, br) -> encode_transition_branch posb state_c skip br
@@ -2001,8 +2015,8 @@ and encode_unless pos
   let auto_out_inputs =
     List.map (fun (p, o, t, c) -> (p, o, t, c, false)) auto_outputs in
   let inputs =
-    (pos, i_state_in, states_lustre_type, A.ClockTrue, false) ::
-    (pos, i_restart_in, A.Bool pos, A.ClockTrue, false) ::
+    (pos, i_state_selected, states_lustre_type, A.ClockTrue, false) ::
+    (pos, i_restart_selected, A.Bool pos, A.ClockTrue, false) ::
     node_inputs @ auto_out_inputs @ other_vars @ lasts_inputs
   in
   let outputs = [
@@ -2021,7 +2035,7 @@ and encode_unless pos
   (* Create separate context for node (not external) *)
   let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
-    eval_node_decl node_ctx pos inputs outputs [] [A.EqAssert eq] None
+    eval_node_decl node_ctx pos inputs outputs [] [A.Body eq] None
   in
 
   let ctx = C.add_node_to_context ctx node_ctx in
@@ -2049,7 +2063,7 @@ and eval_node_items inputs outputs locals ctx = function
   | [] -> ctx
 
   (* Assertion or equation *)
-  | A.EqAssert e :: tl -> 
+  | A.Body e :: tl -> 
 
     let ctx = eval_node_equation inputs outputs locals ctx e in
     

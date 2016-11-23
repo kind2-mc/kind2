@@ -317,25 +317,24 @@ val scope_of_node : t -> Scope.t
 
 (** Fold bottom-up over node calls together with the transition system 
 
-    [fold_node_calls_with_trans_sys l f n t] evaluates [f m s i a] for
-    each node call in the node [n], including [n] itself. The list of
-    nodes [l] must at least contain all sub-nodes of [n], and [n]
-    itself, the transition system [t] must at least contain subsystem
-    instances for all node calls. Both [l] and [t] may contain more
-    nodes and subsystems, respectively, only the node calls in [n] are
-    relevant.
+    [fold_node_calls_with_trans_sys l f n t] evaluates [f m s i a] for each
+    node call in the node [n], including [n] itself. The list of nodes [l] must
+    at least contain all sub-nodes of [n], and [n] itself, the transition
+    system [t] must at least contain subsystem instances for all node
+    calls. Both [l] and [t] may contain more nodes and subsystems,
+    respectively, only the node calls in [n] are relevant.
 
-    The function [f] is evaluated with the node [m], its transition
-    system [s], and the reverse sequence of instantiations [i] that
-    reach the top system [t]. The last parameter [a] is the list of
-    evaluations of [f] on the called nodes and subsystems of [s]. The
-    sequence of instantiations [i] contains at its head a system that
-    has [s] as a direct subsystem, together with the instance
-    parameters. For the top system [i] is the empty list.
+    The function [f] is evaluated with the node [m], its transition system [s],
+    and the reverse sequence of instantiations [i] that reach the top system
+    [t]. The last parameter [a] is the list of evaluations of [f] on the called
+    nodes and subsystems of [s]. The sequence of instantiations [i] contains at
+    its head a system that has [s] as a direct subsystem, together with the
+    instance parameters. For the top system [i] is the empty list. Each element
+    of [i] also contains the call activation conditions that effectively sample
+    the node.
 
-    The systems are presented in topological order such that each
-    system is presented to [f] after all its subsystem instances have
-    been presented.
+    The systems are presented in topological order such that each system is
+    presented to [f] after all its subsystem instances have been presented.
 *)
 val fold_node_calls_with_trans_sys :
   t list -> (

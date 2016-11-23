@@ -204,7 +204,7 @@ and state =
 
 (** An item in a node declaration *)
 type node_item =
-  | EqAssert of node_equation
+  | Body of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
 

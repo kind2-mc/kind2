@@ -561,7 +561,7 @@ property:
 
 
 node_item:
-  | e = node_equation { A.EqAssert e }
+  | e = node_equation { A.Body e }
   | a = main_annot { a }
   | p = property { p }
 

@@ -1142,10 +1142,10 @@ module ReservedIds = struct
 
   let state_string = "state"
   let restart_string = "restart"
-  let state_in_string = "state.in"
-  let restart_in_string = "restart.in"
-  let state_in_next_string = "state.in.next"
-  let restart_in_next_string = "restart.in.next"
+  let state_selected_string = "state.selected"
+  let restart_selected_string = "restart.selected"
+  let state_selected_next_string = "state.selected.next"
+  let restart_selected_next_string = "restart.selected.next"
   let handler_string = "handler"
   let unless_string = "unless"
   
