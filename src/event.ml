@@ -512,8 +512,8 @@ let prop_status_pt level prop_status =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>@{<b>%a@}@{<b>Summary of properties@}:@,%a%a@,@{<b>%a@}@]@."
-    Pretty.print_double_line ()
+    "@[<v>%a@{<b>Summary of properties@}:@,%a%a@,%a@]@."
+    Pretty.print_line ()
     Pretty.print_line ()
     (pp_print_list 
        (fun ppf (p, s) -> 
@@ -879,7 +879,7 @@ let log_run_end results =
     (* Printing a short, human readable version of all the results. *)
     if Flags.Contracts.compositional () then
       Format.fprintf !log_ppf
-        "%a@{<b>Analysis breakdown, total runtime %.3fs seconds@}:@   \
+        "@{<b>%a@}@{<b>Analysis breakdown, total runtime %.3fs seconds@}:@   \
           @[<v>%a@]@.@.\
         "
         Pretty.print_line ()
@@ -903,9 +903,9 @@ let log_analysis_start sys param =
   | F_pt ->
     if Flags.log_level () = L_off |> not then
       Format.fprintf !log_ppf "\
-        @.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
+        @.@.%a@{<b>Analyzing @{<blue>%a@}@}@   with %a\
       @.@."
-      Pretty.print_line ()
+      Pretty.print_double_line ()
       Scope.pp_print_scope info.Analysis.top
       Analysis.pp_print_param param
 
@@ -958,6 +958,26 @@ let log_analysis_end result =
       analysis_start_not_closed := false
     ) ;
 
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs the start of a post-analysis treatment. *)
+let log_post_anal_start name title =
+  match get_log_format () with
+  | F_pt ->
+    Format.fprintf !log_ppf "%a@{<b>Post-analysis@}: @{<blue>%s@}@.@."
+      Pretty.print_line () title
+  | F_xml ->
+    Format.fprintf !log_ppf "<StartPostAnalysis name=\"%s\"/>@.@."
+      name
+  | F_relay -> failwith "can only be called by supervisor"
+
+(** Logs the end of a post-analysis treatment. *)
+let log_post_anal_end () =
+  match get_log_format () with
+  | F_pt ->
+    Format.fprintf !log_ppf "%a@." Pretty.print_line ()
+  | F_xml ->
+    Format.fprintf !log_ppf "</PostAnalysisEnd>@.@."
   | F_relay -> failwith "can only be called by supervisor"
 
 (* Terminate log output *)

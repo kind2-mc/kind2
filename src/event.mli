@@ -98,6 +98,14 @@ val log_analysis_start : TransSys.t -> Analysis.param -> unit
     [log_analysis_start result] logs the end of an analysis. *)
 val log_analysis_end : Analysis.result -> unit
 
+(** Logs the start of a post-analysis treatment. Arguments:
+* name of the treatment (concise, for XML)
+* title of the treatment (verbose, for pt) *)
+val log_post_anal_start : string -> string -> unit
+
+(** Logs the end of a post-analysis treatment. *)
+val log_post_anal_end : unit -> unit
+
 (** Logs a timeout. Input should be [true] for wallclock, [false] for CPU. *)
 val log_timeout : bool -> unit
 

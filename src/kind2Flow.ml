@@ -60,6 +60,10 @@ let last_result results scope =
 
 (** Signature of modules for post-analysis treatment. *)
 module type PostAnal = sig
+  (** Name of the treatment. (For xml logging.) *)
+  val name: string
+  (** Title of the treatment. (For plain text logging.) *)
+  val title: string
   (** Indicates whether the module is active. *)
   val is_active: unit -> bool
   (** Performs the treatment. *)
@@ -78,6 +82,8 @@ end
 Generates tests for a system if system's was proved correct under the maximal
 abstraction. *)
 module RunTestGen: PostAnal = struct
+  let name = "testgen"
+  let title = "test generation"
   (** Error head. *)
   let head sys fmt =
     Format.fprintf fmt "Not generating tests for component %a." fmt_sys sys
@@ -123,9 +129,16 @@ module RunTestGen: PostAnal = struct
     |> Res.chain (fun { Anal.sys } ->
       (* Make sure there's at least one mode. *)
       match TSys.get_mode_requires sys |> snd with
-      | [] -> Err (
-        fun fmt ->
-          Format.fprintf fmt "%t@ Contract has no mode." (head sys)
+      | [] -> (
+        match TSys.props_list_of_bound sys Num.zero with
+        | [] -> Err (
+          fun fmt ->
+            Format.fprintf fmt "%t@ Component has no contract." (head sys)
+        )
+        | _ -> Err (
+          fun fmt ->
+            Format.fprintf fmt "%t@ Component has no modes." (head sys)
+        )
       )
       | _ -> Ok sys
     )
@@ -202,9 +215,11 @@ end
 (** Contract generation.
 Generates contracts by running invariant generation techniques. *)
 module RunContractGen: PostAnal = struct
+  let name = "contractgen"
+  let title = "contract generation"
   let is_active () = Flags.Contracts.contract_gen ()
   let run in_sys param results =
-    let scope = (Anal.info_of_param param).Anal.top in
+    let top = (Anal.info_of_param param).Anal.top in
     Event.log L_warn
       "Contract generation is a very experimental feature:@ \
       in particular, the modes it generates might not be exhaustive,@ \
@@ -218,29 +233,48 @@ module RunContractGen: PostAnal = struct
     let sys, in_sys_sliced =
       ISys.contract_gen_trans_sys_of ~preserve_sig:true in_sys param
     in
+    let target = Flags.subdir_for top in
+    (* Create directories if they don't exist. *)
     Flags.output_dir () |> mk_dir ;
+    mk_dir target ;
     let target =
-      Format.asprintf "%s/kind2_contract_for_%a.lus" (Flags.output_dir ())
-        (pp_print_list Format.pp_print_string ".") scope
+      Format.asprintf "%s/kind2_contract.lus" target
     in
     LustreContractGen.generate_contracts
-      in_sys_sliced sys param node_of_scope target ;
+      in_sys_sliced param sys node_of_scope target ;
     Ok ()
 end
 
-(** Contract generation.
+(** Rust generation.
 Compiles lustre as Rust. *)
 module RunRustGen: PostAnal = struct
+  let name = "rustgen"
+  let title = "rust generation"
   let is_active () = Flags.lus_compile ()
-  let run i_sys param results =
-    Err (
-      fun fmt -> Format.fprintf fmt "Rust generation is unimplemented."
-    )
+  let run in_sys param results =
+    Event.log L_warn
+      "Compilation to Rust is still a rather experimental feature:@ \
+      in particular, arrays are not supported." ;
+    let top = (Anal.info_of_param param).Anal.top in
+    let target = Flags.subdir_for top in
+    (* Creating directories if needed. *)
+    Flags.output_dir () |> mk_dir ;
+    mk_dir target ;
+    (* Implementation directory. *)
+    let target = Format.sprintf "%s/%s" target Paths.implem in
+    Event.log_uncond
+      "  Compiling node \"%a\" to Rust in `%s`."
+      Scope.pp_print_scope top target ;
+    InputSystem.compile_to_rust in_sys top target ;
+    Event.log_uncond "  Done compiling." ;
+    Ok ()
 end
 
 (** Invariant log.
 Minimizes and logs invariants used in the proof. *)
 module RunInvLog: PostAnal = struct
+  let name = "invlog"
+  let title = "invariant logging"
   let is_active () = false
   let run i_sys param results =
     Err (
@@ -251,6 +285,8 @@ end
 (** Invariant log.
 Certifies the last proof. *)
 module RunCertif: PostAnal = struct
+  let name = "certification"
+  let title = name
   let is_active () = Flags.Certif.proof ()
   let run i_sys param results =
     Err (
@@ -270,12 +306,22 @@ let post_anal = [
 (** Runs the post-analysis things on a system and its results.
 Produces a list of results, on for each thing. *)
 let run_post_anal i_sys param results =
-  post_anal |> List.map (
+  post_anal |> List.iter (
     fun m ->
       let module Module = (val m: PostAnal) in
-      if Module.is_active () then
-        Module.run i_sys param results
-      else Ok ()
+      if Module.is_active () then (
+        Event.log_post_anal_start Module.name Module.title ;
+        (* Event.log_uncond "Running @{<b>%s@}." Module.title ; *)
+        try
+          ( match Module.run i_sys param results with
+            | Ok () -> ()
+            | Err err -> Event.log L_warn "@[<v>%t@]" err
+          ) ;
+          Event.log_post_anal_end ()
+        with e ->
+          Event.log_post_anal_end () ;
+          raise e
+      )
   )
 
 
@@ -303,8 +349,12 @@ let main_of_process = function
   | `BMC -> BMC.main
   | `IND -> IND.main
   | `IND2 -> IND2.main
-  | `INVGEN -> renice () ; InvGen.main true
-  | `INVGENOS -> renice () ; InvGen.main false
+  | `INVGEN -> renice () ; InvGen.main_bool true
+  | `INVGENOS -> renice () ; InvGen.main_bool false
+  | `INVGENINT -> renice () ; InvGen.main_int true
+  | `INVGENINTOS -> renice () ; InvGen.main_int false
+  | `INVGENREAL -> renice () ; InvGen.main_real true
+  | `INVGENREALOS -> renice () ; InvGen.main_real false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
   | `Supervisor -> InvarManager.main child_pids
@@ -318,6 +368,10 @@ let on_exit_of_process = function
   | `IND2 -> IND2.on_exit None
   | `INVGEN -> InvGen.exit None
   | `INVGENOS -> InvGen.exit None
+  | `INVGENINT -> InvGen.exit None
+  | `INVGENINTOS -> InvGen.exit None
+  | `INVGENREAL -> InvGen.exit None
+  | `INVGENREALOS -> InvGen.exit None
   | `C2I -> C2I.on_exit None
   | `Interpreter -> Interpreter.on_exit None
   | `Supervisor -> InvarManager.on_exit None
@@ -668,11 +722,6 @@ let analyze msg_setup modules results in_sys param sys =
   (* Run post-analysis things. *)
   ( try
       run_post_anal in_sys param results
-      |> List.iter (
-        function
-        | Ok () -> ()
-        | Err err -> Event.log L_warn "@[<v>%t@]" err
-      )
     with e ->
       Event.log L_fatal
         "Caught %s in post-analysis treatment."

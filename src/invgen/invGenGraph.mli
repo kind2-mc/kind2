@@ -83,9 +83,9 @@ module type Graph = sig
   (** Formats the eq classes of a graph in dot format. *)
   val fmt_graph_classes_dot : Format.formatter -> graph -> unit
 
-  (* (** Checks that a graph makes sense. Dumps the graph and its classes in dot
+  (** Checks that a graph makes sense. Dumps the graph and its classes in dot
   format in the current directory if the graph does not make sense. *)
-  val check_graph : graph -> bool *)
+  val check_graph : graph -> bool
 
   (** Minimal list of terms encoding the current state of the graph. Contains
   - equality between representatives and their class, and
