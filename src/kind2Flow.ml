@@ -59,7 +59,7 @@ let last_result results scope =
 
 
 (** Signature of modules for post-analysis treatment. *)
-module type PostAnal = sig
+module type PostAnalysis = sig
   (** Name of the treatment. (For xml logging.) *)
   val name: string
   (** Title of the treatment. (For plain text logging.) *)
@@ -81,7 +81,7 @@ end
 (** Test generation.
 Generates tests for a system if system's was proved correct under the maximal
 abstraction. *)
-module RunTestGen: PostAnal = struct
+module RunTestGen: PostAnalysis = struct
   let name = "testgen"
   let title = "test generation"
   (** Error head. *)
@@ -214,7 +214,7 @@ end
 
 (** Contract generation.
 Generates contracts by running invariant generation techniques. *)
-module RunContractGen: PostAnal = struct
+module RunContractGen: PostAnalysis = struct
   let name = "contractgen"
   let title = "contract generation"
   let is_active () = Flags.Contracts.contract_gen ()
@@ -247,7 +247,7 @@ end
 
 (** Rust generation.
 Compiles lustre as Rust. *)
-module RunRustGen: PostAnal = struct
+module RunRustGen: PostAnalysis = struct
   let name = "rustgen"
   let title = "rust generation"
   let is_active () = Flags.lus_compile ()
@@ -272,11 +272,11 @@ end
 
 (** Invariant log.
 Minimizes and logs invariants used in the proof. *)
-module RunInvLog: PostAnal = struct
+module RunInvLog: PostAnalysis = struct
   let name = "invlog"
   let title = "invariant logging"
-  let is_active () = false
-  let run i_sys param results =
+  let is_active () = Flags.log_invs ()
+  let run in_sys param results =
     Err (
       fun fmt -> Format.fprintf fmt "Invariant logging is unimplemented."
     )
@@ -284,42 +284,51 @@ end
 
 (** Invariant log.
 Certifies the last proof. *)
-module RunCertif: PostAnal = struct
+module RunCertif: PostAnalysis = struct
   let name = "certification"
   let title = name
-  let is_active () = Flags.Certif.proof ()
-  let run i_sys param results =
-    Err (
-      fun fmt -> Format.fprintf fmt "Certification is unimplemented."
+  let is_active () = Flags.Certif.certif ()
+  let run in_sys param results =
+    let top = (Anal.info_of_param param).Anal.top in
+    last_result results top |> chain (
+      fun result ->
+        let sys = result.Anal.sys in
+        let uid = (Anal.info_of_param param).Anal.uid in
+        ( if Flags.Certif.proof () then
+            CertifChecker.generate_all_proofs uid in_sys sys
+          else
+            CertifChecker.generate_smt2_certificates uid in_sys sys
+        ) ;
+        Ok ()
     )
 end
 
 (** List of post-analysis modules. *)
-let post_anal = [
-  (module RunTestGen: PostAnal) ;
-  (module RunContractGen: PostAnal) ;
-  (module RunRustGen: PostAnal) ;
-  (module RunInvLog: PostAnal) ;
-  (module RunCertif: PostAnal) ;
+let post_analysis = [
+  (module RunTestGen: PostAnalysis) ;
+  (module RunContractGen: PostAnalysis) ;
+  (module RunRustGen: PostAnalysis) ;
+  (module RunInvLog: PostAnalysis) ;
+  (module RunCertif: PostAnalysis) ;
 ]
 
 (** Runs the post-analysis things on a system and its results.
 Produces a list of results, on for each thing. *)
-let run_post_anal i_sys param results =
-  post_anal |> List.iter (
+let run_post_analysis i_sys param results =
+  post_analysis |> List.iter (
     fun m ->
-      let module Module = (val m: PostAnal) in
+      let module Module = (val m: PostAnalysis) in
       if Module.is_active () then (
-        Event.log_post_anal_start Module.name Module.title ;
+        Event.log_post_analysis_start Module.name Module.title ;
         (* Event.log_uncond "Running @{<b>%s@}." Module.title ; *)
         try
           ( match Module.run i_sys param results with
             | Ok () -> ()
             | Err err -> Event.log L_warn "@[<v>%t@]" err
           ) ;
-          Event.log_post_anal_end ()
+          Event.log_post_analysis_end ()
         with e ->
-          Event.log_post_anal_end () ;
+          Event.log_post_analysis_end () ;
           raise e
       )
   )
@@ -721,7 +730,7 @@ let analyze msg_setup modules results in_sys param sys =
 
   (* Run post-analysis things. *)
   ( try
-      run_post_anal in_sys param results
+      run_post_analysis in_sys param results
     with e ->
       Event.log L_fatal
         "Caught %s in post-analysis treatment."

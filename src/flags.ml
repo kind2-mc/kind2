@@ -1807,6 +1807,21 @@ module Global = struct
   let output_dir () = !output_dir
 
 
+  (* Log invariants. *)
+  let log_invs_default = false
+  let log_invs = ref log_invs_default
+  let _ = add_spec
+    "--log_invs"
+    (bool_arg log_invs)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Logs strengthening invariants as contracts after minimization.@ \
+        Default: %b"
+        log_invs_default
+    )
+  let log_invs () = ! log_invs
+
+
   (* Timeout. *)
   let timeout_wall_default = 0.
   let timeout_wall = ref timeout_wall_default
@@ -2196,6 +2211,7 @@ type input_format = Global.input_format
 (* |===| The following functions allow to access global flags directly. *)
 
 let output_dir = Global.output_dir
+let log_invs = Global.log_invs
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable

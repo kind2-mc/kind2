@@ -961,7 +961,7 @@ let log_analysis_end result =
   | F_relay -> failwith "can only be called by supervisor"
 
 (** Logs the start of a post-analysis treatment. *)
-let log_post_anal_start name title =
+let log_post_analysis_start name title =
   match get_log_format () with
   | F_pt ->
     Format.fprintf !log_ppf "%a@{<b>Post-analysis@}: @{<blue>%s@}@.@."
@@ -972,7 +972,7 @@ let log_post_anal_start name title =
   | F_relay -> failwith "can only be called by supervisor"
 
 (** Logs the end of a post-analysis treatment. *)
-let log_post_anal_end () =
+let log_post_analysis_end () =
   match get_log_format () with
   | F_pt ->
     Format.fprintf !log_ppf "%a@." Pretty.print_line ()
