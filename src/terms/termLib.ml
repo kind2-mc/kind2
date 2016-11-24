@@ -358,6 +358,7 @@ module Signals = struct
 
   (* Sets a handler for sigalrm. *)
   let set_sigalrm_exn () =
+    Format.printf "|===| changing sigalrm...@.@." ;
     signals.sigalrm <- Exn ;
     set_sig Sys.sigalrm exception_on_signal
 
@@ -376,6 +377,11 @@ module Signals = struct
     signals.sigterm <- Exn ;
     set_sig Sys.sigterm exception_on_signal
 
+  (* Sets a handler for sigpipe. *)
+  let set_sigpipe () =
+    signals.sigpipe <- Exn ;
+    set_sig Sys.sigpipe exception_on_signal
+
 
   (* Sets a timeout. *)
   let set_timeout_value ?(interval = 0.) value =
@@ -392,17 +398,22 @@ module Signals = struct
     signals.timeout <- Some(value) ;
     set_timeout_value value
 
-  (* Sets a timeout based on the flag value. *)
-  let set_timeout_from_flag () =
-    if Flags.timeout_wall () > 0.
-    then Flags.timeout_wall () |> set_timeout
-    else ()
-
   (* Deactivates timeout. *)
   let unset_timeout () =
-    set_sigalrm_exn () ;
+    set_timeout_value 0. ;
     signals.timeout <- None ;
-    set_timeout_value 0.
+    set_sigalrm_exn ()
+
+  (* Sets a timeout based on the flag value and the total time elapsed this
+  far. *)
+  let set_sigalrm_timeout_from_flag () =
+    match Flags.timeout_wall () with
+    | timeout when timeout > 0. ->
+      let elapsed = Stat.get_float Stat.total_time in
+      if timeout < elapsed then raise TimeoutWall
+      else timeout -. elapsed |> set_timeout
+    | _ ->
+      unset_timeout ()
 
   end
 

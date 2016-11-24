@@ -115,11 +115,15 @@ module Signals: sig
   (** Sets a handler for sigterm. *)
   val set_sigterm: unit -> unit
 
+  (** Sets a handler for sigpipe. *)
+  val set_sigpipe: unit -> unit
+
   (** Sets a timeout. *)
   val set_timeout: float -> unit
 
-  (** Sets a timeout based on the timeout flag. *)
-  val set_timeout_from_flag: unit -> unit
+  (** Sets a timeout based on the flag value and the total time elapsed this
+  far. If no timeout is specified, set an exception handler for [sigalrm]. *)
+  val set_sigalrm_timeout_from_flag: unit -> unit
 
   (** Deactivates timeout. *)
   val unset_timeout: unit -> unit

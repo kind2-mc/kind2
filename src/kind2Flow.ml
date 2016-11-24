@@ -43,296 +43,6 @@ let iter = List.iter
 (** TSys name formatter. *)
 let fmt_sys = TSys.pp_print_trans_sys_name
 
-(** Last analysis result corresponding to a scope. *)
-let last_result results scope =
-  try
-    Ok (Anal.results_last scope results)
-  with
-  | Not_found -> Err (
-    fun fmt ->
-      Format.fprintf fmt "No result available for component %a."
-        Scope.pp_print_scope scope
-  )
-
-
-(* |===| Post analysis stuff. *)
-
-
-(** Signature of modules for post-analysis treatment. *)
-module type PostAnalysis = sig
-  (** Name of the treatment. (For xml logging.) *)
-  val name: string
-  (** Title of the treatment. (For plain text logging.) *)
-  val title: string
-  (** Indicates whether the module is active. *)
-  val is_active: unit -> bool
-  (** Performs the treatment. *)
-  val run:
-    (** Input system. *)
-    'a ISys.t ->
-    (** Analysis parameter. *)
-    Anal.param ->
-    (** Results for the current system. *)
-    Anal.results
-    (** Can fail. *)
-    -> unit res
-end
-
-(** Test generation.
-Generates tests for a system if system's was proved correct under the maximal
-abstraction. *)
-module RunTestGen: PostAnalysis = struct
-  let name = "testgen"
-  let title = "test generation"
-  (** Error head. *)
-  let head sys fmt =
-    Format.fprintf fmt "Not generating tests for component %a." fmt_sys sys
-  (** Checks that system was proved with the maximal abstraction. *)
-  let gen_param_and_check in_sys param sys =
-    let top = TSys.scope_of_trans_sys sys in
-
-    match param with
-    (* Contract check, node must be abstract. *)
-    | Anal.ContractCheck _ -> Err (
-      fun fmt ->
-        Format.fprintf fmt
-          "%t@ Cannot generate tests unless implementation is safe." (head sys)
-    )
-    | Anal.Refinement _ -> Err (
-      fun fmt ->
-        Format.fprintf fmt
-          "%t@ Component was not proven correct under its maximal abstraction."
-          (head sys)
-    )
-    | Anal.First _ ->
-
-      if TSys.all_props_proved sys |> not then Err (
-        fun fmt ->
-          Format.fprintf fmt
-            "%t@ Component has not been proved safe." (head sys)
-      ) else (
-        match InputSystem.maximal_abstraction_for_testgen in_sys top [] with
-        | None -> Err (
-          fun fmt ->
-            Format.fprintf fmt
-              "System %a has no contracts, skipping test generation."
-              fmt_sys sys
-        )
-        | Some param -> Ok param
-      )
-
-  let is_active () = Flags.Testgen.active ()
-  let run in_sys param results =
-    (* Retrieve system from scope. *)
-    let top = (Anal.info_of_param param).Anal.top in
-    last_result results top
-    |> Res.chain (fun { Anal.sys } ->
-      (* Make sure there's at least one mode. *)
-      match TSys.get_mode_requires sys |> snd with
-      | [] -> (
-        match TSys.props_list_of_bound sys Num.zero with
-        | [] -> Err (
-          fun fmt ->
-            Format.fprintf fmt "%t@ Component has no contract." (head sys)
-        )
-        | _ -> Err (
-          fun fmt ->
-            Format.fprintf fmt "%t@ Component has no modes." (head sys)
-        )
-      )
-      | _ -> Ok sys
-    )
-    |> Res.chain (gen_param_and_check in_sys param)
-    |> Res.chain (
-      fun param ->
-        (* Create root dir if needed. *)
-        Flags.output_dir () |> mk_dir ;
-        let target = Flags.subdir_for top in
-        (* Create system dir if needed. *)
-        mk_dir target ;
-
-        (* Tweak analysis uid to avoid clashes with future analyses. *)
-        let param = match param with
-          | Analysis.ContractCheck info -> Analysis.ContractCheck {
-            info with Analysis.uid = info.Analysis.uid * 10000
-          }
-          | Analysis.First info -> Analysis.First {
-            info with Analysis.uid = info.Analysis.uid * 10000
-          }
-          | Analysis.Refinement (info, res) -> Analysis.Refinement (
-            { info with Analysis.uid = info.Analysis.uid * 10000 },
-            res
-          )
-        in
-
-        (* Extracting transition system. *)
-        let sys, input_sys_sliced =
-          InputSystem.trans_sys_of_analysis
-            ~preserve_sig:true in_sys param
-        in
-
-        (* Let's do this. *)
-        try (
-          let tests_target = Format.sprintf "%s/%s" target Paths.testgen in
-          mk_dir tests_target ;
-          Event.log_uncond
-            "%sGenerating tests for node \"%a\" to `%s`."
-            TestGen.log_prefix Scope.pp_print_scope top tests_target ;
-          let testgen_xmls =
-            TestGen.main param input_sys_sliced sys tests_target
-          in
-          (* Yay, done. Killing stuff. *)
-          TestGen.on_exit "yay" ;
-          (* Generate oracle. *)
-          let oracle_target = Format.sprintf "%s/%s" target Paths.oracle in
-          mk_dir oracle_target ;
-          Event.log_uncond
-            "%sCompiling oracle to Rust for node \"%a\" to `%s`."
-            TestGen.log_prefix Scope.pp_print_scope top oracle_target ;
-          let name, guarantees, modes =
-            InputSystem.compile_oracle_to_rust in_sys top oracle_target
-          in
-          Event.log_uncond
-            "%sGenerating glue xml file to `%s/.`." TestGen.log_prefix target ;
-          testgen_xmls
-          |> List.map (fun xml -> Format.sprintf "%s/%s" Paths.testgen xml)
-          |> TestGen.log_test_glue_file
-            target name (Paths.oracle, guarantees, modes) Paths.implem ;
-          Event.log_uncond
-            "%sDone with test generation." TestGen.log_prefix ;
-          Ok ()
-        ) with e -> (
-          TestGen.on_exit "T_T" ;
-          Err (
-            fun fmt ->
-              Printexc.to_string e
-              |> Format.fprintf fmt "during test generation:@ %s"
-          )
-        )
-    )
-end
-
-(** Contract generation.
-Generates contracts by running invariant generation techniques. *)
-module RunContractGen: PostAnalysis = struct
-  let name = "contractgen"
-  let title = "contract generation"
-  let is_active () = Flags.Contracts.contract_gen ()
-  let run in_sys param results =
-    let top = (Anal.info_of_param param).Anal.top in
-    Event.log L_warn
-      "Contract generation is a very experimental feature:@ \
-      in particular, the modes it generates might not be exhaustive,@ \
-      which means that Kind 2 will consider the contract unsafe.@ \
-      This can be dealt with by adding a wild card mode:@ \
-      mode wildcard () ;" ;
-    let _, node_of_scope =
-      InputSystem.contract_gen_param in_sys
-    in
-    (* Building transition system and slicing info. *)
-    let sys, in_sys_sliced =
-      ISys.contract_gen_trans_sys_of ~preserve_sig:true in_sys param
-    in
-    let target = Flags.subdir_for top in
-    (* Create directories if they don't exist. *)
-    Flags.output_dir () |> mk_dir ;
-    mk_dir target ;
-    let target =
-      Format.asprintf "%s/kind2_contract.lus" target
-    in
-    LustreContractGen.generate_contracts
-      in_sys_sliced param sys node_of_scope target ;
-    Ok ()
-end
-
-(** Rust generation.
-Compiles lustre as Rust. *)
-module RunRustGen: PostAnalysis = struct
-  let name = "rustgen"
-  let title = "rust generation"
-  let is_active () = Flags.lus_compile ()
-  let run in_sys param results =
-    Event.log L_warn
-      "Compilation to Rust is still a rather experimental feature:@ \
-      in particular, arrays are not supported." ;
-    let top = (Anal.info_of_param param).Anal.top in
-    let target = Flags.subdir_for top in
-    (* Creating directories if needed. *)
-    Flags.output_dir () |> mk_dir ;
-    mk_dir target ;
-    (* Implementation directory. *)
-    let target = Format.sprintf "%s/%s" target Paths.implem in
-    Event.log_uncond
-      "  Compiling node \"%a\" to Rust in `%s`."
-      Scope.pp_print_scope top target ;
-    InputSystem.compile_to_rust in_sys top target ;
-    Event.log_uncond "  Done compiling." ;
-    Ok ()
-end
-
-(** Invariant log.
-Minimizes and logs invariants used in the proof. *)
-module RunInvLog: PostAnalysis = struct
-  let name = "invlog"
-  let title = "invariant logging"
-  let is_active () = Flags.log_invs ()
-  let run in_sys param results =
-    Err (
-      fun fmt -> Format.fprintf fmt "Invariant logging is unimplemented."
-    )
-end
-
-(** Invariant log.
-Certifies the last proof. *)
-module RunCertif: PostAnalysis = struct
-  let name = "certification"
-  let title = name
-  let is_active () = Flags.Certif.certif ()
-  let run in_sys param results =
-    let top = (Anal.info_of_param param).Anal.top in
-    last_result results top |> chain (
-      fun result ->
-        let sys = result.Anal.sys in
-        let uid = (Anal.info_of_param param).Anal.uid in
-        ( if Flags.Certif.proof () then
-            CertifChecker.generate_all_proofs uid in_sys sys
-          else
-            CertifChecker.generate_smt2_certificates uid in_sys sys
-        ) ;
-        Ok ()
-    )
-end
-
-(** List of post-analysis modules. *)
-let post_analysis = [
-  (module RunTestGen: PostAnalysis) ;
-  (module RunContractGen: PostAnalysis) ;
-  (module RunRustGen: PostAnalysis) ;
-  (module RunInvLog: PostAnalysis) ;
-  (module RunCertif: PostAnalysis) ;
-]
-
-(** Runs the post-analysis things on a system and its results.
-Produces a list of results, on for each thing. *)
-let run_post_analysis i_sys param results =
-  post_analysis |> List.iter (
-    fun m ->
-      let module Module = (val m: PostAnalysis) in
-      if Module.is_active () then (
-        Event.log_post_analysis_start Module.name Module.title ;
-        (* Event.log_uncond "Running @{<b>%s@}." Module.title ; *)
-        try
-          ( match Module.run i_sys param results with
-            | Ok () -> ()
-            | Err err -> Event.log L_warn "@[<v>%t@]" err
-          ) ;
-          Event.log_post_analysis_end ()
-        with e ->
-          Event.log_post_analysis_end () ;
-          raise e
-      )
-  )
-
 
 (* |===| Helpers to run stuff. *)
 
@@ -341,6 +51,12 @@ This is an association list of PID to process type. We need a
 reference here, because we may need to terminate asynchronously
 after an exception. *)
 let child_pids = ref []
+
+(** Latest transition system for clean exit in case of error. *)
+let latest_trans_sys = ref None
+
+(** All the results this far. *)
+let all_results = ref ( Anal.mk_results () )
 
 (** Renices the current process. Used for invariant generation. *)
 let renice () =
@@ -422,28 +138,19 @@ let status_of_trans_sys sys =
   exit_status
 
 (** Exit status from an optional [results]. *)
-let status_of_sys sys_opt = match sys_opt with
-  | None ->
-    Event.log L_fatal "result analysis: no system found" ;
-    Format.eprintf "NO_SYS@.";
-    ExitCodes.unknown
+let status_of_sys () = match ! latest_trans_sys with
+  | None -> ExitCodes.unknown
   | Some sys -> status_of_trans_sys sys
 
 (** Exit status from an optional [results]. *)
-let status_of_results results_opt = match results_opt with
+let status_of_results () =
+  match Anal.results_is_safe !all_results with
   | None ->
-    Event.log L_fatal "result analysis: no system found" ;
-    Format.eprintf "NO_RES@.";
+    Event.log L_fatal "result analysis: no safe result" ;
+    Format.eprintf "NO_SAFE_RES@." ;
     ExitCodes.unknown
-  | Some results -> (
-    match Analysis.results_is_safe results with
-    | None ->
-      Event.log L_fatal "result analysis: no safe result" ;
-      Format.eprintf "NO_SAFE_RES@." ;
-      ExitCodes.unknown
-    | Some true -> ExitCodes.safe
-    | Some false -> ExitCodes.unsafe
-  )
+  | Some true -> ExitCodes.safe
+  | Some false -> ExitCodes.unsafe
 
 (* Return the status code from an exception *)
 let status_of_exn process status = function
@@ -466,36 +173,44 @@ let status_of_exn process status = function
     Event.log L_debug "Received termination message" ;
     status
   (* Catch wallclock timeout. *)
-  | TimeoutWall ->
+  | TimeoutWall -> (
+    InvarManager.print_stats !latest_trans_sys ;
     Event.log_timeout true ;
     status
+  )
   (* Catch CPU timeout. *)
-  | TimeoutVirtual ->
+  | TimeoutVirtual -> (
+    InvarManager.print_stats !latest_trans_sys ;
     Event.log_timeout false ;
     status
+  )
   (* Signal caught. *)
   | Signal s ->
     Event.log_interruption s ;
     (* Return exit status and signal number. *)
     ExitCodes.kid_status + s
   (* Runtime failure. *)
-  | Failure msg ->
+  | Failure msg -> (
+    InvarManager.print_stats !latest_trans_sys ;
     Event.log L_fatal "Runtime failure in %a: %s"
       pp_print_kind_module process msg ;
     ExitCodes.error
+  )
   (* Other exception, return exit status for error. *)
-  | e ->
+  | e -> (
+    InvarManager.print_stats !latest_trans_sys ;
     Event.log L_fatal "Runtime error in %a: %s"
       pp_print_kind_module process (Printexc.to_string e) ;
     ExitCodes.error
+  )
 
 (** Status corresponding to an exception based on an optional system. *)
 let status_of_exn_sys process sys_opt =
-  status_of_exn process (status_of_sys sys_opt)
+  status_of_sys () |> status_of_exn process
 
 (** Status corresponding to an exception based on some results. *)
-let status_of_exn_results process results_opt =
-  status_of_exn process (status_of_results results_opt)
+let status_of_exn_results process =
+  status_of_results () |> status_of_exn process
 
 (** Kill all kids violently. *)
 let slaughter_kids process sys =
@@ -556,21 +271,23 @@ let slaughter_kids process sys =
     child_pids := [] ;
     (* Draining mailbox. *)
     Event.recv () |> ignore
-  )
+  ) ;
+
+  Signals.set_sigalrm_timeout_from_flag ()
 
 (** Called after everything has been cleaned up. All kids dead etc. *)
-let post_clean_exit process results exn =
+let post_clean_exit process exn =
   (* Exit status of process depends on exception. *)
-  let status = status_of_exn_results process results exn in
+  let status = status_of_exn_results process exn in
   (* Close tags in XML output. *)
   Event.terminate_log () ;
   (* Exit with status. *)
   exit status
 
 (** Clean up before exit. *)
-let on_exit sys process results exn =
+let on_exit sys process exn =
   try slaughter_kids process sys with TimeoutWall -> () ;
-  post_clean_exit process None exn
+  post_clean_exit process exn
 
 
 (** Call cleanup function of process and exit.
@@ -687,7 +404,7 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, process) :: !child_pids
 
 (** Performs an analysis. *)
-let analyze msg_setup modules results in_sys param sys =
+let analyze msg_setup modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not then
@@ -719,9 +436,10 @@ let analyze msg_setup modules results in_sys param sys =
 
   let result =
     Stat.get_float Stat.analysis_time
-    |> Analysis.mk_result param sys
+    |> Anal.mk_result param sys
   in
-  let results = Analysis.results_add result results in
+  let results = Anal.results_add result !all_results in
+  all_results := results ;
 
   (* Issue analysis end notification. *)
   Event.log_analysis_end result ;
@@ -729,15 +447,12 @@ let analyze msg_setup modules results in_sys param sys =
   Event.log L_info "Result: %a" Analysis.pp_print_result result ;
 
   (* Run post-analysis things. *)
-  ( try
-      run_post_analysis in_sys param results
-    with e ->
-      Event.log L_fatal
-        "Caught %s in post-analysis treatment."
-        (Printexc.to_string e)
-  ) ;
-
-  results
+  try
+    PostAnalysis.run in_sys param results
+  with e ->
+    Event.log L_fatal
+      "Caught %s in post-analysis treatment."
+      (Printexc.to_string e)
 
 (** Runs the analyses produced by the strategy module. *)
 let run in_sys =
@@ -790,33 +505,36 @@ let run in_sys =
     let msg_setup = Event.setup () in
 
     (* Runs the next analysis, if any. *)
-    let rec loop results =
-      match ISys.next_analysis_of_strategy in_sys results with
+    let rec loop () =
+      match ISys.next_analysis_of_strategy in_sys !all_results with
       
       | Some param ->
         (* Build trans sys and slicing info. *)
         let sys, in_sys_sliced =
           ISys.trans_sys_of_analysis in_sys param
         in
+        latest_trans_sys := Some sys ;
         (* Analyze... *)
-        analyze msg_setup modules results in_sys param sys
+        analyze msg_setup modules in_sys param sys ;
         (* ...and loop. *)
-        |> loop
+        loop ()
 
-      | None -> results
+      | None ->
+        latest_trans_sys := None ;
     in
 
     (* Set module currently running *)
     Event.set_module `Supervisor ;
     (* Initialize messaging for invariant manager, obtain a background thread.
     No kids yet. *)
-    Event.run_im msg_setup [] (on_exit None `Supervisor None) |> ignore ;
+    Event.run_im msg_setup [] (on_exit None `Supervisor) |> ignore ;
     Event.log L_debug "Messaging initialized in supervisor." ;
 
     try (
       (* Run everything. *)
+      loop () ;
       let results =
-        Analysis.mk_results () |> loop |> Analysis.results_clean
+        ! all_results |> Analysis.results_clean
       in
 
       (* Producing a list of the last results for each system, in topological
@@ -842,7 +560,7 @@ let run in_sys =
       (* Logging the end of the run. *)
       |> Event.log_run_end ;
 
-      post_clean_exit `Supervisor (Some results) Exit
+      post_clean_exit `Supervisor Exit
 
     ) with e ->
       (* Get backtrace now, Printf changes it *)
@@ -854,7 +572,7 @@ let run in_sys =
           pp_print_kind_module `Supervisor
           print_backtrace backtrace;
 
-      on_exit None `Supervisor None e
+      on_exit None `Supervisor e
 
 (* 
    Local Variables:

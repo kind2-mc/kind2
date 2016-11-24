@@ -6,6 +6,7 @@ Flags
 InvarManager
 Kind2
 Kind2Flow
+PostAnalysis
 InputSystem
 Eval          
 Ident  
