@@ -214,11 +214,17 @@ let eval_terms_assert_first_false trans solver eval k =
     | [] -> false
   in
 
+  let os = TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero in
+  let ts = TransSys.invars_of_bound ~one_state_only:false trans Numeral.zero in
+
   let rec loop_all_k k' =
     if Numeral.(k' > k) then false
     else (
       (* Attempting to block the model represented by [eval]. *)
-      let blocked = loop_at_k k' (TransSys.invars_of_bound trans Numeral.zero) in
+      let blocked =
+        ( if Numeral.(equal k' zero) then os else ts )
+        |> loop_at_k k'
+      in
       if blocked
       (* Blocked, returning. *)
       then true
@@ -458,7 +464,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   let k_int = Numeral.to_int k in
 
   (* Getting new invariants and updating transition system. *)
-  let new_invariants =
+  let new_invs =
     (* Receiving messages. *)
     Event.recv ()
     (* Updating transition system. *)
@@ -484,19 +490,10 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   
   (* Communicating confirmed properties. *)
   confirmed_cert
-  |> List.iter (fun (s, (_, _, cert)) ->
-      Event.prop_status (Property.PropInvariant cert) input_sys aparam trans s);
-  
-  (* Adding confirmed properties to the system. *)
-  confirmed_cert |> List.iter
-    (fun (_, (_, term, cert)) -> TransSys.add_invariant trans term cert) ;
-
-  (* Adding confirmed properties to new invariants. *)
-  let new_invariants' =
-    confirmed |> List.fold_left (
-      fun invs (_, (_, term)) -> term :: invs
-    ) new_invariants
-  in
+  |> List.iter (
+    fun (s, (_, _, cert)) ->
+      Event.prop_status (Property.PropInvariant cert) input_sys aparam trans s
+  ) ;
 
   match unknowns', unfalsifiables with
   | [], [] ->
@@ -533,17 +530,12 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      (* Asserting invariants if we are not in lazy invariants mode. *)
      if not (Flags.BmcKind.lazy_invariants ()) then (
        (* Asserting new invariants from 0 to k. *)
-       ( match new_invariants' with
-         | [] -> ()
-         | _ ->
-            Term.mk_and new_invariants'
-            |> Term.bump_and_apply_k
-                 (SMTSolver.assert_term solver) k ) ;
+       Unroller.assert_new_invs_to solver k_p_1 new_invs ;
 
        (* Asserts all invariants at k+1. *)
        TransSys.invars_of_bound trans k_p_1
        |> Term.mk_and
-       |> SMTSolver.assert_term solver ;
+       |> SMTSolver.assert_term solver
      ) ;
 
      (* Asserting positive implications at k for unknowns. *)

@@ -122,63 +122,12 @@ let handle_events
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, prop_status = 
+  let new_invs, prop_status = 
     Event.update_trans_sys input_sys aparam trans_sys messages 
   in
 
-  (* Add invariant to the transition system and assert in solver
-     instances *)
-  let add_invariant inv = 
-
-    if Flags.IC3.use_invgen () then 
-
-      match Term.var_offsets_of_term inv with
-
-        (* Skip invariants without variables *)
-        | None, None ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Skipping constant invariant"
-
-        (* One-state invariants *)
-        | Some i, Some j when Numeral.equal i j ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Asserting one-state invariant at zero and one";
-
-          (* Assert at offset zero *)
-          Term.bump_state Numeral.(- i) inv
-          |> SMTSolver.assert_term solver;
-
-          (* Assert at offset one *)
-          Term.bump_state Numeral.(- i + one) inv
-          |> SMTSolver.assert_term solver
-
-        (* Two-state invariant *)
-        | Some i, Some j when Numeral.(j - i = one) ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Asserting two-state invariant at one";
-
-          (* Assert at offset one *)
-          Term.bump_state Numeral.(- i) inv |> SMTSolver.assert_term solver
-
-        (* Invariant over more than two states *)
-        | _ ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Invariant is over more than two states";
-
-          assert false
-
-  in
-
-  (* Assert all received invariants *)
-  List.iter (fun i -> add_invariant i) invariants_recvd;
+  (* Upper bound's exclusive. *)
+  Unroller.assert_new_invs_to solver Numeral.(succ one) new_invs ;
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
@@ -2057,11 +2006,12 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                   Stat.ic3_inductive_blocking_clauses;
 
                 (* Add inductive blocking clauses as invariants *)
-                List.iter (fun i ->
+                List.iter (
+                  fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
-                    TransSys.add_invariant trans_sys i cert)
-                  inductive_terms;
+                    TransSys.add_invariant trans_sys i cert |> ignore
+                ) inductive_terms ;
 
                 SMTSolver.trace_comment
                   solver

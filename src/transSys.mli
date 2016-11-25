@@ -517,19 +517,21 @@ val all_props_proved : t -> bool
 (** Add properties to the transition system *)
 val add_properties : t -> Property.t list -> t
 
-(** Add an invariant to the transition system *)
-val add_invariant : t -> Term.t -> Certificate.t -> unit
+(** Add an invariant to the transition system.
 
-(** Add an invariant to the transition system *)
-val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
+Returns the normalized terms and a boolean indicating whether it is one
+state. *)
+val add_invariant : t -> Term.t -> Certificate.t -> Term.t * bool
+
+(** Add an invariant to the transition system.
+
+Returns the normalized terms and a boolean indicating whether it is one
+state. *)
+val add_scoped_invariant :
+  t -> string list -> Term.t -> Certificate.t -> Term.t * bool
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
-
-(** Instantiate invariants and valid properties to the bound and applies a
-function *)
-val map_invars_of_bound :
-  ?one_state_only:bool -> t -> (Term.t -> unit) -> Numeral.t -> unit
 
 (** Return invariants with their certificates *)
 val get_invariants : t -> (Term.t * Certificate.t) list
@@ -543,14 +545,15 @@ val get_invariants : t -> (Term.t * Certificate.t) list
     offset of the current instant in the term [e].
 
     Return the top system [s] paired with the instances of the term in
-    it, and a list of all systems between the top system [t] andthe
+    it, and a list of all systems between the top system [t] and the
     system [s], including [s] but excluding [t], each system paired
     with the instances of [e] in it.
 
     The offset [i] is needed to properly guard the term [e] for
     clocked system instances. *)
 val instantiate_term_all_levels:
-  t -> Numeral.t -> Scope.t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+  t -> Numeral.t -> Scope.t -> Term.t ->
+  (t * Term.t list) * ((t * Term.t list) list)
 
 
 (** Same as above but with certificates *)

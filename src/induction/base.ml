@@ -167,47 +167,26 @@ let split_closure trans solver k actlits to_split =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
-
-  (* Asserts terms from 0 to k. *)
-  let assert_new_invariants =
-    List.iter
-      (Term.bump_and_apply_k
-         (SMTSolver.assert_term solver) k)
-  in
-
-  (* Asserts terms at k. *)
-  let assert_old_invariants =
-    List.iter
-      (fun term -> Term.bump_state k term
-                   |> SMTSolver.assert_term solver)
-  in
+let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
   (* Getting new invariants and updating transition system. *)
-  let new_invariants =
-
-    let new_invs, updated_props =
-      (* Receiving messages. *)
-      Event.recv ()
-      (* Updating transition system. *)
-      |> Event.update_trans_sys input_sys aparam trans
-      (* Extracting invariant module/term pairs. *)
-    in
-
-    updated_props
-    (* Looking for new invariant properties. *)
-    |> List.fold_left
-         ( fun list (_, (name, status)) ->
-          match status with
-          | Property.PropInvariant cert ->
-             (* Memorizing new invariant property. *)
-             ( TransSys.get_prop_term trans name )
-             :: list
-          | _ -> list )
-         (* New invariant properties are added to new invariants. *)
-         new_invs
-           
+  let new_invs =
+    (* Receiving messages. *)
+    Event.recv ()
+    (* Updating transition system. *)
+    |> Event.update_trans_sys input_sys aparam trans
+    (* Extracting one- and two-state invariants. *)
+    |> fst
   in
+
+  (* Assert new invariants up to [k-1]. *)
+  Unroller.assert_new_invs_to solver k new_invs ;
+
+  (* Assert all invariants, including new ones, at [k]. *)
+  TransSys.invars_of_bound
+    ~one_state_only:Numeral.(equal k zero) trans k
+  |> Term.mk_and
+  |> SMTSolver.assert_term solver ;
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
   let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
@@ -222,22 +201,6 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
     Stat.set k_int Stat.bmc_k ;
     Event.progress k_int ;
     Stat.update_time Stat.bmc_total_time ;
-
-    (* Merging old and new invariants and asserting them. *)
-    let nu_invariants =
-      match invariants, new_invariants with
-      | [],[] -> []
-      | _, [] ->
-        assert_old_invariants invariants ;
-        invariants
-      | [], _ ->
-        assert_new_invariants new_invariants ;
-        new_invariants
-      | _ ->
-        assert_old_invariants invariants ;
-        assert_new_invariants new_invariants ;
-        List.rev_append new_invariants invariants
-    in
 
     (* Building the positive actlits and corresponding implications
       at k-1. *)
@@ -342,7 +305,7 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, nu_invariants, unfalsifiable)
+      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
 let init input_sys aparam trans =
@@ -378,7 +341,7 @@ let init input_sys aparam trans =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
@@ -395,12 +358,7 @@ let init input_sys aparam trans =
     )
   ) ;
 
-  (* Invariants if the system at 0. *)
-  let invariants =
-    TransSys.invars_of_bound trans Numeral.zero |> Term.mk_and 
-  in
-
-  (input_sys, aparam, trans, solver, Numeral.zero, [invariants], unknowns)
+  (input_sys, aparam, trans, solver, Numeral.zero, unknowns)
 
 (* Runs the base instance. *)
 let main input_sys aparam trans =

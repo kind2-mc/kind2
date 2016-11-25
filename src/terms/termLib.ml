@@ -358,7 +358,6 @@ module Signals = struct
 
   (* Sets a handler for sigalrm. *)
   let set_sigalrm_exn () =
-    Format.printf "|===| changing sigalrm...@.@." ;
     signals.sigalrm <- Exn ;
     set_sig Sys.sigalrm exception_on_signal
 

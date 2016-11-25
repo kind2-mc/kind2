@@ -19,6 +19,9 @@
 open Pretty
 open Lib
 
+module TSet = Term.TermSet
+module SMap = Scope.Map
+
 include Log
 
 (* Termination message received *)
@@ -1249,7 +1252,15 @@ let check_termination () =
 
 
 (* Update transition system from event list *)
-let update_trans_sys_sub input_sys analysis trans_sys events = 
+let update_trans_sys_sub input_sys analysis trans_sys events =
+  let insert_inv scope map (term, two_state) =
+    let sets =
+      ( try SMap.find scope map with Not_found -> TSet.empty, TSet.empty )
+      |> fun (os, ts) ->
+        if two_state then TSet.add term os, ts else os, TSet.add term ts
+    in
+    SMap.add scope sets map
+  in
 
   (* Tail-recursive iteration *)
   let rec update_trans_sys' trans_sys invars prop_status = function 
@@ -1262,32 +1273,28 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
 
       (* Property status if received invariant is a property *)
       let tl' =
-        List.fold_left
-
-          (fun accum (p, t') -> 
-
-             (* Invariant is equal to property term? *)
-             if Term.equal t t' then
-
-               (* Inject property status event *)
-               ((m, PropStatus (p, Property.PropInvariant cert)) :: accum)
-
-             else
-
-               accum)
-
-          tl
-          (TransSys.props_list_of_bound trans_sys Numeral.zero)
-
+        TransSys.props_list_of_bound trans_sys Numeral.zero
+        |> List.fold_left (
+          fun accum (p, t') -> 
+            (* Invariant is equal to property term? *)
+            if Term.equal t t' then
+              (* Inject property status event *)
+              (m, PropStatus (p, Property.PropInvariant cert)) :: accum
+            else
+              accum
+        ) tl
       in
       
-      (* Add invariant to transtion system *)
-      TransSys.add_scoped_invariant trans_sys s t cert;
+      let invars =
+        (* Add invariant to transtion system *)
+        TransSys.add_scoped_invariant trans_sys s t cert
+        |> insert_inv s invars
+      in
 
       (* Continue with invariant added to accumulator *)
       update_trans_sys'
         trans_sys
-        ((m, (s, t, cert)) :: invars)
+        invars
         prop_status
         tl'
 
@@ -1319,22 +1326,27 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       (* Change property status in transition system *)
       TransSys.set_prop_invariant trans_sys p cert;
 
-      (try 
+      let term =
+        TransSys.props_list_of_bound trans_sys Numeral.zero
+        |> List.assoc p
+      in
 
-         (* Add proved property as invariant *)
-        TransSys.add_invariant 
-          trans_sys
-          (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
-          cert
-          
-       (* Skip if named property not found *)
-       with Not_found -> ());
+      (* Retrieve scope to add to invariants. *)
+      let scope = TransSys.scope_of_trans_sys trans_sys in
+
+      let invars =
+        try (* Add proved property as invariant *)
+          TransSys.add_invariant trans_sys term cert
+          |> insert_inv scope invars
+        with Not_found -> (* Skip if named property not found *)
+          invars
+      in
 
       (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys 
         invars
-        ((m, (p, s)) :: prop_status)
+        ( (m, (p, s)) :: prop_status )
         tl
 
     (* Property found false *)
@@ -1374,24 +1386,16 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
 
   in
 
-  update_trans_sys' trans_sys [] [] events
+  update_trans_sys' trans_sys SMap.empty [] events
 
 
 (* Filter list of invariants with their scope for invariants of empty
    (top) scope *)
 let top_invariants_of_invariants sys invariants = 
-
   let top = TransSys.scope_of_trans_sys sys in
-
-  (* Only keep invariants with empty scope *)
-  (List.fold_left
-     (fun accum (_, (scope, t, _)) ->
-      if scope = top then t :: accum else accum)
-     []
-     invariants)
-     
-  (* Return in original order *)
-  |> List.rev
+  try
+    SMap.find top invariants
+  with Not_found -> TSet.empty, TSet.empty
 
 let update_trans_sys input_sys analysis trans_sys events =
   match

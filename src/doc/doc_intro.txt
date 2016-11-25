@@ -251,6 +251,7 @@ Source files live in subdirectory [SMTSolver]
   TermLib
   Trie
   Version
+  Unroller
 }
 
 {1:howto Howto}
