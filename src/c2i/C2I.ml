@@ -217,7 +217,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver1)
     (SMTSolver.declare_fun solver1)
     (SMTSolver.declare_sort solver1)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -225,7 +225,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver2)
     (SMTSolver.declare_fun solver2)
     (SMTSolver.declare_sort solver2)
-    Numeral.(~- one) Numeral.one ;
+    Numeral.zero Numeral.one ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -233,7 +233,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver3)
     (SMTSolver.declare_fun solver3)
     (SMTSolver.declare_sort solver3)
-    Numeral.(~- one) Numeral.one ;
+    Numeral.zero Numeral.one ;
 
   (* Asserting init in [solver1]. *)
   TransSys.init_of_bound sys Numeral.zero

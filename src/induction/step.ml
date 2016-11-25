@@ -664,10 +664,10 @@ let launch input_sys aparam trans =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
   (* Invariants of the system at 0. *)
-  TransSys.invars_of_bound trans Numeral.zero
+  TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero
   |> Term.mk_and
   |> SMTSolver.assert_term solver ;
 

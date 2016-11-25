@@ -152,7 +152,8 @@ let mk_base_checker_solver sys k =
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Asserting invariants at [0]." ;
 
-  Sys.invars_of_bound sys Numeral.zero (* Invariants at [0]. *)
+  Sys.invars_of_bound
+    ~one_state_only:true sys Numeral.zero (* Invariants at [0]. *)
   |> List.iter (Smt.assert_term solver) ;
 
 
