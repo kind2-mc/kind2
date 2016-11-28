@@ -27,6 +27,7 @@ module TS = TransSys
 module TM = Term.TermMap
 module TH = Term.TermHashtbl
 module SVS = StateVar.StateVarSet
+module SVH = StateVar.StateVarHashtbl
 module IntM = Map.Make (struct type t = int let compare = compare end)
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
@@ -463,7 +464,9 @@ let under_approx sys k invs prop =
 
   (* Asserting transition relation up to k *)
   for i = 1 to k do
-    TransSys.trans_of_bound sys (Numeral.of_int i)
+    TransSys.trans_of_bound
+      (Some (SMTSolver.declare_fun solver))
+      sys (Numeral.of_int i)
     |> SMTSolver.assert_term solver;
   done;
 
@@ -855,7 +858,9 @@ let rec find_bound sys solver k kmax invs prop =
                 went over bound %d" kmax);
   
   (* Asserting transition relation. *)
-  TransSys.trans_of_bound sys (Numeral.of_int k)
+  TransSys.trans_of_bound
+    (Some (SMTSolver.declare_fun solver))
+    sys (Numeral.of_int k)
   |> SMTSolver.assert_term solver;
 
   match try_at_bound sys solver k invs prop [] with
@@ -880,7 +885,9 @@ let unroll_trans_actlits sys solver kmax =
   let rec fill acc prev = function
     | k when k > kmax -> acc
     | k ->
-      let tk = TransSys.trans_of_bound sys (Numeral.of_int k) in
+      let tk = TransSys.trans_of_bound
+          (Some (SMTSolver.declare_fun solver))
+          sys (Numeral.of_int k) in
       let tuptok = match prev with Some p -> Term.mk_and [p; tk] | _ -> tk in
       let a = actlitify ~imp:true solver tuptok in
       fill (IntM.add k a acc) (Some a) (k + 1)
@@ -2265,11 +2272,26 @@ let mk_inst init_flag sys formal_vars =
       map_up;
       guard_clock = fun _ t -> t } ]
 
+
+let add_scope_and_register_bounds scope orig_tbl dest_tbl sv =
+  let sv' = add_scope_state_var scope sv in
+  begin
+    try SVH.add dest_tbl sv' (SVH.find orig_tbl sv)
+    with Not_found -> ()
+  end;
+  sv'
+  
+
 (* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
    [jkind_sys] in parallel synchronous composition and observes the values of
    their state variables. All variables are put under a new scope. *)
 let merge_systems lustre_vars kind2_sys jkind_sys =
 
+  let kind2_bounds = TransSys.get_state_var_bounds kind2_sys in
+  let jkind_bounds = TransSys.get_state_var_bounds jkind_sys in
+  let bounds = SVH.copy kind2_bounds in
+  SVH.iter (SVH.add bounds) jkind_bounds;
+  
   (* Remember the original state variables*)
   let orig_kind2_vars = TS.state_vars kind2_sys in
   let orig_jkind_vars = TS.state_vars jkind_sys in
@@ -2279,8 +2301,12 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
                   |> add_scope_state_var [obs_name] in
 
   (* Create versions of variables with the new scope *)
-  let kind2_vars = List.map (add_scope_state_var [obs_name]) orig_kind2_vars in
-  let jkind_vars = List.map (add_scope_state_var [obs_name]) orig_jkind_vars in
+  let kind2_vars =
+    List.map (add_scope_and_register_bounds [obs_name] kind2_bounds bounds)
+      orig_kind2_vars in
+  let jkind_vars =
+    List.map (add_scope_and_register_bounds [obs_name] jkind_bounds bounds)
+      orig_jkind_vars in
   let state_vars =
     (* init_flag :: *)
     kind2_vars @ jkind_vars |>
@@ -2361,6 +2387,8 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       init_flag
       []
       state_vars
+      bounds
+      []
       []
       init_uf
       init_args

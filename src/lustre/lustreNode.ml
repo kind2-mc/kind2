@@ -60,11 +60,6 @@ let add_to_svs set list =
   List.fold_left (fun a e -> SVS.add e a) set list 
 
 
-(* Bound for index variable, or fixed value for index variable *)
-type 'a bound_or_fixed = 
-  | Bound of 'a  (* Upper bound for index variable *)
-  | Fixed of 'a  (* Fixed value for index variable *)
-
 (* Source of a state variable *)
 type state_var_source =
 
@@ -119,8 +114,12 @@ type node_call = {
 }
 
 
+(* Left hand side of an equation *)
+type equation_lhs = StateVar.t * E.expr E.bound_or_fixed list
+
+
 (* An equation *)
-type equation = (StateVar.t * E.expr bound_or_fixed list * E.t) 
+type equation = equation_lhs * E.t
 
 (* A contract. *)
 type contract = C.t
@@ -275,21 +274,22 @@ let pp_print_local safe ppf l =
 
 
 (* Pretty-print a node equation *)
-let pp_print_node_equation safe ppf (var, bounds, expr) = 
+let pp_print_node_equation safe ppf ((var, bounds), expr) = 
 
   Format.fprintf ppf
     "@[<hv 2>%a%a =@ %a;@]"
     (E.pp_print_lustre_var safe) var
     (pp_print_listi
        (fun ppf i -> function 
-          | Bound e -> 
+          | E.Bound e -> 
             Format.fprintf
               ppf
               "[%a(%a)]"
               (I.pp_print_ident false)
               (I.push_index I.index_ident i)
               (E.pp_print_expr safe) e
-          | Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e)
+          | E.Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e
+          | E.Unbound e -> Format.fprintf ppf "[%a]" (E.pp_print_expr safe) e)
        "") 
     bounds
     (E.pp_print_lustre_expr safe) expr
@@ -750,7 +750,7 @@ let name_of_node { name } = name
     Returns the equations of [n], topologically sorted by their base (step)
     expression if [init] ([not init]). *)
 let ordered_equations_of_node { equations } stateful init =
-  let svars_of (_, _, expr) =
+  let svars_of ((_, _), expr) =
     expr |> if init
       then E.base_state_vars_of_init_expr
       else E.cur_state_vars_of_step_expr
@@ -758,7 +758,7 @@ let ordered_equations_of_node { equations } stateful init =
 
   let is_known eqs svar =
     List.exists (StateVar.equal_state_vars svar) stateful ||
-    List.exists (fun (sv, _, _) -> StateVar.equal_state_vars svar sv) eqs
+    List.exists (fun ((sv, _), _) -> StateVar.equal_state_vars svar sv) eqs
   in
 
   let rec loop postponed ordered = function
@@ -783,7 +783,7 @@ let ordered_equations_of_node { equations } stateful init =
 (** Returns the equation for a state variable if any. *)
 let equation_of_svar { equations } svar =
   try Some (
-    equations |> List.find (fun (svar',_,_) -> svar == svar')
+    equations |> List.find (fun ((svar',_),_) -> svar == svar')
   ) with Not_found -> None
 
 (** Returns the node call the svar is the output of, if any. *)
@@ -1220,7 +1220,7 @@ let stateful_vars_of_node
   (* Add stateful variables from equations *)
   let stateful_vars = 
     List.fold_left
-      (fun  accum (_, _, expr) -> 
+      (fun  accum (_, expr) -> 
          SVS.union accum (stateful_vars_of_expr expr))
       stateful_vars
       equations
@@ -1232,18 +1232,15 @@ let stateful_vars_of_node
     List.fold_left
       (fun a l -> 
          D.fold
-           (fun _ sv a -> 
+           (fun _ sv a ->
               if 
-
+                (* Arrays are global TODO maybe this is not necessary *)
+                not (Type.is_array (StateVar.type_of_state_var sv)) &&
                 (* Local state variable is defined by an equation? *)
                 List.exists
-                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv') 
                   equations 
-              then 
-              
-                (* State variable is not necessarily stateful *)
-                a
-
+              then a
               else 
 
                 (* State variable without equation must be stateful *)
@@ -1278,7 +1275,7 @@ let stateful_vars_of_node
               (fun sv -> 
                  not
                    (List.exists
-                      (fun (sv', _, _) -> 
+                      (fun ((sv', _), _) -> 
                          StateVar.equal_state_vars sv sv') 
                       equations))))
       stateful_vars

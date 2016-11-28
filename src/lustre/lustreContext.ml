@@ -82,6 +82,9 @@ type t = {
   (* Type identifiers and their types and bounds of their indexes *)
   ident_type_map : (Type.t D.t) IT.t;
 
+    (* register bounds of state variables for later use *)
+    state_var_bounds : (E.expr E.bound_or_fixed list) SVT.t;
+    
   (* Identifiers and the expresssions they are bound to
 
      Contains a term of a variable if the identifier denotes a
@@ -100,7 +103,7 @@ type t = {
      instead of ET.find. A ET.fold will return all bindings to an
      expression. (Thus turning an annoyance of OCaml into our
      advantage.) *)
-  expr_state_var_map : StateVar.t ET.t;
+    expr_abs_map : N.equation_lhs ET.t;
 
   (* Map from state variables to state variables providing a
      non-deterministic pre-initial value *)
@@ -128,6 +131,8 @@ type t = {
   guard them. *)
   guard_pre : bool;
 
+  free_constants : (Var.t D.t) IT.t;
+  
 }
 
 let pp_print_scope fmt { scope ; contract_scope } =
@@ -152,14 +157,16 @@ let mk_empty_context () =
       contract_nodes = [];
       ident_type_map = IT.create 7;
       ident_expr_map = [IT.create 7];
-      expr_state_var_map = ET.create 7;
+      expr_abs_map = ET.create 7;
       state_var_oracle_map = SVT.create 7;
+      state_var_bounds = SVT.create 7;
       fresh_local_index = 0;
       fresh_oracle_index = 0;
       definitions_allowed = None;
       locals_info = [];
       outputs_info = [];
       guard_pre = false;
+      free_constants = IT.create 7;
     }
   in
   c
@@ -276,6 +283,16 @@ let pop_contract_scope = function
 let contract_scope_of { contract_scope } = contract_scope
 
 
+let bounds_of_index index =
+  List.fold_left (fun acc -> function
+      | D.ArrayVarIndex b -> E.Bound b :: acc
+      | D.ArrayIntIndex i ->
+        E.Fixed (E.mk_int_expr (Numeral.of_int i)) :: acc
+      | _ -> acc
+    ) [] index
+
+
+
 (* Create an empty node in the context *)
 let create_node = function 
 
@@ -286,7 +303,7 @@ let create_node = function
     (function _ -> raise (Invalid_argument "create_node"))
 
   (* Not in a node or function *)
-  | { ident_type_map; ident_expr_map; expr_state_var_map } as ctx -> 
+  | { ident_type_map; ident_expr_map; expr_abs_map } as ctx -> 
 
     (fun ident is_extern ->
 
@@ -296,8 +313,8 @@ let create_node = function
         (* Make deep copies of hash tables *)
         ident_type_map = IT.copy ident_type_map;
         ident_expr_map = List.map IT.copy ident_expr_map;
-        expr_state_var_map = ET.copy expr_state_var_map;
-          node = Some (N.empty_node ident is_extern) } )
+        expr_abs_map = ET.copy expr_abs_map;
+        node = Some (N.empty_node ident is_extern) } )
 
 
 
@@ -331,7 +348,7 @@ let create_function = function
     (function _ -> raise (Invalid_argument "create_function"))
 
   (* Not in a node or function *)
-  | { ident_type_map; ident_expr_map; expr_state_var_map } as ctx -> 
+  | { ident_type_map; ident_expr_map; expr_abs_map } as ctx -> 
 
     (function ident -> 
 
@@ -341,11 +358,27 @@ let create_function = function
           (* Make deep copies of hash tables *)
           ident_type_map = IT.copy ident_type_map;
           ident_expr_map = List.map IT.copy ident_expr_map;
-          expr_state_var_map = ET.copy expr_state_var_map } )
+          expr_abs_map = ET.copy expr_abs_map } )
 
+
+let add_free_constant ctx ident vt =
+  Format.eprintf "add free const: %a@." (I.pp_print_ident true) ident;
+  D.iter (fun _ v ->
+      Format.eprintf "We have: %a@." Var.pp_print_var v;
+    ) vt;
+  IT.add ctx.free_constants ident vt 
+
+
+let get_free_constants ctx =
+  IT.fold (fun i vt acc -> (i, vt) :: acc) ctx.free_constants []
+
+
+let free_constant_expr_of_ident ctx ident =
+  IT.find ctx.free_constants ident |>
+  D.map E.mk_free_var
 
 (* Add a binding of an identifier to an expression to context *)
-let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr = 
+let add_expr_for_ident ?(shadow = false) ({ident_expr_map} as ctx) ident expr = 
 
   (* Must have at least a map for the top level *)
   assert (ident_expr_map <> []);
@@ -355,14 +388,15 @@ let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr 
      then also if some of the lower scopes contains a binding to the
      identifier. *)
   if 
-    
-    (IT.mem (List.hd ident_expr_map) ident)
-    || 
-    (not shadow 
-     && 
-     (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map)))
+
+  (* TODO check this *)    
+    not shadow
+    &&
+    (IT.mem (List.hd ident_expr_map) ident ||
+     List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map))
 
   then
+    
     raise (Invalid_argument
              ("add_expr_for_ident: "^I.string_of_ident false ident))
 
@@ -472,6 +506,8 @@ let get_node { node } = node
 
 let prev { prev } = prev
 
+(* Return state vars indexes hash  table  *)
+let get_state_var_bounds { state_var_bounds } = state_var_bounds
 
 (* Return a contract node by its identifier *)
 let contract_node_decl_of_ident { contract_nodes } ident = 
@@ -594,14 +630,24 @@ let mk_state_var
 
   (* Create or retrieve state variable *)
   let state_var =
-    StateVar.mk_state_var
-      ?is_input
-      ?is_const
-      ?for_inv_gen 
-      state_var_name
-      (scope @ flatten_scopes)
-      state_var_type 
+  (* TODO check this *)
+    try
+      StateVar.state_var_of_string
+        (state_var_name,
+         (List.map Ident.to_string (scope @ flatten_scopes)))
+    with Not_found ->
+      StateVar.mk_state_var
+        ?is_input
+        ?is_const
+        ?for_inv_gen 
+        state_var_name
+        (scope @ flatten_scopes)
+        state_var_type 
   in
+
+  (* Register bounds for indexes *)
+  if index <> [] then
+    SVT.add ctx.state_var_bounds state_var (bounds_of_index index);
 
   (* Set source of state variable *)
   let ctx = match state_var_source with 
@@ -633,15 +679,15 @@ let mk_state_var
   state_var, ctx
 
 
-(* Exception because can't iterate manually over bindings in fucking hash
-tables. *)
+(* Exception because can't iterate manually over bindings in hash
+   tables. *)
 exception FoundIt of E.t
 
 (* Resolve an svar to an expression *)
-let expr_of_svar { expr_state_var_map } svar =
+let expr_of_svar { expr_abs_map } svar =
   try
-    expr_state_var_map |> ET.iter (
-      fun expr svar' ->
+    expr_abs_map |> ET.iter (
+      fun expr (svar', _) ->
         (* Format.printf "  - %a@." StateVar.pp_print_state_var svar ; *)
         if svar == svar' then raise (FoundIt expr) else ()
     ) ;
@@ -768,11 +814,22 @@ let add_state_var_to_locals = function
                           N.locals = 
                             D.singleton D.empty_index state_var :: locals} })
 
+let add_node_oracle = function
+  | { node = None } -> (fun _ -> assert false)
+  | { node = Some node } as ctx ->
+    fun state_var ->
+      { ctx with 
+        node = Some { node with 
+                      N.oracles = state_var :: node.N.oracles}; 
+        fresh_oracle_index = succ ctx.fresh_oracle_index }
+
+
 (* Create a fresh state variable as an oracle input *)
 let mk_fresh_oracle 
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?(bounds = [])
     ({ node; definitions_allowed; fresh_oracle_index } as ctx) 
     state_var_type =
 
@@ -809,16 +866,11 @@ let mk_fresh_oracle
               (Some N.Oracle)
           in
 
+          (* Register bounds *)
+          SVT.add ctx.state_var_bounds state_var bounds;
+          
           (* Increment index of fresh oracle *)
-          let ctx = 
-            match ctx with
-              | { node = None } -> assert false
-              | { node = Some node } ->
-                { ctx with 
-                    node = Some { node with 
-                                    N.oracles = state_var :: oracles}; 
-                    fresh_oracle_index = succ fresh_oracle_index }
-          in
+          let ctx = add_node_oracle ctx state_var in
 
           (* Return variable and changed context *)
           (state_var, ctx)
@@ -835,15 +887,20 @@ let set_state_var_oracle ctx state_var oracle =
 
 
 (* Create a fresh state variable as an oracle input for the state variable *)
-let mk_fresh_oracle_for_state_var 
+let mk_fresh_oracle_for_state_var
+    ?bounds
     ({ state_var_oracle_map; fresh_oracle_index } as ctx) 
     state_var =
-
 
   (* Create fresh oracle *)
   let state_var', ctx = 
     mk_fresh_oracle
       ~is_const:true 
+        (* ?bounds *)
+        ~bounds:(let b =
+                  try SVT.find ctx.state_var_bounds state_var
+                  with Not_found -> [] in
+                match bounds with None | Some [] -> b | Some b' -> b @ b')
       ctx
       (StateVar.type_of_state_var state_var)
   in
@@ -864,7 +921,7 @@ let mk_fresh_oracle_for_state_var
    An unguarded pre is a previous state variable occuring in the
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
-let close_expr ?original pos ({ E.expr_init } as expr, ctx) = 
+let close_expr ?(bounds=[]) ?original pos ({ E.expr_init } as expr, ctx) =     
 
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term (expr_init :> Term.t) in
@@ -932,30 +989,75 @@ let close_expr ?original pos ({ E.expr_init } as expr, ctx) =
    This will shadow but not replace a previous definition. Use
    [find_all] to retrieve the definitions, and the usual
    [fold] to iterate over all definitions. *)
-let set_expr_state_var ctx expr state_var =
-  ET.add ctx.expr_state_var_map expr state_var;
+let set_expr_state_var ctx expr (state_var, bounds) =
+  ET.add ctx.expr_abs_map expr (state_var, bounds);
   match ctx with
   | { node = Some n } ->
     (* register inverse binding in node *)
     N.set_state_var_expr n state_var expr
   | _ -> ()
 
+let has_var_index_t vi t =
+  Var.VarSet.mem vi (Term.vars_of_term t)
+
+let has_var_index vi expr =
+  Var.VarSet.mem vi (E.vars_of_expr expr)
+
+let bounds_of_expr bounds ctx expr =
+  let sel_terms =
+    Term.TermSet.union
+      (Term.select_terms (E.unsafe_term_of_expr expr.E.expr_init))
+      (Term.select_terms (E.unsafe_term_of_expr expr.E.expr_step))
+  in
+  let i = ref (-1) in
+  List.map (fun bnd -> incr i; match bnd with
+      | E.Bound b | E.Fixed b | E.Unbound b ->
+        let vi = match bnd with
+          | E.Unbound e -> E.mk_of_expr e |> E.var_of_expr
+          | _ -> E.mk_index_var !i |> E.var_of_expr
+        in
+        try
+          let t = Term.TermSet.filter (has_var_index_t vi) sel_terms
+                  |> Term.TermSet.choose in
+          let v, tind = Term.indexes_and_var_of_select t in
+          let sv = Var.state_var_of_state_var_instance v in
+          let bnds_sv = SVT.find ctx.state_var_bounds sv in
+          List.fold_left2 (fun acc b ti -> 
+              if has_var_index_t vi ti then (vi, b) else acc
+            ) (vi, bnd) bnds_sv tind
+        with Not_found | Invalid_argument _ -> (vi, bnd)
+          (* if has_var_index vi expr then bnd :: acc else acc *)
+    ) bounds
+  
+
+    
 let fresh_state_var_for_expr
     ?(is_input = false)
     ?(is_const = false)
     ?(for_inv_gen = true)
     ?(reuse = true)
-    ({ expr_state_var_map; 
+    bounds
+    present_bounds
+    present_bounds'
+    ({ expr_abs_map; 
        fresh_local_index } as ctx)
     after_mk
-    ({ E.expr_type } as expr) = 
+    expr
+    expr_type
+  = 
 
   (* Don't abstract simple state variables *)
   if reuse && (E.is_var expr || E.is_const_var expr) then
+  
+      let v = E.var_of_expr expr in
+      let sv = Var.state_var_of_state_var_instance v in
+      (sv, bounds), ctx
 
-    let v = E.var_of_expr expr in
-    let sv = Var.state_var_of_state_var_instance v in
-    sv, ctx
+  else if reuse && E.is_select_array_var expr && present_bounds <> [] then
+
+      let v = E.var_of_array_select expr in
+      let sv = Var.state_var_of_state_var_instance v in
+      (sv, present_bounds), ctx
 
   else
 
@@ -973,16 +1075,23 @@ let fresh_state_var_for_expr
         None
     in
 
-    (* Record mapping of expression to state variable
+    (* Register bounds *)
+    SVT.add ctx.state_var_bounds state_var bounds;
+
+    (* Add bounds from array definition if necessary *)
+    let abs = state_var, present_bounds in
+    let abs' = state_var, present_bounds' in
+
+    (* Record mapping of expression to state variable (or term)
 
        This will shadow but not replace a previous definition. Use
        [find_all] to retrieve the definitions, and the usual
        [fold] to iterate over all definitions. *)
-    set_expr_state_var ctx expr state_var;
+    set_expr_state_var ctx expr abs';
     
     (* Evaluate continuation after creating new variable *)
     let ctx = after_mk ctx state_var in
-
+    
     (* Hash table is modified in place, increment index of fresh state
        variable *)
     let ctx = 
@@ -991,51 +1100,109 @@ let fresh_state_var_for_expr
     in
 
     (* Return variable and changed context *)
-    state_var, ctx
-
-
+    (abs, ctx)
+    
+    
+    
 (* Define the expression with a state variable *)
-let mk_state_var_for_expr
+let mk_abs_for_expr
     ?(is_input = false)
     ?(is_const = false)
     ?(for_inv_gen = true)
+    ?(bounds = [])
     ?(reuse = true)
-    ({ expr_state_var_map; 
+    ({ expr_abs_map; 
        fresh_local_index } as ctx)
     after_mk
     ({ E.expr_type } as expr) = 
 
+  let bounds' = bounds_of_expr bounds ctx expr in
+
+  (* new array if there are bound variables *)
+  let expr_type, expr, present_bounds, present_bounds', _ =
+    List.fold_left2 (fun (ty, expr, bounds_acc, bounds_acc', i) ->
+        let vi = E.mk_index_var i |> E.var_of_expr in
+        fun b1 bp -> match b1 with
+          | ev, ((E.Bound b | E.Fixed b) as bnd)
+            when Var.equal_vars ev vi ->
+            if not (has_var_index vi expr) then
+              ty, expr, bounds_acc, bounds_acc', i
+            else
+              Type.mk_array ty
+                (if E.is_numeral b then
+                   Type.mk_int_range Numeral.zero (E.numeral_of_expr b)
+                 else Type.t_int),
+              expr,
+              bp :: bounds_acc,
+              bnd :: bounds_acc',
+              succ i
+          | ev, (E.Unbound b | E.Bound b | E.Fixed b as bnd) ->
+            if not (has_var_index ev expr) then
+              ty, expr, bounds_acc, bounds_acc', i
+            else
+              let it = vi |> Term.mk_var |> E.unsafe_expr_of_term in
+              Type.mk_array ty (E.type_of_expr b),
+              E.apply_subst [ev, it] expr,
+              bp :: bounds_acc,
+              (bnd) :: bounds_acc',
+              succ i
+      ) (expr_type, expr, [], [], 0)
+      (List.rev bounds') (List.rev bounds) in
+
+  let present_bounds = List.rev present_bounds in
+  let present_bounds' = List.rev present_bounds' in
+  
   if not reuse then
-    fresh_state_var_for_expr
-      ~is_input ~is_const ~for_inv_gen ~reuse ctx after_mk expr
+    
+    fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ~reuse
+      bounds present_bounds present_bounds' ctx after_mk expr expr_type
+      
   else
     try 
 
-      (* Find previous definition of expression
+    (* Format.eprintf "mk_abs_for_expr %a %a@." (E.pp_print_lustre_expr false) expr *)
+    (* (pp_print_listi *)
+    (*    (fun ppf i -> function *)
+    (*       | E.Bound e -> *)
+    (*         Format.fprintf *)
+    (*           ppf *)
+    (*           "[%a(%a)]" *)
+    (*           (I.pp_print_ident false) *)
+    (*           (I.push_index I.index_ident i) *)
+    (*           (E.pp_print_expr false) e *)
+    (*       | E.Fixed e -> Format.fprintf ppf "[%a]" (E.pp_print_expr false) e *)
+    (*       | E.Unbound e -> Format.fprintf ppf "[%a]" (E.pp_print_expr false) e) *)
+    (*    "") present_bounds'; *)
 
-         Use [find_all] to get all state variables that define the
-         expression. *)
-      let state_var_list = ET.find_all expr_state_var_map expr in
+    
+    (* Find previous definition of expression
 
-      (* Find state variable with same properties *)
-      let state_var = 
-        List.find
-          (fun sv -> 
-             StateVar.is_input sv = is_input && 
-             StateVar.is_const sv = is_const && 
-             StateVar.for_inv_gen sv = for_inv_gen)
-          state_var_list
-      in
+       Use [find_all] to get all state variables that define the
+       expression. *)
+    let lhs_list = ET.find_all expr_abs_map expr in
+    
+    (* Find state variable with same properties *)
+    let abs_sv, _ = 
+      List.find
+        (fun (sv, b) ->
+           b = present_bounds' &&
+           StateVar.is_input sv = is_input && 
+           StateVar.is_const sv = is_const && 
+           StateVar.for_inv_gen sv = for_inv_gen)
+        lhs_list
+    in
 
-      (* Return state variable used before *)
-      (state_var, ctx)
 
-    (* Expresssion has not been abstracted before *)
-    with Not_found ->
+    (* Return state variable used before *)
+    ((abs_sv, present_bounds), ctx)
 
-      (* If it's not there already, create a new state variable *)
-      fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ~reuse
-        ctx after_mk expr
+  (* Expresssion has not been abstracted before *)
+  with Not_found ->
+
+    (* If it's not there already, create a new state variable *)
+    fresh_state_var_for_expr ~is_input ~is_const ~for_inv_gen ~reuse
+      bounds present_bounds present_bounds' ctx after_mk expr expr_type
+  
 
 
 (* Define the expression with a state variable *)
@@ -1043,6 +1210,7 @@ let mk_local_for_expr
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?bounds
     ?(is_ghost=false)
     ?original
     pos
@@ -1050,7 +1218,7 @@ let mk_local_for_expr
        definitions_allowed;
        fresh_local_index } as ctx)
     ({ E.expr_type } as expr) =
-  
+
   match definitions_allowed with 
 
     (* Fail with error if no new definitions allowed *)
@@ -1069,11 +1237,15 @@ let mk_local_for_expr
         | Some node ->
 
           (* Guard unguarded pres before adding definition *)
-          let expr', ctx = close_expr ?original pos (expr, ctx) in
-          
-          (* Define the expresssion with a fresh state variable *)
-          let state_var, ctx =
-            mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen
+          let expr', ctx = close_expr ?bounds ?original pos (expr, ctx) in
+
+          (* Define the expression with a fresh abstraction *)
+          let ((state_var, _) as abs), ctx = 
+            mk_abs_for_expr
+              ?is_input
+              ?is_const
+              ?for_inv_gen
+              ?bounds
               (* ?reuse *)
               (* ~reuse:(not ctx.guard_pre) *)
               ctx add_state_var_to_locals expr'
@@ -1094,14 +1266,15 @@ let mk_local_for_expr
           in
 
           (* Return variable and changed context *)
-          (state_var, ctx)
+          (abs, ctx)
 
 
-(* Create a fresh state variable as an oracle input *)
+(* Create a fresh abstraction as an oracle input *)
 let mk_fresh_local
     ?is_input
     ?is_const
     ?for_inv_gen
+    ?(bounds=[])
     ({ node; fresh_local_index } as ctx) 
     state_var_type =
 
@@ -1127,6 +1300,10 @@ let mk_fresh_local
           state_var_type
           None
       in
+
+      (* Register bounds *)
+      SVT.add ctx.state_var_bounds state_var bounds;
+
 
       (* Increment index of fresh oracle *)
       let ctx = 
@@ -1419,7 +1596,7 @@ let trace_svars_of ctx expr = match ctx with
             let svars =
               (* Do we have an equation for svar? *)
               match N.equation_of_svar node svar with
-              | Some (_, _, expr) -> svars_of expr
+              | Some (_, expr) -> svars_of expr
               | None -> (
                 (* Is it the output of a node call? *)
                 match N.node_call_of_svar node svar with
@@ -1531,13 +1708,14 @@ let add_node_property ctx source name expr =
         else
 
           (* State variable of abstraction variable *)
-          let state_var, ctx = 
-            mk_state_var_for_expr
-              ctx
-              add_state_var_to_locals
-              expr 
-          in
+          let abs, ctx = 
+            mk_abs_for_expr ctx add_state_var_to_locals expr in
 
+          let state_var = match abs with
+            | sv, [] -> sv
+            | _ -> assert false
+          in
+          
           (* Return changed context and new state variable *)
           (state_var, ctx)
 
@@ -1555,7 +1733,7 @@ let add_node_property ctx source name expr =
 
               (* A property with the same state variables exists? *)
               List.exists 
-                (fun (sv, _ ,_) -> StateVar.equal_state_vars state_var sv)
+                (fun (sv, _, _) -> StateVar.equal_state_vars state_var sv)
                 props
                 
             then
@@ -1566,7 +1744,7 @@ let add_node_property ctx source name expr =
               in
 
               (* Add an equation for the alias *)
-              (state_var', [], E.mk_var state_var) :: equations, 
+              ((state_var', []), E.mk_var state_var) :: equations, 
 
               (* Use alias as property *)
               (state_var', name, source), 
@@ -1597,29 +1775,15 @@ let add_node_equation ctx pos state_var bounds indexes expr =
     | { node = None } -> raise (Invalid_argument "add_node_equation")
 
     | { node = Some { N.equations; N.calls } } -> 
-(*
-      Format.printf
-        "%a%a = %a (%d)@."
-        StateVar.pp_print_state_var state_var
-        (pp_print_list
-           (function ppf -> function
-              | N.Fixed e -> Format.fprintf ppf "[F %a]" (E.pp_print_expr false) e
-              | N.Bound e -> Format.fprintf ppf "[B %a]" (E.pp_print_expr false) e)
-           "")
-        bounds
-        (E.pp_print_lustre_expr false) expr
-        indexes;
-*)
       if 
-        
         (* State variable already defined by equation? *)
         List.exists
-          (fun (sv, b, _) -> 
+          (fun ((sv, b), _) -> 
              StateVar.equal_state_vars state_var sv &&
              List.for_all2 
                (fun b1 b2 -> match b1, b2 with
-                  | N.Fixed e1, N.Fixed e2 -> E.equal_expr e1 e2
-                  | N.Bound _, N.Bound _ -> true
+                  | E.Fixed e1, E.Fixed e2 -> E.equal_expr e1 e2
+                  | E.Bound _, E.Bound _ -> true
                   | _ -> false)
                b 
                bounds)
@@ -1654,33 +1818,69 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
       let expr_type = E.type_of_lustre_expr expr in
 
+      (* let rec keep_same acc l1 l2 = match l1, l2 with *)
+      (*   | x :: r1, _ :: r2 -> keep_same (x :: acc) r1 r2 *)
+      (*   | _, [] -> List.rev acc *)
+      (*   | [], _ -> assert false *)
+      (* in *)
+
+      let expr, expr_type, bounds, indexes =
+        if Type.is_array expr_type then
+
+          (* When expression is of type array, add select operator around to
+             fall back in a supported fragment *)
+          let elty = Type.last_elem_type_of_array expr_type in
+          let eitys = Type.all_index_types_of_array expr_type in
+          let expr, i = List.fold_left (fun (e, i) _ ->
+              E.mk_select e (E.mk_index_var i), succ i
+            ) (expr, indexes) eitys in
+
+          expr, elty, bounds, indexes
+          
+          (* let ear, _ = expr *)
+          (*           |> E.cur_term_of_t E.base_offset *)
+          (*           |> Term.array_and_indexes_of_select in *)
+
+          (* (\* maybe we're doing a select over a store *\) *)
+          (* if not (Term.is_free_var ear) then expr, elty, bounds, indexes *)
+          (* else *)
+          (*   let earv = Term.free_var_of_term ear in *)
+
+          (*   let bnds_earv = try *)
+          (*       SVT.find ctx.state_var_bounds *)
+          (*         (Var.state_var_of_state_var_instance earv) *)
+          (*     with Not_found -> [] in *)
+          (*   (\* We only add select (and their bounds) for array indexes which do *)
+          (*      not yet appear on the left hand side *\) *)
+          (*   let extra_bnds = keep_same [] bnds_earv eitys in *)
+          (*   Format.printf "extra %d@." (List.length extra_bnds); *)
+          (*   expr, elty, List.rev_append extra_bnds bounds, i *)
+
+        else
+          expr, expr_type, bounds, indexes
+      in
       (* Type of state variable *)
-      let state_var_type = 
+      let state_var_type, _ = 
         List.fold_left
-          (fun t -> function
-             | N.Bound _ 
-             | N.Fixed _ -> 
-
-               if Type.is_array t then
-
-                 Type.elem_type_of_array t
-                   
+          (fun (t, indexes) -> function
+             | E.Bound _ 
+             | E.Fixed _
+             | E.Unbound _ ->
+               if Type.is_array t then Type.elem_type_of_array t, indexes - 1
                else
-
                  fail_at_position
                    pos
                    (Format.asprintf 
                       "Type mismatch in equation: %a and %a"
                       (E.pp_print_lustre_type false) t
                       (E.pp_print_lustre_type false) expr_type))
-          (StateVar.type_of_state_var state_var )
+          (StateVar.type_of_state_var state_var, indexes)
           bounds
       in
 
       let ctx = 
 
         if 
-
           (* Type must be a subtype of declared type *)
           Type.check_type 
             expr_type
@@ -1779,13 +1979,13 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
       (* Return node with equation added *)
       match ctx with 
-        | { node = None } -> assert false 
-        | { node = Some node } -> 
+      | { node = None } -> assert false 
+      | { node = Some node } -> 
 
-          { ctx with 
-              node = Some { node with
-                              N.equations = 
-                                (state_var, bounds, expr) :: equations } }
+        { ctx with 
+          node = Some { node with
+                        N.equations = 
+                          ((state_var, bounds), expr) :: equations } }
 
 
 (* Add node call to context *)
@@ -1799,9 +1999,9 @@ let add_node_call ctx pos ({ N.call_node_name; N.call_outputs } as node_call) =
         fun _ state_var -> 
 
           (* State variable already defined by equation? *)
-          List.exists (
-            fun (sv, _, _) -> StateVar.equal_state_vars state_var sv
-          ) equations
+          List.exists
+            (fun ((sv, _), _) -> StateVar.equal_state_vars state_var sv)
+            equations
            
           ||
 
@@ -1830,27 +2030,15 @@ let node_of_context = function
     raise (Invalid_argument "node_of_context")
 
   (* Add abstractions to node and return *)
-  | { expr_state_var_map; 
-      node = Some node } as ctx -> 
-
-    let node =
-
-      match 
-
-        (* Add equations from definitions to equations *)
-        ET.fold
-          (fun e sv ctx -> 
-             add_node_equation ctx dummy_pos sv [] 0 e)
-          expr_state_var_map
-          ctx
-
+  | { expr_abs_map; node = Some node } as ctx -> 
+    match
+      (* Add equations from definitions to equations *)
+      ET.fold
+        (fun e (sv, b) ctx -> add_node_equation ctx dummy_pos sv b (List.length b) e)
+        expr_abs_map ctx
       with
         | { node = Some n } -> n
         | _ -> assert false
-    in
-
-    (* Return node with equations from definitions added *)
-    node
 
 
 (* Add node from second context to nodes of first *)
@@ -1915,6 +2103,8 @@ let solve_fref { deps' } decl (f_type, f_ident, f_pos) decls =
       |> fail_at_position f_pos
   )
 
+(* Returns true if new definitions are allowed in the context *)
+let are_definitions_allowed ctx = ctx.definitions_allowed = None
 
 (* Check that the node being defined has no undefined local variables *)
 let check_local_vars_defined ctx =
@@ -1923,7 +2113,7 @@ let check_local_vars_defined ctx =
     (* Look for localss definitions *)
     List.iter (fun (sv, id, pos) ->
         if not (List.exists
-                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv') 
                   equations )
         then
           (* Always fail *)
@@ -1940,7 +2130,7 @@ let check_output_defined ctx =
     (* Look for outputs definitions *)
     List.iter (fun (sv, id, pos) ->
         if not (List.exists
-                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv') 
                   equations )
         then
           (* Always fail *)

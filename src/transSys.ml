@@ -88,12 +88,20 @@ type t =
        parameters. TODO: add this functionality to Eval. *)
     global_state_vars : (StateVar.t * Term.t list) list;
 
+    (* List of global free constants *)
+    global_consts : Var.t list;
+    
     (* State variables in the scope of this transition system 
 
        Also contains [instance_state_var] unless it is None, but not
        state variables in [global_state_vars]. *)
     state_vars : StateVar.t list;
 
+    (* register indexes of state variables for later use *)
+    state_var_bounds : 
+      (LustreExpr.expr LustreExpr.bound_or_fixed list)
+        StateVar.StateVarHashtbl.t;
+    
     (* Transition systems called by this system, and for each instance
        additional information to map between state variables of the
        different scopes *)
@@ -481,20 +489,29 @@ let bump_relative base i term =
 (* Close the initial state constraint by binding all instance
    identifiers, and bump the state variable offsets to be at the given
    bound *)
-let init_of_bound { instance_var_bindings; init } i = 
+let init_of_bound partial { instance_var_bindings; init } i = 
+  let ib = close_term instance_var_bindings init |> bump_relative init_base i in
+  match partial with
+  | None -> ib
+  | Some declare ->
+    let ib, partial_ufs = Term.partial_selects ib in
+    List.iter declare partial_ufs;
+    ib
 
-  close_term instance_var_bindings init
-  |> bump_relative init_base i 
-  
 
 (* Close the initial state constraint by binding all instance
    identifiers, and bump the state variable offsets to be at the given
    bound *)
-let trans_of_bound { instance_var_bindings; trans } i = 
+let trans_of_bound partial { instance_var_bindings; trans } i = 
+  let tb =
+    close_term instance_var_bindings trans |> bump_relative trans_base i in
+  match partial with
+  | None -> tb
+  | Some declare ->
+    let tb, partial_ufs = Term.partial_selects tb in
+    List.iter declare partial_ufs;
+    tb
 
-  close_term instance_var_bindings trans
-  |> bump_relative trans_base i 
-  
 
 (* Return the instance variables of this transition system, the
    initial state constraint at [init_base] and the transition relation
@@ -819,10 +836,15 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
    between and including [lbound] and [uboud] *)
 let vars_of_bounds
     ?(with_init_flag = true)
-    { init_flag_state_var; state_vars } 
+    { init_flag_state_var; state_vars; global_consts } 
     lbound
     ubound =
 
+  let state_vars =
+    List.rev_append
+      (List.rev_map Var.state_var_of_state_var_instance global_consts)
+      state_vars in
+  
   (* State variables to instantiate at bounds *)
   let state_vars = 
 
@@ -861,18 +883,16 @@ let declare_const_vars { state_vars } declare =
   (* Constant state variables of the top system *)
   List.filter StateVar.is_const state_vars
 
-  (* |> fun l ->
-    List.length l
-    |> Format.printf "declaring %d constant state variables:@." ;
-    Format.printf "  @[<v>%a@]@.@.@."
-      (pp_print_list StateVar.pp_print_state_var "@ ") l ;
-    l *)
-
   (* Create variable of constant state variable *)
   |> List.map Var.mk_const_state_var
 
   (* Declare variables *)
   |> Var.declare_constant_vars declare
+
+
+(* Declare global constants, call first and only once *)
+let declare_global_consts { global_consts } declare =
+  Var.declare_constant_vars declare global_consts
 
 
 (* Return the init flag at the given bound *)
@@ -888,8 +908,11 @@ let declare_init_flag_of_bounds { init_flag_state_var } declare lbound ubound =
 (* Declare other functions symbols *)
 let declare_ufs { ufs } declare =
   List.iter declare ufs
-    
-      
+
+(* Declare other functions symbols *)
+let declare_selects declare =
+  List.iter declare (StateVar.get_select_ufs ())
+  
 (* Define initial state predicate *)
 let define_init define { init_uf_symbol; init_formals; init } = 
   define init_uf_symbol init_formals init
@@ -917,6 +940,12 @@ let define_and_declare_of_bounds
   List.iter (fun ty -> match Type.node_of_type ty with
       | Type.Abstr _ -> declare_sort ty
       | _ -> ());
+
+    (* Declare monomorphized select symbols *)
+  if not (Flags.Arrays.smt ()) then declare_selects declare;
+
+  (* Declare constant state variables of top system *)
+  declare_global_consts trans_sys declare;
   
   (* Declare other functions of top system *)
   declare_ufs trans_sys declare;
@@ -1432,6 +1461,8 @@ let mk_trans_sys
     init_flag_state_var
     global_state_vars
     state_vars
+    state_var_bounds
+    global_consts
     ufs
     init_uf_symbol
     init_formals
@@ -1587,7 +1618,9 @@ let mk_trans_sys
       instance_var_bindings;
       global_state_vars;
       state_vars;
+      state_var_bounds;
       subsystems;
+      global_consts;
       ufs;
       init_uf_symbol;
       init_formals;
@@ -1727,6 +1760,10 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
   ((trans_sys, top_terms) |> res_set_to_list, 
    Map.bindings intermediate_terms
    |> List.map res_set_to_list)
+
+
+
+let get_state_var_bounds { state_var_bounds } = state_var_bounds
 
 
 

@@ -36,6 +36,9 @@ module type S = sig
   (** Solver spcific headers to add at the beginning of the file *)
   val headers : unit -> string list
 
+  (** Solver specific commands to add at the beginning of the file *)
+  val prelude : string list
+
   (** File extension for traces *)
   val trace_extension : string
 

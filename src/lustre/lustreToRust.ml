@@ -573,7 +573,7 @@ let order_equations init_or_expr inputs equations =
   let is_defined sorted svar =
     List.exists (fun (_, svar') -> svar == svar') inputs
     || List.exists (function
-      | Eq (svar', _, _) -> svar == svar'
+      | Eq ((svar', _), _) -> svar == svar'
       | Call (_, { N.call_outputs }) ->
         I.bindings call_outputs |> List.exists (
           fun (_, svar') -> svar == svar'
@@ -583,7 +583,7 @@ let order_equations init_or_expr inputs equations =
   (* Sorts equations. *)
   let rec loop count later to_do sorted = match to_do with
     (* Equation. *)
-    | (Eq (_, _, rhs)) as eq :: to_do ->
+    | (Eq ((_, _), rhs)) as eq :: to_do ->
       let later, sorted =
         if
           init_or_expr rhs
@@ -972,7 +972,7 @@ let node_to_rust oracle_info is_top fmt (
     ) ([], 0)
   in
   let equations =
-    equations |> List.fold_left (fun eqs ( (svar, _, _) as eq ) ->
+    equations |> List.fold_left (fun eqs ( ((svar, _), _) as eq ) ->
       (* if SVM.mem svar state_var_source_map
       then (Eq eq) :: eqs else eqs *)
       Eq eq :: eqs
@@ -1165,7 +1165,7 @@ let node_to_rust oracle_info is_top fmt (
     ) inputs
 
     ( pp_print_list (fun fmt -> function
-        | Eq (svar, _, expr) ->
+        | Eq ((svar, _), expr) ->
           expr.E.expr_init
           |> E.base_term_of_expr (Numeral.succ E.base_offset)
           |> Format.fprintf fmt "let %s%s = %a ;"
@@ -1313,7 +1313,7 @@ let node_to_rust oracle_info is_top fmt (
     ) inputs
 
     ( pp_print_list (fun fmt -> function
-        | Eq (svar, _, expr) ->
+        | Eq ((svar, _), expr) ->
           (* Format.printf "eq: %a@.@." pp_print_equation eq ; *)
           expr.E.expr_step
           |> E.cur_term_of_expr (Numeral.succ E.base_offset)
@@ -1972,7 +1972,7 @@ let oracle_to_rust target find_sub top =
                 [ I.ListIndex (next_index_of trie) ]
               ) output trie,
               SVS.add output outs,
-              (output, [], expr) :: eqs
+              ((output, []), expr) :: eqs
           ) (trie, outs, eqs)
       ) (outputs, output_svars, []),
       Some (

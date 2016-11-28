@@ -72,6 +72,8 @@ val pop_contract_scope : t -> t
 (** The contract scope of a context. *)
 val contract_scope_of : t -> string list
 
+val scope_of_context : t -> string list
+
 (** Return a copy of the context with an empty node of the given name
     and is extern flag in the context *)
 val create_node : t -> LustreIdent.t -> bool -> t
@@ -98,6 +100,17 @@ val add_node_to_context : t -> t -> t
 val solve_fref : t -> LustreAst.declaration -> (
   LustreDependencies.decl * LustreIdent.t * Lib.position
 ) -> LustreAst.declaration list -> LustreAst.declaration list
+
+(** Register a free constant, shadows previous declarations *)
+val add_free_constant : t -> LustreIdent.t -> Var.t LustreIndex.t -> unit
+
+(** Return declared free constants *)
+val get_free_constants : t -> (LustreIdent.t * Var.t LustreIndex.t) list
+
+(** Return the free constant corresponding to an identifier if any *)
+val free_constant_expr_of_ident :
+  t -> LustreIdent.t -> LustreExpr.t LustreIndex.t
+
 
 (** Add a binding of an identifier to an expression to context 
 
@@ -128,6 +141,10 @@ val get_node : t -> LustreNode.t option
 
 (** return previous context *)
 val prev : t -> t
+
+  (** Return state vars bounds hash table *)
+val get_state_var_bounds : t ->
+  (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t
 
 (** The contract nodes in the context. *)
 val contract_nodes : t -> LustreAst.contract_node_decl list
@@ -189,8 +206,18 @@ val type_in_context : t -> LustreIdent.t -> bool
 (** Return [true] if the identifier denotes a node in the context *)
 val node_in_context : t -> LustreIdent.t -> bool
 
+
+val mk_state_var :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?shadow:bool ->
+  t -> Ident.t list -> LustreIdent.t -> LustreIndex.index -> Type.t ->
+  LustreNode.state_var_source option ->
+  StateVar.t * t
+
 (** Create a fresh local state variable in the context. *)
-val mk_fresh_local : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
+val mk_fresh_local :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+  t -> Type.t -> StateVar.t * t
 
 val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
 
@@ -203,19 +230,22 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
     variable was previously created for the same expression but with different
     flags, a new state variable is created. *)
 val mk_local_for_expr :
-  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?is_ghost:bool ->
-  ?original:LustreAst.expr -> Lib.position ->
-  t -> LustreExpr.t -> StateVar.t * t
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+  ?is_ghost:bool -> ?original:LustreAst.expr ->
+  Lib.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
 
 (** Create a fresh oracle state variable in the context. *)
-val mk_fresh_oracle :
-  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+val mk_fresh_oracle : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
   t -> Type.t -> StateVar.t * t
 
 (** Create a fresh oracle state variable for the pre-initial value of
     the given state variable in the context, or return a previously
     created oracle for this state variable. *)
-val mk_fresh_oracle_for_state_var : t -> StateVar.t -> StateVar.t * t
+val mk_fresh_oracle_for_state_var :
+    ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+    t -> StateVar.t -> StateVar.t * t
 
 (** Return the node of the given name from the context*)
 val node_of_name : t -> LustreIdent.t -> LustreNode.t
@@ -268,7 +298,7 @@ val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t
 (** Add equation to context *)
 val add_node_equation :
   t -> Lib.position -> StateVar.t ->
-  LustreExpr.expr LustreNode.bound_or_fixed list -> int -> LustreExpr.t -> t
+  LustreExpr.expr LustreExpr.bound_or_fixed list -> int -> LustreExpr.t -> t
 
 (** Add node call to context *)
 val add_node_call : t -> Lib.position -> LustreNode.node_call -> t
@@ -292,6 +322,7 @@ val get_node_function_flag : t -> bool
     The second argument is a pair so that it can take the output of
     {!LustreSimplify.eval_ast_expr} directly. *)
 val close_expr :
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
   ?original:LustreAst.expr -> Lib.position ->
   (LustreExpr.t * t) -> (LustreExpr.t * t)
 
@@ -314,6 +345,8 @@ val fail_no_position : string -> 'a
 (** Output a warning without a position *)
 val warn_no_position : string -> unit 
 
+(** Returns true if new definitions are allowed in the context *)
+val are_definitions_allowed : t -> bool
 
 (* 
    Local Variables:

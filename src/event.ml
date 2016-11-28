@@ -47,7 +47,7 @@ let div_by_zero_text prop_name = [
 type event = 
   | Invariant of string list * Term.t * Certificate.t 
   | PropStatus of string * Property.prop_status
-  | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
+  | StepCex of string * (StateVar.t * Model.value list) list
 
 
 (* Pretty-print an event *)
@@ -150,7 +150,7 @@ struct
 
       let cex_string = pop () in
       
-      let cex : (StateVar.t * Model.term_or_lambda list) list = 
+      let cex : (StateVar.t * Model.value list) list = 
         Marshal.from_string cex_string 0
       in
       
@@ -158,7 +158,7 @@ struct
         List.map
           (fun (sv, t) -> 
              (StateVar.import sv, 
-              List.map Model.import_term_or_lambda t))
+              List.map Model.import_value t))
           cex
       in
 
@@ -170,7 +170,7 @@ struct
 
       let cex_string = pop () in
       
-      let cex : (StateVar.t * Model.term_or_lambda list) list = 
+      let cex : (StateVar.t * Model.value list) list = 
         Marshal.from_string cex_string 0
       in
       
@@ -178,7 +178,7 @@ struct
         List.map
           (fun (sv, t) -> 
              (StateVar.import sv, 
-              List.map Model.import_term_or_lambda t))
+              List.map Model.import_value t))
           cex
       in
 
@@ -555,6 +555,9 @@ let escape_xml_name s =
   s |> Str.global_replace ltr "&lt;"
     |> Str.global_replace gtr "&gt;"
 
+(* Level to class attribute of log tag *)
+let xml_cls_of_level = string_of_log_level
+
 
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
@@ -650,7 +653,7 @@ let execution_path_xml level input_sys analysis trans_sys path =
 (* Output disproved property as XML *)
 let cex_xml
 mdl level input_sys analysis trans_sys prop (
-  cex : (StateVar.t * Model.term_or_lambda list) list
+  cex : (StateVar.t * Model.value list) list
 ) disproved = 
 
   (* Only ouptut if status was unknown *)

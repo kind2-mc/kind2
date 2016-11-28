@@ -40,20 +40,50 @@ module Contract = LustreContract
 module Deps = LustreDependencies
 
 
-let pp_print_trie pp_i pp_e ppf t = 
-  D.bindings t |> 
-  pp_print_list
-    (fun ppf (i, e) -> 
-       if i = D.empty_index then 
-         pp_e ppf e
-       else
-         Format.fprintf 
-           ppf
-           "%a: %a"
-           pp_i i
-           pp_e e)
-    ";@ "
-    ppf
+let select_from_arrayintindex pos bound_e index expr =
+
+  (* Remove top index from all elements in trie *)
+  let vals= 
+    D.fold
+      (fun j v vals -> match j with 
+         | D.ArrayIntIndex i :: [] ->
+           (i, v) :: vals
+         | _ -> assert false)
+      expr []
+  in
+
+  let size = List.length vals in
+
+  (* type check with length of arrays when statically known *)
+  if bound_e <> None && E.is_numeral (get bound_e) &&
+     (E.numeral_of_expr (get bound_e) |> Numeral.to_int) > size
+  then
+    C.fail_at_position pos
+      (Format.asprintf "Size of indexes on left of equation (%a) \
+                        is larger than size on the right (%d)"
+         (E.pp_print_expr false) (get bound_e)
+         size);
+
+  
+  let last, vals = match vals with
+    | (_, x) :: r -> x, r
+    | _ -> assert false
+  in
+  
+  let v =
+    List.fold_left (fun acc (i, v) ->
+        E.mk_ite
+          (E.mk_eq index (E.mk_int (Numeral.of_int i)))
+          v
+          acc
+      )
+      last vals
+  in
+
+  D.add
+    [] (* D.ArrayVarIndex (List.length vals +1 |> Numeral.of_int |> E.mk_int_expr)] *)
+    v D.empty
+
 
 (* ******************************************************************** *)
 (* Evaluation of expressions                                            *)
@@ -90,11 +120,13 @@ let pp_print_trie pp_i pp_e ppf t =
    - recursive nodes
 
 *)
-let rec eval_ast_expr ctx = function
+let rec eval_ast_expr bounds ctx = 
 
-  (* ****************************************************************** *)
-  (* Identifier                                                         *)
-  (* ****************************************************************** *)
+  function
+
+    (* ****************************************************************** *)
+    (* Identifier                                                         *)
+    (* ****************************************************************** *)
 
   (* Identifier *)
   | A.Ident (pos, ident) ->
@@ -173,20 +205,16 @@ let rec eval_ast_expr ctx = function
   (* ****************************************************************** *)
 
   (* Conversion to an integer number [int expr] *)
-  | A.ToInt (pos, expr) ->
-    eval_unary_ast_expr ctx pos E.mk_to_int expr 
+    | A.ToInt (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
 
   (* Conversion to a real number [real expr] *)
-  | A.ToReal (pos, expr) ->
-    eval_unary_ast_expr ctx pos E.mk_to_real expr
+    | A.ToReal (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_real expr
 
   (* Boolean negation [not expr] *)
-  | A.Not (pos, expr) ->
-    eval_unary_ast_expr ctx pos E.mk_not expr 
+    | A.Not (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_not expr 
 
   (* Unary minus [- expr] *)
-  | A.Uminus (pos, expr) ->
-    eval_unary_ast_expr ctx pos E.mk_uminus expr 
+    | A.Uminus (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_uminus expr 
 
   (* ****************************************************************** *)
   (* Binary operators                                                   *)
@@ -195,77 +223,95 @@ let rec eval_ast_expr ctx = function
   (* Boolean conjunction [expr1 and expr2] *)
   | A.And (pos, expr1, expr2) ->
 
-    eval_binary_ast_expr ctx pos E.mk_and expr1 expr2
+      eval_binary_ast_expr bounds ctx pos E.mk_and expr1 expr2
 
   (* Boolean disjunction [expr1 or expr2] *)
   | A.Or (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_or expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_or expr1 expr2 
 
   (* Boolean exclusive disjunction [expr1 xor expr2] *)
   | A.Xor (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_xor expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_xor expr1 expr2 
 
   (* Boolean implication [expr1 => expr2] *)
   | A.Impl (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_impl expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_impl expr1 expr2 
+
+    (* Universal quantification *)
+    | A.Forall (pos, avars, expr) ->
+
+      let ctx, vars = vars_of_quant ctx avars in
+      let bounds = bounds @
+        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+          vars in
+      eval_unary_ast_expr bounds ctx pos (E.mk_forall vars) expr
+        
+    (* Existential quantification *)
+    | A.Exists (pos, avars, expr) ->
+
+      let ctx, vars = vars_of_quant ctx avars in
+      let bounds = bounds @
+        List.map (fun v -> E.Unbound (E.unsafe_expr_of_term (Term.mk_var v)))
+          vars in
+      eval_unary_ast_expr bounds ctx pos (E.mk_exists vars) expr
 
   (* Integer modulus [expr1 mod expr2] *)
   | A.Mod (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_mod expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_mod expr1 expr2 
 
   (* Subtraction [expr1 - expr2] *)
   | A.Minus (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_minus expr1 expr2
+      eval_binary_ast_expr bounds ctx pos E.mk_minus expr1 expr2
 
   (* Addition [expr1 + expr2] *)
   | A.Plus (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_plus expr1 expr2
+      eval_binary_ast_expr bounds ctx pos E.mk_plus expr1 expr2
 
   (* Real division [expr1 / expr2] *)
   | A.Div (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_div expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_div expr1 expr2 
 
   (* Multiplication [expr1 * expr2] ]*)
   | A.Times (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_times expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_times expr1 expr2 
 
   (* Integer division [expr1 div expr2] *)
   | A.IntDiv (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_intdiv expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_intdiv expr1 expr2 
 
   (* Less than or equal [expr1 <= expr2] *)
   | A.Lte (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_lte expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_lte expr1 expr2 
 
   (* Less than [expr1 < expr2] *)
   | A.Lt (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_lt expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_lt expr1 expr2 
 
   (* Greater than or equal [expr1 >= expr2] *)
   | A.Gte (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_gte expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_gte expr1 expr2 
 
   (* Greater than [expr1 > expr2] *)
   | A.Gt (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_gt expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_gt expr1 expr2 
 
   (* Arrow temporal operator [expr1 -> expr2] *)
   | A.Arrow (pos, expr1, expr2) -> 
 
-    eval_binary_ast_expr ctx pos E.mk_arrow expr1 expr2 
+      eval_binary_ast_expr bounds ctx pos E.mk_arrow expr1 expr2 
 
   (* ****************************************************************** *)
   (* Other operators                                                    *)
@@ -276,7 +322,7 @@ let rec eval_ast_expr ctx = function
 
     (* Apply equality pointwise *)
     let expr, ctx = 
-      eval_binary_ast_expr ctx pos E.mk_eq expr1 expr2 
+        eval_binary_ast_expr bounds ctx pos E.mk_eq expr1 expr2 
     in
 
     (* We don't want to do extensional array equality, because that
@@ -308,31 +354,32 @@ let rec eval_ast_expr ctx = function
   | A.Neq (pos, expr1, expr2) -> 
 
     (* Translate to negated equation *)
-    eval_ast_expr ctx (
-      A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2))
-    )
+    eval_ast_expr
+      bounds
+      ctx
+      (A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2)))
 
   (* If-then-else [if expr1 then expr2 else expr3 ]*)
   | A.Ite (pos, expr1, expr2, expr3) -> 
 
     (* Evaluate expression for condition *)
     let expr1', ctx = 
-      eval_bool_ast_expr ctx pos expr1 
+        eval_bool_ast_expr bounds ctx pos expr1 
     in
 
-    eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
+      eval_binary_ast_expr bounds ctx pos (E.mk_ite expr1') expr2 expr3
 
   (* Temporal operator last *)
   | A.Last (pos, i)  -> 
     (* Translate to pre *)
     C.warn_at_position pos "Not in a state, last was replaced by pre";
-    eval_ast_expr ctx (A.Pre (pos, A.Ident (pos, i)))
+    eval_ast_expr bounds ctx (A.Pre (pos, A.Ident (pos, i)))
 
   (* Temporal operator pre [pre expr] *)
   | A.Pre (pos, expr) as original -> 
 
     (* Evaluate expression *)
-    let expr', ctx = eval_ast_expr ctx expr in
+      let expr', ctx = eval_ast_expr bounds ctx expr in
 
     (* Apply pre operator to expression, may change context with new
        variable *)
@@ -342,11 +389,24 @@ let rec eval_ast_expr ctx = function
 
         (fun index expr (accum, ctx) -> 
 
-           (* Apply pre operator to expression, abstract non-variable term
-              and DO NOT re-use previous variables *)
+             let mk_lhs_term (sv, bounds) =
+               List.fold_left (fun (i, t) -> function
+                   | E.Bound b ->
+                     succ i,
+                     Term.mk_select t
+                       (Term.mk_var @@ E.var_of_expr @@ E.mk_index_var i)
+                   | E.Unbound v ->
+                     i, Term.mk_select t (E.unsafe_term_of_expr v)
+                   | _ -> assert false)
+                 (0, Var.mk_state_var_instance sv E.pre_offset |> Term.mk_var)
+                 bounds
+             |> snd
+             in
+             
            let expr', ctx =
              E.mk_pre
-              (C.mk_local_for_expr ~original pos)
+              (C.mk_local_for_expr ~original ~bounds pos)
+              mk_lhs_term
               ctx
               (C.guard_flag ctx)
               expr
@@ -416,7 +476,7 @@ let rec eval_ast_expr ctx = function
           | _ -> C.fail_at_position pos "Clock mismatch for argument of merge");
 
         (* Evaluate expression under [when] *)
-        eval_ast_expr ctx expr
+          eval_ast_expr bounds ctx expr
 
       (* A node call with activation condition and no defaults *)
       | clock_value, A.Activate (pos, ident, case_clock, restart_clock, args) ->
@@ -438,6 +498,7 @@ let rec eval_ast_expr ctx = function
         
         (* Evaluate node call without defaults *)
         try_eval_node_call
+          bounds
           ctx
           pos
           (I.mk_string_ident ident)
@@ -451,6 +512,7 @@ let rec eval_ast_expr ctx = function
 
         (* Evaluate node call without defaults *)
         try_eval_node_call
+          bounds
           ctx
           pos
           (I.mk_string_ident ident)
@@ -463,7 +525,7 @@ let rec eval_ast_expr ctx = function
       | _, expr -> 
 
         (* Evaluate expression under [when] *)
-        eval_ast_expr ctx expr
+          eval_ast_expr bounds ctx expr
 
     in
 
@@ -526,6 +588,7 @@ let rec eval_ast_expr ctx = function
   | A.RecordProject (pos, expr, field) -> 
 
     eval_ast_projection 
+      bounds
       ctx
       pos
       expr
@@ -538,6 +601,7 @@ let rec eval_ast_expr ctx = function
     let field = const_int_of_ast_expr ctx pos field_expr in
 
     eval_ast_projection 
+      bounds
       ctx
       pos
       expr
@@ -570,9 +634,7 @@ let rec eval_ast_expr ctx = function
         (fun (i, accum, ctx) expr -> 
 
            (* Evaluate expression *)
-           let expr', ctx =
-            eval_ast_expr ctx expr
-           in
+             let expr', ctx = eval_ast_expr bounds ctx expr in
 
            (* Increment counter *)
            (succ i,
@@ -609,9 +671,7 @@ let rec eval_ast_expr ctx = function
         (fun (i, accum, ctx) expr -> 
 
            (* Evaluate expression *)
-           let expr', ctx =
-            eval_ast_expr ctx expr
-           in
+             let expr', ctx = eval_ast_expr bounds ctx expr in
 
            (* Increment counter *)
            (succ i,
@@ -663,9 +723,7 @@ let rec eval_ast_expr ctx = function
         (fun (accum, ctx) (i, expr) -> 
 
            (* Evaluate expression *)
-           let expr', ctx =
-            eval_ast_expr ctx expr
-           in
+             let expr', ctx = eval_ast_expr bounds ctx expr in
 
            (* Push field index to indexes in expression and add to
                accumulator trie *)
@@ -697,8 +755,8 @@ let rec eval_ast_expr ctx = function
   | A.StructUpdate (pos, expr1, index, expr2) -> 
 
     (* Evaluate expressions *)
-    let expr1', ctx = eval_ast_expr ctx expr1 in
-    let expr2', ctx = eval_ast_expr ctx expr2 in
+    let expr1', ctx = eval_ast_expr bounds ctx expr1 in
+    let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
     (* Convert an ast index to an index *)
     let rec aux accum = function 
@@ -727,17 +785,13 @@ let rec eval_ast_expr ctx = function
       (* First index is an integer index *)
       | A.Index (pos, index_expr) :: tl -> 
 
-        (
-
+        begin
           (* Evaluate index expression to a static integer *)
-          let index_expr' = 
-            static_int_of_ast_expr ctx pos index_expr 
-          in 
+          let index_expr' = static_int_of_ast_expr ctx pos index_expr in 
 
           (* Expression to update with indexes already seen
              removed *)
           let expr1'_sub = 
-
             (* Get subtrie with index from accumulator *)
             try D.find_prefix accum expr1' with 
 
@@ -755,9 +809,19 @@ let rec eval_ast_expr ctx = function
 
               (* Abuse bound for array variable to store index to
                  update and continue *)
-              aux 
-                (D.ArrayVarIndex index_expr' :: accum)
-                tl
+
+               (* Cast Lustre expression to a term *)
+               let index_term = (index_expr' : E.expr :> Term.t) in
+
+               let i =
+                 if Term.is_numeral index_term then 
+                   D.ArrayIntIndex
+                     (Term.numeral_of_term index_term |> Numeral.to_int)
+                 else
+                   D.ArrayVarIndex index_expr'
+               in
+
+               aux (i :: accum) tl
 
             (* Expression is an array indexed with integers *)
             | D.ArrayIntIndex _ :: _, _ -> 
@@ -813,8 +877,7 @@ let rec eval_ast_expr ctx = function
               C.fail_at_position
                 pos
                 "Invalid index for expression")
-
-        )
+          end
 
     in
 
@@ -822,13 +885,48 @@ let rec eval_ast_expr ctx = function
     let index' = aux D.empty_index index in
 
     (* Add index prefix to the indexes of the update expression *)
-    let expr2'' = 
+    let expr2'' =
       D.fold
         (fun i v a -> D.add (index' @ i) v a)
         expr2'
         D.empty
     in
 
+      (* When the index is a variable we will need to update the structure
+         conditionnaly *)
+    let rec mk_cond_indexes (acc, cpt) li ri =
+        match li, ri with
+        | D.ArrayVarIndex v :: li', D.ArrayIntIndex vi :: ri' ->
+          let acc =
+            E.mk_eq (E.mk_index_var cpt) (E.mk_int (Numeral.of_int vi)) :: acc
+          in
+          mk_cond_indexes (acc, cpt+1) li' ri'
+        | D.ArrayVarIndex v :: li', D.ArrayVarIndex vi :: ri' ->
+          let acc =
+            E.mk_eq (E.mk_index_var cpt) (E.mk_of_expr vi) :: acc in
+          mk_cond_indexes (acc, cpt+1) li' ri'
+        | _ :: li', _ :: ri' -> mk_cond_indexes (acc, cpt) li' ri'
+        | [], _ | _, [] ->
+          if acc = [] then raise Not_found;
+          List.rev acc |> E.mk_and_n
+      in
+
+      (* how to build recursive (functional) stores in arrays *)
+      let rec mk_store acc a ri x = match ri with
+        | D.ArrayIntIndex vi :: ri' ->
+          let i = E.mk_int (Numeral.of_int vi) in
+          let a' = List.fold_left E.mk_select a acc in
+          let x = mk_store [i] a' ri' x in
+          E.mk_store a i x
+        | D.ArrayVarIndex vi :: ri' ->
+          let i = E.mk_of_expr vi in
+          let a' = List.fold_left E.mk_select a acc in
+          let x = mk_store [i] a' ri' x in
+          E.mk_store a i x
+        | _ :: ri' -> mk_store acc a ri' x
+        | [] -> x
+      in
+      
     (* Replace indexes in updated expression *)
     let expr1'' = 
       D.fold
@@ -836,7 +934,40 @@ let rec eval_ast_expr ctx = function
            try 
              let v' = D.find i expr2'' in
              D.add i v' a
-           with Not_found -> 
+           with Not_found ->
+           try
+
+             begin match i with
+               | D.ArrayIntIndex _ :: _ | D.ArrayVarIndex _ :: _ -> ()
+               | _ -> raise Not_found
+             end;
+
+             (* The index is not in expr2'' which means we're updating an
+                array that has varialbe indexes. In this case we remove
+                the index and create the index variables to be able to
+                mention the values of the array. *)
+             (* the value if the index condition is false *)
+             let old_v = List.fold_left (fun (acc, cpt) _ ->
+                 E.mk_select acc (E.mk_index_var cpt), cpt + 1
+               ) (v, 0) i |> fst in
+             (* the new value if the condition matches *)
+             let new_v = D.find index' expr2'' in
+             (* the conditional value *)
+
+             if Flags.Arrays.smt () then
+               (* Build a store expression if we allow the theory of
+                  arrays *)
+               let v' = mk_store [] v index' new_v in
+               D.add [] v' a
+
+             else
+               let v' =
+                 E.mk_ite (mk_cond_indexes ([], 0) i index') new_v old_v in
+
+               (* We've added the index variables so we can forget this
+                  one *)
+               D.add [] v' a
+           with Not_found ->
              D.add i v a)
         expr1'
         D.empty
@@ -855,6 +986,7 @@ let rec eval_ast_expr ctx = function
   | A.Condact (pos, cond, restart, ident, args, defaults) ->  
 
     try_eval_node_call
+      bounds
       ctx
       pos
       (I.mk_string_ident ident)
@@ -867,7 +999,8 @@ let rec eval_ast_expr ctx = function
   | A.Call (pos, ident, args)
   | A.RestartEvery (pos, ident, args, A.False _) ->
 
-    try_eval_node_call 
+    try_eval_node_call
+      bounds
       ctx
       pos
       (I.mk_string_ident ident)
@@ -879,7 +1012,8 @@ let rec eval_ast_expr ctx = function
   (* Node call with reset/restart *)
   | A.RestartEvery (pos, ident, args, cond) ->
 
-    try_eval_node_call 
+    try_eval_node_call
+      bounds
       ctx
       pos
       (I.mk_string_ident ident)
@@ -895,17 +1029,175 @@ let rec eval_ast_expr ctx = function
   (* Array constructor [[expr1, expr2]] *)
   | A.ArrayExpr (pos, expr_list) -> 
 
-    C.fail_at_position pos "Arrays not supported"
+    let _, res, ctx = 
+
+      (* Iterate over list of expressions *)
+      List.fold_left
+
+        (fun (i, accum, ctx) expr -> 
+
+           (* Evaluate expression *)
+           let expr', ctx = eval_ast_expr bounds ctx expr in
+
+           (* Increment counter *)
+           (succ i,
+
+            (* Push current index to indexes in expression and add
+               to accumulator trie *)
+            D.fold
+              (fun j e a -> 
+                 D.add (j @[D.ArrayIntIndex i]) e a)
+              expr'
+              accum,
+
+            (* Continue with added definitions *)
+            ctx))
+
+        (* Start counting index at zero, with given abstractions and
+           add to the empty trie *)
+        (0, D.empty, ctx)
+
+        expr_list
+
+    in
+
+    (res, ctx)
 
   (* Array constructor [expr^size_expr] *)
   | A.ArrayConstr (pos, expr, size_expr) -> 
 
-    C.fail_at_position pos "Arrays not supported"
+    (* Evaluate expression to an integer constant *)
+    let array_size = static_int_of_ast_expr ctx pos size_expr in
 
-  (* Array slice [A[i..j] with i=j is just A[k] *)
+    (* Evaluate expression for array elements *)
+      let expr', ctx = eval_ast_expr bounds ctx expr in 
+
+      
+      if not (C.are_definitions_allowed ctx) &&
+         Term.is_numeral (E.unsafe_term_of_expr array_size) then
+        let l_expr =
+          array_size
+          |> E.unsafe_term_of_expr
+          |> Term.numeral_of_term
+          |> Numeral.to_int
+          |> Lib.list_init (fun _ -> expr) in
+        
+        eval_ast_expr bounds ctx (A.ArrayExpr (pos, l_expr))
+      else
+
+        let bound =
+          if Term.is_numeral (E.unsafe_term_of_expr array_size) then
+            E.Fixed array_size
+          else E.Bound array_size in
+
+    (* Push array index to indexes in expression and add to
+       accumulator trie *)
+    let res, ctx = 
+      D.fold
+            (fun j e (a, ctx) ->
+               (* abstract with array state variable *)
+               let (state_var, _) , ctx = 
+                 C.mk_local_for_expr ~bounds:[bound] pos ctx e in
+               let e' = E.mk_var state_var in
+               D.add (D.ArrayVarIndex array_size :: j) e' a, ctx)
+        expr'
+            (D.empty, ctx)
+    in
+
+    (res, ctx)
+
+  (* Array slice [A[i..j] with i=j is just A[i] *)
   | A.ArraySlice (pos, expr, (i, j)) when i = j -> 
 
-    C.fail_at_position pos "Arrays not supported"
+    (* Evaluate expression to an integer constant *)
+    let index_e = static_int_of_ast_expr ctx pos i in
+    let index = E.mk_of_expr index_e in
+      
+      let bound_e, bounds =
+        try
+          let index_nb = E.int_of_index_var index in
+          let b, bounds = Lib.list_extract_nth bounds index_nb in
+          match b with
+          | E.Fixed e | E.Bound e -> Some e, bounds
+          | E.Unbound _ -> None, bounds
+        with Invalid_argument _ | Failure _ -> None, bounds
+      in
+      
+      let expr', ctx = eval_ast_expr bounds ctx expr in 
+
+      let rec push expr' =
+      
+    (* Every index starts with ArrayVarIndex or none does *)
+      match D.choose expr' with 
+
+      (* Projection from an array indexed by variable *)
+      | D.ArrayVarIndex s :: tl, v -> 
+
+        (* type check with length of arrays when statically known *)
+        (* Disabled because not precise enough *)
+        (* if bound_e <> None && E.is_numeral (get bound_e) && E.is_numeral s && *)
+        (*    Numeral.geq (E.numeral_of_expr (get bound_e)) (E.numeral_of_expr s) *)
+        (* then *)
+        (*   C.fail_at_position pos *)
+        (*     (Format.asprintf "Size of indexes on left of equation (%a) \ *)
+        (*                       is larger than size on the right (%a)" *)
+        (*     (E.pp_print_expr false) (get bound_e) *)
+        (*     (E.pp_print_expr false) s); *)
+        
+
+        (* Remove top index from all elements in trie *)
+        let expr' = 
+          D.fold
+            (function 
+              | D.ArrayVarIndex _ :: tl -> D.add tl
+              | _ -> assert false)
+            expr'
+            D.empty
+        in
+
+        if E.type_of_lustre_expr v |> Type.is_array then
+          (* Select from array in all elements *)
+          D.map (fun e -> E.mk_select e index) expr'
+        else
+          (* otherwise returned the indexed value *)
+          expr'
+
+
+      (* Projection from an array indexed by integers *)
+      | D.ArrayIntIndex _ :: tl, _ -> 
+
+        select_from_arrayintindex pos bound_e index expr'
+
+        (*   C.fail_at_position  *)
+        (*     pos *)
+        (*     "Cannot use a constant array in a recursive definition" *)
+
+      (* Projection from a tuple expression *)
+        | D.TupleIndex _ :: _, _
+        | D.RecordIndex _ :: _, _ 
+        | D.ListIndex _ :: _, _ ->
+
+
+          (* Try again underneath *)
+          let expr' = 
+            D.fold
+              (fun indexes v acc -> match indexes with
+                | top :: tl ->
+                  let r = D.add tl v D.empty in
+                  let e = push r in
+                  D.fold (fun j -> D.add (top :: j)) e acc
+                | _ -> assert false)
+              expr'
+              D.empty
+          in
+          expr'
+
+      (* Other or no index *)
+        | [], _ -> C.fail_at_position pos "Selection not from an array"
+      in
+
+      push expr', ctx
+
 
   (* Array slice [A[i..j,k..l]] *)
   | A.ArraySlice (pos, _, _) -> 
@@ -974,6 +1266,40 @@ let rec eval_ast_expr ctx = function
 (* Helper functions                                                     *)
 (* ******************************************************************** *)
 
+
+and var_of_quant (ctx, vars) (pos, v, ast_type) =
+  (* Evaluate type expression *)
+  let index_types = eval_ast_type ctx ast_type in
+
+  (* Add state variables for all indexes of input *)
+  let vars, d  =
+    D.fold
+      (fun index index_type (vars, d) ->
+         let name = Format.sprintf "%s%s" v (D.string_of_index true index) in
+         let var = Var.mk_free_var (HString.mk_hstring name) index_type in
+         let ev = E.mk_free_var var in
+         var :: vars, D.add index ev d)
+      index_types
+      (vars, D.empty)
+  in
+
+  (* Bind identifier to the index variable, shadow previous
+     bindings *)
+  let ctx = 
+    C.add_expr_for_ident
+      ~shadow:true
+      ctx
+      (I.mk_string_ident v)
+      d
+  in
+
+  ctx, vars
+  
+
+and vars_of_quant ctx l =
+  let ctx, vars = List.fold_left var_of_quant (ctx, []) l in
+  ctx, List.rev vars  
+
 (* Evaluate expression to an integer constant, return as a numeral *)
 and const_int_of_ast_expr ctx pos expr =
 
@@ -981,7 +1307,8 @@ and const_int_of_ast_expr ctx pos expr =
 
     (* Evaluate expression *)
     let expr', _ = 
-      eval_ast_expr 
+      eval_ast_expr
+        []
         (C.fail_on_new_definition
            ctx
            pos
@@ -1020,10 +1347,10 @@ and const_int_of_ast_expr ctx pos expr =
 
 
 (* Evaluate expression to an Boolean *)
-and eval_bool_ast_expr ctx pos expr =
+and eval_bool_ast_expr bounds ctx pos expr = 
 
   (* Evaluate expression to trie *)
-  let expr', ctx = eval_ast_expr ctx expr in
+  let expr', ctx = eval_ast_expr bounds ctx expr in
 
   (* Check if evaluated expression is Boolean *)
   (match D.bindings expr' with 
@@ -1072,10 +1399,13 @@ and static_int_of_ast_expr ctx pos expr =
 
     (* Evaluate expression *)
     let expr', _ =
-      eval_ast_expr (
-        C.fail_on_new_definition
-           ctx pos "Expression must be constant"
-       ) expr
+      eval_ast_expr
+        []
+        (C.fail_on_new_definition
+           ctx
+           pos
+           "Expression must be constant")
+        expr
     in
 
     (* Check static and array indexes *)
@@ -1119,6 +1449,10 @@ and eval_ident ctx pos i =
     let ty = Type.enum_of_constr i in
     D.singleton D.empty_index (E.mk_constr i ty), ctx
   with Not_found ->
+  try
+    (* Might be a free constant *)
+    C.free_constant_expr_of_ident ctx ident, ctx
+  with Not_found ->
     (* Might be a forward referenced constant. *)
     Deps.Unknown_decl (Deps.Const, ident, pos) |> raise
 
@@ -1134,12 +1468,11 @@ and eval_nullary_expr ctx pos expr =
 
 (* Evaluate the argument of a unary expression and construct a unary
    expression of the result with the given constructor *)
-and eval_unary_ast_expr ctx pos mk expr = 
+and eval_unary_ast_expr bounds ctx pos mk expr = 
 
   try 
-
     (* Evaluate expression argument *)
-    let expr', ctx = eval_ast_expr ctx expr in
+    let expr', ctx = eval_ast_expr bounds ctx expr in
 
     (* Apply given constructor to each expression, return with same
        bounds for each expression and changed context *)
@@ -1154,16 +1487,26 @@ and eval_unary_ast_expr ctx pos mk expr =
         "Type mismatch for expression"
 
 
-(* Evaluate the argument of a unary expression and construct a unary
+(* Evaluate the argument of a binary expression and construct a binary
    expression of the result with the given constructor *)
-and eval_binary_ast_expr ctx pos mk expr1 expr2 = 
+and eval_binary_ast_expr bounds ctx pos mk expr1 expr2 = 
 
   (* Evaluate first expression *)
-  let expr1', ctx = eval_ast_expr ctx expr1 in
+  let expr1', ctx = eval_ast_expr bounds ctx expr1 in
 
   (* Evaluate second expression, in possibly changed context *)
-  let expr2', ctx = eval_ast_expr ctx expr2 in
+  let expr2', ctx = eval_ast_expr bounds ctx expr2 in
 
+    (* Format.eprintf *)
+    (*   "E1 ==== @[<hv>%a@]@." *)
+    (*   pp_print_trie_expr expr1'; *)
+
+
+    (* Format.eprintf *)
+    (*   "E2 ==== @[<hv>%a@]@." *)
+    (*   pp_print_trie_expr expr2'; *)
+    
+  
   (* Apply operator pointwise to expressions *)
   let res = 
 
@@ -1184,7 +1527,7 @@ and eval_binary_ast_expr ctx pos mk expr1 expr2 =
 
     with 
 
-      | Invalid_argument _ ->
+      | Invalid_argument s ->
 
         C.fail_at_position
           pos
@@ -1208,7 +1551,7 @@ and eval_binary_ast_expr ctx pos mk expr1 expr2 =
 
 
 (* Return the trie starting at the given index *)
-and eval_ast_projection ctx pos expr = function
+and eval_ast_projection bounds ctx pos expr = function
 
   (* Record or tuple field *)
   | D.RecordIndex _ 
@@ -1216,7 +1559,7 @@ and eval_ast_projection ctx pos expr = function
   | D.ArrayIntIndex _ as index ->
 
     (* Evaluate argument of expression *)
-    let expr', ctx = eval_ast_expr ctx expr in
+    let expr', ctx = eval_ast_expr bounds ctx expr in
 
     (try 
 
@@ -1241,7 +1584,7 @@ and eval_ast_projection ctx pos expr = function
   | D.ArrayVarIndex _ -> raise (Invalid_argument "eval_ast_projection")
 
 
-and try_eval_node_call ctx pos ident cond restart args defaults =
+and try_eval_node_call bounds ctx pos ident cond restart args defaults =
 
   match 
 
@@ -1258,7 +1601,7 @@ and try_eval_node_call ctx pos ident cond restart args defaults =
     (* Evaluate call to node *)
     | Some node -> 
 
-      eval_node_call ctx pos ident node cond restart args defaults 
+      eval_node_call bounds ctx pos ident node cond restart args defaults 
 
     (* No node of that name *)
     | None ->
@@ -1270,6 +1613,7 @@ and try_eval_node_call ctx pos ident cond restart args defaults =
 
 (* Return a trie with the outputs of a node call *)
 and eval_node_call
+    bounds
     ctx
     pos
     ident
@@ -1285,17 +1629,27 @@ and eval_node_call
 
   (* Type check expressions for node inputs and abstract to fresh
      state variables *)
-  let node_inputs_of_exprs ctx node_inputs pos expr =
+  let node_inputs_of_exprs bounds ctx node_inputs pos expr =
     try
       (* Evaluate input value *)
       let expr', ctx = 
         (* Evaluate inputs as list *)
-        let expr', ctx = eval_ast_expr ctx (A.ExprList (dummy_pos, expr)) in
+        let expr', ctx = eval_ast_expr bounds ctx (A.ExprList (dummy_pos, expr)) in
         (* Return actual parameters and changed context if actual and formal
            parameters have the same indexes otherwise remove list index when
            expression is a singleton list *)
-        if D.keys expr' = D.keys node_inputs then expr', ctx 
+        if 
+          List.for_all2 D.compatible_indexes (D.keys expr') (D.keys node_inputs)
+
+        then
+
+          (* Return actual parameters and changed context *)
+          expr', ctx
+
         else
+
+
+          (* Remove list index if expression is a singleton list *)
           (D.fold
              (function 
                | D.ListIndex 0 :: tl -> D.add tl
@@ -1307,16 +1661,26 @@ and eval_node_call
       (* Check types and index *)
       D.fold2
         (fun i state_var ({ E.expr_type } as expr) (accum, ctx) ->
-           (* Expression must be of a subtype of input type *)
-           if Type.check_type expr_type (StateVar.type_of_state_var state_var)
-              &&
-              (* Expression must be constant if input is *)
-              (not (StateVar.is_const state_var) || E.is_const expr)
+          if E.has_indexes expr
+          then C.fail_at_position pos "Call with implicitely quantified index";
+          (* Expression must be of a subtype of input type *)
+          if Type.check_type expr_type (StateVar.type_of_state_var state_var)
+             &&
+             (* Expression must be constant if input is *)
+             (not (StateVar.is_const state_var) || E.is_const expr)
           then 
+            let bounds_state_var =
+              try StateVar.StateVarHashtbl.find (C.get_state_var_bounds ctx)
+                    state_var
+              with Not_found -> [] in 
             (* New variable for abstraction, is constant if input is *)
-            let state_var', ctx =
-              C.mk_local_for_expr ~is_const:(StateVar.is_const state_var)
-                pos ctx expr
+            let (state_var', _) , ctx = 
+              C.mk_local_for_expr
+                ~is_const:(StateVar.is_const state_var)
+                ~bounds:bounds_state_var
+                pos
+                ctx
+                expr
             in
             N.set_state_var_instance state_var' pos ident state_var;
             (* Add expression as input *)
@@ -1340,24 +1704,24 @@ and eval_node_call
      activation condition *)
   let node_act_cond_of_expr ctx node_outputs pos cond defaults =
     (* Evaluate activation condition *)
-    let cond', ctx = eval_bool_ast_expr ctx pos cond in
+    let cond', ctx = eval_bool_ast_expr bounds ctx pos cond in
     (* Node call has an activation condition? *)
     if E.equal cond' E.t_true then
       (* No state variable for activation, no defaults and context is
          unchanged *)
       None, None, ctx
     else
-      (* New variable for activation condition *)
-      let state_var, ctx = C.mk_local_for_expr pos ctx cond' in
+      (* New variable for activation condition *)       
+      let (state_var, _) , ctx = C.mk_local_for_expr pos ctx cond' in
       (* Evaluate default value *)
       let defaults', ctx = match defaults with
         (* Single default, do not wrap in list *)
         | Some [d] -> 
-          let d', ctx = eval_ast_expr ctx d in 
+          let d', ctx = eval_ast_expr bounds ctx d in 
           Some d', ctx
         (* Not a single default, wrap in list *)
         | Some d ->
-          let d', ctx = eval_ast_expr ctx (A.ExprList (dummy_pos, d)) in 
+          let d', ctx = eval_ast_expr bounds ctx (A.ExprList (dummy_pos, d)) in 
           Some d', ctx
         (* No defaults, skip *)
         | None -> None, ctx
@@ -1384,25 +1748,25 @@ and eval_node_call
         Some state_var, Some defaults', ctx
   in
 
-  let restart_cond_of_expr ctx pos restart =
+  let restart_cond_of_expr bounds ctx pos restart =
     (* Evaluate restart condition *)
-    let restart', ctx = eval_bool_ast_expr ctx pos restart in
+    let restart', ctx = eval_bool_ast_expr bounds ctx pos restart in
     if E.equal restart' E.t_false then None, ctx (* No restart *)
     else
       (* New variable for restart condition *)
-      let state_var, ctx = C.mk_local_for_expr pos ctx restart' in
+      let (state_var, _), ctx = C.mk_local_for_expr pos ctx restart' in
       Some state_var, ctx
   in
   
   
   (* Type check and abstract inputs to state variables *)
-  let input_state_vars, ctx = node_inputs_of_exprs ctx node_inputs pos args in
+  let input_state_vars, ctx = node_inputs_of_exprs bounds ctx node_inputs pos args in
   (* Type check and simplify defaults, abstract activation condition to state
      variable *)
   let act_state_var, defaults, ctx =
     node_act_cond_of_expr ctx node_outputs pos cond defaults in
   (* Type check restart condition *)
-  let restart_state_var, ctx = restart_cond_of_expr ctx pos restart in
+  let restart_state_var, ctx = restart_cond_of_expr bounds ctx pos restart in
 
   (* cannot have both activation condition and restart condition *)
   let cond_state_var = match act_state_var, restart_state_var with
@@ -1432,16 +1796,19 @@ and eval_node_call
       (res, ctx)
 
     (* Create a new node call, cannot re-use an already created one *)
-    | None  -> 
+    | None  ->
       (* Fresh state variables for oracle inputs of called node *)
       let ctx, oracle_state_vars =
         node_oracles
         |> List.rev (* Preserve order of oracles. *)
         |> List.fold_left
           (fun (ctx, accum) sv ->
-             let sv', ctx = 
+             let bounds =
+               try StateVar.StateVarHashtbl.find (C.get_state_var_bounds ctx) sv
+               with Not_found -> [] in
+             let sv', ctx =
                C.mk_fresh_oracle ~is_input:true ~is_const:(StateVar.is_const sv)
-                 ctx (StateVar.type_of_state_var sv) in
+                 ~bounds ctx (StateVar.type_of_state_var sv) in
              N.set_state_var_instance sv' pos ident sv;
              (ctx, sv' :: accum))
           (ctx, [])
@@ -1450,8 +1817,12 @@ and eval_node_call
       let output_state_vars, ctx = 
         D.fold
           (fun i sv (accum, ctx) -> 
+             let bounds =
+               try StateVar.StateVarHashtbl.find (C.get_state_var_bounds ctx) sv
+               with Not_found -> [] in
              let sv', ctx = 
-               C.mk_fresh_local ctx (StateVar.type_of_state_var sv) in
+               C.mk_fresh_local ~bounds ctx (StateVar.type_of_state_var sv)
+             in
              N.set_state_var_instance sv' pos ident sv;
              (D.add i sv' accum, ctx))
           node_outputs
@@ -1582,7 +1953,7 @@ let array_of_tuple pos index_vars expr =
 (* ******************************************************************** *)
     
 (* Evalute a parsed type expression to a trie of types of indexes *)
-let rec eval_ast_type ctx = function
+and eval_ast_type ctx = function
 
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool pos -> D.singleton D.empty_index Type.t_bool
@@ -1706,6 +2077,11 @@ let rec eval_ast_type ctx = function
     (* Evaluate size of array *)
     let array_size = static_int_of_ast_expr ctx pos size_expr in
 
+    if not (Flags.Arrays.var_size () || E.is_const_expr array_size) then
+      C.fail_at_position pos
+      (Format.asprintf "Size of array (%a) has to be constant."
+         (E.pp_print_expr false) array_size);
+    
     (* Evaluate type expression for elements *)
     let element_type = eval_ast_type ctx type_expr in
 
@@ -1713,7 +2089,11 @@ let rec eval_ast_type ctx = function
     D.fold
       (fun j t a -> 
          D.add (j @ [D.ArrayVarIndex array_size])
-           (Type.mk_array t Type.t_int) a)
+           (Type.mk_array t
+              (if E.is_numeral array_size then
+                 Type.mk_int_range Numeral.zero (E.numeral_of_expr array_size)
+               else Type.t_int))
+           a)
       element_type
       D.empty
 

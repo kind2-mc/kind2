@@ -26,7 +26,7 @@ module SVar = StateVar
 module SVM = SVar.StateVarMap
 
 type _ t =
-| Lustre : LustreNode.t S.t -> LustreNode.t t
+| Lustre : (LustreNode.t S.t * LustreGlobals.t) -> LustreNode.t t
 | Native : TransSys.t S.t -> TransSys.t t
 | Horn : unit S.t -> unit t
 
@@ -39,7 +39,7 @@ let read_input_native input_file = Native (NativeInput.of_file input_file)
 let read_input_horn input_file = assert false
 
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
-  | Lustre subsystem ->
+  | Lustre (subsystem, _) ->
     S.all_subsystems subsystem
     |> List.map (fun { S.scope } -> scope)
 
@@ -70,7 +70,7 @@ let get_testgen_uid () =
 let maximal_abstraction_for_testgen (type s)
 : s t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option = function
 
-  | Lustre subsystem -> (fun top assumptions ->
+  | Lustre (subsystem, _) -> (fun top assumptions ->
 
     (* Collects all subsystems, abstracting them if possible. *)
     let rec collect map = function
@@ -125,7 +125,7 @@ let maximal_abstraction_for_testgen (type s)
 let next_analysis_of_strategy (type s)
 : s t -> 'a -> Analysis.param option = function
 
-  | Lustre subsystem -> (
+  | Lustre (subsystem, _) -> (
     fun results ->
       let subs_of_scope scope =
         let { S.subsystems } = S.find_subsystem subsystem scope in
@@ -169,13 +169,13 @@ let next_analysis_of_strategy (type s)
 let trans_sys_of_analysis (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
-  | Lustre subsystem -> (
+  | Lustre (subsystem, globals) -> (
     function analysis ->
       let t, s =
         LustreTransSys.trans_sys_of_nodes
-          ~preserve_sig:preserve_sig subsystem analysis
+          ~preserve_sig:preserve_sig globals subsystem analysis
       in
-      t, Lustre s
+      t, Lustre (s, globals)
   )
 
   | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
@@ -189,7 +189,7 @@ let pp_print_path_pt
 
   match input_system with 
 
-  | Lustre subsystem ->
+  | Lustre (subsystem, _) ->
     LustrePath.pp_print_path_pt
       trans_sys instances subsystem first_is_init ppf model
 
@@ -206,7 +206,7 @@ let pp_print_path_xml
 
   match input_system with 
 
-  | Lustre subsystem ->
+  | Lustre (subsystem, _) ->
     LustrePath.pp_print_path_xml
       trans_sys instances subsystem first_is_init ppf model
 
@@ -222,7 +222,7 @@ let pp_print_path_in_csv
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
   match input_system with
 
-  | Lustre subsystem ->
+  | Lustre (subsystem, _) ->
     LustrePath.pp_print_path_in_csv
       trans_sys instances subsystem first_is_init ppf model
 
@@ -235,7 +235,7 @@ let pp_print_path_in_csv
 
 let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
   match input_system with 
-  | Lustre subsystem ->
+  | Lustre (subsystem, _) ->
     LustrePath.reconstruct_lustre_streams subsystem state_vars
   | Native _ -> assert false
   | Horn _ -> assert false
@@ -254,7 +254,7 @@ let slice_to_abstraction_and_property
   (* Filter values at instants of subsystem. *)
   let filter_out_values = match input_sys with 
 
-    | Lustre subsystem-> (fun scope { TransSys.pos } cex v -> 
+    | Lustre (subsystem, _) -> (fun scope { TransSys.pos } cex v -> 
           
       (* Get node cals in subsystem of scope. *)
       let { S.source = { N.calls } } = 
@@ -298,7 +298,7 @@ let slice_to_abstraction_and_property
                assert false
 
             (* TODO: models with arrays. *)
-            | Model.Lambda _ -> assert false
+            | _ -> assert false
             ) clock_values v []
             
         (* Keep all instants for node calls without activation
@@ -338,7 +338,7 @@ let slice_to_abstraction_and_property
     match input_sys with 
 
     (* Slice Lustre subnode to property term *)
-    | Lustre subsystem ->
+    | Lustre (subsystem, globals) ->
 
       let vars = match prop'.Property.prop_source with
         | Property.Assumption _ ->
@@ -352,7 +352,7 @@ let slice_to_abstraction_and_property
           analysis' vars subsystem
       in
 
-      Lustre subsystem'
+      Lustre (subsystem', globals)
 
     (* No slicing in native input *)
     | Native subsystem -> Native subsystem
@@ -369,7 +369,7 @@ let inval_arg s = invalid_arg (
 let compile_to_rust (type s): s t -> Scope.t -> string -> unit =
 fun sys top_scope target ->
   match sys with
-  | Lustre sub ->
+  | Lustre (sub, _) ->
     LustreToRust.implem_to_rust target (
       fun scope -> (S.find_subsystem sub scope).S.source
     ) sub.S.source
@@ -385,7 +385,7 @@ let compile_oracle_to_rust (type s): s t -> Scope.t -> string -> (
 ) =
 fun sys top_scope target ->
   match sys with
-  | Lustre sub ->
+  | Lustre (sub, _) ->
     LustreToRust.oracle_to_rust target (
       fun scope -> (S.find_subsystem sub scope).S.source
     ) sub.S.source
@@ -397,7 +397,7 @@ fun sys top_scope target ->
 let contract_gen_param (type s): s t -> (Analysis.param * (Scope.t -> N.t)) =
 fun sys ->
   match sys with
-  | Lustre sub -> (
+  | Lustre (sub, _) -> (
     match
       S.all_subsystems sub
       |> List.map (fun ({ S.scope } as sub) ->
@@ -418,7 +418,7 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (
-    { S.source ; S.subsystems } as subsystem
+    { S.source ; S.subsystems } as subsystem, globals
   ) -> (fun analysis ->
     (* Format.printf "contract gen: %d subsystems@.@." (List.length subsystems) ; *)
 
@@ -454,10 +454,10 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
     in
     let t, s =
       LustreTransSys.trans_sys_of_nodes
-        ~preserve_sig:preserve_sig subsystem analysis
+        ~preserve_sig:preserve_sig globals subsystem analysis
     in
     
-    t, Lustre s
+    t, Lustre (s, globals)
   )
 
   | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)

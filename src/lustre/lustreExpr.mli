@@ -66,6 +66,17 @@ exception Type_mismatch
     constructors below. *)
 type expr = private Term.t
 
+(** Type of index in an equation for an array *)
+type 'a bound_or_fixed = 
+  | Bound of 'a    (** Equation is for each value of the index variable
+                       between zero and the upper bound *)
+  | Fixed of 'a    (** Fixed value for index variable *)
+  | Unbound of 'a  (** unbounded index variable *)
+
+
+(** Return the type of the expression *)
+val type_of_expr : expr -> Type.t
+
 (** Equality of expressions *)
 val equal_expr : expr -> expr -> bool
 
@@ -88,8 +99,11 @@ type t = private {
 (** Hash table over Lustre expressions *)
 module LustreExprHashtbl : Hashtbl.S with type key = t
 
-(** Total order on expressions *)
+(** Total order on lustre expressions *)
 val compare : t -> t -> int
+
+(** Total order on expressions *)
+val compare_expr : expr -> expr -> int
 
 (** Equality of expressions *)
 val equal : t -> t -> bool
@@ -149,6 +163,9 @@ val is_pre_var : t -> bool
 (** Return [true] if there is an unguarded [pre] operator in the
     expression. *)
 val pre_is_unguarded : t -> bool
+
+(** Return true if the expression is constant *)
+val is_const_expr : expr -> bool
 
 (** Return true if the expression is constant *)
 val is_const : t -> bool
@@ -219,11 +236,16 @@ val pre_term_of_t : Numeral.t -> t -> Term.t
     is not a variable at the current or previous offset. *)
 val state_var_of_expr : t -> StateVar.t
 
-(** Return the free variable of a variable *)
+(** Return the free variable of a variable 
+
+    Fail with [Invalid_argument "var_of_expr"] if the expression
+    is not a free variable. *)
 val var_of_expr : t -> Var.t
   
 (** Return all state variables occurring in the expression in a set *)
 val state_vars_of_expr : t -> StateVar.StateVarSet.t
+
+val vars_of_expr : t -> Var.VarSet.t
 
 (** Return all state variables of the initial state expression at the
     base instant *)
@@ -232,6 +254,10 @@ val base_state_vars_of_init_expr : t -> StateVar.StateVarSet.t
 (** Return all state variables of the step expression at the current
     instant *)
 val cur_state_vars_of_step_expr : t -> StateVar.StateVarSet.t
+
+val indexes_of_state_vars_in_init : StateVar.t -> t -> expr list list
+
+val indexes_of_state_vars_in_step : StateVar.t -> t -> expr list list
 
 (** Split a list of Lustre expressions into a list of pairs of
     expressions for the initial step and the transition steps,
@@ -267,8 +293,16 @@ val mk_real : Decimal.t -> t
 (** Return an expression of a variable. *)
 val mk_var : StateVar.t -> t
 
+val mk_free_var : Var.t -> t
+
 (** Return an expression for the i-th index variable. *)
 val mk_index_var : int -> t
+
+(** Return the number/position of the index variable. *)
+val int_of_index_var : t -> int
+
+(** Returns [true] if the expression has index variables. *)
+val has_indexes : t -> bool
 
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
@@ -302,6 +336,12 @@ val mk_xor : t -> t -> t
 
 (** Return the Boolean implication of the two expressions. *)
 val mk_impl : t -> t -> t 
+
+(** Return the universal quantification of an expression. *)
+val mk_forall : Var.t list -> t -> t 
+
+(** Return the existential quantification of an expression. *)
+val mk_exists : Var.t list -> t -> t 
 
 (** Return the integer modulus of the two expressions. *)
 val mk_mod : t -> t -> t 
@@ -358,10 +398,24 @@ val mk_arrow : t -> t -> t
 
     [b] is used to denote that we're in a context where there are unguarded
     pres and so we should always introduce fresh intermediate variables. *)
-val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> bool -> t -> t * 'a
+val mk_pre : ('a -> t -> 'b * 'a) -> ('b -> Term.t) -> 'a -> bool -> t -> t * 'a
 
 (** Select from an array *)
 val mk_select : t -> t -> t
+
+(** Returns true if the expression is a selection in an array *)
+val is_select : t -> bool
+
+(** Returns true if the expression is a selection of an array variable *)
+val is_select_array_var : t -> bool
+
+val var_of_array_select : t -> Var.t
+  
+(** Store in an array *)
+val mk_store : t -> t -> t -> t
+
+(** Returns true if this is a store in an array *)
+val is_store : t -> bool
 
 (** Substitute state variable at current instant with expression *)
 val mk_let_cur : (StateVar.t * t) list -> t -> t
@@ -379,6 +433,19 @@ val mk_of_expr : ?as_type:Type.t -> expr -> t
 (** Return true if the expression is constant *)
 val is_const : t -> bool
 
+val is_numeral : expr -> bool
+
+val numeral_of_expr : expr -> Numeral.t
+
+val unsafe_term_of_expr : expr -> Term.t
+val unsafe_expr_of_term : Term.t -> expr
+
+
+val mk_array : t -> t -> t
+
+val mk_let : (Var.t * expr) list -> t -> t
+
+val apply_subst : (Var.t * expr) list -> t -> t
 
 (* 
    Local Variables:

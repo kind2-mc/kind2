@@ -41,7 +41,7 @@ type get_value_response = [
 ]
 
 type get_model_response = [
-  | `Model of (UfSymbol.t * Model.term_or_lambda) list
+  | `Model of (UfSymbol.t * Model.value) list
   | error_response
 ]
 

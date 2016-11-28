@@ -48,6 +48,8 @@ sig
 
   val sort_of_var : var -> sort
 
+  val mk_fresh_var : sort -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var
@@ -113,6 +115,8 @@ sig
 
   val eval_lambda : lambda -> t list -> t
 
+  val partial_eval_lambda : lambda -> t list -> lambda
+
   val mk_term : t_node -> t
 
   val mk_var : var -> t
@@ -147,6 +151,8 @@ sig
 
   val destruct : t -> flat
 
+  val has_quantifier : t -> bool
+
   val instantiate : lambda -> t list -> t
 
   val construct : flat -> t
@@ -160,11 +166,13 @@ sig
   val pp_print_lambda_w :
     (?arity:int -> Format.formatter -> symbol -> unit) ->
     (Format.formatter -> var -> unit) ->
+    (Format.formatter -> sort -> unit) ->
     ?db:int -> Format.formatter -> lambda -> unit
 
   val pp_print_term_w :
     (?arity:int -> Format.formatter -> symbol -> unit) ->
     (Format.formatter -> var -> unit) ->
+    (Format.formatter -> sort -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
   val print_term : ?db:int -> t -> unit
@@ -588,7 +596,7 @@ struct
 
 
   (* Pretty-print a list of typed variables *)
-  let rec pp_print_typed_var_list db ppf = function 
+  let rec pp_print_typed_var_list pp_sort db ppf = function 
 
     (* Print nothing for the empty list *)
     | [] -> ()
@@ -600,17 +608,17 @@ struct
       let db' = succ db in
 
       (* Print variable as (Xn t) *)
-      Format.fprintf ppf "@[<hv 1>(X%i@ %a)@]" db' T.pp_print_sort s;
+      Format.fprintf ppf "@[<hv 1>(X%i@ %a)@]" db' pp_sort s;
 
       (* Add space and recurse if more bindings follow *)
       if not (tl = []) then 
         (Format.pp_print_space ppf (); 
-         pp_print_typed_var_list db' ppf tl)
+         pp_print_typed_var_list pp_sort db' ppf tl)
 
 
   (* Pretty-print a lambda abstraction given the de Bruijn index of
      the most recent bound variable *)
-  let rec pp_print_lambda' pp_symbol pp_var db ppf = function 
+  let rec pp_print_lambda' pp_symbol pp_var pp_sort db ppf = function 
 
     | { H.node = L (l, t) } ->
 
@@ -619,11 +627,11 @@ struct
       Format.fprintf ppf
         "@[<hv 1>(lambda@ (%a)@ (%a))@]"
         (pp_print_var_seq db) l
-        (pp_print_term' pp_symbol pp_var (db + (List.length l))) t
+        (pp_print_term' pp_symbol pp_var pp_sort (db + (List.length l))) t
 
 
   (* Pretty-print a list of variable term bindings *)
-  and pp_print_let_bindings pp_symbol pp_var i db ppf = function 
+  and pp_print_let_bindings pp_symbol pp_var pp_sort i db ppf = function 
 
     (* Print nothing for the empty list *)
     | [] -> ()
@@ -639,17 +647,17 @@ struct
         ppf 
         "@[<hv 1>(X%i@ %a)@]" 
         db' 
-        (pp_print_term' pp_symbol pp_var (db - i)) t;
+        (pp_print_term' pp_symbol pp_var pp_sort (db - i)) t;
 
       (* Add space and recurse if more bindings follow *)
       if not (tl = []) then 
         (Format.pp_print_space ppf (); 
-         pp_print_let_bindings pp_symbol pp_var (succ i) db' ppf tl)
+         pp_print_let_bindings pp_symbol pp_var pp_sort (succ i) db' ppf tl)
 
 
   (* Pretty-print a higer-order abstract syntax term given the de
      Bruijn index of the most recent bound variable *)
-  and pp_print_term' pp_symbol pp_var db ppf = function 
+  and pp_print_term' pp_symbol pp_var pp_sort db ppf = function 
 
     (* Delegate printing of free variables to function in input module *)
     | { H.node = FreeVar v } -> pp_var ppf v
@@ -666,44 +674,44 @@ struct
       Format.fprintf ppf 
         "@[<hv 1>(%a@ %a)@]" 
         (pp_symbol ?arity:(Some (List.length a))) s 
-        (pp_print_term_list pp_symbol pp_var db) a
+        (pp_print_term_list pp_symbol pp_var pp_sort db) a
 
     (* Print a let binding *)
     | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
 
       Format.fprintf ppf 
         "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]" 
-        (pp_print_let_bindings pp_symbol pp_var 0 db) b
-        (pp_print_term' pp_symbol pp_var (db + List.length b)) t
+        (pp_print_let_bindings pp_symbol pp_var pp_sort 0 db) b
+        (pp_print_term' pp_symbol pp_var pp_sort (db + List.length b)) t
 
     (* Print an existential quantification *)
     | { H.node = Exists { H.node = L (x, t) } } -> 
 
       Format.fprintf ppf 
         "@[<hv 1>(exists@ @[<hv 1>(%a)@ %a@])@]" 
-        (pp_print_typed_var_list db) x
-        (pp_print_term' pp_symbol pp_var (db + List.length x)) t
+        (pp_print_typed_var_list pp_sort db) x
+        (pp_print_term' pp_symbol pp_var pp_sort (db + List.length x)) t
 
     (* Print a universal quantification *)
     | { H.node = Forall { H.node = L (x, t) } } -> 
 
       Format.fprintf ppf 
         "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
-        (pp_print_typed_var_list db) x
-        (pp_print_term' pp_symbol pp_var (db + List.length x)) t
+        (pp_print_typed_var_list pp_sort db) x
+        (pp_print_term' pp_symbol pp_var pp_sort (db + List.length x)) t
 
     (* Print an annotated term *)
     | { H.node = Annot (t, a) } ->
 
       Format.fprintf ppf 
         "@[<hv 1>(!@ @[<hv 1>%a@] @[<hv 1>%a@])@]" 
-        (pp_print_term' pp_symbol pp_var db) t
+        (pp_print_term' pp_symbol pp_var pp_sort db) t
         T.pp_print_attr a
 
 
   (* Pretty-print a list of higher-order abstract syntax terms given
      the de Bruijn index of the most recent bound variable *)
-  and pp_print_term_list pp_symbol pp_var db ppf = function
+  and pp_print_term_list pp_symbol pp_var pp_sort db ppf = function
 
     (* Terminate at end of list *)
     | [] -> ()
@@ -711,44 +719,44 @@ struct
     | t :: tl -> 
 
       (* Print term a head of list *)
-      pp_print_term' pp_symbol pp_var db ppf t;
+      pp_print_term' pp_symbol pp_var pp_sort db ppf t;
 
       (* Continue if not at the end of the list *)
       if not (tl = []) then
         (Format.pp_print_space ppf ();
-         pp_print_term_list pp_symbol pp_var db ppf tl)
+         pp_print_term_list pp_symbol pp_var pp_sort db ppf tl)
 
 
   (* Top-level pretty-printing function, start with given de Bruijn
      index or default to zero *)
-  let pp_print_term_w pp_symbol pp_var ?(db = 0) ppf term = 
+  let pp_print_term_w pp_symbol pp_var pp_sort ?(db = 0) ppf term = 
 
     (* Pretty-print term into buffer *)
-    pp_print_term' pp_symbol pp_var db ppf term
+    pp_print_term' pp_symbol pp_var pp_sort db ppf term
 
  
   (* Top-level pretty-printing function, start with given de Bruijn
      index or default to zero *)
-  let pp_print_lambda_w pp_symbol pp_var ?(db = 0) ppf term = 
+  let pp_print_lambda_w pp_symbol pp_var pp_sort ?(db = 0) ppf term = 
 
     (* Pretty-print term into buffer *)
-    pp_print_lambda' pp_symbol pp_var db ppf term
+    pp_print_lambda' pp_symbol pp_var pp_sort db ppf term
 
  
   
   let pp_print_term =
-    pp_print_term_w (fun ?arity -> T.pp_print_symbol) T.pp_print_var
+    pp_print_term_w (fun ?arity -> T.pp_print_symbol) T.pp_print_var T.pp_print_sort
 
   let print_term ?db = pp_print_term ?db Format.std_formatter
 
   let pp_print_lambda =
-    pp_print_lambda_w (fun ?arity -> T.pp_print_symbol) T.pp_print_var
+    pp_print_lambda_w (fun ?arity -> T.pp_print_symbol) T.pp_print_var T.pp_print_sort
 
   let print_lambda ?db = pp_print_lambda ?db Format.std_formatter
 
 
   (* Pretty-print a flattened term *)
-  let rec pp_print_flat pp_symbol pp_var ppf = function 
+  let rec pp_print_flat pp_symbol pp_var pp_sort ppf = function 
 
     | Var v -> Format.fprintf ppf "Var@ %a" pp_var v
 
@@ -760,7 +768,7 @@ struct
         ppf 
         "App@ (%a,@ %a)" 
         (pp_symbol ?arity:None) s 
-        (pp_print_term_list pp_symbol pp_var 0) l
+        (pp_print_term_list pp_symbol pp_var pp_sort 0) l
 
     | Attr (t, a) -> 
 
@@ -963,6 +971,9 @@ struct
     (* Cached evaluation *)
     | E of 'a
 
+    (* Skip evaluation *)
+    | Skip
+
   (* ********************************************************************* *)
   (* Folding function keeping the term                                     *)
   (* ********************************************************************* *)
@@ -1078,13 +1089,13 @@ struct
 
         match 
 
-          try 
+          (* try  *)
 
             (* Get the assignment to the variable in the context stack *)
             List.assoc (dbm - db + 1) subst 
 
           (* Every variable must be bound *)
-          with Not_found -> assert false
+          (* with Not_found -> assert false *)
 
         with 
 
@@ -1122,6 +1133,11 @@ struct
 
             )
 
+          | Skip -> fold f subst accum tl
+            
+          | exception Not_found -> assert false
+                                     
+
       )
 
     (* The top element of the stack is a let binding *)
@@ -1155,9 +1171,25 @@ struct
         accum
         (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
 
-    (* The top element of the stack is a quantified term *)
-    | FTree (_, { H.node = Exists _ }) :: tl
-    | FTree (_, { H.node = Forall _ }) :: tl -> invalid_arg "Quantified term"
+    (* The top element of the stack is a quantifier *)
+    | FTree (db, { H.node = (Forall { H.node = L (n, l) } |
+                             Exists { H.node = L (n, l) })
+                 }) :: tl ->
+
+      let vs = int_seq (db + 1) (List.length n) in
+
+      let s = List.map (fun dbi -> (dbi, Skip)) vs in
+      
+      (* Add to the context stack *)
+      let subst' = s @ subst in
+
+      (* Add term under lambda to instruction stack, followed by a pop
+         instruction for the number of scopes added by the binding *)
+      fold 
+        f
+        subst'
+        accum
+        (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
 
     (* The top element of the instruction stack is a symbol *)
     | FNode (op, args) :: tl -> 
@@ -1196,7 +1228,7 @@ struct
 
           (* Pop one scope from the context stack *)
           | _ :: subst' -> fold f subst' accum (FPop (pred i) :: tl)
-          | [] -> assert false
+          | [] -> assert false 
 
       )
 
@@ -1233,9 +1265,13 @@ struct
             (* Continue with modified context *)
             fold f subst' atl itl
 
+          (* nothing to evaluate context, skip *)
+          | [] :: atl -> fold f subst atl itl
+
           (* Result stack is never empty and has a singleton list as
              first element *)
-          | _ :: _ 
+              
+          | x :: _ -> Format.eprintf "%d@." (List.length x); assert false
           | [] -> assert false
 
       )
@@ -1389,6 +1425,12 @@ struct
     if List.length v = List.length b then ht_let l b else 
       
       raise (Invalid_argument "eval_lambda")
+
+
+      
+        
+  
+
 
 
   (* Constructor for a term *)
@@ -1724,8 +1766,102 @@ struct
     | _ -> assert false
 
 
+  let rec has_quantifier term =
+
+    (* Add the subterms in reverse order to the instruction stack *)
+    let rec push trees st = match trees with
+      | [] -> st
+      | h :: t -> push t ((MTree h) :: st)
+    in
+
+    
+    (* Recursive has_quantifier *)
+    let rec has_quantifier has n =
+      has ||
+      match n with
+
+      (* The stack is empty, we are done. *)
+      | [] -> has
+
+      (* Free variable, bound variable or constant *)
+      | MTree { H.node = (FreeVar _ | BoundVar _ | Leaf _) } :: s -> 
+        has_quantifier has s
+
+      (* Function application *)
+      | MTree { H.node = Node (o, a)} :: s -> 
+        (* Push symbol and subterms in reverse order to the stack *)
+        has_quantifier has (push a ((MNode o) :: s))
+
+      (* Annotated term *)
+      | MTree { H.node = Annot (t, a)} :: s -> 
+        (* Push annotation and terms to the stack *)
+        has_quantifier has ((MTree t) :: (MAnnot a) :: s)
+
+      (* Let binding *)
+      | MTree { H.node = Let ({ H.node = L (x, t)}, b) } :: s -> 
+        has_quantifier has (push b ((MTree t) :: (MLet x) :: s)) 
+
+      (* Existential quantifier *)
+      | MTree ({ H.node = Exists _ }) :: _
+      | MTree ({ H.node = Forall _ }) :: _ -> true
+        
+      (* Function application *)
+      | MNode _ :: s | MAnnot _ :: s | MLet _ :: s -> has_quantifier has s
+
+      | MExists _ :: _  | MForall _ :: _ -> true
+        
+    in
+
+    (* Call recursive function with initial parameters *)
+    has_quantifier false [MTree term]
+
+
+    
   let instantiate l b = ht_let l b
     
+
+  (* let list_keep_same_number l1 l2 = *)
+  (*   let rec aux acc = function *)
+  (*     | e :: r1, _ :: r2 -> aux (e :: acc) (r1, r2) *)
+  (*     | r1, [] -> List.rev acc, r1 *)
+  (*     | [], _ -> assert false *)
+  (*   in *)
+  (*   aux [] (l1, l2) *)
+
+  (* let missing_args l1 l2 = *)
+  (*   let rec aux = function *)
+  (*     | _ :: r1, _ :: r2 -> aux (r1, r2) *)
+  (*     | r1, [] -> (\* List.map (fun ty -> Var.mk_fresh_var ty) *\) r1 *)
+  (*     | [], _ -> assert false *)
+  (*   in *)
+  (*   aux (l1, l2) *)
+
+  (* let missing_ints l1 l2 = *)
+  (*   let e = List.length l1 in *)
+  (*   let d = List.length l2 in *)
+  (*   let rec aux acc i = *)
+  (*     if i = d - 1 then List.rev acc else aux (i :: acc) (pred i) in *)
+  (*   aux [] (pred e) *)
+    
+    
+  (* (\* Beta-evaluate a lambda expression *\) *)
+  (* let partial_eval_lambda ({ Hashcons.node = L (v, t) } as l) b =  *)
+
+  (*   if List.length v <= List.length b then        *)
+  (*     raise (Invalid_argument "partial_eval_lambda") *)
+  (*   else *)
+  (*     (\* let t = map *\) *)
+  (*     (\*     (function db -> function  *\) *)
+  (*     (\*        | { H.node = BoundVar i } -> ht_bound_var (if i = 1 then 2 else 1) *\) *)
+  (*     (\*        | t -> t) t in *\) *)
+  (*     let v_covered, v_rest = list_keep_same_number v b in *)
+  (*     (\* hl_lambda v_rest (ht_let (hl_lambda v_covered t) b (\\* |> eval_t (fun t _ -> construct t) *\\)) *\) *)
+  (*     (\* ; *\) *)
+  (*     let missing = missing_ints v b |> List.map ht_bound_var in *)
+  (*     hl_lambda v_rest (ht_let l (b @ missing) |> eval_t (fun t _ -> )) *)
+
+let partial_eval_lambda _ _ = assert false
+  
 
 end
 

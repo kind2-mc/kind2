@@ -164,7 +164,7 @@ let rec substitute_definitions'
      sure they respect the topological order of the equations. *)
   | [] ->
     let subst =
-      equations |> List.fold_left (fun subst (sv, _, _) ->
+      equations |> List.fold_left (fun subst ((sv, _), _) ->
         try
           find_and_move_to_head
             (StateVar.equal_state_vars sv)
@@ -209,21 +209,14 @@ let rec substitute_definitions'
     try 
 
       (* Find equation for the variable *)
-      let expr = 
-
-        List.find
-          (function 
-
+      let expr =
+        List.find (fun ((sv, _), def) -> 
             (* Equation is for state variable? *)
-            | (sv, [], def) -> StateVar.equal_state_vars sv state_var
-
-            (* Fail if state variable has indexes *)
-            | _ -> assert false)
-          equations
-
+            StateVar.equal_state_vars sv state_var
+          ) equations
+          
         (* Return expression on right-hand side of equation *)
-        |> (function (_, _, e) -> e)
-
+        |> (function (_, e) -> e)
       in
 
       (* Add substitution for state variable and continue *)
@@ -405,9 +398,8 @@ let active_modes_of_instances model_top instances = function
     |> List.map (
       function
       | Model.Term t -> t == Term.t_true
-      | Model.Lambda _ -> failwith "\
-        evaluating mode requirement: value should be a term, not a lambda\
-      "
+      | _ -> failwith "\
+        evaluating mode requirement: value should be a term"
     )
   in
 
@@ -641,7 +633,7 @@ let node_path_of_subsystems
 (* *************************************************************** *)
 
 (* Pretty-print a value *)
-let rec pp_print_value ty ppf term =
+let rec pp_print_term ty ppf term =
 
   (* We expect values to be constants *)
   if Term.is_numeral term then 
@@ -676,8 +668,12 @@ let rec pp_print_value ty ppf term =
         
   else
     
-    (* Fall back to pretty-print as a term *)
-    Term.pp_print_term ppf term 
+    (* Fall back to pretty-print as lustre expression *)
+    (LustreExpr.pp_print_expr false) ppf
+      (LustreExpr.unsafe_expr_of_term term)
+
+
+let pp_print_value = Model.pp_print_value
 
 
 (* Output a single value of a stream at an instant
@@ -685,19 +681,16 @@ let rec pp_print_value ty ppf term =
    Give [val_width] as the maximum expected width of the string
    representation of the values for correct alignment. *)
 let pp_print_stream_value_pt ty val_width ppf = function
+  | None ->
+    Format.fprintf ppf "%*s" val_width "_"
+  | Some v ->
+    let value_string = string_of_t pp_print_value v in
+    let padding = val_width - (width_of_string value_string) in
+    Format.fprintf ppf "%*s%a" padding "" (pp_print_value ~as_type:ty) v
 
-  (* Output a term as a value *)
-  | Model.Term t -> 
 
-    Format.fprintf 
-      ppf
-      "%-*s"
-      val_width
-      (string_of_t (pp_print_value ty) t)    
-
-  (* TODO: output an array *)
-  | Model.Lambda _ -> assert false
-
+let pp_print_stream_string_pt val_width ppf v =
+  Format.fprintf ppf "%*s" val_width v
 
 (* Output a file position *)
 let pp_print_file_pt ppf pos_file = 
@@ -754,31 +747,23 @@ let pp_print_call_pt ppf (name, pos) =
 
 
 (* Convert values to strings and update maximal lengths *)
-let rec values_to_strings ty val_width values = function
+let rec values_width val_width = function
 
   (* All values consumed, return in original order *)
-  | [] -> (val_width, List.rev values)
+  | [] -> val_width
 
   (* Output a term as a value *)
-  | Model.Term t :: tl -> 
+  | v :: tl -> 
 
     (* Convert value to string *)
-    let value_string = string_of_t (pp_print_value ty) t in
-
+    let value_string = string_of_t pp_print_value v in
+    
     (* Keep track of maximum width of values *)
-    let val_width = 
-      max val_width (String.length value_string)
-    in
-
+    let val_width = max val_width (width_of_string value_string) in
+    
     (* Add string representation of value and continue with remaining
        values *)
-    values_to_strings ty
-      val_width
-      (value_string :: values)
-      tl 
-
-  (* TODO: output an array *)
-  | Model.Lambda _ :: _ -> assert false
+    values_width val_width tl 
 
 
 (* activation condition stream *)
@@ -786,7 +771,7 @@ let rec act_to_bool acc = function
   | [] -> List.rev acc
   | Model.Term t :: tl ->
     act_to_bool (Term.bool_of_term t :: acc) tl
-  | Model.Lambda _ :: _ -> assert false
+  | _ :: _ -> assert false
 
 (* point wise and over multiple Boolean lists *)
 let rec and_lists acc ls =
@@ -816,21 +801,22 @@ let act_stream path l =
 
 (* Sample a stream of values (as strings) on a Boolean clock *)
 let sample_stream_on_clock =
-  List.map2 (fun s -> function
-      | true -> s
-      | false -> "_"
+  List.map2 (fun s b -> match s, b with
+      | Some _, true -> s
+      | _ -> None
     )
 
 (* Sample a set of streams *)
 let sample_streams_on_clock clock streams =
   List.map
-    (fun (name, stream) -> (name, sample_stream_on_clock stream clock))
+    (fun (name, ty, stream) ->
+       (name, ty, sample_stream_on_clock stream clock))
     streams
 
 
 (* Convert identifiers and values of streams to strings and update
    maximal lenght of the strings *)
-let rec streams_to_strings path ident_width val_width streams = 
+let rec streams_to_values path ident_width val_width streams = 
 
   function
 
@@ -852,11 +838,11 @@ let rec streams_to_strings path ident_width val_width streams =
         
         (* Get values of stream and convert to strings, keep track of
            maximum width of values *)
-        let val_width, stream_values =
-          SVT.find path state_var  
-          |> values_to_strings ty val_width []
-        in
+        let stream_values = SVT.find path state_var in
+        let val_width = values_width val_width stream_values in
 
+        let stream_values = List.map (fun v -> Some v) stream_values in
+        
         (* Keep track of maximum width of identifiers *)
         let ident_width = 
           max ident_width (String.length stream_name)
@@ -864,41 +850,21 @@ let rec streams_to_strings path ident_width val_width streams =
 
         (* Add string representation of stream and continue with
            remaining streams *)
-        streams_to_strings 
+        streams_to_values 
           path
           ident_width
           val_width 
-          ((stream_name, stream_values) :: streams)
+          ((stream_name, ty, stream_values) :: streams)
           tl
 
       (* State variable must be in the model *)
       with Not_found -> assert false
 
 
-(* Output a stream value with the given width *)
-let pp_print_stream_value_pt val_width ppf v =
-  if not (Flags.color ()) then
-    Format.fprintf ppf "%*s" val_width v
-  else
-    match v with
-    | "false" -> Format.fprintf ppf "@{<black_b>%*s@}" val_width v
-    | _ ->
-      Format.fprintf ppf "%*s" val_width v
-      (* maybe too crazy *)
-      (* try Scanf.sscanf v "%d" (fun x -> *)
-      (*     let f = Scanf.format_from_string *)
-      (*         ("@{<c:" ^ string_of_int (x mod 35 + 57) ^ ">%*s@}") *)
-      (*         "%*s" in *)
-      (*     Format.fprintf ppf f val_width v *)
-      (*   ) *)
-      (* with _ -> Format.fprintf ppf "%*s" val_width v *)
-
-
-
 (* Output a stream value with given width for the identifier and
    values *)
-let pp_print_stream_pt ident_width val_width ppf (stream_name, stream_values) = 
-
+let pp_print_stream_pt
+    ident_width val_width ppf (stream_name, ty, stream_values) = 
   (* Break lines if necessary and indent correctly *)
   Format.fprintf
     ppf
@@ -906,8 +872,23 @@ let pp_print_stream_pt ident_width val_width ppf (stream_name, stream_values) =
     (ident_width + 1)
     ident_width
     stream_name
-    (pp_print_list (pp_print_stream_value_pt val_width) "@ ")
+    (pp_print_list (pp_print_stream_value_pt ty val_width) "@ ")
     stream_values
+
+
+(* Output a stream value with given width for the identifier and
+   values *)
+let pp_print_stream_string_pt
+    ident_width val_width stream_name ppf stream_string_values = 
+  (* Break lines if necessary and indent correctly *)
+  Format.fprintf
+    ppf
+    "@[<hov %d>@{<blue_b>%-*s@} %a@]"
+    (ident_width + 1)
+    ident_width
+    stream_name
+    (pp_print_list (pp_print_stream_string_pt val_width) "@ ")
+    stream_string_values
 
 
 (* Output state variables and their sequences of values under a
@@ -922,6 +903,21 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
       sect
       (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
       l
+
+
+(* For modes *)
+let pp_print_modes_section_pt ident_width val_width mode_ident ppf = function 
+  | None -> ()
+  | Some vals -> 
+    Format.fprintf
+      ppf
+      "== @{<b>%s@} ==@,\
+       %a@,"
+      mode_ident
+      (pp_print_list (pp_print_stream_string_pt ident_width val_width "") "@,") 
+      vals
+
+
 
 (* Output state variables and their sequences of values under a
    header, or output nothing if the list is empty *)
@@ -1004,7 +1000,7 @@ let rec pp_print_lustre_path_pt' ppf = function
     D.bindings inputs
     |> List.map pop_head_index
     |> List.filter (fun (_, sv) -> is_visible sv)
-    |> streams_to_strings model ident_width val_width []
+    |> streams_to_values model ident_width val_width []
   in
 
   (* Remove index of position in output for printing *)
@@ -1012,7 +1008,7 @@ let rec pp_print_lustre_path_pt' ppf = function
     D.bindings outputs
     |> List.map pop_head_index
     |> List.filter (fun (_, sv) -> is_visible sv)
-    |> streams_to_strings model ident_width val_width []
+    |> streams_to_values model ident_width val_width []
   in
 
   let mode_ident = "Mode(s)" in
@@ -1038,12 +1034,12 @@ let rec pp_print_lustre_path_pt' ppf = function
   let locals_auto, locals = partition_locals_automaton is_visible locals in
   
   let ident_width, val_width, locals' = 
-    locals |> streams_to_strings model ident_width val_width []
+    locals |> streams_to_values model ident_width val_width []
   in
 
   let ident_width, val_width, locals_auto' =
     MS.fold (fun auto streams (w, v, ls) ->
-        let w, v, s = streams_to_strings model w v [] streams in
+        let w, v, s = streams_to_values model w v [] streams in
         w, v, MS.add auto s ls
       ) locals_auto (ident_width, val_width, MS.empty)
   in
@@ -1073,13 +1069,7 @@ let rec pp_print_lustre_path_pt' ppf = function
     name
     (pp_print_list pp_print_call_pt " / ") 
     (List.rev trace)
-    (fun fmt -> function
-      | None -> ()
-      | Some modes ->
-        modes
-        |> List.map (fun vals -> ("", vals))
-        |> pp_print_stream_section_pt ident_width val_width mode_ident fmt
-    ) modes
+    (pp_print_modes_section_pt ident_width val_width mode_ident) modes
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
     (pp_print_stream_section_pt ident_width val_width "Locals") locals'
@@ -1182,21 +1172,28 @@ let pp_print_stream_prop_xml ppf = function
   | _ -> assert false 
 
 
+
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value ty ppf i show =
-  if not show then fun _ -> ()
-  else
-    function
-    | Model.Term t -> 
-      Format.fprintf ppf
-        "@,@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@,@]</Value>" 
-        i
-        (pp_print_value ty) t
+let pp_print_stream_value ty ppf i show v =
+  if show then
+    Format.fprintf ppf
+      "@,@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@,@]</Value>"
+      i (Model.pp_print_value_xml ~as_type:ty) v
 
-    | Model.Lambda _ -> 
-      (* TODO: output an array *)
-      assert false
 
+(* Print type of a stream in the current model *)
+let pp_print_type_of_svar model ppf state_var =
+  (* Get type of identifier *)
+  let stream_type = StateVar.type_of_state_var state_var in
+  match SVT.find model state_var |> List.hd with
+  | Model.Map m ->
+    Format.fprintf ppf "%a ^ %a"
+      (E.pp_print_lustre_type false) (Type.last_elem_type_of_array stream_type)
+      (pp_print_list Format.pp_print_int " ^ ")
+      (Model.dimension_of_map m |> List.rev)
+  | _ -> E.pp_print_lustre_type false ppf stream_type
+  
+  
 let pp_print_stream_values clock ty ppf l =
   match clock with
   | None ->
@@ -1210,10 +1207,8 @@ let pp_print_stream_values clock ty ppf l =
 (* Pretty-print a single stream *)
 let pp_print_stream_xml get_source model clock ppf (index, state_var) =
   try 
-    (* Get type of identifier *)
-    let stream_type = StateVar.type_of_state_var state_var in
     let stream_values = SVT.find model state_var in
-
+    let stream_type = StateVar.type_of_state_var state_var in
     Format.fprintf 
       ppf
       "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]\
@@ -1390,14 +1385,7 @@ let pp_print_stream_csv model ppf (index, sv) =
     Format.fprintf ppf "%a,%a,%a"
       pp_print_stream_ident_xml (index, sv)
       (E.pp_print_lustre_type false) typ3
-      (pp_print_list
-        (fun fmt -> function
-          | Model.Term v ->
-            Format.fprintf fmt "%a" (pp_print_value typ3) v
-          | Model.Lambda _ ->
-            failwith "error: found lambda in model value"
-        ) ","
-      )
+      (pp_print_list Model.pp_print_value ",")
       values
   with Not_found ->
     Format.asprintf

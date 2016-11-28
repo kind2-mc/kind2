@@ -1,0 +1,16 @@
+node N(x, y: int) returns (a, b: int);
+let
+  a = x + y;
+  b = x - y;
+tel;
+
+
+node main(A, B: int^4) returns (ok: bool);
+var S, D: int^4;
+let
+  (S[k],  D[k]) = N(A[k], B[k]);
+  ok = S[0] + D[0] = 2 * A[0];
+  --%PROPERTY ok;
+tel;
+
+ 

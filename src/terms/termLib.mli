@@ -50,6 +50,7 @@ val default_of_type : Type.t -> Term.t
 type feature =
   | Q  (** Quantifiers *)
   | UF (** Equality over uninterpreted functions *)
+  | A  (** Arrays *)
   | IA (** Integer arithmetic *)
   | RA (** Real arithmetic *)
   | LA (** Linear arithmetic *)

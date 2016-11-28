@@ -187,8 +187,11 @@ val mk_is_int : t -> t
 (** Create a predicate for divisibility by a constant integer *)
 val mk_divisible : Numeral.t -> t -> t
 
-(** Create a predicate for divisibility by a constant integer *)
+(** Create select from an array at a particular index *)
 val mk_select : t -> t -> t
+
+(** Functionnaly update an array at a given index *)
+val mk_store : t -> t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)
@@ -214,10 +217,10 @@ val mk_var : Var.t -> t
 val mk_let : (Var.t * t) list -> t -> t
 
 (** Return a hashconsed existentially quantified term *)
-val mk_exists : Var.t list -> t -> t
+val mk_exists : ?fundef:bool -> Var.t list -> t -> t
 
 (** Return a hashconsed universally quantified term *)
-val mk_forall : Var.t list -> t -> t
+val mk_forall : ?fundef:bool -> Var.t list -> t -> t
 
 (** {1 Constant terms} *)
 
@@ -327,6 +330,9 @@ val node_of_term : t -> T.t_node
 (** Flatten top node of term *)
 val destruct : t -> T.flat
 
+(** Returns [true] if the term has quantifiers *)
+val has_quantifier : t -> bool
+
 (** Convert a flat term to a term *)
 val construct : T.flat -> t
 
@@ -400,12 +406,19 @@ val bool_of_term : t -> bool
 (** Return true if the term is an application of the select operator *)
 val is_select : t -> bool
 
+(** Return true if the term is an application of the store operator *)
+val is_store : t -> bool
+
 (** Return the indexes and the array variable of the select operator
 
     The array argument of a select is either another select operation
     or a variable. For the expression [(select (select A j) k)] return
     the pair [A] and [[j; k]]. *)
 val indexes_and_var_of_select : t -> Var.t * t list
+
+val array_and_indexes_of_select : t -> t * t list
+
+val var_of_select_store : t -> Var.t
 
 (** {1 Pretty-printing} *)
 
@@ -437,6 +450,9 @@ val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
 
 (** Beta-evaluate a lambda expression *)
 val eval_lambda : lambda -> t list -> t
+
+(** Partialy Beta-evaluate a lambda expression *)
+val partial_eval_lambda : lambda -> t list -> lambda
 
 (** Tail-recursive bottom-up right-to-left map on the term
     
@@ -488,6 +504,11 @@ val state_vars_of_term : t -> StateVar.StateVarSet.t
 (** Return the variables occurring in the term *)
 val vars_of_term : t -> Var.VarSet.t
 
+(** Return the select symbols occurring in the term *)
+val select_symbols_of_term : t -> Symbol.SymbolSet.t
+
+val select_terms : t -> TermSet.t
+
 (** Return the state variables at given offset in term *)
 val state_vars_at_offset_of_term : Numeral.t -> t -> StateVar.StateVarSet.t
 
@@ -502,6 +523,16 @@ val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
 
 val stats : unit -> int * int * int * int * int * int
 
+val convert_select : t -> t
+
+val partial_selects : t -> t * UfSymbol.t list
+
+val reinterpret_select : t -> t
+
+val apply_subst : (Var.t * t) list -> t -> t
+
+val indexes_of_state_var : StateVar.t -> t -> t list list
+    
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

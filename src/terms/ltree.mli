@@ -96,6 +96,8 @@ sig
   (** Return the sort of a variable *)
   val sort_of_var : var -> sort
 
+  val mk_fresh_var : sort -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var
@@ -191,6 +193,9 @@ sig
   (** Beta-evaluate a lambda expression *)
   val eval_lambda : lambda -> t list -> t
 
+  (** Partialy Beta-evaluate a lambda expression *)
+  val partial_eval_lambda : lambda -> t list -> lambda
+
   (** Constructor for a term *)
   val mk_term : t_node -> t
 
@@ -252,6 +257,9 @@ sig
       distributed over the subterms. *)
   val destruct : t -> flat
 
+  (** Returns [true] if the term has quantifiers *)
+  val has_quantifier : t -> bool
+
   val instantiate : lambda -> t list -> t
 
   (** Convert the flattened representation back into a term *)
@@ -270,15 +278,17 @@ sig
     
   (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
-    
+
   val pp_print_lambda_w :
     (?arity:int -> Format.formatter -> symbol -> unit) ->
     (Format.formatter -> var -> unit) ->
+    (Format.formatter -> sort -> unit) ->
     ?db:int -> Format.formatter -> lambda -> unit
 
   val pp_print_term_w :
     (?arity:int -> Format.formatter -> symbol -> unit) ->
     (Format.formatter -> var -> unit) ->
+    (Format.formatter -> sort -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
   (** Pretty-print a term *)

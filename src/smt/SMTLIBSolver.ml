@@ -48,7 +48,7 @@ module type SMTLIBSolverDriver = sig
   
   val expr_of_string_sexpr : HStringSExpr.t -> Term.t
 
-  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.value)
 
 end
 
@@ -138,11 +138,14 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         HStringSExpr.pp_print_sexpr e
         HStringSExpr.pp_print_sexpr v; 
 
-      get_value_response_of_sexpr' 
-        ((((expr_of_string_sexpr e) :> SMTExpr.t), 
-          ((expr_of_string_sexpr v :> SMTExpr.t))) :: 
-         accum) 
-        tl
+       let accum =
+         try
+           ((expr_of_string_sexpr e :> SMTExpr.t), 
+            (expr_of_string_sexpr v :> SMTExpr.t)) :: 
+           accum
+         with Failure _ -> accum in
+       
+       get_value_response_of_sexpr' accum tl
 
     (* Hack for CVC4's (- 1).0 expressions *)
     | HStringSExpr.List [ e; v; HStringSExpr.Atom d ] :: tl 
@@ -969,7 +972,15 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         match execute_command solver cmd 0 with 
           | `Success -> () 
           | _ -> raise (Failure ("Failed to add header: "^cmd))
-     ) headers;
+    ) headers;
+
+    (* Print prelude *)
+    List.iter (fun cmd ->
+        Debug.smt "%s" cmd;
+        match execute_command solver cmd 0 with 
+          | `Success -> () 
+          | _ -> raise (Failure ("Failed to add prelude command: "^cmd))
+     ) prelude;
 
 
     (* Return solver instance *)

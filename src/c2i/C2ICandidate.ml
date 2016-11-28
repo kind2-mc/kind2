@@ -772,8 +772,9 @@ let mk sys =
   (* Mining init and trans predicates for arith constants. *)
   let int_vals, rat_vals =
     mine_constants
-      (TransSys.init_of_bound sys Numeral.zero) (int_init_set, rat_init_set)
-    |> mine_constants (TransSys.trans_of_bound sys Numeral.zero)
+      (TransSys.init_of_bound None sys Numeral.zero)
+      (int_init_set, rat_init_set)
+    |> mine_constants (TransSys.trans_of_bound None sys Numeral.zero)
     |> op_combinate_arith_sets
     |> fun (i, r) -> IntSet.elements i, RatSet.elements r
   in

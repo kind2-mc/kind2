@@ -411,14 +411,18 @@ module CandidateTermGen = struct
     let set_ref = ref set in
     (* Updates the set reference. *)
     let set_update set' = set_ref := set' in
-    
-    ( Term.eval_t
-        ( fun flat_term _ ->
-          (* Applying rules and updating set reference. *)
-          set_update
-            (FlatTermsRules.apply flat_term !set_ref) )
-        
-        term ) ;
+
+    (try
+       Term.eval_t
+         ( fun flat_term _ ->
+            (* Applying rules and updating set reference. *)
+            set_update
+              (FlatTermsRules.apply flat_term !set_ref) )
+
+         term
+     with
+     (* Don't do anything with quantified terms TODO mine them anyway *)
+       Invalid_argument _ -> ());
 
     !set_ref
 
@@ -461,9 +465,9 @@ module CandidateTermGen = struct
            
            (* We don't, getting init and trans. *)
            let init, trans =
-             TransSys.init_of_bound system Numeral.zero,
+             TransSys.init_of_bound None system Numeral.zero,
              (* Getting trans at [-1,0]. *)
-             TransSys.trans_of_bound system Numeral.zero
+             TransSys.trans_of_bound None system Numeral.zero
            in
 
            Debug.invgencand "Generating candidates.";
@@ -569,13 +573,13 @@ let mine_term synthesis two_state sys terms set =
   )
   |> (
     (* Mining init. *)
-    TransSys.init_of_bound sys Numeral.zero
+    TransSys.init_of_bound None sys Numeral.zero
     |> CandidateTermGen.set_of_term
   )
   |> (
     if Flags.Invgen.mine_trans () then
       (* Mining trans. *)
-      TransSys.trans_of_bound sys Numeral.zero
+      TransSys.trans_of_bound None sys Numeral.zero
       |> CandidateTermGen.set_of_term
     else
       identity

@@ -66,6 +66,7 @@ let default_of_type t =
 type feature =
   | Q  (* Quantifiers *)
   | UF (* Equality over uninterpreted functions *)
+  | A  (* Arrays *)
   | IA (* Integer arithmetic *)
   | RA (* Real arithmetic *)
   | LA (* Linear arithmetic *)
@@ -83,18 +84,14 @@ module FeatureSet = Set.Make (struct
 type features = FeatureSet.t
 
 (* Try to remove top level quantifief by instantiating with fresh symbols *)
-let remove_top_level_quantifier removed t =
+let remove_top_level_quantifier t =
   match Term.T.node_of_t t with
   | Term.T.Forall lam | Term.T.Exists lam ->
-    let t' =
-      Term.T.sorts_of_lambda lam
-      |> List.map (fun t ->
-          (UfSymbol.mk_fresh_uf_symbol [] t
-           |> Term.mk_uf) @@ [] )
-      |> Term.T.instantiate lam
-    in
-    removed := true;
-    t'
+    Term.T.sorts_of_lambda lam
+    |> List.map (fun t ->
+        (UfSymbol.mk_fresh_uf_symbol [] t
+         |> Term.mk_uf) @@ [] )
+    |> Term.T.instantiate lam
   | _ -> t
 
 (* find the smallest encompassing logic of a sort *)
@@ -108,7 +105,10 @@ let rec logic_of_sort ty =
                           
   | Real -> singleton RA
               
-  | Array (ta, tr) -> add UF (union (logic_of_sort ta) (logic_of_sort tr))
+  | Array (ta, tr) ->
+    union (logic_of_sort ta) (logic_of_sort tr)
+    |> add UF
+    |> add A
 
 
 let s_abs = Symbol.mk_symbol `ABS
@@ -171,17 +171,24 @@ let logic_of_flat t acc =
                             s == s_leq || s == s_geq) ->
     add LA (sup_logics acc)
 
+  | App (s, l) when Symbol.is_select s ->
+    sup_logics acc |> add UF |> add A
+    
   | App _ -> sup_logics acc
 
   
 
+let check_add_Q t l =
+  if Term.has_quantifier t then
+    FeatureSet.add Q l
+  else l
+                                                        
 (* Returns the logic fragment used by a term *)
 let logic_of_term t =
-  let removed_q = ref false in
   t
-  |> Term.map (fun _ -> remove_top_level_quantifier removed_q)
+  |> Term.map (fun _ -> remove_top_level_quantifier)
   |> Term.eval_t logic_of_flat
-  |> (if !removed_q then FeatureSet.add Q else Lib.identity)
+  |> check_add_Q t
 
 
 
@@ -191,6 +198,7 @@ module L = FeatureSet
 let pp_print_features fmt l =
   if not (L.mem Q l) then fprintf fmt "QF_";
   if L.is_empty l then fprintf fmt "SAT";
+  if L.mem A l && Flags.Arrays.smt () then fprintf fmt "A";
   if L.mem UF l then fprintf fmt "UF";
   if L.mem NA l then fprintf fmt "N"
   else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";

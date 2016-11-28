@@ -742,7 +742,7 @@ let extrapolate trans_sys state f g =
   let term = 
     Term.mk_and 
       [f; 
-       TransSys.trans_of_bound trans_sys Numeral.one; 
+       TransSys.trans_of_bound None trans_sys Numeral.one; 
 (*
        TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
        TransSys.invars_of_bound trans_sys Numeral.one; 
@@ -857,14 +857,18 @@ let abstr_simulate trace trans_sys raise_cex =
   let interpolizers =
     List.mapi
       (fun i cex ->
-         [(TransSys.trans_of_bound trans_sys (Numeral.of_int (i+1)));
+         [(TransSys.trans_of_bound (Some (SMTSolver.declare_fun intrpo))
+             trans_sys (Numeral.of_int (i+1)));
           (Term.bump_state (Numeral.of_int (i+1)) cex)]
       )
       trace
   in
 
   let interpolizers =
-    (Term.mk_and ((TransSys.init_of_bound trans_sys Numeral.zero) :: List.hd interpolizers))
+    (Term.mk_and ((TransSys.init_of_bound
+                     (Some (SMTSolver.declare_fun intrpo))
+                     trans_sys Numeral.zero)
+                  :: List.hd interpolizers))
     ::
     (List.map Term.mk_and (List.tl interpolizers))
   in
@@ -994,6 +998,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    expensive due to the many activation literals. *)
                 SMTSolver.get_var_values
                   solver
+                  (TransSys.get_state_var_bounds trans_sys)
                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
               (fun _ -> ())
@@ -1235,6 +1240,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                   | _ ->
                     SMTSolver.get_var_values
                       solver
+                      (TransSys.get_state_var_bounds trans_sys)
                       (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
               (* Get unsat core from unsatisfiable query *)
@@ -1697,6 +1703,7 @@ let rec partition_inductive
       (fun solver ->
         SMTSolver.get_var_values
           solver
+          (TransSys.get_state_var_bounds trans_sys)
           (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
       
       (fun _ -> ())
@@ -1798,6 +1805,7 @@ let partition_fwd_prop
         (fun solver ->
           SMTSolver.get_var_values
             solver
+            (TransSys.get_state_var_bounds trans_sys)
             (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
         (fun _ -> ())
@@ -2485,7 +2493,7 @@ let add_to_path model path state_vars i =
                TermLib.default_of_type 
                  (StateVar.type_of_state_var sv)
                                          
-             | Model.Lambda _ -> assert false
+             | _ -> assert false
                
          in
 
@@ -2562,10 +2570,8 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (SMTSolver.get_var_values
                    solver
-                   (TransSys.vars_of_bounds
-                      trans_sys
-                      Numeral.zero
-                      Numeral.one))
+                   (TransSys.get_state_var_bounds trans_sys)
+                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
                 path
                 (TransSys.state_vars trans_sys)
                 Numeral.one
@@ -2626,10 +2632,8 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (SMTSolver.get_var_values
                    solver
-                   (TransSys.vars_of_bounds
-                      trans_sys
-                      Numeral.zero
-                      Numeral.one))
+                   (TransSys.get_state_var_bounds trans_sys)
+                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
                 []
                 (TransSys.state_vars trans_sys)
                 Numeral.zero)
@@ -2905,6 +2909,7 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
       (* SMTSolver.get_model solver *)
       SMTSolver.get_var_values
         solver
+        (TransSys.get_state_var_bounds trans_sys)
         (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
     in
 
@@ -3144,7 +3149,8 @@ let main input_sys aparam trans_sys =
         solver
         (Term.mk_implies
            [actlit_r0;
-            (TransSys.init_of_bound trans_sys Numeral.zero)]);
+            (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
+               trans_sys Numeral.zero)]);
 
       (* Assert transition relation unguarded
 
@@ -3152,7 +3158,8 @@ let main input_sys aparam trans_sys =
       SMTSolver.trace_comment solver "main: Assert unguarded transition relation"; 
       SMTSolver.assert_term 
         solver
-        (TransSys.trans_of_bound trans_sys (Numeral.of_int bound));
+        (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+           trans_sys (Numeral.of_int bound));
 
       (* Print inductive assertions to file? *)
       (match Flags.IC3.print_to_file () with
@@ -3183,7 +3190,7 @@ let main input_sys aparam trans_sys =
 
           | `IA ->
 
-            (TransSys.init_of_bound trans_sys Numeral.zero)
+            (TransSys.init_of_bound None trans_sys Numeral.zero)
             ::
             List.map
               (fun (s,t) -> t)

@@ -1,0 +1,823 @@
+const
+-- Boiler characteristics
+  N_pump = 4;
+  C = 1000;
+  M1 = 150;	
+  N1 = 400;
+  N2 = 600;
+  M2 = 850;
+  V = 10;
+  W = 25;
+  P = 15;
+-- Controller characteristics
+  NB_stop = 3;
+  Dt = 5;
+  startup = 1;
+  initialize = 2;
+  normal = 3;
+  degraded = 4;
+  rescue = 5;
+  emergency = 6;
+  open = 1;
+  closed = 0;
+  off = 0;
+  on = 1;
+  switched_on = 2;
+  none = 3;
+  ok = 0;
+  signalled = 1;
+  acked = 2;
+
+----------------------Operator----------------------------------------
+
+node Operator(stop:bool) returns (stop_request:bool);
+  var nb_stops:int;
+let
+  nb_stops = (if stop then 1 else 0) -> if stop then pre(nb_stops)+1 else 0;
+  stop_request = (nb_stops>=NB_stop);
+tel;
+
+
+-----------------------Defect---------------------------------------
+
+node Defect(statein:int; fail_cond,ack_chan,repair_chan:bool) returns (stateout:int);
+let
+  stateout = if (statein=ok) then
+		if fail_cond then signalled else ok
+	     else
+		if (statein=signalled) then
+			if ack_chan then acked else signalled
+		else -- statein=acked
+			if repair_chan then ok else acked;
+tel;
+
+
+----------------------SteamDefect----------------------------------------
+
+node SteamDefect(steam_failure_acknowledgement,steam_repaired:bool;steam:int;)
+		returns (SteamDefect:int);
+let
+  SteamDefect = ok -> Defect (pre (SteamDefect), steam_failure_detect(steam),
+			      steam_failure_acknowledgement, steam_repaired);
+
+tel;
+
+node steam_failure_detect(steam:int) returns(steam_failure_detect:bool);
+let
+  steam_failure_detect = ((steam < 0) or (steam>W)) ;
+tel;
+
+
+----------------------Water Level Defect----------------------
+
+node LevelDefect(level_failure_acknowledgement,level_repaired:bool;level:int;)
+		returns (LevelDefect:int);
+let
+  LevelDefect = ok -> Defect (pre (LevelDefect), level_failure_detect(level),
+			     level_failure_acknowledgement, level_repaired);
+
+tel;
+
+node level_failure_detect(level:int) returns (level_failure_detect:bool);
+let
+  level_failure_detect = ((level < 0) or (level>C)) ;
+tel;
+
+
+-----------------------Pump Defect---------------------------------------
+
+node PumpDefect(pump_failure_acknowledgement, pump_repaired, 
+		pump_control_failure_acknowledgement, pump_control_repaired:bool;
+		pump_status, pump_state:int;
+		pump_control_state:bool;) 
+	returns (PumpDefect,PumpControlDefect:int;Flow:bool); 
+var 
+	pump_failure_d, pump_control_failure_d:bool; 
+let 
+  (pump_failure_d, pump_control_failure_d, Flow) =
+    pump_failure_detect(pump_status, pump_state, pump_control_state);
+
+  PumpDefect             = ok -> Defect(
+                                        pre(PumpDefect),
+                                        pump_failure_d,
+                                        pump_failure_acknowledgement,
+                                        pump_repaired);
+
+  PumpControlDefect      = ok -> Defect(
+                                        pre(PumpControlDefect),
+                                        pump_control_failure_d,
+                                        pump_control_failure_acknowledgement,
+                                        pump_control_repaired);
+tel; 
+
+node pump_failure_detect(pump_status,pump_state:int; pump_control_state:bool;)
+     returns (pump_failure_detect,pump_control_failure_detect,flow:bool);
+let 
+	pump_failure_detect = ((pump_status=off) and 
+			       (pump_state=on)) 
+			      or 
+			      (((pump_status=on) or 
+			       (pump_status=switched_on)) and 
+			       (pump_state=off));
+							 
+	pump_control_failure_detect = (((pump_status=off) or 
+					(pump_status=switched_on)) and 
+					(pump_state=off) and 
+					(pump_control_state))
+				      or
+				      ((pump_status=on) and 
+				        (pump_state=on) and 
+					not(pump_control_state)) 
+				      or
+				      ((pump_status=switched_on) and 
+				       (pump_state=on) and 
+				       (pump_control_state));
+									  
+	flow 			    = ((pump_status=off) and 
+				       (pump_state=on) and 
+				       (pump_control_state))
+		 		      or
+		 		      ((pump_status=on) and 
+				       (pump_state=off) and 
+				       (pump_control_state))
+		 		      or
+		 		      ((pump_status=on) and 
+				       (pump_state=on));
+tel;
+
+
+-----------------------------Dynamics-------------------------
+
+node Dynamics(valve_status,level,steam,level_defect,steam_defect:int;
+	      flow:bool^N_pump;) 
+     returns (q,v:int; p:int^N_pump);
+let
+	q = level-> 
+	    if level_failure(level_defect) then 
+		pre(q) - steam*Dt + sum(N_pump,p)*Dt - (if valve_status = open then V*Dt else 0) 
+	    else 
+		level; 
+	v = steam-> 
+	    if steam_failure(steam_defect) then 
+		(pre(q)-q)/Dt + sum(N_pump,p) *Dt 
+	    else 
+		steam;
+	p[k] = 0 -> if (not(flow[k])) then 0 else P; 
+tel; 
+
+
+node sum(const n:int;a:int^n) returns (sum:int);
+var aux: int^n;
+let
+  aux[k] = if k = 0 then aux[k] else aux[k] + aux[k-1];
+  sum = aux[n-1];
+tel;
+
+
+------------------------PumpsDecision-------------------------
+
+node PumpsDecision(q,v:int) returns (n_pumps:int); 
+let 
+	n_pumps	= if q>N2 then 
+			(v/P) 
+		  else
+		    if q<N1 then 
+			(v / P) + 1 
+		    else 
+			pre(n_pumps); 
+tel; 
+
+
+-----------------------PumpsStatus-----------------------------
+
+node PumpsStatus(n_pumps:int;
+		 pump_defect:int^N_pump;
+		 flow:bool^N_pump) 
+	returns (pump_status:int^N_pump); 
+var 
+	n_pumps_flow,n_pumps_to_open:int; 
+let 
+	n_pumps_flow = count(N_pump,flow); 
+	n_pumps_to_open = n_pumps - n_pumps_flow; 
+	pump_status[k] = off -> (operate_pumps (N_pump,
+                                        n_pumps_to_open, 
+                                        pre(pump_status),
+                                        pump_defect,
+                                        flow))[k]; 
+tel; 
+
+
+----------------------Count------------------------------------
+
+node count(const n:int;a:bool^n) returns (n_true:int); 
+var aux: int^n;
+let 
+  aux[k] = if k = 0 then 
+             if a[0] then 1 else 0
+           else
+             if a[k] then 1 + aux[k-1]
+             else aux[k-1];
+
+  n_true = aux[n-1];
+
+tel; 
+
+
+---------------------operate_pumps node---------------------------
+
+node operate_pumps(const n:int; n_pumps_to_open:int;
+                   pump_status, pump_defect:int^n; 
+                   flow:bool^n) 
+returns (operate_pumps:int^n);
+var pumps_to_open: int^n;
+let 
+  pumps_to_open[k] =
+    if k = 0 then n_pumps_to_open
+    else
+      if ((n_pumps_to_open>0) and 
+          not(flow[k]) and 
+          not(pump_defect[k] <> ok) and 
+          (pump_status[k]=off)) then 
+        pumps_to_open[k-1] - 1
+      else 
+        if ((n_pumps_to_open<0) and 
+            flow[k] and 
+            not(pump_defect[k] <> ok) and 
+            (pump_status[k]=on)) then
+          pumps_to_open[k-1] + 1
+        else 
+          pumps_to_open[k];
+
+  operate_pumps[k] =
+    if ((pumps_to_open[k]>0) and 
+        not(flow[k]) and
+        not(pump_defect[k] <> ok) and 
+        (pump_status[k]=off)) then 
+      switched_on 
+    else 
+      if ((pumps_to_open[k]<0) and 
+          flow[k] and 
+          not(pump_defect[k] <> ok) and 
+          (pump_status[k]=on)) then 
+        off 
+      else 
+        if (pump_status[k]=switched_on) then 
+          on 
+        else 
+          if (pre(pump_defect[k])=acked and 
+              pump_defect[k]=ok) then 
+            if pump_status[k]=on then
+              off 
+            else --necessarily off 
+              on 
+          else
+            pump_status[k];
+tel;
+
+
+-----------------------ControlMode-----------------------------
+
+node ControlMode (steam_boiler_waiting,physical_units_ready,stop_request:bool;
+		  steam,level_defect,steam_defect:int; 
+		  pump_defect,pump_control_defect:int^N_pump;
+		  q:int;
+		  pump_state:int^N_pump) 
+     returns (op_mode :int); 
+let 
+	op_mode = startup-> 
+		   if (critical_failure(pre(op_mode),
+					steam,
+					level_defect,
+					steam_defect,
+					pump_defect,
+					q,
+					pump_state) or 
+		       stop_request or 
+		       pre(op_mode)=emergency) then 
+		     emergency 
+		   else 
+		     if (pre(op_mode)=startup) then 
+			if steam_boiler_waiting then initialize else startup 
+		     else 
+			if (pre(op_mode)=initialize and 
+			    not physical_units_ready) then 
+			  initialize 
+			else 
+			  if level_failure(level_defect) then 
+			    rescue 
+			  else 
+			    if failure(level_defect,
+				       steam_defect,
+				       pump_defect,
+				       pump_control_defect) then 
+			      degraded 
+			    else 
+			      normal; 
+tel;
+
+
+-------------------------critical_failure----------------------
+
+node critical_failure(op_mode,steam,level_defect,steam_defect:int;
+		      pump_defect:int^N_pump;
+		      q:int;
+		      pump_state:int^N_pump;) 
+     returns (critical_failure:bool); 
+var failures_defect: bool^N_pump; 
+let
+
+  failures_defect[k] = pump_defect[k] <> ok;
+ 
+	critical_failure = transmission_failure(pump_state) or 
+
+     			   (op_mode=startup and 
+			    steam_failure_startup(steam)) or 
+
+			   (op_mode=initialize and 
+			    (level_failure(level_defect) or 
+			    steam_failure(steam_defect))) or 
+
+			   (op_mode=normal and 
+			    dangerous_level(q)) or 
+					
+		           (op_mode=degraded and 
+			    dangerous_level(q)) or 
+
+			   (op_mode=rescue and 
+			    (dangerous_level(q) or 
+			    steam_failure(steam_defect) or 
+			    AND(N_pump,failures_defect))); 
+tel;
+
+
+------------------------transmission_failure----------------------
+
+node transmission_failure(pump_state:int^N_pump) 
+     returns (transmission_failure:bool); 
+var aux: bool^N_pump;
+let
+  aux[k] = pump_state[k]=none;
+  transmission_failure = OR(N_pump, aux); 
+tel; 
+
+
+node OR(const n:int;a:bool^n) returns (lin_or:bool);
+var aux: bool^n;
+let
+  aux[k] = if k = 0 then a[0] else a[k] or aux[k-1];
+  lin_or = aux[n-1];
+tel;
+
+------------------------failure----------------------
+
+node failure (level_defect,steam_defect:int;
+	      pump_defect,pump_control_defect:int^N_pump) 
+     returns (failure:bool);
+var failures_defect, failures_control_defect: bool^N_pump; 
+let
+  failures_defect[k] = pump_defect[k] <> ok;
+  failures_control_defect[k] = pump_control_defect[k] <> ok;
+
+  failure =
+    level_failure(level_defect) or 
+      steam_failure(steam_defect) or 
+        OR(N_pump,failures_defect) or 
+  --		  OR(N_pump,pump_control_failure(pump_control_defect)); 
+          OR(N_pump,failures_control_defect); 
+tel; 
+
+
+------------------------steam_failure----------------------
+
+node steam_failure(steam_defect:int) returns (steam_failure:bool); 
+let 
+	steam_failure = (steam_defect<>ok); 
+tel;
+
+
+------------------------level_failure----------------------
+
+node level_failure(level_defect:int) returns (level_failure:bool); 
+let 
+	level_failure = (level_defect<>ok); 
+tel;
+
+
+---------------------------pump_failure---------------------------
+
+node pump_failure(pump_defect:int) 
+	returns (pump_failure:bool);
+let
+	pump_failure = (pump_defect<>ok);
+tel;
+
+
+---------------------------pump_control_failure---------------------------
+
+--node pump_control_failure(pump_control_defect:int) 
+--	returns (pump_control_failure:bool);
+--let
+--	pump_control_failure = (pump_control_defect<>ok);
+--tel;
+
+------------------------steam_failure_startup----------------------
+
+node steam_failure_startup(steam:int) returns (steam_failure_startup:bool); 
+let 
+	steam_failure_startup=(steam<>0); 
+tel; 
+
+
+------------------------dangerous_level----------------------
+
+node dangerous_level(q:int) returns (dangerous_level:bool); 
+let 
+	dangerous_level = (q <= M1) or (q >= M2); 
+tel; 
+
+
+------------------------ControlOutput----------------------
+
+node ControlOutput(op_mode,level:int;valve:bool) 
+     returns (program_ready:bool;mode:int); 
+let 
+	program_ready = initialization_complete(op_mode,level,valve); 
+	mode = op_mode; 
+tel; 
+
+node initialization_complete(op_mode,level:int;valve:bool) 
+     returns (initialization_complete:bool); 
+let 
+	initialization_complete = (op_mode=initialize) and 
+				  ((N1<=level) and (level<=N2)) and 
+				  not(valve);
+tel;
+
+
+-----------------------------Valve--------------------------
+
+--node Valve(op_mode:int;q:int) returns (valve:bool;valve_state:int); 
+--let 
+--	valve_state = closed -> 
+--		      if (op_mode=initialize) then 
+--			if (q>N2) then
+--			  open 
+--			else 
+--			  if (q<=N2) then closed else pre(valve_state) 
+--		      else 
+--			pre(valve_state); 
+--	valve = false -> (valve_state<>pre(valve_state)); 
+--tel; 
+
+node Valve(valve_status,op_mode:int;q:int) returns (valve:bool); 
+var valve_state:int;
+let 
+	valve_state = valve_status -> 
+		      if (op_mode=initialize) then 
+			if (q>N2) then
+			  open 
+			else 
+			  if (q<=N2) then closed else valve_status 
+		      else 
+			valve_status; 
+	valve = valve_state<>valve_status; 
+tel; 
+
+-----------------------------SteamOutput--------------------------
+
+node SteamOutput(op_mode,steam_defect:int;steam_repaired:bool) 
+     returns (steam_outcome_failure_detection,steam_outcome_repaired_acknowledgement:bool); 
+let 
+	steam_outcome_failure_detection =  not((op_mode=emergency) or (op_mode=startup)) and 
+					   (steam_defect=signalled);
+	steam_outcome_repaired_acknowledgement = not((op_mode=emergency) or (op_mode=startup)) and 
+						 steam_repaired; 
+tel; 
+
+
+-----------------------------LevelOutput--------------------------
+
+node LevelOutput(op_mode,level_defect:int;level_repaired:bool) 
+     returns (level_outcome_failure_detection,level_outcome_repaired_acknowledgement:bool); 
+let 
+	level_outcome_failure_detection =  not ((op_mode=emergency) or (op_mode=startup)) and 
+					   (level_defect=signalled) ;
+	level_outcome_repaired_acknowledgement = not ((op_mode=emergency) or (op_mode=startup)) and 
+						 level_repaired; 
+tel; 
+
+
+-----------------------------PumpsOutput--------------------------
+
+node PumpsOutput(op_mode:int; pump_status,pump_defect,pump_control_defect:int^N_pump;
+		pump_repaired,pump_control_repaired:bool^N_pump) 
+     returns (open_pump,close_pump,pump_failure_detection,pump_repaired_acknowledgement,pump_control_failure_detection,
+              pump_control_repaired_acknowledgement:bool^N_pump); 
+let 
+  open_pump[k] = ((op_mode<>emergency) and 
+                  (op_mode<>startup) and 
+                  pump_status[k]=switched_on); 
+
+  close_pump[k] = ((op_mode<>emergency) and 
+                   (op_mode<>startup) and 
+                   pump_status[k]=off and 
+                   pre(pump_status[k])<>off) and 
+                     pump_defect[k]=ok and 
+                       pre(pump_defect[k])=ok; 
+  
+  pump_failure_detection[k] = ((op_mode<>emergency) and 
+                               (op_mode<>startup) and 
+                               pump_defect[k]=signalled); 
+	
+  pump_repaired_acknowledgement[k] = ((op_mode<>emergency) and 
+                                      (op_mode<>startup) and 
+                                      pump_repaired[k]); 
+			 
+  pump_control_failure_detection[k] = ((op_mode<>emergency) and 
+                                       (op_mode<>startup) and 
+                                       (pump_control_defect[k]=signalled)); 
+			 
+  pump_control_repaired_acknowledgement[k] = ((op_mode<>emergency) and 
+                                              (op_mode<>startup) and 
+                                              pump_control_repaired[k]); 
+tel; 
+
+
+------------------------Boiler Controller Node-----------------
+
+node BoilerController(stop,steam_boiler_waiting,physical_units_ready:bool; 
+		     level:int;
+                     steam:int;
+		     valve_status:int;
+		     pump_state:int^N_pump;
+		     pump_control_state:bool^N_pump;
+		     pump_repaired:bool^N_pump;
+		     pump_control_repaired:bool^N_pump;
+		     level_repaired:bool;
+  		     steam_repaired:bool;
+		     pump_failure_acknowledgement:bool^N_pump;
+		     pump_control_failure_acknowledgement:bool^N_pump;
+ 		     level_failure_acknowledgement:bool;
+  		     steam_failure_acknowledgement:bool)
+	returns (program_ready:bool;
+		 mode:int;
+		 valve:bool;
+		 q:int;
+		 v:int;
+		 p:int^N_pump;
+		 n_pumps:int;
+		 open_pump:bool^N_pump;
+		 close_pump:bool^N_pump;
+		 pump_failure_detection:bool^N_pump;
+		 pump_control_failure_detection:bool^N_pump;
+		 level_failure_detection:bool;
+		 steam_outcome_failure_detection:bool;
+		 pump_repaired_acknowledgement:bool^N_pump;
+		 pump_control_repaired_acknowledgement:bool^N_pump;
+		 level_repaired_acknowledgement:bool;
+		 steam_outcome_repaired_acknowledgement:bool);
+
+  var
+	stop_request:bool;
+	op_mode:int;
+--	valve_state:int;
+	pump_status:int^N_pump;
+	level_defect:int;
+	steam_defect:int;
+	pump_defect:int^N_pump;
+	pump_control_defect:int^N_pump;
+	flow:bool^N_pump;
+
+   	MOD_ok: bool; -- The operation mode is always in {startup, initialize, normal, degraded, rescue, emergency}
+	EME_ok: bool; -- Once the system is in emergency mode, it remains there forever
+	NNF_ok: bool; -- When the system is in normal mode, no unit is signalled to be in failure state
+	NNS_ok: bool; -- When the system is in normal mode, no stop request was issued
+	NNV_ok: bool; -- When the system is in normal mode, no valve command is issued
+	NWL_ok: bool; -- When the system is in normal mode then the water level must always be maintained between M1 and M2
+	N2D_ok: bool; -- When the system is in normal mode and a steam failure occurs, it leads to degraded mode
+	N2R_ok: bool; -- When the system is in normal mode and a level failure occurs, it leads to rescue mode
+	PUF_ok: bool; -- We never try to use a pump which is in a failure state unless it is repaired
+        PUF_values: bool^N_pump;
+        pump_state_on: bool^N_pump;
+
+	SUF_ok: bool; -- We never use the steam unit when it is in a failure state unless has been repaired
+	WUF_ok: bool; -- We never use the water unit when it is in a failure state unless has been repaired
+	
+	-- Additional properties
+	NVP_ok: bool; -- The valve cannot be opened when at least one of the pumps is also opened
+	NVW_ok: bool; -- The valve should not be opened when the water level doesn't exceed N2
+	NPW_ok: bool; -- At least one pump should be opened when the water level is below N1
+
+        -- from node pumpdefect
+	pump_failure_d, pump_control_failure_d: bool^N_pump; 
+
+let
+	stop_request = Operator(stop);
+	
+	level_defect = ok-> LevelDefect (level_failure_acknowledgement,	level_repaired,	level) ;
+
+	steam_defect = ok-> SteamDefect (steam_failure_acknowledgement,	steam_repaired,	steam) ;
+	
+
+	pump_failure_d[k] = ((pre(pump_status[k])=off) and 
+			       (pump_state[k]=on)) 
+			      or 
+			      (((pre(pump_status[k])=on) or 
+			       (pre(pump_status[k])=switched_on)) and 
+			       (pump_state[k]=off));
+							 
+	pump_control_failure_d[k] = (((pre(pump_status[k])=off) or 
+					(pre(pump_status[k])=switched_on)) and 
+					(pump_state[k]=off) and 
+					(pump_control_state[k]))
+				      or
+				      ((pre(pump_status[k])=on) and 
+				        (pump_state[k]=on) and 
+					not(pump_control_state[k])) 
+				      or
+				      ((pre(pump_status[k])=switched_on) and 
+				       (pump_state[k]=on) and 
+				       (pump_control_state[k]));
+									  
+	flow[k] 	             = false ->
+                                       ((pre(pump_status[k])=off) and 
+				       (pump_state[k]=on) and 
+				       (pump_control_state[k]))
+		 		      or
+		 		      ((pre(pump_status[k])=on) and 
+				       (pump_state[k]=off) and 
+				       (pump_control_state[k]))
+		 		      or
+		 		      ((pre(pump_status[k])=on) and 
+				       (pump_state[k]=on));
+
+
+
+  pump_defect[k]             = ok -> if (pre(pump_defect[k])=ok) then
+                                       if pump_failure_d[k] then signalled else ok
+                                     else
+                                       if (pre(pump_defect[k])=signalled) then
+                                         if pump_failure_acknowledgement[k] then acked else signalled
+                                       else -- pre(pump_defect[k])=acked
+                                         if pump_repaired[k] then ok else acked;
+
+  pump_control_defect[k]     = ok -> if (pre(pump_control_defect[k])=ok) then
+                                       if pump_control_failure_d[k] then signalled else ok
+                                     else
+                                       if (pre(pump_control_defect[k])=signalled) then
+                                         if pump_control_failure_acknowledgement[k] then acked else signalled
+                                       else -- pre(pump_control_defect[k])=acked
+                                         if pump_control_repaired[k] then ok else acked;
+
+  -- (pump_defect[k],
+  --  pump_control_defect[k],
+  --  flow[k]) = (ok, ok, false)->
+
+  --    PumpDefect (pump_failure_acknowledgement[k],
+  --                pump_repaired[k],
+  --                pump_control_failure_acknowledgement[k],
+  --                pump_control_repaired[k],
+  --                pre(pump_status[k] ) ,
+  --                pump_state[k],
+  --                pump_control_state[k]);
+
+  (q,v,p) = (level, steam, 0^N_pump) ->
+    Dynamics(valve_status,
+                                          level,
+                                          steam,
+                                          level_defect,
+                                          steam_defect,
+                                          flow) ;
+
+	n_pumps = 0 -> PumpsDecision(q,v);
+
+	pump_status = off^N_pump-> PumpsStatus(n_pumps,
+					       pump_defect,
+					       flow);
+
+	op_mode = startup-> ControlMode(steam_boiler_waiting,
+					physical_units_ready,
+					stop_request,
+					steam,
+					level_defect,
+					steam_defect,
+					pump_defect,
+					pump_control_defect,
+					q,
+					pump_state);
+
+	valve = Valve(valve_status, op_mode, q);
+
+	(program_ready, mode) = (false, startup) -> ControlOutput (op_mode,level,valve);
+
+	(open_pump,
+	 close_pump,
+	 pump_failure_detection,
+	 pump_repaired_acknowledgement,
+	 pump_control_failure_detection,
+	 pump_control_repaired_acknowledgement)	= (false^N_pump,false^N_pump,false^N_pump,
+						   false^N_pump,false^N_pump,false^N_pump) ->
+						   PumpsOutput(op_mode,
+				             		      pump_status,
+							      pump_defect,
+							      pump_control_defect,
+							      pump_repaired,
+							      pump_control_repaired);
+
+	(level_failure_detection,
+	 level_repaired_acknowledgement) = (false,false) -> LevelOutput(op_mode,level_defect,level_repaired);
+
+	(steam_outcome_failure_detection,
+	 steam_outcome_repaired_acknowledgement) = (false, false) -> SteamOutput(op_mode,steam_defect,steam_repaired);
+
+
+	MOD_ok = mode>=startup and mode<=emergency;
+	EME_ok = true -> implies(pre(mode=emergency), mode=emergency);
+	NNF_ok = implies(mode=normal,
+					not(level_failure_detection) and
+					not(steam_outcome_failure_detection) and
+					not(AND(N_pump, pump_failure_detection)) and
+					not(AND(N_pump, pump_control_failure_detection)));
+	NNS_ok = implies(mode=normal, not(stop));
+	NNV_ok = implies(mode=normal, not(valve));
+	NWL_ok = implies(mode=normal, level>=M1 and level<=M2);
+	N2D_ok = implies(mode=normal and steam_failure_acknowledgement, mode=degraded);
+	N2R_ok = implies(mode=normal and level_failure_acknowledgement, mode=rescue);
+
+
+        PUF_values = dont_use_pump_in_failure(N_pump, pump_failure_detection,
+                                                 pump_repaired_acknowledgement,
+                                                 open_pump,
+                                                 close_pump);
+	PUF_ok = AND(N_pump,PUF_values);
+	SUF_ok = implies(steam_outcome_failure_detection and not(steam_repaired), mode=degraded);
+	WUF_ok = implies(level_failure_detection and not(level_repaired), mode=rescue);
+	
+        pump_state_on[k] = pump_state[k] = on;
+
+	NVP_ok = implies(OR(N_pump, pump_state_on), not valve);
+	NVW_ok = implies(level<=N2, not(valve));
+	NPW_ok = implies(level>0 and level<N1, OR(N_pump, open_pump));
+
+   	--%PROPERTY MOD_ok;
+  -- The operation mode is always in {startup, initialize, normal, degraded, rescue, emergency}
+	--%PROPERTY EME_ok;
+  -- Once the system is in emergency mode, it remains there forever
+	--%PROPERTY NNF_ok;
+  -- When the system is in normal mode, no unit is signalled to be in failure state
+	--%PROPERTY NNS_ok;
+  -- When the system is in normal mode, no stop request was issued
+	--%PROPERTY NNV_ok;
+  -- When the system is in normal mode, no valve command is issued
+	--%PROPERTY NWL_ok;
+  -- When the system is in normal mode then the water level must always be maintained between M1 and M2
+	--%PROPERTY N2D_ok;
+  -- When the system is in normal mode and a steam failure occurs, it leads to degraded mode
+	--%PROPERTY N2R_ok;
+  -- When the system is in normal mode and a level failure occurs, it leads to rescue mode
+	--%PROPERTY PUF_ok;
+  -- We never try to use a pump which is in a failure state unless it is repaired
+	--%PROPERTY SUF_ok;
+  -- We never use the steam unit when it is in a failure state unless has been repaired
+	--%PROPERTY WUF_ok;
+  -- We never use the water unit when it is in a failure state unless has been repaired
+
+	-- Additional properties
+	--%PROPERTY NVP_ok;
+  -- The valve cannot be opened when at least one of the pumps is also opened
+	--%PROPERTY NVW_ok;
+  -- The valve should not be opened when the water level doesn't exceed N2
+	--%PROPERTY NPW_ok;
+  -- At least one pump should be opened when the water level is below N1
+
+tel;
+
+
+node AND(const n:int;a:bool^n) returns (lin_and:bool);
+var aux: bool^n;
+let
+  aux[k] = if k = 0 then a[0] else a[k] and aux[k-1];
+  lin_and = aux[n-1];
+tel;
+
+
+
+node implies(A,B:bool) returns (implies:bool);
+let
+	implies = not(A) or B;
+tel;
+
+
+node implies_ext(const n: int; A,B:bool^n) returns (implies:bool^n);
+let
+	implies[k] = not(A[k]) or B[k];
+tel;
+
+node dont_use_pump_in_failure(const n: int; pump_failure_detection,  pump_repaired_acknowledgement, open_pump, close_pump: bool^n)
+returns (okok: bool^n);
+var not_ack, nor_open_close: bool^n;
+let
+  not_ack[k] = pump_failure_detection[k] and not(pump_repaired_acknowledgement[k]);
+  nor_open_close[k] = not(open_pump[k] or close_pump[k]);
+  okok = implies_ext(n, not_ack, nor_open_close);
+tel;
