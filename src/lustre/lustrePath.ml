@@ -684,7 +684,7 @@ let pp_print_stream_value_pt ty val_width ppf = function
   | None ->
     Format.fprintf ppf "%*s" val_width "_"
   | Some v ->
-    let value_string = string_of_t pp_print_value v in
+    let value_string = string_of_t (pp_print_value ~as_type:ty) v in
     let padding = val_width - (width_of_string value_string) in
     Format.fprintf ppf "%*s%a" padding "" (pp_print_value ~as_type:ty) v
 
@@ -747,7 +747,7 @@ let pp_print_call_pt ppf (name, pos) =
 
 
 (* Convert values to strings and update maximal lengths *)
-let rec values_width val_width = function
+let rec values_width val_width ty = function
 
   (* All values consumed, return in original order *)
   | [] -> val_width
@@ -756,14 +756,14 @@ let rec values_width val_width = function
   | v :: tl -> 
 
     (* Convert value to string *)
-    let value_string = string_of_t pp_print_value v in
+    let value_string = string_of_t (pp_print_value ~as_type:ty) v in
     
     (* Keep track of maximum width of values *)
     let val_width = max val_width (width_of_string value_string) in
     
     (* Add string representation of value and continue with remaining
        values *)
-    values_width val_width tl 
+    values_width val_width ty tl 
 
 
 (* activation condition stream *)
@@ -839,7 +839,7 @@ let rec streams_to_values path ident_width val_width streams =
         (* Get values of stream and convert to strings, keep track of
            maximum width of values *)
         let stream_values = SVT.find path state_var in
-        let val_width = values_width val_width stream_values in
+        let val_width = values_width val_width ty stream_values in
 
         let stream_values = List.map (fun v -> Some v) stream_values in
         

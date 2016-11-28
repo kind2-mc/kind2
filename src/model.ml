@@ -126,17 +126,15 @@ let pp_print_map_as_array ppf m =
         if !cpt > 0 then Format.fprintf ppf ",@ "
         else if not !first then Format.fprintf ppf ",";
         for i = 1 to !cpt do
-          Format.fprintf ppf "[@[<hov 0>";
+          Format.fprintf ppf "@[<hov 0>[";
         done;
         let w = width_of_string (string_of_t pp_print_term v) in
         Format.fprintf ppf "%*s%a" (val_width - w) "" pp_print_term v;
         first := false;
       ) m;
     for i = 1 to dim do
-      Format.fprintf ppf "@]]";
+      Format.fprintf ppf "]@]";
     done
-
-      (* "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]"  *)
 
 
 type array_model =
