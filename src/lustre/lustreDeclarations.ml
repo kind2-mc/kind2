@@ -231,9 +231,9 @@ let eval_const_decl ?(ghost = false) ctx = function
     (* Evaluate type expression *)
     let tyd = S.eval_ast_type ctx ty in 
 
-    let ed, vt, ctx = 
+    let vt, ctx = 
       D.fold 
-        (fun i ty (ed, vt, ctx) ->
+        (fun i ty (vt, ctx) ->
            let state_var, ctx = 
              C.mk_state_var 
                ?is_input:(Some false)
@@ -248,20 +248,15 @@ let eval_const_decl ?(ghost = false) ctx = function
                None
            in
            let v = Var.mk_const_state_var state_var in
-           let e = E.mk_free_var v in
-           D.add i e ed, D.add i v vt, ctx)
+           D.add i v vt, ctx)
         tyd
-        (D.empty, D.empty, ctx)
+        (D.empty, ctx)
     in
 
     C.add_free_constant ctx ident vt;
 
     ctx
     
-    (* C.add_expr_for_ident ~shadow:ghost ctx ident ed *)
-    
-    (* C.fail_at_position pos "Free constants not supported" *)
-
   (* Declaration of a typed or untyped constant *)
   | A.UntypedConst (pos, i, expr) 
   | A.TypedConst (pos, i, expr, _) as const_decl ->

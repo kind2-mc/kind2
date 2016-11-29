@@ -362,10 +362,6 @@ let create_function = function
 
 
 let add_free_constant ctx ident vt =
-  Format.eprintf "add free const: %a@." (I.pp_print_ident true) ident;
-  D.iter (fun _ v ->
-      Format.eprintf "We have: %a@." Var.pp_print_var v;
-    ) vt;
   IT.add ctx.free_constants ident vt 
 
 
