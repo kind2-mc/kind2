@@ -108,6 +108,7 @@ type state_var_source =
 | Input   (** Declared input variable *)
 | Output  (** Declared output variable *)
 | Local   (** Declared local variable *)
+| Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
 | Oracle  (** Generated non-deterministic input *)
 
@@ -371,6 +372,9 @@ val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 
 (** Get source of state variable *)
 val get_state_var_source : t -> StateVar.t -> state_var_source
+
+(** Register state var as tied to a node call. *)
+val set_state_var_node_call : t -> StateVar.t -> t
 
 (** State variable is identical to a state variable in a node instance *)
 val set_state_var_instance :

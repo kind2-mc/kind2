@@ -16,9 +16,13 @@
 
 *)
 
+(** Generates contract for an input system given an analysis parameter. *)
 val generate_contracts:
-  'a InputSystem.t -> Analysis.param -> TransSys.t ->
-  (Scope.t -> LustreNode.t) -> string -> unit
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
+
+(** Generates a contract for an input system for some terms. *)
+val generate_contract_for :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Term.t list -> unit
 
 
 

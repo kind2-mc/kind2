@@ -323,8 +323,7 @@ let rec eval_ast_expr ctx = function
     eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
 
   (* Temporal operator pre [pre expr] *)
-  | A.Pre (pos, expr) as original -> 
-
+  | A.Pre (pos, expr) as original ->
     (* Evaluate expression *)
     let expr', ctx = eval_ast_expr ctx expr in
 
@@ -434,8 +433,7 @@ let rec eval_ast_expr ctx = function
           None
 
       (* A node call, we implicitly clock it *)
-      | A.Call (pos, ident, args) -> 
-        
+      | A.Call (pos, ident, args) ->
         (* Evaluate node call without defaults *)
         try_eval_node_call
           ctx
@@ -900,8 +898,7 @@ let rec eval_ast_expr ctx = function
   (* Node call without activation condition *)
   | A.Call (pos, ident, args)
   | A.RestartEvery (pos, ident, args, A.False _) ->
-
-    try_eval_node_call 
+    try_eval_node_call
       ctx
       pos
       (I.mk_string_ident ident)
@@ -1323,7 +1320,7 @@ and eval_node_call
               &&
               (* Expression must be constant if input is *)
               (not (StateVar.is_const state_var) || E.is_const expr)
-          then 
+          then (
             (* New variable for abstraction, is constant if input is *)
             let state_var', ctx =
               C.mk_local_for_expr ~is_const:(StateVar.is_const state_var)
@@ -1332,7 +1329,7 @@ and eval_node_call
             N.set_state_var_instance state_var' pos ident state_var;
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)
-          else
+          ) else
             (* Type check failed, catch exception below *)
             raise E.Type_mismatch)
         node_inputs
@@ -1458,14 +1455,19 @@ and eval_node_call
       in
       (* Create fresh state variable for each output *)
       let output_state_vars, ctx = 
-        D.fold
-          (fun i sv (accum, ctx) -> 
-             let sv', ctx = 
-               C.mk_fresh_local ctx (StateVar.type_of_state_var sv) in
-             N.set_state_var_instance sv' pos ident sv;
-             (D.add i sv' accum, ctx))
-          node_outputs
-          (D.empty, ctx)
+        D.fold (
+          fun i sv (accum, ctx) -> 
+            let sv', ctx = 
+              C.mk_fresh_local ctx (StateVar.type_of_state_var sv)
+            in
+            N.set_state_var_instance sv' pos ident sv ;
+            let ctx =
+              C.current_node_map ctx (
+                fun node -> N.set_state_var_node_call node sv'
+              )
+            in
+            (D.add i sv' accum, ctx)
+        ) node_outputs (D.empty, ctx)
       in
       (* Return tuple of state variables capturing outputs *)
       let res = D.map E.mk_var output_state_vars in

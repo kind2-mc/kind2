@@ -77,6 +77,9 @@ type state_var_source =
   (* Local defined stream *)
   | Local
 
+  (* Tied to a node call. *)
+  | Call
+
   (* Local ghost stream *)
   | Ghost
 
@@ -610,9 +613,10 @@ let pp_print_node_debug
     function 
       | (sv, Input) -> p sv "in"
       | (sv, Output) -> p sv "out"
-      | (sv, Local) -> p sv "loc" 
-      | (sv, Ghost) -> p sv "gh" 
-      | (sv, Oracle) -> p sv "or" 
+      | (sv, Local) -> p sv "loc"
+      | (sv, Call) -> p sv "cl"
+      | (sv, Ghost) -> p sv "gh"
+      | (sv, Oracle) -> p sv "or"
 
   in
 
@@ -1264,6 +1268,7 @@ let rec pp_print_state_var_source ppf = function
   | Oracle -> Format.fprintf ppf "oracle"
   | Output -> Format.fprintf ppf "output"
   | Local -> Format.fprintf ppf "local"
+  | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
 
 
@@ -1304,6 +1309,7 @@ let state_var_is_visible node state_var =
   match get_state_var_source node state_var with
 
     (* Oracle inputs and abstraced streams are invisible *)
+    | Call
     | Ghost
     | Oracle -> false
 
@@ -1371,6 +1377,10 @@ let get_state_var_instances state_var =
 
   (* Return empty list *)
   with Not_found -> []
+
+(* Register state var as tied to a node call. *)
+let set_state_var_node_call node state_var =
+  set_state_var_source node state_var Call
 
 
 (* State variable is identical to a state variable in a node instance *)

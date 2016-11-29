@@ -71,14 +71,14 @@ let clean_unknowns trans = List.filter (is_unknown trans)
    up to k, and others. NB, DISCARDS PROPERTIES KNOWN AS PROVED. *)
 let split_unfalsifiable_rm_proved trans k =
   List.fold_left
-    ( fun (dis, true_k, others) ((s,_) as p) ->
+    ( fun (dis, true_k, others) ((s,t) as p) ->
       match TransSys.get_prop_status trans s with
       | Property.PropInvariant _ ->
          (dis, true_k, others)
       | Property.PropFalse _ ->
          (p :: dis, true_k, others)
       | Property.PropKTrue n when n >= k ->
-         (dis, p :: true_k, others)
+         (dis, (s, t, k) :: true_k, others)
       | _ ->
          (dis, true_k, p :: others) )
     ([], [], [])
@@ -480,19 +480,22 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
   (* Adding certificates to confirmed properties *)
   let confirmed_cert =
-    confirmed
-    |> List.map
-      (fun (s, (ac, phi)) ->
-         (* certificate for k-induction *)
-         let cert = k_int, phi in 
-         s, (ac, phi, cert))
+    confirmed |> List.map (
+      fun (s, (ac, phi), k) ->
+        (* certificate for k-induction *)
+        let cert = k, phi in 
+        s, (ac, phi, cert)
+    )
   in
   
   (* Communicating confirmed properties. *)
   confirmed_cert
   |> List.iter (
     fun (s, (_, _, cert)) ->
-      Event.prop_status (Property.PropInvariant cert) input_sys aparam trans s
+      Event.prop_status
+        (Property.PropInvariant cert) input_sys aparam trans s ;
+      Event.log L_warn
+        "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ;
   ) ;
 
   match unknowns', unfalsifiables with
@@ -503,6 +506,10 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      (* Need to wait for base confirmation. *)
      minisleep 0.001 ;
      next input_sys aparam trans solver k unfalsifiables unknowns'
+  | _ when Flags.BmcKind.max () > 0 && k_int + 1 > Flags.BmcKind.max () ->
+     Event.log
+       L_warn
+       "IND @[<v>reached maximal number of iterations.@]"
   | _ ->
 
      (* Notifying framework of our progress. *)
@@ -516,6 +523,9 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
+
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
@@ -583,8 +593,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
        "IND @[<v>at k = %i@,\
                  %i unknowns@,\
                  %i unfalsifiables.@]"
-       (Numeral.to_int k)
-       (List.length unknowns') (List.length unfalsifiable_props);
+       k_p_1_int (List.length unknowns') (List.length unfalsifiable_props);
 
      (* Splitting. *)
      let unfalsifiables_at_k, falsifiables_at_k =
@@ -599,22 +608,13 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      (* Output statistics *)
      print_stats () ;
 
-     (* Int k plus one. *)
-     let k_p_1_int = Numeral.to_int k_p_1 in
-
-     (* Checking if we have reached max k. *)
-     if Flags.BmcKind.max () > 0 && k_p_1_int > Flags.BmcKind.max () then
-       Event.log
-         L_info
-         "IND @[<v>reached maximal number of iterations.@]"
-     else
-       (* Looping. *)
-       next
-         input_sys aparam trans solver k_p_1
-         (* Adding the new unfalsifiables. *)
-         ( (k_int, unfalsifiables_at_k) :: unfalsifiables )
-         (* Iterating on the properties left. *)
-         falsifiables_at_k
+     (* Looping. *)
+     next
+       input_sys aparam trans solver k_p_1
+       (* Adding the new unfalsifiables. *)
+       ( (k_p_1_int, unfalsifiables_at_k) :: unfalsifiables )
+       (* Iterating on the properties left. *)
+       falsifiables_at_k
          
 
 

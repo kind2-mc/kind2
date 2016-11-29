@@ -117,11 +117,13 @@ module Contract = struct
 
         (* Skip inputs. *)
         | Some Node.Input -> loop known locals tail
-        (* Found oracle, illegal invariant. *)
-        | Some Node.Oracle -> None
+        (* Found oracle or node call svar, illegal invariant. *)
+        | Some Node.Oracle
+        | Some Node.Call -> None
 
         (* Rest should have a definition. *)
-        | Some _ -> (
+        | Some Node.Local
+        | Some Node.Ghost -> (
           let locals = SvSet.add svar locals in
           
           match expr_of svar with
@@ -147,7 +149,9 @@ module Contract = struct
             |> failwith
         )
 
-        | None -> raise Not_found
+        | None ->
+          Format.printf "unknown svar %a@.@." SVar.pp_print_state_var svar ;
+          raise Not_found
     
       )
     
@@ -191,7 +195,10 @@ module Contract = struct
   Returns the set of locals that must be defined for this term. *)
   let add_inv dep term =
     match mentions_outputs dep term with
-    | None -> dep, SvSet.empty
+    | None -> (
+      Event.log_uncond "discarding %a" Term.pp_print_term term ;
+      dep, SvSet.empty
+    )
     | Some (true, locals) -> {
       dep with gua = TSet.add term dep.gua
     }, locals
@@ -366,9 +373,59 @@ let fmt_def node fmt svar =
     (Expr.pp_print_lustre_type true) (SVar.type_of_state_var svar)
     (Expr.pp_print_lustre_expr true) expr
 
-let generate_contracts in_sys param sys get_node path =
+let generate_contract_for in_sys param sys path invs =
+  let scope = scope_of sys in
+  let _, node_of_scope =
+    InputSystem.contract_gen_param in_sys
+  in
+  let node = node_of_scope scope in
+  let contract, locals =
+    TSet.of_list invs |> Contract.build node
+  in
+
+  Event.log_uncond "invs: @[<v>%a@]"
+    (pp_print_list Term.pp_print_term "@ ") invs ;
+  Event.log_uncond "contract has @[<v>%d ass@ %d guas@ %d modes"
+    (TSet.cardinal contract.ass)
+    (TSet.cardinal contract.gua)
+    (TMap.cardinal contract.modes) ;
+
+  let out_channel = open_out path in
+  let fmt = Format.formatter_of_out_channel out_channel in
+
+  Format.fprintf fmt
+    "(*@[<v>@ \
+      The contract below was generated automatically by the Kind 2@ \
+      model-checker.@ \
+      @ http://kind2-mc.github.io/kind2/\
+    @]@ *)@.@.@.@." ;
+
+    Format.fprintf fmt
+      "(* Contract for node %s. *)@.contract %s_spec %a@.let@[<v 2>"
+      (sys_name sys) (sys_name sys) fmt_sig node ;
+
+    (* Declare necessary locals. *)
+    locals |> SvSet.iter (
+      fun svar ->
+        Format.fprintf fmt "@ " ;
+        fmt_def node fmt svar
+    ) ;
+    if SvSet.cardinal locals > 0 then Format.fprintf fmt "@ " ;
+
+    (* Dump sub contracts. *)
+    let _ =
+      Format.fprintf fmt "@ " ;
+      Contract.fmt (true, 0) fmt contract
+    in
+
+    Format.fprintf fmt "@]@.tel@.@."
+
+let generate_contracts in_sys param sys path =
   let max_depth = Flags.Contracts.contract_gen_depth () |> Num.of_int in
-  let get_node sys = try scope_of sys |> get_node with
+  let _, node_of_scope =
+    InputSystem.contract_gen_param in_sys
+  in
+  let get_node sys = try scope_of sys |> node_of_scope with
     | Not_found ->
       Format.asprintf "unknown system %a" fmt_sys_name sys
       |> failwith

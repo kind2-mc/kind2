@@ -37,3 +37,10 @@ val generate_smt2_certificates : int -> 'a InputSystem.t -> TransSys.t -> unit
 
 (** Generate LFSC proofs in the directory given by {!Flags.certif_dir}. *)
 val generate_all_proofs : int -> 'a InputSystem.t -> TransSys.t -> unit
+
+(** Minimization of certificate: returns the minimum bound for k-induction and
+  a list of useful invariants for this preservation step.
+
+Second parameter is an optional list of terms forcing minimization to consider
+only invariants of the system that are part of this list. *)
+val minimize_invariants : TransSys.t -> Term.t list option -> int * Term.t list

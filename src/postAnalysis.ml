@@ -23,6 +23,8 @@ module Num = Numeral
 module TSys = TransSys
 module ISys = InputSystem
 
+module SSet = StateVar.StateVarSet
+
 open Res
 
 
@@ -208,9 +210,6 @@ module RunContractGen: PostAnalysis = struct
       which means that Kind 2 will consider the contract unsafe.@ \
       This can be dealt with by adding a wild card mode:@ \
       mode wildcard () ;" ;
-    let _, node_of_scope =
-      InputSystem.contract_gen_param in_sys
-    in
     (* Building transition system and slicing info. *)
     let sys, in_sys_sliced =
       ISys.contract_gen_trans_sys_of ~preserve_sig:true in_sys param
@@ -223,7 +222,7 @@ module RunContractGen: PostAnalysis = struct
       Format.asprintf "%s/kind2_contract.lus" target
     in
     LustreContractGen.generate_contracts
-      in_sys_sliced param sys node_of_scope target ;
+      in_sys_sliced param sys target ;
     Ok ()
 end
 
@@ -257,10 +256,59 @@ Minimizes and logs invariants used in the proof. *)
 module RunInvLog: PostAnalysis = struct
   let name = "invlog"
   let title = "invariant logging"
+
+
   let is_active () = Flags.log_invs ()
   let run in_sys param results =
-    Err (
-      fun fmt -> Format.fprintf fmt "Invariant logging is unimplemented."
+    let top = (Analysis.info_of_param param).Analysis.top in
+    let target = Flags.subdir_for top in
+    (* Create directories if they don't exist. *)
+    Flags.output_dir () |> mk_dir ;
+    mk_dir target ;
+    let target =
+      Format.asprintf "%s/kind2_strengthening_contract.lus" target
+    in
+    last_result results top
+    |> Res.chain (fun { Analysis.sys } ->
+      (* Returns [false] iff term passed mentions node call svars. *)
+      let _, node_of_scope =
+        InputSystem.contract_gen_param in_sys
+      in
+      let node = node_of_scope top in
+      let nice_invariants term =
+        Term.state_vars_of_term term
+        |> SSet.exists (
+          fun svar -> try (
+            match
+              StateVar.StateVarMap.find
+                svar node.LustreNode.state_var_source_map
+            with
+            | LustreNode.Call -> true
+            | _ -> false
+          ) with Not_found -> true
+        )
+        |> not
+      in
+      try (
+        let k_min, invs_min =
+          TSys.invars_of_bound sys Num.zero
+          |> List.filter nice_invariants
+          |> fun a -> Some a
+          |> CertifChecker.minimize_invariants sys
+        in
+        Format.printf "Minimization result:@.  @[<v>min k: %d@ %d min invs@]@."
+          k_min (List.length invs_min) ;
+        Ok (sys, k_min, invs_min)
+      ) with _ -> Err (
+        fun fmt ->
+          Format.fprintf fmt
+            "Some necessary invariants cannot be translated \
+            back to lustre level."
+      )
+    )
+    |> Res.map (fun (sys, _, invs) ->
+      LustreContractGen.generate_contract_for
+        in_sys param sys target invs
     )
 end
 

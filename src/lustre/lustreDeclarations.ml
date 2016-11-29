@@ -824,7 +824,7 @@ let rec eval_node_equations ctx = function
 
      The expression is without node calls, those have been
      abstracted *)
-  | A.Equation (pos, lhs, ast_expr) :: tl -> 
+  | A.Equation (pos, lhs, ast_expr) :: tl ->
 
     (* Trie of state variables on left-hand side and extended context
        for right-hand side *)
@@ -832,12 +832,12 @@ let rec eval_node_equations ctx = function
 
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
-    
+
     (* Evaluate expression on right-hand side in extended context *)
     let eq_rhs, ctx = S.eval_ast_expr ctx ast_expr in
 
     let ctx = C.reset_guard_flag ctx in
-    
+
     (* Close each expression by guarding all pre operators separately *)
     let eq_rhs, ctx = 
       D.fold 
@@ -869,7 +869,7 @@ let rec eval_node_equations ctx = function
        definitions from the right-hand side, but remove the local
        definitions that we made before. *)
     let ctx = uneval_eq_lhs ctx lhs in
-    
+
     let equations = expand_tuple pos eq_lhs eq_rhs in
 
     (* Add equations for each index *)
@@ -1445,7 +1445,7 @@ let rec eval_node_contract_call known ctx scope (
       | None -> assert false
     ) ; *)
   ( if C.get_node_function_flag ctx then (
-    Format.printf "checking contract %s@.@." id ;
+    (* Format.printf "checking contract %s@.@." id ; *)
     match A.contract_has_pre_or_arrow contract with
     | Some _ -> C.fail_at_position call_pos (
       Format.asprintf
@@ -1591,12 +1591,18 @@ let eval_node_decl
 
   (* Add outputs to context: as state variable to ident_expr_map, and
      to outputs *)
-  let ctx = eval_node_outputs ~is_single:(List.length outputs = 1) ctx outputs in
+  let ctx =
+    eval_node_outputs ~is_single:(List.length outputs = 1) ctx outputs
+  in
 
   (* Parse contracts and add to context *)
   let ctx = match contract_spec with
     | None -> ctx
     | Some contract ->
+      ( match C.current_node_name ctx with
+        | None -> Format.printf "[contracts] no node in context@.@."
+        | Some _ -> ()
+      ) ;
       (* New scope for local declarations in contracts *)
       let ctx = C.push_scope ctx "contract" in
       (* Eval contracts. *)
@@ -1621,7 +1627,7 @@ let eval_node_decl
   let ctx = C.pop_scope ctx in
 
   (* Create node from current context and return *)
-  ctx 
+  ctx
 
 
 (* ********************************************************************** *)
