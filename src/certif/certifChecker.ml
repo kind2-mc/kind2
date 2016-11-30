@@ -279,6 +279,12 @@ let declare_state_var fmt uf =
   declare_fun fmt fun_symbol arg_sorts res_sort
 
 
+(* Declare select functions *)
+let declare_selects fmt =
+  if not (Flags.Arrays.smt ()) then
+    List.iter (declare_const fmt) (StateVar.get_select_ufs ())
+
+
 (* Define a new function symbol as an abbreviation for an expression *)
 let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn = 
 
@@ -1082,7 +1088,7 @@ let minimize_certificate sys =
      prop *)
   let kmin, uinvs = match min_strategy with
     | `Fwd -> find_bound sys solver 1 k invs prop
-    | `Bwd -> find_bound_back sys solver k invs prop
+    | `Bwd -> find_bound_back sys solver 3 invs prop
     | `FrontierDicho -> find_bound_frontier_dicho sys solver k invs prop
     | `Dicho -> find_bound_dicho sys solver k invs prop
   in
@@ -1171,7 +1177,15 @@ let add_logic fmt sys =
   (* Specify logic to help some solvers check the certificate *)
   match logic with
   | `None -> ()
-  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic 
+  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic
+
+
+  
+let add_arrays fmt =
+  (* Add farray declaration *)
+  fprintf fmt "(declare-sort FArray 2)@.";
+  (* Add select functions *)
+  declare_selects fmt
 
 
 (* Populate the headers of the certificate *)
@@ -1200,7 +1214,9 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
   set_info fmt "certif" (sprintf "\"(%d , %s)\"" k phi_n);
   fprintf fmt "@.";
 
-  add_logic fmt sys
+  add_logic fmt sys;
+
+  add_arrays fmt
 
 
 (* Populate the headers of the certificate *)
@@ -1241,9 +1257,16 @@ let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
   fprintf fmt "@.";
 
   (* Specify logic to help some solvers check the certificate *)
-  match logic with
+  begin match logic with
   | `None -> ()
-  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic 
+  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic
+  end;
+
+  (* Add farray declaration *)
+  fprintf fmt "(declare-sort FArray 2)@.";
+  
+  (* Add select functions *)
+  declare_selects fmt
 
 
 (************************************************)
@@ -1450,6 +1473,7 @@ let export_system ~trace_lfsc_defs
 
   if trace_lfsc_defs then begin
     add_logic fmt sys;
+    add_arrays fmt;
     add_decl_index fmt (-1);
   end;
   
@@ -1474,6 +1498,7 @@ let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
         ~add_prefix:(fun fmt ->
             if trace_lfsc_defs then begin
               add_logic fmt sys;
+              add_arrays fmt;
               add_decl_index fmt (-1)
             end else ())
         definitions_files filename |> Unix.out_channel_of_descr
@@ -1536,6 +1561,7 @@ let mononames_base_check sys dirname file definitions_files k names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
+          add_arrays fmt;
           add_decl_index fmt k)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
@@ -1576,6 +1602,7 @@ let mononames_induction_check sys dirname file definitions_files k names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
+          add_arrays fmt;
           add_decl_index fmt k)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
@@ -1611,6 +1638,7 @@ let mononames_implication_check sys dirname file definitions_files names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
+          add_arrays fmt;
           add_decl_index fmt (-1))
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
@@ -2424,6 +2452,7 @@ let export_obs_system ~trace_lfsc_defs
         ~add_prefix:(fun fmt ->
             if trace_lfsc_defs then begin
               add_logic fmt kind2_sys;
+              add_arrays fmt;
               add_decl_index fmt (-1)
             end else ())
         definitions_files filename |> Unix.out_channel_of_descr

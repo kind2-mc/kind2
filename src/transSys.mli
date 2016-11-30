@@ -35,12 +35,6 @@
     transition relation [trans] is a term over state variables at
     offsets [trans_base] and [trans_base - 1].
 
-    To model arrays we use an additional set of global state variables
-    outside the scope of the transition system in
-    [global_state_vars]. These state variables have an additional
-    index that is set to a unique term for the instance of the
-    transition system the array occurs in.
-
     @author Christoph Sticksel
     @author Adrien Champion
 *)
