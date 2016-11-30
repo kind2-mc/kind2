@@ -86,6 +86,10 @@ type state_var_source =
   (* Oracle input stream *)
   | Oracle
 
+  (* Alias for another state variable. *)
+  | Alias of
+    StateVar.t * state_var_source option
+
 type call_cond =
   | CNone
   | CActivate of StateVar.t
@@ -617,6 +621,10 @@ let pp_print_node_debug
       | (sv, Call) -> p sv "cl"
       | (sv, Ghost) -> p sv "gh"
       | (sv, Oracle) -> p sv "or"
+      | (sv, Alias (sub, _)) -> p sv (
+        Format.asprintf "al(%a)"
+          StateVar.pp_print_state_var sub
+      )
 
   in
 
@@ -1270,6 +1278,8 @@ let rec pp_print_state_var_source ppf = function
   | Local -> Format.fprintf ppf "local"
   | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
+  | Alias (sv, _) ->
+    Format.fprintf ppf "alias(%a)" StateVar.pp_print_state_var sv
 
 
 (* Set source of state variable *)
@@ -1290,7 +1300,14 @@ let get_state_var_source { state_var_source_map } state_var =
 
   SVM.find
     state_var
-    state_var_source_map 
+    state_var_source_map
+
+(* Sets a state variable as alias for another one. *)
+let set_state_var_alias node alias svar =
+  Alias (
+    svar,
+    try Some (get_state_var_source node alias) with Not_found -> None
+  ) |> set_state_var_source node alias
 
 (* Set source of state variable if not already defined. *)
 let set_state_var_source_if_undef node svar source =
@@ -1313,9 +1330,8 @@ let get_state_var_expr_map { state_var_expr_map } = state_var_expr_map
     false if it was created internally *)
 let state_var_is_visible node state_var = 
 
-  match get_state_var_source node state_var with
-
-    (* Oracle inputs and abstraced streams are invisible *)
+  let rec visible_of_src = function
+    (* Oracle inputs and abstracted streams are invisible *)
     | Call
     | Ghost
     | Oracle -> false
@@ -1325,8 +1341,14 @@ let state_var_is_visible node state_var =
     | Output
     | Local -> true
 
-    (* Invisible if no source set *)
-    | exception Not_found -> false
+    (* Alias depends on source of alias. *)
+    | Alias (_, None) -> false
+    | Alias (_, Some src) -> visible_of_src src
+  in
+  match get_state_var_source node state_var with
+  | src -> visible_of_src src
+  (* Invisible if no source set *)
+  | exception Not_found -> false
 
 
 (* Return true if the state variable is an input *)

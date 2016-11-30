@@ -117,9 +117,14 @@ module Contract = struct
 
         (* Skip inputs. *)
         | Some Node.Input -> loop known locals tail
+        
         (* Found oracle or node call svar, illegal invariant. *)
         | Some Node.Oracle
         | Some Node.Call -> None
+
+        | Some Node.Alias (sv, _) when SvSet.mem sv known |> not ->
+          sv :: tail |> loop known locals
+        | Some Node.Alias _ -> loop known locals tail
 
         (* Rest should have a definition. *)
         | Some Node.Local

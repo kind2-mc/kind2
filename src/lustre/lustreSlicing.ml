@@ -96,6 +96,7 @@ let rec node_state_var_dependencies'
                          
         (* Skip oracles and calls *)
         | N.Call
+        | N.Alias (_,_)
         | N.Oracle -> describe_cycle accum tl
                         
         (* State variable from abstraction *)

@@ -111,6 +111,8 @@ type state_var_source =
 | Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
 | Oracle  (** Generated non-deterministic input *)
+| Alias of
+  StateVar.t * state_var_source option (** Alias for another state variable. *)
 
 
 (** A contract. *)
@@ -375,6 +377,9 @@ val set_state_var_source_if_undef : t -> StateVar.t -> state_var_source -> t
 
 (** Get source of state variable *)
 val get_state_var_source : t -> StateVar.t -> state_var_source
+
+(** Sets the first svar as alias for the second svar. *)
+val set_state_var_alias : t -> StateVar.t -> StateVar.t -> t
 
 (** Register state var as tied to a node call if not already registered. *)
 val set_state_var_node_call : t -> StateVar.t -> t

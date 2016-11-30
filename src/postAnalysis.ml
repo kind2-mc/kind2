@@ -310,15 +310,15 @@ module RunInvLog: PostAnalysis = struct
                 svar node.LustreNode.state_var_source_map
             with
             | LustreNode.Call ->
-              (* Format.printf "discarding %a@.  %a -> call@.@."
+              Format.printf "discarding %a@.  %a -> call@.@."
                 Term.pp_print_term term
-                StateVar.pp_print_state_var svar ; *)
+                StateVar.pp_print_state_var svar ;
               true
             | _ -> false
           ) with Not_found ->
-            (* Format.printf "discarding %a@.  %a -> not found@.@."
+            Format.printf "discarding %a@.  %a -> not found@.@."
               Term.pp_print_term term
-              StateVar.pp_print_state_var svar ; *)
+              StateVar.pp_print_state_var svar ;
             true
         )
         |> not
