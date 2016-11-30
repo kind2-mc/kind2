@@ -468,6 +468,9 @@ val map : (int -> T.t -> T.t) -> t -> t
 val substitute_variables : (StateVar.t * StateVar.t) list -> t -> t
 *)
 
+(** Apply a substitution variable -> term *)
+val apply_subst : (Var.t * t) list -> t -> t
+
 (** Return a new term with each state variable replaced 
 
     [map_state_vars t f] returns a new term of [t] with each occurring
@@ -504,11 +507,6 @@ val state_vars_of_term : t -> StateVar.StateVarSet.t
 (** Return the variables occurring in the term *)
 val vars_of_term : t -> Var.VarSet.t
 
-(** Return the select symbols occurring in the term *)
-val select_symbols_of_term : t -> Symbol.SymbolSet.t
-
-val select_terms : t -> TermSet.t
-
 (** Return the state variables at given offset in term *)
 val state_vars_at_offset_of_term : Numeral.t -> t -> StateVar.StateVarSet.t
 
@@ -521,17 +519,36 @@ val vars_at_offset_of_term : Numeral.t -> t -> Var.VarSet.t
     the term. *)
 val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
 
-val stats : unit -> int * int * int * int * int * int
 
+(** {1 Arrays } *)
+
+(** Return the select symbols occurring in the term *)
+val select_symbols_of_term : t -> Symbol.SymbolSet.t
+
+(** Return the terms of the form (select ...) that appear in a term *)
+val select_terms : t -> TermSet.t
+
+(** Convert terms of the form [(select (select a i) j)] to [(select a i j)] for
+    multi-dimensional arrays *)
 val convert_select : t -> t
 
+(** Use fresh function symbols to encode partial select applications and add
+    constraint that [forall i, fresh a i = select a i], returns the modified
+    term and the list of new fresh symbols to declare. This is only useful when
+    using the fun-rec option of CVC4, it does nothing otherwise. *)
 val partial_selects : t -> t * UfSymbol.t list
 
+(** Inverse transformation of [!convert_select] *)
 val reinterpret_select : t -> t
 
-val apply_subst : (Var.t * t) list -> t -> t
-
+(** Return (array) indexes of a state variable appearing in a term *)
 val indexes_of_state_var : StateVar.t -> t -> t list list
+
+
+(** {1 Statistics} *)
+
+(** return statistics of hashconsing *)
+val stats : unit -> int * int * int * int * int * int
     
 (* 
    Local Variables:

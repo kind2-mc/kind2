@@ -1151,7 +1151,7 @@ module Arrays = struct
   let smt_default = false
   let smt = ref smt_default
   let _ = add_spec
-    "--smt"
+    "--smt_arrays"
     (bool_arg smt)
     (fun fmt ->
       Format.fprintf fmt
@@ -1160,7 +1160,7 @@ module Arrays = struct
     )
   let smt () = !smt
 
-  let inline_default = false
+  let inline_default = true
   let inline = ref inline_default
   let _ = add_spec
     "--inline_arrays"
