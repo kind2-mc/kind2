@@ -103,7 +103,7 @@ type t = {
      instead of ET.find. A ET.fold will return all bindings to an
      expression. (Thus turning an annoyance of OCaml into our
      advantage.) *)
-    expr_abs_map : N.equation_lhs ET.t;
+  expr_abs_map : N.equation_lhs ET.t;
 
   (* Map from state variables to state variables providing a
      non-deterministic pre-initial value *)
