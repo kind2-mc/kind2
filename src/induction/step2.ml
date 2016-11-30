@@ -202,7 +202,7 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
               map, true
 
             | Prop.PropKTrue n ->
-              p :: map, new_stuff || n = 1
+              p :: map, new_stuff || n >= 1
 
             | _ ->
               (* Still unknown. *)
