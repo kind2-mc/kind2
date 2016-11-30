@@ -444,15 +444,7 @@ let analyze msg_setup modules in_sys param sys =
   (* Issue analysis end notification. *)
   Event.log_analysis_end result ;
   (* Issue analysis outcome. *)
-  Event.log L_info "Result: %a" Analysis.pp_print_result result ;
-
-  (* Run post-analysis things. *)
-  try
-    PostAnalysis.run in_sys param results
-  with e ->
-    Event.log L_fatal
-      "Caught %s in post-analysis treatment."
-      (Printexc.to_string e)
+  Event.log L_info "Result: %a" Analysis.pp_print_result result
 
 (** Runs the analyses produced by the strategy module. *)
 let run in_sys =
@@ -513,14 +505,28 @@ let run in_sys =
         let sys, in_sys_sliced =
           ISys.trans_sys_of_analysis in_sys param
         in
+        (* Should we run post analysis treatment? *)
+        ( match !latest_trans_sys with
+          | Some old when TSys.equal_scope old sys |> not ->
+            PostAnalysis.run
+              in_sys (TSys.scope_of_trans_sys old) !all_results
+          | _ -> ()
+        ) ;
         latest_trans_sys := Some sys ;
         (* Analyze... *)
         analyze msg_setup modules in_sys param sys ;
         (* ...and loop. *)
         loop ()
 
-      | None ->
-        latest_trans_sys := None ;
+      | None -> (
+        ( match !latest_trans_sys with
+          | Some sys ->
+            PostAnalysis.run
+              in_sys (TSys.scope_of_trans_sys sys) !all_results
+          | _ -> ()
+        ) ;
+        latest_trans_sys := None
+      )
     in
 
     (* Set module currently running *)

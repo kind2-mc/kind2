@@ -1292,6 +1292,13 @@ let get_state_var_source { state_var_source_map } state_var =
     state_var
     state_var_source_map 
 
+(* Set source of state variable if not already defined. *)
+let set_state_var_source_if_undef node svar source =
+  try (
+    get_state_var_source node svar |> ignore ;
+    node
+  ) with Not_found -> set_state_var_source node svar source
+
 
 let set_oracle_state_var { oracle_state_var_map } = SVT.add oracle_state_var_map
 
@@ -1355,6 +1362,12 @@ let state_var_is_local node state_var =
 (* ********************************************************************** *)
 
 
+(* Register state var as tied to a node call if not already registered. *)
+let set_state_var_node_call (
+  { state_var_source_map } as node
+) state_var =
+  set_state_var_source_if_undef node state_var Call
+
 (* Stream is identical to a stream in a node instance at position *)
 type state_var_instance = position * I.t * StateVar.t
 
@@ -1377,10 +1390,6 @@ let get_state_var_instances state_var =
 
   (* Return empty list *)
   with Not_found -> []
-
-(* Register state var as tied to a node call. *)
-let set_state_var_node_call node state_var =
-  set_state_var_source node state_var Call
 
 
 (* State variable is identical to a state variable in a node instance *)

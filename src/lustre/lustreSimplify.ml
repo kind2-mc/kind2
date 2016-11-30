@@ -1327,6 +1327,12 @@ and eval_node_call
                 pos ctx expr
             in
             N.set_state_var_instance state_var' pos ident state_var;
+            let ctx =
+              C.current_node_map ctx (
+                fun node ->
+                  N.set_state_var_source_if_undef node state_var' N.Local
+              )
+            in
             (* Add expression as input *)
             (D.add i state_var' accum, ctx)
           ) else
@@ -1444,14 +1450,15 @@ and eval_node_call
       let ctx, oracle_state_vars =
         node_oracles
         |> List.rev (* Preserve order of oracles. *)
-        |> List.fold_left
-          (fun (ctx, accum) sv ->
-             let sv', ctx = 
-               C.mk_fresh_oracle ~is_input:true ~is_const:(StateVar.is_const sv)
+        |> List.fold_left (
+          fun (ctx, accum) sv ->
+            let sv', ctx = 
+              C.mk_fresh_oracle
+                ~is_input:true ~is_const:(StateVar.is_const sv)
                  ctx (StateVar.type_of_state_var sv) in
-             N.set_state_var_instance sv' pos ident sv;
-             (ctx, sv' :: accum))
-          (ctx, [])
+            N.set_state_var_instance sv' pos ident sv;
+            (ctx, sv' :: accum)
+        ) (ctx, [])
       in
       (* Create fresh state variable for each output *)
       let output_state_vars, ctx = 
@@ -1483,6 +1490,35 @@ and eval_node_call
       in
       (* Add node call to context *)
       let ctx = C.add_node_call ctx pos node_call in
+(*       C.current_node_map ctx (
+        fun node ->
+          node.LustreNode.state_var_source_map
+          |> StateVar.StateVarMap.bindings
+          |> Format.printf "node's svars: @[<v>%a@]@.@."
+            (pp_print_list
+              (fun fmt (svar, source) ->
+                Format.fprintf fmt "%a -> %a"
+                  StateVar.pp_print_state_var svar
+                  LustreNode.pp_print_state_var_source source ;
+                if source = LustreNode.Call then
+                  LustreNode.get_state_var_instances svar
+                  |> Format.fprintf fmt "@     -> @[<v>%a@]"
+                    (pp_print_list
+                      (fun fmt (_,_,sv) -> StateVar.pp_print_state_var fmt sv)
+                      "@ "
+                    )
+              ) "@ "
+            ) ;
+          node.LustreNode.equations
+          |> Format.printf "node's equations: @[<v>%a@]@.@."
+            (pp_print_list
+              (fun fmt eq ->
+                Format.fprintf fmt "%a"
+                  (LustreNode.pp_print_node_equation false) eq
+              ) "@ "
+            ) ;
+          node
+      ) ; *)
       (* Return expression and changed context *)
       (res, ctx)
 

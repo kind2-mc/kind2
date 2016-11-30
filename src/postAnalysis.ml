@@ -22,6 +22,7 @@ module TestGen = TestgenDF
 module Num = Numeral
 module TSys = TransSys
 module ISys = InputSystem
+module SVar = StateVar
 
 module SSet = StateVar.StateVarSet
 
@@ -275,6 +276,31 @@ module RunInvLog: PostAnalysis = struct
         InputSystem.contract_gen_param in_sys
       in
       let node = node_of_scope top in
+(*       node.LustreNode.state_var_source_map
+      |> StateVar.StateVarMap.bindings
+      |> Format.printf "node's svars: @[<v>%a@]@.@."
+        (pp_print_list
+          (fun fmt (svar, source) ->
+            Format.fprintf fmt "%a -> %a"
+              SVar.pp_print_state_var svar
+              LustreNode.pp_print_state_var_source source ;
+            if source = LustreNode.Call then
+              LustreNode.get_state_var_instances svar
+              |> Format.fprintf fmt "@     -> @[<v>%a@]"
+                (pp_print_list
+                  (fun fmt (_,_,sv) -> StateVar.pp_print_state_var fmt sv)
+                  "@ "
+                )
+          ) "@ "
+        ) ;
+      node.LustreNode.equations
+      |> Format.printf "node's equations: @[<v>%a@]@.@."
+        (pp_print_list
+          (fun fmt eq ->
+            Format.fprintf fmt "%a"
+              (LustreNode.pp_print_node_equation false) eq
+          ) "@ "
+        ) ; *)
       let nice_invariants term =
         Term.state_vars_of_term term
         |> SSet.exists (
@@ -283,9 +309,17 @@ module RunInvLog: PostAnalysis = struct
               StateVar.StateVarMap.find
                 svar node.LustreNode.state_var_source_map
             with
-            | LustreNode.Call -> true
+            | LustreNode.Call ->
+              (* Format.printf "discarding %a@.  %a -> call@.@."
+                Term.pp_print_term term
+                StateVar.pp_print_state_var svar ; *)
+              true
             | _ -> false
-          ) with Not_found -> true
+          ) with Not_found ->
+            (* Format.printf "discarding %a@.  %a -> not found@.@."
+              Term.pp_print_term term
+              StateVar.pp_print_state_var svar ; *)
+            true
         )
         |> not
       in
@@ -343,7 +377,8 @@ let post_analysis = [
 ]
 
 (** Runs the post-analysis things on a system and its results. *)
-let run i_sys param results =
+let run i_sys top results = try (
+  let param = (Analysis.results_last top results).Analysis.param in
   post_analysis |> List.iter (
     fun m ->
       let module Module = (val m: PostAnalysis) in
@@ -361,6 +396,10 @@ let run i_sys param results =
           raise e
       )
   )
+) with e ->
+    Event.log L_fatal
+      "Caught %s in post-analysis treatment."
+      (Printexc.to_string e)
 
 (* 
    Local Variables:

@@ -43,7 +43,7 @@ module RunInvLog: PostAnalysis
 module RunCertif: PostAnalysis
 
 (** Runs the post-analysis things on a system and its results. *)
-val run: 'a InputSystem.t -> Analysis.param -> Analysis.results -> unit
+val run: 'a InputSystem.t -> Scope.t -> Analysis.results -> unit
 
 (* 
    Local Variables:

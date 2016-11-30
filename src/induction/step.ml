@@ -494,8 +494,8 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
     fun (s, (_, _, cert)) ->
       Event.prop_status
         (Property.PropInvariant cert) input_sys aparam trans s ;
-      Event.log L_warn
-        "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ;
+      (* Event.log L_warn
+        "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ; *)
   ) ;
 
   match unknowns', unfalsifiables with

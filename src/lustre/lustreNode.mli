@@ -370,10 +370,13 @@ val pp_print_state_var_source : Format.formatter -> state_var_source -> unit
 (** Set source of state variable *)
 val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 
+(** Set source of state variable if not already defined. *)
+val set_state_var_source_if_undef : t -> StateVar.t -> state_var_source -> t
+
 (** Get source of state variable *)
 val get_state_var_source : t -> StateVar.t -> state_var_source
 
-(** Register state var as tied to a node call. *)
+(** Register state var as tied to a node call if not already registered. *)
 val set_state_var_node_call : t -> StateVar.t -> t
 
 (** State variable is identical to a state variable in a node instance *)
