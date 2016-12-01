@@ -327,15 +327,15 @@ module RunInvLog: PostAnalysis = struct
                 svar node.LustreNode.state_var_source_map
             with
             | LustreNode.Call ->
-              Format.printf "discarding %a@.  %a -> call@.@."
+              (* Format.printf "discarding %a@.  %a -> call@.@."
                 Term.pp_print_term term
-                StateVar.pp_print_state_var svar ;
+                StateVar.pp_print_state_var svar ; *)
               true
             | _ -> false
           ) with Not_found ->
-            Format.printf "discarding %a@.  %a -> not found@.@."
+            (* Format.printf "discarding %a@.  %a -> not found@.@."
               Term.pp_print_term term
-              StateVar.pp_print_state_var svar ;
+              StateVar.pp_print_state_var svar ; *)
             true
         )
         |> not
@@ -357,15 +357,18 @@ module RunInvLog: PostAnalysis = struct
           k_min (List.length invs_min) ;
         Ok (sys, k_min, invs_min)
       ) with
-      | CertifChecker.CertifError blah -> Err(
+      (* | CertifChecker.CertifError blah -> Err(
         fun fmt -> Event.log_uncond "Could not minimize:@   @[<v>%t@]" blah
-      )
+      ) *)
       | e -> Err (
         fun fmt ->
-          Format.fprintf fmt
+          (* Format.fprintf fmt
             "@[<v>Some necessary invariants cannot be translated \
             back to lustre level.@ %s@]"
-            (Printexc.to_string e)
+            (Printexc.to_string e) *)
+          Format.fprintf fmt
+            "Some necessary invariants cannot be translated \
+            back to lustre level."
       )
     )
     |> Res.map (fun (sys, _, invs) ->
