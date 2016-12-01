@@ -98,16 +98,10 @@ let split trans solver k falsifiable to_split actlits =
     None
   in
 
-  if Flags.BmcKind.check_unroll () then ( 
-    if SMTSolver.check_sat solver |> not then (
-      Event.log
-        L_warn
-        "BMC @[<v>Unrolling of the system is unsat at %a, \
-        the system has no more reachable states.@]"
-        Numeral.pp_print_numeral k ;
-      raise (UnsatUnrollingExc (Numeral.to_int k))
-    )
-  ) ;
+  Format.asprintf
+    "Looking for falsification at %a."
+    Numeral.pp_print_numeral k
+  |> SMTSolver.trace_comment solver ;
 
   (* Check sat assuming with actlits. *)
   SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
@@ -248,6 +242,22 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
                     %i properties.@]"
           k_int (List.length unknowns_at_k) ;
 
+        Format.asprintf
+          "%a unrolling satisfiability check."
+          Numeral.pp_print_numeral k
+        |> SMTSolver.trace_comment solver ;
+
+        if Flags.BmcKind.check_unroll () then ( 
+          if SMTSolver.check_sat solver |> not then (
+            Event.log
+              L_warn
+              "BMC @[<v>Unrolling of the system is unsat at %a, \
+              the system has no more reachable states.@]"
+              Numeral.pp_print_numeral k ;
+            raise (UnsatUnrollingExc (Numeral.to_int k))
+          )
+        ) ;
+
         (* Splitting. *)
         let unfalsifiable, falsifiable =
           split_closure trans solver k actlits unknowns_at_k
@@ -347,6 +357,8 @@ let init input_sys aparam trans =
   TransSys.init_of_bound trans Numeral.zero
   |> SMTSolver.assert_term solver
   |> ignore ;
+
+  SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 
   if Flags.BmcKind.check_unroll () then (
     if SMTSolver.check_sat solver |> not then (

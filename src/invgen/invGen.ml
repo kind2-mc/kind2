@@ -667,13 +667,13 @@ module Make (Graph : GraphSig) : Out = struct
     Format.printf "%s trivial: @[<v>%a@]@.@."
       pref (pp_print_list fmt_term "@ ") (Set.elements trivial) ; *)
 
-    let suff =
+    (* let suff =
       Format.asprintf "%a_%s" Num.pp_print_numeral k (sys_name sys)
     in
     InvGenGraph.write_dot_to
       "./dot" "graph" suff Graph.fmt_graph_dot graph ;
     InvGenGraph.write_dot_to
-      "./dot" "classes" suff Graph.fmt_graph_classes_dot graph ;
+      "./dot" "classes" suff Graph.fmt_graph_classes_dot graph ; *)
     (* minisleep 2.0 ;
     exit () ; *)
 
