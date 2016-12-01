@@ -75,7 +75,7 @@ module Uf_symbol_node = struct
   let hash = Hashtbl.hash 
 
   (* Equality of uninterpreted symbols is comparison of strings *)
-  let equal = (=)
+  let equal = String.equal
 
 end
 

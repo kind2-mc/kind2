@@ -390,6 +390,13 @@ val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
 (** Get standard output of command *)
 val syscall : string -> string
 
+(** Changes garbage collector parameters limit its effect *)
+val set_liberal_gc : unit -> unit
+
+(** Reset the parameters of the GC to its default values. Call after
+    {!set_liberal_gc}. *)
+val reset_gc_params : unit -> unit
+
 (** Reserved identifiers. *)
 module ReservedIds : sig
 

@@ -33,10 +33,17 @@ module LustreIdent = struct
   let hash = Hashtbl.hash
              
   (* Use polymorphic equality *)
-  let equal = (=)
+  let equal (i1, l1) (i2, l2) =
+    Ident.equal i1 i2 &&
+    try List.for_all2 (=) l1 l2
+    with Invalid_argument _ -> false
 
   (* Use polymorphic copmarison *)
-  let compare = Pervasives.compare            
+  let compare (i1, l1) (i2, l2) =
+    let c = Ident.compare i1 i2 in
+    if c <> 0 then c
+    else Lib.compare_lists Pervasives.compare l1 l2
+      
 
 end
 
