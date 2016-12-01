@@ -880,9 +880,9 @@ let rec eval_node_equations ctx = function
           let ctx =
             if E.is_var e then (
               let alias = E.state_var_of_expr e in
-              Format.printf "%a is an alias for %a@.@."
+              (* Format.printf "%a is an alias for %a@.@."
                 StateVar.pp_print_state_var alias
-                StateVar.pp_print_state_var sv ;
+                StateVar.pp_print_state_var sv ; *)
               C.current_node_map ctx (
                 fun node -> N.set_state_var_alias node alias sv
               )

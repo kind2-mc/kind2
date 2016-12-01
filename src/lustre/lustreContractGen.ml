@@ -388,12 +388,12 @@ let generate_contract_for in_sys param sys path invs =
     TSet.of_list invs |> Contract.build node
   in
 
-  Event.log_uncond "invs: @[<v>%a@]"
+  (* Event.log_uncond "invs: @[<v>%a@]"
     (pp_print_list Term.pp_print_term "@ ") invs ;
   Event.log_uncond "contract has @[<v>%d ass@ %d guas@ %d modes"
     (TSet.cardinal contract.ass)
     (TSet.cardinal contract.gua)
-    (TMap.cardinal contract.modes) ;
+    (TMap.cardinal contract.modes) ; *)
 
   let out_channel = open_out path in
   let fmt = Format.formatter_of_out_channel out_channel in

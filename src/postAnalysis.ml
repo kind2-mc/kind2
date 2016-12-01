@@ -261,6 +261,10 @@ module RunInvLog: PostAnalysis = struct
 
   let is_active () = Flags.log_invs ()
   let run in_sys param results =
+    Event.log L_warn "\
+    In some cases, invariant logging can fail because it is not able to@ \
+    translate the invariants found by Kind 2 internally back to Lustre level.\
+    " ;
     let top = (Analysis.info_of_param param).Analysis.top in
     let target = Flags.subdir_for top in
     (* Create directories if they don't exist. *)
@@ -271,6 +275,19 @@ module RunInvLog: PostAnalysis = struct
     in
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
+      (* Check all properties are valid. *)
+      match TSys.get_split_properties sys with
+      | _, [], _ -> Ok sys
+      | _, invalid, _ -> Err (
+        fun fmt ->
+          let len =  List.length invalid in
+          Format.fprintf fmt
+            "Not logging invariants: \
+            %d invalid propert%s, system is unsafe."
+            len (if len = 1 then "y" else "ies")
+      )
+    )
+    |> Res.chain (fun sys ->
       (* Returns [false] iff term passed mentions node call svars. *)
       let _, node_of_scope =
         InputSystem.contract_gen_param in_sys
@@ -330,19 +347,36 @@ module RunInvLog: PostAnalysis = struct
           |> fun a -> Some a
           |> CertifChecker.minimize_invariants sys
         in
-        Format.printf "Minimization result:@.  @[<v>min k: %d@ %d min invs@]@."
+        Event.log_uncond
+          "Minimization result: \
+            @[<v>\
+              all properties valid by %d-induction@ \
+              using %d invariant(s)\
+            @]\
+          "
           k_min (List.length invs_min) ;
         Ok (sys, k_min, invs_min)
-      ) with _ -> Err (
+      ) with
+      | CertifChecker.CertifError blah -> Err(
+        fun fmt -> Event.log_uncond "Could not minimize:@   @[<v>%t@]" blah
+      )
+      | e -> Err (
         fun fmt ->
           Format.fprintf fmt
-            "Some necessary invariants cannot be translated \
-            back to lustre level."
+            "@[<v>Some necessary invariants cannot be translated \
+            back to lustre level.@ %s@]"
+            (Printexc.to_string e)
       )
     )
     |> Res.map (fun (sys, _, invs) ->
       LustreContractGen.generate_contract_for
         in_sys param sys target invs
+    )
+    |> Res.map (
+      fun () ->
+        Event.log_uncond
+          "Done logging strengthening invariants to@ `%s`."
+          target
     )
 end
 

@@ -113,6 +113,8 @@ let obs_cert_sys dirname = {
   smt2_lfsc_trace_file = Filename.concat dirname obs_defs_lfsc_f;
 }
 
+exception CertifError of (Format.formatter -> unit)
+
 
 (****************************)
 (* Global hconsed constants *)
@@ -856,9 +858,14 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
 (* Find the minimum bound by increasing k *)
 let rec find_bound sys solver k kmax invs prop =
 
-  if k > kmax then failwith
-      (sprintf "[Certification] simplification of inductive invariant \
-                went over bound %d" kmax);
+  if k > kmax then raise (CertifError
+    ( fun fmt ->
+      Format.fprintf fmt
+        "[Certification] simplification of inductive invariant \
+        went over bound %d" 
+        kmax
+    )
+  ) ;
   
   (* Asserting transition relation. *)
   TransSys.trans_of_bound sys (Numeral.of_int k)
@@ -917,12 +924,14 @@ let find_bound_back sys solver kmax invs prop =
       (* Check if the previous were inductive *)
 
       begin match acc with
-        | _, Not_inductive ->
-          (* Not k-inductive *)
-          failwith
-            (sprintf
-               "[Certification] Could not verify %d-inductiveness \
-                of invariant" k);
+        (* Not k-inductive *)
+        | _, Not_inductive -> raise (CertifError
+          (fun fmt ->
+            Format.fprintf fmt
+              "[Certification] Could not verify %d-inductiveness \
+              of invariant" k
+          )
+        )
 
         | k, Inductive_to_reduce f ->
           (* The previous step was inductive, evaluate the continuation to
@@ -951,13 +960,16 @@ let rec loop_dicho sys solver kmax invs prop trans_acts_map acc k_l k_u =
 
   if k_l > k_u then
     match acc with
-    | _, Not_inductive ->
+    | _, Not_inductive -> raise (
       (* Not k-inductive *)
-      Format.asprintf
-        "[Certification, dicho] Could not verify inductiveness of invariants@ \
-        %a up to %d"
-        (pp_print_list Term.pp_print_term ",@ ") invs k_u
-      |> failwith
+      CertifError (
+        fun fmt ->
+          Format.fprintf fmt
+            "@[<v>Could not verify inductiveness of invariants@   \
+            @[<v>%a@]@   up to %d@]"
+            (pp_print_list Term.pp_print_term ",@ ") invs k_u
+      )
+    )
 
     | k, Inductive_to_reduce f ->
       (* The previous step was inductive, evaluate the continuation to
@@ -1021,9 +1033,13 @@ let find_bound_frontier_dicho sys solver kmax invs prop =
   in
 
   match res_kmax, res_kmax_m1 with
-  | Not_inductive, _ ->
-    failwith "[Certification, frontier dicho] Could not verify inductiveness@ \
-      of invariant"
+  | Not_inductive, _ -> raise (CertifError
+    (fun fmt ->
+      Format.fprintf fmt
+        "[Certification, frontier dicho] Could not verify inductiveness@ \
+        of invariant"
+    )
+  )
 
   | Inductive useful, Not_inductive -> kmax, useful
 
@@ -2172,10 +2188,13 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
 
           Event.log L_fatal "Frontend certificate was not generated.";
           
-          failwith (
-            Format.asprintf
-              "Could not find a match for the property variable %a."
-              StateVar.pp_print_state_var sv);
+          raise (CertifError
+            (fun fmt ->
+              Format.fprintf fmt
+                "Could not find a match for the property variable %a."
+                StateVar.pp_print_state_var sv
+            )
+          )
         end;
       end;
 
