@@ -24,6 +24,22 @@ module A = LustreAst
 
 let mk_pos = position_of_lexing 
 
+
+let rec add_else_branch b belse =
+  match b with
+  | A.Target _ -> failwith "Cannot add else branch to unconditional target"
+  | A.TransIf (p, e, b1, None) -> A.TransIf (p, e, b1, Some belse)
+  | A.TransIf (p, e, b1, Some b2) ->
+     A.TransIf (p, e, b1, Some (add_else_branch b2 belse))
+     
+           
+let merge_branches transitions =
+  List.fold_right (fun (p, b) acc ->
+      match acc, b with
+      | None, _ -> Some (p, b)
+      | Some (_, b2), b1 -> Some (p, add_else_branch b1 b2)
+    ) transitions None
+  
 %}
 
 (* Special characters *)
@@ -600,30 +616,34 @@ state_decl:
 
 state:
   | ii = state_decl; option(COLON)
-    us = option(unless_transition);
+    us = unless_transitions;
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
     TEL;
-    ul = option(until_transition)
+    ul = until_transitions
     { let i, init = ii in
-      A.State (mk_pos $startpos, i, init, List.flatten l, e, us, ul) }
+      A.State (mk_pos $startpos, i, init, List.flatten l, e,
+               merge_branches us, merge_branches ul) }
 
   | ii = state_decl; option(COLON)
-    us = option(unless_transition);
-    ul = option(until_transition)
+    us = unless_transitions;
+    ul = until_transitions
     { let i, init = ii in
-      A.State (mk_pos $startpos, i, init, [], [], us, ul) }
+      A.State (mk_pos $startpos, i, init, [], [],
+               merge_branches us, merge_branches ul) }
 
 
-unless_transition:
-  | UNLESS; b = transition_branch
-    { (mk_pos $startpos, b) }
+unless_transitions:
+  | { [] }
+  | UNLESS; b = transition_branch; u = unless_transitions
+    { (mk_pos $startpos, b) :: u }
 
-    
-until_transition:
-  | UNTIL; b = transition_branch
-    { (mk_pos $startpos, b) }
+
+until_transitions:
+  | { [] }
+  | UNTIL; b = transition_branch; u = unless_transitions
+    { (mk_pos $startpos, b) :: u }
 
 
 transition_branch:

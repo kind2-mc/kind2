@@ -730,7 +730,7 @@ let pp_print_node_debug
 let exists_node_of_name name nodes =
 
   List.exists
-    (function { name = node_name } -> name = node_name)
+    (function { name = node_name } -> I.equal name node_name)
     nodes
 
 
@@ -738,7 +738,7 @@ let exists_node_of_name name nodes =
 let node_of_name name nodes =
 
   List.find
-    (function { name = node_name } -> name = node_name)
+    (function { name = node_name } -> I.equal name node_name)
     nodes
 
 
@@ -869,7 +869,7 @@ let rec subsystem_of_nodes' nodes accum = function
 
       (* Subsystem for node already created? *)
       List.exists
-        (fun (n, _) -> n = top)
+        (fun (n, _) -> I.equal n top)
         accum
 
     then
@@ -912,7 +912,7 @@ let rec subsystem_of_nodes' nodes accum = function
                let callee_subsystem = 
 
                  List.find
-                   (fun (n, _) -> n = call_node_name)
+                   (fun (n, _) -> I.equal n call_node_name)
                    accum
 
                  |> snd 
@@ -923,9 +923,13 @@ let rec subsystem_of_nodes' nodes accum = function
 
                  (* Callee already seen as a subsystem of this
                     node? *)
+                 let call_node_name_string =
+                   I.string_of_ident false call_node_name in
                  List.exists 
-                   (fun { SubSystem.scope } -> 
-                      scope = [I.string_of_ident false call_node_name])
+                   (function
+                     | { SubSystem.scope = [i] } ->
+                       String.equal i call_node_name_string
+                     | _ -> false)
                    a
 
                then
@@ -1003,7 +1007,7 @@ let subsystem_of_nodes = function
 
        (* Find subsystem of top node *)
        List.find 
-         (fun (n, _) -> n = name)
+         (fun (n, _) -> I.equal n name)
          all_subsystems 
 
        |> snd
@@ -1082,7 +1086,7 @@ let rec fold_node_calls_with_trans_sys'
              let instance = 
                List.find 
                  (fun { TransSys.pos } -> 
-                    pos = call_pos)
+                    Lib.compare_pos pos call_pos = 0)
                  instances'
              in
 
@@ -1491,7 +1495,11 @@ let set_state_var_instance state_var pos node state_var' =
   let instances' =
 
     (* Check if instance already known *)
-    if List.mem (pos, node, state_var') instances then 
+    if List.exists (fun (p, n, sv) ->
+        Lib.compare_pos p pos = 0
+        && I.equal n node
+        && StateVar.equal_state_vars sv state_var'
+      ) instances then 
 
       (* Do not create duplicates *)
       instances 

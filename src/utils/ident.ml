@@ -52,10 +52,10 @@ module Ident = struct
   type t = string
     
   (* Equality on identifiers *)
-  let equal = (=)
+  let equal = String.equal
               
   (* Total order on identifiers *)
-  let compare = Pervasives.compare 
+  let compare = String.compare 
 
 end
 

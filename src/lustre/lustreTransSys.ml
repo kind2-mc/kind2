@@ -1732,7 +1732,6 @@ let rec trans_sys_of_node'
               all_state_vars
           in
 
-
           (* ****************************************************** *)
           (* Node calls 
 
@@ -2029,7 +2028,7 @@ let rec trans_sys_of_node'
               mode_requires
               [] (* One-state invariants *)
               [] (* Two-state invariants *)
-          in                
+          in
 
           trans_sys_of_node'
             globals

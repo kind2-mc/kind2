@@ -1148,6 +1148,26 @@ let syscall cmd =
   ignore(Unix.close_process (ic, oc));
   Buffer.contents buf
 
+
+
+let reset_gc_params =
+  let gc_c = Gc.get() in
+  fun () -> Gc.set gc_c
+  
+
+let set_liberal_gc () =
+  Gc.full_major ();
+  let gc_c =
+    { (Gc.get ()) with
+      (* Gc.verbose = 0x3FF; *)
+      Gc.minor_heap_size = 64000000; (* default 32000*)
+      major_heap_increment = 3200000;    (* default 124000*)
+      space_overhead = 100; (* default 80% des donnes vivantes *)
+    }
+  in
+  Gc.set gc_c
+
+
 (* ********************************************************************** *)
 (* Reserved identifiers                                                   *)
 (* ********************************************************************** *)

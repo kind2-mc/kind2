@@ -162,37 +162,51 @@ let allowed_lasts inputs outputs locals =
                          (A.FreeConst (_, i, _) |
                           A.TypedConst (_, i, _, _) |
                           A.UntypedConst (_, i, _))) -> i
-        | A.NodeVarDecl (_, (_, i, _, _)) -> i
+      | A.NodeVarDecl (_, (_, i, _, _)) -> i
     ) locals
 
 
 (* Infer defined streams of an automaton *)
 
-let rec defined_vars_struct_item acc = function
+
+let in_locals i' locals = List.exists (function
+    | A.NodeConstDecl (_,
+                       (A.FreeConst (_, i, _) |
+                        A.TypedConst (_, i, _, _) |
+                        A.UntypedConst (_, i, _)))
+    | A.NodeVarDecl (_, (_, i, _, _)) -> i = i'
+  ) locals
+  
+
+let rec defined_vars_struct_item locals acc = function
   | A.SingleIdent (_, i)
   | A.ArrayDef (_, i, _)
   | A.TupleSelection (_, i, _)
   | A.FieldSelection (_, i, _)
-  | A.ArraySliceStructItem (_, i, _) -> ISet.add i acc
-  | A.TupleStructItem (_, l) -> List.fold_left defined_vars_struct_item acc l
+  | A.ArraySliceStructItem (_, i, _) ->
+    if in_locals i locals then acc else ISet.add i acc
+  | A.TupleStructItem (_, l) ->
+    List.fold_left (defined_vars_struct_item locals) acc l
 
-let defined_vars_lhs acc = function
-  | A.StructDef (_, l) -> List.fold_left defined_vars_struct_item acc l
+let defined_vars_lhs locals acc = function
+  | A.StructDef (_, l) ->
+    List.fold_left (defined_vars_struct_item locals) acc l
 
 
-let rec defined_vars_equation acc = function
+let rec defined_vars_equation locals acc = function
   | A.Assert _ -> acc
   | A.Automaton (_, _, _, A.Given returns) ->
     List.fold_left (fun acc i -> ISet.add i acc) acc returns
   | A.Automaton (_, _, states, A.Inferred) ->
-    List.fold_left (fun acc (A.State (_, _, _, _, eqs, _, _)) ->
-        List.fold_left defined_vars_equation acc eqs
+    List.fold_left (fun acc (A.State (_, _, _, l', eqs, _, _)) ->
+        List.fold_left
+          (defined_vars_equation (List.rev_append l' locals)) acc eqs
       ) acc states
-  | A.Equation (_, lhs, _) -> defined_vars_lhs acc lhs
+  | A.Equation (_, lhs, _) -> defined_vars_lhs locals acc lhs
   
 
 let defined_vars_eqs eqs =
-  List.fold_left defined_vars_equation ISet.empty eqs
+  List.fold_left (defined_vars_equation []) ISet.empty eqs
   |> ISet.elements
   
 
@@ -1053,7 +1067,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
 
     let auto_outputs = defined_vars_eqs [e] in
     eval_automaton pos aname states auto_outputs inputs outputs locals ctx
-    
+
 
 
 (* ********************************************************************** *)
@@ -1791,7 +1805,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
               | A.NodeVarDecl (_, ((_, l, _, _) as ld)) when o = l ->
                 raise (Found_auto_out ld)
               | _ -> ()) locals;
-            C.fail_at_position pos ("Cound not find automaton output "^o)
+            C.fail_at_position pos ("Could not find automaton output "^o)
           with Found_auto_out ld -> ld
       ) auto_outputs in
 

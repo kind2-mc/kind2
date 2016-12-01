@@ -83,7 +83,10 @@ module State_var_node = struct
   let hash = Hashtbl.hash_param 100 100
 
   (* Equality of state variables is comparison of strings *)
-  let equal = (=)
+  let equal (s1, l1) (s2, l2) =
+    String.equal s1 s2 &&
+    try List.for_all2 String.equal l1 l2
+    with Invalid_argument _ -> false
 
 end
 

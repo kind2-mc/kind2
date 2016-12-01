@@ -863,6 +863,10 @@ let rec run_loop msg_setup modules results =
 (* Looks at the modules activated and decides what to do. *)
 let launch input_sys =
 
+  (* Prevent the garbage collector from running too often during the frontend
+     operations *)
+  Lib.set_liberal_gc ();
+  
   let results = Analysis.mk_results () in
 
   let Input in_sys = input_sys in
@@ -886,6 +890,9 @@ let launch input_sys =
   (* Dump transition system in native format *)
   (* if Flags.dump_native () then NativeInput.dump_native trans_sys; *)
 
+  (* Reset garbage collector to its initial settings *)
+  Lib.reset_gc_params ();
+  
   (* Checking what's activated. *)
   match Flags.enabled () with
 

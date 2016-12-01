@@ -465,7 +465,8 @@ let rec order_state_vars accum seen = function
   | [] -> accum
 
   (* Skip if state variable is already in the accumulator *)
-  | (h, _) :: tl when List.mem h accum -> order_state_vars accum seen tl
+  | (h, _) :: tl when List.exists (StateVar.equal_state_vars h) accum ->
+    order_state_vars accum seen tl
 
   (* State variable and the variables it depends on *)
   | (h, d) :: tl -> 
@@ -473,8 +474,10 @@ let rec order_state_vars accum seen = function
 
     (* All dependencies of state variables, except themselves, in the
        accumulator? *)
-    if SVM.for_all (fun sv _ -> List.mem sv accum) d
-    || List.mem h seen
+    if
+      SVM.for_all
+        (fun sv _ -> List.exists (StateVar.equal_state_vars sv) accum) d
+      || List.exists (StateVar.equal_state_vars h) seen
 
     then
 
