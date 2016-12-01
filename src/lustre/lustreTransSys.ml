@@ -1709,7 +1709,6 @@ let rec trans_sys_of_node'
               all_state_vars
           in
 
-
           (* ****************************************************** *)
           (* Node calls 
 
@@ -2037,7 +2036,8 @@ let rec trans_sys_of_node'
               mode_requires
               [] (* One-state invariants *)
               [] (* Two-state invariants *)
-          in                
+          in
+
 (*
           Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
 *)
