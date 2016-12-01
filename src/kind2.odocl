@@ -1,3 +1,4 @@
+Unroller
 Log
 Event
 Strategy
@@ -5,6 +6,8 @@ Analysis
 Flags
 InvarManager
 Kind2
+Kind2Flow
+PostAnalysis
 InputSystem
 Eval          
 Ident  
@@ -78,6 +81,7 @@ HString
 HStringSExpr
 Kind2Config
 Lib
+Res
 Messaging
 Numeral
 SExprBase

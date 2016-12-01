@@ -79,30 +79,28 @@ let rec node_state_var_dependencies'
      cycle, in reverse order *)
   let rec describe_cycle accum = function
     
-    | state_var :: tl ->
+    | state_var :: tl -> (
 
       (* Output state variable if visible, or node call *)
-      (match N.get_state_var_source node state_var with
+      match N.get_state_var_source node state_var with
         
         (* Output state variable if visible *)
         | N.Input 
         | N.Output
         | N.Local
-        | N.Ghost -> 
-          
-          describe_cycle 
-            ((Format.asprintf
-                "%a"
-                (E.pp_print_lustre_var false) 
-                state_var) :: 
-             accum)
-            tl
+        | N.Ghost ->
+          describe_cycle (
+            (Format.asprintf "%a" (E.pp_print_lustre_var false)  state_var) :: 
+            accum
+          ) tl
                          
-          (* Skip oracles *)
-          | N.Oracle -> describe_cycle accum tl
+        (* Skip oracles and calls *)
+        | N.Call
+        | N.Alias (_,_)
+        | N.Oracle -> describe_cycle accum tl
                         
-          (* State variable from abstraction *)
-          | exception Not_found -> 
+        (* State variable from abstraction *)
+        | exception Not_found -> (
             
           try 
             
@@ -126,7 +124,9 @@ let rec node_state_var_dependencies'
               tl
 
           (* Skip abstracted state variable *)
-          with Not_found -> describe_cycle accum tl)
+          with Not_found -> describe_cycle accum tl
+        )
+    )
 
     (* Return in reverse order at end of cycle *)
     | [] -> accum

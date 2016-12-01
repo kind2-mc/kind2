@@ -17,8 +17,8 @@ RUN mv z3-4.4.1-x64-ubuntu-14.04/bin/z3 .
 RUN rm -rf z3-4.4.1-x64-ubuntu-14.04.zip z3-4.4.1-x64-ubuntu-14.04/
 
 # Retrieve cvc4 binary
-RUN wget -qq http://cvc4.cs.nyu.edu/cvc4-builds/x86_64-linux-opt-proofs/unstable/cvc4-2016-11-03-x86_64-linux-opt-proofs
-RUN mv cvc4-2016-11-03-x86_64-linux-opt-proofs cvc4
+# RUN wget -qq http://cvc4.cs.nyu.edu/cvc4-builds/x86_64-linux-opt-proofs/unstable/cvc4-2016-11-03-x86_64-linux-opt-proofs
+# RUN mv cvc4-2016-11-03-x86_64-linux-opt-proofs cvc4
 
 # Retrieve opam.
 RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin
@@ -34,6 +34,15 @@ RUN echo "y" | opam init && eval $(opam config env) && opam switch reinstall sys
 # Force to use opam version of ocamlc.
 ENV PATH="/root/.opam/4.03.0/bin:${PATH}"
 
+# Certification stuff
+RUN apt-get -y -qq update
+RUN apt-get -y -qq install default-jre
+RUN wget http://cs.uiowa.edu/~amebsout/qualif.tgz
+RUN tar xvf qualif.tgz && rm qualif.tgz
+RUN mv qualif/jkind* .
+RUN mv qualif/cvc4 .
+RUN rm -rf qualif
+
 # Retrieve and build Kind 2.
 RUN mkdir kind2
 COPY . kind2/
@@ -47,7 +56,6 @@ RUN autoreconf
 RUN ./autogen.sh
 RUN ./build.sh
 WORKDIR ./..
-
 # Move Kind 2 binary to top level.
 RUN mv kind2/bin/kind2 kind2-bin && rm -rf kind2 && mv kind2-bin kind2
 

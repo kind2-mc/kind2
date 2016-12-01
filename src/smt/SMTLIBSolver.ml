@@ -688,7 +688,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           tdir
           (Format.sprintf "%s.%s.%d.%s" 
              (Filename.basename (Flags.input_file ()))
-             (suffix_of_kind_module (Event.get_module ()))
+             (short_name_of_kind_module (Event.get_module ()))
              id
              trace_extension
           )

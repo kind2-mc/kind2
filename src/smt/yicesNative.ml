@@ -1055,7 +1055,7 @@ let create_trace_ppf id =
         tdir
         (Format.sprintf "%s.%s.%d.ys" 
                         (Filename.basename (Flags.input_file ()))
-                        (suffix_of_kind_module (Event.get_module ()))
+                        (short_name_of_kind_module (Event.get_module ()))
                         id)
     in
     

@@ -287,6 +287,14 @@ let create_node = function
           expr_state_var_map = ET.copy expr_state_var_map;
           node = Some (N.empty_node ident is_extern) } )
 
+(** Maps something to the current node. *)
+let current_node_map = function
+  | { node = Some node } as ctx -> (
+    fun f -> { ctx with node = Some (f node) }
+  )
+  | ctx -> (fun _ -> ctx)
+
+
 (** Returns the modes of the current node. *)
 let current_node_modes = function
 | { node = None } -> None
@@ -1027,7 +1035,7 @@ let mk_local_for_expr
           (* Guard unguarded pres before adding definition *)
           let expr', ctx = close_expr ?original pos (expr, ctx) in
           
-          (* Define the expresssion with a fresh state variable *)
+          (* Define the expression with a fresh state variable *)
           let state_var, ctx =
             mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen
               (* ?reuse *)
@@ -1358,7 +1366,9 @@ let trace_svars_of ctx expr = match ctx with
           | N.Input
           | N.Output -> mem, to_do
           | N.Local
-          | N.Ghost -> (
+          | N.Ghost
+          | N.Call
+          | N.Alias (_,_) -> (
             let svars =
               (* Do we have an equation for svar? *)
               match N.equation_of_svar node svar with

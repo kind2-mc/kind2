@@ -16,22 +16,22 @@
 
 *)
 
-(** Module generating candidate terms for invariant generation. *)
-module type CandGen = sig
-  (** Generates sets of candidate terms from a transition system, and its
-  subsystems if the second flag require it. First flag is for two-state. *)
-  val mine : bool -> bool -> TransSys.t -> (TransSys.t * Term.TermSet.t) list
-end
 
-(** Bool candidate term miner. *)
-module Bool : CandGen
-(** Integer candidate term miner. *)
-module Int : CandGen
-(** Real candidate term miner. *)
-module Real : CandGen
+(** Very basic helper functions for unrolling. More precisely, asserting
+one- and two-state invariants. *)
 
+(** Asserts some terms from [0] to [k-1]. *)
+val assert_0_to : SMTSolver.t -> Numeral.t -> Term.t -> unit
 
+(** Asserts some terms from [1] to [k-1]. *)
+val assert_1_to : SMTSolver.t -> Numeral.t -> Term.t -> unit
 
+(** Asserts some new one- and two-state invariant up to [k-1], starting at
+  * [0] for one-state invariants,
+  * [1] for two-state invariants. *)
+val assert_new_invs_to : SMTSolver.t -> Numeral.t -> (
+  Term.TermSet.t * Term.TermSet.t
+) -> unit
 
 
 (* 
@@ -41,4 +41,3 @@ module Real : CandGen
    indent-tabs-mode: nil
    End: 
 *)
-

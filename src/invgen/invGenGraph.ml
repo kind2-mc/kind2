@@ -50,6 +50,9 @@ type set = Set.t
 
 (* Term formatter. *)
 let fmt_term = Term.pp_print_term
+(* Term formatter, dot version. *)
+let fmt_term_dot fmt term =
+  Term.string_of_term term |> Format.fprintf fmt "%s"
 
 (* Opens a file in write mode, creating it if needed. *)
 let openfile path = Unix.openfile path [
@@ -89,11 +92,25 @@ module type Graph = sig
   representative. *)
   val mk : term -> set -> graph
 
+  (** Mines a system and creates the relevant graphs.
+  
+  First boolean is [top_only], then [two_state]. Input function is applied to
+  each subsystem. It is used to create the pruning checkers. *)
+  val mine : bool -> bool -> Analysis.param -> TransSys.t -> (
+    TransSys.t -> unit
+  ) -> (TransSys.t * graph * set * set) list
+
   (** Clones a graph. *)
   val clone : graph -> graph
 
   (** Total number of terms in the graph. *)
   val term_count : graph -> int
+
+  (** Total number of classes in the graph. *)
+  val class_count : graph -> int
+
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  val is_stale : graph -> bool
 
   (** Drops a term from the class corresponding to a representative. *)
   val drop_class_member : graph -> term -> term -> unit
@@ -214,6 +231,16 @@ module Make (Dom: DomainSig) : Graph = struct
     values = Map.create 107 ;
   }
 
+  (** Mines a system and creates the relevant graphs. *)
+  let mine top_only two_state param sys do_stuff =
+    Dom.mine top_only two_state param sys
+    |> List.fold_left (
+      fun acc (sub_sys, terms) ->
+        do_stuff sub_sys ;
+        let rep, terms = Dom.first_rep_of terms in
+        (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
+    ) []
+
   (** Clones a graph. *)
   let clone { map_up ; map_down ; classes ; values } = {
     map_up = Map.copy map_up ;
@@ -225,8 +252,19 @@ module Make (Dom: DomainSig) : Graph = struct
   (** Total number of terms in the graph. *)
   let term_count { classes } =
     Map.fold (
-     fun rep cl4ss sum -> sum + 1 + (Set.cardinal cl4ss)
+      fun rep cl4ss sum ->
+        (* Format.printf "%a -> @[<v>%a@]@.@."
+          fmt_term rep
+          (pp_print_list fmt_term "@ ")
+          (Set.elements cl4ss) ; *)
+        sum + 1 + (Set.cardinal cl4ss)
     ) classes 0
+
+  (** Number of classes in the graph. *)
+  let class_count { classes } = Map.length classes
+
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  let is_stale t = (term_count t) = (class_count t)
 
   (** Forgets a member of an equivalence class. *)
   let drop_class_member { classes } rep term =
@@ -275,8 +313,8 @@ digraph mode_graph {
               fmt "\"%a (%d, %s)\" -> \"%a (%d, %s)\" [\
                 constraint=false\
               ] ;@ "
-              fmt_term key key_len key_value
-              fmt_term kid kid_len kid_value
+              fmt_term_dot key key_len key_value
+              fmt_term_dot kid kid_len kid_value
         )
     ) ;
 
@@ -298,8 +336,8 @@ digraph mode_graph {
               fmt "\"%a (%d, %s)\" -> \"%a (%d, %s)\" [\
                 color=\"red\"\
               ] ;@ "
-              fmt_term key key_len key_value
-              fmt_term kid kid_len kid_value
+              fmt_term_dot key key_len key_value
+              fmt_term_dot kid kid_len kid_value
         )
     ) ;
 
@@ -330,9 +368,9 @@ digraph mode_graph {
           with Not_found -> "_mada_"
         in
         Format.fprintf fmt "\"%a (%s)\" ->\"%a\" ;@ "
-          fmt_term rep rep_value
+          fmt_term_dot rep rep_value
           (pp_print_list
-            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term term)
+            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term_dot term)
             "\n")
           (Set.elements set)
     ) ;
@@ -396,8 +434,8 @@ digraph mode_graph {
     |> function
     | true -> true
     | false -> (
-      Event.log L_fatal
-        "Stopping invariant generation due to graph inconsistencies" ;
+      Format.printf
+        "Stopping invariant generation due to graph inconsistencies@.@." ;
       let dump_path = "./" in
       Event.log L_fatal
         "Dumping current graph as graphviz in current directory" ;
@@ -516,12 +554,12 @@ digraph mode_graph {
 
     Map.fold (
       fun rep terms acc ->
-        if Set.cardinal terms < 50 then
+        if Set.cardinal terms < 10 then
           Set.elements terms |> loop rep [] acc
         else
           Set.fold (
             fun term acc ->
-              ( Domain.mk_eq rep term, (rep, term) ) :: acc
+              cond_cons acc (Domain.mk_eq rep term) (rep, term)
           ) terms acc
     ) classes []
 
@@ -538,11 +576,7 @@ digraph mode_graph {
         if Domain.is_bot rep then acc else
           Set.fold (
             fun rep' acc ->
-              if (
-                Domain.is_bot rep
-              ) || (
-                Domain.is_top rep'
-              ) then acc else (
+              if Domain.is_top rep' then acc else (
                 let acc =
                   try Domain.mk_cmp rep rep' |> cond_cons acc
                   with InvGenDomain.TrivialRelation -> acc
@@ -613,7 +647,7 @@ digraph mode_graph {
   let split sys new_reps { classes ; values ; map_up ; map_down } model rep =
     (* Format.printf "  splitting %a@." fmt_term rep ; *)
 
-    (* Domain of the representative. *)
+    (* Value of the representative. *)
     let rep_val = Domain.eval sys model rep in
 
     (* Class of the representative. Terms evaluating to a different value will
@@ -638,9 +672,11 @@ digraph mode_graph {
     The idea is that if all terms evaluate to the representative's value, no
     operation is performed. Once all terms in [rep_cl4ss] have been evaluated
     and "inserted", then the representative is inserted with the remaining
-    terms form [rep_cl4ss]. *)
+    terms form [rep_cl4ss].
+
+    This function DOES NOT modify [map_up] and [map_down]. *)
     let rec insert ?(is_rep=false) pref sorted term value =
-      if is_rep || value <> rep_val then (
+      if is_rep || (Domain.eq value rep_val |> not) then (
         let default = if is_rep then !rep_cl4ss else Set.empty in
         if not is_rep then rep_cl4ss := Set.remove term !rep_cl4ss ;
 
@@ -650,7 +686,7 @@ digraph mode_graph {
           (* No more elements, inserting. *)
           (term, value, default) :: pref |> List.rev
 
-        | (rep, value', set) :: tail when value = value' ->
+        | (rep, value', set) :: tail when Domain.eq value value' ->
           (* Inserting. *)
           (rep, value', Set.add term set) :: tail |> List.rev_append pref
 
@@ -729,7 +765,7 @@ digraph mode_graph {
     (* Greatest value in the chain. *)
     let greatest_rep, greatest_val = List.hd chain in
 
-    (* Break all links to [rep], except if rep is the top of the chain. These
+    (* Break all links from [rep], except if rep is the top of the chain. These
     links will be used to update the kids of [rep] in the future. Remember that
     a node can be split iff all its parents have been split. Hence all the kids
     of the current representative have not been split yet. *)
@@ -755,7 +791,7 @@ digraph mode_graph {
       )
     ) ;
 
-    (* Break all links to [rep]. *)
+    (* Break all links from [rep]. *)
     map_down |> apply (
       fun set ->
         (* Break uplinks. *)
@@ -811,8 +847,8 @@ digraph mode_graph {
 
       (* Longest chain above current node. *)
       let chain_above, rest = longest_above [] value chain in
-
-      (* Format.printf "    %d above, %d below@."
+(* 
+      Format.printf "    %d above, %d below@."
         (List.length chain_above) (List.length rest) ; *)
 
       (* Creating links. *)
@@ -871,13 +907,9 @@ digraph mode_graph {
           insert (Set.add node known) continuation chain node
         )
       | ( chain, node :: rest) :: continuation ->
-        if Set.mem node known then (
-          continue known ( (chain, rest) :: continuation )
-        ) else (
-          insert (Set.add node known) (
-            (chain, rest) :: continuation
-          ) chain node
-        )
+        let continuation = (chain, rest) :: continuation in
+        if Set.mem node known then continue known continuation
+        else insert (Set.add node known) continuation chain node
       | (_, []) :: continuation -> continue known continuation
       | [] -> ()
     in
@@ -967,6 +999,7 @@ digraph mode_graph {
   let stabilize_classes sys known stable_action query ({ classes } as graph) =
 
     let rec loop count reps_to_update =
+
       try (
 
         (* Checking if we should terminate before doing anything. *)
@@ -1011,9 +1044,9 @@ digraph mode_graph {
           Format.asprintf "could not find rep %a in class map" fmt_term rep
           |> failwith
 
-      ) with Not_found ->
-        Event.log L_info
-          "update classes done in %d iterations" count
+      ) with Not_found -> ()
+        (* Event.log L_info
+          "update classes done in %d iterations" count *)
     in
 
     (* Retrieve all representatives. *)
@@ -1151,6 +1184,230 @@ digraph mode_graph {
 end
 
 
+
+(** Functor for equivalence classes only. *)
+module MakeEq (Dom: DomainSig) : Graph = struct
+
+  (** Domain with an order relation. *)
+  module Domain = Dom
+
+  (** Structure storing the equivalence classes. *)
+  type graph = set map
+
+  (** Creates a graph from a single equivalence class and its
+  representative. *)
+  let mk term set =
+    let map = Map.create 107 in
+    Map.replace map term set ;
+    map
+  
+
+  let mine top_only two_state param sys do_stuff =
+    Dom.mine top_only two_state param sys
+    |> List.fold_left (
+      fun acc (sub_sys, terms) ->
+        do_stuff sub_sys ;
+        let rep, terms = Dom.first_rep_of terms in
+        (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
+    ) []
+
+  (** Clones a graph. *)
+  let clone = Map.copy
+
+  (** Total number of terms in the graph. *)
+  let term_count graph = Map.fold (
+    fun _ cl4ss sum -> sum + (Map.length graph) + 1
+  ) graph 0
+
+  (** Total number of classes in the graph. *)
+  let class_count = Map.length
+
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  let is_stale graph = (term_count graph) = (class_count graph)
+
+  (** Drops a term from the class corresponding to a representative. *)
+  let drop_class_member graph rep term =
+    try
+      Map.find graph rep
+      |> Set.remove term
+      |> Map.replace graph rep
+    with Not_found ->
+      Event.log L_fatal
+        "Asked to remove term %a from class of %a, but no such class found"
+        fmt_term term fmt_term rep
+
+  (** Formats a graph in dot format. Only the representatives will appear. *)
+  let fmt_graph_dot _ _ =
+    Event.log L_fatal "Equality-graph formatting is unimplemented"
+  (** Formats the eq classes of a graph in dot format. *)
+  let fmt_graph_classes_dot fmt classes =
+    Format.fprintf fmt
+      "\
+digraph mode_graph {
+  graph [bgcolor=black margin=0.0] ;
+  node [
+    style=filled
+    fillcolor=black
+    fontcolor=\"#1e90ff\"
+    color=\"#666666\"
+  ] ;
+  edge [color=\"#1e90ff\" fontcolor=\"#222222\"] ;
+
+
+    @[<v>" ;
+
+    classes |> Map.iter (
+      fun rep set ->
+        Format.fprintf fmt "\"%a\" ->\"%a\" ;@ "
+          fmt_term rep
+          (pp_print_list
+            (fun fmt term -> Format.fprintf fmt "@[<h>%a@]" fmt_term term)
+            "@ ")
+          (Set.elements set)
+    ) ;
+
+    Format.fprintf fmt "@]@.}@."
+
+  (* Checks that a graph makes sense. *)
+  let check_graph _ = true
+
+  let terms_of graph known =
+    let cond_cons l cand =
+      if known cand then l else cand :: l
+    in
+    Map.fold (
+      fun rep ->
+        Set.fold (
+          fun term acc ->
+            Domain.mk_eq rep term
+            |> cond_cons acc
+        )
+    ) graph []
+
+  (** Equalities coming from the equivalence classes of a graph.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true.
+
+  Generates a list of pairs [term * (term * term)]. The first term is the
+  candidate invariant, while the second element stores the representative
+  of the class the candidate comes from, and the term that can be dropped
+  from it if the candidate is indeed invariant. *)
+  let equalities_of graph known =
+    let cond_cons l cand info =
+      if known cand then l else (cand, info) :: l
+    in
+   
+    let rec loop rep pref suff = function
+      | term :: tail ->
+        let pref =
+          cond_cons pref (Domain.mk_eq rep term) (rep, term)
+        in
+        let suff =
+          List.fold_left (
+            fun suff term' ->
+              cond_cons suff (Domain.mk_eq term term') (rep, term')
+          ) suff tail
+        in
+        loop rep pref suff tail
+      | [] -> List.rev_append pref suff
+    in
+
+    Map.fold (
+      fun rep terms acc ->
+        if Set.cardinal terms < 10 then
+          Set.elements terms |> loop rep [] acc
+        else
+          Set.fold (
+            fun term acc ->
+              cond_cons acc (Domain.mk_eq rep term) (rep, term)
+          ) terms acc
+    ) graph []
+
+  let relations_of _ l _ = l
+
+  (** Queries the lsd and updates the graph. Terminates when the graph is
+  stable, meaning all terms the graph represents are unfalsifiable in the
+  current lsd.
+
+  Input function returns true for candidates we want to ignore, typically
+  candidates we have already proved true. *)
+  let stabilize graph sys known base =
+    let has_cex = Lsd.query_base base in
+
+    (** Splits a class and inserts it in the graph. Replaces the binding of
+    [rep] in the graph if any. *)
+    let split graph rep set eval =
+      let val_map = ref [] in
+
+      let add rep term =
+        Map.replace graph rep (
+          try Map.find graph rep |> Set.add term
+          with Not_found -> Set.add term Set.empty
+        ) 
+      in
+
+      (* Evaluate representative. *)
+      val_map := ((eval rep), rep) :: ! val_map ;
+      Map.replace graph rep Set.empty ;
+
+      Set.iter (
+        fun term ->
+          let value = eval term in
+          try (
+            let _, rep =
+              ! val_map |> List.find (
+                fun (v, rep) -> Domain.eq v value
+              )
+            in
+            add rep term
+          ) with Not_found -> (
+            val_map := (value, term) :: ! val_map ;
+            Map.replace graph term Set.empty
+          )
+      ) set
+    in
+
+    (** Stabilizes a graph for a model. *)
+    let model_stabilize graph eval =
+      (* Don't modify the map when folding over it, that's undefined
+      behavior. *)
+      Map.fold (
+        fun rep set acc -> (rep, set) :: acc
+      ) graph []
+      (* Extract info and modify afterwards. *)
+      |> List.iter (
+        fun (rep, set) -> split graph rep set eval
+      )
+    in
+
+    (** Loops as long as the graph is unstable in base. *)
+    let rec loop () =
+      match
+        terms_of graph known |> has_cex
+      with
+      | None -> ()
+      | Some model ->
+        let eval = Domain.eval sys model in
+        model_stabilize graph eval ;
+        loop ()
+    in
+
+    loop ()
+
+
+
+  (** Clones the graph, and splits it in step.
+
+  Stabilizes eq classes one by one, communicates invariants at each step.
+  Then stabilizes relations, communicating by packs. *)
+  let step_stabilize _ _ _ _ _ _ =
+    failwith "Step stabilization for equality-graph is unimplemented"
+
+
+end
+
+
 (* |===| Actual graph modules. *)
 
 (** Graph of booleans with implication. *)
@@ -1162,7 +1419,19 @@ module Int = Make( InvGenDomain.Int )
 (** Graph of reals with less than or equal. *)
 module Real = Make( InvGenDomain.Real )
 
+(** Graph modules for equivalence only. *)
+module EqOnly = struct
 
+  (** Graph of booleans. *)
+  module Bool = MakeEq( InvGenDomain.Bool )
+
+  (** Graph of integers. *)
+  module Int = MakeEq( InvGenDomain.Int )
+
+  (** Graph of reals. *)
+  module Real = MakeEq( InvGenDomain.Real )
+
+end
 
 (* 
    Local Variables:

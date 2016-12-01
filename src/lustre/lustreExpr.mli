@@ -125,7 +125,10 @@ val pp_print_lustre_var_typed : bool -> Format.formatter -> StateVar.t -> unit
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
 
 (** Pretty-print a Lustre expression *)
-val pp_print_expr : bool -> Format.formatter -> expr -> unit 
+val pp_print_expr : bool -> Format.formatter -> expr -> unit
+
+(* Pretty-print a term as an expr. *)
+val pp_print_term_as_expr : bool -> Format.formatter -> Term.t -> unit
 
 (** {1 Predicates} *)
 
