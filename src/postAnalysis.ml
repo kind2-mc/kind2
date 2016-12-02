@@ -414,29 +414,35 @@ let post_analysis = [
 ]
 
 (** Runs the post-analysis things on a system and its results. *)
-let run i_sys top results = try (
-  let param = (Analysis.results_last top results).Analysis.param in
-  post_analysis |> List.iter (
-    fun m ->
-      let module Module = (val m: PostAnalysis) in
-      if Module.is_active () then (
-        Event.log_post_analysis_start Module.name Module.title ;
-        (* Event.log_uncond "Running @{<b>%s@}." Module.title ; *)
-        try
-          ( match Module.run i_sys param results with
-            | Ok () -> ()
-            | Err err -> Event.log L_warn "@[<v>%t@]" err
+let run i_sys top results = (
+  try (
+    let param = (Analysis.results_last top results).Analysis.param in
+    post_analysis |> List.iter (
+      fun m ->
+        let module Module = (val m: PostAnalysis) in
+        if Module.is_active () then (
+          Event.log_post_analysis_start Module.name Module.title ;
+          (* Event.log_uncond "Running @{<b>%s@}." Module.title ; *)
+          ( try
+              ( match Module.run i_sys param results with
+                | Ok () -> ()
+                | Err err -> Event.log L_warn "@[<v>%t@]" err
+              ) ;
+              Event.log_post_analysis_end ()
+            with e ->
+              Event.log_post_analysis_end () ;
+              raise e
           ) ;
-          Event.log_post_analysis_end ()
-        with e ->
-          Event.log_post_analysis_end () ;
-          raise e
-      )
-  )
-) with e ->
-    Event.log L_fatal
-      "Caught %s in post-analysis treatment."
-      (Printexc.to_string e)
+          (* Kill all solvers just in case. *)
+          SMTSolver.destroy_all ()
+        )
+    )
+  ) with e ->
+      Event.log L_fatal
+        "Caught %s in post-analysis treatment."
+        (Printexc.to_string e)
+  ) ;
+  SMTSolver.destroy_all ()
 
 (* 
    Local Variables:

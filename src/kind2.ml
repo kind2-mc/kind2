@@ -136,9 +136,7 @@ let main () =
         "Could not translate contracts from file \"%s\":@ %s"
         src (Printexc.to_string e)
   )
-  | None -> (
-    Kind2Flow.run input_sys
-  )
+  | None -> Kind2Flow.run input_sys
 
 ;;
 

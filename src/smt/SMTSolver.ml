@@ -22,6 +22,12 @@ open SolverResponse
 
 exception Unknown
 
+
+module IntMap = Map.Make(
+  struct type t = int let compare = compare end
+)
+
+
 (* Generate next unique identifier *)
 let gentag =
   let r = ref 0 in
@@ -38,27 +44,31 @@ type expr = SMTExpr.t
 
 
 (* Solver instance *)
-type t =
+type t = { 
+  (* Type of SMT solver *)
+  solver_kind : Flags.Smt.solver ;
+  (* Solver instance *)
+  solver_inst : (module SolverSig.Inst) ;
+  (* Hashtable associating generated names to terms *)
+  term_names : (int, expr) Hashtbl.t ;
+  (* Unique identifier for solver instance *)
+  id : int ;
+  mutable next_assumption_id : int ;
+  mutable last_assumptions : Term.t array ;
+}
 
-  { 
-    
-    (* Type of SMT solver *)
-    solver_kind : Flags.Smt.solver;
-    
-    (* Solver instance *)
-    solver_inst : (module SolverSig.Inst);
-    
-    (* Hashtable associating generated names to terms *)
-    term_names : (int, expr) Hashtbl.t;
+(** All solver instances created are stored in this map from solver id to
+solver. The main goal of this is to have all the live solver instances in one
+place so that we can kill everyone easily in case of unexpected shutdown.
 
-    (* Unique identifier for solver instance *)
-    id : int;
-
-    mutable next_assumption_id : int;
-
-    mutable last_assumptions : Term.t array;
-      
-  }
+See [destroy_all]. *)
+let all_solvers = ref IntMap.empty
+(** Registers a solver. *)
+let add_solver ( { id } as solver ) =
+  all_solvers := IntMap.add id solver !all_solvers
+(** Forgets a solver. *)
+let drop_solver { id } =
+  all_solvers := IntMap.remove id !all_solvers
 
 (* Raise an exception on error responses from the SMT solver *)
 let fail_on_smt_error = function       
@@ -127,18 +137,36 @@ let create_instance
   in
 
   (* Return solver instance *)
-  { solver_kind = kind;
-    solver_inst = fomodule;
-    term_names = Hashtbl.create 19;
-    id = id;
-    next_assumption_id = 0;
-    last_assumptions = [| |]; }
+  let solver =
+    { solver_kind = kind;
+      solver_inst = fomodule;
+      term_names = Hashtbl.create 19;
+      id = id;
+      next_assumption_id = 0;
+      last_assumptions = [| |]; }
+  in
 
+  add_solver solver ;
+
+  solver
+
+(* Destroys a solver instance. *)
+let destroy s =
+  let module S = (val s.solver_inst) in
+  S.delete_instance ()
 
 (* Delete a solver instance *)
 let delete_instance s =
-  let module S = (val s.solver_inst) in
-  S.delete_instance ()
+  drop_solver s ;
+  destroy s
+
+(* Destroys all live solvers. *)
+let destroy_all () =
+  !all_solvers
+  |> IntMap.iter (
+    fun _ s -> destroy s
+  ) ;
+  all_solvers := IntMap.empty
 
 
 (* Return the unique identifier of the solver instance *)

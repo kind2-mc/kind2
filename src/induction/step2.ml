@@ -31,24 +31,10 @@ let two = Num.(succ one)
 
 type term = Term.t
 
-let solver_ref = ref None
-
 let prefix = "[IND2] "
 
 (* Clean up before exit. *)
-let on_exit _ =
-  try (
-    (* Deleting solver instance if created. *)
-    match ! solver_ref with
-    | None -> ()
-    | Some solver ->
-      SMTSolver.delete_instance solver |> ignore ;
-      solver_ref := None ;
-      ()
-  ) with e ->
-    Event.log L_error
-      "%s@[<v>Error deleting solver:@ %s@]"
-      prefix (Printexc.to_string e)
+let on_exit _ = ()
 
 (* Alias for fresh actlits. *)
 let fresh_actlit = Actlit.fresh_actlit
@@ -116,8 +102,6 @@ let mk_ctx in_sys param sys =
       (Sys.get_logic sys)
       (Flags.Smt.solver())
   in
-  (* Memorizing solver for clean exit. *)
-  solver_ref := Some solver ;
 
   (* Defining UFs and declaring variables. *)
   Sys.define_and_declare_of_bounds

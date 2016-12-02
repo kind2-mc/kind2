@@ -86,21 +86,24 @@ let main_of_process = function
   | `Parser | `Certif -> ( fun _ _ _ -> () )
 
 (** Cleanup function of the process *)
-let on_exit_of_process = function
-  | `IC3 -> IC3.on_exit None
-  | `BMC -> BMC.on_exit None
-  | `IND -> IND.on_exit None
-  | `IND2 -> IND2.on_exit None
-  | `INVGEN -> InvGen.exit None
-  | `INVGENOS -> InvGen.exit None
-  | `INVGENINT -> InvGen.exit None
-  | `INVGENINTOS -> InvGen.exit None
-  | `INVGENREAL -> InvGen.exit None
-  | `INVGENREALOS -> InvGen.exit None
-  | `C2I -> C2I.on_exit None
-  | `Interpreter -> Interpreter.on_exit None
-  | `Supervisor -> InvarManager.on_exit None
-  | `Parser | `Certif -> ()
+let on_exit_of_process mdl =
+  ( match mdl with
+    | `IC3 -> IC3.on_exit None
+    | `BMC -> BMC.on_exit None
+    | `IND -> IND.on_exit None
+    | `IND2 -> IND2.on_exit None
+    | `INVGEN -> InvGen.exit None
+    | `INVGENOS -> InvGen.exit None
+    | `INVGENINT -> InvGen.exit None
+    | `INVGENINTOS -> InvGen.exit None
+    | `INVGENREAL -> InvGen.exit None
+    | `INVGENREALOS -> InvGen.exit None
+    | `C2I -> C2I.on_exit None
+    | `Interpreter -> Interpreter.on_exit None
+    | `Supervisor -> InvarManager.on_exit None
+    | `Parser | `Certif -> ()
+  ) ;
+  SMTSolver.destroy_all ()
 
 (** Short name for a kind module. *)
 let debug_ext_of_process = short_name_of_kind_module
@@ -281,6 +284,8 @@ let post_clean_exit process exn =
   let status = status_of_exn_results process exn in
   (* Close tags in XML output. *)
   Event.terminate_log () ;
+  (* Kill all live solvers. *)
+  SMTSolver.destroy_all () ;
   (* Exit with status. *)
   exit status
 
@@ -375,6 +380,8 @@ let run_process in_sys param sys messaging_setup process =
       (* let in_sys = in_sys in *)
       (* Run main function of process *)
       main_of_process process in_sys param sys ;
+      (* Kill all remaining solvers. *)
+      SMTSolver.destroy_all () ;
       (* Cleanup and exit *)
       on_exit_child (Some messaging_thread) process Exit
 

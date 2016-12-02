@@ -120,16 +120,6 @@ open Actlit
 
 module Candidate = C2ICandidate
 
-(* First solver, used to check (1). Only declares variables @-1 and
-   0. *)
-let solver_ref_1 = ref None
-(* Second solver, used to check (2).
-   Declares variables @-1, 0 and 1. *)
-let solver_ref_2 = ref None
-(* Second solver, used to check (3).
-   Declares variables @-1, 0 and 1. *)
-let solver_ref_3 = ref None
-
 (* Output statistics *)
 let print_stats () = Event.stat [
   Stat.misc_stats_title, Stat.misc_stats ;
@@ -144,24 +134,7 @@ let stop () =
 let on_exit _ =
   stop () ;
   (* Output statistics. *)
-  print_stats () ;
-  (* Deleting solver instances if created. *)
-  ( match !solver_ref_1 with
-    | None -> ()
-    | Some s1 ->
-      SMTSolver.delete_instance s1 ;
-      solver_ref_1 := None ) ;
-  ( match !solver_ref_2 with
-    | None -> ()
-    | Some s2 ->
-      SMTSolver.delete_instance s2 ;
-      solver_ref_2 := None ) ;
-  ( match !solver_ref_3 with
-    | None -> ()
-    | Some s3 ->
-      SMTSolver.delete_instance s3 ;
-      solver_ref_3 := None ) ;
-  ()
+  print_stats ()
 
 
 type context = {
@@ -179,37 +152,24 @@ type context = {
 (* Creates two solvers for the context. Initializes them and updates the
    solver references (deletes the previous solvers. *)
 let mk_solvers sys prop =
-  ( match !solver_ref_1, !solver_ref_2, !solver_ref_3 with
-    | Some s1, Some s2, Some s3 ->
-      SMTSolver.delete_instance s1 ;
-      SMTSolver.delete_instance s2 ;
-      SMTSolver.delete_instance s3 ;
-      solver_ref_1 := None ;
-      solver_ref_2 := None ;
-      solver_ref_3 := None ;
-    | None, None, None -> ()
-    | _ -> failwith "inconsistency in defined solver" ) ;
-
+  (* Destroy all existing solvers. *)
   let solver1 =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
-  solver_ref_1 := Some solver1 ;
 
   let solver2 =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
-  solver_ref_2 := Some solver2 ;
 
   let solver3 =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
-  solver_ref_3 := Some solver3 ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -263,12 +223,7 @@ let mk_solvers sys prop =
 
 (* Initializes the solvers, creates the context. *)
 let mk_context sys prop =
-  ( match !solver_ref_1, !solver_ref_2, !solver_ref_3 with
-    | None, None, None -> ()
-    | _ -> failwith "solvers already running" ) ;
-
   let solver1, solver2, solver3 = mk_solvers sys prop in
-
   { sys ; prop ;
     k = 1;
     white = [] ; grey = [] ; black = [] ;
