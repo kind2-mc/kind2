@@ -191,9 +191,10 @@ let warn_at_position pos msg =
 
 
 (* Raise parsing exception *)
-let fail_no_position msg = 
+let fail_no_position msg =
   Log.log L_error "Parser error: %s" msg;
   raise A.Parser_error
+
   
 
 (* Raise parsing exception *)
@@ -316,6 +317,12 @@ let create_node = function
         expr_abs_map = ET.copy expr_abs_map;
         node = Some (N.empty_node ident is_extern) } )
 
+(** Maps something to the current node. *)
+let current_node_map = function
+  | { node = Some node } as ctx -> (
+    fun f -> { ctx with node = Some (f node) }
+  )
+  | ctx -> (fun _ -> ctx)
 
 
 (** Returns the modes of the current node. *)
@@ -1588,7 +1595,9 @@ let trace_svars_of ctx expr = match ctx with
           | N.Input
           | N.Output -> mem, to_do
           | N.Local
-          | N.Ghost -> (
+          | N.Ghost
+          | N.Call
+          | N.Alias (_,_) -> (
             let svars =
               (* Do we have an equation for svar? *)
               match N.equation_of_svar node svar with

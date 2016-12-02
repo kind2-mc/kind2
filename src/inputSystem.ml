@@ -176,7 +176,7 @@ let trans_sys_of_analysis (type s) ?(preserve_sig = false)
           ~preserve_sig:preserve_sig globals subsystem analysis
       in
       t, Lustre (s, globals)
-  )
+    )
 
   | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
     
@@ -405,7 +405,8 @@ fun sys ->
       )
       |> Strategy.monolithic
     with
-    | None -> failwith "aaahhh"
+    | None ->
+      failwith "could not generate contract generation analysis parameter"
     | Some param ->
       param, (fun scope -> (S.find_subsystem sub scope).S.source)
   )

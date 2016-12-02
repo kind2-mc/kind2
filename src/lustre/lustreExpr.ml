@@ -660,6 +660,9 @@ and pp_print_app ?as_type safe ppf = function
 let pp_print_expr ?as_type safe ppf expr =
   pp_print_term_node ?as_type safe ppf expr
 
+(* Pretty-print a term as an expr. *)
+let pp_print_term_as_expr = pp_print_expr
+
 
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_expr ?as_type safe =

@@ -141,13 +141,15 @@ let mk_solver sys init solver_ref =
     (Solver.define_fun solver)
     (Solver.declare_fun solver)
     (Solver.declare_sort solver)
-    Numeral.(~- one) var_ub ;
+    Numeral.zero var_ub ;
 
   (* Asserting predicate. *)
   Solver.assert_term solver pred ;
 
   (* Asserting invariants at 0. *)
-  Sys.invars_of_bound sys Numeral.zero |> Term.mk_and
+  Sys.invars_of_bound
+    ~one_state_only:true sys Numeral.zero
+  |> Term.mk_and
   |> Solver.assert_term solver ;
 
   if not init then
@@ -181,21 +183,6 @@ let reset_solvers_of t =
     Actlit.reset_fresh_actlit_count () ;
     { t with solver1 ; solver2 ; solver3 }
   ) else t
-
-(** Asserts new invariants in the solvers of a context. *)
-let assert_invariants { solver1 ; solver2 ; solver3 } invs =
-  let invs = invs |> Term.mk_and in
-  let solvers = [ solver1 ; solver2 ; solver3 ] in
-  let invs_0 = Term.bump_state Numeral.zero invs in
-  let invs_1 = Term.bump_state Numeral.one invs in
-  (* Asserting invariants at 0 in all solvers. *)
-  solvers |> List.iter (fun s ->
-    Solver.assert_term s invs_0
-  ) ;
-  (* Asserting invariants at 1 in solvers 2 and 3. *)
-  solvers |> List.tl |> List.iter (fun s ->
-    Solver.assert_term s invs_1
-  )
 
 
 

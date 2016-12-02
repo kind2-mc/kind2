@@ -16,21 +16,13 @@
 
 *)
 
-(** Module generating candidate terms for invariant generation. *)
-module type CandGen = sig
-  (** Generates sets of candidate terms from a transition system, and its
-  subsystems if the second flag require it. First flag is for two-state. *)
-  val mine : bool -> bool -> TransSys.t -> (TransSys.t * Term.TermSet.t) list
-end
+(** Generates contract for an input system given an analysis parameter. *)
+val generate_contracts:
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
 
-(** Bool candidate term miner. *)
-module Bool : CandGen
-(** Integer candidate term miner. *)
-module Int : CandGen
-(** Real candidate term miner. *)
-module Real : CandGen
-
-
+(** Generates a contract for an input system for some terms. *)
+val generate_contract_for :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> Term.t list -> unit
 
 
 
@@ -41,4 +33,3 @@ module Real : CandGen
    indent-tabs-mode: nil
    End: 
 *)
-

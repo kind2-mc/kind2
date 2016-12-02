@@ -146,6 +146,9 @@ val input_format : unit -> input_format
 (** Output directory for the files Kind 2 generates. *)
 val output_dir : unit -> string
 
+(** Minimizes and logs invariants as contracts. *)
+val log_invs : unit -> bool
+
 (** Debug sections to enable *)
 val debug : unit -> string list
 
@@ -169,6 +172,12 @@ type enable = Lib.kind_module list
 
 (** The modules enabled. *)
 val enabled : unit -> enable
+
+(** Returns the invariant generation techniques currently enabled. *)
+val invgen_enabled : unit -> enable
+
+(** Manually disables a module. *)
+val disable : Lib.kind_module -> unit
 
 (** Modular analysis. *)
 val modular : unit -> bool
@@ -233,6 +242,8 @@ module Smt : sig
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string
 
+  (** Forces SMT traces. *)
+  val set_trace: bool -> unit
   (** Write all SMT commands to files *)
   val trace : unit -> bool
 
@@ -448,11 +459,20 @@ module Invgen : sig
   (** InvGen will generate invariants only for top level. **)
   val top_only : unit -> bool
 
+  (** Forces invgen to consider a huge number of candidates. *)
+  val all_out : unit -> bool
+
   (** InvGen will look for candidate terms in the transition predicate. *)
   val mine_trans : unit -> bool
 
   (** InvGen will run in two state mode. *)
   val two_state : unit -> bool
+
+  (** Forces bool invgen to look for equalities only. *)
+  val bool_eq_only : unit -> bool
+
+  (** Forces arith invgen to look for equalities only. *)
+  val arith_eq_only : unit -> bool
 
   (** Renice invariant generation process. *)
   val renice : unit -> int

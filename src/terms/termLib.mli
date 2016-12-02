@@ -85,30 +85,47 @@ module Signals: sig
 
   (** Sets the handler for sigalrm to ignore. *)
   val ignore_sigalrm: unit -> unit
+
+  (** Runs something while ignoring [sigalrm]. *)
+  val ignoring_sigalrm: (unit -> 'a) -> 'a
+
   (** Sets the handler for sigint to ignore. *)
   val ignore_sigint: unit -> unit
+
   (** Sets the handler for sigquit to ignore. *)
   val ignore_sigquit: unit -> unit
+
   (** Sets the handler for sigterm to ignore. *)
   val ignore_sigterm: unit -> unit
+
   (** Sets the handler for sigpipe to ignore. *)
   val ignore_sigpipe: unit -> unit
 
   (** Sets a timeout handler for sigalrm. *)
   val set_sigalrm_timeout: unit -> unit
+
   (** Sets an exception handler for sigalarm. *)
   val set_sigalrm_exn: unit -> unit
+
   (** Sets a handler for sigint. *)
   val set_sigint: unit -> unit
+
   (** Sets a handler for sigquit. *)
   val set_sigquit: unit -> unit
+
   (** Sets a handler for sigterm. *)
   val set_sigterm: unit -> unit
 
+  (** Sets a handler for sigpipe. *)
+  val set_sigpipe: unit -> unit
+
   (** Sets a timeout. *)
   val set_timeout: float -> unit
-  (** Sets a timeout based on the timeout flag. *)
-  val set_timeout_from_flag: unit -> unit
+
+  (** Sets a timeout based on the flag value and the total time elapsed this
+  far. If no timeout is specified, set an exception handler for [sigalrm]. *)
+  val set_sigalrm_timeout_from_flag: unit -> unit
+
   (** Deactivates timeout. *)
   val unset_timeout: unit -> unit
 

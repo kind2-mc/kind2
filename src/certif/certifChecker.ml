@@ -114,6 +114,8 @@ let obs_cert_sys dirname = {
   smt2_lfsc_trace_file = Filename.concat dirname obs_defs_lfsc_f;
 }
 
+exception CertifError of (Format.formatter -> unit)
+
 
 (****************************)
 (* Global hconsed constants *)
@@ -750,7 +752,7 @@ type return_of_try =
    invariants *)
 let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
   
-  Debug.certif "Try bound %d" k;
+  Debug.certif "Try bound %d" k ;
 
   (* Construct properties from 1 to k-1 *)
   let prev_props_l = ref [prop] in
@@ -763,8 +765,14 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
     actlitify solver (Term.mk_and (List.rev !prev_props_l)) in
 
   (* Construct invariants (with activation literals) from 1 to k-1 and for k *)
-  let invs_acts, invs_infos = List.fold_left (fun (invs_acts, invs_infos) inv ->
-      let l = ref [inv] in
+  let invs_acts, invs_infos = List.fold_left (
+    fun (invs_acts, invs_infos) inv ->
+      let is_two_state =
+        match Term.var_offsets_of_term inv with
+        | Some lo, Some hi when Numeral.(equal lo hi |> not) -> true
+        | _ -> false
+      in
+      let l = ref (if is_two_state then [] else [inv]) in
       for i = 1 to k - 1 do
         l := Term.bump_state (Numeral.of_int i) inv :: !l;
       done;
@@ -774,7 +782,7 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
       let pa1 = actlitify solver p1 in
       (prev_invs_act, pa1) :: invs_acts,
       (inv, prev_invs_act, prev_invs, pa1, p1) :: invs_infos
-    ) ([], []) (List.rev invs) in
+  ) ([], []) (List.rev invs) in
 
   (* Construct property at k *)
   let prop' = Term.bump_state (Numeral.of_int k) prop in
@@ -859,9 +867,14 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
 (* Find the minimum bound by increasing k *)
 let rec find_bound sys solver k kmax invs prop =
 
-  if k > kmax then failwith
-      (sprintf "[Certification] simplification of inductive invariant \
-                went over bound %d" kmax);
+  if k > kmax then raise (CertifError
+    ( fun fmt ->
+      Format.fprintf fmt
+        "[Certification] simplification of inductive invariant \
+        went over bound %d" 
+        kmax
+    )
+  ) ;
   
   (* Asserting transition relation. *)
   TransSys.trans_of_bound
@@ -924,12 +937,14 @@ let find_bound_back sys solver kmax invs prop =
       (* Check if the previous were inductive *)
 
       begin match acc with
-        | _, Not_inductive ->
-          (* Not k-inductive *)
-          failwith
-            (sprintf
-               "[Certification] Could not verify %d-inductiveness \
-                of invariant" k);
+        (* Not k-inductive *)
+        | _, Not_inductive -> raise (CertifError
+          (fun fmt ->
+            Format.fprintf fmt
+              "[Certification] Could not verify %d-inductiveness \
+              of invariant" k
+          )
+        )
 
         | k, Inductive_to_reduce f ->
           (* The previous step was inductive, evaluate the continuation to
@@ -958,9 +973,16 @@ let rec loop_dicho sys solver kmax invs prop trans_acts_map acc k_l k_u =
 
   if k_l > k_u then
     match acc with
-    | _, Not_inductive ->
+    | _, Not_inductive -> raise (
       (* Not k-inductive *)
-      failwith "[Certification] Could not verify inductiveness of invariant"
+      CertifError (
+        fun fmt ->
+          Format.fprintf fmt
+            "@[<v>Could not verify inductiveness of invariants@   \
+            @[<v>%a@]@   up to %d@]"
+            (pp_print_list Term.pp_print_term ",@ ") invs k_u
+      )
+    )
 
     | k, Inductive_to_reduce f ->
       (* The previous step was inductive, evaluate the continuation to
@@ -979,9 +1001,12 @@ let rec loop_dicho sys solver kmax invs prop trans_acts_map acc k_l k_u =
     (* Activation literals for transition relation from 1 to kmid *)
     let trans_act = IntM.find k_mid trans_acts_map in
 
-    match try_at_bound ~just_check_ind:true
-            sys solver k_mid invs prop [trans_act]
-    with
+    match (
+      let res = try_at_bound ~just_check_ind:false
+        sys solver k_mid invs prop [trans_act]
+      in
+      res
+    ) with
     | Not_inductive ->
       (* Not inductive, look for inductiveness on the right *)
       loop_dicho sys solver kmax invs prop trans_acts_map
@@ -1021,8 +1046,13 @@ let find_bound_frontier_dicho sys solver kmax invs prop =
   in
 
   match res_kmax, res_kmax_m1 with
-  | Not_inductive, _ ->
-    failwith "[Certification] Could not verify inductiveness of invariant"
+  | Not_inductive, _ -> raise (CertifError
+    (fun fmt ->
+      Format.fprintf fmt
+        "[Certification, frontier dicho] Could not verify inductiveness@ \
+        of invariant"
+    )
+  )
 
   | Inductive useful, Not_inductive -> kmax, useful
 
@@ -1038,18 +1068,29 @@ let find_bound_frontier_dicho sys solver kmax invs prop =
 
 (* Minimization of certificate: returns the minimum bound for k-induction and a
    list of useful invariants for this preservation step *)
-let minimize_certificate sys =
-  printf "@{<b>Certificate minimization@}@.";
+let minimize_invariants sys invs =
+  (* printf "@{<b>Certificate minimization@}@."; *)
 
   (* Extract certificates of top level system *)
   let props, certs = extract_props_certs sys in
+  let certs =
+    match invs with
+    | None -> certs
+    | Some invs -> certs |> List.filter (
+      fun (_, inv) -> List.mem inv invs
+    )
+  in
   let certs = Certificate.split_certs certs in
-  let k, invs = List.fold_left (fun (m, invs) (k, i) ->
-      max m k,
-      if List.exists (Term.equal i) props ||
-         List.exists (Term.equal i) invs
-      then invs
-      else i :: invs) (0, []) certs in
+  let k, invs =
+    List.fold_left (
+      fun (m, invs) (k, i) ->
+        max m k,
+        if List.exists (Term.equal i) props ||
+           List.exists (Term.equal i) invs
+        then invs
+        else i :: invs
+    ) (0, []) certs
+  in
 
   (* For stats *)
   let k_orig, nb_invs = k, List.length invs in
@@ -1068,7 +1109,7 @@ let minimize_certificate sys =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.(~- one) (Numeral.of_int (k+1));
+    Numeral.zero (Numeral.of_int (k+1));
 
   (* The property we want to re-verify is the conjunction of all properties *)
   let prop = Term.mk_and props in
@@ -1082,7 +1123,7 @@ let minimize_certificate sys =
       else if k <= 20 then `Dicho
       else `FrontierDicho
   in
-      
+
   (* Depending on the minimization strategy, we use different variants to find
      the minimum bound kmin, and the set of useful invariants for the proof of
      prop *)
@@ -1093,18 +1134,20 @@ let minimize_certificate sys =
     | `Dicho -> find_bound_dicho sys solver k invs prop
   in
 
-  (* We are done with this step of minimization and we don't neet the solver
+  (* We are done with this step of minimization and we don't need the solver
      anylonger *)
   SMTSolver.delete_instance solver;
   
   Debug.certif "Simplification found for k = %d\n" kmin;
 
-  printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
-    (List.length uinvs) nb_invs kmin k_orig;
+  (* printf "Kept %d (out of %d) invariants at bound %d (down from %d)@."
+    (List.length uinvs) nb_invs kmin k_orig; *)
 
   (* Return minimum k found, and the useful invariants *)
   kmin, uinvs
-  
+
+let minimize_certificate sys =
+  minimize_invariants sys None
 
 
 (***********************************************)
@@ -2180,10 +2223,13 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
 
           Event.log L_fatal "Frontend certificate was not generated.";
           
-          failwith (
-            Format.asprintf
-              "Could not find a match for the property variable %a."
-              StateVar.pp_print_state_var sv);
+          raise (CertifError
+            (fun fmt ->
+              Format.fprintf fmt
+                "Could not find a match for the property variable %a."
+                StateVar.pp_print_state_var sv
+            )
+          )
         end;
       end;
 

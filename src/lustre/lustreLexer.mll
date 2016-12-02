@@ -246,7 +246,7 @@ let keyword_table = mk_hashtbl [
   "const", CONST ;
   
   (* Node / function declaration *)
-  "extern", EXTERN ;
+  "imported", IMPORTED ;
   "node", NODE ;
   "function", FUNCTION ;
   "returns", RETURNS ;

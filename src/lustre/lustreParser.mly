@@ -89,7 +89,7 @@ let merge_branches transitions =
 %token CONST
     
 (* Tokens for node declarations *)
-%token EXTERN
+%token IMPORTED
 %token NODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
@@ -238,11 +238,11 @@ decl:
     let (l, e) = def in
     [A.FuncDecl (mk_pos $startpos, (n, false, p, i, o, l, e, r))]
   }
-  | EXTERN ; NODE ; decl = node_decl {
+  | NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
     [A.NodeDecl ( mk_pos $startpos, (n, true, p, i, o, [], [], r) )]
   }
-  | EXTERN ; FUNCTION ; decl = node_decl {
+  | FUNCTION ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
     [A.FuncDecl (mk_pos $startpos, (n, true, p, i, o, [], [], r))]
   }

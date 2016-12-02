@@ -23,6 +23,11 @@ open Actlit
 module Smt = SMTSolver
 module Sys = TransSys
 module Prop = Property
+module Num = Numeral
+
+let zero = Num.zero
+let one = Num.one
+let two = Num.(succ one)
 
 type term = Term.t
 
@@ -69,10 +74,23 @@ let add_invariants solver = function
 | [] -> false
 | invs ->
   let inv = Term.mk_and invs in
-  assert_invariant_at solver Numeral.zero       inv ;
-  assert_invariant_at solver Numeral.one        inv ;
-  assert_invariant_at solver Numeral.(succ one) inv ;
+  assert_invariant_at solver zero inv ;
+  assert_invariant_at solver one  inv ;
+  assert_invariant_at solver two  inv ;
   true
+
+let add_all_invariants solver sys =
+  ( match Sys.invars_of_bound ~one_state_only:true sys zero with
+    | [] -> ()
+    | invs -> Term.mk_and invs |> assert_invariant_at solver zero
+  ) ;
+  ( match Sys.invars_of_bound ~one_state_only:false sys zero with
+    | [] -> ()
+    | invs ->
+      let terms = Term.mk_and invs in
+      assert_invariant_at solver one terms ;
+      assert_invariant_at solver two terms
+  )
 
 (* Context of the 2-induction engine. *)
 type 'a ctx = {
@@ -107,11 +125,10 @@ let mk_ctx in_sys param sys =
     (Smt.define_fun solver)
     (Smt.declare_fun solver)
     (Smt.declare_sort solver)
-    Numeral.(~- one) Numeral.(succ one) ;
+    Numeral.zero Numeral.(succ one) ;
 
   (* Invariants of the system at 0, 1 and 2. *)
-  Sys.invars_of_bound sys Numeral.zero
-  |> add_invariants solver |> ignore ;
+  add_all_invariants solver sys ;
 
   (* Transition relation (0,1). *)
   Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Numeral.one
@@ -148,72 +165,57 @@ let mk_ctx in_sys param sys =
 
   Loops until something new is received. *)
 let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
-  match Event.recv () |> Event.update_trans_sys ctx.in_sys ctx.param sys with
-    (* Nothing new property-wise, keep going. *)
-    | (invs, []) ->
+  let new_invariants, props =
+    Event.recv () |> Event.update_trans_sys ctx.in_sys ctx.param sys
+  in
+  let new_stuff =
+    new_stuff ||
+    ( new_invariants |> fst |> Term.TermSet.is_empty |> not ) ||
+    ( new_invariants |> snd |> Term.TermSet.is_empty |> not )
+  in
+  (* Forcing to assert invs to [3], since upper-bound's exclusive. *)
+  Unroller.assert_new_invs_to solver Num.(succ two) new_invariants ;
 
-      ( match invs with
-        | [] -> ()
-        | _ ->
-          Event.log L_info "%sreceived %d invariants" prefix (List.length invs)
-      ) ;
-      let new_things = add_invariants solver invs in
-      if not (new_things || new_stuff) then (
-        (* Event.log L_info
-          "%s@[<v>receiving invariants (no props)@ nothing new@]" prefix ; *)
-        (* No new invariants, sleeping and looping. *)
-        minisleep 0.07 ;
-        check_new_things false ctx
-      ) else (
-        (* Event.log L_info
-          "%s@[<v>receiving invariants (no props)@ new stuff@]" prefix ; *)
-      )
+  match props with
+    (* Nothing new property-wise, keep going if no new invariant. *)
+    | [] -> if not new_stuff then (
+      (* No new invariants, sleeping and looping. *)
+      minisleep 0.07 ;
+      check_new_things false ctx
+    )
     (* Some properties changed status. *)
-    | (invs, props) ->
+    | props ->
 
-      ( match invs with
-        | [] -> ()
-        | _ ->
-          Event.log L_info "%sreceived %d invariants" prefix (List.length invs)
-      ) ;
-
-      let map, invs, new_stuff =
+      let map, new_stuff =
         map |> List.fold_left (
           (* Go through map and inspect property status. *)
-          fun (map,invs,new_stuff) ( (name, (pos,prop)) as p ) ->
+          fun (map, new_stuff) ( (name, (pos, prop)) as p ) ->
             match Sys.get_prop_status sys name with
             | Prop.PropFalse _ ->
               (* Deactivate actlits and remove from map. *)
               deactivate solver pos ;
-              map, invs, new_stuff
+              map, new_stuff
 
             | Prop.PropInvariant _ ->
               (* Deactivate actlits, remove from map, add to invariants. *)
               deactivate solver pos ;
-              map, prop :: invs, true
+              map, true
 
             | Prop.PropKTrue n ->
-              p :: map, invs, new_stuff || n = 1
+              p :: map, new_stuff || n >= 1
 
             | _ ->
               (* Still unknown. *)
-              p :: map, invs, new_stuff
-        ) ([], invs, new_stuff)
+              p :: map, new_stuff
+        ) ([], new_stuff)
       in
 
       (* Update map in context. *)
       ctx.map <- map ;
-      (* Adding new invariants. *)
-      let new_stuff = (add_invariants solver invs) || new_stuff in
       (* We got new stuff we don't loop. *)
       if not new_stuff then (
-        (* Event.log L_info
-          "%s@[<v>receiving invariants and props@ nothing new@]" prefix ; *)
         minisleep 0.07 ;
         check_new_things false ctx
-      ) else (
-        (* Event.log L_info
-          "%s@[<v>receiving invariants and props@ new stuff@]" prefix *)
       )
 
 (* Returns the properties that cannot be falsified. *)

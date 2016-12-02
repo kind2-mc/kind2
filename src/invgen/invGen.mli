@@ -22,16 +22,23 @@
 Invariant generation is written as a functor and is instantiated to create
 boolean, integer and real invariant generation.
 
-/!\ Currently, only boolean invariant generation works.
-
 For more details, refer to the paper about invariant generation that I need to
-write but currently haven't.
+write but haven't yet.
 *)
 
 
 
 (** Temporary entry point for boolean invariant generation. *)
-val main : bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+val main_bool :
+  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+
+(** Temporary entry point for integer invariant generation. *)
+val main_int :
+  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
+
+(** Temporary entry point for real invariant generation. *)
+val main_real :
+  bool -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
 
 (** Temporary exit point for boolean invariant generation. *)
 val exit : 'a -> unit
@@ -40,28 +47,49 @@ val exit : 'a -> unit
 (** Signature of the module returned by the [Make] invariant generation functor
 when given a module with signature [In]. *)
 module type Out = sig
-  (** Runs the invariant generator. *)
+  (** Runs the invariant generator.
+
+  [main max_depth top_only modular two_state input_sys aparam sys]:
+  
+  * [max_depth]: length of the invariant generation run
+  * [top_only]: run on top level only
+  * [modular]: triggers modular MINING
+  * [two_state]: generate two-state invariants
+  * the rest should be obvious. *)
   val main :
     Numeral.t option -> bool -> bool -> bool -> 'a InputSystem.t ->
     Analysis.param -> TransSys.t -> (
       TransSys.t * Term.TermSet.t * Term.TermSet.t
     ) list
   (** Clean exit for the invariant generator. *)
-  val exit : unit -> unit
+  val exit : 'a -> unit
 end
 
 
 (** Boolean invariant generation module. *)
 module BoolInvGen : Out
 
-(*
 (** Int invariant generation module. *)
 module IntInvGen : Out
 
 (** Real invariant generation module. *)
 module RealInvGen : Out
-*)
 
+
+
+(** Graph modules for equivalence-only invgen. *)
+module EqOnly : sig
+
+  (** Graph of booleans. *)
+  module BoolInvGen : Out
+
+  (** Graph of integers. *)
+  module IntInvGen : Out
+
+  (** Graph of reals. *)
+  module RealInvGen : Out
+
+end
 
 
 (* 

@@ -2055,7 +2055,12 @@ let trans_sys_of_nodes
     ?(preserve_sig = false)
     globals
     subsystem analysis_param
-=
+  =
+
+  (* Prevent the garbage collector from running too often during the frontend
+     operations *)
+  Lib.set_liberal_gc ();
+  
   let { A.top; A.abstraction_map; A.assumptions } =
     A.info_of_param analysis_param
   in
@@ -2073,9 +2078,9 @@ let trans_sys_of_nodes
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
   
-  let { SubSystem.source = { N.name = top_name } as node } as subsystem' = 
-      S.slice_to_abstraction
-        ~preserve_sig:preserve_sig analysis_param subsystem'
+  let { SubSystem.source = { N.name = top_name } as node } as subsystem' =
+    S.slice_to_abstraction
+      ~preserve_sig:preserve_sig analysis_param subsystem'
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in
@@ -2119,6 +2124,7 @@ let trans_sys_of_nodes
           (* Adding to invariants of the system. *)
           let t = TransSys.get_prop_term trans_sys name in
           TransSys.add_invariant trans_sys t cert
+          |> ignore
         
         | name, P.PropFalse cex -> (
           match P.length_of_cex cex with
@@ -2132,190 +2138,11 @@ let trans_sys_of_nodes
     | _ -> ()
   ) ;
 
+  (* Reset garbage collector to its initial settings *)
+  Lib.reset_gc_params ();
+
   trans_sys, subsystem'
 
-(*
-
-let test () = 
-
-  let  { SubSystem.source = { N.name = top_name } as node } as lustre_subsystem = 
-    LustreInput.of_file Sys.argv.(1) 
-  in
-
-  let analysis = 
-    { A.top = [I.string_of_ident false top_name]; 
-      A.abstraction_map = Scope.Map.empty; 
-      A.assumptions = [] }
-  in
-
-  let trans_sys, lustre_subsystem = trans_sys_of_nodes lustre_subsystem analysis in
-
-  (* Test declarations and definitions *)
-
-  let define uf_symbol vars term = 
-    Format.printf
-      "@[<hv 1>(define-fun %a@ @[<hv 1>(%a)@]@ @[<hv 1>%a@])@]@."
-      UfSymbol.pp_print_uf_symbol uf_symbol
-      (pp_print_list Var.pp_print_var "@ ") vars
-      Term.pp_print_term term
-  in
-
-  let declare uf_symbol = 
-    Format.printf
-      "(declare-fun %a@)@."
-      UfSymbol.pp_print_uf_symbol uf_symbol
-  in
-
-  TransSys.define_and_declare_of_bounds
-    ~declare_sub_vars:false
-    trans_sys 
-    define
-    declare
-    TransSys.init_base
-    TransSys.trans_base;
-
-(* Test path reconstruction
-
-  let vars = 
-    TransSys.vars_of_bounds
-      trans_sys
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let next_of_value t = match Term.type_of_term t |> Type.node_of_type with
-    | Type.Bool -> Term.negate t 
-    | Type.Int | Type.Real -> Term.mk_succ t |> Simplify.simplify_term []
-    | _ -> t
-  in
-
-  let model = 
-    List.map
-      (fun v -> 
-         let t1 = Var.type_of_var v |> TermLib.default_of_type in
-         let sv = Var.state_var_of_state_var_instance v in
-         let t2 = next_of_value t1 in
-         let t3 = next_of_value t2 in
-         let t4 = next_of_value t3 in
-         (sv, [t4; t3; t2; t1]))
-      vars
-    |> Model.path_of_term_list
-  in
-                
-  Format.printf 
-    "%a@."
-    (LustrePath.pp_print_path_pt trans_sys lustre_subsystem true) model;
-
-
-  Format.printf 
-    "%a@."
-    (LustrePath.pp_print_path_pt trans_sys lustre_subsystem false) model
-*)
-
-  (* Test lifintg of terms *)
-
-  let scope_x =  ["X"] in
-  let scope_y =  ["Y"] in
-  let scope_z =  ["Z"] in
-
-  let trans_sys_x = 
-    TransSys.find_subsystem_of_scope trans_sys scope_x 
-  in 
-
-  let trans_sys_y = 
-    TransSys.find_subsystem_of_scope trans_sys scope_y
-  in 
-
-  let trans_sys_z = 
-    trans_sys
-  in 
-
-  let vars_x = 
-    TransSys.vars_of_bounds
-      trans_sys_x
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let vars_y = 
-    TransSys.vars_of_bounds
-      trans_sys_y
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let vars_z = 
-    TransSys.vars_of_bounds
-      trans_sys_z
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let top_x, below_x = 
-    TransSys.instantiate_term_all_levels
-      trans_sys
-      TransSys.init_base
-      scope_x 
-      (Term.mk_eq (List.map Term.mk_var vars_x))
-  in
-  
-  let top_y, below_y = 
-    TransSys.instantiate_term_all_levels
-      trans_sys
-      TransSys.init_base
-      scope_y 
-      (Term.mk_eq (List.map Term.mk_var vars_y))
-  in
-
-  let top_z, below_z = 
-    TransSys.instantiate_term_all_levels
-      trans_sys
-      TransSys.init_base
-      scope_z 
-      (Term.mk_eq (List.map Term.mk_var vars_z))
-  in
-  
-  let pp_print_top ppf (t, l) = 
-
-    let s = 
-      TransSys.scope_of_trans_sys t 
-      |> string_of_t Scope.pp_print_scope 
-    in
-    
-    Format.fprintf ppf
-      "@[<hv %d>%s: @[<hv>%a@]@]"
-      (String.length s + 2) s
-      (pp_print_list Term.pp_print_term ",@ ") l
-
-  in
-
-  let pp_print_below ppf l = 
-    Format.fprintf ppf
-      "@{<v>%a@]"
-      (pp_print_list pp_print_top "@,") l
-  in
-
-  Format.printf
-    "@[<v>X: top@,%a@,X: below@,%a@]@."
-    pp_print_top top_x
-    pp_print_below below_x;
-
-  Format.printf
-    "@[<v>Y: top@,%a@,Y: below@,%a@]@."
-    pp_print_top top_y
-    pp_print_below below_y;
-
-  Format.printf
-    "@[<v>Z: top@,%a@,Z: below@,%a@]@."
-    pp_print_top top_z
-    pp_print_below below_z;
-
-   ()
-;;
-
-test ()
-
-*)
 
 
 (* 

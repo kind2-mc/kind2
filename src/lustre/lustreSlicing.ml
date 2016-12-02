@@ -134,17 +134,19 @@ let rec describe_cycle node accum = function
     (match N.get_state_var_source node state_var with
 
      (* Output state variable if visible *)
-     | N.Input | N.Output | N.Local | N.Ghost -> 
+     | N.Input | N.Output | N.Local | N.Ghost ->
 
        describe_cycle node
          ((Format.asprintf "%a" (E.pp_print_lustre_var false) state_var) :: 
           accum)
          tl
 
-     (* Skip oracles *)
+     (* Skip oracles and calls *)
+     | N.Call
+     | N.Alias (_,_)
      | N.Oracle -> describe_cycle node accum tl
 
-     (* State variable from abstraction *)
+        (* State variable from abstraction *)
      | exception Not_found -> 
 
        try 

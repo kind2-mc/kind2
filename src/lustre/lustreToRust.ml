@@ -1469,7 +1469,9 @@ let cp_file src tgt =
       output_string oc line ;
       output_char oc '\n' ;
       loop ()
-    ) with End_of_file -> ()
+    ) with End_of_file ->
+      close_in ic ;
+      close_out oc
   in
   loop ()
 

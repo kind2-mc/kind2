@@ -46,8 +46,9 @@ val kill_base : base -> unit
 (** Creates a base checker for some system at some depth. *)
 val mk_base_checker : TransSys.t -> Numeral.t -> base
 
-(** Adds some invariants to a base checker. *)
-val base_add_invariants : base -> (Term.t * Certificate.t) list -> unit
+(** Adds some invariants to a base checker.
+Second argument is the one-state invariants, third is the two-state ones. *)
+val base_add_invariants : base -> Term.t list -> Term.t list -> unit
 
 (** Checks whether some terms are falsifiable [k] states away from the initial
 state, where [k] is the internal depth of the base checker.
@@ -75,8 +76,9 @@ val to_step : base -> step
 (** Certificate ([k]) of a step checker. *)
 val step_cert : step -> int
 
-(** Adds invariants to a step checker. *)
-val step_add_invariants : step -> (Term.t * Certificate.t) list -> unit
+(** Adds invariants to a step checker.
+Second argument is the one-state invariants, third is the two-state ones. *)
+val step_add_invariants : step -> Term.t list -> Term.t list -> unit
 
 (** Queries step.
 
@@ -102,14 +104,18 @@ val nu_query_step : bool -> step -> Term.t list -> Model.t option
 relation alone. That is, [T(0,1) and (not inv(1))] is unsat. *)
 type pruning
 
+(** System associated with a pruning checker. *)
+val pruning_sys : pruning -> TransSys.t
+
 (** Kills a pruning checker. *)
 val kill_pruning : pruning -> unit
 
 (** Creates a pruning checker for a system. *)
 val mk_pruning_checker : TransSys.t -> pruning
 
-(** Adds invariants to a pruning checker. *)
-val pruning_add_invariants : pruning -> (Term.t * Certificate.t) list -> unit
+(** Adds invariants to a pruning checker.
+Second argument is the one-state invariants, third is the two-state ones. *)
+val pruning_add_invariants : pruning -> Term.t list -> Term.t list -> unit
 
 (** Checks if some terms are trivially implied by the transition relation.
 

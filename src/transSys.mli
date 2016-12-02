@@ -104,6 +104,9 @@ val compare_scope : t -> t -> int
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
+(** Pretty-print the name of a transition system *)
+val pp_print_trans_sys_name : Format.formatter -> t -> unit
+
 (** {1 Accessors} *)
 
 (** Close the initial state constraint by binding all instance
@@ -179,9 +182,10 @@ val get_unknown_candidates : t -> Term.t list
 (* val all_props_actually_proved : t -> bool *)
 
 
-(** Returns the mode requirements for this system as a list of triplets
-    [is_mode_global, mode_name, require_term].
-    Used by test generation. *)
+(** Returns the optional assumption term and the mode requirement terms for
+each mode.
+
+Used by test generation. *)
 val get_mode_requires : t -> Term.t option * (Scope.t * Term.t) list
 
 (** Returns the list of properties in a transition system, split by their
@@ -453,6 +457,10 @@ val get_prop_term : t -> string -> Term.t
 val get_prop_status : t -> string -> Property.prop_status 
 
 
+(** Returns true if the input term is a known invariant of the system. *)
+val is_inv : t -> Term.t -> bool
+
+
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 
 
@@ -499,6 +507,9 @@ val set_prop_false :
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
+(** Returns true iff sys has at least one property. *)
+val has_properties : t -> bool
+
 (** Return true if all properties which are not candidates are either valid or
     invalid *)
 val all_props_proved : t -> bool
@@ -506,19 +517,21 @@ val all_props_proved : t -> bool
 (** Add properties to the transition system *)
 val add_properties : t -> Property.t list -> t
 
-(** Add an invariant to the transition system *)
-val add_invariant : t -> Term.t -> Certificate.t -> unit
+(** Add an invariant to the transition system.
 
-(** Add an invariant to the transition system *)
-val add_scoped_invariant : t -> string list -> Term.t -> Certificate.t -> unit
+Returns the normalized terms and a boolean indicating whether it is one
+state. *)
+val add_invariant : t -> Term.t -> Certificate.t -> Term.t * bool
+
+(** Add an invariant to the transition system.
+
+Returns the normalized terms and a boolean indicating whether it is one
+state. *)
+val add_scoped_invariant :
+  t -> string list -> Term.t -> Certificate.t -> Term.t * bool
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
-
-(** Instantiate invariants and valid properties to the bound and applies a
-function *)
-val map_invars_of_bound :
-  ?one_state_only:bool -> t -> (Term.t -> unit) -> Numeral.t -> unit
 
 (** Return invariants with their certificates *)
 val get_invariants : t -> (Term.t * Certificate.t) list
@@ -532,14 +545,15 @@ val get_invariants : t -> (Term.t * Certificate.t) list
     offset of the current instant in the term [e].
 
     Return the top system [s] paired with the instances of the term in
-    it, and a list of all systems between the top system [t] andthe
+    it, and a list of all systems between the top system [t] and the
     system [s], including [s] but excluding [t], each system paired
     with the instances of [e] in it.
 
     The offset [i] is needed to properly guard the term [e] for
     clocked system instances. *)
 val instantiate_term_all_levels:
-  t -> Numeral.t -> Scope.t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
+  t -> Numeral.t -> Scope.t -> Term.t ->
+  (t * Term.t list) * ((t * Term.t list) list)
 
 
 (** Return arrays bounds of state variables of array type used in the system *)
