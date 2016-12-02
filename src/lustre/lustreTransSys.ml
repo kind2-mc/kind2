@@ -783,17 +783,22 @@ let rec constraints_of_node_calls
     (* Add node instance to list of subsystems *)
     let subsystems =
       add_subsystem trans_sys call_pos state_var_map_up state_var_map_down
-        (* No guarding necessary when instantiating term, because this node
-           instance does not have an activation condition *)
-        (fun _ t -> t)
+        (fun i t ->  
+           Term.mk_implies
+             [Var.mk_state_var_instance restart i |> Term.mk_var
+              |> Term.mk_not;
+              t])
         subsystems
     in
 
     let restart_trans = E.cur_term_of_state_var TransSys.trans_base restart in
     (* Reset state of node to initial state when restart condition is true *)
-    let trans_term = Term.mk_ite restart_trans
-        (Term.bump_state Numeral.(TransSys.trans_base - E.cur_offset) init_term)
-        trans_term in
+    let trans_term =
+      Term.mk_ite restart_trans
+        (Term.bump_state
+           Numeral.(TransSys.trans_base - E.cur_offset) init_term)
+        trans_term
+    in
     
     (* Continue with next node calls *)
     constraints_of_node_calls 
@@ -929,21 +934,6 @@ let rec constraints_of_node_calls
         node_def
     in
 
-    (* Add restart conditions if any *)
-    let trans_term = match other_conds with
-      | [] -> trans_term
-      | [N.CRestart restart] ->
-        let restart_trans =
-          E.cur_term_of_state_var TransSys.trans_base restart in
-        (* Reset state of node to initial state when restart condition is
-           true *)
-        Term.mk_ite restart_trans
-          (Term.bump_state
-             Numeral.(TransSys.trans_base - E.cur_offset) init_term)
-          trans_term
-      | _ -> assert false
-    in
-
     
     let clock_init = 
       E.base_term_of_state_var TransSys.init_base clock 
@@ -995,6 +985,22 @@ let rec constraints_of_node_calls
         init_flags
     in
 
+    (* Add restart conditions if any *)
+    let trans_term = match other_conds with
+      | [] -> trans_term
+      | [N.CRestart restart] ->
+        let restart_trans =
+          E.cur_term_of_state_var TransSys.trans_base restart in
+        (* Reset state of node to initial state when restart condition is
+           true *)
+        Term.mk_ite restart_trans
+          (Term.bump_state
+             Numeral.(TransSys.trans_base - E.cur_offset) init_term)
+          trans_term
+      | _ -> assert false
+    in
+
+    
     let init_term = 
 
       Term.mk_and 
@@ -1126,6 +1132,23 @@ let rec constraints_of_node_calls
         node_props
     in
 
+    let guard_clock =
+      match other_conds with
+      | [] ->
+        (fun i t ->  
+           Term.mk_implies
+             [Var.mk_state_var_instance clock i |> Term.mk_var;
+              t])
+      | [N.CRestart restart] ->
+        (fun i t ->  
+           Term.mk_implies
+             [Term.mk_and [Var.mk_state_var_instance clock i |> Term.mk_var;
+                           Var.mk_state_var_instance restart i |> Term.mk_var
+                           |> Term.mk_not];
+              t])
+      | _ -> assert false
+    in
+    
     (* Add node instance as subsystem *)
     let subsystems =
       add_subsystem
@@ -1133,12 +1156,7 @@ let rec constraints_of_node_calls
         call_pos
         state_var_map_up
         state_var_map_down
-        (fun i t ->  
-           Term.mk_implies
-             [Var.mk_state_var_instance clock i
-              |> Term.mk_var; 
-              t])
-
+        guard_clock
         subsystems
     in
 
