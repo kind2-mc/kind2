@@ -425,7 +425,7 @@ let rec mk_subsys_structure sys =
   { SubSystem.scope = TransSys.scope_of_trans_sys sys;
     source = sys;
     has_contract = false;
-    has_impl = false;
+    has_impl = true;
     has_modes = false;
     subsystems =
       TransSys.get_subsystems sys
