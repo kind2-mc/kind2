@@ -292,6 +292,10 @@ type kind_module =
   | `IND2
   | `INVGEN
   | `INVGENOS
+  | `INVGENINT
+  | `INVGENINTOS
+  | `INVGENREAL
+  | `INVGENREALOS
   | `C2I
   | `Interpreter
   | `Supervisor
@@ -326,7 +330,7 @@ val string_of_kind_module : kind_module -> string
 val int_of_kind_module : kind_module -> int
 
 (** Return a short representation of kind module *)
-val suffix_of_kind_module : kind_module -> string
+val short_name_of_kind_module : kind_module -> string
 
 (** Kind module of a string *)
 val kind_module_of_string : string -> kind_module
@@ -397,6 +401,17 @@ val set_liberal_gc : unit -> unit
     {!set_liberal_gc}. *)
 val reset_gc_params : unit -> unit
 
+(** Paths Kind 2 can write some files.
+Factored to avoid clashes. *)
+module Paths : sig
+  (** Test generation files path. *)
+  val testgen : string
+  (** Test generation oracle path. *)
+  val oracle : string
+  (** Rust generation path. *)
+  val implem : string
+end
+
 (** Reserved identifiers. *)
 module ReservedIds : sig
 
@@ -443,6 +458,20 @@ module ReservedIds : sig
   (** All reserved identifiers. *)
   val reserved_strings: string list
 
+end
+
+module ExitCodes: sig
+  (** Exit code for an unknown result. *)
+  val unknown: int
+  (** Exit code for an unsafe result. *)
+  val unsafe: int
+  (** Exit code for a safe result. *)
+  val safe: int
+  (** Exit code for an error. *)
+  val error: int
+  (** Exit status if kid caught a signal, the signal number is added to
+  the value *)
+  val kid_status: int
 end
 
 (* 

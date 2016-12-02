@@ -71,14 +71,14 @@ let clean_unknowns trans = List.filter (is_unknown trans)
    up to k, and others. NB, DISCARDS PROPERTIES KNOWN AS PROVED. *)
 let split_unfalsifiable_rm_proved trans k =
   List.fold_left
-    ( fun (dis, true_k, others) ((s,_) as p) ->
+    ( fun (dis, true_k, others) ((s,t) as p) ->
       match TransSys.get_prop_status trans s with
       | Property.PropInvariant _ ->
          (dis, true_k, others)
       | Property.PropFalse _ ->
          (p :: dis, true_k, others)
       | Property.PropKTrue n when n >= k ->
-         (dis, p :: true_k, others)
+         (dis, (s, t, k) :: true_k, others)
       | _ ->
          (dis, true_k, p :: others) )
     ([], [], [])
@@ -214,11 +214,17 @@ let eval_terms_assert_first_false trans solver eval k =
     | [] -> false
   in
 
+  let os = TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero in
+  let ts = TransSys.invars_of_bound ~one_state_only:false trans Numeral.zero in
+
   let rec loop_all_k k' =
     if Numeral.(k' > k) then false
     else (
       (* Attempting to block the model represented by [eval]. *)
-      let blocked = loop_at_k k' (TransSys.invars_of_bound trans Numeral.zero) in
+      let blocked =
+        ( if Numeral.(equal k' zero) then os else ts )
+        |> loop_at_k k'
+      in
       if blocked
       (* Blocked, returning. *)
       then true
@@ -458,7 +464,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
   let k_int = Numeral.to_int k in
 
   (* Getting new invariants and updating transition system. *)
-  let new_invariants =
+  let new_invs =
     (* Receiving messages. *)
     Event.recv ()
     (* Updating transition system. *)
@@ -474,29 +480,23 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
   (* Adding certificates to confirmed properties *)
   let confirmed_cert =
-    confirmed
-    |> List.map
-      (fun (s, (ac, phi)) ->
-         (* certificate for k-induction *)
-         let cert = k_int, phi in 
-         s, (ac, phi, cert))
+    confirmed |> List.map (
+      fun (s, (ac, phi), k) ->
+        (* certificate for k-induction *)
+        let cert = k, phi in 
+        s, (ac, phi, cert)
+    )
   in
   
   (* Communicating confirmed properties. *)
   confirmed_cert
-  |> List.iter (fun (s, (_, _, cert)) ->
-      Event.prop_status (Property.PropInvariant cert) input_sys aparam trans s);
-  
-  (* Adding confirmed properties to the system. *)
-  confirmed_cert |> List.iter
-    (fun (_, (_, term, cert)) -> TransSys.add_invariant trans term cert) ;
-
-  (* Adding confirmed properties to new invariants. *)
-  let new_invariants' =
-    confirmed |> List.fold_left (
-      fun invs (_, (_, term)) -> term :: invs
-    ) new_invariants
-  in
+  |> List.iter (
+    fun (s, (_, _, cert)) ->
+      Event.prop_status
+        (Property.PropInvariant cert) input_sys aparam trans s ;
+      (* Event.log L_warn
+        "%s: @[<v>%d, %a@]" s (fst cert) Term.pp_print_term (snd cert) ; *)
+  ) ;
 
   match unknowns', unfalsifiables with
   | [], [] ->
@@ -506,6 +506,10 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      (* Need to wait for base confirmation. *)
      minisleep 0.001 ;
      next input_sys aparam trans solver k unfalsifiables unknowns'
+  | _ when Flags.BmcKind.max () > 0 && k_int + 1 > Flags.BmcKind.max () ->
+     Event.log
+       L_warn
+       "IND @[<v>reached maximal number of iterations.@]"
   | _ ->
 
      (* Notifying framework of our progress. *)
@@ -519,6 +523,9 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
+
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
@@ -533,17 +540,12 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      (* Asserting invariants if we are not in lazy invariants mode. *)
      if not (Flags.BmcKind.lazy_invariants ()) then (
        (* Asserting new invariants from 0 to k. *)
-       ( match new_invariants' with
-         | [] -> ()
-         | _ ->
-            Term.mk_and new_invariants'
-            |> Term.bump_and_apply_k
-                 (SMTSolver.assert_term solver) k ) ;
+       Unroller.assert_new_invs_to solver k_p_1 new_invs ;
 
        (* Asserts all invariants at k+1. *)
        TransSys.invars_of_bound trans k_p_1
        |> Term.mk_and
-       |> SMTSolver.assert_term solver ;
+       |> SMTSolver.assert_term solver
      ) ;
 
      (* Asserting positive implications at k for unknowns. *)
@@ -591,8 +593,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
        "IND @[<v>at k = %i@,\
                  %i unknowns@,\
                  %i unfalsifiables.@]"
-       (Numeral.to_int k)
-       (List.length unknowns') (List.length unfalsifiable_props);
+       k_p_1_int (List.length unknowns') (List.length unfalsifiable_props);
 
      (* Splitting. *)
      let unfalsifiables_at_k, falsifiables_at_k =
@@ -607,22 +608,13 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      (* Output statistics *)
      print_stats () ;
 
-     (* Int k plus one. *)
-     let k_p_1_int = Numeral.to_int k_p_1 in
-
-     (* Checking if we have reached max k. *)
-     if Flags.BmcKind.max () > 0 && k_p_1_int > Flags.BmcKind.max () then
-       Event.log
-         L_info
-         "IND @[<v>reached maximal number of iterations.@]"
-     else
-       (* Looping. *)
-       next
-         input_sys aparam trans solver k_p_1
-         (* Adding the new unfalsifiables. *)
-         ( (k_int, unfalsifiables_at_k) :: unfalsifiables )
-         (* Iterating on the properties left. *)
-         falsifiables_at_k
+     (* Looping. *)
+     next
+       input_sys aparam trans solver k_p_1
+       (* Adding the new unfalsifiables. *)
+       ( (k_p_1_int, unfalsifiables_at_k) :: unfalsifiables )
+       (* Iterating on the properties left. *)
+       falsifiables_at_k
          
 
 
@@ -665,7 +657,7 @@ let launch input_sys aparam trans =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
   (* Declaring path compression actlit. *)
   path_comp_actlit |> SMTSolver.declare_fun solver ;
@@ -675,7 +667,7 @@ let launch input_sys aparam trans =
     Compress.init (SMTSolver.declare_fun solver) trans ;
 
   (* Invariants of the system at 0. *)
-  TransSys.invars_of_bound trans Numeral.zero
+  TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero
   |> Term.mk_and
   |> SMTSolver.assert_term solver ;
 

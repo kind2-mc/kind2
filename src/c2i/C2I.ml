@@ -217,7 +217,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver1)
     (SMTSolver.declare_fun solver1)
     (SMTSolver.declare_sort solver1)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -225,7 +225,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver2)
     (SMTSolver.declare_fun solver2)
     (SMTSolver.declare_sort solver2)
-    Numeral.(~- one) Numeral.one ;
+    Numeral.zero Numeral.one ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -233,7 +233,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver3)
     (SMTSolver.declare_fun solver3)
     (SMTSolver.declare_sort solver3)
-    Numeral.(~- one) Numeral.one ;
+    Numeral.zero Numeral.one ;
 
   (* Asserting init in [solver1]. *)
   TransSys.init_of_bound sys Numeral.zero
@@ -363,13 +363,20 @@ let contains model models =
   with Not_found -> false
 
 
+(* Asserts a new invariant in both solvers of the context. *)
+let assert_invariant { solver1 ; solver2 } (inv, is_one_state) =
+  (* Asserting invariant @0 in both solvers. *)
+  if is_one_state then (
+    SMTSolver.assert_term solver1 inv ;
+    SMTSolver.assert_term solver2 inv
+  ) ;
+  (* Asserting invariant @1 in [solver2]. *)
+  Term.bump_state Numeral.one inv |> SMTSolver.assert_term solver2
+
 (* Asserts new invariants in both solvers of the context. *)
-let assert_invariant { solver1 ; solver2 } invs =
-  (* Asserting invariants @0 in both solvers. *)
-  SMTSolver.assert_term solver1 invs ;
-  SMTSolver.assert_term solver2 invs ;
-  (* Asserting invariants @1 in [solver2]. *)
-  Term.bump_state Numeral.one invs |> SMTSolver.assert_term solver2
+let assert_invariants { solver1 ; solver2 } invs =
+  Unroller.assert_new_invs_to solver1 Numeral.one invs ;
+  Unroller.assert_new_invs_to solver2 Numeral.(succ one) invs
 
 
 (* Check-sat with assumption, returns [Some] of the model if sat, [None]
@@ -605,8 +612,10 @@ let rec loop in_sys param ({sys} as context) candidate =
         Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
         (* k-inductive certificate from context *)
         let cert = context.k, term in
-        TransSys.add_invariant context.sys term cert;
-        assert_invariant context term ;
+        let term, is_os =
+          TransSys.add_invariant context.sys term cert
+        in
+        assert_invariant context (term, is_os) ;
         (* Broadcasting invariant. *)
         Event.invariant (
           TransSys.scope_of_trans_sys context.sys
@@ -620,7 +629,7 @@ let rec loop in_sys param ({sys} as context) candidate =
     (* Format.printf "@." ; *)
 
     (* Communicating. *)
-    let invs, is_done =
+    let new_invs, is_done =
       Event.recv ()
       |> Event.update_trans_sys in_sys param sys
       |> fun (invs,props) ->
@@ -633,8 +642,12 @@ let rec loop in_sys param ({sys} as context) candidate =
         )
     in
     (* Asserting invariants if any. *)
-    if invs <> [] then Term.mk_and invs |> assert_invariant context ;
-    let context = if invs <> [] then reset_grey_of context else context in
+    assert_invariants context new_invs ;
+    let rcved_new_invs =
+      ( new_invs |> fst |> Term.TermSet.is_empty |> not ) ||
+      ( new_invs |> snd |> Term.TermSet.is_empty |> not )
+    in
+    let context = if rcved_new_invs then reset_grey_of context else context in
     (* increasing k *)
     context.k <- context.k + 1;
     (* If done, return [None]. *)
@@ -670,20 +683,22 @@ let rec run in_sys param context_option candidate sys =
       (* Let's do random stuff now. *)
       ( try
         ( match loop in_sys param context candidate with
-          | Some str_invariant ->
+          | Some str_inv ->
             Event.log L_info
               "C2I @[<v>Strengthening invariant found for %s@]" prop ;
             Stat.incr Stat.c2i_str_invs ;
-            let cert = context.k, str_invariant in
-            TransSys.add_invariant context.sys str_invariant cert;
-            assert_invariant context str_invariant ;
+            let cert = context.k, str_inv in
+            let str_inv, is_os =
+              TransSys.add_invariant context.sys str_inv cert
+            in
+            assert_invariant context (str_inv, is_os) ;
             (* Broadcasting strengthening invariant. *)
             Event.invariant (
               TransSys.scope_of_trans_sys context.sys
-            ) str_invariant cert;
+            ) str_inv cert;
 
             (* Communicating. *)
-            let invs, is_done =
+            let new_invs, is_done =
               Event.recv ()
               |> Event.update_trans_sys in_sys param sys
               |> fun (invs,props) ->
@@ -696,7 +711,7 @@ let rec run in_sys param context_option candidate sys =
                 )
             in
             (* Asserting invariants if any. *)
-            if invs <> [] then Term.mk_and invs |> assert_invariant context ;
+            assert_invariants context new_invs ;
 
             (* Updating local system. *)
             ( match TransSys.get_prop_status context.sys context.prop with
@@ -705,8 +720,9 @@ let rec run in_sys param context_option candidate sys =
                 TransSys.set_prop_invariant context.sys context.prop cert (* TODO check*);
                 TransSys.get_prop_term context.sys context.prop
                 |> fun t ->
-                  TransSys.add_invariant context.sys t cert;
-                  assert_invariant context t )
+                  TransSys.add_invariant context.sys t cert
+                  |> assert_invariant context
+            )
           | None ->
             (* Proved or disproved by another technique, or termination was
                requested. *)

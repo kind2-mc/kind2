@@ -98,6 +98,14 @@ val log_analysis_start : TransSys.t -> Analysis.param -> unit
     [log_analysis_start result] logs the end of an analysis. *)
 val log_analysis_end : Analysis.result -> unit
 
+(** Logs the start of a post-analysis treatment. Arguments:
+* name of the treatment (concise, for XML)
+* title of the treatment (verbose, for pt) *)
+val log_post_analysis_start : string -> string -> unit
+
+(** Logs the end of a post-analysis treatment. *)
+val log_post_analysis_end : unit -> unit
+
 (** Logs a timeout. Input should be [true] for wallclock, [false] for CPU. *)
 val log_timeout : bool -> unit
 
@@ -153,13 +161,6 @@ val update_child_processes_list: (int * Lib.kind_module) list -> unit
     received messages. *)
 val check_termination: unit -> unit
 
-(** Filter list of invariants with their scope for invariants of empty
-    (top) scope *)
-val top_invariants_of_invariants :
-  TransSys.t ->
-  (Lib.kind_module * (string list * Term.t * Certificate.t)) list ->
-  Term.t list
-
 (** Update transition system from events and return new invariants
     INCLUDING subsystem ones, scoped and properties with changed
     status.
@@ -177,7 +178,7 @@ val update_trans_sys_sub :
   Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
-  (Lib.kind_module * (string list * Term.t * Certificate.t)) list *
+  (Term.TermSet.t * Term.TermSet.t) Scope.Map.t *
   (Lib.kind_module * (string * Property.prop_status)) list
 
 (** Update transition system from events and return new top level
@@ -196,7 +197,7 @@ val update_trans_sys :
   Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
-  Term.t list * 
+  (Term.TermSet.t * Term.TermSet.t) * 
   (Lib.kind_module * (string * Property.prop_status)) list
 
 

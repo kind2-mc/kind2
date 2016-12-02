@@ -686,6 +686,10 @@ type kind_module =
   | `IND2
   | `INVGEN
   | `INVGENOS
+  | `INVGENINT
+  | `INVGENINTOS
+  | `INVGENREAL
+  | `INVGENREALOS
   | `C2I
   | `Interpreter
   | `Supervisor
@@ -701,6 +705,10 @@ let pp_print_kind_module ppf = function
   | `IND2 -> fprintf ppf "2-induction"
   | `INVGEN -> fprintf ppf "two state invariant generator"
   | `INVGENOS -> fprintf ppf "one state invariant generator"
+  | `INVGENINT -> fprintf ppf "two state invariant generator (int)"
+  | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
+  | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
+  | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
   | `Interpreter -> fprintf ppf "interpreter"
   | `Supervisor -> fprintf ppf "invariant manager"
@@ -712,13 +720,17 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 
 (* Return a short representation of kind module *)
-let suffix_of_kind_module = function
+let short_name_of_kind_module = function
  | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `IND2 -> "ind2"
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
+ | `INVGENINT -> "invgenintts"
+ | `INVGENINTOS -> "invgenintos"
+ | `INVGENREAL -> "invgenintts"
+ | `INVGENREALOS -> "invgenintos"
  | `C2I -> "c2i"
  | `Interpreter -> "interp"
  | `Supervisor -> "super"
@@ -734,6 +746,10 @@ let kind_module_of_string = function
   | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
+  | "INVGENINT" -> `INVGENINT
+  | "INVGENINTOS" -> `INVGENINTOS
+  | "INVGENREAL" -> `INVGENREAL
+  | "INVGENREALOS" -> `INVGENREALOS
   | "C2I" -> `C2I
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
@@ -749,7 +765,11 @@ let int_of_kind_module = function
   | `IC3 -> 4
   | `INVGEN -> 5
   | `INVGENOS -> 6
-  | `C2I -> 7
+  | `INVGENINT -> 7
+  | `INVGENINTOS -> 8
+  | `INVGENREAL -> 9
+  | `INVGENREALOS -> 10
+  | `C2I -> 11
 
 
 (* Timeouts *)
@@ -1143,6 +1163,16 @@ let set_liberal_gc () =
 
 
 (* ********************************************************************** *)
+(* Paths techniques write to                                              *)
+(* ********************************************************************** *)
+
+module Paths = struct
+  let testgen = "tests"
+  let oracle = "oracle"
+  let implem = "implem"
+end
+
+(* ********************************************************************** *)
 (* Reserved identifiers                                                   *)
 (* ********************************************************************** *)
 
@@ -1194,6 +1224,18 @@ module ReservedIds = struct
     index_ident_string ;
   ]
 
+end
+
+
+(* |===| Exit codes. *)
+
+(** Exit codes. *)
+module ExitCodes = struct
+  let unknown = 0
+  let unsafe = 10
+  let safe = 20
+  let error = 2
+  let kid_status = 128
 end
 
 

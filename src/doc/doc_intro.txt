@@ -64,6 +64,8 @@ Overall system architecture.
   Strategy
   Analysis
   InvarManager
+  PostAnalysis
+  Kind2Flow
   Kind2
 }
 
@@ -233,6 +235,7 @@ Source files live in subdirectory [SMTSolver]
 
 {!modules:
   Lib
+  Res
   Debug
   Decimal
   Hashcons
@@ -248,6 +251,7 @@ Source files live in subdirectory [SMTSolver]
   TermLib
   Trie
   Version
+  Unroller
 }
 
 {1:howto Howto}

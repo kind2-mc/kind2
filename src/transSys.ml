@@ -218,6 +218,9 @@ let pp_print_uf ppf uf =
     (pp_print_list Type.pp_print_type "@ ") (UfSymbol.arg_type_of_uf_symbol uf)
     Type.pp_print_type (UfSymbol.res_type_of_uf_symbol uf)
 
+
+let pp_print_trans_sys_name fmt { scope } =
+  Format.fprintf fmt "%a" Scope.pp_print_scope scope
     
 let pp_print_trans_sys 
     ppf
@@ -1207,6 +1210,11 @@ let get_prop_status trans_sys p =
 
   with Not_found -> P.PropUnknown
 
+(* Tests if a term is an invariant. *)
+let is_inv { invariants_one_state ; invariants_two_state } term =
+  TermMap.mem invariants_one_state term ||
+  TermMap.mem invariants_two_state term
+
 
 (* Return true if the property is proved invariant *)
 let is_proved trans_sys prop = 
@@ -1285,6 +1293,11 @@ let get_prop_status_all_unknown t =
     t.properties
 
 
+(** Returns true iff sys has at least one property. *)
+let has_properties = function
+| { properties = [] } -> false
+| _ -> true
+
 (* Return true if all properties which are not candidates are either valid or
    invalid *)
 let all_props_proved t =
@@ -1320,15 +1333,32 @@ let props_list_of_bound t i =
   named_terms_list_of_bound t.properties i
 
 
-(* Add an invariant to the transition system *)
+(* Add an invariant to the transition system.
+
+Returns the normalized terms and a boolean indicating whether it is one
+state. *)
 let add_scoped_invariant t scope invar cert =
 
-  let is_one_state = 
+  let is_one_state, invar =
     match Term.var_offsets_of_term invar with
-      | None, None 
-      | Some _, None 
-      | None, Some _ -> true 
-      | Some l, Some u -> Numeral.(equal l u)
+    | None, None -> true, invar
+    | Some lo, None
+    | None, Some lo -> true, (
+      Term.bump_state Numeral.(~- lo) invar
+    )
+    | Some lo, Some up ->
+      if Numeral.(equal lo up) then true, (
+        (* Make sure one state invariants have offset [0]. *)
+        Term.bump_state Numeral.(~- lo) invar
+      ) else false, (
+        let lo_offset = Numeral.(~- one) in
+        (* Make sure two-state invariants have offset [-1,0]. *)
+        if Numeral.(lo < lo_offset) then
+          Term.bump_state Numeral.(~- lo_offset - lo) invar
+        else if Numeral.(lo > lo_offset) then
+          Term.bump_state Numeral.(lo - lo_offset) invar
+        else invar
+      )
   in
 
   iter_subsystems (
@@ -1338,28 +1368,31 @@ let add_scoped_invariant t scope invar cert =
       if Scope.equal scope s then TermMap.replace (
         if is_one_state then invariants_one_state else invariants_two_state
       ) invar cert
-  ) t
+  ) t ;
+
+  invar, is_one_state
 
 
 let add_properties t props =
   { t with
     properties = List.rev_append (List.rev props) t.properties }
-  
-  
-(* Add an invariant to the transition system *)
+
+
+(* Add an invariant to the transition system
+
+Returns the normalized terms and a boolean indicating whether it is one
+state. *)
 let add_invariant t invar cert = add_scoped_invariant t t.scope invar cert
 
 
-(* Instantiate the initial state constraint to the bound *)
+(* Instantiate the invariant constraint to the bound *)
 let invars_of_bound
   ?(one_state_only = false)
-  { invariants_one_state ; invariants_two_state } 
+  { invariants_one_state ; invariants_two_state }
   i
 =
-  let append_key =
-    if Numeral.(i = zero)
-    then fun term _ acc ->                    term  :: acc
-    else fun term _ acc -> (Term.bump_state i term) :: acc
+  let append_key term _ acc =
+    (Term.bump_state i term) :: acc
   in
 
   TermMap.fold append_key invariants_one_state [] |> (
@@ -1367,24 +1400,6 @@ let invars_of_bound
     then identity
     else TermMap.fold append_key invariants_two_state
   )
-
-(* Instantiate the initial state constraint to the bound and applies a
-function *)
-let map_invars_of_bound
-  ?(one_state_only = false)
-  { invariants_one_state ; invariants_two_state } 
-  f
-  i
-=
-  let bump_apply_f =
-    if Numeral.(i = zero)
-    then fun term _ -> f term
-    else fun term _ -> Term.bump_state i term |> f
-  in
-
-  TermMap.iter bump_apply_f invariants_one_state ;
-  if one_state_only then
-    TermMap.iter bump_apply_f invariants_two_state
 
 
 (*************************************************************************)
@@ -1616,15 +1631,20 @@ let mk_trans_sys
 let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) = 
 
   (* merge maps of term -> certificate by keeping simplest certificate *)
-  let merge_term_cert_maps _ (v1: Certificate.t option) (v2: Certificate.t option) =
+  let merge_term_cert_maps _ (
+    v1: Certificate.t option
+  ) (
+    v2: Certificate.t option
+  ) =
     match v1, v2 with
     | Some ((k1, _) as c1), Some ((k2, _) as c2) ->
       if k1 < k2 then Some c1
       else if k1 > k2 then Some c2
       else
-        let size_comp = compare (Certificate.size c1) (Certificate.size c2) in
-        if size_comp <= 0 then Some c1
-        else Some c2
+        let size_comp =
+          compare (Certificate.size c1) (Certificate.size c2)
+        in
+        if size_comp <= 0 then Some c1 else Some c2
     | Some c1, None -> Some c1
     | None, Some c2 -> Some c2
     | None, None -> None
@@ -1633,7 +1653,9 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
   (* merge maps whose values are sets of terms by union *)
   let merge_term_set_maps _ v1 v2 = 
     match v1, v2 with
-      | Some s1, Some s2 -> Some (Term.TermMap.merge merge_term_cert_maps s1 s2)
+      | Some s1, Some s2 -> Some (
+        Term.TermMap.merge merge_term_cert_maps s1 s2
+      )
       | Some s1, None -> Some s1
       | None, Some s2 -> Some s2
       | None, None -> None
@@ -1716,7 +1738,7 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
 
        (* Combine instances from subsystems and instances from this
           system *)
-         List.fold_left merge_accum res accum
+       List.fold_left merge_accum res accum
            
     )
     trans_sys
@@ -1724,13 +1746,14 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
 
   let res_set_to_list (t, s) = (t, Term.TermMap.bindings s) in
 
-  ((trans_sys, top_terms) |> res_set_to_list, 
-   Map.bindings intermediate_terms
-   |> List.map res_set_to_list)
+  (
+    (trans_sys, top_terms) |> res_set_to_list, 
+    Map.bindings intermediate_terms |> List.map res_set_to_list
+  )
 
 
 
-(* Same as above wihtout certificates *)
+(* Same as above without certificates *)
 let instantiate_term_all_levels trans_sys offset scope term =
   let dummy_cert = -1, term in
   let (sys_top, t_top), inter_c =

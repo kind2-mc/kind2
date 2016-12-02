@@ -79,6 +79,9 @@ val create_node : t -> LustreIdent.t -> bool -> t
 (** Returns the name of the current node, if any. *)
 val current_node_name : t -> LustreIdent.t option
 
+(** Maps something to the current node. *)
+val current_node_map : t -> (LustreNode.t -> LustreNode.t) -> t
+
 (** Returns the calls made by the current node, if any. *)
 val current_node_calls : t -> LustreNode.node_call list
 

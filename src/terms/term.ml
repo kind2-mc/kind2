@@ -1151,6 +1151,32 @@ let negate t = match T.destruct t with
 
 
 
+(* Negates a term by modifying the top node if it is a uminus or an
+   arithmetic constant. *)
+let mk_minus_simplify t = match T.destruct t with
+
+  | T.Const symb ->
+     ( match Symbol.node_of_symbol symb with
+
+       (* Int constants. *)
+       | `NUMERAL n -> mk_num Numeral.(~- n)
+       (* Real constants. *)
+       | `DECIMAL n -> mk_dec Decimal.(~- n)
+       | _ -> mk_minus [ t ] )
+
+  | T.App (symb, kids) ->
+     ( match Symbol.node_of_symbol symb, kids with
+
+       (* Top symbol is a unary minus, removing it. *)
+       | `MINUS, [term] -> term
+
+       | _ -> mk_minus [ t ] )
+
+  (* Top symbol is not a negation, then negate given term *)
+  | _ -> mk_minus [ t ]
+
+
+
 (* Negates a term by modifying the top node if it is a not, true,
    false, or an arithmetic inequality. *)
 let negate_simplify t = match T.destruct t with

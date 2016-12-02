@@ -307,7 +307,11 @@ val mk_succ : t -> t
 val mk_pred : t -> t
 
 (** Negate term, avoiding double negation *)
-val negate : t -> t 
+val negate : t -> t
+
+(* Negates a term by modifying the top node if it is a uminus or an
+   arithmetic constant. *)
+val mk_minus_simplify : t -> t
 
 (** Negates a term by modifying the top node if it is a not, true,
     false, or an arithmetic inequality. *)

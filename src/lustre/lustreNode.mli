@@ -107,8 +107,11 @@ type state_var_source =
 | Input   (** Declared input variable *)
 | Output  (** Declared output variable *)
 | Local   (** Declared local variable *)
+| Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
 | Oracle  (** Generated non-deterministic input *)
+| Alias of
+  StateVar.t * state_var_source option (** Alias for another state variable. *)
 
 
 (** A contract. *)
@@ -307,6 +310,9 @@ val ordered_equations_of_node :
 (** Returns the equation for a state variable if any. *)
 val equation_of_svar : t -> StateVar.t -> equation option
 
+(** Returns the equation for a state variable if any. *)
+val source_of_svar : t -> StateVar.t -> state_var_source option
+
 (** Returns the node call the svar is (one of) the output(s) of, if any. *)
 val node_call_of_svar : t -> StateVar.t -> node_call option
 
@@ -364,8 +370,17 @@ val pp_print_state_var_source : Format.formatter -> state_var_source -> unit
 (** Set source of state variable *)
 val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 
+(** Set source of state variable if not already defined. *)
+val set_state_var_source_if_undef : t -> StateVar.t -> state_var_source -> t
+
 (** Get source of state variable *)
 val get_state_var_source : t -> StateVar.t -> state_var_source
+
+(** Sets the first svar as alias for the second svar. *)
+val set_state_var_alias : t -> StateVar.t -> StateVar.t -> t
+
+(** Register state var as tied to a node call if not already registered. *)
+val set_state_var_node_call : t -> StateVar.t -> t
 
 (** State variable is identical to a state variable in a node instance *)
 val set_state_var_instance :

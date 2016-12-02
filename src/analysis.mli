@@ -141,6 +141,9 @@ val results_add : result -> results -> results
     Raises [Not_found] if not found. *)
 val results_find : Scope.t -> results -> result list
 
+(** Returns the last result corresponding to a scope. *)
+val results_last : Scope.t -> results -> result
+
 (** Returns the total number of results stored in a [results]. Used to
     generate UIDs for [param]s. *)
 val results_length : results -> int
