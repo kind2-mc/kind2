@@ -70,6 +70,7 @@ let merge_branches transitions =
 
 (* Identifier token *)
 %token <string>SYM 
+%token <string>QUOTSYM 
       
 (* Tokens for types *)
 %token TYPE
@@ -979,7 +980,7 @@ expr:
   | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN
     { A.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
   | e1 = expr; ARROW; e2 = expr { A.Arrow (mk_pos $startpos, e1, e2) }
-  | LAST; i = ident { A.Last (mk_pos $startpos, i) }
+  | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, i) }
 
   (* A node or function call *)
   | e = node_call { e } 
@@ -1053,6 +1054,9 @@ ident:
   | ENSURE { "ensure" }
   | s = SYM { s }
 
+ident_or_quotident:
+  | id = ident { id }
+  | s = QUOTSYM { s }
 
 (* An identifier with a type *)
 typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }
