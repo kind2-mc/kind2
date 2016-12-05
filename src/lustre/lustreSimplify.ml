@@ -322,6 +322,12 @@ let rec eval_ast_expr ctx = function
 
     eval_binary_ast_expr ctx pos (E.mk_ite expr1') expr2 expr3
 
+  (* Temporal operator last *)
+  | A.Last (pos, i)  -> 
+    (* Translate to pre *)
+    C.warn_at_position pos "Not in a state, last was replaced by pre";
+    eval_ast_expr ctx (A.Pre (pos, A.Ident (pos, i)))
+
   (* Temporal operator pre [pre expr] *)
   | A.Pre (pos, expr) as original ->
     (* Evaluate expression *)
@@ -368,59 +374,66 @@ let rec eval_ast_expr ctx = function
 
   *)
   | A.Merge
-      (pos,
-       (A.Ident (clock_pos, clock_ident) as clock_expr),
-       [expr_high; expr_low]) ->
+      (pos, clock_ident, merge_cases) ->
 
-    (* Evaluate expression for clock *)
-    let clock_expr', ctx = 
-      eval_bool_ast_expr ctx clock_pos clock_expr 
+    (* Evaluate expression for clock identifier *)
+    let clock_expr, ctx = eval_clock_ident ctx pos clock_ident in 
+    let clock_type = E.type_of_lustre_expr clock_expr in
+
+    let cases_to_have =
+      if Type.is_bool clock_type then ["true"; "false"]
+      else Type.constructors_of_enum clock_type
+    in
+    let cases = List.map fst merge_cases in
+    if List.sort String.compare cases <> List.sort String.compare cases_to_have
+    then C.fail_at_position pos "Cases of merge must be exhaustive and unique";
+    
+
+    let cond_of_clock_value clock_value = match clock_value with
+      | "true" -> A.Ident (pos, clock_ident)
+      | "false" -> A.Not (pos, A.Ident (pos, clock_ident))
+      | _ ->
+        A.Eq (pos, A.Ident (pos, clock_ident), A.Ident (pos, clock_value))
     in
 
-    let eval_merge_case clock_sign ctx = function
+    let cond_expr_clock_value clock_value = match clock_value with
+      | "true" -> clock_expr
+      | "false" -> E.mk_not clock_expr
+      | _ -> E.mk_eq clock_expr (E.mk_constr clock_value clock_type)
+    in
+    
+    let eval_merge_case ctx = function
 
       (* An expression under a [when] *)
-      | A.When (pos, expr, case_clock) -> 
+      | clock_value, A.When (pos, expr, case_clock) -> 
 
         (match case_clock with
-
-          (* Compare high clock with merge clock by name *)
-          | A.Ident (_, high_clock)
-              when clock_sign && high_clock = clock_ident -> ()
-            
-          (* Compare low clock with merge clock by name *)
-          | A.Not (_, A.Ident (_, low_clock))
-              when not clock_sign && low_clock = clock_ident -> ()
-            
+          | A.ClockPos c when clock_value = "true" && c = clock_ident -> ()
+          | A.ClockNeg c when clock_value = "false" && c = clock_ident -> ()
+          | A.ClockConstr (cs, c) when clock_value = cs && c = clock_ident -> ()
           (* Clocks must be identical identifiers *)
-          | _ ->
-            
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge");
+          | _ -> C.fail_at_position pos "Clock mismatch for argument of merge");
 
         (* Evaluate expression under [when] *)
         eval_ast_expr ctx expr
 
       (* A node call with activation condition and no defaults *)
-      | A.Activate (pos, ident, case_clock, args) -> 
+      | clock_value, A.Activate (pos, ident, case_clock, restart_clock, args) ->
 
         (match case_clock with
 
           (* Compare high clock with merge clock by name *)
-          | A.Ident (_, high_clock)
-              when clock_sign && high_clock = clock_ident -> ()
+          | A.Ident (_, c) when clock_value = "true" && c = clock_ident -> ()
 
           (* Compare low clock with merge clock by name *)
-          | A.Not (_, A.Ident (_, low_clock))
-              when not clock_sign && low_clock = clock_ident -> ()
+          | A.Not (_, A.Ident (_, c))
+            when clock_value = "false" && c = clock_ident -> ()
+             
+          | A.Eq (_, A.Ident (_, c), A.Ident (_, cv))
+            when clock_value = cv && c = clock_ident -> ()
              
           (* Clocks must be identical identifiers *)
-          | _ -> 
-
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge");
+          | _ -> C.fail_at_position pos "Clock mismatch for argument of merge");
         
         (* Evaluate node call without defaults *)
         try_eval_node_call
@@ -428,109 +441,63 @@ let rec eval_ast_expr ctx = function
           pos
           (I.mk_string_ident ident)
           case_clock
-          (A.False dummy_pos)
+          restart_clock
           args
           None
 
       (* A node call, we implicitly clock it *)
-      | A.Call (pos, ident, args) ->
+      | clock_value, A.Call (pos, ident, args) -> 
+
         (* Evaluate node call without defaults *)
         try_eval_node_call
           ctx
           pos
           (I.mk_string_ident ident)
-          (if clock_sign then clock_expr else A.Not (dummy_pos, clock_expr))
-          (A.False dummy_pos)
+          (cond_of_clock_value clock_value)
+          (A.False pos)
           args
           None
 
       (* An expression not under a [when], we implicitly clock it *)
-      | expr -> 
+      | _, expr -> 
 
         (* Evaluate expression under [when] *)
         eval_ast_expr ctx expr
 
     in
+
+    (* Evaluate merge cases expressions *)
+    let merge_cases_r, ctx =
+      List.fold_left (fun (acc, ctx) ((case_value, _) as case) ->
+          let e, ctx = eval_merge_case ctx case in
+          (cond_expr_clock_value case_value, e) :: acc, ctx
+        ) ([], ctx) merge_cases
+    in
+
+    (* isolate last case, drop condition *)
+    let default_case, other_cases_r = match merge_cases_r with
+      | (_, d) :: l -> d, l
+      | _ -> assert false
+    in
     
-    
-    (* Evaluate expression for high clock *)
-    let expr_high', ctx = eval_merge_case true ctx expr_high in
-
-    let expr_low', ctx = eval_merge_case false ctx expr_low in
-(*
-      (* Evaluate expression for low clock *)
-      let expr_low', ctx = match expr_low with
-
-        (* An expression under a [when] *)
-        | A.When (pos, expr, A.Not (_, (A.Ident (_, low_clock)))) -> 
-
-          (* Compare clocks by name *)
-          if clock_ident = low_clock then 
-
-            (* Evaluate expression under [when] *)
-            eval_ast_expr ctx expr
-
-          else
-
-            (* Clocks must be identical identifiers *)
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge"
-
-        (* A node call with activation condition and no defaults *)
-        | A.Activate
-            (pos, 
-             ident,
-             (A.Not (_, (A.Ident (_, low_clock_ident))) as low_clock), 
-             args) -> 
-
-          (* Compare clocks by name *)
-          if clock_ident = low_clock_ident then 
-
-            (* Evaluate node call without defaults *)
-            try_eval_node_call
-              ctx
-              pos
-              (I.mk_string_ident ident)
-              low_clock
-              args
-              None
-
-          else
-
-            (* Clocks must be identical identifiers *)
-            C.fail_at_position 
-              pos
-              "Clock mismatch for argument of merge"
-
-        (* Nothing else is supported *)
-        | _ ->
-
-          C.fail_at_position 
-            pos
-            "Unsupported argument of merge operator"
-
-      in
-*)
+    (* let merge_cases' = List.rev merge_cases_r in  *)
 
     (* Apply merge pointwise to expressions *)
     let res = 
 
       try 
 
-        (* Fold simultanously over indexes in expressions
+        List.fold_left (fun acc_else (cond, e) ->
 
-           If tries contain the same indexes, the association list
-           returned by bindings contain the same keys in the same
-           order. *)
-        D.map2
+            (* Fold simultanously over indexes in expressions
 
-          (* Construct expressions independent of index *)
-          (fun _ -> E.mk_ite clock_expr') 
-
-          expr_high' 
-          expr_low'
-
+               If tries contain the same indexes, the association list
+               returned by bindings contain the same keys in the same
+               order. *)
+            D.map2 (fun _ -> E.mk_ite cond) e acc_else
+              
+          ) default_case other_cases_r
+          
       with 
 
         | Invalid_argument _ ->
@@ -684,7 +651,7 @@ let rec eval_ast_expr ctx = function
 
       with Not_found ->
         (* Type might be forward referenced. *)
-        Deps.Unknown_decl (Deps.Type, record_ident) |> raise
+        Deps.Unknown_decl (Deps.Type, record_ident, pos) |> raise
 
     in
 
@@ -884,14 +851,14 @@ let rec eval_ast_expr ctx = function
   (* Condact, a node with an activation condition 
 
      [condact(cond, N(args, arg2, ...), def1, def2, ...)] *)
-  | A.Condact (pos, cond, ident, args, defaults) ->  
+  | A.Condact (pos, cond, restart, ident, args, defaults) ->  
 
     try_eval_node_call
       ctx
       pos
       (I.mk_string_ident ident)
       cond
-      (A.False dummy_pos)
+      restart
       args
       (Some defaults)
 
@@ -983,18 +950,11 @@ let rec eval_ast_expr ctx = function
       pos
       "Current operator must have a when expression as argument"
 
-  | A.Merge (pos, _, _) ->
-
-    C.fail_at_position 
-      pos
-      "Merge operator only supported for Boolean clocks"
-
-  | A.Activate (pos, _, _, _) -> 
+  | A.Activate (pos, _, _, _, _) -> 
 
     C.fail_at_position 
       pos
       "Activate operator only supported in merge"
-
 
   (* With operator for recursive node calls *)
   | A.With (pos, _, _, _) -> 
@@ -1005,6 +965,7 @@ let rec eval_ast_expr ctx = function
   | A.CallParam (pos, _, _, _) -> 
 
     C.fail_at_position pos "Parametric nodes not supported" 
+
 
 
 (* ******************************************************************** *)
@@ -1078,6 +1039,29 @@ and eval_bool_ast_expr ctx pos expr =
       C.fail_at_position pos "Expression is not of Boolean type")
 
 
+and eval_clock_ident ctx pos ident =
+
+  (* Evaluate identifier to trie *)
+  let expr, ctx = eval_ident ctx pos ident in
+
+  (* Check if evaluated expression is Boolean or enumerated datatype *)
+  (match D.bindings expr with 
+
+    (* Boolean expression without indexes *)
+    | [ index, 
+        ({ E.expr_type = t } as expr) ] when 
+        index = D.empty_index && (Type.is_bool t || Type.is_enum t) -> 
+
+      expr, ctx
+
+    (* Expression is not Boolean or is indexed *)
+    | _ -> 
+
+      C.fail_at_position pos "Clock identifier is not Boolean or of \
+                              an enumerated datatype")
+
+
+  
 (* Evaluate expression to an integer expression, which is not
    necessarily an integer literal. *)
 and static_int_of_ast_expr ctx pos expr =
@@ -1115,8 +1099,9 @@ and static_int_of_ast_expr ctx pos expr =
 
 
 (* Return the trie for the identifier *)
-and eval_ident ctx pos ident =
-  let ident = I.mk_string_ident ident in
+and eval_ident ctx pos i =
+
+  let ident = I.mk_string_ident i in
 
   try 
 
@@ -1127,8 +1112,13 @@ and eval_ident ctx pos ident =
     (res, ctx)
 
   with Not_found ->
+  try
+    (* Might be a constructor *)
+    let ty = Type.enum_of_constr i in
+    D.singleton D.empty_index (E.mk_constr i ty), ctx
+  with Not_found ->
     (* Might be a forward referenced constant. *)
-    Deps.Unknown_decl (Deps.Const, ident) |> raise
+    Deps.Unknown_decl (Deps.Const, ident, pos) |> raise
 
 (* Return the constant inserted into an empty trie *)
 and eval_nullary_expr ctx pos expr =
@@ -1271,7 +1261,7 @@ and try_eval_node_call ctx pos ident cond restart args defaults =
     (* No node of that name *)
     | None ->
       (* Node may be forward referenced *)
-      Deps.Unknown_decl (Deps.NodeOrFun, ident) |> raise
+      Deps.Unknown_decl (Deps.NodeOrFun, ident, pos) |> raise
 
 
 
@@ -1343,7 +1333,10 @@ and eval_node_call
         (D.empty, ctx)
 
     (* Type checking error or one expression has more indexes *)
-    with Invalid_argument _ | E.Type_mismatch -> 
+    with
+    | Invalid_argument _ -> 
+      C.fail_at_position pos "Index mismatch for input parameters"
+    | E.Type_mismatch -> 
       C.fail_at_position pos "Type mismatch for input parameters"
   in
 
@@ -1417,12 +1410,10 @@ and eval_node_call
 
   (* cannot have both activation condition and restart condition *)
   let cond_state_var = match act_state_var, restart_state_var with
-    | None, None -> N.CNone
-    | Some c, None -> N.CActivate c
-    | None, Some r -> N.CRestart r
-    | _ ->
-      C.fail_at_position pos
-        "Cannot have both an activation condition and a restart condition"
+    | None, None -> []
+    | Some c, None -> [N.CActivate c]
+    | None, Some r -> [N.CRestart r]
+    | Some c, Some r -> [N.CActivate c; N.CRestart r]
   in
   
   match
@@ -1667,9 +1658,19 @@ let rec eval_ast_type ctx = function
 
 
   (* Enum type needs to be constructed *)
-  | A.EnumType (pos, enum_elements) -> 
+  | A.EnumType (pos, enum_name, enum_elements) -> 
 
-    C.fail_at_position pos "Enum types not supported" 
+    let ty = Type.mk_enum enum_name enum_elements in
+      
+    (* let ctx = List.fold_left (fun ctx c -> *)
+    (*     C.add_expr_for_ident *)
+    (*       ctx (I.mk_string_ident c)  *)
+    (*       (D.singleton D.empty_index (E.mk_constr c ty)) *)
+    (*   ) ctx enum_elements *)
+    (* in *)
+    
+    (* Add to empty trie with empty index *)
+    D.singleton D.empty_index ty
 
 
   (* User-defined type, look up type in defined types, return subtrie
@@ -1681,7 +1682,7 @@ let rec eval_ast_type ctx = function
       C.type_of_ident ctx ident
     with Not_found ->
       (* Type might be forward referenced. *)
-      Deps.Unknown_decl (Deps.Type, ident) |> raise
+      Deps.Unknown_decl (Deps.Type, ident, pos) |> raise
   )
 
   (* Record type, return trie of indexes in record *)
@@ -1691,21 +1692,17 @@ let rec eval_ast_type ctx = function
     List.fold_left
 
       (* Each index has a separate type *)
-      (fun a (_, i, t) -> 
+      (fun a (_, i, t) ->
+         
+         (* Evaluate type expression for field to a trie *)
+         let expr = eval_ast_type ctx t in
 
-         (* Take all indexes and their defined types *)
-         D.fold
-           
-           (* Add index of record field to index of type and add to
-              trie *)
-           (fun j t a -> 
-              D.add (D.RecordIndex i :: j) t a)
-           
-           (* Evaluate type expression for field to a trie *)
-           (eval_ast_type ctx t)
-
-           (* Add to trie in accumulator *)
-           a)
+         (* Take all indexes and their defined types and add index of record
+            field to index of type and add to trie *)
+         D.fold (fun j t a -> 
+             D.add (D.RecordIndex i :: j) t a
+           ) expr a
+      )
 
       (* Start with empty trie *)
       D.empty
@@ -1715,36 +1712,31 @@ let rec eval_ast_type ctx = function
   (* Tuple type, return trie of indexes in tuple fields *)
   | A.TupleType (pos, tuple_fields) -> 
 
-    snd
+    (* Take all tuple fields in order *)
+    List.fold_left
 
-      (* Take all tuple fields in order *)
-      (List.fold_left
+      (* Count up index of field, each field has a separate type *)
+      (fun (i, a) t -> 
 
-         (* Count up index of field, each field has a separate type *)
-         (fun (i, a) t -> 
+         (* Evaluate type expression for field to a trie *)
+         let expr = eval_ast_type ctx t in
 
-            (* Increment counter for field index *)
-            (succ i,
+         (* Take all indexes and their defined types and add index of tuple
+            field to index of type and add to trie *)
+         let d = D.fold (fun j t a ->
+             D.add (D.TupleIndex i :: j) t a
+           ) expr a in
 
-             (* Take all indexes and their defined types *)
-             D.fold 
+         (* Increment counter for field index *)
+         succ i, d
+      )
 
-               (* Add index of tuple field to index of type and add to
-                  trie *)
-               (fun j t a ->
-                  D.add (D.TupleIndex i :: j) t a)
+      (* Start with field index zero and empty trie *)
+      (0, D.empty)
 
-               (* Evaluate type expression for field to a map of index
-                  to type *)
-               (eval_ast_type ctx t)
-
-               (* Add to trie in accumulator *)
-               a))
-
-         (* Start with field index zero and empty trie *)
-         (0, D.empty)
-
-         tuple_fields)
+      tuple_fields
+      
+    |> snd
 
 
   (* Array type, return trie of indexes in tuple fields *)
@@ -1759,7 +1751,8 @@ let rec eval_ast_type ctx = function
     (* Add array bounds to type *)
     D.fold
       (fun j t a -> 
-         D.add (j @ [D.ArrayVarIndex array_size]) (Type.mk_array t Type.t_int) a)
+         D.add (j @ [D.ArrayVarIndex array_size])
+           (Type.mk_array t Type.t_int) a)
       element_type
       D.empty
 

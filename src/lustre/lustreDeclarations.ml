@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Lib.ReservedIds
 
 module A = LustreAst
 
@@ -37,9 +38,194 @@ module S = LustreSimplify
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
+module ISet = Set.Make (String)
 
 module Deps = LustreDependencies
 
+
+(*********************************************)
+(* Auxiliary functions for automata encoding *)
+(*********************************************)
+
+(* Useful information for encoding automata *)
+type automaton_info = {
+  (* Name of the automaton *)
+  auto_name : string;
+
+  (* Inputs of the node in which the automaton appears *)
+  node_inputs : A.const_clocked_typed_decl list;
+
+  (* Outputs of the automaton (declared with returns) *)
+  auto_outputs : A.clocked_typed_decl list;
+
+  (* Other node variables *)
+  other_vars : A.const_clocked_typed_decl list;
+
+  (* Memories for [last] expressions, passed as inputs to the automaton
+     states *)
+  lasts_inputs : A.const_clocked_typed_decl list;
+
+  (* Enumerated datatype to represent states *)
+  states_lustre_type : A.lustre_type;
+
+  (* Local variables used to encode the internal state of the automaton *)
+  i_state_selected : A.ident;
+  i_restart_selected : A.ident;
+  i_state : A.ident;
+  i_restart : A.ident;
+}
+
+
+exception Found_auto_out of A.clocked_typed_decl
+exception Found_last_ty of A.lustre_type
+
+(* Create a new name for anonymous automata *)
+let fresh_automaton_name =
+  let cpt = ref 0 in
+  fun scope ->
+    incr cpt;
+    String.concat "." (scope @ ["automaton" ^ string_of_int !cpt])
+
+
+let rec replace_lasts_branch allowed name acc = function
+  | A.Target _ as t -> t, acc
+  | A.TransIf (pos, e, br, None) as t ->
+    let e', acc = A.replace_lasts allowed name acc e in
+    let br', acc = replace_lasts_branch allowed name acc br in
+    if e' == e && br' == br then t, acc
+    else A.TransIf (pos, e', br', None), acc
+  | A.TransIf (pos, e, br, Some br2) as t ->
+    let e', acc = A.replace_lasts allowed name acc e in
+    let br', acc = replace_lasts_branch allowed name acc br in
+    let br2', acc = replace_lasts_branch allowed name acc br2 in
+    if e' == e && br' == br && br2' = br2 then t, acc
+    else A.TransIf (pos, e', br', Some br2'), acc
+
+let replace_lasts_transition allowed name acc = function
+  | None -> None, acc
+  | Some (pos, br) ->
+    let br, acc = replace_lasts_branch allowed name acc br in
+    Some (pos, br), acc
+
+let rec replace_lasts_state allowed name acc = function
+  | A.State (pos, state_c, init, locals, eqs, unless_tr, until_tr) ->
+    let unless_tr, acc = replace_lasts_transition allowed name acc unless_tr in
+    let until_tr, acc = replace_lasts_transition allowed name acc until_tr in
+    let eqs, acc = List.fold_left (fun (eqs, acc) -> function
+        | A.Assert (pos, e) as eq ->
+          let e', acc' = A.replace_lasts allowed name acc e in
+          if e == e' then eq :: eqs, acc
+          else A.Assert (pos, e') :: eqs, acc'
+        | A.Equation (pos, lhs, e) as eq ->
+          let e', acc' = A.replace_lasts allowed name acc e in
+          if e == e' then eq :: eqs, acc
+          else A.Equation (pos, lhs, e') :: eqs, acc'
+        | A.Automaton (pos, aname, states, returns) ->
+          let rstates, acc = List.fold_left (fun (rstates, acc) st ->
+              let st, acc = replace_lasts_state allowed name acc st in
+              st :: rstates, acc
+            ) ([], acc) states in
+          A.Automaton (pos, aname, List.rev rstates, returns) :: eqs, acc
+      ) ([], acc) eqs
+    in
+    let eqs = List.rev eqs in
+    A.State (pos, state_c, init, locals, eqs, unless_tr, until_tr), acc
+
+
+let type_of_last inputs outputs locals l =
+  try
+    List.iter (fun (_, i, ty, _, _) ->
+        if i = l then raise (Found_last_ty ty)
+      ) inputs;
+    List.iter (fun (_, i, ty, _) ->
+        if i = l then raise (Found_last_ty ty)
+      ) outputs;
+    List.iter (function
+        | A.NodeConstDecl (_, (A.FreeConst (_, i, ty) |
+                               A.TypedConst (_, i, _, ty))) ->
+          if i = l then raise (Found_last_ty ty)
+        | A.NodeConstDecl (_, A.UntypedConst (pos, i, e)) ->
+          C.fail_at_position pos ("Please add type of "^i)
+        | A.NodeVarDecl (_, (_, i, ty, _)) ->
+          if i = l then raise (Found_last_ty ty)
+      ) locals;
+    raise Not_found
+  with Found_last_ty ty -> ty
+
+
+let allowed_lasts inputs outputs locals =
+  List.map (fun (_, i, _, _, _) -> i) inputs
+  @ List.map (fun (_, i, _, _) -> i) outputs
+  @ List.map (function
+      | A.NodeConstDecl (_,
+                         (A.FreeConst (_, i, _) |
+                          A.TypedConst (_, i, _, _) |
+                          A.UntypedConst (_, i, _))) -> i
+      | A.NodeVarDecl (_, (_, i, _, _)) -> i
+    ) locals
+
+
+(* Infer defined streams of an automaton *)
+
+
+let in_locals i' locals = List.exists (function
+    | A.NodeConstDecl (_,
+                       (A.FreeConst (_, i, _) |
+                        A.TypedConst (_, i, _, _) |
+                        A.UntypedConst (_, i, _)))
+    | A.NodeVarDecl (_, (_, i, _, _)) -> i = i'
+  ) locals
+  
+
+let rec defined_vars_struct_item locals acc = function
+  | A.SingleIdent (_, i)
+  | A.TupleSelection (_, i, _)
+  | A.FieldSelection (_, i, _)
+  | A.ArraySliceStructItem (_, i, _) ->
+    if in_locals i locals then acc else ISet.add i acc
+  | A.TupleStructItem (_, l) ->
+    List.fold_left (defined_vars_struct_item locals) acc l
+
+let defined_vars_lhs locals acc = function
+  | A.ArrayDef (_, i, _) -> if in_locals i locals then acc else ISet.add i acc 
+  | A.StructDef (_, l) ->
+    List.fold_left (defined_vars_struct_item locals) acc l
+
+
+let rec defined_vars_equation locals acc = function
+  | A.Assert _ -> acc
+  | A.Automaton (_, _, _, A.Given returns) ->
+    List.fold_left (fun acc i -> ISet.add i acc) acc returns
+  | A.Automaton (_, _, states, A.Inferred) ->
+    List.fold_left (fun acc (A.State (_, _, _, l', eqs, _, _)) ->
+        List.fold_left
+          (defined_vars_equation (List.rev_append l' locals)) acc eqs
+      ) acc states
+  | A.Equation (_, lhs, _) -> defined_vars_lhs locals acc lhs
+  
+
+let defined_vars_eqs eqs =
+  List.fold_left (defined_vars_equation []) ISet.empty eqs
+  |> ISet.elements
+  
+
+(*************************************)
+(* Auxiliary functions for contracts *)
+(*************************************)
+
+
+(** Returns an option of the output state variables mentioned in the current
+state of a lustre expression. *)
+let contract_check_no_output ctx pos expr =
+  let outputs =
+    LustreContext.outputs_of_current_node ctx
+  in
+  let outputs =
+    D.fold ( fun _ elm set -> SVS.add elm set ) outputs SVS.empty
+  in
+  match C.trace_svars_of ctx expr with
+  | Some coi -> SVS.inter outputs coi |> SVS.elements
+  | None -> failwith "unreachable"
 
 
 (* ********************************************************************** *)
@@ -225,7 +411,7 @@ let rec eval_node_outputs ?is_single ctx = function
     let ident_types = S.eval_ast_type ctx ast_type in
   
     (* Add declaration of possibly indexed type to contexts *)
-    let ctx = C.add_node_output ?is_single ctx ident ident_types in
+    let ctx = C.add_node_output ?is_single ctx ident pos ident_types in
 
     (* Continue with following inputs *)
     eval_node_outputs ctx tl
@@ -331,14 +517,14 @@ let eval_struct_item ctx pos = function
           
           C.fail_at_position 
             pos 
-            "Assignment to identifier not possible"
+            ("Assignment to identifier not possible " ^ i)
 
         (* Identifier not declared *)
         | Not_found -> 
           
           C.fail_at_position 
             pos 
-            "Assignment to undeclared identifier"
+            ("Assignment to undeclared identifier " ^ i)
 
     in
 
@@ -759,14 +945,9 @@ let expand_tuple pos lhs rhs =
     (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs))
 
 
-(* Evaluate node statements and add to context  *)
-let rec eval_node_equations ctx = function
-
-  (* No more statements *)
-  | [] -> ctx
-
-  (* Assertion *)
-  | A.Assert (pos, ast_expr) :: tl -> 
+let rec eval_node_equation inputs outputs locals ctx = function
+  
+  | A.Assert (pos, ast_expr) -> 
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
 
@@ -777,54 +958,16 @@ let rec eval_node_equations ctx = function
     in
 
     let ctx = C.reset_guard_flag ctx in
-    
+
     (* Add assertion to node *)
-    let ctx = C.add_node_assert ctx expr in
-
-    (* Continue with next node statements *)
-    eval_node_equations ctx tl
-
-  (* Property annotation *)
-  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
-    (* report unguarded pre *)
-    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
-
-    (* Evaluate Boolean expression and guard all pre operators *)
-    let expr, ctx = 
-      S.eval_bool_ast_expr ctx pos ast_expr 
-      |> C.close_expr ~original:ast_expr pos
-    in
-
-    let ctx = C.reset_guard_flag ctx in
-    
-    let name = match name_opt with
-      | Some n -> n
-      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
-    in
-    
-    (* Add property to node *)
-    let ctx = C.add_node_property ctx (Property.PropAnnot pos) name expr in
-
-    (* Continue with next node statements *)
-    eval_node_equations ctx tl
-
-  (* Annotation for main node *)
-  | (A.AnnotMain true) :: tl -> 
-
-    eval_node_equations 
-      (C.set_node_main ctx)
-      tl
-
-  (* Annotation for main node *)
-  | (A.AnnotMain false) :: tl -> 
-
-    eval_node_equations ctx tl
+    C.add_node_assert ctx expr
+      
 
   (* Equations with possibly more than one variable on the left-hand side
 
      The expression is without node calls, those have been
      abstracted *)
-  | A.Equation (pos, lhs, ast_expr) :: tl ->
+  | A.Equation (pos, lhs, ast_expr) -> 
 
     (* Trie of state variables on left-hand side and extended context
        for right-hand side *)
@@ -873,7 +1016,6 @@ let rec eval_node_equations ctx = function
     let equations = expand_tuple pos eq_lhs eq_rhs in
 
     (* Add equations for each index *)
-    let ctx =
       List.fold_left (
         fun ctx (sv, b, e) ->
           (* Is [e] a state variable in the current state? *)
@@ -890,10 +1032,12 @@ let rec eval_node_equations ctx = function
           in
           C.add_node_equation ctx pos sv b indexes e
       ) ctx equations
-    in
 
-    (* Continue with next node statements *)
-    eval_node_equations ctx tl
+  | A.Automaton (pos, aname, states, _) as e ->
+
+    let auto_outputs = defined_vars_eqs [e] in
+    eval_automaton pos aname states auto_outputs inputs outputs locals ctx
+
 
 
 (* ********************************************************************** *)
@@ -904,7 +1048,7 @@ let rec eval_node_equations ctx = function
 
    This function is shared between nodes and functions, each has a
    different way to deal with ghost variables. *)
-let eval_ghost_var ?(no_defs = false) ctx = function
+and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
 
   (* Declaration of a free variable *)
   | A.FreeConst (pos, _, _) ->
@@ -954,9 +1098,9 @@ let eval_ghost_var ?(no_defs = false) ctx = function
         let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
         let ctx =
-          eval_node_equations ctx [
+          eval_node_equation inputs outputs locals ctx (
             A.Equation (pos, (A.ArrayDef (pos, i, [])), expr)
-          ]
+          )
         in
 
         ctx
@@ -1000,21 +1144,8 @@ let eval_ghost_var ?(no_defs = false) ctx = function
     )
 
 
-(** Returns an option of the output state variables mentioned in the current
-state of a lustre expression. *)
-let contract_check_no_output ctx pos expr =
-  let outputs =
-    LustreContext.outputs_of_current_node ctx
-  in
-  let outputs =
-    D.fold ( fun _ elm set -> SVS.add elm set ) outputs SVS.empty
-  in
-  match C.trace_svars_of ctx expr with
-  | Some coi -> SVS.inter outputs coi |> SVS.elements
-  | None -> failwith "unreachable"
-
 (* Evaluates a generic contract item: assume, guarantee, require or ensure. *)
-let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
+and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   (* Check for unguarded pre-s. *)
   if A.has_unguarded_pre expr then (
     C.fail_at_position pos "Illegal unguarded pre in contract item."
@@ -1067,25 +1198,9 @@ let eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   context. *)
   ctx, (Contract.mk_svar pos count iname svar scope) :: accum, count + 1
 
-(* Introduce fresh state variable for an assume expression *)
-let eval_ass = eval_contract_item (Some "assume")
-(* Introduce fresh state variable for a guarantee expression *)
-let eval_gua = eval_contract_item None
-(* Introduce fresh state variable for a require expression *)
-let eval_req = eval_contract_item (Some "require")
-(* Introduce fresh state variable for an ensure expression *)
-let eval_ens = eval_contract_item None
-
-(* 
-(* Evals requires and ensures of a mode and builds it. *)
-let eval_node_mode scope ctx (pos, id, reqs, enss) =
-  let ctx, reqs, _ = reqs |> List.fold_left (eval_req scope) (ctx, [], 1) in
-  let ctx, enss, _ = enss |> List.fold_left (eval_ens scope) (ctx, [], 1) in
-  (Contract.mk_mode pos id reqs enss), ctx *)
-
 
 (* Fail if a contract node input is incompatible with a node input *)
-let rec check_node_and_contract_inputs call_pos ctx node_inputs = function 
+and check_node_and_contract_inputs call_pos ctx node_inputs = function 
 
   (* All contract inputs are consistent with node inputs *)
   | [] -> ()
@@ -1163,7 +1278,7 @@ let rec check_node_and_contract_inputs call_pos ctx node_inputs = function
 
 
 (* Fail if a contract node output is incompatible with a node output *)
-let rec check_node_and_contract_outputs call_pos ctx node_outputs = function 
+and check_node_and_contract_outputs call_pos ctx node_outputs = function 
 
   (* All contract outputs are consistent with node outputs *)
   | [] -> ()
@@ -1231,11 +1346,15 @@ let rec check_node_and_contract_outputs call_pos ctx node_outputs = function
 
 
 (* Evaluates a mode for a node. *)
-let eval_node_mode scope ctx (pos, id, reqs, enss) =
+and eval_node_mode scope ctx (pos, id, reqs, enss) =
   (* Evaluate requires. *)
-  let ctx, reqs, _ = reqs |> List.fold_left (eval_req scope) (ctx, [], 1) in
+  let ctx, reqs, _ =
+    reqs
+    |> List.fold_left (eval_contract_item (Some "require") scope)
+       (ctx, [], 1) in
   (* Evaluate ensures. *)
-  let ctx, enss, _ = enss |> List.fold_left (eval_ens scope) (ctx, [], 1) in
+  let ctx, enss, _ =
+    enss |> List.fold_left (eval_contract_item None scope) (ctx, [], 1) in
   let path =
     scope |> List.fold_left (fun l (_, name) -> name :: l) [id]
   in
@@ -1263,7 +1382,7 @@ let rec check_no_contract_in_node_calls ctx = function
  *)
 
 (* Evaluates contract calls. *)
-let rec eval_node_contract_call known ctx scope (
+and eval_node_contract_call known ctx scope inputs outputs locals (
   call_pos, id, in_params, out_params
 ) =
   let ident = I.mk_string_ident id in
@@ -1301,7 +1420,7 @@ let rec eval_node_contract_call known ctx scope (
     try C.contract_node_decl_of_ident ctx id
     with Not_found ->
       (* Contract might be forward referenced. *)
-      Deps.Unknown_decl (Deps.Contract, ident) |> raise
+      Deps.Unknown_decl (Deps.Contract, ident, call_pos) |> raise
   in
 
   (* Failing for unsupported features. *)
@@ -1475,20 +1594,22 @@ let rec eval_node_contract_call known ctx scope (
   ) ) ;
 
   (* Evaluate node as usual, it will merge with the current contract. *)
-  let ctx = eval_node_contract_spec known ctx call_pos svar_scope contract in
+  let ctx =
+    eval_node_contract_spec known ctx call_pos svar_scope
+      inputs outputs locals contract in
 
   (* Pop scope for contract call. *)
   C.pop_contract_scope ctx
   
 
 (* Add declaration and equation for ghost stream *)
-and add_ghost ctx pos ident type_expr ast_expr expr = 
+and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr = 
 
   (* Add local declaration for ghost stream *)
   let ctx = C.add_node_local ~ghost:true ctx ident pos type_expr in
 
   (* Add equation for ghost stream *)
-  eval_node_equations ctx [
+  eval_node_equation inputs outputs locals ctx (
     A.Equation (
       pos, (
         A.StructDef (
@@ -1498,27 +1619,29 @@ and add_ghost ctx pos ident type_expr ast_expr expr =
       ),
       ast_expr
     )
-  ]
+  )
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_item
-  known scope (ctx, cpt_a, cpt_g)
+  known scope inputs outputs locals (ctx, cpt_a, cpt_g)
 = function
 
   (* Add constants to context *)
   | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
 
   (* Add ghost variables to context *)
-  | A.GhostVar v -> eval_ghost_var ctx v, cpt_a, cpt_g
+  | A.GhostVar v -> eval_ghost_var inputs outputs locals ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
   | A.Assume ( (_, _, expr) as a ) ->
-    let ctx, assumes, cpt_a = eval_ass scope (ctx, [], cpt_a) a in
+    let ctx, assumes, cpt_a =
+      eval_contract_item (Some "assume") scope (ctx, [], cpt_a) a in
     C.add_node_ass ctx assumes, cpt_a, cpt_g
 
   (* Evaluate guarantee *)
   | A.Guarantee g ->
-    let ctx, guarantees, cpt_g = eval_gua scope (ctx, [], cpt_g) g in
+    let ctx, guarantees, cpt_g =
+      eval_contract_item None scope (ctx, [], cpt_g) g in
     C.add_node_gua ctx guarantees, cpt_a, cpt_g
 
   (* Evaluate modes. *)
@@ -1526,13 +1649,16 @@ and eval_node_contract_item
 
   (* Evaluate imports. *)
   | A.ContractCall call ->
-    eval_node_contract_call known ctx scope call, cpt_a, cpt_g
+    eval_node_contract_call known ctx scope inputs outputs locals call,
+    cpt_a, cpt_g
 
 
 (* Add all node contracts to contexts *)
-and eval_node_contract_spec known ctx pos scope contract =
+and eval_node_contract_spec known ctx pos scope inputs outputs locals contract =
   let ctx, _, _ =
-    List.fold_left (eval_node_contract_item known scope) (ctx, 1, 1) contract
+    List.fold_left
+      (eval_node_contract_item known scope inputs outputs locals)
+      (ctx, 1, 1) contract
   in
 
   (* What follows are checks over the contract. We know the contract is parsed
@@ -1591,10 +1717,426 @@ and eval_node_contract_spec known ctx pos scope contract =
 
   ctx
   
+(* Evaluate a hierarchical automaton by recursively encoding states as nodes
+   and evaluating those *)
+and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
+
+  (* Create a new automaton name if anonymous *)
+    let name = match aname with
+      | Some name -> name
+      | None -> fresh_automaton_name []
+    in
+
+    (* Only variables direcltly visible in the node are allowed under a last
+       operator in a state *)
+    let allowed_l = allowed_lasts inputs outputs locals in
+
+    (* Eliminate [last] applications in state equations *)
+    let states, lasts =
+      List.fold_left (fun (states, lasts) s ->
+          let s, lasts = replace_lasts_state allowed_l name lasts s in
+          s :: states, lasts
+        ) ([], A.SI.empty) states in
+    let states = List.rev states in
+    let lasts = A.SI.elements lasts in
+
+    (* Construct new inputs for the handler nodes for values of [last]
+       applications on the base clock (i.e. outside the state) *)
+    let lasts_inputs = List.map (fun l ->
+        try (pos, name ^ ".last." ^ l,
+             type_of_last inputs outputs locals l,
+             A.ClockTrue, false)
+        with Not_found ->
+          C.fail_at_position pos ("Last type for "^l^" could not be inferred")
+      ) lasts in
+
+    (* Pass [pre .] as arguments for the [last .] in the handler and unless of
+       the state *)
+    let lasts_args pos = List.map (fun l ->
+        A.Pre (pos, (A.Ident (pos, l)))
+      ) lasts in
+    
+    (* Create enumerated datatype for states *)
+    let states_enum =
+      List.map (function A.State (_, s, _, _, _, _, _) -> s) states in
+    let states_type = A.EnumType (pos, None, states_enum) in
+    (* Evaluate states type expression *)
+    let states_ty = S.eval_ast_type ctx states_type in
+    let bool_ty = S.eval_ast_type ctx (A.Bool pos) in
+
+    (* look for automaton outputs in local variables and outputs *)
+    let auto_outputs_dl = List.map (fun o ->
+        try List.find (fun (_, o', _, _) -> o = o') outputs
+        with Not_found ->
+          try List.iter (function
+              | A.NodeVarDecl (_, ((_, l, _, _) as ld)) when o = l ->
+                raise (Found_auto_out ld)
+              | _ -> ()) locals;
+            C.fail_at_position pos ("Could not find automaton output "^o)
+          with Found_auto_out ld -> ld
+      ) auto_outputs in
+
+    let auto_outputs_idents =
+      List.map (fun o -> A.Ident (pos,o)) auto_outputs in
+    
+    (* Gather other node variables which are neither inputs nor outputs of the
+       automaton *)
+    let other_vars_dl = List.fold_left (fun acc (p, o, t, c) ->
+        if not (List.exists (fun o' -> o = o') auto_outputs) then
+          (p, o, t, c, false) :: acc
+        else acc
+      ) [] outputs in
+    let other_vars_dl = List.fold_left (fun acc -> function
+        | A.NodeVarDecl (_, (p, l, t, c)) ->
+          if not (List.exists (fun o' -> l = o') auto_outputs) then
+            (p, l, t, c, false) :: acc
+          else acc
+        | _ -> acc
+      ) other_vars_dl locals in
+    let other_vars_dl = List.rev other_vars_dl in
+    let other_vars_idents =
+      List.map (fun (p, i, _, _, _) -> A.Ident (p,i)) other_vars_dl in
+    
+    (* find initial state *)
+    let initial_state =
+      let inits = List.find_all
+          (function A.State (_, _, init, _, _, _, _) -> init) states in
+      match inits, states with
+      (* no initial states, take first *)
+      | [], A.State (_, s, _, _, _, _, _) :: _ -> s
+      (* one initial state *)
+      | [A.State (_, s, _, _, _, _, _)], _ -> s
+      (* no states *)
+      | _, [] -> C.fail_at_position pos "No states in automaton"
+      (* more thatn one initial state *)
+      | _ :: _, _ ->
+        C.fail_at_position pos "More than one initial state in automaton"
+    in
+    
+    (* Node local variables used to encode the automaton *)
+    let i_state = String.concat "." [name; state_string] in
+    let i_restart = String.concat "." [name; restart_string] in
+    let i_state_selected = String.concat "." [name; state_selected_string] in
+    let i_restart_selected =
+      String.concat "." [name; restart_selected_string] in
+    let i_state_selected_next =
+      String.concat "." [name; state_selected_next_string] in
+    let i_restart_selected_next =
+      String.concat "." [name; restart_selected_next_string] in
+    (* Add them to the local variables of the current node *)
+    let add_auto_local i ty ctx =
+      let ident = I.mk_string_ident i in
+      C.add_node_local ctx ident pos ty
+    in
+    let ctx = ctx
+              |> add_auto_local i_state states_ty
+              |> add_auto_local i_restart bool_ty
+              |> add_auto_local i_state_selected states_ty
+              |> add_auto_local i_restart_selected bool_ty
+              |> add_auto_local i_state_selected_next states_ty
+              |> add_auto_local i_restart_selected_next bool_ty
+    in
+
+    let info = {
+      auto_name = name;
+      node_inputs = inputs;
+      auto_outputs = auto_outputs_dl;
+      other_vars = other_vars_dl;
+      lasts_inputs;
+      states_lustre_type = states_type;
+      i_state_selected;
+      i_restart_selected;
+      i_state;
+      i_restart;
+    } in
+
+    (* Encode/evaluate automaton states and get the names of the corresponding
+       new auxiliary nodes *)
+    let ctx, aux_nodes =
+      List.fold_left (fun (ctx, aux_nodes) s ->
+          let ctx, n = encode_automaton_state info ctx s in
+          ctx, (n :: aux_nodes)
+        ) (ctx, []) states in
+    
+    let aux_nodes = List.rev aux_nodes in
+    
+    let handlers, unlesses = List.split aux_nodes in 
+
+    (* state_selected = initial_state -> pre state_selected_next; *)
+    let state_selected_eq =
+      A.Equation
+        (pos,
+         A.StructDef (pos, [A.SingleIdent (pos, i_state_selected)]),
+         A.Arrow (pos, A.Ident (pos, initial_state),
+                  A.Pre (pos, A.Ident (pos, i_state_selected_next)))) in
+
+    (* restart_selected = false -> pre restart_selected_next; *)
+    let restart_selected_eq =
+      A.Equation
+        (pos,
+         A.StructDef (pos, [A.SingleIdent (pos, i_restart_selected)]),
+         A.Arrow (pos, A.False pos,
+                  A.Pre (pos, A.Ident (pos, i_restart_selected_next)))) in
+
+    let inputs_idents =
+      List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in
+    
+    let handlers_activate_calls =
+      List.map2 (fun handler (A.State (pos, state_c, _, _, _, _, _)) ->
+        state_c,
+        (* activate handler every state = state_c restart every <restart> *)
+        A.Activate
+          (pos, handler,
+           (* clock *)
+           A.Eq (pos, A.Ident (pos, i_state), A.Ident (pos, state_c)),
+           (* restart *)
+           A.Ident (pos, i_restart),
+           (* arguments to the call = inputs of the node + others + lasts *)
+           inputs_idents @ other_vars_idents @ (lasts_args pos)
+          )
+      ) handlers states in
+
+    (* merge handlers calls:
+       (state.in.next, restart.in.next, outputs ...) =
+         merge state
+           (S1 -> activate handler.S1 every state = S1 restart ...)
+           (S2 -> activate handler.S1 every state = S2 restart ...)
+    *)
+    let handlers_eq =
+      A.Equation (pos,
+        A.StructDef (pos,
+         List.map (fun i -> A.SingleIdent (pos, i))
+           (i_state_selected_next :: i_restart_selected_next :: auto_outputs)),
+        A.Merge (pos, i_state, handlers_activate_calls)) in
+
+    let unlesses_activate_calls =
+      List.map2 (fun unless (A.State (pos, state_c, _, _, _, _, _)) ->
+        state_c,
+        (* activate unless every state_selected =
+           state_c restart every restart_selected *)
+        A.Activate
+          (pos, unless, 
+           (* clock *)
+           A.Eq (pos, A.Ident (pos, i_state_selected), A.Ident (pos, state_c)),
+           (* restart *)
+           A.Ident (pos, i_restart_selected),
+           (* arguments = state_selected + restart_selected +
+              inputs of the node + outputs of the automaton + others*)
+           A.Ident (pos, i_state_selected) ::
+           A.Ident (pos, i_restart_selected) ::
+           inputs_idents @ auto_outputs_idents @ other_vars_idents @
+           (lasts_args pos)
+          )
+      ) unlesses states in
+
+    (* merge unlesses calls: 
+       (state, restart) =
+         merge state.in
+           (S1 -> activate unless.S1 every state.in = S1 restart ...)
+           (S2 -> activate unless.S1 every state.in = S2 restart ...)
+    *)
+    let unlesses_eq =
+      A.Equation (pos,
+        A.StructDef (pos,
+         List.map (fun i -> A.SingleIdent (pos, i)) [i_state; i_restart]),
+        A.Merge (pos, i_state_selected, unlesses_activate_calls)) in
+    
+    (* add equations to the node *)
+    let ctx = eval_node_equation inputs outputs locals ctx state_selected_eq in
+    let ctx =
+      eval_node_equation inputs outputs locals ctx restart_selected_eq in
+    let ctx = eval_node_equation inputs outputs locals ctx handlers_eq in
+    let ctx = eval_node_equation inputs outputs locals ctx unlesses_eq in
+
+    ctx
+
+
+(* Encode branching conditions for transitions as an expression *)
+and encode_transition_branch pos state_c default = function
+  (* restart t *)
+  | A.Target (A.TransRestart (pos_t, (pos_s, s))) ->
+    A.ExprList (pos_t, [A.Ident (pos_s, s); A.True pos_t])
+  (* resume t *)
+  | A.Target (A.TransResume (pos_t, (pos_s, s))) ->
+    A.ExprList (pos_t, [A.Ident (pos_s, s); A.False pos_t])
+  (* if cond then_br; *)
+  | A.TransIf (posif, cond, then_br, None) ->
+    A.Ite (posif, cond,
+           encode_transition_branch pos state_c default then_br,
+           (* else default *)
+           default)
+  (* if cond then then_br else/elsif else_br end; *)
+  | A.TransIf (posif, cond, then_br, Some else_br) ->
+    A.Ite (posif, cond,
+           encode_transition_branch pos state_c default then_br,
+           encode_transition_branch pos state_c default else_br)
+           
+(* Encode body and until transition of state as a node *)
+and encode_until_handler pos
+    { auto_name; states_lustre_type;
+      auto_outputs; other_vars; lasts_inputs;
+      i_state_selected; i_restart_selected; node_inputs }
+    state_c locals eqs until_tr ctx =
+  let stay = A.ExprList (pos, [A.Ident (pos, state_c); A.False pos]) in
+  let e = match until_tr with
+    | None -> stay
+    | Some (posb, br) -> encode_transition_branch posb state_c stay br
+  in
+  let eq =
+    A.Equation
+      (pos, A.StructDef
+         (pos, List.map (fun i -> A.SingleIdent (pos, i))
+            [i_state_selected; i_restart_selected]),
+       e)
+  in
+  let name = String.concat "." [auto_name; handler_string; state_c] in
+  let outputs =
+    (pos, i_state_selected, states_lustre_type, A.ClockTrue) ::
+    (pos, i_restart_selected, A.Bool pos, A.ClockTrue) ::
+    auto_outputs
+  in
+
+  let ident = I.mk_string_ident name in
+  (* Identifier must not be declared *)
+  if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
+    Format.asprintf 
+      "Auxiliary node %a is redeclared" 
+      (I.pp_print_ident false) ident
+  ) ;
+
+  (* Create separate auxiliary context for node (not external) *)
+  let node_ctx = C.create_node (C.prev ctx) ident false in
+  let node_ctx =
+    eval_node_decl node_ctx pos
+      (node_inputs @ other_vars @ lasts_inputs)
+      outputs
+      locals
+      (List.map (fun e -> A.Body e) (eq :: eqs)) None
+  in
+
+  let ctx = C.add_node_to_context ctx node_ctx in
+  
+  name, ctx
+
+
+(* encoding of unless condition for strong transition as an auxiliary node *)
+and encode_unless pos
+    {auto_name; states_lustre_type;
+     node_inputs; auto_outputs; other_vars; lasts_inputs;
+     i_state_selected; i_restart_selected; i_state; i_restart }
+    state_c unless_tr ctx =
+  let skip = A.ExprList (pos, [A.Ident (pos, i_state_selected);
+                               A.Ident (pos, i_restart_selected)]) in
+  let e = match unless_tr with
+    | None -> skip
+    | Some (posb, br) -> encode_transition_branch posb state_c skip br
+  in
+  let eq =
+      A.Equation (pos,
+        A.StructDef (pos,
+         List.map (fun i -> A.SingleIdent (pos, i)) [i_state; i_restart]),
+         e)
+  in
+  let name = String.concat "." [auto_name; unless_string; state_c] in
+  let auto_out_inputs =
+    List.map (fun (p, o, t, c) -> (p, o, t, c, false)) auto_outputs in
+  let inputs =
+    (pos, i_state_selected, states_lustre_type, A.ClockTrue, false) ::
+    (pos, i_restart_selected, A.Bool pos, A.ClockTrue, false) ::
+    node_inputs @ auto_out_inputs @ other_vars @ lasts_inputs
+  in
+  let outputs = [
+    pos, i_state, states_lustre_type, A.ClockTrue;
+    pos, i_restart, A.Bool pos, A.ClockTrue;
+  ] in
+
+  let ident = I.mk_string_ident name in
+  (* Identifier must not be declared *)
+  if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
+    Format.asprintf 
+      "Auxiliary node %a is redeclared" 
+      (I.pp_print_ident false) ident
+  ) ;
+
+  (* Create separate context for node (not external) *)
+  let node_ctx = C.create_node (C.prev ctx) ident false in
+  let node_ctx =
+    eval_node_decl node_ctx pos inputs outputs [] [A.Body eq] None
+  in
+
+  let ctx = C.add_node_to_context ctx node_ctx in
+
+  name, ctx
+  
+
+(* Encode a state of an automaton. 
+   Returns the name of the node to handle body/until and the name of the node
+   for the unless transition, as well as a modified context.*)
+and encode_automaton_state info ctx = function
+  | A.State (pos, state_c, _, locals, eqs, unless_tr, until_tr) ->
+    let handler, ctx =
+      encode_until_handler pos info state_c locals eqs until_tr ctx in
+    let unless, ctx = encode_unless pos info state_c unless_tr ctx in
+    ctx, (handler, unless)
+
+
+
+
+(* Evaluate node statements and add to context  *)
+and eval_node_items inputs outputs locals ctx = function
+
+  (* No more statements *)
+  | [] -> ctx
+
+  (* Assertion or equation *)
+  | A.Body e :: tl -> 
+
+    let ctx = eval_node_equation inputs outputs locals ctx e in
+    
+    (* Continue with next node statements *)
+    eval_node_items inputs outputs locals ctx tl
+
+  (* Property annotation *)
+  | A.AnnotProperty (pos, name_opt, ast_expr) :: tl -> 
+    (* report unguarded pre *)
+    let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
+
+    (* Evaluate Boolean expression and guard all pre operators *)
+    let expr, ctx = 
+      S.eval_bool_ast_expr ctx pos ast_expr 
+      |> C.close_expr ~original:ast_expr pos
+    in
+
+    let ctx = C.reset_guard_flag ctx in
+    
+    let name = match name_opt with
+      | Some n -> n
+      | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
+    in
+    
+    (* Add property to node *)
+    let ctx = C.add_node_property ctx (Property.PropAnnot pos) name expr in
+
+    (* Continue with next node statements *)
+    eval_node_items inputs outputs locals ctx tl
+
+  (* Annotation for main node *)
+  | (A.AnnotMain true) :: tl -> 
+
+    eval_node_items inputs outputs locals
+      (C.set_node_main ctx)
+      tl
+
+  (* Annotation for main node *)
+  | (A.AnnotMain false) :: tl -> 
+
+    eval_node_items inputs outputs locals ctx tl
+
+
 
 (* Add declarations of node to context *)
-let eval_node_decl
-  ctx pos inputs outputs locals equations contract_spec
+and eval_node_decl
+  ctx pos inputs outputs locals items contract_spec
 =
 
   (* Add inputs to context: as state variable to ident_expr_map, and
@@ -1618,7 +2160,9 @@ let eval_node_decl
       (* New scope for local declarations in contracts *)
       let ctx = C.push_scope ctx "contract" in
       (* Eval contracts. *)
-      let ctx = eval_node_contract_spec I.Set.empty ctx pos [] contract in
+      let ctx =
+        eval_node_contract_spec I.Set.empty ctx pos []
+          inputs outputs locals contract in
       (* Remove scope for local declarations in contract *)
       C.pop_scope ctx
   in
@@ -1630,10 +2174,11 @@ let eval_node_decl
      to inputs *)
   let ctx = eval_node_locals ctx locals in
 
-  (* Parse equations, assertions, properties *)
-  let ctx = eval_node_equations ctx equations in
+  (* Parse equations, assertions, properties, automata, etc. *)
+  let ctx =
+    eval_node_items inputs outputs locals ctx items in
 
-  C.check_local_vars_defined ctx;
+  C.check_vars_defined ctx;
   
   (* Remove scope for local declarations in implementation *)
   let ctx = C.pop_scope ctx in
@@ -1674,7 +2219,7 @@ let declaration_to_context ctx = function
 
 (* Function declaration without parameters *)
 | A.FuncDecl (
-  pos, (i, ext, [], inputs, outputs, locals, equations, contracts)
+  pos, (i, ext, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -1708,11 +2253,11 @@ let declaration_to_context ctx = function
         A.node_local_decl_has_pre_or_arrow decl
         |> pre_or_arrow_fail "local declaration"
     ) ;
-    equations
+    items
     |> List.iter (
-      fun equation ->
-        A.node_equation_has_pre_or_arrow equation
-        |> pre_or_arrow_fail "equation"
+      fun item ->
+        A.node_item_has_pre_or_arrow item
+        |> pre_or_arrow_fail "item"
     ) ;
     match contracts with
     | Some contract ->
@@ -1729,7 +2274,7 @@ let declaration_to_context ctx = function
   (* Evaluate function declaration in separate context *)
   let fun_ctx = 
     eval_node_decl
-      fun_ctx pos inputs outputs locals equations contracts
+      fun_ctx pos inputs outputs locals items contracts
   in
 
   (* Check that all there's no (non-function) node call. *)
@@ -1754,7 +2299,7 @@ let declaration_to_context ctx = function
 
 (* Node declaration without parameters *)
 | A.NodeDecl (
-  pos, (i, ext, [], inputs, outputs, locals, equations, contracts)
+  pos, (i, ext, [], inputs, outputs, locals, items, contracts)
 ) -> (
 
   (* Identifier of AST identifier *)
@@ -1773,9 +2318,9 @@ let declaration_to_context ctx = function
   (* Evaluate node declaration in separate context *)
   let node_ctx = 
     eval_node_decl
-      node_ctx pos inputs outputs locals equations contracts
+      node_ctx pos inputs outputs locals items contracts
   in
-
+  
   (* Add node to context *)
   C.add_node_to_context ctx node_ctx
 )
@@ -1959,8 +2504,8 @@ let rec declarations_to_context ctx = function
     (* Otherwise, something unknown was found. Let's check if this something is
     forward referenced. *)
     with
-    | Deps.Unknown_decl (typ, ident) ->
-      ctx, C.solve_fref ctx decl (typ, ident) tail
+    | Deps.Unknown_decl (typ, ident, pos) ->
+      ctx, C.solve_fref ctx decl (typ, ident, pos) tail
   in
   (* Looping with (potentially) new context and tail. *)
   declarations_to_context ctx tail

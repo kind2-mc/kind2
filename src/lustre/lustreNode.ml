@@ -91,7 +91,6 @@ type state_var_source =
     StateVar.t * state_var_source option
 
 type call_cond =
-  | CNone
   | CActivate of StateVar.t
   | CRestart of StateVar.t
 
@@ -104,8 +103,8 @@ type node_call = {
   (* Name of called node *)
   call_node_name : I.t;
     
-  (* Boolean activation or restart condition if any *)
-  call_cond : call_cond;
+  (* Boolean activation and/or restart conditions if any *)
+  call_cond : call_cond list;
  
   (* Variables for input parameters *)
   call_inputs : StateVar.t D.t;
@@ -308,7 +307,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_node_name; 
-      call_cond = CNone;
+      call_cond = [];
       call_inputs; 
       call_oracles; 
       call_outputs } ->
@@ -326,7 +325,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock with restart *)
   | { call_node_name; 
-      call_cond = CRestart restart_var;
+      call_cond = [CRestart restart_var];
       call_inputs; 
       call_oracles; 
       call_outputs } ->
@@ -345,7 +344,7 @@ let pp_print_call safe ppf = function
 
   (* Node call not on the base clock is a condact *)
   | { call_node_name; 
-      call_cond = CActivate call_clock_var;
+      call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
       call_outputs; 
@@ -378,7 +377,7 @@ let pp_print_call safe ppf = function
           
   (* Node call not on the base clock without defaults *)
   | { call_node_name; 
-      call_cond = CActivate call_clock_var;
+      call_cond = [CActivate call_clock_var];
       call_inputs; 
       call_oracles; 
       call_outputs; 
@@ -398,6 +397,68 @@ let pp_print_call safe ppf = function
          (D.bindings call_inputs) @ 
        call_oracles)
 
+  (* Node call not on the base clock is a condact with restart *)
+  | { call_node_name; 
+      call_cond =
+        ([CActivate call_clock_var; CRestart restart_var] |
+         [CRestart restart_var; CActivate call_clock_var]) ;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = Some call_defaults } ->
+    
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>restart condact(@,%a,@,%a(%a)%t) every %a;@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs) 
+      (E.pp_print_lustre_var safe) call_clock_var
+      (I.pp_print_ident safe) call_node_name
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
+      (List.map  
+         (fun (_, sv) -> sv)
+         (D.bindings call_inputs) @ 
+       call_oracles)
+      (fun ppf -> 
+         match 
+           D.values call_defaults
+         with 
+           | [] -> ()
+           | l -> 
+             Format.fprintf 
+               ppf 
+               ",@,%a"
+               (pp_print_list (E.pp_print_lustre_expr safe) ",@ ")
+               l)
+      (E.pp_print_lustre_var safe) restart_var
+      
+  (* Node call not on the base clock without defaults with restart  *)
+  | { call_node_name; 
+      call_cond =
+        ([CActivate call_clock_var; CRestart restart_var] |
+         [CRestart restart_var; CActivate call_clock_var]) ;
+      call_inputs; 
+      call_oracles; 
+      call_outputs; 
+      call_defaults = None } ->
+
+    Format.fprintf ppf
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>(restart (activate@ %a@ every@ %a) every %a)@,(%a);@]@]"
+      (pp_print_list 
+         (E.pp_print_lustre_var safe)
+         ",@ ") 
+      (D.values call_outputs) 
+      (I.pp_print_ident safe) call_node_name
+      (E.pp_print_lustre_var safe) call_clock_var
+      (E.pp_print_lustre_var safe) restart_var
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ")
+      (List.map  
+         (fun (_, sv) -> sv)
+         (D.bindings call_inputs) @ 
+       call_oracles)
+    
+  | _ -> assert false
 
 
 (* Pretty-print an assertion *)
@@ -554,11 +615,15 @@ let pp_print_state_var_trie_debug ppf t =
     ppf
 
 let pp_print_cond ppf = function
-  | CNone -> Format.pp_print_string ppf "None"
+  (* | CNone -> Format.pp_print_string ppf "None" *)
   | CActivate c ->
     Format.fprintf ppf "activate on %a" StateVar.pp_print_state_var c
   | CRestart r ->
     Format.fprintf ppf "restart on %a" StateVar.pp_print_state_var r
+
+
+let pp_print_conds ppf = pp_print_list pp_print_cond ",@ " ppf 
+
 
 let pp_print_node_call_debug 
     ppf
@@ -575,7 +640,7 @@ let pp_print_node_call_debug
                      oracles  = [@[<hv>%a@]];@ \
                      outputs  = [@[<hv>%a@]]; }@]"
     (I.pp_print_ident false) call_node_name
-    pp_print_cond call_cond
+    pp_print_conds call_cond
     pp_print_state_var_trie_debug call_inputs
     (pp_print_list StateVar.pp_print_state_var ";@ ") call_oracles
     pp_print_state_var_trie_debug call_outputs
@@ -677,7 +742,7 @@ let pp_print_node_debug
 let exists_node_of_name name nodes =
 
   List.exists
-    (function { name = node_name } -> name = node_name)
+    (function { name = node_name } -> I.equal name node_name)
     nodes
 
 
@@ -685,7 +750,7 @@ let exists_node_of_name name nodes =
 let node_of_name name nodes =
 
   List.find
-    (function { name = node_name } -> name = node_name)
+    (function { name = node_name } -> I.equal name node_name)
     nodes
 
 
@@ -822,7 +887,7 @@ let rec subsystem_of_nodes' nodes accum = function
 
       (* Subsystem for node already created? *)
       List.exists
-        (fun (n, _) -> n = top)
+        (fun (n, _) -> I.equal n top)
         accum
 
     then
@@ -865,7 +930,7 @@ let rec subsystem_of_nodes' nodes accum = function
                let callee_subsystem = 
 
                  List.find
-                   (fun (n, _) -> n = call_node_name)
+                   (fun (n, _) -> I.equal n call_node_name)
                    accum
 
                  |> snd 
@@ -876,9 +941,13 @@ let rec subsystem_of_nodes' nodes accum = function
 
                  (* Callee already seen as a subsystem of this
                     node? *)
+                 let call_node_name_string =
+                   I.string_of_ident false call_node_name in
                  List.exists 
-                   (fun { SubSystem.scope } -> 
-                      scope = [I.string_of_ident false call_node_name])
+                   (function
+                     | { SubSystem.scope = [i] } ->
+                       String.equal i call_node_name_string
+                     | _ -> false)
                    a
 
                then
@@ -956,7 +1025,7 @@ let subsystem_of_nodes = function
 
        (* Find subsystem of top node *)
        List.find 
-         (fun (n, _) -> n = name)
+         (fun (n, _) -> I.equal n name)
          all_subsystems 
 
        |> snd
@@ -986,12 +1055,15 @@ let nodes_of_subsystem subsystem =
 
 (* Stack for zipper in [fold_node_calls_with_trans_sys'] *)
 type fold_stack = 
-  | FDown of t * TransSys.t * (TransSys.t * TransSys.instance) list
-  | FUp of t * TransSys.t * (TransSys.t * TransSys.instance) list
+  | FDown of t * TransSys.t *
+             (TransSys.t * TransSys.instance * call_cond list) list
+  | FUp of t * TransSys.t *
+           (TransSys.t * TransSys.instance * call_cond list) list
 
 let rec fold_node_calls_with_trans_sys' 
     nodes
-    (f : t -> TransSys.t -> (TransSys.t * TransSys.instance) list -> 'a list -> 'a)
+    (f : t -> TransSys.t ->
+     (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a)
     accum = 
 
   function 
@@ -1013,7 +1085,7 @@ let rec fold_node_calls_with_trans_sys'
 
       let tl' = 
         List.fold_left 
-          (fun a { call_pos; call_node_name } ->
+          (fun a { call_pos; call_node_name; call_cond; call_defaults } ->
 
              (* Find called node by name *)
              let node' = node_of_name call_node_name nodes in
@@ -1032,11 +1104,22 @@ let rec fold_node_calls_with_trans_sys'
              let instance = 
                List.find 
                  (fun { TransSys.pos } -> 
-                    pos = call_pos)
+                    Lib.compare_pos pos call_pos = 0)
                  instances'
              in
 
-             FDown (node', trans_sys', (trans_sys, instance) :: instances) :: a)
+             (* Only keep call conditions that effectively sample the node
+                call, i.e. not the ones where default initial values are
+                provided (e.g. for interpolating condacts) *)
+             let call_cond = match call_defaults with
+               | None -> call_cond
+               | Some _ ->
+                 List.filter (function CActivate _ -> false | _ -> true)
+                   call_cond
+             in
+             
+             FDown (node', trans_sys',
+                    (trans_sys, instance, call_cond) :: instances) :: a)
           (FUp (node, trans_sys, instances) :: tl)
 
           calls
@@ -1256,10 +1339,8 @@ let stateful_vars_of_node
         (* Variables in activation and restart conditions are always
            stateful *)
         |> SVS.union
-          (match call_cond with
-           | CNone -> SVS.empty
-           | CActivate cv -> SVS.singleton cv
-           | CRestart rv -> SVS.singleton rv)
+          (List.map (function | CActivate v | CRestart v -> v) call_cond
+           |> SVS.of_list)
        
       ) stateful_vars calls
   in
@@ -1328,7 +1409,8 @@ let get_state_var_expr_map { state_var_expr_map } = state_var_expr_map
 
 (* Return true if the state variable should be visible to the user,
     false if it was created internally *)
-let state_var_is_visible node state_var = 
+let state_var_is_visible node state_var =
+  let open Lib.ReservedIds in
 
   let rec visible_of_src = function
     (* Oracle inputs and abstracted streams are invisible *)
@@ -1345,11 +1427,51 @@ let state_var_is_visible node state_var =
     | Alias (_, None) -> false
     | Alias (_, Some src) -> visible_of_src src
   in
-  match get_state_var_source node state_var with
-  | src -> visible_of_src src
-  (* Invisible if no source set *)
-  | exception Not_found -> false
+  
+  (match get_state_var_source node state_var with
+   | src -> visible_of_src src
+   (* Invisible if no source set *)
+   | exception Not_found -> false)
+  &&
+  let s = StateVar.name_of_state_var state_var in
+  let r = Format.sprintf ".*\\(%s\\|%s\\|%s\\|%s\\|%s\\..*\\)$"
+      state_selected_string restart_selected_string
+      state_selected_next_string restart_selected_next_string "last"
+  in
+  let r = Str.regexp r in
+  not (Str.string_match r s 0)  
 
+
+let is_automaton_state_var sv =
+  let open Lib.ReservedIds in
+  let s = StateVar.name_of_state_var sv in
+  let r = Format.sprintf "\\([^\\.]*\\)\\.\\(%s\\|%s\\)$"
+      state_string restart_string
+  in
+  let r = Str.regexp r in
+  if Str.string_match r s 0 then
+    try Some (Str.matched_group 1 s, Str.matched_group 2 s)
+    with Not_found -> None
+  else None
+    
+
+let node_is_visible node =
+  let open Lib.ReservedIds in
+  let r = Format.sprintf ".*\\.\\(%s\\)\\." unless_string in
+  let r = Str.regexp r in
+  not (Str.string_match r (I.string_of_ident false node.name) 0)
+
+
+let node_is_state_handler node =
+  let open Lib.ReservedIds in
+  let r = Format.sprintf ".*\\.\\(%s\\)\\.\\(.*\\)$" handler_string in
+  let r = Str.regexp r in
+  let s = I.string_of_ident false node.name in
+  if Str.string_match r s 0 then
+    try Some (Str.matched_group 2 s)
+    with Not_found -> None
+  else None
+  
 
 (* Return true if the state variable is an input *)
 let state_var_is_input node state_var = 
@@ -1424,7 +1546,11 @@ let set_state_var_instance state_var pos node state_var' =
   let instances' =
 
     (* Check if instance already known *)
-    if List.mem (pos, node, state_var') instances then 
+    if List.exists (fun (p, n, sv) ->
+        Lib.compare_pos p pos = 0
+        && I.equal n node
+        && StateVar.equal_state_vars sv state_var'
+      ) instances then 
 
       (* Do not create duplicates *)
       instances 

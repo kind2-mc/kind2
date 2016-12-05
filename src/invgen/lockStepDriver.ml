@@ -511,7 +511,7 @@ let kill_pruning { solver } = Smt.delete_instance solver
 (** Creates a new pruning solver. *)
 let mk_pruning_checker_solver sys =
   let solver = (* Creating solver. *)
-    Smt.create_instance ~produce_assignments:false
+    Smt.create_instance ~produce_assignments:true
       (Sys.get_logic sys) (Flags.Smt.solver ())
   in
 

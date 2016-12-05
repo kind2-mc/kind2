@@ -55,6 +55,9 @@ exception Contract_not_found of I.t * position
    propagation *)
 type t = { 
 
+  (* Previous context *)
+  prev : t;
+  
   (* Scope of context *)
   scope : string list ;
 
@@ -117,6 +120,10 @@ type t = {
      reporting *)
   locals_info : (StateVar.t * I.t * Lib.position) list;
 
+  (* saving output variables positions and their luster identifiers for error
+     reporting *)
+  outputs_info : (StateVar.t * I.t * Lib.position) list;
+
   (* Indicates there are unguarded pre's in the lustre code and we need to
   guard them. *)
   guard_pre : bool;
@@ -134,23 +141,28 @@ let pp_print_scope fmt { scope ; contract_scope } =
    modified in place. *)
 let mk_empty_context () = 
 
-  { scope = [];
-    contract_scope = [];
-    node = None;
-    nodes = [];
-    deps = I.Map.empty;
-    deps' = Deps.empty;
-    contract_nodes = [];
-    ident_type_map = IT.create 7;
-    ident_expr_map = [IT.create 7];
-    expr_state_var_map = ET.create 7;
-    state_var_oracle_map = SVT.create 7;
-    fresh_local_index = 0;
-    fresh_oracle_index = 0;
-    definitions_allowed = None;
-    locals_info = [];
-    guard_pre = false;
-  }
+  let rec c =
+    { scope = [];
+      prev = c;
+      contract_scope = [];
+      node = None;
+      nodes = [];
+      deps = I.Map.empty;
+      deps' = Deps.empty;
+      contract_nodes = [];
+      ident_type_map = IT.create 7;
+      ident_expr_map = [IT.create 7];
+      expr_state_var_map = ET.create 7;
+      state_var_oracle_map = SVT.create 7;
+      fresh_local_index = 0;
+      fresh_oracle_index = 0;
+      definitions_allowed = None;
+      locals_info = [];
+      outputs_info = [];
+      guard_pre = false;
+    }
+  in
+  c
 
 
 let set_guard_flag ctx b = { ctx with guard_pre = b }
@@ -172,9 +184,10 @@ let warn_at_position pos msg =
 
 
 (* Raise parsing exception *)
-let fail_no_position msg = 
+let fail_no_position msg =
   Log.log L_error "Parser error: %s" msg;
   raise A.Parser_error
+
   
 
 (* Raise parsing exception *)
@@ -279,12 +292,12 @@ let create_node = function
     (fun ident is_extern ->
 
       (* Add empty node to context *)
-      { ctx with 
-
-          (* Make deep copies of hash tables *)
-          ident_type_map = IT.copy ident_type_map;
-          ident_expr_map = List.map IT.copy ident_expr_map;
-          expr_state_var_map = ET.copy expr_state_var_map;
+      { ctx with
+        prev = ctx;
+        (* Make deep copies of hash tables *)
+        ident_type_map = IT.copy ident_type_map;
+        ident_expr_map = List.map IT.copy ident_expr_map;
+        expr_state_var_map = ET.copy expr_state_var_map;
           node = Some (N.empty_node ident is_extern) } )
 
 (** Maps something to the current node. *)
@@ -357,7 +370,8 @@ let add_expr_for_ident ?(shadow = false) ({ ident_expr_map } as ctx) ident expr 
      (List.exists (fun m -> IT.mem m ident) (List.tl ident_expr_map)))
 
   then
-    raise (Invalid_argument "add_expr_for_ident")    
+    raise (Invalid_argument
+             ("add_expr_for_ident: "^I.string_of_ident false ident))
 
   else
     
@@ -454,11 +468,16 @@ let add_type_for_ident ({ ident_type_map } as ctx) ident l_type =
   ctx
 
 
-(* Return nodes defined in context *)
-let get_nodes { nodes } = nodes
+(* Return nodes defined in all contexts *)
+let rec get_nodes ({ prev; nodes } as ctx) =
+  if ctx == prev then nodes
+  else nodes @ get_nodes prev
 
 (* Return the current node in context. *)
 let get_node { node } = node
+
+
+let prev { prev } = prev
 
 
 (* Return a contract node by its identifier *)
@@ -738,10 +757,10 @@ let type_in_context { ident_type_map } ident =
 
 
 (* Return true if node has been declared in the context *)
-let node_in_context { nodes } ident = 
+let node_in_context ctx ident = 
   
-  (* Return if identifier is in context *)
-  N.exists_node_of_name ident nodes
+  (* Return if identifier is in context or previous contexts *)
+  N.exists_node_of_name ident (get_nodes ctx)
     
 
 (* Add newly created variable to locals *)
@@ -857,39 +876,63 @@ let close_expr ?original pos ({ E.expr_init } as expr, ctx) =
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term (expr_init :> Term.t) in
 
-  (* Filter for variables before the base instant *)
-  let init_pre_vars = 
-    VS.filter 
+  let unguarded =
+    VS.exists 
       (fun var -> 
          Var.is_state_var_instance var &&
          Numeral.(Var.offset_of_state_var_instance var < E.base_offset))
       init_vars
   in
+  
+  (* Filter for variables before the base instant *)
+  (* let init_pre_vars =  *)
+  (*   VS.filter  *)
+  (*     (fun var ->  *)
+  (*        Var.is_state_var_instance var && *)
+  (*        Numeral.(Var.offset_of_state_var_instance var < E.base_offset)) *)
+  (*     init_vars *)
+  (* in *)
 
+  
   (* No unguarded pres in initial state term? *)
-  if VS.is_empty init_pre_vars then (expr, ctx) else
+  if not unguarded then (expr, ctx )
+  else
 
-    (* New oracle for each state variable *)
-    let oracle_substs, ctx = VS.fold (fun var (accum, ctx) -> 
-
-        (* We only expect state variable instances *)
-        assert (Var.is_state_var_instance var);
-
-        (* State variable of state variable instance *)
-        let state_var = Var.state_var_of_state_var_instance var in
-
-        (* Create a new oracle variable or re-use previously created oracle *)
-        let state_var', ctx = mk_fresh_oracle_for_state_var ctx state_var in
-
-        (* Substitute oracle variable for variable *)
-        (state_var, E.mk_var state_var') :: accum, ctx
-
-      ) init_pre_vars ([], ctx)
+    let rctx = ref ctx in
+    let expr_init = E.map_vars (fun var ->
+        if Var.is_state_var_instance var &&
+           Numeral.(Var.offset_of_state_var_instance var < E.base_offset) then
+          let state_var = Var.state_var_of_state_var_instance var in
+          let state_var', ctx = mk_fresh_oracle_for_state_var !rctx state_var in
+          rctx := ctx;
+          E.base_var_of_state_var E.base_offset state_var'
+        else var
+      ) expr_init
     in
 
-    (* Return expression with all previous state variables in the init
-       expression substituted by fresh constants *)
-    E.mk_arrow (E.mk_let_pre oracle_substs expr) expr, ctx
+    E.mk_arrow (E.mk_of_expr ~as_type:expr.E.expr_type expr_init) expr, !rctx
+
+    (* (\* New oracle for each state variable *\) *)
+    (* let oracle_substs, ctx = VS.fold (fun var (accum, ctx) ->  *)
+
+    (*     (\* We only expect state variable instances *\) *)
+    (*     assert (Var.is_state_var_instance var); *)
+
+    (*     (\* State variable of state variable instance *\) *)
+    (*     let state_var = Var.state_var_of_state_var_instance var in *)
+
+    (*     (\* Create a new oracle variable or re-use previously created oracle *\) *)
+    (*     let state_var', ctx = mk_fresh_oracle_for_state_var ctx state_var in *)
+
+    (*     (\* Substitute oracle variable for variable *\) *)
+    (*     (state_var, E.mk_var state_var') :: accum, ctx *)
+
+    (*   ) init_pre_vars ([], ctx) *)
+    (* in *)
+
+    (* (\* Return expression with all previous state variables in the init *)
+    (*    expression substituted by fresh constants *\) *)
+    (* E.mk_arrow (E.mk_let_pre oracle_substs expr) expr, ctx (\* {ctx with guard_pre = true}  *\) *)
 
 (* Record mapping of expression to state variable
 
@@ -1039,7 +1082,7 @@ let mk_local_for_expr
           let state_var, ctx =
             mk_state_var_for_expr ?is_input ?is_const ?for_inv_gen
               (* ?reuse *)
-              ~reuse:(not ctx.guard_pre)
+              (* ~reuse:(not ctx.guard_pre) *)
               ctx add_state_var_to_locals expr'
           in
 
@@ -1108,7 +1151,11 @@ let mk_fresh_local
       (state_var, ctx)
 
 (* Return the node of the given name from the context*)
-let node_of_name { nodes } ident = N.node_of_name ident nodes
+let rec node_of_name ({ prev; nodes } as ctx) ident =
+  try N.node_of_name ident nodes
+  with Not_found ->
+    if ctx == prev then raise Not_found
+    else node_of_name prev ident
 
 
 (* Return the output variables of a node call in the context with the
@@ -1145,7 +1192,7 @@ let call_outputs_of_node_call
               (I.equal ident call_ident) &&
 
               (* ... activation and restart conditions must be equal, and ... *)
-              (match cond_var, call_cond with 
+              (try List.for_all2 (fun c c' -> match c, c' with
 
                 (* Both calls are with an activation condition *)
                 | N.CActivate v, N.CActivate v' -> 
@@ -1166,11 +1213,13 @@ let call_outputs_of_node_call
                 | N.CRestart v, N.CRestart v' ->
                   StateVar.equal_state_vars v v' 
 
-                (* Both calls without activation condtion *)
-                | N.CNone, N.CNone -> true
+                (* (\* Both calls without activation condtion *\) *)
+                (* | N.CNone, N.CNone -> true *)
 
                 (* One call with and the other without condition *)
                 | _ -> false)
+                   cond_var call_cond
+               with Invalid_argument _ -> false)
               &&
                             
               (* ... inputs must be the same up to oracles *)
@@ -1236,13 +1285,13 @@ let add_node_input ?is_const ctx ident index_types =
 
 
 (* Add node output to context *)
-let add_node_output ?(is_single = false) ctx ident index_types = 
+let add_node_output ?(is_single = false) ctx ident pos index_types = 
 
   match ctx with 
 
     | { node = None } -> raise (Invalid_argument "add_node_output")
 
-    | { node = Some { N.outputs } } -> 
+    | { node = Some { N.outputs }; outputs_info } -> 
 
       (* Get next index at root of trie *)
       let next_top_idx = D.top_max_index outputs |> succ in
@@ -1267,6 +1316,13 @@ let add_node_output ?(is_single = false) ctx ident index_types =
                if is_single then index else 
                  D.ListIndex next_top_idx :: index
              in
+
+             (* Register local declarations positions for later *)
+             let ctx  =
+               { ctx with
+                 outputs_info = (state_var, ident, pos) :: ctx.outputs_info }
+             in
+
              (* Add expression to trie of identifier *)
              (D.add index' state_var accum, ctx))
              
@@ -1624,8 +1680,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                    pos
                    (Format.asprintf 
                       "Type mismatch in equation: %a and %a"
-                      Type.pp_print_type t
-                      Type.pp_print_type expr_type))
+                      (E.pp_print_lustre_type false) t
+                      (E.pp_print_lustre_type false) expr_type))
           (StateVar.type_of_state_var state_var )
           bounds
       in
@@ -1649,10 +1705,11 @@ let add_node_equation ctx pos state_var bounds indexes expr =
           (* Type of expression may not be subtype of declared type *)
           match state_var_type, expr_type with 
 
-            (* Declared type is integer range, expression is of type
+            (* Declared type is an actual integer range, expression is of type
                integer *)
             | t, s 
-              when Type.is_int_range t && (Type.is_int s || Type.is_int_range s) -> 
+              when Type.is_int_range t &&
+                   (Type.is_int s || Type.is_int_range s) -> 
 
               let (lbound, ubound) = Type.bounds_of_int_range t in
 
@@ -1692,8 +1749,8 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                 pos
                 (Format.asprintf 
                    "Type mismatch in equation: %a and %a"
-                   Type.pp_print_type t
-                   Type.pp_print_type s)
+                   (E.pp_print_lustre_type false) t
+                   (E.pp_print_lustre_type false) s)
 
       in
 
@@ -1806,9 +1863,15 @@ let node_of_context = function
 
 
 (* Add node from second context to nodes of first *)
-let add_node_to_context ctx node_ctx = 
-
-  { ctx with nodes = (node_of_context node_ctx) :: ctx.nodes }
+let add_node_to_context ctx node_ctx =
+  let n = node_of_context node_ctx in
+  (* let rec aux ctx = *)
+  (*   { ctx with *)
+  (*     prev = if ctx.prev == ctx then ctx.prev else aux ctx.prev; *)
+  (*     nodes = n :: ctx.nodes } *)
+  (* in *)
+  (* { ctx with prev = aux node_ctx.prev } *)
+  { ctx with prev = { node_ctx.prev with nodes = n :: node_ctx.prev.nodes } }
 
 
 (* Mark node as main node *)
@@ -1832,7 +1895,7 @@ let get_node_function_flag ctx = match ctx with
 
 
 (* Resolve a forward reference, fails if a circular dependency is detected. *)
-let solve_fref { deps' } decl (f_type, f_ident) decls =
+let solve_fref { deps' } decl (f_type, f_ident, f_pos) decls =
   (* Retrieve info of current declaration. *)
   let pos, ident, typ = Deps.info_of_decl decl in
   (* Does the declaration forward ref-ed depend on current declaration? *)
@@ -1858,15 +1921,15 @@ let solve_fref { deps' } decl (f_type, f_ident) decls =
           | typ -> Deps.pp_print_decl ppf typ
         ) f_type (I.pp_print_ident false) f_ident
         Deps.pp_print_decl typ (I.pp_print_ident false) ident
-      |> fail_at_position pos
+      |> fail_at_position f_pos
   )
 
 
 (* Check that the node being defined has no undefined local variables *)
 let check_local_vars_defined ctx =
   match ctx.node with
-  | None -> ()
-  | Some { N.equations } ->
+  | Some { N.equations; N.is_extern = false } ->
+    (* Look for localss definitions *)
     List.iter (fun (sv, id, pos) ->
         if not (List.exists
                   (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
@@ -1877,7 +1940,29 @@ let check_local_vars_defined ctx =
             (Format.asprintf "Local variable %a has no definition."
                (I.pp_print_ident false) id)
       ) ctx.locals_info
+  | _ -> ()
 
+
+let check_output_defined ctx =
+  match ctx.node with
+  | Some { N.equations; N.is_extern = false } ->
+    (* Look for outputs definitions *)
+    List.iter (fun (sv, id, pos) ->
+        if not (List.exists
+                  (fun (sv', _, _) -> StateVar.equal_state_vars sv sv') 
+                  equations )
+        then
+          (* Always fail *)
+          fail_at_position pos
+            (Format.asprintf "Output variable %a has no definition."
+               (I.pp_print_ident false) id)
+      ) ctx.outputs_info
+  | _ -> ()
+
+
+let check_vars_defined ctx =
+  (* check_outputs_defined ctx; *)
+  check_local_vars_defined ctx
   
 
 

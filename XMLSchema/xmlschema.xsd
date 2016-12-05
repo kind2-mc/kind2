@@ -32,12 +32,12 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Stream type. Among "bool", "int" and "real". -->
+  <!-- Stream type -->
   <xs:simpleType name="streamType">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="bool"/>
-      <xs:enumeration value="int"/>
-      <xs:enumeration value="real"/>
+      <!-- <xs:enumeration value="bool"/> -->
+      <!-- <xs:enumeration value="int"/> -->
+      <!-- <xs:enumeration value="real"/> -->
     </xs:restriction>
   </xs:simpleType>
 
@@ -153,13 +153,13 @@
   <!-- All of the above is useless, we can't type the values of a trace. -->
   <xs:simpleType name="genericValue">
     <xs:restriction base="xs:string">
-      <!-- Bool. -->
-      <xs:pattern value="false|true"/>
-      <!-- Integer. -->
-      <xs:pattern value="0|[1-9]([0-9])*"/>
-      <!-- Real. -->
-      <xs:pattern value="(0|[1-9]([0-9])*)\.(0|([0-9])*[1-9])"/>
-      <xs:pattern value="(0|[1-9]([0-9])*)/(0|[1-9]([0-9])*)"/>
+      <!-- <!-\- Bool. -\-> -->
+      <!-- <xs:pattern value="false|true"/> -->
+      <!-- <!-\- Integer. -\-> -->
+      <!-- <xs:pattern value="(-)*0|[1-9]([0-9])*"/> -->
+      <!-- <!-\- Real. -\-> -->
+      <!-- <xs:pattern value="(-)*(0|[1-9]([0-9])*)\.(0|([0-9])*[1-9])"/> -->
+      <!-- <xs:pattern value="(-)*(0|[1-9]([0-9])*)/(0|[1-9]([0-9])*)"/> -->
     </xs:restriction>
   </xs:simpleType>
 
@@ -218,21 +218,13 @@
     </xs:complexType>
   </xs:element>
 
-
-  <!-- Node, as output in a cex. -->
-  <xs:element name="Node">
+  <!-- Automaton, as output in a cex. -->
+  <xs:element name="Automaton">
     <xs:complexType>
       <xs:sequence>
-        <!-- Typed version.
-             Does not work, cannot use same name with different types. -->
-        <!-- <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="Stream" type="boolValued"/>
-          <xs:element name="Stream" type="intValued"/>
-          <xs:element name="Stream" type="realValued"/>
-        </xs:choice> -->
-        <xs:element ref="ActiveModes" minOccurs="0" maxOccurs="1"/>
         <xs:element ref="Stream" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element ref="Node" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="Automaton" minOccurs="0" maxOccurs="unbounded"/>
       </xs:sequence>
       <xs:attribute name="name" type="xs:string" use="required"/>
       <xs:attribute name="line" type="posInt"/>
@@ -240,13 +232,48 @@
     </xs:complexType>
   </xs:element>
 
+  <xs:complexType name="NodeLike">
+    <xs:sequence>
+      <!-- Typed version.
+           Does not work, cannot use same name with different types. -->
+      <!-- <xs:choice minOccurs="0" maxOccurs="unbounded">
+           <xs:element name="Stream" type="boolValued"/>
+           <xs:element name="Stream" type="intValued"/>
+           <xs:element name="Stream" type="realValued"/>
+           </xs:choice> -->
+      <xs:element ref="ActiveMode" minOccurs="0" maxOccurs="1"/>
+      <xs:element ref="Stream" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="Node"/>
+        <xs:element ref="Function"/>
+        <xs:element ref="State"/>
+        <xs:element ref="Automaton"/>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="line" type="posInt"/>
+    <xs:attribute name="column" type="posInt"/>
+  </xs:complexType>
 
+  
+  <!-- Node, as output in a cex. -->
+  <xs:element name="Node" type="NodeLike"/>
+
+  <!-- Node, as output in a cex. -->
+  <xs:element name="Function" type="NodeLike"/>
+
+  <!-- Node, as output in a cex. -->
+  <xs:element name="State" type="NodeLike"/>
+
+  
   <!-- Counter example. -->
-  <xs:element name="Counterexample">
+  <xs:element name="CounterExample">
     <xs:complexType>
-      <xs:sequence>
-        <xs:element ref="Node" minOccurs="1" maxOccurs="unbounded"/>
-      </xs:sequence>
+      <xs:choice minOccurs="1" maxOccurs="unbounded">
+        <xs:element ref="Node"/>
+        <xs:element ref="Function"/>
+        <xs:element ref="State"/>
+      </xs:choice>
     </xs:complexType>
   </xs:element>
 
@@ -258,21 +285,37 @@
         <xs:element ref="Runtime" minOccurs="1" maxOccurs="1"/>
         <xs:element name="K" type="posInt" minOccurs="0" maxOccurs="1"/>
         <xs:element ref="Answer" minOccurs="1" maxOccurs="1"/>
-        <xs:element ref="Counterexample" minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="CounterExample" minOccurs="0" maxOccurs="1"/>
       </xs:sequence>
       <xs:attribute name="name" type="xs:string" use="required"/>
     </xs:complexType>
   </xs:element>
 
+  <xs:element name="AnalysisStart">
+    <xs:complexType>
+      <xs:attribute name="top" type="xs:string"  use="required"/>
+      <xs:attribute name="concrete" type="xs:string"/>
+      <xs:attribute name="abstract" type="xs:string"/>
+      <xs:attribute name="assumptions" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
 
+  <xs:element name="AnalysisStop"/>
 
   <!-- |===| Root. -->
   <xs:element name="Results">
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="Log" minOccurs="1" maxOccurs="unbounded"/>
+        <xs:element ref="AnalysisStart" minOccurs="1" maxOccurs="unbounded"/>
         <xs:element ref="Property" minOccurs="1" maxOccurs="unbounded"/>
+        <xs:element ref="AnalysisStop" minOccurs="1" maxOccurs="unbounded"/>
       </xs:choice>
+      <xs:attribute name="enabled" type="xs:string"/>
+      <xs:attribute name="timeout" type="xs:string"/>
+      <xs:attribute name="bmc_max" type="xs:string"/>
+      <xs:attribute name="modular" type="xs:boolean"/>
+      <xs:attribute name="compositional" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
 

@@ -1,0 +1,69 @@
+
+node greycounter (reset:bool) returns (out:bool);
+var a,b:bool;
+let
+  a = false -> if reset then false else  not pre(b);
+  b = false -> if reset then false else pre(a);
+  out = a and b;
+tel
+
+node intloopcounter (reset:bool) returns (out:bool);
+var time: int;
+let
+  time = 0 -> if pre reset then 0 else if reset then pre time else if pre(time) = 3 then 0
+            else pre time + 1;
+  out = (time = 2);
+tel
+
+node auto (reset:bool) returns  (out:bool);
+let
+  automaton four_states
+    
+  state Two : 
+  unless reset restart One
+  let 
+    out = false;
+  tel until (not reset) restart Three
+
+  initial state One : 
+  unless reset restart One
+  let 
+   out = false;
+  tel until (not reset) restart Two
+
+  state Three : 
+  unless reset restart One
+  let 
+    out = true;
+  tel until (not reset) restart Four
+  
+  state Four :
+  unless reset restart One
+  let 
+    out = false;
+  tel until (not reset) restart One
+
+  returns out;
+
+tel
+
+
+node top (reset:bool) returns (OK:bool);
+var a,b,d:bool;
+    OK1,OK2,OK3: bool;
+    
+let
+  
+  assert reset = false;
+
+  b = greycounter(reset);
+  d = intloopcounter(reset);
+  a = auto(reset);
+
+  OK1 = b = d;
+  OK2 = b = a;
+  OK3 = a = d;
+
+  OK = OK3; -- true -> (not (pre d)) and (not (pre a));
+  --%PROPERTY OK;
+tel

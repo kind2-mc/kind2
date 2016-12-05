@@ -2518,14 +2518,16 @@ let generate_frontend_obs node kind2_sys dirname =
                   StateVar.pp_print_state_var sv'
                   (pp_print_list
                      (fun fmt (lid, n, cond) ->
-                        Format.fprintf fmt "%a [%d] %s"
+                        Format.fprintf fmt "%a [%d] %a"
                           (LustreIdent.pp_print_ident true) lid n
-                          (match cond with
-                           | LustreNode.CNone -> ""
+                          (pp_print_list (fun fmt -> function
                            | LustreNode.CActivate c ->
-                             "ACTIVATE ON "^ (StateVar.string_of_state_var c)
+                             Format.fprintf fmt "ACTIVATE ON %s"
+                               (StateVar.string_of_state_var c)
                            | LustreNode.CRestart c ->
-                             "RESTART ON "^ (StateVar.string_of_state_var c))
+                             Format.fprintf fmt "RESTART ON %s"
+                               (StateVar.string_of_state_var c))
+                              ", ") cond
                      )
                      " , ") l'
               ) l

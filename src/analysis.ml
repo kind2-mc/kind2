@@ -201,15 +201,16 @@ let results_length results =
     some were falsified. *)
 let results_is_safe results = Scope.Map.fold (fun _ -> function
   | head :: _ -> (
-    (* If system is safe, propagate previous result. *)
-    if result_is_all_proved head then fun opt -> opt
+    (* If system is safe, propagate previous result if any. *)
+    if result_is_all_proved head then
+      function None -> Some true | opt -> opt
     (* If it's not then result is false. *)
     else if result_is_some_falsified head then fun _ -> Some false
     (* In case of a timeout, propagate false result, none otherwise. *)
     else function | (Some false) as opt -> opt | _ -> None
   )
   | [] -> assert false
-) results (Some true)
+) results None
 
 (** Cleans the results by removing nodes that don't have any property or
 contract. *)

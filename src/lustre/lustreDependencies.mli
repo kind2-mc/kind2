@@ -29,7 +29,7 @@ type decl =
 | NodeOrFun | Type | Contract | Const
 
 (** Reference to an unknown declaration. *)
-exception Unknown_decl of decl * I.t
+exception Unknown_decl of decl * I.t * Lib.position
 
 (** Pretty printer for declarations. *)
 val pp_print_decl : Format.formatter -> decl -> unit

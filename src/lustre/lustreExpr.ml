@@ -135,6 +135,8 @@ let map f ({ expr_init; expr_step } as expr) =
       expr_step = Term.map (f' false) expr_step }
 
 
+let map_vars = Term.map_vars 
+  
 (*
 
 let rec map_top' f term = match Term.T.node_of_t term with 
@@ -222,25 +224,29 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Int -> Format.pp_print_string ppf "int"
 
-  | Type.IntRange (i, j) -> 
+  | Type.IntRange (i, j, Type.Range) -> 
 
-    Format.fprintf
-      ppf 
-      "subrange [%a, %a] of int" 
-      Numeral.pp_print_numeral i 
-      Numeral.pp_print_numeral j
+     Format.fprintf
+       ppf 
+       "subrange [%a, %a] of int" 
+       Numeral.pp_print_numeral i 
+       Numeral.pp_print_numeral j
 
   | Type.Real -> Format.pp_print_string ppf "real"
 
   | Type.Abstr s -> Format.pp_print_string ppf s
 
-  | Type.Scalar (s, l) -> 
+  | Type.IntRange (i, j, Type.Enum) -> 
 
-    Format.fprintf
-      ppf 
-      "enum { %a }" 
-      (pp_print_list Format.pp_print_string " ") l
-(*
+     begin match Type.name_of_enum t with
+     | Some n -> Format.pp_print_string ppf n
+     | None ->
+        let cs = Type.constructors_of_enum t in
+        Format.fprintf ppf "enum {%a}" 
+          (pp_print_list Format.pp_print_string ", ") cs
+     end
+
+  (*
   | Type.BV i -> 
 
     raise 
@@ -277,9 +283,19 @@ let string_of_symbol = function
   | _ -> failwith "string_of_symbol"
 
 
-(* Pretty-print a symbol *)
-let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s) 
-
+(* Pretty-print a symbol with a given type *)
+let pp_print_symbol_as_type as_type ppf s =
+  match as_type, s with
+  | Some ty, `NUMERAL n when Type.is_enum ty ->
+     Type.get_constr_of_num n
+     |> Format.pp_print_string ppf
+  | _ ->
+     Format.pp_print_string ppf (string_of_symbol s) 
+    
+(* Pretty-print a symbol as is *)
+let pp_print_symbol ppf s =
+  Format.pp_print_string ppf (string_of_symbol s) 
+    
 
 (* Pretty-print a variable *)
 let pp_print_lustre_var _ ppf state_var = 
@@ -353,21 +369,21 @@ let rec pp_print_var safe ppf var =
 
 
 (* Pretty-print a term *)
-and pp_print_term_node safe ppf t = match Term.T.destruct t with
+and pp_print_term_node ?as_type safe ppf t = match Term.T.destruct t with
     
   | Term.T.Var var -> pp_print_var safe ppf var
       
   | Term.T.Const s -> 
     
-    pp_print_symbol ppf (Symbol.node_of_symbol s)
+    pp_print_symbol_as_type as_type ppf (Symbol.node_of_symbol s)
       
   | Term.T.App (s, l) -> 
-    
-    pp_print_app safe ppf (Symbol.node_of_symbol s) l
+
+    pp_print_app ?as_type safe ppf (Symbol.node_of_symbol s) l
 
   | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node safe ppf t
+    pp_print_term_node ?as_type safe ppf t
       
 
 (* Pretty-print the second and following arguments of a
@@ -476,7 +492,7 @@ and pp_print_app_chain safe s ppf = function
 
 
 (* Pretty-print a function application *)
-and pp_print_app safe ppf = function 
+and pp_print_app ?as_type safe ppf = function 
 
   (* Function application must have arguments, cannot have nullary
      symbols here *)
@@ -546,8 +562,8 @@ and pp_print_app safe ppf = function
         Format.fprintf ppf
           "if %a then %a else %a" 
           (pp_print_term_node safe) p
-          (pp_print_term_node safe) l
-          (pp_print_term_node safe) r
+          (pp_print_term_node ?as_type safe) l
+          (pp_print_term_node ?as_type safe) r
           
         | _ -> assert false)
         
@@ -617,33 +633,35 @@ and pp_print_app safe ppf = function
       
 
 (* Pretty-print a hashconsed term *)
-let pp_print_expr safe ppf expr =
-  pp_print_term_node safe ppf expr
+let pp_print_expr ?as_type safe ppf expr =
+  pp_print_term_node ?as_type safe ppf expr
 
 (* Pretty-print a term as an expr. *)
 let pp_print_term_as_expr = pp_print_expr
 
 
 (* Pretty-print a hashconsed term to the standard formatter *)
-let print_expr safe = pp_print_expr safe Format.std_formatter 
+let print_expr ?as_type safe =
+  pp_print_expr ?as_type safe Format.std_formatter
 
 
 (* Pretty-print a typed Lustre expression *)
 let pp_print_lustre_expr safe ppf = function
 
   (* Same expression for initial state and following states *)
-  | { expr_init; expr_step } when Term.equal expr_init expr_step -> 
+  | { expr_init; expr_step; expr_type }
+       when Term.equal expr_init expr_step -> 
 
-    pp_print_expr safe ppf expr_step
+    pp_print_expr ~as_type:expr_type safe ppf expr_step
 
   (* Print expression of initial state followed by expression for
      following states *)
-  | { expr_init; expr_step } -> 
+  | { expr_init; expr_step; expr_type } -> 
 
     Format.fprintf ppf 
       "@[<hv 1>(%a@ ->@ %a)@]" 
-      (pp_print_expr safe) expr_init
-      (pp_print_expr safe) expr_step
+      (pp_print_expr ~as_type:expr_type safe) expr_init
+      (pp_print_expr ~as_type:expr_type safe) expr_step
 
 
 
@@ -674,28 +692,32 @@ let pre_is_unguarded { expr_init } =
 let is_var_at_offset { expr_init; expr_step } (init_offset, step_offset) = 
 
   (* Term must be a free variable *)
-  (Term.is_free_var expr_init) && 
+  Term.is_free_var expr_init && 
 
   (* Get free variable of term *)
-  (let var_init = Term.free_var_of_term expr_init in 
+  let var_init = Term.free_var_of_term expr_init in 
 
-   (* Variable must be an instance of a state variable *)
-   Var.is_state_var_instance var_init && 
+  (* Variable must be an instance of a state variable *)
+  Var.is_state_var_instance var_init && 
 
-   (* Variable must be at instant zero *)
-   Numeral.(Var.offset_of_state_var_instance var_init = init_offset)) &&
+  (* Variable must be at instant zero *)
+  Numeral.(Var.offset_of_state_var_instance var_init = init_offset) &&
 
   (* Term must be a free variable *)
-  (Term.is_free_var expr_step) && 
+  Term.is_free_var expr_step && 
 
   (* Get free variable of term *)
-  (let var_step = Term.free_var_of_term expr_step in 
+  let var_step = Term.free_var_of_term expr_step in 
 
-   (* Variable must be an instance of a state variable *)
-   Var.is_state_var_instance var_step && 
+  (* Variable must be an instance of a state variable *)
+  Var.is_state_var_instance var_step && 
 
-   (* Variable must be at instant zero *)
-   Numeral.(Var.offset_of_state_var_instance var_step = step_offset))
+  (* Variable must be at instant zero *)
+  Numeral.(Var.offset_of_state_var_instance var_step = step_offset)(*  && *)
+
+  (* StateVar.equal_state_vars *)
+  (*   (Var.state_var_of_state_var_instance var_step) *)
+  (*   (Var.state_var_of_state_var_instance var_step) *)
 
 
 
@@ -958,6 +980,14 @@ let t_false =
     expr_step = expr; 
     expr_type = Type.t_bool } 
 
+
+let mk_constr c t =  
+
+  let expr = Term.mk_constr c in
+
+  { expr_init = expr; 
+    expr_step = expr; 
+    expr_type = t } 
 
 (* Integer constant *)
 let mk_int d =  
@@ -1983,89 +2013,54 @@ let mk_pre
     unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
-  (* Apply pre to initial state expression *)
-  let expr_init', expr_type', ctx' = match expr_init with
+  (* When simplifications fails, simply abstract with a new state variable,
+     i.e., create an internal new memory. *)
+  let abs_pre () =
+    let expr_type = Type.generalize expr_type in
+    let expr = { expr with expr_type } in
+    (* Fresh state variable for expression *)
+    let state_var, ctx = mk_state_var_for_expr ctx expr in
+    (* Variables at previous instant *)
+    let var_init = Var.mk_state_var_instance state_var pre_base_offset in
+    let var_step = Var.mk_state_var_instance state_var pre_offset in
+    { expr_init = Term.mk_var var_init;
+      expr_step = Term.mk_var var_step;
+      expr_type }, ctx
+  in
 
+  (* Stream is the same in the initial state and step (e -> e) *)
+  if not unguarded &&
+     Term.equal expr_init (Term.bump_state Numeral.(~- one) expr_step) then
+    match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)
     | t when
-        not unguarded && 
-        (t == Term.t_true || 
-         t == Term.t_false || 
-           (Term.is_free_var t && 
-              Term.free_var_of_term t |> Var.is_const_state_var) ||
-             (match Term.destruct t with 
-              | Term.T.Const c1 when 
-                     Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
-              | _ -> false)) ->
-       (expr_init, expr_type, ctx)
-          
+        (t == Term.t_true ||
+         t == Term.t_false ||
+         (Term.is_free_var t &&
+          Term.free_var_of_term t |> Var.is_const_state_var) ||
+           (match Term.destruct t with
+            | Term.T.Const c1 when
+                   Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+            | _ -> false)) ->
+       
+       expr, ctx
+      
     (* Expression is a variable at the current instant not part of an unguarded
        pre expression *)
-    | t when
-        not unguarded &&
-        Term.is_free_var t &&
+    | t when Term.is_free_var t &&
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
-                 base_offset) ->
-      
-      (Term.bump_state Numeral.(- one) t, expr_type, ctx)
-      
-    (* Expression is not a variable at the current instant *)
-    | _ ->
+                   base_offset) ->
 
-      let expr_type = Type.generalize expr_type in
-      let expr = { expr with expr_type } in
+       let pt = Term.bump_state Numeral.(- one) t in
+       { expr with expr_init = pt; expr_step = pt }, ctx
        
-      (* Fresh state variable for identifier *)
-      let state_var, ctx' = mk_state_var_for_expr ctx expr in 
+    (* Expression is not a variable at the current instant or a constant:
+       abstract *)
+    | _ -> abs_pre ()
 
-      (* Variable at previous instant *)
-      let var = Var.mk_state_var_instance state_var pre_base_offset in
+  else (* Stream is of the form: a -> b, abstract*)
 
-      (* Return term and new definitions *)
-      (Term.mk_var var, expr_type, ctx')
-      
-  in
-
-  (* Apply pre to step state expression *)
-  let expr_step', expr_type', ctx'' = match expr_step with 
-
-    (* Expression is identical to initial state *)
-    | _ when not unguarded &&
-             Term.equal expr_step expr_init -> 
-
-      (* Re-use abstraction for initial state *)
-      (expr_init', expr_type', ctx')
-
-    (* Expression is a variable at the current instant *)
-    | t when
-        Term.is_free_var t &&
-        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
-                 cur_offset) ->
-
-      (Term.bump_state Numeral.(- one) t, expr_type', ctx')
-
-    (* Expression is not a variable *)
-    | _ -> 
-
-      let expr_type = Type.generalize expr_type' in
-      let expr = { expr with expr_type } in
-       
-      (* Fresh state variable for expression *)
-      let state_var, ctx' = mk_state_var_for_expr ctx' expr in
-
-      (* Variable at previous instant *)
-      let var = Var.mk_state_var_instance state_var Numeral.(- one) in
-
-      (* Return term and new definitions *)
-      (Term.mk_var var, expr_type, ctx')
-      
-  in
-
-  (* Return expression and new definitions *)
-  { expr_init = expr_init' ;
-    expr_step = expr_step' ;
-    expr_type = expr_type' ;
-  }, ctx''
+    abs_pre ()
 
 
 (* ********************************************************************** *)
@@ -2166,11 +2161,16 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
 let mk_int_expr n = Term.mk_num n
 
 
-let mk_of_expr expr = 
+let mk_of_expr ?as_type expr = 
+
+  let expr_type = match as_type with
+    | Some ty -> ty
+    | None -> Term.type_of_term expr
+  in
   
   { expr_init = expr; 
     expr_step = expr; 
-   expr_type = Term.type_of_term expr } 
+    expr_type } 
 
 (* 
    Local Variables:

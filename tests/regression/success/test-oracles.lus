@@ -2,6 +2,7 @@ node X(x: int) returns (y: int);
 let
   assert (pre pre (x + 1) > 0);
   --%PROPERTY 1 > x;
+  y = pre y;
 tel;
 
 

@@ -100,6 +100,9 @@ val hash : t -> int
 (** Tail-recursive bottom-up right-to-left map on the expression *)
 val map : (int -> t -> t) -> t -> t
 
+(** Replace state variables in expression *)
+val map_vars : (Var.t -> Var.t) -> expr -> expr
+
 (** Return the type of the expression *)
 val type_of_lustre_expr : t -> Type.t
 
@@ -124,11 +127,14 @@ val pp_print_lustre_var_typed : bool -> Format.formatter -> StateVar.t -> unit
 (** Pretty-print a Lustre expression *)
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
 
-(** Pretty-print a Lustre expression *)
-val pp_print_expr : bool -> Format.formatter -> expr -> unit
+(** Pretty-print a Lustre expression. The optional parameter [as_type]
+    indicates that the expression should be printed as if it had this type (used
+    for encoded enumerated datatypes). *)
+val pp_print_expr : ?as_type:Type.t -> bool -> Format.formatter -> expr -> unit
 
-(* Pretty-print a term as an expr. *)
-val pp_print_term_as_expr : bool -> Format.formatter -> Term.t -> unit
+(** Pretty-print a term as an expr. *)
+val pp_print_term_as_expr :
+  ?as_type:Type.t -> bool -> Format.formatter -> Term.t -> unit
 
 (** {1 Predicates} *)
 
@@ -253,6 +259,9 @@ val t_false : t
     are do not match the signature of the symbol, the
     {!Type_mismatch} exception is raised. *)
 
+(** Return a constructor *)
+val mk_constr : string -> Type.t -> t
+
 (** Return an expression of an integer numeral. *)
 val mk_int : Numeral.t -> t
 
@@ -368,7 +377,7 @@ val mk_let_pre : (StateVar.t * t) list -> t -> t
 val mk_int_expr : Numeral.t -> expr
 
 (** Return an expression with the same term on both sides of the [->] *)
-val mk_of_expr : expr -> t 
+val mk_of_expr : ?as_type:Type.t -> expr -> t 
 
 
 (** Return true if the expression is constant *)

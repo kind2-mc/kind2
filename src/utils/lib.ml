@@ -480,6 +480,24 @@ let rec pp_print_listi' pp sep ppf = function
 (* Pretty-print a list with a counter of its elements *)
 let pp_print_listi pp sep ppf l = pp_print_listi' pp sep ppf (0, l)
 
+
+
+let rec pp_print_list2i' pp sep ppf = function 
+  | _, [], [] -> ()
+  | i, [e1], [e2] -> pp ppf i e1 e2
+  | i, e1 :: tl1, e2 :: tl2 -> 
+    pp ppf i e1 e2;
+    (* Output separator *)
+    fprintf ppf sep; 
+    (* Output the rest of the two lists *)
+    pp_print_list2i' pp sep ppf (succ i, tl1, tl2)
+  | _ -> invalid_arg "pp_print_list2i"
+
+(* Pretty-print two lists of the same length with a counter of their
+   elements *)
+let pp_print_list2i pp sep ppf l1 l2 = pp_print_list2i' pp sep ppf (0, l1, l2)
+
+
 (* Pretty-print a list wrapped in parentheses *)
 let pp_print_paren_list ppf list = 
       
@@ -1124,6 +1142,26 @@ let syscall cmd =
   ignore(Unix.close_process (ic, oc));
   Buffer.contents buf
 
+
+
+let reset_gc_params =
+  let gc_c = Gc.get() in
+  fun () -> Gc.set gc_c
+  
+
+let set_liberal_gc () =
+  Gc.full_major ();
+  let gc_c =
+    { (Gc.get ()) with
+      (* Gc.verbose = 0x3FF; *)
+      Gc.minor_heap_size = 64000000; (* default 32000*)
+      major_heap_increment = 3200000;    (* default 124000*)
+      space_overhead = 100; (* default 80% des donnes vivantes *)
+    }
+  in
+  Gc.set gc_c
+
+
 (* ********************************************************************** *)
 (* Paths techniques write to                                              *)
 (* ********************************************************************** *)
@@ -1152,6 +1190,15 @@ module ReservedIds = struct
   let index_ident_string = "__index"
   let function_of_inputs = "__function_of_inputs"
 
+  let state_string = "state"
+  let restart_string = "restart"
+  let state_selected_string = "state.selected"
+  let restart_selected_string = "restart.selected"
+  let state_selected_next_string = "state.selected.next"
+  let restart_selected_next_string = "restart.selected.next"
+  let handler_string = "handler"
+  let unless_string = "unless"
+  
   (* Init flag string. *)
   let init_flag_string = "__init_flag"
   (* Abstraction depth input string. *)

@@ -322,7 +322,6 @@ let rec bool_of_term t = match node_of_term t with
 
   | _ -> invalid_arg "bool_of_term"
 
-
 (* Return true if the term is an application of the select operator *)
 let is_select t = match node_of_term t with
 
@@ -968,6 +967,9 @@ let mk_num n = (* mk_const_of_symbol_node (`NUMERAL n) *)
 let mk_num_of_int i = mk_num (Numeral.of_int i)
 
 
+let mk_constr c = mk_num (Type.get_num_of_constr c)
+
+
 (* Hashcons a real decimal *)
 (* let mk_dec d = mk_const_of_symbol_node (`DECIMAL d) *)
 let mk_dec d =
@@ -1577,6 +1579,26 @@ let map_state_vars f term =
 
          (* Return term of variable *)
          Var.map_state_var f v |> mk_var
+
+       (* Return other terms unchanged *)
+       else t)
+
+    term
+
+(* Replace each variable instance in the term *)
+let map_vars f term = 
+
+  map
+
+    (fun  _ t -> 
+
+       (* Only map free variables *)
+       if is_free_var t then 
+
+         (* Get free variable of term *)
+         let v = free_var_of_term t in
+
+         mk_var (f v)
 
        (* Return other terms unchanged *)
        else t)

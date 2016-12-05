@@ -101,6 +101,8 @@ let rec value_of_term term = match Term.destruct term with
         (* Term is a propositional constant *)
         | `TRUE -> ValBool true
         | `FALSE -> ValBool false
+
+        (* Term is a constructor *)
 (*
         (* Bitvectors not implemented *)
         | `BV _ -> assert false
