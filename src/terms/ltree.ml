@@ -145,7 +145,7 @@ sig
 (*
   val eval : (symbol -> 'a list -> 'a) -> t -> 'a
 *)
-  val eval_t : (flat -> 'a list -> 'a) -> t -> 'a
+  val eval_t : ?fail_on_quantifiers:bool -> (flat -> 'a list -> 'a) -> t -> 'a
 
   val map : (int -> t -> t) -> t -> t
 
@@ -1023,11 +1023,13 @@ struct
    and taken from the stack. If the instruction stack is empty, the
    result stack contains a singleton list with the final result.
 
+   TODO: implement fold over quantified terms
+
 *)
 
   (* Variant of the folding function above, where the term that is we
      are looking at is given as an argument to the function *)
-  let rec fold f subst accum = function 
+  let rec fold fail_quant f subst accum = function 
 
     (* The stack is empty, we are done *)
     | [] -> 
@@ -1049,7 +1051,7 @@ struct
 
       (* Apply function to constant and continue with result *)
       (match accum with 
-        | h :: d -> fold f subst (((t, f t []) :: h) :: d) tl
+        | h :: d -> fold fail_quant f subst (((t, f t []) :: h) :: d) tl
         | _ -> assert false)
 
     (* The top element of the stack is a free variable *)
@@ -1059,7 +1061,7 @@ struct
 
       (* Apply function to variable and continue with result *)
       (match accum with 
-        | h :: d -> fold f subst (((t, f t []) :: h) :: d) tl
+        | h :: d -> fold fail_quant f subst (((t, f t []) :: h) :: d) tl
         | _ -> assert false)
 
     (* The top element of the stack is a non-nullary function *)
@@ -1074,13 +1076,13 @@ struct
 
       (* Add an empty list to the result stack, and the subterms to
          the instruction stack followed by the symbol *)
-      fold f subst ([] :: accum) (push args (FNode (op, args) :: tl))
+      fold fail_quant f subst ([] :: accum) (push args (FNode (op, args) :: tl))
 
     (* The top element of the stack is an annotated term *)
     | FTree (db, { H.node = Annot (t, _) }) :: tl -> 
 
       (* Remove annotation and continue with unannotated term *)
-      fold f subst accum ((FTree (db, t)) :: tl)
+      fold fail_quant f subst accum ((FTree (db, t)) :: tl)
 
     (* The top element of the stack is a bound variable *)
     | FTree (dbm, { H.node = BoundVar db }) :: tl -> 
@@ -1105,7 +1107,8 @@ struct
             (* Evaluate term assigned to variable as top term, add
                value to the context stack and evaluate variable
                again *)
-            fold 
+            fold
+              fail_quant
               f 
               subst 
               ([] :: accum) 
@@ -1127,13 +1130,13 @@ struct
 
                   (* Add evaluation of the variable and add it to the
                      result stack *)
-                  fold f subst ((l :: es) :: d) tl
+                  fold fail_quant f subst ((l :: es) :: d) tl
 
                 | _ -> assert false
 
             )
 
-          | Skip -> fold f subst accum tl
+          | Skip -> fold fail_quant f subst accum tl
             
           | exception Not_found -> assert false
                                      
@@ -1165,7 +1168,8 @@ struct
 
       (* Add term under lambda to instruction stack, followed by a pop
          instruction for the number of scopes added by the binding *)
-      fold 
+      fold
+        fail_quant
         f
         subst'
         accum
@@ -1176,6 +1180,8 @@ struct
                              Exists { H.node = L (n, l) })
                  }) :: tl ->
 
+      if fail_quant then raise (Invalid_argument "Ltree.fold : quantified term");
+      
       let vs = int_seq (db + 1) (List.length n) in
 
       let s = List.map (fun dbi -> (dbi, Skip)) vs in
@@ -1185,7 +1191,8 @@ struct
 
       (* Add term under lambda to instruction stack, followed by a pop
          instruction for the number of scopes added by the binding *)
-      fold 
+      fold
+        fail_quant 
         f
         subst'
         accum
@@ -1207,7 +1214,7 @@ struct
 
             (* Evaluate the top element on the result stack with the
                symbol and add it to the result stack *)
-            fold f subst (((t, f t r) :: es') :: d) tl
+            fold fail_quant f subst (((t, f t r) :: es') :: d) tl
 
           | _ -> assert false
 
@@ -1217,7 +1224,7 @@ struct
     | FPop 0 :: tl -> 
 
       (* Remove marker from the instruction stack *)
-      fold f subst accum tl
+      fold fail_quant f subst accum tl
 
     (* The top element of the stack is a positive end-of-scope marker *)
     | FPop i :: tl when i > 0 -> 
@@ -1227,7 +1234,7 @@ struct
         match subst with 
 
           (* Pop one scope from the context stack *)
-          | _ :: subst' -> fold f subst' accum (FPop (pred i) :: tl)
+          | _ :: subst' -> fold fail_quant f subst' accum (FPop (pred i) :: tl)
           | [] -> assert false 
 
       )
@@ -1263,10 +1270,10 @@ struct
             let subst' = aux [] subst in 
 
             (* Continue with modified context *)
-            fold f subst' atl itl
+            fold fail_quant f subst' atl itl
 
           (* nothing to evaluate context, skip *)
-          | [] :: atl -> fold f subst atl itl
+          | [] :: atl -> fold fail_quant f subst atl itl
 
           (* Result stack is never empty and has a singleton list as
              first element *)
@@ -1281,8 +1288,8 @@ struct
      list of values computed for the subterms. Let bindings are lazily
      unfolded.
   *)
-  let eval_t f t = 
-    fold f [] [[]] [FTree (0, t)]
+  let eval_t ?(fail_on_quantifiers=true)f t = 
+    fold fail_on_quantifiers f [] [[]] [FTree (0, t)]
 
 
   let rec import_lambda = function { H.node = L (i, t) } -> 

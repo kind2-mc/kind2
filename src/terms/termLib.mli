@@ -77,6 +77,9 @@ val pp_print_logic : Format.formatter -> logic -> unit
 (** String correspinding to a logic *)
 val string_of_logic : logic -> string
 
+(** Returns [true] if the logic potentially has arrays *)
+val logic_allow_arrays : logic -> bool
+
 (** Gathers signal related stuff. *)
 module Signals: sig
 

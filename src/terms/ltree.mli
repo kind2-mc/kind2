@@ -241,7 +241,7 @@ sig
       function is called at each node of the term with the term being
       evaluated and the list of values computed for the subterms. Let
       bindings are lazily unfolded.  *)
-  val eval_t : (flat -> 'a list -> 'a) -> t -> 'a
+  val eval_t : ?fail_on_quantifiers:bool -> (flat -> 'a list -> 'a) -> t -> 'a
 
   (** Tail-recursive bottom-up right-to-left map on the term
 

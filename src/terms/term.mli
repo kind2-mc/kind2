@@ -450,7 +450,7 @@ val string_of_lambda : lambda -> string
     function is called at each node of the term with the the term
     being evaluated, and the list of values computed for the
     subterms. Let bindings are lazily unfolded. *)
-val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
+val eval_t : ?fail_on_quantifiers:bool -> (T.flat -> 'a list -> 'a) -> t -> 'a
 
 (** Beta-evaluate a lambda expression *)
 val eval_lambda : lambda -> t list -> t

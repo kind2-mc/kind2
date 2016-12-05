@@ -1162,7 +1162,7 @@ let fold_node_calls_with_trans_sys nodes f node trans_sys =
 (* Return state variables that occur as previous state variables *)
 let stateful_vars_of_expr { E.expr_step } = 
 
-  Term.eval_t
+  Term.eval_t ~fail_on_quantifiers:false
     (function 
 
       (* Previous state variables have negative offset *)

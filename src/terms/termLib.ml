@@ -187,7 +187,7 @@ let check_add_Q t l =
 let logic_of_term t =
   t
   |> Term.map (fun _ -> remove_top_level_quantifier)
-  |> Term.eval_t logic_of_flat
+  |> Term.eval_t ~fail_on_quantifiers:false logic_of_flat
   |> check_add_Q t
 
 
@@ -224,6 +224,9 @@ let string_of_logic = function
   | `SMTLogic s -> s
 
 
+let logic_allow_arrays = function
+  | `None | `SMTLogic _ -> true
+  | `Inferred l -> L.mem A l
 
 
 module Signals = struct

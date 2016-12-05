@@ -620,7 +620,9 @@ let rec type_of_term t = match T.destruct t with
 
             (* ite must be ternary *)
             | [_; a; _] -> type_of_term a
-            | _ -> assert false)
+            | _ ->
+              Format.eprintf "%a@." pp_print_term t;
+              assert false)
             
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
@@ -831,7 +833,7 @@ let rec is_atom t = match T.destruct t with
     (* All subterms must be not Boolean *)
     (List.for_all
        (function e -> 
-         T.eval_t
+         T.eval_t ~fail_on_quantifiers:false 
            (function 
 
              (* Function application *)
@@ -1374,7 +1376,7 @@ let rec bump_and_apply_k f k term =
 (* Return all state variables in term *)
 let state_vars_of_term term  = 
 
-  eval_t
+  eval_t ~fail_on_quantifiers:false 
     (function 
       | T.Var v -> 
         (function 
@@ -1399,7 +1401,7 @@ let state_vars_of_term term  =
 let vars_of_term term = 
 
   (* Collect all variables in a set *)
-  eval_t
+  eval_t ~fail_on_quantifiers:false 
     (function 
       | T.Var v -> 
         (function [] -> Var.VarSet.singleton v | _ -> assert false)
@@ -1424,7 +1426,7 @@ let select_symbols_of_term term =
   !selm
 
 let select_terms term =
-  eval_t
+  eval_t ~fail_on_quantifiers:false
     (function 
       | T.App (s, l) as t when Symbol.is_select s ->
         fun _ -> TermSet.singleton (construct t)
@@ -1435,7 +1437,7 @@ let select_terms term =
 let state_vars_at_offset_of_term i term = 
 
   (* Collect all variables in a set *)
-  eval_t
+  eval_t ~fail_on_quantifiers:false
     (function 
       | T.Var v 
         when 
@@ -1456,7 +1458,8 @@ let state_vars_at_offset_of_term i term =
     term
 
 let indexes_of_state_var sv term =
-  eval_t (fun t acc -> match t with
+  eval_t ~fail_on_quantifiers:false
+    (fun t acc -> match t with
       | T.App (s, x :: indexes) when
           Symbol.is_select s &&
           ((match acc with [] :: _ -> false | _ -> true) ||
@@ -1490,7 +1493,7 @@ let indexes_of_state_var sv term =
 let vars_at_offset_of_term i term = 
 
   (* Collect all variables in a set *)
-  eval_t
+  eval_t ~fail_on_quantifiers:false
     (function 
       | T.Var v 
         when 
@@ -1530,7 +1533,7 @@ let rec var_offsets_of_term expr =
     Numeral.(min_none l1 l2, max_none u1 u2) 
   in
 
-  eval_t 
+  eval_t ~fail_on_quantifiers:false
     (function 
       | T.Var v when Var.is_state_var_instance v -> 
         (function 
