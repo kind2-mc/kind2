@@ -5,12 +5,12 @@ let
   state A :
   unless false -> pre x = 10 resume B
   let
-   x = 0 -> last x + 1;
+   x = 0 -> last 'x + 1;
   tel
   (* until x = 10 resume B *)
   state B :
   let
-   x = 10 -> last x - 1;
+   x = 10 -> last 'x - 1;
   tel
   until x = 0 and ok resume A
   returns x;
