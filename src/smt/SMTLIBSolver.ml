@@ -945,6 +945,14 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       let s = string_of_logic logic in
       if s = "" then []
       else [Format.sprintf "(set-logic %s)" s] in
+
+    let header_farray =
+      if not (Flags.Arrays.smt ()) && TermLib.logic_allow_arrays logic then
+        [
+          (* Sort declaration for uninterpreted arrays *)
+          "(declare-sort FArray 2)";
+        ]
+      else [] in
     
     let headers =
       "(set-option :print-success true)" ::
@@ -953,7 +961,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
          ["(set-option :produce-assignments true)"] else []) @
       (if produce_cores then
          ["(set-option :produce-unsat-cores true)"] else []) @
-      header_logic
+      header_logic @
+      header_farray
     in
     
     (* Add interpolation option only if true *)

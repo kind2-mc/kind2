@@ -39,13 +39,7 @@ let check_sat_assuming_supported () = failwith "Not implemented"
 let headers () = []
 
 (* top level declaration to add to the solver *)
-let prelude =
-  if Flags.Arrays.smt () then []
-  else
-    [
-      (* Sort declaration for uninterpreted arrays *)
-      "(declare-sort FArray 2)";
-    ]
+let prelude = []
 
 (* Extension for trace file *)
 let trace_extension = "smt2"
