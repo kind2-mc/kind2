@@ -737,11 +737,19 @@ two_colons:
 
 (* ********************************************************************** *)
 
-(* An expression *)
-expr:
+(* dummy rule for parameter of pexpr to signal we allow quantifiers *)
+quantified:
+  | { true }
+
+(* dummy rule for parameter of pexpr to signal we do not allow quantifiers *)
+nonquantified:
+  | { false }
+  
+(* An possibly quantified expression *)
+pexpr(Q): 
   
   (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) }
+  | s = ident { A.Ident (mk_pos $startpos, s) } 
 
   (* A mode reference. *)
   | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
@@ -761,287 +769,34 @@ expr:
   | REAL; e = expr { A.ToReal (mk_pos $startpos, e) }
 
   (* A parenthesized single expression *)
-  | LPAREN; e = expr; RPAREN { e } 
-
-  (* An expression list 
-
-     Singleton list is in production above *)
-  | LPAREN; h = expr; COMMA; l = expr_list; RPAREN 
-    { A.ExprList (mk_pos $startpos, h :: l) } 
-
-  (* A tuple expression *)
-  (* | LSQBRACKET; l = expr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = expr_list; RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
-
-  (* An array expression *)
-  | LSQBRACKET; l = expr_list; RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
-
-  (* An array constructor *)
-  | e1 = expr; CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
-
-  (* An array slice or tuple projection *)
-  | e = expr; DOTPERCENT; i = expr 
-    { A.TupleProject (mk_pos $startpos, e, i) }
-
-  (* An array slice *)
-  | e = expr; LSQBRACKET; s = array_slice; RSQBRACKET
-    { A.ArraySlice (mk_pos $startpos, e, s) }
-
-  (* A record field projection *)
-  | s = expr; DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos, s, t) }
-
-  (* A record *)
-  | t = ident; 
-    f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
-    { A.RecordExpr (mk_pos $startpos, t, f) }
-
-  (* An array concatenation *)
-  | e1 = expr; PIPE; e2 = expr { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
-
-  (* with operator for updating fields of a structure *)
-  | LPAREN; 
-    e1 = expr; 
-    WITH; 
-    i = nonempty_list(label_or_index); 
-    EQUALS; 
-    e2 = expr; 
-    RPAREN
-
-    { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
-
-  (* An arithmetic operation *)
-  | e1 = expr; MINUS; e2 = expr { A.Minus (mk_pos $startpos, e1, e2) }
-  | MINUS; e = expr { A.Uminus (mk_pos $startpos, e) } 
-  | e1 = expr; PLUS; e2 = expr { A.Plus (mk_pos $startpos, e1, e2) }
-  | e1 = expr; MULT; e2 = expr { A.Times (mk_pos $startpos, e1, e2) }
-  | e1 = expr; DIV; e2 = expr { A.Div (mk_pos $startpos, e1, e2) }
-  | e1 = expr; INTDIV; e2 = expr { A.IntDiv (mk_pos $startpos, e1, e2) }
-  | e1 = expr; MOD; e2 = expr { A.Mod (mk_pos $startpos, e1, e2) }
-
-  (* A Boolean operation *)
-  | NOT; e = expr { A.Not (mk_pos $startpos, e) } 
-  | e1 = expr; AND; e2 = expr { A.And (mk_pos $startpos, e1, e2) }
-  | e1 = expr; OR; e2 = expr { A.Or (mk_pos $startpos, e1, e2) }
-  | e1 = expr; XOR; e2 = expr { A.Xor (mk_pos $startpos, e1, e2) }
-  | e1 = expr; IMPL; e2 = expr { A.Impl (mk_pos $startpos, e1, e2) }
-  | HASH; LPAREN; e = expr_list; RPAREN { A.OneHot (mk_pos $startpos, e) }
-
-  (* A relation *)
-  | e1 = expr; LT; e2 = expr { A.Lt (mk_pos $startpos, e1, e2) }
-  | e1 = expr; GT; e2 = expr { A.Gt (mk_pos $startpos, e1, e2) }
-  | e1 = expr; LTE; e2 = expr { A.Lte (mk_pos $startpos, e1, e2) }
-  | e1 = expr; GTE; e2 = expr { A.Gte (mk_pos $startpos, e1, e2) }
-  | e1 = expr; EQUALS; e2 = expr { A.Eq (mk_pos $startpos, e1, e2) } 
-  | e1 = expr; NEQ; e2 = expr { A.Neq (mk_pos $startpos, e1, e2) } 
-
-  (* An if operation *)
-  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
-    { A.Ite (mk_pos $startpos, e1, e2, e3) }
-
-  (* Recursive node call *)
-  | WITH; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
-    { A.With (mk_pos $startpos, e1, e2, e3) }
-
-  (* when operator on expression  *)
-  | e1 = expr; WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
-
-  (* current operator on expression *)
-  | CURRENT; e = expr { A.Current (mk_pos $startpos, e) }
-
-  (* condact call with defaults *)
-  | CONDACT 
-    LPAREN; 
-    e1 = expr; 
-    COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
-    COMMA; 
-    d = expr_list 
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, e1, A.False pos, s, a, d) } 
-
-  (* condact call may have no return values and therefore no defaults *)
-  | CONDACT 
-    LPAREN; 
-    c = expr; 
-    COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
-    RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.False pos, s, a, []) } 
-
-  (* condact call with defaults and restart *)
-  | CONDACT LPAREN;
-    c = expr; 
-    COMMA;
-    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
-    LPAREN; a = separated_list(COMMA, expr); RPAREN; 
-    COMMA; 
-    d = expr_list;
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) } 
-
-  (* condact call with no return values and restart *)
-  | CONDACT ; LPAREN;
-    c = expr; 
-    COMMA; 
-    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN
-    LPAREN; a = separated_list(COMMA, expr); RPAREN; 
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, []) } 
-
-  (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
-     is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
-    INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.False pos, s, a, d) }
-    
-  (* activate operator without initial defaults
-
-     Only supported inside a merge *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, A.False pos, a) }
-
-  (* activate restart *)
-  | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
-    EVERY; c = expr; 
-    INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) }
-    
-  (* alternative syntax for activate restart *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
-    INITIAL DEFAULT; d = separated_list(COMMA, expr);
-    RESTART EVERY; r = expr; RPAREN;
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, s, a, d) }
-    
-  (* activate operator without initial defaults and restart
-
-     Only supported inside a merge *)
-  | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
-    EVERY; c = expr; RPAREN; 
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, r, a) }
-    
-  (* alternative syntax of previous construct  *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr;
-    RESTART EVERY; r = expr; RPAREN;
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, s, c, r, a) }
-
-    
-  (* restart node call *)
-  (*| RESTART; s = ident;
-    LPAREN; a = separated_list(COMMA, expr); RPAREN;
-    EVERY; c = clock_expr
-
-    { A.RestartEvery (mk_pos $startpos, s, a, c) }
-   *)
-    
-  (* alternative syntax for restart node call *)
-  | LPAREN; RESTART; s = ident; EVERY; c = expr; RPAREN; 
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
-
-    { A.RestartEvery (mk_pos $startpos, s, a, c) }
-    
-  (* Binary merge operator *)
-  | MERGE; LPAREN;
-    c = ident; SEMICOLON;
-    pos = expr; SEMICOLON;
-    neg = expr; RPAREN 
-    { A.Merge (mk_pos $startpos, c, ["true", pos; "false", neg]) }
-
-  (* N-way merge operator *)
-  | MERGE; 
-    c = ident;
-    l = nonempty_list(merge_case);
-    { A.Merge (mk_pos $startpos, c, l) }
-    
-  (* A temporal operation *)
-  | PRE; e = expr { A.Pre (mk_pos $startpos, e) }
-  | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN
-    { A.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
-  | e1 = expr; ARROW; e2 = expr { A.Arrow (mk_pos $startpos, e1, e2) }
-  | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, i) }
-
-  (* A node or function call *)
-  | e = node_call { e } 
-
-
-
-(* An possibly quantified expression *)
-qexpr: 
-  
-  (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) } 
-
-  (* A mode reference. *)
-  | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
-    A.ModeRef (mk_pos $startpos, mode_ref)
-  }
-
-  (* A propositional constant *)
-  | TRUE { A.True (mk_pos $startpos) }
-  | FALSE { A.False (mk_pos $startpos) }
-
-  (* An integer numeral or a floating-point decimal constant *)
-  | s = NUMERAL { A.Num (mk_pos $startpos, s) } 
-  | s = DECIMAL { A.Dec (mk_pos $startpos, s) } 
-
-  (* Conversions *)
-  | INT; e = qexpr { A.ToInt (mk_pos $startpos, e) }
-  | REAL; e = qexpr { A.ToReal (mk_pos $startpos, e) }
-
-  (* A parenthesized single expression *)
-  | LPAREN; e = qexpr; RPAREN { e } 
+  | LPAREN; e = pexpr(Q); RPAREN { e } 
 
   (* An expression list (not quantified)
 
      Singleton list is in production above *)
-  | LPAREN; h = qexpr; COMMA; l = qexpr_list; RPAREN 
+  | LPAREN; h = pexpr(Q); COMMA; l = pexpr_list(Q); RPAREN 
     { A.ExprList (mk_pos $startpos, h :: l) } 
 
   (* A tuple expression (not quantified) *)
   (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = qexpr_list; RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
+  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
 
   (* An array expression (not quantified) *)
-  | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
+  | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
 
   (* An array constructor (not quantified) *)
-  | e1 = qexpr; CARET; e2 = qexpr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
   (* An array slice or tuple projection (not quantified) *)
-  | e = qexpr; DOTPERCENT; i = qexpr 
+  | e = pexpr(Q); DOTPERCENT; i = expr 
     { A.TupleProject (mk_pos $startpos, e, i) }
 
   (* An array slice (not quantified) *)
-  | e = qexpr; LSQBRACKET; s = array_slice; RSQBRACKET
+  | e = pexpr(Q); LSQBRACKET; s = array_slice; RSQBRACKET
     { A.ArraySlice (mk_pos $startpos, e, s) }
 
   (* A record field projection (not quantified) *)
-  | s = qexpr; DOT; t = ident 
+  | s = pexpr(Q); DOT; t = ident 
     { A.RecordProject (mk_pos $startpos, s, t) }
 
   (* A record (not quantified) *)
@@ -1050,74 +805,84 @@ qexpr:
     { A.RecordExpr (mk_pos $startpos, t, f) }
 
   (* An array concatenation *)
-  | e1 = qexpr; PIPE; e2 = qexpr { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); PIPE; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
 
   (* with operator for updating fields of a structure (not quantified) *)
   | LPAREN; 
-    e1 = qexpr; 
+    e1 = pexpr(Q); 
     WITH; 
     i = nonempty_list(label_or_index); 
     EQUALS; 
-    e2 = qexpr; 
+    e2 = pexpr(Q); 
     RPAREN
 
     { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
 
   (* An arithmetic operation *)
-  | e1 = qexpr; MINUS; e2 = qexpr { A.Minus (mk_pos $startpos, e1, e2) }
-  | MINUS; e = qexpr { A.Uminus (mk_pos $startpos, e) } 
-  | e1 = qexpr; PLUS; e2 = qexpr { A.Plus (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; MULT; e2 = qexpr { A.Times (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; DIV; e2 = qexpr { A.Div (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; INTDIV; e2 = qexpr { A.IntDiv (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; MOD; e2 = qexpr { A.Mod (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.Minus (mk_pos $startpos, e1, e2) }
+  | MINUS; e = expr { A.Uminus (mk_pos $startpos, e) } 
+  | e1 = pexpr(Q); PLUS; e2 = pexpr(Q) { A.Plus (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); MULT; e2 = pexpr(Q) { A.Times (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); DIV; e2 = pexpr(Q) { A.Div (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); INTDIV; e2 = pexpr(Q) { A.IntDiv (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); MOD; e2 = pexpr(Q) { A.Mod (mk_pos $startpos, e1, e2) }
 
   (* A Boolean operation *)
-  | NOT; e = qexpr { A.Not (mk_pos $startpos, e) } 
-  | e1 = qexpr; AND; e2 = qexpr { A.And (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; OR; e2 = qexpr { A.Or (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; XOR; e2 = qexpr { A.Xor (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; IMPL; e2 = qexpr { A.Impl (mk_pos $startpos, e1, e2) }
-  | HASH; LPAREN; e = qexpr_list; RPAREN { A.OneHot (mk_pos $startpos, e) }
+  | NOT; e = pexpr(Q) { A.Not (mk_pos $startpos, e) } 
+  | e1 = pexpr(Q); AND; e2 = pexpr(Q) { A.And (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.Or (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.Xor (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.Impl (mk_pos $startpos, e1, e2) }
+  | HASH; LPAREN; e = pexpr_list(Q); RPAREN { A.OneHot (mk_pos $startpos, e) }
 
-  (* A Boolean operation *)
-  | FORALL; vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = qexpr
+  (* A quantified expression *)
+  | FORALL; q = Q;
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
     %prec prec_forall
-    { A.Forall (mk_pos $startpos, List.flatten vars, e) }
-  | EXISTS; vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = qexpr
+    { let pos = mk_pos $startpos in
+      if not q then
+        LustreContext.fail_at_position
+          pos "Quantifiers not allowed in this position";
+      A.Forall (pos, List.flatten vars, e) }
+  | EXISTS; q = Q;
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
     %prec prec_exists
-    { A.Exists (mk_pos $startpos, List.flatten vars, e) }
+    { let pos = mk_pos $startpos in
+      if not q then
+        LustreContext.fail_at_position
+          pos "Quantifiers not allowed in this position";
+      A.Exists (pos, List.flatten vars, e) }
                                                                        
   (* A relation *)
-  | e1 = qexpr; LT; e2 = qexpr { A.Lt (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; GT; e2 = qexpr { A.Gt (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; LTE; e2 = qexpr { A.Lte (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; GTE; e2 = qexpr { A.Gte (mk_pos $startpos, e1, e2) }
-  | e1 = qexpr; EQUALS; e2 = qexpr { A.Eq (mk_pos $startpos, e1, e2) } 
-  | e1 = qexpr; NEQ; e2 = qexpr { A.Neq (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.Lt (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); GT; e2 = pexpr(Q) { A.Gt (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); LTE; e2 = pexpr(Q) { A.Lte (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); GTE; e2 = pexpr(Q) { A.Gte (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); EQUALS; e2 = pexpr(Q) { A.Eq (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); NEQ; e2 = pexpr(Q) { A.Neq (mk_pos $startpos, e1, e2) } 
 
   (* An if operation *)
-  | IF; e1 = qexpr; THEN; e2 = qexpr; ELSE; e3 = qexpr 
+  | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.Ite (mk_pos $startpos, e1, e2, e3) }
 
   (* Recursive node call *)
-  | WITH; e1 = qexpr; THEN; e2 = qexpr; ELSE; e3 = qexpr 
+  | WITH; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.With (mk_pos $startpos, e1, e2, e3) }
 
   (* when operator on qexpression  *)
-  | e1 = qexpr; WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
 
   (* current operator on qexpression *)
-  | CURRENT; e = qexpr { A.Current (mk_pos $startpos, e) }
+  | CURRENT; e = pexpr(Q) { A.Current (mk_pos $startpos, e) }
 
   (* condact call with defaults *)
   | CONDACT 
     LPAREN; 
-    e1 = qexpr; 
+    e1 = pexpr(Q); 
     COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, qexpr); RPAREN; 
+    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     COMMA; 
-    d = qexpr_list 
+    d = pexpr_list(Q)
     RPAREN
     { let pos = mk_pos $startpos in
       A.Condact (pos, e1, A.False pos, s, a, d) } 
@@ -1125,9 +890,9 @@ qexpr:
   (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
     LPAREN; 
-    c = qexpr; 
+    c = pexpr(Q); 
     COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, qexpr); RPAREN; 
+    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     RPAREN
 
     { let pos = mk_pos $startpos in
@@ -1135,31 +900,31 @@ qexpr:
 
   (* condact call with defaults and restart *)
   | CONDACT LPAREN;
-    c = qexpr; 
+    c = pexpr(Q); 
     COMMA;
-    LPAREN RESTART; s = ident; EVERY; r = qexpr; RPAREN;
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN; 
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     COMMA; 
-    d = qexpr_list;
+    d = pexpr_list(Q);
     RPAREN
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, r, s, a, d) } 
 
   (* condact call with no return values and restart *)
   | CONDACT ; LPAREN;
-    c = qexpr; 
+    c = pexpr(Q); 
     COMMA; 
-    LPAREN RESTART; s = ident; EVERY; r = qexpr; RPAREN
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN; 
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     RPAREN
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, r, s, a, []) } 
 
   (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
      is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = qexpr; 
-    INITIAL DEFAULT; d = separated_list(COMMA, qexpr); RPAREN; 
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
+    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, A.False pos, s, a, d) }
@@ -1167,27 +932,27 @@ qexpr:
   (* activate operator without initial defaults
 
      Only supported inside a merge *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = qexpr; RPAREN; 
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
       A.Activate (pos, s, c, A.False pos, a) }
 
   (* activate restart *)
   | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = qexpr; RPAREN;
-    EVERY; c = qexpr; 
-    INITIAL DEFAULT; d = separated_list(COMMA, qexpr); RPAREN; 
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
+    EVERY; c = pexpr(Q); 
+    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, r, s, a, d) }
     
   (* alternative syntax for activate restart *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = qexpr; 
-    INITIAL DEFAULT; d = separated_list(COMMA, qexpr);
-    RESTART EVERY; r = qexpr; RPAREN;
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
+    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q));
+    RESTART EVERY; r = pexpr(Q); RPAREN;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
       A.Condact (pos, c, r, s, a, d) }
@@ -1196,17 +961,17 @@ qexpr:
 
      Only supported inside a merge *)
   | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = qexpr; RPAREN;
-    EVERY; c = qexpr; RPAREN; 
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
+    EVERY; c = pexpr(Q); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
       A.Activate (pos, s, c, r, a) }
     
   (* alternative syntax of previous construct  *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = qexpr;
-    RESTART EVERY; r = qexpr; RPAREN;
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q);
+    RESTART EVERY; r = pexpr(Q); RPAREN;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { let pos = mk_pos $startpos in
       A.Activate (pos, s, c, r, a) }
@@ -1214,15 +979,15 @@ qexpr:
     
   (* restart node call *)
   (*| RESTART; s = ident;
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN;
     EVERY; c = clock_expr
 
     { A.RestartEvery (mk_pos $startpos, s, a, c) }
    *)
     
   (* alternative syntax for restart node call *)
-  | LPAREN; RESTART; s = ident; EVERY; c = qexpr; RPAREN; 
-    LPAREN; a = separated_list(COMMA, qexpr); RPAREN
+  | LPAREN; RESTART; s = ident; EVERY; c = pexpr(Q); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
     { A.RestartEvery (mk_pos $startpos, s, a, c) }
     
@@ -1230,8 +995,8 @@ qexpr:
   (* Binary merge operator *)
   | MERGE; LPAREN;
     c = ident; SEMICOLON;
-    pos = qexpr; SEMICOLON;
-    neg = qexpr; RPAREN 
+    pos = pexpr(Q); SEMICOLON;
+    neg = pexpr(Q); RPAREN 
     { A.Merge (mk_pos $startpos, c, ["true", pos; "false", neg]) }
 
   (* N-way merge operator *)
@@ -1241,16 +1006,27 @@ qexpr:
     { A.Merge (mk_pos $startpos, c, l) }
     
   (* A temporal operation *)
-  | PRE; e = qexpr { A.Pre (mk_pos $startpos, e) }
-  | FBY LPAREN; e1 = qexpr COMMA; s = NUMERAL; COMMA; e2 = qexpr RPAREN
+  | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
+  | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
     { A.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
 
-  | e1 = qexpr; ARROW; e2 = qexpr { A.Arrow (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
   | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, i) }
     
   (* A node or function call *)
   | e = node_call { e } 
+
+
+%inline qexpr:
+  | e = pexpr(quantified) { e }
+
+%inline expr:
+  | e = pexpr(nonquantified) { e }
+
+
+(* A list of expressions *)
+pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
 
 
 (* Static parameters are only types *)
@@ -1273,14 +1049,6 @@ node_call:
     a = separated_list(COMMA, expr); 
     RPAREN 
     { A.CallParam (mk_pos $startpos, s, p, a) }
-
-
-(* A list of expressions *)
-expr_list: l = separated_nonempty_list(COMMA, expr) { l }
-
-
-(* A list of quantified expressions *)
-qexpr_list: l = separated_nonempty_list(COMMA, qexpr) { l }
 
 
 (* An array slice *)
