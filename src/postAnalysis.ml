@@ -233,7 +233,8 @@ module RunContractGen: PostAnalysis = struct
     (* Analysis with all invariant generation techniques. *)
     Flags.Contracts.contract_gen_depth ()
     |> Event.log_uncond
-      "Discovering invariants by running invariant generation to depth %d..." ;
+      "  Discovering invariants \
+      by running invariant generation to depth %d..." ;
     (* Remember previous max depth for invgen. *)
     let old_max_depth = Flags.Invgen.max_depth () in
     (* Set contract generation max depth. *)

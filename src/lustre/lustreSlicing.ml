@@ -95,6 +95,7 @@ let rec node_state_var_dependencies'
           ) tl
                          
         (* Skip oracles and calls *)
+        | N.KLocal
         | N.Call
         | N.Alias (_,_)
         | N.Oracle -> describe_cycle accum tl

@@ -128,6 +128,7 @@ module Contract = struct
 
         (* Rest should have a definition. *)
         | Some Node.Local
+        | Some Node.KLocal
         | Some Node.Ghost -> (
           let locals = SvSet.add svar locals in
           

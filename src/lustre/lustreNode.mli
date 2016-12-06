@@ -108,6 +108,7 @@ type state_var_source =
 | Input   (** Declared input variable *)
 | Output  (** Declared output variable *)
 | Local   (** Declared local variable *)
+| KLocal  (** Kind 2 invisible local variable *)
 | Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
 | Oracle  (** Generated non-deterministic input *)

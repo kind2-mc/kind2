@@ -1366,6 +1366,7 @@ let trace_svars_of ctx expr = match ctx with
           | N.Input
           | N.Output -> mem, to_do
           | N.Local
+          | N.KLocal
           | N.Ghost
           | N.Call
           | N.Alias (_,_) -> (
