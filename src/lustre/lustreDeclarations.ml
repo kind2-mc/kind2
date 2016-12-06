@@ -208,7 +208,110 @@ let rec defined_vars_equation locals acc = function
 let defined_vars_eqs eqs =
   List.fold_left (defined_vars_equation []) ISet.empty eqs
   |> ISet.elements
+
+
+(* Collect inputs used in equaltions and automatons. This is to create
+   auxiliary nodes for states with a minimal number of inputs *)
   
+let rec used_inputs_expr inputs acc =
+  let open A in
+  function
+  | True _ | False _ | Num _ | Dec _ | ModeRef _ -> acc
+
+  | Ident (_, i) | Last (_, i) -> ISet.add i acc
+
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) ->
+    used_inputs_expr inputs acc e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | ArrayConcat (_, e1, e2) ->
+    used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1
+    
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    used_inputs_expr inputs
+      (used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2) e3
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    List.fold_left (used_inputs_expr inputs) acc l
+
+  | Merge (_, _, l) ->
+    List.fold_left (fun acc (_, e) -> used_inputs_expr inputs acc e) acc l
+
+  | RestartEvery (_, _, l, e) ->
+    List.fold_left (used_inputs_expr inputs) acc (e :: l)
+
+  | Activate (_, _, e, r, l) ->
+    List.fold_left (used_inputs_expr inputs) acc (e :: r :: l)
+
+  | Condact (_, e, r, _, l1, l2) ->
+    List.fold_left (used_inputs_expr inputs) acc (e :: r :: l1 @ l2)
+
+  | RecordExpr (_, _, ie) ->
+    List.fold_left (fun acc (_, e) -> used_inputs_expr inputs acc e) acc ie
+
+  | StructUpdate (_, e1, li, e2) ->
+    let acc = used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2 in
+    List.fold_left (fun acc -> function
+        | Label _ -> acc
+        | Index (_, e) -> used_inputs_expr inputs acc e
+      ) acc li
+    
+  | Fby (_, e1, _, e2) ->
+    used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
+
+  | Pre (pos, e) -> used_inputs_expr inputs acc e
+
+  | Arrow (pos, e1, e2) ->
+    used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
+
+let rec used_inputs_equation inputs acc = function
+  | A.Assert (_, e) | A.Equation (_, _, e) -> used_inputs_expr inputs acc e
+  | A.Automaton (_, _, states, _) ->
+    List.fold_left (used_inputs_state inputs) acc states
+
+and used_inputs_transbr inputs acc = function
+  | A.Target _ -> acc
+  | A.TransIf (_, e, br, t) ->
+    used_inputs_trans inputs
+      (used_inputs_transbr inputs
+         (used_inputs_expr inputs acc e)
+         br)
+      t
+
+and used_inputs_trans inputs acc = function
+  | None -> acc
+  | Some br -> used_inputs_transbr inputs acc br
+
+and used_inputs_trans' inputs acc = function
+  | None -> acc
+  | Some (_, br) -> used_inputs_transbr inputs acc br
+
+and used_inputs_state inputs acc = function
+  | A.State (_, _, _, _, eqs, unl, uti) ->
+    used_inputs_trans' inputs
+      (used_inputs_trans' inputs
+         (used_inputs_eqs inputs acc eqs) unl)
+      uti
+
+and used_inputs_eqs inputs acc eqs =
+  List.fold_left (used_inputs_equation inputs) acc eqs
+
+
+(* Collect inputs used in equaltions and automatons. This is to create
+   auxiliary nodes for states with a minimal number of inputs *)
+let used_inputs inputs eqs =
+  let u = used_inputs_eqs inputs ISet.empty eqs in
+  List.filter (fun (_, i, _, _, _) -> ISet.mem i u) inputs
+
 
 (*************************************)
 (* Auxiliary functions for contracts *)
@@ -1781,19 +1884,30 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 
     (* Construct new inputs for the handler nodes for values of [last]
        applications on the base clock (i.e. outside the state) *)
-    let lasts_inputs = List.map (fun l ->
-        try (pos, name ^ ".last." ^ l,
+    let lasts_inputs, lasts_args = List.map (fun l ->
+        try
+          let i = name ^ ".last." ^ l in
+          (pos, i ,
              type_of_last inputs outputs locals l,
-             A.ClockTrue, false)
+             A.ClockTrue, false),
+          (i, fun pos -> A.Pre (pos, (A.Ident (pos, l))))
         with Not_found ->
           C.fail_at_position pos ("Last type for "^l^" could not be inferred")
-      ) lasts in
+      ) lasts
+      |> List.split
+    in
 
+    let argify_inputs pos =
+      List.map (fun (_, i, _, _, _) ->
+          try (List.assoc i lasts_args) pos
+          with Not_found -> A.Ident (pos, i))
+    in
+    
     (* Pass [pre .] as arguments for the [last .] in the handler and unless of
        the state *)
-    let lasts_args pos = List.map (fun l ->
-        A.Pre (pos, (A.Ident (pos, l)))
-      ) lasts in
+    (* let lasts_args pos = List.map (fun l -> *)
+    (*     A.Pre (pos, (A.Ident (pos, l))) *)
+    (*   ) lasts in *)
     
     (* Create enumerated datatype for states *)
     let states_enum =
@@ -1815,8 +1929,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
           with Found_auto_out ld -> ld
       ) auto_outputs in
 
-    let auto_outputs_idents =
-      List.map (fun o -> A.Ident (pos,o)) auto_outputs in
+    (* let auto_outputs_idents = *)
+    (*   List.map (fun o -> A.Ident (pos,o)) auto_outputs in *)
     
     (* Gather other node variables which are neither inputs nor outputs of the
        automaton *)
@@ -1833,8 +1947,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         | _ -> acc
       ) other_vars_dl locals in
     let other_vars_dl = List.rev other_vars_dl in
-    let other_vars_idents =
-      List.map (fun (p, i, _, _, _) -> A.Ident (p,i)) other_vars_dl in
+    (* let other_vars_idents = *)
+    (*   List.map (fun (p, i, _, _, _) -> A.Ident (p,i)) other_vars_dl in *)
     
     (* find initial state *)
     let initial_state =
@@ -1917,11 +2031,12 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
          A.Arrow (pos, A.False pos,
                   A.Pre (pos, A.Ident (pos, i_restart_selected_next)))) in
 
-    let inputs_idents =
-      List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in
+    (* let inputs_idents = *)
+    (*   List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in *)
     
     let handlers_activate_calls =
-      List.map2 (fun handler (A.State (pos, state_c, _, _, _, _, _)) ->
+      List.map2 (fun (handler, actual_inputs)
+                  (A.State (pos, state_c, _, _, _, _, _)) ->
         state_c,
         (* activate handler every state = state_c restart every <restart> *)
         A.Activate
@@ -1931,7 +2046,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            (* restart *)
            A.Ident (pos, i_restart),
            (* arguments to the call = inputs of the node + others + lasts *)
-           inputs_idents @ other_vars_idents @ (lasts_args pos)
+           (* inputs_idents @ other_vars_idents @ (lasts_args pos) *)
+           argify_inputs pos actual_inputs
           )
       ) handlers states in
 
@@ -1949,7 +2065,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         A.Merge (pos, i_state, handlers_activate_calls)) in
 
     let unlesses_activate_calls =
-      List.map2 (fun unless (A.State (pos, state_c, _, _, _, _, _)) ->
+      List.map2 (fun (unless, actual_inputs)
+                  (A.State (pos, state_c, _, _, _, _, _)) ->
         state_c,
         (* activate unless every state_selected =
            state_c restart every restart_selected *)
@@ -1961,10 +2078,11 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            A.Ident (pos, i_restart_selected),
            (* arguments = state_selected + restart_selected +
               inputs of the node + outputs of the automaton + others*)
-           A.Ident (pos, i_state_selected) ::
-           A.Ident (pos, i_restart_selected) ::
-           inputs_idents @ auto_outputs_idents @ other_vars_idents @
-           (lasts_args pos)
+           (* A.Ident (pos, i_state_selected) :: *)
+           (* A.Ident (pos, i_restart_selected) :: *)
+           (* inputs_idents @ auto_outputs_idents @ other_vars_idents @ *)
+           (* (lasts_args pos) *)
+           argify_inputs pos actual_inputs
           )
       ) unlesses states in
 
@@ -2009,7 +2127,7 @@ and encode_transition_branch pos state_c default = function
     A.Ite (posif, cond,
            encode_transition_branch pos state_c default then_br,
            encode_transition_branch pos state_c default else_br)
-           
+
 (* Encode body and until transition of state as a node *)
 and encode_until_handler pos
     { auto_name; states_lustre_type;
@@ -2043,19 +2161,23 @@ and encode_until_handler pos
       (I.pp_print_ident false) ident
   ) ;
 
+  let allowed_inputs = node_inputs @ other_vars @ lasts_inputs in
+  let actual_inputs = used_inputs allowed_inputs (eq :: eqs) in
+
   (* Create separate auxiliary context for node (not external) *)
   let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
     eval_node_decl node_ctx pos
-      (node_inputs @ other_vars @ lasts_inputs)
+      actual_inputs
       outputs
       locals
       (List.map (fun e -> A.Body e) (eq :: eqs)) None
   in
 
+  
   let ctx = C.add_node_to_context ctx node_ctx in
   
-  name, ctx
+  (name, actual_inputs), ctx
 
 
 (* encoding of unless condition for strong transition as an auxiliary node *)
@@ -2089,6 +2211,8 @@ and encode_unless pos
     pos, i_restart, A.Bool pos, A.ClockTrue;
   ] in
 
+  let actual_inputs = used_inputs inputs [eq] in
+
   let ident = I.mk_string_ident name in
   (* Identifier must not be declared *)
   if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
@@ -2100,12 +2224,12 @@ and encode_unless pos
   (* Create separate context for node (not external) *)
   let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
-    eval_node_decl node_ctx pos inputs outputs [] [A.Body eq] None
+    eval_node_decl node_ctx pos actual_inputs outputs [] [A.Body eq] None
   in
 
   let ctx = C.add_node_to_context ctx node_ctx in
 
-  name, ctx
+  (name, actual_inputs), ctx
   
 
 (* Encode a state of an automaton. 

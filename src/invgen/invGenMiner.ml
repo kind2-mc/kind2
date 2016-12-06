@@ -575,7 +575,7 @@ module IntRules = struct
           if SVar.for_inv_gen svar then
             (var_of svar) :: svars, set
           else svars, set
-        | Type.IntRange (lo, hi, _) ->
+        | Type.IntRange (lo, hi, Type.Range) ->
           svars,
           Set.add (Term.mk_num lo) set |> Set.add (Term.mk_num hi)
         | _ -> svars, set
