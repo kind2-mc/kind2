@@ -408,13 +408,14 @@ let pp_print_call safe ppf = function
       call_defaults = Some call_defaults } ->
     
     Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>restart condact(@,%a,@,%a(%a)%t) every %a;@]@]"
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>condact(@,%a,@,(restart %a every %a)(%a)%t);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
       (D.values call_outputs) 
       (E.pp_print_lustre_var safe) call_clock_var
       (I.pp_print_ident safe) call_node_name
+      (E.pp_print_lustre_var safe) restart_var
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
       (List.map  
          (fun (_, sv) -> sv)
@@ -431,7 +432,6 @@ let pp_print_call safe ppf = function
                ",@,%a"
                (pp_print_list (E.pp_print_lustre_expr safe) ",@ ")
                l)
-      (E.pp_print_lustre_var safe) restart_var
       
   (* Node call not on the base clock without defaults with restart  *)
   | { call_node_name; 
@@ -444,14 +444,14 @@ let pp_print_call safe ppf = function
       call_defaults = None } ->
 
     Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>(restart (activate@ %a@ every@ %a) every %a)@,(%a);@]@]"
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv 1>(activate (restart@ %a@ every@ %a) every %a)@,(%a);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
       (D.values call_outputs) 
       (I.pp_print_ident safe) call_node_name
-      (E.pp_print_lustre_var safe) call_clock_var
       (E.pp_print_lustre_var safe) restart_var
+      (E.pp_print_lustre_var safe) call_clock_var
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ")
       (List.map  
          (fun (_, sv) -> sv)
