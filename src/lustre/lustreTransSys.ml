@@ -346,21 +346,29 @@ let add_constraints_of_type init terms state_var =
 
     (* Get bounds of integer range *)
     let l, u = Type.bounds_of_int_range state_var_type in
-
+    
     (* Constrain values of variable between bounds *)
-    Term.mk_leq
-      [ Term.mk_num l; 
-        Var.mk_state_var_instance
-          state_var
-          (if init then 
-             TransSys.init_base 
-           else 
-             TransSys.trans_base)
-        |> Term.mk_var;
-        Term.mk_num u]
-
-    (* Add to terms *)
-    :: terms 
+    if init then
+      Term.mk_leq
+        [ Term.mk_num l; 
+          Var.mk_state_var_instance state_var TransSys.init_base |> Term.mk_var;
+          Term.mk_num u]
+      (* Add to terms *)
+      :: terms
+    else
+      Term.mk_leq
+        [ Term.mk_num l; 
+          Var.mk_state_var_instance state_var
+            (Numeral.pred TransSys.trans_base) |> Term.mk_var;
+          Term.mk_num u]
+      ::
+      Term.mk_leq
+        [ Term.mk_num l; 
+          Var.mk_state_var_instance state_var TransSys.trans_base
+          |> Term.mk_var;
+          Term.mk_num u]
+      (* Add to terms *)
+      :: terms
 
   else
 
@@ -1779,6 +1787,20 @@ let rec trans_sys_of_node'
               trans_terms
               calls
           in
+
+          (* let init_terms =  *)
+          (*   List.fold_left *)
+          (*     (add_constraints_of_type true) *)
+          (*     init_terms *)
+          (*     lifted_locals *)
+          (* in *)
+
+          (* let trans_terms =  *)
+          (*   List.fold_left *)
+          (*     (add_constraints_of_type false) *)
+          (*     trans_terms *)
+          (*     lifted_locals *)
+          (* in *)
 
           (* Add lifted properties *)
           let properties = properties @ lifted_props in
