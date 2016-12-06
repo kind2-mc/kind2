@@ -738,11 +738,11 @@ two_colons:
 (* ********************************************************************** *)
 
 (* dummy rule for parameter of pexpr to signal we allow quantifiers *)
-quantified:
+%inline quantified:
   | { true }
 
 (* dummy rule for parameter of pexpr to signal we do not allow quantifiers *)
-nonquantified:
+%inline nonquantified:
   | { false }
   
 (* An possibly quantified expression *)
