@@ -1160,13 +1160,15 @@ let pp_print_stream_ident_xml ppf (index, state_var) =
 
 
 (* Pretty-print a property of a stream as XML attributes *)
-let pp_print_stream_prop_xml ppf = function 
+let rec pp_print_stream_prop_xml ppf = function 
 
   | N.Input -> Format.fprintf ppf "@ class=\"input\""
 
   | N.Output -> Format.fprintf ppf "@ class=\"output\""
 
   | N.Local -> Format.fprintf ppf "@ class=\"local\""
+
+  | N.Alias (_, Some src) -> pp_print_stream_prop_xml ppf src
 
   (* Any other streams should have been culled out *)
   | _ -> assert false 
