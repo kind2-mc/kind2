@@ -68,6 +68,9 @@ val sup_logics : features list -> features
 (** Returns the logic fragment used by a term *)
 val logic_of_term : Term.t -> features
 
+(** Returns the logic fragment of a type *)
+val logic_of_sort : Type.t -> features
+
 (** Logic fragments for terms *)
 type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 

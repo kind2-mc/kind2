@@ -1590,6 +1590,13 @@ let mk_trans_sys
            
            (* Add logics of properties *)
            properties
+
+         (* Add logics from types of state variables *)
+         |> List.rev_append
+           (List.rev_map (fun sv ->
+                StateVar.type_of_state_var sv
+                |> TermLib.logic_of_sort
+              ) state_vars)
            
          (* Join logics to the logic required for this system *)
          |> TermLib.sup_logics)
