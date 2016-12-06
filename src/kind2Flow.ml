@@ -82,7 +82,7 @@ let main_of_process = function
   | `INVGENREALOS -> renice () ; InvGen.main_real false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-  | `Supervisor -> InvarManager.main child_pids
+  | `Supervisor -> InvarManager.main false child_pids
   | `Parser | `Certif -> ( fun _ _ _ -> () )
 
 (** Cleanup function of the process *)
@@ -411,10 +411,10 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, process) :: !child_pids
 
 (** Performs an analysis. *)
-let analyze msg_setup modules in_sys param sys =
+let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
-  ( if TSys.has_properties sys |> not then
+  ( if TSys.has_properties sys |> not && not ignore_props then
       Event.log L_warn
         "System %a has no property, skipping verification step." fmt_sys sys
     else
@@ -435,7 +435,7 @@ let analyze msg_setup modules in_sys param sys =
       Event.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main child_pids in_sys param sys ;
+      InvarManager.main ignore_props child_pids in_sys param sys ;
 
       (* Killing kids when supervisor's done. *)
       Some sys |> slaughter_kids `Supervisor
@@ -515,8 +515,10 @@ let run in_sys =
         (* Should we run post analysis treatment? *)
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
-            PostAnalysis.run
-              in_sys (TSys.scope_of_trans_sys old) !all_results
+            PostAnalysis.run in_sys (TSys.scope_of_trans_sys old) (
+              fun modules param ->
+                analyze ~ignore_props:true msg_setup modules in_sys param sys
+            ) !all_results
           | _ -> ()
         ) ;
         latest_trans_sys := Some sys ;
@@ -527,9 +529,10 @@ let run in_sys =
 
       | None -> (
         ( match !latest_trans_sys with
-          | Some sys ->
-            PostAnalysis.run
-              in_sys (TSys.scope_of_trans_sys sys) !all_results
+          | Some sys -> PostAnalysis.run in_sys (TSys.scope_of_trans_sys sys) (
+            fun modules param ->
+              analyze ~ignore_props:true msg_setup modules in_sys param sys
+          ) !all_results
           | _ -> ()
         ) ;
         latest_trans_sys := None

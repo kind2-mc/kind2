@@ -39,6 +39,18 @@
     @author Christoph Sticksel *)
 
 
+(** Type of scope-wise assumptions. *)
+type assumptions = Invs.t Scope.Map.t
+(** Empty assumptions. *)
+val assumptions_empty : assumptions
+(** Merges two assumptions. *)
+val assumptions_merge : assumptions -> assumptions -> assumptions
+(** Assumptions of a transition system. *)
+val assumptions_of_sys : TransSys.t -> assumptions
+(** Fold over assumptions. *)
+val assumptions_fold : (
+  'a -> Scope.t -> Invs.t -> 'a
+) -> 'a -> assumptions -> 'a
 
 (** Information for the creation of a transition system *)
 type info = {
@@ -53,7 +65,7 @@ type info = {
   abstraction_map : bool Scope.Map.t ;
 
   (** Properties that can be assumed invariant in subsystems *)
-  assumptions : (Scope.t * Term.t) list ;
+  assumptions : assumptions ;
 
   (** Result of the previous analysis of the top system if this analysis is a
       refinement. *)
@@ -107,7 +119,7 @@ val shrink_param_to_sys : param -> TransSys.t -> param
 val param_scope_is_abstract : param -> Scope.t -> bool
 
 (** Retrieve the assumptions of a [scope] from a [param]. *)
-val param_assumptions_of_scope : param -> Scope.t -> Term.t list
+val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 
 
 

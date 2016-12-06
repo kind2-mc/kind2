@@ -1845,7 +1845,7 @@ let rec trans_sys_of_node'
                 if 
 
                   (* Property is assumed invariant? *)
-                  List.exists (Term.equal prop_term) node_assumptions
+                  Invs.mem node_assumptions prop_term
 
                 then
 
@@ -2013,8 +2013,7 @@ let rec trans_sys_of_node'
               subsystems
               properties
               mode_requires
-              [] (* One-state invariants *)
-              [] (* Two-state invariants *)
+              node_assumptions
           in                
 (*
           Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;

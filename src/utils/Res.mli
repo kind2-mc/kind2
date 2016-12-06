@@ -23,6 +23,9 @@ type 'a res =
 (** There was a problem. *)
 | Err of (Format.formatter -> unit)
 
+(** Unwraps a result. *)
+val unwrap : 'a res -> 'a
+
 (** Maps functions to [Ok] or [Err]. *)
 val map_res: ('a -> 'b) -> (
   (Format.formatter -> unit) -> Format.formatter -> unit

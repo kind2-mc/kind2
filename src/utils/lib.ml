@@ -612,6 +612,8 @@ let log_level = ref L_warn
 
 (* Set log level *)
 let set_log_level l = log_level := l
+(* Log level *)
+let get_log_level () = !log_level
 
 
 (* Level is of higher or equal priority than current log level? *)

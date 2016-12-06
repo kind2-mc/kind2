@@ -68,7 +68,7 @@ let get_testgen_uid () =
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 let maximal_abstraction_for_testgen (type s)
-: s t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option = function
+: s t -> Scope.t -> Analysis.assumptions -> Analysis.param option = function
 
   | Lustre subsystem -> (fun top assumptions ->
 

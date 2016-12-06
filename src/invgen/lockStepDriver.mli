@@ -48,7 +48,7 @@ val mk_base_checker : TransSys.t -> Numeral.t -> base
 
 (** Adds some invariants to a base checker.
 Second argument is the one-state invariants, third is the two-state ones. *)
-val base_add_invariants : base -> Term.t list -> Term.t list -> unit
+val base_add_invariants : base -> bool -> Term.t list -> unit
 
 (** Checks whether some terms are falsifiable [k] states away from the initial
 state, where [k] is the internal depth of the base checker.
@@ -78,7 +78,7 @@ val step_cert : step -> int
 
 (** Adds invariants to a step checker.
 Second argument is the one-state invariants, third is the two-state ones. *)
-val step_add_invariants : step -> Term.t list -> Term.t list -> unit
+val step_add_invariants : step -> bool -> Term.t list -> unit
 
 (** Queries step.
 
@@ -115,7 +115,7 @@ val mk_pruning_checker : TransSys.t -> pruning
 
 (** Adds invariants to a pruning checker.
 Second argument is the one-state invariants, third is the two-state ones. *)
-val pruning_add_invariants : pruning -> Term.t list -> Term.t list -> unit
+val pruning_add_invariants : pruning -> bool -> Term.t list -> unit
 
 (** Checks if some terms are trivially implied by the transition relation.
 

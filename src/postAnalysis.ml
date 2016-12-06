@@ -57,6 +57,8 @@ module type PostAnalysis = sig
     'a ISys.t ->
     (** Analysis parameter. *)
     Analysis.param ->
+    (** A function running an analysis with some modules. *)
+    (kind_module list -> Analysis.param -> unit) ->
     (** Results for the current system. *)
     Analysis.results
     (** Can fail. *)
@@ -96,7 +98,10 @@ module RunTestGen: PostAnalysis = struct
           Format.fprintf fmt
             "%t@ Component has not been proved safe." (head sys)
       ) else (
-        match InputSystem.maximal_abstraction_for_testgen in_sys top [] with
+        match
+          InputSystem.maximal_abstraction_for_testgen
+            in_sys top Analysis.assumptions_empty
+        with
         | None -> Err (
           fun fmt ->
             Format.fprintf fmt
@@ -107,7 +112,7 @@ module RunTestGen: PostAnalysis = struct
       )
 
   let is_active () = Flags.Testgen.active ()
-  let run in_sys param results =
+  let run in_sys param _ results =
     (* Retrieve system from scope. *)
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top
@@ -203,7 +208,7 @@ module RunContractGen: PostAnalysis = struct
   let name = "contractgen"
   let title = "contract generation"
   let is_active () = Flags.Contracts.contract_gen ()
-  let run in_sys param results =
+  let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
     Event.log L_warn
       "Contract generation is a very experimental feature:@ \
@@ -222,6 +227,40 @@ module RunContractGen: PostAnalysis = struct
     let target =
       Format.asprintf "%s/kind2_contract.lus" target
     in
+    (* Format.printf "system: %a@.  %a@.@."
+      Scope.pp_print_scope (TSys.scope_of_trans_sys top)
+      Invs.fmt (TSys.get_invariants top) ; *)
+    (* Analysis with all invariant generation techniques. *)
+    Flags.Contracts.contract_gen_depth ()
+    |> Event.log_uncond
+      "Discovering invariants by running invariant generation to depth %d..." ;
+    (* Remember previous max depth for invgen. *)
+    let old_max_depth = Flags.Invgen.max_depth () in
+    (* Set contract generation max depth. *)
+    Some (Flags.Contracts.contract_gen_depth ())
+    |> Flags.Invgen.set_max_depth ;
+    (* Disable logging. *)
+    let old_log_level = Lib.get_log_level () in
+    Lib.set_log_level L_off ;
+
+    (* Things to backtrack when we're done. *)
+    let and_then () =
+      Flags.Invgen.set_max_depth old_max_depth ;
+      Lib.set_log_level old_log_level
+    in
+
+    ( try
+        analyze [
+          `INVGEN ; `INVGENOS ;
+          `INVGENINT ; `INVGENINTOS ;
+          `INVGENREAL ; `INVGENREALOS ;
+        ] param ;
+        and_then ()
+      with e -> and_then () ; raise e
+    ) ;
+    (* Format.printf "system: %a@.  %a@.@."
+      Scope.pp_print_scope (TSys.scope_of_trans_sys top)
+      Invs.fmt (TSys.get_invariants top) ; *)
     LustreContractGen.generate_contracts
       in_sys_sliced param sys target ;
     Ok ()
@@ -233,7 +272,7 @@ module RunRustGen: PostAnalysis = struct
   let name = "rustgen"
   let title = "rust generation"
   let is_active () = Flags.lus_compile ()
-  let run in_sys param results =
+  let run in_sys param _ results =
     Event.log L_warn
       "Compilation to Rust is still a rather experimental feature:@ \
       in particular, arrays are not supported." ;
@@ -260,7 +299,7 @@ module RunInvLog: PostAnalysis = struct
 
 
   let is_active () = Flags.log_invs ()
-  let run in_sys param results =
+  let run in_sys param _ results =
     Event.log L_warn "\
     In some cases, invariant logging can fail because it is not able to@ \
     translate the invariants found by Kind 2 internally back to Lustre level.\
@@ -389,7 +428,7 @@ module RunCertif: PostAnalysis = struct
   let name = "certification"
   let title = name
   let is_active () = Flags.Certif.certif ()
-  let run in_sys param results =
+  let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result results top |> chain (
       fun result ->
@@ -414,7 +453,7 @@ let post_analysis = [
 ]
 
 (** Runs the post-analysis things on a system and its results. *)
-let run i_sys top results = (
+let run i_sys top analyze results = (
   try (
     let param = (Analysis.results_last top results).Analysis.param in
     post_analysis |> List.iter (
@@ -424,7 +463,7 @@ let run i_sys top results = (
           Event.log_post_analysis_start Module.name Module.title ;
           (* Event.log_uncond "Running @{<b>%s@}." Module.title ; *)
           ( try
-              ( match Module.run i_sys param results with
+              ( match Module.run i_sys param analyze results with
                 | Ok () -> ()
                 | Err err -> Event.log L_warn "@[<v>%t@]" err
               ) ;

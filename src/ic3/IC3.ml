@@ -1976,12 +1976,13 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                 in
 
                 (* Broadcast inductive clauses as invariants *)
-                List.iter (fun i ->
+                List.iter (
+                  fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
                     Event.invariant
-                      (TransSys.scope_of_trans_sys trans_sys) i cert)
-                  inductive_terms;
+                      (TransSys.scope_of_trans_sys trans_sys) i cert false
+                ) inductive_terms ;
 
                 (* Increment statistics *)
                 Stat.incr 

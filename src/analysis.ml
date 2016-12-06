@@ -18,6 +18,31 @@
 
 open Lib
 
+(** Type of scope-wise assumptions. *)
+type assumptions = Invs.t Scope.Map.t
+
+(** Empty assumptions. *)
+let assumptions_empty = Scope.Map.empty
+
+(** Merges two assumptions. *)
+let assumptions_merge a_1 a_2 =
+  a_1 |> Scope.Map.fold (
+    fun scope invs map ->
+      let invs =
+        try map |> Scope.Map.find scope |> Invs.merge invs
+        with Not_found -> invs
+      in
+      Scope.Map.add scope invs map
+  ) a_2
+
+(** Assumptions of a transition system. *)
+let assumptions_of_sys =
+  TransSys.get_all_invariants
+
+(** Fold over assumptions. *)
+let assumptions_fold f init ass =
+  Scope.Map.fold (fun k v a -> f a k v) ass init
+
 (** Information for the creation of a transition system *)
 type info = {
   (** The top system for the analysis run *)
@@ -31,7 +56,7 @@ type info = {
   abstraction_map : bool Scope.Map.t ;
 
   (** Properties that can be assumed invariant in subsystems *)
-  assumptions : (Scope.t * Term.t) list ;
+  assumptions : assumptions ;
 
   (** Result of the previous analysis of the top system if this analysis is a
       refinement. *)
@@ -97,9 +122,9 @@ let shrink_param_to_sys param sys = match param with
 (* Retrieve the assumptions of a [scope] from a [param]. *)
 let param_assumptions_of_scope param scope =
   let { assumptions } = info_of_param param in
-  assumptions |> List.fold_left (fun a (s, t) ->
-     if Scope.equal s scope then t :: a else a
-  ) []
+  try
+    assumptions |> Scope.Map.find scope
+  with Not_found -> Invs.empty
 
 (* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
@@ -268,15 +293,15 @@ let pp_print_param fmt param =
     (fun fmt -> function
       | [] -> ()
       | assumptions ->
-        Format.fprintf fmt "@ assumptions: @[<v>%a@]"
-        (pp_print_list
-          ( fun fmt (s,t) ->
-            Format.fprintf fmt "%a: %a"
-              Scope.pp_print_scope s
-              Term.pp_print_term t )
-          "@ ")
-        assumptions)
-    assumptions
+        Format.fprintf fmt "@ assumptions:@   @[<v>%a@]"
+          (pp_print_list
+            (fun fmt (s, invs) ->
+              Format.fprintf fmt "%a: %a"
+                Scope.pp_print_scope s
+                Invs.fmt invs)
+            "@ ")
+          assumptions)
+    (Scope.Map.bindings assumptions)
 
 let split_properties_nocands sys =
   let valid, invalid, unknown = TransSys.get_split_properties sys in

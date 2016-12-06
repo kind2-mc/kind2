@@ -259,6 +259,9 @@ val log_to_stdout : unit -> unit
     Only output messages of levels with equal or higher priority *)
 val set_log_level : log_level -> unit 
 
+(** Gets the log level. *)
+val get_log_level : unit -> log_level
+
 (** Return true if given log level is of higher or equal priority than
     current log level? *)
 val output_on_level : log_level -> bool

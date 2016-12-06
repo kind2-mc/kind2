@@ -369,7 +369,7 @@ let extract_props_certs sys =
   let certs = List.fold_left (fun c_acc (i, c) ->
       if List.exists (Term.equal i) props then c_acc
       else c :: c_acc
-    ) certs (TS.get_invariants sys) in
+    ) certs (TS.get_invariants sys |> Invs.flatten) in
 
   let certs =  List.fold_left (fun certs -> function
       | { Property.prop_status = Property.PropInvariant c;
@@ -2416,7 +2416,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       trans_term
       [kind2_subsys_inst; jkind_subsys_inst]
       props
-      (None, []) [] [] in
+      (None, []) Invs.empty in
 
   (* (\* Add caller info to subnodes *\) *)
   (* TS.add_caller kind2_sys *)

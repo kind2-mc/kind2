@@ -901,23 +901,6 @@ module Contracts = struct
     )
   let contract_gen_depth () = !contract_gen_depth
 
-  let contract_gen_fine_grain_default = false
-  let contract_gen_fine_grain = ref contract_gen_fine_grain_default
-  let _ = add_spec
-    "--contract_gen_fine_grain"
-    (bool_arg contract_gen_fine_grain)
-    (fun fmt ->
-      Format.fprintf fmt
-      "@[<v>\
-        If active, the contracts generated will be verbose and fine@ \
-        grain w.r.t. the implementation. Otherwise, the contracts@ \
-        will capture a behavior that is more abstract.@ \
-        Default: %a\
-      @]"
-      fmt_bool contract_gen_fine_grain_default
-    )
-  let contract_gen_fine_grain () = !contract_gen_fine_grain
-
   let refinement_default = true
   let refinement = ref refinement_default
   let _ = add_spec
@@ -1225,6 +1208,21 @@ module Invgen = struct
         fmt_bool prune_trivial_default
     )
   let prune_trivial () = !prune_trivial
+
+  let max_depth_default = None
+  let max_depth = ref max_depth_default
+  let _ = add_spec
+    "--invgen_max_depth"
+    (Arg.Int (fun n -> max_depth := Some n))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Maximal depth for graph-based invariant generation techniques.@ \
+          Default: none\
+        @]"
+    )
+  let set_max_depth n = max_depth := n
+  let max_depth () = !max_depth
 
   let max_succ_default = 1
   let max_succ = ref max_succ_default
@@ -1918,8 +1916,8 @@ module Global = struct
   let enable_default_after = [
     `BMC ; `IND ; `IND2 ; `IC3 ;
     `INVGEN ; `INVGENOS ;
-    (* `INVGENINT ; `INVGENINTOS ;
-    `INVGENREAL ; `INVGENREALOS ; *)
+    (* `INVGENINT ; *) `INVGENINTOS ;
+    (* `INVGENREAL ; *) `INVGENREALOS ;
   ]
   let enabled = ref enable_default_init
   let disable modul3 =
@@ -2075,58 +2073,40 @@ module Global = struct
 
   (* Log level. *)
   let log_level_default = L_warn
-  let log_level = ref log_level_default
+  let _ = set_log_level log_level_default
   let _ = add_specs ([
     ( "-qq",
-      Arg.Unit (fun () ->
-          log_level := L_off;
-          set_log_level L_off;
-        ),
+      Arg.Unit (fun () -> set_log_level L_off),
       fun fmt ->
         Format.fprintf fmt "Disable output completely"
     ) ;
     ( "-q",
-      Arg.Unit (fun () ->
-          log_level := L_fatal;
-          set_log_level L_fatal;
-        ),
+      Arg.Unit (fun () -> set_log_level L_fatal),
       fun fmt ->
         Format.fprintf fmt "Disable output, fatal errors only"
     ) ;
     ( "-s",
-      Arg.Unit (fun () ->
-          log_level := L_error;
-          set_log_level L_error;
-        ),
+      Arg.Unit (fun () -> set_log_level L_error),
       fun fmt ->
         Format.fprintf fmt "Silence output, errors only"
     ) ;
     ( "-v",
-      Arg.Unit (fun () ->
-          log_level := L_info;
-          set_log_level L_info;
-        ),
+      Arg.Unit (fun () -> set_log_level L_info),
       fun fmt ->
         Format.fprintf fmt "Output informational messages"
     ) ;
     ( "-vv",
-      Arg.Unit (fun () ->
-          log_level := L_debug;
-          set_log_level L_debug;
-        ),
+      Arg.Unit (fun () -> set_log_level L_debug),
       fun fmt ->
         Format.fprintf fmt "Output informational and debug messages"
     ) ;
     ( "-vvv",
-      Arg.Unit (fun () ->
-          log_level := L_trace;
-          set_log_level L_trace;
-        ),
+      Arg.Unit (fun () -> set_log_level L_trace),
       fun fmt ->
         Format.fprintf fmt "Output informational, debug and trace messages"
     )
   ])
-  let log_level () = !log_level
+  let log_level () = get_log_level ()
 
 
   (* XML log. *)
@@ -2387,10 +2367,11 @@ let post_argv_parse_actions () =
   (* Don't print banner if no output at all. *)
   if not (Global.log_level () = L_off) then (
     (* Temporarily set log level to info and output logo. *)
+    let old_log_level = get_log_level () in
     set_log_level L_info ;
-    Log.log L_info "%a" pp_print_banner ();
+    Log.log L_info "%a" pp_print_banner () ;
     (* Reset log level. *)
-    Global.log_level () |> set_log_level ;
+    set_log_level old_log_level ;
   )
 
 

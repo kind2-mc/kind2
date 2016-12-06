@@ -567,14 +567,14 @@ let rec loop in_sys param ({sys} as context) candidate =
         Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
         (* k-inductive certificate from context *)
         let cert = context.k, term in
-        let term, is_os =
-          TransSys.add_invariant context.sys term cert
+        let term =
+          TransSys.add_invariant context.sys term cert false
         in
-        assert_invariant context (term, is_os) ;
+        assert_invariant context (term, false) ;
         (* Broadcasting invariant. *)
         Event.invariant (
           TransSys.scope_of_trans_sys context.sys
-        ) term cert;
+        ) term cert false ;
       | _ -> () ) ;
 
     (* Counterexample, updating context. *)
@@ -643,14 +643,14 @@ let rec run in_sys param context_option candidate sys =
               "C2I @[<v>Strengthening invariant found for %s@]" prop ;
             Stat.incr Stat.c2i_str_invs ;
             let cert = context.k, str_inv in
-            let str_inv, is_os =
-              TransSys.add_invariant context.sys str_inv cert
+            let str_inv =
+              TransSys.add_invariant context.sys str_inv cert false
             in
-            assert_invariant context (str_inv, is_os) ;
+            assert_invariant context (str_inv, false) ;
             (* Broadcasting strengthening invariant. *)
             Event.invariant (
               TransSys.scope_of_trans_sys context.sys
-            ) str_inv cert;
+            ) str_inv cert false ;
 
             (* Communicating. *)
             let new_invs, is_done =
@@ -675,7 +675,7 @@ let rec run in_sys param context_option candidate sys =
                 TransSys.set_prop_invariant context.sys context.prop cert (* TODO check*);
                 TransSys.get_prop_term context.sys context.prop
                 |> fun t ->
-                  TransSys.add_invariant context.sys t cert
+                  (TransSys.add_invariant context.sys t cert false, false)
                   |> assert_invariant context
             )
           | None ->

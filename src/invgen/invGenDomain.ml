@@ -75,7 +75,7 @@ module Bool: Domain = struct
   let cmp lhs rhs = rhs || not lhs
   let mk_eq rep term =
     if rep == Term.t_true then term else (
-      if rep == Term.t_true then Term.mk_not term else
+      if rep == Term.t_false then Term.negate term else
       Term.mk_eq [ rep ; term ]
     )
   let mk_cmp lhs rhs =

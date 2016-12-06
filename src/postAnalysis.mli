@@ -30,6 +30,8 @@ module type PostAnalysis = sig
     'a InputSystem.t ->
     (** Analysis parameter. *)
     Analysis.param ->
+    (** A function running an analysis with some modules. *)
+    (Lib.kind_module list -> Analysis.param -> unit) ->
     (** Results for the current system. *)
     Analysis.results
     (** Can fail. *)
@@ -43,7 +45,10 @@ module RunInvLog: PostAnalysis
 module RunCertif: PostAnalysis
 
 (** Runs the post-analysis things on a system and its results. *)
-val run: 'a InputSystem.t -> Scope.t -> Analysis.results -> unit
+val run: 'a InputSystem.t -> Scope.t ->
+    (** A function running an analysis with some modules. *)
+    (Lib.kind_module list -> Analysis.param -> unit) ->
+    Analysis.results -> unit
 
 (* 
    Local Variables:

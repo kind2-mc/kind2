@@ -118,7 +118,7 @@ val log_interruption : int -> unit
 (** Events exposed to callers *)
 
 type event = 
-  | Invariant of string list * Term.t * Certificate.t 
+  | Invariant of string list * Term.t * Certificate.t * bool
   | PropStatus of string * Property.prop_status
   | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 
@@ -135,7 +135,7 @@ val stat : (string * Stat.stat_item list) list -> unit
 val progress : int -> unit
 
 (** Broadcast a discovered top level invariant *)
-val invariant : string list -> Term.t -> Certificate.t -> unit
+val invariant : string list -> Term.t -> Certificate.t -> bool -> unit
 
 (** Broadcast a step cex *)
 val step_cex : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit

@@ -43,7 +43,7 @@ val ordered_scopes_of : 'a t -> Scope.t list
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 val maximal_abstraction_for_testgen :
-  'a t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option
+  'a t -> Scope.t -> Analysis.assumptions -> Analysis.param option
 
 (** Return the next system to analyze and the systems to abstract *)
 val next_analysis_of_strategy :

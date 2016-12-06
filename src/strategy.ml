@@ -104,12 +104,12 @@ let get_params results subs_of_scope result =
         merge_abstractions abstraction info.A.abstraction_map
       in
       (* Lifting invariants from previous result. *)
-      let nu_assumptions =
-        TransSys.invars_of_bound result.A.sys Numeral.zero
-        |> List.map (fun t -> sub, t)
+      let assumptions =
+        A.assumptions_of_sys result.A.sys
+        |> A.assumptions_merge assumptions
       in
 
-      Some (sub, abstraction, List.rev_append nu_assumptions assumptions)
+      Some (sub, abstraction, assumptions)
   )
 
 (* Returns an option of the parameter for the first analysis of a system. *)
@@ -141,11 +141,11 @@ let first_param_of results all_nodes scope =
           if A.result_is_some_falsified result |> not then
             (* System has not been proved unsafe, lifting invariants and
                looping. *)
-            let nu_assumptions =
-              TransSys.invars_of_bound result.A.sys Numeral.zero
-              |> List.map (fun t -> (A.info_of_param result.A.param).A.top, t)
+            let assumptions =
+              A.assumptions_of_sys result.A.sys
+              |> A.assumptions_merge assumptions
             in
-            loop abstraction (List.rev_append nu_assumptions assumptions) tail
+            loop abstraction assumptions tail
           else None (* System is not correct, no need to keep going. *)
         ) with Not_found ->
           (* We know nothing about this sys. *)
@@ -166,7 +166,7 @@ let first_param_of results all_nodes scope =
   in
 
   if has_first_analysis then (
-    match loop Scope.Map.empty [] all_nodes with
+    match loop Scope.Map.empty A.assumptions_empty all_nodes with
     | None -> None
     | Some (abstraction, assumptions) ->
       let info =
