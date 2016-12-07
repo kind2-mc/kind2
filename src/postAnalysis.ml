@@ -497,8 +497,12 @@ let post_analysis = [
   (module RunCertif: PostAnalysis) ;
 ]
 
-(** Runs the post-analysis things on a system and its results. *)
-let run i_sys top analyze results = (
+(** Runs the post-analysis things on a system and its results.
+
+Stops analysis time count. *)
+let run i_sys top analyze results =
+  Stat.record_time Stat.analysis_time ;
+  let post () = Stat.unpause_time Stat.analysis_time in
   try (
     let param = (Analysis.results_last top results).Analysis.param in
     post_analysis |> List.iter (
@@ -524,11 +528,12 @@ let run i_sys top analyze results = (
           SMTSolver.destroy_all ()
         )
     )
-  ) with e ->
+  ) with e -> (
       Event.log L_fatal
         "Caught %s in post-analysis treatment."
         (Printexc.to_string e)
   ) ;
+  post () ;
   SMTSolver.destroy_all ()
 
 (* 
