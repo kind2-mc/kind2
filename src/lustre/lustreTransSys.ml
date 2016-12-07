@@ -780,7 +780,26 @@ let rec constraints_of_node_calls
         mk_fresh_state_var globals node_call node_locals node_props node_def
     in
 
-    (* Add node instance to list of subsystems *)
+    (* Guard lifted property with restart conditions of node *)
+    let restart_prop = E.cur_term_of_state_var TransSys.prop_base restart in
+    
+    let node_props = 
+      List.map
+        (fun ({ P.prop_term } as p) ->
+           let is_one_state =
+             match Term.var_offsets_of_term prop_term with
+             | Some lo, Some up -> Numeral.(equal lo up)
+             | _ -> true
+           in
+           if is_one_state then p else
+             { p with
+               P.prop_term =
+                 Term.mk_implies [Term.negate restart_prop; prop_term] })
+        node_props
+    in
+
+    
+    (* Add node instance to list of subsystems and guard with not restart *)
     let subsystems =
       add_subsystem trans_sys call_pos state_var_map_up state_var_map_down
         (fun i t ->  
@@ -1122,13 +1141,29 @@ let rec constraints_of_node_calls
         ]
 
     in
+
+    (* Guard lifted property with activation and restart conditions of node *)
+    let guard_prop one_state =
+      match other_conds with
+      | _ when one_state -> clock_prop
+      | [] -> clock_prop
+      | [N.CRestart restart] ->
+        let restart_prop = E.cur_term_of_state_var TransSys.prop_base restart in
+        Term.mk_and [clock_prop; Term.negate restart_prop]
+      | _ -> assert false
+    in
     
-    
-    (* Guard lifted property with activation condition of node *)
     let node_props = 
       List.map
-        (fun ({ P.prop_term } as p) -> 
-           { p with P.prop_term = Term.mk_implies [clock_prop; prop_term] })
+        (fun ({ P.prop_term } as p) ->
+           let is_one_state =
+             match Term.var_offsets_of_term prop_term with
+             | Some lo, Some up -> Numeral.(equal lo up)
+             | _ -> true
+           in
+           { p with
+             P.prop_term =
+               Term.mk_implies [guard_prop is_one_state; prop_term] })
         node_props
     in
 

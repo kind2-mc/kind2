@@ -1725,7 +1725,13 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
                  Format.eprintf "Not found in map up %a@." StateVar.pp_print_state_var sv;
                  assert false)
           t
-        |> guard_clock offset
+        |> fun t ->
+        let is_one_state =
+          match Term.var_offsets_of_term t with
+          | Some lo, Some up -> Numeral.(equal lo up)
+          | _ -> true
+        in
+        if is_one_state then t else guard_clock offset t
       in
 
       let term' = inst_term term in
