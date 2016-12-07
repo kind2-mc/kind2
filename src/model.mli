@@ -34,6 +34,9 @@ val path_offset: Numeral.t
 (** Pretty-print a model *)
 val pp_print_model : Format.formatter -> t -> unit
 
+(** Pretty-print a path *)
+val pp_print_path : Format.formatter -> path -> unit
+
 (** Create a model of the given size *)
 val create : int -> t
 

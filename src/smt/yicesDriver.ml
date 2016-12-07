@@ -74,7 +74,7 @@ let rec pp_print_type_node ppf =
 
     | Int -> Format.pp_print_string ppf "int"
 
-    | IntRange (i, j) ->
+    | IntRange (i, j, _) ->
       Format.fprintf ppf "(subrange %a %a)"
         Numeral.pp_print_numeral i Numeral.pp_print_numeral j
 
@@ -95,14 +95,6 @@ let rec pp_print_type_node ppf =
         pp_print_type s 
         pp_print_type t
 
-    | Scalar (s, l) -> 
-
-      Format.fprintf
-        ppf 
-        "(scalar %s %a)" 
-        s 
-        (pp_print_list Format.pp_print_string " ") l
-
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf t = pp_print_type_node ppf (Type.node_of_type t)
 
@@ -113,7 +105,7 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 let interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
-  | Type.Bool | Type.Int | Type.Real | Type.Abstr _ -> t
+  | Type.Bool | Type.Int | Type.Real | Type.Abstr _  -> t
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
@@ -148,9 +140,8 @@ let type_of_string_sexpr = function
     when s == s_subrange ->
     Type.mk_int_range (Numeral.of_string (HString.string_of_hstring i))
       (Numeral.of_string (HString.string_of_hstring j))
-
-  | HStringSExpr.Atom s -> Type.mk_abstr (HString.string_of_hstring s)
-
+                                                
+  | HStringSExpr.Atom _
   | HStringSExpr.List _ as s ->
 
     raise

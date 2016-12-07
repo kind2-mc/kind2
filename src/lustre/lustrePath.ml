@@ -32,6 +32,7 @@ module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
 
+module MS = Map.Make (String)
 
 (* Model for a node and its subnodes *)
 type t =
@@ -39,6 +40,7 @@ type t =
     N.t *
     Model.path *
     C.mode list list option *
+    N.call_cond list *
     ((I.t * position) list * t) list
 
 
@@ -50,7 +52,7 @@ type t =
 let map_top instances state_var =
 
   List.fold_left 
-    (fun state_var (_, { T.map_up }) -> SVM.find state_var map_up)
+    (fun state_var (_, { T.map_up }, _) -> SVM.find state_var map_up)
     state_var
     instances
 
@@ -116,7 +118,7 @@ let map_term_top instances term =
    values for the state variable in the top system.
 
    Use the function as the iterator in LustreIndex.iter *)
-let map_top_and_add instances model model' _ state_var = 
+let rec map_top_and_add instances model model' i state_var = 
 
   try 
 
@@ -129,10 +131,12 @@ let map_top_and_add instances model model' _ state_var =
     (* Add as path of subnode state variable *)
     |> SVT.add model' state_var
 
-  (* Fail if state variable is not in the top node *)
+  (* Go one level up if the state variable could not be found *)
   with Not_found ->
-
-    raise Not_found
+  match instances with
+  | _ :: up_instances ->
+    map_top_and_add up_instances model model' i state_var
+  | [] -> raise Not_found
 
 
 let find_and_move_to_head f =
@@ -503,9 +507,18 @@ let node_path_of_instance
   (* Record trace of node calls *)
   let trace = 
     List.map
-      (fun (t, { T.pos }) -> 
+      (fun (t, { T.pos }, _) -> 
          (TransSys.scope_of_trans_sys t |> I.of_scope, pos))
       instances
+  in
+
+  (* Record activation conditions *)
+  let call_conds =
+    List.fold_left 
+      (fun acc (_, _, call_cond) ->
+         List.rev_append call_cond acc
+      ) [] instances
+    |> List.rev
   in
 
   (* Format.printf "subnodes@.@." ; *)
@@ -515,6 +528,7 @@ let node_path_of_instance
     Model.create_path
       (D.cardinal inputs + 
        D.cardinal outputs +
+       List.length call_conds +
        List.fold_left (fun a d -> D.cardinal d + a) 0 locals)
   in
 
@@ -533,6 +547,13 @@ let node_path_of_instance
      Ouputs are always stateful, therefore there is exactly one state
      variable of the top system each output is an instance of. *)
   D.iter (map_top_and_add instances model_top model) outputs;
+
+  (* Map all activation conditions and add their path to the model, but start
+     from one level up in the instance hierarchy *)
+  List.iter (function N.CActivate c | N.CRestart c ->
+    try map_top_and_add (List.tl instances) model_top model D.empty_index c
+    with Not_found -> assert false
+    ) call_conds;
 
   let equations_of_init init =
     N.ordered_equations_of_node
@@ -571,7 +592,7 @@ let node_path_of_instance
   ) ; *)
 
   (* Return path for subnode and its call trace *)
-  (trace, Node (node, model, active_modes, subnodes))
+  (trace, Node (node, model, active_modes, call_conds, subnodes))
 
 
 (* Return a hierarchical model for the nodes from a flat model by
@@ -620,15 +641,16 @@ let node_path_of_subsystems
 (* *************************************************************** *)
 
 (* Pretty-print a value *)
-let rec pp_print_value ppf term =
+let rec pp_print_value ty ppf term =
 
   (* We expect values to be constants *)
   if Term.is_numeral term then 
-
+    let n = Term.numeral_of_term term in
+    if Type.is_enum ty then
+      Type.get_constr_of_num n |> Format.pp_print_string ppf
+    else
     (* Pretty-print as a numeral *)
-    Numeral.pp_print_numeral 
-      ppf
-      (Term.numeral_of_term term)
+      Numeral.pp_print_numeral ppf n
 
   (* Constant is a decimal? *)
   else if Term.is_decimal term then 
@@ -662,7 +684,7 @@ let rec pp_print_value ppf term =
 
    Give [val_width] as the maximum expected width of the string
    representation of the values for correct alignment. *)
-let pp_print_stream_value_pt val_width ppf = function
+let pp_print_stream_value_pt ty val_width ppf = function
 
   (* Output a term as a value *)
   | Model.Term t -> 
@@ -671,7 +693,7 @@ let pp_print_stream_value_pt val_width ppf = function
       ppf
       "%-*s"
       val_width
-      (string_of_t pp_print_value t)    
+      (string_of_t (pp_print_value ty) t)    
 
   (* TODO: output an array *)
   | Model.Lambda _ -> assert false
@@ -704,13 +726,20 @@ let pp_print_pos_pt ppf pos =
       pos_cnum
 
 
+(* Output the name of the lustre variable and remove the automaton prefixes *)
+let pp_print_lustre_var ppf state_var =
+  match N.is_automaton_state_var state_var with
+  | Some (auto, name) -> Format.pp_print_string ppf name
+  | None -> E.pp_print_lustre_var false ppf state_var
+
+
 (* Output the identifier of an indexed stream *)
 let pp_print_stream_ident_pt ppf (index, state_var) =
 
   Format.fprintf
     ppf
     "%a%a"
-    (E.pp_print_lustre_var false) state_var
+    pp_print_lustre_var state_var
     (D.pp_print_index false) index
 
 
@@ -725,7 +754,7 @@ let pp_print_call_pt ppf (name, pos) =
 
 
 (* Convert values to strings and update maximal lengths *)
-let rec values_to_strings val_width values = function
+let rec values_to_strings ty val_width values = function
 
   (* All values consumed, return in original order *)
   | [] -> (val_width, List.rev values)
@@ -734,7 +763,7 @@ let rec values_to_strings val_width values = function
   | Model.Term t :: tl -> 
 
     (* Convert value to string *)
-    let value_string = string_of_t pp_print_value t in
+    let value_string = string_of_t (pp_print_value ty) t in
 
     (* Keep track of maximum width of values *)
     let val_width = 
@@ -743,7 +772,7 @@ let rec values_to_strings val_width values = function
 
     (* Add string representation of value and continue with remaining
        values *)
-    values_to_strings 
+    values_to_strings ty
       val_width
       (value_string :: values)
       tl 
@@ -751,7 +780,54 @@ let rec values_to_strings val_width values = function
   (* TODO: output an array *)
   | Model.Lambda _ :: _ -> assert false
 
+
+(* activation condition stream *)
+let rec act_to_bool acc = function
+  | [] -> List.rev acc
+  | Model.Term t :: tl ->
+    act_to_bool (Term.bool_of_term t :: acc) tl
+  | Model.Lambda _ :: _ -> assert false
+
+(* point wise and over multiple Boolean lists *)
+let rec and_lists acc ls =
+  let cur, rs, one_empty =
+    List.fold_left (fun (cur, rs, one_empty) l ->
+        match l, one_empty with
+        | _, true -> cur, rs, true
+        | b :: r, false -> cur && b, r :: rs, false
+        | [], _ -> cur, rs, true
+      ) (true, [], false) ls
+  in
+  if one_empty then List.rev acc
+  else and_lists (cur :: acc) rs
   
+(* activation condition stream as boolean list if any *)
+let act_stream path l =
+  let streams =
+    List.fold_left (fun acc -> function
+        | N.CActivate c ->
+          (SVT.find path c |> act_to_bool []) :: acc
+        | _ -> acc
+      ) [] l in
+  match streams with
+  | [] -> None
+  | _ -> Some (and_lists [] streams)
+
+
+(* Sample a stream of values (as strings) on a Boolean clock *)
+let sample_stream_on_clock =
+  List.map2 (fun s -> function
+      | true -> s
+      | false -> "_"
+    )
+
+(* Sample a set of streams *)
+let sample_streams_on_clock clock streams =
+  List.map
+    (fun (name, stream) -> (name, sample_stream_on_clock stream clock))
+    streams
+
+
 (* Convert identifiers and values of streams to strings and update
    maximal lenght of the strings *)
 let rec streams_to_strings path ident_width val_width streams = 
@@ -772,11 +848,13 @@ let rec streams_to_strings path ident_width val_width streams =
           string_of_t pp_print_stream_ident_pt (index, state_var)
         in
 
+        let ty = StateVar.type_of_state_var state_var in
+        
         (* Get values of stream and convert to strings, keep track of
            maximum width of values *)
-        let val_width, stream_values = 
+        let val_width, stream_values =
           SVT.find path state_var  
-          |> values_to_strings val_width []
+          |> values_to_strings ty val_width []
         in
 
         (* Keep track of maximum width of identifiers *)
@@ -845,6 +923,38 @@ let pp_print_stream_section_pt ident_width val_width sect ppf = function
       (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
       l
 
+(* Output state variables and their sequences of values under a
+   header, or output nothing if the list is empty *)
+let pp_print_stream_automaton_pt ident_width val_width auto ppf = function 
+  | [] -> ()
+  | l -> 
+    Format.fprintf
+      ppf
+      "== @{<b>Automaton@} @{<blue>%s@} ==@,\
+       %a@,"
+      auto
+      (pp_print_list (pp_print_stream_pt ident_width val_width) "@,") 
+      l
+
+let pp_print_stream_automata_pt ident_width val_width ppf auto_map =
+  MS.iter (fun auto streams ->
+      pp_print_stream_automaton_pt ident_width val_width auto ppf streams
+    ) auto_map
+
+
+(* Partition variables depending on their belonging to an automaton *)
+let partition_locals_automaton is_visible locals =
+  let locals = List.map D.bindings locals |> List.flatten in
+  List.fold_left (fun (auto_map, others) (i, sv) ->
+      match N.is_automaton_state_var sv with
+      | Some (auto, _) ->
+        let l = try MS.find auto auto_map with Not_found -> [] in
+        MS.add auto ((i, sv) :: l) auto_map, others
+      | None when is_visible sv -> auto_map, (i, sv) :: others
+      | None -> auto_map, others
+    ) (MS.empty, []) locals
+
+
 
 (* Output sequences of values for each stream of the nodes in the list
    and for all its called nodes *)
@@ -856,26 +966,36 @@ let rec pp_print_lustre_path_pt' ppf = function
 (* Take first node to print *)
 | (
   trace, Node (
-    { N.name; N.inputs; N.outputs; N.locals; N.is_function } as node,
-    model, active_modes, subnodes
+    { N.name; N.inputs; N.outputs; N.locals;
+      N.is_function; } as node,
+    model, active_modes, call_conds, subnodes
   )
-) :: tl ->
+) :: tl when N.node_is_visible node ->
 
-  let (
-    name, inputs, outputs, locals, is_visible,
-    model, active_modes, subnodes, title
-  ) =
-    name, inputs, outputs, locals,
-    N.state_var_is_visible node, model, active_modes, subnodes,
-    if not is_function then "Node" else "Function"
+  let is_visible = N.state_var_is_visible node in
+
+  let is_state, name =
+    match N.node_is_state_handler node with
+    | None -> false, name
+    | Some state -> true, I.mk_string_ident state
   in
-
+  
+  let title =
+    if is_function then "Function"
+    else if is_state then "State"
+    else "Node"
+  in
+  
   (* Remove first dimension from index *)
   let pop_head_index = function 
     | ([], sv) -> ([], sv)
     | (h :: tl, sv) -> (tl, sv)
   in
 
+  (* Boolean clock that indicates if the node is active for this particular
+     call *)
+  let clock = act_stream model call_conds in
+  
   (* Reset maximum widths for this node *)
   let ident_width, val_width = 0, 0 in
 
@@ -883,6 +1003,7 @@ let rec pp_print_lustre_path_pt' ppf = function
   let ident_width, val_width, inputs' = 
     D.bindings inputs
     |> List.map pop_head_index
+    |> List.filter (fun (_, sv) -> is_visible sv)
     |> streams_to_strings model ident_width val_width []
   in
 
@@ -890,6 +1011,7 @@ let rec pp_print_lustre_path_pt' ppf = function
   let ident_width, val_width, outputs' = 
     D.bindings outputs
     |> List.map pop_head_index
+    |> List.filter (fun (_, sv) -> is_visible sv)
     |> streams_to_strings model ident_width val_width []
   in
 
@@ -910,20 +1032,36 @@ let rec pp_print_lustre_path_pt' ppf = function
   (* Filter locals to for visible state variables only and return
      as a list 
 
-     The list of locals is the reversed from the original input in
-     the node, with fold_left here we get it in the original order
-     again. *)
+     The list of locals is the reversed from the original input in the node,
+     with fold_left in partition_locals_automaton here we get it in the
+     original order again. *)
+  let locals_auto, locals = partition_locals_automaton is_visible locals in
+  
   let ident_width, val_width, locals' = 
-    locals |> List.fold_left (
-      fun a d ->
-        (D.filter (fun _ sv -> is_visible sv) d |> D.bindings) @ a
-    ) []
-    |> streams_to_strings model ident_width val_width []
+    locals |> streams_to_strings model ident_width val_width []
   in
 
+  let ident_width, val_width, locals_auto' =
+    MS.fold (fun auto streams (w, v, ls) ->
+        let w, v, s = streams_to_strings model w v [] streams in
+        w, v, MS.add auto s ls
+      ) locals_auto (ident_width, val_width, MS.empty)
+  in
+
+  (* Sample inputs, outputs and locals on clock *)
+  let inputs', outputs', locals', locals_auto' = match clock with
+    | None -> inputs', outputs', locals', locals_auto'
+    | Some c -> 
+      sample_streams_on_clock c inputs',
+      sample_streams_on_clock c outputs',
+      sample_streams_on_clock c locals',
+      MS.map (sample_streams_on_clock c) locals_auto'
+  in
+    
   (* Pretty-print this node or function. *)
   Format.fprintf ppf "@[<v>\
       @{<b>%s@} @{<blue>%a@} (%a)@,  @[<v>\
+        %a\
         %a\
         %a\
         %a\
@@ -944,13 +1082,19 @@ let rec pp_print_lustre_path_pt' ppf = function
     ) modes
     (pp_print_stream_section_pt ident_width val_width "Inputs") inputs'
     (pp_print_stream_section_pt ident_width val_width "Outputs") outputs'
-    (pp_print_stream_section_pt ident_width val_width "Locals") locals';
+    (pp_print_stream_section_pt ident_width val_width "Locals") locals'
+    (pp_print_stream_automata_pt ident_width val_width) locals_auto';
 
   (* Recurse depth-first to print subnodes *)
   pp_print_lustre_path_pt' 
     ppf
     (subnodes @ tl)
 
+| _ :: tl ->
+  
+  pp_print_lustre_path_pt' ppf tl
+
+  
 
 (* Output sequences of values for each stream of the node and for all
    its called nodes *)
@@ -963,7 +1107,7 @@ let pp_print_lustre_path_pt ppf lustre_path =
 (* Output a hierarchical model as plain text *)
 let pp_print_path_pt
   trans_sys instances subsystems first_is_init ppf model
-=
+  =
   (* Create the hierarchical model *)
   node_path_of_subsystems
     first_is_init trans_sys instances model subsystems
@@ -1020,7 +1164,7 @@ let pp_print_stream_ident_xml ppf (index, state_var) =
   Format.fprintf
     ppf
     "%a%a"
-    (E.pp_print_lustre_var false) state_var
+    pp_print_lustre_var state_var
     (D.pp_print_index false) index
 
 
@@ -1039,49 +1183,65 @@ let pp_print_stream_prop_xml ppf = function
 
 
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value ppf i = function
+let pp_print_stream_value ty ppf i show =
+  if not show then fun _ -> ()
+  else
+    function
+    | Model.Term t -> 
+      Format.fprintf ppf
+        "@,@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@,@]</Value>" 
+        i
+        (pp_print_value ty) t
 
-  | Model.Term t -> 
+    | Model.Lambda _ -> 
+      (* TODO: output an array *)
+      assert false
 
-    Format.fprintf 
-      ppf
-      "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
-      i
-      pp_print_value t    
-
-  | Model.Lambda _ -> 
-
-    (* TODO: output an array *)
-    assert false
+let pp_print_stream_values clock ty ppf l =
+  match clock with
+  | None ->
+    (* Show all values if no clock *)
+    pp_print_listi (fun ppf i -> pp_print_stream_value ty ppf i true) "" ppf l
+  | Some c ->
+    (* Show values sampled on the clock *)
+    pp_print_list2i (pp_print_stream_value ty) "" ppf c l
 
 
 (* Pretty-print a single stream *)
-let pp_print_stream_xml get_source model ppf (index, state_var) =
-
+let pp_print_stream_xml get_source model clock ppf (index, state_var) =
   try 
-
     (* Get type of identifier *)
     let stream_type = StateVar.type_of_state_var state_var in
-
     let stream_values = SVT.find model state_var in
 
     Format.fprintf 
       ppf
-      "@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]@,\
-       %a@;<0 -2></Stream>@]"
+      "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]\
+       %a@]@,</Stream>"
       pp_print_stream_ident_xml (index, state_var)
       (E.pp_print_lustre_type false) stream_type
       pp_print_stream_prop_xml (get_source state_var)
-      (pp_print_listi pp_print_stream_value "@,") stream_values
+      (pp_print_stream_values clock stream_type) stream_values
 
   with Not_found -> assert false
+
+
+let pp_print_automaton_xml get_source model clock ppf name streams  =
+  Format.fprintf ppf "@,@[<hv 2>@[<hv 1><Automaton@ name=\"%s\">@]" name;
+  List.iter (pp_print_stream_xml get_source model clock ppf) streams;
+  Format.fprintf ppf"@]@,</Automaton>"
+    
+
+let pp_print_automata_xml get_source model clock ppf auto_map =
+  MS.iter (pp_print_automaton_xml get_source model clock ppf) auto_map
+
 
 
 let pp_print_active_modes_xml ppf = function
 | None | Some [] -> ()
 | Some mode_trace ->
   Format.fprintf ppf
-    "@[<v>%a@]@,"
+    "@,@[<v>%a@]"
     (pp_print_list
       ( fun fmt (k, tree) ->
         Format.fprintf ppf
@@ -1122,19 +1282,30 @@ let rec pp_print_lustre_path_xml' ppf = function
   | (
     trace, Node (
       { N.name; N.inputs; N.outputs; N.locals; N.is_function } as node,
-      model, active_modes, subnodes
+      model, active_modes, call_conds, subnodes
     )
-  ) :: tl ->
+  ) :: tl when N.node_is_visible node ->
 
     let
-      name, inputs, outputs, locals, is_visible, get_source,
-      model, active_modes, subnodes, title
-    =
-      name, inputs, outputs, locals,
-      N.state_var_is_visible node, N.get_state_var_source node,
-      model, active_modes, subnodes,
-      if not is_function then "Node" else "Function"
+      is_visible, get_source =
+      N.state_var_is_visible node, N.get_state_var_source node
     in
+  
+    let is_state, name =
+      match N.node_is_state_handler node with
+      | None -> false, name
+      | Some state -> true, I.mk_string_ident state
+    in
+
+    let title =
+      if is_function then "Function"
+      else if is_state then "State"
+      else "Node"
+    in
+
+    (* Boolean clock that indicates if the node is active for this particular
+       call *)
+    let clock = act_stream model call_conds in
 
     (* Remove first dimension from index *)
     let pop_head_index = function 
@@ -1145,61 +1316,45 @@ let rec pp_print_lustre_path_xml' ppf = function
     (* Remove index of position in input for printing *)
     let inputs' = 
       D.bindings inputs
+      |> List.filter (fun (_, sv) -> is_visible sv)
       |> List.map pop_head_index
     in
 
     (* Remove index of position in output for printing *)
     let outputs' = 
       D.bindings outputs
+      |> List.filter (fun (_, sv) -> is_visible sv)
       |> List.map pop_head_index
     in
-
+    
     (* Filter locals to for visible state variables only and return
        as a list 
 
-       The list of locals is the reversed from the original input in
-       the node, with fold_left here we get it in the original order
-       again. *)
-    let locals' = 
-      List.fold_left
-        (fun a d -> 
-           (D.filter 
-              (fun _ sv -> is_visible sv)
-              d
-            |> D.bindings) 
-           @ a)
-        []
-        locals
-    in
+       The list of locals is the reversed from the original input in the node,
+       with fold_left in partition_locals_automaton here we get it in the
+       original order again. *)
+    let locals_auto', locals' = partition_locals_automaton is_visible locals in
+
 
     (* Pretty-print this node *)
-    Format.fprintf 
-      ppf
-      "@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]@,%a%a%t%a%t%a%t%a@;<0 -2></%s>@]%t"
+    Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]"
       title
-      (I.pp_print_ident false) 
-      name
-      pp_print_call_xml
-      trace
-      pp_print_active_modes_xml active_modes
-      (pp_print_list (pp_print_stream_xml get_source model) "@,") inputs'
-      (fun ppf -> 
-         if
-           inputs' <> [] && 
-           (outputs' <> [] || locals' <> [] || subnodes <> []) 
-         then
-           Format.fprintf ppf "@,")
-      (pp_print_list (pp_print_stream_xml get_source model) "@,") outputs'
-      (fun ppf -> 
-         if outputs' <> [] && (locals' <> [] || subnodes <> []) then
-           Format.fprintf ppf "@,")
-      (pp_print_list (pp_print_stream_xml get_source model) "@,") locals'
-      (fun ppf -> if locals' <> [] && subnodes <> [] 
-        then Format.fprintf ppf "@,")
-      pp_print_lustre_path_xml' subnodes
-      title
-      (fun ppf -> if tl <> [] then Format.fprintf ppf "@,");
+      (I.pp_print_ident false) name
+      pp_print_call_xml trace;
 
+    pp_print_active_modes_xml ppf active_modes;
+    List.iter (pp_print_stream_xml get_source model clock ppf) inputs';
+    List.iter (pp_print_stream_xml get_source model clock ppf) outputs';
+    List.iter (pp_print_stream_xml get_source model clock ppf) locals';
+    pp_print_automata_xml get_source model clock ppf locals_auto';
+    pp_print_lustre_path_xml' ppf subnodes;
+    Format.fprintf ppf "@]@,</%s>" title;
+
+    (* Continue *)
+    pp_print_lustre_path_xml' ppf tl
+
+  | _ :: tl ->
+    
     (* Continue *)
     pp_print_lustre_path_xml' ppf tl
 
@@ -1238,7 +1393,7 @@ let pp_print_stream_csv model ppf (index, sv) =
       (pp_print_list
         (fun fmt -> function
           | Model.Term v ->
-            Format.fprintf fmt "%a" pp_print_value v
+            Format.fprintf fmt "%a" (pp_print_value typ3) v
           | Model.Lambda _ ->
             failwith "error: found lambda in model value"
         ) ","
@@ -1253,7 +1408,7 @@ let pp_print_stream_csv model ppf (index, sv) =
 
 (* Outputs a sequence of values for the inputs of a node. *)
 let pp_print_lustre_path_in_csv ppf = function
-| trace, Node ( { N.inputs }, model, _, _ ) ->
+| trace, Node ( { N.inputs }, model, _, _, _ ) ->
 
   (* Remove first dimension from index. *)
   let pop_head_index = function
@@ -1333,7 +1488,7 @@ let rec add_to_callpos abstr_map acc pos cond args calls =
 
 
 let register_callpos_for_nb abstr_map hc lid parents pos cond args =
-  let is_condact = match cond with | N.CActivate _ -> true | _ -> false in
+  let is_condact = match cond with | N.CActivate _ :: _ -> true | _ -> false in
   let cat =
     try Hashtbl.find hc (lid, is_condact)
     with Not_found ->
@@ -1384,7 +1539,7 @@ let pos_to_numbers abstr_map nodes =
   
   hc
 
-exception Found of int * N.call_cond
+exception Found of int * N.call_cond list
 
 let get_pos_number hc lid pos =
   (* Format.eprintf "getpos : %a at %a@." (LustreIdent.pp_print_ident false) lid *)

@@ -104,7 +104,7 @@ let rec collect_contracts (locals, asserts, props) = function
 
 
 let fmt_node_decl fmt (
-  ident, params, ins, outs, locals, eqs
+  ident, params, ins, outs, locals, items
 ) (c_locals, c_asserts, c_properties) =
 
   (* Header. *)
@@ -140,12 +140,12 @@ let fmt_node_decl fmt (
       )
   ) ;
 
-  (* Equations. *)
+  (* body. *)
   Format.fprintf fmt "let@." ;
   Format.fprintf fmt "  @[<v>%a@]@.@?"
-    (pp_print_list Ast.pp_print_node_equation "@ ") eqs ;
+    (pp_print_list Ast.pp_print_node_item "@ ") items ;
 
-  if eqs <> [] then Format.fprintf fmt "@." ;
+  if items <> [] then Format.fprintf fmt "@." ;
 
   c_locals |> List.iter (
     fun (blah, (id,expr,_)) ->
@@ -159,7 +159,7 @@ let fmt_node_decl fmt (
   c_asserts |> List.iter (
     fun (blah, ass) ->
       Format.fprintf fmt "  -- %s@.  %a@."
-        blah Ast.pp_print_node_equation ass
+        blah Ast.pp_print_node_item (LustreAst.Body ass)
   ) ;
   if c_asserts <> [] then Format.fprintf fmt "@." ;
 

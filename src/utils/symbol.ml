@@ -226,7 +226,6 @@ module Symbol_node = struct
     | `TO_INT, _
     | `IS_INT, _
     | `SELECT, _ -> false
-
 (*
     | `STORE, _ -> false
 *)
@@ -468,6 +467,7 @@ let uf_of_symbol = function
   | _ -> raise (Invalid_argument "uf_of_symbol")
 
 
+
 (* ********************************************************************* *)
 (* Constructors                                                          *)
 (* ********************************************************************* *)
@@ -537,8 +537,6 @@ let s_div = mk_symbol `DIV
 
 (* Array read operator *)
 let s_select = mk_symbol `SELECT
-
-
 
 
 (* 

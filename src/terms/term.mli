@@ -128,6 +128,9 @@ val mk_num : Numeral.t -> t
 (** Create an integer numeral *)
 val mk_num_of_int : int -> t
 
+(** Create a constructor encoded as a numeral *)
+val mk_constr : string -> t
+
 (** Create a floating point decimal *)
 val mk_dec : Decimal.t -> t
 
@@ -459,6 +462,9 @@ val substitute_variables : (StateVar.t * StateVar.t) list -> t -> t
     state variable [s] replaced by the result of the evaluation [f s].
 *)
 val map_state_vars : (StateVar.t -> StateVar.t) -> t -> t
+
+(** Return a new term with each variable instance replaced *)
+val map_vars : (Var.t -> Var.t) -> t -> t
 
 (** Convert [(= 0 (mod t n))] to [(divisble n t)]
 

@@ -92,14 +92,14 @@ val current_node_modes : t -> LustreContract.mode list option option
     in the context *)
 val create_function : t -> LustreIdent.t -> t 
 
-(** Return a context that is identical to the first context with the
-    node constructed in the second context added *)
+(** Return a context that is identical to the previous context with the
+    node constructed in the current context added *)
 val add_node_to_context : t -> t -> t
 
 
 (** Resolve a forward reference, fails if a circular dependency is detected. *)
 val solve_fref : t -> LustreAst.declaration -> (
-  LustreDependencies.decl * LustreIdent.t
+  LustreDependencies.decl * LustreIdent.t * Lib.position
 ) -> LustreAst.declaration list -> LustreAst.declaration list
 
 (** Add a binding of an identifier to an expression to context 
@@ -128,6 +128,9 @@ val get_nodes : t -> LustreNode.t list
 
 (** Return the current node in context. *)
 val get_node : t -> LustreNode.t option
+
+(** return previous context *)
+val prev : t -> t
 
 (** The contract nodes in the context. *)
 val contract_nodes : t -> LustreAst.contract_node_decl list
@@ -230,7 +233,7 @@ val node_of_name : t -> LustreIdent.t -> LustreNode.t
     default values are identical to [d]. It returns [None] if no such call was
     found, and its output variables otherwise. *)
 val call_outputs_of_node_call :
-  t -> LustreIdent.t -> LustreNode.call_cond ->
+  t -> LustreIdent.t -> LustreNode.call_cond list ->
   StateVar.t LustreIndex.t -> LustreExpr.t LustreIndex.t option ->
   StateVar.t LustreIndex.t option
 
@@ -240,7 +243,8 @@ val add_node_input :
 
 (** Add node output to context *)
 val add_node_output :
-  ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+  ?is_single:bool -> t -> LustreIdent.t -> Lib.position ->
+  Type.t LustreIndex.t -> t
 
 (** The output state variables of the current node. *)
 val outputs_of_current_node : t -> StateVar.t LustreIndex.t
@@ -294,8 +298,9 @@ val close_expr :
   ?original:LustreAst.expr -> Lib.position ->
   (LustreExpr.t * t) -> (LustreExpr.t * t)
 
-(** Check that the node being defined has no undefined local variables *)
-val check_local_vars_defined : t -> unit
+(** Check that the node being defined has no undefined local or output
+    variables *)
+val check_vars_defined : t -> unit
 
 
 (** {1 Helpers} *)

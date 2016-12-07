@@ -150,7 +150,7 @@ let status_of_results () =
   match Anal.results_is_safe !all_results with
   | None ->
     Event.log L_fatal "result analysis: no safe result" ;
-    Format.eprintf "NO_SAFE_RES@." ;
+    (* Format.eprintf "NO_SAFE_RES@." ; *)
     ExitCodes.unknown
   | Some true -> ExitCodes.safe
   | Some false -> ExitCodes.unsafe
@@ -159,6 +159,9 @@ let status_of_results () =
 let status_of_exn process status = function
   (* Normal termination. *)
   | Exit -> status
+  (* Parser error *)
+  | LustreAst.Parser_error ->
+    ExitCodes.error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
     Event.log L_error
@@ -291,8 +294,10 @@ let post_clean_exit process exn =
 
 (** Clean up before exit. *)
 let on_exit sys process exn =
-  try slaughter_kids process sys with TimeoutWall -> () ;
-  post_clean_exit process exn
+  try
+    slaughter_kids process sys;
+    post_clean_exit process exn
+  with TimeoutWall -> post_clean_exit process TimeoutWall
 
 
 (** Call cleanup function of process and exit.

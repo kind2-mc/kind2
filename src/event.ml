@@ -565,6 +565,13 @@ let prop_status_pt level prop_status =
 (* XML specific functions                                                 *)
 (* ********************************************************************** *)
 
+let escape_xml_name s =
+  let ltr = Str.regexp "<" in
+  let gtr = Str.regexp ">" in
+  s |> Str.global_replace ltr "&lt;"
+    |> Str.global_replace gtr "&gt;"
+
+
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
 
@@ -582,7 +589,7 @@ let proved_xml mdl level trans_sys k prop =
         %t\
         <Answer source=\"%a\">valid</Answer>@;<0 -2>\
         </Property>@]@.")
-      prop
+      (escape_xml_name prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
          | None -> () 
@@ -626,9 +633,7 @@ let pp_print_counterexample_xml
 
         (* Output counterexample *)
         Format.fprintf ppf 
-          "@[<hv 2>\
-            <%s>@,%a@;<0 -2></%s>\
-          @]"
+          "@[<hv 2>\ <%s>%a@]@,</%s>"
           tag
           (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true) 
           (Model.path_of_list cex')
@@ -688,7 +693,7 @@ mdl level input_sys analysis trans_sys prop (
         <Answer source=\"%a\">%s</Answer>@,\
         %a@;<0 -2>\
         </Property>@]@.") 
-      prop
+      (escape_xml_name prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
          | [] -> () 
@@ -756,7 +761,7 @@ let prop_status_xml level prop_status =
                @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
                %a@,\
                @;<0 -2></Property>@]"
-              p
+              (escape_xml_name p)
               (function ppf -> function 
                  | Property.PropUnknown
                  | Property.PropKTrue _ -> Format.fprintf ppf "unknown"

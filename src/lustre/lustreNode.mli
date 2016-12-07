@@ -51,7 +51,6 @@ open Lib
 
 (** Call condition: activate or restart *)
 type call_cond =
-  | CNone
   | CActivate of StateVar.t
   | CRestart of StateVar.t
 
@@ -68,8 +67,8 @@ type node_call = {
   call_node_name : LustreIdent.t;
   (** Identifier of the called node *)
   
-  call_cond : call_cond;
-  (** Boolean activation or restart condition if any *)
+  call_cond : call_cond list;
+  (** Boolean activation and/or restart conditions if any *)
 
   call_inputs : StateVar.t LustreIndex.t;
   (** Variables for actual input parameters 
@@ -325,30 +324,29 @@ val scope_of_node : t -> Scope.t
 
 (** Fold bottom-up over node calls together with the transition system 
 
-    [fold_node_calls_with_trans_sys l f n t] evaluates [f m s i a] for
-    each node call in the node [n], including [n] itself. The list of
-    nodes [l] must at least contain all sub-nodes of [n], and [n]
-    itself, the transition system [t] must at least contain subsystem
-    instances for all node calls. Both [l] and [t] may contain more
-    nodes and subsystems, respectively, only the node calls in [n] are
-    relevant.
+    [fold_node_calls_with_trans_sys l f n t] evaluates [f m s i a] for each
+    node call in the node [n], including [n] itself. The list of nodes [l] must
+    at least contain all sub-nodes of [n], and [n] itself, the transition
+    system [t] must at least contain subsystem instances for all node
+    calls. Both [l] and [t] may contain more nodes and subsystems,
+    respectively, only the node calls in [n] are relevant.
 
-    The function [f] is evaluated with the node [m], its transition
-    system [s], and the reverse sequence of instantiations [i] that
-    reach the top system [t]. The last parameter [a] is the list of
-    evaluations of [f] on the called nodes and subsystems of [s]. The
-    sequence of instantiations [i] contains at its head a system that
-    has [s] as a direct subsystem, together with the instance
-    parameters. For the top system [i] is the empty list.
+    The function [f] is evaluated with the node [m], its transition system [s],
+    and the reverse sequence of instantiations [i] that reach the top system
+    [t]. The last parameter [a] is the list of evaluations of [f] on the called
+    nodes and subsystems of [s]. The sequence of instantiations [i] contains at
+    its head a system that has [s] as a direct subsystem, together with the
+    instance parameters. For the top system [i] is the empty list. Each element
+    of [i] also contains the call activation conditions that effectively sample
+    the node.
 
-    The systems are presented in topological order such that each
-    system is presented to [f] after all its subsystem instances have
-    been presented.
+    The systems are presented in topological order such that each system is
+    presented to [f] after all its subsystem instances have been presented.
 *)
 val fold_node_calls_with_trans_sys :
   t list -> (
     t -> TransSys.t ->
-    (TransSys.t * TransSys.instance) list -> 'a list -> 'a
+    (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a
   ) -> t -> TransSys.t -> 'a
 
 (** {2 Sources} *)
@@ -406,6 +404,17 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
     Return [true] if the source of the state variable is either
     [Input], [Output], or [Local], and [false] otherwise. *)
 val state_var_is_visible : t -> StateVar.t -> bool
+
+
+(** Return the automaton to which the state variable belongs if any *)
+val is_automaton_state_var : StateVar.t -> (string * string) option
+
+(** Return true if the node should be visible to the user,
+    false if it was created internally. *)
+val node_is_visible : t -> bool
+
+(** Return the state that is handled by the node if any. *)
+val node_is_state_handler : t -> string option
 
 (** Return true if the state variable is an input *)
 val state_var_is_input : t -> StateVar.t -> bool

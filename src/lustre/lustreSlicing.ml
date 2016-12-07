@@ -158,8 +158,8 @@ let rec node_state_var_dependencies'
              "Circular dependency in %a: %a@."
              (I.pp_print_ident false) node.N.name
              (pp_print_list
-               Format.pp_print_string
-               " ->@ ")
+                Format.pp_print_string
+                " ->@ ")
              (describe_cycle [] (state_var :: parents)))
 
       else
@@ -315,11 +315,13 @@ let rec node_state_var_dependencies'
               |> 
               
               (* Clock of condact or restart is a child *)
-              (function children -> 
-                match call_cond with 
-                  | N.CNone -> children
+              fun children ->
+              List.fold_left (fun children -> function
+                  (* | N.CNone -> children *)
                   | N.CActivate clk
-                  | N.CRestart clk -> SVS.add clk children)
+                  | N.CRestart clk -> SVS.add clk children
+                ) children call_cond
+                
               |>
               
               (* Add to set of children from equations *)
@@ -406,7 +408,8 @@ let rec order_state_vars accum = function
   | [] -> accum
 
   (* Skip if state variable is already in the accumulator *)
-  | (h, _) :: tl when List.mem h accum -> order_state_vars accum tl
+  | (h, _) :: tl when List.exists (StateVar.equal_state_vars h) accum ->
+    order_state_vars accum tl
 
   (* State variable and the variables it depends on *)
   | (h, d) :: tl -> 
@@ -414,7 +417,7 @@ let rec order_state_vars accum = function
     if 
 
       (* All dependencies of state variables in the accumulator? *)
-      SVS.for_all (fun sv -> List.mem sv accum) d
+      SVS.for_all (fun sv -> List.exists (StateVar.equal_state_vars sv) accum) d
 
     then
 
@@ -656,10 +659,10 @@ let add_roots_of_node_call
     call_oracles @ 
 
     (* Need dependencies of clock and restart if call has one *)
-    (match call_cond with
-      | N.CNone -> roots'
-      | N.CActivate c
-      | N.CRestart c -> c :: roots')
+    List.fold_left (fun roots' -> function
+      (* | N.CNone -> roots' *)
+        | N.CActivate c
+        | N.CRestart c -> c :: roots') roots' call_cond
 
   in
 

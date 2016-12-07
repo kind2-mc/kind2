@@ -1,0 +1,21 @@
+node N (c0 : bool; c1 : bool; i : int) returns (o : int)
+let
+  automaton
+    initial state ST0: 
+    unless if c0 restart ST1;
+    var k: int;
+    let
+     k = if i < 0 then -i else i;
+     o = k + 1;
+    tel
+    state ST1:
+    var k: int;
+    let
+      k = if i < 0 then i else -i;
+      o = -2 * k;
+    tel
+    until if c1 restart ST0 ;
+ returns o;
+ --%PROPERTY o >= i;
+tel
+

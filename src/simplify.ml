@@ -213,9 +213,7 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | Num _
-  | Dec _ 
-  | Bool _ -> false
+  | Num _ | Dec _ | Bool _  -> false
 
 
 (* Return true if value is variable-free *)
@@ -641,7 +639,7 @@ let flatten_bool_subterms s l =
       flatten_bool_subterms' symbol accum' tl
 
     (* Fail on non-boolean arguments *)
-    | Num _ :: _ 
+    | Num _ :: _
     | Dec _ :: _ -> assert false
 
   in
@@ -741,7 +739,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `FALSE, _
       | `TRUE, _
       | `NUMERAL _, _
-      | `DECIMAL _, _  -> assert false
+      | `DECIMAL _, _ -> assert false
 (*
       | `BV _, _ -> assert false
 *)
@@ -1649,14 +1647,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with 
 
               (* Choose left branch if predicate is true *)
-              | [Bool p; Bool l; _] when p == Term.t_true -> Bool l
-              | [Bool p; Num l; _] when p == Term.t_true -> Num l
-              | [Bool p; Dec l; _] when p == Term.t_true -> Dec l
+              | [Bool p; l; _] when p == Term.t_true -> l
 
               (* Choose right branch if predicate is false *)
-              | [Bool p; _; Bool r] when p == Term.t_false -> Bool r
-              | [Bool p; _; Num r] when p == Term.t_false -> Num r
-              | [Bool p; _; Dec r] when p == Term.t_false -> Dec r
+              | [Bool p; _; r] when p == Term.t_false -> r
 
               (* Evaluate to a Boolean *)
               | [Bool p; Bool l; Bool r] -> Bool (Term.mk_ite p l r)

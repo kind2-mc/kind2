@@ -24,6 +24,22 @@ module A = LustreAst
 
 let mk_pos = position_of_lexing 
 
+
+let rec add_else_branch b belse =
+  match b with
+  | A.Target _ -> failwith "Cannot add else branch to unconditional target"
+  | A.TransIf (p, e, b1, None) -> A.TransIf (p, e, b1, Some belse)
+  | A.TransIf (p, e, b1, Some b2) ->
+     A.TransIf (p, e, b1, Some (add_else_branch b2 belse))
+     
+           
+let merge_branches transitions =
+  List.fold_right (fun (p, b) acc ->
+      match acc, b with
+      | None, _ -> Some (p, b)
+      | Some (_, b2), b1 -> Some (p, add_else_branch b1 b2)
+    ) transitions None
+  
 %}
 
 (* Special characters *)
@@ -54,6 +70,7 @@ let mk_pos = position_of_lexing
 
 (* Identifier token *)
 %token <string>SYM 
+%token <string>QUOTSYM 
       
 (* Tokens for types *)
 %token TYPE
@@ -152,9 +169,19 @@ let mk_pos = position_of_lexing
 %token EVERY
 %token RESTART
 %token MERGE
-    
+
+(* Tokens for automata *)
+%token AUTOMATON
+%token STATE
+%token UNLESS
+%token UNTIL
+%token RESUME
+%token ELSIF
+%token END
+
 (* Tokens for temporal operators *)
 %token PRE
+%token LAST
 %token FBY
 %token ARROW
     
@@ -257,11 +284,15 @@ type_decl:
 
   (* A free type *)
   | TYPE; l = ident_list; SEMICOLON 
-     { List.map (function e -> A.FreeType (mk_pos $startpos, e)) l }
+     { List.map (fun e -> A.FreeType (mk_pos $startpos, e)) l }
 
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (function e -> A.AliasType (mk_pos $startpos, e, t)) l }
+     { List.map (fun e -> match t with 
+                 | A.EnumType (p, _, cs) ->
+                    A.AliasType (mk_pos $startpos, e,
+                                 A.EnumType (p, Some e, cs))
+                 | _ -> A.AliasType (mk_pos $startpos, e, t)) l }
 
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
@@ -306,7 +337,7 @@ lustre_type:
   | t = array_type { A.ArrayType (mk_pos $startpos, t) }
 
   (* Enum type (V6) *)
-  | t = enum_type { A.EnumType (mk_pos $startpos, t) }
+  | t = enum_type { A.EnumType (mk_pos $startpos, None, t) }
 
 
 (* A tuple type *)
@@ -349,7 +380,7 @@ node_decl:
   i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
   RETURNS;
   o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
-  SEMICOLON;
+  option(SEMICOLON);
   r = option(contract_spec)
   {
     (n, p, List.flatten i, List.flatten o, r)
@@ -359,7 +390,7 @@ node_decl:
 node_def:
   l = list(node_local_decl);
   LET;
-  e = list(node_equation);
+  e = list(node_item);
   TEL
   option(node_sep)
 
@@ -546,6 +577,12 @@ property:
     { A.AnnotProperty (mk_pos $startpos, name, e) }
 
 
+node_item:
+  | e = node_equation { A.Body e }
+  | a = main_annot { a }
+  | p = property { p }
+
+
 (* An equations of a node *)
 node_equation:
 
@@ -558,12 +595,90 @@ node_equation:
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
 
-  (* Node annotation *)
-  | a = main_annot { a }
+  (* An automaton *)
+  | AUTOMATON; i = option(ident); s = list(state);
+    RETURNS; out = ident_list; SEMICOLON
+    { A.Automaton (mk_pos $startpos, i, s, A.Given out) }
 
-  (* Property annotation *)
-  | p = property { p }
+  | AUTOMATON; i = option(ident); s = list(state);
+    RETURNS DOTDOT SEMICOLON
+    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
 
+  | AUTOMATON; i = option(ident); s = nonempty_list(state)
+    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
+
+
+state_decl:
+  | STATE; i = ident { i, false }
+  | INITIAL STATE; i = ident { i, true }
+
+state:
+  | ii = state_decl; option(COLON)
+    us = unless_transitions;
+    l = list(node_local_decl);
+    LET;
+    e = list(node_equation);
+    TEL;
+    ul = until_transitions
+    { let i, init = ii in
+      A.State (mk_pos $startpos, i, init, List.flatten l, e,
+               merge_branches us, merge_branches ul) }
+
+  | ii = state_decl; option(COLON)
+    us = unless_transitions;
+    ul = until_transitions
+    { let i, init = ii in
+      A.State (mk_pos $startpos, i, init, [], [],
+               merge_branches us, merge_branches ul) }
+
+
+unless_transitions:
+  | { [] }
+  | UNLESS; b = transition_branch; u = unless_transitions
+    { (mk_pos $startpos, b) :: u }
+
+
+until_transitions:
+  | { [] }
+  | UNTIL; b = transition_branch; u = unless_transitions
+    { (mk_pos $startpos, b) :: u }
+
+
+transition_branch:
+  | b = branch; option(SEMICOLON)
+    { b }
+  | e = expr; t = target; option(SEMICOLON)
+    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
+  | IF; e = expr; t = target; option(SEMICOLON)
+    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
+
+
+branch:
+  | t = target
+    { A.Target t }
+  | IF; e = expr; b = branch; END
+    { A.TransIf (mk_pos $startpos, e, b, None) }
+  | IF; e = expr; b = branch; b2 = elsif_branch; END
+    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
+    
+elsif_branch:
+  | ELSE; b = branch
+    { b } 
+  | ELSIF; e = expr; b = branch
+    { A.TransIf (mk_pos $startpos, e, b, None) }
+  | ELSIF; e = expr; b = branch; b2 = elsif_branch
+    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
+
+target_state:
+  | s = ident
+    { mk_pos $startpos, s }
+
+target:
+  | RESTART; s = target_state
+    { A.TransRestart (mk_pos $startpos, s) }
+
+  | RESUME; s = target_state
+    { A.TransResume (mk_pos $startpos, s) }
 
 left_side:
 
@@ -726,7 +841,7 @@ expr:
     { A.With (mk_pos $startpos, e1, e2, e3) }
 
   (* when operator on expression  *)
-  | e1 = expr; WHEN; e2 = expr { A.When (mk_pos $startpos, e1, e2) }
+  | e1 = expr; WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
 
   (* current operator on expression *)
   | CURRENT; e = expr { A.Current (mk_pos $startpos, e) }
@@ -740,7 +855,8 @@ expr:
     COMMA; 
     d = expr_list 
     RPAREN
-    { A.Condact (mk_pos $startpos, e1, s, a, d) } 
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, e1, A.False pos, s, a, d) } 
 
   (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
@@ -750,7 +866,30 @@ expr:
     s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
     RPAREN
 
-    { A.Condact (mk_pos $startpos, c, s, a, []) } 
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, A.False pos, s, a, []) } 
+
+  (* condact call with defaults and restart *)
+  | CONDACT LPAREN;
+    c = expr; 
+    COMMA;
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    COMMA; 
+    d = expr_list;
+    RPAREN
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) } 
+
+  (* condact call with no return values and restart *)
+  | CONDACT ; LPAREN;
+    c = expr; 
+    COMMA; 
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN
+    LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    RPAREN
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, []) } 
 
   (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
      is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
@@ -758,7 +897,8 @@ expr:
     INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
-    { A.Condact (mk_pos $startpos, c, s, a, d) }
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, A.False pos, s, a, d) }
     
   (* activate operator without initial defaults
 
@@ -766,12 +906,52 @@ expr:
   | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
     LPAREN; a = separated_list(COMMA, expr); RPAREN
 
-    { A.Activate (mk_pos $startpos, s, c, a) }
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, A.False pos, a) }
 
+  (* activate restart *)
+  | LPAREN; ACTIVATE;
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
+    EVERY; c = expr; 
+    INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) }
+    
+  (* alternative syntax for activate restart *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
+    INITIAL DEFAULT; d = separated_list(COMMA, expr);
+    RESTART EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) }
+    
+  (* activate operator without initial defaults and restart
+
+     Only supported inside a merge *)
+  | LPAREN; ACTIVATE;
+    LPAREN RESTART; s = ident; EVERY; r = expr; RPAREN;
+    EVERY; c = expr; RPAREN; 
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, r, a) }
+    
+  (* alternative syntax of previous construct  *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr;
+    RESTART EVERY; r = expr; RPAREN;
+    LPAREN; a = separated_list(COMMA, expr); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, r, a) }
+
+    
   (* restart node call *)
   (*| RESTART; s = ident;
     LPAREN; a = separated_list(COMMA, expr); RPAREN;
-    EVERY; c = expr
+    EVERY; c = clock_expr
 
     { A.RestartEvery (mk_pos $startpos, s, a, c) }
    *)
@@ -782,11 +962,17 @@ expr:
 
     { A.RestartEvery (mk_pos $startpos, s, a, c) }
     
-  (* Merge operator *)
+  (* Binary merge operator *)
+  | MERGE; LPAREN;
+    c = ident; SEMICOLON;
+    pos = expr; SEMICOLON;
+    neg = expr; RPAREN 
+    { A.Merge (mk_pos $startpos, c, ["true", pos; "false", neg]) }
+
+  (* N-way merge operator *)
   | MERGE; 
-    LPAREN;
-    c = expr; SEMICOLON;
-    l = separated_nonempty_list(SEMICOLON, expr); RPAREN 
+    c = ident;
+    l = nonempty_list(merge_case);
     { A.Merge (mk_pos $startpos, c, l) }
     
   (* A temporal operation *)
@@ -794,6 +980,7 @@ expr:
   | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN
     { A.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
   | e1 = expr; ARROW; e2 = expr { A.Arrow (mk_pos $startpos, e1, e2) }
+  | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, i) }
 
   (* A node or function call *)
   | e = node_call { e } 
@@ -842,9 +1029,18 @@ clock_expr:
   | c = ident { A.ClockPos c } 
   | NOT; c = ident { A.ClockNeg c } 
   | NOT; LPAREN; c = ident; RPAREN { A.ClockNeg c } 
+  | cs = ident; LPAREN; c = ident; RPAREN { A.ClockConstr (cs, c) } 
   | TRUE { A.ClockTrue }
 
+merge_case_id:
+  | TRUE { "true" }
+  | FALSE { "false" }
+  | c = ident { c }
 
+merge_case :
+  | LPAREN; c = merge_case_id; ARROW; e = expr; RPAREN { c, e }
+
+    
 (* ********************************************************************** *)
 
 
@@ -858,6 +1054,9 @@ ident:
   | ENSURE { "ensure" }
   | s = SYM { s }
 
+ident_or_quotident:
+  | id = ident { id }
+  | s = QUOTSYM { s }
 
 (* An identifier with a type *)
 typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }

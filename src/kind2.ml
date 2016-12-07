@@ -114,7 +114,7 @@ let setup : unit -> any_input = fun () ->
 
     (* Terminating log and exiting with error. *)
     Event.terminate_log () ;
-    exit ExitCodes.error
+    exit ExitCodes.error  
 
 
 (* Entry point *)

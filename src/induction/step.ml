@@ -633,13 +633,6 @@ let launch input_sys aparam trans =
   (*   trans *)
   (*   (SMTSolver.declare_fun solver) ; *)
 
-  (* Declaring path compression actlit. *)
-  path_comp_actlit |> SMTSolver.declare_fun solver ;
-
-  if Flags.BmcKind.compress () then
-    (* Declaring path compression function. *)
-    Compress.init (SMTSolver.declare_fun solver) trans ;
-
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
     trans
@@ -647,6 +640,13 @@ let launch input_sys aparam trans =
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.zero ;
+
+  (* Declaring path compression actlit. *)
+  path_comp_actlit |> SMTSolver.declare_fun solver ;
+
+  if Flags.BmcKind.compress () then
+    (* Declaring path compression function. *)
+    Compress.init (SMTSolver.declare_fun solver) trans ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero

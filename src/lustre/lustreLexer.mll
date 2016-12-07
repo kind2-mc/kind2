@@ -232,64 +232,84 @@ let mk_hashtbl init =
 let keyword_table = mk_hashtbl [
 
   (* Types *)
-  ("type", TYPE) ;
-  ("int", INT) ; ("real", REAL) ; ("bool", BOOL) ;
-  ("subrange", SUBRANGE) ; ("of", OF) ;
-  (* ("array", ARRAY) ; *)
-  ("struct", STRUCT) ;
-  ("enum", ENUM) ;
+  "type", TYPE ;
+  "int", INT ;
+  "real", REAL ;
+  "bool", BOOL ;
+  "subrange", SUBRANGE ;
+  "of", OF ;
+  (* "array", ARRAY) ; *)
+  "struct", STRUCT ;
+  "enum", ENUM ;
 
   (* Constant declaration *)
-  ("const", CONST) ;
+  "const", CONST ;
   
   (* Node / function declaration *)
-  ("imported", IMPORTED) ;
-  ("node", NODE) ;
-  ("function", FUNCTION) ;
-  ("returns", RETURNS) ;
-  ("var", VAR) ;
-  ("let", LET) ;
-  ("tel", TEL) ;
+  "imported", IMPORTED ;
+  "node", NODE ;
+  "function", FUNCTION ;
+  "returns", RETURNS ;
+  "var", VAR ;
+  "let", LET ;
+  "tel", TEL ;
   
   (* Assertion *)
-  ("assert", ASSERT) ;
+  "assert", ASSERT ;
 
   (* Annotations. *)
-  ("PROPERTY", PROPERTY) ;
-  ("MAIN", MAIN) ;
+  "PROPERTY", PROPERTY ;
+  "MAIN", MAIN ;
+  
   (* Contract related things. *)
-  ("contract", CONTRACT) ;
-  ("import", IMPORTCONTRACT) ;
+  "contract", CONTRACT ;
+  "import", IMPORTCONTRACT ;
 
   (* Boolean operators *)
-  ("true", TRUE) ; ("false", FALSE) ;
-  ("not", NOT) ; ("and", AND) ; ("xor", XOR) ; ("or", OR) ;
-  ("if", IF) ;
-  ("then", THEN) ;
-  ("else", ELSE) ;
-  ("with", WITH) ;
-  ("div", INTDIV) ; ("mod", MOD) ;
+  "true", TRUE ;
+  "false", FALSE ;
+  "not", NOT ;
+  "and", AND ;
+  "xor", XOR ;
+  "or", OR ;
+  "if", IF ;
+  "then", THEN ;
+  "else", ELSE ;
+  "with", WITH ;
+  "div", INTDIV ;
+  "mod", MOD ;
   
   (* Clock operators *)
-  ("when", WHEN) ;
-  ("current", CURRENT) ;
-  ("condact", CONDACT) ;
-  ("activate", ACTIVATE) ;
-  ("initial", INITIAL) ;
-  ("default", DEFAULT) ;
-  ("every", EVERY) ;
-  ("restart", RESTART) ;
-  ("merge", MERGE) ;
+  "when", WHEN ;
+  "current", CURRENT ;
+  "condact", CONDACT ;
+  "activate", ACTIVATE ;
+  "initial", INITIAL ;
+  "default", DEFAULT ;
+  "every", EVERY ;
+  "restart", RESTART ;
+  "merge", MERGE ;
+
+  (* Automata *)
+  "automaton", AUTOMATON;
+  "state", STATE;
+  "unless", UNLESS;
+  "until", UNTIL;
+  "resume", RESUME;
+  "elsif", ELSIF;
+  "end", END;
   
   (* Temporal operators *)
-  ("pre", PRE) ; ("fby", FBY) ;
+  "pre", PRE ;
+  "last", LAST ;
+  "fby", FBY ;
 
   (* |===| Block annotation contract stuff. *)
-  ("mode", MODE);
-  ("assume", ASSUME);
-  ("guarantee", GUARANTEE);
-  ("require", REQUIRE);
-  ("ensure", ENSURE);
+  "mode", MODE;
+  "assume", ASSUME;
+  "guarantee", GUARANTEE;
+  "require", REQUIRE;
+  "ensure", ENSURE;
       
   ]
 
@@ -302,7 +322,7 @@ let keyword_table = mk_hashtbl [
    C syntax: alphanumeric characters including the underscore, starting 
    with a letter or the underscore *)
 let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
-  
+         
 (* Keep these separated from alphabetic characters, otherwise a->b would 
    be one token *)
 let printable = ['+' '-' '*' '/' '>' '<' '=' ]+
@@ -442,6 +462,9 @@ rule token = parse
   | id as p {
     try Hashtbl.find keyword_table p with Not_found -> (SYM p)
   }
+
+  (* Identifier with quote, throw quote away *)
+  | '\'' (id as p) { QUOTSYM p }
 
   (* Whitespace *)
   | whitespace { token lexbuf }
