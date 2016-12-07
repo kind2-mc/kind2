@@ -144,13 +144,13 @@ module RunTestGen: PostAnalysis = struct
         (* Tweak analysis uid to avoid clashes with future analyses. *)
         let param = match param with
           | Analysis.ContractCheck info -> Analysis.ContractCheck {
-            info with Analysis.uid = info.Analysis.uid * 10000
+            info with Analysis.uid = Analysis.get_uid ()
           }
           | Analysis.First info -> Analysis.First {
-            info with Analysis.uid = info.Analysis.uid * 10000
+            info with Analysis.uid = Analysis.get_uid ()
           }
           | Analysis.Refinement (info, res) -> Analysis.Refinement (
-            { info with Analysis.uid = info.Analysis.uid * 10000 },
+            { info with Analysis.uid = Analysis.get_uid () },
             res
           )
         in
@@ -210,7 +210,7 @@ module RunContractGen: PostAnalysis = struct
   let is_active () = Flags.Contracts.contract_gen ()
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
-    Event.log L_warn
+    Event.log L_note
       "Contract generation is a very experimental feature:@ \
       in particular, the modes it generates might not be exhaustive,@ \
       which means that Kind 2 will consider the contract unsafe.@ \
@@ -231,10 +231,6 @@ module RunContractGen: PostAnalysis = struct
       Scope.pp_print_scope (TSys.scope_of_trans_sys top)
       Invs.fmt (TSys.get_invariants top) ; *)
     (* Analysis with all invariant generation techniques. *)
-    Flags.Contracts.contract_gen_depth ()
-    |> Event.log_uncond
-      "  Discovering invariants \
-      by running invariant generation to depth %d..." ;
     (* Remember previous max depth for invgen. *)
     let old_max_depth = Flags.Invgen.max_depth () in
     (* Set contract generation max depth. *)
@@ -250,21 +246,56 @@ module RunContractGen: PostAnalysis = struct
       Lib.set_log_level old_log_level
     in
 
-    ( try
-        analyze [
-          `INVGEN ; `INVGENOS ;
-          `INVGENINT ; `INVGENINTOS ;
-          `INVGENREAL ; `INVGENREALOS ;
-        ] param ;
-        and_then ()
-      with e -> and_then () ; raise e
-    ) ;
-    (* Format.printf "system: %a@.  %a@.@."
-      Scope.pp_print_scope (TSys.scope_of_trans_sys top)
-      Invs.fmt (TSys.get_invariants top) ; *)
-    LustreContractGen.generate_contracts
-      in_sys_sliced param sys target ;
-    Ok ()
+    ( match Flags.invgen_enabled () with
+      | [] -> Err (
+        fun fmt -> Format.printf "No invariant generation technique enabled."
+      )
+      | teks -> Ok teks
+    )
+    |> Res.chain (
+      fun teks ->
+        Flags.Contracts.contract_gen_depth ()
+        |> Event.log_uncond "  @[<v>\
+          Discovering invariants by running@   @[<v>%a@]@ \
+          to depth %d...\
+        @]" (
+          pp_print_list (
+            fun fmt ->
+              Format.fprintf fmt "- %a" pp_print_kind_module
+          ) "@ "
+        ) teks ;
+        try
+          analyze
+            teks
+            (* [
+              `INVGEN ; `INVGENOS ;
+              `INVGENINT ; `INVGENINTOS ;
+              `INVGENREAL ; `INVGENREALOS ;
+            ] *)
+            param ;
+          and_then () ;
+          Ok ()
+        with e -> and_then () ; Err (
+          fun fmt ->
+            Format.fprintf fmt "Could not run invariant generation:@ %s"
+              (Printexc.to_string e)
+        )
+    )
+    |> Res.chain (
+      fun () ->
+      (* Format.printf "system: %a@.  %a@.@."
+        Scope.pp_print_scope (TSys.scope_of_trans_sys top)
+        Invs.fmt (TSys.get_invariants top) ; *)
+      try (
+        LustreContractGen.generate_contracts
+          in_sys_sliced param sys target ;
+        Ok ()
+      ) with e -> Err (
+          fun fmt ->
+            Format.fprintf fmt "Could not generate contract:@ %s"
+              (Printexc.to_string e)
+      )
+    )
 end
 
 (** Rust generation.
@@ -274,7 +305,7 @@ module RunRustGen: PostAnalysis = struct
   let title = "rust generation"
   let is_active () = Flags.lus_compile ()
   let run in_sys param _ results =
-    Event.log L_warn
+    Event.log L_note
       "Compilation to Rust is still a rather experimental feature:@ \
       in particular, arrays are not supported." ;
     let top = (Analysis.info_of_param param).Analysis.top in
@@ -301,7 +332,7 @@ module RunInvLog: PostAnalysis = struct
 
   let is_active () = Flags.log_invs ()
   let run in_sys param _ results =
-    Event.log L_warn "\
+    Event.log L_note "\
     In some cases, invariant logging can fail because it is not able to@ \
     translate the invariants found by Kind 2 internally back to Lustre level.\
     " ;
@@ -317,10 +348,15 @@ module RunInvLog: PostAnalysis = struct
     |> Res.chain (fun { Analysis.sys } ->
       (* Check all properties are valid. *)
       match TSys.get_split_properties sys with
+      | [], [], [] -> Err (
+        fun fmt ->
+          Format.fprintf fmt
+            "No properties, no strengthening invariant to log."
+      )
       | _, [], _ -> Ok sys
       | _, invalid, _ -> Err (
         fun fmt ->
-          let len =  List.length invalid in
+          let len = List.length invalid in
           Format.fprintf fmt
             "Not logging invariants: \
             %d invalid propert%s, system is unsafe."
@@ -397,10 +433,7 @@ module RunInvLog: PostAnalysis = struct
           k_min (List.length invs_min) ;
         Ok (sys, k_min, invs_min)
       ) with
-      (* | CertifChecker.CertifError blah -> Err(
-        fun fmt -> Event.log_uncond "Could not minimize:@   @[<v>%t@]" blah
-      ) *)
-      | e -> Err (
+      | CertifChecker.CouldNotProve blah -> Err(
         fun fmt ->
           (* Format.fprintf fmt
             "@[<v>Some necessary invariants cannot be translated \
@@ -410,10 +443,21 @@ module RunInvLog: PostAnalysis = struct
             "Some necessary invariants cannot be translated \
             back to lustre level."
       )
+      | e -> Err (
+        fun fmt -> Format.fprintf fmt
+          "Could not minimize invariants:@ %s"
+          (Printexc.to_string e)
+      )
     )
-    |> Res.map (fun (sys, _, invs) ->
-      LustreContractGen.generate_contract_for
-        in_sys param sys target invs
+    |> Res.chain (fun (sys, _, invs) ->
+      try Ok (
+        LustreContractGen.generate_contract_for
+          in_sys param sys target invs
+      ) with e -> Err (
+        fun fmt ->
+          Format.fprintf fmt "Could not generate strengthening contract:@ %s"
+            (Printexc.to_string e)
+      )
     )
     |> Res.map (
       fun () ->
@@ -464,7 +508,10 @@ let run i_sys top analyze results = (
           Event.log_post_analysis_start Module.name Module.title ;
           (* Event.log_uncond "Running @{<b>%s@}." Module.title ; *)
           ( try
-              ( match Module.run i_sys param analyze results with
+              ( match
+                  Module.run
+                    i_sys (Analysis.param_clone param) analyze results
+                with
                 | Ok () -> ()
                 | Err err -> Event.log L_warn "@[<v>%t@]" err
               ) ;

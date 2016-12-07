@@ -24,7 +24,11 @@ module type PostAnalysis = sig
   val title: string
   (** Indicates whether the module is active. *)
   val is_active: unit -> bool
-  (** Performs the treatment. *)
+  (** Performs the treatment.
+
+  Note that the [param] passed is not exactly the one used for the analysis.
+  The uid of the [param] was changed so that it is safe to use it to generate
+  systems. (No name clashes.) *)
   val run:
     (** Input system. *)
     'a InputSystem.t ->

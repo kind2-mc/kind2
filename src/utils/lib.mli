@@ -227,6 +227,8 @@ val paren_string_of_string_list : string list -> string
 
     - [L_warn] A potentially harmful situation
 
+    - [L_note] An important note (soft warning)
+
     - [L_info] An informational message that highlight progress at a
       coarse-grained level
 
@@ -241,10 +243,13 @@ type log_level =
   | L_fatal
   | L_error
   | L_warn
+  | L_note
   | L_info
   | L_debug
   | L_trace
 
+(** Default log level. *)
+val default_log_level : log_level
 
 (** Associate an integer with each level to induce a total ordering *)
 val int_of_log_level : log_level -> int

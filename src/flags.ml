@@ -2072,8 +2072,7 @@ module Global = struct
 
 
   (* Log level. *)
-  let log_level_default = L_warn
-  let _ = set_log_level log_level_default
+  let _ = set_log_level default_log_level
   let _ = add_specs ([
     ( "-qq",
       Arg.Unit (fun () -> set_log_level L_off),

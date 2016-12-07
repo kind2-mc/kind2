@@ -1206,7 +1206,11 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log (log_level_of_int lvl) "%s" msg; 
+               let lines = String.split_on_char '\n' msg in
+
+               log (log_level_of_int lvl) "@[<hov>%a@]" (
+                pp_print_list Format.pp_print_string "@ "
+               ) lines ;
 
                (* No relay message *)
                accum

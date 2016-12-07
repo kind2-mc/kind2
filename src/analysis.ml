@@ -18,6 +18,12 @@
 
 open Lib
 
+let uid_cnt = ref 0
+let get_uid () =
+  let res = ! uid_cnt in
+  uid_cnt := 1 + !uid_cnt ;
+  res
+
 (** Type of scope-wise assumptions. *)
 type assumptions = Invs.t Scope.Map.t
 
@@ -106,6 +112,14 @@ and result = {
   requirements_valid : bool option ;
 }
 
+(* Clones an [info], only changes its [uid]. *)
+let info_clone info = { info with uid = get_uid () } 
+
+(* Clones a [param], only changes its [uid]. *)
+let param_clone = function
+| ContractCheck info -> ContractCheck (info_clone info)
+| First info -> First (info_clone info)
+| Refinement (info, res) -> Refinement (info_clone info, res)
 
 (* The info or a param. *)
 let info_of_param = function

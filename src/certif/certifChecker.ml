@@ -113,7 +113,7 @@ let obs_cert_sys dirname = {
   smt2_lfsc_trace_file = Filename.concat dirname obs_defs_lfsc_f;
 }
 
-exception CertifError of (Format.formatter -> unit)
+exception CouldNotProve of (Format.formatter -> unit)
 
 
 (****************************)
@@ -858,7 +858,7 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
 (* Find the minimum bound by increasing k *)
 let rec find_bound sys solver k kmax invs prop =
 
-  if k > kmax then raise (CertifError
+  if k > kmax then raise (CouldNotProve
     ( fun fmt ->
       Format.fprintf fmt
         "[Certification] simplification of inductive invariant \
@@ -925,7 +925,7 @@ let find_bound_back sys solver kmax invs prop =
 
       begin match acc with
         (* Not k-inductive *)
-        | _, Not_inductive -> raise (CertifError
+        | _, Not_inductive -> raise (CouldNotProve
           (fun fmt ->
             Format.fprintf fmt
               "[Certification] Could not verify %d-inductiveness \
@@ -962,7 +962,7 @@ let rec loop_dicho sys solver kmax invs prop trans_acts_map acc k_l k_u =
     match acc with
     | _, Not_inductive -> raise (
       (* Not k-inductive *)
-      CertifError (
+      CouldNotProve (
         fun fmt ->
           Format.fprintf fmt
             "@[<v>Could not verify inductiveness of invariants@   \
@@ -1033,7 +1033,7 @@ let find_bound_frontier_dicho sys solver kmax invs prop =
   in
 
   match res_kmax, res_kmax_m1 with
-  | Not_inductive, _ -> raise (CertifError
+  | Not_inductive, _ -> raise (CouldNotProve
     (fun fmt ->
       Format.fprintf fmt
         "[Certification, frontier dicho] Could not verify inductiveness@ \
@@ -2188,7 +2188,7 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
 
           Event.log L_fatal "Frontend certificate was not generated.";
           
-          raise (CertifError
+          raise (CouldNotProve
             (fun fmt ->
               Format.fprintf fmt
                 "Could not find a match for the property variable %a."

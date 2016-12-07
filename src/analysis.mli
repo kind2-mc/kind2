@@ -36,8 +36,14 @@
     generated transition system. The accumulated results are used by a
     strategey to decide the next steps.
 
+    **NB:** The [uid] stored in an [info] must be unique because it is
+    used during transition system generation to avoid name clashes in
+    UFs and svars.
+
     @author Christoph Sticksel *)
 
+(** Provides a different id every time. *)
+val get_uid : unit -> int
 
 (** Type of scope-wise assumptions. *)
 type assumptions = Invs.t Scope.Map.t
@@ -107,6 +113,11 @@ and result = {
 }
 
 
+(* Clones an [info], only changes its [uid]. *)
+val info_clone : info -> info
+
+(* Clones a [param], only changes its [uid]. *)
+val param_clone : param -> param
 
 (** The info or a param. *)
 val info_of_param : param -> info

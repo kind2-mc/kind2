@@ -159,7 +159,7 @@ let first_param_of ass results all_nodes scope =
     | Some (abstraction) ->
       let info =
         { A.top = scope ;
-          A.uid = A.results_length results ;
+          A.uid = A.get_uid () ;
           A.abstraction_map = abstraction ;
           A.assumptions = ass }
       in
@@ -173,14 +173,14 @@ let first_param_of ass results all_nodes scope =
 
 (** First analysis after the mode consistency analysis, if any. *)
 let first_analysis_of_contract_check ass top (
-  { A.uid ; A.abstraction_map } as info
+  { A.abstraction_map } as info
 ) = function
 | None -> failwith "unreachable"
 | Some true -> (* Modes are complete. *)
   Some (
     A.First {
       info with
-        A.uid = uid + 1 ;
+        A.uid = A.get_uid () ;
         A.abstraction_map = Scope.Map.add top false abstraction_map ;
         A.assumptions = ass ;
     }
@@ -298,7 +298,7 @@ module ModularStrategy : Strategy = struct
                 Some (
                   A.Refinement (
                     { A.top = sys ;
-                      A.uid = A.results_length results ;
+                      A.uid = A.get_uid () ;
                       A.abstraction_map = abs ;
                       A.assumptions = last_assumptions () ; },
                     result

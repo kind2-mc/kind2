@@ -164,15 +164,12 @@ let status_of_exn process status = function
     ExitCodes.error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
-    Event.log L_error
-      "@[<v>\
-        In %a: a check-sat resulted in \"unknown\".@ \
-        This is most likely due to non-linear expressions in the model,@ \
-        usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.@ \
-        Consider running Kind 2 with `--smt_check_sat_assume off` or@ \
-        abstracting non-linear expressions using contracts.\
-      @]"
-      pp_print_kind_module process ;
+    Event.log L_warn "In %a: a check-sat resulted in \"unknown\".@ \
+      This is most likely due to non-linear expressions in the model,@ \
+      usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.@ \
+      Consider running Kind 2 with `--smt_check_sat_assume off` or@ \
+      abstracting non-linear expressions using contracts.\
+    " pp_print_kind_module process ;
     status
   (* Termination message. *)
   | Event.Terminate ->
@@ -420,7 +417,7 @@ let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
   ( if TSys.has_properties sys |> not && not ignore_props then
-      Event.log L_warn
+      Event.log L_note
         "System %a has no property, skipping verification step." fmt_sys sys
     else
       let props = TSys.props_list_of_bound sys Num.zero in

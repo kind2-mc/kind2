@@ -592,10 +592,13 @@ type log_level =
   | L_fatal
   | L_error
   | L_warn
+  | L_note
   | L_info
   | L_debug
   | L_trace
 
+(* Default log level. *)
+let default_log_level = L_note
 
 (* Associate an integer with each level to induce a total ordering *)
 let int_of_log_level = function 
@@ -603,9 +606,10 @@ let int_of_log_level = function
   | L_fatal -> 0
   | L_error -> 1
   | L_warn -> 2
-  | L_info -> 3
-  | L_debug -> 4
-  | L_trace -> 5
+  | L_note -> 3
+  | L_info -> 4
+  | L_debug -> 5
+  | L_trace -> 6
 
 
 let log_level_of_int = function 
@@ -613,9 +617,10 @@ let log_level_of_int = function
   | 0 -> L_fatal
   | 1 -> L_error
   | 2 -> L_warn
-  | 3 -> L_info
-  | 4 -> L_debug
-  | 5 -> L_trace
+  | 3 -> L_note
+  | 4 -> L_info
+  | 5 -> L_debug
+  | 6 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
 
 
@@ -705,8 +710,8 @@ let pp_print_kind_module ppf = function
   | `BMC -> fprintf ppf "bounded model checking"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
-  | `INVGEN -> fprintf ppf "two state invariant generator"
-  | `INVGENOS -> fprintf ppf "one state invariant generator"
+  | `INVGEN -> fprintf ppf "two state invariant generator (bool)"
+  | `INVGENOS -> fprintf ppf "one state invariant generator (bool)"
   | `INVGENINT -> fprintf ppf "two state invariant generator (int)"
   | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
   | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"

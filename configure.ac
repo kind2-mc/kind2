@@ -15,9 +15,9 @@ if test "x$OCAMLOPT" = "xno"; then
   AC_MSG_ERROR([You must install the OCaml native-code compiler])
 fi
 
-# Check for OCaml 4.03 
-if expr "$OCAMLVERSION" '<' '4.03' > /dev/null ; then
-  AC_MSG_ERROR([OCaml version 4.03 or later required])
+# Check for OCaml 4.04 
+if expr "$OCAMLVERSION" '<' '4.04' > /dev/null ; then
+  AC_MSG_ERROR([OCaml version 4.04 or later required])
 fi
 
 # Check for OCaml findlib

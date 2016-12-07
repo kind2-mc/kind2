@@ -261,6 +261,7 @@ type event_tag =
   | Success
   | Failure
   | Warning
+  | Note
   | Error
   | Interruption
   | Done
@@ -273,6 +274,7 @@ let print_event_tag fmt = function
   | Success -> tagify fmt "@{<green_b>Success@}"
   | Failure -> tagify fmt "@{<red_b>Failure@}"
   | Warning -> tagify fmt "@{<yellow>Warning@}"
+  | Note -> tagify fmt "@{<cyan>Note@}"
   | Error ->  tagify fmt "@{<magenta_b>Error@}"
   | Interruption -> tagify fmt "@{<magenta>Interruption@}"
   | Done -> tagify fmt "@{<green>Done@}"
@@ -283,6 +285,7 @@ let success_tag fmt = print_event_tag fmt Success
 let failure_tag fmt = print_event_tag fmt Failure
 let error_tag fmt = print_event_tag fmt Error
 let warning_tag fmt = print_event_tag fmt Warning
+let note_tag fmt = print_event_tag fmt Note
 let interruption_tag fmt = print_event_tag fmt Interruption
 let done_tag fmt = print_event_tag fmt Done
 
@@ -290,6 +293,7 @@ let done_tag fmt = print_event_tag fmt Done
 let tag_of_level fmt = let open Lib in function
 | L_fatal | L_error -> print_event_tag fmt Error
 | L_warn -> print_event_tag fmt Warning
+| L_note -> print_event_tag fmt Note
 | _ -> ()
 
 
