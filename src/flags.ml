@@ -322,6 +322,11 @@ module Smt = struct
     (* User did not choose SMT solver *)
     | `detect ->
       try
+        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
+        set_solver `Yices_native;
+        set_yices_bin exec;
+      with Not_found ->
+      try
         let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
         set_solver `Z3_SMTLIB;
         set_z3_bin exec;
@@ -330,11 +335,6 @@ module Smt = struct
         let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
         set_solver `CVC4_SMTLIB;
         set_cvc4_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
-        set_solver `Yices_native;
-        set_yices_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
