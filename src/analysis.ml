@@ -122,9 +122,8 @@ let shrink_param_to_sys param sys = match param with
 (* Retrieve the assumptions of a [scope] from a [param]. *)
 let param_assumptions_of_scope param scope =
   let { assumptions } = info_of_param param in
-  try
-    assumptions |> Scope.Map.find scope
-  with Not_found -> Invs.empty
+  try assumptions |> Scope.Map.find scope
+  with Not_found -> Invs.empty ()
 
 (* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
@@ -257,7 +256,7 @@ let results_clean = Scope.Map.filter (
 
 
 
-let pp_print_param fmt param =
+let pp_print_param verbose fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
@@ -293,14 +292,26 @@ let pp_print_param fmt param =
     (fun fmt -> function
       | [] -> ()
       | assumptions ->
-        Format.fprintf fmt "@ assumptions:@   @[<v>%a@]"
+        assumptions |> List.filter (
+          fun (_, invs) -> Invs.is_empty invs |> not
+        )
+        |> Format.fprintf fmt "@ assumptions:@   @[<v>%a@]"
           (pp_print_list
             (fun fmt (s, invs) ->
-              Format.fprintf fmt "%a: %a"
-                Scope.pp_print_scope s
-                Invs.fmt invs)
-            "@ ")
-          assumptions)
+              let os, ts = Invs.len invs in
+              if os + ts > 0 then (
+                Format.fprintf fmt "%a: "
+                  Scope.pp_print_scope s ;
+                if verbose then
+                  Format.fprintf fmt "%a" Invs.fmt invs
+                else (
+                  Format.fprintf fmt "%d one-state, %d two-state" os ts
+                )
+              )
+            )
+            "@ "
+          )
+    )
     (Scope.Map.bindings assumptions)
 
 let split_properties_nocands sys =
@@ -418,7 +429,7 @@ let pp_print_result fmt {
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    pp_print_param param
+    (pp_print_param true) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"
@@ -439,10 +450,6 @@ let pp_print_result fmt {
       | [] -> pp_print_skip
       | _ -> (pp_print_prop_list "unknown") )
     unknown
-
-
-(** Run one analysis *)
-let run _ = assert false
 
 
 (*

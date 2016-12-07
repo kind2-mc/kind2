@@ -152,13 +152,17 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
   let new_invariants, props =
     Event.recv () |> Event.update_trans_sys ctx.in_sys ctx.param sys
   in
-  let new_stuff =
-    new_stuff ||
+  let new_stuff_invs =
     ( new_invariants |> fst |> Term.TermSet.is_empty |> not ) ||
     ( new_invariants |> snd |> Term.TermSet.is_empty |> not )
   in
-  (* Forcing to assert invs to [3], since upper-bound's exclusive. *)
-  Unroller.assert_new_invs_to solver Num.(succ two) new_invariants ;
+  let new_stuff =
+    new_stuff || new_stuff_invs
+  in
+
+  if new_stuff_invs then
+    (* Forcing to assert invs to [3], since upper-bound's exclusive. *)
+    Unroller.assert_new_invs_to solver Num.(succ two) new_invariants ;
 
   match props with
     (* Nothing new property-wise, keep going if no new invariant. *)

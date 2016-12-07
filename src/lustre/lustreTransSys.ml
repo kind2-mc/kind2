@@ -1587,8 +1587,12 @@ let rec trans_sys_of_node'
 
 
           (* Filter assumptions for this node's assumptions *)
-          let node_assumptions = 
-            A.param_assumptions_of_scope analysis_param scope
+          let node_assumptions =
+            (* No assumptions if abstract. *)
+            if A.param_scope_is_abstract analysis_param scope then
+              Invs.empty ()
+            else
+              A.param_assumptions_of_scope analysis_param scope
           in
 
 
@@ -1671,6 +1675,17 @@ let rec trans_sys_of_node'
             oracles @
             (D.values outputs) @ 
             (List.concat (List.map D.values locals))
+          in
+
+          (* Only keep assumptions that are defined given the current sys. *)
+          let node_assumptions =
+            node_assumptions |> Invs.filter (
+              fun _ term _ ->
+                Term.state_vars_of_term term
+                |> SVS.for_all (
+                  fun svar -> List.mem svar all_state_vars
+                )
+            )
           in
 
           let init_terms = 

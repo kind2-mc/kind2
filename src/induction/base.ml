@@ -158,8 +158,12 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     |> fst
   in
 
-  (* Assert new invariants up to [k-1]. *)
-  Unroller.assert_new_invs_to solver k new_invs ;
+  if
+    (new_invs |> fst |> Term.TermSet.is_empty |> not) ||
+    (new_invs |> snd |> Term.TermSet.is_empty |> not)
+  then
+    (* Assert new invariants up to [k-1]. *)
+    Unroller.assert_new_invs_to solver k new_invs ;
 
   (* Assert all invariants, including new ones, at [k]. *)
   TransSys.invars_of_bound

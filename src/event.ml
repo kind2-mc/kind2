@@ -923,7 +923,7 @@ let log_analysis_start sys param =
       @.@."
       Pretty.print_double_line ()
       Scope.pp_print_scope info.Analysis.top
-      Analysis.pp_print_param param
+      (Analysis.pp_print_param false) param
 
   | F_xml ->
     (* Splitting abstract and concrete systems. *)
@@ -1267,7 +1267,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     let sets =
       ( try SMap.find scope map with Not_found -> TSet.empty, TSet.empty )
       |> fun (os, ts) ->
-        if two_state then TSet.add term os, ts else os, TSet.add term ts
+        if two_state then os, TSet.add term ts else TSet.add term os, ts
     in
     SMap.add scope sets map
   in

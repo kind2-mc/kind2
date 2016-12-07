@@ -232,20 +232,20 @@ module Make (Graph : GraphSig) : Out = struct
         (* Add intermediary invariants to sys and pruner, broadcast, add to
         [os] and [ts] for [sys]. *)
         top_invariants :: intermediary_invariants |> List.fold_left (
-          fun (cnt, invs) (sys, term_certs) ->
-            let pruner_add = pruner_add_of sys in
+          fun (cnt, invs) (sub_sys, term_certs) ->
+            let pruner_add = pruner_add_of sub_sys in
             (* Are we at top level? *)
-            let at_top_sys = sys == sys in
+            let at_top_sys = sub_sys == sys in
 
             term_certs |> List.fold_left (
               fun (cnt, invs) (inv, cert) ->
                 (* Add to transition system. *)
-                let inv = Sys.add_invariant sys inv cert two_state in
+                let inv = Sys.add_invariant sub_sys inv cert two_state in
                 (* Add to pruner. *)
                 pruner_add inv ;
                 (* Broadcast. *)
                 Event.invariant
-                  (Sys.scope_of_trans_sys sys) inv cert two_state ;
+                  (Sys.scope_of_trans_sys sub_sys) inv cert two_state ;
                 (* Remember if at top sys. *)
                 if at_top_sys then cnt + 1, inv :: invs else cnt, invs
             ) (cnt, invs)
