@@ -2105,6 +2105,12 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     let ctx = eval_node_equation inputs outputs locals ctx handlers_eq in
     let ctx = eval_node_equation inputs outputs locals ctx unlesses_eq in
 
+    (* Format.eprintf "(\* Automaton equations *\)@.%a@.%a@.%a@.%a@.@." *)
+    (*   A.pp_print_node_item (A.Body state_selected_eq) *)
+    (*   A.pp_print_node_item (A.Body restart_selected_eq) *)
+    (*   A.pp_print_node_item (A.Body handlers_eq) *)
+    (*   A.pp_print_node_item (A.Body unlesses_eq); *)
+    
     ctx
 
 
@@ -2174,7 +2180,11 @@ and encode_until_handler pos
       (List.map (fun e -> A.Body e) (eq :: eqs)) None
   in
 
-  
+  (* Format.eprintf "%a@.@." *)
+  (*   A.pp_print_declaration *)
+  (*   (A.NodeDecl (pos, (name, false, [], actual_inputs, outputs, locals, *)
+  (*                      (List.map (fun e -> A.Body e) (eq :: eqs)), None))); *)
+
   let ctx = C.add_node_to_context ctx node_ctx in
   
   (name, actual_inputs), ctx
@@ -2226,6 +2236,10 @@ and encode_unless pos
   let node_ctx =
     eval_node_decl node_ctx pos actual_inputs outputs [] [A.Body eq] None
   in
+  (* Format.eprintf "%a@.@." *)
+  (*   A.pp_print_declaration *)
+  (*   (A.NodeDecl (pos, (name, false, [], actual_inputs, outputs, [], *)
+  (*                      [A.Body eq], None))); *)
 
   let ctx = C.add_node_to_context ctx node_ctx in
 

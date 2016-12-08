@@ -858,7 +858,10 @@ let rec streams_to_values path ident_width val_width streams =
           tl
 
       (* State variable must be in the model *)
-      with Not_found -> assert false
+      with Not_found ->
+        (* Format.eprintf "Where is %a ?@." *)
+        (*   StateVar.pp_print_state_var state_var; *)
+        assert false
 
 
 (* Output a stream value with given width for the identifier and

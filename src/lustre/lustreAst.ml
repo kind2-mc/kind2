@@ -863,21 +863,27 @@ let pp_print_eq_lhs ppf = function
       (pp_print_list pp_print_struct_item ",") l
   
 
-(* Pretty-print a node equation *)
-let pp_print_node_item ppf = function
+let rec pp_print_body ppf = function
 
-  | Body (Assert (pos, e)) -> 
+  | Assert (pos, e) -> 
 
     Format.fprintf ppf "assert %a;" pp_print_expr e
 
-  | Body (Equation (pos, lhs, e)) -> 
+  | Equation (pos, lhs, e) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a;@]" 
       pp_print_eq_lhs lhs
       pp_print_expr e
 
-  | Body (Automaton (_,_,_,_)) -> assert false
+  | Automaton (_, name, states, returns) ->
+    pp_print_automaton ppf name states returns
+
+
+(* Pretty-print a node equation *)
+and pp_print_node_item ppf = function
+  
+  | Body b -> pp_print_body ppf b
 
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 
@@ -888,6 +894,48 @@ let pp_print_node_item ppf = function
 
   | AnnotProperty (pos, Some name, e) ->
     Format.fprintf ppf "--%%PROPERTY \"%s\" %a;" name pp_print_expr e 
+
+
+and pp_print_automaton ppf name states returns =
+  Format.fprintf ppf "@[<hv 2>automaton %s@.%a@]returns %a;"
+    (match name with Some n -> n | None -> "")
+    pp_print_states states
+    pp_print_auto_returns returns
+
+
+and pp_print_auto_returns ppf = function
+  | Given l -> pp_print_list pp_print_ident "," ppf l
+  | Inferred -> Format.fprintf ppf ".."
+
+and pp_print_states ppf =
+  pp_print_list pp_print_state "@." ppf
+
+
+and pp_print_state ppf =
+  function State (_, name, init, locals, eqs, unless, until) ->
+    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a" name
+      (pp_print_auto_trans "unless") unless
+      pp_print_node_local_decl locals
+      (pp_print_list pp_print_body "@ ") eqs
+      (pp_print_auto_trans "until") until
+
+and pp_print_auto_trans kind ppf = function
+  | None -> ()
+  | Some (_, br) ->
+    Format.fprintf ppf "%s %a;@." kind pp_print_transition_branch br
+
+and pp_print_transition_branch ppf = function
+  | Target (TransRestart (_, (_, t))) -> Format.fprintf ppf "restart %s" t
+  | Target (TransResume (_, (_, t))) -> Format.fprintf ppf "resume %s" t
+  | TransIf (_, e, br, None) ->
+    Format.fprintf ppf "if@ %a@ %a"
+      pp_print_expr e
+      pp_print_transition_branch br
+  | TransIf (_, e, br, Some br2) ->
+    Format.fprintf ppf "if@ %a@ %a@ else@ %a@ end"
+      pp_print_expr e
+      pp_print_transition_branch br
+      pp_print_transition_branch br2
 
 
 let pp_print_contract_ghost_const ppf = function 
@@ -1044,8 +1092,8 @@ let pp_print_node_or_fun_decl is_fun ppf (
       "@[<hv>@[<hv 2>%s%s %a%t@ \
        @[<hv 1>(%a)@]@;<1 -2>\
        returns@ @[<hv 1>(%a)@];@]@ \
-       %a\
-       %a\
+       %a@ \
+       %a@ \
        @[<v 2>let@ \
        %a@;<1 -2>\
        tel;@]@]"
