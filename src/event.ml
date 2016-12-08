@@ -1206,7 +1206,7 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               let lines = String.split_on_char '\n' msg in
+               let lines = Str.(split (regexp "\n") msg) in
 
                log (log_level_of_int lvl) "@[<hov>%a@]" (
                 pp_print_list Format.pp_print_string "@ "

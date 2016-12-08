@@ -2777,12 +2777,11 @@ let generate_smt2_certificates uid input sys =
   Hashtbl.clear solver_actlits;
 
   let dirname =
-    if is_fec sys then Filename.dirname (Flags.input_file ())
-    else begin
-      Flags.output_dir () |> mk_dir ;
-      Filename.concat (Flags.output_dir ())
-        ("certificates." ^ string_of_int uid)
-    end
+    let dir = TransSys.scope_of_trans_sys sys |> Flags.subdir_for in
+    mk_dir dir ;
+    let dir = Filename.concat dir "certif" in
+    mk_dir dir ;
+    dir
   in
   create_dir dirname;
 
@@ -2836,6 +2835,7 @@ let generate_smt2_certificates uid input sys =
         (pp_print_list pp_print_string " ") cmd_l
         (Filename.concat dirname "FEC.kind2")
     in
+    (* Format.printf "cmd: %s@.@." cmd ; *)
     Debug.certif "Second run with: %s" cmd;
 
     match Sys.command cmd with

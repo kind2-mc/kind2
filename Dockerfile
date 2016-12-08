@@ -26,14 +26,15 @@ RUN wget -qq https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O
 RUN echo "y" | opam init
 RUN eval $(opam config env)
 RUN opam update
-RUN opam switch 4.03.0
+RUN opam switch 4.04.0
 
 # Install ocaml packages needed for Kind 2
 RUN echo "y" | opam install ocamlfind camlp4 menhir
 RUN echo "y" | opam init && eval $(opam config env) && opam switch reinstall system
+RUN eval $(opam config env)
 
 # Force to use opam version of ocamlc.
-ENV PATH="/root/.opam/4.03.0/bin:${PATH}"
+ENV PATH="/root/.opam/4.04.0/bin:${PATH}"
 
 # Certification stuff
 # Latest proof-producing cvc4.
