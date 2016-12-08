@@ -1,5 +1,7 @@
 # Arrays
 
+> **Experimental feature**
+
 ## Lustre arrays
 
 Kind 2 supports the traditional Lustre V5 syntax for arrays.

@@ -722,6 +722,8 @@ Using a function instead of a node simply results in a better abstraction. Kind
 
 ## Hierarchical Automata
 
+> **Experimental feature**
+
 Kind 2 supports both the syntax used in LustreC and a subset of the one used in
 Scade 6.
 
@@ -762,6 +764,12 @@ defined by the automaton.
 
 > The set of returned streams can be inferred by writing `returns ..;`. One can
 > also simply omit the `returns` statement which will have the same effect.
+
+States (much like regular nodes) do not need to give equations that define
+_all_ their outputs (but they do for their local variables). If defined streams
+are different between the states of the automaton, then the set considered will
+be their union and states that do not define all the inferred streams will be
+considered underconstrained.
 
 Each state has a name and one of them can be declared `initial` (if no initial
 state is specified, the first one is considered initial). They can have local
