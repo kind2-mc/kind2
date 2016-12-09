@@ -357,15 +357,15 @@ module RunInvLog: PostAnalysis = struct
           k_min (List.length invs_min) ;
         Ok (sys, k_min, invs_min)
       ) with
-      (* | CertifChecker.CertifError blah -> Err(
+      | CertifChecker.CertifError blah -> Err(
         fun fmt -> Event.log_uncond "Could not minimize:@   @[<v>%t@]" blah
-      ) *)
+      )
       | e -> Err (
         fun fmt ->
-          (* Format.fprintf fmt
-            "@[<v>Some necessary invariants cannot be translated \
-            back to lustre level.@ %s@]"
-            (Printexc.to_string e) *)
+          (* Format.fprintf fmt *)
+          (*   "@[<v>Some necessary invariants cannot be translated \ *)
+          (*   back to lustre level.@ %s@]" *)
+          (*   (Printexc.to_string e) *)
           Format.fprintf fmt
             "Some necessary invariants cannot be translated \
             back to lustre level."

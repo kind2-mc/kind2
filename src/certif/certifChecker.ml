@@ -585,7 +585,7 @@ let rec trim
 
 
 
-let check_ind_and_trim ~just_check_ind sys k prop invs_terms
+let rec check_ind_and_trim ~just_check_ind sys k prop invs_terms
     solver invs_acts prev_props_act prop'act neg_prop'act trans_acts =
 
   (* Get invariants at k - 1 *)
@@ -599,9 +599,28 @@ let check_ind_and_trim ~just_check_ind sys k prop invs_terms
   (* Check k-inductiveness of whole set first *)
   SMTSolver.check_sat_assuming solver
     (fun _ -> (* SAT *)
-       Debug.certif
-         "[Fixpoint] failure of whole inductive check";
-        raise Exit)
+
+       (* Maybe we need path compression to reprove the invariants *)
+       if Flags.BmcKind.compress () then
+         let svi = TransSys.get_state_var_bounds sys in
+         let model = SMTSolver.get_var_values solver svi
+             (TransSys.vars_of_bounds sys Numeral.zero (Numeral.of_int k)) in
+         let path = Model.path_from_model (TransSys.state_vars sys) model
+             (Numeral.of_int k) in
+         match Compress.check_and_block
+                 (SMTSolver.declare_fun solver) sys path with
+         | [] -> Debug.certif "[Fixpoint] no compression, failure"; raise Exit
+         | compressor ->
+           let compr_act = actlitify solver (Term.mk_and compressor) in
+           (* try again *)
+           check_ind_and_trim ~just_check_ind sys k prop invs_terms
+             solver invs_acts prev_props_act prop'act neg_prop'act
+             (compr_act :: trans_acts)
+       else begin
+         Debug.certif "[Fixpoint] failure of whole inductive check";
+         raise Exit
+       end)
+    
     (fun _ -> (* UNSAT *)
 
      (* First cleaning *)    
