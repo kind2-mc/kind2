@@ -432,8 +432,8 @@ let generate_contract_for in_sys param sys path invs =
     @]@ *)@.@.@.@." ;
 
   Format.fprintf fmt
-    "(* Contract for node %s. *)@.contract %s_spec %a@.let@[<v 2>"
-    (sys_name sys) (sys_name sys) fmt_sig node ;
+    "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
+    (sys_name sys) (scope_of sys |> Names.contract_name) fmt_sig node ;
 
   (* Declare necessary locals. *)
   locals |> SvSet.iter (

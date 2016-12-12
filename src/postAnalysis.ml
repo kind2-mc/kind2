@@ -225,7 +225,7 @@ module RunContractGen: PostAnalysis = struct
     Flags.output_dir () |> mk_dir ;
     mk_dir target ;
     let target =
-      Format.asprintf "%s/kind2_contract.lus" target
+      Format.asprintf "%s/%s" target Names.contract_gen_file
     in
     (* Format.printf "system: %a@.  %a@.@."
       Scope.pp_print_scope (TSys.scope_of_trans_sys top)
@@ -342,7 +342,7 @@ module RunInvLog: PostAnalysis = struct
     Flags.output_dir () |> mk_dir ;
     mk_dir target ;
     let target =
-      Format.asprintf "%s/kind2_strengthening_contract.lus" target
+      Format.asprintf "%s/%s" target Names.inv_log_file
     in
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
@@ -403,9 +403,9 @@ module RunInvLog: PostAnalysis = struct
                 svar node.LustreNode.state_var_source_map
             with
             | LustreNode.Call ->
-              (* Format.printf "discarding %a@.  %a -> call@.@."
+              Format.printf "discarding %a@.  %a -> call@.@."
                 Term.pp_print_term term
-                StateVar.pp_print_state_var svar ; *)
+                StateVar.pp_print_state_var svar ;
               true
             | _ -> false
           ) with Not_found ->

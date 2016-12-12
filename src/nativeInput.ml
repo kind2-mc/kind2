@@ -288,7 +288,7 @@ let prop_source_of_sexpr prop_term = function
       Property.GuaranteeModeImplication (ppos, scope)
     else assert false
 
-  | [HS.Atom c] when c == s_cand -> Property.Candidate
+  | [HS.Atom c] when c == s_cand -> Property.Candidate None
 
   | _ -> failwith "Invalid property source"
 
@@ -639,7 +639,7 @@ let pp_print_prop_source sys ppf = function
   | Property.Instantiated (scope, prop) ->
     let name = prop.Property.prop_name in
     Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
-  | Property.Candidate ->
+  | Property.Candidate _ ->
     Format.fprintf ppf ":candidate"
   | _ -> () (* TODO *)
 

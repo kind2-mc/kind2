@@ -827,7 +827,7 @@ let oracle_doc_of_struct is_top fmt (
             /// %a@.
           "
           ( pp_print_list
-            ( fun fmt { C.pos ; C.num ; C.svar } ->
+            ( fun fmt ({ C.pos ; C.num ; C.svar }, _) ->
                 Format.fprintf fmt "| `%s` | %d | %a |"
                   (SVar.name_of_state_var svar)
                   num
@@ -1945,7 +1945,7 @@ let oracle_to_rust target find_sub top =
     | Some contract ->
       let outputs, output_svars =
         contract.C.guarantees
-        |> List.fold_left (fun (trie, outs) svar ->
+        |> List.fold_left (fun (trie, outs) (svar, _) ->
           I.add (
             [ I.ListIndex (next_index_of trie) ]
           ) svar.C.svar trie,
@@ -2051,7 +2051,7 @@ let oracle_to_rust target find_sub top =
   | Some (_, guarantees, modes) -> (
     Format.asprintf "%a" (Id.pp_print_ident false) top.N.name,
     guarantees |> List.map (
-      fun { C.pos ; C.num } -> pos, num
+      fun ({ C.pos ; C.num }, _) -> pos, num
     ),
     modes |> List.fold_left (
       fun l { C.name ; C.ensures } ->

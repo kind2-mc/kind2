@@ -536,8 +536,11 @@ let scope_of_trans_sys t = t.scope
 let get_properties t = t.properties
 
 (* Return all properties *)
-let get_real_properties t =
-  List.filter (fun {P.prop_source} -> prop_source <> P.Candidate) t.properties
+let get_real_properties t = List.filter (
+  function
+  | { P.prop_source = P.Candidate _ } -> false
+  | _ -> true
+) t.properties
 
 
 (** Returns the mode requirements for this system as a list of triplets
@@ -1263,7 +1266,7 @@ let set_prop_false trans_sys p c =
 (* Return current status of all properties *)
 let get_prop_status_all_nocands t = 
   List.fold_left (fun acc -> function
-      | { P.prop_source = P.Candidate } -> acc
+      | { P.prop_source = P.Candidate _ } -> acc
       | { P.prop_name; P.prop_status } -> (prop_name, prop_status) :: acc
     ) [] t.properties
   |> List.rev
@@ -1295,7 +1298,7 @@ let has_properties = function
 let all_props_proved t =
   List.for_all
     (function
-      | { P.prop_source = P.Candidate } -> true
+      | { P.prop_source = P.Candidate _ } -> true
       | { P.prop_status = (P.PropInvariant _ | P.PropFalse _) } -> true
       | _ -> false
     ) t.properties
@@ -1382,22 +1385,27 @@ let invars_of_bound ?(one_state_only = false) { invariants } =
 
 (* Return true if the property is a candidate invariant *)
 let is_candidate t prop =
-  (property_of_name t prop).P.prop_source = P.Candidate
+  match (property_of_name t prop).P.prop_source with
+  | P.Candidate _ -> true
+  | _ -> false
 
 let get_candidates t =
   List.fold_left (fun acc p ->
-      if p.P.prop_source = P.Candidate then
-        p.P.prop_term :: acc
-      else acc
+    match p.P.prop_source with
+    | P.Candidate _ -> p.P.prop_term :: acc
+    | _ -> acc
     ) [] t.properties
   |> List.rev
 
-let get_candidate_properties t =
-  List.filter (fun {P.prop_source} -> prop_source = P.Candidate) t.properties
+let get_candidate_properties t = List.filter (
+  function
+  | { P.prop_source = P.Candidate _ } -> true
+  | _ -> false
+) t.properties
 
 let get_unknown_candidates t =
   List.fold_left (fun acc p ->
-      if true || p.P.prop_source = P.Candidate then
+      if true (* || p.P.prop_source = P.Candidate *) then
         match p.P.prop_status with
         | P.PropUnknown | P.PropKTrue _ -> p.P.prop_term :: acc
         | P.PropInvariant _ | P.PropFalse _ -> acc

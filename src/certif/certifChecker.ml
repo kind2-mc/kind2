@@ -356,7 +356,7 @@ let extract_props_terms sys =
    system. *)
 let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | { Property.prop_source = Property.Candidate } ->
+      | { Property.prop_source = Property.Candidate _ } ->
         (* Put valid candidates in invariants *)
         acc
       | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
@@ -373,7 +373,7 @@ let extract_props_certs sys =
 
   let certs =  List.fold_left (fun certs -> function
       | { Property.prop_status = Property.PropInvariant c;
-          prop_source = Property.Candidate; prop_term = p } -> c :: certs
+          prop_source = Property.Candidate None; prop_term = p } -> c :: certs
       | { Property.prop_name } ->
         Event.log L_info "Skipping unproved candidate %s" prop_name;
         certs
@@ -2266,7 +2266,7 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
         incr cpt;
         { Property.prop_name =
             "OTHER_Observational_Equivalence_" ^(string_of_int !cpt);
-          prop_source = Property.Candidate;
+          prop_source = Property.Candidate None ;
           prop_term = eq;
           prop_status = Property.PropUnknown; }
         ) others_eqs in

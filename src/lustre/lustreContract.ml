@@ -66,15 +66,16 @@ type mode = {
   path: string list ;
   requires: svar list ;
   ensures: svar list ;
+  candidate: bool ;
 }
 
-let mk_mode name pos path requires ensures = {
-  name ; pos ; path ; requires ; ensures
+let mk_mode name pos path requires ensures candidate = {
+  name ; pos ; path ; requires ; ensures ; candidate
 }
 
 type t = {
   assumes: svar list ;
-  guarantees: svar list ;
+  guarantees: (svar * bool) list ;
   modes: mode list ;
 }
 
@@ -106,6 +107,10 @@ let svars_of_list l set = l |> List.fold_left (
   fun set { svar } -> SVarSet.add svar set
 ) set
 
+let svars_of_plist l set = l |> List.fold_left (
+  fun set ({ svar }, _) -> SVarSet.add svar set
+) set
+
 
 let svars_of_modes modes set = modes |> List.fold_left (
   fun set { requires ; ensures } ->
@@ -116,7 +121,7 @@ let svars_of_modes modes set = modes |> List.fold_left (
 
 let svars_of { assumes ; guarantees ; modes } =
   svars_of_list assumes SVarSet.empty
-  |> svars_of_list guarantees
+  |> svars_of_plist guarantees
   |> svars_of_modes modes
 
 
@@ -151,7 +156,7 @@ let pp_print_contract safe fmt { assumes ; guarantees ; modes } =
       ) "@ "
     ) assumes (
       pp_print_list (
-        fun fmt gua ->
+        fun fmt (gua, _) ->
           Format.fprintf fmt "  guarantee%a" pp_print_svar gua
       ) "@ "
     ) guarantees (

@@ -1106,17 +1106,16 @@ and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
         ctx
 
       ) with
-      | E.Type_mismatch -> (
-        C.fail_at_position
-          pos "Type mismatch in ghost variable declaration"
+      | E.Type_mismatch -> C.fail_at_position pos (
+        Format.sprintf "Type mismatch in declaration of ghost variable %s" i
       )
-      | e -> (
-        C.fail_at_position
-          pos (
-            Format.asprintf
-              "unexpected error in ghost variable treatment: %s"
-              (Printexc.to_string e)
-          )
+      (* Propagate unknown declarations to handle forward referencing. *)
+      | Deps.Unknown_decl (_, _, _) as e -> raise e
+      | e -> C.fail_at_position pos (
+        Format.asprintf
+          "unexpected error in treatment of ghost variable %s: %s"
+          i
+          (Printexc.to_string e)
       )
     )
 
@@ -1346,7 +1345,7 @@ and check_node_and_contract_outputs call_pos ctx node_outputs = function
 
 
 (* Evaluates a mode for a node. *)
-and eval_node_mode scope ctx (pos, id, reqs, enss) =
+and eval_node_mode scope ctx is_candidate (pos, id, reqs, enss) =
   (* Evaluate requires. *)
   let ctx, reqs, _ =
     reqs
@@ -1359,7 +1358,7 @@ and eval_node_mode scope ctx (pos, id, reqs, enss) =
     scope |> List.fold_left (fun l (_, name) -> name :: l) [id]
   in
   (* Done. *)
-  Contract.mk_mode (I.mk_string_ident id) pos path reqs enss
+  Contract.mk_mode (I.mk_string_ident id) pos path reqs enss is_candidate
   |> C.add_node_mode ctx
 
 
@@ -1382,9 +1381,11 @@ let rec check_no_contract_in_node_calls ctx = function
  *)
 
 (* Evaluates contract calls. *)
-and eval_node_contract_call known ctx scope inputs outputs locals (
-  call_pos, id, in_params, out_params
-) =
+and eval_node_contract_call
+  known ctx scope inputs outputs locals is_candidate (
+    call_pos, id, in_params, out_params
+  )
+=
   let ident = I.mk_string_ident id in
 
   if I.Set.mem ident known then (
@@ -1595,8 +1596,10 @@ and eval_node_contract_call known ctx scope inputs outputs locals (
 
   (* Evaluate node as usual, it will merge with the current contract. *)
   let ctx =
-    eval_node_contract_spec known ctx call_pos svar_scope
-      inputs outputs locals contract in
+    contract |> List.map (fun item -> item, is_candidate)
+    |> eval_node_contract_spec known ctx call_pos svar_scope
+      inputs outputs locals
+  in
 
   (* Pop scope for contract call. *)
   C.pop_contract_scope ctx
@@ -1623,7 +1626,7 @@ and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr =
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_item
-  known scope inputs outputs locals (ctx, cpt_a, cpt_g)
+  known scope inputs outputs locals is_candidate (ctx, cpt_a, cpt_g)
 = function
 
   (* Add constants to context *)
@@ -1641,24 +1644,58 @@ and eval_node_contract_item
   (* Evaluate guarantee *)
   | A.Guarantee g ->
     let ctx, guarantees, cpt_g =
-      eval_contract_item None scope (ctx, [], cpt_g) g in
-    C.add_node_gua ctx guarantees, cpt_a, cpt_g
+      eval_contract_item None scope (ctx, [], cpt_g) g
+    in
+    List.map (fun g -> g, is_candidate) guarantees |> C.add_node_gua ctx,
+    cpt_a, cpt_g
 
   (* Evaluate modes. *)
-  | A.Mode m -> eval_node_mode scope ctx m, cpt_a, cpt_g
+  | A.Mode m -> eval_node_mode scope ctx is_candidate m, cpt_a, cpt_g
 
   (* Evaluate imports. *)
   | A.ContractCall call ->
-    eval_node_contract_call known ctx scope inputs outputs locals call,
+    eval_node_contract_call
+      known ctx scope inputs outputs locals is_candidate call,
     cpt_a, cpt_g
 
 
 (* Add all node contracts to contexts *)
-and eval_node_contract_spec known ctx pos scope inputs outputs locals contract =
-  let ctx, _, _ =
-    List.fold_left
+and eval_node_contract_spec
+  known ctx pos scope inputs outputs locals contract
+=
+  (* Handles declarations, allows forward reference. *)
+  let rec loop acc prev_postponed_size postponed = function
+    | (head, is_candidate) :: tail -> (
+      let acc, postponed =
+        try
+          eval_node_contract_item
+            known scope inputs outputs locals is_candidate acc head,
+          postponed
+        with
+        | Deps.Unknown_decl _ ->
+          acc, (head, is_candidate) :: postponed
+      in
+      loop acc prev_postponed_size postponed tail
+    )
+    | [] -> (
+      match postponed with
+      | [] -> acc
+      | _ when prev_postponed_size = List.length postponed ->
+        C.fail_at_position pos (
+          postponed
+          |> List.map fst
+          |> Format.asprintf
+            "@[<v>Circular dependency in contract %a:@   @[<v>%a@]"
+            Scope.pp_print_scope (scope |> List.map snd)
+            (pp_print_list A.pp_print_contract_item "@ -> ")
+        )
+      | _ -> loop acc (List.length postponed) [] postponed
+    )
+  in
+  let ctx, _, _ = loop (ctx, 1, 1) (1 + List.length contract) [] contract
+    (* List.fold_left
       (eval_node_contract_item known scope inputs outputs locals)
-      (ctx, 1, 1) contract
+      (ctx, 1, 1) contract *)
   in
 
   (* What follows are checks over the contract. We know the contract is parsed
@@ -2149,6 +2186,118 @@ and eval_node_decl
     eval_node_outputs ~is_single:(List.length outputs = 1) ctx outputs
   in
 
+  (* |===| Contract stuff. *)
+
+  (* Try to find a contract previously dumped by Kind 2. *)
+  let scope =
+    match C.current_node_name ctx with
+    | Some name -> I.to_scope name
+    | None -> failwith "[eval_node_decl] No current node in context."
+  in
+  let dir = Flags.subdir_for scope in
+
+  (
+    try (
+      let target = Filename.concat dir Names.contract_gen_file in
+      let in_ch = open_in target in
+      ()
+    ) with e ->
+      Printexc.to_string e
+      |> Format.printf
+        "[eval_node_decl] @[<v>Could not load Kind 2 contract:@ %s@]@.@."
+  ) ;
+
+  (* Setting candidate flag for explicit contract. *)
+  let contract_spec =
+    match contract_spec with
+    | None -> None
+    | Some spec -> Some (
+      spec |> List.map (fun item -> item, false)
+    )
+  in
+
+  let augment_contract contract decl =
+    match contract with
+    | Some contract -> Some ( (decl, true) :: contract )
+    | None -> Some [ decl, true ]
+  in
+
+  let ctx, contract_spec =
+    try (
+      let target = Filename.concat dir Names.inv_log_file in
+      let in_ch = open_in target in
+
+      (* Create lexing buffer *)
+      let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
+
+      (* Initialize lexing buffer with channel *)
+      LustreLexer.lexbuf_init 
+        in_ch
+        (try Filename.dirname (Flags.input_file ())
+         with Failure _ -> Sys.getcwd ()) ;
+
+      let ast = LustreParser.main LustreLexer.token lexbuf in
+      Format.printf
+        "contract: @[<v>%a@]@.@."
+        (pp_print_list A.pp_print_declaration "@ ")  ast ;
+
+      (* Name of the contract we are looking for. *)
+      let expected = Names.contract_name scope in
+
+      let call =
+        (* Find the contract and build the call. *)
+        ast |> List.fold_left (
+          fun call -> function
+          | A.ContractNodeDecl (
+            pos, (id, _, cont_in, cont_out, _)
+          ) when id = expected -> (
+            (* Verify signatures match and construct call. *)
+            try (
+              let ok, ins =
+                List.fold_left2 (
+                  fun (ok, ins) (
+                    pos, node_in, node_in_ty, _, _
+                  ) (
+                    _, cont_in, cont_in_ty, _, _
+                  ) ->
+                    ok && (node_in = cont_in),
+                    (A.Ident (pos, node_in)) :: ins
+                ) (true, []) inputs cont_in
+                |> fun (ok, ins) -> ok, List.rev ins
+              in
+              let ok, outs =
+                List.fold_left2 (
+                  fun (ok, outs) (
+                    pos, node_out, node_out_ty, _
+                  ) (
+                    _, cont_out, cont_out_ty, _
+                  ) ->
+                    ok && (node_out = cont_out),
+                    (A.Ident (pos, node_out)) :: outs
+                ) (ok, []) outputs cont_out
+                |> fun (ok, outs) -> ok, List.rev outs
+              in
+              if ok then Some (
+                A.ContractCall (pos, id, ins, outs)
+              ) else call
+            ) with _ -> call
+          )
+          | _ -> call
+        ) None
+      in
+      match call with
+      | Some call ->
+        Format.printf "Found contract@.@." ;
+        let ctx = List.fold_left declaration_to_context ctx ast in
+        ctx, augment_contract contract_spec call
+      | None -> raise Not_found
+    ) with e ->
+      Printexc.to_string e
+      |> Format.printf
+        "[eval_node_decl] @[<v>Could not load Kind 2 contract:@ %s@]@.@." ;
+      ctx, contract_spec
+  in
+
   (* Parse contracts and add to context *)
   let ctx = match contract_spec with
     | None -> ctx
@@ -2162,7 +2311,8 @@ and eval_node_decl
       (* Eval contracts. *)
       let ctx =
         eval_node_contract_spec I.Set.empty ctx pos []
-          inputs outputs locals contract in
+          inputs outputs locals contract
+      in
       (* Remove scope for local declarations in contract *)
       C.pop_scope ctx
   in
@@ -2192,7 +2342,7 @@ and eval_node_decl
 (* ********************************************************************** *)
 
 (** Handle declaration and return context. *)
-let declaration_to_context ctx = function
+and declaration_to_context ctx = function
 (* Declaration of a type as alias or free *)
 | A.TypeDecl (pos, A.AliasType (_, i, type_expr)) ->
 

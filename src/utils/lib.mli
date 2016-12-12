@@ -468,6 +468,7 @@ module ReservedIds : sig
 
 end
 
+(** Exit codes. *)
 module ExitCodes: sig
   (** Exit code for an unknown result. *)
   val unknown: int
@@ -480,6 +481,16 @@ module ExitCodes: sig
   (** Exit status if kid caught a signal, the signal number is added to
   the value *)
   val kid_status: int
+end
+
+(** File names. *)
+module Names: sig
+  (** Contract generation. *)
+  val contract_gen_file : string
+  (** Contract name for contract generation. *)
+  val contract_name : string list -> string
+  (** Invariant logging. *)
+  val inv_log_file : string
 end
 
 (* 

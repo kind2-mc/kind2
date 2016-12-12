@@ -332,7 +332,11 @@ let pp_print_param verbose fmt param =
 let split_properties_nocands sys =
   let valid, invalid, unknown = TransSys.get_split_properties sys in
   let remove_cands l =
-    List.filter (fun p -> Property.(p.prop_source <> Candidate)) l
+    List.filter (
+      function
+      | { Property.prop_source = Property.Candidate _ } -> false
+      | _ -> true
+    ) l
     |> List.rev in
   remove_cands valid, remove_cands invalid, remove_cands unknown
 

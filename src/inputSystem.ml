@@ -433,7 +433,7 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
               svar,
               Format.asprintf "dummy prop for output %a"
                 SVar.pp_print_state_var svar,
-              Property.Candidate
+              Property.Candidate None
           )
       }
     in

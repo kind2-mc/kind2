@@ -1246,6 +1246,20 @@ module ExitCodes = struct
 end
 
 
+(* |===| File names. *)
+
+(** File names. *)
+module Names = struct
+  (** Contract generation file. *)
+  let contract_gen_file = "kind2_contract.lus"
+  (** Contract name for contract generation. *)
+  let contract_name =
+    Format.asprintf "%a_spec" (pp_print_list Format.pp_print_string "_")
+  (** Invariant logging file. *)
+  let inv_log_file = "kind2_strengthening.lus"
+end
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

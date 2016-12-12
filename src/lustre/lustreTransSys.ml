@@ -203,11 +203,13 @@ let lift_prop_name node_name pos prop_name =
 (* ********************************************************************** *)
 
 (* Create a property from Lustre expression *)
-let property_of_expr 
-    prop_name
-    prop_status
-    prop_source
-    { E.expr_step; E.expr_init } =
+let property_of_expr
+  candidate
+  prop_name
+  prop_status
+  prop_source
+  { E.expr_step; E.expr_init }
+=
 
   (* Terms for initial state and step state must be equal. Otherwise
      we would need to abstract to a fresh variable. *)
@@ -216,8 +218,12 @@ let property_of_expr
   (* Term of expresssion *)
   let prop_term = E.cur_term_of_expr TransSys.prop_base expr_step in
 
+  let prop_source =
+    if candidate then P.Candidate (Some prop_source) else prop_source
+  in
+
   (* Return property *)
-  { P.prop_name; P.prop_source; P.prop_term; P.prop_status }
+  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status }
 
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
@@ -247,9 +253,10 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
   let prop_status = P.PropUnknown in
   (* Creates a property for a guarantee. *)
-  let guarantee_of_svar ({ C.svar ; C.pos } as sv) =
+  let guarantee_of_svar ({ C.svar ; C.pos } as sv, is_cand) =
     E.mk_var svar
     |> property_of_expr
+      is_cand
       (C.prop_name_of_svar sv "guarantee" "")
       prop_status
       (P.Guarantee (pos, scope))
@@ -257,7 +264,7 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
   (* Creates properties for mode implications of a mode. *)
   let implications_of_modes modes acc =
     modes |> List.fold_left (
-      fun acc { C.name ; C.pos ; C.requires ; C.ensures } ->
+      fun acc { C.name ; C.pos ; C.requires ; C.ensures ; C.candidate } ->
         let name = Format.asprintf "%a" (I.pp_print_ident true) name in
         (* LHS of the implication. *)
         let guard = conj_of requires in
@@ -266,6 +273,7 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
           fun acc ({ C.num ; C.pos ; C.svar } as sv) -> (
             E.mk_var svar |> E.mk_impl guard
             |> property_of_expr
+              candidate
               (C.prop_name_of_svar sv name ".ensure")
               prop_status
               (P.GuaranteeModeImplication (pos, scope))
@@ -306,7 +314,7 @@ let abstraction_of_contract { C.assumes ; C.guarantees ; C.modes } =
   (* LHS of the implication. *)
   let lhs = conj_of assumes in
   (* Guarantee. *)
-  let gua = guarantees |> List.map (fun { C.svar } -> E.mk_var svar) in
+  let gua = guarantees |> List.map (fun ({ C.svar }, _) -> E.mk_var svar) in
   (* Adding mode implications to guarantees. *)
   modes |> List.fold_left (
     fun acc { C.requires ; C.ensures } ->
@@ -324,7 +332,7 @@ let one_mode_active scope { C.modes } =
   modes |> List.map (fun { C.requires } -> conj_of requires) |> E.mk_or_n
   (* Building property. *)
   |> property_of_expr
-    "_one_mode_active" P.PropUnknown (P.GuaranteeOneModeActive scope)
+    false "_one_mode_active" P.PropUnknown (P.GuaranteeOneModeActive scope)
 
 
 
