@@ -35,7 +35,10 @@ module type PostAnalysis = sig
     (** Analysis parameter. *)
     Analysis.param ->
     (** A function running an analysis with some modules. *)
-    (Lib.kind_module list -> Analysis.param -> unit) ->
+    (
+      Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+      -> unit
+    ) ->
     (** Results for the current system. *)
     Analysis.results
     (** Can fail. *)
@@ -51,7 +54,10 @@ module RunCertif: PostAnalysis
 (** Runs the post-analysis things on a system and its results. *)
 val run: 'a InputSystem.t -> Scope.t ->
     (** A function running an analysis with some modules. *)
-    (Lib.kind_module list -> Analysis.param -> unit) ->
+    (
+      Lib.kind_module list -> 'a InputSystem.t -> Analysis.param -> TransSys.t
+      -> unit
+    ) ->
     Analysis.results -> unit
 
 (* 

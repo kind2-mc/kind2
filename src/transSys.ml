@@ -551,11 +551,16 @@ let get_mode_requires t = t.mode_requires
 (** Returns the list of properties in a transition system, split by their
     status as [valid, invalid, unknown]. *)
 let get_split_properties { properties } =
-  properties |> List.fold_left (fun (valid, invalid, unknown) p ->
-    match Property.get_prop_status p with
-    | Property.PropInvariant _ -> p :: valid, invalid, unknown
-    | Property.PropFalse _ -> valid, p :: invalid, unknown
-    | _ -> valid, invalid, p :: unknown
+  properties |> List.fold_left (fun ( (valid, invalid, unknown) as all) ->
+    function
+    | { Property.prop_status = Property.PropInvariant _ } as p->
+      p :: valid, invalid, unknown
+    | { Property.prop_source = Property.Candidate _ } ->
+      all
+    | { Property.prop_status = Property.PropFalse _ } as p ->
+      valid, p :: invalid, unknown
+    | p ->
+      valid, invalid, p :: unknown
   ) ([], [], [])
 
 

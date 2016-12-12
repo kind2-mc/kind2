@@ -404,7 +404,7 @@ let fmt_def node fmt svar =
     (Expr.pp_print_lustre_type true) (SVar.type_of_state_var svar)
     (Expr.pp_print_lustre_expr true) expr
 
-let generate_contract_for in_sys param sys path invs =
+let generate_contract_for in_sys param sys path invs name =
   let scope = scope_of sys in
   let _, node_of_scope =
     InputSystem.contract_gen_param in_sys
@@ -433,7 +433,7 @@ let generate_contract_for in_sys param sys path invs =
 
   Format.fprintf fmt
     "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
-    (sys_name sys) (scope_of sys |> Names.contract_name) fmt_sig node ;
+    (sys_name sys) name fmt_sig node ;
 
   (* Declare necessary locals. *)
   locals |> SvSet.iter (
@@ -451,10 +451,13 @@ let generate_contract_for in_sys param sys path invs =
 
   Format.fprintf fmt "@]@.tel@.@."
 
-let generate_contracts in_sys param sys path =
+let generate_contracts in_sys param sys path contract_name =
   let _, node_of_scope =
     InputSystem.contract_gen_param in_sys
   in
+  Format.printf "%d invariants@.@." (
+    TransSys.invars_of_bound sys Numeral.zero |> List.length
+  ) ;
   let get_node sys = try scope_of sys |> node_of_scope with
     | Not_found ->
       Format.asprintf "unknown system %a" fmt_sys_name sys
@@ -549,8 +552,8 @@ let generate_contracts in_sys param sys path =
     (* Event.log L_info "  Generating contract for %a..." fmt_sys_name sys ; *)
     
     Format.fprintf fmt
-      "(* Contract for node %s. *)@.contract %s_spec %a@.let@[<v 2>"
-      (sys_name sys) (sys_name sys) fmt_sig node ;
+      "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
+      (sys_name sys) contract_name fmt_sig node ;
     
     (* Declare necessary locals. *)
     locals |> SvSet.iter (

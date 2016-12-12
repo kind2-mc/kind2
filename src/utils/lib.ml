@@ -1257,6 +1257,9 @@ module Names = struct
     Format.asprintf "%a_spec" (pp_print_list Format.pp_print_string "_")
   (** Invariant logging file. *)
   let inv_log_file = "kind2_strengthening.lus"
+  (** Contract name for invariant logging. *)
+  let inv_log_contract_name =
+    Format.asprintf "%a_str_spec" (pp_print_list Format.pp_print_string "_")
 end
 
 

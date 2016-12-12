@@ -491,6 +491,8 @@ module Names: sig
   val contract_name : string list -> string
   (** Invariant logging. *)
   val inv_log_file : string
+  (** Contract name for invariant logging. *)
+  val inv_log_contract_name : string list -> string
 end
 
 (* 

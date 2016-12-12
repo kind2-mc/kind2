@@ -519,8 +519,7 @@ let run in_sys =
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
             PostAnalysis.run in_sys (TSys.scope_of_trans_sys old) (
-              fun modules param ->
-                analyze ~ignore_props:true msg_setup modules in_sys param sys
+              analyze ~ignore_props:true msg_setup
             ) !all_results
           | _ -> ()
         ) ;
@@ -533,8 +532,7 @@ let run in_sys =
       | None -> (
         ( match !latest_trans_sys with
           | Some sys -> PostAnalysis.run in_sys (TSys.scope_of_trans_sys sys) (
-            fun modules param ->
-              analyze ~ignore_props:true msg_setup modules in_sys param sys
+            analyze ~ignore_props:true msg_setup
           ) !all_results
           | _ -> ()
         ) ;

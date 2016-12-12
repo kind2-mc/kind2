@@ -58,7 +58,9 @@ module type PostAnalysis = sig
     (** Analysis parameter. *)
     Analysis.param ->
     (** A function running an analysis with some modules. *)
-    (kind_module list -> Analysis.param -> unit) ->
+    (
+      Lib.kind_module list -> 'a ISys.t -> Analysis.param -> TSys.t -> unit
+    ) ->
     (** Results for the current system. *)
     Analysis.results
     (** Can fail. *)
@@ -272,7 +274,7 @@ module RunContractGen: PostAnalysis = struct
               `INVGENINT ; `INVGENINTOS ;
               `INVGENREAL ; `INVGENREALOS ;
             ] *)
-            param ;
+            in_sys_sliced param sys ;
           and_then () ;
           Ok ()
         with e -> and_then () ; Err (
@@ -288,7 +290,7 @@ module RunContractGen: PostAnalysis = struct
         Invs.fmt (TSys.get_invariants top) ; *)
       try (
         LustreContractGen.generate_contracts
-          in_sys_sliced param sys target ;
+          in_sys_sliced param sys target (Names.contract_name top) ;
         Ok ()
       ) with e -> Err (
           fun fmt ->
@@ -452,7 +454,7 @@ module RunInvLog: PostAnalysis = struct
     |> Res.chain (fun (sys, _, invs) ->
       try Ok (
         LustreContractGen.generate_contract_for
-          in_sys param sys target invs
+          in_sys param sys target invs (Names.inv_log_contract_name top)
       ) with e -> Err (
         fun fmt ->
           Format.fprintf fmt "Could not generate strengthening contract:@ %s"
