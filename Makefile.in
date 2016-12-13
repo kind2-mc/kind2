@@ -22,7 +22,7 @@ bin_suffix=@bin_suffix@
 install_files=@PACKAGE_NAME@ lfsc-extractor cvc4_lfsc_check
 
 # Arguments for regression tests: timeout
-ARGS="--timeout 5"
+ARGS="--timeout 42"
 
 # pass variables to sub-makes
 export
