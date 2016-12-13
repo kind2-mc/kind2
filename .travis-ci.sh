@@ -9,5 +9,6 @@ opam init
 opam switch "$OCAML_VERSION"
 opam install ${OPAM_DEPENDS}
 eval `opam config env`
-make
+./autogen.sh
+./build.sh
 make test
