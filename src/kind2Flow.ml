@@ -447,8 +447,11 @@ let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
     Stat.get_float Stat.analysis_time
     |> Anal.mk_result param sys
   in
-  let results = Anal.results_add result !all_results in
-  all_results := results ;
+
+  if not ignore_props then (
+    let results = Anal.results_add result !all_results in
+    all_results := results
+  ) ;
 
   (* Issue analysis end notification. *)
   Event.log_analysis_end result ;

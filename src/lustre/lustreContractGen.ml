@@ -54,7 +54,7 @@ let fmt_term = Term.pp_print_term
 (** (Lustre) expression formatter. *)
 let fmt_lus two_state fmt term =
   if two_state then Format.fprintf fmt "true -> (" ;
-  Format.fprintf fmt "@[<hov 2>%a@]" (Expr.pp_print_term_as_expr true) term ;
+  Format.fprintf fmt "@[<hov 2>%a@]" (Expr.pp_print_term_as_expr false) term ;
   if two_state then Format.fprintf fmt ")"
 (** Node signature formatter. *)
 let fmt_sig fmt = Format.fprintf fmt "@[<hov>%a@]" Node.pp_print_node_signature
@@ -300,29 +300,31 @@ module Contract = struct
     if two_state then Format.fprintf fmt ")"
 
   (** Assumption formatter. *)
-  let fmt_ass two_state fmt =
-    Format.fprintf fmt "assume @[<hov 2>%a@] ;" (fmt_lus two_state)
+  let fmt_ass two_state f fmt term=
+    Format.fprintf fmt "assume @[<hov 2>%a@] ;" (fmt_lus two_state) (f term)
 
   (** Guarantee formatter. *)
-  let fmt_gua two_state fmt =
-    Format.fprintf fmt "guarantee @[<hov 2>%a@] ;" (fmt_lus two_state)
+  let fmt_gua two_state f fmt term =
+    Format.fprintf fmt "guarantee @[<hov 2>%a@] ;" (fmt_lus two_state) (f term)
 
   (** Ensure formatter. *)
-  let fmt_ens two_state fmt =
-    Format.fprintf fmt "ensure @[<hov 2>%a@] ;" (fmt_lus two_state)
+  let fmt_ens two_state f fmt term =
+    Format.fprintf fmt "ensure @[<hov 2>%a@] ;" (fmt_lus two_state) (f term)
 
   (** Mode formatter. *)
-  let fmt_mode (two_state, count) fmt (req, ens) =
+  let fmt_mode (two_state, count) f fmt (req, ens) =
     TSet.elements ens
+    |> List.map f
     |> Format.fprintf fmt
       "mode mode_%d (@   @[<v>require @[<hov 2>%a@] ;@ %a@]@ ) ;@ "
-      count (fmt_lus two_state) req (fmt_list (fmt_ens two_state) "@ ")
+      count (fmt_lus two_state) (f req) (fmt_list (fmt_ens two_state f) "@ ")
 
   (** Mode map formatter. *)
-  let fmt_mode_map (two_state, count) fmt modes =
+  let fmt_mode_map (two_state, count) f fmt modes =
     let rec loop fmt count = function
       | mode :: tail ->
-        fmt_mode (two_state, count) fmt mode ;
+        fmt_mode (two_state, count) f fmt mode ;
+        let count = count + 1 in
         (* Term.mk_implies [
           fst mode ;
           snd mode |> TSet.elements |> Term.mk_and
@@ -330,14 +332,14 @@ module Contract = struct
         |> Format.fprintf fmt "%a@ " (fmt_gua two_state) ; *)
         if tail <> [] then (
           Format.fprintf fmt "@ " ;
-          loop fmt (count + 1) tail
+          loop fmt count tail
         ) else count
       | [] -> count
     in
     TMap.bindings modes |> loop fmt count
 
   (** Prints the contract corresponding to a context. *)
-  let fmt (two_state, count) fmt { ass ; gua ; modes } =
+  let fmt (two_state, count) f fmt { ass ; gua ; modes } =
     Format.fprintf fmt "@[<v>" ;
 
     let ass_cnt, gua_cnt, mod_cnt =
@@ -345,20 +347,20 @@ module Contract = struct
     in
 
     TSet.elements ass |> Format.fprintf fmt "%a" (
-      fmt_list (fmt_ass two_state) "@ "
+      fmt_list (fmt_ass two_state f) "@ "
     ) ;
 
     if ass_cnt > 0 && gua_cnt + mod_cnt > 0 then
       Format.fprintf fmt "@ @ " ;
 
     TSet.elements gua |> Format.fprintf fmt "%a" (
-      fmt_list (fmt_gua two_state) "@ "
+      fmt_list (fmt_gua two_state f) "@ "
     ) ;
 
     if gua_cnt > 0 && mod_cnt > 0 then
       Format.fprintf fmt "@ @ " ;
 
-    let count = fmt_mode_map (two_state, count) fmt modes in
+    let count = fmt_mode_map (two_state, count) f fmt modes in
 
     Format.fprintf fmt "@]" ;
 
@@ -377,7 +379,7 @@ let sys_name sys =
   scope_of sys |> Scope.to_string
 
 (** Ghost definition formatter. *)
-let fmt_def node fmt svar =
+let fmt_def node fmt svar s =
   let (var, bounds, expr) =
     match Node.equation_of_svar node svar with
     | Some eq -> eq
@@ -387,7 +389,7 @@ let fmt_def node fmt svar =
       |> failwith
   in
   Format.fprintf fmt "@[<hv 2>var %a%a: %a = %a ;@]"
-    (Expr.pp_print_lustre_var false) var
+    (Expr.pp_print_lustre_var false) s
     (pp_print_listi
        (fun ppf i -> function 
           | Node.Bound e -> 
@@ -435,18 +437,37 @@ let generate_contract_for in_sys param sys path invs name =
     "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
     (sys_name sys) name fmt_sig node ;
 
+  (** Map to new state var names. *)
+  let sv_map =
+    SvSet.fold (
+      fun sv map ->
+        SvMap.add sv (
+          StateVar.type_of_state_var sv
+          |> StateVar.mk_state_var (
+            SVar.name_of_state_var sv
+            |> Format.sprintf "%s_%s" name
+          ) []
+        ) map
+    ) locals SvMap.empty
+  in
+
   (* Declare necessary locals. *)
   locals |> SvSet.iter (
     fun svar ->
       Format.fprintf fmt "@ " ;
-      fmt_def node fmt svar
+      fmt_def node fmt svar (SvMap.find svar sv_map)
   ) ;
   if SvSet.cardinal locals > 0 then Format.fprintf fmt "@ " ;
 
   (* Dump sub contracts. *)
   let _ =
     Format.fprintf fmt "@ " ;
-    Contract.fmt (true, 0) fmt contract
+    Contract.fmt (true, 0) (
+      Term.map_state_vars (
+        fun svar ->
+          try SvMap.find svar sv_map with Not_found -> svar
+      )
+    ) fmt contract
   in
 
   Format.fprintf fmt "@]@.tel@.@."
@@ -549,6 +570,20 @@ let generate_contracts in_sys param sys path contract_name =
     @]@ *)@.@.@.@." ;
 
   (
+
+    (** Map to new state var names. *)
+    let sv_map =
+      SvSet.fold (
+        fun sv map ->
+          SvMap.add sv (
+            StateVar.type_of_state_var sv
+            |> StateVar.mk_state_var (
+              SVar.name_of_state_var sv
+              |> Format.sprintf "%s_%s" contract_name
+            ) []
+          ) map
+      ) locals SvMap.empty
+    in
     (* Event.log L_info "  Generating contract for %a..." fmt_sys_name sys ; *)
     
     Format.fprintf fmt
@@ -559,15 +594,29 @@ let generate_contracts in_sys param sys path contract_name =
     locals |> SvSet.iter (
       fun svar ->
         Format.fprintf fmt "@ " ;
-        fmt_def node fmt svar
+        fmt_def node fmt svar (SvMap.find svar sv_map)
     ) ;
     if SvSet.cardinal locals > 0 then Format.fprintf fmt "@ " ;
 
     (* Dump contracts. *)
     Format.fprintf fmt "@ " ;
-    let count = Contract.fmt (false, 0) fmt contract_os in
+    let count =
+      1 + Contract.fmt (false, 0) (
+        Term.map_state_vars (
+          fun svar ->
+            try SvMap.find svar sv_map with Not_found -> svar
+        )
+      ) fmt contract_os
+    in
     Format.fprintf fmt "@ @ " ;
-    let _ = Contract.fmt (true, count) fmt contract_ts in
+    let _ =
+      Contract.fmt (true, count) (
+        Term.map_state_vars (
+          fun svar ->
+            try SvMap.find svar sv_map with Not_found -> svar
+        )
+      ) fmt contract_ts
+    in
 
     Format.fprintf fmt "@]@.tel@.@."
   ) ;

@@ -2233,9 +2233,9 @@ and parse_implicit_contract scope inputs outputs ctx file contract_name = try (
   in
   match call with
   | Some _ ->
-    let ctx = C.push_scope ctx contract_name in
+    let ctx = C.push_contract_scope ctx contract_name in
     let ctx = List.fold_left declaration_to_context ctx ast in
-    let ctx = C.pop_scope ctx in
+    let ctx = C.pop_contract_scope ctx in
     ctx, call
   | None -> raise Not_found
 ) with e -> (
@@ -2291,6 +2291,7 @@ and eval_node_decl
   (* Attempt to parse invariants logged in previous runs. *)
   let ctx, contract_spec =
     let target = Filename.concat dir Names.inv_log_file in
+    Format.printf "parsing %s@." target ;
     match
       Names.inv_log_contract_name scope
       |> parse_implicit_contract scope inputs outputs ctx target
@@ -2300,21 +2301,24 @@ and eval_node_decl
       (* Format.printf "  Using contract from `%s` as candidate.@.@." target ; *)
       ctx, augment_contract contract_spec call
   in
+  Format.printf "done@.@." ;
 
 
   (* Attempt to parse contract logged in previous runs. *)
   (* |===| Deactivated, can cause name clashes with other contracts. *)
-(*   let ctx, contract_spec =
+  let ctx, contract_spec =
     let target = Filename.concat dir Names.contract_gen_file in
+    Format.printf "parsing %s@." target ;
     match
       Names.contract_name scope
       |> parse_implicit_contract scope inputs outputs ctx target
     with
     | ctx, None -> ctx, contract_spec
     | ctx, Some call ->
-      Format.printf "  Using contract from `%s` as candidate.@.@." target ;
+      (* Format.printf "  Using contract from `%s` as candidate.@.@." target ; *)
       ctx, augment_contract contract_spec call
-  in *)
+  in
+  Format.printf "done@.@." ;
 
   (* Parse contracts and add to context *)
   let ctx = match contract_spec with
