@@ -15,7 +15,7 @@ opam switch 4.04.0
 
 # Install ocaml packages needed for Kind 2
 opam install ocamlfind camlp4 menhir
-opam init && eval $(opam config env) && opam switch reinstall system
+opam init && eval $(opam config env)
 eval $(opam config env)
 
 ./autogen.sh
