@@ -1,18 +1,18 @@
 # Kind 2 dependencies.
 OPAM_DEPENDS="ocamlfind menhir camlp4"
 
-sudo apt-get update -y -qq > /dev/null
+sudo apt-get update -y -qq
 
 # Install z3.
-git clone https://github.com/Z3Prover/z3 > /dev/null
+git clone https://github.com/Z3Prover/z3
 cd z3
 ./configure
 cd build
-make > /dev/null
-sudo make install > /dev/null
+make
+sudo make install
 cd ../../
 
-sudo apt-get install -y -qq ocaml ocaml-native-compilers > /dev/null
+sudo apt-get install -y -qq ocaml ocaml-native-compilers
 
 # Retrieve opam.
 wget -qq https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh -O - | sh -s /usr/local/bin
