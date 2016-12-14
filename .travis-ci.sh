@@ -8,7 +8,7 @@ git clone https://github.com/Z3Prover/z3
 cd z3
 ./configure
 cd build
-make
+make -j4
 sudo make install
 cd ../../
 
@@ -36,7 +36,7 @@ make test
 
 # Retrieve and build Kind 2 develop.
 dev_dir="kind2-dev"
-git clone https://github.com/kind2-mc-kind2 $dev_dir
+git clone https://github.com/kind2-mc/kind2 $dev_dir
 cd $dev_dir
 ./autogen.sh
 ./build.sh
