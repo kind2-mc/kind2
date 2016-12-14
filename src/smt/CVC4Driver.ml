@@ -27,27 +27,40 @@ let cmd_line
     produce_proofs
     produce_cores
     produce_interpolants =
+
+  let open TermLib in
   
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.Smt.cvc4_bin () in
 
-  (* Use unsat cores *)
-  if produce_cores then 
+  let incr_mode =
+    if produce_cores then "--tear-down-incremental" else "--incremental" in
 
-    (* Need to use tear-down incremental mode for unsat cores *)
-    [| cvc4_bin; 
-       "--lang"; "smt2";
-       "--rewrite-divk";
-       "--tear-down-incremental" |]
+  let fmfint_flags =
+    [| "--fmf-bound-int";
+       "--fmf-inst-engine";
+       "--quant-cf";
+       "--uf-ss-fair"|] in
 
-  else
+  let fmfrec_flags =
+    [| "--finite-model-find";
+       "--macros-quant";
+       "--fmf-inst-engine";
+       "--fmf-fun";
+       "--quant-cf";
+       "--uf-ss-fair"|] in
 
-    (* Use normal incremental mode if unsat cores not needed *)
-    [| cvc4_bin; 
-       "--lang"; "smt2";
-       "--rewrite-divk";
-       "--incremental" |]
+  let inst_flags = match logic, Flags.Arrays.recdef () with
+    | `Inferred l, true when FeatureSet.mem A l -> fmfrec_flags
+    | `Inferred l, false when FeatureSet.mem A l -> fmfint_flags
+    | `Inferred _, _ -> [||]
+    | _, true -> fmfrec_flags
+    | _, false -> fmfint_flags in
 
+  let default_cmd = [| cvc4_bin; "--lang"; "smt2"; "--rewrite-divk" |] in
+
+  Array.concat [default_cmd; [|incr_mode|]; inst_flags]
+  
 
 let check_sat_limited_cmd _ = 
   failwith "check-sat with timeout not implemented for CVC4"

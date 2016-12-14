@@ -104,6 +104,8 @@ type expr =
   | Or of position * expr * expr
   | Xor of position * expr * expr 
   | Impl of position * expr * expr 
+  | Forall of position * typed_ident list * expr
+  | Exists of position * typed_ident list * expr
   | OneHot of position * expr list
 
   (* Arithmetic operators *)
@@ -215,11 +217,11 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  | ArrayDef of position * ident * ident list
 
 
 (* The left-hand side of an equation *)
 type eq_lhs =
-  | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
 type transition_to =
@@ -431,7 +433,7 @@ let rec pp_print_expr ppf =
         "@[<hv 1>(%a@ with@ @[<hv>%a@] =@ %a)@]"
         pp_print_expr e1
         (pp_print_list pp_print_label_or_index "") i
-        pp_print_expr e1
+        pp_print_expr e2
 
 
     | ArrayConstr (p, e1, e2) -> 
@@ -476,7 +478,7 @@ let rec pp_print_expr ppf =
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a[%a]" ppos p pp_print_expr e pp_print_expr f
+      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e pp_print_expr f
 
     | True p -> ps p "true"
     | False p -> ps p "false"
@@ -493,6 +495,14 @@ let rec pp_print_expr ppf =
     | Xor (p, e1, e2) -> p2 p "xor" e1 e2
     | Impl (p, e1, e2) -> p2 p "=>" e1 e2
     | OneHot (p, e) -> pnp p "#" e
+    | Forall (pos, vars, e) -> 
+      Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
+        (pp_print_list pp_print_typed_decl ";@ ") vars
+        pp_print_expr e
+    | Exists (pos, vars, e) -> 
+      Format.fprintf ppf "@[<hv 2>exists@ @[<hv 1>(%a)@]@ %a@]" 
+        (pp_print_list pp_print_typed_decl ";@ ") vars
+        pp_print_expr e
 
     | Uminus (p, e) -> p1 p "-" e
     | Mod (p, e1, e2) -> p2 p "mod" e1 e2 
@@ -591,8 +601,10 @@ let rec pp_print_expr ppf =
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
-  
-  Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
+  if l = u then
+    Format.fprintf ppf "%a" pp_print_expr l
+  else
+    Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
 
 and pp_print_field_assign ppf (i, e) = 
 
@@ -795,6 +807,13 @@ let pp_print_node_local_decl ppf l =
       (pp_print_list pp_print_node_local_decl_var "@ ") v 
 
 
+let pp_print_array_def_index ppf ident =
+
+  Format.fprintf ppf
+    "[%a]"
+    pp_print_ident ident
+
+
 let rec pp_print_struct_item ppf = function
 
   | SingleIdent (pos, s) -> Format.fprintf ppf "%a" pp_print_ident s
@@ -825,13 +844,13 @@ let rec pp_print_struct_item ppf = function
       "%a@[<hv 1>[%a]@]" 
       pp_print_ident e
       (pp_print_list pp_print_array_slice ",@ ") i
+                            
+  | ArrayDef (pos, i, l) ->
 
-
-let pp_print_array_def_index ppf ident =
-
-  Format.fprintf ppf
-    "[%a]"
-    pp_print_ident ident
+    Format.fprintf ppf
+      "%a%a"
+      pp_print_ident i
+      (pp_print_list pp_print_array_def_index "") l
 
 
 let pp_print_eq_lhs ppf = function
@@ -842,12 +861,6 @@ let pp_print_eq_lhs ppf = function
   | StructDef (pos, l) ->
     Format.fprintf ppf "(%a)"
       (pp_print_list pp_print_struct_item ",") l
-                            
-  | ArrayDef (pos, i, l) ->
-    Format.fprintf ppf
-      "%a%a"
-      pp_print_ident i
-      (pp_print_list pp_print_array_def_index "") l
   
 
 (* Pretty-print a node equation *)
@@ -1116,6 +1129,7 @@ let pos_of_expr = function
   | Times (pos , _ , _) | IntDiv (pos , _ , _) | Ite (pos , _ , _ , _)
   | With (pos , _ , _ , _) | Eq (pos , _ , _) | Neq (pos , _ , _)
   | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
+  | Forall (pos, _, _) | Exists (pos, _, _)
   | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _, _)
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | Last (pos , _) | RestartEvery (pos, _, _, _)
@@ -1128,8 +1142,8 @@ let rec has_unguarded_pre ung = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
     
   | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _) ->
-    has_unguarded_pre ung e
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) -> has_unguarded_pre ung e
 
   | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
@@ -1240,7 +1254,8 @@ let rec has_pre_or_arrow = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> None
     
   | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _) ->
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) ->
     has_pre_or_arrow e
 
   | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
@@ -1319,7 +1334,8 @@ let rec lasts_of_expr acc = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> acc
     
   | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _) ->
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) ->
     lasts_of_expr acc e
 
   | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
@@ -1409,6 +1425,16 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     let e', acc' = replace_lasts allowed prefix acc e in
     if e == e' then ee, acc
     else When (pos, e', c), acc'
+
+  | Forall (pos, vs, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Forall (pos, vs, e'), acc'
+
+  | Exists (pos, vs, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Exists (pos, vs, e'), acc'
 
   | TupleProject (pos, e1, e2)
   | And (pos, e1, e2) | Or (pos, e1, e2) | Xor (pos, e1, e2)
@@ -1591,8 +1617,7 @@ let rec replace_lasts allowed prefix acc ee = match ee with
 
 (** Checks whether a struct item has a `pre` or a `->`. *)
 let rec struct_item_has_pre_or_arrow = function
-| SingleIdent _
-| FieldSelection _ -> None
+| SingleIdent _ | FieldSelection _ | ArrayDef _ -> None
 | TupleStructItem (_, l) ->
   List.map struct_item_has_pre_or_arrow l
   |> some_of_list
@@ -1604,6 +1629,7 @@ let rec struct_item_has_pre_or_arrow = function
   ) l
   |> some_of_list
 | TupleSelection (_, _, e) -> has_pre_or_arrow e
+
 
 (** Checks whether a constant declaration has a `pre` or a `->`. *)
 let const_decl_has_pre_or_arrow = function
@@ -1621,7 +1647,6 @@ let node_local_decl_has_pre_or_arrow = function
 
 (** Checks whether an equation lhs has a `pre` or a `->`. *)
 let eq_lhs_has_pre_or_arrow = function
-| ArrayDef _ -> None
 | StructDef (_, l) ->
   List.map struct_item_has_pre_or_arrow l
   |> some_of_list

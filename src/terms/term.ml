@@ -76,6 +76,8 @@ struct
   (* Get sort of a variable *)
   let sort_of_var = Var.type_of_var
 
+  let mk_fresh_var = Var.mk_fresh_var
+  
   let import_symbol = Symbol.import 
 
   let import_var = Var.import 
@@ -114,6 +116,8 @@ let node_of_term = T.node_of_t
 
 (* Flatten top node of term *)
 let destruct = T.destruct
+
+let has_quantifier = T.has_quantifier
 
 
 (* Return true if the term is a free variable *)
@@ -326,7 +330,15 @@ let rec bool_of_term t = match node_of_term t with
 let is_select t = match node_of_term t with
 
   (* Top symbol is a select operator *)
-  | T.Node (s, [a; i]) -> s == Symbol.s_select
+  | T.Node (s, a :: _ ) -> Symbol.is_select s
+                                 
+  | _ -> false
+
+(* Return true if the term is an application of the store operator *)
+let is_store t = match node_of_term t with
+
+  (* Top symbol is a select operator *)
+  | T.Node (s, _ :: _ ) -> s == Symbol.s_store
                                  
   | _ -> false
 
@@ -336,24 +348,35 @@ let is_select t = match node_of_term t with
    The array argument of a select is either another select operation
    or a variable. For the expression [(select (select A j) k)] return
    the pair [A] and [[j; k]]. *)
-let rec indexes_and_var_of_select' accum t = match node_of_term t with 
-
+let rec indexes_and_var_of_select' accum t =
+  match node_of_term t with 
   | T.FreeVar v -> (v, accum)
-
-  | T.Node (s, [a; i]) when s == Symbol.s_select -> 
-
-    indexes_and_var_of_select' (i :: accum) a
-
+  | T.Node (s, a :: li) when Symbol.is_select s -> 
+    indexes_and_var_of_select' (li @ accum) a
   | T.Annot (t, _) ->  indexes_and_var_of_select' accum t
-
   |  _ -> invalid_arg "indexes_of_select"
-
-
 
 (* Return the indexes of the select operator *)
 let indexes_and_var_of_select t = indexes_and_var_of_select' [] t
 
- 
+let rec array_and_indexes_of_select' accum t =
+  match node_of_term t with 
+  | T.Node (s, a :: li) when Symbol.is_select s -> 
+    array_and_indexes_of_select' (li @ accum) a
+  | T.Annot (t, _) ->  array_and_indexes_of_select' accum t
+  | _ -> t, accum
+
+(* Return the indexes of the select operator *)
+let array_and_indexes_of_select t = array_and_indexes_of_select' [] t
+
+
+let rec var_of_select_store t =
+  match node_of_term t with 
+  | T.FreeVar v -> v
+  | T.Node (s, a :: _) when Symbol.is_select s -> var_of_select_store a
+  | T.Node (s, a :: _) when s == Symbol.s_store -> var_of_select_store a
+  | T.Annot (t, _) -> var_of_select_store t
+  |  _ -> invalid_arg "var_of_select_store"
 
 
 (* ********************************************************************* *)
@@ -430,6 +453,10 @@ let eval_t = T.eval_t
 (* Evaluate a term bottom-up right-to-left, given the flattened term
    as argument *)
 let eval_lambda = T.eval_lambda
+
+(* Partialy evaluate a term bottom-up right-to-left, given the flattened term
+   as argument *)
+let partial_eval_lambda = T.partial_eval_lambda
 
 (* Bottom-up right-to-left map of the term 
 
@@ -547,19 +574,13 @@ let rec type_of_term t = match T.destruct t with
 *)
             
         (* Array-valued function *)
-        | `SELECT -> 
+        | `SELECT ty_array ->
+             
+          (match l with
+           | a :: _ -> Type.elem_type_of_array (type_of_term a)
+           | _ -> assert false)
 
-          (match l with 
-
-            (* Select is binary *)
-            | [a; _] -> 
-
-              (match Type.node_of_type (type_of_term a) with
-                | Type.Array (t, _) -> t
-                | _ -> assert false)
-
-            | _ -> assert false)
-
+      
         (* Return type of first argument *)
         | `MINUS
         | `PLUS
@@ -583,15 +604,13 @@ let rec type_of_term t = match T.destruct t with
         | `BVSHL
         | `BVLSHR
 *)
-(*
         | `STORE -> 
 
           (match l with 
               
-            (* Function must be at least binary *)
-            | a :: _ -> type_of_term a
+            (* Function must be ternary *)
+            | [a; _; _] -> type_of_term a
             | _ -> assert false)
-*)
 
 
         (* Return type of second argument *)
@@ -601,7 +620,9 @@ let rec type_of_term t = match T.destruct t with
 
             (* ite must be ternary *)
             | [_; a; _] -> type_of_term a
-            | _ -> assert false)
+            | _ ->
+              Format.eprintf "%a@." pp_print_term t;
+              assert false)
             
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
@@ -761,11 +782,21 @@ let mk_let  = T.mk_let
 
 
 (* Return a hashconsed existentially quantified term *)
-let mk_exists = T.mk_exists 
+let mk_exists ?(fundef=false) vars t =
+  let t =
+    if fundef then T.mk_annot t TermAttr.fundef
+    else t
+  in
+  T.mk_exists vars t
 
 
 (* Return a hashconsed universally quantified term *)
-let mk_forall = T.mk_forall
+let mk_forall ?(fundef=false) vars t =
+  let t =
+    if fundef then T.mk_annot t TermAttr.fundef
+    else t
+  in
+  T.mk_forall vars t
 
 
 (* Import a term from a different instance into this hashcons table *)
@@ -802,7 +833,7 @@ let rec is_atom t = match T.destruct t with
     (* All subterms must be not Boolean *)
     (List.for_all
        (function e -> 
-         T.eval_t
+         T.eval_t ~fail_on_quantifiers:false 
            (function 
 
              (* Function application *)
@@ -1083,7 +1114,12 @@ let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]
 let mk_divisible n t = mk_app_of_symbol_node (`DIVISIBLE n) [t]
 
 (* Hashcons an array read *)
-let mk_select a i = mk_app_of_symbol_node `SELECT [a; i]
+let mk_select a i = mk_app_of_symbol_node (`SELECT (type_of_term a)) [a; i]
+
+(* Hashcons array store *)
+let mk_store a i v =
+  mk_app_of_symbol_node `STORE [a; i; v]
+
 
 (* Generate a new tag *)
 let newid =
@@ -1340,13 +1376,15 @@ let rec bump_and_apply_k f k term =
 (* Return all state variables in term *)
 let state_vars_of_term term  = 
 
-  eval_t
+  eval_t ~fail_on_quantifiers:false 
     (function 
       | T.Var v -> 
         (function 
-          | [] -> 
-            StateVar.StateVarSet.singleton 
-              (Var.state_var_of_state_var_instance v)
+          | [] ->
+            if Var.is_state_var_instance v || Var.is_const_state_var v then
+              StateVar.StateVarSet.singleton 
+                (Var.state_var_of_state_var_instance v)
+            else StateVar.StateVarSet.empty
           | _ -> assert false)
       | T.Const _ -> 
         (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
@@ -1363,28 +1401,43 @@ let state_vars_of_term term  =
 let vars_of_term term = 
 
   (* Collect all variables in a set *)
-  let var_set = 
-    eval_t
-      (function 
-        | T.Var v -> 
-          (function [] -> Var.VarSet.singleton v | _ -> assert false)
-        | T.Const _ -> 
-          (function [] -> Var.VarSet.empty | _ -> assert false)
-        | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
-        | T.Attr (t, _) -> 
-          (function [s] -> s | _ -> assert false))
-      term
-  in
+  eval_t ~fail_on_quantifiers:false 
+    (function 
+      | T.Var v -> 
+        (function [] -> Var.VarSet.singleton v | _ -> assert false)
+      | T.Const _ -> 
+        (function [] -> Var.VarSet.empty | _ -> assert false)
+      | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+      | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false))
+    term
 
-  (* Return elements of a set as list *)
-  var_set
- 
+
+let select_symbols_of_term term =
+  let selm = ref Symbol.SymbolSet.empty in
+  map
+    (fun _ t -> match node_of_term t with
+      | T.Node (s, _) when Symbol.is_select s ->
+        selm := Symbol.SymbolSet.add s !selm;
+        t
+      | _ -> t
+    ) term
+  |> ignore;
+  !selm
+
+let select_terms term =
+  eval_t ~fail_on_quantifiers:false
+    (function 
+      | T.App (s, l) as t when Symbol.is_select s ->
+        fun _ -> TermSet.singleton (construct t)
+      | _ -> List.fold_left TermSet.union TermSet.empty)
+    term
 
 (* Return set of state variables at given offsets in term *)
 let state_vars_at_offset_of_term i term = 
 
   (* Collect all variables in a set *)
-  eval_t
+  eval_t ~fail_on_quantifiers:false
     (function 
       | T.Var v 
         when 
@@ -1404,12 +1457,43 @@ let state_vars_at_offset_of_term i term =
         (function [s] -> s | _ -> assert false))
     term
 
+let indexes_of_state_var sv term =
+  eval_t ~fail_on_quantifiers:false
+    (fun t acc -> match t with
+      | T.App (s, x :: indexes) when
+          Symbol.is_select s &&
+          ((match acc with [] :: _ -> false | _ -> true) ||
+           (is_free_var x &&
+            let vx = free_var_of_term x in
+            Var.is_state_var_instance vx &&
+            let svx = Var.state_var_of_state_var_instance vx in
+            StateVar.equal_state_vars sv svx)) ->
+        (match acc with
+         | x :: r ->
+           List.rev_append indexes (List.flatten x) :: (List.flatten r)
+         | _ -> List.flatten acc)
+      | _ -> List.flatten acc)
+    term
+  |> List.filter (fun l -> l <> [])
+
+(* let indexes_of_state_var sv term = *)
+(*   let inds = indexes_of_state_var sv term in *)
+(*   Format.eprintf "indexes of %a IN %a ==@." *)
+(*     StateVar.pp_print_state_var sv *)
+(*     pp_print_term term; *)
+(*   List.iter (fun l -> *)
+(*       Format.eprintf "--@."; *)
+(*       List.iter (Format.eprintf "  %a,@." pp_print_term) l) inds; *)
+(*   inds *)
+
+
+
 
 (* Return set of state variables at given offsets in term *)
 let vars_at_offset_of_term i term = 
 
   (* Collect all variables in a set *)
-  eval_t
+  eval_t ~fail_on_quantifiers:false
     (function 
       | T.Var v 
         when 
@@ -1449,7 +1533,7 @@ let rec var_offsets_of_term expr =
     Numeral.(min_none l1 l2, max_none u1 u2) 
   in
 
-  eval_t 
+  eval_t ~fail_on_quantifiers:false
     (function 
       | T.Var v when Var.is_state_var_instance v -> 
         (function 
@@ -1604,6 +1688,116 @@ let map_vars f term =
        else t)
 
     term
+
+
+let convert_select term =
+
+  (* Format.eprintf "convert select : %a : %a @." *)
+  (*   pp_print_term term *)
+  (*   Type.pp_print_type (type_of_term term); *)
+  
+  (* Don't encode if using the theory of arrays *)
+  if Flags.Arrays.smt () then term
+  else    
+    map (fun _ t ->
+        (* Term is a select operation? *)
+        if is_select t then
+          (* Get array variable and indexes of term *)
+          let var, indexes = indexes_and_var_of_select t in
+          (* Get indexes of type of variable *)
+          let index_types =
+            Var.type_of_var var |> Type.all_index_types_of_array in
+          (* Skip if not all indexes of array in term *)
+          if List.length indexes < List.length index_types then t
+          else begin
+            (* must not have more indexes than defined in type *)
+            assert (List.length indexes = List.length index_types);
+            (* Uninterpreted function application for array : first parameter is
+               array and following parameters are indexes *)
+            mk_uf (Var.encode_select var) (mk_var var :: indexes)
+          end
+        else t
+      )
+      term
+
+
+
+let inst_bvars term =
+  let vars = ref [] in
+  let t' =
+    map (fun _ t -> match node_of_term t with
+        | T.BoundVar db ->
+          let var =
+            try List.assoc db !vars
+            with Not_found ->
+              let v = Var.mk_fresh_var Type.t_int
+              (* TODO: (type_of_term t) *) in
+              vars := (db, v) :: !vars;
+              v in
+          mk_var var
+        | _ -> t
+      ) term in
+  let nvars = List.rev_map snd !vars in
+  t', nvars
+
+
+
+let partial_selects term =
+  
+  if Flags.Arrays.smt () || not (Flags.Arrays.recdef ()) then term, []
+  else
+    let partials_ufs = ref [] in
+    let acc = ref [] in
+    map (fun db t ->
+        match node_of_term t with
+        | T.Node (s, a :: il) when Symbol.is_select s && db <> 0 ->
+          let ufs = Symbol.uf_of_symbol s in
+          let ty = UfSymbol.res_type_of_uf_symbol ufs in
+          let ty_il = List.tl (UfSymbol.arg_type_of_uf_symbol ufs) in
+          let partial_s_a = UfSymbol.mk_fresh_uf_symbol ty_il ty in
+          let t' = mk_uf partial_s_a il in
+          let partial_s_a_def = mk_eq [t'; t] in
+          partials_ufs := partial_s_a :: !partials_ufs;
+          acc := inst_bvars partial_s_a_def :: !acc;
+          t'
+
+        | T.Forall l | T.Exists l when !acc <> [] ->
+          let cstrs = !acc in
+          acc := [];
+          mk_and (t ::
+                  List.map (fun (t, vs) ->
+                      if vs = [] then t else mk_forall vs t) cstrs)
+          
+        | _ -> t
+      ) term,
+    !partials_ufs
+
+
+
+let reinterpret_select term =
+
+  (* Don't decode if using the theory of arrays *)
+  if Flags.Arrays.smt () then term
+  else    
+    map (fun _ t ->
+        match node_of_term t with
+        | T.Node (s, a :: il) when Symbol.is_select s ->
+          (* Top symbol is a select operator *)
+          List.fold_left mk_select a il
+        | _ -> t
+      )
+      term
+
+
+let apply_subst sigma term =
+  map (fun _ t ->
+      match node_of_term t with
+      | T.FreeVar v ->
+        (try List.find (fun (v', bt) -> Var.equal_vars v v') sigma |> snd
+         with Not_found -> t)
+      | _ -> t
+    ) term
+
 
 
 

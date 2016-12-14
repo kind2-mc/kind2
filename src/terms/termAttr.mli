@@ -54,10 +54,16 @@ module AttrMap : Map.S with type key = t
 (** Return a name attribute *)
 val mk_named : string -> int -> t
 
+(** Return a fun-def attribute *)
+val fundef : t
+
 (** {1 Accessor functions} *)
 
 (** Return true if the attribute is a name *)
 val is_named : t -> bool
+
+(** Return true if the attribute is a name *)
+val is_fundef : t -> bool
 
 (** Return the name in a name attribute, raises [Invalid_argument] for
     other attributes *)

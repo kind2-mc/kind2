@@ -17,7 +17,7 @@
 *)
 
 open Lib
-
+assert false
 
 let pp_print_position ppf 
     { Lexing.pos_fname;

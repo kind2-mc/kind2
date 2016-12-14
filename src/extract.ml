@@ -220,8 +220,9 @@ let extract uf_defs env term =
       else
 
         (* Obtain new accumulator and new terms to extract *)
-        let accum', stack' = 
-          extract_term_flat accum polarity env (Term.T.destruct term) 
+        let accum', stack' =
+          try extract_term_flat accum polarity env (Term.T.destruct term)
+          with Invalid_argument _ -> accum, []
         in
 
         (* Mark polarity of term as visited *)

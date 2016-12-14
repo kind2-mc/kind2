@@ -27,19 +27,24 @@ module H = HString
 (* Hard coded options *)
   
 let mpz_proofs = true
-let compact = true
-let set_margin fmt = pp_set_margin fmt 80 (* (if compact then max_int else 80) *)
+let debug = List.mem "certif" (Flags.debug ())
+let compact = not debug
+let set_margin fmt = pp_set_margin fmt (if compact then max_int else 80)
 
 
 
 (* disable the preprocessor and tell cvc4 to dump proofs *)
-(* KLUDGE we use a linux version through ssh because of bugs in the mac
-   version *)
-(* let cvc4_proof_cmd = "ssh kind \"~/CVC4_proofs/builds/x86_64-unknown-linux-gnu/production-proof/bin/cvc4 --lang smt2 --no-simplification --dump-proof\" <" *)
+let cvc4_proof_args =
+  if Flags.Certif.log_trust () then
+    (* Preprocessing holes as equivalences *)
+    " --lang smt2 --no-simplification --fewer-preprocessing-holes --dump-proof"
+  else
+    (* Disable if we don't care about holes because cvc4 is less likely to
+       crash *)
+    " --lang smt2 --no-simplification --dump-proof"
 
 let cvc4_proof_cmd =
-  Flags.Smt.cvc4_bin () ^
-  " --lang smt2 --no-simplification --fewer-preprocessing-holes --dump-proof"
+  Flags.Smt.cvc4_bin () ^ cvc4_proof_args
 
 
 let get_cvc4_version () =
@@ -702,7 +707,8 @@ let rec parse_proof acc = let open HS in function
     { acc with proof_type = ty; proof_term = pterm  }
 
   | s ->
-    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
+    failwith (asprintf "parse_proof: Unexpected proof:\n%a@."
+                (HS.pp_print_sexpr_indent 0) s)
 
 
 (* Parse a proof from CVC4 from one that start with [(check ...]. *)
@@ -710,7 +716,8 @@ let parse_proof_check ctx = let open HS in function
   | List [Atom check; proof] when check == s_check ->
     parse_proof (mk_empty_proof ctx) proof
   | s ->
-    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
+    failwith (asprintf "parse_proof_check: Unexpected proof:\n%a@."
+                (HS.pp_print_sexpr_indent 0) s)
 
 
 
@@ -777,7 +784,8 @@ let rec parse_context ctx = let open HS in function
   | List [Atom ascr; _; _] when ascr = s_ascr -> ctx
 
   | s ->
-    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
+    failwith (asprintf "parse_context: Unexpected proof:\n%a@."
+                (HS.pp_print_sexpr_indent 0) s)
 
 
 (* Parse a context from a dummy proof check used only for tracing *)
@@ -786,7 +794,8 @@ let parse_context_dummy = let open HS in function
     parse_context (mk_empty_proof_context ()) dummy
 
   | s ->
-    failwith (asprintf "Unexpected proof:\n%a@." (HS.pp_print_sexpr_indent 0) s)
+    failwith (asprintf "parse_context_dummy:Unexpected proof:\n%a@."
+                (HS.pp_print_sexpr_indent 0) s)
 
 
 (* Parse a context from a channel. The goal is trivial because the file
@@ -1064,7 +1073,6 @@ let generate_inv_proof inv =
    observational equivalence for the frontend. The proof is written in the file
    [!frontend_proofname]. *)
 let generate_frontend_proof inv =
-
   let proof_file = Filename.concat inv.dirname frontend_proofname in
   let proof_chan = open_out proof_file in
   let proof_fmt = formatter_of_out_channel proof_chan in

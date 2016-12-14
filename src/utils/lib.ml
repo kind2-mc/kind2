@@ -157,6 +157,15 @@ let rec list_filter_nth' current_pos accum =
 let list_filter_nth l p = list_filter_nth' 0 [] l p
 
 
+let list_extract_nth l i =
+  let rec aux acc l i = match i, l with
+    | 0, x :: r -> x, List.rev_append acc r
+    | i, x :: r when i > 0 -> aux (x :: acc) r (i - 1) 
+    | _ -> raise (Invalid_argument "list_extract_nth")
+  in
+  aux [] l i
+
+
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 
 
@@ -545,6 +554,13 @@ let string_of_t pp t =
 let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list
 
+(* Return the width of the string, meaning the wisth of it's longest line *)
+let width_of_string s =
+  let lines = Str.split (Str.regexp "\n") s in
+  List.fold_left (fun max_width s ->
+      max max_width (String.length s)
+    ) 0 lines
+
 
 (* ********************************************************************** *)
 (* Option types                                                           *)
@@ -617,6 +633,16 @@ let log_level_of_int = function
   | 4 -> L_debug
   | 5 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
+
+let string_of_log_level = function
+  | L_off -> "off"
+  | L_fatal -> "fatal"
+  | L_error -> "error"
+  | L_warn -> "warn"
+  | L_info -> "info"
+  | L_debug -> "debug"
+  | L_trace -> "trace"
+
 
 
 (* Compare two levels *)

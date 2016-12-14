@@ -1,0 +1,28 @@
+const c=2;
+const ss=4;
+
+node N(x, y: int) returns (a, b: int);
+let
+  a = x + y;
+  b = x - y;
+tel;
+
+
+node sum(s: int;A, B: int^s) returns (R: int^s);
+let
+  R[k] = A[k] + B[k];
+tel;
+
+node diff(s: int; A, B: int^s) returns (R: int^s);
+let
+  R[k] = A[k] - B[k];
+tel;
+
+node main(A, B: int^ss) returns (ok: bool);
+var S, D: int^ss;
+let
+  S = c^ss -> sum(ss, A, B);
+  D = c^ss -> diff(ss, A, B);
+  ok = true -> S[0] + D[0] = 2 * A[0];
+  --%PROPERTY ok;
+tel;

@@ -127,8 +127,8 @@ let mk_base_checker_solver sys k =
 
 
   (* Smt.trace_comment solver (* Logging stuff in smt trace. *)
-    "Declaring system's constants." ;
-  Sys.declare_const_vars sys (Smt.declare_fun solver) ; *)
+     "Declaring system's constants." ;
+     Sys.declare_const_vars sys (Smt.declare_fun solver) ; *)
 
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
@@ -145,7 +145,8 @@ let mk_base_checker_solver sys k =
     "Conditional initial predicate." ;
 
   Term.mk_implies (* Conditionally asserting the initial predicate. *)
-    [ init_actlit ; Sys.init_of_bound sys Num.zero ]
+    [ init_actlit ;
+      Sys.init_of_bound (Some (SMTSolver.declare_fun solver)) sys Num.zero ]
   |> Smt.assert_term solver ;
 
 
@@ -167,7 +168,9 @@ let mk_base_checker_solver sys k =
       Format.asprintf
         "Asserting transition relation at [%a]." Num.pp_print_numeral i
       |> Smt.trace_comment solver ;
-      Sys.trans_of_bound sys i |> Smt.assert_term solver ;
+
+      Sys.trans_of_bound (Some (SMTSolver.declare_fun solver)) sys i
+      |> Smt.assert_term solver ;
 
       Format.asprintf
         "Asserting invariants at [%a]." Num.pp_print_numeral i
@@ -244,6 +247,7 @@ let query_base base_checker candidates =
         )
         (* Getting their value. *)
         |> SMTSolver.get_var_values solver
+          (TransSys.get_state_var_bounds sys)
         (* Bumping to -k. *)
         |> Model.bump_var minus_k 
         (* Making an option out of it. *)
@@ -294,7 +298,8 @@ let to_step_solver { solver ; sys ; k ; init_actlit } =
   Format.asprintf
     "Asserting transition relation at [%a]." Num.pp_print_numeral kp1
   |> Smt.trace_comment solver ;
-  Sys.trans_of_bound sys kp1 |> Smt.assert_term solver ;
+  Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys kp1
+  |> Smt.assert_term solver ;
 
   Format.asprintf
     "Asserting invariants at [%a]." Num.pp_print_numeral kp1
@@ -463,6 +468,7 @@ let nu_query_step two_state step_checker candidates =
         TransSys.vars_of_bounds sys (Numeral.pred k) k
         (* Getting their value. *)
         |> SMTSolver.get_var_values solver
+          (TransSys.get_state_var_bounds sys)
         (* Bumping to -k. *)
         |> Model.bump_var minus_k 
         (* Making an option out of it. *)
@@ -542,7 +548,8 @@ let mk_pruning_checker_solver sys =
   Format.asprintf
     "Asserting transition relation."
   |> Smt.trace_comment solver ;
-  Sys.trans_of_bound sys Num.one |> Smt.assert_term solver ;
+  Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Num.one
+  |> Smt.assert_term solver ;
 
   solver
 

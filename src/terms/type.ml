@@ -38,7 +38,7 @@ type kindtype =
 (*
   | BV of int
 *)
-  (* First is element type, second is index type *)
+  (* First is element type, second is index type, and third is the size *)
   | Array of t * t
   | Abstr of string
 
@@ -92,7 +92,7 @@ module Kindtype_node = struct
     | BV i, _ -> false
 *)
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
-    | Array (i1, t1), _ -> false
+    | Array (_, _), _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
     | Abstr _, _ -> false
       
@@ -209,7 +209,7 @@ let rec pp_print_type_node ppf = function
   | Array (s, t) -> 
     Format.fprintf
       ppf 
-      "Array (%a) (%a)" 
+      "(Array %a %a)"
       pp_print_type s 
       pp_print_type t
 
@@ -340,12 +340,12 @@ let get_all_abstr_types () =
 
 let rec is_int { Hashcons.node = t } = match t with
   | Int -> true 
-  | Array (_, t) -> is_int t
+  | Array (t, _) -> false (* is_int t *)
   | _-> false
 
 let rec is_int_range { Hashcons.node = t } = match t with
   | IntRange (_,_,Range) -> true 
-  | Array (_, t) -> is_int_range t
+  | Array (t, _) -> false (* is_int_range t *)
   |  _ -> false
 
 let rec is_enum { Hashcons.node = t } = match t with
@@ -354,12 +354,12 @@ let rec is_enum { Hashcons.node = t } = match t with
 
 let rec is_bool { Hashcons.node = t } = match t with
   | Bool -> true
-  | Array (_, t) -> is_bool t
+  | Array (t, _) -> false (* is_bool t *)
   |  _ -> false
 
 let rec is_real { Hashcons.node = t } = match t with
   | Real -> true
-  | Array (_, t) -> is_real t
+  | Array (t, _) -> false (* is_real t *)
   | _ -> false
 
 
@@ -402,6 +402,13 @@ let elem_type_of_array = function
   | _ -> raise (Invalid_argument "elem_type_of_array")
 
 
+(* Return element of nested array type *)
+let rec last_elem_type_of_array = function 
+  | { Hashcons.node = Array (e,_) } when is_array e -> last_elem_type_of_array e
+  | { Hashcons.node = Array (e,_) } -> e
+  | _ -> assert false
+
+
 let constructors_of_enum = function
   | { Hashcons.node = IntRange (l, _, Enum) } ->
     (try get_constrs_of_num l
@@ -423,7 +430,7 @@ let name_of_enum = function
 
 (* Check if [t1] is a subtype of [t2] *)
 let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } = 
-
+  
   match t1, t2 with 
 
     (* Types are identical *)
@@ -443,14 +450,15 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     (* Array is a subtype of array if both index type and element type
        are subtype *)
     | Array (i1, t1), Array (i2, t2) ->
-      (check_type i1 i2) && (check_type t1 t2)
+      (check_type i1 i2) (* && (check_type t2 t1) *)
 
     (* No other subtype relationships *)
     | _ -> false
 
 
-let generalize t = match node_of_type t with
+let rec generalize t = match node_of_type t with
   | IntRange (_,_,Range) -> t_int
+  | Array (e, i) -> mk_array (generalize e) (generalize i)
   | _ -> t
 
 

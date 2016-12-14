@@ -27,6 +27,7 @@ module TS = TransSys
 module TM = Term.TermMap
 module TH = Term.TermHashtbl
 module SVS = StateVar.StateVarSet
+module SVH = StateVar.StateVarHashtbl
 module IntM = Map.Make (struct type t = int let compare = compare end)
 module SMT  : SolverDriver.S = GenericSMTLIBDriver
 
@@ -280,6 +281,12 @@ let declare_state_var fmt uf =
   declare_fun fmt fun_symbol arg_sorts res_sort
 
 
+(* Declare select functions *)
+let declare_selects fmt =
+  if not (Flags.Arrays.smt ()) then
+    List.iter (declare_const fmt) (StateVar.get_select_ufs ())
+
+
 (* Define a new function symbol as an abbreviation for an expression *)
 let define_fun ?(trace_lfsc_defs=false) fmt fun_symbol arg_vars res_sort defn = 
 
@@ -465,7 +472,9 @@ let under_approx sys k invs prop =
 
   (* Asserting transition relation up to k *)
   for i = 1 to k do
-    TransSys.trans_of_bound sys (Numeral.of_int i)
+    TransSys.trans_of_bound
+      (Some (SMTSolver.declare_fun solver))
+      sys (Numeral.of_int i)
     |> SMTSolver.assert_term solver;
   done;
 
@@ -868,7 +877,9 @@ let rec find_bound sys solver k kmax invs prop =
   ) ;
   
   (* Asserting transition relation. *)
-  TransSys.trans_of_bound sys (Numeral.of_int k)
+  TransSys.trans_of_bound
+    (Some (SMTSolver.declare_fun solver))
+    sys (Numeral.of_int k)
   |> SMTSolver.assert_term solver;
 
   match try_at_bound sys solver k invs prop [] with
@@ -893,7 +904,9 @@ let unroll_trans_actlits sys solver kmax =
   let rec fill acc prev = function
     | k when k > kmax -> acc
     | k ->
-      let tk = TransSys.trans_of_bound sys (Numeral.of_int k) in
+      let tk = TransSys.trans_of_bound
+          (Some (SMTSolver.declare_fun solver))
+          sys (Numeral.of_int k) in
       let tuptok = match prev with Some p -> Term.mk_and [p; tk] | _ -> tk in
       let a = actlitify ~imp:true solver tuptok in
       fill (IntM.add k a acc) (Some a) (k + 1)
@@ -1116,7 +1129,7 @@ let minimize_invariants sys invs =
      prop *)
   let kmin, uinvs = match min_strategy with
     | `Fwd -> find_bound sys solver 1 k invs prop
-    | `Bwd -> find_bound_back sys solver k invs prop
+    | `Bwd -> find_bound_back sys solver 3 invs prop
     | `FrontierDicho -> find_bound_frontier_dicho sys solver k invs prop
     | `Dicho -> find_bound_dicho sys solver k invs prop
   in
@@ -1207,7 +1220,15 @@ let add_logic fmt sys =
   (* Specify logic to help some solvers check the certificate *)
   match logic with
   | `None -> ()
-  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic 
+  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic
+
+
+  
+let add_arrays fmt =
+  (* Add farray declaration *)
+  fprintf fmt "(declare-sort FArray 2)@.";
+  (* Add select functions *)
+  declare_selects fmt
 
 
 (* Populate the headers of the certificate *)
@@ -1236,7 +1257,9 @@ let add_header fmt sys k init_n prop_n trans_n phi_n =
   set_info fmt "certif" (sprintf "\"(%d , %s)\"" k phi_n);
   fprintf fmt "@.";
 
-  add_logic fmt sys
+  add_logic fmt sys;
+
+  add_arrays fmt
 
 
 (* Populate the headers of the certificate *)
@@ -1277,9 +1300,16 @@ let monolithic_header fmt description sys init_n prop_n trans_n phi_n k =
   fprintf fmt "@.";
 
   (* Specify logic to help some solvers check the certificate *)
-  match logic with
+  begin match logic with
   | `None -> ()
-  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic 
+  | _ -> fprintf fmt "(set-logic %a)@." SMT.pp_print_logic logic
+  end;
+
+  (* Add farray declaration *)
+  fprintf fmt "(declare-sort FArray 2)@.";
+  
+  (* Add select functions *)
+  declare_selects fmt
 
 
 (************************************************)
@@ -1486,6 +1516,7 @@ let export_system ~trace_lfsc_defs
 
   if trace_lfsc_defs then begin
     add_logic fmt sys;
+    add_arrays fmt;
     add_decl_index fmt (-1);
   end;
   
@@ -1510,6 +1541,7 @@ let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
         ~add_prefix:(fun fmt ->
             if trace_lfsc_defs then begin
               add_logic fmt sys;
+              add_arrays fmt;
               add_decl_index fmt (-1)
             end else ())
         definitions_files filename |> Unix.out_channel_of_descr
@@ -1572,6 +1604,7 @@ let mononames_base_check sys dirname file definitions_files k names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
+          add_arrays fmt;
           add_decl_index fmt k)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
@@ -1612,6 +1645,7 @@ let mononames_induction_check sys dirname file definitions_files k names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
+          add_arrays fmt;
           add_decl_index fmt k)
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
@@ -1647,6 +1681,7 @@ let mononames_implication_check sys dirname file definitions_files names =
   let od = files_cat_open
       ~add_prefix:(fun fmt ->
           add_logic fmt sys;
+          add_arrays fmt;
           add_decl_index fmt (-1))
       definitions_files filename in
   let oc = Unix.out_channel_of_descr od in
@@ -2311,11 +2346,26 @@ let mk_inst init_flag sys formal_vars =
       map_up;
       guard_clock = fun _ t -> t } ]
 
+
+let add_scope_and_register_bounds scope orig_tbl dest_tbl sv =
+  let sv' = add_scope_state_var scope sv in
+  begin
+    try SVH.add dest_tbl sv' (SVH.find orig_tbl sv)
+    with Not_found -> ()
+  end;
+  sv'
+  
+
 (* Create a system that calls the Kind2 system [kind2_sys] and the jKind system
    [jkind_sys] in parallel synchronous composition and observes the values of
    their state variables. All variables are put under a new scope. *)
 let merge_systems lustre_vars kind2_sys jkind_sys =
 
+  let kind2_bounds = TransSys.get_state_var_bounds kind2_sys in
+  let jkind_bounds = TransSys.get_state_var_bounds jkind_sys in
+  let bounds = SVH.copy kind2_bounds in
+  SVH.iter (SVH.add bounds) jkind_bounds;
+  
   (* Remember the original state variables*)
   let orig_kind2_vars = TS.state_vars kind2_sys in
   let orig_jkind_vars = TS.state_vars jkind_sys in
@@ -2325,8 +2375,12 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
                   |> add_scope_state_var [obs_name] in
 
   (* Create versions of variables with the new scope *)
-  let kind2_vars = List.map (add_scope_state_var [obs_name]) orig_kind2_vars in
-  let jkind_vars = List.map (add_scope_state_var [obs_name]) orig_jkind_vars in
+  let kind2_vars =
+    List.map (add_scope_and_register_bounds [obs_name] kind2_bounds bounds)
+      orig_kind2_vars in
+  let jkind_vars =
+    List.map (add_scope_and_register_bounds [obs_name] jkind_bounds bounds)
+      orig_jkind_vars in
   let state_vars =
     (* init_flag :: *)
     kind2_vars @ jkind_vars |>
@@ -2407,6 +2461,8 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       init_flag
       []
       state_vars
+      bounds
+      []
       []
       init_uf
       init_args
@@ -2442,6 +2498,7 @@ let export_obs_system ~trace_lfsc_defs
         ~add_prefix:(fun fmt ->
             if trace_lfsc_defs then begin
               add_logic fmt kind2_sys;
+              add_arrays fmt;
               add_decl_index fmt (-1)
             end else ())
         definitions_files filename |> Unix.out_channel_of_descr

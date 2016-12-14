@@ -32,7 +32,7 @@ type prop_status =
   | PropInvariant of Certificate.t
 
   (* Property is false at some step *)
-  | PropFalse of (StateVar.t * Model.term_or_lambda list) list
+  | PropFalse of (StateVar.t * Model.value list) list
 
 
 (* A property of a transition system *)

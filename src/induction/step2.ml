@@ -131,10 +131,10 @@ let mk_ctx in_sys param sys =
   add_all_invariants solver sys ;
 
   (* Transition relation (0,1). *)
-  Sys.trans_of_bound sys Numeral.one
+  Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Numeral.one
   |> Smt.assert_term solver ;
   (* Transition relation (1,2). *)
-  Sys.trans_of_bound sys Numeral.(succ one)
+  Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Numeral.(succ one)
   |> Smt.assert_term solver ;
 
   {

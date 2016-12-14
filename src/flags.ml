@@ -322,6 +322,11 @@ module Smt = struct
     (* User did not choose SMT solver *)
     | `detect ->
       try
+        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
+        set_solver `Yices_native;
+        set_yices_bin exec;
+      with Not_found ->
+      try
         let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
         set_solver `Z3_SMTLIB;
         set_z3_bin exec;
@@ -330,11 +335,6 @@ module Smt = struct
         let exec = find_solver ~fail:false "CVC4" (cvc4_bin ()) in
         set_solver `CVC4_SMTLIB;
         set_cvc4_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
-        set_solver `Yices_native;
-        set_yices_bin exec;
       with Not_found ->
       try
         let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
@@ -1124,6 +1124,93 @@ module Certif = struct
 end
 
 
+(* Arrays flags. *)
+module Arrays = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "arrays"
+  (* Short description of the module. *)
+  let desc = "arrays flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 extends Lustre with a syntax for recursive whole arrays@ \
+      definitions. The syntax and semantics are described in@ \
+      Kind 2 documentation.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let smt_default = false
+  let smt = ref smt_default
+  let _ = add_spec
+    "--smt_arrays"
+    (bool_arg smt)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Use the builtin theory of arrays in solvers.@ Default: %a@]"
+        fmt_bool smt_default
+    )
+  let smt () = !smt
+
+  let inline_default = true
+  let inline = ref inline_default
+  let _ = add_spec
+    "--inline_arrays"
+    (bool_arg inline)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Inline arrays whose bound is statically known.@ Default: %a@]"
+        fmt_bool inline_default
+    )
+  let inline () = !inline
+
+  let recdef_default = false
+  let recdef = ref recdef_default
+
+  let recdef_action b =
+    recdef := b;
+    match Smt.solver () with
+    | `CVC4_SMTLIB -> ()
+    | _ ->
+      raise (Arg.Bad 
+               "Recursive encoding of arrays can only be used with CVC4. \
+                Use the flag --smtsolver CVC4")  
+
+  let _ = add_spec
+    "--arrays_rec"
+    (Arg.Bool recdef_action)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Define recurvsive functions for arrays (only if previously@ \
+         selected CVC4 as the SMT solver).@ Default: %a@]"
+        fmt_bool recdef_default
+    )
+  let recdef () = !recdef
+
+  
+  let var_size_default = false
+  let var_size = ref var_size_default
+  let _ = add_spec
+    "--var_array_size"
+    (bool_arg var_size)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Allow variable arrays size (Dangerous).@ Default: %a@]"
+        fmt_bool var_size_default
+    )
+  let var_size () = !var_size
+
+end
+
 
 (* Testgen flags. *)
 module Testgen = struct
@@ -1525,6 +1612,9 @@ let module_map = [
   ) ;
   (Contracts.id,
     (module Contracts: FlagModule)
+  ) ;
+  (Arrays.id,
+    (module Arrays: FlagModule)
   ) ;
   (Certif.id,
     (module Certif: FlagModule)

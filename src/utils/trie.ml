@@ -26,11 +26,11 @@
    to the path from the root, if any. Therefore, a trie can be defined
    as soon as a map over the elements of the list is given. *)
 
-(* Input signature of a map
-
-   TODO: implement the remaining functions, becuase a trie extends
+(* TODO: implement the remaining functions, becuase a trie extends
    this signature *)
-module type M = sig
+
+(* Output signature is a map extended with special functions *)
+module type S = sig
   type key
   type +'a t
   val empty : 'a t
@@ -57,12 +57,6 @@ module type M = sig
   val find : key -> 'a t -> 'a 
   val map : ('a -> 'b) -> 'a t -> 'b t
   val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
-  
-end
-
-(* Output signature is a map extended with special functions *)
-module type S = sig
-  include M 
   val find_prefix : key -> 'a t -> 'a t
   val mem_prefix : key -> 'a t -> bool
   val keys : 'a t -> key list
@@ -78,11 +72,12 @@ module type S = sig
     ('b, Format.formatter, unit) format -> Format.formatter -> 'a t -> unit
 end
 
-module Make (M : M) = struct
+module Make (Ord: Map.OrderedType) = struct
 
-  (* The keys in the trie are lists of keys of the input map module *)
-  type key = M.key list
+  type key = Ord.t list
 
+  module M = Map.Make (Ord)
+  
   (* This trie stores information at the leaves only. An inner node
      stores the subtries for each key in a map. An empty trie does
      have neither an inner node nor a leaf at the root, we need a
@@ -589,7 +584,7 @@ module Make (M : M) = struct
           
           List.for_all2 
             (fun (k1, t1) (k2, t2) -> 
-               if k1 = k2 then 
+               if Ord.compare k1 k2 = 0 then 
                  (for_all2' (k1 :: revp) p t1 t2) 
                else
                  raise (Invalid_argument "Trie.for_all2"))
@@ -617,7 +612,7 @@ module Make (M : M) = struct
           
           List.exists2 
             (fun (k1, t1) (k2, t2) -> 
-               if k1 = k2 then 
+               if Ord.compare k1 k2 = 0 then 
                  (exists2' (k1 :: revp) p t1 t2) 
                else
                  raise (Invalid_argument "Trie.exists2"))

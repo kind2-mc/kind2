@@ -411,6 +411,22 @@ module Certif : sig
 end
 
 
+(** {2 Arrays flags} *)
+module Arrays : sig
+
+  (** Use builtin theory of arrays in SMT solver *)
+  val smt : unit -> bool
+
+  (** Inline arrays with fixed bounds *)
+  val inline : unit -> bool
+
+  (** Define recursive functions for arrays *)
+  val recdef : unit -> bool
+
+  (** Allow non constant array sizes  *)
+  val var_size : unit -> bool
+end
+
 (** {2 Testgen flags} *)
 
 module Testgen : sig

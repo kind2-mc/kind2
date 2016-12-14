@@ -187,8 +187,11 @@ val mk_is_int : t -> t
 (** Create a predicate for divisibility by a constant integer *)
 val mk_divisible : Numeral.t -> t -> t
 
-(** Create a predicate for divisibility by a constant integer *)
+(** Create select from an array at a particular index *)
 val mk_select : t -> t -> t
+
+(** Functionnaly update an array at a given index *)
+val mk_store : t -> t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)
@@ -214,10 +217,10 @@ val mk_var : Var.t -> t
 val mk_let : (Var.t * t) list -> t -> t
 
 (** Return a hashconsed existentially quantified term *)
-val mk_exists : Var.t list -> t -> t
+val mk_exists : ?fundef:bool -> Var.t list -> t -> t
 
 (** Return a hashconsed universally quantified term *)
-val mk_forall : Var.t list -> t -> t
+val mk_forall : ?fundef:bool -> Var.t list -> t -> t
 
 (** {1 Constant terms} *)
 
@@ -331,6 +334,9 @@ val node_of_term : t -> T.t_node
 (** Flatten top node of term *)
 val destruct : t -> T.flat
 
+(** Returns [true] if the term has quantifiers *)
+val has_quantifier : t -> bool
+
 (** Convert a flat term to a term *)
 val construct : T.flat -> t
 
@@ -404,12 +410,19 @@ val bool_of_term : t -> bool
 (** Return true if the term is an application of the select operator *)
 val is_select : t -> bool
 
+(** Return true if the term is an application of the store operator *)
+val is_store : t -> bool
+
 (** Return the indexes and the array variable of the select operator
 
     The array argument of a select is either another select operation
     or a variable. For the expression [(select (select A j) k)] return
     the pair [A] and [[j; k]]. *)
 val indexes_and_var_of_select : t -> Var.t * t list
+
+val array_and_indexes_of_select : t -> t * t list
+
+val var_of_select_store : t -> Var.t
 
 (** {1 Pretty-printing} *)
 
@@ -437,10 +450,13 @@ val string_of_lambda : lambda -> string
     function is called at each node of the term with the the term
     being evaluated, and the list of values computed for the
     subterms. Let bindings are lazily unfolded. *)
-val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
+val eval_t : ?fail_on_quantifiers:bool -> (T.flat -> 'a list -> 'a) -> t -> 'a
 
 (** Beta-evaluate a lambda expression *)
 val eval_lambda : lambda -> t list -> t
+
+(** Partialy Beta-evaluate a lambda expression *)
+val partial_eval_lambda : lambda -> t list -> lambda
 
 (** Tail-recursive bottom-up right-to-left map on the term
     
@@ -455,6 +471,9 @@ val map : (int -> T.t -> T.t) -> t -> t
     state var mapping. *)
 val substitute_variables : (StateVar.t * StateVar.t) list -> t -> t
 *)
+
+(** Apply a substitution variable -> term *)
+val apply_subst : (Var.t * t) list -> t -> t
 
 (** Return a new term with each state variable replaced 
 
@@ -504,8 +523,37 @@ val vars_at_offset_of_term : Numeral.t -> t -> Var.VarSet.t
     the term. *)
 val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
 
-val stats : unit -> int * int * int * int * int * int
 
+(** {1 Arrays } *)
+
+(** Return the select symbols occurring in the term *)
+val select_symbols_of_term : t -> Symbol.SymbolSet.t
+
+(** Return the terms of the form (select ...) that appear in a term *)
+val select_terms : t -> TermSet.t
+
+(** Convert terms of the form [(select (select a i) j)] to [(select a i j)] for
+    multi-dimensional arrays *)
+val convert_select : t -> t
+
+(** Use fresh function symbols to encode partial select applications and add
+    constraint that [forall i, fresh a i = select a i], returns the modified
+    term and the list of new fresh symbols to declare. This is only useful when
+    using the fun-rec option of CVC4, it does nothing otherwise. *)
+val partial_selects : t -> t * UfSymbol.t list
+
+(** Inverse transformation of [!convert_select] *)
+val reinterpret_select : t -> t
+
+(** Return (array) indexes of a state variable appearing in a term *)
+val indexes_of_state_var : StateVar.t -> t -> t list list
+
+
+(** {1 Statistics} *)
+
+(** return statistics of hashconsing *)
+val stats : unit -> int * int * int * int * int * int
+    
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

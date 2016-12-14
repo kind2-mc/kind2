@@ -251,7 +251,7 @@ let mk_state_var
     state_var_name
     state_var_scope
     state_var_type = 
-
+  
   try 
 
     (* Get previous declaration of identifier *)
@@ -417,6 +417,61 @@ let fold f a = Hstate_var.fold f ht a
 let iter f = 
   Hstate_var.iter f ht
 
+
+(*******************************)
+(* Encoding of array variables *)
+(*******************************)
+
+let select_prefix = "_select"
+
+(** @deprecated Not good with node calls, use {!encode_select_type} instead *)
+let encode_select_name sv =
+  let sv_uf = uf_symbol_of_state_var sv in
+  let ty = UfSymbol.res_type_of_uf_symbol sv_uf in
+  assert (Type.is_array ty);
+  let ty_indexes = Type.all_index_types_of_array ty in
+  (* add type for array *)
+  let ty_args = ty :: ty_indexes in
+  let ty_elem = Type.last_elem_type_of_array ty in
+  let name =
+    select_prefix ^ (*string_of_int (List.length ty_indexes) ^*) "_" ^
+    (UfSymbol.string_of_uf_symbol sv_uf) (* ^ *)
+    (* "@" ^ (Numeral.string_of_numeral off) *) in
+  UfSymbol.mk_uf_symbol name ty_args ty_elem
+
+module TyH = Type.TypeHashtbl
+
+(* select functions *)
+let array_ty_to_select_fun = TyH.create 7
+
+let encode_select_type =
+  let cpt = ref 0 in
+  fun sv ->
+    (* let sv_uf = uf_symbol_of_state_var sv in *)
+    let ty = type_of_state_var sv |> Type.generalize in
+    assert (Type.is_array ty);
+    try TyH.find array_ty_to_select_fun ty
+    with Not_found ->
+      let ty_indexes = Type.all_index_types_of_array ty in
+      (* add type for array *)
+      let ty_args = ty :: ty_indexes in
+      let ty_elem = Type.last_elem_type_of_array ty in
+      incr cpt;
+      let name = select_prefix ^ "_" ^ string_of_int !cpt in
+      let f = UfSymbol.mk_uf_symbol name ty_args ty_elem in
+      TyH.add array_ty_to_select_fun ty f;
+      f
+
+(* Encoding select funtion is done byt type (i.e. one select by array type).
+   The select function performs all projections if the array is
+   multidimensional. This means you should have something like [(select_1 m 0
+   3)] in case [m] is a matrix *)
+let encode_select = encode_select_type
+
+(* Return select function that were created (this is used for declaration so
+   it's better to return more - all - than not enough) *)
+let get_select_ufs () =
+  TyH.fold (fun ty f acc -> f :: acc) array_ty_to_select_fun []
 
 (* 
    Local Variables:

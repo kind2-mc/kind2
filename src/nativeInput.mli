@@ -42,14 +42,6 @@ val dump_native_to : TransSys.t -> string -> unit
 (** Dump a transition system to a file in native format *)
 val dump_native : TransSys.t -> unit
 
-(** {2 Pretty printing of counter-examples} *)
-  
-val pp_print_path_pt :
-  Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
-
-val pp_print_path_xml :
-  Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
-
 
 (* 
    Local Variables:
