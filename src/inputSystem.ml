@@ -38,6 +38,19 @@ let read_input_native input_file = Native (NativeInput.of_file input_file)
 
 let read_input_horn input_file = assert false
 
+let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
+= function
+  | Lustre subsystem ->
+    S.all_subsystems subsystem
+    |> List.fold_left (
+      fun acc { S.scope ; S.source = { N.silent_contracts } } ->
+        (scope, silent_contracts) :: acc
+    ) []
+
+  | Native subsystem -> assert false
+
+  | Horn subsystem -> assert false
+
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre subsystem ->
     S.all_subsystems subsystem

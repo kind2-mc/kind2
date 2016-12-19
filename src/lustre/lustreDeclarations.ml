@@ -2297,13 +2297,18 @@ and eval_node_decl
     with
     | ctx, None -> ctx, contract_spec
     | ctx, Some call ->
-      (* Format.printf "  Using contract from `%s` as candidate.@.@." target ; *)
+      let ctx =
+        C.current_node_map ctx (
+          fun ({ N.silent_contracts } as node) -> {
+            node with N.silent_contracts = target :: silent_contracts
+          }
+        )
+      in
       ctx, augment_contract contract_spec call
   in
 
 
   (* Attempt to parse contract logged in previous runs. *)
-  (* |===| Deactivated, can cause name clashes with other contracts. *)
   let ctx, contract_spec =
     let target = Filename.concat dir Names.contract_gen_file in
     match
@@ -2312,7 +2317,13 @@ and eval_node_decl
     with
     | ctx, None -> ctx, contract_spec
     | ctx, Some call ->
-      (* Format.printf "  Using contract from `%s` as candidate.@.@." target ; *)
+      let ctx =
+        C.current_node_map ctx (
+          fun ({ N.silent_contracts } as node) -> {
+            node with N.silent_contracts = target :: silent_contracts
+          }
+        )
+      in
       ctx, augment_contract contract_spec call
   in
 

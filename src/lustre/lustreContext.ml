@@ -479,7 +479,6 @@ let get_node { node } = node
 
 let prev { prev } = prev
 
-
 (* Return a contract node by its identifier *)
 let contract_node_decl_of_ident { contract_nodes } ident = 
 

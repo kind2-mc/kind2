@@ -225,6 +225,9 @@ type t = {
 
   state_var_expr_map : LustreExpr.t StateVar.StateVarHashtbl.t;
 
+  silent_contracts : string list ;
+  (** Contracts that were silently loaded. *)
+
 }
 
 
