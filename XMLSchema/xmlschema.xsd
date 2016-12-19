@@ -4,10 +4,11 @@
 
   <!-- |===| Simple types. -->
 
-  <!-- Log class. Among "info", "warn" and "fatal" -->
+  <!-- Log class. Among "info", "note", "warn" and "fatal" -->
   <xs:simpleType name="logClass">
     <xs:restriction base="xs:string">
       <xs:enumeration value="info"/>
+      <xs:enumeration value="note"/>
       <xs:enumeration value="warn"/>
       <xs:enumeration value="fatal"/>
     </xs:restriction>
