@@ -129,7 +129,8 @@ let main () =
     function
     | (_, []) -> ()
     | (scope,contracts) ->
-      Event.log L_note "Silent contract(s) loaded for system %a: @[<v>%a@]"
+      Event.log L_note "Silent contract%s loaded for system %a: @[<v>%a@]"
+        (if 1 < List.length contracts then "s" else "")
         Scope.pp_print_scope scope
         (pp_print_list Format.pp_print_string "@ ") contracts
   ) ;
