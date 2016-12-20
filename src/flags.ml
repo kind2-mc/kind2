@@ -1918,8 +1918,8 @@ module Global = struct
   let enable_default_after = [
     `BMC ; `IND ; `IND2 ; `IC3 ;
     `INVGEN ; `INVGENOS ;
-    (* `INVGENINT ; *) `INVGENINTOS ;
-    (* `INVGENREAL ; *) `INVGENREALOS ;
+    (* `INVGENINT ; `INVGENINTOS ; *)
+    (* `INVGENREAL ; `INVGENREALOS ; *)
   ]
   let enabled = ref enable_default_init
   let disable modul3 =
