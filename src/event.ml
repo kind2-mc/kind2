@@ -48,7 +48,7 @@ let div_by_zero_text prop_name = [
 
 (* Messages to be relayed between processes *)
 type event = 
-  | Invariant of string list * Term.t * Certificate.t 
+  | Invariant of string list * Term.t * Certificate.t * bool
   | PropStatus of string * Property.prop_status
   | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
 
@@ -56,9 +56,10 @@ type event =
 (* Pretty-print an event *)
 let pp_print_event ppf = function 
 
-  | Invariant (s, t, _) -> 
-    Format.fprintf ppf "@[<hv>Invariant for %a@ %a@]" 
+  | Invariant (s, t, _, two_state) -> 
+    Format.fprintf ppf "@[<hv>Invariant for %a%s@ %a@]"
       (pp_print_list Format.pp_print_string ".") s
+      (if two_state then " (2-state)" else "")
       Term.pp_print_term t
 
   | PropStatus (p, Property.PropUnknown) -> 
@@ -113,9 +114,11 @@ struct
 
       let k = try int_of_string (pop ()) with 
         | Failure _ -> raise Messaging.BadMessage 
-      in 
+      in
 
-      Invariant (l, t, (k, phi))
+      let ts = (Marshal.from_string (pop ()) 0 : bool) in
+
+      Invariant (l, t, (k, phi), ts)
 
     | "PROP_UNKNOWN" -> 
 
@@ -196,7 +199,7 @@ struct
   (* Convert a message to strings *)
   let strings_of_message = function 
 
-    | Invariant (s, t, (k, phi)) -> 
+    | Invariant (s, t, (k, phi), two_state) ->
 
       (* Serialize term to string *)
       let term_string = Marshal.to_string t [Marshal.No_sharing] in
@@ -206,8 +209,18 @@ struct
       
       (* Serialize scope to string *)
       let scope_string = Marshal.to_string s [Marshal.No_sharing] in
+
+      (* Serialize two state flag to string. *)
+      let ts_string = Marshal.to_string two_state [Marshal.No_sharing] in
       
-      [string_of_int k; phi_string; scope_string; term_string; "INVAR"]
+      [
+        ts_string ;
+        string_of_int k ;
+        phi_string ;
+        scope_string ;
+        term_string ;
+        "INVAR"
+      ]
 
     | PropStatus (p, Property.PropUnknown) -> 
 
@@ -915,7 +928,7 @@ let log_analysis_start sys param =
       @.@."
       Pretty.print_double_line ()
       Scope.pp_print_scope info.Analysis.top
-      Analysis.pp_print_param param
+      (Analysis.pp_print_param false) param
 
   | F_xml ->
     (* Splitting abstract and concrete systems. *)
@@ -927,7 +940,7 @@ let log_analysis_start sys param =
     (* Counting the number of assumption for each subsystem. *)
     let assumption_count =
       info.Analysis.assumptions
-      |> List.fold_left (fun map (key, _) ->
+      |> Analysis.assumptions_fold (fun map key _ ->
         let cpt = try (Scope.Map.find key map) + 1 with Not_found -> 1 in
         Scope.Map.add key cpt map
       ) Scope.Map.empty
@@ -1035,17 +1048,14 @@ let log_interruption signal =
 
 
 (* Broadcast a scoped invariant *)
-let invariant scope term cert = 
-
+let invariant scope term cert two_state = 
   (* Update time in case we are not running in parallel mode *)
   Stat.update_time Stat.total_time ;
   Stat.update_time Stat.analysis_time ;
-  
   try
-    
     (* Send invariant message *)
-    EventMessaging.send_relay_message (Invariant (scope, term, cert))
-
+    Invariant (scope, term, cert, two_state)
+    |> EventMessaging.send_relay_message
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
 
@@ -1196,7 +1206,11 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log (log_level_of_int lvl) "%s" msg; 
+               let lines = Str.(split (regexp "\n") msg) in
+
+               log (log_level_of_int lvl) "@[<hov>%a@]" (
+                pp_print_list Format.pp_print_string "@ "
+               ) lines ;
 
                (* No relay message *)
                accum
@@ -1258,11 +1272,11 @@ let check_termination () =
 
 (* Update transition system from event list *)
 let update_trans_sys_sub input_sys analysis trans_sys events =
-  let insert_inv scope map (term, two_state) =
+  let insert_inv scope map two_state term =
     let sets =
       ( try SMap.find scope map with Not_found -> TSet.empty, TSet.empty )
       |> fun (os, ts) ->
-        if two_state then TSet.add term os, ts else os, TSet.add term ts
+        if two_state then os, TSet.add term ts else TSet.add term os, ts
     in
     SMap.add scope sets map
   in
@@ -1274,7 +1288,7 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
     | [] -> (invars, prop_status)
 
     (* Invariant discovered *)
-    | (m, Invariant (s, t, cert)) :: tl -> 
+    | (m, Invariant (s, t, cert, two_state)) :: tl -> 
 
       (* Property status if received invariant is a property *)
       let tl' =
@@ -1292,8 +1306,8 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
       
       let invars =
         (* Add invariant to transtion system *)
-        TransSys.add_scoped_invariant trans_sys s t cert
-        |> insert_inv s invars
+        TransSys.add_scoped_invariant trans_sys s t cert two_state
+        |> insert_inv s invars two_state
       in
 
       (* Continue with invariant added to accumulator *)
@@ -1341,8 +1355,8 @@ let update_trans_sys_sub input_sys analysis trans_sys events =
 
       let invars =
         try (* Add proved property as invariant *)
-          TransSys.add_invariant trans_sys term cert
-          |> insert_inv scope invars
+          TransSys.add_invariant trans_sys term cert false
+          |> insert_inv scope invars false
         with Not_found -> (* Skip if named property not found *)
           invars
       in

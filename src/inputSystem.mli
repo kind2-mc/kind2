@@ -36,6 +36,9 @@ val translate_contracts_lustre : string -> string -> unit
 (** Read native input from file *)
 val read_input_native : string -> TransSys.t t
 
+(** Returns the silent contract associated to each system. *)
+val silent_contracts_of : 'a t -> (Scope.t * string list) list
+
 (** Returns the scopes of all the systems in an input systems, in topological
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list
@@ -43,7 +46,7 @@ val ordered_scopes_of : 'a t -> Scope.t list
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 val maximal_abstraction_for_testgen :
-  'a t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option
+  'a t -> Scope.t -> Analysis.assumptions -> Analysis.param option
 
 (** Return the next system to analyze and the systems to abstract *)
 val next_analysis_of_strategy :

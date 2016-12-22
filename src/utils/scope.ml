@@ -31,21 +31,25 @@ open Lib
 *)
 
 
+(* Pretty-print a scope *)
+let pp_print_scope ppf s =
+  Format.fprintf 
+    ppf
+    "@{<blue>%a@}"
+    (pp_print_list Ident.pp_print_ident ".")
+    s
+
 module Scope = struct 
 
   (* Scope as a sequence of identifiers *)
   type t = Ident.t list
       
   (* Equality on scopes *)
-  let equal s1 s2 = 
-    
-    try 
-      
-      (* Scopes are equal if all identifiers are equal *)
-      List.for_all2 Ident.equal s1 s2
-        
+  let equal s1 s2 =
+    (* Scopes are equal if all identifiers are equal *)
+    try List.for_all2 Ident.equal s1 s2
     (* Scopes of different lengths are not equal *)
-    with Invalid_argument _ -> false 
+    with Invalid_argument _ -> false
       
   (* Total order on scopes *)
   let compare s1 s2 = compare_lists compare s1 s2
@@ -59,15 +63,6 @@ include Scope
 module Set = Set.Make (Scope)
 
 module Map = Map.Make (Scope)
-
-(* Pretty-print a scope *)
-let pp_print_scope ppf s = 
-
-  Format.fprintf 
-    ppf
-    "@{<blue>%a@}"
-    (pp_print_list Ident.pp_print_ident ".")
-    s
 
 let to_string s = string_of_t pp_print_scope s
 

@@ -55,6 +55,9 @@ module type Graph = sig
   representative. *)
   val mk : term -> set -> graph
 
+  (** Checks whether at least one candidate mentions a state variable. *)
+  val has_svars : graph -> bool
+
   (** Mines a system and creates the relevant graphs.
   
   First boolean is [top_only], then [two_state]. Input function is applied to

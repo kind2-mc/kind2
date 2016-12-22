@@ -118,6 +118,7 @@ let xml_cls_of_level = function
   | L_fatal -> "fatal"
   | L_error -> "error"
   | L_warn -> "warn"
+  | L_note -> "note"
   | L_info -> "info"
   | L_debug -> "debug"
   | L_trace -> "trace"

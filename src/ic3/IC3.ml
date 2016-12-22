@@ -30,10 +30,6 @@ let debug_assert = true
 (* Solver instances and cleanup                                           *)
 (* ********************************************************************** *)
 
-
-(* Solver instance if created *)
-let ref_solver = ref None
-
 (* Interpolation instance if created *)
 let ref_interpolator = ref None
 
@@ -64,20 +60,7 @@ let on_exit _ =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  print_stats ();
-
-  (* Delete solver instance if created *)
-  (try 
-     match !ref_solver with 
-       | Some solver -> 
-         SMTSolver.delete_instance solver; 
-         ref_solver := None
-       | None -> ()
-   with 
-     | e -> 
-       Event.log L_error 
-         "Error deleting solver: %s" 
-         (Printexc.to_string e));
+  print_stats () ;
 
   (* Delete solvers in quantifier elimination*)
   QE.on_exit ()
@@ -1993,12 +1976,13 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                 in
 
                 (* Broadcast inductive clauses as invariants *)
-                List.iter (fun i ->
+                List.iter (
+                  fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
                     Event.invariant
-                      (TransSys.scope_of_trans_sys trans_sys) i cert)
-                  inductive_terms;
+                      (TransSys.scope_of_trans_sys trans_sys) i cert false
+                ) inductive_terms ;
 
                 (* Increment statistics *)
                 Stat.incr 
@@ -3039,9 +3023,6 @@ let main input_sys aparam trans_sys =
           | `None -> 1
           | `IA -> 3
       in
-
-      (* Save solver instance for clean exit *)
-      ref_solver := Some solver;
 
       (* Declare uninterpreted function symbols *)
       SMTSolver.trace_comment 

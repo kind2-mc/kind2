@@ -331,6 +331,7 @@ val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 
+val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
 
 

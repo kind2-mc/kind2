@@ -180,7 +180,8 @@ let rec wait_for_children child_pids =
 
 (* Polling loop *)
 let rec loop
-  done_at timeout_analysis_reached child_pids input_sys aparam trans_sys
+  ignore_props done_at timeout_analysis_reached
+  child_pids input_sys aparam trans_sys
 =
 
   handle_events input_sys aparam trans_sys ;
@@ -188,7 +189,7 @@ let rec loop
   let done_at' =
 
     (* All properties proved? *)
-    if TransSys.all_props_proved trans_sys then (
+    if TransSys.all_props_proved trans_sys && not ignore_props then (
 
       (* Has is_done been true in the last iteration? *)
       match done_at with
@@ -251,14 +252,14 @@ let rec loop
 
     (* Continue polling loop *)
     loop
-      done_at' timeout_analysis_reached child_pids input_sys aparam trans_sys
+      ignore_props done_at' timeout_analysis_reached
+      child_pids input_sys aparam trans_sys
 
   )
   
 
 (* Entry point *)
-let main child_pids input_sys aparam trans_sys =
-
+let main ignore_props child_pids input_sys aparam trans_sys =
   (* Building the function checking whether we reached the analysis timeout. *)
   let timeout_analysis = Flags.timeout_analysis () in
   let timeout_analysis_reached =
@@ -271,7 +272,9 @@ let main child_pids input_sys aparam trans_sys =
   in
 
   (* Run main loop *)
-  loop None timeout_analysis_reached child_pids input_sys aparam trans_sys
+  loop
+    ignore_props None timeout_analysis_reached
+    child_pids input_sys aparam trans_sys
 
 (* 
    Local Variables:

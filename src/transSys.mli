@@ -252,11 +252,8 @@ val mk_trans_sys :
   Term.t option * (Scope.t * Term.t) list ->
 
 
-  (** One-state invariants *)
-  (Term.t * Certificate.t) list -> 
-
-  (** Two-state invariants *)
-  (Term.t * Certificate.t) list -> 
+  (** Invariants. *)
+  Invs.t ->
 
   (** Created transition system and next starting value for fresh
       instance identifiers *)
@@ -517,24 +514,24 @@ val all_props_proved : t -> bool
 (** Add properties to the transition system *)
 val add_properties : t -> Property.t list -> t
 
-(** Add an invariant to the transition system.
-
-Returns the normalized terms and a boolean indicating whether it is one
-state. *)
-val add_invariant : t -> Term.t -> Certificate.t -> Term.t * bool
+(** Add an invariant to the transition system. *)
+val add_invariant : t -> Term.t -> Certificate.t -> bool -> Term.t
 
 (** Add an invariant to the transition system.
 
 Returns the normalized terms and a boolean indicating whether it is one
 state. *)
 val add_scoped_invariant :
-  t -> string list -> Term.t -> Certificate.t -> Term.t * bool
+  t -> string list -> Term.t -> Certificate.t -> bool -> Term.t
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t list
 
 (** Return invariants with their certificates *)
-val get_invariants : t -> (Term.t * Certificate.t) list
+val get_invariants : t -> Invs.t
+
+(** Returns the invariants for all (sub)systems. *)
+val get_all_invariants : t -> Invs.t Scope.Map.t
 
 (** Instantiate a term of a given scope from all instances of the
     system of that scope upwards to the top system

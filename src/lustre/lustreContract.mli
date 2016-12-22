@@ -65,18 +65,20 @@ type mode = {
   requires: svar list ;
   (** Ensures of the mode. *)
   ensures: svar list ;
+  (** Is this mode a candidate?. *)
+  candidate: bool ;
 }
 (** Creates a [mode]. *)
 val mk_mode:
   LustreIdent.t -> Lib.position -> string list ->
-  svar list -> svar list -> mode
+  svar list -> svar list -> bool -> mode
 
 (** Type of contracts. *)
 type t = {
   (** Assumptions of the contract. *)
   assumes: svar list ;
-  (** Guarantees of the contract. *)
-  guarantees: svar list ;
+  (** Guarantees of the contract (boolean is the [candidate] flag). *)
+  guarantees: (svar * bool) list ;
   (** Modes of the contract. *)
   modes: mode list ;
 }
@@ -86,13 +88,13 @@ val empty: unit -> t
 
 (** Creates a new contract from a set of assumes, a set of guarantess, and a
 list of modes. *)
-val mk: svar list -> svar list -> mode list -> t
+val mk: svar list -> (svar * bool) list -> mode list -> t
 
 (** Adds assumes to a contract. *)
 val add_ass: t -> svar list -> t
 
 (** Adds guarantees to a contract. *)
-val add_gua: t -> svar list -> t
+val add_gua: t -> (svar * bool) list -> t
 
 (** Adds modes to a contract. *)
 val add_modes: t -> mode list -> t

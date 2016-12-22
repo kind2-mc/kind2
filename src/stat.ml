@@ -121,6 +121,10 @@ let record_time ({ temp } as item) =
     (item.value <- item.value +. (Unix.gettimeofday () -. temp);
      item.temp <- 0.)
 
+(* Unpauses a timer previously paused by [record_time]. *)
+let unpause_time item =
+  item.temp <- (Unix.gettimeofday ())
+
 (* Record the time since the call to {!start_timer} of this item, do
    not stop the timer *)
 let update_time ({ temp } as item) = 

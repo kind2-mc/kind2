@@ -17,7 +17,7 @@
 *)
 
 (** Error the certification can raise. *)
-exception CertifError of (Format.formatter -> unit)
+exception CouldNotProve of (Format.formatter -> unit)
 
 (** Generate a certificate from a (possibly) proved system. It is written in
     the file <input_file>.certificate.smt2 placed in the current directory by

@@ -25,6 +25,13 @@ type 'a res =
 (** There was a problem. *)
 | Err of (Format.formatter -> unit)
 
+(** Unwraps a result. *)
+let unwrap = function
+  | Ok arg -> arg
+  | Err err ->
+    Format.printf "%t" err ;
+    Invalid_argument "Res.unwrap" |> raise
+
 (** Maps functions to [Ok] or [Err]. *)
 let map_res f_ok f_err = function
   | Ok arg -> Ok (f_ok arg)

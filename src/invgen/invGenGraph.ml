@@ -92,6 +92,9 @@ module type Graph = sig
   representative. *)
   val mk : term -> set -> graph
 
+  (** Checks whether at least one candidate mentions a state variable. *)
+  val has_svars : graph -> bool
+
   (** Mines a system and creates the relevant graphs.
   
   First boolean is [top_only], then [two_state]. Input function is applied to
@@ -230,6 +233,22 @@ module Make (Dom: DomainSig) : Graph = struct
     ) ;
     values = Map.create 107 ;
   }
+
+  (** Checks whether at least one candidate mentions a state variable. *)
+  let has_svars { classes } =
+    Map.fold (
+      fun rep clss acc ->
+        acc || (
+          Term.state_vars_of_term rep
+          |> StateVar.StateVarSet.is_empty |> not
+        ) || (
+          Set.exists (
+            fun term ->
+              Term.state_vars_of_term term
+              |> StateVar.StateVarSet.is_empty |> not
+          ) clss
+        )
+    ) classes false
 
   (** Mines a system and creates the relevant graphs. *)
   let mine top_only two_state param sys do_stuff =
@@ -1200,6 +1219,22 @@ module MakeEq (Dom: DomainSig) : Graph = struct
     let map = Map.create 107 in
     Map.replace map term set ;
     map
+
+  (** Checks whether at least one candidate mentions a state variable. *)
+  let has_svars graph =
+    Map.fold (
+      fun rep clss acc ->
+        acc || (
+          Term.state_vars_of_term rep
+          |> StateVar.StateVarSet.is_empty |> not
+        ) || (
+          Set.exists (
+            fun term ->
+              Term.state_vars_of_term term
+              |> StateVar.StateVarSet.is_empty |> not
+          ) clss
+        )
+    ) graph false
   
 
   let mine top_only two_state param sys do_stuff =

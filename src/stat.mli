@@ -80,6 +80,9 @@ val start_timer : float_item -> unit
     statistics item, stop the timer *)
 val record_time : float_item -> unit
 
+(** Unpauses a timer previously paused by [record_time]. *)
+val unpause_time : float_item -> unit
+
 (** Record the time since the call to {!start_timer} of this
     statistics item, do not stop the timer *)
 val update_time : float_item -> unit

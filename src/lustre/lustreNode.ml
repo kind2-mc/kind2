@@ -77,6 +77,9 @@ type state_var_source =
   (* Local defined stream *)
   | Local
 
+  (* Invisible Kind 2 local. *)
+  | KLocal
+
   (* Tied to a node call. *)
   | Call
 
@@ -193,6 +196,9 @@ type t = {
 
   state_var_expr_map : LustreExpr.t SVT.t;
 
+  silent_contracts : string list ;
+  (** Contracts that were silently loaded. *)
+
 }
 
 
@@ -225,6 +231,7 @@ let empty_node name is_extern = {
   state_var_source_map = SVM.empty;
   oracle_state_var_map = SVT.create 17;
   state_var_expr_map = SVT.create 17;
+  silent_contracts = [];
 }
 
 
@@ -683,6 +690,7 @@ let pp_print_node_debug
       | (sv, Input) -> p sv "in"
       | (sv, Output) -> p sv "out"
       | (sv, Local) -> p sv "loc"
+      | (sv, KLocal) -> p sv "k-loc"
       | (sv, Call) -> p sv "cl"
       | (sv, Ghost) -> p sv "gh"
       | (sv, Oracle) -> p sv "or"
@@ -1357,6 +1365,7 @@ let rec pp_print_state_var_source ppf = function
   | Oracle -> Format.fprintf ppf "oracle"
   | Output -> Format.fprintf ppf "output"
   | Local -> Format.fprintf ppf "local"
+  | KLocal -> Format.fprintf ppf "invisible local"
   | Call -> Format.fprintf ppf "call"
   | Ghost -> Format.fprintf ppf "ghost"
   | Alias (sv, _) ->
@@ -1416,7 +1425,8 @@ let state_var_is_visible node state_var =
     (* Oracle inputs and abstracted streams are invisible *)
     | Call
     | Ghost
-    | Oracle -> false
+    | Oracle
+    | KLocal -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input

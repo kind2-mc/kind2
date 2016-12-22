@@ -1320,7 +1320,7 @@ and eval_node_call
             let ctx =
               C.current_node_map ctx (
                 fun node ->
-                  N.set_state_var_source_if_undef node state_var' N.Local
+                  N.set_state_var_source_if_undef node state_var' N.KLocal
               )
             in
             (* Add expression as input *)

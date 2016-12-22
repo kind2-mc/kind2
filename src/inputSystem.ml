@@ -38,6 +38,19 @@ let read_input_native input_file = Native (NativeInput.of_file input_file)
 
 let read_input_horn input_file = assert false
 
+let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
+= function
+  | Lustre subsystem ->
+    S.all_subsystems subsystem
+    |> List.fold_left (
+      fun acc { S.scope ; S.source = { N.silent_contracts } } ->
+        (scope, silent_contracts) :: acc
+    ) []
+
+  | Native subsystem -> assert false
+
+  | Horn subsystem -> assert false
+
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre subsystem ->
     S.all_subsystems subsystem
@@ -68,7 +81,7 @@ let get_testgen_uid () =
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 let maximal_abstraction_for_testgen (type s)
-: s t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option = function
+: s t -> Scope.t -> Analysis.assumptions -> Analysis.param option = function
 
   | Lustre subsystem -> (fun top assumptions ->
 
@@ -433,7 +446,7 @@ let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
               svar,
               Format.asprintf "dummy prop for output %a"
                 SVar.pp_print_state_var svar,
-              Property.Candidate
+              Property.Candidate None
           )
       }
     in

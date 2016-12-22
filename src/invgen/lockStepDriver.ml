@@ -201,10 +201,12 @@ let conditional_base_solver_reset (
 )
 
 (** Adds invariants to a base checker. *)
-let base_add_invariants { solver ; k } os ts =
+let base_add_invariants { solver ; k } ts invs =
   let eub = Num.succ k in (* Exclusive upper bound. *)
-  os |> List.iter (Unroller.assert_0_to solver eub) ;
-  ts |> List.iter (Unroller.assert_1_to solver eub)
+  invs |> (
+    if ts then List.iter (Unroller.assert_1_to solver eub)
+    else List.iter (Unroller.assert_0_to solver eub)
+  )
 
 
 (** Queries base, returns an option of the model. *)
@@ -324,10 +326,12 @@ let conditional_step_solver_reset (
 
 
 (** Adds invariants to a step checker. *)
-let step_add_invariants { solver ; k } os ts =
+let step_add_invariants { solver ; k } ts invs =
   let eub = Num.succ k in (* Exclusive upper bound. *)
-  os |> List.iter (Unroller.assert_0_to solver eub) ;
-  ts |> List.iter (Unroller.assert_1_to solver eub)
+  invs |> (
+    if ts then List.iter (Unroller.assert_1_to solver eub)
+    else List.iter (Unroller.assert_0_to solver eub)
+  )
 
 
 (** Queries step.
@@ -533,7 +537,8 @@ let mk_pruning_checker_solver sys =
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Asserting invariants at [0] and [1]." ;
 
-  Sys.invars_of_bound sys Numeral.zero (* Invariants at [0]. *)
+  Sys.invars_of_bound
+    ~one_state_only:true sys Numeral.zero (* Invariants at [0]. *)
   |> List.iter (Smt.assert_term solver) ;
 
   Sys.invars_of_bound sys Numeral.one (* Invariants at [1]. *)
@@ -564,10 +569,12 @@ let conditional_pruning_solver_reset (
 
 
 (** Adds invariants to a pruning checker. *)
-let pruning_add_invariants { solver } os ts =
+let pruning_add_invariants { solver } ts invs =
   let eub = Num.(succ one) in (* Exclusive upper bound. *)
-  os |> List.iter (Unroller.assert_0_to solver eub) ;
-  ts |> List.iter (Unroller.assert_1_to solver eub)
+  invs |> (
+    if ts then List.iter (Unroller.assert_1_to solver eub)
+    else List.iter (Unroller.assert_0_to solver eub)
+  )
 
 
 (** Separates the trivial invariants from a list of candidates. *)

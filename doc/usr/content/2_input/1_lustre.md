@@ -591,12 +591,16 @@ its contract, although it is only *partially* defined.
 Here, both will succeed.
 
 
-## The `extern` keyword
+## The `imported` keyword
 
-Nodes (and functions, see below) can be declared `extern`. This means that the
-node does not have a body (`let ... tel`). In a Lustre compiler, this is
+Nodes (and functions, see below) can be declared `imported`. This means that
+the node does not have a body (`let ... tel`). In a Lustre compiler, this is
 usually used to encode a C function or more generally a call to an external
 library.
+
+```
+node imported no_body (inputs: ...) returns (outputs: ...) ;
+```
 
 In Kind 2, this means that the node is always abstract in the contract-sense.
 It can never be refined, and is always abstracted by its contract. If none is
@@ -610,16 +614,16 @@ given, then the implicit (rather weak) contract
 ```
 is used.
 
-In a modular analysis, `extern` nodes will not be analyzed, although if their
+In a modular analysis, `imported` nodes will not be analyzed, although if their
 contract has modes they will be checked for exhaustiveness, consistently with
 the usual Kind 2 contract workflow.
 
 
-### Partially defined nodes VS `extern`
+### Partially defined nodes VS `imported`
 
 Kind 2 allows partially defined nodes, that is nodes in which some streams
 do not have a definition. At first glance, it might seem like a node with no
-definitions at all (with an empty body) is the same as an `extern` node.
+definitions at all (with an empty body) is the same as an `imported` node.
 
 It is not the case. A partially defined node *still has a (potentially
 empty) body* which can be analyzed. The fact that it is not completely defined
@@ -627,7 +631,7 @@ does not change this fact.
 If a partially defined node is at the top level, or is in the cone of
 influence of the top node in a modular analysis, then it's body **will** be analyzed.
 
-An `extern` node on the other hand *explicitely does not have a body*. Its
+An `imported` node on the other hand *explicitely does not have a body*. Its
 non-existent body will thus never be analyzed.
 
 
