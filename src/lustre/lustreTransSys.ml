@@ -47,36 +47,32 @@ let index_of_scope s =
   curr
 
 (* Transition system and information needed when calling it *)
-type node_def =
+type node_def = {
+  (* Node the transition system was created from *)
+  node : LustreNode.t;
 
-  { 
+  (* Initial state predicate *)
+  init_uf_symbol : UfSymbol.t;
 
-    (* Node the transition system was created from *)
-    node : LustreNode.t;
+  (* Transition relation predicate *)
+  trans_uf_symbol : UfSymbol.t;
 
-    (* Initial state predicate *)
-    init_uf_symbol : UfSymbol.t;
+  (* Transition system for node *)
+  trans_sys : TransSys.t;
 
-    (* Transition relation predicate *)
-    trans_uf_symbol : UfSymbol.t;
+  (* Stateful local variables to be instantiated by the caller 
 
-    (* Transition system for node *)
-    trans_sys : TransSys.t;
+     Local variables of the callees of the node *)
+  stateful_locals : StateVar.t list;
 
-    (* Stateful local variables to be instantiated by the caller 
+  (* Init flags to be set to true *)
+  init_flags : StateVar.t list;
 
-       Local variables of the callees of the node *)
-    stateful_locals : StateVar.t list;
+  (* Properties to be instantiated by the caller 
 
-    (* Init flags to be set to true *)
-    init_flags : StateVar.t list;
-
-    (* Properties to be instantiated by the caller 
-
-       Properties of the callees of the node *)
-    properties : P.t list;
-
-  }
+     Properties of the callees of the node *)
+  properties : P.t list;
+}
 
 
 (* ********************************************************************** *)
@@ -640,14 +636,15 @@ let call_terms_of_node_call mk_fresh_state_var {
   (* Return actual parameters of transition relation at bound in the
      correct order *)
   let trans_params_of_bound term_of_state_var pre_term_of_state_var =
-    init_params_of_bound term_of_state_var @
-    List.map 
-      pre_term_of_state_var
-      ((List.filter 
-          (fun sv -> StateVar.is_const sv |> not) 
-          ((D.values call_inputs) @ 
-           D.values call_outputs @
-           call_locals)))
+    init_params_of_bound term_of_state_var @ (
+      ( (D.values call_inputs) @ D.values call_outputs @ call_locals )
+      |> List.filter (
+        (* Filter out svars that are constants FOR THE CALLEE. *)
+        fun sv ->
+          SVM.find sv state_var_map_down |> StateVar.is_const |> not
+      )
+      |> List.map pre_term_of_state_var
+    )
   in
 
   (* Term for initial state constraint at initial state *)
@@ -673,9 +670,7 @@ let call_terms_of_node_call mk_fresh_state_var {
     trans_params_of_bound
       (E.cur_term_of_state_var TransSys.trans_base)
       (E.pre_term_of_state_var TransSys.trans_base)
-
     |> Term.mk_uf trans_uf_symbol
-
   in
 
   (* Return information to build constraint for node call with or
@@ -2019,14 +2014,13 @@ let rec trans_sys_of_node'
           (* Create instances of state variables in signature *)
           let trans_formals = 
 
-            (* All state variables at the current instant *)
+            (* All state variables at the current instant. *)
             List.map 
               (fun sv ->
                  Var.mk_state_var_instance sv TransSys.trans_base)
               signature_state_vars @
 
-            (* Not constant state variables at the previous
-               instant *)
+            (* Non-constant state variables at the previous instant *)
             List.map 
               (fun sv -> 
                  Var.mk_state_var_instance 
