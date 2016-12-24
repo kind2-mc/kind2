@@ -608,10 +608,13 @@ type log_level =
   | L_fatal
   | L_error
   | L_warn
+  | L_note
   | L_info
   | L_debug
   | L_trace
 
+(* Default log level. *)
+let default_log_level = L_note
 
 (* Associate an integer with each level to induce a total ordering *)
 let int_of_log_level = function 
@@ -619,9 +622,10 @@ let int_of_log_level = function
   | L_fatal -> 0
   | L_error -> 1
   | L_warn -> 2
-  | L_info -> 3
-  | L_debug -> 4
-  | L_trace -> 5
+  | L_note -> 3
+  | L_info -> 4
+  | L_debug -> 5
+  | L_trace -> 6
 
 
 let log_level_of_int = function 
@@ -629,9 +633,10 @@ let log_level_of_int = function
   | 0 -> L_fatal
   | 1 -> L_error
   | 2 -> L_warn
-  | 3 -> L_info
-  | 4 -> L_debug
-  | 5 -> L_trace
+  | 3 -> L_note
+  | 4 -> L_info
+  | 5 -> L_debug
+  | 6 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
 
 let string_of_log_level = function
@@ -639,6 +644,7 @@ let string_of_log_level = function
   | L_fatal -> "fatal"
   | L_error -> "error"
   | L_warn -> "warn"
+  | L_note -> "note"
   | L_info -> "info"
   | L_debug -> "debug"
   | L_trace -> "trace"
@@ -656,6 +662,8 @@ let log_level = ref L_warn
 
 (* Set log level *)
 let set_log_level l = log_level := l
+(* Log level *)
+let get_log_level () = !log_level
 
 
 (* Level is of higher or equal priority than current log level? *)
@@ -729,8 +737,8 @@ let pp_print_kind_module ppf = function
   | `BMC -> fprintf ppf "bounded model checking"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
-  | `INVGEN -> fprintf ppf "two state invariant generator"
-  | `INVGENOS -> fprintf ppf "one state invariant generator"
+  | `INVGEN -> fprintf ppf "two state invariant generator (bool)"
+  | `INVGENOS -> fprintf ppf "one state invariant generator (bool)"
   | `INVGENINT -> fprintf ppf "two state invariant generator (int)"
   | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
   | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
@@ -1262,6 +1270,23 @@ module ExitCodes = struct
   let safe = 20
   let error = 2
   let kid_status = 128
+end
+
+
+(* |===| File names. *)
+
+(** File names. *)
+module Names = struct
+  (** Contract generation file. *)
+  let contract_gen_file = "kind2_contract.lus"
+  (** Contract name for contract generation. *)
+  let contract_name =
+    Format.asprintf "%a_spec" (pp_print_list Format.pp_print_string "_")
+  (** Invariant logging file. *)
+  let inv_log_file = "kind2_strengthening.lus"
+  (** Contract name for invariant logging. *)
+  let inv_log_contract_name =
+    Format.asprintf "%a_str_spec" (pp_print_list Format.pp_print_string "_")
 end
 
 

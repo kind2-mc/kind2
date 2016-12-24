@@ -18,6 +18,37 @@
 
 open Lib
 
+let uid_cnt = ref 0
+let get_uid () =
+  let res = ! uid_cnt in
+  uid_cnt := 1 + !uid_cnt ;
+  res
+
+(** Type of scope-wise assumptions. *)
+type assumptions = Invs.t Scope.Map.t
+
+(** Empty assumptions. *)
+let assumptions_empty = Scope.Map.empty
+
+(** Merges two assumptions. *)
+let assumptions_merge a_1 a_2 =
+  a_1 |> Scope.Map.fold (
+    fun scope invs map ->
+      let invs =
+        try map |> Scope.Map.find scope |> Invs.merge invs
+        with Not_found -> invs
+      in
+      Scope.Map.add scope invs map
+  ) a_2
+
+(** Assumptions of a transition system. *)
+let assumptions_of_sys =
+  TransSys.get_all_invariants
+
+(** Fold over assumptions. *)
+let assumptions_fold f init ass =
+  Scope.Map.fold (fun k v a -> f a k v) ass init
+
 (** Information for the creation of a transition system *)
 type info = {
   (** The top system for the analysis run *)
@@ -31,7 +62,7 @@ type info = {
   abstraction_map : bool Scope.Map.t ;
 
   (** Properties that can be assumed invariant in subsystems *)
-  assumptions : (Scope.t * Term.t) list ;
+  assumptions : assumptions ;
 
   (** Result of the previous analysis of the top system if this analysis is a
       refinement. *)
@@ -81,6 +112,14 @@ and result = {
   requirements_valid : bool option ;
 }
 
+(* Clones an [info], only changes its [uid]. *)
+let info_clone info = { info with uid = get_uid () } 
+
+(* Clones a [param], only changes its [uid]. *)
+let param_clone = function
+| ContractCheck info -> ContractCheck (info_clone info)
+| First info -> First (info_clone info)
+| Refinement (info, res) -> Refinement (info_clone info, res)
 
 (* The info or a param. *)
 let info_of_param = function
@@ -97,9 +136,8 @@ let shrink_param_to_sys param sys = match param with
 (* Retrieve the assumptions of a [scope] from a [param]. *)
 let param_assumptions_of_scope param scope =
   let { assumptions } = info_of_param param in
-  assumptions |> List.fold_left (fun a (s, t) ->
-     if Scope.equal s scope then t :: a else a
-  ) []
+  try assumptions |> Scope.Map.find scope
+  with Not_found -> Invs.empty ()
 
 (* Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
@@ -145,7 +183,7 @@ let result_is_all_proved { sys } =
   TransSys.get_prop_status_all_nocands sys |>
   List.for_all (function
     | _, Property.PropInvariant _ -> true
-    | _ -> false
+    | name, st -> false
   )
 
 (** Returns true if some properties in the system in a [result] have been
@@ -233,7 +271,7 @@ let results_clean = Scope.Map.filter (
 
 
 
-let pp_print_param fmt param =
+let pp_print_param verbose fmt param =
   let { top ; abstraction_map ; assumptions } = info_of_param param in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
@@ -269,20 +307,36 @@ let pp_print_param fmt param =
     (fun fmt -> function
       | [] -> ()
       | assumptions ->
-        Format.fprintf fmt "@ assumptions: @[<v>%a@]"
-        (pp_print_list
-          ( fun fmt (s,t) ->
-            Format.fprintf fmt "%a: %a"
-              Scope.pp_print_scope s
-              Term.pp_print_term t )
-          "@ ")
-        assumptions)
-    assumptions
+        assumptions |> List.filter (
+          fun (_, invs) -> Invs.is_empty invs |> not
+        )
+        |> Format.fprintf fmt "@ assumptions:@   @[<v>%a@]"
+          (pp_print_list
+            (fun fmt (s, invs) ->
+              let os, ts = Invs.len invs in
+              if os + ts > 0 then (
+                Format.fprintf fmt "%a: "
+                  Scope.pp_print_scope s ;
+                if verbose then
+                  Format.fprintf fmt "%a" Invs.fmt invs
+                else (
+                  Format.fprintf fmt "%d one-state, %d two-state" os ts
+                )
+              )
+            )
+            "@ "
+          )
+    )
+    (Scope.Map.bindings assumptions)
 
 let split_properties_nocands sys =
   let valid, invalid, unknown = TransSys.get_split_properties sys in
   let remove_cands l =
-    List.filter (fun p -> Property.(p.prop_source <> Candidate)) l
+    List.filter (
+      function
+      | { Property.prop_source = Property.Candidate _ } -> false
+      | _ -> true
+    ) l
     |> List.rev in
   remove_cands valid, remove_cands invalid, remove_cands unknown
 
@@ -394,7 +448,7 @@ let pp_print_result fmt {
       config: %a@ - %s@ - %s@ \
       %a%a%a@ \
     @]"
-    pp_print_param param
+    (pp_print_param true) param
     ( match contract_valid with
       | None -> "no contracts"
       | Some true -> "contract is valid"
@@ -415,10 +469,6 @@ let pp_print_result fmt {
       | [] -> pp_print_skip
       | _ -> (pp_print_prop_list "unknown") )
     unknown
-
-
-(** Run one analysis *)
-let run _ = assert false
 
 
 (*

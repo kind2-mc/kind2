@@ -36,9 +36,27 @@
     generated transition system. The accumulated results are used by a
     strategey to decide the next steps.
 
+    **NB:** The [uid] stored in an [info] must be unique because it is
+    used during transition system generation to avoid name clashes in
+    UFs and svars.
+
     @author Christoph Sticksel *)
 
+(** Provides a different id every time. *)
+val get_uid : unit -> int
 
+(** Type of scope-wise assumptions. *)
+type assumptions = Invs.t Scope.Map.t
+(** Empty assumptions. *)
+val assumptions_empty : assumptions
+(** Merges two assumptions. *)
+val assumptions_merge : assumptions -> assumptions -> assumptions
+(** Assumptions of a transition system. *)
+val assumptions_of_sys : TransSys.t -> assumptions
+(** Fold over assumptions. *)
+val assumptions_fold : (
+  'a -> Scope.t -> Invs.t -> 'a
+) -> 'a -> assumptions -> 'a
 
 (** Information for the creation of a transition system *)
 type info = {
@@ -53,7 +71,7 @@ type info = {
   abstraction_map : bool Scope.Map.t ;
 
   (** Properties that can be assumed invariant in subsystems *)
-  assumptions : (Scope.t * Term.t) list ;
+  assumptions : assumptions ;
 
   (** Result of the previous analysis of the top system if this analysis is a
       refinement. *)
@@ -95,6 +113,11 @@ and result = {
 }
 
 
+(* Clones an [info], only changes its [uid]. *)
+val info_clone : info -> info
+
+(* Clones a [param], only changes its [uid]. *)
+val param_clone : param -> param
 
 (** The info or a param. *)
 val info_of_param : param -> info
@@ -107,7 +130,7 @@ val shrink_param_to_sys : param -> TransSys.t -> param
 val param_scope_is_abstract : param -> Scope.t -> bool
 
 (** Retrieve the assumptions of a [scope] from a [param]. *)
-val param_assumptions_of_scope : param -> Scope.t -> Term.t list
+val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 
 
 
@@ -161,11 +184,8 @@ val results_clean : results -> results
 
 
 
-(** Run one analysis *)
-val run : TransSys.t -> result
-
 (** Pretty printer for [param]. *)
-val pp_print_param: Format.formatter -> param -> unit
+val pp_print_param: bool -> Format.formatter -> param -> unit
 
 (** Pretty printer for [result], quiet version. *)
 val pp_print_result_quiet: Format.formatter -> result -> unit

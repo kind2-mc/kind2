@@ -82,25 +82,28 @@ let main_of_process = function
   | `INVGENREALOS -> renice () ; InvGen.main_real false
   | `C2I -> renice () ; C2I.main
   | `Interpreter -> Flags.Interpreter.input_file () |> Interpreter.main
-  | `Supervisor -> InvarManager.main child_pids
+  | `Supervisor -> InvarManager.main false child_pids
   | `Parser | `Certif -> ( fun _ _ _ -> () )
 
 (** Cleanup function of the process *)
-let on_exit_of_process = function
-  | `IC3 -> IC3.on_exit None
-  | `BMC -> BMC.on_exit None
-  | `IND -> IND.on_exit None
-  | `IND2 -> IND2.on_exit None
-  | `INVGEN -> InvGen.exit None
-  | `INVGENOS -> InvGen.exit None
-  | `INVGENINT -> InvGen.exit None
-  | `INVGENINTOS -> InvGen.exit None
-  | `INVGENREAL -> InvGen.exit None
-  | `INVGENREALOS -> InvGen.exit None
-  | `C2I -> C2I.on_exit None
-  | `Interpreter -> Interpreter.on_exit None
-  | `Supervisor -> InvarManager.on_exit None
-  | `Parser | `Certif -> ()
+let on_exit_of_process mdl =
+  ( match mdl with
+    | `IC3 -> IC3.on_exit None
+    | `BMC -> BMC.on_exit None
+    | `IND -> IND.on_exit None
+    | `IND2 -> IND2.on_exit None
+    | `INVGEN -> InvGen.exit None
+    | `INVGENOS -> InvGen.exit None
+    | `INVGENINT -> InvGen.exit None
+    | `INVGENINTOS -> InvGen.exit None
+    | `INVGENREAL -> InvGen.exit None
+    | `INVGENREALOS -> InvGen.exit None
+    | `C2I -> C2I.on_exit None
+    | `Interpreter -> Interpreter.on_exit None
+    | `Supervisor -> InvarManager.on_exit None
+    | `Parser | `Certif -> ()
+  ) ;
+  SMTSolver.destroy_all ()
 
 (** Short name for a kind module. *)
 let debug_ext_of_process = short_name_of_kind_module
@@ -161,15 +164,12 @@ let status_of_exn process status = function
     ExitCodes.error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
-    Event.log L_error
-      "@[<v>\
-        In %a: a check-sat resulted in \"unknown\".@ \
-        This is most likely due to non-linear expressions in the model,@ \
-        usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.@ \
-        Consider running Kind 2 with `--smt_check_sat_assume off` or@ \
-        abstracting non-linear expressions using contracts.\
-      @]"
-      pp_print_kind_module process ;
+    Event.log L_warn "In %a: a check-sat resulted in \"unknown\".@ \
+      This is most likely due to non-linear expressions in the model,@ \
+      usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.@ \
+      Consider running Kind 2 with `--smt_check_sat_assume off` or@ \
+      abstracting non-linear expressions using contracts.\
+    " pp_print_kind_module process ;
     status
   (* Termination message. *)
   | Event.Terminate ->
@@ -284,6 +284,8 @@ let post_clean_exit process exn =
   let status = status_of_exn_results process exn in
   (* Close tags in XML output. *)
   Event.terminate_log () ;
+  (* Kill all live solvers. *)
+  SMTSolver.destroy_all () ;
   (* Exit with status. *)
   exit status
 
@@ -380,6 +382,8 @@ let run_process in_sys param sys messaging_setup process =
       (* let in_sys = in_sys in *)
       (* Run main function of process *)
       main_of_process process in_sys param sys ;
+      (* Kill all remaining solvers. *)
+      SMTSolver.destroy_all () ;
       (* Cleanup and exit *)
       on_exit_child (Some messaging_thread) process Exit
 
@@ -409,11 +413,11 @@ let run_process in_sys param sys messaging_setup process =
     child_pids := (pid, process) :: !child_pids
 
 (** Performs an analysis. *)
-let analyze msg_setup modules in_sys param sys =
+let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
-  ( if TSys.has_properties sys |> not then
-      Event.log L_warn
+  ( if TSys.has_properties sys |> not && not ignore_props then
+      Event.log L_note
         "System %a has no property, skipping verification step." fmt_sys sys
     else
       let props = TSys.props_list_of_bound sys Num.zero in
@@ -433,7 +437,7 @@ let analyze msg_setup modules in_sys param sys =
       Event.update_child_processes_list !child_pids ;
 
       (* Running supervisor. *)
-      InvarManager.main child_pids in_sys param sys ;
+      InvarManager.main ignore_props child_pids in_sys param sys ;
 
       (* Killing kids when supervisor's done. *)
       Some sys |> slaughter_kids `Supervisor
@@ -443,8 +447,11 @@ let analyze msg_setup modules in_sys param sys =
     Stat.get_float Stat.analysis_time
     |> Anal.mk_result param sys
   in
-  let results = Anal.results_add result !all_results in
-  all_results := results ;
+
+  if not ignore_props then (
+    let results = Anal.results_add result !all_results in
+    all_results := results
+  ) ;
 
   (* Issue analysis end notification. *)
   Event.log_analysis_end result ;
@@ -506,6 +513,7 @@ let run in_sys =
       match ISys.next_analysis_of_strategy in_sys !all_results with
       
       | Some param ->
+        (* Format.printf "param: %a@.@." Analysis.pp_print_param param ; *)
         (* Build trans sys and slicing info. *)
         let sys, in_sys_sliced =
           ISys.trans_sys_of_analysis in_sys param
@@ -513,8 +521,9 @@ let run in_sys =
         (* Should we run post analysis treatment? *)
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
-            PostAnalysis.run
-              in_sys (TSys.scope_of_trans_sys old) !all_results
+            PostAnalysis.run in_sys (TSys.scope_of_trans_sys old) (
+              analyze ~ignore_props:true msg_setup
+            ) !all_results
           | _ -> ()
         ) ;
         latest_trans_sys := Some sys ;
@@ -525,9 +534,9 @@ let run in_sys =
 
       | None -> (
         ( match !latest_trans_sys with
-          | Some sys ->
-            PostAnalysis.run
-              in_sys (TSys.scope_of_trans_sys sys) !all_results
+          | Some sys -> PostAnalysis.run in_sys (TSys.scope_of_trans_sys sys) (
+            analyze ~ignore_props:true msg_setup
+          ) !all_results
           | _ -> ()
         ) ;
         latest_trans_sys := None

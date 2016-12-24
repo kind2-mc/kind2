@@ -189,106 +189,68 @@ module Make (Graph : GraphSig) : Out = struct
 
   Returns the number of top level invariants sent and the invariants for
   [sys], one state and two state. *)
-  let communicate_invariants top_sys sys_map two_state sys = function
-    | [] -> 0, [], []
+  let communicate_invariants top_sys sys_map two_state sys invs =
+    (* Function adding invariant to pruner. *)
+    let pruner_add_of sys =
+      try (
+        let pruning_checker = SysMap.find sys_map sys in
+        fun inv ->
+          Lsd.pruning_add_invariants pruning_checker two_state [inv]
+      ) with Not_found -> (
+        (* System is abstract, skipping. *)
+        ignore
+      )
+    in
+
+    match invs with
+    | [] -> 0, []
     | invars_certs when top_sys == sys ->
-      let at_top_sys = top_sys == sys in
+      let pruner_add = pruner_add_of sys in
       (* No instantiation in this case. *)
       invars_certs |> List.fold_left (
-        fun (cnt, os, ts) (inv, cert) ->
+        fun (cnt, invs) (inv, cert) ->
           let cnt = cnt + 1 in
           (* Adding top level invariants to transition system. *)
-          let term, is_os =
-            Sys.add_invariant top_sys inv cert
-          in
+          let inv = Sys.add_invariant top_sys inv cert two_state in
+          (* Add to pruner. *)
+          pruner_add inv ;
           (* Communicate invariant. *)
-          Event.invariant (Sys.scope_of_trans_sys top_sys) inv cert ;
-          if at_top_sys then (
-            if is_os then cnt, term :: os, ts else cnt, os, term :: ts
-          ) else cnt, os, ts
-      ) (0, [], [])
+          Event.invariant (Sys.scope_of_trans_sys top_sys) inv cert two_state ;
+          cnt, inv :: invs
+      ) (0, [])
 
     | invars_certs -> invars_certs |> List.fold_left (
-      fun (cnt, os, ts) ( (invar, cert) as inv_c ) ->
+      fun (cnt, invs) ( (invar, cert) as inv_c ) ->
 
         (* All intermediary invariants and top level ones, obtained by
         instantiating invariant at all levels. *)
-        let ((_, top_invariants), intermediary_invariants) =
+        let (top_invariants, intermediary_invariants) =
           Sys.instantiate_term_cert_all_levels 
             top_sys Sys.prop_base (Sys.scope_of_trans_sys sys) inv_c
         in
 
         (* Add intermediary invariants to sys and pruner, broadcast, add to
         [os] and [ts] for [sys]. *)
-        let os, ts =
-          intermediary_invariants |> List.fold_left (
-            fun (os, ts) (sub_sys, term_certs) ->
-              (* Adding invariants to the transition system. *)
-              let one_state, two_state =
-                term_certs
-                |> List.fold_left (
-                  fun (os, ts) (i, c) ->
-                    let term, is_os =
-                      Sys.add_invariant sub_sys i c
-                    in
-                    if is_os then term :: os, ts else os, term :: ts
-                ) ([], [])
-              in
-              (* Adding invariants to the pruning checker. *)
-              (
-                try (
-                  let pruning_checker = SysMap.find sys_map sub_sys in
-                  Lsd.pruning_add_invariants
-                    pruning_checker one_state two_state
-                ) with Not_found -> (
-                  (* System is abstract, skipping. *)
-                )
-              ) ;
-              (* Broadcasting invariants. *)
-              term_certs |> List.iter (
-                fun (i, c) ->
-                  Event.invariant (Sys.scope_of_trans_sys sub_sys) i c
-              ) ;
-              if sys == sub_sys then (
-                List.rev_append one_state os, List.rev_append two_state ts
-              ) else os, ts
-          ) (os, ts)
-        in
+        top_invariants :: intermediary_invariants |> List.fold_left (
+          fun (cnt, invs) (sub_sys, term_certs) ->
+            let pruner_add = pruner_add_of sub_sys in
+            (* Are we at top level? *)
+            let at_top_sys = sub_sys == sys in
 
-        let top_scope = Sys.scope_of_trans_sys top_sys in
-        let one_state, two_state =
-          top_invariants |> List.fold_left (
-            fun (os, ts) (inv, cert) ->
-              (* Communicate invariant. *)
-              Event.invariant top_scope inv cert ;
-              (* Adding top level invariants to transition system. *)
-              let term, is_os =
-                Sys.add_invariant top_sys inv cert
-              in
-              if is_os then term :: os, ts else os, term :: ts
-          ) ([], [])
-        in
-
-        let at_top_sys = sys == top_sys in
-        let os, ts =
-          if at_top_sys then
-            List.rev_append one_state os, List.rev_append two_state ts
-          else os, ts
-        in
-
-        
-        (
-          (* Add top-level invariants to the pruning checker. *)
-          try (
-            let pruning_checker = SysMap.find sys_map top_sys in
-            Lsd.pruning_add_invariants pruning_checker one_state two_state ;
-          ) with Not_found -> (
-            (* System is abstract, skipping. *)
-          )
-        ) ;
-
-        cnt + List.length top_invariants, os, ts
-    ) (0, [], [])
+            term_certs |> List.fold_left (
+              fun (cnt, invs) (inv, cert) ->
+                (* Add to transition system. *)
+                let inv = Sys.add_invariant sub_sys inv cert two_state in
+                (* Add to pruner. *)
+                pruner_add inv ;
+                (* Broadcast. *)
+                Event.invariant
+                  (Sys.scope_of_trans_sys sub_sys) inv cert two_state ;
+                (* Remember if at top sys. *)
+                if at_top_sys then cnt + 1, inv :: invs else cnt, invs
+            ) (cnt, invs)
+        ) (cnt, invs)
+    ) (0, [])
 
 
   (** Communicates some invariants and adds them to the trans sys. *)
@@ -362,7 +324,8 @@ module Make (Graph : GraphSig) : Out = struct
           (
             try (
               let pruning_checker = SysMap.find sys_map this_sys in
-              Lsd.pruning_add_invariants pruning_checker os ts ;
+              Lsd.pruning_add_invariants pruning_checker false os ;
+              Lsd.pruning_add_invariants pruning_checker true ts
             ) with Not_found -> (
               (* System is abstract or was discarded, skipping it. *)
             )
@@ -401,13 +364,13 @@ module Make (Graph : GraphSig) : Out = struct
     in
 
     (* Communicating and adding to trans sys. *)
-    let top_level_inc, one_state, two_state =
+    let top_level_inc, invs =
       communicate_and_add
         two_state top_sys sys_map sys k blah non_trivial trivial
     in
 
     (* Adding sanitized non-trivial to step checker. *)
-    Lsd.step_add_invariants lsd one_state two_state ;
+    Lsd.step_add_invariants lsd two_state invs ;
 
     non_trivial, trivial, top_level_inc
 
@@ -552,7 +515,8 @@ module Make (Graph : GraphSig) : Out = struct
     let new_os, new_ts =
       recv_and_update input_sys param top_sys sys_map sys
     in
-    Lsd.step_add_invariants lsd new_os new_ts ;
+    Lsd.step_add_invariants lsd false new_os ;
+    Lsd.step_add_invariants lsd true new_ts ;
 
     (* Check class equivalence first. *)
     let equalities = Graph.equalities_of graph prune in
@@ -757,18 +721,21 @@ module Make (Graph : GraphSig) : Out = struct
           let pruning_checker = Lsd.mk_pruning_checker sys in
           prune_ref := pruning_checker :: (! prune_ref) ;
           SysMap.replace sys_map sys pruning_checker
-      ) |> (
-        if modular then 
-          (* If in modular mode, we already ran on the subsystems.
-          Might as well start with the current top system since it's new. *)
-          identity
-        else List.rev
       )
-      |> fun syss ->
-        (* Format.printf "Running on %d systems@.@." (List.length syss) ; *)
-        syss
-      |> system_iterator
-        max_depth two_state input_sys aparam sys [] [] k sys_map 0
+      |> List.filter (
+        fun (_, graph, _, _) ->
+          Graph.has_svars graph
+      )
+      (* If in modular mode, we already ran on the subsystems.
+      Might as well start with the current top system since it's new. *)
+      |> ( if modular then identity else List.rev )
+      |> function
+        | [] ->
+          Event.log L_info "%s no candidate to run on" (pref_s two_state) ;
+          exit ()
+        | graphs ->
+          system_iterator
+            max_depth two_state input_sys aparam sys [] [] k sys_map 0 graphs
 
     ) with
     | Event.Terminate -> exit ()
@@ -810,7 +777,9 @@ end
 
 
 
-
+let max_depth () = match Flags.Invgen.max_depth () with
+  | Some n -> Some Num.(of_int n)
+  | None -> None
 
 let main_bool two_state in_sys param sys =
   (
@@ -818,7 +787,13 @@ let main_bool two_state in_sys param sys =
       EqOnly.BoolInvGen.main
     else
       BoolInvGen.main
-  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  ) (
+    max_depth ()
+  ) (
+    Flags.Invgen.top_only ()
+  ) (
+    Flags.modular () |> not
+  ) two_state in_sys param sys
   |> ignore ;
   exit 0
 
@@ -828,7 +803,13 @@ let main_int two_state in_sys param sys =
       EqOnly.IntInvGen.main
     else
       IntInvGen.main
-  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  ) (
+    max_depth ()
+  ) (
+    Flags.Invgen.top_only ()
+  ) (
+    Flags.modular () |> not
+  ) two_state in_sys param sys
   |> ignore ;
   exit 0
 
@@ -838,7 +819,13 @@ let main_real two_state in_sys param sys =
       EqOnly.RealInvGen.main
     else
       RealInvGen.main
-  ) None (Flags.Invgen.top_only ()) (Flags.modular () |> not) two_state in_sys param sys
+  ) (
+    max_depth ()
+  ) (
+    Flags.Invgen.top_only ()
+  ) (
+    Flags.modular () |> not
+  ) two_state in_sys param sys
   |> ignore ;
   exit 0
 

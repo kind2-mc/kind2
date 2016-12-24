@@ -23,8 +23,6 @@ open Actlit
 (* Raised when the unrolling alone is unsat (with the bound). *)
 exception UnsatUnrollingExc of int
 
-let solver_ref = ref None
-
 (* Output statistics *)
 let print_stats () = 
 
@@ -41,20 +39,7 @@ let on_exit _ =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  print_stats ();
-
-  (* Delete solver instance if created. *)
-  (try
-      match !solver_ref with
-      | None -> ()
-      | Some solver ->
-         SMTSolver.delete_instance solver |> ignore ;
-         solver_ref := None
-    with
-    | e -> 
-       Event.log L_error
-                 "BMC @[<v>Error deleting solver_init:@ %s@]" 
-                 (Printexc.to_string e))
+  print_stats ()
 
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
@@ -178,8 +163,12 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     |> fst
   in
 
-  (* Assert new invariants up to [k-1]. *)
-  Unroller.assert_new_invs_to solver k new_invs ;
+  if
+    (new_invs |> fst |> Term.TermSet.is_empty |> not) ||
+    (new_invs |> snd |> Term.TermSet.is_empty |> not)
+  then
+    (* Assert new invariants up to [k-1]. *)
+    Unroller.assert_new_invs_to solver k new_invs ;
 
   (* Assert all invariants, including new ones, at [k]. *)
   TransSys.invars_of_bound
@@ -337,9 +326,6 @@ let init input_sys aparam trans =
     SMTSolver.create_instance ~produce_assignments:true
       (TransSys.get_logic trans) (Flags.Smt.solver ())
   in
-
-  (* Memorizing solver for clean on_exit. *)
-  solver_ref := Some solver ;
 
   (* Declaring positive actlits. *)
   let unknowns =

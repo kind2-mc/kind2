@@ -43,6 +43,9 @@ val create_instance :
 (** Delete an instance of an SMT solver *)
 val delete_instance : t -> unit
 
+(** Destroys all live solver instances. *)
+val destroy_all : unit -> unit
+
 (** Return the unique identifier of the solver instance *)
 val id_of_instance : t -> int
   

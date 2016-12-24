@@ -233,6 +233,8 @@ val paren_string_of_string_list : string list -> string
 
     - [L_warn] A potentially harmful situation
 
+    - [L_note] An important note (soft warning)
+
     - [L_info] An informational message that highlight progress at a
       coarse-grained level
 
@@ -247,10 +249,13 @@ type log_level =
   | L_fatal
   | L_error
   | L_warn
+  | L_note
   | L_info
   | L_debug
   | L_trace
 
+(** Default log level. *)
+val default_log_level : log_level
 
 (** Associate an integer with each level to induce a total ordering *)
 val int_of_log_level : log_level -> int
@@ -272,6 +277,9 @@ val log_to_stdout : unit -> unit
 
     Only output messages of levels with equal or higher priority *)
 val set_log_level : log_level -> unit 
+
+(** Gets the log level. *)
+val get_log_level : unit -> log_level
 
 (** Return true if given log level is of higher or equal priority than
     current log level? *)
@@ -467,6 +475,7 @@ module ReservedIds : sig
 
 end
 
+(** Exit codes. *)
 module ExitCodes: sig
   (** Exit code for an unknown result. *)
   val unknown: int
@@ -479,6 +488,18 @@ module ExitCodes: sig
   (** Exit status if kid caught a signal, the signal number is added to
   the value *)
   val kid_status: int
+end
+
+(** File names. *)
+module Names: sig
+  (** Contract generation. *)
+  val contract_gen_file : string
+  (** Contract name for contract generation. *)
+  val contract_name : string list -> string
+  (** Invariant logging. *)
+  val inv_log_file : string
+  (** Contract name for invariant logging. *)
+  val inv_log_contract_name : string list -> string
 end
 
 (* 

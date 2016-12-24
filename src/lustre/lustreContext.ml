@@ -511,7 +511,6 @@ let prev { prev } = prev
 
 (* Return state vars indexes hash  table  *)
 let get_state_var_bounds { state_var_bounds } = state_var_bounds
-
 (* Return a contract node by its identifier *)
 let contract_node_decl_of_ident { contract_nodes } ident = 
 
@@ -1595,6 +1594,7 @@ let trace_svars_of ctx expr = match ctx with
           | N.Input
           | N.Output -> mem, to_do
           | N.Local
+          | N.KLocal
           | N.Ghost
           | N.Call
           | N.Alias (_,_) -> (

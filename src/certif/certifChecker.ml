@@ -114,7 +114,7 @@ let obs_cert_sys dirname = {
   smt2_lfsc_trace_file = Filename.concat dirname obs_defs_lfsc_f;
 }
 
-exception CertifError of (Format.formatter -> unit)
+exception CouldNotProve of (Format.formatter -> unit)
 
 
 (****************************)
@@ -363,7 +363,7 @@ let extract_props_terms sys =
    system. *)
 let extract_props_certs sys =
   let certs, props = List.fold_left (fun ((c_acc, p_acc) as acc) -> function
-      | { Property.prop_source = Property.Candidate } ->
+      | { Property.prop_source = Property.Candidate _ } ->
         (* Put valid candidates in invariants *)
         acc
       | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
@@ -376,11 +376,11 @@ let extract_props_certs sys =
   let certs = List.fold_left (fun c_acc (i, c) ->
       if List.exists (Term.equal i) props then c_acc
       else c :: c_acc
-    ) certs (TS.get_invariants sys) in
+    ) certs (TS.get_invariants sys |> Invs.flatten) in
 
   let certs =  List.fold_left (fun certs -> function
       | { Property.prop_status = Property.PropInvariant c;
-          prop_source = Property.Candidate; prop_term = p } -> c :: certs
+          prop_source = Property.Candidate None; prop_term = p } -> c :: certs
       | { Property.prop_name } ->
         Event.log L_info "Skipping unproved candidate %s" prop_name;
         certs
@@ -886,7 +886,7 @@ let try_at_bound ?(just_check_ind=false) sys solver k invs prop trans_acts =
 (* Find the minimum bound by increasing k *)
 let rec find_bound sys solver k kmax invs prop =
 
-  if k > kmax then raise (CertifError
+  if k > kmax then raise (CouldNotProve
     ( fun fmt ->
       Format.fprintf fmt
         "[Certification] simplification of inductive invariant \
@@ -957,7 +957,7 @@ let find_bound_back sys solver kmax invs prop =
 
       begin match acc with
         (* Not k-inductive *)
-        | _, Not_inductive -> raise (CertifError
+        | _, Not_inductive -> raise (CouldNotProve
           (fun fmt ->
             Format.fprintf fmt
               "[Certification] Could not verify %d-inductiveness \
@@ -994,7 +994,7 @@ let rec loop_dicho sys solver kmax invs prop trans_acts_map acc k_l k_u =
     match acc with
     | _, Not_inductive -> raise (
       (* Not k-inductive *)
-      CertifError (
+      CouldNotProve (
         fun fmt ->
           Format.fprintf fmt
             "@[<v>Could not verify inductiveness of invariants@   \
@@ -1065,7 +1065,7 @@ let find_bound_frontier_dicho sys solver kmax invs prop =
   in
 
   match res_kmax, res_kmax_m1 with
-  | Not_inductive, _ -> raise (CertifError
+  | Not_inductive, _ -> raise (CouldNotProve
     (fun fmt ->
       Format.fprintf fmt
         "[Certification, frontier dicho] Could not verify inductiveness@ \
@@ -2242,7 +2242,7 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
 
           Event.log L_fatal "Frontend certificate was not generated.";
           
-          raise (CertifError
+          raise (CouldNotProve
             (fun fmt ->
               Format.fprintf fmt
                 "Could not find a match for the property variable %a."
@@ -2320,7 +2320,7 @@ let mk_multiprop_obs ~only_out lustre_vars kind2_sys =
         incr cpt;
         { Property.prop_name =
             "OTHER_Observational_Equivalence_" ^(string_of_int !cpt);
-          prop_source = Property.Candidate;
+          prop_source = Property.Candidate None ;
           prop_term = eq;
           prop_status = Property.PropUnknown; }
         ) others_eqs in
@@ -2491,7 +2491,7 @@ let merge_systems lustre_vars kind2_sys jkind_sys =
       trans_term
       [kind2_subsys_inst; jkind_subsys_inst]
       props
-      (None, []) [] [] in
+      (None, []) (Invs.empty ()) in
 
   (* (\* Add caller info to subnodes *\) *)
   (* TS.add_caller kind2_sys *)
@@ -2853,12 +2853,11 @@ let generate_smt2_certificates uid input sys =
   Hashtbl.clear solver_actlits;
 
   let dirname =
-    if is_fec sys then Filename.dirname (Flags.input_file ())
-    else begin
-      Flags.output_dir () |> mk_dir ;
-      Filename.concat (Flags.output_dir ())
-        ("certificates." ^ string_of_int uid)
-    end
+    let dir = TransSys.scope_of_trans_sys sys |> Flags.subdir_for in
+    mk_dir dir ;
+    let dir = Filename.concat dir "certif" in
+    mk_dir dir ;
+    dir
   in
   create_dir dirname;
 
@@ -2912,6 +2911,7 @@ let generate_smt2_certificates uid input sys =
         (pp_print_list pp_print_string " ") cmd_l
         (Filename.concat dirname "FEC.kind2")
     in
+    (* Format.printf "cmd: %s@.@." cmd ; *)
     Debug.certif "Second run with: %s" cmd;
 
     match Sys.command cmd with

@@ -82,7 +82,7 @@ and prop_source =
 
   (* Property is only a candidate invariant here to help prove other
      properties *)
-  | Candidate
+  | Candidate of prop_source option
 
 
 
@@ -114,8 +114,8 @@ let pp_print_prop_source ppf = function
      Format.fprintf ppf "generated"
   | Generated _ ->
      Format.fprintf ppf "subrange constraint"
-  | Candidate ->
-     Format.fprintf ppf "user supplied candidate invariant"
+  | Candidate _ ->
+     Format.fprintf ppf "candidate invariant"
   | Instantiated (scope,_) ->
      Format.fprintf
        ppf
@@ -140,7 +140,7 @@ let pp_print_prop_quiet ppf { prop_name ; prop_source } =
 let pp_print_prop_source ppf = function 
   | PropAnnot _ -> Format.fprintf ppf ":user"
   | Generated _ -> Format.fprintf ppf ":generated"
-  | Candidate -> Format.fprintf ppf ":candidate"
+  | Candidate _ -> Format.fprintf ppf ":candidate"
   | Instantiated _ -> Format.fprintf ppf ":subsystem"
   | Assumption _ -> Format.fprintf ppf ":assumption"
   | Guarantee _ -> Format.fprintf ppf ":guarantee"

@@ -286,8 +286,8 @@ val add_node_local :
 (** Adds assumptions to a node. *)
 val add_node_ass : t -> LustreContract.svar list -> t
 
-(** Adds guarantees to a node. *)
-val add_node_gua : t -> LustreContract.svar list -> t
+(** Adds guarantees to a node (boolean is the candidate flag). *)
+val add_node_gua : t -> (LustreContract.svar * bool) list -> t
 
 (** Add modes to node *)
 val add_node_mode : t -> LustreContract.mode -> t

@@ -126,6 +126,9 @@ val error_tag : Format.formatter -> unit
 (** Warning tag. *)
 val warning_tag : Format.formatter -> unit
 
+(** Note tag. *)
+val note_tag : Format.formatter -> unit
+
 (** Interruption tag. *)
 val interruption_tag : Format.formatter -> unit
 

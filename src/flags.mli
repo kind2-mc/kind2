@@ -368,9 +368,6 @@ module Contracts : sig
   (** Contract generation: max depth. *)
   val contract_gen_depth : unit -> int
 
-  (** Contract generation: fine grain. *)
-  val contract_gen_fine_grain : unit -> bool
-
   (** Activate refinement. *)
   val refinement : unit -> bool
 end
@@ -448,6 +445,11 @@ module Invgen : sig
   (** InvGen will remove trivial invariants, i.e. invariants implied by the
       transition relation. *)
   val prune_trivial : unit -> bool
+
+  (** Sets the max depth for invariant generation. *)
+  val set_max_depth : int option -> unit
+  (** Gets the max depth for invariant generation. *)
+  val max_depth : unit -> int option
 
   (** Number of unrollings invariant generation should perform between
     switching to a different systems. *)

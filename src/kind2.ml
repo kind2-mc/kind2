@@ -123,6 +123,18 @@ let main () =
   (* Set everything up and produce input system. *)
   let Input input_sys = setup () in
 
+  (* Notify user of silent contract loading. *)
+  InputSystem.silent_contracts_of input_sys
+  |> List.iter (
+    function
+    | (_, []) -> ()
+    | (scope,contracts) ->
+      Event.log L_note "Silent contract%s loaded for system %a: @[<v>%a@]"
+        (if 1 < List.length contracts then "s" else "")
+        Scope.pp_print_scope scope
+        (pp_print_list Format.pp_print_string "@ ") contracts
+  ) ;
+
   (* Not launching if we're just translating contracts. *)
   match Flags.Contracts.translate_contracts () with
   | Some target -> (
@@ -136,9 +148,7 @@ let main () =
         "Could not translate contracts from file \"%s\":@ %s"
         src (Printexc.to_string e)
   )
-  | None -> (
-    Kind2Flow.run input_sys
-  )
+  | None -> Kind2Flow.run input_sys
 
 ;;
 

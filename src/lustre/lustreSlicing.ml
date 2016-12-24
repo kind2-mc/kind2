@@ -142,6 +142,7 @@ let rec describe_cycle node accum = function
          tl
 
      (* Skip oracles and calls *)
+        | N.KLocal
      | N.Call
      | N.Alias (_,_)
      | N.Oracle -> describe_cycle node accum tl
@@ -638,6 +639,7 @@ let slice_all_of_node
       N.state_var_source_map;
       N.oracle_state_var_map;
       N.state_var_expr_map;
+      N.silent_contracts
     } = 
 
   (* Copy of the node with the same signature, but without local
@@ -661,6 +663,7 @@ let slice_all_of_node
     N.state_var_source_map = state_var_source_map;
     N.oracle_state_var_map = oracle_state_var_map;
     N.state_var_expr_map = state_var_expr_map;
+    N.silent_contracts = silent_contracts;
   }
 
 

@@ -107,6 +107,7 @@ type state_var_source =
 | Input   (** Declared input variable *)
 | Output  (** Declared output variable *)
 | Local   (** Declared local variable *)
+| KLocal  (** Kind 2 invisible local variable *)
 | Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
 | Oracle  (** Generated non-deterministic input *)
@@ -220,6 +221,9 @@ type t = {
       non-deterministic pre-initial value *)
 
   state_var_expr_map : LustreExpr.t StateVar.StateVarHashtbl.t;
+
+  silent_contracts : string list ;
+  (** Contracts that were silently loaded. *)
 
 }
 

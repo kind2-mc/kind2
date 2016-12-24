@@ -20,8 +20,6 @@ open Lib
 open TermLib
 open Actlit
 
-let solver_ref = ref None
-
 (* Output statistics *)
 let print_stats () =
 
@@ -38,20 +36,7 @@ let on_exit _ =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  print_stats () ;
-
-  (* Deleting solver instance if created. *)
-  (try
-      match !solver_ref with
-      | None -> ()
-      | Some solver ->
-         SMTSolver.delete_instance solver |> ignore ;
-         solver_ref := None
-    with
-    | e -> 
-       Event.log L_error
-                 "IND @[<v>Error deleting solver_init:@ %s@]"
-                 (Printexc.to_string e))
+  print_stats ()
 
 let stop () = ()
 
@@ -651,9 +636,6 @@ let launch input_sys aparam trans =
     SMTSolver.create_instance ~produce_assignments:true
       logic (Flags.Smt.solver ())
   in
-
-  (* Memorizing solver for clean on_exit. *)
-  solver_ref := Some solver ;
 
   (* Declaring uninterpreted function symbols. *)
   (* TransSys.iter_state_var_declarations *)

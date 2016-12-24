@@ -143,11 +143,7 @@ type t =
         List of [(is_mode_global, mode_name, require_term)]. *)
     mode_requires: Term.t option * (Scope.t * Term.t) list ;
 
-    (* Invariants about the current state *)
-    invariants_one_state : Certificate.t TermMap.t ;
-
-    (* Invariants about current and previous state pairs *)
-    invariants_two_state : Certificate.t TermMap.t ;
+    invariants : Invs.t ;
 
   }
 
@@ -243,9 +239,7 @@ let pp_print_trans_sys
       trans;
       trans_formals;
       subsystems;
-      properties;
-      invariants_one_state;
-      invariants_two_state } = 
+      properties; } = 
 
   Format.fprintf 
     ppf
@@ -559,8 +553,11 @@ let scope_of_trans_sys t = t.scope
 let get_properties t = t.properties
 
 (* Return all properties *)
-let get_real_properties t =
-  List.filter (fun {P.prop_source} -> prop_source <> P.Candidate) t.properties
+let get_real_properties t = List.filter (
+  function
+  | { P.prop_source = P.Candidate _ } -> false
+  | _ -> true
+) t.properties
 
 
 (** Returns the mode requirements for this system as a list of triplets
@@ -571,11 +568,16 @@ let get_mode_requires t = t.mode_requires
 (** Returns the list of properties in a transition system, split by their
     status as [valid, invalid, unknown]. *)
 let get_split_properties { properties } =
-  properties |> List.fold_left (fun (valid, invalid, unknown) p ->
-    match Property.get_prop_status p with
-    | Property.PropInvariant _ -> p :: valid, invalid, unknown
-    | Property.PropFalse _ -> valid, p :: invalid, unknown
-    | _ -> valid, invalid, p :: unknown
+  properties |> List.fold_left (fun ( (valid, invalid, unknown) as all) ->
+    function
+    | { Property.prop_status = Property.PropInvariant _ } as p->
+      p :: valid, invalid, unknown
+    | { Property.prop_source = Property.Candidate _ } ->
+      all
+    | { Property.prop_status = Property.PropFalse _ } as p ->
+      valid, p :: invalid, unknown
+    | p ->
+      valid, invalid, p :: unknown
   ) ([], [], [])
 
 
@@ -1240,9 +1242,7 @@ let get_prop_status trans_sys p =
   with Not_found -> P.PropUnknown
 
 (* Tests if a term is an invariant. *)
-let is_inv { invariants_one_state ; invariants_two_state } term =
-  TermMap.mem invariants_one_state term ||
-  TermMap.mem invariants_two_state term
+let is_inv { invariants } = Invs.mem invariants
 
 
 (* Return true if the property is proved invariant *)
@@ -1300,7 +1300,7 @@ let set_prop_false trans_sys p c =
 (* Return current status of all properties *)
 let get_prop_status_all_nocands t = 
   List.fold_left (fun acc -> function
-      | { P.prop_source = P.Candidate } -> acc
+      | { P.prop_source = P.Candidate _ } -> acc
       | { P.prop_name; P.prop_status } -> (prop_name, prop_status) :: acc
     ) [] t.properties
   |> List.rev
@@ -1332,7 +1332,7 @@ let has_properties = function
 let all_props_proved t =
   List.for_all
     (function
-      | { P.prop_source = P.Candidate } -> true
+      | { P.prop_source = P.Candidate _ } -> true
       | { P.prop_status = (P.PropInvariant _ | P.PropFalse _) } -> true
       | _ -> false
     ) t.properties
@@ -1362,24 +1362,20 @@ let props_list_of_bound t i =
   named_terms_list_of_bound t.properties i
 
 
-(* Add an invariant to the transition system.
+(* Add an invariant to the transition system. *)
+let add_scoped_invariant t scope invar cert two_state =
 
-Returns the normalized terms and a boolean indicating whether it is one
-state. *)
-let add_scoped_invariant t scope invar cert =
-
-  let is_one_state, invar =
+  let invar =
     match Term.var_offsets_of_term invar with
-    | None, None -> true, invar
+    | None, None -> invar
     | Some lo, None
-    | None, Some lo -> true, (
+    | None, Some lo ->
       Term.bump_state Numeral.(~- lo) invar
-    )
     | Some lo, Some up ->
-      if Numeral.(equal lo up) then true, (
+      if Numeral.(equal lo up) then (
         (* Make sure one state invariants have offset [0]. *)
         Term.bump_state Numeral.(~- lo) invar
-      ) else false, (
+      ) else (
         let lo_offset = Numeral.(~- one) in
         (* Make sure two-state invariants have offset [-1,0]. *)
         if Numeral.(lo < lo_offset) then
@@ -1391,15 +1387,15 @@ let add_scoped_invariant t scope invar cert =
   in
 
   iter_subsystems (
-    fun { scope = s ; invariants_two_state ; invariants_one_state } ->
-      (* Would be better to do nothing if invariant is already there, but I
-      couldn't find a way to do a [find_or_else]. *)
-      if Scope.equal scope s then TermMap.replace (
-        if is_one_state then invariants_one_state else invariants_two_state
-      ) invar cert
+    fun { scope = s ; invariants } -> if Scope.equal scope s then (
+      if two_state then
+        Invs.add_ts invariants invar cert
+      else
+        Invs.add_os invariants invar cert
+    )
   ) t ;
 
-  invar, is_one_state
+  invar
 
 
 let add_properties t props =
@@ -1407,28 +1403,14 @@ let add_properties t props =
     properties = List.rev_append (List.rev props) t.properties }
 
 
-(* Add an invariant to the transition system
-
-Returns the normalized terms and a boolean indicating whether it is one
-state. *)
-let add_invariant t invar cert = add_scoped_invariant t t.scope invar cert
+(* Adds an invariant to the transition system. *)
+let add_invariant t = add_scoped_invariant t t.scope
 
 
 (* Instantiate the invariant constraint to the bound *)
-let invars_of_bound
-  ?(one_state_only = false)
-  { invariants_one_state ; invariants_two_state }
-  i
-=
-  let append_key term _ acc =
-    (Term.bump_state i term) :: acc
-  in
-
-  TermMap.fold append_key invariants_one_state [] |> (
-    if one_state_only
-    then identity
-    else TermMap.fold append_key invariants_two_state
-  )
+let invars_of_bound ?(one_state_only = false) { invariants } =
+  Invs.of_bound invariants (not one_state_only)
+  
 
 
 (*************************************************************************)
@@ -1437,22 +1419,27 @@ let invars_of_bound
 
 (* Return true if the property is a candidate invariant *)
 let is_candidate t prop =
-  (property_of_name t prop).P.prop_source = P.Candidate
+  match (property_of_name t prop).P.prop_source with
+  | P.Candidate _ -> true
+  | _ -> false
 
 let get_candidates t =
   List.fold_left (fun acc p ->
-      if p.P.prop_source = P.Candidate then
-        p.P.prop_term :: acc
-      else acc
+    match p.P.prop_source with
+    | P.Candidate _ -> p.P.prop_term :: acc
+    | _ -> acc
     ) [] t.properties
   |> List.rev
 
-let get_candidate_properties t =
-  List.filter (fun {P.prop_source} -> prop_source = P.Candidate) t.properties
+let get_candidate_properties t = List.filter (
+  function
+  | { P.prop_source = P.Candidate _ } -> true
+  | _ -> false
+) t.properties
 
 let get_unknown_candidates t =
   List.fold_left (fun acc p ->
-      if true || p.P.prop_source = P.Candidate then
+      if true (* || p.P.prop_source = P.Candidate *) then
         match p.P.prop_status with
         | P.PropUnknown | P.PropKTrue _ -> p.P.prop_term :: acc
         | P.PropInvariant _ | P.PropFalse _ -> acc
@@ -1461,87 +1448,85 @@ let get_unknown_candidates t =
   |> List.rev
 
 
-let get_invariants { invariants_one_state ; invariants_two_state } =
-  TermMap.fold (fun t c acc -> (t, c) :: acc) invariants_two_state []
-  |> TermMap.fold (fun t c acc -> (t, c) :: acc) invariants_one_state
+let get_invariants { invariants } = invariants
+
+let get_all_invariants t =
+  t |> fold_subsystems (
+    fun map { scope ; invariants } ->
+      Scope.Map.add scope invariants map
+  ) Scope.Map.empty
 
 (* ********************************************************************** *)
 (* Construct a transition system                                          *)
 (* ********************************************************************** *)
 
 let mk_trans_sys 
-    ?(instance_var_id_start = 0)
-    scope
-    instance_state_var
-    init_flag_state_var
-    global_state_vars
-    state_vars
+  ?(instance_var_id_start = 0)
+  scope
+  instance_state_var
+  init_flag_state_var
+  global_state_vars
+  state_vars
     state_var_bounds
     global_consts
-    ufs
-    init_uf_symbol
-    init_formals
-    init
-    trans_uf_symbol
-    trans_formals
-    trans
-    subsystems
-    properties
-    mode_requires
-    invariants_one_state 
-    invariants_two_state = 
+  ufs
+  init_uf_symbol
+  init_formals
+  init
+  trans_uf_symbol
+  trans_formals
+  trans
+  subsystems
+  properties
+  mode_requires
+  invariants
+=
 
   (* Map instance variables of this system and all subsystems to a
      unique term *)
   let instance_var_bindings = 
 
     (* Collect all instance state variables from subsystems *)
-    List.fold_left
-      (fun accum ({ instance_var_bindings }, instances) -> 
+    List.fold_left (
+      fun accum ({ instance_var_bindings }, instances) -> 
 
-         (* Get state variables from bindings in subsystem *)
-         let instance_state_vars = 
-           List.map 
-             (fun (v, _) -> Var.state_var_of_state_var_instance v)
-             instance_var_bindings
-         in
+        (* Get state variables from bindings in subsystem *)
+        let instance_state_vars = 
+          List.map (
+            fun (v, _) -> Var.state_var_of_state_var_instance v
+          ) instance_var_bindings
+        in
 
-         (* Lift instance variables of all instances of the subsystem
-            to this transition system *)
-         List.fold_left
-           (fun a { map_up } -> 
-              List.map
-                (fun sv -> 
-                   try 
+        (* Lift instance variables of all instances of the subsystem
+          to this transition system *)
+        List.fold_left (
+          fun a { map_up } ->
+            List.map (
+              fun sv ->
+                (* Get state variable in this transition system
+                instantiating the state variable in the
+                subsystem *)
+                try SVM.find sv map_up
 
-                     (* Get state variable in this transition system
-                        instantiating the state variable in the
-                        subsystem *)
-                     (SVM.find sv map_up)
-
-                   (* Every state variable must be in the map *)
-                   with Not_found -> assert false)
-                instance_state_vars
-              @ a)
-           accum
-           instances)
-
+                (* Every state variable must be in the map *)
+                with Not_found -> assert false
+              ) instance_state_vars @ a
+        ) accum instances
+    ) (
       (* Start with instance state variable of this system if any *)
-      (match instance_state_var with
-        | None -> []
-        | Some sv -> [sv])
-
-      subsystems
-
-    |> 
-
+      match instance_state_var with
+      | None -> []
+      | Some sv -> [sv]
+    )
+    subsystems
     (* Create unique term for each instance variable *)
-    List.mapi
-      (fun i sv -> 
-         (Var.mk_const_state_var sv,
-
-          (* Add start value of fresh instance identifiers *)
-          Term.mk_num_of_int (i + instance_var_id_start)))
+    |> List.mapi (
+      fun i sv -> (
+        Var.mk_const_state_var sv,
+        (* Add start value of fresh instance identifiers *)
+        Term.mk_num_of_int (i + instance_var_id_start)
+      )
+    )
 
   in
 
@@ -1610,27 +1595,14 @@ let mk_trans_sys
   in
 
   (* Make sure name scope is unique in transition system *)
-  List.iter
-    (fun (t, _) ->
-       iter_subsystems 
-         (fun { scope = s } -> 
-            if Scope.equal scope s then
-              raise (Invalid_argument "mk_trans_sys: scope is not unique"))
-         t)
-       subsystems;
-
-  (* Constructing invariant maps. *)
-  let invariants_one_state, invariants_two_state =
-    let ios, its = (* Empty maps with the right size. *)
-      List.length invariants_one_state |> TermMap.create,
-      List.length invariants_two_state |> TermMap.create
-    in
-    (* Populating maps. *)
-    invariants_one_state |> List.iter (fun (t, c) -> TermMap.add ios t c) ;
-    invariants_one_state |> List.iter (fun (t, c) -> TermMap.add its t c) ;
-    (* Done. *)
-    ios, its
-  in
+  List.iter (
+    fun (t, _) ->
+      iter_subsystems (
+        fun { scope = s } ->
+          if Scope.equal scope s then
+            Invalid_argument "mk_trans_sys: scope is not unique" |> raise
+      ) t
+  ) subsystems ;
   
   (* Transition system containing only the subsystems *)
   let trans_sys = 
@@ -1653,8 +1625,7 @@ let mk_trans_sys
       properties;
       mode_requires;
       logic;
-      invariants_one_state;
-      invariants_two_state }
+      invariants; }
   in
 
   trans_sys, instance_var_id_start'

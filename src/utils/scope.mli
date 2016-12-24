@@ -16,7 +16,7 @@
 
 *)
 
-(** Managing of scopes to avaoid clashes
+(** Managing of scopes to avoid clashes
 
     @author Christoph Sticksel *)
 
