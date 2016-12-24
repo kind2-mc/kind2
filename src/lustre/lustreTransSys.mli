@@ -230,9 +230,10 @@
 
 
 val trans_sys_of_nodes:
-    ?preserve_sig:bool ->
-    LustreNode.t SubSystem.t -> Analysis.param ->
-    TransSys.t * LustreNode.t SubSystem.t
+  ?preserve_sig:bool ->
+  LustreGlobals.t ->
+  LustreNode.t SubSystem.t -> Analysis.param ->
+  TransSys.t * LustreNode.t SubSystem.t
 
 
 (* 

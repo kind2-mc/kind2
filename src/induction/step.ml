@@ -232,6 +232,8 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
   
   (* Function to run if sat. *)
   let if_sat _ =
+
+    let svi = TransSys.get_state_var_bounds trans in
     
     (* Extract a model *)
     let model = 
@@ -244,13 +246,14 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
       then 
 
         (* Get model for all variables *)
-        SMTSolver.get_model solver
+        SMTSolver.get_var_values solver svi
+          (TransSys.vars_of_bounds trans Numeral.zero k)
         
       else
         
         (* We only need the model at [k] *)
         TransSys.vars_of_bounds trans k k
-        |> (SMTSolver.get_var_values solver)
+        |> (SMTSolver.get_var_values solver svi)
         
     in
 
@@ -516,9 +519,15 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      TransSys.declare_vars_of_bounds
        trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
 
+     (* Assert transition relation also for -1, 0 at the begining *)
+     (* if k_int = 0 then *)
+     (*   TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k *)
+     (*   |> SMTSolver.assert_term solver *)
+     (*   |> ignore ; *)
+     
      (* Asserting transition relation. *)
      (* TransSys.trans_fun_of trans k k_p_1 *)
-     TransSys.trans_of_bound trans k_p_1
+     TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
      |> SMTSolver.assert_term solver
      |> ignore ;
 

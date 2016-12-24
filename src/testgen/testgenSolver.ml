@@ -83,7 +83,8 @@ let mk sys =
 
   (* Asserting init conditionally. *)
   S.trace_comment solver "|===| Conditional init." ;
-  Term.mk_implies [ actlit ; Sys.init_of_bound sys zero ]
+  Term.mk_implies [ actlit ;
+                    Sys.init_of_bound (Some (S.declare_fun solver)) sys zero ]
   |> S.assert_term solver ;
 
   (* println "done" ; *)
@@ -126,7 +127,10 @@ let nth_actlit_of ({ sys ; solver ; actlits } as t) n =
           S.trace_comment solver "|===| Conditional trans." ;
           (* Asserting trans@k conditionally with the previous actlit. *)
           Term.mk_implies [
-            actlit ; Term.mk_and [ prev_actlit ; Sys.trans_of_bound sys cpt ]
+            actlit ;
+            Term.mk_and
+              [ prev_actlit ;
+                Sys.trans_of_bound (Some (S.declare_fun solver)) sys cpt ]
           ] |> S.assert_term solver
         | [] -> failwith "unreachable: \
           list of activation literals can never be empty" ) ;

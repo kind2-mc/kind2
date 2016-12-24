@@ -96,6 +96,8 @@ sig
   (** Return the sort of a variable *)
   val sort_of_var : var -> sort
 
+  val mk_fresh_var : sort -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var
@@ -191,6 +193,9 @@ sig
   (** Beta-evaluate a lambda expression *)
   val eval_lambda : lambda -> t list -> t
 
+  (** Partialy Beta-evaluate a lambda expression *)
+  val partial_eval_lambda : lambda -> t list -> lambda
+
   (** Constructor for a term *)
   val mk_term : t_node -> t
 
@@ -236,7 +241,7 @@ sig
       function is called at each node of the term with the term being
       evaluated and the list of values computed for the subterms. Let
       bindings are lazily unfolded.  *)
-  val eval_t : (flat -> 'a list -> 'a) -> t -> 'a
+  val eval_t : ?fail_on_quantifiers:bool -> (flat -> 'a list -> 'a) -> t -> 'a
 
   (** Tail-recursive bottom-up right-to-left map on the term
 
@@ -251,6 +256,9 @@ sig
       If the top symbol of a term is a let binding, the binding is
       distributed over the subterms. *)
   val destruct : t -> flat
+
+  (** Returns [true] if the term has quantifiers *)
+  val has_quantifier : t -> bool
 
   val instantiate : lambda -> t list -> t
 
@@ -270,15 +278,17 @@ sig
     
   (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
-    
+
   val pp_print_lambda_w :
     (?arity:int -> Format.formatter -> symbol -> unit) ->
     (Format.formatter -> var -> unit) ->
+    (Format.formatter -> sort -> unit) ->
     ?db:int -> Format.formatter -> lambda -> unit
 
   val pp_print_term_w :
     (?arity:int -> Format.formatter -> symbol -> unit) ->
     (Format.formatter -> var -> unit) ->
+    (Format.formatter -> sort -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
   (** Pretty-print a term *)

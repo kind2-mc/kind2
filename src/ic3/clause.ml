@@ -85,7 +85,7 @@ let equal { literals = l1 } { literals = l2 } =
 
 
 (* A trie of clauses *)
-module ClauseTrie = Trie.Make (Term.TermMap)
+module ClauseTrie = Trie.Make (Term)
   
   
 (* Return disjunction of literals from a clause *)

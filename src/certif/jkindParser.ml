@@ -456,6 +456,8 @@ let of_channel in_ch =
       jk_init_flag
       []
       allstatevars
+      (StateVar.StateVarHashtbl.create 3)
+      []
       []
       init_uf_symbol
       init_args

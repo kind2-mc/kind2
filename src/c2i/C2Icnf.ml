@@ -100,9 +100,12 @@ let mk_solver sys init =
   in
 
   (** Variable declaration upper bound, predicate to assert. *)
-  let var_ub, pred = if init
-    then Numeral.zero, Sys.init_of_bound  sys Numeral.zero
-    else Numeral.one,  Sys.trans_of_bound sys Numeral.one
+  let var_ub, pred =
+    if init
+    then Numeral.zero,
+         Sys.init_of_bound (Some (Solver.declare_fun solver)) sys Numeral.zero
+    else Numeral.one,
+         Sys.trans_of_bound (Some (Solver.declare_fun solver)) sys Numeral.one
   in
 
   (* Defining and declaring everything. *)

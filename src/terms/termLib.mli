@@ -50,6 +50,7 @@ val default_of_type : Type.t -> Term.t
 type feature =
   | Q  (** Quantifiers *)
   | UF (** Equality over uninterpreted functions *)
+  | A  (** Arrays *)
   | IA (** Integer arithmetic *)
   | RA (** Real arithmetic *)
   | LA (** Linear arithmetic *)
@@ -67,6 +68,9 @@ val sup_logics : features list -> features
 (** Returns the logic fragment used by a term *)
 val logic_of_term : Term.t -> features
 
+(** Returns the logic fragment of a type *)
+val logic_of_sort : Type.t -> features
+
 (** Logic fragments for terms *)
 type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 
@@ -75,6 +79,9 @@ val pp_print_logic : Format.formatter -> logic -> unit
 
 (** String correspinding to a logic *)
 val string_of_logic : logic -> string
+
+(** Returns [true] if the logic potentially has arrays *)
+val logic_allow_arrays : logic -> bool
 
 (** Gathers signal related stuff. *)
 module Signals: sig

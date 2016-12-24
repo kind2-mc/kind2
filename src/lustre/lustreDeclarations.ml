@@ -35,6 +35,7 @@ module Contract = LustreContract
 module C = LustreContext
 
 module S = LustreSimplify
+module G = LustreGlobals
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
@@ -179,6 +180,7 @@ let in_locals i' locals = List.exists (function
 
 let rec defined_vars_struct_item locals acc = function
   | A.SingleIdent (_, i)
+  | A.ArrayDef (_, i, _)
   | A.TupleSelection (_, i, _)
   | A.FieldSelection (_, i, _)
   | A.ArraySliceStructItem (_, i, _) ->
@@ -187,7 +189,6 @@ let rec defined_vars_struct_item locals acc = function
     List.fold_left (defined_vars_struct_item locals) acc l
 
 let defined_vars_lhs locals acc = function
-  | A.ArrayDef (_, i, _) -> if in_locals i locals then acc else ISet.add i acc 
   | A.StructDef (_, l) ->
     List.fold_left (defined_vars_struct_item locals) acc l
 
@@ -207,7 +208,110 @@ let rec defined_vars_equation locals acc = function
 let defined_vars_eqs eqs =
   List.fold_left (defined_vars_equation []) ISet.empty eqs
   |> ISet.elements
+
+
+(* Collect inputs used in equaltions and automatons. This is to create
+   auxiliary nodes for states with a minimal number of inputs *)
   
+let rec used_inputs_expr inputs acc =
+  let open A in
+  function
+  | True _ | False _ | Num _ | Dec _ | ModeRef _ -> acc
+
+  | Ident (_, i) | Last (_, i) -> ISet.add i acc
+
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) ->
+    used_inputs_expr inputs acc e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | ArrayConcat (_, e1, e2) ->
+    used_inputs_expr inputs (used_inputs_expr inputs acc e2) e1
+    
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    used_inputs_expr inputs
+      (used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2) e3
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    List.fold_left (used_inputs_expr inputs) acc l
+
+  | Merge (_, _, l) ->
+    List.fold_left (fun acc (_, e) -> used_inputs_expr inputs acc e) acc l
+
+  | RestartEvery (_, _, l, e) ->
+    List.fold_left (used_inputs_expr inputs) acc (e :: l)
+
+  | Activate (_, _, e, r, l) ->
+    List.fold_left (used_inputs_expr inputs) acc (e :: r :: l)
+
+  | Condact (_, e, r, _, l1, l2) ->
+    List.fold_left (used_inputs_expr inputs) acc (e :: r :: l1 @ l2)
+
+  | RecordExpr (_, _, ie) ->
+    List.fold_left (fun acc (_, e) -> used_inputs_expr inputs acc e) acc ie
+
+  | StructUpdate (_, e1, li, e2) ->
+    let acc = used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2 in
+    List.fold_left (fun acc -> function
+        | Label _ -> acc
+        | Index (_, e) -> used_inputs_expr inputs acc e
+      ) acc li
+    
+  | Fby (_, e1, _, e2) ->
+    used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
+
+  | Pre (pos, e) -> used_inputs_expr inputs acc e
+
+  | Arrow (pos, e1, e2) ->
+    used_inputs_expr inputs (used_inputs_expr inputs acc e1) e2
+
+let rec used_inputs_equation inputs acc = function
+  | A.Assert (_, e) | A.Equation (_, _, e) -> used_inputs_expr inputs acc e
+  | A.Automaton (_, _, states, _) ->
+    List.fold_left (used_inputs_state inputs) acc states
+
+and used_inputs_transbr inputs acc = function
+  | A.Target _ -> acc
+  | A.TransIf (_, e, br, t) ->
+    used_inputs_trans inputs
+      (used_inputs_transbr inputs
+         (used_inputs_expr inputs acc e)
+         br)
+      t
+
+and used_inputs_trans inputs acc = function
+  | None -> acc
+  | Some br -> used_inputs_transbr inputs acc br
+
+and used_inputs_trans' inputs acc = function
+  | None -> acc
+  | Some (_, br) -> used_inputs_transbr inputs acc br
+
+and used_inputs_state inputs acc = function
+  | A.State (_, _, _, _, eqs, unl, uti) ->
+    used_inputs_trans' inputs
+      (used_inputs_trans' inputs
+         (used_inputs_eqs inputs acc eqs) unl)
+      uti
+
+and used_inputs_eqs inputs acc eqs =
+  List.fold_left (used_inputs_equation inputs) acc eqs
+
+
+(* Collect inputs used in equaltions and automatons. This is to create
+   auxiliary nodes for states with a minimal number of inputs *)
+let used_inputs inputs eqs =
+  let u = used_inputs_eqs inputs ISet.empty eqs in
+  List.filter (fun (_, i, _, _, _) -> ISet.mem i u) inputs
+
 
 (*************************************)
 (* Auxiliary functions for contracts *)
@@ -236,10 +340,40 @@ let contract_check_no_output ctx pos expr =
 let eval_const_decl ?(ghost = false) ctx = function
 
   (* Declaration of a free constant *)
-  | A.FreeConst (pos, _, _) ->
+  | A.FreeConst (pos, i, ty) ->
 
-    C.fail_at_position pos "Free constants not supported"
+    (* Identifier of AST identifier *)
+    let ident = I.mk_string_ident i in
 
+    (* Evaluate type expression *)
+    let tyd = S.eval_ast_type ctx ty in 
+
+    let vt, ctx = 
+      D.fold 
+        (fun i ty (vt, ctx) ->
+           let state_var, ctx = 
+             C.mk_state_var 
+               ?is_input:(Some false)
+               ?is_const:(Some true)
+               ?for_inv_gen:(Some true)
+               ~shadow:ghost
+               ctx
+               (C.scope_of_context ctx @ I.user_scope)
+               ident
+               i
+               ty
+               None
+           in
+           let v = Var.mk_const_state_var state_var in
+           D.add i v vt, ctx)
+        tyd
+        (D.empty, ctx)
+    in
+
+    C.add_free_constant ctx ident vt;
+
+    ctx
+    
   (* Declaration of a typed or untyped constant *)
   | A.UntypedConst (pos, i, expr) 
   | A.TypedConst (pos, i, expr, _) as const_decl ->
@@ -270,6 +404,7 @@ let eval_const_decl ?(ghost = false) ctx = function
     (* Evaluate constant expression *)
     let res, _ = 
       S.eval_ast_expr
+        []
         (C.fail_on_new_definition
            ctx
            pos
@@ -529,103 +664,11 @@ let eval_struct_item ctx pos = function
     in
 
     (* Return trie of state variables and context unchanged *)
-    (res, ctx)
-
-  | A.TupleStructItem (pos, _)  
-  | A.TupleSelection (pos, _, _) 
-  | A.FieldSelection (pos, _, _) 
-  | A.ArraySliceStructItem (pos, _, _) ->     
-
-    C.fail_at_position 
-      pos 
-      "Assignment not supported" 
-
-
-(* Remove elements of the left-hand side from the scope *)
-let uneval_eq_lhs ctx = function
-
-  (* Nothing added from structrural assignments *)
-  | A.StructDef (pos, _) -> ctx
-
-  (* Remove index variables in recursive array definitions *)
-  | A.ArrayDef (pos, _, l) -> 
-
-    (* Remove bindings for the running variables from the context in
-       reverse order *)
-    let ctx = 
-      List.fold_left 
-        (fun ctx v -> 
-
-           (* Bind identifier to the index variable, shadow previous
-              bindings *)
-           let ctx = 
-             C.remove_expr_for_ident
-               ctx
-               (I.mk_string_ident v)
-           in
-           ctx)
-        ctx
-        (List.rev l)
-    in
-           
-    ctx
-
-
-(* Return a trie of state variables from the left-hand side of an
-   equation *)
-let rec eval_eq_lhs ctx pos = function
-
-  (* Empty list for node calls without returns *)
-  | A.StructDef (pos, []) -> (D.empty, 0, ctx)
-
-  (* Single item *)
-  | A.StructDef (pos, [e]) -> 
-
-    (* Get types of item *)
-    let t, ctx = eval_struct_item ctx pos e in 
-
-    (* Return types of indexes, no array bounds and unchanged
-       context *)
-    t, 0, ctx
-
-  (* List of items *)
-  | A.StructDef (pos, l) -> 
-
-    (* Combine by adding index for position on left-hand side *)
-    let ctx, _, res = 
-      List.fold_left
-        (fun (ctx, i, accum) e -> 
-
-           (* Get state variables of item *)
-           let t, ctx = eval_struct_item ctx pos e in 
-
-           (* Changed context *)
-           (ctx,
-
-            (* Go forwards through list *)
-            succ i,
-
-            (* Add index of item on left-hand side to indexes *)
-            D.fold
-              (fun j e a -> D.add (D.ListIndex i :: j) e a)
-              t
-              accum))
-
-        (* Add to empty trie with first index zero *)
-        (ctx, 0, D.empty)
-
-        (* Iterate over list *)
-        l
-
-    in
-
-    (* Return types of indexes, no array bounds and unchanged
-       context *)
-    res, 0, ctx
+    (res, 0, ctx)
 
   (* Recursive array definition *)
   | A.ArrayDef (pos, i, l) -> 
-
+    
     (* Identifier of AST identifier *)
     let ident = I.mk_string_ident i in
 
@@ -655,44 +698,42 @@ let rec eval_eq_lhs ctx pos = function
 
     in
 
+    
     (* Fail if the index in the second argument does not start with
        the same number of D.VarIndex keys as the length of list in the
        first argument. *)
-    let rec aux = function 
-      | [] -> (function _ -> ())
-      | h :: tl1 -> 
-        (function 
-          | D.ArrayVarIndex _ :: tl2 -> aux tl1 tl2
-          | _ -> 
-            C.fail_at_position 
-              pos 
-              "Index mismatch for array")
+    let check l1 =
+      let d1 = List.length l1 in
+      fun l2 ->
+        let d2 =
+          l2
+          |> List.filter (function D.ArrayVarIndex _ -> true | _ -> false)
+          |> List.length in
+        if d1 <> d2 then
+          C.fail_at_position pos "Index mismatch for array definition"
     in
+
+    (* let rec aux = function  *)
+    (*   | [] -> (function _ -> ()) *)
+    (*   | h :: tl1 ->  *)
+    (*     (function  *)
+    (*       | D.ArrayVarIndex _ :: tl2 -> aux tl1 tl2 *)
+    (*       | _ ->  *)
+    (*         C.fail_at_position  *)
+    (*           pos  *)
+    (*           "Index mismatch for array") *)
+    (* in *)
 
     (* Check that the variable has at least as many indexes as
        variables given *)
-    List.iter (aux l) (D.keys res);
+    List.iter (check l) (D.keys res);
 
     (* Must have at least one element in the trie *)
     assert 
       (try D.choose res |> ignore; true with Not_found -> false);
-
-    (* Convert array bounds to indexes for equation *)
-    let rec aux accum = function 
-      | [] -> (function _ -> accum)
-      | h :: tl1 -> 
-        (function 
-          | D.ArrayVarIndex _ :: tl2 -> aux (succ accum) tl1 tl2
-          | _ -> 
-            C.fail_at_position 
-              pos 
-              "Index mismatch for array")
-    in
-
-    let indexes = 
-      (D.keys res |> List.hd) |> aux 0 l
-    in
-
+    
+    let indexes = List.length l in
+    
     (* Add bindings for the running variables to the context *)
     let _, ctx = 
       List.fold_left 
@@ -718,6 +759,96 @@ let rec eval_eq_lhs ctx pos = function
     res, indexes, ctx
 
 
+  | A.TupleStructItem (pos, _)  
+  | A.TupleSelection (pos, _, _) 
+  | A.FieldSelection (pos, _, _) 
+  | A.ArraySliceStructItem (pos, _, _) ->     
+
+    C.fail_at_position 
+      pos 
+      "Assignment not supported" 
+
+
+let uneval_struct_item ctx = function
+
+  (* Remove index variables in recursive array definitions *)
+  | A.ArrayDef (pos, _, l) -> 
+
+    (* Remove bindings for the running variables from the context in
+       reverse order *)
+    let ctx = 
+      List.fold_left 
+        (fun ctx v -> 
+
+           (* Bind identifier to the index variable, shadow previous
+              bindings *)
+           let ctx = 
+             C.remove_expr_for_ident
+               ctx
+               (I.mk_string_ident v)
+           in
+           ctx)
+        ctx
+        (List.rev l)
+    in
+           
+    ctx
+
+  | _ -> ctx
+
+
+(* Remove elements of the left-hand side from the scope *)
+let uneval_eq_lhs ctx = function
+
+  (* Nothing added from structrural assignments *)
+  | A.StructDef (pos, l) -> List.fold_left uneval_struct_item ctx l
+
+
+(* Return a trie of state variables from the left-hand side of an
+   equation *)
+let rec eval_eq_lhs ctx pos = function
+
+  (* Empty list for node calls without returns *)
+  | A.StructDef (pos, []) -> (D.empty, 0, ctx)
+
+  (* Single item *)
+  | A.StructDef (pos, [e]) -> eval_struct_item ctx pos e 
+
+  (* List of items *)
+  | A.StructDef (pos, l) -> 
+
+    (* Combine by adding index for position on left-hand side *)
+    let ctx, i, res = 
+      List.fold_left
+        (fun (ctx, i, accum) e -> 
+
+           (* Get state variables of item *)
+           let t, _, ctx = eval_struct_item ctx pos e in 
+
+           (* Changed context *)
+           (ctx,
+
+            (* Go forwards through list *)
+            i + 1,
+
+            (* Add index of item on left-hand side to indexes *)
+            D.fold
+              (fun j e a -> D.add (D.ListIndex i :: j) e a)
+              t
+              accum))
+
+        (* Add to empty trie with first index zero *)
+        (ctx, 0, D.empty)
+
+        (* Iterate over list *)
+        l
+
+    in
+
+    (* Return types of indexes, no array bounds and unchanged
+       context *)
+    res, 0, ctx
+
 (* Match bindings from a trie of state variables and bindings for a
    trie of expressions and produce a list of equations *)
 let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with 
@@ -731,13 +862,13 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
     C.fail_at_position pos "Type mismatch in equation: indexes not of equal length"
 
-  (* All indexes consumed *)
+    (* All indexes consumed *)
   | ([], state_var) :: lhs_tl, 
     ([], expr) :: rhs_tl -> 
 
     expand_tuple'
       pos
-      ((state_var, bounds, expr) :: accum)
+      (((state_var, List.rev bounds), expr) :: accum)
       []
       lhs_tl
       rhs_tl
@@ -749,7 +880,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
     expand_tuple' 
       pos
       accum
-      (N.Bound b :: bounds)
+      (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       (([], expr) :: rhs_tl)
 
@@ -762,7 +893,7 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
       expand_tuple' 
         pos
         accum
-        (N.Fixed (E.mk_int_expr (Numeral.of_int i)) :: bounds)
+        (E.Fixed (E.mk_int_expr (Numeral.of_int i)) :: bounds)
         [(lhs_index_tl, state_var)]
         [(rhs_index_tl, expr)]
     in
@@ -781,41 +912,49 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
 
   (* Array index on left-hand and right-hand side *)
   | (D.ArrayVarIndex b :: lhs_index_tl, state_var) :: lhs_tl,
-    (D.ArrayVarIndex _ :: rhs_index_tl, expr) :: rhs_tl -> 
+    (D.ArrayVarIndex br :: rhs_index_tl, expr) :: rhs_tl -> 
 
     (* We cannot compare expressions for array bounds syntactically,
        because that may give too many false negatives. Evaluating both
        bounds to find if they are equal would be too complicated,
        therefore accept some false positives here. *)
+
+    (* Take the smaller bound when it is known statically otherwise keep the
+       one from the left-hand side *)
+    let b = 
+      if E.is_numeral b && E.is_numeral br &&
+         Numeral.(E.(numeral_of_expr b > numeral_of_expr br)) then
+        br
+      else b
+    in
+    
     
     (* Count number of variable indexes *)
-    let i = 
-      List.fold_left 
-        (fun a -> function 
-           | D.ArrayVarIndex _ -> succ a
-           | _ -> a)
-        0
-        lhs_index_tl
-    in
-
+    (* let i =  *)
+    (*   List.fold_left  *)
+    (*     (fun a -> function  *)
+    (*        | D.ArrayVarIndex _ -> succ a *)
+    (*        | _ -> a) *)
+    (*     0 *)
+    (*     lhs_index_tl *)
+    (* in *)
+    
     (* Is every variable in the expression necessarily of array type? 
 
        Need to skip the index expression of a select operator: A[k] *)
     
-    let expr' =
-      E.map
-        (fun _ e -> 
-           if E.is_var e then 
-             (assert (E.type_of_lustre_expr e |> Type.is_array);
-              E.mk_select e (E.mk_index_var i))
-           else e)
-        expr
-    in
-      
+    let expr' = expr in
+    (*   E.map (fun _ e -> *)
+    (*       if E.is_var e && (E.type_of_lustre_expr e |> Type.is_array) then *)
+    (*          E.mk_select e (E.mk_index_var i) *)
+    (*       else e) *)
+    (*     expr *)
+    (* in *)
+
     expand_tuple' 
       pos
       accum
-      (N.Bound b :: bounds)
+      (E.Bound b :: bounds)
       ((lhs_index_tl, state_var) :: lhs_tl)
       ((rhs_index_tl, expr') :: rhs_tl)
 
@@ -915,34 +1054,32 @@ let rec expand_tuple' pos accum bounds lhs rhs = match lhs, rhs with
    trie of expressions *)
 let expand_tuple pos lhs rhs = 
 
-(*
-  Format.printf
-    "@[<v>expand_tuple lhs:@,%a@]@."
-    (pp_print_list
-       (fun ppf (i, sv) -> 
-          Format.fprintf ppf "%a: %a "
-            (D.pp_print_index false) i
-            StateVar.pp_print_state_var sv)
-       "@,")
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs));
+  (* Format.eprintf *)
+  (*   "@[<v>expand_tuple lhs:@,%a@]@." *)
+  (*   (pp_print_list *)
+  (*      (fun ppf (i, sv) -> *)
+  (*         Format.fprintf ppf "%a: %a " *)
+  (*           (D.pp_print_index true) i *)
+  (*           StateVar.pp_print_state_var sv) *)
+  (*      "@,") *)
+  (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs)); *)
 
-  Format.printf
-    "@[<v>expand_tuple rhs:@,%a@]@."
-    (pp_print_list
-       (fun ppf (i, e) -> 
-          Format.fprintf ppf "%a: %a "
-            (D.pp_print_index false) i
-            (E.pp_print_lustre_expr false) e)
-       "@,")
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs));
-  *)
+  (* Format.eprintf *)
+  (*   "@[<v>expand_tuple rhs:@,%a@]@." *)
+  (*   (pp_print_list *)
+  (*      (fun ppf (i, e) -> *)
+  (*         Format.fprintf ppf "%a: %a " *)
+  (*           (D.pp_print_index true) i *)
+  (*           (E.pp_print_lustre_expr false) e) *)
+  (*      "@,") *)
+  (*   (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs)); *)
   
   expand_tuple' 
     pos
     []
     []
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings lhs))
-    (List.map (fun (i, e) -> (List.rev i, e)) (D.bindings rhs))
+    (List.map (fun (i, e) -> ((* List.rev *) i, e)) (D.bindings lhs))
+    (List.map (fun (i, e) -> ((* List.rev *) i, e)) (D.bindings rhs))
 
 
 let rec eval_node_equation inputs outputs locals ctx = function
@@ -953,7 +1090,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
 
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
-      S.eval_bool_ast_expr ctx pos ast_expr 
+      S.eval_bool_ast_expr [] ctx pos ast_expr 
       |> C.close_expr ~original:ast_expr pos
     in
 
@@ -973,11 +1110,24 @@ let rec eval_node_equation inputs outputs locals ctx = function
        for right-hand side *)
     let eq_lhs, indexes, ctx = eval_eq_lhs ctx pos lhs in
 
+    (* array bounds. TODO: check that the order is correct *)
+    let lhs_bounds =
+      List.fold_left (fun acc (i, _) ->
+          List.fold_left (fun (acc, cpt) -> function
+              | D.ArrayVarIndex b ->
+                if cpt < indexes then E.Bound b :: acc, succ cpt
+                else acc, cpt
+              | _ -> acc, cpt
+            ) (acc, 0) i
+          |> fst
+        ) [] (D.bindings eq_lhs)
+      (* |> List.rev *) in
+
     (* report unguarded pre *)
     let ctx = C.set_guard_flag ctx (A.has_unguarded_pre ast_expr) in
 
     (* Evaluate expression on right-hand side in extended context *)
-    let eq_rhs, ctx = S.eval_ast_expr ctx ast_expr in
+    let eq_rhs, ctx = S.eval_ast_expr lhs_bounds ctx ast_expr in
 
     let ctx = C.reset_guard_flag ctx in
 
@@ -992,18 +1142,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
         (D.empty, ctx)
 
     in 
-(*
-    Format.printf
-      "@[<hv>%a@]@."
-      (D.pp_print_trie
-         (fun ppf (i, e) ->
-            Format.fprintf ppf
-              "@[<hv 2>%a:@ %a@]"
-              (D.pp_print_index false) i
-              (E.pp_print_lustre_expr false) e)
-         ";@ ")
-      eq_rhs;
-*)
+    
     (* Remove local definitions for equation from context
 
        We add local definitions from the left-hand side to the
@@ -1017,7 +1156,7 @@ let rec eval_node_equation inputs outputs locals ctx = function
 
     (* Add equations for each index *)
       List.fold_left (
-        fun ctx (sv, b, e) ->
+        fun ctx ((sv, b), e) ->
           (* Is [e] a state variable in the current state? *)
           let ctx =
             if E.is_var e then (
@@ -1099,7 +1238,7 @@ and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
 
         let ctx =
           eval_node_equation inputs outputs locals ctx (
-            A.Equation (pos, (A.ArrayDef (pos, i, [])), expr)
+            A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, i)]), expr)
           )
         in
 
@@ -1123,7 +1262,7 @@ and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
     | _ -> (
       (* Evaluate ghost expression *)
       let expr, ctx =
-        S.eval_ast_expr (
+        S.eval_ast_expr [] (
           (* Change context to fail on new definitions *)
           if no_defs then 
             C.fail_on_new_definition
@@ -1152,7 +1291,10 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   (* Scope is created backwards. *)
   let scope = List.rev scope in
   (* Evaluate expression to a Boolean expression, may change context. *)
-  let expr, ctx = S.eval_bool_ast_expr ctx pos expr |> C.close_expr pos in
+  let expr, ctx =
+    S.eval_bool_ast_expr [] ctx pos expr
+    |> C.close_expr pos
+  in
   (* Check the expression if asked to. *)
   ( match check with
     | None -> ()
@@ -1192,7 +1334,7 @@ and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
     )
   ) ;
   (* Define expression with a state variable *)
-  let svar, ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
+  let (svar, _), ctx = C.mk_local_for_expr ~is_ghost:true pos ctx expr in
   (* Add state variable to accumulator, continue with possibly modified
   context. *)
   ctx, (Contract.mk_svar pos count iname svar scope) :: accum, count + 1
@@ -1451,7 +1593,7 @@ and eval_node_contract_call
   let ctx = try
     List.fold_left2 (
         fun ctx expr (_, in_id, typ, _, _) ->
-          let expr, ctx = S.eval_ast_expr ctx expr in
+          let expr, ctx = S.eval_ast_expr [] ctx expr in
 
           (* Fail if type mismatch. *)
           (
@@ -1533,7 +1675,7 @@ and eval_node_contract_call
   let ctx = try
       List.fold_left2 (
         fun ctx expr (_, in_id, typ, _) ->
-          let expr, ctx = S.eval_ast_expr ctx expr in
+          let expr, ctx = S.eval_ast_expr [] ctx expr in
 
           (* Fail if type mismatch. *)
           (
@@ -1779,19 +1921,30 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 
     (* Construct new inputs for the handler nodes for values of [last]
        applications on the base clock (i.e. outside the state) *)
-    let lasts_inputs = List.map (fun l ->
-        try (pos, name ^ ".last." ^ l,
+    let lasts_inputs, lasts_args = List.map (fun l ->
+        try
+          let i = name ^ ".last." ^ l in
+          (pos, i ,
              type_of_last inputs outputs locals l,
-             A.ClockTrue, false)
+             A.ClockTrue, false),
+          (i, fun pos -> A.Pre (pos, (A.Ident (pos, l))))
         with Not_found ->
           C.fail_at_position pos ("Last type for "^l^" could not be inferred")
-      ) lasts in
+      ) lasts
+      |> List.split
+    in
 
+    let argify_inputs pos =
+      List.map (fun (_, i, _, _, _) ->
+          try (List.assoc i lasts_args) pos
+          with Not_found -> A.Ident (pos, i))
+    in
+    
     (* Pass [pre .] as arguments for the [last .] in the handler and unless of
        the state *)
-    let lasts_args pos = List.map (fun l ->
-        A.Pre (pos, (A.Ident (pos, l)))
-      ) lasts in
+    (* let lasts_args pos = List.map (fun l -> *)
+    (*     A.Pre (pos, (A.Ident (pos, l))) *)
+    (*   ) lasts in *)
     
     (* Create enumerated datatype for states *)
     let states_enum =
@@ -1813,8 +1966,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
           with Found_auto_out ld -> ld
       ) auto_outputs in
 
-    let auto_outputs_idents =
-      List.map (fun o -> A.Ident (pos,o)) auto_outputs in
+    (* let auto_outputs_idents = *)
+    (*   List.map (fun o -> A.Ident (pos,o)) auto_outputs in *)
     
     (* Gather other node variables which are neither inputs nor outputs of the
        automaton *)
@@ -1831,8 +1984,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         | _ -> acc
       ) other_vars_dl locals in
     let other_vars_dl = List.rev other_vars_dl in
-    let other_vars_idents =
-      List.map (fun (p, i, _, _, _) -> A.Ident (p,i)) other_vars_dl in
+    (* let other_vars_idents = *)
+    (*   List.map (fun (p, i, _, _, _) -> A.Ident (p,i)) other_vars_dl in *)
     
     (* find initial state *)
     let initial_state =
@@ -1915,11 +2068,12 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
          A.Arrow (pos, A.False pos,
                   A.Pre (pos, A.Ident (pos, i_restart_selected_next)))) in
 
-    let inputs_idents =
-      List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in
+    (* let inputs_idents = *)
+    (*   List.map (fun (_, i, _, _, _) -> A.Ident (pos, i)) inputs in *)
     
     let handlers_activate_calls =
-      List.map2 (fun handler (A.State (pos, state_c, _, _, _, _, _)) ->
+      List.map2 (fun (handler, actual_inputs)
+                  (A.State (pos, state_c, _, _, _, _, _)) ->
         state_c,
         (* activate handler every state = state_c restart every <restart> *)
         A.Activate
@@ -1929,7 +2083,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            (* restart *)
            A.Ident (pos, i_restart),
            (* arguments to the call = inputs of the node + others + lasts *)
-           inputs_idents @ other_vars_idents @ (lasts_args pos)
+           (* inputs_idents @ other_vars_idents @ (lasts_args pos) *)
+           argify_inputs pos actual_inputs
           )
       ) handlers states in
 
@@ -1947,7 +2102,8 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
         A.Merge (pos, i_state, handlers_activate_calls)) in
 
     let unlesses_activate_calls =
-      List.map2 (fun unless (A.State (pos, state_c, _, _, _, _, _)) ->
+      List.map2 (fun (unless, actual_inputs)
+                  (A.State (pos, state_c, _, _, _, _, _)) ->
         state_c,
         (* activate unless every state_selected =
            state_c restart every restart_selected *)
@@ -1959,10 +2115,11 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
            A.Ident (pos, i_restart_selected),
            (* arguments = state_selected + restart_selected +
               inputs of the node + outputs of the automaton + others*)
-           A.Ident (pos, i_state_selected) ::
-           A.Ident (pos, i_restart_selected) ::
-           inputs_idents @ auto_outputs_idents @ other_vars_idents @
-           (lasts_args pos)
+           (* A.Ident (pos, i_state_selected) :: *)
+           (* A.Ident (pos, i_restart_selected) :: *)
+           (* inputs_idents @ auto_outputs_idents @ other_vars_idents @ *)
+           (* (lasts_args pos) *)
+           argify_inputs pos actual_inputs
           )
       ) unlesses states in
 
@@ -1985,6 +2142,12 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     let ctx = eval_node_equation inputs outputs locals ctx handlers_eq in
     let ctx = eval_node_equation inputs outputs locals ctx unlesses_eq in
 
+    (* Format.eprintf "(\* Automaton equations *\)@.%a@.%a@.%a@.%a@.@." *)
+    (*   A.pp_print_node_item (A.Body state_selected_eq) *)
+    (*   A.pp_print_node_item (A.Body restart_selected_eq) *)
+    (*   A.pp_print_node_item (A.Body handlers_eq) *)
+    (*   A.pp_print_node_item (A.Body unlesses_eq); *)
+    
     ctx
 
 
@@ -2007,7 +2170,7 @@ and encode_transition_branch pos state_c default = function
     A.Ite (posif, cond,
            encode_transition_branch pos state_c default then_br,
            encode_transition_branch pos state_c default else_br)
-           
+
 (* Encode body and until transition of state as a node *)
 and encode_until_handler pos
     { auto_name; states_lustre_type;
@@ -2041,19 +2204,27 @@ and encode_until_handler pos
       (I.pp_print_ident false) ident
   ) ;
 
+  let allowed_inputs = node_inputs @ other_vars @ lasts_inputs in
+  let actual_inputs = used_inputs allowed_inputs (eq :: eqs) in
+
   (* Create separate auxiliary context for node (not external) *)
   let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
     eval_node_decl node_ctx pos
-      (node_inputs @ other_vars @ lasts_inputs)
+      actual_inputs
       outputs
       locals
       (List.map (fun e -> A.Body e) (eq :: eqs)) None
   in
 
+  (* Format.eprintf "%a@.@." *)
+  (*   A.pp_print_declaration *)
+  (*   (A.NodeDecl (pos, (name, false, [], actual_inputs, outputs, locals, *)
+  (*                      (List.map (fun e -> A.Body e) (eq :: eqs)), None))); *)
+
   let ctx = C.add_node_to_context ctx node_ctx in
   
-  name, ctx
+  (name, actual_inputs), ctx
 
 
 (* encoding of unless condition for strong transition as an auxiliary node *)
@@ -2087,6 +2258,8 @@ and encode_unless pos
     pos, i_restart, A.Bool pos, A.ClockTrue;
   ] in
 
+  let actual_inputs = used_inputs inputs [eq] in
+
   let ident = I.mk_string_ident name in
   (* Identifier must not be declared *)
   if C.node_in_context (C.prev ctx) ident then C.fail_at_position pos (
@@ -2098,12 +2271,16 @@ and encode_unless pos
   (* Create separate context for node (not external) *)
   let node_ctx = C.create_node (C.prev ctx) ident false in
   let node_ctx =
-    eval_node_decl node_ctx pos inputs outputs [] [A.Body eq] None
+    eval_node_decl node_ctx pos actual_inputs outputs [] [A.Body eq] None
   in
+  (* Format.eprintf "%a@.@." *)
+  (*   A.pp_print_declaration *)
+  (*   (A.NodeDecl (pos, (name, false, [], actual_inputs, outputs, [], *)
+  (*                      [A.Body eq], None))); *)
 
   let ctx = C.add_node_to_context ctx node_ctx in
 
-  name, ctx
+  (name, actual_inputs), ctx
   
 
 (* Encode a state of an automaton. 
@@ -2140,7 +2317,7 @@ and eval_node_items inputs outputs locals ctx = function
 
     (* Evaluate Boolean expression and guard all pre operators *)
     let expr, ctx = 
-      S.eval_bool_ast_expr ctx pos ast_expr 
+      S.eval_bool_ast_expr [] ctx pos ast_expr 
       |> C.close_expr ~original:ast_expr pos
     in
 
@@ -2519,7 +2696,7 @@ and declaration_to_context ctx = function
 
   (* Node may be forward referenced *)
   with C.Node_or_function_not_found (called_ident, pos) -> 
-
+         
      if 
 
        (* Is the referenced node declared later? *)
@@ -2706,7 +2883,8 @@ let declarations_to_nodes decls =
   let ctx = declarations_to_context ctx decls in
 
   (* Return nodes in context *)
-  C.get_nodes ctx
+  C.get_nodes ctx, { G.free_constants = C.get_free_constants ctx;
+                     G.state_var_bounds = C.get_state_var_bounds ctx }
 
 
 (*
@@ -2754,7 +2932,7 @@ main ()
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -k -C ../.."
    indent-tabs-mode: nil
    End: 
 *)

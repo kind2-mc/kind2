@@ -55,8 +55,13 @@ let split trans solver k falsifiable to_split actlits =
   let if_sat _ =
 
     (* Get the full model *)
-    let model = SMTSolver.get_model solver in
-
+    let model =
+      SMTSolver.get_var_values
+        solver
+        (TransSys.get_state_var_bounds trans)
+        (TransSys.vars_of_bounds trans Numeral.zero k)
+    in
+    
     (* Extract counterexample from model *)
     let cex =
       Model.path_from_model (TransSys.state_vars trans) model k
@@ -286,7 +291,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
      trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
 
     (* Asserting transition relation for next iteration. *)
-    TransSys.trans_of_bound trans k_p_1
+     TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
     |> SMTSolver.assert_term solver
     |> ignore ;
 
@@ -340,7 +345,8 @@ let init input_sys aparam trans =
     Numeral.zero Numeral.zero ;
 
   (* Asserting init. *)
-  TransSys.init_of_bound trans Numeral.zero
+  TransSys.init_of_bound
+    (Some (SMTSolver.declare_fun solver)) trans Numeral.zero
   |> SMTSolver.assert_term solver
   |> ignore ;
 

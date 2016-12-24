@@ -53,14 +53,12 @@ let of_channel in_ch =
   (* Get declarations from channel. *)
   let declarations = ast_of_channel in_ch in
 
-  (* Format.printf "declarations:@   @[<v>%a@]@.@."
-    (pp_print_list LustreAst.pp_print_declaration "@ ") declarations ; *)
-
+  (* Format.printf "Parsed :\n=========\n\n%a\n@." *)
+  (*   LustreAst.pp_print_program declarations ; *)
   (* failwith "stop" ; *)
 
-
   (* Simplify declarations to a list of nodes *)
-  let nodes = D.declarations_to_nodes declarations in
+  let nodes, globals = D.declarations_to_nodes declarations in
 
   (* Name of main node *)
   let main_node = 
@@ -109,8 +107,9 @@ let of_channel in_ch =
   in
 
   (* Return a subsystem tree from the list of nodes *)
-  N.subsystem_of_nodes nodes'
-  
+  N.subsystem_of_nodes nodes', globals
+
+
 (* Returns the AST from a file. *)
 let ast_of_file filename =
 

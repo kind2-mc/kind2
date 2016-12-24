@@ -98,3 +98,15 @@ val array_vars_of_index : index -> StateVar.t list
     [Invalid_argument "top_max_index"] if the first index is not a list *)
 val top_max_index : 'a t -> int
 
+
+val compatible_indexes : index -> index -> bool
+
+
+(** Pretty print a trie of indexes *)
+val pp_print_index_trie :
+  bool -> (Format.formatter -> 'a -> unit) ->
+  Format.formatter -> 'a t -> unit
+
+
+(** Pretty print a trie with expressions *)
+val pp_print_trie_expr : bool -> Format.formatter -> LustreExpr.t t -> unit

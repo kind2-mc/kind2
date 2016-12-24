@@ -119,23 +119,20 @@ type state_var_source =
 type contract = LustreContract.t
 
 
-(** Type of index in an equation for an array *)
-type 'a bound_or_fixed = 
-| Bound of 'a  (** Equation is for each value of the index variable
-                   between zero and the upper bound *)
-| Fixed of 'a  (** Fixed value for index variable *)
+(** Type of left hand side of equations. 
 
+    An equation defines defines the state variable [state_var], and a list
+    [bounds] of indexes.
 
-(** An equation is a triple [(state_var, bounds, expr)] of the
-    expression [expr] that defines the state variable [state_var],
-    and a list [bounds] of indexes. 
-    
     An array can be defined either only at a given index, or at all
     indexes, when the expression on the right-hand side is interpreted
     as a function of the running variable of the index.  *)
-type equation = (
-  StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t
-)
+type equation_lhs = StateVar.t * LustreExpr.expr LustreExpr.bound_or_fixed list
+
+
+(** An equation is a tuple [(eqlhs, expr)] that defines a possibly indexed
+    state variable as an expression. *)
+type equation = equation_lhs * LustreExpr.t
 
 
 (** A Lustre node
@@ -246,8 +243,7 @@ val empty_node : LustreIdent.t -> bool -> t
 
     If the flag in the first argument is [true], print identifiers in
     Lustre syntax. *)
-val pp_print_node_equation : bool -> Format.formatter ->
-  StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t -> unit
+val pp_print_node_equation : bool -> Format.formatter -> equation -> unit
 
 (** Pretty-print a node call in Lustre format 
 

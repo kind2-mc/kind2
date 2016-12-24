@@ -24,30 +24,209 @@ module VT = Var.VarHashtbl
 (* Offset of the variables at each step of a path. *)
 let path_offset = Numeral.zero
 
+module MIL = Map.Make
+    (struct
+      type t = int list
+      let rec compare l1 l2 = match l1, l2 with
+        | [], [] -> 0
+        | [], _ -> -1
+        | _, [] -> 1
+        | x :: r1, y :: r2 ->
+          let c = Pervasives.compare x y in
+          if c <> 0 then c
+          else compare r1 r2
+    end)
+
+
 (* Hashconsed term or hashconsed lambda expression *)
-type term_or_lambda = Term of Term.t | Lambda of Term.lambda
+type value =
+  | Term of Term.t
+  | Lambda of Term.lambda
+  | Map of Term.t MIL.t
+
+
+let equal_value v1 v2 = match v1, v2 with
+  | Term t1, Term t2 -> Term.equal t1 t2
+  | Lambda l1, Lambda l2 -> assert false (* TODO *)
+  | Map m1, Map m2 -> MIL.equal Term.equal m1 m2
+  | _ -> false
+
 
 (* A model is a map variables to assignments *)
-type t = term_or_lambda VT.t
+type t = value VT.t
 
 (* A path is a map of state variables to assignments *)
-type path = term_or_lambda list SVT.t
+type path = value list SVT.t
+
+(* Pretty-print a value *)
+let pp_print_term ppf term =
+  (* if Term.is_bool term then *)
+  (*   if Term.bool_of_term term then *)
+  (*     Format.fprintf ppf "✓" (\* "true" *\) *)
+  (*   else Format.fprintf ppf "✗" (\* "false" *\) *)
+  (* else *)
+  (* Term.pp_print_term ppf term *)
+
+  (* TODO do we not want legal lustre values? *)
+  
+  (* We expect values to be constants *)
+  if Term.is_numeral term then 
+
+    (* Pretty-print as a numeral *)
+    Numeral.pp_print_numeral 
+      ppf
+      (Term.numeral_of_term term)
+
+  (* Constant is a decimal? *)
+  else if Term.is_decimal term then 
+    
+    (* Pretty-print as a decimal *)
+    Decimal.pp_print_decimal 
+      ppf
+      (Term.decimal_of_term term)
+      
+  else
+    
+  (LustreExpr.pp_print_expr false) ppf
+    (LustreExpr.unsafe_expr_of_term term)
+
+
+let pp_print_term ppf term =
+  if Term.(equal term t_false || equal term (mk_num_of_int 0)) then
+    Format.fprintf ppf "@{<black_b>%a@}" pp_print_term term
+  else pp_print_term ppf term
+
+
+let width_val_of_map m =
+  MIL.fold (fun _ v ->
+      max (width_of_string (string_of_t pp_print_term v))
+    ) m 0
+
+      
+(* Show map as an array in counteexamples *)
+let pp_print_map_as_array ppf m =
+  if MIL.is_empty m then Format.fprintf ppf "[]"
+  else
+    let val_width = width_val_of_map m in
+    let dim = MIL.choose m |> fst |> List.length in
+    let current = Array.make dim 0 in
+    let prev = Array.make dim 0 in
+    for i = 1 to dim do
+      Format.fprintf ppf "[@[<hov 0>";
+    done;
+    let first = ref true in
+    MIL.iter (fun l v ->
+        Array.blit current 0 prev 0 dim;
+        Array.blit (Array.of_list l) 0 current 0 dim;
+        let cpt = ref 0 in
+        for i = dim - 2 downto 0 do
+          if current.(i) <> prev.(i) then (Format.fprintf ppf "@]]"; incr cpt);
+        done;
+        (* if !cpt <> !nopen then  Format.fprintf ppf ";"; *)
+        if !cpt > 0 then Format.fprintf ppf ",@ "
+        else if not !first then Format.fprintf ppf ",";
+        for i = 1 to !cpt do
+          Format.fprintf ppf "@[<hov 0>[";
+        done;
+        let w = width_of_string (string_of_t pp_print_term v) in
+        Format.fprintf ppf "%*s%a" (val_width - w) "" pp_print_term v;
+        first := false;
+      ) m;
+    for i = 1 to dim do
+      Format.fprintf ppf "]@]";
+    done
+
+
+type array_model =
+  | ItemValue of Term.t
+  | ItemArray of int * array_model array
+
+
+let rec allocate_model sizes =
+  match sizes with
+  | [] ->
+    ItemValue (Term.t_false)
+
+  | s :: rs ->
+    ItemArray
+      (s,
+       Array.init s (fun _ -> allocate_model rs))
+
+
+let dimension_of_map m =
+  MIL.fold (fun l _ acc -> List.map2 max acc l)
+    m (fst @@ MIL.choose m)
+  |> List.map succ
+
+
+let rec add_at_indexes l v arm =
+  match l, arm with
+  | [], ItemValue _ -> ItemValue v
+  | i :: l, ItemArray (s, a) ->
+    let new_a_i = add_at_indexes l v a.(i) in
+    a.(i) <- new_a_i;
+    arm
+  | _ -> assert false
+
+let rec map_to_array_model m =
+  allocate_model (dimension_of_map m)
+  |> MIL.fold add_at_indexes m
+
+
+let rec pp_print_array_model top_level ppf index it =
+  if not top_level then
+    Format.fprintf ppf "@[<hv 2><Item index=\"%d\">@," index;
+  begin match it with
+  | ItemValue v ->
+    Format.fprintf ppf "@[<hv 2>%a@]" pp_print_term v
+  | ItemArray (s, a) ->
+    Format.fprintf ppf
+      "@[<hv 2><Array size=\"%d\">@,%a@;<0 -2></Array>@]"
+      s
+      (pp_print_listi (pp_print_array_model false) "@,") (Array.to_list a)
+  end;
+  if not top_level then Format.fprintf ppf "@;<0 -2></Item>@]"
+
+
+(* Show map as xml in counteexamples *)
+let pp_print_map_as_xml ppf m =
+  let arm = map_to_array_model m in
+  pp_print_array_model true ppf 0 arm
+
+
+(* Print a value of the model *)  
+let pp_print_value ?as_type ppf v = match v, as_type with
+  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty ->
+    Term.numeral_of_term t
+    |> Type.get_constr_of_num
+    |> Format.pp_print_string ppf
+  | Term t, _ -> pp_print_term ppf t
+  | Lambda l, _ -> Term.pp_print_lambda ppf l
+  | Map m, _ -> Format.fprintf ppf "@[<hov 0>%a@]" pp_print_map_as_array m
+
+
+let pp_print_value_xml ?as_type ppf v =  match v, as_type with
+  | Term t, Some ty when Term.is_numeral t && Type.is_enum ty ->
+    Term.numeral_of_term t
+    |> Type.get_constr_of_num
+    |> Format.pp_print_string ppf
+  | Term t, _ -> pp_print_term ppf t
+  | Lambda l, _ -> Term.pp_print_lambda ppf l
+  | Map m, _ ->
+    try
+      pp_print_map_as_xml ppf m
+    with Not_found -> ()
+
 
 (* Pretty-print a model *)
 let pp_print_model ppf model = 
-
   Var.VarHashtbl.iter
-    (function v -> function
-       | Term t -> 
-         Format.fprintf ppf
-           "@[<hv 2>%a =@ %a@]@ " 
-           Var.pp_print_var v 
-           Term.pp_print_term t
-       | Lambda l -> 
-         Format.fprintf ppf
-           "@[<hv 2>%a =@ %a@]@ " 
-           Var.pp_print_var v 
-           Term.pp_print_lambda l)
+    (fun v value ->
+      Format.fprintf ppf
+        "@[<hv 2>%a =@ %a@]@."
+        Var.pp_print_var v
+        (pp_print_value ~as_type:(Var.type_of_var v)) value
+    )
     model
 
 (* Pretty-print a path *)
@@ -57,12 +236,9 @@ let pp_print_path ppf path =
       Format.fprintf ppf
         "@[<hv 2>%a =@ %a@]@ " 
         StateVar.pp_print_state_var sv
-        (pp_print_list
-           (fun ppf -> function
-              | Term t -> Term.pp_print_term ppf t
-              | Lambda l -> Term.pp_print_lambda ppf l)
-           ", ")
-        l)
+        (pp_print_list (pp_print_value
+                          ~as_type:(StateVar.type_of_state_var sv)) ", ") l
+    )
     path
 
 (* Create a model of the given size *)
@@ -72,9 +248,13 @@ let create sz = VT.create sz
 let create_path sz = SVT.create sz
 
 (* Import a variable assignment from a different instance *)
-let import_term_or_lambda = function
+let import_value = function
   | Term t -> Term (Term.import t)
   | Lambda l -> Lambda (Term.import_lambda l)
+  | Map m ->
+    Map (MIL.fold (fun l v acc ->
+        MIL.add l (Term.import v) acc)
+        m MIL.empty)
 
 
 (* Create a model of an association list *)
@@ -140,6 +320,22 @@ let path_to_list p =
     []
 
 
+let find_value_vi vi model =
+  let rec find prev vi =
+    try
+      let va = VT.find model vi in
+      match va with
+      | Term t when Term.is_free_var t ->
+        find (Some va) (Term.free_var_of_term t)
+      | _ -> va
+    with Not_found ->
+      match prev with
+      | None -> raise Not_found
+      | Some va -> va
+  in
+  find None vi
+
+
 (* Extract a path in the transition system, return an association list
    of state variables to a list of their values *)
 let path_from_model state_vars model k =
@@ -160,22 +356,25 @@ let path_from_model state_vars model k =
          necessarily in a partial model *)
       List.iter
         (fun state_var -> 
-
+           
            (* Value for variable at i *)
            let value = 
              try 
 
                (* Find value in model *)
-               VT.find
-                 model
-                 (Var.mk_state_var_instance state_var i)
+               find_value_vi (Var.mk_state_var_instance state_var i) model
 
              with Not_found ->
 
                (* Use default value if not defined in model *)
-               Term
-                 (TermLib.default_of_type
-                    (StateVar.type_of_state_var state_var))
+               let ty = StateVar.type_of_state_var state_var in
+               match Type.node_of_type ty with
+               | Type.Array (te, ti) ->
+                 Lambda (Term.mk_lambda
+                           [Var.mk_fresh_var ti]
+                           (TermLib.default_of_type te))
+               | _ ->
+                 Term (TermLib.default_of_type ty)
 
            in
 

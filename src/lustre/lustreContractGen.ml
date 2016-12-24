@@ -64,9 +64,6 @@ let omap f = function
   | Some x -> Some (f x)
   | None -> None
 
-(** Third. *)
-let thrd (_, _, third) = third
-
 (** Fold left over lists. *)
 let fold = List.fold_left
 
@@ -183,7 +180,7 @@ module Contract = struct
             (* Source of svar. *)
             (Node.source_of_svar node)
             (* Expression of svar definition's lhs. *)
-            (fun svar -> Node.equation_of_svar node svar |> omap thrd)
+            (fun svar -> Node.equation_of_svar node svar |> omap snd)
             term
         ) with Not_found ->
           (* There was one unknown state variable, should be the init flag.
@@ -380,7 +377,7 @@ let sys_name sys =
 
 (** Ghost definition formatter. *)
 let fmt_def node fmt svar s =
-  let (var, bounds, expr) =
+  let ((var, bounds), expr) =
     match Node.equation_of_svar node svar with
     | Some eq -> eq
     | None ->
@@ -392,14 +389,14 @@ let fmt_def node fmt svar s =
     (Expr.pp_print_lustre_var false) s
     (pp_print_listi
        (fun ppf i -> function 
-          | Node.Bound e -> 
+          | Expr.Bound e | Expr.Unbound e -> 
             Format.fprintf
               ppf
               "[%a(%a)]"
               (LustreIdent.pp_print_ident false)
               (LustreIdent.push_index LustreIdent.index_ident i)
               (Expr.pp_print_expr false) e
-          | Node.Fixed e ->
+          | Expr.Fixed e ->
             Format.fprintf ppf "[%a]" (Expr.pp_print_expr false) e)
        "") 
     bounds
