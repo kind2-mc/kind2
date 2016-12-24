@@ -536,10 +536,10 @@ val get_all_invariants : t -> Invs.t Scope.Map.t
 (** Instantiate a term of a given scope from all instances of the
     system of that scope upwards to the top system
 
-    [instantiate_term_all_levels t i s e] instantiates the Boolean
-    term [e] of scope [s] in all systems it is a subsystem of, and
-    further upwards until the top system [t]. The offset [i] is the
-    offset of the current instant in the term [e].
+    [instantiate_term_all_levels t i s e ts] instantiates the Boolean term [e]
+    of scope [s] in all systems it is a subsystem of, and further upwards until
+    the top system [t]. The offset [i] is the offset of the current instant in
+    the term [e]. [ts] is true if the invariant is two states.
 
     Return the top system [s] paired with the instances of the term in
     it, and a list of all systems between the top system [t] and the
@@ -549,8 +549,8 @@ val get_all_invariants : t -> Invs.t Scope.Map.t
     The offset [i] is needed to properly guard the term [e] for
     clocked system instances. *)
 val instantiate_term_all_levels:
-  t -> Numeral.t -> Scope.t -> Term.t ->
-  (t * Term.t list) * ((t * Term.t list) list)
+  t -> Numeral.t -> Scope.t -> Term.t -> bool ->
+  (t * Term.t list) * ((t * Term.t list) list) 
 
 
 (** Return arrays bounds of state variables of array type used in the system *)
@@ -561,7 +561,7 @@ val get_state_var_bounds : t ->
     
 (** Same as above but with certificates *)
 val instantiate_term_cert_all_levels: t -> Numeral.t -> Scope.t ->
-  Term.t * Certificate.t ->
+  Term.t * Certificate.t -> bool ->
   (t * (Term.t * Certificate.t) list) *
   (t * (Term.t * Certificate.t) list) list
 

@@ -226,7 +226,7 @@ module Make (Graph : GraphSig) : Out = struct
         instantiating invariant at all levels. *)
         let (top_invariants, intermediary_invariants) =
           Sys.instantiate_term_cert_all_levels 
-            top_sys Sys.prop_base (Sys.scope_of_trans_sys sys) inv_c
+            top_sys Sys.prop_base (Sys.scope_of_trans_sys sys) inv_c two_state
         in
 
         (* Add intermediary invariants to sys and pruner, broadcast, add to

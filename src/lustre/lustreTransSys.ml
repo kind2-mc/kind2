@@ -1178,12 +1178,12 @@ let rec constraints_of_node_calls
     let guard_clock =
       match other_conds with
       | [] ->
-        (fun i t ->  
+        (fun i t ->
            Term.mk_implies
              [Var.mk_state_var_instance clock i |> Term.mk_var;
               t])
       | [N.CRestart restart] ->
-        (fun i t ->  
+        (fun i t ->
            Term.mk_implies
              [Term.mk_and [Var.mk_state_var_instance clock i |> Term.mk_var;
                            Var.mk_state_var_instance restart i |> Term.mk_var

@@ -256,7 +256,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
                 Set.fold (
                   fun term map ->
                     Sys.instantiate_term_all_levels
-                      top_sys TransSys.trans_base scope term
+                      top_sys TransSys.trans_base scope term two_state
                     |> fun (top, others) -> top :: others
                     |> List.fold_left (
                       fun map (sys, terms) ->

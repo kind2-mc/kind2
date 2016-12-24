@@ -1639,7 +1639,8 @@ let mk_trans_sys
    intermediary systems and terms. Note that the input system term of
    the function will be in the result, either as intermediary or top
    level. *)
-let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) = 
+let instantiate_term_cert_all_levels
+    trans_sys offset scope (term, cert) two_state = 
 
   (* merge maps of term -> certificate by keeping simplest certificate *)
   let merge_term_cert_maps _ (
@@ -1697,12 +1698,13 @@ let instantiate_term_cert_all_levels trans_sys offset scope (term, cert) =
                  assert false)
           t
         |> fun t ->
-        let is_one_state =
-          match Term.var_offsets_of_term t with
-          | Some lo, Some up -> Numeral.(equal lo up)
-          | _ -> true
-        in
-        if is_one_state then t else guard_clock offset t
+        (* let is_one_state = *)
+        (*   match Term.var_offsets_of_term t with *)
+        (*   | Some lo, Some up -> Numeral.(equal lo up) *)
+        (*   | _ -> true *)
+        (* in *)
+        (* if is_one_state then t else guard_clock offset t *)
+        if two_state then guard_clock offset t else t
       in
 
       let term' = inst_term term in
@@ -1774,10 +1776,11 @@ let get_state_var_bounds { state_var_bounds } = state_var_bounds
 
 
 (* Same as above without certificates *)
-let instantiate_term_all_levels trans_sys offset scope term =
+let instantiate_term_all_levels trans_sys offset scope term two_state =
   let dummy_cert = -1, term in
   let (sys_top, t_top), inter_c =
     instantiate_term_cert_all_levels trans_sys offset scope (term, dummy_cert)
+      two_state
   in
   (sys_top, List.map fst t_top),
   List.map (fun (subsys, t_subs) ->
