@@ -102,6 +102,9 @@ val list_indexes : 'a list -> 'a list -> int list
     positions [p1], [p2] etc. *)
 val list_filter_nth : 'a list -> int list -> 'a list
 
+(** Remove and returns the nth element form a list *)
+val list_extract_nth : 'a list -> int -> 'a * 'a list
+
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 
@@ -214,6 +217,9 @@ val pp_print_if_not_empty : (unit, Format.formatter, unit) format -> Format.form
 (** Pretty-print into a string *)
 val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string 
 
+(** Return the width of the string, meaning the wisth of it's longest line *)
+val width_of_string : string -> int
+
 (** Return the strings as a parenthesized and space separated list *)
 val paren_string_of_string_list : string list -> string
 
@@ -256,6 +262,7 @@ val int_of_log_level : log_level -> int
 
 val log_level_of_int : int -> log_level
 
+val string_of_log_level : log_level -> string
 
 (** Current formatter for output *)
 val log_ppf : Format.formatter ref 

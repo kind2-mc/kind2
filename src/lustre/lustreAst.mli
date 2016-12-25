@@ -85,6 +85,8 @@ type expr =
   | Or of position * expr * expr
   | Xor of position * expr * expr
   | Impl of position * expr * expr
+  | Forall of position * typed_ident list * expr
+  | Exists of position * typed_ident list * expr
   | OneHot of position * expr list
   | Uminus of position * expr
   | Mod of position * expr * expr
@@ -170,10 +172,10 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  | ArrayDef of position * ident * ident list
 
 (** The left-hand side of an equation *)
 type eq_lhs = 
-  | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
 type transition_to =

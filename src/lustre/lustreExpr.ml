@@ -54,6 +54,14 @@ type t = {
 
 }
 
+(* Bound for index variable, or fixed value for index variable *)
+type 'a bound_or_fixed = 
+  | Bound of 'a  (* Upper bound for index variable *)
+  | Fixed of 'a  (* Fixed value for index variable *)
+  | Unbound of 'a  (* unbounded index variable *)
+
+
+let compare_expr = Term.compare
 
 (* Total order on expressions *)
 let compare
@@ -61,11 +69,8 @@ let compare
     { expr_init = init2; expr_step = step2 } =
 
   (* Lexicographic comparision of initial value, step value *)
-  let c_init = Term.compare init1 init2 in 
-  if c_init = 0 then 
-    Term.compare step1 step2 
-  else
-    c_init
+  let c_init = compare_expr init1 init2 in 
+  if c_init = 0 then compare_expr step1 step2 else c_init
 
 
 (* Equality on expressions *)
@@ -100,7 +105,7 @@ let hash { expr_init; expr_step } =
    because [(l -> r) -> t = (l -> t)]. Same for [expr_step], because
    [t -> (l -> r) = t -> r].
 *)
-let map f ({ expr_init; expr_step } as expr) = 
+let map f { expr_init; expr_step } = 
 
   (* Create a Lustre expression from a term and return a term, if
      [init] is true considering [expr_init] only, otherwise [expr_step]
@@ -130,9 +135,11 @@ let map f ({ expr_init; expr_step } as expr) =
 
   (* Apply function separately to init and step expression and
      rebuild *)
-  { expr with 
-      expr_init = Term.map (f' true) expr_init; 
-      expr_step = Term.map (f' false) expr_step }
+  let expr_init = Term.map (f' true) expr_init in
+  let expr_step = Term.map (f' false) expr_step in
+  let expr_type = Term.type_of_term expr_init in
+      
+  { expr_init; expr_step; expr_type }
 
 
 let map_vars = Term.map_vars 
@@ -178,6 +185,9 @@ let map_array_var f ({ expr_init; expr_step } as expr) =
 
 (* Return the type of the expression *)
 let type_of_lustre_expr { expr_type } = expr_type
+
+
+let type_of_expr e = Term.type_of_term e
 
 
 (* Hash table over Lustre expressions *)
@@ -252,7 +262,9 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
     raise 
       (Invalid_argument "pp_print_lustre_type: BV is not a Lustre type")
 *)
-  | Type.Array (s, t) -> pp_print_lustre_type safe ppf t
+  | Type.Array (s, t) ->
+
+    Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
 
 
 (* String representation of a symbol in Lustre *)
@@ -364,8 +376,8 @@ let rec pp_print_var safe ppf var =
   (* Fail on other types of variables *)
   else
 
-    raise (Invalid_argument "pp_print_var")
-
+    (* free variable *)
+    Format.fprintf ppf "%s" (Var.string_of_var var)
 
 
 (* Pretty-print a term *)
@@ -597,15 +609,28 @@ and pp_print_app ?as_type safe ppf = function
           
         | _ -> assert false)
 
-    | `SELECT -> 
+    | `SELECT _ -> 
 
       (function 
         | [a; i] ->
-        
+
           Format.fprintf ppf 
             "@[<hv 2>%a[%a]@]" 
             (pp_print_term_node safe) a 
             (pp_print_term_node safe) i
+            
+        | _ -> assert false)
+
+    | `STORE ->
+      
+      (function 
+        | [a; i; v] ->
+        
+          Format.fprintf ppf 
+            "@[<hv 2>(%a with [%a] = %a)@]" 
+            (pp_print_term_node safe) a 
+            (pp_print_term_node safe) i
+            (pp_print_term_node safe) v
             
         | _ -> assert false)
         
@@ -626,7 +651,6 @@ and pp_print_app ?as_type safe ppf = function
     | `BVSHL
     | `BVLSHR
     | `BVULT
-    | `STORE
 *)
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
@@ -730,10 +754,9 @@ let is_const_var { expr_init; expr_step } =
   && Var.is_const_state_var (Term.free_var_of_term expr_init)
   && Var.is_const_state_var (Term.free_var_of_term expr_step)
 
-
+                          
 (* Return true if expression is a previous state variable *)
 let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
-
 
 let is_const_expr expr = 
   VS.for_all Var.is_const_state_var (Term.vars_of_term expr)
@@ -861,6 +884,15 @@ let var_of_expr { expr_init } =
   with Invalid_argument _ -> raise (Invalid_argument "var_of_expr")
 
 
+(* Return the free variable of a variable *)
+let var_of_expr { expr_init } = 
+  try
+    Term.free_var_of_term expr_init
+  (* Fail if any of the above fails *)
+  with Invalid_argument _ -> raise (Invalid_argument "var_of_expr")
+
+
+
 (* Return all state variables *)
 let state_vars_of_expr { expr_init; expr_step } = 
 
@@ -872,6 +904,19 @@ let state_vars_of_expr { expr_init; expr_step } =
 
   (* Join sets of state variables *)
   SVS.union state_vars_init state_vars_step
+
+            
+(* Return all state variables *)
+let vars_of_expr { expr_init; expr_step } = 
+
+  (* State variables in initial state expression *)
+  let vars_init = Term.vars_of_term expr_init in
+
+  (* State variables in step state expression *)
+  let vars_step = Term.vars_of_term expr_step in
+
+  (* Join sets of state variables *)
+  Var.VarSet.union vars_init vars_step
 
 
 (* Return all state variables at the current instant in the initial
@@ -890,6 +935,13 @@ let cur_state_vars_of_step_expr { expr_step } =
   Term.state_vars_at_offset_of_term
     cur_offset
     (cur_term_of_expr cur_offset expr_step)
+
+
+let indexes_of_state_vars_in_init sv { expr_init } =
+  Term.indexes_of_state_var sv expr_init
+
+let indexes_of_state_vars_in_step sv { expr_step } =
+  Term.indexes_of_state_var sv expr_step
 
 
 (* Split a list of Lustre expressions into a list of pairs of
@@ -1017,20 +1069,50 @@ let mk_var state_var =
     expr_type = StateVar.type_of_state_var state_var } 
 
 
+let mk_free_var v =
+  let t = Term.mk_var v in
+  { expr_init = t;
+    expr_step = t;
+    expr_type = Var.type_of_var v } 
+  
+
 (* i-th index variable *)
 let mk_index_var i = 
 
-  (* Create state variable *)
-  let state_var = 
-    StateVar.mk_state_var
-      ((I.push_index I.index_ident i) 
-       |> I.string_of_ident false)
-      I.reserved_scope
+  let v =
+    Var.mk_free_var
+      (String.concat "."
+         (((I.push_index I.index_ident i) |> I.string_of_ident true)
+          :: I.reserved_scope)
+       |> HString.mk_hstring)
       Type.t_int
+    |> Term.mk_var
   in
 
-  (* Create expression of state variable *)
-  mk_var state_var
+  (* create lustre expression for free variable*)
+  { expr_init = v;
+    expr_step = v;
+    expr_type = Type.t_int } 
+
+let int_of_index_var { expr_init = t } =
+  if not (Term.is_free_var t) then raise (Invalid_argument "int_of_index_var");
+  let v = Term.free_var_of_term t in
+  let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
+  try Scanf.sscanf s ("__index_%d%_s") (fun i -> i)
+  with Scanf.Scan_failure _ -> raise (Invalid_argument "int_of_index_var")
+          
+
+let has_q_index_expr e =
+  let vs = Term.vars_of_term e in
+  Var.VarSet.exists (fun v ->
+      Var.is_free_var v &&
+      let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
+      try Scanf.sscanf s ("__index_%_d%_s") true
+      with Scanf.Scan_failure _ -> false
+    ) vs
+
+let has_indexes { expr_init; expr_step } =
+  has_q_index_expr expr_init || has_q_index_expr expr_step
 
 
 (* ********************************************************************** *)
@@ -1191,6 +1273,7 @@ let eval_uminus expr = match Term.destruct expr with
   | Term.T.App (s, [e]) when s == Symbol.s_minus -> e
 
   | _ -> Term.mk_minus [expr]
+  | exception Invalid_argument _ -> Term.mk_minus [expr]
 
 
 (* Type of unary minus 
@@ -1224,6 +1307,7 @@ let eval_to_int expr = match Term.destruct expr with
             (Symbol.decimal_of_symbol s)))
 
   | _ -> Term.mk_to_int expr
+  | exception Invalid_argument _ -> Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -1251,6 +1335,7 @@ let eval_to_real expr = match Term.destruct expr with
             (Symbol.numeral_of_symbol s)))
 
   | _ -> Term.mk_to_real expr
+  | exception Invalid_argument _ -> Term.mk_to_real expr
 
 (* Type of conversion to real  
 
@@ -1392,6 +1477,54 @@ let type_of_impl = type_of_bool_bool_bool
 (* Boolean implication *)
 let mk_impl expr1 expr2 = mk_binary eval_impl type_of_impl expr1 expr2 
 
+(* ********************************************************************** *)
+
+let mk_let bindings expr =
+  {
+    expr_init = Term.mk_let bindings expr.expr_init;
+    expr_step = Term.mk_let bindings expr.expr_step;
+    expr_type = expr.expr_type;
+  }
+
+(* ********************************************************************** *)
+
+let apply_subst sigma expr =
+  {
+    expr_init = Term.apply_subst sigma expr.expr_init;
+    expr_step = Term.apply_subst sigma expr.expr_step;
+    expr_type = expr.expr_type;
+  }
+
+(* ********************************************************************** *)
+
+(* Evaluate universal quantification *)
+let eval_forall vars t = match vars, t with
+  | [], _ -> Term.t_true
+  | _, t when t == Term.t_true -> Term.t_true
+  | _, t when t == Term.t_false -> Term.t_false
+  | _ -> Term.mk_forall vars t 
+
+let type_of_forall = type_of_bool_bool
+
+(* Universal quantification*)
+let mk_forall vars expr =
+  mk_unary (eval_forall vars) type_of_forall expr
+
+
+(* ********************************************************************** *)
+
+(* Evaluate existential quantification *)
+let eval_exists vars t = match vars, t with
+  | [], _ -> Term.t_false
+  | _, t when t == Term.t_true -> Term.t_true
+  | _, t when t == Term.t_false -> Term.t_false
+  | _ -> Term.mk_exists vars t 
+
+let type_of_exists = type_of_bool_bool
+
+(* Existential quantification*)
+let mk_exists vars expr = mk_unary (eval_exists vars) type_of_exists expr
+
 
 (* ********************************************************************** *)
 
@@ -1409,6 +1542,7 @@ let eval_mod expr1 expr2 =
                  Symbol.numeral_of_symbol c2) 
 
     | _ -> Term.mk_mod expr1 expr2
+    | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
 
 (* Type of integer modulus 
@@ -1455,6 +1589,7 @@ let eval_minus expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
         
     | _ -> Term.mk_minus [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
              
 
 (* Type of subtraction 
@@ -1505,6 +1640,7 @@ let eval_plus expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_plus [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_plus [expr1; expr2]
 
 
 (* Type of addition 
@@ -1545,12 +1681,13 @@ let eval_div expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_div [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_div [expr1; expr2]
 
 
 (* Type of real division
 
    /: real -> real -> real *)
-let type_of_div = type_of_real_real_real
+let type_of_div = type_of_num_num_num(* type_of_real_real_real *)
 
 
 (* Real division *)
@@ -1580,6 +1717,7 @@ let eval_times expr1 expr2 =
                  Symbol.decimal_of_symbol c2) 
 
   | _ -> Term.mk_times [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_times [expr1; expr2]
 
 
 (* Type of multiplication
@@ -1609,6 +1747,7 @@ let eval_intdiv expr1 expr2 =
                  Symbol.numeral_of_symbol c2) 
 
   | _ -> Term.mk_intdiv [expr1; expr2]
+  | exception Invalid_argument _ -> Term.mk_intdiv [expr1; expr2]
 
 
 (* Type of integer division
@@ -1682,6 +1821,8 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
 
 
       | _ -> Term.mk_eq [expr1; expr2]
+               
+      | exception Invalid_argument _ -> Term.mk_eq [expr1; expr2]
 
 
 (* Type of equality
@@ -1745,6 +1886,7 @@ let eval_lte expr1 expr2 =
 
 
     | _ -> Term.mk_leq [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_leq [expr1; expr2]
 
 
 (* Type of inequality
@@ -1794,6 +1936,7 @@ let eval_lt expr1 expr2 =
 
 
     | _ -> Term.mk_lt [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_lt [expr1; expr2]
 
 
 (* Type of inequality
@@ -1843,6 +1986,7 @@ let eval_gte expr1 expr2 =
 
 
     | _ -> Term.mk_geq [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_geq [expr1; expr2]
 
 
 (* Type of inequality
@@ -1892,6 +2036,7 @@ let eval_gt expr1 expr2 =
 
 
     | _ -> Term.mk_gt [expr1; expr2]
+    | exception Invalid_argument _ -> Term.mk_gt [expr1; expr2]
 
 
 (* Type of inequality
@@ -2001,16 +2146,13 @@ let mk_arrow expr1 expr2 =
   { expr_init = expr1.expr_init;
     expr_step = expr2.expr_step;
     expr_type = res_type } 
-  
+    
 
 (* ********************************************************************** *)
 
 
 (* Pre expression *)
-let mk_pre 
-    mk_state_var_for_expr
-    ctx
-    unguarded
+let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
     ({ expr_init; expr_step; expr_type } as expr) = 
 
   (* When simplifications fails, simply abstract with a new state variable,
@@ -2018,13 +2160,12 @@ let mk_pre
   let abs_pre () =
     let expr_type = Type.generalize expr_type in
     let expr = { expr with expr_type } in
-    (* Fresh state variable for expression *)
-    let state_var, ctx = mk_state_var_for_expr ctx expr in
-    (* Variables at previous instant *)
-    let var_init = Var.mk_state_var_instance state_var pre_base_offset in
-    let var_step = Var.mk_state_var_instance state_var pre_offset in
-    { expr_init = Term.mk_var var_init;
-      expr_step = Term.mk_var var_step;
+    (* Fresh state variable for identifier *)
+    let abs, ctx = mk_abs_for_expr ctx expr in
+    (* Abstraction at previous instant *)
+    let abs_t = mk_lhs_term abs in
+    { expr_init = abs_t;
+      expr_step = abs_t;
       expr_type }, ctx
   in
 
@@ -2048,6 +2189,7 @@ let mk_pre
     (* Expression is a variable at the current instant not part of an unguarded
        pre expression *)
     | t when Term.is_free_var t &&
+        Term.free_var_of_term t |> Var.is_state_var_instance &&
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) =
                    base_offset) ->
 
@@ -2098,15 +2240,84 @@ let type_of_select = function
 
 
 (* Select from an array *)
-let mk_select expr1 expr2 = 
-
+let mk_select expr1 expr2 =
   (* Types of expressions must be compatible *)
-  let _res_type = 
-    type_of_select expr1.expr_type expr2.expr_type 
-  in
-
   mk_binary eval_select type_of_select expr1 expr2
-  
+
+
+let mk_array expr1 expr2 =
+  (* Types of expressions must be compatible *)
+  let type_of_array t1 t2 = Type.mk_array t1 t2 in
+  mk_binary (fun x _ -> x) type_of_array expr1 expr2
+
+
+
+(* ********************************************************************** *)
+
+(* Evaluate store from array 
+
+   Nothing to simplify here *)
+let eval_store = Term.mk_store 
+
+
+let type_of_store = function 
+
+  (* First argument must be an array type *)
+  | s when Type.is_array s -> 
+
+    (fun i v -> 
+
+      (* Second argument must match index type of array *)
+       if Type.check_type i (Type.index_type_of_array s) &&
+          Type.check_type (Type.elem_type_of_array s) v
+       then 
+
+        (* Return type of array *)
+        s
+
+      else
+
+        (* Type of indexes do not match*)
+        raise Type_mismatch)
+
+  (* Not an array type *)
+  | _ ->
+    raise Type_mismatch
+
+
+(* Store from an array *)
+let mk_store expr1 expr2 expr3 =
+  (* Format.eprintf "mk_store  %a:%a [%a, %a]  %a:%a  %a:%a@." *)
+  (*   (pp_print_lustre_expr false) expr1 *)
+  (*   Type.pp_print_type (type_of_lustre_expr expr1) *)
+  (*   Type.pp_print_type (Type.index_type_of_array (type_of_lustre_expr expr1)) *)
+  (*   Type.pp_print_type (Type.elem_type_of_array (type_of_lustre_expr expr1)) *)
+  (*   (pp_print_lustre_expr false) expr2 *)
+  (*   Type.pp_print_type (type_of_lustre_expr expr2) *)
+  (*   (pp_print_lustre_expr false) expr3 *)
+  (*   Type.pp_print_type (type_of_lustre_expr expr3); *)
+  (* Types of expressions must be compatible *)
+  mk_ternary eval_store type_of_store expr1 expr2 expr3
+    
+
+let is_store e = Term.is_store e.expr_init && Term.is_store e.expr_step
+
+let is_select e = Term.is_select e.expr_init && Term.is_select e.expr_step
+
+let is_select_array_var e =
+  is_select e &&
+  try
+    ignore (Term.indexes_and_var_of_select e.expr_init);
+    ignore (Term.indexes_and_var_of_select e.expr_step);
+    true
+  with Invalid_argument _ -> false
+
+
+let var_of_array_select e =
+  let v1, _ = Term.indexes_and_var_of_select e.expr_init in
+  let v2, _ = Term.indexes_and_var_of_select e.expr_step in
+  if not (Var.equal_vars v1 v2) then invalid_arg ("var_of_array_select");
+  v1
 
 (* ********************************************************************** *)
 
@@ -2149,11 +2360,20 @@ let mk_let_pre substs ({ expr_init; expr_step } as expr) =
     in
     List.rev i, List.rev s
   in
+
+  let subst_has_arrays =
+    List.exists (fun (v, _) -> Var.type_of_var v |> Type.is_array) in
+
+  let expr_init =
+    if subst_has_arrays substs_init then Term.apply_subst substs_init expr_init
+    else Term.mk_let substs_init expr_init in
+
+  let expr_step =
+    if subst_has_arrays substs_step then Term.apply_subst substs_step expr_step
+    else Term.mk_let substs_step expr_step in
   
   (* Apply substitutions separately *)
-  { expr with 
-      expr_init = Term.mk_let substs_init expr_init; 
-      expr_step = Term.mk_let substs_step expr_step }
+  { expr with expr_init; expr_step}
 
 (* ********************************************************************** *)
 
@@ -2171,6 +2391,15 @@ let mk_of_expr ?as_type expr =
   { expr_init = expr; 
     expr_step = expr; 
     expr_type } 
+
+
+let is_numeral = Term.is_numeral
+
+let numeral_of_expr = Term.numeral_of_term
+
+
+let unsafe_term_of_expr e = (e : Term.t)
+let unsafe_expr_of_term t = t
 
 (* 
    Local Variables:

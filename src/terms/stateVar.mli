@@ -144,6 +144,15 @@ val fold : (t -> 'a -> 'a) -> 'a -> 'a
 val iter : (t -> unit) -> unit
 
 
+(** encode array select operation. Encoding select funtion is done byt type
+    (i.e. one select by array type).  The select function performs all
+    projections if the array is multidimensional. This means you should have
+    something like [(select_1 m 0 3)] in case [m] is a matrix *)
+val encode_select : t -> UfSymbol.t
+
+(** Return select function that were created *)
+val get_select_ufs : unit -> UfSymbol.t list
+
 (** {1 Pretty-printing} *)
 
 (** Pretty-print a state variable *)

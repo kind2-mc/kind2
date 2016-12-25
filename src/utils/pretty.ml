@@ -25,7 +25,7 @@ open Lib
 (* Set width of pretty printing boxes to number of columns *)
 let vt_width =
   try
-    let scol = syscall "tput cols" in
+    let scol = syscall "tput cols 2> /dev/null" in
     let w = int_of_string (String.trim scol) in
     set_margin w;
     w

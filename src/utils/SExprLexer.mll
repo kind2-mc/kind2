@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -89,12 +89,12 @@ let lf = '\010'
 let lf_cr = ['\010' '\013']
 let dos_newline = "\013\010"
 let blank = [' ' '\009' '\012']
-let unquoted = [^ ';' '(' ')' '"'] # blank # lf_cr
+let unquoted = [^ ';' '(' ')' '"' '|'] # blank # lf_cr
 let digit = ['0'-'9']
 let hexdigit = digit | ['a'-'f' 'A'-'F']
 
 let unquoted_start =
-  unquoted # ['#' '|'] | '#' unquoted # ['|'] | '|' unquoted # ['#']
+  unquoted # ['#'] | '#' unquoted 
 
 rule main buf = parse
   | lf | dos_newline { found_newline lexbuf 0; main buf lexbuf }
@@ -122,9 +122,11 @@ rule main buf = parse
       Buffer.clear buf;
       STRING (HString.mk_hstring ("|"^ str ^"|"))
     }
+
   | unquoted_start unquoted* ("#|" | "|#") unquoted*
       { main_failure lexbuf "comment tokens in unquoted atom" }
   | "#" | unquoted_start unquoted* as str { STRING (HString.mk_hstring str) }
+  (* | '|' (unquoted* as str) '|' { STRING (HString.mk_hstring str) } *)
   | eof { EOF }
 
 and scan_string buf start = parse

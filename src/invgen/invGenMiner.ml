@@ -113,9 +113,14 @@ Adds to the input set. *)
 let flat_apply term work set =
   let set_ref = ref set in
   let memorize set' = set_ref := set' in
-  Term.eval_t (
-    fun flat_term _ -> work flat_term !set_ref |> memorize
-  ) term ;
+  (try
+    Term.eval_t (
+      fun flat_term _ -> work flat_term !set_ref |> memorize
+    ) term ;
+   with Invalid_argument _ ->
+     Event.log L_warn
+       "Cannot mine invariants in quantified terms"
+  );
   !set_ref
 
 (* Checks if [sub_sys] is a subsystem of [sys]. *)
@@ -195,7 +200,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
 
           (* We don't know this system. *)
           let init, trans =
-            Sys.init_of_bound sys zero, Sys.trans_of_bound sys zero
+            Sys.init_of_bound None sys zero, Sys.trans_of_bound None sys zero
           in
           (* Format.printf
             "candidates (%d):@   @[<v>%a@]@.@."
@@ -251,7 +256,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
                 Set.fold (
                   fun term map ->
                     Sys.instantiate_term_all_levels
-                      top_sys TransSys.trans_base scope term
+                      top_sys TransSys.trans_base scope term two_state
                     |> fun (top, others) -> top :: others
                     |> List.fold_left (
                       fun map (sys, terms) ->
@@ -570,7 +575,7 @@ module IntRules = struct
           if SVar.for_inv_gen svar then
             (var_of svar) :: svars, set
           else svars, set
-        | Type.IntRange (lo, hi, _) ->
+        | Type.IntRange (lo, hi, Type.Range) ->
           svars,
           Set.add (Term.mk_num lo) set |> Set.add (Term.mk_num hi)
         | _ -> svars, set

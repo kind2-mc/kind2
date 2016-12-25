@@ -92,7 +92,10 @@ val get_model : t -> Model.t
 
 (** Return a values of the terms in the current context if
     satisfiable *)
-val get_var_values : t -> Var.t list -> Model.t
+val get_var_values :
+  t ->
+  (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
+  Var.t list -> Model.t
 
 (** Return a values of the terms in the current context if
     satisfiable *)
@@ -182,6 +185,7 @@ val kind : t -> Flags.Smt.solver
 val trace_comment : t -> string -> unit
 
 val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.t list
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

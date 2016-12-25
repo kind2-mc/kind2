@@ -164,14 +164,38 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- Value as output in cex's. -->
-  <xs:element name="Value">
+  <!-- Element of an array -->
+  <xs:element name="Item">
     <xs:complexType>
       <xs:simpleContent>
         <xs:extension base="genericValue">
-          <xs:attribute name="instant" type="posInt" use="required"/>
+          <xs:attribute name="index" type="posInt" use="required"/>
         </xs:extension>
       </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+  
+  <!-- Value of arrays in the trace  -->
+  <xs:element name="Array">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice>
+          <xs:element ref="Item" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element ref="Array" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="size" type="posInt" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  
+  <!-- Value as output in cex's. -->
+  <xs:element name="Value">
+    <xs:complexType mixed="true">
+      <xs:choice  minOccurs="0" maxOccurs="1">
+        <xs:element ref="Array"/>
+      </xs:choice>
+      <xs:attribute name="instant" type="posInt" use="required"/>
     </xs:complexType>
   </xs:element>
 

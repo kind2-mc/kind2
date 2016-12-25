@@ -50,7 +50,7 @@ type get_value_response = [
 
 (** Type of reponses for get-model commands. It carries the model. *)
 type get_model_response = [
-  | `Model of (UfSymbol.t * Model.term_or_lambda) list
+  | `Model of (UfSymbol.t * Model.value) list
   | error_response
 ]
 
