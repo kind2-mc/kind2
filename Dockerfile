@@ -37,15 +37,19 @@ RUN eval $(opam config env)
 ENV PATH="/root/.opam/4.04.0/bin:${PATH}"
 
 # Certification stuff
-# Latest proof-producing cvc4.
-RUN wget -qq http://cvc4.cs.nyu.edu/cvc4-builds/x86_64-linux-opt-proofs/unstable/cvc4-2016-12-06-x86_64-linux-opt-proofs
-RUN mv cvc4-2016-12-06-x86_64-linux-opt-proofs bin/cvc4
 # Retrieve jkind.
 RUN wget -qq https://github.com/agacek/jkind/releases/download/v3.0.2/jkind-v3.0.2.zip
 RUN unzip jkind-v3.0.2.zip && rm jkind-v3.0.2.zip
 RUN mv jkind jkind-dir && mv jkind-dir/jkind jkind-dir/*.jar bin/. && chmod a+x bin/jkind && rm -rf jkind-dir
-RUN chmod a+x bin/cvc4
 RUN chmod a+x bin/jkind*
+
+# Latest proof-producing cvc4.
+COPY ./docker_scripts/latest_proof_cvc4.sh .
+RUN ls
+RUN ./latest_proof_cvc4.sh
+RUN mv cvc4 bin/cvc4
+RUN chmod a+x bin/cvc4
+
 # RUN ls -lh bin/cvc4
 # RUN ls -lh bin/jkind*
 # RUN exit 2
@@ -72,6 +76,9 @@ RUN ./build.sh
 WORKDIR ./..
 # Move Kind 2 binary to top level.
 RUN mv kind2/bin/kind2 kind2-bin && rm -rf kind2 && mv kind2-bin kind2
+
+RUN ls bin/jkind*
+RUN jkind
 
 # Entry point.
 ENTRYPOINT ["./kind2"]
