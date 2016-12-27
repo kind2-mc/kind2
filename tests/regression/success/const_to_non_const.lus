@@ -1,0 +1,12 @@
+node count (in: bool) returns (cnt: int) ;
+let
+  cnt = (if in then 1 else 0) + (0 -> pre cnt) ;
+tel
+
+node top (const in: bool) returns (cnt: int) ;
+(*@contract
+  guarantee cnt >= 0 ;
+*)
+let
+  cnt = count(in) ;
+tel
