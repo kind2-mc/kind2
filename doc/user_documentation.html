@@ -7,23 +7,41 @@
   <title></title>
   <style type="text/css">code{white-space: pre;}</style>
   <style type="text/css">
+div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
 table.sourceCode { width: 100%; line-height: 100%; }
 td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
 td.sourceCode { padding-left: 5px; }
-code > span.kw { color: #007020; font-weight: bold; }
-code > span.dt { color: #902000; }
-code > span.dv { color: #40a070; }
-code > span.bn { color: #40a070; }
-code > span.fl { color: #40a070; }
-code > span.ch { color: #4070a0; }
-code > span.st { color: #4070a0; }
-code > span.co { color: #60a0b0; font-style: italic; }
-code > span.ot { color: #007020; }
-code > span.al { color: #ff0000; font-weight: bold; }
-code > span.fu { color: #06287e; }
-code > span.er { color: #ff0000; font-weight: bold; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
   </style>
   <style type="text/css">
   @font-face {
@@ -705,105 +723,116 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <body>
 <div id="header">
 <h1 class="title">Kind 2 User Documentation</h1>
-<h1 class="subtitle">Version v1.0.1</h1>
+<h1 class="subtitle">Version 1.1.0</h1>
 </div>
 <div id="TOC">
 <ul>
-<li><a href="#n19956797-kind-2">Kind 2</a><ul>
-<li><a href="#n19956797-requirements">Requirements</a></li>
-<li><a href="#n19956797-building-and-installing">Building and installing</a></li>
-<li><a href="#n19956797-documentation">Documentation</a></li>
-</ul></li>
-<li><a href="#n20857485-techniques">Techniques</a><ul>
-<li><a href="#n20857485-compositional-reasoning">Compositional reasoning</a></li>
-<li><a href="#n20857485-modular-reasoning">Modular reasoning</a></li>
-<li><a href="#n20857485-refinement-in-compositional-and-modular-analyses">Refinement in compositional and modular analyses</a></li>
-<li><a href="#n11899756-k-induction">K-induction</a><ul>
-<li><a href="#n11899756-options">Options</a></li>
-</ul></li>
-<li><a href="#n11899757-invariant-generation">Invariant Generation</a><ul>
-<li><a href="#n11899757-options">Options</a></li>
-<li><a href="#n11899757-lock-step-k-induction">Lock Step K-induction</a></li>
-</ul></li>
-<li><a href="#n11899758-ic3">IC3</a><ul>
-<li><a href="#n11899758-options">Options</a></li>
+<li><a href="#n57549306-kind-2">Kind 2</a><ul>
+<li><a href="#n57549306-requirements">Requirements</a></li>
+<li><a href="#n57549306-building-and-installing">Building and installing</a></li>
+<li><a href="#n57549306-documentation">Documentation</a></li>
+<li><a href="#n57549306-docker">Docker</a><ul>
+<li><a href="#n57549306-retrieving-updating-the-image">Retrieving / updating the image</a></li>
+<li><a href="#n57549306-running-kind-2-through-docker">Running Kind 2 through docker</a></li>
+<li><a href="#n57549306-packaging-your-local-version-of-kind-2">Packaging your local version of Kind 2</a></li>
 </ul></li>
 </ul></li>
-<li><a href="#n19417377-lustre-input">Lustre Input</a><ul>
-<li><a href="#n19417377-properties-and-top-level-node">Properties and top level node</a><ul>
-<li><a href="#n19417377-example">Example</a></li>
+<li><a href="#n57545933-techniques">Techniques</a><ul>
+<li><a href="#n57545933-compositional-reasoning">Compositional reasoning</a></li>
+<li><a href="#n57545933-modular-reasoning">Modular reasoning</a></li>
+<li><a href="#n57545933-refinement-in-compositional-and-modular-analyses">Refinement in compositional and modular analyses</a></li>
+<li><a href="#n28536306-k-induction">K-induction</a><ul>
+<li><a href="#n28536306-options">Options</a></li>
 </ul></li>
-<li><a href="#n19417377-contracts">Contracts</a><ul>
-<li><a href="#n19417377-inline-syntax">Inline syntax</a></li>
-<li><a href="#n19417377-external-syntax">External syntax</a></li>
-<li><a href="#n19417377-contract-items-and-restrictions">Contract items and restrictions</a></li>
+<li><a href="#n28536307-invariant-generation">Invariant Generation</a><ul>
+<li><a href="#n28536307-options">Options</a></li>
+<li><a href="#n28536307-lock-step-k-induction">Lock Step K-induction</a></li>
 </ul></li>
-</ul></li>
-<li><a href="#n21062776-arrays">Arrays</a><ul>
-<li><a href="#n21062776-lustre-arrays">Lustre arrays</a><ul>
-<li><a href="#n21062776-declarations">Declarations</a></li>
-<li><a href="#n21062776-definitions">Definitions</a></li>
-<li><a href="#n21062776-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</a></li>
-</ul></li>
-<li><a href="#n21062776-extension-to-unbounded-arrays">Extension to unbounded arrays</a><ul>
-<li><a href="#n21062776-whole-array-definitions">Whole array definitions</a></li>
-<li><a href="#n21062776-inductive-definitions">Inductive definitions</a></li>
-<li><a href="#n21062776-quantifiers-in-specifications">Quantifiers in specifications</a></li>
-<li><a href="#n21062776-limitations">Limitations</a></li>
-<li><a href="#n21062776-command-line-options">Command line options</a></li>
+<li><a href="#n28536308-ic3">IC3</a><ul>
+<li><a href="#n28536308-options">Options</a></li>
 </ul></li>
 </ul></li>
-<li><a href="#n18820171-arrays">Arrays</a><ul>
-<li><a href="#n18820171-lustre-arrays">Lustre arrays</a><ul>
-<li><a href="#n18820171-declarations">Declarations</a></li>
-<li><a href="#n18820171-definitions">Definitions</a></li>
-<li><a href="#n18820171-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</a></li>
+<li><a href="#n64322437-lustre-input">Lustre Input</a><ul>
+<li><a href="#n64322437-properties-and-top-level-node">Properties and top level node</a><ul>
+<li><a href="#n64322437-example">Example</a></li>
 </ul></li>
-<li><a href="#n18820171-extension-to-unbounded-arrays">Extension to unbounded arrays</a><ul>
-<li><a href="#n18820171-whole-array-definitions">Whole array definitions</a></li>
-<li><a href="#n18820171-inductive-definitions">Inductive definitions</a></li>
-<li><a href="#n18820171-quantifiers-in-specifications">Quantifiers in specifications</a></li>
-<li><a href="#n18820171-limitations">Limitations</a></li>
-<li><a href="#n18820171-command-line-options">Command line options</a></li>
+<li><a href="#n64322437-contracts">Contracts</a><ul>
+<li><a href="#n64322437-inline-syntax">Inline syntax</a></li>
+<li><a href="#n64322437-external-syntax">External syntax</a></li>
+<li><a href="#n64322437-contract-items-and-restrictions">Contract items and restrictions</a></li>
+<li><a href="#merge-when-activate-and-restart-n64322437-merge-when-activate-and-restart">Merge, When, Activate and Restart {#n64322437-merge,-when,-activate-and-restart}</a></li>
+<li><a href="#n64322437-enumerated-data-types-in-lustre">Enumerated data types in Lustre</a></li>
+<li><a href="#n64322437-n-way-merge">N-way merge</a></li>
+</ul></li>
+<li><a href="#n64322437-partially-defined-nodes">Partially defined nodes</a></li>
+<li><a href="#the-imported-keyword-n64322437-the-imported-keyword">The <code>imported</code> keyword {#n64322437-the-<code>imported</code>-keyword}</a><ul>
+<li><a href="#partially-defined-nodes-vs-imported-n64322437-partially-defined-nodes-vs-imported">Partially defined nodes VS <code>imported</code> {#n64322437-partially-defined-nodes-vs-<code>imported</code>}</a></li>
+</ul></li>
+<li><a href="#n64322437-functions">Functions</a><ul>
+<li><a href="#n64322437-benefits">Benefits</a></li>
+</ul></li>
+<li><a href="#n64322437-hierarchical-automata">Hierarchical Automata</a></li>
+</ul></li>
+<li><a href="#n64322439-arrays">Arrays</a><ul>
+<li><a href="#n64322439-lustre-arrays">Lustre arrays</a><ul>
+<li><a href="#n64322439-declarations">Declarations</a></li>
+<li><a href="#n64322439-definitions">Definitions</a></li>
+<li><a href="#n64322439-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</a></li>
+</ul></li>
+<li><a href="#n64322439-extension-to-unbounded-arrays">Extension to unbounded arrays</a><ul>
+<li><a href="#n64322439-whole-array-definitions">Whole array definitions</a></li>
+<li><a href="#n64322439-inductive-definitions">Inductive definitions</a></li>
+<li><a href="#n64322439-quantifiers-in-specifications">Quantifiers in specifications</a></li>
+<li><a href="#n64322439-limitations">Limitations</a></li>
+<li><a href="#n64322439-command-line-options">Command line options</a></li>
 </ul></li>
 </ul></li>
-<li><a href="#n11899760-xml-output">XML Output</a></li>
-<li><a href="#n15237262-contract-semantics">Contract semantics</a><ul>
-<li><a href="#n15237262-assume-guarantee-contracts">Assume-guarantee contracts</a></li>
-<li><a href="#n15237262-modes">Modes</a><ul>
-<li><a href="#n15237262-semantics">Semantics</a></li>
-<li><a href="#n15237262-defensive-check">Defensive check</a></li>
+<li><a href="#n28536312-xml-output">XML Output</a><ul>
+<li><a href="#n64246492-post-analyses-treatments">Post Analyses Treatments</a><ul>
+<li><a href="#n64246492-prerequisites">Prerequisites</a></li>
+<li><a href="#n64246492-silent-contract-loading">Silent Contract Loading</a></li>
 </ul></li>
 </ul></li>
-<li><a href="#n20857488-test-generation">Test generation</a><ul>
-<li><a href="#n20857488-combinations-of-modes-as-abstractions">Combinations of modes as abstractions</a></li>
-<li><a href="#n20857488-generating-test-cases">Generating test cases</a></li>
-<li><a href="#n20857488-oracle-generation">Oracle generation</a></li>
-<li><a href="#n20857488-an-example-of-a-test-execution-engine">An example of a Test Execution Engine</a></li>
+<li><a href="#n31040692-contract-semantics">Contract semantics</a><ul>
+<li><a href="#n31040692-assume-guarantee-contracts">Assume-guarantee contracts</a></li>
+<li><a href="#n31040692-modes">Modes</a><ul>
+<li><a href="#n31040692-semantics">Semantics</a></li>
+<li><a href="#n31040692-defensive-check">Defensive check</a></li>
 </ul></li>
-<li><a href="#n20857489-compilation-to-rust">Compilation to Rust</a><ul>
-<li><a href="#n20857489-technical-details">Technical details</a></li>
-<li><a href="#assertions-properties-and-contracts-n20857489-assertions-properties-and-contracts">Assertions, properties and contracts {#n20857489-assertions,-properties-and-contracts}</a></li>
 </ul></li>
-<li><a href="#n20857490-proof-certificates">Proof Certificates</a><ul>
-<li><a href="#n20857490-certification-chain">Certification chain</a></li>
-<li><a href="#n20857490-producing-certificates-and-proofs-with-kind-2">Producing certificates and proofs with Kind 2</a><ul>
-<li><a href="#n20857490-requirements">Requirements</a></li>
-<li><a href="#n20857490-smt-lib-2-certificates">SMT-LIB 2 certificates</a></li>
-<li><a href="#n20857490-lfsc-proofs">LFSC proofs</a></li>
+<li><a href="#n57545938-test-generation">Test generation</a><ul>
+<li><a href="#n57545938-combinations-of-modes-as-abstractions">Combinations of modes as abstractions</a></li>
+<li><a href="#n57545938-generating-test-cases">Generating test cases</a></li>
+<li><a href="#n57545938-oracle-generation">Oracle generation</a></li>
+<li><a href="#n57545938-an-example-of-a-test-execution-engine">An example of a Test Execution Engine</a></li>
 </ul></li>
-<li><a href="#n20857490-contents-of-certificates">Contents of certificates</a></li>
-<li><a href="#n20857490-lfsc-signature">LFSC signature</a></li>
+<li><a href="#n57545939-compilation-to-rust">Compilation to Rust</a><ul>
+<li><a href="#n57545939-technical-details">Technical details</a></li>
+<li><a href="#assertions-properties-and-contracts-n57545939-assertions-properties-and-contracts">Assertions, properties and contracts {#n57545939-assertions,-properties-and-contracts}</a></li>
 </ul></li>
-<li><a href="#n20857491-contract-generation">Contract Generation</a></li>
-<li><a href="#n11899761-apache-license">Apache License</a></li>
+<li><a href="#n57545940-proof-certificates">Proof Certificates</a><ul>
+<li><a href="#n57545940-certification-chain">Certification chain</a></li>
+<li><a href="#n57545940-producing-certificates-and-proofs-with-kind-2">Producing certificates and proofs with Kind 2</a><ul>
+<li><a href="#n57545940-requirements">Requirements</a></li>
+<li><a href="#n57545940-smt-lib-2-certificates">SMT-LIB 2 certificates</a></li>
+<li><a href="#n57545940-lfsc-proofs">LFSC proofs</a></li>
+</ul></li>
+<li><a href="#n57545940-contents-of-certificates">Contents of certificates</a></li>
+<li><a href="#n57545940-lfsc-signature">LFSC signature</a></li>
+</ul></li>
+<li><a href="#n57545941-contract-generation">Contract Generation</a><ul>
+<li><a href="#n64246493-invariant-logging">Invariant logging</a><ul>
+<li><a href="#n64246493-failures">Failures</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#n28536314-apache-license">Apache License</a></li>
 </ul>
 </div>
-<h1 id="n19956797-kind-2">Kind 2</h1>
+<h1 id="n57549306-kind-2">Kind 2</h1>
 <p>A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.</p>
-<p>Kind 2 takes as input a Lustre file annotated with properties to be proven invariant (see <a href="#n19417377-lustre-input">Lustre syntax</a>), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front- end tools, Kind 2 can output its results in <a href="#n11899760-xml-output">XML format</a>.</p>
+<p>Kind 2 takes as input a Lustre file annotated with properties to be proven invariant (see <a href="#n64322437-lustre-input">Lustre syntax</a>), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front- end tools, Kind 2 can output its results in <a href="#n28536312-xml-output">XML format</a>.</p>
 <p>By default Kind 2 runs a process for bounded model checking (BMC), a process for k-induction, two processes for invariant generation, and a process for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.</p>
-<p>The following command-line options control its operation (run <code>kind2 --help</code> for a full list). See also <a href="#n20857485-techniques">the description of the techniques</a> for configuration examples and more details on each technique.</p>
+<p>The following command-line options control its operation (run <code>kind2 --help</code> for a full list). See also <a href="#n57545933-techniques">the description of the techniques</a> for configuration examples and more details on each technique.</p>
 <p><code>--enable {BMC|IND|INVGEN|INVGENOS|IC3}</code> Select model checking engines</p>
 <p>By default, all three model checking engines are run in parallel. Give any combination of <code>--enable BMC</code>, <code>--enable IND</code> and <code>--enable IC3</code> to select which engines to run. The option <code>--enable BMC</code> alone will not be able to prove properties valid, choosing <code>--enable IND</code> only will not produce any results. Any other combination is sound (properties claimed to be invariant are indeed invariant) and counterexample-complete (a counterexample will be produced for each property that is not invariant, given enough time and resources).</p>
 <p><code>--timeout_wall &lt;int&gt;</code> (default <code>0</code> = none) – Run for the given number of seconds of wall clock time</p>
@@ -815,7 +844,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <p><code>--z3_bin &lt;file&gt;</code> – Executable for Z3</p>
 <p><code>-v</code> Output informational messages</p>
 <p><code>-xml</code> Output in XML format</p>
-<h2 id="n19956797-requirements">Requirements</h2>
+<h2 id="n57549306-requirements">Requirements</h2>
 <ul>
 <li>Linux or Mac OS X,</li>
 <li>OCaml 4.03 or later,</li>
@@ -828,7 +857,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <li><a href="http://z3.codeplex.com">Z3</a> (presently recommended),</li>
 </ul></li>
 </ul>
-<h2 id="n19956797-building-and-installing">Building and installing</h2>
+<h2 id="n57549306-building-and-installing">Building and installing</h2>
 <p>You need to run first</p>
 <pre><code>./autogen.sh</code></pre>
 <p>By default, <code>kind2</code> will be installed into <code>/usr/local/bin</code>, an operation for which you usually need to be root. Call</p>
@@ -843,42 +872,73 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <pre><code>make test</code></pre>
 <p>You can pass arguments to Kind 2 with the <code>ARGS=\&quot;...\&quot;</code> syntax. For instance</p>
 <pre><code>make ARGS=\&quot;--enable IC3\&quot; test</code></pre>
-<h2 id="n19956797-documentation">Documentation</h2>
+<h2 id="n57549306-documentation">Documentation</h2>
 <p>You can generate the user documentation by running <code>make doc</code>. This will generate a <code>pdf</code> document in <code>doc/</code> corresponding to the markdown documentation available <a href="https://github.com/kind2-mc/kind2/blob/develop/doc/usr/content/Home.md#kind-2">on the GitHub page</a>.</p>
 <p>To generate the documentation, you need</p>
 <ul>
 <li>a GNU version of <code>sed</code> (<code>gsed</code> on OSX), and</li>
 <li><a href="http://pandoc.org/">Pandoc</a>.</li>
 </ul>
-<p></p>
-<h1 id="n20857485-techniques">Techniques</h1>
+<h2 id="n57549306-docker">Docker</h2>
+<p>Kind 2 is available on <a href="https://hub.docker.com/r/kind2/kind2/">docker</a>.</p>
+<h3 id="n57549306-retrieving-updating-the-image">Retrieving / updating the image</h3>
+<p><a href="https://www.docker.com/products/docker">Install docker</a> and then run</p>
+<pre><code>docker pull kind2/kind2:dev</code></pre>
+<p>Docker will retrieve the <em>layers</em> corresponding to the latest version of the Kind 2 repository, <code>develop</code> version. If you are interested in the latest release, run</p>
+<pre><code>docker pull kind2/kind2</code></pre>
+<p>instead.</p>
+<p>If you want to update your Kind 2 image to latest one, simply re-run the <code>docker pull</code> command.</p>
+<h3 id="n57549306-running-kind-2-through-docker">Running Kind 2 through docker</h3>
+<p>To run Kind 2 on a file on your system, it is recommended to mount the folder in which this file is as a <a href="https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume">volume</a>. In practice, run</p>
+<pre><code>docker run -v &lt;absolute_path_to_folder&gt;:/lus kind2/kind2:dev &lt;options&gt; /lus/&lt;your_file&gt;</code></pre>
+<p>where</p>
+<ul>
+<li><code>&lt;absolute_path_to_folder&gt;</code> is the absolute path to the folder your file is in,</li>
+<li><code>&lt;your_file&gt;</code> is the lustre file you want to run Kind 2 on, and</li>
+<li><code>&lt;options&gt;</code> are some Kind 2 options of your choice.</li>
+</ul>
+<p><strong>N.B.</strong></p>
+<ul>
+<li>the fact that the path to your folder must be absolute is <a href="https://docs.docker.com/engine/tutorials/dockervolumes/#/mount-a-host-directory-as-a-data-volume">a docker constraint</a>;</li>
+<li>mount point <code>/lus</code> is arbitrary and does not matter as long as it is consistent with the last argument <code>/lus/&lt;your_file&gt;</code>. To avoid name clashes with folders already present in the container however, it is recommended to use <code>/lus</code>;</li>
+<li>replace <code>kind2:dev</code> by <code>kind2</code> if you want to run the latest release of Kind2 instead of the <code>develop</code> version;</li>
+<li><code>docker run</code> does <strong>not</strong> update your local Kind 2 image to the latest one: the appropriate <code>docker pull</code> command does.</li>
+</ul>
+<h3 id="n57549306-packaging-your-local-version-of-kind-2">Packaging your local version of Kind 2</h3>
+<p>At the top level of the Kind 2 repository is a <code>Dockerfile</code> you can use to build your own Kind 2 image. To do so, just run</p>
+<pre><code>docker build -t kind2-local .</code></pre>
+<p>at the root of the repository. <code>kind2-local</code> is given here as an example, feel free to call it whatever you want.</p>
+<p>Note that building your own local Kind 2 image <strong>does require access to the Internet</strong>. This is because of the packages the build process needs to retrieve, as well as for downloading the z3 and cvc4 solvers.</p>
+
+<h1 id="n57545933-techniques">Techniques</h1>
 <p>This section presents the techniques available in Kind 2: how they work, and how they can be tweaked through various options:</p>
 <ul>
-<li><a href="#n11899756-k-induction">k-induction</a></li>
-<li><a href="#n11899757-invariant-generation">invariant generation</a></li>
-<li><a href="#n11899758-ic3">IC3</a></li>
+<li><a href="#n28536306-k-induction">k-induction</a></li>
+<li><a href="#n28536307-invariant-generation">invariant generation</a></li>
+<li><a href="#n28536308-ic3">IC3</a></li>
 </ul>
-<h2 id="n20857485-compositional-reasoning">Compositional reasoning</h2>
-<p>When verifying a node <code>n</code>, <em>compositional reasoning</em> consists in abstracting the complexity of the subnodes of <code>n</code> by their <a href="#n15237262-contract-semantics">contracts</a>. The idea is that the contract has typically a lot less state than the node it specifies, which in addition to its own state contains that of its subnodes recursively.</p>
+<h2 id="n57545933-compositional-reasoning">Compositional reasoning</h2>
+<p>When verifying a node <code>n</code>, <em>compositional reasoning</em> consists in abstracting the complexity of the subnodes of <code>n</code> by their <a href="#n31040692-contract-semantics">contracts</a>. The idea is that the contract has typically a lot less state than the node it specifies, which in addition to its own state contains that of its subnodes recursively.</p>
 <p>Compositional reasoning thus improves the scalability of Kind 2 by taking advantage of information provided by the user to abstract the complexity away. When in compositional mode (<code>--composition true</code>), Kind 2 will abstract all calls (to subnodes that have a contract) in the top node and verify the resulting, abstract system.</p>
 <p>A successful compositional proof of a node does not guarantee the correctness of the concrete (un-abstracted) node though, since the subnodes have not been verified. For this reason compositional reasoning is usually applied in conjunction with <em>modular reasoning</em>, discussed in the next section.</p>
-<h2 id="n20857485-modular-reasoning">Modular reasoning</h2>
+<h2 id="n57545933-modular-reasoning">Modular reasoning</h2>
 <p><em>Modular reasoning</em> is activated with the option <code>--modular true</code>. In this mode, Kind 2 will perform whatever type of analysis is specified by the other flags on <strong>every node</strong> of the hierarchy, bottom-up.</p>
+<p>A timeout for <em>each analysis</em> can be specified using the <code>--timeout_analysis</code> flag. It can be used in conjunction with the <em>global timeout</em> given with the <code>--timeout</code> or <code>--timeout_wall</code> time.</p>
 <p>Internally Kind 2 builds on previous analyses when starting a new one. For instance, by using the invariants previously discovered in subnodes of the node under analysis.</p>
-<h2 id="n20857485-refinement-in-compositional-and-modular-analyses">Refinement in compositional and modular analyses</h2>
+<h2 id="n57545933-refinement-in-compositional-and-modular-analyses">Refinement in compositional and modular analyses</h2>
 <p>An interesting configuration is</p>
 <pre><code>kind2 --modular true --compositional true ...</code></pre>
 <p>If <code>top</code> calls <code>sub</code> and we analyze <code>top</code>, it means we have previously analyzed <code>sub</code>. We are running in compositional mode so the call to <code>sub</code> is originally abstracted by its contract. Say the analysis fails with a counterexample. The countexample might be spurious for the concrete version of <code>sub</code>: the failure would not happen if we used the concrete call to <code>sub</code> instead of the abstract one.</p>
 <p>Say now that when we analyzed <code>sub</code>, we proved that it is correct. In this case Kind 2 will attempt to <em>refine</em> the call to <code>sub</code> in top. That is, undo the abstraction and use the implementation of <code>sub</code> in a new analysis.</p>
 <p>Note that since <code>sub</code> is known to be correct, it is stronger than its contract. More precisely, it accepts fewer execution traces than its contract does. Hence anything proved with the abstraction of <code>sub</code> is still valid after refinement, and Kind 2 will use these results right away.</p>
-<p></p>
-<h2 id="n11899756-k-induction">K-induction</h2>
+
+<h2 id="n28536306-k-induction">K-induction</h2>
 <p><strong>K-induction</strong> is a well-known technique for the verification of transition systems. A k-induction engine is composed of two parts: <em>base</em> and <em>step</em>. Base performs bounded model checking on the properties, <em>i.e.</em> checks the <strong>base case</strong>. Step checks whether it is possible to reach a violation of one of the properties from a trace of states satisfying them: the <strong>inductive step</strong>.</p>
 <p>In Kind 2 base and step run in parallel, and can be enabled separately. Running step alone with</p>
 <pre><code>kind2 --enable IND &lt;file&gt;</code></pre>
 <p>will not yield anything interesting, as step cannot falsify properties nor prove anything without base. To run the actual k-induction engine, you must enable base (<code>BMC</code>) and step (<code>IND</code>):</p>
 <pre><code>kind2 --enable BMC --enable IND &lt;file&gt;</code></pre>
-<h3 id="n11899756-options">Options</h3>
+<h3 id="n28536306-options">Options</h3>
 <p>K-induction can be tweaked with the following options.</p>
 <p><code>--bmc_max &lt;int&gt;</code> (default <code>0</code>) – sets an upper bound on the number of unrolling base and step will perform. <code>0</code> is for unlimited.</p>
 <p><code>--ind_compress &lt;bool&gt;</code> (default <code>false</code>) – activates path compression in step, <strong>i.e.</strong> counterexamples with a loop will be dismissed. You can activate several path compression strategies:</p>
@@ -888,40 +948,40 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <li><code>--ind_compress_same_pred &lt;bool&gt;</code> (default <code>false</code>) – compresses states if they have the same predecessors (experimental)</li>
 </ul>
 <p><code>--ind_lazy_invariants &lt;bool&gt;</code> (default <code>false</code>) – deactivates eager use of invariants in step. Instead, when a step counterexample is found each invariant is evaluated on the model until one blocks it. The invariant is then asserted to block the counterexample, and step starts a new check-sat.</p>
-<p></p>
-<h2 id="n11899757-invariant-generation">Invariant Generation</h2>
+
+<h2 id="n28536307-invariant-generation">Invariant Generation</h2>
 <p>The invariant generation technique currently implemented in Kind 2 is an improved version of <a href="http://link.springer.com/chapter/10.1007%2F978-3-642-20398-5_15">the one implemented in PKind</a>. It works by instantiating templates on a set of terms provided by a syntactic analysis of the system.</p>
 <p>The main improvement is that in Kind 2, invariant generation is modular. That is to say it can attempt to discover invariants for subnodes of the top node. The idea is that looking at small components and discovering invariants for them provides results faster than analyzing the system monolithically. To disable the modular behavior of invariant generation, use the option <code>--invgen_top_only true</code>.</p>
 <p>There are two invariant generation techniques: one state (OS) and two state (TS). The former will only look for invariants between the state variables in the current state, while the latter tries to relate the current state with the previous state. The two are separated because as the system grows in size, two state invariant generation can become very expensive.</p>
 <p>The one state and two state variants can be activated with <code>--enable INVGENOS</code> and <code>--enable INVGEN</code> respectively.</p>
 <p>Note that, in theory, two state invariant generation is strictly more powerful than the one state version, albeit slower, since two state can also discover one state invariants. When both variants are running, Kind 2 optimizes two state invariant generation by forcing it to look only for two state invariants.</p>
 <p>The bottom line is that running <em>i)</em> only two state invariant generation or <em>ii)</em> one state and two states will discover the same invariants. In the case of <em>i)</em> the same techniques seeks both one state and two state invariants at the same time, which is slower than <em>ii)</em> where one state and two state invariants are sought by different processes running in parallel.</p>
-<h3 id="n11899757-options">Options</h3>
+<h3 id="n28536307-options">Options</h3>
 <p>Invariant generation can be tweaked using the following options. Note that this will affect both the one state and two state process if both are running.</p>
 <p><code>--invgen_prune_trivial &lt;bool&gt;</code> (default <code>true</code>) – when invariants are discovered, do not communicate the ones that are direct consequences of the transition relation.</p>
 <p><code>--invgen_max_succ &lt;int&gt;</code> (default <code>1</code>) – the number of unrolling to perform on subsystems before moving on to the next one in the hierarchy.</p>
 <p><code>--invgen_lift_candidates &lt;bool&gt;</code> (default <code>false</code>) – if true, then candidate terms generated for subsystems will be lifted to their callers. <strong>Warning</strong> this might choke invariant generation with a huge number of candidates for large enough systems.</p>
 <p><code>--invgen_mine_trans &lt;bool&gt;</code> (default <code>false</code>) – if true, the transition relation will be mined for candidate terms. Can make the set of candidate terms untractable.</p>
 <p><code>--invgen_renice &lt;int&gt;</code> (only positive values) – the bigger the parameter, the lower the priority of invariant generation will be for the operating system.</p>
-<h3 id="n11899757-lock-step-k-induction">Lock Step K-induction</h3>
+<h3 id="n28536307-lock-step-k-induction">Lock Step K-induction</h3>
 <p>Another improvement on the PKind invariant generation is the way the search for a k-induction proof of the candidate invariants is performed. In PKind, a bounded model checking engine is run up to a certain depth <code>d</code> and discovers falsifiable candidate invariants. The graph used to produce the potential invariants is refined based on this information. Once the bound on the depth is reached, an inductive step instance looks for actual invariants by unrolling up to <code>d</code>.</p>
 <p>In Kind 2, base and step are performed in lock step. Once the candidate invariant graph has been updated by base for some depth, step runs at the same depth and broadcasts the invariants it discovers to the whole framework. It is thus possible to generate invariants earlier and thus speed up the whole analysis.</p>
-<p></p>
-<h2 id="n11899758-ic3">IC3</h2>
+
+<h2 id="n28536308-ic3">IC3</h2>
 <p><a href="http://link.springer.com/chapter/10.1007%2F978-3-642-18275-4_7">IC3/PDR</a> is a recent technique by Aaron Bradley. IC3 alone can falsify and prove properties. To enable nothing but IC3, run</p>
 <pre><code>kind2 --enable IC3 &lt;file&gt;</code></pre>
 <p>The challenge when lifting IC3 to infinite state systems is the pre-image computation. If the input problem is in linear integer arithmetic, Kind 2 performs a fast approximate quantifier elimination. Otherwise, the quantifier elimination is delegated to an SMT solver, which is at this time only possible with Z3.</p>
-<h3 id="n11899758-options">Options</h3>
+<h3 id="n28536308-options">Options</h3>
 <p><code>--ic3_qe {cooper|Z3}</code> (default <code>cooper</code>) – select the quantifier elimination strategy: <code>cooper</code> (default) for the built-in approximate method, <code>Z3</code> to delegate to the SMT solver. If the problem is not in linear integer arithmetic, <code>cooper</code> falls back to <code>Z3</code>.</p>
 <p><code>--ic3_check_inductive &lt;bool&gt;</code> (default <code>true</code>) – Check if a blocking clause is inductive and communicate it as an invariant to concurrent verification engines.</p>
 <p><code>--ic3_block_in_future  &lt;bool&gt;</code> (default <code>true</code>) – Block each clause not only in the frame it was discovered, but also in all higher frames.</p>
 <p><code>--ic3_fwd_prop_non_gen &lt;bool&gt;</code> (default <code>true</code>) – Attempt forward propagation of clauses before inductive generalization.</p>
 <p><code>--ic3_fwd_prop_ind_gen &lt;bool&gt;</code> (default <code>true</code>) – Inductively generalize clauses after forward propagation.</p>
 <p><code>--ic3_fwd_prop_subsume &lt;bool&gt;</code> (default <code>true</code>) – Check syntactic subsumption of forward propagated clauses</p>
-<p></p>
-<h1 id="n19417377-lustre-input">Lustre Input</h1>
+
+<h1 id="n64322437-lustre-input">Lustre Input</h1>
 <p>Lustre is a functional, synchronous dataflow language. Kind 2 supports most of the Lustre V4 syntax and some elements of Lustre V6. See the file <a href="https://github.com/kind2-mc/kind2/blob/develop/examples/syntax-test.lus"><code>./examples/syntax-test.lus</code></a> for examples of all supported language constructs.</p>
-<h2 id="n19417377-properties-and-top-level-node">Properties and top level node</h2>
+<h2 id="n64322437-properties-and-top-level-node">Properties and top level node</h2>
 <p>To specify a property to verify in a Lustre node, add the following in the body (<em>i.e.</em> between keywords <code>let</code> and <code>tel</code>) of the node:</p>
 <pre><code>--%PROPERTY &lt;bool_expr&gt; ;</code></pre>
 <p>where <code>&lt;bool_expr&gt;</code> is a Boolean Lustre expression.</p>
@@ -930,7 +990,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 <p>to the body of that node.</p>
 <p>You can also specify the top node in the command line arguments, with</p>
 <pre><code>kind2 --lustre_main &lt;node_name&gt; ...</code></pre>
-<h3 id="n19417377-example">Example</h3>
+<h3 id="n64322437-example">Example</h3>
 <p>The following example declares two nodes <code>greycounter</code> and <code>intcounter</code>, as well as an <em>observer</em> node <code>top</code> that calls these nodes and verifies that their outputs are the same. The node <code>top</code> is annotated with <code>--%MAIN ;</code> which makes it the <em>top node</em> (redundant here because it is the last node). The line <code>--PROPERTY OK;</code> means we want to verify that the Boolean stream <code>OK</code> is always true.</p>
 <pre><code>node greycounter (reset: bool) returns (out: bool);
 var a, b: bool; 
@@ -972,8 +1032,8 @@ Summary_of_properties:
 
 OK: valid</code></pre>
 <p>We can see here that the property <code>OK</code> has been proven valid for the system (by <em>k</em>-induction).</p>
-<h2 id="n19417377-contracts">Contracts</h2>
-<p>A contract <code>(A,G,M)</code>for a node is a set of assumptions <code>A</code>, a set of guarantees <code>G</code>, and a set of modes <code>M</code>. The semantics of contracts is given in the <a href="#n15237262-contract-semantics">Contract semantics</a> section, here we focus on the input format for contracts. Contracts are specified either locally, using the <em>inline syntax</em>, or externally in a <em>contract node</em>. Both the local and external syntax have a body composed of <em>items</em>, each of which define</p>
+<h2 id="n64322437-contracts">Contracts</h2>
+<p>A contract <code>(A,G,M)</code>for a node is a set of assumptions <code>A</code>, a set of guarantees <code>G</code>, and a set of modes <code>M</code>. The semantics of contracts is given in the <a href="#n31040692-contract-semantics">Contract semantics</a> section, here we focus on the input format for contracts. Contracts are specified either locally, using the <em>inline syntax</em>, or externally in a <em>contract node</em>. Both the local and external syntax have a body composed of <em>items</em>, each of which define</p>
 <ul>
 <li>a ghost variable / constant,</li>
 <li>an assumption,</li>
@@ -982,7 +1042,7 @@ OK: valid</code></pre>
 <li>an import of a contract node.</li>
 </ul>
 <p>They are presented in detail below, after the discussion on local and external syntaxes.</p>
-<h3 id="n19417377-inline-syntax">Inline syntax</h3>
+<h3 id="n64322437-inline-syntax">Inline syntax</h3>
 <p>A local contract is a special comment between the signature of the node</p>
 <pre><code>node &lt;id&gt; (...) returns (...) ;</code></pre>
 <p>and its body. That is, between the <code>;</code> of the node signature and the <code>let</code> opening its body.</p>
@@ -994,7 +1054,7 @@ OK: valid</code></pre>
 <pre><code>/*@contract
   [item]+
 */</code></pre>
-<h3 id="n19417377-external-syntax">External syntax</h3>
+<h3 id="n64322437-external-syntax">External syntax</h3>
 <p>A contract node is very similar to a traditional lustre node. The two differences are that</p>
 <ul>
 <li>it starts with <code>contract</code> instead of <code>node</code>, and</li>
@@ -1006,8 +1066,8 @@ let
   [item]+
 tel</code></pre>
 <p>To use a contract node one needs to import it through an inline contract. See the next section for more details.</p>
-<h3 id="n19417377-contract-items-and-restrictions">Contract items and restrictions</h3>
-<h4 id="n19417377-ghost-variables-and-constants">Ghost variables and constants</h4>
+<h3 id="n64322437-contract-items-and-restrictions">Contract items and restrictions</h3>
+<h4 id="n64322437-ghost-variables-and-constants">Ghost variables and constants</h4>
 <p>A ghost variable (constant) is a stream that is local to the contract. That is, it is not accessible from the body of the node specified. Ghost variables (constants) are defined with the <code>var</code> (<code>const</code>) keyword. Kind 2 performs type inference for constants so in most cases type annotations are not necessary.</p>
 <p>The general syntax is</p>
 <pre><code>const &lt;id&gt; [: &lt;type&gt;] = &lt;expr&gt; ;
@@ -1015,16 +1075,16 @@ var   &lt;id&gt;  : &lt;type&gt;  = &lt;expr&gt; ;</code></pre>
 <p>For instance:</p>
 <pre><code>const max = 42 ;
 var ghost_stream: real = if input &gt; max then max else input ;</code></pre>
-<h4 id="n19417377-assumptions">Assumptions</h4>
+<h4 id="n64322437-assumptions">Assumptions</h4>
 <p>An assumption over a node <code>n</code> is a constraint one must respect in order to use <code>n</code> legally. It cannot mention the outputs of <code>n</code> in the current state, but referring to outputs under a <code>pre</code> is fine.</p>
 <p>The idea is that it does not make sense to ask the caller to respect some constraints over the outputs of <code>n</code>, as the caller has no control over them other than the inputs it feeds <code>n</code> with. The assumption may however depend on previous values of the outputs produced by <code>n</code>.</p>
 <p>Assumptions are given with the <code>assume</code> keyword, followed by any legal Boolean expression:</p>
 <pre><code>assume &lt;expr&gt; ;</code></pre>
-<h4 id="n19417377-guarantees">Guarantees</h4>
+<h4 id="n64322437-guarantees">Guarantees</h4>
 <p>Unlike assumptions, guarantees do not have any restrictions on the streams they can mention. They typically mention the outputs in the current state since they express the behavior of the node they specified under the assumptions of this node.</p>
 <p>Guarantees are given with the <code>guarantee</code> keyword, followed by any legal Boolean expression:</p>
 <pre><code>guarantee &lt;expr&gt; ;</code></pre>
-<h4 id="n19417377-modes">Modes</h4>
+<h4 id="n64322437-modes">Modes</h4>
 <p>A mode <code>(R,E)</code> is a set of <em>requires</em> <code>R</code> and a set of <em>ensures</em> <code>E</code>. Requires have the same restrictions as assumptions: they cannot mention outputs of the node they specify in the current state. Ensures, like guarantees, have no restriction.</p>
 <p>Modes are named to ease traceability and improve feedback. The general syntax is</p>
 <pre><code>mode &lt;id&gt; (
@@ -1043,7 +1103,7 @@ mode engaged (
   ensure  output &lt;= upper_bound ;
   ensure  lower_bound &lt;= output ;
 ) ;</code></pre>
-<h4 id="n19417377-imports">Imports</h4>
+<h4 id="n64322437-imports">Imports</h4>
 <p>A contract import <em>merges</em> the current contract with the one imported. That is, if the current contract is <code>(A,G,M)</code> and we import <code>(A\',G\',M\')</code>, the resulting contract is <code>(A U A\', G U G\', M U M\')</code> where <code>U</code> is set union.</p>
 <p>When importing a contract, it is necessary to specify how the instantiation of the contract is performed. This defines a mapping from the input (output) formal parameters to the actual ones of the import.</p>
 <p>When importing contract <code>c</code> in the contract of node <code>n</code>, it is <strong>illegal</strong> to mention an output of <code>n</code> in the actual input parameters of the import of <code>c</code>. The reason is that the distinction between inputs and outputs lets Kind 2 check that the assumptions and mode requirements make sense, <em>i.e.</em> do not mention outputs of <code>n</code> in the current state.</p>
@@ -1081,7 +1141,7 @@ node my_node (
   import spec (bool_eng, bool_dis) returns (bool_enged) ;
 *)
 let ... tel</code></pre>
-<h4 id="n19417377-mode-references">Mode references</h4>
+<h4 id="n64322437-mode-references">Mode references</h4>
 <p>Once a mode has been defined it is possible to <em>refer</em> to it with</p>
 <pre><code>::&lt;scope&gt;::&lt;mode_id&gt;</code></pre>
 <p>where <code>&lt;mode_id&gt;</code> is the name of the mode, and <code>&lt;scope&gt;</code> is the path to the mode in terms of contract imports.</p>
@@ -1111,14 +1171,500 @@ guarantee true -&gt; ( -- `m3` cannot succeed to `m1`.
 guarantee true -&gt; ( -- `m1`, `m2` and `m3` are exclusive.
   not (::m1 and ::m2 and ::m3)
 ) ;</code></pre>
-<p></p>
-<h1 id="n21062776-arrays">Arrays</h1>
+<h3 id="merge-when-activate-and-restart-n64322437-merge-when-activate-and-restart">Merge, When, Activate and Restart {#n64322437-merge,-when,-activate-and-restart}</h3>
 <blockquote>
-<p>This feature is only available as an experimental development version of Kind 2.</p>
+<p><strong>Disclaimer</strong>: the first few examples of this section illustrating (unsafe) uses of <code>when</code> and <code>activate</code> are <strong>not legal</strong> in Kind 2. They aim at introducing the semantics of lustre clocks. As discussed below, they are only legal when used inside a <code>merge</code>, hence making them safe clock-wise.</p>
+<p>Also, <code>activate</code> and <code>restart</code> are actually not a legal Lustre v6 operator. They are however legal in Scade 6.</p>
 </blockquote>
-<h2 id="n21062776-lustre-arrays">Lustre arrays</h2>
+<p>A <code>merge</code> is an operator combining several streams defined on <strong>complementary</strong> clocks. There is two ways to define a stream on a clock. First, by wrapping its definition inside a <code>when</code>.</p>
+<pre><code>node example (in: int) returns (out: int) ;
+var in_pos: bool ; x: int ;
+let
+  ...
+  in_pos = x &gt;= 0 ;
+  x = in when in_pos ;
+  ...
+tel</code></pre>
+<p>Here, <code>x</code> is only defined when <code>in_pos</code>, its clock, is <code>true</code>. That is, with <code>nil</code> the undefined value, a trace of execution of <code>example</code> sliced to <code>x</code> could be</p>
+<table>
+<thead>
+<tr class="header">
+<th align="center">step</th>
+<th></th>
+<th align="center"><code>in</code></th>
+<th align="center"><code>in_pos</code></th>
+<th align="center"><code>x</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">0</td>
+<td></td>
+<td align="center"><code>3</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>3</code></td>
+</tr>
+<tr class="even">
+<td align="center">1</td>
+<td></td>
+<td align="center"><code>-2</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+</tr>
+<tr class="odd">
+<td align="center">0</td>
+<td></td>
+<td align="center"><code>-1</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+</tr>
+<tr class="even">
+<td align="center">1</td>
+<td></td>
+<td align="center"><code>7</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>7</code></td>
+</tr>
+<tr class="odd">
+<td align="center">0</td>
+<td></td>
+<td align="center"><code>42</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>42</code></td>
+</tr>
+</tbody>
+</table>
+<p>The second way to define a stream on a clock is to wrap a node call with the <code>activate</code> keyword. The syntax for this is</p>
+<pre><code>(activate &lt;node_name&gt; every &lt;clock&gt;)(&lt;input_1&gt;, &lt;input_2&gt;, ...)</code></pre>
+<p>For example, consider the following node:</p>
+<pre><code>node sum_ge_10 (in: int) returns (out: bool) ;
+var sum: int ;
+let
+  sum = in + (0 -&gt; pre sum) ;
+  out = sum &gt;= 10 ;
+tel</code></pre>
+<p>Say now we call this node as follows:</p>
+<pre><code>node example (in: int) returns (...) ;
+var tmp, in_pos: bool ;
+let
+  ...
+  in_pos = in &gt;= 0 ;
+  tmp = (activate sum_ge_10 every in_pos)(in) ;
+  ...
+tel</code></pre>
+<p>That is, we want <code>sum_ge_10(in)</code> to tick iff <code>in</code> is positive. Here is an example trace of <code>example</code> sliced to <code>tmp</code>; notice how the internal state of <code>sub</code> (<em>i.e.</em> <code>pre sub.sum</code>) is maintained so that it does refer to the value of <code>sub.sum</code> <em>at the last clock tick of the <code>activate</code></em>:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="center">step</th>
+<th></th>
+<th align="center"><code>in</code></th>
+<th align="center"><code>in_pos</code></th>
+<th align="center"><code>tmp</code></th>
+<th></th>
+<th align="center"><code>sub.in</code></th>
+<th align="center"><code>pre sub.sum</code></th>
+<th align="center"><code>sub.sum</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">0</td>
+<td></td>
+<td align="center"><code>3</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>false</code></td>
+<td></td>
+<td align="center"><code>3</code></td>
+<td align="center"><code>nil</code></td>
+<td align="center"><code>3</code></td>
+</tr>
+<tr class="even">
+<td align="center">1</td>
+<td></td>
+<td align="center"><code>2</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>false</code></td>
+<td></td>
+<td align="center"><code>2</code></td>
+<td align="center"><code>3</code></td>
+<td align="center"><code>5</code></td>
+</tr>
+<tr class="odd">
+<td align="center">2</td>
+<td></td>
+<td align="center"><code>-1</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+<td></td>
+<td align="center"><code>nil</code></td>
+<td align="center"><code>5</code></td>
+<td align="center"><code>nil</code></td>
+</tr>
+<tr class="even">
+<td align="center">3</td>
+<td></td>
+<td align="center"><code>2</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>false</code></td>
+<td></td>
+<td align="center"><code>2</code></td>
+<td align="center"><code>5</code></td>
+<td align="center"><code>7</code></td>
+</tr>
+<tr class="odd">
+<td align="center">4</td>
+<td></td>
+<td align="center"><code>-7</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+<td></td>
+<td align="center"><code>nil</code></td>
+<td align="center"><code>7</code></td>
+<td align="center"><code>nil</code></td>
+</tr>
+<tr class="even">
+<td align="center">5</td>
+<td></td>
+<td align="center"><code>35</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>true</code></td>
+<td></td>
+<td align="center"><code>35</code></td>
+<td align="center"><code>7</code></td>
+<td align="center"><code>42</code></td>
+</tr>
+<tr class="odd">
+<td align="center">6</td>
+<td></td>
+<td align="center"><code>-2</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+<td></td>
+<td align="center"><code>nil</code></td>
+<td align="center"><code>42</code></td>
+<td align="center"><code>nil</code></td>
+</tr>
+</tbody>
+</table>
+<p>Now, as mentioned above the <code>merge</code> operator combines two streams defined on <strong>complimentary</strong> clocks. The syntax of <code>merge</code> is:</p>
+<pre><code>merge( &lt;clock&gt; ; &lt;e_1&gt; ; &lt;e_2&gt; )</code></pre>
+<p>where <code>e_1</code> and <code>e_2</code> are streams defined on <code>&lt;clock&gt;</code> and <code>not &lt;clock&gt;</code> respectively, or on <code>not &lt;clock&gt;</code> and <code>&lt;clock&gt;</code> respectively.</p>
+<p>Building on the previous example, say add two new streams <code>pre_tmp</code> and <code>safe_tmp</code>:</p>
+<pre><code>node example (in: int) returns (...) ;
+var tmp, in_pos, pre_tmp, safe_tmp: bool ;
+let
+  ...
+  in_pos = in &gt;= 0 ;
+  tmp = (activate sum_ge_10 every in_pos)(in) ;
+  pre_tmp = false -&gt; pre safe_tmp  ;
+  safe_tmp = merge( in_pos ; tmp ; pre_tmp when not in_pos ) ;
+  ...
+tel</code></pre>
+<p>That is, <code>safe_tmp</code> is the value of <code>tmp</code> whenever it is defined, otherwise it is the previous value of <code>safe_tmp</code> if any, and <code>false</code> otherwise. The execution trace given above becomes</p>
+<table>
+<thead>
+<tr class="header">
+<th align="center">step</th>
+<th></th>
+<th align="center"><code>in</code></th>
+<th align="center"><code>in_pos</code></th>
+<th align="center"><code>tmp</code></th>
+<th align="center"><code>pre_tmp</code></th>
+<th align="center"><code>safe_tmp</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">0</td>
+<td></td>
+<td align="center"><code>3</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+</tr>
+<tr class="even">
+<td align="center">1</td>
+<td></td>
+<td align="center"><code>2</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+</tr>
+<tr class="odd">
+<td align="center">2</td>
+<td></td>
+<td align="center"><code>-1</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+</tr>
+<tr class="even">
+<td align="center">3</td>
+<td></td>
+<td align="center"><code>2</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+</tr>
+<tr class="odd">
+<td align="center">4</td>
+<td></td>
+<td align="center"><code>-7</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>false</code></td>
+</tr>
+<tr class="even">
+<td align="center">5</td>
+<td></td>
+<td align="center"><code>35</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>true</code></td>
+</tr>
+<tr class="odd">
+<td align="center">6</td>
+<td></td>
+<td align="center"><code>-2</code></td>
+<td align="center"><code>false</code></td>
+<td align="center"><code>nil</code></td>
+<td align="center"><code>true</code></td>
+<td align="center"><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<p>Just like with uninitialized <code>pre</code>s, if not careful one can easily end up manipulating undefined streams. Kind 2 forces good practice by allowing <code>when</code> and <code>activate ... every</code> expressions only inside a <code>merge</code>. All the examples of this section above this point are thus invalid from Kind 2's point of view.</p>
+<p>Rewriting them as valid Kind 2 input is not difficult however. Here is a legal version of the last example:</p>
+<pre><code>node example (in: int) returns (...) ;
+var in_pos, pre_tmp, safe_tmp: bool ;
+let
+  ...
+  in_pos = in &gt;= 0 ;
+  pre_tmp = false -&gt; pre safe_tmp  ;
+  safe_tmp = merge(
+    in_pos ;
+    (activate sum_ge_10 every in_pos)(in) ;
+    pre_tmp when not in_pos
+  ) ;
+  ...
+tel</code></pre>
+<p>Kind 2 supports resetting the internal state of a node to its initial state by using the construct restart/every. Writing</p>
+<pre><code>(restart n every c)(x1, ..., xn)</code></pre>
+<p>makes a call to the node <code>n</code> with arguments <code>x1</code>, …, <code>xn</code> and every time the Boolean stream <code>c</code> is true, the internal state of the node is reset to its initial value.</p>
+<p>In the example below, the node <code>top</code> makes a call to <code>counter</code> (which is an integer counter <em>modulo</em> a constant <code>max</code>) which is reset every time the input stream <code>reset</code> is true.</p>
+<pre><code>node counter (const max: int) returns (t: int);
+let
+  t = 0 -&gt; if pre t = max then 0 else pre t + 1;
+tel
+
+node top (reset: bool) returns (c: int);
+let
+  c = (restart counter every reset)(3);
+tel</code></pre>
+<p>A trace of execution for the node top could be:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="center">step</th>
+<th></th>
+<th align="center"><code>reset</code></th>
+<th align="center"><code>c</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">0</td>
+<td></td>
+<td align="center"><code>false</code></td>
+<td align="center">0</td>
+</tr>
+<tr class="even">
+<td align="center">1</td>
+<td></td>
+<td align="center"><code>false</code></td>
+<td align="center">1</td>
+</tr>
+<tr class="odd">
+<td align="center">2</td>
+<td></td>
+<td align="center"><code>false</code></td>
+<td align="center">2</td>
+</tr>
+<tr class="even">
+<td align="center">3</td>
+<td></td>
+<td align="center"><code>false</code></td>
+<td align="center">3</td>
+</tr>
+<tr class="odd">
+<td align="center">4</td>
+<td></td>
+<td align="center"><code>true</code></td>
+<td align="center">0</td>
+</tr>
+<tr class="even">
+<td align="center">5</td>
+<td></td>
+<td align="center"><code>false</code></td>
+<td align="center">1</td>
+</tr>
+<tr class="odd">
+<td align="center">6</td>
+<td></td>
+<td align="center"><code>false</code></td>
+<td align="center">2</td>
+</tr>
+<tr class="even">
+<td align="center">7</td>
+<td></td>
+<td align="center"><code>true</code></td>
+<td align="center">0</td>
+</tr>
+<tr class="odd">
+<td align="center">8</td>
+<td></td>
+<td align="center"><code>true</code></td>
+<td align="center">0</td>
+</tr>
+<tr class="even">
+<td align="center">9</td>
+<td></td>
+<td align="center"><code>false</code></td>
+<td align="center">1</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Remark: This construction can be encoded in traditional Lustre by having a Boolean input for the reset stream for each node. However providing a built-in way to do it facilitates the modeling of complex control systems.</p>
+</blockquote>
+<p>Restart and activate can also be combined in the following way:</p>
+<pre><code>(activate (restart n every r) every c)(a1, ..., an)
+(activate n every c restart every r)(a1, ..., an)</code></pre>
+<p>These two calls are the same (the second one is just syntactic sugar). The (instance of the) node <code>n</code> is restarted whenever <code>r</code> is true and the <em>resulting call</em> is activated when the clock <code>c</code> is true. Notice that the restart clock <code>r</code> is also sampled by <code>c</code> in this call.</p>
+<h3 id="n64322437-enumerated-data-types-in-lustre">Enumerated data types in Lustre</h3>
+<pre><code>type t = enum { A, B, C };
+node n (x : enum { C1, C2 }, ...) ...</code></pre>
+<p>Enumerated datatypes are encoded as subranges so that solvers handle arithmetic constraints only. This also allows to use the already present quantifier instantiation techniques in Kind 2.</p>
+<h3 id="n64322437-n-way-merge">N-way merge</h3>
+<p>As in Lustre V6, merges can also be performed on a clock of a user defined enumerated datatype.</p>
+<pre><code>merge c
+ (A -&gt; x when A(c))
+ (B -&gt; w + 1 when B(c));</code></pre>
+<p>Arguments of merge have to be sampled with the correct clock. Clock expressions for merge can be just a clock identifier or its negation or <code>A(c)</code> which is a stream that is true whenever <code>c = A</code>.</p>
+<p>Merging on a Boolean clock can be done with two equivalent syntaxes:</p>
+<pre><code>merge(c; a when c; b when not c);
+
+merge c
+  (true -&gt; a when c)
+  (false -&gt; b when not c); </code></pre>
+<h2 id="n64322437-partially-defined-nodes">Partially defined nodes</h2>
+<p>Kind 2 allows nodes to define their outputs only partially. For instance, the node</p>
+<pre><code>node count (trigger: bool) returns (count: int ; error: bool) ;
+(*@contract
+  var once: bool = trigger or (false -&gt; pre once) ;
+  guarantee count &gt;= 0 ;
+  mode still_zero (
+    require not once ;
+    ensure count = 0 ;
+  ) ;
+  mode gt (
+    require not ::still_zero ;
+    ensure count &gt; 0 ;
+  ) ;
+*)
+let
+  count = (if trigger then 1 else 0) + (0 -&gt; pre count) ;
+tel</code></pre>
+<p>can be analyzed: first for mode exhaustiveness, and the body is checked against its contract, although it is only <em>partially</em> defined. Here, both will succeed.</p>
+<h2 id="the-imported-keyword-n64322437-the-imported-keyword">The <code>imported</code> keyword {#n64322437-the-<code>imported</code>-keyword}</h2>
+<p>Nodes (and functions, see below) can be declared <code>imported</code>. This means that the node does not have a body (<code>let ... tel</code>). In a Lustre compiler, this is usually used to encode a C function or more generally a call to an external library.</p>
+<pre><code>node imported no_body (inputs: ...) returns (outputs: ...) ;</code></pre>
+<p>In Kind 2, this means that the node is always abstract in the contract-sense. It can never be refined, and is always abstracted by its contract. If none is given, then the implicit (rather weak) contract</p>
+<pre><code>(*@contract
+  assume true ;
+  guarantee true ;
+*)</code></pre>
+<p>is used.</p>
+<p>In a modular analysis, <code>imported</code> nodes will not be analyzed, although if their contract has modes they will be checked for exhaustiveness, consistently with the usual Kind 2 contract workflow.</p>
+<h3 id="partially-defined-nodes-vs-imported-n64322437-partially-defined-nodes-vs-imported">Partially defined nodes VS <code>imported</code> {#n64322437-partially-defined-nodes-vs-<code>imported</code>}</h3>
+<p>Kind 2 allows partially defined nodes, that is nodes in which some streams do not have a definition. At first glance, it might seem like a node with no definitions at all (with an empty body) is the same as an <code>imported</code> node.</p>
+<p>It is not the case. A partially defined node <em>still has a (potentially empty) body</em> which can be analyzed. The fact that it is not completely defined does not change this fact. If a partially defined node is at the top level, or is in the cone of influence of the top node in a modular analysis, then it's body <strong>will</strong> be analyzed.</p>
+<p>An <code>imported</code> node on the other hand <em>explicitely does not have a body</em>. Its non-existent body will thus never be analyzed.</p>
+<h2 id="n64322437-functions">Functions</h2>
+<p>Kind 2 supports the <code>function</code> keyword which is used just like the <code>node</code> one but has slightly different semantics. Like the name suggests, the output(s) of a <code>function</code> should be a <em>non-temporal</em> combination of its inputs. That is, a function cannot the <code>-&gt;</code>, <code>pre</code>, <code>merge</code>, <code>when</code>, <code>condact</code>, or <code>activate</code> operators. A function is also not allowed to call a node, only other functions. In Lustre terms, functions are stateless.</p>
+<p>In Kind 2, these retrictions extend to the contract attached to the function, if any. Note that besides the ones mentioned here, no additional restrictions are enforced on functions compared to nodes.</p>
+<h3 id="n64322437-benefits">Benefits</h3>
+<p>Functions are interesting in the model-checking context of Kind 2 mainly as a mean to make an abstraction more precise. A realistic use-case is when one wants to abstract non-linear expressions. While the simple expression <code>x*y</code> seems harmless, at SMT-level it means bringing in the theory of non-linear arithmetic.</p>
+<p>Non-linear arithmetic has a huge impact not only on the performances of the underlying SMT solvers, but also on the SMT-level features Kind 2 can use (not to mention undecidability). Typically, non-lineary arithmetic tends to prevent Kind 2 from performing satisfiability checks with assumptions, a feature it heavily relies on.</p>
+<p>The bottom line is that as soon as some non-linear expression appear, Kind 2 will most likely fail to analyze most non-trivial systems because the underlying solver will simply give up.</p>
+<p>Hence, it is usually <a href="https://www.researchgate.net/publication/304360220_CoCoSpec_A_Mode-Aware_Contract_Language_for_Reactive_Systems">extremely rewarding</a> to abstract non-linear expressions away in a separate <em>function</em> equipped with a contract. The contract would be a linear abstraction of the non-linear expression that is precise enough to prove the system using correct. That way, a compositional analysis would <em>i)</em> verify the abstraction is correct and <em>ii)</em> analyze the rest of the system using this abstraction, thus making the analysis a linear one.</p>
+<p>Using a function instead of a node simply results in a better abstraction. Kind 2 will encode, at SMT-level, that the outputs of this component depend on the <em>current</em> version of its inputs only, not on its previous values.</p>
+<h2 id="n64322437-hierarchical-automata">Hierarchical Automata</h2>
+<blockquote>
+<p><strong>Experimental feature</strong></p>
+</blockquote>
+<p>Kind 2 supports both the syntax used in LustreC and a subset of the one used in Scade 6.</p>
+<pre><code>node n (i1, ..., in : ...) returns (o1, ..., on : ...);
+let
+
+   automaton automaton_name
+
+     initial state S1:
+       unless if c restart Si elsif c\&#39; resume Sj else restart Sk end;
+       var v : ...;
+       let
+          v = ...;
+          o1 = i1 -&gt; last o2 + 1;
+          o2 = 99;
+       tel
+       until c restart S2;
+
+     state S2:
+       let
+          ...; 
+       tel
+     ...
+   returns o1, o2;
+
+   o3 = something () ...;
+tel</code></pre>
+<p>An automaton is declared <em>inside a node</em> (there can be several) and can be anonymous. Automata can be nested, <em>i.e.</em> an automaton can contain other automata in some of its states bodies. This effectively allows to describe <em>hierarchical state machines</em>. An automaton is defined by its list of states and a <code>returns</code> statement that specifies which variables (locals or output) are defined by the automaton.</p>
+<blockquote>
+<p>The set of returned streams can be inferred by writing <code>returns ..;</code>. One can also simply omit the <code>returns</code> statement which will have the same effect.</p>
+</blockquote>
+<p>States (much like regular nodes) do not need to give equations that define <em>all</em> their outputs (but they do for their local variables). If defined streams are different between the states of the automaton, then the set considered will be their union and states that do not define all the inferred streams will be considered underconstrained.</p>
+<p>Each state has a name and one of them can be declared <code>initial</code> (if no initial state is specified, the first one is considered initial). They can have local variables (to the state). The body of the state contains Lustre equations (or assertions) and can use the operator <code>last</code>. In contrast to <code>pre x</code> which is the value of the stream <code>x</code> the last time the state was in the declared state, <code>last x</code> (or the Scade 6 syntax <code>last \'x</code>) is the previous value of the stream <code>x</code> on the base clock. This construct is useful for communicating information between states.</p>
+<p>States can have a <em>strong</em> transition (declared with <code>unless</code>) placed before the body and a <em>weak</em> transition placed after the body. The unless transition is taken when entering the state, whereas the until transition is evaluated after execution of the body of the state. If none are applicable then the automaton remains in the same state. These transitions express conditions to change states following a branching pattern. Following are examples of legal branching patterns (<code>c*</code> are Lustre Boolean expressions):</p>
+<pre><code>c restart S</code></pre>
+<pre><code>if c1 restart S1
+elsif c2 restart S2
+elsif c3 restart S3
+end;</code></pre>
+<pre><code>if c1
+  if c2 restart S2
+  else if c3 resume S1
+  end
+elsif c3 resume S3
+else restart S0
+end;</code></pre>
+<p>Targets are of the form <code>restart State_name</code> or <code>resume State_name</code>. When transiting to a state with <code>restart</code>, the internal state of the state is rested to its initial value. On the contrary when transiting with <code>resume</code>, execution in the state resumes to where it was when the state was last executed.</p>
+<p>In counter-examples, we show the value of additional internal state information for each automaton: <code>state</code> is a stream that denotes the state in which the automaton is and <code>restart</code> indicates if the state in which the automaton is was restarted in the current instant.</p>
+<p>The internal state of an automaton state is also represented in counter-example traces, separately. States and subsequent streams are sampled with the clock state, <em>i.e.</em> values of streams are shown only when the automaton is in the corresponding state.</p>
+
+<h1 id="n64322439-arrays">Arrays</h1>
+<blockquote>
+<p><strong>Experimental feature</strong></p>
+</blockquote>
+<h2 id="n64322439-lustre-arrays">Lustre arrays</h2>
 <p>Kind 2 supports the traditional Lustre V5 syntax for arrays.</p>
-<h3 id="n21062776-declarations">Declarations</h3>
+<h3 id="n64322439-declarations">Declarations</h3>
 <p>Array variables can be declared as global, local or as input/output of nodes. Arrays in Lustre are always indexed by integers (type <code>int</code> in Lustre), and the type of an array variable is written with the syntax <code>t ^ &lt;size&gt;</code> where <code>t</code> is a Lustre type and <code>&lt;size&gt;</code> is an integer literal or a constant symbol.</p>
 <p>The following</p>
 <pre><code>A : int ^ 3;</code></pre>
@@ -1132,7 +1678,7 @@ A : int ^ n;</code></pre>
 let
   x = A[n-1];
 tel</code></pre>
-<p>It takes as input the size of the array and the array itself. Note that the type of the input <code>A</code> depends on the value of the first constant input <code>n</code>. In Lustre, calls to such nodes should of course end up by having concrete values for <code>n</code>, this is however not the case in Kind 2 (see <a href="#n21062776-extension-to-unbounded-arrays">here</a>).</p>
+<p>It takes as input the size of the array and the array itself. Note that the type of the input <code>A</code> depends on the value of the first constant input <code>n</code>. In Lustre, calls to such nodes should of course end up by having concrete values for <code>n</code>, this is however not the case in Kind 2 (see <a href="#n64322439-extension-to-unbounded-arrays">here</a>).</p>
 <p>Arrays can be multidimensional, so a user can declare <em>e.g.</em> matrices with the following</p>
 <pre><code>const n = 4;
 const m = 5;
@@ -1151,7 +1697,7 @@ M2 : int ^ 3 ^ 3;</code></pre>
 rats: rational^array_size;
 mm: [int, bool]^array_size;</code></pre>
 <p>In this example, <code>rats</code> is declared as an array of record elements and <code>mm</code> is an array of pairs.</p>
-<h3 id="n21062776-definitions">Definitions</h3>
+<h3 id="n64322439-definitions">Definitions</h3>
 <p>In the body of nodes or at the top-level, arrays can be defined with literals of the form</p>
 <pre><code>A = [2, 5, 7];</code></pre>
 <p>This defines an array <code>A</code> of size 3 whose elements are 2, 5 and 7. Another way to construct Lustre arrays is to have each elements be the same value. This can be done with expressions of the form <code>&lt;value&gt; ^ &lt;size&gt;</code>. For example the two following definitions are equivalent.</p>
@@ -1163,7 +1709,7 @@ A = [2, 2, 2];</code></pre>
      [4, 5, 6],
      [7, 8, 9]];</code></pre>
 <p>then the expression <code>M[1][2]</code> is valid and evaluates to 6. The result of a single selection on an <em>n</em>-dimensional array is an <em>(n-1)</em>-dimensional array. The result of <code>M[2]</code> is the array <code>[7, 8, 9]</code>.</p>
-<h3 id="n21062776-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</h3>
+<h3 id="n64322439-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</h3>
 <p>Kind 2 currently <strong>does not support</strong> the following features of <a href="http://www.di.ens.fr/~pouzet/cours/mpri/manual_lustre.ps">Lustre V5</a>:</p>
 <ul>
 <li><p>Array concatenation like <code>[0, 1] | [2, 3, 4]</code></p></li>
@@ -1171,14 +1717,14 @@ A = [2, 2, 2];</code></pre>
 <li><p>The operators are not homomorphically extended. For instance <code>or</code> has type <code>bool -&gt; bool -&gt; bool</code>, given two arrays of Booleans <code>A</code> and <code>B</code>, the expression <code>A or B</code> will be rejected at typing by Kind 2</p></li>
 <li><p>Node calls don't have an homomorphic extension either</p></li>
 </ul>
-<h2 id="n21062776-extension-to-unbounded-arrays">Extension to unbounded arrays</h2>
+<h2 id="n64322439-extension-to-unbounded-arrays">Extension to unbounded arrays</h2>
 <p>Kind 2 provides an extension of Lustre to express equational constraints between unbounded arrays. This syntax extension allows users to inductively define arrays, give whole array definitions and allows to encode most of the other unsupported array features. This extension was originally suggested by <a href="http://www.esterel-technologies.com">Esterel</a>.</p>
 <blockquote>
 <p><strong>Remark</strong></p>
 <p>Here, by <em>unbounded</em> we mean whose size is an unbounded constant.</p>
 </blockquote>
 <p>In addition, we also enriched the specification language of Kind 2 to support (universal and existential) quantifiers, allowing one to effectively model <em>parameterized</em> system.</p>
-<h3 id="n21062776-whole-array-definitions">Whole array definitions</h3>
+<h3 id="n64322439-whole-array-definitions">Whole array definitions</h3>
 <p>Equations in the body of nodes can now take the following forms</p>
 <ul>
 <li><p><code>A[2] = &lt;term&gt; ;</code> This equation defines the element at index <code>2</code> to the value <code>&lt;term&gt;</code>, the other elements are undefined. This form of <em>single point</em> updates can only be written when the selections on the left of the equation are at constant literal integers.</p></li>
@@ -1200,11 +1746,11 @@ A = [2, 2, 2];</code></pre>
 <pre><code>M[i][i] = i;</code></pre>
 <p>but in this case the second index <code>i</code> shadows the first one, hence the definition is equivalent to the following one where the indexes have been renamed.</p>
 <pre><code>M[j][i] = i;</code></pre>
-<h3 id="n21062776-inductive-definitions">Inductive definitions</h3>
+<h3 id="n64322439-inductive-definitions">Inductive definitions</h3>
 <p>One interesting feature of these equations is that we allow definitions of arrays <em>inductively</em>. For instance it is possible to write an equation</p>
 <pre><code>A[i] = if i = 0 then 0 else A[i-1] ;</code></pre>
 <p>This is however not very exciting because this is the same as saying that <code>A</code> will contain only zeros, but notice we allow the use of <code>A</code> in the right hand side.</p>
-<h4 id="n21062776-dependency-analysis">Dependency analysis</h4>
+<h4 id="n64322439-dependency-analysis">Dependency analysis</h4>
 <p>Inductive definitions are allowed under the restriction that they should be <em>well founded</em>. For instance, the equation</p>
 <pre><code>A[i] = A[i];</code></pre>
 <p>is not and will be rejected by Kind 2 the same way the equation <code>x = x;</code> is rejected. Of course this restriction does not apply for array variables under a <code>pre</code>, so the equation <code>A[i] = pre A[i];</code> is allowed.</p>
@@ -1222,9 +1768,9 @@ C[k] = ( A[k-1] + B[k] ) * k ;</code></pre>
 <pre><code>A[i] = if i = 0 then 0 else if i = 1 then A[0] else A[i-1];</code></pre>
 <pre><code>A[i] = if i = n then 0 else A[i+1];</code></pre>
 <pre><code>A[i] = if i = 0 then 0 else A[0];</code></pre>
-<h4 id="n21062776-examples">Examples</h4>
+<h4 id="n64322439-examples">Examples</h4>
 <p>This section gives some examples of usage for inductive definitions and whole array updates as a way to encode unsupported features and as way to encode complicated functions succinctly.</p>
-<h5 id="n21062776-sum-of-the-elements-in-an-array">Sum of the elements in an array</h5>
+<h5 id="n64322439-sum-of-the-elements-in-an-array">Sum of the elements in an array</h5>
 <p>The following node returns the sum of all elements in an array.</p>
 <pre><code>node sum (const n: int; A: int ^ n) returns (s: int);
 var cumul: int ^ n;
@@ -1234,21 +1780,21 @@ let
 tel</code></pre>
 <p>We declare a local array <code>cumul</code> to store the cumulative sum (<em>i.e.</em> <code>cumul[i]</code> contains the sum of elements in <code>A</code> up to index <code>i</code>) and the returned value of the node is the element stored in the last position of <code>cumul</code>.</p>
 <p>Note that this node is parametric in the size of the array.</p>
-<h5 id="n21062776-array-slices">Array slices</h5>
+<h5 id="n64322439-array-slices">Array slices</h5>
 <p>Array slices can be trivially implemented with the features presented above.</p>
 <pre><code>node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
 let
   B[i] = A[low + i];
 tel</code></pre>
-<h5 id="n21062776-homomorphic-extensions">Homomorphic extensions</h5>
+<h5 id="n64322439-homomorphic-extensions">Homomorphic extensions</h5>
 <p>Encoding an homomorphic <code>or</code> on Boolean arrays is even simpler.</p>
 <pre><code>node or_array (const n: int; A, B : bool^n) returns (C: bool^n);
 let
   C[i] = A[i] or B[i];
 tel</code></pre>
 <p>Defining a generic homomorphic extension of node calls is not possible because nodes are not first order objects in Lustre.</p>
-<h5 id="n21062776-parameterized-systems">Parameterized systems</h5>
+<h5 id="n64322439-parameterized-systems">Parameterized systems</h5>
 <p>It is possible to describe and check properties of parameterized systems. Contrary to the Lustre compilers, Kind 2 does not require the constants used as array sizes to be instantiated with actual values. In this case the properties are checked <em>for any</em> array sizes.</p>
 <pre><code>node slide (const n:int; s: int) returns(A: int^n);
 let
@@ -1258,7 +1804,7 @@ let
 tel</code></pre>
 <p>This node stores in an array <code>A</code> a <em>sliding window</em> over an integer stream <code>s</code>. It saves the values taken by <code>s</code> up to <code>n</code> steps in the past, where <code>n</code> is the size of the array.</p>
 <p>Here the property says, that if the array <code>A</code> has at least two cells then its second value is the previous value of <code>s</code>.</p>
-<h3 id="n21062776-quantifiers-in-specifications">Quantifiers in specifications</h3>
+<h3 id="n64322439-quantifiers-in-specifications">Quantifiers in specifications</h3>
 <p>To better support parameterized systems or systems with large arrays, we expose quantifiers for use in the language of the specifications. Quantifiers can thus appear in <strong>properties</strong>, <strong>contracts</strong> and <strong>assertions</strong>.</p>
 <p>Universal quantification is written with:</p>
 <pre><code>forall ( &lt;x : type&gt;;+ ) P(&lt;x&gt;+)</code></pre>
@@ -1271,7 +1817,7 @@ tel</code></pre>
 <p>Existential quantification takes the same form except we use <code>exists</code> instead of <code>forall</code>.</p>
 </blockquote>
 <p>Quantifiers can be arbitrarily nested and alternated at the propositional level.</p>
-<h4 id="n21062776-example">Example</h4>
+<h4 id="n64322439-example">Example</h4>
 <p>The same parameterized system of a sliding window, slightly modified to express the property that <code>A</code> contains in each of its cells, an uninitialized value (<em>i.e.</em> value <code>-1</code>), or one of the previous values of the stream <code>s</code>.</p>
 <pre><code>node slide (const n:int; s: int) returns(ok: bool^n);
 var A: int^n;
@@ -1281,7 +1827,7 @@ let
 
   --%PROPERTY forall (i: int) 0 &lt;= i and i &lt; n =&gt; ok[i];
 tel</code></pre>
-<h3 id="n21062776-limitations">Limitations</h3>
+<h3 id="n64322439-limitations">Limitations</h3>
 <p>One major limitation that is present in the arrays of Kind 2 is that one cannot have node calls in inductive array definitions whose parameters are array selections.</p>
 <p>For instance, it is currently not possible to write the following in Kind 2 where <code>A</code> and <code>B</code> are array and <code>some_node</code> takes values as inputs.</p>
 <pre><code>node some_node (x: int) returns (y: int);
@@ -1299,28 +1845,32 @@ A, B: int^4;
 ...
 
 A = some_node(4, B);</code></pre>
-<h3 id="n21062776-command-line-options">Command line options</h3>
+<h3 id="n64322439-command-line-options">Command line options</h3>
 <p>We provide different encodings of inductive array definitions in our internal representation of the transition system. The command line interface exposes different options to control which encoding is used. This is particularly relevant for SMT solvers that have built-in features, whether it is support for the theory of arrays, or special options or annotations for quantifier instantiation.</p>
 <p>These options are summed up in the following table and described in more detail in the rest of this section.</p>
-<table>
+<table style="width:96%;">
+<colgroup>
+<col width="23%" />
+<col width="72%" />
+</colgroup>
 <thead>
 <tr class="header">
-<th align="left">Option</th>
-<th align="left">Description</th>
+<th>Option</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left"><code>--smt_arrays</code></td>
-<td align="left">Use the builtin theory of arrays in solvers</td>
+<td><code>--smt_arrays</code></td>
+<td>Use the builtin theory of arrays in solvers</td>
 </tr>
 <tr class="even">
-<td align="left"><code>--inline_arrays</code></td>
-<td align="left">Instantiate quantifiers over array bounds in case they are statically known</td>
+<td><code>--inline_arrays</code></td>
+<td>Instantiate quantifiers over array bounds in case they are statically known</td>
 </tr>
 <tr class="odd">
-<td align="left"><code>--arrays_rec</code></td>
-<td align="left">Define recurvsive functions for arrays (for CVC4)</td>
+<td><code>--arrays_rec</code></td>
+<td>Define recurvsive functions for arrays (for CVC4)</td>
 </tr>
 </tbody>
 </table>
@@ -1332,9 +1882,9 @@ A[k] = x;</code></pre>
 <p>we will generate internally the constraint</p>
 <p><em>∀ k: int. 0 &lt;= k &lt; 6 =&gt; (select A k) = x</em></p>
 <p>These form of constraint are handled in an efficient way by CVC4 (thanks to finite model finding).</p>
-<h5 id="smt_arrays-n21062776---smt_arrays"><code>--smt_arrays</code> {#n21062776-<code>--smt_arrays</code>}</h5>
+<h5 id="smt_arrays-n64322439---smt_arrays"><code>--smt_arrays</code> {#n64322439-<code>--smt_arrays</code>}</h5>
 <p>By default arrays are converted using ah-hoc selection functions to avoid stressing the theory of arrays in the SMT solvers. This option tells Kind 2 to use the builtin theory of arrays of the solvers instead. If you want to try it, it’s probably a good idea to use it in combination of <code>--smtlogic detect</code> for better performances.</p>
-<h5 id="inline_arrays-n21062776---inline_arrays"><code>--inline_arrays</code> {#n21062776-<code>--inline_arrays</code>}</h5>
+<h5 id="inline_arrays-n64322439---inline_arrays"><code>--inline_arrays</code> {#n64322439-<code>--inline_arrays</code>}</h5>
 <p>By default, Kind 2 will generate problems with quantifiers for arrays which should be useful for problems with large arrays. This option tells Kind 2 to instantiate these quantifiers when it can reasonably do so. Only CVC4 has a good support for this kind of quantification so you may want to use this option with the other solvers.</p>
 <p>The previous example</p>
 <pre><code>A : int^6;
@@ -1342,245 +1892,83 @@ A[k] = x;</code></pre>
 A[k] = x;</code></pre>
 <p>will now be encoded by the constraint</p>
 <p><em>(select A 0) = x ⋀ (select A 1) = x ⋀ (select A 2) = x ⋀ (select A 3) = x ⋀ (select A 4) = x ⋀ (select A 5) = x</em></p>
-<h5 id="arrays_rec-n21062776---arrays_rec"><code>--arrays_rec</code> {#n21062776-<code>--arrays_rec</code>}</h5>
+<h5 id="arrays_rec-n64322439---arrays_rec"><code>--arrays_rec</code> {#n64322439-<code>--arrays_rec</code>}</h5>
 <p>This uses a special kind of encoding to tell CVC4 to treat quantified definitions of some uninterpreted functions as recursive definitions.</p>
-<p></p>
-<h1 id="n18820171-arrays">Arrays</h1>
-<h2 id="n18820171-lustre-arrays">Lustre arrays</h2>
-<p>Kind 2 supports the traditional Lustre V5 syntax for arrays.</p>
-<h3 id="n18820171-declarations">Declarations</h3>
-<p>Array variables can be declared as global, local or as input/output of nodes. Arrays in Lustre are always indexed by integers (type <code>int</code> in Lustre), and the type of an array variable is written with the syntax <code>t ^ &lt;size&gt;</code> where <code>t</code> is a Lustre type and <code>&lt;size&gt;</code> is an integer literal or a constant symbol.</p>
-<p>The following</p>
-<pre><code>A : int ^ 3;</code></pre>
-<p>declares an array variable <code>A</code> of type array of size 3 whose elements are integers. The size of the array can also be given by a defined constant.</p>
-<pre><code>const n = 3;
-...
-A : int ^ n;</code></pre>
-<p>This declaration is equivalent to the previous one for <code>A</code>.</p>
-<p>An interesting feature of these arrays is the possibility for users to write generic nodes and functions that are parametric in the size of the array. For instance one can write the following node returns the last element of an array.</p>
-<pre><code>node last (const n: int; A: int ^ n) returns (x: int);
-let
-  x = A[n-1];
-tel</code></pre>
-<p>It takes as input the size of the array and the array itself. Note that the type of the input <code>A</code> depends on the value of the first constant input <code>n</code>. In Lustre, calls to such nodes should of course end up by having concrete values for <code>n</code>, this is however not the case in Kind 2 (see <a href="#n21062776-extension-to-unbounded-arrays">here</a>).</p>
-<p>Arrays can be multidimensional, so a user can declare <em>e.g.</em> matrices with the following</p>
-<pre><code>const n = 4;
-const m = 5;
-...
 
-M1 : bool ^ n ^ m;
-M2 : int ^ 3 ^ 3;</code></pre>
-<p>Here <code>M1</code> is a matrix of size 4x5 whose elements are Boolean, and <code>M2</code> is a square matrix of size 3x3 whose elements are integers.</p>
-<blockquote>
-<p><strong>Remark</strong></p>
-<p><code>M1</code> can also be viewed as an array of arrays of Booleans.</p>
-</blockquote>
-<p>Kind 2 also allows one to nest datatypes, so it is possible to write arrays of records, records of arrays, arrays of tuples, and so on.</p>
-<pre><code>type rational = { n: int; d: int };
-
-rats: rational^array_size;
-mm: [int, bool]^array_size;</code></pre>
-<p>In this example, <code>rats</code> is declared as an array of record elements and <code>mm</code> is an array of pairs.</p>
-<h3 id="n18820171-definitions">Definitions</h3>
-<p>In the body of nodes or at the top-level, arrays can be defined with literals of the form</p>
-<pre><code>A = [2, 5, 7];</code></pre>
-<p>This defines an array <code>A</code> of size 3 whose elements are 2, 5 and 7. Another way to construct Lustre arrays is to have each elements be the same value. This can be done with expressions of the form <code>&lt;value&gt; ^ &lt;size&gt;</code>. For example the two following definitions are equivalent.</p>
-<pre><code>A = 2 ^ 3;
-A = [2, 2, 2];</code></pre>
-<p>Arrays are indexed starting at 0 and the elements can be accessed using the selection operator <code>[ ]</code>. For instance the result of the evaluation of the expression <code>A[0]</code> for the previously defined array <code>A</code> is 2.</p>
-<p>The selection operators can also be applied to multidimensional arrays. Given a matrix <code>M</code> defined by</p>
-<pre><code>M = [[1, 2, 3],
-     [4, 5, 6],
-     [7, 8, 9]];fLyMd-mAkEr</code></pre>
-<p>then the expression <code>M[1][2]</code> is valid and evaluates to 6. The result of a single selection on an <em>n</em>-dimensional array is an <em>(n-1)</em>-dimensional array. The result of <code>M[2]</code> is the array <code>[7, 8, 9]</code>.</p>
-<h3 id="n18820171-unsupported-features-of-lustre-v5">Unsupported features of Lustre V5</h3>
-<p>Kind 2 currently <strong>does not support</strong> the following features of <a href="http://www.di.ens.fr/~pouzet/cours/mpri/manual_lustre.ps">Lustre V5</a>:</p>
-<ul>
-<li><p>Array concatenation like <code>[0, 1] | [2, 3, 4]</code></p></li>
-<li><p>Array slices like <code>A[0..3]</code>, <code>A[0..3 step 2]</code>, <code>M[0..1][1..2]</code> or <code>M[0..1, 1..2]</code></p></li>
-<li><p>The operators are not homomorphically extended. For instance <code>or</code> has type <code>bool -&gt; bool -&gt; bool</code>, given two arrays of Booleans <code>A</code> and <code>B</code>, the expression <code>A or B</code> will be rejected at typing by Kind 2</p></li>
-<li><p>Node calls don't have an homomorphic extension either</p></li>
-</ul>
-<h2 id="n18820171-extension-to-unbounded-arrays">Extension to unbounded arrays</h2>
-<p>Kind 2 provides an extension of Lustre to express equational constraints between unbounded arrays. This syntax extension allows users to inductively define arrays, give whole array definitions and allows to encode most of the other unsupported array features. This extension was originally suggested by <a href="http://www.esterel-technologies.com">Esterel</a>.</p>
-<blockquote>
-<p><strong>Remark</strong></p>
-<p>Here, by <em>unbounded</em> we mean whose size is an unbounded constant.</p>
-</blockquote>
-<p>In addition, we also enriched the specification language of Kind 2 to support (universal and existential) quantifiers, allowing one to effectively model <em>parameterized</em> system.</p>
-<h3 id="n18820171-whole-array-definitions">Whole array definitions</h3>
-<p>Equations in the body of nodes can now take the following forms</p>
-<ul>
-<li><p><code>A[2] = &lt;term&gt; ;</code> This equation defines the element at index <code>2</code> to the value <code>&lt;term&gt;</code>, the other elements are undefined. This form of <em>single point</em> updates can only be written when the selections on the left of the equation are at constant literal integers.</p></li>
-<li><p><code>A[i] = &lt;term(i)&gt; ;</code> This equation defines the values of all elements in the array <code>A</code>. The index <code>i</code> has to be a symbol, it is bound locally to the equation and shadows all other mentions of <code>i</code>. Index variables that appear on the left hand side of equations are <strong>implicitly universally quantified</strong>. The right hand side of the equation, <code>&lt;term(i)&gt;</code> can depend on this index. The meaning of the equation is that, for any integer <code>i</code> between 0 and the size of <code>A</code>, the value at position <code>i</code> is defined as the term <code>&lt;term(i)&gt;</code>.</p></li>
-<li><p><code>A = B ;</code> This equation defines the values of the array <code>A</code> to be the same as the values of <code>B</code>. This equation is equivalent to the equation <code>A[i] = B[i]   ;</code>.</p></li>
-</ul>
-<p>Semantically, a whole array equation is equivalent to a quantified equation. Let <code>A</code> be an array of size an integer constant <code>n</code>, then following equation is legal.</p>
-<pre><code>A[i] = if i = 0 then 2 else B[i - 1] ;</code></pre>
-<p>It is equivalent to the formula <em>∀ i ∈ [0; n]. ( i = 0 ⇒ A[i] = 2 ) ⋀ ( i ≠ 0 ⇒ A[i] = B[i-1] )</em>.</p>
-<p>Multidimensional arrays can also be redefined the same way. For instance the equation</p>
-<pre><code>M[i][j] = if i = j then 1 else 0 ;</code></pre>
-<p>defines <code>M</code> as the identity matrix</p>
-<pre><code>[[ 1 , 0 , 0 ,..., 0 ],
- [ 0 , 1 , 0 ,..., 0 ],
- [ 0 , 0 , 1 ,..., 0 ],
- .................... ,
- [ 1 , 0 , 0 ,..., 1 ]]</code></pre>
-<p>It is possible to write an equation of the form</p>
-<pre><code>M[i][i] = i;</code></pre>
-<p>but in this case the second index <code>i</code> shadows the first one, hence the definition is equivalent to the following one where the indexes have been renamed.</p>
-<pre><code>M[j][i] = i;</code></pre>
-<h3 id="n18820171-inductive-definitions">Inductive definitions</h3>
-<p>One interesting feature of these equations is that we allow definitions of arrays <em>inductively</em>. For instance it is possible to write an equation</p>
-<pre><code>A[i] = if i = 0 then 0 else A[i-1] ;</code></pre>
-<p>This is however not very exciting because this is the same as saying that <code>A</code> will contain only zeros, but notice we allow the use of <code>A</code> in the right hand side.</p>
-<h4 id="n18820171-dependency-analysis">Dependency analysis</h4>
-<p>Inductive definitions are allowed under the restriction that they should be <em>well founded</em>. For instance, the equation</p>
-<pre><code>A[i] = A[i];</code></pre>
-<p>is not and will be rejected by Kind 2 the same way the equation <code>x = x;</code> is rejected. Of course this restriction does not apply for array variables under a <code>pre</code>, so the equation <code>A[i] = pre A[i];</code> is allowed.</p>
-<p>In practice, Kind 2 will try to prove statically that the definitions are well-founded to ensure the absence of dependency cycles. We only attempt to prove that definitions for an array <code>A</code> at a given index <code>i</code> depends on on values of <code>A</code> at indexes strictly smaller than <code>i</code>.</p>
-<p>For instance the following set of definitions is rejected because <em>e.g.</em> <code>A[k]</code> depends on <code>A[k]</code>.</p>
-<pre><code>A[k] = B[k+1] + y;
-B[k] = C[k-1] - 2;
-C[k] = A[k] + k;</code></pre>
-<p>On the other hand this one will be accepted.</p>
-<pre><code>A[k] = B[k+1] + y;
-B[k] = C[k-1] - 2;
-C[k] = ( A[k-1] + B[k] ) * k ;</code></pre>
-<p>Because the order is fixed and that the checks are simple, it is possible that Kind 2 rejects programs that are well defined (with respect to our semantic for whole array updates). It will not, however, accept programs that are ill-defined.</p>
-<p>For instance each of the following equations will be rejected.</p>
-<pre><code>A[i] = if i = 0 then 0 else if i = 1 then A[0] else A[i-1];</code></pre>
-<pre><code>A[i] = if i = n then 0 else A[i+1];</code></pre>
-<pre><code>A[i] = if i = 0 then 0 else A[0];</code></pre>
-<h4 id="n18820171-examples">Examples</h4>
-<p>This section gives some examples of usage for inductive definitions and whole array updates as a way to encode unsupported features and as way to encode complicated functions succinctly.</p>
-<h5 id="n18820171-sum-of-the-elements-in-an-array">Sum of the elements in an array</h5>
-<p>The following node returns the sum of all elements in an array.</p>
-<pre><code>node sum (const n: int; A: int ^ n) returns (s: int);
-var cumul: int ^ n;
-let
-  cumul[i] = if i = 0 then A[0] else A[i] + cumul[i-1];
-  s = cumul[n-1];
-tel</code></pre>
-<p>We declare a local array <code>cumul</code> to store the cumulative sum (<em>i.e.</em> <code>cumul[i]</code> contains the sum of elements in <code>A</code> up to index <code>i</code>) and the returned value of the node is the element stored in the last position of <code>cumul</code>.</p>
-<p>Note that this node is parametric in the size of the array.</p>
-<h5 id="n18820171-array-slices">Array slices</h5>
-<p>Array slices can be trivially implemented with the features presented above.</p>
-<pre><code>node slice (const n: int; A: int ^ n; const low: int; const up: int)
-returns (B : int ^ (up-low));
-let
-  B[i] = A[low + i];
-tel</code></pre>
-<h5 id="n18820171-homomorphic-extensions">Homomorphic extensions</h5>
-<p>Encoding an homomorphic <code>or</code> on Boolean arrays is even simpler.</p>
-<pre><code>node or_array (const n: int; A, B : bool^n) returns (C: bool^n);
-let
-  C[i] = A[i] or B[i];
-tel</code></pre>
-<p>Defining a generic homomorphic extension of node calls is not possible because nodes are not first order objects in Lustre.</p>
-<h5 id="n18820171-parameterized-systems">Parameterized systems</h5>
-<p>It is possible to describe and check properties of parameterized systems. Contrary to the Lustre compilers, Kind 2 does not require the constants used as array sizes to be instantiated with actual values. In this case the properties are checked <em>for any</em> array sizes.</p>
-<pre><code>node slide (const n:int; s: int) returns(A: int^n);
-let
-  A[i] = if i = 0 then s else (-1 -&gt; pre A[i-1]);
-
-  --%PROPERTY n &gt; 1 =&gt; (true -&gt; A[1] = pre s);
-tel</code></pre>
-<p>This node stores in an array <code>A</code> a <em>sliding window</em> over an integer stream <code>s</code>. It saves the values taken by <code>s</code> up to <code>n</code> steps in the past, where <code>n</code> is the size of the array.</p>
-<p>Here the property says, that if the array <code>A</code> has at least two cells then its second value is the previous value of <code>s</code>.</p>
-<h3 id="n18820171-quantifiers-in-specifications">Quantifiers in specifications</h3>
-<p>To better support parameterized systems or systems with large arrays, we expose quantifiers for use in the language of the specifications. Quantifiers can thus appear in <strong>properties</strong>, <strong>contracts</strong> and <strong>assertions</strong>.</p>
-<p>Universal quantification is written with:</p>
-<pre><code>forall ( &lt;x : type&gt;;+ ) P(&lt;x&gt;+)</code></pre>
-<p>where <code>x</code> are the quantified variables and <code>type</code> is their type. <code>P</code> is a formula or a predicate in which the variable <code>x</code> can appear.</p>
-<p>For example, the following</p>
-<pre><code>forall (i, j: int) 0 &lt;= i and i &lt; n and 0 &lt;= j and j &lt; n =&gt; M[i][j] = M[j][i]</code></pre>
-<p>is a formula that specifies that the matrix <code>M</code> is symmetric.</p>
-<blockquote>
-<p><strong>Remark</strong></p>
-<p>Existential quantification takes the same form except we use <code>exists</code> instead of <code>forall</code>.</p>
-</blockquote>
-<p>Quantifiers can be arbitrarily nested and alternated at the propositional level.</p>
-<h4 id="n18820171-example">Example</h4>
-<p>The same parameterized system of a sliding window, slightly modified to express the property that <code>A</code> contains in each of its cells, an uninitialized value (<em>i.e.</em> value <code>-1</code>), or one of the previous values of the stream <code>s</code>.</p>
-<pre><code>node slide (const n:int; s: int) returns(ok: bool^n);
-var A: int^n;
-let
-  A[i] = if i = 0 then s else (-1 -&gt; pre A[i-1]);
-  ok[i] = A[i] = -1 or A[i] = s or (false -&gt; pre ok[i]);
-
-  --%PROPERTY forall (i: int) 0 &lt;= i and i &lt; n =&gt; ok[i];
-tel</code></pre>
-<h3 id="n18820171-limitations">Limitations</h3>
-<p>One major limitation that is present in the arrays of Kind 2 is that one cannot have node calls in inductive array definitions whose parameters are array selections.</p>
-<p>For instance, it is currently not possible to write the following in Kind 2 where <code>A</code> and <code>B</code> are array and <code>some_node</code> takes values as inputs.</p>
-<pre><code>node some_node (x: int) returns (y: int);
-...
-
-A, B: int^4;
-...
-
-A[i] = some_node(B[i]);</code></pre>
-<p>This limitation exists only for technical implementation reasons. A workaround for the moment is to redefine an homorphic extension of the node and use that instead.</p>
-<pre><code>node some_node (const n: int; x: int^n) returns (y: int^n);
-...
-
-A, B: int^4;
-...
-
-A = some_node(4, B);</code></pre>
-<h3 id="n18820171-command-line-options">Command line options</h3>
-<p>We provide different encodings of inductive array definitions in our internal representation of the transition system. The command line interface exposes different options to control which encoding is used. This is particularly relevant for SMT solvers that have built-in features, whether it is support for the theory of arrays, or special options or annotations for quantifier instantiation.</p>
-<p>These options are summed up in the following table and described in more detail in the rest of this section.</p>
-<table>
-<thead>
-<tr class="header">
-<th align="left">Option</th>
-<th align="left">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left"><code>--smt_arrays</code></td>
-<td align="left">Use the builtin theory of arrays in solvers</td>
-</tr>
-<tr class="even">
-<td align="left"><code>--inline_arrays</code></td>
-<td align="left">Instantiate quantifiers over array bounds in case they are statically known</td>
-</tr>
-<tr class="odd">
-<td align="left"><code>--arrays_rec</code></td>
-<td align="left">Define recurvsive functions for arrays (for CVC4)</td>
-</tr>
-</tbody>
-</table>
-<p>The default encoding will use quantified formulas for inductive definitions and whole array updates.</p>
-<p>For example if we have</p>
-<pre><code>A : int^6;
-...
-A[k] = x;</code></pre>
-<p>we will generate internally the constraint</p>
-<p><em>∀ k: int. 0 &lt;= k &lt; 6 =&gt; (select A k) = x</em></p>
-<p>These form of constraint are handled in an efficient way by CVC4 (thanks to finite model finding).</p>
-<h5 id="smt_arrays-n18820171---smt_arrays"><code>--smt_arrays</code> {#n18820171-<code>--smt_arrays</code>}</h5>
-<p>By default arrays are converted using ah-hoc selection functions to avoid stressing the theory of arrays in the SMT solvers. This option tells Kind 2 to use the builtin theory of arrays of the solvers instead. If you want to try it, it’s probably a good idea to use it in combination of <code>--smtlogic detect</code> for better performances.</p>
-<h5 id="inline_arrays-n18820171---inline_arrays"><code>--inline_arrays</code> {#n18820171-<code>--inline_arrays</code>}</h5>
-<p>By default, Kind 2 will generate problems with quantifiers for arrays which should be useful for problems with large arrays. This option tells Kind 2 to instantiate these quantifiers when it can reasonably do so. Only CVC4 has a good support for this kind of quantification so you may want to use this option with the other solvers.</p>
-<p>The previous example</p>
-<pre><code>A : int^6;
-...
-A[k] = x;</code></pre>
-<p>will now be encoded by the constraint</p>
-<p><em>(select A 0) = x ⋀ (select A 1) = x ⋀ (select A 2) = x ⋀ (select A 3) = x ⋀ (select A 4) = x ⋀ (select A 5) = x</em></p>
-<h5 id="arrays_rec-n18820171---arrays_rec"><code>--arrays_rec</code> {#n18820171-<code>--arrays_rec</code>}</h5>
-<p>This uses a special kind of encoding to tell CVC4 to treat quantified definitions of some uninterpreted functions as recursive definitions.</p>
-<p></p>
-<h1 id="n11899760-xml-output">XML Output</h1>
+<h1 id="n28536312-xml-output">XML Output</h1>
 <p>The XML output is activated by running Kind 2 with the <code>-xml</code> option. It is fully specified by file <a href="https://github.com/kind2-mc/kind2/blob/develop/XMLSchema/xmlschema.xsd"><code>xmlschema.xsd</code></a> located in folder <code>XMLSchema</code> on the repository.</p>
-<p></p>
-<h1 id="n15237262-contract-semantics">Contract semantics</h1>
-<h2 id="n15237262-assume-guarantee-contracts">Assume-guarantee contracts</h2>
-<p>This section discusses the semantics of contracts, and in particular modes, in Kind 2. For details regarding the syntax, please see the <a href="#n19417377-contracts">contract syntax section</a>.</p>
+
+<h2 id="n64246492-post-analyses-treatments">Post Analyses Treatments</h2>
+<p>Post-analysis treatments are flag-activated Kind 2 features that are not directly related to verification. The current post-analysis treatments available are</p>
+<ul>
+<li>certification,</li>
+<li>compilation to Rust,</li>
+<li>test generation,</li>
+<li>contract generation, and</li>
+<li>invariant logging.</li>
+</ul>
+<p>All of them are deactivated by default. Post-analysis treatments run on the <em>last analysis</em> of a system. It is defined as the last analysis performed by Kind 2 on a given system. With the default settings, Kind 2 performs a single, monolithic analysis of the top node. In this case, the <em>last analysis</em> is this unique analysis.</p>
+<p>This behavior is changed by the <code>compositional</code> flag. For example, say Kind 2 is asked to analyze node <code>top</code> calling two subnodes <code>sub_1</code> and <code>sub_2</code>, in compositional mode. Say also <code>sub_1</code> and <code>sub_2</code> have contracts, and that refinement is possible. In this situation, Kind 2 will analyze <code>top</code> by abstracting its two subnodes. Assume for now that this analysis concludes the system is safe. Kind 2 has nothing left to do on <code>top</code>, so this compositional analysis is the <em>last analysis</em> of <code>top</code>, Kind 2 will run the post-analysis treatments. Assume now that this purely compositional analysis discovers a counterexample. Since refinement is possible, Kind 2 will refine <code>sub_1</code> (and/or <code>sub_2</code>) and start a new analysis. Hence, the first, purely compositional analysis is not the <em>last analysis</em> of <code>top</code>. The analysis where <code>sub_1</code> and <code>sub_2</code> are refined is the <em>last analysis</em> of <code>top</code> regardless of its outcome (assuming no other refinement is possible).</p>
+<p>Long story short, the <em>last analysis</em> of a system is either the first analysis allowing to prove the system safe, or the analysis where all refineable systems have been refined.</p>
+<p>The <code>modular</code> flag forces Kind 2 to apply whatever analysis / treatment the rest of the flags specify to all the nodes of the system, bottom-up. Post-analysis treatments respect this behavior and will run on the last analysis of each node.</p>
+<h3 id="n64246492-prerequisites">Prerequisites</h3>
+<p>Some treatments can fail (which results in a warning) because some conditions were not met by the system and/or the last analysis. The prerequisites for each treatment are:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="center">Treatment</th>
+<th align="left">Condition</th>
+<th align="left">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">certification</td>
+<td align="left">last analysis proved the system safe</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="center">compilation to Rust</td>
+<td align="left">none</td>
+<td align="left">can fail if node is partially defined</td>
+</tr>
+<tr class="odd">
+<td align="center">test generation</td>
+<td align="left">system has a contract with more than one mode</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="center"></td>
+<td align="left">last analysis proved the system safe</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="center">contract generation</td>
+<td align="left">none</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="center">invariant logging</td>
+<td align="left">last analysis proved the system safe</td>
+<td align="left"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="n64246492-silent-contract-loading">Silent Contract Loading</h3>
+<p>Two of the treatments mentioned above end up, if successful, generating a contract for the current node: invariant logging and contract generation. The natural way to benefit from these contracts is to import them explicitely in the original system.</p>
+<p>If you do not import these contracts however, <em>silent contract loading</em> will still try to take advantage of them. That is, contracts logged by Kind 2 in previous runs will be loaded as <em>candidate properties</em>. A candidate property is similar to a normal property except that it is allowed to be falsifiable. That is, falsification of a candidate property does not impact the safety of the system under analysis.</p>
+<p>Note that if you change the signature of the system, silent contract loading may fail. This failure is silent, and simply results in Kind 2 analyzing the system without any candidates.</p>
+<blockquote>
+<p><strong>NB</strong>: for silent contract loading to work, it needs to be able to find the contracts. In practice, Kind 2 will look in the <em>output directory</em> specified by <code>--output_dir</code>, the default being <code>&lt;input_file&gt;.out/</code>.</p>
+<p>Kind 2 writes the contracts resulting from invariant logging and contract generation in the output directory, in a sub-directory named after the system the contract is for.</p>
+<p>As a result, running <code>kind2 --log_invs on --lus_main top example.lus</code> will log invariants in <code>example.lus.out/top/kind2_strengthening.lus</code>. Running the same command again will cause Kind 2 to silently load this contract as candidates.</p>
+<p>If one changes the output directory though, for instance by running <code>kind2 --output_dir out --log_invs on --lus_main top example.lus</code>, then silent contract loading will not find the contracts written to <code>example.lus.out/top</code> because it will look in <code>out/top</code>.</p>
+<p>Running <code>kind2 --output_dir out --log_invs on --lus_main top example.lus</code> two times however results in Kind 2 silently loading the contract generated during the first analysis in <code>out/top</code> on the second run.</p>
+</blockquote>
+
+<h1 id="n31040692-contract-semantics">Contract semantics</h1>
+<h2 id="n31040692-assume-guarantee-contracts">Assume-guarantee contracts</h2>
+<p>This section discusses the semantics of contracts, and in particular modes, in Kind 2. For details regarding the syntax, please see the <a href="#n64322437-contracts">contract syntax section</a>.</p>
 <p>An <em>assume-guarantee contract</em> <code>(A,G)</code> for a node <code>n</code> is a set of <em>assumptions</em> <code>A</code> and a set of <em>guarantees</em> <code>G</code>. Assumptions describe how <code>n</code> <strong>must</strong> be used, while guarantees specify how <code>n</code> behaves.</p>
 <p>More formally, <code>n</code> respects its contract <code>(A,G)</code> if</p>
 <pre><code>([] A) =&gt; ([] G)</code></pre>
@@ -1606,9 +1994,9 @@ let
   ...
   --%PROPERTY a_n(&lt;call_site&gt;) ;
 tel</code></pre>
-<h2 id="n15237262-modes">Modes</h2>
+<h2 id="n31040692-modes">Modes</h2>
 <p>Kind 2 augments traditional assume-guarantee contracts with the notion of <em>mode</em>. A mode <code>(R,E)</code> is a set <code>R</code> or <em>requires</em> and a set <code>E</code> of <em>ensures</em>. A Kind 2 contract is therefore a triplet <code>(A,G,M)</code> where <code>M</code> is a set of modes. If <code>M</code> is empty then the semantics of the contract is exactly that of an assume-guarantee contract.</p>
-<h3 id="n15237262-semantics">Semantics</h3>
+<h3 id="n31040692-semantics">Semantics</h3>
 <p>A mode represents a <em>situation</em> / <em>reaction</em> implication. A contract <code>(A,G,M)</code> can be re-written as an assume-guarantee contract <code>(A,G\')</code> where</p>
 <pre><code>G\&#39; = G U { (/\ r_i) =&gt; (/\ e_i), ({r_i}, {e_i}) in M }</code></pre>
 <p>where <code>U</code> is set union.</p>
@@ -1654,7 +2042,7 @@ let
   res = lhs * rhs ;
 tel</code></pre>
 <p><strong>Motivation:</strong> modes were introduced in the contract language of Kind 2 to account for the fact that most requirements found in specification documents are actually implications between a situation and a behavior. In a traditional assume-guarantee contract, such requirements have to be written as <code>situation =&gt; behavior</code> guarantees. We find this cumbersome, error-prone, but most importantly we think some information is lost in this encoding. Modes make writing specification more straightforward and user-friendly, and allow Kind 2 to keep the mode information around to * improve feedback for counterexamples, * generate mode-based test-cases, and * adopt a defensive approach to guard against typos and specification oversights to a certain extent. This defensive approach is discussed in the next section.</p>
-<h3 id="n15237262-defensive-check">Defensive check</h3>
+<h3 id="n31040692-defensive-check">Defensive check</h3>
 <p>Conceptually modes correspond to different situations triggering different behaviors for a node. Kind 2 is <em>defensive</em> in the sense that when a contract has at least one mode, it will check that the modes account for <strong>all situations</strong> the assumptions allow before trying to prove the node respects its contract.</p>
 <p>More formally, consider a node <code>n</code> with contract</p>
 <pre><code>(A, G, M = { (r_i, e_i) }</code></pre>
@@ -1669,15 +2057,15 @@ tel</code></pre>
   require true ;
 ) ;</code></pre>
 <p>which explicitly accounts for, and hence documents, the missing cases.</p>
-<p></p>
-<h1 id="n20857488-test-generation">Test generation</h1>
+
+<h1 id="n57545938-test-generation">Test generation</h1>
 <blockquote>
 <p>Test generation is, as of Kind 2 1.0, still a rather experimental feature. There is a lot of room for improvement and the Kind 2 team is eagerly awaiting feedback / bug reports.</p>
 </blockquote>
 <p>Most test generation techniques analyze the syntax of the model they run on to generate test cases satisfying some coverage criteria. Kind 2 does not follow this approach but instead generates tests based on the specification, more precisely the <em>modes</em> of the specification.</p>
 <p>Kind 2's test generation was developed in a context where the actual implementation of the components is <strong>outsourced</strong>. That is, a <em>model</em> of the system is written in-house based on some specification. The model is then verified correct with respect to its specification, using Kind 2 of course, before the specification is given to external sub-contractors that will eventually produce some binaries but will <strong>not</strong> give access to their source code. At this point, there is a need to test these binaries in-house.</p>
-<p>In this context, syntactic test generation is arguably not appropriate as it would be based on the syntax of the <em>model</em>, not that of the actual source code of the binaries. There is no reason to believe any connection between the two. Now, the only thing we know of the binaries is that they are supposed to verify the specification. For this reason, Kind 2's test generation ignores the syntax of the input model and instead builds on <a href="#n15237262-contract-semantics">contracts</a>, and more precisely on the notion on <em>mode</em>.</p>
-<h2 id="n20857488-combinations-of-modes-as-abstractions">Combinations of modes as abstractions</h2>
+<p>In this context, syntactic test generation is arguably not appropriate as it would be based on the syntax of the <em>model</em>, not that of the actual source code of the binaries. There is no reason to believe any connection between the two. Now, the only thing we know of the binaries is that they are supposed to verify the specification. For this reason, Kind 2's test generation ignores the syntax of the input model and instead builds on <a href="#n31040692-contract-semantics">contracts</a>, and more precisely on the notion on <em>mode</em>.</p>
+<h2 id="n57545938-combinations-of-modes-as-abstractions">Combinations of modes as abstractions</h2>
 <p>Modes specify behaviors specific to a situation in a contract, and can be seen as abstractions of the states allowed by the assumptions of the contract. Note that because of the <em>mode exhaustiveness check</em>, there is always at least one mode active in any reachable state.</p>
 <p>One can explore, starting from the initial states, the mode that can be activated up to some depth. For example, consider the following <code>stopwatch</code> system:</p>
 <pre><code>contract stopwatchSpec ( tgl, rst : bool ) returns ( c : int ) ;
@@ -1713,23 +2101,25 @@ tel</code></pre>
 <pre><code>kind2 --testgen on --testgen_len 5 stopwatch.lus</code></pre>
 <p>This will generate the following graph (and a lot of other files we will discuss below but omit for now):</p>
 <div class="figure">
-<img src="./content/9_other/3_stopwatch_1.png" alt="Stopwatch DAG" /><p class="caption">Stopwatch DAG</p>
+<img src="./content/9_other/3_stopwatch_1.png" alt="Stopwatch DAG" />
+<p class="caption">Stopwatch DAG</p>
 </div>
 <p>The graph confirms our understanding of the specification, each mode can be activated at any time. Say now we made a mistake on the assumption:</p>
 <pre><code>  assume not (rst or tgl) ;</code></pre>
 <p>It is now illegal to reset or start the stopwatch. The graph is generated very quickly as with this assumption the system cannot do anything:</p>
 <div class="figure">
-<img src="./content/9_other/3_stopwatch_2.png" alt="Stopwatch mistake DAG" /><p class="caption">Stopwatch mistake DAG</p>
+<img src="./content/9_other/3_stopwatch_2.png" alt="Stopwatch mistake DAG" />
+<p class="caption">Stopwatch mistake DAG</p>
 </div>
 <p><strong>N.B.</strong> In this simple system, only one mode could be active at a time. This is not the case in general. See for example the mode graphs for the <a href="https://github.com/kind2-mc/cocospec_tcm_experiments/blob/master/graphs/MODE_LOGIC/dot.pdf">mode logic</a> or the <a href="https://github.com/kind2-mc/cocospec_tcm_experiments/blob/master/graphs/Mode_plus_Longitudinal/dot.pdf">full model</a> of the Transport Class Model (TCM) case study.</p>
-<h2 id="n20857488-generating-test-cases">Generating test cases</h2>
+<h2 id="n57545938-generating-test-cases">Generating test cases</h2>
 <p>Since Kind 2 can explore the traces of combinations of modes that can be activated from the initial states, generating test cases is simple. Each test case is simply a trace of inputs, or <em>witness</em>, triggering a different path of mode combinations in the DAG discussed above.</p>
 <p>Each witness is logged in CSV file. A glue XML file lists all the test cases and provides additional information such as the trace of mode combinations they triggered in the model.</p>
 <blockquote>
 <p>But aren't the witnesses still based on how the model is written?</p>
 </blockquote>
 <p>Yes they are. There is no way to completely abstract the model/prototype away, nor is it desirable. Generating test cases solely on the specification is not realistic unless the specification is extremely strong and precise, which it very rarely is. (Also, if it was, it would arguably be easier to produce the object code as a refinement of the specification using B-method for instance.)</p>
-<h2 id="n20857488-oracle-generation">Oracle generation</h2>
+<h2 id="n57545938-oracle-generation">Oracle generation</h2>
 <p>The point of generating these test cases is to eventually run them on an executable version of the model to check whether it crashes and respects the specification.</p>
 <p>For convenience, Kind 2 automatically generates an executable <em>oracle</em> along with the test cases. It takes the form of a Rust project in the <code>oracle</code> subdirectory of the Kind 2 output directory. The best way to learn about how this oracle behaves is to generate and read its documentation by running <code>cargo doc</code> in said subdirectory and opening <code>target/doc/&lt;system&gt;/index.html</code>.</p>
 <p>The idea is that this oracle will read comma-separated values on its standard input. These values correspond to the inputs fed to the System Under Test (SUT), followed by the values <em>returned by the SUT</em>. The oracle prints back the truth values of the guarantees / modes of the original contract as comma-separated values. (How the outputs are organized depends on your system and is currently not standardized. Refer to the oracle's documentation.)</p>
@@ -1741,37 +2131,38 @@ tel</code></pre>
 <li>read the truth values for the original contract on the oracle's standard output</li>
 </ul>
 <p><strong>N.B.</strong> In general the values for the contract depends on previous values of the SUT's inputs / outputs. In the workflow described above, the oracle <em>keeps running between each step</em> so that it can remember the information it needs from the previous steps to produce the next guarantee/mode truth values.</p>
-<h2 id="n20857488-an-example-of-a-test-execution-engine">An example of a Test Execution Engine</h2>
+<h2 id="n57545938-an-example-of-a-test-execution-engine">An example of a Test Execution Engine</h2>
 <p>A Test Execution Engine (TEE) compatible with Kind 2's test cases and oracles is available here:</p>
 <blockquote>
-<p><a href="https://github.com/kind2-mc/teas">https://github.com/kind2-mc/teas</a></p>
+<p><a href="https://github.com/kind2-mc/teas" class="uri">https://github.com/kind2-mc/teas</a></p>
 </blockquote>
 <p><code>Teas</code> is written in Python, and is able to confront a binary with Kind 2's test cases using the oracle described above. Like the Kind 2's test generation feature, <code>Teas</code> is in an experimental and unstable state.</p>
-<p></p>
-<h1 id="n20857489-compilation-to-rust">Compilation to Rust</h1>
+
+<h1 id="n57545939-compilation-to-rust">Compilation to Rust</h1>
 <blockquote>
 <p>While this feature has been tested on rather large systems, is still considered experimental. The Kind 2 team is eagerly awaiting feedback and bug reports to improve/fix it.</p>
 </blockquote>
 <p><a href="https://www.rust-lang.org/">Rust</a> is a very efficient language with a focus on safety. Kind 2 can compile Lustre to Rust, as long as the input system does not have <strong>any unguarded pre's</strong>, regardless of whether the initial undefined value is actually used. Arrays and records are <strong>not</strong> supported.</p>
 <p>Compilation is activated by the <code>--compile true</code> flag.</p>
 <p>The result is a Rust project in the <code>implem</code> subdirectory of the Kind 2 output directory. The project is extensively documented, you can read the documentation by running <code>cargo doc</code> in the project directory and opening <code>target/doc/&lt;system&gt;/index.html</code>.</p>
-<h2 id="n20857489-technical-details">Technical details</h2>
+<h2 id="n57545939-technical-details">Technical details</h2>
 <p>The project produces a binary that reads inputs as comma-separated values from its standard input and prints back outputs as comma-separated values on its standard output. Lustre's <code>real</code>s are compiled as 64-bits floats while <code>int</code>egers become <code>usize</code>: 32-bits (64-bits) signed integers on 32-bits (64-bits) platforms.</p>
-<h2 id="assertions-properties-and-contracts-n20857489-assertions-properties-and-contracts">Assertions, properties and contracts {#n20857489-assertions,-properties-and-contracts}</h2>
+<h2 id="assertions-properties-and-contracts-n57545939-assertions-properties-and-contracts">Assertions, properties and contracts {#n57545939-assertions,-properties-and-contracts}</h2>
 <p>Compilation in Kind 2 works under the assumption that the model <em>has been proved correct</em>. Therefore properties, guarantees, and modes are not compiled as they have already been proved at model-level.</p>
 <p><strong>N.B.</strong> To be precise, Kind 2 works with mathematical integers and reals, not machine integers and float. Thus, it could be the case that the binary actually falsifies the specification. We are considering offering to compile properties / guarantees / modes optionally through a flag.</p>
 <p>Assertions and assumptions from the original models are compiled as internal checks and, when falsified, will cause the binary to stop after outputting an error message pointing to the assertion / assumption falsified in the original Lustre model.</p>
-<p></p>
-<h1 id="n20857490-proof-certificates">Proof Certificates</h1>
+
+<h1 id="n57545940-proof-certificates">Proof Certificates</h1>
 <p>One clear strength of model checkers, as opposed to proof assistants, say, is their ability to return precise <em>error traces</em> witnessing the violation of a given safety property. Such traces not only are invaluable for designers to correct bugs, they also constitute a checkable certificate. For instance Kind 2 display a counter-example trace that shows the evolution of values of all variables in the system up to a violation of the property. In most cases, it is possible to use a counter-example for a safety property to direct the execution of the system under analysis to a state that falsifies that property. In contrast, most model checkers are currently unable to return any form of corroborating evidence when they declare a safety property to be satisfied by the system. This is unsatisfactory in general since these are complex tools based on a variety of sophisticated algorithms and search heuristics, and so are not immune to errors.</p>
 <p>To mitigate this problem, Kind 2 accompanies its safety claims with a <em>certificate</em>, an artifact embodying a proof of the claim. The certificate can then be validated by a trusted <em>certificate/proof checker</em>, in our case the <a href="https://github.com/LFSC/LFSC-checker">LFSC checker</a>.</p>
-<h2 id="n20857490-certification-chain">Certification chain</h2>
+<h2 id="n57545940-certification-chain">Certification chain</h2>
 <p>The certification process for Kind 2 is depicted in the graph below. Kind 2 generates two sorts of safety certificates, in the form of SMT-LIB 2 scripts: one certifying the faithfulness of the translation from the Lustre input model to the internal encoding, and another one certifying the invariance of the input properties for the internal encoding of the input system. These certificates are checked by CVC4, then turned into LFSC proof objects by collecting CVC4's own proofs and assembling them to form an overall proof that can be efficiently verified by the LFSC proof checker.</p>
 <div class="figure">
-<img src="./content/9_other/certif_process.png" alt="Certification process" /><p class="caption">Certification process</p>
+<img src="./content/9_other/certif_process.png" alt="Certification process" />
+<p class="caption">Certification process</p>
 </div>
 <p>Trust is claimed at a higher level when both proof certificates are present. In practice, this means that Kind 2 didn't make any mistake in its model checking phase, and that the translation of the Lustre model to the internal representation is faithful.</p>
-<h2 id="n20857490-producing-certificates-and-proofs-with-kind-2">Producing certificates and proofs with Kind 2</h2>
+<h2 id="n57545940-producing-certificates-and-proofs-with-kind-2">Producing certificates and proofs with Kind 2</h2>
 <p>To illustrate this process, we rely on the toy model below (<code>add_two.lus</code>). The model encodes in Lustre a synchronous reactive component, <code>add_two</code>, that at each execution step other than the first, outputs the maximum between the previous value of its output variable <code>c</code> and the sum of the current values of input variables <code>a</code> and <code>b</code>. The value of <code>c</code> is initially <code>1.0</code>. The model is annotated with an invariance property stating that, at each step, the output <code>c</code> is positive whenever both inputs are.</p>
 <pre class="lustre"><code>node add_two (a, b : real) returns (c : real) ;
   var v : real;
@@ -1781,11 +2172,11 @@ let
   --%PROPERTY (a &gt; 0.0 and b &gt; 0.0) =&gt; c &gt; 0.0 ;
 tel</code></pre>
 <p>Kind 2 offers the possibility to generate two types of certificates, SMT-LIB 2 certificates and actual proofs in the format of LFSC. It will do so only for systems whose properties (or contracts) are all proven valid.</p>
-<h3 id="n20857490-requirements">Requirements</h3>
+<h3 id="n57545940-requirements">Requirements</h3>
 <p>Frontend certificates and proofs production require the user to have JKind installed on his machine (together with a suitable version of Java).</p>
 <p>SMT-LIB 2 certificates do not require anything additional excepted for an SMT solver to check the certificates.</p>
 <p>LFSC proofs production require a proof producing version of CVC4 (the binary can be specified with <code>--cvc4_bin</code>), and the LFSC checker to be compiled for the final proof checking phase.</p>
-<h4 id="n20857490-lfsc-checker">LFSC checker</h4>
+<h4 id="n57545940-lfsc-checker">LFSC checker</h4>
 <p>The LFSC checker is also distributed with Kind 2 in the directory <code>lfsc</code>, it contains the checker and the necessary signature files with the proof rules:</p>
 <pre><code>lfsc
 |-- checker
@@ -1798,12 +2189,12 @@ tel</code></pre>
     |-- th_int.plf
     |-- th_real.plf</code></pre>
 <p>The checker can be compiled using:</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">autoreconf</span> -i
-<span class="kw">./configure</span> 
-<span class="kw">make</span></code></pre>
-<h3 id="n20857490-smt-lib-2-certificates">SMT-LIB 2 certificates</h3>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">autoreconf</span> -i
+<span class="ex">./configure</span> 
+<span class="fu">make</span></code></pre></div>
+<h3 id="n57545940-smt-lib-2-certificates">SMT-LIB 2 certificates</h3>
 <p>These certificates are always produced but are only used as an intermediate step for LFSC proof production. The user still has the possibility to get them as the final output of Kind 2 in a convenient form. To do so, invoke Kind 2 (on the previous example <code>add_two.lus</code>) with the following</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">kind2</span> --certif true add_two.lus</code></pre>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">kind2</span> --certif true add_two.lus</code></pre></div>
 <p>For successful runs, the output of Kind 2 will contain:</p>
 <pre><code>Certificate minimization
 Kept 0 (out of 1) invariants at bound 1 (down from 1)
@@ -1831,24 +2222,24 @@ Certificate checker was written in add_two.out/certificates.0/FECC.smt2</code></
     |-- observer_lfsc_trace.smt2
     |-- observer_sys.smt2</code></pre>
 <p>In particular, it contains two scripts of interest: <code>certificate_checker</code> and <code>FECC_checker</code>. They are meant to be run with the name of an SMT solver as argument and should produce each three <code>unsat</code> results. The first one checks that the certificate of invariance is valid with the provided SMT solver and the second script checks that the <em>frontend certificate is valid</em>.</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">&gt;</span> <span class="kw">add_two.out/certificates.0/certificate_checker</span> z3
-<span class="kw">Checking</span> base case
-<span class="kw">unsat</span>
-<span class="kw">Checking</span> 1-inductive case
-<span class="kw">unsat</span>
-<span class="kw">Checking</span> property subsumption
-<span class="kw">unsat</span>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="op">&gt;</span> <span class="ex">add_two.out/certificates.0/certificate_checker</span> z3
+<span class="ex">Checking</span> base case
+<span class="ex">unsat</span>
+<span class="ex">Checking</span> 1-inductive case
+<span class="ex">unsat</span>
+<span class="ex">Checking</span> property subsumption
+<span class="ex">unsat</span>
 
-<span class="kw">&gt;</span> <span class="kw">add_two.out/certificates.0/FECC_checker</span> z3
-<span class="kw">Checking</span> base case
-<span class="kw">unsat</span>
-<span class="kw">Checking</span> 1-inductive case
-<span class="kw">unsat</span>
-<span class="kw">Checking</span> property subsumption
-<span class="kw">unsat</span></code></pre>
-<h3 id="n20857490-lfsc-proofs">LFSC proofs</h3>
+<span class="op">&gt;</span> <span class="ex">add_two.out/certificates.0/FECC_checker</span> z3
+<span class="ex">Checking</span> base case
+<span class="ex">unsat</span>
+<span class="ex">Checking</span> 1-inductive case
+<span class="ex">unsat</span>
+<span class="ex">Checking</span> property subsumption
+<span class="ex">unsat</span></code></pre></div>
+<h3 id="n57545940-lfsc-proofs">LFSC proofs</h3>
 <p>The other option offered by Kind 2, and the most trustworthy one, is to produce LFSC proofs. This can be done with the following invocation:</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">kind2</span> --proof true add_two.lus</code></pre>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">kind2</span> --proof true add_two.lus</code></pre></div>
 <p>Successful runs emit outputs that contain lines such as:</p>
 <pre><code>Certificate minimization
 Kept 0 (out of 1) invariants at bound 1 (down from 1)
@@ -1889,28 +2280,44 @@ Final LFSC proof written to add_two.out/add_two.lus.0.lfsc</code></pre>
 <pre><code>File add_two.out/add_two.lus.0.lfsc, line 198, character 17: Check successful
 File add_two.out/add_two.lus.0.lfsc, line 628, character 18: Check successful</code></pre>
 <p>In the case where only the invariance proof was produced and checked, the return code will still be <code>0</code> but only one <code>Check successful</code> will be in the output of <code>lfsc-checker</code>.</p>
-<h2 id="n20857490-contents-of-certificates">Contents of certificates</h2>
+<h2 id="n57545940-contents-of-certificates">Contents of certificates</h2>
 <p>For a given problem (whose safety property is P), an internal certificate consists in only a pair <code>(k, phi)</code> where phi is a <em>k</em>-inductive invariant of the system which implies the original properties. SMT-LIB 2 certificates are in fact scripts whose check make sure that phi implies P and is <em>k</em>-inductive. The LFSC proof is a formal proof that P is invariant in the system, using sub-proofs of validity (unsatisfiability) returned by CVC4.</p>
-<h2 id="n20857490-lfsc-signature">LFSC signature</h2>
+<h2 id="n57545940-lfsc-signature">LFSC signature</h2>
 <p>A proof system is formally defined in LFSC through <em>signatures</em>, which contain a definition of the system's language together with axioms and proof rules. The proof system used by CVC4 is defined over a number of signatures, which are included in its source code distribution. Those relevant to this work include signatures for propositional logic and resolution (<code>sat.plf</code>); first-order terms and formulas, with rules for CNF conversion and abstraction to propositional logic (<code>smt.plf</code>); equality over uninterpreted functions (<code>th_base.plf</code>); and real and integer linear arithmetic (<code>th_int.plf</code> and <code>th_real.plf</code>).</p>
 <p>CVC4's proof system is extended with an additional signature (`kind.plf) for <em>k</em>-inductive reasoning, invariance and safety. This signature also specifies the encoding for state variables, initial states, transition relations, and property predicates. State variables are encoded as functions from natural numbers to values. This way, the unrolling of the transition relation does not need the creation of several copies of the state variable tuple <strong>x</strong>. For example, for the state vector <strong>x</strong> = (<em>y</em> , <em>z</em>) with <em>y</em> of type real and <em>z</em> of type integer, the LFSC encoding will make <em>y</em> and <em>z</em> respectively functions from naturals to reals and integers. So we will use the tuples (<em>y</em>(0) , <em>z</em>(0)), (<em>y</em>(1) , <em>z</em>(1)), … instead of (<em>y0</em> , <em>z0</em>), (<em>y1</em> , <em>z1</em>), … where <em>y0</em> , <em>y</em> 1 , …, <em>z0</em> , <em>z1</em>, … are (distinct) variables. Correspondingly, our LFSC encoding of a transition relation formula T[<strong>x</strong>, <strong>x'</strong>] is parametrized by two natural variables, the index of the pre-state and of the post-state, instead of two tuples of state variables. Similarly, I, P and phi are parametrized by a single natural variable.</p>
 <p>The signature defines several derivability judgments, including one for proofs of invariance, which has the following type:</p>
-<pre class="lisp"><code>invariant: Π I: ℕ → formula.
+<div class="sourceCode"><pre class="sourceCode lisp"><code class="sourceCode commonlisp">invariant: Π I: ℕ → formula.
            Π T: ℕ → ℕ → formula.
-           Π I: ℕ → formula. Type</code></pre>
+           Π I: ℕ → formula. Type</code></pre></div>
 <p>It also contains various rules to build proofs of invariance by <em>k</em>-induction. This signature also specifies how to encapsulate proofs for the front-end certificates by providing a additional judgment, safe(I,T,P,I',T',P'), which can be derived only when invariant(I,T,P) is derivable and the observational equivalence between (I,T,P) and (I',T',P') is provable (judgment woe). Self contained proofs of safety follow the sketch depicted below, where Smt stands for an unsatisfiability rule whose proof tree is obtained, with minor changes, from a proof produced by CVC4.</p>
 <div class="figure">
-<img src="./content/9_other/proofsketch.png" alt="Proof sketch" /><p class="caption">Proof sketch</p>
+<img src="./content/9_other/proofsketch.png" alt="Proof sketch" />
+<p class="caption">Proof sketch</p>
 </div>
-<p></p>
-<h1 id="n20857491-contract-generation">Contract Generation</h1>
+
+<h1 id="n57545941-contract-generation">Contract Generation</h1>
 <blockquote>
 <p>This feature is very experimental. In particular, the modes (if any) of the contracts generated might not be exhaustive. In this case Kind 2 will reject the contract during the mode exhaustiveness check.</p>
 </blockquote>
 <p>Contract generation is intended, at least for now, as a helper for users to getting started with Kind 2's contract language. Contract generation is activated by the flag <code>--contract_gen</code>.</p>
 <p>Internally, this feature is implemented by running invariant generation on the input system up to some depth, specified by flag <code>--contract_gen_depth</code>. Doing so will discover equivalence and implication invariants over the system. The ones that talk only about the input / outputs of the systems are used to create the contract dumped in a lustre file in the output directory.</p>
-<p></p>
-<h1 id="n11899761-apache-license">Apache License</h1>
+
+<h2 id="n64246493-invariant-logging">Invariant logging</h2>
+<p>This treatment can only run after Kind 2 concluded the system <code>s</code> is safe. If this condition is met, then invariant logging will minimize the invariants used in the proof and log them as a contract for <code>s</code> in the output directory.</p>
+<blockquote>
+<p><strong>NB</strong>: <em>minimization</em> is understood here in terms of inclusion, not cardinality. That is, a set of invariants is <em>minimal</em> if removing an invariant either increases the <code>k</code> of the k-induction proof or causes the set of invariants to not strengthen the properties of the system any more (the properties and the remaining invariants are not k-inductive).</p>
+<p>It can be that a smaller set of strengthening invariants exists though.</p>
+</blockquote>
+<p>The point of this feature is that it is often the case that while finding strengthening invariants takes a long time, proving the properties with these invariants is actually rather simple. Logging a minimized set of invariants allows to replay the analysis without re-discovering them.</p>
+<p>The Kind 2 team also thinks that these invariant can turn out to be useful even after the system was modified, assuming the changes are not too important. Different invariants usually characterize different parts of the system, and some of the invariants previously logged may still apply.</p>
+<p>Last, this feature also lets users inspect the (useful) invariants discovered by Kind 2 to make sure they conform to their understanding of the system.</p>
+<p>The Kind 2 team is looking forward to receiving feedback on this feature, which we think can greatly improve user experience if used properly.</p>
+<h3 id="n64246493-failures">Failures</h3>
+<p>Logging invariants is actually rather challenging. During an analysis, the state of the whole system is made explicit. That is, Kind 2 sees the state variables of the component under analysis as well as that of all its sub-components.</p>
+<p>Hence Kind 2 can discover invariants that relate state variables that, at Lustre level, belong to different sub-nodes burried deep in the node hierarchy. Expressing such invariants purely in terms of the top node can be challenging, especially if some node calls use <code>condact</code>s or <code>merge</code> / <code>activate</code>s.</p>
+<p>As a consequence, the current invariant logging strategy can fail with a warning saying that it is not able to express some of the invariants at top level. If you are interested in the invariant logging feature, but run into this kind of problem, please contact us. It may be that in your case, we can solve the problem relatively easily.</p>
+
+<h1 id="n28536314-apache-license">Apache License</h1>
 <pre><code>                       Version 2.0, January 2004
                     http://www.apache.org/licenses/</code></pre>
 <p>TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION</p>
@@ -1945,8 +2352,7 @@ File add_two.out/add_two.lus.0.lfsc, line 628, character 18: Check successful</c
 <p>END OF TERMS AND CONDITIONS</p>
 <p>Copyright {2015} {Board of Trustees of the University of Iowa}</p>
 <p>Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not use this file except in compliance with the License. You may obtain a copy of the License at</p>
-<p><a href="http://www.apache.org/licenses/LICENSE-2.0">http://www.apache.org/licenses/LICENSE-2.0</a></p>
+<p><a href="http://www.apache.org/licenses/LICENSE-2.0" class="uri">http://www.apache.org/licenses/LICENSE-2.0</a></p>
 <p>Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.</p>
-<p></p>
 </body>
 </html>
