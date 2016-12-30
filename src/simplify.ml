@@ -52,6 +52,7 @@ type t =
   | Num of Numeral.t polynomial
   | Dec of Decimal.t polynomial
   | Bool of Term.t 
+  | Array of Term.t 
 
 
 let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
@@ -178,6 +179,7 @@ let term_of_nf = function
   | Num p -> term_of_num_polynomial p
   | Dec p -> term_of_dec_polynomial p
   | Bool b -> b
+  | Array b -> b
 
 
 (* ********************************************************************** *)
@@ -213,9 +215,7 @@ let is_constant = function
   | Num (_, [])
   | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | Num _
-  | Dec _ 
-  | Bool _ -> false
+  | Num _ | Dec _ | Bool _ | Array _ -> false
 
 
 (* Return true if value is variable-free *)
@@ -641,8 +641,7 @@ let flatten_bool_subterms s l =
       flatten_bool_subterms' symbol accum' tl
 
     (* Fail on non-boolean arguments *)
-    | Num _ :: _ 
-    | Dec _ :: _ -> assert false
+    | (Num _ | Dec _ | Array _ ) :: _ -> assert false
 
   in
 
@@ -722,10 +721,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `IS_INT, _
       | `DIVISIBLE _, _
       | `UF _, _
-      | `SELECT, _ -> Term.mk_not term
-(*
+      | `SELECT _, _
       | `STORE, _ -> Term.mk_not term
-*)
 
       (* Negate both cases of ite term *)
       | `ITE, [p; l; r] -> 
@@ -741,7 +738,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `FALSE, _
       | `TRUE, _
       | `NUMERAL _, _
-      | `DECIMAL _, _  -> assert false
+      | `DECIMAL _, _ -> assert false
 (*
       | `BV _, _ -> assert false
 *)
@@ -784,8 +781,7 @@ let implies_to_or args =
     | [] -> assert false
     | [a] -> List.rev (a :: accum)
     | Bool h :: tl -> implies_to_or' (Bool (negate_nnf h) :: accum) tl
-    | Num _ :: _
-    | Dec _ :: _ -> assert false
+    | (Num _ | Dec _ | Array _ ) :: _ -> assert false
   in
 
   implies_to_or' [] args 
@@ -952,7 +948,7 @@ let relation
         args
 
     (* Relation must be between integers or reals *)
-    | Bool _ :: _ -> assert false
+    | (Bool _ | Array _) :: _ -> assert false
 
 
 (* Normalize equality relation between normal forms *)
@@ -1045,7 +1041,11 @@ let atom_of_term t =
     (* Variable is an atom *)
     Bool t
 
-    (* Term is of some other type (bitvector or array  *)
+  else if Type.is_array tt then
+
+    Array t
+    
+    (* Term is of some other type  *)
   else 
 
     (* Not implemented *)
@@ -1077,9 +1077,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           Term.eval_t
             (simplify_term_node default_of_var uf_defs model)
             v'
-           
-        (* Defer evaluation of lambda abstraction *)
-        | Model.Lambda _ -> atom_of_term (Term.mk_var v)
+
+        (* Defer evaluation of lambda abstraction or arrays *)
+        | Model.Lambda _ | Model.Map _ -> atom_of_term (Term.mk_var v)
 
         (* Free variable without assignment in model *)
         | exception Not_found -> 
@@ -1088,7 +1088,9 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           let t = Term.mk_var v in
 
           (* Term obtained by evaluating variable to its default *)
-          let t' = default_of_var v in
+          let t' =
+            if Var.type_of_var v |> Type.is_array then t
+            else default_of_var v in
 
           (* Break cycle if the the variable is its own default *)
           if Term.equal t t' then atom_of_term t else
@@ -1204,7 +1206,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             atom_of_term (Term.mk_uf u (List.map term_of_nf args))
 
           (* Select from an array *)
-          | `SELECT ->
+          | `SELECT _ ->
 
             (match args with 
 
@@ -1239,7 +1241,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   in
                   
                   (* Get assignment to variable *)
-                  (match Var.VarHashtbl.find model v with
+                  (try match Var.VarHashtbl.find model v with
               
                     (* Variable must evaluate to a lambda abstraction *)
                     | Model.Lambda l -> 
@@ -1249,18 +1251,44 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                       Term.eval_t 
                         (simplify_term_node default_of_var uf_defs model)
                         (Term.eval_lambda l i')
-                  
+
+                    (* or map *)
+                    | Model.Map m ->
+
+                      if Model.MIL.is_empty m then
+                        List.fold_left
+                          Term.mk_select (Term.mk_var v) ((* List.rev *) i')
+                        |> atom_of_term
+
+                      else 
+
+                        let args = List.map (fun x ->
+                            Term.numeral_of_term x |> Numeral.to_int) i' in
+
+                        let value =
+                          try Model.MIL.find args m
+                          with Not_found ->
+                            TermLib.default_of_type
+                              (Type.last_elem_type_of_array
+                                 (Var.type_of_var v))
+                        in
+                        
+                        (* Evaluate map with simplified indexes *)
+                        Term.eval_t 
+                          (simplify_term_node default_of_var uf_defs model)
+                          value
+
                     (* Variable must not evaluate to a term *)
                     | Model.Term _ -> assert false 
                       
-                    (* Free variable without assignment in model *)
-                    | exception Not_found -> 
+                   (* Free variable without assignment in model *)
+                   with Not_found -> 
 
                       let t' =                   
                         List.fold_left
                           Term.mk_select
                           (Term.mk_var v)
-                          (List.rev i')
+                          ((* List.rev *) i')
                       in
                       
                       Debug.simplify
@@ -1278,9 +1306,23 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                         
             )
 
-(*
-          | `STORE -> assert false
-*)
+          (* array store *)
+          | `STORE ->
+
+
+            (match args with 
+
+              (* Arguments are array, index and value *)
+             | [a; i; v] ->
+
+               atom_of_term (
+                 Term.mk_store (term_of_nf a) (term_of_nf i) (term_of_nf v))
+
+              (* Store is ternary *)
+              | _ -> assert false
+            )
+            
+  
 
           (* Boolean negation *)
           | `NOT -> 
@@ -1557,10 +1599,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                   (Bool term' :: tl)
 
               (* Not well-typed arguments *)
-              | Bool _ :: Num _ :: _
-              | Bool _ :: Dec _ :: _
-              | Num _ :: _ 
-              | Dec _ :: _  -> assert false
+              | Bool _ :: (Num _ | Dec _ | Array _) :: _
+              | (Num _  | Dec _ | Array _) :: _  -> assert false
 
             )
 
@@ -1570,7 +1610,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with 
               
               (* Nullary or unary equation *)
-              | [] 
+              | []  -> assert false
               | [_] -> assert false
 
               (* Binary equivalence, reduce to (a & b) | (~a & ~b) *)
@@ -1649,14 +1689,10 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
             (match args with 
 
               (* Choose left branch if predicate is true *)
-              | [Bool p; Bool l; _] when p == Term.t_true -> Bool l
-              | [Bool p; Num l; _] when p == Term.t_true -> Num l
-              | [Bool p; Dec l; _] when p == Term.t_true -> Dec l
+              | [Bool p; l; _] when p == Term.t_true -> l
 
               (* Choose right branch if predicate is false *)
-              | [Bool p; _; Bool r] when p == Term.t_false -> Bool r
-              | [Bool p; _; Num r] when p == Term.t_false -> Num r
-              | [Bool p; _; Dec r] when p == Term.t_false -> Dec r
+              | [Bool p; _; r] when p == Term.t_false -> r
 
               (* Evaluate to a Boolean *)
               | [Bool p; Bool l; Bool r] -> Bool (Term.mk_ite p l r)

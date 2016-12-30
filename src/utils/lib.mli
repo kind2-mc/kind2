@@ -102,6 +102,9 @@ val list_indexes : 'a list -> 'a list -> int list
     positions [p1], [p2] etc. *)
 val list_filter_nth : 'a list -> int list -> 'a list
 
+(** Remove and returns the nth element form a list *)
+val list_extract_nth : 'a list -> int -> 'a * 'a list
+
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 
@@ -198,6 +201,13 @@ val pp_print_list : (Format.formatter -> 'a -> unit) -> ('b, Format.formatter, u
 *)
 val pp_print_listi : (Format.formatter -> int -> 'a -> unit) -> ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
+(** Pretty-print two lists of the same length with given separator and maintain
+    a counter of their elements.*)
+val pp_print_list2i :
+  (Format.formatter -> int -> 'a -> 'b -> unit) ->
+  ('c, Format.formatter, unit) format ->
+  Format.formatter -> 'a list -> 'b list -> unit
+
 (** Pretty-print an option type *)
 val pp_print_option : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a option -> unit
 
@@ -206,6 +216,9 @@ val pp_print_if_not_empty : (unit, Format.formatter, unit) format -> Format.form
 
 (** Pretty-print into a string *)
 val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string 
+
+(** Return the width of the string, meaning the wisth of it's longest line *)
+val width_of_string : string -> int
 
 (** Return the strings as a parenthesized and space separated list *)
 val paren_string_of_string_list : string list -> string
@@ -219,6 +232,8 @@ val paren_string_of_string_list : string list -> string
     - [L_error] An error event that might still allow to continue
 
     - [L_warn] A potentially harmful situation
+
+    - [L_note] An important note (soft warning)
 
     - [L_info] An informational message that highlight progress at a
       coarse-grained level
@@ -234,16 +249,20 @@ type log_level =
   | L_fatal
   | L_error
   | L_warn
+  | L_note
   | L_info
   | L_debug
   | L_trace
 
+(** Default log level. *)
+val default_log_level : log_level
 
 (** Associate an integer with each level to induce a total ordering *)
 val int_of_log_level : log_level -> int
 
 val log_level_of_int : int -> log_level
 
+val string_of_log_level : log_level -> string
 
 (** Current formatter for output *)
 val log_ppf : Format.formatter ref 
@@ -258,6 +277,9 @@ val log_to_stdout : unit -> unit
 
     Only output messages of levels with equal or higher priority *)
 val set_log_level : log_level -> unit 
+
+(** Gets the log level. *)
+val get_log_level : unit -> log_level
 
 (** Return true if given log level is of higher or equal priority than
     current log level? *)
@@ -285,6 +307,10 @@ type kind_module =
   | `IND2
   | `INVGEN
   | `INVGENOS
+  | `INVGENINT
+  | `INVGENINTOS
+  | `INVGENREAL
+  | `INVGENREALOS
   | `C2I
   | `Interpreter
   | `Supervisor
@@ -319,7 +345,7 @@ val string_of_kind_module : kind_module -> string
 val int_of_kind_module : kind_module -> int
 
 (** Return a short representation of kind module *)
-val suffix_of_kind_module : kind_module -> string
+val short_name_of_kind_module : kind_module -> string
 
 (** Kind module of a string *)
 val kind_module_of_string : string -> kind_module
@@ -383,6 +409,24 @@ val files_cat_open : ?add_prefix:(Format.formatter -> unit) ->
 (** Get standard output of command *)
 val syscall : string -> string
 
+(** Changes garbage collector parameters limit its effect *)
+val set_liberal_gc : unit -> unit
+
+(** Reset the parameters of the GC to its default values. Call after
+    {!set_liberal_gc}. *)
+val reset_gc_params : unit -> unit
+
+(** Paths Kind 2 can write some files.
+Factored to avoid clashes. *)
+module Paths : sig
+  (** Test generation files path. *)
+  val testgen : string
+  (** Test generation oracle path. *)
+  val oracle : string
+  (** Rust generation path. *)
+  val implem : string
+end
+
 (** Reserved identifiers. *)
 module ReservedIds : sig
 
@@ -407,16 +451,55 @@ module ReservedIds : sig
   (** New clock initialization flag. *)
   val index_ident_string: string
 
+  (** Automaton state encoding. *)
+  val state_string: string
+  val restart_string: string
+  val state_selected_string: string
+  val restart_selected_string: string
+  val state_selected_next_string: string
+  val restart_selected_next_string: string
+  val handler_string: string
+  val unless_string: string
+
   (** Init flag string. *)
   val init_flag_string: string
   (** Abstraction depth input string. *)
   val depth_input_string: string
   (** Abstraction depth input string. *)
   val max_depth_input_string: string
+  (** Suffix used for the name of the function encoding functional systems. *)
+  val function_of_inputs: string
 
   (** All reserved identifiers. *)
   val reserved_strings: string list
 
+end
+
+(** Exit codes. *)
+module ExitCodes: sig
+  (** Exit code for an unknown result. *)
+  val unknown: int
+  (** Exit code for an unsafe result. *)
+  val unsafe: int
+  (** Exit code for a safe result. *)
+  val safe: int
+  (** Exit code for an error. *)
+  val error: int
+  (** Exit status if kid caught a signal, the signal number is added to
+  the value *)
+  val kid_status: int
+end
+
+(** File names. *)
+module Names: sig
+  (** Contract generation. *)
+  val contract_gen_file : string
+  (** Contract name for contract generation. *)
+  val contract_name : string list -> string
+  (** Invariant logging. *)
+  val inv_log_file : string
+  (** Contract name for invariant logging. *)
+  val inv_log_contract_name : string list -> string
 end
 
 (* 

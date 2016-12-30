@@ -286,6 +286,7 @@ module Smt = struct
       Format.fprintf fmt
         "@[<v>Write all SMT commands to files@]"
     )
+  let set_trace b = trace := b
   let trace () = !trace
 
   (* Folder to log the SMT traces into. *)
@@ -876,6 +877,8 @@ module Contracts = struct
         Providing contracts, properties and assertion helps but is not@ \
         mandatory. Contracts will be written to the folder specified by@ \
         --output_dir.@ \
+        (Kind 2 will actually try to use invariants logged in previous runs@ \
+        automatically, even if they are not explicitely imported.)@ \
         See also --contract_gen_depth and --contract_gen_fine_grain.@ \
         Default: %a\
       @]"
@@ -899,23 +902,6 @@ module Contracts = struct
       contract_gen_depth_default
     )
   let contract_gen_depth () = !contract_gen_depth
-
-  let contract_gen_fine_grain_default = false
-  let contract_gen_fine_grain = ref contract_gen_fine_grain_default
-  let _ = add_spec
-    "--contract_gen_fine_grain"
-    (bool_arg contract_gen_fine_grain)
-    (fun fmt ->
-      Format.fprintf fmt
-      "@[<v>\
-        If active, the contracts generated will be verbose and fine@ \
-        grain w.r.t. the implementation. Otherwise, the contracts@ \
-        will capture a behavior that is more abstract.@ \
-        Default: %a\
-      @]"
-      fmt_bool contract_gen_fine_grain_default
-    )
-  let contract_gen_fine_grain () = !contract_gen_fine_grain
 
   let refinement_default = true
   let refinement = ref refinement_default
@@ -1123,6 +1109,93 @@ module Certif = struct
 end
 
 
+(* Arrays flags. *)
+module Arrays = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "arrays"
+  (* Short description of the module. *)
+  let desc = "arrays flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Kind 2 extends Lustre with a syntax for recursive whole arrays@ \
+      definitions. The syntax and semantics are described in@ \
+      Kind 2 documentation.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_specs specs = all_specs := !all_specs @ specs
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let smt_default = false
+  let smt = ref smt_default
+  let _ = add_spec
+    "--smt_arrays"
+    (bool_arg smt)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Use the builtin theory of arrays in solvers.@ Default: %a@]"
+        fmt_bool smt_default
+    )
+  let smt () = !smt
+
+  let inline_default = true
+  let inline = ref inline_default
+  let _ = add_spec
+    "--inline_arrays"
+    (bool_arg inline)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Inline arrays whose bound is statically known.@ Default: %a@]"
+        fmt_bool inline_default
+    )
+  let inline () = !inline
+
+  let recdef_default = false
+  let recdef = ref recdef_default
+
+  let recdef_action b =
+    recdef := b;
+    match Smt.solver () with
+    | `CVC4_SMTLIB -> ()
+    | _ ->
+      raise (Arg.Bad 
+               "Recursive encoding of arrays can only be used with CVC4. \
+                Use the flag --smtsolver CVC4")  
+
+  let _ = add_spec
+    "--arrays_rec"
+    (Arg.Bool recdef_action)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Define recurvsive functions for arrays (only if previously@ \
+         selected CVC4 as the SMT solver).@ Default: %a@]"
+        fmt_bool recdef_default
+    )
+  let recdef () = !recdef
+
+  
+  let var_size_default = false
+  let var_size = ref var_size_default
+  let _ = add_spec
+    "--var_array_size"
+    (bool_arg var_size)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Allow variable arrays size (Dangerous).@ Default: %a@]"
+        fmt_bool var_size_default
+    )
+  let var_size () = !var_size
+
+end
+
 
 (* Testgen flags. *)
 module Testgen = struct
@@ -1225,6 +1298,21 @@ module Invgen = struct
     )
   let prune_trivial () = !prune_trivial
 
+  let max_depth_default = None
+  let max_depth = ref max_depth_default
+  let _ = add_spec
+    "--invgen_max_depth"
+    (Arg.Int (fun n -> max_depth := Some n))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Maximal depth for graph-based invariant generation techniques.@ \
+          Default: none\
+        @]"
+    )
+  let set_max_depth n = max_depth := n
+  let max_depth () = !max_depth
+
   let max_succ_default = 1
   let max_succ = ref max_succ_default
   let _ = add_spec
@@ -1270,6 +1358,22 @@ module Invgen = struct
     )
   let top_only () = !top_only
 
+  let all_out_default = false
+  let all_out = ref all_out_default
+  let _ = add_spec
+    "--invgen_all_out"
+    (bool_arg all_out)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces invariant generation to consider a huge number of candidates@ \
+          Slower, but more likely to succeed.@ \
+          Default: %a\
+        @]"
+        fmt_bool all_out_default
+    )
+  let all_out () = !all_out
+
   let mine_trans_default = true
   let mine_trans = ref mine_trans_default
   let _ = add_spec
@@ -1294,10 +1398,39 @@ module Invgen = struct
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>\
-          Run invariant generion in two state mode.\
-        @]"
+          Run invariant generion in two state mode\
+          Default: %b\
+        @]" two_state_default
     )
   let two_state () = !two_state
+
+  let bool_eq_only_default = false
+  let bool_eq_only = ref bool_eq_only_default
+  let _ = add_spec
+    "--invgen_bool_eq_only"
+    (bool_arg bool_eq_only)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces bool invgen to look for equalities only\
+          Default: %b\
+        @]" bool_eq_only_default
+    )
+  let bool_eq_only () = !bool_eq_only
+
+  let arith_eq_only_default = false
+  let arith_eq_only = ref arith_eq_only_default
+  let _ = add_spec
+    "--invgen_arith_eq_only"
+    (bool_arg arith_eq_only)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Forces arith invgen to look for equalities only\
+          Default: %b\
+        @]" arith_eq_only_default
+    )
+  let arith_eq_only () = !arith_eq_only
 
   let renice_default = 0
   let renice = ref renice_default
@@ -1480,6 +1613,9 @@ let module_map = [
   (Contracts.id,
     (module Contracts: FlagModule)
   ) ;
+  (Arrays.id,
+    (module Arrays: FlagModule)
+  ) ;
   (Certif.id,
     (module Certif: FlagModule)
   ) ;
@@ -1594,8 +1730,11 @@ module Global = struct
   (* All files in the cone of influence of the input file. *)
   let all_input_files = ref []
   let clear_input_files () = all_input_files := []
-  let add_input_file file = all_input_files := file :: !all_input_files
-  let get_all_input_files () = ! all_input_files
+  let add_input_file file =
+    (* Additional input file're relative to main input file. *)
+    let path = input_file () |> Filename.dirname in
+    all_input_files := (path ^ "/" ^ file) :: ! all_input_files
+  let get_all_input_files () = (input_file ()) :: ! all_input_files
 
 
   (* Print help. *)
@@ -1747,18 +1886,30 @@ module Global = struct
         "\
           Output directory for the files generated:@ \
           SMT traces, compilation, testgen, certification...@ \
-          Default: \"<filename>.out\"\
+          Default: \"<path_to_filename>.out\"\
         "
     )
 
   let set_output_dir s = match ! output_dir with
-    | "" ->
-      let b = Filename.basename s in
-      let d = try Filename.chop_extension b with Invalid_argument _ -> b in
-      output_dir_action(d ^ ".out")
+    | "" -> s ^ ".out" |> output_dir_action
     | _ -> ()
 
   let output_dir () = !output_dir
+
+
+  (* Log invariants. *)
+  let log_invs_default = false
+  let log_invs = ref log_invs_default
+  let _ = add_spec
+    "--log_invs"
+    (bool_arg log_invs)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Logs strengthening invariants as contracts after minimization.@ \
+        Default: %b"
+        log_invs_default
+    )
+  let log_invs () = ! log_invs
 
 
   (* Timeout. *)
@@ -1785,6 +1936,24 @@ module Global = struct
   let timeout_wall () = !timeout_wall
 
 
+  (* Timeout. *)
+  let timeout_analysis_default = 0.
+  let timeout_analysis = ref timeout_analysis_default
+  let _ = add_specs ([
+    ( "--timeout_analysis",
+      Arg.Set_float timeout_analysis,
+      fun fmt ->
+        Format.fprintf fmt
+          "\
+            Per-analysis wallclock timeout in seconds (0 for none)@ \
+            Default: %1.f\
+          "
+          timeout_analysis_default
+    )
+  ])
+  let timeout_analysis () = !timeout_analysis
+
+
   (* Modules enabled. *)
   type enable = kind_module list
   let kind_module_of_string = function
@@ -1794,11 +1963,16 @@ module Global = struct
     | "IND2" -> `IND2
     | "INVGEN" -> `INVGEN
     | "INVGENOS" -> `INVGENOS
+    | "INVGENINT" -> `INVGENINT
+    | "INVGENINTOS" -> `INVGENINTOS
+    | "INVGENREAL" -> `INVGENREAL
+    | "INVGENREALOS" -> `INVGENREALOS
     | "C2I" -> `C2I
     | "interpreter" -> `Interpreter
     | unexpected -> Arg.Bad (
       Format.sprintf "Unexpected value \"%s\" for flag --enable" unexpected
     ) |> raise
+
   let string_of_kind_module = function
     | `IC3 -> "IC3"
     | `BMC -> "BMC"
@@ -1806,6 +1980,10 @@ module Global = struct
     | `IND2 -> "IND2"
     | `INVGEN -> "INVGEN"
     | `INVGENOS -> "INVGENOS"
+    | `INVGENINT -> "INVGENINT"
+    | `INVGENINTOS -> "INVGENINTOS"
+    | `INVGENREAL -> "INVGENREAL"
+    | `INVGENREALOS -> "INVGENREALOS"
     | `C2I -> "C2I"
     | `Interpreter -> "interpreter"
   let string_of_enable = function
@@ -1817,16 +1995,25 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `BMC ; `IND ; `IND2 ; `INVGEN ; `INVGENOS ; `C2I ; `Interpreter
+    `IC3 ; `BMC ; `IND ; `IND2 ;
+    `INVGEN ; `INVGENOS ;
+    `INVGENINT ; `INVGENINTOS ;
+    `INVGENREAL ; `INVGENREALOS ;
+    `C2I ; `Interpreter
   ] |> List.map string_of_kind_module |> String.concat ", "
 
   let enable_default_init = []
   let disable_default_init = []
 
   let enable_default_after = [
-    `BMC ; `IND ; `IND2 ; `IC3 ; `INVGEN ; `INVGENOS
+    `BMC ; `IND ; `IND2 ; `IC3 ;
+    `INVGEN ; `INVGENOS ;
+    (* `INVGENINT ; *) `INVGENINTOS ;
+    (* `INVGENREAL ; *) `INVGENREALOS ;
   ]
   let enabled = ref enable_default_init
+  let disable modul3 =
+    enabled := (! enabled) |> List.filter (fun m -> m <> modul3)
   let disabled = ref disable_default_init
   let finalize_enabled () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -1858,6 +2045,18 @@ module Global = struct
     )
   let enable mdl = enabled := mdl :: !enabled
   let enabled () = !enabled
+
+  (* Returns the invariant generation techniques enabled. *)
+  let invgen_enabled () = enabled () |> List.filter (
+    function
+    | `INVGEN
+    | `INVGENOS
+    | `INVGENINT
+    | `INVGENINTOS
+    | `INVGENREAL
+    | `INVGENREALOS -> true
+    | _ -> false
+  )
 
   (* Modules disabled. *)
   let _ = add_spec
@@ -1965,59 +2164,40 @@ module Global = struct
 
 
   (* Log level. *)
-  let log_level_default = L_warn
-  let log_level = ref log_level_default
+  let _ = set_log_level default_log_level
   let _ = add_specs ([
     ( "-qq",
-      Arg.Unit (fun () ->
-          log_level := L_off;
-          set_log_level L_off;
-        ),
+      Arg.Unit (fun () -> set_log_level L_off),
       fun fmt ->
         Format.fprintf fmt "Disable output completely"
     ) ;
     ( "-q",
-      Arg.Unit (fun () ->
-          log_level := L_fatal;
-          set_log_level L_fatal;
-        ),
+      Arg.Unit (fun () -> set_log_level L_fatal),
       fun fmt ->
         Format.fprintf fmt "Disable output, fatal errors only"
     ) ;
     ( "-s",
-      Arg.Unit (fun () ->
-          log_level := L_error;
-          set_log_level L_error;
-        ),
+      Arg.Unit (fun () -> set_log_level L_error),
       fun fmt ->
         Format.fprintf fmt "Silence output, errors only"
     ) ;
     ( "-v",
-      Arg.Unit (fun () ->
-          log_level := L_info;
-          set_log_level L_info;
-        ),
+      Arg.Unit (fun () -> set_log_level L_info),
       fun fmt ->
         Format.fprintf fmt "Output informational messages"
     ) ;
     ( "-vv",
-      Arg.Unit (fun () ->
-          log_level := L_debug;
-          set_log_level L_debug;
-        ),
+      Arg.Unit (fun () -> set_log_level L_debug),
       fun fmt ->
         Format.fprintf fmt "Output informational and debug messages"
     ) ;
     ( "-vvv",
-      Arg.Unit (fun () ->
-          log_level := L_trace;
-          set_log_level L_trace;
-        ),
+      Arg.Unit (fun () -> set_log_level L_trace),
       fun fmt ->
         Format.fprintf fmt "Output informational, debug and trace messages"
     )
   ])
-  let log_level () = !log_level
+  let log_level () = get_log_level ()
 
 
   (* XML log. *)
@@ -2102,7 +2282,10 @@ type input_format = Global.input_format
 (* |===| The following functions allow to access global flags directly. *)
 
 let output_dir = Global.output_dir
+let log_invs = Global.log_invs
 let enabled = Global.enabled
+let invgen_enabled = Global.invgen_enabled
+let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular
 let lus_main = Global.lus_main
@@ -2112,6 +2295,7 @@ let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let input_format = Global.input_format
 let timeout_wall = Global.timeout_wall
+let timeout_analysis = Global.timeout_analysis
 let input_file = Global.input_file
 let all_input_files = Global.get_all_input_files
 let clear_input_files = Global.clear_input_files
@@ -2274,10 +2458,11 @@ let post_argv_parse_actions () =
   (* Don't print banner if no output at all. *)
   if not (Global.log_level () = L_off) then (
     (* Temporarily set log level to info and output logo. *)
+    let old_log_level = get_log_level () in
     set_log_level L_info ;
-    Log.log L_info "%a" pp_print_banner ();
+    Log.log L_info "%a" pp_print_banner () ;
     (* Reset log level. *)
-    Global.log_level () |> set_log_level ;
+    set_log_level old_log_level ;
   )
 
 

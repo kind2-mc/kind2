@@ -25,9 +25,8 @@ module D = LustreIndex
 module E = LustreExpr
 module C = LustreContract
 module N = LustreNode
-module F = LustreFunction
-module G = LustreGlobals
 module S = LustreSlicing
+module G = LustreGlobals
 
 module A = Analysis
 module P = Property
@@ -49,36 +48,32 @@ let index_of_scope s =
   curr
 
 (* Transition system and information needed when calling it *)
-type node_def =
+type node_def = {
+  (* Node the transition system was created from *)
+  node : LustreNode.t;
 
-  { 
+  (* Initial state predicate *)
+  init_uf_symbol : UfSymbol.t;
 
-    (* Node the transition system was created from *)
-    node : LustreNode.t;
+  (* Transition relation predicate *)
+  trans_uf_symbol : UfSymbol.t;
 
-    (* Initial state predicate *)
-    init_uf_symbol : UfSymbol.t;
+  (* Transition system for node *)
+  trans_sys : TransSys.t;
 
-    (* Transition relation predicate *)
-    trans_uf_symbol : UfSymbol.t;
+  (* Stateful local variables to be instantiated by the caller 
 
-    (* Transition system for node *)
-    trans_sys : TransSys.t;
+     Local variables of the callees of the node *)
+  stateful_locals : StateVar.t list;
 
-    (* Stateful local variables to be instantiated by the caller 
+  (* Init flags to be set to true *)
+  init_flags : StateVar.t list;
 
-       Local variables of the callees of the node *)
-    stateful_locals : StateVar.t list;
+  (* Properties to be instantiated by the caller 
 
-    (* Init flags to be set to true *)
-    init_flags : StateVar.t list;
-
-    (* Properties to be instantiated by the caller 
-
-       Properties of the callees of the node *)
-    properties : P.t list;
-
-  }
+     Properties of the callees of the node *)
+  properties : P.t list;
+}
 
 
 (* ********************************************************************** *)
@@ -205,11 +200,13 @@ let lift_prop_name node_name pos prop_name =
 (* ********************************************************************** *)
 
 (* Create a property from Lustre expression *)
-let property_of_expr 
-    prop_name
-    prop_status
-    prop_source
-    { E.expr_step; E.expr_init } =
+let property_of_expr
+  candidate
+  prop_name
+  prop_status
+  prop_source
+  { E.expr_step; E.expr_init }
+=
 
   (* Terms for initial state and step state must be equal. Otherwise
      we would need to abstract to a fresh variable. *)
@@ -218,8 +215,12 @@ let property_of_expr
   (* Term of expresssion *)
   let prop_term = E.cur_term_of_expr TransSys.prop_base expr_step in
 
+  let prop_source =
+    if candidate then P.Candidate (Some prop_source) else prop_source
+  in
+
   (* Return property *)
-  { P.prop_name; P.prop_source; P.prop_term; P.prop_status }
+  { P.prop_name ; P.prop_source ; P.prop_term ; P.prop_status }
 
 (* Creates the conjunction of a list of contract svar. *)
 let conj_of l = List.map (fun { C.svar } -> E.mk_var svar) l |> E.mk_and_n
@@ -249,9 +250,10 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
   (* Originally properties are unknown. *)
   let prop_status = P.PropUnknown in
   (* Creates a property for a guarantee. *)
-  let guarantee_of_svar ({ C.svar ; C.pos } as sv) =
+  let guarantee_of_svar ({ C.svar ; C.pos } as sv, is_cand) =
     E.mk_var svar
     |> property_of_expr
+      is_cand
       (C.prop_name_of_svar sv "guarantee" "")
       prop_status
       (P.Guarantee (pos, scope))
@@ -259,7 +261,7 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
   (* Creates properties for mode implications of a mode. *)
   let implications_of_modes modes acc =
     modes |> List.fold_left (
-      fun acc { C.name ; C.pos ; C.requires ; C.ensures } ->
+      fun acc { C.name ; C.pos ; C.requires ; C.ensures ; C.candidate } ->
         let name = Format.asprintf "%a" (I.pp_print_ident true) name in
         (* LHS of the implication. *)
         let guard = conj_of requires in
@@ -268,6 +270,7 @@ let guarantees_of_contract scope { C.assumes ; C.guarantees ; C.modes } =
           fun acc ({ C.num ; C.pos ; C.svar } as sv) -> (
             E.mk_var svar |> E.mk_impl guard
             |> property_of_expr
+              candidate
               (C.prop_name_of_svar sv name ".ensure")
               prop_status
               (P.GuaranteeModeImplication (pos, scope))
@@ -308,7 +311,7 @@ let abstraction_of_contract { C.assumes ; C.guarantees ; C.modes } =
   (* LHS of the implication. *)
   let lhs = conj_of assumes in
   (* Guarantee. *)
-  let gua = guarantees |> List.map (fun { C.svar } -> E.mk_var svar) in
+  let gua = guarantees |> List.map (fun ({ C.svar }, _) -> E.mk_var svar) in
   (* Adding mode implications to guarantees. *)
   modes |> List.fold_left (
     fun acc { C.requires ; C.ensures } ->
@@ -326,54 +329,8 @@ let one_mode_active scope { C.modes } =
   modes |> List.map (fun { C.requires } -> conj_of requires) |> E.mk_or_n
   (* Building property. *)
   |> property_of_expr
-    "_one_mode_active" P.PropUnknown (P.GuaranteeOneModeActive scope)
+    false "_one_mode_active" P.PropUnknown (P.GuaranteeOneModeActive scope)
 
-
-
-let convert_select instance term = 
-  
-  Term.map
-    
-    (fun _ t ->
-       
-       (* Term is a select operation? *)
-       if Term.is_select t then
-
-         (* Get array variable and indexes of term *)
-         let var, indexes = 
-           Term.indexes_and_var_of_select t
-         in
-
-         (* Get indexes of type of variable *)
-         let index_types = 
-           Var.type_of_var var |> Type.all_index_types_of_array
-         in
-
-         (* Skip if not all indexes of array in term *)
-         if List.length indexes < List.length index_types then t else
-
-           (
-
-             (* Must not have more indexes than defined in type *)
-             assert (List.length indexes = List.length index_types);
-
-             (* Uninterpreted function application for array *)
-             Term.mk_uf
-               (Var.state_var_of_state_var_instance var
-                |> StateVar.uf_symbol_of_state_var)
-               
-               ((* First parameter is node instance *)
-                 (Var.mk_const_state_var instance
-                  |> Term.mk_var) :: 
-                 
-                 (* Following parameters are indexes *)
-                 indexes)
-               
-           )
-
-       else t
-    )
-    term
 
 
 
@@ -388,7 +345,8 @@ let add_constraints_of_type init terms state_var =
   let state_var_type = StateVar.type_of_state_var state_var in
 
   (* Variable is of integer range type? *)
-  if Type.is_int_range state_var_type then 
+  if Type.is_int_range state_var_type ||
+     Type.is_enum state_var_type  then 
 
     (* Get bounds of integer range *)
     let l, u = Type.bounds_of_int_range state_var_type in
@@ -477,32 +435,64 @@ let add_subsystem
     subsystems
 
 
+(* Change the bounds of state variables to the ones corresponding to actual
+   parameters of the node call *)
+let register_call_bound globals map_up sv =
+  let bounds =
+    try StateVar.StateVarHashtbl.find globals.G.state_var_bounds sv
+    with Not_found -> [] in
+
+  let bounds = List.map (fun b -> match b with
+      | E.Fixed _ | E.Unbound _ -> b
+      | E.Bound e ->
+        let t = E.unsafe_term_of_expr e in
+        let svs = Term.state_vars_of_term t |> SVS.elements in
+        let sigma =
+          List.fold_left (fun acc s ->
+              assert (StateVar.is_const s);
+              let v = Var.mk_const_state_var s in
+              try
+                let sv' = SVM.find s map_up in
+                assert (StateVar.is_const sv');
+                let tv' = Var.mk_const_state_var sv' |> Term.mk_var in
+                (v, tv') :: acc
+              with Not_found -> acc) [] svs
+          |> List.rev in
+        if sigma = [] then b
+        else
+          E.Bound (Term.apply_subst sigma t |> E.unsafe_expr_of_term)
+    ) bounds in
+  StateVar.StateVarHashtbl.add globals.G.state_var_bounds sv bounds
+
+
+
 (* Return term and lifted property for node call 
 
    This factors out node calls with or without an activation
    condition *)
-let call_terms_of_node_call mk_fresh_state_var {
-  N.call_node_name ;
-  N.call_pos       ;
-  N.call_inputs    ;
-  N.call_oracles   ;
-  N.call_outputs   ;
-} node_locals node_props {
-  init_uf_symbol  ;
-  trans_uf_symbol ;
-  node = {
-    N.init_flag ;
-    N.instance  ;
-    N.inputs    ;
-    N.oracles   ;
-    N.outputs   ;
-    N.locals    ;
-    N.props     ;
-    N.contract  ;
-  }               ;
-  stateful_locals ;
-  properties      ;
-} =
+let call_terms_of_node_call mk_fresh_state_var globals
+    { N.call_node_name ;
+      N.call_pos       ;
+      N.call_inputs    ;
+      N.call_oracles   ;
+      N.call_outputs   ;}
+    node_locals
+    node_props
+    { init_uf_symbol  ;
+      trans_uf_symbol ;
+      node = {
+        N.init_flag ;
+        N.instance  ;
+        N.inputs    ;
+        N.oracles   ;
+        N.outputs   ;
+        N.locals    ;
+        N.props     ;
+        N.contract  ;
+      }               ;
+      stateful_locals ;
+      properties      ;
+    } =
 
   (* Initialize map of state variable in callee to instantiated state
      variable in caller *)
@@ -552,6 +542,7 @@ let call_terms_of_node_call mk_fresh_state_var {
            mk_fresh_state_var
              ?is_const:(Some (StateVar.is_const state_var))
              ?for_inv_gen:(Some true)
+             ?inst_for_sv:(Some state_var)
              (StateVar.type_of_state_var state_var)
          in
 
@@ -633,14 +624,15 @@ let call_terms_of_node_call mk_fresh_state_var {
   (* Return actual parameters of transition relation at bound in the
      correct order *)
   let trans_params_of_bound term_of_state_var pre_term_of_state_var =
-    init_params_of_bound term_of_state_var @
-    List.map 
-      pre_term_of_state_var
-      ((List.filter 
-          (fun sv -> StateVar.is_const sv |> not) 
-          ((D.values call_inputs) @ 
-           D.values call_outputs @
-           call_locals)))
+    init_params_of_bound term_of_state_var @ (
+      ( (D.values call_inputs) @ D.values call_outputs @ call_locals )
+      |> List.filter (
+        (* Filter out svars that are constants FOR THE CALLEE. *)
+        fun sv ->
+          SVM.find sv state_var_map_down |> StateVar.is_const |> not
+      )
+      |> List.map pre_term_of_state_var
+    )
   in
 
   (* Term for initial state constraint at initial state *)
@@ -666,11 +658,17 @@ let call_terms_of_node_call mk_fresh_state_var {
     trans_params_of_bound
       (E.cur_term_of_state_var TransSys.trans_base)
       (E.pre_term_of_state_var TransSys.trans_base)
-
     |> Term.mk_uf trans_uf_symbol
-
   in
 
+  (* apply subsitutions on bounds also *)
+  LustreIndex.iter (fun _ ->
+      register_call_bound globals state_var_map_up) call_inputs;
+  LustreIndex.iter (fun _ ->
+      register_call_bound globals state_var_map_up) call_outputs;
+  List.iter (register_call_bound globals state_var_map_up) call_oracles;
+  List.iter (register_call_bound globals state_var_map_up) call_locals;
+  
   (* Return information to build constraint for node call with or
      without activation condition *)
   state_var_map_up, 
@@ -687,6 +685,7 @@ let call_terms_of_node_call mk_fresh_state_var {
    transition relation *)
 let rec constraints_of_node_calls 
   mk_fresh_state_var
+    globals
   trans_sys_defs
   node_locals
   node_init_flags
@@ -706,8 +705,9 @@ let rec constraints_of_node_calls
     trans_terms
   )
 
-  (* Node call without an activation condition *)
-  | { N.call_pos; N.call_node_name; N.call_clock = None } as node_call :: tl ->
+  (* Node call without an activation condition or restart *)
+  | { N.call_pos; N.call_node_name; N.call_cond = [] }
+    as node_call :: tl ->
 
     (* Get generated transition system of callee *)
     let { trans_sys } as node_def =
@@ -729,6 +729,7 @@ let rec constraints_of_node_calls
       (* Create node call *)
       call_terms_of_node_call
         mk_fresh_state_var
+        globals
         node_call
         node_locals
         node_props
@@ -754,6 +755,7 @@ let rec constraints_of_node_calls
     (* Continue with next node calls *)
     constraints_of_node_calls 
       mk_fresh_state_var
+      globals
       trans_sys_defs
       node_locals
       node_init_flags
@@ -763,10 +765,81 @@ let rec constraints_of_node_calls
       (trans_term :: trans_terms)
       tl
 
+  (* Node call with restart condition *)
+  | { N.call_pos; N.call_node_name; N.call_cond = [N.CRestart restart] }
+    as node_call :: tl ->
+
+    (* Get generated transition system of callee *)
+    let { trans_sys } as node_def =
+      try I.Map.find call_node_name trans_sys_defs 
+      (* Fail if transition system for node not found *)
+      with Not_found -> assert false
+    in
+
+    let state_var_map_up, state_var_map_down, node_locals, node_props, _,
+        init_term, _, trans_term =
+      (* Create node call *)
+      call_terms_of_node_call
+        mk_fresh_state_var globals node_call node_locals node_props node_def
+    in
+
+    (* Guard lifted property with restart conditions of node *)
+    let restart_prop = E.cur_term_of_state_var TransSys.prop_base restart in
+    
+    let node_props = 
+      List.map
+        (fun ({ P.prop_term } as p) ->
+           let is_one_state =
+             match Term.var_offsets_of_term prop_term with
+             | Some lo, Some up -> Numeral.(equal lo up)
+             | _ -> true
+           in
+           if is_one_state then p else
+             { p with
+               P.prop_term =
+                 Term.mk_implies [Term.negate restart_prop; prop_term] })
+        node_props
+    in
+
+    
+    (* Add node instance to list of subsystems and guard with not restart *)
+    let subsystems =
+      add_subsystem trans_sys call_pos state_var_map_up state_var_map_down
+        (fun i t ->  
+           Term.mk_implies
+             [Var.mk_state_var_instance restart i |> Term.mk_var
+              |> Term.mk_not;
+              t])
+        subsystems
+    in
+
+    let restart_trans = E.cur_term_of_state_var TransSys.trans_base restart in
+    (* Reset state of node to initial state when restart condition is true *)
+    let trans_term =
+      Term.mk_ite restart_trans
+        (Term.bump_state
+           Numeral.(TransSys.trans_base - E.cur_offset) init_term)
+        trans_term
+    in
+    
+    (* Continue with next node calls *)
+    constraints_of_node_calls 
+      mk_fresh_state_var
+      globals
+      trans_sys_defs
+      node_locals
+      node_init_flags
+      node_props
+      subsystems
+      (init_term :: init_terms)
+      (trans_term :: trans_terms)
+      tl
+
+
   (* Node call with activation condition *)
   | { N.call_pos; 
       N.call_node_name; 
-      N.call_clock = Some clock;
+      N.call_cond = N.CActivate clock :: other_conds;
       N.call_inputs;
       N.call_outputs; 
       N.call_defaults } as node_call :: tl -> 
@@ -823,6 +896,7 @@ let rec constraints_of_node_calls
               mk_fresh_state_var
                 ?is_const:None
                 ?for_inv_gen:(Some false)
+                ?inst_for_sv:(Some formal_sv)
                 (StateVar.type_of_state_var formal_sv) 
             in
 
@@ -874,15 +948,15 @@ let rec constraints_of_node_calls
 
       call_terms_of_node_call
         mk_fresh_state_var
-
+        globals
         (* Modify node call to use shadow inputs *)
         { node_call with N.call_inputs = shadow_inputs }
-
         node_locals
         node_props
         node_def
     in
 
+    
     let clock_init = 
       E.base_term_of_state_var TransSys.init_base clock 
     in
@@ -903,6 +977,7 @@ let rec constraints_of_node_calls
       mk_fresh_state_var
         ?is_const:None
         ?for_inv_gen:(Some false)
+        ?inst_for_sv:(Some clock)
         Type.t_bool
     in
 
@@ -932,6 +1007,22 @@ let rec constraints_of_node_calls
         init_flags
     in
 
+    (* Add restart conditions if any *)
+    let trans_term = match other_conds with
+      | [] -> trans_term
+      | [N.CRestart restart] ->
+        let restart_trans =
+          E.cur_term_of_state_var TransSys.trans_base restart in
+        (* Reset state of node to initial state when restart condition is
+           true *)
+        Term.mk_ite restart_trans
+          (Term.bump_state
+             Numeral.(TransSys.trans_base - E.cur_offset) init_term)
+          trans_term
+      | _ -> assert false
+    in
+
+    
     let init_term = 
 
       Term.mk_and 
@@ -1054,14 +1145,48 @@ let rec constraints_of_node_calls
 
     in
 
-    (* Guard lifted property with activation condition of node *)
+    (* Guard lifted property with activation and restart conditions of node *)
+    let guard_prop one_state =
+      match other_conds with
+      | _ when one_state -> clock_prop
+      | [] -> clock_prop
+      | [N.CRestart restart] ->
+        let restart_prop = E.cur_term_of_state_var TransSys.prop_base restart in
+        Term.mk_and [clock_prop; Term.negate restart_prop]
+      | _ -> assert false
+    in
+    
     let node_props = 
       List.map
-        (fun ({ P.prop_term } as p) -> 
-           { p with P.prop_term = Term.mk_implies [clock_prop; prop_term] })
+        (fun ({ P.prop_term } as p) ->
+           let is_one_state =
+             match Term.var_offsets_of_term prop_term with
+             | Some lo, Some up -> Numeral.(equal lo up)
+             | _ -> true
+           in
+           { p with
+             P.prop_term =
+               Term.mk_implies [guard_prop is_one_state; prop_term] })
         node_props
     in
 
+    let guard_clock =
+      match other_conds with
+      | [] ->
+        (fun i t ->
+           Term.mk_implies
+             [Var.mk_state_var_instance clock i |> Term.mk_var;
+              t])
+      | [N.CRestart restart] ->
+        (fun i t ->
+           Term.mk_implies
+             [Term.mk_and [Var.mk_state_var_instance clock i |> Term.mk_var;
+                           Var.mk_state_var_instance restart i |> Term.mk_var
+                           |> Term.mk_not];
+              t])
+      | _ -> assert false
+    in
+    
     (* Add node instance as subsystem *)
     let subsystems =
       add_subsystem
@@ -1069,17 +1194,13 @@ let rec constraints_of_node_calls
         call_pos
         state_var_map_up
         state_var_map_down
-        (fun i t ->  
-           Term.mk_implies
-             [Var.mk_state_var_instance clock i
-              |> Term.mk_var; 
-              t])
-
+        guard_clock
         subsystems
     in
 
     constraints_of_node_calls
       mk_fresh_state_var
+      globals
       trans_sys_defs
       node_locals
       (init_flags @ node_init_flags)
@@ -1090,294 +1211,12 @@ let rec constraints_of_node_calls
       tl
 
 
-(* Add functionality constraints and contracts from function calls *)
-let rec constraints_of_function_calls
-  mk_fresh_state_var locals functions init_terms trans_terms properties
-= function
-
-  (* All function calls processed *)
-  | [] -> locals, init_terms, trans_terms, properties
-
-  (* Take name of called function, inputs and outputs *)
-  | {
-    N.call_pos; N.call_function_name; N.call_inputs; N.call_outputs
-  } :: tl ->
-
-    (* Definition of called function *)
-    let {
-      F.inputs; 
-      F.outputs; 
-      F.output_ufs; 
-      F.global_contracts; 
-      F.mode_contracts
-    } as fn =
-
-      (* Get called function by name *)
-      try F.function_of_name call_function_name functions 
-
-      (* We must have the function in the globals, otherwise we
-         should have failed earlier *)
-      with Not_found -> assert false 
-
-    in
-
-    (* Add constraints to init and trans terms *)
-    let init_terms, trans_terms = 
-      D.fold2
-        (fun _ uf o (i, t) -> 
-
-          (* Add constraint for output *)
-          let mk_i_or_t f_o f_e = 
-
-            (* Add [o = uf_f(i1, ..., In)] *)
-            Term.mk_eq
-              [Term.mk_uf 
-                  uf
-                  (D.values call_inputs |> List.map f_e); 
-               f_o o]
-          in
-          
-          (* Create constraint in initial state *)
-          mk_i_or_t 
-            (E.base_term_of_state_var TransSys.init_base)
-            (E.base_term_of_t TransSys.init_base)
-          :: i,
-
-          (* Create constraint in step state *)
-          mk_i_or_t 
-            (E.cur_term_of_state_var TransSys.trans_base)
-            (E.cur_term_of_t TransSys.trans_base)
-          :: t)
-        output_ufs
-        call_outputs
-        (init_terms, trans_terms)
-    in
-
-    (* Prefix string for properties created from contracts *)
-    let prop_scope =
-
-      (* Identify call site with line and column number *)
-      let _, call_pos_lnum, call_pos_cnum =
-        file_row_col_of_pos call_pos
-      in
-
-      (* String of function name and call position *)
-      Format.asprintf
-        "%a[l%dc%d]"
-        (I.pp_print_ident true) call_function_name
-        call_pos_lnum
-        call_pos_cnum
-    in
-
-    (* Scope of function name *)
-    let scope = I.to_scope call_function_name in
-
-    (* Properties are unknown *)
-    let prop_status = P.PropUnknown in
-
-    let
-
-        (* Substitutions of actual for formal input parameters in
-           init, trans and property terms
-
-           Functions are stateless, therefore we don't have state
-           variables at the previous instant to substitute. *)
-        actuals_for_formals_init,
-        actuals_for_formals_trans,
-        actuals_for_formals_prop =
-      
-      D.fold2
-        (fun _ sv e (i, t, p) ->
-          (Var.mk_state_var_instance sv TransSys.init_base,
-           E.base_term_of_t TransSys.init_base e) :: i,
-          (Var.mk_state_var_instance sv TransSys.trans_base,
-           E.cur_term_of_t TransSys.trans_base e) :: t,
-          (Var.mk_state_var_instance sv TransSys.prop_base,
-           E.cur_term_of_t TransSys.prop_base e) :: p)
-        inputs
-        call_inputs
-        ([], [], [])
-    in
-    
-    let
-
-        (* Substitutions of actual for formal output parameters in
-           init, trans and property terms
-
-           Functions are stateless, therefore we don't have state
-           variables at the previous instant to substitute. *)
-        actuals_for_formals_init,
-        actuals_for_formals_trans,
-        actuals_for_formals_prop =
-      
-      D.fold2
-        (fun _ sv sv' (i, t, p) ->
-          (Var.mk_state_var_instance sv TransSys.init_base,
-           Var.mk_state_var_instance sv' TransSys.init_base
-           |> Term.mk_var) :: i, 
-          (Var.mk_state_var_instance sv TransSys.trans_base,
-           Var.mk_state_var_instance sv' TransSys.trans_base
-           |> Term.mk_var) :: t, 
-          (Var.mk_state_var_instance sv TransSys.prop_base,
-           Var.mk_state_var_instance sv' TransSys.prop_base
-           |> Term.mk_var) :: p)
-        outputs
-        call_outputs
-        (actuals_for_formals_init,
-         actuals_for_formals_trans,
-         actuals_for_formals_prop)
-    in
-
-    (* let pp_print_binding title binding =
-      Format.printf "%s:@." title ;
-      binding |> List.iter (fun (v, t) ->
-        Format.printf "  %a -> %a@."
-          Var.pp_print_var v Term.pp_print_term t
-      ) ;
-      Format.printf "@."
-    in
-
-    pp_print_binding "actuals_for_formals_init" actuals_for_formals_init ;
-    pp_print_binding "actuals_for_formals_trans" actuals_for_formals_trans ;
-    pp_print_binding "actuals_for_formals_prop" actuals_for_formals_prop ; *)
-
-    (* Partially evaluate constructor for let binding to substitute
-       actuals for formals in initial state *)
-    let mk_let_init =
-      Term.mk_let actuals_for_formals_init
-    in
-    
-    (* Partially evaluate constructor for let binding to substitute
-       actuals for formals in transition state *)
-    let mk_let_trans =
-      Term.mk_let actuals_for_formals_trans
-    in
-
-    (* Adds the constraints for a property state variable to some init and
-       trans terms, prepends the new svar to a list of locals. Returns updated
-       locals, init and trans terms and the svar created. *)
-    let add_prop_sv_constraints locals init trans lexpr =
-
-      (* Creating new state var for lifted requirement. *)
-      let sv = mk_fresh_state_var
-        ?is_const:(Some false)
-        ?for_inv_gen:(Some true)
-        (Type.t_bool)
-      in
-
-      sv :: locals,
-      ( Term.mk_eq [
-          Var.mk_state_var_instance sv TransSys.init_base
-          |> Term.mk_var ;
-          E.base_term_of_t TransSys.init_base lexpr |> mk_let_init
-        ]
-      ) :: init,
-      ( Term.mk_eq [
-          Var.mk_state_var_instance sv TransSys.trans_base
-          |> Term.mk_var ;
-          E.cur_term_of_t TransSys.trans_base lexpr |> mk_let_trans
-        ]
-      ) :: trans,
-      sv
-    in
-    
-    (* Partially evaluate constructor for let binding to substitute
-       actuals for formals in property state *)
-    (* let mk_let_prop =
-      Term.mk_let actuals_for_formals_prop
-    in *)
-
-    (* Add properties and assertions from global contracts *)
-    let locals, init_terms, trans_terms, properties =
-      List.fold_left (fun (l, i, t, p) { F.contract_reqs; F.contract_enss } ->
-
-        (* Adding ensure constraints for init and trans. *)
-        let i, t = (
-            contract_enss |> List.map (fun (ens,_) ->
-              E.base_term_of_expr TransSys.init_base ens |> mk_let_init
-            )
-          ) @ i, (
-            contract_enss |> List.map (fun (ens,_) ->
-              E.cur_term_of_expr TransSys.trans_base ens |> mk_let_trans
-            )
-          ) @ t
-        in
-
-        (* Adding a property for each requirement. *)
-        contract_reqs |> List.fold_left (
-          fun (l,i,t,p) (req,pos) ->
-
-            (* Creating fresh svar, adding constraints, updating locals. *)
-            let l, i, t, sv =
-              E.mk_of_expr req |> add_prop_sv_constraints l i t
-            in
-
-            l, i, t, { (* Creating new property for the requirement. *)
-              P.prop_name =
-                Format.asprintf "%s.func_global_req%a"
-                  prop_scope
-                  pp_print_pos pos ;
-              (* We cannot give the svars for the ensures following from this
-                 requirement because they're not svars... *)
-              P.prop_source = P.Assumption (pos, scope);
-              P.prop_status;
-              P.prop_term =
-                Var.mk_state_var_instance sv TransSys.prop_base
-                |> Term.mk_var
-            } :: p
-        ) (l,i,t,p)
-      )
-      (locals, init_terms, trans_terms, properties)
-      global_contracts
-    in
-
-    (* Add assertions from mode contracts and collect requirements *)
-    let init_terms, trans_terms, mode_contracts_req =
-      List.fold_left (fun (i, t, r) { F.contract_reqs; F.contract_enss } ->
-
-        ( Term.mk_implies [
-            contract_reqs |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.init_base e
-            ) |> Term.mk_and ;
-
-            contract_enss |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.init_base e
-            ) |> Term.mk_and ;
-          ] |> mk_let_init
-        ) :: i,
-
-        ( Term.mk_implies [
-            contract_reqs |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.trans_base e
-            ) |> Term.mk_and ;
-
-            contract_enss |> List.map (fun (e,_) ->
-              E.base_term_of_expr TransSys.trans_base e
-            ) |> Term.mk_and ;
-          ] |> mk_let_trans
-        ) :: t,
-
-        ( contract_reqs |> List.map (fun p -> fst p |> E.mk_of_expr)
-          |> E.mk_and_n) :: r
-      )
-      (init_terms, trans_terms, [])
-      mode_contracts
-    in
-
-    (* Continue with next function call *)
-    constraints_of_function_calls
-      mk_fresh_state_var
-      locals
-      functions 
-      init_terms
-      trans_terms
-      properties
-      tl
+  | _ -> assert false
 
 
 (* Add constraints from assertions to initial state constraint and
    transition relation *)
-let rec constraints_of_asserts instance init_terms trans_terms = function
+let rec constraints_of_asserts init_terms trans_terms = function
 
   (* All assertions consumed, return term for initial state
      constraint and transition relation *)
@@ -1387,263 +1226,267 @@ let rec constraints_of_asserts instance init_terms trans_terms = function
   | { E.expr_init; E.expr_step } :: tl ->
 
      (* Term for assertion in initial state *)
-     let init_term =
-       E.base_term_of_expr TransSys.init_base expr_init
-       |> convert_select instance
-     in 
+    let init_term = E.base_term_of_expr TransSys.init_base expr_init
+                    |> Term.convert_select in 
 
      (* Term for assertion in step state *)
-     let trans_term =
-       E.cur_term_of_expr TransSys.trans_base expr_step
-       |> convert_select instance
-     in 
+    let trans_term = E.cur_term_of_expr TransSys.trans_base expr_step
+                     |> Term.convert_select in 
 
      (* Add constraint unless it is true *)
      let init_terms = 
-       if Term.equal init_term Term.t_true then
-         init_terms
-       else
-         init_term :: init_terms 
-     in
+      if Term.equal init_term Term.t_true then init_terms
+      else init_term :: init_terms in
 
      (* Add constraint unless it is true *)
      let trans_terms = 
-       if Term.equal trans_term Term.t_true then
-         trans_terms
-       else
-         trans_term :: trans_terms 
-     in
+      if Term.equal trans_term Term.t_true then trans_terms
+      else trans_term :: trans_terms in
 
     (* Continue with next assertions *)
-    constraints_of_asserts instance init_terms trans_terms tl
-      
+    constraints_of_asserts init_terms trans_terms tl
+
+
+module MBounds = Map.Make (struct
+    type t = E.expr E.bound_or_fixed list
+    let compare_bounds b1 b2 = match b1, b2 with
+      | E.Fixed e1, E.Fixed e2
+      | E.Bound e1, E.Bound e2
+      | E.Unbound e1, E.Unbound e2 -> E.compare_expr e1 e2
+      | E.Fixed _, _ -> -1
+      | _, E.Fixed _ -> 1
+      | E.Unbound _, _ -> 1
+      | _, E.Unbound _ -> -1
+    let compare l1 l2 =
+      let n1, n2 = List.length l1, List.length l2 in
+      let c = n2 - n1 in
+      if c <> 0 then c else
+        let rec cmp = function
+          | b1 :: r1, b2 :: r2 ->
+            let c = compare_bounds b1 b2 in
+            if c <> 0 then c else cmp (r1, r2)
+          | [], [] -> 0
+          | _ -> assert false
+        in
+        cmp (l1, l2)
+  end)
+
 
 (* Add constraints from equations to initial state constraint and
    transition relation *)
-let rec constraints_of_equations init stateful_vars instance terms = function 
+let rec constraints_of_equations_wo_arrays
+    eq_bounds init stateful_vars terms lets = function 
 
   (* Constraints for all equations generated *)
-  | [] -> terms 
+  | [] -> terms, lets, eq_bounds
 
   (* Stateful variable must have an equational constraint *)
-  | (state_var, [], { E.expr_init; E.expr_step }) :: tl 
+  | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
     when List.exists (StateVar.equal_state_vars state_var) stateful_vars -> 
 
     (* Equation for stateful variable *)
     let def = 
-
       Term.mk_eq 
-
         (if init then 
-
            (* Equation for initial constraint on variable *)
            [E.base_term_of_state_var TransSys.init_base state_var; 
             E.base_term_of_expr TransSys.init_base expr_init] 
-
          else
-
            (* Equation for transition relation on variable *)
            [E.cur_term_of_state_var TransSys.trans_base state_var; 
             E.cur_term_of_expr TransSys.trans_base expr_step])
-
       (* Convert select operators to uninterpreted functions *)
-      |> convert_select instance
-
+      |> Term.convert_select
     in
 
     (* Add terms of equation *)
-    constraints_of_equations 
-      init
-      stateful_vars
-      instance
-      (def :: terms)
-      tl
+    constraints_of_equations_wo_arrays
+      eq_bounds init stateful_vars (def :: terms) lets tl
 
 
   (* Can define state variable with a let binding *)
-  | (state_var, [], ({ E.expr_init; E.expr_step } as expr)) :: tl ->
+  | ((state_var, []), ({ E.expr_init; E.expr_step } as expr)) :: tl ->
 
-    (* Let binding for stateless variable *)
-    let def =
-
-      (* Conjunction of previous terms of definitions *)
-      (Term.mk_and terms)
-
-      |>
-
-      (* Define variable with a let *)
+    (* Let binding for stateless variable, in closure form *)
+    let let_closure =
       Term.mk_let 
-
         (if init then 
-
            (* Binding for the variable at the base instant only *)
            [(E.base_var_of_state_var TransSys.init_base state_var, 
              E.base_term_of_expr TransSys.init_base expr_init)] 
-
          else
-
            (* Binding for the variable at the current instant *)
            (E.cur_var_of_state_var TransSys.trans_base state_var, 
             E.cur_term_of_expr TransSys.trans_base expr_step) :: 
-
            (if 
-
              (* Does the state variable occur at the previous
                 instant? *)
+             try
              Term.state_vars_at_offset_of_term 
                Numeral.(TransSys.trans_base |> pred) 
                (Term.mk_and terms)
              |> SVS.mem state_var  
+             with Invalid_argument _ -> true
 
-            then
               
-              (
-
-                (* Definition must not contain a [pre] operator,
-                   otherwise we'd have a double [pre]. The state
-                   variable is not stateless in this case, and we
-                   should not be here. *)
+            then
+              ((* Definition must not contain a [pre] operator, otherwise we'd
+                  have a double [pre]. The state variable is not stateless in
+                  this case, and we should not be here. *)
                 assert (not (E.has_pre_var E.base_offset expr));
-
                 (* Binding for the variable at the previous instant *)
                 [(E.pre_var_of_state_var TransSys.trans_base state_var, 
                   E.pre_term_of_expr TransSys.trans_base expr_step)])
-              
-            else
-
-              (* No binding for the variable at the previous
-                 instant necessary *)
+            else (* No binding for the variable at the previous instant
+                    necessary *)
               [])
-
            )
-
-      (* Convert select operators to uninterpreted functions *)
-      |> convert_select instance
-
     in
 
     (* Start with singleton lists of let-bound terms *)
-    constraints_of_equations 
-      init
-      stateful_vars
-      instance
-      [def]
-      tl
+    constraints_of_equations_wo_arrays
+      eq_bounds init stateful_vars terms (let_closure :: lets) tl
 
   (* Array state variable *)
-  | (state_var, bounds, { E.expr_init; E.expr_step }) :: tl -> 
+  | (((state_var, bounds), { E.expr_init; E.expr_step }) as eq) :: tl -> 
 
-    (* TODO: If bounds are not fixed, unroll to fixed bounds and
-       generate equations without quantifiers *)
+    let other_eqs = try MBounds.find bounds eq_bounds with Not_found -> [] in
 
+    (* map equation to its bounds for future treatment and continue *)
+    let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
+    
+    constraints_of_equations_wo_arrays
+      eq_bounds init stateful_vars terms lets tl
+
+
+
+(* create quantified (or no) constraints for recursive arrays definitions *)
+let constraints_of_arrays init terms eq_bounds =
 
     (* Return the i-th index variable *)
-    let index_var_of_int i = 
-      E.mk_index_var i
-      |> E.state_var_of_expr
-      |> (fun sv ->
-          Var.mk_state_var_instance
-            sv
-            (if init then TransSys.init_base else TransSys.trans_base))
-    in
+  let index_var_of_int i = E.var_of_expr (E.mk_index_var i) in
 
     (* Add quantifier or let binding for indexes of variable *)
-    let add_bounds = function 
-
-      (* Fixed index [e] *)
-      | N.Fixed e -> 
-
-        (* Let bind index variable to value [e] *)
-        fun (a, i) ->
-          (Term.mk_let 
-             [index_var_of_int i,
-              (e : E.expr :> Term.t)]
-             a,
-           pred i)
-
-      (* Variable index of size [e] *)
-      | N.Bound e -> 
-
-        (* Quantify over index variable between zero and upper bound *)
-        fun (a, i) -> 
-
-          (* Index variable *)
+  let add_bounds term bounds =
+    let term, quant_v, _ =
+      List.fold_left (fun (term, quant_v, i) ->
           let v = index_var_of_int i in
+          function
+          | E.Fixed e ->
+            Term.mk_let [v, E.unsafe_term_of_expr e] term, quant_v, pred i
 
-          (* Quantify over index variable between 0 and [e] *)
-          (Term.mk_forall
-             [v]
-             (Term.mk_implies 
-                [Term.mk_leq [Term.mk_num Numeral.zero; Term.mk_var v; 
-                              (e : E.expr :> Term.t)]; a]),
-           pred i)
+          | E.Bound e when Flags.Arrays.inline () && E.is_numeral e ->
+            (* inline if static bound and option given *)
+            let b = E.numeral_of_expr e |> Numeral.to_int in
+            let cj = ref [] in
+            for x = (b - 1) downto 0 do
+              cj := Term.mk_let [v, Term.mk_num_of_int x] term :: !cj
+            done;
+            Term.mk_and !cj, quant_v, pred i
+
+          | E.Bound e ->
+            let term =
+              if Flags.Arrays.recdef () then term
+              else
+                let te = E.unsafe_term_of_expr e
+                         |> fun t -> if init then t
+                            else Term.bump_state Numeral.one t in
+                Term.(
+                  mk_implies [
+                    mk_leq [mk_num Numeral.zero; mk_var v; 
+                            mk_minus [te; mk_num Numeral.one]];
+                    term])
+            in
+            term, v :: quant_v, pred i
+
+          | E.Unbound _ ->
+            (* let v' = Term.free_var_of_term (E.unsafe_term_of_expr v) in *)
+            term, v :: quant_v, pred i
+                             
+        ) (term, [], List.length bounds - 1) bounds
     in
 
-    (* Uninterpreted function application for array *)
-    let uf_term = 
-      Term.mk_uf
-        (StateVar.uf_symbol_of_state_var state_var)
+    match List.rev quant_v with
+    | [] -> term
+    | qvars -> Term.mk_forall ~fundef:(Flags.Arrays.recdef ()) quant_v term
 
-        ((* First parameter is node instance *)
-          (Var.mk_const_state_var instance
-           |> Term.mk_var) :: 
-
-          (* Following parameters are indexes *)
-          (List.fold_left
-             (fun (a, i) _ -> 
-                (index_var_of_int i
-                 |> Term.mk_var) :: a,
-                pred i)
-             ([], List.length bounds |> pred)
+    in
+  
+  
+  MBounds.fold (fun bounds eqs terms ->
+      let cstrs_eqs =
+        List.map (function
+            | (state_var, bounds), { E.expr_init; E.expr_step } ->
+              (* Array state variable term *)
+              let sv_term =
+                if init then E.base_term_of_state_var TransSys.init_base state_var
+                else E.cur_term_of_state_var TransSys.trans_base state_var
+              in
+              (* Select array *)
+              let select_term, _ =
+                List.fold_left
+                  (fun (st, i) _ ->
+                     Term.mk_select st (Term.mk_var (index_var_of_int i)),
+                     succ i)
+                  (sv_term, 0)
              bounds 
-           |> fst))
     in
-
     (* Assign value to array position *)
-    let eq = 
+              (Term.mk_eq 
+                 [select_term;
+                  if init then 
+                    (* Expression at base instant *)
+                    E.base_term_of_expr TransSys.init_base expr_init
+                  else
+                    (* Expression at current instant *)
+                    E.cur_term_of_expr TransSys.trans_base expr_step]
+                 (* Convert select operators to uninterpreted functions *)
+              ) |> Term.convert_select
+          ) eqs
+      in
 
-      Term.mk_eq 
-
-        (uf_term::
-
-         if init then 
+      (* group constraints under same quantifier when not using recursive
+         encoding *)
+      let cstrs =
+        if Flags.Arrays.recdef () then cstrs_eqs
+        else [Term.mk_and cstrs_eqs] in
+      
+      (* Wrap equations in let binding and/or quantifiers for indexes and add
+         definitions to terms *)        
+      List.fold_left (fun terms cstr ->
+            add_bounds cstr bounds :: terms
+        ) terms cstrs
            
-           (* Expression at base instant *)
-           [E.base_term_of_expr TransSys.init_base expr_init
-            |> convert_select instance]
+    ) eq_bounds terms              
            
-         else
            
-           (* Expression at current instant *)
-           [E.cur_term_of_expr TransSys.trans_base expr_step
-            |> convert_select instance])
+let constraints_of_equations init stateful_vars terms equations =
         
+  (* make constraints for equations which do not redefine arrays first *)
+  let terms, lets, eq_bounds =
+    constraints_of_equations_wo_arrays
+      MBounds.empty init stateful_vars terms [] equations
     in
 
-    (* Wrap equation in let binding and quantifiers for indexes *)
-    let def, _ = 
-      List.fold_right
-        add_bounds
-        bounds
-        (eq, List.length bounds |> pred)
-    in
+  (* then make constraints for recursive arrays so as to merge quantifiers as
+     much as possible *)
+  let terms = constraints_of_arrays init terms eq_bounds in
 
-    (* Add definition and continue *)
-    constraints_of_equations 
-      init
-      stateful_vars
-      instance
-      (def :: terms)
-      tl
+  if lets = [] then terms
+  else
+    (* Apply let bindings *)
+    [List.fold_left (fun t let_bind -> let_bind t)
+       (Term.mk_and terms) (List.rev lets)
+     |> Term.convert_select]
 
 
 let rec trans_sys_of_node'
+  globals
   top_name
   analysis_param
   trans_sys_defs
   output_input_dep
   nodes
-  ({ G.functions } as globals)
 = function
 
   (* Transition system for all nodes created *)
@@ -1657,13 +1500,13 @@ let rec trans_sys_of_node'
     if I.Map.mem node_name trans_sys_defs then
 
       (* Continue with next transition systems *)
-      trans_sys_of_node' 
+      trans_sys_of_node'
+        globals
         top_name
         analysis_param
         trans_sys_defs 
         output_input_dep
-        nodes 
-        globals
+        nodes
         tl
 
     (* Transition system has not been created *)
@@ -1671,17 +1514,17 @@ let rec trans_sys_of_node'
 
       (* Node to create a transition system for *)
       let { N.instance;
-            N.init_flag; 
-            N.inputs; 
-            N.oracles; 
-            N.outputs; 
-            N.locals; 
-            N.equations; 
-            N.calls; 
-            N.function_calls; 
-            N.asserts; 
+            N.init_flag;
+            N.inputs;
+            N.oracles;
+            N.outputs;
+            N.locals;
+            N.equations;
+            N.calls;
+            N.asserts;
             N.props;
-            N.contract } as node = 
+            N.contract;
+            N.is_function } as node =
 
         try 
 
@@ -1698,7 +1541,7 @@ let rec trans_sys_of_node'
                   (I.pp_print_ident false) node_name))
 
       in
-
+        
       (* Scope of node name *)
       let scope = [I.string_of_ident false node_name] in
 
@@ -1706,21 +1549,35 @@ let rec trans_sys_of_node'
       let mk_fresh_state_var
           ?is_const
           ?for_inv_gen
+          ?inst_for_sv
           state_var_type =
 
         (* Increment counter for fresh state variables *)
         let index = index_of_scope scope in
 
         (* Create state variable *)
-        StateVar.mk_state_var
-          ~is_input:false
-          ?is_const:is_const
-          ?for_inv_gen:for_inv_gen
-          ((I.push_index I.inst_ident index) 
-           |> I.string_of_ident true)
-          (N.scope_of_node node @ I.reserved_scope)
-          state_var_type
+        let fsv =
+          StateVar.mk_state_var
+            ~is_input:false
+            ?is_const:is_const
+            ?for_inv_gen:for_inv_gen
+            ((I.push_index I.inst_ident index) 
+             |> I.string_of_ident true)
+            (N.scope_of_node node @ I.reserved_scope)
+            state_var_type
+        in
 
+          (* Register bounds *)
+        let bounds = match inst_for_sv with
+          | None -> []
+          | Some sv ->
+            try StateVar.StateVarHashtbl.find globals.G.state_var_bounds sv
+            with Not_found -> []
+        in
+          StateVar.StateVarHashtbl.add globals.G.state_var_bounds fsv bounds;
+          
+          fsv
+          
       in
 
       (* Subnodes for which we have not created a transition
@@ -1771,12 +1628,12 @@ let rec trans_sys_of_node'
           (* Recurse to create transition system for called nodes,
              then return to this node *)
           trans_sys_of_node'
+            globals
             top_name
             analysis_param
             trans_sys_defs
             output_input_dep
             nodes
-            globals
             (tl' @ node_name :: tl)
 
         (* All transitions systems of called nodes have been
@@ -1784,9 +1641,59 @@ let rec trans_sys_of_node'
         | [] ->
 
 
+          (* If node is a function, create a UF `f` for each output. Also,
+          create the term `(= (f <inputs>) output)` to add it to `init` and
+          `trans`. *)
+          let function_ufs, function_constraints_at_0 =
+            if not is_function then [], [] else (
+              let inputs = D.values inputs in
+              let type_of = StateVar.type_of_state_var in
+              let term_0_of svar =
+                Var.mk_state_var_instance svar Numeral.zero
+                |> Term.mk_var
+              in
+              let input_types, input_terms_at_0 =
+                inputs
+                |> List.rev
+                |> List.fold_left (
+                  fun (types, terms) input ->
+                    (* Retrieving type of input. *)
+                    type_of input :: types,
+                    (* Creating term at 0. *)
+                    term_0_of input :: terms
+                ) ([], [])
+              in
+
+              D.values outputs
+              |> List.fold_left (
+                fun (ufs, eqs) output ->
+                  let uf_name =
+                    Format.asprintf "%a.%s.%s"
+                      Scope.pp_print_scope scope
+                      (StateVar.name_of_state_var output)
+                      Lib.ReservedIds.function_of_inputs
+                  in
+                  let uf =
+                    UfSymbol.mk_uf_symbol
+                      uf_name input_types (type_of output)
+                  in
+                  uf :: ufs,
+                  Term.mk_eq [
+                    term_0_of output ;
+                    Term.mk_uf uf input_terms_at_0
+                  ] :: eqs
+              ) ([], [])
+            )
+          in
+
+
           (* Filter assumptions for this node's assumptions *)
-          let node_assumptions = 
-            A.param_assumptions_of_scope analysis_param scope
+          let node_assumptions =
+            (* No assumptions if abstract. *)
+            if A.param_scope_is_abstract analysis_param scope then
+              Invs.empty ()
+            else
+              A.param_assumptions_of_scope analysis_param scope
           in
 
 
@@ -1833,6 +1740,9 @@ let rec trans_sys_of_node'
               (E.base_term_of_t TransSys.init_base)
               contract_asserts
 
+            (* Add functional constraints on ouputs if any. *)
+            |> List.rev_append function_constraints_at_0
+
           in
 
           (* Transition relation *)
@@ -1848,6 +1758,13 @@ let rec trans_sys_of_node'
               (E.cur_term_of_t TransSys.trans_base)
               contract_asserts
 
+            (* Add functional constraints on ouputs if any. *)
+            |> List.rev_append (
+              (* Bump to `1`. *)
+              function_constraints_at_0
+              |> List.map (Term.bump_state Numeral.one)
+            )
+
           in
 
 
@@ -1859,6 +1776,17 @@ let rec trans_sys_of_node'
             oracles @
             (D.values outputs) @ 
             (List.concat (List.map D.values locals))
+          in
+
+          (* Only keep assumptions that are defined given the current sys. *)
+          let node_assumptions =
+            node_assumptions |> Invs.filter (
+              fun _ term _ ->
+                Term.state_vars_of_term term
+                |> SVS.for_all (
+                  fun svar -> List.mem svar all_state_vars
+                )
+            )
           in
 
           let init_terms = 
@@ -1874,7 +1802,6 @@ let rec trans_sys_of_node'
               trans_terms
               all_state_vars
           in
-
 
           (* ****************************************************** *)
           (* Node calls 
@@ -1895,6 +1822,7 @@ let rec trans_sys_of_node'
           =
             constraints_of_node_calls
               mk_fresh_state_var
+              globals
               trans_sys_defs
               []  (* No lifted locals *)
               [init_flag]
@@ -1909,33 +1837,6 @@ let rec trans_sys_of_node'
           let properties = properties @ lifted_props in
 
           (* ****************************************************** *)
-          (* Function calls 
-
-             We must add function calls before equations so that local
-             variables can be let bound in
-             {!constraints_of_equations}.                           *)
-
-          (* Instantiated state variables and constraints from node
-             calls *)
-          let lifted_locals, init_terms, trans_terms, properties =
-            constraints_of_function_calls
-              mk_fresh_state_var
-              lifted_locals
-              functions
-              init_terms
-              trans_terms
-              properties
-              function_calls 
-          in
-
-          (* Format.printf "equations: @[<hov>%a@]@.@."
-            (pp_print_list (N.pp_print_node_equation false) ",@ ") equations ;
-
-          Format.printf "properties: @[<hov>%a@]@.@."
-            (pp_print_list P.pp_print_property ",@ ")
-            properties ; *)
-
-          (* ****************************************************** *)
           (* Assertions 
 
              We must add contracts before equations so that local
@@ -1944,12 +1845,7 @@ let rec trans_sys_of_node'
 
           (* Constraints from assertions *)
           let init_terms, trans_terms = 
-            constraints_of_asserts  
-              instance
-              init_terms
-              trans_terms
-              asserts
-          in
+              constraints_of_asserts init_terms trans_terms asserts in
 
 
           (* ****************************************************** *)
@@ -1960,50 +1856,46 @@ let rec trans_sys_of_node'
              variables capturing outputs of node calls *)
           let stateful_vars = 
             init_flag ::
-            (N.stateful_vars_of_node node |> SVS.elements)
-            @ lifted_locals
-          in
+              (N.stateful_vars_of_node node |> SVS.elements)
+              @ lifted_locals in
 
+
+          let global_consts =
+            (* Format.eprintf "Global constants: %d@." *)
+            (*   (List.length globals.G.free_constants); *)
+            List.fold_left (fun acc (_, vt) ->
+                D.fold (fun _ v acc ->
+                    (* Format.eprintf "Gobal constant: %a@." Var.pp_print_var v; *)
+                    v :: acc) vt acc
+              ) [] globals.G.free_constants
+            |> List.rev
+          in
+          
+          let global_consts_sv =
+            List.map Var.state_var_of_state_var_instance global_consts
+            |> SVS.of_list in
+          let stateful_vars = List.filter (fun sv ->
+              not (SVS.mem sv global_consts_sv)
+            ) stateful_vars
+          in
+          
           (* Order initial state equations by dependency and
              generate terms *)
           let init_terms, node_output_input_dep_init =
-
             S.order_equations true output_input_dep node
-
-            |>
-
-            (fun (e, d) -> 
+              |> (fun (e, d) ->
                constraints_of_equations
-                 true
-                 stateful_vars
-                 instance
-                 init_terms
-                 (List.rev e),
-
-               d)
-
+                    true stateful_vars init_terms (List.rev e), d)
           in
 
           (* Order transition relation equations by dependency and
              generate terms *)
           let trans_terms, node_output_input_dep_trans =
-
             S.order_equations false output_input_dep node
-
-            |>
-
-            (fun (e, d) -> 
+              |> (fun (e, d) ->
                constraints_of_equations
-                 false
-                 stateful_vars
-                 instance
-                 trans_terms
-                 (List.rev e),
-
-               d)
-
+                    false stateful_vars trans_terms (List.rev e), d)
           in
-
 
           (* ****************************************************** *)
           (* Properties                                         
@@ -2060,7 +1952,7 @@ let rec trans_sys_of_node'
                 if 
 
                   (* Property is assumed invariant? *)
-                  List.exists (Term.equal prop_term) node_assumptions
+                  Invs.mem node_assumptions prop_term
 
                 then
 
@@ -2119,33 +2011,10 @@ let rec trans_sys_of_node'
               stateful_vars
           in
 
-          (* State variables in the signature of the initial state
-             constraint in correct order *)
+            (* State variables in the signature of the initial state constraint
+               in correct order *)
           let signature_state_vars = 
             signature_state_vars @ stateful_locals
-          in
-
-          (* Arrays become global state variables and are removed
-             from signature *)
-          let global_state_vars, signature_state_vars = 
-            List.partition
-              (fun sv -> StateVar.type_of_state_var sv |> Type.is_array)
-              signature_state_vars 
-          in
-
-          (* TODO: add actual bound of state variable *)
-          let global_state_vars = 
-            List.map
-              (fun sv -> (sv, []))
-              global_state_vars
-          in
-
-          (* Need to add an instance variable when we have arrays *)
-          let signature_state_vars, instance_state_var =
-            if global_state_vars = [] then 
-              signature_state_vars, None 
-            else 
-              instance :: signature_state_vars, Some instance 
           in
 
           (* Formal parameters of initial state constraint *)
@@ -2156,8 +2025,7 @@ let rec trans_sys_of_node'
               signature_state_vars
           in
 
-          (* Create uninterpreted symbol for initial state
-             predicate *)
+            (* Create uninterpreted symbol for initial state predicate *)
           let init_uf_symbol = 
             UfSymbol.mk_uf_symbol
               (Format.asprintf
@@ -2172,14 +2040,13 @@ let rec trans_sys_of_node'
           (* Create instances of state variables in signature *)
           let trans_formals = 
 
-            (* All state variables at the current instant *)
+            (* All state variables at the current instant. *)
             List.map 
               (fun sv ->
                  Var.mk_state_var_instance sv TransSys.trans_base)
               signature_state_vars @
 
-            (* Not constant state variables at the previous
-               instant *)
+            (* Non-constant state variables at the previous instant *)
             List.map 
               (fun sv -> 
                  Var.mk_state_var_instance 
@@ -2190,8 +2057,7 @@ let rec trans_sys_of_node'
                  signature_state_vars)
           in
 
-          (* Create uninterpreted symbol for transition relation
-             predicate *)
+            (* Create uninterpreted symbol for transition relation predicate *)
           let trans_uf_symbol = 
             UfSymbol.mk_uf_symbol
               (Format.asprintf
@@ -2203,34 +2069,24 @@ let rec trans_sys_of_node'
               Type.t_bool
           in
 
-          (* Collect uninterpreted function symbols from globals
-
-             TODO: We could first reduce the list of uninterpreted
-             function symbols to the ones used in this system and
-             its subsystems. *)
-          let ufs =
-            List.fold_left
-              (fun accum { F.output_ufs } ->
-                D.fold
-                  (fun _ u a -> u :: a)
-                  output_ufs
-                  accum)
-              []
-              functions
-          in
-                
+          (* UFs of the system. *)
+          let ufs = function_ufs in
+          
           
           (* ****************************************************** *)
           (* Create transition system                               *)
+          (* ****************************************************** *)
 
           (* Create transition system *)
           let trans_sys, _ = 
             TransSys.mk_trans_sys 
               [I.string_of_ident false node_name]
-              instance_state_var
+              None (* instance_state_var *)
               init_flag
-              global_state_vars
+              [] (* global_state_vars *)
               (signature_state_vars)
+              globals.G.state_var_bounds
+              global_consts
               ufs
               init_uf_symbol
               init_formals
@@ -2241,13 +2097,10 @@ let rec trans_sys_of_node'
               subsystems
               properties
               mode_requires
-              [] (* One-state invariants *)
-              [] (* Two-state invariants *)
-          in                
-(*
-          Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
-*)
+              node_assumptions
+          in
           trans_sys_of_node'
+            globals
             top_name
             analysis_param
             (I.Map.add 
@@ -2264,13 +2117,19 @@ let rec trans_sys_of_node'
               (node_output_input_dep_init, node_output_input_dep_trans))
              :: output_input_dep)
             nodes
-            globals
             tl
           
 
 let trans_sys_of_nodes
-  ?(preserve_sig = false) subsystem globals analysis_param
-=
+    ?(preserve_sig = false)
+    globals
+    subsystem analysis_param
+  =
+
+  (* Prevent the garbage collector from running too often during the frontend
+     operations *)
+  Lib.set_liberal_gc ();
+  
   let { A.top; A.abstraction_map; A.assumptions } =
     A.info_of_param analysis_param
   in
@@ -2287,34 +2146,27 @@ let trans_sys_of_nodes
 
   (* TODO: Find top subsystem by name *)
   let subsystem' = subsystem in
-
-  let { SubSystem.source = { N.name = top_name } as node } as subsystem', globals' = 
-      S.slice_to_abstraction
-        ~preserve_sig:preserve_sig analysis_param subsystem' globals
+  
+  let { SubSystem.source = { N.name = top_name } as node } as subsystem' =
+    S.slice_to_abstraction
+      ~preserve_sig:preserve_sig analysis_param subsystem'
   in
 
-  let nodes = N.nodes_of_subsystem subsystem' in 
-(*
-  Format.printf 
-    "@[<v>%a@]@."
-    (pp_print_list (F.pp_print_function false) "@,") globals'.G.functions;
+  let nodes = N.nodes_of_subsystem subsystem' in
 
-  Format.printf
-    "@[<v>%a@]@."
-    (pp_print_list (N.pp_print_node false) "@,") (List.rev nodes);
-*)
+
   let { trans_sys } =   
 
     try 
 
       (* Create a transition system for each node *)
       trans_sys_of_node'
+        globals
         top_name
         analysis_param
         I.Map.empty
         [] 
         nodes
-        globals
         [top_name]
 
       (* Return the transition system of the top node *)
@@ -2324,19 +2176,6 @@ let trans_sys_of_nodes
     with Not_found -> assert false
 
   in
-(*
-  let s1, s2, s3, s4, s5, s6 = Term.T.stats () in
-
-  Format.printf 
-    "@[<v>Table length: %d@,\
-          Number of entries: %d@,\
-          Sum of bucket lengths: %d@,\
-          Smallest bucket length: %d@,\
-          Median bucket length: %d@,\
-          Biggest bucket length: %d@]@."
-    s1 s2 s3 s4 s5 s6;
-*)
-
   
   ( match analysis_param with
     | A.Refinement (_,result) ->
@@ -2354,6 +2193,7 @@ let trans_sys_of_nodes
           (* Adding to invariants of the system. *)
           let t = TransSys.get_prop_term trans_sys name in
           TransSys.add_invariant trans_sys t cert
+          |> ignore
         
         | name, P.PropFalse cex -> (
           match P.length_of_cex cex with
@@ -2367,190 +2207,11 @@ let trans_sys_of_nodes
     | _ -> ()
   ) ;
 
-  trans_sys, subsystem', globals'
+  (* Reset garbage collector to its initial settings *)
+  Lib.reset_gc_params ();
 
-(*
+  trans_sys, subsystem'
 
-let test () = 
-
-  let  { SubSystem.source = { N.name = top_name } as node } as lustre_subsystem = 
-    LustreInput.of_file Sys.argv.(1) 
-  in
-
-  let analysis = 
-    { A.top = [I.string_of_ident false top_name]; 
-      A.abstraction_map = Scope.Map.empty; 
-      A.assumptions = [] }
-  in
-
-  let trans_sys, lustre_subsystem = trans_sys_of_nodes lustre_subsystem analysis in
-
-  (* Test declarations and definitions *)
-
-  let define uf_symbol vars term = 
-    Format.printf
-      "@[<hv 1>(define-fun %a@ @[<hv 1>(%a)@]@ @[<hv 1>%a@])@]@."
-      UfSymbol.pp_print_uf_symbol uf_symbol
-      (pp_print_list Var.pp_print_var "@ ") vars
-      Term.pp_print_term term
-  in
-
-  let declare uf_symbol = 
-    Format.printf
-      "(declare-fun %a@)@."
-      UfSymbol.pp_print_uf_symbol uf_symbol
-  in
-
-  TransSys.define_and_declare_of_bounds
-    ~declare_sub_vars:false
-    trans_sys 
-    define
-    declare
-    TransSys.init_base
-    TransSys.trans_base;
-
-(* Test path reconstruction
-
-  let vars = 
-    TransSys.vars_of_bounds
-      trans_sys
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let next_of_value t = match Term.type_of_term t |> Type.node_of_type with
-    | Type.Bool -> Term.negate t 
-    | Type.Int | Type.Real -> Term.mk_succ t |> Simplify.simplify_term []
-    | _ -> t
-  in
-
-  let model = 
-    List.map
-      (fun v -> 
-         let t1 = Var.type_of_var v |> TermLib.default_of_type in
-         let sv = Var.state_var_of_state_var_instance v in
-         let t2 = next_of_value t1 in
-         let t3 = next_of_value t2 in
-         let t4 = next_of_value t3 in
-         (sv, [t4; t3; t2; t1]))
-      vars
-    |> Model.path_of_term_list
-  in
-                
-  Format.printf 
-    "%a@."
-    (LustrePath.pp_print_path_pt trans_sys lustre_subsystem true) model;
-
-
-  Format.printf 
-    "%a@."
-    (LustrePath.pp_print_path_pt trans_sys lustre_subsystem false) model
-*)
-
-  (* Test lifintg of terms *)
-
-  let scope_x =  ["X"] in
-  let scope_y =  ["Y"] in
-  let scope_z =  ["Z"] in
-
-  let trans_sys_x = 
-    TransSys.find_subsystem_of_scope trans_sys scope_x 
-  in 
-
-  let trans_sys_y = 
-    TransSys.find_subsystem_of_scope trans_sys scope_y
-  in 
-
-  let trans_sys_z = 
-    trans_sys
-  in 
-
-  let vars_x = 
-    TransSys.vars_of_bounds
-      trans_sys_x
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let vars_y = 
-    TransSys.vars_of_bounds
-      trans_sys_y
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let vars_z = 
-    TransSys.vars_of_bounds
-      trans_sys_z
-      TransSys.init_base
-      TransSys.init_base
-  in
-
-  let top_x, below_x = 
-    TransSys.instantiate_term_all_levels
-      trans_sys
-      TransSys.init_base
-      scope_x 
-      (Term.mk_eq (List.map Term.mk_var vars_x))
-  in
-  
-  let top_y, below_y = 
-    TransSys.instantiate_term_all_levels
-      trans_sys
-      TransSys.init_base
-      scope_y 
-      (Term.mk_eq (List.map Term.mk_var vars_y))
-  in
-
-  let top_z, below_z = 
-    TransSys.instantiate_term_all_levels
-      trans_sys
-      TransSys.init_base
-      scope_z 
-      (Term.mk_eq (List.map Term.mk_var vars_z))
-  in
-  
-  let pp_print_top ppf (t, l) = 
-
-    let s = 
-      TransSys.scope_of_trans_sys t 
-      |> string_of_t Scope.pp_print_scope 
-    in
-    
-    Format.fprintf ppf
-      "@[<hv %d>%s: @[<hv>%a@]@]"
-      (String.length s + 2) s
-      (pp_print_list Term.pp_print_term ",@ ") l
-
-  in
-
-  let pp_print_below ppf l = 
-    Format.fprintf ppf
-      "@{<v>%a@]"
-      (pp_print_list pp_print_top "@,") l
-  in
-
-  Format.printf
-    "@[<v>X: top@,%a@,X: below@,%a@]@."
-    pp_print_top top_x
-    pp_print_below below_x;
-
-  Format.printf
-    "@[<v>Y: top@,%a@,Y: below@,%a@]@."
-    pp_print_top top_y
-    pp_print_below below_y;
-
-  Format.printf
-    "@[<v>Z: top@,%a@,Z: below@,%a@]@."
-    pp_print_top top_z
-    pp_print_below below_z;
-
-   ()
-;;
-
-test ()
-
-*)
 
 
 (* 

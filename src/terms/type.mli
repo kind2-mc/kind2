@@ -24,15 +24,17 @@
 
 (** {1 Types and hash-consing} *)
 
+(** Tells if the range actually encodes an enumerated datatype *)
+type rangekind = Range | Enum
+
 (** Type of an expression *)
 type kindtype = 
   | Bool
   | Int
-  | IntRange of Numeral.t * Numeral.t
+  | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
 (*  | BV of int *)
   | Array of t * t
-  | Scalar of string * string list
   | Abstr of string
 
 (** Hashconsed type *)
@@ -85,11 +87,11 @@ val mk_bv : int -> t
 (** Return an array type of index sort and element sort *)
 val mk_array : t -> t -> t
 
-(** Return a scalar type of identifier and elements *)
-val mk_scalar : string -> string list -> t
-
 (** Return an abstract type *)
 val mk_abstr : string -> t
+
+(** Return an enumerated datatype type *)
+val mk_enum : string option -> string list -> t
 
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
@@ -103,10 +105,12 @@ val t_int : t
 (** The real decimal type *)
 val t_real : t
 
+
 (** {1 Type checking} *)
 
 (** [check_type s t] returns [true] if [s] is a subtype of [t] *)
 val check_type : t -> t -> bool
+
 
 (** {1 Predicates} *)
 
@@ -119,6 +123,9 @@ val is_int : t -> bool
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool
 
+(** Return [true] if the type is an integer range type *)
+val is_enum : t -> bool
+
 (** Return [true] if the type is the real type *)
 val is_real : t -> bool
 (*
@@ -128,20 +135,22 @@ val is_bv : t -> bool
 (** Return [true] if the type is an array type *)
 val is_array : t -> bool
 
-(** Return [true] if the type is a scalar type *)
-val is_scalar : t -> bool
-
 (** Return [true] if the type is abstract *)
 val is_abstr : t -> bool
+
+(** {1 Ranges} *)
 
 (** Return bounds of an integer range type, fail with
     [Invalid_argument "bounds_of_int_range"] if the type is not an
     integer range type. *)
 val bounds_of_int_range : t -> (Numeral.t * Numeral.t)
 
-(** Return string elements of scalar, fail with [Invalid_argument
-    "elements_of_scalar"] if the type is not a scalar type. *)
-val elements_of_scalar : t -> string list 
+
+(** Generalize a type (remove actual intranges) *)
+val generalize : t -> t
+
+
+(** {1 Arrays } *)
 
 (** Return type of array index *)
 val index_type_of_array : t -> t 
@@ -152,8 +161,28 @@ val all_index_types_of_array : t -> t list
 (** Return type of array elements *)
 val elem_type_of_array : t -> t
 
-(** Generalize a type (remoe intranges) *)
-val generalize : t -> t
+(** Return all array index types of a nested array type *)
+val last_elem_type_of_array : t -> t
+
+(** {1 Enumerated datatypes } *)
+
+(** Return constructors of an enumerated datatype *)
+val constructors_of_enum : t -> string list
+
+(** Return the name of an enumerated datatype encoded as int ranges *)
+val name_of_enum : t -> string option
+
+(** Return the constructor encoded by the numeral argument *)
+val get_constr_of_num : Numeral.t -> string
+
+(** Return abstract types that have been built *)
+val get_all_abstr_types : unit -> t list
+
+(** Return the numeral encoding of a construcor of an enumerated datatype *)
+val get_num_of_constr : string -> Numeral.t
+
+(** Return the enumerated dataype to which the constructor belongs *)
+val enum_of_constr : string -> t
 
 
 (** {1 Pretty-printing} *)
@@ -170,8 +199,6 @@ val print_type : t -> unit
 (** Return a string representation of a type *)
 val string_of_type : t -> string
 
-
-val get_all_abstr_types : unit -> t list
 
 (* 
    Local Variables:

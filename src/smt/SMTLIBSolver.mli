@@ -26,9 +26,11 @@
 module type SMTLIBSolverDriver = sig
   include SolverDriver.S
 
+  val s_define_fun : HString.t
+
   val expr_of_string_sexpr : HStringSExpr.t -> Term.t
 
-  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.value)
 
 end
 

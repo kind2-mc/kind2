@@ -36,6 +36,9 @@ val translate_contracts_lustre : string -> string -> unit
 (** Read native input from file *)
 val read_input_native : string -> TransSys.t t
 
+(** Returns the silent contract associated to each system. *)
+val silent_contracts_of : 'a t -> (Scope.t * string list) list
+
 (** Returns the scopes of all the systems in an input systems, in topological
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list
@@ -43,7 +46,7 @@ val ordered_scopes_of : 'a t -> Scope.t list
 (** Returns the analysis param for [top] that abstracts all its abstractable
     subsystems if [top] has a contract. *)
 val maximal_abstraction_for_testgen :
-  'a t -> Scope.t -> (Scope.t * Term.t) list -> Analysis.param option
+  'a t -> Scope.t -> Analysis.assumptions -> Analysis.param option
 
 (** Return the next system to analyze and the systems to abstract *)
 val next_analysis_of_strategy :
@@ -62,13 +65,13 @@ val pp_print_path_xml : _ t -> TransSys.t -> TransSys.instance list -> bool -> F
 (** Output a model as a sequnce of inputs in CSV. *)
 val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
-val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.term_or_lambda list) list * Term.t * 'a t
+val slice_to_abstraction_and_property : 'a t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> Property.t -> TransSys.t * TransSys.instance list * (StateVar.t * Model.value list) list * Term.t * 'a t
 
 
 val reconstruct_lustre_streams :
   _ t -> 
   StateVar.t list ->
-  (StateVar.t * (LustreIdent.t * int * StateVar.t option) list) list
+  (StateVar.t * (LustreIdent.t * int * LustreNode.call_cond list) list) list
     StateVar.StateVarMap.t
 
 

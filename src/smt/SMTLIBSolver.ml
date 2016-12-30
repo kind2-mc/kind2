@@ -44,9 +44,11 @@ let s_model = HString.mk_hstring "model"
 module type SMTLIBSolverDriver = sig
   include SolverDriver.S
 
+  val s_define_fun : HString.t
+  
   val expr_of_string_sexpr : HStringSExpr.t -> Term.t
 
-  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.value)
 
 end
 
@@ -136,11 +138,14 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         HStringSExpr.pp_print_sexpr e
         HStringSExpr.pp_print_sexpr v; 
 
-      get_value_response_of_sexpr' 
-        ((((expr_of_string_sexpr e) :> SMTExpr.t), 
-          ((expr_of_string_sexpr v :> SMTExpr.t))) :: 
-         accum) 
-        tl
+       let accum =
+         try
+           ((expr_of_string_sexpr e :> SMTExpr.t), 
+            (expr_of_string_sexpr v :> SMTExpr.t)) :: 
+           accum
+         with Failure _ -> accum in
+       
+       get_value_response_of_sexpr' accum tl
 
     (* Hack for CVC4's (- 1).0 expressions *)
     | HStringSExpr.List [ e; v; HStringSExpr.Atom d ] :: tl 
@@ -170,10 +175,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       Debug.smtexpr
         "get_model_response_of_sexpr: %a" HStringSExpr.pp_print_sexpr e;
 
-      (* Get name of variable and its assignment *)
-      let s, t_or_l = expr_or_lambda_of_string_sexpr e in
-
       try
+
+        (* Get name of variable and its assignment *)
+        let s, t_or_l = expr_or_lambda_of_string_sexpr e in
 
         (* Get uninterpreted function symbol by name *)
         let u =
@@ -215,6 +220,25 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
            ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
 
 
+
+  let s_declare_datatypes = HString.mk_hstring "declare-datatypes"
+  let s__compress_equal_mod_input =
+    HString.mk_hstring "__compress_equal_mod_input"
+
+
+  let ignore_model_item = function
+      
+    (* (declare-datatype ...) *)
+    | HStringSExpr.List (HStringSExpr.Atom s :: _)
+      when s == s_declare_datatypes -> true
+
+    (* (define-fun __compress_equal_mod_input ...) *)
+    | HStringSExpr.List (HStringSExpr.Atom s :: HStringSExpr.Atom c :: _)
+      when s == s_define_fun && c == s__compress_equal_mod_input -> true 
+  
+    | _ -> false
+
+  
   (* Return a solver response to a get-value command as expression pairs *)
   let get_model_response_of_sexpr = function 
 
@@ -231,7 +255,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     | HStringSExpr.List 
         (HStringSExpr.Atom s :: l) when s == s_model -> 
 
-      get_model_response_of_sexpr' [] l
+      (* remove useless declarations/definitions from the model *)
+      List.filter (fun d -> not (ignore_model_item d)) l
+      |> get_model_response_of_sexpr' []
 
     (* Solver returned other response *)
     | e -> 
@@ -500,6 +526,18 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (* Send command to the solver without timeout *)
       execute_command solver cmd 0
 
+    (* | Type.Enum (name, l) -> *)
+    (*   let s = match name with Some n -> n | None -> (string_of_sort sort) in *)
+    (*   let cmd = *)
+    (*     Format.asprintf "@[<hv 1>(declare-datatypes ()@ ((%s %a)))@]" *)
+    (*       s *)
+    (*       (pp_print_list (fun ppf -> Format.fprintf ppf "(%s)") " ") l *)
+    (*   in *)
+
+    (*   (\* Send command to the solver without timeout *\) *)
+    (*   execute_command solver cmd 0 *)
+
+
     | _ -> failwith "Only declare uninterpreted sorts."
 
 
@@ -688,7 +726,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           tdir
           (Format.sprintf "%s.%s.%d.%s" 
              (Filename.basename (Flags.input_file ()))
-             (suffix_of_kind_module (Event.get_module ()))
+             (short_name_of_kind_module (Event.get_module ()))
              id
              trace_extension
           )
@@ -907,6 +945,14 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       let s = string_of_logic logic in
       if s = "" then []
       else [Format.sprintf "(set-logic %s)" s] in
+
+    let header_farray =
+      if not (Flags.Arrays.smt ()) && TermLib.logic_allow_arrays logic then
+        [
+          (* Sort declaration for uninterpreted arrays *)
+          "(declare-sort FArray 2)";
+        ]
+      else [] in
     
     let headers =
       "(set-option :print-success true)" ::
@@ -915,7 +961,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
          ["(set-option :produce-assignments true)"] else []) @
       (if produce_cores then
          ["(set-option :produce-unsat-cores true)"] else []) @
-      header_logic
+      header_logic @
+      header_farray
     in
     
     (* Add interpolation option only if true *)
@@ -934,7 +981,15 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         match execute_command solver cmd 0 with 
           | `Success -> () 
           | _ -> raise (Failure ("Failed to add header: "^cmd))
-     ) headers;
+    ) headers;
+
+    (* Print prelude *)
+    List.iter (fun cmd ->
+        Debug.smt "%s" cmd;
+        match execute_command solver cmd 0 with 
+          | `Success -> () 
+          | _ -> raise (Failure ("Failed to add prelude command: "^cmd))
+     ) prelude;
 
 
     (* Return solver instance *)

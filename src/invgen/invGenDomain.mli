@@ -40,13 +40,20 @@ module type Domain = sig
   (** Evaluates a term. *)
   val eval : TransSys.t -> Model.t -> Term.t -> t
   (** Mines a transition system for candidate terms. *)
-  val mine : bool -> Analysis.param -> bool -> TransSys.t -> (
+  val mine : bool -> bool -> Analysis.param -> TransSys.t -> (
     TransSys.t * Term.TermSet.t
   ) list
+  (** Representative of the first equivalence class.
+
+  [False] for bool, a random term in the set for arith. *)
+  val first_rep_of : Term.TermSet.t -> Term.t * Term.TermSet.t
   (** Returns true iff the input term is bottom. *)
   val is_bot: Term.t -> bool
   (** Returns true iff the input term is top. *)
   val is_top: Term.t -> bool
+  (** Returns true iff the one state invgen technique for this domain is
+  running. *)
+  val is_os_running: unit -> bool
 end
 
 (** Boolean domain with implication. *)

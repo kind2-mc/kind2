@@ -30,10 +30,6 @@ let debug_assert = true
 (* Solver instances and cleanup                                           *)
 (* ********************************************************************** *)
 
-
-(* Solver instance if created *)
-let ref_solver = ref None
-
 (* Interpolation instance if created *)
 let ref_interpolator = ref None
 
@@ -64,20 +60,7 @@ let on_exit _ =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  print_stats ();
-
-  (* Delete solver instance if created *)
-  (try 
-     match !ref_solver with 
-       | Some solver -> 
-         SMTSolver.delete_instance solver; 
-         ref_solver := None
-       | None -> ()
-   with 
-     | e -> 
-       Event.log L_error 
-         "Error deleting solver: %s" 
-         (Printexc.to_string e));
+  print_stats () ;
 
   (* Delete solvers in quantifier elimination*)
   QE.on_exit ()
@@ -122,63 +105,12 @@ let handle_events
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, prop_status = 
+  let new_invs, prop_status = 
     Event.update_trans_sys input_sys aparam trans_sys messages 
   in
 
-  (* Add invariant to the transition system and assert in solver
-     instances *)
-  let add_invariant inv = 
-
-    if Flags.IC3.use_invgen () then 
-
-      match Term.var_offsets_of_term inv with
-
-        (* Skip invariants without variables *)
-        | None, None ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Skipping constant invariant"
-
-        (* One-state invariants *)
-        | Some i, Some j when Numeral.equal i j ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Asserting one-state invariant at zero and one";
-
-          (* Assert at offset zero *)
-          Term.bump_state Numeral.(- i) inv
-          |> SMTSolver.assert_term solver;
-
-          (* Assert at offset one *)
-          Term.bump_state Numeral.(- i + one) inv
-          |> SMTSolver.assert_term solver
-
-        (* Two-state invariant *)
-        | Some i, Some j when Numeral.(j - i = one) ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Asserting two-state invariant at one";
-
-          (* Assert at offset one *)
-          Term.bump_state Numeral.(- i) inv |> SMTSolver.assert_term solver
-
-        (* Invariant over more than two states *)
-        | _ ->
-
-          SMTSolver.trace_comment 
-            solver
-            "handle_event: Invariant is over more than two states";
-
-          assert false
-
-  in
-
-  (* Assert all received invariants *)
-  List.iter (fun i -> add_invariant i) invariants_recvd;
+  (* Upper bound's exclusive. *)
+  Unroller.assert_new_invs_to solver Numeral.(succ one) new_invs ;
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
@@ -742,7 +674,7 @@ let extrapolate trans_sys state f g =
   let term = 
     Term.mk_and 
       [f; 
-       TransSys.trans_of_bound trans_sys Numeral.one; 
+       TransSys.trans_of_bound None trans_sys Numeral.one; 
 (*
        TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
        TransSys.invars_of_bound trans_sys Numeral.one; 
@@ -857,14 +789,18 @@ let abstr_simulate trace trans_sys raise_cex =
   let interpolizers =
     List.mapi
       (fun i cex ->
-         [(TransSys.trans_of_bound trans_sys (Numeral.of_int (i+1)));
+         [(TransSys.trans_of_bound (Some (SMTSolver.declare_fun intrpo))
+             trans_sys (Numeral.of_int (i+1)));
           (Term.bump_state (Numeral.of_int (i+1)) cex)]
       )
       trace
   in
 
   let interpolizers =
-    (Term.mk_and ((TransSys.init_of_bound trans_sys Numeral.zero) :: List.hd interpolizers))
+    (Term.mk_and ((TransSys.init_of_bound
+                     (Some (SMTSolver.declare_fun intrpo))
+                     trans_sys Numeral.zero)
+                  :: List.hd interpolizers))
     ::
     (List.map Term.mk_and (List.tl interpolizers))
   in
@@ -994,6 +930,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    expensive due to the many activation literals. *)
                 SMTSolver.get_var_values
                   solver
+                  (TransSys.get_state_var_bounds trans_sys)
                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
               (fun _ -> ())
@@ -1235,6 +1172,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                   | _ ->
                     SMTSolver.get_var_values
                       solver
+                      (TransSys.get_state_var_bounds trans_sys)
                       (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
               (* Get unsat core from unsatisfiable query *)
@@ -1697,6 +1635,7 @@ let rec partition_inductive
       (fun solver ->
         SMTSolver.get_var_values
           solver
+          (TransSys.get_state_var_bounds trans_sys)
           (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
       
       (fun _ -> ())
@@ -1798,6 +1737,7 @@ let partition_fwd_prop
         (fun solver ->
           SMTSolver.get_var_values
             solver
+            (TransSys.get_state_var_bounds trans_sys)
             (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
 
         (fun _ -> ())
@@ -2044,12 +1984,13 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                 in
 
                 (* Broadcast inductive clauses as invariants *)
-                List.iter (fun i ->
+                List.iter (
+                  fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
                     Event.invariant
-                      (TransSys.scope_of_trans_sys trans_sys) i cert)
-                  inductive_terms;
+                      (TransSys.scope_of_trans_sys trans_sys) i cert false
+                ) inductive_terms ;
 
                 (* Increment statistics *)
                 Stat.incr 
@@ -2057,11 +1998,12 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                   Stat.ic3_inductive_blocking_clauses;
 
                 (* Add inductive blocking clauses as invariants *)
-                List.iter (fun i ->
+                List.iter (
+                  fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
-                    TransSys.add_invariant trans_sys i cert)
-                  inductive_terms;
+                    TransSys.add_invariant trans_sys i cert |> ignore
+                ) inductive_terms ;
 
                 SMTSolver.trace_comment
                   solver
@@ -2485,7 +2427,7 @@ let add_to_path model path state_vars i =
                TermLib.default_of_type 
                  (StateVar.type_of_state_var sv)
                                          
-             | Model.Lambda _ -> assert false
+             | _ -> assert false
                
          in
 
@@ -2562,10 +2504,8 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (SMTSolver.get_var_values
                    solver
-                   (TransSys.vars_of_bounds
-                      trans_sys
-                      Numeral.zero
-                      Numeral.one))
+                   (TransSys.get_state_var_bounds trans_sys)
+                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
                 path
                 (TransSys.state_vars trans_sys)
                 Numeral.one
@@ -2626,10 +2566,8 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (SMTSolver.get_var_values
                    solver
-                   (TransSys.vars_of_bounds
-                      trans_sys
-                      Numeral.zero
-                      Numeral.one))
+                   (TransSys.get_state_var_bounds trans_sys)
+                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
                 []
                 (TransSys.state_vars trans_sys)
                 Numeral.zero)
@@ -2905,6 +2843,7 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
       (* SMTSolver.get_model solver *)
       SMTSolver.get_var_values
         solver
+        (TransSys.get_state_var_bounds trans_sys)
         (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
     in
 
@@ -3090,9 +3029,6 @@ let main input_sys aparam trans_sys =
           | `IA -> 3
       in
 
-      (* Save solver instance for clean exit *)
-      ref_solver := Some solver;
-
       (* Declare uninterpreted function symbols *)
       SMTSolver.trace_comment 
         solver
@@ -3104,7 +3040,7 @@ let main input_sys aparam trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
-        Numeral.(~- one) (Numeral.of_int bound);
+        Numeral.zero (Numeral.of_int bound);
 
       (* Get invariants of transition system *)
       let invars_1 = 
@@ -3144,7 +3080,8 @@ let main input_sys aparam trans_sys =
         solver
         (Term.mk_implies
            [actlit_r0;
-            (TransSys.init_of_bound trans_sys Numeral.zero)]);
+            (TransSys.init_of_bound (Some (SMTSolver.declare_fun solver))
+               trans_sys Numeral.zero)]);
 
       (* Assert transition relation unguarded
 
@@ -3152,7 +3089,8 @@ let main input_sys aparam trans_sys =
       SMTSolver.trace_comment solver "main: Assert unguarded transition relation"; 
       SMTSolver.assert_term 
         solver
-        (TransSys.trans_of_bound trans_sys (Numeral.of_int bound));
+        (TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver))
+           trans_sys (Numeral.of_int bound));
 
       (* Print inductive assertions to file? *)
       (match Flags.IC3.print_to_file () with
@@ -3183,7 +3121,7 @@ let main input_sys aparam trans_sys =
 
           | `IA ->
 
-            (TransSys.init_of_bound trans_sys Numeral.zero)
+            (TransSys.init_of_bound None trans_sys Numeral.zero)
             ::
             List.map
               (fun (s,t) -> t)

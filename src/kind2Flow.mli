@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,21 +16,13 @@
 
 *)
 
-(** Monolithic analysis strategy 
-
-    Run one analysis only, with the top system and all subsystems
-    concretized to their implementations.
-
-    @author Christoph Sticksel *)
-
-val next_analysis :
-  'a SubSystem.t -> Analysis.result list -> Analysis.param option
-
+(** Runs the analyses produced by the strategy module. *)
+val run : 'a InputSystem.t -> unit
 
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)
-  

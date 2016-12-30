@@ -1,6 +1,6 @@
 # Arrays
 
-> This feature is only available as an experimental development version of Kind 2.
+> **Experimental feature**
 
 ## Lustre arrays
 

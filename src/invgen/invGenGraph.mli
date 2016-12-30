@@ -37,6 +37,12 @@ type 'a map = 'a Term.TermHashtbl.t
 (** Set of terms. *)
 type set = Term.TermSet.t
 
+(** [write_dot_to path name suff fmt graph]
+Writes a graph in graphviz to file [<path>/<name>_<suff>.dot]. *)
+val write_dot_to : string -> string -> string -> (
+  Format.formatter -> 'a -> unit
+) -> 'a -> unit
+
 (** Signature of the modules created by the graph functor. *)
 module type Graph = sig
   (** Domain with an order relation. *)
@@ -49,11 +55,28 @@ module type Graph = sig
   representative. *)
   val mk : term -> set -> graph
 
+  (** Checks whether at least one candidate mentions a state variable. *)
+  val has_svars : graph -> bool
+
+  (** Mines a system and creates the relevant graphs.
+  
+  First boolean is [top_only], then [two_state]. Input function is applied to
+  each subsystem. It is used to create the pruning checkers. *)
+  val mine : bool -> bool -> Analysis.param -> TransSys.t -> (
+    TransSys.t -> unit
+  ) -> (TransSys.t * graph * set * set) list
+
   (** Clones a graph. *)
   val clone : graph -> graph
 
   (** Total number of terms in the graph. *)
   val term_count : graph -> int
+
+  (** Total number of classes in the graph. *)
+  val class_count : graph -> int
+
+  (** Returns true if all classes in the graph only have one candidate term. *)
+  val is_stale : graph -> bool
 
   (** Drops a term from the class corresponding to a representative. *)
   val drop_class_member : graph -> term -> term -> unit
@@ -133,6 +156,20 @@ module Int : Graph
 
 (** Graph of reals with less than or equal. *)
 module Real : Graph
+
+(** Graph modules for equivalence only. *)
+module EqOnly : sig
+
+  (** Graph of booleans. *)
+  module Bool : Graph
+
+  (** Graph of integers. *)
+  module Int : Graph
+
+  (** Graph of reals. *)
+  module Real : Graph
+
+end
 
 
 

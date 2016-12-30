@@ -49,12 +49,12 @@ let pp_print_one_index' db = function
   
   | false ->
     
-    (function ppf -> function
+    (function ppf -> function 
        | RecordIndex i -> ()
-       | TupleIndex i -> Format.fprintf ppf "[%d]" i
+       | TupleIndex i -> Format.fprintf ppf "<%d>" i
        | ListIndex i -> Format.fprintf ppf "{%d}" i
        | ArrayIntIndex i -> Format.fprintf ppf "[%d]" i
-       | ArrayVarIndex v ->  Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v )
+       | ArrayVarIndex v -> ()) (* Format.fprintf ppf "[X%d(%a)]" db (E.pp_print_expr false) v ) *)
 
   | true ->
     
@@ -89,6 +89,8 @@ let pp_print_index = pp_print_index' 1
 
 (* Pretty-print an index *)
 let pp_print_one_index = pp_print_one_index' 1
+
+
 
 let string_of_index safe = string_of_t (pp_print_index safe)
 
@@ -214,8 +216,8 @@ let array_vars_of_index idx =
     []
     idx
     
-(* Map of single indexes *)  
-module LustreOneIndexMap = Map.Make 
+(* Module for of single indexes *)  
+module LustreOneIndex =
     (struct 
       type t = one_index
       let compare = compare_one_index
@@ -223,7 +225,7 @@ module LustreOneIndexMap = Map.Make
 
 
 (* Trie of idexes *)  
-module LustreIndexTrie = Trie.Make (LustreOneIndexMap)
+module LustreIndexTrie = Trie.Make (LustreOneIndex)
 
 include LustreIndexTrie
 
@@ -243,8 +245,41 @@ let top_max_index t =
         | _ -> raise (Invalid_argument "top_max_index"))
 
   with Not_found -> (-1)
-    
 
+
+let compatible_one_index i1 i2 = match i1, i2 with
+  | RecordIndex s1, RecordIndex s2 -> s1 = s2
+  | TupleIndex i1, TupleIndex i2 -> i1 = i2
+  | ListIndex i1, ListIndex i2 -> i1 = i2
+  | ArrayIntIndex i1, ArrayIntIndex i2 -> i1 = i2
+  | ArrayIntIndex _, ArrayVarIndex _
+  | ArrayVarIndex _, ArrayIntIndex _
+  | ArrayVarIndex _, ArrayVarIndex _ -> true
+  | _ -> false
+
+let compatible_indexes = List.for_all2 compatible_one_index
+
+
+
+let pp_print_index_trie safe pp_e ppf t = 
+  bindings t |> 
+  pp_print_list
+    (fun ppf (i, e) -> 
+       if i = empty_index then 
+         pp_e ppf e
+       else
+         Format.fprintf 
+           ppf
+           "%a: %a"
+           (pp_print_index safe) i
+           pp_e e)
+    ";@ "
+    ppf
+
+
+let pp_print_trie_expr safe ppf expr =
+  pp_print_index_trie safe
+    (E.pp_print_lustre_expr safe) ppf expr
 
 
 (* 

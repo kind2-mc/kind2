@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Exit code in case of bad arguments 
+E_BADARGS=85
+E_NOFILE=86
+
+# Check that there are at least five arguments
+if [ $# -lt 5 ] ; then
+
+    cat <<EOF 
+Usage: `basename $0` FORMAT STATFILE STATFILE XLABEL YLABEL RANGE
+Generate a scatterplot from the file STATFILE in FORMAT with XLABEL 
+and YLABEL and range 0.1:RANGE.
+
+The input is STATFILE-valid.stat and STATFILE-invalid.stat,
+data is read from columns 4 and 7. The FORMAT is the name of the
+terminal as well as the extension of the file generated, the
+basename is STATFILE.
+EOF
+
+    exit $E_BADARGS 
+fi
+
+case $1 in
+
+    -v)
+        DATA=valid
+        shift
+        ;;
+
+    -i)
+        DATA=invalid
+        shift
+        ;;
+
+    *)
+        DATA=both
+        ;;
+
+esac
+
+FORMAT=$1
+shift
+
+STATFILE1=$1
+shift
+
+STATFILE2=$1
+shift
+
+XLABEL=$1
+shift
+
+YLABEL=$1
+shift
+
+RANGE=$1
+shift
+
+STATFILE=${STATFILE1}-vs-${STATFILE2}
+
+join $STATFILE1.stat $STATFILE2.stat | sed -n '/^--$/q;p' | grep Valid > ${STATFILE}-valid.stat 
+
+join $STATFILE1.stat $STATFILE2.stat | sed -n '/^--$/q;p' | grep Invalid > ${STATFILE}-invalid.stat 
+
+
+PLOTVALID="\"$STATFILE-valid.stat\" using 4:7 ps .5 title \"valid\""
+PLOTINVALID="\"$STATFILE-invalid.stat\" using 4:7 ps .5 title \"invalid\""
+
+case $DATA in
+    valid)
+        PLOT=$PLOTVALID
+        KEY="set nokey"
+        ;;
+    invalid)
+        PLOT=$PLOTINVALID
+        KEY="set nokey"
+        ;;
+    *)
+        PLOT="$PLOTINVALID, $PLOTVALID"
+        KEY=""
+        ;;
+esac
+
+
+gnuplot <<EOF
+set terminal $FORMAT
+set logscale x
+set logscale y
+set size square
+$KEY
+
+set output '$STATFILE.$FORMAT'
+set xlabel "$XLABEL" # font "Helvetica,20"
+set ylabel "$YLABEL" # font "Helvetica,20"
+
+plot [0.1:$RANGE] [0.1:$RANGE]\
+ $PLOT,\
+ x notitle 
+
+EOF

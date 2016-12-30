@@ -17,39 +17,37 @@
 *)
 
 
-(* Current status of a property *)
+(** Current status of a property *)
 type prop_status =
 
-  (* Status of property is unknown *)
+  (** Status of property is unknown *)
   | PropUnknown
 
-  (* Property is true for at least k steps *)
+  (** Property is true for at least k steps *)
   | PropKTrue of int
 
-  (* Property is true in all reachable states *)
+  (** Property is true in all reachable states *)
   | PropInvariant of Certificate.t
 
-  (* Property is false at some step *)
-  | PropFalse of (StateVar.t * Model.term_or_lambda list) list
+  (** Property is false at some step *)
+  | PropFalse of (StateVar.t * Model.value list) list
 
 
 
-type t =
+(** A property of a transition system *)
+type t = {
+  (** Identifier for the property *)
+  prop_name : string ;
 
-  { 
+  (** Source of the property *)
+  prop_source : prop_source ;
 
-    (* Identifier for the property *)
-    prop_name : string;
+  (** Term with variables at offsets [prop_base] and [prop_base - 1] *)
+  prop_term : Term.t ;
 
-    (* Source of the property *)
-    prop_source : prop_source;
-
-    (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
-    prop_term : Term.t;
-
-    mutable prop_status : prop_status
-
-  }
+  (** Current status *)
+  mutable prop_status : prop_status ;
+}
 
 
 (** Source of a property *)
@@ -81,7 +79,7 @@ and prop_source =
   | GuaranteeModeImplication of (Lib.position * Scope.t)
 
   (** User supplied candidate invariant *)
-  | Candidate
+  | Candidate of prop_source option
 
 
 (** Pretty-prints a property source. *)
@@ -102,9 +100,9 @@ val prop_status_known : prop_status -> bool
 val set_prop_status : t -> prop_status -> unit
 val set_prop_invariant : t -> Certificate.t ->unit
 val set_prop_ktrue : t -> int -> unit
-val set_prop_false : t -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val set_prop_false : t -> (StateVar.t * Model.value list) list -> unit
 
-val length_of_cex :  (StateVar.t * Model.term_or_lambda list) list -> int
+val length_of_cex :  (StateVar.t * Model.value list) list -> int
 
 val get_prop_status : t -> prop_status
 

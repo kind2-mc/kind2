@@ -146,6 +146,9 @@ val input_format : unit -> input_format
 (** Output directory for the files Kind 2 generates. *)
 val output_dir : unit -> string
 
+(** Minimizes and logs invariants as contracts. *)
+val log_invs : unit -> bool
+
 (** Debug sections to enable *)
 val debug : unit -> string list
 
@@ -161,11 +164,20 @@ val log_format_xml : unit -> bool
 (** Wallclock timeout. *)
 val timeout_wall : unit -> float
 
+(** Per-run wallclock timeout. *)
+val timeout_analysis : unit -> float
+
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
 
 (** The modules enabled. *)
 val enabled : unit -> enable
+
+(** Returns the invariant generation techniques currently enabled. *)
+val invgen_enabled : unit -> enable
+
+(** Manually disables a module. *)
+val disable : Lib.kind_module -> unit
 
 (** Modular analysis. *)
 val modular : unit -> bool
@@ -230,6 +242,8 @@ module Smt : sig
   (** Executable of Yices2 SMT2 solver *)
   val yices2smt2_bin : unit -> string
 
+  (** Forces SMT traces. *)
+  val set_trace: bool -> unit
   (** Write all SMT commands to files *)
   val trace : unit -> bool
 
@@ -354,9 +368,6 @@ module Contracts : sig
   (** Contract generation: max depth. *)
   val contract_gen_depth : unit -> int
 
-  (** Contract generation: fine grain. *)
-  val contract_gen_fine_grain : unit -> bool
-
   (** Activate refinement. *)
   val refinement : unit -> bool
 end
@@ -397,6 +408,22 @@ module Certif : sig
 end
 
 
+(** {2 Arrays flags} *)
+module Arrays : sig
+
+  (** Use builtin theory of arrays in SMT solver *)
+  val smt : unit -> bool
+
+  (** Inline arrays with fixed bounds *)
+  val inline : unit -> bool
+
+  (** Define recursive functions for arrays *)
+  val recdef : unit -> bool
+
+  (** Allow non constant array sizes  *)
+  val var_size : unit -> bool
+end
+
 (** {2 Testgen flags} *)
 
 module Testgen : sig
@@ -419,6 +446,11 @@ module Invgen : sig
       transition relation. *)
   val prune_trivial : unit -> bool
 
+  (** Sets the max depth for invariant generation. *)
+  val set_max_depth : int option -> unit
+  (** Gets the max depth for invariant generation. *)
+  val max_depth : unit -> int option
+
   (** Number of unrollings invariant generation should perform between
     switching to a different systems. *)
   val max_succ : unit -> int
@@ -429,11 +461,20 @@ module Invgen : sig
   (** InvGen will generate invariants only for top level. **)
   val top_only : unit -> bool
 
+  (** Forces invgen to consider a huge number of candidates. *)
+  val all_out : unit -> bool
+
   (** InvGen will look for candidate terms in the transition predicate. *)
   val mine_trans : unit -> bool
 
   (** InvGen will run in two state mode. *)
   val two_state : unit -> bool
+
+  (** Forces bool invgen to look for equalities only. *)
+  val bool_eq_only : unit -> bool
+
+  (** Forces arith invgen to look for equalities only. *)
+  val arith_eq_only : unit -> bool
 
   (** Renice invariant generation process. *)
   val renice : unit -> int

@@ -288,7 +288,7 @@ let prop_source_of_sexpr prop_term = function
       Property.GuaranteeModeImplication (ppos, scope)
     else assert false
 
-  | [HS.Atom c] when c == s_cand -> Property.Candidate
+  | [HS.Atom c] when c == s_cand -> Property.Candidate None
 
   | _ -> failwith "Invalid property source"
 
@@ -425,7 +425,7 @@ let rec mk_subsys_structure sys =
   { SubSystem.scope = TransSys.scope_of_trans_sys sys;
     source = sys;
     has_contract = false;
-    has_impl = false;
+    has_impl = true;
     has_modes = false;
     subsystems =
       TransSys.get_subsystems sys
@@ -475,6 +475,8 @@ let of_channel in_ch =
             init_flag
             []
             state_vars
+            (StateVar.StateVarHashtbl.create 7)
+            []
             [] (* ufs *)
             init_uf_symbol
             init_args
@@ -484,7 +486,7 @@ let of_channel in_ch =
             trans_term
             subsystems
             props
-            (None, []) [] [] in
+            (None, []) (Invs.empty ()) in
 
         (* Add calling information *)
         (* List.iter (fun (c, m, g) -> *)
@@ -601,11 +603,11 @@ let pp_print_var ppf v =
 
 let pp_print_term ppf =
   Term.T.pp_print_term_w (fun ?arity -> Symbol.pp_print_symbol)
-    pp_print_var ppf
+    pp_print_var Type.pp_print_type ppf
 
 let pp_print_lambda ppf =
   Term.T.pp_print_lambda_w (fun ?arity -> Symbol.pp_print_symbol)
-    pp_print_var ppf
+    pp_print_var Type.pp_print_type ppf
 
 
 let pp_print_state_var sys ppf state_var = 
@@ -639,7 +641,7 @@ let pp_print_prop_source sys ppf = function
   | Property.Instantiated (scope, prop) ->
     let name = prop.Property.prop_name in
     Format.fprintf ppf ":subsystem@ %s" (String.concat "." (scope @ [name]))
-  | Property.Candidate ->
+  | Property.Candidate _ ->
     Format.fprintf ppf ":candidate"
   | _ -> () (* TODO *)
 
@@ -710,11 +712,11 @@ let eq_sys s1 s2 =
   List.for_all2 StateVar.equal_state_vars
     (TransSys.state_vars s1) (TransSys.state_vars s2) &&
   Term.equal
-    (TransSys.init_of_bound s1 Numeral.zero)
-    (TransSys.init_of_bound s2 Numeral.zero) &&
+    (TransSys.init_of_bound None s1 Numeral.zero)
+    (TransSys.init_of_bound None s2 Numeral.zero) &&
   Term.equal
-    (TransSys.trans_of_bound s1 Numeral.zero)
-    (TransSys.trans_of_bound s2 Numeral.zero)
+    (TransSys.trans_of_bound None s1 Numeral.zero)
+    (TransSys.trans_of_bound None s2 Numeral.zero)
 
 let all_systems sys =
   let rec all_systems_rec acc sys =
@@ -740,8 +742,8 @@ let pp_print_one_native ppf sys =
      \n@."
     (String.concat "." (TransSys.scope_of_trans_sys sys))
     (pp_print_list (pp_print_state_var sys) "@ ") (TransSys.state_vars sys)
-    pp_print_term (TransSys.init_of_bound sys TransSys.init_base)
-    pp_print_term (TransSys.trans_of_bound sys TransSys.trans_base)
+    pp_print_term (TransSys.init_of_bound None sys TransSys.init_base)
+    pp_print_term (TransSys.trans_of_bound None sys TransSys.trans_base)
     pp_print_subsystems sys
     pp_print_props sys
 
@@ -768,87 +770,6 @@ let dump_native sys =
   in
   dump_native_to sys filename
 
-  
-(* ************************************************************ *)
-(* Counterexample output in plain text                          *)
-(* ************************************************************ *)
-
-
-let print_term_or_lambda fmt = function
-  | Model.Term t -> Term.pp_print_term fmt t
-  | Model.Lambda l -> Term.pp_print_lambda fmt l
-
-(* Return width of widest identifier and widest value *)
-let rec widths_of_model max_ident_width max_val_width = function 
-  
-  | [] -> (max_ident_width, max_val_width)
-
-  | (state_var, values) :: tl -> 
-
-    (* Maximal print width of state variable *)
-    let max_ident_width' = 
-      max
-        max_ident_width
-        (String.length 
-           (string_of_t StateVar.pp_print_state_var state_var))
-    in
-    
-    (* Maximal print width of values *)
-    let max_val_width' =
-      List.fold_left 
-        (fun m v -> 
-           max
-             m
-             (String.length
-                (string_of_t print_term_or_lambda v)))
-        max_val_width
-        values
-    in
-
-    (* Return new maximum widths *)
-    widths_of_model max_ident_width' max_val_width' tl
-
-(* Pretty-print a value in a model *)
-let pp_print_value_pt val_width ppf value = 
-
-  Format.fprintf
-    ppf
-    "%-*s"
-    val_width
-    (string_of_t print_term_or_lambda value)
-
-(* Pretty-print a state variable and its values *)
-let pp_print_state_var_pt state_var_width val_width ppf (state_var, values) =
-
-  Format.fprintf 
-    ppf
-    "@[<h>%-*s: %a@]"
-    state_var_width
-    (string_of_t StateVar.pp_print_state_var state_var)
-    (pp_print_list
-       (pp_print_value_pt val_width)
-       " ")
-    values
-
-(* Pretty-print a model without the values for the Skolem variables. Because
-   they are not original state variables, their values are generally not
-   useful. *)
-let pp_print_path_pt ppf model = 
-  let state_var_width, val_width = widths_of_model 0 0 model in
-
-  Format.fprintf
-    ppf
-    "@[<v>%a@]"
-    (pp_print_list
-       (pp_print_state_var_pt state_var_width val_width)
-       "@,")
-    model
-       
-(* ************************************************************ *)
-(* Counterexample output in XML                                 *)
-(* ************************************************************ *)
-
-let pp_print_path_xml ppf model = () (* TODO *)
 
 (* 
    Local Variables:

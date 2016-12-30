@@ -1,0 +1,25 @@
+node prop (x:int) returns (out:bool)
+var i:bool;
+let
+  i = true -> pre (i);
+  out = test1(x);
+  --%PROPERTY out;
+tel
+  
+node test1 (x :int) returns (y:bool)
+var l:int;
+let
+ automaton parity
+ state Even :
+ unless if x mod 2 = 1 resume Odd end;
+ let
+   l = x -> pre (l div 2);
+ tel
+ state Odd  :
+ unless if x mod 2 = 0 restart Even
+ let
+  l = x -> pre (3*l + 1);
+ tel
+ returns l;
+ y = (pre l >= 0 => x >= 0 => l >= 0);
+tel

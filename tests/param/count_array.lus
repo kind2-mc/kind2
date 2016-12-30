@@ -1,0 +1,24 @@
+node count( const n : int ; B : bool^n ) returns ( C : int ) ;
+  var A : int^n ;
+  anm1 :  int;
+
+let
+  A[i] = if i = 0 then (if B[i] then 1 else 0)
+          else (A[i-1] + (if B[i] then 1 else 0));
+  anm1 = A[n-1];
+  C = anm1 ;
+
+  --%PROPERTY n > 0 => (C >= 0 and C <= n) ;
+tel
+
+
+node atmone( const n: int; ) returns ( ok : bool ) ;
+  var B : bool^4 ;
+let
+  assert (n > 2);
+  B[i] = if i = 2 then true else true;
+  -- B = [false, true, true, false];
+  ok = count(4, B) <= 1;
+
+  --%PROPERTY ok;
+tel

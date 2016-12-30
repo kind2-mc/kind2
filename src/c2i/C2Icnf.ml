@@ -57,25 +57,6 @@ let eval sys model bump = (fun term ->
 let pref = "C2I(cnf) "
 
 
-(** First solver, to check (1). *)
-let solver_ref_1 = ref None
-(** Second solver, to check (2). *)
-let solver_ref_2 = ref None
-(** Third solver, to check (3). *)
-let solver_ref_3 = ref None
-
-(** Deletes any live solver reference and assigns it [None]. *)
-let kill_solvers () =
-  [ solver_ref_1 ; solver_ref_2 ; solver_ref_3 ]
-  |> List.iter (fun s_ref ->
-   match !s_ref with
-    | None -> ()
-    | Some s ->
-       Solver.delete_instance s ;
-       s_ref := None
-  )
-
-
 (** Output statistics. *)
 let print_stats () = Event.stat [
   Stat.misc_stats_title, Stat.misc_stats ;
@@ -90,10 +71,7 @@ let stop () = Stat.c2i_stop_timers ()
 let on_exit _ =
   stop () ;
   (** Outputing stats. *)
-  print_stats () ;
-  (** Deleting solvers. *)
-  kill_solvers () ;
-  ()
+  print_stats ()
 
 (** Context maintained by the C2I CNF version. *)
 type contex = {
@@ -113,23 +91,21 @@ type contex = {
 
 (** Creates a solver. If [init], then variables are be declared at -1 and 0
     and init are asserted at 0. Otherwise, variables are declared at -1, 0 and
-    1, and a transition between 0 and 1 is asserted.
-    Also, updates [solver_ref] to be [Some] of the new solver. *)
-let mk_solver sys init solver_ref =
+    1, and a transition between 0 and 1 is asserted. *)
+let mk_solver sys init =
   let solver = Solver.create_instance
     ~produce_assignments:true
     (Sys.get_logic sys)
     (Flags.Smt.solver ())
   in
 
-  (** Sanity check that the solver referenced is not live. *)
-  assert (!solver_ref = None) ;
-  solver_ref := Some(solver) ;
-
   (** Variable declaration upper bound, predicate to assert. *)
-  let var_ub, pred = if init
-    then Numeral.zero, Sys.init_of_bound  sys Numeral.zero
-    else Numeral.one,  Sys.trans_of_bound sys Numeral.one
+  let var_ub, pred =
+    if init
+    then Numeral.zero,
+         Sys.init_of_bound (Some (Solver.declare_fun solver)) sys Numeral.zero
+    else Numeral.one,
+         Sys.trans_of_bound (Some (Solver.declare_fun solver)) sys Numeral.one
   in
 
   (* Defining and declaring everything. *)
@@ -138,13 +114,15 @@ let mk_solver sys init solver_ref =
     (Solver.define_fun solver)
     (Solver.declare_fun solver)
     (Solver.declare_sort solver)
-    Numeral.(~- one) var_ub ;
+    Numeral.zero var_ub ;
 
   (* Asserting predicate. *)
   Solver.assert_term solver pred ;
 
   (* Asserting invariants at 0. *)
-  Sys.invars_of_bound sys Numeral.zero |> Term.mk_and
+  Sys.invars_of_bound
+    ~one_state_only:true sys Numeral.zero
+  |> Term.mk_and
   |> Solver.assert_term solver ;
 
   if not init then
@@ -157,14 +135,12 @@ let mk_solver sys init solver_ref =
 (** Creates the three solvers used by C2I. Initializes them and updates the
     solver references (deletes previous solvers). *)
 let mk_solvers sys =
-  (** Delete previous solvers. *)
-  kill_solvers () ;
 
   (** Creating solvers. *)
   let s1, s2, s3 =
-    mk_solver sys true  solver_ref_1,
-    mk_solver sys false solver_ref_2,
-    mk_solver sys false solver_ref_3
+    mk_solver sys true,
+    mk_solver sys false,
+    mk_solver sys false
   in
 
   s1, s2, s3
@@ -179,21 +155,6 @@ let reset_solvers_of t =
     { t with solver1 ; solver2 ; solver3 }
   ) else t
 
-(** Asserts new invariants in the solvers of a context. *)
-let assert_invariants { solver1 ; solver2 ; solver3 } invs =
-  let invs = invs |> Term.mk_and in
-  let solvers = [ solver1 ; solver2 ; solver3 ] in
-  let invs_0 = Term.bump_state Numeral.zero invs in
-  let invs_1 = Term.bump_state Numeral.one invs in
-  (* Asserting invariants at 0 in all solvers. *)
-  solvers |> List.iter (fun s ->
-    Solver.assert_term s invs_0
-  ) ;
-  (* Asserting invariants at 1 in solvers 2 and 3. *)
-  solvers |> List.tl |> List.iter (fun s ->
-    Solver.assert_term s invs_1
-  )
-
 
 
 (** |===| Context-related stuff. *)
@@ -201,11 +162,6 @@ let assert_invariants { solver1 ; solver2 ; solver3 } invs =
 
 (** Creates a context. *)
 let mk_context sys props =
-  ( match !solver_ref_1, !solver_ref_2, !solver_ref_3 with
-    | None, None, None -> ()
-    | _ ->
-      kill_solvers () ;
-      failwith "solvers already running" ) ;
 
   (** Extracting property terms. *)
   let props =

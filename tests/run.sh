@@ -128,20 +128,20 @@ function run_in {
   shift
   kind2_cmd="$@"
 
-  # Success
-  find_cmd=`find_tests "$work_dir" "$success_dir"`
-  file_count=`eval $find_cmd | wc -l | tr -d ' '`
-  echo "| Running \"success\" ($file_count files)"
-  for file in `eval $find_cmd`; do
-    run_one "$file" "$success_code" "$kind2_cmd"
-  done
-
   # Falsifiable
   find_cmd=`find_tests $work_dir $falsifiable_dir`
   file_count=`eval $find_cmd | wc -l | tr -d ' '`
   echo "| Running \"falsifiable\" ($file_count files)"
   for file in `eval $find_cmd`; do
     run_one "$file" "$falsifiable_code" "$kind2_cmd"
+  done
+
+  # Success
+  find_cmd=`find_tests "$work_dir" "$success_dir"`
+  file_count=`eval $find_cmd | wc -l | tr -d ' '`
+  echo "| Running \"success\" ($file_count files)"
+  for file in `eval $find_cmd`; do
+    run_one "$file" "$success_code" "$kind2_cmd"
   done
 
   # Error

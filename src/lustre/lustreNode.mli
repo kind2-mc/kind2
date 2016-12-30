@@ -49,6 +49,11 @@ open Lib
 
 (** {1 Types} *)
 
+(** Call condition: activate or restart *)
+type call_cond =
+  | CActivate of StateVar.t
+  | CRestart of StateVar.t
+
 (** A call to a node 
 
     Calls are uniquely identified by the position, no two calls may
@@ -62,8 +67,8 @@ type node_call = {
   call_node_name : LustreIdent.t;
   (** Identifier of the called node *)
   
-  call_clock : StateVar.t option;
-  (** Boolean activation condition if any *)
+  call_cond : call_cond list;
+  (** Boolean activation and/or restart conditions if any *)
 
   call_inputs : StateVar.t LustreIndex.t;
   (** Variables for actual input parameters 
@@ -97,54 +102,37 @@ type node_call = {
 }
 
 
-(** A call of a function *)
-type function_call = {
-
-  (** Position of function call in input file *)
-  call_pos : position;
-
-  (** Name of called function *)
-  call_function_name : LustreIdent.t;
-  
-  (** Expressions for input parameters *)
-  call_inputs : LustreExpr.t LustreIndex.t;
-
-  (** Variables capturing the outputs *)
-  call_outputs : StateVar.t LustreIndex.t;
-
-}
-
-
 (** Source of a state variable *)
 type state_var_source =
 | Input   (** Declared input variable *)
 | Output  (** Declared output variable *)
 | Local   (** Declared local variable *)
+| KLocal  (** Kind 2 invisible local variable *)
+| Call    (** Tied to a node call. *)
 | Ghost   (** Declared ghost variable *)
 | Oracle  (** Generated non-deterministic input *)
+| Alias of
+  StateVar.t * state_var_source option (** Alias for another state variable. *)
 
 
 (** A contract. *)
 type contract = LustreContract.t
 
 
-(** Type of index in an equation for an array *)
-type 'a bound_or_fixed = 
-| Bound of 'a  (** Equation is for each value of the index variable
-                   between zero and the upper bound *)
-| Fixed of 'a  (** Fixed value for index variable *)
+(** Type of left hand side of equations. 
 
+    An equation defines defines the state variable [state_var], and a list
+    [bounds] of indexes.
 
-(** An equation is a triple [(state_var, bounds, expr)] of the
-    expression [expr] that defines the state variable [state_var],
-    and a list [bounds] of indexes. 
-    
     An array can be defined either only at a given index, or at all
     indexes, when the expression on the right-hand side is interpreted
     as a function of the running variable of the index.  *)
-type equation = (
-  StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t
-)
+type equation_lhs = StateVar.t * LustreExpr.expr LustreExpr.bound_or_fixed list
+
+
+(** An equation is a tuple [(eqlhs, expr)] that defines a possibly indexed
+    state variable as an expression. *)
+type equation = equation_lhs * LustreExpr.t
 
 
 (** A Lustre node
@@ -161,6 +149,9 @@ type t = {
 
   name : LustreIdent.t;
   (** Name of the node *)
+
+  is_extern : bool;
+  (** Is the node extern? *)
 
   instance : StateVar.t;
   (** Distinguished constant state variable uniquely identifying the
@@ -204,9 +195,6 @@ type t = {
   calls : node_call list;
   (** Node calls inside the node *)
 
-  function_calls : function_call list;
-  (** Function calls in the node *)
-
   asserts : LustreExpr.t list;
   (** Assertions of node *)
 
@@ -218,6 +206,9 @@ type t = {
 
   is_main : bool;
   (** Flag node as the top node *)
+
+  is_function : bool;
+  (** Node is actually a function *)
 
   state_var_source_map : state_var_source StateVar.StateVarMap.t;
   (** Map from a state variable to its source 
@@ -231,6 +222,9 @@ type t = {
 
   state_var_expr_map : LustreExpr.t StateVar.StateVarHashtbl.t;
 
+  silent_contracts : string list ;
+  (** Contracts that were silently loaded. *)
+
 }
 
 
@@ -238,10 +232,10 @@ type t = {
 type state_var_instance = position * LustreIdent.t * StateVar.t
 
 
-(** Return a node of the given name without inputs, outputs, oracles,
-    equations, etc. Create a state variable for the {!t.instance} and
+(** Return a node of the given name and is extern flag without inputs, outputs,
+    oracles, equations, etc. Create a state variable for the {!t.instance} and
     {!t.init_flag} fields, and set {!t.is_main} to false. *)
-val empty_node : LustreIdent.t -> t
+val empty_node : LustreIdent.t -> bool -> t
 
 (** {1 Pretty-printers} *)
 
@@ -249,8 +243,7 @@ val empty_node : LustreIdent.t -> t
 
     If the flag in the first argument is [true], print identifiers in
     Lustre syntax. *)
-val pp_print_node_equation : bool -> Format.formatter ->
-  StateVar.t * LustreExpr.expr bound_or_fixed list * LustreExpr.t -> unit
+val pp_print_node_equation : bool -> Format.formatter -> equation -> unit
 
 (** Pretty-print a node call in Lustre format 
 
@@ -294,10 +287,6 @@ val ident_of_top : t list -> LustreIdent.t
     contract *)
 val has_contract : t -> bool
 
-(** Return false if the body of the node is empty, that is, all
-    equations are ghost and there are no assertions *)
-val has_impl : t -> bool
-
 (** Return a tree-like subsystem hierarchy from a flat list of nodes,
     where the top node is at the head of the list. *)
 val subsystem_of_nodes : t list -> t SubSystem.t
@@ -321,11 +310,11 @@ val ordered_equations_of_node :
 (** Returns the equation for a state variable if any. *)
 val equation_of_svar : t -> StateVar.t -> equation option
 
+(** Returns the equation for a state variable if any. *)
+val source_of_svar : t -> StateVar.t -> state_var_source option
+
 (** Returns the node call the svar is (one of) the output(s) of, if any. *)
 val node_call_of_svar : t -> StateVar.t -> node_call option
-
-(** Returns the function call the svar is (one of) the output(s) of, if any. *)
-val function_call_of_svar : t -> StateVar.t -> function_call option
 
 (** Return the scope of the node *)
 val scope_of_node : t -> Scope.t
@@ -334,30 +323,29 @@ val scope_of_node : t -> Scope.t
 
 (** Fold bottom-up over node calls together with the transition system 
 
-    [fold_node_calls_with_trans_sys l f n t] evaluates [f m s i a] for
-    each node call in the node [n], including [n] itself. The list of
-    nodes [l] must at least contain all sub-nodes of [n], and [n]
-    itself, the transition system [t] must at least contain subsystem
-    instances for all node calls. Both [l] and [t] may contain more
-    nodes and subsystems, respectively, only the node calls in [n] are
-    relevant.
+    [fold_node_calls_with_trans_sys l f n t] evaluates [f m s i a] for each
+    node call in the node [n], including [n] itself. The list of nodes [l] must
+    at least contain all sub-nodes of [n], and [n] itself, the transition
+    system [t] must at least contain subsystem instances for all node
+    calls. Both [l] and [t] may contain more nodes and subsystems,
+    respectively, only the node calls in [n] are relevant.
 
-    The function [f] is evaluated with the node [m], its transition
-    system [s], and the reverse sequence of instantiations [i] that
-    reach the top system [t]. The last parameter [a] is the list of
-    evaluations of [f] on the called nodes and subsystems of [s]. The
-    sequence of instantiations [i] contains at its head a system that
-    has [s] as a direct subsystem, together with the instance
-    parameters. For the top system [i] is the empty list.
+    The function [f] is evaluated with the node [m], its transition system [s],
+    and the reverse sequence of instantiations [i] that reach the top system
+    [t]. The last parameter [a] is the list of evaluations of [f] on the called
+    nodes and subsystems of [s]. The sequence of instantiations [i] contains at
+    its head a system that has [s] as a direct subsystem, together with the
+    instance parameters. For the top system [i] is the empty list. Each element
+    of [i] also contains the call activation conditions that effectively sample
+    the node.
 
-    The systems are presented in topological order such that each
-    system is presented to [f] after all its subsystem instances have
-    been presented.
+    The systems are presented in topological order such that each system is
+    presented to [f] after all its subsystem instances have been presented.
 *)
 val fold_node_calls_with_trans_sys :
   t list -> (
     t -> TransSys.t ->
-    (TransSys.t * TransSys.instance) list -> 'a list -> 'a
+    (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a
   ) -> t -> TransSys.t -> 'a
 
 (** {2 Sources} *)
@@ -382,8 +370,17 @@ val pp_print_state_var_source : Format.formatter -> state_var_source -> unit
 (** Set source of state variable *)
 val set_state_var_source : t -> StateVar.t -> state_var_source -> t
 
+(** Set source of state variable if not already defined. *)
+val set_state_var_source_if_undef : t -> StateVar.t -> state_var_source -> t
+
 (** Get source of state variable *)
 val get_state_var_source : t -> StateVar.t -> state_var_source
+
+(** Sets the first svar as alias for the second svar. *)
+val set_state_var_alias : t -> StateVar.t -> StateVar.t -> t
+
+(** Register state var as tied to a node call if not already registered. *)
+val set_state_var_node_call : t -> StateVar.t -> t
 
 (** State variable is identical to a state variable in a node instance *)
 val set_state_var_instance :
@@ -406,6 +403,17 @@ val get_state_var_instances : StateVar.t -> state_var_instance list
     Return [true] if the source of the state variable is either
     [Input], [Output], or [Local], and [false] otherwise. *)
 val state_var_is_visible : t -> StateVar.t -> bool
+
+
+(** Return the automaton to which the state variable belongs if any *)
+val is_automaton_state_var : StateVar.t -> (string * string) option
+
+(** Return true if the node should be visible to the user,
+    false if it was created internally. *)
+val node_is_visible : t -> bool
+
+(** Return the state that is handled by the node if any. *)
+val node_is_state_handler : t -> string option
 
 (** Return true if the state variable is an input *)
 val state_var_is_input : t -> StateVar.t -> bool

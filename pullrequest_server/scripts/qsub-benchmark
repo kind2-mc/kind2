@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# A script wrapping a call to qsub to submit an array job
+#
+# Author: Christoph Sticksel (christoph-sticksel@uiowa.edu)
+
+
+# Job script to execute
+RUN_BENCHMARK=~/bin/run-benchmark.sh
+
+# Exit code in case of bad arguments 
+E_BADARGS=85
+E_NOFILE=86
+
+# Check that there are at least five arguments
+if [ $# -lt 6 ] ; then
+    echo "Usage: `basename $0` JOBNAME QUEUE CORES JOBFILE TIMEOUT COMMAND
+Run a command on a set of benchmarks.
+
+The job appears as JOBNAME and is submitted to QUEUE, requesting CORES
+number of cores. Each time COMMAND is run one line in JOBFILE is
+appended to its arguments. Each job gets a maximum of TIMEOUT
+wallclock time, then it is killed. Specify TIMEOUT with hours, minutes
+and seconds as h:m:s.
+
+The output of the jobs appears in the current working directory.
+
+Hint: to configure an environment for a specific command, create and load 
+a module for it. Check \"module avail\" and do \"module load TPTP-v5.4.0\"."
+    exit $E_BADARGS
+fi
+
+# Get arguments 
+JOBNAME=$1
+shift
+QUEUE=$1
+shift
+CORES=$1
+shift
+JOBFILE=$1
+shift
+TIMEOUT=$1
+shift
+COMMAND=$*
+
+# Check if jobfile exists
+if [ ! -x "$RUN_BENCHMARK" ]
+then
+    echo "Job script $RUN_BENCHMARK does not exist or is not executable."
+    exit $E_NOFILE
+fi
+
+
+# Check if jobfile exists
+if [ -f "$JOBFILE" ]
+then
+
+    # Count number of lines
+    NUMJOBS=`wc -l < $JOBFILE`
+else
+    echo "Jobfile $JOBFILE does not exist."
+    exit $E_NOFILE
+fi
+
+
+echo "qsub -cwd -N $JOBNAME -q $QUEUE -pe smp $CORES -t 1-$NUMJOBS -l h_rt=$TIMEOUT $RUN_BENCHMARK -- $JOBFILE $COMMAND"
+
+qsub -cwd -N $JOBNAME -q $QUEUE -pe smp $CORES -t 1-$NUMJOBS -l h_rt=$((TIMEOUT+5)) $RUN_BENCHMARK $JOBFILE $TIMEOUT $COMMAND

@@ -573,7 +573,7 @@ let order_equations init_or_expr inputs equations =
   let is_defined sorted svar =
     List.exists (fun (_, svar') -> svar == svar') inputs
     || List.exists (function
-      | Eq (svar', _, _) -> svar == svar'
+      | Eq ((svar', _), _) -> svar == svar'
       | Call (_, { N.call_outputs }) ->
         I.bindings call_outputs |> List.exists (
           fun (_, svar') -> svar == svar'
@@ -583,7 +583,7 @@ let order_equations init_or_expr inputs equations =
   (* Sorts equations. *)
   let rec loop count later to_do sorted = match to_do with
     (* Equation. *)
-    | (Eq (_, _, rhs)) as eq :: to_do ->
+    | (Eq ((_, _), rhs)) as eq :: to_do ->
       let later, sorted =
         if
           init_or_expr rhs
@@ -827,7 +827,7 @@ let oracle_doc_of_struct is_top fmt (
             /// %a@.
           "
           ( pp_print_list
-            ( fun fmt { C.pos ; C.num ; C.svar } ->
+            ( fun fmt ({ C.pos ; C.num ; C.svar }, _) ->
                 Format.fprintf fmt "| `%s` | %d | %a |"
                   (SVar.name_of_state_var svar)
                   num
@@ -972,7 +972,7 @@ let node_to_rust oracle_info is_top fmt (
     ) ([], 0)
   in
   let equations =
-    equations |> List.fold_left (fun eqs ( (svar, _, _) as eq ) ->
+    equations |> List.fold_left (fun eqs ( ((svar, _), _) as eq ) ->
       (* if SVM.mem svar state_var_source_map
       then (Eq eq) :: eqs else eqs *)
       Eq eq :: eqs
@@ -1165,7 +1165,7 @@ let node_to_rust oracle_info is_top fmt (
     ) inputs
 
     ( pp_print_list (fun fmt -> function
-        | Eq (svar, _, expr) ->
+        | Eq ((svar, _), expr) ->
           expr.E.expr_init
           |> E.base_term_of_expr (Numeral.succ E.base_offset)
           |> Format.fprintf fmt "let %s%s = %a ;"
@@ -1313,7 +1313,7 @@ let node_to_rust oracle_info is_top fmt (
     ) inputs
 
     ( pp_print_list (fun fmt -> function
-        | Eq (svar, _, expr) ->
+        | Eq ((svar, _), expr) ->
           (* Format.printf "eq: %a@.@." pp_print_equation eq ; *)
           expr.E.expr_step
           |> E.cur_term_of_expr (Numeral.succ E.base_offset)
@@ -1469,7 +1469,9 @@ let cp_file src tgt =
       output_string oc line ;
       output_char oc '\n' ;
       loop ()
-    ) with End_of_file -> ()
+    ) with End_of_file ->
+      close_in ic ;
+      close_out oc
   in
   loop ()
 
@@ -1792,7 +1794,6 @@ fn write_footer<W: Write>(w: & mut W) -> IoRes<()> {
 
   (* Copy all input files to the lus directory. *)
   let cp src = fmt_cp_target src lus_path |> cp_file src in
-  Flags.input_file () |> cp ;
   Flags.all_input_files () |> List.iter (
     fun file -> cp file
   )
@@ -1944,7 +1945,7 @@ let oracle_to_rust target find_sub top =
     | Some contract ->
       let outputs, output_svars =
         contract.C.guarantees
-        |> List.fold_left (fun (trie, outs) svar ->
+        |> List.fold_left (fun (trie, outs) (svar, _) ->
           I.add (
             [ I.ListIndex (next_index_of trie) ]
           ) svar.C.svar trie,
@@ -1973,7 +1974,7 @@ let oracle_to_rust target find_sub top =
                 [ I.ListIndex (next_index_of trie) ]
               ) output trie,
               SVS.add output outs,
-              (output, [], expr) :: eqs
+              ((output, []), expr) :: eqs
           ) (trie, outs, eqs)
       ) (outputs, output_svars, []),
       Some (
@@ -2050,7 +2051,7 @@ let oracle_to_rust target find_sub top =
   | Some (_, guarantees, modes) -> (
     Format.asprintf "%a" (Id.pp_print_ident false) top.N.name,
     guarantees |> List.map (
-      fun { C.pos ; C.num } -> pos, num
+      fun ({ C.pos ; C.num }, _) -> pos, num
     ),
     modes |> List.fold_left (
       fun l { C.name ; C.ensures } ->

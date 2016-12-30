@@ -22,6 +22,12 @@ open SolverResponse
 
 exception Unknown
 
+
+module IntMap = Map.Make(
+  struct type t = int let compare = compare end
+)
+
+
 (* Generate next unique identifier *)
 let gentag =
   let r = ref 0 in
@@ -38,27 +44,31 @@ type expr = SMTExpr.t
 
 
 (* Solver instance *)
-type t =
+type t = { 
+  (* Type of SMT solver *)
+  solver_kind : Flags.Smt.solver ;
+  (* Solver instance *)
+  solver_inst : (module SolverSig.Inst) ;
+  (* Hashtable associating generated names to terms *)
+  term_names : (int, expr) Hashtbl.t ;
+  (* Unique identifier for solver instance *)
+  id : int ;
+  mutable next_assumption_id : int ;
+  mutable last_assumptions : Term.t array ;
+}
 
-  { 
-    
-    (* Type of SMT solver *)
-    solver_kind : Flags.Smt.solver;
-    
-    (* Solver instance *)
-    solver_inst : (module SolverSig.Inst);
-    
-    (* Hashtable associating generated names to terms *)
-    term_names : (int, expr) Hashtbl.t;
+(** All solver instances created are stored in this map from solver id to
+solver. The main goal of this is to have all the live solver instances in one
+place so that we can kill everyone easily in case of unexpected shutdown.
 
-    (* Unique identifier for solver instance *)
-    id : int;
-
-    mutable next_assumption_id : int;
-
-    mutable last_assumptions : Term.t array;
-      
-  }
+See [destroy_all]. *)
+let all_solvers = ref IntMap.empty
+(** Registers a solver. *)
+let add_solver ( { id } as solver ) =
+  all_solvers := IntMap.add id solver !all_solvers
+(** Forgets a solver. *)
+let drop_solver { id } =
+  all_solvers := IntMap.remove id !all_solvers
 
 (* Raise an exception on error responses from the SMT solver *)
 let fail_on_smt_error = function       
@@ -127,18 +137,36 @@ let create_instance
   in
 
   (* Return solver instance *)
-  { solver_kind = kind;
-    solver_inst = fomodule;
-    term_names = Hashtbl.create 19;
-    id = id;
-    next_assumption_id = 0;
-    last_assumptions = [| |]; }
+  let solver =
+    { solver_kind = kind;
+      solver_inst = fomodule;
+      term_names = Hashtbl.create 19;
+      id = id;
+      next_assumption_id = 0;
+      last_assumptions = [| |]; }
+  in
 
+  add_solver solver ;
+
+  solver
+
+(* Destroys a solver instance. *)
+let destroy s =
+  let module S = (val s.solver_inst) in
+  S.delete_instance ()
 
 (* Delete a solver instance *)
 let delete_instance s =
-  let module S = (val s.solver_inst) in
-  S.delete_instance ()
+  drop_solver s ;
+  destroy s
+
+(* Destroys all live solvers. *)
+let destroy_all () =
+  !all_solvers
+  |> IntMap.iter (
+    fun _ s -> destroy s
+  ) ;
+  all_solvers := IntMap.empty
 
 
 (* Return the unique identifier of the solver instance *)
@@ -397,6 +425,28 @@ let model_of_smt_values conv_left type_left s smt_values =
   (* Return hash table *)
   model
 
+
+let eval_array_vars v smt_model =
+
+  let uf_sym = Var.unrolled_uf_of_state_var_instance v in
+
+  (* let ty = Var.type_of_var v in *)
+  (* match Type.node_of_type ty with *)
+  (* | Type.Array (te, ti) -> *)
+  (*   let select_s = *)
+  (*     Format.asprintf "|uselect(%a,%a)|" *)
+  (*       Type.pp_print_type ti Type.pp_print_type te in *)
+  (*   let select_uf = UfSymbol.mk_uf_symbol select_s [ty; ti] te in *)
+  (*   let select_lambda = *)
+  (*     match List.assq select_uf smt_model with *)
+  (*     | Model.Lambda l -> l | Model.Term _ -> assert false in *)
+  (*   (match List.assq uf_sym smt_model with *)
+  (*    | Model.Term t -> Model.Lambda (Term.partial_eval_lambda select_lambda [t]) *)
+  (*    | Model.Lambda  _ -> assert false) *)
+
+  (* | _ -> *) List.assq uf_sym smt_model
+
+
 let model_of_smt_model s smt_model vars = 
   let module S = (val s.solver_inst) in
 
@@ -405,16 +455,9 @@ let model_of_smt_model s smt_model vars =
 
   (* Add all variable term pairs to the hash table *)
   List.iter
-    (fun v -> 
-
+    (fun v ->
        let uf_sym = Var.unrolled_uf_of_state_var_instance v in
-
-       try
-
-         let t_or_l = List.assq uf_sym smt_model in
-
-         Var.VarHashtbl.add model v t_or_l 
-
+       try Var.VarHashtbl.add model v (List.assq uf_sym smt_model)
        with Not_found -> ()
 
 (*
@@ -428,7 +471,8 @@ let model_of_smt_model s smt_model vars =
   model
   
 
-let partial_model_of_smt_model s smt_model = 
+let partial_model_of_smt_model s smt_model =
+  
   let module S = (val s.solver_inst) in
 
   (* Create hash table with size matching the number of values *)
@@ -437,7 +481,7 @@ let partial_model_of_smt_model s smt_model =
   (* Add all variable term pairs to the hash table *)
   List.iter
     (fun (uf_sym, t_or_l) -> 
-
+       
        try 
 
          let var = Var.state_var_instance_of_uf_symbol uf_sym in
@@ -469,26 +513,43 @@ let get_term_values s terms =
    instead of get-value *)
 exception Var_is_array
 
+
+(* range as list of integers *)
+let rec range (l, u) =
+  let rec aux acc u =
+    if u < l then acc
+    else
+      aux (u :: acc) (u - 1) in
+  aux [] u
+
+
+(* Cross product between lists of elements *)
+
+let cross_2 l1 l2 =
+  List.fold_left (fun acc i1 ->
+      List.fold_left (fun acc i2 -> (i1 :: i2) :: acc) acc l2
+    ) [] l1
+    
+let cross ll = List.fold_left (fun acc l -> cross_2 l acc) [[]] ll
+
+
 (* Get model of the current context *)
-let get_var_values s vars =
+let get_var_values s state_var_indexes vars =
   let module S = (val s.solver_inst) in
 
-  match 
+  (* separate array variables *)
+  let sexpr_vars, array_vars =
+    List.fold_left (fun (sexpr_vars, array_vars) v ->
+        if Var.type_of_var v |> Type.is_array then
+          sexpr_vars, v :: array_vars
+        else
+          (S.Conv.smtexpr_of_var v []) :: sexpr_vars, array_vars
+      ) ([], []) vars
+  in
 
-    (* Get values of SMT expressions in current context *)
-    prof_get_value s
-
-      (* Map variables to terms and raise exception if a variable is
-         of array type *)
-      (List.map
-         (fun v -> 
-            if Var.type_of_var v |> Type.is_array then
-              raise Var_is_array
-            else
-              S.Conv.smtexpr_of_var v [])
-         vars)
-
-  with 
+  (* Get values of SMT expressions in current context *)
+  let model =
+    match prof_get_value s sexpr_vars with 
 
     | `Error e -> 
       raise 
@@ -504,31 +565,76 @@ let get_var_values s vars =
 
            (* We are sure that there are no array typed variables *)
            assert (Term.is_free_var t); 
-           (Term.free_var_of_term t))
+           (Term.free_var_of_term t)
+        )
+        Var.type_of_var s v
+  in
 
-        Var.type_of_var 
-        s 
-        v
+  (* Get model for arrays *)
+  (* We obtain the model by first evaluating the bound of the array in the
+     current model when it is not fixed. Then we evaluate A[0], ..., A[n] in the
+     solver and return a map that represent this as the model *)
+  List.iter (fun v ->
+      let ty = Var.type_of_var v in 
+      assert (Type.is_array ty);
+      let offset =
+        if Var.is_state_var_instance v then Var.offset_of_state_var_instance v
+        else Numeral.zero in
+      let indexes = StateVar.StateVarHashtbl.find state_var_indexes
+          (Var.state_var_of_state_var_instance v) in
 
-    | exception Var_is_array -> 
-
-      (
-        match 
-
-          (* Get model in current context *)
-          prof_get_model s ()
-
-        with 
-
-          | `Error e -> 
-            raise 
-              (Failure ("SMT solver failed: " ^ e))
-              
-          | `Model m ->
-
-            model_of_smt_model s m vars
-
-      )
+      let bnds = try
+          List.map (function
+          | LustreExpr.Unbound _ ->
+            raise Exit
+            (* assert false *) (* no models for unbounded arrays *)
+          | LustreExpr.Fixed eu
+          | LustreExpr.Bound eu ->
+            if LustreExpr.is_numeral eu then
+              0, LustreExpr.numeral_of_expr eu |> Numeral.to_int |> pred
+            else
+              (* evaluate value of bound in current model *)
+              (* assert (StateVar.is_const svub); *)
+              let ub = LustreExpr.unsafe_term_of_expr eu
+                       |> Term.bump_state offset
+                       |> Eval.eval_term [] model in
+              (match ub with
+               | Eval.ValNum nu -> 0, Numeral.to_int nu |> pred
+               | _ -> assert false)
+            ) indexes
+        with Exit -> []
+      in
+      
+      let args_list = cross (List.map range bnds) in
+      let vt = Term.mk_var v in
+      let sexprs =
+        List.map (fun args ->
+            List.fold_left Term.mk_select
+              vt (List.rev_map Term.mk_num_of_int args)
+            |> Term.convert_select
+            |> S.Conv.smtexpr_of_term
+          ) args_list in
+      
+      let values =
+        if sexprs = [] then [] (* when the size of the array is 0 in the model *)
+        else match prof_get_value s sexprs with
+          | `Values v -> v
+          | `Error e -> raise (Failure ("SMT solver failed: " ^ e))
+      in
+      let m =
+        List.fold_left (fun acc (t, e) ->
+            let t = S.Conv.term_of_smtexpr t in
+            assert (Term.is_select t);
+            let v', args_t = Term.indexes_and_var_of_select t in
+            assert (Var.equal_vars v v');
+            let args = List.map
+                (fun x -> Numeral.to_int (Term.numeral_of_term x)) args_t in
+            Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
+          ) Model.MIL.empty values in
+      Var.VarHashtbl.add model v (Model.Map m)
+    ) array_vars;
+      
+  model
 
 
 (* Get model of the current context *)

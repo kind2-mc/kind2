@@ -53,15 +53,15 @@ module VarMap : Map.S with type key = t
 
 (** {1 Constructors} *)
 
-(** Return a constant state variable 
+(** Return a constant state variable.
 
     The state variable must be constant. *)
 val mk_const_state_var : StateVar.t -> t
 
-(** Return an instance of a state variable 
+(** Return an instance of a state variable.
 
-    The state variable may also be constant, in which case a variable
-    created by [mk_const_state_var] is returned. *)
+    The state variable may also be constant, in which case a variable created
+    by [mk_const_state_var] is returned. *)
 val mk_state_var_instance : StateVar.t -> Numeral.t -> t
 
 (** Return a free variable *)
@@ -162,6 +162,9 @@ val declare_constant_vars : (UfSymbol.t -> unit) -> t list -> unit
 (** Declares non constant variables as constant ufsymbols using the
     provided function. *)
 val declare_vars : (UfSymbol.t -> unit) -> t list -> unit
+
+(** encode array select operation *)
+val encode_select : t -> UfSymbol.t
 
 
 (* 

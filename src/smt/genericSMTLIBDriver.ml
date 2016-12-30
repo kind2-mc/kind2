@@ -38,6 +38,9 @@ let check_sat_assuming_supported () = failwith "Not implemented"
 (* Headers to send after creating solver instance *)
 let headers () = []
 
+(* top level declaration to add to the solver *)
+let prelude = []
+
 (* Extension for trace file *)
 let trace_extension = "smt2"
 
@@ -82,6 +85,9 @@ type expr_of_string_sexpr_conv =
     (* String constant for define-fun keyword *) 
     s_define_fun : HString.t;
 
+    (* String constant for define-fun keyword *) 
+    s_declare_fun : HString.t;
+
     (* Conversion of an S-expression atom to a term *)
     const_of_atom : (HString.t * Var.t) list -> HString.t -> Term.t;
 
@@ -103,7 +109,7 @@ type expr_of_string_sexpr_conv =
       expr_of_string_sexpr_conv -> 
       (HString.t * Var.t) list -> 
       HStringSExpr.t -> 
-      (HString.t * Model.term_or_lambda)
+      (HString.t * Model.value)
   }
 
 
@@ -365,24 +371,32 @@ let gen_expr_of_string_sexpr'
 
         in
 
-        (* Create an application of the function symbol to the subterms *)
-        let t = 
-          Term.mk_app
-            s
-            (List.map (expr_of_string_sexpr conv bound_vars) tl)
+        (* parse arguments *)
+        let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
+
+        (* Add correct type to select *)
+        let s = match Symbol.node_of_symbol s, args with
+          | `SELECT _, [a; _] ->
+            Symbol.mk_symbol (`SELECT (Term.type_of_term a))
+          | _ -> s
         in
+        
+        (* Create an application of the function symbol to the subterms *)
+        let t = Term.mk_app s args in
 
         (* Convert (= 0 (mod t n)) to (t divisible n) *)
         Term.mod_to_divisible t
+        (* |> Term.reinterpret_select *)
 
       )
 
-           
+
 
 (* Convert a string S-expression to a lambda abstraction 
 
    This function is generic, and also used from {!YicesDriver} *)
-let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
+let gen_expr_or_lambda_of_string_sexpr'
+    ({ s_define_fun; s_declare_fun } as conv) bound_vars = 
 
   function 
 
@@ -391,10 +405,17 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
         [HStringSExpr.Atom s; (* define-fun *)
          HStringSExpr.Atom i; (* identifier *)
          HStringSExpr.List []; (* Parameters *)
-         _; (* Result type *)
+         ty; (* Result type *)
          t (* Expression *)
         ]
       when s == s_define_fun -> 
+
+      (* Register the new symbol with its type if it does not exist *)
+      (try UfSymbol.uf_symbol_of_string (HString.string_of_hstring i)
+       with Not_found ->
+         UfSymbol.mk_uf_symbol
+           (HString.string_of_hstring i) [] (conv.type_of_sexpr ty))
+      |> ignore;
 
       (i, 
        Model.Term
@@ -406,7 +427,7 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
         [HStringSExpr.Atom s; (* define-fun *)
          HStringSExpr.Atom i; (* identifier *)
          HStringSExpr.List v; (* Parameters *)
-         _; (* Result type *)
+         ty; (* Result type *)
          t (* Expression *)
         ]
       when s == s_define_fun -> 
@@ -422,13 +443,48 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
+      (* Register the new symbol with its type if it does not exist *)
+      (try UfSymbol.uf_symbol_of_string (HString.string_of_hstring i)
+       with Not_found ->
+         UfSymbol.mk_uf_symbol
+           (HString.string_of_hstring i)
+           (List.map Var.type_of_var vars)
+           (conv.type_of_sexpr ty))
+      |> ignore;
+
+
       (i,
        Model.Lambda
          (Term.mk_lambda
             vars
             (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)))
 
-    | _ -> invalid_arg "gen_expr_of_lambda_string_sexpr"
+
+    (* delcare-fun f () ty *)
+    | HStringSExpr.List
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom i; (* identifier *)
+         HStringSExpr.List []; (* Parameters *)
+         ty; (* Result type *)
+        ]
+      when s == s_declare_fun ->
+
+      (* Register the new symbol with its type *)
+      UfSymbol.mk_uf_symbol
+        (HString.string_of_hstring i)
+        []
+        (conv.type_of_sexpr ty)
+      |> ignore;
+
+      (* and move on to the next element of the model *)
+      raise Not_found
+      
+
+    (* (unsupported ... *)
+    | _ -> raise Not_found
+      
+
+    (* | _ -> invalid_arg "gen_expr_of_lambda_string_sexpr" *)
 
 
 (* Call function with an empty list of bound variables and no prime symbol *)
@@ -450,18 +506,28 @@ let string_of_logic = TermLib.string_of_logic
 (* Pretty-print a logic identifier *)
 let pp_print_logic = TermLib.pp_print_logic
 
+
 (* Convert type *)
-let interpr_type t = match Type.node_of_type t with
-
+let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ -> Type.mk_int ()
-
   | Type.Bool | Type.Int | Type.Real | Type.Abstr _ -> t
-
-  | _ -> failwith ((Type.string_of_type t)^" not supported")
+  | Type.Array (te, ti) ->
+    let ti', te' = interpr_type ti, interpr_type te in
+    if Type.equal_types ti ti' && Type.equal_types te te' then t
+    else Type.mk_array te' ti'
 
 
 (* Pretty-print a sort *)
-let pp_print_sort ppf t = Type.pp_print_type ppf (interpr_type t)
+let rec pp_print_sort ppf t =
+  let t = interpr_type t in
+  (* Print array types with an abstract sort *)
+  match Type.node_of_type t with
+  | Type.Array (te, ti) ->
+    if Flags.Arrays.smt () then
+      Format.fprintf ppf "(Array %a %a)" pp_print_sort ti pp_print_sort te
+    else
+      Format.fprintf ppf "(FArray %a %a)" pp_print_sort ti pp_print_sort te
+  | _ -> Type.pp_print_type ppf t
 
 (* Return a string representation of a sort *)
 let string_of_sort = string_of_t pp_print_sort
@@ -505,10 +571,12 @@ let smtlib_string_symbol_list =
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvult", Symbol.mk_symbol `BVULT);
 *)
-   ("select", Symbol.mk_symbol `SELECT);
-(*
+   ("select", Symbol.mk_symbol
+      (`SELECT (Type.mk_array Type.t_int Type.t_int))); (* placeholder *)
+   (* uninterpreted select *)
+   (* ("uselect", Symbol.mk_symbol (`SELECT Type.t_int)); *)
+
    ("store", Symbol.mk_symbol `STORE)
-*)
 
   ]
 
@@ -595,11 +663,23 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
 *)
-  | `SELECT -> Format.pp_print_string ppf "select"
-(*
+  | `SELECT ty_array ->
+
+    if Flags.Arrays.smt () then
+      Format.pp_print_string ppf "select"
+        
+    else
+
+      (match Type.node_of_type ty_array with
+       (* | Type.Array (t1, t2) -> *)
+       (*   Format.fprintf ppf "|uselect(%a,%a)|" *)
+       (*     Type.pp_print_type t1 Type.pp_print_type t2 *)
+       | _ -> assert false
+      )
+
   | `STORE -> Format.pp_print_string ppf "store"
-*)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+                                
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ?arity ppf s =
@@ -611,7 +691,7 @@ let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
 
 
 let pp_print_term ppf t =
-  Term.T.pp_print_term_w pp_print_symbol Var.pp_print_var ppf t
+  Term.T.pp_print_term_w pp_print_symbol Var.pp_print_var pp_print_sort ppf t
         
     
 (* Pretty-print an expression *)
@@ -626,32 +706,30 @@ let print_expr = pp_print_expr Format.std_formatter
 let string_of_expr t = string_of_t pp_print_expr t
 
 
+let is_select_hstring hs =
+  let s = HString.string_of_hstring hs in
+  try Scanf.sscanf s "_select%s" (fun _ -> true)
+  with Scanf.Scan_failure _ -> false
+
+
 (* Lookup symbol of a hashconsed string *)
 let symbol_of_smtlib_atom s = 
-
   try 
-
     (* Map hashconsed string to symbol *)
     HString.HStringHashtbl.find hstring_symbol_table s
-
   (* String is not one of our symbols *)
   with Not_found -> 
-
     (* Check if string is a reserved word *)
     if List.memq s smtlib_reserved_word_list then 
-
       (* Cannot parse S-expression *)
       raise 
         (Invalid_argument 
            (Format.sprintf 
               "Unsupported reserved word '%s' in S-expression"
               (HString.string_of_hstring s)))
-
     else
-
       (* String is not a symbol *)
       raise Not_found 
-
 
 
 (* Convert a string to a postive numeral or decimal
@@ -661,66 +739,44 @@ let symbol_of_smtlib_atom s =
    function symbols and variables. *)
 
 let const_of_smtlib_atom b t = 
-
   let res = 
-
     (* Empty strings are invalid *)
     if HString.length t = 0 then
-
       (* String is empty *)
       raise (Invalid_argument "num_expr_of_smtlib_token")
-
     else
-
       try
-
         (* Return numeral of string *)
         Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
-
       (* String is not a decimal *)
       with Invalid_argument _ -> 
-
         try 
-
           (* Return decimal of string *)
           Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
-
         with Invalid_argument _ -> 
-
           try 
-
             (* Return decimal of string *)
             Term.mk_dec (Decimal.of_num (Num.num_of_string
                                            (HString.string_of_hstring t)))
-
           with
             Invalid_argument _ | Failure _ -> 
 (*
             try 
-
               (* Return bitvector of string *)
               Term.mk_bv (bitvector_of_hstring t)
-
             with Invalid_argument _ -> 
 *)
               try 
-
                 (* Return symbol of string *)
                 Term.mk_bool (bool_of_hstring t)
-
               (* String is not an interpreted symbol *)
               with Invalid_argument _ -> 
-
                 try 
-
                   (* Return bound symbol *)
                   Term.mk_var (List.assq t b)
-
                 (* String is not a bound variable *)
                 with Not_found -> 
-
                   try 
-
                     (* Name of state variable *)
                     let state_var_name = HString.string_of_hstring t in
 
@@ -745,51 +801,46 @@ let const_of_smtlib_atom b t =
                       (UfSymbol.uf_symbol_of_string
                          (HString.string_of_hstring t))
                       []
-
-                  with Not_found -> 
-
+                with Not_found -> 
                     Debug.smtexpr
                         "const_of_smtlib_token %s failed" 
                         (HString.string_of_hstring t);
 
                     (* Cannot convert to an expression *)
+                    (* raise Not_found *)
                     failwith "Invalid constant symbol in S-expression"
-
   in
 
   Debug.smtexpr 
     "const_of_smtlib_token %s is %a" 
     (HString.string_of_hstring t)
     pp_print_term res;
-
   res
+
 
 (* Static hashconsed strings *)
 let s_int = HString.mk_hstring "Int" 
 let s_real = HString.mk_hstring "Real" 
 let s_bool = HString.mk_hstring "Bool" 
+let s_array () =
+  if Flags.Arrays.smt () then HString.mk_hstring "Array"
+  else HString.mk_hstring "FArray"
 
 
 (* Convert an S-expression to a sort *)
-let type_of_smtlib_sexpr = 
-
-  function 
-    
-    | HStringSExpr.Atom s when s == s_int -> Type.t_int
-                                               
-    | HStringSExpr.Atom s when s == s_real -> Type.t_real
-                                                
-    | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
-                                                
-    | HStringSExpr.Atom _
-    | HStringSExpr.List _ as s -> 
-      
-      raise
-        (Invalid_argument 
-           (Format.asprintf 
-              "Sort %a not supported" 
-              HStringSExpr.pp_print_sexpr s))
-
+let rec type_of_smtlib_sexpr = function 
+  | HStringSExpr.Atom s when s == s_int -> Type.t_int
+  | HStringSExpr.Atom s when s == s_real -> Type.t_real
+  | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
+  | HStringSExpr.List [HStringSExpr.Atom s; si; se] when s == s_array () ->
+    let ti, te = type_of_smtlib_sexpr si, type_of_smtlib_sexpr se in
+    Type.mk_array te ti
+  | HStringSExpr.Atom _ | HStringSExpr.List _ as s -> 
+    raise
+      (Invalid_argument 
+         (Format.asprintf 
+            "Sort %a not supported" 
+            HStringSExpr.pp_print_sexpr s))
 
 
 (* Conversions for SMTLIB *)
@@ -801,6 +852,7 @@ let smtlib_string_sexpr_conv =
     s_div = HString.mk_hstring "/";
     s_minus = HString.mk_hstring "-";
     s_define_fun = HString.mk_hstring "define-fun";
+    s_declare_fun = HString.mk_hstring "declare-fun";
     prime_symbol = None;
     const_of_atom = const_of_smtlib_atom;
     symbol_of_atom = symbol_of_smtlib_atom;
@@ -816,3 +868,5 @@ let expr_of_string_sexpr =
 (* Convert an S-expression in SMTLIB format to a lambda abstraction *)
 let expr_or_lambda_of_string_sexpr = 
   gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
+
+let s_define_fun = smtlib_string_sexpr_conv.s_define_fun

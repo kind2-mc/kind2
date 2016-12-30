@@ -28,7 +28,7 @@ type t
 
 
 (** Node or function not found, possible forward reference *)
-exception Node_or_function_not_found of LustreIdent.t * position
+exception Node_not_found of LustreIdent.t * position
 
 exception Type_not_found of LustreIdent.t * position
 
@@ -72,12 +72,20 @@ val pop_contract_scope : t -> t
 (** The contract scope of a context. *)
 val contract_scope_of : t -> string list
 
+val scope_of_context : t -> string list
+
 (** Return a copy of the context with an empty node of the given name
-    in the context *)
-val create_node : t -> LustreIdent.t -> t 
+    and is extern flag in the context *)
+val create_node : t -> LustreIdent.t -> bool -> t
 
 (** Returns the name of the current node, if any. *)
 val current_node_name : t -> LustreIdent.t option
+
+(** Maps something to the current node. *)
+val current_node_map : t -> (LustreNode.t -> LustreNode.t) -> t
+
+(** Returns the calls made by the current node, if any. *)
+val current_node_calls : t -> LustreNode.node_call list
 
 (** Returns the modes of the current node. *)
 val current_node_modes : t -> LustreContract.mode list option option
@@ -86,19 +94,26 @@ val current_node_modes : t -> LustreContract.mode list option option
     in the context *)
 val create_function : t -> LustreIdent.t -> t 
 
-(** Return a context that is identical to the first context with the
-    node constructed in the second context added *)
+(** Return a context that is identical to the previous context with the
+    node constructed in the current context added *)
 val add_node_to_context : t -> t -> t
-
-(** Return a context that is identical to the first context with the
-    function constructed in the second context added *)
-val add_function_to_context : t -> t -> t
 
 
 (** Resolve a forward reference, fails if a circular dependency is detected. *)
 val solve_fref : t -> LustreAst.declaration -> (
-  LustreDependencies.decl * LustreIdent.t
+  LustreDependencies.decl * LustreIdent.t * Lib.position
 ) -> LustreAst.declaration list -> LustreAst.declaration list
+
+(** Register a free constant, shadows previous declarations *)
+val add_free_constant : t -> LustreIdent.t -> Var.t LustreIndex.t -> unit
+
+(** Return declared free constants *)
+val get_free_constants : t -> (LustreIdent.t * Var.t LustreIndex.t) list
+
+(** Return the free constant corresponding to an identifier if any *)
+val free_constant_expr_of_ident :
+  t -> LustreIdent.t -> LustreExpr.t LustreIndex.t
+
 
 (** Add a binding of an identifier to an expression to context 
 
@@ -127,8 +142,12 @@ val get_nodes : t -> LustreNode.t list
 (** Return the current node in context. *)
 val get_node : t -> LustreNode.t option
 
-(** Return the functions in the context *)
-val get_functions : t -> LustreFunction.t list
+(** return previous context *)
+val prev : t -> t
+
+  (** Return state vars bounds hash table *)
+val get_state_var_bounds : t ->
+  (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t
 
 (** The contract nodes in the context. *)
 val contract_nodes : t -> LustreAst.contract_node_decl list
@@ -188,10 +207,20 @@ val expr_in_context : t -> LustreIdent.t -> bool
 val type_in_context : t -> LustreIdent.t -> bool
 
 (** Return [true] if the identifier denotes a node in the context *)
-val node_or_function_in_context : t -> LustreIdent.t -> bool
+val node_in_context : t -> LustreIdent.t -> bool
+
+
+val mk_state_var :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?shadow:bool ->
+  t -> Ident.t list -> LustreIdent.t -> LustreIndex.index -> Type.t ->
+  LustreNode.state_var_source option ->
+  StateVar.t * t
 
 (** Create a fresh local state variable in the context. *)
-val mk_fresh_local : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> t -> Type.t -> StateVar.t * t
+val mk_fresh_local :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+  t -> Type.t -> StateVar.t * t
 
 val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
 
@@ -204,39 +233,39 @@ val set_state_var_source : t -> StateVar.t -> LustreNode.state_var_source -> t
     variable was previously created for the same expression but with different
     flags, a new state variable is created. *)
 val mk_local_for_expr :
-  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?is_ghost:bool ->
-  ?original:LustreAst.expr -> Lib.position ->
-  t -> LustreExpr.t -> StateVar.t * t
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+  ?is_ghost:bool -> ?original:LustreAst.expr ->
+  Lib.position -> t -> LustreExpr.t -> LustreNode.equation_lhs * t
 
 (** Create a fresh oracle state variable in the context. *)
-val mk_fresh_oracle :
-  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+val mk_fresh_oracle : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
   t -> Type.t -> StateVar.t * t
 
 (** Create a fresh oracle state variable for the pre-initial value of
     the given state variable in the context, or return a previously
     created oracle for this state variable. *)
-val mk_fresh_oracle_for_state_var : t -> StateVar.t -> StateVar.t * t
+val mk_fresh_oracle_for_state_var :
+    ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
+    t -> StateVar.t -> StateVar.t * t
 
 (** Return the node of the given name from the context*)
 val node_of_name : t -> LustreIdent.t -> LustreNode.t
-
-(** Return the function of the given name from the context *)
-val function_of_name : t -> LustreIdent.t -> LustreFunction.t
 
 (** Return variables capturing outputs of node call if a node call
     with the same input parameters and activation condition is in the
     context.
 
-    [call_outputs_of_node_call c n a i d] compares all node calls in
-    context [c] if the identifier of the node matches [n], the
-    activation condition matches [a], all input variables are idential
-    to [a], and all default values are identical to [d]. It returns
-    [None] if no such call was found, and its output variables
-    otherwise. *)
+    [call_outputs_of_node_call c n ar i d] compares all node calls in context
+    [c] if the identifier of the node matches [n], the activation or restart
+    condition matches [ar] all input variables are idential to [a], and all
+    default values are identical to [d]. It returns [None] if no such call was
+    found, and its output variables otherwise. *)
 val call_outputs_of_node_call :
-  t -> LustreIdent.t -> StateVar.t option -> StateVar.t LustreIndex.t ->
-  LustreExpr.t LustreIndex.t option -> StateVar.t LustreIndex.t option
+  t -> LustreIdent.t -> LustreNode.call_cond list ->
+  StateVar.t LustreIndex.t -> LustreExpr.t LustreIndex.t option ->
+  StateVar.t LustreIndex.t option
 
 (** Add node input to context *)
 val add_node_input :
@@ -244,7 +273,8 @@ val add_node_input :
 
 (** Add node output to context *)
 val add_node_output :
-  ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
+  ?is_single:bool -> t -> LustreIdent.t -> Lib.position ->
+  Type.t LustreIndex.t -> t
 
 (** The output state variables of the current node. *)
 val outputs_of_current_node : t -> StateVar.t LustreIndex.t
@@ -256,8 +286,8 @@ val add_node_local :
 (** Adds assumptions to a node. *)
 val add_node_ass : t -> LustreContract.svar list -> t
 
-(** Adds guarantees to a node. *)
-val add_node_gua : t -> LustreContract.svar list -> t
+(** Adds guarantees to a node (boolean is the candidate flag). *)
+val add_node_gua : t -> (LustreContract.svar * bool) list -> t
 
 (** Add modes to node *)
 val add_node_mode : t -> LustreContract.mode -> t
@@ -271,13 +301,19 @@ val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t
 (** Add equation to context *)
 val add_node_equation :
   t -> Lib.position -> StateVar.t ->
-  LustreExpr.expr LustreNode.bound_or_fixed list -> int -> LustreExpr.t -> t
+  LustreExpr.expr LustreExpr.bound_or_fixed list -> int -> LustreExpr.t -> t
 
 (** Add node call to context *)
 val add_node_call : t -> Lib.position -> LustreNode.node_call -> t
 
 (** Mark node as main *)
 val set_node_main : t -> t
+
+(** Mark node as function *)
+val set_node_function : t -> t
+
+(** Checks if the current node, if any, is a function. *)
+val get_node_function_flag : t -> bool
 
 (** Replace unguarded pre operators with oracle constants and return
     expression and modified context. 
@@ -289,38 +325,13 @@ val set_node_main : t -> t
     The second argument is a pair so that it can take the output of
     {!LustreSimplify.eval_ast_expr} directly. *)
 val close_expr :
+  ?bounds:LustreExpr.expr LustreExpr.bound_or_fixed list ->
   ?original:LustreAst.expr -> Lib.position ->
   (LustreExpr.t * t) -> (LustreExpr.t * t)
 
-
-(** {1 Functions} *)
-
-(** Add function input to context *)
-val add_function_input : t -> LustreIdent.t -> Type.t LustreIndex.t -> t
-
-(** Add function output to context *)
-val add_function_output :
-  ?is_single:bool -> t -> LustreIdent.t -> Type.t LustreIndex.t -> t
-
-val call_outputs_of_function_call :
-  t -> LustreIdent.t -> LustreExpr.t LustreIndex.t ->
-  StateVar.t LustreIndex.t option
-
-(** Add function call to context *)
-val add_function_call : t -> Lib.position -> LustreNode.function_call -> t
-
-(** Add global contract to function
-
-    The function must not have a global contract defined, otherwise a
-    parse error will be raised. *)
-val add_function_global_contract : t -> position -> LustreFunction.contract -> t
-
-(** Add mode contract to node *)
-val add_function_mode_contract :
-  t -> position -> string -> LustreFunction.contract -> t
-
-(** Check that the node being defined has no undefined local variables *)
-val check_local_vars_defined : t -> unit
+(** Check that the node being defined has no undefined local or output
+    variables *)
+val check_vars_defined : t -> unit
 
 
 (** {1 Helpers} *)
@@ -337,6 +348,8 @@ val fail_no_position : string -> 'a
 (** Output a warning without a position *)
 val warn_no_position : string -> unit 
 
+(** Returns true if new definitions are allowed in the context *)
+val are_definitions_allowed : t -> bool
 
 (* 
    Local Variables:

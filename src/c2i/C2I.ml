@@ -120,16 +120,6 @@ open Actlit
 
 module Candidate = C2ICandidate
 
-(* First solver, used to check (1). Only declares variables @-1 and
-   0. *)
-let solver_ref_1 = ref None
-(* Second solver, used to check (2).
-   Declares variables @-1, 0 and 1. *)
-let solver_ref_2 = ref None
-(* Second solver, used to check (3).
-   Declares variables @-1, 0 and 1. *)
-let solver_ref_3 = ref None
-
 (* Output statistics *)
 let print_stats () = Event.stat [
   Stat.misc_stats_title, Stat.misc_stats ;
@@ -144,24 +134,7 @@ let stop () =
 let on_exit _ =
   stop () ;
   (* Output statistics. *)
-  print_stats () ;
-  (* Deleting solver instances if created. *)
-  ( match !solver_ref_1 with
-    | None -> ()
-    | Some s1 ->
-      SMTSolver.delete_instance s1 ;
-      solver_ref_1 := None ) ;
-  ( match !solver_ref_2 with
-    | None -> ()
-    | Some s2 ->
-      SMTSolver.delete_instance s2 ;
-      solver_ref_2 := None ) ;
-  ( match !solver_ref_3 with
-    | None -> ()
-    | Some s3 ->
-      SMTSolver.delete_instance s3 ;
-      solver_ref_3 := None ) ;
-  ()
+  print_stats ()
 
 
 type context = {
@@ -179,37 +152,24 @@ type context = {
 (* Creates two solvers for the context. Initializes them and updates the
    solver references (deletes the previous solvers. *)
 let mk_solvers sys prop =
-  ( match !solver_ref_1, !solver_ref_2, !solver_ref_3 with
-    | Some s1, Some s2, Some s3 ->
-      SMTSolver.delete_instance s1 ;
-      SMTSolver.delete_instance s2 ;
-      SMTSolver.delete_instance s3 ;
-      solver_ref_1 := None ;
-      solver_ref_2 := None ;
-      solver_ref_3 := None ;
-    | None, None, None -> ()
-    | _ -> failwith "inconsistency in defined solver" ) ;
-
+  (* Destroy all existing solvers. *)
   let solver1 =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
-  solver_ref_1 := Some solver1 ;
 
   let solver2 =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
-  solver_ref_2 := Some solver2 ;
 
   let solver3 =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
-  solver_ref_3 := Some solver3 ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -217,7 +177,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver1)
     (SMTSolver.declare_fun solver1)
     (SMTSolver.declare_sort solver1)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -225,7 +185,7 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver2)
     (SMTSolver.declare_fun solver2)
     (SMTSolver.declare_sort solver2)
-    Numeral.(~- one) Numeral.one ;
+    Numeral.zero Numeral.one ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.define_and_declare_of_bounds
@@ -233,18 +193,18 @@ let mk_solvers sys prop =
     (SMTSolver.define_fun solver3)
     (SMTSolver.declare_fun solver3)
     (SMTSolver.declare_sort solver3)
-    Numeral.(~- one) Numeral.one ;
+    Numeral.zero Numeral.one ;
 
   (* Asserting init in [solver1]. *)
-  TransSys.init_of_bound sys Numeral.zero
+  TransSys.init_of_bound (Some (SMTSolver.declare_fun solver1)) sys Numeral.zero
   |> SMTSolver.assert_term solver1 ;
 
   (* Asserting trans in [solver2]. *)
-  TransSys.trans_of_bound sys Numeral.one
+  TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver2)) sys Numeral.one
   |> SMTSolver.assert_term solver2 ;
 
   (* Asserting trans in [solver3]. *)
-  TransSys.trans_of_bound sys Numeral.one
+  TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver3)) sys Numeral.one
   |> SMTSolver.assert_term solver3 ;
 
   (* Retrieving invariants @0. *)
@@ -263,12 +223,7 @@ let mk_solvers sys prop =
 
 (* Initializes the solvers, creates the context. *)
 let mk_context sys prop =
-  ( match !solver_ref_1, !solver_ref_2, !solver_ref_3 with
-    | None, None, None -> ()
-    | _ -> failwith "solvers already running" ) ;
-
   let solver1, solver2, solver3 = mk_solvers sys prop in
-
   { sys ; prop ;
     k = 1;
     white = [] ; grey = [] ; black = [] ;
@@ -363,13 +318,20 @@ let contains model models =
   with Not_found -> false
 
 
+(* Asserts a new invariant in both solvers of the context. *)
+let assert_invariant { solver1 ; solver2 } (inv, is_one_state) =
+  (* Asserting invariant @0 in both solvers. *)
+  if is_one_state then (
+    SMTSolver.assert_term solver1 inv ;
+    SMTSolver.assert_term solver2 inv
+  ) ;
+  (* Asserting invariant @1 in [solver2]. *)
+  Term.bump_state Numeral.one inv |> SMTSolver.assert_term solver2
+
 (* Asserts new invariants in both solvers of the context. *)
-let assert_invariant { solver1 ; solver2 } invs =
-  (* Asserting invariants @0 in both solvers. *)
-  SMTSolver.assert_term solver1 invs ;
-  SMTSolver.assert_term solver2 invs ;
-  (* Asserting invariants @1 in [solver2]. *)
-  Term.bump_state Numeral.one invs |> SMTSolver.assert_term solver2
+let assert_invariants { solver1 ; solver2 } invs =
+  Unroller.assert_new_invs_to solver1 Numeral.one invs ;
+  Unroller.assert_new_invs_to solver2 Numeral.(succ one) invs
 
 
 (* Check-sat with assumption, returns [Some] of the model if sat, [None]
@@ -605,12 +567,14 @@ let rec loop in_sys param ({sys} as context) candidate =
         Event.log L_info "C2I Candidate is invariant (non-strengthening)" ;
         (* k-inductive certificate from context *)
         let cert = context.k, term in
-        TransSys.add_invariant context.sys term cert;
-        assert_invariant context term ;
+        let term =
+          TransSys.add_invariant context.sys term cert false
+        in
+        assert_invariant context (term, false) ;
         (* Broadcasting invariant. *)
         Event.invariant (
           TransSys.scope_of_trans_sys context.sys
-        ) term cert;
+        ) term cert false ;
       | _ -> () ) ;
 
     (* Counterexample, updating context. *)
@@ -620,7 +584,7 @@ let rec loop in_sys param ({sys} as context) candidate =
     (* Format.printf "@." ; *)
 
     (* Communicating. *)
-    let invs, is_done =
+    let new_invs, is_done =
       Event.recv ()
       |> Event.update_trans_sys in_sys param sys
       |> fun (invs,props) ->
@@ -633,8 +597,12 @@ let rec loop in_sys param ({sys} as context) candidate =
         )
     in
     (* Asserting invariants if any. *)
-    if invs <> [] then Term.mk_and invs |> assert_invariant context ;
-    let context = if invs <> [] then reset_grey_of context else context in
+    assert_invariants context new_invs ;
+    let rcved_new_invs =
+      ( new_invs |> fst |> Term.TermSet.is_empty |> not ) ||
+      ( new_invs |> snd |> Term.TermSet.is_empty |> not )
+    in
+    let context = if rcved_new_invs then reset_grey_of context else context in
     (* increasing k *)
     context.k <- context.k + 1;
     (* If done, return [None]. *)
@@ -670,20 +638,22 @@ let rec run in_sys param context_option candidate sys =
       (* Let's do random stuff now. *)
       ( try
         ( match loop in_sys param context candidate with
-          | Some str_invariant ->
+          | Some str_inv ->
             Event.log L_info
               "C2I @[<v>Strengthening invariant found for %s@]" prop ;
             Stat.incr Stat.c2i_str_invs ;
-            let cert = context.k, str_invariant in
-            TransSys.add_invariant context.sys str_invariant cert;
-            assert_invariant context str_invariant ;
+            let cert = context.k, str_inv in
+            let str_inv =
+              TransSys.add_invariant context.sys str_inv cert false
+            in
+            assert_invariant context (str_inv, false) ;
             (* Broadcasting strengthening invariant. *)
             Event.invariant (
               TransSys.scope_of_trans_sys context.sys
-            ) str_invariant cert;
+            ) str_inv cert false ;
 
             (* Communicating. *)
-            let invs, is_done =
+            let new_invs, is_done =
               Event.recv ()
               |> Event.update_trans_sys in_sys param sys
               |> fun (invs,props) ->
@@ -696,7 +666,7 @@ let rec run in_sys param context_option candidate sys =
                 )
             in
             (* Asserting invariants if any. *)
-            if invs <> [] then Term.mk_and invs |> assert_invariant context ;
+            assert_invariants context new_invs ;
 
             (* Updating local system. *)
             ( match TransSys.get_prop_status context.sys context.prop with
@@ -705,8 +675,9 @@ let rec run in_sys param context_option candidate sys =
                 TransSys.set_prop_invariant context.sys context.prop cert (* TODO check*);
                 TransSys.get_prop_term context.sys context.prop
                 |> fun t ->
-                  TransSys.add_invariant context.sys t cert;
-                  assert_invariant context t )
+                  (TransSys.add_invariant context.sys t cert false, false)
+                  |> assert_invariant context
+            )
           | None ->
             (* Proved or disproved by another technique, or termination was
                requested. *)

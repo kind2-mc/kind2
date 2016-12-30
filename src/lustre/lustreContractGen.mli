@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -16,32 +16,21 @@
 
 *)
 
-module A = Analysis
-module S = SubSystem
+(** Generates contract for an input system given an analysis parameter. *)
+val generate_contracts:
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> string -> unit
 
-let next_analysis ({ S.scope } as system) = function 
+(** Generates a contract for an input system for some terms. *)
+val generate_contract_for :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> string ->
+  Term.t list -> string -> unit
 
-(* First analysis *)
-| [] -> Some {
 
-  (* Analyze top system *) 
-  A.top = scope ; 
-
-  (* Implementations for all systems *)
-  A.abstraction_map = [
-    S.all_subsystems system |> List.map (fun { scope } -> (scope, false))
-  ] ;
-
-  (* No assumptions *)
-  A.assumptions = []
-}
-
-(* One analysis only, terminate after first analysis *)
-| _ -> None
 
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)

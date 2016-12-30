@@ -46,13 +46,13 @@ val set_relay_log : unit -> unit
 
     Should only be used by step for sending the cex, and invariant manager to
     actually print it. *)
-val log_step_cex : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val log_step_cex : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.value list) list -> unit
 
 (** Log a disproved property
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val log_disproved : Lib.kind_module -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.value list) list -> unit 
 
 (** Log a proved property
 
@@ -98,6 +98,14 @@ val log_analysis_start : TransSys.t -> Analysis.param -> unit
     [log_analysis_start result] logs the end of an analysis. *)
 val log_analysis_end : Analysis.result -> unit
 
+(** Logs the start of a post-analysis treatment. Arguments:
+* name of the treatment (concise, for XML)
+* title of the treatment (verbose, for pt) *)
+val log_post_analysis_start : string -> string -> unit
+
+(** Logs the end of a post-analysis treatment. *)
+val log_post_analysis_end : unit -> unit
+
 (** Logs a timeout. Input should be [true] for wallclock, [false] for CPU. *)
 val log_timeout : bool -> unit
 
@@ -110,15 +118,16 @@ val log_interruption : int -> unit
 (** Events exposed to callers *)
 
 type event = 
-  | Invariant of string list * Term.t * Certificate.t 
+  | Invariant of string list * Term.t * Certificate.t * bool
   | PropStatus of string * Property.prop_status
-  | StepCex of string * (StateVar.t * Model.term_or_lambda list) list
+  | StepCex of string * (StateVar.t * Model.value list) list
 
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
 
 (** Return the last statistics received *)
-val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
+val all_stats :
+  unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
 
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit
@@ -127,16 +136,18 @@ val stat : (string * Stat.stat_item list) list -> unit
 val progress : int -> unit
 
 (** Broadcast a discovered top level invariant *)
-val invariant : string list -> Term.t -> Certificate.t -> unit
+val invariant : string list -> Term.t -> Certificate.t -> bool -> unit
 
 (** Broadcast a step cex *)
-val step_cex : 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val step_cex :
+  'a InputSystem.t -> Analysis.param -> TransSys.t -> string ->
+  (StateVar.t * Model.value list) list -> unit
 
 (** Broadcast a property status *)
 val prop_status : Property.prop_status -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> string -> unit
 
 (** Broadcast an execution path *)
-val execution_path : 'a InputSystem.t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> unit
+val execution_path : 'a InputSystem.t -> Analysis.param -> TransSys.t -> (StateVar.t * Model.value list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
@@ -152,13 +163,6 @@ val update_child_processes_list: (int * Lib.kind_module) list -> unit
 (** Terminates if a termination message was received. Does NOT modify
     received messages. *)
 val check_termination: unit -> unit
-
-(** Filter list of invariants with their scope for invariants of empty
-    (top) scope *)
-val top_invariants_of_invariants :
-  TransSys.t ->
-  (Lib.kind_module * (string list * Term.t * Certificate.t)) list ->
-  Term.t list
 
 (** Update transition system from events and return new invariants
     INCLUDING subsystem ones, scoped and properties with changed
@@ -177,7 +181,7 @@ val update_trans_sys_sub :
   Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
-  (Lib.kind_module * (string list * Term.t * Certificate.t)) list *
+  (Term.TermSet.t * Term.TermSet.t) Scope.Map.t *
   (Lib.kind_module * (string * Property.prop_status)) list
 
 (** Update transition system from events and return new top level
@@ -196,7 +200,7 @@ val update_trans_sys :
   Analysis.param -> 
   TransSys.t ->
   (Lib.kind_module * event) list ->
-  Term.t list * 
+  (Term.TermSet.t * Term.TermSet.t) * 
   (Lib.kind_module * (string * Property.prop_status)) list
 
 
@@ -224,7 +228,7 @@ val exit : mthread -> unit
 
 val pp_print_path_pt :
   'a InputSystem.t -> Analysis.param -> TransSys.t -> 'a ->
-  Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
+  Format.formatter -> (StateVar.t * Model.value list) list -> unit
 
 (* 
    Local Variables:

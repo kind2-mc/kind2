@@ -23,8 +23,6 @@ open Actlit
 (* Raised when the unrolling alone is unsat (with the bound). *)
 exception UnsatUnrollingExc of int
 
-let solver_ref = ref None
-
 (* Output statistics *)
 let print_stats () = 
 
@@ -41,20 +39,7 @@ let on_exit _ =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  print_stats ();
-
-  (* Delete solver instance if created. *)
-  (try
-      match !solver_ref with
-      | None -> ()
-      | Some solver ->
-         SMTSolver.delete_instance solver |> ignore ;
-         solver_ref := None
-    with
-    | e -> 
-       Event.log L_error
-                 "BMC @[<v>Error deleting solver_init:@ %s@]" 
-                 (Printexc.to_string e))
+  print_stats ()
 
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
@@ -70,8 +55,13 @@ let split trans solver k falsifiable to_split actlits =
   let if_sat _ =
 
     (* Get the full model *)
-    let model = SMTSolver.get_model solver in
-
+    let model =
+      SMTSolver.get_var_values
+        solver
+        (TransSys.get_state_var_bounds trans)
+        (TransSys.vars_of_bounds trans Numeral.zero k)
+    in
+    
     (* Extract counterexample from model *)
     let cex =
       Model.path_from_model (TransSys.state_vars trans) model k
@@ -98,16 +88,10 @@ let split trans solver k falsifiable to_split actlits =
     None
   in
 
-  if Flags.BmcKind.check_unroll () then ( 
-    if SMTSolver.check_sat solver |> not then (
-      Event.log
-        L_warn
-        "BMC @[<v>Unrolling of the system is unsat at %a, \
-        the system has no more reachable states.@]"
-        Numeral.pp_print_numeral k ;
-      raise (UnsatUnrollingExc (Numeral.to_int k))
-    )
-  ) ;
+  Format.asprintf
+    "Looking for falsification at %a."
+    Numeral.pp_print_numeral k
+  |> SMTSolver.trace_comment solver ;
 
   (* Check sat assuming with actlits. *)
   SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
@@ -167,47 +151,30 @@ let split_closure trans solver k actlits to_split =
 
    Note that the transition relation for the current iteration is
    already asserted. *)
-let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
-
-  (* Asserts terms from 0 to k. *)
-  let assert_new_invariants =
-    List.iter
-      (Term.bump_and_apply_k
-         (SMTSolver.assert_term solver) k)
-  in
-
-  (* Asserts terms at k. *)
-  let assert_old_invariants =
-    List.iter
-      (fun term -> Term.bump_state k term
-                   |> SMTSolver.assert_term solver)
-  in
+let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
   (* Getting new invariants and updating transition system. *)
-  let new_invariants =
-
-    let new_invs, updated_props =
-      (* Receiving messages. *)
-      Event.recv ()
-      (* Updating transition system. *)
-      |> Event.update_trans_sys input_sys aparam trans
-      (* Extracting invariant module/term pairs. *)
-    in
-
-    updated_props
-    (* Looking for new invariant properties. *)
-    |> List.fold_left
-         ( fun list (_, (name, status)) ->
-          match status with
-          | Property.PropInvariant cert ->
-             (* Memorizing new invariant property. *)
-             ( TransSys.get_prop_term trans name )
-             :: list
-          | _ -> list )
-         (* New invariant properties are added to new invariants. *)
-         new_invs
-           
+  let new_invs =
+    (* Receiving messages. *)
+    Event.recv ()
+    (* Updating transition system. *)
+    |> Event.update_trans_sys input_sys aparam trans
+    (* Extracting one- and two-state invariants. *)
+    |> fst
   in
+
+  if
+    (new_invs |> fst |> Term.TermSet.is_empty |> not) ||
+    (new_invs |> snd |> Term.TermSet.is_empty |> not)
+  then
+    (* Assert new invariants up to [k-1]. *)
+    Unroller.assert_new_invs_to solver k new_invs ;
+
+  (* Assert all invariants, including new ones, at [k]. *)
+  TransSys.invars_of_bound
+    ~one_state_only:Numeral.(equal k zero) trans k
+  |> Term.mk_and
+  |> SMTSolver.assert_term solver ;
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
   let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
@@ -222,22 +189,6 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
     Stat.set k_int Stat.bmc_k ;
     Event.progress k_int ;
     Stat.update_time Stat.bmc_total_time ;
-
-    (* Merging old and new invariants and asserting them. *)
-    let nu_invariants =
-      match invariants, new_invariants with
-      | [],[] -> []
-      | _, [] ->
-        assert_old_invariants invariants ;
-        invariants
-      | [], _ ->
-        assert_new_invariants new_invariants ;
-        new_invariants
-      | _ ->
-        assert_old_invariants invariants ;
-        assert_new_invariants new_invariants ;
-        List.rev_append new_invariants invariants
-    in
 
     (* Building the positive actlits and corresponding implications
       at k-1. *)
@@ -285,6 +236,22 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
                     %i properties.@]"
           k_int (List.length unknowns_at_k) ;
 
+        Format.asprintf
+          "%a unrolling satisfiability check."
+          Numeral.pp_print_numeral k
+        |> SMTSolver.trace_comment solver ;
+
+        if Flags.BmcKind.check_unroll () then ( 
+          if SMTSolver.check_sat solver |> not then (
+            Event.log
+              L_warn
+              "BMC @[<v>Unrolling of the system is unsat at %a, \
+              the system has no more reachable states.@]"
+              Numeral.pp_print_numeral k ;
+            raise (UnsatUnrollingExc (Numeral.to_int k))
+          )
+        ) ;
+
         (* Splitting. *)
         let unfalsifiable, falsifiable =
           split_closure trans solver k actlits unknowns_at_k
@@ -324,7 +291,7 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
      trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
 
     (* Asserting transition relation for next iteration. *)
-    TransSys.trans_of_bound trans k_p_1
+     TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) trans k_p_1
     |> SMTSolver.assert_term solver
     |> ignore ;
 
@@ -342,7 +309,7 @@ let rec next (input_sys, aparam, trans, solver, k, invariants, unknowns) =
     else
      (* Looping. *)
      next
-      (input_sys, aparam, trans, solver, k_p_1, nu_invariants, unfalsifiable)
+      (input_sys, aparam, trans, solver, k_p_1, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
 let init input_sys aparam trans =
@@ -360,9 +327,6 @@ let init input_sys aparam trans =
       (TransSys.get_logic trans) (Flags.Smt.solver ())
   in
 
-  (* Memorizing solver for clean on_exit. *)
-  solver_ref := Some solver ;
-
   (* Declaring positive actlits. *)
   let unknowns =
     unknowns |> List.map (fun (s, prop) ->
@@ -378,12 +342,15 @@ let init input_sys aparam trans =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
   (* Asserting init. *)
-  TransSys.init_of_bound trans Numeral.zero
+  TransSys.init_of_bound
+    (Some (SMTSolver.declare_fun solver)) trans Numeral.zero
   |> SMTSolver.assert_term solver
   |> ignore ;
+
+  SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 
   if Flags.BmcKind.check_unroll () then (
     if SMTSolver.check_sat solver |> not then (
@@ -395,12 +362,7 @@ let init input_sys aparam trans =
     )
   ) ;
 
-  (* Invariants if the system at 0. *)
-  let invariants =
-    TransSys.invars_of_bound trans Numeral.zero |> Term.mk_and 
-  in
-
-  (input_sys, aparam, trans, solver, Numeral.zero, [invariants], unknowns)
+  (input_sys, aparam, trans, solver, Numeral.zero, unknowns)
 
 (* Runs the base instance. *)
 let main input_sys aparam trans =

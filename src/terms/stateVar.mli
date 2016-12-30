@@ -62,17 +62,16 @@ module StateVarMap : Map.S with type key = t
 
 (** {1 Constructor} *)
 
-(** [mk_state_var n s t i] declares a state variable of name [n] with
-    scope [s], and type [t]. The optional labeled
-    arguments [?is_input], [?is_const] and [?for_inv_gen] flag the
-    variable as an input, as constant and as usable as a candidate for
-    invariant generation, respectively. Their defaults are [false],
-    [false] and [true].
+(** [mk_state_var n s t] declares a state variable of name [n] with scope [s],
+    and type [t]. The optional labeled arguments [?is_input], [?is_const] and
+    [?for_inv_gen] flag the variable as an input, as constant and as usable as
+    a candidate for invariant generation, respectively. Their defaults are
+    [false], [false] and [true].
 
-    Declaring a state variable again with the same signature is
-    harmless and will simply return the previously declared state
-    variable. However, re-declaring a state variable with a different
-    signature will raise an [Invalid_argument] exception. *)
+    Declaring a state variable again with the same signature is harmless and
+    will simply return the previously declared state variable. However,
+    re-declaring a state variable with a different signature will raise an
+    [Invalid_argument] exception. *)
 val mk_state_var :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
   string -> string list -> Type.t -> t
@@ -115,7 +114,8 @@ val change_type_of_state_var : t -> Type.t -> unit
 (** Return the uninterpreted function symbol of the variable *)
 val uf_symbol_of_state_var : t -> UfSymbol.t
 
-(** Return the uninterpreted function symbol of the variable *)
+(** Return the state variable corresponding to an uninterpreted function
+symbol *)
 val state_var_of_uf_symbol : UfSymbol.t -> t
 
 (** Return true if the state variable is an input *)
@@ -143,6 +143,15 @@ val fold : (t -> 'a -> 'a) -> 'a -> 'a
     uninterpreted function symbol. *)
 val iter : (t -> unit) -> unit
 
+
+(** encode array select operation. Encoding select funtion is done byt type
+    (i.e. one select by array type).  The select function performs all
+    projections if the array is multidimensional. This means you should have
+    something like [(select_1 m 0 3)] in case [m] is a matrix *)
+val encode_select : t -> UfSymbol.t
+
+(** Return select function that were created *)
+val get_select_ufs : unit -> UfSymbol.t list
 
 (** {1 Pretty-printing} *)
 

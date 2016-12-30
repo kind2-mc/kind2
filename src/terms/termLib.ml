@@ -46,13 +46,12 @@ let default_of_type t =
     | Type.Int -> Term.mk_num Numeral.zero
 
     (* Integer range values are their lower bound by default *)
-    | Type.IntRange (l, _) -> Term.mk_num l
+    | Type.IntRange (l, _, _) -> Term.mk_num l
 
     (* Reals are zero by default *)
     | Type.Real -> Term.mk_dec Decimal.zero
 
-    (* No defaults for scalars and arrays *)
-    | Type.Scalar _
+    (* No defaults *)
     | Type.Abstr _
     | Type.Array _ -> invalid_arg "default_of_type"
 
@@ -67,6 +66,7 @@ let default_of_type t =
 type feature =
   | Q  (* Quantifiers *)
   | UF (* Equality over uninterpreted functions *)
+  | A  (* Arrays *)
   | IA (* Integer arithmetic *)
   | RA (* Real arithmetic *)
   | LA (* Linear arithmetic *)
@@ -84,18 +84,14 @@ module FeatureSet = Set.Make (struct
 type features = FeatureSet.t
 
 (* Try to remove top level quantifief by instantiating with fresh symbols *)
-let remove_top_level_quantifier removed t =
+let remove_top_level_quantifier t =
   match Term.T.node_of_t t with
   | Term.T.Forall lam | Term.T.Exists lam ->
-    let t' =
-      Term.T.sorts_of_lambda lam
-      |> List.map (fun t ->
-          (UfSymbol.mk_fresh_uf_symbol [] t
-           |> Term.mk_uf) @@ [] )
-      |> Term.T.instantiate lam
-    in
-    removed := true;
-    t'
+    Term.T.sorts_of_lambda lam
+    |> List.map (fun t ->
+        (UfSymbol.mk_fresh_uf_symbol [] t
+         |> Term.mk_uf) @@ [] )
+    |> Term.T.instantiate lam
   | _ -> t
 
 (* find the smallest encompassing logic of a sort *)
@@ -109,9 +105,10 @@ let rec logic_of_sort ty =
                           
   | Real -> singleton RA
               
-  | Array (ta, tr) -> add UF (union (logic_of_sort ta) (logic_of_sort tr))
-      
-  | Scalar _ -> empty
+  | Array (ta, tr) ->
+    union (logic_of_sort ta) (logic_of_sort tr)
+    |> add UF
+    |> add A
 
 
 let s_abs = Symbol.mk_symbol `ABS
@@ -174,17 +171,24 @@ let logic_of_flat t acc =
                             s == s_leq || s == s_geq) ->
     add LA (sup_logics acc)
 
+  | App (s, l) when Symbol.is_select s ->
+    sup_logics acc |> add UF |> add A
+    
   | App _ -> sup_logics acc
 
   
 
+let check_add_Q t l =
+  if Term.has_quantifier t then
+    FeatureSet.add Q l
+  else l
+                                                        
 (* Returns the logic fragment used by a term *)
 let logic_of_term t =
-  let removed_q = ref false in
   t
-  |> Term.map (fun _ -> remove_top_level_quantifier removed_q)
-  |> Term.eval_t logic_of_flat
-  |> (if !removed_q then FeatureSet.add Q else Lib.identity)
+  |> Term.map (fun _ -> remove_top_level_quantifier)
+  |> Term.eval_t ~fail_on_quantifiers:false logic_of_flat
+  |> check_add_Q t
 
 
 
@@ -194,6 +198,7 @@ module L = FeatureSet
 let pp_print_features fmt l =
   if not (L.mem Q l) then fprintf fmt "QF_";
   if L.is_empty l then fprintf fmt "SAT";
+  if L.mem A l && Flags.Arrays.smt () then fprintf fmt "A";
   if L.mem UF l then fprintf fmt "UF";
   if L.mem NA l then fprintf fmt "N"
   else if L.mem LA l || L.mem IA l || L.mem RA l then fprintf fmt "L";
@@ -219,76 +224,33 @@ let string_of_logic = function
   | `SMTLogic s -> s
 
 
+let logic_allow_arrays = function
+  | `None | `SMTLogic _ -> true
+  | `Inferred l -> L.mem A l
 
 
-module Signals: sig
-
-  (** Pretty printer for signal info. *)
-  val pp_print_signals: Format.formatter -> unit -> unit
-
-  (** Sets the handler for sigalrm to ignore. *)
-  val ignore_sigalrm: unit -> unit
-  (** Sets the handler for sigint to ignore. *)
-  val ignore_sigint: unit -> unit
-  (** Sets the handler for sigquit to ignore. *)
-  val ignore_sigquit: unit -> unit
-  (** Sets the handler for sigterm to ignore. *)
-  val ignore_sigterm: unit -> unit
-  (** Sets the handler for sigpipe to ignore. *)
-  val ignore_sigpipe: unit -> unit
-
-  (** Sets a timeout handler for sigalrm. *)
-  val set_sigalrm_timeout: unit -> unit
-  (** Sets an exception handler for sigalarm. *)
-  val set_sigalrm_exn: unit -> unit
-  (** Sets an exception handler for sigint. *)
-  val set_sigint: unit -> unit
-  (** Sets an exception handler for sigquit. *)
-  val set_sigquit: unit -> unit
-  (** Sets an exception handler for sigterm. *)
-  val set_sigterm: unit -> unit
-
-  (** Sets a timeout. *)
-  val set_timeout: float -> unit
-  (** Sets a timeout from the timeout flag. *)
-  val set_timeout_from_flag: unit -> unit
-  (** Deactivates timeout. *)
-  val unset_timeout: unit -> unit
-
-  (** Raise exception on ctrl+c if true. *)
-  val catch_break: bool -> unit
-
-end = struct
+module Signals = struct
 
   type handler = | Ignore | Exn | Timeout
 
   let pp_print_handler fmt = function
-    | Ignore ->
-       Format.fprintf
-         fmt
-         "ignore"
-    | Exn ->
-       Format.fprintf
-         fmt
-         "raise exception"
-    | Timeout ->
-       Format.fprintf
-         fmt
-         "raise timeout"
+    | Ignore -> Format.fprintf fmt "ignore"
+    | Exn -> Format.fprintf fmt "raise exception"
+    | Timeout -> Format.fprintf fmt "raise timeout"
 
   type t = {
-      (* Signals. *)
-      mutable sigalrm: handler ;
-      mutable sigint:  handler ;
-      mutable sigquit: handler ;
-      mutable sigterm: handler ;
-      mutable sigpipe: handler ;
+    (* Signals. *)
+    mutable sigalrm: handler ;
+    mutable sigint:  handler ;
+    mutable sigquit: handler ;
+    mutable sigterm: handler ;
+    mutable sigpipe: handler ;
 
-      (* Timeout value. *)
-      mutable timeout: float option ;
+    (* Timeout value. *)
+    mutable timeout: float option ;
 
-      (* Raise [Break] on ctrl+c. *)
-      mutable break: bool ;
+    (* Raise [Break] on ctrl+c. *)
+    mutable break: bool ;
   }
 
   let signals = {
@@ -337,6 +299,18 @@ end = struct
       signals.sigalrm <- Ignore ;
       ignore_sig Sys.sigalrm
     )
+
+  (* Runs something while ignoring [sigalrm]. *)
+  let ignoring_sigalrm f =
+    let old = signals.sigalrm in
+    ignore_sigalrm () ;
+    let res =
+      try f () with e ->
+        signals.sigalrm <- old ;
+        raise e
+    in
+    signals.sigalrm <- old ;
+    res
 
   (* Sets the handler for sigint to ignore. *)
   let ignore_sigint () =
@@ -410,6 +384,11 @@ end = struct
     signals.sigterm <- Exn ;
     set_sig Sys.sigterm exception_on_signal
 
+  (* Sets a handler for sigpipe. *)
+  let set_sigpipe () =
+    signals.sigpipe <- Exn ;
+    set_sig Sys.sigpipe exception_on_signal
+
 
   (* Sets a timeout. *)
   let set_timeout_value ?(interval = 0.) value =
@@ -426,17 +405,22 @@ end = struct
     signals.timeout <- Some(value) ;
     set_timeout_value value
 
-  (* Sets a timeout based on the flag value. *)
-  let set_timeout_from_flag () =
-    if Flags.timeout_wall () > 0.
-    then Flags.timeout_wall () |> set_timeout
-    else ()
-
   (* Deactivates timeout. *)
   let unset_timeout () =
-    set_sigalrm_exn () ;
+    set_timeout_value 0. ;
     signals.timeout <- None ;
-    set_timeout_value 0.
+    set_sigalrm_exn ()
+
+  (* Sets a timeout based on the flag value and the total time elapsed this
+  far. *)
+  let set_sigalrm_timeout_from_flag () =
+    match Flags.timeout_wall () with
+    | timeout when timeout > 0. ->
+      let elapsed = Stat.get_float Stat.total_time in
+      if timeout < elapsed then raise TimeoutWall
+      else timeout -. elapsed |> set_timeout
+    | _ ->
+      unset_timeout ()
 
   end
 

@@ -50,25 +50,6 @@ type num = Num.t
 let sys_name sys =
   Sys.scope_of_trans_sys sys |> Scope.to_string
 
-
-(** Asserts some terms from [k] to [k'-1]. *)
-let assert_between solver k k' term =
-  let rec loop i =
-    if Num.(i < k') then (
-      Term.bump_state i term |> Smt.assert_term solver ;
-      Num.succ i |> loop
-    )
-  in
-  loop k
-
-(** Asserts some terms from [0] to [k-1]. *)
-let assert_0_to solver =
-  assert_between solver Num.zero
-
-(** Asserts some terms from [0] to [k-1]. *)
-let assert_1_to solver =
-  assert_between solver Num.one
-
 (** Counter for actlit's uids. *)
 let actlit_uid = ref 0
 (** Maximal number of actlit created before solvers are reset. *)
@@ -146,32 +127,34 @@ let mk_base_checker_solver sys k =
 
 
   (* Smt.trace_comment solver (* Logging stuff in smt trace. *)
-    "Declaring system's constants." ;
-  Sys.declare_const_vars sys (Smt.declare_fun solver) ; *)
+     "Declaring system's constants." ;
+     Sys.declare_const_vars sys (Smt.declare_fun solver) ; *)
 
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
-    "Declaring system's svars at [-1] and [0]." ;
+    "Declaring system's svars at [0]." ;
   Sys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.(~- one) Numeral.zero ;
+    Numeral.zero Numeral.zero ;
 
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Conditional initial predicate." ;
 
   Term.mk_implies (* Conditionally asserting the initial predicate. *)
-    [ init_actlit ; Sys.init_of_bound sys Num.zero ]
+    [ init_actlit ;
+      Sys.init_of_bound (Some (SMTSolver.declare_fun solver)) sys Num.zero ]
   |> Smt.assert_term solver ;
 
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Asserting invariants at [0]." ;
 
-  Sys.invars_of_bound sys Numeral.zero (* Invariants at [0]. *)
+  Sys.invars_of_bound
+    ~one_state_only:true sys Numeral.zero (* Invariants at [0]. *)
   |> List.iter (Smt.assert_term solver) ;
 
 
@@ -185,7 +168,9 @@ let mk_base_checker_solver sys k =
       Format.asprintf
         "Asserting transition relation at [%a]." Num.pp_print_numeral i
       |> Smt.trace_comment solver ;
-      Sys.trans_of_bound sys i |> Smt.assert_term solver ;
+
+      Sys.trans_of_bound (Some (SMTSolver.declare_fun solver)) sys i
+      |> Smt.assert_term solver ;
 
       Format.asprintf
         "Asserting invariants at [%a]." Num.pp_print_numeral i
@@ -219,10 +204,11 @@ let conditional_base_solver_reset (
 )
 
 (** Adds invariants to a base checker. *)
-let base_add_invariants { solver ; k } =
+let base_add_invariants { solver ; k } ts invs =
   let eub = Num.succ k in (* Exclusive upper bound. *)
-  List.iter (
-    fun (invar, _) -> assert_0_to solver eub invar
+  invs |> (
+    if ts then List.iter (Unroller.assert_1_to solver eub)
+    else List.iter (Unroller.assert_0_to solver eub)
   )
 
 
@@ -257,9 +243,13 @@ let query_base base_checker candidates =
 
         let minus_k = Numeral.(~- k) in
         (* Variables we want to know the value of. *)
-        TransSys.vars_of_bounds sys (Numeral.pred k) k
+        ( if Numeral.(equal k zero)
+          then TransSys.vars_of_bounds sys k k
+          else TransSys.vars_of_bounds sys (Numeral.pred k) k
+        )
         (* Getting their value. *)
         |> SMTSolver.get_var_values solver
+          (TransSys.get_state_var_bounds sys)
         (* Bumping to -k. *)
         |> Model.bump_var minus_k 
         (* Making an option out of it. *)
@@ -310,7 +300,8 @@ let to_step_solver { solver ; sys ; k ; init_actlit } =
   Format.asprintf
     "Asserting transition relation at [%a]." Num.pp_print_numeral kp1
   |> Smt.trace_comment solver ;
-  Sys.trans_of_bound sys kp1 |> Smt.assert_term solver ;
+  Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys kp1
+  |> Smt.assert_term solver ;
 
   Format.asprintf
     "Asserting invariants at [%a]." Num.pp_print_numeral kp1
@@ -340,10 +331,11 @@ let conditional_step_solver_reset (
 
 
 (** Adds invariants to a step checker. *)
-let step_add_invariants { solver ; k } =
+let step_add_invariants { solver ; k } ts invs =
   let eub = Num.succ k in (* Exclusive upper bound. *)
-  List.iter (
-    fun (invar, _) -> assert_0_to solver eub invar
+  invs |> (
+    if ts then List.iter (Unroller.assert_1_to solver eub)
+    else List.iter (Unroller.assert_0_to solver eub)
   )
 
 
@@ -380,7 +372,9 @@ let query_step two_state step_checker candidates =
       term_of_actlit actlit
     in
 
-    let assert_fun = if two_state then assert_1_to else assert_0_to in
+    let assert_fun =
+      if two_state then Unroller.assert_1_to else Unroller.assert_0_to
+    in
 
     (* Conditionally asserting candidates from [0] to [k-1], and their negation
     at [k]. *)
@@ -451,7 +445,9 @@ let nu_query_step two_state step_checker candidates =
     term_of_actlit actlit
   in
 
-  let assert_fun = if two_state then assert_1_to else assert_0_to in
+  let assert_fun =
+    if two_state then Unroller.assert_1_to else Unroller.assert_0_to
+  in
 
   (* Conditionally asserting candidates from [0] to [k-1], and their negation
   at [k]. *)
@@ -476,6 +472,7 @@ let nu_query_step two_state step_checker candidates =
         TransSys.vars_of_bounds sys (Numeral.pred k) k
         (* Getting their value. *)
         |> SMTSolver.get_var_values solver
+          (TransSys.get_state_var_bounds sys)
         (* Bumping to -k. *)
         |> Model.bump_var minus_k 
         (* Making an option out of it. *)
@@ -509,6 +506,9 @@ type pruning = {
   mutable actlit_uid: int ;
 }
 
+(** Returns the system associated with this pruner. *)
+let pruning_sys { sys } = sys
+
 (** Fresh actlit based on the uid counter in a pruning checker. *)
 let pruning_fresh_actlit pruning_checker =
   let fresh = fresh_actlit_of pruning_checker.actlit_uid in
@@ -521,7 +521,7 @@ let kill_pruning { solver } = Smt.delete_instance solver
 (** Creates a new pruning solver. *)
 let mk_pruning_checker_solver sys =
   let solver = (* Creating solver. *)
-    Smt.create_instance ~produce_assignments:false
+    Smt.create_instance ~produce_assignments:true
       (Sys.get_logic sys) (Flags.Smt.solver ())
   in
 
@@ -537,13 +537,14 @@ let mk_pruning_checker_solver sys =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.(~- one) Numeral.one ;
+    Numeral.zero Numeral.one ;
 
 
   Smt.trace_comment solver (* Logging stuff in smt trace. *)
     "Asserting invariants at [0] and [1]." ;
 
-  Sys.invars_of_bound sys Numeral.zero (* Invariants at [0]. *)
+  Sys.invars_of_bound
+    ~one_state_only:true sys Numeral.zero (* Invariants at [0]. *)
   |> List.iter (Smt.assert_term solver) ;
 
   Sys.invars_of_bound sys Numeral.one (* Invariants at [1]. *)
@@ -552,7 +553,8 @@ let mk_pruning_checker_solver sys =
   Format.asprintf
     "Asserting transition relation."
   |> Smt.trace_comment solver ;
-  Sys.trans_of_bound sys Num.one |> Smt.assert_term solver ;
+  Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Num.one
+  |> Smt.assert_term solver ;
 
   solver
 
@@ -574,10 +576,11 @@ let conditional_pruning_solver_reset (
 
 
 (** Adds invariants to a pruning checker. *)
-let pruning_add_invariants { solver } =
+let pruning_add_invariants { solver } ts invs =
   let eub = Num.(succ one) in (* Exclusive upper bound. *)
-  List.iter (
-    fun (invar, _) -> assert_0_to solver eub invar
+  invs |> (
+    if ts then List.iter (Unroller.assert_1_to solver eub)
+    else List.iter (Unroller.assert_0_to solver eub)
   )
 
 
@@ -617,7 +620,6 @@ let query_pruning pruning_checker =
     let unfalsified_opt =
       let minus_k = Num.(~- k) in
       Smt.check_sat_assuming solver (
-        (* If sat, get values and remove falsified candidates. *)
         fun solver -> Some (
           Smt.get_term_values solver cands
           |> List.fold_left (
@@ -635,15 +637,19 @@ let query_pruning pruning_checker =
     in
 
     (* Deactivate actlit. *)
-    Smt.trace_comment solver "Deactivating actlit for check." ;
+    Smt.trace_comment solver "Deactivating actlit for previous check." ;
     Term.mk_not actlit |> Smt.assert_term solver ;
 
     match unfalsified_opt with
     | None ->
       Smt.trace_comment solver "|===| Done." ;
       (non_trivial, candidates)
-    | Some (non_triv, rest) ->
-      loop (List.rev_append non_triv non_trivial) rest
+    | Some (non_triv :: non_trivs, rest) ->
+      loop (non_triv :: non_trivial) (List.rev_append non_trivs rest)
+    | Some ([], rest) ->
+      Event.log L_fatal
+        "[pruning] satisfiable instance but no falsifiable candidate" ;
+      exit 2
   in
 
   loop []

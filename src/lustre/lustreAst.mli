@@ -40,6 +40,8 @@
 
 open Lib
 
+module SI : Set.S with type elt = Ident.t
+
 (** Error while parsing *)
 exception Parser_error
 
@@ -50,6 +52,13 @@ type ident = string
 
 (** A single index *)
 type index = string
+
+(** A clock expression *)
+type clock_expr =
+  | ClockTrue
+  | ClockPos of ident
+  | ClockNeg of ident
+  | ClockConstr of ident * ident
 
 (** A Lustre expression *)
 type expr =
@@ -76,6 +85,8 @@ type expr =
   | Or of position * expr * expr
   | Xor of position * expr * expr
   | Impl of position * expr * expr
+  | Forall of position * typed_ident list * expr
+  | Exists of position * typed_ident list * expr
   | OneHot of position * expr list
   | Uminus of position * expr
   | Mod of position * expr * expr
@@ -92,12 +103,14 @@ type expr =
   | Lt of position * expr * expr
   | Gte of position * expr * expr
   | Gt of position * expr * expr
-  | When of position * expr * expr
+  | When of position * expr * clock_expr
   | Current of position * expr
-  | Condact of position * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr list
-  | Merge of position * expr * expr list
+  | Condact of position * expr * expr * ident * expr list * expr list
+  | Activate of position * ident * expr * expr * expr list
+  | Merge of position * ident * (ident * expr) list
+  | RestartEvery of position * ident * expr list * expr
   | Pre of position * expr
+  | Last of position * ident
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
   | Call of position * ident * expr list
@@ -113,7 +126,7 @@ and lustre_type =
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident list
+  | EnumType of position * ident option * ident list
 
 (** An identifier with a type *)
 and typed_ident = position * ident * lustre_type
@@ -130,9 +143,6 @@ type type_decl =
   | AliasType of position * ident * lustre_type 
   | FreeType of position * ident
 
-(** A clock expression *)
-type clock_expr = ClockPos of ident | ClockNeg of ident | ClockTrue
-
 (** An identifier with a type and a clock as used for the type of variables *)
 type clocked_typed_decl = position * ident * lustre_type * clock_expr
 
@@ -142,7 +152,7 @@ type const_clocked_typed_decl = position * ident * lustre_type * clock_expr * bo
 
 (** A constant declaration *)
 type const_decl =
-    FreeConst of position * ident * lustre_type
+  | FreeConst of position * ident * lustre_type
   | UntypedConst of position * ident * expr
   | TypedConst of position * ident * expr * lustre_type
 
@@ -162,16 +172,41 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  | ArrayDef of position * ident * ident list
 
 (** The left-hand side of an equation *)
 type eq_lhs = 
-  | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
-(** An Equation, assertion or annotation in the body of a node *)
+type transition_to =
+  | TransRestart of position * (position * ident)
+  | TransResume of position * (position * ident)
+
+type transition_branch =
+  | Target of transition_to
+  | TransIf of position * expr *
+               transition_branch * transition_branch option
+  
+type automaton_transition = position * transition_branch
+
+type auto_returns = Given of ident list | Inferred
+
+(** An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
-  | Equation of position * eq_lhs * expr
+  | Equation of position * eq_lhs * expr 
+  | Automaton of position * ident option * state list * auto_returns
+
+and state =
+  | State of position * ident * bool *
+             node_local_decl list *
+             node_equation list *
+             automaton_transition option *
+             automaton_transition option
+
+(** An item in a node declaration *)
+type node_item =
+  | Body of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
 
@@ -217,9 +252,10 @@ type contract = contract_node_equation list
   (*   contract_mode list * contract_call list *)
   (* ) list *)
 
-(** Declaration of a node as a tuple of
+(** Declaration of a node or function as a tuple of
 
     - its identifier,
+    - a flag, true if the node / function is extern
     - its type parameters,
     - the list of its inputs,
     - the list of its outputs,
@@ -228,11 +264,12 @@ type contract = contract_node_equation list
     - its optional contract specification *)
 type node_decl =
   ident
+  * bool
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * node_local_decl list
-  * node_equation list
+  * node_item list
   * contract option
 
 (** A contract node declaration as a tuple of
@@ -249,15 +286,6 @@ type contract_node_decl =
   * clocked_typed_decl list
   * contract
 
-(** Declaration of a function as a tuple of 
-
-    - its identifier,
-    - the list of its inputs, and 
-    - the list of its outputs 
-*)
-type func_decl =
-    ident * typed_ident list * typed_ident list * contract option
-
 
 (** An instance of a parametric node as a tuple of the identifier for
     the instance, the identifier of the parametric node and the list of
@@ -270,8 +298,8 @@ type declaration =
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
   | NodeDecl of position * node_decl
+  | FuncDecl of position * node_decl
   | ContractNodeDecl of position * contract_node_decl
-  | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
 (** A Lustre program as a list of declarations *) 
@@ -301,10 +329,11 @@ val pp_print_node_local_decl_const :
 val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
-val pp_print_node_equation : Format.formatter -> node_equation -> unit
+val pp_print_node_item : Format.formatter -> node_item -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 
+val pp_print_contract_item : Format.formatter -> contract_node_equation -> unit
 val pp_print_contract_node : Format.formatter -> contract_node_decl -> unit
 
 
@@ -315,6 +344,29 @@ val pos_of_expr : expr -> Lib.position
 
 (** Returns true if the expression has unguareded pre's *)
 val has_unguarded_pre : expr -> bool
+
+(** Returns true if the expression has a `pre` or a `->`. *)
+val has_pre_or_arrow : expr -> Lib.position option
+
+(** Returns true iff a contract mentions a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+val contract_has_pre_or_arrow : contract -> Lib.position option
+
+(** Checks whether a node local declaration has a `pre` or a `->`. *)
+val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
+
+(** Checks whether a node equation has a `pre` or a `->`. *)
+val node_item_has_pre_or_arrow : node_item -> Lib.position option
+
+(** [replace_lasts allowed prefix acc e] replaces [last x] expressions in AST
+    [e] by abstract identifiers prefixed with [prefix]. Only identifiers that
+    appear in the list [allowed] are allowed to appear under a last. It returns
+    the new AST expression and a set of identifers for which the last
+    application was replaced. *)
+val replace_lasts : string list -> string -> SI.t -> expr -> expr * SI.t
+
 
 (* 
    Local Variables:

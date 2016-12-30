@@ -29,7 +29,7 @@ type decl =
 | NodeOrFun | Type | Contract | Const
 
 (** Reference to an unknown declaration. *)
-exception Unknown_decl of decl * I.t
+exception Unknown_decl of decl * I.t * Lib.position
 
 (** Integer representation of a declaration. *)
 let int_of_decl = function
@@ -97,6 +97,13 @@ let add deps (key_type, key_ident) (val_type, val_ident) =
       dep
     )
   in
+  
+  (* Transitivity *)
+  (try DeclMap.iter
+         (fun t -> ISet.iter (dep_add dep t))
+         (IMap.find deps val_ident)
+   with Not_found -> ());
+  
   dep_add dep val_type val_ident
 
 (** Checks if an identifier depends on a declaration. *)
@@ -122,9 +129,9 @@ let info_of_decl = function
 | A.ConstDecl (pos, A.TypedConst(_, ident, _, _)) ->
   pos, ident |> I.mk_string_ident, Const
 
-| A.NodeDecl (pos, (ident, _, _, _, _, _, _)) ->
+| A.NodeDecl (pos, (ident, _, _, _, _, _, _, _)) ->
   pos, ident |> I.mk_string_ident, NodeOrFun
-| A.FuncDecl (pos, (ident, _, _, _)) ->
+| A.FuncDecl (pos, (ident, _, _, _, _, _, _, _)) ->
   pos, ident |> I.mk_string_ident, NodeOrFun
 
 | A.ContractNodeDecl (pos, (ident, _, _, _, _)) ->
@@ -143,8 +150,8 @@ let insert_decl decl (f_type, f_ident) decls =
   let has_ident = match f_type with
     | NodeOrFun -> (
       function
-      | A.NodeDecl (_, (i, _, _, _, _, _, _)) -> i = ident
-      | A.FuncDecl (_, (i, _, _, _)) -> i = ident
+      | A.NodeDecl (_, (i, _, _, _, _, _, _, _)) -> i = ident
+      | A.FuncDecl (_, (i, _, _, _, _, _, _, _)) -> i = ident
       | _ -> false
     )
     | Type -> (

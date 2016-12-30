@@ -23,11 +23,16 @@ module I = LustreIdent
 module D = LustreIndex
 module E = LustreExpr
 module N = LustreNode
-module F = LustreFunction
 
+type t = 
 
-type t = { 
-  (* Functions *)
-  functions : F.t list;
-}
+  { 
+
+    (* Free constants *)
+    free_constants : (LustreIdent.t * Var.t LustreIndex.t) list;
+    
+    (* register bounds of state variables for later use *)
+    state_var_bounds : (E.expr E.bound_or_fixed list) StateVar.StateVarHashtbl.t;
+
+  }
 

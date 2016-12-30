@@ -1,9 +1,13 @@
-Analysis
+Unroller
+Log
 Event
+Strategy
+Analysis
 Flags
 InvarManager
 Kind2
-MonolithicStrategy
+Kind2Flow
+PostAnalysis
 InputSystem
 Eval          
 Ident  
@@ -47,6 +51,7 @@ LustreIndex
 LustreExpr
 LustreNode
 LustreContext
+LustreContract
 LustreDeclarations
 LustreSimplify
 LustreSlicing
@@ -76,6 +81,7 @@ HString
 HStringSExpr
 Kind2Config
 Lib
+Res
 Messaging
 Numeral
 SExprBase
@@ -92,3 +98,4 @@ TestgenSolver
 TestgenStrategies
 TestgenTree
 TestgenLib
+Certificate

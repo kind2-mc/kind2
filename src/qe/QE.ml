@@ -72,7 +72,7 @@ let get_solver_instance trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
-        Numeral.(~- one) Numeral.zero;
+        Numeral.zero Numeral.zero;
       
       SMTSolver.trace_comment solver "Defining predicates";
 
@@ -143,7 +143,7 @@ let get_checking_solver_instance trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
-        Numeral.(~- one) Numeral.zero;
+        Numeral.zero Numeral.zero;
 
       (* Save instance *)
       solver_check := Some solver;
@@ -602,7 +602,12 @@ let generalize trans_sys uf_defs model elim term =
   Debug.qe
     "@[<hv>with the model@ @[<hv>%a@]@]@."
     Model.pp_print_model model;
-  
+
+  if Term.has_quantifier term then begin
+    Event.log L_fatal "Cannot generalize quantified terms.";
+    failwith "Cannot generalize quantified terms.";
+  end;
+
   (* Extract active path from term and model *)
   let extract_bool, extract_int = Extract.extract uf_defs model term in
 

@@ -16,15 +16,23 @@
 
 *)
 
-(** Mines candidate terms from a system and a list of terms.  First
-    bool flag activates synthesis, i.e. mining based on the state
-    variables of the system. Second (resp. third) bool flag activates
-    init (resp. transition) predicate mining. Fourth is for two
-    state. Candidates are added to the input set and returned. *)
-val mine_term :
-  bool -> bool -> TransSys.t ->
-  Term.t list -> Term.TermSet.t ->
-  Term.TermSet.t
+(** Module generating candidate terms for invariant generation. *)
+module type CandGen = sig
+  (** Generates sets of candidate terms from a transition system, and its
+  subsystems if the second flag require it. First flag is for two-state. *)
+  val mine : bool -> bool -> TransSys.t -> (TransSys.t * Term.TermSet.t) list
+end
+
+(** Bool candidate term miner. *)
+module Bool : CandGen
+(** Integer candidate term miner. *)
+module Int : CandGen
+(** Real candidate term miner. *)
+module Real : CandGen
+
+
+
+
 
 (* 
    Local Variables:

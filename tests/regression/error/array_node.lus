@@ -1,0 +1,20 @@
+node n (x : int) returns (y : int);
+let
+  y = x + 1;
+tel
+
+node n_array (const n: int; x: int^n) returns (y : int^n);
+let
+  y[i] = x[i] + 1;
+tel
+
+node top (a:int^4) returns (x : int)
+var y : int^4;
+let
+  y[i] = n(a[i]);
+  -- use this instead
+  -- y = n_array(4, a);
+  x = y[0];
+  --%PROPERTY x = a[0] + 1;
+tel
+

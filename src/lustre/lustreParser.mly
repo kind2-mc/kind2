@@ -24,6 +24,22 @@ module A = LustreAst
 
 let mk_pos = position_of_lexing 
 
+
+let rec add_else_branch b belse =
+  match b with
+  | A.Target _ -> failwith "Cannot add else branch to unconditional target"
+  | A.TransIf (p, e, b1, None) -> A.TransIf (p, e, b1, Some belse)
+  | A.TransIf (p, e, b1, Some b2) ->
+     A.TransIf (p, e, b1, Some (add_else_branch b2 belse))
+     
+           
+let merge_branches transitions =
+  List.fold_right (fun (p, b) acc ->
+      match acc, b with
+      | None, _ -> Some (p, b)
+      | Some (_, b2), b1 -> Some (p, add_else_branch b1 b2)
+    ) transitions None
+  
 %}
 
 (* Special characters *)
@@ -54,6 +70,7 @@ let mk_pos = position_of_lexing
 
 (* Identifier token *)
 %token <string>SYM 
+%token <string>QUOTSYM 
       
 (* Tokens for types *)
 %token TYPE
@@ -73,10 +90,11 @@ let mk_pos = position_of_lexing
 %token CONST
     
 (* Tokens for node declarations *)
+%token IMPORTED
 %token NODE
 %token LPARAMBRACKET
 %token RPARAMBRACKET
-(* unused: %token FUNCTION *)
+%token FUNCTION
 %token RETURNS
 %token VAR
 %token LET
@@ -125,6 +143,8 @@ let mk_pos = position_of_lexing
 %token ELSE
 %token IMPL
 %token HASH
+%token FORALL
+%token EXISTS
     
 (* Tokens for relations *)
 %token LTE
@@ -149,10 +169,21 @@ let mk_pos = position_of_lexing
 %token INITIAL
 %token DEFAULT
 %token EVERY
+%token RESTART
 %token MERGE
-    
+
+(* Tokens for automata *)
+%token AUTOMATON
+%token STATE
+%token UNLESS
+%token UNTIL
+%token RESUME
+%token ELSIF
+%token END
+
 (* Tokens for temporal operators *)
 %token PRE
+%token LAST
 %token FBY
 %token ARROW
     
@@ -164,6 +195,7 @@ let mk_pos = position_of_lexing
 %left PIPE
 %nonassoc ELSE
 %right ARROW
+%nonassoc prec_forall prec_exists
 %right IMPL
 %left OR XOR
 %left AND
@@ -189,7 +221,6 @@ one_expr: e = expr EOF { e }
 (* A Lustre program is a list of declarations *)
 main: p = list(decl) EOF { List.flatten p }
 
-
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
   | d = const_decl { List.map 
@@ -198,9 +229,25 @@ decl:
   | d = type_decl { List.map 
                       (function e -> A.TypeDecl (mk_pos $startpos, e)) 
                       d }
-  | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
+  | NODE ; decl = node_decl ; def = node_def {
+    let (n, p, i, o, r) = decl in
+    let (l, e) = def in
+    [A.NodeDecl ( mk_pos $startpos, (n, false, p, i, o, l, e, r) )]
+  }
+  | FUNCTION ; decl = node_decl ; def = node_def {
+    let (n, p, i, o, r) = decl in
+    let (l, e) = def in
+    [A.FuncDecl (mk_pos $startpos, (n, false, p, i, o, l, e, r))]
+  }
+  | NODE ; IMPORTED ; decl = node_decl {
+    let (n, p, i, o, r) = decl in
+    [A.NodeDecl ( mk_pos $startpos, (n, true, p, i, o, [], [], r) )]
+  }
+  | FUNCTION ; IMPORTED ; decl = node_decl {
+    let (n, p, i, o, r) = decl in
+    [A.FuncDecl (mk_pos $startpos, (n, true, p, i, o, [], [], r))]
+  }
   | d = contract_decl { [A.ContractNodeDecl (mk_pos $startpos, d)] }
-  (* | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] } *)
   | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
 
@@ -240,11 +287,15 @@ type_decl:
 
   (* A free type *)
   | TYPE; l = ident_list; SEMICOLON 
-     { List.map (function e -> A.FreeType (mk_pos $startpos, e)) l }
+     { List.map (fun e -> A.FreeType (mk_pos $startpos, e)) l }
 
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (function e -> A.AliasType (mk_pos $startpos, e, t)) l }
+     { List.map (fun e -> match t with 
+                 | A.EnumType (p, _, cs) ->
+                    A.AliasType (mk_pos $startpos, e,
+                                 A.EnumType (p, Some e, cs))
+                 | _ -> A.AliasType (mk_pos $startpos, e, t)) l }
 
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
@@ -289,7 +340,7 @@ lustre_type:
   | t = array_type { A.ArrayType (mk_pos $startpos, t) }
 
   (* Enum type (V6) *)
-  | t = enum_type { A.EnumType (mk_pos $startpos, t) }
+  | t = enum_type { A.EnumType (mk_pos $startpos, None, t) }
 
 
 (* A tuple type *)
@@ -325,72 +376,58 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 (* ********************************************************************** *)
 
 
-(* An uninterpreted function declaration *)
-(* func_decl:
-  | FUNCTION; 
-    n = ident; 
-    i = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
-    RETURNS; 
-    o = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
-    SEMICOLON;
-    r = contract_spec;
-
-    { (n, List.flatten i, List.flatten o, r)  } *)
-
-
-(* A node declaration *)
+(* A node declaration and contract. *)
 node_decl:
-  | NODE; 
-    n = ident; 
-    p = loption(static_params);
-    i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
-    RETURNS; 
-    o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
-    SEMICOLON;
-    r = option(contract_spec);
-    l = list(node_local_decl);
-    LET;
-    e = list(node_equation);
-    TEL
-    option(node_sep) 
+| n = ident;
+  p = loption(static_params);
+  i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents);
+  RETURNS;
+  o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents);
+  option(SEMICOLON);
+  r = option(contract_spec)
+  {
+    (n, p, List.flatten i, List.flatten o, r)
+  }
 
-    { (n, 
-       p,
-       List.flatten i, 
-       List.flatten o, 
-       (List.flatten l), 
-       e,
-       r)  }
+(* A node definition (locals + body). *)
+node_def:
+  l = list(node_local_decl);
+  LET;
+  e = list(node_item);
+  TEL
+  option(node_sep)
+
+  { (List.flatten l, e) }
 
 
 contract_ghost_var:
   | VAR ;
-    i = ident ; COLON ; t = lustre_type; EQUALS ; e = expr ;
+    i = ident ; COLON ; t = lustre_type; EQUALS ; e = qexpr ;
     SEMICOLON 
     { A.GhostVar (A.TypedConst (mk_pos $startpos, i, e, t)) }
 (*  | VAR ; i = ident ; EQUALS ; e = expr ; SEMICOLON 
     { A.GhostVar (A.UntypedConst (mk_pos $startpos, i, e)) } *)
 
 contract_ghost_const:
-  | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON 
+  | CONST; i = ident; COLON; t = lustre_type; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.TypedConst (mk_pos $startpos, i, e, t)) }
-  | CONST; i = ident; EQUALS; e = expr; SEMICOLON 
+  | CONST; i = ident; EQUALS; e = qexpr; SEMICOLON 
     { A.GhostConst (A.UntypedConst (mk_pos $startpos, i, e)) }
 
 contract_assume:
-  ASSUME; name = option(STRING); e = expr; SEMICOLON
+  ASSUME; name = option(STRING); e = qexpr; SEMICOLON
   { A.Assume (mk_pos $startpos, name, e) }
 
 contract_guarantee:
-  GUARANTEE; name = option(STRING); e = expr; SEMICOLON
+  GUARANTEE; name = option(STRING); e = qexpr; SEMICOLON
   { A.Guarantee (mk_pos $startpos, name, e) }
 
 contract_require:
-  REQUIRE; name = option(STRING); e = expr; SEMICOLON
+  REQUIRE; name = option(STRING); e = qexpr; SEMICOLON
   { mk_pos $startpos, name, e }
 
 contract_ensure:
-  ENSURE; name = option(STRING); e = expr; SEMICOLON
+  ENSURE; name = option(STRING); e = qexpr; SEMICOLON
   { mk_pos $startpos, name, e }
 
 mode_equation:
@@ -403,8 +440,8 @@ mode_equation:
 
 contract_import:
   IMPORTCONTRACT ; n = ident ;
-  LPAREN ; in_params = separated_list(COMMA, expr) ; RPAREN ; RETURNS ;
-  LPAREN ; out_params = separated_list(COMMA, expr) ; RPAREN ; SEMICOLON ; {
+  LPAREN ; in_params = separated_list(COMMA, qexpr) ; RPAREN ; RETURNS ;
+  LPAREN ; out_params = separated_list(COMMA, qexpr) ; RPAREN ; SEMICOLON ; {
     A.ContractCall (mk_pos $startpos, n, in_params, out_params)
   }
 
@@ -527,27 +564,33 @@ main_annot:
   }
 
 property:
-  | percent_or_bang ; PROPERTY ; name = option(STRING) ; e = expr ; SEMICOLON
+  | percent_or_bang ; PROPERTY ; name = option(STRING) ; e = qexpr ; SEMICOLON
     { A.AnnotProperty (mk_pos $startpos, name, e) }
   | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
-    e = expr; SEMICOLON ; PSBLOCKEND
+    e = qexpr; SEMICOLON ; PSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
   | PSBLOCKSTART ; PROPERTY ; name = option(STRING);
-    COLON; e = expr; SEMICOLON ; PSBLOCKEND
+    COLON; e = qexpr; SEMICOLON ; PSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
   | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
-    e = expr ; SEMICOLON; SSBLOCKEND
+    e = qexpr ; SEMICOLON; SSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
   | SSBLOCKSTART ; PROPERTY ; name = option(STRING);
-    COLON; e = expr ; SEMICOLON; SSBLOCKEND
+    COLON; e = qexpr ; SEMICOLON; SSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
+
+
+node_item:
+  | e = node_equation { A.Body e }
+  | a = main_annot { a }
+  | p = property { p }
 
 
 (* An equations of a node *)
 node_equation:
 
   (* An assertion *)
-  | ASSERT; e = expr; SEMICOLON
+  | ASSERT; e = qexpr; SEMICOLON
     { A.Assert (mk_pos $startpos, e) }
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
@@ -555,18 +598,92 @@ node_equation:
   | l = left_side; EQUALS; e = expr; SEMICOLON
     { A.Equation (mk_pos $startpos, l, e) }
 
-  (* Node annotation *)
-  | a = main_annot { a }
+  (* An automaton *)
+  | AUTOMATON; i = option(ident); s = list(state);
+    RETURNS; out = ident_list; SEMICOLON
+    { A.Automaton (mk_pos $startpos, i, s, A.Given out) }
 
-  (* Property annotation *)
-  | p = property { p }
+  | AUTOMATON; i = option(ident); s = list(state);
+    RETURNS DOTDOT SEMICOLON
+    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
 
+  | AUTOMATON; i = option(ident); s = nonempty_list(state)
+    { A.Automaton (mk_pos $startpos, i, s, A.Inferred) }
+
+
+state_decl:
+  | STATE; i = ident { i, false }
+  | INITIAL STATE; i = ident { i, true }
+
+state:
+  | ii = state_decl; option(COLON)
+    us = unless_transitions;
+    l = list(node_local_decl);
+    LET;
+    e = list(node_equation);
+    TEL;
+    ul = until_transitions
+    { let i, init = ii in
+      A.State (mk_pos $startpos, i, init, List.flatten l, e,
+               merge_branches us, merge_branches ul) }
+
+  | ii = state_decl; option(COLON)
+    us = unless_transitions;
+    ul = until_transitions
+    { let i, init = ii in
+      A.State (mk_pos $startpos, i, init, [], [],
+               merge_branches us, merge_branches ul) }
+
+
+unless_transitions:
+  | { [] }
+  | UNLESS; b = transition_branch; u = unless_transitions
+    { (mk_pos $startpos, b) :: u }
+
+
+until_transitions:
+  | { [] }
+  | UNTIL; b = transition_branch; u = unless_transitions
+    { (mk_pos $startpos, b) :: u }
+
+
+transition_branch:
+  | b = branch; option(SEMICOLON)
+    { b }
+  | e = expr; t = target; option(SEMICOLON)
+    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
+  | IF; e = expr; t = target; option(SEMICOLON)
+    { A.TransIf (mk_pos $startpos, e, A.Target t, None) }
+
+
+branch:
+  | t = target
+    { A.Target t }
+  | IF; e = expr; b = branch; END
+    { A.TransIf (mk_pos $startpos, e, b, None) }
+  | IF; e = expr; b = branch; b2 = elsif_branch; END
+    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
+    
+elsif_branch:
+  | ELSE; b = branch
+    { b } 
+  | ELSIF; e = expr; b = branch
+    { A.TransIf (mk_pos $startpos, e, b, None) }
+  | ELSIF; e = expr; b = branch; b2 = elsif_branch
+    { A.TransIf (mk_pos $startpos, e, b, Some b2) }
+
+target_state:
+  | s = ident
+    { mk_pos $startpos, s }
+
+target:
+  | RESTART; s = target_state
+    { A.TransRestart (mk_pos $startpos, s) }
+
+  | RESUME; s = target_state
+    { A.TransResume (mk_pos $startpos, s) }
 
 left_side:
-
-  (* Recursive array definition *)
-  | s = ident; l = nonempty_list(index_var)
-     { A.ArrayDef (mk_pos $startpos, s, l)}
 
   (* List without parentheses *)
   | l = struct_item_list { A.StructDef (mk_pos $startpos, l) }
@@ -583,7 +700,11 @@ struct_item:
 
   (* Single identifier *)
   | s = ident
-     { A.SingleIdent (mk_pos $startpos, s) }
+      { A.SingleIdent (mk_pos $startpos, s) }
+          
+  (* Recursive array definition *)
+  | s = ident; l = nonempty_list(index_var)
+     { A.ArrayDef (mk_pos $startpos, s, l)}
 
 (*
   (* Filter array values *)
@@ -616,11 +737,19 @@ two_colons:
 
 (* ********************************************************************** *)
 
-(* An expression *)
-expr:
+(* dummy rule for parameter of pexpr to signal we allow quantifiers *)
+%inline quantified:
+  | { true }
+
+(* dummy rule for parameter of pexpr to signal we do not allow quantifiers *)
+%inline nonquantified:
+  | { false }
+  
+(* An possibly quantified expression *)
+pexpr(Q): 
   
   (* An identifier *)
-  | s = ident { A.Ident (mk_pos $startpos, s) }
+  | s = ident { A.Ident (mk_pos $startpos, s) } 
 
   (* A mode reference. *)
   | two_colons ; mode_ref = separated_nonempty_list(two_colons, ident) {
@@ -640,146 +769,264 @@ expr:
   | REAL; e = expr { A.ToReal (mk_pos $startpos, e) }
 
   (* A parenthesized single expression *)
-  | LPAREN; e = expr; RPAREN { e } 
+  | LPAREN; e = pexpr(Q); RPAREN { e } 
 
-  (* An expression list 
+  (* An expression list (not quantified)
 
      Singleton list is in production above *)
-  | LPAREN; h = expr; COMMA; l = expr_list; RPAREN 
+  | LPAREN; h = pexpr(Q); COMMA; l = pexpr_list(Q); RPAREN 
     { A.ExprList (mk_pos $startpos, h :: l) } 
 
-  (* A tuple expression *)
-  (* | LSQBRACKET; l = expr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
-  | LCURLYBRACKET; l = expr_list; RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
+  (* A tuple expression (not quantified) *)
+  (* | LSQBRACKET; l = qexpr_list; RSQBRACKET { A.TupleExpr (mk_pos $startpos, l) } *)
+  | LCURLYBRACKET; l = pexpr_list(Q); RCURLYBRACKET { A.TupleExpr (mk_pos $startpos, l) }
 
-  (* An array expression *)
-  | LSQBRACKET; l = expr_list; RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
+  (* An array expression (not quantified) *)
+  | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.ArrayExpr (mk_pos $startpos, l) }
 
-  (* An array constructor *)
-  | e1 = expr; CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
+  (* An array constructor (not quantified) *)
+  | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  (* An array slice or tuple projection *)
-  | e = expr; DOTPERCENT; i = expr 
+  (* An array slice or tuple projection (not quantified) *)
+  | e = pexpr(Q); DOTPERCENT; i = expr 
     { A.TupleProject (mk_pos $startpos, e, i) }
 
-  (* An array slice *)
-  | e = expr; LSQBRACKET; s = array_slice; RSQBRACKET
+  (* An array slice (not quantified) *)
+  | e = pexpr(Q); LSQBRACKET; s = array_slice; RSQBRACKET
     { A.ArraySlice (mk_pos $startpos, e, s) }
 
-  (* A record field projection *)
-  | s = expr; DOT; t = ident 
+  (* A record field projection (not quantified) *)
+  | s = pexpr(Q); DOT; t = ident 
     { A.RecordProject (mk_pos $startpos, s, t) }
 
-  (* A record *)
+  (* A record (not quantified) *)
   | t = ident; 
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
     { A.RecordExpr (mk_pos $startpos, t, f) }
 
   (* An array concatenation *)
-  | e1 = expr; PIPE; e2 = expr { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); PIPE; e2 = pexpr(Q) { A.ArrayConcat (mk_pos $startpos, e1, e2) } 
 
-  (* with operator for updating fields of a structure *)
+  (* with operator for updating fields of a structure (not quantified) *)
   | LPAREN; 
-    e1 = expr; 
+    e1 = pexpr(Q); 
     WITH; 
     i = nonempty_list(label_or_index); 
     EQUALS; 
-    e2 = expr; 
+    e2 = pexpr(Q); 
     RPAREN
 
     { A.StructUpdate (mk_pos $startpos, e1, i, e2) } 
 
   (* An arithmetic operation *)
-  | e1 = expr; MINUS; e2 = expr { A.Minus (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); MINUS; e2 = pexpr(Q) { A.Minus (mk_pos $startpos, e1, e2) }
   | MINUS; e = expr { A.Uminus (mk_pos $startpos, e) } 
-  | e1 = expr; PLUS; e2 = expr { A.Plus (mk_pos $startpos, e1, e2) }
-  | e1 = expr; MULT; e2 = expr { A.Times (mk_pos $startpos, e1, e2) }
-  | e1 = expr; DIV; e2 = expr { A.Div (mk_pos $startpos, e1, e2) }
-  | e1 = expr; INTDIV; e2 = expr { A.IntDiv (mk_pos $startpos, e1, e2) }
-  | e1 = expr; MOD; e2 = expr { A.Mod (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); PLUS; e2 = pexpr(Q) { A.Plus (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); MULT; e2 = pexpr(Q) { A.Times (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); DIV; e2 = pexpr(Q) { A.Div (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); INTDIV; e2 = pexpr(Q) { A.IntDiv (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); MOD; e2 = pexpr(Q) { A.Mod (mk_pos $startpos, e1, e2) }
 
   (* A Boolean operation *)
-  | NOT; e = expr { A.Not (mk_pos $startpos, e) } 
-  | e1 = expr; AND; e2 = expr { A.And (mk_pos $startpos, e1, e2) }
-  | e1 = expr; OR; e2 = expr { A.Or (mk_pos $startpos, e1, e2) }
-  | e1 = expr; XOR; e2 = expr { A.Xor (mk_pos $startpos, e1, e2) }
-  | e1 = expr; IMPL; e2 = expr { A.Impl (mk_pos $startpos, e1, e2) }
-  | HASH; LPAREN; e = expr_list; RPAREN { A.OneHot (mk_pos $startpos, e) }
+  | NOT; e = pexpr(Q) { A.Not (mk_pos $startpos, e) } 
+  | e1 = pexpr(Q); AND; e2 = pexpr(Q) { A.And (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); OR; e2 = pexpr(Q) { A.Or (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); XOR; e2 = pexpr(Q) { A.Xor (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); IMPL; e2 = pexpr(Q) { A.Impl (mk_pos $startpos, e1, e2) }
+  | HASH; LPAREN; e = pexpr_list(Q); RPAREN { A.OneHot (mk_pos $startpos, e) }
 
+  (* A quantified expression *)
+  | FORALL; q = Q;
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
+    %prec prec_forall
+    { let pos = mk_pos $startpos in
+      if not q then
+        LustreContext.fail_at_position
+          pos "Quantifiers not allowed in this position";
+      A.Forall (pos, List.flatten vars, e) }
+  | EXISTS; q = Q;
+    vars = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents); e = pexpr(Q)
+    %prec prec_exists
+    { let pos = mk_pos $startpos in
+      if not q then
+        LustreContext.fail_at_position
+          pos "Quantifiers not allowed in this position";
+      A.Exists (pos, List.flatten vars, e) }
+                                                                       
   (* A relation *)
-  | e1 = expr; LT; e2 = expr { A.Lt (mk_pos $startpos, e1, e2) }
-  | e1 = expr; GT; e2 = expr { A.Gt (mk_pos $startpos, e1, e2) }
-  | e1 = expr; LTE; e2 = expr { A.Lte (mk_pos $startpos, e1, e2) }
-  | e1 = expr; GTE; e2 = expr { A.Gte (mk_pos $startpos, e1, e2) }
-  | e1 = expr; EQUALS; e2 = expr { A.Eq (mk_pos $startpos, e1, e2) } 
-  | e1 = expr; NEQ; e2 = expr { A.Neq (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.Lt (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); GT; e2 = pexpr(Q) { A.Gt (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); LTE; e2 = pexpr(Q) { A.Lte (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); GTE; e2 = pexpr(Q) { A.Gte (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); EQUALS; e2 = pexpr(Q) { A.Eq (mk_pos $startpos, e1, e2) } 
+  | e1 = pexpr(Q); NEQ; e2 = pexpr(Q) { A.Neq (mk_pos $startpos, e1, e2) } 
 
   (* An if operation *)
-  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
+  | IF; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.Ite (mk_pos $startpos, e1, e2, e3) }
 
   (* Recursive node call *)
-  | WITH; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
+  | WITH; e1 = pexpr(Q); THEN; e2 = pexpr(Q); ELSE; e3 = pexpr(Q) 
     { A.With (mk_pos $startpos, e1, e2, e3) }
 
-  (* when operator on expression  *)
-  | e1 = expr; WHEN; e2 = expr { A.When (mk_pos $startpos, e1, e2) }
+  (* when operator on qexpression  *)
+  | e1 = pexpr(Q); WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
 
-  (* current operator on expression *)
-  | CURRENT; e = expr { A.Current (mk_pos $startpos, e) }
+  (* current operator on qexpression *)
+  | CURRENT; e = pexpr(Q) { A.Current (mk_pos $startpos, e) }
 
   (* condact call with defaults *)
   | CONDACT 
     LPAREN; 
-    e1 = expr; 
+    e1 = pexpr(Q); 
     COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     COMMA; 
-    d = expr_list 
+    d = pexpr_list(Q)
     RPAREN
-    { A.Condact (mk_pos $startpos, e1, s, a, d) } 
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, e1, A.False pos, s, a, d) } 
 
   (* condact call may have no return values and therefore no defaults *)
   | CONDACT 
     LPAREN; 
-    c = expr; 
+    c = pexpr(Q); 
     COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
+    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
     RPAREN
 
-    { A.Condact (mk_pos $startpos, c, s, a, []) } 
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, A.False pos, s, a, []) } 
+
+  (* condact call with defaults and restart *)
+  | CONDACT LPAREN;
+    c = pexpr(Q); 
+    COMMA;
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
+    COMMA; 
+    d = pexpr_list(Q);
+    RPAREN
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) } 
+
+  (* condact call with no return values and restart *)
+  | CONDACT ; LPAREN;
+    c = pexpr(Q); 
+    COMMA; 
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
+    RPAREN
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, []) } 
 
   (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
      is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; 
-    INITIAL DEFAULT; d = separated_list(COMMA, expr); RPAREN; 
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
+    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
-    { A.Condact (mk_pos $startpos, c, s, a, d) }
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, A.False pos, s, a, d) }
     
   (* activate operator without initial defaults
 
      Only supported inside a merge *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = expr; RPAREN; 
-    LPAREN; a = separated_list(COMMA, expr); RPAREN
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
 
-    { A.Activate (mk_pos $startpos, s, c, a) }
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, A.False pos, a) }
+
+  (* activate restart *)
+  | LPAREN; ACTIVATE;
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
+    EVERY; c = pexpr(Q); 
+    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) }
     
-  (* Merge operator *)
+  (* alternative syntax for activate restart *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
+    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q));
+    RESTART EVERY; r = pexpr(Q); RPAREN;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Condact (pos, c, r, s, a, d) }
+    
+  (* activate operator without initial defaults and restart
+
+     Only supported inside a merge *)
+  | LPAREN; ACTIVATE;
+    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
+    EVERY; c = pexpr(Q); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, r, a) }
+    
+  (* alternative syntax of previous construct  *)
+  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q);
+    RESTART EVERY; r = pexpr(Q); RPAREN;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
+
+    { let pos = mk_pos $startpos in
+      A.Activate (pos, s, c, r, a) }
+
+    
+  (* restart node call *)
+  (*| RESTART; s = ident;
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN;
+    EVERY; c = clock_expr
+
+    { A.RestartEvery (mk_pos $startpos, s, a, c) }
+   *)
+    
+  (* alternative syntax for restart node call *)
+  | LPAREN; RESTART; s = ident; EVERY; c = pexpr(Q); RPAREN; 
+    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
+
+    { A.RestartEvery (mk_pos $startpos, s, a, c) }
+    
+        
+  (* Binary merge operator *)
+  | MERGE; LPAREN;
+    c = ident; SEMICOLON;
+    pos = pexpr(Q); SEMICOLON;
+    neg = pexpr(Q); RPAREN 
+    { A.Merge (mk_pos $startpos, c, ["true", pos; "false", neg]) }
+
+  (* N-way merge operator *)
   | MERGE; 
-    LPAREN;
-    c = expr; SEMICOLON;
-    l = separated_nonempty_list(SEMICOLON, expr); RPAREN 
+    c = ident;
+    l = nonempty_list(merge_case);
     { A.Merge (mk_pos $startpos, c, l) }
     
   (* A temporal operation *)
-  | PRE; e = expr { A.Pre (mk_pos $startpos, e) }
-  | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN
+  | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
+  | FBY LPAREN; e1 = pexpr(Q) COMMA; s = NUMERAL; COMMA; e2 = pexpr(Q) RPAREN
     { A.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
-  | e1 = expr; ARROW; e2 = expr { A.Arrow (mk_pos $startpos, e1, e2) }
 
+  | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
+
+  | LAST; i = ident_or_quotident { A.Last (mk_pos $startpos, i) }
+    
   (* A node or function call *)
   | e = node_call { e } 
+
+
+%inline qexpr:
+  | e = pexpr(quantified) { e }
+
+%inline expr:
+  | e = pexpr(nonquantified) { e }
+
+
+(* A list of expressions *)
+pexpr_list(Q): l = separated_nonempty_list(COMMA, pexpr(Q)) { l }
 
 
 (* Static parameters are only types *)
@@ -804,10 +1051,6 @@ node_call:
     { A.CallParam (mk_pos $startpos, s, p, a) }
 
 
-(* A list of expressions *)
-expr_list: l = separated_nonempty_list(COMMA, expr) { l }
-
-
 (* An array slice *)
 array_slice:
   | il = expr; DOTDOT; iu = expr { il, iu }
@@ -825,9 +1068,18 @@ clock_expr:
   | c = ident { A.ClockPos c } 
   | NOT; c = ident { A.ClockNeg c } 
   | NOT; LPAREN; c = ident; RPAREN { A.ClockNeg c } 
+  | cs = ident; LPAREN; c = ident; RPAREN { A.ClockConstr (cs, c) } 
   | TRUE { A.ClockTrue }
 
+merge_case_id:
+  | TRUE { "true" }
+  | FALSE { "false" }
+  | c = ident { c }
 
+merge_case :
+  | LPAREN; c = merge_case_id; ARROW; e = expr; RPAREN { c, e }
+
+    
 (* ********************************************************************** *)
 
 
@@ -841,6 +1093,9 @@ ident:
   | ENSURE { "ensure" }
   | s = SYM { s }
 
+ident_or_quotident:
+  | id = ident { id }
+  | s = QUOTSYM { s }
 
 (* An identifier with a type *)
 typed_ident: s = ident; COLON; t = lustre_type { (mk_pos $startpos, s, t) }

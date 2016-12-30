@@ -38,6 +38,15 @@ type 'a t = {
   subsystems : 'a t list ;
 }
 
+(* Strategy info of a subsystem. *)
+let strategy_info_of {
+  has_contract ; has_modes ; has_impl
+} = {
+  Strategy.can_refine = has_impl ;
+  Strategy.has_contract ;
+  Strategy.has_modes ;
+}
+
 
 (* Add all subsystems of the systems in the second argument to the accumulator
    in topological order with the top system at the head of the list. *)

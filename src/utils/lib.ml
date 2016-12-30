@@ -157,6 +157,15 @@ let rec list_filter_nth' current_pos accum =
 let list_filter_nth l p = list_filter_nth' 0 [] l p
 
 
+let list_extract_nth l i =
+  let rec aux acc l i = match i, l with
+    | 0, x :: r -> x, List.rev_append acc r
+    | i, x :: r when i > 0 -> aux (x :: acc) r (i - 1) 
+    | _ -> raise (Invalid_argument "list_extract_nth")
+  in
+  aux [] l i
+
+
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)
 let chain_list = function 
 
@@ -480,6 +489,24 @@ let rec pp_print_listi' pp sep ppf = function
 (* Pretty-print a list with a counter of its elements *)
 let pp_print_listi pp sep ppf l = pp_print_listi' pp sep ppf (0, l)
 
+
+
+let rec pp_print_list2i' pp sep ppf = function 
+  | _, [], [] -> ()
+  | i, [e1], [e2] -> pp ppf i e1 e2
+  | i, e1 :: tl1, e2 :: tl2 -> 
+    pp ppf i e1 e2;
+    (* Output separator *)
+    fprintf ppf sep; 
+    (* Output the rest of the two lists *)
+    pp_print_list2i' pp sep ppf (succ i, tl1, tl2)
+  | _ -> invalid_arg "pp_print_list2i"
+
+(* Pretty-print two lists of the same length with a counter of their
+   elements *)
+let pp_print_list2i pp sep ppf l1 l2 = pp_print_list2i' pp sep ppf (0, l1, l2)
+
+
 (* Pretty-print a list wrapped in parentheses *)
 let pp_print_paren_list ppf list = 
       
@@ -526,6 +553,13 @@ let string_of_t pp t =
 (* Return the strings as a parenthesized and space separated list *)
 let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list
+
+(* Return the width of the string, meaning the wisth of it's longest line *)
+let width_of_string s =
+  let lines = Str.split (Str.regexp "\n") s in
+  List.fold_left (fun max_width s ->
+      max max_width (String.length s)
+    ) 0 lines
 
 
 (* ********************************************************************** *)
@@ -574,10 +608,13 @@ type log_level =
   | L_fatal
   | L_error
   | L_warn
+  | L_note
   | L_info
   | L_debug
   | L_trace
 
+(* Default log level. *)
+let default_log_level = L_note
 
 (* Associate an integer with each level to induce a total ordering *)
 let int_of_log_level = function 
@@ -585,9 +622,10 @@ let int_of_log_level = function
   | L_fatal -> 0
   | L_error -> 1
   | L_warn -> 2
-  | L_info -> 3
-  | L_debug -> 4
-  | L_trace -> 5
+  | L_note -> 3
+  | L_info -> 4
+  | L_debug -> 5
+  | L_trace -> 6
 
 
 let log_level_of_int = function 
@@ -595,10 +633,22 @@ let log_level_of_int = function
   | 0 -> L_fatal
   | 1 -> L_error
   | 2 -> L_warn
-  | 3 -> L_info
-  | 4 -> L_debug
-  | 5 -> L_trace
+  | 3 -> L_note
+  | 4 -> L_info
+  | 5 -> L_debug
+  | 6 -> L_trace
   | _ -> raise (Invalid_argument "log_level_of_int")
+
+let string_of_log_level = function
+  | L_off -> "off"
+  | L_fatal -> "fatal"
+  | L_error -> "error"
+  | L_warn -> "warn"
+  | L_note -> "note"
+  | L_info -> "info"
+  | L_debug -> "debug"
+  | L_trace -> "trace"
+
 
 
 (* Compare two levels *)
@@ -612,6 +662,8 @@ let log_level = ref L_warn
 
 (* Set log level *)
 let set_log_level l = log_level := l
+(* Log level *)
+let get_log_level () = !log_level
 
 
 (* Level is of higher or equal priority than current log level? *)
@@ -668,6 +720,10 @@ type kind_module =
   | `IND2
   | `INVGEN
   | `INVGENOS
+  | `INVGENINT
+  | `INVGENINTOS
+  | `INVGENREAL
+  | `INVGENREALOS
   | `C2I
   | `Interpreter
   | `Supervisor
@@ -681,8 +737,12 @@ let pp_print_kind_module ppf = function
   | `BMC -> fprintf ppf "bounded model checking"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
-  | `INVGEN -> fprintf ppf "two state invariant generator"
-  | `INVGENOS -> fprintf ppf "one state invariant generator"
+  | `INVGEN -> fprintf ppf "two state invariant generator (bool)"
+  | `INVGENOS -> fprintf ppf "one state invariant generator (bool)"
+  | `INVGENINT -> fprintf ppf "two state invariant generator (int)"
+  | `INVGENINTOS -> fprintf ppf "one state invariant generator (int)"
+  | `INVGENREAL -> fprintf ppf "two state invariant generator (real)"
+  | `INVGENREALOS -> fprintf ppf "one state invariant generator (real)"
   | `C2I -> fprintf ppf "c2i"
   | `Interpreter -> fprintf ppf "interpreter"
   | `Supervisor -> fprintf ppf "invariant manager"
@@ -694,13 +754,17 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 
 (* Return a short representation of kind module *)
-let suffix_of_kind_module = function
+let short_name_of_kind_module = function
  | `IC3 -> "ic3"
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `IND2 -> "ind2"
  | `INVGEN -> "invgents"
  | `INVGENOS -> "invgenos"
+ | `INVGENINT -> "invgenintts"
+ | `INVGENINTOS -> "invgenintos"
+ | `INVGENREAL -> "invgenintts"
+ | `INVGENREALOS -> "invgenintos"
  | `C2I -> "c2i"
  | `Interpreter -> "interp"
  | `Supervisor -> "super"
@@ -716,6 +780,10 @@ let kind_module_of_string = function
   | "IND2" -> `IND2
   | "INVGEN" -> `INVGEN
   | "INVGENOS" -> `INVGENOS
+  | "INVGENINT" -> `INVGENINT
+  | "INVGENINTOS" -> `INVGENINTOS
+  | "INVGENREAL" -> `INVGENREAL
+  | "INVGENREALOS" -> `INVGENREALOS
   | "C2I" -> `C2I
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
@@ -731,7 +799,11 @@ let int_of_kind_module = function
   | `IC3 -> 4
   | `INVGEN -> 5
   | `INVGENOS -> 6
-  | `C2I -> 7
+  | `INVGENINT -> 7
+  | `INVGENINTOS -> 8
+  | `INVGENREAL -> 9
+  | `INVGENREALOS -> 10
+  | `C2I -> 11
 
 
 (* Timeouts *)
@@ -1104,6 +1176,36 @@ let syscall cmd =
   ignore(Unix.close_process (ic, oc));
   Buffer.contents buf
 
+
+
+let reset_gc_params =
+  let gc_c = Gc.get() in
+  fun () -> Gc.set gc_c
+  
+
+let set_liberal_gc () =
+  Gc.full_major ();
+  let gc_c =
+    { (Gc.get ()) with
+      (* Gc.verbose = 0x3FF; *)
+      Gc.minor_heap_size = 64000000; (* default 32000*)
+      major_heap_increment = 3200000;    (* default 124000*)
+      space_overhead = 100; (* default 80% des donnes vivantes *)
+    }
+  in
+  Gc.set gc_c
+
+
+(* ********************************************************************** *)
+(* Paths techniques write to                                              *)
+(* ********************************************************************** *)
+
+module Paths = struct
+  let testgen = "tests"
+  let oracle = "oracle"
+  let implem = "implem"
+end
+
 (* ********************************************************************** *)
 (* Reserved identifiers                                                   *)
 (* ********************************************************************** *)
@@ -1120,7 +1222,17 @@ module ReservedIds = struct
   let init_uf_string = "__node_init"
   let trans_uf_string = "__node_trans"
   let index_ident_string = "__index"
+  let function_of_inputs = "__function_of_inputs"
 
+  let state_string = "state"
+  let restart_string = "restart"
+  let state_selected_string = "state.selected"
+  let restart_selected_string = "restart.selected"
+  let state_selected_next_string = "state.selected.next"
+  let restart_selected_next_string = "restart.selected.next"
+  let handler_string = "handler"
+  let unless_string = "unless"
+  
   (* Init flag string. *)
   let init_flag_string = "__init_flag"
   (* Abstraction depth input string. *)
@@ -1132,6 +1244,7 @@ module ReservedIds = struct
     init_flag_string ;
     depth_input_string ;
     max_depth_input_string ;
+    function_of_inputs ;
 
     abs_ident_string ;
     oracle_ident_string ;
@@ -1145,6 +1258,35 @@ module ReservedIds = struct
     index_ident_string ;
   ]
 
+end
+
+
+(* |===| Exit codes. *)
+
+(** Exit codes. *)
+module ExitCodes = struct
+  let unknown = 0
+  let unsafe = 10
+  let safe = 20
+  let error = 2
+  let kid_status = 128
+end
+
+
+(* |===| File names. *)
+
+(** File names. *)
+module Names = struct
+  (** Contract generation file. *)
+  let contract_gen_file = "kind2_contract.lus"
+  (** Contract name for contract generation. *)
+  let contract_name =
+    Format.asprintf "%a_spec" (pp_print_list Format.pp_print_string "_")
+  (** Invariant logging file. *)
+  let inv_log_file = "kind2_strengthening.lus"
+  (** Contract name for invariant logging. *)
+  let inv_log_contract_name =
+    Format.asprintf "%a_str_spec" (pp_print_list Format.pp_print_string "_")
 end
 
 

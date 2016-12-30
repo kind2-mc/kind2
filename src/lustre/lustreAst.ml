@@ -18,6 +18,8 @@
 
 open Lib
 
+module SI = Set.Make (Ident)
+
 exception Parser_error
 
 
@@ -44,6 +46,13 @@ let pp_print_ident = Format.pp_print_string
 
 let pp_print_index = Format.pp_print_string
 
+
+(* A clock expression *)
+type clock_expr =
+  | ClockTrue
+  | ClockPos of ident
+  | ClockNeg of ident
+  | ClockConstr of ident * ident
 
 
 (* A Lustre expression *)
@@ -95,6 +104,8 @@ type expr =
   | Or of position * expr * expr
   | Xor of position * expr * expr 
   | Impl of position * expr * expr 
+  | Forall of position * typed_ident list * expr
+  | Exists of position * typed_ident list * expr
   | OneHot of position * expr list
 
   (* Arithmetic operators *)
@@ -121,14 +132,16 @@ type expr =
   | Gt of position * expr * expr
 
   (* Clock operators *)
-  | When of position * expr * expr 
+  | When of position * expr * clock_expr
   | Current of position * expr
-  | Condact of position * expr * ident * expr list * expr list
-  | Activate of position * ident * expr * expr list
-  | Merge of position * expr * expr list
+  | Condact of position * expr * expr * ident * expr list * expr list
+  | Activate of position * ident * expr * expr * expr list
+  | Merge of position * ident * (ident * expr) list
+  | RestartEvery of position * ident * expr list * expr
       
   (* Temporal operators *)
-  | Pre of position * expr 
+  | Pre of position * expr
+  | Last of position * ident
   | Fby of position * expr * int * expr 
   | Arrow of position * expr * expr 
 
@@ -149,7 +162,7 @@ and lustre_type =
   | TupleType of position * lustre_type list
   | RecordType of position * typed_ident list
   | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident list
+  | EnumType of position * ident option * ident list
 
 
 (* A declaration of an unclocked type *)
@@ -164,12 +177,6 @@ and label_or_index =
 type type_decl = 
   | AliasType of position * ident * lustre_type  
   | FreeType of position * ident
-
-(* A clock expression *)
-type clock_expr =
-  | ClockPos of ident
-  | ClockNeg of ident
-  | ClockTrue 
 
 (* A declaration of a clocked type *)
 type clocked_typed_decl = 
@@ -210,20 +217,47 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  | ArrayDef of position * ident * ident list
 
 
 (* The left-hand side of an equation *)
 type eq_lhs =
-  | ArrayDef of position * ident * ident list
   | StructDef of position * struct_item list
 
+type transition_to =
+  | TransRestart of position * (position * ident)
+  | TransResume of position * (position * ident)
+
+type transition_branch =
+  | Target of transition_to
+  | TransIf of position * expr *
+               transition_branch * transition_branch option
+  
+type automaton_transition = position * transition_branch
+
+type auto_returns = Given of ident list | Inferred
 
 (* An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
   | Equation of position * eq_lhs * expr 
+  | Automaton of position * ident option * state list * auto_returns
+
+
+and state =
+  | State of position * ident * bool *
+             node_local_decl list *
+             node_equation list *
+             automaton_transition option *
+             automaton_transition option
+
+
+(* An item in a node declaration *)
+type node_item =
+  | Body of node_equation
   | AnnotMain of bool
   | AnnotProperty of position * string option * expr
+
 
 (* A contract ghost constant. *)
 type contract_ghost_const = const_decl
@@ -263,14 +297,17 @@ type contract_node_equation =
 type contract = contract_node_equation list
 
 
-(* A node declaration *)
+(* A node or function declaration
+
+Boolean flag indicates whether node / function is extern. *)
 type node_decl =
   ident
+  * bool
   * node_param list
   * const_clocked_typed_decl list
   * clocked_typed_decl list
   * node_local_decl list
-  * node_equation list
+  * node_item list
   * contract option
 
 (* A contract node declaration. Almost the same as a [node_decl] but
@@ -283,10 +320,6 @@ type contract_node_decl =
   * clocked_typed_decl list
   * contract
 
-(* A function declaration *)
-type func_decl = 
-  ident * typed_ident list * typed_ident list * contract option
-
 
 (* An instance of a parameterized node *)
 type node_param_inst = ident * ident * lustre_type list
@@ -296,8 +329,8 @@ type declaration =
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
   | NodeDecl of position * node_decl
+  | FuncDecl of position * node_decl
   | ContractNodeDecl of position * contract_node_decl
-  | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
 
@@ -312,10 +345,11 @@ type t = declaration list
 
 (* Pretty-print a clock expression *)
 let pp_print_clock_expr ppf = function
-
+  | ClockTrue -> ()
   | ClockPos s -> Format.fprintf ppf "@ when %a" pp_print_ident s
   | ClockNeg s -> Format.fprintf ppf "@ when not %a" pp_print_ident s
-  | ClockTrue -> ()
+  | ClockConstr (s, c) ->
+    Format.fprintf ppf "@ when %a(%a)" pp_print_ident c pp_print_ident s
 
 
 (* Pretty-print a Lustre expression *)
@@ -399,7 +433,7 @@ let rec pp_print_expr ppf =
         "@[<hv 1>(%a@ with@ @[<hv>%a@] =@ %a)@]"
         pp_print_expr e1
         (pp_print_list pp_print_label_or_index "") i
-        pp_print_expr e1
+        pp_print_expr e2
 
 
     | ArrayConstr (p, e1, e2) -> 
@@ -444,7 +478,7 @@ let rec pp_print_expr ppf =
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a[%a]" ppos p pp_print_expr e pp_print_expr f
+      Format.fprintf ppf "%a%a.%%%a" ppos p pp_print_expr e pp_print_expr f
 
     | True p -> ps p "true"
     | False p -> ps p "false"
@@ -461,6 +495,14 @@ let rec pp_print_expr ppf =
     | Xor (p, e1, e2) -> p2 p "xor" e1 e2
     | Impl (p, e1, e2) -> p2 p "=>" e1 e2
     | OneHot (p, e) -> pnp p "#" e
+    | Forall (pos, vars, e) -> 
+      Format.fprintf ppf "@[<hv 2>forall@ @[<hv 1>(%a)@]@ %a@]" 
+        (pp_print_list pp_print_typed_decl ";@ ") vars
+        pp_print_expr e
+    | Exists (pos, vars, e) -> 
+      Format.fprintf ppf "@[<hv 2>exists@ @[<hv 1>(%a)@]@ %a@]" 
+        (pp_print_list pp_print_typed_decl ";@ ") vars
+        pp_print_expr e
 
     | Uminus (p, e) -> p1 p "-" e
     | Mod (p, e1, e2) -> p2 p "mod" e1 e2 
@@ -481,34 +523,53 @@ let rec pp_print_expr ppf =
     | Gte (p, e1, e2) -> p2 p ">=" e1 e2
     | Gt (p, e1, e2) -> p2 p ">" e1 e2
 
-    | When (p, e1, e2) -> p2 p "when" e1 e2
-    | Current (p, e) -> p1 p "current" e
-    | Condact (p, e1, n, e2, e3) -> 
-  
-      Format.fprintf ppf 
-        "%acondact(%a,%a(%a),%a)" 
+    | When (p, e1, e2) ->
+      Format.fprintf ppf "%a %a when %a"
         ppos p
         pp_print_expr e1
+        pp_print_clock_expr e2
+
+    | Current (p, e) -> p1 p "current" e
+    | Condact (p, e1, er, n, e2, e3) -> 
+  
+      Format.fprintf ppf 
+        "%acondact(%a,restart %a,%a(%a),%a)" 
+        ppos p
+        pp_print_expr e1
+        pp_print_expr er
         pp_print_ident n
         (pp_print_list pp_print_expr ",@ ") e2
         (pp_print_list pp_print_expr ",@ ") e3
 
-    | Activate (p, i, c, l) ->
+    | Activate (p, i, c, r, l) ->
 
       Format.fprintf ppf
-        "(activate %a every %a)(%a)"
+        "(activate (restart %a every %a) every %a) (%a)"
         pp_print_ident i
+        pp_print_expr r
         pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
         
-    | Merge (p, e, l) ->
+    | Merge (p, c, l) ->
 
       Format.fprintf ppf
         "merge(%a,@ %a)"
-        pp_print_expr e
+        pp_print_ident c
+        (pp_print_list (fun fmt (c,e) ->
+             Format.fprintf fmt "%a -> %a"
+               pp_print_ident c
+               pp_print_expr e) ",@ ") l 
+
+    | RestartEvery (p, i, l, c) ->
+      Format.fprintf ppf
+        "(restart %a every %a)(%a)"
+        pp_print_ident i
+        pp_print_expr c
         (pp_print_list pp_print_expr ",@ ") l 
-        
+
     | Pre (p, e) -> p1 p "pre" e
+    | Last (p, id) ->
+      Format.fprintf ppf "last %a%a" ppos p pp_print_ident id
     | Fby (p, e1, i, e2) -> 
 
       Format.fprintf ppf 
@@ -540,8 +601,10 @@ let rec pp_print_expr ppf =
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =
-  
-  Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
+  if l = u then
+    Format.fprintf ppf "%a" pp_print_expr l
+  else
+    Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
 
 and pp_print_field_assign ppf (i, e) = 
 
@@ -590,7 +653,7 @@ and pp_print_lustre_type ppf = function
       pp_print_lustre_type t 
       pp_print_expr e
 
-  | EnumType (pos, l) -> 
+  | EnumType (pos, _, l) -> 
 
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
@@ -744,6 +807,13 @@ let pp_print_node_local_decl ppf l =
       (pp_print_list pp_print_node_local_decl_var "@ ") v 
 
 
+let pp_print_array_def_index ppf ident =
+
+  Format.fprintf ppf
+    "[%a]"
+    pp_print_ident ident
+
+
 let rec pp_print_struct_item ppf = function
 
   | SingleIdent (pos, s) -> Format.fprintf ppf "%a" pp_print_ident s
@@ -774,13 +844,13 @@ let rec pp_print_struct_item ppf = function
       "%a@[<hv 1>[%a]@]" 
       pp_print_ident e
       (pp_print_list pp_print_array_slice ",@ ") i
+                            
+  | ArrayDef (pos, i, l) ->
 
-
-let pp_print_array_def_index ppf ident =
-
-  Format.fprintf ppf
-    "[%a]"
-    pp_print_ident ident
+    Format.fprintf ppf
+      "%a%a"
+      pp_print_ident i
+      (pp_print_list pp_print_array_def_index "") l
 
 
 let pp_print_eq_lhs ppf = function
@@ -791,16 +861,9 @@ let pp_print_eq_lhs ppf = function
   | StructDef (pos, l) ->
     Format.fprintf ppf "(%a)"
       (pp_print_list pp_print_struct_item ",") l
-                            
-  | ArrayDef (pos, i, l) ->
-    Format.fprintf ppf
-      "%a%a"
-      pp_print_ident i
-      (pp_print_list pp_print_array_def_index "") l
   
 
-(* Pretty-print a node equation *)
-let pp_print_node_equation ppf = function
+let rec pp_print_body ppf = function
 
   | Assert (pos, e) -> 
 
@@ -813,6 +876,15 @@ let pp_print_node_equation ppf = function
       pp_print_eq_lhs lhs
       pp_print_expr e
 
+  | Automaton (_, name, states, returns) ->
+    pp_print_automaton ppf name states returns
+
+
+(* Pretty-print a node equation *)
+and pp_print_node_item ppf = function
+  
+  | Body b -> pp_print_body ppf b
+
   | AnnotMain true -> Format.fprintf ppf "--%%MAIN;"
 
   | AnnotMain false -> Format.fprintf ppf "--!MAIN : false;"
@@ -822,6 +894,48 @@ let pp_print_node_equation ppf = function
 
   | AnnotProperty (pos, Some name, e) ->
     Format.fprintf ppf "--%%PROPERTY \"%s\" %a;" name pp_print_expr e 
+
+
+and pp_print_automaton ppf name states returns =
+  Format.fprintf ppf "@[<hv 2>automaton %s@.%a@]returns %a;"
+    (match name with Some n -> n | None -> "")
+    pp_print_states states
+    pp_print_auto_returns returns
+
+
+and pp_print_auto_returns ppf = function
+  | Given l -> pp_print_list pp_print_ident "," ppf l
+  | Inferred -> Format.fprintf ppf ".."
+
+and pp_print_states ppf =
+  pp_print_list pp_print_state "@." ppf
+
+
+and pp_print_state ppf =
+  function State (_, name, init, locals, eqs, unless, until) ->
+    Format.fprintf ppf "state %s@.@[<hv 2>%a%a@[<hv 2>let@.%a@]@.tel@]@.%a" name
+      (pp_print_auto_trans "unless") unless
+      pp_print_node_local_decl locals
+      (pp_print_list pp_print_body "@ ") eqs
+      (pp_print_auto_trans "until") until
+
+and pp_print_auto_trans kind ppf = function
+  | None -> ()
+  | Some (_, br) ->
+    Format.fprintf ppf "%s %a;@." kind pp_print_transition_branch br
+
+and pp_print_transition_branch ppf = function
+  | Target (TransRestart (_, (_, t))) -> Format.fprintf ppf "restart %s" t
+  | Target (TransResume (_, (_, t))) -> Format.fprintf ppf "resume %s" t
+  | TransIf (_, e, br, None) ->
+    Format.fprintf ppf "if@ %a@ %a"
+      pp_print_expr e
+      pp_print_transition_branch br
+  | TransIf (_, e, br, Some br2) ->
+    Format.fprintf ppf "if@ %a@ %a@ else@ %a@ end"
+      pp_print_expr e
+      pp_print_transition_branch br
+      pp_print_transition_branch br2
 
 
 let pp_print_contract_ghost_const ppf = function 
@@ -969,7 +1083,31 @@ let pp_print_contract_node ppf (
     (pp_print_list pp_print_clocked_typed_ident ";@ ") o
     pp_print_contract contract 
 
-  
+
+let pp_print_node_or_fun_decl is_fun ppf (
+  pos, (n, ext, p, i, o, l, e, r)
+) =
+
+    Format.fprintf ppf
+      "@[<hv>@[<hv 2>%s%s %a%t@ \
+       @[<hv 1>(%a)@]@;<1 -2>\
+       returns@ @[<hv 1>(%a)@];@]@ \
+       %a@ \
+       %a@ \
+       @[<v 2>let@ \
+       %a@;<1 -2>\
+       tel;@]@]"
+      (if ext then "extern " else "")
+      (if is_fun then "function" else "node")
+      pp_print_ident n 
+      (function ppf -> pp_print_node_param_list ppf p)
+      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+      pp_print_contract_spec
+      r
+      pp_print_node_local_decl l
+      (pp_print_list pp_print_node_item "@ ") e
+
 
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
@@ -980,25 +1118,11 @@ let pp_print_declaration ppf = function
 
   | ConstDecl (pos, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (pos, (n, p, i, o, l, e, r)) -> 
+  | NodeDecl (pos, decl) ->
+    pp_print_node_or_fun_decl false ppf (pos, decl)
 
-    Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a%t@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@ \
-       %a\
-       %a\
-       @[<v 2>let@ \
-       %a@;<1 -2>\
-       tel;@]@]"
-      pp_print_ident n 
-      (function ppf -> pp_print_node_param_list ppf p)
-      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract_spec
-      r
-      pp_print_node_local_decl l
-      (pp_print_list pp_print_node_equation "@ ") e
+  | FuncDecl (pos, decl) ->
+    pp_print_node_or_fun_decl true ppf (pos, decl)
 
   | ContractNodeDecl (pos, (n,p,i,o,e)) ->
 
@@ -1015,18 +1139,6 @@ let pp_print_declaration ppf = function
        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
        pp_print_contract e
-
-  | FuncDecl (pos, (n, i, o, r)) -> 
-
-    Format.fprintf ppf
-      "@[<hv 2>function %a@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@ \
-       %a@]" 
-      pp_print_ident n 
-      (pp_print_list pp_print_typed_decl ";@ ") i
-      (pp_print_list pp_print_typed_decl ";@ ") o
-      pp_print_contract_spec r
 
   | NodeParamInst (pos, (n, s, p)) -> 
 
@@ -1065,8 +1177,10 @@ let pos_of_expr = function
   | Times (pos , _ , _) | IntDiv (pos , _ , _) | Ite (pos , _ , _ , _)
   | With (pos , _ , _ , _) | Eq (pos , _ , _) | Neq (pos , _ , _)
   | Lte (pos , _ , _) | Lt (pos , _ , _) | Gte (pos , _ , _) | Gt (pos , _ , _)
-  | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _ )
-  | Activate (pos , _ , _ , _ ) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | Forall (pos, _, _) | Exists (pos, _, _)
+  | When (pos , _ , _) | Current (pos , _) | Condact (pos , _ , _ , _ , _, _)
+  | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | Last (pos , _) | RestartEvery (pos, _, _, _)
   | Fby (pos , _ , _ , _) | Arrow (pos , _ , _) | Call (pos , _ , _ )
   | CallParam (pos , _ , _ , _ )
     -> pos
@@ -1076,14 +1190,15 @@ let rec has_unguarded_pre ung = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
     
   | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
-  | Not (_, e) | Uminus (_, e) | Current (_, e) -> has_unguarded_pre ung e
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) -> has_unguarded_pre ung e
 
   | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
   | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
   | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
   | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
   | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
-  | When (_, e1, e2) | ArrayConcat (_, e1, e2) ->
+  | ArrayConcat (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
 
@@ -1101,12 +1216,20 @@ let rec has_unguarded_pre ung = function
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
-  | Activate (_, _, e, l) | Merge (_, e, l) ->
+  | Merge (_, _, l) ->
+    let us = List.map (has_unguarded_pre ung) (List.map snd l) in
+    List.exists Lib.identity us
+
+  | RestartEvery (_, _, l, e) ->
     let us = List.map (has_unguarded_pre ung) (e :: l) in
     List.exists Lib.identity us
 
-  | Condact (_, e, _, l1, l2) ->
-    let us = List.map (has_unguarded_pre ung) (e :: l1 @ l2) in
+  | Activate (_, _, e, r, l)  ->
+    let us = List.map (has_unguarded_pre ung) (e :: r :: l) in
+    List.exists Lib.identity us
+
+  | Condact (_, e, r, _, l1, l2) ->
+    let us = List.map (has_unguarded_pre ung) (e :: r :: l1 @ l2) in
     List.exists Lib.identity us
 
   | RecordExpr (_, _, ie) ->
@@ -1140,6 +1263,18 @@ let rec has_unguarded_pre ung = function
     let u = has_unguarded_pre true e in
     ung || u
 
+  | Last (pos, _) as p ->
+    if ung then begin
+      (* Fail only if in strict mode *)
+      let err_or_warn =
+        if Flags.lus_strict () then error_at_position else warn_at_position in
+
+      err_or_warn pos
+        (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]"
+           pp_print_expr p)
+    end;
+    ung
+    
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre false e1 in
@@ -1149,7 +1284,464 @@ let has_unguarded_pre e =
   let u = has_unguarded_pre true e in
   if u && Flags.lus_strict () then raise Parser_error;
   u
+
+(** If second argument is `Some _`, returns that. Otherwise runs `f`. *)
+let unwrap_or f = function
+| None -> f ()
+| res -> res
+
+(** If input list contains `Some _`, returns that. Otherwise returns `None`. *)
+let some_of_list = List.fold_left (
+  function
+  | None -> Lib.identity
+  | res -> (fun _ -> res)
+) None
+
+(** Checks whether an expression has a `pre` or a `->`. *)
+let rec has_pre_or_arrow = function
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> None
+    
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) ->
+    has_pre_or_arrow e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | ArrayConcat (_, e1, e2) -> (
+    match has_pre_or_arrow e1 with
+    | None -> has_pre_or_arrow e2
+    | res -> res
+  )
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (
+      fun _ ->
+        has_pre_or_arrow e2
+        |> unwrap_or (
+          fun _ -> has_pre_or_arrow e3
+        )
+    )
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    List.map has_pre_or_arrow l
+    |> some_of_list
+
+  | Merge (_, _, l) ->
+    List.map has_pre_or_arrow (List.map snd l)
+    |> some_of_list
+
+  | RestartEvery (_, _, l, e) ->
+    List.map has_pre_or_arrow (e :: l)
+    |> some_of_list
+
+  | Activate (_, _, e, r, l) ->
+    List.map has_pre_or_arrow (e :: r :: l)
+    |> some_of_list
+
+  | Condact (_, e, r, _, l1, l2) ->
+    List.map has_pre_or_arrow (e :: r :: l1 @ l2)
+    |> some_of_list
+
+  | RecordExpr (_, _, ie) ->
+    List.map (fun (_, e) -> has_pre_or_arrow e) ie
+    |> some_of_list
+
+  | StructUpdate (_, e1, li, e2) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (
+      fun _ ->
+        has_pre_or_arrow e2
+        |> unwrap_or (
+          fun _ ->
+            List.map (function
+              | Label _ -> None
+              | Index (_, e) -> has_pre_or_arrow e
+            ) li
+            |> some_of_list
+        )
+    )
+
+  | Fby (_, e1, _, e2) ->
+    has_pre_or_arrow e1
+    |> unwrap_or (fun _ -> has_pre_or_arrow e2)
+
+  | Pre (pos, _) | Last (pos, _) -> Some pos
+
+  | Arrow (pos, e1, e2) -> Some pos
+
+
+(** Returns identifiers under a last operator *)
+let rec lasts_of_expr acc = function
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> acc
+    
+  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
+  | Forall (_, _, e) | Exists (_, _, e) ->
+    lasts_of_expr acc e
+
+  | TupleProject (_, e1, e2) | And (_, e1, e2) | Or (_, e1, e2)
+  | Xor (_, e1, e2) | Impl (_, e1, e2) | ArrayConstr (_, e1, e2) 
+  | Mod (_, e1, e2) | Minus (_, e1, e2) | Plus (_, e1, e2) | Div (_, e1, e2)
+  | Times (_, e1, e2) | IntDiv (_, e1, e2) | Eq (_, e1, e2) | Neq (_, e1, e2)
+  | Lte (_, e1, e2) | Lt (_, e1, e2) | Gte (_, e1, e2) | Gt (_, e1, e2)
+  | ArrayConcat (_, e1, e2) ->
+    lasts_of_expr (lasts_of_expr acc e1) e2
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    lasts_of_expr (lasts_of_expr (lasts_of_expr acc e1) e2) e3
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    List.fold_left lasts_of_expr acc l
+
+  | Merge (_, _, l) ->
+    List.fold_left (fun acc (_, e) -> lasts_of_expr acc e) acc l
+
+  | RestartEvery (_, _, l, e) ->
+    List.fold_left lasts_of_expr acc (e :: l)
+
+  | Activate (_, _, e, r, l) ->
+    List.fold_left lasts_of_expr acc (e :: r :: l)
+
+  | Condact (_, e, r, _, l1, l2) ->
+    List.fold_left lasts_of_expr acc (e :: r :: l1 @ l2)
+
+  | RecordExpr (_, _, ie) ->
+    List.fold_left (fun acc (_, e) -> lasts_of_expr acc e) acc ie
+
+  | StructUpdate (_, e1, li, e2) ->
+    let acc = lasts_of_expr (lasts_of_expr acc e1) e2 in
+    List.fold_left (fun acc -> function
+        | Label _ -> acc
+        | Index (_, e) -> lasts_of_expr acc e
+      ) acc li
+    
+  | Fby (_, e1, _, e2) ->
+    lasts_of_expr (lasts_of_expr acc e1) e2
+
+  | Pre (pos, e) -> lasts_of_expr acc e
+                      
+  | Last (pos, i) -> SI.add i acc
+
+  | Arrow (pos, e1, e2) ->
+    lasts_of_expr (lasts_of_expr acc e1) e2
+
+
+let rec replace_lasts allowed prefix acc ee = match ee with
+  | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ ->
+    ee, acc
+    
+  | RecordProject (pos, e, i) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else RecordProject (pos, e', i), acc'
+         
+  | ToInt (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToInt (pos, e'), acc'
+                      
+  | ToReal (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToReal (pos, e'), acc'
+
+  | Not (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Not (pos, e'), acc'
+
+  | Uminus (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Uminus (pos, e'), acc'
+
+  | Current (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Current (pos, e'), acc'
+
+  | When (pos, e, c) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else When (pos, e', c), acc'
+
+  | Forall (pos, vs, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Forall (pos, vs, e'), acc'
+
+  | Exists (pos, vs, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else Exists (pos, vs, e'), acc'
+
+  | TupleProject (pos, e1, e2)
+  | And (pos, e1, e2) | Or (pos, e1, e2) | Xor (pos, e1, e2)
+  | Impl (pos, e1, e2) | ArrayConstr (pos, e1, e2) | Mod (pos, e1, e2)
+  | Minus (pos, e1, e2) | Plus (pos, e1, e2) | Div (pos, e1, e2)
+  | Times (pos, e1, e2) | IntDiv (pos, e1, e2) | Eq (pos, e1, e2)
+  | Neq (pos, e1, e2) | Lte (pos, e1, e2) | Lt (pos, e1, e2)
+  | Gte (pos, e1, e2) | Gt (pos, e1, e2) | ArrayConcat (pos, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else (match ee with
+        | TupleProject (pos, e1, e2) -> TupleProject (pos, e1', e2')
+        | And (pos, e1, e2) -> And (pos, e1', e2')
+        | Or (pos, e1, e2) -> Or (pos, e1', e2')
+        | Xor (pos, e1, e2) -> Xor (pos, e1', e2')
+        | Impl (pos, e1, e2) -> Impl (pos, e1', e2')
+        | ArrayConstr (pos, e1, e2)  -> ArrayConstr (pos, e1', e2') 
+        | Mod (pos, e1, e2) -> Mod (pos, e1', e2')
+        | Minus (pos, e1, e2) -> Minus (pos, e1', e2')
+        | Plus (pos, e1, e2) -> Plus (pos, e1', e2')
+        | Div (pos, e1, e2) -> Div (pos, e1', e2')
+        | Times (pos, e1, e2) -> Times (pos, e1', e2')
+        | IntDiv (pos, e1, e2) -> IntDiv (pos, e1', e2')
+        | Eq (pos, e1, e2) -> Eq (pos, e1', e2')
+        | Neq (pos, e1, e2) -> Neq (pos, e1', e2')
+        | Lte (pos, e1, e2) -> Lte (pos, e1', e2')
+        | Lt (pos, e1, e2) -> Lt (pos, e1', e2')
+        | Gte (pos, e1, e2) -> Gte (pos, e1', e2')
+        | Gt (pos, e1, e2) -> Gt (pos, e1', e2')
+        | ArrayConcat (pos, e1, e2) -> ArrayConcat (pos, e1', e2')
+        | _ -> assert false
+      ), acc'
+
+  | Ite (_, e1, e2, e3) | With (_, e1, e2, e3)
+  | ArraySlice (_, e1, (e2, e3)) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    let e3', acc' = replace_lasts allowed prefix acc' e3 in
+    if e1 == e1' && e2 == e2' && e3 == e3' then ee, acc
+    else (match ee with
+        | Ite (pos, e1, e2, e3) -> Ite (pos, e1', e2', e3')
+        | With (pos, e1, e2, e3) -> With (pos, e1', e2', e3')
+        | ArraySlice (pos, e1, (e2, e3)) -> ArraySlice (pos, e1', (e2', e3'))
+        | _ -> assert false
+      ), acc'
+  
+  | ExprList (_, l) | TupleExpr (_, l) | ArrayExpr (_, l)
+  | OneHot (_, l) | Call (_, _, l) | CallParam (_, _, _, l) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    if try List.for_all2 (==) l l' with _ -> false then ee, acc
+    else (match ee with
+        | ExprList (pos, l) -> ExprList (pos, l')
+        | TupleExpr (pos, l) -> TupleExpr (pos, l')
+        | ArrayExpr (pos, l) -> ArrayExpr (pos, l')
+        | OneHot (pos, l) -> OneHot (pos, l')
+        | Call (pos, n, l) -> Call (pos, n, l')
+        | CallParam (pos, n, t, l) -> CallParam (pos, n, t, l')
+        | _ -> assert false
+      ), acc'
       
+
+  | Merge (pos, c, l) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) (c, e) ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          (c, e) :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    if try List.for_all2 (fun (_, x) (_, x') -> x == x') l l' with _ -> false
+    then ee, acc
+    else Merge (pos, c, l'), acc'
+
+  | RestartEvery (pos, n, l, e) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    let e', acc' = replace_lasts allowed prefix acc' e in
+    if try e == e' && List.for_all2 (==) l l'  with _ -> false then ee, acc
+    else RestartEvery (pos, n, l', e'), acc
+
+  | Activate (pos, n, e, r, l) ->
+    let l', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l in
+    let l' = List.rev l' in
+    let e', acc' = replace_lasts allowed prefix acc' e in
+    let r', acc' = replace_lasts allowed prefix acc' r in
+    if try e == e' && r == r' &&
+           List.for_all2 (==) l l'  with _ -> false then ee, acc
+    else Activate (pos, n, e', r', l'), acc'
+
+  | Condact (pos, e, r, n, l1, l2) ->
+    let l1', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc) l1 in
+    let l1' = List.rev l1 in
+    let l2', acc' =
+      List.fold_left (fun (l, acc) e ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          e :: l, acc
+        ) ([], acc') l2 in
+    let l2' = List.rev l2 in
+    let e', acc' = replace_lasts allowed prefix acc' e in
+    let r', acc' = replace_lasts allowed prefix acc' r in
+    if try e == e' && r == r' &&
+           List.for_all2 (==) l1 l1' &&
+           List.for_all2 (==) l2 l2'
+      with _ -> false then ee, acc
+    else Condact (pos, e', r', n, l1', l2'), acc'
+
+  | RecordExpr (pos, n, ie) ->
+    let ie', acc' =
+      List.fold_left (fun (ie, acc) (i, e) ->
+          let e, acc = replace_lasts allowed prefix acc e in
+          (i, e) :: ie, acc
+        ) ([], acc) ie in
+    let ie' = List.rev ie' in
+    if try List.for_all2 (fun (_, e) (_, e') -> e == e') ie ie' with _ -> false
+    then ee, acc
+    else RecordExpr (pos, n, ie'), acc'
+
+  | StructUpdate (pos, e1, li, e2) ->
+    let li', acc' =
+      List.fold_left (fun (li, acc) -> function
+          | Label _ as s -> s :: li, acc
+          | Index (i, e) as s ->
+            let e', acc' = replace_lasts allowed prefix acc e in
+            if e == e' then s :: li, acc
+            else Index (i, e') :: li, acc
+        ) ([], acc) li in
+    let li' = List.rev li' in
+    let e1', acc' = replace_lasts allowed prefix acc' e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if try e1 == e1' && e2 == e2' &&
+           List.for_all2 (fun ei ei' -> match ei, ei' with
+               | Label _, Label _ -> true
+               | Index (_, e), Index (_, e') -> e == e'
+               | _ -> false
+             ) li li'
+      with _ -> false then ee, acc
+    else StructUpdate (pos, e1', li', e2'), acc'
+        
+  | Fby (pos, e1, i, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else Fby (pos, e1', i, e2'), acc'
+    
+  | Pre (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc else Pre (pos, e'), acc'
+                      
+  | Last (pos, i) ->
+    if not (List.mem i allowed) then
+      error_at_position pos
+        "Only visible variables in the node are allowed under last";
+    let acc = SI.add i acc in
+    Ident (pos, prefix ^ ".last." ^ i), acc
+
+  | Arrow (pos, e1, e2) ->
+    let e1', acc' = replace_lasts allowed prefix acc e1 in
+    let e2', acc' = replace_lasts allowed prefix acc' e2 in
+    if e1 == e1' && e2 == e2' then ee, acc
+    else Arrow (pos, e1', e2'), acc'
+
+
+
+(** Checks whether a struct item has a `pre` or a `->`. *)
+let rec struct_item_has_pre_or_arrow = function
+| SingleIdent _ | FieldSelection _ | ArrayDef _ -> None
+| TupleStructItem (_, l) ->
+  List.map struct_item_has_pre_or_arrow l
+  |> some_of_list
+| ArraySliceStructItem (_, _, l) ->
+  List.map (
+    fun (e1, e2) ->
+      has_pre_or_arrow e1
+      |> unwrap_or (fun _ -> has_pre_or_arrow e2)
+  ) l
+  |> some_of_list
+| TupleSelection (_, _, e) -> has_pre_or_arrow e
+
+
+(** Checks whether a constant declaration has a `pre` or a `->`. *)
+let const_decl_has_pre_or_arrow = function
+| FreeConst _ -> None
+| UntypedConst (_, _, e) -> has_pre_or_arrow e
+| TypedConst (_, _, e, _) -> has_pre_or_arrow e
+
+
+
+(** Checks whether a node local declaration has a `pre` or a `->`. *)
+let node_local_decl_has_pre_or_arrow = function
+| NodeConstDecl (_, decl) -> const_decl_has_pre_or_arrow decl
+| NodeVarDecl _ -> None
+
+
+(** Checks whether an equation lhs has a `pre` or a `->`. *)
+let eq_lhs_has_pre_or_arrow = function
+| StructDef (_, l) ->
+  List.map struct_item_has_pre_or_arrow l
+  |> some_of_list
+
+(** Checks whether a node equation has a `pre` or a `->`. *)
+let node_item_has_pre_or_arrow = function
+| Body (Assert (_, e)) -> has_pre_or_arrow e
+| Body (Equation (_, lhs, e)) ->
+  eq_lhs_has_pre_or_arrow lhs
+  |> unwrap_or (fun _ -> has_pre_or_arrow e)
+| AnnotMain _ -> None
+| AnnotProperty (_, _, e) -> has_pre_or_arrow e
+| Body (Automaton _) -> assert false
+
+(** Checks whether a contract node equation has a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+let contract_node_equation_has_pre_or_arrow = function
+| GhostConst decl
+| GhostVar decl -> const_decl_has_pre_or_arrow decl
+| Assume (_, _, e)
+| Guarantee (_, _, e) -> has_pre_or_arrow e
+| Mode (_, _, reqs, enss) ->
+  List.map (fun (_, _, e) -> has_pre_or_arrow e) reqs
+  |> some_of_list
+  |> unwrap_or (
+    fun _ ->
+      List.map (fun (_, _, e) -> has_pre_or_arrow e) enss
+      |> some_of_list
+  )
+| ContractCall (_, _, ins, outs) ->
+  List.map has_pre_or_arrow ins
+  |> some_of_list
+  |> unwrap_or (
+    fun _ ->
+      List.map has_pre_or_arrow outs
+      |> some_of_list
+  )
+
+(** Checks whether a contract has a `pre` or a `->`.
+
+Does not (cannot) check contract calls recursively, checks only inputs and
+outputs. *)
+let contract_has_pre_or_arrow l =
+  List.map contract_node_equation_has_pre_or_arrow l
+  |> some_of_list
 
 
 (* 
