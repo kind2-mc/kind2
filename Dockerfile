@@ -50,17 +50,6 @@ RUN ./latest_proof_cvc4.sh
 RUN mv cvc4 bin/cvc4
 RUN chmod a+x bin/cvc4
 
-# RUN ls -lh bin/cvc4
-# RUN ls -lh bin/jkind*
-# RUN exit 2
-# RUN apt-get -y -qq update
-# RUN apt-get -y -qq install default-jre
-# RUN wget http://cs.uiowa.edu/~amebsout/qualif.tgz
-# RUN tar xvf qualif.tgz && rm qualif.tgz
-# RUN mv qualif/jkind* .
-# RUN mv qualif/cvc4 .
-# RUN rm -rf qualif
-
 # Retrieve and build Kind 2.
 RUN mkdir kind2
 COPY . kind2/
