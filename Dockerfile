@@ -65,7 +65,7 @@ RUN chmod a+x bin/cvc4
 RUN mkdir kind2
 COPY . kind2/
 WORKDIR kind2
-RUN make clean
+RUN if [ -f "Makefile" ] ; then make clean ; fi
 RUN rm -rf src/_build configure Makefile
 RUN rm -rf bin
 RUN rm -rf src/Makefile src/kind2.native
@@ -76,9 +76,6 @@ RUN ./build.sh
 WORKDIR ./..
 # Move Kind 2 binary to top level.
 RUN mv kind2/bin/kind2 kind2-bin && rm -rf kind2 && mv kind2-bin kind2
-
-RUN ls bin/jkind*
-RUN jkind
 
 # Entry point.
 ENTRYPOINT ["./kind2"]
