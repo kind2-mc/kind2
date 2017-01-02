@@ -477,7 +477,7 @@ let run in_sys =
     | Some param ->
       (* Build trans sys and slicing info. *)
       let sys, in_sys_sliced =
-        ISys.trans_sys_of_analysis in_sys param
+        ISys.trans_sys_of_analysis ~preserve_sig:true in_sys param
       in
       (* Set module currently running. *)
       Event.set_module m ;
