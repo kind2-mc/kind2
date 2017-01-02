@@ -82,6 +82,26 @@ let main input_file input_sys aparam trans_sys =
 
   let nb_inputs = List.filter StateVar.is_input trans_svars |> List.length in
 
+  (* Check that constant inputs are indeed constant. *)
+  inputs |> List.iter (
+    function
+    | (sv, head :: tail) when StateVar.is_const sv ->
+      tail |> List.fold_left (
+        fun acc value ->
+          if acc != value then (
+            Event.log L_warn
+              "Input %s is constant, but input values differ: \
+              got %a and, later, %a."
+              (StateVar.name_of_state_var sv)
+              Term.pp_print_term acc
+              Term.pp_print_term value ;
+            Failure "main" |> raise
+          ) ;
+          acc
+      ) head |> ignore
+    | _ -> ()
+  ) ;
+
   (* Remove sliced inputs *)
   let inputs = List.filter (fun (sv, _) ->
       List.exists (StateVar.equal_state_vars sv) trans_svars
@@ -106,8 +126,8 @@ let main input_file input_sys aparam trans_sys =
 
          (* Output warning *)
          Event.log L_warn 
-           "Input for %a is longer than other inputs"
-           StateVar.pp_print_state_var state_var)
+           "Input for %s is longer than other inputs"
+           (StateVar.name_of_state_var state_var))
 
     inputs;
 
