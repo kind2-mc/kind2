@@ -54,12 +54,7 @@ RUN chmod a+x bin/cvc4
 RUN mkdir kind2
 COPY . kind2/
 WORKDIR kind2
-RUN if [ -f "Makefile" ] ; then make clean ; fi
-RUN rm -rf src/_build configure Makefile
-RUN rm -rf bin
-RUN rm -rf src/Makefile src/kind2.native
-# RUN ls src
-RUN autoreconf
+RUN if [ -f "Makefile" ] ; then make clean && rm -rf src/_build configure Makefile && rm -rf bin && rm -rf src/Makefile src/kind2.native && autoreconf ; fi
 RUN ./autogen.sh
 RUN ./build.sh
 WORKDIR ./..

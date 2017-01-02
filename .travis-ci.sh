@@ -31,17 +31,5 @@ eval $(opam config env)
 ./autogen.sh
 ./build.sh
 
-# Checking regression test first.
+# Checking regression test .
 make test
-
-# Retrieve and build Kind 2 develop.
-dev_dir="kind2-dev"
-git clone https://github.com/kind2-mc/kind2 $dev_dir
-cd $dev_dir
-./autogen.sh
-./build.sh
-cd ..
-cp $dev_dir/bin/kind2 bin/kind2-dev
-
-# Unimplemented.
-ls bin/
