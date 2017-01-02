@@ -1,3 +1,7 @@
+branches:
+  only:
+  - develop
+  - master
 language: c
 sudo: required
 script: bash -ex .travis-ci.sh
