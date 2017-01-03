@@ -437,7 +437,7 @@ module IO = struct
               |> rewrite_pics dirname
               |> fun smthng -> printf "rewrite labels@." ; smthng *)
               |> rewrite_label prefix
-              |> echo_pipe [ rewrite_pics dirname ]
+              (* |> echo_pipe [ rewrite_pics dirname ] *)
               |> output_string tgt_chan ;
               output_string tgt_chan "\n"
             done ;
