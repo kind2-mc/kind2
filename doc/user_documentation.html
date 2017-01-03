@@ -723,7 +723,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <body>
 <div id="header">
 <h1 class="title">Kind 2 User Documentation</h1>
-<h1 class="subtitle">Version 1.1.0</h1>
+<h1 class="subtitle">Version</h1>
 </div>
 <div id="TOC">
 <ul>
@@ -741,12 +741,12 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <li><a href="#n57545933-compositional-reasoning">Compositional reasoning</a></li>
 <li><a href="#n57545933-modular-reasoning">Modular reasoning</a></li>
 <li><a href="#n57545933-refinement-in-compositional-and-modular-analyses">Refinement in compositional and modular analyses</a></li>
-<li><a href="#n28536306-k-induction">K-induction</a><ul>
+<li><a href="#n28536306-kinduction">K-induction</a><ul>
 <li><a href="#n28536306-options">Options</a></li>
 </ul></li>
 <li><a href="#n28536307-invariant-generation">Invariant Generation</a><ul>
 <li><a href="#n28536307-options">Options</a></li>
-<li><a href="#n28536307-lock-step-k-induction">Lock Step K-induction</a></li>
+<li><a href="#n28536307-lock-step-kinduction">Lock Step K-induction</a></li>
 </ul></li>
 <li><a href="#n28536308-ic3">IC3</a><ul>
 <li><a href="#n28536308-options">Options</a></li>
@@ -760,13 +760,13 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <li><a href="#n64322437-inline-syntax">Inline syntax</a></li>
 <li><a href="#n64322437-external-syntax">External syntax</a></li>
 <li><a href="#n64322437-contract-items-and-restrictions">Contract items and restrictions</a></li>
-<li><a href="#merge-when-activate-and-restart-n64322437-merge-when-activate-and-restart">Merge, When, Activate and Restart {#n64322437-merge,-when,-activate-and-restart}</a></li>
+<li><a href="#n64322437-merge-when-activate-and-restart">Merge, When, Activate and Restart</a></li>
 <li><a href="#n64322437-enumerated-data-types-in-lustre">Enumerated data types in Lustre</a></li>
-<li><a href="#n64322437-n-way-merge">N-way merge</a></li>
+<li><a href="#n64322437-nway-merge">N-way merge</a></li>
 </ul></li>
 <li><a href="#n64322437-partially-defined-nodes">Partially defined nodes</a></li>
-<li><a href="#the-imported-keyword-n64322437-the-imported-keyword">The <code>imported</code> keyword {#n64322437-the-<code>imported</code>-keyword}</a><ul>
-<li><a href="#partially-defined-nodes-vs-imported-n64322437-partially-defined-nodes-vs-imported">Partially defined nodes VS <code>imported</code> {#n64322437-partially-defined-nodes-vs-<code>imported</code>}</a></li>
+<li><a href="#n64322437-the-imported-keyword">The <code>imported</code> keyword</a><ul>
+<li><a href="#partially-defined-nodes-vs-imported">Partially defined nodes VS <code id="n64322437-partially-defined-nodes-vs-imported">imported</code></a></li>
 </ul></li>
 <li><a href="#n64322437-functions">Functions</a><ul>
 <li><a href="#n64322437-benefits">Benefits</a></li>
@@ -794,7 +794,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 </ul></li>
 </ul></li>
 <li><a href="#n31040692-contract-semantics">Contract semantics</a><ul>
-<li><a href="#n31040692-assume-guarantee-contracts">Assume-guarantee contracts</a></li>
+<li><a href="#n31040692-assumeguarantee-contracts">Assume-guarantee contracts</a></li>
 <li><a href="#n31040692-modes">Modes</a><ul>
 <li><a href="#n31040692-semantics">Semantics</a></li>
 <li><a href="#n31040692-defensive-check">Defensive check</a></li>
@@ -808,13 +808,13 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 </ul></li>
 <li><a href="#n57545939-compilation-to-rust">Compilation to Rust</a><ul>
 <li><a href="#n57545939-technical-details">Technical details</a></li>
-<li><a href="#assertions-properties-and-contracts-n57545939-assertions-properties-and-contracts">Assertions, properties and contracts {#n57545939-assertions,-properties-and-contracts}</a></li>
+<li><a href="#n57545939-assertions-properties-and-contracts">Assertions, properties and contracts</a></li>
 </ul></li>
 <li><a href="#n57545940-proof-certificates">Proof Certificates</a><ul>
 <li><a href="#n57545940-certification-chain">Certification chain</a></li>
 <li><a href="#n57545940-producing-certificates-and-proofs-with-kind-2">Producing certificates and proofs with Kind 2</a><ul>
 <li><a href="#n57545940-requirements">Requirements</a></li>
-<li><a href="#n57545940-smt-lib-2-certificates">SMT-LIB 2 certificates</a></li>
+<li><a href="#n57545940-smtlib-2-certificates">SMT-LIB 2 certificates</a></li>
 <li><a href="#n57545940-lfsc-proofs">LFSC proofs</a></li>
 </ul></li>
 <li><a href="#n57545940-contents-of-certificates">Contents of certificates</a></li>
@@ -932,7 +932,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <p>Say now that when we analyzed <code>sub</code>, we proved that it is correct. In this case Kind 2 will attempt to <em>refine</em> the call to <code>sub</code> in top. That is, undo the abstraction and use the implementation of <code>sub</code> in a new analysis.</p>
 <p>Note that since <code>sub</code> is known to be correct, it is stronger than its contract. More precisely, it accepts fewer execution traces than its contract does. Hence anything proved with the abstraction of <code>sub</code> is still valid after refinement, and Kind 2 will use these results right away.</p>
 
-<h2 id="n28536306-k-induction">K-induction</h2>
+<h2 id="n28536306-kinduction">K-induction</h2>
 <p><strong>K-induction</strong> is a well-known technique for the verification of transition systems. A k-induction engine is composed of two parts: <em>base</em> and <em>step</em>. Base performs bounded model checking on the properties, <em>i.e.</em> checks the <strong>base case</strong>. Step checks whether it is possible to reach a violation of one of the properties from a trace of states satisfying them: the <strong>inductive step</strong>.</p>
 <p>In Kind 2 base and step run in parallel, and can be enabled separately. Running step alone with</p>
 <pre><code>kind2 --enable IND &lt;file&gt;</code></pre>
@@ -963,7 +963,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <p><code>--invgen_lift_candidates &lt;bool&gt;</code> (default <code>false</code>) – if true, then candidate terms generated for subsystems will be lifted to their callers. <strong>Warning</strong> this might choke invariant generation with a huge number of candidates for large enough systems.</p>
 <p><code>--invgen_mine_trans &lt;bool&gt;</code> (default <code>false</code>) – if true, the transition relation will be mined for candidate terms. Can make the set of candidate terms untractable.</p>
 <p><code>--invgen_renice &lt;int&gt;</code> (only positive values) – the bigger the parameter, the lower the priority of invariant generation will be for the operating system.</p>
-<h3 id="n28536307-lock-step-k-induction">Lock Step K-induction</h3>
+<h3 id="n28536307-lock-step-kinduction">Lock Step K-induction</h3>
 <p>Another improvement on the PKind invariant generation is the way the search for a k-induction proof of the candidate invariants is performed. In PKind, a bounded model checking engine is run up to a certain depth <code>d</code> and discovers falsifiable candidate invariants. The graph used to produce the potential invariants is refined based on this information. Once the bound on the depth is reached, an inductive step instance looks for actual invariants by unrolling up to <code>d</code>.</p>
 <p>In Kind 2, base and step are performed in lock step. Once the candidate invariant graph has been updated by base for some depth, step runs at the same depth and broadcasts the invariants it discovers to the whole framework. It is thus possible to generate invariants earlier and thus speed up the whole analysis.</p>
 
@@ -1171,7 +1171,7 @@ guarantee true -&gt; ( -- `m3` cannot succeed to `m1`.
 guarantee true -&gt; ( -- `m1`, `m2` and `m3` are exclusive.
   not (::m1 and ::m2 and ::m3)
 ) ;</code></pre>
-<h3 id="merge-when-activate-and-restart-n64322437-merge-when-activate-and-restart">Merge, When, Activate and Restart {#n64322437-merge,-when,-activate-and-restart}</h3>
+<h3 id="n64322437-merge-when-activate-and-restart">Merge, When, Activate and Restart</h3>
 <blockquote>
 <p><strong>Disclaimer</strong>: the first few examples of this section illustrating (unsafe) uses of <code>when</code> and <code>activate</code> are <strong>not legal</strong> in Kind 2. They aim at introducing the semantics of lustre clocks. As discussed below, they are only legal when used inside a <code>merge</code>, hence making them safe clock-wise.</p>
 <p>Also, <code>activate</code> and <code>restart</code> are actually not a legal Lustre v6 operator. They are however legal in Scade 6.</p>
@@ -1552,7 +1552,7 @@ tel</code></pre>
 <pre><code>type t = enum { A, B, C };
 node n (x : enum { C1, C2 }, ...) ...</code></pre>
 <p>Enumerated datatypes are encoded as subranges so that solvers handle arithmetic constraints only. This also allows to use the already present quantifier instantiation techniques in Kind 2.</p>
-<h3 id="n64322437-n-way-merge">N-way merge</h3>
+<h3 id="n64322437-nway-merge">N-way merge</h3>
 <p>As in Lustre V6, merges can also be performed on a clock of a user defined enumerated datatype.</p>
 <pre><code>merge c
  (A -&gt; x when A(c))
@@ -1583,7 +1583,7 @@ let
   count = (if trigger then 1 else 0) + (0 -&gt; pre count) ;
 tel</code></pre>
 <p>can be analyzed: first for mode exhaustiveness, and the body is checked against its contract, although it is only <em>partially</em> defined. Here, both will succeed.</p>
-<h2 id="the-imported-keyword-n64322437-the-imported-keyword">The <code>imported</code> keyword {#n64322437-the-<code>imported</code>-keyword}</h2>
+<h2 id="n64322437-the-imported-keyword">The <code>imported</code> keyword</h2>
 <p>Nodes (and functions, see below) can be declared <code>imported</code>. This means that the node does not have a body (<code>let ... tel</code>). In a Lustre compiler, this is usually used to encode a C function or more generally a call to an external library.</p>
 <pre><code>node imported no_body (inputs: ...) returns (outputs: ...) ;</code></pre>
 <p>In Kind 2, this means that the node is always abstract in the contract-sense. It can never be refined, and is always abstracted by its contract. If none is given, then the implicit (rather weak) contract</p>
@@ -1593,7 +1593,7 @@ tel</code></pre>
 *)</code></pre>
 <p>is used.</p>
 <p>In a modular analysis, <code>imported</code> nodes will not be analyzed, although if their contract has modes they will be checked for exhaustiveness, consistently with the usual Kind 2 contract workflow.</p>
-<h3 id="partially-defined-nodes-vs-imported-n64322437-partially-defined-nodes-vs-imported">Partially defined nodes VS <code>imported</code> {#n64322437-partially-defined-nodes-vs-<code>imported</code>}</h3>
+<h3 id="partially-defined-nodes-vs-imported">Partially defined nodes VS <code id="n64322437-partially-defined-nodes-vs-imported">imported</code></h3>
 <p>Kind 2 allows partially defined nodes, that is nodes in which some streams do not have a definition. At first glance, it might seem like a node with no definitions at all (with an empty body) is the same as an <code>imported</code> node.</p>
 <p>It is not the case. A partially defined node <em>still has a (potentially empty) body</em> which can be analyzed. The fact that it is not completely defined does not change this fact. If a partially defined node is at the top level, or is in the cone of influence of the top node in a modular analysis, then it's body <strong>will</strong> be analyzed.</p>
 <p>An <code>imported</code> node on the other hand <em>explicitely does not have a body</em>. Its non-existent body will thus never be analyzed.</p>
@@ -1882,9 +1882,9 @@ A[k] = x;</code></pre>
 <p>we will generate internally the constraint</p>
 <p><em>∀ k: int. 0 &lt;= k &lt; 6 =&gt; (select A k) = x</em></p>
 <p>These form of constraint are handled in an efficient way by CVC4 (thanks to finite model finding).</p>
-<h5 id="smt_arrays-n64322439---smt_arrays"><code>--smt_arrays</code> {#n64322439-<code>--smt_arrays</code>}</h5>
+<h5 id="smt_arrays"><code id="n64322439-smt_arrays">--smt_arrays</code></h5>
 <p>By default arrays are converted using ah-hoc selection functions to avoid stressing the theory of arrays in the SMT solvers. This option tells Kind 2 to use the builtin theory of arrays of the solvers instead. If you want to try it, it’s probably a good idea to use it in combination of <code>--smtlogic detect</code> for better performances.</p>
-<h5 id="inline_arrays-n64322439---inline_arrays"><code>--inline_arrays</code> {#n64322439-<code>--inline_arrays</code>}</h5>
+<h5 id="inline_arrays"><code id="n64322439-inline_arrays">--inline_arrays</code></h5>
 <p>By default, Kind 2 will generate problems with quantifiers for arrays which should be useful for problems with large arrays. This option tells Kind 2 to instantiate these quantifiers when it can reasonably do so. Only CVC4 has a good support for this kind of quantification so you may want to use this option with the other solvers.</p>
 <p>The previous example</p>
 <pre><code>A : int^6;
@@ -1892,7 +1892,7 @@ A[k] = x;</code></pre>
 A[k] = x;</code></pre>
 <p>will now be encoded by the constraint</p>
 <p><em>(select A 0) = x ⋀ (select A 1) = x ⋀ (select A 2) = x ⋀ (select A 3) = x ⋀ (select A 4) = x ⋀ (select A 5) = x</em></p>
-<h5 id="arrays_rec-n64322439---arrays_rec"><code>--arrays_rec</code> {#n64322439-<code>--arrays_rec</code>}</h5>
+<h5 id="arrays_rec"><code id="n64322439-arrays_rec">--arrays_rec</code></h5>
 <p>This uses a special kind of encoding to tell CVC4 to treat quantified definitions of some uninterpreted functions as recursive definitions.</p>
 
 <h1 id="n28536312-xml-output">XML Output</h1>
@@ -1967,7 +1967,7 @@ A[k] = x;</code></pre>
 </blockquote>
 
 <h1 id="n31040692-contract-semantics">Contract semantics</h1>
-<h2 id="n31040692-assume-guarantee-contracts">Assume-guarantee contracts</h2>
+<h2 id="n31040692-assumeguarantee-contracts">Assume-guarantee contracts</h2>
 <p>This section discusses the semantics of contracts, and in particular modes, in Kind 2. For details regarding the syntax, please see the <a href="#n64322437-contracts">contract syntax section</a>.</p>
 <p>An <em>assume-guarantee contract</em> <code>(A,G)</code> for a node <code>n</code> is a set of <em>assumptions</em> <code>A</code> and a set of <em>guarantees</em> <code>G</code>. Assumptions describe how <code>n</code> <strong>must</strong> be used, while guarantees specify how <code>n</code> behaves.</p>
 <p>More formally, <code>n</code> respects its contract <code>(A,G)</code> if</p>
@@ -2147,7 +2147,7 @@ tel</code></pre>
 <p>The result is a Rust project in the <code>implem</code> subdirectory of the Kind 2 output directory. The project is extensively documented, you can read the documentation by running <code>cargo doc</code> in the project directory and opening <code>target/doc/&lt;system&gt;/index.html</code>.</p>
 <h2 id="n57545939-technical-details">Technical details</h2>
 <p>The project produces a binary that reads inputs as comma-separated values from its standard input and prints back outputs as comma-separated values on its standard output. Lustre's <code>real</code>s are compiled as 64-bits floats while <code>int</code>egers become <code>usize</code>: 32-bits (64-bits) signed integers on 32-bits (64-bits) platforms.</p>
-<h2 id="assertions-properties-and-contracts-n57545939-assertions-properties-and-contracts">Assertions, properties and contracts {#n57545939-assertions,-properties-and-contracts}</h2>
+<h2 id="n57545939-assertions-properties-and-contracts">Assertions, properties and contracts</h2>
 <p>Compilation in Kind 2 works under the assumption that the model <em>has been proved correct</em>. Therefore properties, guarantees, and modes are not compiled as they have already been proved at model-level.</p>
 <p><strong>N.B.</strong> To be precise, Kind 2 works with mathematical integers and reals, not machine integers and float. Thus, it could be the case that the binary actually falsifies the specification. We are considering offering to compile properties / guarantees / modes optionally through a flag.</p>
 <p>Assertions and assumptions from the original models are compiled as internal checks and, when falsified, will cause the binary to stop after outputting an error message pointing to the assertion / assumption falsified in the original Lustre model.</p>
@@ -2192,7 +2192,7 @@ tel</code></pre>
 <div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">autoreconf</span> -i
 <span class="ex">./configure</span> 
 <span class="fu">make</span></code></pre></div>
-<h3 id="n57545940-smt-lib-2-certificates">SMT-LIB 2 certificates</h3>
+<h3 id="n57545940-smtlib-2-certificates">SMT-LIB 2 certificates</h3>
 <p>These certificates are always produced but are only used as an intermediate step for LFSC proof production. The user still has the possibility to get them as the final output of Kind 2 in a convenient form. To do so, invoke Kind 2 (on the previous example <code>add_two.lus</code>) with the following</p>
 <div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ex">kind2</span> --certif true add_two.lus</code></pre></div>
 <p>For successful runs, the output of Kind 2 will contain:</p>
