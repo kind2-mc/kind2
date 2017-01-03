@@ -2,24 +2,26 @@ CONTENT = $(shell find content -iname "*.md")
 
 all: pdf html
 
-target.md: $(CONTENT)
+target/target.md: $(CONTENT)
+	mkdir -p target
 	ocamlc -o preprocess unix.cma src/preprocess.ml
-	./preprocess ./target.md ./content/Home.md \
+	./preprocess ./target/target.md ./content/Home.md \
 		`find ./content/*/ -iname "*.md" | sed -e 's:\n: :g' -e 's://*:/:g'`
 
-pdf: target.md
+pdf: target/target.md
 	cat ./rsc/options | \
 	sed 's:^\([a-z]\):-V \1:; s:##version##:$(version):g'| \
 	tr '\n' ' ' |  xargs \
-	pandoc --template=./rsc/template ./target.md \
-	-s -o doc.pdf
+	pandoc --template=./rsc/template ./target/target.md \
+	-s -o ./target/doc.pdf
 
-html: target.md
+html: target/target.md
 	cat ./rsc/options | \
 	sed 's:^\([a-z]\):-V \1:; s:##version##:$(version):g'| \
 	tr '\n' ' ' |  xargs \
-	pandoc --toc -S -H ./rsc/github-pandoc.css.include ./target.md \
-	-s -o doc.html
+	pandoc --toc -S -H ./rsc/github-pandoc.css.include ./target/target.md \
+	-s -o ./target/doc.html
+	find content -iname "*.png" -exec cp -f {} target/. \;
 
 update:
 	rm -f ../../README.md

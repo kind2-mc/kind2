@@ -389,6 +389,10 @@ module IO = struct
               true
               ( if is_ws_rep then label else label ^ "-" )
               (index + 1)
+          | '-'
+          | ','
+          | '.'
+          | '`' -> index + 1 |> get_label is_ws_rep label
           | c ->
             get_label
               false
