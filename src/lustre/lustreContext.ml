@@ -951,7 +951,7 @@ let close_expr ?(bounds=[]) ?original pos ({ E.expr_init } as expr, ctx) =
   else
 
     let rctx = ref ctx in
-    let expr_init = E.map_vars (fun var ->
+    let expr_init = E.map_vars_expr (fun var ->
         if Var.is_state_var_instance var &&
            Numeral.(Var.offset_of_state_var_instance var < E.base_offset) then
           let state_var = Var.state_var_of_state_var_instance var in

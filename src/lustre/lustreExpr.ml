@@ -142,8 +142,14 @@ let map f { expr_init; expr_step } =
   { expr_init; expr_step; expr_type }
 
 
-let map_vars = Term.map_vars 
+let map_vars_expr = Term.map_vars 
   
+let map_vars f { expr_init = i; expr_step = s; expr_type = t } = {
+  expr_init = map_vars_expr f i;
+  expr_step = map_vars_expr f s;
+  expr_type = t
+}
+
 (*
 
 let rec map_top' f term = match Term.T.node_of_t term with 
