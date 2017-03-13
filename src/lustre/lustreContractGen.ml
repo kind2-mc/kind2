@@ -89,102 +89,66 @@ module Contract = struct
     modes: term_set term_map ;
   }
 
-  (** Returns [None] if terms does not contain any state variables. Otherwise,
-  returns true iff term can be traced back to current version of the
-  outputs, along with the set of local svars in the term's COI.
-  First parameter yields the source of a state variable of the node, second
-  yields the expression of the lhs of its definition.
+  (** Returns [None] if term contains an oracle. Otherwise, returns true iff
+  term only contains input variables, along with the set of svars in the term.
+  First parameter yields the source of a state variable of the node.
 
   See below for cached version. *)
-  let mentions_outputs src_of expr_of term =
+  let mentions_only_inputs src_of term =
 
-    (** Stops as soon as an output in the current state as been reached.
+    let rec analyze_by_source known locals svar tail = function
 
-    Note that this would not work if there was any cyclic dependency. But if
-    there was, they were rejected by the frontend. *)
-    let rec loop known locals = function
-    
+      (* Skip inputs and outputs *)
+      | Some Node.Input -> (
+        match (loop known locals tail) with
+        | Some (all_inputs, new_locals) -> Some (all_inputs, new_locals)
+        | None -> None
+      )
+      | Some Node.Output -> (
+        match (loop known locals tail) with
+        | Some (_, new_locals) -> Some (false, new_locals)
+        | None -> None
+      )
+
+      (* Found oracle , illegal invariant. *)
+      | Some Node.Oracle -> None
+
+      | Some Node.Alias (_, source) ->
+         analyze_by_source known locals svar tail source
+
+      | _ -> (
+        let locals = SvSet.add svar locals in
+        match (loop known locals tail) with
+        | Some (_, new_locals) -> Some (false, new_locals)
+        | None -> None
+      )
+
+    and loop known locals = function
+
       | svar :: tail -> (
         let known = SvSet.add svar known in
-    
-        match src_of svar with
-
-        (* Found output, done. *)
-        | Some Node.Output -> Some (true, locals)
-
-        (* Skip inputs. *)
-        | Some Node.Input -> loop known locals tail
-        
-        (* Found oracle or node call svar, illegal invariant. *)
-        | Some Node.Oracle
-        | Some Node.Call -> None
-
-        | Some Node.Alias (sv, _) when SvSet.mem sv known |> not ->
-          sv :: tail |> loop known locals
-        | Some Node.Alias _ -> loop known locals tail
-
-        (* Rest should have a definition. *)
-        | Some Node.Local
-        | Some Node.KLocal
-        | Some Node.Ghost -> (
-          let locals = SvSet.add svar locals in
-          
-          match expr_of svar with
-          
-          | Some expr ->
-            let svars =
-              (* Extract all **current** state vars of definition. *)
-              Expr.base_state_vars_of_init_expr expr
-              |> SvSet.union (
-                Expr.cur_state_vars_of_step_expr expr
-              )
-              (* Remove known. *)
-              |> SvSet.filter (fun svar -> SvSet.mem svar known |> not)
-              |> SvSet.elements
-            in
-            (* Append to tail and loop. *)
-            List.rev_append svars tail |> loop known locals
-          
-          | None ->
-            (* No definition, does not depend on anything. *)
-            Format.asprintf "no definition for state variable `%a`"
-              fmt_svar svar
-            |> failwith
-        )
-
-        | None ->
-          (* Event.log L_info
-            "unknown svar %a@.@." SVar.pp_print_state_var svar ; *)
-          raise Not_found
-    
+        analyze_by_source known locals svar tail (src_of svar)
       )
-    
-      | [] -> Some (false, locals)
+
+      | [] -> Some (true, locals)
     
     in
 
-    match curr_svars_of term |> SvSet.elements with
+    match svars_of term |> SvSet.elements with
     | [] -> None
     | svars -> loop SvSet.empty SvSet.empty svars
 
-  (** Returns [None] if terms does not contain any state variables. Otherwise,
-  returns true iff term can be traced back to current version of the
-  outputs, along with the set of local svars in the term's COI..
-  First parameter yields the source of a state variable of the node, second
-  yields the expression of the lhs of its definition. *)
-  let mentions_outputs ( { node ; cache } as dep ) term =
+  (** Returns [None] if term contains an oracle. Otherwise, returns true iff
+  term only contains input variables, along with the set of svars in the term. *)
+  let mentions_only_inputs ( { node ; cache } as dep ) term =
     try TMap.find term cache with Not_found -> (
       let res =
         try (
-          mentions_outputs
+          mentions_only_inputs
             (* Source of svar. *)
             (Node.source_of_svar node)
-            (* Expression of svar definition's lhs. *)
-            (fun svar -> Node.equation_of_svar node svar |> omap snd)
             term
         ) with Not_found ->
-          (* There was one unknown state variable, should be the init flag.
-          We don't take risks and just ignore the term. *)
           None
       in
       dep.cache <- TMap.add term res cache ;
@@ -192,39 +156,39 @@ module Contract = struct
     )
 
   (** Adds an invariant to the contract context:
-  - does not add it if it does not mention any state variable,
-  - to assumptions if it does not mention outputs,
+  - does not add it if it mentions an oracle,
+  - to assumptions if it only mentions inputs,
   - to guarantees otherwise.
   
   Returns the set of locals that must be defined for this term. *)
   let add_inv dep term =
-    match mentions_outputs dep term with
+    match mentions_only_inputs dep term with
     | None -> (
       (* Event.log L_info "discarding %a" Term.pp_print_term term ; *)
       dep, SvSet.empty
     )
     | Some (true, locals) -> {
-      dep with gua = TSet.add term dep.gua
+      dep with ass = TSet.add term dep.ass
     }, locals
     | Some (false, locals) -> {
-      dep with ass = TSet.add term dep.ass
+      dep with gua = TSet.add term dep.gua
     }, locals
 
   (** Adds an invariant implication to the contract context:
-  - does not add if it lhs or rhs do not mention any state variable,
-  - adds to assumptions if lhs and rhs do not mention outputs,
-  - adds to modes if lhs does not mention outputs but rhs does,
+  - does not add if it lhs or rhs mentions an oracle,
+  - adds to assumptions if lhs and rhs only mention inputs,
+  - adds to modes if lhs only mention inputs but rhs doesn't,
   - adds to guarantees otherwise.
   
   Returns the set of locals that must be defined for this term. *)
   let add_impl_inv dep lhs rhs =
-    match mentions_outputs dep lhs, mentions_outputs dep rhs with
+    match mentions_only_inputs dep lhs, mentions_only_inputs dep rhs with
     | None, _
     | _, None -> dep, SvSet.empty
-    | Some (false, lhs_locals), Some (false, rhs_locals) -> {
+    | Some (true, lhs_locals), Some(true, rhs_locals) -> {
       dep with ass = TSet.add (Term.mk_implies [lhs ; rhs]) dep.ass
     }, SvSet.union lhs_locals rhs_locals
-    | Some (false, lhs_locals), Some (true, rhs_locals) ->
+    | Some (true, lhs_locals), Some (_, rhs_locals) ->
       let lhs_set =
         ( try TMap.find lhs dep.modes with Not_found -> TSet.empty )
         |> TSet.add rhs
@@ -375,40 +339,197 @@ let fmt_sys_name fmt sys =
 let sys_name sys =
   scope_of sys |> Scope.to_string
 
-(** Ghost definition formatter. *)
-let fmt_def node fmt svar s =
-  let ((var, bounds), expr) =
-    match Node.equation_of_svar node svar with
-    | Some eq -> eq
-    | None ->
-      Format.asprintf "state variable `%a` has no definition"
-        fmt_svar svar
-      |> failwith
-  in
-  Format.fprintf fmt "@[<hv 2>var %a%a: %a = %a ;@]"
-    (Expr.pp_print_lustre_var false) s
-    (pp_print_listi
-       (fun ppf i -> function 
-          | Expr.Bound e | Expr.Unbound e -> 
-            Format.fprintf
-              ppf
-              "[%a(%a)]"
-              (LustreIdent.pp_print_ident false)
-              (LustreIdent.push_index LustreIdent.index_ident i)
-              (Expr.pp_print_expr false) e
-          | Expr.Fixed e ->
-            Format.fprintf ppf "[%a]" (Expr.pp_print_expr false) e)
-       "") 
-    bounds
-    (Expr.pp_print_lustre_type true) (SVar.type_of_state_var svar)
-    (Expr.pp_print_lustre_expr true) expr
-
-let generate_contract_for in_sys param sys path invs name =
-  let scope = scope_of sys in
+let get_node_of_sys in_sys sys =
   let _, node_of_scope =
     InputSystem.contract_gen_param in_sys
   in
-  let node = node_of_scope scope in
+  try scope_of sys |> node_of_scope with
+  | Not_found ->
+    Format.asprintf "unknown system %a" fmt_sys_name sys
+    |> failwith
+
+(** Ghost instance carries the info to identify and generate a ghost variable
+    that is necessary for the specification of a node, and that represents
+    a variable defined in that node, or a variable defined in a called subnode. *)
+module GhostInstance = struct
+
+  type context = {
+    o_pos: position option;
+    (** Position of a node call or [None].
+
+        - None, if the represented variable is defined in the node.
+        - Some position, if it is defined in a called subnode.
+        Position is a unique identifier of the call.
+    *)
+
+    tsys: Sys.t;
+    (** System of the node where the represented variable is defined. *)
+  }
+
+  type t = (context * SVar.t)
+
+  (** Returns a unique lustre name based on a context and a state var *)
+  let get_name (context, svar) =
+    let pp_print_cxt ppf = function
+      | {o_pos = None} -> Format.fprintf ppf ""
+      | {o_pos = Some pos} ->
+          let _, line, col = file_row_col_of_pos pos in
+          Format.fprintf ppf "_%d_%d" line col
+    in
+    let pp_print_svar_lustre_name ppf (n, s, c) =
+      if s = [] then
+        Format.fprintf ppf "%s%a" n pp_print_cxt c
+      else
+        Format.fprintf ppf "%a_%s%a"
+          (pp_print_list Format.pp_print_string "_") s
+          n pp_print_cxt c
+    in
+    let n = SVar.name_of_state_var svar in
+    let s = SVar.scope_of_state_var svar in
+    string_of_t pp_print_svar_lustre_name (n, s, context)
+
+  (** Returns a ghost variable from a context and a state var *)
+  let mk_ghost_var cxt sv =
+    let is_input = SVar.is_input sv in
+    let is_const = SVar.is_const sv in
+    let for_inv_gen = SVar.for_inv_gen sv in
+    let n = get_name (cxt, sv) in
+    let t = SVar.type_of_state_var sv in
+    SVar.mk_state_var ~is_input ~is_const ~for_inv_gen n [] t
+
+  (** Returns a ghost variable from a context and a state var *)
+  let mk_ghost_var_t (cxt, sv) = mk_ghost_var cxt sv
+
+  module IdSet = Set.Make(String)
+
+  (** Returns a list of pending ghost instances and a set of the ghost
+      variables included in the pending list. The list is created from
+      the given context and state variable set. *)
+  let create_initial_pending_list cxt svar_set =
+    SvSet.fold (
+      fun svar (pending, known) ->
+        let ghost_inst = (cxt, svar) in
+        let gi_name = get_name ghost_inst in
+        ( ghost_inst :: pending, IdSet.add gi_name known )
+    )
+    svar_set ([], IdSet.empty)
+
+  (** Add the ghost instance to the pending list if it is not known yet,
+      and returns the updated list and set *)
+  let add_to_pending pending known ghost_inst =
+    let name = get_name ghost_inst in
+    if IdSet.mem name known then (pending, known)
+    else (ghost_inst :: pending, IdSet.add name known)
+
+
+  (** Creates a list of equations defining all necessary ghost
+      variables from a set of state variables. *)
+  let create_ghost_definitions in_sys cxt svar_set =
+
+    let get_node = get_node_of_sys in_sys in
+
+    let process_equation pending known cxt eq =
+      let eq_svars =
+        (* Extract all **current** state vars of definition. *)
+        Expr.base_state_vars_of_init_expr (snd eq)
+        |> SvSet.union (
+            Expr.cur_state_vars_of_step_expr (snd eq)
+        )
+      in
+      let pending, known =
+        SvSet.fold (
+          fun svar (p, k) -> add_to_pending p k (cxt, svar)
+        )
+        eq_svars (pending, known)
+      in
+      let svar_to_ghost_var = mk_ghost_var cxt in
+      let ghost_eq = Node.map_svars_in_equation svar_to_ghost_var eq in
+      (ghost_eq, pending, known)
+    in
+
+    let rec find_var_in_subsystem v subsystems =
+      let rec find_var_in_instance v = function
+        | [] -> None
+        | inst :: tail ->
+          try
+            let sub_svar = SvMap.find v inst.Sys.map_down in
+            Some (inst.Sys.pos, sub_svar)
+          with Not_found ->
+            find_var_in_instance v tail
+      in
+      match subsystems with
+      | [] -> None
+      | (sub_tsys, inst_list) :: tail ->
+        match find_var_in_instance v inst_list with
+        | Some (pos, sub_svar) ->
+            Some ({o_pos = Some pos; tsys = sub_tsys}, sub_svar)
+        | None -> find_var_in_subsystem v tail
+    in
+
+    let create_argument_eq pending known g_var (sub_cxt, sub_svar) =
+      let sub_g_var = mk_ghost_var sub_cxt sub_svar in
+      let ghost_eq = ((g_var, []), Expr.mk_var sub_g_var) in
+      let pending, known =
+        add_to_pending pending known (sub_cxt, sub_svar) in
+      (ghost_eq, pending, known)
+    in
+
+    let rec loop known = function
+      | [] -> []
+      | ({o_pos; tsys} as cxt, svar) :: pending ->
+        let node = get_node tsys in
+        if svar = node.Node.init_flag then
+          let ghost_var = mk_ghost_var cxt svar in
+          let lhs = (ghost_var, []) in
+          let rhs = Expr.mk_arrow Expr.t_true Expr.t_false in
+          (lhs, rhs) :: loop known pending
+        else
+          match Node.equation_of_svar node svar with
+          | Some eq ->
+            let ghost_eq, pending, known =
+              process_equation pending known cxt eq
+            in
+            ghost_eq :: loop known pending
+
+          | None ->
+            let subsystems = Sys.get_subsystem_instances tsys in
+            match find_var_in_subsystem svar subsystems with
+            | None -> loop known pending (* Input, Output or Oracle? *)
+            | Some sub_ghost_inst ->
+              let g_var = mk_ghost_var cxt svar in
+              let ghost_eq, pending, known =
+                create_argument_eq pending known g_var sub_ghost_inst
+              in
+              ghost_eq :: loop known pending
+    in
+
+    let pending, known = create_initial_pending_list cxt svar_set in
+    loop known pending
+
+end
+
+(** Ghost definition formatter. *)
+let fmt_ghost_def fmt ((var, bounds), expr) =
+  Format.fprintf fmt "@[<hv 2>var %a%a: %a = %a ;@]"
+  (Expr.pp_print_lustre_var false) var
+  (pp_print_listi
+     (fun ppf i -> function
+        | Expr.Bound e | Expr.Unbound e ->
+          Format.fprintf
+            ppf
+            "[%a(%a)]"
+            (LustreIdent.pp_print_ident false)
+            (LustreIdent.push_index LustreIdent.index_ident i)
+            (Expr.pp_print_expr false) e
+        | Expr.Fixed e ->
+          Format.fprintf ppf "[%a]" (Expr.pp_print_expr false) e)
+     "")
+  bounds
+  (Expr.pp_print_lustre_type true) (SVar.type_of_state_var var)
+  (Expr.pp_print_lustre_expr true) expr
+
+let generate_contract_for in_sys param sys path invs name =
+  let node = get_node_of_sys in_sys sys in
   let contract, locals =
     TSet.of_list invs |> Contract.build node
   in
@@ -434,27 +555,26 @@ let generate_contract_for in_sys param sys path invs name =
     "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
     (sys_name sys) name fmt_sig node ;
 
+  let ghost_definitions, local_ghost_instances =
+    let cxt = {GhostInstance.o_pos = None; tsys = sys} in
+    (GhostInstance.create_ghost_definitions in_sys cxt locals,
+     SvSet.fold (fun sv lst -> (cxt, sv) :: lst) locals [])
+  in
+
   (** Map to new state var names. *)
   let sv_map =
-    SvSet.fold (
-      fun sv map ->
-        SvMap.add sv (
-          StateVar.type_of_state_var sv
-          |> StateVar.mk_state_var (
-            SVar.name_of_state_var sv
-            |> Format.sprintf "%s_%s" name
-          ) []
-        ) map
-    ) locals SvMap.empty
+    List.fold_left (
+      fun map (cxt, svar) ->
+        SvMap.add svar (GhostInstance.mk_ghost_var cxt svar) map
+    )
+    SvMap.empty local_ghost_instances
   in
 
   (* Declare necessary locals. *)
-  locals |> SvSet.iter (
-    fun svar ->
-      Format.fprintf fmt "@ " ;
-      fmt_def node fmt svar (SvMap.find svar sv_map)
+  ghost_definitions |> List.iter (
+    fun eq -> Format.fprintf fmt "@ " ; fmt_ghost_def fmt eq
   ) ;
-  if SvSet.cardinal locals > 0 then Format.fprintf fmt "@ " ;
+  if List.length ghost_definitions > 0 then Format.fprintf fmt "@ " ;
 
   (* Dump sub contracts. *)
   let _ =
@@ -470,18 +590,9 @@ let generate_contract_for in_sys param sys path invs name =
   Format.fprintf fmt "@]@.tel@.@."
 
 let generate_contracts in_sys param sys path contract_name =
-  let _, node_of_scope =
-    InputSystem.contract_gen_param in_sys
-  in
   Format.printf "%d invariants@.@." (
     TransSys.invars_of_bound sys Numeral.zero |> List.length
   ) ;
-  let get_node sys = try scope_of sys |> node_of_scope with
-    | Not_found ->
-      Format.asprintf "unknown system %a" fmt_sys_name sys
-      |> failwith
-  in
-  
 (*   Event.log_uncond "  \
     @{<b>Generating contracts@}@ for system %a to file \"%s\"\
   " fmt_sys_name sys path ;
@@ -527,7 +638,7 @@ let generate_contracts in_sys param sys path contract_name =
 
   (* Event.log_uncond "Generating contracts." ; *)
 
-  let node = get_node sys in
+  let node = get_node_of_sys in_sys sys in
   (* Build a map from scopes to a list of contract builders. *)
   let locals, contract_os, contract_ts =
     let invs = sys |> Sys.get_invariants in
@@ -567,20 +678,21 @@ let generate_contracts in_sys param sys path contract_name =
     @]@ *)@.@.@.@." ;
 
   (
+    let ghost_definitions, local_ghost_instances =
+      let cxt = {GhostInstance.o_pos = None; tsys = sys} in
+      (GhostInstance.create_ghost_definitions in_sys cxt locals,
+       SvSet.fold (fun sv lst -> (cxt, sv) :: lst) locals [])
+    in
 
     (** Map to new state var names. *)
     let sv_map =
-      SvSet.fold (
-        fun sv map ->
-          SvMap.add sv (
-            StateVar.type_of_state_var sv
-            |> StateVar.mk_state_var (
-              SVar.name_of_state_var sv
-              |> Format.sprintf "%s_%s" contract_name
-            ) []
-          ) map
-      ) locals SvMap.empty
+    List.fold_left (
+      fun map (cxt, svar) ->
+        SvMap.add svar (GhostInstance.mk_ghost_var cxt svar) map
+    )
+    SvMap.empty local_ghost_instances
     in
+
     (* Event.log L_info "  Generating contract for %a..." fmt_sys_name sys ; *)
     
     Format.fprintf fmt
@@ -588,12 +700,10 @@ let generate_contracts in_sys param sys path contract_name =
       (sys_name sys) contract_name fmt_sig node ;
     
     (* Declare necessary locals. *)
-    locals |> SvSet.iter (
-      fun svar ->
-        Format.fprintf fmt "@ " ;
-        fmt_def node fmt svar (SvMap.find svar sv_map)
+    ghost_definitions |> List.iter (
+      fun eq -> Format.fprintf fmt "@ " ; fmt_ghost_def fmt eq
     ) ;
-    if SvSet.cardinal locals > 0 then Format.fprintf fmt "@ " ;
+    if List.length ghost_definitions > 0 then Format.fprintf fmt "@ " ;
 
     (* Dump contracts. *)
     Format.fprintf fmt "@ " ;
