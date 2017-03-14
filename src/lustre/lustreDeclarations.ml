@@ -1187,7 +1187,9 @@ let rec eval_node_equation inputs outputs locals ctx = function
 
    This function is shared between nodes and functions, each has a
    different way to deal with ghost variables. *)
-and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
+and eval_ghost_var
+  ?(no_defs = false) is_postponed inputs outputs locals ctx
+= function
 
   (* Declaration of a free variable *)
   | A.FreeConst (pos, _, _) ->
@@ -1205,7 +1207,7 @@ and eval_ghost_var ?(no_defs = false) inputs outputs locals ctx = function
     if (
       try 
         (* Identifier must not be declared *)
-        C.expr_in_context ctx ident 
+        C.expr_in_context ctx ident && not is_postponed
       with Invalid_argument e ->
        (* Fail if reserved identifier used *)
        C.fail_at_position pos e
@@ -1768,14 +1770,16 @@ and add_ghost inputs outputs locals ctx pos ident type_expr ast_expr expr =
 
 (* Add all node contracts to contexts *)
 and eval_node_contract_item
-  known scope inputs outputs locals is_candidate (ctx, cpt_a, cpt_g)
+  known scope inputs outputs locals is_candidate is_postponed
+  (ctx, cpt_a, cpt_g)
 = function
 
   (* Add constants to context *)
   | A.GhostConst c -> eval_const_decl ~ghost:true ctx c, cpt_a, cpt_g
 
   (* Add ghost variables to context *)
-  | A.GhostVar v -> eval_ghost_var inputs outputs locals ctx v, cpt_a, cpt_g
+  | A.GhostVar v ->
+    eval_ghost_var is_postponed inputs outputs locals ctx v, cpt_a, cpt_g
 
   (* Evaluate assumption *)
   | A.Assume ( (_, _, expr) as a ) ->
@@ -1807,15 +1811,16 @@ and eval_node_contract_spec
 =
   (* Handles declarations, allows forward reference. *)
   let rec loop acc prev_postponed_size postponed = function
-    | (head, is_candidate) :: tail -> (
+    | (head, is_candidate, is_postponed) :: tail -> (
       let acc, postponed =
         try
           eval_node_contract_item
-            known scope inputs outputs locals is_candidate acc head,
+            known scope inputs outputs locals
+            is_candidate is_postponed acc head,
           postponed
         with
         | Deps.Unknown_decl _ ->
-          acc, (head, is_candidate) :: postponed
+          acc, (head, is_candidate, true) :: postponed
       in
       loop acc prev_postponed_size postponed tail
     )
@@ -1825,7 +1830,7 @@ and eval_node_contract_spec
       | _ when prev_postponed_size = List.length postponed ->
         C.fail_at_position pos (
           postponed
-          |> List.map fst
+          |> List.map (fun (f,_,_) -> f)
           |> Format.asprintf
             "@[<v>Circular dependency in contract %a:@   @[<v>%a@]"
             Scope.pp_print_scope (scope |> List.map snd)
@@ -1834,7 +1839,10 @@ and eval_node_contract_spec
       | _ -> loop acc (List.length postponed) [] postponed
     )
   in
-  let ctx, _, _ = loop (ctx, 1, 1) (1 + List.length contract) [] contract
+  let ctx, _, _ =
+    contract
+    |> List.map (fun (f,s) -> (f,s,false))
+    |> loop (ctx, 1, 1) (1 + List.length contract) []
     (* List.fold_left
       (eval_node_contract_item known scope inputs outputs locals)
       (ctx, 1, 1) contract *)

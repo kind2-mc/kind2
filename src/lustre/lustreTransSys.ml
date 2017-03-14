@@ -520,7 +520,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
         List.fold_left2 (
           fun (state_var_map_up, state_var_map_down) state_var inst_state_var -> 
              (SVM.add state_var inst_state_var state_var_map_up,
-              SVM.add state_var inst_state_var state_var_map_down)
+              SVM.add inst_state_var state_var state_var_map_down)
         ) (state_var_map_up, state_var_map_down)
           oracles
           call_oracles
