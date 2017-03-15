@@ -354,26 +354,25 @@ let get_node_of_sys in_sys sys =
 module GhostInstance = struct
 
   type context = {
-    o_pos: position option;
-    (** Position of a node call or [None].
+    call_inst: Sys.instance option;
+    (** Instance of a node call or [None].
 
         - None, if the represented variable is defined in the node.
-        - Some position, if it is defined in a called subnode.
-        Position is a unique identifier of the call.
+        - Some call_inst, if it is defined in a called subnode.
     *)
 
     tsys: Sys.t;
     (** System of the node where the represented variable is defined. *)
   }
 
-  type t = (context * SVar.t)
+  type t = (context list * SVar.t)
 
   (** Returns a unique lustre name based on a context and a state var *)
   let get_name (context, svar) =
     let pp_print_cxt ppf = function
-      | {o_pos = None} -> Format.fprintf ppf ""
-      | {o_pos = Some pos} ->
-          let _, line, col = file_row_col_of_pos pos in
+      | {call_inst = None} -> Format.fprintf ppf ""
+      | {call_inst = Some ci} ->
+          let _, line, col = file_row_col_of_pos ci.Sys.pos in
           Format.fprintf ppf "_%d_%d" line col
     in
     let pp_print_svar_lustre_name ppf (n, s, c) =
@@ -388,6 +387,12 @@ module GhostInstance = struct
     let s = SVar.scope_of_state_var svar in
     string_of_t pp_print_svar_lustre_name (n, s, context)
 
+  (** Returns a unique lustre name based on a context stack and a state var *)
+  let get_name_st (cxt_stack, svar) =
+    match cxt_stack with
+    | cxt :: stack -> get_name (cxt, svar)
+    | [] -> assert false
+
   (** Returns a ghost variable from a context and a state var *)
   let mk_ghost_var cxt sv =
     let is_input = SVar.is_input sv in
@@ -397,8 +402,11 @@ module GhostInstance = struct
     let t = SVar.type_of_state_var sv in
     SVar.mk_state_var ~is_input ~is_const ~for_inv_gen n [] t
 
-  (** Returns a ghost variable from a context and a state var *)
-  let mk_ghost_var_t (cxt, sv) = mk_ghost_var cxt sv
+  (** Returns a ghost variable from a context stack and a state var *)
+  let mk_ghost_var_st cxt_stack sv =
+    match cxt_stack with
+    | cxt :: stack -> mk_ghost_var cxt sv
+    | [] -> assert false
 
   module IdSet = Set.Make(String)
 
@@ -408,8 +416,8 @@ module GhostInstance = struct
   let create_initial_pending_list cxt svar_set =
     SvSet.fold (
       fun svar (pending, known) ->
-        let ghost_inst = (cxt, svar) in
-        let gi_name = get_name ghost_inst in
+        let ghost_inst = ([cxt], svar) in
+        let gi_name = get_name_st ghost_inst in
         ( ghost_inst :: pending, IdSet.add gi_name known )
     )
     svar_set ([], IdSet.empty)
@@ -417,7 +425,7 @@ module GhostInstance = struct
   (** Add the ghost instance to the pending list if it is not known yet,
       and returns the updated list and set *)
   let add_to_pending pending known ghost_inst =
-    let name = get_name ghost_inst in
+    let name = get_name_st ghost_inst in
     if IdSet.mem name known then (pending, known)
     else (ghost_inst :: pending, IdSet.add name known)
 
@@ -428,21 +436,16 @@ module GhostInstance = struct
 
     let get_node = get_node_of_sys in_sys in
 
-    let process_equation pending known cxt eq =
-      let eq_svars =
-        (* Extract all **current** state vars of definition. *)
-        Expr.base_state_vars_of_init_expr (snd eq)
-        |> SvSet.union (
-            Expr.cur_state_vars_of_step_expr (snd eq)
-        )
+    let process_equation pending known cxt_stack eq =
+      let eq_svars = Expr.state_vars_of_expr (snd eq)
       in
       let pending, known =
         SvSet.fold (
-          fun svar (p, k) -> add_to_pending p k (cxt, svar)
+          fun svar (p, k) -> add_to_pending p k (cxt_stack, svar)
         )
         eq_svars (pending, known)
       in
-      let svar_to_ghost_var = mk_ghost_var cxt in
+      let svar_to_ghost_var = mk_ghost_var_st cxt_stack in
       let ghost_eq = Node.map_svars_in_equation svar_to_ghost_var eq in
       (ghost_eq, pending, known)
     in
@@ -453,7 +456,7 @@ module GhostInstance = struct
         | inst :: tail ->
           try
             let sub_svar = SvMap.find v inst.Sys.map_down in
-            Some (inst.Sys.pos, sub_svar)
+            Some (inst, sub_svar)
           with Not_found ->
             find_var_in_instance v tail
       in
@@ -461,22 +464,36 @@ module GhostInstance = struct
       | [] -> None
       | (sub_tsys, inst_list) :: tail ->
         match find_var_in_instance v inst_list with
-        | Some (pos, sub_svar) ->
-            Some ({o_pos = Some pos; tsys = sub_tsys}, sub_svar)
+        | Some (ci, sub_svar) ->
+            Some ({call_inst = Some ci; tsys = sub_tsys}, sub_svar)
         | None -> find_var_in_subsystem v tail
     in
 
-    let create_argument_eq pending known g_var (sub_cxt, sub_svar) =
-      let sub_g_var = mk_ghost_var sub_cxt sub_svar in
-      let ghost_eq = ((g_var, []), Expr.mk_var sub_g_var) in
+    let create_argument_eq pending known (lhs_cxt, lhs_svar) (rhs_cxt_stack, rhs_svar) =
+      let lhs_g_var = mk_ghost_var lhs_cxt lhs_svar in
+      let rhs_g_var = mk_ghost_var_st rhs_cxt_stack rhs_svar in
+      let ghost_eq = ((lhs_g_var, []), Expr.mk_var rhs_g_var) in
       let pending, known =
-        add_to_pending pending known (sub_cxt, sub_svar) in
+        add_to_pending pending known (rhs_cxt_stack, rhs_svar) in
       (ghost_eq, pending, known)
+    in
+
+    let is_top_node_input svar = function
+    | [] -> assert false
+    | [{call_inst; tsys}] ->
+      Node.source_of_svar (get_node tsys) svar = (Some Node.Input)
+    | _ -> false
+    in
+
+    let create_input_eq (lhs_cxt, lhs_svar) in_svar =
+      let lhs_g_var = mk_ghost_var lhs_cxt lhs_svar in
+      ((lhs_g_var, []), Expr.mk_var in_svar)
     in
 
     let rec loop known = function
       | [] -> []
-      | ({o_pos; tsys} as cxt, svar) :: pending ->
+      | ([], _) :: _ -> assert false
+      | ({call_inst; tsys} as cxt :: stack, svar) :: pending ->
         let node = get_node tsys in
         if svar = node.Node.init_flag then
           let ghost_var = mk_ghost_var cxt svar in
@@ -487,20 +504,38 @@ module GhostInstance = struct
           match Node.equation_of_svar node svar with
           | Some eq ->
             let ghost_eq, pending, known =
-              process_equation pending known cxt eq
+              process_equation pending known (cxt :: stack) eq
             in
             ghost_eq :: loop known pending
 
           | None ->
-            let subsystems = Sys.get_subsystem_instances tsys in
-            match find_var_in_subsystem svar subsystems with
-            | None -> loop known pending (* Input, Output or Oracle? *)
-            | Some sub_ghost_inst ->
-              let g_var = mk_ghost_var cxt svar in
-              let ghost_eq, pending, known =
-                create_argument_eq pending known g_var sub_ghost_inst
-              in
-              ghost_eq :: loop known pending
+            match Node.source_of_svar node svar with
+            | Some Node.Input -> (
+              match call_inst with
+              | None -> loop known pending
+              | Some ci -> 
+                try
+                  let svar_arg = SvMap.find svar ci.Sys.map_up in
+                  let svar_arg_inst = (stack, svar_arg) in
+                  let ghost_eq, pending, known =
+                    if is_top_node_input svar_arg stack then
+                      (create_input_eq (cxt, svar) svar_arg, pending, known)
+                    else
+                      create_argument_eq pending known (cxt, svar) svar_arg_inst
+                  in
+                  ghost_eq :: loop known pending
+                with Not_found -> assert false
+            )
+            | _ ->
+              let subsystems = Sys.get_subsystem_instances tsys in
+              match find_var_in_subsystem svar subsystems with
+              | None -> loop known pending (* Output or oracle? *)
+              | Some (sub_cxt, sub_svar) ->
+                let sub_ghost_inst = (sub_cxt :: cxt :: stack, sub_svar) in
+                let ghost_eq, pending, known =
+                  create_argument_eq pending known (cxt, svar) sub_ghost_inst
+                in
+                ghost_eq :: loop known pending
     in
 
     let pending, known = create_initial_pending_list cxt svar_set in
@@ -556,7 +591,7 @@ let generate_contract_for in_sys param sys path invs name =
     (sys_name sys) name fmt_sig node ;
 
   let ghost_definitions, local_ghost_instances =
-    let cxt = {GhostInstance.o_pos = None; tsys = sys} in
+    let cxt = {GhostInstance.call_inst = None; tsys = sys} in
     (GhostInstance.create_ghost_definitions in_sys cxt locals,
      SvSet.fold (fun sv lst -> (cxt, sv) :: lst) locals [])
   in
@@ -679,7 +714,7 @@ let generate_contracts in_sys param sys path contract_name =
 
   (
     let ghost_definitions, local_ghost_instances =
-      let cxt = {GhostInstance.o_pos = None; tsys = sys} in
+      let cxt = {GhostInstance.call_inst = None; tsys = sys} in
       (GhostInstance.create_ghost_definitions in_sys cxt locals,
        SvSet.fold (fun sv lst -> (cxt, sv) :: lst) locals [])
     in
