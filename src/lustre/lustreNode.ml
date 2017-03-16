@@ -1575,6 +1575,11 @@ let set_state_var_instance state_var pos node state_var' =
     state_var
     instances'
 
+let map_svars_in_equation f ((svar, index), expr) =
+  let f_svar = f svar in
+  let f_index = index in (* Is it necessary to do something? *)
+  let f_expr = E.map_vars (Var.map_state_var f) expr in
+  ((f_svar, f_index), f_expr)
       
 (* 
    Local Variables:
