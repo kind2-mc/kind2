@@ -92,6 +92,9 @@ val sub : t -> t -> t
 (** Product *)
 val mult : t -> t -> t
 
+(** Division *)
+val div : t -> t -> t
+
 (** Remainder
 
     Identical to [mod], but the latter is an infix operator. *)

@@ -1158,20 +1158,54 @@ let type_of_real_real_real = function
   | _ -> raise Type_mismatch
 
 
+(* Best int subrange for some operator. *)
+let best_int_range is_div op t t' =
+  match Type.bounds_of_int_range t' with
+  
+  | lo', hi' when (
+    is_div &&
+    Numeral.(equal lo' zero) &&
+    Numeral.(equal hi' zero)
+  ) -> raise Division_by_zero
+  
+  | lo', _ when (
+    is_div && Numeral.(equal lo' zero)
+  ) -> Type.t_int
+  | _, hi' when (
+    is_div && Numeral.(equal hi' zero)
+  )-> Type.t_int
+
+  | lo', hi' ->
+    let lo, hi = Type.bounds_of_int_range t in
+    let b_0 = op lo lo' in
+    let bounds =
+      [ op hi lo' ;
+        op lo hi' ;
+        op hi hi' ]
+    in
+    Type.mk_int_range
+      (List.fold_left Numeral.min b_0 bounds)
+      (List.fold_left Numeral.max b_0 bounds)
+
 (* Type check for int -> int -> int, real -> real -> real *)
-let type_of_num_num_num = function 
-
-  | t when Type.is_int t || Type.is_int_range t -> 
-    (function 
+let type_of_num_num_num ?(is_div = false) op t t' =
+  try best_int_range is_div op t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
       | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
-      | _ -> raise Type_mismatch)
+      | _ -> raise Type_mismatch
+    )
 
-  | t when Type.is_real t -> 
-    (function 
+    | t when Type.is_real t -> (
+      match t' with
       | t when Type.is_real t -> Type.t_real
-      | _ -> raise Type_mismatch)
-    
-  | _ -> raise Type_mismatch
+      | _ -> raise Type_mismatch
+    )
+      
+    | _ -> raise Type_mismatch
+  )
 
 
 (* Type check for 'a -> 'a -> 'a *)
@@ -1608,8 +1642,8 @@ let type_of_minus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
-      | s -> type_of_num_num_num t s)
-  | t -> type_of_num_num_num t
+      | s -> type_of_num_num_num Numeral.sub t s)
+  | t -> type_of_num_num_num Numeral.sub t
 
 
 
@@ -1657,8 +1691,8 @@ let type_of_plus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
-      | s -> type_of_num_num_num t s)
-  | t -> type_of_num_num_num t
+      | s -> type_of_num_num_num Numeral.add t s)
+  | t -> type_of_num_num_num Numeral.add t
 
 
 (* Addition *)
@@ -1687,7 +1721,7 @@ let eval_div expr1 expr2 =
 (* Type of real division
 
    /: real -> real -> real *)
-let type_of_div = type_of_num_num_num(* type_of_real_real_real *)
+let type_of_div = type_of_num_num_num ~is_div:true Numeral.div
 
 
 (* Real division *)
@@ -1724,7 +1758,7 @@ let eval_times expr1 expr2 =
 
    *: int -> int -> int
       real -> real -> real *)
-let type_of_times = type_of_num_num_num
+let type_of_times = type_of_num_num_num Numeral.mult
 
 
 (* Multiplication *)
