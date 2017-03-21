@@ -726,6 +726,238 @@ module IC3 = struct
 
 end
 
+(* IC3ia flags. *)
+module IC3ia = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "ic3"
+  (* Short description of the module. *)
+  let desc = "IC3ia flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      IC3ia (a.k.a. PDR) is a relatively recent technique that tries to prove@ \
+      a property by contructing an inductive invariant that implies it.@ \
+      The IC3ia engine in Kind 2 performs quantifier elimination which has its@ \
+      own flags (see module \"qe\").\
+    @]"
+
+  let check_inductive_default = true
+  let check_inductive = ref check_inductive_default
+  let _ = add_spec
+    "--ic3_check_inductive"
+    (bool_arg check_inductive)
+    (fun fmt ->
+    Format.fprintf fmt
+      "@[<v>Check inductiveness of blocking clauses@ Default: %a@]"
+      fmt_bool check_inductive_default
+    )
+  let check_inductive () = !check_inductive
+
+  let print_to_file_default = None
+  let print_to_file = ref print_to_file_default
+  let _ = add_spec
+    "--ic3_print_to_file"
+    (Arg.String (fun str -> print_to_file := Some str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> is a file path in an existing directory.@ \
+          Output file for blocking clauses@ \
+          Default: stdout\
+        @]"
+    )
+  let print_to_file () = !print_to_file
+
+  let inductively_generalize_default = 1
+  let inductively_generalize = ref inductively_generalize_default
+  let _ = add_spec
+    "--ic3_inductively_generalize"
+    (Arg.Set_int inductively_generalize)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Inductively generalize blocking clauses before forward propagation@ \
+          0 = none@ \
+          1 = normal IG@ \
+          2 = IG with ordering@ \
+          Default: %s\
+        @]"
+        (string_of_int inductively_generalize_default)
+    )
+  let inductively_generalize () = !inductively_generalize
+
+  let block_in_future_default = true
+  let block_in_future = ref block_in_future_default
+  let _ = add_spec
+    "--ic3_block_in_future"
+    (bool_arg block_in_future)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Block counterexample in future frames@ Default: %a@]"
+        fmt_bool block_in_future_default
+    )
+  let block_in_future () = !block_in_future
+
+  let block_in_future_first_default = true
+  let block_in_future_first = ref block_in_future_first_default
+  let _ = add_spec
+    "--ic3_block_in_future_first"
+    (bool_arg block_in_future_first)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Block counterexample in future frames first before returning to@ \
+          frame@ \
+          Default: %a\
+        @]"
+        fmt_bool block_in_future_first_default
+    )
+  let block_in_future_first () = !block_in_future_first
+
+  let fwd_prop_non_gen_default = true
+  let fwd_prop_non_gen = ref fwd_prop_non_gen_default
+  let _ = add_spec
+    "--ic3_fwd_prop_non_gen"
+    (bool_arg fwd_prop_non_gen)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Also propagate clauses before generalization@ Default: %a@]"
+        fmt_bool fwd_prop_non_gen_default
+    )
+  let fwd_prop_non_gen () = !fwd_prop_non_gen
+
+  let fwd_prop_ind_gen_default = true
+  let fwd_prop_ind_gen = ref fwd_prop_ind_gen_default
+  let _ = add_spec
+    "--ic3_fwd_prop_ind_gen"
+    (bool_arg fwd_prop_ind_gen)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Inductively generalize all clauses after forward propagation@ \
+        Default: %a\
+      @]"
+      fmt_bool fwd_prop_ind_gen_default
+    )
+  let fwd_prop_ind_gen () = !fwd_prop_ind_gen
+
+  let fwd_prop_subsume_default = true
+  let fwd_prop_subsume = ref fwd_prop_subsume_default
+  let _ = add_spec
+    "--ic3_fwd_prop_subsume"
+    (bool_arg fwd_prop_subsume)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Subsumption in forward propagation@ Default: %a@]"
+        fmt_bool fwd_prop_subsume_default
+    )
+  let fwd_prop_subsume () = !fwd_prop_subsume
+
+  let use_invgen_default = true
+  let use_invgen = ref use_invgen_default
+  let _ = add_spec
+    "--ic3_use_invgen"
+    (bool_arg use_invgen)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Use invariants from invariant generators@ Default: %a@]"
+        fmt_bool use_invgen_default
+    )
+  let use_invgen () = !use_invgen
+
+  type qe = [
+    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
+  ]
+  let qe_of_string = function
+    | "Z3" -> `Z3
+    | "Z3-impl" -> `Z3_impl
+    | "Z3-impl2" -> `Z3_impl2
+    | "cooper" -> `Cooper
+    | _ -> raise (Arg.Bad "Bad value for --ic3_qe")
+  let string_of_qe = function
+    | `Z3 -> "Z3"
+    |  `Z3_impl -> "Z3-impl"
+    |  `Z3_impl2 -> "Z3-impl2"
+    | `Cooper -> "cooper"
+  let qe_values = [
+    `Z3 ; `Z3_impl ; `Z3_impl2 ; `Cooper
+  ] |> List.map string_of_qe |> String.concat ", "
+  let qe_default = `Cooper
+  let qe = ref qe_default
+  let _ = add_spec
+    "--ic3_qe"
+    (Arg.String (fun str -> qe := qe_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Choose quantifier elimination algorithm@ \
+          Default: %s\
+        @]"
+        qe_values (string_of_qe qe_default)
+    )
+  let set_qe q = qe := q
+  let qe () = !qe
+
+  type extract = [ `First | `Vars ]
+  let extract_of_string = function
+    | "first" -> `First
+    | "vars" -> `Vars
+    | _ -> raise (Arg.Bad "Bad value for --ic3_extract")
+  let string_of_extract = function
+    | `First -> "first"
+    | `Vars -> "vars"
+  let extract_values = [
+    `First ; `Vars
+  ] |> List.map string_of_extract |> String.concat ", "
+  let extract_default = `First
+  let extract = ref extract_default
+  let _ = add_spec
+    "--ic3_extract"
+    (Arg.String (fun str -> extract := extract_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Heuristics for extraction of implicant@ \
+          Default: %s\
+        @]"
+        extract_values (string_of_extract extract_default)
+    )
+  let extract () = !extract
+
+  type abstr = [ `None | `IA ]
+  let abstr_of_string = function
+    | "None" -> `None
+    | "IA" -> `IA
+    | _ -> raise (Arg.Bad "Bad value for --ic3_abstr")
+  let string_of_abstr = function
+    | `IA -> "IA"
+    | `None -> "None"
+  let abstr_values = [
+    `None ; `IA
+  ] |> List.map string_of_abstr |> String.concat ", "
+  let abstr_default = `None
+  let abstr = ref abstr_default
+  let _ = add_spec
+    "--ic3_abstr"
+    (Arg.String (fun str -> abstr := abstr_of_string str))
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          where <string> can be %s@ \
+          Choose method of abstraction in IC3ia@ \
+          Default: %s\
+        @]"
+        abstr_values (string_of_abstr abstr_default)
+    )
+  let abstr () = !abstr
+
+end
+
 
 (* Quantifier elimination module. *)
 module QE = struct
@@ -1595,6 +1827,9 @@ let module_map = [
   (IC3.id,
     (module IC3: FlagModule)
   ) ;
+  (IC3ia.id,
+   (module IC3ia: FlagModule)
+  ) ;
   (Invgen.id,
     (module Invgen: FlagModule)
   ) ;
@@ -1957,6 +2192,7 @@ module Global = struct
   (* Modules enabled. *)
   type enable = kind_module list
   let kind_module_of_string = function
+    | "IC3ia" -> `IC3ia
     | "IC3" -> `IC3
     | "BMC" -> `BMC
     | "IND" -> `IND
@@ -1974,6 +2210,7 @@ module Global = struct
     ) |> raise
 
   let string_of_kind_module = function
+    | `IC3ia -> "IC3ia"
     | `IC3 -> "IC3"
     | `BMC -> "BMC"
     | `IND -> "IND"
@@ -1995,7 +2232,7 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `BMC ; `IND ; `IND2 ;
+    `IC3 ; `IC3ia ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENREAL ; `INVGENREALOS ;
@@ -2425,6 +2662,7 @@ let solver_dependant_actions () = match Smt.solver () with
   | (`CVC4_SMTLIB | `Yices_SMTLIB) as s ->
     (* Disable IC3 for CVC4 and Yices 2 because of lack of support for unsat
        cores*)
+    Global.disable `IC3ia;
     Global.disable `IC3;
     Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s)
   | _ -> ()

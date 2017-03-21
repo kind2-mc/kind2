@@ -71,6 +71,7 @@ let renice () =
 (** Main function of the process *)
 let main_of_process = function
   | `IC3 -> IC3.main
+  | `IC3ia -> IC3ia.main
   | `BMC -> BMC.main
   | `IND -> IND.main
   | `IND2 -> IND2.main
@@ -88,20 +89,21 @@ let main_of_process = function
 (** Cleanup function of the process *)
 let on_exit_of_process mdl =
   ( match mdl with
-    | `IC3 -> IC3.on_exit None
-    | `BMC -> BMC.on_exit None
-    | `IND -> IND.on_exit None
-    | `IND2 -> IND2.on_exit None
-    | `INVGEN -> InvGen.exit None
-    | `INVGENOS -> InvGen.exit None
-    | `INVGENINT -> InvGen.exit None
-    | `INVGENINTOS -> InvGen.exit None
-    | `INVGENREAL -> InvGen.exit None
-    | `INVGENREALOS -> InvGen.exit None
-    | `C2I -> C2I.on_exit None
-    | `Interpreter -> Interpreter.on_exit None
-    | `Supervisor -> InvarManager.on_exit None
-    | `Parser | `Certif -> ()
+  | `IC3 -> IC3.on_exit None
+  | `IC3ia -> IC3ia.on_exit None
+  | `BMC -> BMC.on_exit None
+  | `IND -> IND.on_exit None
+  | `IND2 -> IND2.on_exit None
+  | `INVGEN -> InvGen.exit None
+  | `INVGENOS -> InvGen.exit None
+  | `INVGENINT -> InvGen.exit None
+  | `INVGENINTOS -> InvGen.exit None
+  | `INVGENREAL -> InvGen.exit None
+  | `INVGENREALOS -> InvGen.exit None
+  | `C2I -> C2I.on_exit None
+  | `Interpreter -> Interpreter.on_exit None
+  | `Supervisor -> InvarManager.on_exit None
+  | `Parser | `Certif -> ()
   ) ;
   SMTSolver.destroy_all ()
 
