@@ -18,6 +18,8 @@
 
 open Lib
 
+exception UnsupportedFileFormat of string
+
 module S = SubSystem
 module N = LustreNode
 
@@ -47,9 +49,9 @@ let silent_contracts_of (type s) : s t -> (Scope.t * string list) list
         (scope, silent_contracts) :: acc
     ) []
 
-  | Native subsystem -> assert false
+  | Native subsystem -> raise (UnsupportedFileFormat "Native")
 
-  | Horn subsystem -> assert false
+  | Horn subsystem -> raise (UnsupportedFileFormat "Horn")
 
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre (subsystem, _) ->
