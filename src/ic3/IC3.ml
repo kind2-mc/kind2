@@ -3125,7 +3125,7 @@ let main input_sys aparam trans_sys =
             ::
             List.map
               (fun (s,t) -> t)
-              (TransSys.props_list_of_bound trans_sys Numeral.zero) 
+              trans_sys_props
 
           | `None ->
 
