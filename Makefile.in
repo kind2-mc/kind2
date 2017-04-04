@@ -81,9 +81,11 @@ lfsc-extractor: bin/cvc4_lfsc_check
 install: 
 	mkdir -p ${bindir}
 	for i in $(install_files); do \
-		install -m 0755 $(addprefix $(LOCAL_BINDIR)/,$$i) $(addsuffix ${bin_suffix},$(addprefix ${bindir}/,$$i)); \
-	 done
-	if [ -n ${bin_suffix} ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
+	  if [ -f $(addprefix $(LOCAL_BINDIR)/,$$i) ]; then \
+	    install -m 0755 $(addprefix $(LOCAL_BINDIR)/,$$i) $(addsuffix ${bin_suffix},$(addprefix ${bindir}/,$$i)); \
+	  fi \
+	done
+	if [ -n "${bin_suffix}" ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
 
 test: all
 	./tests/run.sh $(LOCAL_REGRESSIONDIR) $(LOCAL_BINDIR)/kind2 "${ARGS}"

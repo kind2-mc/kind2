@@ -319,12 +319,19 @@ let map_top_reconstruct_and_add
 
     (* Evaluate expression with reversed list of models *)
     let rec aux expr_not_init accum = function 
+      (* The order of the pattern matching below should not be changed.
+        In the last case, the step case, it is assume that the list contains
+        at least two elements to retrieve the previous values of the state
+        variables.
+
+        This holds because of how the pattern matching is ordered, so do not
+        change the order. *)
 
       (* All steps in path evaluated, return *)
       | [] -> accum
 
       (* At last step of path, is this the initial state? *)
-      | [m] when first_is_init -> 
+      | [m] when first_is_init ->
 
         (* Value for state variable at step *)
         let v =
@@ -368,7 +375,9 @@ let map_top_reconstruct_and_add
           (* Evaluate expression for step state *)
           |> Eval.eval_term
             (TransSys.uf_defs trans_sys)
-            m
+            (* The `List.hd` below CANNOT FAIL because there is at least two
+              elements in this list, since `[]` and `[m]` are catched above. *)
+            (List.hd tl |> Model.bump_and_merge Numeral.(~- one) m)
 
           (* Return term *)
           |> Eval.term_of_value

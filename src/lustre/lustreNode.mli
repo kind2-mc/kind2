@@ -424,6 +424,9 @@ val state_var_is_output : t -> StateVar.t -> bool
 (** Return true if the state variable is a local variable *)
 val state_var_is_local : t -> StateVar.t -> bool
 
+(** Replace state variables in equation *)
+val map_svars_in_equation : (StateVar.t -> StateVar.t) -> equation -> equation
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."
