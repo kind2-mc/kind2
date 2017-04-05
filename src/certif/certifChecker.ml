@@ -2861,9 +2861,9 @@ let generate_smt2_certificates uid input sys =
   Hashtbl.clear solver_actlits;
 
   let dirname =
-    let dir = TransSys.scope_of_trans_sys sys |> Flags.subdir_for in
-    mk_dir dir ;
-    let dir = Filename.concat dir "certif" in
+    (* Create directories if they don't exist. *)
+    Flags.output_dir () |> mk_dir;
+    let dir = Filename.concat (Flags.output_dir ()) "certif" in
     mk_dir dir ;
     dir
   in

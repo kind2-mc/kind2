@@ -189,6 +189,10 @@ let fail_at_position pos msg =
 let warn_at_position pos msg = 
   Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
 
+(* Raise parsing exception *)
+let note_at_position pos msg = 
+  Log.log L_note "Parser warning at %a: %s" Lib.pp_print_position pos msg
+
 
 (* Raise parsing exception *)
 let fail_no_position msg =
@@ -951,7 +955,7 @@ let close_expr ?(bounds=[]) ?original pos ({ E.expr_init } as expr, ctx) =
   else
 
     let rctx = ref ctx in
-    let expr_init = E.map_vars (fun var ->
+    let expr_init = E.map_vars_expr (fun var ->
         if Var.is_state_var_instance var &&
            Numeral.(Var.offset_of_state_var_instance var < E.base_offset) then
           let state_var = Var.state_var_of_state_var_instance var in
@@ -1924,7 +1928,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                    variable %s." 
                   (StateVar.string_of_state_var state_var) in
 
-              warn_at_position pos msg;
+              note_at_position pos msg;
 
               (* Expanding type of state variable to int *)
               StateVar.change_type_of_state_var state_var (Type.mk_int ());
