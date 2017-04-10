@@ -21,6 +21,13 @@
     @author Alain Mebsout **)
 
 
+(* Configuration *)
+let cluster = "cvc.cs.uiowa.edu"
+let cluster_user = "amebsout"
+let testpr_key = "/var/lib/ocsigenserver/.ssh/id_rsa_restricted"
+let gendoc_key = "/var/lib/ocsigenserver/.ssh/id_rsa_gendoc"
+
+
 open Lwt
 
 
@@ -142,9 +149,8 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
              The user ocsigen must have an ssh key that is only allowed to run 
              the neessary command, here we just pass the arguments. *)
           let cmd = Format.sprintf
-              "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_restricted \
-               amebsout@@cvc.cs.uiowa.edu \
-               \"%d %s %s %s %s %s %s\" &"
+              "ssh -i %s %s@@%s \"%d %s %s %s %s %s %s\" &"
+              testpr_key cluster_user cluster
               pr_nb base_ref statuses_url html_url clone_url sha base_sha
           in
 
@@ -165,9 +171,9 @@ let pullrequest_test_service_handler () (content_type, raw_content_opt) =
       (* Execute command on cvc cluster through ssh.
          The user ocsigen must have an ssh key that is only allowed to run 
          the neessary command, here we just pass the arguments. *)
-      let cmd =
-        "ssh -i /var/lib/ocsigenserver/.ssh/id_rsa_gendoc \
-           amebsout@@cvc.cs.uiowa.edu \"0\" &"
+      let cmd = Format.sprintf
+          "ssh -i %s %s@@%s \"0\" &"
+          gendoc_key cluster_user cluster
       in
 
       log AccessLog
