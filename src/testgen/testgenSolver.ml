@@ -167,15 +167,11 @@ let checksat ({ solver } as t) n term actlits terms f =
   (* Asserting implication. *)
   Term.mk_implies [ actlit ; term ] |> S.assert_term solver ;
   (* Check-sat on the actual actlit list. *)
-  actlit :: unrolling_actlit :: actlits
-  |> S.check_sat_assuming solver
+  terms
+  |> List.map snd
+  |> S.check_sat_assuming_and_get_term_values solver
     (* If sat. *)
-    ( fun solver ->
-        (* Retrieving values. *)
-        let values = match terms with
-          | [] -> []
-          | _ -> terms |> List.map snd |> S.get_term_values solver
-        in
+    ( fun solver values ->
         (* Running f. *)
         let whatever = f solver in
         (* Deactivating actlit. *)
@@ -191,6 +187,7 @@ let checksat ({ solver } as t) n term actlits terms f =
         (* Deactivating actlit. *)
         Term.mk_not actlit |> S.assert_term solver ;
         None )
+    (actlit :: unrolling_actlit :: actlits)
 
 (* 
    Local Variables:

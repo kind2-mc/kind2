@@ -430,13 +430,12 @@ let rec find_must solver must acts q =
   try
     let not_a = Queue.pop q in
     (* eprintf "find_must %d : %a@." (Queue.length q) Term.pp_print_term not_a; *)
-    SMTSolver.check_sat_assuming solver
-      (fun _ -> (* Sat *)
+    SMTSolver.check_sat_assuming_and_get_term_values solver
+      (fun _ term_values -> (* Sat *)
          try
            let inv, ai, not_ai' = List.find (fun (_, ai, _) ->
-               let vs = SMTSolver.get_term_values solver [ai] in
-               match vs with | [_, v] -> Term.equal v (Term.mk_false ())
-                             | _ -> assert false
+               let v = List.assq ai term_values in
+               Term.equal v (Term.mk_false ())
              ) acts in
            SMTSolver.assert_term solver ai;
            Queue.push not_ai' q;
@@ -446,7 +445,7 @@ let rec find_must solver must acts q =
       (fun _ -> (* Unsat *)
          find_must solver must acts q
       )
-      [not_a]
+      [not_a] (List.map (fun (_, ai, _) -> ai) acts)
   with Queue.Empty -> must
 
 

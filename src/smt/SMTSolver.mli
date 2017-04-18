@@ -97,10 +97,6 @@ val get_var_values :
   (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
   Var.t list -> Model.t
 
-(** Return a values of the terms in the current context if
-    satisfiable *)
-val get_term_values : t -> Term.t list -> (Term.t * Term.t) list
-
 (** Return an unsatisfiable core of named expressions if the current
     context is unsatisfiable *)
 val get_unsat_core_of_names : t -> Term.t list
@@ -146,6 +142,25 @@ val check_sat_assuming : t ->
   (t -> 'a) ->
 
   (* Literals to assert. *)
+  Term.t list ->
+
+  'a
+
+(** Check satisfiability under assumptions as with {!check_sat_assuming},
+    but if the solver returns satisfiable, the values of the terms in the
+    current context are given to the continuation [t] as its second argument *)
+val check_sat_assuming_and_get_term_values : t ->
+
+  (* If sat. *)
+  (t -> (Term.t * Term.t) list -> 'a) ->
+
+  (* If unsat. *)
+  (t -> 'a) ->
+
+  (* Literals to assert. *)
+  Term.t list ->
+
+  (* Terms to evaluate. *)
   Term.t list ->
 
   'a
