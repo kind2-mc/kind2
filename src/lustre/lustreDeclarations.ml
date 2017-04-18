@@ -1908,7 +1908,9 @@ and eval_node_contract_spec
    and evaluating those *)
 and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
 
-  (* Create a new automaton name if anonymous *)
+    let ctx = C.set_in_automaton ctx true in
+
+    (* Create a new automaton name if anonymous *)
     let name = match aname with
       | Some name -> name
       | None -> fresh_automaton_name []
@@ -1935,7 +1937,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
           (pos, i ,
              type_of_last inputs outputs locals l,
              A.ClockTrue, false),
-          (i, fun pos -> A.Pre (pos, (A.Ident (pos, l))))
+          (i, fun pos -> A.Last (pos, l)) (* Last replaced after parsing *)
         with Not_found ->
           C.fail_at_position pos ("Last type for "^l^" could not be inferred")
       ) lasts
@@ -2156,7 +2158,7 @@ and eval_automaton pos aname states auto_outputs inputs outputs locals ctx =
     (*   A.pp_print_node_item (A.Body handlers_eq) *)
     (*   A.pp_print_node_item (A.Body unlesses_eq); *)
     
-    ctx
+    C.reset_in_automaton ctx
 
 
 (* Encode branching conditions for transitions as an expression *)

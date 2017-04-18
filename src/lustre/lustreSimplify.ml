@@ -372,7 +372,9 @@ let rec eval_ast_expr bounds ctx =
   (* Temporal operator last *)
   | A.Last (pos, i)  -> 
     (* Translate to pre *)
-    C.warn_at_position pos "Not in a state, last was replaced by pre";
+    (if not (C.in_automaton ctx) then
+      C.warn_at_position pos "Not in a state, last was replaced by pre"
+    else ());
     eval_ast_expr bounds ctx (A.Pre (pos, A.Ident (pos, i)))
 
   (* Temporal operator pre [pre expr] *)
