@@ -18,6 +18,7 @@
 # permissions and limitations under the License.                        #
 #########################################################################
 
+webserver_user="kind2"
 
 workdir="$HOME/kind2_continuous_doc_build"
 cd $workdir
@@ -30,6 +31,6 @@ git pull
 make kind2-doc
 
 # copy new documentation to remote web server
-scp -r -i ~/.ssh/id_rsa_copy_ocamldoc ocamldoc/* kind.cs.uiowa.edu:.
+scp -r -i ~/.ssh/id_rsa_copy_ocamldoc ocamldoc/* $webserver_user@kind.cs.uiowa.edu:.
 
 exit 0

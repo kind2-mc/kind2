@@ -469,6 +469,10 @@ let under_approx sys k invs prop =
     (SMTSolver.declare_sort solver)
     Numeral.(~- one) (Numeral.of_int (k+1));
 
+  (* Declaring path compression function if needed. *)
+  if Flags.BmcKind.compress () then
+    Compress.init (SMTSolver.declare_fun solver) sys ;
+
   (* Asserting transition relation up to k *)
   for i = 1 to k do
     TransSys.trans_of_bound
@@ -1129,6 +1133,10 @@ let minimize_invariants sys invs =
     (SMTSolver.declare_sort solver)
     Numeral.zero (Numeral.of_int (k+1));
 
+  (* Declaring path compression function if needed. *)
+  if Flags.BmcKind.compress () then
+    Compress.init (SMTSolver.declare_fun solver) sys ;
+  
   (* The property we want to re-verify is the conjunction of all properties *)
   let prop = Term.mk_and props in
 

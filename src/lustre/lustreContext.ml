@@ -131,6 +131,9 @@ type t = {
   guard them. *)
   guard_pre : bool;
 
+  (* Indicates if we are evaluating an automaton *)
+  in_automaton : bool;
+
   free_constants : (Var.t D.t) IT.t;
   
 }
@@ -166,6 +169,7 @@ let mk_empty_context () =
       locals_info = [];
       outputs_info = [];
       guard_pre = false;
+      in_automaton = false;
       free_constants = IT.create 7;
     }
   in
@@ -177,6 +181,13 @@ let set_guard_flag ctx b = { ctx with guard_pre = b }
 let reset_guard_flag ctx = { ctx with guard_pre = false }
 
 let guard_flag ctx = ctx.guard_pre
+
+let set_in_automaton ctx b = { ctx with in_automaton = b }
+
+let reset_in_automaton ctx = { ctx with in_automaton = false }
+
+let in_automaton ctx = ctx.in_automaton
+
 
 (* Raise parsing exception *)
 let fail_at_position pos msg = 
