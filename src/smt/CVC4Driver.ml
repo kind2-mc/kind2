@@ -169,8 +169,10 @@ let lambda_of_string_sexpr =
 let string_of_logic l =
   let open TermLib in
   let open TermLib.FeatureSet in
-  (* CVC4 fails to give model when given a non linear arithmetic logic *)
   match l with
+  (* Avoid theory overheads *)
+  | `Inferred l when is_empty l -> "QF_SAT"
+  (* CVC4 fails to give model when given a non linear arithmetic logic *)
   | `Inferred l when mem NA l -> "ALL_SUPPORTED"
   | _ -> GenericSMTLIBDriver.string_of_logic l
 
