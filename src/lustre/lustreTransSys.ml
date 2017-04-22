@@ -1981,7 +1981,7 @@ let rec trans_sys_of_node'
                   (* Add property as assertion *)
                   (prop_term_init :: init_terms,
                    prop_term_trans :: trans_terms,
-                   properties)
+                   p :: properties)
 
                 else
 
