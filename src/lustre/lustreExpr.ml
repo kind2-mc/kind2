@@ -1339,15 +1339,20 @@ let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
 
 
 (* Evaluate conversion to integer *)
-let eval_to_int expr = match Term.destruct expr with 
-  | Term.T.Const s when Symbol.is_decimal s -> 
-    Term.mk_num
-      (Numeral.of_big_int
-         (Decimal.to_big_int
-            (Symbol.decimal_of_symbol s)))
+let eval_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_decimal s ->
+      Term.mk_num
+        (Numeral.of_big_int
+           (Decimal.to_big_int
+              (Symbol.decimal_of_symbol s)))
 
-  | _ -> Term.mk_to_int expr
-  | exception Invalid_argument _ -> Term.mk_to_int expr
+    | _ -> Term.mk_to_int expr
+    | exception Invalid_argument _ -> Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -1356,6 +1361,7 @@ let eval_to_int expr = match Term.destruct expr with
 *)
 let type_of_to_int = function
   | t when Type.is_real t -> Type.t_int
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
   | _ -> raise Type_mismatch
 
 
@@ -1367,15 +1373,20 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 
 (* Evaluate conversion to real *)
-let eval_to_real expr = match Term.destruct expr with 
-  | Term.T.Const s when Symbol.is_numeral s -> 
-    Term.mk_dec
-      (Decimal.of_big_int
-         (Numeral.to_big_int
-            (Symbol.numeral_of_symbol s)))
+let eval_to_real expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_real tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_numeral s ->
+      Term.mk_dec
+        (Decimal.of_big_int
+           (Numeral.to_big_int
+              (Symbol.numeral_of_symbol s)))
 
-  | _ -> Term.mk_to_real expr
-  | exception Invalid_argument _ -> Term.mk_to_real expr
+    | _ -> Term.mk_to_real expr
+    | exception Invalid_argument _ -> Term.mk_to_real expr
 
 (* Type of conversion to real  
 
@@ -1383,6 +1394,7 @@ let eval_to_real expr = match Term.destruct expr with
 *)
 let type_of_to_real = function
   | t when Type.is_int t || Type.is_int_range t -> Type.t_real
+  | t when Type.is_real t -> Type.t_real
   | _ -> raise Type_mismatch
 
 
