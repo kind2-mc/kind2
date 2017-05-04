@@ -167,7 +167,7 @@ let status_of_exn process status = function
     Event.log L_warn "In %a: a check-sat resulted in \"unknown\".@ \
       This is most likely due to non-linear expressions in the model,@ \
       usually multiplications `v_1 * v_2` or divisions `v_1 / v_2`.@ \
-      Consider running Kind 2 with `--smt_check_sat_assume off` or@ \
+      Consider running Kind 2 with `--check_sat_assume off` or@ \
       abstracting non-linear expressions using contracts.\
     " pp_print_kind_module process ;
     status
