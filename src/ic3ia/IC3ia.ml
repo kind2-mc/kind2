@@ -63,8 +63,8 @@ let ic3ia solver init trans prop =
       abvar
     in
 
+    (* Traverse the term and replace where appropriate with abstract variables *)
     let abterm =
-      (* Traverse the term and replace where appropriate with abstract variables *)
       Term.map
 	(* The first input is the number of let bindings above. I'm not going to worry about this for now. Possible error source *)
 	(fun _ subterm -> if Term.is_atom subterm then mk_new_abvar subterm else subterm)
@@ -73,81 +73,17 @@ let ic3ia solver init trans prop =
     !abvars,!abascs,abterm
   in
     
-  (* let rec getAbstractVars term = *)
-  (*   (\* Create or retrieve uninterpreted constant *\) *)
-  (*   (\* Task: need to reconstruct formula as well*\) *)
-  (*   let mk_new_absvar () = *)
-  (*     let symbol_name = Format.asprintf "__ic3ia_absvar_%d" !absvarcounter in *)
-  (*     let uf_symbol = (UfSymbol.mk_uf_symbol symbol_name [] Type.t_bool) in *)
-
-  (*     (\* declare the new symbol in the solver *\) *)
-  (*     SMTSolver.declare_fun solver uf_symbol; *)
-  (*     incr absvarcounter; *)
-  (*     (Term.mk_uf uf_symbol []) *)
-  (*   in *)
-    
-  (*   match Term.destruct term with *)
-  (*   (\* variables like x,y,z. Assume this is boolean. Todo: raise error if not boolean *\) *)
-  (*   | Term.T.Var _ -> *)
-  (*      let newabsvar = mk_new_absvar () in *)
-  (*      [newabsvar],[Term.mk_eq [newabsvar;term],Term.T.mk_term newabsvar *)
-       
-  (*   (\* symbols like +, >, & *\) *)
-  (*   | Term.T.App (s,l) -> *)
-  (*      (match Symbol.node_of_symbol s with *)
-
-  (*      (\* NOTE: Likely error source for unusual inputs, due to lack of consideration of other cases. *\) *)
-	 
-  (*      (\* comparison operator -> create new variable *\) *)
-  (*      | `EQ (\* QUESTION: Is it a problem that EQ can be a boolean operator as well?*\) *)
-  (*      | `LEQ *)
-  (*      | `GEQ *)
-  (*      | `LT *)
-  (*      | `GT -> *)
-  (* 	  let newabsvar = mk_new_absvar () in *)
-  (* 	  [newabsvar],[Term.mk_eq [newabsvar;term]],Term.T.mk_term newabsvar *)
-	    
-  (*      (\* boolean operator -> recurse *\) *)
-  (*      | `NOT *)
-  (*      | `IMPLIES *)
-  (*      | `AND *)
-  (*      | `OR *)
-  (*      | `XOR -> *)
-  (* 	  List.fold_left *)
-  (* 	    ( fun acc sub -> *)
-  (* 	      let absvars,terms = getAbstractVars sub in *)
-  (* 	      match acc with *)
-  (* 	      | (avs,trms,node) -> avs@absvars,trms@terms, *)
-  (* 	    ) *)
-  (* 	    ([],[]) *)
-  (* 	    l *)
-	    
-  (*      (\* Something else -> empty list (QUESTION: should we have an error here?) *\) *)
-  (*      | node -> [],[],node) *)
-	 
-  (*   (\* Constants and special information do not get abstract variables *\) *)
-  (*   | node -> [],[],node *)
-  (* in *)
-  (* (\* end getAbstractVars  *\) *)
-
   let ainit,hinit,tinit = getAbstractions init in
   let aprop,hprop,tprop = getAbstractions prop in
 
-  (* let mk_and_assert_actlit trm = *)
-  (*   let act = A.fresh_actlit () in *)
-  (*   SMTSolver.declare_fun solver act; *)
-  (*   let acttrm = A.term_of_actlit act in *)
-  (*   let actimpl = Term.mk_implies [acttrm;trm] in *)
-  (*   SMTSolver.assert_term solver actimpl; *)
-  (*   acttrm *)
-  (* in *)
-  
-  (* Check whether 'I ^ H |= 'P *)
-  (* SMTSolver.check_sat_assuming *)
-  (*   solver *)
-  (*   (fun _ -> Format.printf "Invalid") (\*SAT*\) *)
-  (*   (fun _ -> Format.printf "Valid") (\*UNSAT*\) *)
-  (*   (ainit @ hinit @ aprop @ hprop @ tinit :: [Term.mk_not tprop]); *)
+  let mk_and_assert_actlit trm =
+    let act = A.fresh_actlit () in
+    SMTSolver.declare_fun solver act;
+    let acttrm = A.term_of_actlit act in
+    let actimpl = Term.mk_implies [acttrm;trm] in
+    SMTSolver.assert_term solver actimpl;
+    acttrm
+  in
 
   (*Print for debugging*)
   List.iter
@@ -160,6 +96,15 @@ let ic3ia solver init trans prop =
   
   Format.printf "INITABSVARS':@.%a@." Term.pp_print_term tinit;
   
+  (* Check whether 'I ^ H |= 'P *)
+  SMTSolver.check_sat_assuming
+    solver
+    (fun _ -> Format.printf "Invalid") (*SAT*)
+    (fun _ -> Format.printf "Valid") (*UNSAT*)
+    (List.map
+       (fun trm -> mk_and_assert_actlit trm)
+       (ainit @ hinit @ aprop @ hprop @ tinit :: [Term.mk_not tprop]));
+
   ()
 
 let main input_sys aparam trans_sys =
