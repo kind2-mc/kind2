@@ -90,16 +90,18 @@ let ic3ia solver init trans prop =
   in
 
   (*Print for debugging*)
+  Format.printf "ABSTRACT VARS OF INIT:";
   List.iter
-    (fun trm -> Format.printf "ABSTRACT VARS OF INIT':@.%a@." Term.pp_print_term trm)
-    (ainit@hinit);
-  
+    (fun trm -> Format.printf "@.%a@." Term.pp_print_term trm)
+    (ainit @ hinit);
+
+  Format.printf "ABSTRACT VARS OF PROP:";
   List.iter
-    (fun trm -> Format.printf "ABSTRACT VARS OF PROP':@.%a@." Term.pp_print_term trm)
-    (aprop@hprop);
+    (fun trm -> Format.printf "@.%a@." Term.pp_print_term trm)
+    (aprop @ hprop);
   
   Format.printf "ABSTRACTED INIT TERM':@.%a@." Term.pp_print_term tinit;
-
+  Format.printf "ABSTRACTED PROP TERM':@.%a@." Term.pp_print_term tprop;
   (* PAPER LINE 2*)
   
   (* Check whether 'I ^ H |= 'P *)
@@ -134,7 +136,7 @@ let ic3ia solver init trans prop =
 
   let block = function
     | [] -> raise Failure (* Actually, this should not happen. Should raise some other error *)
-    | fk :: _ ->
+    | fk :: tail_frames ->
        (match
 	   (* Check if Fk ^ H |= 'P, recblock counterexamples *)
 	   SMTSolver.check_sat_assuming solver
