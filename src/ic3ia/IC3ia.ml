@@ -18,27 +18,28 @@
 
 module A = Actlit
 
+
+(* Define exceptions to break out of loops *)
+exception Success
+exception Failure
+  
 (* Cleanup before exit *)
 let on_exit _ = ()
 
+(* Checks whether given clause is inductive relative to the frame *)
+(* let absRelInd solver frame trans_sys clause associations = *)
+  
 
 let ic3ia solver init trans prop =
-
-  let absvarcounter = ref 0 in
   
-  (* Function to abstract the variables in a term
-     Output is a tuple
-     First value of tuple is a list of fresh abstract variables
-     Second value of tuple is a list of association terms (eq) relating those abstract variables to concrete terms
-  *)
-  (* QUESTION: Do we also need to reconstruct the term, but with abstract variables replacing concrete ones?*)
+  let absvarcounter = ref 0 in
 
   (* Function to convert a term to a tuple consisting of:
      1. A list of abstract variables
      2. A list of associations between abstract and concrete variables
      3. The abstracted term
   *)
-  let rec getAbstractions term =
+  let getAbstractions term =
 
     (* Use mutable lists that will be populated while traversing the term tree*)
     let abvars = ref [] in
@@ -47,7 +48,7 @@ let ic3ia solver init trans prop =
     (* Utility function to create new abstract variables, generate an association term, and return the abstracted variable *)
     let mk_new_abvar term =
       (* use the counter to create an unused name *)
-      let symbol_name = Format.asprintf "__ic3ia_absvar_%d" !absvarcounter in
+      let symbol_name = Format.asprintf "_abvar_%d" !absvarcounter in
       let uf_symbol = (UfSymbol.mk_uf_symbol symbol_name [] Type.t_bool) in
       incr absvarcounter;
       
@@ -70,12 +71,15 @@ let ic3ia solver init trans prop =
 	(fun _ subterm -> if Term.is_atom subterm then mk_new_abvar subterm else subterm)
 	term
     in
+    
     !abvars,!abascs,abterm
   in
     
   let ainit,hinit,tinit = getAbstractions init in
   let aprop,hprop,tprop = getAbstractions prop in
 
+  let hp = hinit @ hprop in
+  
   let mk_and_assert_actlit trm =
     let act = A.fresh_actlit () in
     SMTSolver.declare_fun solver act;
@@ -87,26 +91,84 @@ let ic3ia solver init trans prop =
 
   (*Print for debugging*)
   List.iter
-    (fun trm -> Format.printf "INITABSVARS':@.%a@." Term.pp_print_term trm)
+    (fun trm -> Format.printf "ABSTRACT VARS OF INIT':@.%a@." Term.pp_print_term trm)
     (ainit@hinit);
   
   List.iter
-    (fun trm -> Format.printf "PROPABSVARS':@.%a@." Term.pp_print_term trm)
+    (fun trm -> Format.printf "ABSTRACT VARS OF PROP':@.%a@." Term.pp_print_term trm)
     (aprop@hprop);
   
-  Format.printf "INITABSVARS':@.%a@." Term.pp_print_term tinit;
+  Format.printf "ABSTRACTED INIT TERM':@.%a@." Term.pp_print_term tinit;
+
+  (* PAPER LINE 2*)
   
   (* Check whether 'I ^ H |= 'P *)
   SMTSolver.check_sat_assuming
     solver
-    (fun _ -> Format.printf "Invalid") (*SAT*)
-    (fun _ -> Format.printf "Valid") (*UNSAT*)
+
+    (* SAT case ('P not entailed) *)
+    (fun _ ->
+      Format.printf "Property invalid in initial state@.";
+      raise Failure)
+    
+    (* UNSAT case ('P entailed) *)
+    (fun _ ->
+      Format.printf "Property valid in initial state@.")
+
+    (* Check satisfiability of 'I ^ H ^ !'P *)
     (List.map
        (fun trm -> mk_and_assert_actlit trm)
-       (ainit @ hinit @ aprop @ hprop @ tinit :: [Term.mk_not tprop]));
+       ( hp @ tinit :: [Term.mk_not tprop]));
+  (* TODO: Write utility function to handle SAT checking *)
+  
+  (* PAPER LINE 3*)
+  (* Initialize frames *)
+  (* Question: Do we need to include tinit in the initial states?*)
+  let frames = [[tinit]] in
 
-  ()
+  let rec recblock cube_to_block frames_below =
+    match frames_below with
+    | [] -> raise Failure
+    | _ -> raise Success
+  in
 
+  let block = function
+    | [] -> raise Failure (* Actually, this should not happen. Should raise some other error *)
+    | fk :: _ ->
+       (match
+	   (* Check if Fk ^ H |= 'P, recblock counterexamples *)
+	   SMTSolver.check_sat_assuming solver
+	     
+	     (* SAT case ('P not entailed) *)
+	     (fun _ ->
+	       Format.printf "Property not entailed by current frame; counterexample found@.";
+	       raise Failure)
+	     
+	     (* UNSAT case ('P entailed) *)
+	     (fun _ ->
+	       Format.printf "Property entailed by current state@.")
+	     
+	     (* Check satisfiability of 'Fk ^ H ^ !'P *)
+	     (List.map
+		(fun trm -> mk_and_assert_actlit trm)
+		(fk @ hp @ [Term.mk_not tprop]));
+	with
+	| _ -> [])
+  in
+  
+  let propagate frames = frames in
+  
+  let rec ic3ia' frames =
+    let frames = block frames in
+    let frames = propagate frames in
+    ic3ia' frames
+  in
+  
+  try ic3ia' frames with
+  | Success -> Format.printf "Property invariant"
+  | Failure -> Format.printf "Property not invariant"
+  | _ -> ()
+      
 let main input_sys aparam trans_sys =
   
   let logic = TransSys.get_logic trans_sys in
@@ -125,13 +187,12 @@ let main input_sys aparam trans_sys =
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero (Numeral.of_int 1);
-
+  
   List.iter
     (fun v -> Format.printf "Trans init':@.%a@." Var.pp_print_var v)
     (TransSys.init_formals trans_sys);
   
-(*  Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
-*)
+   Format.printf "TRANS SYSTEM:%a@." TransSys.pp_print_trans_sys trans_sys;
   (*TODO: Need to modify so that this extracts abstract variables from subsystems too.
     Currently, it only considers terms from the top node.
   *)
@@ -143,10 +204,12 @@ let main input_sys aparam trans_sys =
     (fun (s,t) -> t)
     (TransSys.props_list_of_bound trans_sys Numeral.zero)
   in 
-
+  
   List.iter
     (fun prop -> ic3ia solver init trans prop)
-    props
+    props;
+  
+  ()
   
 (*
   (* Print abstract variables and associations for initial states *)
