@@ -146,6 +146,30 @@ val check_sat_assuming : t ->
 
   'a
 
+
+(** Checks satisfiability of the current context, and evaluate one of
+    two continuation functions depending on the result
+
+    [check_sat_and_get_term_values s t f l] checks satisfiablilty of
+    the context of the SMT solver instance [s]. If the solver returns
+    satisfiable, the continuation [t] is evaluated with the values
+    of the terms of [l], and if the solver returns unsatisfiable,
+    the continuation [f] is evaluated.
+*)
+val check_sat_and_get_term_values : t ->
+
+  (* If sat. *)
+  (t -> (Term.t * Term.t) list -> 'a) ->
+
+  (* If unsat. *)
+  (t -> 'a) ->
+
+  (* Terms to evaluate. *)
+  Term.t list ->
+
+  'a
+
+
 (** Check satisfiability under assumptions as with {!check_sat_assuming},
     but if the solver returns satisfiable, the values of the terms in the
     current context are given to the continuation [t] as its second argument *)
