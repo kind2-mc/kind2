@@ -17,7 +17,7 @@
 *)
 
 module A = Actlit
-
+module AbvMap = Map.Make(Term)
 
 (* Define exceptions to break out of loops *)
 exception Success
@@ -33,18 +33,23 @@ let on_exit _ = ()
 let ic3ia solver init trans prop =
   
   let absvarcounter = ref 0 in
+  let conevarcounter = ref 0 in
 
+  (* Maps terms to abstract variables *)
+  let abvar_map = ref AbvMap.empty in
+  
   (* Function to convert a term to a tuple consisting of:
      1. A list of abstract variables
      2. A list of associations between abstract and concrete variables
      3. The abstracted term
   *)
+  (* TODO: check if an atom has already been abstracted, and reuse the previously created abstract variable if it has. Use maps for this.*)
   let getAbstractions term =
 
     (* Use mutable lists that will be populated while traversing the term tree*)
     let abvars = ref [] in
     let abascs = ref [] in
-
+    
     (* Utility function to create new abstract variables, generate an association term, and return the abstracted variable *)
     let mk_new_abvar term =
       (* use the counter to create an unused name *)
@@ -63,12 +68,25 @@ let ic3ia solver init trans prop =
 
       abvar
     in
-
+    
+    (* Traverse the term and map each boolean atom to an abstract variable (or use existing mapping)  *)
+    Term.map
+      (* The first input is the number of let bindings above. I'm not going to worry about this for now. Possible error source *)
+      (fun _ subterm ->
+	if
+	  Term.is_atom subterm && not (AbvMap.mem subterm !abvar_map)
+	then
+	  (abvar_map := AbvMap.add subterm (mk_new_abvar subterm) !abvar_map;
+	   subterm)
+	else
+	  subterm)
+      term;
+    
     (* Traverse the term and replace where appropriate with abstract variables *)
     let abterm =
       Term.map
 	(* The first input is the number of let bindings above. I'm not going to worry about this for now. Possible error source *)
-	(fun _ subterm -> if Term.is_atom subterm then mk_new_abvar subterm else subterm)
+	(fun _ subterm -> if Term.is_atom subterm then (AbvMap.find subterm !abvar_map) else subterm)
 	term
     in
     
@@ -79,6 +97,15 @@ let ic3ia solver init trans prop =
   let aprop,hprop,tprop = getAbstractions prop in
 
   let hp = hinit @ hprop in
+
+  (* code for cloning a term (putting a bar over it). returns the cloned term *)
+  (* idea: maintain a mapping from vars to their cloned versions. When you see a var in the mapping,
+     just replace it with its clone. Otherwise, create a fresh statevar and var and add them to the mapping.
+  *)
+  (* let clone_term term = *)
+  (*   let clone_or_lookup var = *)
+  (* in  *)
+
   
   let mk_and_assert_actlit trm =
     let act = A.fresh_actlit () in
