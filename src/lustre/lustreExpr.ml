@@ -1725,14 +1725,38 @@ let eval_div expr1 expr2 =
 
   match Term.destruct expr1, Term.destruct expr2 with
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
+  | Term.T.Const c1, Term.T.Const c2 ->
+
+    if Symbol.is_decimal c1 && Symbol.is_decimal c2 then
 
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 /
-                 Symbol.decimal_of_symbol c2) 
+                 Symbol.decimal_of_symbol c2)
 
-  | _ -> Term.mk_div [expr1; expr2]
+    else (
+
+      assert (Symbol.is_numeral c1 && Symbol.is_numeral c2);
+
+      Term.mk_num
+        Numeral.(Symbol.numeral_of_symbol c1 /
+                 Symbol.numeral_of_symbol c2)
+    )
+
+  | _ ->
+
+    let tt = Term.type_of_term expr1 in
+
+    if Type.is_real tt then (
+
+      Term.mk_div [expr1; expr2]
+
+    )
+    else (
+
+      Term.mk_intdiv [expr1; expr2]
+
+    )
+
   | exception Invalid_argument _ -> Term.mk_div [expr1; expr2]
 
 
@@ -1805,7 +1829,17 @@ let eval_intdiv expr1 expr2 =
 (* Type of integer division
 
    div: int -> int -> int *)
-let type_of_intdiv = type_of_int_int_int
+let type_of_intdiv t t' =
+  try best_int_range true Numeral.div t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | _ -> raise Type_mismatch
+    )
+    | _ -> raise Type_mismatch
+  )
 
 
 (* Integer division *)

@@ -830,25 +830,35 @@ let check_sat_assuming s if_sat if_unsat literals =
     (* Return result of respective continuation *)
     res
 
-(* Checks satisfiability of some literals, and either gets term values and
-   runs if_sat if sat or runs if_unsat if unsat. *)
-let check_sat_assuming_and_get_term_values s if_sat if_unsat literals terms =
+
+(* Get values of terms in the current context *)
+let get_term_values s terms =
 
   let module S = (val s.solver_inst) in
 
-  (* Get values of terms in the current context *)
-  let get_term_values s terms =
-    match
-      (* Get values of SMT expressions in current context *)
-      prof_get_value s (List.map S.Conv.smtexpr_of_term terms)
-    with
-    | `Error e ->
-      raise
-        (Failure ("SMT solver failed: " ^ e))
+  match
+    (* Get values of SMT expressions in current context *)
+    prof_get_value s (List.map S.Conv.smtexpr_of_term terms)
+  with
+  | `Error e ->
+    raise
+      (Failure ("SMT solver failed: " ^ e))
 
-    | `Values m ->
-      values_of_smt_values S.Conv.term_of_smtexpr Term.type_of_term s m
-  in
+  | `Values m ->
+    values_of_smt_values S.Conv.term_of_smtexpr Term.type_of_term s m
+
+
+(* In some cases, CVC4 returns syntactically different terms
+   to the ones sent in a get-value query. For instance:
+   Query: ( get-value ((< x 10.0) (>= y 10.5)) )
+   Reply: ( ((< x 10) true) ((>= y (/ 21 2)) false) )
+   To avoid post-processing the terms, a constant is defined
+   and used as an abbreviation for each term.
+   If the term is a single variable, no constant is created.
+*)
+let create_proxy_constants_for_terms s terms =
+
+  let module S = (val s.solver_inst) in
 
   (* Unique identifier for a get-value constant (UfSymbol)
 
@@ -886,18 +896,11 @@ let check_sat_assuming_and_get_term_values s if_sat if_unsat literals terms =
       id
   in
 
-  (* In some cases, CVC4 returns syntactically different terms
-     to the ones sent in a query. For instance:
-     Query: ( get-value ((< x 10.0) (>= y 10.5)) )
-     Reply: ( ((< x 10) true) ((>= y (/ 21 2)) false) )
-     To avoid post-processing the terms, a constant is defined
-     and used as an abbreviation for each term.
-     If the term is a single variable, no constant is created.
-   *)
-  let const_term_alist = terms |> List.map (fun term ->
-    if Term.is_free_var term then
-      (term, term)
-    else begin
+  terms |> List.map (fun term ->
+    match Term.destruct term with
+    | Term.T.Var v -> (term, term)
+    | Term.T.Const s when Symbol.is_uf s -> (term, term)
+    | _ -> (
       let type_expr = term |> Term.type_of_term in
       let id = s.next_getvalue_id in
       (* Name of uninterpreted function symbol *)
@@ -909,22 +912,44 @@ let check_sat_assuming_and_get_term_values s if_sat if_unsat literals terms =
       define_fun s uf_symbol [] (S.Conv.smtexpr_of_term term);
       (* Return new constant and expression *)
       (Term.mk_uf uf_symbol [], term)
-    end
-  ) in
+    )
+  )
+
+
+let get_term_values_through_proxy_values s = function
+  | [] -> []
+  | proxy_term_alist -> (
+    get_term_values s (List.map fst proxy_term_alist)
+    |> List.map (fun (const, value) ->
+      (List.assq const proxy_term_alist, value)
+    )
+  )
+
+(* Checks satisfiability of the current context, and evaluate one of
+   two continuation functions depending on the result *)
+let check_sat_and_get_term_values s if_sat if_unsat terms =
+
+  let proxy_term_alist = create_proxy_constants_for_terms s terms in
+
+  if check_sat s then
+    let tv = get_term_values_through_proxy_values s proxy_term_alist in
+    if_sat s tv
+  else
+    if_unsat s
+
+
+(* Checks satisfiability of some literals, and either gets term values and
+   runs if_sat if sat or runs if_unsat if unsat. *)
+let check_sat_assuming_and_get_term_values s if_sat if_unsat literals terms =
+
+  let proxy_term_alist = create_proxy_constants_for_terms s terms in
 
   check_sat_assuming s (fun s ->
-    let tv = match const_term_alist with
-      | [] -> []
-      | _ -> (
-        get_term_values s (List.map fst const_term_alist)
-        |> List.map (fun (const, value) ->
-          (List.assq const const_term_alist, value)
-        )
-      )
-    in
+    let tv = get_term_values_through_proxy_values s proxy_term_alist in
     if_sat s tv
   )
   if_unsat literals
+
 
 (* Alternative between type 'a and 'b *)
 type ('a, 'b) sat_or_unsat =

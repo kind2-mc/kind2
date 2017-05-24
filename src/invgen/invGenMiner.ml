@@ -175,6 +175,23 @@ module type CandGen = sig
   val mine : bool -> bool -> sys -> (sys * set) list
 end
 
+(* TODO: Make the graph-based approach for invariant generation work when
+   terms include divisions. Currently, a Division_by_zero exception may
+   raise during graph stabilization if a model assigns zero to a divisor.
+*)
+let filter_terms_with_division candidates =
+  let rec includes_division term =
+    match Term.destruct term with
+    | Term.T.Attr (t, _) -> includes_division t
+    | Term.T.App (s, l) -> (
+      match Symbol.node_of_symbol s with
+      | `DIV
+      | `INTDIV -> true
+      | _ -> List.exists includes_division l
+    )
+    | _ -> false
+  in
+  Set.filter (fun t -> includes_division t |> not) candidates
 
 (** Functor creating a candidate generation module from state var and flat
 term rules. *)
@@ -235,6 +252,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
               Term.pp_print_term
               "@ "
             ) (Set.elements candidates) ; *)
+          let candidates = filter_terms_with_division candidates in
           (* Adding two-state complement if needed. *)
           let candidates = state_complement_set candidates in
             (* if two_state then state_complement_set candidates
