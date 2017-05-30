@@ -34,9 +34,17 @@ let ic3ia solver init trans prop =
   let predicates = [init;prop] in
   
   let absvarcounter = ref 0 in
-  let conevarcounter = ref 0 in
 
-  (* Function to clone all variables in given predicates and return a map *)
+
+  (* CLONE VARIABLES *)
+  
+  (* Creates a clone of an uncloned term using provided map *)
+  let clone_term map term =
+    let lookup term = StateVar.StateVarMap.find term map in
+    Term.map_state_vars lookup term
+  in
+  
+  (* Function to clone and declare all variables in given predicates and return a map *)
   let get_clone_map predicates =
     let clone_map = ref StateVar.StateVarMap.empty in
     List.iter
@@ -45,8 +53,8 @@ let ic3ia solver init trans prop =
 	(* Get set containing all state variables in predicate p *)
 	let statevars = Term.state_vars_of_term p in
 
-	(* Define function that appends _clone to a string *)
-	let appclone prefix = String.concat "" [prefix;"_clone"] in
+	(* Define function that appends * to a string *)
+	let appclone prefix = String.concat "" [prefix;"*"] in
 
 	(* Iterate over statevars, cloning each uncloned variable and adding it to clone_map*)
 	StateVar.StateVarSet.iter
@@ -69,26 +77,46 @@ let ic3ia solver init trans prop =
 	  
 	  statevars)
 
-      (* Repeat for each term in predicates *)
-      predicates;
+      (* Repeat for each term in predicates and in the transition function *)
+      (trans :: predicates);
 
+    (* Declare all cloned variables in clone_map *)
+    let set_of_variables =
+      List.fold_left
+	(fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
+	Var.VarSet.empty
+	(List.map (clone_term !clone_map) (trans::predicates))
+    in
+
+    Var.declare_constant_vars
+      (SMTSolver.declare_fun solver) 
+      (Var.VarSet.elements (Var.VarSet.filter Var.is_const_state_var set_of_variables));
+
+    Var.declare_vars
+      (SMTSolver.declare_fun solver) 
+      (Var.VarSet.elements (Var.VarSet.filter Var.is_state_var_instance set_of_variables));
+    
+    (* Return the clone map *)
     !clone_map
   in
 
-  (* Creates a clone of an uncloned term *)
-  let clone_term term state_var_map =
-    let lookup term = StateVar.StateVarMap.find term state_var_map in
-    Term.map_state_vars lookup term
-  in
-
-  (* Generates a term asserting the equality of an uncloned term and its clone *)
-  let mk_clone_eq term state_var_map =
-    Term.mk_eq [term;clone_term term state_var_map]
-  in
-  
   let clone_map = get_clone_map predicates in
+  let clone_term = clone_term clone_map in
+  
+  (* Generates a term asserting the equality of an uncloned term and its clone *)
+  let mk_clone_eq term =
+    Term.mk_eq [term;clone_term term]
+  in
 
+  (* Gets the conjunction of equivalences between terms and their clones *)
+  let get_eqP predicates =
+    Term.mk_and (List.map (fun t -> mk_clone_eq t) predicates)
+  in
 
+  (* Assert the cloned transition function*)
+  SMTSolver.assert_term solver (clone_term trans);
+  
+  (* ABSTRACT VARIABLES *)
   
   (* Extracts a map from boolean atoms to abstract variables given a list of predicates *)
   let get_abvar_map predicates =
@@ -113,14 +141,16 @@ let ic3ia solver init trans prop =
 
     (* Traverse the term and map each unmapped boolean atom to an abstract variable *)
     let extract_from_term term =
-      Term.map
-	(fun _ subterm ->
-    	  if
-    	    Term.is_atom subterm && not (TermMap.mem subterm !abvar_map)
-    	  then
-    	    abvar_map := TermMap.add subterm (mk_new_abvar subterm) !abvar_map;
-    	  subterm)
-	term;
+      let _ =
+	Term.map
+	  (fun _ subterm ->
+    	    if
+    	      Term.is_atom subterm && not (TermMap.mem subterm !abvar_map)
+    	    then
+    	      abvar_map := TermMap.add subterm (mk_new_abvar subterm) !abvar_map;
+    	    subterm)
+	  term;
+      in
       ()
     in
 
@@ -173,7 +203,12 @@ let ic3ia solver init trans prop =
   List.iter
     (fun trm -> Format.printf "@.%a@." Term.pp_print_term trm)
     [init';prop'];
-  
+
+  Format.printf "@.CLONED PREDICATES:";
+  List.iter
+    (fun trm -> Format.printf "@.%a@." Term.pp_print_term (mk_clone_eq trm))
+    [init;prop];
+
   let mk_and_assert_actlit trm =
     let act = A.fresh_actlit () in
     SMTSolver.declare_fun solver act;
@@ -181,6 +216,32 @@ let ic3ia solver init trans prop =
     let actimpl = Term.mk_implies [acttrm;trm] in
     SMTSolver.assert_term solver actimpl;
     acttrm
+  in
+
+  (* TODO: Should return counterexample *)
+  let absRelInd frame clause =
+    SMTSolver.check_sat_assuming
+      solver
+
+      (* SAT case *)
+      (fun _ -> Format.printf "@.Clause is not inductive relative to frame; counterexample found@.")
+
+      (* UNSAT case *)
+      (fun _ -> Format.printf "@. Clause is inductive relative to frame@.")
+      
+      (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
+      (List.map
+	 (fun trm -> mk_and_assert_actlit trm)
+	 (let eqP = get_eqP predicates in
+	  let bump = Term.bump_state Numeral.one in
+	  let hp = Term.mk_and hp in
+	  [frame;
+	   clause;
+	   hp;
+	   bump hp;
+	   eqP;
+	   bump eqP;
+	   (Term.mk_not (bump clause))]))
   in
   
   (* Check whether 'I ^ H |= 'P *)
@@ -206,11 +267,17 @@ let ic3ia solver init trans prop =
   (* Initialize frames *)
   (* Question: Do we need to include tinit in the initial states?*)
   let frames = [[init']] in
-
+  
   let rec recblock cube_to_block frames_below =
     match frames_below with
+    (* If there are no frames below, we cannot block the cube, and have failed. *)
     | [] -> raise Failure
-    | _ -> raise Success
+       
+    | fi::tail_frames ->
+       (* Check whether absrelind F_i-1 T, ~cube_to_block is satisfiable *)
+       (* If it is, extract a cube c and try to block c at i-1, then call this function again on cube_to_block, frames_below *)
+       (* If it isn't, generalize ~cube_to_block to g and add g to the frames, then return TRUE *)
+       true
   in
 
   let block = function
@@ -240,6 +307,7 @@ let ic3ia solver init trans prop =
   let propagate frames = frames in
   
   let rec ic3ia' frames =
+    absRelInd init' prop';
     let frames = block frames in
     let frames = propagate frames in
     ic3ia' frames
@@ -274,18 +342,20 @@ let main input_sys aparam trans_sys =
     (fun v -> Format.printf "Trans init':@.%a@." Var.pp_print_var v)
     (TransSys.init_formals trans_sys);
   
-   Format.printf "TRANS SYSTEM:%a@." TransSys.pp_print_trans_sys trans_sys;
+  Format.printf "TRANS SYSTEM:%a@." TransSys.pp_print_trans_sys trans_sys;
   (*TODO: Need to modify so that this extracts abstract variables from subsystems too.
     Currently, it only considers terms from the top node.
   *)
   (* Returns a term representing the initiation condition *)
   let init = TransSys.init_of_bound None trans_sys Numeral.zero in
-  let trans = [] in
+  let trans = TransSys.trans_of_bound None trans_sys Numeral.one in
   (* Given a list of properties, we will run IC3ia for each one seperately.*)
   let props = List.map
     (fun (s,t) -> t)
     (TransSys.props_list_of_bound trans_sys Numeral.zero)
   in 
+
+  Format.printf "TRANSITION SYSTEM:@.%a@." Term.pp_print_term trans;
   
   List.iter
     (fun prop -> ic3ia solver init trans prop)
