@@ -46,7 +46,7 @@ let ic3ia solver init trans prop =
   
   (* Function to clone and declare all variables in given predicates and return a map *)
   let get_clone_map predicates =
-    let clone_map = ref StateVar.StateVarMap.empty in
+        let clone_map = ref StateVar.StateVarMap.empty in
     List.iter
       (fun p ->
 	
@@ -115,16 +115,39 @@ let ic3ia solver init trans prop =
 
   (* Assert the cloned transition function*)
   SMTSolver.assert_term solver (clone_term trans);
+  Format.printf "CLONED TRANSITION SYSTEM:@.%a@." Term.pp_print_term (clone_term trans);
   
   (* ABSTRACT VARIABLES *)
   
   (* Extracts a map from boolean atoms to abstract variables given a list of predicates *)
   let get_abvar_map predicates =
 
-    (* Mutable map from atoms to abstract variables *)
-    let abvar_map = ref TermMap.empty in
+    let atoms_of_term term =
+      Term.eval_t
+	(fun subterm atom_lists ->
+	  if
+	    Term.is_atom (Term.construct subterm)
+	  then
+	    (Term.construct subterm)::(List.concat atom_lists)
+	  else
+	    List.concat atom_lists)
+	term
+    in
     
-    (* Creates, declares, and returns a new abstract variable *)
+    let all_atoms =
+	(* accumulate all atoms of the predicates *)
+      (List.fold_left 
+	 (fun acc t ->
+	   (atoms_of_term t) @ acc)
+	 []
+	 predicates)
+    in
+    
+    let all_unique_atoms =
+      Term.TermSet.elements (Term.TermSet.of_list all_atoms)
+    in
+    
+        (* Creates, declares, and returns a new abstract variable *)
     let mk_new_abvar term =
       
       (* use the counter to create an unused name *)
@@ -139,27 +162,12 @@ let ic3ia solver init trans prop =
       Term.mk_uf uf_symbol []
     in
 
-    (* Traverse the term and map each unmapped boolean atom to an abstract variable *)
-    let extract_from_term term =
-      let _ =
-	Term.map
-	  (fun _ subterm ->
-    	    if
-    	      Term.is_atom subterm && not (TermMap.mem subterm !abvar_map)
-    	    then
-    	      abvar_map := TermMap.add subterm (mk_new_abvar subterm) !abvar_map;
-    	    subterm)
-	  term;
-      in
-      ()
-    in
-
-    (* Extract abstract variables from each predicate *)
-    List.iter
-      extract_from_term
-      predicates;
-    
-    !abvar_map
+    (* Return a map from terms to their abstract variables *)
+    List.fold_left
+      (fun acc atom ->
+	TermMap.add atom (mk_new_abvar atom) acc)
+      TermMap.empty
+      all_unique_atoms
   in
 
   let abvar_map = get_abvar_map predicates in
@@ -227,7 +235,7 @@ let ic3ia solver init trans prop =
       (fun _ -> Format.printf "@.Clause is not inductive relative to frame; counterexample found@.")
 
       (* UNSAT case *)
-      (fun _ -> Format.printf "@. Clause is inductive relative to frame@.")
+      (fun _ -> Format.printf "@.Clause is inductive relative to frame@.")
       
       (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
       (List.map
@@ -307,7 +315,7 @@ let ic3ia solver init trans prop =
   let propagate frames = frames in
   
   let rec ic3ia' frames =
-    absRelInd init' prop';
+    absRelInd init' (Term.mk_not init');
     let frames = block frames in
     let frames = propagate frames in
     ic3ia' frames
@@ -329,7 +337,8 @@ let main input_sys aparam trans_sys =
       logic
       (Flags.Smt.solver ())
   in
-  
+
+  (* Question: does this assert the transition system? Because we only want the cloned transition system.*)
   TransSys.define_and_declare_of_bounds
     trans_sys
     (SMTSolver.define_fun solver)
