@@ -31,10 +31,8 @@ let on_exit _ = ()
     
 let ic3ia solver init trans prop =
 
-  let predicates = [init;prop] in
-  
+  let predicates = [init;prop] in  
   let absvarcounter = ref 0 in
-
 
   (* CLONE VARIABLES *)
   
@@ -46,61 +44,59 @@ let ic3ia solver init trans prop =
   
   (* Function to clone and declare all variables in given predicates and return a map *)
   let get_clone_map predicates =
-        let clone_map = ref StateVar.StateVarMap.empty in
-    List.iter
-      (fun p ->
-	
-	(* Get set containing all state variables in predicate p *)
-	let statevars = Term.state_vars_of_term p in
+    
+    (* Get set containing all state variables in predicates *)
+    let statevars =
+      List.fold_left
+	(fun acc p ->
+	  StateVar.StateVarSet.union (Term.state_vars_of_term p) acc)
+	StateVar.StateVarSet.empty
+	predicates
+    in
+    
+    (* fold over statevars to construct map to new statevars *)
+    let clone_map = 
+      StateVar.StateVarSet.fold
+	(fun v acc ->
+	  (* Define function that appends * to a string *)
+	  let appclone prefix = String.concat "" [prefix;"*"] in	
 
-	(* Define function that appends * to a string *)
-	let appclone prefix = String.concat "" [prefix;"*"] in
-
-	(* Iterate over statevars, cloning each uncloned variable and adding it to clone_map*)
-	StateVar.StateVarSet.iter
-	  (fun v ->
-	    if not (StateVar.StateVarMap.mem v !clone_map)
-	    then
-
-	      (* Create new state variable as clone of input*)
-	      let new_statevar =
-		(StateVar.mk_state_var
-		      ~is_input:(StateVar.is_input v)
-		      ~is_const:(StateVar.is_const v)
-		      ~for_inv_gen:(StateVar.for_inv_gen v)
-		      (appclone (StateVar.name_of_state_var v))
-		      (List.map appclone (StateVar.scope_of_state_var v))
-		      (StateVar.type_of_state_var v))
-	      in
-	      
-	      clone_map := StateVar.StateVarMap.add v new_statevar !clone_map)
+	  (* Crete a new state variable to correspond to v*)
+	  let new_statevar =
+	    (StateVar.mk_state_var
+	       ~is_input:(StateVar.is_input v)
+	       ~is_const:(StateVar.is_const v)
+	       ~for_inv_gen:(StateVar.for_inv_gen v)
+	       (appclone (StateVar.name_of_state_var v))
+	       (List.map appclone (StateVar.scope_of_state_var v))
+	       (StateVar.type_of_state_var v))
+	  in
 	  
-	  statevars)
+	  StateVar.StateVarMap.add v new_statevar acc)
+	statevars
+	StateVar.StateVarMap.empty
+    in
 
-      (* Repeat for each term in predicates and in the transition function *)
-      (trans :: predicates);
-
-    (* Declare all cloned variables in clone_map *)
-    let set_of_variables =
+    let set_of_variables = 
       List.fold_left
 	(fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
 	Var.VarSet.empty
-	(List.map (clone_term !clone_map) (trans::predicates))
+	(List.map (clone_term clone_map) (predicates))
     in
-
+    
     Var.declare_constant_vars
-      (SMTSolver.declare_fun solver) 
+      (SMTSolver.declare_fun solver)
       (Var.VarSet.elements (Var.VarSet.filter Var.is_const_state_var set_of_variables));
-
+    
     Var.declare_vars
-      (SMTSolver.declare_fun solver) 
+      (SMTSolver.declare_fun solver)
       (Var.VarSet.elements (Var.VarSet.filter Var.is_state_var_instance set_of_variables));
     
-    (* Return the clone map *)
-    !clone_map
+    clone_map
   in
-
-  let clone_map = get_clone_map predicates in
+  
+  (* Repeat for each term in predicates and in the transition function *)
+  let clone_map = get_clone_map (trans::predicates) in
   let clone_term = clone_term clone_map in
   
   (* Generates a term asserting the equality of an uncloned term and its clone *)
@@ -118,6 +114,21 @@ let ic3ia solver init trans prop =
   Format.printf "CLONED TRANSITION SYSTEM:@.%a@." Term.pp_print_term (clone_term trans);
   
   (* ABSTRACT VARIABLES *)
+
+  (* Creates, declares, and returns a new abstract variable *)
+  let mk_new_abvar term =
+    
+    (* use the counter to create an unused name *)
+    let symbol_name = Format.asprintf "_abvar_%d" !absvarcounter in
+    let uf_symbol = (UfSymbol.mk_uf_symbol symbol_name [] Type.t_bool) in
+    incr absvarcounter;
+    
+    (* declare the new symbol in the solver *)
+    SMTSolver.declare_fun solver uf_symbol;
+    
+    (* Return the term consisting of the new symbol *)
+    Term.mk_uf uf_symbol []
+  in
   
   (* Extracts a map from boolean atoms to abstract variables given a list of predicates *)
   let get_abvar_map predicates =
@@ -147,22 +158,7 @@ let ic3ia solver init trans prop =
       Term.TermSet.elements (Term.TermSet.of_list all_atoms)
     in
     
-        (* Creates, declares, and returns a new abstract variable *)
-    let mk_new_abvar term =
-      
-      (* use the counter to create an unused name *)
-      let symbol_name = Format.asprintf "_abvar_%d" !absvarcounter in
-      let uf_symbol = (UfSymbol.mk_uf_symbol symbol_name [] Type.t_bool) in
-      incr absvarcounter;
-      
-      (* declare the new symbol in the solver *)
-      SMTSolver.declare_fun solver uf_symbol;
-
-      (* Return the term consisting of the new symbol *)
-      Term.mk_uf uf_symbol []
-    in
-
-    (* Return a map from terms to their abstract variables *)
+     (* Return a map from terms to their abstract variables *)
     List.fold_left
       (fun acc atom ->
 	TermMap.add atom (mk_new_abvar atom) acc)
