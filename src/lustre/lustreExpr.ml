@@ -142,8 +142,14 @@ let map f { expr_init; expr_step } =
   { expr_init; expr_step; expr_type }
 
 
-let map_vars = Term.map_vars 
+let map_vars_expr = Term.map_vars 
   
+let map_vars f { expr_init = i; expr_step = s; expr_type = t } = {
+  expr_init = map_vars_expr f i;
+  expr_step = map_vars_expr f s;
+  expr_type = t
+}
+
 (*
 
 let rec map_top' f term = match Term.T.node_of_t term with 
@@ -1158,20 +1164,54 @@ let type_of_real_real_real = function
   | _ -> raise Type_mismatch
 
 
+(* Best int subrange for some operator. *)
+let best_int_range is_div op t t' =
+  match Type.bounds_of_int_range t' with
+  
+  | lo', hi' when (
+    is_div &&
+    Numeral.(equal lo' zero) &&
+    Numeral.(equal hi' zero)
+  ) -> raise Division_by_zero
+  
+  | lo', _ when (
+    is_div && Numeral.(equal lo' zero)
+  ) -> Type.t_int
+  | _, hi' when (
+    is_div && Numeral.(equal hi' zero)
+  )-> Type.t_int
+
+  | lo', hi' ->
+    let lo, hi = Type.bounds_of_int_range t in
+    let b_0 = op lo lo' in
+    let bounds =
+      [ op hi lo' ;
+        op lo hi' ;
+        op hi hi' ]
+    in
+    Type.mk_int_range
+      (List.fold_left Numeral.min b_0 bounds)
+      (List.fold_left Numeral.max b_0 bounds)
+
 (* Type check for int -> int -> int, real -> real -> real *)
-let type_of_num_num_num = function 
-
-  | t when Type.is_int t || Type.is_int_range t -> 
-    (function 
+let type_of_num_num_num ?(is_div = false) op t t' =
+  try best_int_range is_div op t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
       | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
-      | _ -> raise Type_mismatch)
+      | _ -> raise Type_mismatch
+    )
 
-  | t when Type.is_real t -> 
-    (function 
+    | t when Type.is_real t -> (
+      match t' with
       | t when Type.is_real t -> Type.t_real
-      | _ -> raise Type_mismatch)
-    
-  | _ -> raise Type_mismatch
+      | _ -> raise Type_mismatch
+    )
+      
+    | _ -> raise Type_mismatch
+  )
 
 
 (* Type check for 'a -> 'a -> 'a *)
@@ -1299,15 +1339,20 @@ let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
 
 
 (* Evaluate conversion to integer *)
-let eval_to_int expr = match Term.destruct expr with 
-  | Term.T.Const s when Symbol.is_decimal s -> 
-    Term.mk_num
-      (Numeral.of_big_int
-         (Decimal.to_big_int
-            (Symbol.decimal_of_symbol s)))
+let eval_to_int expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_decimal s ->
+      Term.mk_num
+        (Numeral.of_big_int
+           (Decimal.to_big_int
+              (Symbol.decimal_of_symbol s)))
 
-  | _ -> Term.mk_to_int expr
-  | exception Invalid_argument _ -> Term.mk_to_int expr
+    | _ -> Term.mk_to_int expr
+    | exception Invalid_argument _ -> Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -1316,6 +1361,7 @@ let eval_to_int expr = match Term.destruct expr with
 *)
 let type_of_to_int = function
   | t when Type.is_real t -> Type.t_int
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int
   | _ -> raise Type_mismatch
 
 
@@ -1327,15 +1373,20 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 
 (* Evaluate conversion to real *)
-let eval_to_real expr = match Term.destruct expr with 
-  | Term.T.Const s when Symbol.is_numeral s -> 
-    Term.mk_dec
-      (Decimal.of_big_int
-         (Numeral.to_big_int
-            (Symbol.numeral_of_symbol s)))
+let eval_to_real expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_real tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_numeral s ->
+      Term.mk_dec
+        (Decimal.of_big_int
+           (Numeral.to_big_int
+              (Symbol.numeral_of_symbol s)))
 
-  | _ -> Term.mk_to_real expr
-  | exception Invalid_argument _ -> Term.mk_to_real expr
+    | _ -> Term.mk_to_real expr
+    | exception Invalid_argument _ -> Term.mk_to_real expr
 
 (* Type of conversion to real  
 
@@ -1343,6 +1394,7 @@ let eval_to_real expr = match Term.destruct expr with
 *)
 let type_of_to_real = function
   | t when Type.is_int t || Type.is_int_range t -> Type.t_real
+  | t when Type.is_real t -> Type.t_real
   | _ -> raise Type_mismatch
 
 
@@ -1608,8 +1660,8 @@ let type_of_minus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
-      | s -> type_of_num_num_num t s)
-  | t -> type_of_num_num_num t
+      | s -> type_of_num_num_num Numeral.sub t s)
+  | t -> type_of_num_num_num Numeral.sub t
 
 
 
@@ -1657,8 +1709,8 @@ let type_of_plus = function
         let l1, u1 = Type.bounds_of_int_range t in
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
-      | s -> type_of_num_num_num t s)
-  | t -> type_of_num_num_num t
+      | s -> type_of_num_num_num Numeral.add t s)
+  | t -> type_of_num_num_num Numeral.add t
 
 
 (* Addition *)
@@ -1673,21 +1725,45 @@ let eval_div expr1 expr2 =
 
   match Term.destruct expr1, Term.destruct expr2 with
 
-    | Term.T.Const c1, Term.T.Const c2 when
-        Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
+  | Term.T.Const c1, Term.T.Const c2 ->
+
+    if Symbol.is_decimal c1 && Symbol.is_decimal c2 then
 
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 /
-                 Symbol.decimal_of_symbol c2) 
+                 Symbol.decimal_of_symbol c2)
 
-  | _ -> Term.mk_div [expr1; expr2]
+    else (
+
+      assert (Symbol.is_numeral c1 && Symbol.is_numeral c2);
+
+      Term.mk_num
+        Numeral.(Symbol.numeral_of_symbol c1 /
+                 Symbol.numeral_of_symbol c2)
+    )
+
+  | _ ->
+
+    let tt = Term.type_of_term expr1 in
+
+    if Type.is_real tt then (
+
+      Term.mk_div [expr1; expr2]
+
+    )
+    else (
+
+      Term.mk_intdiv [expr1; expr2]
+
+    )
+
   | exception Invalid_argument _ -> Term.mk_div [expr1; expr2]
 
 
 (* Type of real division
 
    /: real -> real -> real *)
-let type_of_div = type_of_num_num_num(* type_of_real_real_real *)
+let type_of_div = type_of_num_num_num ~is_div:true Numeral.div
 
 
 (* Real division *)
@@ -1724,7 +1800,7 @@ let eval_times expr1 expr2 =
 
    *: int -> int -> int
       real -> real -> real *)
-let type_of_times = type_of_num_num_num
+let type_of_times = type_of_num_num_num Numeral.mult
 
 
 (* Multiplication *)
@@ -1753,7 +1829,17 @@ let eval_intdiv expr1 expr2 =
 (* Type of integer division
 
    div: int -> int -> int *)
-let type_of_intdiv = type_of_int_int_int
+let type_of_intdiv t t' =
+  try best_int_range true Numeral.div t t' with
+  | Invalid_argument _ -> (
+    match t with
+    | t when Type.is_int t || Type.is_int_range t -> (
+      match t' with
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
+      | _ -> raise Type_mismatch
+    )
+    | _ -> raise Type_mismatch
+  )
 
 
 (* Integer division *)

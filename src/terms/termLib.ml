@@ -197,7 +197,7 @@ module L = FeatureSet
 
 let pp_print_features fmt l =
   if not (L.mem Q l) then fprintf fmt "QF_";
-  if L.is_empty l then fprintf fmt "SAT";
+  if L.is_empty l then fprintf fmt "UF";
   if L.mem A l && Flags.Arrays.smt () then fprintf fmt "A";
   if L.mem UF l then fprintf fmt "UF";
   if L.mem NA l then fprintf fmt "N"

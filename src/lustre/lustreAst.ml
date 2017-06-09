@@ -1263,6 +1263,11 @@ let rec has_unguarded_pre ung = function
     let u = has_unguarded_pre true e in
     ung || u
 
+  | Last _ -> false
+
+  (* TODO: Only report unguarded lasts contained in automaton states
+     that are activable at the initial state *)
+(*
   | Last (pos, _) as p ->
     if ung then begin
       (* Fail only if in strict mode *)
@@ -1274,6 +1279,7 @@ let rec has_unguarded_pre ung = function
            pp_print_expr p)
     end;
     ung
+*)
     
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre ung e1 in

@@ -395,11 +395,10 @@ let query_step two_state step_checker candidates =
     the candidates that were **not** falsified, at 0, with their info. *)
     let unfalsified_opt =
       let minus_k = Num.(~- k) in
-      Smt.check_sat_assuming solver (
+      Smt.check_sat_assuming_and_get_term_values solver (
         (* If sat, get values and remove falsified candidates. *)
-        fun solver -> Some (
-          Smt.get_term_values solver cands
-          |> List.fold_left (fun acc ->
+        fun solver term_values -> Some (
+          term_values |> List.fold_left (fun acc ->
             function
             | (cand, b_val) when b_val = Term.t_true ->
               let candidate = Term.bump_state minus_k cand in
@@ -410,7 +409,7 @@ let query_step two_state step_checker candidates =
       ) (
         (* If unsat. *)
         fun _ -> None
-      ) [ actlit ]
+      ) [ actlit ] cands
     in
     (* Format.printf "done@.@." ; *)
 
@@ -619,10 +618,9 @@ let query_pruning pruning_checker =
     the candidates that were **not** falsified, at 0, with their info. *)
     let unfalsified_opt =
       let minus_k = Num.(~- k) in
-      Smt.check_sat_assuming solver (
-        fun solver -> Some (
-          Smt.get_term_values solver cands
-          |> List.fold_left (
+      Smt.check_sat_assuming_and_get_term_values solver (
+        fun solver term_values -> Some (
+          term_values |> List.fold_left (
             fun (non_triv, rest) (cand, b_val) ->
               if b_val = Term.t_true then
                 non_triv, (Term.bump_state minus_k cand) :: rest
@@ -633,7 +631,7 @@ let query_pruning pruning_checker =
       ) (
         (* If unsat. *)
         fun _ -> None
-      ) [ actlit ]
+      ) [ actlit ] cands
     in
 
     (* Deactivate actlit. *)

@@ -27,6 +27,8 @@
 
 type _ t
 
+exception UnsupportedFileFormat of string
+
 (** Read input from file *)
 val read_input_lustre : string -> LustreNode.t t
 

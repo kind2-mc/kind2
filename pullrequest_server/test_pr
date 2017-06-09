@@ -44,6 +44,7 @@
 #      /var/www/kind2_reports/ )
 
 
+webserver_user="kind2"
 
 # timeout set to 2 minutes for now
 TIMEOUT="120"
@@ -631,7 +632,7 @@ mv $resultdir_dev $export_dir/
 
 
 # copy report to remote web server
-scp -r -i ~/.ssh/id_rsa_copy_report $export_dir kind.cs.uiowa.edu:.
+scp -r -i ~/.ssh/id_rsa_copy_report $export_dir $webserver_user@kind.cs.uiowa.edu:.
 
 report_url="http://kind.cs.uiowa.edu/kind2_reports/$export_dir"
 

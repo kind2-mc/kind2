@@ -247,12 +247,11 @@ let split { solver ; map } =
 
       (* Check-sat. *)
       match
-        nactlit :: actlits
-        |> Smt.check_sat_assuming
+        Smt.check_sat_assuming_and_get_term_values
           solver
-          (fun s -> (* If sat. *)
+          (fun s term_values -> (* If sat. *)
             (* Retrieve values. *)
-            Smt.get_term_values s unknowns |> List.fold_left (
+            term_values |> List.fold_left (
               fun l (term, value) ->
                 if value == Term.t_false then
                   (List.assq term map_back) :: l
@@ -263,6 +262,7 @@ let split { solver ; map } =
           (fun _ -> (* If unsat. *)
             None
           )
+          (nactlit :: actlits) unknowns
       with
       | None -> (* Unsat, remaining properties are unfalsifiable. *)
         deactivate () ;

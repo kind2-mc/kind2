@@ -520,7 +520,7 @@ let call_terms_of_node_call mk_fresh_state_var globals
         List.fold_left2 (
           fun (state_var_map_up, state_var_map_down) state_var inst_state_var -> 
              (SVM.add state_var inst_state_var state_var_map_up,
-              SVM.add state_var inst_state_var state_var_map_down)
+              SVM.add inst_state_var state_var state_var_map_down)
         ) (state_var_map_up, state_var_map_down)
           oracles
           call_oracles
@@ -1641,10 +1641,11 @@ let rec trans_sys_of_node'
         | [] ->
 
 
-          (* If node is a function, create a UF `f` for each output. Also,
+          (* If node is a function, create a UF `f` for each undefined output. Also,
           create the term `(= (f <inputs>) output)` to add it to `init` and
           `trans`. *)
           let function_ufs, function_constraints_at_0 =
+
             if not is_function then [], [] else (
               let inputs = D.values inputs in
               let type_of = StateVar.type_of_state_var in
@@ -1664,7 +1665,14 @@ let rec trans_sys_of_node'
                 ) ([], [])
               in
 
+              let defined_svars = List.fold_left
+                (fun set ((sv,_),_) -> SVS.add sv set) SVS.empty equations
+              in
+
+              let is_undefined svar = SVS.mem svar defined_svars |> not in
+
               D.values outputs
+              |> List.filter is_undefined
               |> List.fold_left (
                 fun (ufs, eqs) output ->
                   let uf_name =
@@ -1973,7 +1981,7 @@ let rec trans_sys_of_node'
                   (* Add property as assertion *)
                   (prop_term_init :: init_terms,
                    prop_term_trans :: trans_terms,
-                   properties)
+                   p :: properties)
 
                 else
 

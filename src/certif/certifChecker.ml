@@ -430,13 +430,12 @@ let rec find_must solver must acts q =
   try
     let not_a = Queue.pop q in
     (* eprintf "find_must %d : %a@." (Queue.length q) Term.pp_print_term not_a; *)
-    SMTSolver.check_sat_assuming solver
-      (fun _ -> (* Sat *)
+    SMTSolver.check_sat_assuming_and_get_term_values solver
+      (fun _ term_values -> (* Sat *)
          try
            let inv, ai, not_ai' = List.find (fun (_, ai, _) ->
-               let vs = SMTSolver.get_term_values solver [ai] in
-               match vs with | [_, v] -> Term.equal v (Term.mk_false ())
-                             | _ -> assert false
+               let v = List.assq ai term_values in
+               Term.equal v (Term.mk_false ())
              ) acts in
            SMTSolver.assert_term solver ai;
            Queue.push not_ai' q;
@@ -446,7 +445,7 @@ let rec find_must solver must acts q =
       (fun _ -> (* Unsat *)
          find_must solver must acts q
       )
-      [not_a]
+      [not_a] (List.map (fun (_, ai, _) -> ai) acts)
   with Queue.Empty -> must
 
 
@@ -469,6 +468,10 @@ let under_approx sys k invs prop =
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.(~- one) (Numeral.of_int (k+1));
+
+  (* Declaring path compression function if needed. *)
+  if Flags.BmcKind.compress () then
+    Compress.init (SMTSolver.declare_fun solver) sys ;
 
   (* Asserting transition relation up to k *)
   for i = 1 to k do
@@ -1130,6 +1133,10 @@ let minimize_invariants sys invs =
     (SMTSolver.declare_sort solver)
     Numeral.zero (Numeral.of_int (k+1));
 
+  (* Declaring path compression function if needed. *)
+  if Flags.BmcKind.compress () then
+    Compress.init (SMTSolver.declare_fun solver) sys ;
+  
   (* The property we want to re-verify is the conjunction of all properties *)
   let prop = Term.mk_and props in
 
@@ -2853,9 +2860,9 @@ let generate_smt2_certificates uid input sys =
   Hashtbl.clear solver_actlits;
 
   let dirname =
-    let dir = TransSys.scope_of_trans_sys sys |> Flags.subdir_for in
-    mk_dir dir ;
-    let dir = Filename.concat dir "certif" in
+    (* Create directories if they don't exist. *)
+    Flags.output_dir () |> mk_dir;
+    let dir = Filename.concat (Flags.output_dir ()) "certif" in
     mk_dir dir ;
     dir
   in
