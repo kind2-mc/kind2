@@ -364,77 +364,86 @@ let ic3ia solver init trans prop =
   (* Question: Do we need to include tinit in the initial states?*)
   let frames = [[init']] in
   
-  let rec recblock cube_to_block frames_below =
+  let rec recblock bad_cube frames_below =
+    (* First, create a clause that negates the bad cube (which itself is encoded as a list *)
+    let blocking_clause =
+      Term.mk_or
+	(List.map
+	   (fun t -> Term.negate t)
+	   bad_cube)
+    in
+    
     match frames_below with
     (* If there are no frames below, we cannot block the cube, and have failed. *)
-    | [] -> raise Failure
+    | [] -> raise Failure (*We probably should provide some info on the counterexample here, or else handle concretization in this function *)
        
-    | fi::tail_frames ->
-       (* Check whether absrelind F_i-1 T, ~cube_to_block is satisfiable *)
-       (match absRelInd fi cube_to_block with
-       | [] -> ()
-       | cti -> ());(* block cti *)
-      
-      
-      (* If it is, extract a cube c and try to block c at i-1, then call this function again on cube_to_block, frames_below *)
-      (* If it isn't, generalize ~cube_to_block to g and add g to the frames, then return TRUE *)
-      (* TODO: cube_to_block here should actually be the cube extracted from absRelInd *)
-      recblock cube_to_block tail_frames
+    | fi::fb -> 
+       (* Check whether the blocking clause is relatively inductive *)
+       (match absRelInd fi blocking_clause with
+	 
+       (* No counterexample, so it is relatively inductive and we can add it to the current frame 
+	  TODO: generalize the blocking clause *)
+       | [] -> (blocking_clause::fi)::fb
+	  
+       (* Uh-oh - we'd better block the counterexample and try again*)
+	  
+       | cti -> recblock bad_cube (fi::(recblock cti fb));(* block cti *)
+       )
   in
 
   (* ********************************************************************** *)
   (* Block                                                                  *)
   (* ********************************************************************** *)
   
-  let block = function
+  let rec block = function
     | [] -> raise Failure (* Actually, this should not happen. Should raise some other error *)
-    | fk :: tail_frames ->
-       (match
-	   (* Check if Fk ^ H |= 'P, recblock counterexamples *)
-	   SMTSolver.check_sat_assuming_ab solver
-	     
-	     (* SAT case ('P not entailed) *)
-	     (fun _ ->
-	       Format.printf "@.Property not entailed by current frame; counterexample found@.";
-	       raise Failure)
-	     
-	     (* UNSAT case ('P entailed) *)
-	     (fun _ ->
-	       Format.printf "@.Property entailed by current state@.")
-	     
-	     (* Check satisfiability of 'Fk ^ H ^ !'P *)
-	     (List.map
-		(fun trm -> mk_and_assert_actlit trm)
-		(fk @ hp @ [Term.mk_not prop']));
-	with
-	| SMTSolver.Sat cti -> fk::tail_frames
-	| SMTSolver.Unsat () -> fk::tail_frames)
-  in
+    | fk :: frames_below ->
+       (* Check if Fk ^ H |= 'P, recblock counterexamples *)
+       SMTSolver.check_sat_assuming_and_get_term_values
+	 solver
+	 
+	 (* SAT case - extract a cube and recblock it *)
+	 (fun _ assignments ->
 
+	   (* Represent cube as a list of terms *)
+	   let bad_cube = get_term_list_from_term_values assignments in
+	   
+	   (* Modify frames below to prevent the bad cube  *)
+	   let fb = recblock bad_cube frames_below in
+
+	   (* TODO: Handle counterexamples (failure case), concretizing when needed*)
+	   (* Let's try blocking again with the modified frames *)
+	   block (fk::fb))
+	 
+	 (* UNSAT case - don't need to do anything, so just continue with unmodified frames *)
+	 (fun _ -> fk::frames_below)
+
+	 (List.map
+	    (fun trm -> mk_and_assert_actlit trm)
+	    (fk @ hp @ [Term.mk_not prop']))
+
+	 abvars
+  in
+  
   (* ********************************************************************** *)
   (* Propagate                                                              *)
   (* ********************************************************************** *)
   
-  let propagate frames = frames in
+  let propagate frames =
+    frames
+  in
   
   let rec ic3ia' frames =
-    (match
-	absRelInd [] init'
-     with
-     | [] -> Format.printf "@.Sanity check failed@."
-     | cti ->
-	(Format.printf "@.Sanity check passed@.";
-	 List.iter
-	   (fun trm -> Format.printf "@.%a@." Term.pp_print_term trm)
-	   cti;
-	 raise Success)
-	  
-    );     
     let frames = block frames in
+    List.iter
+      (Format.printf "Frame";
+       List.iter
+	 (Format.printf "@.%a@." Term.pp_print_term))
+      frames;
     let frames = propagate frames in
     ic3ia' frames
   in
-
+  
   ic3ia' frames
   
   (*try ic3ia' frames with
