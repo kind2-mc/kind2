@@ -34,7 +34,9 @@ let ic3ia solver init trans prop =
   let predicates = [init;prop] in  
   let absvarcounter = ref 0 in
 
-  (* CLONE VARIABLES *)
+  (* ********************************************************************** *)
+  (* Cloned variables                                                       *)
+  (* ********************************************************************** *)
   
   (* Creates a clone of an uncloned term using provided map *)
   let clone_term map term =
@@ -58,17 +60,16 @@ let ic3ia solver init trans prop =
     let clone_map = 
       StateVar.StateVarSet.fold
 	(fun v acc ->
-	  (* Define function that appends * to a string *)
-	  let appclone prefix = String.concat "" [prefix;"*"] in	
-
-	  (* Crete a new state variable to correspond to v*)
+	  
+	  (* Create a new state variable to correspond to v*)
 	  let new_statevar =
 	    (StateVar.mk_state_var
 	       ~is_input:(StateVar.is_input v)
 	       ~is_const:(StateVar.is_const v)
 	       ~for_inv_gen:(StateVar.for_inv_gen v)
-	       (appclone (StateVar.name_of_state_var v))
-	       (List.map appclone (StateVar.scope_of_state_var v))
+	       (* The new name is the same as the old, but we will change the scope to *.cln.* *)
+	       (StateVar.name_of_state_var v)
+	       (List.hd (StateVar.scope_of_state_var v)::["cln"])
 	       (StateVar.type_of_state_var v))
 	  in
 	  
@@ -112,11 +113,53 @@ let ic3ia solver init trans prop =
   (* Assert the cloned transition function*)
   SMTSolver.assert_term solver (clone_term trans);
   Format.printf "CLONED TRANSITION SYSTEM:@.%a@." Term.pp_print_term (clone_term trans);
-  
-  (* ABSTRACT VARIABLES *)
 
-  (* Creates, declares, and returns a new abstract variable *)
+  (* ********************************************************************** *)
+  (* Abstracted variables                                                   *)
+  (* ********************************************************************** *)
+
+  (* Creates and returns a new abstract variable. Does NOT declare it. *)
   let mk_new_abvar term =
+
+    (* First we need to extract the scope from term *)
+    let abvar_scope = 
+      let state_vars = Term.state_vars_of_term term in
+      let usr_scope = StateVar.scope_of_state_var (StateVar.StateVarSet.choose state_vars) in
+      (List.hd usr_scope)::["abv"]
+    in
+
+    (* We need to give this abstract variable a unique name *)
+    let abvar_name =
+      Format.asprintf "abv%d" !absvarcounter
+    in
+    incr absvarcounter;
+      
+    (* We will create a new state variable (or use an existing one) to represent the abvar *)
+    let abvar_statevar =
+      StateVar.mk_state_var
+	abvar_name
+	abvar_scope
+	Type.t_bool
+    in
+
+    (* We also need to know the offset. Since abvars are used only for terms over one offset,
+       we may safely assume that an arbitrary variable in the term is representative of the offset*)
+    let abvar_offset =
+      let vars = Term.vars_of_term term in
+      Var.offset_of_state_var_instance (Var.VarSet.choose vars)
+    in
+
+    (* Now create an instance of the abvar at the given offset *)
+    
+    let abvar_instance = Var.mk_state_var_instance abvar_statevar abvar_offset in
+    
+    (* Return the term consisting of the new var *)
+    Term.mk_var abvar_instance
+  in
+  
+      (*
+    
+    (*********************************************************)
     
     (* use the counter to create an unused name *)
     let symbol_name = Format.asprintf "_abvar_%d" !absvarcounter in
@@ -128,7 +171,7 @@ let ic3ia solver init trans prop =
     
     (* Return the term consisting of the new symbol *)
     Term.mk_uf uf_symbol []
-  in
+	in*)
   
   (* Extracts a map from boolean atoms to abstract variables given a list of predicates *)
   let get_abvar_map predicates =
@@ -167,7 +210,7 @@ let ic3ia solver init trans prop =
   in
 
   let abvar_map = get_abvar_map predicates in
-  
+
   (* Traverse the term and replace where appropriate with abstract variables *)  
   let convert_to_abstract_term term =
     Term.map
@@ -182,6 +225,26 @@ let ic3ia solver init trans prop =
       (TermMap.bindings abvar_map)
   in
 
+  (* Declare all abstract variables in the solver *)
+  Var.declare_vars
+    (SMTSolver.declare_fun solver)
+    (let set_of_variables = 
+       List.fold_left
+	 (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
+	 Var.VarSet.empty
+	 abvars
+     in
+
+     let list_of_variables = Var.VarSet.elements set_of_variables in
+
+     let bumped_list_of_variables =
+       List.map
+	 (fun v -> Var.bump_offset_of_state_var_instance v Numeral.one)
+	 list_of_variables
+     in
+
+     list_of_variables @ bumped_list_of_variables);
+  
   (* list of association terms between concrete and abstract variables *)
   let hp =
     List.map
@@ -222,39 +285,62 @@ let ic3ia solver init trans prop =
     acttrm
   in
 
+  (* Takes the given assignments and produces a list of terms *)
+  let get_term_list_from_term_values assignments =
+    List.map
+      (fun (term, value) ->
+	if
+	  Term.bool_of_term value
+	then
+	  term
+	else
+	  Term.mk_not term)
+      assignments
+  in
+  
   (* TODO: Should return counterexample *)
   let absRelInd frame clause =
-    SMTSolver.check_sat_assuming
+    SMTSolver.check_sat_assuming_and_get_term_values
       solver
 
-      (* SAT case *)
-      (fun _ -> Format.printf "@.Clause is not inductive relative to frame; counterexample found@.")
+      (* SAT case - returns a list of terms that satisfies the predicate *)
+      (fun _ assignments ->
+	Format.printf "@.Clause is not inductive relative to frame; counterexample found@.";
+	get_term_list_from_term_values assignments)
+    
 
-      (* UNSAT case *)
-      (fun _ -> Format.printf "@.Clause is inductive relative to frame@.")
+      (* UNSAT case - returns an empty list *)
+      (fun _ ->
+	Format.printf "@.Clause is inductive relative to frame@.";
+	[])
       
       (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
       (List.map
 	 (fun trm -> mk_and_assert_actlit trm)
-	 (let eqP = get_eqP predicates in
+	 (let eqP = get_eqP predicates in (* may need to allow updates to predicates*)
 	  let bump = Term.bump_state Numeral.one in
 	  let hp = Term.mk_and hp in
-	  [frame;
-	   clause;
-	   hp;
-	   bump hp;
-	   eqP;
-	   bump eqP;
-	   (Term.mk_not (bump clause))]))
+	  frame @
+	    [clause;
+	     hp;
+	     bump hp;
+	     eqP;
+	     bump eqP;
+	     (Term.mk_not (bump clause))]))
+      abvars
   in
-  
+
   (* Check whether 'I ^ H |= 'P *)
-  SMTSolver.check_sat_assuming
+  SMTSolver.check_sat_assuming_and_get_term_values
     solver
 
     (* SAT case ('P not entailed) *)
-    (fun _ ->
+    (fun _ assignments ->
       Format.printf "@.Property invalid in initial state@.";
+      (*Format.printf "@.Values for model:@.";
+      List.iter	
+	(fun (term, assignment) -> (Format.printf "@.%a %a@." Term.pp_print_term term Term.pp_print_term assignment) )
+	assignments;*)
       raise Failure)
     
     (* UNSAT case ('P entailed) *)
@@ -264,8 +350,14 @@ let ic3ia solver init trans prop =
     (* Check satisfiability of 'I ^ H ^ !'P *)
     (List.map
        (fun trm -> mk_and_assert_actlit trm)
-       ( hp @ init' :: [Term.mk_not prop']));
+       ( hp @ init' :: [Term.mk_not prop']))
+
+    (*  Check values of the things we fed in *)
+    abvars;
   (* TODO: Write utility function to handle SAT checking *)
+
+  (* For extracting a clause from the term values given by check_sat_assuming_and_get_term_values
+     Note that the clause is the negation of the term values *)
   
   (* PAPER LINE 3*)
   (* Initialize frames *)
@@ -279,17 +371,27 @@ let ic3ia solver init trans prop =
        
     | fi::tail_frames ->
        (* Check whether absrelind F_i-1 T, ~cube_to_block is satisfiable *)
-       (* If it is, extract a cube c and try to block c at i-1, then call this function again on cube_to_block, frames_below *)
-       (* If it isn't, generalize ~cube_to_block to g and add g to the frames, then return TRUE *)
-       true
+       (match absRelInd fi cube_to_block with
+       | [] -> ()
+       | cti -> ());(* block cti *)
+      
+      
+      (* If it is, extract a cube c and try to block c at i-1, then call this function again on cube_to_block, frames_below *)
+      (* If it isn't, generalize ~cube_to_block to g and add g to the frames, then return TRUE *)
+      (* TODO: cube_to_block here should actually be the cube extracted from absRelInd *)
+      recblock cube_to_block tail_frames
   in
 
+  (* ********************************************************************** *)
+  (* Block                                                                  *)
+  (* ********************************************************************** *)
+  
   let block = function
     | [] -> raise Failure (* Actually, this should not happen. Should raise some other error *)
     | fk :: tail_frames ->
        (match
 	   (* Check if Fk ^ H |= 'P, recblock counterexamples *)
-	   SMTSolver.check_sat_assuming solver
+	   SMTSolver.check_sat_assuming_ab solver
 	     
 	     (* SAT case ('P not entailed) *)
 	     (fun _ ->
@@ -305,23 +407,45 @@ let ic3ia solver init trans prop =
 		(fun trm -> mk_and_assert_actlit trm)
 		(fk @ hp @ [Term.mk_not prop']));
 	with
-	| _ -> [])
+	| SMTSolver.Sat cti -> fk::tail_frames
+	| SMTSolver.Unsat () -> fk::tail_frames)
   in
+
+  (* ********************************************************************** *)
+  (* Propagate                                                              *)
+  (* ********************************************************************** *)
   
   let propagate frames = frames in
   
   let rec ic3ia' frames =
-    absRelInd init' (Term.mk_not init');
+    (match
+	absRelInd [] init'
+     with
+     | [] -> Format.printf "@.Sanity check failed@."
+     | cti ->
+	(Format.printf "@.Sanity check passed@.";
+	 List.iter
+	   (fun trm -> Format.printf "@.%a@." Term.pp_print_term trm)
+	   cti;
+	 raise Success)
+	  
+    );     
     let frames = block frames in
     let frames = propagate frames in
     ic3ia' frames
   in
+
+  ic3ia' frames
   
-  try ic3ia' frames with
+  (*try ic3ia' frames with
   | Success -> Format.printf "@.Property invariant"
   | Failure -> Format.printf "@.Property not invariant"
   | _ -> ()
-      
+  *)
+(* ====================================================================== *)
+(* Main                                                                   *)
+(* ====================================================================== *)
+
 let main input_sys aparam trans_sys =
   
   let logic = TransSys.get_logic trans_sys in
@@ -334,7 +458,7 @@ let main input_sys aparam trans_sys =
       (Flags.Smt.solver ())
   in
 
-  (* Question: does this assert the transition system? Because we only want the cloned transition system.*)
+  (* Declares uninterpreted function symbols *)
   TransSys.define_and_declare_of_bounds
     trans_sys
     (SMTSolver.define_fun solver)
@@ -342,12 +466,12 @@ let main input_sys aparam trans_sys =
     (SMTSolver.declare_sort solver)
     Numeral.zero
     (Numeral.of_int 1);
-  
+
   List.iter
     (fun v -> Format.printf "Trans init':@.%a@." Var.pp_print_var v)
     (TransSys.init_formals trans_sys);
   
-  Format.printf "TRANS SYSTEM:%a@." TransSys.pp_print_trans_sys trans_sys;
+    Format.printf "TRANS SYSTEM:%a@." TransSys.pp_print_trans_sys trans_sys;
   (*TODO: Need to modify so that this extracts abstract variables from subsystems too.
     Currently, it only considers terms from the top node.
   *)
