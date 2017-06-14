@@ -2422,9 +2422,8 @@ let parse_clas specs anon_action global_usage_msg =
 
 
 let solver_dependant_actions () = match Smt.solver () with
-  | (`CVC4_SMTLIB | `Yices_SMTLIB) as s -> (
-    (* Disable IC3 for CVC4 and Yices 2 because of lack of support for unsat
-       cores*)
+  | (`Yices_SMTLIB) as s -> (
+    (* Disable IC3 for Yices 2 because of lack of support for unsat cores*)
     Global.disable `IC3;
     Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s);
     (* Yices 2 SMTLIB requires the specification of a theory *)
