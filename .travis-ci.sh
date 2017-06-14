@@ -6,6 +6,7 @@ sudo apt-get update -y -qq
 # Install z3.
 git clone https://github.com/Z3Prover/z3
 cd z3
+git checkout tags/z3-4.5.0
 ./configure
 cd build
 make -j4
