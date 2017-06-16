@@ -33,22 +33,21 @@ let cmd_line
   (* Path and name of CVC4 executable *)
   let cvc4_bin = Flags.Smt.cvc4_bin () in
 
-  let incr_mode =
-    if produce_cores then "--tear-down-incremental" else "--incremental" in
+  let incr_mode = "--incremental" in (* "--tear-down-incremental=1" *)
 
-  let fmfint_flags =
+  let fmfint_flags = [||] in (*
     [| "--fmf-bound-int";
        "--fmf-inst-engine";
        "--quant-cf";
-       "--uf-ss-fair"|] in
+       "--uf-ss-fair"|] in*)
 
-  let fmfrec_flags =
+  let fmfrec_flags = [||] in (*
     [| "--finite-model-find";
        "--macros-quant";
        "--fmf-inst-engine";
        "--fmf-fun";
        "--quant-cf";
-       "--uf-ss-fair"|] in
+       "--uf-ss-fair"|] in*)
 
   let inst_flags = match logic, Flags.Arrays.recdef () with
     | `Inferred l, true when FeatureSet.mem A l -> fmfrec_flags
@@ -174,6 +173,8 @@ let string_of_logic l =
   | `Inferred l when is_empty l -> "QF_SAT"
   (* CVC4 fails to give model when given a non linear arithmetic logic *)
   | `Inferred l when mem NA l -> "ALL_SUPPORTED"
-  | _ -> GenericSMTLIBDriver.string_of_logic l
+  | _ ->
+    let s = GenericSMTLIBDriver.string_of_logic l in
+    if s = "" then "ALL" else s
 
 let pp_print_logic fmt l = Format.pp_print_string fmt (string_of_logic l)
