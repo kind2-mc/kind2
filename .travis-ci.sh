@@ -4,14 +4,9 @@ OPAM_DEPENDS="ocamlfind menhir camlp4"
 sudo apt-get update -y -qq
 
 # Install z3.
-git clone https://github.com/Z3Prover/z3
-cd z3
-git checkout tags/z3-4.5.0
-./configure
-cd build
-make -j4
-sudo make install
-cd ../../
+wget https://github.com/Z3Prover/z3/releases/download/z3-4.5.0/z3-4.5.0-x64-ubuntu-14.04.zip
+unzip z3-4.5.0-x64-ubuntu-14.04.zip
+sudo cp z3-4.5.0-x64-ubuntu-14.04/bin/z3 /usr/bin/z3
 
 sudo apt-get install -y -qq ocaml ocaml-native-compilers
 
