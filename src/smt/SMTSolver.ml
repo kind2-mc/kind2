@@ -159,8 +159,10 @@ let destroy s =
 
 (* Delete a solver instance *)
 let delete_instance s =
-  drop_solver s ;
-  destroy s
+  if (IntMap.mem s.id !all_solvers) then (
+    drop_solver s ;
+    destroy s
+  )
 
 (* Destroys all live solvers. *)
 let destroy_all () =
