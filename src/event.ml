@@ -574,6 +574,36 @@ let escape_xml_name s =
 (* Level to class attribute of log tag *)
 let xml_cls_of_level = string_of_log_level
 
+let prop_attributes trans_sys prop_name =
+  let prop = TransSys.property_of_name trans_sys prop_name in
+
+  let rec get_attributes = function
+    | Property.PropAnnot pos ->
+        let _, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\"" lnum cnum
+    | Property.Generated _ -> ""
+    | Property.Candidate None -> ""
+    | Property.Candidate (Some source) -> get_attributes source
+    | Property.Instantiated (scope,_) ->
+        Format.asprintf " scope=\"%s\"" (String.concat "." scope)
+    | Property.Assumption (pos, scope) ->
+        let _, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
+          lnum cnum (String.concat "." scope)
+    | Property.Guarantee (pos, scope) ->
+        let _, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
+          lnum cnum (String.concat "." scope)
+    | Property.GuaranteeOneModeActive scope ->
+        Format.asprintf " scope=\"%s\"" (String.concat "." scope)
+    | Property.GuaranteeModeImplication (pos, scope) ->
+        let _, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
+          lnum cnum (String.concat "." scope)
+  in
+
+  get_attributes prop.Property.prop_source
+
 
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
@@ -587,12 +617,12 @@ let proved_xml mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hv 2><Property name=\"%s\">@,\
+      ("@[<hv 2><Property name=\"%s\"%s>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
         <Answer source=\"%a\">valid</Answer>@;<0 -2>\
         </Property>@]@.")
-      (escape_xml_name prop)
+      (escape_xml_name prop) (prop_attributes trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
          | None -> () 
@@ -690,13 +720,13 @@ mdl level input_sys analysis trans_sys prop (
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hv 2><Property name=\"%s\">@,\
+      ("@[<hv 2><Property name=\"%s\"%s>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
         <Answer source=\"%a\">%s</Answer>@,\
         %a@;<0 -2>\
         </Property>@]@.") 
-      (escape_xml_name prop)
+      (escape_xml_name prop) (prop_attributes trans_sys prop)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
          | [] -> () 
