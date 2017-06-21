@@ -16,6 +16,22 @@
 
 *)
 
+(*
+  Variable naming conventions:
+  
+  FRAMES
+   Frames may be difference encoded. Variables referring to difference
+  encoded frames will be prefixed by d (dframe), while those representing
+  the full body of a frame will simply be referred to as frame
+
+  lt,geq,gt, etc. will be used to indicate a list of frames relative
+  to the current frame. For example, dframe-lt would be a list of all
+  frames with indices less than the current frame, excluding the current
+  frame. The order of frames in such a list will always have those closest
+  to the current frame at the head of the list.
+*)
+
+
 module A = Actlit
 module TermMap = Map.Make(Term)
   
@@ -29,7 +45,7 @@ let on_exit _ = ()
 (* Checks whether given clause is inductive relative to the frame *)
 (* let absRelInd solver frame trans_sys clause associations = *)
     
-let ic3ia solver init trans prop =
+let ic3ia solver trans_sys init trans prop =
 
   let predicates = [init;prop] in  
   let absvarcounter = ref 0 in
@@ -156,23 +172,7 @@ let ic3ia solver init trans prop =
     (* Return the term consisting of the new var *)
     Term.mk_var abvar_instance
   in
-  
-      (*
     
-    (*********************************************************)
-    
-    (* use the counter to create an unused name *)
-    let symbol_name = Format.asprintf "_abvar_%d" !absvarcounter in
-    let uf_symbol = (UfSymbol.mk_uf_symbol symbol_name [] Type.t_bool) in
-    incr absvarcounter;
-    
-    (* declare the new symbol in the solver *)
-    SMTSolver.declare_fun solver uf_symbol;
-    
-    (* Return the term consisting of the new symbol *)
-    Term.mk_uf uf_symbol []
-	in*)
-  
   (* Extracts a map from boolean atoms to abstract variables given a list of predicates *)
   let get_abvar_map predicates =
 
@@ -299,36 +299,7 @@ let ic3ia solver init trans prop =
   in
   
   (* TODO: Should return counterexample *)
-  let absRelInd frame clause =
-    SMTSolver.check_sat_assuming_and_get_term_values
-      solver
 
-      (* SAT case - returns a list of terms that satisfies the predicate *)
-      (fun _ assignments ->
-	Format.printf "@.Clause is not inductive relative to frame; counterexample found@.";
-	get_term_list_from_term_values assignments)
-    
-
-      (* UNSAT case - returns an empty list *)
-      (fun _ ->
-	Format.printf "@.Clause is inductive relative to frame@.";
-	[])
-      
-      (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
-      (List.map
-	 (fun trm -> mk_and_assert_actlit trm)
-	 (let eqP = get_eqP predicates in (* may need to allow updates to predicates*)
-	  let bump = Term.bump_state Numeral.one in
-	  let hp = Term.mk_and hp in
-	  frame @
-	    [clause;
-	     hp;
-	     bump hp;
-	     eqP;
-	     bump eqP;
-	     (Term.mk_not (bump clause))]))
-      abvars
-  in
 
   (* Check whether 'I ^ H |= 'P *)
   SMTSolver.check_sat_assuming_and_get_term_values
@@ -362,9 +333,71 @@ let ic3ia solver init trans prop =
   (* PAPER LINE 3*)
   (* Initialize frames *)
   (* Question: Do we need to include tinit in the initial states?*)
-  let frames = [[init']] in
+  let frames = [[];[init']] in
+
+  (* ********************************************************************** *)
+  (* Utility                                                                *)
+  (* ********************************************************************** *)
+
+  (* Print frames for debugging *)
+  let print_frames frames =
+    let frames = List.rev frames in
+    let framecounter = ref 0 in
+    List.iter
+      (fun f ->
+	Format.printf "@.Frame #%d@." !framecounter;
+	incr framecounter;
+	List.iter
+	  (fun t -> Format.printf "@. Term: %a@." Term.pp_print_term t)
+	  f)
+      frames
+  in
+    
+  (* Checks whether clause is inductive relative to frame_nd, where frame_nd 
+     has been converted from being difference encoded to including all clauses 
+     of all frames sbove and including the current one
+     
+     If the clause is inductive, an empty list will be returned.
+
+     If the clause is not inductive, a counterexample consisting of a list of 
+     value assignments encoded as terms will be returned. *)
   
-  let rec recblock bad_cube frames_below =
+  let absRelInd frame clause =
+    SMTSolver.check_sat_assuming_and_get_term_values
+      solver
+
+      (* SAT case - returns a list of terms that satisfies the predicate *)
+      (fun _ assignments ->
+	let cti' = get_term_list_from_term_values assignments in
+	cti')
+	  
+
+      (* UNSAT case - returns an empty list *)
+      (fun _ -> [])
+      
+      (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
+      (List.map
+	 (fun trm -> mk_and_assert_actlit trm)
+	 (let eqP = get_eqP predicates in (* may need to allow updates to predicates*)
+	  let bump = Term.bump_state Numeral.one in
+	  let hp = Term.mk_and hp in
+	  frame @
+	    [clause;
+	     hp;
+	     bump hp;
+	     eqP;
+	     bump eqP;
+	     (Term.mk_not (bump clause))]))
+      abvars
+  in
+  
+  (* ********************************************************************** *)
+  (* Block                                                                  *)
+  (* ********************************************************************** *)
+
+  (* Returns list of frames leq the current frame *)
+  let rec recblock bad_cube frames_geq frames_lt =
+    
     (* First, create a clause that negates the bad cube (which itself is encoded as a list *)
     let blocking_clause =
       Term.mk_or
@@ -373,28 +406,75 @@ let ic3ia solver init trans prop =
 	   bad_cube)
     in
     
-    match frames_below with
+    (* The current frame will be needed *)
+    let fi = List.hd frames_geq in
+
+    let make_blocking_clause cti =
+      Term.mk_or
+	(List.map
+	   (fun t -> Term.negate t)
+	   cti)
+    in
+
+    
+    (* Takes as input a non-difference encoded frame bad cube (list of terms) and creates a blocking clause while
+       removing terms unnecessary to block the bad cube.
+       To be used after un-generalized clause has been made absrelind. *)
+    let generalize_blocking_clause frame bad_cube =
+      (* Determines which terms are needed to block the bad set of terms (second input) 
+	 Returns a blocking clause. *)
+      let rec generalize confirmed = function
+	(* No terms left to confirm, so just return a blocking clause made from the confirmed terms*)
+	| [] -> make_blocking_clause confirmed
+	(* Check if blocking clause without head is absrelind; remove head if it is *)
+	| hd::tl -> match absRelInd frame (make_blocking_clause (tl@confirmed)) with
+	  (* Clearly the head is not needed, so remove it *)
+	  | [] -> generalize confirmed tl
+	  (* We need the head; confirm it *)
+	  | _ -> generalize (hd::confirmed) tl
+      in
+      generalize [] bad_cube
+    in
+    
+	   
+    match frames_lt with
     (* If there are no frames below, we cannot block the cube, and have failed. *)
-    | [] -> raise Failure (*We probably should provide some info on the counterexample here, or else handle concretization in this function *)
-       
-    | fi::fb -> 
+    | [] ->
+       Format.printf "@.Lowest frame reached (recblock) - this means failure@.";
+       raise Failure (*We probably should provide some info on the counterexample here, or else handle concretization in this function *)
+
+    (* fj is the frame right below the current frame, the (i-1)th frame *)
+    | fj::fb ->
+
+       Format.printf "@.Frames above: %d@." (List.length (fj::frames_geq));
        (* Check whether the blocking clause is relatively inductive *)
-       (match absRelInd fi blocking_clause with
+       ( match absRelInd (List.concat (fj::frames_geq)) blocking_clause with
 	 
        (* No counterexample, so it is relatively inductive and we can add it to the current frame 
-	  TODO: generalize the blocking clause *)
-       | [] -> (blocking_clause::fi)::fb
+	    TODO: generalize the blocking clause *)
+       | [] ->
+	 Format.printf "@.Blocking clause (recblock) is inductive relative to frame %d@." (List.length fb);
+	  (* Format.printf "@.New Generalization of %a:@." Term.pp_print_term (make_blocking_clause bad_cube); *)
+	 let g = generalize_blocking_clause (List.concat (fj::frames_geq)) bad_cube in
+
+	 
+	 Format.printf "@. Cube to block = %a@." Term.pp_print_term (Term.mk_and bad_cube);
+	 Format.printf "@. Generalized blocking clause = %a@." Term.pp_print_term g;
+	 print_frames ((g::fi)::frames_lt);
+	 
+	 (g::fi)::frames_lt
 	  
        (* Uh-oh - we'd better block the counterexample and try again*)
 	  
-       | cti -> recblock bad_cube (fi::(recblock cti fb));(* block cti *)
-       )
+       | cti ->
+	  Format.printf "@.Blocking clause (recblock) not inductive relative to frame %d; counterexample found@." (List.length fb);
+	 Format.printf "@.Cube to block = %a@." Term.pp_print_term (Term.mk_and bad_cube);
+	 Format.printf "@.Blocking clause = %a@." Term.pp_print_term blocking_clause;
+	 Format.printf "@.Counterexample = %a@." Term.pp_print_term (Term.mk_and cti);
+	 let frames_lt' = recblock cti (fj::frames_geq) fb in
+	 recblock bad_cube frames_geq frames_lt'); (* block cti *) (* what if bad_cube = cti? *)
   in
 
-  (* ********************************************************************** *)
-  (* Block                                                                  *)
-  (* ********************************************************************** *)
-  
   let rec block = function
     | [] -> raise Failure (* Actually, this should not happen. Should raise some other error *)
     | fk :: frames_below ->
@@ -404,23 +484,30 @@ let ic3ia solver init trans prop =
 	 
 	 (* SAT case - extract a cube and recblock it *)
 	 (fun _ assignments ->
+	   (* print_frames (fk::frames_below); *)
+
+	   (* Format.printf "@.Extracted a cube (block), will now try to recblock it"; *)
 
 	   (* Represent cube as a list of terms *)
 	   let bad_cube = get_term_list_from_term_values assignments in
-	   
+	   Format.printf "@.We found a bad cube while blocking frame %d. Better recblock it. Cube: %a@."
+	     (List.length frames_below)
+	     Term.pp_print_term (Term.mk_and bad_cube);
 	   (* Modify frames below to prevent the bad cube  *)
-	   let fb = recblock bad_cube frames_below in
+	   let frames' = recblock bad_cube [fk] frames_below in
 
 	   (* TODO: Handle counterexamples (failure case), concretizing when needed*)
 	   (* Let's try blocking again with the modified frames *)
-	   block (fk::fb))
+	   block frames')
 	 
 	 (* UNSAT case - don't need to do anything, so just continue with unmodified frames *)
-	 (fun _ -> fk::frames_below)
+	 (fun _ ->
+	   Format.printf "@.Nothing found that needs blocking (block)@.";
+	   fk::frames_below)
 
 	 (List.map
 	    (fun trm -> mk_and_assert_actlit trm)
-	    (fk @ hp @ [Term.mk_not prop']))
+	    ( fk @ hp @ [Term.mk_not prop']))
 
 	 abvars
   in
@@ -428,24 +515,167 @@ let ic3ia solver init trans prop =
   (* ********************************************************************** *)
   (* Propagate                                                              *)
   (* ********************************************************************** *)
-  
-  let propagate frames =
-    frames
+
+  (* partitions clauses into clauses to keep and clauses to propagate based
+     on whether they are absrelind or not*)
+  let partition_absrelind clauses frame_nd =
+    Format.printf "@.Partitioning the following clauses:@.";
+    (List.iter
+       (fun t -> Format.printf "@.Clause %a@." Term.pp_print_term t)
+       clauses);
+    
+    let rec partition maybe_prop keep =
+      Format.printf "@.--recursively partitioning %d clauses@." (List.length maybe_prop + List.length keep);
+      SMTSolver.check_sat_assuming_and_get_term_values
+	solver
+	
+	  (* SAT case - any clause that is false should not remain a
+	     candidate for propagation. Recurse on what remains. *)
+	(fun _ assignments ->
+	  let maybe_prop_pair, keep_pair =
+	    (List.partition
+	       (fun (term, value) -> Term.bool_of_term value)
+	       assignments)
+	  in
+	  
+	  let unzip_and_unbump = List.map (fun p -> Term.bump_state (Numeral.of_int (-1)) (fst p)) in
+	  
+	  partition
+	    (unzip_and_unbump maybe_prop_pair)
+	    ((unzip_and_unbump keep_pair)@keep))	 
+	
+	  (* UNSAT case - all clauses propagate and we are done filtering! *)
+	(fun _ ->
+	  Format.printf "@.Keeping clauses:@.";
+	  List.iter
+	    (fun t -> Format.printf "@.Clause %a@." Term.pp_print_term t)
+	    keep;
+	  
+	  Format.printf "@.Propagating clauses:@.";
+	  List.iter
+	    (fun t -> Format.printf "@.Clause %a@." Term.pp_print_term t)
+	    maybe_prop;
+	    (* Format.printf "@.UNSAT - we are done@."; *)
+	  (keep, maybe_prop))
+	
+	  (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
+	(List.map
+	   (fun trm -> mk_and_assert_actlit trm)
+	   (let eqP = get_eqP predicates in (* may need to allow updates to predicates*)
+	    let bump = Term.bump_state Numeral.one in
+	    let hp = Term.mk_and hp in
+	    let clause_conj = Term.mk_and maybe_prop in
+	    frame_nd @
+		[clause_conj;
+		 hp;
+		 bump hp;
+		 eqP;
+		 bump eqP;
+		 (Term.mk_not (bump clause_conj))]))
+	
+	  (* We care about the values of terms in maybe_prop' *)
+	(List.map (Term.bump_state Numeral.one) maybe_prop)
+    in
+    partition clauses []
   in
+  
+	
+  
+  (* Note: with difference encoding, have access to current frame and all frames above.*)
+  
+  (* Recursively propagates inductive clauses through the list.
+     frames_gt is given in ascending order, with fk last*)
+  let rec propagate frames_gt = function
+    (* When there are at least two successive frames, first recurse on the
+       second and then propagate terms from the second to the first  *)
+    | fi::fj::frames_lt ->
+       (* Format.printf "@.Entering partition@."; *)
+       (match propagate (fi::frames_gt) (fj::frames_lt) with
+       (* We have reached a fixed point *)
+       | []::_ ->
+	  (* Format.printf "@.Fixed point@."; *)
+	  raise Success
+       (* Else, find clauses that propagate and propagate them *)
+       | fj'::frames_lt' ->
+	  (* Format.printf "@.Partitioning@."; *)
+	  (* split fj' into clauses to keep and to propagate*)
+	  let keep, prop = partition_absrelind fj' (List.concat (fi::frames_gt)) in
+	  
+	  (prop@fi)::(keep)::frames_lt'
+       | [] -> raise Failure ) (* Should be an unreachable state; need to raise a different error *)
+    (* otherwise don't do anything*)
+    | frame -> frame
+  in
+
+  (* ********************************************************************** *)
+  (* Simulate                                                               *)
+  (* ********************************************************************** *)
+
+  (* Tries to simulate a path to the safety violation in k steps: 
+     init ^ 
+     trans ^ trans+ ^ ... ^ trans(+k) ^
+     
+     where + indicates that a state is being bumped
+  *)
+
+  let simulate k =
+    match SMTSolver.check_sat_assuming_tf
+      solver
+      (List.map
+	 (fun trm -> mk_and_assert_actlit trm)
+	 (init::
+	    (Term.mk_not prop)::
+	    (let rec generate_trans_chain = function
+	      | 0 -> [trans]
+	      | k -> (Term.bump_state (Numeral.of_int k) trans)::(generate_trans_chain (k-1))
+	     in
+	     generate_trans_chain (k-1) )))
+    with
+    | true -> Format.printf "@.Simulation succeeded - path to safety violation is satisfiable@."
+    | false -> Format.printf "@.Simulation failed - no path exists to safety violation@."
+  in
+  
+  (* ********************************************************************** *)
+  (* Program Loop                                                           *)
+  (* ********************************************************************** *)
   
   let rec ic3ia' frames =
-    let frames = block frames in
-    List.iter
-      (Format.printf "Frame";
-       List.iter
-	 (Format.printf "@.%a@." Term.pp_print_term))
-      frames;
-    let frames = propagate frames in
+    let k = List.length frames - 1 in
+
+    (* Block bad states and try to simulate paths to safety violation when you fail *)
+    Format.printf "@.Blocking@.";
+    let frames =
+      try
+	block frames
+      with
+      | Failure ->
+	 (* Note that the transition system already starts at offsets 0 and 1  *)
+	 simulate k;
+	frames
+    in
+    print_frames frames;
+
+
+    (* Propagate forward the changes *)
+    Format.printf "@.Propagating@.";
+    let frames = propagate [] ([]::frames) in
+    print_frames frames;
+
+    (* When we propagate frames forward, we will also declare all our concrete 
+       variables at those offsets for use in simulation *)
+    if (List.length frames > 2) then
+       TransSys.define_and_declare_of_bounds
+	 trans_sys
+	 (SMTSolver.define_fun solver)
+	 (SMTSolver.declare_fun solver)
+	 (SMTSolver.declare_sort solver)
+	 (Numeral.of_int (k + 1))
+	 (Numeral.of_int (k + 1));
+
     ic3ia' frames
   in
-  
+
   ic3ia' frames
-  
   (*try ic3ia' frames with
   | Success -> Format.printf "@.Property invariant"
   | Failure -> Format.printf "@.Property not invariant"
@@ -496,7 +726,7 @@ let main input_sys aparam trans_sys =
   Format.printf "TRANSITION SYSTEM:@.%a@." Term.pp_print_term trans;
   
   List.iter
-    (fun prop -> ic3ia solver init trans prop)
+    (fun prop -> ic3ia solver trans_sys init trans prop)
     props;
   
   ()
