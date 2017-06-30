@@ -38,6 +38,7 @@ module TermMap = Map.Make(Term)
 (* Define exceptions to break out of loops *)
 exception Success
 exception Failure
+exception Error
   
 (* Cleanup before exit *)
 let on_exit _ = ()
@@ -104,7 +105,7 @@ let ic3ia solver trans_sys init trans prop =
     Var.declare_constant_vars
       (SMTSolver.declare_fun solver)
       (Var.VarSet.elements (Var.VarSet.filter Var.is_const_state_var set_of_variables));
-    
+
     Var.declare_vars
       (SMTSolver.declare_fun solver)
       (Var.VarSet.elements (Var.VarSet.filter Var.is_state_var_instance set_of_variables));
@@ -115,6 +116,29 @@ let ic3ia solver trans_sys init trans prop =
   (* Repeat for each term in predicates and in the transition function *)
   let clone_map = get_clone_map (trans::predicates) in
   let clone_term = clone_term clone_map in
+
+  let declare_clone_variables_at_offset n =
+    let clone_vars =
+      let set_of_variables = 
+	List.fold_left
+	  (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
+	  Var.VarSet.empty
+	  (List.map clone_term predicates)
+      in
+      Var.VarSet.elements set_of_variables
+    in
+
+    let offset_clone_vars =
+      List.map
+	(fun v -> Var.set_offset_of_state_var_instance v (Numeral.of_int n))
+	clone_vars
+    in
+
+    (* QUESTION: Do we need to declare offset constant vars as well? *)
+    Var.declare_vars
+      (SMTSolver.declare_fun solver)
+      offset_clone_vars;
+  in
   
   (* Generates a term asserting the equality of an uncloned term and its clone *)
   let mk_clone_eq term =
@@ -225,25 +249,25 @@ let ic3ia solver trans_sys init trans prop =
       (TermMap.bindings abvar_map)
   in
 
-  (* Declare all abstract variables in the solver *)
-  Var.declare_vars
-    (SMTSolver.declare_fun solver)
-    (let set_of_variables = 
-       List.fold_left
-	 (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
-	 Var.VarSet.empty
-	 abvars
-     in
+  let declare_abstract_variables_at_offset n =
+    Var.declare_vars
+      (SMTSolver.declare_fun solver)
+      (let set_of_variables =
+	 List.fold_left
+	   (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
+	   Var.VarSet.empty
+	   abvars
+       in
 
-     let list_of_variables = Var.VarSet.elements set_of_variables in
+       let list_of_variables = Var.VarSet.elements set_of_variables in
 
-     let bumped_list_of_variables =
        List.map
-	 (fun v -> Var.bump_offset_of_state_var_instance v Numeral.one)
-	 list_of_variables
-     in
+	 (fun v -> Var.set_offset_of_state_var_instance v (Numeral.of_int n))
+	 list_of_variables)
+  in
 
-     list_of_variables @ bumped_list_of_variables);
+  declare_abstract_variables_at_offset 0;
+  declare_abstract_variables_at_offset 1;
   
   (* list of association terms between concrete and abstract variables *)
   let hp =
@@ -353,7 +377,7 @@ let ic3ia solver trans_sys init trans prop =
       frames
   in
     
-  (* Checks whether clause is inductive relative to frame_nd, where frame_nd 
+  (* Checks whether clause is inductive relative to frame, where frame 
      has been converted from being difference encoded to including all clauses 
      of all frames sbove and including the current one
      
@@ -387,16 +411,66 @@ let ic3ia solver trans_sys init trans prop =
 	     bump hp;
 	     eqP;
 	     bump eqP;
-	     (Term.mk_not (bump clause))]))
+	     (Term.negate (bump clause))]))
       abvars
   in
+
+  (* ********************************************************************** *)
+  (* Simulate                                                               *)
+  (* ********************************************************************** *)
+
+  (* Function which takes a term and returns a list of copies (not to be 
+     confused with clones) where each is offset by a different amount between 
+     0 and k *)
+  let copy_and_bump_term k trm =
+    let rec rec_cnb = function
+      | 0 -> [trm]
+      | i -> (Term.bump_state (Numeral.of_int i) trm)::(rec_cnb (i-1))
+    in
+    rec_cnb k
+  in
+
+  (* Takes as input an abstract path and determines whether it can be 
+     concretized *)
+  let simulate abstract_path =
+    let k = List.length abstract_path - 1 in
+    
+    let term_list = 
+      abstract_path
+      @(copy_and_bump_term (k-1) trans)
+      @(List.concat (List.map (copy_and_bump_term k) hp))
+    (*      @[Term.bump_state (Numeral.of_int k) (Term.negate prop)]*)
+    in
+
+    SMTSolver.check_sat_assuming
+      solver
+      
+      (* SAT case - returns a list of terms that satisfies the predicate *)
+      (fun _ -> Format.printf "@.Abstract path was concretizable@.")
+      
+      
+      (* UNSAT case - returns an empty list *)
+      (fun _ -> Format.printf "@.Abstract path could not be concretized - spurious counterexample@.")
+      
+      (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
+      (List.map
+	 (fun trm -> mk_and_assert_actlit trm)
+	 term_list);	
+  in
+  
+
   
   (* ********************************************************************** *)
   (* Block                                                                  *)
   (* ********************************************************************** *)
 
-  (* Returns list of frames leq the current frame *)
-  let rec recblock bad_cube frames_geq frames_lt =
+  (* Returns list of frames leq the current frame 
+     cex_path is a list with the most recent bad cube at the head
+     it can serve as the path to a counterexample
+  *)
+  let rec recblock cex_path frames_geq frames_lt =
+
+    let bad_cube = List.hd cex_path in
     
     (* First, create a clause that negates the bad cube (which itself is encoded as a list *)
     let blocking_clause =
@@ -441,6 +515,14 @@ let ic3ia solver trans_sys init trans prop =
     (* If there are no frames below, we cannot block the cube, and have failed. *)
     | [] ->
        Format.printf "@.Lowest frame reached (recblock) - this means failure@.";
+      Format.printf "@.Counterexample:@.";
+      List.iteri
+	(fun i t -> Format.printf "@.CTI term: %a@." Term.pp_print_term (Term.bump_state (Numeral.of_int i) t))
+	(List.map (fun t -> Term.mk_and t) cex_path);
+      simulate
+	(List.mapi
+	   (fun i t -> Term.bump_state (Numeral.of_int i) t)
+	   (List.map (fun t -> Term.mk_and t) cex_path));
        raise Failure (*We probably should provide some info on the counterexample here, or else handle concretization in this function *)
 
     (* fj is the frame right below the current frame, the (i-1)th frame *)
@@ -471,12 +553,12 @@ let ic3ia solver trans_sys init trans prop =
 	 Format.printf "@.Cube to block = %a@." Term.pp_print_term (Term.mk_and bad_cube);
 	 Format.printf "@.Blocking clause = %a@." Term.pp_print_term blocking_clause;
 	 Format.printf "@.Counterexample = %a@." Term.pp_print_term (Term.mk_and cti);
-	 let frames_lt' = recblock cti (fj::frames_geq) fb in
-	 recblock bad_cube frames_geq frames_lt'); (* block cti *) (* what if bad_cube = cti? *)
+	 let frames_lt' = recblock (cti::cex_path) (fj::frames_geq) fb in
+	 recblock cex_path frames_geq frames_lt'); (* block cti *) (* what if bad_cube = cti? *)
   in
 
   let rec block = function
-    | [] -> raise Failure (* Actually, this should not happen. Should raise some other error *)
+    | [] -> raise Error (* Actually, this should not happen. Should raise some other error *)
     | fk :: frames_below ->
        (* Check if Fk ^ H |= 'P, recblock counterexamples *)
        SMTSolver.check_sat_assuming_and_get_term_values
@@ -494,7 +576,7 @@ let ic3ia solver trans_sys init trans prop =
 	     (List.length frames_below)
 	     Term.pp_print_term (Term.mk_and bad_cube);
 	   (* Modify frames below to prevent the bad cube  *)
-	   let frames' = recblock bad_cube [fk] frames_below in
+	   let frames' = recblock [bad_cube] [fk] frames_below in
 
 	   (* TODO: Handle counterexamples (failure case), concretizing when needed*)
 	   (* Let's try blocking again with the modified frames *)
@@ -507,7 +589,7 @@ let ic3ia solver trans_sys init trans prop =
 
 	 (List.map
 	    (fun trm -> mk_and_assert_actlit trm)
-	    ( fk @ hp @ [Term.mk_not prop']))
+	    ( fk @ hp @ [Term.negate prop']))
 
 	 abvars
   in
@@ -577,9 +659,7 @@ let ic3ia solver trans_sys init trans prop =
 	(List.map (Term.bump_state Numeral.one) maybe_prop)
     in
     partition clauses []
-  in
-  
-	
+  in	
   
   (* Note: with difference encoding, have access to current frame and all frames above.*)
   
@@ -602,39 +682,11 @@ let ic3ia solver trans_sys init trans prop =
 	  let keep, prop = partition_absrelind fj' (List.concat (fi::frames_gt)) in
 	  
 	  (prop@fi)::(keep)::frames_lt'
-       | [] -> raise Failure ) (* Should be an unreachable state; need to raise a different error *)
+       | [] -> raise Error ) (* Should be an unreachable state; need to raise a different error *)
     (* otherwise don't do anything*)
     | frame -> frame
   in
-
-  (* ********************************************************************** *)
-  (* Simulate                                                               *)
-  (* ********************************************************************** *)
-
-  (* Tries to simulate a path to the safety violation in k steps: 
-     init ^ 
-     trans ^ trans+ ^ ... ^ trans(+k) ^
-     
-     where + indicates that a state is being bumped
-  *)
-
-  let simulate k =
-    match SMTSolver.check_sat_assuming_tf
-      solver
-      (List.map
-	 (fun trm -> mk_and_assert_actlit trm)
-	 (init::
-	    (Term.mk_not prop)::
-	    (let rec generate_trans_chain = function
-	      | 0 -> [trans]
-	      | k -> (Term.bump_state (Numeral.of_int k) trans)::(generate_trans_chain (k-1))
-	     in
-	     generate_trans_chain (k-1) )))
-    with
-    | true -> Format.printf "@.Simulation succeeded - path to safety violation is satisfiable@."
-    | false -> Format.printf "@.Simulation failed - no path exists to safety violation@."
-  in
-  
+    
   (* ********************************************************************** *)
   (* Program Loop                                                           *)
   (* ********************************************************************** *)
@@ -644,17 +696,8 @@ let ic3ia solver trans_sys init trans prop =
 
     (* Block bad states and try to simulate paths to safety violation when you fail *)
     Format.printf "@.Blocking@.";
-    let frames =
-      try
-	block frames
-      with
-      | Failure ->
-	 (* Note that the transition system already starts at offsets 0 and 1  *)
-	 simulate k;
-	frames
-    in
+    let frames = block frames in
     print_frames frames;
-
 
     (* Propagate forward the changes *)
     Format.printf "@.Propagating@.";
@@ -664,14 +707,16 @@ let ic3ia solver trans_sys init trans prop =
     (* When we propagate frames forward, we will also declare all our concrete 
        variables at those offsets for use in simulation *)
     if (List.length frames > 2) then
-       TransSys.define_and_declare_of_bounds
+      (TransSys.define_and_declare_of_bounds
 	 trans_sys
 	 (SMTSolver.define_fun solver)
 	 (SMTSolver.declare_fun solver)
 	 (SMTSolver.declare_sort solver)
 	 (Numeral.of_int (k + 1))
 	 (Numeral.of_int (k + 1));
-
+       declare_abstract_variables_at_offset (k+1);
+       declare_clone_variables_at_offset (k+1));
+    
     ic3ia' frames
   in
 
@@ -688,13 +733,14 @@ let ic3ia solver trans_sys init trans prop =
 let main input_sys aparam trans_sys =
   
   let logic = TransSys.get_logic trans_sys in
-  
+
   let solver =
     SMTSolver.create_instance
       ~produce_assignments:true
       ~produce_cores:true
+      ~produce_interpolants:true
       logic
-      (Flags.Smt.solver ())
+      `Z3_SMTLIB
   in
 
   (* Declares uninterpreted function symbols *)
