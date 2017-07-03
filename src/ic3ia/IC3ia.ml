@@ -52,6 +52,23 @@ let ic3ia solver trans_sys init trans prop =
   let absvarcounter = ref 0 in
 
   (* ********************************************************************** *)
+  (* Definitions                                                            *)
+  (* ********************************************************************** *)
+
+  (* We need to take trans and extract any definitions it has. Definitions
+     will be strictly at offset 1. *)
+  let defns =
+    Term.mk_and
+      (let trans_terms = Term.node_args_of_term trans in
+       (* Only terms without anything at offset zero are considered definitions *)
+       List.filter
+	 (fun t -> StateVar.StateVarSet.is_empty (Term.state_vars_at_offset_of_term Numeral.zero t))
+	 trans_terms)
+  in
+
+  Format.printf "@.Definitions: %a@." Term.pp_print_term defns;
+  
+  (* ********************************************************************** *)
   (* Cloned variables                                                       *)
   (* ********************************************************************** *)
   
@@ -151,8 +168,8 @@ let ic3ia solver trans_sys init trans prop =
   in
 
   (* Assert the cloned transition function*)
-  SMTSolver.assert_term solver (clone_term trans);
-  Format.printf "CLONED TRANSITION SYSTEM:@.%a@." Term.pp_print_term (clone_term trans);
+  (* SMTSolver.assert_term solver (clone_term trans); *)
+  (* Format.printf "CLONED TRANSITION SYSTEM:@.%a@." Term.pp_print_term (clone_term trans); *)
 
   (* ********************************************************************** *)
   (* Abstracted variables                                                   *)
@@ -403,10 +420,12 @@ let ic3ia solver trans_sys init trans prop =
       (List.map
 	 (fun trm -> mk_and_assert_actlit trm)
 	 (let eqP = get_eqP predicates in (* may need to allow updates to predicates*)
+	  let clone_trans = clone_term trans in
 	  let bump = Term.bump_state Numeral.one in
 	  let hp = Term.mk_and hp in
 	  frame @
-	    [clause;
+	    [clone_trans;
+	     clause;
 	     hp;
 	     bump hp;
 	     eqP;
@@ -457,8 +476,86 @@ let ic3ia solver trans_sys init trans prop =
 	 (fun trm -> mk_and_assert_actlit trm)
 	 term_list);	
   in
-  
 
+  (* Generates interpolants. Abstract path must be unbumped in ascending order of offset.*)
+  let generate_interpolants abstract_path =
+    let interpolizers = 
+      
+      List.iter
+	(fun t -> Format.printf "@.path term: %a@." Term.pp_print_term t)
+	abstract_path;
+      (* Converts the abvar map into its inverse. Justified because we know that it is
+	 a bijective map by construction.*)
+      let rev_abvar_map =
+	List.fold_left
+  	  (fun acc (key,value) -> TermMap.add value key acc)
+  	  TermMap.empty
+	  (TermMap.bindings abvar_map)
+      in
+
+      (* Replaces all abstract variables in trm with their concrete atomic forms *)
+      let concretize_term trm =
+	
+	
+	Term.map
+	  (fun _ t ->
+	    (* Format.printf "@.debug - %a@." Term.pp_print_term t ; *)
+	    if TermMap.mem t rev_abvar_map
+	    then TermMap.find t rev_abvar_map
+	    else t)
+	  trm
+	  
+	  
+	  
+      in
+      
+      
+      (* Creates the sequence of formulas that will be used to generate interpolants.*)
+      List.mapi
+	(fun i s ->
+	  match i with
+	  | 0 -> concretize_term s
+	  | n ->
+	     Term.mk_and [
+	       Term.bump_state (Numeral.of_int (n-1)) trans;
+	       Term.bump_state (Numeral.of_int n) (concretize_term s)])
+	abstract_path
+    in
+
+    List.iter
+      (fun t -> Format.printf "@.Interpol term: %a@." Term.pp_print_term t)
+      interpolizers;
+    
+    SMTSolver.push solver;
+	  
+    let names = List.map
+      (fun t ->
+	SMTExpr.ArgString
+	  (SMTSolver.assert_named_term_wr
+             solver
+             t))
+      interpolizers
+    in
+    
+    if SMTSolver.check_sat
+      solver
+    then
+      raise Error
+    else
+      let interpolants =
+	SMTSolver.get_interpolants
+    	  solver
+    	  names
+      in
+
+      SMTSolver.pop solver;
+      
+      Format.printf "@. Printing interpolants @.";
+      List.iter
+	(fun t -> Format.printf "@.interpolant: %a@." Term.pp_print_term t)
+	interpolants
+  in
+  
   
   (* ********************************************************************** *)
   (* Block                                                                  *)
@@ -523,7 +620,8 @@ let ic3ia solver trans_sys init trans prop =
 	(List.mapi
 	   (fun i t -> Term.bump_state (Numeral.of_int i) t)
 	   (List.map (fun t -> Term.mk_and t) cex_path));
-       raise Failure (*We probably should provide some info on the counterexample here, or else handle concretization in this function *)
+      generate_interpolants (List.map (fun t -> Term.mk_and t) cex_path);
+      raise Failure (*We probably should provide some info on the counterexample here, or else handle concretization in this function *)
 
     (* fj is the frame right below the current frame, the (i-1)th frame *)
     | fj::fb ->
@@ -749,7 +847,7 @@ let main input_sys aparam trans_sys =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
-    Numeral.zero
+    (Numeral.zero)
     (Numeral.of_int 1);
 
   List.iter
