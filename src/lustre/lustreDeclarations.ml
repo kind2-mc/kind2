@@ -1827,15 +1827,34 @@ and eval_node_contract_spec
     | [] -> (
       match postponed with
       | [] -> acc
-      | _ when prev_postponed_size = List.length postponed ->
-        C.fail_at_position pos (
-          postponed
-          |> List.map (fun (f,_,_) -> f)
-          |> Format.asprintf
-            "@[<v>Circular dependency in contract %a:@   @[<v>%a@]"
-            Scope.pp_print_scope (scope |> List.map snd)
-            (pp_print_list A.pp_print_contract_item "@ -> ")
-        )
+      | (head, is_candidate, is_postponed) :: _
+        when prev_postponed_size = List.length postponed ->
+      (
+        try (* eval_node_contract_item is expected to fail with Deps.Unknown_decl *)
+          eval_node_contract_item
+            known scope inputs outputs locals
+            is_candidate is_postponed acc head
+        with
+        | Deps.Unknown_decl (s_type, s_ident, s_pos) ->
+          let sc = List.map snd scope in
+          let pp_print_type = fun ppf -> function
+            (* If it's an unknown constant, it's more generally an unknown
+            identifier. *)
+            | Deps.Const -> Format.fprintf ppf "identifier"
+            | typ -> Deps.pp_print_decl ppf typ
+          in
+          let msg = if sc = [] then
+            Format.asprintf
+              "unknown %a \"%a\""
+              pp_print_type s_type (I.pp_print_ident false) s_ident
+          else
+            Format.asprintf
+              "unknown %a \"%a\" referenced in contract \"%a\""
+              pp_print_type s_type (I.pp_print_ident false) s_ident
+              Scope.pp_print_scope sc
+          in
+          C.fail_at_position s_pos msg
+      )
       | _ -> loop acc (List.length postponed) [] postponed
     )
   in
