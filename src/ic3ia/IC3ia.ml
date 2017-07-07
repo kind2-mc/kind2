@@ -270,10 +270,6 @@ let ic3ia solver trans_sys init trans prop =
     Term.mk_and (List.map mk_clone_eq predicates)
   in
 
-  (* Assert the cloned transition function*)
-  (* SMTSolver.assert_term solver (clone_term trans); *)
-  (* Format.printf "CLONED TRANSITION SYSTEM:@.%a@." Term.pp_print_term (clone_term trans); *)
-
   (* ********************************************************************** *)
   (* Abstracted variables                                                   *)
   (* ********************************************************************** *)
@@ -397,40 +393,70 @@ let ic3ia solver trans_sys init trans prop =
      If the clause is not inductive, a counterexample consisting of a list of 
      value assignments encoded as terms will be returned. *)
   
-  let absRelInd frame clause abvar_map predicates =
+  let absrelind abvar_map predicates frame clause =
 
     let abvars = List.map snd (TermMap.bindings abvar_map) in
-    
+
+    (* F ^ c ^ hp ^ eq ^ T(clone) ^ ~c' *)
+    let terms_to_check =
+      let eqP = get_eqP predicates in (* may need to allow updates to predicates*)
+      let clone_trans = clone_term trans in
+      let bump = Term.bump_state Numeral.one in
+      let hp = Term.mk_and (get_hp abvar_map) in
+      frame @
+	[clone_trans;
+	 clause;
+	 hp;bump hp;
+	 eqP;bump eqP;
+	 bump (Term.negate clause)]
+    in
+
     SMTSolver.check_sat_assuming_and_get_term_values
       solver
 
       (* SAT case - returns a list of terms that satisfies the predicate *)
-      (fun _ assignments ->
-	let cti' = get_term_list_from_term_values assignments in
-	cti')
-	  
+      (fun _ assignments -> get_term_list_from_term_values assignments)
 
       (* UNSAT case - returns an empty list *)
       (fun _ -> [])
       
-      (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
-      (List.map
-	 mk_and_assert_actlit
-	 (let eqP = get_eqP predicates in (* may need to allow updates to predicates*)
-	  let clone_trans = clone_term trans in
-	  let bump = Term.bump_state Numeral.one in
-	  let hp = Term.mk_and (get_hp abvar_map) in
-	  frame @
-	    [clone_trans;
-	     clause;
-	     hp;
-	     bump hp;
-	     eqP;
-	     bump eqP;
-	     (Term.negate (bump clause))]))
+      (* F ^ c ^ hp ^ eq ^ T(clone) ^ ~c' *)
+      (List.map mk_and_assert_actlit terms_to_check)
+
       abvars
   in
 
+      (* Takes as input a non-difference encoded frame bad cube (list of terms) and creates a blocking clause while
+       removing terms unnecessary to block the bad cube.
+       To be used after un-generalized clause has been made absrelind. *)
+    let get_generalized_blocking_clause abvar_map predicates frame bad_cube =
+
+      (* Split the bad cube into its constituent terms*)
+      let terms_in_bad_cube = Term.node_args_of_term bad_cube in
+      
+      (* Determines which terms are needed to block the bad set of terms (second input) 
+	 Returns a blocking clause. *)
+      let rec generalize confirmed remaining = 
+
+	match remaining with
+	  
+	(* No terms left to confirm, so just return a blocking clause made from the confirmed terms*)
+	| [] -> Term.negate (Term.mk_and confirmed)
+	   
+	(* Check if blocking clause without head is absrelind; remove head if it is *)
+	| hd::tl ->
+	   match absrelind abvar_map predicates frame (Term.negate (Term.mk_and (tl@confirmed))) with
+	   (* Clearly the head is not needed, so remove it *)
+	   | [] -> generalize confirmed tl
+	   (* We need the head; confirm it *)
+	   | _ -> generalize (hd::confirmed) tl
+
+      in
+
+      generalize [] terms_in_bad_cube
+
+    in
+  
   (* ********************************************************************** *)
   (* Simulate                                                               *)
   (* ********************************************************************** *)
@@ -543,75 +569,50 @@ let ic3ia solver trans_sys init trans prop =
 
   (* Returns list of frames leq the current frame 
      cex_path is a list with the most recent bad cube at the head
-     it can serve as the path to a counterexample
-  *)
+     it can serve as the path to a counterexample *)
   
-  let rec recblock abvar_map predicates cex_path_gte frames_geq frames_lt =
+  let rec recblock abvar_map predicates cex_path_gte frames_gte frames_lt =
 
     let bad_cube = List.hd cex_path_gte in
     
     (* The current frame will be needed *)
-    let fi = List.hd frames_geq in
-    
-    (* Takes as input a non-difference encoded frame bad cube (list of terms) and creates a blocking clause while
-       removing terms unnecessary to block the bad cube.
-       To be used after un-generalized clause has been made absrelind. *)
-    let get_generalized_blocking_clause frame bad_cube =
+    let fi = List.hd frames_gte in
 
-      (* Split the bad cube into its constituent terms*)
-      let terms_in_bad_cube = Term.node_args_of_term bad_cube in
-      
-      (* Determines which terms are needed to block the bad set of terms (second input) 
-	 Returns a blocking clause. *)
-      let rec generalize confirmed = function
-      
-	(* No terms left to confirm, so just return a blocking clause made from the confirmed terms*)
-	| [] -> Term.negate (Term.mk_and confirmed)
-
-	(* Check if blocking clause without head is absrelind; remove head if it is *)
-	| hd::tl -> match absRelInd frame (Term.negate (Term.mk_and (tl@confirmed))) abvar_map predicates with
-	  (* Clearly the head is not needed, so remove it *)
-	  | [] -> generalize confirmed tl
-	  (* We need the head; confirm it *)
-	  | _ -> generalize (hd::confirmed) tl
-
-      in
-      
-      generalize [] terms_in_bad_cube
-
-    in
-    
     match frames_lt with
     (* If there are no frames below, we cannot block the cube, so we need to check the counterexample *)
     | [] -> raise (Counterexample cex_path_gte)
 
-    (* fj is the frame right below the current frame, the (i-1)th frame *)
+    (* If there are frames below, check whether there are any models where the blocking clause
+       does not propagate *)
     | fj::frames_ltt ->
 
-      (* Check whether the blocking clause is relatively inductive *)
-      ( match absRelInd (List.concat (fj::frames_geq)) (Term.negate bad_cube) abvar_map predicates with
+      (* Check whether the blocking clause is inductive relative to previous frame *)
+      ( match absrelind abvar_map predicates (List.concat (fj::frames_gte)) (Term.negate bad_cube) with
 
       (* It is - we can add a generalization of it to the frame *)
       | [] ->
 	 Format.printf "@.Blocking clause (recblock) is inductive relative to frame %d@." (List.length frames_ltt);
-	let g = get_generalized_blocking_clause (List.concat (fj::frames_geq)) bad_cube in
+	let g = get_generalized_blocking_clause
+	  abvar_map
+	  predicates
+	  (List.concat (fj::frames_gte))
+	  bad_cube
+	in
 	
 	Format.printf "@. Cube to block = %a@." Term.pp_print_term bad_cube;
 	Format.printf "@. Generalized blocking clause = %a@." Term.pp_print_term g;
-	print_frames ((g::fi)::frames_lt);
-	 
-	 (g::fi)::frames_lt
+	
+	(g::fi) :: frames_lt
 	  
        (* It isn't - we'd better block the counterexample and try again *)
 	  
        | cti ->
 	  let cex = Term.mk_and cti in
 	  Format.printf "@.Blocking clause (recblock) not inductive relative to frame %d; counterexample found@." (List.length frames_ltt);
-	  Format.printf "@.Cube to block = %a@." Term.pp_print_term bad_cube;
 	  Format.printf "@.Blocking clause = %a@." Term.pp_print_term (Term.negate bad_cube);
 	  Format.printf "@.Counterexample = %a@." Term.pp_print_term cex;
-	  let frames_lt' = recblock abvar_map predicates (cex::cex_path_gte) (fj::frames_geq) frames_ltt in
-	  recblock abvar_map predicates cex_path_gte frames_geq frames_lt' ); (* block cti *) (* what if bad_cube = cti? *)
+	  let frames_lt' = recblock abvar_map predicates (cex::cex_path_gte) (fj::frames_gte) frames_ltt in
+	  recblock abvar_map predicates cex_path_gte frames_gte frames_lt' );
   in
 
   (* Attempts to block all bad states. Returns the updated list of frames, followed by
@@ -621,11 +622,13 @@ let ic3ia solver trans_sys init trans prop =
     match frames_leq with
 
     (* List of frames in descending order *)
-    | fk :: frames_below ->      
+    | fk :: frames_lt ->      
 
       let abvars = List.map snd (TermMap.bindings abvar_map) in
       
-      (* Check if Fk ^ H |= 'P, recblock counterexamples *)
+      (* Fk ^ H ^ ~'P *)
+      let terms_to_check = fk @ (get_hp abvar_map) @ [Term.negate prop'] in
+      
       SMTSolver.check_sat_assuming_and_get_term_values
 	solver
 	
@@ -637,7 +640,7 @@ let ic3ia solver trans_sys init trans prop =
 
 	  (* Modify frames below to prevent the bad cube  *)
 	  let abvar_map', predicates', frames' =
-	    try abvar_map, predicates, (recblock abvar_map predicates [bad_cube] [fk] frames_below ) with
+	    try abvar_map, predicates, (recblock abvar_map predicates [bad_cube] [fk] frames_lt ) with
 
 	    (* If recursive blocking fails, check to see if counterexample is spurious*)
 	    | Counterexample cex_path ->
@@ -676,7 +679,7 @@ let ic3ia solver trans_sys init trans prop =
 	      (* declare the new abvars for every level up to the current one *)
 	      List.iter
 		(declare_abstract_variables_at_offset solver new_abvars)
-		(List.mapi (fun i _ -> i) (fk::frames_below));
+		(List.mapi (fun i _ -> i) frames_leq);
 
 	      (* extract all atomic formulae from the interpolants *)
 	      let atoms_of_interpolants = List.concat
@@ -686,10 +689,15 @@ let ic3ia solver trans_sys init trans prop =
 	      in
 	      
 	      (* add interpolants as predicates *)
-	      let predicates' = atoms_of_interpolants@predicates in
+	      let predicates' = atoms_of_interpolants @ predicates in
+
+	      Format.printf "@. Updated predicates:@.";
+	      List.iter
+		(Format.printf "@.Predicate: %a@." Term.pp_print_term)
+		predicates';
 	      
 	      (*Update predicates and abvar map*)
-	      abvar_map', predicates', fk::frames_below
+	      abvar_map', predicates', frames_leq
 	  in
 
 	  (* TODO: Handle counterexamples (failure case), concretizing when needed*)
@@ -701,9 +709,8 @@ let ic3ia solver trans_sys init trans prop =
 	  Format.printf "@.Nothing found that needs blocking (block)@.";
 	  abvar_map, predicates, frames_leq)
 
-	(List.map
-	   mk_and_assert_actlit
-	   ( fk @ (get_hp abvar_map) @ [Term.negate prop']))
+	(* CHECK SAT | Fk ^ H ^ ~'P *)
+	(List.map mk_and_assert_actlit terms_to_check)
 
 	abvars
 	
@@ -837,11 +844,7 @@ let ic3ia solver trans_sys init trans prop =
   in
 
   ic3ia' abvar_map predicates frames
-  (*try ic3ia' frames with
-  | Success -> Format.printf "@.Property invariant"
-  | Failure -> Format.printf "@.Property not invariant"
-  | _ -> ()
-  *)
+
 (* ====================================================================== *)
 (* Main                                                                   *)
 (* ====================================================================== *)
