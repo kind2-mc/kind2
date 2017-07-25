@@ -20,15 +20,20 @@
   Variable naming conventions:
   
   FRAMES
-   Frames may be difference encoded. Variables referring to difference
-  encoded frames will be prefixed by d (dframe), while those representing
-  the full body of a frame will simply be referred to as frame
 
-  lt,geq,gt, etc. will be used to indicate a list of frames relative
-  to the current frame. For example, dframe-lt would be a list of all
-  frames with indices less than the current frame, excluding the current
-  frame. The order of frames in such a list will always have those closest
-  to the current frame at the head of the list.
+  In any list of frames, the frames are ordered by proximity to the current
+  frame. Frames are by default difference-encoded lists of terms.
+
+  fi - the current frame
+  fj - the frame below the current frame
+  frames_gt - all frames above the current frame
+  frames_lt - all frames below the current frame
+  
+  frames_gte - fi::frames_gt
+  frames_lte - fi::frames_lt
+
+  frames_ltt - all frames below fj
+  frame - the concatenation of frames_gte (removes difference encoding)
 *)
 
 
@@ -36,11 +41,11 @@ module A = Actlit
 module TermMap = Map.Make(Term)
   
 (* Define exceptions to break out of loops *)
-exception Success of Term.t list
+exception Success of Term.t
 exception Failure
 exception Error
 exception Counterexample of Term.t list
-
+exception InvariantViolation of int
   
 (* Cleanup before exit *)
 let on_exit _ = ()
@@ -48,32 +53,35 @@ let on_exit _ = ()
 (* ********************************************************************** *)
 (* Utility functions for terms                                            *)
 (* ********************************************************************** *)
-  
-let atoms_of_term term =
-  Term.eval_t
-    (fun subterm atom_lists ->
-      if Term.is_atom (Term.construct subterm)
-      then (Term.construct subterm)::(List.concat atom_lists)
-      else List.concat atom_lists)
-    term
 
+(* extracts all atoms from a term *)
+let atoms_of_term = Term.eval_t
+  (fun subterm atom_lists ->
+    if Term.is_atom (Term.construct subterm)
+    then (Term.construct subterm)::(List.concat atom_lists)
+    else List.concat atom_lists)
+  
 (* Removes duplicates from list of terms *)
-let unique_terms term_list =
-  (Term.TermSet.elements (Term.TermSet.of_list term_list))
+let unique_terms term_list = (Term.TermSet.elements (Term.TermSet.of_list term_list))
     
 (* ********************************************************************** *)
 (* Abstracted variables                                                   *)
 (* ********************************************************************** *)
 
+(*
+ * abvar_map is a map with terms as keys and abstract variables as values.
+ * It is a bijection, and is therefore invertable
+ *)
+  
 let absvarcounter = ref 0
-
+  
 (* For each predicate in new_predicates, it creates a new abstract variable.
    Output is the new map followed by a list of new abstract variables. *)
 let update_abvar_map old_map new_predicates =
 
   (* Creates and returns a new abstract variable. Does NOT declare it. *)
   let mk_new_abvar term =
-
+    
     (* First we need to extract the scope from term *)
     let abvar_scope = 
       let state_vars = Term.state_vars_of_term term in
@@ -81,39 +89,39 @@ let update_abvar_map old_map new_predicates =
       (List.hd usr_scope)::["abv"]
     in
 
-    (* We need to give this abstract variable a unique name *)
-    let abvar_name =
-      Format.asprintf "abv%d" !absvarcounter
-    in
-    incr absvarcounter;
-      
-    (* We will create a new state variable (or use an existing one) to represent the abvar *)
-    let abvar_statevar =
-      StateVar.mk_state_var
-	abvar_name
-	abvar_scope
-	Type.t_bool
+    (* give this abstract variable a unique name *)
+    let abvar_name = Format.asprintf
+      "abv%d"
+      !absvarcounter
     in
 
-    (* We also need to know the offset. Since abvars are used only for terms over one offset,
+    incr absvarcounter;
+      
+    (* create a new state variable (or use an existing one) to represent the abvar *)
+    let abvar_statevar = StateVar.mk_state_var
+      abvar_name
+      abvar_scope
+      Type.t_bool
+    in
+
+    (* we need to know the offset. Since abvars are used only for terms over one offset,
        we may safely assume that an arbitrary variable in the term is representative of the offset*)
     let abvar_offset =
       let vars = Term.vars_of_term term in
       Var.offset_of_state_var_instance (Var.VarSet.choose vars)
     in
 
-    (* Now create an instance of the abvar at the given offset *)
-    
+    (* create an instance of the abvar at the given offset *)
     let abvar_instance = Var.mk_state_var_instance abvar_statevar abvar_offset in
     
-    (* Return the term consisting of the new var *)
+    (* return the term consisting of the new var *)
     Term.mk_var abvar_instance
   in
-
-  (*  We only want new and unique predicates *)
+    
+  (* We only want new and unique predicates *)
   let new_predicates = List.filter
-    (fun t -> not (TermMap.mem t old_map))
-    (Term.TermSet.elements (Term.TermSet.of_list new_predicates))
+    (fun t ->  not (TermMap.mem t old_map))
+    (unique_terms new_predicates)
   in
   
   (* new map from predicates to abvars *)
@@ -136,30 +144,36 @@ let update_abvar_map old_map new_predicates =
   
   new_map, new_abvars
 
-let declare_abstract_variables_at_offset solver abvars n =
-  Var.declare_vars
-    (SMTSolver.declare_fun solver)
-    (let set_of_variables =
-       List.fold_left
-	 (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
-	 Var.VarSet.empty
-	 abvars
-     in
+(* declares given abstract variables at the given offset in solver.
+   necessary for abstract path generation. *)
+let declare_abstract_variables_at_offset solver abvars n = Var.declare_vars
+  (SMTSolver.declare_fun solver)
 
-     let list_of_variables = Var.VarSet.elements set_of_variables in
+  (* extracts all variables from the abvars *)
+  (let set_of_variables = List.fold_left
+     (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
+     Var.VarSet.empty
+     abvars
+   in
+   
+   List.map
+     (fun v -> Var.set_offset_of_state_var_instance v (Numeral.of_int n))
+     (Var.VarSet.elements set_of_variables))
 
-     List.map
-       (fun v -> Var.set_offset_of_state_var_instance v (Numeral.of_int n))
-       list_of_variables)
+(* generates hp, the list of equivalence terms between abvars and predicates *)
+let get_hp abvar_map = List.map
+  (fun (k,v) -> Term.mk_eq [k;v])
+  (TermMap.bindings abvar_map)
 
-let get_hp abvar_map =
-  List.map
-    (fun (k,v) -> Term.mk_eq [k;v])
-    (TermMap.bindings abvar_map)
-    
-let ic3ia solver trans_sys init trans prop =
+(* inverts the given abvar map. It would work for other maps too, of course. *)
+let invert abvar_map = List.fold_left
+  (fun acc (k,v) -> TermMap.add v k acc)
+  TermMap.empty
+  (TermMap.bindings abvar_map)
+  
+let ic3ia solver input_sys aparam trans_sys init trans prop =
 
-  let predicates = [init;prop] in  
+  let predicates = [init;(snd prop)] in  
   
   (* ********************************************************************** *)
   (* Cloned variables                                                       *)
@@ -175,41 +189,39 @@ let ic3ia solver trans_sys init trans prop =
   let get_clone_map predicates =
     
     (* Get set containing all state variables in predicates *)
-    let statevars =
-      List.fold_left
-	(fun acc p ->
-	  StateVar.StateVarSet.union (Term.state_vars_of_term p) acc)
-	StateVar.StateVarSet.empty
-	predicates
+    let statevars = List.fold_left
+      (fun acc p ->
+	StateVar.StateVarSet.union (Term.state_vars_of_term p) acc)
+      StateVar.StateVarSet.empty
+      predicates
     in
     
     (* fold over statevars to construct map to new statevars *)
-    let clone_map = 
-      StateVar.StateVarSet.fold
-	(fun v acc ->
-	  
-	  (* Create a new state variable to correspond to v*)
-	  let new_statevar =
-	    (StateVar.mk_state_var
-	       ~is_input:(StateVar.is_input v)
-	       ~is_const:(StateVar.is_const v)
-	       ~for_inv_gen:(StateVar.for_inv_gen v)
-	       (* The new name is the same as the old, but we will change the scope to *.cln.* *)
-	       (StateVar.name_of_state_var v)
-	       (List.hd (StateVar.scope_of_state_var v)::["cln"])
-	       (StateVar.type_of_state_var v))
-	  in
-	  
-	  StateVar.StateVarMap.add v new_statevar acc)
-	statevars
-	StateVar.StateVarMap.empty
+    let clone_map = StateVar.StateVarSet.fold
+      (fun v acc ->
+	
+	(* Create a new state variable to correspond to v*)
+	let new_statevar =
+	  (StateVar.mk_state_var
+	     ~is_input:(StateVar.is_input v)
+	     ~is_const:(StateVar.is_const v)
+	     ~for_inv_gen:(StateVar.for_inv_gen v)
+	     (* The new name is the same as the old, but we will change the scope to *.cln.* *)
+	     (StateVar.name_of_state_var v)
+	     (List.hd (StateVar.scope_of_state_var v)::["cln"])
+	     (StateVar.type_of_state_var v))
+	in
+	
+	StateVar.StateVarMap.add v new_statevar acc)
+      statevars
+      StateVar.StateVarMap.empty
     in
 
-    let set_of_variables = 
-      List.fold_left
-	(fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
-	Var.VarSet.empty
-	(List.map (clone_term clone_map) (predicates))
+    (* extract all variables from the initial predicates*)
+    let set_of_variables = List.fold_left
+      (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
+      Var.VarSet.empty
+      (List.map (clone_term clone_map) (predicates))
     in
     
     Var.declare_constant_vars
@@ -237,14 +249,14 @@ let ic3ia solver trans_sys init trans prop =
       in
       Var.VarSet.elements set_of_variables
     in
-
+    
     let offset_clone_vars =
       List.map
 	(fun v -> Var.set_offset_of_state_var_instance v (Numeral.of_int n))
 	clone_vars
     in
 
-    (* QUESTION: Do we need to declare offset constant vars as well? *)
+    
     Var.declare_vars
       (SMTSolver.declare_fun solver)
       offset_clone_vars;
@@ -281,7 +293,7 @@ let ic3ia solver trans_sys init trans prop =
 
   (* abstracted terms *)
   let init' = TermMap.find init abvar_map in
-  let prop' = TermMap.find prop abvar_map in
+  let prop' = TermMap.find (snd prop) abvar_map in
 
   let mk_and_assert_actlit trm =
     let act = A.fresh_actlit () in
@@ -424,23 +436,23 @@ let ic3ia solver trans_sys init trans prop =
 	   (List.map mk_and_assert_actlit terms_to_check))
   in
 
-  (* Checks whether the clause is consistent with the frame *)
-  
-  let isconsistent abvar_map frame clause = 
+
+  (* does the clause contradict the frame? *)
+  let isSatisfiable abvar_map frame clause = 
 
     (* F ^ hp ^ c *)
     let terms_to_check =
       let hp = Term.mk_and (get_hp abvar_map) in
       clause :: hp :: frame
     in
-    
+
     SMTSolver.check_sat_assuming_tf
       solver
       (List.map mk_and_assert_actlit terms_to_check)
-
+      
   in
 
-  (* Checks whether current frame entails clause, i.e. does clause tell us anything new? *)
+  (* is the clause redundant given the frame? *)
   let notentailed frame clause =
     SMTSolver.check_sat_assuming_tf
       solver
@@ -493,9 +505,143 @@ let ic3ia solver trans_sys init trans prop =
     filter_redundant_clauses [] frames_lte
 
   in  
-	    
+
+  (* asserts that all invariants hold *)
+  let checkInvariants abvar_map frames_lte = 
+    
+    (* invariant 1: f0 ^ hp |= I *)
+    let i1 =
+      let f0 = List.concat frames_lte in
+      let hp = Term.mk_and (get_hp abvar_map) in
+      
+      (* f0 ^ hp ^ ~I *)
+      let sat_terms = Term.negate init' :: hp :: f0 in
+      
+      (* invariant holds if this is not satisfiable *)
+      not (SMTSolver.check_sat_assuming_tf
+	     solver      
+	     (List.map mk_and_assert_actlit sat_terms))
+    in
+
+    (* invariant 2: fi |= f(i+1) for all i < k 
+       this is built into the difference-encoded frames, but we'll test it anyway *)
+    
+    let i2 =
+      
+      (* checks whether fa |= fb *)
+      let check fa fb = 
+	
+	let fb = Term.mk_and fb in
+	
+	(* fa ^ ~ fb *)
+	let sat_term = Term.negate fb :: fa in
+
+	(* entailment if this is not satisfiable *)
+	not (SMTSolver.check_sat_assuming_tf
+	       solver      
+	       (List.map mk_and_assert_actlit sat_term))
+      in
+
+      let rec testI2 frames_gte frames_lt =
+	match frames_lt with
+	(* nothing to check at the bottom *)
+	| [] -> true
 	   
+	| fj :: frames_ltt ->
+	   let fa = List.concat (fj::frames_gte) in
+	   let fb = List.concat frames_gte in
+	   (check fa fb && (testI2 (fj::frames_gte) frames_ltt))
+      in
+
+      match frames_lte with
+      | [] -> true
+      | fi :: frames_lt -> testI2 [fi] frames_lt
+
+    in
+
+    (* invariant 3: fi ^ T ^ hp ^ hp' |= f(i+1)' for all i < k *)
+
+    let i3 =
+
+      (* defines abstract transition relation*)
+      let abv_trans =
+	let hp = Term.mk_and (get_hp abvar_map) in
+	let hp' = Term.bump_state Numeral.one hp in
+	Term.mk_and [trans;hp;hp']
+      in
+      
+      (* checks whether fa ^ T ^ hp ^ hp' |= fb *)
+      let check fa fb = 
+
+	let fb = Term.bump_state Numeral.one (Term.mk_and fb) in
+	
+	(* fa ^ T ^ hp ^ hp' ^ ~ fb' *)
+	let sat_term = Term.negate fb :: abv_trans :: fa in
+
+	(* entailment if this is not satisfiable *)
+	not (SMTSolver.check_sat_assuming_tf
+	       solver      
+	       (List.map mk_and_assert_actlit sat_term))
+      in
+      
+      let rec testI3 frames_gte frames_lt =
+	match frames_lt with
+	(* nothing to check at the bottom *)
+	| [] -> true
 	   
+	| fj :: frames_ltt ->
+	   let fa = List.concat (fj::frames_gte) in
+	   let fb = List.concat frames_gte in
+	   (check fa fb && (testI3 (fj::frames_gte) frames_ltt))
+      in
+
+      testI3 [List.hd frames_lte] (List.tl frames_lte)
+    in
+
+    (* invariant 4: fi ^ hp |= P for all i < k *)
+
+    let i4 = 
+
+      (* defines abstract transition relation*)
+      let hp = Term.mk_and (get_hp abvar_map) in
+      
+      (* checks whether fa ^ hp |= P *)
+      let check fa = 
+
+	(* fa ^ hp ^ ~P *)
+	let sat_term = Term.negate prop' :: hp :: fa in
+
+	(* entailment if this is not satisfiable *)
+	not (SMTSolver.check_sat_assuming_tf
+	       solver      
+	       (List.map mk_and_assert_actlit sat_term))
+      in
+      
+      let rec testI4 frames_gte frames_lt =
+	match frames_lt with
+	(* nothing to check at the bottom *)
+	| [] -> true
+	   
+	| fj :: frames_ltt ->
+	   let fa = List.concat (fj::frames_gte) in
+	   (check fa && (testI4 (fj::frames_gte) frames_ltt))
+      in
+
+      testI4 [List.hd frames_lte] (List.tl frames_lte)
+    in    
+
+  (* now report if one of these invariants is false*)
+
+    if not i1 then raise (InvariantViolation 1);
+    if not i2 then raise (InvariantViolation 2);
+    if not i3 then raise (InvariantViolation 3);
+    if not i4 then raise (InvariantViolation 4)
+      
+  in
+  
+
+
+	
   (* removes uneeded blocking clauses. May not return anything if no clause is needed
      such as due to recblocking in a lower frame *)
   let get_generalized_blocking_clause abvar_map bad_cube frames_gte frames_lt =
@@ -506,7 +652,7 @@ let ic3ia solver trans_sys init trans prop =
     (* Generate list of literals that would each block bad_cube and are consistent 
        with the bottom frame and are not entailed by the bottom frame*)
     let candidate_literals = List.filter
-      (isconsistent abvar_map f0)
+      (isSatisfiable abvar_map f0)
       (List.map Term.negate (Term.node_args_of_term bad_cube))
     in
 
@@ -578,11 +724,10 @@ let ic3ia solver trans_sys init trans prop =
 
       (* Converts the abvar map into its inverse. Justified because we know that it is
 	 a bijective map by construction.*)
-      let rev_abvar_map =
-	List.fold_left
-  	  (fun acc (key,value) -> TermMap.add value key acc)
-  	  TermMap.empty
-	  (TermMap.bindings abvar_map)
+      let rev_abvar_map = List.fold_left
+  	(fun acc (key,value) -> TermMap.add value key acc)
+  	TermMap.empty
+	(TermMap.bindings abvar_map)
       in
 
       (* Replaces all abstract variables in trm with their concrete atomic forms *)
@@ -648,6 +793,8 @@ let ic3ia solver trans_sys init trans prop =
   (* ********************************************************************** *)
   (* Propagate                                                              *)
   (* ********************************************************************** *)
+
+  (*TODO: change var name from prop to something else*)
   
   (* Partition clauses into clauses to keep (those that are not
      relatively inductive) and those to propagate (those that
@@ -722,9 +869,24 @@ let ic3ia solver trans_sys init trans prop =
 	     List.iter
 	       (fun (k,v) -> Format.printf "@.%a @.-----> MAPS TO %a@." Term.pp_print_term k Term.pp_print_term v)
 	       (TermMap.bindings abvar_map);
-	     (* return invariant consisting of list of predicates that were preserved from one frame to the next *)
 	     
-	     raise (Success fi));
+
+	     (* package the invariant - list of predicates preserved from one frame to the next - as conjunction *)
+	     let invariant =
+	       let inverse_abvar_map = invert abvar_map in
+	       
+	       Term.mk_and
+		 (List.map
+		    (Term.map
+		       (fun _ subterm ->
+			 if TermMap.mem subterm inverse_abvar_map
+			 then TermMap.find subterm inverse_abvar_map
+			 else subterm))
+		    fi)
+	     in
+	    	     
+	     (* raise with invariant consisting of list of predicates that were preserved from one frame to the next *)
+	     raise (Success invariant));
 	  
 	  (unique_terms (prop @ fi)) :: keep :: frames_ltt'
 	    
@@ -774,30 +936,30 @@ let ic3ia solver trans_sys init trans prop =
 	       bad_cube
 	       (fj::frames_gte)
 	       frames_ltt
-	   with
+	    with
 	   (* if a generalized clause was returned, add it to the current frame *)
-	   | Some g ->
-	      Format.printf "@. Cube to block = %a@." Term.pp_print_term bad_cube;
-	     Format.printf "@. Generalized blocking clause = %a@." Term.pp_print_term g;
+	    | Some g ->
+	       Format.printf "@. Cube to block = %a@." Term.pp_print_term bad_cube;
+	      Format.printf "@. Generalized blocking clause = %a@." Term.pp_print_term g;
 	     
-	     (g::fi) :: frames_lt
-	       
+	      (g::fi) :: frames_lt
+		
 	   (* if no clause was returned, we must have recblocked it already. 
 	      Therefore propagate changes from lower frames but avoid success exception. *)
-	   | None -> propagate
-	      abvar_map
+	    | None -> propagate
+	       abvar_map
 	      (List.tl frames_gte)
-	      (fi::frames_lt))
+	       (fi::frames_lt))
 	     
 	 (* It isn't - we'd better block the counterexample and try again *)
 	     
 	 | cti ->
 	    let cex = Term.mk_and cti in
-
+	    
 	    Format.printf "@.Blocking clause (recblock) not inductive relative to frame %d; counterexample found@." (List.length frames_ltt);
 	    Format.printf "@.Blocking clause = %a@." Term.pp_print_term (Term.negate bad_cube);
 	    Format.printf "@.Counterexample = %a@." Term.pp_print_term cex;
-
+	    
 	    let frames_lt' = recblock
 	      abvar_map
 	      (cex::cex_path_gte)
@@ -915,6 +1077,9 @@ let ic3ia solver trans_sys init trans prop =
   
   let rec ic3ia' abvar_map frames =
 
+    (* check invariants *)
+    checkInvariants abvar_map frames;
+    
     (* eliminate redundant clauses *)
     Format.printf "@...........Consolidating@.";
     let frames = consolidate frames in
@@ -957,7 +1122,19 @@ let ic3ia solver trans_sys init trans prop =
     ic3ia' abvar_map frames
   in
 
-  ic3ia' abvar_map [[init']]
+  try ic3ia' abvar_map [[init']] with
+  (* if ic3ia succeeds, broadcast a certificate from the inductive clause *)
+  | Success invariant ->
+     let cert = 1, Term.mk_and [invariant;snd prop] in
+
+     
+     Event.prop_status
+       (Property.PropInvariant cert)
+       input_sys
+       aparam
+       trans_sys
+       (fst prop)
+     
 
 (* ====================================================================== *)
 (* Main                                                                   *)
@@ -989,13 +1166,11 @@ let main input_sys aparam trans_sys =
   let init = TransSys.init_of_bound None trans_sys Numeral.zero in
   let trans = TransSys.trans_of_bound None trans_sys Numeral.one in
   (* Given a list of properties, we will run IC3ia for each one seperately.*)
-  let props = List.map
-    snd
-    (TransSys.props_list_of_bound trans_sys Numeral.zero)
-  in 
+  (* note that each property is given as a pair, where the first member is an identifying string. *)
+  let props = TransSys.props_list_of_bound trans_sys Numeral.zero in
   
   List.iter
-    (fun prop -> ic3ia solver trans_sys init trans prop)
+    (fun prop -> ic3ia solver input_sys aparam trans_sys init trans prop)
     props
     
 (* 
