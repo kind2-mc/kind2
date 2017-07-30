@@ -120,23 +120,29 @@ let map_term_top instances term =
    Use the function as the iterator in LustreIndex.iter *)
 let rec map_top_and_add instances model model' i state_var = 
 
-  try 
+  if SVT.length model == 0 then
 
-    (* Find state variable instance in top node *)
-    let state_var' = map_top instances state_var in
+    SVT.add model' state_var []
 
-    (* Get path of top node state variable *)
-    SVT.find model state_var'
+  else
 
-    (* Add as path of subnode state variable *)
-    |> SVT.add model' state_var
+    try
 
-  (* Go one level up if the state variable could not be found *)
-  with Not_found ->
-  match instances with
-  | _ :: up_instances ->
-    map_top_and_add up_instances model model' i state_var
-  | [] -> raise Not_found
+      (* Find state variable instance in top node *)
+      let state_var' = map_top instances state_var in
+
+      (* Get path of top node state variable *)
+      SVT.find model state_var'
+
+      (* Add as path of subnode state variable *)
+      |> SVT.add model' state_var
+
+    (* Go one level up if the state variable could not be found *)
+    with Not_found ->
+    match instances with
+    | _ :: up_instances ->
+      map_top_and_add up_instances model model' i state_var
+    | [] -> raise Not_found
 
 
 let find_and_move_to_head f =
