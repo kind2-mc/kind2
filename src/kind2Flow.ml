@@ -471,13 +471,14 @@ let run in_sys =
 
   (* Only the interpreter is active. *)
   | [m] when m = `Interpreter -> (
+    let in_sys = ISys.remove_contracts in_sys in
     match
       Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
     with
     | Some param ->
       (* Build trans sys and slicing info. *)
-      let sys, in_sys_sliced =
-        ISys.trans_sys_of_analysis ~preserve_sig:true in_sys param
+      let sys, _ =
+        ISys.unsliced_trans_sys_of ~preserve_sig:true in_sys param
       in
       (* Set module currently running. *)
       Event.set_module m ;
