@@ -471,6 +471,7 @@ let run in_sys =
 
   (* Only the interpreter is active. *)
   | [m] when m = `Interpreter -> (
+    let in_sys = ISys.remove_contracts in_sys in
     match
       Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
     with
