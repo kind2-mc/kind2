@@ -430,7 +430,7 @@ fun sys ->
   | Horn _ ->
     failwith "can't generate contracts from horn clause input: unsupported"
 
-let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
+let unsliced_trans_sys_of (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (
