@@ -63,7 +63,15 @@ let atoms_of_term = Term.eval_t
   
 (* Removes duplicates from list of terms *)
 let unique_terms term_list = (Term.TermSet.elements (Term.TermSet.of_list term_list))
-    
+
+(* Takes the given assignments from the sat solver and produces a list of terms *)
+let get_term_list_from_term_values assignments = List.map
+    (fun (term, value) ->
+      if Term.bool_of_term value
+      then term
+      else Term.negate term)
+    assignments   
+  
 (* ********************************************************************** *)
 (* Abstracted variables                                                   *)
 (* ********************************************************************** *)
@@ -174,7 +182,24 @@ let invert abvar_map = List.fold_left
 let ic3ia solver input_sys aparam trans_sys init trans prop =
 
   let predicates = [init;(snd prop)] in  
-  
+
+  (* set containing all state variables in the problem *)
+  let statevars = List.fold_left
+    (fun acc p ->
+      StateVar.StateVarSet.union (Term.state_vars_of_term p) acc)
+    StateVar.StateVarSet.empty
+    (trans::predicates)
+  in
+
+  (* list of all state variables as terms at offset 0 *)
+  let variables = List.map
+    (fun s -> Term.mk_var (Var.mk_state_var_instance s Numeral.zero))
+    (StateVar.StateVarSet.elements statevars)
+  in
+
+  List.iter
+    (Format.printf "@.variable: %a@." Term.pp_print_term)
+    variables;
   (* ********************************************************************** *)
   (* Cloned variables                                                       *)
   (* ********************************************************************** *)
@@ -187,14 +212,6 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   
   (* Function to clone and declare all variables in given predicates and return a map *)
   let get_clone_map predicates =
-    
-    (* Get set containing all state variables in predicates *)
-    let statevars = List.fold_left
-      (fun acc p ->
-	StateVar.StateVarSet.union (Term.state_vars_of_term p) acc)
-      StateVar.StateVarSet.empty
-      predicates
-    in
     
     (* fold over statevars to construct map to new statevars *)
     let clone_map = StateVar.StateVarSet.fold
@@ -303,19 +320,6 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     SMTSolver.assert_term solver actimpl;
     acttrm
   in
-
-  (* Takes the given assignments and produces a list of terms *)
-  let get_term_list_from_term_values assignments =
-    List.map
-      (fun (term, value) ->
-	if
-	  Term.bool_of_term value
-	then
-	  term
-	else
-	  Term.negate term)
-      assignments
-  in
   
   (* Check whether 'I ^ H |= 'P *)
   SMTSolver.check_sat_assuming_and_get_term_values
@@ -374,11 +378,7 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   let absrelind abvar_map frame clause =
     
     let abvars = List.map snd (TermMap.bindings abvar_map) in
-
-    let predicates = List.map
-      fst
-      (TermMap.bindings abvar_map)
-    in
+    let predicates = List.map fst (TermMap.bindings abvar_map) in
     
     (* F ^ c ^ hp ^ eq ^ T(clone) ^ ~c' *)
     let terms_to_check =
@@ -705,6 +705,13 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
      concretized *)
   let simulate abstract_path abvar_map =
     let k = List.length abstract_path - 1 in
+
+    let variables_on_path =
+      (List.concat
+	 (List.map
+	    (copy_and_bump_term k)
+	    variables))
+    in
     
     let term_list = 
       abstract_path
@@ -712,10 +719,23 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       @(List.concat (List.map (copy_and_bump_term k) (get_hp abvar_map)))
     in
 
-    (* Check satisfiability of F ^ c ^ hp ^ eq ^ T(clone) ^ !c' *)
-    SMTSolver.check_sat_assuming_tf
+    (* check satisfiability of abstract path and return concrete path or nothing *)
+    SMTSolver.check_sat_assuming_and_get_term_values
       solver
-      (List.map mk_and_assert_actlit term_list);	
+
+      (* SAT case - returns the term assignments on the path *)
+      (fun _ assignments -> List.map
+	(fun (term, value) -> Term.mk_eq [term;value])
+	assignments)
+(* get_term_list_from_term_values assignments*)
+
+      (* UNSAT case - returns an empty list *)
+      (fun _ -> [])
+      
+      (List.map mk_and_assert_actlit term_list)
+      
+      variables_on_path
+      
   in
 
   (* Generates interpolants. Abstract path must be unbumped in ascending order of offset.*)
@@ -985,7 +1005,7 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 
        let abvars = List.map snd (TermMap.bindings abvar_map) in
        
-      (* Fk ^ H ^ ~'P *)
+      (* Fk ^ H ^ ~P' *)
        let terms_to_check = fk @ (get_hp abvar_map) @ [Term.negate prop'] in
        
        SMTSolver.check_sat_assuming_and_get_term_values
@@ -993,8 +1013,8 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 	 
 	(* SAT case - extract a cube and recblock it *)
 	 (fun _ assignments ->
-	   
-	  (* we want to add clauses so that this cube cannot occur *)
+
+	   (* we want to add clauses so that this cube cannot occur *)
 	   let bad_cube = Term.mk_and (get_term_list_from_term_values assignments) in
 
 	  (* modify frames below to prevent the bad cube *)
@@ -1005,18 +1025,19 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 	     | Counterexample cex_path ->
 		Format.printf "@.Lowest frame reached (recblock) - this means failure@.";
 
-	      (* If counterexample is concretizable then we are done *)
-	       if
+	       (match
 		 simulate
 		   (List.mapi
 		      (fun i t -> Term.bump_state (Numeral.of_int i) t)
 		      cex_path)
 		   abvar_map;
-	       then
-		 (Format.printf "@.Concretizable counterexample found.@.";
-		  raise Failure);
-
-	      (* Generate the interpolants from the counterexample and unbump them *)
+	       with
+	       (* if we cannot find a path, do nothing. *)
+	       |[] -> Format.printf "@.Counterexample is spurious.@."
+	       (* if counterexample is concretizable, we are done. *)
+	       | concrete_cex_path -> raise (Counterexample concrete_cex_path));
+	       
+	       (* Generate the interpolants from the counterexample and unbump them *)
 	       let interpolants = List.mapi
 		 (fun i t -> Term.bump_state (Numeral.of_int (-i)) t)
 		 (generate_interpolants abvar_map cex_path)
@@ -1036,7 +1057,7 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 		    nontrivial_interpolants)
 	       in
 	       
-	      (* Update the abvar map with abvars for new predicates *)
+	       (* Update the abvar map with abvars for new predicates *)
 	       let abvar_map',new_abvars = update_abvar_map
 		 abvar_map
 		 atoms_of_interpolants
@@ -1076,13 +1097,13 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   (* ********************************************************************** *)
   
   let rec ic3ia' abvar_map frames =
-
-    (* check invariants *)
-    checkInvariants abvar_map frames;
+    
+    (* (\* check invariants *\) *)
+    (* checkInvariants abvar_map frames; *)
     
     (* eliminate redundant clauses *)
-    Format.printf "@...........Consolidating@.";
-    let frames = consolidate frames in
+    (* Format.printf "@...........Consolidating@."; *)
+    (* let frames = consolidate frames in *)
     
     (* Add a new frame and propagate forward the changes *)
     Format.printf "@...........Propagating@.";
@@ -1134,7 +1155,15 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
        aparam
        trans_sys
        (fst prop)
+
+  (* | Counterexample cex_path -> *)
      
+  (*    Event.prop_status  *)
+  (*      (Property.PropFalse cex_path)  *)
+  (*      input_sys *)
+  (*      aparam  *)
+  (*      trans_sys  *)
+  (*      (fst prop) *)
 
 (* ====================================================================== *)
 (* Main                                                                   *)
