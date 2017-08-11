@@ -179,6 +179,31 @@ let actlitify ?(imp=false) solver t =
     (* end; *)
     ta
 
+let guard_two_state_term_list t v_at_0 =
+
+  let rec is_a_two_state_term t =
+    match Term.node_of_term t with
+    | Term.T.Node (_, l) -> List.exists is_a_two_state_term l
+    | Term.T.FreeVar v ->
+      if Var.is_state_var_instance v then
+        Var.offset_of_state_var_instance v == Numeral.of_int (-1)
+      else false
+    | _ -> false
+  in
+
+  let guard_two_state_term t =
+    if is_a_two_state_term t then
+      Term.mk_implies [Term.mk_gt [v_at_0; t0]; t]
+    else t
+  in
+
+  match Term.node_of_term t with
+  | Term.T.Node (s, l) -> (
+    assert (Symbol.node_of_symbol s == `AND);
+    Term.mk_and (List.map guard_two_state_term l)
+  )
+  | _ -> guard_two_state_term t
+
 
 (* Transform unrolled state variables back to functions (that take an integer
    as argument) *)
@@ -1578,12 +1603,13 @@ let export_phi ~trace_lfsc_defs dirname file definitions_files names sys phi =
   let fvi = Var.mk_free_var (HString.mk_hstring "i") (ty_index ()) in
   (* Substitutions to be used later: *)
   (* [0 -> i] *)
-  let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+  let t_fvi = Term.mk_var fvi in
+  let sigma_0i = TM.singleton t0 t_fvi in
   
   (* Declaring k-inductive invariant (PHI i) *)
   add_section fmt "k-Inductive invariant";
   let phi_s = UfSymbol.mk_uf_symbol names.phi [(ty_index ())] Type.t_bool in
-  let phi_def = roll sigma_0i phi in
+  let phi_def = roll sigma_0i (guard_two_state_term_list phi t_fvi) in
   define_fun ~trace_lfsc_defs fmt phi_s [fvi] Type.t_bool phi_def;
 
   (* dummy goal if we only want to do tracing *)
@@ -1936,7 +1962,8 @@ let generate_certificate sys dirname =
 
   (* Substitutions to be used later: *)
   (* [0 -> i] *)
-  let sigma_0i = TM.singleton t0 (Term.mk_var fvi) in
+  let t_fvi = Term.mk_var fvi in
+  let sigma_0i = TM.singleton t0 t_fvi in
   (* [0 -> i; 1 -> j] *)
   let sigma_0i1j = TM.add t1 (Term.mk_var fvj) sigma_0i in
 
@@ -1974,7 +2001,7 @@ let generate_certificate sys dirname =
   add_section fmt (sprintf "%d-Inductive invariant" k);
   let phi_s =
     UfSymbol.mk_uf_symbol names_bare.phi [(ty_index ())] Type.t_bool in
-  let phi_def = roll sigma_0i phi in
+  let phi_def = roll sigma_0i (guard_two_state_term_list phi t_fvi) in
   define_fun fmt phi_s [fvi] Type.t_bool phi_def;
   let phi_t i = Term.mk_uf phi_s [index_of_int i] in
   let phi_v v = Term.mk_uf phi_s [Term.mk_var v] in
