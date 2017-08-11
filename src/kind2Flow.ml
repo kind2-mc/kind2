@@ -583,7 +583,9 @@ let run in_sys =
 
       post_clean_exit `Supervisor Exit
 
-    ) with e ->
+    ) with
+    | TimeoutWall -> on_exit None `Supervisor TimeoutWall
+    | e ->
       (* Get backtrace now, Printf changes it *)
       let backtrace = Printexc.get_raw_backtrace () in
 

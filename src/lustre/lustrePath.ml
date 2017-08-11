@@ -633,7 +633,9 @@ let node_path_of_subsystems
       (node_path_of_instance first_is_init model)
       (N.node_of_name (I.of_scope scope) nodes)
       trans_sys'
-  with e ->
+  with 
+  | TimeoutWall -> raise TimeoutWall
+  | e ->
     (* Get backtrace now, Printf changes it *)
     let backtrace = Printexc.get_backtrace () in
 
