@@ -204,12 +204,6 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   (* Cloned variables                                                       *)
   (* ********************************************************************** *)
   
-  (* Creates a clone of an uncloned term using provided map *)
-  let clone_term map term =
-    let lookup term = StateVar.StateVarMap.find term map in
-    Term.map_state_vars lookup term
-  in
-  
   (* Function to clone and declare all variables in given predicates and return a map *)
   let get_clone_map predicates =
     
@@ -233,50 +227,49 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       statevars
       StateVar.StateVarMap.empty
     in
-
-    (* extract all variables from the initial predicates*)
-    let set_of_variables = List.fold_left
-      (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
-      Var.VarSet.empty
-      (List.map (clone_term clone_map) (predicates))
-    in
-    
-    Var.declare_constant_vars
-      (SMTSolver.declare_fun solver)
-      (Var.VarSet.elements (Var.VarSet.filter Var.is_const_state_var set_of_variables));
-    
-    Var.declare_vars
-      (SMTSolver.declare_fun solver)
-      (Var.VarSet.elements (Var.VarSet.filter Var.is_state_var_instance set_of_variables));
     
     clone_map
   in
   
   (* Repeat for each term in predicates and in the transition function *)
   let clone_map = get_clone_map (trans::predicates) in
-  let clone_term = clone_term clone_map in
 
+  (* Creates a clone of an uncloned term using provided map *)
+  let clone_term term =
+    let lookup term = StateVar.StateVarMap.find term clone_map in
+    Term.map_state_vars lookup term
+  in
+  
   let declare_clone_variables_at_offset n =
-    let clone_vars =
-      let set_of_variables = 
-	List.fold_left
-	  (fun acc term -> Var.VarSet.union acc (Term.vars_of_term term))
-	  Var.VarSet.empty
-	  (List.map clone_term predicates)
-      in
-      Var.VarSet.elements set_of_variables
-    in
-    
-    let offset_clone_vars =
-      List.map
-	(fun v -> Var.set_offset_of_state_var_instance v (Numeral.of_int n))
-	clone_vars
-    in
 
+    let set_of_variables_at_offset = List.map
+      (fun sv ->
+	let clone_sv = StateVar.StateVarMap.find sv clone_map in
+	Var.mk_state_var_instance clone_sv (Numeral.of_int n))
+      (StateVar.StateVarSet.elements statevars)
+    in
     
     Var.declare_vars
       (SMTSolver.declare_fun solver)
-      offset_clone_vars;
+      set_of_variables_at_offset
+  in
+
+  (* Initialize the clone variables *)
+  declare_clone_variables_at_offset 0;
+  declare_clone_variables_at_offset 1;  
+
+  (* For declaring user variables at higher offsets *)
+  let declare_variables_at_offset n =
+
+    let set_of_variables_at_offset = List.map
+      (fun sv ->
+	Var.mk_state_var_instance sv (Numeral.of_int n))
+      (StateVar.StateVarSet.elements statevars)
+    in
+    
+    Var.declare_vars
+      (SMTSolver.declare_fun solver)
+      set_of_variables_at_offset;
   in
   
   (* Generates a term asserting the equality of an uncloned term and its clone *)
@@ -294,13 +287,6 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   (* ********************************************************************** *)
 
   let abvar_map, abvars = update_abvar_map TermMap.empty predicates in
-
-  (* Traverse the term and replace where appropriate with abstract variables *)  
-  (* let convert_to_abstract_term term = *)
-  (*   Term.map *)
-  (*     (fun _ subterm -> if TermMap.mem subterm abvar_map then TermMap.find subterm abvar_map else subterm) *)
-  (*     term *)
-  (* in *)
 
   declare_abstract_variables_at_offset solver abvars 0;
   declare_abstract_variables_at_offset solver abvars 1;
@@ -651,11 +637,12 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     
     (* Generate list of literals that would each block bad_cube and are consistent 
        with the bottom frame and are not entailed by the bottom frame*)
-    let candidate_literals = List.filter
-      (isSatisfiable abvar_map f0)
-      (List.map Term.negate (Term.node_args_of_term bad_cube))
-    in
 
+    let candidate_literals = List.map
+      Term.negate
+      (Term.node_args_of_term bad_cube)
+    in
+      
   (* Include in generalized blocking clause only the literals that propagate 
      together relative to current frame *)
     
@@ -669,13 +656,16 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 
       (* while there are still candidates, check whether they are necessary *)
       | _, c :: candidates' ->
-	 
-	 if isabsrelind
-	   abvar_map
-	   (List.concat frames_gte)
-	   (Term.mk_or (candidates' @ confirmed))
 
-	 (* discard candidates that are not needed for the clause to be inductive*)
+	 let clause = Term.mk_or (candidates' @ confirmed) in
+	 
+	 if ((isabsrelind
+		abvar_map
+		(List.concat frames_gte)
+		clause)
+	     &&
+	       isSatisfiable abvar_map f0 clause)
+	 (* discard candidates that are not needed for the clause to be inductive or satisfiable*)
 	 then generalize confirmed candidates'
 	 else generalize (c::confirmed) candidates'
 
@@ -865,6 +855,17 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 	    fj'
 	  in
 
+	  List.iter
+	    (fun c ->
+	      if (isabsrelind abvar_map (List.concat (fj'::fi::frames_gt)) c)
+	      then
+		(Format.printf
+		  "@.Expected %a to not be relatively inductive@."
+		  Term.pp_print_term
+		  c;
+		 raise Failure))
+	    keep;
+	  
 	  Format.printf "@.Propagating frame %d to frame %d.@." (List.length frames_ltt') (List.length (fj'::frames_ltt'));
 	  
 	  Format.printf "@.  Keeping clauses:@.";
@@ -1102,8 +1103,8 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     (* checkInvariants abvar_map frames; *)
     
     (* eliminate redundant clauses *)
-    (* Format.printf "@...........Consolidating@."; *)
-    (* let frames = consolidate frames in *)
+    Format.printf "@...........Consolidating@.";
+    let frames = consolidate frames in
     
     (* Add a new frame and propagate forward the changes *)
     Format.printf "@...........Propagating@.";
@@ -1119,17 +1120,20 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     (* get list of abvars to declare them in next frame  *)
     let abvars = List.map snd (TermMap.bindings abvar_map) in
 
+
+    (* This is where double-declaration error occurs *)
     (* When we propagate frames forward, we will also declare all our concrete 
        variables at those offsets for use in simulation *)    
     if (List.length frames > 2) then
-      (TransSys.define_and_declare_of_bounds
-	 trans_sys
-	 (SMTSolver.define_fun solver)
-	 (SMTSolver.declare_fun solver)
-	 (SMTSolver.declare_sort solver)
-	 (Numeral.of_int k)
-	 (Numeral.of_int k);
-       declare_abstract_variables_at_offset solver abvars k;
+      (* (TransSys.define_and_declare_of_bounds *)
+      (* 	 trans_sys *)
+      (* 	 (SMTSolver.define_fun solver) *)
+      (* 	 (SMTSolver.declare_fun solver) *)
+      (* 	 (SMTSolver.declare_sort solver) *)
+      (* 	 (Numeral.of_int k) *)
+      (* 	 (Numeral.of_int k); *)
+      (declare_abstract_variables_at_offset solver abvars k;
+       declare_variables_at_offset k;
        declare_clone_variables_at_offset k);
     
     (* Block bad states and try to simulate paths to safety violation when you fail *)
