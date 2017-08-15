@@ -45,6 +45,7 @@ module type Sig = sig
   type log_format = 
     | F_pt    (** Plain text *)
     | F_xml   (** XML *)
+    | F_json  (** JSON *)
     | F_relay (** Relayed *) 
 
   (** Returns the log format *)
@@ -58,6 +59,9 @@ module type Sig = sig
 
   (** Set log format to XML *)
   val set_log_format_xml : unit -> unit
+
+  (** Set log format to JSON *)
+  val set_log_format_json : unit -> unit
 
   (** Relay log messages to invariant manager, takes printing function as
       argument for relay messages. *)
@@ -74,6 +78,8 @@ module type Sig = sig
   val print_xml_trailer : unit -> unit
 
   val printf_xml : 'a m_log_printer
+
+  val printf_json : 'a m_log_printer
 
 end
 

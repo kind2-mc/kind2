@@ -29,16 +29,18 @@ module type Sig = sig
     Lib.kind_module -> 'a log_printer
   val set_module : Lib.kind_module -> unit 
   val get_module : unit -> Lib.kind_module
-  type log_format = | F_pt | F_xml | F_relay
+  type log_format = | F_pt | F_xml | F_json | F_relay
   val get_log_format : unit -> log_format
   val set_log_format : log_format -> unit
   val set_log_format_pt : unit -> unit
   val set_log_format_xml : unit -> unit
+  val set_log_format_json : unit -> unit
   val set_relay_log : unit -> unit
   val unset_relay_log : unit -> unit
   val pp_print_kind_module_xml_src : Format.formatter -> Lib.kind_module -> unit
   val print_xml_trailer : unit -> unit
   val printf_xml : 'a m_log_printer
+  val printf_json : 'a m_log_printer
 end
 
 
@@ -73,6 +75,7 @@ let get_module () = !this_module
 type log_format = 
   | F_pt
   | F_xml
+  | F_json
   | F_relay
 
 
@@ -113,17 +116,7 @@ let printf_pt_uncond mdl fmt =
 (* ********************************************************************** *)
 
 (* Level to class attribute of log tag *)
-let xml_cls_of_level = function
-  | L_off -> "off"
-  | L_fatal -> "fatal"
-  | L_error -> "error"
-  | L_warn -> "warn"
-  | L_note -> "note"
-  | L_info -> "info"
-  | L_debug -> "debug"
-  | L_trace -> "trace"
-
-
+let xml_cls_of_level = string_of_log_level
 
 (* XML at the beginning the output *)
 let print_xml_header () =
@@ -160,6 +153,34 @@ let printf_xml mdl level fmt =
 
 
 
+(* ********************************************************************** *)
+(* JSON output                                                            *)
+(* ********************************************************************** *)
+
+let escape_json_string s =
+  let backslash = Str.regexp "\\" in
+  let double_quotes = Str.regexp "\"" in
+  let newline = Str.regexp "\n" in
+  s |> Str.global_replace backslash "\\\\"
+    |> Str.global_replace double_quotes "\\\""
+    |> Str.global_replace newline "\\n"
+
+(* Output message as JSON *)
+let printf_json mdl level fmt =
+
+  (ignore_or_fprintf level)
+    !log_ppf
+    (",@.{@[<v 1>@," ^^
+      "\"objectType\" : \"log\",@," ^^
+      "\"level\" : \"%s\",@," ^^
+      "\"source\" : \"%s\",@," ^^
+      "\"value\" : \"" ^^ fmt ^^ "\"" ^^
+      "@]@.}@.")
+    (string_of_log_level level)
+    (short_name_of_kind_module mdl)
+
+
+
 (*****************************************************************)
 (* Setup                                                         *)
 (*****************************************************************)
@@ -173,6 +194,8 @@ let set_log_format_xml () =
   (* Print XML header *)
   print_xml_header ()
 
+(* Set log format to JSON *)
+let set_log_format_json () = log_format := F_json
 
 (* Relay log messages to invariant manager *)
 let set_relay_log () =
@@ -202,6 +225,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     match !log_format with 
     | F_pt -> printf_pt mdl level fmt
     | F_xml -> printf_xml mdl level fmt
+    | F_json -> printf_json mdl level fmt
     | F_relay -> R.printf_relay mdl level fmt
 
 
@@ -213,6 +237,7 @@ module Make (R : sig val printf_relay : 'a m_log_printer end) : SLog = struct
     match !log_format with 
     | F_pt -> printf_pt_uncond mdl fmt
     | F_xml -> printf_xml mdl L_info fmt
+    | F_json -> printf_json mdl L_info fmt
     | F_relay -> R.printf_relay mdl L_info fmt
                    
 end

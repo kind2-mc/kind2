@@ -275,6 +275,61 @@ module ModeTrace = struct
 
     loop [] trees
 
+  (** Formats a tree as a cex step in JSON *)
+  let fmt_as_cex_step_json fmt (top_mods, trees) =
+
+    let pp_print_list_attrib pp ppf = function
+      | [] -> Format.fprintf ppf " []"
+      | lst -> Format.fprintf ppf
+        "@,[@[<v 1>@,%a@]@,]" (pp_print_list pp ",@,") lst
+    in
+
+    let rec loop right = function
+      | (Contract (name, modes, subs)) :: tail ->
+        Format.fprintf fmt
+          "@,{@[<v 1>@,\
+            \"contract\" : \"%s\",@,\
+            \"modes\" :%a,@,\
+            \"subcontractModes\" :\
+          "
+          name (pp_print_list_attrib Format.pp_print_string) modes;
+        if subs = [] then (
+          Format.fprintf fmt " []"; loop (tail :: right) subs
+        )
+        else (
+          Format.fprintf fmt "@,[@[<v 1>@,";
+          loop (tail :: right) subs;
+          Format.fprintf fmt "@]@,]"
+        )
+      | [] -> go_up right
+    and go_up = function
+      | head :: tail -> (
+        match head with
+        | [] -> (
+          Format.fprintf fmt "@]@,}";
+          go_up tail
+        )
+        | _ -> (
+          Format.fprintf fmt "@]@,},";
+          loop tail head
+        )
+      )
+      | [] -> ()
+    in
+
+    Format.fprintf fmt
+      "\"topModes\" :%a,@,\
+       \"contractModes\" :\
+      "
+      (pp_print_list_attrib Format.pp_print_string) top_mods;
+
+    if trees = [] then Format.fprintf fmt " []"
+    else (
+      Format.fprintf fmt "@,[@[<v 1>";
+      loop [] trees;
+      Format.fprintf fmt "@]@,]"
+    )
+
 end
 
 

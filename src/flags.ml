@@ -2212,6 +2212,19 @@ module Global = struct
     (fun fmt -> Format.fprintf fmt "Output in XML format")
   let log_format_xml () = !log_format_xml
 
+
+  (* JSON log. *)
+  let log_format_json_default = false
+  let log_format_json = ref log_format_json_default
+  let _ = add_spec
+    "-json"
+    (Arg.Unit (fun () ->
+         log_format_json := true;
+         Log.set_log_format_json ()
+       ))
+    (fun fmt -> Format.fprintf fmt "Output in JSON format")
+  let log_format_json () = !log_format_json
+
   
   (* Colored output *)
   let color_default = true
@@ -2222,7 +2235,7 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Display colors in ascii output (deactivated when using -xml)@ \
+          Display colors in ascii output (deactivated when using -xml or -json)@ \
           Default: %a\
         "
         fmt_bool color_default
@@ -2293,6 +2306,7 @@ let debug = Global.debug
 let debug_log = Global.debug_log
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
+let log_format_json = Global.log_format_json
 let input_format = Global.input_format
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis
@@ -2452,10 +2466,30 @@ let print_xml_options () =
     (Global.modular ())
 
 
+let print_json_options () =
+    let pp_print_module_str fmt mdl =
+      Format.fprintf fmt "\"%s\"" (Lib.short_name_of_kind_module mdl)
+    in
+    Format.fprintf !log_ppf "[@.{@[<v 1>@,\
+        \"objectType\" : \"kind2Options\",@,\
+        \"enabled\" :@,[@[<v 1>@,%a@]@,],@,\
+        \"timeout\" : %f,@,\
+        \"bmcMax\" : %d,@,\
+        \"compositional\" : %b,@,\
+        \"modular\" : %b\
+        @]@.}@.\
+    "
+    (pp_print_list pp_print_module_str ",@,") (Global.enabled ())
+    (Global.timeout_wall ())
+    (BmcKind.max ())
+    (Contracts.compositional ())
+    (Global.modular ())
+
 
 let post_argv_parse_actions () =
 
   if Global.log_format_xml () then print_xml_options ();
+  if Global.log_format_json () then print_json_options ();
 
   (* Don't print banner if no output at all. *)
   if not (Global.log_level () = L_off) then (
@@ -2473,9 +2507,9 @@ let parse_argv () =
   (* CLAPing. *)
   parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
 
-  (* Colors if flag is not false and not in xml mode *)
+  (* Colors if flag is not false and not in xml or json mode *)
   let open Format in
-  if color () && not (log_format_xml ()) then begin
+  if color () && not (log_format_xml () || log_format_json ()) then begin
     pp_set_tags std_formatter true;
     pp_set_tags err_formatter true;
     pp_set_tags !Lib.log_ppf true;
