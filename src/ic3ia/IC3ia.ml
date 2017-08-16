@@ -307,7 +307,7 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     SMTSolver.assert_term solver actimpl;
     acttrm
   in
-  
+
   (* Check whether 'I ^ H |= 'P *)
   SMTSolver.check_sat_assuming_and_get_term_values
     solver
@@ -315,12 +315,15 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     (* SAT case ('P not entailed) *)
     (fun _ assignments ->
       Format.printf "@.Property invalid in initial state@.";
-      (*Format.printf "@.Values for model:@.";
-      List.iter	
-	(fun (term, assignment) -> (Format.printf "@.%a %a@." Term.pp_print_term term Term.pp_print_term assignment) )
-	assignments; *)
+
+      let model = 
+	SMTSolver.get_var_values
+          solver
+          (TransSys.get_state_var_bounds trans_sys)
+          (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.zero)
+      in
       
-      raise Failure)
+      raise (ConcreteCounterexample (model,0)))
     
     (* UNSAT case ('P entailed) *)
     (fun _ ->
@@ -1192,35 +1195,8 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     ic3ia' abvar_map frames
   in
 
-  try ic3ia' abvar_map [[init']] with
-  (* if ic3ia succeeds, broadcast a certificate from the inductive clause *)
-  | Success invariant ->
-     let cert = 1, Term.mk_and [invariant;snd prop] in
-
-     Event.prop_status
-       (Property.PropInvariant cert)
-       input_sys
-       aparam
-       trans_sys
-       (fst prop)
-
-  | ConcreteCounterexample (cex_model,k) ->
-
-     let path = Model.path_from_model
-       (StateVar.StateVarSet.elements statevars)
-       cex_model
-       (Numeral.of_int k)
-     in
-     
-     let list = Model.path_to_list path in
-     
-     Event.prop_status
-       (Property.PropFalse list)
-       input_sys
-       aparam
-       trans_sys
-       (fst prop)
-
+  ic3ia' abvar_map [[init']]
+  
 (* ====================================================================== *)
 (* Main                                                                   *)
 (* ====================================================================== *)
@@ -1255,7 +1231,45 @@ let main input_sys aparam trans_sys =
   let props = TransSys.props_list_of_bound trans_sys Numeral.zero in
   
   List.iter
-    (fun prop -> ic3ia solver input_sys aparam trans_sys init trans prop)
+    (fun prop ->
+      try ic3ia
+	    solver
+	    input_sys
+	    aparam
+	    trans_sys
+	    init
+	    trans
+	    prop
+      with
+
+      (* if ic3ia succeeds, broadcast a certificate from the inductive clause *)
+      | Success invariant ->
+	 let cert = 1, Term.mk_and [invariant;snd prop] in
+	 
+	 Event.prop_status
+	   (Property.PropInvariant cert)
+	   input_sys
+	   aparam
+	   trans_sys
+	   (fst prop)
+
+      | ConcreteCounterexample (cex_model,k) ->
+
+	 let path = Model.path_from_model
+	   (TransSys.state_vars trans_sys)
+	   cex_model
+	   (Numeral.of_int k)
+	 in
+	 
+	 let list = Model.path_to_list path in
+	 
+	 Event.prop_status
+	   (Property.PropFalse list)
+	   input_sys
+	   aparam
+	   trans_sys
+	   (fst prop))
+	   
     props
     
 (* 
