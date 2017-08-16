@@ -46,7 +46,8 @@ exception Failure
 exception Error
 exception Counterexample of Term.t list
 exception InvariantViolation of int
-  
+exception ConcreteCounterexample of (Model.t * int)
+    
 (* Cleanup before exit *)
 let on_exit _ = ()
 
@@ -317,7 +318,8 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       (*Format.printf "@.Values for model:@.";
       List.iter	
 	(fun (term, assignment) -> (Format.printf "@.%a %a@." Term.pp_print_term term Term.pp_print_term assignment) )
-	assignments;*)
+	assignments; *)
+      
       raise Failure)
     
     (* UNSAT case ('P entailed) *)
@@ -624,57 +626,6 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     if not i4 then raise (InvariantViolation 4)
       
   in
-  
-
-
-	
-  (* removes uneeded blocking clauses. May not return anything if no clause is needed
-     such as due to recblocking in a lower frame *)
-  let get_generalized_blocking_clause abvar_map bad_cube frames_gte frames_lt =
-
-    (* Retrieve the lowest frame *)
-    let f0 = List.concat (frames_gte @ frames_lt) in
-    
-    (* Generate list of literals that would each block bad_cube and are consistent 
-       with the bottom frame and are not entailed by the bottom frame*)
-
-    let candidate_literals = List.map
-      Term.negate
-      (Term.node_args_of_term bad_cube)
-    in
-      
-  (* Include in generalized blocking clause only the literals that propagate 
-     together relative to current frame *)
-    
-    let rec generalize confirmed candidates =
-      
-      match confirmed, candidates with
-      (* if there are no candidates or confirmed, return none *)
-      | [],[] -> None
-      (* if there is only one literal left and the rest have been confirmed, just use the last one*)
-      | [], c::[] -> Some c
-
-      (* while there are still candidates, check whether they are necessary *)
-      | _, c :: candidates' ->
-
-	 let clause = Term.mk_or (candidates' @ confirmed) in
-	 
-	 if ((isabsrelind
-		abvar_map
-		(List.concat frames_gte)
-		clause)
-	     &&
-	       isSatisfiable abvar_map f0 clause)
-	 (* discard candidates that are not needed for the clause to be inductive or satisfiable*)
-	 then generalize confirmed candidates'
-	 else generalize (c::confirmed) candidates'
-
-      (* once we have confirmed or discarded all candidates, return the blocking clause*)
-      | _, [] -> Some (Term.mk_or confirmed)
-    in
-
-    generalize [] candidate_literals
-  in	
 
   (* ********************************************************************** *)
   (* Simulate                                                               *)
@@ -714,13 +665,27 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       solver
 
       (* SAT case - returns the term assignments on the path *)
-      (fun _ assignments -> List.map
-	(fun (term, value) -> Term.mk_eq [term;value])
-	assignments)
-(* get_term_list_from_term_values assignments*)
+      (fun _ assignments ->
+
+	let term_list = List.map
+	  (fun (term, value) -> Term.mk_eq [term;value])
+	  assignments
+	in
+
+	let model = 
+	SMTSolver.get_var_values
+          solver
+          (TransSys.get_state_var_bounds trans_sys)
+          (TransSys.vars_of_bounds trans_sys Numeral.zero (Numeral.of_int k))
+	in
+
+	Format.printf "@.Model: %a@." Model.pp_print_model model;
+
+	Some model)
+      (* get_term_list_from_term_values assignments*)
 
       (* UNSAT case - returns an empty list *)
-      (fun _ -> [])
+      (fun _ -> None)
       
       (List.map mk_and_assert_actlit term_list)
       
@@ -741,28 +706,36 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       in
 
       (* Replaces all abstract variables in trm with their concrete atomic forms *)
-      let concretize_term trm =
+      let concretize_term trm = Term.map
+	(fun _ t ->
+	  if TermMap.mem t rev_abvar_map
+	  then TermMap.find t rev_abvar_map
+	  else t)
+	trm
 	
-	Term.map
-	  (fun _ t ->
-	    (* Format.printf "@.debug - %a@." Term.pp_print_term t ; *)
-	    if TermMap.mem t rev_abvar_map
-	    then TermMap.find t rev_abvar_map
-	    else t)
-	  trm
-	   
       in      
       
-      (* Creates the sequence of formulas that will be used to generate interpolants.*)
+      (* Creates the sequence of formulas that will be used to generate interpolants. *)
       List.mapi
-	(fun i s ->
-	  match i with
-	  | 0 -> concretize_term s
-	  | n ->
-	     Term.mk_and [
-	       Term.bump_state (Numeral.of_int (n-1)) trans;
-	       Term.bump_state (Numeral.of_int n) (concretize_term s)])
-	abstract_path
+      	(fun i s ->
+      	  match i with
+      	  | 0 -> concretize_term s
+      	  | n ->
+      	     Term.mk_and [
+      	       Term.bump_state (Numeral.of_int (n-1)) trans;
+      	       Term.bump_state (Numeral.of_int n) (concretize_term s)])
+      	abstract_path
+      
+      (* List.mapi *)
+      (* 	(fun i s -> *)
+      (* 	  match i with *)
+      (* 	  | k when k = List.length abstract_path - 1 -> *)
+      (* 	     Term.bump_state (Numeral.of_int k) (concretize_term s) *)
+      (* 	  | n -> *)
+      (* 	     Term.mk_and [ *)
+      (* 	       Term.bump_state (Numeral.of_int n) trans; *)
+      (* 	       Term.bump_state (Numeral.of_int n) (concretize_term s)]) *)
+      (* 	abstract_path *)
     in
 
     List.iter
@@ -791,20 +764,23 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       in
 
       SMTSolver.pop solver;
+
+      (* let interpolants = List.map *)
+      (* 	(Term.bump_state (Numeral.of_int (-1))) *)
+      (* 	interpolants *)
+      (* in *)
       
       Format.printf "@. Printing interpolants @.";
       List.iter
 	(fun t -> Format.printf "@.interpolant: %a@." Term.pp_print_term t)
 	interpolants;
-      
+
       interpolants
   in
   
   (* ********************************************************************** *)
   (* Propagate                                                              *)
   (* ********************************************************************** *)
-
-  (*TODO: change var name from prop to something else*)
   
   (* Partition clauses into clauses to keep (those that are not
      relatively inductive) and those to propagate (those that
@@ -923,6 +899,57 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   (* Block                                                                  *)
   (* ********************************************************************** *)
 
+  (* removes uneeded blocking clauses. May not return anything if no clause is needed
+     such as due to recblocking in a lower frame *)
+  let get_generalized_blocking_clause abvar_map bad_cube frames_gte frames_lt =
+    
+    (* Retrieve the lowest frame for satisfiability testing *)
+    let f0 = List.concat (frames_gte @ frames_lt) in
+    
+    (* Generate list of literals that would each block bad_cube and are consistent 
+       with the bottom frame and are not entailed by the bottom frame*)
+    
+    let candidate_literals = List.map
+      Term.negate
+      (Term.node_args_of_term bad_cube)
+    in
+
+    if (not (isSatisfiable abvar_map f0 (Term.mk_or candidate_literals)))
+    then
+      (Format.printf "@.Blocking clause not satisfiable@.";
+       raise Failure);
+    
+    (* Include in generalized blocking clause only the literals that propagate 
+       together relative to current frame *)    
+    let rec generalize confirmed candidates =
+      
+      match confirmed, candidates with
+      (* if there are no candidates or confirmed, return none *)
+      | [],[] -> None
+
+      (* if there is only one literal left and none of the others have been confirmed, just use the last one*)
+      | [], c::[] -> Some c
+
+      (* while there are still candidates, check whether they are necessary *)
+      | _, c :: candidates' ->
+
+	 (* the blocking clause without candidate c *)
+	 let clause = Term.mk_or (candidates' @ confirmed) in
+
+	 (* discard candidates that are not needed for the clause to be inductive or satisfiable*)
+	 if ((isabsrelind abvar_map (List.concat frames_gte) clause)
+	     &&
+	       isSatisfiable abvar_map f0 clause)
+	 then generalize confirmed candidates'
+	 else generalize (c::confirmed) candidates'
+
+      (* once we have confirmed or discarded all candidates, return the blocking clause*)
+      | _, [] -> Some (Term.mk_or confirmed)
+    in
+
+    generalize [] candidate_literals
+  in	
+  
   (* Returns list of frames leq the current frame 
      cex_path is a list with the most recent bad cube at the head
      it can serve as the path to a counterexample *)
@@ -933,16 +960,16 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     
     (* The current frame will be needed *)
     let fi = List.hd frames_gte in
-
+    
     match frames_lt with
     (* If there are no frames below, we cannot block the cube, so we need to check the counterexample *)
     | [] -> raise (Counterexample cex_path_gte)
-
+       
     (* If there are frames below, check whether there are any models where the blocking clause
        does not propagate *)
     | fj::frames_ltt ->
 
-      (* Check whether the blocking clause is inductive relative to previous frame *)
+       (* Check whether the blocking clause is inductive relative to previous frame *)
        ( match absrelind
 	   abvar_map
 	   (List.concat (fj::frames_gte))
@@ -967,13 +994,17 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 		
 	   (* if no clause was returned, we must have recblocked it already. 
 	      Therefore propagate changes from lower frames but avoid success exception. *)
-	    | None -> propagate
+	    | None ->
+
+	       (* TODO: is this state reachable? *)
+	       Format.printf "@.Generalized blocking clause returned None @.";
+	       raise Error;
+	       propagate
 	       abvar_map
 	      (List.tl frames_gte)
 	       (fi::frames_lt))
 	     
-	 (* It isn't - we'd better block the counterexample and try again *)
-	     
+	 (* It isn't - we'd better block the counterexample and try again *)    
 	 | cti ->
 	    let cex = Term.mk_and cti in
 	    
@@ -1002,7 +1033,7 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     match frames_lte with
 
     (* List of frames in descending order *)
-    | fk :: frames_lt ->      
+    | fk :: frames_lt ->
 
        let abvars = List.map snd (TermMap.bindings abvar_map) in
        
@@ -1018,6 +1049,8 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 	   (* we want to add clauses so that this cube cannot occur *)
 	   let bad_cube = Term.mk_and (get_term_list_from_term_values assignments) in
 
+	   Format.printf "@.Beginning block of bad cube: %a@." Term.pp_print_term bad_cube;
+	   
 	  (* modify frames below to prevent the bad cube *)
 	   let abvar_map', frames_lte' =
 	     try abvar_map, (recblock abvar_map [bad_cube] [fk] frames_lt ) with
@@ -1026,17 +1059,19 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 	     | Counterexample cex_path ->
 		Format.printf "@.Lowest frame reached (recblock) - this means failure@.";
 
-	       (match
-		 simulate
+	       (* Can we find a concrete path consistent with the counterexample? *)
+	       (match simulate
 		   (List.mapi
 		      (fun i t -> Term.bump_state (Numeral.of_int i) t)
 		      cex_path)
 		   abvar_map;
-	       with
-	       (* if we cannot find a path, do nothing. *)
-	       |[] -> Format.printf "@.Counterexample is spurious.@."
-	       (* if counterexample is concretizable, we are done. *)
-	       | concrete_cex_path -> raise (Counterexample concrete_cex_path));
+		with
+		  
+		(* if we cannot find a path, do nothing. *)
+		| None -> Format.printf "@.Counterexample is spurious.@."
+		   
+		(* if counterexample is concretizable, we are done. *)
+		| Some cex_model -> raise (ConcreteCounterexample (cex_model,(List.length cex_path - 1))));
 	       
 	       (* Generate the interpolants from the counterexample and unbump them *)
 	       let interpolants = List.mapi
@@ -1044,10 +1079,9 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 		 (generate_interpolants abvar_map cex_path)
 	       in
 	       
-	      (* Filter out interpolants that are just 'true'
-		 TODO: Raise error if interpolants are 'false' *)
+	       (* Filter out interpolants that are just 'true' or 'false' *)
 	       let nontrivial_interpolants = List.filter
-		 (fun t -> not (Term.equal t Term.t_true))
+		 (fun t -> ((not (Term.equal t Term.t_true)) && (not (Term.equal t Term.t_false))))
 		 interpolants
 	       in
 
@@ -1057,11 +1091,31 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 		    atoms_of_term
 		    nontrivial_interpolants)
 	       in
+
+	       (* filter out atoms that are already predicates *)
+	       let predicates = List.map
+		 snd
+		 (TermMap.bindings abvar_map)
+	       in
+
+	       
+	       let novel_atoms = Term.TermSet.elements
+		 (Term.TermSet.diff
+		    (Term.TermSet.of_list atoms_of_interpolants)
+		    (Term.TermSet.of_list predicates))
+	       in
+
+	       (* This ought not to happen *)
+	       if List.length novel_atoms > 0
+	       then Format.printf "@.Generated %d novel predicates from interpolants.@." (List.length novel_atoms)
+	       else
+		 (Format.printf "@.No new predicates generated!@.";
+		  raise Error);
 	       
 	       (* Update the abvar map with abvars for new predicates *)
 	       let abvar_map',new_abvars = update_abvar_map
 		 abvar_map
-		 atoms_of_interpolants
+		 novel_atoms
 	       in
 	       
 	      (* declare the new abvars for every level up to the current one *)
@@ -1120,25 +1174,16 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
     (* get list of abvars to declare them in next frame  *)
     let abvars = List.map snd (TermMap.bindings abvar_map) in
 
-
-    (* This is where double-declaration error occurs *)
     (* When we propagate frames forward, we will also declare all our concrete 
        variables at those offsets for use in simulation *)    
     if (List.length frames > 2) then
-      (* (TransSys.define_and_declare_of_bounds *)
-      (* 	 trans_sys *)
-      (* 	 (SMTSolver.define_fun solver) *)
-      (* 	 (SMTSolver.declare_fun solver) *)
-      (* 	 (SMTSolver.declare_sort solver) *)
-      (* 	 (Numeral.of_int k) *)
-      (* 	 (Numeral.of_int k); *)
       (declare_abstract_variables_at_offset solver abvars k;
        declare_variables_at_offset k;
        declare_clone_variables_at_offset k);
     
     (* Block bad states and try to simulate paths to safety violation when you fail *)
     Format.printf "@...........Blocking@.";
-    let abvar_map, frames =block
+    let abvar_map, frames = block
       abvar_map
       frames
     in
@@ -1152,7 +1197,6 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   | Success invariant ->
      let cert = 1, Term.mk_and [invariant;snd prop] in
 
-     
      Event.prop_status
        (Property.PropInvariant cert)
        input_sys
@@ -1160,14 +1204,22 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
        trans_sys
        (fst prop)
 
-  (* | Counterexample cex_path -> *)
+  | ConcreteCounterexample (cex_model,k) ->
+
+     let path = Model.path_from_model
+       (StateVar.StateVarSet.elements statevars)
+       cex_model
+       (Numeral.of_int k)
+     in
      
-  (*    Event.prop_status  *)
-  (*      (Property.PropFalse cex_path)  *)
-  (*      input_sys *)
-  (*      aparam  *)
-  (*      trans_sys  *)
-  (*      (fst prop) *)
+     let list = Model.path_to_list path in
+     
+     Event.prop_status
+       (Property.PropFalse list)
+       input_sys
+       aparam
+       trans_sys
+       (fst prop)
 
 (* ====================================================================== *)
 (* Main                                                                   *)
