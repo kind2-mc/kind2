@@ -41,6 +41,8 @@ module type Sig = sig
   val print_xml_trailer : unit -> unit
   val printf_xml : 'a m_log_printer
   val printf_json : 'a m_log_printer
+  val parse_log_xml : Lib.log_level -> Lib.position -> string -> unit
+  val parse_log_json : Lib.log_level -> Lib.position -> string -> unit
 end
 
 
@@ -152,6 +154,17 @@ let printf_xml mdl level fmt =
     pp_print_kind_module_xml_src mdl
 
 
+let parse_log_xml level pos msg =
+  let pp_print_fname ppf fname =
+    if fname = "" then () else
+    Format.fprintf ppf " file=\"%s\"" fname
+  in
+  let file, lnum, cnum = file_row_col_of_pos pos in
+  (ignore_or_fprintf level)
+    !log_ppf
+    "@[<hv 2><ParseLog class=\"%a\" line=\"%d\" column=\"%d\"%a>%s</ParseLog>@]@."
+    pp_print_level_xml_cls level lnum cnum pp_print_fname file msg
+
 
 (* ********************************************************************** *)
 (* JSON output                                                            *)
@@ -179,6 +192,26 @@ let printf_json mdl level fmt =
     (string_of_log_level level)
     (short_name_of_kind_module mdl)
 
+let parse_log_json level pos msg =
+  let pp_print_fname ppf fname =
+    if fname = "" then () else
+    Format.fprintf ppf "\"file\" : \"%s\",@," fname
+  in
+  let file, lnum, cnum = file_row_col_of_pos pos in
+  (ignore_or_fprintf level)
+    !log_ppf
+    ",@.{@[<v 1>@,\
+     \"objectType\" : \"parseLog\",@,\
+     \"class\" : \"%s\",@,\
+     %a\
+     \"line\" : %d,@,\
+     \"column\" : %d,@,\
+     \"value\" : \"%s\"\
+     @]@.}@.\
+    "
+    (string_of_log_level level)
+    pp_print_fname file
+    lnum cnum msg
 
 
 (*****************************************************************)

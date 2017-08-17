@@ -71,11 +71,15 @@ let print_flags =
 module Make_Spec (Dummy:sig end) = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
+  let format_specs = ref []
   let add_specs specs = all_specs := List.rev_append specs !all_specs
   let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+  let add_format_spec flag parse desc =
+    add_spec flag parse desc; format_specs := (flag, parse, desc) :: !format_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
+  let format_specs () = !format_specs
 end
 
 (* Signature of modules for flags. *)
@@ -2199,18 +2203,22 @@ module Global = struct
   ])
   let log_level () = get_log_level ()
 
+  (** ********************** Log formats ************************* **)
+
+  let log_format_default = Log.get_log_format ()
+
+  (* Use add_format_spec instead of add_spec *)
 
   (* XML log. *)
-  let log_format_xml_default = false
-  let log_format_xml = ref log_format_xml_default
-  let _ = add_spec
+  let _ = add_format_spec
     "-xml"
     (Arg.Unit (fun () ->
-         log_format_xml := true;
          Log.set_log_format_xml ()
        ))
     (fun fmt -> Format.fprintf fmt "Output in XML format")
-  let log_format_xml () = !log_format_xml
+  let log_format_xml () = Log.get_log_format () = Log.F_xml
+
+  (** ************************************************************ **)
 
 
   (* JSON log. *)
@@ -2413,21 +2421,66 @@ let parse_clas specs anon_action global_usage_msg =
             cla_loop tail
     in
 
+    let check_format_flags args =
+      if Log.get_log_format () = Global.log_format_default then
+      (
+        (* Look for a non-processed format argument *)
+        let format_specs = Global.format_specs () in
+        let format_arg_specs = List.fold_left (fun acc arg ->
+          try List.find (fun (flag',_,_) -> arg = flag') format_specs :: acc
+          with Not_found -> acc
+        ) [] args
+        in
+        (* Last argument prevails over previous ones *)
+        match List.rev format_arg_specs with
+        | (_, Arg.Unit f, _) :: _ -> f () | _ -> ()
+      )
+    in
+
     (
-      try Array.to_list Sys.argv |> List.tl |> cla_loop
+      try args |> cla_loop
       with
-      | UnknownFlag flag ->
-        Global.print_help () ;
-        Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag;
+      | UnknownFlag flag -> (
+        check_format_flags args;
+        (
+          match Log.get_log_format () with
+          | Log.F_pt | Log.F_relay -> (
+            Global.print_help () ;
+            Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag
+          )
+          | Log.F_xml | Log.F_json -> (
+            Log.log L_error "Unknown flag '%s'.@." flag
+          )
+        );
         exit 2
-      | BadArg (error, flag) ->
-        Format.printf
-          "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
-          fmt_flag flag error ;
+      )
+      | BadArg (error, spec) ->
+        check_format_flags args;
+        (
+          match Log.get_log_format () with
+          | Log.F_pt | Log.F_relay -> (
+            Format.printf
+              "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
+              fmt_flag spec error
+          )
+          | Log.F_xml | Log.F_json -> (
+            let flag, _, _ = spec in
+            Log.log L_error "Error on flag '%s': %s@." flag error
+          )
+        );
         exit 2
       | Arg.Bad expl ->
-        Format.printf
-          "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl;
+        check_format_flags args;
+        (
+          match Log.get_log_format () with
+          | Log.F_pt | Log.F_relay -> (
+            Format.printf
+              "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl
+          )
+          | Log.F_xml | Log.F_json -> (
+            Log.log L_error "Bad argument:@ @[<v>%s.@]@." expl
+          )
+        );
         exit 2
     )
 

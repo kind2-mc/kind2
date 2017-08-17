@@ -81,6 +81,10 @@ module type Sig = sig
 
   val printf_json : 'a m_log_printer
 
+  val parse_log_xml : Lib.log_level -> Lib.position -> string -> unit
+
+  val parse_log_json : Lib.log_level -> Lib.position -> string -> unit
+
 end
 
 (** Logging functions accessible directly *)

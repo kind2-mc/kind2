@@ -643,7 +643,7 @@ unless_transitions:
 
 until_transitions:
   | { [] }
-  | UNTIL; b = transition_branch; u = unless_transitions
+  | UNTIL; b = transition_branch; u = until_transitions
     { (mk_pos $startpos, b) :: u }
 
 

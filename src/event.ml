@@ -577,29 +577,35 @@ let xml_cls_of_level = string_of_log_level
 let prop_attributes_xml trans_sys prop_name =
   let prop = TransSys.property_of_name trans_sys prop_name in
 
+  let pp_print_fname ppf fname =
+    if fname = "" then () else
+    Format.fprintf ppf " file=\"%s\"" fname
+  in
+
   let rec get_attributes = function
     | Property.PropAnnot pos ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\"" lnum cnum
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\"%a"
+        lnum cnum pp_print_fname fname
     | Property.Generated _ -> ""
     | Property.Candidate None -> ""
     | Property.Candidate (Some source) -> get_attributes source
     | Property.Instantiated (scope,_) ->
         Format.asprintf " scope=\"%s\"" (String.concat "." scope)
     | Property.Assumption (pos, scope) ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
-          lnum cnum (String.concat "." scope)
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.Guarantee (pos, scope) ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
-          lnum cnum (String.concat "." scope)
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.GuaranteeOneModeActive scope ->
         Format.asprintf " scope=\"%s\"" (String.concat "." scope)
     | Property.GuaranteeModeImplication (pos, scope) ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
-          lnum cnum (String.concat "." scope)
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
   in
 
   get_attributes prop.Property.prop_source
@@ -664,14 +670,17 @@ let pp_print_counterexample_xml
 
         let tag = "CounterExample" in
 
-        (* Output counterexample *)
-        Format.fprintf ppf 
-          "@[<hv 2>\ <%s>%a@]@,</%s>"
-          tag
-          (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true) 
-          (Model.path_of_list cex')
-          tag
-
+        try
+          (* Output counterexample *)
+          Format.fprintf ppf
+            "@[<hv 2>\ <%s>%a@]@,</%s>"
+            tag
+            (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true)
+            (Model.path_of_list cex')
+            tag
+        with TimeoutWall -> (
+          Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag
+        )
       )
 
 
@@ -1336,7 +1345,7 @@ let log_post_analysis_start name title =
     Format.fprintf !log_ppf "%a@{<b>Post-analysis@}: @{<blue>%s@}@.@."
       Pretty.print_line () title
   | F_xml ->
-    Format.fprintf !log_ppf "<StartPostAnalysis name=\"%s\"/>@.@."
+    Format.fprintf !log_ppf "<PostAnalysisStart name=\"%s\"/>@.@."
       name
   | F_json ->
     Format.fprintf !log_ppf
@@ -1354,7 +1363,7 @@ let log_post_analysis_end () =
   | F_pt ->
     Format.fprintf !log_ppf "%a@." Pretty.print_line ()
   | F_xml ->
-    Format.fprintf !log_ppf "</PostAnalysisEnd>@.@."
+    Format.fprintf !log_ppf "<PostAnalysisEnd/>@.@."
   | F_json ->
     Format.fprintf !log_ppf ",@.{\"objectType\" : \"postAnalysisEnd\"}@."
   | F_relay -> failwith "can only be called by supervisor"
