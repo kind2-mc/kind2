@@ -577,29 +577,35 @@ let xml_cls_of_level = string_of_log_level
 let prop_attributes trans_sys prop_name =
   let prop = TransSys.property_of_name trans_sys prop_name in
 
+  let pp_print_fname ppf fname =
+    if fname = "" then () else
+    Format.fprintf ppf " file=\"%s\"" fname
+  in
+
   let rec get_attributes = function
     | Property.PropAnnot pos ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\"" lnum cnum
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\"%a"
+        lnum cnum pp_print_fname fname
     | Property.Generated _ -> ""
     | Property.Candidate None -> ""
     | Property.Candidate (Some source) -> get_attributes source
     | Property.Instantiated (scope,_) ->
         Format.asprintf " scope=\"%s\"" (String.concat "." scope)
     | Property.Assumption (pos, scope) ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
-          lnum cnum (String.concat "." scope)
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.Guarantee (pos, scope) ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
-          lnum cnum (String.concat "." scope)
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
     | Property.GuaranteeOneModeActive scope ->
         Format.asprintf " scope=\"%s\"" (String.concat "." scope)
     | Property.GuaranteeModeImplication (pos, scope) ->
-        let _, lnum, cnum = file_row_col_of_pos pos in
-        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
-          lnum cnum (String.concat "." scope)
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
+          lnum cnum (String.concat "." scope) pp_print_fname fname
   in
 
   get_attributes prop.Property.prop_source
