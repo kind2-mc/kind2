@@ -670,14 +670,17 @@ let pp_print_counterexample_xml
 
         let tag = "CounterExample" in
 
-        (* Output counterexample *)
-        Format.fprintf ppf 
-          "@[<hv 2>\ <%s>%a@]@,</%s>"
-          tag
-          (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true) 
-          (Model.path_of_list cex')
-          tag
-
+        try
+          (* Output counterexample *)
+          Format.fprintf ppf
+            "@[<hv 2>\ <%s>%a@]@,</%s>"
+            tag
+            (InputSystem.pp_print_path_xml input_sys' trans_sys' instances true)
+            (Model.path_of_list cex')
+            tag
+        with TimeoutWall -> (
+          Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag
+        )
       )
 
 
@@ -1027,7 +1030,7 @@ let log_post_analysis_start name title =
     Format.fprintf !log_ppf "%a@{<b>Post-analysis@}: @{<blue>%s@}@.@."
       Pretty.print_line () title
   | F_xml ->
-    Format.fprintf !log_ppf "<StartPostAnalysis name=\"%s\"/>@.@."
+    Format.fprintf !log_ppf "<PostAnalysisStart name=\"%s\"/>@.@."
       name
   | F_relay -> failwith "can only be called by supervisor"
 
@@ -1037,7 +1040,7 @@ let log_post_analysis_end () =
   | F_pt ->
     Format.fprintf !log_ppf "%a@." Pretty.print_line ()
   | F_xml ->
-    Format.fprintf !log_ppf "</PostAnalysisEnd>@.@."
+    Format.fprintf !log_ppf "<PostAnalysisEnd/>@.@."
   | F_relay -> failwith "can only be called by supervisor"
 
 (* Terminate log output *)
