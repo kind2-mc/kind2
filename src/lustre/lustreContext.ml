@@ -189,20 +189,47 @@ let reset_in_automaton ctx = { ctx with in_automaton = false }
 let in_automaton ctx = ctx.in_automaton
 
 
+let parse_log_at_position_xml level pos msg =
+  let file, lnum, cnum = file_row_col_of_pos pos in
+  Log.log level
+    "@[<v>\
+     <File>%s</File>@,\
+     <Line>%d</Line>@,\
+     <Column>%d</Column>@,\
+     <Message>%s</Message>\
+     @]"
+    file lnum cnum msg
+
+
 (* Raise parsing exception *)
-let fail_at_position pos msg = 
+let fail_at_position_pt pos msg =
   Log.log L_error "Parser error at %a: @[<v>%s@]"
-    Lib.pp_print_position pos msg;
+    Lib.pp_print_position pos msg
+
+let fail_at_position pos msg =
+  (match Log.get_log_format () with
+   | Log.F_pt -> fail_at_position_pt pos msg
+   | Log.F_xml -> parse_log_at_position_xml L_error pos msg
+   | Log.F_relay -> ()
+  );
   raise A.Parser_error
-  
 
-(* Raise parsing exception *)
-let warn_at_position pos msg = 
-  Log.log L_warn "Parser warning at %a: %s" Lib.pp_print_position pos msg
 
-(* Raise parsing exception *)
+let warn_at_position_pt level pos msg =
+  Log.log level "Parser warning at %a: %s" Lib.pp_print_position pos msg
+
+let warn_at_position pos msg =
+  match Log.get_log_format () with
+  | Log.F_pt -> warn_at_position_pt L_warn pos msg
+  | Log.F_xml -> parse_log_at_position_xml L_warn pos msg
+  | Log.F_relay -> ()
+
+
 let note_at_position pos msg = 
-  Log.log L_note "Parser warning at %a: %s" Lib.pp_print_position pos msg
+  match Log.get_log_format () with
+  | Log.F_pt -> warn_at_position_pt L_note pos msg
+  | Log.F_xml -> parse_log_at_position_xml L_note pos msg
+  | Log.F_relay -> ()
 
 
 (* Raise parsing exception *)
