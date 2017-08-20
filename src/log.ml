@@ -162,7 +162,8 @@ let parse_log_xml level pos msg =
   let file, lnum, cnum = file_row_col_of_pos pos in
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<hv 2><ParseLog class=\"%a\" line=\"%d\" column=\"%d\"%a>%s</ParseLog>@]@."
+    "@[<hv 2><Log class=\"%a\" source=\"parse\" line=\"%d\" column=\"%d\"%a>\
+    @,@[<hov>%s@]@;<0 -2></Log>@]@."
     pp_print_level_xml_cls level lnum cnum pp_print_fname file msg
 
 
@@ -201,8 +202,9 @@ let parse_log_json level pos msg =
   (ignore_or_fprintf level)
     !log_ppf
     ",@.{@[<v 1>@,\
-     \"objectType\" : \"parseLog\",@,\
-     \"class\" : \"%s\",@,\
+     \"objectType\" : \"log\",@,\
+     \"level\" : \"%s\",@,\
+     \"source\" : \"parse\",@,\
      %a\
      \"line\" : %d,@,\
      \"column\" : %d,@,\
