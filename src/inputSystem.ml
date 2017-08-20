@@ -233,6 +233,22 @@ let pp_print_path_xml
   | Horn _ -> assert false
 
 
+let pp_print_path_json
+(type s) (input_system : s t) trans_sys instances first_is_init ppf model =
+
+  match input_system with
+
+  | Lustre (subsystem, _) ->
+    LustrePath.pp_print_path_json
+      trans_sys instances subsystem first_is_init ppf model
+
+  | Native _ ->
+    Format.eprintf "pp_print_path_json not implemented for native input@.";
+    assert false;
+
+  | Horn _ -> assert false
+
+
 let pp_print_path_in_csv
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
   match input_system with

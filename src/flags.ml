@@ -2220,6 +2220,19 @@ module Global = struct
 
   (** ************************************************************ **)
 
+
+  (* JSON log. *)
+  let log_format_json_default = false
+  let log_format_json = ref log_format_json_default
+  let _ = add_spec
+    "-json"
+    (Arg.Unit (fun () ->
+         log_format_json := true;
+         Log.set_log_format_json ()
+       ))
+    (fun fmt -> Format.fprintf fmt "Output in JSON format")
+  let log_format_json () = !log_format_json
+
   
   (* Colored output *)
   let color_default = true
@@ -2230,7 +2243,7 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Display colors in ascii output (deactivated when using -xml)@ \
+          Display colors in ascii output (deactivated when using -xml or -json)@ \
           Default: %a\
         "
         fmt_bool color_default
@@ -2301,6 +2314,7 @@ let debug = Global.debug
 let debug_log = Global.debug_log
 let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
+let log_format_json = Global.log_format_json
 let input_format = Global.input_format
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis
@@ -2434,8 +2448,8 @@ let parse_clas specs anon_action global_usage_msg =
             Global.print_help () ;
             Format.printf "\n\x1b[31;1mError\x1b[0m: unknown flag \"%s\".@." flag
           )
-          | Log.F_xml -> (
-            Log.log L_error "Unknown flag \"%s\".@." flag
+          | Log.F_xml | Log.F_json -> (
+            Log.log L_error "Unknown flag '%s'.@." flag
           )
         );
         exit 2
@@ -2449,9 +2463,9 @@ let parse_clas specs anon_action global_usage_msg =
               "\x1b[31;1mError on flag\x1b[0m@.@[<v>%a@]@.%s@."
               fmt_flag spec error
           )
-          | Log.F_xml -> (
+          | Log.F_xml | Log.F_json -> (
             let flag, _, _ = spec in
-            Log.log L_error "Error on flag \"%s\":@ %s@." flag error
+            Log.log L_error "Error on flag '%s': %s@." flag error
           )
         );
         exit 2
@@ -2463,7 +2477,7 @@ let parse_clas specs anon_action global_usage_msg =
             Format.printf
               "\x1b[31;1mBad argument\x1b[0m: @[<v>%s.@]@." expl
           )
-          | Log.F_xml -> (
+          | Log.F_xml | Log.F_json -> (
             Log.log L_error "Bad argument:@ @[<v>%s.@]@." expl
           )
         );
@@ -2505,10 +2519,30 @@ let print_xml_options () =
     (Global.modular ())
 
 
+let print_json_options () =
+    let pp_print_module_str fmt mdl =
+      Format.fprintf fmt "\"%s\"" (Lib.short_name_of_kind_module mdl)
+    in
+    Format.fprintf !log_ppf "[@.{@[<v 1>@,\
+        \"objectType\" : \"kind2Options\",@,\
+        \"enabled\" :@,[@[<v 1>@,%a@]@,],@,\
+        \"timeout\" : %f,@,\
+        \"bmcMax\" : %d,@,\
+        \"compositional\" : %b,@,\
+        \"modular\" : %b\
+        @]@.}@.\
+    "
+    (pp_print_list pp_print_module_str ",@,") (Global.enabled ())
+    (Global.timeout_wall ())
+    (BmcKind.max ())
+    (Contracts.compositional ())
+    (Global.modular ())
+
 
 let post_argv_parse_actions () =
 
   if Global.log_format_xml () then print_xml_options ();
+  if Global.log_format_json () then print_json_options ();
 
   (* Don't print banner if no output at all. *)
   if not (Global.log_level () = L_off) then (
@@ -2526,9 +2560,9 @@ let parse_argv () =
   (* CLAPing. *)
   parse_clas (Global.all_kind2_specs ()) anon_action Global.usage_msg ;
 
-  (* Colors if flag is not false and not in xml mode *)
+  (* Colors if flag is not false and not in xml or json mode *)
   let open Format in
-  if color () && not (log_format_xml ()) then begin
+  if color () && not (log_format_xml () || log_format_json ()) then begin
     pp_set_tags std_formatter true;
     pp_set_tags err_formatter true;
     pp_set_tags !Lib.log_ppf true;

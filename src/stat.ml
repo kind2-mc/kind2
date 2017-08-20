@@ -231,11 +231,72 @@ let pp_print_item_xml ppf = function
       value
 
   
-(* Pretty-print a group of statistics items *)
+(* Pretty-print a group of statistics items in XML *)
 let pp_print_stats_xml ppf stats = 
 
   pp_print_list pp_print_item_xml "@," ppf stats
-    
+
+
+let pp_print_list_attrib pp ppf = function
+  | [] -> Format.fprintf ppf " []"
+  | lst -> Format.fprintf ppf
+    "@,[@[<v 1>@,%a@]@,]" (pp_print_list pp ",@,") lst
+
+
+(* Pretty-print one statistics item *)
+let pp_print_item_json ppf = function
+
+  | I { display; value } ->
+
+    Format.fprintf ppf
+      "{@[<v 1>@,\
+        \"name\" : \"%s\",@,\
+        \"type\" : \"int\",@,\
+        \"value\" : %d\
+       @]@,}\
+      "
+      display value
+
+  | F { display; value } ->
+
+    Format.fprintf ppf
+      "{@[<v 1>@,\
+        \"name\" : \"%s\",@,\
+        \"type\" : \"float\",@,\
+        \"value\" : %.3f\
+       @]@,}\
+      "
+      display value
+
+  | L { display; value } ->
+
+    let pp_print_value_json ppf value =
+      Format.fprintf ppf
+        "{@[<v 1>@,\
+          \"type\" : \"int\",@,\
+          \"value\" : %d\
+         @]@,}\
+        "
+        value
+    in
+
+    Format.fprintf ppf
+      "{@[<v 1>@,\
+        \"name\" : \"%s\",@,\
+        \"type\" : \"list\",@,\
+        \"valueList\" :%a\
+       @]@,}\
+      "
+      display
+      (pp_print_list_attrib pp_print_value_json) value
+
+
+(* Pretty-print a group of statistics items in JSON *)
+let pp_print_stats_json ppf stats =
+
+  (pp_print_list_attrib pp_print_item_json ppf) stats
+
+
 (* ********************************************************************** *)
 (* Statistics items                                                       *)
 (* ********************************************************************** *)
@@ -737,4 +798,4 @@ let pp_print_misc_stats ppf =
    indent-tabs-mode: nil
    End: 
 *)
-  
+

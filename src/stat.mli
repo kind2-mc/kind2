@@ -109,8 +109,11 @@ val continue_timer : float_timer -> unit
 (** Print statistics  *)
 val pp_print_stats : Format.formatter -> stat_item list -> unit 
 
-(** Print statistics  *)
+(** Print statistics in XML *)
 val pp_print_stats_xml : Format.formatter -> stat_item list -> unit 
+
+(** Print statistics in JSON *)
+val pp_print_stats_json : Format.formatter -> stat_item list -> unit
 
 (** {2 BMC} *)
 

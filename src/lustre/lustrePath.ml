@@ -1169,14 +1169,7 @@ let pp_print_call_xml ppf = function
 
 
 (* Output the identifier of an indexed stream *)
-let pp_print_stream_ident_xml ppf (index, state_var) = 
-
-  Format.fprintf
-    ppf
-    "%a%a"
-    pp_print_lustre_var state_var
-    (D.pp_print_index false) index
-
+let pp_print_stream_ident_xml = pp_print_stream_ident_pt
 
 
 (* Pretty-print a property of a stream as XML attributes *)
@@ -1393,6 +1386,285 @@ let pp_print_path_xml
     first_is_init trans_sys instances model subsystems
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf
+
+
+(* ********************************************************************** *)
+(* JSON output                                                             *)
+(* ********************************************************************** *)
+
+
+(* Output a call trace *)
+let pp_print_call_json ppf = function
+
+  (* Nothing to output for the top node *)
+  | [] -> ()
+
+  (* Output only the position of the last call *)
+  | (_, pos) :: _ ->
+
+    let pp_print_file_json ppf pos_file =
+      if pos_file = "" then () else
+        Format.fprintf ppf "\"file\" : \"%s\",@," pos_file
+    in
+
+    (* Do not print anything for a dummy position *)
+    if is_dummy_pos pos then () else
+
+      (* Get file, line and column of position *)
+      let pos_file, pos_lnum, pos_cnum =
+        file_row_col_of_pos pos
+      in
+
+      (* Print attributes *)
+      Format.fprintf ppf
+        "%a\"line\" : %d,@,\"column\" : %d,@,"
+        pp_print_file_json pos_file
+        pos_lnum
+        pos_cnum
+
+
+(* Output the identifier of an indexed stream *)
+let pp_print_stream_ident_json = pp_print_stream_ident_pt
+
+
+(* Pretty-print a property of a stream as JSON attributes *)
+let rec pp_print_stream_prop_json ppf = function
+
+  | N.Input -> Format.fprintf ppf "\"class\" : \"input\",@,"
+
+  | N.Output -> Format.fprintf ppf "\"class\" : \"output\",@,"
+
+  | N.Local -> Format.fprintf ppf "\"class\" : \"local\",@,"
+
+  | N.Alias (_, Some src) -> pp_print_stream_prop_json ppf src
+
+  (* Any other streams should have been culled out *)
+  | _ -> assert false
+
+
+(* Pretty-print a single value of a stream at an instant *)
+let pp_print_stream_value_json ty ppf i show v =
+  if show then
+    Format.fprintf ppf
+      "@,[%d, %a]"
+      i (Model.pp_print_value_xml ~as_type:ty) v
+
+
+let pp_print_stream_values_json clock ty ppf l =
+  match clock with
+  | None ->
+    (* Show all values if no clock *)
+    pp_print_listi (fun ppf i -> pp_print_stream_value_json ty ppf i true) "," ppf l
+  | Some c ->
+    (* Show values sampled on the clock *)
+    pp_print_list2i (pp_print_stream_value_json ty) "," ppf c l
+
+
+(* Pretty-print a single stream *)
+let pp_print_stream_json get_source model clock ppf (index, state_var) =
+  try
+    let stream_values = SVT.find model state_var in
+    let stream_type = StateVar.type_of_state_var state_var in
+    Format.fprintf ppf
+      "@,{@[<v 1>@,\
+        \"name\" : \"%a\",@,\
+        \"type\" : \"%a\",@,\
+        %a\
+        \"instantValues\" :%t\
+       @]@,}\
+      "
+      pp_print_stream_ident_json (index, state_var)
+      (E.pp_print_lustre_type false) stream_type
+      pp_print_stream_prop_json (get_source state_var)
+      (function ppf ->
+         if stream_values = [] then
+           Format.fprintf ppf " []"
+         else
+           Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
+           (pp_print_stream_values_json clock stream_type)
+           stream_values
+      )
+
+  with Not_found -> assert false
+
+
+let pp_print_active_modes_json ppf = function
+  | None | Some [] -> ()
+  | Some mode_trace ->
+      Format.fprintf ppf ",@,\"activeModes\" :@,[@[<v 1>%a@]@,]"
+        (pp_print_list (fun fmt (k, tree) ->
+          Format.fprintf ppf
+            "@,{@[<v 1>@,\
+              \"instant\" : \"%d\",@,\
+              %a\
+             @]@,}\
+            "
+            k
+            C.ModeTrace.fmt_as_cex_step_json tree
+        ) ",")
+        (
+          mode_trace |> List.fold_left (
+          fun (acc, count) mode ->
+            (count, C.ModeTrace.mode_paths_to_tree mode) :: acc, count + 1
+          ) ([], 0)
+          |> fst |> List.rev
+        )
+
+
+let pp_print_streams_json get_source model clock ppf = function
+  | [] -> ()
+  | streams ->
+      Format.fprintf ppf ",@,\"streams\" :@,[@[<v 1>%a@]@,]"
+        (pp_print_list
+          (pp_print_stream_json get_source model clock) ",")
+        streams
+
+
+let pp_print_automaton_json get_source model clock ppf (name, streams) =
+
+  Format.fprintf ppf
+    "@,{@[<v 1>@,\
+      \"name\" : \"%s\"\
+      %a\
+     @]@,}\
+    "
+    name (pp_print_streams_json get_source model clock) streams
+
+
+let pp_print_automata_json get_source model clock ppf auto_map =
+
+  if MS.is_empty auto_map then () else
+    Format.fprintf ppf ",@,\"automata\" :@,[@[<v 1>%a@]@,]"
+      (pp_print_list
+        (pp_print_automaton_json get_source model clock) ",")
+      (MS.bindings auto_map)
+
+
+let pp_print_streams_and_automata_json ppf
+  ({N.inputs; N.outputs; N.locals} as node, model, call_conds) =
+
+  let
+    is_visible, get_source =
+    N.state_var_is_visible node, N.get_state_var_source node
+  in
+
+  (* Boolean clock that indicates if the node is active for this particular
+     call *)
+  let clock = act_stream model call_conds in
+
+  (* Remove first dimension from index *)
+  let pop_head_index = function
+    | ([], sv) -> ([], sv)
+    | (h :: tl, sv) -> (tl, sv)
+  in
+
+  (* Remove index of position in input for printing *)
+  let inputs' =
+    D.bindings inputs
+    |> List.filter (fun (_, sv) -> is_visible sv)
+    |> List.map pop_head_index
+  in
+
+  (* Remove index of position in output for printing *)
+  let outputs' =
+    D.bindings outputs
+    |> List.filter (fun (_, sv) -> is_visible sv)
+    |> List.map pop_head_index
+  in
+
+  (* Filter locals to for visible state variables only and return
+     as a list
+
+     The list of locals is the reversed from the original input in the node,
+     with fold_left in partition_locals_automaton here we get it in the
+     original order again. *)
+  let locals_auto', locals' = partition_locals_automaton is_visible locals in
+
+  let streams = []
+    |> List.rev_append inputs'
+    |> List.rev_append outputs'
+    |> List.rev_append locals'
+    |> List.rev
+  in
+
+  Format.fprintf ppf "%a%a"
+    (pp_print_streams_json get_source model clock) streams
+    (pp_print_automata_json get_source model clock) locals_auto'
+
+
+(* Output a list of node models. *)
+let rec pp_print_lustre_path_json' ppf = function
+
+  | [] -> ()
+
+  | (
+    trace, Node ({ N.name; N.is_function } as node,
+      model, active_modes, call_conds, subnodes
+    )
+  ) :: tl when N.node_is_visible node ->
+
+    let is_state, name =
+      match N.node_is_state_handler node with
+      | None -> false, name
+      | Some state -> true, I.mk_string_ident state
+    in
+
+    let title =
+      if is_function then "function"
+      else if is_state then "state"
+      else "node"
+    in
+
+    let pp_print_subnodes_json ppf = function
+      | [] -> ()
+      | subnodes ->
+          Format.fprintf ppf ",@,\"subnodes\" :@,[@[<v 1>%a@]@,]"
+            pp_print_lustre_path_json' subnodes
+    in
+
+    let comma = if tl <> [] then "," else "" in
+
+    (* Pretty-print this node *)
+    Format.fprintf ppf
+       "@,{@[<v 1>@,\
+        \"blockType\" : \"%s\",@,\
+        \"name\" : \"%a\"\
+        %a%a%a\
+        @]@,}%s\
+       "
+       title (I.pp_print_ident false) name
+       pp_print_active_modes_json active_modes
+       pp_print_streams_and_automata_json (node, model, call_conds)
+       pp_print_subnodes_json subnodes
+       comma;
+
+    (* Continue *)
+    pp_print_lustre_path_json' ppf tl
+
+  | _ :: tl ->
+
+    (* Continue *)
+    pp_print_lustre_path_json' ppf tl
+
+
+(* Output sequences of values for each stream of the node and for all
+   its called nodes *)
+let pp_print_lustre_path_json ppf path =
+
+  (* Delegate to recursive function *)
+  Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
+    pp_print_lustre_path_json' [path]
+
+
+(* Ouptut a hierarchical model as JSON *)
+let pp_print_path_json
+  trans_sys instances subsystems first_is_init ppf model
+=
+  (* Create the hierarchical model *)
+  node_path_of_subsystems
+    first_is_init trans_sys instances model subsystems
+  (* Output as JSON *)
+  |> pp_print_lustre_path_json ppf
 
 
 (* ********************************************************************** *)

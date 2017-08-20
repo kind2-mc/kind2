@@ -64,6 +64,9 @@ val pp_print_path_pt : _ t -> TransSys.t -> TransSys.instance list -> bool -> Fo
 (** Output a path in the input system *)
 val pp_print_path_xml : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
+(** Output a path in the input system *)
+val pp_print_path_json : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
+
 (** Output a model as a sequnce of inputs in CSV. *)
 val pp_print_path_in_csv : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
 
