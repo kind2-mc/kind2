@@ -30,7 +30,7 @@
   <a id="forkme_banner" href="https://github.com/kind2-mc/kind2">View on GitHub</a>
   
   <h1 id="project_title">Kind 2</h1>
-  <h2 id="project_tagline">Multi-engine SMT-based automatic model checker for safety properties of Lustre programs</h2>
+  <h2 id="project_tagline">Multi-engine SMT-based automatic model checker for synchronous reactive systems</h2>
   
   <section id="download">
   <ul>
@@ -53,7 +53,7 @@
       <a name="about" class="anchor" href="#about"><span class="octicon octicon-link"></span></a>About</h2>
 
       <p>Kind 2 is an open-source, multi-engine, SMT-based automatic model checker for
-safety properties of Lustre programs. It takes as input a Lustre file annotated with properties to prove invariant, and outputs for each property either a confirmation or a counterexample, a sequence inputs that falsifies the property.</p>
+safety properties of synchronous reactive systems expressed as in an extension of the <a href="http://www-verimag.imag.fr/The-Lustre-Programming-Language.html?lang=en">Lustre</a> language. It takes as input one or more Lustre files annotated with properties to be proven invariant, and outputs for each property either a confirmation or a counterexample, i.e., a sequence inputs that falsifies the property.</p>
 
       <p>Kind 2 is a from-scratch reimplementation of the <a href="http://clc.cs.uiowa.edu/Kind">Kind</a> model checker.</p>
 
@@ -85,6 +85,27 @@ safety properties of Lustre programs. It takes as input a Lustre file annotated 
         <dd>Discussions between users and developers</dd>
       </dl>
 
+      <h2> <a name="doc" class="anchor" href="#doc"><span class="octicon octicon-link"></span></a>Documentation</h2>
+
+      <ul>
+	<li>
+	<a href="doc/doc.html">User documentation in single HTML page format</a>
+	</li>
+  <li>
+  <a href="doc/doc.pdf">User documentation in PDF format</a>
+  </li>
+	<li>
+	<a href="doc/code/develop/index.html">Caml documentation (develop branch)</a>
+	</li>
+	<li>
+	<a href="http://kind.cs.uiowa.edu/kind2_dev_doc/">Developer's documentation for current develop branch</a>
+	</li>
+      </ul>
+      
+      <h2> <a name="kind2-web" class="anchor" href="#kind2-web"><span class="octicon octicon-link"></span></a>Try Kind 2 Online</h2>
+
+      <p>Visit our <a href="http://kind.cs.uiowa.edu:8080/app" rel="nofollow"> web interface</a> to try Kind 2 from your browser</p>
+
       <h2> <a name="download" class="anchor" href="#download"><span class="octicon octicon-link"></span></a>Download</h2>
 
       <ul>
@@ -101,41 +122,17 @@ safety properties of Lustre programs. It takes as input a Lustre file annotated 
 	</li>
       </ul>
 
-      <h2> <a name="doc" class="anchor" href="#doc"><span class="octicon octicon-link"></span></a>Documentation</h2>
-
-      <ul>
-	<li>
-	<a href="doc/doc.html">User documentation in single
-	HTML page format.</a>
-	</li>
-  <li>
-  <a href="doc/doc.pdf">User documentation in PDF
-    format.</a>
-  </li>
-	<li>
-	<a href="doc/code/develop/index.html">Caml documentation (develop branch).</a>
-	</li>
-	<li>
-	<a href="http://kind.cs.uiowa.edu/kind2_dev_doc/">Developer's documentation for current develop branch</a>
-	</li>
-      </ul>
-      
-      <h2> <a name="kind2-web" class="anchor" href="#kind2-web"><span class="octicon octicon-link"></span></a>Try Kind 2 Online</h2>
-
-      <p>Visit our <a href="http://kind.cs.uiowa.edu:8080/kind" rel="nofollow"> web interface</a> to try Kind 2 from your browser.</p>
-
-      <h2> <a name="contact" class="anchor" href="#contact"><span class="octicon octicon-link"></span></a>Contact</h2>
-
-      <p><a href="http://homepage.cs.uiowa.edu/~tinelli/">Cesare Tinelli</a></p>
-      
       <h2> <a name="people" class="anchor" href="#people"><span class="octicon octicon-link"></span></a>People</h2>
       <ul>
 	<li><a href="http://homepage.divms.uiowa.edu/~tinelli">Cesare Tinelli</a></li>
-	<li><a href="https://www.researchgate.net/profile/Adrien_Champion">Adrien Champion</a></li>
+	<li><a href="https://daniel-larraz.github.io/">Daniel Larraz</a></li>
+	<li><a href="https://cs.uiowa.edu/node/1265">Mudathir Mohamed</a></li>
       </ul>
+
 
       <p>Formerly:
       <ul>
+	<li><a href="https://www.researchgate.net/profile/Adrien_Champion">Adrien Champion</a></li>
   <li><a href="http://homepage.divms.uiowa.edu/~amebsout">Alain Mebsout</a></li>
 	<li><a href="http://www.sticksel.info/christoph/">Christoph Sticksel</a></li>
 	<li>John Bodeen</li>
