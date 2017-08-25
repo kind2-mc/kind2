@@ -443,6 +443,20 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       
   in
 
+  (* does the frame imply the clause? *)
+  let isEntailed abvar_map frame clause =
+    (* F ^ hp ^ ~c *)
+    let terms_to_check =
+      let hp = Term.mk_and (get_hp abvar_map) in
+      (Term.negate clause) :: hp :: frame
+    in
+
+    not (SMTSolver.check_sat_assuming_tf
+	   solver
+	   (List.map mk_and_assert_actlit terms_to_check))
+      
+  in
+  
   (* is the clause redundant given the frame? *)
   let notentailed frame clause =
     SMTSolver.check_sat_assuming_tf
@@ -670,22 +684,16 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
       (* SAT case - returns the term assignments on the path *)
       (fun _ assignments ->
 
-	let term_list = List.map
-	  (fun (term, value) -> Term.mk_eq [term;value])
-	  assignments
-	in
-
 	let model = 
 	SMTSolver.get_var_values
           solver
           (TransSys.get_state_var_bounds trans_sys)
           (TransSys.vars_of_bounds trans_sys Numeral.zero (Numeral.of_int k))
 	in
-
+	
 	Format.printf "@.Model: %a@." Model.pp_print_model model;
-
+	
 	Some model)
-      (* get_term_list_from_term_values assignments*)
 
       (* UNSAT case - returns an empty list *)
       (fun _ -> None)
@@ -939,10 +947,13 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 	 (* the blocking clause without candidate c *)
 	 let clause = Term.mk_or (candidates' @ confirmed) in
 
-	 (* discard candidates that are not needed for the clause to be inductive or satisfiable*)
+	 (* discard candidates that are not needed for the clause to be inductive or satisfiable or entailed*)
 	 if ((isabsrelind abvar_map (List.concat frames_gte) clause)
+	     (* && *)
+	     (*   (isSatisfiable abvar_map f0 clause) *)
 	     &&
-	       isSatisfiable abvar_map f0 clause)
+	       (* =TODO= this is supposed to fix unsound examples - make sure it does not break things  *)
+	       (isEntailed abvar_map f0 clause))
 	 then generalize confirmed candidates'
 	 else generalize (c::confirmed) candidates'
 
@@ -994,19 +1005,12 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
 	      Format.printf "@. Generalized blocking clause = %a@." Term.pp_print_term g;
 	     
 	      (g::fi) :: frames_lt
-		
-	   (* if no clause was returned, we must have recblocked it already. 
-	      Therefore propagate changes from lower frames but avoid success exception. *)
-	    | None ->
 
-	       (* TODO: is this state reachable? *)
+	    (* should not be reachable *)
+	    | None ->
 	       Format.printf "@.Generalized blocking clause returned None @.";
-	       raise Error;
-	       propagate
-	       abvar_map
-	      (List.tl frames_gte)
-	       (fi::frames_lt))
-	     
+	      raise Error)
+		
 	 (* It isn't - we'd better block the counterexample and try again *)    
 	 | cti ->
 	    let cex = Term.mk_and cti in
