@@ -140,7 +140,9 @@ let update_abvar_map old_map new_predicates =
 
   let new_abvars = List.map
     (fun t -> TermMap.find t new_map)
-    new_predicates
+    (List.filter
+       (fun t -> TermMap.mem t new_map)
+       new_predicates)
   in
   
   new_map, new_abvars
@@ -225,6 +227,7 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   let clone_map = get_clone_map (trans::predicates) in
 
   (* Creates a clone of an uncloned term using provided map *)
+  (* May raise Not_found *)
   let clone_term term =
     let lookup term = StateVar.StateVarMap.find term clone_map in
     Term.map_state_vars lookup term
@@ -263,13 +266,22 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   in
   
   (* Generates a term asserting the equality of an uncloned term and its clone *)
+  (* May raise Not_found *)
   let mk_clone_eq term =
-    Term.mk_eq [term;clone_term term]
+    try
+      Some (Term.mk_eq [term;clone_term term])
+    with
+    | Not_found -> None
   in
 
   (* Gets the conjunction of equivalences between terms and their clones *)
   let get_eqP predicates =
-    Term.mk_and (List.map mk_clone_eq predicates)
+    Term.mk_and
+      (List.map
+	 (fun t -> match mk_clone_eq t with
+	 | Some eq -> eq
+	 | None -> Term.mk_true ())
+	 predicates)
   in
 
   (* ********************************************************************** *)
