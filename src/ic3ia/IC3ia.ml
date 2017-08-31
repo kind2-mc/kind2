@@ -234,17 +234,29 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   in
   
   let declare_clone_variables_at_offset n =
-
-    let set_of_variables_at_offset = List.map
+    
+    let list_of_variables_at_offset = List.map
       (fun sv ->
 	let clone_sv = StateVar.StateVarMap.find sv clone_map in
 	Var.mk_state_var_instance clone_sv (Numeral.of_int n))
       (StateVar.StateVarSet.elements statevars)
     in
+
+    let constant_variables, variables = List.partition
+      Var.is_const_state_var
+      list_of_variables_at_offset
+    in
     
     Var.declare_vars
       (SMTSolver.declare_fun solver)
-      set_of_variables_at_offset
+      variables;
+
+    (* Only declare constant variables at the beginning; they are constant, so they don't need to change again. *)
+    if n==0
+    then
+      (Var.declare_constant_vars
+	 (SMTSolver.declare_fun solver)
+	 constant_variables;)
   in
 
   (* Initialize the clone variables *)
@@ -254,15 +266,20 @@ let ic3ia solver input_sys aparam trans_sys init trans prop =
   (* For declaring user variables at higher offsets *)
   let declare_variables_at_offset n =
 
-    let set_of_variables_at_offset = List.map
+    let list_of_variables_at_offset = List.map
       (fun sv ->
 	Var.mk_state_var_instance sv (Numeral.of_int n))
       (StateVar.StateVarSet.elements statevars)
     in
+
+    let variables = List.filter
+      Var.is_state_var_instance
+      list_of_variables_at_offset
+    in
     
     Var.declare_vars
       (SMTSolver.declare_fun solver)
-      set_of_variables_at_offset;
+      variables;
   in
   
   (* Generates a term asserting the equality of an uncloned term and its clone *)
