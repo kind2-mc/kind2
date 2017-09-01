@@ -233,6 +233,22 @@ let pp_print_path_xml
   | Horn _ -> assert false
 
 
+let pp_print_path_json
+(type s) (input_system : s t) trans_sys instances first_is_init ppf model =
+
+  match input_system with
+
+  | Lustre (subsystem, _) ->
+    LustrePath.pp_print_path_json
+      trans_sys instances subsystem first_is_init ppf model
+
+  | Native _ ->
+    Format.eprintf "pp_print_path_json not implemented for native input@.";
+    assert false;
+
+  | Horn _ -> assert false
+
+
 let pp_print_path_in_csv
 (type s) (input_system : s t) trans_sys instances first_is_init ppf model =
   match input_system with
@@ -430,7 +446,37 @@ fun sys ->
   | Horn _ ->
     failwith "can't generate contracts from horn clause input: unsupported"
 
-let contract_gen_trans_sys_of (type s) ?(preserve_sig = false)
+let remove_contracts (type s) : s t -> s t = function
+
+  | Lustre (
+    { S.source ; S.subsystems } as subsystem, globals
+  ) -> (
+    (* Building new subsystem removing contracts. *)
+    let subsystem =
+      { subsystem with
+        S.source = { source with N.contract = None; N.silent_contracts = [] };
+        S.has_contract = false;
+        S.has_modes = false;
+        S.subsystems = subsystems |> List.fold_left (
+          fun acc ( {
+            S.source = ( { N.name ; N.outputs ; N.props } as node )
+          } as sys ) ->
+            (* Format.printf "%a@." (LustreIdent.pp_print_ident false) name ; *)
+            let node = { node with N.contract = None; N.silent_contracts = [] } in
+            (* Format.printf "@." ; *)
+            { sys with S.source = node } :: acc
+        ) [] |> List.rev
+      }
+    in
+    Lustre (subsystem, globals)
+  )
+
+  | Native sub -> Native sub
+
+  | Horn sub -> Horn sub
+
+
+let unsliced_trans_sys_of (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (

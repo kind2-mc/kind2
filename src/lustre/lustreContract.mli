@@ -121,6 +121,8 @@ module ModeTrace: sig
   val mode_trace_to_tree: mode list list -> mode_tree list
   (** Formats a tree as a cex step in xml. *)
   val fmt_as_cex_step_xml: Format.formatter -> mode_tree -> unit
+  (** Formats a tree as a cex step in JSON *)
+  val fmt_as_cex_step_json: Format.formatter -> mode_tree -> unit
 end
       
 (* 

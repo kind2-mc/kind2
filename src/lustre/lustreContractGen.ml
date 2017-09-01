@@ -625,7 +625,7 @@ let generate_contract_for in_sys param sys path invs name =
   Format.fprintf fmt "@]@.tel@.@."
 
 let generate_contracts in_sys param sys path contract_name =
-  Format.printf "%d invariants@.@." (
+  Event.log_uncond "%d invariants@.@." (
     TransSys.invars_of_bound sys Numeral.zero |> List.length
   ) ;
 (*   Event.log_uncond "  \
