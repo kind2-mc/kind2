@@ -336,57 +336,8 @@ module IC3 : sig
 end
 
 (** {2 IC3ia flags} *)
+(* IC3ia does not have any flags *)
 module IC3ia : sig
-
-  (** Algorithm usable for quantifier elimination in IC3ia. *)
-  type qe = [
-    `Z3 | `Z3_impl | `Z3_impl2 | `Cooper
-  ]
-
-  (** The QE algorithm IC3ia should use. *)
-  val qe : unit -> qe
-
-  (** Sets [qe]. *)
-  val set_qe : qe -> unit
-
-  (** Check inductiveness of blocking clauses. *)
-  val check_inductive : unit -> bool
-
-  (** File for inductive blocking clauses. *)
-  val print_to_file : unit -> string option
-
-  (** Tighten blocking clauses to an unsatisfiable core. *)
-  val inductively_generalize : unit -> int
-
-  (** Block counterexample in future frames. *)
-  val block_in_future : unit -> bool
-
-  (** Block counterexample in future frames first before returning to frame. *)
-  val block_in_future_first : unit -> bool
-
-  (** Also propagate clauses before generalization. *)
-  val fwd_prop_non_gen : unit -> bool
-
-  (** Inductively generalize all clauses after forward propagation. *)
-  val fwd_prop_ind_gen : unit -> bool
-
-  (** Subsumption in forward propagation. *)
-  val fwd_prop_subsume : unit -> bool
-
-  (** Use invariants from invariant generators. *)
-  val use_invgen : unit -> bool
-
-  (** Legal abstraction mechanisms for in IC3ia. *)
-  type abstr = [ `None | `IA ]
-
-  (** Abstraction mechanism IC3ia should use. *)
-  val abstr : unit -> abstr
-
-  (** Legal heuristics for extraction of implicants in IC3ia. *)
-  type extract = [ `First | `Vars ]
-
-  (** Heuristic for extraction of implicants in IC3ia. *)
-  val extract : unit -> extract
 end
 
 (** {2 QE flags} *)
