@@ -335,6 +335,11 @@ module IC3 : sig
   val extract : unit -> extract
 end
 
+(** {2 IC3ia flags} *)
+(* IC3ia does not have any flags *)
+module IC3ia : sig
+end
+
 (** {2 QE flags} *)
 module QE : sig
 

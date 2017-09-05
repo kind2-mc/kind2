@@ -714,7 +714,8 @@ let pp_print_version ppf = pp_print_banner ppf ()
 
 (* Kind modules *)
 type kind_module = 
-  [ `IC3 
+  [ `IC3
+  | `IC3ia 
   | `BMC
   | `IND
   | `IND2
@@ -734,6 +735,7 @@ type kind_module =
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
   | `IC3 -> fprintf ppf "property directed reachability"
+  | `IC3ia -> fprintf ppf "property directed reachability with implicit abstraction"
   | `BMC -> fprintf ppf "bounded model checking"
   | `IND -> fprintf ppf "inductive step"
   | `IND2 -> fprintf ppf "2-induction"
@@ -755,26 +757,28 @@ let string_of_kind_module = string_of_t pp_print_kind_module
 
 (* Return a short representation of kind module *)
 let short_name_of_kind_module = function
- | `IC3 -> "ic3"
- | `BMC -> "bmc"
- | `IND -> "ind"
- | `IND2 -> "ind2"
- | `INVGEN -> "invgents"
- | `INVGENOS -> "invgenos"
- | `INVGENINT -> "invgenintts"
- | `INVGENINTOS -> "invgenintos"
- | `INVGENREAL -> "invgenintts"
- | `INVGENREALOS -> "invgenintos"
- | `C2I -> "c2i"
- | `Interpreter -> "interp"
- | `Supervisor -> "super"
- | `Parser -> "parse"
- | `Certif -> "certif"
+  | `IC3 -> "ic3"
+  | `IC3ia -> "ic3ia"
+  | `BMC -> "bmc"
+  | `IND -> "ind"
+  | `IND2 -> "ind2"
+  | `INVGEN -> "invgents"
+  | `INVGENOS -> "invgenos"
+  | `INVGENINT -> "invgenintts"
+  | `INVGENINTOS -> "invgenintos"
+  | `INVGENREAL -> "invgenintts"
+  | `INVGENREALOS -> "invgenintos"
+  | `C2I -> "c2i"
+  | `Interpreter -> "interp"
+  | `Supervisor -> "super"
+  | `Parser -> "parse"
+  | `Certif -> "certif"
                 
 
 (* Process type of a string *)
 let kind_module_of_string = function 
   | "IC3" -> `IC3
+  | "IC3ia" -> `IC3ia
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "IND2" -> `IND2
@@ -804,7 +808,7 @@ let int_of_kind_module = function
   | `INVGENREAL -> 9
   | `INVGENREALOS -> 10
   | `C2I -> 11
-
+  | `IC3ia -> 12
 
 (* Timeouts *)
 exception TimeoutWall

@@ -730,6 +730,26 @@ module IC3 = struct
 
 end
 
+(* IC3ia flags. *)
+module IC3ia = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "ic3ia"
+  (* Short description of the module. *)
+  let desc = "IC3ia flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      IC3ia is a variant of the IC3 technique which uses abstract states based on @ \
+      the predicates of the problem as opposed to concrete states. After finding@ \
+      a counterexample, IC3ia will attempt to concretize it, adding new predicates@ \
+      to rule it out in the event that it does not succeed in doing so.@ \
+      IC3ia does not have any flags. @ \
+    @]"
+end
+
 
 (* Quantifier elimination module. *)
 module QE = struct
@@ -1599,6 +1619,9 @@ let module_map = [
   (IC3.id,
     (module IC3: FlagModule)
   ) ;
+  (IC3ia.id,
+   (module IC3ia: FlagModule)
+  ) ;
   (Invgen.id,
     (module Invgen: FlagModule)
   ) ;
@@ -1961,6 +1984,7 @@ module Global = struct
   (* Modules enabled. *)
   type enable = kind_module list
   let kind_module_of_string = function
+    | "IC3ia" -> `IC3ia
     | "IC3" -> `IC3
     | "BMC" -> `BMC
     | "IND" -> `IND
@@ -1978,6 +2002,7 @@ module Global = struct
     ) |> raise
 
   let string_of_kind_module = function
+    | `IC3ia -> "IC3ia"
     | `IC3 -> "IC3"
     | `BMC -> "BMC"
     | `IND -> "IND"
@@ -1999,7 +2024,7 @@ module Global = struct
       ) ^ "]"
     | [] -> "[]"
   let enable_values = [
-    `IC3 ; `BMC ; `IND ; `IND2 ;
+    `IC3 ; `IC3ia ; `BMC ; `IND ; `IND2 ;
     `INVGEN ; `INVGENOS ;
     `INVGENINT ; `INVGENINTOS ;
     `INVGENREAL ; `INVGENREALOS ;
@@ -2491,6 +2516,7 @@ let parse_clas specs anon_action global_usage_msg =
 let solver_dependant_actions () = match Smt.solver () with
   | (`Yices_SMTLIB) as s -> (
     (* Disable IC3 for Yices 2 because of lack of support for unsat cores*)
+    Global.disable `IC3ia;
     Global.disable `IC3;
     Log.log L_warn "Disabling IC3 with solver %s" (Smt.string_of_solver s);
     (* Yices 2 SMTLIB requires the specification of a theory *)

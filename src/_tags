@@ -16,6 +16,8 @@ true: -traverse, annot, bin_annot, color(always)
 <c2i>: include
 <certif>: include
 <doc>: include
+<ic3ia>: include
+
 
 # Use Unix, Str, ZMQ and Thread modules  
 <**/*.native>: use_nums,use_unix,use_str,use_ZMQ,thread
