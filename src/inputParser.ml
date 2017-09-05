@@ -85,7 +85,7 @@ let rec parse =
         "Typing error in input values file at line %d: \
          expected value of type %a, got value %s"
         !line_nb Type.pp_print_type ty s;
-      exit 2
+      raise (Parsing.Parse_error)
 
 
 (* Read in a csv file *)

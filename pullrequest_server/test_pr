@@ -64,7 +64,7 @@ base_sha=$7
 uniq="$sha$base_sha"
 
 # everything will be run in $workdir
-workdir="$HOME/$uniq"
+workdir="$HOME/sandbox/$uniq"
 mkdir -p $workdir
 
 # the variable $OK contains the status of the build/tests:

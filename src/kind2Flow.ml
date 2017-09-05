@@ -160,7 +160,7 @@ let status_of_exn process status = function
   (* Normal termination. *)
   | Exit -> status
   (* Parser error *)
-  | LustreAst.Parser_error ->
+  | LustreAst.Parser_error | Parsing.Parse_error ->
     ExitCodes.error
   (* Got unknown, issue error but normal termination. *)
   | SMTSolver.Unknown ->
@@ -475,7 +475,7 @@ let run in_sys =
     match
       Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
     with
-    | Some param ->
+    | Some param -> (
       (* Build trans sys and slicing info. *)
       let sys, _ =
         ISys.unsliced_trans_sys_of ~preserve_sig:true in_sys param
@@ -483,13 +483,17 @@ let run in_sys =
       (* Set module currently running. *)
       Event.set_module m ;
       (* Run interpreter. *)
-      Interpreter.main (
-        Flags.Interpreter.input_file ()
-      ) in_sys param sys ;
-      (* Ignore SIGALRM from now on *)
-      Signals.ignore_sigalrm () ;
-      (* Cleanup before exiting process *)
-      on_exit_child None m Exit
+      try (
+        Interpreter.main (
+          Flags.Interpreter.input_file ()
+        ) in_sys param sys ;
+        (* Ignore SIGALRM from now on *)
+        Signals.ignore_sigalrm () ;
+        (* Cleanup before exiting process *)
+        on_exit_child None m Exit
+      )
+      with Parsing.Parse_error as e -> on_exit_child None m e
+    )
     | None ->
       failwith "Could not generate first analysis parameter."
   )
