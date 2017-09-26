@@ -467,6 +467,17 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
       (* Otherwise propagate error *)
       else raise e
+      (*
+      else (
+      let buf = Bytes.create 512 in
+      let len = ref (Unix.read solver_stderr buf 0 512) in
+      while (!len > 0) do
+        Format.printf "%s" (Bytes.sub_string buf 0 !len);
+        len := (Unix.read solver_stderr buf 0 512)
+      done;
+      solver.solver_trace_coms "__EXCEPTION__";
+      raise e)
+      *)
 
 
   (* Samme as above but additionnaly trace the commands and responses *)
