@@ -149,7 +149,7 @@ function run_in {
   file_count=`eval $find_cmd | wc -l | tr -d ' '`
   echo "| Running \"error\" ($file_count files)"
   for file in `eval $find_cmd`; do
-    run_one "$file" "$error_code" "$kind2_cmd"
+    run_one "$file" "$error_code" "$kind2_cmd --lus_strict true"
   done
 }
 
