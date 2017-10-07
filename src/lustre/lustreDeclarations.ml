@@ -80,6 +80,12 @@ type automaton_info = {
 exception Found_auto_out of A.clocked_typed_decl
 exception Found_last_ty of A.lustre_type
 
+
+let fail_or_warn =
+  if Flags.lus_strict () then
+    C.fail_at_position else C.warn_at_position
+
+
 (* Create a new name for anonymous automata *)
 let fresh_automaton_name =
   let cpt = ref 0 in
@@ -1221,7 +1227,7 @@ and eval_ghost_var
     ) ;
 
     if A.has_unguarded_pre expr then (
-      C.fail_at_position
+      fail_or_warn
         pos
         "Illegal unguarded pre in ghost variable definition."
     ) ;
@@ -1288,7 +1294,7 @@ and eval_ghost_var
 and eval_contract_item check scope (ctx, accum, count) (pos, iname, expr) =
   (* Check for unguarded pre-s. *)
   if A.has_unguarded_pre expr then (
-    C.fail_at_position pos "Illegal unguarded pre in contract item."
+    fail_or_warn pos "Illegal unguarded pre in contract item."
   ) ;
   (* Scope is created backwards. *)
   let scope = List.rev scope in
@@ -1545,13 +1551,13 @@ and eval_node_contract_call
   (* Check for unguarded pre-s. *)
   in_params |> List.iter (
     fun expr -> if A.has_unguarded_pre expr then (
-      C.fail_at_position
+      fail_or_warn
         call_pos "Illegal unguarded pre in input parameters of contract call."
     )
   ) ;
   out_params |> List.iter (
     fun expr -> if A.has_unguarded_pre expr then (
-      C.fail_at_position
+      fail_or_warn
         call_pos "Illegal unguarded pre in output parameters of contract call."
     )
   ) ;
@@ -1880,7 +1886,7 @@ and eval_node_contract_spec
       ( match oracles with
         | [] -> () (* No oracles introduced, we're fine. *)
         | _ -> (* PEBCAK. *)
-          C.fail_at_position
+          fail_or_warn
             pos "Illegal unguarded pre under a node call in this contract."
       ) ;
       (* Checking that no subsystem of the current node has contracts. If one
