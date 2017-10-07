@@ -485,10 +485,11 @@ let unsliced_trans_sys_of (type s) ?(preserve_sig = false)
     (* Format.printf "contract gen: %d subsystems@.@." (List.length subsystems) ; *)
 
     (* Adds the outputs of a node as dummy properties to the node. *)
-    let augment_node ( { N.outputs ; N.props } as node ) =
+    let augment_node ( { N.outputs ; N.locals ; N.props } as node ) =
       { node
         with N.props =
-          LustreIndex.values outputs
+          (LustreIndex.values outputs) @
+          (List.concat (List.map LustreIndex.values locals))
           |> List.map (
             fun svar ->
               svar,
