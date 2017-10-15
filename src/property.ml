@@ -76,7 +76,7 @@ and prop_source =
   (* Contract guarantees. *)
   | Guarantee of (position * Scope.t)
   (* Contract: at least one mode active. *)
-  | GuaranteeOneModeActive of Scope.t
+  | GuaranteeOneModeActive of (position * Scope.t)
   (* Contract: mode implication. *)
   | GuaranteeModeImplication of (position * Scope.t)
 
@@ -126,8 +126,8 @@ let pp_print_prop_source ppf = function
     Format.fprintf ppf "assumption of %s" (String.concat "." scope)
   | Guarantee (_, scope) ->
     Format.fprintf ppf "guarantee (%a)" Scope.pp_print_scope scope
-  | GuaranteeOneModeActive _ ->
-    Format.fprintf ppf "one mode active"
+  | GuaranteeOneModeActive (_, scope) ->
+    Format.fprintf ppf "one mode active (%a)" Scope.pp_print_scope scope
   | GuaranteeModeImplication (_, scope) ->
     Format.fprintf ppf "mode implication %a" Scope.pp_print_scope scope
 

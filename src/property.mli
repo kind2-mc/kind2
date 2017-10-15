@@ -73,7 +73,7 @@ and prop_source =
   | Guarantee of (Lib.position * Scope.t)
                  
   (** Contract: at least one mode active. *)
-  | GuaranteeOneModeActive of Scope.t
+  | GuaranteeOneModeActive of (Lib.position * Scope.t)
                                 
   (** Contract: mode implication. *)
   | GuaranteeModeImplication of (Lib.position * Scope.t)
