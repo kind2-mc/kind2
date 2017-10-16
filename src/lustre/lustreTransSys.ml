@@ -325,11 +325,17 @@ let abstraction_of_contract { C.assumes ; C.guarantees ; C.modes } =
 active. *)
 let one_mode_active scope { C.modes } =
   if modes = [] then failwith "one_mode_active asked on mode-less contract" ;
-  let pos = (List.hd modes).C.pos in
+  let first_mode = List.hd modes in
+  let pos = first_mode.C.pos in
+  let path = first_mode.C.path |> List.rev |> List.tl |> List.rev in
+  let name =
+    Format.asprintf "%a._one_mode_active"
+      (pp_print_list Format.pp_print_string ".") path
+  in
   (* Disjunction of mode requirements. *)
   modes |> List.map (fun { C.requires } -> conj_of requires) |> E.mk_or_n
   (* Building property. *)
-  |> property_of_expr false "_one_mode_active"
+  |> property_of_expr false name
        P.PropUnknown (P.GuaranteeOneModeActive (pos, scope))
 
 
