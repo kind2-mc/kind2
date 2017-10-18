@@ -600,8 +600,10 @@ let prop_attributes_xml trans_sys prop_name =
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
           lnum cnum (String.concat "." scope) pp_print_fname fname
-    | Property.GuaranteeOneModeActive scope ->
-        Format.asprintf " scope=\"%s\"" (String.concat "." scope)
+    | Property.GuaranteeOneModeActive (pos, scope) ->
+        let fname, lnum, cnum = file_row_col_of_pos pos in
+        Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\""
+          lnum cnum (String.concat "." scope)
     | Property.GuaranteeModeImplication (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
@@ -612,28 +614,40 @@ let prop_attributes_xml trans_sys prop_name =
 
 
 (* Output proved property as XML *)
-let proved_xml mdl level trans_sys k prop = 
+let proved_xml mdl level trans_sys k prop_name =
 
+  let prop = TransSys.property_of_name trans_sys prop_name in
   (* Only ouptut if status was unknown *)
   if 
 
-    not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
+    not (Property.prop_status_known (Property.get_prop_status prop))
 
   then 
+
+    let comment =
+      match prop.Property.prop_source with
+      | Property.GuaranteeOneModeActive (_, scope) ->
+        Some "contract modes are exhaustive"
+      | _ -> None
+    in
 
     (ignore_or_fprintf level)
       !log_ppf 
       ("@[<hv 2><Property name=\"%s\"%s>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
-        <Answer source=\"%a\">valid</Answer>@;<0 -2>\
+        <Answer source=\"%a\"%t>valid</Answer>@;<0 -2>\
         </Property>@]@.")
-      (escape_xml_name prop) (prop_attributes_xml trans_sys prop)
+      (escape_xml_name prop_name) (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match k with 
          | None -> () 
          | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
       pp_print_kind_module_xml_src mdl
+      (function ppf -> match comment with
+         | None -> ()
+         | Some msg -> Format.fprintf ppf " comment=\"%s\"" msg
+      )
 
 
 (* Pretty-print a counterexample *)
@@ -707,14 +721,15 @@ let execution_path_xml level input_sys analysis trans_sys path =
 
 (* Output disproved property as XML *)
 let cex_xml
-mdl level input_sys analysis trans_sys prop (
+mdl level input_sys analysis trans_sys prop_name (
   cex : (StateVar.t * Model.value list) list
 ) disproved = 
 
+  let prop = TransSys.property_of_name trans_sys prop_name in
   (* Only ouptut if status was unknown *)
   if 
 
-    not (Property.prop_status_known (TransSys.get_prop_status trans_sys prop))
+    not (Property.prop_status_known (Property.get_prop_status prop))
 
   then (
     (* Reset division by zero indicator. *)
@@ -726,29 +741,43 @@ mdl level input_sys analysis trans_sys prop (
       | _ -> "falsifiable"
     in
 
+    let comment =
+      match prop.Property.prop_source with
+      | Property.GuaranteeOneModeActive (_, scope) -> (
+        match mdl with
+        | `IND -> None
+        | _ -> Some "contract has non-exhaustive modes"
+      )
+      | _ -> None
+    in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
       !log_ppf 
       ("@[<hv 2><Property name=\"%s\"%s>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
-        <Answer source=\"%a\">%s</Answer>@,\
+        <Answer source=\"%a\"%t>%s</Answer>@,\
         %a@;<0 -2>\
         </Property>@]@.") 
-      (escape_xml_name prop) (prop_attributes_xml trans_sys prop)
+      (escape_xml_name prop_name) (prop_attributes_xml trans_sys prop_name)
       (Stat.get_float Stat.analysis_time)
       (function ppf -> match cex with 
          | [] -> () 
          | cex ->
           (Property.length_of_cex cex) - 1 |> Format.fprintf ppf "<K>%d</K>@,")
       pp_print_kind_module_xml_src mdl
+      (function ppf -> match comment with
+         | None -> ()
+         | Some msg -> Format.fprintf ppf " comment=\"%s\"" msg
+      )
       answer
-      (pp_print_counterexample_xml input_sys analysis trans_sys prop disproved)
+      (pp_print_counterexample_xml input_sys analysis trans_sys prop_name disproved)
       cex ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text prop
+      div_by_zero_text prop_name
       |> printf_xml mdl L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -844,11 +873,11 @@ let prop_attributes_json ppf trans_sys prop_name =
     | Property.PropAnnot pos ->
         let _, lnum, cnum = file_row_col_of_pos pos in
         Format.fprintf ppf "\"line\" : %d,@,\"column\" : %d,@," lnum cnum
-    | Property.Instantiated (scope,_)
-    | Property.GuaranteeOneModeActive scope ->
+    | Property.Instantiated (scope,_) ->
         Format.fprintf ppf "\"scope\" : \"%s\",@," (String.concat "." scope)
     | Property.Assumption (pos, scope)
     | Property.Guarantee (pos, scope)
+    | Property.GuaranteeOneModeActive (pos, scope)
     | Property.GuaranteeModeImplication (pos, scope) ->
         let _, lnum, cnum = file_row_col_of_pos pos in
         Format.fprintf ppf
