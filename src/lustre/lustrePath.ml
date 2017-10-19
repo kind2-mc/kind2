@@ -1221,16 +1221,27 @@ let pp_print_stream_values clock ty ppf l =
 
 (* Pretty-print a single stream *)
 let pp_print_stream_xml get_source model clock ppf (index, state_var) =
+
+  let pp_print_enum_constructors ppf stream_type =
+    if Type.is_enum stream_type then (
+      Format.fprintf ppf "@ values=\"%a\""
+        (pp_print_list Format.pp_print_string ", ")
+        (Type.constructors_of_enum stream_type)
+    )
+    else ()
+  in
+
   try 
     let stream_values = SVT.find model state_var in
     let stream_type = StateVar.type_of_state_var state_var in
     Format.fprintf 
       ppf
-      "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]\
+      "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a%a>@]\
        %a@]@,</Stream>"
       pp_print_stream_ident_xml (index, state_var)
       (E.pp_print_lustre_type false) stream_type
       pp_print_stream_prop_xml (get_source state_var)
+      pp_print_enum_constructors stream_type
       (pp_print_stream_values clock stream_type) stream_values
 
   with Not_found -> assert false
