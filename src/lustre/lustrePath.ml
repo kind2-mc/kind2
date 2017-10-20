@@ -1222,13 +1222,25 @@ let pp_print_stream_values clock ty ppf l =
 (* Pretty-print a single stream *)
 let pp_print_stream_xml get_source model clock ppf (index, state_var) =
 
-  let pp_print_enum_constructors ppf stream_type =
-    if Type.is_enum stream_type then (
-      Format.fprintf ppf "@ values=\"%a\""
+  let pp_print_type ppf stream_type =
+    match (Type.node_of_type stream_type) with
+    | Type.Bool ->
+      Format.pp_print_string ppf "type=\"bool\""
+    | Type.Int ->
+      Format.pp_print_string ppf "type=\"int\""
+    | Type.IntRange (i, j, Type.Range) ->
+      Format.fprintf ppf "type=\"subrange\" min=\"%a\" max=\"%a\""
+      Numeral.pp_print_numeral i Numeral.pp_print_numeral j
+    | Type.Real ->
+      Format.pp_print_string ppf "type=\"real\""
+    | Type.Abstr s ->
+      Format.pp_print_string ppf s
+    | Type.IntRange (i, j, Type.Enum) ->
+      Format.fprintf ppf "type=\"enum\"@ values=\"%a\""
         (pp_print_list Format.pp_print_string ", ")
         (Type.constructors_of_enum stream_type)
-    )
-    else ()
+    | Type.Array (s, t) ->
+      Format.pp_print_string ppf "type=\"array\""
   in
 
   try 
@@ -1236,12 +1248,11 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
     let stream_type = StateVar.type_of_state_var state_var in
     Format.fprintf 
       ppf
-      "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a%a>@]\
+      "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" %a%a>@]\
        %a@]@,</Stream>"
       pp_print_stream_ident_xml (index, state_var)
-      (E.pp_print_lustre_type false) stream_type
+      pp_print_type stream_type
       pp_print_stream_prop_xml (get_source state_var)
-      pp_print_enum_constructors stream_type
       (pp_print_stream_values clock stream_type) stream_values
 
   with Not_found -> assert false
