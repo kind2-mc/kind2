@@ -54,7 +54,7 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 
 ## Building and installing
 
-You need to run first
+Move to the top-level directory of the Kind 2 distribution, and make sure the path to that directory does not contain any white spaces (i.e., do not use something like /Users/Smith/Kind 2/). Then, run
 
     ./autogen.sh
 
