@@ -153,8 +153,14 @@ let main () =
         "Could not translate contracts from file \"%s\":@ %s"
         src (Printexc.to_string e)
   )
-  | None -> Kind2Flow.run input_sys
-
+  | None ->
+    try
+      Kind2Flow.run input_sys
+    with e -> (
+      Event.log L_fatal "Caught unexpected exception: %s" (Printexc.to_string e) ;
+      Event.terminate_log () ;
+      exit ExitCodes.error
+    )
 ;;
 
 main ()
