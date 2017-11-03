@@ -446,36 +446,6 @@ fun sys ->
   | Horn _ ->
     failwith "can't generate contracts from horn clause input: unsupported"
 
-let remove_contracts (type s) : s t -> s t = function
-
-  | Lustre (
-    { S.source ; S.subsystems } as subsystem, globals
-  ) -> (
-    (* Building new subsystem removing contracts. *)
-    let subsystem =
-      { subsystem with
-        S.source = { source with N.contract = None; N.silent_contracts = [] };
-        S.has_contract = false;
-        S.has_modes = false;
-        S.subsystems = subsystems |> List.fold_left (
-          fun acc ( {
-            S.source = ( { N.name ; N.outputs ; N.props } as node )
-          } as sys ) ->
-            (* Format.printf "%a@." (LustreIdent.pp_print_ident false) name ; *)
-            let node = { node with N.contract = None; N.silent_contracts = [] } in
-            (* Format.printf "@." ; *)
-            { sys with S.source = node } :: acc
-        ) [] |> List.rev
-      }
-    in
-    Lustre (subsystem, globals)
-  )
-
-  | Native sub -> Native sub
-
-  | Horn sub -> Horn sub
-
-
 let unsliced_trans_sys_of (type s) ?(preserve_sig = false)
 : s t -> Analysis.param -> TransSys.t * s t = function
 
