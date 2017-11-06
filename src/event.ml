@@ -590,8 +590,8 @@ let prop_attributes_xml trans_sys prop_name =
     | Property.Generated _ -> ""
     | Property.Candidate None -> ""
     | Property.Candidate (Some source) -> get_attributes source
-    | Property.Instantiated (scope,_) ->
-        Format.asprintf " scope=\"%s\"" (String.concat "." scope)
+    | Property.Instantiated (scope,prop) ->
+        get_attributes prop.Property.prop_source
     | Property.Assumption (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\"%a"
@@ -811,7 +811,7 @@ let progress_xml mdl level k =
     k
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_xml level prop_status =
+let prop_status_xml level trans_sys prop_status =
 
   (* Filter unknown properties. *)
   prop_status
@@ -825,11 +825,11 @@ let prop_status_xml level prop_status =
 
             Format.fprintf 
               ppf
-              "@[<hv 2><Property name=\"%s\">@,\
+              "@[<hv 2><Property name=\"%s\"%s>@,\
                @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
                %a@,\
                @;<0 -2></Property>@]"
-              (escape_xml_name p)
+              (escape_xml_name p) (prop_attributes_xml trans_sys p)
               (function ppf -> function 
                  | Property.PropUnknown
                  | Property.PropKTrue _ -> Format.fprintf ppf "unknown"
@@ -873,8 +873,8 @@ let prop_attributes_json ppf trans_sys prop_name =
     | Property.PropAnnot pos ->
         let _, lnum, cnum = file_row_col_of_pos pos in
         Format.fprintf ppf "\"line\" : %d,@,\"column\" : %d,@," lnum cnum
-    | Property.Instantiated (scope,_) ->
-        Format.fprintf ppf "\"scope\" : \"%s\",@," (String.concat "." scope)
+    | Property.Instantiated (scope,prop) ->
+        get_attributes prop.Property.prop_source
     | Property.Assumption (pos, scope)
     | Property.Guarantee (pos, scope)
     | Property.GuaranteeOneModeActive (pos, scope)
@@ -1047,7 +1047,7 @@ let execution_path_json level input_sys analysis trans_sys path =
 
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_json level prop_status =
+let prop_status_json level trans_sys prop_status =
 
   (* Filter unknown properties. *)
   let unknown_props = prop_status
@@ -1068,12 +1068,14 @@ let prop_status_json level prop_status =
                \"objectType\" : \"property\",@,\
                \"name\" : \"%s\",@,\
                %t\
+               %t\
                \"answer\" : {\
                  \"value\" : \"unknown\"\
                }\
                @]@.}\
              "
              p
+             (function ppf -> prop_attributes_json ppf trans_sys p)
              (function ppf -> match s with
                 | Property.PropKTrue k ->
                   Format.fprintf ppf "\"trueFor\" : %d,@," k
@@ -1211,11 +1213,11 @@ let log_execution_path mdl level input_sys analysis trans_sys path =
 
 
 (* Output summary of status of properties *)
-let log_prop_status level prop_status =
+let log_prop_status level trans_sys prop_status =
   match get_log_format () with 
     | F_pt -> prop_status_pt level prop_status
-    | F_xml -> prop_status_xml level prop_status
-    | F_json -> prop_status_json level prop_status
+    | F_xml -> prop_status_xml level trans_sys prop_status
+    | F_json -> prop_status_json level trans_sys prop_status
     | F_relay -> ()
 
 

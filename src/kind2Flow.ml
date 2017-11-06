@@ -474,7 +474,7 @@ let run in_sys =
     (* Set module currently running. *)
     Event.set_module m ;
     try (
-      let in_sys = ISys.remove_contracts in_sys in
+      (* Assumption: contracts have been removed during AST evaluation *)
       match
         Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
       with

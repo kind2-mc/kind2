@@ -55,7 +55,7 @@ let print_stats trans_sys =
   match trans_sys with
   | None -> ()
   | Some trans_sys ->
-    Event.log_prop_status L_fatal
+    Event.log_prop_status L_fatal trans_sys
       (TransSys.get_prop_status_all_nocands trans_sys)
                         
 
