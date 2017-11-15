@@ -1,5 +1,8 @@
 # Kind 2
 
+`develop`: [![Build Status](https://travis-ci.org/kind2-mc/kind2.svg?branch=develop)](https://travis-ci.org/kind2-mc/kind2)
+`master`: [![Build Status](https://travis-ci.org/kind2-mc/kind2.svg?branch=master)](https://travis-ci.org/kind2-mc/kind2)
+
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
 Kind 2 takes as input a Lustre file annotated with properties to be proven
@@ -51,7 +54,7 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 
 ## Building and installing
 
-You need to run first
+Move to the top-level directory of the Kind 2 distribution, and make sure the path to that directory does not contain any white spaces (i.e., do not use something like /Users/Smith/Kind 2/). Then, run
 
     ./autogen.sh
 

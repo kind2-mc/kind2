@@ -1,3 +1,8 @@
+
+
+<!-- DO NOT EDIT, see ./doc/usr/content/Home.md -->
+
+
 # Kind 2
 
 `develop`: [![Build Status](https://travis-ci.org/kind2-mc/kind2.svg?branch=develop)](https://travis-ci.org/kind2-mc/kind2)
@@ -80,7 +85,7 @@ You can run tests to see if Kind 2 has been built correctly. To do so run
 
 You can pass arguments to Kind 2 with the `ARGS="..."` syntax. For instance
 
-    make ARGS="--enable PDR" test
+    make ARGS="--enable IC3" test
 
 
 ## Documentation
@@ -92,6 +97,7 @@ To generate the documentation, you need
 
 * a GNU version of `sed` (`gsed` on OSX), and
 * [Pandoc](http://pandoc.org/).
+
 
 
 ## Docker
