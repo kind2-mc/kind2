@@ -26,8 +26,9 @@ html: target/target.md
 
 update:
 	rm -f ../../README.md
-	echo "\n\n<!-- DO NOT EDIT, see ./doc/usr/content/Home.md -->\n\n" > \
+	echo "\n\n<!-- DO NOT EDIT, see ./doc/usr/content/{Home.md,TravisLinks} -->\n\n" > \
 		../../README.md
+	cat content/TravisLinks >> ../../README.md
 	cat content/Home.md | \
 		sed -e 's:](\./\([^)]*\)):](doc/usr/content/\1):g' >> \
 		../../README.md
