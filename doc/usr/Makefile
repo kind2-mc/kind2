@@ -6,7 +6,7 @@ target/target.md: $(CONTENT)
 	mkdir -p target
 	ocamlc -o preprocess unix.cma src/preprocess.ml
 	./preprocess ./target/target.md ./content/Home.md \
-		`find ./content/*/ -iname "*.md" | sed -e 's:\n: :g' -e 's://*:/:g'`
+		`find ./content/*/ -iname "*.md" | sort | sed -e 's:\n: :g' -e 's://*:/:g'`
 	find content -iname "*.png" -exec cp -f {} target/. \;
 
 pdf: target/target.md
