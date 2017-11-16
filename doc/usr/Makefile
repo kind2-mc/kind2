@@ -2,9 +2,11 @@ CONTENT = $(shell find content -iname "*.md")
 
 all: pdf html
 
-target/target.md: $(CONTENT)
-	mkdir -p target
+preprocess: src/preprocess.ml
 	ocamlc -o preprocess unix.cma src/preprocess.ml
+
+target/target.md: $(CONTENT) preprocess
+	mkdir -p target
 	./preprocess ./target/target.md ./content/Home.md \
 		`find ./content/*/ -iname "*.md" | sort | sed -e 's:\n: :g' -e 's://*:/:g'`
 	find content -iname "*.png" -exec cp -f {} target/. \;
