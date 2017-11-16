@@ -56,7 +56,7 @@ kind2 --modular true --compositional true ...
 If `top` calls `sub` and we analyze `top`, it means we have previously analyzed
 `sub`. We are running in compositional mode so the call to `sub` is originally
 abstracted by its contract.
-Say the analysis fails with a counterexample. The countexample might be
+Say the analysis fails with a counterexample. The counterexample might be
 spurious for the concrete version of `sub`: the failure would not happen if we
 used the concrete call to `sub` instead of the abstract one.
 
