@@ -675,7 +675,7 @@ does not change this fact.
 If a partially defined node is at the top level, or is in the cone of
 influence of the top node in a modular analysis, then it's body **will** be analyzed.
 
-An `imported` node on the other hand *explicitely does not have a body*. Its
+An `imported` node on the other hand *explicitly does not have a body*. Its
 non-existent body will thus never be analyzed.
 
 

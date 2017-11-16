@@ -60,7 +60,7 @@ treatment are:
 
 Two of the treatments mentioned above end up, if successful, generating a
 contract for the current node: invariant logging and contract generation. The
-natural way to benefit from these contracts is to import them explicitely in the original system.
+natural way to benefit from these contracts is to import them explicitly in the original system.
 
 If you do not import these contracts however, *silent contract loading* will
 still try to take advantage of them. That is, contracts logged by Kind 2 in
