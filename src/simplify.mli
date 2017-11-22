@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2017 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -38,7 +38,7 @@
     the optional argument [~default_of_var] that returns the value to
     assign to the variable given as parameter.
 
-    @author Christoph Sticksel
+    @author Christoph Sticksel, Adrien Champion, Alain Mebsout
 *)
 
 (** Returns true iff a division by zero happened in a simplification since
