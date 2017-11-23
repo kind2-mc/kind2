@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2017 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -1024,7 +1024,7 @@ let atom_of_term t =
   let tt = Term.type_of_term t in 
 
   (* Term is of type integer *)
-  if Type.is_int tt || Type.is_int_range tt then
+  if Type.is_int tt || Type.is_int_range tt || Type.is_enum tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
     Num (Numeral.zero, [Numeral.one, [t]])
@@ -1046,10 +1046,10 @@ let atom_of_term t =
     Array t
     
     (* Term is of some other type  *)
-  else 
+  else (
 
     (* Not implemented *)
-    assert false 
+    assert false )
 
 
 (* ********************************************************************** *)

@@ -1,6 +1,6 @@
 (* This file is part of the Kind 2 model checker.
 
-   Copyright (c) 2015 by the Board of Trustees of the University of Iowa
+   Copyright (c) 2015-2017 by the Board of Trustees of the University of Iowa
 
    Licensed under the Apache License, Version 2.0 (the "License"); you
    may not use this file except in compliance with the License.  You
@@ -272,7 +272,7 @@ struct
   (* Pretty-print a custom argument *)
   let pp_print_custom_arg ppf = function 
     | ArgString s -> Format.pp_print_string ppf s
-    | ArgExpr e -> Term.pp_print_term ppf e
+    | ArgExpr e -> pp_print_expr ppf e
 
 
   (* Return a string representation of a custom argument *)
