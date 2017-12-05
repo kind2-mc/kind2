@@ -130,6 +130,9 @@ let merge_branches transitions =
 (* Token for assertions *)
 %token ASSERT
     
+(* Token for check *)
+%token CHECK
+
 (* Tokens for Boolean operations *)
 %token TRUE
 %token FALSE
@@ -579,11 +582,15 @@ property:
     COLON; e = qexpr ; SEMICOLON; SSBLOCKEND
     { A.AnnotProperty (mk_pos $startpos, name, e) }
 
+check:
+  | CHECK ; name = option(STRING) ; e = qexpr ; SEMICOLON
+    { A.AnnotProperty (mk_pos $startpos, name, e) }
 
 node_item:
   | e = node_equation { A.Body e }
   | a = main_annot { a }
   | p = property { p }
+  | p = check { p }
 
 
 (* An equations of a node *)
