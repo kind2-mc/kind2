@@ -257,6 +257,9 @@ let keyword_table = mk_hashtbl [
   (* Assertion *)
   "assert", ASSERT ;
 
+  (* Check *)
+  "check", CHECK ;
+
   (* Annotations. *)
   "PROPERTY", PROPERTY ;
   "MAIN", MAIN ;
