@@ -219,6 +219,8 @@ val type_in_context : t -> LustreIdent.t -> bool
 (** Return [true] if the identifier denotes a node in the context *)
 val node_in_context : t -> LustreIdent.t -> bool
 
+(** Return [true] if the identifier denotes a property in the context *)
+val prop_name_in_context : t -> string -> bool
 
 val mk_state_var :
   ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> ?shadow:bool ->
