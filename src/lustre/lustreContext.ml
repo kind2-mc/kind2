@@ -837,6 +837,14 @@ let node_in_context ctx ident =
   N.exists_node_of_name ident (get_nodes ctx)
     
 
+(* Return true if property name has been declared in the context *)
+let prop_name_in_context ctx ident =
+  match ctx with
+  | { node = None } -> false
+  | { node = Some ({ N.props }) } ->
+    List.exists (fun (_, name, _) -> name = ident) props
+
+
 (* Add newly created variable to locals *)
 let add_state_var_to_locals = function 
   | { node = None } -> (function _ -> assert false)

@@ -2359,7 +2359,12 @@ and eval_node_items inputs outputs locals ctx = function
     let ctx = C.reset_guard_flag ctx in
     
     let name = match name_opt with
-      | Some n -> n
+      | Some n -> (
+        if C.prop_name_in_context ctx n then
+          C.fail_at_position pos
+            (Format.asprintf "Name \"%s\" already used by another property" n)
+        else n
+      )
       | None -> Format.asprintf "@[<h>%a@]" A.pp_print_expr ast_expr
     in
     
