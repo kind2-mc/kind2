@@ -53,7 +53,7 @@ let get_params results subs_of_scope result =
 
   match result.A.requirements_valid with
   | Some false -> (* Requirements could not be proved, aborting. *)
-    (* Event.log L_info
+    (* KEvent.log L_info
       "Cannot refine %a, some requirements could not be proved."
       Scope.pp_print_scope sys ; *)
     None

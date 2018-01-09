@@ -78,7 +78,7 @@ let parse_stream scope chan =
       else raise Not_found
     with Not_found ->
       (* Fail *)
-      Event.log L_fatal "State variable %s is not an input state variable" name;
+      KEvent.log L_fatal "State variable %s is not an input state variable" name;
       raise (Parsing.Parse_error)
 
 

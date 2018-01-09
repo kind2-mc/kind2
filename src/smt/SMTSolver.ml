@@ -465,7 +465,7 @@ let model_of_smt_model s smt_model vars =
        with Not_found -> ()
 
 (*
-         Event.log L_debug "No assignment to %a" Var.pp_print_var v;
+         KEvent.log L_debug "No assignment to %a" Var.pp_print_var v;
 
          assert false
 *)

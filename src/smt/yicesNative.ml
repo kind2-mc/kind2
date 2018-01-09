@@ -525,7 +525,7 @@ let ensure_symbol_qf_lira s =
                               mode. Run Kind 2 with --smt_logic none instead."
         (Symbol.string_of_symbol s)
     in
-    Event.log L_error "%s" msg;
+    KEvent.log L_error "%s" msg;
     failwith msg
 
 
@@ -561,7 +561,7 @@ let fail_declare_when_arith solver f arg_sorts res_sort =
     let msg = Format.asprintf "Yices was run with set-arith-only, but the \
                                symbol %s has type %a."
         f pp_print_function_type (arg_sorts, res_sort) in
-    Event.log L_error "%s" msg;
+    KEvent.log L_error "%s" msg;
     failwith msg
 
     
@@ -1082,7 +1082,7 @@ let create_trace_ppf id =
         tdir
         (Format.sprintf "%s.%s.%d.ys" 
                         (Filename.basename (Flags.input_file ()))
-                        (short_name_of_kind_module (Event.get_module ()))
+                        (short_name_of_kind_module (KEvent.get_module ()))
                         id)
     in
     
@@ -1091,7 +1091,7 @@ let create_trace_ppf id =
       (* Open file for output, may fail *)
       let trace_oc = open_out trace_filename in
       
-      Event.log L_debug
+      KEvent.log L_debug
         "Tracing output of SMT solver instace to %s" trace_filename;
 
       (* Return formatter *)
@@ -1100,7 +1100,7 @@ let create_trace_ppf id =
     (* Silently fail *)
     with Sys_error e -> 
 
-      Event.log L_debug "Failed to open trace file for SMT solver %s" e;
+      KEvent.log L_debug "Failed to open trace file for SMT solver %s" e;
       
       None 
         
@@ -1299,7 +1299,7 @@ let delete_instance
   begin
     try ignore(execute_command_no_response solver "(exit)" 0)
     with Signal s when s = Sys.sigpipe ->
-      Event.log L_fatal
+      KEvent.log L_fatal
         "[Warning] Got broken pipe when trying to exit %s instance PID %d."
         solver.solver_config.solver_cmd.(0) solver_pid
   end;

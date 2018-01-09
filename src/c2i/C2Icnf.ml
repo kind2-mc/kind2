@@ -58,7 +58,7 @@ let pref = "C2I(cnf) "
 
 
 (** Output statistics. *)
-let print_stats () = Event.stat [
+let print_stats () = KEvent.stat [
   Stat.misc_stats_title, Stat.misc_stats ;
   Stat.c2i_stats_title, Stat.c2i_stats ;
   Stat.smt_stats_title, Stat.smt_stats ;
@@ -244,7 +244,7 @@ let rec check_candidate sys solver bump f candidate falsifiable =
     (** Separate indices of falsifiable sub-candidates. *)
     let candidate, falsified = split eval candidate in
     (** Check if termination was requested. *)
-    Event.check_termination () ;
+    KEvent.check_termination () ;
     (** Update the falsifiable sub-candidates and recurse. *)
     (model, falsified) :: falsifiable
     |> check_candidate sys solver bump f candidate
@@ -306,7 +306,7 @@ let rec check_3 sys solver candidate props =
       (** Separate indices of falsifiable sub-candidates. *)
       let props, falsified = split eval props in
       (** Check if termination was requested. *)
-      Event.check_termination () ;
+      KEvent.check_termination () ;
       (** Update the falsifiable sub-candidates and recurse. *)
       (model, falsified) :: falsifiable |> loop props
     | None -> props, falsifiable
@@ -346,9 +346,9 @@ let get_zero_cost_candidate context candidate =
 
   (* match ... with
   | (_, []), (_, []), ([], _) ->
-    Event.log L_info "%sInvariant found." pref ;
+    KEvent.log L_info "%sInvariant found." pref ;
   | (_, []), (_, []), (str, fal) ->
-    Event.log L_info
+    KEvent.log L_info
       "%s@[<v>Strengthening invariant found for @   @[<hv>\
               %a\
       @]@]"
@@ -358,7 +358,7 @@ let get_zero_cost_candidate context candidate =
         ",@ ")
       str ;
     candidate |> List.map snd |> Term.mk_and
-    |> Event.invariant (
+    |> KEvent.invariant (
       Sys.scope_of_trans_sys sys
     ) ;
   | info -> info *)

@@ -118,7 +118,7 @@ let flat_apply term work set =
       fun flat_term _ -> work flat_term !set_ref |> memorize
     ) term ;
    with Invalid_argument _ ->
-     Event.log L_warn
+     KEvent.log L_warn
        "Cannot mine invariants in quantified terms"
   );
   !set_ref

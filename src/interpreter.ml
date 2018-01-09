@@ -36,7 +36,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log L_error
+       KEvent.log L_error
          "Error deleting solver_init: %s" 
          (Printexc.to_string e))
 
@@ -62,7 +62,7 @@ let rec assert_trans solver t i =
 (* Main entry point *)
 let main input_file input_sys aparam trans_sys =
 
-  Event.set_module `Interpreter;
+  KEvent.set_module `Interpreter;
 
   let input_scope = TransSys.scope_of_trans_sys trans_sys @
                     LustreIdent.user_scope in
@@ -74,7 +74,7 @@ let main input_file input_sys aparam trans_sys =
       try InputParser.read_file input_scope input_file 
       with Sys_error e -> 
         (* Output warning *)
-        Event.log L_warn "@[<v>Error reading interpreter input file.@,%s@]" e;
+        KEvent.log L_warn "@[<v>Error reading interpreter input file.@,%s@]" e;
         raise (Failure "main")
   in
 
@@ -89,7 +89,7 @@ let main input_file input_sys aparam trans_sys =
       tail |> List.fold_left (
         fun acc value ->
           if acc != value then (
-            Event.log L_warn
+            KEvent.log L_warn
               "Input %s is constant, but input values differ: \
               got %a and, later, %a."
               (StateVar.name_of_state_var sv)
@@ -125,7 +125,7 @@ let main input_file input_sys aparam trans_sys =
        if List.length inputs > input_length then
 
          (* Output warning *)
-         Event.log L_warn 
+         KEvent.log L_warn 
            "Input for %s is longer than other inputs"
            (StateVar.name_of_state_var state_var))
 
@@ -145,7 +145,7 @@ let main input_file input_sys aparam trans_sys =
       (* Lenghth of simulation greater than input? *)
       if s > input_length && nb_inputs > 0 then
 
-        Event.log L_warn 
+        KEvent.log L_warn 
           "Input is not long enough to simulate %d steps. \
            Simulation is nondeterministic." 
           input_length;
@@ -155,7 +155,7 @@ let main input_file input_sys aparam trans_sys =
 
   in
 
-  Event.log L_info "Interpreter running up to k=%d" steps;
+  KEvent.log L_info "Interpreter running up to k=%d" steps;
 
   (* Determine logic for the SMT solver *)
   let logic = TransSys.get_logic trans_sys in
@@ -218,7 +218,7 @@ let main input_file input_sys aparam trans_sys =
 
     inputs;
 
-  Event.log L_info 
+  KEvent.log L_info 
     "Parsing interpreter input file %s"
     (Flags.input_file ()); 
 
@@ -240,7 +240,7 @@ let main input_file input_sys aparam trans_sys =
       in
 
       (* Output execution path *)
-      Event.execution_path
+      KEvent.execution_path
         input_sys
         aparam
         trans_sys 
@@ -251,7 +251,7 @@ let main input_file input_sys aparam trans_sys =
   else
 
     (* Transition relation must be satisfiable *)
-    Event.log L_error "Transition relation not satisfiable"
+    KEvent.log L_error "Transition relation not satisfiable"
 
 
 (* 

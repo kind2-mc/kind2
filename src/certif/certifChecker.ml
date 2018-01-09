@@ -394,7 +394,7 @@ let extract_props_certs sys =
       | { Property.prop_status = Property.PropInvariant c; prop_term = p } ->
         c :: c_acc, p :: p_acc
       | { Property.prop_name } ->
-        Event.log L_info "Skipping unproved property %s" prop_name;
+        KEvent.log L_info "Skipping unproved property %s" prop_name;
         acc
     ) ([], []) (TS.get_real_properties sys) in
 
@@ -407,7 +407,7 @@ let extract_props_certs sys =
       | { Property.prop_status = Property.PropInvariant c;
           prop_source = Property.Candidate None; prop_term = p } -> c :: certs
       | { Property.prop_name } ->
-        Event.log L_info "Skipping unproved candidate %s" prop_name;
+        KEvent.log L_info "Skipping unproved candidate %s" prop_name;
         certs
     ) certs (TS.get_candidate_properties sys) in
 
@@ -1765,7 +1765,7 @@ let mononames_implication_check sys dirname file definitions_files names =
 
 let generate_split_certificates sys dirname =
 
-  Event.set_module `Certif;
+  KEvent.set_module `Certif;
 
   (* Extract the global raw certificate of the system *)
   let prop, (k, phi) = global_certificate sys in
@@ -1857,7 +1857,7 @@ let generate_split_certificates sys dirname =
    default *)
 let generate_certificate sys dirname =
 
-  Event.set_module `Certif;
+  KEvent.set_module `Certif;
 
   (* Time statistics *)
   Stat.start_timer Stat.certif_gen_time;
@@ -2021,7 +2021,7 @@ let generate_certificate sys dirname =
 
       let l = ref [] in
 
-      Event.log L_warn "Using potentially incorrect check for base case";
+      KEvent.log L_warn "Using potentially incorrect check for base case";
 
       for i = k - 2 downto 0 do
         l := trans_t i (i+1) :: !l;
@@ -2267,14 +2267,14 @@ let mk_obs_eqs kind2_sys ?(prime=false) ?(prop=false) lustre_vars orig_kind2_var
       (* Fail if variables of properties do not have a jKind equivalent *)
       if jkind_vars = [] then begin
   
-      Event.log L_info
+      KEvent.log L_info
         "Could not find a match for the%s variable %a."
         (if StateVar.is_input sv then " INPUT" else "")
         StateVar.pp_print_state_var sv;
       
         if prop (* && jkind_vars = [] *) then begin
 
-          Event.log L_fatal "Frontend certificate was not generated.";
+          KEvent.log L_fatal "Frontend certificate was not generated.";
           
           raise (CouldNotProve
             (fun fmt ->
@@ -2739,7 +2739,7 @@ let generate_frontend_certificates sys dirname =
 
   assert(is_fec sys);
 
-  Event.set_module `Certif;
+  KEvent.set_module `Certif;
 
   (* Extract the global raw certificate of the system *)
   let prop, (k, phi) = global_certificate sys in
@@ -2898,7 +2898,7 @@ let generate_smt2_certificates uid input sys =
   (try generate_certificate sys dirname
    with e ->
      (* Send statistics *)
-     Event.stat Stat.[certif_stats_title, certif_stats];
+     KEvent.stat Stat.[certif_stats_title, certif_stats];
      raise e);
 
   (* Only generate frontend observational equivalence system for Lustre *)
@@ -2908,7 +2908,7 @@ let generate_smt2_certificates uid input sys =
         generate_frontend_obs input sys dirname |> ignore;
         true
       with Failure s ->
-        Event.log L_warn "%s@ No frontend observer." s;
+        KEvent.log L_warn "%s@ No frontend observer." s;
         false
     else begin
       printf "No certificate for frontend@.";
@@ -2929,7 +2929,7 @@ let generate_smt2_certificates uid input sys =
   close_out csoc;
 
   (* Send statistics *)
-  Event.stat Stat.[certif_stats_title, certif_stats];
+  KEvent.stat Stat.[certif_stats_title, certif_stats];
 
   (* Recursive call *)
   if not (is_fec sys) && call_frontend && gen_frontend then begin
@@ -2951,7 +2951,7 @@ let generate_smt2_certificates uid input sys =
     match Sys.command cmd with
     | 0 | 20 -> ()
     | c ->
-      Event.log L_warn
+      KEvent.log L_warn
         "Failed to generate frontend certificate (return code %d)@." c
   end  
 
@@ -2997,7 +2997,7 @@ let generate_all_proofs uid input sys =
        Proof.generate_inv_proof cert_inv;
      with e ->
        (* Send statistics *)
-       Event.stat Stat.[certif_stats_title, certif_stats];
+       KEvent.stat Stat.[certif_stats_title, certif_stats];
        raise e);
 
     let inv_lfsc = Filename.concat dirname Proof.proofname in
@@ -3026,7 +3026,7 @@ let generate_all_proofs uid input sys =
           generate_frontend_obs input sys dirname |> ignore;
           true
         with Failure s ->
-          Event.log L_warn "%s@ No frontend observer." s;
+          KEvent.log L_warn "%s@ No frontend observer." s;
           false
       else begin
         Debug.certif "No certificate for frontend";
@@ -3035,7 +3035,7 @@ let generate_all_proofs uid input sys =
     in
 
     (* Send statistics *)
-    Event.stat Stat.[certif_stats_title, certif_stats];
+    KEvent.stat Stat.[certif_stats_title, certif_stats];
 
     if call_frontend then begin
 
@@ -3060,7 +3060,7 @@ let generate_all_proofs uid input sys =
             if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
 
           | c ->
-            Event.log L_warn
+            KEvent.log L_warn
               "Failed to generate frontend proof (return code %d)@." c;
             file_copy inv_lfsc final_lfsc;
             if Sys.file_exists trust_lfsc then file_copy trust_lfsc final_trust;
@@ -3088,11 +3088,11 @@ let generate_all_proofs uid input sys =
       Proof.generate_frontend_proof frontend_inv;
      with e ->
        (* Send statistics *)
-       Event.stat Stat.[certif_stats_title, certif_stats];
+       KEvent.stat Stat.[certif_stats_title, certif_stats];
        raise e);
 
     (* Send statistics *)
-    Event.stat Stat.[certif_stats_title, certif_stats];
+    KEvent.stat Stat.[certif_stats_title, certif_stats];
 
   end
   

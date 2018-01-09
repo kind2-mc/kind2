@@ -42,7 +42,7 @@ let ppf_inductive_assertions = ref Format.std_formatter
 (* Output statistics *)
 let print_stats () = 
 
-  Event.stat
+  KEvent.stat
     ([Stat.misc_stats_title, Stat.misc_stats] @
      (if Flags.IC3.abstr () = `IA then 
         [Stat.ic3_stats_title, Stat.ic3_stats;
@@ -102,11 +102,11 @@ let handle_events
   (* Receive queued messages 
 
      Side effect: Terminate when ControlMessage TERM is received.*)
-  let messages = Event.recv () in
+  let messages = KEvent.recv () in
 
   (* Update transition system from messages *)
   let new_invs, prop_status = 
-    Event.update_trans_sys input_sys aparam trans_sys messages 
+    KEvent.update_trans_sys input_sys aparam trans_sys messages 
   in
 
   (* Upper bound's exclusive. *)
@@ -1200,7 +1200,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                  (* Must be unsat *)
                  (fun _ -> 
                    
-                   Event.log L_info "Query is satisfiable, waiting for BMC";
+                   KEvent.log L_info "Query is satisfiable, waiting for BMC";
                    
                    (* This should only happen when we are faster than
                       BMC, who has not yet discovered at one-step
@@ -1988,7 +1988,7 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames predicates =
                   fun i ->
                     (* Certificate 1 inductive *)
                     let cert = (1, i) in
-                    Event.invariant
+                    KEvent.invariant
                       (TransSys.scope_of_trans_sys trans_sys) i cert false
                 ) inductive_terms ;
 
@@ -2296,9 +2296,9 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
   (* Current k is length of trace *)
   let ic3_k = succ (List.length frames) in
 
-  Event.log L_info "IC3 main loop at k=%d" ic3_k;
+  KEvent.log L_info "IC3 main loop at k=%d" ic3_k;
 
-  Event.progress ic3_k;
+  KEvent.progress ic3_k;
 
   Stat.set ic3_k Stat.ic3_k;
 
@@ -2336,7 +2336,7 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
         (* Wait until BMC process has passed k=1 *)
         let rec wait_for_bmc () = 
 
-          Event.log L_info "Waiting for BMC to pass k=1";
+          KEvent.log L_info "Waiting for BMC to pass k=1";
 
           (* Receive messages and update transition system *)
           handle_events 
@@ -2652,7 +2652,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
             (* Send out valid properties *)
             List.iter
               (fun (p, _) -> 
-                 Event.prop_status
+                 KEvent.prop_status
                    (Property.PropInvariant cert)
                    input_sys
                    aparam
@@ -2681,7 +2681,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 (*
             debug ic3
                 "@[<v>Counterexample:@,@[<hv>%a@]@]"
-                (Event.pp_print_path_pt trans_sys false) cex_path
+                (KEvent.pp_print_path_pt trans_sys false) cex_path
             in
 *)
             (* Check which properties are disproved *)
@@ -2707,14 +2707,14 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
                    then
 
-                     (Event.prop_status 
+                     (KEvent.prop_status 
                         (Property.PropFalse cex_path) 
                         input_sys
                         aparam 
                         trans_sys 
                         p;
 
-                      Event.log
+                      KEvent.log
                         L_info 
                         "Property %s disproved by IC3"
                         p;
@@ -2723,7 +2723,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
                    else
 
-                     (Event.log
+                     (KEvent.log
                         L_info 
                         "Property %s not disproved by IC3"
                         p;
@@ -2754,7 +2754,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
         | Disproved prop -> 
 
-          Event.log
+          KEvent.log
             L_info 
             "Some properties are disproved";
 
@@ -2767,7 +2767,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
                  (* Property is disproved? *)
                  if TransSys.is_disproved trans_sys p then
 
-                   (Event.log
+                   (KEvent.log
                       L_info 
                       "Removing disproved property %s"
                       p;
@@ -2792,7 +2792,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
           (
 
-            Event.log
+            KEvent.log
               L_info
               "Problem contains real valued variables, \
                switching off approximate QE";
@@ -2812,7 +2812,7 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
 
       (              
 
-        Event.log
+        KEvent.log
           L_info 
           "@[<h>Restarting IC3 with properties @[<h>%a@]@]"
           (pp_print_list
@@ -2926,7 +2926,7 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
           (* Broadcast properties as falsified with counterexample *)
           List.iter
             (fun (s, _) ->
-               Event.prop_status
+               KEvent.prop_status
                  (Property.PropFalse (Model.path_to_list cex))
                  input_sys
                  aparam 
@@ -2947,7 +2947,7 @@ let rec bmc_checks solver input_sys aparam trans_sys props =
           (* Broadcast properties as 0-true or 1-true *)
           List.iter 
             (fun (s, _) -> 
-               Event.prop_status
+               KEvent.prop_status
                  (Property.PropKTrue
                     (if check_primed then 1 else 0))
                  input_sys
@@ -2995,7 +2995,7 @@ let main input_sys aparam trans_sys =
     (* Yices with SMTLIB input does not work *)
     | `Yices_SMTLIB -> 
 
-      Event.log L_error "Cannot use this solver in IC3."
+      KEvent.log L_error "Cannot use this solver in IC3."
 
     (* Else is fine or will break without unsound results *)
     | _ -> 
@@ -3159,7 +3159,7 @@ let main input_sys aparam trans_sys =
         (* Is BMC running in parallel? *)
         if List.mem `BMC (Flags.enabled ()) && not debug_assert then 
 
-          (Event.log L_info
+          (KEvent.log L_info
              "Delegating check for zero and one step counterexamples \
               to BMC process.";
 
