@@ -101,7 +101,7 @@ let pp_print_lexbuf ppf
      lex_mem : %a;@ \
      lex_start_p : %a;@ \
      lex_curr_p : %a;@]"
-    lex_buffer
+    (Bytes.to_string lex_buffer)
     lex_buffer_len
     lex_abs_pos
     lex_start_pos
