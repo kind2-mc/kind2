@@ -164,7 +164,7 @@ module Contract = struct
   let add_inv dep term =
     match mentions_only_inputs dep term with
     | None -> (
-      (* Event.log L_info "discarding %a" Term.pp_print_term term ; *)
+      (* KEvent.log L_info "discarding %a" Term.pp_print_term term ; *)
       dep, SvSet.empty
     )
     | Some (true, locals) -> {
@@ -569,9 +569,9 @@ let generate_contract_for in_sys param sys path invs name =
     TSet.of_list invs |> Contract.build node
   in
 
-  (* Event.log_uncond "invs: @[<v>%a@]"
+  (* KEvent.log_uncond "invs: @[<v>%a@]"
     (pp_print_list Term.pp_print_term "@ ") invs ;
-  Event.log_uncond "contract has @[<v>%d ass@ %d guas@ %d modes"
+  KEvent.log_uncond "contract has @[<v>%d ass@ %d guas@ %d modes"
     (TSet.cardinal contract.ass)
     (TSet.cardinal contract.gua)
     (TMap.cardinal contract.modes) ; *)
@@ -625,17 +625,17 @@ let generate_contract_for in_sys param sys path invs name =
   Format.fprintf fmt "@]@.tel@.@."
 
 let generate_contracts in_sys param sys path contract_name =
-  Event.log_uncond "%d invariants@.@." (
+  KEvent.log_uncond "%d invariants@.@." (
     TransSys.invars_of_bound sys Numeral.zero |> List.length
   ) ;
-(*   Event.log_uncond "  \
+(*   KEvent.log_uncond "  \
     @{<b>Generating contracts@}@ for system %a to file \"%s\"\
   " fmt_sys_name sys path ;
 
   let teks = Flags.invgen_enabled () in
   let is_active tek = List.mem tek teks in
   let run_bool two_state =
-    Event.log_uncond "  Running %s bool invgen..." (
+    KEvent.log_uncond "  Running %s bool invgen..." (
       if two_state then "two-state" else "one-state"
     ) ;
     InvGen.BoolInvGen.main
@@ -643,7 +643,7 @@ let generate_contracts in_sys param sys path contract_name =
       in_sys param sys
   in
   let run_int two_state =
-    Event.log_uncond "  Running %s int invgen..." (
+    KEvent.log_uncond "  Running %s int invgen..." (
       if two_state then "two-state" else "one-state"
     ) ;
     InvGen.IntInvGen.main
@@ -651,7 +651,7 @@ let generate_contracts in_sys param sys path contract_name =
       in_sys param sys
   in
   let run_real two_state =
-    Event.log_uncond "  Running %s real invgen..." (
+    KEvent.log_uncond "  Running %s real invgen..." (
       if two_state then "two-state" else "one-state"
     ) ;
     InvGen.RealInvGen.main
@@ -671,7 +671,7 @@ let generate_contracts in_sys param sys path contract_name =
     |> cond_cons is_active `INVGENREAL run_real true
   in *)
 
-  (* Event.log_uncond "Generating contracts." ; *)
+  (* KEvent.log_uncond "Generating contracts." ; *)
 
   let node = get_node_of_sys in_sys sys in
   (* Build a map from scopes to a list of contract builders. *)
@@ -700,7 +700,7 @@ let generate_contracts in_sys param sys path contract_name =
     ) SMap.empty
   in *)
 
-  Event.log_uncond "  Dumping contract to `%s`..." path ;
+  KEvent.log_uncond "  Dumping contract to `%s`..." path ;
 
   let out_channel = open_out path in
   let fmt = Format.formatter_of_out_channel out_channel in
@@ -728,7 +728,7 @@ let generate_contracts in_sys param sys path contract_name =
     SvMap.empty local_ghost_instances
     in
 
-    (* Event.log L_info "  Generating contract for %a..." fmt_sys_name sys ; *)
+    (* KEvent.log L_info "  Generating contract for %a..." fmt_sys_name sys ; *)
     
     Format.fprintf fmt
       "(* Contract for node %s. *)@.contract %s %a@.let@[<v 2>"
@@ -763,7 +763,7 @@ let generate_contracts in_sys param sys path contract_name =
     Format.fprintf fmt "@]@.tel@.@."
   ) ;
 
-  Event.log_uncond "  Done with contract generation." ;
+  KEvent.log_uncond "  Done with contract generation." ;
 
   close_out out_channel ;
 

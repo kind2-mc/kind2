@@ -215,7 +215,7 @@ module Make (Graph : GraphSig) : Out = struct
           (* Add to pruner. *)
           pruner_add inv ;
           (* Communicate invariant. *)
-          Event.invariant (Sys.scope_of_trans_sys top_sys) inv cert two_state ;
+          KEvent.invariant (Sys.scope_of_trans_sys top_sys) inv cert two_state ;
           cnt, inv :: invs
       ) (0, [])
 
@@ -244,7 +244,7 @@ module Make (Graph : GraphSig) : Out = struct
                 (* Add to pruner. *)
                 pruner_add inv ;
                 (* Broadcast. *)
-                Event.invariant
+                KEvent.invariant
                   (Sys.scope_of_trans_sys sub_sys) inv cert two_state ;
                 (* Remember if at top sys. *)
                 if at_top_sys then cnt + 1, inv :: invs else cnt, invs
@@ -264,7 +264,7 @@ module Make (Graph : GraphSig) : Out = struct
     ( match (non_trivial, trivial) with
       | [], [] -> ()
       | _, [] ->
-        Event.log L_info
+        KEvent.log L_info
           "%s @[<v>\
             On system [%a] at %a: %s@ \
             found %d non-trivial invariants:@   @[<v>%a@]\
@@ -276,7 +276,7 @@ module Make (Graph : GraphSig) : Out = struct
           (List.length non_trivial)
           (pp_print_list fmt_term "@ ") non_trivial
       | [], _ ->
-        Event.log L_info
+        KEvent.log L_info
           "%s @[<v>\
             On system [%a] at %a: %s@ \
             found %d trivial invariants\
@@ -287,7 +287,7 @@ module Make (Graph : GraphSig) : Out = struct
           blah
           (List.length trivial)
       | _, _ ->
-        Event.log L_info
+        KEvent.log L_info
           "%s @[<v>\
             On system [%a] at %a: %s@ \
             found %d non-trivial invariants and %d trivial ones:\
@@ -335,9 +335,9 @@ module Make (Graph : GraphSig) : Out = struct
     in
 
     (* Receiving messages. *)
-    Event.recv ()
+    KEvent.recv ()
     (* Updating transition system. *)
-    |> Event.update_trans_sys_sub input_sys aparam top_sys
+    |> KEvent.update_trans_sys_sub input_sys aparam top_sys
     |> fst
     (* Update everything. *)
     |> update_pruning_checkers []
@@ -433,7 +433,7 @@ module Make (Graph : GraphSig) : Out = struct
 
   | (sys, graph, non_trivial, trivial) :: graphs ->
     let blah = if sys == top_sys then " (top)" else "" in
-    Event.log L_info
+    KEvent.log L_info
       "%s Running on %a%s at %a (%d candidate terms, %d classes)"
       (pref_s two_state) Scope.pp_print_scope (Sys.scope_of_trans_sys sys) blah
       Num.pp_print_numeral k (Graph.term_count graph)
@@ -446,7 +446,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Retrieving pruning checker for this system. *)
     let pruning_checker =
       try SysMap.find sys_map sys with Not_found -> (
-        Event.log L_fatal
+        KEvent.log L_fatal
           "%s could not find pruning checker for system [%s]"
           (pref_s two_state) (sys_name sys) ;
         exit ()
@@ -486,7 +486,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Format.printf "%s stabilizing graph...@.@." (pref_s two_state) ; *)
 
     (* Checking if we should terminate before doing anything. *)
-    Event.check_termination () ;
+    KEvent.check_termination () ;
 
     (* Stabilize graph.
 
@@ -501,11 +501,11 @@ module Make (Graph : GraphSig) : Out = struct
 
     (* Format.printf "%s done stabilizing graph@.@." (pref_s two_state) ; *)
     
-    (* Event.log_uncond
+    (* KEvent.log_uncond
       "%s Done stabilizing graph, checking consistency" (pref_s two_state) ;
     if Graph.check_graph graph |> not then
       failwith "inconsistent graph" ;
-    Event.log_uncond "%s Done checking consistency" (pref_s two_state) ; *)
+    KEvent.log_uncond "%s Done checking consistency" (pref_s two_state) ; *)
 
     let lsd = Lsd.to_step lsd in
     base_ref := None ;
@@ -644,7 +644,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Forget the graph if it is stale. *)
     let memory, res =
       (* if Graph.is_stale graph then (
-        Event.log L_info
+        KEvent.log L_info
           "%s Graph for system %a is stale, forgetting it."
           (pref_s two_state)
           Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
@@ -652,7 +652,7 @@ module Make (Graph : GraphSig) : Out = struct
           try
             SysMap.find sys_map sys |> Lsd.kill_pruning
           with Not_found ->
-            Event.log L_warn
+            KEvent.log L_warn
               "%s Could not find pruning checker for system %a."
               (pref_s two_state)
               Scope.pp_print_scope (Sys.scope_of_trans_sys sys) ;
@@ -676,14 +676,14 @@ module Make (Graph : GraphSig) : Out = struct
     let k = Num.succ k in
     match max_depth with
     | Some kay when Num.(k > kay) ->
-      Event.log L_info "%s Reached max depth (%a), stopping."
+      KEvent.log L_info "%s Reached max depth (%a), stopping."
         (pref_s two_state) Num.pp_print_numeral kay ;
       kill_solvers sys_map ;
       memory |> List.map (fun (sys, _, nt, t) -> sys, nt, t)
     | _ -> (
       match memory with
       | [] ->
-        Event.log L_info
+        KEvent.log L_info
           "%s No more system to run on, stopping."
           (pref_s two_state) ;
         kill_solvers sys_map ;
@@ -731,16 +731,16 @@ module Make (Graph : GraphSig) : Out = struct
       |> ( if modular then identity else List.rev )
       |> function
         | [] ->
-          Event.log L_info "%s no candidate to run on" (pref_s two_state) ;
+          KEvent.log L_info "%s no candidate to run on" (pref_s two_state) ;
           exit ()
         | graphs ->
           system_iterator
             max_depth two_state input_sys aparam sys [] [] k sys_map 0 graphs
 
     ) with
-    | Event.Terminate -> exit ()
+    | KEvent.Terminate -> exit ()
     | e -> (
-      Event.log L_fatal "caught exception %s" (Printexc.to_string e) ;
+      KEvent.log L_fatal "caught exception %s" (Printexc.to_string e) ;
       minisleep 0.5 ;
       exit ()
     )

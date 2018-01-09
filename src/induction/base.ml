@@ -26,7 +26,7 @@ exception UnsatUnrollingExc of int
 (* Output statistics *)
 let print_stats () = 
 
-  Event.stat 
+  KEvent.stat 
     [Stat.misc_stats_title, Stat.misc_stats;
      Stat.bmc_stats_title, Stat.bmc_stats;
      Stat.smt_stats_title, Stat.smt_stats]
@@ -156,9 +156,9 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
   (* Getting new invariants and updating transition system. *)
   let new_invs =
     (* Receiving messages. *)
-    Event.recv ()
+    KEvent.recv ()
     (* Updating transition system. *)
-    |> Event.update_trans_sys input_sys aparam trans
+    |> KEvent.update_trans_sys input_sys aparam trans
     (* Extracting one- and two-state invariants. *)
     |> fst
   in
@@ -187,7 +187,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
     (* Notifying framework of our progress. *)
     Stat.set k_int Stat.bmc_k ;
-    Event.progress k_int ;
+    KEvent.progress k_int ;
     Stat.update_time Stat.bmc_total_time ;
 
     (* Building the positive actlits and corresponding implications
@@ -221,7 +221,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
     let unfalsifiable =
       match unknowns_at_k with
       | [] ->
-        Event.log
+        KEvent.log
           L_info
           "BMC @[<v>at k = %i@,\
                     skipping@]"
@@ -230,7 +230,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
       | _ ->
         (* Output current progress. *)
-        Event.log
+        KEvent.log
           L_info
           "BMC @[<v>at k = %i@,\
                     %i properties.@]"
@@ -243,7 +243,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
         if Flags.BmcKind.check_unroll () then ( 
           if SMTSolver.check_sat solver |> not then (
-            Event.log
+            KEvent.log
               L_warn
               "BMC @[<v>Unrolling of the system is unsat at %a, \
               the system has no more reachable states.@]"
@@ -259,7 +259,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
         (* Broadcasting k-true properties. *)
         unfalsifiable |> List.iter ( fun (s, _) ->
-          Event.prop_status
+          KEvent.prop_status
             (Property.PropKTrue (Numeral.to_int k))
             input_sys
             aparam
@@ -271,7 +271,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
         falsifiable |> List.iter ( fun (p, cex) ->
           List.iter
             ( fun (s,_) ->
-              Event.prop_status
+              KEvent.prop_status
                 (Property.PropFalse (Model.path_to_list cex)) 
                 input_sys
                 aparam
@@ -303,7 +303,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns) =
 
     (* Checking if we have reached max k. *)
     if Flags.BmcKind.max () > 0 && k_p_1_int > Flags.BmcKind.max () then
-     Event.log
+     KEvent.log
        L_info
        "BMC @[<v>reached maximal number of iterations.@]"
     else
@@ -354,7 +354,7 @@ let init input_sys aparam trans =
 
   if Flags.BmcKind.check_unroll () then (
     if SMTSolver.check_sat solver |> not then (
-      Event.log
+      KEvent.log
         L_warn
         "BMC @[<v>Initial state is unsat, the system has no \
          reachable states.@]" ;
@@ -372,7 +372,7 @@ let main input_sys aparam trans =
     let _, _, unknown = TransSys.get_split_properties trans in
     unknown |> List.iter (fun p ->
         let cert = k, p.Property.prop_term in
-        Event.prop_status
+        KEvent.prop_status
           (Property.PropInvariant cert)
           input_sys aparam trans p.Property.prop_name
       )

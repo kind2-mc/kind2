@@ -649,7 +649,7 @@ let log_trusted ~frontend dirname =
     let trust_chan = open_out_gen o_flags 0o666 trust_file in
     let trust_fmt = formatter_of_out_channel trust_chan in
     
-    Event.log L_warn
+    KEvent.log L_warn
       "%s proof contains %d trusted assumptions.@."
       (if frontend then "Frontend" else "Invariance")
       (List.length !trusted);
@@ -757,11 +757,11 @@ let proof_from_file ctx f =
     ignore(Unix.close_process_full (ic, oc, err));
     proof
   with Failure _ as e ->
-    Event.log L_fatal "Could not parse CVC4 proof.";
+    KEvent.log L_fatal "Could not parse CVC4 proof.";
     (match Unix.close_process_full (ic, oc, err) with
      | Unix.WEXITED 0 -> ()
      | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
-       Event.log L_fatal "CVC4 crashed with exit code %d." i);
+       KEvent.log L_fatal "CVC4 crashed with exit code %d." i);
     raise e
 
 
@@ -837,11 +837,11 @@ let context_from_file f =
     ignore(Unix.close_process_full (ic, oc, err));
     ctx
   with Failure _ as e ->
-    Event.log L_fatal "Could not parse CVC4 context.";
+    KEvent.log L_fatal "Could not parse CVC4 context.";
     (match Unix.close_process_full (ic, oc, err) with
      | Unix.WEXITED 0 -> ()
      | Unix.WSIGNALED i | Unix.WSTOPPED  i | Unix.WEXITED i ->
-       Event.log L_fatal "CVC4 crashed with exit code %d." i);
+       KEvent.log L_fatal "CVC4 crashed with exit code %d." i);
     raise e
 
 (* Merge two contexts *)

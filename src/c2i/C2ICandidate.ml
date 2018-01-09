@@ -1076,11 +1076,11 @@ let rated_move ({ rating ; candidate } as rated) =
   (* Retrieving un-moveable indices. *)
   let unmoveable = unmoveable_of_sc_list candidate.subs in
 
-  (* Event.log L_info
+  (* KEvent.log L_info
     "[C2I] | [rated_move] unmoveable: [ %a ]"
     (pp_print_list Format.pp_print_int ", ") unmoveable ; *)
 
-(*   Event.log L_info
+(*   KEvent.log L_info
     "[C2I] |  [rated_move] rating: @[<v>%a@]"
     (pp_print_list
       (fun fmt ->
@@ -1092,7 +1092,7 @@ let rated_move ({ rating ; candidate } as rated) =
 
   (* max_rating |> Array.to_list
   |> List.map (fun (idx,a) -> idx, Array.to_list a)
-  |> Event.log L_info
+  |> KEvent.log L_info
       "[C2I] |  [rated_move] max rating: @[<v>%a@]"
       (pp_print_list
         (fun fmt (idx, l) ->
@@ -1109,7 +1109,7 @@ let rated_move ({ rating ; candidate } as rated) =
     Array.length atom_ratings |> Random.int |> Array.get atom_ratings
   in
 
-  (* Event.log L_info
+  (* KEvent.log L_info
     "[C2I] |  [rated_move] moving (%d, %d) of %d possibilities"
     disjunct_index atom_index
     (max_rating |> Array.fold_left (

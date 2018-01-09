@@ -292,7 +292,7 @@ module Make (Dom: DomainSig) : Graph = struct
       |> Set.remove term
       |> Map.replace classes rep
     with Not_found ->
-      Event.log L_fatal
+      KEvent.log L_fatal
         "drop_class_member asked to drop term [%a] for inexistant rep [%a]"
         fmt_term term fmt_term rep ;
       raise Not_found
@@ -407,7 +407,7 @@ digraph mode_graph {
         if ( (* Fail if [rep] has no kids and is not [true] or [false]. *)
           Set.is_empty reps && rep <> Term.t_false && rep <> Term.t_true
         ) then (
-          Event.log L_fatal
+          KEvent.log L_fatal
             "Inconsistent graph:@   \
             @[<v>representative [%a] has no kids@]"
             Term.pp_print_term rep ;
@@ -416,7 +416,7 @@ digraph mode_graph {
 
         ( try let _ = Map.find classes rep in ()
           with Not_found -> (
-            Event.log L_fatal
+            KEvent.log L_fatal
               "Inconsistent graph:@   \
               @[<v>representative [%a] has no equivalence class@]"
               Term.pp_print_term rep ;
@@ -430,7 +430,7 @@ digraph mode_graph {
               let kid_parents = Map.find map_down kid in
               if Set.mem rep kid_parents |> not then (
                 (* Fail if [rep] is not a parent of [kid]. *)
-                Event.log L_fatal
+                KEvent.log L_fatal
                   "Inconsistent graph:@   \
                   @[<v>representative [%a] is a kid of [%a]@ \
                   but [%a] is not a parent of [%a]@]"
@@ -440,7 +440,7 @@ digraph mode_graph {
               )
             ) with Not_found -> (
               (* Fail if [kid] does not appear in [map_down]. *)
-              Event.log L_fatal
+              KEvent.log L_fatal
                 "Inconsistent graph:@   \
                 @[<v>representative [%a] does not appear in [map_down]@]"
                 Term.pp_print_term kid ;
@@ -456,11 +456,11 @@ digraph mode_graph {
       Format.printf
         "Stopping invariant generation due to graph inconsistencies@.@." ;
       let dump_path = "./" in
-      Event.log L_fatal
+      KEvent.log L_fatal
         "Dumping current graph as graphviz in current directory" ;
       write_dot_to
         dump_path "inconsistent" "graph" fmt_graph_dot graph ;
-      Event.log L_fatal
+      KEvent.log L_fatal
         "Dumping current classes as graphviz in current directory" ;
       write_dot_to
         dump_path "inconsistent" "classes" fmt_graph_classes_dot graph ;
@@ -1022,7 +1022,7 @@ digraph mode_graph {
       try (
 
         (* Checking if we should terminate before doing anything. *)
-        Event.check_termination () ;
+        KEvent.check_termination () ;
 
         (* Will raise `Not_found` if no more reps to update (terminal case). *)
         let rep = Set.choose reps_to_update in
@@ -1050,7 +1050,7 @@ digraph mode_graph {
           | Some model ->
             (* Format.printf "  sat@.@." ; *)
             (* Checking if we should terminate before doing anything. *)
-            Event.check_termination () ;
+            KEvent.check_termination () ;
             (* Clear (NOT RESET) the value map for update. *)
             clear graph ;
             (* Stabilize graph. *)
@@ -1064,7 +1064,7 @@ digraph mode_graph {
           |> failwith
 
       ) with Not_found -> ()
-        (* Event.log L_info
+        (* KEvent.log L_info
           "update classes done in %d iterations" count *)
     in
 
@@ -1077,7 +1077,7 @@ digraph mode_graph {
     { map_up ; classes } as graph
   ) =
     (* Checking if we should terminate before doing anything. *)
-    Event.check_termination () ;
+    KEvent.check_termination () ;
 
     (* Building relations. *)
     let rels =
@@ -1102,7 +1102,7 @@ digraph mode_graph {
     | Some model ->
       (* Format.printf "  sat@.@." ; *)
       (* Checking if we should terminate before doing anything. *)
-      Event.check_termination () ;
+      KEvent.check_termination () ;
       (* Clear (NOT RESET) the value map for update. *)
       clear graph ;
       (* Stabilize graph. *)
@@ -1111,7 +1111,7 @@ digraph mode_graph {
       in
       (
         if Set.is_empty reps_to_update |> not then
-          Event.log L_warn
+          KEvent.log L_warn
             "[graph splitting] @[<v>\
               Some classes were split during relation stabilization.@ \
               This should not be possible.\
@@ -1133,9 +1133,9 @@ digraph mode_graph {
   | Some model ->
     (* Format.printf "%s   sat@.@." pref ; *)
     (* Checking if we should terminate before doing anything. *)
-    Event.check_termination () ;
+    KEvent.check_termination () ;
 
-    (* Event.log L_info "%s stabilization: check" pref ; *)
+    (* KEvent.log L_info "%s stabilization: check" pref ; *)
 
     (* Format.printf "@.sat, updating graph: %d@." out_cnt ; *)
 
@@ -1146,7 +1146,7 @@ digraph mode_graph {
     split_of_model sys Set.empty model graph |> ignore ;
 
     (* Checking if we should terminate before looping. *)
-    Event.check_termination () ;
+    KEvent.check_termination () ;
 
     (* Check if new graph is stable. *)
     stabilize_loop sys known lsd graph *)
@@ -1267,13 +1267,13 @@ module MakeEq (Dom: DomainSig) : Graph = struct
       |> Set.remove term
       |> Map.replace graph rep
     with Not_found ->
-      Event.log L_fatal
+      KEvent.log L_fatal
         "Asked to remove term %a from class of %a, but no such class found"
         fmt_term term fmt_term rep
 
   (** Formats a graph in dot format. Only the representatives will appear. *)
   let fmt_graph_dot _ _ =
-    Event.log L_fatal "Equality-graph formatting is unimplemented"
+    KEvent.log L_fatal "Equality-graph formatting is unimplemented"
   (** Formats the eq classes of a graph in dot format. *)
   let fmt_graph_classes_dot fmt classes =
     Format.fprintf fmt

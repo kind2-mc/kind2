@@ -195,7 +195,7 @@ let mk_base_checker sys k =
 let conditional_base_solver_reset (
   { solver ; sys ; k } as base_checker
 ) = if shall_reset () then (
-  (* Event.log_uncond "[LSD] RESTARTING BASE" ; *)
+  (* KEvent.log_uncond "[LSD] RESTARTING BASE" ; *)
   Smt.delete_instance solver ;
   reset_actlit_uids () ;
   let solver, init_actlit = mk_base_checker_solver sys k in
@@ -322,7 +322,7 @@ let step_cert { k } = 1 + Num.to_int k
 let conditional_step_solver_reset (
   { solver ; sys ; k } as step_checker
 ) = if shall_reset () then (
-  (* Event.log_uncond "[LSD] RESTARTING STEP" ; *)
+  (* KEvent.log_uncond "[LSD] RESTARTING STEP" ; *)
   Smt.delete_instance solver ;
   reset_actlit_uids () ;
   let solver, _ = mk_base_checker sys Num.(pred k) |> to_step_solver in
@@ -566,7 +566,7 @@ let mk_pruning_checker sys =
 let conditional_pruning_solver_reset (
   { solver ; sys ; actlit_uid } as pruning_checker
 ) = if actlit_uid >= max_actlit_count_before_reset then (
-  (* Event.log_uncond "[LSD] RESTARTING PRUNING" ; *)
+  (* KEvent.log_uncond "[LSD] RESTARTING PRUNING" ; *)
   Smt.delete_instance solver ;
   let solver = mk_pruning_checker_solver sys in
   pruning_checker.solver <- solver ;
@@ -645,7 +645,7 @@ let query_pruning pruning_checker =
     | Some (non_triv :: non_trivs, rest) ->
       loop (non_triv :: non_trivial) (List.rev_append non_trivs rest)
     | Some ([], rest) ->
-      Event.log L_fatal
+      KEvent.log L_fatal
         "[pruning] satisfiable instance but no falsifiable candidate" ;
       exit 2
   in
