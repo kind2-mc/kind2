@@ -167,7 +167,7 @@ let string_of_decimal = string_of_t pp_print_decimal
 let of_int n = N (Num.num_of_int n)
 
 (* Convert a string to a rational number *)
-let of_string s =
+let of_decimal_string s =
   (* Buffer for integer part, initialize to length of whole string *)
   let int_buf = Buffer.create (String.length s) in
 
@@ -217,7 +217,7 @@ let of_string s =
       match String.get s (start_pos + pos) with
 
         (* Continue parsing exponent part *)
-        | 'E' when pos > 0 -> scan_exp (start_pos + (succ pos)) 0
+        | 'E' | 'e' when pos > 0 -> scan_exp (start_pos + (succ pos)) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
@@ -248,7 +248,7 @@ let of_string s =
         | '.' -> scan_frac (succ pos) 0
 
         (* Continue parsing exponent part *)
-        | 'E'  when pos > 0 -> scan_exp (succ pos) 0
+        | 'E' | 'e'  when pos > 0 -> scan_exp (succ pos) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
@@ -331,7 +331,10 @@ let of_string s =
 
   N res
 
-
+let of_string s =
+  match Hexadecimal.to_decimal s with
+  | Some res -> N res
+  | None -> of_decimal_string s
 
 (* Division symbol *)
 let s_div = HString.mk_hstring "/"
