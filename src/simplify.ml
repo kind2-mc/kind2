@@ -1888,6 +1888,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
                 (* New polynomial with integer value as atom *)
                 Num (Numeral.zero, [Numeral.one, [Term.mk_to_int (term_of_nf a)]])
 
+              | [Num _ as a] -> a
+
               (* Conversion is only unary *)
               | _ -> assert false 
 
@@ -1908,6 +1910,8 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
                 (* New polynomial with integer value as atom *)
                 Dec (Decimal.zero, [Decimal.one, [Term.mk_to_int (term_of_nf a)]])
+
+              | [Dec _ as a] -> a
 
               (* Conversion is only unary *)
               | _ -> assert false 
