@@ -84,7 +84,6 @@ type l = int^3^5; -- ^ is left-associative
 -- const h = 2;
 -- type m = int^5*h;
 
-
 -- ------------------------------------------------------------
 -- Global constant declarations
 -- ------------------------------------------------------------
@@ -102,6 +101,12 @@ const b01 = 1;
 const c1 : bool = true;
       c2 = 5;
 
+-- Use decimal or hexa-decimal notations for numerical constants
+
+const size = 0xA0f ;
+      e1 = .45e-45 ;
+      e2 = 0.2E+3 ;
+      e3 = 0x3.1f4p-5 ;
 
 -- ------------------------------------------------------------
 -- Node declarations
