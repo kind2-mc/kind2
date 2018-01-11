@@ -81,7 +81,7 @@ let pp_print_term ppf term =
   else if Term.is_decimal term then 
     
     (* Pretty-print as a decimal *)
-    Decimal.pp_print_decimal 
+    Decimal.pp_print_decimal_approximation
       ppf
       (Term.decimal_of_term term)
       

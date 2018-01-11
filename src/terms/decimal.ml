@@ -150,7 +150,6 @@ let pp_print_decimal_as_lus_real fmt = function
       (Big_int.string_of_big_int rd)
 )
 
-
 (* Return a string representation of a decimal *)
 let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr
 
@@ -376,6 +375,12 @@ let is_int = function
   | N (Num.Big_int _) -> true
   | _ -> false
 
+(* Converts to a float *)
+let to_float = function
+  | N (Num.Int n) -> float n
+  | N (Num.Big_int n) -> Big_int.float_of_big_int n
+  | N (Num.Ratio r) -> Ratio.float_of_ratio r
+  | naN -> raise_invalid_arg "to_float" naN
 
 (* ********************************************************************** *)
 (* Comparison operators                                                   *)
@@ -497,6 +502,59 @@ let rem l r = match l, r with
 | N l, N r -> Num.mod_num l r |> of_num
 | _ -> Undef
 
+(* ********************************************************************** *)
+(* Approximation Printing (need others operations)                        *)
+(* ********************************************************************** *)
+
+let epsilon p =
+  if p > 0 then
+    Ratio.ratio_of_big_int (Big_int.power_int_positive_int 2 p)
+  else
+  if p < 0 then
+    Ratio.ratio_of_big_int (Big_int.power_int_positive_int 2 (-p)) |>
+    Ratio.div_int_ratio 1
+  else
+    Ratio.ratio_of_int 1
+
+let magnitude = function
+  | InfPos | InfNeg | Undef -> failwith "magnitude of infinite"
+  | N (Num.Int n) -> Big_int.num_bits_big_int (Big_int.big_int_of_int n)
+  | N (Num.Big_int n) -> Big_int.num_bits_big_int n
+  | N (Num.Ratio r) ->
+      (* let r = a/b *)
+      let n = Big_int.num_bits_big_int (Ratio.numerator_ratio r) in
+      if n = 0 then 0 else
+        let d = Big_int.num_bits_big_int (Ratio.denominator_ratio r) in
+        if d = 0 then failwith "magnitude of infinite ratio" ;
+        (* have  2^(n-1)  <= |a| < 2^n *)
+        (* have  2^(d-1)  <= |b| < 2^d *)
+        (* hence 2^(n-d-1) < |r| < 2^(n-d+1) *)
+        let p = epsilon (n-d) in
+        if Ratio.lt_ratio r p then n-d else n-d+1
+
+let sign = function
+  | InfPos -> 1
+  | InfNeg -> -1
+  | Undef -> failwith "sign of undef"
+  | N (Num.Int n) -> Pervasives.compare n 0
+  | N (Num.Big_int n) -> Big_int.sign_big_int n
+  | N (Num.Ratio r) -> Ratio.sign_ratio r
+
+let pp_print_decimal_approximation fmt dec =
+  match dec with
+  | InfPos | InfNeg | Undef | N (Num.Int _ | Num.Big_int _) ->
+      pp_print_decimal fmt dec
+  | N (Num.Ratio r) ->
+      try
+        let approx = Printf.sprintf "%g" (Ratio.float_of_ratio r) in
+        let delta = sub dec (of_string approx) in
+        let p = magnitude delta in
+        if p = 0 then
+          Format.pp_print_string fmt approx
+        else
+          let s = if sign delta >= 0 then '+' else '-' in
+          Format.fprintf fmt "%s@{<black_b>%cp%d@}" approx s p
+      with _ -> (* Fallback *) pp_print_decimal fmt dec
 
 (* ********************************************************************** *)
 (* Infix operators                                                        *)
