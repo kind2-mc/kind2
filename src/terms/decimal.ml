@@ -502,11 +502,8 @@ let rem l r = match l, r with
 | N l, N r -> Num.mod_num l r |> of_num
 | _ -> Undef
 
-(* ********************************************************************** *)
-(* Approximation Printing (need others operations)                        *)
-(* ********************************************************************** *)
-
-let epsilon p =
+(* Computes the rational 2^p with signed p *)
+let epsilon_ratio p =
   if p > 0 then
     Ratio.ratio_of_big_int (Big_int.power_int_positive_int 2 p)
   else
@@ -516,6 +513,9 @@ let epsilon p =
   else
     Ratio.ratio_of_int 1
 
+let epsilon p = N (Num.Ratio (epsilon_ratio p))
+
+(* Computes n such that 2^n <= | dec | < 2^n ; returns 0 is dec is null *)
 let magnitude = function
   | InfPos | InfNeg | Undef -> failwith "magnitude of infinite"
   | N (Num.Int n) -> Big_int.num_bits_big_int (Big_int.big_int_of_int n)
@@ -529,7 +529,7 @@ let magnitude = function
         (* have  2^(n-1)  <= |a| < 2^n *)
         (* have  2^(d-1)  <= |b| < 2^d *)
         (* hence 2^(n-d-1) < |r| < 2^(n-d+1) *)
-        let p = epsilon (n-d) in
+        let p = epsilon_ratio (n-d) in
         if Ratio.lt_ratio r p then n-d else n-d+1
 
 let sign = function
@@ -539,6 +539,10 @@ let sign = function
   | N (Num.Int n) -> Pervasives.compare n 0
   | N (Num.Big_int n) -> Big_int.sign_big_int n
   | N (Num.Ratio r) -> Ratio.sign_ratio r
+
+(* ********************************************************************** *)
+(* Approximation Printing (need others operations)                        *)
+(* ********************************************************************** *)
 
 let pp_print_decimal_approximation fmt dec =
   match dec with
