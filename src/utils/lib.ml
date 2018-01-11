@@ -995,13 +995,15 @@ let pp_print_position ppf (
 
     fprintf ppf "%s" pos_fname
 
+  else if pos_fname <> "" then
+
+    fprintf ppf "%s:%d:%d" pos_fname pos_lnum pos_cnum
+
   else
 
     fprintf 
       ppf
-      "@[<hv>%tline %d@ col. %d@]"
-      (function ppf -> 
-        if pos_fname = "" then () else fprintf ppf "%s@ " pos_fname)
+      "@[<hv>line %d@ col. %d@]"
       pos_lnum
       pos_cnum
 
