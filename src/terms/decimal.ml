@@ -548,18 +548,24 @@ let pp_print_decimal_approximation fmt dec =
   match dec with
   | InfPos | InfNeg | Undef | N (Num.Int _ | Num.Big_int _) ->
       pp_print_decimal fmt dec
-  | N (Num.Ratio r) ->
+  | N (Num.Ratio _ as r) ->
       try
-        let approx = Printf.sprintf "%g" (Ratio.float_of_ratio r) in
-        let delta = sub dec (of_string approx) in
-        let p = magnitude delta in
-        if p = 0 then
-          Format.pp_print_string fmt approx
-        else
-          let s = if sign delta >= 0 then '+' else '-' in
-          Format.fprintf fmt "%s@{<black_b>%cp%d@}" approx s p
+        let s = Num.sign_num r in
+        if s = 0 then Format.pp_print_string fmt "0.0" else
+          let value = abs dec in
+          let approx = Printf.sprintf "%g" (to_float value) in
+          let appro = of_string approx in
+          let delta = sub value appro in
+          let alpha = div delta appro in
+          let p = magnitude alpha in
+          if p = 0 then
+            Format.pp_print_string fmt approx
+          else
+            let sr = if s >= 0 then '+' else '-' in
+            let se = if (sign delta >= 0) = (s >= 0) then '+' else '-' in
+            Format.fprintf fmt "%c%s@{<black_b>%cf%d@}" sr approx se (-p)
       with _ -> (* Fallback *) pp_print_decimal fmt dec
-
+                                 
 (* ********************************************************************** *)
 (* Infix operators                                                        *)
 (* ********************************************************************** *)
