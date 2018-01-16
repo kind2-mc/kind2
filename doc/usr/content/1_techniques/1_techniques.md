@@ -35,7 +35,9 @@ conjunction with *modular reasoning*, discussed in the next section.
 
 *Modular reasoning* is activated with the option `--modular true`. In this
 mode, Kind 2 will perform whatever type of analysis is specified by the other
-flags on **every node** of the hierarchy, bottom-up.
+flags on **every node** of the hierarchy, bottom-up. The analysis is
+completed on every node even if some node is proved unsafe because of
+the falsification of one of its properties.
 
 A timeout for *each analysis* can be specified using the `--timeout_analysis`
 flag. It can be used in conjunction with the *global timeout* given with the

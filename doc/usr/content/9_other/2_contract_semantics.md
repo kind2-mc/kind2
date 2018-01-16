@@ -163,8 +163,7 @@ then at least one mode is active at all time.
 
 Kind 2 follows this defensive approach.
 If a mode is missing, or a requirement is more restrictive than it should be
-then Kind 2 will detect the modes that are not exhaustive, provide a counterexample
-and stop.
+then Kind 2 will detect the modes that are not exhaustive and provide a counterexample.
 
 This defensive approach is not as constraining as it first appears.
 If one wants to leave some situation unspecified on purpose,

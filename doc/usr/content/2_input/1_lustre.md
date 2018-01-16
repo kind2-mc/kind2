@@ -2,17 +2,23 @@
 
 Lustre is a functional, synchronous dataflow language. Kind 2 supports most of the Lustre V4 syntax and some elements of Lustre V6. See the file [`./examples/syntax-test.lus`](https://github.com/kind2-mc/kind2/blob/develop/examples/syntax-test.lus) for examples of all supported language constructs.
 
-## Properties and top level node
+## Properties and top-level node
 
-To specify a property to verify in a Lustre node, add the following in the body (*i.e.* between keywords ```let``` and ```tel```) of the node:
+To specify a property to verify in a Lustre node, add the following annotation in the body (*i.e.* between keywords ```let``` and ```tel```) of the node:
 
 ```
---%PROPERTY <bool_expr> ;
+--%PROPERTY ["<name>"] <bool_expr> ;
 ```
 
-where `<bool_expr>` is a Boolean Lustre expression.
+or, use a `check` statement:
 
-Kind 2 only analyzes what it calls the *top node*. By default, the top node is the last node in the file. To force a node to be the top node, add
+```
+check ["<name>"] <bool_expr> ;
+```
+
+where `<name>` is an identifier for the property and `<bool_expr>` is a Boolean Lustre expression.
+
+Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top node*. By default, the top node is the last node in the file. To force a node to be the top node, add
 
 ```
 --%MAIN ;
@@ -28,7 +34,7 @@ kind2 --lustre_main <node_name> ...
 
 ### Example
 
-The following example declares two nodes ```greycounter``` and ```intcounter```, as well as an *observer* node ```top``` that calls these nodes and verifies that their outputs are the same. The node ```top``` is annotated with ```--%MAIN ;``` which makes it the *top node* (redundant here because it is the last node). The line ```--PROPERTY OK;``` means we want to verify that the Boolean stream ```OK``` is always true.
+The following example declares two nodes ```greycounter``` and ```intcounter```, as well as an *observer* node ```top``` that calls these nodes and verifies that their outputs are the same. The node ```top``` is annotated with ```--%MAIN ;``` which makes it the *top node* (redundant here because it is the last node). The line ```--%PROPERTY OK;``` means we want to verify that the Boolean stream ```OK``` is always true.
 
 ```
 node greycounter (reset: bool) returns (out: bool);
