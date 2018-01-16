@@ -58,6 +58,13 @@ type t = value VT.t
 (* A path is a map of state variables to assignments *)
 type path = value list SVT.t
 
+
+let pp_print_decimal =
+  match (Flags.real_precision ()) with
+  | `Rational -> Decimal.pp_print_decimal
+  | `Float -> Decimal.pp_print_decimal_approximation
+
+
 (* Pretty-print a value *)
 let pp_print_term ppf term =
   (* if Term.is_bool term then *)
@@ -81,7 +88,7 @@ let pp_print_term ppf term =
   else if Term.is_decimal term then 
     
     (* Pretty-print as a decimal *)
-    Decimal.pp_print_decimal 
+    pp_print_decimal
       ppf
       (Term.decimal_of_term term)
       

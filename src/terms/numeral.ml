@@ -24,7 +24,6 @@
 (* Arbitrary precision numerals are big integers *)
 type t = Big_int.big_int
 
-
 (* The numeral zero *)
 let zero = Big_int.zero_big_int 
 

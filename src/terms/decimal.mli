@@ -35,6 +35,9 @@ val pp_print_decimal_as_float : Format.formatter -> t -> unit
 (** Pretty-print a rational as an f64 (used by contract generation) *)
 val pp_print_decimal_as_lus_real: Format.formatter -> t -> unit
 
+(** Pretty-print a rational in scientific format with the error magnitude *)
+val pp_print_decimal_approximation: Format.formatter -> t -> unit
+
 (** Pretty-print a rational as an S-expression *)
 val pp_print_decimal_sexpr : Format.formatter -> t -> unit
 
@@ -71,6 +74,16 @@ val to_big_int : t -> Big_int.big_int
 (** Return true if decimal coincides with an integer *)
 val is_int : t -> bool
 
+(** Returns 0 on zero, 1 for positives and -1 for negatives.
+    Works also on infinites but fails on undefined. *)
+val sign : t -> int
+
+(** Returns the rational [2^p] with signed p. *)
+val epsilon : int -> t
+
+(** Returns a signed integer [n] such that [2^(n-1) < |dec| < 2^n ]
+    or [0] if [dec] is null. *)
+val magnitude : t -> int
 
 (** {1 Constants} *)
 
