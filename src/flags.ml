@@ -1901,6 +1901,43 @@ module Global = struct
   let output_dir () = !output_dir
 
 
+  (* Real precision. *)
+  type real_precision = [
+    `Rational | `Float
+  ]
+  let real_precision_of_string = function
+    | "rational" -> `Rational
+    | "float" -> `Float
+    | _ -> raise (Arg.Bad "Bad value for --real_precision")
+  let string_of_real_precision = function
+    | `Rational -> "rational"
+    | `Float -> "float"
+  let real_precision_values = [
+    `Rational ; `Float
+  ] |> List.map string_of_real_precision |> String.concat ", "
+  let real_precision_default = `Rational
+
+  let real_precision = ref real_precision_default
+  let _ = add_spec
+    "--real_precision"
+    (Arg.String
+      (fun str -> real_precision := real_precision_of_string str)
+    )
+    (fun fmt ->
+      Format.fprintf fmt
+      "\
+        where <string> can be %s@ \
+        Adjust precision of real values in model output@ \
+        In floating-point format f<nn> means a relative error less than 2^-nn@ \
+        Default: %s\
+      "
+      real_precision_values
+      (string_of_real_precision real_precision_default)
+    )
+
+  let real_precision () = !real_precision
+
+
   (* Log invariants. *)
   let log_invs_default = false
   let log_invs = ref log_invs_default
@@ -2294,6 +2331,7 @@ end
 (* Re-exports. *)
 type enable = Global.enable
 type input_format = Global.input_format
+type real_precision = Global.real_precision
 
 
 (* ********************************************************************** *)
@@ -2316,6 +2354,7 @@ let log_level = Global.log_level
 let log_format_xml = Global.log_format_xml
 let log_format_json = Global.log_format_json
 let input_format = Global.input_format
+let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis
 let input_file = Global.input_file
