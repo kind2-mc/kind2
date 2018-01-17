@@ -284,6 +284,12 @@ let pp_print_trans_sys
 *)
 
 
+let rec pp_print_subsystems include_top fmt sys =
+  if include_top then Format.fprintf fmt "%a@." pp_print_trans_sys sys;
+  List.iter
+    (fun (t,_) -> pp_print_subsystems true fmt t)
+    sys.subsystems
+
 
 (*
 
@@ -704,7 +710,7 @@ let iter_subsystems ?(include_top = true) f ({ subsystems } as trans_sys) =
     () 
     Scope.Set.empty 
     (if include_top then [trans_sys] else (List.map fst subsystems))
-    
+
 
 (* Fold bottom-up over subsystems, including the top level system
     without repeating subsystems already seen *)
