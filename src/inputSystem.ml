@@ -178,6 +178,13 @@ let next_analysis_of_strategy (type s)
          
   | Horn subsystem -> (function _ -> assert false)
 
+let pp_print_subsystems_debug (type s) : s t -> Format.formatter -> unit = function
+  | Lustre (subsystem, _) -> (fun fmt ->
+      let subsystems = S.all_subsystems subsystem in
+      let lustre_nodes = List.map (fun sb -> sb.S.source) subsystems in
+      List.iter (Format.fprintf fmt "%a@." LustreNode.pp_print_node_debug) lustre_nodes)
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Horn"
 
 (* Return a transition system with [top] as the main system, sliced to
    abstractions and implementations as in [abstraction_map]. *)

@@ -104,6 +104,14 @@ val compare_scope : t -> t -> int
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
+(** Pretty-print a transition system and its subsystems
+
+    [pp_print_subsystems t f s] pretty-prints the top node of
+    transition system [s], if parameter [t] is set to true,
+    and also all its subsystems.
+*)
+val pp_print_subsystems : bool -> Format.formatter -> t -> unit
+
 (** Pretty-print the name of a transition system *)
 val pp_print_trans_sys_name : Format.formatter -> t -> unit
 
