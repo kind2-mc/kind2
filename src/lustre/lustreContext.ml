@@ -1308,6 +1308,7 @@ let mk_local_for_expr
             ) else ctx
           in
 
+          let ctx = add_state_var_to_locals ctx state_var in
           (* Return variable and changed context *)
           (abs, ctx)
 
