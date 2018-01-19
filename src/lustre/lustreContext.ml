@@ -1277,7 +1277,7 @@ let mk_local_for_expr
         | None -> raise (Invalid_argument "mk_local_for_expr")
 
         (* Add to locals *)
-        | Some node ->
+        | Some _ ->
 
           (* Guard unguarded pres before adding definition *)
           let expr', ctx = close_expr ?bounds ?original pos (expr, ctx) in
@@ -1295,6 +1295,8 @@ let mk_local_for_expr
           in
 
           let ctx =
+            (* Get most updated version of node *)
+            let node = get (get_node ctx) in
             if is_ghost then (
               (* Don't change source of svar if already there. *)
               try
@@ -1308,7 +1310,6 @@ let mk_local_for_expr
             ) else ctx
           in
 
-          let ctx = add_state_var_to_locals ctx state_var in
           (* Return variable and changed context *)
           (abs, ctx)
 
