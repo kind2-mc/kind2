@@ -100,6 +100,17 @@ let get_ts { ts } = TMap.fold (
 let mem { os ; ts } term =
   TMap.mem os term || TMap.mem ts term
 
+(** Returns [Some cert] if [term] is a known invariant, or [None] otherwise. *)
+let find { os ; ts } term =
+  try
+    Some (TMap.find os term)
+  with Not_found -> (
+    try
+      Some (TMap.find ts term)
+    with Not_found ->
+      None
+  )
+
 (** **Temporary.** Flattens some invariants into a list. *)
 let flatten { os ; ts } =
   let f inv cert tail = (inv, cert) :: tail in

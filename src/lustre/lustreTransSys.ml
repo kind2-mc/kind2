@@ -307,9 +307,9 @@ let subrequirements_of_contract call_pos scope svar_map { C.assumes } =
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
 [ a => ( g and /\ {r_i => e_i} ) ]. *)
-let abstraction_of_contract { C.assumes ; C.guarantees ; C.modes } =
+let abstraction_of_contract { C.assumes ; C.sofar_assump ; C.guarantees ; C.modes } =
   (* LHS of the implication. *)
-  let lhs = conj_of assumes in
+  let lhs = E.mk_var sofar_assump in
   (* Guarantee. *)
   let gua = guarantees |> List.map (fun ({ C.svar }, _) -> E.mk_var svar) in
   (* Adding mode implications to guarantees. *)
@@ -1956,54 +1956,69 @@ let rec trans_sys_of_node'
           (* ****************************************************** *)
           (* Turn assumed properties into assertions                *)
 
-          (* Make assumed properties assertions *)
-          let init_terms, trans_terms, properties = 
-
-            (* Iterate over each property annotation *)
+          let valid_prop_terms =
             List.fold_left
-              (fun 
-                (init_terms, trans_terms, properties)
-                ({ P.prop_name; 
-                   P.prop_source; 
-                   P.prop_term;
-                   P.prop_status } as p) -> 
+              (fun acc ({ P.prop_term } as p) ->
+                match Invs.find node_assumptions prop_term with
+                | None -> acc
+                | Some cert -> (
+                  P.set_prop_invariant p cert; (* Set property valid *)
+                  prop_term :: acc
+                )
+              )
+              [] properties
+          in
 
-                if 
+          let assumption =
+            if
+              not (I.equal node_name top_name) &&
+              not (A.param_scope_is_abstract analysis_param scope) &&
+              valid_prop_terms <> []
+            then
+              match contract with
+              | Some contract when contract.C.assumes <> [] -> (
+                let sofar_assump offset =
+                  Term.mk_var
+                    (Var.mk_state_var_instance contract.C.sofar_assump offset)
+                in
+                [sofar_assump TransSys.prop_base]
+              )
+              | _ -> []
+            else []
+          in
 
-                  (* Property is assumed invariant? *)
-                  Invs.mem node_assumptions prop_term
+          (* Make assumed properties assertions *)
+          let init_terms, trans_terms =
 
-                then
+            (* Iterate over each valid property term *)
+            List.fold_left
+              (fun
+                (init_terms, trans_terms) prop_term ->
 
-                  (* Bump term to offset of initial state constraint *)
-                  let prop_term_init = 
-                    Term.bump_state
-                      Numeral.(TransSys.init_base - TransSys.prop_base)
-                      prop_term
-                  in
+                (* Bump term to offset of initial state constraint *)
+                let prop_term_init =
+                  Term.bump_state
+                    Numeral.(TransSys.init_base - TransSys.prop_base)
+                    (* If assumption is [], then it is trivially prop_term *)
+                    (Term.mk_implies (List.rev_append assumption [prop_term]))
+                in
 
-                  (* Bump term to offset of transition relation *)
-                  let prop_term_trans = 
-                    Term.bump_state
-                      Numeral.(TransSys.trans_base - TransSys.prop_base)
-                      prop_term
-                  in
+                (* Bump term to offset of transition relation *)
+                let prop_term_trans =
+                  Term.bump_state
+                    Numeral.(TransSys.trans_base - TransSys.prop_base)
+                    (* If assumption is [], then it is trivially prop_term *)
+                    (Term.mk_implies (List.rev_append assumption [prop_term]))
+                in
 
-                  (* Add property as assertion *)
-                  (prop_term_init :: init_terms,
-                   prop_term_trans :: trans_terms,
-                   p :: properties)
+                (* Add property as assertion *)
+                (prop_term_init :: init_terms,
+                 prop_term_trans :: trans_terms)
+              )
 
-                else
+              (init_terms, trans_terms)
 
-                  (* Add to properties *)
-                  (init_terms,
-                   trans_terms,
-                   p :: properties))
-
-              (init_terms, trans_terms, [])
-
-              properties
+              valid_prop_terms
 
           in
 
