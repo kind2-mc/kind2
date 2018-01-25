@@ -770,8 +770,7 @@ let is_const_expr expr =
 (* Return true if the expression is constant *)
 let is_const { expr_init; expr_step } = 
   is_const_expr expr_init && is_const_expr expr_step &&
-    (* probably don't need pre? *)
-    Term.equal expr_init (Term.bump_state Numeral.(~- one) expr_step)
+    Term.equal expr_init expr_step
     
 
 (* ********************************************************************** *)
@@ -2257,7 +2256,7 @@ let mk_pre mk_abs_for_expr mk_lhs_term ctx unguarded
 
   (* Stream is the same in the initial state and step (e -> e) *)
   if not unguarded &&
-     Term.equal expr_init (Term.bump_state Numeral.(~- one) expr_step) then
+     Term.equal expr_init expr_step then
     match expr_init with
     (* Expression is a constant not part of an unguarded pre expression *)
     | t when

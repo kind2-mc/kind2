@@ -518,11 +518,14 @@ let run in_sys =
       match ISys.next_analysis_of_strategy in_sys !all_results with
       
       | Some param ->
-        (* Format.printf "param: %a@.@." Analysis.pp_print_param param ; *)
+        (* Format.printf "param: %a@.@." (Analysis.pp_print_param true) param ; *)
         (* Build trans sys and slicing info. *)
         let sys, in_sys_sliced =
           ISys.trans_sys_of_analysis in_sys param
         in
+
+        (* Format.printf "%a" (TSys.pp_print_subsystems true) sys; *)
+
         (* Should we run post analysis treatment? *)
         ( match !latest_trans_sys with
           | Some old when TSys.equal_scope old sys |> not ->
