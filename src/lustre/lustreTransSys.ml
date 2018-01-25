@@ -309,7 +309,7 @@ If the contract is [(a, g, {r_i, e_i})], then the abstraction is
 [ a => ( g and /\ {r_i => e_i} ) ]. *)
 let abstraction_of_contract { C.assumes ; C.sofar_assump ; C.guarantees ; C.modes } =
   (* LHS of the implication. *)
-  let lhs = E.mk_var sofar_assump in
+  let lhs = if assumes <> [] then E.mk_var sofar_assump else E.t_true in
   (* Guarantee. *)
   let gua = guarantees |> List.map (fun ({ C.svar }, _) -> E.mk_var svar) in
   (* Adding mode implications to guarantees. *)
