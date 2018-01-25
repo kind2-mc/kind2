@@ -225,11 +225,12 @@ module MonolithicStrategy : Strategy = struct
       | [ {
         A.param = A.ContractCheck info ;
         A.contract_valid ;
-        A.sys ;
       } ] when Flags.Contracts.check_implem () ->
         if can_refine then
-          first_analysis_of_contract_check
-            (A.assumptions_of_sys sys) top info contract_valid
+          (* Invariants generated during ContractCheck analysis are discarded.
+             They were generated assuming the contract! *)
+          let ass = A.assumptions_empty in
+          first_analysis_of_contract_check ass top info contract_valid
         else None
       (* Not the first analysis, done. *)
       | _ -> None
@@ -290,7 +291,9 @@ module ModularStrategy : Strategy = struct
             A.contract_valid ;
             A.sys = trans_sys ;
           } ] ->
-            last_trans_sys := Some trans_sys ;
+            (* last_trans_sys := Some trans_sys ; *)
+            (* ^^-- Invariants generated during ContractCheck analysis are discarded.
+               They were generated assuming the contract! *)
             first_analysis_of_contract_check
               (last_assumptions ()) sys info contract_valid
           | result :: _ ->
