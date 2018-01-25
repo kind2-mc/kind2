@@ -75,16 +75,14 @@ let mk_mode name pos path requires ensures candidate = {
 
 type t = {
   assumes: svar list ;
+  sofar_assump: StateVar.t ;
   guarantees: (svar * bool) list ;
   modes: mode list ;
 }
 
-let empty () = {
-  assumes = [] ; guarantees = [] ; modes = []
-}
 
-let mk assumes guarantees modes = {
-  assumes ; guarantees ; modes
+let mk assumes sofar_assump guarantees modes = {
+  assumes ; sofar_assump ; guarantees ; modes
 }
 
 
@@ -119,8 +117,14 @@ let svars_of_modes modes set = modes |> List.fold_left (
 ) set
 
 
-let svars_of { assumes ; guarantees ; modes } =
-  svars_of_list assumes SVarSet.empty
+let svars_of { assumes ; sofar_assump ; guarantees ; modes } =
+  let initial_set =
+    if assumes <> [] then
+      SVarSet.singleton sofar_assump
+    else
+      SVarSet.empty
+  in
+  svars_of_list assumes initial_set
   |> svars_of_plist guarantees
   |> svars_of_modes modes
 

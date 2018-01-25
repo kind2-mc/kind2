@@ -307,6 +307,9 @@ val add_node_mode : t -> LustreContract.mode -> t
 (** Add assertion to context *)
 val add_node_assert : t -> LustreExpr.t -> t
 
+(* Add sofar(assumptions) to context *)
+val add_node_sofar_assumption : t -> t
+
 (** Add property to context *)
 val add_node_property : t -> Property.prop_source -> string -> LustreExpr.t -> t
 

@@ -1677,9 +1677,12 @@ let add_node_ass ctx assumes =
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
     | { node = Some ({ N.contract } as node) } ->
-      let contract = match contract with
-        | None -> C.mk assumes [] []
-        | Some contract -> C.add_ass contract assumes
+      let contract, ctx = match contract with
+        | None -> (
+          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          C.mk assumes svar [] [], ctx
+        )
+        | Some contract -> C.add_ass contract assumes, ctx
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }
@@ -1692,9 +1695,12 @@ let add_node_gua ctx guarantees =
     | { node = None } -> raise (Invalid_argument "add_node_global_contract")
 
     | { node = Some ({ N.contract } as node) } ->
-      let contract = match contract with
-        | None -> C.mk [] guarantees []
-        | Some contract -> C.add_gua contract guarantees
+      let contract, ctx = match contract with
+        | None -> (
+          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          C.mk [] svar guarantees [], ctx
+        )
+        | Some contract -> C.add_gua contract guarantees, ctx
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }
@@ -1708,9 +1714,12 @@ let add_node_mode ctx mode =
     | { node = None } -> raise (Invalid_argument "add_node_mode_contract")
 
     | { node = Some ({ N.contract } as node) } ->
-      let contract = match contract with
-        | None -> C.mk [] [] [ mode ]
-        | Some contract -> C.add_modes contract [ mode ]
+      let contract, ctx = match contract with
+        | None -> (
+          let svar, ctx = mk_fresh_local ctx Type.t_bool in
+          C.mk [] svar [] [ mode ], ctx
+        )
+        | Some contract -> C.add_modes contract [ mode ], ctx
       in
       (* Return node with contract added *)
       { ctx with node = Some { node with N.contract = Some contract } }
@@ -1727,6 +1736,47 @@ let add_node_assert ctx expr =
 
       (* Return node with assertion added *)
       { ctx with node = Some { node with N.asserts = expr :: asserts } }
+
+
+(* Add node sofar(assumption) to context *)
+let add_node_sofar_assumption ctx =
+
+   match ctx with
+
+    | { node = None } -> raise (Invalid_argument "add_node_sofar_assumption")
+
+    | { node = Some ({ N.equations ; N.contract } as n) } ->
+
+      match contract with
+
+       | None -> raise (Invalid_argument "add_node_sofar_assumption")
+
+       | Some contract -> (
+
+         let sofar_svar = contract.C.sofar_assump in
+
+         let conj_of_assumes = contract.C.assumes |>
+           List.map (fun { C.svar } -> E.mk_var svar) |> E.mk_and_n
+         in
+
+         let pre_sofar, _ = (* Context should not be modified *)
+           assert (not (guard_flag ctx));
+           E.mk_pre
+             (* No abstraction should be necessary, see [mk_pre] *)
+             (fun _ _ -> assert false) (fun _ -> assert false)
+             ctx false (E.mk_var sofar_svar)
+         in
+
+         let expr =
+           E.mk_arrow conj_of_assumes (E.mk_and conj_of_assumes pre_sofar)
+         in
+
+         let equations' = ((sofar_svar, []), expr) :: equations in
+
+         (* Return node with equation added *)
+         { ctx with node = Some { n with N.equations = equations' } }
+
+       )
 
 
 (* Add node assert to context *)

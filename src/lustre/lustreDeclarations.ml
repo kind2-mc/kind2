@@ -2562,6 +2562,7 @@ and eval_node_decl
           eval_node_contract_spec I.Set.empty ctx pos []
             inputs outputs locals contract
         in
+        let ctx = C.add_node_sofar_assumption ctx in
         (* Remove scope for local declarations in contract *)
         C.pop_scope ctx
       )
