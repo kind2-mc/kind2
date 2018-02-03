@@ -289,6 +289,7 @@ let slice_to_abstraction_and_property
 (type s) (input_sys: s t) analysis trans_sys cex prop
 : TransSys.t * TransSys.instance list * (SVar.t * _) list * Term.t * s t = 
 
+  (*
   (* Filter values at instants of subsystem. *)
   let filter_out_values = match input_sys with 
 
@@ -360,6 +361,10 @@ let slice_to_abstraction_and_property
     TransSys.map_cex_prop_to_subsystem 
       filter_out_values trans_sys cex prop
   in
+  *)
+  let trans_sys', instances, cex', prop' =
+    trans_sys, [], cex, prop
+  in
 
   (* Replace top system with subsystem for slicing. *)
   let analysis' =
@@ -385,9 +390,18 @@ let slice_to_abstraction_and_property
           Term.state_vars_of_term prop'.Property.prop_term
       in
 
-      let subsystem' = 
-        LustreSlicing.slice_to_abstraction_and_property
-          analysis' vars subsystem
+      let is_prop'_instantiated =
+        match prop'.Property.prop_source with
+        | Property.Instantiated _ -> true
+        | _ -> false
+      in
+
+      let subsystem' =
+        if is_prop'_instantiated then
+          LustreSlicing.slice_to_abstraction analysis' subsystem
+        else
+          LustreSlicing.slice_to_abstraction_and_property
+            analysis' vars subsystem
       in
 
       Lustre (subsystem', globals)

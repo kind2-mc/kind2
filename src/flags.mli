@@ -185,6 +185,9 @@ val disable : Lib.kind_module -> unit
 (** Modular analysis. *)
 val modular : unit -> bool
 
+(** Check properties of subnodes *)
+val check_subproperties : unit -> bool
+
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool
 
