@@ -458,6 +458,21 @@ let analyze ?(ignore_props = false) msg_setup modules in_sys param sys =
   (* Issue analysis outcome. *)
   KEvent.log L_info "Result: %a" Analysis.pp_print_result result
 
+
+let check_analysis_flags () =
+  if Flags.check_subproperties () then (
+    let show_msg_and_exit arg =
+      KEvent.log L_fatal
+        "Subproperty checking is not compatible with %s analysis." arg;
+      exit ExitCodes.error
+    in
+    if Flags.modular () then
+      show_msg_and_exit "modular"
+    else if Flags.Contracts.compositional () then
+      show_msg_and_exit "compositional"
+  )
+
+
 (** Runs the analyses produced by the strategy module. *)
 let run in_sys =
 
@@ -506,6 +521,9 @@ let run in_sys =
   (* Some analysis modules. *)
   (* Some modules, not including the interpreter. *)
   | modules ->
+
+    check_analysis_flags ();
+
     KEvent.log L_info
       "@[<hov>Running in parallel mode: @[<v>- %a@]@]"
       (pp_print_list pp_print_kind_module "@ - ")

@@ -2137,6 +2137,24 @@ module Global = struct
     )
   let modular () = !modular
 
+
+  let check_subproperties_default = false
+  let check_subproperties = ref check_subproperties_default
+  let _ = add_spec
+    "--check_subproperties"
+    (bool_arg check_subproperties)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Check properties of subnodes that are relevant for the analysis@ \
+          of the top node. Only available with monolithic analysis@ \
+          Default: %a\
+        "
+        fmt_bool check_subproperties_default
+    )
+  let check_subproperties () = !check_subproperties
+
+
   let lus_compile_default = false
   let lus_compile = ref lus_compile_default
   let _ = add_spec
@@ -2347,6 +2365,7 @@ let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular
+let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug
 let debug_log = Global.debug_log
