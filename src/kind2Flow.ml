@@ -496,7 +496,8 @@ let run in_sys =
       | Some param -> (
         (* Build trans sys and slicing info. *)
         let sys, _ =
-          ISys.unsliced_trans_sys_of ~preserve_sig:true in_sys param
+          ISys.trans_sys_of_analysis
+            ~preserve_sig:true ~slice_nodes:false in_sys param
         in
         (* Run interpreter. *)
         Interpreter.main (

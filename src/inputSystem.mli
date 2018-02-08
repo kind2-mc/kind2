@@ -56,7 +56,7 @@ val next_analysis_of_strategy :
 
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis:
-  ?preserve_sig:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
+  ?preserve_sig:bool -> ?slice_nodes:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
 val pp_print_path_pt : _ t -> TransSys.t -> TransSys.instance list -> bool -> Format.formatter -> Model.path -> unit
@@ -98,10 +98,6 @@ val compile_oracle_to_rust : _ t -> Scope.t -> string -> (
 
 (** Parameter for contract generation. *)
 val contract_gen_param : _ t -> (Analysis.param * (Scope.t -> LustreNode.t))
-
-(** Transition system for contract generation or interpreter, without any slicing. *)
-val unsliced_trans_sys_of:
-  ?preserve_sig:bool -> 'a t -> Analysis.param -> TransSys.t * 'a t
 
 (* 
    Local Variables:
