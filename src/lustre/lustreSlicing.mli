@@ -90,12 +90,13 @@ val node_is_abstract : Analysis.param -> LustreNode.t -> bool
     properties and contracts, given a list of which nodes should be
     abstracted. 
 
-    [slice_to_abstraction a s] takes the parameters of an analysius,
+    [slice_to_abstraction r a s] takes the parameters of an analysis,
     which contains an association map [m] of scopes to a flag that is
     [true] if the node of that name is to be abstracted to its
-    contract by omitting its implemenation. Return a node hierarchy
+    contract by omitting its implementation. Return a node hierarchy
     based on [s], reduced to the cone of influence of the properties
-    and contracts.
+    and contracts if [r] is [true]. Otherwise, only abstraction is
+    applied.
 
     For each node, start with a copy of the node without equations and
     node calls. Maintain a set of state variables, called the roots of
@@ -126,7 +127,7 @@ val node_is_abstract : Analysis.param -> LustreNode.t -> bool
     influence. We may add a better analysis later. *)
 val slice_to_abstraction :
     ?preserve_sig:bool ->
-    Analysis.param -> LustreNode.t SubSystem.t ->
+    bool -> Analysis.param -> LustreNode.t SubSystem.t ->
     LustreNode.t SubSystem.t
 
 val slice_to_abstraction_and_property :

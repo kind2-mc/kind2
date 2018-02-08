@@ -2138,6 +2138,23 @@ module Global = struct
   let modular () = !modular
 
 
+  let slice_nodes_default = true
+  let slice_nodes = ref slice_nodes_default
+  let _ = add_spec
+    "--slice_nodes"
+    (bool_arg slice_nodes)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Only equations that are relevant for checking the contract and@ \
+          properties of a node are considered during the analysis@ \
+          Default: %a\
+        "
+        fmt_bool slice_nodes_default
+    )
+  let slice_nodes () = !slice_nodes
+
+
   let check_subproperties_default = false
   let check_subproperties = ref check_subproperties_default
   let _ = add_spec
@@ -2365,6 +2382,7 @@ let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
 let modular = Global.modular
+let slice_nodes = Global.slice_nodes
 let check_subproperties = Global.check_subproperties
 let lus_main = Global.lus_main
 let debug = Global.debug

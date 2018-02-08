@@ -220,7 +220,8 @@ module RunContractGen: PostAnalysis = struct
       mode wildcard () ;" ;
     (* Building transition system and slicing info. *)
     let sys, in_sys_sliced =
-      ISys.unsliced_trans_sys_of ~preserve_sig:true in_sys param
+      ISys.trans_sys_of_analysis
+        ~preserve_sig:true ~slice_nodes:false in_sys param
     in
     let target = Flags.subdir_for top in
     (* Create directories if they don't exist. *)

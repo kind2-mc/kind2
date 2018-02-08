@@ -2159,6 +2159,7 @@ let rec trans_sys_of_node'
 
 let trans_sys_of_nodes
     ?(preserve_sig = false)
+    ?(slice_nodes = true)
     globals
     subsystem analysis_param
   =
@@ -2186,7 +2187,7 @@ let trans_sys_of_nodes
   
   let { SubSystem.source = { N.name = top_name } as node } as subsystem' =
     S.slice_to_abstraction
-      ~preserve_sig:preserve_sig analysis_param subsystem'
+      ~preserve_sig slice_nodes analysis_param subsystem'
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in

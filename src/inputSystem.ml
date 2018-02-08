@@ -189,13 +189,14 @@ let pp_print_subsystems_debug (type s) : s t -> Format.formatter -> unit = funct
 (* Return a transition system with [top] as the main system, sliced to
    abstractions and implementations as in [abstraction_map]. *)
 let trans_sys_of_analysis (type s) ?(preserve_sig = false)
+?(slice_nodes = Flags.slice_nodes ())
 : s t -> Analysis.param -> TransSys.t * s t = function
 
   | Lustre (subsystem, globals) -> (
     function analysis ->
       let t, s =
         LustreTransSys.trans_sys_of_nodes
-          ~preserve_sig:preserve_sig globals subsystem analysis
+          ~preserve_sig ~slice_nodes globals subsystem analysis
       in
       t, Lustre (s, globals)
     )
@@ -398,7 +399,8 @@ let slice_to_abstraction_and_property
 
       let subsystem' =
         if is_prop'_instantiated then
-          LustreSlicing.slice_to_abstraction analysis' subsystem
+          LustreSlicing.slice_to_abstraction
+            (Flags.slice_nodes ()) analysis' subsystem
         else
           LustreSlicing.slice_to_abstraction_and_property
             analysis' vars subsystem
@@ -466,57 +468,6 @@ fun sys ->
     failwith "can't generate contracts from native input: unsupported"
   | Horn _ ->
     failwith "can't generate contracts from horn clause input: unsupported"
-
-let unsliced_trans_sys_of (type s) ?(preserve_sig = false)
-: s t -> Analysis.param -> TransSys.t * s t = function
-
-  | Lustre (
-    { S.source ; S.subsystems } as subsystem, globals
-  ) -> (fun analysis ->
-    (* Format.printf "contract gen: %d subsystems@.@." (List.length subsystems) ; *)
-
-    (* Adds the outputs of a node as dummy properties to the node. *)
-    let augment_node ( { N.outputs ; N.locals ; N.props } as node ) =
-      { node
-        with N.props =
-          (LustreIndex.values outputs) @
-          (List.concat (List.map LustreIndex.values locals))
-          |> List.map (
-            fun svar ->
-              svar,
-              Format.asprintf "dummy prop for output %a"
-                SVar.pp_print_state_var svar,
-              Property.Candidate None
-          )
-      }
-    in
-
-    (* Building new subsystem ensuring no slicing. *)
-    let subsystem =
-      { subsystem with
-        S.source = augment_node source ;
-        S.subsystems = subsystems |> List.fold_left (
-          fun acc ( {
-            S.source = ( { N.name ; N.outputs ; N.props } as node )
-          } as sys ) ->
-            (* Format.printf "%a@." (LustreIdent.pp_print_ident false) name ; *)
-            let node = augment_node node in
-            (* Format.printf "@." ; *)
-            { sys with S.source = node } :: acc
-        ) [] |> List.rev
-      }
-    in
-    let t, s =
-      LustreTransSys.trans_sys_of_nodes
-        ~preserve_sig:preserve_sig globals subsystem analysis
-    in
-    
-    t, Lustre (s, globals)
-  )
-
-  | Native sub -> (fun _ -> sub.SubSystem.source, Native sub)
-    
-  | Horn _ -> assert false
 
 
 (* 
