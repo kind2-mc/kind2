@@ -49,6 +49,7 @@ module RunTestGen: PostAnalysis
 module RunContractGen: PostAnalysis
 module RunRustGen: PostAnalysis
 module RunInvLog: PostAnalysis
+module RunInvPrint: PostAnalysis
 module RunCertif: PostAnalysis
 
 (** Runs the post-analysis things on a system and its results. *)

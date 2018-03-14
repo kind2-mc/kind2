@@ -333,7 +333,7 @@ let pp_print_lustre_var_typed safe ppf state_var =
 
 
 (* Pretty-print a variable under [depth] pre operators *)
-let rec pp_print_var safe ppf var =
+let rec pp_print_var safe pvar ppf var =
 
   (* Variable is at an instant *)
   if Var.is_state_var_instance var then 
@@ -349,14 +349,14 @@ let rec pp_print_var safe ppf var =
         
         Format.fprintf ppf
           "@[<hv 2>%a@]"
-          (pp_print_lustre_var safe) 
+          pvar
           
       (* Variable at previous offset *)
       else if Numeral.equal (Var.offset_of_state_var_instance var) pre_offset then 
 
       Format.fprintf ppf
         "@[<hv 2>(pre %a)@]"
-        (pp_print_lustre_var safe) 
+        pvar
 
       (* Fail on other offsets *)
       else
@@ -376,7 +376,7 @@ let rec pp_print_var safe ppf var =
     
     Format.fprintf ppf
       "@[<hv 2>%a@]"
-      (pp_print_lustre_var safe) 
+      pvar
       state_var    
     
   (* Fail on other types of variables *)
@@ -387,9 +387,9 @@ let rec pp_print_var safe ppf var =
 
 
 (* Pretty-print a term *)
-and pp_print_term_node ?as_type safe ppf t = match Term.T.destruct t with
+and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
     
-  | Term.T.Var var -> pp_print_var safe ppf var
+  | Term.T.Var var -> pp_print_var safe pvar ppf var
       
   | Term.T.Const s -> 
     
@@ -397,24 +397,24 @@ and pp_print_term_node ?as_type safe ppf t = match Term.T.destruct t with
       
   | Term.T.App (s, l) -> 
 
-    pp_print_app ?as_type safe ppf (Symbol.node_of_symbol s) l
+    pp_print_app ?as_type safe pvar ppf (Symbol.node_of_symbol s) l
 
   | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node ?as_type safe ppf t
+    pp_print_term_node ?as_type safe pvar ppf t
       
 
 (* Pretty-print the second and following arguments of a
    left-associative function application *)
-and pp_print_app_left' safe s ppf = function 
+and pp_print_app_left' safe pvar s ppf = function
 
   | h :: tl -> 
 
     Format.fprintf ppf 
       " %a@ %a%t" 
       pp_print_symbol s 
-      (pp_print_term_node safe) h 
-      (function ppf -> pp_print_app_left' safe s ppf tl)
+      (pp_print_term_node safe pvar) h
+      (function ppf -> pp_print_app_left' safe pvar s ppf tl)
 
   | [] -> ()
 
@@ -422,7 +422,7 @@ and pp_print_app_left' safe s ppf = function
 (* Pretty-print a left-associative function application
 
    Print (+ a b c) as (a + b + c) *)
-and pp_print_app_left safe s ppf = function 
+and pp_print_app_left safe pvar s ppf = function
 
   (* Function application must have arguments, is a constant
      otherwise *)
@@ -433,12 +433,12 @@ and pp_print_app_left safe s ppf = function
 
     Format.fprintf ppf
       "@[<hv 2>(%a%t)@]" 
-      (pp_print_term_node safe) h 
-      (function ppf -> pp_print_app_left' safe s ppf tl)
+      (pp_print_term_node safe pvar) h
+      (function ppf -> pp_print_app_left' safe pvar s ppf tl)
 
 
 (* Pretty-print arguments of a right-associative function application *)
-and pp_print_app_right' safe s arity ppf = function 
+and pp_print_app_right' safe pvar s arity ppf = function
 
   (* Function application must have arguments, is a constant
      otherwise *)
@@ -459,7 +459,7 @@ and pp_print_app_right' safe s arity ppf = function
     (* Print last argument and close all parentheses *)
     Format.fprintf ppf
       "%a%t" 
-      (pp_print_term_node safe) h 
+      (pp_print_term_node safe pvar) h
       (function ppf -> aux ppf arity)
 
   (* Second last or earlier argument *)
@@ -468,22 +468,22 @@ and pp_print_app_right' safe s arity ppf = function
     (* Open parenthesis and print argument *)
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %t" 
-      (pp_print_term_node safe) h 
+      (pp_print_term_node safe pvar) h
       pp_print_symbol s 
-      (function ppf -> pp_print_app_right' safe s arity ppf tl)
+      (function ppf -> pp_print_app_right' safe pvar s arity ppf tl)
 
 
 (* Pretty-print a right-associative function application 
 
    Print (=> a b c) as (a => (b => c)) *)
-and pp_print_app_right safe s ppf l =
-  pp_print_app_right' safe s (List.length l - 1) ppf l
+and pp_print_app_right safe pvar s ppf l =
+  pp_print_app_right' safe pvar s (List.length l - 1) ppf l
 
 
 (* Pretty-print a chaining function application 
 
    Print (= a b c) as (a = b) and (b = c) *)
-and pp_print_app_chain safe s ppf = function 
+and pp_print_app_chain safe pvar s ppf = function
 
   (* Chaining function application must have more than one argument *)
   | []
@@ -494,23 +494,23 @@ and pp_print_app_chain safe s ppf = function
 
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %a)@]" 
-      (pp_print_term_node safe) l 
+      (pp_print_term_node safe pvar) l
       pp_print_symbol s
-      (pp_print_term_node safe) r
+      (pp_print_term_node safe pvar) r
 
   (* Print function application of first pair, conjunction and continue *)
   | l :: r :: tl -> 
 
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %a) and %a@]" 
-      (pp_print_term_node safe) l
+      (pp_print_term_node safe pvar) l
       pp_print_symbol s
-      (pp_print_term_node safe) r
-      (pp_print_app_chain safe s) (r :: tl)
+      (pp_print_term_node safe pvar) r
+      (pp_print_app_chain safe pvar s) (r :: tl)
 
 
 (* Pretty-print a function application *)
-and pp_print_app ?as_type safe ppf = function 
+and pp_print_app ?as_type safe pvar ppf = function
 
   (* Function application must have arguments, cannot have nullary
      symbols here *)
@@ -530,7 +530,7 @@ and pp_print_app ?as_type safe ppf = function
       Format.fprintf ppf
         "@[<hv 2>(%a@ %a)@]" 
         pp_print_symbol s 
-        (pp_print_term_node safe) a
+        (pp_print_term_node safe pvar) a
 
       | _ -> assert false)
   
@@ -544,9 +544,9 @@ and pp_print_app ?as_type safe ppf = function
           Format.fprintf ppf
             "%a%a" 
             pp_print_symbol s 
-            (pp_print_term_node safe) a
+            (pp_print_term_node safe pvar) a
 
-        | _ as l -> pp_print_app_left safe s ppf l)
+        | _ as l -> pp_print_app_left safe pvar s ppf l)
         
     (* Binary left-associative symbols with two or more arguments *)
     | `AND
@@ -560,17 +560,17 @@ and pp_print_app ?as_type safe ppf = function
       (function 
         | [] 
         | [_] -> assert false
-        | _ as l -> pp_print_app_left safe s ppf l)
+        | _ as l -> pp_print_app_left safe pvar s ppf l)
             
     (* Binary right-associative symbols *)
-    | `IMPLIES as s -> pp_print_app_right safe s ppf
+    | `IMPLIES as s -> pp_print_app_right safe pvar s ppf
         
     (* Chainable binary symbols *)
     | `EQ
     | `LEQ
     | `LT
     | `GEQ
-    | `GT as s -> pp_print_app_chain safe s ppf
+    | `GT as s -> pp_print_app_chain safe pvar s ppf
               
     (* if-then-else *)
     | `ITE ->
@@ -579,9 +579,9 @@ and pp_print_app ?as_type safe ppf = function
 
         Format.fprintf ppf
           "if %a then %a else %a" 
-          (pp_print_term_node safe) p
-          (pp_print_term_node ?as_type safe) l
-          (pp_print_term_node ?as_type safe) r
+          (pp_print_term_node safe pvar) p
+          (pp_print_term_node ?as_type safe pvar) l
+          (pp_print_term_node ?as_type safe pvar) r
           
         | _ -> assert false)
         
@@ -592,9 +592,9 @@ and pp_print_app ?as_type safe ppf = function
 
         Format.fprintf ppf 
           "@[<hv 2>(%a %a@ %a)@]" 
-          (pp_print_term_node safe) l 
+          (pp_print_term_node safe pvar) l
           pp_print_symbol s
-          (pp_print_term_node safe) r
+          (pp_print_term_node safe pvar) r
         
         | _ -> assert false)
         
@@ -605,7 +605,8 @@ and pp_print_app ?as_type safe ppf = function
         
         (* a divisble n becomes a mod n = 0 *)
         pp_print_app 
-          safe 
+          safe
+          pvar
           ppf
           `EQ
           [Term.T.mk_app 
@@ -622,8 +623,8 @@ and pp_print_app ?as_type safe ppf = function
 
           Format.fprintf ppf 
             "@[<hv 2>%a[%a]@]" 
-            (pp_print_term_node safe) a 
-            (pp_print_term_node safe) i
+            (pp_print_term_node safe pvar) a
+            (pp_print_term_node safe pvar) i
             
         | _ -> assert false)
 
@@ -634,9 +635,9 @@ and pp_print_app ?as_type safe ppf = function
         
           Format.fprintf ppf 
             "@[<hv 2>(%a with [%a] = %a)@]" 
-            (pp_print_term_node safe) a 
-            (pp_print_term_node safe) i
-            (pp_print_term_node safe) v
+            (pp_print_term_node safe pvar) a
+            (pp_print_term_node safe pvar) i
+            (pp_print_term_node safe pvar) v
             
         | _ -> assert false)
         
@@ -663,12 +664,16 @@ and pp_print_app ?as_type safe ppf = function
       
 
 (* Pretty-print a hashconsed term *)
+let pp_print_expr_pvar ?as_type safe pvar ppf expr =
+  pp_print_term_node ?as_type safe pvar ppf expr
+
 let pp_print_expr ?as_type safe ppf expr =
-  pp_print_term_node ?as_type safe ppf expr
+  pp_print_expr_pvar ?as_type safe (pp_print_lustre_var safe) ppf expr
 
 (* Pretty-print a term as an expr. *)
 let pp_print_term_as_expr = pp_print_expr
 
+let pp_print_term_as_expr_pvar = pp_print_expr_pvar
 
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_expr ?as_type safe =

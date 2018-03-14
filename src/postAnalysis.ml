@@ -24,7 +24,8 @@ module TSys = TransSys
 module ISys = InputSystem
 module SVar = StateVar
 
-module SSet = StateVar.StateVarSet
+module SVS = StateVar.StateVarSet
+module SVM = StateVar.StateVarMap
 
 open Res
 
@@ -399,7 +400,7 @@ module RunInvLog: PostAnalysis = struct
         ) ; *)
       let nice_invariants term =
         Term.state_vars_of_term term
-        |> SSet.exists (
+        |> SVS.exists (
           fun svar -> try (
             match
               StateVar.StateVarMap.find
@@ -470,6 +471,74 @@ module RunInvLog: PostAnalysis = struct
     )
 end
 
+(** Invariant print.
+Prints invariants used in the proof. *)
+module RunInvPrint: PostAnalysis = struct
+  let name = "invprint"
+  let title = "invariant printing"
+
+  let is_active () = Flags.print_invs ()
+
+  let run in_sys param _ results =
+    let top = (Analysis.info_of_param param).Analysis.top in
+
+    let lustre_vars_of sys =
+      let usr_vars, others =
+        let usr_name =
+          assert (List.length LustreIdent.user_scope = 1) ;
+          List.hd LustreIdent.user_scope
+        in
+        List.partition
+          (fun sv -> List.mem usr_name (StateVar.scope_of_state_var sv))
+          (TSys.state_vars sys)
+      in
+      SVM.fold
+        (fun sv l acc ->
+          (* assert (List.length l = 1) ; *)
+          let sv', path = List.hd l in
+          let scope =
+            List.fold_left
+              (fun acc (lid, n, _) ->
+                Format.asprintf "%a[%d]"
+                  (LustreIdent.pp_print_ident true) lid n :: acc
+              )
+              []
+              path
+          in
+          let var_name = StateVar.name_of_state_var sv' in
+          let full_name =
+            String.concat "." (List.rev (var_name :: scope))
+          in
+          (* Format.printf "%a -> %s@." StateVar.pp_print_state_var sv full_name ; *)
+          SVM.add sv full_name acc
+        )
+        (InputSystem.reconstruct_lustre_streams in_sys others)
+        SVM.empty
+    in
+
+    last_result results top
+    |> Res.chain (fun { Analysis.sys } ->
+      let lustre_vars = lustre_vars_of sys in
+      List.iter
+        (fun inv ->
+          let fmt_inv =
+            LustreExpr.pp_print_term_as_expr_pvar
+              false
+              (fun fmt sv ->
+               Format.fprintf fmt "%s"
+                 (try
+                   SVM.find sv lustre_vars
+                 with Not_found ->
+                   StateVar.name_of_state_var sv)
+              )
+          in
+          KEvent.log_uncond "%a" fmt_inv inv
+        )
+        (TSys.invars_of_bound sys Num.zero) ;
+      Ok ()
+    )
+end
+
 (** Invariant log.
 Certifies the last proof. *)
 module RunCertif: PostAnalysis = struct
@@ -497,6 +566,7 @@ let post_analysis = [
   (module RunContractGen: PostAnalysis) ;
   (module RunRustGen: PostAnalysis) ;
   (module RunInvLog: PostAnalysis) ;
+  (module RunInvPrint: PostAnalysis) ;
   (module RunCertif: PostAnalysis) ;
 ]
 

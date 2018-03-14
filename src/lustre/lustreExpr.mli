@@ -149,9 +149,20 @@ val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit
     for encoded enumerated datatypes). *)
 val pp_print_expr : ?as_type:Type.t -> bool -> Format.formatter -> expr -> unit
 
+val pp_print_expr_pvar :
+  ?as_type:Type.t -> bool ->
+  (Format.formatter -> StateVar.t -> unit) ->
+  Format.formatter -> expr -> unit
+
 (** Pretty-print a term as an expr. *)
 val pp_print_term_as_expr :
   ?as_type:Type.t -> bool -> Format.formatter -> Term.t -> unit
+
+val pp_print_term_as_expr_pvar :
+  ?as_type:Type.t -> bool ->
+  (Format.formatter -> StateVar.t -> unit) ->
+  Format.formatter -> Term.t -> unit
+
 
 (** {1 Predicates} *)
 

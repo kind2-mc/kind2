@@ -152,6 +152,9 @@ val real_precision : unit -> real_precision
 (** Minimizes and logs invariants as contracts. *)
 val log_invs : unit -> bool
 
+(** Prints invariants **)
+val print_invs : unit -> bool
+
 (** Debug sections to enable *)
 val debug : unit -> string list
 
