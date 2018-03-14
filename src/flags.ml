@@ -1953,6 +1953,21 @@ module Global = struct
   let log_invs () = ! log_invs
 
 
+  (* Print invariants. *)
+  let print_invs_default = false
+  let print_invs = ref print_invs_default
+  let _ = add_spec
+    "--print_invs"
+    (bool_arg print_invs)
+    (fun fmt ->
+      Format.fprintf fmt
+        "Prints list of discovered invariants.@ \
+        Default: %b"
+        print_invs_default
+    )
+  let print_invs () = ! print_invs
+
+
   (* Timeout. *)
   let timeout_wall_default = 0.
   let timeout_wall = ref timeout_wall_default
@@ -2377,6 +2392,7 @@ type real_precision = Global.real_precision
 
 let output_dir = Global.output_dir
 let log_invs = Global.log_invs
+let print_invs = Global.print_invs
 let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
