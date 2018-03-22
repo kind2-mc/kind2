@@ -158,9 +158,17 @@ val pp_print_expr_pvar :
 val pp_print_term_as_expr :
   ?as_type:Type.t -> bool -> Format.formatter -> Term.t -> unit
 
+(** Pretty-print a term as an expr using the given printing function for state vars **)
 val pp_print_term_as_expr_pvar :
   ?as_type:Type.t -> bool ->
   (Format.formatter -> StateVar.t -> unit) ->
+  Format.formatter -> Term.t -> unit
+
+(** Pretty-print a term as an expr using the given map from state vars to strings
+    If a state variable is not in the map, the name of the state variable is used instead *)
+val pp_print_term_as_expr_mvar :
+  ?as_type:Type.t -> bool ->
+  (string StateVar.StateVarMap.t) ->
   Format.formatter -> Term.t -> unit
 
 

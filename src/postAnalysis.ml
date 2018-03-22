@@ -482,55 +482,26 @@ module RunInvPrint: PostAnalysis = struct
   let run in_sys param _ results =
     let top = (Analysis.info_of_param param).Analysis.top in
 
-    let lustre_vars_of sys =
-      let usr_vars, others =
-        let usr_name =
-          assert (List.length LustreIdent.user_scope = 1) ;
-          List.hd LustreIdent.user_scope
-        in
-        List.partition
-          (fun sv -> List.mem usr_name (StateVar.scope_of_state_var sv))
-          (TSys.state_vars sys)
-      in
-      SVM.fold
-        (fun sv l acc ->
-          (* assert (List.length l = 1) ; *)
-          let sv', path = List.hd l in
-          let scope =
-            List.fold_left
-              (fun acc (lid, n, _) ->
-                Format.asprintf "%a[%d]"
-                  (LustreIdent.pp_print_ident true) lid n :: acc
-              )
-              []
-              path
-          in
-          let var_name = StateVar.name_of_state_var sv' in
-          let full_name =
-            String.concat "." (List.rev (var_name :: scope))
-          in
-          (* Format.printf "%a -> %s@." StateVar.pp_print_state_var sv full_name ; *)
-          SVM.add sv full_name acc
-        )
-        (InputSystem.reconstruct_lustre_streams in_sys others)
-        SVM.empty
-    in
-
     last_result results top
     |> Res.chain (fun { Analysis.sys } ->
-      let lustre_vars = lustre_vars_of sys in
+      let var_map =
+        let aux_vars =
+          let usr_name =
+            assert (List.length LustreIdent.user_scope = 1) ;
+            List.hd LustreIdent.user_scope
+          in
+          List.filter
+            (fun sv ->
+              not ( List.mem usr_name (StateVar.scope_of_state_var sv) )
+            )
+            (TSys.state_vars sys)
+        in
+        ISys.mk_state_var_to_lustre_name_map in_sys aux_vars
+      in
       List.iter
         (fun inv ->
           let fmt_inv =
-            LustreExpr.pp_print_term_as_expr_pvar
-              false
-              (fun fmt sv ->
-               Format.fprintf fmt "%s"
-                 (try
-                   SVM.find sv lustre_vars
-                 with Not_found ->
-                   StateVar.name_of_state_var sv)
-              )
+            LustreExpr.pp_print_term_as_expr_mvar false var_map
           in
           KEvent.log_uncond "%a" fmt_inv inv
         )

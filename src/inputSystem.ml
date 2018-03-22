@@ -279,6 +279,34 @@ let reconstruct_lustre_streams (type s) (input_system : s t) state_vars =
   | Native _ -> assert false
   | Horn _ -> assert false
 
+
+let mk_state_var_to_lustre_name_map (type s):
+  s t -> StateVar.t list -> string StateVar.StateVarMap.t =
+fun sys vars ->
+  SVM.fold
+    (fun sv l acc ->
+      (* If there is more than one alias, the first one is used *)
+      let sv', path = List.hd l in
+      let scope =
+        List.fold_left
+          (fun acc (lid, n, _) ->
+            Format.asprintf "%a[%d]"
+              (LustreIdent.pp_print_ident true) lid n :: acc
+          )
+          []
+          path
+      in
+      let var_name = StateVar.name_of_state_var sv' in
+      let full_name =
+        String.concat "." (List.rev (var_name :: scope))
+      in
+      (* Format.printf "%a -> %s@." StateVar.pp_print_state_var sv full_name ; *)
+      SVM.add sv full_name acc
+    )
+    (reconstruct_lustre_streams sys vars)
+    SVM.empty
+
+
 let is_lustre_input (type s) (input_system : s t) =
   match input_system with 
   | Lustre _ -> true
