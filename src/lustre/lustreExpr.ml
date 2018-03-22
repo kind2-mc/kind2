@@ -675,6 +675,18 @@ let pp_print_term_as_expr = pp_print_expr
 
 let pp_print_term_as_expr_pvar = pp_print_expr_pvar
 
+let pp_print_term_as_expr_mvar ?as_type safe map ppf expr =
+  pp_print_term_as_expr_pvar
+    ?as_type safe
+    (fun fmt sv ->
+     Format.fprintf fmt "%s"
+       (try
+         StateVar.StateVarMap.find sv map
+       with Not_found ->
+         StateVar.name_of_state_var sv)
+    )
+    ppf expr
+
 (* Pretty-print a hashconsed term to the standard formatter *)
 let print_expr ?as_type safe =
   pp_print_expr ?as_type safe Format.std_formatter
