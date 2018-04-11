@@ -470,10 +470,12 @@ let active_modes_of_instances model_top instances = function
   in
 
   Some (
-    modes
-    |> List.fold_left (
-      fun acc mode -> add_mode_to_trace acc mode
-    ) empty_trace
+    if empty_trace = [] then []
+    else
+      modes
+      |> List.fold_left (
+        fun acc mode -> add_mode_to_trace acc mode
+      ) empty_trace
   )
 )
 
