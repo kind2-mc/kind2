@@ -2548,24 +2548,20 @@ and eval_node_decl
   let ctx = match contract_spec with
     | None -> ctx
     | Some contract ->
-      if List.exists (fun m -> m = `Interpreter) (Flags.enabled ()) then
-        ctx
-      else (
-        ( match C.current_node_name ctx with
-          | None -> Format.printf "[contracts] no node in context@.@."
-          | Some _ -> ()
-        ) ;
-        (* New scope for local declarations in contracts *)
-        let ctx = C.push_scope ctx "contract" in
-        (* Eval contracts. *)
-        let ctx =
-          eval_node_contract_spec I.Set.empty ctx pos []
-            inputs outputs locals contract
-        in
-        let ctx = C.add_node_sofar_assumption ctx in
-        (* Remove scope for local declarations in contract *)
-        C.pop_scope ctx
-      )
+      ( match C.current_node_name ctx with
+        | None -> Format.printf "[contracts] no node in context@.@."
+        | Some _ -> ()
+      ) ;
+      (* New scope for local declarations in contracts *)
+      let ctx = C.push_scope ctx "contract" in
+      (* Eval contracts. *)
+      let ctx =
+        eval_node_contract_spec I.Set.empty ctx pos []
+          inputs outputs locals contract
+      in
+      let ctx = C.add_node_sofar_assumption ctx in
+      (* Remove scope for local declarations in contract *)
+      C.pop_scope ctx
   in
 
   (* New scope for local declarations in implementation *)

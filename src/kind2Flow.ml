@@ -489,7 +489,6 @@ let run in_sys =
     (* Set module currently running. *)
     KEvent.set_module m ;
     try (
-      (* Assumption: contracts have been removed during AST evaluation *)
       match
         Analysis.mk_results () |> ISys.next_analysis_of_strategy in_sys
       with
