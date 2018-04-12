@@ -25,11 +25,11 @@ open Lib
 (* Set width of pretty printing boxes to number of columns *)
 let vt_width =
   try
-    let scol = syscall "tput cols 2> /dev/null" in
-    let w = int_of_string (String.trim scol) in
+    let stty_size = syscall "stty size < /dev/tty 2> /dev/null" in
+    let w = Scanf.sscanf stty_size "%d %d" (fun _ cols -> cols) in
     set_margin w;
     w
-  with Not_found | Failure _ -> 80
+  with _ -> 80
 
 let print_line = 
   let s = String.make vt_width '-' in
