@@ -161,7 +161,7 @@ In addition, we also enriched the specification language of Kind 2 to support
 Equations in the body of nodes can now take the following forms
 
 - `A = <term> ;` This equation defines the values of the array `A` to be the same
-  as the values of the array expression <term>.
+  as the values of the array expression `<term>`.
 
 - `A[i] = <term(i)> ;` This equation defines the values of all elements in the
   array `A`. The index `i` has to be a symbol, it is bound locally to the
