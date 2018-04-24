@@ -75,7 +75,8 @@ let shrink_info_to_sys ({ abstraction_map } as info) sys =
     TransSys.fold_subsystems ?include_top:(Some false) (
       fun map sys ->
         let scope = TransSys.scope_of_trans_sys sys in
-        Scope.Map.add scope (Scope.Map.find scope abstraction_map) map
+        try Scope.Map.add scope (Scope.Map.find scope abstraction_map) map
+        with Not_found -> Scope.Map.add scope false map
     ) Scope.Map.empty sys
   in
   { info with abstraction_map }
