@@ -234,6 +234,10 @@ let keyword_table = mk_hashtbl [
   (* Types *)
   "type", TYPE ;
   "int", INT ;
+  "int8", INT8;
+  "int16", INT16;
+  "int32", INT32;
+  "int64", INT64;
   "real", REAL ;
   "bool", BOOL ;
   "subrange", SUBRANGE ;

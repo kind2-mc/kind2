@@ -75,6 +75,10 @@ let merge_branches transitions =
 (* Tokens for types *)
 %token TYPE
 %token INT
+%token INT8;
+%token INT16;
+%token INT32;
+%token INT64;
 %token REAL
 %token BOOL
 %token SUBRANGE
@@ -224,6 +228,7 @@ one_expr: e = expr EOF { e }
 (* A Lustre program is a list of declarations *)
 main: p = list(decl) EOF { List.flatten p }
 
+
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
   | d = const_decl { List.map 
@@ -317,6 +322,10 @@ lustre_type:
   | BOOL { A.Bool (mk_pos $startpos) }
   | INT { A.Int (mk_pos $startpos)}
   | REAL { A.Real (mk_pos $startpos)}
+  | INT8 { A.Int (mk_pos $startpos)}
+  | INT16 { A.Int (mk_pos $startpos)}
+  | INT32 { A.Int (mk_pos $startpos)}
+  | INT64 { A.Int (mk_pos $startpos)}
 
   | SUBRANGE;
     LSQBRACKET;
