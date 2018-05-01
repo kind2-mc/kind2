@@ -262,7 +262,7 @@ let add_monomial_lists add is_zero l1 l2 =
     (* Terms are equal: add coefficients *)
     | (c1, t1) :: tl1, (c2, t2) :: tl2 
       when 
-        List.length t1 = List.length t1 && 
+        List.length t1 = List.length t2 &&
         List.for_all2 Term.equal t1 t2 -> 
 
       (* Add coefficients *)
