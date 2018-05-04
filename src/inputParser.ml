@@ -63,6 +63,17 @@ let values_of_strs ty l =
 
 let separator = Str.regexp " *, *"
 
+let parse_identifier scope name =
+  match String.split_on_char '.' name with
+  | [] -> failwith "split_on_char returned an empty list"
+  | _ :: fields -> (
+    let index =
+      fields |> List.map (fun f -> LustreIndex.RecordIndex f)
+    in
+    let index_scope = LustreIndex.mk_scope_for_index index in
+    StateVar.state_var_of_string (name, scope @ index_scope)
+  )
+
 (* Parse a line *)
 let parse_stream scope chan =
   let line = input_line chan |> String.trim in
@@ -71,7 +82,7 @@ let parse_stream scope chan =
   | [] -> raise Not_found
   | name :: stream ->
     try
-      let sv = StateVar.state_var_of_string (name, scope) in
+      let sv = parse_identifier scope name in
       if StateVar.is_input sv then 
         (* Return state variable and its input *)
         (sv, values_of_strs (StateVar.type_of_state_var sv) stream)

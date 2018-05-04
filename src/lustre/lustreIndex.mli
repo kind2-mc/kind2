@@ -110,3 +110,6 @@ val pp_print_index_trie :
 
 (** Pretty print a trie with expressions *)
 val pp_print_trie_expr : bool -> Format.formatter -> LustreExpr.t t -> unit
+
+val mk_scope_for_index: index -> Scope.t
+

@@ -652,16 +652,7 @@ let mk_state_var
      x_y.z  [2]
 
   *)
-  let flatten_scopes = 
-    List.rev_map
-      (fun i -> 
-         string_of_t (D.pp_print_one_index true) i
-         |> String.length
-         |> string_of_int
-         |> Ident.of_string)
-      index 
-    |> Scope.mk_scope
-  in
+  let flatten_scopes = D.mk_scope_for_index index in
 
   (* Create or retrieve state variable *)
   let state_var =
