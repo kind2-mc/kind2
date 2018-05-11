@@ -773,7 +773,7 @@ let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
 
 (* Return true if expression is a constant state variable *)
 let is_const_var { expr_init; expr_step } = 
-  Term.is_free_var expr_init
+  Term.is_free_var expr_init && Term.is_free_var expr_step
   && Var.is_const_state_var (Term.free_var_of_term expr_init)
   && Var.is_const_state_var (Term.free_var_of_term expr_step)
 
