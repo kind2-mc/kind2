@@ -41,7 +41,11 @@ The default is `Z3`, but see options of the `./build.sh` script to override at c
 ## Requirements
 
 - Linux or Mac OS X,
+- Automake,
+- GNU Libtool,
+- pkg-config,
 - OCaml 4.03 or later,
+- [Ocamlbuild](https://github.com/ocaml/ocamlbuild), Ocamlfind, [Camlp4](https://github.com/ocaml/camlp4),
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
     - [CVC4](http://cvc4.cs.nyu.edu),
