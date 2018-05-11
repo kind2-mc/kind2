@@ -73,7 +73,7 @@ let
   N[i] = if B[i] then 1 else 0 ;
 tel
 
--- count(n, B) ounts how many elements of B are true
+-- count(n, B) counts how many elements of B are true
 node count( const n : int ; B : bool^n ) returns ( C : int ) ;
   var A : int^n ;
 let
@@ -89,10 +89,10 @@ tel
 --                                                                            --
 -- Inputs:                                                                    --
 -- * Init: The initial values stored in the shared buffer                     --
--- * Request[i]: is true is component i has made a request to write in the    --
+-- * Request[i]: is true if component i has made a request to write in the    --
 --               buffer                                                       --
 -- * Turn: the input schedule. Turn[i] is true if the schedule allows the     --
---        component i to proceed                                              --
+--         component i to proceed                                             --
 -- * Value[i]: is the value component i wants to write                        --
 --                                                                            --
 -- Outputs:                                                                   --
@@ -178,7 +178,7 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
 var index : int ;
 let
 
-  Accepted[i] = Request[i] and (Turn[i] and count(n, Request) = 1) ;
+  Accepted[i] = Request[i] and (Turn[i] or count(n, Request) = 1) ;
 
   index = min(n, Accepted) ;
 
