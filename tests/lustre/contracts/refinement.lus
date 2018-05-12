@@ -5,14 +5,14 @@ tel
 
 node sub (in: bool) returns (cpt: int) ;
 (*@contract
-  @assume true -> in = not pre in ;
-  @mode begin (
-    @require count(true) <= 10 ;
-    @ensure  cpt >= 0 ;
+  assume true -> in = not pre in ;
+  mode begin (
+    require count(true) <= 10 ;
+    ensure  cpt >= 0 ;
   ) ;
-  @mode and_then (
-    @require not begin ;
-    @ensure  true ;
+  mode and_then (
+    require not ::begin ;
+    ensure  true ;
   ) ;
 *)
 let
@@ -21,9 +21,9 @@ tel
 
 node top (in: bool) returns (cpt: int) ;
 (*@contract
-  @assume true -> in = not pre in ;
-  @guarantee cpt >= 0 ;
-  @guarantee (count(true) > 15) => false ;
+  assume true -> in = not pre in ;
+  guarantee "sub" cpt >= 0 ;
+  guarantee "sub" (count(true) > 15) => false ;
 *)
 let
   cpt = sub(in) ;
