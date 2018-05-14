@@ -783,6 +783,10 @@ pexpr(Q):
   (* Conversions *)
   | INT; e = expr { A.ToInt (mk_pos $startpos, e) }
   | REAL; e = expr { A.ToReal (mk_pos $startpos, e) }
+  | INT8; e = expr { A.ToInt8 (mk_pos $startpos, e) }
+  | INT16; e = expr { A.ToInt (mk_pos $startpos, e) }
+  | INT32; e = expr { A.ToInt (mk_pos $startpos, e) }
+  | INT64; e = expr { A.ToInt (mk_pos $startpos, e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 

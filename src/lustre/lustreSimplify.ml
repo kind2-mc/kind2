@@ -207,6 +207,12 @@ let rec eval_ast_expr bounds ctx =
   (* Conversion to an integer number [int expr] *)
     | A.ToInt (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr 
 
+  (* Conversion to fixed-width integer numbers [int8-int64 expr] *)
+    | A.ToInt8 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr
+    | A.ToInt16 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr
+    | A.ToInt32 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr
+    | A.ToInt64 (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_int expr
+
   (* Conversion to a real number [real expr] *)
     | A.ToReal (pos, expr) -> eval_unary_ast_expr bounds ctx pos E.mk_to_real expr
 

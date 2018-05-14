@@ -72,6 +72,10 @@ type expr =
   | Num of position * string
   | Dec of position * string
   | ToInt of position * expr
+  | ToInt8 of position * expr
+  | ToInt16 of position * expr
+  | ToInt32 of position * expr
+  | ToInt64 of position * expr
   | ToReal of position * expr
   | ExprList of position * expr list
   | TupleExpr of position * expr list

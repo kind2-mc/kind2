@@ -226,7 +226,8 @@ let rec used_inputs_expr inputs acc =
 
   | Ident (_, i) | Last (_, i) -> ISet.add i acc
 
-  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | RecordProject (_, e, _) | ToInt (_, e) 
+  | ToInt8 (_, e) | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
   | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
   | Forall (_, _, e) | Exists (_, _, e) ->
     used_inputs_expr inputs acc e

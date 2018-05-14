@@ -84,6 +84,10 @@ type expr =
 
   (* Conversions *)
   | ToInt of position * expr
+  | ToInt8 of position * expr
+  | ToInt16 of position * expr
+  | ToInt32 of position * expr
+  | ToInt64 of position * expr
   | ToReal of position * expr
 
   (* List of expressions *)
@@ -496,6 +500,10 @@ let rec pp_print_expr ppf =
     | Dec (p, d) -> ps p d
 
     | ToInt (p, e) -> p1 p "int" e
+    | ToInt8 (p, e) -> p1 p "int8" e
+    | ToInt16 (p, e) -> p1 p "int16" e
+    | ToInt32 (p, e) -> p1 p "int32" e
+    | ToInt64 (p, e) -> p1 p "int64" e
     | ToReal (p, e) -> p1 p "real" e
 
     | Not (p, e) -> p1 p "not" e
@@ -1175,7 +1183,8 @@ let pp_print_program ppf p =
 let pos_of_expr = function
   | Ident (pos , _) | ModeRef (pos , _ ) | RecordProject (pos , _ , _)
   | TupleProject (pos , _ , _) | StructUpdate (pos , _ , _ , _) | True pos
-  | False pos | Num (pos , _) | Dec (pos , _) | ToInt (pos , _)
+  | False pos | Num (pos , _) | Dec (pos , _) | ToInt (pos , _) 
+  | ToInt8(pos , _) | ToInt16(pos , _) | ToInt32(pos , _) | ToInt64(pos , _)
   | ToReal (pos , _) | ExprList (pos , _ ) | TupleExpr (pos , _ )
   | ArrayExpr (pos , _ ) | ArrayConstr (pos , _ , _ )
   | ArraySlice (pos , _ , _) | ArrayConcat (pos , _ , _)
@@ -1198,7 +1207,8 @@ let pos_of_expr = function
 let rec has_unguarded_pre ung = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> false
     
-  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | RecordProject (_, e, _) | ToInt (_, e) | ToInt8 (_, e) 
+  | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
   | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
   | Forall (_, _, e) | Exists (_, _, e) -> has_unguarded_pre ung e
 
@@ -1316,7 +1326,8 @@ let some_of_list = List.fold_left (
 let rec has_pre_or_arrow = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> None
     
-  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | RecordProject (_, e, _) | ToInt (_, e) | ToInt8 (_, e) 
+  | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
   | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
   | Forall (_, _, e) | Exists (_, _, e) ->
     has_pre_or_arrow e
@@ -1396,7 +1407,8 @@ let rec has_pre_or_arrow = function
 let rec lasts_of_expr acc = function
   | True _ | False _ | Num _ | Dec _ | Ident _ | ModeRef _ -> acc
     
-  | RecordProject (_, e, _) | ToInt (_, e) | ToReal (_, e)
+  | RecordProject (_, e, _) | ToInt (_, e) | ToInt8 (_, e) 
+  | ToInt16 (_, e) | ToInt32 (_, e) | ToInt64 (_, e) | ToReal (_, e)
   | Not (_, e) | Uminus (_, e) | Current (_, e) | When (_, e, _)
   | Forall (_, _, e) | Exists (_, _, e) ->
     lasts_of_expr acc e
@@ -1463,7 +1475,27 @@ let rec replace_lasts allowed prefix acc ee = match ee with
     let e', acc' = replace_lasts allowed prefix acc e in
     if e == e' then ee, acc
     else ToInt (pos, e'), acc'
-                      
+
+  | ToInt8 (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToInt8 (pos, e'), acc'
+
+  | ToInt16 (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToInt16 (pos, e'), acc'
+  
+  | ToInt32 (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToInt32 (pos, e'), acc'
+
+  | ToInt64 (pos, e) ->
+    let e', acc' = replace_lasts allowed prefix acc e in
+    if e == e' then ee, acc
+    else ToInt64 (pos, e'), acc'
+
   | ToReal (pos, e) ->
     let e', acc' = replace_lasts allowed prefix acc e in
     if e == e' then ee, acc
