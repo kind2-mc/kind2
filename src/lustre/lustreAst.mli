@@ -124,6 +124,10 @@ type expr =
 and lustre_type =
     Bool of position
   | Int of position
+  | Int8 of position
+  | Int16 of position
+  | Int32 of position
+  | Int64 of position
   | IntRange of position * expr * expr
   | Real of position
   | UserType of position * ident

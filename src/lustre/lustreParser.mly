@@ -322,10 +322,10 @@ lustre_type:
   | BOOL { A.Bool (mk_pos $startpos) }
   | INT { A.Int (mk_pos $startpos)}
   | REAL { A.Real (mk_pos $startpos)}
-  | INT8 { A.Int (mk_pos $startpos)}
-  | INT16 { A.Int (mk_pos $startpos)}
-  | INT32 { A.Int (mk_pos $startpos)}
-  | INT64 { A.Int (mk_pos $startpos)}
+  | INT8 { A.Int8 (mk_pos $startpos)}
+  | INT16 { A.Int16 (mk_pos $startpos)}
+  | INT32 { A.Int32 (mk_pos $startpos)}
+  | INT64 { A.Int64 (mk_pos $startpos)}
 
   | SUBRANGE;
     LSQBRACKET;
@@ -784,9 +784,9 @@ pexpr(Q):
   | INT; e = expr { A.ToInt (mk_pos $startpos, e) }
   | REAL; e = expr { A.ToReal (mk_pos $startpos, e) }
   | INT8; e = expr { A.ToInt8 (mk_pos $startpos, e) }
-  | INT16; e = expr { A.ToInt (mk_pos $startpos, e) }
-  | INT32; e = expr { A.ToInt (mk_pos $startpos, e) }
-  | INT64; e = expr { A.ToInt (mk_pos $startpos, e) }
+  | INT16; e = expr { A.ToInt16 (mk_pos $startpos, e) }
+  | INT32; e = expr { A.ToInt32 (mk_pos $startpos, e) }
+  | INT64; e = expr { A.ToInt64 (mk_pos $startpos, e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = pexpr(Q); RPAREN { e } 

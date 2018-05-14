@@ -169,6 +169,10 @@ type expr =
 and lustre_type =
   | Bool of position
   | Int of position
+  | Int8 of position
+  | Int16 of position
+  | Int32 of position
+  | Int64 of position
   | IntRange of position * expr * expr
   | Real of position
   | UserType of position * ident
@@ -637,6 +641,14 @@ and pp_print_lustre_type ppf = function
   | Bool pos -> Format.fprintf ppf "bool"
 
   | Int pos -> Format.fprintf ppf "int"
+
+  | Int8 pos -> Format.fprintf ppf "int8"
+
+  | Int16 pos -> Format.fprintf ppf "int8"
+
+  | Int32 pos -> Format.fprintf ppf "int8"
+
+  | Int64 pos -> Format.fprintf ppf "int8"
 
   | IntRange (pos, l, u) -> 
 
