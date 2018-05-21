@@ -31,6 +31,7 @@ type rangekind = Range | Enum
 type kindtype = 
   | Bool
   | Int
+  | Int8
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
 (*  | BV of int *)

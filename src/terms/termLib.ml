@@ -45,6 +45,9 @@ let default_of_type t =
     (* Integers are zero by default *)
     | Type.Int -> Term.mk_num Numeral.zero
 
+    (* 8-bit Integers are zero by default *)
+    | Type.Int8 -> Term.mk_num Numeral.zero
+
     (* Integer range values are their lower bound by default *)
     | Type.IntRange (l, _, _) -> Term.mk_num l
 
@@ -101,7 +104,7 @@ let rec logic_of_sort ty =
   match node_of_type ty with
   | Bool | Abstr _ -> empty
     
-  | Int | IntRange _ -> singleton IA
+  | Int | Int8 | IntRange _ -> singleton IA
                           
   | Real -> singleton RA
               

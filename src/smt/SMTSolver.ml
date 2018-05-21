@@ -873,6 +873,7 @@ let create_proxy_constants_for_terms s terms =
       match node_of_type t with
       | Bool -> Format.pp_print_string ppf "bool"
       | Int -> Format.pp_print_string ppf "int"
+      | Int8 -> Format.pp_print_string ppf "int8"
       | IntRange (i, j, Range) ->
         Format.fprintf ppf
           "int_range_%a_%a"

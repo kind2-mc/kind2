@@ -75,6 +75,8 @@ and pp_print_type_node ppf = function
 
     | Type.Int -> Format.pp_print_string ppf "int"
 
+    | Type.Int8 -> Format.pp_print_string ppf "int8"
+
     | Type.IntRange (i, j, _) ->
       Format.fprintf ppf "(subrange %a %a)"
         Numeral.pp_print_numeral i Numeral.pp_print_numeral j
@@ -105,7 +107,7 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ (* -> Type.mk_int () *)
-  | Type.Bool | Type.Int | Type.Real | Type.Abstr _  -> t
+  | Type.Bool | Type.Int | Type.Int8 | Type.Real | Type.Abstr _  -> t
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t

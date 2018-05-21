@@ -240,6 +240,8 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Int -> Format.pp_print_string ppf "int"
 
+  | Type.Int8 -> Format.pp_print_string ppf "int8"
+
   | Type.IntRange (i, j, Type.Range) -> 
 
      Format.fprintf
@@ -1217,6 +1219,12 @@ let type_of_num_num_num ?(is_div = false) op t t' =
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
       | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
+      | _ -> raise Type_mismatch
+    )
+
+    | t when Type.is_int8 t -> (
+      match t' with
+      | t when Type.is_int8 t -> Type.t_int
       | _ -> raise Type_mismatch
     )
 

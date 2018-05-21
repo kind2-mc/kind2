@@ -33,6 +33,7 @@ type rangekind = Range | Enum
 type kindtype = 
   | Bool
   | Int
+  | Int8
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
 (*
@@ -81,6 +82,8 @@ module Kindtype_node = struct
     | Bool, Bool -> true
     | Bool, _ -> false
     | Int, Int -> true
+    | Int8, Int8 -> true
+    | Int8, _ -> false
     | Int, _ -> false
     | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
       k1 = k2 && Numeral.equal l1 l2 && Numeral.equal u1 u2 
@@ -180,6 +183,8 @@ let rec pp_print_type_node ppf = function
   | Bool -> Format.pp_print_string ppf "Bool"
 
   | Int -> Format.pp_print_string ppf "Int"
+
+  | Int8 -> Format.pp_print_string ppf "Int8"
 
   | IntRange (i, j, Range) -> 
 
@@ -308,6 +313,7 @@ let rec import { Hashcons.node = n } = match n with
   (* Import leaf types directly *)
   | Bool
   | Int
+  | Int8
   | IntRange _
 (*  | BV _ *)
   | Real as t -> mk_type t
@@ -347,6 +353,11 @@ let rec is_int_range { Hashcons.node = t } = match t with
   | IntRange (_,_,Range) -> true 
   | Array (t, _) -> false (* is_int_range t *)
   |  _ -> false
+
+let rec is_int8 { Hashcons.node = t } = match t with
+  | Int8 -> true 
+  | Array (t, _) -> false (* is_int8 t *)
+  | _-> false
 
 let rec is_enum { Hashcons.node = t } = match t with
   | IntRange (_,_,Enum) -> true 

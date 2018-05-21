@@ -1230,6 +1230,8 @@ let pp_print_stream_xml get_source model clock ppf (index, state_var) =
       Format.pp_print_string ppf "type=\"bool\""
     | Type.Int ->
       Format.pp_print_string ppf "type=\"int\""
+    | Type.Int8 ->
+      Format.pp_print_string ppf "type=\"int8\""
     | Type.IntRange (i, j, Type.Range) ->
       Format.fprintf ppf "type=\"subrange\" min=\"%a\" max=\"%a\""
       Numeral.pp_print_numeral i Numeral.pp_print_numeral j
