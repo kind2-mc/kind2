@@ -1224,7 +1224,7 @@ let type_of_num_num_num ?(is_div = false) op t t' =
 
     | t when Type.is_int8 t -> (
       match t' with
-      | t when Type.is_int8 t -> Type.t_int
+      | t when Type.is_int8 t -> Type.t_int8
       | _ -> raise Type_mismatch
     )
 

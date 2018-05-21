@@ -242,6 +242,8 @@ let mk_bool () = Hkindtype.hashcons ht Bool ()
 
 let mk_int () = Hkindtype.hashcons ht Int ()
 
+let mk_int8 () = Hkindtype.hashcons ht Int8 ()
+
 let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
@@ -328,6 +330,7 @@ let rec import { Hashcons.node = n } = match n with
 (* Static values *)
 let t_bool = mk_bool ()
 let t_int = mk_int ()
+let t_int8 = mk_int8 ()
 let t_real = mk_real ()
 
 

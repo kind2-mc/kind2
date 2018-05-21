@@ -103,6 +103,9 @@ val t_bool : t
 (** The integer type *)
 val t_int : t
 
+(** The integer8 type *)
+val t_int8 : t
+
 (** The real decimal type *)
 val t_real : t
 
@@ -120,6 +123,9 @@ val is_bool : t -> bool
 
 (** Return [true] if the type is the integer type *)
 val is_int : t -> bool
+
+(** Return [true] if the type is the integer8 type *)
+val is_int8 : t -> bool
 
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool
