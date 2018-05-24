@@ -2010,7 +2010,7 @@ and eval_ast_type ctx = function
   (* Basic type integer, add to empty trie with empty index *)
   | A.Int pos -> D.singleton D.empty_index Type.t_int
 
-  | A.Int8 pos -> D.singleton D.empty_index Type.t_int
+  | A.Int8 pos -> D.singleton D.empty_index Type.t_int8
 
   | A.Int16 pos -> D.singleton D.empty_index Type.t_int
 
