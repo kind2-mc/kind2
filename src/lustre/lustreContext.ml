@@ -1740,7 +1740,7 @@ let add_node_sofar_assumption ctx =
 
       match contract with
 
-       | None -> raise (Invalid_argument "add_node_sofar_assumption")
+       | None -> ctx
 
        | Some contract -> (
 
