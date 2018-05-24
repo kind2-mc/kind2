@@ -1734,6 +1734,10 @@ let type_of_plus = function
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
       | s -> type_of_num_num_num Numeral.add t s)
+  | t when Type.is_int8 t -> 
+    (function
+      | s when Type.is_int8 s -> type_of_num_num_num Numeral.add t s
+      | _ -> raise Type_mismatch)
   | t -> type_of_num_num_num Numeral.add t
 
 
