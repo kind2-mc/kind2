@@ -101,6 +101,10 @@ let setup : unit -> any_input = fun () ->
     some stuff. *)
     KEvent.terminate_log () ;
     exit ExitCodes.error
+  | LustreLexer.Lexer_error msg ->
+    KEvent.log L_error "%s" msg ;
+    KEvent.terminate_log () ;
+    exit ExitCodes.error
   | e ->
     
     let backtrace = Printexc.get_raw_backtrace () in
