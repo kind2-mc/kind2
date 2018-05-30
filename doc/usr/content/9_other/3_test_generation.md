@@ -78,7 +78,7 @@ point, since their activation only depends on the values of the inputs. We can
 ask Kind 2 to generate the graph of mode paths up to some depth (5 here):
 
 ```
-kind2 --testgen on --testgen_len 5 stopwatch.lus
+kind2 --testgen true --testgen_len 5 stopwatch.lus
 ```
 
 This will generate the following graph (and a lot of other files we will
