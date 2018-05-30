@@ -76,6 +76,9 @@ val mk_bool : unit -> t
 (** Return the integer type *)
 val mk_int : unit -> t 
 
+(** Return the integer8 type *)
+val mk_int8 : unit -> t 
+
 (** Return the integer range type *)
 val mk_int_range : Numeral.t -> Numeral.t -> t
 

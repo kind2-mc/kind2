@@ -1074,6 +1074,14 @@ let mk_int d =
     expr_step = expr; 
     expr_type = Type.mk_int_range d d } 
 
+(* Integer8 constant *)
+let mk_int8 d =
+
+  let expr = Term.mk_num d in
+
+  { expr_init = expr;
+    expr_step = expr;
+    expr_type = Type.t_int8 }
 
 (* Real constant *)
 let mk_real f =  
@@ -1218,7 +1226,7 @@ let type_of_num_num_num ?(is_div = false) op t t' =
     match t with
     | t when Type.is_int t || Type.is_int_range t -> (
       match t' with
-      | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int
       | _ -> raise Type_mismatch
     )
 
@@ -1734,10 +1742,6 @@ let type_of_plus = function
         let l2, u2 = Type.bounds_of_int_range s in
         Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
       | s -> type_of_num_num_num Numeral.add t s)
-  | t when Type.is_int8 t -> 
-    (function
-      | s when Type.is_int8 s -> type_of_num_num_num Numeral.add t s
-      | _ -> raise Type_mismatch)
   | t -> type_of_num_num_num Numeral.add t
 
 

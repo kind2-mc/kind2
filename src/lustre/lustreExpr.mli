@@ -313,6 +313,9 @@ val mk_constr : string -> Type.t -> t
 (** Return an expression of an integer numeral. *)
 val mk_int : Numeral.t -> t
 
+(** Return an expression of an integer8 numeral. *)
+val mk_int8 : Numeral.t -> t
+
 (** Return an expression of a floating point decimal. *)
 val mk_real : Decimal.t -> t
 
