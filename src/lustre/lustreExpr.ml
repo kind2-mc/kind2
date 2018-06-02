@@ -242,6 +242,12 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
   | Type.Int8 -> Format.pp_print_string ppf "int8"
 
+  | Type.Int16 -> Format.pp_print_string ppf "int16"
+
+  | Type.Int32 -> Format.pp_print_string ppf "int32"
+
+  | Type.Int64 -> Format.pp_print_string ppf "int64"
+
   | Type.IntRange (i, j, Type.Range) -> 
 
      Format.fprintf
@@ -1083,6 +1089,33 @@ let mk_int8 d =
     expr_step = expr;
     expr_type = Type.t_int8 }
 
+(* Integer16 constant *)
+let mk_int16 d =
+
+  let expr = Term.mk_num d in
+
+  { expr_init = expr;
+    expr_step = expr;
+    expr_type = Type.t_int8 }
+
+(* Integer32 constant *)
+let mk_int32 d =
+
+  let expr = Term.mk_num d in
+
+  { expr_init = expr;
+    expr_step = expr;
+    expr_type = Type.t_int8 }
+
+(* Integer64 constant *)
+let mk_int64 d =
+
+  let expr = Term.mk_num d in
+
+  { expr_init = expr;
+    expr_step = expr;
+    expr_type = Type.t_int8 }
+
 (* Real constant *)
 let mk_real f =  
 
@@ -1233,6 +1266,24 @@ let type_of_num_num_num ?(is_div = false) op t t' =
     | t when Type.is_int8 t -> (
       match t' with
       | t when Type.is_int8 t -> Type.t_int8
+      | _ -> raise Type_mismatch
+    )
+
+    | t when Type.is_int16 t -> (
+      match t' with
+      | t when Type.is_int16 t -> Type.t_int16
+      | _ -> raise Type_mismatch
+    )
+
+    | t when Type.is_int32 t -> (
+      match t' with
+      | t when Type.is_int32 t -> Type.t_int32
+      | _ -> raise Type_mismatch
+    )
+
+    | t when Type.is_int64 t -> (
+      match t' with
+      | t when Type.is_int64 t -> Type.t_int64
       | _ -> raise Type_mismatch
     )
 

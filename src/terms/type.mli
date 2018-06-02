@@ -32,6 +32,9 @@ type kindtype =
   | Bool
   | Int
   | Int8
+  | Int16
+  | Int32
+  | Int64
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
 (*  | BV of int *)
@@ -79,6 +82,15 @@ val mk_int : unit -> t
 (** Return the integer8 type *)
 val mk_int8 : unit -> t 
 
+(** Return the integer16 type *)
+val mk_int16 : unit -> t 
+
+(** Return the integer32 type *)
+val mk_int32 : unit -> t 
+
+(** Return the integer64 type *)
+val mk_int64 : unit -> t 
+
 (** Return the integer range type *)
 val mk_int_range : Numeral.t -> Numeral.t -> t
 
@@ -109,6 +121,15 @@ val t_int : t
 (** The integer8 type *)
 val t_int8 : t
 
+(** The integer16 type *)
+val t_int16 : t
+
+(** The integer32 type *)
+val t_int32 : t
+
+(** The integer64 type *)
+val t_int64 : t
+
 (** The real decimal type *)
 val t_real : t
 
@@ -129,6 +150,15 @@ val is_int : t -> bool
 
 (** Return [true] if the type is the integer8 type *)
 val is_int8 : t -> bool
+
+(** Return [true] if the type is the integer16 type *)
+val is_int16 : t -> bool
+
+(** Return [true] if the type is the integer32 type *)
+val is_int32 : t -> bool
+
+(** Return [true] if the type is the integer64 type *)
+val is_int64 : t -> bool
 
 (** Return [true] if the type is an integer range type *)
 val is_int_range : t -> bool

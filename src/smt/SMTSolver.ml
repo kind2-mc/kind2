@@ -874,6 +874,9 @@ let create_proxy_constants_for_terms s terms =
       | Bool -> Format.pp_print_string ppf "bool"
       | Int -> Format.pp_print_string ppf "int"
       | Int8 -> Format.pp_print_string ppf "int8"
+      | Int16 -> Format.pp_print_string ppf "int16"
+      | Int32 -> Format.pp_print_string ppf "int32"
+      | Int64 -> Format.pp_print_string ppf "int64"
       | IntRange (i, j, Range) ->
         Format.fprintf ppf
           "int_range_%a_%a"

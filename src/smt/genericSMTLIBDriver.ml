@@ -510,7 +510,8 @@ let pp_print_logic = TermLib.pp_print_logic
 (* Convert type *)
 let rec interpr_type t = match Type.node_of_type t with
   | Type.IntRange _ -> Type.mk_int ()
-  | Type.Bool | Type.Int | Type.Int8 | Type.Real | Type.Abstr _ -> t
+  | Type.Bool | Type.Int | Type.Int8 | Type.Int16 
+  | Type.Int32 | Type.Int64 | Type.Real | Type.Abstr _ -> t
   | Type.Array (te, ti) ->
     let ti', te' = interpr_type ti, interpr_type te in
     if Type.equal_types ti ti' && Type.equal_types te te' then t

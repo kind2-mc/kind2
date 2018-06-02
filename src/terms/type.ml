@@ -34,6 +34,9 @@ type kindtype =
   | Bool
   | Int
   | Int8
+  | Int16
+  | Int32
+  | Int64
   | IntRange of Numeral.t * Numeral.t * rangekind
   | Real
 (*
@@ -82,9 +85,15 @@ module Kindtype_node = struct
     | Bool, Bool -> true
     | Bool, _ -> false
     | Int, Int -> true
+    | Int, _ -> false    
     | Int8, Int8 -> true
     | Int8, _ -> false
-    | Int, _ -> false
+    | Int16, Int16 -> true
+    | Int16, _ -> false
+    | Int32, Int32 -> true
+    | Int32, _ -> false
+    | Int64, Int64 -> true
+    | Int64, _ -> false
     | IntRange (l1, u1, k1), IntRange (l2, u2, k2) ->
       k1 = k2 && Numeral.equal l1 l2 && Numeral.equal u1 u2 
     | IntRange _, _ -> false
@@ -186,6 +195,12 @@ let rec pp_print_type_node ppf = function
 
   | Int8 -> Format.pp_print_string ppf "Int8"
 
+  | Int16 -> Format.pp_print_string ppf "Int16"
+
+  | Int32 -> Format.pp_print_string ppf "Int32"
+
+  | Int64 -> Format.pp_print_string ppf "Int64"
+
   | IntRange (i, j, Range) -> 
 
     Format.fprintf
@@ -243,6 +258,12 @@ let mk_bool () = Hkindtype.hashcons ht Bool ()
 let mk_int () = Hkindtype.hashcons ht Int ()
 
 let mk_int8 () = Hkindtype.hashcons ht Int8 ()
+
+let mk_int16 () = Hkindtype.hashcons ht Int16 ()
+
+let mk_int32 () = Hkindtype.hashcons ht Int32 ()
+
+let mk_int64 () = Hkindtype.hashcons ht Int64 ()
 
 let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u, Range)) ()
 
@@ -316,6 +337,9 @@ let rec import { Hashcons.node = n } = match n with
   | Bool
   | Int
   | Int8
+  | Int16
+  | Int32
+  | Int64
   | IntRange _
 (*  | BV _ *)
   | Real as t -> mk_type t
@@ -331,6 +355,9 @@ let rec import { Hashcons.node = n } = match n with
 let t_bool = mk_bool ()
 let t_int = mk_int ()
 let t_int8 = mk_int8 ()
+let t_int16 = mk_int16 ()
+let t_int32 = mk_int32 ()
+let t_int64 = mk_int64 ()
 let t_real = mk_real ()
 
 
@@ -360,6 +387,21 @@ let rec is_int_range { Hashcons.node = t } = match t with
 let rec is_int8 { Hashcons.node = t } = match t with
   | Int8 -> true 
   | Array (t, _) -> false (* is_int8 t *)
+  | _-> false
+
+let rec is_int16 { Hashcons.node = t } = match t with
+  | Int16 -> true 
+  | Array (t, _) -> false (* is_int16 t *)
+  | _-> false
+
+let rec is_int32 { Hashcons.node = t } = match t with
+  | Int32 -> true 
+  | Array (t, _) -> false (* is_int32 t *)
+  | _-> false
+
+let rec is_int64 { Hashcons.node = t } = match t with
+  | Int64 -> true 
+  | Array (t, _) -> false (* is_int64 t *)
   | _-> false
 
 let rec is_enum { Hashcons.node = t } = match t with

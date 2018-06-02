@@ -316,6 +316,15 @@ val mk_int : Numeral.t -> t
 (** Return an expression of an integer8 numeral. *)
 val mk_int8 : Numeral.t -> t
 
+(** Return an expression of an integer16 numeral. *)
+val mk_int16 : Numeral.t -> t
+
+(** Return an expression of an integer32 numeral. *)
+val mk_int32 : Numeral.t -> t
+
+(** Return an expression of an integer64 numeral. *)
+val mk_int64 : Numeral.t -> t
+
 (** Return an expression of a floating point decimal. *)
 val mk_real : Decimal.t -> t
 

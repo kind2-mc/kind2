@@ -2012,11 +2012,11 @@ and eval_ast_type ctx = function
 
   | A.Int8 pos -> D.singleton D.empty_index Type.t_int8
 
-  | A.Int16 pos -> D.singleton D.empty_index Type.t_int
+  | A.Int16 pos -> D.singleton D.empty_index Type.t_int16
 
-  | A.Int32 pos -> D.singleton D.empty_index Type.t_int
+  | A.Int32 pos -> D.singleton D.empty_index Type.t_int32
 
-  | A.Int64 pos -> D.singleton D.empty_index Type.t_int
+  | A.Int64 pos -> D.singleton D.empty_index Type.t_int64
 
   (* Basic type real, add to empty trie with empty index *)
   | A.Real pos -> D.singleton D.empty_index Type.t_real
