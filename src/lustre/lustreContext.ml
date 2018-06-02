@@ -2033,7 +2033,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                 range_expr
             
             | t, s 
-              when Type.is_int8 t && Type.is_int8 s -> (*raise Division_by_zero*)
+              when Type.is_int8 t && Type.is_int8 s -> 
               ctx
 
             | t, s -> 
@@ -2041,7 +2041,7 @@ let add_node_equation ctx pos state_var bounds indexes expr =
               fail_at_position
                 pos
                 (Format.asprintf 
-                   "Type mismatch in equationzzz: %a and %a"
+                   "Type mismatch in equation: %a and %a"
                    (E.pp_print_lustre_type false) t
                    (E.pp_print_lustre_type false) s)
 
