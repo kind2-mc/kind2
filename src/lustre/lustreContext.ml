@@ -2031,22 +2031,6 @@ let add_node_equation ctx pos state_var bounds indexes expr =
                    (E.pp_print_lustre_var false) 
                    state_var)
                 range_expr
-            
-            | t, s 
-              when Type.is_int8 t && Type.is_int8 s -> 
-              ctx
-
-            | t, s 
-              when Type.is_int16 t && Type.is_int16 s -> 
-              ctx
-
-            | t, s 
-              when Type.is_int32 t && Type.is_int32 s -> 
-              ctx
-
-            | t, s 
-              when Type.is_int64 t && Type.is_int64 s -> 
-              ctx
 
             | t, s -> 
 

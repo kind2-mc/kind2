@@ -492,7 +492,11 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
     (* Types are identical *)
     | Int, Int
     | Real, Real
-    | Bool, Bool -> true
+    | Bool, Bool
+    | Int8, Int8
+    | Int16, Int16
+    | Int32, Int32
+    | Int64, Int64 -> true
 
     | Abstr s1, Abstr s2 -> s1 = s2
       
