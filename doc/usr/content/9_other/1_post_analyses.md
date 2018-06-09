@@ -1,4 +1,4 @@
-## Post Analyses Treatments
+## Post Analysis Treatments
 
 Post-analysis treatments are flag-activated Kind 2 features that are not
 directly related to verification. The current post-analysis treatments available are
