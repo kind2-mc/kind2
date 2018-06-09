@@ -491,6 +491,7 @@ let ensure_symbol_qf_lira s =
   | `GT
   | `TO_REAL
   | `TO_INT
+  | `TO_INT8
   | `IS_INT
   | `UF _
     -> ()

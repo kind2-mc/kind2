@@ -751,7 +751,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `MOD, _
       | `ABS, _
       | `TO_REAL, _
-      | `TO_INT, _ -> assert false 
+      | `TO_INT, _
+      | `TO_INT8, _ -> assert false 
 (*
       | `CONCAT, _
       | `EXTRACT _, _
@@ -1887,6 +1888,29 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
 
                 (* New polynomial with integer value as atom *)
                 Num (Numeral.zero, [Numeral.one, [Term.mk_to_int (term_of_nf a)]])
+
+              | [Num _ as a] -> a
+
+              (* Conversion is only unary *)
+              | _ -> assert false 
+
+            )
+
+          (* Conversion to integer8 is a monomial with polynomial
+             subterms *)
+          | `TO_INT8 -> 
+
+            (match args with 
+
+              (* Evaluate to a polynomial if real argument is
+                 constant *)
+              | [Dec (d, [])] -> Num (Numeral.of_big_int (Decimal.to_big_int d), [])
+
+              (* Non-constant polynomial argument *)
+              | [Dec _ as a] -> 
+
+                (* New polynomial with integer value as atom *)
+                Num (Numeral.zero, [Numeral.one, [Term.mk_to_int8 (term_of_nf a)]])
 
               | [Num _ as a] -> a
 

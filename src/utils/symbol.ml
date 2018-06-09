@@ -66,6 +66,7 @@ type interpreted_symbol =
   | `GT                   (* Greater than relation (chainable) *)
   | `TO_REAL              (* Conversion to a floating-point decimal (unary) *)
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
+  | `TO_INT8              (* Conversion to an integer8 numeral (unary) *)  
   | `IS_INT               (* Real is an integer (unary) *)
 
   | `DIVISIBLE of Numeral.t 
@@ -178,6 +179,7 @@ module Symbol_node = struct
     | `GT, `GT
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
+    | `TO_INT8, `TO_INT8
     | `IS_INT, `IS_INT -> true
 
   
@@ -225,6 +227,7 @@ module Symbol_node = struct
     | `GT, _
     | `TO_REAL, _
     | `TO_INT, _
+    | `TO_INT8, _    
     | `IS_INT, _
     | `SELECT _, _
     | `STORE, _ -> false
@@ -364,6 +367,7 @@ let rec pp_print_symbol_node ppf = function
 
   | `TO_REAL -> Format.pp_print_string ppf "to_real"
   | `TO_INT -> Format.pp_print_string ppf "to_int"
+  | `TO_INT8 -> Format.pp_print_string ppf "to_int8"
   | `IS_INT -> Format.pp_print_string ppf "is_int"
 
   | `DIVISIBLE n -> 

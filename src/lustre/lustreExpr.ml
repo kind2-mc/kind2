@@ -306,6 +306,7 @@ let string_of_symbol = function
   | `GT -> ">"
   | `TO_REAL -> "real"
   | `TO_INT -> "int"
+  | `TO_INT8 -> "int8"
   | _ -> failwith "string_of_symbol"
 
 
@@ -532,6 +533,7 @@ and pp_print_app ?as_type safe pvar ppf = function
   | `NOT
   | `TO_REAL
   | `TO_INT
+  | `TO_INT8
   | `ABS as s -> 
 
     (function [a] -> 
@@ -1450,6 +1452,40 @@ let type_of_to_int = function
 
 (* Conversion to integer *)
 let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr 
+
+
+(* ********************************************************************** *)
+
+
+(* Evaluate conversion to integer8 *)
+let eval_to_int8 expr =
+  let tt = Term.type_of_term expr in
+  if Type.is_int tt || Type.is_int_range tt || Type.is_int8 tt then
+    expr
+  else
+    match Term.destruct expr with
+    | Term.T.Const s when Symbol.is_decimal s ->
+      Term.mk_num
+        (Numeral.of_big_int
+           (Decimal.to_big_int
+              (Symbol.decimal_of_symbol s)))
+
+    | _ -> Term.mk_to_int8 expr
+    | exception Invalid_argument _ -> Term.mk_to_int8 expr
+
+
+(* Type of conversion to integer8  
+
+   int: real -> int8 
+*)
+let type_of_to_int8 = function
+  | t when Type.is_real t -> Type.t_int8
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_int8
+  | _ -> raise Type_mismatch
+
+
+(* Conversion to integer *)
+let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr 
 
 
 (* ********************************************************************** *)

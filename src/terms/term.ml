@@ -538,7 +538,9 @@ let rec type_of_term t = match T.destruct t with
         | `MOD
         | `ABS
         | `INTDIV -> Type.mk_int ()
-          
+
+        | `TO_INT8 -> Type.mk_int8 ()
+
         (* Real-valued functions *)
         | `TO_REAL
         | `DIV -> Type.mk_real ()
@@ -677,6 +679,9 @@ let type_check_app s a =
     | `IS_INT 
     | `TO_INT 
         when a = [Type.Real] -> true
+
+    | `TO_INT8
+        when a = [Type.Real] || a = [Type.Int] -> true
 
     (* Variadic, but at least binary function symbols of Boolean arguments *)
     | `IMPLIES 
@@ -1105,6 +1110,8 @@ let mk_to_real t = mk_app_of_symbol_node `TO_REAL [t]
 (* Hashcons a unary conversion to an integer numeral *)
 let mk_to_int t = mk_app_of_symbol_node `TO_INT [t]
 
+(* Hashcons a unary conversion to an integer8 numeral *)
+let mk_to_int8 t = mk_app_of_symbol_node `TO_INT8 [t]
 
 (* Hashcons a predicate for coincidence of a real with an integer *)
 let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]

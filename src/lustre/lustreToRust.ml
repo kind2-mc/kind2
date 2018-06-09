@@ -495,6 +495,7 @@ match Term.destruct term with
   (*
   | `TO_REAL
   | `TO_INT
+  | `TO_INT8
   | `IS_INT
   (* Illegal. *)
   | `NUMERAL of Numeral.t

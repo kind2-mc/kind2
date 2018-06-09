@@ -1866,7 +1866,7 @@ let add_node_property ctx source name expr =
 
 
 (* Add node equation to context *)
-let add_node_equation ctx pos state_var bounds indexes expr = 
+let rec add_node_equation ctx pos state_var bounds indexes expr = 
 
   match ctx with 
 
@@ -1993,6 +1993,11 @@ let add_node_equation ctx pos state_var bounds indexes expr =
 
           (* Type of expression may not be subtype of declared type *)
           match state_var_type, expr_type with 
+
+            | t, s 
+              when Type.is_int8 t && Type.is_int_range s ->
+              let expr1 = E.mk_to_int8 expr in
+              add_node_equation ctx pos state_var bounds indexes expr1
 
             (* Declared type is an actual integer range, expression is of type
                integer *)

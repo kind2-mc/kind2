@@ -345,6 +345,9 @@ val has_indexes : t -> bool
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
 
+(** Return a conversion to an integer8 numeral. *)
+val mk_to_int8 : t -> t
+
 (** Return a conversion to a floating-point decimal. *)
 val mk_to_real : t -> t
 
