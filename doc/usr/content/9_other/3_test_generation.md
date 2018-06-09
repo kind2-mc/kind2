@@ -1,10 +1,10 @@
 # Test generation
 
 
-> **Note:** Test generation is, as of Kind 2 1.0, still a rather experimental feature.
-> In particular, it works only for models whose nodes have inputs and outputs of 
-> simple type (int, real, bool, and enum), not structured type (record, tuple, or array).
-> There is a lot of room for improvement and the Kind 2 team welcomes
+> **Disclaimer:** Test generation is, as of Kind 2 1.0, still a rather experimental
+> feature. In particular, it works only for models whose nodes have inputs and outputs 
+> of simple type (int, real, bool, and enum), not structured type (record, tuple, or 
+> array). There is a lot of room for improvement and the Kind 2 team welcomes
 > feedback / bug reports.
 
 
@@ -172,5 +172,7 @@ is available here:
 > [https://github.com/kind2-mc/teas](https://github.com/kind2-mc/teas)
 
 `Teas` is written in Python, and is able to compare a binary with Kind 2's
-test cases using the oracle described above. Like Kind 2's test generation
-feature, `Teas` is in an experimental and unstable state.
+test cases using the oracle described above. 
+
+> **Disclaimer:** Like Kind 2's test generation feature, `Teas` is in an 
+> experimental and unstable state.
