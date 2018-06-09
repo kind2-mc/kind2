@@ -49,10 +49,10 @@ treatment are:
 | Treatment | Condition | Notes |
 |:---:|:---|:---|
 | certification | last analysis proved the system safe | |
-| compilation to Rust | none | can fail if node is partially defined |
+| compilation to Rust | none | will fail if node is partially defined |
 | test generation | system has a contract with more than one mode | |
 |                 | last analysis proved the system safe          | |
-| contract generation | none | |
+| contract generation | none | experimental |
 | invariant logging | last analysis proved the system safe | |
 
 
