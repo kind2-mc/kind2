@@ -1479,13 +1479,13 @@ let eval_to_int8 expr =
    int: real -> int8 
 *)
 let type_of_to_int8 = function
-  | t when Type.is_real t -> Type.t_int8
-  | t when Type.is_int t || Type.is_int_range t -> Type.t_int8
+  | t when Type.is_real t -> Type.t_int
+  | t when Type.is_int8 t || Type.is_int t || Type.is_int_range t -> Type.t_int8
   | _ -> raise Type_mismatch
 
 
-(* Conversion to integer *)
-let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr 
+(* Conversion to integer8 *)
+let mk_to_int8 expr = mk_unary eval_to_int8 type_of_to_int8 expr
 
 
 (* ********************************************************************** *)
