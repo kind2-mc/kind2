@@ -178,6 +178,36 @@ let next_analysis_of_strategy (type s)
          
   | Horn subsystem -> (function _ -> assert false)
 
+
+let interpreter_param (type s) (input_system : s t) =
+
+  let scope, abstraction_map =
+    match input_system with
+    | Lustre ({S.scope} as sub, _) -> (scope,
+      List.fold_left (
+        fun abs_map ({ S.scope; S.has_impl }) ->
+          Scope.Map.add scope (not has_impl) abs_map
+        )
+        Scope.Map.empty (S.all_subsystems sub)
+    )
+    | Native ({S.scope} as sub) -> (scope,
+      List.fold_left (
+        fun abs_map ({ S.scope; S.has_impl }) ->
+          Scope.Map.add scope (not has_impl) abs_map
+        )
+        Scope.Map.empty (S.all_subsystems sub)
+    )
+    | Horn _ -> raise (UnsupportedFileFormat "Horn")
+  in
+
+  Analysis.First {
+    Analysis.top = scope ;
+    Analysis.uid = Analysis.get_uid () ;
+    Analysis.abstraction_map = abstraction_map ;
+    Analysis.assumptions = Scope.Map.empty ;
+  }
+
+
 let pp_print_subsystems_debug (type s) : s t -> Format.formatter -> unit = function
   | Lustre (subsystem, _) -> (fun fmt ->
       let subsystems = S.all_subsystems subsystem in
